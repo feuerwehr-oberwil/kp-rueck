@@ -46,7 +46,7 @@ import { useWhatsAppCopy } from "@/lib/hooks/use-whatsapp-copy"
 import RekoReportSection from "@/components/reko/reko-report-section"
 import { SchadenplatzRapportSection } from "@/components/kanban/schadenplatz-rapport-section"
 import { MaterialReturnList } from "@/components/kanban/material-return-list"
-import { DetailField, DetailGroupHeading, DetailToggle, DENSE_CONTROL } from "@/components/kanban/detail-field"
+import { DetailField, DetailFlags, DetailGroupHeading, DENSE_CONTROL } from "@/components/kanban/detail-field"
 import { FieldSaveStatus, FIELD_UNSAVED_CLASS, useFieldSave } from "@/components/kanban/field-save-status"
 import { LocationInput } from "@/components/location/location-input"
 import { toast } from "sonner"
@@ -1065,6 +1065,43 @@ export function OperationDetailContent({
             }}
           />
 
+          {/* What came in, right under where — the same order as «Neuer
+              Einsatz» (Ort, Meldung, Einsatzart, Priorität …), so the dialog and
+              the detail read as one form seen twice (UX-DESKTOP-14). */}
+          <DetailField
+            label={t('common.meldung')}
+            htmlFor="notes"
+            alignStart
+            footer={<FieldSaveStatus view={notesSave} onRetry={(notes) => onUpdate({ notes })} />}
+          >
+            <Textarea
+              id="notes"
+              placeholder={t('detail.meldungPlaceholder')}
+              value={notesSave.value}
+              disabled={!canEdit}
+              aria-invalid={notesSave.failed || undefined}
+              onChange={(e) => onUpdate({ notes: e.target.value })}
+              // Grows with what is in it. `h-auto` is what makes that work:
+              // DENSE_CONTROL's height is an explicit one, and an explicit
+              // height beats the base Textarea's `field-sizing-content` — which
+              // is how a dictated Meldung ended up scrolling inside five rems
+              // and clipped mid-word. The floor is ONE line — an empty Meldung
+              // must not reserve a void — and the max-height is where it goes
+              // back to scrolling rather than pushing the form off the panel.
+              className={cn(
+                DENSE_CONTROL,
+                // `resize-none`: the field already grows with its content
+                // (`field-sizing-content`), so the corner grabber offered a second,
+                // worse way to do the same thing - and on a borderless control it was
+                // the only thing drawing a visible edge.
+                "h-auto resize-none py-1",
+                // Three lines of floor: the field must READ as a textarea, not a textbox.
+                dense ? "max-h-[14rem] min-h-[3.75rem]" : "max-h-[20rem] min-h-[3.75rem]",
+                notesSave.failed && FIELD_UNSAVED_CLASS,
+              )}
+            />
+          </DetailField>
+
           {/* One per line, both mounts: two half-width controls sharing a row is
               how «Mittel» gets read as the Einsatzart. */}
           <>
@@ -1107,45 +1144,11 @@ export function OperationDetailContent({
           </div>
           </div>
 
-          {/* What came in: the wording, who reported it and how, plus the
-              KP's own notes and the flags that qualify it. Unnamed like the
-              block above – the first row's label already says «Meldung». */}
+          {/* Who reported it, the KP's own notes, and the flags that qualify
+              the incident. Unnamed like the block above – the rows carry their
+              own labels. */}
           <div>
           <div className="space-y-1">
-          <DetailField
-            label={t('common.meldung')}
-            htmlFor="notes"
-            alignStart
-            footer={<FieldSaveStatus view={notesSave} onRetry={(notes) => onUpdate({ notes })} />}
-          >
-            <Textarea
-              id="notes"
-              placeholder={t('detail.meldungPlaceholder')}
-              value={notesSave.value}
-              disabled={!canEdit}
-              aria-invalid={notesSave.failed || undefined}
-              onChange={(e) => onUpdate({ notes: e.target.value })}
-              // Grows with what is in it. `h-auto` is what makes that work:
-              // DENSE_CONTROL's height is an explicit one, and an explicit
-              // height beats the base Textarea's `field-sizing-content` — which
-              // is how a dictated Meldung ended up scrolling inside five rems
-              // and clipped mid-word. The floor is ONE line — an empty Meldung
-              // must not reserve a void — and the max-height is where it goes
-              // back to scrolling rather than pushing the form off the panel.
-              className={cn(
-                DENSE_CONTROL,
-                // `resize-none`: the field already grows with its content
-                // (`field-sizing-content`), so the corner grabber offered a second,
-                // worse way to do the same thing - and on a borderless control it was
-                // the only thing drawing a visible edge.
-                "h-auto resize-none py-1",
-                // Three lines of floor: the field must READ as a textarea, not a textbox.
-                dense ? "max-h-[14rem] min-h-[3.75rem]" : "max-h-[20rem] min-h-[3.75rem]",
-                notesSave.failed && FIELD_UNSAVED_CLASS,
-              )}
-            />
-          </DetailField>
-
           {/* Contact */}
           <DetailField
             label={t('common.contact')}
@@ -1227,109 +1230,108 @@ export function OperationDetailContent({
             />
           </DetailField>
 
-          {/* The switches stand together: they are the same kind of statement
-              about the incident (how it came in, who it is for, why it waits),
-              and scattering them between the text fields made the form read as
-              five unrelated things. */}
-          {/* "Telefonisch" / "Vom Feld", correctable after
-              the fact (plan 26 decision 8): the realistic order is "type it in,
-              then realise it was a phone call — or a Trupp's radio message".
-              Same rows as in the new-emergency modal, two switches over ONE
-              source value, so turning one on turns the other off. A card that
-              arrived from a delivering system keeps its own provenance and is
-              not an operator's to relabel. */}
-          {isEditorClaimedSource(operation.source) ? (
-            <>
-              <DetailToggle
-                label={t('common.phoneReported')}
-                description={t('common.phoneReportedDescription')}
-                icon={<Phone className="h-3.5 w-3.5 shrink-0" />}
-                checked={operation.source === 'intake'}
-                disabled={!canEdit}
-                onToggle={(checked) => canEdit && onUpdate({ source: checked ? 'intake' : 'operator' })}
-              />
-              <DetailToggle
-                label={t('common.feldReported')}
-                description={t('common.feldReportedDescription')}
-                icon={<Axe className="h-3.5 w-3.5 shrink-0" />}
-                checked={operation.source === 'feld'}
-                disabled={!canEdit}
-                onToggle={(checked) => canEdit && onUpdate({ source: checked ? 'feld' : 'operator' })}
-              />
-            </>
-          ) : null}
-
-          {/* Nachbarhilfe Toggle */}
-          <DetailToggle
-            label={t('common.nachbarhilfe')}
-            description={t('detail.nachbarhilfeDescription')}
-
-            icon={<Building2 className="h-3.5 w-3.5 shrink-0" />}
-            checked={operation.nachbarhilfe || false}
+          {/* The flags stand together, last and out of the way, as ONE row of
+              chips (owner pick UX-DESKTOP-14 B — the same `DetailFlags` row
+              «Neuer Einsatz» ends with): they are the same kind of statement
+              about the incident (how it came in, who it is for, why it waits)
+              and are set only when they apply. A flag with a «warum» note gets
+              it as its own row under the chips while it is on.
+              "Telefonisch" / "Vom Feld" are correctable after the fact (plan 26
+              decision 8): two chips over ONE source value, so turning one on
+              turns the other off. A card that arrived from a delivering system
+              keeps its own provenance and is not an operator's to relabel. */}
+          <DetailFlags
+            label={t('common.merkmale')}
             disabled={!canEdit}
-            onToggle={(checked) => canEdit && onUpdate({ nachbarhilfe: checked })}
-            // Save state INSIDE the field (trail / ✓ at its trailing edge) so
-            // the row keeps its height while saving and after; only a failure
-            // opens the line below — an error may take space (owner 02.10.).
-            note={
-              <div className="relative">
-                <Input
-                  placeholder={t('common.nachbarhilfePlaceholder')}
-                  value={nachbarhilfeNoteSave.value}
-                  disabled={!canEdit}
-                  aria-invalid={nachbarhilfeNoteSave.failed || undefined}
-                  onChange={(e) => onUpdate({ nachbarhilfeNote: e.target.value })}
-                  onClick={(e) => e.stopPropagation()}
-                  className={cn("h-(--field-h-dense) cursor-text rounded-sm pr-7 text-sm select-text", nachbarhilfeNoteSave.failed && FIELD_UNSAVED_CLASS)}
-                />
-                <FieldSaveStatus
-                  part="mark"
-                  view={nachbarhilfeNoteSave}
-                  onRetry={(nachbarhilfeNote) => onUpdate({ nachbarhilfeNote })}
-                  className="absolute top-1/2 right-2 -translate-y-1/2"
-                />
-              </div>
-            }
-            footer={
-              <FieldSaveStatus
-                part="failure"
-                view={nachbarhilfeNoteSave}
-                onRetry={(nachbarhilfeNote) => onUpdate({ nachbarhilfeNote })}
-              />
-            }
-          />
-
-          {/* Am Warten Toggle */}
-          <DetailToggle
-            label={t('common.amWarten')}
-            description={t('common.amWartenDescription')}
-
-            icon={<Timer className="h-3.5 w-3.5 shrink-0" />}
-            checked={operation.amWarten || false}
-            disabled={!canEdit}
-            onToggle={(checked) => canEdit && onUpdate({ amWarten: checked })}
-            note={
-              <div className="relative">
-                <Input
-                  placeholder={t('common.amWartenPlaceholder')}
-                  value={amWartenNoteSave.value}
-                  disabled={!canEdit}
-                  aria-invalid={amWartenNoteSave.failed || undefined}
-                  onChange={(e) => onUpdate({ amWartenNote: e.target.value })}
-                  onClick={(e) => e.stopPropagation()}
-                  className={cn("h-(--field-h-dense) cursor-text rounded-sm pr-7 text-sm select-text", amWartenNoteSave.failed && FIELD_UNSAVED_CLASS)}
-                />
-                <FieldSaveStatus
-                  part="mark"
-                  view={amWartenNoteSave}
-                  onRetry={(amWartenNote) => onUpdate({ amWartenNote })}
-                  className="absolute top-1/2 right-2 -translate-y-1/2"
-                />
-              </div>
-            }
-            footer={
-              <FieldSaveStatus part="failure" view={amWartenNoteSave} onRetry={(amWartenNote) => onUpdate({ amWartenNote })} />
-            }
+            flags={[
+              ...(isEditorClaimedSource(operation.source)
+                ? [
+                    {
+                      key: 'intake',
+                      label: t('common.phoneReported'),
+                      description: t('common.phoneReportedDescription'),
+                      icon: <Phone className="h-3.5 w-3.5 shrink-0" />,
+                      checked: operation.source === 'intake',
+                      onToggle: (checked: boolean) => canEdit && onUpdate({ source: checked ? 'intake' : 'operator' }),
+                    },
+                    {
+                      key: 'feld',
+                      label: t('common.feldReported'),
+                      description: t('common.feldReportedDescription'),
+                      icon: <Axe className="h-3.5 w-3.5 shrink-0" />,
+                      checked: operation.source === 'feld',
+                      onToggle: (checked: boolean) => canEdit && onUpdate({ source: checked ? 'feld' : 'operator' }),
+                    },
+                  ]
+                : []),
+              {
+                key: 'nachbarhilfe',
+                label: t('common.nachbarhilfe'),
+                description: t('detail.nachbarhilfeDescription'),
+                icon: <Building2 className="h-3.5 w-3.5 shrink-0" />,
+                checked: operation.nachbarhilfe || false,
+                onToggle: (checked: boolean) => canEdit && onUpdate({ nachbarhilfe: checked }),
+                // Save state INSIDE the field (trail / ✓ at its trailing edge) so
+                // the row keeps its height while saving and after; only a failure
+                // opens the line below — an error may take space (owner 02.10.).
+                note: (
+                  <div className="relative">
+                    <Input
+                      placeholder={t('common.nachbarhilfePlaceholder')}
+                      aria-label={t('common.nachbarhilfe')}
+                      value={nachbarhilfeNoteSave.value}
+                      disabled={!canEdit}
+                      aria-invalid={nachbarhilfeNoteSave.failed || undefined}
+                      onChange={(e) => onUpdate({ nachbarhilfeNote: e.target.value })}
+                      className={cn(DENSE_CONTROL, "pr-7", nachbarhilfeNoteSave.failed && FIELD_UNSAVED_CLASS)}
+                    />
+                    <FieldSaveStatus
+                      part="mark"
+                      view={nachbarhilfeNoteSave}
+                      onRetry={(nachbarhilfeNote) => onUpdate({ nachbarhilfeNote })}
+                      className="absolute top-1/2 right-2 -translate-y-1/2"
+                    />
+                  </div>
+                ),
+                footer: (
+                  <FieldSaveStatus
+                    part="failure"
+                    view={nachbarhilfeNoteSave}
+                    onRetry={(nachbarhilfeNote) => onUpdate({ nachbarhilfeNote })}
+                  />
+                ),
+              },
+              {
+                key: 'amWarten',
+                label: t('common.amWarten'),
+                description: t('common.amWartenDescription'),
+                icon: <Timer className="h-3.5 w-3.5 shrink-0" />,
+                checked: operation.amWarten || false,
+                onToggle: (checked: boolean) => canEdit && onUpdate({ amWarten: checked }),
+                note: (
+                  <div className="relative">
+                    <Input
+                      placeholder={t('common.amWartenPlaceholder')}
+                      aria-label={t('common.amWarten')}
+                      value={amWartenNoteSave.value}
+                      disabled={!canEdit}
+                      aria-invalid={amWartenNoteSave.failed || undefined}
+                      onChange={(e) => onUpdate({ amWartenNote: e.target.value })}
+                      className={cn(DENSE_CONTROL, "pr-7", amWartenNoteSave.failed && FIELD_UNSAVED_CLASS)}
+                    />
+                    <FieldSaveStatus
+                      part="mark"
+                      view={amWartenNoteSave}
+                      onRetry={(amWartenNote) => onUpdate({ amWartenNote })}
+                      className="absolute top-1/2 right-2 -translate-y-1/2"
+                    />
+                  </div>
+                ),
+                footer: (
+                  <FieldSaveStatus part="failure" view={amWartenNoteSave} onRetry={(amWartenNote) => onUpdate({ amWartenNote })} />
+                ),
+              },
+            ]}
           />
 
           </div>

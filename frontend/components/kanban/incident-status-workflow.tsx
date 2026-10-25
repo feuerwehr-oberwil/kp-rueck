@@ -1,11 +1,12 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import {
   AlertCircle,
   ArrowRight,
   Binoculars,
+  Check,
   CheckCircle2,
   ClipboardCheck,
   Footprints,
@@ -33,7 +34,7 @@ import { apiClient } from "@/lib/api-client"
 import type { Material, Operation, OperationStatus } from "@/lib/contexts/operations-context"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { findAuftragForStop, isBackwardTransition, remainingRouteStops, startableNextStop, statusBadgeClass } from "@/lib/kanban-utils"
-import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
+import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 
@@ -641,9 +642,9 @@ export function useIncidentStatusWorkflow({
       if (gate?.kind === "missingResources") setGate(null)
       setDisponiertOperationId(operationId)
     },
-    // Every way out of this gate is either «Trotzdem disponieren» (which is
-    // `openDisponiert`, and closes the gate itself) or Abbrechen. A third "just
-    // close it" verb was what Escape ended up bound to.
+    // Every way out of this gate is either the (second) «Disponieren» press
+    // (which is `openDisponiert`, and closes the gate itself) or Abbrechen. A
+    // third "just close it" verb was what Escape ended up bound to.
     missingResourcesOperation: gateOperation("missingResources"),
     returningVehicleOperation: effectiveReturningVehicleOperation,
     nextStopPrompt,
@@ -732,6 +733,8 @@ interface IncidentStatusWorkflowDialogsProps {
   funkrufname: string
   diveraEnabled: boolean
   onOpenAssignment: (resourceType: ResourceType, operationId: string) => void
+  /** «Zu Fuss» in the dispatch gate: flip the card's own `zuFuss` flag. */
+  onToggleZuFuss: (operation: Operation) => void
   onOpenDetail: (operationId: string, tab?: OperationDetailTab, section?: OperationDetailSection) => void
   onSendDivera: (operation: Operation) => void
   onRefresh: () => void | Promise<void>
@@ -743,14 +746,13 @@ export function IncidentStatusWorkflowDialogs({
   funkrufname,
   diveraEnabled,
   onOpenAssignment,
+  onToggleZuFuss,
   onOpenDetail,
   onSendDivera,
   onRefresh,
 }: IncidentStatusWorkflowDialogsProps) {
   const tCommon = useTranslations("kanban.common")
   const tDash = useTranslations("kanban.dashboard")
-  const tRes = useTranslations("kanban.resources")
-  const tMissing = useTranslations("kanban.missingResources")
   const tReturning = useTranslations("kanban.returningVehicle")
   const tReko = useTranslations("kanban.rekoMissing")
   const tRekoForm = useTranslations("kanban.rekoFormMissing")
@@ -842,127 +844,13 @@ export function IncidentStatusWorkflowDialogs({
     onOpenAssignment(resourceType, operationId)
   }
 
-  const missingOperation = controller.missingResourcesOperation
-  const missing = missingOperation ? controller.getMissingResources(missingOperation) : []
-  const allFilled = missing.length === 0
-  // The checklist still LISTS everything that is missing; only these hold the dispatch back.
-  const blocking = missing.some((resource) => BLOCKING_RESOURCES.includes(resource))
-  const missingTitleKey = allFilled
-    ? "readyTitle"
-    : missing.length === 1
-      ? missing[0] === "crew"
-        ? "titleCrewOnly"
-        : missing[0] === "vehicles"
-          ? "titleVehiclesOnly"
-          : "titleMaterialsOnly"
-      : "title"
-
   return (
     <>
-      {/* Escape and the overlay are Abbrechen, never the override next to it.
-          These gates open because a card was ALREADY moved, so `closeGate` (which
-          drops the revert status and leaves the move standing) is the same
-          action as «Trotzdem disponieren» — bound to the one key an operator
-          hits to get out of a dialog they did not mean to open. `cancelGate` puts
-          the card back, which is what the Abbrechen button does and what
-          dismissing a modal has to mean. `AssignRekoDialog` below already got
-          this right; the four gates did not. */}
-      <AlertDialog open={!!missingOperation} onOpenChange={(open) => !open && controller.cancelGate("missingResources")}>
-        <AlertDialogContent>
-          {missingOperation && (() => {
-            const coverage = controller.getResourceCoverage(missingOperation)
-            const rows = [
-              {
-                key: "crew" as const,
-                icon: Users,
-                filled: !missing.includes("crew"),
-                summary: tMissing("personalSummary", { count: coverage.crewCount }),
-              },
-              {
-                key: "vehicles" as const,
-                icon: Truck,
-                filled: !missing.includes("vehicles"),
-                summary: missingOperation.zuFuss ? tCommon("zuFuss") : coverage.vehicleNames.join(", "),
-              },
-              {
-                key: "materials" as const,
-                icon: Package,
-                filled: !missing.includes("materials"),
-                summary: tMissing("mittelSummary", { count: coverage.materialCount }),
-              },
-            ]
-            return (
-              <>
-                <AlertDialogHeader>
-                  <AlertDialogTitle className="flex items-center gap-2">
-                    {allFilled
-                      ? <CheckCircle2 className="h-5 w-5 text-success" />
-                      : <Package className="h-5 w-5 text-muted-foreground" />}
-                    {tMissing(missingTitleKey)}
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {tMissing.rich(allFilled ? "readyIntro" : "checklistIntro", {
-                      location: operationLabel(missingOperation),
-                      hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-                    })}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <div className="space-y-1.5 py-1">
-                  {rows.map(({ key, icon: Icon, filled, summary }) => (
-                    <button
-                      key={key}
-                      onClick={() => openAssignment(key, missingOperation.id)}
-                      className="flex w-full cursor-pointer items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors hover:border-sel-edge hover:bg-secondary/40"
-                    >
-                      {filled
-                        ? <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-success" />
-                        : <AlertCircle className="h-4 w-4 flex-shrink-0 text-warning-foreground" />}
-                      <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium">{tRes(key)}</div>
-                        {filled && summary && <div className="truncate text-xs text-muted-foreground" title={summary}>{summary}</div>}
-                      </div>
-                      {filled ? (
-                        <span className="flex flex-shrink-0 items-center gap-1 text-xs text-muted-foreground">
-                          <Plus className="h-3.5 w-3.5" />
-                          {tMissing("addMore")}
-                        </span>
-                      ) : (
-                        <span className="flex-shrink-0 rounded-md bg-secondary px-2 py-1 text-xs font-medium">
-                          {tCommon("assign")}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-                {/* «Trotzdem disponieren» is the override for a REAL gate, so it only appears
-                    while one is closed. With just material outstanding the primary button is
-                    live and says «Fertig» — no override needed for the ordinary case.
-                    It takes the far-left slot (`sm:mr-auto`, the ConfirmDialog
-                    `extraAction` geometry); Abbrechen stays grouped with the
-                    primary button on the right. */}
-                <AlertDialogFooter>
-                  {blocking && (
-                    <Button
-                      variant="ghost"
-                      onClick={() => controller.openDisponiert(missingOperation.id)}
-                      className="sm:mr-auto"
-                    >
-                      {tMissing("dispatchAnyway")}
-                    </Button>
-                  )}
-                  <Button variant="outline" onClick={() => controller.cancelGate("missingResources")}>
-                    {tCommon("cancel")}
-                  </Button>
-                  <Button disabled={blocking} onClick={() => controller.openDisponiert(missingOperation.id)}>
-                    {tMissing("done")}
-                  </Button>
-                </AlertDialogFooter>
-              </>
-            )
-          })()}
-        </AlertDialogContent>
-      </AlertDialog>
+      <DispatchGateDialog
+        controller={controller}
+        onOpenAssignment={openAssignment}
+        onToggleZuFuss={onToggleZuFuss}
+      />
 
       <AlertDialog open={!!controller.returningVehicleOperation} onOpenChange={(open) => !open && controller.cancelGate("returningVehicle")}>
         <AlertDialogContent>
@@ -1377,5 +1265,250 @@ export function IncidentStatusWorkflowDialogs({
         />
       )}
     </>
+  )
+}
+
+/**
+ * «Ressourcen fehlen» — the gate in front of the Funkdurchsage (the board's
+ * `missingResources` gate). Rendered once by `IncidentStatusWorkflowDialogs`.
+ *
+ * PRESS TWICE (owner pick, UX-DESKTOP-09 B): «Disponieren» is always live and
+ * always in the same place. With a blocking gap open (no crew, or no vehicle and
+ * not «zu Fuss») the first press only ARMS it: the missing row turns amber and
+ * asks «wirklich so ausrücken?», the button says what it will do («Ja, ohne
+ * Fahrzeug disponieren»), and «Abbrechen» becomes «Zurück». The second press —
+ * or Enter, the button has the focus — dispatches; Zurück or Esc disarms. There
+ * is no greyed-out button and no third «Trotzdem» button any more.
+ *
+ * ZU FUSS (borrowed from variant C): without a vehicle the vehicle row offers
+ * «Zuweisen | Zu Fuss». «Zu Fuss» sets the card's own `zuFuss` flag, which
+ * `getMissingResources` already honours — so it answers the gap and the button
+ * goes back to a plain «Disponieren».
+ *
+ * The armed state belongs to one opening of the gate and one set of gaps: it is
+ * dropped when the gate closes (also for an assignment round-trip) and whenever
+ * what is missing changes, so a press can never confirm a question it did not see.
+ */
+function DispatchGateDialog({
+  controller,
+  onOpenAssignment,
+  onToggleZuFuss,
+}: {
+  controller: IncidentStatusWorkflowController
+  onOpenAssignment: (resourceType: ResourceType, operationId: string) => void
+  onToggleZuFuss: (operation: Operation) => void
+}) {
+  const tCommon = useTranslations("kanban.common")
+  const tRes = useTranslations("kanban.resources")
+  const tMissing = useTranslations("kanban.missingResources")
+  const primaryRef = useRef<HTMLButtonElement>(null)
+
+  const missingOperation = controller.missingResourcesOperation
+  const missing = missingOperation ? controller.getMissingResources(missingOperation) : []
+  const allFilled = missing.length === 0
+  // The checklist still LISTS everything that is missing; only these hold the dispatch back.
+  const blockingGaps = missing.filter((resource) => BLOCKING_RESOURCES.includes(resource))
+  const gapKey = missing.join(",")
+
+  // `armedFor`: the opening and the gaps the first press was made against.
+  // Reset on every open/close (the render-time «props changed» pattern, no effect).
+  const openId = missingOperation?.id ?? null
+  const [seenOpenId, setSeenOpenId] = useState(openId)
+  const [armedFor, setArmedFor] = useState<string | null>(null)
+  if (seenOpenId !== openId) {
+    setSeenOpenId(openId)
+    setArmedFor(null)
+  }
+  const armed = blockingGaps.length > 0 && openId !== null && armedFor === `${openId}|${gapKey}`
+
+  const missingTitleKey = allFilled
+    ? "readyTitle"
+    : missing.length === 1
+      ? missing[0] === "crew"
+        ? "titleCrewOnly"
+        : missing[0] === "vehicles"
+          ? "titleVehiclesOnly"
+          : "titleMaterialsOnly"
+      : "title"
+  const dispatchLabelKey = !armed
+    ? "done"
+    : blockingGaps.length === 2
+      ? "dispatchWithoutBoth"
+      : blockingGaps[0] === "crew"
+        ? "dispatchWithoutCrew"
+        : "dispatchWithoutVehicle"
+
+  const dispatch = () => {
+    if (!missingOperation) return
+    if (blockingGaps.length > 0 && !armed) {
+      setArmedFor(`${missingOperation.id}|${gapKey}`)
+      return
+    }
+    controller.openDisponiert(missingOperation.id)
+  }
+  const assign = (resourceType: ResourceType, operationId: string) => {
+    setArmedFor(null)
+    onOpenAssignment(resourceType, operationId)
+  }
+
+  return (
+    // Escape and the overlay are Abbrechen, never the dispatch: these gates open
+    // because a card was ALREADY moved, and `cancelGate` puts it back. While the
+    // button is armed, Escape first only disarms it (the same as «Zurück»).
+    <AlertDialog open={!!missingOperation} onOpenChange={(open) => !open && controller.cancelGate("missingResources")}>
+      <AlertDialogContent
+        // A little wider than the default: the armed button names both gaps
+        // («Ja, ohne Mannschaft und Fahrzeug disponieren») beside «Zurück».
+        className="sm:max-w-xl"
+        // The dispatch button takes the focus, so Enter is the first press and
+        // Enter again the confirmation — the keyboard path of the mouse's two clicks.
+        onOpenAutoFocus={(event) => {
+          event.preventDefault()
+          primaryRef.current?.focus()
+        }}
+        onEscapeKeyDown={(event) => {
+          if (!armed) return
+          event.preventDefault()
+          setArmedFor(null)
+        }}
+      >
+        {missingOperation && (() => {
+          const coverage = controller.getResourceCoverage(missingOperation)
+          const rows = [
+            {
+              key: "crew" as const,
+              icon: Users,
+              filled: !missing.includes("crew"),
+              summary: tMissing("personalSummary", { count: coverage.crewCount }),
+            },
+            {
+              key: "vehicles" as const,
+              icon: Truck,
+              filled: !missing.includes("vehicles"),
+              summary: missingOperation.zuFuss ? tCommon("zuFuss") : coverage.vehicleNames.join(", "),
+            },
+            {
+              key: "materials" as const,
+              icon: Package,
+              filled: !missing.includes("materials"),
+              summary: tMissing("mittelSummary", { count: coverage.materialCount }),
+            },
+          ]
+          return (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  {allFilled
+                    ? <CheckCircle2 className="h-5 w-5 text-success" />
+                    : <Package className="h-5 w-5 text-muted-foreground" />}
+                  {tMissing(missingTitleKey)}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {tMissing.rich(allFilled ? "readyIntro" : "checklistIntro", {
+                    location: operationLabel(missingOperation),
+                    hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+                  })}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="space-y-1.5 py-1">
+                {rows.map(({ key, icon: Icon, filled, summary }) => {
+                  const asking = armed && blockingGaps.includes(key)
+                  // No vehicle of its own or on the route: the row answers with
+                  // «Zuweisen | Zu Fuss» instead of being one big «Zuweisen».
+                  const footOption = key === "vehicles" && coverage.vehicleNames.length === 0
+                  const body = (
+                    <>
+                      {filled
+                        ? <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-success" />
+                        : <AlertCircle className="h-4 w-4 flex-shrink-0 text-warning-foreground" />}
+                      <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium">{tRes(key)}</div>
+                        {asking
+                          ? <div className="text-xs text-muted-foreground">{tMissing(key === "crew" ? "armedCrew" : "armedVehicles")}</div>
+                          : filled && summary && <div className="truncate text-xs text-muted-foreground" title={summary}>{summary}</div>}
+                      </div>
+                    </>
+                  )
+                  const rowClass = cn(
+                    "flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors",
+                    asking && "border-warning/60 bg-warning/10",
+                  )
+                  if (footOption) {
+                    return (
+                      <div key={key} data-gate-row={key} className={rowClass}>
+                        {body}
+                        <div role="group" aria-label={tRes(key)} className="flex flex-shrink-0">
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            className="rounded-r-none"
+                            onClick={() => assign(key, missingOperation.id)}
+                          >
+                            {tCommon("assign")}
+                          </Button>
+                          <Button
+                            variant={missingOperation.zuFuss ? "selected" : "outline"}
+                            size="xs"
+                            className="-ml-px rounded-l-none"
+                            aria-pressed={missingOperation.zuFuss}
+                            onClick={() => onToggleZuFuss(missingOperation)}
+                          >
+                            <Footprints className="h-3.5 w-3.5" />
+                            {tCommon("zuFuss")}
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  }
+                  return (
+                    <button
+                      key={key}
+                      data-gate-row={key}
+                      onClick={() => assign(key, missingOperation.id)}
+                      className={cn(rowClass, "cursor-pointer hover:border-sel-edge hover:bg-secondary/40")}
+                    >
+                      {body}
+                      {filled ? (
+                        <span className="flex flex-shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                          <Plus className="h-3.5 w-3.5" />
+                          {tMissing("addMore")}
+                        </span>
+                      ) : (
+                        <span className="flex-shrink-0 rounded-md bg-secondary px-2 py-1 text-xs font-medium">
+                          {tCommon("assign")}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="space-y-2">
+                <AlertDialogFooter>
+                  {armed ? (
+                    <Button variant="outline" onClick={() => setArmedFor(null)}>
+                      {tMissing("back")}
+                    </Button>
+                  ) : (
+                    <Button variant="outline" onClick={() => controller.cancelGate("missingResources")}>
+                      {tCommon("cancel")}
+                    </Button>
+                  )}
+                  <Button ref={primaryRef} onClick={dispatch}>
+                    {armed && <Check className="h-4 w-4" />}
+                    {tMissing(dispatchLabelKey)}
+                  </Button>
+                </AlertDialogFooter>
+                {armed && (
+                  <p role="status" className="text-right text-xs text-muted-foreground">
+                    {tMissing("armedHint")}
+                  </p>
+                )}
+              </div>
+            </>
+          )
+        })()}
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
