@@ -4,7 +4,7 @@ import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { Operation } from '@/lib/contexts/operations-context'
 import type { GroupResources, IncidentGroup } from '@/lib/types/groups'
 
-import { DisplayIncidentCard } from '@/components/display/incident-card'
+import { DisplayIncidentCard, crewShownAtStop } from '@/components/display/incident-card'
 
 /**
  * The Auftrag row on the WALL card, which is the surface where the one-line
@@ -123,5 +123,39 @@ describe('the wall card’s Auftrag row', () => {
       />,
     )
     expect(screen.getByText('Stopp 6 von 7')).toBeInTheDocument()
+  })
+})
+
+/**
+ * VISUAL-07 C: one route is one squad, so the wall names its crew once per
+ * column – stops 2…n there say «Mannschaft wie Stopp n» instead of the chips.
+ */
+describe('an Auftrag’s crew, once per column', () => {
+  const stop = (id: string, groupId: string | null = 'auftrag-1') => operation({ id, groupId })
+  const auftragOf = (op: Operation) => (op.groupId === 'auftrag-1' ? auftrag : undefined)
+
+  it('maps every later stop of the same Auftrag to the first one the column shows', () => {
+    const folded = crewShownAtStop([stop('s2'), stop('other', null), stop('s3'), stop('s4')], auftragOf)
+    expect([...folded]).toEqual([['s3', 2], ['s4', 2]])
+  })
+
+  it('folds the chips into the stop line', () => {
+    renderWithIntl(
+      <DisplayIncidentCard operation={operation()} auftrag={auftrag} auftragResources={auftragResources} crewShownAt={2} />,
+    )
+    expect(screen.getByText(/Mannschaft wie Stopp 2/)).toBeInTheDocument()
+    expect(screen.queryByText('Weber Martin')).not.toBeInTheDocument()
+  })
+
+  it('says nothing about a crew the route does not have', () => {
+    renderWithIntl(
+      <DisplayIncidentCard
+        operation={operation()}
+        auftrag={auftrag}
+        auftragResources={{ ...auftragResources, personnel: [] }}
+        crewShownAt={2}
+      />,
+    )
+    expect(screen.queryByText(/Mannschaft wie/)).not.toBeInTheDocument()
   })
 })

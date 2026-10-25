@@ -667,6 +667,7 @@
       "auftragPersSummary": "{count} Pers",
       "auftragMatSummary": "{count, plural, one {# Gerät} other {# Geräte}}",
       "auftragStopLine": "Stopp {pos} von {total}",
+      "auftragCrewAsStop": "Mannschaft wie Stopp {pos}",
       "moreCount": "+{count} weitere",
       "moreCrewTitle": "{count, plural, one {# weitere Person} other {# weitere Personen}} – Einsatz öffnen",
       "moreMaterialTitle": "{count, plural, one {# weiteres Gerät} other {# weitere Geräte}} – Einsatz öffnen",

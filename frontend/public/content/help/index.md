@@ -80,6 +80,10 @@ Es ist **dieselbe Einsatzkarte wie im Kommandoposten**, nur ohne Bedienelemente 
 
 Die Wand folgt dabei **nicht** der «Ansicht» des Bedieners: *Kompakt* gibt es, damit man an einem Board, an dem man arbeitet, mehr Karten unterbringt – eine Wand soll aus fünf Metern lesbar sein. Die Anzeige-Seite hat keinen Schalter dafür, deshalb zeigt sie immer die volle Karte.
 
+**Für die Distanz gesetzt:** Adresse und Alter gross, die Meldung in voller Länge und in Vordergrundfarbe (nie nach drei Zeilen abgeschnitten), dafür enger gesetzt als am Pult. Stehen mehrere Stopps desselben Auftrags in einer Spalte, nennt nur der erste die Mannschaft; die weiteren sagen «Mannschaft wie Stopp 2». **Die Schrift passt sich der Lage an:** Die Wand wählt laufend die grösste Schriftgrösse, bei der jede Spalte ganz auf den Bildschirm passt – mit wenigen Einsätzen wird alles grösser, in einer Sturmnacht kleiner, aber nie kleiner als eine Mindestgrösse; reicht auch die nicht, scrollt die volle Spalte wie bisher.
+
+**Auf dem Handy** (Viewer-Konten landen hier) stehen die Spalten untereinander statt nebeneinander: dieselben Karten, man scrollt nach unten, nicht zur Seite. Ebenso die vier Spalten von «Status».
+
 ### Status (`/display/status`)
 Vier-Spalten-Übersicht: Fahrzeuge, Einsätze (gruppiert nach Status), Personal (gruppiert nach Rolle) und Material (gruppiert nach Standort). Zeigt bei zugewiesenen Ressourcen den Einsatzort an. Skaliert auf grösseren Bildschirmen automatisch hoch. Über den Einsätzen stehen, zuklappbar, die [Kennzahlen](#board-g-b).
 

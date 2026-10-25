@@ -1895,6 +1895,7 @@
       "auftragPersSummary": "{count} pers",
       "auftragMatSummary": "{count, plural, one {# engin} other {# engins}}",
       "auftragStopLine": "Étape {pos} sur {total}",
+      "auftragCrewAsStop": "Effectif comme à l’étape {pos}",
       "moreCount": "+{count} autres",
       "moreCrewTitle": "{count, plural, one {# personne de plus} other {# personnes de plus}} – ouvrir l’intervention",
       "moreMaterialTitle": "{count, plural, one {# engin de plus} other {# engins de plus}} – ouvrir l’intervention",
