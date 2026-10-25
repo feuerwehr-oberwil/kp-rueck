@@ -309,7 +309,7 @@ export function AssignRekoDialog({
                           <User className={cn(
                             "h-5 w-5 flex-shrink-0",
                             isCurrentlyAssigned ? "text-success" :
-                            person.open_count > 0 ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"
+                            "text-muted-foreground"
                           )} />
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
@@ -335,8 +335,10 @@ export function AssignRekoDialog({
                               <p className="text-xs whitespace-nowrap">
                                 <span className={cn(
                                   "font-medium",
+                                  // Open Rekos are a fact, not a warning: ink-muted
+                                  // beside the green «frei» (VISUAL-03).
                                   person.open_count > 0
-                                    ? "text-amber-700 dark:text-amber-400"
+                                    ? "text-muted-foreground"
                                     : "text-emerald-700 dark:text-emerald-400"
                                 )}>
                                   {person.open_count > 0

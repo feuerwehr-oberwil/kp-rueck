@@ -518,10 +518,12 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
                   </TableCell>
                   <TableCell>
                     {/* Empty when everything is fine — ~140 identical green
-                        «Verfügbar» chips said nothing. Colour marks exceptions. */}
+                        «Verfügbar» chips said nothing. The word marks the
+                        exception; its dot is the faint grey «nicht verfügbar»
+                        of every availability mark, not amber (VISUAL-03). */}
                     {person.status !== 'available' && (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400">
-                        <span aria-hidden className="size-1.5 rounded-full bg-amber-500" />
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                        <span aria-hidden className="size-1.5 rounded-full bg-muted-foreground/40" />
                         {t('common.unavailable')}
                       </span>
                     )}

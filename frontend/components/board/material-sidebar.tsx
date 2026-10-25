@@ -14,7 +14,6 @@
 import type { Dispatch, SetStateAction } from "react"
 import { useTranslations } from "next-intl"
 import { Check, ChevronRight } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { Kbd } from "@/components/ui/kbd"
 import { SearchInput } from "@/components/ui/search-input"
 import { MaterialGroupBlock } from "@/components/kanban/material-group-block"
@@ -273,9 +272,10 @@ export function MaterialSidebar({
               </span>
               <span className="text-muted-foreground">{tCommon('rosterOf', { total: materialSummary.total })}</span>
               {materialSummary.bound > 0 && (
-                <Badge variant="outline" className="border-amber-200 text-amber-700 dark:border-amber-800/50 dark:text-amber-400">
+                // Plain muted text: «gebunden» is a fact, not a warning (VISUAL-03).
+                <span className="text-muted-foreground">
                   {tCommon('rosterBound', { count: materialSummary.bound })}
-                </Badge>
+                </span>
               )}
             </div>
           )}

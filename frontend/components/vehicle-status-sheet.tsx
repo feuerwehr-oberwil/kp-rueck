@@ -105,7 +105,7 @@ function getStatusBorderColor(status: string, hasIncident: boolean): string {
   // Refactoring UI: Use subtle visual cues, not heavy color blocks
   // Only highlight assigned vehicles, available is the default state
   if (hasIncident) {
-    return "border-l-amber-400 dark:border-l-amber-500"
+    return "border-l-foreground/40" // gebunden: ink, not amber (VISUAL-03)
   }
   switch (status) {
     case "available":

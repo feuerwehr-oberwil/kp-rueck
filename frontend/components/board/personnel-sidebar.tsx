@@ -15,7 +15,6 @@ import { useMemo, type Dispatch, type SetStateAction } from "react"
 import { useTranslations } from "next-intl"
 import { QRCodeSVG } from "qrcode.react"
 import { Check, ChevronLeft, Copy } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
@@ -306,9 +305,10 @@ export function PersonnelSidebar({
               </span>
               <span className="text-muted-foreground">{tCommon('rosterOf', { total: rosterSummary.total })}</span>
               {rosterSummary.bound > 0 && (
-                <Badge variant="outline" className="border-amber-200 text-amber-700 dark:border-amber-800/50 dark:text-amber-400">
+                // Plain muted text: «gebunden» is a fact, not a warning (VISUAL-03).
+                <span className="text-muted-foreground">
                   {tCommon('rosterBound', { count: rosterSummary.bound })}
-                </Badge>
+                </span>
               )}
             </div>
           )}

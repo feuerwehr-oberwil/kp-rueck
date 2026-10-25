@@ -558,7 +558,7 @@ Une mission est **attribuée une fois, pas à nouveau à chaque étape**. L’ap
 
 **Par fenêtre :** cliquer sur le bouton [+] à côté d’une catégorie de ressources, puis choisir la ressource.
 
-Seules les ressources disponibles (point vert) peuvent être attribuées.
+Seules les ressources disponibles (point vert) peuvent être attribuées. Un **anneau vide** signifie engagé (sur une intervention, une mission, une reconnaissance ou dans une fonction), un **point gris pâle** indisponible. Le jaune n’est pas un état : il veut dire « regarde » – moyenne, en attente, ouverte trop longtemps, attribuée deux fois.
 
 **Annuler après une libération.** Quand une personne, un véhicule, du matériel, une étape de mission ou une ressource d’itinéraire est libéré, « … libéré · Annuler » apparaît. Annuler la réattribue par le chemin normal (avec les mêmes questions) ; si quelqu’un l’a placée ailleurs entre-temps, elle y reste, et le message dit où.
 

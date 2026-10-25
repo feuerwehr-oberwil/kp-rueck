@@ -1137,7 +1137,7 @@ export function ResourceAssignmentDialog({
             className={cn(
               "flex shrink-0 cursor-pointer items-center gap-0.5 rounded px-1.5 py-1 text-2xs font-medium transition-colors",
               stays
-                ? "bg-amber-500/20 text-amber-700 hover:bg-amber-500/30 dark:text-amber-300"
+                ? "bg-foreground/10 text-foreground hover:bg-foreground/15"
                 : "bg-muted text-muted-foreground hover:bg-muted/70",
             )}
             title={stays ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}

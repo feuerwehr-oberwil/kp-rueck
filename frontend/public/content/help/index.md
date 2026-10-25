@@ -555,7 +555,7 @@ Ein Auftrag wird **einmal vergeben, nicht bei jedem Stopp neu**. Die App erkennt
 
 **Per Dialog:** Auf [+] Button bei Ressourcen-Kategorie klicken, Ressource auswählen.
 
-Nur verfügbare Ressourcen (grüner Punkt) können zugewiesen werden.
+Nur verfügbare Ressourcen (grüner Punkt) können zugewiesen werden. Ein **leerer Ring** heisst gebunden (auf einem Einsatz, Auftrag, Reko oder in einer Funktion), ein **blassgrauer Punkt** nicht verfügbar. Gelb ist kein Zustand, sondern heisst «schau hin» – Mittel, Am Warten, zu lange offen, doppelt zugewiesen.
 
 **Rückgängig nach dem Freigeben.** Wird eine Person, ein Fahrzeug, Material, ein Auftrags-Stopp oder eine Routen-Ressource freigegeben, erscheint «… freigegeben · Rückgängig». Rückgängig weist sie auf dem normalen Weg wieder zu (mit denselben Rückfragen); hat sie inzwischen jemand anderswo zugewiesen, bleibt sie dort, und die Meldung sagt wo.
 

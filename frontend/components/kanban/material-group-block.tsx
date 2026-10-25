@@ -109,7 +109,7 @@ export function MaterialGroupBlock({
         <span className={cn(
           "text-xs font-medium tabular-nums px-1.5 py-0.5 rounded",
           allAvailable && "text-emerald-700 dark:text-emerald-400 bg-emerald-500/10",
-          someAssigned && !allAssigned && "text-amber-700 dark:text-amber-400 bg-amber-500/10",
+          someAssigned && !allAssigned && "text-foreground bg-foreground/10",
           allAssigned && "text-muted-foreground bg-muted"
         )}>
           {availableCount}/{totalCount}
@@ -210,7 +210,7 @@ function ModuleMemberRow({
               <p className="truncate text-sm font-semibold">{material.name}</p>
               <p className="truncate text-2xs text-muted-foreground">{material.category}</p>
             </div>
-            <Badge variant="outline" className="shrink-0 border-amber-200 text-amber-700 dark:border-amber-800/50 dark:text-amber-400">
+            <Badge variant="outline" className="shrink-0 text-muted-foreground">
               {t('bindingsCount', { count: bindings.length })}
             </Badge>
           </div>
@@ -223,7 +223,7 @@ function ModuleMemberRow({
                 onClick={() => { followDeviceBinding(binding); onCloseBindings() }}
                 className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted/60"
               >
-                <ArrowRight className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm">{binding.label}</span>
                   {binding.detail && <span className="block truncate text-2xs text-muted-foreground">{binding.detail}</span>}
