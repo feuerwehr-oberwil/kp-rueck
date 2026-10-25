@@ -14,16 +14,19 @@ import { formatDurationSince } from "./duration"
  * route-stop rows (which collapse seven statuses onto five — see
  * `StopMirrorStatus` — but must use the colour of the column they mirror).
  *
- * The board wins. These are the hues the kanban columns have always carried,
- * and the surfaces that disagreed were changed to match, not the other way
- * round: `active` was amber on route stops (colliding with `warning`, i.e.
- * medium priority and «Am Warten»), `returning` and `complete` were both
- * emerald (colliding with «frei / verfügbar» and with the Reko column).
+ * Colour only where crews are out (owner, 2026-10-25, sweep VISUAL-03 E): Reko
+ * is violet and Im Einsatz fuchsia, and the five other statuses share one
+ * neutral grey. So no status speaks a signal colour – not red or amber
+ * (priority), not green (frei / verfügbar), not slate (selection) – and the two
+ * columns where people are in the field are the ones the eye finds. The two
+ * hues differ, so a lone dot on the wall or a route-stop row still says which
+ * of the two it is; the grey statuses are told apart by position, word and the
+ * stop row's icon.
  *
  * Full class strings on purpose — Tailwind scans source text, so a hue
  * assembled from a variable would not be generated.
  */
-export const STATUS_ACCENT: Record<OperationStatus, {
+type StatusAccent = {
   /** Column header / section background tint. */
   surface: string
   /** Left edge, where an edge means status (route-stop rows). Never on an
@@ -31,52 +34,38 @@ export const STATUS_ACCENT: Record<OperationStatus, {
   border: string
   /** Text and icon tint. */
   text: string
-  /** Filled dot beside a row. */
+  /** Filled dot beside a row; on the board and the wall, the column's top rule. */
   dot: string
-}> = {
-  incoming: {
-    surface: "bg-slate-200/80 dark:bg-slate-800/70",
-    border: "border-l-slate-500",
-    text: "text-slate-600 dark:text-slate-400",
-    dot: "bg-slate-500",
-  },
-  reko: {
-    surface: "bg-emerald-100/80 dark:bg-emerald-950/70",
-    border: "border-l-emerald-500",
-    text: "text-emerald-700 dark:text-emerald-400",
-    dot: "bg-emerald-500",
-  },
-  reko_done: {
-    surface: "bg-teal-100/80 dark:bg-teal-950/70",
-    border: "border-l-teal-500",
-    text: "text-teal-700 dark:text-teal-400",
-    dot: "bg-teal-500",
-  },
-  enroute: {
-    surface: "bg-blue-100/80 dark:bg-blue-950/70",
-    border: "border-l-blue-500",
-    text: "text-blue-700 dark:text-blue-400",
-    dot: "bg-blue-500",
-  },
-  active: {
-    surface: "bg-orange-100/80 dark:bg-orange-950/70",
-    border: "border-l-orange-500",
-    text: "text-orange-700 dark:text-orange-400",
-    dot: "bg-orange-500",
-  },
-  returning: {
-    surface: "bg-sky-100/80 dark:bg-sky-950/70",
-    border: "border-l-sky-500",
-    text: "text-sky-700 dark:text-sky-400",
-    dot: "bg-sky-500",
-  },
-  complete: {
-    surface: "bg-gray-200/80 dark:bg-zinc-900/70",
-    border: "border-l-zinc-500",
-    text: "text-zinc-600 dark:text-zinc-400",
-    dot: "bg-zinc-500",
-  },
 }
+
+/** The one grey every status without a crew out wears. */
+const NEUTRAL_ACCENT: StatusAccent = {
+  surface: "bg-zinc-200/80 dark:bg-zinc-800/70",
+  border: "border-l-zinc-500",
+  text: "text-zinc-600 dark:text-zinc-400",
+  dot: "bg-zinc-500",
+}
+
+export const STATUS_ACCENT: Record<OperationStatus, StatusAccent> = {
+  incoming: NEUTRAL_ACCENT,
+  reko: {
+    surface: "bg-violet-100/80 dark:bg-violet-950/70",
+    border: "border-l-violet-500",
+    text: "text-violet-700 dark:text-violet-400",
+    dot: "bg-violet-500",
+  },
+  reko_done: NEUTRAL_ACCENT,
+  enroute: NEUTRAL_ACCENT,
+  active: {
+    surface: "bg-fuchsia-100/80 dark:bg-fuchsia-950/70",
+    border: "border-l-fuchsia-500",
+    text: "text-fuchsia-700 dark:text-fuchsia-400",
+    dot: "bg-fuchsia-500",
+  },
+  returning: NEUTRAL_ACCENT,
+  complete: NEUTRAL_ACCENT,
+}
+
 
 // Kanban column definitions: order, colour and the starting fold. The header words
 // live in the messages (`kanban.columns.<id>`).

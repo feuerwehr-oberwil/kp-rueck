@@ -341,9 +341,10 @@ Users, brand, aesthetic, the full colour roles and the reasoning behind every ru
 - **Colour roles – one colour, one meaning** (tokens in `frontend/app/globals.css`):
   - selection = slate, tonal, never a fill (`<Button variant="selected">`, `sel-choice`, `--sel*`);
   - red = priority and danger only, never an action (`destructive` is a red outline);
-  - green = frei / verfügbar on availability dots and badges only;
+  - green = frei / verfügbar on availability dots and badges only (Niedrig is grey);
   - focus = slate (`--ring`), never red;
-  - board column header lines are the status key; cards don't repeat the status as a tint.
+  - status colour only where crews are out: Reko violet, Im Einsatz fuchsia, every other status
+    grey (`STATUS_ACCENT`); column header lines are the status key, cards don't repeat it.
 - **Main button = ink** (`<Button>` default), one per surface.
 - **Type**: Sora (`font-sans`) and Spline Sans Mono (`font-mono`) only.
 - **Corners**: `rounded-md`/`-lg`/`-xl` are all 12px; controls under 32px tall use `rounded-sm`

@@ -69,10 +69,9 @@ export const INCIDENT_TYPE_MARKER_COLORS: Record<string, string> = {
  * Aufträge sheet, the Routenplanung panel and the Auftrag templates. A new
  * route takes the next one in turn.
  *
- * Hues the board does not already speak: the old row was red (= Hoch), amber
- * (= Mittel), emerald (= frei / Niedrig, byte-identical) and blue (= Disponiert),
- * so a green route read as «frei» on the wall (sweep 2026-10, VISUAL-13).
- * Violet, pink, cyan, lime, indigo, brown. A route keeps the colour it was
- * stored with; only new choices come from here.
+ * Hues the board does not already speak: not red (Hoch), amber (Mittel), green
+ * (frei), violet (Reko) or fuchsia (Im Einsatz) – a green route read as «frei»
+ * on the wall (sweep 2026-10, VISUAL-13). Blue, cyan, lime, indigo, brown, teal.
+ * A route keeps the colour it was stored with; only new choices come from here.
  */
-export const AUFTRAG_SWATCHES = ["#8b5cf6", "#ec4899", "#06b6d4", "#84cc16", "#6366f1", "#a16207"] as const
+export const AUFTRAG_SWATCHES = ["#3b82f6", "#06b6d4", "#84cc16", "#6366f1", "#a16207", "#14b8a6"] as const
