@@ -89,10 +89,25 @@ export function useBoardEdgeOverflow(scroller: HTMLElement | null) {
 /** Finished work does not fly a Hoch signal – same reasoning as `isOverdue`. */
 const FINISHED: readonly OperationStatus[] = ['returning', 'complete']
 
-interface EdgeChipProps {
-  column: { id: OperationStatus; status: OperationStatus[] }
+type BoardColumn = { id: OperationStatus; status: OperationStatus[] }
+
+/** What one chip shows – also what its width depends on. */
+interface ChipFacts {
+  column: BoardColumn
+  count: number
+  high: number
+}
+
+function chipFacts(columns: ReadonlyArray<BoardColumn>, ids: readonly string[], operations: readonly Operation[]): ChipFacts[] {
+  return columns.filter((c) => ids.includes(c.id)).map((column) => {
+    const ops = operations.filter((op) => column.status.includes(op.status))
+    const high = FINISHED.includes(column.id) ? 0 : ops.filter((op) => op.priority === 'high').length
+    return { column, count: ops.length, high }
+  })
+}
+
+interface EdgeChipProps extends ChipFacts {
   side: 'left' | 'right'
-  operations: readonly Operation[]
   onShow: (id: string) => void
   /** Title and «n Hoch» left out (both stay in the tooltip and the accessible name). */
   compact: boolean
@@ -101,13 +116,11 @@ interface EdgeChipProps {
 /** One hidden column: chevron toward its edge, status tick, title, count (red dot when Hoch).
  *  A real button, and a drop target for its column – a card dragged onto it lands there.
  *  `compact` when the bar runs short: tick, count and chevron only. */
-function EdgeChip({ column, side, operations, onShow, compact }: EdgeChipProps) {
+function EdgeChip({ column, count, high, side, onShow, compact }: EdgeChipProps) {
   const t = useTranslations('kanban')
   const ref = useRef<HTMLButtonElement | null>(null)
   const [isOver, setIsOver] = useState(false)
   const title = t(`columns.${column.id}`)
-  const count = operations.length
-  const high = FINISHED.includes(column.id) ? 0 : operations.filter((op) => op.priority === 'high').length
 
   useEffect(() => {
     const element = ref.current
@@ -160,7 +173,7 @@ interface BoardEdgeChipBarProps {
   /** The hidden column ids per side, from `useBoardEdgeOverflow`. */
   left: readonly string[]
   right: readonly string[]
-  columns: ReadonlyArray<{ id: OperationStatus; status: OperationStatus[] }>
+  columns: ReadonlyArray<BoardColumn>
   /** The operations the board draws (after search/filter) – the chip counts match the columns. */
   operations: readonly Operation[]
   onShow: (id: string) => void
@@ -181,9 +194,13 @@ export function BoardEdgeChipBar({ left, right, columns, operations, onShow }: B
   const [width, setWidth] = useState(0)
   const [fit, setFit] = useState<'full' | 'compact' | 'none'>('full')
 
-  // Fit again from full whenever the chips or the room change (state reset during render,
-  // so the check below always sees the full chips first).
-  const fitKey = `${left.join()}|${right.join()}|${width}`
+  const chips = { left: chipFacts(columns, left, operations), right: chipFacts(columns, right, operations) }
+
+  // Fit again from full whenever what the chips show or the room changes – a count gaining
+  // a digit or a new «1 Hoch» widens a chip (state reset during render, so the check below
+  // always sees the full chips first).
+  const shown = (facts: ChipFacts[]) => facts.map((f) => `${f.column.id}:${f.count}:${f.high}`).join()
+  const fitKey = `${shown(chips.left)}|${shown(chips.right)}|${width}`
   const [fittedFor, setFittedFor] = useState(fitKey)
   if (fittedFor !== fitKey) {
     setFittedFor(fitKey)
@@ -204,20 +221,13 @@ export function BoardEdgeChipBar({ left, right, columns, operations, onShow }: B
     if (el && fit !== 'none' && el.scrollWidth > el.clientWidth) setFit(fit === 'full' ? 'compact' : 'none')
   }, [fit, fitKey])
 
-  const nav = (side: 'left' | 'right', ids: readonly string[]) => ids.length > 0 && fit !== 'none' && (
+  const nav = (side: 'left' | 'right') => chips[side].length > 0 && fit !== 'none' && (
     <nav
       aria-label={t(side === 'left' ? 'edgeTabs.navLeft' : 'edgeTabs.navRight')}
       className={cn('flex shrink-0 items-center gap-1.5', side === 'right' && 'ml-auto')}
     >
-      {columns.filter((c) => ids.includes(c.id)).map((column) => (
-        <EdgeChip
-          key={column.id}
-          column={column}
-          side={side}
-          operations={operations.filter((op) => column.status.includes(op.status))}
-          onShow={onShow}
-          compact={fit === 'compact'}
-        />
+      {chips[side].map((facts) => (
+        <EdgeChip key={facts.column.id} {...facts} side={side} onShow={onShow} compact={fit === 'compact'} />
       ))}
     </nav>
   )
@@ -226,8 +236,8 @@ export function BoardEdgeChipBar({ left, right, columns, operations, onShow }: B
   // the padding keeps the Hoch dot (it pokes out above) and the focus ring unclipped.
   return (
     <div ref={ref} className="-mx-1 flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden px-1 py-1">
-      {nav('left', left)}
-      {nav('right', right)}
+      {nav('left')}
+      {nav('right')}
     </div>
   )
 }
