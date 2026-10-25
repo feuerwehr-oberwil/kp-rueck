@@ -13,11 +13,6 @@ export const EDGE_TAB_WIDTH = 48
 export const EDGE_TAB_PAD_GIVE = 4
 /** Room a scroll target leaves between a column and the tab stack still standing beside it. */
 export const EDGE_TAB_CLEARANCE = 8
-/** A column with at least this share of its width inside the scroller is «in view» – the tab
- *  stack's own width never counts against it (a column the stack overlaps by a few pixels is
- *  still the one the operator is reading, not a hidden one). */
-export const VISIBLE_SHARE = 0.9
-
 export interface BoardColumnSpan {
   id: string
   /** Edges in the scroller's content coordinates (0 = start of the scrolled content). */
@@ -37,11 +32,6 @@ export interface BoardScrollGeometry {
 export interface EdgeOverflow {
   left: string[]
   right: string[]
-  /** Width of the opaque band at each edge, measured from the scroller's edge (0 = no tabs).
-   *  It covers the tab stack and every pixel of the hidden columns beside it, and never
-   *  reaches into a column that is in view beyond the stack itself. */
-  bandLeft: number
-  bandRight: number
 }
 
 /** How far the tab stack itself reaches into the board from the scroller's edge. */
@@ -50,35 +40,23 @@ export function stackDepth(pad: number): number {
 }
 
 /**
- * The columns to name as tabs at each edge, and the band that hides them. A column is hidden
- * when less than `VISIBLE_SHARE` of it lies inside the scroller; it goes to the edge nearer
- * its centre.
+ * The columns to name as tabs at each edge (owner, 2026-10-25): a column is a tab only while
+ * NONE of it is inside the scroller. Any pixel in view and it is simply a partly visible
+ * column, drawn as always – the stack may lie over that sliver. A tab goes to the edge
+ * nearer its column's centre.
  */
 export function computeEdgeOverflow(g: BoardScrollGeometry): EdgeOverflow {
   const viewL = g.scrollLeft
   const viewR = g.scrollLeft + g.clientWidth
   const mid = (viewL + viewR) / 2
 
-  const left: BoardColumnSpan[] = []
-  const right: BoardColumnSpan[] = []
+  const left: string[] = []
+  const right: string[] = []
   for (const c of g.columns) {
-    const width = c.right - c.left
-    const inView = Math.max(0, Math.min(c.right, viewR) - Math.max(c.left, viewL))
-    if (width <= 0 || inView >= width * VISIBLE_SHARE) continue
-    ;((c.left + c.right) / 2 >= mid ? right : left).push(c)
+    if (Math.min(c.right, viewR) - Math.max(c.left, viewL) > 0) continue
+    ;((c.left + c.right) / 2 >= mid ? right : left).push(c.id)
   }
-
-  // From the nearer of «where the stack starts» and «where the first hidden column starts»
-  // to the edge: a hidden column never shows beside or between the tabs.
-  const firstRight = Math.min(...right.map((c) => c.left))
-  const lastLeft = Math.max(...left.map((c) => c.right))
-  const bandRight = right.length
-    ? viewR - Math.max(viewL, Math.min(viewR - stackDepth(g.padRight), firstRight))
-    : 0
-  const bandLeft = left.length
-    ? Math.min(viewR, Math.max(viewL + stackDepth(g.padLeft), lastLeft)) - viewL
-    : 0
-  return { left: left.map((c) => c.id), right: right.map((c) => c.id), bandLeft, bandRight }
+  return { left, right }
 }
 
 /**
