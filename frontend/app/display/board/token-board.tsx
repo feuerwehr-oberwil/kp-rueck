@@ -8,10 +8,14 @@ import { Eye, ChevronDown, ChevronRight } from 'lucide-react'
 import { DisplayStaleBanner } from '@/components/display/display-stale-banner'
 import { columns, ageLevel, COLUMN_HEADER_CLASS, STATUS_ACCENT, WALL_TEXT_WRAP } from '@/lib/kanban-utils'
 import { useCollapsedSections } from '@/lib/hooks/use-collapsed-sections'
+import { useWallFit } from '@/lib/hooks/use-wall-fit'
+import {
+  WALL_STACK_BOARD, WALL_STACK_BODY, WALL_STACK_COLUMN, WALL_STACK_FOLDED, WALL_STACK_FOLDED_ACCENT, WALL_STACK_FOLDED_LABEL,
+} from '@/lib/wall-stack'
 import { getIncidentLocationLabel } from '@/lib/incident-types'
 import { cn } from '@/lib/utils'
 import { buildSituationData, viewerGroupsToIncidentGroups } from '@/lib/viewer-data'
-import { DisplayIncidentCard } from '@/components/display/incident-card'
+import { DisplayIncidentCard, crewShownAtStop } from '@/components/display/incident-card'
 import { IncidentDetailModal } from '@/components/display/incident-detail-modal'
 import { useDisplaySearch } from '@/lib/contexts/display-search-context'
 import { CARD_VIEW_PRESETS } from '@/lib/card-view'
@@ -74,6 +78,8 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
   // The dot alone only says "something", which is the one thing a viewer can't
   // act on — so it names the overdue incidents on hover, up to three.
   const alarms = columnAlarms(operations)
+  // Stops 2…n of one Auftrag here name its crew once (VISUAL-07 C).
+  const crewShownAt = crewShownAtStop(operations, (op) => (op.groupId ? groups.find((g) => g.id === op.groupId) : undefined))
   const hasAlarm = alarms.length > 0
   const alarmTitle = hasAlarm
     ? t('board.columnAlarmTitle', {
@@ -95,16 +101,16 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
         type="button"
         data-column={column.id}
         onClick={onToggle}
-        className="flex w-12 flex-shrink-0 flex-col items-center gap-3 overflow-hidden rounded-lg border border-border bg-card pb-3 transition-colors hover:bg-foreground/5"
+        className={cn('relative flex w-12 flex-shrink-0 flex-col items-center gap-3 overflow-hidden rounded-lg border border-border bg-card pb-3 transition-colors hover:bg-foreground/5', WALL_STACK_FOLDED)}
         title={t('board.collapsedColumnTitle', { title: tk(`columns.${column.id}`), count: operations.length })}
       >
-        <span aria-hidden className={cn('h-0.5 w-full', accent?.dot)} />
+        <span aria-hidden className={cn('h-0.5 w-full', WALL_STACK_FOLDED_ACCENT, accent?.dot)} />
         <ChevronRight className="h-4 w-4 text-muted-foreground" />
         <span className="relative inline-flex h-6 min-w-6 items-center justify-center rounded-sm bg-foreground/10 px-1.5 text-xs font-bold tabular-nums text-foreground">
           {operations.length}
           {hasAlarm && <span title={alarmTitle} aria-label={alarmTitle} className={cn('absolute -right-1 -top-1 h-2 w-2', alarmDotClass)} />}
         </span>
-        <span className={cn(COLUMN_HEADER_CLASS, "[writing-mode:vertical-rl]")}>
+        <span className={cn(COLUMN_HEADER_CLASS, "[writing-mode:vertical-rl]", WALL_STACK_FOLDED_LABEL)}>
           {tk(`columns.${column.id}`)}
         </span>
       </button>
@@ -115,8 +121,8 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
     // The logged-in wall's floors (see app/display/board/page.tsx): 160px from
     // `sm` up, so all seven columns fit a 1280 wall — at 280 everything from
     // IM EINSATZ on sat off-screen behind a scrollbar a wall cannot use — and
-    // 85vw on a phone, one column and a peek.
-    <div data-column={column.id} className="flex flex-1 flex-col min-w-[160px] max-sm:min-w-[85vw] overflow-hidden">
+    // stacked full width on a phone (lib/wall-stack).
+    <div data-column={column.id} className={cn('flex flex-1 flex-col min-w-[160px] overflow-hidden', WALL_STACK_COLUMN)}>
       {/* The accent as a 2px rule above the header, not a wash behind it. */}
       <div aria-hidden className={cn('h-0.5 rounded-full', accent?.dot)} />
       <button
@@ -136,7 +142,7 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
           </span>
         </div>
       </button>
-      <div className="flex-1 space-y-3 overflow-y-auto rounded-lg p-2">
+      <div data-wall-column-body className={cn('flex-1 space-y-2 overflow-y-auto rounded-lg p-2', WALL_STACK_BODY)}>
         {operations.map((operation) => {
           const auftrag = operation.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
           return (
@@ -147,6 +153,7 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
               materials={materials}
               auftrag={auftrag}
               auftragResources={auftrag ? groupResources.get(auftrag.id) ?? null : null}
+              crewShownAt={crewShownAt.get(operation.id)}
               onClick={() => onIncidentClick(operation.id)}
             />
           )
@@ -279,6 +286,11 @@ export function TokenBoard({ token }: { token: string }) {
     keepInViewRef.current = null
     keepColumnInView(columnKey)
   }, [collapseSignature])
+  // The root size: the largest at which every column fits (VISUAL-07 C). Only
+  // once the board is drawn – before that this renders the loading state.
+  const boardRef = useRef<HTMLDivElement>(null)
+  useWallFit(boardRef, !error && !loading)
+
   const selectedOperation = useMemo(
     () => situation?.operations.find((op) => op.id === selectedIncidentId) ?? null,
     [situation, selectedIncidentId],
@@ -315,7 +327,7 @@ export function TokenBoard({ token }: { token: string }) {
           getting clipped at the container edge. */}
       {/* The board's own gaps and padding — one board, two data sources. */}
       <main className="flex-1 min-h-0 overflow-x-auto p-3 bg-muted/30 dark:bg-background">
-        <div className="flex h-full gap-2">
+        <div ref={boardRef} className={cn('flex h-full gap-2', WALL_STACK_BOARD)}>
           {columns.map((column) => (
             <TokenColumn
               key={column.id}

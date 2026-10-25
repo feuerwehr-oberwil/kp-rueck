@@ -84,6 +84,10 @@ C’est **la même carte d’intervention qu’au poste de commandement**, seule
 
 Le mur ne suit **pas** la « Vue » de l’opérateur : *Compact* existe pour caser plus de cartes sur un tableau auquel on travaille – un mur, lui, doit être lisible à cinq mètres. La page d’affichage n’a pas de commutateur pour cela et montre donc toujours la carte complète.
 
+**Composé pour la distance :** adresse et âge en grand, le message en entier et en couleur de premier plan (jamais coupé après trois lignes), le tout plus serré qu’au pupitre. Quand plusieurs étapes d’une même mission se trouvent dans une colonne, seule la première nomme l’effectif ; les suivantes indiquent « Effectif comme à l’étape 2 ». **La taille du texte suit la situation :** le mur choisit en continu la plus grande taille à laquelle chaque colonne tient entièrement à l’écran – avec peu d’interventions tout grandit, par une nuit de tempête tout rétrécit, mais jamais sous une taille minimale ; si même celle-ci ne suffit pas, la colonne pleine défile comme avant.
+
+**Sur le téléphone** (les comptes lecteur arrivent ici), les colonnes sont empilées au lieu d’être côte à côte : les mêmes cartes, on fait défiler vers le bas, pas sur le côté. De même pour les quatre colonnes d’« État ».
+
 ### État (`/display/status`)
 Vue à quatre colonnes : véhicules, interventions (groupées par statut), personnel (groupé par rôle) et matériel (groupé par emplacement). Pour les ressources attribuées, le lieu d’intervention est indiqué. S’agrandit automatiquement sur les grands écrans. Au-dessus des interventions figurent, repliables, les [indicateurs](#tableau-board-g-b).
 

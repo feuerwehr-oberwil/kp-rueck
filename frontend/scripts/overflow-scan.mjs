@@ -30,7 +30,8 @@
  * (visit, selector, kind) with the widths/themes it occurs at.
  *
  * Env: SCAN_EDITOR=editor:editor, SCAN_ADMIN=user:pass (for the admin-only settings sections;
- * skipped when unset), SCAN_BROWSER=chromium|webkit, SCAN_WEBKIT_EXECUTABLE (custom WebKit),
+ * skipped when unset), SCAN_VIEWER=user:pass (the logged-in wall a viewer is sent to – its
+ * phone stack; skipped when unset), SCAN_BROWSER=chromium|webkit, SCAN_WEBKIT_EXECUTABLE (custom WebKit),
  * SCAN_THEMES=light,dark, SCAN_CONCURRENCY=3, SCAN_SHOTS=1 (a PNG per visit with findings; `all` for every visit — to check the visits reach their state).
  */
 import { chromium, webkit } from '@playwright/test'
@@ -51,6 +52,7 @@ const CONCURRENCY = Number(process.env.SCAN_CONCURRENCY || 3)
 const SHOTS = process.env.SCAN_SHOTS || '' // '1' = visits with findings, 'all' = every visit
 const [EDITOR_USER, EDITOR_PASS] = (process.env.SCAN_EDITOR || 'editor:editor').split(':')
 const ADMIN = process.env.SCAN_ADMIN ? process.env.SCAN_ADMIN.split(':') : null
+const VIEWER = process.env.SCAN_VIEWER ? process.env.SCAN_VIEWER.split(':') : null
 const HEIGHT = (w) => (w < 500 ? 780 : w < 1000 ? 1024 : w < 1500 ? 860 : 1080)
 fs.mkdirSync(OUT, { recursive: true })
 
@@ -342,6 +344,8 @@ function visits(links) {
       'auftragTemplates', 'fallback', 'personnel', 'vehicles', 'materials', 'import', 'audit', 'telemetry']
       .map((s) => ({ id: `settings-${s}`, path: `/settings?section=${s}` })),
     ...(ADMIN ? ['users', 'sync'].map((s) => ({ id: `settings-${s}`, path: `/settings?section=${s}`, role: 'admin' })) : []),
+    // A viewer is redirected to the wall, on a phone too (UX-PHONE-10): the session boards, not the token ones.
+    ...(VIEWER ? ['board', 'status'].map((d) => ({ id: `display-viewer-${d}`, path: `/display/${d}`, role: 'viewer' })) : []),
   ]
   if (links.checkin) v.push({ id: 'check-in', path: links.checkin, role: null })
   if (links.alarm) v.push({ id: 'alarm', path: links.alarm, role: null })
@@ -390,10 +394,14 @@ async function loginState(browser, user, pass, file) {
 async function prepare(browser) {
   const editorFile = path.join(OUT, '.state-editor.json')
   const ctx = await loginState(browser, EDITOR_USER, EDITOR_PASS, editorFile)
-  const states = { editor: editorFile, admin: null }
+  const states = { editor: editorFile, admin: null, viewer: null }
   if (ADMIN) {
     states.admin = path.join(OUT, '.state-admin.json')
     await (await loginState(browser, ADMIN[0], ADMIN[1], states.admin)).close()
+  }
+  if (VIEWER) {
+    states.viewer = path.join(OUT, '.state-viewer.json')
+    await (await loginState(browser, VIEWER[0], VIEWER[1], states.viewer)).close()
   }
   const { events } = await api(ctx, 'get', '/api/events/')
   const ev = process.env.SCAN_EVENT

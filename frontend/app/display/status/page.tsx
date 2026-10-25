@@ -33,6 +33,7 @@ import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
 import { useDisplaySearch } from "@/lib/contexts/display-search-context"
 import { filterIncidents } from "@/lib/incident-search"
 import { cn } from "@/lib/utils"
+import { WALL_STACK_BOARD, WALL_STACK_BODY, WALL_STACK_COLUMN } from "@/lib/wall-stack"
 import { LoadingStatus } from "@/components/ui/shell-loader"
 import { EventFiguresView } from "@/components/event-figures"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -61,6 +62,9 @@ const STATUS_COLLAPSE_KEY = "kp-display-status-collapsed"
  *     and two dots for two dimensions is how the confusion started.
  */
 const ROW_SURFACE = "bg-muted/30"
+
+/** A panel on a phone: stacked full width (lib/wall-stack), a rule under it instead of beside it. */
+const STACKED_PANEL = cn(WALL_STACK_COLUMN, "max-sm:border-r-0 max-sm:border-b")
 
 /** Short display label for an incident location (falls back to the type).
  *  Server-computed (locationDisplay) — final on first paint, no reformat flash. */
@@ -380,9 +384,11 @@ function SituationBoard({
     // `relative` here and on each column's list: the rows' sr-only labels need a positioned
     // ancestor inside the scroller they sit in, or they escape it and widen the whole page
     // (513px on a 393px iPhone, WebKit; overflow sweep, 03.10.)
-    <div className="relative h-full flex bg-background overflow-x-auto">
+    // Below `sm` the four panels stack and this box scrolls down, like the board
+    // (lib/wall-stack): four 300px panels side by side cut «Material» off a phone.
+    <div className={cn("relative h-full flex bg-background overflow-x-auto", WALL_STACK_BOARD, "max-sm:gap-0")}>
       {/* ── Column 1: Vehicles ── */}
-      <div className="flex flex-1 flex-col min-w-[300px] border-r border-border overflow-hidden">
+      <div className={cn("flex flex-1 flex-col min-w-[300px] border-r border-border overflow-hidden", STACKED_PANEL)}>
         <PanelHeader
           title={t('vehicles')}
           count={vehicleStatus.length}
@@ -395,7 +401,7 @@ function SituationBoard({
               })
             : t('availableDeployed', { available: vehicleStatus.length - deployed, deployed })}
         />
-        <div className="flex-1 overflow-y-auto p-2 xl:p-3 space-y-1.5 xl:space-y-2">
+        <div className={cn("flex-1 overflow-y-auto p-2 xl:p-3 space-y-1.5 xl:space-y-2", WALL_STACK_BODY)}>
           {vehicleStatus.map((v) => (
             <VehicleRow
               key={v.id}
@@ -408,14 +414,14 @@ function SituationBoard({
       </div>
 
       {/* ── Column 2: Active Incidents ── */}
-      <div className="flex flex-1 flex-col min-w-[300px] border-r border-border overflow-hidden">
+      <div className={cn("flex flex-1 flex-col min-w-[300px] border-r border-border overflow-hidden", STACKED_PANEL)}>
         <PanelHeader
           title={t('incidents')}
           count={totalActiveOps}
 
           subtitle={t('incomingInProgress', { incoming: stats.incomingCount, inProgress: stats.activeOperations - stats.incomingCount })}
         />
-        <div className="relative flex-1 overflow-y-auto">
+        <div className={cn("relative flex-1 overflow-y-auto", WALL_STACK_BODY)}>
           {/* Aufträge first — the grouping the radio talks in. Each route names
               its stops in the order they are driven, so «Stopp 2 von 3» is
               readable from across the room without opening anything. */}
@@ -506,14 +512,14 @@ function SituationBoard({
       </div>
 
       {/* ── Column 3: Personnel ── */}
-      <div className="flex flex-1 flex-col min-w-[300px] border-r border-border overflow-hidden">
+      <div className={cn("flex flex-1 flex-col min-w-[300px] border-r border-border overflow-hidden", STACKED_PANEL)}>
         <PanelHeader
           title={t('personnel')}
           count={personnel.length}
 
           subtitle={t('availableDeployed', { available: stats.personnelAvailable, deployed: assignedPersonnelCount })}
         />
-        <div className="relative flex-1 overflow-y-auto">
+        <div className={cn("relative flex-1 overflow-y-auto", WALL_STACK_BODY)}>
           {groupedPersonnel.map(({ role, people }) => {
             const free = people.filter((p) => personResourceState(p) !== "assigned").length
             return (
@@ -547,7 +553,7 @@ function SituationBoard({
       </div>
 
       {/* ── Column 4: Materials ── */}
-      <div className="flex flex-1 flex-col min-w-[300px] overflow-hidden">
+      <div className={cn("flex flex-1 flex-col min-w-[300px] overflow-hidden", STACKED_PANEL)}>
         <PanelHeader
           title={t('material')}
           count={materials.length}
@@ -560,7 +566,7 @@ function SituationBoard({
               })
             : t('availableDeployed', { available: materials.length - assignedMaterialCount, deployed: assignedMaterialCount })}
         />
-        <div className="relative flex-1 overflow-y-auto">
+        <div className={cn("relative flex-1 overflow-y-auto", WALL_STACK_BODY)}>
           {groupedMaterials.map(({ category, items }) => {
             // «frei» means it can be sent out — neither on an Einsatz nor broken.
             const free = items.filter((m) => materialResourceState(m) === "available").length
