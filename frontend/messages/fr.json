@@ -920,9 +920,25 @@
       "lastSaved": "Enregistré provisoirement à {at}",
       "localRestored": "Brouillon local restauré.",
       "submit": "Clôturer le rapport",
-      "incompleteTitle": "Clôturer le rapport ?",
-      "incompleteBody": "{count, plural, one {Une section est encore vide} other {# sections sont encore vides}} – le rapport sera clôturé tel quel. Un complément reste possible, mais le PC travaille désormais avec ceci.",
-      "incompleteConfirm": "Clôturer quand même",
+      "gaps": {
+        "title": {
+          "kurzbericht": "Le rapport succinct manque encore",
+          "personnel": "Le personnel manque encore",
+          "both": "Le rapport succinct et le personnel manquent encore"
+        },
+        "lead": {
+          "kurzbericht": "Sans lui, le PC ne sait pas ce qui a été fait ici.",
+          "personnel": "Sans lui, le PC ne sait pas qui était engagé ici.",
+          "both": "Sans eux, le PC ne sait pas ce qui a été fait ici ni qui était engagé."
+        },
+        "confirm": {
+          "kurzbericht": "Clôturer sans rapport succinct",
+          "personnel": "Clôturer sans personnel",
+          "both": "Clôturer sans rapport succinct ni personnel"
+        },
+        "optionalHeading": "Vide – seulement si nécessaire",
+        "back": "Retour au rapport"
+      },
       "autosaveHint": "Enregistré en continu – pas besoin de clôturer.",
       "submitted": "Rapport saisi.",
       "submittedBadge": "Clôturé {at}",

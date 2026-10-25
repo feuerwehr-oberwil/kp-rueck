@@ -4106,9 +4106,25 @@
       "lastSaved": "Zwischengespeichert um {at}",
       "localRestored": "Lokaler Entwurf wiederhergestellt.",
       "submit": "Rapport abschliessen",
-      "incompleteTitle": "Rapport abschliessen?",
-      "incompleteBody": "{count, plural, one {Ein Abschnitt ist noch leer} other {# Abschnitte sind noch leer}} – der Rapport wird trotzdem so abgeschlossen. Ergänzen geht danach noch, aber das Board arbeitet ab jetzt damit.",
-      "incompleteConfirm": "Trotzdem abschliessen",
+      "gaps": {
+        "title": {
+          "kurzbericht": "Kurzbericht fehlt noch",
+          "personnel": "Mannschaft fehlt noch",
+          "both": "Kurzbericht und Mannschaft fehlen noch"
+        },
+        "lead": {
+          "kurzbericht": "Ohne ihn weiss der KP nicht, was hier gemacht wurde.",
+          "personnel": "Ohne sie weiss der KP nicht, wer hier im Einsatz war.",
+          "both": "Ohne sie weiss der KP nicht, was hier gemacht wurde und wer dabei war."
+        },
+        "confirm": {
+          "kurzbericht": "Ohne Kurzbericht abschliessen",
+          "personnel": "Ohne Mannschaft abschliessen",
+          "both": "Ohne Kurzbericht und Mannschaft abschliessen"
+        },
+        "optionalHeading": "Leer – nur wenn nötig",
+        "back": "Zurück zum Rapport"
+      },
       "autosaveHint": "Wird laufend gespeichert – kein Abschliessen nötig.",
       "submitted": "Rapport erfasst.",
       "submittedBadge": "Abgeschlossen {at}",

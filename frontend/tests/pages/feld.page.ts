@@ -79,8 +79,9 @@ export class FeldPage extends BasePage {
     // The `/feld` mount is the ONLY one with this button since §18.17 — the KP
     // has no submit at all and files what it autosaves.
     this.submitRapportButton = page.getByRole('button', { name: 'Rapport abschliessen', exact: true });
-    // The one question filing asks, when blocks are still empty.
-    this.confirmGapsButton = page.getByRole('button', { name: 'Trotzdem abschliessen' });
+    // The one question filing asks, when Kurzbericht or Mannschaft is still
+    // empty. Its quiet answer names what it files without.
+    this.confirmGapsButton = page.getByRole('button', { name: /^Ohne .+ abschliessen$/ });
     this.submittedBadge = page.getByText(/^Abgeschlossen /);
   }
 
@@ -173,17 +174,17 @@ export class FeldPage extends BasePage {
    * "Rapport abschliessen" sits below the blocks rather than inside one, so
    * only the typing needs its block opened first.
    *
-   * Filing asks once when blocks are still empty — the tap is irreversible in
-   * the operator's eyes, and a rapport with four empty blocks is usually a fat
-   * finger. This helper types the Kurzbericht alone, so the question always
-   * comes, and answering it is part of filing.
+   * Filing asks only while Kurzbericht or Mannschaft is empty (UX-PHONE-05);
+   * empty optional blocks never ask. This helper types the Kurzbericht, so the
+   * question comes only when the board sent nobody – then its quiet
+   * «Ohne Mannschaft abschliessen» is part of filing.
    */
   async fileRapport(kurzbericht: string) {
     await this.openRapportSection('Kurzbericht');
     await this.kurzberichtField.fill(kurzbericht);
     await this.submitRapportButton.click();
-    await expect(this.confirmGapsButton).toBeVisible({ timeout: 15_000 });
-    await this.confirmGapsButton.click();
+    await expect(this.submittedBadge.or(this.confirmGapsButton)).toBeVisible({ timeout: 15_000 });
+    if (await this.confirmGapsButton.isVisible()) await this.confirmGapsButton.click();
     await expect(this.submittedBadge).toBeVisible({ timeout: 15_000 });
   }
 
