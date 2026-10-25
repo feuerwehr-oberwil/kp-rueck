@@ -1438,8 +1438,11 @@ export default function FireStationDashboard() {
               and the sidebar's border, which is what «die hässlichen Linien»
               were both times. Out of flow the board keeps the full width and the
               tab is what it looks like — a control pinned to the edge, opaque
-              (`bg-card`) and shadowed so scrolled cards pass behind it. */}
-          <div className="relative flex min-w-0 flex-1">
+              (`bg-card`) and shadowed so scrolled cards pass behind it. 
+
+              `isolate`: the edge tabs' band (BoardEdgeTabs) reaches the board's very edge,
+              and must stay under the sidebars' collapse handles that straddle it. */}
+          <div className="relative isolate flex min-w-0 flex-1">
           {/* Main Kanban Board */}
           <main
             id="kanban-main"

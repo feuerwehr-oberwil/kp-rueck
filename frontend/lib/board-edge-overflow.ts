@@ -11,8 +11,12 @@ export const EDGE_TAB_WIDTH = 48
 /** The tab stack sits this far inside the board's padding edge, so a reopen pill in the
  *  padding (`left-1` / `right-1`, 20px wide) keeps clear of it. */
 export const EDGE_TAB_PAD_GIVE = 4
-/** Room between the tab stack and the nearest column that still counts as visible. */
+/** Room a scroll target leaves between a column and the tab stack still standing beside it. */
 export const EDGE_TAB_CLEARANCE = 8
+/** A column with at least this share of its width inside the scroller is «in view» – the tab
+ *  stack's own width never counts against it (a column the stack overlaps by a few pixels is
+ *  still the one the operator is reading, not a hidden one). */
+export const VISIBLE_SHARE = 0.9
 
 export interface BoardColumnSpan {
   id: string
@@ -33,39 +37,48 @@ export interface BoardScrollGeometry {
 export interface EdgeOverflow {
   left: string[]
   right: string[]
+  /** Width of the opaque band at each edge, measured from the scroller's edge (0 = no tabs).
+   *  It covers the tab stack and every pixel of the hidden columns beside it, and never
+   *  reaches into a column that is in view beyond the stack itself. */
+  bandLeft: number
+  bandRight: number
 }
 
-/** How far from the scroller's visible edge the tab stack reaches into the board. */
-export function edgeZone(pad: number): number {
-  return Math.max(0, pad - EDGE_TAB_PAD_GIVE) + EDGE_TAB_WIDTH + EDGE_TAB_CLEARANCE
+/** How far the tab stack itself reaches into the board from the scroller's edge. */
+export function stackDepth(pad: number): number {
+  return Math.max(0, pad - EDGE_TAB_PAD_GIVE) + EDGE_TAB_WIDTH
 }
 
 /**
- * The columns to name as tabs at each edge. A side gets tabs only when some column is
- * actually cut off there; once it has them, a column under the tab stack counts as hidden
- * too – the stack is opaque, so a column it covers is one the operator cannot read.
+ * The columns to name as tabs at each edge, and the band that hides them. A column is hidden
+ * when less than `VISIBLE_SHARE` of it lies inside the scroller; it goes to the edge nearer
+ * its centre.
  */
 export function computeEdgeOverflow(g: BoardScrollGeometry): EdgeOverflow {
   const viewL = g.scrollLeft
   const viewR = g.scrollLeft + g.clientWidth
-  // 1px of slack: subpixel layout must not flicker a tab in and out.
-  const cutRight = g.columns.some((c) => c.right > viewR - g.padRight + 1)
-  const cutLeft = g.columns.some((c) => c.left < viewL + g.padLeft - 1)
-  const limitR = viewR - edgeZone(g.padRight)
-  const limitL = viewL + edgeZone(g.padLeft)
   const mid = (viewL + viewR) / 2
 
-  const left: string[] = []
-  const right: string[] = []
+  const left: BoardColumnSpan[] = []
+  const right: BoardColumnSpan[] = []
   for (const c of g.columns) {
-    const pastR = cutRight && c.right > limitR + 1
-    const pastL = cutLeft && c.left < limitL - 1
-    // A column wider than what is left between both stacks: it belongs to the nearer edge.
-    if (pastR && pastL) ((c.left + c.right) / 2 >= mid ? right : left).push(c.id)
-    else if (pastR) right.push(c.id)
-    else if (pastL) left.push(c.id)
+    const width = c.right - c.left
+    const inView = Math.max(0, Math.min(c.right, viewR) - Math.max(c.left, viewL))
+    if (width <= 0 || inView >= width * VISIBLE_SHARE) continue
+    ;((c.left + c.right) / 2 >= mid ? right : left).push(c)
   }
-  return { left, right }
+
+  // From the nearer of «where the stack starts» and «where the first hidden column starts»
+  // to the edge: a hidden column never shows beside or between the tabs.
+  const firstRight = Math.min(...right.map((c) => c.left))
+  const lastLeft = Math.max(...left.map((c) => c.right))
+  const bandRight = right.length
+    ? viewR - Math.max(viewL, Math.min(viewR - stackDepth(g.padRight), firstRight))
+    : 0
+  const bandLeft = left.length
+    ? Math.min(viewR, Math.max(viewL + stackDepth(g.padLeft), lastLeft)) - viewL
+    : 0
+  return { left: left.map((c) => c.id), right: right.map((c) => c.id), bandLeft, bandRight }
 }
 
 /**
@@ -78,8 +91,8 @@ export function scrollTargetFor(g: BoardScrollGeometry, id: string): number | nu
   const i = g.columns.findIndex((c) => c.id === id)
   if (i < 0) return null
   const col = g.columns[i]
-  const reserveL = i > 0 ? edgeZone(g.padLeft) : g.padLeft
-  const reserveR = i < g.columns.length - 1 ? edgeZone(g.padRight) : g.padRight
+  const reserveL = i > 0 ? stackDepth(g.padLeft) + EDGE_TAB_CLEARANCE : g.padLeft
+  const reserveR = i < g.columns.length - 1 ? stackDepth(g.padRight) + EDGE_TAB_CLEARANCE : g.padRight
   const max = Math.max(0, g.scrollWidth - g.clientWidth)
   const towardRight = (col.left + col.right) / 2 > g.scrollLeft + g.clientWidth / 2
 
