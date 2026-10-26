@@ -248,7 +248,10 @@ async def _event_personnel(db: AsyncSession, incident: Incident) -> _PersonnelOf
     roster_result = await db.execute(
         select(Personnel).order_by(Personnel.role_sort_order, Personnel.role, Personnel.name)
     )
-    roster = [{"personnel_id": person.id, "name": person.name} for person in roster_result.scalars().all()]
+    roster = [
+        {"personnel_id": person.id, "name": person.name, "kennung": person.kennung}
+        for person in roster_result.scalars().all()
+    ]
 
     dispatched = [row for row in roster if row["personnel_id"] in assigned_ids]
     # Somebody assigned who is not on the roster at all cannot happen through the

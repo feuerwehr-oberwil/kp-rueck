@@ -39,6 +39,7 @@ async def assign_resource(
 
     A missing incident or resource is a 404 (``LookupError``) — previously the first
     crashed on a foreign-key violation and the second quietly stored an orphan row.
+    A resource ``crud.ensure_assignable`` refuses (archived inventory) is a 409.
     """
     try:
         result = await crud.assign_resource(
@@ -53,6 +54,8 @@ async def assign_resource(
         # Not warn-worthy: a stale id from a client that missed a delete is routine.
         logger.info("Assignment target missing for incident %s: %s", incident_id, e)
         raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND) from e
+    except crud.ResourceNotAssignableError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     except crud.IncidentNotOnBoardError as e:
         raise HTTPException(
             status_code=409, detail="Dieser Einsatz ist nicht mehr auf dem Board (gelöscht oder zusammengeführt)."
@@ -79,20 +82,25 @@ async def unassign_resource(
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Release resource from incident."""
-    success = await crud.unassign_resource(
+    """Release resource from incident.
+
+    404 when the assignment does not belong to ``incident_id`` – the path names the
+    card the operator acted on, and a mismatched id must not release another one.
+    """
+    released = await crud.unassign_resource(
         db=db,
         assignment_id=assignment_id,
         current_user=current_user,
         request=request,
+        incident_id=incident_id,
     )
 
-    if not success:
+    if released is None:
         raise HTTPException(status_code=404, detail=ErrorMessages.ASSIGNMENT_NOT_FOUND)
 
-    # Broadcast WebSocket update for deletion
+    # Broadcast WebSocket update for deletion – the parent as stored on the row.
     background_tasks.add_task(
-        broadcast_assignment_update, {"id": str(assignment_id), "incident_id": str(incident_id)}, "delete"
+        broadcast_assignment_update, {"id": str(assignment_id), "incident_id": str(released.incident_id)}, "delete"
     )
 
 

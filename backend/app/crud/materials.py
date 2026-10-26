@@ -4,7 +4,7 @@ Three axes, three homes — that separation is the point of this module:
 
 * readiness  – ``out_of_service_since`` («Nicht einsatzbereit»), mirrored into ``status``
 * lifecycle  – ``archived_at`` (still part of the inventory, or retired)
-* deployment – ``incident_assignments``, per Ereignis, never a column on the row
+* deployment – ``incident_assignments`` / ``incident_group_assignments``, never a column on the row
 
 They used to be one column. "Delete" set ``status='unavailable'`` and the list
 endpoints kept serving the row, so a deleted pump stood on the board afterwards,
@@ -24,8 +24,9 @@ from sqlalchemy import case, delete, distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..models import Event, Incident, IncidentAssignment, Material, User
+from ..models import Event, Incident, IncidentAssignment, IncidentGroup, IncidentGroupAssignment, Material, User
 from ..services.audit import calculate_changes, log_action
+from .locking import lock_resource
 
 # ============================================
 # Shared lifecycle helpers (materials + vehicles)
@@ -73,7 +74,12 @@ async def resource_usage(
     resource_type: str,
     resource_ids: Sequence[uuid.UUID],
 ) -> dict[uuid.UUID, ResourceUsage]:
-    """Count Einsatz history for a batch of resources in one query.
+    """Count Einsatz history for a batch of resources – one query per assignment table.
+
+    Both ownerships count: an Einsatz (``incident_assignments``) and an Auftrag
+    (``incident_group_assignments``, one entry per Auftrag, stops or not). A live
+    Auftrag on a non-training Ereignis protects like a live Einsatz does – before
+    2026-10 only Einsätze counted, and a pump held by a route could be purged under it.
 
     Lives here rather than in a third module because materials and vehicles are the
     only two resource kinds that can be archived; ``crud/vehicles.py`` imports it.
@@ -87,7 +93,7 @@ async def resource_usage(
         (Incident.deleted_at.is_(None) & Event.training_flag.is_(False), IncidentAssignment.incident_id),
         else_=None,
     )
-    result = await db.execute(
+    incident_rows = await db.execute(
         select(
             IncidentAssignment.resource_id,
             func.count(distinct(IncidentAssignment.incident_id)),
@@ -101,17 +107,42 @@ async def resource_usage(
         )
         .group_by(IncidentAssignment.resource_id)
     )
-    return {row[0]: ResourceUsage(total=int(row[1]), protected=int(row[2])) for row in result.all()}
+    group_protects = case(
+        (
+            IncidentGroup.deleted_at.is_(None) & Event.training_flag.is_(False),
+            IncidentGroupAssignment.incident_group_id,
+        ),
+        else_=None,
+    )
+    group_rows = await db.execute(
+        select(
+            IncidentGroupAssignment.resource_id,
+            func.count(distinct(IncidentGroupAssignment.incident_group_id)),
+            func.count(distinct(group_protects)),
+        )
+        .join(IncidentGroup, IncidentGroup.id == IncidentGroupAssignment.incident_group_id)
+        .join(Event, Event.id == IncidentGroup.event_id)
+        .where(
+            IncidentGroupAssignment.resource_type == resource_type,
+            IncidentGroupAssignment.resource_id.in_(resource_ids),
+        )
+        .group_by(IncidentGroupAssignment.resource_id)
+    )
+    usage: dict[uuid.UUID, ResourceUsage] = {}
+    for resource_id, total, protected in [*incident_rows.tuples(), *group_rows.tuples()]:
+        before = usage.get(resource_id, NO_USAGE)
+        usage[resource_id] = ResourceUsage(total=before.total + total, protected=before.protected + protected)
+    return usage
 
 
 @dataclass(frozen=True, slots=True)
 class ArchiveRefused:
-    """An archive attempt refused because the resource stands on an Einsatz right now.
+    """An archive attempt refused because the resource stands on an Einsatz or Auftrag right now.
 
-    The purge guard's little sibling: same notion of "active" (a live incident on a
-    non-training Ereignis, see `resource_usage`), but only assignments that are still
-    open (`unassigned_at IS NULL`) block — history never stops an archive, that is
-    the whole point of archiving over purging. The routes turn this into a 409 with
+    The purge guard's little sibling: same notion of "active" (a live Einsatz or
+    Auftrag on a non-training Ereignis, see `resource_usage`), but only assignments
+    that are still open (`unassigned_at IS NULL`) block — history never stops an
+    archive, that is the whole point of archiving over purging. The routes turn this into a 409 with
     the same shape of German detail as the purge's `in_use`, so the frontend handles
     both refusals the same way.
     """
@@ -120,9 +151,18 @@ class ArchiveRefused:
     active_incidents: int
 
 
-async def count_active_deployments(db: AsyncSession, resource_type: str, resource_id: uuid.UUID) -> int:
-    """How many live, non-training incidents hold this resource on an open assignment."""
-    result = await db.scalar(
+async def count_active_deployments(
+    db: AsyncSession, resource_type: str, resource_id: uuid.UUID, *, include_training: bool = False
+) -> int:
+    """How many live Einsätze and Aufträge hold this resource on an open assignment.
+
+    Both tables count, an Auftrag with zero stops included. Training Ereignisse are
+    left out unless ``include_training`` – an archive keeps the row, so a training run
+    may keep it; a hard delete (personnel) would leave its open row pointing at nothing.
+    Call it with the resource row locked (``locking.lock_resource``) so no assignment
+    can arrive between this count and the archive or delete.
+    """
+    incident_query = (
         select(func.count(distinct(IncidentAssignment.incident_id)))
         .join(Incident, Incident.id == IncidentAssignment.incident_id)
         .join(Event, Event.id == Incident.event_id)
@@ -131,10 +171,44 @@ async def count_active_deployments(db: AsyncSession, resource_type: str, resourc
             IncidentAssignment.resource_id == resource_id,
             IncidentAssignment.unassigned_at.is_(None),
             Incident.deleted_at.is_(None),
-            Event.training_flag.is_(False),
         )
     )
-    return int(result or 0)
+    group_query = (
+        select(func.count(distinct(IncidentGroupAssignment.incident_group_id)))
+        .join(IncidentGroup, IncidentGroup.id == IncidentGroupAssignment.incident_group_id)
+        .join(Event, Event.id == IncidentGroup.event_id)
+        .where(
+            IncidentGroupAssignment.resource_type == resource_type,
+            IncidentGroupAssignment.resource_id == resource_id,
+            IncidentGroupAssignment.unassigned_at.is_(None),
+            IncidentGroup.deleted_at.is_(None),
+        )
+    )
+    if not include_training:
+        incident_query = incident_query.where(Event.training_flag.is_(False))
+        group_query = group_query.where(Event.training_flag.is_(False))
+    return int(await db.scalar(incident_query) or 0) + int(await db.scalar(group_query) or 0)
+
+
+async def delete_assignment_history(db: AsyncSession, resource_type: str, resource_id: uuid.UUID) -> None:
+    """Remove a purged resource's assignment rows from both tables.
+
+    ``resource_id`` carries no foreign key (it is polymorphic), so leftovers would
+    dangle. Only after the purge guard passed: what is left is training or
+    deleted-Einsatz/Auftrag history.
+    """
+    await db.execute(
+        delete(IncidentAssignment).where(
+            IncidentAssignment.resource_type == resource_type,
+            IncidentAssignment.resource_id == resource_id,
+        )
+    )
+    await db.execute(
+        delete(IncidentGroupAssignment).where(
+            IncidentGroupAssignment.resource_type == resource_type,
+            IncidentGroupAssignment.resource_id == resource_id,
+        )
+    )
 
 
 def resolve_out_of_service(payload: BaseModel, current: bool) -> bool:
@@ -321,15 +395,16 @@ async def archive_material(
     """Archive a material: out of the board, out of the sidebar, out of the picker.
 
     Refused (`ArchiveRefused`, the routes' 409) while the material stands on a live
-    Einsatz — archiving it mid-deployment would make it vanish from a card an
-    operator is working, with nobody told. Unassign first, then archive.
+    Einsatz or Auftrag — archiving it mid-deployment would make it vanish from a card
+    an operator is working, with nobody told. Unassign first, then archive. The row is
+    locked first (`locking.lock_resource`, the lock every assignment takes), so no
+    assignment lands between the check and the archive.
 
     Reversible via `restore_material`. Past assignments and the audit trail keep
     it, so past Einsätze still evaluate correctly. Readiness is left alone — a
     restored item comes back exactly as it went in. Already archived is a no-op.
     """
-    result = await db.execute(select(Material).where(Material.id == material_id))
-    material = result.scalar_one_or_none()
+    material = await lock_resource(db, "material", material_id)
 
     if not material:
         return None
@@ -397,12 +472,12 @@ async def purge_material(
     """Permanently delete a material — the row really leaves the database.
 
     Two deliberate steps, because this one is not reversible: the material has to be
-    archived first, and it must never have stood on a live, non-training Einsatz.
-    Assignments to training incidents are removed along with it; the audit_log entries
-    stay, because they are the Protokoll and a purge is itself an entry in it.
+    archived first, and it must never have stood on a live, non-training Einsatz or
+    Auftrag. Training (and deleted) assignment rows of both kinds are removed along
+    with it; the audit_log entries stay, because they are the Protokoll and a purge is
+    itself an entry in it. Row-locked first, like the archive.
     """
-    result = await db.execute(select(Material).where(Material.id == material_id))
-    material = result.scalar_one_or_none()
+    material = await lock_resource(db, "material", material_id)
 
     if not material:
         return PurgeOutcome(purged=False, refusal="not_found")
@@ -415,14 +490,7 @@ async def purge_material(
     if not usage.can_delete:
         return PurgeOutcome(purged=False, refusal="in_use", name=name, usage=usage)
 
-    # incident_assignments.resource_id carries no foreign key (it is polymorphic),
-    # so leftovers would dangle. Only training/deleted-incident rows can be here.
-    await db.execute(
-        delete(IncidentAssignment).where(
-            IncidentAssignment.resource_type == "material",
-            IncidentAssignment.resource_id == material_id,
-        )
-    )
+    await delete_assignment_history(db, "material", material_id)
     await db.delete(material)
 
     await log_action(

@@ -28,7 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import schemas
 from app.config import settings
-from app.models import Personnel, PersonnelExternalIdentity, User
+from app.models import Incident, IncidentAssignment, Personnel, PersonnelExternalIdentity, User
 from app.services.divera_members import (
     build_sync_preview,
     execute_sync,
@@ -464,10 +464,42 @@ async def test_removal_deletes_exactly_the_people_divera_dropped(
     }
     result = await execute_sync(db_session, preview, remove_stale=True, current_user=intake_user, request=mock_request)
 
-    assert result == {"created": 0, "deleted": 1, "linked": 1, "unchanged": 1}
+    assert result == {"created": 0, "deleted": 1, "kept_assigned": 0, "linked": 1, "unchanged": 1}
     names = await _names_in_db(db_session)
     assert "Weg Person" not in names
     assert "Bleibt Person" in names
+
+
+async def test_removal_keeps_and_reports_a_person_still_on_an_einsatz(
+    db_session: AsyncSession, intake_user: User, mock_request, test_event
+):
+    """`delete_personnel` refuses someone on an open assignment. The sync must say «kept», not
+    count a deletion that never happened."""
+    busy = _person("Noch Draussen")
+    db_session.add(busy)
+    incident = Incident(
+        id=uuid4(),
+        title="Keller",
+        type="elementarereignis",
+        priority="medium",
+        status="enroute",
+        event_id=test_event.id,
+    )
+    db_session.add(incident)
+    await db_session.flush()
+    db_session.add(IncidentAssignment(incident_id=incident.id, resource_type="personnel", resource_id=busy.id))
+    await db_session.commit()
+
+    preview = {
+        "new": [],
+        "unchanged": [],
+        "not_in_divera": [{"member": {"divera_id": 0, "name": busy.name}, "existing_id": str(busy.id)}],
+    }
+    result = await execute_sync(db_session, preview, remove_stale=True, current_user=intake_user, request=mock_request)
+
+    assert result["deleted"] == 0
+    assert result["kept_assigned"] == 1
+    assert "Noch Draussen" in await _names_in_db(db_session)
 
 
 async def test_a_member_without_a_divera_id_is_created_but_not_linked(
@@ -539,7 +571,7 @@ async def test_an_unidentifiable_match_is_counted_but_left_alone(
     }
     result = await execute_sync(db_session, preview, remove_stale=False, current_user=intake_user, request=mock_request)
 
-    assert result == {"created": 0, "deleted": 0, "linked": 0, "unchanged": 1}
+    assert result == {"created": 0, "deleted": 0, "kept_assigned": 0, "linked": 0, "unchanged": 1}
     identities = (
         (
             await db_session.execute(

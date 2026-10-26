@@ -366,6 +366,11 @@ rather than importing half of it – and it tells you where: *«Excel-Datei konn
 werden: Vehicles Zeile 7 – ungültiger Status 'einsatzbereit'. Erlaubt: available, unavailable.»*
 Sheet, row and the offending value. Fix that cell and upload again.
 
+Imports are limited to 25 MiB uploaded (the configurable `MAX_EXCEL_IMPORT_MB`), 64 MiB
+uncompressed, 1,024 archive entries, 10,000 data rows per sheet and 64 columns. XML entities
+are rejected. Split a larger roster into smaller files and use `append`. Exported text stays
+literal text in Excel, including names or reports beginning with `=`.
+
 **Sheet names and header rows must match exactly** – `Personnel`, `Vehicles`, `Materials`, with
 the template's English column names in the template's order. Rename a column and the upload is
 rejected.

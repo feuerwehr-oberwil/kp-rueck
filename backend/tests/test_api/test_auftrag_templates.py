@@ -11,6 +11,7 @@ Covers:
 """
 
 import uuid
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -277,6 +278,31 @@ async def test_committed_equipment_is_attached_anyway(
         )
     )
     assert still_held is not None
+
+
+@pytest.mark.asyncio
+async def test_out_of_service_equipment_is_skipped_not_fatal(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    storm_template: AuftragTemplate,
+    test_vehicle: Vehicle,
+    test_material: Material,
+):
+    """`ensure_assignable` refuses a vehicle marked «nicht einsatzbereit». The Lage still
+    opens and «Sturmholz» still gets its material – only the broken TLF stays off."""
+    test_vehicle.out_of_service_since = datetime.now(UTC)
+    await db_session.commit()
+
+    response = await editor_client.post("/api/events/", json={"name": "Sturm", "training_flag": False})
+
+    assert response.status_code == 201, response.text
+    group_id = await db_session.scalar(select(IncidentGroup.id).where(IncidentGroup.event_id == response.json()["id"]))
+    held = (
+        await db_session.execute(
+            select(IncidentGroupAssignment.resource_id).where(IncidentGroupAssignment.incident_group_id == group_id)
+        )
+    ).scalars()
+    assert set(held) == {test_material.id}
 
 
 @pytest.mark.asyncio

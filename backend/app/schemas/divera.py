@@ -148,6 +148,8 @@ class DiveraSyncResult(BaseModel):
     deleted: int
     unchanged: int
     linked: int = 0  # existing people backfilled with their Divera id
+    # Not in Divera any more but kept: still on an open Einsatz or Auftrag (remove_stale only).
+    kept_assigned: int = 0
 
 
 # Outbound alarm (ausalarmierung)

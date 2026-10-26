@@ -990,3 +990,74 @@ async def test_export_creates_audit_log(editor_client: AsyncClient, db_session: 
     )
     audit_entry = result.scalar_one_or_none()
     assert audit_entry is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_import_with_a_blank_name_writes_nothing_and_the_roster_still_reads(
+    editor_client: AsyncClient, db_session: AsyncSession, monkeypatch
+):
+    """A name of three spaces used to import with 200 and break `GET /api/personnel/` for good.
+
+    The whole file is refused – the valid row above the bad one is not written either.
+    """
+    import io
+
+    from openpyxl import Workbook
+
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "demo_mode", False)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Personnel"
+    ws.append(["name", "role", "status"])
+    ws.append(["Anna Muster", "AdF", "available"])
+    ws.append(["   ", "AdF", "available"])
+    content = io.BytesIO()
+    wb.save(content)
+    files = {
+        "file": ("roster.xlsx", content.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    }
+
+    response = await editor_client.post("/api/admin/import/execute", files=files, data={"mode": "append"})
+
+    assert response.status_code == 400
+    assert "Personnel Zeile 3 – Spalte 'name' ist leer" in response.json()["detail"]
+    roster = await editor_client.get("/api/personnel/")
+    assert roster.status_code == 200
+    assert (await db_session.execute(select(Personnel))).scalars().all() == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_an_append_that_repeats_a_roster_name_answers_409_and_writes_nothing(
+    editor_client: AsyncClient, db_session: AsyncSession, monkeypatch
+):
+    """Name + Kennung already on the roster: only the database can tell, so it is a 409, not a 400."""
+    import io
+
+    from openpyxl import Workbook
+
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "demo_mode", False)
+    db_session.add(Personnel(name="Meier Alex", status="available"))
+    await db_session.commit()
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Personnel"
+    ws.append(["name", "kennung", "role", "status"])
+    ws.append(["Neu Nina", None, "AdF", "available"])
+    ws.append(["Meier Alex", None, "AdF", "available"])
+    content = io.BytesIO()
+    wb.save(content)
+    files = {
+        "file": ("roster.xlsx", content.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    }
+
+    response = await editor_client.post("/api/admin/import/execute", files=files, data={"mode": "append"})
+
+    assert response.status_code == 409
+    assert "Personnel Zeile 3 – „Meier Alex“ kommt mehrfach vor, Kennung angeben." in response.json()["detail"]
+    assert [p.name for p in (await db_session.execute(select(Personnel))).scalars().all()] == ["Meier Alex"]

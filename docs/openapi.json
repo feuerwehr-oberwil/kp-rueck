@@ -5249,7 +5249,7 @@
           "incidents"
         ],
         "summary": "Update Incident",
-        "description": "Update incident (editor only).\n\nSupports optimistic locking via expected_updated_at query param.",
+        "description": "Update incident (editor only).\n\nA text field listed in ``text_base`` is only written if nobody else saved it since the\nclient saw it; otherwise 409 ``text_conflict`` (see ``_text_conflict``).",
         "operationId": "update_incident_api_incidents__incident_id__patch",
         "parameters": [
           {
@@ -5260,23 +5260,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "expected_updated_at",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Expected Updated At"
             }
           },
           {
@@ -8085,7 +8068,7 @@
           "incident-groups"
         ],
         "summary": "Assign Group Resource",
-        "description": "Assign a resource directly to an Auftrag (editor only).\n\nThe resource is shared across ALL the Auftrag's stops and may be assigned\neven when the Auftrag has zero stops. A duplicate active assignment on the\nsame Auftrag is rejected with 409.",
+        "description": "Assign a resource directly to an Auftrag (editor only).\n\nThe resource is shared across ALL the Auftrag's stops and may be assigned\neven when the Auftrag has zero stops. A duplicate active assignment on the\nsame Auftrag, or a resource ``ensure_assignable`` refuses (archived), is a 409.",
         "operationId": "assign_group_resource_api_incident_groups__group_id__assign_post",
         "parameters": [
           {
@@ -8645,7 +8628,7 @@
           "assignments"
         ],
         "summary": "Assign Resource",
-        "description": "Assign resource to incident (editor only).\n\nA resource already bound to another incident is rejected with 409\n(``crud.assign_resource`` raises ``ValueError``); the frontend surfaces the\nconflict (vehicles offer a move/keep dialog, personnel/material are filtered\nout of the picker).\n\nA missing incident or resource is a 404 (``LookupError``) — previously the first\ncrashed on a foreign-key violation and the second quietly stored an orphan row.",
+        "description": "Assign resource to incident (editor only).\n\nA resource already bound to another incident is rejected with 409\n(``crud.assign_resource`` raises ``ValueError``); the frontend surfaces the\nconflict (vehicles offer a move/keep dialog, personnel/material are filtered\nout of the picker).\n\nA missing incident or resource is a 404 (``LookupError``) — previously the first\ncrashed on a foreign-key violation and the second quietly stored an orphan row.\nA resource ``crud.ensure_assignable`` refuses (archived inventory) is a 409.",
         "operationId": "assign_resource_api_incidents__incident_id__assign_post",
         "parameters": [
           {
@@ -8731,7 +8714,7 @@
           "assignments"
         ],
         "summary": "Unassign Resource",
-        "description": "Release resource from incident.",
+        "description": "Release resource from incident.\n\n404 when the assignment does not belong to ``incident_id`` – the path names the\ncard the operator acted on, and a mismatched id must not release another one.",
         "operationId": "unassign_resource_api_incidents__incident_id__unassign__assignment_id__post",
         "parameters": [
           {
@@ -9224,7 +9207,7 @@
           "personnel"
         ],
         "summary": "Create Personnel",
-        "description": "Create new personnel (editor only).",
+        "description": "Create new personnel (editor only) – 409 when name + Kennung is already on the roster.",
         "operationId": "create_personnel_api_personnel__post",
         "parameters": [
           {
@@ -9374,7 +9357,7 @@
           "personnel"
         ],
         "summary": "Update Personnel",
-        "description": "Update personnel (editor only).",
+        "description": "Update personnel (editor only) – 409 when the new name + Kennung is already on the roster.",
         "operationId": "update_personnel_api_personnel__personnel_id__put",
         "parameters": [
           {
@@ -9458,7 +9441,7 @@
           "personnel"
         ],
         "summary": "Delete Personnel",
-        "description": "Delete personnel (editor only) - soft delete.",
+        "description": "Delete personnel for good (editor only) – 409 while the person is assigned.",
         "operationId": "delete_personnel_api_personnel__personnel_id__delete",
         "parameters": [
           {
@@ -13656,7 +13639,7 @@
           "reko"
         ],
         "summary": "Assign Reko Personnel",
-        "description": "Assign Reko personnel to an incident.\n\nEditor only - creates a personnel assignment for the Reko person.\nIf another Reko person is already assigned, they will be unassigned first.",
+        "description": "Assign Reko personnel to an incident.\n\nEditor only - creates a personnel assignment for the Reko person.\nIf another Reko person is already assigned, they will be unassigned first.\n\nA new assignment, so ``ensure_assignable`` applies (409 on an archived Ereignis or\na closed Einsatz); a missing Einsatz or person is a 404.",
         "operationId": "assign_reko_personnel_api_reko_incidents__incident_id__assign_reko_post",
         "parameters": [
           {
@@ -13821,7 +13804,7 @@
           "reko"
         ],
         "summary": "Transfer Reko Assignments",
-        "description": "Transfer all open reko assignments from one person to another.\n\nOnly transfers incidents that are in reko status (not yet completed).",
+        "description": "Transfer all open reko assignments from one person to another.\n\nOnly transfers incidents that are in reko status (not yet completed).\n\nThe new person gets NEW assignments, so ``ensure_assignable`` applies: an\narchived Ereignis refuses the whole handover (409), an unknown person is a 404.\nLock order (``crud/locking.py``): the Einsätze with their Aufträge, then the person.",
         "operationId": "transfer_reko_assignments_api_reko_transfer_rekos_post",
         "parameters": [
           {
@@ -23423,6 +23406,11 @@
             "type": "integer",
             "title": "Linked",
             "default": 0
+          },
+          "kept_assigned": {
+            "type": "integer",
+            "title": "Kept Assigned",
+            "default": 0
           }
         },
         "type": "object",
@@ -24114,7 +24102,8 @@
             "title": "Personnel Id"
           },
           "function_type": {
-            "$ref": "#/components/schemas/FunctionType"
+            "type": "string",
+            "title": "Function Type"
           },
           "vehicle_id": {
             "anyOf": [
@@ -25169,7 +25158,8 @@
           "contact_phone": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 50
               },
               {
                 "type": "null"
@@ -25353,7 +25343,8 @@
           "contact_phone": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 50
               },
               {
                 "type": "null"
@@ -25752,6 +25743,17 @@
           "name": {
             "type": "string",
             "title": "Name"
+          },
+          "kennung": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kennung"
           },
           "role": {
             "anyOf": [
@@ -26569,18 +26571,6 @@
         "title": "FireHubWebhook",
         "description": "A FireHub Einsatzstart/Einsatzende webhook payload (``POST /api/firehub/webhook``)."
       },
-      "FunctionType": {
-        "type": "string",
-        "enum": [
-          "driver",
-          "reko",
-          "magazin",
-          "telefondienst",
-          "kommandoposten"
-        ],
-        "title": "FunctionType",
-        "description": "The roles this release knows by name — documentation, not validation.\n\nKept as an enum for the ones the code actually *behaves* differently for and\nfor a readable OpenAPI. It is not the authority: since plan 26 (decision 5)\nthe values live in ``special_function_types`` so a station can add its own\nwithout a migration, and ``crud.special_functions`` validates against that\ntable.\n\nWhich is why nothing **types a field with it any more.** It used to sit on\nthe response schema, so a role the enum had never heard of was accepted on\nthe way in and then 500'd on the way out — the create schema said ``str``\nand the response said enum, and the docstring promised the behaviour the\nresponse denied. `kommandoposten` is the role that found it."
-      },
       "GenerateEmergencyRequest": {
         "properties": {
           "category": {
@@ -27039,7 +27029,8 @@
           "contact_phone": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 50
               },
               {
                 "type": "null"
@@ -27565,7 +27556,8 @@
           "contact_phone": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 50
               },
               {
                 "type": "null"
@@ -27882,6 +27874,18 @@
               }
             ],
             "title": "Leader Name"
+          },
+          "effective_leader_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Leader Id"
           },
           "location_display": {
             "anyOf": [
@@ -28277,7 +28281,8 @@
           "contact_phone": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 50
               },
               {
                 "type": "null"
@@ -28372,11 +28377,35 @@
             ],
             "title": "Source",
             "default": "operator"
+          },
+          "text_base": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "propertyNames": {
+                  "enum": [
+                    "description",
+                    "contact",
+                    "contact_phone",
+                    "internal_notes",
+                    "nachbarhilfe_note",
+                    "am_warten_note"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Base"
           }
         },
         "type": "object",
         "title": "IncidentUpdate",
-        "description": "Schema for updating incident."
+        "description": "Schema for updating incident: the create rules (`IncidentFields`), every field optional.\n\nThe free-text fields, the coordinates, `group_id` and the two move fields may be sent\nas null; the other columns cannot be emptied. `internal_notes` carries no length cap:\nmerges and `/feld` append to it on the server, so a note may already be past any\nlimit a form would set."
       },
       "IntakeAlarmUpdate": {
         "properties": {
@@ -28494,7 +28523,8 @@
           "contact_phone": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 50
               },
               {
                 "type": "null"
@@ -28936,25 +28966,34 @@
         "properties": {
           "name": {
             "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
             "title": "Name"
           },
           "type": {
             "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
             "title": "Type"
           },
           "location": {
             "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
             "title": "Location"
           },
           "location_sort_order": {
             "type": "integer",
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
             "title": "Location Sort Order",
             "default": 0
           },
           "description": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 500
               },
               {
                 "type": "null"
@@ -29067,25 +29106,34 @@
         "properties": {
           "name": {
             "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
             "title": "Name"
           },
           "type": {
             "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
             "title": "Type"
           },
           "location": {
             "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
             "title": "Location"
           },
           "location_sort_order": {
             "type": "integer",
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
             "title": "Location Sort Order",
             "default": 0
           },
           "description": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 500
               },
               {
                 "type": "null"
@@ -29418,7 +29466,9 @@
           "name": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
               },
               {
                 "type": "null"
@@ -29429,7 +29479,9 @@
           "type": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 50,
+                "minLength": 1
               },
               {
                 "type": "null"
@@ -29440,7 +29492,9 @@
           "location": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
               },
               {
                 "type": "null"
@@ -29451,7 +29505,9 @@
           "location_sort_order": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "integer",
+                "maximum": 2147483647.0,
+                "minimum": 0.0
               },
               {
                 "type": "null"
@@ -29462,7 +29518,8 @@
           "description": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 500
               },
               {
                 "type": "null"
@@ -29518,7 +29575,7 @@
         },
         "type": "object",
         "title": "MaterialUpdate",
-        "description": "Schema for updating material.\n\n`out_of_service` and `status` write the same readiness flag; when both are\npresent in the payload, `out_of_service` wins. `archived_at` is not settable\nhere — archiving goes through POST /materials/{id}/archive and /restore."
+        "description": "Schema for updating material: same field rules as create, every field optional.\n\n`out_of_service` and `status` write the same readiness flag; when both are\npresent in the payload, `out_of_service` wins, and a null in either means \"not\nsent\" (`crud.materials.resolve_out_of_service`). `description` and `group_id` may\nbe cleared with null; the other columns cannot be emptied. `archived_at` is not\nsettable here — archiving goes through POST /materials/{id}/archive and /restore."
       },
       "MergeIntoRequest": {
         "properties": {
@@ -30195,12 +30252,28 @@
         "properties": {
           "name": {
             "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
             "title": "Name"
+          },
+          "kennung": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kennung"
           },
           "role": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 50
               },
               {
                 "type": "null"
@@ -30210,6 +30283,8 @@
           },
           "role_sort_order": {
             "type": "integer",
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
             "title": "Role Sort Order",
             "default": 0
           },
@@ -30377,6 +30452,17 @@
             "type": "string",
             "title": "Name"
           },
+          "kennung": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kennung"
+          },
           "role": {
             "anyOf": [
               {
@@ -30454,12 +30540,28 @@
         "properties": {
           "name": {
             "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
             "title": "Name"
+          },
+          "kennung": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kennung"
           },
           "role": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 50
               },
               {
                 "type": "null"
@@ -30469,6 +30571,8 @@
           },
           "role_sort_order": {
             "type": "integer",
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
             "title": "Role Sort Order",
             "default": 0
           },
@@ -30509,6 +30613,17 @@
           "name": {
             "type": "string",
             "title": "Name"
+          },
+          "kennung": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kennung"
           },
           "role": {
             "anyOf": [
@@ -30588,7 +30703,9 @@
           "name": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
               },
               {
                 "type": "null"
@@ -30596,10 +30713,24 @@
             ],
             "title": "Name"
           },
+          "kennung": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kennung"
+          },
           "role": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 50
               },
               {
                 "type": "null"
@@ -30610,7 +30741,9 @@
           "role_sort_order": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "integer",
+                "maximum": 2147483647.0,
+                "minimum": 0.0
               },
               {
                 "type": "null"
@@ -30646,7 +30779,7 @@
         },
         "type": "object",
         "title": "PersonnelUpdate",
-        "description": "Schema for updating personnel."
+        "description": "Schema for updating personnel: same field rules as create, every field optional.\n\n`kennung`, `role` and `tags` may be cleared with null; the other columns cannot be empty."
       },
       "PrintBoardRequest": {
         "properties": {
@@ -30788,10 +30921,11 @@
           "pending",
           "printing",
           "completed",
-          "failed"
+          "failed",
+          "expired"
         ],
         "title": "PrintJobStatus",
-        "description": "Print job status enumeration."
+        "description": "Every status a stored print job can have – the `valid_print_job_status` CHECK.\n\n`expired` is set only by the server (`crud.print_jobs.expire_stale_jobs`); it is here\nso a read of such a job can answer at all."
       },
       "PrintJobType": {
         "type": "string",
@@ -30808,7 +30942,12 @@
       "PrintJobUpdate": {
         "properties": {
           "status": {
-            "$ref": "#/components/schemas/PrintJobStatus"
+            "type": "string",
+            "enum": [
+              "completed",
+              "failed"
+            ],
+            "title": "Status"
           },
           "error_message": {
             "anyOf": [
@@ -31183,7 +31322,8 @@
           "contact_phone": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 50
               },
               {
                 "type": "null"
@@ -31561,6 +31701,17 @@
           "name": {
             "type": "string",
             "title": "Name"
+          },
+          "kennung": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kennung"
           },
           "checked_in": {
             "type": "boolean",
@@ -34139,6 +34290,8 @@
         "properties": {
           "name": {
             "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
             "title": "Name"
           },
           "type": {
@@ -34147,6 +34300,8 @@
           },
           "display_order": {
             "type": "integer",
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
             "title": "Display Order"
           },
           "status": {
@@ -34155,6 +34310,8 @@
           },
           "radio_call_sign": {
             "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
             "title": "Radio Call Sign"
           },
           "id": {
@@ -34242,14 +34399,20 @@
         "properties": {
           "name": {
             "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
             "title": "Name"
           },
           "type": {
             "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
             "title": "Type"
           },
           "display_order": {
             "type": "integer",
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
             "title": "Display Order"
           },
           "status": {
@@ -34258,6 +34421,8 @@
           },
           "radio_call_sign": {
             "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
             "title": "Radio Call Sign"
           },
           "out_of_service": {
@@ -34553,7 +34718,9 @@
           "name": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
               },
               {
                 "type": "null"
@@ -34564,7 +34731,9 @@
           "type": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 50,
+                "minLength": 1
               },
               {
                 "type": "null"
@@ -34575,7 +34744,9 @@
           "display_order": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "integer",
+                "maximum": 2147483647.0,
+                "minimum": 0.0
               },
               {
                 "type": "null"
@@ -34608,7 +34779,9 @@
           "radio_call_sign": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
               },
               {
                 "type": "null"
@@ -34619,7 +34792,7 @@
         },
         "type": "object",
         "title": "VehicleUpdate",
-        "description": "Schema for updating vehicle.\n\n`out_of_service` and `status` write the same readiness flag; when both are\npresent in the payload, `out_of_service` wins. `archived_at` is not settable\nhere — archiving goes through POST /vehicles/{id}/archive and /restore."
+        "description": "Schema for updating vehicle: same field rules as create, every field optional.\n\n`out_of_service` and `status` write the same readiness flag; when both are\npresent in the payload, `out_of_service` wins, and a null in either means \"not\nsent\" (`crud.materials.resolve_out_of_service`). The other columns cannot be\nemptied. `archived_at` is not settable here — archiving goes through\nPOST /vehicles/{id}/archive and /restore."
       },
       "WarningText": {
         "properties": {

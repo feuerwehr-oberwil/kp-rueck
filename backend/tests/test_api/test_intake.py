@@ -824,6 +824,16 @@ class TestCorrectionValidation:
 
     @pytest.mark.asyncio
     @pytest.mark.api
+    async def test_an_overlong_phone_number_is_a_422_not_a_500(self, client: AsyncClient, test_event: Event):
+        """`contact_phone` is a 50-wide column; past it the UPDATE used to fail as a 500."""
+        token, incident_id, receipt = await _phone_in(client, test_event)
+
+        response = await client.put(_receipt_url(incident_id, token, receipt), json={"contact_phone": "1" * 51})
+
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
     async def test_a_coordinate_off_the_planet_is_refused(self, client: AsyncClient, test_event: Event):
         token, incident_id, receipt = await _phone_in(client, test_event)
 

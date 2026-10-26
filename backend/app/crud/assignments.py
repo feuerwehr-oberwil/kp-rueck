@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..models import (
+    Event,
     EventSpecialFunction,
     Incident,
     IncidentAssignment,
@@ -21,13 +22,86 @@ from ..models import (
     Vehicle,
 )
 from ..services.audit import log_action
-
-# resource_type is constrained to these three by AssignmentCreate's validator.
-_RESOURCE_MODELS = {"personnel": Personnel, "vehicle": Vehicle, "material": Material}
+from .locking import AssignableResource, lock_incident_with_group, lock_incidents_with_groups, lock_resource
 
 
 class IncidentNotOnBoardError(Exception):
     """The incident was deleted or merged into another card — nothing goes onto it any more."""
+
+
+class ResourceNotAssignableError(ValueError):
+    """The resource exists but may not be assigned right now. ``str()`` is the German 409 detail.
+
+    A ``ValueError`` so a route that only maps ``ValueError`` (the transfer) answers 4xx,
+    not 500; the assign routes catch it first and answer 409.
+    """
+
+
+def ensure_assignable(resource: AssignableResource, *, event: Event, incident: Incident | None = None) -> None:
+    """The one place that decides whether a resource may go onto an Einsatz or an Auftrag.
+
+    Called by ``assign_resource`` (``incident`` given) and
+    ``group_assignments.assign_group_resource`` (Auftrag: ``incident`` None) with the
+    target and the resource row locked (``crud/locking.py``) – the resource lock is
+    the one archive and purge take, so nothing changes between this check and the
+    insert. ``event`` is the target's Ereignis, read without a lock: archiving one is
+    a deliberate step, and locking its row here would invert ``delete_event``'s order.
+
+    Hiding a resource in the picker does not stop a stale tab or a script, so the
+    server refuses (owner decision, audit 2026-10 F13):
+
+    * archived inventory,
+    * a vehicle or material marked «Nicht einsatzbereit» (``out_of_service_since``),
+    * anything onto an archived Ereignis,
+    * personnel or a vehicle onto a closed Einsatz. Material may still go onto one:
+      equipment is left on site after the crew drives off and tracked until it is back.
+
+    Only new assignments pass through here (also the Reko assignment, a template's
+    equipment, a `/feld` take-over and a transfer). Rows already assigned stay as they
+    are, and the internal re-openers (the completion undo, merges, imports, seed, the
+    `/feld` route mirror) write rows directly and do not ask.
+    """
+    if isinstance(resource, Vehicle | Material):
+        label = f"{'Fahrzeug' if isinstance(resource, Vehicle) else 'Material'} «{resource.name}»"
+        if resource.archived_at is not None:
+            raise ResourceNotAssignableError(f"{label} ist archiviert und kann nicht zugewiesen werden.")
+        if resource.out_of_service_since is not None:
+            raise ResourceNotAssignableError(f"{label} ist nicht einsatzbereit und kann nicht zugewiesen werden.")
+    if event.archived_at is not None:
+        raise ResourceNotAssignableError("Das Ereignis ist archiviert – es kann nichts mehr zugewiesen werden.")
+    if incident is not None and incident.status == "complete" and not isinstance(resource, Material):
+        raise ResourceNotAssignableError(
+            "Der Einsatz ist abgeschlossen – Personal und Fahrzeuge können nicht mehr zugewiesen werden."
+        )
+
+
+async def lock_for_new_assignment(
+    db: AsyncSession, incident_id: uuid.UUID, resource_type: str, resource_id: uuid.UUID
+) -> Incident:
+    """Lock an Einsatz and a resource for a NEW assignment row the caller writes itself.
+
+    For writers that build the row by hand (the Reko assignment). Lock order
+    (``crud/locking.py``): the Einsatz with its Auftrag, then the resource row; then
+    ``ensure_assignable``. Returns the locked Einsatz.
+
+    Raises:
+        LookupError: the Einsatz or the resource does not exist.
+        IncidentNotOnBoardError: the Einsatz is deleted or merged.
+        ResourceNotAssignableError: ``ensure_assignable`` refused the resource.
+    """
+    incident = await lock_incident_with_group(db, incident_id)
+    if incident is None:
+        raise LookupError(f"incident {incident_id} does not exist")
+    if incident.deleted_at is not None or incident.merged_into_id is not None:
+        raise IncidentNotOnBoardError(f"incident {incident_id} is deleted or merged")
+    resource = await lock_resource(db, resource_type, resource_id)
+    if resource is None:
+        raise LookupError(f"{resource_type} {resource_id} does not exist")
+    event = await db.get(Event, incident.event_id)
+    if event is None:
+        raise LookupError(f"event {incident.event_id} does not exist")
+    ensure_assignable(resource, event=event, incident=incident)
+    return incident
 
 
 async def assign_resource(
@@ -48,12 +122,15 @@ async def assign_resource(
     Checks for conflicts (resource already assigned elsewhere).
     Updates the resource status field.
 
+    Lock order (``crud/locking.py``): the incident, then the resource row.
+
     Returns:
         Created assignment
 
     Raises:
         ValueError: If resource already assigned to this incident
         LookupError: If the incident or the resource does not exist
+        ResourceNotAssignableError: ``ensure_assignable`` refused the resource
     """
     # Both ends must exist before anything is written. Without the incident check the INSERT
     # died on a foreign-key violation, i.e. a 500 for what is plainly a stale id; without the
@@ -76,8 +153,13 @@ async def assign_resource(
     if incident.deleted_at is not None or incident.merged_into_id is not None:
         raise IncidentNotOnBoardError(f"incident {incident_id} is deleted or merged")
 
-    if await db.get(_RESOURCE_MODELS[resource_type], resource_id) is None:
+    resource = await lock_resource(db, resource_type, resource_id)
+    if resource is None:
         raise LookupError(f"{resource_type} {resource_id} does not exist")
+    event = await db.get(Event, incident.event_id)
+    if event is None:
+        raise LookupError(f"event {incident.event_id} does not exist")
+    ensure_assignable(resource, event=event, incident=incident)
 
     # Use FOR UPDATE to lock rows and prevent race conditions
     # This ensures that if two concurrent requests try to assign the same
@@ -236,12 +318,21 @@ async def unassign_resource(
     current_user: User,
     request: Request | None,
     *,
+    incident_id: uuid.UUID,
     stamp_leader_of_record: bool = True,
-) -> bool:
+) -> IncidentAssignment | None:
     """
-    Release resource from incident.
+    Release a resource from the incident ``incident_id``; returns the released row.
 
-    Sets unassigned_at timestamp and updates resource status to 'available'.
+    Sets ``unassigned_at`` and clears the Einsatzleiter flag. ``None`` when no
+    assignment ``assignment_id`` belongs to ``incident_id`` – a stale or mismatched
+    id must not release a row on another incident (audit 2026-10, F03); the route
+    turns that into its 404. Releasing an already released row of the right
+    incident still succeeds and stamps ``unassigned_at`` again (behaviour kept as
+    it was; the board treats it as a no-op).
+
+    Locks the incident first, then writes the assignment – the order in
+    ``crud/locking.py``, the same one completion takes.
 
     Flushes only — the CALLER owns the commit. This runs inside larger
     operations (incident completion auto-release); a commit here would let a
@@ -252,11 +343,16 @@ async def unassign_resource(
     ``auto_release_incident_resources``. A single release IS a leader change
     (the EL drives off, the next person takes over) and must move the record.
     """
-    result = await db.execute(select(IncidentAssignment).where(IncidentAssignment.id == assignment_id))
-    assignment = result.scalar_one_or_none()
+    await db.execute(select(Incident.id).where(Incident.id == incident_id).with_for_update())
+    assignment = await db.scalar(
+        select(IncidentAssignment).where(
+            IncidentAssignment.id == assignment_id,
+            IncidentAssignment.incident_id == incident_id,
+        )
+    )
 
-    if not assignment:
-        return False
+    if assignment is None:
+        return None
 
     # Mark unassigned. The Einsatzleiter flag goes with it: the index only
     # counts active rows, so a released row keeping `is_leader` is legal — but
@@ -288,7 +384,7 @@ async def unassign_resource(
     if assignment.resource_type == "personnel":
         await sync_auto_leader(db, assignment.incident_id, stamp_leader_of_record=stamp_leader_of_record)
 
-    return True
+    return assignment
 
 
 # `update_resource_status(db, resource_type, resource_id, new_status)` used to sit
@@ -438,7 +534,9 @@ async def auto_release_incident_resources(
         # its Einsatzleiter puts the card back minus the one thing the operator
         # is most likely to look for.
         was_leader = assignment.is_leader
-        if await unassign_resource(db, assignment.id, current_user, request, stamp_leader_of_record=False):
+        if await unassign_resource(
+            db, assignment.id, current_user, request, incident_id=incident_id, stamp_leader_of_record=False
+        ):
             released.append({"kind": "incident", "id": str(assignment.id), "was_leader": was_leader})
 
     return released
@@ -608,20 +706,22 @@ async def transfer_assignments(
         - transferred_count: Number of assignments transferred
         - assignment_ids: List of new assignment IDs
 
+    The rows are NEW assignments on the target, so ``ensure_assignable`` applies to
+    each resource (a closed or archived target, a vehicle now «nicht einsatzbereit»)
+    and refuses the whole transfer. Lock order (``crud/locking.py``): both Einsätze
+    with their Aufträge, then the resource rows by id.
+
     Raises:
         ValueError: If source has no assignments or if conflicts exist
+        ResourceNotAssignableError: (a ``ValueError``) the policy refused a resource
     """
-    from ..models import EventSpecialFunction, Incident
-
-    # Verify both incidents exist
-    source_result = await db.execute(select(Incident).where(Incident.id == source_incident_id))
-    source_incident = source_result.scalar_one_or_none()
-    if not source_incident:
+    locked = await lock_incidents_with_groups(db, [source_incident_id, target_incident_id])
+    source_incident = locked.get(source_incident_id)
+    if source_incident is None:
         raise ValueError("Quell-Einsatz nicht gefunden")
 
-    target_result = await db.execute(select(Incident).where(Incident.id == target_incident_id))
-    target_incident = target_result.scalar_one_or_none()
-    if not target_incident:
+    target_incident = locked.get(target_incident_id)
+    if target_incident is None or target_incident.deleted_at is not None or target_incident.merged_into_id is not None:
         raise ValueError("Ziel-Einsatz nicht gefunden")
 
     # Get all active assignments from source
@@ -661,6 +761,18 @@ async def transfer_assignments(
 
     if conflicts:
         raise ValueError("Übertragen nicht möglich – im Ziel-Einsatz bereits zugewiesen: " + ", ".join(conflicts))
+
+    target_event = await db.get(Event, target_incident.event_id)
+    if target_event is None:
+        raise ValueError("Ziel-Einsatz nicht gefunden")
+    for resource_id, resource_type in sorted({(a.resource_id, a.resource_type) for a in source_assignments}):
+        resource = await lock_resource(db, resource_type, resource_id)
+        if resource is None:
+            continue  # a row pointing at a deleted resource moves as it is
+        try:
+            ensure_assignable(resource, event=target_event, incident=target_incident)
+        except ResourceNotAssignableError as refused:
+            raise ResourceNotAssignableError(f"Übertragen nicht möglich – {refused}") from refused
 
     # Transfer assignments
     new_assignment_ids = []

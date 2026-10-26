@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
+from ..crud import assignments as assignments_crud
 from ..crud import events as events_crud
 from ..crud import group_assignments as ga_crud
 from ..crud import groups as crud
@@ -247,7 +248,7 @@ async def assign_group_resource(
 
     The resource is shared across ALL the Auftrag's stops and may be assigned
     even when the Auftrag has zero stops. A duplicate active assignment on the
-    same Auftrag is rejected with 409.
+    same Auftrag, or a resource ``ensure_assignable`` refuses (archived), is a 409.
     """
     group = await crud.get_group(db, group_id)
     if not group:
@@ -262,10 +263,15 @@ async def assign_group_resource(
             current_user=current_user,
             request=request,
         )
+    except LookupError as e:
+        # The Auftrag was deleted between the check above and the lock.
+        raise HTTPException(status_code=404, detail=ErrorMessages.AUFTRAG_NOT_FOUND) from e
     except ga_crud.ResourceNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except ga_crud.ResourceTypeMismatchError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
+    except assignments_crud.ResourceNotAssignableError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     except ValueError as e:
         logger.warning("Group assignment conflict for Auftrag %s: %s", group_id, e)
         raise HTTPException(status_code=409, detail=str(e)) from e
@@ -341,13 +347,13 @@ async def update_group_assignment(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.AUFTRAG_NOT_FOUND)
 
     try:
-        assignment = await ga_crud.update_group_assignment(db, assignment_id, update)
+        assignment = await ga_crud.update_group_assignment(db, group_id, assignment_id, update)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     except IntegrityError as e:
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ErrorMessages.CONFLICT) from e
-    if not assignment or assignment.incident_group_id != group_id:
+    if not assignment:
         raise HTTPException(status_code=404, detail=ErrorMessages.ASSIGNMENT_NOT_FOUND)
 
     # Re-read the Auftrag after the write: building a response from a stale

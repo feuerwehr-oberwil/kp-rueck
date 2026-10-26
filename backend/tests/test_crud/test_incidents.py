@@ -660,7 +660,9 @@ class TestCompletionIsUndoable:
         )
         # Operator releases the vehicle by hand, then reopens again later.
         active = await self._active(db_session, test_incident.id)
-        await assignment_crud.unassign_resource(db_session, active[0].id, test_user, mock_request)
+        await assignment_crud.unassign_resource(
+            db_session, active[0].id, test_user, mock_request, incident_id=test_incident.id
+        )
         await db_session.commit()
 
         await incident_crud.update_incident_status(

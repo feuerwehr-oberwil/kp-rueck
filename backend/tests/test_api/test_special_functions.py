@@ -15,7 +15,23 @@ import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Event, EventSpecialFunction, Personnel, User, Vehicle
+from app.models import Event, EventSpecialFunction, Personnel, SpecialFunctionType, User, Vehicle
+
+
+@pytest.mark.asyncio
+async def test_station_defined_function_can_be_assigned_and_removed(
+    db_session, editor_client, test_event, test_personnel
+):
+    db_session.add(SpecialFunctionType(key="verkehrsdienst", label_de="Verkehrsdienst"))
+    await db_session.commit()
+    path = f"/api/events/{test_event.id}/special-functions/"
+    payload = {"personnel_id": str(test_personnel.id), "function_type": "verkehrsdienst"}
+    created = await editor_client.post(path, json=payload)
+    assert created.status_code == 201
+
+    removed = await editor_client.request("DELETE", path, json=payload)
+    assert removed.status_code == 204
+    assert (await editor_client.get(path)).json() == []
 
 
 @pytest_asyncio.fixture

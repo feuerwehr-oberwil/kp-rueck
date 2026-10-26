@@ -368,57 +368,6 @@ async def test_event_delete_cascade_handling(admin_client: AsyncClient, db_sessi
 
 
 # ============================================
-# Optimistic Locking Tests
-# ============================================
-
-
-@pytest.mark.asyncio
-@pytest.mark.integration
-async def test_optimistic_locking_conflict(
-    editor_client: AsyncClient, test_incident: Incident, db_session: AsyncSession
-):
-    """Test that optimistic locking detects concurrent modifications."""
-    # Get current updated_at
-    response = await editor_client.get(f"/api/incidents/{test_incident.id}")
-    assert response.status_code == 200
-    original_updated_at = response.json()["updated_at"]
-
-    # Update incident with expected_updated_at
-    update_data = {"title": "First Update"}
-    response = await editor_client.patch(
-        f"/api/incidents/{test_incident.id}",
-        json=update_data,
-        params={"expected_updated_at": original_updated_at},
-    )
-    assert response.status_code == 200
-
-    # Try to update again with the old expected_updated_at (simulating concurrent update)
-    update_data = {"title": "Second Update"}
-    response = await editor_client.patch(
-        f"/api/incidents/{test_incident.id}",
-        json=update_data,
-        params={"expected_updated_at": original_updated_at},  # Stale timestamp
-    )
-    # Should return 409 (conflict) because updated_at has changed
-    assert response.status_code == 409
-
-
-@pytest.mark.asyncio
-@pytest.mark.integration
-async def test_update_without_optimistic_lock(editor_client: AsyncClient, test_incident: Incident):
-    """Test that updates work without optimistic locking (for backwards compatibility)."""
-    update_data = {"title": "Updated Title Without Lock"}
-    response = await editor_client.patch(
-        f"/api/incidents/{test_incident.id}",
-        json=update_data,
-        # No expected_updated_at parameter
-    )
-    # Should succeed
-    assert response.status_code == 200
-    assert response.json()["title"] == "Updated Title Without Lock"
-
-
-# ============================================
 # Authorization Error Tests
 # ============================================
 

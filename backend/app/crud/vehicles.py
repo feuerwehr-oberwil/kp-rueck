@@ -10,18 +10,20 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import Request
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..models import IncidentAssignment, User, Vehicle
+from ..models import User, Vehicle
 from ..services.audit import calculate_changes, log_action
+from .locking import lock_resource
 from .materials import (
     NO_USAGE,
     ArchiveRefused,
     PurgeOutcome,
     apply_out_of_service,
     count_active_deployments,
+    delete_assignment_history,
     resolve_out_of_service,
     resource_usage,
 )
@@ -158,15 +160,15 @@ async def archive_vehicle(
     """Archive a vehicle: out of the board, out of the fleet sheet, out of the picker.
 
     Refused (`ArchiveRefused`, the routes' 409) while the vehicle stands on a live
-    Einsatz — archiving it mid-deployment would make it vanish from a card an
-    operator is working, with nobody told. Unassign first, then archive.
+    Einsatz or Auftrag — archiving it mid-deployment would make it vanish from a card
+    an operator is working, with nobody told. Unassign first, then archive. Row-locked
+    first (`locking.lock_resource`), like every assignment.
 
     Reversible via `restore_vehicle`. Past assignments and the audit trail keep
     it, so past Einsätze still evaluate correctly. Readiness is left alone — a
     restored vehicle comes back exactly as it went in. Already archived is a no-op.
     """
-    result = await db.execute(select(Vehicle).where(Vehicle.id == vehicle_id))
-    vehicle = result.scalar_one_or_none()
+    vehicle = await lock_resource(db, "vehicle", vehicle_id)
 
     if not vehicle:
         return None
@@ -234,13 +236,13 @@ async def purge_vehicle(
     """Permanently delete a vehicle — the row really leaves the database.
 
     Two deliberate steps, because this one is not reversible: the vehicle has to be
-    archived first, and it must never have stood on a live, non-training Einsatz.
-    Assignments to training incidents are removed along with it, and its
-    `event_special_functions` rows (Fahrer) go by ON DELETE CASCADE. The audit_log
-    entries stay, because they are the Protokoll and a purge is itself an entry in it.
+    archived first, and it must never have stood on a live, non-training Einsatz or
+    Auftrag. Training (and deleted) assignment rows of both kinds are removed along
+    with it, and its `event_special_functions` rows (Fahrer) go by ON DELETE CASCADE.
+    The audit_log entries stay, because they are the Protokoll and a purge is itself
+    an entry in it. Row-locked first, like the archive.
     """
-    result = await db.execute(select(Vehicle).where(Vehicle.id == vehicle_id))
-    vehicle = result.scalar_one_or_none()
+    vehicle = await lock_resource(db, "vehicle", vehicle_id)
 
     if not vehicle:
         return PurgeOutcome(purged=False, refusal="not_found")
@@ -253,14 +255,7 @@ async def purge_vehicle(
     if not usage.can_delete:
         return PurgeOutcome(purged=False, refusal="in_use", name=name, usage=usage)
 
-    # incident_assignments.resource_id carries no foreign key (it is polymorphic),
-    # so leftovers would dangle. Only training/deleted-incident rows can be here.
-    await db.execute(
-        delete(IncidentAssignment).where(
-            IncidentAssignment.resource_type == "vehicle",
-            IncidentAssignment.resource_id == vehicle_id,
-        )
-    )
+    await delete_assignment_history(db, "vehicle", vehicle_id)
     await db.delete(vehicle)
 
     await log_action(

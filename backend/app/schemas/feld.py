@@ -19,6 +19,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .field_requests import FieldRequestResponse
+from .fields import OptionalText50
 from .incidents import IncidentFields, IncidentPriority, IncidentType, LocationFields
 
 # 'none'      – no schadenplatz_reports row for this incident yet
@@ -42,6 +43,7 @@ class FeldPersonnel(BaseModel):
 
     personnel_id: UUID
     name: str
+    kennung: str | None = None  # tells two people of the same name apart
     role: str | None = None
     # Incidents in this event the person is or was assigned to.
     incident_count: int = 0
@@ -697,6 +699,7 @@ class RapportPersonnelCandidate(BaseModel):
 
     personnel_id: UUID
     name: str
+    kennung: str | None = None  # tells two people of the same name apart
     checked_in: bool = False
 
 
@@ -1032,7 +1035,7 @@ class FeldIncidentCreate(IncidentFields):
     # and the source stays 'feld', for anybody without the role.
     as_phone_call: bool = False
     contact: str | None = None
-    contact_phone: str | None = None
+    contact_phone: OptionalText50 | None = None  # the column is 50 wide
     # The reporter answered «Zusammenführen» to «Möglicherweise dasselbe wie …»:
     # the Meldung becomes a Nachtrag on that open card instead of a new one, and
     # `take_over` is ignored (services/duplicates.py; the KP can «Trennen»).
@@ -1060,7 +1063,7 @@ class FeldIncidentUpdate(LocationFields):
     description: str | None = None
     internal_notes: str | None = None
     contact: str | None = None
-    contact_phone: str | None = None
+    contact_phone: OptionalText50 | None = None  # the column is 50 wide
 
 
 class FeldOwnReport(BaseModel):

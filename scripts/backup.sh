@@ -47,6 +47,8 @@
 # Keep SECRET_KEY and AUTH_SECRET_KEY with the backup: restoring a database under different
 # secrets logs everyone out and invalidates every issued token.
 set -euo pipefail
+# Dumps contain credentials and operational data; never inherit a permissive host umask.
+umask 077
 
 MODE="once"
 case "${1:-}" in
@@ -266,7 +268,9 @@ run_loop() {
   log "backup service started – daily at $at, target $DIR"
   if [ "${BACKUP_ON_START:-true}" = "true" ]; then
     log "taking one backup immediately (BACKUP_ON_START), so a broken setup fails now and not at $at"
-    run_backup || err "backup failed – service stays up, next attempt at $at"
+    # A failed run calls `die` (exit). Isolate it so the scheduler survives, and so
+    # `set -e` inside the child is not disabled by this parent's `||` condition.
+    bash "$0" "$DIR" || err "backup failed – service stays up, next attempt at $at"
   fi
   while true; do
     now=$(( 10#$(date +%H) * 3600 + 10#$(date +%M) * 60 + 10#$(date +%S) ))
@@ -275,7 +279,7 @@ run_loop() {
     [ "$sleep_for" -le 0 ] && sleep_for=$(( sleep_for + 86400 ))
     log "next backup in $(( sleep_for / 3600 ))h $(( sleep_for % 3600 / 60 ))min (at $at)"
     sleep "$sleep_for"
-    run_backup || err "backup failed – service stays up, next attempt at $at"
+    bash "$0" "$DIR" || err "backup failed – service stays up, next attempt at $at"
   done
 }
 

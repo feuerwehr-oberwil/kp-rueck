@@ -187,6 +187,11 @@ class Personnel(Base):
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
+    # Tells two people of the same name apart (Jahrgang, Personal-Nr., …); the board shows it
+    # only when a name is shared. Name + Kennung is unique among the roster, enforced by the
+    # writers (`crud.personnel.find_name_clash`, the Excel import) – no index, because
+    # stations already hold such pairs without one (migration bff3241e12af).
+    kennung: Mapped[str | None] = mapped_column(String(20), nullable=True)
     role: Mapped[str | None] = mapped_column(String(50), nullable=True)
     role_sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -598,6 +603,8 @@ class Incident(Base):
     # Batched on so a completed incident — whose assignments were released —
     # can still say who to call about it.
     leader_name: str | None
+    # That same person's id – the board identifies people by id, never by name.
+    effective_leader_id: UUID | None
     # The field's open + «in Arbeit» requests (R13), batched on by the board
     # query (`crud.feld.open_requests_for_incidents`) so the card can show what
     # is still owed without a request per card.

@@ -35,6 +35,29 @@ from app.services.photo_storage import photo_storage
 from app.services.tokens import generate_alarm_token, generate_form_token, generate_viewer_token
 
 
+@pytest.mark.asyncio
+async def test_viewer_snapshot_includes_more_than_one_api_page(db_session, client, test_event):
+    incidents = [
+        Incident(
+            id=uuid4(),
+            event_id=test_event.id,
+            title=f"Incident {index}",
+            type="elementarereignis",
+            priority="medium",
+            status="incoming",
+        )
+        for index in range(501)
+    ]
+    db_session.add_all(incidents)
+    await db_session.commit()
+    response = await client.get("/api/viewer/data", params={"token": generate_viewer_token(test_event.id)})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert {row["id"] for row in data["incidents"]} == {str(row.id) for row in incidents}
+    assert data["figures"]["total"] == 501
+
+
 @pytest_asyncio.fixture
 async def submitted_reko(db_session: AsyncSession, test_incident: Incident) -> RekoReport:
     """A filed Reko report with dangers, effort, free text and photos."""

@@ -150,7 +150,9 @@ class TestAutomaticLeader:
         await _assign(db_session, incident, rest, user, mock_request)
         assert await _leaders(db_session, incident.id) == ["Offi Olga"]
 
-        await assignment_crud.unassign_resource(db_session, boss_assignment.id, user, mock_request)
+        await assignment_crud.unassign_resource(
+            db_session, boss_assignment.id, user, mock_request, incident_id=incident.id
+        )
         await db_session.commit()
 
         assert await _leaders(db_session, incident.id) == ["Wacht Willi"]
@@ -170,6 +172,19 @@ class TestAutomaticLeader:
         # Releases happen one at a time and each promotes the next person; if the
         # flag stuck to released rows the whole crew would read as leaders.
         assert await _leaders(db_session, incident.id, active_only=False) == []
+
+
+class TestLeaderOnTheBoard:
+    async def test_the_board_gets_the_leaders_id_not_just_a_name(self, db_session, incident, event, user, mock_request):
+        # Two people may share a name; the board marks the leader by id (F04).
+        twin = await _person(db_session, "Meier Alex", "Mannschaft")
+        leader = await _person(db_session, "Meier Alex", "Offizier")
+        await _assign(db_session, incident, twin, user, mock_request)
+        await _assign(db_session, incident, leader, user, mock_request)
+
+        listed = await incident_crud.get_incidents(db_session, event_id=event.id)
+
+        assert [i.effective_leader_id for i in listed] == [leader.id]
 
 
 class TestManualLeader:
@@ -407,7 +422,9 @@ class TestLeaderOfRecord:
         await _assign(db_session, incident, rest, user, mock_request)
         assert await self._record(db_session, incident.id) == boss.id
 
-        await assignment_crud.unassign_resource(db_session, boss_assignment.id, user, mock_request)
+        await assignment_crud.unassign_resource(
+            db_session, boss_assignment.id, user, mock_request, incident_id=incident.id
+        )
         await db_session.commit()
 
         assert await _leaders(db_session, incident.id) == ["Wacht Willi"]
@@ -440,7 +457,9 @@ class TestLeaderOfRecord:
         solo_assignment = await _assign(db_session, incident, solo, user, mock_request)
         assert await self._record(db_session, incident.id) == solo.id
 
-        await assignment_crud.unassign_resource(db_session, solo_assignment.id, user, mock_request)
+        await assignment_crud.unassign_resource(
+            db_session, solo_assignment.id, user, mock_request, incident_id=incident.id
+        )
         await db_session.commit()
 
         assert await _leaders(db_session, incident.id) == []

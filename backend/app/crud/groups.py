@@ -18,6 +18,7 @@ from ..models import Incident, IncidentGroup, IncidentGroupAssignment, User
 from ..services.audit import log_action
 from . import events as events_crud
 from . import group_assignments as group_assignments_crud
+from .locking import lock_groups, lock_incidents_with_groups
 
 # Stops in these statuses count as "erledigt" for the derived progress roll-up.
 _DONE_STATUSES = ("returning", "complete")
@@ -207,8 +208,10 @@ async def soft_delete_group(
     """Soft-delete an Auftrag and detach its stops in the same transaction.
 
     Sets ``deleted_at`` and nulls ``group_id`` on member incidents so they stay
-    on the board, ungrouped (the incidents themselves are never deleted).
+    on the board, ungrouped (the incidents themselves are never deleted). Locks the
+    Auftrag before its assignment rows and stops (``crud/locking.py``).
     """
+    await lock_groups(db, [group_id])
     group = await _get_group(db, group_id)
     if group is None:
         return None
@@ -312,7 +315,8 @@ async def reorder_group_stops(
     if not ordered_ids:
         return 0
 
-    await db.execute(select(IncidentGroup.id).where(IncidentGroup.id == group_id).with_for_update())
+    # Auftrag first, then its stops (written below) – `crud/locking.py`.
+    await lock_groups(db, [group_id])
     result = await db.execute(
         select(Incident)
         .where(
@@ -366,11 +370,17 @@ async def add_stops_to_group(
     Returns the list of newly-attached incident ids, or ``None`` if the group
     does not exist. Unknown ids are skipped; already-member ids are skipped.
 
+    Locks this Auftrag and every Auftrag a stop is taken from, then the stops
+    (``crud/locking.py``): moving a stop off another route changes that route too.
+
     Raises:
         ValueError: if any provided incident belongs to a different event.
     """
+    locked = await lock_incidents_with_groups(db, incident_ids, extra_group_ids=[group_id])
     group = await db.scalar(
-        select(IncidentGroup).where(IncidentGroup.id == group_id, IncidentGroup.deleted_at.is_(None)).with_for_update()
+        select(IncidentGroup)
+        .where(IncidentGroup.id == group_id, IncidentGroup.deleted_at.is_(None))
+        .execution_options(populate_existing=True)
     )
     if group is None:
         return None
@@ -378,13 +388,7 @@ async def add_stops_to_group(
     if not incident_ids:
         return []
 
-    result = await db.execute(
-        select(Incident).where(
-            Incident.id.in_(incident_ids),
-            Incident.deleted_at.is_(None),
-        )
-    )
-    incidents_by_id = {incident.id: incident for incident in result.scalars().all()}
+    incidents_by_id = {incident_id: incident for incident_id, incident in locked.items() if incident.deleted_at is None}
 
     # Verify same event: reject cross-event incidents outright.
     for incident_id in incident_ids:
@@ -439,7 +443,7 @@ async def remove_stop_from_group(
     # the conditional undo-restore in ``reorder_group_stops``), which all lock the
     # Auftrag row first. Without it a removal could slip between a guarded
     # restore's check and its write.
-    await db.execute(select(IncidentGroup.id).where(IncidentGroup.id == group_id).with_for_update())
+    await lock_groups(db, [group_id])
     result = await db.execute(
         select(Incident).where(
             Incident.id == incident_id,

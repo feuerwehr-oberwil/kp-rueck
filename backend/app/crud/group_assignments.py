@@ -18,9 +18,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..models import Incident, IncidentGroup, IncidentGroupAssignment, Material, Personnel, User, Vehicle
+from ..models import Event, Incident, IncidentGroup, IncidentGroupAssignment, Material, Personnel, User, Vehicle
 from ..services.audit import log_action
-from .assignments import _reko_personnel_ids, leader_rank
+from .assignments import _reko_personnel_ids, ensure_assignable, leader_rank
+from .locking import lock_groups, lock_resource
 
 
 class ResourceNotFoundError(ValueError):
@@ -41,31 +42,43 @@ async def assign_group_resource(
 ) -> IncidentGroupAssignment:
     """Assign a resource to an Auftrag with transaction isolation.
 
-    Uses SELECT FOR UPDATE to prevent race conditions when concurrent requests
-    try to assign the same resource to the same Auftrag. Cross-incident /
-    cross-group conflicts are allowed (the UI warns first); only an exact active
-    duplicate on THIS Auftrag is rejected.
+    Locks the Auftrag (there may be no assignment row to lock yet), then the resource
+    row – the order in ``crud/locking.py``, and the resource lock archive and purge
+    take too. Cross-incident / cross-group conflicts are allowed (the UI warns
+    first); only an exact active duplicate on THIS Auftrag is rejected.
 
     Raises:
+        LookupError: the Auftrag is gone (deleted meanwhile).
+        ResourceNotFoundError / ResourceTypeMismatchError: unknown id, or the id of
+            another resource kind.
+        ResourceNotAssignableError: ``assignments.ensure_assignable`` refused it.
         ValueError: If the resource is already actively assigned to this Auftrag.
     """
-    model_by_type: dict[str, type[Any]] = {"personnel": Personnel, "vehicle": Vehicle, "material": Material}
-    resource_model = model_by_type[resource_type]
-    if await db.scalar(select(resource_model.id).where(resource_model.id == resource_id)) is None:
-        exists_as_other_type = False
+    group = await db.scalar(
+        select(IncidentGroup)
+        .where(IncidentGroup.id == group_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if group is None or group.deleted_at is not None:
+        raise LookupError(f"incident group {group_id} does not exist")
+    resource = await lock_resource(db, resource_type, resource_id)
+    if resource is None:
+        model_by_type: dict[str, type[Any]] = {"personnel": Personnel, "vehicle": Vehicle, "material": Material}
         for candidate_type, model in model_by_type.items():
             if (
                 candidate_type != resource_type
                 and await db.scalar(select(model.id).where(model.id == resource_id)) is not None
             ):
-                exists_as_other_type = True
-                break
-        if exists_as_other_type:
-            raise ResourceTypeMismatchError("Ressource passt nicht zum Ressourcentyp")
+                raise ResourceTypeMismatchError("Ressource passt nicht zum Ressourcentyp")
         raise ResourceNotFoundError("Ressource nicht gefunden")
+    event = await db.get(Event, group.event_id)
+    if event is None:
+        raise LookupError(f"event {group.event_id} does not exist")
+    # An Auftrag has no closed state of its own (progress is derived from its stops),
+    # so only the resource and Ereignis rules apply.
+    ensure_assignable(resource, event=event)
 
-    # Lock the parent because there may be no existing assignment row to lock.
-    await db.execute(select(IncidentGroup.id).where(IncidentGroup.id == group_id).with_for_update())
     existing = await db.execute(
         select(IncidentGroupAssignment)
         .where(
@@ -126,9 +139,11 @@ async def unassign_group_resource(
     """Soft-release a resource from an Auftrag (set ``unassigned_at``).
 
     Scoped to ``group_id`` so a stale/mismatched assignment id cannot release a
-    row on a different Auftrag. Flushes the release. Returns False if no active
-    matching assignment exists.
+    row on a different Auftrag. Locks the Auftrag before writing its rows (order in
+    ``crud/locking.py``). Flushes the release. Returns False if no active matching
+    assignment exists – unlike the per-incident release, a repeated release is a 404.
     """
+    await lock_groups(db, [group_id])
     result = await db.execute(
         select(IncidentGroupAssignment).where(
             and_(
@@ -186,7 +201,9 @@ async def auto_release_group_resources_if_last_stop(
     if incident.group_id is None:
         return False, []
 
-    # Serialize competing final-stop transitions before checking route state.
+    # Serialize competing final-stop transitions before checking route state. The
+    # caller already holds this lock, taken BEFORE the incident's (`crud/locking.py`);
+    # taking it first here, after the incident, is what used to deadlock a reorder.
     group = await db.scalar(
         select(IncidentGroup)
         .where(IncidentGroup.id == incident.group_id, IncidentGroup.deleted_at.is_(None))
@@ -337,6 +354,7 @@ async def get_active_assignments_by_groups(
 
 async def update_group_assignment(
     db: AsyncSession,
+    group_id: uuid.UUID,
     assignment_id: uuid.UUID,
     update: schemas.GroupAssignmentUpdate,
 ) -> schemas.GroupAssignmentResponse | None:
@@ -345,9 +363,15 @@ async def update_group_assignment(
     Mirrors ``crud.assignments.update_assignment``. The role is single-holder and
     guarded by a partial unique index, so the previous holder is demoted in the
     same transaction — writing the new one first would collide with the index
-    rather than replace the role.
+    rather than replace the role. ``None`` when the assignment is not on
+    ``group_id``: the write is scoped before anything changes.
     """
-    result = await db.execute(select(IncidentGroupAssignment).where(IncidentGroupAssignment.id == assignment_id))
+    result = await db.execute(
+        select(IncidentGroupAssignment).where(
+            IncidentGroupAssignment.id == assignment_id,
+            IncidentGroupAssignment.incident_group_id == group_id,
+        )
+    )
     assignment = result.scalar_one_or_none()
     if not assignment:
         return None

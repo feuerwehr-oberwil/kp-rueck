@@ -28,13 +28,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser, get_current_user
+from ..crud import assignments as assignments_crud
 from ..crud import incidents as incidents_crud
 from ..crud import reko as crud
 from ..crud import reko_assignment as reko_assign_crud
+from ..crud.locking import lock_incidents_with_groups, lock_resource
 from ..database import get_db
 from ..logging_config import get_logger
 from ..middleware.rate_limit import RateLimits, limiter
-from ..models import Incident, IncidentAssignment, RekoReport, User
+from ..models import Event, Incident, IncidentAssignment, RekoReport, User
 from ..utils.error_codes import CodedHTTPException, ErrorCode
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import (
@@ -991,7 +993,21 @@ async def assign_reko_personnel(
 
     Editor only - creates a personnel assignment for the Reko person.
     If another Reko person is already assigned, they will be unassigned first.
+
+    A new assignment, so ``ensure_assignable`` applies (409 on an archived Ereignis or
+    a closed Einsatz); a missing Einsatz or person is a 404.
     """
+    try:
+        await assignments_crud.lock_for_new_assignment(db, incident_id, "personnel", assignment.personnel_id)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND) from e
+    except assignments_crud.IncidentNotOnBoardError as e:
+        raise HTTPException(
+            status_code=409, detail="Dieser Einsatz ist nicht mehr auf dem Board (gelöscht oder zusammengeführt)."
+        ) from e
+    except assignments_crud.ResourceNotAssignableError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+
     # Get available Reko personnel to check for existing assignment
     _, currently_assigned_id = await reko_assign_crud.get_available_reko_personnel_for_incident(db, incident_id)
 
@@ -1116,15 +1132,29 @@ async def transfer_reko_assignments(
     Transfer all open reko assignments from one person to another.
 
     Only transfers incidents that are in reko status (not yet completed).
+
+    The new person gets NEW assignments, so ``ensure_assignable`` applies: an
+    archived Ereignis refuses the whole handover (409), an unknown person is a 404.
+    Lock order (``crud/locking.py``): the Einsätze with their Aufträge, then the person.
     """
     # Get all reko assignments for the source person in this event
     assignments = await reko_assign_crud.get_reko_assignments_for_personnel(db, event_id, from_personnel_id)
 
+    locked = await lock_incidents_with_groups(db, [a["incident_id"] for a in assignments])
+    to_person = await lock_resource(db, "personnel", to_personnel_id)
+    event = await db.get(Event, event_id)
+    if to_person is None or event is None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND)
+
     # Filter to only open assignments (incidents in reko status, not reko_done or later)
     transferred: list[str] = []
     for assignment in assignments:
-        incident = await incidents_crud.get_incident(db, assignment["incident_id"])
+        incident = locked.get(assignment["incident_id"])
         if incident and incident.status in ("incoming", "reko"):
+            try:
+                assignments_crud.ensure_assignable(to_person, event=event, incident=incident)
+            except assignments_crud.ResourceNotAssignableError as e:
+                raise HTTPException(status_code=409, detail=str(e)) from e
             # Unassign old person
             await reko_assign_crud.unassign_reko_personnel_from_incident(
                 db, assignment["incident_id"], from_personnel_id

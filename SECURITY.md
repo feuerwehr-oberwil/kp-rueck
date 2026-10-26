@@ -105,13 +105,11 @@ the latest tagged release and update promptly – see [`docs/DEPLOYMENT.md`](doc
   in the database, so database backups need the same protection. Self-hosters **must set strong,
   stable `SECRET_KEY` and `AUTH_SECRET_KEY` values** (≥32 chars, e.g. `openssl rand -hex 32`) –
   rotating either invalidates every session.
-- **One credential *is* in the repo, deliberately:** the telemetry DSN in
-  `backend/app/telemetry/dsn.py`. It is a Sentry **public key** – write-only by
-  construction, able to submit an event and nothing else. It cannot read stored events,
-  reach another project, or authenticate to anything. It is in the clear so that an auditor
-  grepping this repository finds it and can rule it out in thirty seconds, rather than
-  finding it hidden behind an env var and wondering. If you would rather it did not exist
-  on your instance, set `KP_TELEMETRY_ENABLED=0` – see [`PRIVACY.md`](PRIVACY.md).
+- **Diagnostics have no upstream destination by default.** The former public telemetry
+  DSN was retired; `backend/app/telemetry/dsn.py` now defaults to an empty string.
+  A deployer can set `KP_TELEMETRY_DSN` to their own GlitchTip/Sentry ingest.
+  `KP_TELEMETRY_ENABLED=0` disables forwarding regardless of that setting or admin consent –
+  see [`PRIVACY.md`](PRIVACY.md).
 
 ## Known gaps
 

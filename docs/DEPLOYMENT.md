@@ -375,6 +375,12 @@ Both halves matter. The database holds the operational record; the `photos` volu
 photos, which are **not** in the database. A dump without the volume restores a complete record
 pointing at missing images.
 
+New backup files are private to the backup process's OS user (`umask 077`). Existing
+backups keep their old permissions: review those and the destination's access controls,
+including ACLs and off-host copies, before assuming they are private. The backup loop
+keeps scheduling after a failed attempt; the failure marker and healthcheck remain failed
+until a later backup succeeds.
+
 **Retention: 14 daily, 8 weekly** (`BACKUP_KEEP_DAILY` / `BACKUP_KEEP_WEEKLY`). Two series
 because they answer two different questions. Fourteen dailies is "undo last night" with enough
 slack for a brigade that has no daily operator – damage done at a Saturday exercise can go
@@ -426,6 +432,12 @@ night – costs a brigade more than it returns.
 ### 6.1 Restore
 
 Restoring replaces everything. Do it on a **fresh stack** first – see the drill below.
+
+When using `scripts/restore.sh --photos`, extraction finishes in a temporary directory on
+the photo volume before originals move. Allow enough free space for both copies. A failed
+extraction preserves the existing photos; a failed replacement leaves the originals in the
+reported `.restore.*/previous` directory for recovery. The filesystem root is refused as a
+photo target.
 
 ```bash
 # 1. Stop application writers and background jobs; keep only the database running.

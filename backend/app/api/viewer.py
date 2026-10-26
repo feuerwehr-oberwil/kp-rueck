@@ -116,7 +116,9 @@ async def get_viewer_data(
         raise HTTPException(status_code=404, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     # Get all incidents for the event
-    incidents = await incidents_crud.get_incidents(db, event_id=event_id)
+    # A wall snapshot has no pagination UI: omitting the 501st card also silently
+    # undercounts its Kennzahlen. The board API retains its per-request 500-row cap.
+    incidents = await incidents_crud.get_incidents(db, event_id=event_id, limit=None)
     groups = await groups_crud.list_groups_by_event(db, event_id)
 
     # Checked-in roster for this event (same scoping as the logged-in display),

@@ -9,6 +9,7 @@ tree to the next is doing.
 """
 
 import uuid
+from datetime import UTC, datetime
 
 import pytest
 from httpx import AsyncClient
@@ -468,6 +469,38 @@ class TestTakeOver:
             ("vehicle", vehicle.id),
         }
 
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_driven_vehicle_out_of_service_stays_off_the_card(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # `ensure_assignable` refuses a TLF marked «nicht einsatzbereit»; the Meldung
+        # and the person still go through, only the vehicle is skipped.
+        person = await _person(db_session)
+        vehicle = Vehicle(
+            id=uuid.uuid4(), name="TLF 1", type="TLF", status="available", out_of_service_since=datetime.now(UTC)
+        )
+        db_session.add(vehicle)
+        await db_session.commit()
+        db_session.add(
+            EventSpecialFunction(
+                event_id=test_event.id, personnel_id=person.id, function_type="driver", vehicle_id=vehicle.id
+            )
+        )
+        await db_session.commit()
+
+        response = await _post(client, test_event, db_session, person, take_over=True)
+
+        assert response.status_code == 201, response.text
+        assert response.json()["takeover"] == "solo"
+        new_id = uuid.UUID(response.json()["incident_id"])
+        rows = (
+            (await db_session.execute(select(IncidentAssignment).where(IncidentAssignment.incident_id == new_id)))
+            .scalars()
+            .all()
+        )
+        assert {(r.resource_type, r.resource_id) for r in rows} == {("personnel", person.id)}
+
 
 class TestTelefondienst:
     """The phone desk is a ROLE now, not a page (plan 26, decision 6).
@@ -502,6 +535,24 @@ class TestTelefondienst:
         incident = await db_session.get(Incident, uuid.UUID(response.json()["incident_id"]))
         assert incident is not None
         # The board draws a call differently from a firefighter
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_an_overlong_phone_number_is_a_422_not_a_500(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ):
+        """`contact_phone` is a 50-wide column; past it the INSERT used to fail as a 500."""
+        person = await _person(db_session, "Hug Lena")
+        db_session.add(
+            EventSpecialFunction(event_id=test_event.id, personnel_id=person.id, function_type="telefondienst")
+        )
+        await db_session.commit()
+
+        response = await _post(
+            client, test_event, db_session, person, as_phone_call=True, contact="R. Suter", contact_phone="1" * 51
+        )
+
+        assert response.status_code == 422
 
 
 class TestKorrektur:

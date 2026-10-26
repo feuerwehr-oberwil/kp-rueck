@@ -56,6 +56,16 @@ fail() { printf '%s  ERROR  %s\n' "$(date +%FT%T%z)" "$*" >&2; exit "${2:-1}"; }
 pg_restore --list "$DUMP" >/dev/null 2>&1 \
   || fail "$DUMP is not a readable pg_dump custom-format archive (was it taken with -Fc?)" 6
 
+# Validate the optional photo inputs before changing the database. Resolving the target
+# also prevents a mistaken PHOTOS_DIR=/ (or a symlink to it) from replacing the host root.
+if [ -n "$PHOTOS_TAR" ]; then
+  [ -f "$PHOTOS_TAR" ] || fail "photo tarball not found: $PHOTOS_TAR" 2
+  [ -d "$PHOTOS_DIR" ] || fail "photo target $PHOTOS_DIR does not exist (mount the volume first)" 2
+  PHOTOS_DIR="$(cd -- "$PHOTOS_DIR" && pwd -P)"
+  [ "$PHOTOS_DIR" != / ] || fail "photo target must not be the filesystem root" 2
+  tar tzf "$PHOTOS_TAR" >/dev/null 2>&1 || fail "photo tarball is not readable: $PHOTOS_TAR" 6
+fi
+
 # 2. Version guard, the mirror of backup.sh's. pg_restore tolerates more than pg_dump does, but
 #    an archive written by a newer major version can still carry constructs an older server does
 #    not understand, and the failure arrives halfway through a half-restored database.
@@ -82,12 +92,28 @@ ROWS="$(psql -Atqc "SELECT count(*) FROM information_schema.tables WHERE table_s
 log "restored: $ROWS tables in schema public"
 
 if [ -n "$PHOTOS_TAR" ]; then
-  [ -f "$PHOTOS_TAR" ] || fail "photo tarball not found: $PHOTOS_TAR" 2
-  [ -d "$PHOTOS_DIR" ] || fail "photo target $PHOTOS_DIR does not exist (mount the volume first)" 2
-  tar tzf "$PHOTOS_TAR" >/dev/null 2>&1 || fail "photo tarball is not readable: $PHOTOS_TAR" 6
-  log "unpacking photos into $PHOTOS_DIR (existing contents removed)"
-  rm -rf "${PHOTOS_DIR:?}"/*
-  tar xzf "$PHOTOS_TAR" -C "$PHOTOS_DIR"
+  # Extract on the same filesystem before touching originals. A readable tar listing
+  # does not prove extraction will succeed (disk full, damaged member, permissions).
+  stage="$(mktemp -d "$PHOTOS_DIR/.restore.XXXXXX")"
+  mkdir "$stage/new" "$stage/previous"
+  log "unpacking photos into staging directory $stage/new"
+  if ! tar xzf "$PHOTOS_TAR" -C "$stage/new"; then
+    rm -rf -- "$stage"
+    fail "photo extraction failed; existing photos were preserved" 8
+  fi
+  # Include hidden files too. Keep every original until ALL moves succeed; if a
+  # move fails, leave the staging directory for recovery rather than deleting it.
+  shopt -s dotglob nullglob
+  for photo in "$PHOTOS_DIR"/*; do
+    [ "$photo" = "$stage" ] && continue
+    mv -- "$photo" "$stage/previous/" \
+      || fail "could not preserve original photos; recover originals from $stage/previous and $PHOTOS_DIR" 8
+  done
+  for photo in "$stage/new"/*; do
+    mv -- "$photo" "$PHOTOS_DIR/" \
+      || fail "photo replacement incomplete; originals preserved in $stage/previous" 8
+  done
+  rm -rf -- "$stage"
   log "photos restored: $(find "$PHOTOS_DIR" -type f | wc -l | tr -d ' ') files"
 else
   log "no --photos given: Reko photos were NOT restored. The record will point at missing images."

@@ -606,7 +606,7 @@ async def execute_personnel_sync(
     logger.info(
         f"Divera personnel sync completed: "
         f"{result['created']} created, {result['deleted']} deleted, "
-        f"{result['unchanged']} unchanged"
+        f"{result['kept_assigned']} kept (still assigned), {result['unchanged']} unchanged"
     )
 
     return schemas.DiveraSyncResult(**result)

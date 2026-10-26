@@ -243,7 +243,9 @@ async def execute_sync(
 
     Creates new personnel and optionally deletes stale ones.
 
-    Returns dict with created, deleted, unchanged counts.
+    Returns the counts: created, deleted, linked, unchanged, and ``kept_assigned`` –
+    stale people ``delete_personnel`` refused because they are still on an open
+    Einsatz or Auftrag. They stay on the roster and the next sync offers them again.
     """
     from uuid import UUID
 
@@ -253,6 +255,7 @@ async def execute_sync(
 
     created = 0
     deleted = 0
+    kept_assigned = 0
     linked = 0  # existing people backfilled with their Divera id
 
     # Create new personnel, storing the Divera user_cluster_relation id so they
@@ -264,7 +267,11 @@ async def execute_sync(
             name=member["name"],
             status="available",
         )
-        person = await personnel_crud.create_personnel(db, personnel_data, current_user, request)
+        # Divera's names are the members' real names; a same-name pair is kept and shown
+        # flagged on the board until somebody gives one of them a Kennung.
+        person = await personnel_crud.create_personnel(
+            db, personnel_data, current_user, request, allow_duplicate_name=True
+        )
         created += 1
         divera_id = member.get("divera_id")
         if divera_id:
@@ -288,13 +295,16 @@ async def execute_sync(
     # Delete stale personnel
     if remove_stale:
         for item in preview["not_in_divera"]:
-            existing_id = item["existing_id"]
-            await personnel_crud.delete_personnel(db, existing_id, current_user, request)
-            deleted += 1
+            outcome = await personnel_crud.delete_personnel(db, UUID(item["existing_id"]), current_user, request)
+            if outcome == "deleted":
+                deleted += 1
+            elif outcome == "in_use":
+                kept_assigned += 1
 
     return {
         "created": created,
         "deleted": deleted,
+        "kept_assigned": kept_assigned,
         "linked": linked,
         "unchanged": len(preview["unchanged"]),
     }

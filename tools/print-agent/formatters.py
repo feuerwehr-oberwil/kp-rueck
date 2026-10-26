@@ -62,7 +62,7 @@ STATUS_LABELS = {
     "reko_done": "Reko abgeschlossen",
     "enroute": "Disponiert",
     "active": "Im Einsatz",
-    "returning": "Einsatz beendet",
+    "returning": "Rückfahrt",
     "complete": "Abgeschlossen",
 }
 
@@ -75,9 +75,13 @@ PRIORITY_MARKERS = {
 
 # ── Printer helpers ──────────────────────────────────────────────────
 
+# Text arrives from public alarms and field reports too. ESC/GS and other C0
+# controls must not become ESC/POS commands; line feeds are our text layout.
+_TEXT_CONTROL_FILTER = dict.fromkeys([*(code for code in range(32) if code != 10), 127])
+
 def _text(p: Network, text: str) -> None:
-    """Send text encoded as CP437 (printer's default codepage)."""
-    p._raw(text.encode('cp437', errors='replace'))
+    """Send literal text as CP437, with printer command controls removed."""
+    p._raw(text.translate(_TEXT_CONTROL_FILTER).encode('cp437', errors='replace'))
 
 
 def _qr_box_size(content: str) -> int:

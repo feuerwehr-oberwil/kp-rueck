@@ -6,6 +6,7 @@ The one place they touch live data is :func:`instantiate_auto_templates`, called
 when an event is created.
 """
 
+import logging
 import uuid
 from typing import Any
 
@@ -18,6 +19,7 @@ from .. import schemas
 from ..models import (
     AuftragTemplate,
     AuftragTemplateResource,
+    Event,
     IncidentGroup,
     IncidentGroupAssignment,
     Material,
@@ -25,6 +27,10 @@ from ..models import (
     Vehicle,
 )
 from ..services.audit import log_action
+from .assignments import ResourceNotAssignableError, ensure_assignable
+from .locking import lock_resource
+
+logger = logging.getLogger(__name__)
 
 _RESOURCE_MODELS: dict[str, Any] = {"vehicle": Vehicle, "material": Material}
 
@@ -199,8 +205,13 @@ async def instantiate_auto_templates(
     default equipment. Resource conflicts are NOT avoided here: assigning a
     vehicle that is already committed elsewhere is exactly the state the board is
     built to make visible, and silently dropping it would hide a decision the
-    station made on purpose. Only resources that have since been deleted are
-    skipped — there is nothing to point at.
+    station made on purpose. Skipped are resources that have since been deleted —
+    there is nothing to point at — and those ``assignments.ensure_assignable``
+    refuses (archived, «nicht einsatzbereit»): one broken TLF must not stop the
+    Lage from opening. Each skip is logged.
+
+    Lock order (``crud/locking.py``): the Auftrag is ours (just inserted), then
+    each resource row – the lock archive and purge take.
 
     Commits nothing; the caller owns the transaction.
     """
@@ -214,6 +225,9 @@ async def instantiate_auto_templates(
     if not templates:
         return []
 
+    event = await db.get(Event, event_id)
+    if event is None:
+        raise LookupError(f"event {event_id} does not exist")
     groups: list[IncidentGroup] = []
     for position, template in enumerate(templates):
         group = IncidentGroup(
@@ -228,8 +242,13 @@ async def instantiate_auto_templates(
         await db.flush()
 
         for ref in template.resources:
-            model = _RESOURCE_MODELS[ref.resource_type]
-            if await db.scalar(select(model.id).where(model.id == ref.resource_id)) is None:
+            resource = await lock_resource(db, ref.resource_type, ref.resource_id)
+            if resource is None:
+                continue
+            try:
+                ensure_assignable(resource, event=event)
+            except ResourceNotAssignableError as refused:
+                logger.info("Standard-Auftrag %r: %s skipped – %s", template.name, ref.resource_type, refused)
                 continue
             db.add(
                 IncidentGroupAssignment(
