@@ -218,24 +218,47 @@ export function noteFieldEdit(incidentId: string, field: SavedTextField, value: 
 }
 
 /**
- * A PATCH carrying these texts is leaving now. Call it at the moment of sending
- * (inside the per-incident queue), so the confirmation of the PATCH ahead has
- * already moved `acked` and the ticket's `textBase` is current.
+ * A batch carrying these texts was cut and waits in the per-incident queue.
+ * The receipt pins WHICH edit it carries (the field versions now, not when it
+ * finally leaves: a newer keystroke typed meanwhile is the next batch's) and
+ * in which user + Ereignis it was typed, so a later switch cannot move it.
  */
-export function noteFieldSend(incidentId: string, texts: Partial<Record<SavedTextField, string>>): FieldSaveTicket {
+export function noteFieldQueued(
+  incidentId: string,
+  texts: Partial<Record<SavedTextField, string>>,
+  atScope: string | null = scope,
+): FieldSaveTicket {
   const versions: FieldSaveTicket["versions"] = {}
-  const textBase: Partial<Record<IncidentTextField, string>> = {}
-  const fields = Object.keys(texts).filter(isSavedTextField)
+  for (const field of Object.keys(texts).filter(isSavedTextField)) {
+    const entry = entries.get(keyOf(atScope, incidentId, field))
+    if (entry) versions[field] = entry.version
+  }
+  return { scope: atScope, incidentId, versions, texts, textBase: {} }
+}
+
+/**
+ * The queued batch is leaving now. Call it at the moment of sending (inside the
+ * per-incident queue), so the confirmation of the PATCH ahead has already moved
+ * `acked`; the returned receipt carries the `text_base` to send.
+ */
+export function noteFieldSend(ticket: FieldSaveTicket): FieldSaveTicket {
+  const textBase: FieldSaveTicket["textBase"] = {}
+  const fields = Object.keys(ticket.versions).filter(isSavedTextField)
   for (const field of fields) {
-    const key = keyOf(scope, incidentId, field)
+    const key = keyOf(ticket.scope, ticket.incidentId, field)
     const entry = entries.get(key)
     if (!entry) continue
-    versions[field] = entry.version
     textBase[SAVED_TEXT_API_FIELD[field]] = entry.acked
-    put(key, { ...entry, inFlight: entry.inFlight + 1, status: entry.status === "pending" ? "saving" : entry.status })
+    // «Wird gespeichert» only if this batch carries the newest text; a newer one still waits.
+    const carriesNewest = entry.version === ticket.versions[field]
+    put(key, {
+      ...entry,
+      inFlight: entry.inFlight + 1,
+      status: carriesNewest && entry.status === "pending" ? "saving" : entry.status,
+    })
   }
   if (fields.length) emit()
-  return { scope, incidentId, versions, texts, textBase }
+  return { ...ticket, textBase }
 }
 
 /**

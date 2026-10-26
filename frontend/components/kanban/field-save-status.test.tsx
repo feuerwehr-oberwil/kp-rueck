@@ -4,6 +4,7 @@ import { act, fireEvent, screen, within } from "@testing-library/react"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
 import {
   noteFieldEdit,
+  noteFieldQueued,
   noteFieldSend,
   noteFieldSettled,
   resetFieldSaveForTests,
@@ -85,7 +86,7 @@ describe("FieldSaveStatus", () => {
 
     let ticket!: ReturnType<typeof noteFieldSend>
     act(() => {
-      ticket = noteFieldSend("inc-1", { notes: "x" })
+      ticket = noteFieldSend(noteFieldQueued("inc-1", { notes: "x" }))
     })
     act(() => noteFieldSettled(ticket, { ok: true }))
     expect(row.querySelector("[role=status]")).toHaveAttribute("title", "Gespeichert – 09:41")
@@ -93,7 +94,7 @@ describe("FieldSaveStatus", () => {
 
     edit("FW Therwil, Kdt.", "FW Therwil")
     act(() => {
-      ticket = noteFieldSend("inc-1", { notes: "x" })
+      ticket = noteFieldSend(noteFieldQueued("inc-1", { notes: "x" }))
     })
     act(() => noteFieldSettled(ticket, { ok: false, reason: "network" }))
     expect(within(below).getByRole("button", { name: "Erneut speichern" })).toBeInTheDocument()
@@ -116,7 +117,7 @@ describe("FieldSaveStatus", () => {
 
     let ticket!: ReturnType<typeof noteFieldSend>
     act(() => {
-      ticket = noteFieldSend("inc-1", { notes: "x" })
+      ticket = noteFieldSend(noteFieldQueued("inc-1", { notes: "x" }))
     })
     expect(screen.getByRole("status")).toHaveTextContent("Wird gespeichert …")
 
@@ -136,7 +137,7 @@ describe("FieldSaveStatus", () => {
     edit("Keller, Pumpe läuft")
     let ticket!: ReturnType<typeof noteFieldSend>
     act(() => {
-      ticket = noteFieldSend("inc-1", { notes: "x" })
+      ticket = noteFieldSend(noteFieldQueued("inc-1", { notes: "x" }))
     })
     act(() => noteFieldSettled(ticket, { ok: false, reason: "network" }))
 
@@ -163,7 +164,7 @@ describe("FieldSaveStatus", () => {
     edit("Keller, Pumpe läuft")
     let ticket!: ReturnType<typeof noteFieldSend>
     act(() => {
-      ticket = noteFieldSend("inc-1", { notes: "x" })
+      ticket = noteFieldSend(noteFieldQueued("inc-1", { notes: "x" }))
     })
     act(() => noteFieldSettled(ticket, { ok: false, reason: "conflict" }))
 
@@ -179,7 +180,7 @@ describe("FieldSaveStatus", () => {
     renderWithIntl(<Field server="Keller" onRetry={onRetry} />)
     edit("Keller, Pumpe läuft")
     const conflict = { field: "notes" as const, conflict: { text: "Keller, Nachtrag KP", by: "Koch René", at: null } }
-    act(() => noteFieldSettled(noteFieldSend("inc-1", { notes: "Keller, Pumpe läuft" }), { ok: false, reason: "conflict", conflict }))
+    act(() => noteFieldSettled(noteFieldSend(noteFieldQueued("inc-1", { notes: "Keller, Pumpe läuft" })), { ok: false, reason: "conflict", conflict }))
 
     expect(screen.getByRole("alert")).toHaveTextContent("Nicht gespeichert – inzwischen geändert. Koch René hat inzwischen geändert:")
     expect(screen.getByText("Keller, Nachtrag KP")).toBeInTheDocument()
@@ -191,7 +192,7 @@ describe("FieldSaveStatus", () => {
     renderWithIntl(<Field server="Keller, Nachtrag KP" />)
     edit("Keller, Pumpe läuft")
     const conflict = { field: "notes" as const, conflict: { text: "Keller, Nachtrag KP", by: null, at: null } }
-    act(() => noteFieldSettled(noteFieldSend("inc-1", { notes: "Keller, Pumpe läuft" }), { ok: false, reason: "conflict", conflict }))
+    act(() => noteFieldSettled(noteFieldSend(noteFieldQueued("inc-1", { notes: "Keller, Pumpe läuft" })), { ok: false, reason: "conflict", conflict }))
 
     fireEvent.click(screen.getByRole("button", { name: "Diese Fassung übernehmen" }))
     expect(screen.getByLabelText("Meldung")).toHaveValue("Keller, Nachtrag KP")
@@ -203,7 +204,7 @@ describe("FieldSaveStatus", () => {
     edit("Text von A")
     let ticket!: ReturnType<typeof noteFieldSend>
     act(() => {
-      ticket = noteFieldSend("inc-1", { notes: "x" })
+      ticket = noteFieldSend(noteFieldQueued("inc-1", { notes: "x" }))
     })
     act(() => noteFieldSettled(ticket, { ok: false, reason: "network" }))
     expect(screen.getByLabelText("Meldung")).toHaveValue("Text von A")
@@ -228,7 +229,7 @@ describe("FieldSaveStatus", () => {
       edit("Pumpe läuft")
       let ticket!: ReturnType<typeof noteFieldSend>
       act(() => {
-        ticket = noteFieldSend("inc-1", { notes: "x" })
+        ticket = noteFieldSend(noteFieldQueued("inc-1", { notes: "x" }))
       })
       act(() => noteFieldSettled(ticket, { ok: false, reason: "network" }))
 

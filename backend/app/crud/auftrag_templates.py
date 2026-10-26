@@ -28,7 +28,7 @@ from ..models import (
 )
 from ..services.audit import log_action
 from .assignments import ResourceNotAssignableError, ensure_assignable
-from .locking import lock_resource
+from .locking import lock_resources
 
 logger = logging.getLogger(__name__)
 
@@ -210,8 +210,9 @@ async def instantiate_auto_templates(
     refuses (archived, «nicht einsatzbereit»): one broken TLF must not stop the
     Lage from opening. Each skip is logged.
 
-    Lock order (``crud/locking.py``): the Auftrag is ours (just inserted), then
-    each resource row – the lock archive and purge take.
+    Lock order (``crud/locking.py``): every template resource up front through
+    ``lock_resources`` (sorted, the lock archive and purge take); the Aufträge are
+    ours (inserted afterwards, nobody else can see them).
 
     Commits nothing; the caller owns the transaction.
     """
@@ -228,6 +229,10 @@ async def instantiate_auto_templates(
     event = await db.get(Event, event_id)
     if event is None:
         raise LookupError(f"event {event_id} does not exist")
+    # Every resource of every template, locked once and in order before any work.
+    resources = await lock_resources(
+        db, [(ref.resource_type, ref.resource_id) for template in templates for ref in template.resources]
+    )
     groups: list[IncidentGroup] = []
     for position, template in enumerate(templates):
         group = IncidentGroup(
@@ -242,7 +247,7 @@ async def instantiate_auto_templates(
         await db.flush()
 
         for ref in template.resources:
-            resource = await lock_resource(db, ref.resource_type, ref.resource_id)
+            resource = resources.get((ref.resource_type, ref.resource_id))
             if resource is None:
                 continue
             try:

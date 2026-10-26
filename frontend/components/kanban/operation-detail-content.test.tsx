@@ -7,7 +7,7 @@ import { apiClient } from "@/lib/api-client"
 import type { Operation } from "@/lib/contexts/operations-context"
 import type { Person } from "@/lib/contexts/personnel-context"
 import { crewMember, assignedVehicle } from "@/test-utils/operation-fixtures"
-import { noteFieldEdit, noteFieldSend, noteFieldSettled, resetFieldSaveForTests, setFieldSaveScope } from "@/lib/field-save"
+import { noteFieldEdit, noteFieldQueued, noteFieldSend, noteFieldSettled, resetFieldSaveForTests, setFieldSaveScope } from "@/lib/field-save"
 
 const refreshOperations = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 // The board sync's fleet (`useOperations().vehicles`) – the quick-assign shortcuts count it.
@@ -1072,7 +1072,7 @@ describe("OperationDetailContent · the edge of an unsaved text field", () => {
 
   function mountWithFailedContact(failure: Parameters<typeof noteFieldSettled>[1]) {
     act(() => noteFieldEdit("incident-1", "contact", "Frau Meier", ""))
-    act(() => noteFieldSettled(noteFieldSend("incident-1", { contact: "Frau Meier" }), failure))
+    act(() => noteFieldSettled(noteFieldSend(noteFieldQueued("incident-1", { contact: "Frau Meier" })), failure))
     renderWithIntl(<OperationDetailContent operation={operation} layout="panel" materials={[]} onUpdate={vi.fn()} canEdit />)
     return document.getElementById("contact")!
   }

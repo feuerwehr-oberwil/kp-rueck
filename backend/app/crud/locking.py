@@ -4,12 +4,17 @@ LOCK ORDER – every writer takes row locks in this order and never backwards:
 
   1. ``incident_groups`` (Aufträge)            ascending id
   2. ``incidents`` (Einsätze, Auftrag stops)   ascending id
-  3. the resource row (``personnel`` / ``vehicles`` / ``materials``)
+  3. resource rows (``personnel`` / ``vehicles`` / ``materials``)
+                                               by (resource_type, id)
 
 Assignment rows (``incident_assignments``, ``incident_group_assignments``) are
 leaves: write or lock them only while holding their parent (or, for the
 lifecycle checks, the resource row they point to). An UPDATE takes the same row
 lock implicitly, so writing a stop's ``group_position`` counts as locking it.
+
+A writer that touches several resources (transfer, Standard-Auftrag, the field
+takeover) locks all of them up front through ``lock_resources`` before any
+per-resource work; one that touches a single resource uses ``lock_resource``.
 
 Two writers that keep this order can wait for each other but never deadlock.
 Completing a stop used to lock the incident and then its Auftrag, while a stop
@@ -18,8 +23,10 @@ reorder locked the Auftrag and then its stops – a forced overlap deadlocked
 (``incidents.update_incident_status`` / ``update_incident``), stop attach,
 detach and reorder and Auftrag delete (``groups``), release
 (``assignments.unassign_resource``, ``group_assignments.unassign_group_resource``),
-assignment (``assign_resource``, ``assign_group_resource``) and the resource
-lifecycle (archive / purge / personnel delete). A merge locks only incidents,
+assignment (``assign_resource``, ``assign_group_resource``, ``transfer_assignments``,
+``auftrag_templates.instantiate_auto_templates``, ``feld/melden._take_over``) and
+the resource lifecycle (archive / purge / personnel delete, which first locks the
+incidents its ``ON DELETE SET NULL`` will write). A merge locks only incidents,
 in id order (``services/duplicates.lock_pair``).
 """
 
@@ -27,7 +34,7 @@ import uuid
 from collections.abc import Iterable
 from typing import Literal, overload
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import Incident, IncidentGroup, Material, Personnel, Vehicle
@@ -128,3 +135,56 @@ async def lock_resource(db: AsyncSession, resource_type: str, resource_id: uuid.
         select(model).where(model.id == resource_id).with_for_update().execution_options(populate_existing=True)
     )
     return resource
+
+
+async def lock_resources(
+    db: AsyncSession, refs: Iterable[tuple[str, uuid.UUID]]
+) -> dict[tuple[str, uuid.UUID], AssignableResource]:
+    """Step 3 for several resources: lock them all, sorted by (resource_type, id).
+
+    Call it before any per-resource work so two writers sharing resources take them
+    in the same order. Returns the locked rows by ``(resource_type, id)``; ids that
+    no longer exist are absent.
+    """
+    locked: dict[tuple[str, uuid.UUID], AssignableResource] = {}
+    for resource_type, resource_id in sorted(set(refs)):
+        resource = await lock_resource(db, resource_type, resource_id)
+        if resource is not None:
+            locked[(resource_type, resource_id)] = resource
+    return locked
+
+
+# Every incidents column that points at a person (all ON DELETE SET NULL): deleting
+# the person writes these incident rows, so they are step 2 of that delete.
+_INCIDENT_PERSONNEL_COLUMNS = (
+    Incident.leader_personnel_id,
+    Incident.reported_by_personnel_id,
+    Incident.field_complete_reported_by,
+    Incident.pickup_requested_by,
+)
+
+
+async def lock_personnel_for_delete(db: AsyncSession, personnel_id: uuid.UUID) -> Personnel | None:
+    """Lock what deleting a person writes, in order: the incidents that point at them
+    (with their Aufträge), then the person.
+
+    The ``ON DELETE SET NULL`` on ``incidents`` row-locks those incidents during the
+    DELETE – after the person, the reverse of the order – so an assignment holding
+    such an incident and waiting for the person deadlocked with the delete. The
+    references are read unlocked, so after the person is locked they are read again;
+    a new one (a Meldung committed in between) rolls the savepoint back and starts
+    over. Once the person is held, a new reference has to wait for its FK check.
+    Other tables with ``SET NULL`` / ``CASCADE`` to personnel are leaves nobody holds
+    while waiting for a person row.
+    """
+    referencing = select(Incident.id).where(or_(*(column == personnel_id for column in _INCIDENT_PERSONNEL_COLUMNS)))
+    for _ in range(_MAX_MEMBERSHIP_ATTEMPTS):
+        before = set((await db.scalars(referencing)).all())
+        savepoint = await db.begin_nested()
+        await lock_incidents_with_groups(db, before)
+        person = await lock_resource(db, "personnel", personnel_id)
+        if person is None or set((await db.scalars(referencing)).all()) <= before:
+            await savepoint.commit()
+            return person
+        await savepoint.rollback()
+    raise RuntimeError("references to the person kept changing while locking; giving up")

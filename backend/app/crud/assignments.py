@@ -22,7 +22,13 @@ from ..models import (
     Vehicle,
 )
 from ..services.audit import log_action
-from .locking import AssignableResource, lock_incident_with_group, lock_incidents_with_groups, lock_resource
+from .locking import (
+    AssignableResource,
+    lock_incident_with_group,
+    lock_incidents_with_groups,
+    lock_resource,
+    lock_resources,
+)
 
 
 class IncidentNotOnBoardError(Exception):
@@ -709,7 +715,7 @@ async def transfer_assignments(
     The rows are NEW assignments on the target, so ``ensure_assignable`` applies to
     each resource (a closed or archived target, a vehicle now «nicht einsatzbereit»)
     and refuses the whole transfer. Lock order (``crud/locking.py``): both Einsätze
-    with their Aufträge, then the resource rows by id.
+    with their Aufträge, then all resource rows (``lock_resources``).
 
     Raises:
         ValueError: If source has no assignments or if conflicts exist
@@ -765,10 +771,9 @@ async def transfer_assignments(
     target_event = await db.get(Event, target_incident.event_id)
     if target_event is None:
         raise ValueError("Ziel-Einsatz nicht gefunden")
-    for resource_id, resource_type in sorted({(a.resource_id, a.resource_type) for a in source_assignments}):
-        resource = await lock_resource(db, resource_type, resource_id)
-        if resource is None:
-            continue  # a row pointing at a deleted resource moves as it is
+    resources = await lock_resources(db, [(a.resource_type, a.resource_id) for a in source_assignments])
+    # A row pointing at a deleted resource is absent here and moves as it is.
+    for resource in resources.values():
         try:
             ensure_assignable(resource, event=target_event, incident=target_incident)
         except ResourceNotAssignableError as refused:

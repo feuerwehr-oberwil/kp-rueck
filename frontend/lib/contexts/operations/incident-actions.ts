@@ -13,7 +13,7 @@ import { toast } from "sonner"
 import { toastLifetime } from "@/lib/toast-lifetime"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { decideRestoreAction, type RestoreOutcome } from "@/lib/restore-incident"
-import { classifySaveFailure, fieldSaveUser, getFieldSaveScope, isFieldSaveWatched, isSavedTextField, noteFieldEdit, noteFieldSend, noteFieldSettled, textConflictOf, type FieldSaveTicket } from "@/lib/field-save"
+import { classifySaveFailure, fieldSaveUser, getFieldSaveScope, isFieldSaveWatched, isSavedTextField, noteFieldEdit, noteFieldQueued, noteFieldSend, noteFieldSettled, textConflictOf, type FieldSaveTicket } from "@/lib/field-save"
 import { apiCoordinatesToTuple, coordinatesToApiFields } from "@/lib/coordinate-parser"
 import { reportStatusConflict } from "@/lib/status-conflict"
 import type { Operation, OperationStatus, StatusWriteGuard } from "./types"
@@ -120,7 +120,8 @@ export function createIncidentActions(board: BoardMutationContext) {
     }
     // Whose edit this is. A write still queued when the session changes hands
     // is dropped, never sent under the next operator's login.
-    const userAtEdit = fieldSaveUser(getFieldSaveScope())
+    const scopeAtEdit = getFieldSaveScope()
+    const userAtEdit = fieldSaveUser(scopeAtEdit)
 
     // A status move says which status this board showed, so the server can refuse
     // it when somebody else moved the card first (lib/status-conflict.ts). Taken at
@@ -250,6 +251,9 @@ export function createIncidentActions(board: BoardMutationContext) {
           textFields.length > 0 &&
           Object.keys(batchedUpdates).every(isSavedTextField) &&
           isFieldSaveWatched(operationId)
+        // Which edit of which field this batch carries, pinned now – not when
+        // it leaves the queue, by which time newer keystrokes may be pending.
+        const queued = noteFieldQueued(operationId, sentTexts, scopeAtEdit)
         // Filled by the queued task — a holder, because TypeScript does not
         // follow an assignment made inside the callback.
         const sent: { ticket?: FieldSaveTicket } = {}
@@ -262,7 +266,7 @@ export function createIncidentActions(board: BoardMutationContext) {
               // debounce or behind an earlier PATCH: not this session's write.
               // The scope change has already dropped the drafts it carried.
               if (fieldSaveUser(getFieldSaveScope()) !== userAtEdit) return
-              sent.ticket = noteFieldSend(operationId, sentTexts)
+              sent.ticket = noteFieldSend(queued)
               const { textBase } = sent.ticket
               await apiClient.updateIncident(
                 operationId,

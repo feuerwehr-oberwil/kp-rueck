@@ -12,7 +12,7 @@ from .. import schemas
 from ..models import EventAttendance, Personnel, User
 from ..services.audit import calculate_changes, log_action
 from . import external_identities
-from .locking import lock_resource
+from .locking import lock_personnel_for_delete
 from .materials import count_active_deployments
 
 
@@ -287,10 +287,11 @@ async def delete_personnel(
 
     A person on an open assignment (Einsatz or Auftrag, training included) is not
     deleted: ``resource_id`` carries no foreign key, so the row would stay on the
-    card pointing at nobody. The person row is locked first (``locking.lock_resource``,
-    the lock every assignment takes), so nobody is assigned between check and delete.
+    card pointing at nobody. The person row is locked first – after the incidents its
+    ``ON DELETE SET NULL`` will write (``locking.lock_personnel_for_delete``) – and it
+    is the lock every assignment takes, so nobody is assigned between check and delete.
     """
-    personnel = await lock_resource(db, "personnel", personnel_id)
+    personnel = await lock_personnel_for_delete(db, personnel_id)
 
     if not personnel:
         return "not_found"
