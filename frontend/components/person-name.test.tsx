@@ -25,7 +25,10 @@ describe("PersonName", () => {
     names("p-1", "p-2")
     expect(screen.getByTestId("p-1").textContent).toBe("Meier Alex · 1985")
     expect(screen.getByTestId("p-2").textContent).toBe("Meier Alex · ?")
-    expect(screen.getByText("· 1985", { exact: false }).className).toBe("font-mono text-muted-foreground")
+    const kennung = screen.getByText("· 1985", { exact: false })
+    expect(kennung).toHaveClass("font-mono", "text-muted-foreground", "shrink-0")
+    // Too narrow for both: the name ellipsizes, the Kennung stays, the full label is the title.
+    expect(screen.getAllByTitle("Meier Alex · 1985")[0]).toHaveClass("truncate")
   })
 
   it("draws a unique name as bare text, exactly as before", () => {

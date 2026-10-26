@@ -72,16 +72,23 @@ export function usePersonNaming() {
  * (or «?») in muted mono. Renders bare text for a unique name, so a roster
  * without namesakes draws exactly what it always did.
  *
+ * In a slot too narrow for both, the NAME ellipsizes and the Kennung stays: it
+ * is the part that tells the two apart. The full label is the name's `title`.
+ *
  * `display` replaces the name text (e.g. «Unbekannt» for a blank one); the
  * ambiguity is still judged on `name`.
  */
 export function PersonName({ display, ...person }: PersonRef & { display?: string }) {
   const { resolve, ambiguous } = usePersonNaming()
   const kennung = shownKennung(resolve(person), ambiguous)
+  const name = display ?? person.name
+  if (!kennung) return <>{name}</>
   return (
-    <>
-      {display ?? person.name}
-      {kennung && <span className="font-mono text-muted-foreground"> · {kennung}</span>}
-    </>
+    <span className="inline-flex max-w-full min-w-0 align-bottom">
+      <span className="min-w-0 truncate" title={`${name} · ${kennung}`}>
+        {name}
+      </span>
+      <span className="shrink-0 whitespace-pre font-mono text-muted-foreground"> · {kennung}</span>
+    </span>
   )
 }
