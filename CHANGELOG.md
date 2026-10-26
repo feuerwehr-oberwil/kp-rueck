@@ -30,6 +30,14 @@ will keep holding.
 
 ### Added
 
+- **«Kennung» for people who share a name** (Settings › Personal, Excel column `kennung`):
+  a Jahrgang or Personal-Nr., shown on the board only where two people have the same name
+  («Meier Alex · 1985»). A second person with the same name needs one; the Divera and roster
+  syncs keep same-name pairs and the board flags them until somebody adds a Kennung.
+- **Two operators typing in the same text field no longer overwrite each other silently.** If
+  somebody else saved Meldung, Notizen, Kontakt … in the meantime, the field keeps your text
+  and asks in amber: «Meinen Text speichern» or «Diese Fassung übernehmen», quoting the other
+  text and who wrote it.
 - **Search keyword «ohne fahrzeug»** on the board finds dispatched Einsätze without a vehicle.
 - **Phone: checking someone out on the check-in kiosk can be undone** («Rückgängig» in the toast).
 - **`TRUSTED_PROXIES`** in `.env`: behind a second proxy, set it to that proxy's address together
@@ -44,6 +52,14 @@ will keep holding.
 
 ### Changed
 
+- **The server refuses assignments the board already greys out**: archived or «nicht
+  einsatzbereit» vehicles and material, anything onto an archived Ereignis, and personnel or
+  vehicles onto a closed Einsatz (material may still go there). Standard-Aufträge skip such
+  equipment. The board shows the server's reason.
+- **Writes are never retried automatically.** A lost answer used to replay a POST, which could
+  create a second Einsatz or send an alarm twice. Reads still retry.
+- **`PATCH /api/incidents/{id}` no longer takes `?expected_updated_at=`** (nothing used it, and
+  it did not hold under concurrency); the per-field `text_base` replaces it.
 - **Address search looks near the station first** (sweep 2026-10): «Bahnhofstrasse 22» offers
   Therwil, Witterswil, Arlesheim instead of Naters VS; Enter with no suggestion highlighted keeps
   what you typed. The typed address no longer disappears on the next tap on the phone.
@@ -120,6 +136,27 @@ will keep holding.
 
 ### Fixed
 
+- **Two people with the same name are two people on the board** – both appear in the crew,
+  both count as assigned, releasing one releases that one (and the same for vehicles).
+- **Equipment held by an Auftrag can no longer be archived or deleted**, and an assignment
+  arriving while it is archived waits for the archive instead of slipping past it.
+- **«Freigeben» only releases an assignment of the Einsatz it names** (a stale id was 204 and
+  released somebody on another card).
+- **Completing a stop while somebody reorders its Auftrag no longer deadlocks** – all writers
+  take their row locks in one order.
+- **A blank name or a bad sort order in an Excel import refuses the file** with the row and
+  column, instead of being stored and breaking the roster for everyone; `0` is a valid order.
+- **Invalid edits are a 422 with the field, not a 500** – updates follow the same rules as
+  creating (lengths, coordinates in range and only as a pair, no null for required fields).
+- **Expired print jobs can be read again** (they answered 500).
+- **Closing the tab no longer lets an older save overtake a newer one.**
+- **Shared wall displays include every incident**, including the 501st and later cards,
+  and their Kennzahlen count the complete event.
+- **Station-defined special functions can be removed** through the same API that assigns them.
+- **Backup scheduling survives a failed run.** Photo restores extract before replacing the
+  existing volume, so an extraction failure preserves the originals.
+- **The high-priority pulse uses its intended dark-theme colours and size.** Its keyframes
+  are valid top-level CSS rules.
 - **A request that fails partway leaves nothing behind**, and the board is told only after a
   write is saved (before, earlier steps of a failed request stayed, and a 200 could precede the
   commit). The Excel «Ersetzen» import is one transaction.
@@ -143,6 +180,13 @@ will keep holding.
 
 ### Security
 
+- **PDF and Excel exports treat operational text as data.** Event names cannot load images
+  through PDF markup; spreadsheet cells containing `=` prefixes remain literal strings.
+- **Excel imports bound decompression and row counts**, stream cells, and reject XML entities.
+- **New backup artifacts use private OS permissions.** Existing backups retain their prior
+  permissions; review their access controls as described in `docs/DEPLOYMENT.md` §6.
+- **Thermal print text cannot supply printer commands.** Control characters in alarm and
+  report text are removed before ESC/POS output; printed Rückfahrt uses the board's wording.
 - **Next.js 15.5.28** (GHSA-2464-fhr4-w9xw, critical: remote code execution in the image
   optimizer with SVGs; GHSA-p3m5-59mp-jv5r, high: denial of service via Server Actions) and
   **Pillow 13.0.0** (GHSA-78g4-xqwv-q3g8 and further heap overflows when opening an uploaded
