@@ -3,6 +3,7 @@
 import { RemovableChip } from "@/components/ui/removable-chip"
 import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
 import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
+import { PersonName, usePersonNaming } from "@/components/person-name"
 import { useTranslations } from "next-intl"
 import { Users, Package, Truck, AlertTriangle, Search, Footprints, MapPin, Undo2, Layers, Info, UserMinus } from 'lucide-react'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
@@ -44,16 +45,16 @@ interface CardResourcesProps {
   showCrewRow: boolean
   showVehicleRow: boolean
   showMaterialRow: boolean
-  /** Vehicle name → driver, threaded in from the board (one roster call). */
+  /** Vehicle id → driver, threaded in from the board (one roster call). */
   vehicleDrivers?: ReadonlyMap<string, string>
-  /** Crew names assigned to >1 incident — drawn with conflict styling. */
-  doubleBookedCrewNames?: Set<string>
+  /** Personnel ids assigned to >1 incident — drawn with conflict styling. */
+  doubleBookedCrewIds?: Set<string>
   /** Editor gate: offers «Als Einsatzleiter markieren» in the crew chip menu. */
   canEdit: boolean
   onRemoveReko?: () => void
-  onRemoveCrew: (crewName: string) => void
-  onRemoveVehicle: (vehicleName: string) => void
-  onToggleDriverStay?: (vehicleName: string) => void
+  onRemoveCrew: (personnelId: string) => void
+  onRemoveVehicle: (vehicleId: string) => void
+  onToggleDriverStay?: (vehicleId: string) => void
   onToggleZuFuss?: () => void
   onRemoveMaterial: (materialId: string) => void
   /** The card's one way into the detail, and its event-stopping click variant. */
@@ -80,7 +81,7 @@ export function CardResources({
   showVehicleRow,
   showMaterialRow,
   vehicleDrivers,
-  doubleBookedCrewNames,
+  doubleBookedCrewIds,
   canEdit,
   onRemoveReko,
   onRemoveCrew,
@@ -95,6 +96,7 @@ export function CardResources({
   const { materialGroups } = useMaterials()
   const { materialOnSite } = useOperations()
   const promoteToLeader = usePromoteToLeader(operation)
+  const naming = usePersonNaming()
   // How much of the crew row the counter is standing in for. Derived, not
   // props — `crew`/`materials` are already in the card's memo comparator.
   const hiddenCrewCount = showCrewRow ? Math.max(0, operation.crew.length - MAX_ROW_CHIPS) : 0
@@ -127,7 +129,7 @@ export function CardResources({
               // Touch: the tap that used to open the Reko tab is the
               // menu's first row now (see RemovableChip).
               menuTitle={operation.assignedReko.name.trim() || t('common.unknownResource')}
-              menuSubtitle={<PersonMenuSubtitle name={operation.assignedReko.name} />}
+              menuSubtitle={<PersonMenuSubtitle personnelId={operation.assignedReko.id} />}
               menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('reko') }]}
               removeLabel={t('chipMenu.removeFromIncident')}
               removeIcon={UserMinus}
@@ -151,16 +153,17 @@ export function CardResources({
           <div className="flex flex-wrap gap-1 min-w-0">
             {/* EL first (decision 23): on a card that clips its crew line,
                 the one name worth reading is the Einsatzleiter's. */}
-            {sortCrewByLeader(operation.crew, operation.leaderName).slice(0, MAX_ROW_CHIPS).map((crewName) => {
-              const isConflict = doubleBookedCrewNames?.has(crewName) ?? false
+            {sortCrewByLeader(operation.crew, operation.leaderId).slice(0, MAX_ROW_CHIPS).map(({ personnelId, name: crewName }) => {
+              const isConflict = doubleBookedCrewIds?.has(personnelId) ?? false
+              const isLeader = operation.leaderId === personnelId
               // Touch only (the chip menu): the detail's rule and the
               // detail's handler — editors only, and not on whoever
               // already holds the role. (A stop inside an Auftrag, whose
               // leader is the route's, has no crew row on the card.)
-              const canPromote = canEdit && operation.leaderName !== crewName
+              const canPromote = canEdit && !isLeader
               return (
                 <RemovableChip
-                  key={crewName}
+                  key={personnelId}
                   variant="secondary"
                   className={cn(
                     "min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default",
@@ -171,16 +174,16 @@ export function CardResources({
                       ? t('card.doubleBookedTooltip', { name: crewName })
                       : undefined
                   }
-                  onRemove={() => onRemoveCrew(crewName)}
+                  onRemove={() => onRemoveCrew(personnelId)}
                   removeTitle={t('common.removeNamed', { name: crewName })}
                   removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                   removeIconClassName="h-2.5 w-2.5"
-                  menuTitle={crewName.trim() || t('common.unknownResource')}
-                  menuSubtitle={<PersonMenuSubtitle name={crewName} isLeader={operation.leaderName === crewName} />}
+                  menuTitle={crewName.trim() ? naming.inline({ name: crewName, personnelId }) : t('common.unknownResource')}
+                  menuSubtitle={<PersonMenuSubtitle personnelId={personnelId} isLeader={isLeader} />}
                   menuActions={[
                     { label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') },
                     ...(canPromote
-                      ? [{ label: t('leader.promote'), icon: <LeaderGlyph />, onSelect: () => void promoteToLeader(crewName) }]
+                      ? [{ label: t('leader.promote'), icon: <LeaderGlyph />, onSelect: () => void promoteToLeader(personnelId) }]
                       : []),
                   ]}
                   removeLabel={t('chipMenu.removeFromIncident')}
@@ -195,8 +198,10 @@ export function CardResources({
                       role, so the chip row stays as dense as it was.
                       With a mouse, promotion stays in the detail's EL
                       stub; on touch it is the chip menu's row above. */}
-                  <LeaderBadge isLeader={operation.leaderName === crewName} />
-                  <span className="truncate">{crewName.trim() || t('common.unknownResource')}</span>
+                  <LeaderBadge isLeader={isLeader} />
+                  <span className="truncate">
+                    <PersonName name={crewName} personnelId={personnelId} display={crewName.trim() || t('common.unknownResource')} />
+                  </span>
                 </RemovableChip>
               )
             })}
@@ -236,21 +241,19 @@ export function CardResources({
                 <span className="truncate">{t('common.zuFuss')}</span>
               </RemovableChip>
             )}
-            {operation.vehicles.map((vehicleName) => {
-              const callsign = operation.vehicleCallsigns.get(vehicleName)
-              const driverStay = operation.vehicleDriverStay?.get(vehicleName)
+            {operation.vehicles.map(({ vehicleId, name: vehicleName, callsign, driverStay }) => {
               // Who is driving it, on the card itself — the same
               // «Name · Funkrufname (Fahrer)» line the detail shows. Who
               // sits behind the wheel is a radio question, and answering
               // it should not need the card opened.
-              const driverName = vehicleDrivers?.get(vehicleName)
+              const driverName = vehicleDrivers?.get(vehicleId)
               return (
               <RemovableChip
-                key={vehicleName}
+                key={vehicleId}
                 variant="secondary"
                 className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 cursor-default"
                 title={callsign ? t('common.funkrufname', { callsign }) : undefined}
-                onRemove={() => onRemoveVehicle(vehicleName)}
+                onRemove={() => onRemoveVehicle(vehicleId)}
                 removeTitle={t('common.removeNamed', { name: vehicleName })}
                 removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                 removeIconClassName="h-2.5 w-2.5"
@@ -290,7 +293,7 @@ export function CardResources({
                     aria-pressed={!!driverStay}
                     onClick={(e) => {
                       e.stopPropagation()
-                      onToggleDriverStay?.(vehicleName)
+                      onToggleDriverStay?.(vehicleId)
                     }}
                     disabled={!onToggleDriverStay}
                     title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}

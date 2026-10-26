@@ -191,13 +191,11 @@ export function PrintHubSheet({
         const vehicleIdToName = new Map<string, string>()
         vehiclesList.forEach((v) => vehicleIdToName.set(v.id, v.name))
 
+        // vehicle id → driver name
         const driverMap = new Map<string, string>()
-        specialFunctions
-          .filter((f) => f.function_type === "driver" && f.vehicle_id)
-          .forEach((f) => {
-            const vehicleName = vehicleIdToName.get(f.vehicle_id!)
-            if (vehicleName) driverMap.set(vehicleName, f.personnel_name)
-          })
+        for (const f of specialFunctions) {
+          if (f.function_type === "driver" && f.vehicle_id) driverMap.set(f.vehicle_id, f.personnel_name)
+        }
         setVehicleDrivers(driverMap)
 
         // The same rows, read the other way round: what each PERSON holds here.

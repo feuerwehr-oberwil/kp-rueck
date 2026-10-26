@@ -25,22 +25,20 @@ export function useToggleDriverStay() {
   const t = useTranslations("kanban.common")
 
   return useCallback(
-    (operationId: string, vehicleName: string) => {
-      const operation = operations.find((op) => op.id === operationId)
-      if (!operation) return
-      const assignmentId = operation.vehicleAssignments.get(vehicleName)
+    (operationId: string, vehicleId: string) => {
+      const vehicle = operations.find((op) => op.id === operationId)?.vehicles.find((v) => v.vehicleId === vehicleId)
+      const assignmentId = vehicle?.assignmentId
       // No assignment id yet (the assign is still in flight) — nothing to patch.
       if (!assignmentId) return
 
-      const previous = operation.vehicleDriverStay?.get(vehicleName) || false
-      const applyStay = (value: boolean) =>
+      const previous = vehicle.driverStay ?? false
+      const applyStay = (driverStay: boolean) =>
         setOperations((ops: Operation[]) =>
-          ops.map((op) => {
-            if (op.id !== operationId) return op
-            const next = new Map(op.vehicleDriverStay)
-            next.set(vehicleName, value)
-            return { ...op, vehicleDriverStay: next }
-          }),
+          ops.map((op) =>
+            op.id === operationId
+              ? { ...op, vehicles: op.vehicles.map((v) => (v.vehicleId === vehicleId ? { ...v, driverStay } : v)) }
+              : op,
+          ),
         )
 
       applyStay(!previous)

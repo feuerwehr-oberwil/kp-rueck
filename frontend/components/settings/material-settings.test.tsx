@@ -83,6 +83,9 @@ describe("MaterialSettings", () => {
     await user.click(screen.getByRole("button", { name: /Material erstellen/i }));
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Tauchpumpe");
+    // Typ and Standort are required by the API (a blank one is a 422).
+    await user.type(within(dialog).getByLabelText(/^Typ\s*\*?$/i), "Pumpe");
+    await user.type(within(dialog).getByLabelText(/^Standort\s*\*?$/i), "TLF");
     await user.click(within(dialog).getByRole("button", { name: /Erstellen/i }));
 
     await waitFor(() => expect(createMaterialResource).toHaveBeenCalledTimes(1));
@@ -130,6 +133,9 @@ describe("MaterialSettings", () => {
     await user.click(screen.getByRole("button", { name: /Material erstellen/i }));
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Flatterband");
+    // Typ and Standort are required by the API (a blank one is a 422).
+    await user.type(within(dialog).getByLabelText(/^Typ\s*\*?$/i), "Pumpe");
+    await user.type(within(dialog).getByLabelText(/^Standort\s*\*?$/i), "TLF");
 
     const consumableSwitch = within(dialog).getByRole("switch");
     await user.click(consumableSwitch);

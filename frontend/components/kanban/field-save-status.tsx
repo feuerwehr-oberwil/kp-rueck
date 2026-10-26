@@ -3,7 +3,10 @@
 /**
  * The quiet line under a text field of the Einsatz detail — «Wird gespeichert
  * …», «Gespeichert – 09:41», «Nicht gespeichert» — and, on a failure, the kept
- * text's two ways out («Erneut speichern», «Text kopieren»).
+ * text's two ways out («Erneut speichern», «Text kopieren»). When the failure is
+ * a conflict (somebody else saved the field meanwhile, review F05) the block
+ * turns amber, quotes the other text and asks: «Meinen Text speichern» or
+ * «Diese Fassung übernehmen» (mockup 2A, owner 26.10.2026).
  *
  * Option B of the save-status mockups (runde3-neu §3): the line sits under the
  * field being saved, because that is where the operator is looking and where
@@ -27,6 +30,7 @@ import { Button } from "@/components/ui/button"
 import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog"
 import {
   getFieldSave,
+  resolveFieldConflict,
   subscribeFieldSave,
   unsavedFieldDrafts,
   watchFieldSave,
@@ -43,7 +47,19 @@ export const SAVED_LINE_MS = 5_000
 export const FIELD_UNSAVED_CLASS =
   "border-destructive ring-[3px] ring-destructive/20 hover:border-destructive focus-visible:border-destructive focus-visible:ring-destructive/30 dark:ring-destructive/40"
 
+/** The amber edge while the field waits for a choice after a conflict – nothing broke. */
+const FIELD_CONFLICT_CLASS =
+  "border-amber-600 ring-[3px] ring-amber-500/20 hover:border-amber-600 focus-visible:border-amber-600 focus-visible:ring-amber-500/30 dark:border-amber-400 dark:ring-amber-400/30"
+
+/** The edge for a field's control: amber while a conflict asks, red while a save failed. */
+export function fieldSaveEdgeClass(view: FieldSaveView): string | undefined {
+  if (!view.failed) return undefined
+  return view.entry?.conflict ? FIELD_CONFLICT_CLASS : FIELD_UNSAVED_CLASS
+}
+
 export interface FieldSaveView {
+  incidentId: string
+  field: SavedTextField
   entry: FieldSaveEntry | undefined
   /** What the field shows: the operator's draft while one is held, else the board. */
   value: string
@@ -73,6 +89,8 @@ export function useFieldSave(incidentId: string, field: SavedTextField, serverVa
     const draft = entry?.draft ?? null
     const failed = entry?.status === "failed"
     return {
+      incidentId,
+      field,
       entry,
       value: draft ?? server,
       failed,
@@ -80,7 +98,7 @@ export function useFieldSave(incidentId: string, field: SavedTextField, serverVa
       changedOnServer: failed && draft !== null && server !== entry!.base && server !== draft,
       serverValue: server,
     }
-  }, [entry, server])
+  }, [entry, server, incidentId, field])
 }
 
 export function FieldSaveStatus({
@@ -157,7 +175,10 @@ export function FieldSaveStatus({
         {saving ? (
           <ShellLoader className="size-3.5" />
         ) : failed ? (
-          <AlertCircle className="size-3.5 text-destructive" aria-hidden="true" />
+          <AlertCircle
+            className={cn("size-3.5", entry.conflict ? "text-amber-700 dark:text-amber-400" : "text-destructive")}
+            aria-hidden="true"
+          />
         ) : (
           <Check className="size-3.5 text-success" aria-hidden="true" />
         )}
@@ -184,6 +205,54 @@ export function FieldSaveStatus({
         <Check className="size-3 shrink-0 text-success" aria-hidden="true" />
         {t("savedAt", { time: formatClockTime(entry.savedAt) })}
       </p>
+    )
+  }
+
+  if (entry.conflict) {
+    const { conflict } = entry
+    const time = conflict.at ? formatClockTime(new Date(conflict.at)) : null
+    const who = conflict.by
+      ? time
+        ? t("conflict.byAt", { by: conflict.by, time })
+        : t("conflict.by", { by: conflict.by })
+      : time
+        ? t("conflict.at", { time })
+        : t("conflict.unknown")
+    const keepMine = () => {
+      if (view.draft === null) return
+      const draft = view.draft
+      resolveFieldConflict(view.incidentId, view.field, "mine")
+      onRetry(draft)
+    }
+    return (
+      <div className={cn("space-y-2", className)}>
+        <p role="alert" className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+          <AlertCircle className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+          <span>
+            <span className="font-semibold">{t("conflict.title")}</span> {who}
+          </span>
+        </p>
+        <blockquote className="whitespace-pre-wrap break-words rounded-r-sm border-l-[3px] border-sel-edge bg-sel-wash px-2.5 py-1.5 text-xs">
+          {conflict.text.trim() ? conflict.text : <span className="text-muted-foreground">{t("conflict.empty")}</span>}
+        </blockquote>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" size="xs" onClick={keepMine}>
+            {t("conflict.keepMine")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            onClick={() => resolveFieldConflict(view.incidentId, view.field, "theirs")}
+          >
+            {t("conflict.takeTheirs")}
+          </Button>
+          <Button type="button" variant="secondary" size="xs" onClick={() => void copy()}>
+            {copied ? <Check className="size-3.5" aria-hidden="true" /> : <Copy className="size-3.5" aria-hidden="true" />}
+            {copied ? t("copied") : t("copy")}
+          </Button>
+        </div>
+      </div>
     )
   }
 

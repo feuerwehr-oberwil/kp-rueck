@@ -258,7 +258,7 @@ export function useKanbanShortcuts(
       if (vehicleShortcut && selectedOperationId) {
         const operation = operations.find((op) => op.id === selectedOperationId)
         if (operation) {
-          const isAssigned = operation.vehicles.includes(vehicleShortcut.name)
+          const isAssigned = operation.vehicles.some((v) => v.vehicleId === vehicleShortcut.id)
           actions.onToggleVehicle(vehicleShortcut, selectedOperationId, isAssigned)
         }
         return

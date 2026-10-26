@@ -349,7 +349,7 @@ function BoardDisplay() {
                     materialGroups={materialGroups}
                     materialOnSite={materialOnSite}
                     vehicleDrivers={vehicleDrivers}
-                    doubleBookedCrewNames={doubleBookedPersons.names}
+                    doubleBookedCrewIds={doubleBookedPersons.ids}
                     auftrag={auftrag}
                     auftragResources={auftrag ? getGroupResources(auftrag.id) : null}
                     crewShownAt={crewShownAt.get(op.id)}

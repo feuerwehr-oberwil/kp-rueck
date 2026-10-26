@@ -30,6 +30,7 @@ import { apiClient } from "@/lib/api-client"
 import { useDeploymentBlock } from "@/lib/hooks/use-deployment"
 import { toast } from "sonner"
 import { ShellLoader } from "@/components/ui/shell-loader"
+import { PersonName, usePersonNaming } from "@/components/person-name"
 
 interface DiveraSendDialogProps {
   open: boolean
@@ -47,6 +48,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
   const t = useTranslations("divera.sendDialog")
   const tBlocked = useTranslations("common.deploymentBlocked")
   const { personnel } = usePersonnel()
+  const { text: personText } = usePersonNaming()
   const { selectedEvent } = useEvent()
   // A deployment role can refuse to alert at all (staging runs on a copy of the production
   // database, so the settings toggle says nothing). Show the lock rather than a button that
@@ -61,16 +63,16 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
     // EL first (decision 23). This is not a roster picker — it is exactly this
     // incident's crew — so the person who leads heads the recipient list. Only
     // the crew block is sorted; the driver rows stay below it, unticked.
-    const crew = sortCrewByLeader(operation.crew, operation.leaderName)
-      .map((name) => personnel.find((p) => p.name === name))
+    const crew = sortCrewByLeader(operation.crew, operation.leaderId)
+      .map((member) => personnel.find((p) => p.id === member.personnelId))
       .filter((p): p is Person => Boolean(p))
     const crewIds = new Set(crew.map((p) => p.id))
-    const vehicleSet = new Set(operation.vehicles)
+    const vehicleIds = new Set(operation.vehicles.map((v) => v.vehicleId))
     const drivers = personnel.filter(
       (p) =>
         p.isDriver &&
-        p.driverVehicleName &&
-        vehicleSet.has(p.driverVehicleName) &&
+        p.driverVehicleId &&
+        vehicleIds.has(p.driverVehicleId) &&
         !crewIds.has(p.id),
     )
     return [
@@ -112,7 +114,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
       if (cancelled) return
       const isTraining = selectedEvent?.training_flag ?? false
       const baseTitle = formatAlarmTitle(operation, alarmTitle)
-      const body = formatAlarmMessage({ operation, materials, template: alarmText })
+      const body = formatAlarmMessage({ operation, materials, template: alarmText, personText })
       // In a training event no real alarm is sent (the backend simulates it). Make
       // that unmistakable in the message itself so nobody mistakes it for a callout.
       setTitle((isTraining ? `ÜBUNG: ${baseTitle}` : baseTitle).slice(0, 50))
@@ -229,7 +231,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
                         onCheckedChange={() => linked && toggle(r.person.id)}
                         disabled={!linked}
                       />
-                      <span className="flex-1 truncate">{r.person.name}</span>
+                      <span className="flex-1 truncate"><PersonName name={r.person.name} kennung={r.person.kennung ?? null} /></span>
                       {r.isDriverRow && (
                         <Badge variant="outline" className="text-2xs text-muted-foreground">
                           {t("driverBadge")}

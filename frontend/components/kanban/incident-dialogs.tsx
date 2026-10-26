@@ -312,33 +312,32 @@ export function IncidentDialogs({
 
   // Reko personnel for this Ereignis, fetched when the crew dialog opens: they
   // are excluded from regular crew assignment (they're Reko only).
-  const [rekoPersonnelNames, setRekoPersonnelNames] = useState<string[]>([])
+  const [rekoPersonnelIds, setRekoPersonnelIds] = useState<string[]>([])
   const crewDialogOpen = dialogs.assignmentOpen && assignment?.resourceType === "crew"
   useEffect(() => {
     if (!crewDialogOpen || !selectedEvent) {
-      setRekoPersonnelNames([])
+      setRekoPersonnelIds([])
       return
     }
     let cancelled = false
     apiClient.getEventSpecialFunctions(selectedEvent.id)
       .then((functions) => {
         if (cancelled) return
-        setRekoPersonnelNames(functions
+        setRekoPersonnelIds(functions
           .filter((item) => item.function_type === "reko")
-          .map((item) => personnel.find((person) => person.id === item.personnel_id)?.name)
-          .filter((name): name is string => name !== undefined))
+          .map((item) => item.personnel_id))
       })
       .catch((error) => {
         console.error("Failed to fetch Reko personnel:", error)
-        if (!cancelled) setRekoPersonnelNames([])
+        if (!cancelled) setRekoPersonnelIds([])
       })
     return () => {
       cancelled = true
     }
-  }, [crewDialogOpen, selectedEvent, personnel])
+  }, [crewDialogOpen, selectedEvent])
 
-  const removeFromRoute = (kind: "personnel" | "vehicles" | "materials", match: (item: { name: string; resourceId: string }) => boolean) => {
-    const item = routeResources?.[kind].find(match)
+  const removeFromRoute = (kind: "personnel" | "vehicles" | "materials", resourceId: string) => {
+    const item = routeResources?.[kind].find((entry) => entry.resourceId === resourceId)
     if (routeGroupId && item) void unassignGroupResource(routeGroupId, item.assignmentId)
   }
 
@@ -406,10 +405,14 @@ export function IncidentDialogs({
         // it from the operations context itself, for every caller.
         vehicles={vehicles}
         materials={materials}
-        assignedPersonnel={routeResources ? routeResources.personnel.map((p) => p.name) : assignmentOperation?.crew ?? []}
-        assignedVehicles={routeResources ? routeResources.vehicles.map((v) => v.name) : assignmentOperation?.vehicles ?? []}
+        assignedPersonnelIds={routeResources
+          ? routeResources.personnel.map((p) => p.resourceId)
+          : assignmentOperation?.crew.map((m) => m.personnelId) ?? []}
+        assignedVehicleIds={routeResources
+          ? routeResources.vehicles.map((v) => v.resourceId)
+          : assignmentOperation?.vehicles.map((v) => v.vehicleId) ?? []}
         assignedMaterials={routeResources ? routeResources.materials.map((m) => m.resourceId) : assignmentOperation?.materials ?? []}
-        rekoPersonnelNames={routeGroupId ? [] : rekoPersonnelNames}
+        rekoPersonnelIds={routeGroupId ? [] : rekoPersonnelIds}
         onAssignPerson={routeGroupId
           ? (personId) => void assignGroupResource(routeGroupId, "personnel", personId)
           : ((personId: string, personName: string, operationId: string) =>
@@ -424,13 +427,13 @@ export function IncidentDialogs({
           ? (materialId) => void assignGroupResource(routeGroupId, "material", materialId)
           : ((materialId: string, operationId: string) => assignMaterialToOperation(materialId, operationId, true))}
         onRemovePerson={routeGroupId
-          ? (_op, personName) => removeFromRoute("personnel", (p) => p.name === personName)
+          ? (_op, personnelId) => removeFromRoute("personnel", personnelId)
           : removeCrew}
         onRemoveVehicle={routeGroupId
-          ? (_op, vehicleName) => removeFromRoute("vehicles", (v) => v.name === vehicleName)
+          ? (_op, vehicleId) => removeFromRoute("vehicles", vehicleId)
           : removeVehicle}
         onRemoveMaterial={routeGroupId
-          ? (_op, materialId) => removeFromRoute("materials", (m) => m.resourceId === materialId)
+          ? (_op, materialId) => removeFromRoute("materials", materialId)
           : removeMaterial}
         zuFuss={assignmentOperation?.zuFuss ?? false}
         onToggleZuFuss={assignmentOperation
@@ -442,9 +445,11 @@ export function IncidentDialogs({
         // Incident-scoped only: the flag lives on the incident's assignment, and
         // a route assignment has no endpoint to patch it through (see the Auftrag
         // case in RouteResourceSections, which has no toggle either).
-        vehicleDriverStay={assignmentOperation?.vehicleDriverStay}
+        vehicleDriverStay={assignmentOperation
+          ? new Map(assignmentOperation.vehicles.map((v) => [v.vehicleId, v.driverStay ?? false]))
+          : undefined}
         onToggleDriverStay={assignmentOperation
-          ? (vehicleName) => toggleDriverStay(assignmentOperation.id, vehicleName)
+          ? (vehicleId) => toggleDriverStay(assignmentOperation.id, vehicleId)
           : undefined}
         onShowCheckIn={onShowCheckIn}
       />

@@ -1,46 +1,50 @@
 import { describe, it, expect } from "vitest"
 import { sortCrewByLeader } from "./crew-order"
 
-describe("sortCrewByLeader — leaderName shape", () => {
+describe("sortCrewByLeader — leaderId shape", () => {
+  const m = (personnelId: string, name = personnelId) => ({ personnelId, assignmentId: `a-${personnelId}`, name })
+  const ids = (crew: readonly { personnelId: string }[]) => crew.map((c) => c.personnelId)
+
   it("moves the Einsatzleiter to the front", () => {
-    expect(sortCrewByLeader(["Muster Hans", "Meier Anna", "Keller Urs"], "Meier Anna")).toEqual([
-      "Meier Anna",
-      "Muster Hans",
-      "Keller Urs",
-    ])
+    expect(ids(sortCrewByLeader([m("hans"), m("anna"), m("urs")], "anna"))).toEqual(["anna", "hans", "urs"])
   })
 
   it("leaves the order untouched when no EL is recorded", () => {
-    const crew = ["Muster Hans", "Meier Anna", "Keller Urs"]
+    const crew = [m("hans"), m("anna"), m("urs")]
     expect(sortCrewByLeader(crew, null)).toEqual(crew)
     expect(sortCrewByLeader(crew, undefined)).toEqual(crew)
     expect(sortCrewByLeader(crew, "")).toEqual(crew)
   })
 
   it("leaves the order untouched when the EL is already first", () => {
-    const crew = ["Muster Hans", "Meier Anna", "Keller Urs"]
-    expect(sortCrewByLeader(crew, "Muster Hans")).toEqual(crew)
+    const crew = [m("hans"), m("anna"), m("urs")]
+    expect(sortCrewByLeader(crew, "hans")).toEqual(crew)
   })
 
-  it("ignores a leaderName that is not on this incident's crew", () => {
-    const crew = ["Muster Hans", "Meier Anna"]
-    expect(sortCrewByLeader(crew, "Fremd Fritz")).toEqual(crew)
+  it("ignores a leaderId that is not on this incident's crew", () => {
+    const crew = [m("hans"), m("anna")]
+    expect(sortCrewByLeader(crew, "fritz")).toEqual(crew)
   })
 
   it("keeps everyone else in their original relative order", () => {
-    const crew = ["Zulu", "Alpha", "Mike", "Bravo", "Echo"]
-    expect(sortCrewByLeader(crew, "Bravo")).toEqual(["Bravo", "Zulu", "Alpha", "Mike", "Echo"])
+    const crew = ["zulu", "alpha", "mike", "bravo", "echo"].map((id) => m(id))
+    expect(ids(sortCrewByLeader(crew, "bravo"))).toEqual(["bravo", "zulu", "alpha", "mike", "echo"])
+  })
+
+  it("moves only the leader when two crew members share a name", () => {
+    const crew = [m("p1", "Meier Alex"), m("p2", "Meier Alex")]
+    expect(ids(sortCrewByLeader(crew, "p2"))).toEqual(["p2", "p1"])
   })
 
   it("returns a new array and never mutates the input", () => {
-    const crew = ["Muster Hans", "Meier Anna"]
-    const sorted = sortCrewByLeader(crew, "Meier Anna")
+    const crew = [m("hans"), m("anna")]
+    const sorted = sortCrewByLeader(crew, "anna")
     expect(sorted).not.toBe(crew)
-    expect(crew).toEqual(["Muster Hans", "Meier Anna"])
+    expect(ids(crew)).toEqual(["hans", "anna"])
   })
 
   it("handles the empty crew", () => {
-    expect(sortCrewByLeader([], "Meier Anna")).toEqual([])
+    expect(sortCrewByLeader([], "anna")).toEqual([])
   })
 })
 

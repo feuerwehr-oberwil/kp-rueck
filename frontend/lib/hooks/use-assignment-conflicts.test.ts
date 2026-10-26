@@ -44,7 +44,7 @@ describe("useAssignmentConflicts — a vehicle onto an Auftrag", () => {
   it("asks once, naming the other route and the incident, and «move» frees both first", async () => {
     const { inputs, hook, asked } = setup({
       groups: [group("g-1", "Nord"), group("g-2", "Süd", [{ id: "ga-1", resourceType: "vehicle", resourceId: "v-tlf" }])],
-      operations: [op("op-1", "Hauptstrasse 1", { vehicles: ["TLF"] })],
+      operations: [op("op-1", "Hauptstrasse 1", { vehicles: [{ vehicleId: "v-tlf", assignmentId: "a-tlf", name: "TLF", callsign: null }] })],
     })
     hook.assignVehicleToGroupWithConflict("g-1", "v-tlf")
     expect(inputs.assignGroupResource).not.toHaveBeenCalled()
@@ -55,7 +55,7 @@ describe("useAssignmentConflicts — a vehicle onto an Auftrag", () => {
 
     await conflict.customResolve!("move")
     expect(inputs.unassignGroupResource).toHaveBeenCalledWith("g-2", "ga-1")
-    expect(inputs.removeVehicle).toHaveBeenCalledWith("op-1", "TLF")
+    expect(inputs.removeVehicle).toHaveBeenCalledWith("op-1", "v-tlf")
     expect(inputs.assignGroupResource).toHaveBeenCalledWith("g-1", "vehicle", "v-tlf")
   })
 
@@ -70,7 +70,7 @@ describe("useAssignmentConflicts — a vehicle onto an Auftrag", () => {
   })
 
   it("«keep» assigns without releasing anything", async () => {
-    const { inputs, hook, asked } = setup({ operations: [op("op-1", "Hauptstrasse 1", { vehicles: ["TLF"] })] })
+    const { inputs, hook, asked } = setup({ operations: [op("op-1", "Hauptstrasse 1", { vehicles: [{ vehicleId: "v-tlf", assignmentId: "a-tlf", name: "TLF", callsign: null }] })] })
     hook.assignVehicleToGroupWithConflict("g-1", "v-tlf")
     await asked()[0].customResolve!("keep")
     expect(inputs.removeVehicle).not.toHaveBeenCalled()

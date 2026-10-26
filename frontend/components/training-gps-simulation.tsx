@@ -119,7 +119,7 @@ export function TrainingGpsSimulation() {
     const map: Record<string, string> = {};
     for (const vehicle of vehicles) {
       const op = operations.find(
-        (o) => o.status !== 'complete' && o.vehicles.includes(vehicle.name),
+        (o) => o.status !== 'complete' && o.vehicles.some((v) => v.vehicleId === vehicle.id),
       );
       if (!op) continue;
       map[vehicle.id] =

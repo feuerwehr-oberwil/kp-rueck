@@ -1,12 +1,13 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { apiClient } from "@/lib/api-client"
 import { wsClient } from "@/lib/websocket-client"
 import { useOperations } from "@/lib/contexts/operations-context"
 
 /**
- * Returns a live map of vehicle name → driver name for the given event.
+ * Returns a live map of vehicle id → driver name for the given event. Keyed by
+ * id, never by name: two vehicles may share a name.
  *
  * Subscribes to `special_function_update` WebSocket events (cross-tab) and the
  * `driver-assignment-changed` window event (same-tab) so any place that shows
@@ -25,9 +26,9 @@ export function useVehicleDrivers(eventId: string | null | undefined, enabled = 
  * empty map means «not known yet», not «nobody is driving».
  */
 export function useVehicleDriverState(eventId: string | null | undefined, enabled = true) {
-  // The fleet off the board sync (no fetch of its own); a driver is stored by
-  // vehicle id and named at render, so a renamed truck renames its row too.
-  const { vehicles, isLoaded: fleetLoaded } = useOperations()
+  // Whether the fleet has arrived with the board sync — «Kein Fahrer» on a
+  // vehicle the board does not know yet would be a guess.
+  const { isLoaded: fleetLoaded } = useOperations()
   const [driversByVehicleId, setDriversByVehicleId] = useState<Map<string, string>>(new Map())
   const [loadedFor, setLoadedFor] = useState<string | null>(null)
 
@@ -46,15 +47,6 @@ export function useVehicleDriverState(eventId: string | null | undefined, enable
     }
   }, [enabled, eventId])
 
-  const vehicleDrivers = useMemo(() => {
-    const byName = new Map<string, string>()
-    for (const vehicle of vehicles) {
-      const driver = driversByVehicleId.get(vehicle.id)
-      if (driver) byName.set(vehicle.name, driver)
-    }
-    return byName
-  }, [vehicles, driversByVehicleId])
-
   useEffect(() => {
     load()
   }, [load])
@@ -72,5 +64,5 @@ export function useVehicleDriverState(eventId: string | null | undefined, enable
     }
   }, [enabled, load])
 
-  return { drivers: vehicleDrivers, loaded: !!eventId && loadedFor === eventId && fleetLoaded }
+  return { drivers: driversByVehicleId, loaded: !!eventId && loadedFor === eventId && fleetLoaded }
 }

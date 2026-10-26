@@ -40,13 +40,14 @@ vi.mock("sonner", () => {
 
 import { useReleaseUndo } from "./use-release-undo"
 
+/** `crew` as personnel ids; everybody here is called «Meier». */
 const incident = (id: string, location: string, crew: string[]) => ({
   id,
   location,
   locationDisplay: location,
   incidentType: "elementarereignis",
   status: "active",
-  crew,
+  crew: crew.map((personnelId) => ({ personnelId, assignmentId: `a-${personnelId}`, name: "Meier" })),
   vehicles: [],
   materials: [],
   groupId: null,
@@ -55,7 +56,7 @@ const incident = (id: string, location: string, crew: string[]) => ({
 beforeEach(() => {
   vi.useFakeTimers()
   toasts.calls = []
-  board.operations = [incident("e1", "Hauptstrasse 5", ["Meier"]), incident("e2", "Bahnhofstrasse 3", [])]
+  board.operations = [incident("e1", "Hauptstrasse 5", ["p1"]), incident("e2", "Bahnhofstrasse 3", [])]
   board.assignPersonToOperation.mockClear()
   board.removeCrew.mockClear()
 })
@@ -63,7 +64,7 @@ afterEach(() => vi.useRealTimers())
 
 async function releaseMeier() {
   const hook = renderHook(() => useReleaseUndo())
-  await act(async () => { await hook.result.current.releaseCrew("e1", "Meier") })
+  await act(async () => { await hook.result.current.releaseCrew("e1", "p1") })
   await act(async () => { vi.advanceTimersByTime(200) })
   return hook
 }
@@ -71,7 +72,7 @@ async function releaseMeier() {
 describe("useReleaseUndo", () => {
   it("names resource and Einsatz, and the undo re-assigns exactly that person once", async () => {
     const hook = await releaseMeier()
-    expect(board.removeCrew).toHaveBeenCalledWith("e1", "Meier")
+    expect(board.removeCrew).toHaveBeenCalledWith("e1", "p1")
     const offer = toasts.calls.at(-1)!
     expect(offer.message).toBe("Meier von Hauptstrasse 5 freigegeben")
     expect(offer.opts?.action?.label).toBe("Rückgängig")
@@ -93,7 +94,7 @@ describe("useReleaseUndo", () => {
     const hook = await releaseMeier()
     const offer = toasts.calls.at(-1)!
 
-    board.operations = [incident("e1", "Hauptstrasse 5", []), incident("e2", "Bahnhofstrasse 3", ["Meier"])]
+    board.operations = [incident("e1", "Hauptstrasse 5", []), incident("e2", "Bahnhofstrasse 3", ["p1"])]
     hook.rerender()
     await act(async () => { offer.opts!.action!.onClick() })
 
@@ -103,6 +104,18 @@ describe("useReleaseUndo", () => {
       message: "Meier konnte nicht zurückgeholt werden",
       opts: { description: "Inzwischen bei Bahnhofstrasse 3 eingeteilt – diese neuere Zuweisung bleibt." },
     })
+  })
+
+  it("a namesake on another Einsatz does not block the undo", async () => {
+    const hook = await releaseMeier()
+    const offer = toasts.calls.at(-1)!
+
+    // A different «Meier» (p2) is on e2 — not the person released.
+    board.operations = [incident("e1", "Hauptstrasse 5", []), incident("e2", "Bahnhofstrasse 3", ["p2"])]
+    hook.rerender()
+    await act(async () => { offer.opts!.action!.onClick() })
+
+    expect(board.assignPersonToOperation).toHaveBeenCalledExactlyOnceWith("p1", "Meier", "e1")
   })
 
   it("offers nothing when the release itself failed", async () => {

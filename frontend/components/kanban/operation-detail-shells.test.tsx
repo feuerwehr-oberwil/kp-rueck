@@ -49,12 +49,9 @@ const operation: Operation = {
   rekoArrivedAt: null,
   rekoSummary: null,
   assignedReko: null,
+  leaderId: null,
   leaderName: null,
-  crewAssignments: new Map(),
   materialAssignments: new Map(),
-  vehicleAssignments: new Map(),
-  vehicleCallsigns: new Map(),
-  vehicleDriverStay: new Map(),
 }
 
 const materials: Material[] = []

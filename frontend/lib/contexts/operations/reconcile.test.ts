@@ -52,14 +52,59 @@ describe("buildEventState", () => {
   it("folds the assignments onto the cards: crew, leader, Reko, vehicles in display order, material", () => {
     const { ops } = buildEventState(snapshot())
     const [first, second] = ops
-    expect(first.crew).toEqual(["Anna", "Beat"])
+    expect(first.crew).toEqual([
+      { personnelId: "p-1", assignmentId: "a-1", name: "Anna" },
+      { personnelId: "p-2", assignmentId: "a-2", name: "Beat" },
+    ])
+    expect(first.leaderId).toBe("p-2")
     expect(first.leaderName).toBe("Beat")
     expect(first.assignedReko).toEqual({ id: "p-reko", name: "Reko" })
-    expect(first.vehicles).toEqual(["TLF", "MTW"])
-    expect(first.vehicleCallsigns).toEqual(new Map([["TLF", "Omega 1"]]))
-    expect(first.vehicleDriverStay).toEqual(new Map([["MTW", false], ["TLF", true]]))
+    expect(first.vehicles).toEqual([
+      { vehicleId: "v-1", assignmentId: "a-tlf", name: "TLF", callsign: "Omega 1", driverStay: true },
+      { vehicleId: "v-2", assignmentId: "a-mtw", name: "MTW", callsign: null, driverStay: false },
+    ])
     expect(first.materials).toEqual(["m-1"])
     expect(second.crew).toEqual([])
+  })
+
+  it("keeps two people who share a name apart: two crew entries, both assigned", () => {
+    const { ops, eventScopedPersonnel } = buildEventState(
+      snapshot({
+        personnelList: [person("p-1", "Meier Alex"), person("p-2", "Meier Alex"), person("p-3", "Meier Alex")],
+        specialFunctions: [],
+        assignmentsByIncident: {
+          "i-1": [row("a-1", "personnel", "p-1"), row("a-2", "personnel", "p-2", { is_leader: true })],
+        },
+      }),
+    )
+    expect(ops[0].crew).toEqual([
+      { personnelId: "p-1", assignmentId: "a-1", name: "Meier Alex" },
+      { personnelId: "p-2", assignmentId: "a-2", name: "Meier Alex" },
+    ])
+    expect(ops[0].leaderId).toBe("p-2")
+    expect(eventScopedPersonnel.map((p) => [p.id, p.status])).toEqual([
+      ["p-1", "assigned"],
+      ["p-2", "assigned"],
+      ["p-3", "available"],
+    ])
+  })
+
+  it("keeps two vehicles that share a name apart", () => {
+    const { ops } = buildEventState(
+      snapshot({
+        vehiclesList: [
+          { id: "v-1", name: "MTW", display_order: 1, radio_call_sign: "Omega 1" },
+          { id: "v-2", name: "MTW", display_order: 2, radio_call_sign: "Omega 2" },
+        ] as EventSnapshot["vehiclesList"],
+        assignmentsByIncident: {
+          "i-1": [row("a-2", "vehicle", "v-2", { driver_stay: true }), row("a-1", "vehicle", "v-1")],
+        },
+      }),
+    )
+    expect(ops[0].vehicles).toEqual([
+      { vehicleId: "v-1", assignmentId: "a-1", name: "MTW", callsign: "Omega 1", driverStay: false },
+      { vehicleId: "v-2", assignmentId: "a-2", name: "MTW", callsign: "Omega 2", driverStay: true },
+    ])
   })
 
   it("scopes the roster and the depot to this Ereignis", () => {

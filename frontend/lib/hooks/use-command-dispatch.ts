@@ -67,9 +67,9 @@ export interface CommandDispatchDeps {
   /** Raw writes for the undo. */
   revertPriority: (operationId: string, priority: DispatchPriority) => void
   revertStatus: (operationId: string, status: DispatchStatus) => void
-  removeCrew: (operationId: string, name: string) => unknown
+  removeCrew: (operationId: string, personnelId: string) => unknown
   removeReko: (operationId: string) => unknown
-  removeVehicle: (operationId: string, name: string) => unknown
+  removeVehicle: (operationId: string, vehicleId: string) => unknown
   removeMaterial: (operationId: string, materialId: string) => unknown
   unassignGroupResource: (groupId: string, assignmentId: string) => unknown
   /** Says what happened, with the undo. Not called when nothing changed. */
@@ -99,9 +99,9 @@ export function holding(
 ): Holding | null {
   if (resource.kind === "person") {
     if (operation.assignedReko?.id === resource.id) return { where: "reko" }
-    if (operation.crew.includes(resource.name)) return { where: "crew" }
+    if (operation.crew.some((m) => m.personnelId === resource.id)) return { where: "crew" }
   } else if (resource.kind === "vehicle") {
-    if (operation.vehicles.includes(resource.name)) return { where: "vehicle" }
+    if (operation.vehicles.some((v) => v.vehicleId === resource.id)) return { where: "vehicle" }
   } else if (operation.materials.includes(resource.id)) {
     return { where: "material" }
   }
@@ -117,8 +117,8 @@ export function holding(
 
 /** On this Einsatz itself (crew, Reko, vehicle, Gerät) — not via its Auftrag. */
 function heldOnIncident(operation: Operation, resource: DispatchResource): boolean {
-  if (resource.kind === "person") return operation.crew.includes(resource.name) || operation.assignedReko?.id === resource.id
-  if (resource.kind === "vehicle") return operation.vehicles.includes(resource.name)
+  if (resource.kind === "person") return operation.crew.some((m) => m.personnelId === resource.id) || operation.assignedReko?.id === resource.id
+  if (resource.kind === "vehicle") return operation.vehicles.some((v) => v.vehicleId === resource.id)
   return operation.materials.includes(resource.id)
 }
 
@@ -227,9 +227,9 @@ async function undoDispatch(outcome: DispatchOutcome, deps: CommandDispatchDeps)
   for (const resource of outcome.assigned) {
     const held = holding(now, resource, deps.getGroupResources)
     if (!held) continue
-    if (held.where === "crew") await deps.removeCrew(operationId, resource.name)
+    if (held.where === "crew") await deps.removeCrew(operationId, resource.id)
     else if (held.where === "reko") await deps.removeReko(operationId)
-    else if (held.where === "vehicle") await deps.removeVehicle(operationId, resource.name)
+    else if (held.where === "vehicle") await deps.removeVehicle(operationId, resource.id)
     else if (held.where === "material") await deps.removeMaterial(operationId, resource.id)
     else await deps.unassignGroupResource(held.groupId, held.assignmentId)
   }

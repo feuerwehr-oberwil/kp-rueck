@@ -172,8 +172,8 @@ export default function FireStationDashboard() {
         const resources = getGroupResources(group.id)
         return {
           id: group.id,
-          personnelNames: resources.personnel.map((p) => p.name),
-          vehicleNames: resources.vehicles.map((v) => v.name),
+          personnelIds: resources.personnel.map((p) => p.resourceId),
+          vehicleIds: resources.vehicles.map((v) => v.resourceId),
         }
       }),
     [groups, getGroupResources],
@@ -181,8 +181,9 @@ export default function FireStationDashboard() {
   const driverEngagements = useMemo(
     () =>
       personnel
-        .filter((person) => person.isDriver && person.driverVehicleName)
-        .map((person) => ({ name: person.name, vehicleName: person.driverVehicleName! })),
+        .flatMap((person) =>
+          person.isDriver && person.driverVehicleId ? [{ personnelId: person.id, vehicleId: person.driverVehicleId }] : [],
+        ),
     [personnel],
   )
   const doubleBookedPersons = useDoubleBookedPersons(operations, groupEngagements, driverEngagements)
@@ -915,7 +916,7 @@ export default function FireStationDashboard() {
     // asked — `assignVehicleToGroupWithConflict` has always collected both.
     const incidentHolders =
       resourceType === "personnel"
-        ? operations.filter((op) => op.crew.includes(name))
+        ? operations.filter((op) => op.crew.some((m) => m.personnelId === resourceId))
         : operations.filter((op) => op.materials.includes(resourceId))
     if (holders.length === 0 && incidentHolders.length === 0) {
       void assignGroupResource(groupId, resourceType, resourceId)
@@ -933,7 +934,7 @@ export default function FireStationDashboard() {
       releases: [
         ...releaseFromGroups(resourceType, resourceId, holders),
         ...incidentHolders.map((op) => () =>
-          resourceType === "personnel" ? removeCrew(op.id, name) : removeMaterial(op.id, resourceId),
+          resourceType === "personnel" ? removeCrew(op.id, resourceId) : removeMaterial(op.id, resourceId),
         ),
       ],
       assign: () => assignGroupResource(groupId, resourceType, resourceId),
@@ -1517,7 +1518,7 @@ export default function FireStationDashboard() {
                       dominantIncidentType={dominantIncidentType}
                       printerEnabled={printerEnabled}
                       vehicleDrivers={vehicleDrivers}
-                      doubleBookedCrewNames={doubleBookedPersons.names}
+                      doubleBookedCrewIds={doubleBookedPersons.ids}
                       canDrag={isEditor}
                       onDragActiveChange={setBoardDragging}
                       onSort={isEditor ? handleColumnSort : undefined}

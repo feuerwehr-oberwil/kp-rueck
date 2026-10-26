@@ -64,7 +64,7 @@ function viewerRekoSummary(summary: ApiViewerRekoSummary): RekoSummary {
  * `pickupNeeded` / `pickupRequestedAt` DO arrive: a crew waiting to be collected
  * is the situation, not the office's bookkeeping, so `PickupBadge` renders on a
  * shared board. `pickupNote` does not — unbounded operator free text that only
- * shows in a tooltip, and nobody hovers a wall display. `leaderName` is filled
+ * shows in a tooltip, and nobody hovers a wall display. `leaderId` is filled
  * in `buildSituationData` from `assignment.is_leader`, exactly as the board does.
  *
  * What still stays at its empty value, because the allowlist does not carry it:
@@ -78,7 +78,13 @@ function viewerIncidentToOperation(a: ApiViewerIncident, reko?: ApiViewerRekoSum
     location: a.location_address || a.title,
     locationDisplay: a.location_display ?? undefined,
     vehicle: "" as unknown as Operation["vehicle"],
-    vehicles: (a.assigned_vehicles ?? []).map((v) => v.name),
+    vehicles: (a.assigned_vehicles ?? []).map((v) => ({
+      vehicleId: v.vehicle_id,
+      assignmentId: v.assignment_id,
+      name: v.name,
+      callsign: null,
+      driverStay: v.driver_stay,
+    })),
     incidentType: a.type,
     dispatchTime: new Date(a.created_at),
     crew: [],
@@ -109,12 +115,9 @@ function viewerIncidentToOperation(a: ApiViewerIncident, reko?: ApiViewerRekoSum
     rekoArrivedAt: a.reko_arrived_at ? new Date(a.reko_arrived_at) : null,
     rekoSummary: reko ? viewerRekoSummary(reko) : null,
     assignedReko: null,
+    leaderId: null,
     leaderName: null,
-    crewAssignments: new Map(),
     materialAssignments: new Map(),
-    vehicleAssignments: new Map(),
-    vehicleCallsigns: new Map(),
-    vehicleDriverStay: new Map(),
   }
 }
 
@@ -185,11 +188,13 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
           op.assignedReko = { id: String(person.id), name: person.name }
           continue
         }
-        op.crew.push(person.name)
-        op.crewAssignments.set(person.name, assignment.id)
-        // Marks which of the already-shared names leads — the displays sort
-        // the crew leader-first off this, like the logged-in board.
-        if (assignment.is_leader) op.leaderName = person.name
+        op.crew.push({ personnelId: String(person.id), assignmentId: assignment.id, name: person.name })
+        // Marks which crew member leads — the displays sort the crew
+        // leader-first off this, like the logged-in board.
+        if (assignment.is_leader) {
+          op.leaderId = String(person.id)
+          op.leaderName = person.name
+        }
         assignedPersonIds.add(String(person.id))
       } else if (assignment.resource_type === "material") {
         op.materials.push(assignment.resource_id)
@@ -198,10 +203,17 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
       } else if (assignment.resource_type === "vehicle") {
         const vehicle = vehiclesById.get(assignment.resource_id)
         if (!vehicle) continue
-        if (!op.vehicles.includes(vehicle.name)) op.vehicles.push(vehicle.name)
-        op.vehicleAssignments.set(vehicle.name, assignment.id)
-        if (vehicle.radio_call_sign) op.vehicleCallsigns.set(vehicle.name, vehicle.radio_call_sign)
-        op.vehicleDriverStay.set(vehicle.name, assignment.driver_stay || false)
+        const assigned = {
+          vehicleId: String(vehicle.id),
+          assignmentId: assignment.id,
+          name: vehicle.name,
+          callsign: vehicle.radio_call_sign || null,
+          driverStay: assignment.driver_stay || false,
+        }
+        // The incident row may already carry it (`assigned_vehicles`): replace, never double.
+        const at = op.vehicles.findIndex((v) => v.vehicleId === assigned.vehicleId)
+        if (at === -1) op.vehicles.push(assigned)
+        else op.vehicles[at] = assigned
       }
     }
   }
@@ -209,6 +221,7 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
   const personnel: Person[] = payload.personnel.map((p) => ({
     id: String(p.id),
     name: p.name,
+    kennung: p.kennung ?? null,
     role: p.role ?? "",
     status: (assignedPersonIds.has(String(p.id)) ? "assigned" : "available") as PersonStatus,
     tags: p.tags ?? undefined,
@@ -241,18 +254,16 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
     groupId: m.group_id,
   }))
 
-  const driverNameByVehicle = new Map<string, string>()
+  const driverNameByVehicleId = new Map<string, string>()
   for (const person of personnel) {
-    if (person.isDriver && person.driverVehicleName) {
-      driverNameByVehicle.set(person.driverVehicleName.toLowerCase(), person.name)
+    if (person.isDriver && person.driverVehicleId) {
+      driverNameByVehicleId.set(person.driverVehicleId, person.name)
     }
   }
 
   const vehicleStatus: VehicleWithStatus[] = payload.vehicles
     .map((v) => {
-      const assignedOperation = operations.find((op) =>
-        op.vehicles.some((vName) => vName.toLowerCase() === v.name.toLowerCase())
-      )
+      const assignedOperation = operations.find((op) => op.vehicles.some((av) => av.vehicleId === String(v.id)))
       const gps = payload.vehicle_positions.find(
         (vp) => vp.device_name.toLowerCase() === v.name.toLowerCase()
       )
@@ -267,7 +278,7 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
         displayOrder: v.display_order,
         assignedOperation,
         gps,
-        driverName: driverNameByVehicle.get(v.name.toLowerCase()) ?? null,
+        driverName: driverNameByVehicleId.get(String(v.id)) ?? null,
       }
     })
     .sort((a, b) => a.displayOrder - b.displayOrder)

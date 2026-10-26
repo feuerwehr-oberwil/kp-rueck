@@ -24,6 +24,7 @@ import { DisplayStaleBanner } from "@/components/display/display-stale-banner"
 import { LoadingStatus } from "@/components/ui/shell-loader"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { readWeatherLayerPref, writeWeatherLayerPref } from "@/lib/weather"
+import { PersonNamingProvider } from "@/components/person-name"
 
 const MapView = dynamic(() => import("@/components/map-view"), {
   ssr: false,
@@ -569,6 +570,7 @@ function TokenDisplayMap({
     // warnings rendering through each other, which is worse than either alone. In a flex
     // column the map's absolutely-positioned controls are placed against the inner
     // container, so they all move down with it and nothing collides.
+    <PersonNamingProvider roster={situation?.personnel ?? []}>
     <div className="flex w-full h-full flex-col">
       <DisplayStaleBanner lastRefresh={lastRefresh} />
       <div className="relative min-h-0 flex-1">
@@ -619,5 +621,6 @@ function TokenDisplayMap({
       />
       </div>
     </div>
+    </PersonNamingProvider>
   )
 }

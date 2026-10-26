@@ -20,6 +20,7 @@ vi.mock('@/lib/api-client', () => ({ apiClient: api }))
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
 
 import { DuplicateFlag } from './duplicate-flag'
+import { crewMember, assignedVehicle } from "@/test-utils/operation-fixtures"
 
 beforeEach(() => vi.clearAllMocks())
 
@@ -48,8 +49,8 @@ describe('DuplicateFlag', () => {
       location: 'Hauptstr. 6',
       incidentType: 'elementarereignis',
       status: 'active',
-      crew: ['Meier Hans'],
-      vehicles: ['TLF 1'],
+      crew: [crewMember('Meier Hans')],
+      vehicles: [assignedVehicle('TLF 1')],
       vehicle: null,
       materials: [],
       hasCompletedReko: true,

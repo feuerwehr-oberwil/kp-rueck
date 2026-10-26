@@ -296,14 +296,15 @@ describe('apiClient — the transport rules every method inherits', () => {
     expect(toast.error).toHaveBeenCalledTimes(1)
   })
 
-  it('retries a mutation once, not three times', async () => {
+  // A 502 from the proxy says nothing about whether the backend committed (review F07).
+  it('never retries a mutation, not even on a 502', async () => {
     vi.useFakeTimers()
     fetchMock.mockImplementation(async () => json({}, { status: 502 }))
     const promise = apiClient.reorderIncidents('e1', [])
     const assertion = expect(promise).rejects.toBeInstanceOf(ApiError)
     await vi.runAllTimersAsync()
     await assertion
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenCalledOnce()
   })
 
   it('does not retry a 4xx', async () => {

@@ -24,6 +24,7 @@ import { type Operation } from '@/lib/contexts/operations-context'
 import { type Material } from '@/lib/contexts/materials-context'
 import type { GroupResources, IncidentGroup } from '@/lib/types/groups'
 import { LoadingStatus } from '@/components/ui/shell-loader'
+import { PersonNamingProvider } from "@/components/person-name"
 
 // Read-only board rendered from a share token (no login). The SAME board and the
 // SAME cards as the logged-in display — it differs only in where the data comes
@@ -316,6 +317,7 @@ export function TokenBoard({ token }: { token: string }) {
   }
 
   return (
+    <PersonNamingProvider roster={situation?.personnel ?? []}>
     <div className="flex h-full flex-col bg-background text-foreground">
       <DisplayStaleBanner lastRefresh={lastRefresh} />
 
@@ -360,5 +362,6 @@ export function TokenBoard({ token }: { token: string }) {
         viewerToken={token}
       />
     </div>
+    </PersonNamingProvider>
   )
 }

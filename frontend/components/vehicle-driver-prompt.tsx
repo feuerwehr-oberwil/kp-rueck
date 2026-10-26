@@ -56,8 +56,8 @@ export function VehicleDriverPrompt() {
   const [specialFunctions, setSpecialFunctions] = useState<ApiEventSpecialFunctionResponse[]>([])
   /** The dismissed-without-a-driver question, held after the picker closed. */
   const [driverless, setDriverless] = useState<
-    | { vehicleName: string; incidentId: string; groupId?: undefined; vehicleId?: undefined }
-    | { vehicleName: string; groupId: string; vehicleId: string; incidentId?: undefined }
+    | { vehicleName: string; vehicleId: string; incidentId: string; groupId?: undefined }
+    | { vehicleName: string; vehicleId: string; groupId: string; incidentId?: undefined }
     | null
   >(null)
 
@@ -111,7 +111,7 @@ export function VehicleDriverPrompt() {
           )
           if (assignment) await unassignResource(driverless.groupId, assignment.id)
         } else if (driverless.incidentId) {
-          await removeVehicle(driverless.incidentId, driverless.vehicleName)
+          await removeVehicle(driverless.incidentId, driverless.vehicleId)
         }
         setDriverless(null)
       }}
@@ -135,6 +135,7 @@ export function VehicleDriverPrompt() {
         } else if (vehicleNeedingDriver.incidentId) {
           setDriverless({
             vehicleName: vehicleNeedingDriver.vehicleName,
+            vehicleId: vehicleNeedingDriver.vehicleId,
             incidentId: vehicleNeedingDriver.incidentId,
           })
         } else if (vehicleNeedingDriver.groupId) {

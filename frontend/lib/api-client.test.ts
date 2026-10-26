@@ -32,6 +32,19 @@ describe('apiClient network failures', () => {
     await assertion
   })
 
+  it('never replays a mutation whose response was lost', async () => {
+    // Review F07: the server may have committed before the connection dropped;
+    // a second POST would create a second incident.
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const promise = apiClient.updateIncident('some-id', { priority: 'high' })
+    const assertion = expect(promise).rejects.toBeInstanceOf(NetworkError)
+    await vi.runAllTimersAsync()
+    await assertion
+    expect(fetchMock).toHaveBeenCalledOnce()
+  })
+
   it('resolves GETs to undefined when the server is unreachable (soft degrade for polling)', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
 

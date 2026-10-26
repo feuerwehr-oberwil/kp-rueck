@@ -38,6 +38,7 @@ import { SchadenplatzRapportSection } from "@/components/kanban/schadenplatz-rap
 import { IncidentTimeline } from "@/components/kanban/incident-timeline"
 import { IncidentParticipants } from "@/components/kanban/incident-participants"
 import { Reveal } from "@/components/ui/reveal"
+import { PersonName } from "@/components/person-name"
 
 // Icons/labels/colors all sourced from the shared priority module.
 export const priorityVisuals: Record<
@@ -153,8 +154,8 @@ export function IncidentDetailModal({
     return { id, name: mat?.name ?? id, consumable: mat?.consumable ?? false }
   })
 
-  const personnelRoleByName = new Map<string, string | undefined>(
-    personnel.map(p => [p.name, p.role]),
+  const personnelRoleById = new Map<string, string | undefined>(
+    personnel.map(p => [p.id, p.role]),
   )
 
   // What the Reko reported. It rides along on the event-wide Reko-Summaries the
@@ -488,11 +489,11 @@ export function IncidentDetailModal({
               <div className="flex flex-wrap gap-1.5">
                 {/* EL first (decision 23): read off a wall at distance, the first
                     badge is the one that gets read at all. */}
-                {sortCrewByLeader(operation.crew, operation.leaderName).map((name) => {
-                  const role = personnelRoleByName.get(name)
+                {sortCrewByLeader(operation.crew, operation.leaderId).map(({ personnelId, name }) => {
+                  const role = personnelRoleById.get(personnelId)
                   return (
-                    <Badge key={name} variant="secondary" className="text-sm">
-                      {name}
+                    <Badge key={personnelId} variant="secondary" className="text-sm">
+                      <PersonName name={name} personnelId={personnelId} />
                       {role && <span className="ml-1 opacity-70">· {role}</span>}
                     </Badge>
                   )
@@ -510,12 +511,10 @@ export function IncidentDetailModal({
             </div>
             {operation.vehicles.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
-                {operation.vehicles.map((vehicleName) => {
-                  const callsign = operation.vehicleCallsigns.get(vehicleName)
-                  const driverStay = operation.vehicleDriverStay.get(vehicleName)
-                  const driverName = vehicleDrivers.get(vehicleName)
+                {operation.vehicles.map(({ vehicleId, name: vehicleName, callsign, driverStay }) => {
+                  const driverName = vehicleDrivers.get(vehicleId)
                   return (
-                    <Badge key={vehicleName} variant="default" className="text-sm gap-1">
+                    <Badge key={vehicleId} variant="default" className="text-sm gap-1">
                       {vehicleName}
                       {callsign && <span className="opacity-70">· {callsign}</span>}
                       {driverName && <span className="opacity-70">{t('board.driver', { name: driverName })}</span>}

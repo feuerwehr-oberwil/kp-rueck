@@ -1126,6 +1126,16 @@
       },
       "serverNow": "Auf dem Server steht inzwischen: «{text}»",
       "serverNowEmpty": "Auf dem Server ist das Feld inzwischen leer.",
+      "conflict": {
+        "title": "Nicht gespeichert – inzwischen geändert.",
+        "byAt": "{by} hat um {time} geändert:",
+        "by": "{by} hat inzwischen geändert:",
+        "at": "Um {time} anderswo geändert:",
+        "unknown": "Anderswo geändert:",
+        "empty": "Das Feld ist jetzt leer.",
+        "keepMine": "Meinen Text speichern",
+        "takeTheirs": "Diese Fassung übernehmen"
+      },
       "retry": "Erneut speichern",
       "copy": "Text kopieren",
       "copied": "Kopiert",
@@ -2212,7 +2222,11 @@
       "syncUnavailable": "Kein Personal-Anbieter hinterlegt – es gibt nichts abzugleichen. Den Zugangsschlüssel trägt die Person ein, die den Server betreut; den Stand zeigt Einstellungen → Integrationen.",
       "abbreviationsTitle": "Gradabkürzungen",
       "abbreviationsHint": "Kurzform, die die Seitenleiste des Boards anzeigt. Leer = eingebaute Abkürzung (im Feld angedeutet).",
-      "abbreviationsSaveError": "Abkürzungen konnten nicht gespeichert werden"
+      "abbreviationsSaveError": "Abkürzungen konnten nicht gespeichert werden",
+      "kennungLabel": "Kennung",
+      "kennungPlaceholder": "z.B. Jahrgang oder Personal-Nr.",
+      "kennungHelp": "Nur nötig bei gleichem Namen. Erscheint nur dann auf dem Board.",
+      "syncKeptAssigned": "{count} behalten (noch zugewiesen)"
     },
     "printer": {
       "toasts": {
@@ -2359,7 +2373,12 @@
       "max120": "Maximal 120 Zeichen",
       "orderNumber": "Reihenfolge muss eine Zahl sein",
       "orderInt": "Reihenfolge muss eine ganze Zahl sein",
-      "orderMin1": "Mindestens 1"
+      "orderMin1": "Mindestens 1",
+      "typeRequired": "Typ ist erforderlich",
+      "locationRequired": "Standort ist erforderlich",
+      "max20": "Maximal 20 Zeichen",
+      "max50": "Maximal 50 Zeichen",
+      "max100": "Maximal 100 Zeichen"
     },
     "lifecycle": {
       "notReady": "Nicht einsatzbereit",
@@ -3411,7 +3430,8 @@
       "reko_link_invalid": "Dieser Reko-Link ist ungültig oder abgelaufen.",
       "reko_report_not_found": "Bericht nicht gefunden",
       "reko_report_no_access": "Kein Zugriff auf diesen Bericht.",
-      "incident_status_changed": "Status inzwischen geändert – der Einsatz wurde neu geladen."
+      "incident_status_changed": "Status inzwischen geändert – der Einsatz wurde neu geladen.",
+      "text_conflict": "Inzwischen anderswo geändert – nicht gespeichert."
     }
   },
   "training": {

@@ -23,7 +23,7 @@ import type { Material, Operation } from '@/lib/contexts/operations-context'
  * comparator, and a field drawn but not compared renders stale forever (see
  * `mobile-pickup.test.tsx`, commit e1e561f0). The sheet is unmemoised today, so
  * these three pass trivially — they are here to fail the day somebody wraps it
- * in `memo` with a comparator that forgets `zuFuss` or `vehicleDriverStay`.
+ * in `memo` with a comparator that forgets `zuFuss` or a vehicle's `driverStay`.
  */
 
 vi.mock('@/lib/api-client', () => ({ apiClient: {} }))
@@ -37,6 +37,7 @@ vi.mock('@/lib/hooks/use-vehicle-drivers', () => ({ useVehicleDrivers: () => new
 vi.mock('@/components/reko/reko-report-section', () => ({ default: () => null }))
 
 import { MobileIncidentDetailSheet } from '@/components/mobile/mobile-incident-detail-sheet'
+import { assignedVehicle } from "@/test-utils/operation-fixtures"
 
 function operation(overrides: Partial<Operation> = {}): Operation {
   return {
@@ -67,12 +68,9 @@ function operation(overrides: Partial<Operation> = {}): Operation {
     rekoArrivedAt: null,
     rekoSummary: null,
     assignedReko: null,
+    leaderId: null,
     leaderName: null,
-    crewAssignments: new Map(),
     materialAssignments: new Map(),
-    vehicleAssignments: new Map(),
-    vehicleCallsigns: new Map(),
-    vehicleDriverStay: new Map(),
     ...overrides,
   } as Operation
 }
@@ -93,8 +91,7 @@ function sheet(op: Operation) {
 
 const ON_FOOT = operation({ zuFuss: true })
 const WITH_TLF = operation({
-  vehicles: ['TLF 1'],
-  vehicleDriverStay: new Map([['TLF 1', false]]),
+  vehicles: [assignedVehicle('TLF 1', { driverStay: false })],
 })
 
 describe('«Zu Fuss» in the phone detail sheet', () => {
@@ -125,7 +122,7 @@ describe('«Zu Fuss» in the phone detail sheet', () => {
 
 describe('the driver-stay state in the phone detail sheet', () => {
   it('marks a driver who stays with his vehicle', () => {
-    renderWithIntl(sheet(operation({ ...WITH_TLF, vehicleDriverStay: new Map([['TLF 1', true]]) })))
+    renderWithIntl(sheet(operation({ ...WITH_TLF, vehicles: [assignedVehicle('TLF 1', { driverStay: true })] })))
     expect(screen.getByText('bleibt vor Ort')).toBeInTheDocument()
   })
 
@@ -135,14 +132,14 @@ describe('the driver-stay state in the phone detail sheet', () => {
   })
 
   it('says nothing when the assignment carries no answer', () => {
-    renderWithIntl(sheet(operation({ vehicles: ['TLF 1'] })))
+    renderWithIntl(sheet(operation({ vehicles: [assignedVehicle('TLF 1')] })))
     expect(screen.queryByText('bleibt vor Ort')).not.toBeInTheDocument()
     expect(screen.queryByText('fährt zurück')).not.toBeInTheDocument()
   })
 
   it('follows the toggle on an already-open sheet', () => {
     const { rerender } = renderWithIntl(sheet(WITH_TLF))
-    rerender(sheet(operation({ ...WITH_TLF, vehicleDriverStay: new Map([['TLF 1', true]]) })))
+    rerender(sheet(operation({ ...WITH_TLF, vehicles: [assignedVehicle('TLF 1', { driverStay: true })] })))
     expect(screen.getByText('bleibt vor Ort')).toBeInTheDocument()
     expect(screen.queryByText('fährt zurück')).not.toBeInTheDocument()
   })

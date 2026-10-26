@@ -57,7 +57,7 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
   const collectPersonBindings = useCallback((person: Person): ResourceBinding[] => {
     const bindings: ResourceBinding[] = []
     for (const op of operations) {
-      if (op.crew.includes(person.name)) {
+      if (op.crew.some((m) => m.personnelId === person.id)) {
         bindings.push({
           key: `incident-${op.id}`,
           kind: "incident",
@@ -77,7 +77,7 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
       }
     }
     for (const group of groups) {
-      if (getGroupResources(group.id).personnel.some((p) => p.name === person.name)) {
+      if (getGroupResources(group.id).personnel.some((p) => p.resourceId === person.id)) {
         bindings.push({ key: `route-${group.id}`, kind: "route", targetId: group.id, label: group.name, detail: "" })
       }
     }
@@ -100,8 +100,8 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
     // Station functions. They bind a person as hard as an incident does, and
     // they are exactly the rows whose click used to do nothing at all.
     if (person.isDriver) {
-      const drivenOp = person.driverVehicleName
-        ? operations.find((op) => op.vehicles.includes(person.driverVehicleName!))
+      const drivenOp = person.driverVehicleId
+        ? operations.find((op) => op.vehicles.some((v) => v.vehicleId === person.driverVehicleId))
         : undefined
       bindings.push({
         key: "fn-driver",

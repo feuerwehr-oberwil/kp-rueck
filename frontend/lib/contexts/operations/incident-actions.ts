@@ -13,7 +13,7 @@ import { toast } from "sonner"
 import { toastLifetime } from "@/lib/toast-lifetime"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { decideRestoreAction, type RestoreOutcome } from "@/lib/restore-incident"
-import { classifySaveFailure, fieldSaveUser, getFieldSaveScope, isFieldSaveWatched, isSavedTextField, noteFieldEdit, noteFieldSend, noteFieldSettled, type FieldSaveTicket } from "@/lib/field-save"
+import { classifySaveFailure, fieldSaveUser, getFieldSaveScope, isFieldSaveWatched, isSavedTextField, noteFieldEdit, noteFieldSend, noteFieldSettled, textConflictOf, type FieldSaveTicket } from "@/lib/field-save"
 import { apiCoordinatesToTuple, coordinatesToApiFields } from "@/lib/coordinate-parser"
 import { reportStatusConflict } from "@/lib/status-conflict"
 import type { Operation, OperationStatus, StatusWriteGuard } from "./types"
@@ -162,10 +162,7 @@ export function createIncidentActions(board: BoardMutationContext) {
           updatedOp = {
             ...updatedOp,
             crew: [],
-            crewAssignments: new Map(),
             vehicles: [],
-            vehicleAssignments: new Map(),
-            vehicleCallsigns: new Map(),
             // Keep materials - backend keeps them assigned (may be left on site)
           }
         }
@@ -178,13 +175,13 @@ export function createIncidentActions(board: BoardMutationContext) {
     if (isCompletingOperation) {
       const operation = operations.find(op => op.id === operationId)
       if (operation) {
-        const crewToRelease = operation.crew
+        const crewToRelease = new Set(operation.crew.map((m) => m.personnelId))
         setPersonnel((people) =>
           people.map((p) => {
-            if (crewToRelease.includes(p.name)) {
+            if (crewToRelease.has(p.id)) {
               // Check if still assigned to another operation
               const stillAssigned = operations.some(
-                op => op.id !== operationId && op.crew.includes(p.name)
+                op => op.id !== operationId && op.crew.some((m) => m.personnelId === p.id)
               )
               if (!stillAssigned) {
                 return { ...p, status: "available" as PersonStatus }
@@ -245,6 +242,7 @@ export function createIncidentActions(board: BoardMutationContext) {
         }
 
         const textFields = Object.keys(batchedUpdates).filter(isSavedTextField)
+        const sentTexts = Object.fromEntries(textFields.map((field) => [field, String(batchedUpdates[field] ?? '')]))
         // Only text fields, and their field is on screen: the failure is said
         // there, with the text kept and a retry next to it — a toast on top
         // would be the second red notice for one fact.
@@ -264,18 +262,21 @@ export function createIncidentActions(board: BoardMutationContext) {
               // debounce or behind an earlier PATCH: not this session's write.
               // The scope change has already dropped the drafts it carried.
               if (fieldSaveUser(getFieldSaveScope()) !== userAtEdit) return
-              sent.ticket = noteFieldSend(operationId, textFields)
-              await apiClient.updateIncident(operationId, apiUpdates)
+              sent.ticket = noteFieldSend(operationId, sentTexts)
+              const { textBase } = sent.ticket
+              await apiClient.updateIncident(
+                operationId,
+                Object.keys(textBase).length > 0 ? { ...apiUpdates, text_base: textBase } : apiUpdates,
+              )
             },
-            // pagehide/visibility flush: leave now, the page may be gone
-            // before the request ahead of this one settles.
-            { jump: typeof document !== 'undefined' && document.visibilityState === 'hidden' },
           )
           if (sent.ticket) noteFieldSettled(sent.ticket, { ok: true })
           if (isReopeningOperation) await refreshOperations()
         } catch (err) {
           console.error("Failed to update operation:", err)
-          if (sent.ticket) noteFieldSettled(sent.ticket, { ok: false, reason: classifySaveFailure(err) })
+          if (sent.ticket) {
+            noteFieldSettled(sent.ticket, { ok: false, reason: classifySaveFailure(err), conflict: textConflictOf(err) })
+          }
           if (
             statusGuard &&
             batchedUpdates.status !== undefined &&
@@ -443,12 +444,9 @@ export function createIncidentActions(board: BoardMutationContext) {
           rekoArrivedAt: null,
           rekoSummary: null,
           assignedReko: null,
+          leaderId: null,
           leaderName: null,
-          crewAssignments: new Map(),
           materialAssignments: new Map(),
-          vehicleAssignments: new Map(),
-          vehicleCallsigns: new Map(),
-          vehicleDriverStay: new Map(),
           groupId: apiIncident.group_id ?? null,
           groupPosition: apiIncident.group_position ?? 0,
           number: apiIncident.number ?? null,
@@ -477,11 +475,9 @@ export function createIncidentActions(board: BoardMutationContext) {
         hasCompletedReko: false,
         rekoArrivedAt: null,
         rekoSummary: null,
+        leaderId: null,
         leaderName: null,
-        crewAssignments: new Map(),
         materialAssignments: new Map(),
-        vehicleAssignments: new Map(),
-        vehicleCallsigns: new Map(),
       }
       setOperations((ops) => [newOperation, ...ops])
     }
@@ -622,10 +618,10 @@ export function createIncidentActions(board: BoardMutationContext) {
         await apiClient.deleteIncident(operationId)
       }
 
-      for (const crewName of operation.crew) {
-        const person = personnel.find(p => p.name === crewName)
+      for (const { personnelId } of operation.crew) {
+        const person = personnel.find(p => p.id === personnelId)
         if (person) {
-          const stillAssigned = operations.some(op => op.id !== operationId && op.crew.includes(crewName))
+          const stillAssigned = operations.some(op => op.id !== operationId && op.crew.some((m) => m.personnelId === personnelId))
           if (!stillAssigned) {
             setPersonnel((people) =>
               people.map((p) => (p.id === person.id ? { ...p, status: "available" as PersonStatus } : p))

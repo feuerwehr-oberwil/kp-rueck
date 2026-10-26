@@ -167,12 +167,12 @@ export function useReleaseUndo() {
   }, [])
 
   const releaseCrew = useCallback(
-    async (operationId: string, crewName: string): Promise<boolean> => {
+    async (operationId: string, personnelId: string): Promise<boolean> => {
       const ops = latest.current.ops
-      const person = ops.personnel.find((p) => p.name === crewName)
+      const member = ops.operations.find((op) => op.id === operationId)?.crew.find((m) => m.personnelId === personnelId)
       const targetLabel = incidentLabel(operationId)
-      const ok = await ops.removeCrew(operationId, crewName)
-      if (ok && person) offer({ kind: "personnel", operationId, personId: person.id, name: crewName, targetLabel })
+      const ok = await ops.removeCrew(operationId, personnelId)
+      if (ok && member) offer({ kind: "personnel", operationId, personId: personnelId, name: member.name, targetLabel })
       return ok
     },
     [offer, incidentLabel],
@@ -191,13 +191,12 @@ export function useReleaseUndo() {
   )
 
   const releaseVehicle = useCallback(
-    async (operationId: string, vehicleName: string): Promise<boolean> => {
+    async (operationId: string, vehicleId: string): Promise<boolean> => {
       const ops = latest.current.ops
-      const vehicle = ops.vehicles.find((v) => v.name === vehicleName)
-      const vehicleId = vehicle ? String(vehicle.id) : null
+      const vehicle = ops.operations.find((op) => op.id === operationId)?.vehicles.find((v) => v.vehicleId === vehicleId)
       const targetLabel = incidentLabel(operationId)
-      const ok = await ops.removeVehicle(operationId, vehicleName)
-      if (ok && vehicleId) offer({ kind: "vehicle", operationId, vehicleId, name: vehicleName, targetLabel })
+      const ok = await ops.removeVehicle(operationId, vehicleId)
+      if (ok && vehicle) offer({ kind: "vehicle", operationId, vehicleId, name: vehicle.name, targetLabel })
       return ok
     },
     [offer, incidentLabel],

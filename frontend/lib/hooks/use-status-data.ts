@@ -107,13 +107,11 @@ export function useStatusData() {
   const vehicleStatus: VehicleWithStatus[] = useMemo(() => {
     return vehicles
       .map((v) => {
-        const assignedOp = operations.find((op) =>
-          op.vehicles.some((vName) => vName.toLowerCase() === v.name.toLowerCase())
-        )
+        const assignedOp = operations.find((op) => op.vehicles.some((av) => av.vehicleId === v.id))
         const gps = vehiclePositions.find(
           (vp) => vp.device_name.toLowerCase() === v.name.toLowerCase()
         )
-        const driver = personnel.find((p) => p.isDriver && p.driverVehicleName?.toLowerCase() === v.name.toLowerCase())
+        const driver = personnel.find((p) => p.isDriver && p.driverVehicleId === v.id)
 
         return { ...v, assignedOperation: assignedOp, gps, driverName: driver?.name || null }
       })

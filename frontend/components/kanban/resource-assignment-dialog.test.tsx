@@ -67,8 +67,8 @@ function renderDialog() {
       personnel={[]}
       vehicles={[]}
       materials={[PUMP, TAPE]}
-      assignedPersonnel={[]}
-      assignedVehicles={[]}
+      assignedPersonnelIds={[]}
+      assignedVehicleIds={[]}
       assignedMaterials={[]}
       onAssignPerson={vi.fn()}
       onAssignVehicle={vi.fn()}
@@ -122,8 +122,8 @@ describe("special functions in the crew list", () => {
         personnel={personnel}
         vehicles={[]}
         materials={[]}
-        assignedPersonnel={[]}
-        assignedVehicles={[]}
+        assignedPersonnelIds={[]}
+        assignedVehicleIds={[]}
         assignedMaterials={[]}
         onAssignPerson={vi.fn()}
         onAssignVehicle={vi.fn()}
@@ -166,8 +166,8 @@ describe("special functions in the crew list", () => {
         personnel={personnel}
         vehicles={[]}
         materials={[]}
-        assignedPersonnel={assigned}
-        assignedVehicles={[]}
+        assignedPersonnelIds={assigned}
+        assignedVehicleIds={[]}
         assignedMaterials={[]}
         onAssignPerson={vi.fn()}
         onAssignVehicle={vi.fn()}
@@ -226,6 +226,44 @@ describe("special functions in the crew list", () => {
     expect(screen.queryByText(/Bereits im Einsatz/)).toBeNull()
   })
 
+  it("tells two people who share a name apart: the ticks move the right ids", async () => {
+    const user = userEvent.setup()
+    const onAssignPerson = vi.fn()
+    const onRemovePerson = vi.fn()
+    renderWithIntl(
+      <ResourceAssignmentDialog
+        open
+        onOpenChange={vi.fn()}
+        resourceType="crew"
+        operationId="incident-1"
+        personnel={[
+          person({ id: "p-1", name: "Meier Alex", status: "assigned" }),
+          person({ id: "p-2", name: "Meier Alex", role: "Korporal" }),
+        ]}
+        vehicles={[]}
+        materials={[]}
+        assignedPersonnelIds={["p-1"]}
+        assignedVehicleIds={[]}
+        assignedMaterials={[]}
+        onAssignPerson={onAssignPerson}
+        onAssignVehicle={vi.fn()}
+        onAssignMaterial={vi.fn()}
+        onRemovePerson={onRemovePerson}
+        onRemoveVehicle={vi.fn()}
+        onRemoveMaterial={vi.fn()}
+      />,
+    )
+
+    expect(screen.getAllByRole("button", { name: /Meier Alex/ })).toHaveLength(2)
+    // Swap them: untick the one on this incident, tick the namesake.
+    await user.click(screen.getByRole("button", { name: /Meier Alex\s*Soldat/ }))
+    await user.click(screen.getByRole("button", { name: /Meier Alex\s*Korporal/ }))
+    await user.click(screen.getByRole("button", { name: /Fertig/ }))
+
+    expect(onAssignPerson).toHaveBeenCalledExactlyOnceWith("p-2", "Meier Alex", "incident-1")
+    expect(onRemovePerson).toHaveBeenCalledExactlyOnceWith("incident-1", "p-1")
+  })
+
   it("finds a person by their special function in the search", async () => {
     const user = userEvent.setup()
     renderCrew([
@@ -255,8 +293,8 @@ describe("readiness from the operations context", () => {
           personnel={[]}
           vehicles={[{ id: "v1", name: "TLF", type: "Tanklöschfahrzeug" }]}
           materials={[]}
-          assignedPersonnel={[]}
-          assignedVehicles={[]}
+          assignedPersonnelIds={[]}
+          assignedVehicleIds={[]}
           assignedMaterials={[]}
           onAssignPerson={vi.fn()}
           onAssignVehicle={vi.fn()}
@@ -280,7 +318,7 @@ describe("vor Ort / zurück in the vehicle assignment", () => {
   const TLF = { id: "v1", name: "TLF", type: "Tanklöschfahrzeug" }
   const PIO = { id: "v2", name: "Pio", type: "Pionier" }
 
-  function renderVehicles(onToggleDriverStay?: (name: string) => void) {
+  function renderVehicles(onToggleDriverStay?: (vehicleId: string) => void) {
     return renderWithIntl(
       <ResourceAssignmentDialog
         open
@@ -290,8 +328,8 @@ describe("vor Ort / zurück in the vehicle assignment", () => {
         personnel={[]}
         vehicles={[TLF, PIO]}
         materials={[]}
-        assignedPersonnel={[]}
-        assignedVehicles={["TLF"]}
+        assignedPersonnelIds={[]}
+        assignedVehicleIds={[TLF.id]}
         assignedMaterials={[]}
         onAssignPerson={vi.fn()}
         onAssignVehicle={vi.fn()}
@@ -299,7 +337,7 @@ describe("vor Ort / zurück in the vehicle assignment", () => {
         onRemovePerson={vi.fn()}
         onRemoveVehicle={vi.fn()}
         onRemoveMaterial={vi.fn()}
-        vehicleDriverStay={new Map([["TLF", false]])}
+        vehicleDriverStay={new Map([[TLF.id, false]])}
         onToggleDriverStay={onToggleDriverStay}
       />,
     )
@@ -315,7 +353,7 @@ describe("vor Ort / zurück in the vehicle assignment", () => {
     expect(toggle.getAttribute("aria-pressed")).toBe("false")
 
     await user.click(toggle)
-    expect(onToggle).toHaveBeenCalledWith("TLF")
+    expect(onToggle).toHaveBeenCalledWith(TLF.id)
   })
 
   it("does not offer it on a vehicle that is not assigned here", () => {

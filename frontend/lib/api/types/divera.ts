@@ -64,6 +64,9 @@ export interface ApiDiveraSyncResult {
   unchanged: number
   /** Existing people backfilled with their Divera id during this sync. */
   linked?: number
+  /** Not in Divera any more, but kept: still on an open Einsatz or Auftrag
+   *  (only with `remove_stale`). Absent from an older backend. */
+  kept_assigned?: number
 }
 
 // Outbound alarm (ausalarmierung)

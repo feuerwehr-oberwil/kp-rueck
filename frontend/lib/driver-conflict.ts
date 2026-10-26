@@ -21,7 +21,7 @@ interface DrivingPerson {
 
 interface PlacedOperation {
   id: string
-  vehicles: string[]
+  vehicles: readonly { vehicleId: string }[]
 }
 
 export interface DrivenElsewhere {
@@ -38,8 +38,8 @@ export function drivenElsewhere(
   targetOperationId: string,
 ): DrivenElsewhere | null {
   if (!person?.isDriver || !person.driverVehicleId || !person.driverVehicleName) return null
-  const vehicleName = person.driverVehicleName
-  const op = operations.find((o) => o.vehicles.includes(vehicleName))
+  const { driverVehicleId: vehicleId, driverVehicleName: vehicleName } = person
+  const op = operations.find((o) => o.vehicles.some((v) => v.vehicleId === vehicleId))
   if (!op || op.id === targetOperationId) return null
-  return { vehicleId: person.driverVehicleId, vehicleName, operationId: op.id }
+  return { vehicleId, vehicleName, operationId: op.id }
 }

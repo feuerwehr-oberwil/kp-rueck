@@ -114,13 +114,10 @@ export function apiIncidentToOperation(incident: ApiIncident): Operation {
     hasBeenDispatched: incident.has_been_dispatched ?? false,
     rekoSummary: null,
     assignedReko: null,
-    // The backend's effective leader; the assignment loop below overwrites
-    // it with the live `is_leader` flag whenever one exists.
+    // The backend's effective leader (live `is_leader` row, else the leader
+    // of record), by id and by name; the assignment loop re-confirms the live one.
+    leaderId: incident.effective_leader_id ?? null,
     leaderName: incident.leader_name ?? null,
-    crewAssignments: new Map(),
     materialAssignments: new Map(),
-    vehicleAssignments: new Map(),
-    vehicleCallsigns: new Map(),
-    vehicleDriverStay: new Map(),
   }
 }

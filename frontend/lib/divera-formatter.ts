@@ -12,6 +12,7 @@
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { sortCrewByLeader } from "@/lib/crew-order"
+import { plainName, type PersonText } from "@/lib/person-label"
 import {
   renderMessageTemplate,
   DEFAULT_ALARM_TITLE_TEMPLATE,
@@ -23,6 +24,8 @@ interface FormatAlarmMessageOptions {
   materials: Material[]
   /** Editable template; falls back to the built-in default when omitted. */
   template?: string
+  /** How a person is named (`usePersonNaming().text`, the Kennung for a namesake). */
+  personText?: PersonText
 }
 
 /** Alarm title (Stichwort), e.g. "KP: Elementarereignis". */
@@ -40,10 +43,8 @@ function buildVehicles(operation: Operation): string {
   // A "zu Fuss" incident has no vehicle on purpose — surface that explicitly
   // instead of leaving the section blank, so the crew knows they go on foot.
   if (operation.vehicles.length === 0) return operation.zuFuss ? "Zu Fuss" : ""
-  const vehicleLines = operation.vehicles.map((vehicleName) => {
-    const callsign = operation.vehicleCallsigns?.get(vehicleName)
-    const driverStay = operation.vehicleDriverStay?.get(vehicleName)
-    const displayName = callsign ? `${vehicleName} · ${callsign}` : vehicleName
+  const vehicleLines = operation.vehicles.map(({ name, callsign, driverStay }) => {
+    const displayName = callsign ? `${name} · ${callsign}` : name
     if (driverStay === undefined) return displayName
     return `${displayName} (${driverStay ? "bleibt vor Ort" : "kehrt zurück"})`
   })
@@ -65,7 +66,7 @@ function buildMaterials(operation: Operation, materials: Material[]): string {
 }
 
 /** Plain-text alarm body for Divera. */
-export function formatAlarmMessage({ operation, materials, template }: FormatAlarmMessageOptions): string {
+export function formatAlarmMessage({ operation, materials, template, personText = plainName }: FormatAlarmMessageOptions): string {
   const type = getIncidentTypeLabel(operation.incidentType)
   const location = operation.location?.trim() || ""
   const values: Record<string, string> = {
@@ -76,7 +77,9 @@ export function formatAlarmMessage({ operation, materials, template }: FormatAla
     internal_notes: operation.internalNotes?.trim() || "",
     vehicles: buildVehicles(operation),
     // EL first (decision 23): the alarm text is read on a phone on the way out.
-    crew: operation.crew.length > 0 ? sortCrewByLeader(operation.crew, operation.leaderName).join(", ") : "",
+    crew: operation.crew.length > 0
+      ? sortCrewByLeader(operation.crew, operation.leaderId).map(personText).join(", ")
+      : "",
     materials: buildMaterials(operation, materials),
   }
   const rendered = renderMessageTemplate(template || DEFAULT_ALARM_TEXT_TEMPLATE, values)

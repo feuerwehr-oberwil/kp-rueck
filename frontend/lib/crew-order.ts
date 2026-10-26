@@ -16,20 +16,20 @@
  * current relative order (rank, assignment time, whatever the caller had).
  */
 
-/** Crew given as plain names, with the leader identified by name. */
-export function sortCrewByLeader(crew: readonly string[], leaderName: string | null | undefined): string[]
+/** A board crew (`Operation.crew`), with the leader identified by personnel id
+ *  (`Operation.leaderId`). Never by name – two crew members may share one. */
+export function sortCrewByLeader<T extends { personnelId: string }>(crew: readonly T[], leaderId: string | null | undefined): T[]
 /** Crew given as objects, with the leader identified by an accessor (`is_leader` / `isLeader`). */
 export function sortCrewByLeader<T>(crew: readonly T[], isLeader: (member: T) => boolean): T[]
-export function sortCrewByLeader<T>(
+export function sortCrewByLeader<T extends { personnelId?: string }>(
   crew: readonly T[],
   leader: ((member: T) => boolean) | string | null | undefined,
 ): T[] {
   const isLeader =
     typeof leader === "function"
-      ? (leader as (member: T) => boolean)
-      : // The name form: an empty/absent leaderName marks nobody, so a crew
-        // member whose name is "" is never mistaken for the EL.
-        (member: T) => Boolean(leader) && member === (leader as unknown as T)
+      ? leader
+      : // The id form: an empty/absent leaderId marks nobody.
+        (member: T) => Boolean(leader) && member.personnelId === leader
 
   const leaders: T[] = []
   const rest: T[] = []

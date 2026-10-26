@@ -146,7 +146,7 @@ interface CrewDutySheetProps {
   eventId: string | null
   /** The board's roster: everybody checked in for this Ereignis. */
   personnel: Person[]
-  /** Where each person is, by name — the same map the Personen-Leiste reads. */
+  /** Where each person is, by person id — the same map the Personen-Leiste reads. */
   personEngagements: Map<string, PersonEngagement>
   fatigueHours: number
 }
@@ -160,7 +160,7 @@ export function CrewDutySheet({ open, onOpenChange, eventId, personnel, personEn
   const signature = useMemo(
     () =>
       personnel
-        .map((person) => `${person.id}=${personEngagements.get(person.name)?.full ?? ""}`)
+        .map((person) => `${person.id}=${personEngagements.get(person.id)?.full ?? ""}`)
         .sort()
         .join("|"),
     [personnel, personEngagements],
@@ -182,7 +182,7 @@ export function CrewDutySheet({ open, onOpenChange, eventId, personnel, personEn
 
   const now = Date.now()
   const entries: CrewDutyEntry[] = personnel.map((person) => {
-    const engagement = personEngagements.get(person.name)
+    const engagement = personEngagements.get(person.id)
     const onDuty = dutyMinutes(person.checkedInAt, now)
     const activity = counts && counts !== "failed" ? counts.byId.get(person.id) ?? { count: 0, assigned: 0 } : null
     // The server's minutes are as of its answer; whoever is out now has been out since.

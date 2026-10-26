@@ -19,19 +19,18 @@ import { useOperations, type Operation } from "@/lib/contexts/operations-context
  * apart on what a failure says. A stop inside an Auftrag takes its leader from
  * the route (`updateGroupAssignment`), which is not this.
  */
-export function usePromoteToLeader(operation: Pick<Operation, "id" | "crewAssignments">) {
+export function usePromoteToLeader(operation: Pick<Operation, "id" | "crew">) {
   const t = useTranslations("kanban")
   const { operations, refreshOperations } = useOperations()
   const { id } = operation
 
   return useCallback(
-    async (crewName: string) => {
-      // ⚠️ The board's copy first, the caller's as the fallback. The card is
-      // memoised and does not compare `crewAssignments`: a person added
-      // optimistically gets the assignment id from the next sync, with the crew
-      // names unchanged, so the card's own `operation` can still lack it.
+    async (personnelId: string) => {
+      // ⚠️ The board's copy first, the caller's as the fallback: a person added
+      // optimistically gets the assignment id only once the POST answered, and
+      // a memoised caller can still hold the copy from before.
       const live = operations?.find((op) => op.id === id)
-      const assignmentId = (live ?? operation).crewAssignments.get(crewName)
+      const assignmentId = (live ?? operation).crew.find((m) => m.personnelId === personnelId)?.assignmentId
       // No assignment id yet (the assign is still in flight) — nothing to patch.
       if (!assignmentId) return
       try {

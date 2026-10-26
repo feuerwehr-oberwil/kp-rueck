@@ -333,7 +333,7 @@ interface RouteResourceSectionsProps {
   onAssign: (resourceType: "crew" | "vehicles" | "materials") => void
   /** Detach a route-owned resource by its group-assignment id. */
   onUnassign: (assignmentId: string) => void
-  /** vehicle name → driver name, so a Fahrzeug chip names who is behind the
+  /** vehicle id → driver name, so a Fahrzeug chip names who is behind the
    *  wheel. Passed in rather than fetched here: this component stays
    *  presentational, and every caller already holds the live map from
    *  `useVehicleDrivers`. */
@@ -377,7 +377,7 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
             removeButtonClassName="ml-1"
             // Touch: the same two actions the mouse has (EL stub, ✕), as rows.
             menuTitle={p.name}
-            menuSubtitle={<PersonMenuSubtitle name={p.name} isLeader={Boolean(p.isLeader)} />}
+            menuSubtitle={<PersonMenuSubtitle personnelId={p.resourceId} isLeader={Boolean(p.isLeader)} />}
             menuActions={
               !readOnly && onPromoteLeader && !p.isLeader
                 ? [{ label: t("leader.promote"), icon: <LeaderGlyph />, onSelect: () => onPromoteLeader(p.assignmentId) }]
@@ -407,7 +407,7 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
         {resources.vehicles.map((v) => {
           // «TLF 1 (M. Muster)» — the same chip wording the incident detail
           // uses for a standalone Einsatz, so a route reads the same way.
-          const driverName = vehicleDrivers?.get(v.name)
+          const driverName = vehicleDrivers?.get(v.resourceId)
           // Nobody driving it: an amber reminder, not a block (a driver is
           // sometimes named a minute later) — and fixing it is one tap from
           // here. Only when the caller passed the driver map: without it «no

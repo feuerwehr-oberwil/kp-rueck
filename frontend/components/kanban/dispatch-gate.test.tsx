@@ -10,6 +10,7 @@ import {
 import type { Operation } from "@/lib/contexts/operations-context"
 import type { GroupResources } from "@/lib/types/groups"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
+import { crewMember, assignedVehicle } from "@/test-utils/operation-fixtures"
 
 /**
  * «Ressourcen fehlen» — press twice (owner pick UX-DESKTOP-09 B, + C's «Zu Fuss»).
@@ -33,7 +34,7 @@ function operation(overrides: Partial<Operation> = {}): Operation {
     vehicles: [],
     incidentType: "elementarereignis",
     dispatchTime: new Date("2026-10-24T18:00:00Z"),
-    crew: ["Ackermann Reto"],
+    crew: [crewMember("Ackermann Reto")],
     priority: "medium",
     status: "enroute",
     coordinates: null,
@@ -54,12 +55,9 @@ function operation(overrides: Partial<Operation> = {}): Operation {
     rekoArrivedAt: null,
     rekoSummary: null,
     assignedReko: null,
+    leaderId: null,
     leaderName: null,
-    crewAssignments: new Map(),
     materialAssignments: new Map(),
-    vehicleAssignments: new Map(),
-    vehicleCallsigns: new Map(),
-    vehicleDriverStay: new Map(),
     ...overrides,
   }
 }
@@ -189,7 +187,7 @@ describe("dispatch gate – press twice", () => {
 
   it("material alone does not arm: one press dispatches", async () => {
     const user = userEvent.setup()
-    const { ref } = renderGate(operation({ vehicles: ["TLF"], materials: [] }))
+    const { ref } = renderGate(operation({ vehicles: [assignedVehicle("TLF")], materials: [] }))
 
     await user.click(screen.getByRole("button", { name: "Disponieren" }))
     expect(ref.controller!.disponiertOperation?.id).toBe("incident-1")

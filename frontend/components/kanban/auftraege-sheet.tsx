@@ -505,7 +505,7 @@ interface AuftragCardProps {
   group: IncidentGroup
   operations: Operation[]
   resources: GroupResources
-  /** vehicle name → driver name, for the Fahrzeuge chips. */
+  /** vehicle id → driver name, for the Fahrzeuge chips. */
   vehicleDrivers: ReadonlyMap<string, string>
   /** False until the driver map has answered — no «Kein Fahrer» before that. */
   vehicleDriversLoaded?: boolean

@@ -52,16 +52,17 @@ vi.mock('@atlaskit/pragmatic-drag-and-drop/combine', () => ({
 }))
 
 import { DraggableOperation } from '@/components/kanban/draggable-operation'
+import { crewMember, assignedVehicle } from "@/test-utils/operation-fixtures"
 
 function operation(overrides: Partial<Operation> = {}): Operation {
   return {
     id: 'incident-1',
     location: 'Hauptstrasse 1',
     vehicle: null,
-    vehicles: ['TLF Oberwil'],
+    vehicles: [assignedVehicle('TLF Oberwil')],
     incidentType: 'brandbekaempfung',
     dispatchTime: new Date('2026-08-09T10:00:00Z'),
-    crew: ['Muster Hans'],
+    crew: [crewMember('Muster Hans', 'p-1')],
     priority: 'low',
     status: 'incoming',
     coordinates: [47.1, 7.2],
@@ -87,12 +88,9 @@ function operation(overrides: Partial<Operation> = {}): Operation {
       estimatedDuration: 2,
     },
     assignedReko: null,
+    leaderId: null,
     leaderName: null,
-    crewAssignments: new Map(),
     materialAssignments: new Map(),
-    vehicleAssignments: new Map(),
-    vehicleCallsigns: new Map(),
-    vehicleDriverStay: new Map(),
     ...overrides,
   } as Operation
 }
@@ -338,7 +336,7 @@ describe('the card routes each block into the detail', () => {
     const onRemoveCrew = vi.fn()
     const onClick = mount({ onRemoveCrew })
     await userEvent.click(screen.getByRole('button', { name: 'Muster Hans freigeben' }))
-    expect(onRemoveCrew).toHaveBeenCalledWith('Muster Hans')
+    expect(onRemoveCrew).toHaveBeenCalledWith('p-1')
     expect(onClick).not.toHaveBeenCalled()
   })
 
@@ -422,7 +420,7 @@ describe('a chip on a touch screen', () => {
     refreshOperations.mockClear()
     const onClick = vi.fn()
     renderWithIntl(
-      card(CARD_VIEW_PRESETS.alles, operation({ crewAssignments: new Map([['Muster Hans', 'a-1']]) }), { onClick }),
+      card(CARD_VIEW_PRESETS.alles, operation({ crew: [{ personnelId: 'p-1', assignmentId: 'a-1', name: 'Muster Hans' }] }), { onClick }),
     )
     await userEvent.click(screen.getByRole('button', { name: 'Muster Hans' }))
     await userEvent.click(await screen.findByRole('menuitem', { name: /Als Einsatzleiter markieren/ }))
@@ -439,7 +437,7 @@ describe('a chip on a touch screen', () => {
   })
 
   it('offers no promotion on whoever already is the Einsatzleiter', async () => {
-    renderWithIntl(card(CARD_VIEW_PRESETS.alles, operation({ leaderName: 'Muster Hans' })))
+    renderWithIntl(card(CARD_VIEW_PRESETS.alles, operation({ leaderId: 'p-1', leaderName: 'Muster Hans' })))
     await userEvent.click(screen.getByRole('button', { name: /Muster Hans/ }))
     await screen.findByRole('menu', { name: 'Muster Hans' })
     expect(screen.queryByRole('menuitem', { name: /Als Einsatzleiter markieren/ })).not.toBeInTheDocument()
@@ -450,7 +448,7 @@ describe('a chip on a touch screen', () => {
     const onClick = mount({ onRemoveCrew })
     await userEvent.click(screen.getByRole('button', { name: 'Muster Hans' }))
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Vom Einsatz freigeben' }))
-    expect(onRemoveCrew).toHaveBeenCalledWith('Muster Hans')
+    expect(onRemoveCrew).toHaveBeenCalledWith('p-1')
     expect(onClick).not.toHaveBeenCalled()
   })
 
@@ -461,7 +459,7 @@ describe('a chip on a touch screen', () => {
     const menu = await screen.findByRole('menu', { name: 'TLF Oberwil' })
     expect(menu).toHaveTextContent('fährt zurück')
     await userEvent.click(screen.getByRole('menuitem', { name: 'Fahrzeug freigeben' }))
-    expect(onRemoveVehicle).toHaveBeenCalledWith('TLF Oberwil')
+    expect(onRemoveVehicle).toHaveBeenCalledWith('v-TLF Oberwil')
   })
 })
 

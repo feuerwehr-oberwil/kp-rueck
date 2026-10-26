@@ -35,16 +35,17 @@ vi.mock('@atlaskit/pragmatic-drag-and-drop/combine', () => ({
 }))
 
 import { DraggableOperation, sameStrings } from '@/components/kanban/draggable-operation'
+import { crewMember, assignedVehicle } from "@/test-utils/operation-fixtures"
 
 function operation(overrides: Partial<Operation> = {}): Operation {
   return {
     id: 'incident-1',
     location: 'Hauptstrasse 1, 4104 Oberwil',
     vehicle: null,
-    vehicles: ['TLF Oberwil'],
+    vehicles: [assignedVehicle('TLF Oberwil')],
     incidentType: 'brandbekaempfung',
     dispatchTime: new Date('2026-08-09T10:00:00Z'),
-    crew: ['Muster Hans'],
+    crew: [crewMember('Muster Hans')],
     priority: 'low',
     status: 'incoming',
     coordinates: [47.1, 7.2],
@@ -73,12 +74,9 @@ function operation(overrides: Partial<Operation> = {}): Operation {
       photos: [],
     },
     assignedReko: null,
+    leaderId: null,
     leaderName: null,
-    crewAssignments: new Map(),
     materialAssignments: new Map(),
-    vehicleAssignments: new Map(),
-    vehicleCallsigns: new Map(),
-    vehicleDriverStay: new Map(),
     ...overrides,
   } as Operation
 }
@@ -131,7 +129,7 @@ describe('the card repaints when its content changes, not just its shape', () =>
   it('picks up a Funkrufname that was set in the fleet settings', () => {
     mountAndUpdate(
       operation(),
-      operation({ vehicleCallsigns: new Map([['TLF Oberwil', 'Florian 1']]) }),
+      operation({ vehicles: [assignedVehicle('TLF Oberwil', { callsign: 'Florian 1' })] }),
     )
     expect(screen.getByTitle(/Florian 1/)).toBeInTheDocument()
   })

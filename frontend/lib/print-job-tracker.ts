@@ -17,7 +17,9 @@
 import { toast } from 'sonner'
 import { wsClient, type WebSocketUpdate } from './websocket-client'
 
-export type PrintJobEventStatus = 'pending' | 'printing' | 'completed' | 'failed'
+// `expired` is never broadcast today (the server expires jobs in bulk, long after
+// GIVE_UP_MS); it is in the union so the type matches every status a job can hold.
+export type PrintJobEventStatus = 'pending' | 'printing' | 'completed' | 'failed' | 'expired'
 
 /** The status envelope broadcast on `print_job_update` (see `api/print.py`). */
 export interface PrintJobEvent {

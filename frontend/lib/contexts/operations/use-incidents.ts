@@ -11,7 +11,7 @@ import { OperationsContext } from "./contexts"
  * map, `MapView`) still draw from. Read-only: writes go through `useOperations()`.
  *
  * An adapter, not a second source: crew/vehicle/material rows carry only what the
- * board knows (names, assignment ids); the `assigned_at`/`completed_at` stamps are
+ * board knows (ids, names, assignment ids); the `assigned_at`/`completed_at` stamps are
  * placeholders nobody reads. Longer term the map takes `Operation[]` directly.
  */
 export function useIncidents() {
@@ -52,21 +52,21 @@ export function useIncidents() {
       status_changed_at: op.statusChangedAt,
       has_completed_reko: op.hasCompletedReko || false,
       reko_arrived_at: op.rekoArrivedAt ?? null,
-      assigned_vehicles: op.vehicles.map((name) => ({
-        assignment_id: op.vehicleAssignments.get(name) || "",
-        vehicle_id: "",
-        name,
+      assigned_vehicles: op.vehicles.map((vehicle) => ({
+        assignment_id: vehicle.assignmentId ?? "",
+        vehicle_id: vehicle.vehicleId,
+        name: vehicle.name,
         type: "",
         assigned_at: new Date(),
-        driver_stay: op.vehicleDriverStay.get(name) || false,
+        driver_stay: vehicle.driverStay ?? false,
       })),
       // EL first (decision 23), sorted here rather than at the render site: this
       // adapter shape carries no leader flag, so the map's crew badges
       // (`app/map/page.tsx`) have no way to work it out for themselves.
-      assigned_personnel: sortCrewByLeader(op.crew, op.leaderName).map((name) => ({
-        assignment_id: "",
-        personnel_id: "",
-        name,
+      assigned_personnel: sortCrewByLeader(op.crew, op.leaderId).map((member) => ({
+        assignment_id: member.assignmentId ?? "",
+        personnel_id: member.personnelId,
+        name: member.name,
         role: "",
         assigned_at: new Date(),
       })),

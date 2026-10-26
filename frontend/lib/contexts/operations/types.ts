@@ -50,6 +50,30 @@ export interface RekoSummary {
   photos: string[]
 }
 
+/** One person on an incident's crew. Identity is `personnelId` (and the
+ *  assignment row); `name` is for display only – two people may share it. */
+export interface CrewMember {
+  personnelId: string
+  /** The assignment row to release. Null on an optimistic member until the
+   *  assign POST answered. */
+  assignmentId: string | null
+  name: string
+}
+
+/** One vehicle on an incident. Identity is `vehicleId` (and the assignment
+ *  row); `name` and `callsign` are for display only. */
+export interface OperationVehicle {
+  vehicleId: string
+  /** The assignment row to release. Null until the assign POST answered. */
+  assignmentId: string | null
+  name: string
+  /** `radio_call_sign` from the fleet, or null when the vehicle has none. */
+  callsign: string | null
+  /** «Fahrer bleibt beim Fahrzeug» on this assignment. Absent until the assign
+   *  POST answered — then nothing is said about it. */
+  driverStay?: boolean
+}
+
 export interface Operation {
   id: string
   /** The incident's number within its Ereignis — «14» on the card and in ⌘K
@@ -61,10 +85,11 @@ export interface Operation {
    *  locally-created optimistic operations until the next server sync. */
   locationDisplay?: string
   vehicle: VehicleType
-  vehicles: string[]
+  /** In the fleet's display order. */
+  vehicles: OperationVehicle[]
   incidentType: string
   dispatchTime: Date
-  crew: string[]
+  crew: CrewMember[]
   priority: "high" | "medium" | "low"
   status: OperationStatus
   coordinates: IncidentCoordinates
@@ -138,21 +163,24 @@ export interface Operation {
   hasBeenDispatched?: boolean
   rekoSummary: RekoSummary | null
   assignedReko: { id: string; name: string } | null
-  /** Name of the crew member marked Einsatzleiter for THIS incident, or null.
+  /** Personnel id of the Einsatzleiter for THIS incident, or null. Seeded
+   *  from the backend's `effective_leader_id` (the live `is_leader` assignment,
+   *  or the leader of record), overwritten by the live assignment when one
+   *  exists. Identity for every «is this the EL» question – the badge, the
+   *  sort, «zum EL machen».
    *  A stop that belongs to an Auftrag takes its leader from the route instead
-   *  (the route owns the resources).
-   *  Seeded from the backend's `leader_name` (the effective leader — active
-   *  `is_leader` assignment, or the leader of record once the crew is
-   *  released), then overwritten by the live `is_leader` assignment when one
-   *  exists. That is what keeps it non-null on CLOSED incidents, where the
-   *  assignments are gone but somebody still has to be phoned about the
+   *  (the route owns the resources). */
+  leaderId: string | null
+  /** The Einsatzleiter's name, for display only – never compare it with a crew
+   *  member's name. Seeded from the backend's `leader_name` (the effective
+   *  leader — active `is_leader` assignment, or the leader of record once the
+   *  crew is released), then overwritten by the live `is_leader` assignment
+   *  when one exists. That is what keeps it non-null on CLOSED incidents, where
+   *  the assignments are gone but somebody still has to be phoned about the
    *  rapport. */
   leaderName: string | null
-  crewAssignments: Map<string, string>
+  /** material id -> assignment id */
   materialAssignments: Map<string, string>
-  vehicleAssignments: Map<string, string>
-  vehicleCallsigns: Map<string, string> // vehicle name -> radio_call_sign
-  vehicleDriverStay: Map<string, boolean>
 }
 
 /** A vehicle the driver prompt should ask about. `incidentId` / `groupId` name
@@ -213,10 +241,10 @@ export interface OperationsContextType {
   /** Resolves true when the removal was persisted (or ran local-only), false
    * when it failed and was rolled back — callers that chain a follow-up
    * action (e.g. "remove from incident, then make driver") must check it. */
-  removeCrew: (operationId: string, crewName: string) => Promise<boolean>
+  removeCrew: (operationId: string, personnelId: string) => Promise<boolean>
   removeMaterial: (operationId: string, materialId: string) => Promise<boolean>
   /** Same result contract as removeCrew. */
-  removeVehicle: (operationId: string, vehicleName: string) => Promise<boolean>
+  removeVehicle: (operationId: string, vehicleId: string) => Promise<boolean>
   removeReko: (operationId: string) => void
   /** The one funnel for incident edits. A status edit is sent with the status this board
    *  showed (`from_status`); `confirm` is only for «Trotzdem …» in «Gerade geändert»
@@ -278,7 +306,7 @@ export interface OperationsContextType {
     | {
         resourceType: "personnel" | "vehicle" | "material"
         resourceId: string
-        /** Display name; also the key crew/vehicle lists are held under. */
+        /** Display name only – the resource is `resourceId`. */
         resourceName: string
         targetOperationId: string
         /** Where it is going, by name — the dialog's «Neu:» line. The question

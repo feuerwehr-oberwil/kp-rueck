@@ -12,6 +12,7 @@ import { translateOutsideReact } from "@/lib/i18n-messages"
 import { copyToClipboardAsync } from "@/lib/utils"
 import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
 import { getMessageTemplates } from "@/lib/message-template"
+import { usePersonNaming } from "@/components/person-name"
 
 interface UseWhatsAppCopyParams {
   operation: Operation | null
@@ -41,6 +42,7 @@ export function useWhatsAppCopy({
   vehicleDrivers,
 }: UseWhatsAppCopyParams): WhatsAppCopy {
   const [isCopying, setIsCopying] = useState(false)
+  const { text: personText } = usePersonNaming()
 
   const copy = useCallback(() => {
     if (!operation) return
@@ -68,6 +70,7 @@ export function useWhatsAppCopy({
         rekoReport,
         vehicleDrivers,
         template: whatsappIncident,
+        personText,
       })
     })()
 
@@ -86,7 +89,7 @@ export function useWhatsAppCopy({
       .finally(() => {
         setIsCopying(false)
       })
-  }, [operation, materials, vehicleDrivers])
+  }, [operation, materials, vehicleDrivers, personText])
 
   return { isCopying, copy }
 }

@@ -10,6 +10,8 @@ import {
   noteFieldSend,
   noteFieldSettled,
   resetFieldSaveForTests,
+  resolveFieldConflict,
+  textConflictOf,
   setFieldSaveScope,
   unsavedFieldDrafts,
   watchFieldSave,
@@ -21,16 +23,16 @@ beforeEach(() => {
 })
 
 const fail = (incidentId = "inc-1") => {
-  const ticket = noteFieldSend(incidentId, ["notes"])
+  const ticket = noteFieldSend(incidentId, { notes: "x" })
   noteFieldSettled(ticket, { ok: false, reason: "network" })
 }
 
 describe("field-save store", () => {
   it("an older request settling late decides nothing about a newer edit", () => {
     noteFieldEdit("inc-1", "notes", "a", "")
-    const first = noteFieldSend("inc-1", ["notes"])
+    const first = noteFieldSend("inc-1", { notes: "x" })
     noteFieldEdit("inc-1", "notes", "ab", "")
-    const second = noteFieldSend("inc-1", ["notes"])
+    const second = noteFieldSend("inc-1", { notes: "x" })
 
     noteFieldSettled(second, { ok: true })
     // The first is still in flight: not «saved» yet.
@@ -92,5 +94,45 @@ describe("field-save store", () => {
     expect(classifySaveFailure(new ApiError("x", 422))).toBe("rejected")
     expect(classifySaveFailure(new ApiError("x", 503))).toBe("server")
     expect(classifySaveFailure(new Error("x"))).toBe("unknown")
+  })
+})
+
+describe("text_base (review F05)", () => {
+  const conflict = { field: "notes" as const, conflict: { text: "Theirs", by: "Koch René", at: "2026-10-26T18:31:00Z" } }
+
+  it("sends the last text the server confirmed as the base, not the start of the run", () => {
+    noteFieldEdit("inc-1", "notes", "a", "server")
+    const first = noteFieldSend("inc-1", { notes: "a" })
+    expect(first.textBase).toEqual({ description: "server" })
+    noteFieldSettled(first, { ok: true })
+
+    noteFieldEdit("inc-1", "notes", "ab", "a")
+    expect(noteFieldSend("inc-1", { notes: "ab" }).textBase).toEqual({ description: "a" })
+  })
+
+  it("«Meinen Text speichern» makes the other text the base for the retry", () => {
+    noteFieldEdit("inc-1", "notes", "Mine", "server")
+    noteFieldSettled(noteFieldSend("inc-1", { notes: "Mine" }), { ok: false, reason: "conflict", conflict })
+    expect(getFieldSave("inc-1", "notes")?.conflict?.text).toBe("Theirs")
+
+    resolveFieldConflict("inc-1", "notes", "mine")
+    noteFieldEdit("inc-1", "notes", "Mine", "Theirs")
+    expect(noteFieldSend("inc-1", { notes: "Mine" }).textBase).toEqual({ description: "Theirs" })
+    expect(getFieldSave("inc-1", "notes")?.conflict).toBeNull()
+  })
+
+  it("«Diese Fassung übernehmen» drops the draft", () => {
+    noteFieldEdit("inc-1", "notes", "Mine", "server")
+    noteFieldSettled(noteFieldSend("inc-1", { notes: "Mine" }), { ok: false, reason: "conflict", conflict })
+
+    resolveFieldConflict("inc-1", "notes", "theirs")
+    expect(getFieldSave("inc-1", "notes")).toBeUndefined()
+    expect(unsavedFieldDrafts()).toHaveLength(0)
+  })
+
+  it("reads the field and the other text out of a 409 text_conflict only", () => {
+    const params = { field: "description", current: "Theirs", changed_by: "Koch René", changed_at: "2026-10-26T18:31:00Z" }
+    expect(textConflictOf(new ApiError("x", 409, true, "text_conflict", params))).toEqual(conflict)
+    expect(textConflictOf(new ApiError("x", 409, true, "incident_status_changed", params))).toBeNull()
   })
 })

@@ -41,6 +41,7 @@ const incident = (overrides: Partial<ApiIncident> = {}): ApiIncident =>
     reko_arrived_at: null,
     field_complete_reported_at: null,
     leader_name: "Beat",
+    effective_leader_id: "p-beat",
     ...overrides,
   }) as ApiIncident
 
@@ -66,6 +67,7 @@ describe("apiIncidentToOperation", () => {
       source: "intake",
       fromRealAlarm: true,
       hasCompletedReko: true,
+      leaderId: "p-beat",
       leaderName: "Beat",
     })
     expect(op.dispatchTime).toEqual(new Date("2026-09-23T08:00:00Z"))
@@ -75,9 +77,7 @@ describe("apiIncidentToOperation", () => {
   it("starts every card empty of resources — the load folds those in", () => {
     const op = apiIncidentToOperation(incident())
     expect(op).toMatchObject({ vehicle: null, vehicles: [], crew: [], materials: [], rekoSummary: null, assignedReko: null })
-    for (const map of [op.crewAssignments, op.materialAssignments, op.vehicleAssignments, op.vehicleCallsigns, op.vehicleDriverStay]) {
-      expect(map).toEqual(new Map())
-    }
+    expect(op.materialAssignments).toEqual(new Map())
   })
 
   it("falls back where the API sends nothing", () => {
@@ -91,6 +91,7 @@ describe("apiIncidentToOperation", () => {
         location_lng: null,
         from_real_alarm: undefined,
         leader_name: undefined,
+        effective_leader_id: undefined,
         group_id: undefined as unknown as null,
         group_position: undefined as unknown as number,
       }),
@@ -103,6 +104,7 @@ describe("apiIncidentToOperation", () => {
     expect(op.coordinates).toBeNull()
     expect(op.fromRealAlarm).toBe(false)
     expect(op.leaderName).toBeNull()
+    expect(op.leaderId).toBeNull()
     expect(op.groupId).toBeNull()
     expect(op.groupPosition).toBe(0)
   })

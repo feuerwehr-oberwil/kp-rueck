@@ -74,7 +74,7 @@ export interface OpenDetailOnTab { tab: OperationDetailTab; nonce: number; secti
 
 export interface BoardDialogsProps {
   activeFooterSheet: FooterSheet | null
-  assignmentLabelForPerson: (person: { name: string }) => string | null
+  assignmentLabelForPerson: (person: { id: string }) => string | null
   attendanceOpen: boolean
   auftraegeFocusGroupId: string | null
   auftraegeSheetOpen: boolean

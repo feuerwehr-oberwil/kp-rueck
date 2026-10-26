@@ -5,6 +5,9 @@
 export interface ApiPersonnel {
   id: string // UUID
   name: string
+  /** Tells two people of the same name apart (≤20 chars). Shown only when the
+   *  name is not unique on the roster (`lib/person-label.ts`). */
+  kennung?: string | null
   role?: string | null // e.g., "Firefighter", "Paramedic", "Driver"
   role_sort_order: number // Sort order for grouping by role
   status: string // available, unavailable
@@ -22,6 +25,9 @@ export interface ApiPersonnel {
 export interface ApiPersonnelListItem {
   id: string
   name: string
+  /** Tells two people of the same name apart (≤20 chars). Shown only when the
+   *  name is not unique on the roster (`lib/person-label.ts`). */
+  kennung?: string | null
   role?: string | null
   /** available | unavailable — the board greys out the latter, the phone never sees it. */
   status?: string
@@ -49,6 +55,7 @@ export interface ApiCheckInStats {
 
 export interface ApiPersonnelCreate {
   name: string
+  kennung?: string | null
   role?: string | null
   role_sort_order?: number
   status: string
@@ -57,6 +64,7 @@ export interface ApiPersonnelCreate {
 
 export interface ApiPersonnelUpdate {
   name?: string
+  kennung?: string | null
   role?: string | null
   role_sort_order?: number
   status?: string

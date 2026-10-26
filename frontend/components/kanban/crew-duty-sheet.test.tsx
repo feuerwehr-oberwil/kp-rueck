@@ -39,7 +39,7 @@ const anna = person('Meier Anna', 250, { isTelefondienst: true })
 const eva = person('Frisch Eva', 20)
 
 const engagements = new Map<string, PersonEngagement>([
-  ['Müller Hans', { short: 'Langegasse 28', full: 'Langegasse 28 (Brand Dachstock)' } as PersonEngagement],
+  [hans.id, { short: 'Langegasse 28', full: 'Langegasse 28 (Brand Dachstock)' } as PersonEngagement],
 ])
 
 describe('CrewDutySheet', () => {
@@ -115,7 +115,7 @@ describe('CrewDutySheet', () => {
 
     // Eva goes out: ask again.
     const moved = new Map(engagements)
-    moved.set('Frisch Eva', { short: 'Hauptstrasse 41', full: 'Hauptstrasse 41' } as PersonEngagement)
+    moved.set(eva.id, { short: 'Hauptstrasse 41', full: 'Hauptstrasse 41' } as PersonEngagement)
     view.rerender(<CrewDutySheet {...props} personEngagements={moved} />)
     await waitFor(() => expect(getEventPersonnelActivity).toHaveBeenCalledTimes(2))
   })

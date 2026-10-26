@@ -65,6 +65,7 @@ import { PRIORITY_CARD_CLASSES, PRIORITY_ICON_CLASSES, type Priority } from "@/l
 import { formatClockTime } from "@/lib/incident-time"
 import { WALL_TEXT_WRAP } from "@/lib/kanban-utils"
 import { cn } from "@/lib/utils"
+import { PersonName } from "@/components/person-name"
 
 /** Same two boundaries the kanban card draws — Ressourcen and Reko — and the
  *  same rule: whichever block OPENS a section carries it, so a section that
@@ -139,10 +140,10 @@ export interface DisplayIncidentCardProps {
    *  by the only thing the card asks of it, so the board can hand over its
    *  `materialOnSite` map without copying it into a Set. */
   materialOnSite?: { has(materialId: string): boolean }
-  /** Vehicle name → driver, loaded once per board rather than per card. */
+  /** Vehicle id → driver, loaded once per board rather than per card. */
   vehicleDrivers?: ReadonlyMap<string, string>
-  /** Names assigned to more than one incident — the card's conflict styling. */
-  doubleBookedCrewNames?: ReadonlySet<string>
+  /** Personnel ids assigned to more than one incident — the card's conflict styling. */
+  doubleBookedCrewIds?: ReadonlySet<string>
   /** The Auftrag this stop belongs to, resolved by the caller (the token board
    *  has no groups context). */
   auftrag?: IncidentGroup
@@ -164,7 +165,7 @@ export function DisplayIncidentCard({
   materialGroups = [],
   materialOnSite,
   vehicleDrivers,
-  doubleBookedCrewNames,
+  doubleBookedCrewIds,
   auftrag,
   auftragResources,
   crewShownAt,
@@ -411,11 +412,11 @@ export function DisplayIncidentCard({
                 <div className="flex flex-wrap gap-1 min-w-0">
                   {/* EL first (decision 23) — off a wall at distance, the first
                       badge is the one that gets read at all. */}
-                  {sortCrewByLeader(operation.crew, operation.leaderName).map((crewName) => {
-                    const isConflict = doubleBookedCrewNames?.has(crewName) ?? false
+                  {sortCrewByLeader(operation.crew, operation.leaderId).map(({ personnelId, name: crewName }) => {
+                    const isConflict = doubleBookedCrewIds?.has(personnelId) ?? false
                     return (
                       <RemovableChip
-                        key={crewName}
+                        key={personnelId}
                         variant="secondary"
                         className={cn(
                           WALL_CHIP,
@@ -424,8 +425,10 @@ export function DisplayIncidentCard({
                         title={isConflict ? t("card.doubleBookedTooltip", { name: crewName }) : undefined}
                       >
                         {isConflict && <AlertTriangle className="h-3 w-3 flex-shrink-0" />}
-                        <LeaderBadge isLeader={operation.leaderName === crewName} />
-                        <span className="truncate">{crewName.trim() || t("common.unknownResource")}</span>
+                        <LeaderBadge isLeader={operation.leaderId === personnelId} />
+                        <span className="truncate">
+                          <PersonName name={crewName} personnelId={personnelId} display={crewName.trim() || t("common.unknownResource")} />
+                        </span>
                       </RemovableChip>
                     )
                   })}
@@ -442,13 +445,11 @@ export function DisplayIncidentCard({
                       <span className="truncate">{t("common.zuFuss")}</span>
                     </RemovableChip>
                   )}
-                  {operation.vehicles.map((vehicleName) => {
-                    const callsign = operation.vehicleCallsigns.get(vehicleName)
-                    const driverStay = operation.vehicleDriverStay?.get(vehicleName)
-                    const driverName = vehicleDrivers?.get(vehicleName)
+                  {operation.vehicles.map(({ vehicleId, name: vehicleName, callsign, driverStay }) => {
+                    const driverName = vehicleDrivers?.get(vehicleId)
                     return (
                       <RemovableChip
-                        key={vehicleName}
+                        key={vehicleId}
                         variant="secondary"
                         className={WALL_CHIP}
                         title={callsign ? t("common.funkrufname", { callsign }) : undefined}

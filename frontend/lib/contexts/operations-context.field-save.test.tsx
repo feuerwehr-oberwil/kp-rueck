@@ -164,7 +164,8 @@ describe("text field save state", () => {
 
     // The debounce fires; the PATCH is out but not answered.
     await waitFor(() => expect(patches).toHaveLength(1))
-    expect(patches[0].body).toEqual({ description: "Keller unter Wasser, 40 cm" })
+    // It names the text it was typed over, so somebody else's newer text is not overwritten.
+    expect(patches[0].body).toEqual({ description: "Keller unter Wasser, 40 cm", text_base: { description: "Keller unter Wasser" } })
     expect(notesState()?.status).toBe("saving")
 
     // Typing on while it is in flight keeps the field away from «saved» even
@@ -175,7 +176,11 @@ describe("text field save state", () => {
 
     // The newer batch waits for the older one, then is confirmed.
     await waitFor(() => expect(patches).toHaveLength(2))
-    expect(patches[1].body).toEqual({ description: "Keller unter Wasser, 40 cm, Pumpe läuft" })
+    // Its base is the text the first PATCH got confirmed, not the start of the run.
+    expect(patches[1].body).toEqual({
+      description: "Keller unter Wasser, 40 cm, Pumpe läuft",
+      text_base: { description: "Keller unter Wasser, 40 cm" },
+    })
     await act(async () => patches[1].resolve())
     expect(notesState()?.status).toBe("saved")
     expect(notesState()?.draft).toBeNull()
@@ -235,7 +240,7 @@ describe("text field save state", () => {
     const draft = notesState()!.draft!
     act(() => result.current.updateOperation("1", { notes: draft }))
     await waitFor(() => expect(patches).toHaveLength(2))
-    expect(patches[1].body).toEqual({ description: "Pumpe läuft" })
+    expect(patches[1].body).toEqual({ description: "Pumpe läuft", text_base: { description: "Keller unter Wasser" } })
     await act(async () => patches[1].resolve())
 
     expect(notesState()?.status).toBe("saved")

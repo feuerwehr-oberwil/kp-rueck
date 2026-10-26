@@ -60,6 +60,7 @@ const api = vi.hoisted(() => ({
   getAssignmentsByEvent: vi.fn(),
   getEventRekoSummaries: vi.fn(),
   assignResource: vi.fn(),
+  unassignResource: vi.fn(),
   unassignSpecialFunction: vi.fn(),
 }))
 vi.mock("@/lib/api-client", async (importOriginal) => ({
@@ -121,6 +122,7 @@ const FULL: ApiIncident = {
   pickup_requested_at: "2026-09-23T08:45:00Z",
   pickup_requested_by: "p-crew",
   leader_name: "Leader of record",
+  effective_leader_id: "p-record",
 }
 
 /** The shape an older backend (or a bare row) sends: every optional absent. */
@@ -307,10 +309,16 @@ describe("OperationsProvider — the board snapshot (golden)", () => {
       location: "Hauptstrasse 12, 4104 Oberwil",
       locationDisplay: "Hauptstrasse 12",
       vehicle: null,
-      vehicles: ["TLF", "MTW"],
+      vehicles: [
+        { vehicleId: "v-tlf", assignmentId: "a-tlf", name: "TLF", callsign: "Omega 1", driverStay: true },
+        { vehicleId: "v-mtw", assignmentId: "a-mtw", name: "MTW", callsign: null, driverStay: false },
+      ],
       incidentType: "elementarereignis",
       dispatchTime: new Date("2026-09-23T08:00:00Z"),
-      crew: ["Anna Crew", "Beat Leader"],
+      crew: [
+        { personnelId: "p-crew", assignmentId: "a-crew", name: "Anna Crew" },
+        { personnelId: "p-lead", assignmentId: "a-lead", name: "Beat Leader" },
+      ],
       priority: "high",
       status: "active",
       coordinates: [47.515, 7.556],
@@ -357,12 +365,9 @@ describe("OperationsProvider — the board snapshot (golden)", () => {
       },
       assignedReko: { id: "p-reko", name: "Claudia Reko" },
       // The live `is_leader` row beats the leader of record.
+      leaderId: "p-lead",
       leaderName: "Beat Leader",
-      crewAssignments: new Map([["Anna Crew", "a-crew"], ["Beat Leader", "a-lead"]]),
       materialAssignments: new Map([["m-pump", "a-pump"]]),
-      vehicleAssignments: new Map([["MTW", "a-mtw"], ["TLF", "a-tlf"]]),
-      vehicleCallsigns: new Map([["TLF", "Omega 1"]]),
-      vehicleDriverStay: new Map([["MTW", false], ["TLF", true]]),
     })
   })
 
@@ -417,12 +422,9 @@ describe("OperationsProvider — the board snapshot (golden)", () => {
       hasBeenDispatched: false,
       rekoSummary: null,
       assignedReko: null,
+      leaderId: null,
       leaderName: null,
-      crewAssignments: new Map(),
       materialAssignments: new Map(),
-      vehicleAssignments: new Map(),
-      vehicleCallsigns: new Map(),
-      vehicleDriverStay: new Map(),
     })
   })
 
@@ -545,5 +547,62 @@ describe("OperationsProvider — Doppelbelegung of a Fahrer", () => {
       vehicle_id: "v-tlf",
     })
     expect(api.assignResource).toHaveBeenCalledWith("inc-bare", expect.objectContaining({ resource_id: "p-driver" }))
+  })
+})
+
+// F04: identity is the id. Two people called «Anna Crew» (and two MTW) on one
+// Einsatz are two crew rows, both spoken for — and releasing one releases
+// exactly that one's assignment.
+describe("OperationsProvider — namesakes on one Einsatz", () => {
+  async function loadedWithNamesakes() {
+    refreshPersonnel.mockResolvedValue([...PERSONNEL, person("p-twin", "Anna Crew")])
+    api.getVehicles.mockResolvedValue([...VEHICLES, vehicle("v-mtw2", "MTW", 4)])
+    api.getAssignmentsByEvent.mockResolvedValue({
+      "inc-full": [
+        ...ASSIGNMENTS["inc-full"],
+        assignment("a-twin", "personnel", "p-twin"),
+        assignment("a-mtw2", "vehicle", "v-mtw2"),
+      ],
+    })
+    api.unassignResource.mockReset().mockResolvedValue(undefined)
+    const rendered = renderHook(() => useOperations(), { wrapper })
+    await waitFor(() => expect(rendered.result.current.operations).toHaveLength(2))
+    return rendered
+  }
+  const card = (board: ReturnType<typeof useOperations>) => board.operations.find((op) => op.id === "inc-full")!
+  const status = (board: ReturnType<typeof useOperations>, id: string) => board.personnel.find((p) => p.id === id)?.status
+
+  it("keeps two people of one name apart, and releases the right one", async () => {
+    const rendered = await loadedWithNamesakes()
+    expect(card(rendered.result.current).crew.map((m) => [m.personnelId, m.name])).toEqual([
+      ["p-crew", "Anna Crew"],
+      ["p-lead", "Beat Leader"],
+      ["p-twin", "Anna Crew"],
+    ])
+    expect(status(rendered.result.current, "p-crew")).toBe("assigned")
+    expect(status(rendered.result.current, "p-twin")).toBe("assigned")
+
+    await act(async () => {
+      await rendered.result.current.removeCrew("inc-full", "p-twin")
+    })
+    expect(api.unassignResource).toHaveBeenCalledExactlyOnceWith("inc-full", "a-twin")
+    expect(card(rendered.result.current).crew.map((m) => m.personnelId)).toEqual(["p-crew", "p-lead"])
+    expect(status(rendered.result.current, "p-twin")).toBe("available")
+    expect(status(rendered.result.current, "p-crew")).toBe("assigned")
+  })
+
+  it("keeps two vehicles of one name apart, and releases the right one", async () => {
+    const rendered = await loadedWithNamesakes()
+    expect(card(rendered.result.current).vehicles.map((v) => [v.vehicleId, v.name])).toEqual([
+      ["v-tlf", "TLF"],
+      ["v-mtw", "MTW"],
+      ["v-mtw2", "MTW"],
+    ])
+
+    await act(async () => {
+      await rendered.result.current.removeVehicle("inc-full", "v-mtw2")
+    })
+    expect(api.unassignResource).toHaveBeenCalledExactlyOnceWith("inc-full", "a-mtw2")
+    expect(card(rendered.result.current).vehicles.map((v) => v.vehicleId)).toEqual(["v-tlf", "v-mtw"])
   })
 })

@@ -155,15 +155,21 @@ describe("KeyedSerialQueue", () => {
     expect(queue.isBusy("a")).toBe(false)
   })
 
-  it("lets a pagehide flush jump the line", async () => {
+  it("keeps a pagehide flush behind the save already in flight", async () => {
+    // Review F06: the flush used to skip the line, so an older PATCH still in
+    // flight could land after the newer text and overwrite it on the server.
     const queue = new KeyedSerialQueue()
-    const started: string[] = []
-    const a1 = deferred()
-    void queue.run("a", () => (started.push("a1"), a1.promise))
-    void queue.run("a", async () => void started.push("flush"), { jump: true })
+    const applied: string[] = []
+    const older = deferred()
+    void queue.run("a", () => older.promise.then(() => void applied.push("older")))
+    const flush = queue.run("a", async () => void applied.push("newer"))
     await Promise.resolve()
-    expect(started).toEqual(["a1", "flush"])
-    a1.resolve()
+    expect(applied).toEqual([])
+    expect(queue.isBusy("a")).toBe(true)
+
+    older.resolve()
+    await flush
+    expect(applied).toEqual(["older", "newer"])
   })
 
   // «Erneut speichern» stands on this: the failed PATCH reaches its caller (so the field
@@ -179,22 +185,5 @@ describe("KeyedSerialQueue", () => {
     const retry = vi.fn(async () => "saved")
     await expect(queue.run("a", retry)).resolves.toBe("saved")
     expect(retry).toHaveBeenCalledOnce()
-  })
-
-  it("keeps the key busy when a task ahead of a jump settles first", async () => {
-    const queue = new KeyedSerialQueue()
-    const slow = deferred()
-    const flush = deferred()
-    void queue.run("a", () => slow.promise)
-    void queue.run("a", () => flush.promise, { jump: true })
-
-    // The slow one settling must not delete the newer tail the jump left behind.
-    slow.resolve()
-    await new Promise((r) => setTimeout(r, 0))
-    expect(queue.isBusy("a")).toBe(true)
-
-    flush.resolve()
-    await new Promise((r) => setTimeout(r, 0))
-    expect(queue.isBusy("a")).toBe(false)
   })
 })

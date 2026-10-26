@@ -24,6 +24,7 @@ import type { Material, MaterialGroup } from "../materials-context"
 const apiPersonToPerson = (apiPerson: ApiPersonnel): Person => ({
   id: String(apiPerson.id),
   name: apiPerson.name,
+  kennung: apiPerson.kennung ?? null,
   role: apiPerson.role as PersonRole,
   status: apiPerson.status === "unavailable" ? "unavailable" : "available",
   tags: apiPerson.tags || [],

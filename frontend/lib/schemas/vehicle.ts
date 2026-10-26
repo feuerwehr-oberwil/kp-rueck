@@ -3,13 +3,16 @@ import { translateOutsideReact } from "@/lib/i18n-messages";
 
 const vehicleStatusSchema = z.enum(["available", "unavailable"]);
 
+// The limits are the API's (backend/app/schemas/vehicles.py), which refuses longer with a 422.
 export const vehicleFormSchema = z.object({
   name: z
     .string()
     .trim()
     .min(1, translateOutsideReact("settings.validation.nameRequired"))
-    .max(80, translateOutsideReact("settings.validation.max80")),
-  type: z.string().trim().max(80, translateOutsideReact("settings.validation.max80")).optional().default(""),
+    .max(100, translateOutsideReact("settings.validation.max100")),
+  /** Required by the API; the form has no field for it and sends the name
+   *  (cut to the column) when it is blank — see `vehicleTypeFor`. */
+  type: z.string().trim().max(50, translateOutsideReact("settings.validation.max50")).optional().default(""),
   display_order: z
     .number({ message: translateOutsideReact("settings.validation.orderNumber") })
     .int(translateOutsideReact("settings.validation.orderInt"))
@@ -23,6 +26,11 @@ export const vehicleFormSchema = z.object({
 });
 
 export type VehicleFormValues = z.input<typeof vehicleFormSchema>;
+
+/** The vehicle type the API gets: the form's, or the name cut to the 50-char column. */
+export function vehicleTypeFor(values: Pick<VehicleFormValues, "name" | "type">): string {
+  return values.type?.trim() || values.name.trim().slice(0, 50);
+}
 
 export const vehicleFormDefaults: VehicleFormValues = {
   name: "",

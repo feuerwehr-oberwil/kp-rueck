@@ -27,9 +27,9 @@ export interface UseBoardDispatchInput {
   outOfServiceVehicleIds: Set<string>
   assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => Promise<boolean>
   materials: Material[]
-  removeCrew: (operationId: string, crewName: string) => Promise<boolean>
+  removeCrew: (operationId: string, personnelId: string) => Promise<boolean>
   removeMaterial: (operationId: string, materialId: string) => Promise<boolean>
-  removeVehicle: (operationId: string, vehicleName: string) => Promise<boolean>
+  removeVehicle: (operationId: string, vehicleId: string) => Promise<boolean>
   deleteOperation: (operationId: string) => Promise<void>
   resourceConflict: { resourceType: "personnel" | "vehicle" | "material"; resourceId: string; resourceName: string; targetOperationId: string; targetOperationLabel?: string; conflicts: { operationId: string; operationLabel: string; }[]; customResolve?: (action: "move" | "keep") => Promise<void> | void; } | null
   vehicleNeedingDriver: VehicleNeedingDriver | null
@@ -40,7 +40,7 @@ export interface UseBoardDispatchInput {
   getGroupResources: (groupId: string) => GroupResources
   groups: IncidentGroup[]
   unassignGroupResource: (groupId: string, assignmentId: string) => Promise<boolean>
-  release: { releaseCrew: (operationId: string, crewName: string) => Promise<boolean>; releaseMaterial: (operationId: string, materialId: string) => Promise<boolean>; releaseVehicle: (operationId: string, vehicleName: string) => Promise<boolean>; releaseStop: (groupId: string, incidentId: string) => Promise<boolean>; releaseRouteResource: (groupId: string, assignmentId: string) => Promise<boolean>; restore: (item: Released) => Promise<void>; }
+  release: { releaseCrew: (operationId: string, personnelId: string) => Promise<boolean>; releaseMaterial: (operationId: string, materialId: string) => Promise<boolean>; releaseVehicle: (operationId: string, vehicleId: string) => Promise<boolean>; releaseStop: (groupId: string, incidentId: string) => Promise<boolean>; releaseRouteResource: (groupId: string, assignmentId: string) => Promise<boolean>; restore: (item: Released) => Promise<void>; }
   dispatchRef: RefObject<{ vocabulary: () => DispatchVocabulary; run: (command: DispatchCommand) => void; jump: (target: DispatchResource) => void; }>
   personnel: Person[]
   operationsRef: RefObject<Operation[]>
@@ -142,7 +142,7 @@ export function useBoardDispatch(input: UseBoardDispatchInput) {
       name: person.name,
       detail: person.role || undefined,
       incidentIds: operations
-        .filter((op) => op.crew.includes(person.name) || op.assignedReko?.id === person.id)
+        .filter((op) => op.crew.some((m) => m.personnelId === person.id) || op.assignedReko?.id === person.id)
         .map((op) => op.id),
     })),
     vehicles: fleet
@@ -154,7 +154,7 @@ export function useBoardDispatch(input: UseBoardDispatchInput) {
         callSign: vehicle.radio_call_sign || undefined,
         detail: vehicle.radio_call_sign || undefined,
         outOfService: outOfServiceVehicleIds.has(vehicle.id),
-        incidentIds: operations.filter((op) => op.vehicles.includes(vehicle.name)).map((op) => op.id),
+        incidentIds: operations.filter((op) => op.vehicles.some((v) => v.vehicleId === vehicle.id)).map((op) => op.id),
       })),
     materials: materials.map((material) => ({
       id: material.id,
@@ -272,7 +272,7 @@ export function useBoardDispatch(input: UseBoardDispatchInput) {
         setMaterialSearchQuery(material.name)
       }
     } else {
-      const onIncident = operations.find((op) => op.vehicles.includes(target.name))
+      const onIncident = operations.find((op) => op.vehicles.some((v) => v.vehicleId === target.id))
       const onRoute = groups.find((group) =>
         group.assignments.some((assignment) => assignment.resourceType === "vehicle" && assignment.resourceId === target.id),
       )

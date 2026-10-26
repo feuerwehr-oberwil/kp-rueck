@@ -573,7 +573,8 @@
       "reko_link_invalid": "Ce lien de reconnaissance n’est pas valable ou a expiré.",
       "reko_report_not_found": "Rapport introuvable",
       "reko_report_no_access": "Pas d’accès à ce rapport.",
-      "incident_status_changed": "Statut modifié entre-temps – l’intervention a été rechargée."
+      "incident_status_changed": "Statut modifié entre-temps – l’intervention a été rechargée.",
+      "text_conflict": "Modifié ailleurs entre-temps – non enregistré."
     }
   },
   "events": {
@@ -2378,6 +2379,16 @@
       },
       "serverNow": "Sur le serveur entre-temps : «{text}»",
       "serverNowEmpty": "Sur le serveur, le champ est entre-temps vide.",
+      "conflict": {
+        "title": "Non enregistré – modifié entre-temps.",
+        "byAt": "{by} a modifié à {time} :",
+        "by": "{by} a modifié entre-temps :",
+        "at": "Modifié ailleurs à {time} :",
+        "unknown": "Modifié ailleurs :",
+        "empty": "Le champ est maintenant vide.",
+        "keepMine": "Enregistrer mon texte",
+        "takeTheirs": "Reprendre cette version"
+      },
       "retry": "Enregistrer à nouveau",
       "copy": "Copier le texte",
       "copied": "Copié",
@@ -3938,7 +3949,11 @@
       "syncUnavailable": "Aucun fournisseur de personnel enregistré – il n’y a rien à synchroniser. La clé d’accès est saisie par la personne qui s’occupe du serveur ; l’état figure sous Réglages → Intégrations.",
       "abbreviationsTitle": "Abréviations des grades",
       "abbreviationsHint": "Forme courte affichée dans la barre latérale du tableau. Vide = abréviation intégrée (suggérée dans le champ).",
-      "abbreviationsSaveError": "Les abréviations n’ont pas pu être enregistrées"
+      "abbreviationsSaveError": "Les abréviations n’ont pas pu être enregistrées",
+      "kennungLabel": "Identifiant",
+      "kennungPlaceholder": "p. ex. année de naissance ou n° personnel",
+      "kennungHelp": "Seulement nécessaire en cas de nom identique. N’apparaît alors que sur le tableau.",
+      "syncKeptAssigned": "{count} conservées (encore affectées)"
     },
     "printer": {
       "toasts": {
@@ -4085,7 +4100,12 @@
       "max120": "120 caractères au maximum",
       "orderNumber": "L’ordre doit être un nombre",
       "orderInt": "L’ordre doit être un nombre entier",
-      "orderMin1": "Au moins 1"
+      "orderMin1": "Au moins 1",
+      "typeRequired": "Le type est obligatoire",
+      "locationRequired": "L’emplacement est obligatoire",
+      "max20": "20 caractères au maximum",
+      "max50": "50 caractères au maximum",
+      "max100": "100 caractères au maximum"
     },
     "lifecycle": {
       "notReady": "Pas prêt à l'engagement",

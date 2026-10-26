@@ -27,7 +27,8 @@ const deletePersonnel = vi.fn();
 /** Capability registry – decides whether the «Von Divera synchronisieren» button is live. */
 const getIntegrations = vi.fn();
 
-vi.mock("@/lib/api-client", () => ({
+vi.mock("@/lib/api-client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api-client")>()),
   apiClient: {
     getAllPersonnel: (...args: unknown[]) => getAllPersonnel(...args),
     createPersonnel: (...args: unknown[]) => createPersonnel(...args),
@@ -96,6 +97,31 @@ describe("PersonnelSettings", () => {
     await waitFor(() => expect(syncButton).toBeDisabled());
     // Never disabled in silence: the reason sits next to the control.
     expect(screen.getByRole("note")).toBeInTheDocument();
+  });
+
+  it("says a name clash (409) under the Kennung field, not in a toast", async () => {
+    const { ApiError } = await import("@/lib/api-client");
+    createPersonnel.mockRejectedValue(
+      new ApiError("„Meier Alex“ gibt es schon. Kennung angeben, z.B. Jahrgang oder Personal-Nr.", 409, true),
+    );
+    const user = userEvent.setup();
+    renderWithIntl(<PersonnelSettings />);
+    await waitFor(() => expect(getAllPersonnel).toHaveBeenCalled());
+
+    await user.click(screen.getByRole("button", { name: /Person erstellen/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Meier Alex");
+    await user.type(within(dialog).getByLabelText(/Rolle/i), "Offizier");
+    await user.click(within(dialog).getByRole("button", { name: /Erstellen/i }));
+
+    const kennung = within(dialog).getByLabelText(/^Kennung$/);
+    await waitFor(() => expect(kennung).toHaveAttribute("aria-invalid", "true"));
+    const message = document.getElementById(kennung.getAttribute("aria-describedby")!.split(" ")[0])!;
+    expect(message).toHaveTextContent("„Meier Alex“ gibt es schon. Kennung angeben");
+    expect(message).toHaveAttribute("role", "alert");
+    expect(toastError).not.toHaveBeenCalled();
+    // The dialog stays open: the operator fixes it right there.
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
   it("creates a person on happy-path submit", async () => {

@@ -491,6 +491,9 @@ export function copyToClipboardAsync(textPromise: Promise<string>): Promise<void
  * (digits, a leading +, spaces, and the separators / - ( )). Used on the
  * incident contact-phone inputs so operators can't type free text there.
  */
+/** The column length of `contact_phone` (the API refuses longer with a 422). */
+export const CONTACT_PHONE_MAX = 50
+
 export function sanitizePhoneInput(value: string): string {
   return value.replace(/[^\d+\s()/-]/g, '')
 }

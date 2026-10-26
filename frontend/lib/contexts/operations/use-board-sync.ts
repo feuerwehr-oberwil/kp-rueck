@@ -436,14 +436,9 @@ export function useBoardSync(input: BoardSyncInput) {
       setOperations((ops) =>
         ops.map((op) => {
           if (op.id !== data.incident_id) return op
-          let vehicleName: string | undefined
-          for (const [name, assignmentId] of op.vehicleAssignments) {
-            if (assignmentId === data.id) { vehicleName = name; break }
-          }
-          if (!vehicleName) return op
-          const newVehicleDriverStay = new Map(op.vehicleDriverStay)
-          newVehicleDriverStay.set(vehicleName, data.driver_stay ?? false)
-          return { ...op, vehicleDriverStay: newVehicleDriverStay }
+          if (!op.vehicles.some((v) => v.assignmentId === data.id)) return op
+          const driverStay = data.driver_stay ?? false
+          return { ...op, vehicles: op.vehicles.map((v) => (v.assignmentId === data.id ? { ...v, driverStay } : v)) }
         })
       )
     }

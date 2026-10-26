@@ -248,14 +248,18 @@ export function colorGroupFor(
 ): ColorGroup | null {
   let key: string | undefined
   let label: string | undefined
+  let hueKey: string | undefined
   switch (dimension) {
     case "reko":
       key = operation.assignedReko?.id
       label = operation.assignedReko?.name
       break
     case "vehicle":
-      key = operation.vehicles[0]
-      label = operation.vehicles[0]
+      // Grouped by id (two vehicles may share a name); the hue still comes from
+      // the name, so a station's TLF keeps the colour it always had.
+      key = operation.vehicles[0]?.vehicleId
+      label = operation.vehicles[0]?.name
+      hueKey = label
       break
     case "type":
       key = operation.incidentType
@@ -273,7 +277,7 @@ export function colorGroupFor(
       return null
   }
   if (!key) return null
-  return { key, label: label ?? key, color: colorAccent(key, dimension, groups) }
+  return { key, label: label ?? key, color: colorAccent(hueKey ?? key, dimension, groups) }
 }
 
 // Stop-row status accent — the four "mirror" columns a route stop can be in

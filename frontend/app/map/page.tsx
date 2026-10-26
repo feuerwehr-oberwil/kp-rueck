@@ -117,7 +117,7 @@ export default function MapPage() {
   const [mapIdle, setMapIdle] = useState(false)
   const tBoot = useTranslations('map.page')
   useBootGate('map', operationsLoaded && mapIdle, tBoot('loading'))
-  // vehicle name → driver name, live — the rail's vehicle chips carry the same
+  // vehicle id → driver name, live — the rail's vehicle chips carry the same
   // «Name · Funkrufname (Fahrer)» line the board card shows.
   const { isEditor } = useAuth()
   const {

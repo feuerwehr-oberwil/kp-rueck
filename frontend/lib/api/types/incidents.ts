@@ -133,6 +133,9 @@ export interface ApiIncident {
    *  one exists, the leader of record otherwise — so a CLOSED incident (whose
    *  assignments were released) still names who led it. */
   leader_name?: string | null
+  /** The personnel id of that same effective leader — the board marks the
+   *  Einsatzleiter by id, never by name. */
+  effective_leader_id?: string | null
   /** Server-computed short label for location_address (home city stripped).
    *  "" when the address is only the home city; null/absent when no address. */
   location_display?: string | null
@@ -238,7 +241,20 @@ export interface ApiIncidentUpdate {
   /** Correctable after the fact: the realistic order is "type it in, then
    *  realise it was a phone call". Both directions. */
   source?: EditorIncidentSource
+  /** Per free-text field in this body: the text the client last saw the server hold.
+   *  If somebody else saved that field since, the server refuses with 409
+   *  `text_conflict` (params: field, current, changed_by?, changed_at?). */
+  text_base?: Partial<Record<IncidentTextField, string>>
 }
+
+/** The free-text incident columns guarded by `text_base`. */
+export type IncidentTextField =
+  | 'description'
+  | 'contact'
+  | 'contact_phone'
+  | 'internal_notes'
+  | 'nachbarhilfe_note'
+  | 'am_warten_note'
 
 export interface ApiStatusTransition {
   id: string

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { areOperationListsEqual, areOperationsEqual } from "./operation-equality"
+import { crewMember, assignedVehicle } from "@/test-utils/operation-fixtures"
 
 /** Minimal operation-shaped object; tests override single fields from here. */
 function op(overrides: Record<string, unknown> = {}) {
@@ -8,10 +9,10 @@ function op(overrides: Record<string, unknown> = {}) {
     id: "op-1",
     location: "Hauptstrasse 1",
     vehicle: "tlf",
-    vehicles: ["TLF 1"],
+    vehicles: [assignedVehicle("TLF 1", { callsign: "Florian 10", driverStay: true })],
     incidentType: "brand",
     dispatchTime: new Date("2026-07-30T12:00:00Z"),
-    crew: ["Meier", "Müller"],
+    crew: [crewMember("Meier"), crewMember("Müller")],
     priority: "high",
     status: "active",
     coordinates: { lat: 47.5, lng: 7.6 },
@@ -32,11 +33,7 @@ function op(overrides: Record<string, unknown> = {}) {
     rekoArrivedAt: null,
     rekoSummary: null,
     assignedReko: null,
-    crewAssignments: new Map<string, string>(),
     materialAssignments: new Map<string, string>(),
-    vehicleAssignments: new Map<string, string>(),
-    vehicleCallsigns: new Map([["TLF 1", "Florian 10"]]),
-    vehicleDriverStay: new Map([["TLF 1", true]]),
     ...overrides,
   }
 }
@@ -53,7 +50,7 @@ describe("areOperationsEqual", () => {
   it.each([
     ["incidentType", { incidentType: "verkehrsunfall" }],
     ["nachbarhilfeNote", { nachbarhilfeNote: "Nachbarwehr Oberwil" }],
-    ["vehicleCallsigns", { vehicleCallsigns: new Map([["TLF 1", "Florian 11"]]) }],
+    ["a vehicle's call sign", { vehicles: [assignedVehicle("TLF 1", { callsign: "Florian 11", driverStay: true })] }],
     ["dispatchTime", { dispatchTime: new Date("2026-07-30T13:00:00Z") }],
     ["statusChangedAt", { statusChangedAt: new Date("2026-07-30T12:30:00Z") }],
   ])("detects a change to %s", (_label, overrides) => {
@@ -62,9 +59,9 @@ describe("areOperationsEqual", () => {
 
   it("detects changes to the fields the old comparator did cover", () => {
     expect(areOperationsEqual(op(), op({ status: "completed" }))).toBe(false)
-    expect(areOperationsEqual(op(), op({ crew: ["Meier"] }))).toBe(false)
+    expect(areOperationsEqual(op(), op({ crew: [crewMember("Meier")] }))).toBe(false)
     expect(areOperationsEqual(op(), op({ priority: "low" }))).toBe(false)
-    expect(areOperationsEqual(op(), op({ vehicleDriverStay: new Map([["TLF 1", false]]) }))).toBe(false)
+    expect(areOperationsEqual(op(), op({ vehicles: [assignedVehicle("TLF 1", { callsign: "Florian 10", driverStay: false })] }))).toBe(false)
   })
 
   it("detects a nested object change", () => {
@@ -78,12 +75,12 @@ describe("areOperationsEqual", () => {
   })
 
   it("distinguishes a map key mapped to undefined from a missing key", () => {
-    const withKey = new Map<string, string | undefined>([["TLF 1", undefined]])
-    expect(areOperationsEqual(op({ vehicleCallsigns: withKey }), op({ vehicleCallsigns: new Map() }))).toBe(false)
+    const withKey = new Map<string, string | undefined>([["m-1", undefined]])
+    expect(areOperationsEqual(op({ materialAssignments: withKey }), op({ materialAssignments: new Map() }))).toBe(false)
   })
 
   it("is order-sensitive for crew and vehicle lists", () => {
-    expect(areOperationsEqual(op(), op({ crew: ["Müller", "Meier"] }))).toBe(false)
+    expect(areOperationsEqual(op(), op({ crew: [crewMember("Müller"), crewMember("Meier")] }))).toBe(false)
   })
 
   it("covers a field added to Operation without being told about it", () => {

@@ -372,7 +372,11 @@ export function ExcelImportSection({
                 <TableBody>
                   {preview.personnel_preview.map((row, idx) => (
                     <TableRow key={idx}>
-                      <TableCell>{row.name}</TableCell>
+                      <TableCell>
+                        {row.name}
+                        {/* The sheet's Kennung column, so a namesake pair reads as two people. */}
+                        {row.kennung && <span className="font-mono text-muted-foreground"> · {row.kennung}</span>}
+                      </TableCell>
                       <TableCell>{row.role || '-'}</TableCell>
                       <TableCell>{row.status}</TableCell>
                     </TableRow>
