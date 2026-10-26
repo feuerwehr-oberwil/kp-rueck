@@ -277,7 +277,8 @@ export function createIncidentActions(board: BoardMutationContext) {
           if (sent.ticket) noteFieldSettled(sent.ticket, { ok: true })
           if (isReopeningOperation) await refreshOperations()
         } catch (err) {
-          console.error("Failed to update operation:", err)
+          // A 409 is somebody else's newer write – an answer the UI states, not a fault to log.
+          if (!ApiError.isConflictError(err)) console.error("Failed to update operation:", err)
           if (sent.ticket) {
             noteFieldSettled(sent.ticket, { ok: false, reason: classifySaveFailure(err), conflict: textConflictOf(err) })
           }
