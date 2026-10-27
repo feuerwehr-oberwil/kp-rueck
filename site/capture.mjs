@@ -1,22 +1,20 @@
 #!/usr/bin/env node
 /**
- * Screenshots für die Landingpage aufnehmen.
+ * Capture real light/dark screenshots for the landing page.
+ * Night variants live in shots/dark/; the day hero remains the link preview.
+ * --theme light|dark limits capture to one theme; --site-only skips README images.
  *
  *   node site/capture.mjs                       # gegen die öffentliche Demo
  *   node site/capture.mjs --scale 2 --only board,karte   # README-Bilder in 2x nachziehen
  *   node site/capture.mjs --base http://localhost:3000
  *   node site/capture.mjs --only board,karte    # nur einzelne Shots
  *
- * Fährt eine echte Instanz mit Playwright an, meldet sich als Editor an, schaltet
- * auf das dunkle Board-Theme, blendet Demo-Chrome (Willkommensdialog, DEMO-Banderole,
- * Toasts) aus und legt die Bilder in site/shots/ ab – WebP für die Seite, dazu ein JPEG des
- * Hero-Bildes für die Linkvorschau. Die Bildnamen sind der Vertrag
- * mit `shots.items` in site/content/de.json – wer hier umbenennt, muss dort
- * mitziehen (nur dort: die Übersetzungen erben den Dateinamen und beschriften bloss).
+ * Drives a real instance with Playwright as a demo editor and hides transient demo
+ * chrome. Image names match shots.items in content/de.json; translations inherit them.
  *
  * Gegen eine nicht-öffentliche Instanz: KP_RUECK_USER / KP_RUECK_PASS setzen.
  */
-import { writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -58,6 +56,11 @@ const only = arg('only')?.split(',').map((s) => s.trim()).filter(Boolean)
 // wollen: die Landingpage bindet inline ein (1x), die README-Bilder werden auf GitHub
 // vergrössert (2x). Also: erst der normale Lauf, dann `--scale 2 --docs-only`.
 const docsOnly = argv.includes('--docs-only')
+const siteOnly = argv.includes('--site-only')
+const requestedTheme = arg('theme')
+if (requestedTheme && !['light', 'dark'].includes(requestedTheme)) throw new Error('--theme must be light or dark')
+const themes = requestedTheme ? [requestedTheme] : docsOnly ? ['light'] : ['light', 'dark']
+if (docsOnly && (siteOnly || requestedTheme === 'dark')) throw new Error('--docs-only requires light theme and cannot be combined with --site-only')
 // Auflösung der Aufnahme. 1 reicht für die Landingpage (sie bindet die Bilder inline ein,
 // Seitengewicht zählt dort). Die README-Bilder werden auf GitHub auf Retina-Displays
 // betrachtet und wurden früher von Hand mit 2x geschossen — darum `--scale 2` für den
@@ -119,7 +122,7 @@ const shots = [
     note: 'Das öffentliche Meldeformular (Telefon/Laufkundschaft), über den Teilen-Link',
     prep: async (page) => {
       const { link } = await mintLink(page, '/api/intake/generate-link')
-      await page.goto(base + link, { waitUntil: 'domcontentloaded' })
+      await page.goto(base + link, { waitUntil: 'domcontentloaded', timeout: 60000 })
       await page.waitForTimeout(3500)
       // Beispielmeldung eintippen (nicht abschicken) — ein leeres Formular mit rot
       // markiertem Pflichtfeld sieht nach Fehler aus, nicht nach Werkzeug. Die
@@ -186,9 +189,7 @@ const shots = [
       }
     },
   },
-  // Bewusst dunkel: das Board an der Wand im abgedunkelten KP. Der einzige
-  // dunkle Shot – er belegt die dunkle Oberfläche aus der Funktionsliste.
-  { name: 'display', path: '/display/board', settle: 4000, theme: 'dark', note: 'Beamer-Ansicht im KP' },
+  { name: 'display', path: '/display/board', settle: 4000, note: 'Beamer-Ansicht im KP' },
   { name: 'status', path: '/display/status', settle: 4000, note: 'Beamer-Ansicht: Gesamtübersicht' },
   { name: 'training', path: '/training', settle: 2500 },
 ]
@@ -221,7 +222,7 @@ const enterFeldDoor = async (page, base) => {
   // /feld remembers who you are in a cookie on its own path – the second Feld shot of
   // a run would skip the person picker and find no «Name suchen» field.
   await page.context().clearCookies({ path: '/feld' })
-  await page.goto(base + link, { waitUntil: 'domcontentloaded' })
+  await page.goto(base + link, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.waitForTimeout(2500)
   await page.keyboard.type(String(code), { delay: 120 })
   await page.waitForTimeout(3000)
@@ -273,52 +274,49 @@ const encode = async (page, png, { width, type, quality }) => {
   return Buffer.from(b64, 'base64')
 }
 
-const run = async () => {
-  const browser = await chromium.launch()
+const captureTheme = async (browser, theme) => {
+  const output = theme === 'dark' ? join(SHOTS, 'dark') : SHOTS
+  mkdirSync(output, { recursive: true })
   const ctx = await browser.newContext({
     viewport: VIEWPORT,
     deviceScaleFactor: scale,
     locale: 'de-CH',
     timezoneId: 'Europe/Zurich',
-    colorScheme: 'light',
+    colorScheme: theme,
     reducedMotion: 'reduce',
   })
 
-  // Standard ist hell: die Landingpage ist hell, dunkle Shots stechen darin als
-  // Fremdkörper heraus. Einzelne Shots dürfen per `theme: 'dark'` abweichen –
-  // die Beamer-Ansicht an der Wand im abgedunkelten KP ist genau dieser Fall.
-  // Den Willkommensdialog der Demo als "gesehen" markieren, bevor React startet.
-  await ctx.addInitScript(() => {
+  // Set the app palette and skip the welcome dialog before React starts.
+  await ctx.addInitScript((theme) => {
     try {
       localStorage.setItem('kp-rueck.demo-welcome.v1', '1')
+      localStorage.setItem('theme', theme)
     } catch { /* private mode */ }
-  })
+  }, theme)
 
   const page = await ctx.newPage()
   // Der leere Tab, auf dem die Bilder encodiert werden (siehe `encode`).
   const encoder = await ctx.newPage()
   page.on('pageerror', (e) => console.warn('  ! page error:', String(e).slice(0, 120)))
 
-  console.log(`→ ${base}`)
-  await page.goto(base, { waitUntil: 'domcontentloaded' })
+  console.log(`→ ${base} (${theme})`)
+  await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await login(page)
   await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 45000 })
-  await page.waitForLoadState('networkidle').catch(() => {})
+  await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {})
 
   const wanted = shots.filter((s) => !only || only.includes(s.name))
   if (!wanted.length) throw new Error(`--only passt auf keinen Shot (${shots.map((s) => s.name).join(', ')})`)
 
   for (const shot of wanted) {
-    // Theme vor dem Laden setzen – next-themes liest den Wert beim Mount aus
-    // localStorage; danach ist es für einen Nachzügler zu spät.
-    const theme = shot.theme ?? 'light'
+    // next-themes reads storage at mount, so set the palette before navigating.
     await page.evaluate((t) => {
       try { localStorage.setItem('theme', t) } catch { /* private mode */ }
     }, theme)
     await page.emulateMedia({ colorScheme: theme })
     await page.setViewportSize(shot.viewport ?? VIEWPORT)
-    await page.goto(base + shot.path, { waitUntil: 'domcontentloaded' })
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.goto(base + shot.path, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {})
     await page.waitForTimeout(shot.settle)
     // Ein Shot darf sich abmelden, wenn die Instanz das Feature noch nicht hat.
     // Nur das: kein Ersatzbild, keine Notlösung — ein fehlendes Bild ist ein
@@ -339,27 +337,36 @@ const run = async () => {
       const png = await page.screenshot({ type: 'png' })
       const width = (shot.viewport ?? VIEWPORT).width
       const write = async (file, opts) => {
-        writeFileSync(join(SHOTS, file), await encode(encoder, png, opts))
+        writeFileSync(join(output, file), await encode(encoder, png, opts))
         console.log(`  ✓ ${file}  (${shot.path})`)
       }
       await write(`${shot.name}.webp`, { width, type: 'image/webp', quality: WEBP_QUALITY })
       if (shot.hero) {
         await write(`${shot.name}-${HERO_W}.webp`, { width: HERO_W, type: 'image/webp', quality: WEBP_QUALITY })
-        await write(`${shot.name}.jpg`, { width, type: 'image/jpeg', quality: OG_QUALITY })
+        if (theme === 'light') await write(`${shot.name}.jpg`, { width, type: 'image/jpeg', quality: OG_QUALITY })
       }
     }
     // Derselbe Seitenzustand, zweite Ausgabe: das README-Bild. PNG, weil README-Bilder
     // auf GitHub oft vergrössert betrachtet werden und Text dort verlustfrei bleiben soll.
-    if (shot.docs) {
+    if (shot.docs && theme === 'light' && !siteOnly) {
       const docsPath = join(DOCS_IMAGES, `${shot.docs}.png`)
       await page.screenshot({ path: docsPath, type: 'png' })
       console.log(`  ✓ docs/images/${shot.docs}.png`)
     }
   }
 
-  await browser.close()
-  console.log('Fertig. Danach: node site/build.mjs')
-  console.log('README-Bilder (docs/images/) wurden mitgeschrieben, wo ein Shot `docs:` trägt.')
+  await ctx.close()
+}
+
+const run = async () => {
+  const browser = await chromium.launch()
+  try {
+    for (const theme of themes) await captureTheme(browser, theme)
+  } finally {
+    await browser.close()
+  }
+  console.log('Screenshots captured. Rebuild with: node site/build.mjs')
+  if (!siteOnly && themes.includes('light')) console.log('README-Bilder (docs/images/) wurden mitgeschrieben, wo ein Shot `docs:` trägt.')
 }
 
 run().catch((err) => {
