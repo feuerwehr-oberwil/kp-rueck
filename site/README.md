@@ -47,8 +47,9 @@ der Vorlage ändert sich nichts. Umgekehrt gilt: **eine Sprache wird erst ausgel
 
 Bewusst entschieden und nicht aus Versehen so:
 
-- **Umschalter sind zwei Textlinks**, keine Flaggen, kein Dropdown, kein Cookie. Echte Links,
-  damit sie crawlbar bleiben und ein geteilter Link seine Sprache mitbringt.
+- **Language choices are text links**, without flags, cookies or redirects. Compact headers
+  collect them with appearance in one menu; real links stay crawlable and keep the language in
+  a shared URL.
 - **Keine Weiterleitung nach `Accept-Language`.** Ein deutschsprachiger Feuerwehrmann, den eine
   Browsereinstellung nach `/fr/` schickt, ist schlimmer als ein Umschalter, den er sieht.
 - **Die Screenshots bleiben deutsch, auf jeder Sprachfassung.** Sie kommen aus einer echten
@@ -62,6 +63,28 @@ Bewusst entschieden und nicht aus Versehen so:
   oben auf der Seite** (`notice` in `fr.json`). Diese Zeile verschwindet, wenn jemand
   gegengelesen hat – sie ist kein Dekor. Es ist dieselbe Freigabe-Person, die Plan 06 braucht.
 
+## Theme assets and shared runtime
+
+`theme.js` follows the device appearance until a visitor makes an explicit choice.
+Desktop uses a header button; compact headers group language and appearance in one native
+menu, closed by Escape or a tap outside. Language choices remain real links. The theme
+choice is a local preference (`kp-landing-theme`), shared across language pages on the same
+origin. Keep `theme.js`, `build.mjs` and `landing.css` byte-identical in both repositories.
+The builder embeds the runtime in the page head, including the single-file hand-out.
+
+Capture both real app palettes: the existing `shots/<name>.webp` is light, and
+`shots/dark/<name>.webp` is its night counterpart, with matching names and dimensions.
+Both heroes also have a 992px version. The link-preview JPEG and README PNGs remain light.
+Do not simulate night mode by filtering a day screenshot.
+
+```bash
+node site/capture.mjs --site-only             # both themes, leave README PNGs alone
+node site/capture.mjs --theme dark --site-only # night variants only
+```
+
+The offline builder preserves and embeds both picture sources; changing the theme must
+never make the hand-out request an image from a server.
+
 ## Screenshots aktualisieren
 
 ```bash
@@ -71,10 +94,9 @@ node site/capture.mjs --only board,karte         # nur einzelne Bilder
 node site/build.mjs                              # danach neu bauen
 ```
 
-`capture.mjs` fährt eine laufende Instanz mit Playwright an (aus `frontend/node_modules`, keine
-zusätzliche Abhängigkeit), meldet sich in der Demo als Editor an, erzwingt das helle
-Board-Theme, überspringt den Willkommensdialog, blendet DEMO-Banderole und Toasts aus und
-schiesst jede Ansicht in 1500 × 937. Gegen eine nicht-öffentliche Instanz laufen
+`capture.mjs` drives a running instance with Playwright (from `frontend/node_modules`),
+signs in as a demo editor, captures both board themes, skips the welcome dialog and hides
+the DEMO ribbon and toasts. Each view is captured at 1500 × 937. Gegen eine nicht-öffentliche Instanz laufen
 `KP_RUECK_USER` / `KP_RUECK_PASS`. Neue Bilder kommen als neuer Eintrag in die `shots`-Liste im
 Skript **und** als Eintrag unter `shots.items` in `content/de.json` – die Dateinamen sind der
 Vertrag zwischen beiden. Der Dateiname steht nur in `de.json`; die Übersetzungen erben ihn und
@@ -82,7 +104,7 @@ beschriften nur.
 
 **Das Format ist WebP** – dieselbe Aufnahme wiegt deutlich weniger als das JPEG von früher, und
 encodiert wird im Chromium, den Playwright ohnehin mitbringt (keine zweite Abhängigkeit, kein
-`cwebp` auf dem Rechner). Drei Ausgaben statt einer, alle aus derselben Aufnahme:
+`cwebp` auf dem Rechner). Day captures produce three outputs; night captures produce both WebP sizes:
 
 | Datei | wofür |
 | --- | --- |

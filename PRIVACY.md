@@ -226,6 +226,11 @@ visible to you before you press send, which is the point of doing it this way.
 to do with your installation: it is a handful of static files on GitHub Pages, and nothing on it
 talks to any station's server.
 
+The appearance control stores only your explicit light/dark choice in localStorage under
+`kp-landing-theme`. It stays in your browser, applies across the site's language pages, and
+is not sent with the visitor counter or contact form. Without a saved choice the page follows
+your device appearance; blocked browser storage does not prevent switching themes.
+
 It carries one contact form (name, e-mail, message). Submitting it sends those three fields to
 **staticforms.dev**, which forwards them to the maintainer by e-mail. Static hosting cannot
 accept a form post, so a third party does that step. The service therefore processes what you
