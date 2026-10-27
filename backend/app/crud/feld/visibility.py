@@ -585,6 +585,7 @@ async def get_feld_personnel_for_event(
             {
                 "personnel_id": person.id,
                 "name": person.name,
+                "kennung": person.kennung,
                 "role": person.role,
                 "incident_count": len(sources),
                 "open_count": sum(1 for source in sources.values() if source.is_active),

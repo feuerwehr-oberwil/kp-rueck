@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { Material, Operation } from '@/lib/contexts/operations-context'
 import { filterIncidents, matchesIncidentQuery } from '@/lib/incident-search'
+import { assignedVehicle } from "@/test-utils/operation-fixtures"
 
 /** A board-shaped incident with everything empty, so each test names only what it is about. */
 function makeOperation(overrides: Partial<Operation> = {}): Operation {
@@ -33,12 +34,9 @@ function makeOperation(overrides: Partial<Operation> = {}): Operation {
     rekoArrivedAt: null,
     rekoSummary: null,
     assignedReko: null,
+    leaderId: null,
     leaderName: null,
-    crewAssignments: new Map(),
     materialAssignments: new Map(),
-    vehicleAssignments: new Map(),
-    vehicleCallsigns: new Map(),
-    vehicleDriverStay: new Map(),
     ...overrides,
   }
 }
@@ -166,7 +164,7 @@ describe('the «ohne fahrzeug» keyword', () => {
 
     expect(query(makeOperation({ status: 'enroute' }))).toBe(true)
     expect(query(makeOperation({ status: 'active' }))).toBe(true)
-    expect(query(makeOperation({ status: 'active', vehicles: ['TLF'] }))).toBe(false)
+    expect(query(makeOperation({ status: 'active', vehicles: [assignedVehicle('TLF')] }))).toBe(false)
     expect(query(makeOperation({ status: 'active', zuFuss: true }))).toBe(false)
     // An Auftrag's stop: the vehicles are on the route.
     expect(query(makeOperation({ status: 'enroute', groupId: 'g-1' }))).toBe(false)

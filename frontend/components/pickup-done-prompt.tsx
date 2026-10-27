@@ -51,8 +51,8 @@ interface PickupPrompt {
 }
 
 /** One ask per incident+vehicle+reason. Answering "noch offen" must stick. */
-function askKey(incidentId: string, vehicleName: string, trigger: Trigger): string {
-  return `${incidentId}|${vehicleName}|${trigger}`
+function askKey(incidentId: string, vehicleId: string, trigger: Trigger): string {
+  return `${incidentId}|${vehicleId}|${trigger}`
 }
 
 export function PickupDonePrompt() {
@@ -66,7 +66,7 @@ export function PickupDonePrompt() {
   const [isDemo, setIsDemo] = useState<boolean | null>(null)
 
   const askedRef = useRef<Set<string>>(new Set())
-  /** Vehicle names per incident as of the previous render, to spot a new one. */
+  /** Vehicle ids per incident as of the previous render, to spot a new one. */
   const vehiclesRef = useRef<Map<string, Set<string>> | null>(null)
 
   const onOperatorPage = pathname === "/" || pathname === "/map"
@@ -87,14 +87,14 @@ export function PickupDonePrompt() {
   }, [onOperatorPage])
 
   const raise = useCallback(
-    (operation: Operation, vehicleName: string, trigger: Trigger) => {
-      const key = askKey(operation.id, vehicleName, trigger)
+    (operation: Operation, vehicle: { id: string; name: string }, trigger: Trigger) => {
+      const key = askKey(operation.id, vehicle.id, trigger)
       if (askedRef.current.has(key)) return
       askedRef.current.add(key)
       setPrompt({
         incidentId: operation.id,
         label: getIncidentRefLabel(operation),
-        vehicleName,
+        vehicleName: vehicle.name,
         waiting: formatPickupWaiting(operation.pickupRequestedAt),
         trigger,
       })
@@ -109,7 +109,7 @@ export function PickupDonePrompt() {
   // operator's WebSocket update), and every one of them ends up here.
   useEffect(() => {
     const current = new Map<string, Set<string>>(
-      operations.map(op => [op.id, new Set(op.vehicles)]),
+      operations.map(op => [op.id, new Set(op.vehicles.map(v => v.vehicleId))]),
     )
     const previous = vehiclesRef.current
     vehiclesRef.current = current
@@ -121,8 +121,8 @@ export function PickupDonePrompt() {
       if (!operation.pickupNeeded) continue
       const before = previous.get(operation.id)
       if (!before) continue
-      const added = operation.vehicles.find(name => !before.has(name))
-      if (added) raise(operation, added, "assigned")
+      const added = operation.vehicles.find(v => !before.has(v.vehicleId))
+      if (added) raise(operation, { id: added.vehicleId, name: added.name }, "assigned")
     }
   }, [operations, active, raise])
 
@@ -133,7 +133,11 @@ export function PickupDonePrompt() {
       if (!payload?.incident_id) return
       const operation = operations.find(op => op.id === payload.incident_id)
       if (!operation?.pickupNeeded) return
-      raise(operation, payload.vehicle_name || t("fallbackVehicle"), "returned")
+      raise(
+        operation,
+        { id: payload.vehicle_id || payload.vehicle_name || "", name: payload.vehicle_name || t("fallbackVehicle") },
+        "returned",
+      )
     })
     return () => unsubscribe()
   }, [active, operations, raise, t])

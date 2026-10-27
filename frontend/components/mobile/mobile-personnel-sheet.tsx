@@ -60,7 +60,7 @@ export function MobilePersonnelSheet({
   // Find which incident a person is assigned to
   const getAssignedIncident = (person: Person): string | null => {
     if (person.status !== "assigned") return null
-    const op = operations.find((o) => o.crew.includes(person.name))
+    const op = operations.find((o) => o.crew.some((m) => m.personnelId === person.id))
     if (!op) return null
     return (op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())) || getIncidentTypeLabel(op.incidentType)
   }

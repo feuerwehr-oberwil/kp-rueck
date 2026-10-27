@@ -30,7 +30,7 @@ interface DriverAssignmentDialogProps {
   specialFunctions: ApiEventSpecialFunctionResponse[]
   onDriverAssigned: () => void
   /** Resolves false when the removal failed (already rolled back + toasted). */
-  removeCrew: (operationId: string, crewName: string) => Promise<boolean>
+  removeCrew: (operationId: string, personnelId: string) => Promise<boolean>
 }
 
 export function DriverAssignmentDialog({
@@ -68,7 +68,7 @@ export function DriverAssignmentDialog({
   const [conflictDialog, setConflictDialog] = useState<{
     open: boolean
     person: Person | null
-    conflictingOperations: Array<{ id: string; location: string; crewName: string }>
+    conflictingOperations: Array<{ id: string; location: string; personnelId: string }>
   }>({ open: false, person: null, conflictingOperations: [] })
 
   // Reassign dialog state (person is already driving another vehicle)
@@ -129,13 +129,13 @@ export function DriverAssignmentDialog({
   // Get operations where a person is assigned
   const getPersonConflicts = (person: Person) => {
     return operations
-      .filter(op => op.crew.includes(person.name))
-      .map(op => ({ id: op.id, location: getIncidentRefLabel(op, 40), crewName: person.name }))
+      .filter(op => op.crew.some(m => m.personnelId === person.id))
+      .map(op => ({ id: op.id, location: getIncidentRefLabel(op, 40), personnelId: person.id }))
   }
 
   // Check if person is assigned to any incident
   const isAssignedToIncident = (person: Person) => {
-    return operations.some(op => op.crew.includes(person.name))
+    return operations.some(op => op.crew.some(m => m.personnelId === person.id))
   }
 
   // Filter by search query — shared matcher (name / rank / tags / special
@@ -327,7 +327,7 @@ export function DriverAssignmentDialog({
       // removal put the person back on the incident AFTER they became
       // driver: exactly the state this dialog exists to prevent.
       const results = await Promise.all(
-        conflictingOperations.map((conflict) => removeCrew(conflict.id, conflict.crewName))
+        conflictingOperations.map((conflict) => removeCrew(conflict.id, conflict.personnelId))
       )
       if (results.some((ok) => !ok)) {
         // removeCrew already rolled back and toasted; don't make the person

@@ -22,6 +22,7 @@ import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
 import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
+import { sameCrew, sameVehicles } from "@/lib/operation-equality"
 import { rapportApplies } from "@/lib/rapport-visibility"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -39,10 +40,10 @@ const widthHasSidePanel = () => window.innerWidth >= SIDE_PANEL_BREAKPOINT
 
 interface DraggableOperationProps {
   operation: Operation
-  onRemoveCrew: (crewName: string) => void
+  onRemoveCrew: (personnelId: string) => void
   onRemoveMaterial: (materialId: string) => void
-  onRemoveVehicle: (vehicleName: string) => void
-  onToggleDriverStay?: (vehicleName: string) => void
+  onRemoveVehicle: (vehicleId: string) => void
+  onToggleDriverStay?: (vehicleId: string) => void
   onRemoveReko?: () => void
   /** Open the detail as a modal (small screens). `tab`/`section` carry WHERE the
    *  click was aimed — see `openDetail` below; omitted for a click on the card
@@ -96,11 +97,11 @@ interface DraggableOperationProps {
    *  that stands out. Null/undefined = no majority, every type renders. */
   dominantIncidentType?: string | null
   printerEnabled?: boolean
-  /** Vehicle name → driver, as the detail panel shows it. Threaded in from the
+  /** Vehicle id → driver, as the detail panel shows it. Threaded in from the
    *  board rather than fetched here: one roster call, not one per card. */
   vehicleDrivers?: ReadonlyMap<string, string>
-  /** Names of crew members currently assigned to >1 incident — surface conflict styling. */
-  doubleBookedCrewNames?: Set<string>
+  /** Personnel ids of crew members currently assigned to >1 incident — surface conflict styling. */
+  doubleBookedCrewIds?: Set<string>
   /** False for viewers: don't register the drag source at all — a drag whose
    *  PATCH is guaranteed to 403 must not offer a working-looking affordance. */
   canDrag?: boolean
@@ -191,7 +192,7 @@ function DraggableOperationBase({
   dominantIncidentType,
   printerEnabled,
   vehicleDrivers,
-  doubleBookedCrewNames,
+  doubleBookedCrewIds,
   canDrag = true,
   onDragActiveChange,
 }: DraggableOperationProps) {
@@ -831,7 +832,7 @@ function DraggableOperationBase({
                 showVehicleRow={showVehicleRow}
                 showMaterialRow={showMaterialRow}
                 vehicleDrivers={vehicleDrivers}
-                doubleBookedCrewNames={doubleBookedCrewNames}
+                doubleBookedCrewIds={doubleBookedCrewIds}
                 canEdit={canDrag}
                 onRemoveReko={onRemoveReko}
                 onRemoveCrew={onRemoveCrew}
@@ -1058,14 +1059,11 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.operation.hasBeenDispatched === nextProps.operation.hasBeenDispatched &&
     prevProps.operation.groupId === nextProps.operation.groupId &&
     prevProps.operation.groupPosition === nextProps.operation.groupPosition &&
+    prevProps.operation.leaderId === nextProps.operation.leaderId &&
     prevProps.operation.leaderName === nextProps.operation.leaderName &&
-    sameStrings(prevProps.operation.crew, nextProps.operation.crew) &&
+    sameCrew(prevProps.operation.crew, nextProps.operation.crew) &&
     sameStrings(prevProps.operation.materials, nextProps.operation.materials) &&
-    sameStrings(prevProps.operation.vehicles, nextProps.operation.vehicles) &&
-    prevProps.operation.vehicles.every((v) => prevProps.operation.vehicleDriverStay?.get(v) === nextProps.operation.vehicleDriverStay?.get(v)) &&
-    // Drawn next to the vehicle name, and edited in the fleet settings without
-    // the incident itself changing at all.
-    prevProps.operation.vehicles.every((v) => prevProps.operation.vehicleCallsigns?.get(v) === nextProps.operation.vehicleCallsigns?.get(v)) &&
+    sameVehicles(prevProps.operation.vehicles, nextProps.operation.vehicles) &&
     // The driver in «Name · Funkrufname (Fahrer)» lives OUTSIDE the operation —
     // useVehicleDrivers hands out a new Map identity per load, so identity is
     // the change signal. Without this a reassigned driver stayed stale on the
@@ -1092,6 +1090,6 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     !assignedRekoChanged &&
     // Conflict set: identity check is enough — page.tsx memoizes the Set
     // via useMemo, so a new reference means the underlying value changed.
-    prevProps.doubleBookedCrewNames === nextProps.doubleBookedCrewNames
+    prevProps.doubleBookedCrewIds === nextProps.doubleBookedCrewIds
   )
 })

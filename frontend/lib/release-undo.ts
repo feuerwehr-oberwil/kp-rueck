@@ -43,8 +43,8 @@ export interface RestoreState {
   operations: readonly {
     id: string
     status: string
-    crew: readonly string[]
-    vehicles: readonly string[]
+    crew: readonly { personnelId: string }[]
+    vehicles: readonly { vehicleId: string }[]
     materials: readonly string[]
     groupId: string | null
   }[]
@@ -116,16 +116,18 @@ export function checkRestore(released: Released, state: RestoreState): RestoreBl
 
   switch (released.kind) {
     case "personnel": {
-      if (op.crew.includes(released.name)) return { reason: "alreadyBack" }
+      const isPerson = (m: { personnelId: string }) => m.personnelId === released.personId
+      if (op.crew.some(isPerson)) return { reason: "alreadyBack" }
       const person = state.personnel.find((p) => p.id === released.personId)
       if (!person) return { reason: "resourceGone" }
       if (person.status === "unavailable") return { reason: "unavailable" }
-      return elsewhere((o) => o.crew.includes(released.name))
+      return elsewhere((o) => o.crew.some(isPerson))
     }
     case "vehicle": {
-      if (op.vehicles.includes(released.name)) return { reason: "alreadyBack" }
+      const isVehicle = (v: { vehicleId: string }) => v.vehicleId === released.vehicleId
+      if (op.vehicles.some(isVehicle)) return { reason: "alreadyBack" }
       if (state.outOfServiceVehicleIds.has(released.vehicleId)) return { reason: "outOfService" }
-      return elsewhere((o) => o.vehicles.includes(released.name))
+      return elsewhere((o) => o.vehicles.some(isVehicle))
     }
     case "material": {
       if (op.materials.includes(released.materialId)) return { reason: "alreadyBack" }

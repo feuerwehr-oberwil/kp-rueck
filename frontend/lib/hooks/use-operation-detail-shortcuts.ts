@@ -21,7 +21,7 @@ interface UseOperationDetailShortcutsParams {
   availableVehicles: AvailableVehicle[]
   onUpdate: (updates: Partial<Operation>) => void
   onAssignVehicle: (vehicleId: string, vehicleName: string, operationId: string) => void
-  onRemoveVehicle: (operationId: string, vehicleName: string) => void
+  onRemoveVehicle: (operationId: string, vehicleId: string) => void
 }
 
 const SHIFT_PRIORITY_KEYS: Record<string, Operation["priority"]> = {
@@ -81,9 +81,9 @@ export function useOperationDetailShortcuts({
         const vehicle = availableVehicles[vehicleIndex]
         if (!vehicle) return
         event.preventDefault()
-        const isAssigned = operation.vehicles.includes(vehicle.name)
+        const isAssigned = operation.vehicles.some((v) => v.vehicleId === vehicle.id)
         if (isAssigned) {
-          onRemoveVehicle(operation.id, vehicle.name)
+          onRemoveVehicle(operation.id, vehicle.id)
         } else {
           onAssignVehicle(vehicle.id, vehicle.name, operation.id)
         }

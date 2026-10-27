@@ -57,8 +57,9 @@ export interface ApiQRCodePrintRequest {
 
 export interface ApiPrintJob {
   id: string
-  job_type: 'assignment' | 'board' | 'test' | 'qr_code'
-  status: 'pending' | 'printing' | 'completed' | 'failed'
+  job_type: 'assignment' | 'board' | 'test' | 'qr_code' | 'abholliste'
+  /** `expired`: never handed to the agent, past its TTL (set by the server only). */
+  status: 'pending' | 'printing' | 'completed' | 'failed' | 'expired'
   payload: Record<string, unknown>
   incident_id?: string
   event_id?: string

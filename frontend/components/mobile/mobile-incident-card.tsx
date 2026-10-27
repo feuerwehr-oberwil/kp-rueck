@@ -27,12 +27,13 @@ import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
 import { getOperationStatusLabel } from "@/lib/status-labels"
 import { type Priority, PRIORITY_CARD_CLASSES, PRIORITY_ICON_CLASSES } from "@/lib/priority"
+import { sameCrew, sameVehicles } from "@/lib/operation-equality"
 
 interface MobileIncidentCardProps {
   operation: Operation
   onClick: () => void
   formatLocation: (address: string) => string
-  /** Live vehicle name → driver name map — the LIST fetches it once
+  /** Live vehicle id → driver name map — the LIST fetches it once
    *  (`useVehicleDrivers`) rather than every card asking the API itself. */
   vehicleDrivers?: Map<string, string>
 }
@@ -174,23 +175,23 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
               )}
               {operation.crew.length > 0 && (
                 <FactRow label={tMobile("crew")}>
-                  <p className="line-clamp-2">{operation.crew.join(", ")}</p>
+                  <p className="line-clamp-2">{operation.crew.map((m) => m.name).join(", ")}</p>
                 </FactRow>
               )}
               {operation.vehicles.length > 0 && (
                 <FactRow label={tMobile("vehicles")}>
                   <div className="space-y-0.5">
-                    {operation.vehicles.map(vehicleName => {
-                      const driver = vehicleDrivers?.get(vehicleName)
+                    {operation.vehicles.map(({ vehicleId, name: vehicleName, driverStay }) => {
+                      const driver = vehicleDrivers?.get(vehicleId)
                       return (
-                        <div key={vehicleName} className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                        <div key={vehicleId} className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                           <span className="font-medium">{vehicleName}</span>
                           {driver && (
                             <span className="text-muted-foreground">
                               · {tMobile("driver", { name: driver })}
                             </span>
                           )}
-                          <DriverStayGlyph stays={operation.vehicleDriverStay.get(vehicleName)} />
+                          <DriverStayGlyph stays={driverStay} />
                         </div>
                       )
                     })}
@@ -245,9 +246,8 @@ export const MobileIncidentCard = memo(MobileIncidentCardBase, (prevProps, nextP
     // that ignores a field leaves stale text on screen after a poll.
     prev.notes === next.notes &&
     prev.leaderName === next.leaderName &&
-    prev.crew.join("|") === next.crew.join("|") &&
-    prev.vehicles.join("|") === next.vehicles.join("|") &&
-    Array.from(prev.vehicleDriverStay).join("|") === Array.from(next.vehicleDriverStay).join("|") &&
+    sameCrew(prev.crew, next.crew) &&
+    sameVehicles(prev.vehicles, next.vehicles) &&
     prev.hasCompletedReko === next.hasCompletedReko &&
     prev.rekoSummary?.hasDangers === next.rekoSummary?.hasDangers &&
     prev.rekoSummary?.summaryText === next.rekoSummary?.summaryText &&

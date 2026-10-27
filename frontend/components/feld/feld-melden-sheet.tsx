@@ -58,7 +58,7 @@ import { reverseGeocode } from '@/lib/geocoding'
 import { PRIORITY_LABELS } from '@/lib/priority'
 import { asIncidentType, INCIDENT_TYPE_LABELS } from '@/lib/types/incidents'
 import type { IncidentPriority, IncidentType } from '@/lib/types/incidents'
-import { sanitizePhoneInput } from '@/lib/utils'
+import { CONTACT_PHONE_MAX, sanitizePhoneInput } from '@/lib/utils'
 import { ShellLoader } from '@/components/ui/shell-loader'
 import { DuplicateHint } from '@/components/duplicates/duplicate-hint'
 import { useDuplicateCandidates } from '@/lib/hooks/use-duplicate-candidates'
@@ -680,6 +680,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
                 type="tel"
                 inputMode="tel"
                 value={contactPhone}
+                maxLength={CONTACT_PHONE_MAX}
                 onChange={event => setContactPhone(sanitizePhoneInput(event.target.value))}
                 className="mt-2"
                 autoComplete="off"

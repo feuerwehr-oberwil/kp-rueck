@@ -76,11 +76,7 @@ function op(id: string, overrides: Partial<Operation> = {}): Operation {
     zuFuss: false,
     hasCompletedReko: false,
     assignedReko: null,
-    crewAssignments: new Map(),
     materialAssignments: new Map(),
-    vehicleAssignments: new Map(),
-    vehicleCallsigns: new Map(),
-    vehicleDriverStay: new Map(),
     ...overrides,
   } as Operation
 }

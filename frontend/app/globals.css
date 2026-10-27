@@ -1115,14 +1115,12 @@
   }
 }
 
-.dark {
-  @keyframes priority-pulse {
-    0%, 100% {
-      box-shadow: 0 0 0 0 oklch(0.60 0.26 28 / 0.5);
-    }
-    50% {
-      box-shadow: 0 0 16px 5px oklch(0.60 0.26 28 / 0.3);
-    }
+@keyframes priority-pulse-dark {
+  0%, 100% {
+    box-shadow: 0 0 0 0 oklch(0.60 0.26 28 / 0.5);
+  }
+  50% {
+    box-shadow: 0 0 16px 5px oklch(0.60 0.26 28 / 0.3);
   }
 }
 
@@ -1141,6 +1139,10 @@
 
 .priority-high-pulse {
   animation: priority-pulse 2s ease-in-out infinite;
+}
+
+.dark .priority-high-pulse {
+  animation-name: priority-pulse-dark;
 }
 
 /* --- Spotlight ------------------------------------------------------------

@@ -47,7 +47,7 @@ export function useAssignmentConflicts({
     if (!vehicle) return
     const groupConflicts = groups
       .filter((group) => group.id !== groupId && group.assignments.some((a) => a.resourceType === "vehicle" && a.resourceId === vehicleId))
-    const incidentConflicts = operations.filter((op) => op.vehicles.includes(vehicle.name))
+    const incidentConflicts = operations.filter((op) => op.vehicles.some((v) => v.vehicleId === vehicleId))
     if (groupConflicts.length === 0 && incidentConflicts.length === 0) {
       void assignGroupResource(groupId, "vehicle", vehicleId)
       return
@@ -67,7 +67,7 @@ export function useAssignmentConflicts({
             const assignment = group.assignments.find((a) => a.resourceType === "vehicle" && a.resourceId === vehicleId)
             return assignment ? unassignGroupResource(group.id, assignment.id) : true
           }))
-          const incidentResults = await Promise.all(incidentConflicts.map((op) => removeVehicle(op.id, vehicle.name)))
+          const incidentResults = await Promise.all(incidentConflicts.map((op) => removeVehicle(op.id, vehicleId)))
           if ([...groupResults, ...incidentResults].some((ok) => !ok)) return
         }
         await assignGroupResource(groupId, "vehicle", vehicleId)

@@ -105,7 +105,11 @@ describe('buildSituationData — pickup and the crew leader', () => {
 
   it('marks the crew member the assignment names as leader', () => {
     const { operations } = buildSituationData(crewPayload())
-    expect(operations[0].crew).toEqual(['Suter Nina', 'Frey Marc'])
+    expect(operations[0].crew).toEqual([
+      { personnelId: 'p-1', assignmentId: 'a-1', name: 'Suter Nina' },
+      { personnelId: 'p-2', assignmentId: 'a-2', name: 'Frey Marc' },
+    ])
+    expect(operations[0].leaderId).toBe('p-2')
     expect(operations[0].leaderName).toBe('Frey Marc')
   })
 

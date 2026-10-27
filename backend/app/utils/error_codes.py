@@ -53,6 +53,9 @@ class ErrorCode(StrEnum):
     # A status move from a stale board: somebody else moved the card first (409, the board
     # opens «Gerade geändert»; params: status, seconds_ago, changed_by?, released?).
     INCIDENT_STATUS_CHANGED = "incident_status_changed"
+    # A text save from a stale board: somebody else saved that field first (409; the field
+    # keeps the draft and asks; params: field, current, changed_at?, changed_by?).
+    TEXT_CONFLICT = "text_conflict"
     # The Reko form (`/reko`, opened from a board link or from /feld)
     REKO_LINK_INVALID = "reko_link_invalid"
     REKO_REPORT_NOT_FOUND = "reko_report_not_found"

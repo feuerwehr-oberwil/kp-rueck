@@ -1,67 +1,47 @@
 """Material + material-group schemas."""
 
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints, field_validator
+
+from .fields import RequiredText50, RequiredText100, SortOrder, reject_null
+
+
+def _material_status(v: str) -> str:
+    """Map the legacy material statuses onto the two the column holds, refuse anything else."""
+    valid_statuses = {"available", "unavailable"}
+    status_mapping = {
+        "assigned": "available",
+        "planned": "unavailable",
+        "maintenance": "unavailable",
+    }
+    if v in status_mapping:
+        return status_mapping[v]
+    if v not in valid_statuses:
+        raise ValueError(f"Status must be one of: {', '.join(sorted(valid_statuses))}")
+    return v
+
+
+MaterialStatus = Annotated[str, AfterValidator(_material_status)]
+MaterialDescription = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
 
 
 class MaterialBase(BaseModel):
     """Base material schema."""
 
-    name: str
-    type: str  # e.g., 'Tauchpumpen', 'Wassersauger', 'Sägen', 'Generatoren', 'Anhänger'
-    location: str  # e.g., 'TLF', 'Pio', 'MoWa', 'Bühne', 'Depot'
-    location_sort_order: int = 0
-    description: str | None = None
+    name: RequiredText100
+    type: RequiredText50  # e.g., 'Tauchpumpen', 'Wassersauger', 'Sägen', 'Generatoren', 'Anhänger'
+    location: RequiredText100  # e.g., 'TLF', 'Pio', 'MoWa', 'Bühne', 'Depot'
+    location_sort_order: SortOrder = 0
+    description: MaterialDescription | None = None
     # Legacy mirror of `out_of_service`: 'unavailable' ⇔ out_of_service=True.
     # Still accepted on write and still returned, but new clients should read and
     # write `out_of_service` — it is the field that carries the meaning.
-    status: str = "available"  # 'available', 'unavailable'
+    status: MaterialStatus = "available"  # 'available', 'unavailable'
     consumable: bool = False  # Consumable items (e.g., tape) — not tracked per-incident
     group_id: UUID | None = None  # Material group/block reference
-
-    @field_validator("name", "type", "location")
-    @classmethod
-    def validate_required_strings(cls, v: str) -> str:
-        """Validate required string fields."""
-        if not v or not v.strip():
-            raise ValueError("Field cannot be empty")
-        if len(v) > 100:
-            raise ValueError("Field must be 100 characters or less")
-        return v.strip()
-
-    @field_validator("description")
-    @classmethod
-    def validate_description(cls, v: str | None) -> str | None:
-        """Validate description length if provided."""
-        if v and len(v) > 500:
-            raise ValueError("Description must be 500 characters or less")
-        return v.strip() if v else v
-
-    @field_validator("status")
-    @classmethod
-    def validate_status(cls, v: str) -> str:
-        """Validate material status."""
-        valid_statuses = {"available", "unavailable"}
-        status_mapping = {
-            "assigned": "available",
-            "planned": "unavailable",
-            "maintenance": "unavailable",
-        }
-        if v in status_mapping:
-            return status_mapping[v]
-        if v not in valid_statuses:
-            raise ValueError(f"Status must be one of: {', '.join(valid_statuses)}")
-        return v
-
-    @field_validator("location_sort_order")
-    @classmethod
-    def validate_sort_order(cls, v: int) -> int:
-        """Validate sort order is non-negative."""
-        if v < 0:
-            raise ValueError("Sort order must be non-negative")
-        return v
 
 
 class MaterialCreate(MaterialBase):
@@ -72,22 +52,26 @@ class MaterialCreate(MaterialBase):
 
 
 class MaterialUpdate(BaseModel):
-    """Schema for updating material.
+    """Schema for updating material: same field rules as create, every field optional.
 
     `out_of_service` and `status` write the same readiness flag; when both are
-    present in the payload, `out_of_service` wins. `archived_at` is not settable
-    here — archiving goes through POST /materials/{id}/archive and /restore.
+    present in the payload, `out_of_service` wins, and a null in either means "not
+    sent" (`crud.materials.resolve_out_of_service`). `description` and `group_id` may
+    be cleared with null; the other columns cannot be emptied. `archived_at` is not
+    settable here — archiving goes through POST /materials/{id}/archive and /restore.
     """
 
-    name: str | None = None
-    type: str | None = None
-    location: str | None = None
-    location_sort_order: int | None = None
-    description: str | None = None
-    status: str | None = None
+    name: RequiredText100 | None = None
+    type: RequiredText50 | None = None
+    location: RequiredText100 | None = None
+    location_sort_order: SortOrder | None = None
+    description: MaterialDescription | None = None
+    status: MaterialStatus | None = None
     out_of_service: bool | None = None
     consumable: bool | None = None
     group_id: UUID | None = None
+
+    _not_null = field_validator("name", "type", "location", "location_sort_order", "consumable")(reject_null)
 
 
 class Material(MaterialBase):

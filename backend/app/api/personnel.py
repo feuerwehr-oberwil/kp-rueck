@@ -58,8 +58,11 @@ async def create_personnel(
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ) -> schemas.Personnel:
-    """Create new personnel (editor only)."""
-    new_personnel = await crud.create_personnel(db, personnel, current_user, request)
+    """Create new personnel (editor only) – 409 when name + Kennung is already on the roster."""
+    try:
+        new_personnel = await crud.create_personnel(db, personnel, current_user, request)
+    except crud.PersonnelNameTakenError as exc:
+        raise HTTPException(status_code=409, detail=exc.detail) from None
 
     # Convert to Pydantic and broadcast WebSocket update. A brand-new person belongs to
     # no Ereignis yet, so there is no attendance to report — the caller checks them in.
@@ -79,8 +82,11 @@ async def update_personnel(
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ) -> schemas.Personnel:
-    """Update personnel (editor only)."""
-    updated = await crud.update_personnel(db, personnel_id, personnel, current_user, request)
+    """Update personnel (editor only) – 409 when the new name + Kennung is already on the roster."""
+    try:
+        updated = await crud.update_personnel(db, personnel_id, personnel, current_user, request)
+    except crud.PersonnelNameTakenError as exc:
+        raise HTTPException(status_code=409, detail=exc.detail) from None
     if not updated:
         raise HTTPException(status_code=404, detail=ErrorMessages.PERSONNEL_NOT_FOUND)
 
@@ -101,10 +107,16 @@ async def delete_personnel(
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Delete personnel (editor only) - soft delete."""
-    success = await crud.delete_personnel(db, personnel_id, current_user, request)
-    if not success:
+    """Delete personnel for good (editor only) – 409 while the person is assigned."""
+    outcome = await crud.delete_personnel(db, personnel_id, current_user, request)
+    if outcome == "not_found":
         raise HTTPException(status_code=404, detail=ErrorMessages.PERSONNEL_NOT_FOUND)
+    if outcome == "in_use":
+        raise HTTPException(
+            status_code=409,
+            detail="Die Person ist einem Einsatz oder Auftrag zugewiesen und kann nicht gelöscht werden "
+            "– zuerst die Zuweisung aufheben.",
+        )
 
     # Broadcast WebSocket update for deletion
     background_tasks.add_task(broadcast_personnel_update, {"id": str(personnel_id)}, "delete")

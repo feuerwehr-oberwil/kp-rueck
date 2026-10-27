@@ -26,6 +26,7 @@
  */
 
 import { ApiError, NetworkError } from "@/lib/api-client"
+import type { IncidentTextField } from "@/lib/api/types/incidents"
 
 /** The free-text fields of an incident that report their own save state. */
 export const SAVED_TEXT_FIELDS = [
@@ -40,6 +41,42 @@ export type SavedTextField = (typeof SAVED_TEXT_FIELDS)[number]
 
 export function isSavedTextField(key: string): key is SavedTextField {
   return (SAVED_TEXT_FIELDS as readonly string[]).includes(key)
+}
+
+/** The incident column behind each field – the name in `text_base` and in a conflict. */
+export const SAVED_TEXT_API_FIELD = {
+  notes: "description",
+  contact: "contact",
+  contactPhone: "contact_phone",
+  internalNotes: "internal_notes",
+  nachbarhilfeNote: "nachbarhilfe_note",
+  amWartenNote: "am_warten_note",
+} as const satisfies Record<SavedTextField, IncidentTextField>
+
+/**
+ * Somebody else saved this field after our run of edits began (409 `text_conflict`).
+ * `by`/`at` are null when the server cannot say who (e.g. a write from the Feld door).
+ */
+export interface FieldConflict {
+  text: string
+  by: string | null
+  at: string | null
+}
+
+/** The field and the other writer's text out of a 409 `text_conflict`, else null. */
+export function textConflictOf(error: unknown): { field: SavedTextField; conflict: FieldConflict } | null {
+  if (!(error instanceof ApiError) || error.status !== 409 || error.code !== "text_conflict") return null
+  const params = error.params ?? {}
+  const field = SAVED_TEXT_FIELDS.find((f) => SAVED_TEXT_API_FIELD[f] === params.field)
+  if (!field) return null
+  return {
+    field,
+    conflict: {
+      text: String(params.current ?? ""),
+      by: params.changed_by === undefined ? null : String(params.changed_by),
+      at: params.changed_at === undefined ? null : String(params.changed_at),
+    },
+  }
 }
 
 /** Why a save failed, in the words the field will use. */
@@ -67,6 +104,12 @@ export interface FieldSaveEntry {
   /** The field's server value when this run of edits began — what «inzwischen
    *  geändert» is measured against. */
   base: string
+  /** What this window believes the server holds now: `base`, then the text of
+   *  each PATCH the server confirmed. Sent as `text_base`, so the server can
+   *  refuse a save that would silently overwrite somebody else's (review F05). */
+  acked: string
+  /** The other writer's text after a 409 `text_conflict`; null otherwise. */
+  conflict: FieldConflict | null
   /** When the server last confirmed this field from this window. */
   savedAt: Date | null
   reason: FieldSaveFailure | null
@@ -76,8 +119,18 @@ export interface FieldSaveEntry {
   inFlight: number
 }
 
-/** Per-request receipt: which version of which field it carried. */
-export type FieldSaveTicket = { scope: string | null; incidentId: string; versions: Partial<Record<SavedTextField, number>> }
+/**
+ * Per-request receipt: which version and which text of which field it carried,
+ * and the `text_base` to send with it – per field, the text this window last saw
+ * the server confirm.
+ */
+export type FieldSaveTicket = {
+  scope: string | null
+  incidentId: string
+  versions: Partial<Record<SavedTextField, number>>
+  texts: Partial<Record<SavedTextField, string>>
+  textBase: Partial<Record<IncidentTextField, string>>
+}
 
 type Listener = () => void
 
@@ -153,6 +206,9 @@ export function noteFieldEdit(incidentId: string, field: SavedTextField, value: 
     // The base is the value BEFORE this run of edits; a run continues as long
     // as a draft is held (typing on through a failure is the same run).
     base: holdsDraft ? prev.base : serverValue,
+    acked: holdsDraft ? prev.acked : serverValue,
+    // Typing on does not answer the question; only a choice in the block does.
+    conflict: holdsDraft ? prev.conflict : null,
     savedAt: prev?.savedAt ?? null,
     reason: null,
     version: (prev?.version ?? 0) + 1,
@@ -161,18 +217,48 @@ export function noteFieldEdit(incidentId: string, field: SavedTextField, value: 
   emit()
 }
 
-/** A PATCH carrying these fields is leaving now. */
-export function noteFieldSend(incidentId: string, fields: readonly SavedTextField[]): FieldSaveTicket {
+/**
+ * A batch carrying these texts was cut and waits in the per-incident queue.
+ * The receipt pins WHICH edit it carries (the field versions now, not when it
+ * finally leaves: a newer keystroke typed meanwhile is the next batch's) and
+ * in which user + Ereignis it was typed, so a later switch cannot move it.
+ */
+export function noteFieldQueued(
+  incidentId: string,
+  texts: Partial<Record<SavedTextField, string>>,
+  atScope: string | null = scope,
+): FieldSaveTicket {
   const versions: FieldSaveTicket["versions"] = {}
+  for (const field of Object.keys(texts).filter(isSavedTextField)) {
+    const entry = entries.get(keyOf(atScope, incidentId, field))
+    if (entry) versions[field] = entry.version
+  }
+  return { scope: atScope, incidentId, versions, texts, textBase: {} }
+}
+
+/**
+ * The queued batch is leaving now. Call it at the moment of sending (inside the
+ * per-incident queue), so the confirmation of the PATCH ahead has already moved
+ * `acked`; the returned receipt carries the `text_base` to send.
+ */
+export function noteFieldSend(ticket: FieldSaveTicket): FieldSaveTicket {
+  const textBase: FieldSaveTicket["textBase"] = {}
+  const fields = Object.keys(ticket.versions).filter(isSavedTextField)
   for (const field of fields) {
-    const key = keyOf(scope, incidentId, field)
+    const key = keyOf(ticket.scope, ticket.incidentId, field)
     const entry = entries.get(key)
     if (!entry) continue
-    versions[field] = entry.version
-    put(key, { ...entry, inFlight: entry.inFlight + 1, status: entry.status === "pending" ? "saving" : entry.status })
+    textBase[SAVED_TEXT_API_FIELD[field]] = entry.acked
+    // «Wird gespeichert» only if this batch carries the newest text; a newer one still waits.
+    const carriesNewest = entry.version === ticket.versions[field]
+    put(key, {
+      ...entry,
+      inFlight: entry.inFlight + 1,
+      status: carriesNewest && entry.status === "pending" ? "saving" : entry.status,
+    })
   }
   if (fields.length) emit()
-  return { scope, incidentId, versions }
+  return { ...ticket, textBase }
 }
 
 /**
@@ -181,7 +267,10 @@ export function noteFieldSend(incidentId: string, fields: readonly SavedTextFiel
  * text on screen. And «Gespeichert» waits until nothing for that field is in
  * flight any more.
  */
-export function noteFieldSettled(ticket: FieldSaveTicket, outcome: { ok: true } | { ok: false; reason: FieldSaveFailure }): void {
+export function noteFieldSettled(
+  ticket: FieldSaveTicket,
+  outcome: { ok: true } | { ok: false; reason: FieldSaveFailure; conflict?: { field: SavedTextField; conflict: FieldConflict } | null },
+): void {
   let changed = false
   for (const [field, version] of Object.entries(ticket.versions) as [SavedTextField, number][]) {
     const key = keyOf(ticket.scope, ticket.incidentId, field)
@@ -189,19 +278,36 @@ export function noteFieldSettled(ticket: FieldSaveTicket, outcome: { ok: true } 
     if (!entry) continue
     changed = true
     const inFlight = Math.max(0, entry.inFlight - 1)
+    // Even an older version that was confirmed is what the server holds now.
+    const acked = outcome.ok ? (ticket.texts[field] ?? entry.acked) : entry.acked
     if (entry.version !== version) {
-      put(key, { ...entry, inFlight })
+      put(key, { ...entry, inFlight, acked })
       continue
     }
     if (outcome.ok) {
       put(key, inFlight > 0
-        ? { ...entry, inFlight }
-        : { ...entry, inFlight, status: "saved", draft: null, savedAt: new Date(), reason: null })
+        ? { ...entry, inFlight, acked }
+        : { ...entry, inFlight, acked, status: "saved", draft: null, conflict: null, savedAt: new Date(), reason: null })
     } else {
-      put(key, { ...entry, inFlight, status: "failed", reason: outcome.reason })
+      const conflict = outcome.conflict?.field === field ? outcome.conflict.conflict : entry.conflict
+      put(key, { ...entry, inFlight, status: "failed", reason: outcome.reason, conflict })
     }
   }
   if (changed) emit()
+}
+
+/**
+ * The operator's answer to a conflict. `mine`: the other text is now the known
+ * base, so the next save (the caller's retry) deliberately replaces it. `theirs`:
+ * the draft is dropped and the field shows the board's value again.
+ */
+export function resolveFieldConflict(incidentId: string, field: SavedTextField, choice: "mine" | "theirs"): void {
+  const key = keyOf(scope, incidentId, field)
+  const entry = entries.get(key)
+  if (!entry?.conflict) return
+  if (choice === "theirs") entries.delete(key)
+  else put(key, { ...entry, acked: entry.conflict.text, conflict: null })
+  emit()
 }
 
 /** Drafts that did NOT reach the server, for the current user (any Ereignis). */

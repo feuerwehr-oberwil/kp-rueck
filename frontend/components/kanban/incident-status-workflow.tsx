@@ -38,6 +38,7 @@ import { findAuftragForStop, isBackwardTransition, remainingRouteStops, startabl
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
+import { usePersonNaming } from "@/components/person-name"
 
 // Home-town-free label for dialog texts; falls back to the incident type when
 // the address was only the home town (formatted location is then empty).
@@ -141,6 +142,7 @@ export function useIncidentStatusWorkflow({
   // The Funkdurchsage dialog. Not a gate: it opens AFTER the decision to
   // dispatch, and closing it reverts nothing.
   const [disponiertOperationId, setDisponiertOperationId] = useState<string | null>(null)
+  const { inline: personInline } = usePersonNaming()
   // The one gate that is open, or null. A union rather than a pair of states per
   // gate, so «only one gate is ever open» is what the state says, not a comment.
   const [gate, setGate] = useState<OpenGate | null>(null)
@@ -340,11 +342,8 @@ export function useIncidentStatusWorkflow({
     // built for, which is why an empty list must not keep the gate shut.
     const release: CompletionRelease = {
       operationId: operation.id,
-      crew: [...operation.crew],
-      vehicles: operation.vehicles.map((name) => {
-        const callsign = operation.vehicleCallsigns?.get(name)
-        return callsign ? `${name} · ${callsign}` : name
-      }),
+      crew: operation.crew.map(personInline),
+      vehicles: operation.vehicles.map(({ name, callsign }) => (callsign ? `${name} · ${callsign}` : name)),
     }
 
     // «Vor Ort oder ins Magazin?» has two answers, and mid-route both are
@@ -377,7 +376,7 @@ export function useIncidentStatusWorkflow({
       ...gateFor(operation.id, previousStatus ?? null),
       release: release.crew.length > 0 || release.vehicles.length > 0 ? release : null,
     })
-  }, [gateFor, getGroupResources, groups, operationById, operations, routeContinuationFor])
+  }, [gateFor, getGroupResources, groups, operationById, operations, routeContinuationFor, personInline])
 
   const requestStatusChange = useCallback((operationId: string, targetStatus: OperationStatus) => {
     const operation = operationById(operationId)

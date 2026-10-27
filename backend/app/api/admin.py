@@ -298,9 +298,8 @@ async def preview_excel_import(
     if not (file.filename or "").endswith((".xlsx", ".xls")):
         raise HTTPException(status_code=400, detail=ErrorMessages.EXCEL_REQUIRED)
 
-    file_bytes = await file.read()
-
     max_bytes = settings.max_excel_import_mb * 1024 * 1024
+    file_bytes = await file.read(max_bytes + 1)
     if len(file_bytes) > max_bytes:
         raise HTTPException(
             status_code=413,
@@ -364,9 +363,8 @@ async def execute_excel_import(
     if not (file.filename or "").endswith((".xlsx", ".xls")):
         raise HTTPException(status_code=400, detail=ErrorMessages.EXCEL_REQUIRED)
 
-    file_bytes = await file.read()
-
     max_bytes = settings.max_excel_import_mb * 1024 * 1024
+    file_bytes = await file.read(max_bytes + 1)
     if len(file_bytes) > max_bytes:
         raise HTTPException(
             status_code=413,
@@ -398,7 +396,16 @@ async def execute_excel_import(
         # that the happy path has no use for.
         _refuse_active_assignments(active_assignments, await list_assignment_blockers(db))
 
-    counts = await import_data(db, parsed_data, import_mode, str(current_user.id))
+    try:
+        counts = await import_data(db, parsed_data, import_mode, str(current_user.id))
+    except ExcelImportError as exc:
+        # A row that clashes with the roster (append: name + Kennung already there) – only
+        # the database can tell, so it surfaces here rather than in `_parse_or_400`. Nothing
+        # was written: the request never commits.
+        raise HTTPException(
+            status_code=409,
+            detail=f"Excel-Datei konnte nicht verarbeitet werden: {exc.message}",
+        ) from None
 
     # Audit log
     await log_action(

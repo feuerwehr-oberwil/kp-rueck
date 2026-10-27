@@ -52,6 +52,8 @@ export interface ApiFeldClaimResponse {
 export interface ApiFeldPersonnel {
   personnel_id: string
   name: string
+  /** Tells two people of the same name apart; shown only for namesakes. */
+  kennung?: string | null
   role: string | null
   /** Incidents in this event the person is or was assigned to. */
   incident_count: number
@@ -466,6 +468,8 @@ export interface ApiRapportConcurrentEditor {
 export interface ApiRapportPersonnelCandidate {
   personnel_id: string
   name: string
+  /** Tells two people of the same name apart; shown only for namesakes. */
+  kennung?: string | null
   checked_in: boolean
 }
 

@@ -2,26 +2,27 @@ import { useMemo } from "react";
 
 interface OperationWithCrew {
   id: string;
-  crew: string[];
-  /** Vehicle names on the incident — resolves where a DRIVER currently is. */
-  vehicles?: string[];
+  crew: readonly { personnelId: string }[];
+  /** Vehicles on the incident — resolves where a DRIVER currently is. */
+  vehicles?: readonly { vehicleId: string }[];
 }
 
 /** The route-owned engagements — an Auftrag is ONE place, however many stops. */
 export interface GroupEngagements {
   id: string;
-  personnelNames: string[];
-  vehicleNames: string[];
+  personnelIds: string[];
+  vehicleIds: string[];
 }
 
 /** A Fahrer and the vehicle they drive in this Ereignis. */
 export interface DriverEngagement {
-  name: string;
-  vehicleName: string;
+  personnelId: string;
+  vehicleId: string;
 }
 
 /**
- * Derive the names of people engaged at ≥ 2 distinct PLACES, plus the count.
+ * Derive the people engaged at ≥ 2 distinct PLACES, plus the count — by
+ * personnel id, so two people who share a name are never counted as one.
  *
  * A place is an incident (crew), an Auftrag (route personnel — one place, not
  * one per stop), or wherever the vehicle somebody DRIVES currently stands. It
@@ -33,52 +34,52 @@ export interface DriverEngagement {
  * staff cycle through incidents and must not raise the flag.
  */
 export interface DoubleBookedPersons {
-  /** Set of person names engaged at more than one place. */
-  names: Set<string>;
-  /** Map of person name → number of distinct places they are committed to. */
+  /** Personnel ids engaged at more than one place. */
+  ids: Set<string>;
+  /** Personnel id → number of distinct places they are committed to. */
   counts: Map<string, number>;
 }
 
 export function computeDoubleBookedPersons(
-  operations: OperationWithCrew[],
+  operations: readonly OperationWithCrew[],
   groups: GroupEngagements[] = [],
   drivers: DriverEngagement[] = [],
 ): DoubleBookedPersons {
   const places = new Map<string, Set<string>>();
-  const engage = (name: string, place: string) => {
-    const set = places.get(name) ?? new Set<string>();
+  const engage = (personnelId: string, place: string) => {
+    const set = places.get(personnelId) ?? new Set<string>();
     set.add(place);
-    places.set(name, set);
+    places.set(personnelId, set);
   };
 
   for (const op of operations) {
-    for (const name of op.crew) engage(name, op.id);
+    for (const { personnelId } of op.crew) engage(personnelId, op.id);
   }
   for (const group of groups) {
-    for (const name of group.personnelNames) engage(name, `group:${group.id}`);
+    for (const personnelId of group.personnelIds) engage(personnelId, `group:${group.id}`);
   }
   // A driver is wherever their vehicle is. Same place keys as above, so the
   // dedupe holds: driving TO the incident you are also crew on is one place.
   for (const driver of drivers) {
     for (const op of operations) {
-      if (op.vehicles?.includes(driver.vehicleName)) engage(driver.name, op.id);
+      if (op.vehicles?.some((v) => v.vehicleId === driver.vehicleId)) engage(driver.personnelId, op.id);
     }
     for (const group of groups) {
-      if (group.vehicleNames.includes(driver.vehicleName)) engage(driver.name, `group:${group.id}`);
+      if (group.vehicleIds.includes(driver.vehicleId)) engage(driver.personnelId, `group:${group.id}`);
     }
   }
 
   const counts = new Map<string, number>();
-  const names = new Set<string>();
-  for (const [name, set] of places) {
-    counts.set(name, set.size);
-    if (set.size >= 2) names.add(name);
+  const ids = new Set<string>();
+  for (const [personnelId, set] of places) {
+    counts.set(personnelId, set.size);
+    if (set.size >= 2) ids.add(personnelId);
   }
-  return { names, counts };
+  return { ids, counts };
 }
 
 export function useDoubleBookedPersons(
-  operations: OperationWithCrew[],
+  operations: readonly OperationWithCrew[],
   groups: GroupEngagements[] = [],
   drivers: DriverEngagement[] = [],
 ): DoubleBookedPersons {

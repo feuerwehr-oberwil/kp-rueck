@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..database import after_commit
 from ..models import (
+    AuditLog,
     Incident,
     IncidentAssignment,
     IncidentGroup,
@@ -28,10 +29,15 @@ from ..services.incident_dispatch import dispatched_incident_ids, is_dispatched
 from ..services.incident_leader import effective_leader_id
 from . import events as events_crud
 from . import feld as feld_crud
+from .locking import lock_incident_with_group
 
 
 class InvalidIncidentGroupError(ValueError):
     """Incident group is missing, deleted, or belongs to another event."""
+
+
+class IncompleteCoordinatesError(ValueError):
+    """An update would leave only one of latitude/longitude set – a pin nobody can place."""
 
 
 class StatusChangedError(Exception):
@@ -52,6 +58,61 @@ class StatusChangedError(Exception):
         self.changed_at = changed_at
         self.changed_by = changed_by
         self.released = released
+
+
+class TextConflictError(Exception):
+    """A free-text save refused because somebody else saved that field since the client saw it.
+
+    Raised under the incident row lock by ``update_incident`` when the body's ``text_base``
+    for a field no longer matches the stored text (review F05). The route answers 409
+    ``text_conflict``; the board keeps the operator's draft and asks «Meinen Text
+    speichern» / «Diese Fassung übernehmen». Nothing has changed when it is raised.
+    """
+
+    def __init__(self, field: str, current: str, changed_at: datetime | None, changed_by: str | None) -> None:
+        super().__init__(f"incident text field {field} changed meanwhile")
+        self.field = field
+        self.current = current
+        self.changed_at = changed_at
+        self.changed_by = changed_by
+
+
+# Every column the board writes as typed text: audited so a conflict can say who wrote last.
+_TEXT_FIELDS = ("description", "contact", "contact_phone", "internal_notes", "nachbarhilfe_note", "am_warten_note")
+
+
+async def _guard_text_base(
+    db: AsyncSession, incident: Incident, text_base: dict[schemas.IncidentTextField, str], update_data: dict[str, Any]
+) -> None:
+    """Refuse the update if a field in ``text_base`` was changed by somebody else meanwhile.
+
+    The client's base is the text it last saw the server hold. A stored text equal to the
+    base, or already equal to the new text (a replayed save), is no conflict. Who wrote
+    the stored text comes from the newest audit row that changed that field; absent when
+    nobody signed it (a /feld or intake write).
+    """
+    for field, base in text_base.items():
+        if field not in update_data:
+            continue
+        current = getattr(incident, field) or ""
+        if current in (base, update_data[field] or ""):
+            continue
+        last = (
+            await db.execute(
+                select(AuditLog.timestamp, User)
+                .outerjoin(User, User.id == AuditLog.user_id)
+                .where(
+                    AuditLog.resource_type == "incident",
+                    AuditLog.resource_id == incident.id,
+                    AuditLog.changes_json.has_key(field),
+                )
+                .order_by(AuditLog.timestamp.desc())
+                .limit(1)
+            )
+        ).first()
+        changed_at, user = (last[0], last[1]) if last else (None, None)
+        changed_by = (user.display_name or user.username) if user is not None else None
+        raise TextConflictError(field, current, changed_at, changed_by)
 
 
 async def _released_names(db: AsyncSession, transition: StatusTransition) -> list[str]:
@@ -188,7 +249,7 @@ async def get_incidents(
     # 500, not 100. Every production caller omits this, so the old default was a hard ceiling
     # on what the board could ever show — at 200 incidents an arbitrary 100 were invisible
     # with no banner and no count. That is the storm scenario, and no hardware helps.
-    limit: int = 500,
+    limit: int | None = 500,
     status: str | None = None,
 ) -> list[Incident]:
     """
@@ -198,7 +259,7 @@ async def get_incidents(
         db: Database session
         event_id: Filter by event ID (required in API, optional here for flexibility)
         skip: Pagination offset
-        limit: Max results
+        limit: Max results; None for an internal, complete event snapshot
         status: Filter by status
 
     Returns:
@@ -392,6 +453,7 @@ async def get_incidents(
         incident.reko_arrived_by_kp = incident.id in reko_arrived_by_kp
 
         leader_id = leader_by_incident.get(incident.id)
+        incident.effective_leader_id = leader_id
         incident.leader_name = leader_names.get(leader_id) if leader_id else None
 
     return incidents
@@ -470,6 +532,7 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
             )
         )
         leader_id = effective_leader_id(incident, {row[0] for row in active_leader_rows})
+        incident.effective_leader_id = leader_id
         incident.leader_name = (
             await db.scalar(select(Personnel.name).where(Personnel.id == leader_id)) if leader_id else None
         )
@@ -682,35 +745,27 @@ async def update_incident(
     incident_update: schemas.IncidentUpdate,
     current_user: User,
     request: Request,
-    expected_updated_at: datetime | None = None,  # For optimistic locking
 ) -> Incident | None:
     """
-    Update incident with optimistic locking and audit logging.
-
-    Args:
-        expected_updated_at: Client's last known updated_at (for conflict detection)
+    Update incident with audit logging.
 
     Raises:
-        ValueError: If concurrent modification detected
         StatusChangedError: The body moves the status from a ``from_status`` that is
             no longer the card's (see ``_guard_seen_status``)
+        TextConflictError: A text field in ``text_base`` was saved by somebody else
+            since the client saw it (see ``_guard_text_base``)
     """
-    if incident_update.status is not None:
-        # A status move is compared with the card's real status, so two near-simultaneous
-        # moves must serialise – the same lock `update_incident_status` takes.
-        await db.execute(
-            select(Incident)
-            .where(Incident.id == incident_id)
-            .with_for_update()
-            .execution_options(populate_existing=True)
-        )
+    text_base = incident_update.text_base or {}
+    if incident_update.status is not None or text_base:
+        # A status move is compared with the card's real status, and a guarded text with
+        # the stored text, so two near-simultaneous writes must serialise – the same locks
+        # `update_incident_status` takes, in the order of `crud/locking.py`: the Auftrag it
+        # is on and the one the body moves it into, then the incident. Completion releases
+        # the route's squad under that lock.
+        await lock_incident_with_group(db, incident_id, extra_group_ids=[incident_update.group_id])
     incident = await get_incident(db, incident_id)
     if not incident:
         return None
-
-    # Optimistic locking check
-    if expected_updated_at and incident.updated_at != expected_updated_at:
-        raise ValueError(f"Concurrent modification detected. Expected {expected_updated_at}, got {incident.updated_at}")
 
     # Capture before state
     before_state = {
@@ -719,19 +774,22 @@ async def update_incident(
         "priority": incident.priority,
         "status": incident.status,
         "location_address": incident.location_address,
-        "description": incident.description,
         "group_id": str(incident.group_id) if incident.group_id else None,
         # "Telefonisch gemeldet" is a claim, not evidence (plan 26 §11), so a
         # correction of one has to be readable in the audit trail.
         "source": incident.source,
+        **{field: getattr(incident, field) for field in _TEXT_FIELDS},
     }
 
     old_status = incident.status
 
-    # Apply updates. `from_status` / `override_status` describe the move, they are not columns.
+    # Apply updates. `from_status` / `override_status` describe the move and `text_base`
+    # the texts the client saw – none of them are columns.
     update_data = incident_update.model_dump(exclude_unset=True)
     seen_status = update_data.pop("from_status", None)
     override_status = update_data.pop("override_status", None)
+    update_data.pop("text_base", None)
+    await _guard_text_base(db, incident, text_base, update_data)
     stale_seen_status = (
         await _guard_seen_status(db, incident, update_data["status"], seen_status, override_status)
         if update_data.get("status") is not None
@@ -739,9 +797,9 @@ async def update_incident(
     )
     # Leaving an Auftrag changes that route's stop list too: lock it like every
     # other stop mutation, so the guarded undo-restore in
-    # ``groups.reorder_group_stops`` cannot interleave with the detach. Taken
-    # before the destination's lock (ordered by id) so two opposite moves cannot
-    # deadlock.
+    # ``groups.reorder_group_stops`` cannot interleave with the detach. Both
+    # Aufträge in id order, before the incident row is written (``crud/locking.py``);
+    # after a status lock above these are already held.
     leaving_group_id = incident.group_id if "group_id" in update_data else None
     if leaving_group_id is not None and leaving_group_id != update_data.get("group_id"):
         joining_group_id = update_data.get("group_id")
@@ -765,6 +823,9 @@ async def update_incident(
 
     for field, value in update_data.items():
         setattr(incident, field, value)
+    # The schema checks each coordinate; only the merged row shows half a pair.
+    if (incident.location_lat is None) != (incident.location_lng is None):
+        raise IncompleteCoordinatesError("Koordinaten nur als Paar: Breiten- und Längengrad angeben oder beide leeren.")
 
     if attaching_group_id is not None:
         max_pos = await db.scalar(
@@ -829,9 +890,9 @@ async def update_incident(
         "priority": incident.priority,
         "status": incident.status,
         "location_address": incident.location_address,
-        "description": incident.description,
         "group_id": str(incident.group_id) if incident.group_id else None,
         "source": incident.source,
+        **{field: getattr(incident, field) for field in _TEXT_FIELDS},
     }
 
     # Calculate changes
@@ -901,8 +962,8 @@ async def update_incident_status(
 
     Used for Kanban drag-and-drop.
 
-    The row is locked first, so two near-simultaneous moves of the same card
-    serialise: the second one reads the status the first one left. ``seen_status``
+    The row is locked first (after its Auftrag), so two near-simultaneous moves of
+    the same card serialise: the second one reads the status the first one left. ``seen_status``
     is the status the caller's client showed; a move from a stale view is refused
     with ``StatusChangedError`` unless ``override_status`` confirms the real status
     (``_guard_seen_status``). A confirmed stale move keeps what the client saw on
@@ -925,11 +986,12 @@ async def update_incident_status(
     When status is changed to 'complete', automatically releases personnel
     and vehicles (but keeps materials assigned as they may be left on site).
     """
-    # populate_existing: a copy the caller loaded earlier must not hide a commit
-    # that landed while this request waited for the lock.
-    await db.execute(
-        select(Incident).where(Incident.id == incident_id).with_for_update().execution_options(populate_existing=True)
-    )
+    # The incident's Auftrag first, then the incident (`crud/locking.py`): completing
+    # the last stop releases the route's squad under the Auftrag lock, and a stop
+    # reorder takes the same two rows in the same order. The rows are re-read
+    # (populate_existing), so a copy the caller loaded earlier cannot hide a commit
+    # that landed while this request waited.
+    await lock_incident_with_group(db, incident_id)
     incident = await get_incident(db, incident_id)
     if not incident:
         return None

@@ -20,6 +20,7 @@ import { auftragRadio } from "@/lib/auftrag-radio"
 import { segmentsToText } from "@/lib/radio-announcement"
 import { copyToClipboard } from "@/lib/utils"
 import type { IncidentGroup } from "@/lib/types/groups"
+import { usePersonNaming } from "@/components/person-name"
 
 interface AuftragRadioDialogProps {
   open: boolean
@@ -49,6 +50,7 @@ export function AuftragRadioDialog({ open, onOpenChange, group, funkrufname }: A
   const intlLocale = useIntlLocale()
   const { getGroupResources } = useGroups()
   const { operations, materials } = useOperations()
+  const { text: personText } = usePersonNaming()
   const [copied, setCopied] = useState(false)
 
   const announced = group?.lastAnnounced ?? null
@@ -74,8 +76,9 @@ export function AuftragRadioDialog({ open, onOpenChange, group, funkrufname }: A
       // yet there is nothing to keep, so let auftragRadio decide – which for an
       // Auftrag that has never been given out is the full Auftragsdurchsage.
       forceFull: announced?.full,
+      personText,
     })
-  }, [group, announced, operations, materials, funkrufname, getGroupResources, t])
+  }, [group, announced, operations, materials, funkrufname, getGroupResources, t, personText])
 
   const handleCopy = async () => {
     if (!radio) return

@@ -169,12 +169,9 @@ export function useRoutePlanning(groupId: string | null | undefined) {
           rekoArrivedAt: null,
           rekoSummary: null,
           assignedReko: null,
+          leaderId: null,
           leaderName: null,
-          crewAssignments: new Map(),
           materialAssignments: new Map(),
-          vehicleAssignments: new Map(),
-          vehicleCallsigns: new Map(),
-          vehicleDriverStay: new Map(),
         }) as unknown as Promise<void>)
         // The new stop rides the incident WS path into operations-context; pull the
         // group so its stopIds pick up the freshly-attached member.

@@ -63,6 +63,7 @@ import { ApiError } from '@/lib/api/types/common'
 import { asIncidentType, INCIDENT_TYPE_LABELS } from '@/lib/types/incidents'
 import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
 import { Reveal } from '@/components/ui/reveal'
+import { PersonName, PersonNamingProvider } from "@/components/person-name"
 
 /** `code` is the door (plan 26): the link alone opens nothing, so the page asks
  *  for the four digits before it can even show the picker. A device that has
@@ -1074,7 +1075,10 @@ function FeldSurface() {
                 {personnel.length === 0 ? t('picker.empty') : t('picker.noneFound')}
               </div>
             ) : (
-              filteredPersonnel.map(person => (
+              // Namesakes on the picker list show their Kennung — this is where a
+              // person picks themselves, and two «Meier Alex» must not look alike.
+              <PersonNamingProvider roster={personnel.map(p => ({ id: p.personnel_id, name: p.name, kennung: p.kennung }))}>
+              {filteredPersonnel.map(person => (
                 <button
                   key={person.personnel_id}
                   onClick={() => handleSelectPerson(person)}
@@ -1085,7 +1089,9 @@ function FeldSurface() {
                   </div>
                   <div className="flex-1 min-w-0">
                     {/* Wrapped, never cut: this is where a person finds their own name. */}
-                    <div className="font-medium break-words">{person.name.trim() || tKanbanCommon('unknownResource')}</div>
+                    <div className="font-medium break-words">
+                      <PersonName name={person.name} kennung={person.kennung ?? null} display={person.name.trim() || tKanbanCommon('unknownResource')} />
+                    </div>
                     {person.role && <div className="text-sm text-muted-foreground break-words">{person.role}</div>}
                   </div>
                   {/* Only for somebody with work: «0 Schadenplätze» on most rows squeezed the
@@ -1103,7 +1109,8 @@ function FeldSurface() {
                     </div>
                   )}
                 </button>
-              ))
+              ))}
+              </PersonNamingProvider>
             )}
           </div>
         </div>

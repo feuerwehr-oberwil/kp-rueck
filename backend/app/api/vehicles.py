@@ -24,7 +24,7 @@ router = APIRouter(prefix="/vehicles", tags=["vehicles"])
 def _archive_refused_detail(refused: materials_crud.ArchiveRefused) -> str:
     """The 409 for archiving a deployed vehicle — same shape as the purge's `in_use`."""
     return (
-        f"«{refused.name}» steht aktuell auf {refused.active_incidents} Einsätzen und kann "
+        f"«{refused.name}» steht aktuell auf {refused.active_incidents} Einsätzen oder Aufträgen und kann "
         "nicht archiviert werden – zuerst die Zuweisung aufheben."
     )
 
@@ -203,7 +203,7 @@ async def delete_vehicle(
         raise HTTPException(
             status_code=409,
             detail=(
-                f"«{outcome.name}» stand auf {outcome.usage.protected} Einsätzen und kann nur "
+                f"«{outcome.name}» stand auf {outcome.usage.protected} Einsätzen oder Aufträgen und kann nur "
                 "archiviert werden – endgültiges Löschen würde deren Auswertung verfälschen."
             ),
         )

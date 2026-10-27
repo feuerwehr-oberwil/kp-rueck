@@ -42,7 +42,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { apiClient, ApiPersonnel, ApiDiveraSyncPreview } from '@/lib/api-client';
+import { apiClient, ApiError, ApiPersonnel, ApiDiveraSyncPreview } from '@/lib/api-client';
 import { CategorySortOrder } from './category-sort-order';
 import { DemoLock } from './demo-lock';
 import { SettingUnavailableNote } from './setting-unavailable';
@@ -187,6 +187,12 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
       }
       dialog.close();
     } catch (error) {
+      // «„Meier Alex“ gibt es schon. Kennung angeben …» belongs under the field
+      // that fixes it, in the server's own words.
+      if (ApiError.isConflictError(error)) {
+        form.setError('kennung', { type: 'server', message: error.message }, { shouldFocus: true });
+        return;
+      }
       console.error('Failed to save personnel:', error);
       toast.error(t('common.saveError'), {
         description: t('common.checkInputRetry'),
@@ -197,6 +203,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
   const handleEdit = (person: ApiPersonnel) => {
     dialog.open(person, {
       name: person.name,
+      kennung: person.kennung ?? '',
       role: person.role || '',
       status:
         person.status === 'available' || person.status === 'unavailable'
@@ -383,6 +390,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
       if (result.created > 0) parts.push(t('personnel.syncCreated', { count: result.created }));
       if (result.deleted > 0) parts.push(t('personnel.syncDeleted', { count: result.deleted }));
       if (result.unchanged > 0) parts.push(t('personnel.syncUnchanged', { count: result.unchanged }));
+      if (result.kept_assigned) parts.push(t('personnel.syncKeptAssigned', { count: result.kept_assigned }));
       toast.success(t('personnel.syncComplete', { parts: parts.join(', ') }));
       setIsSyncDialogOpen(false);
       await loadPersonnel();
@@ -629,6 +637,34 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
                       {...fieldMessageProps('personnel-name', fieldState.error ? 'error' : null)}
                       placeholder={t('personnel.namePlaceholder')}
                       autoFocus
+                    />
+                  </DetailField>
+                )}
+              />
+
+              {/* Tells two people of the same name apart. A name clash is the
+                  server's 409, said here under the field — never a toast. */}
+              <FormField
+                control={form.control}
+                name="kennung"
+                render={({ field, fieldState }) => (
+                  <DetailField
+                    label={t('personnel.kennungLabel')}
+                    htmlFor="personnel-kennung"
+                    error={fieldState.error?.message}
+                    footer={
+                      fieldState.error ? undefined : (
+                        <p className="text-xs text-muted-foreground">{t('personnel.kennungHelp')}</p>
+                      )
+                    }
+                  >
+                    <Input
+                      {...field}
+                      id="personnel-kennung"
+                      {...fieldMessageProps('personnel-kennung', fieldState.error ? 'error' : null)}
+                      placeholder={t('personnel.kennungPlaceholder')}
+                      maxLength={20}
+                      autoComplete="off"
                     />
                   </DetailField>
                 )}

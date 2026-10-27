@@ -11,6 +11,7 @@ import { abbreviateRank } from "@/lib/roster-order"
 import type { PersonEngagement } from "@/lib/hooks/use-person-engagements"
 import { AlertTriangle } from 'lucide-react'
 import { cn } from "@/lib/utils"
+import { PersonName } from "@/components/person-name"
 
 interface DraggablePersonProps {
   person: Person
@@ -144,7 +145,7 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
                   isOccupied && !isDoubleBooked ? "text-muted-foreground group-hover:text-foreground" : "text-foreground",
                 )}
               >
-                {person.name}
+                <PersonName name={person.name} kennung={person.kennung ?? null} />
               </span>
             </div>
 
@@ -209,6 +210,7 @@ export const DraggablePerson = memo(DraggablePersonBase, (prevProps, nextProps) 
     prevProps.person.id === nextProps.person.id &&
     prevProps.person.status === nextProps.person.status &&
     prevProps.person.name === nextProps.person.name &&
+    prevProps.person.kennung === nextProps.person.kennung &&
     prevProps.person.role === nextProps.person.role &&
     prevProps.person.isReko === nextProps.person.isReko &&
     prevProps.person.isDriver === nextProps.person.isDriver &&

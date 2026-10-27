@@ -250,8 +250,8 @@ export function PersonnelSidebar({
                             <DraggablePerson
                               person={person}
                               onClick={() => handlePersonClick(person)}
-                              assignmentCount={doubleBookedPersons.counts.get(person.name)}
-                              engagement={personEngagements.get(person.name)}
+                              assignmentCount={doubleBookedPersons.counts.get(person.id)}
+                              engagement={personEngagements.get(person.id)}
                             />
                           </div>
                         </PopoverAnchor>

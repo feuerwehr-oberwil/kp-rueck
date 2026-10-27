@@ -245,7 +245,7 @@ describe("AuftraegeSheet — Ressourcen (route-owned)", () => {
 
   it("names the driver on a route's Fahrzeug chip", async () => {
     state.groups = [grp({ stopIds: [] })]
-    state.vehicleDrivers = new Map([["TLF 1", "Muster Hans"]])
+    state.vehicleDrivers = new Map([["v1", "Muster Hans"]])
     getGroupResources.mockReturnValue({
       vehicles: [{ assignmentId: "va", resourceId: "v1", name: "TLF 1", driverStay: false }],
       personnel: [],

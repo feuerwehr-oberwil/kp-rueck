@@ -42,6 +42,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ... import schemas
 from ...models import (
+    Event,
     EventSpecialFunction,
     Incident,
     IncidentAssignment,
@@ -55,6 +56,8 @@ from ...services import notification_params as texts
 from ...services.audit import log_action
 from ...services.duplicates import merge_report
 from ...services.notification_service import create_field_notification
+from ..assignments import ResourceNotAssignableError, ensure_assignable
+from ..locking import lock_resources
 from .reports import _location
 
 #: What happened to the new Schadenplatz, so the phone can say so in one line.
@@ -184,6 +187,8 @@ async def _mirror(db: AsyncSession, group_id: uuid.UUID, *incident_ids: uuid.UUI
         already.add(key)
         leads = assignment.is_leader and not has_leader
         has_leader = has_leader or leads
+        # No `ensure_assignable`: the resource is already on the stop, this only
+        # mirrors it up – refusing a now out-of-service pump would split the squad.
         db.add(
             IncidentGroupAssignment(
                 incident_group_id=group_id,
@@ -306,7 +311,9 @@ async def create_field_report(
         # does not sit in Eingegangen waiting to be disponiert — the crew just
         # disponierte it themselves. Left as `incoming` this reads on the board
         # as an unhandled alarm, which is the opposite of what was reported.
-        incident.status = "enroute"
+        # Unless nobody could be put on it ("none"): then the KP disposes after all.
+        if mode != "none":
+            incident.status = "enroute"
 
     await log_action(
         db=db,
@@ -414,22 +421,35 @@ async def _take_over(
         await db.flush()
         return "auftrag"
 
-    # 3. On nothing: just this person, and whatever they drive.
-    db.add(
-        IncidentAssignment(
-            incident_id=incident.id,
-            resource_type="personnel",
-            resource_id=person.id,
-            purpose="crew",
-            assigned_at=datetime.now(UTC),
-        )
-    )
-    for vehicle_id in await _driven_vehicle_ids(db, event_id, person.id):
+    # 3. On nothing: just this person, and whatever they drive. New assignments,
+    # so `ensure_assignable` decides – but a refusal skips that resource instead of
+    # losing the Meldung: a TLF marked «nicht einsatzbereit» stays off the card, and
+    # on an archived Ereignis nobody is put on it (takeover "none"). The incident is
+    # ours (just inserted), so the resource locks come after it, as the order wants –
+    # all of them up front and sorted (`locking.lock_resources`).
+    event = await db.get(Event, event_id)
+    if event is None:
+        raise LookupError(f"event {event_id} does not exist")
+    wanted: list[tuple[str, uuid.UUID]] = [("personnel", person.id)]
+    wanted += [("vehicle", vehicle_id) for vehicle_id in await _driven_vehicle_ids(db, event_id, person.id)]
+    resources = await lock_resources(db, wanted)  # all of them, sorted, before any work
+    for resource_type, resource_id in wanted:
+        resource = resources.get((resource_type, resource_id))
+        if resource is not None:
+            try:
+                ensure_assignable(resource, event=event, incident=incident)
+            except ResourceNotAssignableError:
+                resource = None
+        if resource is None:
+            if resource_type == "personnel":
+                return "none"
+            continue
         db.add(
             IncidentAssignment(
                 incident_id=incident.id,
-                resource_type="vehicle",
-                resource_id=vehicle_id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                purpose="crew",  # the column default for vehicles too; only a Reko auftrag differs
                 assigned_at=datetime.now(UTC),
             )
         )

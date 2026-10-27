@@ -41,6 +41,7 @@ import {
   materialTypeCounts,
   sortMaterialsForAssignment,
 } from "@/components/kanban/material-assignment-list"
+import { PersonName, usePersonNaming } from "@/components/person-name"
 
 interface ResourceAssignmentDialogProps {
   open: boolean
@@ -64,26 +65,26 @@ interface ResourceAssignmentDialogProps {
    *  selectable; hiding it would leave the operator wondering where it went. */
   vehicles: Array<{ id: string; name: string; type: string; outOfService?: boolean }>
   materials: Material[]
-  assignedPersonnel: string[] // Array of personnel names
-  assignedVehicles: string[] // Array of vehicle names
+  assignedPersonnelIds: string[]
+  assignedVehicleIds: string[]
   assignedMaterials: string[] // Array of material IDs
-  /** Personnel names assigned as Reko for this incident (should be excluded from crew assignment) */
-  rekoPersonnelNames?: string[]
+  /** Personnel ids assigned as Reko for this incident (should be excluded from crew assignment) */
+  rekoPersonnelIds?: string[]
   onAssignPerson: (personId: string, personName: string, operationId: string) => void
   onAssignVehicle: (vehicleId: string, vehicleName: string, operationId: string) => void
   onAssignMaterial: (materialId: string, operationId: string) => void
-  onRemovePerson: (operationId: string, personName: string) => void
-  onRemoveVehicle: (operationId: string, vehicleName: string) => void
+  onRemovePerson: (operationId: string, personnelId: string) => void
+  onRemoveVehicle: (operationId: string, vehicleId: string) => void
   onRemoveMaterial: (operationId: string, materialId: string) => void
   zuFuss?: boolean
   onToggleZuFuss?: () => void
   occupiedPersonnelIds?: Set<string>
   occupiedVehicleIds?: Set<string>
   occupiedMaterialIds?: Set<string>
-  /** Vehicle name → «bleibt vor Ort». Shown per assigned vehicle so the choice
+  /** Vehicle id → «bleibt vor Ort». Shown per assigned vehicle so the choice
    *  can be made where the vehicle is assigned, not only on the incident card. */
-  vehicleDriverStay?: Map<string, boolean>
-  onToggleDriverStay?: (vehicleName: string) => void
+  vehicleDriverStay?: ReadonlyMap<string, boolean>
+  onToggleDriverStay?: (vehicleId: string) => void
   /** Opens the check-in link (the board's «Links & QR» sheet). Offered when
    *  nobody is checked in — the one way an empty crew list fills up. The
    *  dialog closes itself first. Omitted where there is no such sheet; the
@@ -132,10 +133,10 @@ export function ResourceAssignmentDialog({
   personnel,
   vehicles,
   materials,
-  assignedPersonnel,
-  assignedVehicles,
+  assignedPersonnelIds,
+  assignedVehicleIds,
   assignedMaterials,
-  rekoPersonnelNames = [],
+  rekoPersonnelIds = [],
   onAssignPerson,
   onAssignVehicle,
   onAssignMaterial,
@@ -164,6 +165,7 @@ export function ResourceAssignmentDialog({
   // nowhere else — the driver is the half of "TLF 1 is available" that the
   // fleet list does not carry. Loaded only while the dialog is open.
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
+  const naming = usePersonNaming()
   const [searchQuery, setSearchQuery] = useState("")
   const [justAssigned, setJustAssigned] = useState<string | null>(null)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
@@ -192,19 +194,19 @@ export function ResourceAssignmentDialog({
   const [confirmOccupiedPerson, setConfirmOccupiedPerson] = useState<Person | null>(null)
 
   // Snapshot the assigned state into the local selection ONLY on the open
-  // transition. Re-snapshotting whenever assignedPersonnel/assignedMaterials
+  // transition. Re-snapshotting whenever assignedPersonnelIds/assignedMaterials
   // change (a background poll, WS push, or optimistic revert that lands while the
   // dialog is open) was wiping the user's in-progress ticks — boxes appeared to
   // untick themselves. Guarding on the false→true edge keeps selections stable.
   const wasOpenRef = useRef(false)
   useEffect(() => {
     if (open && !wasOpenRef.current) {
-      setSelectedPersonnel(new Set(assignedPersonnel))
+      setSelectedPersonnel(new Set(assignedPersonnelIds))
       setSelectedMaterials(new Set(assignedMaterials))
       if (initialSearch) setSearchQuery(initialSearch)
     }
     wasOpenRef.current = open
-  }, [open, assignedPersonnel, assignedMaterials, initialSearch])
+  }, [open, assignedPersonnelIds, assignedMaterials, initialSearch])
 
   // Reset search + category filter on close, and clear the category filter
   // whenever the resource type changes (its categories no longer apply).
@@ -241,7 +243,7 @@ export function ResourceAssignmentDialog({
   const specialFunctionsOf = (p: Person): { label: string; Icon: typeof Car }[] => {
     const functions: { label: string; Icon: typeof Car }[] = []
     if (p.isDriver) functions.push({ label: p.driverVehicleName || t('assignmentDialog.driverBadge'), Icon: Car })
-    if (p.isReko || rekoPersonnelNames.includes(p.name)) functions.push({ label: t('common.reko'), Icon: Binoculars })
+    if (p.isReko || rekoPersonnelIds.includes(p.id)) functions.push({ label: t('common.reko'), Icon: Binoculars })
     if (p.isMagazin) functions.push({ label: t('common.magazin'), Icon: Package2 })
     if (p.isTelefondienst) functions.push({ label: t('common.telefondienst'), Icon: Phone })
     if (p.isKommandoposten) functions.push({ label: t('common.kommandoposten'), Icon: MonitorCog })
@@ -266,9 +268,8 @@ export function ResourceAssignmentDialog({
   const selectableMaterials = materials
 
   // EVERY place an occupied vehicle/material/person is currently held, resolved
-  // from the operations + Auftrag contexts (no prop threading): vehicle name →
-  // bindings, material id → bindings, person name → bindings (crew arrays hold
-  // names). Each binding carries a truncated `short` for the card, an
+  // from the operations + Auftrag contexts (no prop threading): vehicle id →
+  // bindings, material id → bindings, person id → bindings. Each binding carries a truncated `short` for the card, an
   // untruncated `full` for the hover title, and what is needed to release it.
   // The current assign target never counts as "elsewhere" — note operationId
   // holds the GROUP id when assignTarget === 'route'.
@@ -287,17 +288,17 @@ export function ResourceAssignmentDialog({
     for (const op of operations) {
       if (assignTarget === 'incident' && op.id === operationId) continue
       const label = { short: getIncidentRefLabel(op, 40), full: getIncidentRefLabel(op, 1000) }
-      for (const name of op.vehicles) push(vehicleMap, name, { ...label, kind: 'incident', id: op.id })
+      for (const v of op.vehicles) push(vehicleMap, v.vehicleId, { ...label, kind: 'incident', id: op.id })
       for (const id of op.materials) push(materialMap, id, { ...label, kind: 'incident', id: op.id })
-      for (const name of op.crew) push(personMap, name, { ...label, kind: 'incident', id: op.id })
+      for (const m of op.crew) push(personMap, m.personnelId, { ...label, kind: 'incident', id: op.id })
     }
     for (const group of groups) {
       if (assignTarget === 'route' && group.id === operationId) continue
       const res = getGroupResources(group.id)
       const label = { short: group.name, full: group.name }
-      for (const v of res.vehicles) push(vehicleMap, v.name, { ...label, kind: 'route', id: group.id, assignmentId: v.assignmentId })
+      for (const v of res.vehicles) push(vehicleMap, v.resourceId, { ...label, kind: 'route', id: group.id, assignmentId: v.assignmentId })
       for (const m of res.materials) push(materialMap, m.resourceId, { ...label, kind: 'route', id: group.id, assignmentId: m.assignmentId })
-      for (const p of res.personnel) push(personMap, p.name, { ...label, kind: 'route', id: group.id, assignmentId: p.assignmentId })
+      for (const p of res.personnel) push(personMap, p.resourceId, { ...label, kind: 'route', id: group.id, assignmentId: p.assignmentId })
     }
     return { vehicleOccupancy: vehicleMap, materialOccupancy: materialMap, personOccupancy: personMap }
   }, [operations, groups, getGroupResources, assignTarget, operationId])
@@ -337,7 +338,7 @@ export function ResourceAssignmentDialog({
           for (const binding of bindings) {
             if (binding.kind === 'incident') {
               if (resourceType === 'material') await removeMaterial(binding.id, resourceId)
-              else await removeCrew(binding.id, resourceName)
+              else await removeCrew(binding.id, resourceId)
             } else if (binding.assignmentId) {
               await unassignResource(binding.id, binding.assignmentId)
             }
@@ -371,8 +372,8 @@ export function ResourceAssignmentDialog({
     return { short: generic, full: generic }
   }
   const vehicleElsewhereLabel = (vehicle: { id: string; name: string }): OccupancyLabel | null => {
-    if (assignedVehicles.includes(vehicle.name)) return null
-    if (vehicleOccupancy.has(vehicle.name)) return vehicleOccupancy.get(vehicle.name)![0]
+    if (assignedVehicleIds.includes(vehicle.id)) return null
+    if (vehicleOccupancy.has(vehicle.id)) return vehicleOccupancy.get(vehicle.id)![0]
     if (occupiedVehicleIds.has(vehicle.id)) return genericElsewhereLabel()
     return null
   }
@@ -381,8 +382,8 @@ export function ResourceAssignmentDialog({
     return materialOccupancy.get(material.id)?.[0] ?? genericElsewhereLabel()
   }
   const personElsewhereLabel = (person: Person): OccupancyLabel | null => {
-    if (assignedPersonnel.includes(person.name)) return null
-    if (personOccupancy.has(person.name)) return personOccupancy.get(person.name)![0]
+    if (assignedPersonnelIds.includes(person.id)) return null
+    if (personOccupancy.has(person.id)) return personOccupancy.get(person.id)![0]
     // Deliberately NOT falling back on `status === 'assigned'`: the context sets
     // that flag for special-function people too (Fahrer, Telefondienst, …), and
     // the generic «Im Einsatz» next to their function badge claimed an incident
@@ -464,9 +465,9 @@ export function ResourceAssignmentDialog({
     return availableVehicles.filter(v =>
       vehicleMatchesQuery(v, searchQuery) &&
       (!categoryFilter || v.type === categoryFilter) &&
-      (!showOnlyAssignedVehicles || assignedVehicles.includes(v.name))
+      (!showOnlyAssignedVehicles || assignedVehicleIds.includes(v.id))
     )
-  }, [availableVehicles, searchQuery, categoryFilter, showOnlyAssignedVehicles, assignedVehicles])
+  }, [availableVehicles, searchQuery, categoryFilter, showOnlyAssignedVehicles, assignedVehicleIds])
 
   const filteredMaterials = useMemo(() => {
     return selectableMaterials.filter(m => {
@@ -533,15 +534,15 @@ export function ResourceAssignmentDialog({
   const sortedFilteredMaterials = useMemo(() => sortMaterialsForAssignment(filteredMaterials), [filteredMaterials])
 
   // Check if a resource is selected (for crew/materials) or assigned (for vehicles)
-  const isPersonSelected = (personName: string) => selectedPersonnel.has(personName)
-  const isVehicleAssigned = (vehicleName: string) => assignedVehicles.includes(vehicleName)
+  const isPersonSelected = (personId: string) => selectedPersonnel.has(personId)
+  const isVehicleAssigned = (vehicleId: string) => assignedVehicleIds.includes(vehicleId)
   const isMaterialSelected = (materialId: string) => selectedMaterials.has(materialId)
 
   // Toggle selection for crew (local state only, doesn't call API)
   const addPersonToSelection = (person: Person) => {
     setSelectedPersonnel(prev => {
       const next = new Set(prev)
-      next.add(person.name)
+      next.add(person.id)
       return next
     })
     setJustAssigned(person.id)
@@ -550,10 +551,10 @@ export function ResourceAssignmentDialog({
 
   const handleTogglePersonSelection = (person: Person) => {
     // Deselecting is always immediate.
-    if (selectedPersonnel.has(person.name)) {
+    if (selectedPersonnel.has(person.id)) {
       setSelectedPersonnel(prev => {
         const next = new Set(prev)
-        next.delete(person.name)
+        next.delete(person.id)
         return next
       })
       return
@@ -561,9 +562,9 @@ export function ResourceAssignmentDialog({
     // Selecting someone bound to another incident/Auftrag → the shared
     // Doppelbelegung dialog (verschieben / auf beiden führen / abbrechen).
     // Takes precedence over the special-function confirm — one question is enough.
-    const bindings = personOccupancy.get(person.name)
+    const bindings = personOccupancy.get(person.id)
     if (bindings?.length) {
-      askConflict('personnel', person.id, person.name, bindings, () => addPersonToSelection(person))
+      askConflict('personnel', person.id, naming.inline(person), bindings, () => addPersonToSelection(person))
       return
     }
     // Bound elsewhere but not resolvable to a concrete incident/route: nothing
@@ -585,9 +586,9 @@ export function ResourceAssignmentDialog({
   const handleToggleVehicle = (vehicle: { id: string; name: string }) => {
     if (!operationId) return
 
-    const isAssigned = isVehicleAssigned(vehicle.name)
+    const isAssigned = isVehicleAssigned(vehicle.id)
     if (isAssigned) {
-      onRemoveVehicle(operationId, vehicle.name)
+      onRemoveVehicle(operationId, vehicle.id)
     } else {
       onAssignVehicle(vehicle.id, vehicle.name, operationId)
       setJustAssigned(vehicle.id)
@@ -695,10 +696,10 @@ export function ResourceAssignmentDialog({
       // EXCEPT on THIS target, which is never «busy» — it is selected. Somebody
       // already on this Einsatz is `status: "assigned"` like anyone else, so
       // without this they sank under «Bereits im Einsatz» and the dialog hid the
-      // crew it was opened to edit. `assignedPersonnel`, not the live checkbox
+      // crew it was opened to edit. `assignedPersonnelIds`, not the live checkbox
       // set: ticking somebody must not make their row jump between blocks under
       // the pointer.
-      const onThisTarget = assignedPersonnel.includes(person.name)
+      const onThisTarget = assignedPersonnelIds.includes(person.id)
       ;(!onThisTarget && isPersonOccupied(person) ? busy : free).push(person)
     }
     return { free, busy, ordered: [...free, ...busy] }
@@ -710,11 +711,15 @@ export function ResourceAssignmentDialog({
     for (const vehicle of filteredVehicles) {
       // «Nicht einsatzbereit» is not free. It sinks with the spoken-for block so
       // «4 frei» over the grid keeps meaning what it says.
-      const spokenFor = !!vehicleElsewhereLabel(vehicle) || (!!vehicle.outOfService && !isVehicleAssigned(vehicle.name))
+      const spokenFor = !!vehicleElsewhereLabel(vehicle) || (!!vehicle.outOfService && !isVehicleAssigned(vehicle.id))
       ;(spokenFor ? busy : free).push(vehicle)
     }
     return { free, busy, ordered: [...free, ...busy] }
   })()
+
+  // A material depot named like an assigned vehicle («MoWa») is stock already on
+  // scene. Depots are free text, so this one match is by name on purpose.
+  const assignedVehicleNames = vehicles.filter((v) => assignedVehicleIds.includes(v.id)).map((v) => v.name)
 
   const ungroupedMaterialSections = (() => {
     const free: Material[] = []
@@ -792,7 +797,7 @@ export function ResourceAssignmentDialog({
         : resourceType === 'vehicles' ? t('assignmentDialog.nounVehicles')
           : t('assignmentDialog.nounMaterials')
     const onlyAssignedNothingYet =
-      resourceType === 'vehicles' && showOnlyAssignedVehicles && activeFilterLabels.length === 1 && assignedVehicles.length === 0 && !query
+      resourceType === 'vehicles' && showOnlyAssignedVehicles && activeFilterLabels.length === 1 && assignedVehicleIds.length === 0 && !query
     return {
       title: tEmpty('noHits'),
       description: onlyAssignedNothingYet
@@ -860,21 +865,21 @@ export function ResourceAssignmentDialog({
 
     // Process crew changes
     if (resourceType === 'crew') {
-      const currentAssigned = new Set(assignedPersonnel)
-      const toAdd = [...selectedPersonnel].filter(name => !currentAssigned.has(name))
-      const toRemove = [...currentAssigned].filter(name => !selectedPersonnel.has(name))
+      const currentAssigned = new Set(assignedPersonnelIds)
+      const toAdd = [...selectedPersonnel].filter(id => !currentAssigned.has(id))
+      const toRemove = [...currentAssigned].filter(id => !selectedPersonnel.has(id))
 
       // Add new assignments
-      for (const name of toAdd) {
-        const person = personnel.find(p => p.name === name)
+      for (const id of toAdd) {
+        const person = personnel.find(p => p.id === id)
         if (person) {
           onAssignPerson(person.id, person.name, operationId)
         }
       }
 
       // Remove unselected
-      for (const name of toRemove) {
-        onRemovePerson(operationId, name)
+      for (const id of toRemove) {
+        onRemovePerson(operationId, id)
       }
 
     }
@@ -934,7 +939,7 @@ export function ResourceAssignmentDialog({
       case 'crew':
         return t('assignmentDialog.selectedCount', { selected: selectedPersonnel.size, available: selectablePersonnel.length })
       case 'vehicles':
-        return t('assignmentDialog.vehiclesAssigned', { count: assignedVehicles.length }) + (zuFuss ? t('assignmentDialog.zuFussSuffix') : '')
+        return t('assignmentDialog.vehiclesAssigned', { count: assignedVehicleIds.length }) + (zuFuss ? t('assignmentDialog.zuFussSuffix') : '')
       case 'materials':
         return t('assignmentDialog.selectedCount', { selected: selectedMaterials.size, available: selectableMaterials.length })
       default:
@@ -960,10 +965,10 @@ export function ResourceAssignmentDialog({
   // Check if there are pending changes
   const hasPendingChanges = useMemo(() => {
     if (resourceType === 'crew') {
-      const currentSet = new Set(assignedPersonnel)
+      const currentSet = new Set(assignedPersonnelIds)
       if (selectedPersonnel.size !== currentSet.size) return true
-      for (const name of selectedPersonnel) {
-        if (!currentSet.has(name)) return true
+      for (const id of selectedPersonnel) {
+        if (!currentSet.has(id)) return true
       }
       return false
     }
@@ -976,12 +981,12 @@ export function ResourceAssignmentDialog({
       return false
     }
     return false
-  }, [resourceType, selectedPersonnel, selectedMaterials, assignedPersonnel, assignedMaterials])
+  }, [resourceType, selectedPersonnel, selectedMaterials, assignedPersonnelIds, assignedMaterials])
 
   /** One crew tile. Lifted out of the grid so the free and the spoken-for
    *  block can draw the same thing without a second copy of it. */
   const renderPersonTile = (person: Person) => {
-    const isSelected = isPersonSelected(person.name)
+    const isSelected = isPersonSelected(person.id)
     const wasJustAssigned = justAssigned === person.id
     const special = specialFunctionsOf(person)
     // Already on another incident/Auftrag → amber note with the
@@ -1006,7 +1011,9 @@ export function ResourceAssignmentDialog({
           <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
         )}
         <div className="min-w-0">
-          <p className="font-medium text-sm truncate" title={person.name}>{person.name}</p>
+          <p className="font-medium text-sm truncate" title={person.name}>
+            <PersonName name={person.name} kennung={person.kennung ?? null} />
+          </p>
           {/* «Im Einsatz» and the Ereignis roles are different
               facts and both are shown: where somebody is now,
               and what taking them costs the Ereignis. The roles
@@ -1042,7 +1049,7 @@ export function ResourceAssignmentDialog({
 
   /** One vehicle row — shared by the free and the spoken-for block. */
   const renderVehicleTile = (vehicle: { id: string; name: string; type: string; outOfService?: boolean }) => {
-    const isAssigned = isVehicleAssigned(vehicle.name)
+    const isAssigned = isVehicleAssigned(vehicle.id)
     const wasJustAssigned = justAssigned === vehicle.id
     // «Nicht einsatzbereit» beats everything: the row says so in a word and a
     // glyph and refuses the click. No error message — the target is simply not
@@ -1057,8 +1064,8 @@ export function ResourceAssignmentDialog({
     // it is read out on the radio and printed on the slip, but
     // it could only be set from the incident card — so a whole
     // dispatch done through this dialog announced the wrong thing.
-    const stays = vehicleDriverStay?.get(vehicle.name) ?? false
-    const driver = vehicleDrivers.get(vehicle.name)
+    const stays = vehicleDriverStay?.get(vehicle.id) ?? false
+    const driver = vehicleDrivers.get(vehicle.id)
     const canSetStay = isAssigned && !!onToggleDriverStay
     return (
       <div
@@ -1132,7 +1139,7 @@ export function ResourceAssignmentDialog({
           <button
             onClick={(e) => {
               e.stopPropagation()
-              onToggleDriverStay!(vehicle.name)
+              onToggleDriverStay!(vehicle.id)
             }}
             className={cn(
               "flex shrink-0 cursor-pointer items-center gap-0.5 rounded px-1.5 py-1 text-2xs font-medium transition-colors",
@@ -1216,7 +1223,7 @@ export function ResourceAssignmentDialog({
               </DropdownMenuRadioItem>
               {categories.map((cat) => (
                 <DropdownMenuRadioItem key={cat} value={cat} onSelect={keepMenuOpen}>
-                  {resourceType === 'materials' && assignedVehicles.includes(cat) && (
+                  {resourceType === 'materials' && assignedVehicleNames.includes(cat) && (
                     <Truck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                   )}
                   {cat}
@@ -1334,7 +1341,7 @@ export function ResourceAssignmentDialog({
                 // A material depot/location that matches an already-assigned
                 // vehicle (e.g. "MoWa") — flag it so the operator sees at a glance
                 // which stock is already on scene. Materials only; matched by name.
-                const vehiclePresent = resourceType === 'materials' && assignedVehicles.includes(cat)
+                const vehiclePresent = resourceType === 'materials' && assignedVehicleNames.includes(cat)
                 const isActive = categoryFilter === cat
                 return (
                   <button
@@ -1466,7 +1473,7 @@ export function ResourceAssignmentDialog({
                   selectedMaterials={selectedMaterials}
                   occupiedElsewhereMaterialIds={occupiedElsewhereMaterialIds}
                   materialElsewhereLabel={materialElsewhereLabel}
-                  assignedVehicles={assignedVehicles}
+                  assignedVehicles={assignedVehicleNames}
                   justAssigned={justAssigned}
                   expandedGroups={expandedGroups}
                   onToggleExpanded={(groupId) => setExpandedGroups(prev => {
@@ -1522,7 +1529,7 @@ export function ResourceAssignmentDialog({
       description={
         confirmPerson
           ? t('assignmentDialog.specialFnConfirmBody', {
-              name: confirmPerson.name,
+              name: naming.inline(confirmPerson),
               // Every role, so the confirm names what is actually being taken.
               func: specialFunctionsOf(confirmPerson).map((f) => f.label).join(' · '),
             })
@@ -1565,7 +1572,7 @@ export function ResourceAssignmentDialog({
       description={
         confirmOccupiedPerson
           ? t('assignmentDialog.occupiedConfirmBody', {
-              name: confirmOccupiedPerson.name,
+              name: naming.inline(confirmOccupiedPerson),
               label: personElsewhereLabel(confirmOccupiedPerson)?.full ?? t('assignmentDialog.occupiedElsewhere'),
             })
           : ''

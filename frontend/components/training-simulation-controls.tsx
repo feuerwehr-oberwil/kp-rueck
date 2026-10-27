@@ -148,7 +148,7 @@ export function TrainingSimulationControls() {
         const actions = nextActions(op, { gpsSim: gpsSimAvailable }).map((action) => {
           const driveKind = action.kind === 'gps_drive' ? 'incident' : action.kind === 'gps_return' ? 'magazin' : null;
           const actionDrives = driveKind
-            ? drives.filter((d) => d.kind === driveKind && op.vehicles.includes(d.vehicle_name))
+            ? drives.filter((d) => d.kind === driveKind && op.vehicles.some((v) => v.vehicleId === d.vehicle_id))
             : [];
           return { action, actionDrives };
         });
@@ -236,8 +236,8 @@ export function TrainingSimulationControls() {
         // Arrival/return then flows through the real GPS pipeline (geofence
         // prompts). A finished outbound drive is simply replaced by the return.
         const target = action.kind === 'gps_drive' ? 'incident' : 'magazin';
-        const rolling = new Set(drives.filter((d) => d.kind === target).map((d) => d.vehicle_name));
-        const toSend = vehicles.filter((v) => op.vehicles.includes(v.name) && !rolling.has(v.name));
+        const rolling = new Set(drives.filter((d) => d.kind === target).map((d) => d.vehicle_id));
+        const toSend = vehicles.filter((v) => op.vehicles.some((av) => av.vehicleId === v.id) && !rolling.has(v.id));
         if (toSend.length === 0) {
           toast.error(t('noVehicleFound'), {
             description: t('noVehicleFoundDescription'),

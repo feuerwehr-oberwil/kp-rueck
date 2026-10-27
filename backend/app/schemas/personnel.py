@@ -1,53 +1,54 @@
 """Personnel + check-in schemas."""
 
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, StringConstraints, field_validator
+
+from .fields import OptionalText50, PersonName, SortOrder, reject_null
+
+
+def _personnel_status(v: str) -> str:
+    """Map the legacy duty statuses onto the two the column holds, refuse anything else."""
+    valid_statuses = {"available", "unavailable"}
+    status_mapping = {
+        "assigned": "available",
+        "off_duty": "unavailable",
+        "inactive": "unavailable",
+    }
+    if v in status_mapping:
+        return status_mapping[v]
+    if v not in valid_statuses:
+        raise ValueError(f"Status must be one of: {', '.join(sorted(valid_statuses))}")
+    return v
+
+
+PersonnelStatus = Annotated[str, AfterValidator(_personnel_status)]
+
+
+def _blank_to_none(value: object) -> object:
+    return None if isinstance(value, str) and not value.strip() else value
+
+
+# What tells two people of the same name apart (Jahrgang «1985», Personal-Nr. «412»):
+# stripped, at most 20 characters, and a blank cell or field means "none" – stored as null,
+# never as "". Name + Kennung is unique among the roster (`crud.personnel.find_name_clash`).
+Kennung = Annotated[
+    Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20)] | None,
+    BeforeValidator(_blank_to_none),
+]
 
 
 class PersonnelBase(BaseModel):
     """Base personnel schema."""
 
-    name: str
-    role: str | None = None
-    role_sort_order: int = 0
-    status: str  # 'available', 'unavailable'
+    name: PersonName
+    kennung: Kennung = None
+    role: OptionalText50 | None = None
+    role_sort_order: SortOrder = 0
+    status: PersonnelStatus  # 'available', 'unavailable'
     tags: list[str] | None = None
-
-    @field_validator("name")
-    @classmethod
-    def validate_name(cls, v: str) -> str:
-        """Validate personnel name."""
-        if not v or not v.strip():
-            raise ValueError("Name cannot be empty")
-        if len(v) > 100:
-            raise ValueError("Name must be 100 characters or less")
-        return " ".join(v.split())
-
-    @field_validator("status")
-    @classmethod
-    def validate_status(cls, v: str) -> str:
-        """Validate duty status."""
-        valid_statuses = {"available", "unavailable"}
-        status_mapping = {
-            "assigned": "available",
-            "off_duty": "unavailable",
-            "inactive": "unavailable",
-        }
-        if v in status_mapping:
-            return status_mapping[v]
-        if v not in valid_statuses:
-            raise ValueError(f"Status must be one of: {', '.join(valid_statuses)}")
-        return v
-
-    @field_validator("role_sort_order")
-    @classmethod
-    def validate_sort_order(cls, v: int) -> int:
-        """Validate sort order is non-negative."""
-        if v < 0:
-            raise ValueError("Sort order must be non-negative")
-        return v
 
 
 class PersonnelCreate(PersonnelBase):
@@ -55,13 +56,19 @@ class PersonnelCreate(PersonnelBase):
 
 
 class PersonnelUpdate(BaseModel):
-    """Schema for updating personnel."""
+    """Schema for updating personnel: same field rules as create, every field optional.
 
-    name: str | None = None
-    role: str | None = None
-    role_sort_order: int | None = None
-    status: str | None = None
+    `kennung`, `role` and `tags` may be cleared with null; the other columns cannot be empty.
+    """
+
+    name: PersonName | None = None
+    kennung: Kennung = None
+    role: OptionalText50 | None = None
+    role_sort_order: SortOrder | None = None
+    status: PersonnelStatus | None = None
     tags: list[str] | None = None
+
+    _not_null = field_validator("name", "role_sort_order", "status")(reject_null)
 
 
 class Personnel(PersonnelBase):
@@ -96,6 +103,7 @@ class PersonnelCheckInResponse(BaseModel):
 
     id: UUID
     name: str
+    kennung: str | None = None
     role: str | None = None
     status: str
     tags: list[str] | None = None
@@ -112,6 +120,7 @@ class PersonnelListItem(BaseModel):
 
     id: UUID
     name: str
+    kennung: str | None = None
     role: str | None = None
     status: str = "available"
     tags: list[str] | None = None

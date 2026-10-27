@@ -84,6 +84,9 @@ cd frontend && pnpm test:e2e tests/e2e/01-auth/ # one suite; add --headed via `p
   Anything a board or another session reacts to goes out after the commit: `after_commit(db, …)`
   or a background task. Every other explicit commit says why beside it. The rule: above `get_db`
   in `backend/app/database.py`.
+- **Row locks in one order**: Aufträge (by id) → Einsätze (by id) → the resource row – helpers and
+  the reasoning in `backend/app/crud/locking.py`. A new writer that locks takes the helpers, or it
+  deadlocks against completion/reorder. New assignments go through `ensure_assignable`.
 
 ### Frontend (Next.js)
 
@@ -276,11 +279,15 @@ runtime `API_URL`. Same reasoning for map tiles (`getTileBaseUrl` → `/tiles`).
   The detail's free-text fields show «Wird gespeichert …» / «Gespeichert – hh:mm» / «Nicht gespeichert»
   under the field. The store is fed by `updateOperation` (the one funnel) and a field is «saved» only
   when the PATCH carrying its NEWEST text answered; PATCHes run one at a time per incident
-  (`KeyedSerialQueue`) so the server sees edits in order. A failed text stays as a draft in the field —
+  (`KeyedSerialQueue`, no line-skipping – not even on `pagehide`) so the server sees edits in order.
+  Each text goes out with `text_base` (the text this window last saw the server confirm); somebody
+  else's newer text is a 409 `text_conflict`, said in amber under the field with «Meinen Text
+  speichern» / «Diese Fassung übernehmen». A failed text stays as a draft in the field —
   render the control's `value` from `useFieldSave(...).value`, never straight from `operation`, or a
-  reload replaces it — and is sent again only via «Erneut speichern». No automatic resend, no offline
-  queue. Drafts are scoped to user + Ereignis; a user switch drops them and a queued write of the
-  previous user is not sent. A new free-text incident field goes into `SAVED_TEXT_FIELDS`.
+  reload replaces it — and is sent again only via «Erneut speichern». No automatic resend (the HTTP
+  client never retries a mutation), no offline queue. Drafts are scoped to user + Ereignis; a user
+  switch drops them and a queued write of the previous user is not sent. A new free-text incident
+  field goes into `SAVED_TEXT_FIELDS` and the backend's `IncidentTextField`.
 - **Stale banner**: a connected WebSocket only vouches for the board once a load got through AFTER it
   came up (`BoardSyncStatus.liveSince`); «connected»/«connecting» alone never hide the warning.
 - **Form messages** (`components/ui/form-message.tsx`): what is wrong with a field is said UNDER

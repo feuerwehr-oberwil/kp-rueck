@@ -73,7 +73,7 @@ export type ApiViewerIncident = Pick<
 /** Roster row on a shared display: enough to name and sort a person, no more.
  *  Availability is derived from this event's assignments, so the raw status
  *  column and the Divera link flag (`divera_linked`) stay behind. */
-export type ApiViewerPersonnel = Pick<ApiPersonnel, 'id' | 'name' | 'role' | 'role_sort_order' | 'tags'> & {
+export type ApiViewerPersonnel = Pick<ApiPersonnel, 'id' | 'name' | 'kennung' | 'role' | 'role_sort_order' | 'tags'> & {
   divera_linked?: null
 }
 

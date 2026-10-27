@@ -25,7 +25,7 @@ import type { IncidentType, IncidentPriority } from '@/lib/types/incidents'
 import { PRIORITY_LABELS } from '@/lib/priority'
 import { apiClient } from '@/lib/api-client'
 import { getApiUrl } from '@/lib/env'
-import { cn, sanitizePhoneInput } from '@/lib/utils'
+import { cn, CONTACT_PHONE_MAX, sanitizePhoneInput } from '@/lib/utils'
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
 import { Reveal } from '@/components/ui/reveal'
 import { FormMessage, focusFirstBlockingField, formMessageId } from '@/components/ui/form-message'
@@ -918,6 +918,7 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
           type="tel"
           inputMode="tel"
           value={contactPhone}
+          maxLength={CONTACT_PHONE_MAX}
           onChange={(e) => setContactPhone(sanitizePhoneInput(e.target.value))}
           placeholder={t('contactPhonePlaceholder')}
           className="mt-2 h-12 text-base"

@@ -481,12 +481,12 @@ async def update_incident(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-    expected_updated_at: datetime | None = None,
 ) -> schemas.IncidentResponse:
     """
     Update incident (editor only).
 
-    Supports optimistic locking via expected_updated_at query param.
+    A text field listed in ``text_base`` is only written if nobody else saved it since the
+    client saw it; otherwise 409 ``text_conflict`` (see ``_text_conflict``).
     """
     try:
         incident = await crud.update_incident(
@@ -495,15 +495,15 @@ async def update_incident(
             incident_update=incident_update,
             current_user=current_user,
             request=request,
-            expected_updated_at=expected_updated_at,
         )
     except crud.InvalidIncidentGroupError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except crud.IncompleteCoordinatesError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     except crud.StatusChangedError as e:
         raise _status_changed(e) from e
-    except ValueError as e:
-        logger.warning("Incident update conflict for %s: %s", incident_id, e)
-        raise HTTPException(status_code=409, detail=ErrorMessages.CONFLICT) from e
+    except crud.TextConflictError as e:
+        raise _text_conflict(e) from e
 
     if not incident:
         raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
@@ -567,6 +567,25 @@ def _status_changed(error: crud.StatusChangedError) -> CodedHTTPException:
         status_code=409,
         code=ErrorCode.INCIDENT_STATUS_CHANGED,
         detail=f"Status geändert: Der Einsatz steht inzwischen auf «{STATUS_LABELS.get(error.status, error.status)}».",
+        params=params,
+    )
+
+
+def _text_conflict(error: crud.TextConflictError) -> CodedHTTPException:
+    """409 for a text save over somebody else's newer text – what the field's conflict block says.
+
+    params: ``field`` (the column), ``current`` (the stored text), ``changed_at`` (ISO time of
+    the last audited change of that field) and ``changed_by`` – both absent when unknown.
+    """
+    params: dict[str, str | int | float] = {"field": error.field, "current": error.current}
+    if error.changed_at is not None:
+        params["changed_at"] = error.changed_at.isoformat()
+    if error.changed_by:
+        params["changed_by"] = error.changed_by
+    return CodedHTTPException(
+        status_code=409,
+        code=ErrorCode.TEXT_CONFLICT,
+        detail="Nicht gespeichert: Das Feld wurde inzwischen anderswo geändert.",
         params=params,
     )
 
@@ -1361,6 +1380,9 @@ async def transfer_assignments(
             current_user=current_user,
             request=request,
         )
+    except assignment_crud.ResourceNotAssignableError as e:
+        # The target may not take a resource (closed Einsatz, archived Ereignis, …): 409 like assign.
+        raise HTTPException(status_code=409, detail=str(e)) from e
     except ValueError as e:
         # Surface the specific reason (which resource conflicts / nothing to transfer)
         # so the operator sees why it failed instead of a generic message.

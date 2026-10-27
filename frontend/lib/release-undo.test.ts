@@ -4,8 +4,8 @@ import { checkRestore, type Released, type RestoreState } from "./release-undo"
 const op = (id: string, over: Partial<RestoreState["operations"][number]> = {}) => ({
   id,
   status: "active",
-  crew: [] as string[],
-  vehicles: [] as string[],
+  crew: [] as { personnelId: string }[],
+  vehicles: [] as { vehicleId: string }[],
   materials: [] as string[],
   groupId: null as string | null,
   ...over,
@@ -32,12 +32,18 @@ describe("checkRestore", () => {
   })
 
   it("keeps newer work: another device put the person elsewhere", () => {
-    const s = state({ operations: [op("e1"), op("e2", { crew: ["Meier"] })] })
+    const s = state({ operations: [op("e1"), op("e2", { crew: [{ personnelId: "p1" }] })] })
     expect(checkRestore(person, s)).toEqual({ reason: "elsewhere", where: "Bahnhofstrasse 3" })
   })
 
+  it("a namesake elsewhere is not the released person", () => {
+    // Another «Meier» on e2 must not block the undo for p1.
+    const s = state({ operations: [op("e1"), op("e2", { crew: [{ personnelId: "p2" }] })] })
+    expect(checkRestore(person, s)).toBeNull()
+  })
+
   it("does nothing twice: already back", () => {
-    expect(checkRestore(person, state({ operations: [op("e1", { crew: ["Meier"] })] }))).toEqual({ reason: "alreadyBack" })
+    expect(checkRestore(person, state({ operations: [op("e1", { crew: [{ personnelId: "p1" }] })] }))).toEqual({ reason: "alreadyBack" })
   })
 
   it("refuses for a closed or vanished Einsatz and for a checked-out person", () => {

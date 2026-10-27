@@ -11,6 +11,7 @@ Tests cover:
 """
 
 import io
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -19,10 +20,11 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 from PIL import Image
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.models import Event, Incident, IncidentAssignment, Personnel, RekoReport, User
+from app.models import Event, EventSpecialFunction, Incident, IncidentAssignment, Personnel, RekoReport, User
 from app.services.photo_storage import photo_storage
 from app.services.tokens import generate_feld_token, generate_form_token
 from tests.conftest import TEST_PASSWORD
@@ -1508,3 +1510,61 @@ async def test_form_writes_stay_with_own_report_and_shared_photos_survive(
     assert amended.status_code == 200, amended.text
     assert (await client.delete(f"{photo_url}/{filename}", params={"report_id": first_id})).status_code == 200
     assert photo_storage.get_photo_path(test_incident.id, filename) is None
+
+
+# ============================================
+# Reko assignment follows the assignment policy (ensure_assignable)
+# ============================================
+
+
+@pytest.mark.asyncio
+async def test_assign_reko_onto_a_closed_einsatz_is_409(
+    editor_client: AsyncClient, db_session: AsyncSession, test_incident: Incident, test_personnel: Personnel
+):
+    test_incident.status = "complete"
+    await db_session.commit()
+
+    response = await editor_client.post(
+        f"/api/reko/incidents/{test_incident.id}/assign-reko", json={"personnel_id": str(test_personnel.id)}
+    )
+
+    assert response.status_code == 409
+    assert "abgeschlossen" in response.json()["detail"]
+    rows = await db_session.scalars(
+        select(IncidentAssignment).where(IncidentAssignment.incident_id == test_incident.id)
+    )
+    assert rows.all() == []
+
+
+@pytest.mark.asyncio
+async def test_transfer_rekos_on_an_archived_ereignis_is_409(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_event: Event,
+    test_incident: Incident,
+    test_personnel: Personnel,
+):
+    successor = Personnel(id=uuid4(), name="Nachfolger", status="available")
+    db_session.add(successor)
+    db_session.add(EventSpecialFunction(event_id=test_event.id, personnel_id=test_personnel.id, function_type="reko"))
+    db_session.add(
+        IncidentAssignment(
+            incident_id=test_incident.id, resource_type="personnel", resource_id=test_personnel.id, purpose="reko"
+        )
+    )
+    test_event.archived_at = datetime.now(UTC)
+    await db_session.commit()
+
+    response = await editor_client.post(
+        "/api/reko/transfer-rekos",
+        params={
+            "from_personnel_id": str(test_personnel.id),
+            "to_personnel_id": str(successor.id),
+            "event_id": str(test_event.id),
+        },
+    )
+
+    assert response.status_code == 409
+    assert "archiviert" in response.json()["detail"]
+    rows = await db_session.scalars(select(IncidentAssignment).where(IncidentAssignment.resource_id == successor.id))
+    assert rows.all() == []

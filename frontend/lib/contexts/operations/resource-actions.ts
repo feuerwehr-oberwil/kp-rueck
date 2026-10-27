@@ -4,7 +4,8 @@
  * Moved verbatim out of `OperationsProvider` (see `BoardMutationContext`).
  */
 
-import { apiClient, ApiError } from "@/lib/api-client"
+import { apiClient } from "@/lib/api-client"
+import { assignFailureDescription } from "@/lib/assignment-refusal"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import type { PersonStatus } from "../personnel-context"
 import type { Material } from "../materials-context"
@@ -37,34 +38,29 @@ export function createResourceActions(board: BoardMutationContext) {
     refreshOperations,
   } = board
 
-  const removeCrew = (operationId: string, crewName: string): Promise<boolean> => {
+  const removeCrew = (operationId: string, personnelId: string): Promise<boolean> => {
     const operation = operations.find(op => op.id === operationId)
     if (!operation) return Promise.resolve(false)
 
-    const assignmentId = operation.crewAssignments.get(crewName)
+    const assignmentId = operation.crew.find((m) => m.personnelId === personnelId)?.assignmentId
     if (!assignmentId) {
-      console.warn(`No assignment ID found for crew member ${crewName}`)
+      console.warn(`No assignment ID found for crew member ${personnelId}`)
       return Promise.resolve(false)
     }
 
     armAssignmentCooldown()
 
     setOperations((ops) =>
-      ops.map((op) => {
-        if (op.id === operationId) {
-          const newCrewAssignments = new Map(op.crewAssignments)
-          newCrewAssignments.delete(crewName)
-          return { ...op, crew: op.crew.filter((name) => name !== crewName), crewAssignments: newCrewAssignments }
-        }
-        return op
-      })
+      ops.map((op) =>
+        op.id === operationId ? { ...op, crew: op.crew.filter((m) => m.personnelId !== personnelId) } : op
+      )
     )
 
-    const person = personnel.find((p) => p.name === crewName)
+    const person = personnel.find((p) => p.id === personnelId)
     const personStatusSnapshot = person?.status ?? null
     const personnelShouldRevert =
       person !== undefined &&
-      !operations.some(op => op.id !== operationId && op.crew.includes(crewName))
+      !operations.some(op => op.id !== operationId && op.crew.some((m) => m.personnelId === personnelId))
     if (personnelShouldRevert) {
       setPersonnel((people) =>
         people.map((p) => (p.id === person!.id ? { ...p, status: "available" as PersonStatus } : p))
@@ -205,7 +201,7 @@ export function createResourceActions(board: BoardMutationContext) {
     const operation = operations.find(op => op.id === operationId)
     const person = personnel.find(p => p.id === personId)
 
-    if (!operation || !person || operation.crew.includes(personName)) {
+    if (!operation || !person || operation.crew.some((m) => m.personnelId === personId)) {
       return false
     }
 
@@ -222,7 +218,7 @@ export function createResourceActions(board: BoardMutationContext) {
     if (!force) {
       const driving = drivenElsewhere(person, operations, operationId)
       const conflicts = collectConflicts(
-        op => op.crew.includes(personName) || op.id === driving?.operationId,
+        op => op.crew.some((m) => m.personnelId === personId) || op.id === driving?.operationId,
         operationId,
       )
       if (conflicts.length > 0) {
@@ -252,7 +248,11 @@ export function createResourceActions(board: BoardMutationContext) {
     armAssignmentCooldown()
 
     setOperations((ops) =>
-      ops.map((op) => (op.id === operationId ? { ...op, crew: [...op.crew, personName] } : op))
+      ops.map((op) =>
+        op.id === operationId
+          ? { ...op, crew: [...op.crew, { personnelId: personId, assignmentId: null, name: personName }] }
+          : op
+      )
     )
     setPersonnel((people) =>
       people.map((p) => (p.id === personId ? { ...p, status: "assigned" as PersonStatus } : p))
@@ -265,25 +265,20 @@ export function createResourceActions(board: BoardMutationContext) {
           resource_id: personId,
         })
         setOperations((ops) =>
-          ops.map((op) => {
-            if (op.id === operationId) {
-              const newCrewAssignments = new Map(op.crewAssignments)
-              newCrewAssignments.set(personName, assignment.id)
-              return { ...op, crewAssignments: newCrewAssignments }
-            }
-            return op
-          })
+          ops.map((op) =>
+            op.id === operationId
+              ? { ...op, crew: op.crew.map((m) => (m.personnelId === personId ? { ...m, assignmentId: assignment.id } : m)) }
+              : op
+          )
         )
         return true
       } catch (err) {
         console.error("Failed to assign person:", err)
         toast.error(translateOutsideReact('notifications.operations.assignFailedTitle'), {
-          description: ApiError.isConflictError(err)
-            ? translateOutsideReact('notifications.operations.assignConflictDescription', { name: personName })
-            : translateOutsideReact('notifications.operations.assignFailedDescription', { name: personName }),
+          description: assignFailureDescription(err, personName),
         })
         setOperations((ops) =>
-          ops.map((op) => (op.id === operationId ? { ...op, crew: op.crew.filter(n => n !== personName) } : op))
+          ops.map((op) => (op.id === operationId ? { ...op, crew: op.crew.filter((m) => m.personnelId !== personId) } : op))
         )
         setPersonnel((people) =>
           people.map((p) => (p.id === personId ? { ...p, status: "available" as PersonStatus } : p))
@@ -437,9 +432,7 @@ export function createResourceActions(board: BoardMutationContext) {
       } catch (err) {
         console.error("Failed to assign material:", err)
         toast.error(translateOutsideReact('notifications.operations.assignFailedTitle'), {
-          description: ApiError.isConflictError(err)
-            ? translateOutsideReact('notifications.operations.assignConflictDescription', { name: material.name })
-            : translateOutsideReact('notifications.operations.assignFailedDescription', { name: material.name }),
+          description: assignFailureDescription(err, material.name),
         })
         setOperations((ops) =>
           ops.map((op) => (op.id === operationId ? { ...op, materials: op.materials.filter(id => id !== materialId) } : op))
@@ -460,7 +453,7 @@ export function createResourceActions(board: BoardMutationContext) {
   const assignVehicleToOperation = async (vehicleId: string, vehicleName: string, operationId: string): Promise<boolean> => {
     const operation = operations.find(op => op.id === operationId)
 
-    if (!operation || operation.vehicles.includes(vehicleName)) {
+    if (!operation || operation.vehicles.some((v) => v.vehicleId === vehicleId)) {
       return false
     }
 
@@ -482,7 +475,7 @@ export function createResourceActions(board: BoardMutationContext) {
     // A vehicle is a single physical asset — if it's still assigned elsewhere,
     // ask the operator whether to move it here or keep the double booking,
     // rather than silently double-booking it.
-    const conflicts = collectConflicts(op => op.vehicles.includes(vehicleName), operationId)
+    const conflicts = collectConflicts(op => op.vehicles.some((v) => v.vehicleId === vehicleId), operationId)
     if (conflicts.length > 0) {
       setResourceConflict({
         resourceType: "vehicle",
@@ -510,14 +503,17 @@ export function createResourceActions(board: BoardMutationContext) {
 
   const performVehicleAssignAndAskDriver = async (vehicleId: string, vehicleName: string, operationId: string): Promise<boolean> => {
     const operation = operations.find(op => op.id === operationId)
-    if (!operation || operation.vehicles.includes(vehicleName)) {
+    if (!operation || operation.vehicles.some((v) => v.vehicleId === vehicleId)) {
       return false
     }
 
     armAssignmentCooldown()
 
+    // The call sign arrives with the next board load (as it always has), the
+    // driver-stay flag with the assignment.
+    const optimistic = { vehicleId, assignmentId: null, name: vehicleName, callsign: null }
     setOperations((ops) =>
-      ops.map((op) => (op.id === operationId ? { ...op, vehicles: [...op.vehicles, vehicleName] } : op))
+      ops.map((op) => (op.id === operationId ? { ...op, vehicles: [...op.vehicles, optimistic] } : op))
     )
 
     if (isLoaded) {
@@ -527,16 +523,18 @@ export function createResourceActions(board: BoardMutationContext) {
           resource_id: vehicleId,
         })
         setOperations((ops) =>
-          ops.map((op) => {
-            if (op.id === operationId) {
-              const newVehicleAssignments = new Map(op.vehicleAssignments)
-              newVehicleAssignments.set(vehicleName, assignment.id)
-              const newVehicleDriverStay = new Map(op.vehicleDriverStay)
-              newVehicleDriverStay.set(vehicleName, assignment.driver_stay || false)
-              return { ...op, vehicleAssignments: newVehicleAssignments, vehicleDriverStay: newVehicleDriverStay }
-            }
-            return op
-          })
+          ops.map((op) =>
+            op.id === operationId
+              ? {
+                  ...op,
+                  vehicles: op.vehicles.map((v) =>
+                    v.vehicleId === vehicleId
+                      ? { ...v, assignmentId: assignment.id, driverStay: assignment.driver_stay || false }
+                      : v
+                  ),
+                }
+              : op
+          )
         )
 
         // Prompt for a driver if this vehicle doesn't have one yet. Drivers are
@@ -555,7 +553,7 @@ export function createResourceActions(board: BoardMutationContext) {
             // otherwise the prompt appears to fire on *un*assignment.
             const stillAssigned = operationsRef.current
               .find((op) => op.id === operationId)
-              ?.vehicles.includes(vehicleName)
+              ?.vehicles.some((v) => v.vehicleId === vehicleId)
             if (!hasDriver && stillAssigned) {
               // Carrying the incident is what lets the prompt offer to take the
               // vehicle back off it when nobody is found to drive it.
@@ -569,12 +567,10 @@ export function createResourceActions(board: BoardMutationContext) {
       } catch (err) {
         console.error("Failed to assign vehicle:", err)
         toast.error(translateOutsideReact('notifications.operations.assignFailedTitle'), {
-          description: ApiError.isConflictError(err)
-            ? translateOutsideReact('notifications.operations.assignConflictDescription', { name: vehicleName })
-            : translateOutsideReact('notifications.operations.assignFailedDescription', { name: vehicleName }),
+          description: assignFailureDescription(err, vehicleName),
         })
         setOperations((ops) =>
-          ops.map((op) => (op.id === operationId ? { ...op, vehicles: op.vehicles.filter(name => name !== vehicleName) } : op))
+          ops.map((op) => (op.id === operationId ? { ...op, vehicles: op.vehicles.filter((v) => v.vehicleId !== vehicleId) } : op))
         )
         return false
       } finally {
@@ -587,31 +583,22 @@ export function createResourceActions(board: BoardMutationContext) {
     }
   }
 
-  const removeVehicle = (operationId: string, vehicleName: string): Promise<boolean> => {
+  const removeVehicle = (operationId: string, vehicleId: string): Promise<boolean> => {
     const operation = operations.find(op => op.id === operationId)
     if (!operation) return Promise.resolve(false)
 
-    const assignmentId = operation.vehicleAssignments.get(vehicleName)
+    const assignmentId = operation.vehicles.find((v) => v.vehicleId === vehicleId)?.assignmentId
     if (!assignmentId) {
-      console.warn(`No assignment ID found for vehicle ${vehicleName}`)
+      console.warn(`No assignment ID found for vehicle ${vehicleId}`)
       return Promise.resolve(false)
     }
 
     armAssignmentCooldown()
 
     setOperations((ops) =>
-      ops.map((op) => {
-        if (op.id === operationId) {
-          const newVehicleAssignments = new Map(op.vehicleAssignments)
-          newVehicleAssignments.delete(vehicleName)
-          const newVehicleCallsigns = new Map(op.vehicleCallsigns)
-          newVehicleCallsigns.delete(vehicleName)
-          const newVehicleDriverStay = new Map(op.vehicleDriverStay)
-          newVehicleDriverStay.delete(vehicleName)
-          return { ...op, vehicles: op.vehicles.filter((name) => name !== vehicleName), vehicleAssignments: newVehicleAssignments, vehicleCallsigns: newVehicleCallsigns, vehicleDriverStay: newVehicleDriverStay }
-        }
-        return op
-      })
+      ops.map((op) =>
+        op.id === operationId ? { ...op, vehicles: op.vehicles.filter((v) => v.vehicleId !== vehicleId) } : op
+      )
     )
 
     if (isLoaded) {
@@ -700,12 +687,12 @@ export function createResourceActions(board: BoardMutationContext) {
       const results = await Promise.all(
         conflict.conflicts.map((c) =>
           resourceType === "vehicle"
-            ? removeVehicle(c.operationId, resourceName)
+            ? removeVehicle(c.operationId, resourceId)
             : resourceType === "personnel"
               // A row that is only the driven vehicle's Einsatz has no crew row to remove.
-              ? operations.find((op) => op.id === c.operationId)?.crew.includes(resourceName) === false
+              ? operations.find((op) => op.id === c.operationId)?.crew.some((m) => m.personnelId === resourceId) === false
                 ? Promise.resolve(true)
-                : removeCrew(c.operationId, resourceName)
+                : removeCrew(c.operationId, resourceId)
               : removeMaterial(c.operationId, resourceId)
         )
       )

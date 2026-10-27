@@ -28,18 +28,18 @@ export interface UseBoardCardActionsInput {
   updateOperation: (operationId: string, updates: Partial<Operation>) => void
   setOperations: Dispatch<SetStateAction<Operation[]>>
   reorderColumn: (orderedIds: string[]) => void
-  removeVehicle: (operationId: string, vehicleName: string) => Promise<boolean>
+  removeVehicle: (operationId: string, vehicleId: string) => Promise<boolean>
   assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => Promise<boolean>
   groups: IncidentGroup[]
   unassignGroupResource: (groupId: string, assignmentId: string) => Promise<boolean>
   assignGroupResource: (groupId: string, resourceType: GroupResourceType, resourceId: string) => Promise<boolean>
   getGroupResources: (groupId: string) => GroupResources
-  release: { releaseCrew: (operationId: string, crewName: string) => Promise<boolean>; releaseMaterial: (operationId: string, materialId: string) => Promise<boolean>; releaseVehicle: (operationId: string, vehicleName: string) => Promise<boolean>; releaseStop: (groupId: string, incidentId: string) => Promise<boolean>; releaseRouteResource: (groupId: string, assignmentId: string) => Promise<boolean>; restore: (item: Released) => Promise<void>; }
+  release: { releaseCrew: (operationId: string, personnelId: string) => Promise<boolean>; releaseMaterial: (operationId: string, materialId: string) => Promise<boolean>; releaseVehicle: (operationId: string, vehicleId: string) => Promise<boolean>; releaseStop: (groupId: string, incidentId: string) => Promise<boolean>; releaseRouteResource: (groupId: string, assignmentId: string) => Promise<boolean>; restore: (item: Released) => Promise<void>; }
   expandColumnRef: RefObject<(id: string) => void>
   vehicleTypes: { key: string; name: string; id: string; type: string; status: string; }[]
   setDeleteDialogOpen: Dispatch<SetStateAction<boolean>>
   setOperationToDelete: Dispatch<SetStateAction<Operation | null>>
-  toggleDriverStay: (operationId: string, vehicleName: string) => void
+  toggleDriverStay: (operationId: string, vehicleId: string) => void
   triggerRekoFormCheck: (operationId: string, previousStatus?: OperationStatus) => void
   triggerRekoCheck: (operationId: string, previousStatus?: OperationStatus) => void
   promptMaterialDecision: (operationId: string, previousStatus?: OperationStatus) => void
@@ -219,8 +219,8 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
         }
         return
       }
-      if (op.vehicles.includes(vehicle.name)) {
-        void release.releaseVehicle(op.id, vehicle.name)
+      if (op.vehicles.some((v) => v.vehicleId === vehicle.id)) {
+        void release.releaseVehicle(op.id, vehicle.id)
       } else {
         assignVehicleToOperation(vehicle.id, vehicle.name, op.id)
         notify(true)
@@ -270,17 +270,18 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
   /** The driver decision is read out on the radio and printed on the slip, so
    *  the pill's click gets the same receipt as every other card mutation. The
    *  underlying hook is optimistic and toasts on failure by itself. */
-  const handleToggleDriverStay = useCallback((operationId: string, vehicleName: string) => {
-    const operation = operations.find((op) => op.id === operationId)
-    const next = !(operation?.vehicleDriverStay?.get(vehicleName) ?? false)
-    toggleDriverStay(operationId, vehicleName)
+  const handleToggleDriverStay = useCallback((operationId: string, vehicleId: string) => {
+    const vehicle = operations.find((op) => op.id === operationId)?.vehicles.find((v) => v.vehicleId === vehicleId)
+    if (!vehicle) return
+    const next = !(vehicle.driverStay ?? false)
+    toggleDriverStay(operationId, vehicleId)
     toast.success(
-      tCommon(next ? 'driverStaysToast' : 'driverReturnsToast', { vehicle: vehicleName }),
+      tCommon(next ? 'driverStaysToast' : 'driverReturnsToast', { vehicle: vehicle.name }),
       {
         description: tCommon('driverStayToastHint'),
         action: {
           label: tNotifications('undoLabel'),
-          onClick: () => toggleDriverStay(operationId, vehicleName),
+          onClick: () => toggleDriverStay(operationId, vehicleId),
         },
       },
     )

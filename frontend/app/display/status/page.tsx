@@ -39,6 +39,7 @@ import { EventFiguresView } from "@/components/event-figures"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useEventFigures } from "@/lib/hooks/use-event-figures"
 import type { ApiEventFigures } from "@/lib/api-client"
+import { PersonName, PersonNamingProvider } from "@/components/person-name"
 
 const STATUS_ORDER = ["incoming", "reko", "reko_done", "enroute", "active", "returning"]
 
@@ -285,12 +286,12 @@ function SituationBoard({
 
   const totalActiveOps = operations.filter((op) => op.status !== "complete").length
 
-  // name/id → { incident id, short label } so the "→ Einsatz" reference is
+  // person id → { incident id, short label } so the "→ Einsatz" reference is
   // itself clickable and jumps straight to that incident's detail dialog.
   const personAssignment = useMemo(() => {
     const map = new Map<string, AssignmentRef>()
     for (const op of operations) {
-      for (const name of op.crew) map.set(name, { operationId: op.id, label: incidentLocationLabel(op) })
+      for (const { personnelId } of op.crew) map.set(personnelId, { operationId: op.id, label: incidentLocationLabel(op) })
     }
     return map
   }, [operations])
@@ -386,6 +387,9 @@ function SituationBoard({
     // (513px on a 393px iPhone, WebKit; overflow sweep, 03.10.)
     // Below `sm` the four panels stack and this box scrolls down, like the board
     // (lib/wall-stack): four 300px panels side by side cut «Material» off a phone.
+    // The naming follows the roster this wall shows (in token mode the
+    // payload's, which the board provider does not have).
+    <PersonNamingProvider roster={allPersonnel}>
     <div className={cn("relative h-full flex bg-background overflow-x-auto", WALL_STACK_BOARD, "max-sm:gap-0")}>
       {/* ── Column 1: Vehicles ── */}
       <div className={cn("flex flex-1 flex-col min-w-[300px] border-r border-border overflow-hidden", STACKED_PANEL)}>
@@ -544,7 +548,7 @@ function SituationBoard({
               >
                 <div className="px-2 xl:px-3 py-1 space-y-0.5 xl:space-y-1">
                   {people.map((p) => (
-                    <PersonRow key={p.id} person={p} assignedTo={personAssignment.get(p.name)} onOpenIncident={setSelectedOperationId} />
+                    <PersonRow key={p.id} person={p} assignedTo={personAssignment.get(p.id)} onOpenIncident={setSelectedOperationId} />
                   ))}
                 </div>
               </CollapsibleSection>
@@ -617,6 +621,7 @@ function SituationBoard({
         showReports={!detailGroups}
       />
     </div>
+    </PersonNamingProvider>
   )
 }
 
@@ -760,7 +765,7 @@ function PersonRow({ person: p, assignedTo, onOpenIncident }: { person: Person; 
     >
       {/* Reko counts as busy here: a Reko is an Auftrag, but it never sets status="assigned" */}
       <span className={cn("h-1.5 w-1.5 xl:h-2 xl:w-2 rounded-full shrink-0", RESOURCE_STATE_DOT_CLASSES[personResourceState(p)])} />
-      <span className="text-xs xl:text-sm truncate flex-1">{p.name}</span>
+      <span className="text-xs xl:text-sm truncate flex-1"><PersonName name={p.name} kennung={p.kennung ?? null} /></span>
       {/* Special-function markers — same icon language as the board roster. */}
       {p.isReko && (
         <span className="inline-flex items-center gap-0.5 text-2xs xl:text-xs text-muted-foreground shrink-0">

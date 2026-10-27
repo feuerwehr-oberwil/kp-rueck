@@ -343,6 +343,7 @@ class TestAssignResource:
             assignment_id=first.id,
             current_user=test_user,
             request=mock_request,
+            incident_id=test_incident.id,
         )
         await db_session.commit()
 
@@ -429,9 +430,10 @@ class TestUnassignResource:
             assignment_id=assignment.id,
             current_user=test_user,
             request=mock_request,
+            incident_id=test_incident.id,
         )
 
-        assert result is True
+        assert result is not None
 
         # Verify assignment marked as unassigned
         await db_session.refresh(assignment)
@@ -444,18 +446,20 @@ class TestUnassignResource:
     async def test_unassign_nonexistent_assignment(
         self,
         db_session: AsyncSession,
+        test_incident: Incident,
         test_user: User,
         mock_request,
     ):
-        """Test unassigning a nonexistent assignment returns False."""
+        """Test unassigning a nonexistent assignment returns None."""
         result = await assignment_crud.unassign_resource(
             db=db_session,
             assignment_id=uuid4(),
             current_user=test_user,
             request=mock_request,
+            incident_id=test_incident.id,
         )
 
-        assert result is False
+        assert result is None
 
 
 # ============================================
@@ -524,6 +528,7 @@ class TestGetIncidentAssignments:
             assignment_id=assignment.id,
             current_user=test_user,
             request=mock_request,
+            incident_id=test_incident.id,
         )
 
         assignments = await assignment_crud.get_incident_assignments(
@@ -915,6 +920,39 @@ class TestTransferAssignments:
                 current_user=test_user,
                 request=mock_request,
             )
+
+    async def test_transfer_onto_a_closed_einsatz_is_refused_and_moves_nothing(
+        self,
+        db_session: AsyncSession,
+        test_incident: Incident,
+        second_incident: Incident,
+        test_personnel: Personnel,
+        test_user: User,
+        mock_request,
+    ):
+        """The target gets NEW rows, so `ensure_assignable` decides – no crew onto a closed Einsatz."""
+        source_row = await assignment_crud.assign_resource(
+            db=db_session,
+            incident_id=test_incident.id,
+            resource_type="personnel",
+            resource_id=test_personnel.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+        second_incident.status = "complete"
+        await db_session.commit()
+
+        with pytest.raises(assignment_crud.ResourceNotAssignableError, match="abgeschlossen"):
+            await assignment_crud.transfer_assignments(
+                db=db_session,
+                source_incident_id=test_incident.id,
+                target_incident_id=second_incident.id,
+                current_user=test_user,
+                request=mock_request,
+            )
+        await db_session.refresh(source_row)
+        assert source_row.unassigned_at is None
+        assert await assignment_crud.get_incident_assignments(db_session, second_incident.id) == []
 
     async def test_transfer_ignores_reko_personnel(
         self,

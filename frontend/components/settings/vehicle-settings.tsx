@@ -37,6 +37,7 @@ import { rowState, rowStateRank, useArchivableInventory, useInventoryDialog } fr
 import {
   vehicleFormDefaults,
   vehicleFormSchema,
+  vehicleTypeFor,
   type VehicleFormValues,
 } from '@/lib/schemas/vehicle';
 import { toast } from 'sonner';
@@ -86,7 +87,7 @@ export function VehicleSettings() {
   const { sort } = inventory;
 
   const onSubmit = form.handleSubmit(async (values) => {
-    const payload = { ...values, type: values.type?.trim() || values.name };
+    const payload = { ...values, type: vehicleTypeFor(values) };
     try {
       if (dialog.editing) {
         await apiClient.updateVehicle(dialog.editing.id, payload);

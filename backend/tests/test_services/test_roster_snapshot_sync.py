@@ -412,3 +412,19 @@ async def test_neither_setting_means_no_scheduler(monkeypatch):
     monkeypatch.setattr(settings, "station_index_source", "")
     bg.start_roster_snapshot_scheduler()
     assert bg.scheduler is None
+
+
+async def test_two_people_of_one_name_are_both_created(db_session, source):
+    """The Kennung rule binds the operator's writes, not the feed: it has no Kennung to give.
+
+    The board shows such a pair flagged until somebody sets one.
+    """
+    doc = copy.deepcopy(EXAMPLE_SNAPSHOT)
+    doc["people"][2].update(display_name="Muster Hans", first_name="Hans", last_name="Muster")
+    _write(source, doc)
+
+    status = await sync.run(db_session, trigger="manual")
+
+    assert status["outcome"]["created"] == 3
+    names = (await db_session.execute(select(Personnel.name))).scalars().all()
+    assert sorted(names) == ["Beispiel Anna", "Muster Hans", "Muster Hans"]

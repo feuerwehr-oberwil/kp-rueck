@@ -1,5 +1,6 @@
 """Incident + status-transition + timeline schemas."""
 
+import math
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
@@ -9,6 +10,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, computed_field, field_serializer, field_validator
 
 from .field_requests import FieldRequestResponse
+from .fields import OptionalText50, reject_null
 
 # The provenances an editor may claim from the board (plan 26 §6, sweep 27 §P5b.3).
 # "operator" = typed in at the KP, "intake" = the operator took the call and
@@ -75,6 +77,19 @@ def check_free_text(v: str | None) -> str | None:
     return v.strip() if v else v
 
 
+def check_coordinate(v: str | Decimal | None, *, limit: int, name: str) -> str | Decimal | None:
+    """A latitude (`limit` 90) or longitude (180): a finite number within ±limit, or None."""
+    if v is None:
+        return v
+    try:
+        number = float(str(v))
+    except (ValueError, TypeError) as e:
+        raise ValueError(f"Invalid {name.lower()} value") from e
+    if not math.isfinite(number) or not -limit <= number <= limit:
+        raise ValueError(f"{name} must be between -{limit} and {limit} degrees")
+    return v
+
+
 class LocationFields(BaseModel):
     """The coordinate checks every incident-shaped schema shares.
 
@@ -86,32 +101,14 @@ class LocationFields(BaseModel):
     @field_validator("location_lat", check_fields=False)
     @classmethod
     def validate_latitude(cls, v: str | Decimal | None) -> str | Decimal | None:
-        """Validate latitude is within valid range."""
-        if v is not None:
-            try:
-                lat_val = float(str(v))
-                if not -90 <= lat_val <= 90:
-                    raise ValueError("Latitude must be between -90 and 90 degrees")
-            except (ValueError, TypeError) as e:
-                if "Latitude must be between" not in str(e):
-                    raise ValueError("Invalid latitude value") from e
-                raise
-        return v
+        """Validate latitude is a finite number within ±90."""
+        return check_coordinate(v, limit=90, name="Latitude")
 
     @field_validator("location_lng", check_fields=False)
     @classmethod
     def validate_longitude(cls, v: str | Decimal | None) -> str | Decimal | None:
-        """Validate longitude is within valid range."""
-        if v is not None:
-            try:
-                lng_val = float(str(v))
-                if not -180 <= lng_val <= 180:
-                    raise ValueError("Longitude must be between -180 and 180 degrees")
-            except (ValueError, TypeError) as e:
-                if "Longitude must be between" not in str(e):
-                    raise ValueError("Invalid longitude value") from e
-                raise
-        return v
+        """Validate longitude is a finite number within ±180."""
+        return check_coordinate(v, limit=180, name="Longitude")
 
 
 class IncidentFields(LocationFields):
@@ -123,8 +120,8 @@ class IncidentFields(LocationFields):
 
     @field_validator("title", check_fields=False)
     @classmethod
-    def validate_title(cls, v: str) -> str:
-        """Validate incident title."""
+    def validate_title(cls, v: str | None) -> str:
+        """Validate incident title (an explicit null on an update is refused too)."""
         if not v or not v.strip():
             raise ValueError("Title cannot be empty")
         if len(v) > 200:
@@ -150,7 +147,7 @@ class IncidentBase(IncidentFields):
     status: IncidentStatus = IncidentStatus.INCOMING
     description: str | None = None
     contact: str | None = None
-    contact_phone: str | None = None
+    contact_phone: OptionalText50 | None = None
     internal_notes: str | None = None
     nachbarhilfe: bool = False
     nachbarhilfe_note: str | None = None
@@ -196,7 +193,7 @@ class PublicIncidentCreate(IncidentFields):
     location_lng: str | Decimal | None = None
     description: str | None = None  # «Meldung» — what was reported
     contact: str | None = None  # "Melder / Anrufer"
-    contact_phone: str | None = None  # Direct phone number
+    contact_phone: OptionalText50 | None = None  # Direct phone number
     internal_notes: str | None = None  # «Notizen» — further hints from the call
 
     # Same rule for the notes: free text through a login-less door needs the same
@@ -204,8 +201,20 @@ class PublicIncidentCreate(IncidentFields):
     _validate_notes = field_validator("internal_notes")(check_free_text)
 
 
-class IncidentUpdate(BaseModel):
-    """Schema for updating incident."""
+# The free-text columns a board edits by typing – the ones `IncidentUpdate.text_base` guards.
+IncidentTextField = Literal[
+    "description", "contact", "contact_phone", "internal_notes", "nachbarhilfe_note", "am_warten_note"
+]
+
+
+class IncidentUpdate(IncidentFields):
+    """Schema for updating incident: the create rules (`IncidentFields`), every field optional.
+
+    The free-text fields, the coordinates, `group_id` and the two move fields may be sent
+    as null; the other columns cannot be emptied. `internal_notes` carries no length cap:
+    merges and `/feld` append to it on the server, so a note may already be past any
+    limit a form would set.
+    """
 
     title: str | None = None
     type: IncidentType | None = None
@@ -222,7 +231,7 @@ class IncidentUpdate(BaseModel):
     override_status: IncidentStatus | None = None
     description: str | None = None
     contact: str | None = None
-    contact_phone: str | None = None
+    contact_phone: OptionalText50 | None = None
     internal_notes: str | None = None
     nachbarhilfe: bool | None = None
     nachbarhilfe_note: str | None = None
@@ -235,6 +244,12 @@ class IncidentUpdate(BaseModel):
     # in, then realise it was a phone call", so create-only would miss the common
     # case. Both directions, and only ever between these two values.
     source: EditorIncidentSource = "operator"
+    # Per free-text field in this body: the text the client last saw the server hold. If
+    # somebody else saved that field since, the update is refused with 409 `text_conflict`
+    # instead of silently overwriting their text. Absent = not checked (scripts, intake).
+    text_base: dict[IncidentTextField, str] | None = None
+
+    _not_null = field_validator("type", "priority", "status", "nachbarhilfe", "am_warten", "zu_fuss")(reject_null)
 
 
 class IncidentReorder(BaseModel):
@@ -333,6 +348,8 @@ class IncidentResponse(IncidentBase):
     # because a CLOSED incident has no assignments left — the board can only
     # name who led it (the person the KP phones about the rapport) from here.
     leader_name: str | None = None
+    # The same person's id: the board marks the leader by id (two people can share a name).
+    effective_leader_id: UUID | None = None
     # Server-computed short label for location_address (home city stripped) so
     # clients can render the final string on first paint — no reformat flash
     # once the home_city setting loads client-side. "" when the address is only

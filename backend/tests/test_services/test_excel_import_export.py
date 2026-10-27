@@ -150,7 +150,7 @@ def create_valid_excel_bytes(
     ws_personnel = wb.create_sheet("Personnel")
     ws_personnel.append([col[0] for col in PERSONNEL_COLUMNS])
     for row in personnel or []:
-        ws_personnel.append([row.get("name"), row.get("role"), row.get("status")])
+        ws_personnel.append([row.get("name"), row.get("kennung"), row.get("role"), row.get("status")])
 
     # Vehicles sheet
     ws_vehicles = wb.create_sheet("Vehicles")
@@ -619,6 +619,75 @@ class TestValidateAndParseExcel:
         assert error.row == 2
         assert error.message.startswith("Vehicles Zeile 2 – ")
         assert "'einsatzbereit'" in error.message
+
+    @pytest.mark.parametrize(
+        ("sheet", "row", "expected"),
+        [
+            ("personnel", {"name": "   ", "role": "AdF", "status": "available"}, "Spalte 'name' ist leer"),
+            ("personnel", {"name": "Anna", "role": "x" * 51, "status": "available"}, "Spalte 'role' ist zu lang"),
+            (
+                "vehicles",
+                {"name": "TLF", "type": "  ", "display_order": 1, "status": "available", "radio_call_sign": "23"},
+                "Spalte 'type' ist leer",
+            ),
+            (
+                "vehicles",
+                {"name": "TLF", "type": "x" * 51, "display_order": 1, "status": "available", "radio_call_sign": "23"},
+                "Spalte 'type' ist zu lang",
+            ),
+            ("materials", {"name": "Pumpe", "type": "Pumpen", "location": "   "}, "Spalte 'location' ist leer"),
+            (
+                "materials",
+                {"name": "Pumpe", "type": "Pumpen", "location": "TLF", "description": "x" * 501},
+                "Spalte 'description' ist zu lang",
+            ),
+        ],
+    )
+    def test_a_row_the_api_would_refuse_refuses_the_file(self, sheet: str, row: dict, expected: str):
+        """Every row goes through the API's create schema before anything is written.
+
+        A Personnel row named three spaces used to import with 200 and then break
+        `GET /api/personnel/` for good: the response model refused the stored name.
+        """
+        with pytest.raises(ExcelImportError, match=expected):
+            validate_and_parse_excel(create_valid_excel_bytes(**{sheet: [row]}))
+
+    def test_rows_are_stored_as_the_api_would_store_them(self):
+        """Names are stripped and collapsed, and a call sign typed as a number is text."""
+        file_bytes = create_valid_excel_bytes(
+            personnel=[{"name": "  Anna   Muster ", "role": " AdF ", "status": "available"}],
+            vehicles=[
+                {"name": " TLF ", "type": "TLF", "display_order": 1, "status": "available", "radio_call_sign": 23}
+            ],
+        )
+        result = validate_and_parse_excel(file_bytes)
+
+        assert result.personnel.rows == [{"name": "Anna Muster", "kennung": None, "role": "AdF", "status": "available"}]
+        assert result.vehicles.rows[0]["name"] == "TLF"
+        assert result.vehicles.rows[0]["radio_call_sign"] == "23"
+
+    @pytest.mark.parametrize(("cell", "stored"), [(0, 0), (1.0, 1), ("2", 2), (2_147_483_647, 2_147_483_647)])
+    def test_display_order_takes_any_whole_non_negative_number(self, cell: object, stored: int):
+        """`0` is the first position, not an empty cell; an integral float is that integer."""
+        vehicle = {"name": "TLF", "type": "TLF", "display_order": cell, "status": "available", "radio_call_sign": "1"}
+        result = validate_and_parse_excel(create_valid_excel_bytes(vehicles=[vehicle]))
+        assert result.vehicles.rows[0]["display_order"] == stored
+
+    @pytest.mark.parametrize(
+        ("cell", "expected"),
+        [
+            (-1, "muss zwischen 0 und 2147483647 liegen"),
+            (2_147_483_648, "muss zwischen 0 und 2147483647 liegen"),
+            (True, "muss eine ganze Zahl sein"),
+            (1.5, "muss eine ganze Zahl sein"),
+            ("NaN", "muss eine ganze Zahl sein"),
+        ],
+    )
+    def test_display_order_refuses_what_it_would_have_to_guess(self, cell: object, expected: str):
+        """TRUE is not 1 and 1.5 is not 1: refused, not silently rounded."""
+        vehicle = {"name": "TLF", "type": "TLF", "display_order": cell, "status": "available", "radio_call_sign": "1"}
+        with pytest.raises(ExcelImportError, match=f"Vehicles Zeile 2 – 'display_order' {expected}"):
+            validate_and_parse_excel(create_valid_excel_bytes(vehicles=[vehicle]))
 
     def test_unreadable_file_does_not_forward_openpyxl_text(self):
         """openpyxl's own wording is the one message here that is not ours to hand out.
@@ -1160,12 +1229,11 @@ class TestEdgeCases:
         assert result.personnel.rows[0]["name"] == "Müller Jürgen"
         assert result.materials.rows[0]["name"] == "Schläuche"
 
-    def test_handles_very_long_strings(self):
-        """Test handles very long text values."""
-        long_name = "A" * 1000
-        file_bytes = create_valid_excel_bytes(personnel=[{"name": long_name, "role": "Test", "status": "available"}])
-        result = validate_and_parse_excel(file_bytes)
-        assert result.personnel.rows[0]["name"] == long_name
+    def test_refuses_a_name_longer_than_the_column(self):
+        """`personnel.name` is VARCHAR(100): a longer cell is the operator's to shorten, not a 500."""
+        file_bytes = create_valid_excel_bytes(personnel=[{"name": "A" * 101, "role": "Test", "status": "available"}])
+        with pytest.raises(ExcelImportError, match="Personnel Zeile 2 – Spalte 'name' ist zu lang"):
+            validate_and_parse_excel(file_bytes)
 
     @pytest.mark.asyncio
     async def test_import_large_dataset(self, db_session: AsyncSession, excel_user: User):
@@ -1214,3 +1282,91 @@ class TestEdgeCases:
             )
             result = validate_and_parse_excel(file_bytes)
             assert result.vehicles.rows[0]["status"] == status
+
+
+# ============================================
+# Kennung: name + Kennung is unique on the roster
+# ============================================
+
+
+class TestKennung:
+    """The Personnel sheet's `kennung` column and the name + Kennung rule (`crud.personnel.name_key`)."""
+
+    def test_a_name_twice_in_the_file_refuses_it(self):
+        file_bytes = create_valid_excel_bytes(
+            personnel=[{"name": "Meier Alex", "status": "available"}, {"name": " meier  ALEX", "status": "available"}]
+        )
+
+        with pytest.raises(ExcelImportError) as exc:
+            validate_and_parse_excel(file_bytes)
+
+        assert exc.value.message == "Personnel Zeile 3 – „meier ALEX“ kommt mehrfach vor, Kennung angeben."
+
+    def test_a_kennung_tells_the_two_apart(self):
+        file_bytes = create_valid_excel_bytes(
+            personnel=[
+                {"name": "Meier Alex", "status": "available"},
+                {"name": "Meier Alex", "kennung": 1985, "status": "available"},  # a number cell
+            ]
+        )
+
+        rows = validate_and_parse_excel(file_bytes).personnel.rows
+
+        assert [row["kennung"] for row in rows] == [None, "1985"]
+
+    @pytest.mark.asyncio
+    async def test_append_refuses_a_name_already_on_the_roster(self, db_session: AsyncSession, excel_user: User):
+        db_session.add(Personnel(name="Meier Alex", status="available"))
+        await db_session.commit()
+        parsed = validate_and_parse_excel(
+            create_valid_excel_bytes(
+                personnel=[{"name": "Neu Nina", "status": "available"}, {"name": "Meier Alex", "status": "available"}]
+            )
+        )
+
+        with pytest.raises(ExcelImportError) as exc:
+            await import_data(db_session, parsed, "append", str(excel_user.id))
+
+        assert exc.value.message == "Personnel Zeile 3 – „Meier Alex“ kommt mehrfach vor, Kennung angeben."
+        assert len((await db_session.execute(select(Personnel))).scalars().all()) == 1
+
+    @pytest.mark.asyncio
+    async def test_replace_compares_within_the_file_only(self, db_session: AsyncSession, excel_user: User):
+        db_session.add(Personnel(name="Meier Alex", status="available"))
+        await db_session.commit()
+        parsed = validate_and_parse_excel(
+            create_valid_excel_bytes(personnel=[{"name": "Meier Alex", "kennung": "1985", "status": "available"}])
+        )
+
+        await import_data(db_session, parsed, "replace", str(excel_user.id))
+
+        people = (await db_session.execute(select(Personnel))).scalars().all()
+        assert [(p.name, p.kennung) for p in people] == [("Meier Alex", "1985")]
+
+    @pytest.mark.asyncio
+    async def test_a_workbook_from_before_the_kennung_still_imports(self, db_session: AsyncSession, excel_user: User):
+        wb = Workbook()
+        wb.remove(wb.active)
+        ws = wb.create_sheet("Personnel")
+        ws.append(["name", "role", "status"])
+        ws.append(["Alte Datei", "Mannschaft", "available"])
+        buffer = io.BytesIO()
+        wb.save(buffer)
+
+        parsed = validate_and_parse_excel(buffer.getvalue())
+        await import_data(db_session, parsed, "append", str(excel_user.id))
+
+        person = (await db_session.execute(select(Personnel))).scalar_one()
+        assert (person.name, person.kennung, person.role) == ("Alte Datei", None, "Mannschaft")
+
+    @pytest.mark.asyncio
+    async def test_the_export_carries_the_kennung(self, db_session: AsyncSession):
+        db_session.add(Personnel(name="Meier Alex", kennung="1985", status="available"))
+        await db_session.commit()
+
+        ws = load_workbook(await export_data_to_excel(db_session))["Personnel"]
+
+        assert list(ws.iter_rows(values_only=True))[:2] == [
+            ("name", "kennung", "role", "status"),
+            ("Meier Alex", "1985", None, "available"),
+        ]

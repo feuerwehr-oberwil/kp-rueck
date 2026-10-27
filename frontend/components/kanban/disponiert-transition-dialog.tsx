@@ -26,6 +26,7 @@ import { deploymentSegments, incidentAnnouncement, stopSpecial } from "@/lib/rad
 import { findAuftragForStop } from "@/lib/kanban-utils"
 import { RadioQuote } from "@/components/kanban/radio-quote"
 import type { GroupResources } from "@/lib/types/groups"
+import { usePersonNaming } from "@/components/person-name"
 
 const NO_ROUTE_RESOURCES: GroupResources = { vehicles: [], personnel: [], materials: [] }
 
@@ -60,7 +61,8 @@ export function DisponierTransitionDialog({
   const tPrint = useTranslations('print.toasts')
   const trackPrint = usePrintJobToast()
   const { groups, getGroupResources, recordAnnouncement } = useGroups()
-  const { operations, changeStatusToTop, requestVehicleDriver, vehicles: fleet } = useOperations()
+  const { operations, changeStatusToTop, requestVehicleDriver } = useOperations()
+  const { text: personText } = usePersonNaming()
   const { selectedEvent } = useEvent()
   // Driver names weren't reaching the message before (the prop was never passed),
   // so the WhatsApp "Fahrer:" line was always blank — load them here.
@@ -92,8 +94,9 @@ export function DisponierTransitionDialog({
       funkrufname,
       fallbackAddress: addressPlaceholder,
       forceFull: frozenFull ?? undefined,
+      personText,
     })
-  }, [operation, auftrag, groupRes, operations, materials, funkrufname, addressPlaceholder, frozenFull, t])
+  }, [operation, auftrag, groupRes, operations, materials, funkrufname, addressPlaceholder, frozenFull, t, personText])
 
   // Record what was just read out, once per (Auftrag, stop) the dialog opens for.
   // The ref keeps this to one write even though `radio` and `recordAnnouncement`
@@ -171,6 +174,7 @@ export function DisponierTransitionDialog({
       groupResources: groupRes,
       auftrag: auftragCtx,
       template: whatsappIncident,
+      personText,
     })
     await copyToClipboard(message)
     setWhatsappCopied(true)
@@ -192,7 +196,7 @@ export function DisponierTransitionDialog({
 
   // Effective resources = the incident's own UNION the Auftrag's (empty on a
   // grouped stop, so the union is what's really assigned).
-  const deployment = routeDeployment(operation, groupRes ?? NO_ROUTE_RESOURCES, materials)
+  const deployment = routeDeployment(operation, groupRes ?? NO_ROUTE_RESOURCES, materials, personText)
   const hasResources = deploymentSegments(t, deployment).length > 0
 
   // Vehicles going out with nobody driving them — the Einsatz's own and the
@@ -201,8 +205,8 @@ export function DisponierTransitionDialog({
   const driversKnown = vehicleDrivers !== undefined || liveDriversLoaded
   const driverlessVehicles = driversKnown && !deployment.zuFuss
     ? deployment.vehicles
-        .filter((vehicle) => !effectiveVehicleDrivers.get(vehicle.name))
-        .map((vehicle) => ({ name: vehicle.name, id: fleet.find((v) => v.name === vehicle.name)?.id }))
+        .filter((vehicle) => !effectiveVehicleDrivers.get(vehicle.vehicleId))
+        .map((vehicle) => ({ name: vehicle.name, id: vehicle.vehicleId }))
     : []
 
   // Home-town-free address for the dialog text and Funkdurchsage quote.
@@ -256,21 +260,19 @@ export function DisponierTransitionDialog({
           {driverlessVehicles.length > 0 && (
             <div className="space-y-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
               {driverlessVehicles.map((vehicle) => (
-                <div key={vehicle.name} className="flex items-center justify-between gap-2">
+                <div key={vehicle.id} className="flex items-center justify-between gap-2">
                   <p className="flex min-w-0 items-center gap-1.5 text-sm text-amber-800 dark:text-amber-300">
                     <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
                     <span className="truncate">{t("driverNote.missingNamed", { vehicle: vehicle.name })}</span>
                   </p>
-                  {vehicle.id && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="shrink-0"
-                      onClick={() => requestVehicleDriver({ vehicleId: String(vehicle.id), vehicleName: vehicle.name })}
-                    >
-                      {t("driverNote.pick")}
-                    </Button>
-                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={() => requestVehicleDriver({ vehicleId: vehicle.id, vehicleName: vehicle.name })}
+                  >
+                    {t("driverNote.pick")}
+                  </Button>
                 </div>
               ))}
             </div>

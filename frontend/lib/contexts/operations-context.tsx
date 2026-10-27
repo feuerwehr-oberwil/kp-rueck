@@ -13,6 +13,7 @@ import { useBoardSync } from "./operations/use-board-sync"
 import { useMaterialList, usePersonnelList } from "./operations/use-resource-lists"
 import type { BoardMutationContext } from "./operations/board-context"
 import { createResourceActions } from "./operations/resource-actions"
+import { PersonNamingProvider } from "@/components/person-name"
 import { createIncidentActions } from "./operations/incident-actions"
 import type {
   BoardActions,
@@ -36,6 +37,8 @@ export type {
   VehicleType,
   RekoSummary,
   Operation,
+  CrewMember,
+  OperationVehicle,
   VehicleNeedingDriver,
   BoardSyncStatus,
 } from "./operations/types"
@@ -435,7 +438,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   return (
     <OperationsContext.Provider value={value}>
       <BoardSyncStatusContext.Provider value={syncStatus}>
-        {children}
+        {/* Namesakes on the roster show their Kennung (components/person-name.tsx). */}
+        <PersonNamingProvider roster={personnel}>{children}</PersonNamingProvider>
       </BoardSyncStatusContext.Provider>
       <audio ref={alertAudioRef} src="/alerts/mixkit-digital-quick-tone-2866.wav" preload="auto" />
     </OperationsContext.Provider>

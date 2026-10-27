@@ -73,14 +73,17 @@ export class UpdateBatcher<T> {
  * then win on the server while the field had already said «Gespeichert» for
  * the newer one. Chaining them per incident is what makes that word true.
  *
- * `jump` skips the line: a flush on `pagehide` must leave NOW, because the
- * document may be gone before the request ahead of it settles.
+ * There is deliberately no way to skip the line, not even for the `pagehide`
+ * flush: a request sent past an older one in flight can arrive first and be
+ * overwritten by it (review F06). If the tab closes while a save is still in
+ * flight, the queued edit may not leave – the field said «Wird gespeichert»,
+ * never «Gespeichert», so nothing claims otherwise.
  */
 export class KeyedSerialQueue {
   private tails = new Map<string, Promise<void>>()
 
-  run<T>(key: string, task: () => Promise<T>, options?: { jump?: boolean }): Promise<T> {
-    const ahead = options?.jump ? undefined : this.tails.get(key)
+  run<T>(key: string, task: () => Promise<T>): Promise<T> {
+    const ahead = this.tails.get(key)
     const result = ahead ? ahead.then(task) : task()
     // The tail never rejects: one failed request must not poison the queue.
     const tail = result.then(

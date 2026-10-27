@@ -21,6 +21,7 @@ import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
 import { usePersonnel } from "./personnel-context"
 import { useMaterials } from "./materials-context"
+import { refusalReason } from "@/lib/assignment-refusal"
 
 // Re-export the client type for convenience (as materials-context exposes Material).
 export type { IncidentGroup } from "@/lib/types/groups"
@@ -664,7 +665,9 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
             g.id === groupId ? { ...g, assignments: g.assignments.filter((a) => a.id !== tempId) } : g,
           ),
         )
-        toast.error(translateOutsideReact("notifications.groups.assignFailed"))
+        // A refusal the server put into words (archived, nicht einsatzbereit, …) is said as such.
+        const reason = refusalReason(error)
+        toast.error(translateOutsideReact("notifications.groups.assignFailed"), reason ? { description: reason } : undefined)
         return false
       }
     },

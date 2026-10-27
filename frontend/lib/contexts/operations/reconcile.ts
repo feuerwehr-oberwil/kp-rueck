@@ -76,33 +76,41 @@ export function buildEventState({
     }
   }
 
-  // Process assignments
+  // Process assignments. Identity is the resource id throughout — two people
+  // (or vehicles) may share a name, and both must show as assigned.
+  const personById = new Map(personnelList.map(p => [p.id, p]))
+  const vehicleById = new Map(vehiclesList.map(v => [v.id, v]))
   ops.forEach((operation) => {
     const assignments = assignmentsByIncident[operation.id] || []
     for (const assignment of assignments) {
       if (assignment.resource_type === "personnel") {
-        const person = personnelList.find(p => p.id === assignment.resource_id)
+        const person = personById.get(assignment.resource_id)
         if (person) {
           if (rekoPersonnelIds.has(person.id)) {
             operation.assignedReko = { id: person.id, name: person.name }
             continue
           }
-          operation.crew.push(person.name)
-          operation.crewAssignments.set(person.name, assignment.id)
-          if (assignment.is_leader) operation.leaderName = person.name
+          operation.crew.push({ personnelId: person.id, assignmentId: assignment.id, name: person.name })
+          assignedPersonIds.add(person.id)
+          if (assignment.is_leader) {
+            operation.leaderId = person.id
+            operation.leaderName = person.name
+          }
         }
       } else if (assignment.resource_type === "material") {
         operation.materials.push(assignment.resource_id)
         operation.materialAssignments.set(assignment.resource_id, assignment.id)
+        assignedMaterialIds.add(assignment.resource_id)
       } else if (assignment.resource_type === "vehicle") {
-        const vehicle = vehiclesList.find(v => v.id === assignment.resource_id)
+        const vehicle = vehicleById.get(assignment.resource_id)
         if (vehicle) {
-          operation.vehicles.push(vehicle.name)
-          operation.vehicleAssignments.set(vehicle.name, assignment.id)
-          if (vehicle.radio_call_sign) {
-            operation.vehicleCallsigns.set(vehicle.name, vehicle.radio_call_sign)
-          }
-          operation.vehicleDriverStay.set(vehicle.name, assignment.driver_stay || false)
+          operation.vehicles.push({
+            vehicleId: vehicle.id,
+            assignmentId: assignment.id,
+            name: vehicle.name,
+            callsign: vehicle.radio_call_sign || null,
+            driverStay: assignment.driver_stay || false,
+          })
         }
       }
     }
@@ -111,8 +119,8 @@ export function buildEventState({
   // Show vehicles in their configured display order everywhere (radio text,
   // Divera/WhatsApp messages, cards) instead of assignment order.
   {
-    const vehicleOrder = new Map(vehiclesList.map(v => [v.name, v.display_order]))
-    ops.forEach(op => op.vehicles.sort((a, b) => (vehicleOrder.get(a) ?? 0) - (vehicleOrder.get(b) ?? 0)))
+    const vehicleOrder = new Map(vehiclesList.map(v => [v.id, v.display_order]))
+    ops.forEach(op => op.vehicles.sort((a, b) => (vehicleOrder.get(a.vehicleId) ?? 0) - (vehicleOrder.get(b.vehicleId) ?? 0)))
   }
 
   // Process reko summaries
@@ -131,16 +139,6 @@ export function buildEventState({
         photos: summary.photos_json ?? [],
       }
     }
-  })
-
-  // Calculate availability from assignments
-
-  ops.forEach(operation => {
-    operation.crew.forEach(crewName => {
-      const person = personnelList.find(p => p.name === crewName)
-      if (person) assignedPersonIds.add(person.id)
-    })
-    operation.materials.forEach(materialId => assignedMaterialIds.add(materialId))
   })
 
   const eventScopedPersonnel = personnelList.map(person => ({

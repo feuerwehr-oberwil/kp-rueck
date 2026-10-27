@@ -5,7 +5,7 @@
  * Why this exists: the column comparator used to be a hand-written whitelist of fields. A
  * whitelist only stays correct while somebody remembers to extend it, and fields the cards
  * below actually render kept falling out of it (`nachbarhilfeNote`, `locationDisplay`,
- * `contactPhone`, the pickup fields, `vehicleCallsigns`, …). Because the column's `memo` is
+ * `contactPhone`, the pickup fields, the vehicle call signs, …). Because the column's `memo` is
  * the OUTER gate, a field missing there never reaches the card's own comparator at all: the
  * card holds stale content and there is no self-heal on the next render either.
  *
@@ -21,6 +21,8 @@
  * arrays and maps in `Operation` are small — single-digit entries in practice — so walking
  * them is cheaper than the re-render it avoids.
  */
+
+import type { CrewMember, OperationVehicle } from "@/lib/contexts/operations-context"
 
 /** Structural equality for the value shapes that appear in `Operation`. */
 function valuesEqual(a: unknown, b: unknown): boolean {
@@ -84,4 +86,23 @@ export function areOperationsEqual(a: unknown, b: unknown): boolean {
 export function areOperationListsEqual(a: readonly unknown[], b: readonly unknown[]): boolean {
   if (a.length !== b.length) return false
   return a.every((item, i) => areOperationsEqual(item, b[i]))
+}
+
+/** Same people, same order, same assignment rows — the chip key, its label and
+ *  the id «zum EL machen» patches. */
+export function sameCrew(prev: readonly CrewMember[], next: readonly CrewMember[]): boolean {
+  return prev.length === next.length && prev.every((m, i) => {
+    const n = next[i]
+    return m.personnelId === n.personnelId && m.assignmentId === n.assignmentId && m.name === n.name
+  })
+}
+
+/** Same vehicles, same order, and everything their chip draws or toggles —
+ *  the call sign is edited in the fleet settings without the incident changing. */
+export function sameVehicles(prev: readonly OperationVehicle[], next: readonly OperationVehicle[]): boolean {
+  return prev.length === next.length && prev.every((v, i) => {
+    const n = next[i]
+    return v.vehicleId === n.vehicleId && v.assignmentId === n.assignmentId && v.name === n.name &&
+      v.callsign === n.callsign && v.driverStay === n.driverStay
+  })
 }

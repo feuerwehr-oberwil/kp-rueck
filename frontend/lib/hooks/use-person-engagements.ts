@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Where each person is actually engaged right now, by name (sweep 27 §P3.5).
+ * Where each person is actually engaged right now, by person id (sweep 27 §P3.5).
  *
  * The sidebar card's status icon used to say a bare «Im Einsatz» for everyone
  * `isPersonOccupied` flags — including special-function holders (Fahrer,
@@ -17,8 +17,7 @@
  * place the assignment dialog names. It used to read a bare «Fahrer Mowa», and
  * «where is the Mowa?» was a second lookup.
  *
- * Keyed by NAME because the operations context's `crew` arrays hold names —
- * the same convention the dialog already leans on. Computed once per board
+ * Keyed by personnel id — two people may share a name. Computed once per board
  * render and passed down as a prop, so the memoized person cards do not each
  * subscribe to the whole operations context.
  */
@@ -48,17 +47,18 @@ export function usePersonEngagements(): Map<string, PersonEngagement> {
       // A completed incident has released its crew, so `crew` is empty there —
       // no stale engagement survives a closed card.
       const label = { short: getIncidentRefLabel(op, 40), full: getIncidentRefLabel(op, 1000) }
-      for (const name of op.crew) {
-        if (!map.has(name)) map.set(name, label)
+      for (const { personnelId } of op.crew) {
+        if (!map.has(personnelId)) map.set(personnelId, label)
       }
     }
     for (const person of personnel) {
       const vehicle = person.isDriver ? person.driverVehicleName : undefined
-      if (!vehicle || map.has(person.name)) continue
-      const op = operations.find((o) => o.vehicles.includes(vehicle))
+      const vehicleId = person.isDriver ? person.driverVehicleId : undefined
+      if (!vehicle || !vehicleId || map.has(person.id)) continue
+      const op = operations.find((o) => o.vehicles.some((v) => v.vehicleId === vehicleId))
       if (!op) continue
       const role = t('person.driverFunction', { vehicle })
-      map.set(person.name, {
+      map.set(person.id, {
         short: `${role} · ${getIncidentRefLabel(op, 40)}`,
         full: `${role} · ${getIncidentRefLabel(op, 1000)}`,
       })
@@ -67,7 +67,7 @@ export function usePersonEngagements(): Map<string, PersonEngagement> {
       const resources = getGroupResources(group.id)
       const label = { short: group.name, full: group.name }
       for (const person of resources.personnel) {
-        if (!map.has(person.name)) map.set(person.name, label)
+        if (!map.has(person.resourceId)) map.set(person.resourceId, label)
       }
     }
     return map

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest"
 import type { DispatchResource } from "@/lib/command-dispatch"
 import type { Operation } from "@/lib/contexts/operations-context"
 import type { GroupResources } from "@/lib/types/groups"
+import { assignedVehicle, crewMember } from "@/test-utils/operation-fixtures"
 
 import { renderHook } from "@testing-library/react"
 
@@ -84,7 +85,7 @@ function board(
         setTimeout(() => {
           order.push(`answer:${resource.name}`)
           question = false
-          if (!keep) rest = rest.map((op) => ({ ...op, crew: op.crew.filter((n) => n !== resource.name), vehicles: op.vehicles.filter((n) => n !== resource.name) }))
+          if (!keep) rest = rest.map((op) => ({ ...op, crew: op.crew.filter((m) => m.personnelId !== resource.id), vehicles: op.vehicles.filter((v) => v.vehicleId !== resource.id) }))
           land(resource)
         }, 5)
         return
@@ -118,12 +119,12 @@ function board(
     revertStatus: (_id, status) => {
       current = { ...current, status }
     },
-    removeCrew: vi.fn((_id: string, name: string) => {
-      current = { ...current, crew: current.crew.filter((entry) => entry !== name) }
+    removeCrew: vi.fn((_id: string, personnelId: string) => {
+      current = { ...current, crew: current.crew.filter((entry) => entry.personnelId !== personnelId) }
     }),
     removeReko: vi.fn(),
-    removeVehicle: vi.fn((_id: string, name: string) => {
-      current = { ...current, vehicles: current.vehicles.filter((entry) => entry !== name) }
+    removeVehicle: vi.fn((_id: string, vehicleId: string) => {
+      current = { ...current, vehicles: current.vehicles.filter((entry) => entry.vehicleId !== vehicleId) }
     }),
     removeMaterial: vi.fn(),
     unassignGroupResource: vi.fn(),
@@ -131,8 +132,8 @@ function board(
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, Math.min(ms, 1))),
   }
   function land(resource: DispatchResource) {
-    if (resource.kind === "person") current = { ...current, crew: [...current.crew, resource.name] }
-    if (resource.kind === "vehicle") current = { ...current, vehicles: [...current.vehicles, resource.name] }
+    if (resource.kind === "person") current = { ...current, crew: [...current.crew, crewMember(resource.name, resource.id)] }
+    if (resource.kind === "vehicle") current = { ...current, vehicles: [...current.vehicles, assignedVehicle(resource.name, { vehicleId: resource.id })] }
     if (resource.kind === "material") current = { ...current, materials: [...current.materials, resource.id] }
   }
   return {
@@ -169,7 +170,7 @@ describe("runDispatch", () => {
   })
 
   it("remembers where «Hierher verschieben» took a resource from", async () => {
-    const elsewhere = operation({ id: "inc-12", number: 12, crew: ["Muster Peter"] })
+    const elsewhere = operation({ id: "inc-12", number: 12, crew: [crewMember("Muster Peter", MUSTER.id)] })
     const b = board(operation(), { askFor: ["Muster Peter"], others: [elsewhere] })
     const outcome = await runDispatch(command(), b.deps)
     expect(outcome?.moved).toEqual([
@@ -178,13 +179,13 @@ describe("runDispatch", () => {
   })
 
   it("«auf beiden führen» moved nothing", async () => {
-    const elsewhere = operation({ id: "inc-12", number: 12, crew: ["Muster Peter"] })
+    const elsewhere = operation({ id: "inc-12", number: 12, crew: [crewMember("Muster Peter", MUSTER.id)] })
     const b = board(operation(), { askFor: ["Muster Peter"], keep: true, others: [elsewhere] })
     expect((await runDispatch(command(), b.deps))?.moved).toEqual([])
   })
 
   it("leaves alone what is already there and does not claim it", async () => {
-    const b = board(operation({ vehicles: ["TLF"] }))
+    const b = board(operation({ vehicles: [assignedVehicle("TLF", { vehicleId: TLF.id })] }))
     const outcome = await runDispatch(command(), b.deps)
     expect(b.order).toEqual(["assign:Muster Peter"])
     expect(outcome?.assigned.map((resource) => resource.id)).toEqual(["p-muster"])
@@ -229,21 +230,21 @@ describe("undo", () => {
   }
 
   it("takes off exactly what the command put on", async () => {
-    const { b, undo } = await dispatched(operation({ crew: ["Schon Da"] }))
+    const { b, undo } = await dispatched(operation({ crew: [crewMember("Schon Da")] }))
     await undo()
-    expect(b.deps.removeVehicle).toHaveBeenCalledWith("inc-14", "TLF")
-    expect(b.deps.removeCrew).toHaveBeenCalledWith("inc-14", "Muster Peter")
+    expect(b.deps.removeVehicle).toHaveBeenCalledWith("inc-14", TLF.id)
+    expect(b.deps.removeCrew).toHaveBeenCalledWith("inc-14", MUSTER.id)
     expect(b.deps.removeMaterial).toHaveBeenCalledWith("inc-14", "m-pumpe")
-    expect(b.current.crew).toEqual(["Schon Da"])
+    expect(b.current.crew).toEqual([crewMember("Schon Da")])
   })
 
   it("puts a moved resource back where it came from, after taking it off here", async () => {
-    const elsewhere = operation({ id: "inc-12", number: 12, crew: ["Muster Peter"] })
+    const elsewhere = operation({ id: "inc-12", number: 12, crew: [crewMember("Muster Peter", MUSTER.id)] })
     const b = board(operation(), { askFor: ["Muster Peter"], others: [elsewhere] })
     await runDispatch(command({ assign: [{ target: MUSTER, alreadyHere: false, elsewhere: [12] }] }), b.deps)
     const undo = (b.deps.report as ReturnType<typeof vi.fn>).mock.calls[0][1] as () => Promise<void>
     await undo()
-    expect(b.deps.removeCrew).toHaveBeenCalledWith("inc-14", "Muster Peter")
+    expect(b.deps.removeCrew).toHaveBeenCalledWith("inc-14", MUSTER.id)
     expect(b.deps.restore).toHaveBeenCalledWith(expect.objectContaining({ kind: "personnel", operationId: "inc-12" }))
     // Off here first, then back there – the restore must find the person free.
     const removeOrder = (b.deps.removeCrew as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]
@@ -277,7 +278,7 @@ describe("holding", () => {
       ...EMPTY,
       personnel: [{ assignmentId: "ga-1", resourceId: "p-muster", name: "Muster Peter" }],
     }
-    expect(holding(operation({ crew: ["Muster Peter"] }), MUSTER, () => EMPTY)).toEqual({ where: "crew" })
+    expect(holding(operation({ crew: [crewMember("Muster Peter", MUSTER.id)] }), MUSTER, () => EMPTY)).toEqual({ where: "crew" })
     expect(holding(operation({ assignedReko: { id: "p-muster", name: "Muster Peter" } }), MUSTER, () => EMPTY)).toEqual({
       where: "reko",
     })

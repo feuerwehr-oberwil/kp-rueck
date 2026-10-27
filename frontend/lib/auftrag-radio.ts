@@ -12,6 +12,7 @@ import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { toStopMirrorStatus } from "@/lib/kanban-utils"
 import { sortCrewByLeader } from "@/lib/crew-order"
+import { plainName, type PersonText } from "@/lib/person-label"
 import {
   auftragFullAnnouncement,
   auftragShortAnnouncement,
@@ -19,6 +20,7 @@ import {
   radioFingerprint,
   stopSpecial,
   type RadioDeployment,
+  type RadioVehicle,
   type RadioSegment,
   type RadioStop,
   type RadioTranslate,
@@ -28,6 +30,11 @@ import {
 export function stopAddress(operation: Operation | undefined, fallback: string): string {
   if (!operation) return fallback
   return (operation.locationDisplay ?? formatLocationForDisplay(operation.location, getGlobalHomeCity())) || fallback
+}
+
+/** A deployment whose vehicles keep their id, so a caller can look up who drives them. */
+export interface RouteDeployment extends RadioDeployment {
+  vehicles: (RadioVehicle & { vehicleId: string })[]
 }
 
 /**
@@ -40,11 +47,9 @@ export function routeDeployment(
   operation: Operation,
   resources: GroupResources,
   materials: Material[],
-): RadioDeployment {
-  const stay = new Map(operation.vehicleDriverStay ?? [])
-  for (const vehicle of resources.vehicles) {
-    if (vehicle.driverStay !== undefined) stay.set(vehicle.name, vehicle.driverStay)
-  }
+  /** How a person is named aloud — the Kennung for a namesake. */
+  personText: PersonText = plainName,
+): RouteDeployment {
   const materialById = new Map(materials.map((material) => [material.id, material] as const))
   const materialItems = [
     ...operation.materials.map((id) => materialById.get(id)),
@@ -53,16 +58,26 @@ export function routeDeployment(
 
   // A stop owns no people, so for a grouped incident the EL comes off the
   // route; a standalone incident carries its own.
-  const leader = resources.personnel.find((person) => person.isLeader)?.name ?? operation.leaderName ?? null
+  const routeLeader = resources.personnel.find((person) => person.isLeader)
+  const leaderId = routeLeader?.resourceId ?? operation.leaderId ?? null
+  const crew = [
+    ...operation.crew,
+    ...resources.personnel.map((person) => ({ personnelId: person.resourceId, name: person.name })),
+  ]
 
   return {
-    // EL first (decision 23): read out first is read down first.
-    crew: sortCrewByLeader([...operation.crew, ...resources.personnel.map((person) => person.name)], leader),
-    leader,
-    vehicles: [...operation.vehicles, ...resources.vehicles.map((vehicle) => vehicle.name)].map((name) => ({
-      name,
-      stay: stay.get(name),
-    })),
+    // EL first (decision 23): read out first is read down first. Sorted by id,
+    // so of two people sharing the EL's name only the EL leads the list.
+    crew: sortCrewByLeader(crew, leaderId).map(personText),
+    leader: routeLeader
+      ? personText({ name: routeLeader.name, personnelId: routeLeader.resourceId })
+      : operation.leaderName
+        ? personText({ name: operation.leaderName, personnelId: operation.leaderId ?? undefined })
+        : null,
+    vehicles: [
+      ...operation.vehicles.map((vehicle) => ({ vehicleId: vehicle.vehicleId, name: vehicle.name, stay: vehicle.driverStay })),
+      ...resources.vehicles.map((vehicle) => ({ vehicleId: vehicle.resourceId, name: vehicle.name, stay: vehicle.driverStay })),
+    ],
     materials: materialItems.map((material) => ({ name: material.name, category: material.category })),
     zuFuss: operation.zuFuss || false,
   }
@@ -108,6 +123,8 @@ export interface AuftragRadioInput {
   fallbackAddress: string
   /** Repeat of an earlier announcement: keep its form instead of deciding anew. */
   forceFull?: boolean
+  /** How a person is named aloud (`usePersonNaming().text`); the bare name without. */
+  personText?: PersonText
 }
 
 export interface AuftragRadio {
@@ -127,7 +144,7 @@ export interface AuftragRadio {
  * was actually said rather than what would be said now.
  */
 export function auftragRadio(t: RadioTranslate, input: AuftragRadioInput): AuftragRadio {
-  const deployment = routeDeployment(input.operation, input.resources, input.materials)
+  const deployment = routeDeployment(input.operation, input.resources, input.materials, input.personText)
   const fingerprint = radioFingerprint(deployment)
   const full = input.forceFull ?? needsFullAnnouncement(input.group.lastAnnounced, fingerprint)
   const stops = routeStops(t, input.group, input.operations, input.fallbackAddress)

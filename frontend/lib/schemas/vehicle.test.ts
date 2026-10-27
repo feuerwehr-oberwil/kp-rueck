@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { vehicleFormDefaults, vehicleFormSchema } from "./vehicle";
+import { vehicleFormDefaults, vehicleFormSchema, vehicleTypeFor } from "./vehicle";
 
 describe("vehicleFormSchema", () => {
   it("accepts a fully populated valid vehicle", () => {
@@ -78,5 +78,11 @@ describe("vehicleFormSchema", () => {
       status: "maintenance",
     });
     expect(result.success).toBe(false);
+  });
+
+  it("sends a type the API accepts: the form's, or the name cut to 50 characters", () => {
+    expect(vehicleTypeFor({ name: "TLF 1", type: "TLF" })).toBe("TLF");
+    expect(vehicleTypeFor({ name: "TLF 1", type: "  " })).toBe("TLF 1");
+    expect(vehicleTypeFor({ name: "x".repeat(80), type: "" })).toHaveLength(50);
   });
 });

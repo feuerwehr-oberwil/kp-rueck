@@ -11,6 +11,7 @@ import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { type ApiRekoReportResponse } from "@/lib/api-client"
 import { type GroupResources } from "@/lib/types/groups"
 import { sortCrewByLeader } from "@/lib/crew-order"
+import { plainName, type PersonText } from "@/lib/person-label"
 import {
   renderMessageTemplate,
   DEFAULT_WHATSAPP_INCIDENT_TEMPLATE,
@@ -20,8 +21,7 @@ interface FormatWhatsAppMessageOptions {
   operation: Operation
   materials: Material[]
   rekoReport?: ApiRekoReportResponse | null
-  vehicleDrivers?: Map<string, string> // Map of vehicle name to driver name
-  vehicleCallsigns?: Map<string, string> // Map of vehicle name to radio_call_sign
+  vehicleDrivers?: ReadonlyMap<string, string> // vehicle id -> driver name
   /** Resources owned by the incident's Auftrag (route). A grouped incident
    *  carries none itself — the route does — so merge these in or the crew /
    *  vehicle / material lines come out blank. */
@@ -30,21 +30,29 @@ interface FormatWhatsAppMessageOptions {
   auftrag?: { name: string; stopPos: number; stopTotal: number } | null
   /** Editable template; falls back to the built-in default when omitted. */
   template?: string
+  /** How a person is named (`usePersonNaming().text`, the Kennung for a namesake). */
+  personText?: PersonText
+}
+
+/** A vehicle as the message names it: the incident's own, or the Auftrag's. */
+interface MessageVehicle {
+  vehicleId: string
+  name: string
+  callsign?: string | null
+  driverStay?: boolean
 }
 
 /** Render the assigned-vehicles section content (without the leading emoji). */
 function buildVehicles(
-  operation: Operation,
-  vehicleDrivers?: Map<string, string>,
-  vehicleCallsigns?: Map<string, string>,
+  vehicles: readonly MessageVehicle[],
+  zuFuss: boolean,
+  vehicleDrivers?: ReadonlyMap<string, string>,
 ): string {
   // A "zu Fuss" incident has no vehicle on purpose — surface that explicitly
   // instead of leaving the section blank, so the crew knows they go on foot.
-  if (operation.vehicles.length === 0) return operation.zuFuss ? "🚶 Zu Fuss" : ""
-  const vehicleLines = operation.vehicles.map((vehicleName) => {
-    const callsign = vehicleCallsigns?.get(vehicleName) || operation.vehicleCallsigns?.get(vehicleName)
-    const driverName = vehicleDrivers?.get(vehicleName)
-    const driverStay = operation.vehicleDriverStay?.get(vehicleName)
+  if (vehicles.length === 0) return zuFuss ? "🚶 Zu Fuss" : ""
+  const vehicleLines = vehicles.map(({ vehicleId, name: vehicleName, callsign, driverStay }) => {
+    const driverName = vehicleDrivers?.get(vehicleId)
     const displayName = callsign ? `${vehicleName} · ${callsign}` : vehicleName
     const parts = [displayName]
     if (driverName) parts.push(`Fahrer: ${driverName}`)
@@ -63,9 +71,9 @@ function buildVehicles(
 }
 
 /** Render the assigned-materials section content (without the leading emoji). */
-function buildMaterials(operation: Operation, materials: Material[]): string {
-  if (operation.materials.length === 0) return ""
-  const materialList = operation.materials.map((matId) => {
+function buildMaterials(materialIds: readonly string[], materials: Material[]): string {
+  if (materialIds.length === 0) return ""
+  const materialList = materialIds.map((matId) => {
     const material = materials.find((m) => m.id === matId)
     if (material) {
       const category = material.category ? ` (${material.category})` : ""
@@ -123,13 +131,17 @@ function buildReko(rekoReport?: ApiRekoReportResponse | null): string {
  * Format an operation for WhatsApp sharing.
  * Uses WhatsApp markdown syntax and emojis for better readability.
  */
-/** Crew as one line, with the Einsatzleiter marked. */
-function formatCrew(crew: string[], leaderName: string | null): string {
+/** Crew as one line, with the Einsatzleiter (by personnel id) marked. */
+function formatCrew(
+  crew: readonly { personnelId: string; name: string }[],
+  leaderId: string | null,
+  personText: PersonText,
+): string {
   if (crew.length === 0) return ""
   // EL first (decision 23): the message is read on a phone, where a long crew
   // line wraps — «wen rufe ich an» must not be somewhere in the middle of it.
-  return sortCrewByLeader(crew, leaderName)
-    .map((name) => (leaderName && name === leaderName ? `EL ${name}` : name))
+  return sortCrewByLeader(crew, leaderId)
+    .map((member) => (leaderId && member.personnelId === leaderId ? `EL ${personText(member)}` : personText(member)))
     .join(", ")
 }
 
@@ -138,10 +150,10 @@ export function formatWhatsAppMessage({
   materials,
   rekoReport,
   vehicleDrivers,
-  vehicleCallsigns,
   groupResources,
   auftrag,
   template,
+  personText = plainName,
 }: FormatWhatsAppMessageOptions): string {
   // de-CH on purpose: this text goes to the crew's WhatsApp group, and the
   // message template around it is German whatever this device's UI language.
@@ -156,26 +168,20 @@ export function formatWhatsAppMessage({
   // A grouped incident's crew/vehicles/materials live on the Auftrag, so its own
   // arrays are empty — merge the route's resources in before composing, or the
   // message dispatches with no crew/vehicle/material.
-  const eff = groupResources
-    ? {
-        ...operation,
-        crew: [...operation.crew, ...groupResources.personnel.map((p) => p.name)],
-        vehicles: [...operation.vehicles, ...groupResources.vehicles.map((v) => v.name)],
-        materials: [...operation.materials, ...groupResources.materials.map((m) => m.resourceId)],
-        vehicleDriverStay: (() => {
-          const m = new Map(operation.vehicleDriverStay ?? [])
-          for (const v of groupResources.vehicles) {
-            if (v.driverStay !== undefined) m.set(v.name, v.driverStay)
-          }
-          return m
-        })(),
-      }
-    : operation
+  const crew = [
+    ...operation.crew,
+    ...(groupResources?.personnel ?? []).map((p) => ({ personnelId: p.resourceId, name: p.name })),
+  ]
+  const vehicles: MessageVehicle[] = [
+    ...operation.vehicles,
+    ...(groupResources?.vehicles ?? []).map((v) => ({ vehicleId: v.resourceId, name: v.name, driverStay: v.driverStay })),
+  ]
+  const materialIds = [...operation.materials, ...(groupResources?.materials ?? []).map((m) => m.resourceId)]
 
   // A stop owns no people — the route does — so a grouped incident takes its
   // Einsatzleiter from the Auftrag. «EL» goes out as the same two letters the
   // board shows and the radio says.
-  const leaderName = groupResources?.personnel.find((p) => p.isLeader)?.name ?? operation.leaderName ?? null
+  const leaderId = groupResources?.personnel.find((p) => p.isLeader)?.resourceId ?? operation.leaderId ?? null
 
   const values: Record<string, string> = {
     type: getIncidentTypeLabel(operation.incidentType).toUpperCase(),
@@ -183,9 +189,9 @@ export function formatWhatsAppMessage({
     notes: operation.notes?.trim() || "",
     contact: operation.contact?.trim() || "",
     internal_notes: operation.internalNotes?.trim() || "",
-    vehicles: buildVehicles(eff, vehicleDrivers, vehicleCallsigns),
-    crew: formatCrew(eff.crew, leaderName),
-    materials: buildMaterials(eff, materials),
+    vehicles: buildVehicles(vehicles, operation.zuFuss, vehicleDrivers),
+    crew: formatCrew(crew, leaderId, personText),
+    materials: buildMaterials(materialIds, materials),
     reko: buildReko(rekoReport),
     timestamp,
   }

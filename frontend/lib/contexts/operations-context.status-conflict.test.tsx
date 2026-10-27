@@ -213,6 +213,6 @@ describe("status moves from a stale board", () => {
     const { result } = await renderLoaded()
     act(() => result.current.updateOperation("1", { contact: "Frau Meier" }))
     await waitFor(() => expect(patches).toHaveLength(1))
-    expect(patches[0].body).toEqual({ contact: "Frau Meier" })
+    expect(patches[0].body).toEqual({ contact: "Frau Meier", text_base: { contact: "" } })
   })
 })

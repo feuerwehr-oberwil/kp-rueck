@@ -88,6 +88,13 @@ def _payload(**overrides) -> dict:
     return base
 
 
+def test_alarm_text_cannot_send_printer_commands():
+    out = _render(_payload(description="Brand\x1b@\x1dV\x00 Ende", contact="Meier\x0c\x7f"))
+    assert "Brand" in out and "Ende" in out and "Meier" in out
+    assert all(ord(character) >= 32 or character == "\n" for character in out)
+    assert "\x7f" not in out
+
+
 class TestTheAlarmTime:
     def test_is_converted_to_station_local_time(self):
         """The slip showed UTC. In Switzerland that is an alarm time 1–2 h in the past."""

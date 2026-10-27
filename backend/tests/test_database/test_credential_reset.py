@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from alembic import command
 from app.config import settings
-from app.models import FeldDeviceClaim, FeldUnlockClaim, Personnel
+from app.models import FeldDeviceClaim, FeldUnlockClaim
 from tests.conftest import create_scratch_database, drop_scratch_database, worker_database_url
 
 
@@ -27,9 +27,10 @@ def test_credential_reset_runs_once(monkeypatch):
         engine = create_async_engine(url)
         try:
             async with async_sessionmaker(engine, expire_on_commit=False)() as db:
-                # Raw SQL for the event, not the ORM: this runs against the schema as
-                # of d2a7f91c60e4, and the Event model grows columns after that revision
-                # (feld_code_failures, 2026-09-23) that an ORM insert would name.
+                # Raw SQL for the event and the person, not the ORM: this runs against the
+                # schema as of d2a7f91c60e4, and both models grow columns after that revision
+                # (events.feld_code_failures 2026-09-23, personnel.kennung 2026-10-26) that an
+                # ORM insert would name.
                 await db.execute(
                     text(
                         "INSERT INTO events (id, name, training_flag, auto_attach_divera, feld_code) "
@@ -37,7 +38,13 @@ def test_credential_reset_runs_once(monkeypatch):
                     ),
                     {"id": event_id},
                 )
-                db.add(Personnel(id=person_id, name="Test Person", role="Feuerwehrmann", status="available"))
+                await db.execute(
+                    text(
+                        "INSERT INTO personnel (id, name, role, role_sort_order, status) "
+                        "VALUES (:id, 'Test Person', 'Feuerwehrmann', 0, 'available')"
+                    ),
+                    {"id": person_id},
+                )
                 await db.flush()
                 db.add_all(
                     [

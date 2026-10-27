@@ -32,6 +32,7 @@ from ..models import (
 from ..schemas.journal import JournalEntryOut
 from .journal import journal_rows
 from .merge_links import merged_cards_of_event
+from .workbook_output import workbook_bytes
 
 
 @dataclass
@@ -387,9 +388,7 @@ def _build_audit_workbook(data: EventReportData, current_user: User) -> tuple[By
     _add_reko_reports_sheet(ws_reko, reko_reports, incident_map, personnel_map)
 
     # Save to buffer
-    buffer = BytesIO()
-    wb.save(buffer)
-    buffer.seek(0)
+    buffer = workbook_bytes(wb)
 
     # Return metadata for audit logging
     metadata = {

@@ -87,8 +87,8 @@ export function useBoardDialogActions(input: UseBoardDialogActionsInput) {
   /** Where this person is still assigned, so a check-out can warn instead of surprising.
    *  Never used to block, and never to release the assignment. */
   const assignmentLabelForPerson = useCallback(
-    (person: { name: string }) =>
-      operations.find((op) => op.status !== 'complete' && op.crew.includes(person.name))?.location ?? null,
+    (person: { id: string }) =>
+      operations.find((op) => op.status !== 'complete' && op.crew.some((m) => m.personnelId === person.id))?.location ?? null,
     [operations]
   )
 
@@ -182,7 +182,7 @@ export function useBoardDialogActions(input: UseBoardDialogActionsInput) {
     if (!operationToDelete) return null
     const parts = [
       operationToDelete.crew.length ? tCommon('personCount', { count: operationToDelete.crew.length }) : null,
-      operationToDelete.vehicles.length ? operationToDelete.vehicles.join(', ') : null,
+      operationToDelete.vehicles.length ? operationToDelete.vehicles.map((v) => v.name).join(', ') : null,
     ].filter(Boolean)
     return parts.length ? tCommon('deleteIncidentReleases', { what: parts.join(', ') }) : null
   }, [operationToDelete, tCommon])

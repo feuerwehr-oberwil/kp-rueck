@@ -147,3 +147,20 @@ async def test_sync_updates_identity_when_divera_id_changes(db_session: AsyncSes
         .all()
     )
     assert count == 1
+
+
+@pytest.mark.asyncio
+async def test_sync_keeps_two_new_members_with_the_same_name(db_session: AsyncSession, sync_user: User, mock_request):
+    """Divera names are real names: a same-name pair is created, not refused (F04 Kennung rule)."""
+    preview = {
+        "new": [
+            {"member": {"divera_id": 800101, "name": "Meier Alex"}, "status": "new"},
+            {"member": {"divera_id": 800102, "name": "Meier Alex"}, "status": "new"},
+        ],
+        "unchanged": [],
+        "not_in_divera": [],
+    }
+
+    result = await execute_sync(db_session, preview, remove_stale=False, current_user=sync_user, request=mock_request)
+
+    assert result["created"] == 2

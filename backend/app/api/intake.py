@@ -35,6 +35,7 @@ from ..crud import feld as feld_crud
 from ..crud import incidents as crud
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
+from ..schemas.fields import OptionalText50
 from ..schemas.incidents import IncidentFields, IncidentPriority, IncidentType, check_free_text
 from ..services import duplicates, incident_display
 from ..services.audit import log_action
@@ -276,7 +277,7 @@ class IntakeAlarmUpdate(IncidentFields):
     description: str | None = None  # «Meldung»
     internal_notes: str | None = None  # «Notizen» — appended, never replaced
     contact: str | None = None
-    contact_phone: str | None = None
+    contact_phone: OptionalText50 | None = None  # the column is 50 wide
 
     _validate_notes = field_validator("internal_notes")(check_free_text)
 

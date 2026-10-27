@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { formatWhatsAppMessage } from "./whatsapp-formatter"
 import type { Operation } from "@/lib/contexts/operations-context"
+import { assignedVehicle } from "@/test-utils/operation-fixtures"
 
 const operation = {
   id: "e1",
@@ -11,10 +12,9 @@ const operation = {
   internalNotes: "",
   crew: [],
   materials: [],
-  vehicles: ["TLF"],
-  vehicleCallsigns: new Map(),
-  vehicleDriverStay: new Map(),
+  vehicles: [assignedVehicle("TLF")],
   zuFuss: false,
+  leaderId: null,
   leaderName: null,
 } as unknown as Operation
 
@@ -29,7 +29,7 @@ describe("formatWhatsAppMessage — vehicles without a driver", () => {
     const message = formatWhatsAppMessage({
       operation,
       materials: [],
-      vehicleDrivers: new Map([["TLF", "Meier"]]),
+      vehicleDrivers: new Map([["v-TLF", "Meier"]]),
       groupResources: routeResources,
       template: "{vehicles}",
     })

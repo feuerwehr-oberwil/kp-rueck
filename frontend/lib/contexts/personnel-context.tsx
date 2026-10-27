@@ -21,6 +21,9 @@ export type PersonRole = string
 export interface Person {
   id: string
   name: string
+  /** Tells two people of the same name apart; shown only for namesakes
+   *  (`components/person-name.tsx`). */
+  kennung?: string | null
   role: PersonRole
   status: PersonStatus
   tags?: string[]

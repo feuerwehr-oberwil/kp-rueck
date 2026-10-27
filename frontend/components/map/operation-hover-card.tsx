@@ -87,7 +87,7 @@ export function OperationHoverCard({
   // EL first (decision 23), and sorted BEFORE the slice: this card shows three
   // of the crew and a "+4", so an unsorted list is the one place the
   // Einsatzleiter can be cut off the surface entirely.
-  const crewShown = sortCrewByLeader(operation.crew, operation.leaderName).slice(0, 3)
+  const crewShown = sortCrewByLeader(operation.crew, operation.leaderId).slice(0, 3)
   const routeCrew = sortCrewByLeader(routeResources?.personnel ?? [], (p) => Boolean(p.isLeader))
   const routeVehicles = routeResources?.vehicles ?? []
   const routeCrewShown = routeCrew.slice(0, 4)
@@ -135,13 +135,13 @@ export function OperationHoverCard({
       {operation.vehicles.length > 0 && (
         <p style={ROW}>
           <span style={MUTED}>{tKanban("resources.vehicles")}: </span>
-          {operation.vehicles.map(label).join(", ")}
+          {operation.vehicles.map((v) => label(v.name)).join(", ")}
         </p>
       )}
       {operation.crew.length > 0 && (
         <p style={ROW}>
           <span style={MUTED}>{tKanban("resources.crew")}: </span>
-          {crewShown.map(label).join(", ")}
+          {crewShown.map((m) => label(m.name)).join(", ")}
           {operation.crew.length > crewShown.length && ` +${operation.crew.length - crewShown.length}`}
         </p>
       )}

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -23,18 +23,27 @@ class PrintJobType(str, Enum):
 
 
 class PrintJobStatus(str, Enum):
-    """Print job status enumeration."""
+    """Every status a stored print job can have – the `valid_print_job_status` CHECK.
+
+    `expired` is set only by the server (`crud.print_jobs.expire_stale_jobs`); it is here
+    so a read of such a job can answer at all.
+    """
 
     PENDING = "pending"
     PRINTING = "printing"
     COMPLETED = "completed"
     FAILED = "failed"
+    EXPIRED = "expired"
+
+
+# The two outcomes the agent may report for a job it claimed.
+PrintJobOutcome = Literal[PrintJobStatus.COMPLETED, PrintJobStatus.FAILED]
 
 
 class PrintJobUpdate(BaseModel):
     """Schema for updating a print job (agent reports status)."""
 
-    status: PrintJobStatus
+    status: PrintJobOutcome
     error_message: str | None = None
     # "The printer did not answer" — as opposed to "the printer refused this job". Only the
     # second is worth one of the three attempts: an unreachable printer is usually rebooting,

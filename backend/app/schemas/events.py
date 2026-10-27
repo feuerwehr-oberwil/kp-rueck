@@ -88,7 +88,8 @@ class EventSpecialFunctionDelete(BaseModel):
     """Schema for removing a special function assignment."""
 
     personnel_id: UUID
-    function_type: FunctionType
+    # Same station-defined keys as creation and response schemas.
+    function_type: str
     vehicle_id: UUID | None = None  # Required for driver unassignments
 
 

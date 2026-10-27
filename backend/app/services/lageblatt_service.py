@@ -575,7 +575,7 @@ def build_lageblatt_pdf(
     meta_style = ParagraphStyle("lageblatt_meta", fontName="Helvetica", fontSize=8, leading=10)
 
     heading = [
-        Paragraph(f"Ereignis: {data.event.name}", title_style),
+        Paragraph(f"Ereignis: {escape(data.event.name)}", title_style),
         Paragraph(
             f"Datum: {now_local.strftime('%d.%m.%Y')} – Stand: {now_local.strftime('%H:%M')} Uhr",
             meta_style,

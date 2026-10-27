@@ -1,11 +1,13 @@
 import type { ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { fireEvent, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
 import { apiClient } from "@/lib/api-client"
 import type { Operation } from "@/lib/contexts/operations-context"
 import type { Person } from "@/lib/contexts/personnel-context"
+import { crewMember, assignedVehicle } from "@/test-utils/operation-fixtures"
+import { noteFieldEdit, noteFieldQueued, noteFieldSend, noteFieldSettled, resetFieldSaveForTests, setFieldSaveScope } from "@/lib/field-save"
 
 const refreshOperations = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 // The board sync's fleet (`useOperations().vehicles`) – the quick-assign shortcuts count it.
@@ -166,12 +168,9 @@ const operation: Operation = {
   rekoArrivedAt: null,
   rekoSummary: null,
   assignedReko: { id: sourcePerson.id, name: sourcePerson.name },
+  leaderId: null,
   leaderName: null,
-  crewAssignments: new Map(),
   materialAssignments: new Map(),
-  vehicleAssignments: new Map(),
-  vehicleCallsigns: new Map(),
-  vehicleDriverStay: new Map(),
 }
 
 const tab = (name: string | RegExp) => screen.getByRole("tab", { name })
@@ -374,8 +373,8 @@ describe("OperationDetailContent", () => {
       <OperationDetailContent
         operation={{
           ...operation,
-          crew: ["Muster Hans", "Muster Anna"],
-          vehicles: ["TLF"],
+          crew: [crewMember("Muster Hans"), crewMember("Muster Anna")],
+          vehicles: [assignedVehicle("TLF")],
           materials: ["mat-1"],
           hasSchadenplatzRapport: true,
         }}
@@ -891,8 +890,7 @@ describe("OperationDetailContent · Herkunft der Ressourcen", () => {
   const groupedOperation: Operation = {
     ...operation,
     groupId: "g1",
-    crew: ["Beat Kunz"],
-    crewAssignments: new Map([["Beat Kunz", "a1"]]),
+    crew: [{ personnelId: "p-beat", assignmentId: "a1", name: "Beat Kunz" }],
     materials: ["mat-1"],
     materialAssignments: new Map([["mat-1", "a2"]]),
   }
@@ -955,7 +953,7 @@ describe("OperationDetailContent · Herkunft der Ressourcen", () => {
 
     // Visible is only half of it: the operator has to be able to release them.
     await user.click(ownScope.getByTitle("Person freigeben"))
-    expect(onRemoveCrew).toHaveBeenCalledWith("incident-1", "Beat Kunz")
+    expect(onRemoveCrew).toHaveBeenCalledWith("incident-1", "p-beat")
   })
 
   it("adds from the stop's own block nowhere — the Auftrag is the only target", () => {
@@ -1015,12 +1013,12 @@ describe("OperationDetailContent · chip menu on touch", () => {
 
   const crewOperation: Operation = {
     ...operation,
-    crew: ["Muster Hans", "Frei Anna"],
+    crew: [
+      { personnelId: "p-hans", assignmentId: "a-1", name: "Muster Hans" },
+      { personnelId: "p-anna", assignmentId: "a-2", name: "Frei Anna" },
+    ],
+    leaderId: "p-hans",
     leaderName: "Muster Hans",
-    crewAssignments: new Map([
-      ["Muster Hans", "a-1"],
-      ["Frei Anna", "a-2"],
-    ]),
   }
 
   function mount(onRemoveCrew = vi.fn()) {
@@ -1060,6 +1058,38 @@ describe("OperationDetailContent · chip menu on touch", () => {
     expect(menu).toHaveTextContent("Einsatzleiter")
     expect(screen.queryByRole("menuitem", { name: "Als Einsatzleiter markieren" })).toBeNull()
     await user.click(screen.getByRole("menuitem", { name: "Vom Einsatz freigeben" }))
-    expect(onRemoveCrew).toHaveBeenCalledWith("incident-1", "Muster Hans")
+    expect(onRemoveCrew).toHaveBeenCalledWith("incident-1", "p-hans")
+  })
+})
+
+// A text conflict waits for a choice: the field's edge is amber, not the red of
+// a failed save (fieldSaveEdgeClass) — nothing broke, somebody else wrote too.
+describe("OperationDetailContent · the edge of an unsaved text field", () => {
+  beforeEach(() => {
+    resetFieldSaveForTests()
+    setFieldSaveScope("user-a:event-1")
+  })
+
+  function mountWithFailedContact(failure: Parameters<typeof noteFieldSettled>[1]) {
+    act(() => noteFieldEdit("incident-1", "contact", "Frau Meier", ""))
+    act(() => noteFieldSettled(noteFieldSend(noteFieldQueued("incident-1", { contact: "Frau Meier" })), failure))
+    renderWithIntl(<OperationDetailContent operation={operation} layout="panel" materials={[]} onUpdate={vi.fn()} canEdit />)
+    return document.getElementById("contact")!
+  }
+
+  it("is amber while a text conflict asks", () => {
+    const contact = mountWithFailedContact({
+      ok: false,
+      reason: "conflict",
+      conflict: { field: "contact", conflict: { text: "Herr Meier", by: null, at: null } },
+    })
+    expect(contact.className).toMatch(/border-amber-600/)
+    expect(contact.className).not.toMatch(/(^|\s)border-destructive(\s|$)/)
+  })
+
+  it("is red when the save failed", () => {
+    const contact = mountWithFailedContact({ ok: false, reason: "network" })
+    expect(contact.className).toMatch(/(^|\s)border-destructive(\s|$)/)
+    expect(contact.className).not.toMatch(/border-amber-600/)
   })
 })

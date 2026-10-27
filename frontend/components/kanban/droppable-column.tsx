@@ -33,10 +33,10 @@ interface DroppableColumnProps {
     collapsible?: boolean
   }
   operations: Operation[]
-  onRemoveCrew: (operationId: string, crewName: string) => void
+  onRemoveCrew: (operationId: string, personnelId: string) => void
   onRemoveMaterial: (operationId: string, materialId: string) => void
-  onRemoveVehicle: (operationId: string, vehicleName: string) => void
-  onToggleDriverStay?: (operationId: string, vehicleName: string) => void
+  onRemoveVehicle: (operationId: string, vehicleId: string) => void
+  onToggleDriverStay?: (operationId: string, vehicleId: string) => void
   onRemoveReko?: (operationId: string) => void
   /** A card was clicked. `tab`/`section` are the block that was hit — the card
    *  routes now (Reko block → Reko tab, a resource row → Übersicht/Ressourcen);
@@ -72,10 +72,10 @@ interface DroppableColumnProps {
    *  type row. See the computation on the board (app/page.tsx). */
   dominantIncidentType?: string | null
   printerEnabled?: boolean
-  /** Vehicle name → driver, loaded ONCE on the board and threaded down. Per-card
+  /** Vehicle id → driver, loaded ONCE on the board and threaded down. Per-card
    *  it would be one roster fetch per card. */
   vehicleDrivers?: ReadonlyMap<string, string>
-  doubleBookedCrewNames?: Set<string>
+  doubleBookedCrewIds?: Set<string>
   /** False for viewers: cards render without a drag source (read-only board). */
   canDrag?: boolean
   /** Forwarded to cards: notifies the sync layer of drag start/end. */
@@ -108,7 +108,7 @@ function arePropsEqual(prev: DroppableColumnProps, next: DroppableColumnProps): 
     prev.printerEnabled !== next.printerEnabled ||
     prev.vehicleDrivers !== next.vehicleDrivers ||
     prev.materials !== next.materials ||
-    prev.doubleBookedCrewNames !== next.doubleBookedCrewNames ||
+    prev.doubleBookedCrewIds !== next.doubleBookedCrewIds ||
     prev.canDrag !== next.canDrag ||
     prev.onSort !== next.onSort ||
     prev.isCollapsed !== next.isCollapsed ||
@@ -122,7 +122,7 @@ function arePropsEqual(prev: DroppableColumnProps, next: DroppableColumnProps): 
   // This comparator is the OUTER memo gate: a field the list forgot never reached the
   // card's own comparator at all, and the hand list here had drifted well behind what the
   // cards draw (nachbarhilfeNote, locationDisplay, contactPhone, the pickup fields,
-  // vehicleCallsigns, …). The walk compares by value, which is also what the data needs —
+  // the vehicle call signs, …). The walk compares by value, which is also what the data needs —
   // the ApiIncident → Operation mapper rebuilds arrays, Dates and Maps on every sync, so
   // identity checks would report "changed" on every poll.
   return areOperationListsEqual(prev.operations, next.operations)
@@ -159,7 +159,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   dominantIncidentType,
   printerEnabled,
   vehicleDrivers,
-  doubleBookedCrewNames,
+  doubleBookedCrewIds,
   canDrag,
   onDragActiveChange,
   onSort,
@@ -451,10 +451,10 @@ export const DroppableColumn = memo(function DroppableColumn({
             >
               <DraggableOperation
                 operation={operation}
-                onRemoveCrew={(crewName) => onRemoveCrew(operation.id, crewName)}
+                onRemoveCrew={(personnelId) => onRemoveCrew(operation.id, personnelId)}
                 onRemoveMaterial={(materialId) => onRemoveMaterial(operation.id, materialId)}
-                onRemoveVehicle={(vehicleName) => onRemoveVehicle(operation.id, vehicleName)}
-                onToggleDriverStay={onToggleDriverStay ? (vehicleName) => onToggleDriverStay(operation.id, vehicleName) : undefined}
+                onRemoveVehicle={(vehicleId) => onRemoveVehicle(operation.id, vehicleId)}
+                onToggleDriverStay={onToggleDriverStay ? (vehicleId) => onToggleDriverStay(operation.id, vehicleId) : undefined}
                 onRemoveReko={onRemoveReko ? () => onRemoveReko(operation.id) : undefined}
                 onClick={(tab, section) => onCardClick(operation, tab, section)}
                 onSelect={(tab, section) => onCardSelect?.(operation, tab, section)}
@@ -479,7 +479,7 @@ export const DroppableColumn = memo(function DroppableColumn({
                 dominantIncidentType={dominantIncidentType}
                 printerEnabled={printerEnabled}
                 vehicleDrivers={vehicleDrivers}
-                doubleBookedCrewNames={doubleBookedCrewNames}
+                doubleBookedCrewIds={doubleBookedCrewIds}
                 canDrag={canDrag}
                 onDragActiveChange={onDragActiveChange}
               />

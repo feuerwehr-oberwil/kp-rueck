@@ -58,4 +58,12 @@ describe("personnelFormSchema", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("caps name at 100, role at 50 and the Kennung at 20 characters, as the API does", () => {
+    const valid = { name: "Meier Alex", kennung: "1985", role: "Soldat", status: "available", tags: [] };
+    expect(personnelFormSchema.safeParse(valid).success).toBe(true);
+    expect(personnelFormSchema.safeParse({ ...valid, name: "x".repeat(101) }).success).toBe(false);
+    expect(personnelFormSchema.safeParse({ ...valid, role: "x".repeat(51) }).success).toBe(false);
+    expect(personnelFormSchema.safeParse({ ...valid, kennung: "x".repeat(21) }).success).toBe(false);
+  });
 });

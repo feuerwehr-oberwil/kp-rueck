@@ -54,7 +54,7 @@
 
 import { useState, useEffect, useRef, type KeyboardEvent } from "react"
 import { useTranslations } from "next-intl"
-import { sanitizePhoneInput } from "@/lib/utils"
+import { CONTACT_PHONE_MAX, sanitizePhoneInput } from "@/lib/utils"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { useIsMobile } from "@/components/ui/use-mobile"
@@ -114,7 +114,7 @@ const emptyForm = () => ({
     vehicle: null as string | null,
     coordinates: null as Operation["coordinates"],
     status: "incoming" as OperationStatus,
-    crew: [] as string[],
+    crew: [] as Operation["crew"],
     materials: [] as string[],
     notes: "",
     // "Telefonisch" / "Vom Feld" — off by default, because
@@ -134,13 +134,10 @@ const emptyForm = () => ({
     rekoArrivedAt: null as Date | null,
     rekoSummary: null,
     assignedReko: null as { id: string; name: string } | null,
+    leaderId: null,
     leaderName: null,
-    crewAssignments: new Map(),
-    materialAssignments: new Map(),
-    vehicles: [] as string[],
-    vehicleAssignments: new Map(),
-    vehicleCallsigns: new Map() as Map<string, string>,
-    vehicleDriverStay: new Map() as Map<string, boolean>,
+    materialAssignments: new Map<string, string>(),
+    vehicles: [] as Operation["vehicles"],
     groupId: null as string | null,
     groupPosition: 0,
   })
@@ -410,6 +407,7 @@ export function NewEmergencyModal({
                 enterKeyHint="done"
                 placeholder={t('common.contactPhonePlaceholder')}
                 value={formData.contactPhone}
+                maxLength={CONTACT_PHONE_MAX}
                 onChange={(e) => setFormData({ ...formData, contactPhone: sanitizePhoneInput(e.target.value) })}
                 onBlur={() => setTouched((prev) => ({ ...prev, contactPhone: true }))}
                 className={cn(showPhoneAdvice && FIELD_ADVICE_CLASS)}

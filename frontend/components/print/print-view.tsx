@@ -9,6 +9,7 @@ import type { GroupResources } from "@/lib/types/groups"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
 import { sortCrewByLeader } from "@/lib/crew-order"
+import { usePersonNaming } from "@/components/person-name"
 import { compareByName } from "@/lib/roster-order"
 import { formatClockTime as formatTime } from "@/lib/incident-time"
 import { columns } from "@/lib/kanban-utils"
@@ -63,7 +64,7 @@ interface PrintViewProps {
   vehicles: ApiVehicle[]
   materials: Material[]
   options: PrintOptions
-  vehicleDrivers?: Map<string, string> // vehicle name -> driver name
+  vehicleDrivers?: ReadonlyMap<string, string> // vehicle id -> driver name
   /** The event roll-call, which is the only source that knows who has GONE
    *  home; the board's personnel list only knows who is on it right now. */
   attendance?: ApiPersonnelListItem[]
@@ -137,25 +138,22 @@ function formatDateTime(date: Date): string {
  * assignments plus the ones its Auftrag owns. Mirrors the WhatsApp formatter —
  * a grouped stop carries nothing itself, so without this it prints empty.
  */
-function effectiveResources(op: Operation, auftrag: PrintAuftrag | undefined) {
+function effectiveResources(op: Operation, auftrag: PrintAuftrag | undefined): {
+  crew: { personnelId: string; name: string }[]
+  leaderId: string | null
+  vehicles: { vehicleId: string; name: string; callsign?: string | null; driverStay?: boolean }[]
+  materials: string[]
+} {
   if (!auftrag) {
-    return {
-      crew: op.crew,
-      leaderName: op.leaderName,
-      vehicles: op.vehicles,
-      driverStay: op.vehicleDriverStay,
-      materials: op.materials,
-    }
-  }
-  const driverStay = new Map(op.vehicleDriverStay ?? [])
-  for (const vehicle of auftrag.resources.vehicles) {
-    if (vehicle.driverStay !== undefined) driverStay.set(vehicle.name, vehicle.driverStay)
+    return { crew: op.crew, leaderId: op.leaderId, vehicles: op.vehicles, materials: op.materials }
   }
   return {
-    crew: [...op.crew, ...auftrag.resources.personnel.map((p) => p.name)],
-    leaderName: auftrag.resources.personnel.find((p) => p.isLeader)?.name ?? op.leaderName,
-    vehicles: [...op.vehicles, ...auftrag.resources.vehicles.map((v) => v.name)],
-    driverStay,
+    crew: [...op.crew, ...auftrag.resources.personnel.map((p) => ({ personnelId: p.resourceId, name: p.name }))],
+    leaderId: auftrag.resources.personnel.find((p) => p.isLeader)?.resourceId ?? op.leaderId,
+    vehicles: [
+      ...op.vehicles,
+      ...auftrag.resources.vehicles.map((v) => ({ vehicleId: v.resourceId, name: v.name, driverStay: v.driverStay })),
+    ],
     materials: [...op.materials, ...auftrag.resources.materials.map((m) => m.resourceId)],
   }
 }
@@ -181,6 +179,8 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
     ref
   ) => {
     const t = useTranslations("print.view")
+    // A namesake prints with its Kennung: «Meier Alex (1985)».
+    const naming = usePersonNaming()
     const tAttendance = useTranslations("kanban.attendance")
 
     // Filter operations based on options
@@ -367,7 +367,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
               {/* Card-style layout for each incident */}
               {statusOps.map((op) => {
                 const auftrag = auftraege?.get(op.id)
-                const { crew, leaderName, vehicles: opVehicles, driverStay, materials: opMaterials } =
+                const { crew, leaderId, vehicles: opVehicles, materials: opMaterials } =
                   effectiveResources(op, auftrag)
 
                 // The exception states, on one scannable line. Each of these
@@ -445,18 +445,16 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                         <div className="mb-1">
                           {/* EL first (decision 23) — a printed sheet has no board behind it. */}
                           <span className="font-semibold">{t("personal")}:</span>{" "}
-                          {sortCrewByLeader(crew, leaderName)
-                            .map((name) => (leaderName && name === leaderName ? `${t("leaderPrefix")} ${name}` : name))
+                          {sortCrewByLeader(crew, leaderId)
+                            .map((m) => (leaderId && m.personnelId === leaderId ? `${t("leaderPrefix")} ${naming.text(m)}` : naming.text(m)))
                             .join(", ")}
                         </div>
                       )}
                       {opVehicles.length > 0 && (
                         <div className="mb-1">
                           <span className="font-semibold">{t("fahrzeuge")}:</span>{" "}
-                          {opVehicles.map((vName) => {
-                            const driverName = vehicleDrivers?.get(vName)
-                            const callsign = op.vehicleCallsigns.get(vName)
-                            const stays = driverStay?.get(vName)
+                          {opVehicles.map(({ vehicleId, name: vName, callsign, driverStay: stays }) => {
+                            const driverName = vehicleDrivers?.get(vehicleId)
                             const head = callsign ? `${vName} · ${callsign}` : vName
                             const detail: string[] = []
                             if (driverName) detail.push(`${t("driverPrefix")}: ${driverName}`)
@@ -545,7 +543,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                     <td className="p-1">
                       {row.state === "assigned" ? t("inUse") : row.state === "left" ? t("gegangen") : t("available")}
                     </td>
-                    <td className="p-1">{row.name}</td>
+                    <td className="p-1">{naming.text({ name: row.name, personnelId: row.id })}</td>
                     {/* The Ereignis role leads: «Fahrer TLF 1» is what the KP
                         looks this list up for, the roster rank behind it is the
                         same at every Ereignis. */}
@@ -583,7 +581,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                     <td className="p-1">{vehicleStatusLabel(vehicle.status)}</td>
                     <td className="p-1">{vehicle.name}</td>
                     <td className="p-1">{vehicle.type}</td>
-                    <td className="p-1">{vehicleDrivers?.get(vehicle.name) || "-"}</td>
+                    <td className="p-1">{vehicleDrivers?.get(vehicle.id) || "-"}</td>
                     <td className="p-1">{vehicle.radio_call_sign || "-"}</td>
                   </tr>
                 ))}

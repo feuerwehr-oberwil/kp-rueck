@@ -52,10 +52,11 @@ import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import RekoReportSection from "@/components/reko/reko-report-section"
 import {
   FieldSaveStatus,
-  FIELD_UNSAVED_CLASS,
+  fieldSaveEdgeClass,
   useFieldSave,
   useUnsavedDraftLeaveGuard,
 } from "@/components/kanban/field-save-status"
+import { PersonName, usePersonNaming } from "@/components/person-name"
 
 interface MobileIncidentDetailSheetProps {
   operation: Operation | null
@@ -86,6 +87,7 @@ export function MobileIncidentDetailSheet({
   const { changeStatusToTop } = useOperations()
   const [isCopyingWhatsApp, setIsCopyingWhatsApp] = useState(false)
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
+  const { text: personText } = usePersonNaming()
   const [editingNotes, setEditingNotes] = useState(false)
   const [editingContact, setEditingContact] = useState(false)
   const [notesValue, setNotesValue] = useState("")
@@ -211,6 +213,7 @@ export function MobileIncidentDetailSheet({
         rekoReport,
         vehicleDrivers,
         template: whatsappIncident,
+        personText,
       })
     })()
 
@@ -344,7 +347,7 @@ export function MobileIncidentDetailSheet({
                 onBlur={handleNotesSave}
                 placeholder={t('mobileDetail.notesPlaceholder')}
                 aria-invalid={notesSave.failed || undefined}
-                className={cn("min-h-[80px] text-sm", notesSave.failed && FIELD_UNSAVED_CLASS)}
+                className={cn("min-h-[80px] text-sm", fieldSaveEdgeClass(notesSave))}
               />
             ) : (
               <div
@@ -420,13 +423,11 @@ export function MobileIncidentDetailSheet({
                       <span>{tKanban('common.zuFuss')}</span>
                     </RemovableChip>
                   )}
-                  {operation.vehicles.map((vehicleName) => {
-                    const driverName = vehicleDrivers.get(vehicleName)
-                    const callsign = operation.vehicleCallsigns.get(vehicleName)
-                    const driverStay = operation.vehicleDriverStay?.get(vehicleName)
+                  {operation.vehicles.map(({ vehicleId, name: vehicleName, callsign, driverStay }) => {
+                    const driverName = vehicleDrivers.get(vehicleId)
                     return (
                       <RemovableChip
-                        key={vehicleName}
+                        key={vehicleId}
                         variant="secondary"
                         className="text-sm max-w-full font-normal"
                         title={callsign ? tKanban('common.funkrufname', { callsign }) : undefined}
@@ -463,10 +464,10 @@ export function MobileIncidentDetailSheet({
                       a wrapped badge row is exactly where a name gets lost.
                       The «EL» mark rides along — sorting alone only helps if
                       you already know the list is sorted. */}
-                  {sortCrewByLeader(operation.crew, operation.leaderName).map((member, idx) => (
-                    <RemovableChip key={member.trim() || idx} variant="secondary" className="text-sm max-w-full font-normal">
-                      <LeaderBadge isLeader={operation.leaderName === member} />
-                      <span>{member.trim() || tKanban('common.unknownResource')}</span>
+                  {sortCrewByLeader(operation.crew, operation.leaderId).map(({ personnelId, name: member }) => (
+                    <RemovableChip key={personnelId} variant="secondary" className="text-sm max-w-full font-normal">
+                      <LeaderBadge isLeader={operation.leaderId === personnelId} />
+                      <span><PersonName name={member} personnelId={personnelId} display={member.trim() || tKanban('common.unknownResource')} /></span>
                     </RemovableChip>
                   ))}
                 </div>
@@ -513,7 +514,7 @@ export function MobileIncidentDetailSheet({
                 onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
                 placeholder={t('mobileDetail.contactPlaceholder')}
                 aria-invalid={contactSave.failed || undefined}
-                className={cn("text-sm", contactSave.failed && FIELD_UNSAVED_CLASS)}
+                className={cn("text-sm", fieldSaveEdgeClass(contactSave))}
               />
             ) : (
               <div

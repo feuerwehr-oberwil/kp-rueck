@@ -299,6 +299,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                         <DetailField
                           label={t('common.type')}
                           htmlFor="material-type"
+                          required
                           error={fieldState.error?.message}
                         >
                           <div className="flex gap-2">
@@ -344,6 +345,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                         <DetailField
                           label={t('common.location')}
                           htmlFor="material-location"
+                          required
                           error={fieldState.error?.message}
                         >
                           <div className="flex gap-2">

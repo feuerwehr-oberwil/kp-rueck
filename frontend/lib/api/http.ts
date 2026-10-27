@@ -147,7 +147,11 @@ export async function request<T>(endpoint: string, options?: RequestOptions): Pr
   const method = options?.method || 'GET'
   const isGetRequest = method === 'GET'
   const skipToast = options?.skipToast || false
-  const maxRetries = options?.maxRetries ?? (isGetRequest ? 3 : 1) // Retry GET requests by default, not mutations
+  // Only reads retry by default. A mutation whose response was lost (network drop, proxy
+  // 502/504) may already have committed – replaying it could create a second incident,
+  // send an alarm or print twice, or put an older text over a newer one. The caller's
+  // catch decides what the operator sees; a retry there is a deliberate act.
+  const maxRetries = options?.maxRetries ?? (isGetRequest ? 3 : 0)
 
 
   let lastError: Error | null = null

@@ -17,6 +17,7 @@ import { getIncidentRefLabel } from "@/lib/incident-types"
 import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
 import { toast } from "sonner"
 import { Car, Binoculars, Package2, Phone, MonitorCog, Check } from 'lucide-react'
+import { usePersonNaming } from "@/components/person-name"
 
 interface PersonContextMenuProps {
   children: React.ReactNode
@@ -32,6 +33,8 @@ export function PersonContextMenu({
   const t = useTranslations('kanban')
   const { selectedEvent } = useEvent()
   const { operations, personnel, removeCrew, refreshOperations, vehicles: fleet } = useOperations()
+  // «Meier Alex · 1985» when the name is not unique — the dialogs say who.
+  const personLabel = usePersonNaming().inline({ name: personnelName, personnelId })
   // The fleet in board order, off the board sync – no fetch when the menu opens.
   const vehicles = useMemo(
     () => [...fleet].sort((a, b) => a.display_order - b.display_order).map((v) => ({ id: v.id, name: v.name })),
@@ -46,7 +49,7 @@ export function PersonContextMenu({
     open: boolean
     functionType: FunctionType
     vehicleId?: string
-    conflictingOperations: Array<{ id: string; location: string; crewName: string }>
+    conflictingOperations: Array<{ id: string; location: string; personnelId: string }>
   }>({ open: false, functionType: 'driver', conflictingOperations: [] })
 
   // State for unassign confirmation dialog (removing a special function is
@@ -97,8 +100,8 @@ export function PersonContextMenu({
   // Find operations where this person is assigned as crew
   const getConflictingOperations = () => {
     return operations
-      .filter(op => op.crew.includes(personnelName))
-      .map(op => ({ id: op.id, location: getIncidentRefLabel(op, 40), crewName: personnelName }))
+      .filter(op => op.crew.some(m => m.personnelId === personnelId))
+      .map(op => ({ id: op.id, location: getIncidentRefLabel(op, 40), personnelId }))
   }
 
   const assignFunction = async (functionType: FunctionType, vehicleId?: string) => {
@@ -161,7 +164,7 @@ export function PersonContextMenu({
 
     // Unassign from all conflicting operations first
     for (const conflict of conflictingOperations) {
-      removeCrew(conflict.id, conflict.crewName)
+      removeCrew(conflict.id, conflict.personnelId)
     }
 
     setConflictDialog(prev => ({ ...prev, open: false }))
@@ -335,7 +338,7 @@ export function PersonContextMenu({
         title={t('personMenu.conflictTitle')}
         description={t.rich('personMenu.conflictDescription', {
           strong: (chunks) => <strong>{chunks}</strong>,
-          name: personnelName,
+          name: personLabel,
           assignment:
             conflictDialog.conflictingOperations.length === 1
               ? t('personMenu.conflictAssignedOne', {
@@ -362,17 +365,17 @@ export function PersonContextMenu({
           unassignDialog.functionType === 'reko'
             ? t.rich('personMenu.unassignRekoDescription', {
                 strong: (chunks) => <strong>{chunks}</strong>,
-                name: personnelName,
+                name: personLabel,
               })
             : unassignDialog.functionType === 'driver'
               ? t.rich('personMenu.unassignDriverDescription', {
                   strong: (chunks) => <strong>{chunks}</strong>,
-                  name: personnelName,
+                  name: personLabel,
                   vehicle: unassignDialog.vehicleName ?? '',
                 })
               : t.rich('personMenu.unassignMagazinDescription', {
                   strong: (chunks) => <strong>{chunks}</strong>,
-                  name: personnelName,
+                  name: personLabel,
                 })
         }
         cancelText={t('common.cancel')}

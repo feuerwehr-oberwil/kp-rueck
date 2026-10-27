@@ -6,12 +6,19 @@ import de from '@/messages/de.json'
 
 const board = vi.hoisted(() => ({
   operations: [
-    { id: 'op-12', number: 12, location: 'Ringstrasse 11', locationDisplay: 'Ringstrasse 11', crew: ['Anna Crew'], vehicles: ['Mowa'] },
+    {
+      id: 'op-12',
+      number: 12,
+      location: 'Ringstrasse 11',
+      locationDisplay: 'Ringstrasse 11',
+      crew: [{ personnelId: 'p-2', assignmentId: 'a-2', name: 'Anna Crew' }],
+      vehicles: [{ vehicleId: 'v-mowa', assignmentId: 'a-mowa', name: 'Mowa', callsign: null }],
+    },
   ],
   personnel: [
-    { id: 'p-1', name: 'Koch René', isDriver: true, driverVehicleName: 'Mowa' },
-    { id: 'p-2', name: 'Anna Crew', isDriver: true, driverVehicleName: 'Mowa' },
-    { id: 'p-3', name: 'Depot Fahrer', isDriver: true, driverVehicleName: 'TLF' },
+    { id: 'p-1', name: 'Koch René', isDriver: true, driverVehicleId: 'v-mowa', driverVehicleName: 'Mowa' },
+    { id: 'p-2', name: 'Anna Crew', isDriver: true, driverVehicleId: 'v-mowa', driverVehicleName: 'Mowa' },
+    { id: 'p-3', name: 'Depot Fahrer', isDriver: true, driverVehicleId: 'v-tlf', driverVehicleName: 'TLF' },
   ],
 }))
 vi.mock('@/lib/contexts/operations-context', () => ({ useOperations: () => board }))
@@ -27,9 +34,9 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 describe('usePersonEngagements', () => {
   it('maps a Fahrer to the Einsatz their vehicle stands on, role first', () => {
     const { result } = renderHook(() => usePersonEngagements(), { wrapper })
-    expect(result.current.get('Koch René')?.short).toBe('Fahrer Mowa · 12 · Ringstrasse 11')
+    expect(result.current.get('p-1')?.short).toBe('Fahrer Mowa · 12 · Ringstrasse 11')
     // Crew on that Einsatz already says where; a vehicle in the depot says nothing here.
-    expect(result.current.get('Anna Crew')?.short).toBe('12 · Ringstrasse 11')
-    expect(result.current.has('Depot Fahrer')).toBe(false)
+    expect(result.current.get('p-2')?.short).toBe('12 · Ringstrasse 11')
+    expect(result.current.has('p-3')).toBe(false)
   })
 })

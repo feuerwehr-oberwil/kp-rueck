@@ -619,3 +619,109 @@ async def test_personnel_row_carries_no_attendance_column():
         assert not hasattr(Personnel, column), (
             f"Personnel.{column} is back — attendance belongs to EventAttendance, per Ereignis"
         )
+
+
+# ============================================
+# Kennung: name + Kennung is unique on the roster
+# ============================================
+
+
+async def _create(client: AsyncClient, name: str, kennung: str | None = None):
+    return await client.post("/api/personnel/", json={"name": name, "kennung": kennung, "status": "available"})
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_a_second_person_of_the_same_name_needs_a_kennung(editor_client: AsyncClient):
+    assert (await _create(editor_client, "Meier Alex")).status_code == 201
+
+    response = await _create(editor_client, "Meier Alex")
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "„Meier Alex“ gibt es schon. Kennung angeben, z.B. Jahrgang oder Personal-Nr."
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_the_same_name_with_another_kennung_is_a_different_person(editor_client: AsyncClient):
+    assert (await _create(editor_client, "Meier Alex")).status_code == 201
+
+    response = await _create(editor_client, "Meier Alex", " 1985 ")
+
+    assert response.status_code == 201
+    assert response.json()["kennung"] == "1985"
+    taken = await _create(editor_client, "Meier Alex", "1985")
+    assert taken.status_code == 409
+    assert taken.json()["detail"] == "„Meier Alex“ mit Kennung „1985“ gibt es schon."
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_name_and_kennung_compare_without_case_and_spacing(editor_client: AsyncClient):
+    assert (await _create(editor_client, "Meier Alex", "P-412")).status_code == 201
+
+    assert (await _create(editor_client, "  meier   ALEX ", "p-412 ")).status_code == 409
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_a_blank_kennung_is_no_kennung(editor_client: AsyncClient):
+    created = await _create(editor_client, "Meier Alex", "   ")
+    assert created.status_code == 201
+    assert created.json()["kennung"] is None
+
+    assert (await _create(editor_client, "Meier Alex")).status_code == 409
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_an_edit_into_someone_elses_name_and_kennung_is_refused(editor_client: AsyncClient):
+    await _create(editor_client, "Meier Alex", "1985")
+    other = (await _create(editor_client, "Meier Alex", "1990")).json()
+
+    response = await editor_client.put(f"/api/personnel/{other['id']}", json={"kennung": "1985"})
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "„Meier Alex“ mit Kennung „1985“ gibt es schon."
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_an_existing_pair_can_still_be_edited(editor_client: AsyncClient, db_session: AsyncSession):
+    """Duplicates from before the rule (no index, migration leaves them) stay editable."""
+    twins = [Personnel(name="Meier Alex", status="available") for _ in range(2)]
+    db_session.add_all(twins)
+    await db_session.commit()
+
+    role = await editor_client.put(f"/api/personnel/{twins[1].id}", json={"role": "Fahrer"})
+    kennung = await editor_client.put(f"/api/personnel/{twins[1].id}", json={"kennung": "1990"})
+
+    assert role.status_code == 200
+    assert kennung.status_code == 200 and kennung.json()["kennung"] == "1990"
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_a_kennung_longer_than_20_characters_is_refused(editor_client: AsyncClient):
+    assert (await _create(editor_client, "Meier Alex", "x" * 21)).status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_a_sync_may_create_a_second_person_of_the_same_name(db_session: AsyncSession, test_user):
+    """The provider syncs mirror a member list that may hold two people of one name."""
+    from unittest.mock import MagicMock
+
+    from app import schemas
+    from app.crud import personnel as crud
+
+    data = schemas.PersonnelCreate(name="Meier Alex", status="available")
+    request = MagicMock()
+    request.client.host = "127.0.0.1"
+    request.headers.get = MagicMock(return_value=None)
+    await crud.create_personnel(db_session, data, test_user, request)
+
+    with pytest.raises(crud.PersonnelNameTakenError):
+        await crud.create_personnel(db_session, data, test_user, request)
+    twin = await crud.create_personnel(db_session, data, test_user, request, allow_duplicate_name=True)
+
+    assert twin.name == "Meier Alex"

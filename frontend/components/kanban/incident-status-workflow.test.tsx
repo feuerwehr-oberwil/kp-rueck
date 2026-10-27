@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useIncidentStatusWorkflow } from "@/components/kanban/incident-status-workflow"
 import type { Material, Operation } from "@/lib/contexts/operations-context"
 import type { GroupResources } from "@/lib/types/groups"
+import { crewMember, assignedVehicle } from "@/test-utils/operation-fixtures"
 
 // The material gate prefills itself from the Schadenplatz-Rapport. Every gate
 // test opens one, so the door has to be mocked for all of them, not just the
@@ -66,12 +67,9 @@ function operation(overrides: Partial<Operation> = {}): Operation {
     rekoArrivedAt: null,
     rekoSummary: null,
     assignedReko: null,
+    leaderId: null,
     leaderName: null,
-    crewAssignments: new Map(),
     materialAssignments: new Map(),
-    vehicleAssignments: new Map(),
-    vehicleCallsigns: new Map(),
-    vehicleDriverStay: new Map(),
     ...overrides,
   }
 }
@@ -143,8 +141,8 @@ describe("shared incident detail status workflow", () => {
 
   it("opens Disponiert directly when all effective resources are present", () => {
     const { result } = renderWorkflow(operation({
-      crew: ["AdF Eins"],
-      vehicles: ["TLF"],
+      crew: [crewMember("AdF Eins")],
+      vehicles: [assignedVehicle("TLF")],
       materials: ["Schlauch"],
     }))
 
@@ -499,7 +497,7 @@ describe("the material gate takes the crew's word for it", () => {
       materials: [{ assignmentId: "a1", resourceId: "motorsaege", name: "Motorsäge" }],
     }
     const { result, unassignGroupResource } = renderWorkflow(
-      operation({ id: "stop-1", groupId: "g1", status: "returning", crew: ["AdF Eins"] }),
+      operation({ id: "stop-1", groupId: "g1", status: "returning", crew: [crewMember("AdF Eins")] }),
       routeMaterial,
       [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
       [],
@@ -618,7 +616,7 @@ describe("the material gate takes the crew's word for it", () => {
     // starten?» prompt, which only fires on the way through «Beendet». The gate
     // already NAMES the next stop, so it carries the same offer.
     const { result, changeStatusToTop } = renderWorkflow(
-      operation({ id: "stop-1", groupId: "g1", status: "returning", crew: ["AdF Eins"] }),
+      operation({ id: "stop-1", groupId: "g1", status: "returning", crew: [crewMember("AdF Eins")] }),
       emptyGroupResources,
       [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
       [],
@@ -636,7 +634,7 @@ describe("the material gate takes the crew's word for it", () => {
 
   it("offers nothing on the last stop, on a lone incident, or while the squad is working", () => {
     const lastStop = renderWorkflow(
-      operation({ id: "stop-2", groupId: "g1", status: "returning", crew: ["AdF Eins"] }),
+      operation({ id: "stop-2", groupId: "g1", status: "returning", crew: [crewMember("AdF Eins")] }),
       emptyGroupResources,
       [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
       [],
@@ -646,14 +644,14 @@ describe("the material gate takes the crew's word for it", () => {
     expect(lastStop.result.current.completionContinuation).toBeNull()
     expect(lastStop.result.current.completionNextStop).toBeNull()
 
-    const lone = renderWorkflow(operation({ status: "returning", crew: ["AdF Eins"] }))
+    const lone = renderWorkflow(operation({ status: "returning", crew: [crewMember("AdF Eins")] }))
     act(() => lone.result.current.requestCompletion("incident-1"))
     expect(lone.result.current.completionNextStop).toBeNull()
 
     // The route continues, so the gate is still a «Stopp abschliessen» — but
     // another stop is already in Einsatz, so there is nothing to send anybody to.
     const busy = renderWorkflow(
-      operation({ id: "stop-1", groupId: "g1", status: "returning", crew: ["AdF Eins"] }),
+      operation({ id: "stop-1", groupId: "g1", status: "returning", crew: [crewMember("AdF Eins")] }),
       emptyGroupResources,
       [{ id: "g1", stopIds: ["stop-1", "stop-2", "stop-3"] }],
       [],

@@ -47,10 +47,10 @@ import RekoReportSection from "@/components/reko/reko-report-section"
 import { SchadenplatzRapportSection } from "@/components/kanban/schadenplatz-rapport-section"
 import { MaterialReturnList } from "@/components/kanban/material-return-list"
 import { DetailField, DetailFlags, DetailGroupHeading, DENSE_CONTROL } from "@/components/kanban/detail-field"
-import { FieldSaveStatus, FIELD_UNSAVED_CLASS, useFieldSave } from "@/components/kanban/field-save-status"
+import { FieldSaveStatus, fieldSaveEdgeClass, useFieldSave } from "@/components/kanban/field-save-status"
 import { LocationInput } from "@/components/location/location-input"
 import { toast } from "sonner"
-import { cn, sanitizePhoneInput } from "@/lib/utils"
+import { cn, CONTACT_PHONE_MAX, sanitizePhoneInput } from "@/lib/utils"
 import { useEvent } from "@/lib/contexts/event-context"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { IncidentTimeline } from "@/components/kanban/incident-timeline"
@@ -58,6 +58,7 @@ import { IncidentParticipants } from "@/components/kanban/incident-participants"
 import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
 import { usePromoteToLeader } from "@/lib/hooks/use-promote-to-leader"
 import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
+import { PersonName, usePersonNaming } from "@/components/person-name"
 import { FieldReportsRow, FieldMessageThread } from "@/components/kanban/field-reports-row"
 import { FieldRequestList } from "@/components/kanban/field-requests"
 import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
@@ -187,9 +188,9 @@ export interface OperationDetailContentProps {
    *  goes through the full assignment dialog (`onAssignResource('vehicles')`),
    *  not an inline picker. */
   onAssignVehicle?: (vehicleId: string, vehicleName: string, operationId: string) => void
-  onRemoveVehicle?: (operationId: string, vehicleName: string) => void
+  onRemoveVehicle?: (operationId: string, vehicleId: string) => void
   onAssignResource?: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string, search?: string) => void
-  onRemoveCrew?: (operationId: string, crewName: string) => void
+  onRemoveCrew?: (operationId: string, personnelId: string) => void
   onRemoveMaterial?: (operationId: string, materialId: string) => void
   diveraEnabled?: boolean
   onSendDivera?: (operation: Operation) => void
@@ -252,6 +253,7 @@ export function OperationDetailContent({
 
   // Promote a crew member to Einsatzleiter — shared with the card's chip menu.
   const promoteToLeader = usePromoteToLeader(operation)
+  const naming = usePersonNaming()
 
   /** Same promotion, one level up: the route owns the people, so a grouped
    *  incident's leader is set on the Auftrag. */
@@ -325,7 +327,6 @@ export function OperationDetailContent({
   const assignedRekoPersonnel = operation?.assignedReko ?? null
   const assignedRekoPerson = assignedRekoPersonnel
     ? personnel.find((person) => person.id === assignedRekoPersonnel.id)
-      ?? personnel.find((person) => person.name === assignedRekoPersonnel.name)
       ?? {
         id: assignedRekoPersonnel.id,
         name: assignedRekoPersonnel.name,
@@ -643,27 +644,27 @@ export function OperationDetailContent({
               The empty case is the row's own: `isEmpty` above draws «keine», and
               draws it as a button so the obvious thing to click is the thing
               that adds. */}
-          {sortCrewByLeader(operation.crew, operation.leaderName).map((member) => {
-              const isLeader = operation.leaderName === member
+          {sortCrewByLeader(operation.crew, operation.leaderId).map(({ personnelId, name: member }) => {
+              const isLeader = operation.leaderId === personnelId
               return (
                 <RemovableChip
-                  key={member}
+                  key={personnelId}
                   variant="outline"
                   // The Einsatzleiter keeps a visible accent on the SAME pill:
                   // an ink edge, like the EL badge itself (a fact, not amber –
                   // VISUAL-03) — never a different chip family.
                   className={cn(RESOURCE_CHIP, !auftrag && isLeader && "border-foreground/40")}
-                  onRemove={canEdit && onRemoveCrew ? () => onRemoveCrew(operation.id, member) : undefined}
+                  onRemove={canEdit && onRemoveCrew ? () => onRemoveCrew(operation.id, personnelId) : undefined}
                   removeTitle={t('detail.removePerson')}
                   removeButtonClassName="ml-1"
                   // Touch: the hover-only EL stub below does not exist without
                   // a mouse, so promotion is a menu row — offered exactly where
                   // the stub is.
-                  menuTitle={member}
-                  menuSubtitle={<PersonMenuSubtitle name={member} isLeader={!auftrag && isLeader} />}
+                  menuTitle={naming.inline({ name: member, personnelId })}
+                  menuSubtitle={<PersonMenuSubtitle personnelId={personnelId} isLeader={!auftrag && isLeader} />}
                   menuActions={
                     !auftrag && canEdit && !isLeader
-                      ? [{ label: t('leader.promote'), icon: <LeaderGlyph />, onSelect: () => void promoteToLeader(member) }]
+                      ? [{ label: t('leader.promote'), icon: <LeaderGlyph />, onSelect: () => void promoteToLeader(personnelId) }]
                       : undefined
                   }
                   removeLabel={t('chipMenu.removeFromIncident')}
@@ -675,10 +676,10 @@ export function OperationDetailContent({
                   {!auftrag && (
                     <LeaderBadge
                       isLeader={isLeader}
-                      onPromote={canEdit ? () => void promoteToLeader(member) : undefined}
+                      onPromote={canEdit ? () => void promoteToLeader(personnelId) : undefined}
                     />
                   )}
-                  {member}
+                  <PersonName name={member} personnelId={personnelId} />
                 </RemovableChip>
               )
             })}
@@ -714,18 +715,15 @@ export function OperationDetailContent({
               {t('common.zuFuss')}
             </RemovableChip>
           )}
-          {operation.vehicles.map((vehicleName) => {
-              const driverName = vehicleDrivers.get(vehicleName)
-              const callsign = operation.vehicleCallsigns.get(vehicleName)
-              const driverStay = operation.vehicleDriverStay.get(vehicleName) || false
-              const assignmentId = operation.vehicleAssignments.get(vehicleName)
+          {operation.vehicles.map(({ vehicleId, name: vehicleName, callsign, driverStay, assignmentId }) => {
+              const driverName = vehicleDrivers.get(vehicleId)
               return (
                 <RemovableChip
-                  key={vehicleName}
+                  key={vehicleId}
                   variant="outline"
                   className={RESOURCE_CHIP}
                   title={callsign ? t('common.funkrufname', { callsign }) : undefined}
-                  onRemove={canEdit && onRemoveVehicle ? () => onRemoveVehicle(operation.id, vehicleName) : undefined}
+                  onRemove={canEdit && onRemoveVehicle ? () => onRemoveVehicle(operation.id, vehicleId) : undefined}
                   removeTitle={t('detail.removeVehicle')}
                   removeButtonClassName="ml-1"
                   menuTitle={vehicleName}
@@ -740,7 +738,7 @@ export function OperationDetailContent({
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
-                        toggleDriverStay(operation.id, vehicleName)
+                        toggleDriverStay(operation.id, vehicleId)
                       }}
                       // Neutral palette: the chip is no longer a filled primary
                       // pill, so the toggle reads as a quiet state inside it.
@@ -1097,7 +1095,7 @@ export function OperationDetailContent({
                 "h-auto resize-none py-1",
                 // Three lines of floor: the field must READ as a textarea, not a textbox.
                 dense ? "max-h-[14rem] min-h-[3.75rem]" : "max-h-[20rem] min-h-[3.75rem]",
-                notesSave.failed && FIELD_UNSAVED_CLASS,
+                fieldSaveEdgeClass(notesSave),
               )}
             />
           </DetailField>
@@ -1162,7 +1160,7 @@ export function OperationDetailContent({
               disabled={!canEdit}
               aria-invalid={contactSave.failed || undefined}
               onChange={(e) => onUpdate({ contact: e.target.value })}
-              className={cn(DENSE_CONTROL, contactSave.failed && FIELD_UNSAVED_CLASS)}
+              className={cn(DENSE_CONTROL, fieldSaveEdgeClass(contactSave))}
             />
           </DetailField>
 
@@ -1189,10 +1187,11 @@ export function OperationDetailContent({
               inputMode="tel"
               placeholder={t('common.contactPhonePlaceholder')}
               value={contactPhoneSave.value}
+              maxLength={CONTACT_PHONE_MAX}
               disabled={!canEdit}
               aria-invalid={contactPhoneSave.failed || undefined}
               onChange={(e) => onUpdate({ contactPhone: sanitizePhoneInput(e.target.value) })}
-              className={cn(DENSE_CONTROL, contactPhoneSave.failed && FIELD_UNSAVED_CLASS)}
+              className={cn(DENSE_CONTROL, fieldSaveEdgeClass(contactPhoneSave))}
             />
           </DetailField>
 
@@ -1225,7 +1224,7 @@ export function OperationDetailContent({
                 "h-auto resize-none py-1",
                 // Three lines of floor: the field must READ as a textarea, not a textbox.
                 dense ? "max-h-[14rem] min-h-[3.75rem]" : "max-h-[20rem] min-h-[3.75rem]",
-                internalNotesSave.failed && FIELD_UNSAVED_CLASS,
+                fieldSaveEdgeClass(internalNotesSave),
               )}
             />
           </DetailField>
@@ -1283,7 +1282,7 @@ export function OperationDetailContent({
                       disabled={!canEdit}
                       aria-invalid={nachbarhilfeNoteSave.failed || undefined}
                       onChange={(e) => onUpdate({ nachbarhilfeNote: e.target.value })}
-                      className={cn(DENSE_CONTROL, "pr-7", nachbarhilfeNoteSave.failed && FIELD_UNSAVED_CLASS)}
+                      className={cn(DENSE_CONTROL, "pr-7", fieldSaveEdgeClass(nachbarhilfeNoteSave))}
                     />
                     <FieldSaveStatus
                       part="mark"
@@ -1317,7 +1316,7 @@ export function OperationDetailContent({
                       disabled={!canEdit}
                       aria-invalid={amWartenNoteSave.failed || undefined}
                       onChange={(e) => onUpdate({ amWartenNote: e.target.value })}
-                      className={cn(DENSE_CONTROL, "pr-7", amWartenNoteSave.failed && FIELD_UNSAVED_CLASS)}
+                      className={cn(DENSE_CONTROL, "pr-7", fieldSaveEdgeClass(amWartenNoteSave))}
                     />
                     <FieldSaveStatus
                       part="mark"

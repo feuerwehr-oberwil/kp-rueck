@@ -12,21 +12,29 @@ Deleting the example rows and leaving them in place are both correct.
 
 import asyncio
 import logging
-from collections.abc import Sequence
+import re
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 from io import BytesIO
 from typing import Any, Literal, TypedDict
+from xml.etree.ElementTree import ParseError
+from zipfile import ZipFile
 
 import openpyxl
+from defusedxml.ElementTree import iterparse
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils.cell import column_index_from_string
+from pydantic import BaseModel, ValidationError
 from sqlalchemy import Select, and_, delete, func, or_, select
 from sqlalchemy import null as sa_null
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
 from ..crud.materials import apply_out_of_service
+from ..crud.personnel import name_key
 from ..models import (
     EventAttendance,
     EventSpecialFunction,
@@ -39,6 +47,8 @@ from ..models import (
     PersonnelExternalIdentity,
     Vehicle,
 )
+from ..schemas import MaterialCreate, PersonnelCreate, VehicleCreate
+from ..schemas.fields import INT32_MAX
 from .audit_export_service import EventReportData
 from .rapport_rows import (
     LOCAL_TZ,
@@ -54,18 +64,30 @@ from .rapport_rows import (
     rapport_work_windows,
     vehicle_present_names,
 )
+from .workbook_output import workbook_bytes
+
+# The HTTP cap is on compressed bytes. Bound the expanded archive and sheet dimensions
+# before parsing so a small .xlsx cannot consume the backend's memory or iterate forever.
+MAX_WORKBOOK_UNCOMPRESSED_BYTES = 64 * 1024 * 1024
+MAX_WORKBOOK_ENTRIES = 1024
+MAX_IMPORT_ROWS = 10_000  # per sheet, excluding the header
+MAX_IMPORT_COLUMNS = 64
 
 # Column definitions
 PERSONNEL_COLUMNS = [
     ("name", True),  # (column_name, required)
+    ("kennung", False),
     ("role", False),
     ("status", False),
 ]
 
-# The personnel column was called "availability" until the field was renamed to
-# match Vehicle.status / Material.status. Workbooks exported before that are still
-# accepted on import; only the header differs, the values never did.
-LEGACY_PERSONNEL_COLUMNS = [("availability" if name == "status" else name) for name, _ in PERSONNEL_COLUMNS]
+# Personnel header rows of older workbooks, still accepted on import. Before the Kennung
+# (2026-10) the sheet had no `kennung` column – such a file imports with every Kennung
+# empty. Before that the `status` column was called "availability", until the field was
+# renamed to match Vehicle.status / Material.status; only the header differs, the values
+# never did.
+PRE_KENNUNG_PERSONNEL_COLUMNS = ["name", "role", "status"]
+LEGACY_PERSONNEL_COLUMNS = ["name", "role", "availability"]
 
 VEHICLE_COLUMNS = [
     ("name", True),
@@ -178,6 +200,14 @@ class ParsedSheet:
 
     present: bool
     rows: list[dict[str, Any]] = field(default_factory=list)
+    # The sheet row (header = 1) each entry of `rows` came from, for an error the import finds
+    # only later, against the database. Filled by the Personnel parser – the one sheet checked
+    # that way; empty elsewhere and for a sheet built by hand (tests).
+    row_numbers: list[int] = field(default_factory=list)
+
+    def row_number(self, index: int) -> int | None:
+        """The sheet row of `rows[index]`, or None when the sheet carries no row numbers."""
+        return self.row_numbers[index] if index < len(self.row_numbers) else None
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,8 +236,8 @@ def generate_empty_template() -> BytesIO:
         cell.font = Font(bold=True)
         cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
     # Example rows
-    ws_personnel.append([_example_name("Max Mustermann"), "Fahrer", "available"])
-    ws_personnel.append([_example_name("Anna Schmidt"), "", "unavailable"])
+    ws_personnel.append([_example_name("Max Mustermann"), "", "Fahrer", "available"])
+    ws_personnel.append([_example_name("Anna Schmidt"), "1985", "", "unavailable"])
 
     # Vehicles sheet
     ws_vehicles = wb.create_sheet("Vehicles")
@@ -230,10 +260,7 @@ def generate_empty_template() -> BytesIO:
     ws_materials.append([_example_name("Wassersauger"), "Wassersauger", "Pio", ""])
 
     # Save to BytesIO
-    output = BytesIO()
-    wb.save(output)
-    output.seek(0)
-    return output
+    return workbook_bytes(wb)
 
 
 def _check_headers(sheet: str, headers: list[Any], expected: list[str]) -> None:
@@ -249,8 +276,150 @@ def _check_headers(sheet: str, headers: list[Any], expected: list[str]) -> None:
     )
 
 
+def _bounded_rows(ws: Any) -> Iterator[tuple[int, tuple[Any, ...]]]:
+    """Enforce actual dimensions too, including sheets that omit dimension metadata."""
+    for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+        if row_idx > MAX_IMPORT_ROWS + 1:
+            raise ExcelImportError(f"maximal {MAX_IMPORT_ROWS} Zeilen pro Blatt erlaubt.", sheet=ws.title)
+        if len(row) > MAX_IMPORT_COLUMNS:
+            raise ExcelImportError(f"maximal {MAX_IMPORT_COLUMNS} Spalten pro Blatt erlaubt.", sheet=ws.title)
+        yield row_idx, row
+
+
+def _check_worksheet_coordinates(archive: ZipFile) -> None:
+    """Check real cell coordinates before openpyxl can allocate a sparse, huge row.
+
+    Declared dimensions can be absent or inaccurate. Scan XML with bounded memory,
+    then reset those declarations in the streaming reader so populated rows cannot
+    silently disappear from a replacement import.
+    """
+    sheet_ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+    for entry in archive.infolist():
+        if entry.is_dir():
+            continue
+        rows = cells = 0
+        depth = 0
+        row_depth = None
+        root = None
+        try:
+            with archive.open(entry) as source:
+                # openpyxl follows arbitrary part paths and accepts nonstandard roots.
+                # Inspect the same spreadsheet row tags in every XML part. Calc-chain
+                # cells outside rows and non-XML parts (e.g. logos) are not sheet data.
+                for event, element in iterparse(source, events=("start", "end")):
+                    if root is None:
+                        root = element
+                    if event == "end":
+                        if depth == row_depth:
+                            row_depth = None
+                        depth -= 1
+                        element.clear()
+                        root.clear()
+                        continue
+                    depth += 1
+                    if element.tag == sheet_ns + "row" and row_depth is not None:
+                        raise ExcelImportError("Ungültig verschachtelte Zeilen in einem Excel-Arbeitsblatt.")
+                    if row_depth is not None and depth == row_depth + 1:
+                        # openpyxl treats every direct row child as a cell, including
+                        # permitted extLst metadata. Check them all with the same budget.
+                        cells += 1
+                        column = re.match(r"[A-Za-z]+", element.get("r", ""))
+                        try:
+                            index = column_index_from_string(column[0]) if column else cells
+                        except ValueError:
+                            index = MAX_IMPORT_COLUMNS + 1
+                        if cells > MAX_IMPORT_COLUMNS or index > MAX_IMPORT_COLUMNS:
+                            raise ExcelImportError(f"Maximal {MAX_IMPORT_COLUMNS} Spalten pro Blatt erlaubt.")
+                    elif element.tag == sheet_ns + "row":
+                        rows += 1
+                        cells = 0
+                        row_depth = depth
+                        if rows > MAX_IMPORT_ROWS + 1 or int(element.get("r", rows)) > MAX_IMPORT_ROWS + 1:
+                            raise ExcelImportError(f"Maximal {MAX_IMPORT_ROWS} Zeilen pro Blatt erlaubt.")
+        except ParseError:
+            if root is not None:
+                raise
+
+
+def _is_blank(value: object) -> bool:
+    """An empty cell: nothing, or only whitespace. `0` and `False` are values, not gaps."""
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
+def _cell_text(value: object) -> object:
+    """A text column's cell as text where it is a number: a call sign typed as 23 is '23'.
+
+    Anything else passes through unchanged for the schema to accept or refuse.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    if isinstance(value, int | float):
+        return str(value)
+    return value
+
+
+def _sheet_int(value: object, column: str, *, sheet: str, row: int) -> int:
+    """An integer column's cell as an int in 0..INT32_MAX, or the row's error.
+
+    Spreadsheet cells are typed, so neither truthiness nor `int()` will do: `0` is a valid
+    first position (not «leer»), TRUE is not 1 and 1.5 is not 1. An integral number such
+    as 1.0 or the text '2' is accepted. Every integer column the import reads goes
+    through here.
+    """
+    if _is_blank(value):
+        raise ExcelImportError(f"Spalte '{column}' ist leer (Pflichtfeld).", sheet=sheet, row=row)
+    not_an_integer = ExcelImportError(
+        f"'{column}' muss eine ganze Zahl sein, steht aber auf {_cell(value)}.", sheet=sheet, row=row
+    )
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
+        raise not_an_integer
+    try:
+        number = Decimal(str(value).strip())
+    except InvalidOperation:
+        raise not_an_integer from None
+    if not number.is_finite() or number != number.to_integral_value():
+        raise not_an_integer
+    if not 0 <= number <= INT32_MAX:
+        raise ExcelImportError(
+            f"'{column}' muss zwischen 0 und {INT32_MAX} liegen, steht aber auf {_cell(value)}.",
+            sheet=sheet,
+            row=row,
+        )
+    return int(number)
+
+
+def _validated_row(schema: type[BaseModel], row: dict[str, Any], *, sheet: str, row_idx: int) -> dict[str, Any]:
+    """`row` through the API's create schema, returned normalised with only the sheet's columns.
+
+    The same field rules as `POST /api/personnel/` and friends (`schemas/fields.py`), so a
+    row the API would refuse cannot reach the table – where a blank or overlong name used
+    to land and break every later read of the roster. The first problem is reported in
+    the importer's own words, naming the column.
+    """
+    try:
+        model = schema.model_validate(row)
+    except ValidationError as exc:
+        error = exc.errors()[0]
+        column = str(error["loc"][0]) if error["loc"] else "?"
+        if error["type"] == "string_too_short":
+            detail = f"Spalte '{column}' ist leer (Pflichtfeld)."
+        elif error["type"] == "string_too_long":
+            detail = f"Spalte '{column}' ist zu lang (höchstens {error['ctx']['max_length']} Zeichen)."
+        else:
+            detail = f"Spalte '{column}' hat einen ungültigen Wert {_cell(error['input'])}."
+        raise ExcelImportError(detail, sheet=sheet, row=row_idx) from None
+    return model.model_dump(include=set(row))
+
+
 def _parse_personnel_sheet(wb: Workbook) -> ParsedSheet:
-    """Parse the Personnel sheet, or report it absent."""
+    """Parse the Personnel sheet, or report it absent.
+
+    Name + Kennung must be unique within the sheet (`crud.personnel.name_key`, the rule the
+    API applies): a second «Meier Alex» without a Kennung refuses the file. Against the
+    roster already in the database it is checked by `import_data`, in append mode only.
+    """
     if "Personnel" not in wb.sheetnames:
         return ParsedSheet(present=False)
 
@@ -258,46 +427,72 @@ def _parse_personnel_sheet(wb: Workbook) -> ParsedSheet:
     headers = [cell.value for cell in ws[1]]
     expected_headers = [col[0] for col in PERSONNEL_COLUMNS]
     if headers == LEGACY_PERSONNEL_COLUMNS:
-        headers = expected_headers
-    _check_headers("Personnel", headers, expected_headers)
+        headers = PRE_KENNUNG_PERSONNEL_COLUMNS
+    if headers != PRE_KENNUNG_PERSONNEL_COLUMNS:
+        _check_headers("Personnel", headers, expected_headers)
+    columns = list(headers)
 
     rows: list[dict[str, Any]] = []
-    for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+    row_numbers: list[int] = []
+    seen: set[tuple[str, str | None]] = set()
+    for row_idx, row in _bounded_rows(ws):
         if all(cell is None for cell in row):
             continue  # Skip empty rows
 
-        row_data = dict(zip(expected_headers, row, strict=False))
+        row_data = dict(zip(columns, row, strict=False))
 
         # Before any validation: the template's own example row is not the operator's
         # data and must not be able to fail their import either.
         if _is_example_row(row_data.get("name")):
             continue
 
-        if not row_data.get("name"):
+        if _is_blank(row_data.get("name")):
             raise ExcelImportError(
                 "Spalte 'name' ist leer, jede Zeile braucht einen Namen.", sheet="Personnel", row=row_idx
             )
 
-        if row_data.get("status") and row_data["status"] not in PERSONNEL_STATUSES:
+        status = row_data.get("status")
+        if _is_blank(status):
+            status = "unavailable"
+        elif status not in PERSONNEL_STATUSES:
             raise ExcelImportError(
-                f"ungültiger Status {_cell(row_data['status'])}. Erlaubt: {', '.join(PERSONNEL_STATUSES)}.",
+                f"ungültiger Status {_cell(status)}. Erlaubt: {', '.join(PERSONNEL_STATUSES)}.",
                 sheet="Personnel",
                 row=row_idx,
             )
 
-        if not row_data.get("status"):
-            row_data["status"] = "unavailable"
+        role = row_data.get("role")
+        candidate = {
+            "name": _cell_text(row_data["name"]),
+            "role": None if _is_blank(role) else _cell_text(role),
+            "status": status,
+        }
+        if "kennung" in columns:
+            # A Jahrgang typed as 1985 is a number cell; blank → null (the schema's rule).
+            # An older workbook has no such column, and its rows no `kennung` key (= null).
+            candidate["kennung"] = _cell_text(row_data.get("kennung"))
+        person = _validated_row(PersonnelCreate, candidate, sheet="Personnel", row_idx=row_idx)
+        key = name_key(person["name"], person.get("kennung"))
+        if key in seen:
+            raise _duplicate_person(person["name"], row_idx)
+        seen.add(key)
+        rows.append(person)
+        row_numbers.append(row_idx)
 
-        rows.append(row_data)
+    return ParsedSheet(present=True, rows=rows, row_numbers=row_numbers)
 
-    return ParsedSheet(present=True, rows=rows)
+
+def _duplicate_person(name: str, row: int | None) -> ExcelImportError:
+    """The row error for a name + Kennung that is already taken, in the file or on the roster."""
+    return ExcelImportError(f"„{name}“ kommt mehrfach vor, Kennung angeben.", sheet="Personnel", row=row)
 
 
 def _parse_vehicles_sheet(wb: Workbook) -> ParsedSheet:
     """Parse the Vehicles sheet, or report it absent.
 
-    `type` is deliberately unvalidated: it is free text, and stations run
-    "Anhänger", "Pikett-Bus" and other names no list here would have guessed.
+    `type` is free text checked only like the API checks it (non-blank, fits the
+    column): stations run "Anhänger", "Pikett-Bus" and other names no list here
+    would have guessed.
     """
     if "Vehicles" not in wb.sheetnames:
         return ParsedSheet(present=False)
@@ -307,7 +502,7 @@ def _parse_vehicles_sheet(wb: Workbook) -> ParsedSheet:
     _check_headers("Vehicles", [cell.value for cell in ws[1]], expected_headers)
 
     rows: list[dict[str, Any]] = []
-    for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+    for row_idx, row in _bounded_rows(ws):
         if all(cell is None for cell in row):
             continue
 
@@ -319,7 +514,7 @@ def _parse_vehicles_sheet(wb: Workbook) -> ParsedSheet:
             continue
 
         for column, required in VEHICLE_COLUMNS:
-            if required and not row_data.get(column):
+            if required and _is_blank(row_data.get(column)):
                 raise ExcelImportError(f"Spalte '{column}' ist leer (Pflichtfeld).", sheet="Vehicles", row=row_idx)
 
         if row_data["status"] not in VEHICLE_STATUSES:
@@ -329,16 +524,14 @@ def _parse_vehicles_sheet(wb: Workbook) -> ParsedSheet:
                 row=row_idx,
             )
 
-        try:
-            row_data["display_order"] = int(row_data["display_order"])
-        except (ValueError, TypeError):
-            raise ExcelImportError(
-                f"'display_order' muss eine ganze Zahl sein, steht aber auf {_cell(row_data['display_order'])}.",
-                sheet="Vehicles",
-                row=row_idx,
-            ) from None
-
-        rows.append(row_data)
+        candidate = {
+            "name": _cell_text(row_data["name"]),
+            "type": _cell_text(row_data["type"]),
+            "display_order": _sheet_int(row_data["display_order"], "display_order", sheet="Vehicles", row=row_idx),
+            "status": row_data["status"],
+            "radio_call_sign": _cell_text(row_data["radio_call_sign"]),
+        }
+        rows.append(_validated_row(VehicleCreate, candidate, sheet="Vehicles", row_idx=row_idx))
 
     return ParsedSheet(present=True, rows=rows)
 
@@ -356,7 +549,7 @@ def _parse_materials_sheet(wb: Workbook) -> ParsedSheet:
     _check_headers("Materials", [cell.value for cell in ws[1]], expected_headers)
 
     rows: list[dict[str, Any]] = []
-    for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+    for row_idx, row in _bounded_rows(ws):
         if all(cell is None for cell in row):
             continue
 
@@ -368,10 +561,17 @@ def _parse_materials_sheet(wb: Workbook) -> ParsedSheet:
             continue
 
         for column, required in MATERIAL_COLUMNS:
-            if required and not row_data.get(column):
+            if required and _is_blank(row_data.get(column)):
                 raise ExcelImportError(f"Spalte '{column}' ist leer (Pflichtfeld).", sheet="Materials", row=row_idx)
 
-        rows.append(row_data)
+        description = row_data.get("description")
+        candidate = {
+            "name": _cell_text(row_data["name"]),
+            "type": _cell_text(row_data["type"]),
+            "location": _cell_text(row_data["location"]),
+            "description": None if _is_blank(description) else _cell_text(description),
+        }
+        rows.append(_validated_row(MaterialCreate, candidate, sheet="Materials", row_idx=row_idx))
 
     return ParsedSheet(present=True, rows=rows)
 
@@ -386,11 +586,43 @@ def validate_and_parse_excel(file_bytes: bytes) -> ParsedImport:
     Rows still carrying the template's `EXAMPLE_ROW_MARKER` in their name are
     dropped here and never reach the database – see `_is_example_row`.
 
+    Every row is validated through the API's create schema (`_validated_row`) here,
+    before `import_data` deletes or inserts anything, so one bad row refuses the whole
+    file and writes nothing.
+
     Raises ExcelImportError if validation fails; its `message` is safe to return
     to the caller and names the sheet and row.
     """
+    wb = None
     try:
-        wb = openpyxl.load_workbook(BytesIO(file_bytes))
+        with ZipFile(BytesIO(file_bytes)) as archive:
+            entries = archive.infolist()
+            if len(entries) > MAX_WORKBOOK_ENTRIES:
+                raise ExcelImportError("Die Excel-Datei enthält zu viele Archiv-Einträge.")
+            if sum(entry.file_size for entry in entries) > MAX_WORKBOOK_UNCOMPRESSED_BYTES:
+                raise ExcelImportError("Die Excel-Datei ist entpackt zu gross (maximal 64 MiB).")
+            _check_worksheet_coordinates(archive)
+
+        # Stream cells instead of materialising the entire XML tree. defusedxml is a
+        # required dependency so openpyxl also rejects DTD/entity expansion.
+        wb = openpyxl.load_workbook(BytesIO(file_bytes), read_only=True, keep_links=False)
+        for name in ("Personnel", "Vehicles", "Materials"):
+            if name not in wb.sheetnames:
+                continue
+            ws = wb[name]
+            if ws.max_row is not None and ws.max_row > MAX_IMPORT_ROWS + 1:
+                raise ExcelImportError(f"maximal {MAX_IMPORT_ROWS} Zeilen pro Blatt erlaubt.", sheet=name)
+            if ws.max_column is not None and ws.max_column > MAX_IMPORT_COLUMNS:
+                raise ExcelImportError(f"maximal {MAX_IMPORT_COLUMNS} Spalten pro Blatt erlaubt.", sheet=name)
+            ws.reset_dimensions()
+
+        return ParsedImport(
+            personnel=_parse_personnel_sheet(wb),
+            vehicles=_parse_vehicles_sheet(wb),
+            materials=_parse_materials_sheet(wb),
+        )
+    except ExcelImportError:
+        raise
     except Exception as e:
         # openpyxl's own text is not ours to hand out (it can name whatever the
         # library felt like naming), so it goes to the log and the operator gets
@@ -401,11 +633,9 @@ def validate_and_parse_excel(file_bytes: bytes) -> ParsedImport:
             "Ist es wirklich eine .xlsx-Datei (nicht CSV, nicht umbenannt)?"
         ) from e
 
-    return ParsedImport(
-        personnel=_parse_personnel_sheet(wb),
-        vehicles=_parse_vehicles_sheet(wb),
-        materials=_parse_materials_sheet(wb),
-    )
+    finally:
+        if wb is not None:
+            wb.close()
 
 
 class ImportDeletionImpact(TypedDict):
@@ -676,7 +906,9 @@ async def import_data(
       the round-trip sheets (see `export_data_to_excel`), so a replace that
       wiped the whole table would silently destroy the archive the workbook
       never carried. Import leaves the archive untouched, in either mode.
-    - append: Keep existing, add new
+    - append: Keep existing, add new. A row whose name + Kennung is already on the
+      roster refuses the whole import (`ExcelImportError`, nothing written) – the
+      file was checked against itself while parsing, the roster only here.
 
     There used to be a third mode, `merge`, documented as "update existing by
     name, add new". It never did that – it ran the same three DELETEs as
@@ -686,6 +918,9 @@ async def import_data(
     Returns counts: {personnel: X, vehicles: Y, materials: Z}
     """
     counts = {"personnel": 0, "vehicles": 0, "materials": 0}
+
+    if mode == "append" and parsed_data.personnel.rows:
+        await _refuse_roster_duplicates(db, parsed_data.personnel)
 
     if mode == "replace":
         # Only the tables whose sheet is in the file. `replace` used to DELETE all
@@ -736,6 +971,18 @@ async def import_data(
     await db.flush()
 
     return counts
+
+
+async def _refuse_roster_duplicates(db: AsyncSession, sheet: ParsedSheet) -> None:
+    """Raise for the first row whose name + Kennung already belongs to someone on the roster.
+
+    Pairs already on the roster are not this import's business (the API leaves them too).
+    """
+    rows = await db.execute(select(Personnel.name, Personnel.kennung))
+    taken = {name_key(name, kennung) for name, kennung in rows.all()}
+    for index, person in enumerate(sheet.rows):
+        if name_key(person["name"], person.get("kennung")) in taken:
+            raise _duplicate_person(person["name"], sheet.row_number(index))
 
 
 async def export_data_to_excel(db: AsyncSession) -> BytesIO:
@@ -846,6 +1093,7 @@ def _build_export_workbook(
         ws_personnel.append(
             [
                 person.name,
+                person.kennung or "",
                 person.role or "",
                 person.status,
             ]
@@ -905,10 +1153,7 @@ def _build_export_workbook(
             )
 
     # Save to BytesIO
-    output = BytesIO()
-    wb.save(output)
-    output.seek(0)
-    return output
+    return workbook_bytes(wb)
 
 
 # ---------------------------------------------------------------------------
@@ -1059,10 +1304,7 @@ def build_einsaetze_workbook(data: EventReportData) -> BytesIO:
             cell = ws.cell(row=row_num, column=col_num, value=value)
             cell.alignment = Alignment(vertical="top", wrap_text=True)
 
-    output = BytesIO()
-    wb.save(output)
-    output.seek(0)
-    return output
+    return workbook_bytes(wb)
 
 
 async def export_einsaetze_excel(data: EventReportData) -> BytesIO:

@@ -52,9 +52,12 @@ export interface RadioMaterial {
 
 /** Everything that rides along — the «es rücken aus …» part of the sentence. */
 export interface RadioDeployment {
+  /** Names, Einsatzleiter first (`sortCrewByLeader`). */
   crew: string[]
   /** Name of the Einsatzleiter among `crew`, prefixed «EL» when read out. The
-   *  one name on the list the receiving squad has to remember. */
+   *  one name on the list the receiving squad has to remember. Only the first
+   *  crew entry with this name is marked – the list is leader-first, and a
+   *  namesake further down is not the EL. */
   leader?: string | null
   vehicles: RadioVehicle[]
   materials: RadioMaterial[]
@@ -98,8 +101,9 @@ function materialPhrase(materials: RadioMaterial[]): string {
 /** Crew as read out, with the Einsatzleiter marked. «EL» is said over the
  *  radio exactly as written, so it needs no expansion here. */
 function formatCrew(deployment: RadioDeployment): string {
+  const leaderAt = deployment.leader ? deployment.crew.indexOf(deployment.leader) : -1
   return deployment.crew
-    .map((name) => (deployment.leader && name === deployment.leader ? `EL ${name}` : name))
+    .map((name, index) => (index === leaderAt ? `EL ${name}` : name))
     .join(", ")
 }
 

@@ -146,6 +146,7 @@ class ViewerPersonnel(BaseModel):
 
     id: UUID
     name: str
+    kennung: str | None = None  # tells two people of the same name apart
     role: str | None = None
     role_sort_order: int = 0
     tags: list[str] | None = None

@@ -13,7 +13,7 @@ describe("materialFormSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("accepts a consumable material with empty type/location", () => {
+  it("requires type and location, as the API does (it 422s a blank one)", () => {
     const result = materialFormSchema.safeParse({
       name: "Flatterband",
       type: "",
@@ -21,7 +21,17 @@ describe("materialFormSchema", () => {
       location: "",
       consumable: true,
     });
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.map((issue) => issue.path[0])).toEqual(["type", "location"]);
+    }
+  });
+
+  it("caps name at 100 and type at 50 characters, the column lengths", () => {
+    const valid = { name: "Tauchpumpe", type: "Pumpe", status: "available", location: "TLF", consumable: false };
+    expect(materialFormSchema.safeParse({ ...valid, name: "x".repeat(100) }).success).toBe(true);
+    expect(materialFormSchema.safeParse({ ...valid, name: "x".repeat(101) }).success).toBe(false);
+    expect(materialFormSchema.safeParse({ ...valid, type: "x".repeat(51) }).success).toBe(false);
   });
 
   it("rejects an empty name", () => {

@@ -36,6 +36,8 @@ dependencies = [
     # (numpy 57 MB incl. its OpenBLAS, h5py 17 MB incl. libhdf5). Owner-approved 08.10.2026.
     "h5py>=3.11",
     "numpy>=2.0",
+    # openpyxl uses it to reject XML entity expansion in uploaded workbooks.
+    "defusedxml>=0.7.1",
 ]
 
 [project.optional-dependencies]

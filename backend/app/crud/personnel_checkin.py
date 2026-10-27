@@ -127,6 +127,7 @@ async def get_available_personnel(
             schemas.PersonnelCheckInResponse(
                 id=person.id,
                 name=person.name,
+                kennung=person.kennung,
                 role=person.role,
                 status=person.status,
                 tags=person.tags,
@@ -192,6 +193,7 @@ async def check_in_personnel(
             return schemas.PersonnelCheckInResponse(
                 id=person.id,
                 name=person.name,
+                kennung=person.kennung,
                 role=person.role,
                 status=person.status,
                 tags=person.tags,
@@ -234,6 +236,7 @@ async def check_in_personnel(
     return schemas.PersonnelCheckInResponse(
         id=person.id,
         name=person.name,
+        kennung=person.kennung,
         role=person.role,
         status=person.status,
         tags=person.tags,
@@ -300,6 +303,7 @@ async def check_out_personnel(
             return schemas.PersonnelCheckInResponse(
                 id=person.id,
                 name=person.name,
+                kennung=person.kennung,
                 role=person.role,
                 status=person.status,
                 tags=person.tags,
@@ -343,6 +347,7 @@ async def check_out_personnel(
     return schemas.PersonnelCheckInResponse(
         id=person.id,
         name=person.name,
+        kennung=person.kennung,
         role=person.role,
         status=person.status,
         tags=person.tags,
@@ -406,6 +411,7 @@ async def clear_personnel_attendance(
     return schemas.PersonnelCheckInResponse(
         id=person.id,
         name=person.name,
+        kennung=person.kennung,
         role=person.role,
         status=person.status,
         tags=person.tags,
@@ -482,6 +488,7 @@ async def check_out_all_personnel(
             schemas.PersonnelCheckInResponse(
                 id=person.id,
                 name=person.name,
+                kennung=person.kennung,
                 role=person.role,
                 status=person.status,
                 tags=person.tags,

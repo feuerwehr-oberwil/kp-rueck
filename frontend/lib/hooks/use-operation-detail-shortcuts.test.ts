@@ -10,6 +10,7 @@ import {
   resolveShortcutTab,
   useOperationDetailShortcuts,
 } from "./use-operation-detail-shortcuts";
+import { assignedVehicle } from "@/test-utils/operation-fixtures"
 
 const minimalOperation = (overrides: Partial<Operation> = {}): Operation =>
   ({
@@ -37,11 +38,7 @@ const minimalOperation = (overrides: Partial<Operation> = {}): Operation =>
     rekoArrivedAt: null,
     rekoSummary: null,
     assignedReko: null,
-    crewAssignments: new Map(),
     materialAssignments: new Map(),
-    vehicleAssignments: new Map(),
-    vehicleCallsigns: new Map(),
-    vehicleDriverStay: new Map(),
     ...overrides,
   }) as Operation;
 
@@ -167,7 +164,7 @@ describe("useOperationDetailShortcuts", () => {
     renderHook(() =>
       useOperationDetailShortcuts({
         enabled: true,
-        operation: minimalOperation({ vehicles: ["Pio"] }),
+        operation: minimalOperation({ vehicles: [assignedVehicle("Pio", { vehicleId: "v2" })] }),
         availableVehicles,
         onUpdate,
         onAssignVehicle,
@@ -175,7 +172,7 @@ describe("useOperationDetailShortcuts", () => {
       }),
     );
     dispatch("2");
-    expect(onRemoveVehicle).toHaveBeenCalledWith("op-1", "Pio");
+    expect(onRemoveVehicle).toHaveBeenCalledWith("op-1", "v2");
     expect(onAssignVehicle).not.toHaveBeenCalled();
   });
 

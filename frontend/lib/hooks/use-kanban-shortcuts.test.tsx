@@ -28,6 +28,7 @@ import {
   type KanbanShortcutsState,
 } from "./use-kanban-shortcuts";
 import type { UseGPrefixNavigation } from "./use-g-prefix-navigation";
+import { assignedVehicle } from "@/test-utils/operation-fixtures"
 
 const baseOp = (overrides: Partial<Operation> = {}): Operation =>
   ({
@@ -55,11 +56,7 @@ const baseOp = (overrides: Partial<Operation> = {}): Operation =>
     rekoArrivedAt: null,
     rekoSummary: null,
     assignedReko: null,
-    crewAssignments: new Map(),
     materialAssignments: new Map(),
-    vehicleAssignments: new Map(),
-    vehicleCallsigns: new Map(),
-    vehicleDriverStay: new Map(),
     ...overrides,
   }) as Operation;
 
@@ -333,7 +330,7 @@ describe("useKanbanShortcuts", () => {
         useKanbanShortcuts(
           baseState({
             selectedOperationId: "op-1",
-            operations: [baseOp({ vehicles: ["Pio"] })],
+            operations: [baseOp({ vehicles: [assignedVehicle("Pio", { vehicleId: "v2" })] })],
             vehicleTypes,
           }),
           actions,

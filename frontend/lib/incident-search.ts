@@ -104,8 +104,8 @@ export function matchesIncidentQuery(
     // `vehicle` is the legacy single field, `vehicles` the array — both, so an
     // incident created before the migration is still findable by its vehicle.
     (!!operation.vehicle && operation.vehicle.toLowerCase().includes(needle)) ||
-    operation.vehicles.some((name) => name.toLowerCase().includes(needle)) ||
-    operation.crew.some((name) => name.toLowerCase().includes(needle)) ||
+    operation.vehicles.some(({ name }) => name.toLowerCase().includes(needle)) ||
+    operation.crew.some(({ name }) => name.toLowerCase().includes(needle)) ||
     operation.materials.some((materialId) => {
       const material = materials.find((m) => m.id === materialId)
       return !!material && material.name.toLowerCase().includes(needle)
