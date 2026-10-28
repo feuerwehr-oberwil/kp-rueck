@@ -90,14 +90,21 @@
       "name": "KP Rück",
       "url": "https://kp-rueck.ch/en/",
       "description": "KP Rück is the digital magnetic board in the rear command post: incidents, crews, vehicles and equipment – live on every device, open source.",
+      "featureList": [
+        "Crews at a glance: arrival by QR check-in, duty times and breaks",
+        "Vehicle and equipment management with assignment to incidents and a warning on double bookings",
+        "Thermal printer on the local network for assignment slips, situation overview and pickup list – automatic or by hand",
+        "Run several incidents at once – during storms and wide-area events",
+        "Alarm intake through an open interface and from Divera and FireHub, crew alerting through Divera",
+        "Situation map with all incidents and vehicle GPS positions",
+        "Incident report as PDF with incident log and response times",
+        "Self-hosted at the station or in your own cloud – the data stays under your control"
+      ],
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web browser",
       "inLanguage": [
-        "de-CH",
-        "fr-CH",
-        "it-CH",
-        "rm-CH",
-        "en"
+        "de",
+        "fr"
       ],
       "license": "https://www.gnu.org/licenses/agpl-3.0.html",
       "codeRepository": "https://github.com/feuerwehr-oberwil/kp-rueck",
@@ -119,6 +126,85 @@
       "url": "https://www.feuerwehr-oberwil.ch",
       "sameAs": [
         "https://github.com/feuerwehr-oberwil"
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://kp-rueck.ch/en/#faq",
+      "inLanguage": "en",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Why switch?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No more double bookings. No report lost in a group chat. Less radio traffic for questions that are on the board anyway. Everybody sees the same picture at the same time – and the incident report is already there when you get back, instead of the weekend after."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is KP Rück only for militia fire brigades?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. KP Rück grew out of the day-to-day work of a Swiss militia fire brigade, but it suits professional fire services, industrial fire brigades and other emergency organisations just as well. Wherever resources, vehicles, equipment and crews have to be coordinated behind the lines during major incidents or simultaneous storm callouts, KP Rück plays to its strengths."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Where does the data live, and which interfaces are there?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Like KP Front, KP Rück is entirely self-hosted – on a machine at the station or in the organisation’s own cloud. Incidents, crews, vehicles and equipment live in its own database; there is no licence check and no usage tracking. External services such as online maps or address search receive only what the feature in use needs, and can be switched off. You can connect alerting systems (any dispatch system through the open interface, Divera and FireHub directly – with Divera, crew alerting too), a thermal printer on the local network and vehicle GPS positions. Every integration is optional."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What does it cost?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The software itself costs nothing. KP Rück is open source (AGPL) – no licence, no subscription, no per-device fee. What remains are your own costs for operation, infrastructure and any external support you may need."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What does it take to run?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "A small mini-PC or server at the station is enough. Setup, updates and backups require someone with Docker and command-line experience, whether in the brigade, the municipality or an IT support provider. The guide and administration area lead through the setup. We are happy to answer general questions; data and operation remain the responsibility of each fire brigade."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does KP Rück require KP Front?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. KP Rück runs entirely on its own – with its own database, its own login and its own updates. It comes into its own alongside KP Front, the application for the front line at the incident: both take the same alarms from the dispatch system, read the same roster and classify alarms by the same keyword list, optionally with the same Divera access. Front and rear thus work from the same source data, without maintaining the alarm integration and the crew twice."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the local station printer for in KP Rück?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The station printer puts what matters on paper, right at the station or in the command post. KP Rück prints assignment slips for teams and drivers automatically if you wish, as soon as an incident is dispatched for the first time, or by hand at any time; the situation overview with incidents, vehicle status and crews, and the pickup list of equipment still on site, at the push of a button. As a fallback, the board can also be printed at regular intervals. What you connect is an ordinary 80 mm thermal printer (ESC/POS) on the local network – it works for any fire brigade, not just in Switzerland."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can we adapt it to how we work?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Every brigade has its own administration area: incident types, priorities, crew, fleet and equipment lists are all configurable there, and import and export run through Excel. And because the whole code is on GitHub , everything else can be built – by you or to order."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do we start?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "With the demo, without an account – pick a role and go. Then try it on an exercise; exercise mode is cleanly separated from the real thing. And if it fits: get in touch, we will help with the setup."
+          }
+        }
       ]
     }
   ]
@@ -599,8 +685,12 @@
         <p>No more double bookings. No report lost in a group chat. Less radio traffic for questions that are on the board anyway. Everybody sees the same picture at the same time – and the incident report is already there when you get back, instead of the weekend after.</p>
       </div>
       <div class="faq-item">
-        <h3>Who owns the data?</h3>
-        <p>You do. Every fire brigade runs its own KP Rück – on its own machine at the station or in the cloud. You decide where incident data, crew and fleet live; nothing goes to a vendor or to third parties.</p>
+        <h3>Is KP Rück only for militia fire brigades?</h3>
+        <p>No. KP Rück grew out of the day-to-day work of a Swiss militia fire brigade, but it suits professional fire services, industrial fire brigades and other emergency organisations just as well. Wherever resources, vehicles, equipment and crews have to be coordinated behind the lines during major incidents or simultaneous storm callouts, KP Rück plays to its strengths.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Where does the data live, and which interfaces are there?</h3>
+        <p>Like KP Front, KP Rück is entirely self-hosted – on a machine at the station or in the organisation’s own cloud. Incidents, crews, vehicles and equipment live in its own database; there is no licence check and no usage tracking. External services such as online maps or address search receive only what the feature in use needs, and can be switched off. You can connect alerting systems (any dispatch system through the open interface, Divera and FireHub directly – with Divera, crew alerting too), a thermal printer on the local network and vehicle GPS positions. Every integration is optional.</p>
       </div>
       <div class="faq-item">
         <h3>What does it cost?</h3>
@@ -609,6 +699,14 @@
       <div class="faq-item">
         <h3>What does it take to run?</h3>
         <p>A small mini-PC or server at the station is enough. Setup, updates and backups require someone with Docker and command-line experience, whether in the brigade, the municipality or an IT support provider. The guide and administration area lead through the setup. We are happy to answer general questions; data and operation remain the responsibility of each fire brigade.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Does KP Rück require KP Front?</h3>
+        <p>No. KP Rück runs entirely on its own – with its own database, its own login and its own updates. It comes into its own alongside <a href="https://kp-front.ch/">KP Front</a>, the application for the front line at the incident: both take the same alarms from the dispatch system, read the same roster and classify alarms by the same keyword list, optionally with the same Divera access. Front and rear thus work from the same source data, without maintaining the alarm integration and the crew twice.</p>
+      </div>
+      <div class="faq-item">
+        <h3>What is the local station printer for in KP Rück?</h3>
+        <p>The station printer puts what matters on paper, right at the station or in the command post. KP Rück prints assignment slips for teams and drivers automatically if you wish, as soon as an incident is dispatched for the first time, or by hand at any time; the situation overview with incidents, vehicle status and crews, and the pickup list of equipment still on site, at the push of a button. As a fallback, the board can also be printed at regular intervals. What you connect is an ordinary 80 mm thermal printer (ESC/POS) on the local network – it works for any fire brigade, not just in Switzerland.</p>
       </div>
       <div class="faq-item">
         <h3>Can we adapt it to how we work?</h3>
@@ -684,6 +782,7 @@
     <div class="foot-row">
       <span>© 2026 <a href="https://bastianeichenberger.ch" target="_blank" rel="noopener">Bastian Eichenberger</a> · AGPL-3.0</span>
       <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/feuerwehr-oberwil" target="_blank" rel="noopener">Feuerwehr Oberwil on GitHub</a>
       <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">Demo</a>
       <a href="https://kp-front.ch">KP Front</a>
       <a href="#kontakt">Contact</a>

@@ -5,6 +5,18 @@
     "ogTitle": "KP Rück – Einsatzboard für den Kommandoposten",
     "ogDescription": "Die digitale Magnettafel im rückwärtigen Kommandoposten: Einsätze, Personal, Fahrzeuge und Material – live auf allen Geräten, quelloffen."
   },
+  "schema": {
+    "featureList": [
+      "Personal im Überblick: Einrücken per QR-Check-in, Dienstzeiten und Pausen",
+      "Fahrzeug- und Materialverwaltung mit Zuweisung an Einsätze und Warnung bei Doppelbelegungen",
+      "Thermodrucker im lokalen Netz für Einsatzzettel, Lageübersicht und Abholliste – automatisch oder von Hand",
+      "Mehrere Einsätze gleichzeitig führen – bei Unwetter- und Flächenlagen",
+      "Alarmübernahme über eine offene Schnittstelle sowie aus Divera und FireHub, Ausalarmierung über Divera",
+      "Lagekarte mit allen Einsätzen und Fahrzeugpositionen per GPS",
+      "Einsatzrapport als PDF mit Einsatztagebuch und Reaktionszeiten",
+      "Selbst betrieben im Magazin oder in der eigenen Cloud – die Daten bleiben unter eigener Kontrolle"
+    ]
+  },
   "nav": {
     "aria": "Hauptnavigation",
     "features": "Funktionen",
@@ -341,8 +353,12 @@
         "a": "Keine Doppelbelegungen mehr. Keine Meldung, die im Gruppenchat untergeht. Weniger\n          Funkverkehr für Fragen, die ohnehin auf dem Board stehen. Alle sehen gleichzeitig\n          dasselbe Lagebild – und der Einsatzrapport ist beim Einrücken schon da statt am\n          Wochenende danach."
       },
       {
-        "q": "Wem gehören die Daten?",
-        "a": "Euch. Jede Feuerwehr betreibt ihr eigenes KP Rück – auf dem eigenen Rechner im\n          Magazin oder in der Cloud. Ihr entscheidet, wo Einsatzdaten, Mannschaft und Fuhrpark\n          liegen; nichts geht an einen Hersteller oder an Dritte."
+        "q": "Eignet sich KP Rück nur für Milizfeuerwehren?",
+        "a": "Nein. KP Rück wurde zwar aus der Praxis einer Schweizer Milizfeuerwehr entwickelt, eignet sich aber ebenso für Berufsfeuerwehren, Betriebswehren und andere Rettungsorganisationen. Überall dort, wo im Hintergrund Ressourcen, Fahrzeuge, Material und Personal bei Grosslagen oder Unwetter-Paralleleinsätzen koordiniert werden müssen, spielt KP Rück seine Stärken aus."
+      },
+      {
+        "q": "Wo liegen die Daten und welche Schnittstellen gibt es?",
+        "a": "KP Rück wird wie KP Front vollständig selbst betrieben – auf einem Rechner im Magazin oder in der eigenen Cloud. Einsätze, Personal, Fahrzeuge und Material liegen in der eigenen Datenbank der Organisation; es gibt weder Lizenzprüfung noch Nutzungsstatistik. Externe Dienste wie Online-Karten oder die Adresssuche erhalten nur, was die jeweilige Funktion braucht, und lassen sich abschalten. Anbinden lassen sich Alarmierungssysteme (jedes Dispositionssystem über die offene Schnittstelle, Divera und FireHub direkt – bei Divera auch die Ausalarmierung), ein Thermodrucker im lokalen Netz und GPS-Positionen der Fahrzeuge. Alle Anbindungen sind optional."
       },
       {
         "q": "Was kostet das?",
@@ -351,6 +367,14 @@
       {
         "q": "Was braucht es für den Betrieb?",
         "a": "Ein kleiner Mini-PC oder Server im Magazin reicht. Für Einrichtung, Updates und\n          Backups braucht es jemanden mit Docker- und Kommandozeilen-Erfahrung, sei es in der\n          Feuerwehr, in der Gemeinde oder bei einer unterstützenden IT. Die Anleitung und der\n          Verwaltungsbereich führen durch den Aufbau. Allgemeine Fragen beantworten wir gerne;\n          Daten und Betrieb bleiben in der Verantwortung der jeweiligen Feuerwehr."
+      },
+      {
+        "q": "Benötigt KP Rück zwingend KP Front?",
+        "a": "Nein. KP Rück läuft vollständig eigenständig – mit eigener Datenbank, eigenem Login und eigenen Updates. Sein volles Potenzial entfaltet es im Zusammenspiel mit <a href=\"https://kp-front.ch/\">KP Front</a>, der Anwendung für die Front am Einsatzort: Beide nehmen dieselben Alarme aus dem Dispositionssystem entgegen, lesen dieselbe Mannschaftsliste und stufen Alarme nach derselben Stichwortliste ein, auf Wunsch mit demselben Divera-Zugang. So arbeiten Front und Rück mit denselben Ausgangsdaten, ohne dass Alarmanbindung und Mannschaft doppelt gepflegt werden müssen."
+      },
+      {
+        "q": "Welchen Zweck erfüllt der lokale Stationsdrucker in KP Rück?",
+        "a": "Der Stationsdrucker bringt das Wichtigste direkt im Magazin oder im Kommandoposten aufs Papier. Einsatzzettel für Trupps und Fahrer druckt KP Rück auf Wunsch automatisch, sobald ein Einsatz zum ersten Mal ausrückt, oder jederzeit von Hand; die Lageübersicht mit Einsätzen, Fahrzeugstatus und Personal sowie die Abholliste mit dem Material, das noch auf Schadenplätzen liegt, auf Knopfdruck. Als Rückfallebene kann der Boardstand zudem regelmässig gedruckt werden. Angebunden wird ein handelsüblicher 80-mm-Thermodrucker (ESC/POS) im lokalen Netz – das funktioniert bei jeder Feuerwehr, nicht nur in der Schweiz."
       },
       {
         "q": "Können wir es an unsere Abläufe anpassen?",
@@ -402,6 +426,7 @@
   "footer": {
     "origin": "Entstanden im Einsatzbetrieb der <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a> –\n      weil wir im Einsatz immer wieder dieselben Fehlerquellen gesehen haben: Doppelbelegungen, verstreute\n      Informationen und handschriftliche Übertragungsfehler.\n      Jede Feuerwehr betreibt ihr eigenes KP Rück, mit eigener Mannschaft, eigenen Fahrzeugen und eigenen Daten.",
     "demo": "Demo",
-    "contact": "Kontakt"
+    "contact": "Kontakt",
+    "org": "Feuerwehr Oberwil auf GitHub"
   }
 }

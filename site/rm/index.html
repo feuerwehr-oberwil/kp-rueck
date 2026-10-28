@@ -90,14 +90,21 @@
       "name": "KP Rück",
       "url": "https://kp-rueck.ch/rm/",
       "description": "KP Rück è la tavla magnetica digitala dal post da commando posteriur: acziuns, persunal, vehichels e material – en temp real sin mintga apparat, open source.",
+      "featureList": [
+        "Survista dal persunal: arrivar cun check-in QR, temps da servetsch e pausas",
+        "Administraziun da vehichels e material cun attribuziun ad acziuns ed avertiment tar dubla occupaziun",
+        "Stampader termic en la rait locala per fegls d’acziun, survista da la situaziun e glista da ramassar – automaticamain u a maun",
+        "Manar pliras acziuns a medem temp – tar auras e situaziuns extendidas",
+        "Surpigliar alarms via in’interfatscha averta sco er da Divera e FireHub, alarmaziun dal persunal via Divera",
+        "Charta da situaziun cun tut las acziuns e las posiziuns GPS dals vehichels",
+        "Rapport d’acziun sco PDF cun diari d’acziun e temps da reacziun",
+        "Manà sez en il magazin u en l’atgna cloud – las datas restan sut atgna controlla"
+      ],
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web browser",
       "inLanguage": [
-        "de-CH",
-        "fr-CH",
-        "it-CH",
-        "rm-CH",
-        "en"
+        "de",
+        "fr"
       ],
       "license": "https://www.gnu.org/licenses/agpl-3.0.html",
       "codeRepository": "https://github.com/feuerwehr-oberwil/kp-rueck",
@@ -119,6 +126,85 @@
       "url": "https://www.feuerwehr-oberwil.ch",
       "sameAs": [
         "https://github.com/feuerwehr-oberwil"
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://kp-rueck.ch/rm/#faq",
+      "inLanguage": "rm-CH",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Pertge midar?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Naginas attribuziuns dublas pli, naginas annunzias persas, damain traffic da radio e la medema situaziun visibla per tuts. Il rapport è gia preparà al return."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "È KP Rück adattà mo per corps da pumpiers da milissa?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Na. KP Rück è vegnì sviluppà ord la pratica d’in corps da pumpiers da milissa svizzer, ma el è medemamain adattà per corps da pumpiers professiunals, pumpiers d’interpresa ed autras organisaziuns da salvament. Dapertut là nua che resursas, vehichels, material e persunal ston vegnir coordinads en il fund tar gronds eveniments u tar acziuns parallelas pervia d’auras, mussa KP Rück sias fermezzas."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Nua sa chattan las datas e tge interfatschas datti?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Sco KP Front vegn KP Rück manà dal tuttafatg da l’organisaziun sezza – sin in computer en il magazin u en l’atgna cloud. Acziuns, persunal, vehichels e material sa chattan en l’atgna banca da datas; i na dat ni controlla da licenza ni statisticas d’utilisaziun. Servetschs externs sco chartas online u la tschertga d’adressas survegnan mo quai che la funcziun utilisada dovra, e pon vegnir deactivads. Colliar sa laschan sistems d’alarmaziun (mintga sistem da disposiziun via l’interfatscha averta, Divera e FireHub directamain – cun Divera er l’alarmaziun dal persunal), in stampader termic en la rait locala e las posiziuns GPS dals vehichels. Tut las colliaziuns èn opziunalas."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Tge custa quai?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "La software sezza na custa nagut. KP Rück è open source (AGPL) – nagina licenza, nagin abunament, nagins custs per apparat. Restan ils agens custs per manaschi, infrastructura ed eventual sustegn extern."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Tge dovri per il manaschi?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "In pitschen mini-PC u server en il magazin basta. Per l’installaziun, actualisaziuns e backups dovri ina persuna cun experientscha da Docker e da la lingia da commandos, saja quai en il corps da pumpiers, en la vischnanca u tar ina IT che sustegna. L’instrucziun ed il sectur d’administraziun mainan tras l’installaziun. Nus respundain gugent a dumondas generalas; las datas ed il manaschi restan en la responsabladad dal corps da pumpiers respectiv."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Dovra KP Rück absolutamain KP Front?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Na. KP Rück funcziuna dal tuttafatg independentamain – cun atgna banca da datas, atgna annunzia ed atgnas actualisaziuns. Ses entir potenzial sviluppa el en cumbinaziun cun KP Front, l’applicaziun per il front al lieu d’acziun: omaduas retschavan ils medems alarms dal sistem da disposiziun, legian la medema glista dal persunal e classifitgeschan ils alarms tenor la medema glista da chavazzins, sche giavischà cun il medem access a Divera. Uschia lavuran omaduas applicaziuns cun las medemas datas da basa, senza che la colliaziun d’alarm ed il persunal ston vegnir tgirads duas giadas."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Tge intent ademplescha il stampader local da la staziun en KP Rück?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Il stampader da la staziun metta l’essenzial sin palpiri – directamain en il magazin u en il post da commando. Fegls d’acziun per gruppas e manischunzs stampa KP Rück sche giavischà automaticamain, uschespert ch’ina acziun parta per l’emprima giada, u da tut temp a maun; la survista da la situaziun cun acziuns, stadi dals vehichels e persunal sco er la glista da ramassar cun il material che sa chatta anc sin ils lieus d’acziun, sin squitsch d’in buttun. Sco nivel da reserva po il stadi da la tavla plinavant vegnir stampà regularmain. Collià vegn in stampader termic usità da 80 mm (ESC/POS) en la rait locala – quai funcziuna per mintga corps da pumpiers, betg mo en Svizra."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Po l’applicaziun vegnir adattada?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Gea. Mintga corps da pumpiers ha ses agen sectur d’administraziun: tips d’acziun, prioritads, persunal, parc da vehichels e glistas da material pon vegnir configurads libramain; import ed export vegnan fatgs cun Excel. Perquai che l’entir code è publitgà sin GitHub , pon tut las ulteriuras adattaziuns vegnir sviluppadas sez u incumbensadas."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Co cumenzar?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Cun la demo, senza conto. Tscherner ina rolla e cumenzar. Suenter testar durant in exercizi."
+          }
+        }
       ]
     }
   ]
@@ -633,9 +719,12 @@
           medema situaziun visibla per tuts. Il rapport è gia preparà al return.</p>
       </div>
       <div class="faq-item">
-        <h3>A tgi appartegnan las datas?</h3>
-        <p>A vus. Mintga corps da pumpiers maina sia atgna instanza da KP Rück e decida nua che las
-          datas vegnan memorisadas.</p>
+        <h3>È KP Rück adattà mo per corps da pumpiers da milissa?</h3>
+        <p>Na. KP Rück è vegnì sviluppà ord la pratica d’in corps da pumpiers da milissa svizzer, ma el è medemamain adattà per corps da pumpiers professiunals, pumpiers d’interpresa ed autras organisaziuns da salvament. Dapertut là nua che resursas, vehichels, material e persunal ston vegnir coordinads en il fund tar gronds eveniments u tar acziuns parallelas pervia d’auras, mussa KP Rück sias fermezzas.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Nua sa chattan las datas e tge interfatschas datti?</h3>
+        <p>Sco KP Front vegn KP Rück manà dal tuttafatg da l’organisaziun sezza – sin in computer en il magazin u en l’atgna cloud. Acziuns, persunal, vehichels e material sa chattan en l’atgna banca da datas; i na dat ni controlla da licenza ni statisticas d’utilisaziun. Servetschs externs sco chartas online u la tschertga d’adressas survegnan mo quai che la funcziun utilisada dovra, e pon vegnir deactivads. Colliar sa laschan sistems d’alarmaziun (mintga sistem da disposiziun via l’interfatscha averta, Divera e FireHub directamain – cun Divera er l’alarmaziun dal persunal), in stampader termic en la rait locala e las posiziuns GPS dals vehichels. Tut las colliaziuns èn opziunalas.</p>
       </div>
       <div class="faq-item">
         <h3>Tge custa quai?</h3>
@@ -650,6 +739,14 @@
           en il corps da pumpiers, en la vischnanca u tar ina IT che sustegna. L’instrucziun ed il
           sectur d’administraziun mainan tras l’installaziun. Nus respundain gugent a dumondas generalas;
           las datas ed il manaschi restan en la responsabladad dal corps da pumpiers respectiv.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Dovra KP Rück absolutamain KP Front?</h3>
+        <p>Na. KP Rück funcziuna dal tuttafatg independentamain – cun atgna banca da datas, atgna annunzia ed atgnas actualisaziuns. Ses entir potenzial sviluppa el en cumbinaziun cun <a href="https://kp-front.ch/">KP Front</a>, l’applicaziun per il front al lieu d’acziun: omaduas retschavan ils medems alarms dal sistem da disposiziun, legian la medema glista dal persunal e classifitgeschan ils alarms tenor la medema glista da chavazzins, sche giavischà cun il medem access a Divera. Uschia lavuran omaduas applicaziuns cun las medemas datas da basa, senza che la colliaziun d’alarm ed il persunal ston vegnir tgirads duas giadas.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Tge intent ademplescha il stampader local da la staziun en KP Rück?</h3>
+        <p>Il stampader da la staziun metta l’essenzial sin palpiri – directamain en il magazin u en il post da commando. Fegls d’acziun per gruppas e manischunzs stampa KP Rück sche giavischà automaticamain, uschespert ch’ina acziun parta per l’emprima giada, u da tut temp a maun; la survista da la situaziun cun acziuns, stadi dals vehichels e persunal sco er la glista da ramassar cun il material che sa chatta anc sin ils lieus d’acziun, sin squitsch d’in buttun. Sco nivel da reserva po il stadi da la tavla plinavant vegnir stampà regularmain. Collià vegn in stampader termic usità da 80 mm (ESC/POS) en la rait locala – quai funcziuna per mintga corps da pumpiers, betg mo en Svizra.</p>
       </div>
       <div class="faq-item">
         <h3>Po l’applicaziun vegnir adattada?</h3>
@@ -735,6 +832,7 @@
     <div class="foot-row">
       <span>© 2026 <a href="https://bastianeichenberger.ch" target="_blank" rel="noopener">Bastian Eichenberger</a> · AGPL-3.0</span>
       <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/feuerwehr-oberwil" target="_blank" rel="noopener">Feuerwehr Oberwil sin GitHub</a>
       <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">Demo</a>
       <a href="https://kp-front.ch">KP Front</a>
       <a href="#kontakt">Contact</a>

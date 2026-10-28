@@ -90,14 +90,21 @@
       "name": "KP Rück",
       "url": "https://kp-rueck.ch/fr/",
       "description": "KP Rück est le tableau magnétique numérique du poste de commandement arrière : interventions, personnel, véhicules et matériel – en direct, open source.",
+      "featureList": [
+        "Le personnel en un coup d’œil : arrivée par check-in QR, temps de service et pauses",
+        "Gestion des véhicules et du matériel avec attribution aux interventions et alerte en cas de double affectation",
+        "Imprimante thermique sur le réseau local pour fiches d’engagement, aperçu de la situation et liste de récupération – automatiquement ou à la main",
+        "Conduire plusieurs interventions en parallèle – lors d’intempéries et d’événements étendus",
+        "Reprise des alarmes via une interface ouverte ainsi que de Divera et FireHub, alarme de l’effectif via Divera",
+        "Carte de situation avec toutes les interventions et les positions GPS des véhicules",
+        "Rapport d’intervention en PDF avec journal d’intervention et temps de réaction",
+        "Exploité soi-même à la caserne ou dans son propre cloud – les données restent sous son propre contrôle"
+      ],
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web browser",
       "inLanguage": [
-        "de-CH",
-        "fr-CH",
-        "it-CH",
-        "rm-CH",
-        "en"
+        "de",
+        "fr"
       ],
       "license": "https://www.gnu.org/licenses/agpl-3.0.html",
       "codeRepository": "https://github.com/feuerwehr-oberwil/kp-rueck",
@@ -119,6 +126,85 @@
       "url": "https://www.feuerwehr-oberwil.ch",
       "sameAs": [
         "https://github.com/feuerwehr-oberwil"
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://kp-rueck.ch/fr/#faq",
+      "inLanguage": "fr-CH",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Pourquoi changer ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Plus de doubles affectations. Plus d’annonce qui se perd dans un groupe de discussion. Moins de trafic radio pour des questions dont la réponse est déjà sur le tableau. Tout le monde voit le même tableau de la situation au même moment – et le rapport d’intervention est déjà là à la rentrée, au lieu du week-end suivant."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "KP Rück convient-il uniquement aux sapeurs-pompiers de milice ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Non. KP Rück est né de la pratique d’un corps de sapeurs-pompiers de milice suisse, mais il convient tout autant aux sapeurs-pompiers professionnels, aux sapeurs-pompiers d’entreprise et à d’autres organisations de secours. Partout où il faut coordonner en arrière-plan des ressources, des véhicules, du matériel et du personnel lors d’événements majeurs ou d’interventions simultanées dues aux intempéries, KP Rück montre ses atouts."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Où se trouvent les données et quelles interfaces existe-t-il ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Comme KP Front, KP Rück est entièrement exploité par l’organisation elle-même – sur une machine à la caserne ou dans son propre cloud. Interventions, personnel, véhicules et matériel se trouvent dans sa propre base de données ; il n’y a ni contrôle de licence ni statistiques d’utilisation. Les services externes comme les cartes en ligne ou la recherche d’adresses ne reçoivent que ce dont la fonction utilisée a besoin et peuvent être désactivés. On peut raccorder des systèmes d’alarme (tout système de dispatching via l’interface ouverte, Divera et FireHub directement – avec Divera, aussi l’alarme de l’effectif), une imprimante thermique sur le réseau local et les positions GPS des véhicules. Tous les raccordements sont facultatifs."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Combien cela coûte-t-il ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Le logiciel lui-même ne coûte rien. KP Rück est open source (AGPL) – pas de licence, pas d’abonnement, pas de coût par appareil. Restent les coûts propres à l’exploitation, à l’infrastructure et, le cas échéant, à une assistance externe."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Que faut-il pour l’exploiter ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Un petit mini-PC ou serveur à la caserne suffit. L’installation, les mises à jour et les sauvegardes nécessitent une personne à l’aise avec Docker et la ligne de commande, que ce soit au sein du corps, de la commune ou auprès d’un prestataire informatique. Le guide et l’espace d’administration accompagnent la mise en place. Nous répondons volontiers aux questions générales ; les données et l’exploitation restent sous la responsabilité de chaque corps."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "KP Rück a-t-il absolument besoin de KP Front ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Non. KP Rück fonctionne de manière entièrement autonome – avec sa propre base de données, sa propre connexion et ses propres mises à jour. Il donne toute sa mesure en combinaison avec KP Front, l’application pour le front sur le lieu d’intervention : les deux reçoivent les mêmes alarmes du système de dispatching, lisent la même liste du personnel et classent les alarmes selon la même liste de mots-clés, si souhaité avec le même accès Divera. Le front et l’arrière travaillent ainsi avec les mêmes données de départ, sans devoir entretenir deux fois le raccordement d’alarme et l’effectif."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "À quoi sert l’imprimante locale de la caserne dans KP Rück ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "L’imprimante de la caserne met l’essentiel sur papier, directement à la caserne ou au poste de commandement. KP Rück imprime les fiches d’engagement pour les équipes et les conducteurs automatiquement si souhaité, dès qu’une intervention part pour la première fois, ou à tout moment à la main ; l’aperçu de la situation avec interventions, état des véhicules et personnel ainsi que la liste de récupération du matériel encore sur les lieux, sur simple pression. En solution de repli, l’état du tableau peut en outre être imprimé régulièrement. On raccorde une imprimante thermique 80 mm courante (ESC/POS) sur le réseau local – cela fonctionne pour tout corps de sapeurs-pompiers, pas seulement en Suisse."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Peut-on l’adapter à nos procédures ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Oui. Chaque corps a son propre espace d’administration : types d’intervention, priorités, effectif, parc de véhicules et listes de matériel y sont librement réglables, l’import et l’export passent par Excel. Et comme tout le code est sur GitHub , tout le reste peut être construit – par vous-mêmes ou sur mandat."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Comment commencer ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Par la démo, sans compte – choisir un rôle et commencer. Ensuite, l’essayer à un exercice ; le mode exercice est proprement séparé du cas réel. Et si cela convient : écrivez-nous, nous aidons à l’installation."
+          }
+        }
       ]
     }
   ]
@@ -640,10 +726,12 @@
           d’intervention est déjà là à la rentrée, au lieu du week-end suivant.</p>
       </div>
       <div class="faq-item">
-        <h3>À qui appartiennent les données ?</h3>
-        <p>À vous. Chaque corps exploite son propre KP Rück – sur sa propre machine à la caserne ou
-          dans le cloud. Vous décidez où se trouvent les données d’intervention, l’effectif et le
-          parc de véhicules ; rien ne part chez un fabricant ou chez des tiers.</p>
+        <h3>KP Rück convient-il uniquement aux sapeurs-pompiers de milice ?</h3>
+        <p>Non. KP Rück est né de la pratique d’un corps de sapeurs-pompiers de milice suisse, mais il convient tout autant aux sapeurs-pompiers professionnels, aux sapeurs-pompiers d’entreprise et à d’autres organisations de secours. Partout où il faut coordonner en arrière-plan des ressources, des véhicules, du matériel et du personnel lors d’événements majeurs ou d’interventions simultanées dues aux intempéries, KP Rück montre ses atouts.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Où se trouvent les données et quelles interfaces existe-t-il ?</h3>
+        <p>Comme KP Front, KP Rück est entièrement exploité par l’organisation elle-même – sur une machine à la caserne ou dans son propre cloud. Interventions, personnel, véhicules et matériel se trouvent dans sa propre base de données ; il n’y a ni contrôle de licence ni statistiques d’utilisation. Les services externes comme les cartes en ligne ou la recherche d’adresses ne reçoivent que ce dont la fonction utilisée a besoin et peuvent être désactivés. On peut raccorder des systèmes d’alarme (tout système de dispatching via l’interface ouverte, Divera et FireHub directement – avec Divera, aussi l’alarme de l’effectif), une imprimante thermique sur le réseau local et les positions GPS des véhicules. Tous les raccordements sont facultatifs.</p>
       </div>
       <div class="faq-item">
         <h3>Combien cela coûte-t-il ?</h3>
@@ -659,6 +747,14 @@
           guide et l’espace d’administration accompagnent la mise en place. Nous répondons
           volontiers aux questions générales ; les données et l’exploitation restent sous la
           responsabilité de chaque corps.</p>
+      </div>
+      <div class="faq-item">
+        <h3>KP Rück a-t-il absolument besoin de KP Front ?</h3>
+        <p>Non. KP Rück fonctionne de manière entièrement autonome – avec sa propre base de données, sa propre connexion et ses propres mises à jour. Il donne toute sa mesure en combinaison avec <a href="https://kp-front.ch/">KP Front</a>, l’application pour le front sur le lieu d’intervention : les deux reçoivent les mêmes alarmes du système de dispatching, lisent la même liste du personnel et classent les alarmes selon la même liste de mots-clés, si souhaité avec le même accès Divera. Le front et l’arrière travaillent ainsi avec les mêmes données de départ, sans devoir entretenir deux fois le raccordement d’alarme et l’effectif.</p>
+      </div>
+      <div class="faq-item">
+        <h3>À quoi sert l’imprimante locale de la caserne dans KP Rück ?</h3>
+        <p>L’imprimante de la caserne met l’essentiel sur papier, directement à la caserne ou au poste de commandement. KP Rück imprime les fiches d’engagement pour les équipes et les conducteurs automatiquement si souhaité, dès qu’une intervention part pour la première fois, ou à tout moment à la main ; l’aperçu de la situation avec interventions, état des véhicules et personnel ainsi que la liste de récupération du matériel encore sur les lieux, sur simple pression. En solution de repli, l’état du tableau peut en outre être imprimé régulièrement. On raccorde une imprimante thermique 80 mm courante (ESC/POS) sur le réseau local – cela fonctionne pour tout corps de sapeurs-pompiers, pas seulement en Suisse.</p>
       </div>
       <div class="faq-item">
         <h3>Peut-on l’adapter à nos procédures ?</h3>
@@ -746,6 +842,7 @@
     <div class="foot-row">
       <span>© 2026 <a href="https://bastianeichenberger.ch" target="_blank" rel="noopener">Bastian Eichenberger</a> · AGPL-3.0</span>
       <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/feuerwehr-oberwil" target="_blank" rel="noopener">Feuerwehr Oberwil sur GitHub</a>
       <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">Démo</a>
       <a href="https://kp-front.ch">KP Front</a>
       <a href="#kontakt">Contact</a>
