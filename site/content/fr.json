@@ -6,6 +6,18 @@
     "ogTitle": "KP Rück – le tableau d’intervention du poste de commandement",
     "ogDescription": "Le tableau magnétique numérique du poste de commandement arrière : interventions, personnel, véhicules et matériel – en direct, open source."
   },
+  "schema": {
+    "featureList": [
+      "Le personnel en un coup d’œil : arrivée par check-in QR, temps de service et pauses",
+      "Gestion des véhicules et du matériel avec attribution aux interventions et alerte en cas de double affectation",
+      "Imprimante thermique sur le réseau local pour fiches d’engagement, aperçu de la situation et liste de récupération – automatiquement ou à la main",
+      "Conduire plusieurs interventions en parallèle – lors d’intempéries et d’événements étendus",
+      "Reprise des alarmes via une interface ouverte ainsi que de Divera et FireHub, alarme de l’effectif via Divera",
+      "Carte de situation avec toutes les interventions et les positions GPS des véhicules",
+      "Rapport d’intervention en PDF avec journal d’intervention et temps de réaction",
+      "Exploité soi-même à la caserne ou dans son propre cloud – les données restent sous son propre contrôle"
+    ]
+  },
   "nav": {
     "aria": "Navigation principale",
     "features": "Fonctions",
@@ -312,8 +324,12 @@
         "a": "Plus de doubles affectations. Plus d’annonce qui se perd dans un groupe de discussion.\n          Moins de trafic radio pour des questions dont la réponse est déjà sur le tableau. Tout\n          le monde voit le même tableau de la situation au même moment – et le rapport\n          d’intervention est déjà là à la rentrée, au lieu du week-end suivant."
       },
       {
-        "q": "À qui appartiennent les données ?",
-        "a": "À vous. Chaque corps exploite son propre KP Rück – sur sa propre machine à la caserne ou\n          dans le cloud. Vous décidez où se trouvent les données d’intervention, l’effectif et le\n          parc de véhicules ; rien ne part chez un fabricant ou chez des tiers."
+        "q": "KP Rück convient-il uniquement aux sapeurs-pompiers de milice ?",
+        "a": "Non. KP Rück est né de la pratique d’un corps de sapeurs-pompiers de milice suisse, mais il convient tout autant aux sapeurs-pompiers professionnels, aux sapeurs-pompiers d’entreprise et à d’autres organisations de secours. Partout où il faut coordonner en arrière-plan des ressources, des véhicules, du matériel et du personnel lors d’événements majeurs ou d’interventions simultanées dues aux intempéries, KP Rück montre ses atouts."
+      },
+      {
+        "q": "Où se trouvent les données et quelles interfaces existe-t-il ?",
+        "a": "Comme KP Front, KP Rück est entièrement exploité par l’organisation elle-même – sur une machine à la caserne ou dans son propre cloud. Interventions, personnel, véhicules et matériel se trouvent dans sa propre base de données ; il n’y a ni contrôle de licence ni statistiques d’utilisation. Les services externes comme les cartes en ligne ou la recherche d’adresses ne reçoivent que ce dont la fonction utilisée a besoin et peuvent être désactivés. On peut raccorder des systèmes d’alarme (tout système de dispatching via l’interface ouverte, Divera et FireHub directement – avec Divera, aussi l’alarme de l’effectif), une imprimante thermique sur le réseau local et les positions GPS des véhicules. Tous les raccordements sont facultatifs."
       },
       {
         "q": "Combien cela coûte-t-il ?",
@@ -322,6 +338,14 @@
       {
         "q": "Que faut-il pour l’exploiter ?",
         "a": "Un petit mini-PC ou serveur à la caserne suffit. L’installation, les mises à jour et\n          les sauvegardes nécessitent une personne à l’aise avec Docker et la ligne de commande,\n          que ce soit au sein du corps, de la commune ou auprès d’un prestataire informatique. Le\n          guide et l’espace d’administration accompagnent la mise en place. Nous répondons\n          volontiers aux questions générales ; les données et l’exploitation restent sous la\n          responsabilité de chaque corps."
+      },
+      {
+        "q": "KP Rück a-t-il absolument besoin de KP Front ?",
+        "a": "Non. KP Rück fonctionne de manière entièrement autonome – avec sa propre base de données, sa propre connexion et ses propres mises à jour. Il donne toute sa mesure en combinaison avec <a href=\"https://kp-front.ch/\">KP Front</a>, l’application pour le front sur le lieu d’intervention : les deux reçoivent les mêmes alarmes du système de dispatching, lisent la même liste du personnel et classent les alarmes selon la même liste de mots-clés, si souhaité avec le même accès Divera. Le front et l’arrière travaillent ainsi avec les mêmes données de départ, sans devoir entretenir deux fois le raccordement d’alarme et l’effectif."
+      },
+      {
+        "q": "À quoi sert l’imprimante locale de la caserne dans KP Rück ?",
+        "a": "L’imprimante de la caserne met l’essentiel sur papier, directement à la caserne ou au poste de commandement. KP Rück imprime les fiches d’engagement pour les équipes et les conducteurs automatiquement si souhaité, dès qu’une intervention part pour la première fois, ou à tout moment à la main ; l’aperçu de la situation avec interventions, état des véhicules et personnel ainsi que la liste de récupération du matériel encore sur les lieux, sur simple pression. En solution de repli, l’état du tableau peut en outre être imprimé régulièrement. On raccorde une imprimante thermique 80 mm courante (ESC/POS) sur le réseau local – cela fonctionne pour tout corps de sapeurs-pompiers, pas seulement en Suisse."
       },
       {
         "q": "Peut-on l’adapter à nos procédures ?",
@@ -373,6 +397,7 @@
   "footer": {
     "origin": "Né du service opérationnel des <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">sapeurs-pompiers d’Oberwil BL</a> –\n      parce qu’en intervention nous avons vu revenir les mêmes sources d’erreur : doubles\n      affectations, informations éparpillées et erreurs de recopie à la main.\n      Chaque corps exploite son propre KP Rück, avec son effectif, ses véhicules et ses données.",
     "demo": "Démo",
-    "contact": "Contact"
+    "contact": "Contact",
+    "org": "Feuerwehr Oberwil sur GitHub"
   }
 }
