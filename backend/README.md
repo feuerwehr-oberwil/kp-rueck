@@ -115,6 +115,8 @@ building a second scratch database (`kprueck_test_drift`, likewise per worker) p
 
 ```bash
 uv sync --dev
+# After changing tests, save any reports you need, then clear cached test associations:
+rm -rf mutants/
 DEMO_MODE=false uv run mutmut run --max-children 1 '*'
 uv run mutmut results
 uv run mutmut show 'app.services.tokens.x_generate_checkin_token__mutmut_1'
@@ -128,8 +130,11 @@ works as above. Keep one mutation child: the test fixtures recreate a PostgreSQL
 concurrent mutation forks against the same database would invalidate each other's results.
 Run other backend test sessions against a different scratch database.
 
-The quoted `'*'` explicitly reruns every mutant after test changes; without a selector mutmut
-can retain cached results. Read survivors with `show` or `browse` before adding tests:
+After changing tests, remove `mutants/` before rerunning so mutmut measures test-to-function
+associations again, including edited tests whose IDs stayed the same. Save any reports you
+want to keep first. The quoted `'*'` reruns every mutant verdict for an unchanged test suite;
+it does not refresh those cached associations. Without a selector mutmut can retain cached
+verdicts. Read survivors with `show` or `browse` before adding tests:
 case-insensitive headers, equivalent defaults and diagnostic wording can survive without
 changing the contract. `mutants/` is disposable and ignored. The exported JSON lives at
 `mutants/mutmut-cicd-stats.json`; mutmut's exit code alone does not reject surviving mutants.

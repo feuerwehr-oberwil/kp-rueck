@@ -58,8 +58,10 @@ Use Node 24 for mutation runs (the instrumented suite hit worker crashes on Node
 
 ```bash
 pnpm test:mutation
-# Reuse unchanged results from the previous report:
-pnpm test:mutation --incremental --incrementalFile reports/mutation/mutation.json
+# Once, seed a separate incremental cache from the full report:
+cp reports/mutation/mutation.json reports/mutation/incremental.json
+# Reuse unchanged results on subsequent runs:
+pnpm test:mutation --incremental --incrementalFile reports/mutation/incremental.json
 # A smaller investigation; override BOTH source and test selection:
 pnpm test:mutation --mutate lib/release-undo.ts --testFiles lib/release-undo.test.ts
 ```
@@ -83,6 +85,8 @@ Open `reports/mutation/index.html` to inspect each survivor; the machine-readabl
 not an assertion failure, and an equivalent mutant needs an explanation rather than a test
 that couples itself to an implementation detail. Keep these reports and `.stryker-tmp/` out
 of Git. The normal Vitest run excludes both, including sandboxes retained after a failed run.
+Keep the incremental cache separate from the JSON reporter's output: both writers run
+independently, so sharing a path can corrupt the report.
 
 ## Environment Variables
 
