@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest"
 import {
   materialResourceState,
+  isPersonOccupied,
+  personResourceState,
   personMatchesQuery,
   summarizeMaterials,
   summarizeRoster,
   vehicleResourceState,
+  toResourceState,
 } from "./resource-status"
 
 // The one roster matcher, shared by the sidebar filter and the assignment
@@ -39,6 +42,47 @@ describe("personMatchesQuery", () => {
   it("matches tags and treats a blank query as match-all", () => {
     expect(personMatchesQuery({ ...base, tags: ["F"] }, "f")).toBe(true)
     expect(personMatchesQuery(base, "  ")).toBe(true)
+  })
+
+  it("matches any tag, rather than requiring every tag", () => {
+    expect(personMatchesQuery({ ...base, tags: ["Sanität", "Atemschutz"] }, "ATEMSCHUTZ")).toBe(true)
+    expect(personMatchesQuery({ ...base, tags: [] }, "missing")).toBe(false)
+    expect(personMatchesQuery({ name: "Meier", role: null, tags: null }, "missing")).toBe(false)
+  })
+
+  it.each(["isReko", "isDriver", "isMagazin", "isTelefondienst", "isKommandoposten"] as const)(
+    "%s is not a match for an unrelated query", (role) => {
+      expect(personMatchesQuery({ ...base, [role]: true }, "nobody")).toBe(false)
+    },
+  )
+
+  it("does not assign special functions to someone who does not hold them", () => {
+    for (const query of ["reko", "fahrer", "driver", "magazin"]) expect(personMatchesQuery(base, query)).toBe(false)
+    expect(personMatchesQuery({ ...base, isDriver: true }, "driver")).toBe(true)
+  })
+})
+
+describe("person resource state", () => {
+  it.each([
+    ["available", "available"], ["assigned", "assigned"], ["planned", "assigned"], ["maintenance", "maintenance"],
+    ["unavailable", "unavailable"], ["unknown", "unavailable"], [null, "unavailable"], [undefined, "unavailable"],
+  ] as const)("normalizes %s to %s", (input, expected) => expect(toResourceState(input)).toBe(expected))
+
+  it("binds available Reko and route crew without overriding unavailability", () => {
+    expect(personResourceState({ status: "available" })).toBe("available")
+    expect(personResourceState({ status: "available", isReko: true })).toBe("assigned")
+    expect(personResourceState({ status: "available", isOnAuftrag: true })).toBe("assigned")
+    expect(personResourceState({ status: "unavailable", isReko: true })).toBe("unavailable")
+    expect(personResourceState({ status: "maintenance", isOnAuftrag: true })).toBe("maintenance")
+  })
+
+  it("distinguishes occupied functions from free and checked-out people", () => {
+    expect(isPersonOccupied({ status: "available" })).toBe(false)
+    expect(isPersonOccupied({ status: "unavailable" })).toBe(false)
+    expect(isPersonOccupied({ status: "assigned" })).toBe(true)
+    for (const role of ["isReko", "isOnAuftrag", "isDriver", "isMagazin", "isTelefondienst", "isKommandoposten"] as const) {
+      expect(isPersonOccupied({ status: "available", [role]: true })).toBe(true)
+    }
   })
 })
 
@@ -96,5 +140,11 @@ describe("summarizeMaterials", () => {
       { status: "assigned", consumable: true },
     ])
     expect(summary).toEqual({ free: 2, bound: 2, total: 4 })
+  })
+
+  it("counts an uneven mix and an empty inventory", () => {
+    expect(summarizeMaterials([{ status: "available" }, { status: "assigned" }, { status: "available", outOfService: true }]))
+      .toEqual({ free: 1, bound: 2, total: 3 })
+    expect(summarizeMaterials([])).toEqual({ free: 0, bound: 0, total: 0 })
   })
 })

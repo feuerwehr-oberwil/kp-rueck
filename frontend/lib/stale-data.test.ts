@@ -8,6 +8,17 @@ import {
 const now = new Date("2026-05-28T10:00:00Z");
 
 describe("shouldShowStaleBanner", () => {
+  it("waits through the exact threshold for a disconnect or failed load", () => {
+    const lastSyncAt = new Date(now.getTime() - STALE_BANNER_THRESHOLD_MS)
+    expect(shouldShowStaleBanner({ wsStatus: "disconnected", lastSyncAt, now })).toBe(false)
+    expect(shouldShowStaleBanner({ wsStatus: "connected", lastSyncAt, now, loadFailed: true })).toBe(false)
+    expect(shouldShowStaleBanner({ wsStatus: "disconnected", lastSyncAt, now: new Date(now.getTime() + 1) })).toBe(true)
+  })
+
+  it("a disconnected socket never confirms a live board", () => {
+    expect(isLiveConfirmed({ wsStatus: "disconnected", lastSyncAt: now, liveSince: new Date(now.getTime() - 1) })).toBe(false)
+    expect(isLiveConfirmed({ wsStatus: "connecting", lastSyncAt: now })).toBe(false)
+  })
   it("stays hidden while the WebSocket is connected, regardless of sync age", () => {
     const result = shouldShowStaleBanner({
       wsStatus: "connected",

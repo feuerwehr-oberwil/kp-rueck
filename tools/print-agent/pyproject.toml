@@ -26,3 +26,12 @@ kp-print-agent = "agent:main"
 
 [tool.uv]
 package = false
+
+[tool.pytest.ini_options]
+norecursedirs = ["mutants", ".*", "__pycache__"]
+
+[tool.mutmut]
+source_paths = ["core.py", "protocols/"]
+pytest_add_cli_args = ["-q", "-x"]
+pytest_add_cli_args_test_selection = ["test_agent.py", "test_core.py", "test_protocol.py"]
+also_copy = ["agent.py", "formatters.py", "outputs/"]

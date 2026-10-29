@@ -77,4 +77,120 @@ describe("checkRestore", () => {
     })
     expect(checkRestore(stop, s)).toEqual({ reason: "elsewhere", where: "Ost" })
   })
+
+  it("finds the exact incident and person after unrelated rows", () => {
+    expect(checkRestore(person, state({
+      operations: [op("other", { status: "complete" }), op("e1")],
+      personnel: [{ id: "p2", name: "Other", status: "unavailable" }, { id: "p1", name: "Meier", status: "available" }],
+    }))).toBeNull()
+    expect(checkRestore(person, state({ personnel: [{ id: "p1", name: "Meier", status: "unavailable" }] })))
+      .toEqual({ reason: "unavailable" })
+  })
+
+  it("ignores historical assignments on completed incidents", () => {
+    expect(checkRestore(person, state({ operations: [op("e1"), op("e2", { status: "complete", crew: [{ personnelId: "p1" }] })] })))
+      .toBeNull()
+  })
+
+  const vehicle: Released = { kind: "vehicle", operationId: "e1", vehicleId: "v1", name: "TLF", targetLabel: "x" }
+  const material: Released = { kind: "material", operationId: "e1", materialId: "m1", name: "Pumpe", targetLabel: "x" }
+
+  it("lets a free vehicle return and ignores an unrelated unavailable vehicle", () => {
+    expect(checkRestore(vehicle, state({ outOfServiceVehicleIds: new Set(["v2"]) }))).toBeNull()
+  })
+
+  it("detects the exact vehicle assignment and its current holder", () => {
+    expect(checkRestore(vehicle, state({ operations: [op("e1", { vehicles: [{ vehicleId: "v1" }] })] })))
+      .toEqual({ reason: "alreadyBack" })
+    expect(checkRestore(vehicle, state({ operations: [op("e1"), op("e2", { vehicles: [{ vehicleId: "v1" }] })] })))
+      .toEqual({ reason: "elsewhere", where: "Bahnhofstrasse 3" })
+    expect(checkRestore(vehicle, state({ operations: [op("e1"), op("e2", { vehicles: [{ vehicleId: "v2" }] })] }))).toBeNull()
+    expect(checkRestore(vehicle, state({ operations: [op("e1"), op("e2", { status: "complete", vehicles: [{ vehicleId: "v1" }] })] })))
+      .toBeNull()
+  })
+
+  it("does not restore a vehicle merely because an unrelated incident comes first", () => {
+    expect(checkRestore(vehicle, state({ operations: [op("unrelated"), op("e1"), op("e2", { vehicles: [{ vehicleId: "v1" }] })] })))
+      .toEqual({ reason: "elsewhere", where: "Bahnhofstrasse 3" })
+  })
+
+  it("restores reusable material only when it is free and still exists", () => {
+    expect(checkRestore(material, state())).toBeNull()
+    expect(checkRestore(material, state({ materials: [] }))).toEqual({ reason: "resourceGone" })
+    expect(checkRestore(material, state({ operations: [op("e1", { materials: ["m1"] })] }))).toEqual({ reason: "alreadyBack" })
+    expect(checkRestore(material, state({ operations: [op("e1"), op("e2", { materials: ["m1"] })] })))
+      .toEqual({ reason: "elsewhere", where: "Bahnhofstrasse 3" })
+    expect(checkRestore(material, state({ operations: [op("e1"), op("e2", { status: "complete", materials: ["m1"] })] })))
+      .toBeNull()
+  })
+})
+
+const route = (id = "g1", over: Partial<RestoreState["groups"][number]> = {}) => ({
+  id, name: id === "g1" ? "West" : "Ost", stopIds: [] as string[],
+  assignments: [] as { resourceType: string; resourceId: string }[], ...over,
+})
+
+describe("route stop undo", () => {
+  const stop: Released = { kind: "stop", groupId: "g1", incidentId: "e1", name: "Hauptstrasse 5", targetLabel: "West" }
+
+  it("needs the original route and incident to still exist", () => {
+    expect(checkRestore(stop, state())).toEqual({ reason: "targetGone" })
+    expect(checkRestore(stop, state({ groups: [route()], operations: [op("other")] }))).toEqual({ reason: "resourceGone" })
+  })
+
+  it("lets a detached stop return to its own route", () => {
+    expect(checkRestore(stop, state({ groups: [route("g2"), route()], operations: [op("other"), op("e1")] }))).toBeNull()
+  })
+
+  it("recognizes an already restored stop from either side of a sync", () => {
+    expect(checkRestore(stop, state({ groups: [route("g1", { stopIds: ["e1"] })] }))).toEqual({ reason: "alreadyBack" })
+    expect(checkRestore(stop, state({ groups: [route()], operations: [op("e1", { groupId: "g1" })] })))
+      .toEqual({ reason: "alreadyBack" })
+  })
+})
+
+describe.each(["personnel", "vehicle", "material"] as const)("route %s undo", (resourceType) => {
+  const resourceId = resourceType === "personnel" ? "p1" : resourceType === "vehicle" ? "v1" : "m1"
+  const released: Released = { kind: "routeResource", groupId: "g1", resourceType, resourceId, name: "Resource", targetLabel: "West" }
+
+  it("requires the original route and permits an unassigned resource", () => {
+    expect(checkRestore(released, state())).toEqual({ reason: "targetGone" })
+    expect(checkRestore(released, state({ groups: [route("other"), route()] }))).toBeNull()
+  })
+
+  it("recognizes the resource already back on the original route", () => {
+    expect(checkRestore(released, state({ groups: [route("unrelated"), route("g1", { assignments: [{ resourceType, resourceId }] })] })))
+      .toEqual({ reason: "alreadyBack" })
+  })
+
+  it("preserves a newer assignment on another route", () => {
+    expect(checkRestore(released, state({ groups: [route(), route("unrelated"), route("g2", { assignments: [{ resourceType, resourceId }] })] })))
+      .toEqual({ reason: "elsewhere", where: "Ost" })
+  })
+
+  it("compares both the resource type and id", () => {
+    const otherType = resourceType === "personnel" ? "vehicle" : "personnel"
+    const unrelated = [{ resourceType, resourceId: "another" }, { resourceType: otherType, resourceId }]
+    expect(checkRestore(released, state({ groups: [route("g1", { assignments: unrelated }), route("g2", { assignments: unrelated })] })))
+      .toBeNull()
+  })
+
+})
+
+describe("route resource availability", () => {
+  const material: Released = { kind: "routeResource", groupId: "g1", resourceType: "material", resourceId: "m1", name: "Pumpe", targetLabel: "West" }
+  const vehicle: Released = { ...material, resourceType: "vehicle", resourceId: "v1" }
+
+  it("refuses unavailable vehicles, missing material and defective material", () => {
+    expect(checkRestore(vehicle, state({ groups: [route()], outOfServiceVehicleIds: new Set(["v1"]) })))
+      .toEqual({ reason: "outOfService" })
+    expect(checkRestore(material, state({ groups: [route()], materials: [] }))).toEqual({ reason: "resourceGone" })
+    expect(checkRestore(material, state({ groups: [route()], materials: [{ id: "m1", consumable: true, outOfService: true }] })))
+      .toEqual({ reason: "outOfService" })
+  })
+
+  it("permits consumables held by another route", () => {
+    expect(checkRestore({ ...material, resourceId: "m2" }, state({ groups: [route(), route("g2", { assignments: [{ resourceType: "material", resourceId: "m2" }] })] })))
+      .toBeNull()
+  })
 })

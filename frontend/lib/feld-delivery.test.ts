@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { deliveryReducer, isBusy, IDLE, type DeliveryState } from './feld-delivery'
 
 describe('deliveryReducer', () => {
+  it('starts in the idle state with no receipt', () => {
+    expect(IDLE).toEqual({ status: 'idle' })
+  })
   it('goes idle → pending → sent', () => {
     const pending = deliveryReducer(IDLE, { type: 'send', action: 'message', label: 'Verstärkung nötig', attempt: 1 })
     expect(pending).toMatchObject({ status: 'pending', action: 'message', label: 'Verstärkung nötig' })
@@ -60,6 +63,14 @@ describe('deliveryReducer', () => {
     expect(retry).toMatchObject({ status: 'pending', attempt: 2 })
     // The stale answer of attempt 1 still cannot touch it.
     expect(deliveryReducer(retry, { type: 'settled', ok: false, attempt: 1 })).toBe(retry)
+  })
+
+  it('a duplicate answer cannot rewrite an already settled receipt', () => {
+    const pending = deliveryReducer(IDLE, { type: 'send', action: 'pickup', label: 'Abholung', attempt: 1 })
+    const sent = deliveryReducer(pending, { type: 'settled', ok: true, attempt: 1 })
+    expect(deliveryReducer(sent, { type: 'settled', ok: false, attempt: 1 })).toBe(sent)
+    const failed = deliveryReducer(pending, { type: 'settled', ok: false, attempt: 1 })
+    expect(deliveryReducer(failed, { type: 'settled', ok: true, attempt: 1 })).toBe(failed)
   })
 })
 

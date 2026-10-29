@@ -21,4 +21,10 @@ describe("assignment refusals (409)", () => {
     expect(refusalReason(new ApiError("Serverfehler", 500))).toBeNull()
     expect(assignFailureDescription(new Error("offline"), "TLF")).toBe("TLF konnte nicht zugewiesen werden.")
   })
+
+  it("trims a refusal and only treats a leading HTTP status as generic", () => {
+    expect(refusalReason(new ApiError("  Fahrzeug ist archiviert.  ", 409, true))).toBe("Fahrzeug ist archiviert.")
+    expect(refusalReason(new ApiError("  ", 409, true))).toBeNull()
+    expect(refusalReason(new ApiError("Konflikt mit Einsatz 409", 409, true))).toBe("Konflikt mit Einsatz 409")
+  })
 })

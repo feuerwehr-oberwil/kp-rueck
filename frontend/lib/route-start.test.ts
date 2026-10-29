@@ -42,6 +42,13 @@ describe("resolveRouteStart", () => {
   it("is null when there is nothing to start from", () => {
     expect(resolveRouteStart("first", anchors({ firstStop: null }))).toBeNull()
   })
+
+  it("preserves the exact coordinates and provenance of the selected anchor", () => {
+    const a = anchors()
+    expect(resolveRouteStart("magazin", a)).toEqual({ mode: "magazin", requested: "magazin", coords: a.magazin!.coords, source: "settings" })
+    expect(resolveRouteStart("vehicle", a)).toEqual({ mode: "vehicle", requested: "vehicle", ...a.vehicle })
+    expect(resolveRouteStart("first", a)).toEqual({ mode: "first", requested: "first", ...firstStop })
+  })
 })
 
 describe("start option labels (before optimising)", () => {
@@ -94,6 +101,20 @@ describe("start option labels (before optimising)", () => {
       detail: "Kein Fahrzeug mit GPS auf diesem Auftrag",
     })
   })
+
+  it("disables a loading Magazin and an unlocated first stop", () => {
+    const magazin = describeStartOption("magazin", anchors({ magazin: null }), t, NOW)
+    expect(magazin).toEqual({ label: t("magazin"), detail: t("magazinLoading"), caution: false, available: false })
+    const missing = describeStartOption("first", anchors({ firstStop: null }), t, NOW)
+    expect(missing).toEqual({ label: t("first"), detail: t("firstMissing"), caution: false, available: false })
+    expect(describeStartOption("first", anchors(), t, NOW)).toEqual({ label: t("first"), detail: firstStop.label, caution: false, available: true })
+  })
+
+  it("marks a vehicle fix stale only after ten minutes", () => {
+    const vehicle = { ...anchors().vehicle!, reportedAt: new Date(NOW - 600_000) }
+    expect(describeStartOption("vehicle", anchors({ vehicle }), t, NOW).caution).toBe(false)
+    expect(describeStartOption("vehicle", anchors({ vehicle }), t, NOW + 1).caution).toBe(true)
+  })
 })
 
 describe("used start (after optimising)", () => {
@@ -109,5 +130,28 @@ describe("used start (after optimising)", () => {
     expect(routeStartSummary(describeRouteStart(start, t, NOW))).toBe(
       "Magazin · Ersatzstandort – Magazin nicht eingerichtet",
     )
+  })
+
+  it("describes a selected first stop without a fallback warning", () => {
+    const start = resolveRouteStart("first", anchors())!
+    expect(describeRouteStart(start, t, NOW)).toEqual({ label: t("first"), detail: firstStop.label, caution: false })
+  })
+
+  it("keeps the vehicle's clock time and freshness in the used-start readout", () => {
+    const a = anchors()
+    const text = describeRouteStart(resolveRouteStart("vehicle", a)!, t, NOW)
+    const time = a.vehicle!.reportedAt!.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })
+    expect(text).toEqual({ label: t("vehicle"), detail: t("vehicleAt", { vehicle: "TLF 1", time }), caution: false })
+    expect(routeStartSummary({ label: "Magazin", detail: "", caution: false })).toBe("Magazin")
+  })
+})
+
+describe("tracker timestamps", () => {
+  it.each([null, undefined, "", "garbage"])("rejects a missing or unreadable timestamp: %s", (value) => {
+    expect(parseReportedAt(value)).toBeNull()
+  })
+
+  it("preserves a valid fix's exact instant", () => {
+    expect(parseReportedAt("2026-10-02T14:38:00+02:00")?.getTime()).toBe(Date.parse("2026-10-02T12:38:00Z"))
   })
 })

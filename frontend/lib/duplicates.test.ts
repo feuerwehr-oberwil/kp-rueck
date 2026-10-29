@@ -40,4 +40,41 @@ describe('duplicate hint helpers', () => {
       duplicateQueryKey({ eventId: 'e', lat: 47.5000000001, lng: 7.5, address: 'x 1 ' }),
     )
   })
+
+  it('separates events, excluded incidents and independently changed coordinates', () => {
+    const query = { eventId: 'e1', lat: 47.1234567, lng: 7.1234567, address: ' Hauptstrasse 6 ', excludeId: 'inc-1' }
+    expect(JSON.parse(duplicateQueryKey(query)!)).toEqual(['e1', '47.123457', '7.123457', 'Hauptstrasse 6', 'inc-1'])
+    for (const changed of [{ eventId: 'e2' }, { excludeId: 'inc-2' }, { lat: 47.2 }, { lng: 7.2 }, { address: 'Hauptstrasse 7' }]) {
+      expect(duplicateQueryKey({ ...query, ...changed })).not.toBe(duplicateQueryKey(query))
+    }
+    expect(JSON.parse(duplicateQueryKey({ lat: null, lng: null, address: 'Hauptstrasse 6' })!))
+      .toEqual(['', '', '', 'Hauptstrasse 6', ''])
+  })
+
+  it('does not use a partial pin or mistake zero coordinates for a missing pin', () => {
+    expect(duplicateQueryKey({ lat: 47, lng: null, address: null })).toBeNull()
+    expect(duplicateQueryKey({ lat: null, lng: 7, address: null })).toBeNull()
+    expect(duplicateQueryKey({ lat: 0, lng: 0, address: null })).not.toBeNull()
+  })
+
+  it('accounts for longitude scale and the direction south and west', () => {
+    const offset = offsetMetres({ lat: 60, lng: 10 }, { lat: 59.999, lng: 9.999 })!
+    expect(offset.north).toBeCloseTo(-111.195, 3)
+    expect(offset.east).toBeCloseTo(-55.5975, 3)
+  })
+
+  it.each([
+    { lat: '', lng: '7' }, { lat: '47', lng: '' }, { lat: null, lng: '7' },
+    { lat: '47', lng: null }, { lat: 'bad', lng: '7' }, { lat: '47', lng: 'bad' },
+    { lat: Infinity, lng: 7 }, { lat: 47, lng: NaN },
+  ])('rejects a missing or non-finite coordinate: %s', (point) => {
+    expect(offsetMetres({ lat: 47, lng: 7 }, point)).toBeNull()
+  })
+
+  it('trims labels and clamps a future report age to zero', () => {
+    expect(candidateLabel({ location_display: '  Hauptstrasse 6  ', title: 'Fire' })).toBe('Hauptstrasse 6')
+    expect(candidateLabel({ location_display: '  ', title: 'Fire' })).toBe('Fire')
+    expect(candidateDistance({ distance_m: 40, match: 'address' })).toBeNull()
+    expect(candidateAge('2026-10-08T15:00:00Z', Date.parse('2026-10-08T14:00:00Z'))).toBe("0'")
+  })
 })

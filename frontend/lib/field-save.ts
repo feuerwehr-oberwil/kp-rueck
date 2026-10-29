@@ -73,8 +73,8 @@ export function textConflictOf(error: unknown): { field: SavedTextField; conflic
     field,
     conflict: {
       text: String(params.current ?? ""),
-      by: params.changed_by === undefined ? null : String(params.changed_by),
-      at: params.changed_at === undefined ? null : String(params.changed_at),
+      by: params.changed_by == null ? null : String(params.changed_by),
+      at: params.changed_at == null ? null : String(params.changed_at),
     },
   }
 }

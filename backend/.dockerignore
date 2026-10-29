@@ -38,6 +38,8 @@ README.md
 .ruff_cache
 .coverage
 htmlcov/
+mutants/
+reports/mutation/
 
 # Logs
 *.log
