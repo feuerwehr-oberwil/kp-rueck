@@ -1,5 +1,6 @@
 """Tests for authentication security utilities (password hashing, JWT tokens)."""
 
+import threading
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -11,9 +12,13 @@ from app.auth.config import auth_settings
 from app.auth.security import (
     AUTH_CREDENTIAL_VERSION,
     create_access_token,
+    create_login_tokens,
     create_refresh_token,
+    create_ws_token,
     decode_token,
     hash_password,
+    hash_password_async,
+    session_family,
     verify_password,
 )
 
@@ -519,3 +524,97 @@ def test_signed_pre_counter_token_represents_only_initial_user_version():
         algorithm=auth_settings.ALGORITHM,
     )
     assert decode_token(token)["user_session_version"] == 0
+
+
+def test_websocket_token_has_a_one_minute_lifetime_and_its_own_session():
+    user_id = uuid.uuid4()
+    before = datetime.now(UTC).timestamp()
+    first = decode_token(create_ws_token(user_id, "editor", user_session_version=7))
+    after = datetime.now(UTC).timestamp()
+    second = decode_token(create_ws_token(user_id, "viewer"))
+
+    assert first["sub"] == str(user_id)
+    assert first["role"] == "editor"
+    assert first["type"] == "ws"
+    assert first["auth_version"] == AUTH_CREDENTIAL_VERSION
+    assert first["user_session_version"] == 7
+    assert int(before + 60) <= first["exp"] <= int(after + 60)
+    assert int(before) <= first["iat"] <= int(after)
+    assert uuid.UUID(first["jti"]).version == 4
+    assert first["jti"] != second["jti"]
+    assert first["session_jti"] == first["family_jti"] == first["jti"]
+    assert int(first["session_exp"]) == int(first["family_exp"]) == first["exp"]
+    assert second["role"] == "viewer"
+    assert second["user_session_version"] == 0
+
+
+def test_websocket_token_preserves_the_parent_session_and_login_family():
+    session_exp = datetime.now(UTC).timestamp() + 600
+    family_exp = session_exp + 3600
+    payload = decode_token(
+        create_ws_token(
+            uuid.uuid4(),
+            "admin",
+            session_jti="access-id",
+            session_expires_at=session_exp,
+            family_jti="refresh-id",
+            family_expires_at=family_exp,
+            user_session_version=2,
+        )
+    )
+    assert payload["session_jti"] == "access-id"
+    assert payload["session_exp"] == session_exp
+    assert payload["family_jti"] == "refresh-id"
+    assert payload["family_exp"] == family_exp
+    assert payload["user_session_version"] == 2
+    assert payload["exp"] < session_exp
+
+
+def test_websocket_token_uses_parent_session_as_family_when_no_family_is_given():
+    session_exp = datetime.now(UTC).timestamp() + 600
+    payload = decode_token(
+        create_ws_token(uuid.uuid4(), "editor", session_jti="access-id", session_expires_at=session_exp)
+    )
+    assert payload["family_jti"] == payload["session_jti"] == "access-id"
+    assert payload["family_exp"] == payload["session_exp"] == session_exp
+
+
+async def test_async_password_hashing_runs_off_the_event_loop(monkeypatch):
+    main_thread = threading.get_ident()
+    worker_threads = []
+
+    def hash_in_thread(password):
+        assert password == "ValidPassword123"
+        worker_threads.append(threading.get_ident())
+        return "test-password-hash"
+
+    monkeypatch.setattr("app.auth.security.hash_password", hash_in_thread)
+    assert await hash_password_async("ValidPassword123") == "test-password-hash"
+    assert worker_threads and worker_threads[0] != main_thread
+
+
+async def test_async_password_hashing_preserves_policy_errors():
+    with pytest.raises(ValueError, match="12"):
+        await hash_password_async("short")
+
+
+@pytest.mark.parametrize("version", [0, 4])
+def test_login_pair_shares_a_revocable_family_and_preserves_user_version(version):
+    data = {"sub": str(uuid.uuid4()), "role": "editor", "username": "operator", "user_session_version": version}
+    original = data.copy()
+    access, refresh = create_login_tokens(data)
+    a, r = decode_token(access), decode_token(refresh)
+    assert a["type"] == "access" and r["type"] == "refresh"
+    assert a["sub"] == r["sub"] == data["sub"]
+    assert a["user_session_version"] == r["user_session_version"] == version
+    assert a["role"] == "editor" and a["username"] == "operator"
+    assert a["family_jti"] == r["jti"]
+    assert a["family_exp"] == r["exp"]
+    assert data == original
+    family = session_family(a)
+    assert family is not None and family.jti == r["jti"] and family.expires_at == r["exp"]
+
+
+def test_login_pair_defaults_to_the_initial_user_version():
+    access, refresh = create_login_tokens({"sub": str(uuid.uuid4())})
+    assert decode_token(access)["user_session_version"] == decode_token(refresh)["user_session_version"] == 0

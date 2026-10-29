@@ -4,7 +4,10 @@ import { ApiError, NetworkError } from "@/lib/api-client"
 import {
   classifySaveFailure,
   fieldSaveScope,
+  fieldSaveUser,
   getFieldSave,
+  getFieldSaveScope,
+  isSavedTextField,
   isFieldSaveWatched,
   noteFieldEdit,
   noteFieldQueued,
@@ -14,6 +17,7 @@ import {
   resolveFieldConflict,
   textConflictOf,
   setFieldSaveScope,
+  subscribeFieldSave,
   unsavedFieldDrafts,
   watchFieldSave,
 } from "./field-save"
@@ -117,6 +121,7 @@ describe("text_base (review F05)", () => {
     expect(getFieldSave("inc-1", "notes")?.conflict?.text).toBe("Theirs")
 
     resolveFieldConflict("inc-1", "notes", "mine")
+    expect(getFieldSave("inc-1", "notes")).toMatchObject({ draft: "Mine", acked: "Theirs", conflict: null })
     noteFieldEdit("inc-1", "notes", "Mine", "Theirs")
     expect(noteFieldSend(noteFieldQueued("inc-1", { notes: "Mine" })).textBase).toEqual({ description: "Theirs" })
     expect(getFieldSave("inc-1", "notes")?.conflict).toBeNull()
@@ -161,5 +166,135 @@ describe("text_base (review F05)", () => {
     noteFieldSettled(sent, { ok: true })
     setFieldSaveScope(fieldSaveScope("user-a", "event-1"))
     expect(getFieldSave("inc-1", "notes")?.status).toBe("saved")
+  })
+})
+
+describe("field-save contracts", () => {
+  it.each([
+    ["notes", "description"], ["contact", "contact"], ["contactPhone", "contact_phone"],
+    ["internalNotes", "internal_notes"], ["nachbarhilfeNote", "nachbarhilfe_note"], ["amWartenNote", "am_warten_note"],
+  ] as const)("sends and confirms %s using its API column %s", (field, apiField) => {
+    noteFieldEdit("inc-1", field, "new text", "server text")
+    expect(isSavedTextField(field)).toBe(true)
+    expect(getFieldSave("inc-1", field)).toMatchObject({
+      status: "pending", draft: "new text", base: "server text", acked: "server text", inFlight: 0, version: 1,
+    })
+    const ticket = noteFieldSend(noteFieldQueued("inc-1", { [field]: "new text" }))
+    expect(ticket.textBase).toEqual({ [apiField]: "server text" })
+    expect(getFieldSave("inc-1", field)).toMatchObject({ status: "saving", inFlight: 1, draft: "new text" })
+    noteFieldSettled(ticket, { ok: true })
+    expect(getFieldSave("inc-1", field)).toMatchObject({
+      status: "saved", draft: null, acked: "new text", inFlight: 0, reason: null, conflict: null,
+    })
+    expect(getFieldSave("inc-1", field)?.savedAt).toBeInstanceOf(Date)
+    expect(unsavedFieldDrafts()).toEqual([])
+    expect(textConflictOf(new ApiError("conflict", 409, true, "text_conflict", { field: apiField, current: "theirs" })))
+      .toEqual({ field, conflict: { text: "theirs", by: null, at: null } })
+  })
+
+  it("keeps a cleared field as a draft and preserves it after rejection", () => {
+    noteFieldEdit("inc-1", "notes", "", "server")
+    const ticket = noteFieldSend(noteFieldQueued("inc-1", { notes: "" }))
+    noteFieldSettled(ticket, { ok: false, reason: "forbidden" })
+    expect(getFieldSave("inc-1", "notes")).toMatchObject({
+      status: "failed", draft: "", base: "server", acked: "server", reason: "forbidden", inFlight: 0, savedAt: null,
+    })
+    expect(unsavedFieldDrafts()).toEqual([{ incidentId: "inc-1", field: "notes" }])
+    noteFieldEdit("inc-1", "notes", "retry", "")
+    expect(getFieldSave("inc-1", "notes")).toMatchObject({ base: "server", acked: "server", reason: null, version: 2 })
+  })
+
+  it("does not recreate another user's draft when a late response arrives", () => {
+    noteFieldEdit("inc-1", "notes", "private", "server")
+    const ticket = noteFieldSend(noteFieldQueued("inc-1", { notes: "private" }))
+    setFieldSaveScope(fieldSaveScope("user-b", "event-1"))
+    noteFieldSettled(ticket, { ok: false, reason: "network" })
+    expect(unsavedFieldDrafts()).toEqual([])
+    expect(getFieldSave("inc-1", "notes")).toBeUndefined()
+    setFieldSaveScope(fieldSaveScope("user-a", "event-1"))
+    expect(getFieldSave("inc-1", "notes")).toBeUndefined()
+  })
+
+  it("scopes the leave guard to the selected event when an incident is specified", () => {
+    noteFieldEdit("inc-1", "notes", "a", "")
+    fail()
+    setFieldSaveScope(fieldSaveScope("user-a", "event-2"))
+    expect(unsavedFieldDrafts("inc-1")).toEqual([])
+    noteFieldEdit("inc-1", "contact", "b", "")
+    const ticket = noteFieldSend(noteFieldQueued("inc-1", { contact: "b" }))
+    noteFieldSettled(ticket, { ok: false, reason: "network" })
+    expect(unsavedFieldDrafts("inc-1")).toEqual([{ incidentId: "inc-1", field: "contact" }])
+    expect(unsavedFieldDrafts()).toHaveLength(2)
+  })
+
+  it("a conflict on one field leaves sibling fields and the confirmed base intact", () => {
+    noteFieldEdit("inc-1", "notes", "mine", "old")
+    noteFieldEdit("inc-1", "contact", "Meier", "Muster")
+    const ticket = noteFieldSend(noteFieldQueued("inc-1", { notes: "mine", contact: "Meier" }))
+    noteFieldSettled(ticket, { ok: false, reason: "conflict", conflict: {
+      field: "notes", conflict: { text: "theirs", by: null, at: null },
+    } })
+    expect(getFieldSave("inc-1", "notes")).toMatchObject({ acked: "old", conflict: { text: "theirs" } })
+    expect(getFieldSave("inc-1", "contact")).toMatchObject({ acked: "Muster", conflict: null })
+    noteFieldEdit("inc-1", "notes", "mine again", "optimistic")
+    expect(getFieldSave("inc-1", "notes")?.conflict?.text).toBe("theirs")
+  })
+
+  it("notifies subscribers of changes and respects unsubscribe", () => {
+    let notifications = 0
+    const unsubscribe = subscribeFieldSave(() => notifications++)
+    setFieldSaveScope(getFieldSaveScope())
+    expect(notifications).toBe(0)
+    noteFieldEdit("inc-1", "notes", "x", "")
+    expect(notifications).toBe(1)
+    unsubscribe()
+    noteFieldEdit("inc-1", "notes", "xy", "")
+    expect(notifications).toBe(1)
+  })
+
+  it("notifies the field as a save starts, settles and leaves the current event", () => {
+    const seen: Array<string | undefined> = []
+    const unsubscribe = subscribeFieldSave(() => seen.push(getFieldSave("inc-1", "notes")?.status))
+    noteFieldEdit("inc-1", "notes", "new", "old")
+    noteFieldSettled(noteFieldSend(noteFieldQueued("inc-1", { notes: "new" })), { ok: true })
+    setFieldSaveScope(fieldSaveScope("user-a", "event-2"))
+    unsubscribe()
+    expect(seen).toEqual(["pending", "saving", "saved", undefined])
+    setFieldSaveScope(null)
+    expect(unsavedFieldDrafts()).toEqual([])
+  })
+
+  it("untracked fields do not acquire save state", () => {
+    expect(isSavedTextField("priority")).toBe(false)
+    expect(noteFieldSend(noteFieldQueued("unknown", { notes: "x" })).textBase).toEqual({})
+    expect(getFieldSave("unknown", "notes")).toBeUndefined()
+    resolveFieldConflict("unknown", "notes", "mine")
+    expect(getFieldSave("unknown", "notes")).toBeUndefined()
+  })
+
+  it("identifies users even before an event is selected", () => {
+    expect(fieldSaveScope(null, "event")).toBeNull()
+    expect(fieldSaveScope(undefined, "event")).toBeNull()
+    expect(fieldSaveScope("u", null)).toBe("u:")
+    expect(fieldSaveUser("u:event")).toBe("u")
+    expect(fieldSaveUser(null)).toBeNull()
+  })
+
+  it.each([[399, "unknown"], [400, "rejected"], [499, "rejected"], [500, "server"]] as const)(
+    "classifies HTTP %s as %s", (status, reason) => expect(classifySaveFailure(new ApiError("x", status))).toBe(reason),
+  )
+
+  it("keeps absent conflict authors and timestamps absent", () => {
+    // Decode the wire payload: API conflict metadata can contain JSON nulls.
+    const params = JSON.parse('{"field":"description","current":null,"changed_by":null,"changed_at":null}')
+    expect(textConflictOf(new ApiError("conflict", 409, true, "text_conflict", params)))
+      .toEqual({ field: "notes", conflict: { text: "", by: null, at: null } })
+  })
+
+  it("rejects errors that are not a supported field's text conflict", () => {
+    expect(textConflictOf(new Error("offline"))).toBeNull()
+    expect(textConflictOf(new ApiError("x", 500, true, "text_conflict", { field: "description" }))).toBeNull()
+    expect(textConflictOf(new ApiError("x", 409, true, "text_conflict", { field: "priority" }))).toBeNull()
+    expect(textConflictOf(new ApiError("x", 409, true, "text_conflict"))).toBeNull()
   })
 })

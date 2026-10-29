@@ -15,6 +15,7 @@
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:mutation": "stryker run",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
@@ -70,6 +71,8 @@
     "@eslint/js": "^9.39.5",
     "@next/eslint-plugin-next": "^16.4.0",
     "@playwright/test": "^1.64.0",
+    "@stryker-mutator/core": "10.1.1",
+    "@stryker-mutator/vitest-runner": "10.1.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
@@ -109,6 +112,9 @@
       "ws@8": ">=8.21.0 <9",
       "sharp": ">=0.35.5 <1",
       "source-map-js@1": ">=1.2.2 <2"
+    },
+    "patchedDependencies": {
+      "@stryker-mutator/core@10.1.1": "patches/@stryker-mutator__core@10.1.1.patch"
     }
   }
 }

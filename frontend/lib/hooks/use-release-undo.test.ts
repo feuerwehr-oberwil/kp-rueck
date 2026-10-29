@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * «<Ressource> von <Einsatz> freigegeben · Rückgängig»: the undo re-assigns through the
  * ordinary assign function, reading the board as it is when the undo is clicked —

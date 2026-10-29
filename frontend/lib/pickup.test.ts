@@ -23,6 +23,11 @@ describe('pickupWaitingMinutes', () => {
     // operator scans at 02:00 is worse than "0 Min".
     expect(pickupWaitingMinutes(new Date(NOW.getTime() + 90_000), NOW)).toBe(0)
   })
+
+  it('rejects invalid dates and drops partial minutes', () => {
+    expect(pickupWaitingMinutes(new Date('invalid'), NOW)).toBeNull()
+    expect(pickupWaitingMinutes(minutesAgo(1.99), NOW)).toBe(1)
+  })
 })
 
 describe('formatPickupWaiting', () => {
@@ -39,6 +44,12 @@ describe('formatPickupWaiting', () => {
     expect(formatPickupWaiting(minutesAgo(60), NOW)).toBe('1 h')
     expect(formatPickupWaiting(minutesAgo(80), NOW)).toBe('1 h 20')
     expect(formatPickupWaiting(minutesAgo(185), NOW)).toBe('3 h 05')
+  })
+
+  it('switches to days and omits zero hours', () => {
+    expect(formatPickupWaiting(minutesAgo(24 * 60), NOW)).toBe('1 d')
+    expect(formatPickupWaiting(minutesAgo(28 * 60 + 12), NOW)).toBe('1 d 4 h')
+    expect(formatPickupWaiting(minutesAgo(48 * 60), NOW)).toBe('2 d')
   })
 })
 

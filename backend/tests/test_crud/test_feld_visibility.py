@@ -25,11 +25,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud import feld as crud
 from app.models import (
     Event,
+    EventAttendance,
     EventSpecialFunction,
     Incident,
     IncidentAssignment,
     Material,
     Personnel,
+    SchadenplatzReport,
     User,
     Vehicle,
 )
@@ -328,6 +330,31 @@ class TestPrecedence:
 
         assert visible[incident.id].is_active is True
 
+    @pytest.mark.parametrize("released_first", [True, False])
+    async def test_repeated_history_keeps_the_active_source_and_its_kind(
+        self, db_session, test_event, test_user, released_first
+    ):
+        incident = await _incident(db_session, test_event, test_user, "Wieder zugewiesen")
+        person = await _person(db_session, "Meier")
+        for released in [released_first, not released_first]:
+            await _assign(db_session, incident, "personnel", person.id, released=released)
+        source = (await crud.visible_incidents_for_personnel(db_session, test_event.id, person.id))[incident.id]
+        assert source.kind == crud.SOURCE_CREW
+        assert source.is_active is True
+        assert source.owes_rapport is True
+
+    async def test_an_active_driver_claim_does_not_replace_released_crew_work(self, db_session, test_event, test_user):
+        incident = await _incident(db_session, test_event, test_user, "Rapport nach der Arbeit")
+        person = await _person(db_session, "Meier")
+        vehicle = await _vehicle(db_session, "TLF")
+        await _assign(db_session, incident, "personnel", person.id, released=True)
+        await _function(db_session, test_event, person, "driver", vehicle)
+        await _assign(db_session, incident, "vehicle", vehicle.id)
+        source = (await crud.visible_incidents_for_personnel(db_session, test_event.id, person.id))[incident.id]
+        assert source.kind == crud.SOURCE_CREW
+        assert source.is_active is False
+        assert source.owes_rapport is True
+
 
 class TestAuthorizationDoor:
     """`get_authorized_incident` is the gate every write goes through."""
@@ -492,6 +519,34 @@ class TestEventIsolation:
         visible = await crud.visible_incidents_for_personnel(db_session, test_event.id, person.id)
 
         assert visible == {}
+
+    async def test_a_reko_function_in_another_event_does_not_remove_the_crew_rapport(
+        self, db_session, test_event, test_user
+    ):
+        other = Event(id=uuid.uuid4(), name="Andere Übung")
+        db_session.add(other)
+        await db_session.commit()
+        incident = await _incident(db_session, test_event, test_user, "Echte Arbeit")
+        person = await _person(db_session, "Meier")
+        await _function(db_session, other, person, "reko")
+        await _assign(db_session, incident, "personnel", person.id)
+        source = (await crud.visible_incidents_for_personnel(db_session, test_event.id, person.id))[incident.id]
+        assert source.kind == crud.SOURCE_CREW
+        assert source.owes_rapport is True
+
+    async def test_merged_assignment_history_resolves_to_the_surviving_card(self, db_session, test_event, test_user):
+        target = await _incident(db_session, test_event, test_user, "Schadenplatz")
+        merged = await _incident(db_session, test_event, test_user, "Zweite Meldung")
+        person = await _person(db_session, "Meier")
+        await _assign(db_session, merged, "personnel", person.id, released=True)
+        merged.deleted_at = datetime.now(UTC)
+        merged.merged_into_id = target.id
+        await db_session.commit()
+        visible = await crud.visible_incidents_for_personnel(db_session, test_event.id, person.id)
+        assert set(visible) == {target.id}
+        assert visible[target.id].kind == crud.SOURCE_CREW
+        assert visible[target.id].is_active is False
+        assert visible[target.id].owes_rapport is True
 
 
 class TestTheBoardsOlderRekoSignal:
@@ -859,6 +914,116 @@ class TestKeinEinsatzNoetigOwesNoRapport:
 # ============================================
 # Pickup acks (sweep 27 §P3.1)
 # ============================================
+
+
+class TestFieldReadContracts:
+    async def test_functions_and_driver_names_are_scoped_to_the_event_and_person(self, db_session, test_event):
+        other = Event(id=uuid.uuid4(), name="Andere Übung")
+        db_session.add(other)
+        await db_session.commit()
+        person = await _person(db_session, "Meier")
+        someone_else = await _person(db_session, "Muster")
+        mine = await _vehicle(db_session, "TLF")
+        theirs = await _vehicle(db_session, "Pio")
+        foreign = await _vehicle(db_session, "MTW")
+        await _function(db_session, test_event, person, "driver", mine)
+        await _function(db_session, test_event, person, "reko")
+        await _function(db_session, test_event, person, "reko")  # historic duplicate, one role label
+        await _function(db_session, test_event, someone_else, "driver", theirs)
+        await _function(db_session, other, person, "driver", foreign)
+        await _function(db_session, other, person, "magazin")
+
+        assert await crud.functions_for_personnel(db_session, test_event.id, person.id) == ["driver", "reko"]
+        assert await crud.driver_vehicle_names(db_session, test_event.id, person.id) == ["TLF"]
+        assert await crud.driver_vehicle_names(db_session, other.id, person.id) == ["MTW"]
+        assert await crud.functions_for_personnel(db_session, test_event.id, uuid.uuid4()) == []
+
+    async def test_picker_preserves_identity_attendance_and_independent_work_counts(
+        self, db_session, test_event, test_user
+    ):
+        person = await _person(db_session, "anna")
+        person.kennung = "A7"
+        person.role = "Gruppenführer"
+        idle = await _person(db_session, "Bruno")
+        first = await _incident(db_session, test_event, test_user, "Noch offen")
+        second = await _incident(db_session, test_event, test_user, "Rapport eingereicht")
+        third = await _incident(db_session, test_event, test_user, "Abgerückt")
+        await _assign(db_session, first, "personnel", person.id)
+        await _assign(db_session, second, "personnel", person.id)
+        await _assign(db_session, third, "personnel", person.id, released=True)
+        db_session.add_all(
+            [
+                SchadenplatzReport(incident_id=first.id, is_draft=True),
+                SchadenplatzReport(incident_id=second.id, is_draft=False),
+                EventAttendance(event_id=test_event.id, personnel_id=person.id, checked_in=True),
+            ]
+        )
+        await db_session.commit()
+        rows = await crud.get_feld_personnel_for_event(db_session, test_event.id)
+        assert rows == [
+            {
+                "personnel_id": person.id,
+                "name": "anna",
+                "kennung": "A7",
+                "role": "Gruppenführer",
+                "incident_count": 3,
+                "open_count": 2,
+                "missing_rapport_count": 2,
+                "checked_in": True,
+            },
+            {
+                "personnel_id": idle.id,
+                "name": "Bruno",
+                "kennung": None,
+                "role": "Feuerwehrmann",
+                "incident_count": 0,
+                "open_count": 0,
+                "missing_rapport_count": 0,
+                "checked_in": False,
+            },
+        ]
+        briefing = await crud.get_feld_assignments_for_personnel(db_session, test_event.id, person.id)
+        assert {row["incident_id"]: row["rapport_state"] for row in briefing} == {
+            first.id: "draft",
+            second.id: "submitted",
+            third.id: "none",
+        }
+
+    async def test_attendance_from_another_event_cannot_check_somebody_in_here(self, db_session, test_event, test_user):
+        other = Event(id=uuid.uuid4(), name="Andere Übung")
+        db_session.add(other)
+        await db_session.commit()
+        person = await _person(db_session, "Meier")
+        await _incident(db_session, test_event, test_user, "Hier")
+        db_session.add(EventAttendance(event_id=other.id, personnel_id=person.id, checked_in=True))
+        await db_session.commit()
+        rows = await crud.get_feld_personnel_for_event(db_session, test_event.id)
+        assert rows[0]["checked_in"] is False
+
+    async def test_leaders_are_resolved_per_incident_and_keep_the_record_after_release(
+        self, db_session, test_event, test_user
+    ):
+        first = await _incident(db_session, test_event, test_user, "Live")
+        second = await _incident(db_session, test_event, test_user, "Historisch")
+        unled = await _incident(db_session, test_event, test_user, "Ohne Leitung")
+        record = await _person(db_session, "Frühere Leitung")
+        current = await _person(db_session, "Aktuelle Leitung")
+        released = await _person(db_session, "Abgerückt")
+        first.leader_personnel_id = record.id
+        second.leader_personnel_id = record.id
+        active = await _assign(db_session, first, "personnel", current.id)
+        active.is_leader = True
+        old = await _assign(db_session, second, "personnel", released.id, released=True)
+        old.is_leader = True
+        await db_session.commit()
+        assert await crud.get_incident_leaders(db_session, [first.id, second.id, unled.id]) == {
+            first.id: (current.id, "Aktuelle Leitung"),
+            second.id: (record.id, "Frühere Leitung"),
+        }
+        assert await crud.get_incident_leaders(db_session, [second.id]) == {
+            second.id: (record.id, "Frühere Leitung"),
+        }
+        assert await crud.get_incident_leaders(db_session, []) == {}
 
 
 class TestPickupAcks:

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { areOperationListsEqual, areOperationsEqual } from "./operation-equality"
+import { areOperationListsEqual, areOperationsEqual, sameCrew, sameVehicles } from "./operation-equality"
 import { crewMember, assignedVehicle } from "@/test-utils/operation-fixtures"
 
 /** Minimal operation-shaped object; tests override single fields from here. */
@@ -88,6 +88,41 @@ describe("areOperationsEqual", () => {
     expect(areOperationsEqual(op(), op({ someFutureField: "x" }))).toBe(false)
     expect(areOperationsEqual(op({ someFutureField: "x" }), op({ someFutureField: "y" }))).toBe(false)
   })
+
+  it.each([
+    [new Date(0), {}], [{}, new Date(0)], [[], {}], [{}, []],
+    [new Map(), {}], [{}, new Map()], [new Set(), {}], [{}, new Set()],
+    [null, {}], [{}, undefined], ["1", 1], [false, 0],
+  ])("keeps different value shapes distinct (%s, %s)", (a, b) => {
+    expect(areOperationsEqual(a, b)).toBe(false)
+  })
+
+  it("compares map keys and values, including undefined values at different keys", () => {
+    expect(areOperationsEqual(new Map([["m1", 1]]), new Map([["m1", 1]]))).toBe(true)
+    expect(areOperationsEqual(new Map([["m1", 1]]), new Map([["m1", 2]]))).toBe(false)
+    expect(areOperationsEqual(new Map([["m1", undefined]]), new Map([["m2", undefined]]))).toBe(false)
+  })
+
+  it("compares set membership regardless of insertion order", () => {
+    expect(areOperationsEqual(new Set(["a", "b"]), new Set(["b", "a"]))).toBe(true)
+    expect(areOperationsEqual(new Set(["a"]), new Set(["b"]))).toBe(false)
+    expect(areOperationsEqual(new Set(["a"]), new Set(["a", "b"]))).toBe(false)
+  })
+
+  it("compares own object keys, even when all values are undefined", () => {
+    expect(areOperationsEqual({ a: undefined }, { b: undefined })).toBe(false)
+    expect(areOperationsEqual({ a: undefined }, { a: undefined })).toBe(true)
+  })
+
+  it("requires every array item and both collection sizes to match", () => {
+    expect(areOperationsEqual([1, 2], [1, 3])).toBe(false)
+    expect(areOperationsEqual([1], [1, 2])).toBe(false)
+    expect(areOperationsEqual([1, 2], [1])).toBe(false)
+    expect(areOperationsEqual(new Map([["a", 1]]), new Map([["a", 1], ["b", 2]]))).toBe(false)
+    expect(areOperationsEqual({}, "")).toBe(false)
+    expect(areOperationsEqual("", {})).toBe(false)
+    expect(areOperationListsEqual([{ id: "a" }, { id: "b" }], [{ id: "a" }, { id: "changed" }])).toBe(false)
+  })
 })
 
 describe("areOperationListsEqual", () => {
@@ -95,5 +130,33 @@ describe("areOperationListsEqual", () => {
     expect(areOperationListsEqual([op({ id: "a" }), op({ id: "b" })], [op({ id: "a" }), op({ id: "b" })])).toBe(true)
     expect(areOperationListsEqual([op({ id: "a" }), op({ id: "b" })], [op({ id: "b" }), op({ id: "a" })])).toBe(false)
     expect(areOperationListsEqual([op()], [])).toBe(false)
+  })
+})
+
+describe("crew and vehicle chip equality", () => {
+  it("treats rebuilt chip lists as unchanged", () => {
+    expect(sameCrew([], [])).toBe(true)
+    expect(sameCrew([crewMember("Meier")], [crewMember("Meier")])).toBe(true)
+    expect(sameVehicles([], [])).toBe(true)
+    expect(sameVehicles([assignedVehicle("TLF")], [assignedVehicle("TLF")])).toBe(true)
+  })
+
+  it.each(["personnelId", "assignmentId", "name"] as const)("detects a changed crew %s", (field) => {
+    const member = crewMember("Meier")
+    expect(sameCrew([member], [{ ...member, [field]: "different" }])).toBe(false)
+  })
+
+  it.each(["vehicleId", "assignmentId", "name", "callsign"] as const)("detects a changed vehicle %s", (field) => {
+    const vehicle = assignedVehicle("TLF")
+    expect(sameVehicles([vehicle], [{ ...vehicle, [field]: "different" }])).toBe(false)
+  })
+
+  it("detects driver-stay changes, removed chips and reordering", () => {
+    const vehicle = assignedVehicle("TLF", { driverStay: true })
+    expect(sameVehicles([vehicle], [{ ...vehicle, driverStay: false }])).toBe(false)
+    expect(sameVehicles([vehicle], [])).toBe(false)
+    expect(sameCrew([crewMember("Meier")], [])).toBe(false)
+    expect(sameCrew([crewMember("Meier"), crewMember("Muster")], [crewMember("Muster"), crewMember("Meier")])).toBe(false)
+    expect(sameVehicles([assignedVehicle("TLF"), assignedVehicle("Pio")], [assignedVehicle("Pio"), assignedVehicle("TLF")])).toBe(false)
   })
 })

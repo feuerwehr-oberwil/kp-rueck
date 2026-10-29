@@ -224,6 +224,7 @@ dev = [
     "httpx>=0.28.1",
     "bandit>=1.7.0",
     "pypdf>=6.15.0",
+    "mutmut==3.8.1",
 ]
 
 [tool.coverage.run]
@@ -232,3 +233,24 @@ dev = [
 # fiction — that is where the old `--cov-fail-under=35` note came from; measured properly
 # the suite sits at ~88 %. Keep `thread` alongside it for the background pollers.
 concurrency = ["greenlet", "thread"]
+
+[tool.mutmut]
+source_paths = ["app/"]
+only_mutate = [
+    "app/auth/login_throttle.py",
+    "app/auth/security.py",
+    "app/services/tokens.py",
+    "app/crud/feld/visibility.py",
+    "app/services/print_signal.py",
+]
+pytest_add_cli_args = ["-q", "-x"]
+pytest_add_cli_args_test_selection = [
+    "tests/test_auth/",
+    "tests/test_services/test_tokens.py",
+    "tests/test_crud/test_feld_visibility.py",
+    "tests/test_crud/test_print_job_ttl.py",
+    "tests/test_background/test_fallback_print.py",
+]
+# Fixtures use a disposable PostgreSQL schema. Run mutmut with --max-children 1:
+# concurrent forks would otherwise drop each other's tables.
+also_copy = ["alembic/", "alembic.ini"]

@@ -52,6 +52,38 @@ The application will be available at `http://localhost:3000`
 - `pnpm test:e2e` - Run Playwright E2E tests
 - `pnpm test:e2e:ui` - Playwright UI mode
 
+### Mutation testing
+
+Use Node 24 for mutation runs (the instrumented suite hit worker crashes on Node 22):
+
+```bash
+pnpm test:mutation
+# Reuse unchanged results from the previous report:
+pnpm test:mutation --incremental --incrementalFile reports/mutation/mutation.json
+# A smaller investigation; override BOTH source and test selection:
+pnpm test:mutation --mutate lib/release-undo.ts --testFiles lib/release-undo.test.ts
+```
+
+[Stryker](https://stryker-mutator.io/docs/stryker-js/vitest-runner/) changes production code
+in an isolated sandbox and checks that assertions fail. The default campaign covers 15
+decision modules: field saving, assignment/undo safety, field delivery, duplicate lookup,
+resource state, equality, durations, route starts and stale-data detection. Its test selection
+includes their unit tests and the save/sync/undo integration tests; it does not measure the
+whole frontend. Expand `mutate` and `testFiles` together when extending this scope.
+The default campaign fails below a 90% mutation score.
+
+The pinned pnpm patch for Stryker 10.1.1 fixes constant mutations when `testFiles` is set:
+they must activate before module imports. Without it the runner reports false survivors.
+When upgrading Stryker, verify that removing the generic conflicts from `RACE_DETAILS` in
+`assignment-refusal.ts` is caught before retiring the patch. The mutation-only Vitest config
+uses Node for pure decisions and jsdom for the three React integration files.
+
+Open `reports/mutation/index.html` to inspect each survivor; the machine-readable report is
+`reports/mutation/mutation.json`. Review `Survived` and `NoCoverage` separately. A timeout is
+not an assertion failure, and an equivalent mutant needs an explanation rather than a test
+that couples itself to an implementation detail. Keep these reports and `.stryker-tmp/` out
+of Git. The normal Vitest run excludes both, including sandboxes retained after a failed run.
+
 ## Environment Variables
 
 - `NEXT_PUBLIC_API_URL` - Backend API URL for local development (default: `http://localhost:8000`)

@@ -13,6 +13,11 @@
 # testing
 /coverage
 
+# Mutation testing: generated sandboxes, caches and reports.
+**/.stryker-tmp/
+**/mutants/
+**/reports/mutation/
+
 # next.js
 /.next/
 /out/
