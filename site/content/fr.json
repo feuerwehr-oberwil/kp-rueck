@@ -353,7 +353,7 @@
       },
       {
         "q": "Comment commencer ?",
-        "a": "Par la <a href=\"https://demo.kp-rueck.ch\" target=\"_blank\" rel=\"noopener\">démo</a>,\n          sans compte – choisir un rôle et commencer. Ensuite, l’essayer à un exercice ; le mode\n          exercice est proprement séparé du cas réel. Et si cela convient : écrivez-nous, nous\n          aidons à l’installation."
+        "a": "Par la <a href=\"https://demo.kp-rueck.ch\" target=\"_blank\" rel=\"noopener\">démo</a>,\n          sans compte – choisir un rôle et commencer. Ensuite, l’essayer à un exercice ; le mode\n          exercice est proprement séparé du cas réel. Si cela convient, le\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">guide d’installation</a> accompagne la mise en place et l’exploitation.\n          Nous répondons volontiers aux questions générales ; les données et l’exploitation restent\n          sous la responsabilité de chaque corps."
       }
     ]
   },

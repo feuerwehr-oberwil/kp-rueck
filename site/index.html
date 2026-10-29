@@ -107,7 +107,13 @@
         "fr"
       ],
       "license": "https://www.gnu.org/licenses/agpl-3.0.html",
-      "codeRepository": "https://github.com/feuerwehr-oberwil/kp-rueck",
+      "sameAs": "https://github.com/feuerwehr-oberwil/kp-rueck",
+      "subjectOf": {
+        "@id": "https://kp-rueck.ch/#source"
+      },
+      "isPartOf": {
+        "@id": "https://kp-front.ch/#kp-suite"
+      },
       "screenshot": "https://kp-rueck.ch/shots/board.jpg",
       "isAccessibleForFree": true,
       "offers": {
@@ -120,6 +126,26 @@
       }
     },
     {
+      "@type": "SoftwareSourceCode",
+      "@id": "https://kp-rueck.ch/#source",
+      "name": "KP Rück source code",
+      "codeRepository": "https://github.com/feuerwehr-oberwil/kp-rueck",
+      "license": "https://www.gnu.org/licenses/agpl-3.0.html"
+    },
+    {
+      "@type": "CreativeWorkSeries",
+      "@id": "https://kp-front.ch/#kp-suite",
+      "name": "KP Front & KP Rück",
+      "hasPart": [
+        {
+          "@id": "https://kp-front.ch/#app"
+        },
+        {
+          "@id": "https://kp-rueck.ch/#app"
+        }
+      ]
+    },
+    {
       "@type": "Organization",
       "@id": "https://kp-rueck.ch/#org",
       "name": "Feuerwehr Oberwil BL",
@@ -127,6 +153,17 @@
       "sameAs": [
         "https://github.com/feuerwehr-oberwil"
       ]
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://kp-rueck.ch/#webpage",
+      "url": "https://kp-rueck.ch/",
+      "name": "KP Rück – Einsatzboard für den Kommandoposten",
+      "description": "KP Rück ist die digitale Magnettafel im rückwärtigen Kommandoposten: Einsätze, Personal, Fahrzeuge und Material – live auf allen Geräten, quelloffen.",
+      "inLanguage": "de-CH",
+      "mainEntity": {
+        "@id": "https://kp-rueck.ch/#app"
+      }
     },
     {
       "@type": "FAQPage",
@@ -202,7 +239,7 @@
           "name": "Wie fangen wir an?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Mit der Demo, ohne Konto – Rolle wählen und loslegen. Danach an einer Übung ausprobieren; der Übungsmodus ist sauber vom Ernstfall getrennt. Und wenn es passt: Meldet euch, wir helfen beim Aufsetzen."
+            "text": "Mit der Demo, ohne Konto – Rolle wählen und loslegen. Danach an einer Übung ausprobieren; der Übungsmodus ist sauber vom Ernstfall getrennt. Wenn es passt, führt die Einrichtungsanleitung durch Installation und Betrieb. Allgemeine Fragen beantworten wir gerne; Daten und Betrieb bleiben in der Verantwortung der jeweiligen Feuerwehr."
           }
         }
       ]
@@ -762,8 +799,10 @@
         <h3>Wie fangen wir an?</h3>
         <p>Mit der <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">Demo</a>,
           ohne Konto – Rolle wählen und loslegen. Danach an einer Übung ausprobieren; der
-          Übungsmodus ist sauber vom Ernstfall getrennt. Und wenn es passt: Meldet euch, wir
-          helfen beim Aufsetzen.</p>
+          Übungsmodus ist sauber vom Ernstfall getrennt. Wenn es passt, führt die
+          <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md" target="_blank" rel="noopener">Einrichtungsanleitung</a> durch Installation und Betrieb. Allgemeine
+          Fragen beantworten wir gerne; Daten und Betrieb bleiben in der Verantwortung der
+          jeweiligen Feuerwehr.</p>
       </div>
     </div>
   </section>

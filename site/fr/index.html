@@ -88,7 +88,7 @@
       "@type": "SoftwareApplication",
       "@id": "https://kp-rueck.ch/#app",
       "name": "KP Rück",
-      "url": "https://kp-rueck.ch/fr/",
+      "url": "https://kp-rueck.ch/",
       "description": "KP Rück est le tableau magnétique numérique du poste de commandement arrière : interventions, personnel, véhicules et matériel – en direct, open source.",
       "featureList": [
         "Le personnel en un coup d’œil : arrivée par check-in QR, temps de service et pauses",
@@ -107,7 +107,13 @@
         "fr"
       ],
       "license": "https://www.gnu.org/licenses/agpl-3.0.html",
-      "codeRepository": "https://github.com/feuerwehr-oberwil/kp-rueck",
+      "sameAs": "https://github.com/feuerwehr-oberwil/kp-rueck",
+      "subjectOf": {
+        "@id": "https://kp-rueck.ch/#source"
+      },
+      "isPartOf": {
+        "@id": "https://kp-front.ch/#kp-suite"
+      },
       "screenshot": "https://kp-rueck.ch/shots/board.jpg",
       "isAccessibleForFree": true,
       "offers": {
@@ -120,6 +126,26 @@
       }
     },
     {
+      "@type": "SoftwareSourceCode",
+      "@id": "https://kp-rueck.ch/#source",
+      "name": "KP Rück source code",
+      "codeRepository": "https://github.com/feuerwehr-oberwil/kp-rueck",
+      "license": "https://www.gnu.org/licenses/agpl-3.0.html"
+    },
+    {
+      "@type": "CreativeWorkSeries",
+      "@id": "https://kp-front.ch/#kp-suite",
+      "name": "KP Front & KP Rück",
+      "hasPart": [
+        {
+          "@id": "https://kp-front.ch/#app"
+        },
+        {
+          "@id": "https://kp-rueck.ch/#app"
+        }
+      ]
+    },
+    {
       "@type": "Organization",
       "@id": "https://kp-rueck.ch/#org",
       "name": "Feuerwehr Oberwil BL",
@@ -127,6 +153,17 @@
       "sameAs": [
         "https://github.com/feuerwehr-oberwil"
       ]
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://kp-rueck.ch/fr/#webpage",
+      "url": "https://kp-rueck.ch/fr/",
+      "name": "KP Rück – le tableau d’intervention du poste de commandement",
+      "description": "KP Rück est le tableau magnétique numérique du poste de commandement arrière : interventions, personnel, véhicules et matériel – en direct, open source.",
+      "inLanguage": "fr-CH",
+      "mainEntity": {
+        "@id": "https://kp-rueck.ch/#app"
+      }
     },
     {
       "@type": "FAQPage",
@@ -202,7 +239,7 @@
           "name": "Comment commencer ?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Par la démo, sans compte – choisir un rôle et commencer. Ensuite, l’essayer à un exercice ; le mode exercice est proprement séparé du cas réel. Et si cela convient : écrivez-nous, nous aidons à l’installation."
+            "text": "Par la démo, sans compte – choisir un rôle et commencer. Ensuite, l’essayer à un exercice ; le mode exercice est proprement séparé du cas réel. Si cela convient, le guide d’installation accompagne la mise en place et l’exploitation. Nous répondons volontiers aux questions générales ; les données et l’exploitation restent sous la responsabilité de chaque corps."
           }
         }
       ]
@@ -768,8 +805,10 @@
         <h3>Comment commencer ?</h3>
         <p>Par la <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">démo</a>,
           sans compte – choisir un rôle et commencer. Ensuite, l’essayer à un exercice ; le mode
-          exercice est proprement séparé du cas réel. Et si cela convient : écrivez-nous, nous
-          aidons à l’installation.</p>
+          exercice est proprement séparé du cas réel. Si cela convient, le
+          <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md" target="_blank" rel="noopener">guide d’installation</a> accompagne la mise en place et l’exploitation.
+          Nous répondons volontiers aux questions générales ; les données et l’exploitation restent
+          sous la responsabilité de chaque corps.</p>
       </div>
     </div>
   </section>
