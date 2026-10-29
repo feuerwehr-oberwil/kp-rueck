@@ -109,6 +109,11 @@ describe("checkRestore", () => {
       .toBeNull()
   })
 
+  it("does not restore a vehicle merely because an unrelated incident comes first", () => {
+    expect(checkRestore(vehicle, state({ operations: [op("unrelated"), op("e1"), op("e2", { vehicles: [{ vehicleId: "v1" }] })] })))
+      .toEqual({ reason: "elsewhere", where: "Bahnhofstrasse 3" })
+  })
+
   it("restores reusable material only when it is free and still exists", () => {
     expect(checkRestore(material, state())).toBeNull()
     expect(checkRestore(material, state({ materials: [] }))).toEqual({ reason: "resourceGone" })
@@ -170,11 +175,6 @@ describe.each(["personnel", "vehicle", "material"] as const)("route %s undo", (r
       .toBeNull()
   })
 
-  it("does not restore a vehicle merely because an unrelated incident comes first", () => {
-    const released: Released = { kind: "vehicle", operationId: "e1", vehicleId: "v1", name: "TLF", targetLabel: "West" }
-    expect(checkRestore(released, state({ operations: [op("unrelated"), op("e1"), op("e2", { vehicles: [{ vehicleId: "v1" }] })] })))
-      .toEqual({ reason: "elsewhere", where: "Bahnhofstrasse 3" })
-  })
 })
 
 describe("route resource availability", () => {
