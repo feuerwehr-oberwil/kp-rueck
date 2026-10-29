@@ -88,7 +88,7 @@
       "@type": "SoftwareApplication",
       "@id": "https://kp-rueck.ch/#app",
       "name": "KP Rück",
-      "url": "https://kp-rueck.ch/rm/",
+      "url": "https://kp-rueck.ch/",
       "description": "KP Rück è la tavla magnetica digitala dal post da commando posteriur: acziuns, persunal, vehichels e material – en temp real sin mintga apparat, open source.",
       "featureList": [
         "Survista dal persunal: arrivar cun check-in QR, temps da servetsch e pausas",
@@ -107,7 +107,13 @@
         "fr"
       ],
       "license": "https://www.gnu.org/licenses/agpl-3.0.html",
-      "codeRepository": "https://github.com/feuerwehr-oberwil/kp-rueck",
+      "sameAs": "https://github.com/feuerwehr-oberwil/kp-rueck",
+      "subjectOf": {
+        "@id": "https://kp-rueck.ch/#source"
+      },
+      "isPartOf": {
+        "@id": "https://kp-front.ch/#kp-suite"
+      },
       "screenshot": "https://kp-rueck.ch/shots/board.jpg",
       "isAccessibleForFree": true,
       "offers": {
@@ -120,6 +126,26 @@
       }
     },
     {
+      "@type": "SoftwareSourceCode",
+      "@id": "https://kp-rueck.ch/#source",
+      "name": "KP Rück source code",
+      "codeRepository": "https://github.com/feuerwehr-oberwil/kp-rueck",
+      "license": "https://www.gnu.org/licenses/agpl-3.0.html"
+    },
+    {
+      "@type": "CreativeWorkSeries",
+      "@id": "https://kp-front.ch/#kp-suite",
+      "name": "KP Front & KP Rück",
+      "hasPart": [
+        {
+          "@id": "https://kp-front.ch/#app"
+        },
+        {
+          "@id": "https://kp-rueck.ch/#app"
+        }
+      ]
+    },
+    {
       "@type": "Organization",
       "@id": "https://kp-rueck.ch/#org",
       "name": "Feuerwehr Oberwil BL",
@@ -127,6 +153,17 @@
       "sameAs": [
         "https://github.com/feuerwehr-oberwil"
       ]
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://kp-rueck.ch/rm/#webpage",
+      "url": "https://kp-rueck.ch/rm/",
+      "name": "KP Rück – Tavla d’acziun per il post da commando",
+      "description": "KP Rück è la tavla magnetica digitala dal post da commando posteriur: acziuns, persunal, vehichels e material – en temp real sin mintga apparat, open source.",
+      "inLanguage": "rm-CH",
+      "mainEntity": {
+        "@id": "https://kp-rueck.ch/#app"
+      }
     },
     {
       "@type": "FAQPage",
@@ -202,7 +239,7 @@
           "name": "Co cumenzar?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Cun la demo, senza conto. Tscherner ina rolla e cumenzar. Suenter testar durant in exercizi."
+            "text": "Cun la demo, senza conto – tscherner ina rolla e cumenzar. Suenter testar durant in exercizi; il modus d’exercizi è separà cleramain dal cas real. Sche l’applicaziun cunvegna, maina l’instrucziun d’installaziun tras l’installaziun ed il manaschi. Nus respundain gugent a dumondas generalas; las datas ed il manaschi restan en la responsabladad dal corps da pumpiers respectiv."
           }
         }
       ]
@@ -759,7 +796,11 @@
       <div class="faq-item">
         <h3>Co cumenzar?</h3>
         <p>Cun la <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">demo</a>,
-          senza conto. Tscherner ina rolla e cumenzar. Suenter testar durant in exercizi.</p>
+          senza conto – tscherner ina rolla e cumenzar. Suenter testar durant in exercizi; il modus
+          d’exercizi è separà cleramain dal cas real. Sche l’applicaziun cunvegna, maina
+          l’<a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md" target="_blank" rel="noopener">instrucziun d’installaziun</a> tras l’installaziun ed il manaschi. Nus
+          respundain gugent a dumondas generalas; las datas ed il manaschi restan en la
+          responsabladad dal corps da pumpiers respectiv.</p>
       </div>
     </div>
   </section>

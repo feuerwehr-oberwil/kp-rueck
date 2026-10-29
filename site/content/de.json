@@ -382,7 +382,7 @@
       },
       {
         "q": "Wie fangen wir an?",
-        "a": "Mit der <a href=\"https://demo.kp-rueck.ch\" target=\"_blank\" rel=\"noopener\">Demo</a>,\n          ohne Konto – Rolle wählen und loslegen. Danach an einer Übung ausprobieren; der\n          Übungsmodus ist sauber vom Ernstfall getrennt. Und wenn es passt: Meldet euch, wir\n          helfen beim Aufsetzen."
+        "a": "Mit der <a href=\"https://demo.kp-rueck.ch\" target=\"_blank\" rel=\"noopener\">Demo</a>,\n          ohne Konto – Rolle wählen und loslegen. Danach an einer Übung ausprobieren; der\n          Übungsmodus ist sauber vom Ernstfall getrennt. Wenn es passt, führt die\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">Einrichtungsanleitung</a> durch Installation und Betrieb. Allgemeine\n          Fragen beantworten wir gerne; Daten und Betrieb bleiben in der Verantwortung der\n          jeweiligen Feuerwehr."
       }
     ]
   },

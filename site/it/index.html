@@ -88,7 +88,7 @@
       "@type": "SoftwareApplication",
       "@id": "https://kp-rueck.ch/#app",
       "name": "KP Rück",
-      "url": "https://kp-rueck.ch/it/",
+      "url": "https://kp-rueck.ch/",
       "description": "KP Rück è la lavagna magnetica digitale del posto di comando arretrato: interventi, personale, veicoli e materiale – in tempo reale, open source.",
       "featureList": [
         "Personale sotto controllo: arrivo con check-in QR, tempi di servizio e pause",
@@ -107,7 +107,13 @@
         "fr"
       ],
       "license": "https://www.gnu.org/licenses/agpl-3.0.html",
-      "codeRepository": "https://github.com/feuerwehr-oberwil/kp-rueck",
+      "sameAs": "https://github.com/feuerwehr-oberwil/kp-rueck",
+      "subjectOf": {
+        "@id": "https://kp-rueck.ch/#source"
+      },
+      "isPartOf": {
+        "@id": "https://kp-front.ch/#kp-suite"
+      },
       "screenshot": "https://kp-rueck.ch/shots/board.jpg",
       "isAccessibleForFree": true,
       "offers": {
@@ -120,6 +126,26 @@
       }
     },
     {
+      "@type": "SoftwareSourceCode",
+      "@id": "https://kp-rueck.ch/#source",
+      "name": "KP Rück source code",
+      "codeRepository": "https://github.com/feuerwehr-oberwil/kp-rueck",
+      "license": "https://www.gnu.org/licenses/agpl-3.0.html"
+    },
+    {
+      "@type": "CreativeWorkSeries",
+      "@id": "https://kp-front.ch/#kp-suite",
+      "name": "KP Front & KP Rück",
+      "hasPart": [
+        {
+          "@id": "https://kp-front.ch/#app"
+        },
+        {
+          "@id": "https://kp-rueck.ch/#app"
+        }
+      ]
+    },
+    {
       "@type": "Organization",
       "@id": "https://kp-rueck.ch/#org",
       "name": "Feuerwehr Oberwil BL",
@@ -127,6 +153,17 @@
       "sameAs": [
         "https://github.com/feuerwehr-oberwil"
       ]
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://kp-rueck.ch/it/#webpage",
+      "url": "https://kp-rueck.ch/it/",
+      "name": "KP Rück – il tavolo operativo per il posto di comando",
+      "description": "KP Rück è la lavagna magnetica digitale del posto di comando arretrato: interventi, personale, veicoli e materiale – in tempo reale, open source.",
+      "inLanguage": "it-CH",
+      "mainEntity": {
+        "@id": "https://kp-rueck.ch/#app"
+      }
     },
     {
       "@type": "FAQPage",
@@ -202,7 +239,7 @@
           "name": "Come cominciamo?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Con la demo, senza account – scegliete un ruolo e via. Poi provatelo in un’esercitazione; la modalità esercitazione è nettamente separata dal caso reale. E se vi convince: scriveteci, vi aiutiamo a impostarlo."
+            "text": "Con la demo, senza account – scegliete un ruolo e via. Poi provatelo in un’esercitazione; la modalità esercitazione è nettamente separata dal caso reale. Se vi convince, la guida all’installazione accompagna la configurazione e l’esercizio. Rispondiamo volentieri alle domande generali; i dati e l’esercizio restano sotto la responsabilità di ciascun corpo."
           }
         }
       ]
@@ -717,7 +754,7 @@
       </div>
       <div class="faq-item">
         <h3>Come cominciamo?</h3>
-        <p>Con la <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">demo</a>, senza account – scegliete un ruolo e via. Poi provatelo in un’esercitazione; la modalità esercitazione è nettamente separata dal caso reale. E se vi convince: scriveteci, vi aiutiamo a impostarlo.</p>
+        <p>Con la <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">demo</a>, senza account – scegliete un ruolo e via. Poi provatelo in un’esercitazione; la modalità esercitazione è nettamente separata dal caso reale. Se vi convince, la <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md" target="_blank" rel="noopener">guida all’installazione</a> accompagna la configurazione e l’esercizio. Rispondiamo volentieri alle domande generali; i dati e l’esercizio restano sotto la responsabilità di ciascun corpo.</p>
       </div>
     </div>
   </section>
