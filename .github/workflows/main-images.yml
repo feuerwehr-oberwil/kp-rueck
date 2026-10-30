@@ -1,0 +1,92 @@
+name: Main images
+# Every commit on main gets the three stack images, amd64 only, tagged `main-<short sha>`.
+#
+# For one reader: a standby box (docs/STANDBY.md). It mirrors a hosted board that deploys from
+# main, and replication only works while both run the same schema – so the box has to be able
+# to run exactly the commit the hosted board runs, minutes after it does, not at the next
+# release. scripts/standby-follow.sh pulls these tags.
+#
+# Not a release: no version, no `latest`, no arm64, no GitHub Release, no gate. Every other
+# station keeps installing the matched sets release.yml publishes.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: main-images-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish main-<sha> images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Tag
+        id: t
+        run: echo "tag=main-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4
+        with:
+          # Same Hub mirror as release.yml: anonymous pulls from Docker Hub hit its rate limit.
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["mirror.gcr.io"]
+          driver-opts: image=mirror.gcr.io/moby/buildkit:buildx-stable-1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push backend image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./backend
+          platforms: linux/amd64
+          push: true
+          cache-from: type=gha,scope=backend
+          tags: ghcr.io/feuerwehr-oberwil/kp-rueck-backend:${{ steps.t.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.t.outputs.tag }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      # Built WITHOUT NEXT_PUBLIC_API_URL, like the release image (see release.yml).
+      - name: Push frontend image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./frontend
+          target: runner
+          platforms: linux/amd64
+          push: true
+          cache-from: type=gha,scope=frontend
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+          tags: ghcr.io/feuerwehr-oberwil/kp-rueck-frontend:${{ steps.t.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.t.outputs.tag }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Push tileserver image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./tileserver/Dockerfile
+          platforms: linux/amd64
+          push: true
+          cache-from: type=gha,scope=tileserver
+          tags: ghcr.io/feuerwehr-oberwil/kp-rueck-tileserver:${{ steps.t.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.t.outputs.tag }}
+            org.opencontainers.image.revision=${{ github.sha }}

@@ -4479,5 +4479,26 @@
     "refDeleted": "{ref} (supprimée)",
     "refMerged": "{ref} → {target}",
     "linkHint": "Lier une intervention – ou # dans le texte"
+  },
+  "standby": {
+    "mirror": {
+      "label": "Miroir de KP Rück en ligne",
+      "current": "État {time} · consultation seulement",
+      "stale": "État {time} · pas de liaison avec KP Rück en ligne · consultation seulement",
+      "never": "Pas encore d’état de KP Rück en ligne · consultation seulement"
+    },
+    "offline": {
+      "label": "Conduit hors ligne",
+      "text": "depuis {time} · « {name} » n’est plus synchronisé · retour vers KP Rück en ligne : à la main (procédure de panne)"
+    },
+    "takeover": {
+      "button": "Reprendre cet événement hors ligne …",
+      "title": "Reprendre « {name} » hors ligne ?",
+      "description": "Dès maintenant, cet événement n’est plus conduit que sur cet appareil. Il n’est plus synchronisé, même lorsque KP Rück en ligne redevient joignable.",
+      "others": "Tous les autres événements restent en miroir.",
+      "reachable": "KP Rück en ligne est encore joignable. Les modifications faites là-bas à cet événement n’apparaîtront plus ici.",
+      "confirm": "Reprendre hors ligne",
+      "failed": "L’événement n’a pas pu être repris hors ligne."
+    }
   }
 }

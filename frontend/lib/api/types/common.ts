@@ -95,6 +95,20 @@ export interface ApiDeployment {
   blocked_domains: string[]
 }
 
+/** The standby box's mirror of the hosted board (GET /api/standby, backend `app/api/standby.py`).
+ *  `mirror` is false on every other deployment, and then nothing else is sent. */
+export interface ApiStandby {
+  mirror: boolean
+  /** The subscription to the hosted database exists. */
+  configured?: boolean
+  /** The hosted board was heard from within the last ~90 s – the mirror is up to date. */
+  current?: boolean
+  /** When the hosted board was last heard from: the «Stand» of the band. */
+  last_received_at?: string | null
+  /** Ereignisse taken offline on this box, oldest first. */
+  detached?: { event_id: string; detached_at: string }[]
+}
+
 /** One provider this build knows about, whether or not this station uses it. `implemented`
  *  is false for a provider whose contract is published but whose ingestion is not built. */
 export interface ApiKnownProvider {

@@ -54,6 +54,7 @@ from .api.settings import router as settings_router
 from .api.setup import announce_setup_token_if_unclaimed
 from .api.setup import router as setup_router
 from .api.special_functions import router as special_functions_router
+from .api.standby import router as standby_router
 from .api.stats import router as stats_router
 from .api.traccar import router as traccar_router
 from .api.training import router as training_router
@@ -86,11 +87,12 @@ from .background import (
 from .config import settings
 from .database import async_session_maker, commit_request, engine
 from .ensure_accounts import ensure_dev_bypass_user
-from .environment import blocked_domains, deployment_role
+from .environment import ROLE_STANDBY, blocked_domains, deployment_role
 from .middleware.audit import AuditMiddleware
 from .middleware.rate_limit import limiter, rate_limit_exceeded_handler
 from .middleware.request_id import RequestIDMiddleware, get_request_id, request_id_var
 from .middleware.security_headers import SecurityHeadersMiddleware
+from .middleware.standby_readonly import StandbyReadOnlyMiddleware
 from .seed import seed_database
 from .services.alerting import AlarmBlockedError
 from .services.journal_backfill import backfill_on_boot
@@ -192,6 +194,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning("Deployment role %r blocks: %s", deployment_role(), ", ".join(blocked))
     else:
         logger.info("Deployment role: %s", deployment_role())
+    # A standby box mirrors the hosted board (app/standby.py): every job that would WRITE into
+    # the mirrored tables stays off – the hosted board runs them, and their results arrive here.
+    # A local write there would be overwritten, or stop the replication with a duplicate key.
+    standby = deployment_role() == ROLE_STANDBY
 
     # Schema is managed by Alembic ONLY (start.sh / start-dev.sh run
     # `alembic upgrade head` before boot). A create_all here would silently
@@ -211,7 +217,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Einsatztagebuch: fill in what the log does not hold yet — on the first boot of this
     # version the whole history, afterwards whatever an old instance wrote during a cutover
     # or the flush hook had to skip. Idempotent; never stops the boot.
-    await backfill_on_boot(engine)
+    if not standby:
+        await backfill_on_boot(engine)
 
     # Development auth bypass fabricates its "dev-user" in memory, with a fixed
     # id and no row behind it. Anything that records WHO did something –
@@ -273,7 +280,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Divera Rückmeldungen are personal data: deleted 48 h after the alarm (hourly sweep).
     try:
-        start_divera_retention_scheduler()
+        if not standby:
+            start_divera_retention_scheduler()
     except Exception as e:
         logger.warning(f"Divera retention scheduler failed to start: {e}")
 
@@ -287,7 +295,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Roster snapshot poll. A no-op unless ROSTER_SNAPSHOT_SOURCE is set; a feed that is down
     # is recorded in its status row and never keeps the board from starting.
     try:
-        start_roster_snapshot_scheduler()
+        if not standby:
+            start_roster_snapshot_scheduler()
     except Exception as e:
         logger.warning(f"Roster snapshot scheduler failed to start: {e}")
 
@@ -301,7 +310,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Configure Divera polling callback
     logger.info("Configuring Divera polling...")
     try:
-        await _setup_divera_polling()
+        if not standby:
+            await _setup_divera_polling()
     except Exception as e:
         logger.warning(f"Divera polling setup failed: {e}")
 
@@ -330,13 +340,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Start audit log cleanup scheduler (demo and production)
     logger.info("Starting audit cleanup scheduler...")
     try:
-        start_audit_cleanup_scheduler()
+        if not standby:
+            start_audit_cleanup_scheduler()
     except Exception as e:
         logger.warning(f"Audit cleanup scheduler failed to start: {e}")
 
     # Start training auto-generation monitor (idle unless the setting is on;
-    # skip unattended generation in the public demo)
-    if not settings.demo_mode:
+    # skip unattended generation in the public demo, and on a mirror)
+    if not settings.demo_mode and not standby:
         logger.info("Starting training auto-generation task...")
         try:
             from .services.training_autogen_task import training_autogen_task
@@ -375,8 +386,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         "AUTH_COOKIE_SECURE" if auth_settings.COOKIE_SECURE is not None else "CORS_ORIGINS",
     )
 
+    if standby:
+        from .background.standby_watch import start_standby_watch
+
+        start_standby_watch()
+
     logger.info("Application startup complete")
     yield
+
+    if standby:
+        from .background.standby_watch import stop_standby_watch
+
+        await stop_standby_watch()
 
     # Shutdown: Stop fallback auto-print task
     if not settings.demo_mode:
@@ -585,6 +606,10 @@ app.add_middleware(
 # Add audit middleware
 app.add_middleware(AuditMiddleware)
 
+# A standby mirror is look-only until an Ereignis is taken offline (app/standby.py). Added
+# after the audit middleware, so it runs BEFORE it: a refused write is not audited as one.
+app.add_middleware(StandbyReadOnlyMiddleware)
+
 # Add security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)
 
@@ -627,6 +652,7 @@ app.include_router(photos_router, prefix=settings.api_v1_prefix)
 app.include_router(settings_router, prefix=settings.api_v1_prefix)
 app.include_router(setup_router, prefix=settings.api_v1_prefix)  # Unauthenticated by design: first-run claim
 app.include_router(special_functions_router, prefix=settings.api_v1_prefix)
+app.include_router(standby_router, prefix=settings.api_v1_prefix)
 app.include_router(stats_router, prefix=settings.api_v1_prefix)
 app.include_router(traccar_router, prefix=settings.api_v1_prefix)
 app.include_router(notifications_router, prefix=settings.api_v1_prefix)

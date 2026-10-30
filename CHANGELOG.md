@@ -32,12 +32,15 @@ will keep holding.
 
 ### Added
 
-- **A standby box for a hosted board** (compose profile `standby`, `docs/STANDBY.md`): the
-  `standby-sync` sidecar copies the station's configuration – users, settings, fleet, roster,
-  material, templates – from the hosted database every night, one way and with a read-only
-  login, so a compose stack in the Magazin is ready when the internet drops. It refuses while
-  the box holds an Ereignis of its own or while the hosted schema is newer than the box's, and
-  `docker compose ps` / `just doctor` show a failed or stale copy.
+- **A standby box for a hosted board** (`DEPLOYMENT_ROLE=standby`, compose profile `standby`,
+  `docs/STANDBY.md`): a compose stack in the Magazin mirrors the hosted database live and one way
+  (Postgres logical replication), photos included, so it can take over the moment the internet
+  drops. Its board is look-only under a band «Spiegel von KP Rück Online · Stand … · nur
+  ansehen»; an editor takes the running Ereignis offline there in one confirmation, and from
+  then on that Ereignis is worked on the box and never synchronised again, while every other
+  one keeps mirroring. `main-images.yml` publishes images for every `main` commit
+  (`main-<sha>`), and `scripts/standby-follow.sh` keeps the box on the commit the hosted board
+  runs. `python -m app.standby --reset` makes it a pure mirror again after an outage.
 - **«Kennung» for people who share a name** (Settings › Personal, Excel column `kennung`):
   a Jahrgang or Personal-Nr., shown on the board only where two people have the same name
   («Meier Alex · 1985»). A second person with the same name needs one; the Divera and roster

@@ -7,6 +7,7 @@ import { GlobalShortcuts } from '@/lib/hooks/use-global-navigation'
 import { UpdateNotice } from '@/lib/hooks/use-update-notice'
 import { DemoBanner } from '@/components/demo-banner'
 import { DeploymentBanner } from '@/components/deployment-banner'
+import { StandbyBand } from '@/components/standby-band'
 import { StaleDataBanner } from '@/components/stale-data-banner'
 import { IncidentTruncationBanner } from '@/components/incident-truncation-banner'
 import { PersistentNotificationSidebar } from '@/components/notifications/persistent-notification-sidebar'
@@ -58,6 +59,7 @@ export function AppShell({ children }: AppShellProps) {
     return (
       <>
         <DeploymentBanner />
+        <StandbyBand />
         <DemoBanner />
         <StaleDataBanner />
         <IncidentTruncationBanner />
@@ -80,6 +82,7 @@ export function AppShell({ children }: AppShellProps) {
   // _fix3/feld/edge-effect.md in the fix-round notes and app-shell.test.tsx.
   return (
     <div data-slot="app-shell" className="fixed inset-0 flex flex-col overflow-hidden bg-background">
+      <StandbyBand />
       <DemoBanner />
       <StaleDataBanner />
       <IncidentTruncationBanner />

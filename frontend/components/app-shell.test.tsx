@@ -25,6 +25,7 @@ vi.mock("@/lib/hooks/use-global-navigation", () => ({
 }));
 vi.mock("@/components/demo-banner", () => ({ DemoBanner: () => null }));
 vi.mock("@/components/deployment-banner", () => ({ DeploymentBanner: () => null }));
+vi.mock("@/components/standby-band", () => ({ StandbyBand: () => null }));
 vi.mock("@/components/stale-data-banner", () => ({ StaleDataBanner: () => null }));
 vi.mock("@/components/incident-truncation-banner", () => ({
   IncidentTruncationBanner: () => null,

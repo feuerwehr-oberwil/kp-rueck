@@ -4479,5 +4479,26 @@
     "refDeleted": "{ref} (gelöscht)",
     "refMerged": "{ref} → {target}",
     "linkHint": "Einsatz verknüpfen – oder # im Text"
+  },
+  "standby": {
+    "mirror": {
+      "label": "Spiegel von KP Rück Online",
+      "current": "Stand {time} · nur ansehen",
+      "stale": "Stand {time} · keine Verbindung zu KP Rück Online · nur ansehen",
+      "never": "Noch kein Stand von KP Rück Online · nur ansehen"
+    },
+    "offline": {
+      "label": "Offline geführt",
+      "text": "seit {time} · «{name}» wird nicht mehr synchronisiert · zurück zu KP Rück Online: von Hand (Ausfall-SOP)"
+    },
+    "takeover": {
+      "button": "Dieses Ereignis offline übernehmen …",
+      "title": "«{name}» offline übernehmen?",
+      "description": "Ab jetzt wird dieses Ereignis nur noch auf diesem Gerät geführt. Es wird nicht mehr synchronisiert, auch nicht, wenn KP Rück Online wieder erreichbar ist.",
+      "others": "Alle anderen Ereignisse bleiben gespiegelt.",
+      "reachable": "KP Rück Online ist noch erreichbar. Änderungen, die dort an diesem Ereignis gemacht werden, erscheinen hier nicht mehr.",
+      "confirm": "Offline übernehmen",
+      "failed": "Das Ereignis konnte nicht offline übernommen werden."
+    }
   }
 }

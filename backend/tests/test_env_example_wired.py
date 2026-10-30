@@ -51,6 +51,7 @@ NOT_BACKEND_SETTINGS = {
     "PRINT_POLL_INTERVAL_ACTIVE": "the print agent",
     "PRINT_LONG_POLL_SEC": "the print agent",
     "DRY_RUN": "the print agent",
+    "STANDBY_FOLLOW_URL": "scripts/standby-follow.sh, on a standby box",
 }
 
 

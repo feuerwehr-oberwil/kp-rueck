@@ -6,7 +6,7 @@
  */
 
 import { request as httpRequest } from '../http'
-import type { ApiDeployment, ApiSetupStatus, ApiSetupClaim, ApiSetupResult, DemoStatus } from '../types'
+import type { ApiDeployment, ApiStandby, ApiSetupStatus, ApiSetupClaim, ApiSetupResult, DemoStatus } from '../types'
 
 export class SystemApi {
   /**
@@ -23,6 +23,21 @@ export class SystemApi {
     } catch {
       return null
     }
+  }
+
+  /** The standby mirror (`mirror: false` on any other deployment). Quiet on failure: the band
+   *  then simply keeps what it last knew. */
+  async getStandby(): Promise<ApiStandby | null> {
+    try {
+      return await httpRequest<ApiStandby>('/api/standby', { skipToast: true })
+    } catch {
+      return null
+    }
+  }
+
+  /** Take one Ereignis offline on the standby box, for good (editors and admins). */
+  async takeOverEvent(eventId: string): Promise<ApiStandby> {
+    return httpRequest<ApiStandby>(`/api/standby/events/${encodeURIComponent(eventId)}/takeover`, { method: 'POST' })
   }
 
   // Demo Mode

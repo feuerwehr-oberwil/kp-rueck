@@ -10,6 +10,7 @@ import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AuthProvider } from '@/lib/contexts/auth-context'
 import { EventProvider } from '@/lib/contexts/event-context'
+import { StandbyProvider } from '@/lib/contexts/standby-context'
 import { OperationsProvider } from '@/lib/contexts/operations-context'
 import { GroupsProvider } from '@/lib/contexts/groups-context'
 import { NotificationProvider } from '@/lib/contexts/notification-context'
@@ -137,6 +138,7 @@ export default async function RootLayout({
           <BootCover />
           <AuthProvider>
             <EventProvider>
+              <StandbyProvider>
               <OperationsProvider>
                 <GroupsProvider>
                   <NotificationProvider>
@@ -156,6 +158,7 @@ export default async function RootLayout({
                   </NotificationProvider>
                 </GroupsProvider>
               </OperationsProvider>
+              </StandbyProvider>
             </EventProvider>
           </AuthProvider>
         </ThemeProvider>

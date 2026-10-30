@@ -440,13 +440,13 @@ doctor:
 
     case ",${PROFILES}," in
         *,standby,*)
-            section "Standby copy of the hosted board"
+            section "Standby mirror of the hosted board"
             # The sidecar's own healthcheck, so this and `docker compose ps` never disagree.
-            if REASON="$(docker compose exec -T standby-sync /app/.venv/bin/python -m app.standby_sync --check 2>&1)"; then
-                ok "Last configuration copy ok"
+            if REASON="$(docker compose exec -T standby-mirror /app/.venv/bin/python -m app.standby --check 2>&1)"; then
+                ok "Mirror current"
             else
-                bad "Standby copy not current: ${REASON:-standby-sync is not running}"
-                echo "   docker compose logs --tail=50 standby-sync – docs/STANDBY.md"
+                bad "Mirror not current: ${REASON:-standby-mirror is not running}"
+                echo "   docker compose logs --tail=50 standby-mirror – docs/STANDBY.md"
             fi ;;
     esac
     echo ""

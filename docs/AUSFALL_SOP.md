@@ -84,10 +84,10 @@ Das Board gilt als ausgefallen, wenn **eine** der Bedingungen zutrifft:
 Der Unterschied in der ersten Zeile ist der ganze Punkt: bei A) ist ein Internetausfall ein
 Ärgernis, bei B) ist er ein Totalausfall des Boards.
 
-**B) mit Standby-Box im Magazin:** Ein Compose-Stack, der jede Nacht Benutzer, Einstellungen,
-Fahrzeuge, Personal und Material vom gehosteten Board übernimmt (`docs/STANDBY.md`). Fällt das
-Internet aus, öffnen die Geräte die LAN-Adresse der Box, und das Lageblatt wird dort
-weitergeführt – Einsätze übernimmt die Box nicht.
+**B) mit Standby-Box im Magazin:** Ein Compose-Stack, der das gehostete Board laufend spiegelt –
+Ereignisse, Einsätze, Personal, Fotos (`docs/STANDBY.md`). Fällt das Internet aus, öffnen die
+Geräte die LAN-Adresse der Box; dort das laufende Ereignis mit «Dieses Ereignis offline
+übernehmen …» übernehmen und weiterführen. Papier braucht es dann nur, falls auch die Box ausfällt.
 
 Der Wert des automatischen Druckens/Downloads liegt darin, dass **im Moment des
 Ausfalls** ein höchstens 15 Minuten alter Stand auf Papier bzw. lokal auf dem

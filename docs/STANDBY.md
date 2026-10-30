@@ -1,111 +1,156 @@
 # Standby box for a hosted board
 
-A board hosted on Railway is gone when the station loses its internet connection
+A board hosted on Railway is gone the moment the station loses its internet connection
 ([`AUSFALL_SOP.md`](AUSFALL_SOP.md), table B). A compose stack in the Magazin keeps running on
-the LAN when that happens, but only if it already has the station's roster and settings.
-Without them it is an empty board. The `standby-sync` sidecar keeps one ready: every night it
-copies the station's **configuration** from the hosted database onto the box.
+the LAN, but only if it already holds the board. The standby box does: it **mirrors the hosted
+database live** (Postgres logical replication, one way), so it holds every Ereignis, every
+Einsatz, the roster and the photos, seconds behind the hosted board.
 
-The copy goes one way and is read-only on the hosted side. Einsätze are not copied. On the day,
-the last Lageblatt carries the running operation over, as the SOP describes.
+The mirror's board is **look-only**. When it is needed, somebody opens the Ereignis on the box
+and takes it **offline**: from then on that Ereignis is worked on here, and nothing the hosted
+board does to it arrives any more – not even once the internet is back. Every other Ereignis,
+every new one and the roster keep mirroring.
 
-## What is copied
+## How it looks
 
-| Copied every night | Stays as it is on the box |
+A band over every page, on every device, that cannot be dismissed:
+
+- **Mirror:** «Spiegel von KP Rück Online · Stand 19:30:12 · nur ansehen» (or «keine Verbindung
+  zu KP Rück Online» once the hosted board has not been heard from for 90 s). On the desktop,
+  editors and admins with an Ereignis open get one button: **«Dieses Ereignis offline
+  übernehmen …»**. One confirmation, which says so when the hosted board is still reachable.
+- **Taken offline:** amber, «Offline geführt seit 19:42 · «Name» wird nicht mehr
+  synchronisiert». That Ereignis can be edited as usual.
+
+Behind the band the board is the ordinary one with editing switched off, as for a viewer. The
+API agrees: until an Ereignis is taken offline, every write is answered 403 (`standby_read_only`).
+
+## What is mirrored
+
+Everything in the hosted database, with these exceptions that belong to the box itself:
+
+| Kept by the box | Why |
 | --- | --- |
-| Users (the hosted logins, password hashes included) | Einsätze, Ereignisse, journal, reports |
-| Settings | Photos (they live in a volume, not the database) |
-| Vehicles, personnel and their external identities | The alarm webhook secret (each deployment has its own – [`RUNNING-BOTH.md`](RUNNING-BOTH.md) §3) |
-| Material groups, materials | `map_mode` (the hosted board has no tile server; the box has one) |
-| Special-function types, emergency and Auftrag templates, training locations | Telemetry id and consent, roster-read status, seed markers |
+| Its schema revision (`alembic_version`) | the box migrates itself; see «Following the hosted board» |
+| The alarm webhook secret, `map_mode`, telemetry id and consent, roster-read status, seed markers | each deployment has its own ([`RUNNING-BOTH.md`](RUNNING-BOTH.md) §3); the hosted board has no tile server, the box does |
+| Print jobs, telemetry outbox, Microsoft login transactions, geocoding queue | a queue of the hosted board, not of this box |
 
-The list is `CONFIG_TABLES` in `backend/app/standby_sync.py`. It is the same list
-`just dev-sync --config` uses, and a test keeps the two equal.
+**Photos** are not in the database. The sidecar fetches every photo the mirrored reports list
+from the hosted board's API, with a read-only login (`STANDBY_PHOTO_USER`), within half a minute.
 
-**After the first copy, everyone logs in to the box with their hosted account.** The admin you
-created when you set up the box is replaced. Microsoft sign-in needs the internet, which is
-the one thing the box won't have on the day. So make sure at least one hosted **admin has a
-password**.
+**Logins** are the hosted board's: the users table is mirrored. The admin you created when you
+installed the box is replaced. Microsoft sign-in needs the internet, the one thing the box won't
+have on the day – make sure at least one hosted **admin and the editors who run the board have
+a password**. A box set up with `LOCAL_AUTOLOGIN_USER` needs that account on the hosted board.
 
-The box's own audit trail, notifications and print jobs are cleared along with the copy,
-because they point at the rows being replaced. On a box that has never run an Ereignis, they
-only record its setup.
-
-## When it refuses
-
-Each run either replaces the whole configuration or changes nothing. The outcome is in
-`last-sync.json`, and the container goes `unhealthy` when the last run failed or is more than
-26 hours old. `docker compose ps standby-sync` and `just doctor` both show this.
-
-| Stage | Meaning | What to do |
-| --- | --- | --- |
-| `config` | `STANDBY_SOURCE_URL` is empty | Set it in `.env`, then `docker compose up -d` |
-| `connect` | The hosted database cannot be reached | The internet is down, or the host, port or password is wrong |
-| `version` | The hosted schema is newer than the box's | Update the box (below) |
-| `in_use` | The box holds an Ereignis of its own | The box is the board now. See «After the outage» |
-| `copy` | Postgres refused the copy, e.g. `permission denied` | After an update that adds a configuration table, add it to the `GRANT` (below) |
+The box runs **none of the jobs that write**: no Divera polling or retention sweep, no roster
+poll, no audit cleanup, no training autogen, and no outbound alarms (`DEPLOYMENT_ROLE=standby`
+blocks them like staging does). The hosted board runs them, and their results arrive here.
 
 ## Setting it up
 
-1. **Install the box** as a normal compose stack ([`SETUP.md`](SETUP.md): the launcher, or
-   `just init`). Choose a release **at least as new as the hosted board's schema**. The hosted
-   board is built from `main` and the box from a release, so the release has to have caught up.
-2. **Create a read-only login on the hosted database.** Run this once, with any Postgres client
-   connected to the hosted database as its owner (`railway connect Postgres`). Generate the
-   password, and store it in your password vault:
+### 1. On the hosted database (once)
 
-   ```sql
-   CREATE ROLE kp_standby LOGIN PASSWORD '<generated>';
-   ALTER ROLE kp_standby SET default_transaction_read_only = on;
-   GRANT CONNECT ON DATABASE railway TO kp_standby;
-   GRANT USAGE ON SCHEMA public TO kp_standby;
-   GRANT SELECT ON alembic_version, users, settings, vehicles, personnel,
-     personnel_external_identities, material_groups, materials, special_function_types,
-     emergency_templates, training_locations, auftrag_templates, auftrag_template_resources
-     TO kp_standby;
-   ```
+Logical replication needs `wal_level = logical`, which takes **one restart of the hosted
+Postgres** (about a minute in which the hosted board answers nothing). On Railway, as the
+database's owner (`railway connect Postgres`):
 
-   The login can read only these tables and no Einsätze. The sidecar opens its own read-only
-   transaction as well, so even a login that could write would not.
-3. **Point the box at it.** In the box's `.env`, use the host and port of the public
-   `DATABASE_PUBLIC_URL` (`railway variables --service Postgres --kv`) with the new login:
+```sql
+ALTER SYSTEM SET wal_level = logical;
+-- A box that is offline for days must not fill the hosted disk with retained WAL: past this,
+-- its slot is dropped and the box sets itself up again from scratch.
+ALTER SYSTEM SET max_slot_wal_keep_size = '2GB';
+```
+
+Restart the Postgres service, then check with `SHOW wal_level;`. Then the publication and the
+box's login – generate the password and keep it in your password vault:
+
+```sql
+-- Everything, but no TRUNCATE: a truncate on the hosted side must never wipe a detached
+-- Ereignis on the box.
+CREATE PUBLICATION kp_standby FOR ALL TABLES WITH (publish = 'insert, update, delete');
+
+CREATE ROLE kp_standby WITH REPLICATION LOGIN PASSWORD '<generated>';
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO kp_standby;
+-- Tables a later migration creates (as the role the backend connects with):
+ALTER DEFAULT PRIVILEGES FOR ROLE <backend db user> IN SCHEMA public GRANT SELECT ON TABLES TO kp_standby;
+```
+
+For the photos, a **viewer** account on the hosted board (Einstellungen › Benutzer) with a
+password of its own.
+
+### 2. The box
+
+1. Install it as a normal compose stack ([`SETUP.md`](SETUP.md)) – a box **without Ereignisse**:
+   the first setup replaces everything on it with the hosted data, and refuses if it holds any.
+2. In its `.env`:
 
    ```bash
    COMPOSE_PROFILES=backup,standby
-   STANDBY_SOURCE_URL=postgresql://kp_standby:<generated>@<host>:<port>/railway
-   # STANDBY_SYNC_AT=04:15
+   DEPLOYMENT_ROLE=standby
+   STANDBY_SOURCE_URL=postgresql://kp_standby:<generated>@<host>:<port>/railway  # host/port of DATABASE_PUBLIC_URL
+   STANDBY_SOURCE_API=https://kp.example.ch/backend-api
+   STANDBY_PHOTO_USER=<viewer>
+   STANDBY_PHOTO_PASSWORD=<its password>
+   STANDBY_FOLLOW_URL=https://kp.example.ch
    ```
 
-4. `docker compose up -d`. The sidecar copies once straight away, so a wrong address fails
-   while you are still looking. Within a minute, `docker compose ps standby-sync` should read
-   `healthy`, and `docker compose logs standby-sync` should end in `✓ configuration copied`.
-5. Set the box's map to **auto** or **offline** (Einstellungen), and install the offline tiles
-   ([`OFFLINE_MAPS.md`](OFFLINE_MAPS.md)). Without tiles, the box shows an empty map during the
-   outage.
+   Remove `ADMIN_SEED_PASSWORD` and `VIEWER_PASSWORD`: the accounts now come from the hosted
+   board, and a password re-applied from `.env` on every boot would fight the mirrored one.
+3. Follow the hosted board's version once (below), then `docker compose up -d`. The
+   `standby-mirror` sidecar installs its guards, creates the subscription and copies the
+   hosted data. `docker compose ps standby-mirror` reads `healthy` once the copy is current;
+   `docker compose logs standby-mirror` says what it is doing.
+4. Set the box's map to **auto** or **offline** and install the offline tiles
+   ([`OFFLINE_MAPS.md`](OFFLINE_MAPS.md)).
 
-## Keeping it current
+### 3. Following the hosted board
 
-- **Software:** when the copy reports `version`, update the box to the newest release
-  ([`DEPLOYMENT.md` §4](DEPLOYMENT.md#4-updating)). The update pulls all images, which is also
-  what lets the box start without the internet later.
-- **A release adds a configuration table:** the release notes say so. Add it to the `GRANT`
-  above, or the next copy fails with `permission denied`.
-- **Tiles:** refresh them now and then ([`OFFLINE_MAPS.md`](OFFLINE_MAPS.md#updating-tiles)).
-- **Practise the switch-over:** add it to the half-yearly failover drill in
-  [`AUSFALL_SOP.md`](AUSFALL_SOP.md).
+Replication only works while both sides run the same schema: a column the hosted board has
+added has nowhere to go on the box, and replication stops (and retries) until the box has it
+too. The hosted board deploys from `main`, so the box follows **commit for commit**:
+`main-images.yml` publishes the images of every `main` commit as `main-<short sha>`, and
+`scripts/standby-follow.sh` moves the box onto the commit the hosted board runs – forward only,
+after a backup, and **never while an Ereignis is taken offline on the box** (an update restarts
+the board). Run it every five minutes, e.g. from cron on the box:
+
+```
+*/5 * * * *  cd /path/to/kp-rueck && scripts/standby-follow.sh >> /var/log/kp-standby-follow.log 2>&1
+```
+
+## Is it working?
+
+`docker compose ps standby-mirror` is `healthy` when the last round (every 30 s) found the mirror
+current; `just doctor` says the same. The round's report is `last-status.json` in the
+`standby` volume:
+
+| `stage` | Meaning | What to do |
+| --- | --- | --- |
+| `config` | `STANDBY_SOURCE_URL` or `DATABASE_URL` missing | Set it in `.env`, `docker compose up -d` |
+| `connect` | No mirror yet, and the hosted database cannot be reached | Internet, host, port or password |
+| `version` | The hosted schema is newer than the box's | `scripts/standby-follow.sh` (or its log) |
+| `in_use` | The first setup found Ereignisse on the box | Set up only a box without Ereignisse |
+| `mirror` (stale) | Not heard from the hosted board for 90 s | Normal during an outage; otherwise the logs |
+| `photos` | The photo login was refused | `STANDBY_PHOTO_USER` / `STANDBY_PHOTO_PASSWORD` |
 
 ## On the day
 
-1. Devices open the box's **LAN address**, not the hosted URL.
-2. Log in with the usual (password) accounts and open an Ereignis. From that moment the box
-   holds an Ereignis, so the nightly copy refuses with `in_use` and never replaces the roster
-   under a running operation.
+1. Devices open the **box's LAN address**. The band says how current it is.
+2. Open the running Ereignis, **«Dieses Ereignis offline übernehmen …»**, confirm. Work on it
+   as usual. Everything else stays a mirror and catches up when the internet returns.
 3. The thermal print agent and alarm intake still point at the hosted board. Without the
-   internet, alarms don't arrive anyway. The print agent can be pointed at the box
+   internet, alarms do not arrive anyway; the print agent can be pointed at the box
    ([`PRINT_AGENT.md`](PRINT_AGENT.md)).
 
 ## After the outage
 
-1. Carry the box's Einsätze back to the hosted board by hand: one person, in chronological
-   order, as in the SOP's «Wiederanlauf». The box's PDF export is the record.
-2. Delete the Ereignis on the box. The next nightly copy makes it a standby again.
+1. Carry the box's work on that Ereignis back to the hosted board by hand: one person, in
+   chronological order, as in the SOP's «Wiederanlauf». The box's PDF export is the record.
+2. The Ereignis stays offline on the box, and the box does not follow new versions while it
+   does. Once its work is on the hosted board, make the box a pure mirror again – this replaces
+   everything on it with the hosted data, so back up first:
+
+   ```bash
+   just backup
+   docker compose exec standby-mirror uv run python -m app.standby --reset
+   ```
