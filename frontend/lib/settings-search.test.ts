@@ -16,7 +16,6 @@ const ALL = [
   "printer",
   "gps",
   "users",
-  "sync",
   "alerting",
   "alarmIntake",
   "notifications",

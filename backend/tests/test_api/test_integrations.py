@@ -91,7 +91,7 @@ async def test_integrations_reports_blocked_domains_on_staging(editor_client: As
 
     assert body["deployment"]["role"] == "staging"
     assert body["deployment"]["label"] == "Staging – Übungssystem"
-    assert sorted(body["deployment"]["blocked_domains"]) == ["alerting", "sync"]
+    assert sorted(body["deployment"]["blocked_domains"]) == ["alerting"]
 
     assert body["alerting"]["configured"] is True
     assert body["alerting"]["display_name"] == "DIVERA 24/7"

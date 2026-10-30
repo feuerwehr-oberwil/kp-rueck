@@ -52,7 +52,7 @@ Ereignisse verwalten, wechseln, archivieren, exportieren.
 **Archivieren sagt, was noch offen ist.** Der Dialog listet, was das Archivieren abschneiden würde: nicht abgeschlossene Einsätze (mit «Auf dem Board zeigen»), offene Abholungen, Material noch am Schadenplatz und Personen, die noch angemeldet sind. Das vorab angekreuzte «automatisch abmelden» meldet beim Archivieren alle ab – Abmeldezeit = Ereignisende. Solange etwas offen ist, heisst der Knopf «Trotzdem archivieren».
 
 ### Einstellungen (`G S`)
-System-Konfiguration: Benutzer, Sync, Drucker, Kartenstil und mehr. Benutzer, Sync und das Audit-Protokoll sehen nur Admins.
+System-Konfiguration: Benutzer, Drucker, Kartenstil und mehr. Benutzer und das Audit-Protokoll sehen nur Admins.
 
 ### Hilfe (`G H`)
 Diese Dokumentationsseite.
@@ -766,16 +766,6 @@ Für Personen, die einen Alarm **erfassen** sollen, ohne Login und ohne Kenntnis
 - Wenn möglich via mobilem Hotspot
 - Ansonsten Kommunikation nur via Funk und alles manuell in einem anderen Tab eintragen (Check-In, Reko)
 
-### Daten synchronisieren
-
-Die lokale Instanz synchronisiert automatisch mit Railway. Der Sync-Status wird in der Navbar angezeigt (farbiger Punkt).
-
-**Railway → Lokal:** Daten werden automatisch von Railway heruntergeladen.
-
-**Lokal → Railway:** Wenn Railway wieder online ist, erscheint eine Benachrichtigung – für Admins mit «Jetzt synchronisieren» Button.
-
-Sync-Einstellungen unter Einstellungen → Sync Tab (nur Admins).
-
 ### Verbindungsstatus (Benutzermenü)
 
 Im Benutzermenü (oben rechts) zeigt der Bereich «Verbindung» den Status aller Systeme:
@@ -784,10 +774,7 @@ Im Benutzermenü (oben rechts) zeigt der Bereich «Verbindung» den Status aller
 |--------|-----------|
 | **Backend** | API-Server Verbindung |
 | **WebSocket** | Echtzeit-Updates (Polling-Fallback wenn offline) |
-| **Sync** | Railway ↔ Lokal Synchronisation |
 | **Drucker** | Thermodrucker-Status: Deaktiviert / Bereit / Fehler |
-
-Admins öffnen mit einem Klick die Sync-Einstellungen.
 
 **Neue Version verfügbar.** Läuft auf dem Server eine neuere Version als die offene Seite, erscheint leise «Neue Version verfügbar · Neu laden» – neu laden, sobald es passt. Wandanzeigen laden sich selbst neu, einmal pro neuer Version. Die Versionsangabe («v‹Version› · ‹Commit› · ‹Datum›») steht im Benutzermenü unter «Abmelden».
 
@@ -846,8 +833,6 @@ just up         # Startet die Anlage
 just down       # Stoppt die Anlage (die Daten bleiben)
 just doctor     # Prüft, ob alles läuft – Datenbank, Drucker, Kacheln, Backup
 ```
-
-Daten werden automatisch von Railway synchronisiert (siehe Sync-Einstellungen).
 
 Die lokale Instanz läuft unter `http://localhost:3000`.
 

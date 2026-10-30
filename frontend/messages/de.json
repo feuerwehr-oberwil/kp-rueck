@@ -5,8 +5,7 @@
       "hint": "Es wird niemand aufgeboten."
     },
     "deploymentBlocked": {
-      "alerting": "Ausalarmierung ist auf diesem System gesperrt ({label}). Es wird niemand aufgeboten.",
-      "sync": "Datenabgleich mit einem anderen System ist auf diesem System gesperrt ({label})."
+      "alerting": "Ausalarmierung ist auf diesem System gesperrt ({label}). Es wird niemand aufgeboten."
     },
     "demoBanner": {
       "resettingTitle": "Demo wird zurückgesetzt …",
@@ -189,10 +188,6 @@
       "statusConnected": "Verbunden",
       "statusOffline": "Offline",
       "statusError": "Fehler",
-      "statusUnknown": "Unbekannt",
-      "statusSyncing": "Wird synchronisiert …",
-      "statusStale": "Veraltet",
-      "statusSynced": "Synchronisiert",
       "wsConnecting": "Verbindet",
       "wsRealtime": "Echtzeit",
       "wsFailed": "Fehlgeschlagen",
@@ -209,7 +204,6 @@
       "connection": "Verbindung",
       "apiLabel": "API",
       "websocketLabel": "WebSocket",
-      "syncLabel": "Sync",
       "printerLabel": "Drucker",
       "diveraLabel": "Divera",
       "display": "Anzeige",
@@ -229,7 +223,6 @@
       "commands": "Befehle & Tastaturkürzel",
       "help": "Hilfe",
       "openMenu": "Benutzermenü öffnen",
-      "statusNotConfigured": "Nicht eingerichtet",
       "figures": "Kennzahlen"
     },
     "mobileBottomNav": {
@@ -1690,7 +1683,6 @@
         "checklist": "Checkliste",
         "auftragTemplates": "Standard-Aufträge",
         "gps": "GPS",
-        "sync": "Synchronisation",
         "printer": "Drucker",
         "fallback": "Ausfallsicherheit",
         "users": "Benutzer",
@@ -1951,7 +1943,6 @@
         }
       },
       "demo": {
-        "sync": "Synchronisation ist im Demo-Modus nicht verfügbar.",
         "printer": "Druckereinstellungen sind im Demo-Modus nicht verfügbar. Es ist kein physischer Drucker angeschlossen.",
         "users": "Benutzerverwaltung ist im Demo-Modus nicht verfügbar.",
         "import": "Datenimport ist im Demo-Modus nicht verfügbar. Export und Vorlagen-Download funktionieren normal.",
@@ -3593,93 +3584,6 @@
       "fieldReportExample3": "Weiterer Baum auf der Strasse",
       "fieldReportNoIncidents": "Kein offener Einsatz mit zugewiesenem Trupp – eine Meldung vom Feld braucht einen Trupp im Feld.",
       "fieldReportHint": "Der Trupp meldet einen neuen Schadenplatz – trifft ein wie eine echte Meldung."
-    }
-  },
-  "sync": {
-    "common": {
-      "fromRailway": "Von Railway",
-      "toRailway": "Zu Railway",
-      "never": "Noch nie",
-      "invalid": "Ungültig",
-      "syncing": "Wird synchronisiert …",
-      "railwayOffline": "Railway offline",
-      "stale": "Daten veraltet",
-      "notConfigured": "Nicht eingerichtet"
-    },
-    "config": {
-      "loadFailed": "Synchronisations-Konfiguration laden fehlgeschlagen",
-      "saveFailed": "Konfiguration speichern fehlgeschlagen",
-      "title": "Synchronisations-Konfiguration",
-      "subtitle": "Einstellungen für automatische Datensynchronisation",
-      "productionOnlyTitle": "Synchronisationsfunktion nur lokal verfügbar",
-      "productionOnlyText": "Die Synchronisationsfunktion ist nur für lokale Instanzen verfügbar. Auf Railway (Produktion) ist die Synchronisation deaktiviert, da Railway als zentrale Datenquelle dient.",
-      "railwayUrlLabel": "Railway PostgreSQL Verbindung",
-      "internalUrlWarning": "⚠️ Interne Railway-URL erkannt. Verwende die <strong>öffentliche</strong> URL (Variables → DATABASE_PUBLIC_URL).",
-      "intervalLabel": "Intervall",
-      "intervalHint": "Automatische Synchronisation",
-      "minutesUnit": "Min",
-      "autoSyncLabel": "Auto-Sync bei Erstellung",
-      "autoSyncHint": "Sofortige Sync nach neuen Einsätzen/Ereignissen",
-      "conflictBufferLabel": "Konflikt-Puffer",
-      "conflictBufferHint": "Lokale Änderungen gewinnen bei gleichen Zeitstempeln",
-      "secondsUnit": "Sek",
-      "saving": "Wird gespeichert …",
-      "saveChanges": "Änderungen speichern",
-      "showPassword": "Passwort anzeigen",
-      "hidePassword": "Passwort verbergen"
-    },
-    "history": {
-      "loadFailed": "Synchronisations-Verlauf laden fehlgeschlagen",
-      "statusSuccess": "Erfolgreich",
-      "statusFailed": "Fehlgeschlagen",
-      "statusPartial": "Teilweise",
-      "statusRunning": "Läuft …",
-      "none": "Keine",
-      "title": "Synchronisations-Verlauf",
-      "subtitle": "Letzte 10 Synchronisationen zwischen Railway und Local",
-      "empty": "Noch keine Synchronisationen.",
-      "colTimestamp": "Zeitstempel",
-      "colDirection": "Richtung",
-      "colStatus": "Status",
-      "colRecords": "Datensätze",
-      "startedAt": "Gestartet:",
-      "completedAt": "Abgeschlossen:",
-      "details": "Details:",
-      "errors": "Fehler:",
-      "typeNames": {
-        "incidents": "Einsätze",
-        "personnel": "Personal",
-        "vehicles": "Fahrzeuge",
-        "materials": "Materialien",
-        "settings": "Einstellungen"
-      },
-      "expandRow": "Details anzeigen",
-      "collapseRow": "Details ausblenden"
-    },
-    "status": {
-      "syncingFrom": "Wird von Railway synchronisiert …",
-      "syncFromSuccess": "Erfolgreich von Railway synchronisiert",
-      "syncFailed": "Synchronisation fehlgeschlagen",
-      "syncingTo": "Wird zu Railway synchronisiert …",
-      "syncToSuccess": "Erfolgreich zu Railway synchronisiert",
-      "loading": "Wird geladen …",
-      "error": "Fehler",
-      "synced": "Synchronisiert",
-      "unknown": "Unbekannt",
-      "copied": "Connection String kopiert",
-      "copyFailed": "Kopieren fehlgeschlagen",
-      "title": "Synchronisations-Status",
-      "subtitle": "Live-Status der Datensynchronisation zwischen Railway und Local",
-      "direction": "Richtung",
-      "lastSync": "Letzte Synchronisation",
-      "lastError": "Letzter Fehler:",
-      "pendingRecords": "{count, plural, one {# Datensatz wartet auf Synchronisation} other {# Datensätze warten auf Synchronisation}}",
-      "connectionString": "Railway PostgreSQL Connection String",
-      "syncFromButton": "Von Railway synchronisieren",
-      "syncToButton": "Zu Railway synchronisieren",
-      "centralInstance": "Zentrale Instanz",
-      "centralInstanceHint": "Diese Instanz läuft auf Railway und ist die zentrale Datenquelle. Die lokalen Stationen synchronisieren zu ihr – hier gibt es keine Gegenstelle, deren Verbindung angezeigt werden könnte.",
-      "notConfiguredHint": "Noch keine Railway-Verbindung eingetragen – siehe Synchronisations-Konfiguration unten."
     }
   },
   "checklist": {

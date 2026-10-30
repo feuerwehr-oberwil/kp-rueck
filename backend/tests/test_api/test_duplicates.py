@@ -102,7 +102,6 @@ def _quiet_broadcasts():
     """Nobody is connected; the broadcasts would only try."""
     with (
         patch("app.api.incidents.broadcast_incident_update", new_callable=AsyncMock),
-        patch("app.api.incidents.trigger_sync_background", new_callable=AsyncMock),
     ):
         yield
 

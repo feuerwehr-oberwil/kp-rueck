@@ -114,8 +114,7 @@
       "hint": "Personne n’est convoqué."
     },
     "deploymentBlocked": {
-      "alerting": "L’alarmement est bloqué sur ce système ({label}). Personne n’est convoqué.",
-      "sync": "L’échange de données avec un autre système est bloqué sur ce système ({label})."
+      "alerting": "L’alarmement est bloqué sur ce système ({label}). Personne n’est convoqué."
     },
     "demoBanner": {
       "resettingTitle": "Réinitialisation de la démo …",
@@ -2693,10 +2692,6 @@
       "statusConnected": "Connecté",
       "statusOffline": "Hors ligne",
       "statusError": "Erreur",
-      "statusUnknown": "Inconnu",
-      "statusSyncing": "Synchronisation …",
-      "statusStale": "Périmé",
-      "statusSynced": "Synchronisé",
       "wsConnecting": "Connexion",
       "wsRealtime": "Temps réel",
       "wsFailed": "Échec",
@@ -2713,7 +2708,6 @@
       "connection": "Liaison",
       "apiLabel": "API",
       "websocketLabel": "WebSocket",
-      "syncLabel": "Sync",
       "printerLabel": "Imprimante",
       "diveraLabel": "Divera",
       "display": "Affichage",
@@ -2733,7 +2727,6 @@
       "commands": "Commandes et raccourcis clavier",
       "help": "Aide",
       "openMenu": "Ouvrir le menu utilisateur",
-      "statusNotConfigured": "Non configuré",
       "figures": "Indicateurs"
     },
     "mobileBottomNav": {
@@ -3417,7 +3410,6 @@
         "checklist": "Checklist",
         "auftragTemplates": "Ordres standard",
         "gps": "GPS",
-        "sync": "Synchronisation",
         "printer": "Imprimante",
         "fallback": "Résilience",
         "users": "Utilisateurs",
@@ -3678,7 +3670,6 @@
         }
       },
       "demo": {
-        "sync": "La synchronisation n’est pas disponible en mode démo.",
         "printer": "Les réglages d’imprimante ne sont pas disponibles en mode démo. Aucune imprimante physique n’est raccordée.",
         "users": "La gestion des utilisateurs n’est pas disponible en mode démo.",
         "import": "L’import de données n’est pas disponible en mode démo. L’export et le téléchargement du modèle fonctionnent normalement.",
@@ -4206,93 +4197,6 @@
       "alreadyClaimedBody": "Ce tableau a déjà été configuré. Connectez-vous avec votre compte.",
       "goToLogin": "Vers la connexion",
       "footer": "Tout le reste – comptes, cartes, sauvegardes – vous attend dans les réglages. Pour la configuration par fichier : <code>docs/SETUP.md</code>."
-    }
-  },
-  "sync": {
-    "common": {
-      "fromRailway": "Depuis Railway",
-      "toRailway": "Vers Railway",
-      "never": "Jamais",
-      "invalid": "Non valable",
-      "syncing": "Synchronisation …",
-      "railwayOffline": "Railway hors ligne",
-      "stale": "Données périmées",
-      "notConfigured": "Non configuré"
-    },
-    "config": {
-      "loadFailed": "Échec du chargement de la configuration de synchronisation",
-      "saveFailed": "Échec de l’enregistrement de la configuration",
-      "title": "Configuration de la synchronisation",
-      "subtitle": "Réglages de la synchronisation automatique des données",
-      "productionOnlyTitle": "Synchronisation disponible en local uniquement",
-      "productionOnlyText": "La synchronisation n’est disponible que pour les instances locales. Sur Railway (production), elle est désactivée : Railway sert de source de données centrale.",
-      "railwayUrlLabel": "Connexion PostgreSQL Railway",
-      "internalUrlWarning": "⚠️ URL Railway interne détectée. Utilise l’URL <strong>publique</strong> (Variables → DATABASE_PUBLIC_URL).",
-      "intervalLabel": "Intervalle",
-      "intervalHint": "Synchronisation automatique",
-      "minutesUnit": "min",
-      "autoSyncLabel": "Sync auto à la création",
-      "autoSyncHint": "Synchronisation immédiate après une nouvelle intervention ou un nouvel événement",
-      "conflictBufferLabel": "Tampon de conflit",
-      "conflictBufferHint": "Les modifications locales l’emportent à horodatage égal",
-      "secondsUnit": "s",
-      "saving": "Enregistrement …",
-      "saveChanges": "Enregistrer les modifications",
-      "showPassword": "Afficher le mot de passe",
-      "hidePassword": "Masquer le mot de passe"
-    },
-    "history": {
-      "loadFailed": "Échec du chargement de l’historique de synchronisation",
-      "statusSuccess": "Réussie",
-      "statusFailed": "Échouée",
-      "statusPartial": "Partielle",
-      "statusRunning": "En cours …",
-      "none": "Aucune",
-      "title": "Historique de synchronisation",
-      "subtitle": "Les 10 dernières synchronisations entre Railway et le local",
-      "empty": "Aucun historique de synchronisation disponible",
-      "colTimestamp": "Horodatage",
-      "colDirection": "Sens",
-      "colStatus": "Statut",
-      "colRecords": "Enregistrements",
-      "startedAt": "Démarrée :",
-      "completedAt": "Terminée :",
-      "details": "Détails :",
-      "errors": "Erreurs :",
-      "typeNames": {
-        "incidents": "Interventions",
-        "personnel": "Personnel",
-        "vehicles": "Véhicules",
-        "materials": "Matériel",
-        "settings": "Réglages"
-      },
-      "expandRow": "Afficher les détails",
-      "collapseRow": "Masquer les détails"
-    },
-    "status": {
-      "syncingFrom": "Synchronisation depuis Railway …",
-      "syncFromSuccess": "Synchronisation depuis Railway réussie",
-      "syncFailed": "Échec de la synchronisation",
-      "syncingTo": "Synchronisation vers Railway …",
-      "syncToSuccess": "Synchronisation vers Railway réussie",
-      "loading": "Chargement …",
-      "error": "Erreur",
-      "synced": "Synchronisé",
-      "unknown": "Inconnu",
-      "copied": "Chaîne de connexion copiée",
-      "copyFailed": "Échec de la copie",
-      "title": "État de la synchronisation",
-      "subtitle": "État en direct de la synchronisation des données entre Railway et le local",
-      "direction": "Sens",
-      "lastSync": "Dernière synchronisation",
-      "lastError": "Dernière erreur :",
-      "pendingRecords": "{count, plural, one {# enregistrement en attente de synchronisation} other {# enregistrements en attente de synchronisation}}",
-      "connectionString": "Chaîne de connexion PostgreSQL Railway",
-      "syncFromButton": "Synchroniser depuis Railway",
-      "syncToButton": "Synchroniser vers Railway",
-      "centralInstance": "Instance centrale",
-      "centralInstanceHint": "Cette instance tourne sur Railway et constitue la source de données centrale. Les stations locales se synchronisent vers elle – il n’y a ici aucun correspondant dont la connexion pourrait être affichée.",
-      "notConfiguredHint": "Aucune connexion Railway saisie – voir la configuration de synchronisation ci-dessous."
     }
   },
   "training": {

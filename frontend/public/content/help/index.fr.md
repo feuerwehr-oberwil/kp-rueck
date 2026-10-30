@@ -52,7 +52,7 @@ Gérer, changer, archiver et exporter les événements.
 **L’archivage dit ce qui est encore ouvert.** La fenêtre liste ce que l’archivage couperait : les interventions non clôturées (avec « Afficher sur le tableau »), les récupérations ouvertes, le matériel encore sur une place sinistrée et les personnes encore annoncées. La case « désannoncer automatiquement », cochée par défaut, annonce le départ de tout le monde à l’archivage – heure de départ = fin de l’événement. Tant que quelque chose est ouvert, le bouton s’appelle « Archiver quand même ».
 
 ### Réglages (`G S`)
-Configuration du système : utilisateurs, synchronisation, imprimante, style de carte et plus encore. Les utilisateurs, la synchronisation et le journal d’audit ne sont visibles que pour les admins.
+Configuration du système : utilisateurs, imprimante, style de carte et plus encore. Les utilisateurs et le journal d’audit ne sont visibles que pour les admins.
 
 ### Aide (`G H`)
 Cette page de documentation.
@@ -772,16 +772,6 @@ Pour les personnes qui doivent **saisir** une alarme, sans connexion et sans con
 - Si possible via un point d’accès mobile
 - Sinon communication uniquement par radio et tout saisir à la main dans un autre onglet (arrivée, reconnaissance)
 
-### Synchroniser les données
-
-L’instance locale se synchronise automatiquement avec Railway. L’état de la synchronisation est indiqué dans la barre de navigation (point coloré).
-
-**Railway → local :** les données sont téléchargées automatiquement depuis Railway.
-
-**Local → Railway :** lorsque Railway est de nouveau en ligne, une notification apparaît – pour les admins avec le bouton « Synchroniser maintenant ».
-
-Réglages de synchronisation sous Réglages → onglet Sync (admins uniquement).
-
 ### État des liaisons (menu utilisateur)
 
 Dans le menu utilisateur (en haut à droite), la section « Liaison » montre l’état de tous les systèmes :
@@ -790,10 +780,7 @@ Dans le menu utilisateur (en haut à droite), la section « Liaison » montre l�
 |--------|-----------|
 | **Backend** | Liaison au serveur d’API |
 | **WebSocket** | Mises à jour en temps réel (repli sur l’interrogation si hors ligne) |
-| **Sync** | Synchronisation Railway ↔ local |
 | **Imprimante** | État de l’imprimante thermique : désactivée / prête / erreur |
-
-Pour les admins, un clic ouvre les réglages de synchronisation.
 
 **Nouvelle version disponible.** Si le serveur fait tourner une version plus récente que la page ouverte, « Nouvelle version disponible · Recharger » apparaît discrètement – recharger quand cela convient. Les écrans muraux se rechargent d’eux-mêmes, une fois par nouvelle version. L’indication de version (« v‹version› · ‹commit› · ‹date› ») figure dans le menu utilisateur sous « Se déconnecter ».
 
@@ -853,8 +840,6 @@ just up         # Démarre l’installation
 just down       # Arrête l’installation (les données restent)
 just doctor     # Vérifie que tout tourne – base de données, imprimante, tuiles, sauvegarde
 ```
-
-Les données sont synchronisées automatiquement depuis Railway (voir les réglages de synchronisation).
 
 L’instance locale tourne sur `http://localhost:3000`.
 

@@ -9,9 +9,9 @@
  * today – see `components/protected-route.tsx` for why they are kept.
  *
  * `?section=` is resolved against the sections this role may see (`resolveSection`), so an
- * editor who follows a `?section=users`, `?section=sync` or `?section=audit` link lands on
+ * editor who follows a `?section=users` or `?section=audit` link lands on
  * the default section instead of an admin panel that would only answer 403. That is UX,
- * not the boundary: `GET /api/users`, `/api/sync/*` and `GET /api/audit` require
+ * not the boundary: `GET /api/users` and `GET /api/audit` require
  * `CurrentAdmin`. If you add a section here, gate its endpoint on the backend – not just
  * its sidebar entry.
  */
@@ -61,7 +61,6 @@ import {
   FileText,
   Printer,
   Shield,
-  Info,
   Megaphone,
   Inbox,
   Navigation,
@@ -91,9 +90,6 @@ import {
 import { DiveraAlarmSettingsCard } from '@/components/divera/divera-alarm-settings-card';
 import { GpsSettingsCard } from '@/components/settings/gps-settings';
 import { AlarmDescriptionFilterSettings } from '@/components/settings/alarm-description-filter-settings';
-import { SyncStatusCard } from '@/components/sync/sync-status-card';
-import { SyncConfigCard } from '@/components/sync/sync-config-card';
-import { SyncHistoryCard } from '@/components/sync/sync-history-card';
 import { PersonnelSettings } from '@/components/settings/personnel-settings';
 import { VehicleSettings } from '@/components/settings/vehicle-settings';
 import { MaterialSettings } from '@/components/settings/material-settings';
@@ -111,8 +107,6 @@ import { useTileAvailability } from '@/lib/hooks/use-tile-availability';
 import { BrandingSettings } from '@/components/settings/branding-settings';
 import { TelemetrySettings } from '@/components/settings/telemetry-settings';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useSyncStatus } from '@/lib/hooks/use-sync-status';
-import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
 import { useIsMobile } from '@/components/ui/use-mobile';
 import { searchSettings } from '@/lib/settings-search';
 
@@ -164,8 +158,6 @@ const SECTIONS = [
   { id: 'printer', icon: Printer, group: 'setup', editorOnly: true, adminOnly: false },
   { id: 'gps', icon: Navigation, group: 'setup', editorOnly: true, adminOnly: false },
   { id: 'users', icon: Shield, group: 'setup', editorOnly: false, adminOnly: true },
-  // Sync can rewrite whole tables and points at a database URL – admin-only (matches /api/sync/*).
-  { id: 'sync', icon: RefreshCw, group: 'setup', editorOnly: false, adminOnly: true },
 
   // ---- Betrieb: was das Kommando über die Saison pflegt
   // Alarmierung ist an der RICHTUNG geteilt, nicht am Anbieter: was die Station
@@ -288,12 +280,6 @@ export default function SettingsPage() {
   // Active section from URL, resolved against what this role may see (or the default)
   const activeSection = resolveSection(searchParams.get('section'), visibleSections);
 
-  const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0);
-
-  // Sync status
-  const { status: syncStatus, isLoading: isSyncLoading, error: syncError, isStale } = useSyncStatus();
-  useRailwayRecovery(syncStatus, isAdmin);
-
   // Are there real offline map tiles on this server? Answered next to the Karten-Modus
   // select, because that is where «Nur Offline» gets chosen – and choosing it without
   // tiles blanks the map for the whole station, silently.
@@ -323,10 +309,6 @@ export default function SettingsPage() {
   // Called after the audit hook so the settings fetch keeps its place among the effects.
   const stationSettings = useStationSettings({ enabled: isAuthenticated, canEdit: isEditor });
   const { settings, setSettings, serverSettings, loading, error, saving, updateSetting } = stationSettings;
-
-  const handleSyncComplete = () => {
-    setHistoryRefreshTrigger((prev) => prev + 1);
-  };
 
   // Navigate to section
   const navigateToSection = (sectionId: SectionId) => {
@@ -436,15 +418,6 @@ export default function SettingsPage() {
       window.setTimeout(() => row.classList.remove('settings-search-flash'), 2600);
     }, 160);
   };
-
-  const DemoHint = ({ text }: { text: string }) => (
-    demoMode ? (
-      <div className="flex items-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning-foreground">
-        <Info className="h-4 w-4 flex-shrink-0" />
-        {text}
-      </div>
-    ) : null
-  );
 
   // Render content based on active section
   const renderContent = () => {
@@ -755,23 +728,6 @@ export default function SettingsPage() {
 
       case 'integrations':
         return <IntegrationsSection />;
-
-      case 'sync':
-        return demoMode ? (
-          <DemoHint text={t('page.demo.sync')} />
-        ) : (
-          <div className="space-y-6">
-            <SyncStatusCard
-              status={syncStatus}
-              isLoading={isSyncLoading}
-              error={syncError}
-              isStale={isStale}
-              onSyncComplete={handleSyncComplete}
-            />
-            <SyncConfigCard />
-            <SyncHistoryCard refreshTrigger={historyRefreshTrigger} />
-          </div>
-        );
 
       case 'printer':
         return (

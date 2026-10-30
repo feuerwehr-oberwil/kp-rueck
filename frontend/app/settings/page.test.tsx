@@ -65,10 +65,6 @@ vi.mock('@/components/ui/use-mobile', () => ({ useIsMobile: () => false }))
 vi.mock('@/components/page-navigation', () => ({ PageNavigation: () => null }))
 vi.mock('@/components/mobile-bottom-navigation', () => ({ MobileBottomNavigation: () => null }))
 vi.mock('@/components/settings/branding-settings', () => ({ BrandingSettings: () => null }))
-vi.mock('@/lib/hooks/use-sync-status', () => ({
-  useSyncStatus: () => ({ status: null, isLoading: false, error: null, isStale: false }),
-}))
-vi.mock('@/lib/hooks/use-railway-recovery', () => ({ useRailwayRecovery: () => {} }))
 vi.mock('@/lib/hooks/use-tile-availability', () => ({
   useTileAvailability: () => ({ availability: { status: 'checking' }, recheck: vi.fn() }),
 }))
@@ -352,7 +348,7 @@ describe('Einstellungen › Seitenleiste — ein «Hier bist du»', () => {
 // An editor following an admin link (the user menu's «Verbindung» row used to point every
 // role at ?section=sync) lands on «Allgemein», not on a panel that only answers 403.
 describe('Einstellungen › Rolle — ?section= nur für sichtbare Abschnitte', () => {
-  it.each(['sync', 'users', 'audit'])('sends an editor asking for ?section=%s to «Allgemein»', (section) => {
+  it.each(['users', 'audit'])('sends an editor asking for ?section=%s to «Allgemein»', (section) => {
     role.isAdmin = false
     openSection(section)
     const nav = screen.getAllByRole('navigation').at(-1)!

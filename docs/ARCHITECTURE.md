@@ -195,7 +195,7 @@ erDiagram
 
 Every incident gets its `number` from a database trigger – counted per Ereignis, never reused – which is what the board, the prints and the ⌘K line (`14 tlf meier`) name it by. `journal_entries` is append-only: a correction is a new row pointing at the old one (`corrects_id`). Check-in lives in `event_attendance`, per Ereignis, not on the person.
 
-**Additional tables** (not shown): `users`, `settings`, `audit_log`, `divera_emergencies` (the alarm pool, including Divera Rückmeldungen), `revoked_tokens` (the persisted JWT blocklist), `special_function_types`, `reko_reports`, `schadenplatz_reports`, `status_transitions`, `incident_field_messages`, `incident_groups` / `incident_group_assignments` (Aufträge), `auftrag_templates` / `auftrag_template_resources` (Standard-Aufträge), `material_groups`, `personnel_external_identities`, `feld_device_claims` / `feld_unlock_claims`, `print_jobs`, `notifications`, `geocoding_dispatch`, `emergency_templates`, `training_locations`, `microsoft_login_transactions`, `sync_log`, `telemetry_outbox`
+**Additional tables** (not shown): `users`, `settings`, `audit_log`, `divera_emergencies` (the alarm pool, including Divera Rückmeldungen), `revoked_tokens` (the persisted JWT blocklist), `special_function_types`, `reko_reports`, `schadenplatz_reports`, `status_transitions`, `incident_field_messages`, `incident_groups` / `incident_group_assignments` (Aufträge), `auftrag_templates` / `auftrag_template_resources` (Standard-Aufträge), `material_groups`, `personnel_external_identities`, `feld_device_claims` / `feld_unlock_claims`, `print_jobs`, `notifications`, `geocoding_dispatch`, `emergency_templates`, `training_locations`, `microsoft_login_transactions`, `telemetry_outbox`
 
 ### Print Agent (Standalone Python)
 
@@ -550,8 +550,7 @@ in the route):
 - Divera personnel sync with `remove_stale`
 - revealing and rotating the alarm-webhook secret (`/api/settings/alarm-webhook-secret`)
 - the roster-snapshot sync (`POST /api/integrations/roster-snapshot/sync`)
-- Railway sync and its configuration (`api/sync.py`), telemetry consent and install id
-  (`api/diag.py`), the demo reset
+- telemetry consent and install id (`api/diag.py`), the demo reset
 
 Every public token is a signed JWT scoped to **one** Ereignis (the Reko *form* token to one
 incident) and carries a hard expiry. The lifetimes below are the defaults in

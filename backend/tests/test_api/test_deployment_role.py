@@ -2,7 +2,7 @@
 
 The governing constraint on the staging work is that as little code as possible may differ
 between the two roles, so that staging rehearses the real thing. These tests are the guard on
-that constraint: they pin the short list of differences (outbound alerting, sync) and assert
+that constraint: they pin the short list of differences (outbound alerting) and assert
 that representative flows come back byte-identical under both roles.
 
 If a future change makes one of the "identical" assertions fail, that is the signal — either
@@ -48,7 +48,6 @@ async def board(db_session: AsyncSession) -> Event:
     )
     db_session.add(incident)
     db_session.add(Setting(key="alerting.enabled", value="true"))
-    db_session.add(Setting(key="railway_database_url", value="postgresql://u:p@prod.example.com/db"))
     await db_session.commit()
     await db_session.refresh(event)
     return event
@@ -76,7 +75,7 @@ async def test_deployment_endpoint_names_the_staging_role(client: AsyncClient, s
     body = resp.json()
     assert body["role"] == "staging"
     assert body["label"] == "Staging – Übungssystem"
-    assert sorted(body["blocked_domains"]) == ["alerting", "sync"]
+    assert sorted(body["blocked_domains"]) == ["alerting"]
 
 
 # There is deliberately no test here for a misspelt DEPLOYMENT_ROLE reaching this endpoint: the
@@ -107,9 +106,9 @@ async def test_representative_flows_are_byte_identical_under_both_roles(
 ):
     """The board, the roster and the settings store read exactly the same on staging.
 
-    ``/api/settings`` is the load-bearing one: the role must not rewrite `alerting.enabled` or
-    `railway_database_url`. It overrules them at the seam and leaves the data alone, so the
-    same dump keeps behaving the same way when it is restored back into production.
+    ``/api/settings`` is the load-bearing one: the role must not rewrite `alerting.enabled`.
+    It overrules it at the seam and leaves the data alone, so the same dump keeps behaving the
+    same way when it is restored back into production.
     """
     url = path.format(event_id=board.id)
 

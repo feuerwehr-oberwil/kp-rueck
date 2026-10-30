@@ -63,7 +63,7 @@ export function useDeployment(): ApiDeployment {
 }
 
 /**
- * Whether the deployment role refuses an effect domain ("alerting", "sync"), plus the label
+ * Whether the deployment role refuses an effect domain (today only "alerting"), plus the label
  * to name in the reason. A control that comes back blocked must be visibly disabled and say
  * why — an invisibly dead button is worse than a locked one.
  */

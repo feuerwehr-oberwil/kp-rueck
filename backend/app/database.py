@@ -118,7 +118,7 @@ class Base(DeclarativeBase):
 # - Other explicit commits, each with its reason beside it: a write that must outlive the error
 #   the route raises next (a failure counter before its 403), a lock or pooled connection to
 #   give back before a slow call, and the jobs that record their own failure after a rollback
-#   (sync_service, roster_snapshot_sync).
+#   (roster_snapshot_sync).
 # - Outside a request (background loops, startup, scripts) there is no `get_db`: open
 #   `async with async_session_maker() as db:` and commit yourself.
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

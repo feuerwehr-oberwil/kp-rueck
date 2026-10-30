@@ -214,12 +214,8 @@ async def update_setting(
     if key not in DEFAULT_SETTINGS:
         raise HTTPException(status_code=404, detail="Unbekannte Einstellung")
 
-    # ...and `railway_database_url` was in DEFAULT_SETTINGS, so the guard above admitted
-    # the exact key the old comment claimed it protected. That value is fed straight into
-    # `create_async_engine` (services/sync_service.py), i.e. it decides where this backend
-    # opens an outbound database connection and pushes events, incidents, personnel,
-    # vehicles, materials and settings. It has a dedicated endpoint that validates and
-    # redacts it – PUT /api/sync/config – and that is now the only way in.
+    # ...and a known key can still belong to a dedicated endpoint that does what this one
+    # cannot (the logo, the alarm webhook secret). Those are refused here by name.
     if key in settings_service.GENERIC_WRITE_DENYLIST:
         raise HTTPException(status_code=403, detail=settings_service.GENERIC_WRITE_DENY_REASONS[key])
 

@@ -1,12 +1,5 @@
 """Background tasks and schedulers."""
 
-from .sync_scheduler import start_sync_scheduler, stop_sync_scheduler
-
-__all__ = [
-    "start_sync_scheduler",
-    "stop_sync_scheduler",
-]
-
 
 def start_demo_reset_scheduler() -> None:
     """Start the demo reset scheduler (lazy import to avoid circular deps)."""
