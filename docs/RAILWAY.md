@@ -265,16 +265,15 @@ A useful way to try a change before it reaches the people on call is a second in
 the same images, ideally on a copy of the real database – because a copy is the only thing that
 reproduces the data you actually have.
 
-The problem with that copy is that it brings the switches with it. Two settings live in the
-database and both point outward:
+The problem with that copy is that it brings the switches with it. One setting lives in the
+database and points outward:
 
 | Setting | What it does | In a copy |
 |---|---|---|
 | `alerting.enabled` | master switch for outbound alerting (Ausalarmierung) | arrives already on |
-| `railway_database_url` | where the sync scheduler pushes local changes | arrives pointing at the instance you copied FROM |
 
-Turning them off by hand does not hold: the next copy overwrites them, and anyone tidying the
-settings page re-arms them. So the lock lives in the environment instead, where a database dump
+Turning it off by hand does not hold: the next copy overwrites it, and anyone tidying the
+settings page re-arms it. So the lock lives in the environment instead, where a database dump
 cannot reach it:
 
 ```
@@ -287,12 +286,10 @@ What it changes – and this is the complete list:
    instead of calling the provider – regardless of `alerting.enabled`. The API answers **403**
    with a German sentence naming the reason, and the buttons in the UI are visibly disabled
    with the same reason. Never a silent success.
-2. **Sync is refused.** `railway_database_url` reads as empty everywhere, and the periodic sync
-   job is not started. The test instance cannot write into the one it was copied from.
-3. **A permanent band** at the top of every page, including the login screen, reading
-   *Staging – Übungssystem*. The cheapest of the three, and the one that catches the most
+2. **A permanent band** at the top of every page, including the login screen, reading
+   *Staging – Übungssystem*. The cheapest of them, and the one that catches the most
    common mistake – the wrong browser tab at 02:00.
-4. **`GET /api/integrations`** reports `deployment.role`, `deployment.blocked_domains` and a
+3. **`GET /api/integrations`** reports `deployment.role`, `deployment.blocked_domains` and a
    per-domain `blocked` / `blocked_reason`, so the lock is visible to an API caller too. The
    small public version is `GET /api/deployment`.
 

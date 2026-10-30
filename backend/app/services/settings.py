@@ -29,10 +29,6 @@ DEFAULT_SETTINGS = {
     "training_boost_multiplicator": "2.0",  # Interval divisor during the boost phase
     "training_boost_duration_min": "30",  # Boost phase length after event creation
     "training_autogen_max_emergencies": "50",
-    "sync_interval_minutes": "2",
-    "auto_sync_on_create": "true",
-    "railway_database_url": "",  # Railway PostgreSQL connection string (empty = local mode, no sync)
-    "sync_conflict_buffer_seconds": "5",  # Timestamp buffer for conflict resolution (Local wins if within buffer)
     # Paper fallback: periodic automatic board snapshots to the thermal printer
     # (background/fallback_print.py idles until enabled; needs printer.enabled too)
     "fallback.auto_print_enabled": "false",
@@ -352,11 +348,10 @@ async def rotate_alarm_webhook_secret(db: AsyncSession, user_id: UUID | None = N
 
 # Settings whose VALUE is a credential. They live in the same table as the polling
 # interval and the radio callsign, and `GET /api/settings/` used to hand the whole table
-# to any authenticated user – including read-only viewers. Both of these have a dedicated,
-# careful path (`/api/sync/config` redacts the DSN before returning it; the webhook secret
-# is configured via ALARM_WEBHOOK_SECRET or rotated with a targeted PATCH), so nothing
-# legitimate needs to read them out of the generic endpoint. The frontend never does.
-SECRET_SETTING_KEYS = frozenset({"alarm_webhook_secret", "railway_database_url"})
+# to any authenticated user – including read-only viewers. The webhook secret has a
+# dedicated, careful path (ALARM_WEBHOOK_SECRET, or the admin reveal-and-rotate endpoints),
+# so nothing legitimate needs to read it out of the generic endpoint. The frontend never does.
+SECRET_SETTING_KEYS = frozenset({"alarm_webhook_secret"})
 
 SECRET_PLACEHOLDER = "***"  # noqa: S105 – the mask itself, not a credential
 
@@ -375,14 +370,11 @@ BLOB_SETTING_KEYS = frozenset({"branding.report_logo"})
 STATE_SETTING_KEYS = frozenset({"roster_snapshot.status"})
 
 # Keys the generic PATCH /api/settings/{key} must refuse, because a dedicated endpoint
-# owns them and does something the generic one cannot (validate the DSN, redact it on the
-# way back out, restart the sync scheduler; decode, bound and re-encode an image).
-# `railway_database_url` decides where this backend opens an outbound database connection,
-# so "any editor can PATCH it" was a way to make the station push its whole board
-# somewhere else. The logo is on the list for a duller reason: a PATCH could store any
-# string at all under it, and every export would then try to draw it.
+# owns them and does something the generic one cannot (decode, bound and re-encode an
+# image; reveal and rotate a secret for admins only). The logo is on the list for a dull
+# reason: a PATCH could store any string at all under it, and every export would then try
+# to draw it.
 GENERIC_WRITE_DENY_REASONS: dict[str, str] = {
-    "railway_database_url": "Dieser Wert wird über /api/sync/config gesetzt, nicht hier.",
     "branding.report_logo": "Das Logo wird über /api/settings/branding/logo gesetzt, nicht hier.",
     # Masked on read and 403'd by name, but it was still writable through the generic PATCH
     # by any EDITOR – write-without-read on the credential that authorises writing incidents

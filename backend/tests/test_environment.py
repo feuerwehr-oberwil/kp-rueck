@@ -80,11 +80,10 @@ def test_default_role_is_production_and_blocks_nothing():
     assert deployment_role_label() is None
 
 
-def test_staging_blocks_outbound_alerting_and_sync(monkeypatch):
+def test_staging_blocks_outbound_alerting(monkeypatch):
     monkeypatch.setenv("DEPLOYMENT_ROLE", "staging")
     assert deployment_role() == "staging"
     assert is_domain_blocked("alerting") is True
-    assert is_domain_blocked("sync") is True
 
 
 @pytest.mark.parametrize("domain", ["printing", "traccar", "alarms", "intake"])
@@ -195,7 +194,7 @@ def test_no_value_can_ever_unlock_anything(monkeypatch, value):
         blocked = None  # refused to start: nothing is unlocked because nothing runs
 
     # Never negative: empty, a known non-empty set, or no process at all.
-    assert blocked in (None, set(), {"alerting", "sync"})
+    assert blocked in (None, set(), {"alerting"})
     # And the hardening switch is a separate axis this variable cannot reach.
     assert is_production_environment() is True
 
@@ -205,7 +204,7 @@ def test_every_known_role_answers_consistently(monkeypatch, role):
     """Whatever a role blocks, it must give a reason for — and only for — exactly that."""
     monkeypatch.setenv("DEPLOYMENT_ROLE", role)
     blocked = blocked_domains()
-    for domain in ("alerting", "sync", "printing"):
+    for domain in ("alerting", "printing"):
         if domain in blocked:
             reason = blocked_reason(domain)
             assert reason and reason.endswith(".")

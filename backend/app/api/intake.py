@@ -47,7 +47,6 @@ from ..services.tokens import (
 )
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_incident_update
-from .incidents import trigger_sync_background
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +169,6 @@ async def create_intake_alarm(
         await db.refresh(new_incident)
 
     # Trigger immediate sync in background (event-based sync)
-    background_tasks.add_task(trigger_sync_background)
 
     # Broadcast WebSocket update so the board updates live
     incident_response = await incident_display.incident_with_display(db, new_incident)

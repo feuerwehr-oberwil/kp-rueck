@@ -40,6 +40,11 @@ export function duplicateQuery(params: {
 }
 
 export class IncidentsApi {
+  // Version of an event's board – the cheap check the polling fallback makes before reloading.
+  async getSyncVersion(eventId: string): Promise<{ version: string }> {
+    return httpRequest<{ version: string }>(`/api/incidents/sync-version?event_id=${encodeURIComponent(eventId)}`)
+  }
+
   // Incidents (now event-scoped)
   async getIncidents(eventId: string, params?: {
     status?: IncidentStatus

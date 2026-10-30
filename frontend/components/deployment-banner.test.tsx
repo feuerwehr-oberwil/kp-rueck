@@ -23,7 +23,7 @@ describe('DeploymentBanner', () => {
     mocks.getDeployment.mockResolvedValue({
       role: 'staging',
       label: 'Staging – Übungssystem',
-      blocked_domains: ['alerting', 'sync'],
+      blocked_domains: ['alerting'],
     })
 
     renderWithIntl(<DeploymentBanner />)

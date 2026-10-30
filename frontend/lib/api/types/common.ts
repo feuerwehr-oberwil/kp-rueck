@@ -91,7 +91,7 @@ export interface ApiDeployment {
   role: string
   /** Short German label for a non-production role ("Staging – Übungssystem"), else null. */
   label: string | null
-  /** Effect domains this role refuses ("alerting", "sync"). Empty on production. */
+  /** Effect domains this role refuses (today only "alerting"). Empty on production. */
   blocked_domains: string[]
 }
 

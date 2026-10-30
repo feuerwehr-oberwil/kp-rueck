@@ -38,7 +38,6 @@ import { PersonnelApi } from './api/resources/personnel'
 import { VehiclesApi } from './api/resources/vehicles'
 import { MaterialsApi } from './api/resources/materials'
 import { RekoApi } from './api/resources/reko'
-import { SyncApi } from './api/resources/sync'
 import { ExportsApi } from './api/resources/exports'
 import { TrainingApi } from './api/resources/training'
 import { DiveraApi } from './api/resources/divera'
@@ -61,7 +60,6 @@ const RESOURCES = [
   VehiclesApi,
   MaterialsApi,
   RekoApi,
-  SyncApi,
   ExportsApi,
   TrainingApi,
   DiveraApi,
@@ -84,7 +82,6 @@ type ApiClient = SettingsApi &
   VehiclesApi &
   MaterialsApi &
   RekoApi &
-  SyncApi &
   ExportsApi &
   TrainingApi &
   DiveraApi &

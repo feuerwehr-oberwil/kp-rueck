@@ -55,7 +55,6 @@ from .api.setup import announce_setup_token_if_unclaimed
 from .api.setup import router as setup_router
 from .api.special_functions import router as special_functions_router
 from .api.stats import router as stats_router
-from .api.sync import router as sync_router
 from .api.traccar import router as traccar_router
 from .api.training import router as training_router
 from .api.training_gps_sim import router as training_gps_sim_router
@@ -74,7 +73,6 @@ from .background import (
     start_divera_retention_scheduler,
     start_heartbeat_scheduler,
     start_roster_snapshot_scheduler,
-    start_sync_scheduler,
     start_telemetry_scheduler,
     start_weather_scheduler,
     stop_audit_cleanup_scheduler,
@@ -82,7 +80,6 @@ from .background import (
     stop_divera_retention_scheduler,
     stop_heartbeat_scheduler,
     stop_roster_snapshot_scheduler,
-    stop_sync_scheduler,
     stop_telemetry_scheduler,
     stop_weather_scheduler,
 )
@@ -256,13 +253,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await announce_setup_token_if_unclaimed(db)
         except Exception as e:
             logger.warning(f"Could not check for an unclaimed board: {e}")
-
-    # Start background sync scheduler
-    logger.info("Starting background sync scheduler...")
-    try:
-        start_sync_scheduler()
-    except Exception as e:
-        logger.warning(f"Sync scheduler failed to start: {e}")
 
     # Start the telemetry flush loop. Always registered, and a genuine no-op unless an
     # admin has opted in – see app/telemetry/. Registering it unconditionally means turning
@@ -453,13 +443,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.warning(f"WebSocket cleanup shutdown failed: {e}")
 
-    # Shutdown: Stop sync scheduler
-    logger.info("Stopping sync scheduler...")
-    try:
-        stop_sync_scheduler()
-    except Exception as e:
-        logger.warning(f"Sync scheduler shutdown failed: {e}")
-
     try:
         stop_telemetry_scheduler()
     except Exception as e:
@@ -645,7 +628,6 @@ app.include_router(settings_router, prefix=settings.api_v1_prefix)
 app.include_router(setup_router, prefix=settings.api_v1_prefix)  # Unauthenticated by design: first-run claim
 app.include_router(special_functions_router, prefix=settings.api_v1_prefix)
 app.include_router(stats_router, prefix=settings.api_v1_prefix)
-app.include_router(sync_router, prefix=settings.api_v1_prefix)
 app.include_router(traccar_router, prefix=settings.api_v1_prefix)
 app.include_router(notifications_router, prefix=settings.api_v1_prefix)
 app.include_router(training_router, prefix=settings.api_v1_prefix)

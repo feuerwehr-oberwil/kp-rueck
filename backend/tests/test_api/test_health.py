@@ -105,20 +105,6 @@ async def test_detailed_health_check_websocket_status(client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_detailed_health_check_sync_scheduler_status(client: AsyncClient):
-    """Test detailed health check includes sync scheduler status."""
-    response = await client.get("/health/detailed")
-    assert response.status_code == 200
-    data = response.json()
-
-    # Sync scheduler may or may not be initialized in test environment
-    assert "sync_scheduler" in data["components"]
-    scheduler_status = data["components"]["sync_scheduler"]
-    assert "status" in scheduler_status
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
 async def test_detailed_health_check_pool_stats(client: AsyncClient):
     """Test detailed health check includes connection pool statistics."""
     response = await client.get("/health/detailed")

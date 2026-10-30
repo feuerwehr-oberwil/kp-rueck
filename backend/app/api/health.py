@@ -168,27 +168,6 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)) -> dict[str,
             "error": _component_error("websocket", e),
         }
 
-    # Check sync scheduler
-    try:
-        from ..background.sync_scheduler import _shutting_down, scheduler
-
-        if scheduler:
-            health_status["components"]["sync_scheduler"] = {
-                "status": "healthy" if scheduler.running else "stopped",
-                "running": scheduler.running,
-                "shutting_down": _shutting_down,
-                "jobs": len(scheduler.get_jobs()),
-            }
-        else:
-            health_status["components"]["sync_scheduler"] = {
-                "status": "not_initialized",
-            }
-    except Exception as e:
-        health_status["components"]["sync_scheduler"] = {
-            "status": "unknown",
-            "error": _component_error("sync_scheduler", e),
-        }
-
     # Check audit cleanup scheduler
     try:
         from ..background.audit_cleanup import get_effective_retention_days

@@ -225,6 +225,15 @@ every new setting is optional with a working default.
   (GHSA-5639-2j2p-m4mx, #207). A print job's detail (it carries the Feld link and code) needs an
   editor (#217).
 
+### Removed
+
+- **The Railway ↔ local sync** (Einstellungen › Synchronisation, `/api/sync/*`, the sync dot
+  in the user menu). It needed a write login to the hosted database on the local box, never
+  copied settings, and dropped Einsätze it could not place without saying so. A migration drops
+  its history table `sync_log` and its four settings (`railway_database_url`, `sync_*`,
+  `auto_sync_on_create`); a configured connection string is deleted with them. `DEPLOYMENT_ROLE=staging`
+  now blocks outbound alerting only.
+
 ## [0.8.0] – 2026-10-10
 
 ### Added

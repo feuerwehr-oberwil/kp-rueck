@@ -54,7 +54,6 @@ LAT, LNG = Decimal("47.51500000"), Decimal("7.55600000")
 def _quiet_broadcasts():
     with (
         patch("app.api.incidents.broadcast_incident_update", new_callable=AsyncMock),
-        patch("app.api.incidents.trigger_sync_background", new_callable=AsyncMock),
         patch("app.api.incidents.broadcast_reko_update", new_callable=AsyncMock),
     ):
         yield

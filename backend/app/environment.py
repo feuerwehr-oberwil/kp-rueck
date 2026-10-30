@@ -46,8 +46,8 @@ def is_production_environment() -> bool:
 # --------------------------------------------------------------------------------------
 #
 # A staging instance starts life as a 1:1 copy of the production DATABASE. That is the whole
-# reason this lives in the environment and NOT in the settings store: `alerting.enabled` and
-# `railway_database_url` arrive in the copy carrying production's values, so a settings-based
+# reason this lives in the environment and NOT in the settings store: `alerting.enabled`
+# arrives in the copy carrying production's value, so a settings-based
 # switch would ship pre-disarmed straight back into "yes, alarm people". Restore the dump again
 # and it re-arms. Somebody tidying Einstellungen re-arms it. There is no value we could write
 # into the copied table that the next copy would not overwrite.
@@ -84,7 +84,7 @@ KNOWN_DEPLOYMENT_ROLES = (ROLE_PRODUCTION, ROLE_STAGING)
 #: Effect domains a role refuses. Only domains whose effect LEAVES this system belong here —
 #: printing, Traccar reads and inbound alarms are wanted on staging and are deliberately absent.
 _ROLE_BLOCKED_DOMAINS: dict[str, tuple[str, ...]] = {
-    ROLE_STAGING: ("alerting", "sync"),
+    ROLE_STAGING: ("alerting",),
 }
 
 #: German, because it is shown to operators and returned in API error details.
@@ -92,7 +92,6 @@ _ROLE_LABELS = {ROLE_STAGING: "Staging – Übungssystem"}
 
 _DOMAIN_REASONS = {
     "alerting": "Ausalarmierung ist auf diesem System gesperrt",
-    "sync": "Datenabgleich mit einem anderen System ist auf diesem System gesperrt",
 }
 
 

@@ -168,7 +168,6 @@ extend-immutable-calls = [
 # N815: Traccar model uses camelCase to match external Traccar API response format
 "app/traccar.py" = ["N815"]
 # N806: BATCH_SIZE is a constant, uppercase is intentional
-"app/services/sync_service.py" = ["N806"]
 "app/seed.py" = ["N806"]
 # S311: the training/simulation code invents plausible exercise data — random names, jittered
 # GPS tracks, sample photos. `random` is the right tool; nothing here guards anything. (Where

@@ -24,11 +24,6 @@ const SECTION_NAMESPACES: Record<string, readonly string[]> = {
   printer: ['settings.printer'],
   gps: ['settings.gps'],
   users: ['settings.users'],
-  // Die Karte holt ihre Texte aus `sync.config` (top-level, nicht unter settings.*) –
-  // der Eintrag hier war lange leer, und «railway» fand auf einer Seite mit einem
-  // Abschnitt «Railway Offline» nichts. Eine Suche, die einmal lügt, wird nicht mehr
-  // gefragt.
-  sync: ['sync.config'],
   alerting: ['settings.page.alerting'],
   alarmIntake: ['settings.page.alarmIntake'],
   notifications: ['notifications.settings'],

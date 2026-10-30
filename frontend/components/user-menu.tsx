@@ -15,12 +15,9 @@ import { Settings, User, LogOut, Radio, Plus, QrCode, Search, Truck, Printer, Ca
 import { toast } from 'sonner';
 import { useEvent } from '@/lib/contexts/event-context';
 import { getApiUrl } from '@/lib/env';
-import { useSyncStatus } from '@/lib/hooks/use-sync-status';
-import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
 import { apiClient } from '@/lib/api-client';
 import type { ApiDiveraPollingStatus } from '@/lib/api/types';
 import { wsClient, type WebSocketStatus } from '@/lib/websocket-client';
-import { isCentralInstance, isRailwayConfig, isSyncUnconfigured, type SyncConfig } from '@/types/sync';
 import { AccountBlock } from '@/components/auth/account-block';
 import { VersionLabel } from '@/components/version-label';
 import { useLogout } from '@/lib/hooks/use-logout';
@@ -63,7 +60,7 @@ export function UserMenu({
   onPrint,
 }: UserMenuProps = {}) {
   const t = useTranslations('nav.userMenu');
-  const { user, isEditor, isAdmin, isAuthenticated } = useAuth();
+  const { user, isEditor, isAuthenticated } = useAuth();
   const tAccount = useTranslations('nav.account');
   const { requestLogout, logoutDialog } = useLogout();
   const { selectedEvent } = useEvent();
@@ -132,35 +129,9 @@ export function UserMenu({
   }, [lageblattAutoDownload, lageblattIntervalMin, selectedEvent, isEditor]);
   const [status, setStatus] = useState<"checking" | "connected" | "disconnected">("checking");
   const [apiUrl] = useState(getApiUrl());
-  const [syncConfig, setSyncConfig] = useState<SyncConfig | null>(null);
   const [wsStatus, setWsStatus] = useState<WebSocketStatus>('disconnected');
   const [printerStatus, setPrinterStatus] = useState<{ enabled: boolean; ip: string; last_error: string | null } | null>(null);
   const [diveraStatus, setDiveraStatus] = useState<ApiDiveraPollingStatus | null>(null);
-
-  // Sync status
-  const { status: syncStatus, isLoading: syncLoading, error: syncError, isStale } = useSyncStatus();
-  useRailwayRecovery(syncStatus, isAdmin);
-  // No sync dot on the central Railway instance: it has no peer, and «Sync:
-  // Offline» there (it was shown to everyone who is not admin, since only admins
-  // may read the sync config) described a connection that cannot exist. The
-  // status itself now says which instance this is.
-  const showSyncStatus = !isRailwayConfig(syncConfig) && !isCentralInstance(syncStatus);
-
-  // Load config to check if we're on Railway. Admins only: GET /api/sync/config is
-  // admin-only, and for everyone else it was a guaranteed 403 on every page.
-  useEffect(() => {
-    if (!isAuthenticated || !isAdmin) return;
-
-    const loadConfig = async () => {
-      try {
-        const data = await apiClient.getSyncConfig();
-        setSyncConfig(data);
-      } catch {
-        // Ignore errors - config is optional
-      }
-    };
-    loadConfig();
-  }, [isAuthenticated, isAdmin]);
 
   // Subscribe to WebSocket status changes
   useEffect(() => {
@@ -250,56 +221,6 @@ export function UserMenu({
     }
   };
 
-  const getSyncStatusColor = () => {
-    if (syncLoading) {
-      return "bg-muted-foreground";
-    }
-
-    if (syncError || !syncStatus) {
-      return "bg-destructive";
-    }
-
-    if (syncStatus.is_syncing) {
-      return "bg-warning";
-    }
-
-    if (isSyncUnconfigured(syncStatus)) {
-      return "bg-muted-foreground";
-    }
-
-    if (!syncStatus.railway_healthy) {
-      return "bg-destructive";
-    }
-
-    if (isStale) {
-      return "bg-warning";
-    }
-
-    return "bg-success";
-  };
-
-  const getSyncStatusText = () => {
-    if (syncLoading) return t('statusChecking');
-    if (syncError) return t('statusError');
-    if (!syncStatus) return t('statusUnknown');
-
-    if (isSyncUnconfigured(syncStatus)) return t('statusNotConfigured');
-
-    if (!syncStatus.railway_healthy) {
-      return t('statusOffline');
-    }
-
-    if (syncStatus.is_syncing) {
-      return t('statusSyncing');
-    }
-
-    if (isStale) {
-      return t('statusStale');
-    }
-
-    return t('statusSynced');
-  };
-
   const getWsStatusColor = () => {
     switch (wsStatus) {
       case 'connecting':
@@ -359,9 +280,6 @@ export function UserMenu({
       <div className="flex items-center gap-2">
         <div className={`h-2 w-2 rounded-full ${getStatusColor()}`} />
         <div className={`h-2 w-2 rounded-full ${getWsStatusColor()}`} />
-        {showSyncStatus && (
-          <div className={`h-2 w-2 rounded-full ${getSyncStatusColor()}`} />
-        )}
         <div className={`h-2 w-2 rounded-full ${getPrinterStatusColor()}`} />
         <div className={`h-2 w-2 rounded-full ${getDiveraStatusColor()}`} />
       </div>
@@ -424,22 +342,13 @@ export function UserMenu({
             </>
           )}
 
-          {/* CONNECTION STATUS - dots only, rich popover on hover. The row links to the
-              Sync settings for admins only (an admin-only section); for everyone else it
-              is a plain row that keeps the menu open. */}
+          {/* CONNECTION STATUS - dots only, rich popover on hover. A plain row that keeps
+              the menu open. */}
           <HoverCard openDelay={80} closeDelay={120}>
             <HoverCardTrigger asChild>
-              {isAdmin ? (
-                <DropdownMenuItem asChild>
-                  <Link href="/settings?section=sync" className="cursor-pointer">
-                    {connectionRow}
-                  </Link>
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem className="cursor-default" onSelect={(e) => e.preventDefault()}>
-                  {connectionRow}
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem className="cursor-default" onSelect={(e) => e.preventDefault()}>
+                {connectionRow}
+              </DropdownMenuItem>
             </HoverCardTrigger>
             <HoverCardContent side="left" sideOffset={8} align="start" className="w-56">
               <div className="flex flex-col gap-2 text-sm">
@@ -451,12 +360,6 @@ export function UserMenu({
                   <div className={`h-2 w-2 rounded-full ${getWsStatusColor()}`} />
                   <span>{t('websocketLabel')}: {getWsStatusText()}</span>
                 </div>
-                {showSyncStatus && (
-                  <div className="flex items-center gap-2">
-                    <div className={`h-2 w-2 rounded-full ${getSyncStatusColor()}`} />
-                    <span>{t('syncLabel')}: {getSyncStatusText()}</span>
-                  </div>
-                )}
                 <div className="flex items-center gap-2">
                   <div className={`h-2 w-2 rounded-full ${getPrinterStatusColor()}`} />
                   <span>{t('printerLabel')}: {getPrinterStatusText()}</span>
