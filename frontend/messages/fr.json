@@ -4499,6 +4499,11 @@
       "reachable": "KP Rück en ligne est encore joignable. Les modifications faites là-bas à cet événement n’apparaîtront plus ici.",
       "confirm": "Reprendre hors ligne",
       "failed": "L’événement n’a pas pu être repris hors ligne."
+    },
+    "newOffline": {
+      "button": "Créer un événement hors ligne …",
+      "title": "Créer un événement hors ligne",
+      "note": "Cet événement n’est conduit que sur cet appareil et n’est jamais synchronisé avec KP Rück en ligne."
     }
   }
 }

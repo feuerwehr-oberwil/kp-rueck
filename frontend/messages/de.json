@@ -4499,6 +4499,11 @@
       "reachable": "KP Rück Online ist noch erreichbar. Änderungen, die dort an diesem Ereignis gemacht werden, erscheinen hier nicht mehr.",
       "confirm": "Offline übernehmen",
       "failed": "Das Ereignis konnte nicht offline übernommen werden."
+    },
+    "newOffline": {
+      "button": "Neues Ereignis offline anlegen …",
+      "title": "Neues Ereignis offline anlegen",
+      "note": "Dieses Ereignis wird nur auf diesem Gerät geführt und nie mit KP Rück Online synchronisiert."
     }
   }
 }

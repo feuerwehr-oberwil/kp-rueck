@@ -180,16 +180,16 @@ async def test_the_mirror_is_look_only_until_an_ereignis_is_taken_offline(
     editor_client: AsyncClient, db_session, two_events, standby_role
 ):
     a, *_ = two_events
-    write = {"name": "Neu", "training_flag": False}
+    write = {"name": "Neu Person", "role": "Mannschaft"}
 
-    refused = await editor_client.post("/api/events/", json=write)
+    refused = await editor_client.post("/api/personnel/", json=write)
     assert refused.status_code == 403
     assert refused.json()["code"] == "standby_read_only"
 
     taken = await editor_client.post(f"/api/standby/events/{a.id}/takeover")
     assert taken.status_code == 200
     assert [d["event_id"] for d in taken.json()["detached"]] == [str(a.id)]
-    assert (await editor_client.post("/api/events/", json=write)).status_code != 403
+    assert (await editor_client.post("/api/personnel/", json=write)).status_code != 403
 
     state = await mirror_state(await _driver(db_session))
     assert set(state.detached) == {a.id}
@@ -211,3 +211,16 @@ async def test_the_status_says_how_current_the_mirror_is(client: AsyncClient, db
     assert body["configured"] is False  # no subscription in the test database
     assert body["current"] is False
     assert body["detached"] == []
+
+
+@pytest.mark.asyncio
+async def test_an_ereignis_created_on_the_mirror_is_offline_from_the_start(
+    editor_client: AsyncClient, db_session, standby_role
+):
+    await install_guards(await _driver(db_session))
+
+    created = await editor_client.post("/api/events/", json={"name": "Brand Magazin", "training_flag": False})
+
+    assert created.status_code in (200, 201)
+    state = await mirror_state(await _driver(db_session))
+    assert str(next(iter(state.detached))) == created.json()["id"]

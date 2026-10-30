@@ -91,6 +91,12 @@ export function StandbyProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isStandby, refresh])
 
+  // A just-created Ereignis is offline from its first row; ask again when another one opens.
+  const selectedId = selectedEvent?.id
+  useEffect(() => {
+    if (isStandby && selectedId) void refresh()
+  }, [isStandby, selectedId, refresh])
+
   const takeOver = useCallback(async (eventId: string) => {
     setRaw(await apiClient.takeOverEvent(eventId))
   }, [])

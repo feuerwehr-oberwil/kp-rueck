@@ -138,6 +138,8 @@ current; `just doctor` says the same. The round's report is `last-status.json` i
 1. Devices open the **box's LAN address**. The band says how current it is.
 2. Open the running Ereignis, **«Dieses Ereignis offline übernehmen …»**, confirm. Work on it
    as usual. Everything else stays a mirror and catches up when the internet returns.
+   If the outage began before the hosted board had the Ereignis, Ereignisse › **«Neues Ereignis
+   offline anlegen …»**: an Ereignis created on the box is offline from the start.
 3. The thermal print agent and alarm intake still point at the hosted board. Without the
    internet, alarms do not arrive anyway; the print agent can be pointed at the box
    ([`PRINT_AGENT.md`](PRINT_AGENT.md)).

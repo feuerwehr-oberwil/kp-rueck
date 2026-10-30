@@ -10,6 +10,9 @@ the still-mirrored Ereignisse look-only (`StandbyGate`).
 Pure ASGI, like the other middlewares here (BaseHTTPMiddleware breaks when stacked). The
 "anything taken offline yet?" answer is cached for a few seconds, so a busy board does not ask
 the database once per request.
+
+From the first takeover on, writes go through for every Ereignis – the API does not tell them
+apart; the frontend does.
 """
 
 import json
@@ -22,8 +25,11 @@ from ..database import async_session_maker
 from ..environment import ROLE_STANDBY, deployment_role
 
 WRITE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
-# Logging in and out, the first-run claim, and the takeover must work on a mirror.
+# Logging in and out, the first-run claim, and the takeover must work on a mirror – and so must
+# creating an Ereignis: one made on the box is offline from the start (app/standby.py,
+# `standby_local_event`), for the outage that begins before the hosted board had it.
 ALLOWED_PREFIXES = ("/api/auth/", "/api/setup", "/api/standby")
+ALLOWED_EXACT = frozenset({("POST", "/api/events/"), ("POST", "/api/events")})
 CACHE_SECONDS = 3.0
 
 DETAIL = (
@@ -59,6 +65,7 @@ class StandbyReadOnlyMiddleware:
             or scope["method"] not in WRITE_METHODS
             or not scope["path"].startswith("/api/")
             or scope["path"].startswith(ALLOWED_PREFIXES)
+            or (scope["method"], scope["path"]) in ALLOWED_EXACT
             or deployment_role() != ROLE_STANDBY
             or await self._anything_detached()
         ):

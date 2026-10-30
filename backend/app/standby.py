@@ -227,6 +227,23 @@ async def install_guards(conn: asyncpg.Connection) -> int:
         );
         """
     )
+    # An Ereignis created ON the box never existed on the hosted board: it is offline from its
+    # first row («Neues Ereignis offline anlegen»). A plain trigger – replicated rows never fire
+    # it, only the box's own inserts do.
+    await conn.execute(
+        """
+        CREATE OR REPLACE FUNCTION standby.detach_local_event() RETURNS trigger LANGUAGE plpgsql AS $f$
+        BEGIN
+          INSERT INTO standby.detached_events (event_id, detached_by) VALUES (NEW.id, 'neu offline')
+          ON CONFLICT (event_id) DO NOTHING;
+          RETURN NULL;
+        END
+        $f$;
+        DROP TRIGGER IF EXISTS standby_local_event ON public.events;
+        CREATE TRIGGER standby_local_event AFTER INSERT ON public.events
+          FOR EACH ROW EXECUTE FUNCTION standby.detach_local_event();
+        """
+    )
     links = await event_links(conn)
     tables = [r["tablename"] for r in await conn.fetch("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")]
     guarded = 0
