@@ -109,11 +109,15 @@ if (Test-Path $EnvFile) {
     }
     # Best-effort LAN address, so other screens in the Gerätehaus are an allowed origin too.
     # Both entries are plain http:// on purpose – mixing schemes in CORS_ORIGINS breaks logins.
+    # The adapter with a default gateway is the one the Gerätehaus reaches. Docker Desktop's
+    # Hyper-V/WSL switches (vEthernet, a static 192.168.x.1) and Tailscale have none – taking
+    # the first IPv4 address instead put the Hyper-V switch into CORS_ORIGINS on a WSL machine.
     $LanIp = $null
     try {
-        $LanIp = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop |
-            Where-Object { $_.IPAddress -ne '127.0.0.1' -and $_.IPAddress -notlike '169.254.*' -and $_.PrefixOrigin -in @('Dhcp','Manual') } |
-            Select-Object -First 1).IPAddress
+        $gw = Get-NetIPConfiguration -ErrorAction Stop |
+            Where-Object { $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq 'Up' } |
+            Select-Object -First 1
+        if ($gw) { $LanIp = @($gw.IPv4Address)[0].IPAddress }
     } catch {}
     $cors = "http://localhost:$Port"
     if ($LanIp) { $cors += ",http://${LanIp}:$Port" }

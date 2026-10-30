@@ -1,0 +1,7 @@
+# Check every text file out with LF, whatever the machine's core.autocrlf says. Git for Windows
+# defaults to autocrlf=true, and the compose stack bind-mounts scripts/ and deploy/ into Linux
+# containers: a CRLF `#!/usr/bin/env bash` there fails as "can't execute 'bash\r'", which took the
+# backup sidecar down on the first Windows install from a git checkout.
+* text=auto eol=lf
+# cmd.exe needs CRLF in a batch file. It is committed with CRLF, so leave its bytes alone.
+*.bat -text
