@@ -701,6 +701,9 @@ a way this table does not cover is a bug in this table.
 ## 10. Passwordless local login (the station's own machine)
 
 Optional, off by default, and worth exactly one paragraph of thought before you switch it on.
+**This is a compose-stack feature**: on Railway the backend refuses to start with it configured,
+because the loopback listener and the header strip that make it safe do not exist there
+([`RAILWAY.md` §6](RAILWAY.md#6-what-you-give-up-compared-to-docker-compose)).
 
 The board is usually run from one machine that stands in the command post – a notebook on the
 KP table. Whoever is on duty opens a desktop shortcut and has to be looking at incidents, not
