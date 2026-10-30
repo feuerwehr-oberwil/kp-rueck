@@ -1,4 +1,4 @@
-FROM maptiler/tileserver-gl:v5.6.0
+FROM maptiler/tileserver-gl:v5.7.0
 
 # Switch to root to install packages
 USER root
