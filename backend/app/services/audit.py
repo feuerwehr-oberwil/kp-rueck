@@ -144,7 +144,9 @@ async def log_action(
     return audit_entry
 
 
-async def log_login(db: AsyncSession, user: User, request: Request, success: bool = True) -> AuditLog:
+async def log_login(
+    db: AsyncSession, user: User, request: Request, success: bool = True, method: str | None = None
+) -> AuditLog:
     """
     Log login attempt (success or failure).
 
@@ -153,6 +155,12 @@ async def log_login(db: AsyncSession, user: User, request: Request, success: boo
         user: User attempting login
         request: Request object
         success: Whether login succeeded
+        method: How the credential was presented, when it was NOT an ordinary password –
+            today only "local_autologin", the station machine's passwordless loopback login
+            (app/auth/local_autologin.py). Recorded in `changes` so a reader of the audit log
+            can tell that session apart from one somebody typed a password for, without a
+            second action_type that the audit filter and the Einsatztagebuch would both have
+            to learn.
 
     Returns:
         Created AuditLog instance
@@ -165,6 +173,7 @@ async def log_login(db: AsyncSession, user: User, request: Request, success: boo
         resource_type="user",
         resource_id=user.id,
         user=user if success else None,
+        changes={"method": method} if method else None,
         request=request,
     )
 

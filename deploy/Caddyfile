@@ -17,7 +17,9 @@
 	}
 }
 
-{$DOMAIN} {
+# The routes, once. Both sites below serve the same board; they differ only in what they do
+# with the X-Local-Autologin header, so the routing must not be able to drift between them.
+(kp_board) {
 	encode zstd gzip
 
 	# 25 MiB Excel imports and 10 MiB photos fit, including multipart overhead.
@@ -59,4 +61,37 @@
 	handle {
 		reverse_proxy frontend:3000
 	}
+}
+
+{$DOMAIN} {
+	# The public site, reachable from the LAN, a VPN or the internet. It DELETES
+	# X-Local-Autologin from every incoming request, so no client out there can claim to be
+	# the station machine — whatever they send is gone before any handler sees it, and
+	# POST /api/auth/local-login can only ever answer 403 from here.
+	#
+	# This strip is half of the feature's security; the loopback bind below is the other half.
+	# Never move it into a `handle` block: it has to cover /api/*, the Next /backend-api proxy
+	# and anything added later, without anyone having to remember.
+	request_header -X-Local-Autologin
+
+	import kp_board
+}
+
+# The station's own machine, passwordless (optional — off unless LOCAL_AUTOLOGIN_USER and
+# LOCAL_AUTOLOGIN_SECRET are set in .env; see docs/DEPLOYMENT.md §10).
+#
+# docker-compose.yml publishes this listener on 127.0.0.1 ONLY, which is the whole trust
+# boundary: a request can reach it just from the host the stack runs on. In exchange it stamps
+# the shared secret onto every upstream request, which is how the backend tells a request that
+# came through here from one that merely reached it on the compose network.
+#
+# The port INSIDE the container is fixed, like :80 above; LOCAL_PORT in .env moves the host
+# side of the mapping. A bare `:port` address also means Caddy serves it over plain HTTP and
+# asks for no certificate — correct, since nothing but loopback can connect. With the feature
+# off the header is empty and this is simply a second address for the ordinary board, login
+# form and all.
+:8081 {
+	request_header X-Local-Autologin "{$LOCAL_AUTOLOGIN_SECRET}"
+
+	import kp_board
 }

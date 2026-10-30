@@ -4,7 +4,7 @@ import logging
 from typing import Literal
 from urllib.parse import urlsplit
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .telemetry.dsn import UPSTREAM_DSN
@@ -311,6 +311,49 @@ class Settings(BaseSettings):
 
     # Master token for API access without login (e.g. configuring settings on Railway)
     master_token: str = ""  # Set MASTER_TOKEN env var; empty = disabled
+
+    # --- Passwordless local login (off by default; see auth/local_autologin.py) ---
+    # The station machine that runs the stack opens straight into the board, while every
+    # LAN/Tailscale client still signs in normally. Both empty = the feature does not exist:
+    # POST /api/auth/local-login answers 404 and no second listener is published.
+    #
+    # LOCAL_AUTOLOGIN_USER is an EXISTING username, and must not be an admin – a browser on
+    # the station desk is not a credential for user management, and the boot refuses an admin
+    # outright (verify_account_on_boot). LOCAL_AUTOLOGIN_SECRET is the shared secret Caddy's
+    # loopback-only listener stamps onto upstream requests (openssl rand -hex 32); the public
+    # site strips the same header, so a LAN client cannot inject it.
+    local_autologin_user: str = ""
+    local_autologin_secret: str = ""
+
+    @model_validator(mode="after")
+    def validate_local_autologin(self) -> "Settings":
+        """Both of the local-autologin settings, or neither – and a real secret when on.
+
+        Half-configured is the dangerous shape: with only the user set the station would
+        silently keep asking for a password (harmless but baffling), and with only the secret
+        set the endpoint would be enabled with nobody to log in as. Fail at startup instead,
+        while someone is still looking at the terminal.
+        """
+        user = self.local_autologin_user.strip()
+        secret = self.local_autologin_secret.strip()
+
+        if bool(user) != bool(secret):
+            missing = "LOCAL_AUTOLOGIN_SECRET" if user else "LOCAL_AUTOLOGIN_USER"
+            raise ValueError(
+                f"LOCAL_AUTOLOGIN_USER and LOCAL_AUTOLOGIN_SECRET belong together – {missing} is "
+                "empty. Set both to switch passwordless local login on, or clear both to switch "
+                "it off."
+            )
+
+        # Same floor as SECRET_KEY: this value is the whole proof that a request came from the
+        # loopback listener, so a short one is not worth having.
+        if secret and len(secret) < 32:
+            raise ValueError(
+                f"LOCAL_AUTOLOGIN_SECRET must be at least 32 characters long (current: "
+                f"{len(secret)}). Generate one with: openssl rand -hex 32"
+            )
+
+        return self
 
     # Microsoft Entra ID (optional - if set, enables "Login with Microsoft")
     microsoft_client_id: str = ""  # Azure App Registration client ID

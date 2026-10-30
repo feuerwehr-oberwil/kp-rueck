@@ -7,7 +7,7 @@
  * In demo mode, shows quick-login buttons for demo accounts.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/lib/contexts/auth-context';
@@ -52,11 +52,27 @@ export default function LoginPage() {
   // switcher can only be rendered after mount – otherwise the server marks DE
   // active and the client disagrees.
   const [mounted, setMounted] = useState(false);
-  const { login } = useAuth();
+  const { login, user, loading: authLoading } = useAuth();
   const { setSelectedEvent } = useEvent();
   const router = useRouter();
 
   useEffect(() => setMounted(true), []);
+
+  // Decided once, the first time the session probe settles – after that this page belongs to
+  // whoever is typing in it.
+  const sessionAnswered = useRef(false);
+  useEffect(() => {
+    if (authLoading || sessionAnswered.current) return;
+    sessionAnswered.current = true;
+    // There was already a session when this page opened: on the station machine that is the
+    // silent passwordless local login having answered (lib/auth-client.localLogin), anywhere
+    // else it is a bookmark opened with a live session. A password form would be wrong in
+    // both cases. `replace`, not `push`: /login must not sit in the back history of a board
+    // nobody asked to leave.
+    if (!user) return;
+    launchCover.arm(window.location.pathname);
+    router.replace(user.role === 'viewer' ? '/display/board' : '/');
+  }, [authLoading, user, router]);
 
   useEffect(() => {
     // An unclaimed board has no accounts to log into — the first visit belongs

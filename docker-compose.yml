@@ -261,6 +261,12 @@ services:
       DOMAIN: ${DOMAIN:-:80}
       # The proxy in front of this Caddy, if any (deploy/Caddyfile). Empty = trust nobody.
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      # Stamped onto every request arriving on the loopback-only :8081 listener below, and
+      # DELETED from every request arriving on the public site – the two halves of
+      # passwordless local login (app/auth/local_autologin.py). The backend reads the same
+      # value out of .env. Empty (the default) = the feature is off and :8081 is just a second
+      # address for the ordinary board.
+      LOCAL_AUTOLOGIN_SECRET: ${LOCAL_AUTOLOGIN_SECRET:-}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -272,6 +278,13 @@ services:
       # Caddy is NOT optional here – unlike KP Front, no other service publishes a port and
       # this is the single origin the Caddyfile routes. Don't gate it behind a profile.
       - "${HTTPS_PORT:-443}:443"
+      # Passwordless local login, for the machine the stack runs on. The 127.0.0.1 prefix is
+      # NOT cosmetic and is not a second opinion about the firewall: it is the entire trust
+      # boundary. Docker publishes a port by inserting a DNAT rule ahead of the host firewall,
+      # so a plain "8081:8081" would be reachable from the whole LAN no matter what ufw says –
+      # and that listener hands out an editor session to anyone who asks. Bound here, only the
+      # host itself can connect. Never widen it.
+      - "127.0.0.1:${LOCAL_PORT:-8081}:8081"
     networks: [kprueck]
 
   # Nightly backup: Postgres dump + the photo volume, with retention. On by default –

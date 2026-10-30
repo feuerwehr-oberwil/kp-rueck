@@ -1,8 +1,10 @@
 """Tests for authentication configuration and settings."""
 
 import pytest
+from pydantic import ValidationError
 
 from app.auth.config import AuthSettings, auth_settings
+from app.config import Settings
 from app.config import settings as app_settings
 
 # ============================================
@@ -300,3 +302,47 @@ def test_refresh_token_longer_lived():
 
     # Refresh should be at least 10x longer than access
     assert refresh_minutes >= access_minutes * 10
+
+
+# ============================================
+# Passwordless local login (app/auth/local_autologin.py)
+# ============================================
+
+
+# `_env_file=None` throughout: these assert what the CODE does, not what the developer's
+# backend/.env happens to say.
+
+
+def test_local_autologin_is_off_by_default():
+    """Both empty = the feature does not exist. Nothing a station has to opt out of."""
+    defaults = Settings(_env_file=None)
+
+    assert defaults.local_autologin_user == ""
+    assert defaults.local_autologin_secret == ""
+
+
+def test_local_autologin_needs_both_settings():
+    """Half-configured stops the boot, because neither half is useful alone.
+
+    Only the user set: the station silently keeps asking for a password. Only the secret:
+    the endpoint is live with nobody to sign in as. Both are the kind of mistake that has to
+    surface in the terminal the stack was started from.
+    """
+    with pytest.raises(ValidationError, match="LOCAL_AUTOLOGIN_SECRET"):
+        Settings(_env_file=None, local_autologin_user="station-notebook")
+
+    with pytest.raises(ValidationError, match="LOCAL_AUTOLOGIN_USER"):
+        Settings(_env_file=None, local_autologin_secret="a" * 64)
+
+
+def test_local_autologin_secret_has_a_floor():
+    """It is the whole proof that a request came through the loopback listener."""
+    with pytest.raises(ValidationError, match="at least 32 characters"):
+        Settings(_env_file=None, local_autologin_user="station-notebook", local_autologin_secret="short")
+
+
+def test_local_autologin_accepts_a_generated_secret():
+    """`openssl rand -hex 32` is what the documentation tells the operator to paste in."""
+    configured = Settings(_env_file=None, local_autologin_user="station-notebook", local_autologin_secret="a" * 64)
+
+    assert configured.local_autologin_user == "station-notebook"

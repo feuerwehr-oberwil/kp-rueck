@@ -8,7 +8,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { translateOutsideReact } from '../i18n-messages';
-import { getCurrentUser, login as apiLogin, microsoftLogin as apiMicrosoftLogin, logout as apiLogout, refreshToken, User } from '../auth-client';
+import { getCurrentUser, localLogin, login as apiLogin, microsoftLogin as apiMicrosoftLogin, logout as apiLogout, refreshToken, User } from '../auth-client';
 
 interface AuthContextType {
   user: User | null;
@@ -39,6 +39,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // "not signed in" — ProtectedRoute then probes the backend and shows
     // either the login page or the server-unreachable screen.
     getCurrentUser()
+      // No session? This might be the machine the stack runs on. ONE silent attempt at the
+      // passwordless local login before anyone sees a form (lib/auth-client.localLogin) —
+      // 404 everywhere it isn't configured, 403 everywhere that isn't that machine. It is
+      // tied to this mount on purpose: the provider sits in the root layout and does not
+      // re-mount on client navigation, so «Abmelden» → /login stays signed out until the
+      // next reload. No loop, no second attempt.
+      .then(async (existing) => existing ?? await localLogin())
       .then(setUser)
       .catch((error) => {
         console.warn('[Auth] Session probe failed, treating as signed out:', error);

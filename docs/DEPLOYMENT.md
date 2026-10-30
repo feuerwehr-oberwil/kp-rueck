@@ -679,6 +679,7 @@ backend, the backend waits for the database. Caddy is the only service that publ
 | **`https://your.domain` refuses the connection, or the certificate never appears.** | Caddy could not complete the ACME challenge. | `docker compose logs caddy` and read the ACME lines. The usual causes, in order: the A/AAAA record does not point here yet (DNS takes its time); port 443 is not reachable from the internet; **`HTTP_PORT` is still `8080`**, so nothing on this host listens on port 80 and the HTTP-01 challenge has nothing to answer on. With a domain, set `HTTP_PORT=80`. |
 | **A bare, empty 404 page when you browse to the host's IP address.** | Nothing is broken. With `DOMAIN` set, Caddy answers **only** for that hostname and gives everything else an empty 404. | Use the domain. If DNS has not propagated yet, put a line in your laptop's `hosts` file (`<host-ip> kp.example.ch`) and carry on. Do not "fix" this by clearing `DOMAIN` – you would drop TLS to work around a wait. |
 | **`docker compose ps` shows `backend` restarting in a loop.** | A required secret is missing, empty or too weak. Production refuses to start rather than run half-secured. | `docker compose logs backend` names the variable in the first few lines. Common: `AUTH_SECRET_KEY` shorter than 32 characters or containing a giveaway word like `changeme`/`secret`/`test`; `ADMIN_SEED_PASSWORD` or, on a first boot, `VIEWER_PASSWORD` under 12 characters (later, a too-short `VIEWER_PASSWORD` only logs a line and leaves the viewer account as it was); `DEPLOYMENT_ROLE` misspelt (only `production` and `staging` are accepted, and an unrecognised value aborts on purpose rather than being guessed as production). |
+| **`docker compose up -d` fails with `address already in use` on `127.0.0.1:8081`.** | Caddy publishes a loopback-only listener for the optional [passwordless local login](#10-passwordless-local-login-the-stations-own-machine) whether or not that feature is configured, and something else on this machine already owns that port. | Set `LOCAL_PORT` in `.env` to a free port and `docker compose up -d`. Nothing else has to change: the port inside the container stays `8081`. |
 | **`docker compose up -d` exits immediately with `set POSTGRES_PASSWORD in .env`.** | Compose found no `.env` – usually because you are in the wrong directory, or the file is still called `.env.example`. | Run it from the repository root, where `.env` and `docker-compose.yml` sit together. `just init` writes the file if you never did. |
 | **Caddy will not start; the log mentions the Caddyfile being a directory.** | You copied `docker-compose.yml` out of the repository instead of keeping the clone. Docker created an empty *directory* at the bind-mount path. | Keep the whole clone and run compose from inside it – `./deploy/Caddyfile` and `./scripts` are both mounted from it (§2). |
 | **The board comes up completely empty – no vehicles, no personnel, no material.** | Correct behaviour, not a broken install. A production deployment seeds accounts, settings and alarm templates, and no resources at all. | Import your roster and fleet: [`SETUP.md` §3](SETUP.md). |
@@ -696,3 +697,71 @@ backend, the backend waits for the database. Caddy is the only service that publ
 Still stuck? Open an [issue](https://github.com/feuerwehr-oberwil/kp-rueck/issues) with the output
 of `just doctor` and the last fifty lines of `docker compose logs backend`. A setup that fails in
 a way this table does not cover is a bug in this table.
+
+## 10. Passwordless local login (the station's own machine)
+
+Optional, off by default, and worth exactly one paragraph of thought before you switch it on.
+
+The board is usually run from one machine that stands in the command post – a notebook on the
+KP table. Whoever is on duty opens a desktop shortcut and has to be looking at incidents, not
+at a password prompt; and typing a password on that machine protects nothing, because anybody
+who can reach its keyboard has already reached the board. So that one machine can sign itself
+in, while every other client – LAN, VPN, a phone – still logs in the ordinary way.
+
+```bash
+# In .env
+LOCAL_AUTOLOGIN_USER=station-notebook          # an EXISTING account, and NOT an admin
+LOCAL_AUTOLOGIN_SECRET=<openssl rand -hex 32>  # a password; treat it like one
+LOCAL_PORT=8081                                # host port, bound to 127.0.0.1 by compose
+
+# The second address has to be allowed as an origin, like any other way browsers reach the board
+CORS_ORIGINS=http://10.10.10.79:8080,http://localhost:8081,http://127.0.0.1:8081
+```
+
+Then `docker compose up -d`, and on that machine open `http://localhost:8081`. Point the
+shortcut there (Chrome: `--app=http://localhost:8081`, which drops the address bar).
+
+**Both variables empty is the default and means the feature does not exist**: the endpoint
+answers `404` and `:8081` is simply a second address for the ordinary board, login form
+included. Setting only one of them makes the backend refuse to start – half of this is never
+useful, and a silent half is worse than a loud stop.
+
+### What makes it safe
+
+Three things, and it is worth knowing which one is load-bearing:
+
+1. **The port is bound to loopback.** `docker-compose.yml` publishes it as
+   `127.0.0.1:${LOCAL_PORT:-8081}:8081`, so only the machine itself can open a connection to
+   it. **This is the trust boundary, and nothing else is.** Do not widen that bind: Docker
+   publishes a port by writing a DNAT rule *ahead of* the host firewall, so a plain
+   `8081:8081` would be reachable from the whole LAN no matter what `ufw` says – and that
+   listener hands out an editor session to anyone who asks.
+2. **The loopback listener stamps a shared secret** (`X-Local-Autologin`) onto every request it
+   forwards, and **the public site deletes that header** from everything arriving on it
+   (`deploy/Caddyfile`). So a LAN client cannot claim to be this machine: its header is gone
+   before any handler sees it, and `POST /api/auth/local-login` can only ever answer `403`
+   from out there. The secret proves a request came through the loopback listener; it is the
+   second lock, not the first.
+3. **The account is an ordinary non-admin account.** The login issues exactly the cookies a
+   typed password issues, for one account with one role – so everything downstream treats the
+   session as if that person had signed in. The boot **refuses an admin account outright**: an
+   unlocked notebook must not be able to manage users, change roles or read the audit log. An
+   editor can run the board, which is the whole job.
+
+Every such sign-in is in the audit log as a normal `login_success` row whose detail reads
+`{"method": "local_autologin"}` – so «who was on the board» stays answerable, and a session
+that came from the shortcut is distinguishable from one somebody typed a password for.
+
+«Abmelden» still works and still ends the session. On this machine the next page *reload* signs
+back in, which is the point; the login form is reachable in between, so a second person can sign
+in as themselves.
+
+### Things that will bite
+
+| What you see | Why | What to do |
+| --- | --- | --- |
+| **`http://localhost:8081` shows the ordinary login form.** | Either the two variables are not set (the endpoint answers `404`), or Caddy was not given the secret. | `docker compose logs backend \| grep -i autologin` – a configured deployment logs `Passwordless local login is ON for …` on every boot. Then check that `.env` really is the file compose reads (same directory as `docker-compose.yml`) and `docker compose up -d` again, not just `restart`: the secret reaches Caddy through its `environment:`, which is only re-read when the container is recreated. |
+| **`backend` restarts in a loop with `LOCAL_AUTOLOGIN_USER … does not exist` / `is an admin`.** | Working as intended. Both are configuration mistakes, and the terminal you just started the stack from is the only place anyone would see them. | Create or name an editor account, or clear both variables. |
+| **Everything you click on `:8081` fails, while `:8080` is fine.** | `CORS_ORIGINS` does not list the new address. The page is served by Caddy and knows nothing about it. | Add `http://localhost:8081` (and `http://127.0.0.1:8081` if anything uses that spelling), then `docker compose up -d`. Do not mix `http://` and `https://` in that list – §7 and the `AUTH_COOKIE_SECURE` note in `.env.example` say why. |
+| **It works on the host, and a colleague on the LAN is signed in too.** | The port is not bound to loopback any more – somebody removed the `127.0.0.1:` prefix, or a second proxy republishes it. | Put the prefix back and recreate the container. A pytest (`backend/tests/test_local_autologin_deploy.py`) fails on that edit, so this should not survive a PR. |
+| **The stack runs in WSL on a Windows machine and `http://localhost:8081` does not answer.** | WSL's localhost forwarding reaches `127.0.0.1` but not `::1`. A browser that resolves `localhost` to IPv6 first and does not fall back will sit there. | Use `http://127.0.0.1:8081` in the shortcut. Chrome falls back by itself; not everything does. |

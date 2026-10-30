@@ -125,6 +125,40 @@ export async function login(username: string, password: string): Promise<User> {
 }
 
 /**
+ * One silent attempt at the station machine's passwordless local login.
+ *
+ * The board runs on a notebook that stands in the command post; whoever is on duty opens a
+ * shortcut and has to be on the board, not at a password prompt. Only Caddy's loopback-only
+ * listener on that same machine stamps the shared secret this needs onto the request
+ * (`deploy/Caddyfile`, `backend/app/auth/local_autologin.py`), so from a LAN or VPN client
+ * the backend answers 403 — and on a deployment that never configured it, 404.
+ *
+ * Nothing is sent from here: the proof is a header the browser never sees and cannot forge.
+ * `null` for every answer but success, which means «show the ordinary login form».
+ *
+ * Called exactly once per page load, from AuthProvider. Deliberately NOT retried: a signed-in
+ * operator who signs out must get the form, not be signed back in before they let go of the
+ * mouse. Reloading the page is what asks again.
+ */
+export async function localLogin(): Promise<User | null> {
+  try {
+    const response = await fetchWithTimeout(`${getApiUrl()}/api/auth/local-login`, {
+      method: 'POST',
+      credentials: 'include',
+    }, 5000);
+
+    // 404 = not configured, 403 = not this machine. Both are the normal answer almost
+    // everywhere, so neither is logged.
+    if (!response.ok) return null;
+
+    return await response.json();
+  } catch {
+    // Network error/timeout: ProtectedRoute's own backend probe reports that on screen.
+    return null;
+  }
+}
+
+/**
  * Get current authenticated user
  * Returns null if not authenticated or on network error
  *
