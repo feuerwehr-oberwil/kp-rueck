@@ -344,6 +344,49 @@ services:
       start_period: 5m
     networks: [kprueck]
 
+  # Standby box for a HOSTED board: a live, one-way mirror of the hosted database (Postgres
+  # logical replication), so this stack can take over the moment the internet drops. The board
+  # here is look-only until somebody takes one Ereignis offline; that one then stops mirroring
+  # for good, every other one keeps going. Opt-in: `COMPOSE_PROFILES=backup,standby`,
+  # `DEPLOYMENT_ROLE=standby` and STANDBY_SOURCE_URL. See docs/STANDBY.md.
+  standby-mirror:
+    # The backend image: it owns the schema the guards are built from, and the photo login.
+    image: ghcr.io/feuerwehr-oberwil/kp-rueck-backend:${KP_RUECK_TAG:?set exact release version KP_RUECK_TAG in .env}
+    restart: unless-stopped
+    mem_limit: 256m
+    logging: *default-logging
+    profiles: ["standby"]
+    depends_on:
+      # Healthy = this version's migrations have run, so the guards see the final schema.
+      backend:
+        condition: service_healthy
+    command: ["uv", "run", "python", "-m", "app.standby", "--loop"]
+    environment:
+      # A superuser on this box's database: only a superuser may create a subscription.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-kprueck}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-kprueck}
+      # Not `:?` – compose interpolates every service, active profile or not, so a required
+      # variable here would stop stacks that never asked for a standby. The sidecar reports
+      # an empty one as a failed round instead.
+      STANDBY_SOURCE_URL: ${STANDBY_SOURCE_URL:-}
+      STANDBY_SOURCE_API: ${STANDBY_SOURCE_API:-}
+      STANDBY_PHOTO_USER: ${STANDBY_PHOTO_USER:-}
+      STANDBY_PHOTO_PASSWORD: ${STANDBY_PHOTO_PASSWORD:-}
+      PHOTOS_DIR: /mnt/data/photos
+      STANDBY_STATUS_DIR: /mnt/data/standby
+    volumes:
+      # Under /mnt/data, which the image's entrypoint hands to the non-root app user. The photo
+      # volume is the backend's own: mirrored photos land where the board serves them from.
+      - standby:/mnt/data/standby
+      - photos:/mnt/data/photos
+    healthcheck:
+      # "healthy" = a recent round found the mirror current (app/standby.py --check).
+      test: ["CMD", "/app/.venv/bin/python", "-m", "app.standby", "--check"]
+      interval: 1m
+      timeout: 15s
+      retries: 2
+      start_period: 5m
+    networks: [kprueck]
+
   # Thermal printer agent for the command post. Opt-in: it needs to reach a printer on the
   # local LAN, so it runs on the host network and only starts with the `printing` profile.
   # Switch it on by ADDING to the list in .env – `COMPOSE_PROFILES=backup,printing` – and not
@@ -394,6 +437,7 @@ volumes:
   pgdata:
   photos:
   premigration:
+  standby:
   tiles:
   caddy_data:
   caddy_config:

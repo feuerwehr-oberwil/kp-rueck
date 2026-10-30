@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { translateOutsideReact } from '../i18n-messages';
 import { getCurrentUser, localLogin, login as apiLogin, microsoftLogin as apiMicrosoftLogin, logout as apiLogout, refreshToken, User } from '../auth-client';
 
-interface AuthContextType {
+export interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<User>;
@@ -22,7 +22,9 @@ interface AuthContextType {
   isAuthenticated: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+// Exported for one reason: the standby gate (lib/contexts/standby-context.tsx) re-provides it
+// with editing switched off while the open Ereignis is only mirrored.
+export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);

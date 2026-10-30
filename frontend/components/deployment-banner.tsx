@@ -19,7 +19,8 @@ export function DeploymentBanner() {
   const t = useTranslations('common.deploymentBanner')
   const deployment = useDeployment()
 
-  if (!deployment.label) return null
+  // A standby box has its own band, with the mirror's state and the takeover (standby-band.tsx).
+  if (!deployment.label || deployment.role === 'standby') return null
 
   return (
     <div

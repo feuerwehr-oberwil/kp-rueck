@@ -56,7 +56,11 @@ def test_install_template_pins_the_complete_release():
     assert re.search(r"(?m)^KP_RUECK_TAG=(.*)$", template).group(1) == settings.version
     compose = (ROOT / "docker-compose.yml").read_text()
     assert "KP_RUECK_TAG:-latest" not in compose
-    assert compose.count("${KP_RUECK_TAG:?set exact release version KP_RUECK_TAG in .env}") == 4
+    # Every first-party image – the four released ones, and sidecars that reuse one of them.
+    images = re.findall(r"(?m)^\s+image: (ghcr\.io/feuerwehr-oberwil/.+)$", compose)
+    assert len(images) >= 4
+    for image in images:
+        assert image.endswith(":${KP_RUECK_TAG:?set exact release version KP_RUECK_TAG in .env}"), image
 
 
 def test_release_bump_updates_install_pin(tmp_path):

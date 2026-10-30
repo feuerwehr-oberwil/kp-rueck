@@ -16821,6 +16821,100 @@
         }
       }
     },
+    "/api/standby": {
+      "get": {
+        "tags": [
+          "standby"
+        ],
+        "summary": "Standby Status",
+        "description": "Is this box a mirror, how current is it, and which Ereignisse were taken offline.\n\nUnauthenticated, like `/api/deployment`: the band says «Spiegel … nur ansehen» on the login\nscreen too. It carries a timestamp and Ereignis ids, nothing else.",
+        "operationId": "standby_status_api_standby_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/standby/events/{event_id}/takeover": {
+      "post": {
+        "tags": [
+          "standby"
+        ],
+        "summary": "Take Event Offline",
+        "description": "Take one Ereignis offline on this box, for good. Editors and admins.\n\nFrom now on nothing the hosted board does to this Ereignis arrives here, even once it is\nreachable again; every other Ereignis keeps mirroring. There is no way back in the app –\ncarrying the work back to the hosted board is the Ausfall-SOP's «Wiederanlauf».",
+        "operationId": "take_event_offline_api_standby_events__event_id__takeover_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/events/{event_id}/stats": {
       "get": {
         "tags": [

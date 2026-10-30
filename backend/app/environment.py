@@ -77,18 +77,22 @@ def is_production_environment() -> bool:
 
 ROLE_PRODUCTION = "production"
 ROLE_STAGING = "staging"
+#: A box that mirrors the hosted board one way (app/standby.py, docs/STANDBY.md).
+ROLE_STANDBY = "standby"
 
 #: Roles this build understands. Anything else falls back to ROLE_PRODUCTION.
-KNOWN_DEPLOYMENT_ROLES = (ROLE_PRODUCTION, ROLE_STAGING)
+KNOWN_DEPLOYMENT_ROLES = (ROLE_PRODUCTION, ROLE_STAGING, ROLE_STANDBY)
 
 #: Effect domains a role refuses. Only domains whose effect LEAVES this system belong here —
 #: printing, Traccar reads and inbound alarms are wanted on staging and are deliberately absent.
 _ROLE_BLOCKED_DOMAINS: dict[str, tuple[str, ...]] = {
     ROLE_STAGING: ("alerting",),
+    # The hosted board alarms; a mirror of it must never alarm the same people a second time.
+    ROLE_STANDBY: ("alerting",),
 }
 
 #: German, because it is shown to operators and returned in API error details.
-_ROLE_LABELS = {ROLE_STAGING: "Staging – Übungssystem"}
+_ROLE_LABELS = {ROLE_STAGING: "Staging – Übungssystem", ROLE_STANDBY: "Standby – Spiegel"}
 
 _DOMAIN_REASONS = {
     "alerting": "Ausalarmierung ist auf diesem System gesperrt",
@@ -105,7 +109,7 @@ class DeploymentRoleError(RuntimeError):
 
 
 def deployment_role() -> str:
-    """What this deployment is for: ``production`` (default) or ``staging``.
+    """What this deployment is for: ``production`` (default), ``staging`` or ``standby``.
 
     Unset or empty means production — nobody claimed anything, so the safe default applies.
     Case and surrounding whitespace are ignored, so ``Staging`` and `` staging `` still lock.

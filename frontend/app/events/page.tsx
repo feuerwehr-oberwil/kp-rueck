@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { useEvent } from '@/lib/contexts/event-context'
 import { useAuth } from '@/lib/contexts/auth-context'
+import { useStandby } from '@/lib/contexts/standby-context'
 import { apiClient } from '@/lib/api-client'
 import type { ApiEventRestliste } from '@/lib/api/types/feld'
 import type { Event } from '@/lib/types/incidents'
@@ -115,6 +116,12 @@ export default function EventsPage() {
   // Permanent delete is admin-only (DELETE /api/events/{id}); archiving stays with editors.
   const { isAdmin } = useAuth()
   const isMobile = useIsMobile()
+  // On a standby mirror a new Ereignis is created OFFLINE: it lives on this box only (the
+  // outage that starts before the hosted board had it). Editors and admins only.
+  const standby = useStandby()
+  const tStandby = useTranslations('standby')
+  const canCreate = !standby.mirror || standby.canTakeOver
+  const newEventLabel = standby.mirror ? tStandby('newOffline.button') : t('page.newEvent')
 
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showArchiveDialog, setShowArchiveDialog] = useState(false)
@@ -470,13 +477,17 @@ export default function EventsPage() {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
-            <Button onClick={() => setShowCreateDialog(true)} size="sm" className="hidden sm:flex">
-              <Plus className="size-3.5" />
-              {t('page.newEvent')}
-            </Button>
-            <Button onClick={() => setShowCreateDialog(true)} size="icon" className="sm:hidden" aria-label={t('page.newEvent')}>
-              <Plus className="size-4" />
-            </Button>
+            {canCreate && (
+              <>
+                <Button onClick={() => setShowCreateDialog(true)} size="sm" className="hidden sm:flex">
+                  <Plus className="size-3.5" />
+                  {newEventLabel}
+                </Button>
+                <Button onClick={() => setShowCreateDialog(true)} size="icon" className="sm:hidden" aria-label={newEventLabel}>
+                  <Plus className="size-4" />
+                </Button>
+              </>
+            )}
 
             {/* Desktop Navigation */}
             {!isMobile && (
@@ -644,8 +655,9 @@ export default function EventsPage() {
         <Dialog open={showCreateDialog} onOpenChange={handleCreateDialogChange}>
           <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
             <DialogHeader>
-              <DialogTitle>{t('createDialog.title')}</DialogTitle>
+              <DialogTitle>{standby.mirror ? tStandby('newOffline.title') : t('createDialog.title')}</DialogTitle>
             </DialogHeader>
+            {standby.mirror && <p className="text-sm text-muted-foreground">{tStandby('newOffline.note')}</p>}
             {/* `DetailField` rows, boxed controls — the grammar of the new-Einsatz modal. */}
             <div className="space-y-1 py-2">
               <DetailField
