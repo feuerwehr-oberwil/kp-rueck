@@ -42,6 +42,14 @@ will keep holding.
 - **Phone: checking someone out on the check-in kiosk can be undone** («Rückgängig» in the toast).
 - **`TRUSTED_PROXIES`** in `.env`: behind a second proxy, set it to that proxy's address together
   with `TRUSTED_PROXY_COUNT=2` (docs/RUNNING-BOTH.md) – Caddy passes the real client on.
+- **Passwordless local login for the machine the board runs on** (`LOCAL_AUTOLOGIN_USER` +
+  `LOCAL_AUTOLOGIN_SECRET` in `.env`, both empty by default = off). The notebook in the command
+  post opens `http://localhost:8081` straight into the board; LAN, VPN and phone clients still
+  sign in normally. Compose publishes that second Caddy listener on `127.0.0.1` only – that bind
+  is the trust boundary – and the public site strips the header it stamps on, so nobody off the
+  machine can claim to be it. Named account, non-admin only (the boot refuses an admin), and in
+  the audit log as a `login_success` row reading `{"method": "local_autologin"}`.
+  [docs/DEPLOYMENT.md §10](docs/DEPLOYMENT.md#10-passwordless-local-login-the-stations-own-machine).
 - **«Erstellen und nächsten erfassen» on «Neuer Einsatz»** (#214). The arrow beside «Einsatz
   erstellen» (or Ctrl/⌘ ↵) creates the card and leaves the dialog open and empty with the cursor
   in the Einsatzort, for a run of calls. Einsatzart, Telefonisch/Vom Feld and the Auftrag carry

@@ -65,6 +65,7 @@ from .api.vehicles import router as vehicles_router
 from .api.viewer import router as viewer_router
 from .api.weather import router as weather_router
 from .auth.config import auth_settings
+from .auth.local_autologin import verify_account_on_boot as verify_local_autologin_account
 from .auth.login_throttle import login_throttle
 from .auth.token_blocklist import token_blocklist
 from .background import (
@@ -237,6 +238,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await seed_database()
         except Exception as e:
             logger.warning(f"Database seeding failed: {e}")
+
+    # Passwordless local login: a misconfigured LOCAL_AUTOLOGIN_USER stops the boot. No
+    # try/except on purpose – the three ways to get it wrong (no such account, a deactivated
+    # one, or an admin) are all things the operator has to see now, in the terminal they just
+    # started the stack from, rather than discover as a login form the station shortcut never
+    # gets past. After the seed, which is what decides whether the account exists at all.
+    async with async_session_maker() as db:
+        await verify_local_autologin_account(db)
 
     # An unclaimed, internet-facing board prints its Einrichtungscode now – the operator reads
     # the boot log right after starting the stack (auth/setup_token.py). After the seed, which

@@ -13,6 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
+from ..auth import local_autologin
 from ..auth.config import auth_settings
 from ..auth.dependencies import CurrentUser, get_current_user
 from ..auth.login_throttle import login_throttle
@@ -46,6 +47,48 @@ class _CookieKwargs(TypedDict):
     secure: bool
     samesite: Literal["lax", "strict", "none"]
     domain: NotRequired[str]
+
+
+def _auth_cookie_kwargs() -> _CookieKwargs:
+    """The attributes every auth cookie carries. `path="/"` so it rides along on every path.
+
+    Set `AUTH_COOKIE_DOMAIN` to share the session across subdomains; left empty the cookie is
+    bound to the exact host the browser used, which is what a loopback local login relies on.
+    """
+    kwargs: _CookieKwargs = {
+        "path": "/",
+        "httponly": auth_settings.COOKIE_HTTPONLY,
+        "secure": auth_settings.cookie_secure,
+        # auth_settings.cookie_samesite is declared `str`; Starlette wants the literal set.
+        "samesite": cast(Literal["lax", "strict", "none"], auth_settings.cookie_samesite),
+    }
+    if auth_settings.cookie_domain:
+        kwargs["domain"] = auth_settings.cookie_domain
+    return kwargs
+
+
+def _set_session_cookies(response: Response, access_token: str, refresh_token: str) -> None:
+    """Write the access + refresh cookie pair a signed-in session consists of.
+
+    ONE implementation for every way in – password, Microsoft, and the loopback local login –
+    which is what makes "the local login issues exactly the same cookies as a normal login" a
+    fact rather than three copies that have to be kept in agreement.
+    """
+    cookie_kwargs = _auth_cookie_kwargs()
+
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        max_age=auth_settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        **cookie_kwargs,
+    )
+
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        max_age=auth_settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        **cookie_kwargs,
+    )
 
 
 @router.post("/login", response_model=schemas.UserResponse)
@@ -128,37 +171,84 @@ async def login(
         }
     )
 
-    # Set httpOnly cookies - explicitly set path="/" to ensure cookies are sent on all paths
-    # In production, set AUTH_COOKIE_DOMAIN to share cookies across subdomains
-    cookie_kwargs: _CookieKwargs = {
-        "path": "/",
-        "httponly": auth_settings.COOKIE_HTTPONLY,
-        "secure": auth_settings.cookie_secure,
-        # auth_settings.cookie_samesite is declared `str`; Starlette wants the literal set.
-        "samesite": cast(Literal["lax", "strict", "none"], auth_settings.cookie_samesite),
-    }
-    if auth_settings.cookie_domain:
-        cookie_kwargs["domain"] = auth_settings.cookie_domain
-
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        max_age=auth_settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        **cookie_kwargs,
-    )
-
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        max_age=auth_settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
-        **cookie_kwargs,
-    )
+    _set_session_cookies(response, access_token, refresh_token)
 
     # Update last login
     user.last_login = datetime.now(UTC)
 
     # Log successful login
     await log_login(db=db, user=user, request=request, success=True)
+
+    await db.commit()
+
+    return user
+
+
+@router.post("/local-login", response_model=schemas.UserResponse)
+@limiter.limit(RateLimits.LOGIN)
+async def local_login(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Sign the station's own machine in without a password. Off unless configured.
+
+    The whole reasoning – and why a loopback-bound port is the trust boundary rather than this
+    check – is in `app/auth/local_autologin.py`. Two answers and no third:
+
+    * **404** when the feature is off, which is the default. A deployment that never configured
+      it does not advertise that the route exists.
+    * **403** when the `X-Local-Autologin` header is missing or wrong. Only Caddy's
+      loopback-only listener stamps it on, and the public `:80` site DELETES whatever a client
+      sent, so from the LAN this endpoint can never do anything but 403.
+
+    On success it issues exactly the cookies `POST /auth/login` issues (same helper), for one
+    ordinary non-admin account – so everything downstream treats the session as if that person
+    had typed their password.
+    """
+    # Cache-Control on both exits: a shortcut opens this URL on every launch, and a cached
+    # 404 would outlive the day the station switches the feature on.
+    response.headers["Cache-Control"] = "no-store"
+
+    if not local_autologin.is_enabled():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nicht gefunden")
+
+    if not local_autologin.secret_matches(request.headers.get(local_autologin.HEADER_NAME)):
+        # Worth a line: on the station machine it means the shortcut stopped working, and
+        # from anywhere else it means somebody tried to guess the header.
+        logger.warning(
+            "Local login refused: %s header missing or wrong (from %s)",
+            local_autologin.HEADER_NAME,
+            get_client_identifier(request),
+        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Lokale Anmeldung ist nicht erlaubt")
+
+    user = await local_autologin.load_account(db)
+    # The boot refuses all three of these (verify_account_on_boot), so getting here means the
+    # account changed under a running deployment – deleted, deactivated, or promoted to admin.
+    # Refuse rather than hand out a session on a premise nobody re-checked.
+    if user is None or not user.is_active or user.role == "admin":
+        logger.error(
+            "Local login refused: LOCAL_AUTOLOGIN_USER %r is now missing, inactive or an admin",
+            settings.local_autologin_user,
+        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Lokale Anmeldung ist nicht erlaubt")
+
+    access_token, refresh_token = create_login_tokens(
+        data={
+            "sub": str(user.id),
+            "username": user.username,
+            "role": user.role,
+            "user_session_version": user.session_version,
+        }
+    )
+
+    _set_session_cookies(response, access_token, refresh_token)
+
+    user.last_login = datetime.now(UTC)
+
+    # `method` puts "this was the loopback shortcut, not a typed password" in the audit row.
+    await log_login(db=db, user=user, request=request, method="local_autologin")
 
     await db.commit()
 
@@ -222,16 +312,7 @@ async def refresh_token(
         }
     )
 
-    # Update cookie - explicitly set path="/" to match login
-    cookie_kwargs: _CookieKwargs = {
-        "path": "/",
-        "httponly": auth_settings.COOKIE_HTTPONLY,
-        "secure": auth_settings.cookie_secure,
-        # auth_settings.cookie_samesite is declared `str`; Starlette wants the literal set.
-        "samesite": cast(Literal["lax", "strict", "none"], auth_settings.cookie_samesite),
-    }
-    if auth_settings.cookie_domain:
-        cookie_kwargs["domain"] = auth_settings.cookie_domain
+    cookie_kwargs = _auth_cookie_kwargs()
 
     response.set_cookie(
         key="access_token",
@@ -309,15 +390,7 @@ async def logout(
         await db.commit()
 
     # Always clear cookies - must match attributes used when setting them
-    cookie_kwargs: _CookieKwargs = {
-        "path": "/",
-        "httponly": auth_settings.COOKIE_HTTPONLY,
-        "secure": auth_settings.cookie_secure,
-        # auth_settings.cookie_samesite is declared `str`; Starlette wants the literal set.
-        "samesite": cast(Literal["lax", "strict", "none"], auth_settings.cookie_samesite),
-    }
-    if auth_settings.cookie_domain:
-        cookie_kwargs["domain"] = auth_settings.cookie_domain
+    cookie_kwargs = _auth_cookie_kwargs()
 
     response.delete_cookie(key="access_token", **cookie_kwargs)
     response.delete_cookie(key="refresh_token", **cookie_kwargs)
@@ -569,30 +642,7 @@ async def microsoft_login(
         }
     )
 
-    # Set httpOnly cookies
-    cookie_kwargs: _CookieKwargs = {
-        "path": "/",
-        "httponly": auth_settings.COOKIE_HTTPONLY,
-        "secure": auth_settings.cookie_secure,
-        # auth_settings.cookie_samesite is declared `str`; Starlette wants the literal set.
-        "samesite": cast(Literal["lax", "strict", "none"], auth_settings.cookie_samesite),
-    }
-    if auth_settings.cookie_domain:
-        cookie_kwargs["domain"] = auth_settings.cookie_domain
-
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        max_age=auth_settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        **cookie_kwargs,
-    )
-
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        max_age=auth_settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
-        **cookie_kwargs,
-    )
+    _set_session_cookies(response, access_token, refresh_token)
 
     # Update last login
     user.last_login = datetime.now(UTC)

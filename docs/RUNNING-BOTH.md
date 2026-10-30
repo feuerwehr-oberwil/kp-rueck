@@ -272,6 +272,7 @@ meaning the same thing (the cookie row below, and §1).
 | Plain-HTTP login cookie | `COOKIE_SECURE=false` – the switch, and you have to set it | `AUTH_COOKIE_SECURE` – an override only; derived from `CORS_ORIGINS`, leave blank (§1) |
 | Host HTTP port | `APP_PORT` (the app publishes it) | `HTTP_PORT` (Caddy publishes it) |
 | Host HTTPS port | fixed `443`, only with `--profile tls` | `HTTPS_PORT` |
+| Loopback port for the passwordless local login | *no equivalent* | `LOCAL_PORT` (default `8081`, bound to `127.0.0.1`; always published, off or on – [`DEPLOYMENT.md` §10](DEPLOYMENT.md#10-passwordless-local-login-the-stations-own-machine)) |
 | Allowed CORS origin | *not configurable – same origin* | `CORS_ORIGINS` |
 | Base for outbound webhook links | `PUBLIC_URL` | *not applicable* |
 | Print-agent shared secret | *none – no print relay* | `PRINT_AGENT_TOKEN` |
@@ -298,6 +299,8 @@ Before you start the second stack:
 - [ ] One reverse proxy owns `80`/`443`; neither stack does.
 - [ ] KP Front runs **without** `--profile tls`; `APP_PORT` is free.
 - [ ] KP Rück's `HTTP_PORT` **and** `HTTPS_PORT` are both free – `HTTPS_PORT` is not `443`.
+- [ ] `LOCAL_PORT` (default `8081`) is free on `127.0.0.1`. KP Rück's Caddy publishes it
+      whether or not the local login is configured, so a collision stops the whole stack.
 - [ ] `CORS_ORIGINS` (KP Rück) and `PUBLIC_URL` (KP Front) each point at their **own** stack –
       and `CORS_ORIGINS` holds the URL *browsers* use, not the address an outer proxy forwards to.
 - [ ] Behind the outer proxy: `TRUSTED_PROXY_COUNT=2` and `TRUSTED_PROXIES=<its address>` in the

@@ -670,6 +670,28 @@
         }
       }
     },
+    "/api/auth/local-login": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Local Login",
+        "description": "Sign the station's own machine in without a password. Off unless configured.\n\nThe whole reasoning – and why a loopback-bound port is the trust boundary rather than this\ncheck – is in `app/auth/local_autologin.py`. Two answers and no third:\n\n* **404** when the feature is off, which is the default. A deployment that never configured\n  it does not advertise that the route exists.\n* **403** when the `X-Local-Autologin` header is missing or wrong. Only Caddy's\n  loopback-only listener stamps it on, and the public `:80` site DELETES whatever a client\n  sent, so from the LAN this endpoint can never do anything but 403.\n\nOn success it issues exactly the cookies `POST /auth/login` issues (same helper), for one\nordinary non-admin account – so everything downstream treats the session as if that person\nhad typed their password.",
+        "operationId": "local_login_api_auth_local_login_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/refresh": {
       "post": {
         "tags": [

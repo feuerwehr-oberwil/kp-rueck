@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { AuthErrorType, fetchWsToken, microsoftLogin, startMicrosoftLogin } from './auth-client';
+import { AuthErrorType, fetchWsToken, localLogin, microsoftLogin, startMicrosoftLogin } from './auth-client';
 
 vi.mock('./env', () => ({ getApiUrl: () => '/backend-api' }));
 vi.mock('./i18n-messages', () => ({ translateOutsideReact: () => 'Anmeldung fehlgeschlagen' }));
@@ -63,5 +63,34 @@ it.each([
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body)));
   await expect(startMicrosoftLogin()).rejects.toMatchObject({
     name: 'AuthError', type: AuthErrorType.SERVER_ERROR, statusCode: 200,
+  });
+});
+
+
+describe('passwordless local login', () => {
+  it('asks the backend once, with cookies, and nothing in the body', async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ username: 'station-notebook', role: 'editor' })));
+    vi.stubGlobal('fetch', fetch);
+
+    expect(await localLogin()).toMatchObject({ username: 'station-notebook', role: 'editor' });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith('/backend-api/api/auth/local-login', expect.objectContaining({
+      method: 'POST', credentials: 'include',
+    }));
+    // The proof is a header Caddy attaches on the loopback listener; the browser must not
+    // send anything it could have been tricked into sending.
+    expect(fetch.mock.calls[0][1]).not.toHaveProperty('body');
+  });
+
+  // 404 = the deployment never configured it, 403 = this is not the station machine (the
+  // public site stripped the header). Both mean «show the ordinary login form».
+  it.each([404, 403, 500])('answers null on %i so the login form is shown', async (status) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status })));
+    expect(await localLogin()).toBeNull();
+  });
+
+  it('answers null when the backend cannot be reached', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+    expect(await localLogin()).toBeNull();
   });
 });

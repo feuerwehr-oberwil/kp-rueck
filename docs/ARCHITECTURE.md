@@ -540,6 +540,15 @@ graph LR
     public_token --> feld
 ```
 
+**Passwordless on the station's own machine** (optional, off by default). `POST /api/auth/local-login`
+issues the ordinary cookie pair for one configured non-admin account, and answers 404 unless
+`LOCAL_AUTOLOGIN_USER` + `LOCAL_AUTOLOGIN_SECRET` are set, or 403 without the `X-Local-Autologin`
+header that only Caddy's **loopback-bound** second listener attaches – the public site deletes it
+(`deploy/Caddyfile`). So this is not a fourth authentication method but a second way to obtain
+the first one, limited to requests from the host the stack runs on, and an admin account is
+refused at startup. `backend/app/auth/local_autologin.py`,
+[`DEPLOYMENT.md` §10](DEPLOYMENT.md#10-passwordless-local-login-the-stations-own-machine).
+
 **Admin only** – an editor runs the Einsatz, an admin runs the installation. Besides user
 management (`/api/users`), these need `role="admin"` (`CurrentAdmin` or an explicit role check
 in the route):
@@ -560,7 +569,7 @@ them, so **a link that has to keep working past its expiry has to be re-generate
 
 | Token Type | How Obtained | Expiry | Access |
 |------------|-------------|--------|--------|
-| JWT (access) | Login form | **8 hours** (`ACCESS_TOKEN_EXPIRE_MINUTES=480`) | Full editor or admin |
+| JWT (access) | Login form, or the loopback local login | **8 hours** (`ACCESS_TOKEN_EXPIRE_MINUTES=480`) | Full editor or admin |
 | JWT (refresh) | Login form | **7 days** (`REFRESH_TOKEN_EXPIRE_DAYS`) | Mints a new access token |
 | Master Token | Environment variable | Never | Admin-level API access – authenticates as `role="admin"` (`auth/dependencies.py`) |
 | Viewer Token | Generated in UI (QR code) | **24 hours** | Read-only board for one Ereignis – incl. the Reko result and its photos |
