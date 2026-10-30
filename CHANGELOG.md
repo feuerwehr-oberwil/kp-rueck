@@ -28,6 +28,15 @@ will keep holding.
 
 ## [Unreleased]
 
+### Security
+
+- **Passwordless local login is refused on Railway.** It is a compose-stack feature: the
+  loopback-only listener and the header strip that make it safe are Caddy's, and a Railway
+  backend is its own public origin with neither. Setting `LOCAL_AUTOLOGIN_USER` /
+  `LOCAL_AUTOLOGIN_SECRET` there now stops the boot with that reason, instead of running a
+  version where the shared secret alone stands between the internet and an editor session.
+  Nothing changes for the compose stack, and nothing was ever enabled on Railway.
+
 ## [0.9.0] – 2026-10-30
 
 ### Added

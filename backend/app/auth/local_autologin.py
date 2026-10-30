@@ -4,6 +4,10 @@ The station notebook stands in the command post and is opened by whoever is on d
 password on it buys nothing, because anybody who can reach its keyboard has already won. Every
 other client – LAN, Tailscale, a phone – must still sign in normally.
 
+**Compose only.** The boot refuses this on Railway: there is no reverse proxy of ours in front
+of that backend, so the header is neither stripped on the way in nor restricted to one machine,
+and the secret alone would stand between the internet and an editor session.
+
 **The trust boundary is a loopback-bound port, not this file.** `docker-compose.yml` publishes
 Caddy's second listener on `127.0.0.1:${LOCAL_PORT:-8081}` only, so nothing but the host itself
 can open a connection to it, and that listener stamps `X-Local-Autologin` onto every upstream
@@ -24,6 +28,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
+from ..environment import is_railway
 from ..models import User
 
 logger = logging.getLogger(__name__)
@@ -70,12 +75,28 @@ async def verify_account_on_boot(db: AsyncSession) -> None:
     station that discovers them by clicking the shortcut gets a login form and no reason.
 
     Raises:
-        RuntimeError: the account does not exist, is deactivated, or is an admin.
+        RuntimeError: on Railway (no stripping proxy), or when the account does not exist, is
+            deactivated, or is an admin.
     """
     if not is_enabled():
         return
 
     username = settings.local_autologin_user.strip()
+
+    # Railway has no Caddy in front of it. The backend is its own public origin there, so
+    # NOTHING strips `X-Local-Autologin` on the way in and there is no loopback-only listener
+    # to attach it either – the shared secret would be the only thing between the internet and
+    # an editor session, which is not what this feature is. It only makes sense on the compose
+    # stack, where the trust boundary is a port bound to 127.0.0.1 (deploy/Caddyfile,
+    # docker-compose.yml). Refuse rather than quietly run a weaker version of it.
+    if is_railway():
+        raise RuntimeError(
+            "LOCAL_AUTOLOGIN_USER/LOCAL_AUTOLOGIN_SECRET are set, but passwordless local login "
+            "cannot work on Railway: its backend is a public origin with no reverse proxy of "
+            "ours in front, so the X-Local-Autologin header is neither stripped from incoming "
+            "requests nor restricted to this machine. It is a compose-stack feature "
+            "(docs/DEPLOYMENT.md section 10) – clear both variables here."
+        )
     user = await load_account(db)
 
     if user is None:
