@@ -28,6 +28,8 @@ will keep holding.
 
 ## [Unreleased]
 
+## [0.9.0] – 2026-10-30
+
 ### Added
 
 - **«Kennung» for people who share a name** (Settings › Personal, Excel column `kennung`):
@@ -57,6 +59,25 @@ will keep holding.
 - **Arrow keys move the selection between cards** (#215). Enter or Space opens the selected
   card. Sideways keeps the row and skips empty and folded columns; Alt+← / Alt+→ stay the
   browser's back and forward.
+
+### Upgrade notes
+
+**Nothing is mandatory.** Both migrations run on boot like any other and each has a downgrade;
+every new setting is optional with a working default.
+
+- **Migrations** (in order): `e4b7c1d9a3f6` adds a nullable `seen_status` to
+  `status_transitions` – the status a stale board still showed when it moved a card, so a
+  conflict can be named instead of guessed; `bff3241e12af` adds a nullable `kennung` to
+  `personnel`. Nothing is backfilled.
+- **Caddy now publishes a second listener on `127.0.0.1:8081`**, whether or not the
+  passwordless local login is configured, so the one machine that runs the stack can be given
+  a password-free address later without a second update. If something on your host already owns
+  that loopback port, `docker compose up -d` fails to bind: set `LOCAL_PORT` in `.env` to a free
+  port. The port inside the container stays `8081`, and nothing else has to change. The bind
+  address is deliberately `127.0.0.1` and must stay that way – see `DEPLOYMENT.md` §10.
+- **New optional settings** (`.env.example` documents each): `LOCAL_AUTOLOGIN_USER`,
+  `LOCAL_AUTOLOGIN_SECRET`, `LOCAL_PORT`. Leaving them untouched keeps the board exactly as it
+  is today, with a login form on every address.
 
 ### Changed
 
@@ -3030,7 +3051,8 @@ something another station can pin.
 
 _For the full running history before the first release, see the git log._
 
-[Unreleased]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.5.0...v0.6.0
