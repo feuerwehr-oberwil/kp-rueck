@@ -45,6 +45,15 @@ will keep holding.
   agent used to treat that like a wrong secret and stop that worker for good. It now logs a
   warning, backs off and prints as soon as the secret is set. A wrong secret still stops it.
 
+### Security
+
+- **Passwordless local login is refused on Railway.** It is a compose-stack feature: the
+  loopback-only listener and the header strip that make it safe are Caddy's, and a Railway
+  backend is its own public origin with neither. Setting `LOCAL_AUTOLOGIN_USER` /
+  `LOCAL_AUTOLOGIN_SECRET` there now stops the boot with that reason, instead of running a
+  version where the shared secret alone stands between the internet and an editor session.
+  Nothing changes for the compose stack, and nothing was ever enabled on Railway.
+
 ### Upgrade notes
 
 - **A box that prints for KP Front** needs its `kp-front` entry in the config file (or the
