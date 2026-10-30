@@ -437,6 +437,18 @@ doctor:
         echo "  Backups live in: $BACKUP_DIR"
         echo "  An untested backup is a guess – do the restore drill once (docs/DEPLOYMENT.md §6.2)."
     fi
+
+    case ",${PROFILES}," in
+        *,standby,*)
+            section "Standby copy of the hosted board"
+            # The sidecar's own healthcheck, so this and `docker compose ps` never disagree.
+            if REASON="$(docker compose exec -T standby-sync /app/.venv/bin/python -m app.standby_sync --check 2>&1)"; then
+                ok "Last configuration copy ok"
+            else
+                bad "Standby copy not current: ${REASON:-standby-sync is not running}"
+                echo "   docker compose logs --tail=50 standby-sync – docs/STANDBY.md"
+            fi ;;
+    esac
     echo ""
 
 # ============================================

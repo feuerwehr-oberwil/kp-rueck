@@ -344,6 +344,44 @@ services:
       start_period: 5m
     networks: [kprueck]
 
+  # Standby box for a HOSTED board: every night it copies the station's configuration (users,
+  # settings, fleet, roster, material, templates) from the hosted database, so this stack is
+  # ready to take over on the day the internet drops. One way, read-only on the source, and
+  # it refuses while this box holds an Ereignis of its own. Opt-in like the print agent:
+  # `COMPOSE_PROFILES=backup,standby` plus STANDBY_SOURCE_URL. See docs/STANDBY.md.
+  standby-sync:
+    # The backend image, for its Postgres 17 client libraries and its migration tree – the
+    # copy refuses a source whose schema this release does not know.
+    image: ghcr.io/feuerwehr-oberwil/kp-rueck-backend:${KP_RUECK_TAG:?set exact release version KP_RUECK_TAG in .env}
+    restart: unless-stopped
+    mem_limit: 256m
+    logging: *default-logging
+    profiles: ["standby"]
+    depends_on:
+      # Healthy = this release's migrations have run, so the first copy sees the final schema.
+      backend:
+        condition: service_healthy
+    command: ["uv", "run", "python", "-m", "app.standby_sync", "--loop"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-kprueck}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-kprueck}
+      # Not `:?` – compose interpolates every service, active profile or not, so a required
+      # variable here would stop stacks that never asked for a standby. The sidecar reports
+      # an empty one as a failed sync instead.
+      STANDBY_SOURCE_URL: ${STANDBY_SOURCE_URL:-}
+      STANDBY_SYNC_AT: ${STANDBY_SYNC_AT:-04:15}
+      STANDBY_STATUS_DIR: /mnt/data/standby
+    volumes:
+      # Under /mnt/data, which the image's entrypoint hands to the non-root app user.
+      - standby:/mnt/data/standby
+    healthcheck:
+      # "healthy" = last night's copy ran and succeeded (app/standby_sync.py --check).
+      test: ["CMD", "/app/.venv/bin/python", "-m", "app.standby_sync", "--check"]
+      interval: 1h
+      timeout: 15s
+      retries: 1
+      start_period: 5m
+    networks: [kprueck]
+
   # Thermal printer agent for the command post. Opt-in: it needs to reach a printer on the
   # local LAN, so it runs on the host network and only starts with the `printing` profile.
   # Switch it on by ADDING to the list in .env – `COMPOSE_PROFILES=backup,printing` – and not
@@ -394,6 +432,7 @@ volumes:
   pgdata:
   photos:
   premigration:
+  standby:
   tiles:
   caddy_data:
   caddy_config:

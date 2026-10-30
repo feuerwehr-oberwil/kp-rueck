@@ -184,7 +184,7 @@ jobs:
           uv run mypy
           app/auth app/middleware app/schemas app/services
           app/crud app/background app/api
-          app/websocket_manager.py app/models.py app/traccar.py
+          app/websocket_manager.py app/models.py app/traccar.py app/standby_sync.py
           --ignore-missing-imports
 
       # The rest, as a report. Moving a package out of here and into the step above is the

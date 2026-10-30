@@ -32,6 +32,12 @@ will keep holding.
 
 ### Added
 
+- **A standby box for a hosted board** (compose profile `standby`, `docs/STANDBY.md`): the
+  `standby-sync` sidecar copies the station's configuration – users, settings, fleet, roster,
+  material, templates – from the hosted database every night, one way and with a read-only
+  login, so a compose stack in the Magazin is ready when the internet drops. It refuses while
+  the box holds an Ereignis of its own or while the hosted schema is newer than the box's, and
+  `docker compose ps` / `just doctor` show a failed or stale copy.
 - **«Kennung» for people who share a name** (Settings › Personal, Excel column `kennung`):
   a Jahrgang or Personal-Nr., shown on the board only where two people have the same name
   («Meier Alex · 1985»). A second person with the same name needs one; the Divera and roster
