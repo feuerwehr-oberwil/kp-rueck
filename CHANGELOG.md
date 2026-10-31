@@ -28,6 +28,30 @@ will keep holding.
 
 ## [Unreleased]
 
+### Added
+
+- **The print agent serves KP Front again.** KP Front brought its station print relay back (A4
+  PDFs through CUPS, kp-front #524), so the KP Front half that 0.8.0 removed is back: the
+  `kp-front` protocol, the `cups` output, the `KP_BASE_URL` / `KP_PRINT_AGENT_SECRET` /
+  `KP_PRINTER` variables, and `cups-client` in the `kp-print-agent` image. One agent with a
+  `backends` list serves both systems again; KP Rück's thermal slips print exactly as before.
+  A bare-Pi install of the A4 path runs on Python 3.9 again (the thermal extra still needs
+  3.10).
+
+### Fixed
+
+- **A switched-off KP Front relay no longer stops the agent's KP Front worker.** With no
+  `PRINT_AGENT_SECRET` set on the server, KP Front answers 403 «Druck-Relay deaktiviert»; the
+  agent used to treat that like a wrong secret and stop that worker for good. It now logs a
+  warning, backs off and prints as soon as the secret is set. A wrong secret still stops it.
+
+### Upgrade notes
+
+- **A box that prints for KP Front** needs its `kp-front` entry in the config file (or the
+  `KP_*` variables) and, outside the container, a working CUPS queue (`lp`, `lpstat`). An agent
+  updated to 0.8.0 or 0.9.0 skipped that entry with a log line; it prints again after this
+  update, without a config change.
+
 ## [0.9.0] – 2026-10-30
 
 ### Added

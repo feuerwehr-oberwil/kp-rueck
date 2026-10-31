@@ -1,9 +1,9 @@
 """Shared pieces: the job record, an HTTP helper, and logging.
 
-Stdlib only, on purpose. The core of this agent — HTTP and the protocol driver — runs on a
-bare Python. Only the ESC/POS output reaches for third-party packages, and it imports them
-lazily, so a dry run needs none and a box without them still starts and says what is missing
-instead of dying on an import.
+Stdlib only, on purpose. The core of this agent — HTTP, both protocol drivers and the CUPS
+output — must install on a bare Raspberry Pi with no venv and no Docker, because that is the
+install path a station actually uses. Only the ESC/POS output reaches for third-party
+packages, and it imports them lazily so a CUPS-only station never needs them.
 """
 
 from __future__ import annotations
@@ -34,12 +34,21 @@ class FatalError(Exception):
 
 @dataclass
 class Job:
-    """One print job: KP Rück sends structured JSON and the agent renders it."""
+    """One print job, in whichever shape its protocol delivers.
+
+    The two backends differ fundamentally here and the difference is not worth hiding:
+    KP Front composes the document server-side and hands over an opaque PDF, KP Rück sends
+    structured JSON and expects the agent to render it. An output driver consumes one or the
+    other, so a mismatch (`escpos` against a PDF) is a config error, reported as one.
+    """
 
     id: str
     backend: str
     kind: str = ""
-    payload: dict = field(default_factory=dict)
+    payload: dict = field(default_factory=dict)  # KP Rück: structured content
+    document: bytes | None = None  # KP Front: the composed PDF
+    filename: str | None = None
+    color: bool = False
 
 
 @dataclass
