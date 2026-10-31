@@ -16,7 +16,14 @@
       "Carte de situation avec toutes les interventions et les positions GPS des véhicules",
       "Rapport d’intervention en PDF avec journal d’intervention et temps de réaction",
       "Exploité soi-même à la caserne ou dans son propre cloud – les données restent sous son propre contrôle"
-    ]
+    ],
+    "audience": [
+      "Corps de sapeurs-pompiers",
+      "Organisations de protection civile",
+      "États-majors de conduite",
+      "Autres organisations d’intervention"
+    ],
+    "demoAction": "Ouvrir la démo KP Rück"
   },
   "nav": {
     "aria": "Navigation principale",
@@ -385,7 +392,9 @@
       "send": "Envoyer le message",
       "sending": "Envoi en cours …",
       "ok": "Merci – le message est arrivé. Nous revenons vers vous.",
-      "error": "Cela n’a pas fonctionné. Écrivez directement à bastian.eichenberger@feuerwehr-oberwil.ch."
+      "error": "Cela n’a pas fonctionné. Écrivez directement à bastian.eichenberger@feuerwehr-oberwil.ch.",
+      "privacy": "Transmis par e-mail via le service de formulaires staticforms.dev.",
+      "privacyLink": "Protection des données"
     }
   },
   "lightbox": {
@@ -398,6 +407,12 @@
     "origin": "Né du service opérationnel des <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">sapeurs-pompiers d’Oberwil BL</a> –\n      parce qu’en intervention nous avons vu revenir les mêmes sources d’erreur : doubles\n      affectations, informations éparpillées et erreurs de recopie à la main.\n      Chaque corps exploite son propre KP Rück, avec son effectif, ses véhicules et ses données.",
     "demo": "Démo",
     "contact": "Contact",
-    "org": "Feuerwehr Oberwil sur GitHub"
+    "org": "Feuerwehr Oberwil sur GitHub",
+    "release": {
+      "label": "Version actuelle",
+      "notes": "Notes de version",
+      "dateFormat": "DD.MM.YYYY"
+    },
+    "security": "Sécurité"
   }
 }

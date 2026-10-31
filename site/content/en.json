@@ -15,7 +15,14 @@
       "Situation map with all incidents and vehicle GPS positions",
       "Incident report as PDF with incident log and response times",
       "Self-hosted at the station or in your own cloud – the data stays under your control"
-    ]
+    ],
+    "audience": [
+      "Fire services",
+      "Civil protection organisations",
+      "Command staffs",
+      "Other emergency response organisations"
+    ],
+    "demoAction": "Open the KP Rück demo"
   },
   "nav": {
     "aria": "Main navigation",
@@ -384,7 +391,9 @@
       "send": "Send message",
       "sending": "Sending …",
       "ok": "Thank you – the message is here. We will be in touch.",
-      "error": "That did not work. Please write directly to bastian.eichenberger@feuerwehr-oberwil.ch."
+      "error": "That did not work. Please write directly to bastian.eichenberger@feuerwehr-oberwil.ch.",
+      "privacy": "Delivered by e-mail via the form service staticforms.dev.",
+      "privacyLink": "Privacy"
     }
   },
   "lightbox": {
@@ -397,6 +406,12 @@
     "origin": "Born out of the operational work of <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a> – because on incidents we kept seeing the same sources of error: double bookings, scattered information and transcription mistakes made by hand. Every fire brigade runs its own KP Rück, with its own crew, its own vehicles and its own data.",
     "demo": "Demo",
     "contact": "Contact",
-    "org": "Feuerwehr Oberwil on GitHub"
+    "org": "Feuerwehr Oberwil on GitHub",
+    "release": {
+      "label": "Current version",
+      "notes": "Release notes",
+      "dateFormat": "DD/MM/YYYY"
+    },
+    "security": "Security"
   }
 }

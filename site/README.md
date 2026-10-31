@@ -22,9 +22,17 @@ site/
 ## Bauen
 
 ```bash
-node site/build.mjs          # schreibt index.html, fr/index.html und dist/
-node site/build.mjs --check  # schreibt nichts, meldet nur Abweichungen (das macht die CI)
+node site/build.mjs            # fragt GitHub nach dem neusten Release, schreibt index.html, die Sprachseiten und dist/
+node site/build.mjs --offline  # dasselbe aus content/release.json, ohne GitHub zu fragen
+node site/build.mjs --check    # schreibt nichts, meldet nur Abweichungen (das macht die CI – offline)
 ```
+
+**Nach einem Release neu bauen und committen.** Die Footer-Zeile («Aktuelle Version v… · Datum ·
+Release Notes») und `softwareVersion`, `dateModified` und `releaseNotes` der App kommen aus dem
+neusten GitHub-Release, gespeichert in `content/release.json`. Ist GitHub nicht erreichbar, bleibt
+der gespeicherte Stand; ohne einen fallen Zeile und Eigenschaften ganz weg – nie leer.
+`WebPage.dateModified` ist pro Sprachseite der Tag ihrer letzten Änderung: ein Bauen, das nichts
+ändert, behält ihn.
 
 ⚠️ **`index.html` und `fr/index.html` sind Ergebnisse, keine Quellen.** Wer dort hineinschreibt,
 verliert es beim nächsten Bauen. Trotzdem sind beide eingecheckt: GitHub Pages liefert `site/`

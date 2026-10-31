@@ -79,6 +79,10 @@
 <meta property="og:image:width" content="1500">
 <meta property="og:image:height" content="937">
 <meta property="og:locale" content="rm_CH">
+<meta property="og:locale:alternate" content="de_CH">
+<meta property="og:locale:alternate" content="fr_CH">
+<meta property="og:locale:alternate" content="it_CH">
+<meta property="og:locale:alternate" content="en_GB">
 <meta name="twitter:card" content="summary_large_image">
 <script type="application/ld+json">
 {
@@ -106,6 +110,9 @@
         "de",
         "fr"
       ],
+      "softwareVersion": "0.9.0",
+      "dateModified": "2026-10-30",
+      "releaseNotes": "https://github.com/feuerwehr-oberwil/kp-rueck/releases/tag/v0.9.0",
       "license": "https://www.gnu.org/licenses/agpl-3.0.html",
       "sameAs": "https://github.com/feuerwehr-oberwil/kp-rueck",
       "subjectOf": {
@@ -121,8 +128,43 @@
         "price": "0",
         "priceCurrency": "CHF"
       },
+      "audience": [
+        {
+          "@type": "Audience",
+          "audienceType": "Corps da pumpiers"
+        },
+        {
+          "@type": "Audience",
+          "audienceType": "Organisaziuns da protecziun civila"
+        },
+        {
+          "@type": "Audience",
+          "audienceType": "Stabs directivs"
+        },
+        {
+          "@type": "Audience",
+          "audienceType": "Ulteriuras organisaziuns d’intervenziun"
+        }
+      ],
+      "potentialAction": {
+        "@type": "ViewAction",
+        "name": "Avrir la demo da KP Rück",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://demo.kp-rueck.ch/login"
+        }
+      },
+      "author": {
+        "@id": "https://www.bastianeichenberger.ch/#person"
+      },
+      "creator": {
+        "@id": "https://www.bastianeichenberger.ch/#person"
+      },
+      "copyrightHolder": {
+        "@id": "https://www.bastianeichenberger.ch/#person"
+      },
       "publisher": {
-        "@id": "https://kp-rueck.ch/#org"
+        "@id": "https://www.feuerwehr-oberwil.ch/#organization"
       }
     },
     {
@@ -130,7 +172,13 @@
       "@id": "https://kp-rueck.ch/#source",
       "name": "KP Rück source code",
       "codeRepository": "https://github.com/feuerwehr-oberwil/kp-rueck",
-      "license": "https://www.gnu.org/licenses/agpl-3.0.html"
+      "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+      "author": {
+        "@id": "https://www.bastianeichenberger.ch/#person"
+      },
+      "publisher": {
+        "@id": "https://www.feuerwehr-oberwil.ch/#organization"
+      }
     },
     {
       "@type": "CreativeWorkSeries",
@@ -143,16 +191,35 @@
         {
           "@id": "https://kp-rueck.ch/#app"
         }
+      ],
+      "publisher": {
+        "@id": "https://www.feuerwehr-oberwil.ch/#organization"
+      }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://www.bastianeichenberger.ch/#person",
+      "name": "Bastian Eichenberger",
+      "url": "https://www.bastianeichenberger.ch",
+      "sameAs": [
+        "https://github.com/BBQuercus"
       ]
     },
     {
-      "@type": "Organization",
-      "@id": "https://kp-rueck.ch/#org",
-      "name": "Feuerwehr Oberwil BL",
-      "url": "https://www.feuerwehr-oberwil.ch",
-      "sameAs": [
-        "https://github.com/feuerwehr-oberwil"
-      ]
+      "@type": "WebSite",
+      "@id": "https://kp-rueck.ch/#website",
+      "url": "https://kp-rueck.ch/",
+      "name": "KP Rück",
+      "inLanguage": [
+        "de-CH",
+        "fr-CH",
+        "it-CH",
+        "rm-CH",
+        "en"
+      ],
+      "publisher": {
+        "@id": "https://www.feuerwehr-oberwil.ch/#organization"
+      }
     },
     {
       "@type": "WebPage",
@@ -161,6 +228,10 @@
       "name": "KP Rück – Tavla d’acziun per il post da commando",
       "description": "KP Rück è la tavla magnetica digitala dal post da commando posteriur: acziuns, persunal, vehichels e material – en temp real sin mintga apparat, open source.",
       "inLanguage": "rm-CH",
+      "dateModified": "2026-10-31",
+      "isPartOf": {
+        "@id": "https://kp-rueck.ch/#website"
+      },
       "mainEntity": {
         "@id": "https://kp-rueck.ch/#app"
       }
@@ -857,6 +928,7 @@
             </div>
             <button class="btn btn-primary f-send" type="submit">Trametter il messadi</button>
             <p class="f-note" role="status" hidden></p>
+            <p class="contact-note">Vegn tramess per e-mail via il servetsch da formulars staticforms.dev. <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/PRIVACY.md#the-project-website" target="_blank" rel="noopener">Protecziun da datas</a></p>
           </div>
         </form>
       </div>
@@ -872,11 +944,13 @@
       Mintga corps da pumpiers maina ses agen KP Rück cun agen persunal, agens vehichels ed atgnas datas.</p>
     <div class="foot-row">
       <span>© 2026 <a href="https://bastianeichenberger.ch" target="_blank" rel="noopener">Bastian Eichenberger</a> · AGPL-3.0</span>
+      <span>Versiun actuala v0.9.0 · <time datetime="2026-10-30">30.10.2026</time> · <a href="https://github.com/feuerwehr-oberwil/kp-rueck/releases/tag/v0.9.0" target="_blank" rel="noopener">Notizias da la versiun</a></span>
       <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/feuerwehr-oberwil" target="_blank" rel="noopener">Feuerwehr Oberwil sin GitHub</a>
       <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">Demo</a>
       <a href="https://kp-front.ch">KP Front</a>
       <a href="#kontakt">Contact</a>
+      <a href="https://github.com/feuerwehr-oberwil/kp-rueck/security/policy" target="_blank" rel="noopener">Segirezza</a>
     </div>
   </div>
 </footer>
