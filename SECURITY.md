@@ -11,7 +11,7 @@ disclosure.
 Report privately via one of:
 
 - A **GitHub private security advisory** ([Security → Report a
-  vulnerability](https://github.com/feuerwehr-oberwil/kp-rueck/security/advisories)).
+  vulnerability](https://github.com/feuerwehr-oberwil/kp-rueck/security/advisories/new)).
 - **Email:** bastian.eichenberger@feuerwehr-oberwil.ch – reaches the maintainer directly,
   and stays reachable if someone else takes the project on. Also for reporters without a
   GitHub account.
