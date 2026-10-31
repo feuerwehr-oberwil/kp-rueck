@@ -62,6 +62,14 @@
       "Centres de renfort",
       "Sapeurs-pompiers professionnels"
     ],
+    "adapt": {
+      "label": "Adaptable",
+      "items": [
+        "Organisations de protection civile",
+        "États-majors de conduite",
+        "Autres organisations d’intervention"
+      ]
+    },
     "whatLabel": "Pour quoi",
     "what": [
       "Interventions courantes",
@@ -335,6 +343,10 @@
         "a": "Non. KP Rück est né de la pratique d’un corps de sapeurs-pompiers de milice suisse, mais il convient tout autant aux sapeurs-pompiers professionnels, aux sapeurs-pompiers d’entreprise et à d’autres organisations de secours. Partout où il faut coordonner en arrière-plan des ressources, des véhicules, du matériel et du personnel lors d’événements majeurs ou d’interventions simultanées dues aux intempéries, KP Rück montre ses atouts."
       },
       {
+        "q": "KP Rück peut-il être utilisé en dehors des sapeurs-pompiers ?",
+        "a": "Oui. KP Rück a été développé pour la conduite arrière des sapeurs-pompiers. En tant qu’application open source, la solution peut également être adaptée à des tâches comparables de conduite et de coordination de la protection civile, des états-majors de conduite et d’autres organisations d’intervention."
+      },
+      {
         "q": "Où se trouvent les données et quelles interfaces existe-t-il ?",
         "a": "Comme KP Front, KP Rück est entièrement exploité par l’organisation elle-même – sur une machine à la caserne ou dans son propre cloud. Interventions, personnel, véhicules et matériel se trouvent dans sa propre base de données ; il n’y a ni contrôle de licence ni statistiques d’utilisation. Les services externes comme les cartes en ligne ou la recherche d’adresses ne reçoivent que ce dont la fonction utilisée a besoin et peuvent être désactivés. On peut raccorder des systèmes d’alarme (tout système de dispatching via l’interface ouverte, Divera et FireHub directement – avec Divera, aussi l’alarme de l’effectif), une imprimante thermique sur le réseau local et les positions GPS des véhicules. Tous les raccordements sont facultatifs."
       },
@@ -347,6 +359,14 @@
         "a": "Un petit mini-PC ou serveur à la caserne suffit. L’installation, les mises à jour et\n          les sauvegardes nécessitent une personne à l’aise avec Docker et la ligne de commande,\n          que ce soit au sein du corps, de la commune ou auprès d’un prestataire informatique. Le\n          guide et l’espace d’administration accompagnent la mise en place. Nous répondons\n          volontiers aux questions générales ; les données et l’exploitation restent sous la\n          responsabilité de chaque corps."
       },
       {
+        "q": "Une assistance est-elle proposée pour l’installation et l’exploitation ?",
+        "a": "Oui. Les questions générales concernant l’installation et l’utilisation peuvent recevoir une réponse gratuitement. KP Rück peut être exploité sur une infrastructure propre ou auprès d’un fournisseur d’hébergement ou de cloud choisi par l’organisation. Une assistance pour l’installation, la configuration, les mises à jour ou l’exploitation est également possible sur accord individuel. Une assistance plus étendue peut être facturée."
+      },
+      {
+        "q": "Que se passe-t-il en cas de panne de courant, de réseau ou d’un appareil ?",
+        "a": "KP Rück sauvegarde l’état actuel dans l’application et peut le restaurer après une panne. L’application peut être exploitée sur plusieurs appareils ainsi que sur une instance locale supplémentaire. L’état du tableau peut en outre être imprimé régulièrement et utilisé comme solution de repli. Les sauvegardes externes de l’installation et de l’infrastructure relèvent de la responsabilité de l’organisation exploitante."
+      },
+      {
         "q": "KP Rück a-t-il absolument besoin de KP Front ?",
         "a": "Non. KP Rück fonctionne de manière entièrement autonome – avec sa propre base de données, sa propre connexion et ses propres mises à jour. Il donne toute sa mesure en combinaison avec <a href=\"https://kp-front.ch/\">KP Front</a>, l’application pour le front sur le lieu d’intervention : les deux reçoivent les mêmes alarmes du système de dispatching, lisent la même liste du personnel et classent les alarmes selon la même liste de mots-clés, si souhaité avec le même accès Divera. Le front et l’arrière travaillent ainsi avec les mêmes données de départ, sans devoir entretenir deux fois le raccordement d’alarme et l’effectif."
       },
@@ -357,6 +377,10 @@
       {
         "q": "Peut-on l’adapter à nos procédures ?",
         "a": "Oui. Chaque corps a son propre espace d’administration : types d’intervention,\n          priorités, effectif, parc de véhicules et listes de matériel y sont librement réglables,\n          l’import et l’export passent par Excel. Et comme tout le code est sur\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          tout le reste peut être construit – par vous-mêmes ou sur mandat."
+      },
+      {
+        "q": "Dans quelles langues KP Rück est-il disponible ?",
+        "a": "L’interface utilisateur de KP Rück est actuellement disponible en allemand et en français. En tant qu’application open source, KP Rück peut être étendu à d’autres langues. Cela nécessite une traduction complète et vérifiée par des spécialistes des termes utilisés."
       },
       {
         "q": "Comment commencer ?",

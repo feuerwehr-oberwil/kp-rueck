@@ -65,6 +65,14 @@
       "Stützpunktfeuerwehren",
       "Berufsfeuerwehren"
     ],
+    "adapt": {
+      "label": "Anpassbar",
+      "items": [
+        "Zivilschutzorganisationen",
+        "Führungsstäbe",
+        "Weitere Blaulichtorganisationen"
+      ]
+    },
     "whatLabel": "Wofür",
     "what": [
       "Alltagseinsätze",
@@ -364,6 +372,10 @@
         "a": "Nein. KP Rück wurde zwar aus der Praxis einer Schweizer Milizfeuerwehr entwickelt, eignet sich aber ebenso für Berufsfeuerwehren, Betriebswehren und andere Rettungsorganisationen. Überall dort, wo im Hintergrund Ressourcen, Fahrzeuge, Material und Personal bei Grosslagen oder Unwetter-Paralleleinsätzen koordiniert werden müssen, spielt KP Rück seine Stärken aus."
       },
       {
+        "q": "Kann KP Rück auch ausserhalb der Feuerwehr eingesetzt werden?",
+        "a": "Ja. KP Rück wurde für die rückwärtige Führung bei Feuerwehren entwickelt. Als Open-Source-Anwendung kann die Lösung auch an vergleichbare Führungs- und Koordinationsaufgaben von Zivilschutzorganisationen, Führungsstäben und weiteren Blaulichtorganisationen angepasst werden."
+      },
+      {
         "q": "Wo liegen die Daten und welche Schnittstellen gibt es?",
         "a": "KP Rück wird wie KP Front vollständig selbst betrieben – auf einem Rechner im Magazin oder in der eigenen Cloud. Einsätze, Personal, Fahrzeuge und Material liegen in der eigenen Datenbank der Organisation; es gibt weder Lizenzprüfung noch Nutzungsstatistik. Externe Dienste wie Online-Karten oder die Adresssuche erhalten nur, was die jeweilige Funktion braucht, und lassen sich abschalten. Anbinden lassen sich Alarmierungssysteme (jedes Dispositionssystem über die offene Schnittstelle, Divera und FireHub direkt – bei Divera auch die Ausalarmierung), ein Thermodrucker im lokalen Netz und GPS-Positionen der Fahrzeuge. Alle Anbindungen sind optional."
       },
@@ -376,6 +388,14 @@
         "a": "Ein kleiner Mini-PC oder Server im Magazin reicht. Für Einrichtung, Updates und\n          Backups braucht es jemanden mit Docker- und Kommandozeilen-Erfahrung, sei es in der\n          Feuerwehr, in der Gemeinde oder bei einer unterstützenden IT. Die Anleitung und der\n          Verwaltungsbereich führen durch den Aufbau. Allgemeine Fragen beantworten wir gerne;\n          Daten und Betrieb bleiben in der Verantwortung der jeweiligen Feuerwehr."
       },
       {
+        "q": "Gibt es Unterstützung bei Installation und Betrieb?",
+        "a": "Ja. Allgemeine Fragen zur Installation und Nutzung werden unentgeltlich beantwortet. KP Rück kann auf eigener Infrastruktur oder bei einem selbst gewählten Hosting- oder Cloud-Anbieter betrieben werden. Nach individueller Absprache ist auch Unterstützung bei Installation, Einrichtung, Updates oder Betrieb möglich. Weitergehende Unterstützung kann kostenpflichtig sein."
+      },
+      {
+        "q": "Was passiert bei einem Strom-, Netzwerk- oder Geräteausfall?",
+        "a": "KP Rück sichert den aktuellen Stand innerhalb der Anwendung und kann diesen nach einem Ausfall wiederherstellen. Die Anwendung kann auf mehreren Geräten und zusätzlich auf einer lokalen Instanz betrieben werden. Ergänzend kann der Boardstand regelmässig ausgedruckt und als Rückfallebene verwendet werden. Externe Backups der jeweiligen Installation und Infrastruktur liegen in der Verantwortung der betreibenden Organisation."
+      },
+      {
         "q": "Benötigt KP Rück zwingend KP Front?",
         "a": "Nein. KP Rück läuft vollständig eigenständig – mit eigener Datenbank, eigenem Login und eigenen Updates. Sein volles Potenzial entfaltet es im Zusammenspiel mit <a href=\"https://kp-front.ch/\">KP Front</a>, der Anwendung für die Front am Einsatzort: Beide nehmen dieselben Alarme aus dem Dispositionssystem entgegen, lesen dieselbe Mannschaftsliste und stufen Alarme nach derselben Stichwortliste ein, auf Wunsch mit demselben Divera-Zugang. So arbeiten Front und Rück mit denselben Ausgangsdaten, ohne dass Alarmanbindung und Mannschaft doppelt gepflegt werden müssen."
       },
@@ -386,6 +406,10 @@
       {
         "q": "Können wir es an unsere Abläufe anpassen?",
         "a": "Ja. Jede Feuerwehr hat ihren eigenen Verwaltungsbereich: Einsatzarten, Prioritäten,\n          Mannschaft, Fuhrpark und Materiallisten sind dort frei einstellbar, Import und Export\n          laufen über Excel. Und weil der ganze Code auf\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>\n          steht, lässt sich alles Übrige bauen – selbst oder in Auftrag."
+      },
+      {
+        "q": "In welchen Sprachen ist KP Rück verfügbar?",
+        "a": "Die Benutzeroberfläche von KP Rück ist aktuell auf Deutsch und Französisch verfügbar. Als Open-Source-Anwendung kann KP Rück um weitere Sprachen erweitert werden. Dafür ist eine vollständige und fachlich geprüfte Übersetzung der verwendeten Begriffe erforderlich."
       },
       {
         "q": "Wie fangen wir an?",

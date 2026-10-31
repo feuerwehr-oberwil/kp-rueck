@@ -62,11 +62,10 @@ Bewusst entschieden und nicht aus Versehen so:
   Browsereinstellung nach `/fr/` schickt, ist schlimmer als ein Umschalter, den er sieht.
 - **Die Screenshots bleiben deutsch, auf jeder Sprachfassung.** Sie kommen aus einer echten
   Instanz; nachgestellte Bilder wären eine Behauptung.
-- **Über die Sprache der App steht auf der Seite nichts.** Deutsch wird nur dort erwähnt, wo
-  es der Besucher sofort merkt: die **Demo** läuft auf Deutsch, und die Screenshots kommen
-  aus ihr. Das ist eine Tatsache über die Demo, keine Aussage über das Produkt – und sie
-  stimmt auch dann noch, wenn `frontend/messages/fr.json` gefüllt ist. Genau deshalb steht
-  sie so da: sie muss nach Plan 06 nicht nachgezogen werden.
+- **Die Sprachen der App stehen an genau zwei Stellen, getrennt von denen der Website:** in
+  der FAQ «In welchen Sprachen ist KP Rück verfügbar?» und in `product.inLanguage`
+  (`config.json`, → `SoftwareApplication.inLanguage`). Wer der App eine Sprache gibt, zieht
+  beide nach, in allen fünf Texten. Die Website-Sprachen stehen auf `WebSite`/`WebPage`.
 - **Eine Übersetzung, die keine französischsprachige Feuerwehr-Person gelesen hat, sagt das
   oben auf der Seite** (`notice` in `fr.json`). Diese Zeile verschwindet, wenn jemand
   gegengelesen hat – sie ist kein Dekor. Es ist dieselbe Freigabe-Person, die Plan 06 braucht.

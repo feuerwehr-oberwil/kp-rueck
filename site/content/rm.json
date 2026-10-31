@@ -62,6 +62,14 @@
       "Corps da pumpiers da basa",
       "Corps da pumpiers professiunals"
     ],
+    "adapt": {
+      "label": "Adattabel",
+      "items": [
+        "Organisaziuns da protecziun civila",
+        "Stabs directivs",
+        "Ulteriuras organisaziuns d’intervenziun"
+      ]
+    },
     "whatLabel": "Per tge",
     "what": [
       "Acziuns quotidianas",
@@ -335,6 +343,10 @@
         "a": "Na. KP Rück è vegnì sviluppà ord la pratica d’in corps da pumpiers da milissa svizzer, ma el è medemamain adattà per corps da pumpiers professiunals, pumpiers d’interpresa ed autras organisaziuns da salvament. Dapertut là nua che resursas, vehichels, material e persunal ston vegnir coordinads en il fund tar gronds eveniments u tar acziuns parallelas pervia d’auras, mussa KP Rück sias fermezzas."
       },
       {
+        "q": "Po KP Rück era vegnir utilisà ordaifer ils pumpiers?",
+        "a": "Gea. KP Rück è vegnì sviluppà per la direcziun davosvart tar ils pumpiers. Sco applicaziun open source po la soluziun era vegnir adattada a pensums cumparegliabels da direcziun e coordinaziun da la protecziun civila, da stabs directivs e d’ulteriuras organisaziuns d’intervenziun."
+      },
+      {
         "q": "Nua sa chattan las datas e tge interfatschas datti?",
         "a": "Sco KP Front vegn KP Rück manà dal tuttafatg da l’organisaziun sezza – sin in computer en il magazin u en l’atgna cloud. Acziuns, persunal, vehichels e material sa chattan en l’atgna banca da datas; i na dat ni controlla da licenza ni statisticas d’utilisaziun. Servetschs externs sco chartas online u la tschertga d’adressas survegnan mo quai che la funcziun utilisada dovra, e pon vegnir deactivads. Colliar sa laschan sistems d’alarmaziun (mintga sistem da disposiziun via l’interfatscha averta, Divera e FireHub directamain – cun Divera er l’alarmaziun dal persunal), in stampader termic en la rait locala e las posiziuns GPS dals vehichels. Tut las colliaziuns èn opziunalas."
       },
@@ -347,6 +359,14 @@
         "a": "In pitschen mini-PC u server en il magazin basta. Per l’installaziun, actualisaziuns e\n          backups dovri ina persuna cun experientscha da Docker e da la lingia da commandos, saja quai\n          en il corps da pumpiers, en la vischnanca u tar ina IT che sustegna. L’instrucziun ed il\n          sectur d’administraziun mainan tras l’installaziun. Nus respundain gugent a dumondas generalas;\n          las datas ed il manaschi restan en la responsabladad dal corps da pumpiers respectiv."
       },
       {
+        "q": "Datti sustegn per l’installaziun ed il manaschi?",
+        "a": "Gea. Dumondas generalas davart l’installaziun e l’utilisaziun pon vegnir respundidas gratuitamain. KP Rück po vegnir manà sin in’atgna infrastructura u tar in furnitur da hosting u cloud tschernì da l’organisaziun. Tenor cunvegnientscha individuala èsi era pussaivel da survegnir sustegn per l’installaziun, la configuraziun, actualisaziuns u il manaschi. In sustegn pli extendì po esser cunter pajament."
+      },
+      {
+        "q": "Tge capita en cas d’ina interrupziun dal current, da la rait u d’in apparat?",
+        "a": "KP Rück segiruescha il stadi actual entaifer l’applicaziun e po restaurar quel suenter in’interrupziun. L’applicaziun po vegnir manada sin plirs apparats ed ultra da quai sin in’ulteriura instanza locala. Il stadi da la tavla po vegnir stampà regularmain e duvrà sco soluziun da reserva. Backups externs da l’installaziun e da l’infrastructura èn en la responsabladad da l’organisaziun che maina il sistem."
+      },
+      {
         "q": "Dovra KP Rück absolutamain KP Front?",
         "a": "Na. KP Rück funcziuna dal tuttafatg independentamain – cun atgna banca da datas, atgna annunzia ed atgnas actualisaziuns. Ses entir potenzial sviluppa el en cumbinaziun cun <a href=\"https://kp-front.ch/\">KP Front</a>, l’applicaziun per il front al lieu d’acziun: omaduas retschavan ils medems alarms dal sistem da disposiziun, legian la medema glista dal persunal e classifitgeschan ils alarms tenor la medema glista da chavazzins, sche giavischà cun il medem access a Divera. Uschia lavuran omaduas applicaziuns cun las medemas datas da basa, senza che la colliaziun d’alarm ed il persunal ston vegnir tgirads duas giadas."
       },
@@ -357,6 +377,10 @@
       {
         "q": "Po l’applicaziun vegnir adattada?",
         "a": "Gea. Mintga corps da pumpiers ha ses agen sectur d’administraziun: tips d’acziun, prioritads,\n          persunal, parc da vehichels e glistas da material pon vegnir configurads libramain; import ed\n          export vegnan fatgs cun Excel. Perquai che l’entir code è publitgà sin\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          pon tut las ulteriuras adattaziuns vegnir sviluppadas sez u incumbensadas."
+      },
+      {
+        "q": "En tge linguas è KP Rück disponibel?",
+        "a": "L’interfatscha d’utilisader da KP Rück è actualmain disponibla per tudestg e franzos. Sco applicaziun open source po KP Rück vegnir amplifitgà cun ulteriuras linguas. Per quai dovri ina translaziun cumpletta e controllada professiunalmain dals terms utilisads."
       },
       {
         "q": "Co cumenzar?",

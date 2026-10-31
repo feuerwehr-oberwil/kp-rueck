@@ -173,6 +173,18 @@
             {{/fit.who}}
           </ul>
         </div>
+        <!--@template Built for fire services; this row names who can adapt it, below the
+             fire services and never mixed into their list. -->
+        {{#fit.adapt}}
+        <div class="fit-row">
+          <p class="fit-k">{{label}}</p>
+          <ul class="fit-v">
+            {{#items}}
+            <li>{{.}}</li>
+            {{/items}}
+          </ul>
+        </div>
+        {{/fit.adapt}}
         <div class="fit-row">
           <p class="fit-k">{{fit.whatLabel}}</p>
           <ul class="fit-v">
