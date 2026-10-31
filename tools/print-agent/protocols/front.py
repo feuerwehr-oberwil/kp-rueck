@@ -77,7 +77,12 @@ class FrontProtocol:
 
         job = json.loads(data)
         job_id = job["id"]
-        status, pdf = self._request(f"/api/print-agent/jobs/{job_id}/file", timeout=120.0)
+        try:
+            status, pdf = self._request(f"/api/print-agent/jobs/{job_id}/file", timeout=120.0)
+        except OSError as exc:  # timeout, reset, refused – urllib's errors are OSErrors too
+            # Claimed but the download broke off: report it like a refusal, or it stays claimed.
+            self.report(job_id, False, f"PDF download: {exc}")
+            return []
         if status != 200:
             # Claimed but undownloadable: report it, or the job stays claimed forever.
             self.report(job_id, False, f"PDF download: HTTP {status}")

@@ -843,6 +843,37 @@ def test_a_stopped_cups_queue_is_a_fail_over_not_a_thirty_minute_wait(fake_cups,
     assert "gestoppt" in skipped[0]
 
 
+def test_an_unreadable_cups_queue_counts_as_pending(monkeypatch):
+    """lpstat failing or hanging says nothing about the job – wait for the deadline instead."""
+    from outputs.cups import CupsOutput
+
+    out = CupsOutput("HP")
+    monkeypatch.setattr("outputs.cups.subprocess.run",
+                        lambda *a, **k: subprocess.CompletedProcess(a[0], 1, "", "lpstat: error"))
+    assert out._pending("HP-1")
+
+    def hang(*a, **k):
+        raise subprocess.TimeoutExpired(a[0], 30)
+
+    monkeypatch.setattr("outputs.cups.subprocess.run", hang)
+    assert out._pending("HP-1")
+
+
+def test_an_lp_that_hangs_fails_the_job_without_a_fallback(monkeypatch):
+    """`lp` may have queued the PDF before it hung – a backup printer would print it twice."""
+    from outputs.cups import CupsOutput
+
+    out = CupsOutput("HP")
+    monkeypatch.setattr(CupsOutput, "unavailable", lambda self: None)
+
+    def hang(*a, **k):
+        raise subprocess.TimeoutExpired(a[0], 60)
+
+    monkeypatch.setattr("outputs.cups.subprocess.run", hang)
+    result = out.print_job(Job(id="j", backend="http://x", kind="report", document=PDF_BYTES))
+    assert not result.ok and not result.unreachable
+
+
 def test_no_configuration_at_all_explains_itself(monkeypatch):
     monkeypatch.delenv("KP_BASE_URL", raising=False)
     monkeypatch.delenv("BACKEND_URL", raising=False)

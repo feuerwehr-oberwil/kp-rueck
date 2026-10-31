@@ -276,6 +276,15 @@ def test_front_undownloadable_job_is_reported_failed_not_left_claimed(front):
     )
 
 
+def test_front_download_that_breaks_off_is_reported_failed(front):
+    proto, _, _ = front
+    proto._request = Mock(side_effect=[(200, b'{"id":"j3"}'), TimeoutError("timed out"), (200, b"")])
+    assert proto.poll() == []
+    assert proto._request.call_args_list[-1] == call(
+        "/api/print-agent/jobs/j3/status", json_body={"status": "failed", "error": "PDF download: timed out"}
+    )
+
+
 def test_front_only_an_immediate_204_waits_out_the_poll_gap(front):
     proto, now, sleeps = front
     proto._request = Mock(return_value=(204, b""))

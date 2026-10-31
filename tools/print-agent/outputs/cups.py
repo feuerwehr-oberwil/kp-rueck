@@ -143,11 +143,19 @@ class CupsOutput:
         return self.unreachable_device()
 
     def _pending(self, request_id: str) -> bool:
-        out = subprocess.run(
-            ["lpstat", "-W", "not-completed", "-o", self.printer],
-            capture_output=True, text=True, timeout=30,
-        ).stdout
-        return any(line.split()[:1] == [request_id] for line in out.splitlines() if line.strip())
+        # An unreadable queue (lpstat hangs, fails or is gone) says nothing about the job, so it
+        # counts as still pending: the caller's deadline bounds the wait, and the job then ends
+        # as «still queued», never as printed or as lost.
+        try:
+            run = subprocess.run(
+                ["lpstat", "-W", "not-completed", "-o", self.printer],
+                capture_output=True, text=True, timeout=30,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return True
+        if run.returncode != 0:
+            return True
+        return any(line.split()[:1] == [request_id] for line in run.stdout.splitlines() if line.strip())
 
     def print_job(self, job: Job) -> PrintResult:
         if job.document is None:
@@ -163,7 +171,12 @@ class CupsOutput:
         try:
             opts = BASE_LP_OPTS + ([] if job.color else MONO_LP_OPTS) + self.lp_options
             cmd = ["lp", "-d", self.printer, "-t", job.filename or job.id, *opts, tmp]
-            run = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            try:
+                run = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            except (OSError, subprocess.SubprocessError) as exc:
+                # NOT unreachable: `lp` may have queued the PDF before it hung, so a backup
+                # destination could print it a second time. Failed, and reported as such.
+                return PrintResult(False, f"lp did not finish: {exc}")
             if run.returncode != 0:
                 # `lp` refused to even queue it. Nothing was handed over, so another
                 # destination may still take this job.
