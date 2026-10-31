@@ -30,6 +30,9 @@
 <meta property="og:image:width" content="1500">
 <meta property="og:image:height" content="937">
 <meta property="og:locale" content="{{ogLocale}}">
+{{#ogAlternates}}
+<meta property="og:locale:alternate" content="{{.}}">
+{{/ogAlternates}}
 <meta name="twitter:card" content="summary_large_image">
 <!--@template
   The structured data is assembled in build.mjs, not written out here – JSON.stringify
@@ -170,6 +173,18 @@
             {{/fit.who}}
           </ul>
         </div>
+        <!--@template Built for fire services; this row names who can adapt it, below the
+             fire services and never mixed into their list. -->
+        {{#fit.adapt}}
+        <div class="fit-row">
+          <p class="fit-k">{{label}}</p>
+          <ul class="fit-v">
+            {{#items}}
+            <li>{{.}}</li>
+            {{/items}}
+          </ul>
+        </div>
+        {{/fit.adapt}}
         <div class="fit-row">
           <p class="fit-k">{{fit.whatLabel}}</p>
           <ul class="fit-v">
@@ -392,6 +407,7 @@
             </div>
             <button class="btn btn-primary f-send" type="submit">{{contact.form.send}}</button>
             <p class="f-note" role="status" hidden></p>
+            <p class="contact-note">{{contact.form.privacy}} <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/PRIVACY.md#the-project-website" target="_blank" rel="noopener">{{contact.form.privacyLink}}</a></p>
           </div>
         </form>
       </div>
@@ -404,11 +420,15 @@
     <p class="foot-origin">{{footer.origin}}</p>
     <div class="foot-row">
       <span>© 2026 <a href="https://bastianeichenberger.ch" target="_blank" rel="noopener">Bastian Eichenberger</a> · AGPL-3.0</span>
+      {{#latestRelease}}
+      <span>{{footer.release.label}} {{version}} · <time datetime="{{iso}}">{{date}}</time> · <a href="{{url}}" target="_blank" rel="noopener">{{footer.release.notes}}</a></span>
+      {{/latestRelease}}
       <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/feuerwehr-oberwil" target="_blank" rel="noopener">{{footer.org}}</a>
       <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">{{footer.demo}}</a>
       <a href="https://kp-front.ch">KP Front</a>
       <a href="#kontakt">{{footer.contact}}</a>
+      <a href="https://github.com/feuerwehr-oberwil/kp-rueck/security/policy" target="_blank" rel="noopener">{{footer.security}}</a>
     </div>
   </div>
 </footer>

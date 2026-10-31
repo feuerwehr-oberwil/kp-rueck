@@ -79,6 +79,10 @@
 <meta property="og:image:width" content="1500">
 <meta property="og:image:height" content="937">
 <meta property="og:locale" content="de_CH">
+<meta property="og:locale:alternate" content="fr_CH">
+<meta property="og:locale:alternate" content="it_CH">
+<meta property="og:locale:alternate" content="rm_CH">
+<meta property="og:locale:alternate" content="en_GB">
 <meta name="twitter:card" content="summary_large_image">
 <script type="application/ld+json">
 {
@@ -106,6 +110,9 @@
         "de",
         "fr"
       ],
+      "softwareVersion": "0.9.0",
+      "dateModified": "2026-10-30",
+      "releaseNotes": "https://github.com/feuerwehr-oberwil/kp-rueck/releases/tag/v0.9.0",
       "license": "https://www.gnu.org/licenses/agpl-3.0.html",
       "sameAs": "https://github.com/feuerwehr-oberwil/kp-rueck",
       "subjectOf": {
@@ -121,8 +128,43 @@
         "price": "0",
         "priceCurrency": "CHF"
       },
+      "audience": [
+        {
+          "@type": "Audience",
+          "audienceType": "Feuerwehren"
+        },
+        {
+          "@type": "Audience",
+          "audienceType": "Zivilschutzorganisationen"
+        },
+        {
+          "@type": "Audience",
+          "audienceType": "Führungsstäbe"
+        },
+        {
+          "@type": "Audience",
+          "audienceType": "Weitere Blaulichtorganisationen"
+        }
+      ],
+      "potentialAction": {
+        "@type": "ViewAction",
+        "name": "KP Rück Demo öffnen",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://demo.kp-rueck.ch/login"
+        }
+      },
+      "author": {
+        "@id": "https://www.bastianeichenberger.ch/#person"
+      },
+      "creator": {
+        "@id": "https://www.bastianeichenberger.ch/#person"
+      },
+      "copyrightHolder": {
+        "@id": "https://www.bastianeichenberger.ch/#person"
+      },
       "publisher": {
-        "@id": "https://kp-rueck.ch/#org"
+        "@id": "https://www.feuerwehr-oberwil.ch/#organization"
       }
     },
     {
@@ -130,7 +172,13 @@
       "@id": "https://kp-rueck.ch/#source",
       "name": "KP Rück source code",
       "codeRepository": "https://github.com/feuerwehr-oberwil/kp-rueck",
-      "license": "https://www.gnu.org/licenses/agpl-3.0.html"
+      "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+      "author": {
+        "@id": "https://www.bastianeichenberger.ch/#person"
+      },
+      "publisher": {
+        "@id": "https://www.feuerwehr-oberwil.ch/#organization"
+      }
     },
     {
       "@type": "CreativeWorkSeries",
@@ -143,16 +191,35 @@
         {
           "@id": "https://kp-rueck.ch/#app"
         }
+      ],
+      "publisher": {
+        "@id": "https://www.feuerwehr-oberwil.ch/#organization"
+      }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://www.bastianeichenberger.ch/#person",
+      "name": "Bastian Eichenberger",
+      "url": "https://www.bastianeichenberger.ch",
+      "sameAs": [
+        "https://github.com/BBQuercus"
       ]
     },
     {
-      "@type": "Organization",
-      "@id": "https://kp-rueck.ch/#org",
-      "name": "Feuerwehr Oberwil BL",
-      "url": "https://www.feuerwehr-oberwil.ch",
-      "sameAs": [
-        "https://github.com/feuerwehr-oberwil"
-      ]
+      "@type": "WebSite",
+      "@id": "https://kp-rueck.ch/#website",
+      "url": "https://kp-rueck.ch/",
+      "name": "KP Rück",
+      "inLanguage": [
+        "de-CH",
+        "fr-CH",
+        "it-CH",
+        "rm-CH",
+        "en"
+      ],
+      "publisher": {
+        "@id": "https://www.feuerwehr-oberwil.ch/#organization"
+      }
     },
     {
       "@type": "WebPage",
@@ -161,6 +228,10 @@
       "name": "KP Rück – Einsatzboard für den Kommandoposten",
       "description": "KP Rück ist die digitale Magnettafel im rückwärtigen Kommandoposten: Einsätze, Personal, Fahrzeuge und Material – live auf allen Geräten, quelloffen.",
       "inLanguage": "de-CH",
+      "dateModified": "2026-10-31",
+      "isPartOf": {
+        "@id": "https://kp-rueck.ch/#website"
+      },
       "mainEntity": {
         "@id": "https://kp-rueck.ch/#app"
       }
@@ -184,6 +255,14 @@
           "acceptedAnswer": {
             "@type": "Answer",
             "text": "Nein. KP Rück wurde zwar aus der Praxis einer Schweizer Milizfeuerwehr entwickelt, eignet sich aber ebenso für Berufsfeuerwehren, Betriebswehren und andere Rettungsorganisationen. Überall dort, wo im Hintergrund Ressourcen, Fahrzeuge, Material und Personal bei Grosslagen oder Unwetter-Paralleleinsätzen koordiniert werden müssen, spielt KP Rück seine Stärken aus."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Kann KP Rück auch ausserhalb der Feuerwehr eingesetzt werden?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Ja. KP Rück wurde für die rückwärtige Führung bei Feuerwehren entwickelt. Als Open-Source-Anwendung kann die Lösung auch an vergleichbare Führungs- und Koordinationsaufgaben von Zivilschutzorganisationen, Führungsstäben und weiteren Blaulichtorganisationen angepasst werden."
           }
         },
         {
@@ -212,6 +291,22 @@
         },
         {
           "@type": "Question",
+          "name": "Gibt es Unterstützung bei Installation und Betrieb?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Ja. Allgemeine Fragen zur Installation und Nutzung werden unentgeltlich beantwortet. KP Rück kann auf eigener Infrastruktur oder bei einem selbst gewählten Hosting- oder Cloud-Anbieter betrieben werden. Nach individueller Absprache ist auch Unterstützung bei Installation, Einrichtung, Updates oder Betrieb möglich. Weitergehende Unterstützung kann kostenpflichtig sein."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Was passiert bei einem Strom-, Netzwerk- oder Geräteausfall?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "KP Rück sichert den aktuellen Stand innerhalb der Anwendung und kann diesen nach einem Ausfall wiederherstellen. Die Anwendung kann auf mehreren Geräten und zusätzlich auf einer lokalen Instanz betrieben werden. Ergänzend kann der Boardstand regelmässig ausgedruckt und als Rückfallebene verwendet werden. Externe Backups der jeweiligen Installation und Infrastruktur liegen in der Verantwortung der betreibenden Organisation."
+          }
+        },
+        {
+          "@type": "Question",
           "name": "Benötigt KP Rück zwingend KP Front?",
           "acceptedAnswer": {
             "@type": "Answer",
@@ -232,6 +327,14 @@
           "acceptedAnswer": {
             "@type": "Answer",
             "text": "Ja. Jede Feuerwehr hat ihren eigenen Verwaltungsbereich: Einsatzarten, Prioritäten, Mannschaft, Fuhrpark und Materiallisten sind dort frei einstellbar, Import und Export laufen über Excel. Und weil der ganze Code auf GitHub steht, lässt sich alles Übrige bauen – selbst oder in Auftrag."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "In welchen Sprachen ist KP Rück verfügbar?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Die Benutzeroberfläche von KP Rück ist aktuell auf Deutsch und Französisch verfügbar. Als Open-Source-Anwendung kann KP Rück um weitere Sprachen erweitert werden. Dafür ist eine vollständige und fachlich geprüfte Übersetzung der verwendeten Begriffe erforderlich."
           }
         },
         {
@@ -361,6 +464,14 @@
             <li>Ortsfeuerwehren</li>
             <li>Stützpunktfeuerwehren</li>
             <li>Berufsfeuerwehren</li>
+          </ul>
+        </div>
+        <div class="fit-row">
+          <p class="fit-k">Anpassbar</p>
+          <ul class="fit-v">
+            <li>Zivilschutzorganisationen</li>
+            <li>Führungsstäbe</li>
+            <li>Weitere Blaulichtorganisationen</li>
           </ul>
         </div>
         <div class="fit-row">
@@ -762,6 +873,10 @@
         <p>Nein. KP Rück wurde zwar aus der Praxis einer Schweizer Milizfeuerwehr entwickelt, eignet sich aber ebenso für Berufsfeuerwehren, Betriebswehren und andere Rettungsorganisationen. Überall dort, wo im Hintergrund Ressourcen, Fahrzeuge, Material und Personal bei Grosslagen oder Unwetter-Paralleleinsätzen koordiniert werden müssen, spielt KP Rück seine Stärken aus.</p>
       </div>
       <div class="faq-item">
+        <h3>Kann KP Rück auch ausserhalb der Feuerwehr eingesetzt werden?</h3>
+        <p>Ja. KP Rück wurde für die rückwärtige Führung bei Feuerwehren entwickelt. Als Open-Source-Anwendung kann die Lösung auch an vergleichbare Führungs- und Koordinationsaufgaben von Zivilschutzorganisationen, Führungsstäben und weiteren Blaulichtorganisationen angepasst werden.</p>
+      </div>
+      <div class="faq-item">
         <h3>Wo liegen die Daten und welche Schnittstellen gibt es?</h3>
         <p>KP Rück wird wie KP Front vollständig selbst betrieben – auf einem Rechner im Magazin oder in der eigenen Cloud. Einsätze, Personal, Fahrzeuge und Material liegen in der eigenen Datenbank der Organisation; es gibt weder Lizenzprüfung noch Nutzungsstatistik. Externe Dienste wie Online-Karten oder die Adresssuche erhalten nur, was die jeweilige Funktion braucht, und lassen sich abschalten. Anbinden lassen sich Alarmierungssysteme (jedes Dispositionssystem über die offene Schnittstelle, Divera und FireHub direkt – bei Divera auch die Ausalarmierung), ein Thermodrucker im lokalen Netz und GPS-Positionen der Fahrzeuge. Alle Anbindungen sind optional.</p>
       </div>
@@ -780,6 +895,14 @@
           Daten und Betrieb bleiben in der Verantwortung der jeweiligen Feuerwehr.</p>
       </div>
       <div class="faq-item">
+        <h3>Gibt es Unterstützung bei Installation und Betrieb?</h3>
+        <p>Ja. Allgemeine Fragen zur Installation und Nutzung werden unentgeltlich beantwortet. KP Rück kann auf eigener Infrastruktur oder bei einem selbst gewählten Hosting- oder Cloud-Anbieter betrieben werden. Nach individueller Absprache ist auch Unterstützung bei Installation, Einrichtung, Updates oder Betrieb möglich. Weitergehende Unterstützung kann kostenpflichtig sein.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Was passiert bei einem Strom-, Netzwerk- oder Geräteausfall?</h3>
+        <p>KP Rück sichert den aktuellen Stand innerhalb der Anwendung und kann diesen nach einem Ausfall wiederherstellen. Die Anwendung kann auf mehreren Geräten und zusätzlich auf einer lokalen Instanz betrieben werden. Ergänzend kann der Boardstand regelmässig ausgedruckt und als Rückfallebene verwendet werden. Externe Backups der jeweiligen Installation und Infrastruktur liegen in der Verantwortung der betreibenden Organisation.</p>
+      </div>
+      <div class="faq-item">
         <h3>Benötigt KP Rück zwingend KP Front?</h3>
         <p>Nein. KP Rück läuft vollständig eigenständig – mit eigener Datenbank, eigenem Login und eigenen Updates. Sein volles Potenzial entfaltet es im Zusammenspiel mit <a href="https://kp-front.ch/">KP Front</a>, der Anwendung für die Front am Einsatzort: Beide nehmen dieselben Alarme aus dem Dispositionssystem entgegen, lesen dieselbe Mannschaftsliste und stufen Alarme nach derselben Stichwortliste ein, auf Wunsch mit demselben Divera-Zugang. So arbeiten Front und Rück mit denselben Ausgangsdaten, ohne dass Alarmanbindung und Mannschaft doppelt gepflegt werden müssen.</p>
       </div>
@@ -794,6 +917,10 @@
           laufen über Excel. Und weil der ganze Code auf
           <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub <svg class="ico" style="width:13px;height:13px;vertical-align:-2px"><use href="#i-gh"/></svg></a>
           steht, lässt sich alles Übrige bauen – selbst oder in Auftrag.</p>
+      </div>
+      <div class="faq-item">
+        <h3>In welchen Sprachen ist KP Rück verfügbar?</h3>
+        <p>Die Benutzeroberfläche von KP Rück ist aktuell auf Deutsch und Französisch verfügbar. Als Open-Source-Anwendung kann KP Rück um weitere Sprachen erweitert werden. Dafür ist eine vollständige und fachlich geprüfte Übersetzung der verwendeten Begriffe erforderlich.</p>
       </div>
       <div class="faq-item">
         <h3>Wie fangen wir an?</h3>
@@ -859,6 +986,7 @@
             </div>
             <button class="btn btn-primary f-send" type="submit">Nachricht senden</button>
             <p class="f-note" role="status" hidden></p>
+            <p class="contact-note">Wird über den Formulardienst staticforms.dev per E-Mail zugestellt. <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/PRIVACY.md#the-project-website" target="_blank" rel="noopener">Datenschutz</a></p>
           </div>
         </form>
       </div>
@@ -874,11 +1002,13 @@
       Jede Feuerwehr betreibt ihr eigenes KP Rück, mit eigener Mannschaft, eigenen Fahrzeugen und eigenen Daten.</p>
     <div class="foot-row">
       <span>© 2026 <a href="https://bastianeichenberger.ch" target="_blank" rel="noopener">Bastian Eichenberger</a> · AGPL-3.0</span>
+      <span>Aktuelle Version v0.9.0 · <time datetime="2026-10-30">30.10.2026</time> · <a href="https://github.com/feuerwehr-oberwil/kp-rueck/releases/tag/v0.9.0" target="_blank" rel="noopener">Release Notes</a></span>
       <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/feuerwehr-oberwil" target="_blank" rel="noopener">Feuerwehr Oberwil auf GitHub</a>
       <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">Demo</a>
       <a href="https://kp-front.ch">KP Front</a>
       <a href="#kontakt">Kontakt</a>
+      <a href="https://github.com/feuerwehr-oberwil/kp-rueck/security/policy" target="_blank" rel="noopener">Sicherheit</a>
     </div>
   </div>
 </footer>

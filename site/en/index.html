@@ -79,6 +79,10 @@
 <meta property="og:image:width" content="1500">
 <meta property="og:image:height" content="937">
 <meta property="og:locale" content="en_GB">
+<meta property="og:locale:alternate" content="de_CH">
+<meta property="og:locale:alternate" content="fr_CH">
+<meta property="og:locale:alternate" content="it_CH">
+<meta property="og:locale:alternate" content="rm_CH">
 <meta name="twitter:card" content="summary_large_image">
 <script type="application/ld+json">
 {
@@ -106,6 +110,9 @@
         "de",
         "fr"
       ],
+      "softwareVersion": "0.9.0",
+      "dateModified": "2026-10-30",
+      "releaseNotes": "https://github.com/feuerwehr-oberwil/kp-rueck/releases/tag/v0.9.0",
       "license": "https://www.gnu.org/licenses/agpl-3.0.html",
       "sameAs": "https://github.com/feuerwehr-oberwil/kp-rueck",
       "subjectOf": {
@@ -121,8 +128,43 @@
         "price": "0",
         "priceCurrency": "CHF"
       },
+      "audience": [
+        {
+          "@type": "Audience",
+          "audienceType": "Fire services"
+        },
+        {
+          "@type": "Audience",
+          "audienceType": "Civil protection organisations"
+        },
+        {
+          "@type": "Audience",
+          "audienceType": "Command staffs"
+        },
+        {
+          "@type": "Audience",
+          "audienceType": "Other emergency response organisations"
+        }
+      ],
+      "potentialAction": {
+        "@type": "ViewAction",
+        "name": "Open the KP Rück demo",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://demo.kp-rueck.ch/login"
+        }
+      },
+      "author": {
+        "@id": "https://www.bastianeichenberger.ch/#person"
+      },
+      "creator": {
+        "@id": "https://www.bastianeichenberger.ch/#person"
+      },
+      "copyrightHolder": {
+        "@id": "https://www.bastianeichenberger.ch/#person"
+      },
       "publisher": {
-        "@id": "https://kp-rueck.ch/#org"
+        "@id": "https://www.feuerwehr-oberwil.ch/#organization"
       }
     },
     {
@@ -130,7 +172,13 @@
       "@id": "https://kp-rueck.ch/#source",
       "name": "KP Rück source code",
       "codeRepository": "https://github.com/feuerwehr-oberwil/kp-rueck",
-      "license": "https://www.gnu.org/licenses/agpl-3.0.html"
+      "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+      "author": {
+        "@id": "https://www.bastianeichenberger.ch/#person"
+      },
+      "publisher": {
+        "@id": "https://www.feuerwehr-oberwil.ch/#organization"
+      }
     },
     {
       "@type": "CreativeWorkSeries",
@@ -143,16 +191,35 @@
         {
           "@id": "https://kp-rueck.ch/#app"
         }
+      ],
+      "publisher": {
+        "@id": "https://www.feuerwehr-oberwil.ch/#organization"
+      }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://www.bastianeichenberger.ch/#person",
+      "name": "Bastian Eichenberger",
+      "url": "https://www.bastianeichenberger.ch",
+      "sameAs": [
+        "https://github.com/BBQuercus"
       ]
     },
     {
-      "@type": "Organization",
-      "@id": "https://kp-rueck.ch/#org",
-      "name": "Feuerwehr Oberwil BL",
-      "url": "https://www.feuerwehr-oberwil.ch",
-      "sameAs": [
-        "https://github.com/feuerwehr-oberwil"
-      ]
+      "@type": "WebSite",
+      "@id": "https://kp-rueck.ch/#website",
+      "url": "https://kp-rueck.ch/",
+      "name": "KP Rück",
+      "inLanguage": [
+        "de-CH",
+        "fr-CH",
+        "it-CH",
+        "rm-CH",
+        "en"
+      ],
+      "publisher": {
+        "@id": "https://www.feuerwehr-oberwil.ch/#organization"
+      }
     },
     {
       "@type": "WebPage",
@@ -161,6 +228,10 @@
       "name": "KP Rück – the incident board for the command post",
       "description": "KP Rück is the digital magnetic board in the rear command post: incidents, crews, vehicles and equipment – live on every device, open source.",
       "inLanguage": "en",
+      "dateModified": "2026-10-31",
+      "isPartOf": {
+        "@id": "https://kp-rueck.ch/#website"
+      },
       "mainEntity": {
         "@id": "https://kp-rueck.ch/#app"
       }
@@ -184,6 +255,14 @@
           "acceptedAnswer": {
             "@type": "Answer",
             "text": "No. KP Rück grew out of the day-to-day work of a Swiss militia fire brigade, but it suits professional fire services, industrial fire brigades and other emergency organisations just as well. Wherever resources, vehicles, equipment and crews have to be coordinated behind the lines during major incidents or simultaneous storm callouts, KP Rück plays to its strengths."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can KP Rück be used outside the fire service?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. KP Rück was developed for rear command posts in fire services. As an open-source application, the solution can also be adapted to comparable command and coordination tasks of civil protection organisations, command staffs and other emergency response organisations."
           }
         },
         {
@@ -212,6 +291,22 @@
         },
         {
           "@type": "Question",
+          "name": "Is support available for installation and operation?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. General questions about installation and use can be answered free of charge. KP Rück can be operated on an organisation’s own infrastructure or with a hosting or cloud provider of its choice. Support with installation, configuration, updates or operation is also available by individual agreement. More extensive support may be subject to a fee."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What happens during a power, network or device failure?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "KP Rück saves the current state within the application and can restore it after a failure. The application can be operated on several devices and on an additional local instance. The current board can also be printed regularly and used as a fallback. External backups of the installation and infrastructure are the responsibility of the operating organisation."
+          }
+        },
+        {
+          "@type": "Question",
           "name": "Does KP Rück require KP Front?",
           "acceptedAnswer": {
             "@type": "Answer",
@@ -232,6 +327,14 @@
           "acceptedAnswer": {
             "@type": "Answer",
             "text": "Yes. Every brigade has its own administration area: incident types, priorities, crew, fleet and equipment lists are all configurable there, and import and export run through Excel. And because the whole code is on GitHub , everything else can be built – by you or to order."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which languages are available for KP Rück?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The KP Rück user interface is currently available in German and French. As an open-source application, KP Rück can be extended to further languages. This requires a complete translation of the terminology and a professional review."
           }
         },
         {
@@ -359,6 +462,14 @@
             <li>Local fire brigades</li>
             <li>Regional support fire brigades</li>
             <li>Professional fire brigades</li>
+          </ul>
+        </div>
+        <div class="fit-row">
+          <p class="fit-k">Adaptable</p>
+          <ul class="fit-v">
+            <li>Civil protection organisations</li>
+            <li>Command staffs</li>
+            <li>Other emergency response organisations</li>
           </ul>
         </div>
         <div class="fit-row">
@@ -726,6 +837,10 @@
         <p>No. KP Rück grew out of the day-to-day work of a Swiss militia fire brigade, but it suits professional fire services, industrial fire brigades and other emergency organisations just as well. Wherever resources, vehicles, equipment and crews have to be coordinated behind the lines during major incidents or simultaneous storm callouts, KP Rück plays to its strengths.</p>
       </div>
       <div class="faq-item">
+        <h3>Can KP Rück be used outside the fire service?</h3>
+        <p>Yes. KP Rück was developed for rear command posts in fire services. As an open-source application, the solution can also be adapted to comparable command and coordination tasks of civil protection organisations, command staffs and other emergency response organisations.</p>
+      </div>
+      <div class="faq-item">
         <h3>Where does the data live, and which interfaces are there?</h3>
         <p>Like KP Front, KP Rück is entirely self-hosted – on a machine at the station or in the organisation’s own cloud. Incidents, crews, vehicles and equipment live in its own database; there is no licence check and no usage tracking. External services such as online maps or address search receive only what the feature in use needs, and can be switched off. You can connect alerting systems (any dispatch system through the open interface, Divera and FireHub directly – with Divera, crew alerting too), a thermal printer on the local network and vehicle GPS positions. Every integration is optional.</p>
       </div>
@@ -738,6 +853,14 @@
         <p>A small mini-PC or server at the station is enough. Setup, updates and backups require someone with Docker and command-line experience, whether in the brigade, the municipality or an IT support provider. The guide and administration area lead through the setup. We are happy to answer general questions; data and operation remain the responsibility of each fire brigade.</p>
       </div>
       <div class="faq-item">
+        <h3>Is support available for installation and operation?</h3>
+        <p>Yes. General questions about installation and use can be answered free of charge. KP Rück can be operated on an organisation’s own infrastructure or with a hosting or cloud provider of its choice. Support with installation, configuration, updates or operation is also available by individual agreement. More extensive support may be subject to a fee.</p>
+      </div>
+      <div class="faq-item">
+        <h3>What happens during a power, network or device failure?</h3>
+        <p>KP Rück saves the current state within the application and can restore it after a failure. The application can be operated on several devices and on an additional local instance. The current board can also be printed regularly and used as a fallback. External backups of the installation and infrastructure are the responsibility of the operating organisation.</p>
+      </div>
+      <div class="faq-item">
         <h3>Does KP Rück require KP Front?</h3>
         <p>No. KP Rück runs entirely on its own – with its own database, its own login and its own updates. It comes into its own alongside <a href="https://kp-front.ch/">KP Front</a>, the application for the front line at the incident: both take the same alarms from the dispatch system, read the same roster and classify alarms by the same keyword list, optionally with the same Divera access. Front and rear thus work from the same source data, without maintaining the alarm integration and the crew twice.</p>
       </div>
@@ -748,6 +871,10 @@
       <div class="faq-item">
         <h3>Can we adapt it to how we work?</h3>
         <p>Yes. Every brigade has its own administration area: incident types, priorities, crew, fleet and equipment lists are all configurable there, and import and export run through Excel. And because the whole code is on <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub <svg class="ico" style="width:13px;height:13px;vertical-align:-2px"><use href="#i-gh"/></svg></a>, everything else can be built – by you or to order.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Which languages are available for KP Rück?</h3>
+        <p>The KP Rück user interface is currently available in German and French. As an open-source application, KP Rück can be extended to further languages. This requires a complete translation of the terminology and a professional review.</p>
       </div>
       <div class="faq-item">
         <h3>How do we start?</h3>
@@ -806,6 +933,7 @@
             </div>
             <button class="btn btn-primary f-send" type="submit">Send message</button>
             <p class="f-note" role="status" hidden></p>
+            <p class="contact-note">Delivered by e-mail via the form service staticforms.dev. <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/PRIVACY.md#the-project-website" target="_blank" rel="noopener">Privacy</a></p>
           </div>
         </form>
       </div>
@@ -818,11 +946,13 @@
     <p class="foot-origin">Born out of the operational work of <a href="https://www.feuerwehr-oberwil.ch" target="_blank" rel="noopener">Feuerwehr Oberwil BL</a> – because on incidents we kept seeing the same sources of error: double bookings, scattered information and transcription mistakes made by hand. Every fire brigade runs its own KP Rück, with its own crew, its own vehicles and its own data.</p>
     <div class="foot-row">
       <span>© 2026 <a href="https://bastianeichenberger.ch" target="_blank" rel="noopener">Bastian Eichenberger</a> · AGPL-3.0</span>
+      <span>Current version v0.9.0 · <time datetime="2026-10-30">30/10/2026</time> · <a href="https://github.com/feuerwehr-oberwil/kp-rueck/releases/tag/v0.9.0" target="_blank" rel="noopener">Release notes</a></span>
       <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/feuerwehr-oberwil" target="_blank" rel="noopener">Feuerwehr Oberwil on GitHub</a>
       <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">Demo</a>
       <a href="https://kp-front.ch">KP Front</a>
       <a href="#kontakt">Contact</a>
+      <a href="https://github.com/feuerwehr-oberwil/kp-rueck/security/policy" target="_blank" rel="noopener">Security</a>
     </div>
   </div>
 </footer>

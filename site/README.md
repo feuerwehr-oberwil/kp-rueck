@@ -22,9 +22,17 @@ site/
 ## Bauen
 
 ```bash
-node site/build.mjs          # schreibt index.html, fr/index.html und dist/
-node site/build.mjs --check  # schreibt nichts, meldet nur Abweichungen (das macht die CI)
+node site/build.mjs            # fragt GitHub nach dem neusten Release, schreibt index.html, die Sprachseiten und dist/
+node site/build.mjs --offline  # dasselbe aus content/release.json, ohne GitHub zu fragen
+node site/build.mjs --check    # schreibt nichts, meldet nur Abweichungen (das macht die CI – offline)
 ```
+
+**Nach einem Release neu bauen und committen.** Die Footer-Zeile («Aktuelle Version v… · Datum ·
+Release Notes») und `softwareVersion`, `dateModified` und `releaseNotes` der App kommen aus dem
+neusten GitHub-Release, gespeichert in `content/release.json`. Ist GitHub nicht erreichbar, bleibt
+der gespeicherte Stand; ohne einen fallen Zeile und Eigenschaften ganz weg – nie leer.
+`WebPage.dateModified` ist pro Sprachseite der Tag ihrer letzten Änderung: ein Bauen, das nichts
+ändert, behält ihn.
 
 ⚠️ **`index.html` und `fr/index.html` sind Ergebnisse, keine Quellen.** Wer dort hineinschreibt,
 verliert es beim nächsten Bauen. Trotzdem sind beide eingecheckt: GitHub Pages liefert `site/`
@@ -54,11 +62,10 @@ Bewusst entschieden und nicht aus Versehen so:
   Browsereinstellung nach `/fr/` schickt, ist schlimmer als ein Umschalter, den er sieht.
 - **Die Screenshots bleiben deutsch, auf jeder Sprachfassung.** Sie kommen aus einer echten
   Instanz; nachgestellte Bilder wären eine Behauptung.
-- **Über die Sprache der App steht auf der Seite nichts.** Deutsch wird nur dort erwähnt, wo
-  es der Besucher sofort merkt: die **Demo** läuft auf Deutsch, und die Screenshots kommen
-  aus ihr. Das ist eine Tatsache über die Demo, keine Aussage über das Produkt – und sie
-  stimmt auch dann noch, wenn `frontend/messages/fr.json` gefüllt ist. Genau deshalb steht
-  sie so da: sie muss nach Plan 06 nicht nachgezogen werden.
+- **Die Sprachen der App stehen an genau zwei Stellen, getrennt von denen der Website:** in
+  der FAQ «In welchen Sprachen ist KP Rück verfügbar?» und in `product.inLanguage`
+  (`config.json`, → `SoftwareApplication.inLanguage`). Wer der App eine Sprache gibt, zieht
+  beide nach, in allen fünf Texten. Die Website-Sprachen stehen auf `WebSite`/`WebPage`.
 - **Eine Übersetzung, die keine französischsprachige Feuerwehr-Person gelesen hat, sagt das
   oben auf der Seite** (`notice` in `fr.json`). Diese Zeile verschwindet, wenn jemand
   gegengelesen hat – sie ist kein Dekor. Es ist dieselbe Freigabe-Person, die Plan 06 braucht.

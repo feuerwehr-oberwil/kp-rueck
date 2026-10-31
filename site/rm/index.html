@@ -79,6 +79,10 @@
 <meta property="og:image:width" content="1500">
 <meta property="og:image:height" content="937">
 <meta property="og:locale" content="rm_CH">
+<meta property="og:locale:alternate" content="de_CH">
+<meta property="og:locale:alternate" content="fr_CH">
+<meta property="og:locale:alternate" content="it_CH">
+<meta property="og:locale:alternate" content="en_GB">
 <meta name="twitter:card" content="summary_large_image">
 <script type="application/ld+json">
 {
@@ -106,6 +110,9 @@
         "de",
         "fr"
       ],
+      "softwareVersion": "0.9.0",
+      "dateModified": "2026-10-30",
+      "releaseNotes": "https://github.com/feuerwehr-oberwil/kp-rueck/releases/tag/v0.9.0",
       "license": "https://www.gnu.org/licenses/agpl-3.0.html",
       "sameAs": "https://github.com/feuerwehr-oberwil/kp-rueck",
       "subjectOf": {
@@ -121,8 +128,43 @@
         "price": "0",
         "priceCurrency": "CHF"
       },
+      "audience": [
+        {
+          "@type": "Audience",
+          "audienceType": "Corps da pumpiers"
+        },
+        {
+          "@type": "Audience",
+          "audienceType": "Organisaziuns da protecziun civila"
+        },
+        {
+          "@type": "Audience",
+          "audienceType": "Stabs directivs"
+        },
+        {
+          "@type": "Audience",
+          "audienceType": "Ulteriuras organisaziuns d’intervenziun"
+        }
+      ],
+      "potentialAction": {
+        "@type": "ViewAction",
+        "name": "Avrir la demo da KP Rück",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://demo.kp-rueck.ch/login"
+        }
+      },
+      "author": {
+        "@id": "https://www.bastianeichenberger.ch/#person"
+      },
+      "creator": {
+        "@id": "https://www.bastianeichenberger.ch/#person"
+      },
+      "copyrightHolder": {
+        "@id": "https://www.bastianeichenberger.ch/#person"
+      },
       "publisher": {
-        "@id": "https://kp-rueck.ch/#org"
+        "@id": "https://www.feuerwehr-oberwil.ch/#organization"
       }
     },
     {
@@ -130,7 +172,13 @@
       "@id": "https://kp-rueck.ch/#source",
       "name": "KP Rück source code",
       "codeRepository": "https://github.com/feuerwehr-oberwil/kp-rueck",
-      "license": "https://www.gnu.org/licenses/agpl-3.0.html"
+      "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+      "author": {
+        "@id": "https://www.bastianeichenberger.ch/#person"
+      },
+      "publisher": {
+        "@id": "https://www.feuerwehr-oberwil.ch/#organization"
+      }
     },
     {
       "@type": "CreativeWorkSeries",
@@ -143,16 +191,35 @@
         {
           "@id": "https://kp-rueck.ch/#app"
         }
+      ],
+      "publisher": {
+        "@id": "https://www.feuerwehr-oberwil.ch/#organization"
+      }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://www.bastianeichenberger.ch/#person",
+      "name": "Bastian Eichenberger",
+      "url": "https://www.bastianeichenberger.ch",
+      "sameAs": [
+        "https://github.com/BBQuercus"
       ]
     },
     {
-      "@type": "Organization",
-      "@id": "https://kp-rueck.ch/#org",
-      "name": "Feuerwehr Oberwil BL",
-      "url": "https://www.feuerwehr-oberwil.ch",
-      "sameAs": [
-        "https://github.com/feuerwehr-oberwil"
-      ]
+      "@type": "WebSite",
+      "@id": "https://kp-rueck.ch/#website",
+      "url": "https://kp-rueck.ch/",
+      "name": "KP Rück",
+      "inLanguage": [
+        "de-CH",
+        "fr-CH",
+        "it-CH",
+        "rm-CH",
+        "en"
+      ],
+      "publisher": {
+        "@id": "https://www.feuerwehr-oberwil.ch/#organization"
+      }
     },
     {
       "@type": "WebPage",
@@ -161,6 +228,10 @@
       "name": "KP Rück – Tavla d’acziun per il post da commando",
       "description": "KP Rück è la tavla magnetica digitala dal post da commando posteriur: acziuns, persunal, vehichels e material – en temp real sin mintga apparat, open source.",
       "inLanguage": "rm-CH",
+      "dateModified": "2026-10-31",
+      "isPartOf": {
+        "@id": "https://kp-rueck.ch/#website"
+      },
       "mainEntity": {
         "@id": "https://kp-rueck.ch/#app"
       }
@@ -184,6 +255,14 @@
           "acceptedAnswer": {
             "@type": "Answer",
             "text": "Na. KP Rück è vegnì sviluppà ord la pratica d’in corps da pumpiers da milissa svizzer, ma el è medemamain adattà per corps da pumpiers professiunals, pumpiers d’interpresa ed autras organisaziuns da salvament. Dapertut là nua che resursas, vehichels, material e persunal ston vegnir coordinads en il fund tar gronds eveniments u tar acziuns parallelas pervia d’auras, mussa KP Rück sias fermezzas."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Po KP Rück era vegnir utilisà ordaifer ils pumpiers?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Gea. KP Rück è vegnì sviluppà per la direcziun davosvart tar ils pumpiers. Sco applicaziun open source po la soluziun era vegnir adattada a pensums cumparegliabels da direcziun e coordinaziun da la protecziun civila, da stabs directivs e d’ulteriuras organisaziuns d’intervenziun."
           }
         },
         {
@@ -212,6 +291,22 @@
         },
         {
           "@type": "Question",
+          "name": "Datti sustegn per l’installaziun ed il manaschi?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Gea. Dumondas generalas davart l’installaziun e l’utilisaziun pon vegnir respundidas gratuitamain. KP Rück po vegnir manà sin in’atgna infrastructura u tar in furnitur da hosting u cloud tschernì da l’organisaziun. Tenor cunvegnientscha individuala èsi era pussaivel da survegnir sustegn per l’installaziun, la configuraziun, actualisaziuns u il manaschi. In sustegn pli extendì po esser cunter pajament."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Tge capita en cas d’ina interrupziun dal current, da la rait u d’in apparat?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "KP Rück segiruescha il stadi actual entaifer l’applicaziun e po restaurar quel suenter in’interrupziun. L’applicaziun po vegnir manada sin plirs apparats ed ultra da quai sin in’ulteriura instanza locala. Il stadi da la tavla po vegnir stampà regularmain e duvrà sco soluziun da reserva. Backups externs da l’installaziun e da l’infrastructura èn en la responsabladad da l’organisaziun che maina il sistem."
+          }
+        },
+        {
+          "@type": "Question",
           "name": "Dovra KP Rück absolutamain KP Front?",
           "acceptedAnswer": {
             "@type": "Answer",
@@ -232,6 +327,14 @@
           "acceptedAnswer": {
             "@type": "Answer",
             "text": "Gea. Mintga corps da pumpiers ha ses agen sectur d’administraziun: tips d’acziun, prioritads, persunal, parc da vehichels e glistas da material pon vegnir configurads libramain; import ed export vegnan fatgs cun Excel. Perquai che l’entir code è publitgà sin GitHub , pon tut las ulteriuras adattaziuns vegnir sviluppadas sez u incumbensadas."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "En tge linguas è KP Rück disponibel?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "L’interfatscha d’utilisader da KP Rück è actualmain disponibla per tudestg e franzos. Sco applicaziun open source po KP Rück vegnir amplifitgà cun ulteriuras linguas. Per quai dovri ina translaziun cumpletta e controllada professiunalmain dals terms utilisads."
           }
         },
         {
@@ -364,6 +467,14 @@
             <li>Corps da pumpiers locals</li>
             <li>Corps da pumpiers da basa</li>
             <li>Corps da pumpiers professiunals</li>
+          </ul>
+        </div>
+        <div class="fit-row">
+          <p class="fit-k">Adattabel</p>
+          <ul class="fit-v">
+            <li>Organisaziuns da protecziun civila</li>
+            <li>Stabs directivs</li>
+            <li>Ulteriuras organisaziuns d’intervenziun</li>
           </ul>
         </div>
         <div class="fit-row">
@@ -760,6 +871,10 @@
         <p>Na. KP Rück è vegnì sviluppà ord la pratica d’in corps da pumpiers da milissa svizzer, ma el è medemamain adattà per corps da pumpiers professiunals, pumpiers d’interpresa ed autras organisaziuns da salvament. Dapertut là nua che resursas, vehichels, material e persunal ston vegnir coordinads en il fund tar gronds eveniments u tar acziuns parallelas pervia d’auras, mussa KP Rück sias fermezzas.</p>
       </div>
       <div class="faq-item">
+        <h3>Po KP Rück era vegnir utilisà ordaifer ils pumpiers?</h3>
+        <p>Gea. KP Rück è vegnì sviluppà per la direcziun davosvart tar ils pumpiers. Sco applicaziun open source po la soluziun era vegnir adattada a pensums cumparegliabels da direcziun e coordinaziun da la protecziun civila, da stabs directivs e d’ulteriuras organisaziuns d’intervenziun.</p>
+      </div>
+      <div class="faq-item">
         <h3>Nua sa chattan las datas e tge interfatschas datti?</h3>
         <p>Sco KP Front vegn KP Rück manà dal tuttafatg da l’organisaziun sezza – sin in computer en il magazin u en l’atgna cloud. Acziuns, persunal, vehichels e material sa chattan en l’atgna banca da datas; i na dat ni controlla da licenza ni statisticas d’utilisaziun. Servetschs externs sco chartas online u la tschertga d’adressas survegnan mo quai che la funcziun utilisada dovra, e pon vegnir deactivads. Colliar sa laschan sistems d’alarmaziun (mintga sistem da disposiziun via l’interfatscha averta, Divera e FireHub directamain – cun Divera er l’alarmaziun dal persunal), in stampader termic en la rait locala e las posiziuns GPS dals vehichels. Tut las colliaziuns èn opziunalas.</p>
       </div>
@@ -778,6 +893,14 @@
           las datas ed il manaschi restan en la responsabladad dal corps da pumpiers respectiv.</p>
       </div>
       <div class="faq-item">
+        <h3>Datti sustegn per l’installaziun ed il manaschi?</h3>
+        <p>Gea. Dumondas generalas davart l’installaziun e l’utilisaziun pon vegnir respundidas gratuitamain. KP Rück po vegnir manà sin in’atgna infrastructura u tar in furnitur da hosting u cloud tschernì da l’organisaziun. Tenor cunvegnientscha individuala èsi era pussaivel da survegnir sustegn per l’installaziun, la configuraziun, actualisaziuns u il manaschi. In sustegn pli extendì po esser cunter pajament.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Tge capita en cas d’ina interrupziun dal current, da la rait u d’in apparat?</h3>
+        <p>KP Rück segiruescha il stadi actual entaifer l’applicaziun e po restaurar quel suenter in’interrupziun. L’applicaziun po vegnir manada sin plirs apparats ed ultra da quai sin in’ulteriura instanza locala. Il stadi da la tavla po vegnir stampà regularmain e duvrà sco soluziun da reserva. Backups externs da l’installaziun e da l’infrastructura èn en la responsabladad da l’organisaziun che maina il sistem.</p>
+      </div>
+      <div class="faq-item">
         <h3>Dovra KP Rück absolutamain KP Front?</h3>
         <p>Na. KP Rück funcziuna dal tuttafatg independentamain – cun atgna banca da datas, atgna annunzia ed atgnas actualisaziuns. Ses entir potenzial sviluppa el en cumbinaziun cun <a href="https://kp-front.ch/">KP Front</a>, l’applicaziun per il front al lieu d’acziun: omaduas retschavan ils medems alarms dal sistem da disposiziun, legian la medema glista dal persunal e classifitgeschan ils alarms tenor la medema glista da chavazzins, sche giavischà cun il medem access a Divera. Uschia lavuran omaduas applicaziuns cun las medemas datas da basa, senza che la colliaziun d’alarm ed il persunal ston vegnir tgirads duas giadas.</p>
       </div>
@@ -792,6 +915,10 @@
           export vegnan fatgs cun Excel. Perquai che l’entir code è publitgà sin
           <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub <svg class="ico" style="width:13px;height:13px;vertical-align:-2px"><use href="#i-gh"/></svg></a>,
           pon tut las ulteriuras adattaziuns vegnir sviluppadas sez u incumbensadas.</p>
+      </div>
+      <div class="faq-item">
+        <h3>En tge linguas è KP Rück disponibel?</h3>
+        <p>L’interfatscha d’utilisader da KP Rück è actualmain disponibla per tudestg e franzos. Sco applicaziun open source po KP Rück vegnir amplifitgà cun ulteriuras linguas. Per quai dovri ina translaziun cumpletta e controllada professiunalmain dals terms utilisads.</p>
       </div>
       <div class="faq-item">
         <h3>Co cumenzar?</h3>
@@ -857,6 +984,7 @@
             </div>
             <button class="btn btn-primary f-send" type="submit">Trametter il messadi</button>
             <p class="f-note" role="status" hidden></p>
+            <p class="contact-note">Vegn tramess per e-mail via il servetsch da formulars staticforms.dev. <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/PRIVACY.md#the-project-website" target="_blank" rel="noopener">Protecziun da datas</a></p>
           </div>
         </form>
       </div>
@@ -872,11 +1000,13 @@
       Mintga corps da pumpiers maina ses agen KP Rück cun agen persunal, agens vehichels ed atgnas datas.</p>
     <div class="foot-row">
       <span>© 2026 <a href="https://bastianeichenberger.ch" target="_blank" rel="noopener">Bastian Eichenberger</a> · AGPL-3.0</span>
+      <span>Versiun actuala v0.9.0 · <time datetime="2026-10-30">30.10.2026</time> · <a href="https://github.com/feuerwehr-oberwil/kp-rueck/releases/tag/v0.9.0" target="_blank" rel="noopener">Notizias da la versiun</a></span>
       <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/feuerwehr-oberwil" target="_blank" rel="noopener">Feuerwehr Oberwil sin GitHub</a>
       <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">Demo</a>
       <a href="https://kp-front.ch">KP Front</a>
       <a href="#kontakt">Contact</a>
+      <a href="https://github.com/feuerwehr-oberwil/kp-rueck/security/policy" target="_blank" rel="noopener">Segirezza</a>
     </div>
   </div>
 </footer>
