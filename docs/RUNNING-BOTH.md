@@ -237,15 +237,15 @@ Worth stating, so you don't go looking for problems that aren't there:
   nothing to point at the other stack. If your dispatch words are not these, override them per
   deployment (KP Front: `alarmKeywords` in the deployment config) rather than editing the file –
   editing it puts your build at odds with the copy in the other repository.
-- **Printing.** Only KP Rück prints through an agent (the thermal slips), see
+- **Printing.** There is **one** agent for both systems, so this is not duplicated work either.
+  Give it a `backends` list with one entry per system and run a single service; it speaks each
+  system's protocol and drives each kind of printer. See
   [kp-rueck `tools/print-agent/`](https://github.com/feuerwehr-oberwil/kp-rueck/tree/main/tools/print-agent).
-  KP Front removed its station print relay; its PDFs print from the browser's own dialog. An
-  agent config that still has a `kp-front` entry keeps printing KP Rück's slips and logs that
-  the entry can go.
 
-  > ⚠️ **Run one agent per queue.** Two agents polling one queue both claim jobs, and each job
-  > then prints once, from whichever asked first – prints that "sometimes don't arrive" while
-  > both logs look healthy.
+  > ⚠️ **Run one agent per queue.** If you are migrating from two separate agents, stop the old
+  > ones first. Two agents polling one queue both claim jobs, and each job then prints once,
+  > from whichever asked first – prints that "sometimes don't arrive" while both logs look
+  > healthy.
 - **Shared files.** The keyword vocabulary is one of a handful of files the two products keep
   as byte-identical copies: the telemetry sanitiser, the roster-snapshot contract and the code
   that reads it, the alarm intake corpus, the loading snail. `shared/MANIFEST.json` (the same
@@ -275,7 +275,7 @@ meaning the same thing (the cookie row below, and §1).
 | Loopback port for the passwordless local login | *no equivalent* | `LOCAL_PORT` (default `8081`, bound to `127.0.0.1`; always published, off or on – [`DEPLOYMENT.md` §10](DEPLOYMENT.md#10-passwordless-local-login-the-stations-own-machine)) |
 | Allowed CORS origin | *not configurable – same origin* | `CORS_ORIGINS` |
 | Base for outbound webhook links | `PUBLIC_URL` | *not applicable* |
-| Print-agent shared secret | *none – no print relay* | `PRINT_AGENT_TOKEN` |
+| Print-agent shared secret | `PRINT_AGENT_SECRET` | `PRINT_AGENT_TOKEN` |
 | First login | `SEED_DATABASE` seeds a PIN user | `ADMIN_SEED_PASSWORD` + `VIEWER_PASSWORD` |
 | Image tag pin | `KP_FRONT_TAG` | `KP_RUECK_TAG` |
 

@@ -203,9 +203,9 @@ Every incident gets its `number` from a database trigger – counted per Ereigni
 |-----------|---------------|
 | **agent.py** | Main loop: long-polls the backend for jobs (held open up to 25 s), falling back to adaptive polling (idle: 10 s, active: 5 s) against a backend that does not long-poll |
 | **core.py** | Job model, HTTP client, claim/report state machine (stdlib only) |
-| **protocols/** | The backend wire contract (`rueck.py`) |
-| **outputs/** | The device driver (`escpos.py`, 80 mm thermal) |
-| **formatters.py** | Print layout: assignment slips (Einsatzzettel), board snapshots, Abholliste, QR slips, test print |
+| **protocols/** | One module per backend wire contract (`front.py` KP Front, `rueck.py` KP Rück) |
+| **outputs/** | One module per device (`escpos.py` 80 mm thermal, `cups.py` A4 laser) |
+| **formatters.py** | KP Rück's print layout: assignment slips (Einsatzzettel), board snapshots, Abholliste, QR slips, test print (KP Front sends a finished PDF) |
 
 ---
 

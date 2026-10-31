@@ -7,6 +7,7 @@ from urllib.error import URLError
 
 import pytest
 from core import FatalError, Job
+from protocols.front import FrontProtocol
 from protocols.rueck import RueckProtocol
 
 
@@ -239,3 +240,61 @@ def test_active_polling_gap_expires_at_its_deadline_and_only_success_renews_it(p
     assert proto._gap == 31
     proto.report("job-8", False, "bad job")
     assert proto._gap == 31
+
+
+# --- KP Front: the wire contract of kp-front's backend/app/api/print_relay.py -------------
+
+
+@pytest.fixture
+def front(monkeypatch):
+    now = [1000.0]
+    sleeps = []
+    monkeypatch.setattr("protocols.front.time", SimpleNamespace(monotonic=lambda: now[0], sleep=sleeps.append))
+    return FrontProtocol("http://front.example/", "front-secret", poll_sec=7), now, sleeps
+
+
+def test_front_claim_downloads_the_pdf_and_keeps_the_claimed_metadata(front):
+    proto, _, sleeps = front
+    claimed = {"id": "j1", "kind": "zeitplan", "incident_id": "i1", "filename": "Zeitplan.pdf",
+               "color": True, "created_at": "2026-10-30T12:00:00+00:00"}
+    proto._request = Mock(side_effect=[(200, json.dumps(claimed).encode()), (200, b"%PDF")])
+    assert proto.poll() == [Job("j1", "http://front.example", "zeitplan", document=b"%PDF",
+                                filename="Zeitplan.pdf", color=True)]
+    assert proto._request.call_args_list == [
+        call("/api/print-agent/claim", body=b"", method="POST", timeout=60.0),
+        call("/api/print-agent/jobs/j1/file", timeout=120.0),
+    ]
+    assert sleeps == []
+
+
+def test_front_undownloadable_job_is_reported_failed_not_left_claimed(front):
+    proto, _, _ = front
+    proto._request = Mock(side_effect=[(200, b'{"id":"j2"}'), (409, b""), (200, b"")])
+    assert proto.poll() == []
+    assert proto._request.call_args_list[-1] == call(
+        "/api/print-agent/jobs/j2/status", json_body={"status": "failed", "error": "PDF download: HTTP 409"}
+    )
+
+
+def test_front_only_an_immediate_204_waits_out_the_poll_gap(front):
+    proto, now, sleeps = front
+    proto._request = Mock(return_value=(204, b""))
+    assert proto.poll() == [] and sleeps == [7]
+
+    def hang(*_a, **_kw):
+        now[0] += 7  # a completed long-poll hang
+        return 204, b""
+
+    proto._request = Mock(side_effect=hang)
+    assert proto.poll() == [] and sleeps == [7]
+
+
+def test_front_report_sends_the_backup_note_on_success_and_the_error_on_failure(front):
+    proto, _, _ = front
+    proto._request = Mock(return_value=(200, b""))
+    proto.report("j3", True, "ignored", note="auf Ersatzdrucker gedruckt")
+    proto.report("j4", False, "Papierstau", note="ignored")
+    assert proto._request.call_args_list == [
+        call("/api/print-agent/jobs/j3/status", json_body={"status": "done", "error": "auf Ersatzdrucker gedruckt"}),
+        call("/api/print-agent/jobs/j4/status", json_body={"status": "failed", "error": "Papierstau"}),
+    ]
