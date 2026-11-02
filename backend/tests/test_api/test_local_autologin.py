@@ -232,3 +232,23 @@ async def test_boot_passes_on_an_editor(autologin_editor: User, db_session: Asyn
 async def test_boot_is_a_no_op_when_off(autologin_off: None, db_session: AsyncSession):
     """Nothing configured, nothing checked – no account has to exist."""
     await verify_account_on_boot(db_session)
+
+
+@pytest.mark.asyncio
+async def test_boot_refuses_the_feature_on_railway(monkeypatch: pytest.MonkeyPatch, db_session: AsyncSession):
+    """Railway has no Caddy, so nothing strips the header and nothing binds it to one machine.
+
+    There the backend IS the public origin: the shared secret would be all that stands between
+    the internet and an editor session, which is a different (and much weaker) feature than the
+    one this is. Refuse rather than run it in a shape the documentation does not describe.
+    """
+    user = User(username="railway-notebook", password_hash=None, role="editor")
+    db_session.add(user)
+    await db_session.commit()
+
+    monkeypatch.setattr(settings, "local_autologin_user", "railway-notebook")
+    monkeypatch.setattr(settings, "local_autologin_secret", SECRET)
+    monkeypatch.setenv("RAILWAY_ENVIRONMENT", "production")
+
+    with pytest.raises(RuntimeError, match="cannot work on Railway"):
+        await verify_account_on_boot(db_session)

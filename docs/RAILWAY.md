@@ -333,6 +333,7 @@ Worth knowing before you commit, not after.
 | **Real-time sync** | Always (single origin routes `/socket.io`) | Yes, with `API_URL` set (§1.1) |
 | **Origins** | One, via Caddy | Two hostnames |
 | **Machine upkeep** | Yours | Railway's |
+| **Passwordless local login** | Yes, for the machine that runs the stack | **No** – see below |
 | **Cost** | Hardware once | Monthly |
 
 **Offline tiles do not work on Railway.** There is no reverse proxy to route `/tiles` to a
@@ -340,6 +341,16 @@ tileserver, which is where the browser looks on any deployed origin. The map fal
 online OpenStreetMap, which is fine until the connection you are already relying on for the
 whole deployment goes away. If offline maps matter to you – and for a fire station they usually
 do – that is an argument for the compose path.
+
+**Passwordless local login does not work on Railway, and the backend refuses to start if you
+configure it there.** On the compose stack the trust boundary is a Caddy listener published on
+`127.0.0.1` only, and the public site *deletes* the `X-Local-Autologin` header so no other
+client can claim to be that machine ([`DEPLOYMENT.md` §10](DEPLOYMENT.md#10-passwordless-local-login-the-stations-own-machine)).
+Railway has neither: the backend is its own public origin with no reverse proxy of ours in
+front, so the header arrives untouched from anywhere on the internet and the shared secret
+would be the only thing between a stranger and an editor session. That is a different and much
+weaker feature, so `LOCAL_AUTOLOGIN_USER` / `LOCAL_AUTOLOGIN_SECRET` stop the boot here with
+that reason rather than quietly running it. Leave both unset on Railway.
 
 **The print agent still runs on your premises** either way. It is a pull agent: it sits on the
 station LAN next to the printer and polls the backend, so it works against a Railway backend
