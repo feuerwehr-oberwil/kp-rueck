@@ -321,26 +321,25 @@ class TestEinsatzzettelCrewOrder:
         assert await self._payload_crew(db_session, incident) == []
 
     async def test_the_rest_of_the_crew_is_not_reshuffled(self, db_session, incident, user, mock_request):
-        # Sorting is stable: exactly one row moves. Everyone else keeps the order
-        # the payload builder's own personnel query hands back — compare against
-        # that same query rather than against an assumed order.
-        ids = []
+        # The slip lists the crew in roster order (role_sort_order, then the rank
+        # label, then the name – the one order every roster surface shares), and
+        # the EL-first sort is stable: exactly one row moves. Assigned out of
+        # alphabetical order, with nobody's role_sort_order set (the common case),
+        # so the Offizier sorts LAST by label ("Mannschaft" < "Offizier") and has
+        # to be lifted to the top, while the rest must come out by name rather
+        # than in assignment order.
         for name, role in (
-            ("Mann Anna", "Mannschaft"),
+            ("Mann Dora", "Mannschaft"),
             ("Mann Bea", "Mannschaft"),
             ("Offi Olivia", "Offizier"),
+            ("Mann Anna", "Mannschaft"),
             ("Mann Cara", "Mannschaft"),
-            ("Mann Dora", "Mannschaft"),
         ):
-            person = await _person(db_session, name, role)
-            ids.append(person.id)
-            await _assign(db_session, incident, person, user)
+            await _assign(db_session, incident, await _person(db_session, name, role), user)
 
-        unsorted = list((await db_session.execute(select(Personnel.name).where(Personnel.id.in_(ids)))).scalars().all())
         crew = [c["name"] for c in await self._payload_crew(db_session, incident)]
 
-        assert crew[0] == "Offi Olivia"
-        assert crew[1:] == [name for name in unsorted if name != "Offi Olivia"]
+        assert crew == ["Offi Olivia", "Mann Anna", "Mann Bea", "Mann Cara", "Mann Dora"]
 
 
 class TestLeaderOfRecord:
