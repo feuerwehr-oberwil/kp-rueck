@@ -1,6 +1,7 @@
 "use client"
 
-import { Siren, type LucideIcon } from "lucide-react"
+import { Check, Minus, Siren, type LucideIcon } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 /** The tile grid of every block: three columns from `sm`, ONE below it, so a phone shows a
  *  name in full («Hoffmann Lisa», not «Hoffmann L…») and the where-note gets the width. */
@@ -31,7 +32,7 @@ export const TILE_META_ICON = "mt-0.5 h-3 w-3 flex-shrink-0"
  * were an amber wall (hill climb r18). Shared by the crew, vehicle and material tiles.
  *
  * `roles` (crew tiles only) are what the person holds besides – the vehicle they drive, Reko …
- * They ride on line 1 after the place, muted with their glyph («15 · Bättwilerstrasse 7 · 🚗
+ * They ride on line 1 after the place, muted with their glyph («15 · Bättwilerstrasse 7 · 🚚
  * Mawa»), and never shrink: the place ellipsizes first. On lines of their own they made one busy
  * tile four lines tall, and the grid row stretched every tile beside it (hill climb r19).
  */
@@ -56,6 +57,36 @@ export function ElsewhereNote({ label, roles }: { label: OccupancyLabel; roles?:
         </span>
         {label.detail && <span className="block truncate type-caption text-muted-foreground">{label.detail}</span>}
       </span>
+    </span>
+  )
+}
+
+/**
+ * The tick box at the start of every tile (person, vehicle, «Zu Fuss», material, module
+ * header): a 16px square, 4px corners, 1.5px edge; ticked = `--sel` fill with a white ✓, a
+ * partly ticked module the same fill with a dash. The empty edge is muted ink at 70 %, not
+ * `--input`: light `--input` sits ≈1.2:1 on the card, and an empty box nobody can see reads as
+ * a tile with no state; 70 % keeps it ≈3:1 (WCAG 1.4.11) and under the ✓'s weight. Drawn, not a `<Checkbox/>`: the
+ * whole tile is the button, and a button may not hold another. A square because the dialog is
+ * a multi-select – the hollow ring it replaced was a radio's shape and the app's «gebunden»
+ * mark (hill climb r20). The tile around it keeps the selection look (wash + edge).
+ * `mt-0.5` centres the box on the name's 20px line.
+ */
+export function TileCheck({ checked, animate }: { checked: boolean | "partial"; animate?: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-[4px] border-[1.5px]",
+        checked ? "border-sel bg-sel text-primary-foreground" : "border-muted-foreground/70",
+        animate && "animate-check-appear",
+      )}
+    >
+      {checked === "partial" ? (
+        <Minus className="size-3" strokeWidth={3} />
+      ) : checked ? (
+        <Check className="size-3" strokeWidth={3} />
+      ) : null}
     </span>
   )
 }

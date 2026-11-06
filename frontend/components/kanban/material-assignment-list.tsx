@@ -3,8 +3,8 @@
 import { useTranslations } from "next-intl"
 import { Badge } from "@/components/ui/badge"
 import { Reveal } from "@/components/ui/reveal"
-import { ElsewhereNote, ListSection, type OccupancyLabel, TILE_GRID, TILE_HOVER, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
-import { CheckCircle, Circle, Layers, ChevronDown, ChevronRight, Ban, Truck } from "lucide-react"
+import { ElsewhereNote, ListSection, type OccupancyLabel, TileCheck, TILE_GRID, TILE_HOVER, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
+import { Layers, ChevronDown, ChevronRight, Ban, Truck } from "lucide-react"
 import { type Material } from "@/lib/contexts/operations-context"
 import { materialResourceState } from "@/lib/resource-status"
 import { getActiveLocale } from "@/lib/i18n-messages"
@@ -204,14 +204,9 @@ const renderMaterialTile = (material: Material) => {
       )}
     >
       {isOutOfService ? (
-        <Ban className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-      ) : isSelected ? (
-        <CheckCircle className={cn(
-          "h-5 w-5 text-sel-foreground flex-shrink-0",
-          wasJustAssigned && "animate-check-appear"
-        )} />
+        <Ban className="mt-0.5 size-4 flex-shrink-0 text-muted-foreground" />
       ) : (
-        <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+        <TileCheck checked={isSelected} animate={wasJustAssigned} />
       )}
       <div className="min-w-0">
         <p className={cn("font-medium text-sm truncate", isOutOfService && "text-muted-foreground")} title={material.name}>{material.name}</p>
@@ -274,17 +269,8 @@ const renderMaterialTile = (material: Material) => {
                 onClick={() => onToggleGroup(freeGroupMatIds)}
                 className="flex-1 flex cursor-pointer items-center justify-between py-3 pr-3 text-left"
               >
-                <div className="flex items-center gap-3">
-                  {allSelected ? (
-                    <CheckCircle className={cn(
-                      "h-5 w-5 text-sel-foreground flex-shrink-0",
-                      wasJustAssigned && "animate-check-appear"
-                    )} />
-                  ) : someSelected ? (
-                    <CheckCircle className="h-5 w-5 text-sel-foreground/50 flex-shrink-0" />
-                  ) : (
-                    <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                  )}
+                <div className="flex items-start gap-3">
+                  <TileCheck checked={allSelected || (someSelected && "partial")} animate={allSelected && wasJustAssigned} />
                   <div>
                     <p className="font-medium text-sm flex items-center gap-1.5">
                       <Layers className="h-3.5 w-3.5 text-muted-foreground" />

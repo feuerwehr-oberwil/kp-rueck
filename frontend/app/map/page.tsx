@@ -986,8 +986,13 @@ export default function MapPage() {
                   container below, so they simply never move. */}
               <div className="flex-shrink-0 p-4 pb-3 border-b border-border/50">
               <div className="mb-3 flex items-center justify-between gap-2">
+                {/* The count only where no header chip says it: from md the
+                    header's «18 Einsätze» does, and the heading repeating it
+                    read twice (hill climb r20). The phone has no header. */}
                 <h2 className="min-w-0 text-lg font-bold">
-                  {t('page.incidentsHeading', { count: activeIncidents.length })}
+                  {isMobile
+                    ? t('page.incidentsHeading', { count: activeIncidents.length })
+                    : t('page.incidentsHeadingPlain')}
                 </h2>
                 {!isMobile && viewMenu}
               </div>

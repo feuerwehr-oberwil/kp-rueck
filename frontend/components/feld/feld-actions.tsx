@@ -482,13 +482,15 @@ export function FeldActions({
                   ) : (
                     /* Not this step's turn, but never a trap: a crew that
                        skipped «Angekommen» can still report beendet through
-                       the quiet inline link. */
+                       the inline link. It stays a link, but 14/600 ink: a
+                       12px muted word read as a footnote (hill climb r20);
+                       `hit-area` pads it to the 44px touch floor. */
                     <p className="flex items-baseline gap-2 pt-px text-sm text-muted-foreground">
                       {step.name}
                       <button
                         type="button"
                         disabled={busy}
-                        className="text-xs underline underline-offset-2 hover:text-foreground disabled:opacity-50"
+                        className="relative hit-area text-sm font-semibold text-foreground underline underline-offset-2 hover:decoration-2 disabled:opacity-50"
                         onClick={() => setPanel(confirmPanelFor[step.key])}
                       >
                         {t('reportNow')}
