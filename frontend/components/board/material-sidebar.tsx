@@ -13,7 +13,9 @@
 
 import type { Dispatch, SetStateAction } from "react"
 import { useTranslations } from "next-intl"
-import { Check, ChevronRight } from "lucide-react"
+import { Check, ChevronRight, PanelRight } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { Kbd } from "@/components/ui/kbd"
 import { SearchInput } from "@/components/ui/search-input"
 import { MaterialGroupBlock } from "@/components/kanban/material-group-block"
@@ -58,6 +60,9 @@ export interface MaterialSidebarProps {
   bindingsPopover: BindingsPopoverState | null
   setBindingsPopover: Dispatch<SetStateAction<BindingsPopoverState | null>>
   followBinding: (binding: ResourceBinding) => void
+  /** Reopen the Einsatz-Detail side panel. Passed only while it is collapsed; the button
+   *  exists from SIDE_PANEL_BREAKPOINT (2xl) up, like the panel. */
+  onOpenSidePanel?: () => void
   materialSummary: ReturnType<typeof summarizeMaterials>
 }
 
@@ -86,11 +91,22 @@ export function MaterialSidebar({
   setBindingsPopover,
   followBinding,
   materialSummary,
+  onOpenSidePanel,
 }: MaterialSidebarProps) {
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
+  const tSidePanel = useTranslations('kanban.sidePanel')
   return (
-      <aside className="relative z-raised w-64 border-l border-border bg-card/30 backdrop-blur-sm flex flex-col">
+      <aside
+        className={cn(
+          "relative z-raised w-64 border-l border-border bg-card/30 backdrop-blur-sm flex flex-col",
+          // The detail's reopen control takes 28px of the search row (below); the
+          // sidebar grows by them rather than clipping «Material suchen …». Only
+          // while the panel is folded – opening it gives the board 480px less
+          // anyway, so the 32px never read as a jump of their own.
+          onOpenSidePanel && "2xl:w-72",
+        )}
+      >
         {/* Collapse handle — small chevron centered on the sidebar's inner edge. `min-w-0`
             (on all five edge tabs): the ≤768px 44px touch-target rule widened it to 44px at
             exactly 768, where the board is still the desktop board, and it lay on the
@@ -103,8 +119,25 @@ export function MaterialSidebar({
         >
           <ChevronRight className="h-4 w-4" />
         </button>
-        {/* Search */}
+        {/* Search. While the Einsatz-Detail panel is collapsed, the control that reopens it
+            leads this row, at the edge where the panel will open: it used to be a tab pinned
+            over the board's top-right corner, on the header of whatever column scrolled
+            under it (hill climb r18). Edge tabs are for a strip with 0px left on screen –
+            this sidebar is on screen, so the control sits inside it. 24px wide (a mouse
+            target); the aside grows by its room, so the field keeps «Material suchen …». */}
         <div className="flex items-center gap-1 px-2 pt-3 pb-2">
+          {onOpenSidePanel && (
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={onOpenSidePanel}
+              className="hidden min-w-6 w-6 shrink-0 text-muted-foreground hover:text-foreground 2xl:inline-flex"
+              title={`${tSidePanel('railLabel')} (\\)`}
+              aria-label={tSidePanel('railLabel')}
+            >
+              <PanelRight className="size-4" />
+            </Button>
+          )}
           <SearchInput
             id="material-search-input"
             size="sm"

@@ -58,23 +58,29 @@ export function ResourceSectionHeader({ icon: Icon, label, action }: ResourceSec
 }
 
 /**
- * The one chip every resource wears — person, vehicle, material and module
- * alike: bordered, softly squared, quiet.
+ * The one chip every resource wears in the detail — person, vehicle, material
+ * and module alike: the board card's filled muted chip (`<RemovableChip
+ * variant="secondary">`), softly squared, 13/18 500.
  *
- * `rounded-md` rather than a pill: a pill reads as a tag you filter by, a
- * squared chip as an object that sits somewhere, and these are objects. The
- * three chip families this replaces (filled grey person, filled primary vehicle,
- * outlined material) told an operator nothing — colour on this board is for
- * status and priority, not for resource type. What genuinely distinguishes a
- * chip lives INSIDE it: the EL badge, the driver name, the depot.
+ * Filled, like the card and the phone sheet. It was an outlined chip here and a
+ * filled one there, so one person on one Einsatz looked like three different
+ * objects depending on where you read it (hill climb r18). The edge comes back
+ * only on hover and keyboard focus, where it says «this one» together with the
+ * remove tint.
+ *
+ * `rounded-sm` (8px, the radius of a control under 32px) rather than a pill: a
+ * pill reads as a tag you filter by, a squared chip as an object that sits
+ * somewhere, and these are objects. Colour on this board is for status and
+ * priority, not for resource type; what genuinely distinguishes a chip lives
+ * INSIDE it: the EL badge, the driver name, the depot.
  *
  * The hover tint is the remove affordance. `duration-150` rather than the bare
  * `transition-colors` default: an instant jump to destructive red on a row of
  * twelve chips reads as flicker while the pointer crosses them.
  */
 export const RESOURCE_CHIP =
-  "group gap-1 rounded-md border-border bg-transparent px-2.5 pr-1 text-sm font-normal " +
-  "transition-colors duration-150 hover:bg-destructive/20"
+  "group gap-1 rounded-sm border-transparent px-2 pr-1 text-[13px] leading-[18px] font-medium " +
+  "transition-colors duration-150 hover:border-border hover:bg-destructive/20 focus-within:border-border"
 
 /** Width of the resource row's label gutter — the same 120px `DetailField` uses. */
 const RESOURCE_LABEL_GUTTER = "w-[120px]"
@@ -320,7 +326,7 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
         {sortCrewByLeader(resources.personnel, (p) => Boolean(p.isLeader)).map((p) => (
           <RemovableChip
             key={p.assignmentId}
-            variant="outline"
+            variant="secondary"
             className={RESOURCE_CHIP}
             onRemove={!readOnly ? () => onUnassign(p.assignmentId) : undefined}
             removeTitle={t("common.removeNamed", { name: p.name })}
@@ -366,7 +372,7 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
           return (
             <Fragment key={v.assignmentId}>
             <RemovableChip
-              variant="outline"
+              variant="secondary"
               className={RESOURCE_CHIP}
               onRemove={!readOnly ? () => onUnassign(v.assignmentId) : undefined}
               removeTitle={t("common.removeNamed", { name: v.name })}
@@ -413,7 +419,7 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
         {resources.materials.map((m) => (
           <RemovableChip
             key={m.assignmentId}
-            variant="outline"
+            variant="secondary"
             className={RESOURCE_CHIP}
             onRemove={!readOnly ? () => onUnassign(m.assignmentId) : undefined}
             removeTitle={t("common.removeNamed", { name: m.name })}

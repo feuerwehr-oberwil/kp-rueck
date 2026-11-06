@@ -1389,7 +1389,7 @@
       "notesPlaceholder": "Notiz hinzufügen …",
       "dangers": "Gefahren",
       "personnelCount": "{count, plural, one {# Person} other {# Personen}}",
-      "estimatedDuration": "{duration}h geschätzt",
+      "estimatedDuration": "{duration} geschätzt",
       "vehicles": "Fahrzeuge ({count})",
       "noVehicles": "Keine Fahrzeuge zugewiesen",
       "crew": "Mannschaft ({count})",

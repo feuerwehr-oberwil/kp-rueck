@@ -1417,7 +1417,7 @@
       "notesPlaceholder": "Ajouter une note …",
       "dangers": "Dangers",
       "personnelCount": "{count, plural, one {# personne} other {# personnes}}",
-      "estimatedDuration": "{duration} h estimées",
+      "estimatedDuration": "{duration} estimées",
       "vehicles": "Véhicules ({count})",
       "noVehicles": "Aucun véhicule attribué",
       "crew": "Effectif ({count})",

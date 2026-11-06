@@ -50,8 +50,10 @@ export function SidePanel({
 
   if (isWideEnough !== true) return null
 
-  // Collapsed, this component renders NOTHING. The tab that reopens it is drawn
-  // by the board instead, pinned inside the board's own box (see app/page.tsx) —
+  // Collapsed, this component renders NOTHING. The control that reopens it is
+  // drawn by the board instead: at the head of the Material-Leiste's search row,
+  // or — with the Leiste folded too — a tab pinned inside the board's own box
+  // (see app/page.tsx, material-sidebar.tsx) —
   // because anything rendered here is a flex item of the outer row, and a flex
   // item reserves its width down the ENTIRE height of the board even when the
   // control itself is 48px tall. That empty 20px column beside the

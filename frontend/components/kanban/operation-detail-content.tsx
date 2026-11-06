@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PrioritySelect } from "@/components/kanban/priority-select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Kbd } from "@/components/ui/kbd"
-import { ArrowLeft, ArrowRight, MapPin, Trash2, MessageCircle, ArrowRightLeft, Search, Check, ChevronRight, Link2, LayoutDashboard, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, Users, Truck, Package, UserMinus, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, ArrowRight, MapPin, Trash2, MessageCircle, ArrowRightLeft, Search, Check, ChevronRight, Link2, LayoutDashboard, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, Users, Truck, Package, UserMinus, Shield, type LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
@@ -568,12 +568,14 @@ export function OperationDetailContent({
   // brings its own `py-1`, nothing is stacked on top) and ONE section step
   // between two sections — the column groups, «Status ändern», «Kräfte» and,
   // stacked in the panel, the two columns themselves (`gap-x-8` is the modal's
-  // column gutter). The step is 16px in the modal and 12px in the panel: at 16
-  // the second «Status ändern» row sat on the panel's footer rule on a laptop
-  // (hill climb r11); 12 leaves it clear. It was 12/28/32 before that, which
-  // put the first status row under the footer.
+  // column gutter). The step is 16px in both mounts, 8px from a heading to its
+  // rows (`DetailGroupHeading`). The panel had 12 since hill climb r11, because
+  // at 16 the second «Status ändern» row sat on the footer rule on a laptop with
+  // nothing saying the list went on; the panel now fades out under the footer
+  // while more is below (`scrollEndFade`), so the cut is announced and the
+  // headings get their 16 (r18). Only the panel's outer padding stays 12.
   const sectionStep = dense
-    ? { gap: "gap-y-3", pad: "py-3", stack: "space-y-3", after: "mb-3", fields: "space-y-1" }
+    ? { gap: "gap-y-4", pad: "py-3", stack: "space-y-4", after: "mb-4", fields: "space-y-1" }
     : { gap: "gap-y-4", pad: "py-4", stack: "space-y-4", after: "mb-4", fields: "space-y-2" }
   const tabGridClass = cn(
     "grid grid-cols-1 gap-x-8",
@@ -596,6 +598,30 @@ export function OperationDetailContent({
   // `overflow-x-hidden`: a long unbroken value (URL in the Meldung, a wide
   // chip row) must wrap or clip — the panel itself never scrolls sideways.
   const tabPanelClass = "min-h-0 flex-1 overflow-y-scroll overflow-x-hidden"
+  /**
+   * The last child of every scrolling tab: while content waits below, the bottom
+   * 24px fade into the surface – the assignment dialog's `ScrollArea fadeEnd`
+   * ramp (hill climb r6/r8), here without JS. It is `sticky bottom-0`, so with
+   * more below it rides on the scroller's bottom edge over the content; at the
+   * end it settles into its own place after the content, over nothing. The
+   * `-mt-3` lays half of it over the grid's 12px bottom padding, so the tab gains
+   * 12px of end room and the last row scrolls fully clear of the footer rule
+   * instead of being cut through its glyphs (r18).
+   *
+   * The ramp ends in the surface the tab sits on: `--background` in the modal
+   * (a dialog), the panel's `bg-card/30` over the board's background in the side
+   * panel – mixed here, because a translucent stop would let the rows through.
+   */
+  const scrollEndFade = (
+    <div
+      aria-hidden
+      data-slot="detail-scroll-fade"
+      className={cn(
+        "pointer-events-none sticky bottom-0 -mt-3 h-6 bg-linear-to-t to-transparent",
+        layout === 'modal' ? "from-background" : "from-[color-mix(in_oklab,var(--card)_30%,var(--background))]",
+      )}
+    />
+  )
   /**
    * The banners: what came in from the field and is still waiting for the KP to
    * do something about it — «Feld meldet beendet / angekommen» and «Abholung».
@@ -678,11 +704,11 @@ export function OperationDetailContent({
               return (
                 <RemovableChip
                   key={personnelId}
-                  variant="outline"
-                  // The Einsatzleiter keeps a visible accent on the SAME pill:
-                  // an ink edge, like the EL badge itself (a fact, not amber –
-                  // VISUAL-03) — never a different chip family.
-                  className={cn(RESOURCE_CHIP, !auftrag && isLeader && "border-foreground/40")}
+                  variant="secondary"
+                  // The Einsatzleiter is told by the EL badge inside the chip, as
+                  // on the card – no edge of its own: the filled chip shows an
+                  // edge only on hover/focus (hill climb r18).
+                  className={RESOURCE_CHIP}
                   onRemove={canEdit && onRemoveCrew ? () => onRemoveCrew(operation.id, personnelId) : undefined}
                   removeTitle={t('detail.removePerson')}
                   removeButtonClassName="ml-1"
@@ -733,7 +759,7 @@ export function OperationDetailContent({
         >
           {operation.zuFuss && (
             <RemovableChip
-              variant="outline"
+              variant="secondary"
               className={RESOURCE_CHIP}
               onRemove={canEdit ? () => onUpdate({ zuFuss: false }) : undefined}
               removeTitle={t('common.removeZuFuss')}
@@ -749,7 +775,7 @@ export function OperationDetailContent({
               return (
                 <RemovableChip
                   key={vehicleId}
-                  variant="outline"
+                  variant="secondary"
                   // `shrink` to the row: a long «Name · Funkrufname (Fahrer) vor Ort»
                   // wraps inside its chip before the row's «+» column.
                   className={cn(RESOURCE_CHIP, "min-w-0 max-w-full shrink")}
@@ -784,15 +810,17 @@ export function OperationDetailContent({
                         e.stopPropagation()
                         toggleDriverStay(operation.id, vehicleId)
                       }}
-                      // Neutral palette: the chip is no longer a filled primary
-                      // pill, so the toggle reads as a quiet state inside it.
+                      // Neutral palette, a quiet state inside the chip. On the
+                      // filled chip the «vor Ort» pill takes the ink tint the
+                      // card's stay chip has (`bg-foreground/10`): `bg-muted`
+                      // was the chip's own fill and vanished into it.
                       className={cn(
                         // `hit-area`: the 20px pill is a 26px target (globals.css).
                         "relative hit-area shrink-0 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors",
                         driverName && "ml-1",
                         driverStay
-                          ? "bg-muted text-foreground hover:bg-muted/70"
-                          : "text-muted-foreground/70 hover:bg-muted hover:text-foreground"
+                          ? "bg-foreground/10 text-foreground hover:bg-foreground/15"
+                          : "text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
                       )}
                       title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
                       tabIndex={-1}
@@ -830,7 +858,7 @@ export function OperationDetailContent({
                   {completeGroups.map(({ group, materialIds: matIds }) => (
                     <RemovableChip
                       key={`group-${group.id}`}
-                      variant="outline"
+                      variant="secondary"
                       className={RESOURCE_CHIP}
                       onRemove={canEdit && onRemoveMaterial ? () => matIds.forEach((matId) => onRemoveMaterial(operation.id, matId)) : undefined}
                       removeTitle={t('common.removeNamed', { name: group.name })}
@@ -850,7 +878,7 @@ export function OperationDetailContent({
                     return (
                       <RemovableChip
                         key={matId}
-                        variant="outline"
+                        variant="secondary"
                         className={RESOURCE_CHIP}
                         onRemove={canEdit && onRemoveMaterial ? () => onRemoveMaterial(operation.id, matId) : undefined}
                         removeTitle={t('detail.removeMaterial')}
@@ -1456,8 +1484,12 @@ export function OperationDetailContent({
             {/* The count rides on the heading — «Kräfte (7)» is what gets asked
                 for over the radio; the standalone «Ressourcen (n)» line it
                 replaces said the same thing one heading level lower. */}
-            <DetailGroupHeading>
-              {t('detail.groups.kraefte')} ({totalResourceCount})
+            {/* «KRÄFTE · 4»: the caps label takes the count as a fact after a
+                middle dot, like the board's column heads – «(4)» in a caps
+                line read as a footnote. Its glyph puts the word on the same
+                edge as «Status ändern» above (hill climb r18). */}
+            <DetailGroupHeading icon={<Shield className="h-3.5 w-3.5 shrink-0" />}>
+              {t('detail.groups.kraefte')} · {totalResourceCount}
             </DetailGroupHeading>
             {/* Reko, as ONE line: who is out looking, since when — and a way
                 through to the rest. The five controls that used to live here
@@ -1572,6 +1604,7 @@ export function OperationDetailContent({
           </div>
           </div>
           </div>
+            {scrollEndFade}
           </TabsContent>
 
           {/* ----------------------------------------------------------- Reko */}
@@ -1716,6 +1749,7 @@ export function OperationDetailContent({
                 </div>
               </div>
             </div>
+            {scrollEndFade}
           </TabsContent>
 
           {/* ------------------------------------------- Feld & Rapport */}
@@ -1822,6 +1856,7 @@ export function OperationDetailContent({
             />
             </div>
           </div>
+            {scrollEndFade}
           </TabsContent>
 
           {/* -------------------------------------------------------- Verlauf */}
@@ -1848,6 +1883,7 @@ export function OperationDetailContent({
             />
             <IncidentParticipants incidentId={operation.id} />
           </div>
+            {scrollEndFade}
           </TabsContent>
         </Tabs>
 
