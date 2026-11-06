@@ -476,7 +476,14 @@ export function DetailFlags({
  * a full-size icon. That put two heading weights on every one of those tabs and
  * made two tabs answering the same question look like two different products.
  *
- * `icon` is rendered at the heading's own scale (3.5), never at a control's.
+ * `icon` is rendered at the heading's own scale (3.5), never at a control's;
+ * every heading of the detail carries one, so their words start on one edge.
+ *
+ * `type-label` caps, like the board's column heads and the sidebar group heads
+ * (settled: every header in caps – a label must not read like an item). The
+ * sentence-case 12/600 it was read like one more row («Status ändern» over the
+ * status buttons, hill climb r18). 8px down to its rows (`mb-2`); the step
+ * above is the section's.
  */
 export function DetailGroupHeading({
   icon,
@@ -489,8 +496,8 @@ export function DetailGroupHeading({
   children: ReactNode
 }) {
   return (
-    <div className="mb-1 flex items-center gap-2">
-      <h3 className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+    <div className="mb-2 flex items-center gap-2">
+      <h3 className="type-label flex min-w-0 items-center gap-1.5 text-muted-foreground">
         {icon}
         {children}
       </h3>

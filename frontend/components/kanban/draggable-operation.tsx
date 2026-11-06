@@ -34,6 +34,7 @@ import { DEFAULT_CARD_VIEW, cardViewEquals, type CardViewSettings } from "@/lib/
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { telHref } from "@/lib/phone"
 import { cn } from "@/lib/utils"
+import { formatDurationHours } from "@/lib/duration"
 import { SIDE_PANEL_BREAKPOINT, SIDE_PANEL_MEDIA_QUERY } from "@/lib/layout-breakpoints"
 import { useMediaQuery } from "@/lib/hooks/use-media-query"
 
@@ -732,36 +733,34 @@ function DraggableOperationBase({
             </div>
           )}
 
-          {/* Einsatzart and time share one line: they are both single short facts,
-              and two stacked rows cost a card's worth of height on a full board.
-              The label truncates rather than wraps so it can never push the time
-              off the row. Each half is independently toggleable (see lib/card-view.ts),
-              so the pair only shares a row when both are switched on — with the time
-              alone the row keeps its original full-width split.
-              Label and time share the chip's type scale (text-xs, 3.5 icon) so the
-              row reads as one line rather than a big label with a small number
-              stuck to it — most Einsatzarten are long enough («Elementarereignis»)
-              that the label is truncating anyway, and the address above is what
-              carries the card.
-              The chip carries the age colouring (amber/red once it has sat too long),
-              which is a separate signal from whichever number the mode shows —
+          {/* ONE meta row on every card: the Einsatzart on the left when the
+              card shows it, the age always at the right end. The age used to
+              sit left whenever the type row was off (most cards, since the
+              type only shows when it deviates from the Ereignis's usual one)
+              and right when it was on, so a column of cards had its clocks at
+              two x positions (hill climb r18). Now every clock is in the same
+              reserved slot at the end of the row – `ml-auto shrink-0`, the
+              digits tabular (the chip's own `font-mono tabular-nums`) – and
+              read down a column they stand in one line. The label truncates
+              rather than wraps so it can never push the time off the row.
+              Label and time share the chip's type scale (text-xs, 3.5 icon);
+              each half is independently toggleable (see lib/card-view.ts).
+              The chip carries the age colouring (amber/red once it has sat too
+              long), a separate signal from whichever number the mode shows —
               see components/ui/incident-time.tsx. */}
-          {showEinsatzartRow && cardView.zeiten ? (
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-1.5">
-                <Siren className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                <span className="truncate text-xs text-muted-foreground">{getIncidentTypeLabel(operation.incidentType)}</span>
-              </div>
-              <IncidentTimeRow operation={operation} colorByAge className="flex-shrink-0" />
+          {(showEinsatzartRow || cardView.zeiten) && (
+            <div className="flex items-center gap-3">
+              {showEinsatzartRow && (
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <Siren className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                  <span className="truncate text-xs text-muted-foreground">{getIncidentTypeLabel(operation.incidentType)}</span>
+                </div>
+              )}
+              {cardView.zeiten && (
+                <IncidentTimeRow operation={operation} colorByAge className="ml-auto flex-shrink-0" />
+              )}
             </div>
-          ) : showEinsatzartRow ? (
-            <div className="flex items-center gap-1.5">
-              <Siren className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-              <span className="truncate text-xs text-muted-foreground">{getIncidentTypeLabel(operation.incidentType)}</span>
-            </div>
-          ) : cardView.zeiten ? (
-            <IncidentTimeRow operation={operation} colorByAge className="justify-between" />
-          ) : null}
+          )}
 
           {/* What the field reported, as a question instead of a second status
               display. Rendered conditionally so only the handful of cards that
@@ -944,14 +943,15 @@ function DraggableOperationBase({
                 </div>
               )}
 
+              {/* «4 Pers. · 2h 30'» — the estimate in the board's duration
+                  notation (`formatDurationHours`, shared with the wall card),
+                  never the decimal «2.5h» it arrives as. */}
               {Boolean(operation.rekoSummary.personnelCount || operation.rekoSummary.estimatedDuration) && (
-                <div className="text-xs text-muted-foreground">
-                  {operation.rekoSummary.personnelCount && (
-                    <span className="mr-3">{t('card.persCount', { count: operation.rekoSummary.personnelCount })}</span>
-                  )}
-                  {operation.rekoSummary.estimatedDuration && (
-                    <span>{operation.rekoSummary.estimatedDuration}h</span>
-                  )}
+                <div className="text-xs tabular-nums text-muted-foreground">
+                  {[
+                    operation.rekoSummary.personnelCount && t('card.persCount', { count: operation.rekoSummary.personnelCount }),
+                    operation.rekoSummary.estimatedDuration && formatDurationHours(operation.rekoSummary.estimatedDuration),
+                  ].filter(Boolean).join(' · ')}
                 </div>
               )}
             </div>

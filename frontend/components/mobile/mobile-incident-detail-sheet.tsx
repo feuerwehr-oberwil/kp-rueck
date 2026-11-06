@@ -5,6 +5,7 @@ import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import Link from "next/link"
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
+import { formatDurationHours } from "@/lib/duration"
 import { Button } from "@/components/ui/button"
 import { IncidentNumber } from "@/components/ui/incident-number"
 import { ShellLoader } from "@/components/ui/shell-loader"
@@ -324,15 +325,16 @@ export function MobileIncidentDetailSheet({
                 {t(`status.${operation.status}`)}
               </Badge>
             )}
-            {/* `border-input`, the Select's own frame: a label beside the one
-                control must not be boxed louder than it. */}
-            <Badge variant="outline" className="border-input text-sm">
+            {/* The Einsatzart is a fact beside the one control, so it is plain
+                muted text (14/20 500), as on the phone card: boxed, it read as a
+                second select (hill climb r18). The age stands at the row's end. */}
+            <span className="min-w-0 text-sm font-medium text-muted-foreground">
               {typeLabel(operation.incidentType)}
-            </Badge>
+            </span>
             <IncidentTimeRow
-          readOnly
+              readOnly
               operation={operation}
-              className="gap-1.5 text-sm text-muted-foreground"
+              className="ml-auto gap-1.5 text-sm text-muted-foreground"
               chipClassName="text-sm"
             />
             {operation.hasCompletedReko && (
@@ -399,7 +401,7 @@ export function MobileIncidentDetailSheet({
                     <span className="mr-3">{t('mobileDetail.personnelCount', { count: operation.rekoSummary.personnelCount })}</span>
                   )}
                   {operation.rekoSummary.estimatedDuration && (
-                    <span>{t('mobileDetail.estimatedDuration', { duration: String(operation.rekoSummary.estimatedDuration) })}</span>
+                    <span>{t('mobileDetail.estimatedDuration', { duration: formatDurationHours(operation.rekoSummary.estimatedDuration) })}</span>
                   )}
                 </div>
               )}
@@ -433,7 +435,7 @@ export function MobileIncidentDetailSheet({
                   {operation.vehicles.map(({ vehicleId, name: vehicleName, callsign, driverStay }) => {
                     const driverName = vehicleDrivers.get(vehicleId)
                     return (
-                      <div key={vehicleId} className="flex max-w-full flex-col items-start gap-1">
+                      <div key={vehicleId} className="flex max-w-full flex-col items-start gap-1.5">
                         <RemovableChip
                           variant="secondary"
                           className="text-sm max-w-full font-normal"
@@ -451,8 +453,10 @@ export function MobileIncidentDetailSheet({
                             phone shows the state only; the toggle is a control
                             and stays on the board. Its own caption line under
                             the chip, as on /feld: squeezed in beside vehicle +
-                            driver it read as part of the name (hill climb r12). */}
-                        <DriverStayGlyph stays={driverStay} size="caption" />
+                            driver it read as part of the name (hill climb r12).
+                            6px under the chip and 22px tall (12/16 + 3px), so it
+                            reads as its own line and not as the chip's shadow (r18). */}
+                        <DriverStayGlyph stays={driverStay} size="caption" className="px-1.5 py-[3px]" />
                       </div>
                     )
                   })}
