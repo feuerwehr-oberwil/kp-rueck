@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { RemovableChip } from "@/components/ui/removable-chip"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { PrioritySelect } from "@/components/kanban/priority-select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Kbd } from "@/components/ui/kbd"
 import { ArrowLeft, ArrowRight, MapPin, Trash2, MessageCircle, ArrowRightLeft, Search, Check, ChevronRight, Link2, LayoutDashboard, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, Users, Truck, Package, UserMinus, type LucideIcon } from 'lucide-react'
@@ -1177,20 +1178,13 @@ export function OperationDetailContent({
             </DetailField>
 
             <DetailField label={t('common.priority')} htmlFor="edit-priority">
-              <Select
+              <PrioritySelect
+                className={DENSE_CONTROL}
+                tabIndex={0}
                 value={operation.priority}
                 disabled={!canEdit}
-                onValueChange={(value) => onUpdate({ priority: value as "high" | "medium" | "low" })}
-              >
-                <SelectTrigger className={DENSE_CONTROL} tabIndex={0}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">{t('common.priorityLow')}</SelectItem>
-                  <SelectItem value="medium">{t('common.priorityMedium')}</SelectItem>
-                  <SelectItem value="high">{t('common.priorityHigh')}</SelectItem>
-                </SelectContent>
-              </Select>
+                onValueChange={(priority) => onUpdate({ priority })}
+              />
             </DetailField>
           </>
           </div>

@@ -62,6 +62,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { PrioritySelect } from "@/components/kanban/priority-select"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -365,19 +366,12 @@ export function NewEmergencyModal({
             </DetailField>
 
             <DetailField label={t('common.priority')} htmlFor="priority">
-              <Select
+              <PrioritySelect
+                id="priority"
+                className="w-full"
                 value={formData.priority}
-                onValueChange={(value) => setFormData({ ...formData, priority: value as "high" | "medium" | "low" })}
-              >
-                <SelectTrigger id="priority" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">{t('common.priorityLow')}</SelectItem>
-                  <SelectItem value="medium">{t('common.priorityMedium')}</SelectItem>
-                  <SelectItem value="high">{t('common.priorityHigh')}</SelectItem>
-                </SelectContent>
-              </Select>
+                onValueChange={(priority) => setFormData({ ...formData, priority })}
+              />
             </DetailField>
 
             {/* Wer hat gemeldet: who, then the number. How it came in
