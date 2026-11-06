@@ -18,7 +18,8 @@
  *    colouring them would paint the board.
  *  · The MARK tables (`PRIORITY_COLORS` / `PRIORITY_DOT_CLASSES` /
  *    `PRIORITY_TEXT_CLASSES`) are used where a mark has to EXIST — a map
- *    marker, a dot in a list, the chevron in the priority picker. There `low`
+ *    marker, a dot in a list, the chevron in the priority picker or on a card
+ *    (`PRIORITY_ICON_CLASSES` borrows the same `low`). There `low`
  *    is a light slate grey: Niedrig is «no signal», and it was emerald until
  *    the owner made green mean «frei / verfügbar» only (2026-10-25). It is
  *    lighter and bluer than `MAP_COLORS.offline` (gray-500, «no signal» on a
@@ -108,9 +109,15 @@ export const PRIORITY_CARD_CLASSES: Record<Priority, string> = {
   low: PRIORITY_EDGE_CLASSES.low,
 }
 
-/** Tint for the up/flat/down priority chevron on a card. Matches the edge. */
+/**
+ * Tint for the up/flat/down priority mark on a card (`components/ui/priority-glyph.tsx`
+ * on the desk board and both walls; the phone card's chevron). Hoch and Mittel match the edge; Niedrig
+ * is a MARK, not an edge – the same light slate as every other Niedrig mark
+ * (`PRIORITY_TEXT_CLASSES.low`, the picker's), at full strength. It was
+ * `muted-foreground/50`, which read as a neutral fold chevron (hill climb r17).
+ */
 export const PRIORITY_ICON_CLASSES: Record<Priority, string> = {
   high: "text-destructive",
   medium: "text-warning-foreground",
-  low: "text-muted-foreground/50",
+  low: PRIORITY_TEXT_CLASSES.low,
 }

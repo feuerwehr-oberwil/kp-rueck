@@ -16,7 +16,7 @@ import {
   ContextMenu,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Siren, AlertTriangle, ChevronUp, ChevronDown, Minus, Binoculars, Map, Building2, Timer, Phone, Axe, Waypoints, FileText, FileCheck, XCircle } from 'lucide-react'
+import { Siren, AlertTriangle, Binoculars, Map, Building2, Timer, Phone, Axe, Waypoints, FileText, FileCheck, XCircle } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -28,7 +28,8 @@ import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
-import { PRIORITY_CARD_CLASSES, PRIORITY_ICON_CLASSES, type Priority } from "@/lib/priority"
+import { PRIORITY_CARD_CLASSES, type Priority } from "@/lib/priority"
+import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import { DEFAULT_CARD_VIEW, cardViewEquals, type CardViewSettings } from "@/lib/card-view"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { telHref } from "@/lib/phone"
@@ -548,14 +549,10 @@ function DraggableOperationBase({
             {/* Draggable area */}
             <div className="flex items-start gap-2 min-w-0 flex-1">
               <div className="flex items-center flex-shrink-0 mt-0.5">
-                {/* Priority indicator - icon only, no colors */}
-                {priority === "high" ? (
-                  <ChevronUp className={cn('h-4 w-4', PRIORITY_ICON_CLASSES[priority])} aria-label={t('card.priorityHighAria')} />
-                ) : priority === "medium" ? (
-                  <Minus className={cn('h-4 w-4', PRIORITY_ICON_CLASSES[priority])} aria-label={t('card.priorityMediumAria')} />
-                ) : (
-                  <ChevronDown className={cn('h-4 w-4', PRIORITY_ICON_CLASSES[priority])} aria-label={t('card.priorityLowAria')} />
-                )}
+                {/* The priority mark: the shape says it, the shared mark colour
+                    repeats it (Niedrig = the light slate, never a faint grey
+                    that reads like a fold chevron). The card folds nowhere. */}
+                <PriorityGlyph priority={priority} size="card" />
               </div>
               <div className="min-w-0 flex-1">
                 <h3 className="font-bold text-base text-foreground leading-tight break-words">
