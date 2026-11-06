@@ -3,7 +3,7 @@
 import { useMemo, useState, useCallback } from "react"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
-import { Binoculars, Package2, Ban, Infinity as InfinityIcon } from "lucide-react"
+import { Binoculars, Package2, Ban, Infinity as InfinityIcon, Truck } from "lucide-react"
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { useAuth } from "@/lib/contexts/auth-context"
@@ -81,6 +81,14 @@ const WALL_DESTINATION = cn("min-w-0 text-xs xl:text-base font-semibold", WALL_T
  *  destination's type and muted ink, glyph 12px → 14px from `xl`. */
 const PERSON_FUNCTION = "inline-flex shrink-0 items-center gap-1 text-right text-muted-foreground"
 const PERSON_FUNCTION_ICON = "h-3 w-3 xl:h-3.5 xl:w-3.5 shrink-0"
+
+/** The vehicle a driver drives, before the destination («🚚 Mowa → Ringstrasse 11»):
+ *  a neutral ink chip at 14/18 600 from `xl`, the wall's count-chip surface with the
+ *  board's vehicle glyph (hill climb r18). It was blue 12px text – the Auftrag
+ *  swatch's blue, so «Pio ● Sturmholz Oberwil» read as part of the Auftrag; blue
+ *  belongs to the swatch alone, a vehicle is a fact and facts are ink. */
+const DRIVER_VEHICLE_TAG =
+  "inline-flex shrink-0 items-center gap-1 rounded-sm bg-foreground/10 px-1.5 text-xs leading-4 xl:text-sm xl:leading-[1.125rem] font-semibold text-foreground"
 
 /** Personal/Material rows: the availability mark sits centred in ONE fixed leading
  *  gutter, so every name starts at one edge whether the row carries a dot, a ring or
@@ -833,7 +841,10 @@ function PersonRow({ person: p, assignedTo, auftrag, onOpenIncident }: { person:
         </span>
       )}
       {p.isDriver && p.driverVehicleName && (
-        <span className="text-2xs xl:text-xs text-blue-700 dark:text-blue-400 shrink-0">{p.driverVehicleName}</span>
+        <span className={DRIVER_VEHICLE_TAG} title={tk('person.driverFunction', { vehicle: p.driverVehicleName })}>
+          <Truck aria-hidden className={cn(PERSON_FUNCTION_ICON, "text-muted-foreground")} />
+          {p.driverVehicleName}
+        </span>
       )}
       {clickable ? (
         <span className={cn(WALL_DESTINATION, "text-right text-muted-foreground")}>→ {assignedTo!.label}</span>

@@ -15,15 +15,15 @@ import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { CARD_VIEW_PRESETS } from "@/lib/card-view"
-import { columns, ageLevel, STATUS_ACCENT, WALL_COLUMN_COUNT_CLASS, WALL_COLUMN_HEADER_CLASS, WALL_TEXT_WRAP } from "@/lib/kanban-utils"
+import { columns, STATUS_ACCENT, WALL_COLUMN_COUNT_CLASS, WALL_COLUMN_HEADER_CLASS, WALL_TEXT_WRAP } from "@/lib/kanban-utils"
 import {
   WALL_STACK_BOARD, WALL_STACK_BODY, WALL_STACK_COLUMN, WALL_STACK_FOLDED, WALL_STACK_FOLDED_ACCENT, WALL_STACK_FOLDED_LABEL,
 } from "@/lib/wall-stack"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { useWallFit } from "@/lib/hooks/use-wall-fit"
-import { getIncidentLocationLabel } from "@/lib/incident-types"
 import { DisplayIncidentCard, crewShownAtStop } from "@/components/display/incident-card"
 import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
+import { WallColumnAgeChip } from "@/components/display/wall-column-age-chip"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -217,21 +217,10 @@ function BoardDisplay() {
       {columns.map((column) => {
         const ops = operationsByColumn[column.id] || []
         const isCollapsed = collapsedColumns.isCollapsed(column.id)
-        // Something in here has sat past the board's own warning threshold. It
-        // stays visible on the folded bar: a column that hides its overdue
+        // Something in here has sat past the board's own warning threshold:
+        // `WallColumnAgeChip` says how many and from when, beside the count. It
+        // stays on the folded strip too – a column that hides its overdue
         // incident behind a title is exactly what folding must not do.
-        // The dot alone only says "something", which is the one thing an
-        // operator can't act on — so it carries the names of the incidents that
-        // tripped the threshold, up to three, on hover.
-        const alarmOps = ops.filter((op) => ageLevel(op.statusChangedAt || op.dispatchTime) !== "normal")
-        const hasAlarm = alarmOps.length > 0
-        const alarmTitle = hasAlarm
-          ? t('board.columnAlarmTitle', {
-              count: alarmOps.length,
-              titles: alarmOps.slice(0, 3).map((op) => getIncidentLocationLabel(op)).join(', ')
-                + (alarmOps.length > 3 ? ` ${t('board.columnAlarmMore', { count: alarmOps.length - 3 })}` : ''),
-            })
-          : undefined
 
         // The column's accent, worn as a 2px rule instead of the old pastel
         // wash — the same treatment the command-post board got. `column.id` IS
@@ -254,16 +243,8 @@ function BoardDisplay() {
             >
               <span aria-hidden className={cn("h-0.5 w-full", WALL_STACK_FOLDED_ACCENT, accent?.dot)} />
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              <span className={WALL_COLUMN_COUNT_CLASS}>
-                {ops.length}
-                {hasAlarm && (
-                  <span
-                    title={alarmTitle}
-                    aria-label={alarmTitle}
-                    className="absolute -right-1 -top-1 h-2 w-2 cursor-help rounded-full bg-red-500 transition-[transform,box-shadow] hover:scale-150 hover:shadow-[0_0_0_3px_oklch(from_var(--color-red-500)_l_c_h/0.25)]"
-                  />
-                )}
-              </span>
+              <span className={WALL_COLUMN_COUNT_CLASS}>{ops.length}</span>
+              <WallColumnAgeChip operations={ops} folded />
               <span className={cn(WALL_COLUMN_HEADER_CLASS, "[writing-mode:vertical-rl]", WALL_STACK_FOLDED_LABEL)}>
                 {tk(`columns.${column.id}`)}
               </span>
@@ -319,19 +300,10 @@ function BoardDisplay() {
                 <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                 {/* Wraps instead of truncating: in Sora, at 1280, «DISPONIERT / …»
                     and «REKO ABGESC…» were all a wall could read of three headers.
-                    The overdue dot rides on the count badge, as on the folded
-                    strip, instead of taking 16px of the label's line. */}
+                    The overdue chip («⏱ 2 ≥ 60'») stands before the count. */}
                 <h2 className={cn("min-w-0 flex-1", WALL_TEXT_WRAP, WALL_COLUMN_HEADER_CLASS)}>{tk(`columns.${column.id}`)}</h2>
-                <span className={WALL_COLUMN_COUNT_CLASS}>
-                  {ops.length}
-                  {hasAlarm && (
-                    <span
-                      title={alarmTitle}
-                      aria-label={alarmTitle}
-                      className="absolute -right-1 -top-1 h-2 w-2 cursor-help rounded-full bg-red-500 transition-[transform,box-shadow] hover:scale-150 hover:shadow-[0_0_0_3px_oklch(from_var(--color-red-500)_l_c_h/0.25)]"
-                    />
-                  )}
-                </span>
+                <WallColumnAgeChip operations={ops} />
+                <span className={WALL_COLUMN_COUNT_CLASS}>{ops.length}</span>
               </div>
             </button>
             {/* space-y-2, one step tighter than the board's space-y-3: the

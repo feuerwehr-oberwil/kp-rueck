@@ -6,17 +6,17 @@ import { apiClient, type ApiViewerData } from '@/lib/api-client'
 import { usePolling } from '@/lib/hooks/use-polling'
 import { Eye, ChevronDown, ChevronRight } from 'lucide-react'
 import { DisplayStaleBanner } from '@/components/display/display-stale-banner'
-import { columns, ageLevel, STATUS_ACCENT, WALL_COLUMN_COUNT_CLASS, WALL_COLUMN_HEADER_CLASS, WALL_TEXT_WRAP } from '@/lib/kanban-utils'
+import { columns, STATUS_ACCENT, WALL_COLUMN_COUNT_CLASS, WALL_COLUMN_HEADER_CLASS, WALL_TEXT_WRAP } from '@/lib/kanban-utils'
 import { useCollapsedSections } from '@/lib/hooks/use-collapsed-sections'
 import { useWallFit } from '@/lib/hooks/use-wall-fit'
 import {
   WALL_STACK_BOARD, WALL_STACK_BODY, WALL_STACK_COLUMN, WALL_STACK_FOLDED, WALL_STACK_FOLDED_ACCENT, WALL_STACK_FOLDED_LABEL,
 } from '@/lib/wall-stack'
-import { getIncidentLocationLabel } from '@/lib/incident-types'
 import { cn } from '@/lib/utils'
 import { buildSituationData, viewerGroupsToIncidentGroups } from '@/lib/viewer-data'
 import { DisplayIncidentCard, crewShownAtStop } from '@/components/display/incident-card'
 import { IncidentDetailModal } from '@/components/display/incident-detail-modal'
+import { WallColumnAgeChip } from '@/components/display/wall-column-age-chip'
 import { useDisplaySearch } from '@/lib/contexts/display-search-context'
 import { CARD_VIEW_PRESETS } from '@/lib/card-view'
 import { filterIncidents } from '@/lib/incident-search'
@@ -52,15 +52,10 @@ function keepColumnInView(columnKey: string) {
     ?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' })
 }
 
-/** What in this column has sat past the board's own warning threshold? */
-function columnAlarms(operations: Operation[]): Operation[] {
-  return operations.filter((op) => ageLevel(op.statusChangedAt || op.dispatchTime) !== 'normal')
-}
-
 /**
  * One column, identical to the logged-in display board's — chevron, title,
- * overdue dot and count pill, and the same fold for every column including
- * ABGESCHLOSSEN. The share link used to draw its own header (a subtitle line
+ * overdue chip (`WallColumnAgeChip`) and count pill, and the same fold for
+ * every column including ABGESCHLOSSEN. The share link used to draw its own header (a subtitle line
  * instead of the pill) and hang «Abgeschlossen» off a separate dashed strip.
  */
 function TokenColumn({ column, operations, groups, groupResources, materials, collapsed, onToggle, onIncidentClick }: {
@@ -76,20 +71,8 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
 }) {
   const t = useTranslations('display')
   const tk = useTranslations('kanban')
-  // The dot alone only says "something", which is the one thing a viewer can't
-  // act on — so it names the overdue incidents on hover, up to three.
-  const alarms = columnAlarms(operations)
   // Stops 2…n of one Auftrag here name its crew once (VISUAL-07 C).
   const crewShownAt = crewShownAtStop(operations, (op) => (op.groupId ? groups.find((g) => g.id === op.groupId) : undefined))
-  const hasAlarm = alarms.length > 0
-  const alarmTitle = hasAlarm
-    ? t('board.columnAlarmTitle', {
-        count: alarms.length,
-        titles: alarms.slice(0, 3).map((op) => getIncidentLocationLabel(op)).join(', ')
-          + (alarms.length > 3 ? ` ${t('board.columnAlarmMore', { count: alarms.length - 3 })}` : ''),
-      })
-    : undefined
-  const alarmDotClass = 'cursor-help rounded-full bg-red-500 transition-[transform,box-shadow] hover:scale-150 hover:shadow-[0_0_0_3px_oklch(from_var(--color-red-500)_l_c_h/0.25)]'
   // 2px accent rule instead of the pastel wash — same as the KP board and the
   // logged-in wall. `column.id` IS a status (see kanban-utils).
   const accent = STATUS_ACCENT[column.id as keyof typeof STATUS_ACCENT]
@@ -107,10 +90,8 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
       >
         <span aria-hidden className={cn('h-0.5 w-full', WALL_STACK_FOLDED_ACCENT, accent?.dot)} />
         <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        <span className={WALL_COLUMN_COUNT_CLASS}>
-          {operations.length}
-          {hasAlarm && <span title={alarmTitle} aria-label={alarmTitle} className={cn('absolute -right-1 -top-1 h-2 w-2', alarmDotClass)} />}
-        </span>
+        <span className={WALL_COLUMN_COUNT_CLASS}>{operations.length}</span>
+        <WallColumnAgeChip operations={operations} folded />
         <span className={cn(WALL_COLUMN_HEADER_CLASS, "[writing-mode:vertical-rl]", WALL_STACK_FOLDED_LABEL)}>
           {tk(`columns.${column.id}`)}
         </span>
@@ -135,12 +116,10 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
         <div className="flex items-center gap-2">
           <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
           <h2 className={cn("min-w-0 flex-1", WALL_TEXT_WRAP, WALL_COLUMN_HEADER_CLASS)}>{tk(`columns.${column.id}`)}</h2>
-          {/* Overdue dot on the count badge, like the folded strip: the label
-              needs the 16px it used to take. */}
-          <span className={WALL_COLUMN_COUNT_CLASS}>
-            {operations.length}
-            {hasAlarm && <span title={alarmTitle} aria-label={alarmTitle} className={cn('absolute -right-1 -top-1 h-2 w-2', alarmDotClass)} />}
-          </span>
+          {/* The overdue chip («⏱ 2 ≥ 60'») before the count, as on the
+              logged-in wall. */}
+          <WallColumnAgeChip operations={operations} />
+          <span className={WALL_COLUMN_COUNT_CLASS}>{operations.length}</span>
         </div>
       </button>
       <div data-wall-column-body className={cn('flex-1 space-y-2 overflow-y-auto rounded-lg p-2', WALL_STACK_BODY)}>
