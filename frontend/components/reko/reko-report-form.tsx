@@ -239,7 +239,7 @@ export function RekoReportForm({
                 )
               })}
             </div>
-            <span className="text-xs text-destructive" aria-hidden="true">*</span>
+            <span className="text-xs text-muted-foreground" aria-hidden="true">*</span>
             {/* The required error sits ON the row it is about — a row list has
                 no second line under a field to put it on. */}
             {relevantMissing && <FormMessage id={formMessageId(relevantId)}>{t('relevantRequired')}</FormMessage>}
@@ -419,7 +419,7 @@ export function RekoReportForm({
           <Label className="text-sm font-medium tracking-wide text-muted-foreground">
             {t('relevantQuestion')}
           </Label>
-          <span className="text-destructive" aria-hidden="true">*</span>
+          <span className="text-muted-foreground" aria-hidden="true">*</span>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Button
