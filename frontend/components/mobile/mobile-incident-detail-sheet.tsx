@@ -40,6 +40,7 @@ import { RemovableChip } from "@/components/ui/removable-chip"
 import { MelderLink } from "@/components/ui/melder-link"
 import { DriverStayGlyph } from "@/components/ui/driver-stay-glyph"
 import { LeaderBadge } from "@/components/kanban/leader-badge"
+import { DetailGroupHeading } from "@/components/kanban/detail-field"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { type Priority, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 import { incidentTypeLabels } from "@/lib/incident-types"
@@ -410,14 +411,14 @@ export function MobileIncidentDetailSheet({
 
           <Separator />
 
-          {/* Assigned Resources */}
+          {/* Assigned Resources. Each section opens with the desk detail's caps
+              label (`DetailGroupHeading`: type-label, 14px muted glyph, 8px to the
+              chips) – «FAHRZEUGE · 1» like «KRÄFTE · 4»; the title-case 14/500
+              heads read as one more item (hill climb r19). 16px between sections. */}
           <div className="space-y-4">
             {/* Vehicles */}
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Truck className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">{t('mobileDetail.vehicles', { count: operation.vehicles.length })}</span>
-              </div>
+              <DetailGroupHeading icon={<Truck className="h-3.5 w-3.5 shrink-0" />}>{t('mobileDetail.vehicles', { count: operation.vehicles.length })}</DetailGroupHeading>
               {/* «Zu Fuss» is a deliberate state, not an absence: a crew that
                   walked to the address has to read as such here, exactly as it
                   does on the board and on the wall. Without it the sheet said
@@ -468,10 +469,7 @@ export function MobileIncidentDetailSheet({
 
             {/* Crew */}
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">{t('mobileDetail.crew', { count: operation.crew.length })}</span>
-              </div>
+              <DetailGroupHeading icon={<Users className="h-3.5 w-3.5 shrink-0" />}>{t('mobileDetail.crew', { count: operation.crew.length })}</DetailGroupHeading>
               {operation.crew.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {/* EL first (decision 23): the phone is a viewing surface, and
@@ -492,10 +490,7 @@ export function MobileIncidentDetailSheet({
 
             {/* Materials */}
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Package className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">{t('mobileDetail.materials', { count: operation.materials.length })}</span>
-              </div>
+              <DetailGroupHeading icon={<Package className="h-3.5 w-3.5 shrink-0" />}>{t('mobileDetail.materials', { count: operation.materials.length })}</DetailGroupHeading>
               {operation.materials.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {operation.materials.map((matId) => (
@@ -517,10 +512,7 @@ export function MobileIncidentDetailSheet({
               A viewer gets exactly that; an editor keeps the name as the tap
               target that edits it, so only the number line is the link. */}
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Phone className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">{t('mobileDetail.contact')}</span>
-            </div>
+            <DetailGroupHeading icon={<Phone className="h-3.5 w-3.5 shrink-0" />}>{t('mobileDetail.contact')}</DetailGroupHeading>
             {!canEdit && operation.contactPhone ? (
               <MelderLink contact={contactSave.value} phone={operation.contactPhone} className="text-sm" />
             ) : (
