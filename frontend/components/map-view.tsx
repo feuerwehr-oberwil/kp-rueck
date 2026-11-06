@@ -28,7 +28,7 @@ import { GpsSimBanner } from "./gps-sim-banner"
 import { colorAccent, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 import { AssignmentLines } from "./map/assignment-lines"
 import { OperationHoverCard } from "./map/operation-hover-card"
-import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
+import { MAP_COLORS, PRIORITY_MARKER_COLORS, STATUS_RING } from "@/lib/map-colors"
 import { markerGlyphInk, priorityGlyphPath } from "@/lib/map-priority"
 import { DEFAULT_CENTER_LATLNG, fitTo, Z, type LatLngPoint } from "@/lib/map-view"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
@@ -47,9 +47,6 @@ import { WeatherRadarControls, useRadarPlayback } from "./map/weather-radar-cont
 import { WeatherWarningChip } from "./map/weather-warning-chip"
 import { useWeather } from "@/lib/hooks/use-weather"
 import { activeWarnings, radarIsStale } from "@/lib/weather"
-
-// Status border color (dark gray for all statuses)
-const STATUS_BORDER_COLOR = "#374151" // gray-700
 
 // Permanent incident labels: the bubble sits to the RIGHT of the dot, its near edge this far
 // from it — Leaflet's own `offset` (14) plus the 6px arrow margin it added on top. The leader
@@ -117,8 +114,7 @@ function IncidentPin({
 
   const borderRadius = size / 2
   const innerRadius = borderRadius - 3 // Leave space for border
-  const strokeWidth = 2.5
-  const borderOffset = strokeWidth / 2
+  const borderOffset = STATUS_RING.width / 2
 
   // D8: tabbable + screen-reader-friendly marker. Enter/Space activate it directly now —
   // under Leaflet the icon was an HTML string, so the key had to be caught on the map wrapper
@@ -181,8 +177,8 @@ function IncidentPin({
         cy={borderRadius}
         r={borderRadius - borderOffset}
         fill="none"
-        stroke={STATUS_BORDER_COLOR}
-        strokeWidth={strokeWidth}
+        stroke={STATUS_RING.color}
+        strokeWidth={STATUS_RING.width}
         strokeDasharray={borderStyle.dasharray}
       />
     </svg>

@@ -3,38 +3,35 @@
 import { useEffect, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import { Truck, ChevronDown, List } from "lucide-react"
-import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
+import { MAP_COLORS, PRIORITY_MARKER_COLORS, STATUS_RING } from "@/lib/map-colors"
+import { STATUS_GROUP_BORDER_STYLE } from "@/lib/types/incidents"
 import { markerGlyphInk, priorityGlyphPath } from "@/lib/map-priority"
 import type { Priority } from "@/lib/priority"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 
-// Status border color (matches map-view.tsx)
-const STATUS_BORDER_COLOR = "#374151" // gray-700
-
-// SVG marker with status border for legend – the map's IncidentPin at rest.
+// SVG marker for the legend – the map's IncidentPin at rest, same geometry and frame width.
+// The frame takes `--muted-foreground` rather than the markers' gray-700: the key sits on the
+// card, where gray-700 all but vanished in dark mode (STATUS_RING in lib/map-colors.ts).
 function LegendMarker({
   fillColor,
   dasharray,
-  opacity = 1,
   priority,
 }: {
   /** null in the status section: there the frame carries the meaning, and a grey
    *  dot in the middle only invites the question which status "grey" is. */
   fillColor: string | null
   dasharray: string
-  opacity?: number
   /** The priority section draws the marker's glyph too (chevron / dash, lib/map-priority.ts). */
   priority?: Priority
 }) {
   const size = 24
   const borderRadius = size / 2
   const innerRadius = borderRadius - 3
-  const strokeWidth = 2.5
-  const borderOffset = strokeWidth / 2
+  const borderOffset = STATUS_RING.width / 2
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ opacity }} className="flex-shrink-0" aria-hidden="true">
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="flex-shrink-0" aria-hidden="true">
       {fillColor && (
         <circle
           cx={borderRadius}
@@ -60,8 +57,8 @@ function LegendMarker({
         cy={borderRadius}
         r={borderRadius - borderOffset}
         fill="none"
-        stroke={STATUS_BORDER_COLOR}
-        strokeWidth={strokeWidth}
+        className="stroke-muted-foreground"
+        strokeWidth={STATUS_RING.width}
         strokeDasharray={dasharray}
       />
     </svg>
@@ -190,10 +187,13 @@ export function MapLegend({
         </p>
         {/* Each frame style stands for a GROUP of board columns, so the legend
             names them: the group label alone left «Rückfahrt» ambiguous — is a
-            vehicle driving back still running, or finished? */}
+            vehicle driving back still running, or finished? The dash patterns are the
+            markers' own (STATUS_GROUP_BORDER_STYLE); the key draws every frame at full
+            strength – the map dims finished markers, but a dimmed sample was a key nobody
+            could read (hill climb r2). */}
         <div className="space-y-1.5">
           <div className="flex items-start gap-2">
-            <LegendMarker fillColor={null} dasharray="4,3" />
+            <LegendMarker fillColor={null} dasharray={STATUS_GROUP_BORDER_STYLE.open.dasharray} />
             <span className="text-xs">
               {t('legend.statusOpen')}
               <span className="block text-2xs leading-tight text-muted-foreground">
@@ -202,7 +202,7 @@ export function MapLegend({
             </span>
           </div>
           <div className="flex items-start gap-2">
-            <LegendMarker fillColor={null} dasharray="none" />
+            <LegendMarker fillColor={null} dasharray={STATUS_GROUP_BORDER_STYLE.active.dasharray} />
             <span className="text-xs">
               {t('legend.statusActive')}
               <span className="block text-2xs leading-tight text-muted-foreground">
@@ -211,7 +211,7 @@ export function MapLegend({
             </span>
           </div>
           <div className="flex items-start gap-2">
-            <LegendMarker fillColor={null} dasharray="2,2" opacity={0.6} />
+            <LegendMarker fillColor={null} dasharray={STATUS_GROUP_BORDER_STYLE.completed.dasharray} />
             <span className="text-xs">
               {t('legend.statusCompleted')}
               <span className="block text-2xs leading-tight text-muted-foreground">

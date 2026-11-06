@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { AlertTriangle, Users, Truck, Package, CheckCircle, Circle, Footprints, Car, Binoculars, Package2, Phone, MonitorCog, Siren, MapPin, Undo2, Ban, SlidersHorizontal, X } from "lucide-react"
+import { AlertTriangle, Truck, CheckCircle, Circle, Footprints, Car, Binoculars, Package2, Phone, MonitorCog, Siren, MapPin, Undo2, Ban, SlidersHorizontal, X } from "lucide-react"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { EmptyState, type EmptyStateAction } from "@/components/ui/empty-state"
 import {
@@ -32,7 +32,7 @@ import { getIncidentLocationLabel, getIncidentRefLabel } from "@/lib/incident-ty
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { cn } from "@/lib/utils"
-import { ELSEWHERE_NOTE, ELSEWHERE_TEXT, ListSection, TILE_GRID } from "@/components/kanban/assignment-list-section"
+import { ELSEWHERE_NOTE, ELSEWHERE_TEXT, ListSection, TILE_GRID, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
 import {
   MaterialAssignmentList,
   MaterialTypeChips,
@@ -955,21 +955,6 @@ export function ResourceAssignmentDialog({
     }
   }
 
-  const getIcon = () => {
-    switch (resourceType) {
-      case 'crew':
-        return Users
-      case 'vehicles':
-        return Truck
-      case 'materials':
-        return Package
-      default:
-        return Circle
-    }
-  }
-
-  const Icon = getIcon()
-
   // Check if there are pending changes
   const hasPendingChanges = useMemo(() => {
     if (resourceType === 'crew') {
@@ -1006,7 +991,7 @@ export function ResourceAssignmentDialog({
         key={person.id}
         onClick={() => handleTogglePersonSelection(person)}
         className={cn(
-          "flex cursor-pointer items-center gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 hover:border-sel-edge hover:bg-secondary/30 transition-all text-left hover-delight",
+          "flex cursor-pointer items-start gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 hover:border-sel-edge hover:bg-secondary/30 transition-all text-left hover-delight",
           isSelected && "border-sel-edge bg-sel-wash",
         )}
       >
@@ -1033,7 +1018,7 @@ export function ResourceAssignmentDialog({
               title={elsewhere.full}
               className={cn(ELSEWHERE_NOTE, "text-amber-700 dark:text-amber-400")}
             >
-              <Siren className="h-3 w-3 flex-shrink-0 max-sm:mt-px" />
+              <Siren className={TILE_META_ICON} />
               <span className={ELSEWHERE_TEXT}>{elsewhere.short}</span>
             </span>
           )}
@@ -1041,9 +1026,9 @@ export function ResourceAssignmentDialog({
             <span
               key={fn.label}
               title={fn.label}
-              className="mt-0.5 flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-700 dark:text-amber-400"
+              className={cn("mt-0.5 flex max-w-full items-start gap-1", TILE_META, "text-amber-700 dark:text-amber-400")}
             >
-              <fn.Icon className="h-3 w-3 flex-shrink-0" />
+              <fn.Icon className={TILE_META_ICON} />
               <span className="truncate">{fn.label}</span>
             </span>
           ))}
@@ -1079,7 +1064,7 @@ export function ResourceAssignmentDialog({
       <div
         key={vehicle.id}
         className={cn(
-          "flex items-center gap-2 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-all",
+          "flex items-start gap-2 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-all",
           !isOutOfService && "hover:border-sel-edge hover:bg-secondary/30 hover-delight",
           isAssigned && "border-sel-edge bg-sel-wash",
           isOutOfService && "border-dashed opacity-60"
@@ -1089,7 +1074,7 @@ export function ResourceAssignmentDialog({
           onClick={() => handleToggleVehicle(vehicle)}
           disabled={isOutOfService}
           className={cn(
-            "flex min-w-0 flex-1 items-center gap-3 text-left",
+            "flex min-w-0 flex-1 items-start gap-3 text-left",
             isOutOfService ? "cursor-not-allowed" : "cursor-pointer",
           )}
         >
@@ -1106,7 +1091,7 @@ export function ResourceAssignmentDialog({
           <div className="min-w-0">
             <p className={cn("font-medium text-sm truncate", isOutOfService && "text-muted-foreground")} title={vehicle.name}>{vehicle.name}</p>
             {isOutOfService ? (
-              <p className="truncate text-2xs font-medium text-muted-foreground">
+              <p className={cn(TILE_META, "truncate text-muted-foreground")}>
                 {t('assignmentDialog.outOfService')}
               </p>
             ) : elsewhere ? (
@@ -1114,7 +1099,7 @@ export function ResourceAssignmentDialog({
                 title={elsewhere.full}
                 className={cn(ELSEWHERE_NOTE, "text-amber-700 dark:text-amber-400")}
               >
-                <Siren className="h-3 w-3 flex-shrink-0 max-sm:mt-px" />
+                <Siren className={TILE_META_ICON} />
                 <span className={ELSEWHERE_TEXT}>{elsewhere.short}</span>
               </span>
             ) : (
@@ -1128,15 +1113,15 @@ export function ResourceAssignmentDialog({
                 whether the vehicle can actually roll. */}
             <p
               className={cn(
-                "flex items-center gap-1 truncate text-2xs",
-                driver ? "text-muted-foreground" : "font-medium text-amber-700 dark:text-amber-400",
+                "flex items-start gap-1 truncate",
+                driver ? "text-xs text-muted-foreground" : cn(TILE_META, "text-amber-700 dark:text-amber-400"),
               )}
               title={driver ? t('assignmentDialog.vehicleDriver', { name: driver }) : undefined}
             >
               {/* Same amber triangle as the Auftrag's «Kein Fahrer» note — not
                   colour alone. Picking it anyway opens the driver prompt right
                   after (incident: performVehicleAssign, Auftrag: promptIfDriverless). */}
-              {!driver && <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden />}
+              {!driver && <AlertTriangle className={TILE_META_ICON} aria-hidden />}
               {driver
                 ? t('assignmentDialog.vehicleDriver', { name: driver })
                 : t('assignmentDialog.vehicleNoDriver')}
@@ -1290,16 +1275,18 @@ export function ResourceAssignmentDialog({
       {/* sm:max-w-6xl is required — the DialogContent base sets sm:max-w-lg (512px),
           a responsive variant that an unprefixed max-w-* does NOT override. */}
       <DialogContent className="max-w-6xl sm:max-w-6xl w-[calc(100vw-2rem)] h-[80dvh] overflow-hidden flex flex-col">
-        {/* Title · the destination (14/600, up to two lines) · the counts on their own quiet
-            12px line. */}
-        <DialogHeader className="gap-1.5">
-          <DialogTitle className="flex items-center gap-2 pr-8">
-            <Icon className="h-5 w-5" />
+        {/* ONE header on every size: title (18/600, 22px line) · the destination (14/500, up to
+            two lines) · the counts (12, muted), 6px then 4px apart – left-aligned with the search
+            field, no icon before the title (the words say what is assigned). `ps-0!` cancels the
+            start padding globals.css gives CENTRED phone headers; the 2.5rem kept clear for the ✕
+            at the end stays. */}
+        <DialogHeader className="gap-1 text-left ps-0!">
+          <DialogTitle className="text-lg leading-[1.375rem] font-semibold">
             {getDialogTitle()}
           </DialogTitle>
           {destination && (
             <p
-              className="line-clamp-2 break-words text-sm font-semibold text-foreground"
+              className="mt-0.5 line-clamp-2 break-words text-sm font-medium text-foreground"
               title={destination.number != null ? `${destination.number} · ${destination.address}` : destination.address}
               data-testid="assignment-destination"
             >
@@ -1456,7 +1443,7 @@ export function ResourceAssignmentDialog({
                           <button
                             onClick={onToggleZuFuss}
                             className={cn(
-                              "flex cursor-pointer items-center gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 hover:border-sel-edge hover:bg-secondary/30 transition-all text-left hover-delight",
+                              "flex cursor-pointer items-start gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 hover:border-sel-edge hover:bg-secondary/30 transition-all text-left hover-delight",
                               zuFuss && "border-sel-edge bg-sel-wash"
                             )}
                           >
