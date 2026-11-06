@@ -15,7 +15,7 @@ import { CollapsibleSection } from "@/components/display/collapsible-section"
 import { DisplayStaleBanner } from "@/components/display/display-stale-banner"
 import { type Priority, PRIORITY_EDGE_CLASSES } from "@/lib/priority"
 import {
-  RESOURCE_STATE_WALL_DOT_CLASSES,
+  RESOURCE_STATE_DOT_CLASSES,
   materialResourceState,
   personResourceState,
   vehicleResourceState,
@@ -687,7 +687,7 @@ function VehicleRow({ vehicle: v, auftrag, onClick }: { vehicle: VehicleWithStat
       {isOutOfService ? (
         <Ban className="h-3.5 w-3.5 xl:h-4 xl:w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       ) : (
-        <div className={cn("w-3 h-3 xl:w-3.5 xl:h-3.5 rounded-sm shrink-0", RESOURCE_STATE_WALL_DOT_CLASSES[state])} />
+        <div className={cn("w-3 h-3 xl:w-3.5 xl:h-3.5 rounded-sm shrink-0", RESOURCE_STATE_DOT_CLASSES[state])} />
       )}
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-baseline gap-x-2">
@@ -787,7 +787,7 @@ function PersonRow({ person: p, assignedTo, onOpenIncident }: { person: Person; 
     >
       {/* Reko counts as busy here: a Reko is an Auftrag, but it never sets status="assigned" */}
       <span className={WALL_MARK_GUTTER} aria-hidden="true">
-        <span className={cn(WALL_MARK, RESOURCE_STATE_WALL_DOT_CLASSES[personResourceState(p)])} />
+        <span className={cn(WALL_MARK, RESOURCE_STATE_DOT_CLASSES[personResourceState(p)])} />
       </span>
       <span className={cn("flex-1", WALL_NAME)}><PersonName name={p.name} kennung={p.kennung ?? null} /></span>
       {/* Special-function markers — same icon language as the board roster.
@@ -845,7 +845,7 @@ function MaterialRow({ material: m, assignedTo, onOpenIncident }: { material: Ma
         {isOutOfService ? (
           <Ban className="h-3 w-3 xl:h-3.5 xl:w-3.5 text-muted-foreground" />
         ) : (
-          <span className={cn(WALL_MARK, RESOURCE_STATE_WALL_DOT_CLASSES[state])} />
+          <span className={cn(WALL_MARK, RESOURCE_STATE_DOT_CLASSES[state])} />
         )}
       </span>
       {m.consumable && !isOutOfService && <InfinityIcon className="h-3 w-3 xl:h-3.5 xl:w-3.5 shrink-0 text-muted-foreground" aria-label={tk('material.consumableUnlimited')} />}

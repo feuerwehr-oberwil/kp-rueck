@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import Link from "next/link"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ShellLoader } from "@/components/ui/shell-loader"
@@ -254,10 +254,14 @@ export function MobileIncidentDetailSheet({
         // No description line: it used to print the Einsatz-ID (two lines of UUID) under the
         // title — a database key nobody on a phone reads, says or types.
         aria-describedby={undefined}
-        // Covers the nav, so the foot pays only the safe area (`pb-sheet-safe`).
-        className="modal-h-tall overflow-y-auto px-4 pb-sheet-safe"
+        // The frame every phone sheet has (new-emergency-modal.tsx): header, a body that
+        // scrolls, a foot that stays. It covers the nav, so the foot pays only the safe
+        // area (`pb-sheet-safe`). One sheet-long scroller used to leave «Auf Karte
+        // anzeigen» wherever the content ended – on a busy Einsatz on the screen's bottom
+        // edge (hill climb r7).
+        className="modal-h-tall gap-0"
       >
-        <SheetHeader className="pb-4 border-b mb-4">
+        <SheetHeader className="border-b px-4 pb-4">
           <div className="flex items-start gap-2">
             {/* Priority: the chevron alone, as on the desk card – a dot in front
                 of it said the same thing twice (hill climb r5). 16px, centred on
@@ -279,7 +283,8 @@ export function MobileIncidentDetailSheet({
           </div>
         </SheetHeader>
 
-        <div className="space-y-5">
+        {/* 16px everywhere: header rule → status, section → section, group → group. */}
+        <SheetBody className="space-y-4 px-4 py-4">
           {/* Abholung (decision 24) — the `banner` variant, the same shape the
               desktop detail uses, because this sheet is the phone's detail
               surface. Read-only (`canEdit={false}`): the phone is for looking,
@@ -555,27 +560,30 @@ export function MobileIncidentDetailSheet({
             </>
           )}
 
-          {/* Action buttons */}
-          <div className="flex flex-col gap-2 pt-2">
-            <Link href={`/map?highlight=${operation.id}`} onClick={() => onOpenChange(false)}>
-              <Button variant="outline" size="lg" className="w-full gap-2">
-                <MapIcon className="h-4 w-4" />
-                {t('mobileDetail.showOnMap')}
-              </Button>
-            </Link>
+          {/* The WhatsApp copy closes the content: an export of what is above it.
+              The way to the map is the sheet's foot (below). */}
+          <Button
+            variant="outline"
+            onClick={handleCopyWhatsApp}
+            disabled={isCopyingWhatsApp}
+            size="lg"
+            className="w-full gap-2"
+          >
+            {isCopyingWhatsApp ? <ShellLoader className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />}
+            {isCopyingWhatsApp ? t('mobileDetail.copying') : t('mobileDetail.copyWhatsApp')}
+          </Button>
+        </SheetBody>
 
-            <Button
-              variant="outline"
-              onClick={handleCopyWhatsApp}
-              disabled={isCopyingWhatsApp}
-              size="lg"
-              className="w-full gap-2"
-            >
-              {isCopyingWhatsApp ? <ShellLoader className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />}
-              {isCopyingWhatsApp ? t('mobileDetail.copying') : t('mobileDetail.copyWhatsApp')}
+        {/* The one way on from here, in the foot that stays: never on the screen's edge,
+            never scrolled away. The same foot frame as «Neuer Einsatz». */}
+        <SheetFooter className="mt-0 border-t px-4 pt-3 pb-sheet-safe">
+          <Link href={`/map?highlight=${operation.id}`} onClick={() => onOpenChange(false)}>
+            <Button variant="outline" size="lg" className="w-full gap-2">
+              <MapIcon className="h-4 w-4" />
+              {t('mobileDetail.showOnMap')}
             </Button>
-          </div>
-        </div>
+          </Link>
+        </SheetFooter>
       </SheetContent>
     </Sheet>
     </>

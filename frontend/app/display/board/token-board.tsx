@@ -6,7 +6,7 @@ import { apiClient, type ApiViewerData } from '@/lib/api-client'
 import { usePolling } from '@/lib/hooks/use-polling'
 import { Eye, ChevronDown, ChevronRight } from 'lucide-react'
 import { DisplayStaleBanner } from '@/components/display/display-stale-banner'
-import { columns, ageLevel, COLUMN_HEADER_CLASS, STATUS_ACCENT, WALL_TEXT_WRAP } from '@/lib/kanban-utils'
+import { columns, ageLevel, STATUS_ACCENT, WALL_COLUMN_COUNT_CLASS, WALL_COLUMN_HEADER_CLASS, WALL_TEXT_WRAP } from '@/lib/kanban-utils'
 import { useCollapsedSections } from '@/lib/hooks/use-collapsed-sections'
 import { useWallFit } from '@/lib/hooks/use-wall-fit'
 import {
@@ -107,11 +107,11 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
       >
         <span aria-hidden className={cn('h-0.5 w-full', WALL_STACK_FOLDED_ACCENT, accent?.dot)} />
         <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        <span className="relative inline-flex h-6 min-w-6 items-center justify-center rounded-sm bg-foreground/10 px-1.5 text-xs font-bold tabular-nums text-foreground">
+        <span className={WALL_COLUMN_COUNT_CLASS}>
           {operations.length}
           {hasAlarm && <span title={alarmTitle} aria-label={alarmTitle} className={cn('absolute -right-1 -top-1 h-2 w-2', alarmDotClass)} />}
         </span>
-        <span className={cn(COLUMN_HEADER_CLASS, "[writing-mode:vertical-rl]", WALL_STACK_FOLDED_LABEL)}>
+        <span className={cn(WALL_COLUMN_HEADER_CLASS, "[writing-mode:vertical-rl]", WALL_STACK_FOLDED_LABEL)}>
           {tk(`columns.${column.id}`)}
         </span>
       </button>
@@ -134,10 +134,10 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
       >
         <div className="flex items-center gap-2">
           <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-          <h2 className={cn("min-w-0 flex-1 leading-tight", WALL_TEXT_WRAP, COLUMN_HEADER_CLASS)}>{tk(`columns.${column.id}`)}</h2>
+          <h2 className={cn("min-w-0 flex-1", WALL_TEXT_WRAP, WALL_COLUMN_HEADER_CLASS)}>{tk(`columns.${column.id}`)}</h2>
           {/* Overdue dot on the count badge, like the folded strip: the label
               needs the 16px it used to take. */}
-          <span className="relative inline-flex h-6 min-w-6 flex-shrink-0 items-center justify-center rounded-sm bg-foreground/10 px-1.5 text-xs font-bold tabular-nums text-foreground">
+          <span className={WALL_COLUMN_COUNT_CLASS}>
             {operations.length}
             {hasAlarm && <span title={alarmTitle} aria-label={alarmTitle} className={cn('absolute -right-1 -top-1 h-2 w-2', alarmDotClass)} />}
           </span>

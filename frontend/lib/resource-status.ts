@@ -210,23 +210,17 @@ export function summarizeMaterials(
   return { free, bound: materials.length - free, total: materials.length }
 }
 
-/** Dot / swatch for a resource's availability. `assigned` is a hollow ring
- *  (inset, so the dot keeps its size) – a mark, not a fill; never use these as a
- *  badge background. */
+/** Dot / swatch for a resource's availability – the ONE table, board, phone and
+ *  wall. The mark is a fixed size per surface (the call site sizes it: 8px in the
+ *  board sidebars, ~10px on the wall) and every state keeps it: `assigned` is a
+ *  hollow 2px ink ring drawn inset, so it is exactly as big as the filled dots.
+ *  A 1.5px ring at 6px read as punctuation beside the qualification pills (hill
+ *  climb r7). A mark, not a fill; never use these as a badge background. */
 export const RESOURCE_STATE_DOT_CLASSES: Record<ResourceState, string> = {
   available: "bg-emerald-500",
-  assigned: "bg-transparent inset-ring-[1.5px] inset-ring-foreground/55",
+  assigned: "bg-transparent inset-ring-2 inset-ring-foreground/80",
   unavailable: "bg-muted-foreground/40",
   maintenance: "bg-muted-foreground/40",
-}
-
-/** The same three marks for the wall (/display/status), read across a room: a 1.5px
- *  ring at 8px read like punctuation beside 20px names, so there the mark is ~10px
- *  (the call site sizes it) and gebunden is a full 2px ink ring. Frei and nicht
- *  verfügbar are the board's fills. */
-export const RESOURCE_STATE_WALL_DOT_CLASSES: Record<ResourceState, string> = {
-  ...RESOURCE_STATE_DOT_CLASSES,
-  assigned: "bg-transparent inset-ring-2 inset-ring-foreground/80",
 }
 
 /** Outline-badge tint (text + border) for the same states. Assigned is ink: a
