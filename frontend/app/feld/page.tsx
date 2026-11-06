@@ -100,7 +100,9 @@ const KP_STATUS_KEYS = new Set([
 ])
 
 /**
- * «KP: Im Einsatz» — the board's status, said quietly on the detail (§P3.1).
+ * «KP: Im Einsatz» — the board's status on the detail (§P3.1), 14/600 in ink:
+ * it is the KP's answer a squad waits for, so it must not read as metadata
+ * beside the 12px timestamps (hill climb r8).
  *
  * The rows still carry no status, and the old reasoning there still holds (a
  * crew reads «Anfahrt» on the job they are standing on as a claim about
@@ -111,7 +113,11 @@ const KP_STATUS_KEYS = new Set([
 function KpStatusLine({ status }: { status: string }) {
   const t = useTranslations('feld')
   if (!KP_STATUS_KEYS.has(status)) return null
-  return <span>{t('detail.kpStatus', { status: t(`kpStatus.${status}`) })}</span>
+  return (
+    <span className="text-sm font-semibold text-foreground">
+      {t('detail.kpStatus', { status: t(`kpStatus.${status}`) })}
+    </span>
+  )
 }
 
 /** The journey as a chip. «Vor Ort» carries the weight — it is the one of the
@@ -137,6 +143,8 @@ function JourneyChip({ assignment }: { assignment: ApiFeldAssignment }) {
  * expected to file. Briefed, never enforced — anybody assigned may still file.
  * The empty case reads "kein EL erfasst"; it is never a blank line. Marked with
  * the board's «EL» sign (LeaderGlyph), never a star – leader-badge.tsx says why.
+ * 13px, under the 18px address: the briefing must not outweigh where to go
+ * (hill climb r8); yours = 500 in ink, somebody else's = muted.
  */
 function LeaderLine({
   assignment,
@@ -153,7 +161,7 @@ function LeaderLine({
 
   if (isSelf) {
     return (
-      <p data-slot="feld-leader-line" className={`flex items-baseline gap-1.5 text-sm font-medium text-foreground ${className ?? ''}`}>
+      <p data-slot="feld-leader-line" className={`flex items-baseline gap-1.5 text-[13px] leading-snug font-medium text-foreground ${className ?? ''}`}>
         <LeaderGlyph />
         <span>{t('self')}</span>
       </p>
@@ -161,7 +169,7 @@ function LeaderLine({
   }
 
   return (
-    <p data-slot="feld-leader-line" className={`flex items-baseline gap-1.5 text-sm text-muted-foreground ${className ?? ''}`}>
+    <p data-slot="feld-leader-line" className={`flex items-baseline gap-1.5 text-[13px] leading-snug text-muted-foreground ${className ?? ''}`}>
       <LeaderGlyph />
       {assignment.leader_name ? (
         <>
@@ -1146,7 +1154,8 @@ function FeldSurface() {
                     one-handed is both slow and the easiest place all night to
                     fat-finger it. Falls back to plain text when the Schadenplatz
                     has neither a pin nor an address — see `lib/navigation.ts`. */}
-                <h1 className="text-base font-semibold leading-tight">
+                {/* 18/600: the heaviest line on the page, above the EL briefing. */}
+                <h1 className="text-lg font-semibold leading-tight">
                   {navigateUrl ? (
                     <a
                       href={navigateUrl}
@@ -1154,12 +1163,12 @@ function FeldSurface() {
                       rel="noopener noreferrer"
                       className="flex items-start gap-1.5 underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground"
                     >
-                      <Navigation className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                      <Navigation className="h-4 w-4 mt-[3px] shrink-0 text-muted-foreground" />
                       <span>{address || selectedAssignment.incident_title}</span>
                     </a>
                   ) : (
                     <span className="flex items-start gap-1.5">
-                      {address && <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />}
+                      {address && <MapPin className="h-4 w-4 mt-[3px] shrink-0 text-muted-foreground" />}
                       <span>{address || selectedAssignment.incident_title}</span>
                     </span>
                   )}
@@ -1174,10 +1183,10 @@ function FeldSurface() {
                 <LeaderLine assignment={selectedAssignment} selfId={selectedPerson?.personnel_id} className="mb-2" />
               )}
               {/* The crew's own timestamps, plus — since sweep 27 §P3.1 — the
-                  board's status as one quiet, labelled word. The rows still
+                  board's status as one labelled word in ink. The rows still
                   carry no status; the detail is where a squad waits for the KP
                   to act on what it reported, and «KP: Disponiert» is the ack. */}
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs text-muted-foreground">
                 <KpStatusLine status={selectedAssignment.incident_status} />
                 {selectedAssignment.arrived_at && (
                   <span>

@@ -7,9 +7,11 @@ import { cn } from '@/lib/utils'
 
 /**
  * A vertically scrolling area with the board's slim bar. `fadeEnd`: while more content waits
- * below, a 12px shade in the `--border` tone sits on the bottom edge – visible over a tile and
- * over the blank between two sections alike – telling a list that ends from one that runs on
- * under the footer (assignment dialog, hill climb r6).
+ * below, the last 24px fade out into `--background` – the surface of a dialog – telling a list
+ * that ends from one that runs on under the footer (assignment dialog, hill climb r6). A plain
+ * transparent → surface ramp, no tinted stop: the r6 shade in the `--border` tone read as a light
+ * strip in dark and doubled the footer's rule on the phone (r8). Only for an area that sits on
+ * `--background`; on another surface the ramp would end in the wrong colour.
  */
 function ScrollArea({
   className,
@@ -41,7 +43,7 @@ function ScrollArea({
         <div
           aria-hidden
           data-slot="scroll-area-more-below"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-3 bg-linear-to-t from-border/60 to-transparent"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-linear-to-t from-background to-transparent"
         />
       )}
       <ScrollBar />
