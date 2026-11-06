@@ -28,9 +28,6 @@ import {
   MessageCircle,
   Map as MapIcon,
   Phone,
-  ChevronUp,
-  ChevronDown,
-  Minus,
   Pencil,
   Footprints,
 } from "lucide-react"
@@ -42,7 +39,8 @@ import { DriverStayGlyph } from "@/components/ui/driver-stay-glyph"
 import { LeaderBadge } from "@/components/kanban/leader-badge"
 import { DetailGroupHeading } from "@/components/kanban/detail-field"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
-import { type Priority, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
+import { PriorityGlyph } from "@/components/ui/priority-glyph"
+import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
 import { incidentTypeLabels } from "@/lib/incident-types"
 import { useTranslations } from "next-intl"
 import { cn, copyToClipboardAsync } from "@/lib/utils"
@@ -238,7 +236,6 @@ export function MobileIncidentDetailSheet({
   if (!operation) return null
 
   const priority = operation.priority || "low"
-  const priorityChevron = PRIORITY_TEXT_CLASSES[priority as Priority]
   const canEdit = isEditor && !!onUpdateOperation
   // A text the server has not got stays an open field, red-edged, so the
   // operator sees exactly what is missing and can retry or copy it.
@@ -266,18 +263,11 @@ export function MobileIncidentDetailSheet({
       >
         <SheetHeader className="border-b px-4 pb-4">
           <div className="flex items-start gap-2">
-            {/* Priority: the chevron alone, as on the desk card – a dot in front
-                of it said the same thing twice (hill climb r5). 16px, centred on
-                the title's 28px first line. */}
-            <div className="flex-shrink-0 mt-1.5">
-              {priority === "high" ? (
-                <ChevronUp className={cn("h-4 w-4", priorityChevron)} />
-              ) : priority === "medium" ? (
-                <Minus className={cn("h-4 w-4", priorityChevron)} />
-              ) : (
-                <ChevronDown className={cn("h-4 w-4", priorityChevron)} />
-              )}
-            </div>
+            {/* Priority: the shared mark alone, as on the desk card and the desk
+                detail – a dot in front of it said the same thing twice (hill climb
+                r5). The wall's drawing in an 18px box = a 16px mark (r20), centred
+                on the title's 28px first line. */}
+            <PriorityGlyph priority={priority} size="wall" className="mt-[5px] size-[18px]" />
             <div className="flex-1 min-w-0">
               <SheetTitle className="text-xl text-left">
                 {/* The number before the address, as on the phone card and the desk detail. */}
@@ -288,8 +278,9 @@ export function MobileIncidentDetailSheet({
           </div>
         </SheetHeader>
 
-        {/* 16px everywhere: header rule → status, section → section, group → group. */}
-        <SheetBody className="space-y-4 px-4 py-4">
+        {/* 16px everywhere: header rule → status, section → section, group → group.
+            No bottom padding: the body ends in the shared end fade (below). */}
+        <SheetBody className="space-y-4 px-4 pt-4">
           {/* Abholung (decision 24) — the `banner` variant, the same shape the
               desktop detail uses, because this sheet is the phone's detail
               surface. Read-only (`canEdit={false}`): the phone is for looking,
@@ -574,6 +565,11 @@ export function MobileIncidentDetailSheet({
             {isCopyingWhatsApp ? <ShellLoader className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />}
             {isCopyingWhatsApp ? t('mobileDetail.copying') : t('mobileDetail.copyWhatsApp')}
           </Button>
+          {/* While more waits below, the last 24px fade into the sheet above the foot's
+              rule, so a section is never cut flat against it (hill climb r20). `-mt-4`
+              takes back the `space-y-4` step: at the end the fade lies over the 24px
+              after the last section, which is the body's end padding. */}
+          <ScrollEndFade surface="dialog" className="-mt-4" />
         </SheetBody>
 
         {/* The one way on from here, in the foot that stays: never on the screen's edge,

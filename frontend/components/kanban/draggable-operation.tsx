@@ -34,6 +34,7 @@ import { DEFAULT_CARD_VIEW, cardViewEquals, type CardViewSettings } from "@/lib/
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { telHref } from "@/lib/phone"
 import { cn } from "@/lib/utils"
+import { WALL_TEXT_WRAP } from "@/lib/kanban-utils"
 import { formatDurationHours } from "@/lib/duration"
 import { SIDE_PANEL_BREAKPOINT, SIDE_PANEL_MEDIA_QUERY } from "@/lib/layout-breakpoints"
 import { useMediaQuery } from "@/lib/hooks/use-media-query"
@@ -556,7 +557,10 @@ function DraggableOperationBase({
                 <PriorityGlyph priority={priority} size="card" />
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="font-bold text-base text-foreground leading-tight break-words">
+                {/* Wraps at a syllable (`WALL_TEXT_WRAP`), never at an arbitrary letter:
+                    a 260px column with two header tiles leaves «10 Rebbergstrasse 5»
+                    ~120px of line (droppable-column.tsx, «five open columns»). */}
+                <h3 className={cn("font-bold text-base text-foreground leading-tight", WALL_TEXT_WRAP)}>
                   {/* The incident's number — what ⌘K takes («14 tlf meier»). Quiet
                       mono, so the address stays the heading. */}
                   <IncidentNumber number={operation.number} className="mr-1.5 text-xs" />
@@ -741,8 +745,9 @@ function DraggableOperationBase({
               two x positions (hill climb r18). Now every clock is in the same
               reserved slot at the end of the row – `ml-auto shrink-0`, the
               digits tabular (the chip's own `font-mono tabular-nums`) – and
-              read down a column they stand in one line. The label truncates
-              rather than wraps so it can never push the time off the row.
+              read down a column they stand in one line. The label wraps (a
+              260px column cut «Technische Hilfeleist…», r20) and the time keeps
+              its place: it is `shrink-0`, the label's box `min-w-0`.
               Label and time share the chip's type scale (text-xs, 3.5 icon);
               each half is independently toggleable (see lib/card-view.ts).
               The chip carries the age colouring (amber/red once it has sat too
@@ -753,7 +758,7 @@ function DraggableOperationBase({
               {showEinsatzartRow && (
                 <div className="flex min-w-0 items-center gap-1.5">
                   <Siren className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                  <span className="truncate text-xs text-muted-foreground">{getIncidentTypeLabel(operation.incidentType)}</span>
+                  <span className="min-w-0 break-words text-xs text-muted-foreground">{getIncidentTypeLabel(operation.incidentType)}</span>
                 </div>
               )}
               {cardView.zeiten && (
@@ -888,12 +893,13 @@ function DraggableOperationBase({
                     asked for 107px of content in 49px of space (19px on the wall
                     at 1280) and rendered «Pio · 3 …». The name gets the first
                     line to itself and the progress sits under it. The card grows
-                    by one line — but only on a card that is a route stop at all. */}
+                    by one line — but only on a card that is a route stop at all.
+                    The progress line wraps rather than ending in «…» (r20). */}
                 <span className="flex min-w-0 flex-1 flex-col gap-px">
                   <span className="truncate font-medium text-foreground/80 group-hover/auftrag:text-foreground transition-colors">
                     {auftrag.name}
                   </span>
-                  <span className="truncate type-micro text-muted-foreground">
+                  <span className="break-words type-micro text-muted-foreground">
                     <span className="tabular-nums">{t('card.auftragStopLine', { pos: auftragStopPos, total: auftragTotal })}</span>
                     {auftragSummary && <> · {auftragSummary}</>}
                   </span>

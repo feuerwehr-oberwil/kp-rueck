@@ -20,7 +20,7 @@ import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { DraggableMaterial } from "@/components/kanban/draggable-material"
 import { isNavigableBinding, shortDate, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
 import type { Material } from "@/lib/contexts/operations-context"
-import { materialResourceState } from "@/lib/resource-status"
+import { materialResourceState, RESOURCE_STATE_DOT_CLASSES } from "@/lib/resource-status"
 import { cn } from "@/lib/utils"
 import { LoadingStatus } from "@/components/ui/shell-loader"
 
@@ -345,6 +345,15 @@ export function AggregatedMaterialRow({
               )}
             >
               <div className="flex items-center justify-between gap-2">
+                {/* The single row's mark in its 12px gutter (draggable-material.tsx), so
+                    every name starts at one edge: a unit left = the frei dot, all taken =
+                    the gebunden ring. The count says how many. */}
+                <span className="-mr-2 flex w-3 shrink-0 items-center">
+                  <span
+                    aria-hidden
+                    className={cn("size-2 rounded-full", RESOURCE_STATE_DOT_CLASSES[allTaken ? "assigned" : "available"])}
+                  />
+                </span>
                 {/* All units taken = a quiet name (as the person row), not a faded row. */}
                 <span
                   className={cn(
@@ -354,9 +363,8 @@ export function AggregatedMaterialRow({
                 >
                   {dragUnit.name}
                 </span>
-                {/* The count IS the state: 0/4 needs no extra dot, and it reads
-                    «kann ich noch einen holen?» at a glance. Ink, not amber, once
-                    nothing is left — gebunden is a fact (VISUAL-03). */}
+                {/* The count reads «kann ich noch einen holen?» at a glance. Ink, not
+                    amber, once nothing is left — gebunden is a fact (VISUAL-03). */}
                 <span
                   className={cn(
                     "shrink-0 text-xs tabular-nums",
