@@ -1474,20 +1474,24 @@ export default function MapView({
                       )}
                       {/* Its own element: the address is what a label is found by. */}
                       <span className="font-semibold">{shortAddress}</span>
+                      {/* Crew counters: 12px glyph + 11/500 count, 3px inside a pair, 6px
+                          between pairs. `align-top` + the line's own 18px height centres them
+                          on the address line instead of sitting them on its baseline.
+                          `estimateLabelWidth` (lib/map-labels.ts) assumes this geometry. */}
                       {(vehicleCount > 0 || personnelCount > 0) && (
                         <span
-                          className="ml-1.5 inline-flex items-center gap-1.5 text-2xs font-medium text-muted-foreground"
+                          className="ml-1.5 inline-flex h-[18px] items-center gap-1.5 align-top text-2xs font-medium text-muted-foreground"
                           title={t('view.crewSummary', { vehicles: vehicleCount, personnel: personnelCount })}
                         >
                           {vehicleCount > 0 && (
-                            <span className="inline-flex items-center gap-0.5">
-                              <Truck className="size-2.5" aria-hidden />
+                            <span className="inline-flex items-center gap-[3px]">
+                              <Truck className="size-3" aria-hidden />
                               {vehicleCount}
                             </span>
                           )}
                           {personnelCount > 0 && (
-                            <span className="inline-flex items-center gap-0.5">
-                              <Users className="size-2.5" aria-hidden />
+                            <span className="inline-flex items-center gap-[3px]">
+                              <Users className="size-3" aria-hidden />
                               {personnelCount}
                             </span>
                           )}

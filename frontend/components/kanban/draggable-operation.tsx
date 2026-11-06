@@ -702,32 +702,34 @@ function DraggableOperationBase({
               on — «wartet auf DL aus Reinach» is the half that decides whether
               somebody has to phone Reinach. The wall display and the printed
               slip have carried the reason all along; this is the surface it was
-              typed on. Truncated like every other chip, full text in `title`. */}
+              typed on. The reason wraps to a second line (12/16, the glyph level
+              with the first) and only then clamps, full text in `title`: one line
+              ended «bis Kräft…» exactly where the reason starts to matter. */}
           {(operation.amWarten || operation.nachbarhilfe) && (
-            <div className="flex flex-wrap items-center gap-1 text-xs">
+            <div className="flex flex-wrap items-start gap-1 text-xs">
               {operation.amWarten && (
                 <Badge
                   variant="secondary"
-                  className="min-w-0 max-w-full shrink border border-warning/60 bg-warning/15 text-warning-foreground text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
+                  className="min-w-0 max-w-full shrink border border-warning/60 bg-warning/15 text-warning-foreground text-xs px-1.5 py-0.5 font-normal leading-4 whitespace-normal flex items-start gap-1"
                   title={amWartenLabel}
                 >
-                  <Timer className="h-3 w-3 flex-shrink-0" />
-                  <span className="truncate">{amWartenLabel}</span>
+                  <Timer className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                  <span className="min-w-0 line-clamp-2 break-words">{amWartenLabel}</span>
                 </Badge>
               )}
               {/* Neutral, not amber: «Am Warten» is a card that is STUCK and
                   wants an eye on it, Nachbarhilfe is simply a fact about whose
-                  incident it is. Same shape, same place, same truncation — the
+                  incident it is. Same shape, same place, same two-line clamp — the
                   colour is the only thing that separates a state that costs
                   something from one that does not. */}
               {operation.nachbarhilfe && (
                 <Badge
                   variant="secondary"
-                  className="min-w-0 max-w-full shrink border border-border bg-muted/60 text-muted-foreground text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
+                  className="min-w-0 max-w-full shrink border border-border bg-muted/60 text-muted-foreground text-xs px-1.5 py-0.5 font-normal leading-4 whitespace-normal flex items-start gap-1"
                   title={nachbarhilfeLabel}
                 >
-                  <Building2 className="h-3 w-3 flex-shrink-0" />
-                  <span className="truncate">{nachbarhilfeLabel}</span>
+                  <Building2 className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                  <span className="min-w-0 line-clamp-2 break-words">{nachbarhilfeLabel}</span>
                 </Badge>
               )}
             </div>

@@ -24,6 +24,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { SettingRow } from '@/components/settings/setting-row'
 import { apiClient } from '@/lib/api-client'
+import { cn } from '@/lib/utils'
 
 /** Mirrors `services/branding.MAX_UPLOAD_BYTES` — refuse locally rather than upload 20 MB to be told no. */
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
@@ -79,7 +80,15 @@ export function BrandingSettings({ readOnly = false }: BrandingSettingsProps) {
   return (
     <SettingRow label={t('label')} hint={t('description')}>
       <div className="flex items-center gap-3">
-        <div className="flex h-14 w-28 items-center justify-center rounded-md border border-border bg-white p-1.5">
+        {/* A set logo sits on white – it is printed on paper, and most station marks are drawn
+            for it. The empty state is an input surface (quiet edge, muted glyph): a white slab
+            on a dark page read as the brightest thing in the settings. */}
+        <div
+          className={cn(
+            'flex h-14 w-28 items-center justify-center rounded-md border p-1.5',
+            hasLogo ? 'border-border bg-white' : 'border-input bg-transparent dark:bg-input/30',
+          )}
+        >
           {hasLogo ? (
             /* eslint-disable-next-line @next/next/no-img-element -- backend-served bytes, not a static asset */
             <img
@@ -89,7 +98,7 @@ export function BrandingSettings({ readOnly = false }: BrandingSettingsProps) {
               onError={() => setHasLogo(false)}
             />
           ) : (
-            <ImageIcon className="h-5 w-5 text-muted-foreground/50" aria-hidden />
+            <ImageIcon className="h-5 w-5 text-muted-foreground" aria-hidden />
           )}
         </div>
         {!readOnly && (

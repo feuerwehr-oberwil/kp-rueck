@@ -166,6 +166,6 @@ export function estimateLabelWidth(text: string, crewCounters: number): number {
   } else {
     textWidth = text.length * 7
   }
-  // Each counter: 6px gap + 10px icon + 2px + ~7px digit.
-  return Math.ceil(textWidth + 12 + 2 + crewCounters * 25)
+  // Each counter: 6px gap + 12px icon + 3px + ~7px digit (the label in components/map-view.tsx).
+  return Math.ceil(textWidth + 12 + 2 + crewCounters * 28)
 }
