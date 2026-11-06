@@ -202,33 +202,44 @@ export function FeldBriefing({
           whether it BELONGS to the Auftrag (an Auftrag's vehicles are shared
           across every stop, so it comes to the next one — a Schadenplatz's do
           not), and whether it STAYS here or drives back once you are dropped
-          off. «TLF 1» on its own answered none of them. */}
+          off. «TLF 1» on its own answered none of them.
+          Vehicle + driver are line 1; the chips get a line of their own under it,
+          4px down and starting at the vehicle's first letter (hill climb r10) –
+          the board card's chip shape. Squeezed into one line at 360px they broke
+          «Fahrer: Müller Hans» away from its vehicle. */}
       {vehicles.length > 0 && (
         <BriefingRow icon={Truck} label={t('vehicles')}>
-          <div className="space-y-1">
-            {vehicles.map(vehicle => (
-              <p key={vehicle.name} className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-                <span>
-                  {vehicle.name}
-                  {vehicle.driver && (
-                    <span className="text-muted-foreground"> · {t('driver', { name: vehicle.driver })}</span>
+          <div className="space-y-2">
+            {vehicles.map(vehicle => {
+              const hasChips = vehicle.via_auftrag || (vehicle.stays !== null && vehicle.stays !== undefined)
+              return (
+                <div key={vehicle.name}>
+                  <p className="break-words">
+                    {vehicle.name}
+                    {vehicle.driver && (
+                      <span className="text-muted-foreground"> · {t('driver', { name: vehicle.driver })}</span>
+                    )}
+                  </p>
+                  {hasChips && (
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      {vehicle.via_auftrag && (
+                        <span className="type-caption inline-flex shrink-0 items-center gap-1 rounded-md bg-info/15 px-1.5 py-0.5 text-info">
+                          <Waypoints className="h-3 w-3 shrink-0" />
+                          {t('vehicleViaAuftrag')}
+                        </span>
+                      )}
+                      {/* The board's own driver-stay chip: neutral ink, the words in
+                          full, pin / return arrow – a fact, not a «schau hin». Amber
+                          on this page is for «kein Rapport». Nothing at all when the
+                          answer is null: an Auftrag has no driver-stay toggle, so
+                          «fährt zurück» there would be the board answering for a
+                          decision nobody made. */}
+                      <DriverStayGlyph stays={vehicle.stays ?? undefined} size="caption" />
+                    </div>
                   )}
-                </span>
-                {vehicle.via_auftrag && (
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-info/15 px-1.5 py-0.5 text-[11px] font-medium text-info">
-                    <Waypoints className="h-3 w-3 shrink-0" />
-                    {t('vehicleViaAuftrag')}
-                  </span>
-                )}
-                {/* The board's own driver-stay chip: neutral ink, the words in
-                    full, pin / return arrow – a fact, not a «schau hin». Amber
-                    on this page is for «kein Rapport». Nothing at all when the
-                    answer is null: an Auftrag has no driver-stay toggle, so
-                    «fährt zurück» there would be the board answering for a
-                    decision nobody made. */}
-                <DriverStayGlyph stays={vehicle.stays ?? undefined} />
-              </p>
-            ))}
+                </div>
+              )
+            })}
           </div>
         </BriefingRow>
       )}

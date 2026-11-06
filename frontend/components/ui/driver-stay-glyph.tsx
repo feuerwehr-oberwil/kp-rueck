@@ -28,7 +28,9 @@
  *
  * `size="wall"` sets the words at the wall chip's own 1rem / 500 (14px at the
  * fit's floor) instead of the 11px micro role: read from 4 m, the stay state is
- * as much the fact as the vehicle it belongs to.
+ * as much the fact as the vehicle it belongs to. `size="caption"` is the 12/16
+ * caption role for `/feld`, where the chip stands on its own line under the
+ * vehicle and is read on a phone outdoors (hill climb r10).
  */
 
 import { useTranslations } from "next-intl"
@@ -39,6 +41,7 @@ import { cn } from "@/lib/utils"
 /** Type + icon per size; the type role and a `text-*` never meet on one element. */
 const SIZES = {
   default: { text: "type-micro", icon: "h-3 w-3" },
+  caption: { text: "type-caption", icon: "h-3 w-3" },
   wall: { text: "text-base leading-[1.15] font-medium", icon: "h-3.5 w-3.5" },
 } as const
 

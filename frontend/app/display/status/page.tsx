@@ -13,8 +13,8 @@ import { IncidentTime } from "@/components/ui/incident-time"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { CollapsibleSection } from "@/components/display/collapsible-section"
 import { DisplayStaleBanner } from "@/components/display/display-stale-banner"
-import { type Priority, PRIORITY_EDGE_CLASSES, PRIORITY_ICON_CLASSES } from "@/lib/priority"
-import { PRIORITY_LIST_ICONS } from "@/lib/map-priority"
+import { type Priority, PRIORITY_EDGE_CLASSES } from "@/lib/priority"
+import { WallPriorityGlyph } from "@/components/display/wall-priority-glyph"
 import {
   RESOURCE_STATE_DOT_CLASSES,
   materialResourceState,
@@ -65,13 +65,6 @@ const STATUS_COLLAPSE_KEY = "kp-display-status-collapsed"
  *     chevron/dash glyph right before the address – a shape, not a third dot.
  */
 const ROW_SURFACE = "bg-muted/30"
-
-/** The glyph's accessible name, per priority (the wall card's keys). */
-const PRIORITY_ARIA = {
-  high: "card.priorityHighAria",
-  medium: "card.priorityMediumAria",
-  low: "card.priorityLowAria",
-} as const satisfies Record<Priority, string>
 
 /** A resource's name on this wall — vehicle, person, material: 18/600 from `xl`,
  *  the line that has to carry across the room. `leading-6` keeps a person row
@@ -751,7 +744,6 @@ function IncidentRow({ operation: op, onClick }: { operation: Operation; onClick
   const locationLabel = incidentLocationLabel(op)
   const statusLabel = tk(`columns.${statusId}`)
   const priority = (op.priority ?? "low") as Priority
-  const PriorityIcon = PRIORITY_LIST_ICONS[priority]
   return (
     <div
       className={cn(
@@ -772,13 +764,11 @@ function IncidentRow({ operation: op, onClick }: { operation: Operation; onClick
             )}
             title={statusLabel}
           />
-          {/* The priority glyph the wall board and the Lagekarte draw before an
-              address (hill climb r9): the edge alone said priority in colour only. */}
+          {/* The priority glyph the wall board draws before an address (hill
+              climb r9; one shared glyph since r10): the edge alone said priority
+              in colour only. Centred on the address's first line. */}
           <div className="flex items-start gap-1.5 min-w-0">
-            <PriorityIcon
-              className={cn("mt-0.5 h-3.5 w-3.5 xl:h-4 xl:w-4 shrink-0", PRIORITY_ICON_CLASSES[priority])}
-              aria-label={tk(PRIORITY_ARIA[priority])}
-            />
+            <WallPriorityGlyph priority={priority} lineClassName="text-sm xl:text-base h-[1.25em]" />
             <div className="min-w-0">
               {/* Two lines, hyphenated, instead of one truncated: «Mühlemattstrasse …»
                   is not an address anybody can act on, and a wall has no pointer for
@@ -788,8 +778,19 @@ function IncidentRow({ operation: op, onClick }: { operation: Operation; onClick
             </div>
           </div>
         </div>
-        <span className="shrink-0">
-          <IncidentTime operation={op} readOnly className="text-[11px] xl:text-xs" iconClassName="h-3 w-3" />
+        {/* 14/18 600 (hill climb r10), coloured by `ageLevel` like the vehicle
+            tiles' and the wall card's age: a caption-sized clock read as a
+            footnote beside the 16px ones. `min-w` reserves the room «1h 50'»
+            needs, so the address wraps before the time is squeezed and every
+            stop's clock starts at one edge. */}
+        <span className="shrink-0 min-w-[4.5rem] text-right">
+          <IncidentTime
+            operation={op}
+            readOnly
+            colorByAge
+            className="text-sm leading-[18px] font-semibold"
+            iconClassName="h-3.5 w-3.5"
+          />
         </span>
       </div>
     </div>
