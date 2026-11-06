@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Map as MlMap } from 'maplibre-gl'
-import { boundsOfLatLng, fitTo, incidentMarkerZ, Z, type LatLngPoint } from './map-view'
+import { boundsOfLatLng, fitTo, incidentZ, Z, type LatLngPoint } from './map-view'
 
 // The one fit shared by the Lagekarte, the print page and the two Auftrag dialogs. Worth
 // pinning because all four hand it `[lat, lng]` while MapLibre answers in `[lng, lat]` — a
@@ -70,19 +70,33 @@ describe('fitTo', () => {
   })
 })
 
-describe('incidentMarkerZ', () => {
+describe('incidentZ', () => {
   const rest = { hovered: false, highlighted: false }
+  const priorities = ['high', 'medium', 'low'] as const
+  const atRest = (part: 'pin' | 'label') => priorities.map((p) => incidentZ(part, p, rest))
 
-  it('stacks unselected dots Hoch over Mittel over Niedrig, all under a route stop', () => {
-    const [high, medium, low] = (['high', 'medium', 'low'] as const).map((p) => incidentMarkerZ(p, rest))
-    expect(high).toBeGreaterThan(medium)
-    expect(medium).toBeGreaterThan(low)
-    expect(high).toBeLessThan(Z.routeStop)
+  it('stacks resting pins and resting labels Hoch over Mittel over Niedrig', () => {
+    for (const part of ['pin', 'label'] as const) {
+      const [high, medium, low] = atRest(part)
+      expect(high).toBeGreaterThan(medium)
+      expect(medium).toBeGreaterThan(low)
+    }
   })
 
-  it('keeps the selected and the pointed-at dot above every priority', () => {
-    const selectedLow = incidentMarkerZ('low', { hovered: false, highlighted: true })
-    expect(selectedLow).toBeGreaterThan(incidentMarkerZ('high', rest))
-    expect(incidentMarkerZ('low', { hovered: true, highlighted: false })).toBeGreaterThan(selectedLow)
+  it('paints every resting pin above every resting label, all under a route stop', () => {
+    expect(Math.min(...atRest('pin'))).toBeGreaterThan(Math.max(...atRest('label')))
+    expect(Math.max(...atRest('pin'))).toBeLessThan(Z.routeStop)
+  })
+
+  it('lifts the selected and then the pointed-at incident, label and pin, above everything at rest', () => {
+    const selected = { hovered: false, highlighted: true }
+    const hovered = { hovered: true, highlighted: false }
+    const selectedLabel = incidentZ('label', 'low', selected)
+    const selectedPin = incidentZ('pin', 'low', selected)
+    expect(selectedLabel).toBeGreaterThan(Math.max(...atRest('pin'), Z.routeStop))
+    expect(selectedPin).toBeGreaterThan(selectedLabel)
+    const hoveredLabel = incidentZ('label', 'low', hovered)
+    expect(hoveredLabel).toBeGreaterThan(Math.max(selectedPin, Z.routeStopHovered))
+    expect(incidentZ('pin', 'low', hovered)).toBeGreaterThan(hoveredLabel)
   })
 })

@@ -30,7 +30,7 @@ import { AssignmentLines } from "./map/assignment-lines"
 import { OperationHoverCard } from "./map/operation-hover-card"
 import { MAP_COLORS, PRIORITY_MARKER_COLORS, STATUS_RING, incidentPinRings, incidentPinSize } from "@/lib/map-colors"
 import { markerGlyphInk, priorityGlyphPath } from "@/lib/map-priority"
-import { DEFAULT_CENTER_LATLNG, fitTo, incidentMarkerZ, Z, type LatLngPoint } from "@/lib/map-view"
+import { DEFAULT_CENTER_LATLNG, fitTo, incidentZ, Z, type LatLngPoint } from "@/lib/map-view"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { VehicleTrails } from "./map/vehicle-trails"
 import { ChevronDown, Maximize, AlertTriangle, Truck, Users } from "lucide-react"
@@ -599,8 +599,7 @@ function IncidentLabel({
   latitude,
   longitude,
   dy,
-  hovered,
-  selected,
+  zIndex,
   onSelect,
   onOpen,
   onHoverStart,
@@ -611,10 +610,8 @@ function IncidentLabel({
   longitude: number
   /** Downward step for a label sharing its address with another (see stackSharedAddresses). */
   dy: number
-  hovered: boolean
-  /** Selected on the map or highlighted from the list/Reko — the label belongs
-   *  in front of its neighbours then too, not only under the pointer. */
-  selected: boolean
+  /** `incidentZ('label', …)`: under every resting pin, in front once pointed at or selected. */
+  zIndex: number
   onSelect: () => void
   /** Double-click: open the Einsatz, like a double-click on its dot. */
   onOpen?: () => void
@@ -627,7 +624,7 @@ function IncidentLabel({
     <Marker
       longitude={longitude}
       latitude={latitude}
-      style={{ zIndex: hovered ? Z.labelHovered : selected ? Z.labelSelected : Z.label }}
+      style={{ zIndex }}
       // The label is as tappable as the dot (selection, Reko-Modus assignment, …) — and, like
       // every marker here, must not let the click through to the map underneath.
       onClick={(event) => {
@@ -1438,8 +1435,9 @@ export default function MapView({
                 compact={compactMap}
                 accentColor={effectiveMarkerAccents?.get(incident.id) ?? null}
                 // Two markers a few metres apart overlap; the one being pointed at (or
-                // selected) belongs on top, the rest by priority – not by DOM order.
-                zIndex={incidentMarkerZ(incident.priority, {
+                // selected) belongs on top, the rest by priority – not by DOM order – and
+                // above every resting label (see Z in lib/map-view.ts).
+                zIndex={incidentZ("pin", incident.priority, {
                   hovered: hoveredIncidentId === incident.id,
                   highlighted: isHighlighted,
                 })}
@@ -1456,8 +1454,7 @@ export default function MapView({
                   latitude={incident.location_lat!}
                   longitude={incident.location_lng!}
                   dy={permanent ? dy : 0}
-                  hovered={hovered}
-                  selected={isHighlighted}
+                  zIndex={incidentZ("label", incident.priority, { hovered, highlighted: isHighlighted })}
                   onSelect={select}
                   onOpen={openDetail}
                   onHoverStart={hoverStart}
