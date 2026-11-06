@@ -3707,11 +3707,21 @@
       "no": "Nein",
       "personCount": "{count, plural, one {# Person} other {# Personen}}",
       "staleWarn": "Verbindung gestört – letzter Stand {time} Uhr. Aktualisierung läuft weiter.",
-      "staleAlert": "Keine Verbindung · Stand {time} Uhr"
+      "staleAlert": "Keine Verbindung · Stand {time} Uhr",
+      "moreBelow": "+{count} weiter ↓"
     },
     "board": {
       "loginRequired": "Bitte melde dich an für die Board-Anzeige.",
       "collapsedColumnTitle": "{title} – {count} – zum Aufklappen klicken",
+      "railLabel": {
+        "incoming": "Eingeg.",
+        "reko": "Reko",
+        "reko_done": "Reko abg.",
+        "enroute": "Anfahrt",
+        "active": "Einsatz",
+        "returning": "Rückfahrt",
+        "complete": "Abgeschl."
+      },
       "columnAlarmTitle": "{count} überfällig: {titles}",
       "columnAlarmMore": "… und {count} weitere",
       "columnAgedChip": "{count} ≥ {threshold}",

@@ -77,8 +77,9 @@ export function useWallFit(boardRef: RefObject<HTMLElement | null>, enabled = tr
       if (!frame && !disposed) frame = requestAnimationFrame(fit)
     }
 
-    // The board's own box changes with the window and with the top bar, which
-    // is rem too – the second fit after a resize lands on the same size.
+    // The board's own box changes with the window and with the top bar (44px
+    // high, its search and icons still rem) – the second fit after a resize
+    // lands on the same size.
     const resize = new ResizeObserver(schedule)
     resize.observe(board)
     // Content: the probes only touch <html>'s style, outside this subtree, so
