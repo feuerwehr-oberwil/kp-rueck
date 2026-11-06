@@ -12,7 +12,7 @@ import { RemovableChip } from "@/components/ui/removable-chip"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Kbd } from "@/components/ui/kbd"
-import { MapPin, Trash2, MessageCircle, ArrowRightLeft, Search, Check, ChevronRight, Link2, LayoutDashboard, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, Users, Truck, Package, UserMinus, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, ArrowRight, MapPin, Trash2, MessageCircle, ArrowRightLeft, Search, Check, ChevronRight, Link2, LayoutDashboard, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, Users, Truck, Package, UserMinus, type LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
@@ -85,6 +85,11 @@ import { ShellLoader } from '@/components/ui/shell-loader'
  */
 const ROW_ACTION =
   "inline-flex cursor-pointer items-center gap-1 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:cursor-not-allowed disabled:no-underline disabled:opacity-50"
+
+/** The ← / → key caps beside the tab bar: hints, not buttons (the Kbd is
+ *  `pointer-events-none`). A 24px cap, a 14px arrow; desktop only. */
+const TAB_ARROW_KEY = "hidden size-6 shrink-0 px-0 lg:inline-flex"
+const TAB_ARROW_ICON = "size-3.5"
 
 /** Whether the provenance toggles apply to this card at all.
  *
@@ -549,13 +554,20 @@ export function OperationDetailContent({
   // 1100px modal half — the toggle switches ended up 800px from their labels
   // and read as unaligned. The resources column takes what remains.
   // One vertical rhythm on every tab: 8px between two rows (each `DetailField`
-  // brings its own `py-1`, nothing is stacked on top), 16px between two
-  // sections — the column groups, «Status ändern», «Kräfte» and, stacked in
-  // the 420px panel, the two columns themselves (`gap-y-4`; `gap-x-8` is the
-  // modal's column gutter). It was 12/28/32, which put the first status row
-  // under the panel's footer on a laptop.
+  // brings its own `py-1`, nothing is stacked on top) and ONE section step
+  // between two sections — the column groups, «Status ändern», «Kräfte» and,
+  // stacked in the panel, the two columns themselves (`gap-x-8` is the modal's
+  // column gutter). The step is 16px in the modal and 12px in the panel: at 16
+  // the second «Status ändern» row sat on the panel's footer rule on a laptop
+  // (hill climb r11); 12 leaves it clear. It was 12/28/32 before that, which
+  // put the first status row under the footer.
+  const sectionStep = dense
+    ? { gap: "gap-y-3", pad: "py-3", stack: "space-y-3", after: "mb-3", fields: "space-y-1" }
+    : { gap: "gap-y-4", pad: "py-4", stack: "space-y-4", after: "mb-4", fields: "space-y-2" }
   const tabGridClass = cn(
-    "grid grid-cols-1 gap-x-8 gap-y-4 py-4",
+    "grid grid-cols-1 gap-x-8",
+    sectionStep.gap,
+    sectionStep.pad,
     layout === 'modal' && "lg:grid-cols-[minmax(0,34rem)_minmax(0,1fr)]",
   )
   // Die Spalten trennt eine Linie. Waagrecht bleibt es bei Abstand — eine
@@ -564,7 +576,7 @@ export function OperationDetailContent({
   // voneinander trennt, lesen sich bei langen Zeilen als eine, und ein Blick, der
   // von «Notizen» nach rechts wandert, landet in «Kräfte», ohne die Grenze
   // bemerkt zu haben.
-  const tabColumnBreakClass = cn("space-y-4", layout === 'modal' && "lg:border-l lg:border-border lg:pl-8")
+  const tabColumnBreakClass = cn(sectionStep.stack, layout === 'modal' && "lg:border-l lg:border-border lg:pl-8")
   // The one scrolling region: the dialog itself is a fixed 85vh, so switching
   // tabs must never resize it or scroll the header away.
   // `scroll`, not `auto`: every one of these panels grows the moment a folded
@@ -995,13 +1007,18 @@ export function OperationDetailContent({
                 address would otherwise squeeze exactly these. Both mounts: the
                 arrows walk the tabs in the panel too, and a shortcut nobody is
                 told about is a shortcut nobody uses. The panel pays for them
-                with a smaller key cap and a tighter gap — 24px of its 420. */}
+                with a tighter gap.
+                One key cap in both mounts (hill climb r11): a 24px cap with a
+                14px / 1.75 stroke arrow in the secondary icon ink — the 11px
+                text arrow in a 16px cap read as a disabled control. The key at
+                the end it cannot pass (← on the first tab, → on the last) is a
+                no-op there and wears the «unavailable» `opacity-40`; only then. */}
             <Kbd
-              className={cn("hidden shrink-0 lg:inline-flex", dense && "h-4 min-w-4 px-0.5 text-2xs")}
+              className={cn(TAB_ARROW_KEY, tab === OPERATION_DETAIL_TABS[0] && "opacity-40")}
               title={t('detail.tabs.switchHint')}
               aria-label={t('detail.tabs.switchHint')}
             >
-              ←
+              <ArrowLeft className={TAB_ARROW_ICON} strokeWidth={1.75} aria-hidden="true" />
             </Kbd>
             <TabsList className={cn(dense ? "min-w-0 flex-1" : "flex-shrink-0")}>
               <TabsTrigger value="overview" className={tabTriggerClass}>{t('detail.tabs.overview')}</TabsTrigger>
@@ -1041,11 +1058,11 @@ export function OperationDetailContent({
             </TabsList>
 
             <Kbd
-              className={cn("hidden shrink-0 lg:inline-flex", dense && "h-4 min-w-4 px-0.5 text-2xs")}
+              className={cn(TAB_ARROW_KEY, tab === OPERATION_DETAIL_TABS.at(-1) && "opacity-40")}
               title={t('detail.tabs.switchHint')}
               aria-hidden="true"
             >
-              →
+              <ArrowRight className={TAB_ARROW_ICON} strokeWidth={1.75} aria-hidden="true" />
             </Kbd>
           </div>
         </header>
@@ -1060,8 +1077,8 @@ export function OperationDetailContent({
           {/* Left Column — the fields, as rows in both mounts, gathered under
               the small grey group headings. No hairlines between rows any more:
               whitespace separates, the headings group. */}
-          {/* `space-y-2` + the rows' own `py-1` = the 16px section step. */}
-          <div className="space-y-2">
+          {/* `fields` + the rows' own `py-1` = the section step (12 / 16px). */}
+          <div className={sectionStep.fields}>
           {/* Where, what, how urgent. The fields carry their own labels, so a
               «Lage» heading over them said nothing – gone, whitespace groups. */}
           <div>
@@ -1384,7 +1401,7 @@ export function OperationDetailContent({
               opens this column because it is the most-used control on the tab
               and must not sit below a resource list of unpredictable length. */}
           {canEdit && onChangeStatus && (
-          <div className="mb-4">
+          <div className={sectionStep.after}>
             {/* Same heading as Lage / Meldung / Kräfte. It used to be a `text-sm
                 font-medium` line with a full-size icon, which made three heading
                 weights visible at once on one tab — and this one was the loudest
@@ -1566,7 +1583,7 @@ export function OperationDetailContent({
                 Reko, its Funkmeldung and «noch kein Bericht» in a single narrow
                 run and read as a form with nothing in it. */}
             <div className={tabGridClass}>
-              <div className="space-y-4">
+              <div className={sectionStep.stack}>
               <RekoReportSection
                 incidentId={operation.id}
                 canEdit={canEdit}
@@ -1715,7 +1732,7 @@ export function OperationDetailContent({
               from the field on the left — the crew's sentences and what they
               left standing — and what the KP writes on the right. */}
           <div className={tabGridClass}>
-            <div className="space-y-4">
+            <div className={sectionStep.stack}>
               {/* Feldmeldungen — KP parity (decision 28). Everything a crew taps
                   on /feld, an operator enters here from a radio message.
                   «Reko vor Ort» lives on the Reko tab with the rest of the
@@ -1811,7 +1828,7 @@ export function OperationDetailContent({
               assignments and the crew's messages interleaved), and who was
               here — the same three resource kinds as Übersicht but including
               everything already released. Single column on purpose. */}
-          <div className="space-y-4 py-4">
+          <div className={cn(sectionStep.stack, sectionStep.pad)}>
             <IncidentTimeline
               events={timeline.events}
               isLoading={timeline.isLoading}
