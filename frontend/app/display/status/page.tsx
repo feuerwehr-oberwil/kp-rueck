@@ -13,7 +13,8 @@ import { IncidentTime } from "@/components/ui/incident-time"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { CollapsibleSection } from "@/components/display/collapsible-section"
 import { DisplayStaleBanner } from "@/components/display/display-stale-banner"
-import { type Priority, PRIORITY_EDGE_CLASSES } from "@/lib/priority"
+import { type Priority, PRIORITY_EDGE_CLASSES, PRIORITY_ICON_CLASSES } from "@/lib/priority"
+import { PRIORITY_LIST_ICONS } from "@/lib/map-priority"
 import {
   RESOURCE_STATE_DOT_CLASSES,
   materialResourceState,
@@ -59,10 +60,18 @@ const STATUS_COLLAPSE_KEY = "kp-display-status-collapsed"
  *     board column's own tint (`colDef.color`). Words, not just colour.
  *  3. A status DOT on every row, in the board column's colour, so a row that
  *     has scrolled away from its header still says which column it is in. It
- *     replaces the priority dot that stood here: priority is on the edge now,
- *     and two dots for two dimensions is how the confusion started.
+ *     replaces the priority dot that stood here: two dots for two dimensions
+ *     is how the confusion started. Priority is the edge plus the board's
+ *     chevron/dash glyph right before the address – a shape, not a third dot.
  */
 const ROW_SURFACE = "bg-muted/30"
+
+/** The glyph's accessible name, per priority (the wall card's keys). */
+const PRIORITY_ARIA = {
+  high: "card.priorityHighAria",
+  medium: "card.priorityMediumAria",
+  low: "card.priorityLowAria",
+} as const satisfies Record<Priority, string>
 
 /** A resource's name on this wall — vehicle, person, material: 18/600 from `xl`,
  *  the line that has to carry across the room. `leading-6` keeps a person row
@@ -718,13 +727,17 @@ function VehicleRow({ vehicle: v, auftrag, onClick }: { vehicle: VehicleWithStat
       </div>
       {/* Only a real Einsatz has a clock — a route-owned vehicle has no incident
           of its own to time. */}
+      {/* 16/20 600 from `xl` (hill climb r9): how long a crew has been out is a
+          read from across the room, not a caption. Coloured by the board's
+          `ageLevel`, like the wall card's age. */}
       {v.assignedOperation && (
-        <span className="shrink-0">
+        <span className="shrink-0 text-right">
           <IncidentTime
             operation={v.assignedOperation}
             readOnly
-            className="text-[11px] xl:text-xs"
-            iconClassName="h-3 w-3"
+            colorByAge
+            className="text-sm xl:text-base leading-5 font-semibold"
+            iconClassName="h-3.5 w-3.5 xl:h-4 xl:w-4"
           />
         </span>
       )}
@@ -737,6 +750,8 @@ function IncidentRow({ operation: op, onClick }: { operation: Operation; onClick
   const statusId = columns.find((c) => c.status.includes(op.status))?.id || "incoming"
   const locationLabel = incidentLocationLabel(op)
   const statusLabel = tk(`columns.${statusId}`)
+  const priority = (op.priority ?? "low") as Priority
+  const PriorityIcon = PRIORITY_LIST_ICONS[priority]
   return (
     <div
       className={cn(
@@ -744,7 +759,7 @@ function IncidentRow({ operation: op, onClick }: { operation: Operation; onClick
         // meaning. High and medium colour it; low closes it (see priority.ts).
         "px-3 xl:px-4 py-2.5 xl:py-3 rounded-md border-l-4 cursor-pointer transition-colors hover:bg-muted/60",
         ROW_SURFACE,
-        PRIORITY_EDGE_CLASSES[(op.priority ?? "low") as Priority],
+        PRIORITY_EDGE_CLASSES[priority],
       )}
       onClick={onClick}
     >
@@ -757,12 +772,20 @@ function IncidentRow({ operation: op, onClick }: { operation: Operation; onClick
             )}
             title={statusLabel}
           />
-          <div className="min-w-0">
-            {/* Two lines, hyphenated, instead of one truncated: «Mühlemattstrasse …»
-                is not an address anybody can act on, and a wall has no pointer for
-                the title attribute. */}
-            <p className={cn("text-sm xl:text-base font-semibold leading-tight line-clamp-2", WALL_TEXT_WRAP)} title={locationLabel}>{locationLabel}</p>
-            <p className="text-[11px] xl:text-xs text-muted-foreground mt-0.5">{getIncidentTypeLabel(op.incidentType)}</p>
+          {/* The priority glyph the wall board and the Lagekarte draw before an
+              address (hill climb r9): the edge alone said priority in colour only. */}
+          <div className="flex items-start gap-1.5 min-w-0">
+            <PriorityIcon
+              className={cn("mt-0.5 h-3.5 w-3.5 xl:h-4 xl:w-4 shrink-0", PRIORITY_ICON_CLASSES[priority])}
+              aria-label={tk(PRIORITY_ARIA[priority])}
+            />
+            <div className="min-w-0">
+              {/* Two lines, hyphenated, instead of one truncated: «Mühlemattstrasse …»
+                  is not an address anybody can act on, and a wall has no pointer for
+                  the title attribute. */}
+              <p className={cn("text-sm xl:text-base font-semibold leading-tight line-clamp-2", WALL_TEXT_WRAP)} title={locationLabel}>{locationLabel}</p>
+              <p className="text-[11px] xl:text-xs text-muted-foreground mt-0.5">{getIncidentTypeLabel(op.incidentType)}</p>
+            </div>
           </div>
         </div>
         <span className="shrink-0">
