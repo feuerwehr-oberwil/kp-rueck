@@ -49,10 +49,11 @@ import { useWeather } from "@/lib/hooks/use-weather"
 import { activeWarnings, radarIsStale } from "@/lib/weather"
 
 // Permanent incident labels: the bubble sits to the RIGHT of the dot, its near edge this far
-// from it — Leaflet's own `offset` (14) plus the 6px arrow margin it added on top. The leader
-// line of a stepped label bridges exactly that distance back to the dot.
+// from it — the arrow's tip at `LABEL_ANCHOR_X`, 2px clear of the 32px pin at rest (desktop and
+// phone alike, STATUS_RING), plus the 6px arrow. The leader line of a stepped label bridges
+// exactly that distance back to the dot.
 const LABEL_HEIGHT = 32
-const LABEL_ANCHOR_X = 14
+const LABEL_ANCHOR_X = incidentPinSize(false, false) / 2 + 2
 const LABEL_LEADER_DX = LABEL_ANCHOR_X + 6
 // Grace period before an abandoned card closes — long enough to cross the seam
 // into the next label, short enough that a card never lingers on its own.
@@ -99,7 +100,7 @@ function IncidentPin({
 }: {
   incident: Incident
   highlighted: boolean
-  /** Phone geometry (`STATUS_RING.phone`): bigger pin, 3px frame, spaced dashes / round dots. */
+  /** Phone geometry (`STATUS_RING.phone`): 3px frame, spaced dashes / round dots. */
   compact: boolean
   accentColor?: string | null
   onActivate: () => void

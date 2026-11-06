@@ -33,11 +33,17 @@ export const MAP_COLORS = {
  * markers and the legend's key both draw through `incidentPinRings`, so the key draws what the
  * map shows; the route pins' CSS outline takes `width`.
  *
- * - `width` / `desktop`: the 24px pin – a 2px frame on the white halo around the fill.
+ * - `width` / `desktop`: the 32px pin – a 24px priority core, a clear 2px white gap, then the
+ *   shared 2px frame, its `STATUS_GROUP_BORDER_STYLE` pattern stretched to a whole number of
+ *   periods so no seam (hill climb r12: on the old 24px pin a 15px core and a 2.5px halo squeezed
+ *   solid / dashed / dotted into one grey ring).
  * - `phone` (≤ 767px or a coarse pointer, `COMPACT_MAP_QUERY` in lib/map-labels.ts – the same
  *   test as the label rule): a 32px pin with a 3px frame, a 2px white gap before the fill, and
  *   dash patterns laid out on the ring's circumference so dashes stand clearly apart and dots are
  *   round (hill climb r6: the thin 2px solid/dashed/dotted rings ran together in a cluster).
+ *
+ * `fillR = r - fillInset` is the fill circle; its white `halo` stroke is centred on that edge, so
+ * the visible core is `2·fillR - halo` and the gap is `halo` wide when `fillInset = width + halo/2`.
  *
  * `color` is for frames ON the basemap (light by day, the dimmed mid grey at night – gray-700
  * reads on both). The legend sits on the card instead, where gray-700 vanished in dark mode
@@ -46,7 +52,7 @@ export const MAP_COLORS = {
 export const STATUS_RING = {
   color: "#374151",
   width: 2,
-  desktop: { size: 24, highlightedSize: 32, width: 2, fillInset: 3, halo: 3 },
+  desktop: { size: 32, highlightedSize: 36, width: 2, fillInset: 3, halo: 2 },
   phone: { size: 32, highlightedSize: 36, width: 3, fillInset: 4, halo: 2, dashes: 8, dots: 12 },
 } as const
 
@@ -59,8 +65,9 @@ export function incidentPinSize(highlighted: boolean, compact: boolean): number 
 /**
  * Everything an incident pin (or its legend sample) draws, for an SVG of `size`: the fill circle
  * (`fillR`, stroked white by `halo`) and the status frame (`ringR`, `ringWidth`, dash pattern +
- * line cap). Desktop keeps the patterns of `STATUS_GROUP_BORDER_STYLE`; the phone spreads
- * `dashes` dashes or `dots` round dots evenly over the frame, so no seam where the pattern ends.
+ * line cap). Desktop keeps the patterns of `STATUS_GROUP_BORDER_STYLE`, stretched to a whole
+ * number of periods; the phone spreads `dashes` dashes or `dots` round dots evenly over the frame.
+ * Either way no seam where the pattern ends.
  */
 export function incidentPinRings(size: number, compact: boolean, group: StatusGroup) {
   const r = size / 2
@@ -68,8 +75,13 @@ export function incidentPinRings(size: number, compact: boolean, group: StatusGr
   const ringR = r - geometry.width / 2
   let dasharray: string = STATUS_GROUP_BORDER_STYLE[group].dasharray
   let linecap: "butt" | "round" = "butt"
+  const circumference = 2 * Math.PI * ringR
+  if (!compact && dasharray !== "none") {
+    const [dash, gap] = dasharray.split(",").map(Number)
+    const stretch = circumference / (Math.round(circumference / (dash + gap)) * (dash + gap))
+    dasharray = `${(dash * stretch).toFixed(2)},${(gap * stretch).toFixed(2)}`
+  }
   if (compact && group !== "active") {
-    const circumference = 2 * Math.PI * ringR
     if (group === "open") {
       const period = circumference / STATUS_RING.phone.dashes
       dasharray = `${(period * 0.55).toFixed(2)},${(period * 0.45).toFixed(2)}`
