@@ -478,7 +478,7 @@ const FIRESTATION_STYLE: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "#dc2626",
+  background: MAP_COLORS.station,
   color: "white",
   border: "2px solid white",
   borderRadius: "50%",
@@ -486,9 +486,11 @@ const FIRESTATION_STYLE: CSSProperties = {
   fontSize: 14,
 }
 
-// Magazin (GPS-Heimatbasis) — a little home icon styled like the vehicle pills so it reads as
-// "where the vehicles live". Only rendered when gps.station_lat/lng are set (Settings → GPS).
-const MAGAZIN_STYLE: CSSProperties = { ...pillStyle(MAP_COLORS.info, 24), fontSize: 14 }
+// Magazin (GPS-Heimatbasis) — a little home icon shaped like the vehicle pills so it reads as
+// "where the vehicles live", in the station ink rather than their blue: blue is the Auftrag's
+// (and a reporting vehicle's), and a blue ⌂ read as part of a route (hill climb r18). Only
+// rendered when gps.station_lat/lng are set (Settings → GPS).
+const MAGAZIN_STYLE: CSSProperties = { ...pillStyle(MAP_COLORS.station, 24), fontSize: 14 }
 
 // --- Permanent labels -------------------------------------------------------
 

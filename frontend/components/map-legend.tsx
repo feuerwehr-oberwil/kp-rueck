@@ -68,6 +68,26 @@ function LegendMarker({
   )
 }
 
+/**
+ * The board columns a status frame stands for, under its group name – «Disponiert / Anfahrt ·
+ * Im Einsatz». The catalogue keeps them as ONE « · »-joined string; each name is drawn unbroken
+ * (its « ·» glued to it) so the 208px legend wraps only between names, never inside one
+ * («Disponiert / Anfahrt · Im / Einsatz», hill climb r18).
+ */
+function StatusMembers({ names }: { names: string }) {
+  const parts = names.split(" · ")
+  return (
+    <span className="block text-2xs leading-tight text-muted-foreground">
+      {parts.map((name, i) => (
+        <span key={name}>
+          <span className="whitespace-nowrap">{i < parts.length - 1 ? `${name} ·` : name}</span>
+          {i < parts.length - 1 && " "}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 export function MapLegend({
   colorBy = "priority",
   colorGroups = [],
@@ -199,27 +219,21 @@ export function MapLegend({
             <LegendMarker fillColor={null} group="open" />
             <span className="text-xs">
               {t('legend.statusOpen')}
-              <span className="block text-2xs leading-tight text-muted-foreground">
-                {t('statusGroups.openMembers')}
-              </span>
+              <StatusMembers names={t('statusGroups.openMembers')} />
             </span>
           </div>
           <div className="flex items-start gap-2">
             <LegendMarker fillColor={null} group="active" />
             <span className="text-xs">
               {t('legend.statusActive')}
-              <span className="block text-2xs leading-tight text-muted-foreground">
-                {t('statusGroups.activeMembers')}
-              </span>
+              <StatusMembers names={t('statusGroups.activeMembers')} />
             </span>
           </div>
           <div className="flex items-start gap-2">
             <LegendMarker fillColor={null} group="completed" />
             <span className="text-xs">
               {t('legend.statusCompleted')}
-              <span className="block text-2xs leading-tight text-muted-foreground">
-                {t('statusGroups.completedMembers')}
-              </span>
+              <StatusMembers names={t('statusGroups.completedMembers')} />
             </span>
           </div>
         </div>

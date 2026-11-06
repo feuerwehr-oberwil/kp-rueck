@@ -442,7 +442,7 @@ export function LocationInput({
                 : "text-sm leading-tight font-semibold text-muted-foreground",
             )}
           >
-            {denseRow ? t('locationInput.addressLabelShort') : t('locationInput.addressLabel')}
+            {t('locationInput.addressLabel')}
           </Label>
           {required && (
             <span className="text-destructive" title={t('locationInput.requiredField')}>*</span>

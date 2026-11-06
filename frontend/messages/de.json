@@ -1513,8 +1513,7 @@
       "incidentFallback": "Einsatz"
     },
     "locationInput": {
-      "addressLabel": "Einsatzort (Adresse)",
-      "addressLabelShort": "Einsatzort",
+      "addressLabel": "Einsatzort",
       "requiredField": "Pflichtfeld",
       "addressPlaceholder": "Adresse suchen …",
       "searchPlaceholder": "Adresse suchen …",

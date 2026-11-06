@@ -165,7 +165,8 @@ export function SettingRow({
 }
 
 interface SettingCardProps {
-  /** Fehlt der Titel, ist die Karte ein reiner Zeilenbehälter ohne Kopf. */
+  /** Fehlt der Titel, ist die Karte ein reiner Zeilenbehälter ohne Kopf. Keinen Titel, der nur
+   *  den Abschnittsnamen wiederholt: den nennt schon die Seitenüberschrift. */
   title?: ReactNode
   subtitle?: ReactNode
   /** Rechts im Kopf – «Aktualisieren», ein Zustandsabzeichen. */
@@ -191,7 +192,7 @@ export function SettingCard({
 }: SettingCardProps) {
   return (
     <Card className={cn('p-4 md:p-5', className)}>
-      {(title || action) && (
+      {(title || subtitle || action) && (
         // Wraps: when title and action do not both fit (a 360px phone), the action moves under
         // the title instead of squeezing it to a column one word wide (overflow sweep, 03.10.).
         <div className={cn('flex flex-wrap items-start gap-x-4 gap-y-2', children && 'mb-3')}>

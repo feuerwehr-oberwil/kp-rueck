@@ -2561,8 +2561,7 @@
       "incidentFallback": "Intervention"
     },
     "locationInput": {
-      "addressLabel": "Lieu d’intervention (adresse)",
-      "addressLabelShort": "Lieu d’intervention",
+      "addressLabel": "Lieu d’intervention",
       "requiredField": "Champ obligatoire",
       "addressPlaceholder": "Rechercher une adresse …",
       "searchPlaceholder": "Rechercher une adresse …",

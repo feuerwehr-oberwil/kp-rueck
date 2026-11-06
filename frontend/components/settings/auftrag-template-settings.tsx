@@ -211,7 +211,7 @@ export function AuftragTemplateSettings({ readOnly = false }: { readOnly?: boole
   const autoCount = templates.filter((template) => template.auto_create).length;
 
   return (
-    <SettingCard title={t('title')} subtitle={t('description')}>
+    <SettingCard subtitle={t('description')}>
       <div className="space-y-4">
         {templates.length === 0 ? (
           <p className="text-sm text-muted-foreground rounded-lg border border-dashed border-border p-6 text-center">
