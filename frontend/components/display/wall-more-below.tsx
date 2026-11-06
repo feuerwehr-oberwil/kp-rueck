@@ -27,6 +27,10 @@
  *
  * `itemSelector` picks what counts (default: the scroller's direct children,
  * the wall board's cards); the status wall marks its rows `data-wall-item`.
+ * Items that show the same thing twice carry the same `data-wall-key` and
+ * count once – and not at all while one of them is in view (the status wall
+ * lists an Auftrag's stop under the Auftrag AND under its status: «+n weiter»
+ * counts Einsätze, not rows – hill climb r22).
  * `bodyRef` hands the scroller to a caller that measures it too. The strip
  * takes its 28px from the scroller, so a fit or split that measures the
  * scroller sees the room that is really left. Below `sm` the walls stack and
@@ -35,6 +39,27 @@
 
 import { useEffect, useRef, useState, type ComponentProps, type RefObject } from "react"
 import { useTranslations } from "next-intl"
+
+/** One counted item: its box's bottom edge, and its `data-wall-key` when it has one. */
+export interface WallItemBox {
+  bottom: number
+  key?: string
+}
+
+/** How many items end below `limit` (the scroller's visible end), an item with a
+ *  key counting once per key and only when no item of that key is fully in view. */
+export function countHiddenBelow(items: Iterable<WallItemBox>, limit: number): number {
+  let count = 0
+  const hiddenKeys = new Set<string>()
+  const shownKeys = new Set<string>()
+  for (const { bottom, key } of items) {
+    const hidden = bottom > limit + 0.5
+    if (key === undefined) count += hidden ? 1 : 0
+    else (hidden ? hiddenKeys : shownKeys).add(key)
+  }
+  for (const key of hiddenKeys) if (!shownKeys.has(key)) count++
+  return count
+}
 
 /** What is below the scroller's visible end: nothing (null), or how many items are not fully in view. */
 export function useHiddenBelow(scrollRef: RefObject<HTMLElement | null>, itemSelector: string): number | null {
@@ -49,11 +74,11 @@ export function useHiddenBelow(scrollRef: RefObject<HTMLElement | null>, itemSel
         setHidden(null)
         return
       }
-      const bottom = el.getBoundingClientRect().bottom
-      let count = 0
-      for (const item of el.querySelectorAll<HTMLElement>(itemSelector)) {
-        if (item.getBoundingClientRect().bottom > bottom + 0.5) count++
-      }
+      const items = [...el.querySelectorAll<HTMLElement>(itemSelector)].map((item) => ({
+        bottom: item.getBoundingClientRect().bottom,
+        key: item.dataset.wallKey,
+      }))
+      const count = countHiddenBelow(items, el.getBoundingClientRect().bottom)
       // Only padding below the last item is not «more».
       setHidden(count > 0 ? count : null)
     }

@@ -26,8 +26,9 @@ export function CollapsibleSection({
   children,
 }: {
   label: string
-  /** How many rows are in there — shown open and closed alike. */
-  count: number
+  /** How many rows are in there — shown open and closed alike. Left out by a
+   *  section that lists no rows (the wall's Kennzahlen), whose badge says it all. */
+  count?: number
   /** Optional second figure, e.g. «4/9 verfügbar». */
   badge?: ReactNode
   /** Something in here needs attention; stays visible while collapsed. */
@@ -44,7 +45,9 @@ export function CollapsibleSection({
         onClick={onToggle}
         aria-expanded={!collapsed}
         className={cn(
-          "flex w-full items-center gap-2 border-b border-border px-3 xl:px-4 py-1.5 xl:py-2 text-left transition-colors hover:bg-foreground/5",
+          // The min height is the count chip's row, so a head without one (the
+          // wall's Kennzahlen) stands as tall as its neighbours.
+          "flex min-h-8 xl:min-h-9 w-full items-center gap-2 border-b border-border px-3 xl:px-4 py-1.5 xl:py-2 text-left transition-colors hover:bg-foreground/5",
           headerClassName,
         )}
       >
@@ -58,9 +61,11 @@ export function CollapsibleSection({
           <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" aria-hidden />
         )}
         {badge}
-        <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm bg-foreground/10 px-1 text-2xs xl:text-xs font-bold tabular-nums text-foreground">
-          {count}
-        </span>
+        {count !== undefined && (
+          <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm bg-foreground/10 px-1 text-2xs xl:text-xs font-bold tabular-nums text-foreground">
+            {count}
+          </span>
+        )}
       </button>
       <Reveal open={!collapsed}>{children}</Reveal>
     </div>

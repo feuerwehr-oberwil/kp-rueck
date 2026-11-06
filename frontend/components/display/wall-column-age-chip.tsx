@@ -1,9 +1,10 @@
 "use client"
 
 /**
- * The «something here has sat too long» mark beside a WALL column's count –
- * on both wall boards (`app/display/board/page.tsx`, `token-board.tsx`), on
- * the open column's header and on its folded strip.
+ * The «something here has sat too long» mark of a WALL column – on both wall
+ * boards (`app/display/board/page.tsx`, `token-board.tsx`), at the right end of
+ * the open column's head (`WallColumnHead`, apart from the count) and on its
+ * folded strip.
  *
  * It used to be an 8px red dot on the count badge: red for what the age rule
  * calls amber, no word (the names only in a hover `title` nobody at a wall can
@@ -15,8 +16,9 @@
  *
  * Renders nothing while no incident in the column has reached 60'.
  *
- * Usage: `<WallColumnAgeChip operations={columnOps} />` – the same chip on the
- * open header and on the folded rail (components/display/wall-folded-column).
+ * Usage: `<WallColumnAgeChip operations={columnOps} />` – the same chip in the
+ * open head (components/display/wall-column-head) and on the folded rail
+ * (components/display/wall-folded-column).
  */
 
 import { useTranslations } from "next-intl"
@@ -53,9 +55,12 @@ export function WallColumnAgeChip({ operations }: { operations: readonly Operati
       title={title}
       aria-label={title}
       className={cn(
-        // The count chip's geometry and type (WALL_COLUMN_COUNT_CLASS), its
-        // neutral fill too: the colour is the text's, as on the card's age.
-        "inline-flex h-6 flex-shrink-0 items-center gap-1 rounded-sm bg-foreground/10 px-1.5 text-sm leading-[1.125rem] tabular-nums whitespace-nowrap",
+        // The count chip's height, type and neutral fill (WALL_COLUMN_COUNT_CLASS):
+        // the colour is the text's, as on the card's age. 4px in and 2px after
+        // the glyph, 6px tighter than the count chip's 6px: in the open head
+        // (WallColumnHead) it stands apart from the count, and those 6px are what
+        // keeps «REKO ABGESCHLOSSEN 2 … ⏱ 2 ≥ 60'» on one line at 1920 (r22).
+        "inline-flex h-6 flex-shrink-0 items-center gap-0.5 rounded-sm bg-foreground/10 px-1 text-sm leading-[1.125rem] tabular-nums whitespace-nowrap",
         ageChipClass(ageSince(oldest)),
         "font-semibold",
       )}

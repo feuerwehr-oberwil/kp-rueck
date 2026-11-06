@@ -67,6 +67,7 @@ import { PRIORITY_CARD_CLASSES, type Priority } from "@/lib/priority"
 import { formatClockTime } from "@/lib/incident-time"
 import { formatDurationHours } from "@/lib/duration"
 import { WALL_TEXT_WRAP } from "@/lib/kanban-utils"
+import { metaFacts } from "@/lib/meta-line"
 import { cn } from "@/lib/utils"
 import { PersonName } from "@/components/person-name"
 
@@ -228,23 +229,25 @@ export function DisplayIncidentCard({
   // number survives. The wall draws every name uncapped, 4px below this line
   // (see the AUFTRAG block), which makes «3 Pers» a caption for a list the reader
   // is already looking at — and buys back the width the untruncated names need.
+  const auftragStopLine = auftrag ? t("card.auftragStopLine", { pos: auftragStopPos, total: auftragTotal }) : ""
   const auftragSummary = auftragResources
     ? [
         auftragResources.vehicles.map((v) => v.name).join(", "),
         auftragResources.materials.length ? t("card.auftragMatSummary", { count: auftragResources.materials.length }) : "",
       ]
-        .filter(Boolean)
-        .join(" · ")
-    : ""
+    : []
+  // The stop metadata under the Auftrag's name, «Stopp 1 von 4 · Pio · 1 Gerät»:
+  // each fact one unbreakable run, a wrap only before a «·» (lib/meta-line).
+  const auftragMeta = metaFacts([auftragStopLine, ...auftragSummary])
   // The whole row as one string. Kept even though a wall has no pointer: the
   // logged-in /display/board is also opened on a desk, and the attribute used to
   // carry the Auftrag NAME — the one part of the row that was never cut off.
   const auftragTitle = auftrag
     ? [
         auftrag.name,
-        t("card.auftragStopLine", { pos: auftragStopPos, total: auftragTotal }),
+        auftragStopLine,
         auftragCrewFolded ? t("card.auftragCrewAsStop", { pos: crewShownAt }) : "",
-        auftragSummary,
+        ...auftragSummary,
       ]
         .filter(Boolean)
         .join(" · ")
@@ -606,19 +609,15 @@ export function DisplayIncidentCard({
                   second line has 193px at 1280 (213px at 1920) for 135.4px of
                   «Stopp 6 von 7 · Pio · 1 Gerät» — 174.9px before the crew count
                   came out of `auftragSummary` above. Neither line truncates:
-                  both WRAP, as wall text does.
+                  both WRAP, as wall text does – the metadata only before a «·»,
+                  never between a figure and its unit (`auftragMeta`, hill climb r22).
                   The NAME is the squad's handle and reads at the state line's
                   14/18 in 600 foreground (hill climb r12) – at caption size and
                   muted it sank into the stop metadata under it, which stays the
                   wall caption. */}
               <span className="flex min-w-0 flex-1 flex-col gap-px">
                 <span className={cn(AUFTRAG_NAME, WALL_TEXT_WRAP)}>{auftrag.name}</span>
-                <span className={cn("text-muted-foreground", WALL_TEXT_WRAP)}>
-                  <span className="tabular-nums">
-                    {t("card.auftragStopLine", { pos: auftragStopPos, total: auftragTotal })}
-                  </span>
-                  {auftragSummary && <> · {auftragSummary}</>}
-                </span>
+                <span className={cn("tabular-nums text-muted-foreground", WALL_TEXT_WRAP)}>{auftragMeta}</span>
               </span>
             </div>
             {/* Folded when an earlier card of this column already names the
@@ -682,11 +681,11 @@ export function DisplayIncidentCard({
                 {operation.rekoSummary.personnelCount && (
                   <span className="inline-flex items-center gap-1.5">
                     <Users aria-hidden className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
-                    {t("card.persCount", { count: operation.rekoSummary.personnelCount })}
+                    {metaFacts([t("card.persCount", { count: operation.rekoSummary.personnelCount })])}
                   </span>
                 )}
                 {operation.rekoSummary.estimatedDuration && (() => {
-                  const duration = formatDurationHours(operation.rekoSummary.estimatedDuration)
+                  const duration = metaFacts([formatDurationHours(operation.rekoSummary.estimatedDuration)])
                   return (
                     <span className="inline-flex items-center gap-1.5 tabular-nums" title={`${tBoard("estimatedDuration")} ${duration}`}>
                       <Clock aria-hidden className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />

@@ -371,7 +371,7 @@
       "vehicles": "Véhicules",
       "availableDeployed": "{available} disponibles · {deployed} engagés",
       "incidents": "Interventions",
-      "incomingInProgress": "{incoming} reçues · {inProgress} en cours",
+      "waitingInProgress": "{waiting} en attente · {inProgress} en cours",
       "noActiveIncidents": "Aucune intervention en cours",
       "personnel": "Personnel",
       "material": "Matériel",
