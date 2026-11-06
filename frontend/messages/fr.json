@@ -377,7 +377,7 @@
       "material": "Matériel",
       "otherRole": "Autres",
       "noMaterial": "Aucun matériel saisi",
-      "available": "disponibles",
+      "materialContinued": "Matériel · suite",
       "freeOfTotal": "{free}/{total} libres",
       "auftragStops": "{count, plural, one {# arrêt} other {# arrêts}}",
       "onIncidents": "{count, plural, one {# intervention} other {# interventions}}",

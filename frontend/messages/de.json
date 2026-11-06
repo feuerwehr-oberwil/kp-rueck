@@ -3789,7 +3789,7 @@
       "material": "Material",
       "otherRole": "Andere",
       "noMaterial": "Kein Material erfasst",
-      "available": "verfügbar",
+      "materialContinued": "Material · Forts.",
       "freeOfTotal": "{free}/{total} frei",
       "auftragStops": "{count, plural, one {# Stopp} other {# Stopps}}",
       "onIncidents": "{count, plural, one {# Einsatz} other {# Einsätze}}",
