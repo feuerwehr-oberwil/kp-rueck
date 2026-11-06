@@ -42,6 +42,7 @@ import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
 import { incidentTypeLabels } from "@/lib/incident-types"
+import { AddressText } from "@/components/kanban/address-text"
 import { useTranslations } from "next-intl"
 import { cn, copyToClipboardAsync } from "@/lib/utils"
 import { sortCrewByLeader } from "@/lib/crew-order"
@@ -272,7 +273,9 @@ export function MobileIncidentDetailSheet({
               <SheetTitle className="text-xl text-left">
                 {/* The number before the address, as on the phone card and the desk detail. */}
                 <IncidentNumber number={operation.number} className="mr-2 text-xs" />
-                {formatLocation(operation.location) || typeLabel(operation.incidentType)}
+                {formatLocation(operation.location)
+                  ? <AddressText text={formatLocation(operation.location)} />
+                  : typeLabel(operation.incidentType)}
               </SheetTitle>
             </div>
           </div>

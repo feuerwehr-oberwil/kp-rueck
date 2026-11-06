@@ -14,7 +14,7 @@
  * said here any more. It used to be a `viaLabel` badge stamped into all three
  * section heads, which printed the Auftrag's name three times in a 372px column
  * and — sitting next to a `truncate`d label as a non-shrinkable span — pushed
- * the one genuinely new piece of information, the count in «Mannschaft (3)», out
+ * the one genuinely new piece of information, the count in «Mannschaft · 3», out
  * of the heading. It is now said once, by the frame these sections sit in:
  * `ResourceSourceBlock` below.
  */
