@@ -100,6 +100,15 @@ interface DetailFieldProps {
 export const STACKED_LABEL = "mb-2 block text-[13px] leading-tight font-medium text-muted-foreground"
 
 /**
+ * The vertical padding of a desktop `Label │ Wert` row (DetailField, DetailToggle, DetailFlags):
+ * 4px, so two rows stand 8px apart. A mount that needs the rows tighter restates
+ * `--detail-row-py` on its root rather than passing a prop to every row – the side panel sets
+ * 3px (6px between rows) beside a 28px `--field-h-dense`, so the laptop keeps «Kräfte» above
+ * its footer (hill climb r22).
+ */
+const DETAIL_ROW_PY = "py-[var(--detail-row-py,0.25rem)]"
+
+/**
  * Left padding that lines a second line up with the control instead of the label:
  * the 120px label plus the row's 8px gap.
  *
@@ -163,7 +172,7 @@ export function DetailField({
   }
 
   return (
-    <div className={cn("py-1", className)}>
+    <div className={cn(DETAIL_ROW_PY, className)}>
       <div className={cn("flex gap-2", alignStart ? "items-start" : "items-center")}>
         <Label
           htmlFor={htmlFor}
@@ -300,7 +309,7 @@ export function DetailToggle({
   }
 
   return (
-    <div className={cn("py-1", className)}>
+    <div className={cn(DETAIL_ROW_PY, className)}>
       {/* `min-h-(--field-h-dense)`: the row is as tall OFF as ON. The
           «warum» input that appears beside the switch is a dense field —
           taller than the switch and the label — so a row sized by its content
@@ -443,7 +452,7 @@ export function DetailFlags({
           {chips}
         </div>
       ) : (
-        <div role="group" aria-label={label} className="flex items-start gap-2 py-1">
+        <div role="group" aria-label={label} className={cn("flex items-start gap-2", DETAIL_ROW_PY)}>
           <span className="w-[120px] shrink-0 pt-2 text-xs text-muted-foreground">{label}</span>
           <div className="min-w-0 flex-1">{chips}</div>
         </div>

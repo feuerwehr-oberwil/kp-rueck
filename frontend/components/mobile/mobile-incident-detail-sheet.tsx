@@ -260,7 +260,10 @@ export function MobileIncidentDetailSheet({
         // area (`pb-sheet-safe`). One sheet-long scroller used to leave «Auf Karte
         // anzeigen» wherever the content ended – on a busy Einsatz on the screen's bottom
         // edge (hill climb r7).
-        className="modal-h-tall gap-0"
+        // The ✕ (44px on a phone) centred on the title's 28px first line, 16 + 14 = 30px down –
+        // at the sheet's `top-4` it hung 9px below the title (hill climb r22), the same fix as
+        // the «Neuer Einsatz» sheet's.
+        className="modal-h-tall gap-0 [&>[data-slot=sheet-close]]:top-[30px] [&>[data-slot=sheet-close]]:-translate-y-1/2"
       >
         <SheetHeader className="border-b px-4 pb-4">
           <div className="flex items-start gap-2">
@@ -450,8 +453,15 @@ export function MobileIncidentDetailSheet({
                             the chip, as on /feld: squeezed in beside vehicle +
                             driver it read as part of the name (hill climb r12).
                             6px under the chip and 22px tall (12/16 + 3px), so it
-                            reads as its own line and not as the chip's shadow (r18). */}
-                        <DriverStayGlyph stays={driverStay} size="caption" className="px-1.5 py-[3px]" />
+                            reads as its own line and not as the chip's shadow (r18).
+                            On the vehicle chip's own surface (`bg-secondary`), not the
+                            glyph's darker ink tint: two greys stacked read as two
+                            kinds of thing (r22). */}
+                        <DriverStayGlyph
+                          stays={driverStay}
+                          size="caption"
+                          className="bg-secondary px-1.5 py-[3px] text-secondary-foreground"
+                        />
                       </div>
                     )
                   })}

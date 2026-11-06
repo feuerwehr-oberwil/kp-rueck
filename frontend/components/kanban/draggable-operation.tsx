@@ -37,6 +37,7 @@ import { telHref } from "@/lib/phone"
 import { cn } from "@/lib/utils"
 import { WALL_TEXT_WRAP } from "@/lib/kanban-utils"
 import { formatDurationHours } from "@/lib/duration"
+import { metaFacts } from "@/lib/meta-line"
 import { SIDE_PANEL_BREAKPOINT, SIDE_PANEL_MEDIA_QUERY } from "@/lib/layout-breakpoints"
 import { useMediaQuery } from "@/lib/hooks/use-media-query"
 
@@ -234,26 +235,18 @@ function DraggableOperationBase({
   // Grouped incidents carry no resources themselves — the route owns them. Read
   // the route's resource roll-up for the card chip summary.
   const auftragResources = auftrag ? getGroupResources(auftrag.id) : null
-  const auftragSummary = auftragResources
+  // The progress line's facts: «Stopp 1 von 4», the vehicles, «3 Pers», «1 Gerät».
+  const auftragFacts = auftrag && auftragResources
     ? [
+        t('card.auftragStopLine', { pos: auftragStopPos, total: auftragTotal }),
         auftragResources.vehicles.map((v) => v.name).join(', '),
         auftragResources.personnel.length ? t('card.auftragPersSummary', { count: auftragResources.personnel.length }) : '',
         auftragResources.materials.length ? t('card.auftragMatSummary', { count: auftragResources.materials.length }) : '',
-      ]
-        .filter(Boolean)
-        .join(' · ')
-    : ''
+      ].filter(Boolean)
+    : []
   // What the row says, in full — the tooltip's job now that the row has two
   // lines that can each still truncate on a narrow column.
-  const auftragTitle = auftrag
-    ? [
-        auftrag.name,
-        t('card.auftragStopLine', { pos: auftragStopPos, total: auftragTotal }),
-        auftragSummary,
-      ]
-        .filter(Boolean)
-        .join(' · ')
-    : ''
+  const auftragTitle = auftrag ? [auftrag.name, ...auftragFacts].join(' · ') : ''
 
   // What this device actually renders. Resolved once, up front, because the
   // resource block owns a `border-t` divider and its own padding: if the wrapper
@@ -903,9 +896,10 @@ function DraggableOperationBase({
                   <span className="truncate font-medium text-foreground/80 group-hover/auftrag:text-foreground transition-colors">
                     {auftrag.name}
                   </span>
-                  <span className="break-words type-micro text-muted-foreground">
-                    <span className="tabular-nums">{t('card.auftragStopLine', { pos: auftragStopPos, total: auftragTotal })}</span>
-                    {auftragSummary && <> · {auftragSummary}</>}
+                  {/* Breaks only between facts, the «·» going with the fact after it:
+                      «1 Gerät» never wraps as «1 / Gerät» (r22, `lib/meta-line.ts`). */}
+                  <span className="break-words type-micro tabular-nums text-muted-foreground">
+                    {metaFacts(auftragFacts).join(' ·\u00a0')}
                   </span>
                 </span>
               </button>
