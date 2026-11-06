@@ -114,6 +114,27 @@ const CONTROL_Z_ORDER =
   '[&_.maplibregl-ctrl-bottom-left]:z-maplibre-ctrl! [&_.maplibregl-ctrl-bottom-right]:z-maplibre-ctrl!'
 
 /**
+ * MapLibre's stock controls in the app's own surface, not its fixed white.
+ *
+ * The zoom group and the compact attribution ⓘ ship as white boxes with dark icons, which on the
+ * dark board looked pasted on (hill climb r1, finding 9). Here they take the card / border tokens
+ * (dark board, dark controls; light stays light), the small-control radius (`rounded-sm` – each
+ * button is 29px), a hairline ring + restrained shadow instead of MapLibre's 2px grey halo, and
+ * a muted hover. The icons are MapLibre's own dark SVG backgrounds, so dark mode inverts them
+ * rather than redrawing them. `!` for the same reason as CONTROL_Z_ORDER below.
+ */
+const CONTROL_LOOK =
+  '[&_.maplibregl-ctrl-group]:bg-card! [&_.maplibregl-ctrl-group]:rounded-sm! [&_.maplibregl-ctrl-group]:overflow-hidden ' +
+  '[&_.maplibregl-ctrl-group:not(:empty)]:shadow-[0_0_0_1px_var(--border),0_1px_2px_rgb(0_0_0/0.25)]! ' +
+  '[&_.maplibregl-ctrl-group_button+button]:border-border! ' +
+  '[&_.maplibregl-ctrl-group_button:not(:disabled):hover]:bg-muted! ' +
+  'dark:[&_.maplibregl-ctrl-icon]:invert ' +
+  '[&_.maplibregl-ctrl-attrib.maplibregl-compact]:bg-card! [&_.maplibregl-ctrl-attrib.maplibregl-compact]:text-card-foreground! ' +
+  '[&_.maplibregl-ctrl-attrib.maplibregl-compact]:shadow-[0_0_0_1px_var(--border),0_1px_2px_rgb(0_0_0/0.25)] ' +
+  '[&_.maplibregl-ctrl-attrib_a]:text-card-foreground! ' +
+  'dark:[&_.maplibregl-ctrl-attrib-button]:bg-transparent! dark:[&_.maplibregl-ctrl-attrib-button]:invert-[0.85]'
+
+/**
  * …and all of that stays INSIDE the map.
  *
  * Those z-indices (markers up to 1000, controls `z-maplibre-ctrl`) only mean something against
@@ -417,6 +438,7 @@ export function BaseMap({
         'relative h-full w-full',
         MAP_STACKING,
         CONTROL_Z_ORDER,
+        CONTROL_LOOK,
         offline?.kind === 'vector' && VECTOR_CANVAS_FILTER,
         className,
       )}

@@ -2,7 +2,7 @@
  * Which incident labels the Lagekarte draws permanently.
  *
  * Desktop keeps every label (overlaps allowed, the pointed-at one comes to the front – see
- * `stackSharedAddresses` in `components/map-view.tsx`). A phone cannot hover, and thirty white
+ * `stackSharedAddresses` in `components/map-view.tsx`). A phone cannot hover, and thirty
  * address bubbles around one village are an unreadable heap on a 390px screen (owner, iPhone,
  * 02.10.2026). So on a phone or any coarse pointer:
  *
@@ -142,8 +142,9 @@ export function pickVisibleLabels(
 let measureContext: OffscreenCanvasRenderingContext2D | null | undefined
 
 /**
- * Width of a short label bubble: 11px/600 address text, 6px padding each side, plus the crew
- * counters when there are any. Measured on a canvas when one exists; a per-character estimate
+ * Width of a short label bubble: 12px/600 address text (the 11px mono number is measured with
+ * it – a px or two wide), 6px padding + 1px border each side, plus the crew counters when there
+ * are any. Measured on a canvas when one exists; a per-character estimate
  * otherwise (tests, very old engines). An estimate that is a few px off only shifts where the
  * collision pass draws its line – it never hides the selected label.
  */
@@ -160,11 +161,11 @@ export function estimateLabelWidth(text: string, crewCounters: number): number {
   let textWidth: number
   if (measureContext) {
     const family = typeof document !== 'undefined' ? getComputedStyle(document.body).fontFamily || 'sans-serif' : 'sans-serif'
-    measureContext.font = `600 11px ${family}`
+    measureContext.font = `600 12px ${family}`
     textWidth = measureContext.measureText(text).width
   } else {
-    textWidth = text.length * 6.4
+    textWidth = text.length * 7
   }
-  // Each counter: 5px gap + 10px icon + 2px + ~7px digit.
-  return Math.ceil(textWidth + 12 + 2 + crewCounters * 24)
+  // Each counter: 6px gap + 10px icon + 2px + ~7px digit.
+  return Math.ceil(textWidth + 12 + 2 + crewCounters * 25)
 }

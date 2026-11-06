@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl"
 import { Badge } from "@/components/ui/badge"
 import { Reveal } from "@/components/ui/reveal"
-import { ListSection } from "@/components/kanban/assignment-list-section"
+import { ELSEWHERE_NOTE, ELSEWHERE_TEXT, ListSection, TILE_GRID } from "@/components/kanban/assignment-list-section"
 import { CheckCircle, Circle, Layers, ChevronDown, ChevronRight, Siren, Ban, Truck } from "lucide-react"
 import { type Material } from "@/lib/contexts/operations-context"
 import { materialResourceState } from "@/lib/resource-status"
@@ -196,7 +196,7 @@ const renderMaterialTile = (material: Material) => {
       onClick={() => onToggleMaterial(material)}
       disabled={isOutOfService}
       className={cn(
-        "flex items-center gap-2.5 p-2.5 rounded-lg border border-border/50 transition-all text-left",
+        "flex items-center gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-all text-left",
         isOutOfService ? "cursor-not-allowed border-dashed opacity-60" : "cursor-pointer hover:border-sel-edge hover:bg-secondary/30 hover-delight",
         isSelected && "border-sel-edge bg-sel-wash",
         vehicleOnScene && !isSelected && "border-emerald-500/30"
@@ -221,10 +221,10 @@ const renderMaterialTile = (material: Material) => {
         ) : elsewhere ? (
           <span
             title={elsewhere.full}
-            className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-700 dark:text-amber-400"
+            className={cn(ELSEWHERE_NOTE, "text-amber-700 dark:text-amber-400")}
           >
-            <Siren className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">{elsewhere.short}</span>
+            <Siren className="h-3 w-3 flex-shrink-0 max-sm:mt-px" />
+            <span className={ELSEWHERE_TEXT}>{elsewhere.short}</span>
           </span>
         ) : vehicleOnScene ? (
           <span
@@ -315,7 +315,7 @@ const renderMaterialTile = (material: Material) => {
             {/* Slides open (Reveal); the 4px gap under the header
                 is padding inside the clip, so nothing snaps. */}
             <Reveal open={isExpanded} innerClassName="pt-1">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-4 border-l-2 border-border/40 ml-3">
+              <div className={cn(TILE_GRID, "pl-4 border-l-2 border-border/40 ml-3")}>
                 {groupMats.map(renderMaterialTile)}
               </div>
             </Reveal>
@@ -331,14 +331,14 @@ const renderMaterialTile = (material: Material) => {
       )}
       {ungroupedFree.length > 0 && (
         <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: ungroupedFree.length })}>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className={TILE_GRID}>
             {ungroupedFree.map(renderMaterialTile)}
           </div>
         </ListSection>
       )}
       {ungroupedBusy.length > 0 && (
         <ListSection tone="busy" label={t('assignmentDialog.sectionBusy', { count: ungroupedBusy.length })}>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className={TILE_GRID}>
             {ungroupedBusy.map(renderMaterialTile)}
           </div>
         </ListSection>

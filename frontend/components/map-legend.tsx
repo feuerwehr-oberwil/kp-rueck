@@ -4,23 +4,28 @@ import { useEffect, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import { Truck, ChevronDown, List } from "lucide-react"
 import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
+import { markerGlyphInk, priorityGlyphPath } from "@/lib/map-priority"
+import type { Priority } from "@/lib/priority"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 
 // Status border color (matches map-view.tsx)
 const STATUS_BORDER_COLOR = "#374151" // gray-700
 
-// SVG marker with status border for legend
+// SVG marker with status border for legend – the map's IncidentPin at rest.
 function LegendMarker({
   fillColor,
   dasharray,
   opacity = 1,
+  priority,
 }: {
   /** null in the status section: there the frame carries the meaning, and a grey
    *  dot in the middle only invites the question which status "grey" is. */
   fillColor: string | null
   dasharray: string
   opacity?: number
+  /** The priority section draws the marker's glyph too (chevron / dash, lib/map-priority.ts). */
+  priority?: Priority
 }) {
   const size = 24
   const borderRadius = size / 2
@@ -38,6 +43,16 @@ function LegendMarker({
           fill={fillColor}
           stroke="white"
           strokeWidth="3"
+        />
+      )}
+      {fillColor && priority && (
+        <path
+          d={priorityGlyphPath(priority, borderRadius, borderRadius)}
+          fill="none"
+          stroke={markerGlyphInk(fillColor)}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
       )}
       <circle
@@ -152,15 +167,15 @@ export function MapLegend({
           ) : (
             <>
               <div className="flex items-center gap-2">
-                <LegendMarker fillColor={PRIORITY_MARKER_COLORS.high} dasharray="none" />
+                <LegendMarker fillColor={PRIORITY_MARKER_COLORS.high} dasharray="none" priority="high" />
                 <span className="text-xs">{t('common.priorityHigh')}</span>
               </div>
               <div className="flex items-center gap-2">
-                <LegendMarker fillColor={PRIORITY_MARKER_COLORS.medium} dasharray="none" />
+                <LegendMarker fillColor={PRIORITY_MARKER_COLORS.medium} dasharray="none" priority="medium" />
                 <span className="text-xs">{t('common.priorityMedium')}</span>
               </div>
               <div className="flex items-center gap-2">
-                <LegendMarker fillColor={PRIORITY_MARKER_COLORS.low} dasharray="none" />
+                <LegendMarker fillColor={PRIORITY_MARKER_COLORS.low} dasharray="none" priority="low" />
                 <span className="text-xs">{t('common.priorityLow')}</span>
               </div>
             </>
