@@ -41,6 +41,15 @@ export interface ToolbarOverflowItem {
   separatorBefore?: boolean
 }
 
+/**
+ * The footer toolbar's glyph: a 14px lucide drawing at a 1.75px stroke
+ * (absolute, so it stays 1.75px at 14px instead of lucide's scaled 1.17px –
+ * thin enough that the six tool glyphs blurred together, hill climb r16).
+ * Every icon in the board footer spreads it: `<Truck {...TOOLBAR_ICON} />`;
+ * the label beside it sits at the buttons' 6px gap (`gap-1.5`).
+ */
+export const TOOLBAR_ICON = { className: 'size-3.5', strokeWidth: 1.75, absoluteStrokeWidth: true } as const
+
 /** The `gap-0.5` between items, in px — the measurement has to add it back. */
 const ITEM_GAP = 2
 
@@ -140,7 +149,7 @@ export function ToolbarOverflow({
       title={moreTitle(overflow.length)}
       aria-label={moreTitle(overflow.length)}
     >
-      <MoreHorizontal className="size-3.5" />
+      <MoreHorizontal {...TOOLBAR_ICON} />
       <span className="hidden text-xs xl:inline">{moreLabel}</span>
       <Badge variant="secondary" className="h-4 px-1.5 text-[11px] font-medium tabular-nums">
         {overflow.length}
