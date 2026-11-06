@@ -196,9 +196,9 @@ export function GpsSettingsCard({
               label={t("gps.silentLabel")}
               htmlFor="gps-rule-arrival-silent"
               hint={t("gps.silentHint")}
-              footer={
+              advice={
                 settings[ARRIVAL_SILENT_KEY] === "true" ? (
-                  <div className="mt-2 flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning-foreground">
+                  <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning-foreground">
                     <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
                     <span>
                       {t.rich("gps.silentWarning", {

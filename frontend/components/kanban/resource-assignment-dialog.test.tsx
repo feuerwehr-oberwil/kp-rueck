@@ -245,6 +245,14 @@ describe("special functions in the crew list", () => {
     expect(role?.closest('[class*="text-amber-700"]')?.getAttribute("title")).toMatch(/ · TLF$/)
   })
 
+  it("keeps the rank on a free tile's line 2 and puts the driven vehicle after it", () => {
+    // Hill climb r22: a driver's tile read «🚚 TLF» where every other tile read a rank.
+    renderCrew([person({ name: "Müller Hans", role: "Offizier", isDriver: true, driverVehicleName: "TLF" })])
+    const line = screen.getByRole("button", { name: /Müller Hans/ }).querySelector("p[title]:not([title='Müller Hans'])")
+    expect(line?.textContent).toBe("Offizier·TLF")
+    expect(line?.getAttribute("title")).toBe("Offizier · TLF")
+  })
+
   it("keeps the crew of THIS incident under «Verfügbar», ticked", () => {
     renderCrewWithAssigned(
       [

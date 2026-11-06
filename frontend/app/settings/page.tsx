@@ -101,7 +101,7 @@ import { AuftragTemplateSettings } from '@/components/settings/auftrag-template-
 import { UserSettings } from '@/components/settings/user-settings';
 import { DemoLock } from '@/components/settings/demo-lock';
 import { SettingBlock, SettingCard, SettingGroup } from '@/components/settings/setting-row';
-import { SettingUnavailableNote } from '@/components/settings/setting-unavailable';
+import { SettingRowNote } from '@/components/settings/setting-unavailable';
 import { IntegrationsSection } from './integrations-section';
 import { useTileAvailability } from '@/lib/hooks/use-tile-availability';
 import { BrandingSettings } from '@/components/settings/branding-settings';
@@ -357,7 +357,7 @@ export default function SettingsPage() {
         : null;
 
     return (
-      <div className="space-y-2 pl-0.5">
+      <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <Badge
             variant="outline"
@@ -378,19 +378,21 @@ export default function SettingsPage() {
                 .join(' · ')}
             </span>
           )}
-          <Button variant="ghost" size="xs" className="text-muted-foreground" onClick={recheckTiles}>
+          {/* `-my-[5px]`: the 32px button lays out as tall as the 22px chip, so the note
+              stands 8px under the chip, not under the button's hit area. */}
+          <Button variant="ghost" size="xs" className="-my-[5px] text-muted-foreground" onClick={recheckTiles}>
             <RefreshCw className="size-3" />
             {t('page.general.tiles.recheck')}
           </Button>
         </div>
         {!installed && (
-          <SettingUnavailableNote>
+          <SettingRowNote>
             {t(
               tiles.status === 'unreachable'
                 ? 'page.general.tiles.unreachableHint'
                 : 'page.general.tiles.hint',
             )}
-          </SettingUnavailableNote>
+          </SettingRowNote>
         )}
       </div>
     );
@@ -478,7 +480,7 @@ export default function SettingsPage() {
                           // What «Nur Offline» would actually get you, right at the control
                           // that offers it – see use-tile-availability.ts.
                           map_mode: {
-                            footer: renderTileAvailability(),
+                            advice: renderTileAvailability(),
                             unavailableOptions: offlineTilesUnavailable
                               ? { offline: t('page.general.tiles.optionUnavailable') }
                               : undefined,

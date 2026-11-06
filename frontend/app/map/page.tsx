@@ -31,6 +31,7 @@ import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { incidentTimeSource } from "@/lib/incident-time"
 import { type Priority, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 import { PRIORITY_LIST_ICONS } from "@/lib/map-priority"
+import { statusGroupCaption } from "@/components/map-legend"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { useIncidents, useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
@@ -1083,6 +1084,7 @@ export default function MapPage() {
                 {(['open', 'active', 'completed'] as StatusGroup[]).map((group) => {
                   const rows = sectionedIncidents[group]
                   const enabled = statusFilters[group]
+                  const caption = statusGroupCaption(t(`statusGroups.${group}`), t(`statusGroups.${group}Members`))
                   return (
                     // ONE dimming: the muted text itself. A folded group used to
                     // add opacity-60 on top of a `/70` line (1.8:1, sweep
@@ -1101,10 +1103,11 @@ export default function MapPage() {
                       {/* Which board columns feed this section. A group name is
                           shorter than the statuses it stands for, and on its own
                           it left the operator guessing whether «Rückfahrt»
-                          counted as finished — so the section says so. */}
-                      <p className="px-2 pb-1 text-2xs leading-tight text-muted-foreground">
-                        {t(`statusGroups.${group}Members`)}
-                      </p>
+                          counted as finished — so the section says so, unless the
+                          name already lists them (`statusGroupCaption`). */}
+                      {caption && (
+                        <p className="px-2 pb-1 text-2xs leading-tight text-muted-foreground">{caption}</p>
+                      )}
                       <Reveal open={enabled && rows.length > 0}>
                         <div className="space-y-0.5">
                           {rows.map((incident) => {
