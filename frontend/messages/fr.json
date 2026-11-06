@@ -2504,6 +2504,7 @@
       "title": "Carte de situation",
       "activeBadge": "{count, plural, one {# intervention} other {# interventions}}",
       "incidentsHeading": "Interventions ({count})",
+      "incidentsHeadingPlain": "Interventions",
       "labels": "Étiquettes",
       "lines": "Lignes",
       "distance": "Distance",

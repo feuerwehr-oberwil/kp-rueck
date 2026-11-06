@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { AlertTriangle, Truck, CheckCircle, Circle, Footprints, Car, Binoculars, Package2, Phone, MonitorCog, MapPin, Undo2, Ban, SlidersHorizontal, X } from "lucide-react"
+import { AlertTriangle, Truck, Footprints, Binoculars, Package2, Phone, MonitorCog, MapPin, Undo2, Ban, SlidersHorizontal, X } from "lucide-react"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { EmptyState, type EmptyStateAction } from "@/components/ui/empty-state"
 import {
@@ -32,7 +32,7 @@ import { getIncidentLocationLabel, getIncidentRefLabel, getIncidentRefParts } fr
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { cn } from "@/lib/utils"
-import { ElsewhereNote, ListSection, type OccupancyLabel, TILE_GRID, TILE_HOVER, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
+import { ElsewhereNote, ListSection, type OccupancyLabel, TileCheck, type TileRole, TILE_GRID, TILE_HOVER, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
 import {
   MaterialAssignmentList,
   MaterialTypeChips,
@@ -241,11 +241,11 @@ export function ResourceAssignmentDialog({
    * amber already. Driving a vehicle that is on this very target is a plain
    * fact about this crew, not a double booking.
    */
-  const specialFunctionsOf = (p: Person): { label: string; Icon: typeof Car; elsewhere: boolean }[] => {
-    const functions: { label: string; Icon: typeof Car; elsewhere: boolean }[] = []
+  const specialFunctionsOf = (p: Person): (TileRole & { elsewhere: boolean })[] => {
+    const functions: (TileRole & { elsewhere: boolean })[] = []
     if (p.isDriver) {
       const drivesThisTarget = !!p.driverVehicleId && assignedVehicleIds.includes(p.driverVehicleId)
-      functions.push({ label: p.driverVehicleName || t('assignmentDialog.driverBadge'), Icon: Car, elsewhere: !drivesThisTarget })
+      functions.push({ label: p.driverVehicleName || t('assignmentDialog.driverBadge'), Icon: Truck, elsewhere: !drivesThisTarget })
     }
     if (p.isReko || rekoPersonnelIds.includes(p.id)) functions.push({ label: t('common.reko'), Icon: Binoculars, elsewhere: true })
     if (p.isMagazin) functions.push({ label: t('common.magazin'), Icon: Package2, elsewhere: true })
@@ -1000,14 +1000,7 @@ export function ResourceAssignmentDialog({
           isSelected ? "border-sel-edge bg-sel-wash" : TILE_HOVER,
         )}
       >
-        {isSelected ? (
-          <CheckCircle className={cn(
-            "h-5 w-5 text-sel-foreground flex-shrink-0",
-            wasJustAssigned && "animate-check-appear"
-          )} />
-        ) : (
-          <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-        )}
+        <TileCheck checked={isSelected} animate={wasJustAssigned} />
         <div className="min-w-0">
           <p className="font-medium text-sm truncate" title={person.name}>
             <PersonName name={person.name} kennung={person.kennung ?? null} />
@@ -1085,14 +1078,9 @@ export function ResourceAssignmentDialog({
           )}
         >
           {isOutOfService ? (
-            <Ban className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-          ) : isAssigned ? (
-            <CheckCircle className={cn(
-              "h-5 w-5 text-sel-foreground flex-shrink-0",
-              wasJustAssigned && "animate-check-appear"
-            )} />
+            <Ban className="mt-0.5 size-4 flex-shrink-0 text-muted-foreground" />
           ) : (
-            <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+            <TileCheck checked={isAssigned} animate={wasJustAssigned} />
           )}
           <div className="min-w-0">
             <p className={cn("font-medium text-sm truncate", isOutOfService && "text-muted-foreground")} title={vehicle.name}>{vehicle.name}</p>
@@ -1454,14 +1442,15 @@ export function ResourceAssignmentDialog({
                               zuFuss ? "border-sel-edge bg-sel-wash" : TILE_HOVER
                             )}
                           >
-                            {zuFuss ? (
-                              <CheckCircle className="h-5 w-5 text-sel-foreground flex-shrink-0" />
-                            ) : (
-                              <Footprints className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                            )}
+                            {/* The same tick box as every vehicle tile; the footprints
+                                say what it is on the caption line, like a role glyph. */}
+                            <TileCheck checked={zuFuss} />
                             <div className="min-w-0">
                               <p className="font-medium text-sm truncate">{t('common.zuFuss')}</p>
-                              <p className="text-xs text-muted-foreground truncate">{t('assignmentDialog.noVehicle')}</p>
+                              <p className={cn(TILE_META, "flex items-start gap-1 truncate text-muted-foreground")}>
+                                <Footprints className={TILE_META_ICON} aria-hidden />
+                                {t('assignmentDialog.noVehicle')}
+                              </p>
                             </div>
                           </button>
                         )}

@@ -1446,6 +1446,7 @@
       "title": "Lagekarte",
       "activeBadge": "{count, plural, one {# Einsatz} other {# Einsätze}}",
       "incidentsHeading": "Einsätze ({count})",
+      "incidentsHeadingPlain": "Einsätze",
       "labels": "Labels",
       "lines": "Linien",
       "distance": "Distanz",
