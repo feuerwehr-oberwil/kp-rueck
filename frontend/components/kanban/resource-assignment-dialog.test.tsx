@@ -212,9 +212,10 @@ describe("special functions in the crew list", () => {
     expect(tile.querySelector('[class*="text-amber-700"]')).not.toBeNull()
   })
 
-  it("paints one amber line per busy tile: the where-note, not the role under it", () => {
+  it("paints one amber line per busy tile: the place, with the role muted on its line", () => {
     // Hill climb r18: place, Meldung and the vehicle line were all amber — fourteen
     // busy tiles read as an amber wall. The where-note says «schau hin»; the rest is fact.
+    // Hill climb r19: the role rides on the where-line, so a busy tile stays two lines.
     renderWithIntl(
       <ResourceAssignmentDialog
         open
@@ -239,7 +240,9 @@ describe("special functions in the crew list", () => {
 
     const tile = screen.getByRole("button", { name: /Egger Olivier/ })
     expect(tile.querySelectorAll('[class*="text-amber-700"]')).toHaveLength(1)
-    expect(screen.getByTitle("TLF").className).toContain("text-muted-foreground")
+    const role = [...tile.querySelectorAll("span")].find(span => span.textContent === "·TLF")
+    expect(role?.className).toContain("text-muted-foreground")
+    expect(role?.closest('[class*="text-amber-700"]')?.getAttribute("title")).toMatch(/ · TLF$/)
   })
 
   it("keeps the crew of THIS incident under «Verfügbar», ticked", () => {

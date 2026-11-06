@@ -444,8 +444,10 @@ export function LocationInput({
           >
             {t('locationInput.addressLabel')}
           </Label>
+          {/* The required mark is muted ink, not red: red is priority and danger only.
+              What is wrong is said in red UNDER the field, after a failed submit. */}
           {required && (
-            <span className="text-destructive" title={t('locationInput.requiredField')}>*</span>
+            <span className="text-muted-foreground" title={t('locationInput.requiredField')}>*</span>
           )}
         </div>
         {/* items-CENTER, not items-start: the two icon buttons belong on the
