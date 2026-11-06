@@ -69,13 +69,28 @@ function LegendMarker({
 }
 
 /**
+ * A status group's member caption («Rückfahrt · Abgeschlossen»), or null when it only repeats
+ * the group's own name («Rückfahrt & Abgeschlossen»): every member already reads in the name, so
+ * the caption adds nothing and only costs a line (hill climb r22). The rule, not a special case –
+ * it follows the catalogue in every language. Used by the legend and the Lagekarte's list rail.
+ */
+export function statusGroupCaption(name: string, members: string): string | null {
+  const said = name.toLocaleLowerCase()
+  const repeats = members.split(" · ").every((member) => said.includes(member.toLocaleLowerCase()))
+  return repeats ? null : members
+}
+
+/**
  * The board columns a status frame stands for, under its group name – «Disponiert / Anfahrt ·
  * Im Einsatz». The catalogue keeps them as ONE « · »-joined string; each name is drawn unbroken
  * (its « ·» glued to it) so the 208px legend wraps only between names, never inside one
- * («Disponiert / Anfahrt · Im / Einsatz», hill climb r18).
+ * («Disponiert / Anfahrt · Im / Einsatz», hill climb r18). Draws nothing when the caption only
+ * repeats the name (`statusGroupCaption`).
  */
-function StatusMembers({ names }: { names: string }) {
-  const parts = names.split(" · ")
+function StatusMembers({ label, names }: { label: string; names: string }) {
+  const caption = statusGroupCaption(label, names)
+  if (!caption) return null
+  const parts = caption.split(" · ")
   return (
     <span className="block text-2xs leading-tight text-muted-foreground">
       {parts.map((name, i) => (
@@ -219,21 +234,21 @@ export function MapLegend({
             <LegendMarker fillColor={null} group="open" />
             <span className="text-xs">
               {t('legend.statusOpen')}
-              <StatusMembers names={t('statusGroups.openMembers')} />
+              <StatusMembers label={t('legend.statusOpen')} names={t('statusGroups.openMembers')} />
             </span>
           </div>
           <div className="flex items-start gap-2">
             <LegendMarker fillColor={null} group="active" />
             <span className="text-xs">
               {t('legend.statusActive')}
-              <StatusMembers names={t('statusGroups.activeMembers')} />
+              <StatusMembers label={t('legend.statusActive')} names={t('statusGroups.activeMembers')} />
             </span>
           </div>
           <div className="flex items-start gap-2">
             <LegendMarker fillColor={null} group="completed" />
             <span className="text-xs">
               {t('legend.statusCompleted')}
-              <StatusMembers names={t('statusGroups.completedMembers')} />
+              <StatusMembers label={t('legend.statusCompleted')} names={t('statusGroups.completedMembers')} />
             </span>
           </div>
         </div>

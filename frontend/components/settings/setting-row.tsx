@@ -32,9 +32,14 @@
  * wie beim `DetailField`; die Aufruferin muss nichts tun.
  *
  * Die drei Teile der Sperre stecken mit drin (`unavailable`), damit «gesperrt» nicht wieder in
- * jedem Abschnitt anders aussieht: Marke an der Beschriftung, Satz in voller Breite unter der
- * Zeile, und das `title` am Bedienelement bleibt Sache der Aufruferin – sie hält es ohnehin
+ * jedem Abschnitt anders aussieht: Marke an der Beschriftung, Satz unter der Beschreibung,
+ * und das `title` am Bedienelement bleibt Sache der Aufruferin – sie hält es ohnehin
  * schon in der Hand. Siehe `setting-unavailable.tsx`.
+ *
+ * **Rat zur Zeile steht in der Beschreibungsspalte** (`advice`, und der Satz zu `unavailable`):
+ * er beginnt an der Textkante der Beschriftung und endet vor der Bedienspalte – auf dem Desktop
+ * ein Raster, dessen zweite Zeile nur die erste Spalte belegt. Was die volle Breite braucht
+ * (das Notizfeld der Checkliste), ist `footer`.
  */
 
 import type { ReactNode } from 'react'
@@ -44,8 +49,8 @@ import { Label } from '@/components/ui/label'
 import { useStackedFields } from '@/components/ui/use-stacked-fields'
 import { cn } from '@/lib/utils'
 import {
+  SettingRowNote,
   SettingUnavailableBadge,
-  SettingUnavailableNote,
 } from '@/components/settings/setting-unavailable'
 
 /**
@@ -78,7 +83,13 @@ interface SettingRowProps {
   unavailable?: string | null
   /** Text der Marke. Vorgabe ist `settings.common.notConfiguredBadge` («Nicht eingerichtet»). */
   unavailableBadge?: string
-  /** Zusätzliche Zeilen unter der Hauptzeile – der Fortschrittsbalken des Testdrucks etwa. */
+  /**
+   * Rat zur Zeile – ein Zustand, eine Warnung, was eine Wahl kosten würde. Steht unter Beschriftung
+   * und Hinweis in der Beschreibungsspalte, nie unter der Bedienspalte; ein Satz darin ist
+   * `SettingRowNote` (ohne Kasten), eine Warnung höchstens ein 1-px-Kasten an genau diesen Kanten.
+   */
+  advice?: ReactNode
+  /** Zusätzliche Zeilen in voller Breite unter der Hauptzeile – das Notizfeld der Checkliste. */
   footer?: ReactNode
   /** Das Bedienelement. */
   children?: ReactNode
@@ -107,6 +118,7 @@ export function SettingRow({
   icon,
   unavailable,
   unavailableBadge,
+  advice,
   footer,
   children,
   stacked: stackedProp,
@@ -114,6 +126,12 @@ export function SettingRow({
 }: SettingRowProps) {
   const t = useTranslations('settings.common')
   const stacked = useStackedFields(stackedProp)
+  const adviceBlock = (unavailable || advice) && (
+    <div className={cn('mt-2 space-y-2', !stacked && 'col-start-1')}>
+      {unavailable && <SettingRowNote>{unavailable}</SettingRowNote>}
+      {advice}
+    </div>
+  )
 
   return (
     // `data-slot`: the settings search lands ON the row (scroll + flash) — it
@@ -124,7 +142,15 @@ export function SettingRow({
       // 20 px between settings on the phone (py-2.5), 24 px on desktop (py-3).
       className={cn(stacked ? 'py-2.5' : 'py-3', className)}
     >
-      <div className={stacked ? STACKED_ROW : 'flex items-center gap-5'}>
+      {/* Desktop: a grid, so the advice under the description ends exactly where the control
+          column begins – whatever width `min-w-min` gives that column. */}
+      <div
+        className={
+          stacked
+            ? STACKED_ROW
+            : cn('grid items-center gap-x-5', children ? 'grid-cols-[minmax(0,1fr)_auto]' : 'grid-cols-1')
+        }
+      >
         <div className="min-w-0 flex-1">
           {/* Die Marken stehen NEBEN der Beschriftung, nie darin: ein Button innerhalb
               eines <label> löst beim Klick das Bedienelement aus, zu dem er gehört. */}
@@ -157,8 +183,11 @@ export function SettingRow({
             {children}
           </div>
         )}
+        {!stacked && adviceBlock}
       </div>
-      {unavailable && <SettingUnavailableNote className="mt-2">{unavailable}</SettingUnavailableNote>}
+      {/* Stacked: under the whole row – a switch row is a flex row on the phone, and the
+          advice must not stand beside the switch. */}
+      {stacked && adviceBlock}
       {footer}
     </div>
   )

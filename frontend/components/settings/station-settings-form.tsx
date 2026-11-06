@@ -147,8 +147,8 @@ export function useStationSettings({
 
 /** Per-key additions the page knows and the config does not. */
 export interface SettingRowExtra {
-  /** Rendered under the row (see `SettingRow`'s `footer`). */
-  footer?: ReactNode;
+  /** Rendered under the row's description (see `SettingRow`'s `advice`). */
+  advice?: ReactNode;
   /** Select options to grey out, with the reason shown beside them. The stored
    *  value always stays selectable, or the select would show a disabled item as
    *  its own value. */
@@ -281,7 +281,7 @@ export function StationSettingsForm({
       label={t(`page.general.configs.${config.key}.label`)}
       htmlFor={config.key}
       hint={t(`page.general.configs.${config.key}.description`)}
-      footer={extras[config.key]?.footer ?? null}
+      advice={extras[config.key]?.advice ?? null}
     >
       <div className="flex w-full items-start gap-2">
         {/* Schalter drängen sich an die rechte Kante, alles mit einem Feld

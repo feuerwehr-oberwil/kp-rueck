@@ -1016,24 +1016,32 @@ export function ResourceAssignmentDialog({
           {elsewhere && (
             <ElsewhereNote label={elsewhere} roles={special} />
           )}
-          {!elsewhere && special.map((fn) => (
-            <span
-              key={fn.label}
-              title={fn.label}
-              className={cn(
-                "mt-0.5 flex max-w-full items-start gap-1",
-                TILE_META,
-                // A role held elsewhere is the tile's one «schau hin»; a busy tile carries
-                // its roles muted on the where-line instead.
-                fn.elsewhere ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground",
-              )}
+          {/* Free: line 2 is always the rank, and the roles follow it after a «·» with
+              their glyph – «Offizier · 🚚 TLF», the same order the busy tile's place line
+              uses (place · roles). A role on a line of its own pushed the rank off the
+              tile, so «Müller Hans» read «🚚 TLF» where every other tile read a rank
+              (hill climb r22). The rank ellipsizes first; the roles never shrink. */}
+          {!elsewhere && (person.role || special.length > 0) && (
+            <p
+              title={[person.role, ...special.map(fn => fn.label)].filter(Boolean).join(' · ')}
+              className="mt-0.5 flex max-w-full items-start overflow-hidden text-muted-foreground"
             >
-              <fn.Icon className={TILE_META_ICON} />
-              <span className="truncate">{fn.label}</span>
-            </span>
-          ))}
-          {!elsewhere && special.length === 0 && person.role && (
-            <p className="text-xs text-muted-foreground truncate">{person.role}</p>
+              {person.role && <span className="truncate text-xs">{person.role}</span>}
+              {special.map((fn, i) => {
+                const after = !!person.role || i > 0
+                return (
+                  <span key={fn.label} className={cn("flex shrink-0 items-start gap-1", TILE_META, after && "ml-1")}>
+                    {after && <span aria-hidden>·</span>}
+                    {/* A role held elsewhere is the tile's one «schau hin»; a busy tile
+                        carries its roles muted on the where-line instead. */}
+                    <span className={cn("flex items-start gap-1", fn.elsewhere && "text-amber-700 dark:text-amber-400")}>
+                      <fn.Icon className={TILE_META_ICON} aria-hidden />
+                      {fn.label}
+                    </span>
+                  </span>
+                )
+              })}
+            </p>
           )}
         </div>
       </button>
