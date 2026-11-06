@@ -1174,7 +1174,7 @@ export function OperationDetailContent({
             action={operation.contactPhone.trim() ? (
               <a
                 href={telHref(operation.contactPhone) ?? undefined}
-                className="inline-flex items-center gap-1 text-xs font-medium text-foreground underline underline-offset-2 hover:decoration-2"
+                className="relative hit-area inline-flex items-center gap-1 text-xs font-medium text-foreground underline underline-offset-2 hover:decoration-2"
               >
                 <Phone className="h-3 w-3 shrink-0" />
                 {t('common.callContact')}
@@ -1464,7 +1464,7 @@ export function OperationDetailContent({
                 // is the one place in the group where a value belongs. The action
                 // is what the ROW is called now (title + aria-label above), which
                 // is where the other three keep theirs.
-                <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground/60">
+                <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
                   {t('detail.resourceEmpty')}
                 </span>
               )}

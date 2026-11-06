@@ -274,7 +274,7 @@ function DisplayChrome({
                     key={p.href}
                     href={token ? `${p.href}?token=${token}` : p.href}
                     className={cn(
-                      "flex items-center justify-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-sm text-xs font-medium transition-colors",
+                      "relative hit-area flex items-center justify-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-sm text-xs font-medium transition-colors",
                       isActive
                         ? "bg-background text-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground"

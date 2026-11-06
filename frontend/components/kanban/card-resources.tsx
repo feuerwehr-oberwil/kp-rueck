@@ -298,7 +298,8 @@ export function CardResources({
                     disabled={!onToggleDriverStay}
                     title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
                     className={cn(
-                      "inline-flex shrink-0 items-center gap-0.5 rounded px-1 type-micro transition-colors",
+                      // `hit-area`: the 16px pill is a 26px target (globals.css).
+                      "relative hit-area inline-flex shrink-0 items-center gap-0.5 rounded px-1 type-micro transition-colors",
                       onToggleDriverStay && "cursor-pointer hover:brightness-110",
                       // Neutral ink in both states (quieter cards; the
                       // count-chip treatment, readable at 11px): the

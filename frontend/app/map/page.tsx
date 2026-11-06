@@ -1055,7 +1055,7 @@ export default function MapPage() {
                       <button
                         onClick={() => toggleStatusFilter(group)}
                         aria-expanded={enabled}
-                        className="flex w-full items-center gap-1 px-2 py-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                        className="relative hit-area flex w-full items-center gap-1 px-2 py-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
                       >
                         <ChevronDown
                           className={`h-3 w-3 transition-transform ${enabled ? '' : '-rotate-90'}`}
@@ -1084,7 +1084,9 @@ export default function MapPage() {
                                   // ONE selected state (A2): the slate wash, nothing else. It
                                   // was a grey wash plus a 2px slate bar inset 4px top and
                                   // bottom — two shapes that never lined up (owner, 02.10.).
-                                  className={`group relative flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 transition-colors ${
+                                  // 44px on the phone: the row's time chip is a button the touch
+                                  // rule makes 44px tall, and at 32px it lay over its neighbours'.
+                                  className={`group relative flex h-8 max-md:h-11 cursor-pointer items-center gap-2 rounded-md px-2 transition-colors ${
                                     isSelected ? 'bg-sel-wash' : 'hover:bg-muted/50'
                                   }`}
                                   aria-current={isSelected ? 'true' : undefined}

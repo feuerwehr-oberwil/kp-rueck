@@ -196,7 +196,7 @@ export function ResourceRow({
           hunt for the next one. The rows are capped (`tabGridClass`), so the end
           of the line is a short trip, not the 500px it was on an uncapped one. */}
       {isEmpty ? (
-        <span className="min-w-0 flex-1 py-0.5 text-sm text-muted-foreground/60">{emptyLabel}</span>
+        <span className="min-w-0 flex-1 py-0.5 text-sm text-muted-foreground">{emptyLabel}</span>
       ) : (
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">{children}</div>
       )}

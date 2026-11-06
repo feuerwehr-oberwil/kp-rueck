@@ -472,7 +472,7 @@ export function FeldActions({
                     /* Not this step's turn, but never a trap: a crew that
                        skipped «Angekommen» can still report beendet through
                        the quiet inline link. */
-                    <p className="flex items-baseline gap-2 pt-px text-sm text-muted-foreground/70">
+                    <p className="flex items-baseline gap-2 pt-px text-sm text-muted-foreground">
                       {step.name}
                       <button
                         type="button"

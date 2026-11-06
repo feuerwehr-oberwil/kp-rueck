@@ -58,7 +58,7 @@ export function CardViewMenu({
               footer is icons, because a labelled row is wider than the window
               and a footer that cannot shrink drags the whole page sideways. */}
           <span className="hidden text-xs xl:inline">{t('label')}</span>
-          <span className="hidden text-2xs tabular-nums text-muted-foreground/70 xl:inline">
+          <span className="hidden text-2xs tabular-nums xl:inline">
             {preset ? t(`preset.${preset}`) : t('custom', { count: activeCount })}
           </span>
         </Button>

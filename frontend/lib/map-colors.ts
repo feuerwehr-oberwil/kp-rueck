@@ -18,8 +18,10 @@ import { PRIORITY_COLORS } from "./priority"
  */
 
 export const MAP_COLORS = {
-  /** Same hue as `--info`. Used for selected/highlighted markers + GPS-online dots. */
-  info: "#3b82f6",
+  /** Same hue as `--info`. Used for selected/highlighted markers + GPS-online dots, and as
+   *  the fill under the white ⌂ / vehicle glyphs – hence blue-600, not 500 (3.7:1 under white;
+   *  600 holds 5.2:1). */
+  info: "#2563eb",
   /** Tailwind gray-500 — used as the "offline / no signal" marker fill. */
   offline: "#6b7280",
 } as const

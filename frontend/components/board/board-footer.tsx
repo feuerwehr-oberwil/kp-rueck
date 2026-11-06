@@ -455,7 +455,7 @@ export function BoardFooter({
         <div className="flex shrink-0 items-center gap-3">
           <button
             onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
-            className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors"
+            className="relative hit-area flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             <Kbd className="h-5 text-2xs px-1.5">{cmdHint}</Kbd>
             <span className="hidden lg:inline">{tDash('commands')}</span>

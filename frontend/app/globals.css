@@ -17,11 +17,17 @@
   --secondary: oklch(0.955 0.003 60);
   --secondary-foreground: oklch(0.30 0.01 60);
   --muted: oklch(0.945 0.005 60);
-  --muted-foreground: oklch(0.50 0.01 60);
+  /* 0.47, not 0.50: the secondary tier also sits on tinted surfaces (the Hoch
+     and Im-Einsatz washes, muted fills), and 0.50 measured 4.2:1 there. 0.47
+     holds ≥ 4.7:1 on every one of them (hill climb r0, 06.11.2026). */
+  --muted-foreground: oklch(0.47 0.01 60);
   --accent: oklch(0.50 0.12 250);
   --accent-foreground: oklch(0.98 0 0);
   --destructive: oklch(0.50 0.22 28);
   --destructive-foreground: oklch(0.98 0 0);
+  /* Red as TEXT (`text-destructive`, via `--text-color-destructive` below).
+     Light: the fill red already reads as text. */
+  --destructive-text: var(--destructive);
   --border: oklch(0.90 0.003 60);
   --input: oklch(0.92 0.003 60);
   /* Focus = slate, not the red primary: a red ring reads as an error. */
@@ -117,10 +123,12 @@
   --secondary: oklch(0.30 0.012 250);
   --secondary-foreground: oklch(0.95 0 0);
   --muted: oklch(0.32 0.01 250);
-  /* 0.66, not 0.60: the secondary tier (Meldung, descriptions, placeholders)
-     sits on --card far more than on the page, and 0.60 measured ≈3.9:1 there.
-     0.66 ≈4.9:1 on --card, ≈5.6:1 on --background (sweep 2026-10, VISUAL-01). */
-  --muted-foreground: oklch(0.66 0.01 250);
+  /* 0.70: the secondary tier (Meldung, descriptions, placeholders) sits on
+     --card and on the raised fills above it (muted, kbd, tab list, popover).
+     0.60 measured ≈3.9:1 on --card (sweep 2026-10, VISUAL-01); 0.66 still
+     ≈4.1:1 on --muted. 0.70 ≈5.1:1 on --card, ≈4.8:1 on --muted (hill climb
+     r0, 06.11.2026). Never dimmer than this tier. */
+  --muted-foreground: oklch(0.70 0.01 250);
   --accent: oklch(0.50 0.15 250);
   --accent-foreground: oklch(0.98 0 0);
   /* Deeper + lower-chroma than the old 0.60/0.26 (which rendered as pure
@@ -130,6 +138,10 @@
      the washed-out `dark:bg-destructive/60` opacity trick. */
   --destructive: oklch(0.55 0.20 27);
   --destructive-foreground: oklch(0.98 0 0);
+  /* …which is a FILL red: as text on the dark board it measured 2.4–3.5:1.
+     Text gets its own lighter step (≈ red-400, a touch less chroma): ≈5.1:1 on
+     --card, ≈4.8:1 on --muted. Edges, washes and fills keep --destructive. */
+  --destructive-text: oklch(0.72 0.16 24);
   --border: oklch(0.42 0.012 250);
   --input: oklch(0.29 0.012 250);
   --ring: var(--sel-line);
@@ -200,6 +212,10 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  /* Tailwind's `text-*` colour reads `--text-color-*` before `--color-*`, so
+     this re-points `text-destructive` (and its `/nn` steps) alone; `bg-`,
+     `border-`, `ring-destructive` keep the fill token. */
+  --text-color-destructive: var(--destructive-text);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -248,6 +264,15 @@
   --color-sel-line: var(--sel-line);
   --color-action: var(--action);
   --color-action-foreground: var(--action-foreground);
+}
+
+/* Amber TEXT in light is Tailwind's 700 step (VISUAL-05) – «schau hin»: Mittel,
+   age ≥ 60′, the busy note, form advice. Stock amber-700 (#bb4d00) measured
+   4.0:1 on the Hoch wash and 4.1:1 on the selection wash, so the step itself
+   is set darker here: ≥ 4.8:1 on every wash, still amber beside the 400/500
+   dark steps. Only text uses amber-700 (hill climb r0, 06.11.2026). */
+@theme {
+  --color-amber-700: oklch(0.50 0.155 49);
 }
 
 /* ── THE z-ORDER ──────────────────────────────────────────────────────────────
@@ -406,6 +431,39 @@
   font-size: var(--text-2xs);
   line-height: var(--text-2xs--line-height);
   font-weight: 500;
+}
+
+/* An invisible hit pad: grows what a pointer can hit to at least --hit-min
+   square, centred, without changing what is drawn – for dense controls whose
+   look stays small (the ✕ on a chip, «EL», the driver-stay toggle, edge tabs,
+   the footer's quiet links). A box that is already big enough gets no pad.
+   The element must be positioned (`relative`, or already absolute); a parent
+   that clips (`overflow-hidden`) clips the pad too. Never let two pads
+   overlap a neighbour's control: the later one in the DOM takes the click.
+   26px, not 24: one pixel of slack each side, so rounding never drops a
+   23.5px pad under the 24px mouse floor (WCAG 2.5.8). On ≤768px the
+   global 44px touch rule sizes the controls themselves; the pad is 46px. */
+@utility hit-area {
+  &::after {
+    content: "";
+    position: absolute;
+    inset: min(0px, calc(50% - var(--hit-min) / 2));
+  }
+}
+:root {
+  --hit-min: 26px;
+}
+@media (max-width: 768px) {
+  :root {
+    --hit-min: 46px;
+  }
+}
+/* The same pad on MapLibre's attribution ⓘ (24px, already absolute): a 44px
+   touch target on the phone, the drawn circle unchanged. */
+.maplibregl-ctrl-attrib-button::after {
+  content: "";
+  position: absolute;
+  inset: min(0px, calc(50% - var(--hit-min) / 2));
 }
 
 @utility sel-choice {

@@ -97,7 +97,7 @@ export function MaterialSidebar({
             «Depot» heading (overflow sweep, 03.10.). */}
         <button
           onClick={() => setShowRightSidebar(false)}
-          className="absolute left-0 top-1/2 -translate-x-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+          className="absolute hit-area left-0 top-1/2 -translate-x-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
           title={`${tDash('toggleRightSidebar')} (])`}
           aria-label={tDash('toggleRightSidebar')}
         >

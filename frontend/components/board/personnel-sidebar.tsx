@@ -104,7 +104,7 @@ export function PersonnelSidebar({
         {/* Collapse handle — small chevron centered on the sidebar's inner edge */}
         <button
           onClick={() => setShowLeftSidebar(false)}
-          className="absolute right-0 top-1/2 translate-x-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+          className="absolute hit-area right-0 top-1/2 translate-x-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
           title={`${tDash('toggleLeftSidebar')} ([)`}
           aria-label={tDash('toggleLeftSidebar')}
         >
