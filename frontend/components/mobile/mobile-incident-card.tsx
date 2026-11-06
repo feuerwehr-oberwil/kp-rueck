@@ -73,7 +73,9 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
   return (
     <Card
       className={cn(
-        "p-3 transition-all active:scale-[0.98] cursor-pointer touch-manipulation",
+        // `gap-0`: the Card's own `gap-6` would open 24px between the header and
+        // every body row; the rows carry their own 4–8px steps.
+        "gap-0 p-3 transition-all active:scale-[0.98] cursor-pointer touch-manipulation",
         // The board card's own priority reading (lib/priority.ts): a 4px left
         // edge — red + wash + ring + pulse for Hoch, amber for Mittel, plain
         // border for Niedrig. No status tint: the status is the badge's job.
@@ -82,7 +84,13 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
       )}
       onClick={onClick}
     >
-      <div className="flex items-start gap-3">
+      {/* The chevron sits beside the HEADER only (address, EL, Abholung,
+          Duplikat, status + type); from the rule down, the fact block and the
+          time run the card's full width, as the desk card's body does.
+          Indenting the whole card under the chevron cost the fact values 24px
+          per line on a phone — enough to push «TLF · Fahrer: Müller Hans» and
+          its stay chip onto two lines. */}
+      <div className="flex items-start gap-2">
         {/* Priority indicator */}
         <div className="flex items-center flex-shrink-0 mt-0.5">
           {priority === "high" ? (
@@ -94,7 +102,7 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
           )}
         </div>
 
-        {/* Content */}
+        {/* Header */}
         <div className="flex-1 min-w-0">
           {formatLocation(operation.location) && (
             // Two lines, never cut: the address is what the card is for. On a 360px phone
@@ -162,71 +170,71 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
               </span>
             )}
           </div>
-
-          {/* The fact block (image #21): Meldung, Mannschaft, Fahrzeuge (with
-              driver and the stays/returns word), Reko. Rows without a value
-              disappear, so a fresh card stays two lines tall. */}
-          {(operation.notes.trim() || operation.crew.length > 0 || operation.vehicles.length > 0 || rekoText) && (
-            <div className="mt-2 space-y-1 border-t border-border/50 pt-2">
-              {operation.notes.trim() && (
-                <FactRow label={tMobile("meldung")}>
-                  <p className="line-clamp-2 whitespace-pre-wrap">{operation.notes.trim()}</p>
-                </FactRow>
-              )}
-              {operation.crew.length > 0 && (
-                <FactRow label={tMobile("crew")}>
-                  <p className="line-clamp-2">{operation.crew.map((m) => m.name).join(", ")}</p>
-                </FactRow>
-              )}
-              {operation.vehicles.length > 0 && (
-                <FactRow label={tMobile("vehicles")}>
-                  <div className="space-y-0.5">
-                    {operation.vehicles.map(({ vehicleId, name: vehicleName, driverStay }) => {
-                      const driver = vehicleDrivers?.get(vehicleId)
-                      return (
-                        <div key={vehicleId} className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                          <span className="font-medium">{vehicleName}</span>
-                          {driver && (
-                            <span className="text-muted-foreground">
-                              · {tMobile("driver", { name: driver })}
-                            </span>
-                          )}
-                          <DriverStayGlyph stays={driverStay} />
-                        </div>
-                      )
-                    })}
-                  </div>
-                </FactRow>
-              )}
-              {rekoText && (
-                <FactRow label={tMobile("reko")}>
-                  <p className="line-clamp-2 whitespace-pre-wrap">{rekoText}</p>
-                </FactRow>
-              )}
-            </div>
-          )}
-
-          {/* Time */}
-          <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-            {/* Read-only: the phone list is for looking, and a dropdown inside a
-                tappable row fights the tap that opens the incident. */}
-            <IncidentTimeRow
-              operation={operation}
-              readOnly
-              className="gap-1.5"
-              startClassName="text-xs"
-              chipClassName="text-xs"
-              startIconClassName="h-3 w-3"
-              iconClassName="h-3 w-3"
-            />
-          </div>
-          {/* The one debt that survives completion (image #21): a quiet line
-              under the time, not a pill in the title row. */}
-          {rapportMissing && (
-            <p className="mt-1 text-xs text-muted-foreground">{tMobile("noRapport")}</p>
-          )}
         </div>
       </div>
+
+      {/* The fact block (image #21): Meldung, Mannschaft, Fahrzeuge (with
+          driver and the stays/returns word), Reko. Rows without a value
+          disappear, so a fresh card stays two lines tall. */}
+      {(operation.notes.trim() || operation.crew.length > 0 || operation.vehicles.length > 0 || rekoText) && (
+        <div className="mt-2 space-y-1 border-t border-border/50 pt-2">
+          {operation.notes.trim() && (
+            <FactRow label={tMobile("meldung")}>
+              <p className="line-clamp-2 whitespace-pre-wrap">{operation.notes.trim()}</p>
+            </FactRow>
+          )}
+          {operation.crew.length > 0 && (
+            <FactRow label={tMobile("crew")}>
+              <p className="line-clamp-2">{operation.crew.map((m) => m.name).join(", ")}</p>
+            </FactRow>
+          )}
+          {operation.vehicles.length > 0 && (
+            <FactRow label={tMobile("vehicles")}>
+              <div className="space-y-0.5">
+                {operation.vehicles.map(({ vehicleId, name: vehicleName, driverStay }) => {
+                  const driver = vehicleDrivers?.get(vehicleId)
+                  return (
+                    <div key={vehicleId} className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                      <span className="font-medium">{vehicleName}</span>
+                      {driver && (
+                        <span className="text-muted-foreground">
+                          · {tMobile("driver", { name: driver })}
+                        </span>
+                      )}
+                      <DriverStayGlyph stays={driverStay} />
+                    </div>
+                  )
+                })}
+              </div>
+            </FactRow>
+          )}
+          {rekoText && (
+            <FactRow label={tMobile("reko")}>
+              <p className="line-clamp-2 whitespace-pre-wrap">{rekoText}</p>
+            </FactRow>
+          )}
+        </div>
+      )}
+
+      {/* Time */}
+      <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+        {/* Read-only: the phone list is for looking, and a dropdown inside a
+            tappable row fights the tap that opens the incident. */}
+        <IncidentTimeRow
+          operation={operation}
+          readOnly
+          className="gap-1.5"
+          startClassName="text-xs"
+          chipClassName="text-xs"
+          startIconClassName="h-3 w-3"
+          iconClassName="h-3 w-3"
+        />
+      </div>
+      {/* The one debt that survives completion (image #21): a quiet line
+          under the time, not a pill in the title row. */}
+      {rapportMissing && (
+        <p className="mt-1 text-xs text-muted-foreground">{tMobile("noRapport")}</p>
+      )}
     </Card>
   )
 }

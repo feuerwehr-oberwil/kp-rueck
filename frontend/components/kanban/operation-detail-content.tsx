@@ -548,8 +548,14 @@ export function OperationDetailContent({
   // The facts column is capped: rows built for the 420px panel sprawl on a
   // 1100px modal half — the toggle switches ended up 800px from their labels
   // and read as unaligned. The resources column takes what remains.
+  // One vertical rhythm on every tab: 8px between two rows (each `DetailField`
+  // brings its own `py-1`, nothing is stacked on top), 16px between two
+  // sections — the column groups, «Status ändern», «Kräfte» and, stacked in
+  // the 420px panel, the two columns themselves (`gap-y-4`; `gap-x-8` is the
+  // modal's column gutter). It was 12/28/32, which put the first status row
+  // under the panel's footer on a laptop.
   const tabGridClass = cn(
-    "grid grid-cols-1 gap-8 py-4",
+    "grid grid-cols-1 gap-x-8 gap-y-4 py-4",
     layout === 'modal' && "lg:grid-cols-[minmax(0,34rem)_minmax(0,1fr)]",
   )
   // Die Spalten trennt eine Linie. Waagrecht bleibt es bei Abstand — eine
@@ -558,7 +564,7 @@ export function OperationDetailContent({
   // voneinander trennt, lesen sich bei langen Zeilen als eine, und ein Blick, der
   // von «Notizen» nach rechts wandert, landet in «Kräfte», ohne die Grenze
   // bemerkt zu haben.
-  const tabColumnBreakClass = cn("space-y-5", layout === 'modal' && "lg:border-l lg:border-border lg:pl-8")
+  const tabColumnBreakClass = cn("space-y-4", layout === 'modal' && "lg:border-l lg:border-border lg:pl-8")
   // The one scrolling region: the dialog itself is a fixed 85vh, so switching
   // tabs must never resize it or scroll the header away.
   // `scroll`, not `auto`: every one of these panels grows the moment a folded
@@ -584,7 +590,7 @@ export function OperationDetailContent({
    * carries no margin either, so the spacing below can stay on this element.
    */
   const banners = (
-    <div className={cn("space-y-2 empty:hidden", dense ? "flex-shrink-0 pt-3" : "mb-5")}>
+    <div className={cn("space-y-2 empty:hidden", dense ? "flex-shrink-0 pt-3" : "mb-4")}>
       {(operation.fieldCompleteReportedAt || operation.fieldArrivedAt) && (
         <FieldStatusNudge operation={operation} canEdit={canEdit} variant="detail" />
       )}
@@ -743,7 +749,8 @@ export function OperationDetailContent({
                       // Neutral palette: the chip is no longer a filled primary
                       // pill, so the toggle reads as a quiet state inside it.
                       className={cn(
-                        "ml-1 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors",
+                        // `hit-area`: the 20px pill is a 26px target (globals.css).
+                        "relative hit-area ml-1 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors",
                         driverStay
                           ? "bg-muted text-foreground hover:bg-muted/70"
                           : "text-muted-foreground/70 hover:bg-muted hover:text-foreground"
@@ -1034,11 +1041,12 @@ export function OperationDetailContent({
           {/* Left Column — the fields, as rows in both mounts, gathered under
               the small grey group headings. No hairlines between rows any more:
               whitespace separates, the headings group. */}
-          <div className="space-y-5">
+          {/* `space-y-2` + the rows' own `py-1` = the 16px section step. */}
+          <div className="space-y-2">
           {/* Where, what, how urgent. The fields carry their own labels, so a
               «Lage» heading over them said nothing – gone, whitespace groups. */}
           <div>
-          <div className="space-y-1">
+          <div>
           {/* Location - Smart Input with Geocoding. It carries its own label
               and its own map/coordinate buttons, so it lays itself out as a row
               rather than being wrapped in one. */}
@@ -1146,7 +1154,7 @@ export function OperationDetailContent({
               the incident. Unnamed like the block above – the rows carry their
               own labels. */}
           <div>
-          <div className="space-y-1">
+          <div>
           {/* Contact */}
           <DetailField
             label={t('common.contact')}
@@ -1357,7 +1365,7 @@ export function OperationDetailContent({
               opens this column because it is the most-used control on the tab
               and must not sit below a resource list of unpredictable length. */}
           {canEdit && onChangeStatus && (
-          <div className="mb-5">
+          <div className="mb-4">
             {/* Same heading as Lage / Meldung / Kräfte. It used to be a `text-sm
                 font-medium` line with a full-size icon, which made three heading
                 weights visible at once on one tab — and this one was the loudest
@@ -1539,7 +1547,7 @@ export function OperationDetailContent({
                 Reko, its Funkmeldung and «noch kein Bericht» in a single narrow
                 run and read as a form with nothing in it. */}
             <div className={tabGridClass}>
-              <div className="space-y-5">
+              <div className="space-y-4">
               <RekoReportSection
                 incidentId={operation.id}
                 canEdit={canEdit}
@@ -1688,7 +1696,7 @@ export function OperationDetailContent({
               from the field on the left — the crew's sentences and what they
               left standing — and what the KP writes on the right. */}
           <div className={tabGridClass}>
-            <div className="space-y-5">
+            <div className="space-y-4">
               {/* Feldmeldungen — KP parity (decision 28). Everything a crew taps
                   on /feld, an operator enters here from a radio message.
                   «Reko vor Ort» lives on the Reko tab with the rest of the
