@@ -40,6 +40,7 @@ import { IncidentTime, useIncidentTimeVisible } from "@/components/ui/incident-t
 import { formatClockTime } from "@/lib/incident-time"
 import { telHref } from "@/lib/phone"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
+import { AddressText } from "@/components/kanban/address-text"
 import { apiClient } from "@/lib/api-client"
 import { useVehicleDriverState } from "@/lib/hooks/use-vehicle-drivers"
 import { useVehicleShortcuts } from "@/lib/contexts/operations/use-vehicle-shortcuts"
@@ -658,7 +659,7 @@ export function OperationDetailContent({
    * nowhere on screen. Nobody could see it, and nobody could release it.
    *
    * Grouped, only the types that actually hold something appear: this block is a
-   * leftover to be worked off, not a place to add to, and «Fahrzeuge (0)» under
+   * leftover to be worked off, not a place to add to, and «Fahrzeuge · 0» under
    * it would be a row of frame around nothing. Standalone, all three stay — that
    * is where an operator adds, and an empty section is the target.
    *
@@ -998,7 +999,7 @@ export function OperationDetailContent({
                   below its content without it, so the address pushed the clock
                   and the panel controls off the row instead of giving way. */}
               <span className={cn(dense && "min-w-0 truncate")}>
-                {formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)}
+                <AddressText text={formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)} />
               </span>
               {dense && showIncidentTime && (
                 // The wrapper, not the component's own className: the chip is a
@@ -1299,6 +1300,14 @@ export function OperationDetailContent({
                 "h-auto resize-none py-1",
                 // Three lines of floor: the field must READ as a textarea, not a textbox.
                 dense ? "max-h-[14rem] min-h-[3.75rem]" : "max-h-[20rem] min-h-[3.75rem]",
+                // …once it is in use. EMPTY and unfocused (its placeholder showing) it is
+                // one row of the form's height (r21): most incidents have no Notizen, and
+                // the three-line floor pushed «Kräfte» under the panel's footer on a
+                // laptop. Focus or a first letter gives it the floor back. Height only –
+                // the value, its draft and the save line under it are untouched.
+                dense
+                  ? "placeholder-shown:not-focus:min-h-(--field-h-dense)"
+                  : "placeholder-shown:not-focus:min-h-(--field-h)",
                 fieldSaveEdgeClass(internalNotesSave),
               )}
             />

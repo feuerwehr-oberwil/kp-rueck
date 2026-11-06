@@ -28,6 +28,7 @@ import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
+import { AddressText } from "./address-text"
 import { PRIORITY_CARD_CLASSES, type Priority } from "@/lib/priority"
 import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import { DEFAULT_CARD_VIEW, cardViewEquals, type CardViewSettings } from "@/lib/card-view"
@@ -559,12 +560,13 @@ function DraggableOperationBase({
               <div className="min-w-0 flex-1">
                 {/* Wraps at a syllable (`WALL_TEXT_WRAP`), never at an arbitrary letter:
                     a 260px column with two header tiles leaves «10 Rebbergstrasse 5»
-                    ~120px of line (droppable-column.tsx, «five open columns»). */}
+                    ~120px of line (droppable-column.tsx, «five open columns»). The
+                    house number stays with its street (`AddressText`, r21). */}
                 <h3 className={cn("font-bold text-base text-foreground leading-tight", WALL_TEXT_WRAP)}>
                   {/* The incident's number — what ⌘K takes («14 tlf meier»). Quiet
                       mono, so the address stays the heading. */}
                   <IncidentNumber number={operation.number} className="mr-1.5 text-xs" />
-                  {locationLabel}
+                  <AddressText text={locationLabel} />
                 </h3>
                 {/* Abholung. Deliberately NOT gated on status: completing the
                     card auto-releases the crew while they are still standing at
@@ -745,9 +747,11 @@ function DraggableOperationBase({
               two x positions (hill climb r18). Now every clock is in the same
               reserved slot at the end of the row – `ml-auto shrink-0`, the
               digits tabular (the chip's own `font-mono tabular-nums`) – and
-              read down a column they stand in one line. The label wraps (a
-              260px column cut «Technische Hilfeleist…», r20) and the time keeps
-              its place: it is `shrink-0`, the label's box `min-w-0`.
+              read down a column they stand in one line. The label truncates with
+              its full text in `title` and the time keeps its place: it is
+              `shrink-0`, the label's box `min-w-0` – one line, whatever the type
+              (r21 reversed r20's wrap: a wrapped «Technische / Hilfeleistung»
+              doubled the row beside the clock).
               Label and time share the chip's type scale (text-xs, 3.5 icon);
               each half is independently toggleable (see lib/card-view.ts).
               The chip carries the age colouring (amber/red once it has sat too
@@ -758,7 +762,7 @@ function DraggableOperationBase({
               {showEinsatzartRow && (
                 <div className="flex min-w-0 items-center gap-1.5">
                   <Siren className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                  <span className="min-w-0 break-words text-xs text-muted-foreground">{getIncidentTypeLabel(operation.incidentType)}</span>
+                  <span className="min-w-0 truncate text-xs text-muted-foreground" title={getIncidentTypeLabel(operation.incidentType)}>{getIncidentTypeLabel(operation.incidentType)}</span>
                 </div>
               )}
               {cardView.zeiten && (

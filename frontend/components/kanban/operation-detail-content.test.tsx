@@ -7,6 +7,7 @@ import { apiClient } from "@/lib/api-client"
 import type { Operation } from "@/lib/contexts/operations-context"
 import type { Person } from "@/lib/contexts/personnel-context"
 import { crewMember, assignedVehicle } from "@/test-utils/operation-fixtures"
+import { byAddress } from "@/test-utils/address-text"
 import { noteFieldEdit, noteFieldQueued, noteFieldSend, noteFieldSettled, resetFieldSaveForTests, setFieldSaveScope } from "@/lib/field-save"
 
 const refreshOperations = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
@@ -215,12 +216,12 @@ describe("OperationDetailContent", () => {
       />,
     )
 
-    expect(screen.getByText("Hauptstrasse 1")).toBeInTheDocument()
+    expect(screen.getByText(byAddress("Hauptstrasse 1"))).toBeInTheDocument()
     // The panel's title tooltip spells out the address, which is what truncates
     // at 420px — and ONLY the address. The incident id used to ride along here;
     // it is gone from both mounts, because nobody at a command post reads a
     // UUID off a screen.
-    expect(screen.getByText("Hauptstrasse 1").closest("h2")).toHaveAttribute(
+    expect(screen.getByText(byAddress("Hauptstrasse 1")).closest("h2")).toHaveAttribute(
       "title",
       "Hauptstrasse 1",
     )
@@ -327,13 +328,13 @@ describe("OperationDetailContent", () => {
     expect(tab("Reko")).toBeInTheDocument()
 
     // The header keeps the address and now carries the tab bar on the same row.
-    expect(screen.getByText("Hauptstrasse 1")).toBeInTheDocument()
+    expect(screen.getByText(byAddress("Hauptstrasse 1"))).toBeInTheDocument()
     expect(tab("Übersicht")).toHaveAttribute("aria-selected", "true")
     expect(screen.getByRole("textbox", { name: "Meldung" })).toBeInTheDocument()
     // ...and what used to cost a tab switch is on the same panel. There is no
     // «Zugewiesene Ressourcen» heading over it any more — the resource blocks
     // carry their own labels and counts, which is what identifies the section.
-    expect(screen.getByText("Mannschaft (0)")).toBeInTheDocument()
+    expect(screen.getByText("Mannschaft · 0")).toBeInTheDocument()
     expect(screen.queryByText("Zugewiesene Ressourcen")).not.toBeInTheDocument()
     // The Rapport panel is force-mounted for its form state, so it must be
     // hidden rather than absent. Reko is a plain panel and simply absent.
@@ -358,7 +359,7 @@ describe("OperationDetailContent", () => {
     expect(screen.getByText("Abholung nötig")).toBeVisible()
     expect(screen.queryByText("Reko vor Ort")).not.toBeInTheDocument()
     expect(screen.getByText("Meldungen vom Feld")).toBeVisible()
-    expect(screen.queryByText("Mannschaft (0)")).not.toBeInTheDocument()
+    expect(screen.queryByText("Mannschaft · 0")).not.toBeInTheDocument()
 
     await user.click(tab("Verlauf"))
     // Both lists, expanded, with no toggle to reveal them.
@@ -948,8 +949,8 @@ describe("OperationDetailContent · Herkunft der Ressourcen", () => {
     const ownScope = within(own)
     expect(ownScope.getByText("Beat Kunz")).toBeInTheDocument()
     expect(ownScope.getByText("Kettensäge")).toBeInTheDocument()
-    // Empty types stay out of the leftovers block — no «Fahrzeuge (0)» row.
-    expect(ownScope.queryByText("Fahrzeuge (0)")).toBeNull()
+    // Empty types stay out of the leftovers block — no «Fahrzeuge · 0» row.
+    expect(ownScope.queryByText("Fahrzeuge · 0")).toBeNull()
 
     // Visible is only half of it: the operator has to be able to release them.
     await user.click(ownScope.getByTitle("Person freigeben"))
@@ -988,9 +989,9 @@ describe("OperationDetailContent · Herkunft der Ressourcen", () => {
 
     expect(document.querySelector("[data-resource-source]")).toBeNull()
     // …and the three sections are all still there, empty, as the place to add to.
-    expect(screen.getByText("Mannschaft (0)")).toBeInTheDocument()
-    expect(screen.getByText("Fahrzeuge (0)")).toBeInTheDocument()
-    expect(screen.getByText("Material (0)")).toBeInTheDocument()
+    expect(screen.getByText("Mannschaft · 0")).toBeInTheDocument()
+    expect(screen.getByText("Fahrzeuge · 0")).toBeInTheDocument()
+    expect(screen.getByText("Material · 0")).toBeInTheDocument()
     expect(screen.getByTitle("Mannschaft zuweisen")).toBeInTheDocument()
   })
 })

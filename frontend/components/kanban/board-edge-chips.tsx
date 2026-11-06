@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { cn } from '@/lib/utils'
+import { PriorityGlyph } from '@/components/ui/priority-glyph'
 import { COLUMN_HEADER_CLASS, STATUS_ACCENT } from '@/lib/kanban-utils'
 import {
   computeEdgeOverflow,
@@ -113,7 +114,9 @@ interface EdgeChipProps extends ChipFacts {
   compact: boolean
 }
 
-/** One hidden column: chevron toward its edge, status bar, title, count (red dot when Hoch).
+/** One hidden column: chevron toward its edge, status bar, title, count – with the card's Hoch
+ *  mark (`PriorityGlyph`) before the count while the column holds a Hoch (r21: it was a red
+ *  corner dot, which read as an unread badge and said it by colour alone).
  *  A real button, and a drop target for its column – a card dragged onto it lands there.
  *  `compact` when the bar runs short: status bar, count and chevron only. */
 function EdgeChip({ column, count, high, side, onShow, compact }: EdgeChipProps) {
@@ -157,9 +160,15 @@ function EdgeChip({ column, count, high, side, onShow, compact }: EdgeChipProps)
           label (the button's 8px gap less 2). At 1–2px it read as a pipe, «| RÜCKFAHRT». */}
       <span aria-hidden className={cn('-mr-0.5 h-3.5 w-[3px] shrink-0 rounded-full', STATUS_ACCENT[column.id]?.dot)} />
       {!compact && <span aria-hidden className={cn(COLUMN_HEADER_CLASS, 'whitespace-nowrap')}>{title}</span>}
-      <span aria-hidden className="relative inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-sm bg-foreground/10 px-1.5 text-foreground type-label tabular-nums">
+      {/* The board card's Hoch drawing (a 12px mark), 8px before the count; the button's
+          name already says «n Hoch», so the glyph stays out of the accessibility tree. */}
+      {high > 0 && (
+        <span aria-hidden className="-mr-0.5 flex shrink-0">
+          <PriorityGlyph priority="high" size="card" />
+        </span>
+      )}
+      <span aria-hidden className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-sm bg-foreground/10 px-1.5 text-foreground type-label tabular-nums">
         {count}
-        {high > 0 && <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500" />}
       </span>
       {high > 0 && !compact && (
         <span aria-hidden className="whitespace-nowrap text-xs font-semibold text-destructive">
@@ -235,7 +244,7 @@ export function BoardEdgeChipBar({ left, right, columns, operations, onShow }: B
   )
 
   // `overflow-hidden` keeps the overflowing step from showing for the one measuring render;
-  // the padding keeps the Hoch dot (it pokes out above) and the focus ring unclipped.
+  // the padding keeps the focus ring unclipped.
   return (
     <div ref={ref} className="-mx-1 flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden px-1 py-1">
       {nav('left')}

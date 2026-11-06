@@ -25,6 +25,7 @@ import { DuplicateFlag } from "@/components/duplicates/duplicate-flag"
 import { DriverStayGlyph } from "@/components/ui/driver-stay-glyph"
 import { rapportApplies } from "@/lib/rapport-visibility"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
+import { AddressText } from "@/components/kanban/address-text"
 import { cn } from "@/lib/utils"
 import { getOperationStatusLabel } from "@/lib/status-labels"
 import { type Priority, PRIORITY_CARD_CLASSES, PRIORITY_ICON_CLASSES } from "@/lib/priority"
@@ -112,7 +113,7 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
               {/* The number the desk card, the detail and the map list put before
                   the address — what the radio says. 12/500 mono, 8px to the address. */}
               <IncidentNumber number={operation.number} className="mr-2 text-xs" />
-              {formatLocation(operation.location)}
+              <AddressText text={formatLocation(operation.location)} />
             </h3>
           )}
 

@@ -99,6 +99,8 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
   const occupiedTooltip = engagement
     ? t('person.engagedTooltip', { label: engagement.full })
     : functionLabel || t('common.inUse')
+  /** The second line – where a bound person is; absent on a free row. */
+  const whereLine = isOccupied ? (engagement?.short ?? functionLabel) || null : null
 
   return (
     <PersonContextMenu
@@ -165,9 +167,12 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
 
               {/* Rank, then tags and the conflict badge at the outer edge — the
                   marks worth catching sit against the rail, the Grad («Wm»,
-                  «Kpl», full word on hover) is a quieter fact just inside them. */}
+                  «Kpl», full word on hover) is a quieter fact just inside them.
+                  A row WITH a where-line carries the Grad there instead (r21): with
+                  «Wm F Fw» beside it a bound name kept half its width («Baumann
+                  Mic…»), and the name is what the column is read by. */}
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                {person.role && (
+                {person.role && !whereLine && (
                   <span className="shrink-0 text-right text-xs text-muted-foreground" title={person.role}>
                     {abbreviateRank(person.role)}
                   </span>
@@ -199,9 +204,11 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
                 function (Fahrer TLF, Reko, Telefondienst …) as the fallback.
                 Time on duty is deliberately NOT here (owner, 09.10.: too much in
                 the default view) — it lives in the Dienstzeiten sheet. */}
-            {isOccupied && (engagement?.short || functionLabel) && (
+            {/* The Grad leads it, «Wm · Sturmholz Oberwil», in the same muted caption. */}
+            {whereLine && (
               <div className="truncate type-micro leading-tight text-muted-foreground" title={occupiedTooltip}>
-                {engagement?.short ?? functionLabel}
+                {person.role && <span title={person.role}>{abbreviateRank(person.role)} · </span>}
+                {whereLine}
               </div>
             )}
           </div>

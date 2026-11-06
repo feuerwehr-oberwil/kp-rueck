@@ -13,6 +13,7 @@ import { getIncidentLocationLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
 import { areOperationListsEqual } from "@/lib/operation-equality"
 import { Button } from "@/components/ui/button"
+import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
 import { ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { SIDE_PANEL_MEDIA_QUERY } from "@/lib/layout-breakpoints"
 import { useMediaQuery } from "@/lib/hooks/use-media-query"
@@ -442,7 +443,8 @@ export const DroppableColumn = memo(function DroppableColumn({
           // container clips (overflow-y:auto computes overflow-x to auto, and a
           // box-shadow never scrolls). The right 4px doubles as the scrollbar
           // gutter so the bar does not sit on the cards.
-          "flex-1 space-y-3 overflow-y-auto overscroll-y-contain py-2 px-1 rounded-lg transition-all min-h-[200px] relative",
+          // No bottom padding: the `ScrollEndFade` closing the list is its end room.
+          "flex-1 space-y-3 overflow-y-auto overscroll-y-contain pt-2 px-1 rounded-lg transition-all min-h-[200px] relative",
           isOver && operations.length === 0 && "drop-zone-active"
         )}
         role="region"
@@ -513,6 +515,11 @@ export const DroppableColumn = memo(function DroppableColumn({
             </div>
           ))}
         </div>
+        {/* While cards wait below, the last 24px fade into the board instead of a card
+            cut flat at the footer (hill climb r21, the sidebars' and the detail's ramp).
+            `-mt-3` takes back the 12px `space-y-3` puts before it, so at the end it is
+            the column's whole end room. */}
+        <ScrollEndFade surface="board" className="-mt-3" />
       </div>
     </div>
   )
