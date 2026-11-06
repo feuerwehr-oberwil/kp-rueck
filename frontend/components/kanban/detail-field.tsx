@@ -90,8 +90,11 @@ interface DetailFieldProps {
   children: ReactNode
 }
 
-/** The label of a stacked (phone) field — the same class the reko and /feld fields wear. */
-export const STACKED_LABEL = "mb-1.5 block text-sm font-semibold text-muted-foreground"
+/** The label of a stacked (phone) field — the same class the reko and /feld fields wear.
+ *  8px to its control and a tight line box (no 3px of half-leading above it), so a
+ *  label sits visibly WITH the field under it rather than halfway to the one above
+ *  (hill climb r7: the phone form read as loose groups). */
+export const STACKED_LABEL = "mb-2 block text-sm leading-tight font-semibold text-muted-foreground"
 
 /**
  * Left padding that lines a second line up with the control instead of the label:

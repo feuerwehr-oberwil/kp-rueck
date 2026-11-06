@@ -275,55 +275,61 @@ export function NewEmergencyModal({
             a second column made the eye jump mid-form. Was ist passiert first,
             wer hat gemeldet after, the Merkmale chips last — the SAME order as
             the Übersicht tab, so the modal and the detail read as one form seen
-            twice (UX-DESKTOP-14). */}
-        <div className="space-y-1 py-2">
+            twice (UX-DESKTOP-14). Phone: no extra space between the stacked fields
+            — their own 12px padding + the label's tight line box make the 16px
+            group gap (hill climb r7), so the Merkmale chips reach the screen. */}
+        <div className={isMobile ? undefined : "space-y-1 py-2"}>
             {/* Location carries its own label and its own map/coordinate buttons,
-                so it lays itself out as a row rather than being wrapped in one. */}
-            <LocationInput
-              address={formData.location}
-              latitude={formData.coordinates?.[0] ?? null}
-              longitude={formData.coordinates?.[1] ?? null}
-              // phone: LocationInput's own stacked layout (label above), the /feld one
-              dense={!isMobile}
-              boxed
-              required
-              onAddressChange={(address) => {
-                setFormData(prev => ({ ...prev, location: address || "" }))
-                setTouched(prev => ({ ...prev, location: true }))
-              }}
-              onCoordinatesChange={(lat, lon) =>
-                setFormData(prev => ({
-                  ...prev,
-                  coordinates: lat !== null && lon !== null ? [lat, lon] : null
-                }))
-              }
-              // Desktop: straight into the Einsatzort. Phone: no keyboard until a field is
-              // tapped — the sheet itself does not focus a field either (ui/sheet.tsx).
-              autoFocus={open && !isMobile}
-              error={showLocationError}
-              describedBy={showLocationError ? formMessageId(LOCATION_FIELD_ID) : undefined}
-            />
-            {showLocationError && (
-              <FormMessage
-                id={formMessageId(LOCATION_FIELD_ID)}
-                tone="error"
-                className={isMobile ? "mt-1" : cn("mb-1", DETAIL_MESSAGE_INDENT)}
-              >
-                {t('newEmergency.locationError')}
-              </FormMessage>
-            )}
-            <DuplicateHint
-              candidates={shownCandidates}
-              origin={formData.coordinates ? { lat: formData.coordinates[0], lng: formData.coordinates[1] } : null}
-              onMerge={handleMerge}
-              onDismiss={() => setDismissedKey(duplicateKey)}
-              mergingId={mergingId}
-              showSketch={!isMobile}
-              density={isMobile ? "touch" : "dense"}
-              // The value column, not the label column: margin, so the amber box
-              // starts where the fields start (DETAIL_MESSAGE_INDENT is padding).
-              className={isMobile ? "my-2" : "my-2 sm:ml-[128px]"}
-            />
+                so it lays itself out as a row rather than being wrapped in one.
+                On the phone it takes the stacked DetailField's 6px padding below, so
+                the gap to «Meldung» is the gap between every other two fields. */}
+            <div className={isMobile ? "pb-1.5" : "space-y-1"}>
+              <LocationInput
+                address={formData.location}
+                latitude={formData.coordinates?.[0] ?? null}
+                longitude={formData.coordinates?.[1] ?? null}
+                // phone: LocationInput's own stacked layout (label above), the /feld one
+                dense={!isMobile}
+                boxed
+                required
+                onAddressChange={(address) => {
+                  setFormData(prev => ({ ...prev, location: address || "" }))
+                  setTouched(prev => ({ ...prev, location: true }))
+                }}
+                onCoordinatesChange={(lat, lon) =>
+                  setFormData(prev => ({
+                    ...prev,
+                    coordinates: lat !== null && lon !== null ? [lat, lon] : null
+                  }))
+                }
+                // Desktop: straight into the Einsatzort. Phone: no keyboard until a field is
+                // tapped — the sheet itself does not focus a field either (ui/sheet.tsx).
+                autoFocus={open && !isMobile}
+                error={showLocationError}
+                describedBy={showLocationError ? formMessageId(LOCATION_FIELD_ID) : undefined}
+              />
+              {showLocationError && (
+                <FormMessage
+                  id={formMessageId(LOCATION_FIELD_ID)}
+                  tone="error"
+                  className={isMobile ? "mt-1" : cn("mb-1", DETAIL_MESSAGE_INDENT)}
+                >
+                  {t('newEmergency.locationError')}
+                </FormMessage>
+              )}
+              <DuplicateHint
+                candidates={shownCandidates}
+                origin={formData.coordinates ? { lat: formData.coordinates[0], lng: formData.coordinates[1] } : null}
+                onMerge={handleMerge}
+                onDismiss={() => setDismissedKey(duplicateKey)}
+                mergingId={mergingId}
+                showSketch={!isMobile}
+                density={isMobile ? "touch" : "dense"}
+                // The value column, not the label column: margin, so the amber box
+                // starts where the fields start (DETAIL_MESSAGE_INDENT is padding).
+                className={isMobile ? "my-2" : "my-2 sm:ml-[128px]"}
+              />
+            </div>
 
             <DetailField label={t('common.meldung')} htmlFor="notes" alignStart>
               <Textarea

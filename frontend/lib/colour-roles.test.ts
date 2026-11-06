@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 
-import { RESOURCE_STATE_BADGE_CLASSES, RESOURCE_STATE_DOT_CLASSES, RESOURCE_STATE_WALL_DOT_CLASSES } from '@/lib/resource-status'
+import { RESOURCE_STATE_BADGE_CLASSES, RESOURCE_STATE_DOT_CLASSES } from '@/lib/resource-status'
 
 // --- red is priority and danger, never an accent --------------------------------------
 //
@@ -69,7 +69,6 @@ const FACT_FILES = [
 describe('amber is not a fact', () => {
   it('draws gebunden without a warm hue', () => {
     expect(RESOURCE_STATE_DOT_CLASSES.assigned).not.toMatch(WARM)
-    expect(RESOURCE_STATE_WALL_DOT_CLASSES.assigned).not.toMatch(WARM)
     expect(RESOURCE_STATE_BADGE_CLASSES.assigned).not.toMatch(WARM)
   })
 

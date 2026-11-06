@@ -15,7 +15,7 @@ import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { CARD_VIEW_PRESETS } from "@/lib/card-view"
-import { columns, ageLevel, COLUMN_HEADER_CLASS, STATUS_ACCENT, WALL_TEXT_WRAP } from "@/lib/kanban-utils"
+import { columns, ageLevel, STATUS_ACCENT, WALL_COLUMN_COUNT_CLASS, WALL_COLUMN_HEADER_CLASS, WALL_TEXT_WRAP } from "@/lib/kanban-utils"
 import {
   WALL_STACK_BOARD, WALL_STACK_BODY, WALL_STACK_COLUMN, WALL_STACK_FOLDED, WALL_STACK_FOLDED_ACCENT, WALL_STACK_FOLDED_LABEL,
 } from "@/lib/wall-stack"
@@ -254,7 +254,7 @@ function BoardDisplay() {
             >
               <span aria-hidden className={cn("h-0.5 w-full", WALL_STACK_FOLDED_ACCENT, accent?.dot)} />
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              <span className="relative inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground type-label tabular-nums">
+              <span className={WALL_COLUMN_COUNT_CLASS}>
                 {ops.length}
                 {hasAlarm && (
                   <span
@@ -264,7 +264,7 @@ function BoardDisplay() {
                   />
                 )}
               </span>
-              <span className={cn(COLUMN_HEADER_CLASS, "[writing-mode:vertical-rl]", WALL_STACK_FOLDED_LABEL)}>
+              <span className={cn(WALL_COLUMN_HEADER_CLASS, "[writing-mode:vertical-rl]", WALL_STACK_FOLDED_LABEL)}>
                 {tk(`columns.${column.id}`)}
               </span>
             </button>
@@ -321,8 +321,8 @@ function BoardDisplay() {
                     and «REKO ABGESC…» were all a wall could read of three headers.
                     The overdue dot rides on the count badge, as on the folded
                     strip, instead of taking 16px of the label's line. */}
-                <h2 className={cn("min-w-0 flex-1 leading-tight", WALL_TEXT_WRAP, COLUMN_HEADER_CLASS)}>{tk(`columns.${column.id}`)}</h2>
-                <span className="relative inline-flex flex-shrink-0 items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground type-label tabular-nums">
+                <h2 className={cn("min-w-0 flex-1", WALL_TEXT_WRAP, WALL_COLUMN_HEADER_CLASS)}>{tk(`columns.${column.id}`)}</h2>
+                <span className={WALL_COLUMN_COUNT_CLASS}>
                   {ops.length}
                   {hasAlarm && (
                     <span
