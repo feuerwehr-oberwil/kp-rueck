@@ -239,14 +239,21 @@ export function ResourceAssignmentDialog({
    * «Reko», and somebody on a Schadenplatz read as «Im Einsatz» with no hint
    * that taking them also takes the fleet's only driver. The driver's label
    * names the VEHICLE, because «Fahrer» alone raises the question it answers.
+   *
+   * `elsewhere` says whether the role is ANOTHER commitment – the only case the
+   * tile paints amber («schau hin»). Driving a vehicle that is on this very
+   * target is a plain fact about this crew, not a double booking.
    */
-  const specialFunctionsOf = (p: Person): { label: string; Icon: typeof Car }[] => {
-    const functions: { label: string; Icon: typeof Car }[] = []
-    if (p.isDriver) functions.push({ label: p.driverVehicleName || t('assignmentDialog.driverBadge'), Icon: Car })
-    if (p.isReko || rekoPersonnelIds.includes(p.id)) functions.push({ label: t('common.reko'), Icon: Binoculars })
-    if (p.isMagazin) functions.push({ label: t('common.magazin'), Icon: Package2 })
-    if (p.isTelefondienst) functions.push({ label: t('common.telefondienst'), Icon: Phone })
-    if (p.isKommandoposten) functions.push({ label: t('common.kommandoposten'), Icon: MonitorCog })
+  const specialFunctionsOf = (p: Person): { label: string; Icon: typeof Car; elsewhere: boolean }[] => {
+    const functions: { label: string; Icon: typeof Car; elsewhere: boolean }[] = []
+    if (p.isDriver) {
+      const drivesThisTarget = !!p.driverVehicleId && assignedVehicleIds.includes(p.driverVehicleId)
+      functions.push({ label: p.driverVehicleName || t('assignmentDialog.driverBadge'), Icon: Car, elsewhere: !drivesThisTarget })
+    }
+    if (p.isReko || rekoPersonnelIds.includes(p.id)) functions.push({ label: t('common.reko'), Icon: Binoculars, elsewhere: true })
+    if (p.isMagazin) functions.push({ label: t('common.magazin'), Icon: Package2, elsewhere: true })
+    if (p.isTelefondienst) functions.push({ label: t('common.telefondienst'), Icon: Phone, elsewhere: true })
+    if (p.isKommandoposten) functions.push({ label: t('common.kommandoposten'), Icon: MonitorCog, elsewhere: true })
     return functions
   }
 
@@ -1026,7 +1033,11 @@ export function ResourceAssignmentDialog({
             <span
               key={fn.label}
               title={fn.label}
-              className={cn("mt-0.5 flex max-w-full items-start gap-1", TILE_META, "text-amber-700 dark:text-amber-400")}
+              className={cn(
+                "mt-0.5 flex max-w-full items-start gap-1",
+                TILE_META,
+                fn.elsewhere ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground",
+              )}
             >
               <fn.Icon className={TILE_META_ICON} />
               <span className="truncate">{fn.label}</span>

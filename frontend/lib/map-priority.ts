@@ -7,7 +7,7 @@ import type { Priority } from "./priority"
  * legend swatch) and beside every address in the map's list.
  *
  * `PRIORITY_LIST_ICONS` is the board card's set (`draggable-operation.tsx`), tinted with
- * `PRIORITY_TEXT_CLASSES`. The marker cannot nest lucide's 24-unit icon legibly in a 15px fill,
+ * `PRIORITY_TEXT_CLASSES`. The marker cannot nest lucide's 24-unit icon legibly in a 22–24px fill,
  * so `priorityGlyphPath` redraws the same three shapes at marker scale; `markerGlyphInk` picks
  * dark ink or white for the fill underneath – the priority fills all take ink, a «Färben nach»
  * colour may be dark enough to need white (the glyph stays, so priority survives recolouring).
@@ -22,8 +22,8 @@ export const PRIORITY_LIST_ICONS: Record<Priority, LucideIcon> = {
 }
 
 /**
- * SVG path of the glyph centred on (cx, cy). `scale` is the marker size / 24: at rest the glyph
- * is 8×4px, drawn with a 2px round stroke.
+ * SVG path of the glyph centred on (cx, cy). `scale` is the marker size / 24: on the 32px pin
+ * at rest the glyph is ≈11×5px, drawn with a 2px round stroke.
  */
 export function priorityGlyphPath(priority: string | null | undefined, cx: number, cy: number, scale = 1): string {
   const w = 4 * scale

@@ -430,24 +430,27 @@ export function MobileIncidentDetailSheet({
                   {operation.vehicles.map(({ vehicleId, name: vehicleName, callsign, driverStay }) => {
                     const driverName = vehicleDrivers.get(vehicleId)
                     return (
-                      <RemovableChip
-                        key={vehicleId}
-                        variant="secondary"
-                        className="text-sm max-w-full font-normal"
-                        title={callsign ? tKanban('common.funkrufname', { callsign }) : undefined}
-                      >
-                        <span>
-                          {vehicleName}{callsign ? ` · ${callsign}` : ''}
-                          {driverName && (
-                            <span className="text-muted-foreground"> ({driverName})</span>
-                          )}
-                        </span>
+                      <div key={vehicleId} className="flex max-w-full flex-col items-start gap-1">
+                        <RemovableChip
+                          variant="secondary"
+                          className="text-sm max-w-full font-normal"
+                          title={callsign ? tKanban('common.funkrufname', { callsign }) : undefined}
+                        >
+                          <span>
+                            {vehicleName}{callsign ? ` · ${callsign}` : ''}
+                            {driverName && (
+                              <span className="text-muted-foreground"> ({driverName})</span>
+                            )}
+                          </span>
+                        </RemovableChip>
                         {/* Whether the driver stays with the vehicle — the same
                             state the board and the wall carry per chip. The
                             phone shows the state only; the toggle is a control
-                            and stays on the board. */}
-                        <DriverStayGlyph stays={driverStay} />
-                      </RemovableChip>
+                            and stays on the board. Its own caption line under
+                            the chip, as on /feld: squeezed in beside vehicle +
+                            driver it read as part of the name (hill climb r12). */}
+                        <DriverStayGlyph stays={driverStay} size="caption" />
+                      </div>
                     )
                   })}
                 </div>

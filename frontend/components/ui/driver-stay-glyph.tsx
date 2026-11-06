@@ -29,8 +29,8 @@
  * `size="wall"` sets the words at the wall chip's own 1rem / 500 (14px at the
  * fit's floor) instead of the 11px micro role: read from 4 m, the stay state is
  * as much the fact as the vehicle it belongs to. `size="caption"` is the 12/16
- * caption role for `/feld`, where the chip stands on its own line under the
- * vehicle and is read on a phone outdoors (hill climb r10).
+ * caption role for `/feld` and the phone's detail sheet, where the chip stands
+ * on its own line under the vehicle and is read on a phone (hill climb r10, r12).
  */
 
 import { useTranslations } from "next-intl"

@@ -77,7 +77,7 @@ import { PersonName } from "@/components/person-name"
 const SECTION_RULE = "border-t pt-1.5"
 
 /** The wall's ONE caption size (hill climb r3): Einsatzart, Melder, the Auftrag
- *  name and stop line, «vor Ort seit», Nachbarhilfe, the Reko's Pers./h.
+ *  stop line, «vor Ort seit», Nachbarhilfe, the Reko's Pers./h.
  *  0.8rem = 11.2px at the fit's 14px floor – the board's `type-micro` floor
  *  (11px) never undercut, and the same size as the incident number. The
  *  hierarchy stays address (1.25rem) > chips and states (1rem) > Meldung
@@ -89,6 +89,11 @@ const WALL_CAPTION = "text-[0.8rem] leading-[1.3]"
  *  «Mannschaft wie Stopp n»: 1rem on a 1.2857rem line (14/18 at the floor).
  *  Wraps, never truncates, like all wall text. */
 const WALL_STATE_LINE = cn("min-w-0 text-base leading-[1.2857]", WALL_TEXT_WRAP)
+
+/** The Auftrag's name on a stop card: the state line's 1rem on 1.2857rem
+ *  (14/18 at the floor), 600, foreground – the squad's handle, a step above
+ *  the stop metadata («Stopp 2 von 4 · …») that stays `WALL_CAPTION`. */
+const AUFTRAG_NAME = "text-base leading-[1.2857] font-semibold text-foreground"
 
 /** The Melder's telephone number: 1rem / 500 on a 1.2857rem line (14/18 at the
  *  floor), normal tracking and tabular figures, so «061 222 22 22» reads as
@@ -584,9 +589,10 @@ export function DisplayIncidentCard({
         {showAuftragBlock && auftrag && (
           <div className={cn(WALL_CAPTION, !showResourceBlock && SECTION_RULE)}>
             <div className="flex w-full min-w-0 items-start gap-1.5" title={auftragTitle}>
-              <Waypoints className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-px" />
+              {/* Icon and swatch centred on the NAME's 1.2857rem line. */}
+              <Waypoints className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-[0.2rem]" />
               <span
-                className="h-2 w-2 rounded-full flex-shrink-0 mt-1"
+                className="h-2 w-2 rounded-full flex-shrink-0 mt-[0.39rem]"
                 style={{ backgroundColor: auftrag.color ?? "var(--muted-foreground)" }}
               />
               {/* Two lines, the same shape as the kanban card — and needed here
@@ -597,9 +603,13 @@ export function DisplayIncidentCard({
                   second line has 193px at 1280 (213px at 1920) for 135.4px of
                   «Stopp 6 von 7 · Pio · 1 Gerät» — 174.9px before the crew count
                   came out of `auftragSummary` above. Neither line truncates:
-                  both WRAP, as wall text does. */}
+                  both WRAP, as wall text does.
+                  The NAME is the squad's handle and reads at the state line's
+                  14/18 in 600 foreground (hill climb r12) – at caption size and
+                  muted it sank into the stop metadata under it, which stays the
+                  wall caption. */}
               <span className="flex min-w-0 flex-1 flex-col gap-px">
-                <span className={cn("font-medium text-foreground/80", WALL_TEXT_WRAP)}>{auftrag.name}</span>
+                <span className={cn(AUFTRAG_NAME, WALL_TEXT_WRAP)}>{auftrag.name}</span>
                 <span className={cn("text-muted-foreground", WALL_TEXT_WRAP)}>
                   <span className="tabular-nums">
                     {t("card.auftragStopLine", { pos: auftragStopPos, total: auftragTotal })}
