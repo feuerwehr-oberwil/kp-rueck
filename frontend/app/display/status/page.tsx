@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useCallback, useRef } from "react"
+import { useMemo, useState, useCallback, useRef, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
 import { Binoculars, Package2, Ban, Infinity as InfinityIcon, Truck } from "lucide-react"
@@ -92,13 +92,15 @@ const PERSON_FUNCTION_ICON = "h-3 w-3 xl:h-3.5 xl:w-3.5 shrink-0"
 const DRIVER_VEHICLE_TAG =
   "inline-flex shrink-0 items-center gap-1 rounded-sm bg-foreground/10 px-1.5 text-xs leading-4 xl:text-sm xl:leading-[1.125rem] font-semibold text-foreground"
 
-/** A Personal/Material row: the name group on the left, the where-group on the
- *  right, 12px apart at the least (hill climb r19 – at 8px a long name ran into
- *  «Mawa → Bättwilerstrasse 7»). The where-group wraps inside the row's inset,
- *  right-aligned, before it squeezes the name. */
-const RESOURCE_ROW = "flex items-center gap-3 px-2 py-1.5 rounded-sm"
+/** A Personal/Material row (`ResourceRow`): the name group on the left, the
+ *  where-group on the right, 16px apart at the least (hill climb r19 – at 8px a
+ *  long name ran into «Mawa → Bättwilerstrasse 7»; r20 – Material had its own
+ *  row and «Tauchpumpe Kl.» ran into «→ Schulstrasse 9»). Both sides are
+ *  `min-w-0`: the where-group wraps to a second line inside the row's inset,
+ *  right-aligned, before either side eats the gap. */
+const RESOURCE_ROW = "flex items-center gap-4 px-2 py-1.5 rounded-sm"
 const RESOURCE_ROW_NAME = "flex min-w-0 flex-1 items-center gap-2"
-const RESOURCE_ROW_WHERE = "flex min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-0.5"
+const RESOURCE_ROW_WHERE = "flex min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-0.5 text-right"
 
 /** Personal/Material rows: the availability mark sits centred in ONE fixed leading
  *  gutter, so every name starts at one edge whether the row carries a dot, a ring or
@@ -854,25 +856,49 @@ function IncidentRow({ operation: op, onClick }: { operation: Operation; onClick
   )
 }
 
+/** The one Personal/Material row: `mark` (the availability gutter and any glyph
+ *  before the name), the name, and `where` (destination, function, «verfügbar»)
+ *  in the where-group. A row with `onClick` opens that Einsatz. */
+function ResourceRow({ mark, name, nameClassName, where, onClick, className }: {
+  mark: ReactNode
+  name: ReactNode
+  nameClassName?: string
+  where?: ReactNode
+  onClick?: () => void
+  className?: string
+}) {
+  return (
+    <div
+      data-wall-item
+      className={cn(RESOURCE_ROW, className, onClick && "cursor-pointer transition-colors hover:bg-muted/60")}
+      onClick={onClick}
+    >
+      <span className={RESOURCE_ROW_NAME}>
+        {mark}
+        <span className={cn("flex-1", WALL_NAME, nameClassName)}>{name}</span>
+      </span>
+      {where && <span className={RESOURCE_ROW_WHERE}>{where}</span>}
+    </div>
+  )
+}
+
 function PersonRow({ person: p, assignedTo, auftrag, onOpenIncident }: { person: Person; assignedTo?: AssignmentRef; auftrag?: IncidentGroup; onOpenIncident: (id: string) => void }) {
   const tk = useTranslations('kanban')
   const isAssigned = p.status === "assigned"
   const clickable = isAssigned && !!assignedTo
+  const hasWhere = !!(p.isReko || p.isMagazin || (p.isDriver && p.driverVehicleName) || clickable || auftrag)
   return (
-    <div
-      data-wall-item
-      className={cn(RESOURCE_ROW, clickable && "cursor-pointer transition-colors hover:bg-muted/60")}
+    <ResourceRow
       onClick={clickable ? () => onOpenIncident(assignedTo!.operationId) : undefined}
-    >
-      <span className={RESOURCE_ROW_NAME}>
-        {/* Reko counts as busy here: a Reko is an Auftrag, but it never sets status="assigned" */}
+      // Reko counts as busy here: a Reko is an Auftrag, but it never sets status="assigned"
+      mark={
         <span className={WALL_MARK_GUTTER} aria-hidden="true">
           <span className={cn(WALL_MARK, RESOURCE_STATE_DOT_CLASSES[personResourceState(p)])} />
         </span>
-        <span className={cn("flex-1", WALL_NAME)}><PersonName name={p.name} kennung={p.kennung ?? null} /></span>
-      </span>
-      {(p.isReko || p.isMagazin || (p.isDriver && p.driverVehicleName) || clickable || auftrag) && (
-        <span className={RESOURCE_ROW_WHERE}>
+      }
+      name={<PersonName name={p.name} kennung={p.kennung ?? null} />}
+      where={hasWhere && (
+        <>
           {/* Special-function markers — same icon language as the board roster.
               They answer «where» like the street beside the next name, so they wear
               the destination's size, weight and ink tier (hill climb r5): a smaller,
@@ -894,13 +920,13 @@ function PersonRow({ person: p, assignedTo, auftrag, onOpenIncident }: { person:
             </span>
           )}
           {clickable ? (
-            <span className={cn(WALL_DESTINATION, "text-right text-muted-foreground")}>→ {assignedTo!.label}</span>
+            <span className={cn(WALL_DESTINATION, "text-muted-foreground")}>→ {assignedTo!.label}</span>
           ) : auftrag ? (
             <AuftragDestination auftrag={auftrag} />
           ) : null}
-        </span>
+        </>
       )}
-    </div>
+    />
   )
 }
 
@@ -921,41 +947,44 @@ function MaterialRow({ material: m, assignedTo, auftrag, onOpenIncident }: { mat
   // reference while `status` still reads "available" (it is stocked, not lent out).
   const clickable = !!single
   return (
-    <div
-      data-wall-item
-      className={cn(RESOURCE_ROW, isOutOfService && "opacity-70", clickable && "cursor-pointer transition-colors hover:bg-muted/60")}
+    <ResourceRow
+      className={cn(isOutOfService && "opacity-70")}
       onClick={clickable ? () => onOpenIncident(single!.operationId) : undefined}
-    >
-      <span className={RESOURCE_ROW_NAME}>
-        {/* Verbrauchsmaterial stays green even while assigned — it is stocked, not
-            lent out. Broken beats both: a defective Fass is not "unlimited". */}
-        <span className={WALL_MARK_GUTTER} aria-hidden="true">
-          {isOutOfService ? (
-            <Ban className="h-3 w-3 xl:h-3.5 xl:w-3.5 text-muted-foreground" />
-          ) : (
-            <span className={cn(WALL_MARK, RESOURCE_STATE_DOT_CLASSES[state])} />
-          )}
-        </span>
-        {m.consumable && !isOutOfService && <InfinityIcon className="h-3 w-3 xl:h-3.5 xl:w-3.5 shrink-0 text-muted-foreground" aria-label={tk('material.consumableUnlimited')} />}
-        <span className={cn("flex-1", WALL_NAME, isOutOfService && "text-muted-foreground")}>{m.name}</span>
-      </span>
-      {isOutOfService ? (
-        <span className="text-2xs xl:text-xs font-medium text-muted-foreground shrink-0">{tc('notReady')}</span>
-      ) : single ? (
-        <span className={cn(WALL_DESTINATION, "text-right text-muted-foreground")}>→ {single.label}</span>
-      ) : assignedTo.length > 1 ? (
-        <span
-          className="text-2xs xl:text-xs text-muted-foreground shrink-0"
-          title={assignedTo.map((a) => a.label).join(", ")}
-        >
-          → {t('onIncidents', { count: assignedTo.length })}
-        </span>
-      ) : auftrag ? (
-        <AuftragDestination auftrag={auftrag} />
-      ) : (
-        !isAssigned && <span className="text-2xs xl:text-xs text-muted-foreground shrink-0">{t('available')}</span>
-      )}
-    </div>
+      // Verbrauchsmaterial stays green even while assigned — it is stocked, not
+      // lent out. Broken beats both: a defective Fass is not "unlimited".
+      mark={
+        <>
+          <span className={WALL_MARK_GUTTER} aria-hidden="true">
+            {isOutOfService ? (
+              <Ban className="h-3 w-3 xl:h-3.5 xl:w-3.5 text-muted-foreground" />
+            ) : (
+              <span className={cn(WALL_MARK, RESOURCE_STATE_DOT_CLASSES[state])} />
+            )}
+          </span>
+          {m.consumable && !isOutOfService && <InfinityIcon className="h-3 w-3 xl:h-3.5 xl:w-3.5 shrink-0 text-muted-foreground" aria-label={tk('material.consumableUnlimited')} />}
+        </>
+      }
+      name={m.name}
+      nameClassName={cn(isOutOfService && "text-muted-foreground")}
+      where={
+        isOutOfService ? (
+          <span className="text-2xs xl:text-xs font-medium text-muted-foreground">{tc('notReady')}</span>
+        ) : single ? (
+          <span className={cn(WALL_DESTINATION, "text-muted-foreground")}>→ {single.label}</span>
+        ) : assignedTo.length > 1 ? (
+          <span
+            className="text-2xs xl:text-xs text-muted-foreground"
+            title={assignedTo.map((a) => a.label).join(", ")}
+          >
+            → {t('onIncidents', { count: assignedTo.length })}
+          </span>
+        ) : auftrag ? (
+          <AuftragDestination auftrag={auftrag} />
+        ) : (
+          !isAssigned && <span className="text-2xs xl:text-xs text-muted-foreground">{t('available')}</span>
+        )
+      }
+    />
   )
 }
 
