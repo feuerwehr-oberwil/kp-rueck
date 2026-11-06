@@ -220,6 +220,15 @@ export const RESOURCE_STATE_DOT_CLASSES: Record<ResourceState, string> = {
   maintenance: "bg-muted-foreground/40",
 }
 
+/** The same three marks for the wall (/display/status), read across a room: a 1.5px
+ *  ring at 8px read like punctuation beside 20px names, so there the mark is ~10px
+ *  (the call site sizes it) and gebunden is a full 2px ink ring. Frei and nicht
+ *  verfügbar are the board's fills. */
+export const RESOURCE_STATE_WALL_DOT_CLASSES: Record<ResourceState, string> = {
+  ...RESOURCE_STATE_DOT_CLASSES,
+  assigned: "bg-transparent inset-ring-2 inset-ring-foreground/80",
+}
+
 /** Outline-badge tint (text + border) for the same states. Assigned is ink: a
  *  fact, stated plainly. */
 export const RESOURCE_STATE_BADGE_CLASSES: Record<ResourceState, string> = {
