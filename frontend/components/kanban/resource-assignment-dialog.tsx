@@ -32,7 +32,7 @@ import { getIncidentLocationLabel, getIncidentRefLabel } from "@/lib/incident-ty
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { cn } from "@/lib/utils"
-import { ELSEWHERE_NOTE, ELSEWHERE_TEXT, ListSection, TILE_GRID, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
+import { ELSEWHERE_NOTE, ELSEWHERE_TEXT, ListSection, TILE_GRID, TILE_HOVER, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
 import {
   MaterialAssignmentList,
   MaterialTypeChips,
@@ -991,8 +991,8 @@ export function ResourceAssignmentDialog({
         key={person.id}
         onClick={() => handleTogglePersonSelection(person)}
         className={cn(
-          "flex cursor-pointer items-start gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 hover:border-sel-edge hover:bg-secondary/30 transition-all text-left hover-delight",
-          isSelected && "border-sel-edge bg-sel-wash",
+          "flex cursor-pointer items-start gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-colors text-left",
+          isSelected ? "border-sel-edge bg-sel-wash" : TILE_HOVER,
         )}
       >
         {isSelected ? (
@@ -1064,8 +1064,8 @@ export function ResourceAssignmentDialog({
       <div
         key={vehicle.id}
         className={cn(
-          "flex items-start gap-2 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-all",
-          !isOutOfService && "hover:border-sel-edge hover:bg-secondary/30 hover-delight",
+          "flex items-start gap-2 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-colors",
+          !isOutOfService && !isAssigned && TILE_HOVER,
           isAssigned && "border-sel-edge bg-sel-wash",
           isOutOfService && "border-dashed opacity-60"
         )}
@@ -1444,8 +1444,8 @@ export function ResourceAssignmentDialog({
                           <button
                             onClick={onToggleZuFuss}
                             className={cn(
-                              "flex cursor-pointer items-start gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 hover:border-sel-edge hover:bg-secondary/30 transition-all text-left hover-delight",
-                              zuFuss && "border-sel-edge bg-sel-wash"
+                              "flex cursor-pointer items-start gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-colors text-left",
+                              zuFuss ? "border-sel-edge bg-sel-wash" : TILE_HOVER
                             )}
                           >
                             {zuFuss ? (

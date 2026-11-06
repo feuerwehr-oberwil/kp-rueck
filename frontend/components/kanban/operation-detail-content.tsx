@@ -727,7 +727,9 @@ export function OperationDetailContent({
                 <RemovableChip
                   key={vehicleId}
                   variant="outline"
-                  className={RESOURCE_CHIP}
+                  // `shrink` to the row: a long «Name · Funkrufname (Fahrer) vor Ort»
+                  // wraps inside its chip before the row's «+» column.
+                  className={cn(RESOURCE_CHIP, "min-w-0 max-w-full shrink")}
                   title={callsign ? t('common.funkrufname', { callsign }) : undefined}
                   onRemove={canEdit && onRemoveVehicle ? () => onRemoveVehicle(operation.id, vehicleId) : undefined}
                   removeTitle={t('detail.removeVehicle')}
@@ -739,7 +741,20 @@ export function OperationDetailContent({
                     driverStay ? t('common.driverStaysFull') : t('common.driverReturnsFull'),
                   ].filter(Boolean).join(' · ')}
                 >
-                  {vehicleName}{callsign ? ` · ${callsign}` : ''}{driverName ? ` (${driverName})` : ''}
+                  {/* Two halves that wrap as wholes, like the card's vehicle chip
+                      (card-resources.tsx): WHICH vehicle — «Name · Funkrufname» —
+                      and, beneath it when the pair does not fit beside it, who
+                      drives plus the stay toggle. Only the driver's name may
+                      truncate (full name in `title`). */}
+                  <span className="flex min-w-0 flex-wrap items-center gap-x-1">
+                  <span className="min-w-0 truncate">
+                    {vehicleName}{callsign ? ` · ${callsign}` : ''}
+                  </span>
+                  {(driverName || (canEdit && assignmentId)) && (
+                  <span className="flex min-w-0 items-center">
+                  {driverName && (
+                    <span className="min-w-0 truncate" title={driverName}>({driverName})</span>
+                  )}
                   {canEdit && assignmentId && (
                     <button
                       onClick={(e) => {
@@ -750,7 +765,8 @@ export function OperationDetailContent({
                       // pill, so the toggle reads as a quiet state inside it.
                       className={cn(
                         // `hit-area`: the 20px pill is a 26px target (globals.css).
-                        "relative hit-area ml-1 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors",
+                        "relative hit-area shrink-0 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors",
+                        driverName && "ml-1",
                         driverStay
                           ? "bg-muted text-foreground hover:bg-muted/70"
                           : "text-muted-foreground/70 hover:bg-muted hover:text-foreground"
@@ -765,6 +781,9 @@ export function OperationDetailContent({
                       )}
                     </button>
                   )}
+                  </span>
+                  )}
+                  </span>
                 </RemovableChip>
               )
             })}

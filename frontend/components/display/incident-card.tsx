@@ -89,6 +89,11 @@ const WALL_CAPTION = "text-[0.8rem] leading-[1.3]"
  *  Wraps, never truncates, like all wall text. */
 const WALL_STATE_LINE = cn("min-w-0 text-base leading-[1.2857]", WALL_TEXT_WRAP)
 
+/** The Melder's telephone number: 1rem / 500 on a 1.2857rem line (14/18 at the
+ *  floor), normal tracking and tabular figures, so «061 222 22 22» reads as
+ *  digit groups from across the room rather than as a thin, spaced caption. */
+const WALL_PHONE = "text-base leading-[1.2857] font-medium tracking-normal tabular-nums text-foreground"
+
 /** The Einsatzart line and its age, the two facts of the second row. The age
  *  is the one number on the card somebody reads from the door: 1rem bold. */
 const TYPE_LINE = cn("min-w-0 break-words text-foreground/80", WALL_CAPTION)
@@ -402,15 +407,22 @@ export function DisplayIncidentCard({
         )}
 
         {/* Melder — the name and the number, as text: there is nothing to dial
-            from a wall, and a link the room cannot click is a control. */}
+            from a wall, and a link the room cannot click is a control. The
+            number is what somebody copies down from 4 m, so it takes its own
+            line at chip size (`WALL_PHONE`); who answers it stays a caption
+            above it (hill climb r5). */}
         {showMelderBlock && (
-          <div className={cn("flex items-start gap-1.5", WALL_CAPTION)}>
-            <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-px" />
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
-              {operation.contact && <span className="text-foreground/80 break-words">{operation.contact}</span>}
-              {operation.contactPhone && (
-                <span className="tabular-nums text-foreground/80">{operation.contactPhone}</span>
+          <div className="flex items-start gap-1.5">
+            <Phone
+              className={cn(
+                "h-3.5 w-3.5 text-muted-foreground flex-shrink-0",
+                // Centred on whichever line comes first: the caption, or the number.
+                operation.contact ? "mt-px" : "mt-0.5",
               )}
+            />
+            <div className="flex min-w-0 flex-col">
+              {operation.contact && <span className={cn("text-foreground/80 break-words", WALL_CAPTION)}>{operation.contact}</span>}
+              {operation.contactPhone && <span className={WALL_PHONE}>{operation.contactPhone}</span>}
             </div>
           </div>
         )}

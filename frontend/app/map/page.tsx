@@ -737,6 +737,8 @@ export default function MapPage() {
             {/* The word next to the page title, in the same warning colour the
                 board's event switcher uses — colour alone never carries it. */}
             {selectedEvent?.training_flag && <TrainingBadge label={tKanban('dashboard.training')} />}
+            {/* «18 Einsätze», not «18 Aktiv»: it counts every shown Einsatz, open
+                ones included, and the rail's «AKTIV · 8» group is a different number. */}
             <Badge variant="secondary" className="hidden sm:inline-flex">
               {t('page.activeBadge', { count: activeIncidents.length })}
             </Badge>

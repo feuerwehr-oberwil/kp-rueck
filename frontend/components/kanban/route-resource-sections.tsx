@@ -22,7 +22,6 @@
 import { Fragment, type ComponentType, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { AlertTriangle, Users, Truck, Package, Plus, UserMinus } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { RemovableChip } from "@/components/ui/removable-chip"
 import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
 import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
@@ -79,6 +78,9 @@ export const RESOURCE_CHIP =
 
 /** Width of the resource row's label gutter — the same 120px `DetailField` uses. */
 const RESOURCE_LABEL_GUTTER = "w-[120px]"
+
+/** The row's trailing action column: 24px wide, as tall as a chip line. */
+const RESOURCE_ACTION_COLUMN = "flex h-6 w-6 shrink-0 items-center justify-center"
 
 /**
  * One resource row: `Symbol Beschriftung (n) │ Chips │ +`.
@@ -201,69 +203,17 @@ export function ResourceRow({
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">{children}</div>
       )}
       {/* The add glyph is decoration over a target that already spans the line —
-          `tabIndex -1` and `aria-hidden` so the keyboard and a screen reader meet
-          ONE control, not two answering to the same name. The negative margin
-          keeps a 32px control from stretching a ~24px chip line. */}
-      {addLabelled && addLabel && (
-        <span className="-my-1 shrink-0">
-          <ResourceAddButton compact label={addLabel} onClick={onAdd!} inert />
+          `aria-hidden` so the keyboard and a screen reader meet ONE control, not
+          two answering to the same name. It stands in a fixed 24px action column
+          (8px after the chips, the row's gap), so the «+» of all three rows sit in
+          one column and a long chip wraps before it instead of running into it
+          (hill climb r5). */}
+      {addLabelled && (
+        <span className={RESOURCE_ACTION_COLUMN} aria-hidden="true">
+          <Plus className="size-3.5" />
         </span>
       )}
     </div>
-  )
-}
-
-/**
- * The add control of one resource section.
- *
- * `compact` drops the word «Hinzufügen» and leaves the glyph. Where several
- * sections stand under one provenance heading — the incident detail — the word
- * was said once per section for something that is a possibility, not
- * information, while the content below it is what the operator came for. The
- * name survives as the accessible name AND as the hover title, so nothing is
- * lost for a screen reader or for somebody who does not know the glyph.
- */
-export function ResourceAddButton({
-  label,
-  onClick,
-  compact = false,
-  inert = false,
-}: {
-  /** What this adds, e.g. «Fahrzeug zuweisen» — accessible name and hover title. */
-  label: string
-  onClick: () => void
-  compact?: boolean
-  /**
-   * The glyph is drawn but is no longer its own control: something larger around
-   * it already carries the click and the name (an empty `ResourceRow` is one
-   * target end to end). Keeps the affordance visible without putting a second
-   * button with the same name in the tab order.
-   */
-  inert?: boolean
-}) {
-  const t = useTranslations("kanban")
-
-  return (
-    <Button
-      size="xs"
-      variant="ghost"
-      onClick={inert ? undefined : onClick}
-      className={cn(
-        compact ? "px-1.5" : "gap-1 px-2",
-        // Inert = the row around it is the control. A ghost Button still lights
-        // its own background on hover, so the row and the glyph inside it lit up
-        // as two separate targets on one pass of the pointer — which is exactly
-        // the "aim at the small thing" the row-wide target removed.
-        inert && "pointer-events-none bg-transparent hover:bg-transparent",
-      )}
-      title={inert ? undefined : label}
-      aria-label={inert ? undefined : label}
-      aria-hidden={inert || undefined}
-      tabIndex={inert ? -1 : 0}
-    >
-      <Plus className="size-3.5" />
-      {!compact && t("common.add")}
-    </Button>
   )
 }
 

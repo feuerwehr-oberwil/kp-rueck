@@ -39,7 +39,7 @@ import { MelderLink } from "@/components/ui/melder-link"
 import { DriverStayGlyph } from "@/components/ui/driver-stay-glyph"
 import { LeaderBadge } from "@/components/kanban/leader-badge"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
-import { type Priority, PRIORITY_DOT_CLASSES, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
+import { type Priority, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 import { incidentTypeLabels } from "@/lib/incident-types"
 import { useTranslations } from "next-intl"
 import { cn, copyToClipboardAsync } from "@/lib/utils"
@@ -235,7 +235,7 @@ export function MobileIncidentDetailSheet({
   if (!operation) return null
 
   const priority = operation.priority || "low"
-  const priorityConfig = { dot: PRIORITY_DOT_CLASSES[priority as Priority], chevron: PRIORITY_TEXT_CLASSES[priority as Priority] }
+  const priorityChevron = PRIORITY_TEXT_CLASSES[priority as Priority]
   const canEdit = isEditor && !!onUpdateOperation
   // A text the server has not got stays an open field, red-edged, so the
   // operator sees exactly what is missing and can retry or copy it.
@@ -258,19 +258,17 @@ export function MobileIncidentDetailSheet({
         className="modal-h-tall overflow-y-auto px-4 pb-sheet-safe"
       >
         <SheetHeader className="pb-4 border-b mb-4">
-          <div className="flex items-start gap-3">
-            {/* Priority indicator */}
-            <div className="flex items-center gap-0.5 flex-shrink-0 mt-1">
-              <div
-                className={cn("w-3 h-3 rounded-full", priorityConfig?.dot)}
-                aria-hidden="true"
-              />
+          <div className="flex items-start gap-2">
+            {/* Priority: the chevron alone, as on the desk card – a dot in front
+                of it said the same thing twice (hill climb r5). 16px, centred on
+                the title's 28px first line. */}
+            <div className="flex-shrink-0 mt-1.5">
               {priority === "high" ? (
-                <ChevronUp className={cn("h-5 w-5", priorityConfig?.chevron)} />
+                <ChevronUp className={cn("h-4 w-4", priorityChevron)} />
               ) : priority === "medium" ? (
-                <Minus className={cn("h-5 w-5", priorityConfig?.chevron)} />
+                <Minus className={cn("h-4 w-4", priorityChevron)} />
               ) : (
-                <ChevronDown className={cn("h-5 w-5", priorityConfig?.chevron)} />
+                <ChevronDown className={cn("h-4 w-4", priorityChevron)} />
               )}
             </div>
             <div className="flex-1 min-w-0">
