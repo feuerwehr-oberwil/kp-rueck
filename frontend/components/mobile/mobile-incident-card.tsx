@@ -17,6 +17,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ChevronUp, ChevronDown, Minus, FileCheck, AlertTriangle } from "lucide-react"
 import { type Operation } from "@/lib/contexts/operations-context"
+import { IncidentNumber } from "@/components/ui/incident-number"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { LeaderGlyph } from "@/components/kanban/leader-badge"
@@ -108,6 +109,9 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
             // Two lines, never cut: the address is what the card is for. On a 360px phone
             // «Allschwilerstrasse 20» ended in an ellipsis (overflow sweep, 03.10.).
             <h3 className="min-w-0 font-semibold text-base line-clamp-2 break-words leading-tight">
+              {/* The number the desk card, the detail and the map list put before
+                  the address — what the radio says. 12/500 mono, 8px to the address. */}
+              <IncidentNumber number={operation.number} className="mr-2 text-xs" />
               {formatLocation(operation.location)}
             </h3>
           )}
@@ -252,6 +256,7 @@ export const MobileIncidentCard = memo(MobileIncidentCardBase, (prevProps, nextP
     // reference equality is the honest comparison here.
     prevProps.vehicleDrivers === nextProps.vehicleDrivers &&
     prev.id === next.id &&
+    prev.number === next.number &&
     prev.status === next.status &&
     prev.priority === next.priority &&
     prev.location === next.location &&

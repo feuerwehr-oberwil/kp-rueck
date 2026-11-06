@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { IncidentNumber } from "@/components/ui/incident-number"
 import { ShellLoader } from "@/components/ui/shell-loader"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
@@ -277,6 +278,8 @@ export function MobileIncidentDetailSheet({
             </div>
             <div className="flex-1 min-w-0">
               <SheetTitle className="text-xl text-left">
+                {/* The number before the address, as on the phone card and the desk detail. */}
+                <IncidentNumber number={operation.number} className="mr-2 text-xs" />
                 {formatLocation(operation.location) || typeLabel(operation.incidentType)}
               </SheetTitle>
             </div>
