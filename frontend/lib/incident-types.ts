@@ -42,6 +42,8 @@ export function getIncidentTypeLabel(type: string): string {
   return type in incidentTypeLabels ? translateOutsideReact(`incidents.types.${type}`) : type
 }
 
+type IncidentRefSource = { location: string; locationDisplay?: string; incidentType?: string; notes?: string; number?: number | null }
+
 /**
  * Incident reference for conflict prompts, badges and similar cross-incident
  * mentions: "Hauptstrasse 5 (Brandbekämpfung: Rauch aus Fenster…)". Address
@@ -49,20 +51,23 @@ export function getIncidentTypeLabel(type: string): string {
  * the type and (truncated) Meldung ride along whenever they exist.
  */
 export function getIncidentRefLabel(
-  op: { location: string; locationDisplay?: string; incidentType?: string; notes?: string; number?: number | null },
+  op: IncidentRefSource,
   maxMeldungLength = 60,
 ): string {
-  // The Einsatz number leads wherever an Einsatz is named in running text —
-  // the Doppelbelegung prompt's «Bisher/Neu», bindings, pickers — so it reads
-  // the same as on the card and in ⌘K.
-  const label = refLabelWithoutNumber(op, maxMeldungLength)
-  return op.number != null ? `${op.number} · ${label}` : label
+  const { head, detail } = getIncidentRefParts(op, maxMeldungLength)
+  return detail ? `${head} (${detail})` : head
 }
 
-function refLabelWithoutNumber(
-  op: { location: string; locationDisplay?: string; incidentType?: string; notes?: string },
-  maxMeldungLength: number,
-): string {
+/**
+ * `getIncidentRefLabel` in its two halves, for a note that sets them on two lines (the
+ * assignment dialog's «where is it now»): `head` = number · address – what the place is found
+ * by – and `detail` = «Einsatzart: Meldung», '' when there is none. When the address was ONLY
+ * the home town the detail moves up into `head` (raw location as last resort).
+ */
+export function getIncidentRefParts(
+  op: IncidentRefSource,
+  maxMeldungLength = 60,
+): { head: string; detail: string } {
   const type = op.incidentType ? getIncidentTypeLabel(op.incidentType) : ""
   const meldung = (op.notes ?? "").trim()
   const shortMeldung = meldung.length > maxMeldungLength
@@ -70,12 +75,14 @@ function refLabelWithoutNumber(
     : meldung
   const detail = [type, shortMeldung].filter(Boolean).join(": ")
   // Home town is stripped server-side (locationDisplay); the client formatter
-  // only covers ops the server hasn't labelled yet. When the address was ONLY
-  // the home town the label is empty — then the detail alone is the label
-  // (raw location as last resort).
+  // only covers ops the server hasn't labelled yet.
   const location = op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())
-  if (!location) return detail || op.location
-  return detail ? `${location} (${detail})` : location
+  const place = location || detail || op.location
+  // The Einsatz number leads wherever an Einsatz is named in running text —
+  // the Doppelbelegung prompt's «Bisher/Neu», bindings, pickers — so it reads
+  // the same as on the card and in ⌘K.
+  const head = op.number != null ? `${op.number} · ${place}` : place
+  return { head, detail: location ? detail : "" }
 }
 
 /**

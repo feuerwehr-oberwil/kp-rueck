@@ -50,6 +50,9 @@ export const MAPLIBRE_WORKER_URL = '/maplibre/maplibre-gl-worker.mjs'
  * on a MapLibre `<Marker>` as an inline style — and because the page's ladder must stay out of a
  * scale that is only ever read inside the map's `isolate`.
  *
+ * `incident` is the floor of a three-step band (`incidentMarkerZ`): unselected dots stack by
+ * priority, still under every route stop.
+ *
  * The dialog maps (Routen-Editor, Einsatz-Picker) keep their own small local scales – separate
  * maps, no incident markers, no reason to couple them.
  */
@@ -67,6 +70,20 @@ export const Z = {
   labelSelected: 900,
   labelHovered: 1000,
 } as const
+
+/**
+ * An incident dot's z: the pointed-at one on top, then the selected/highlighted ones, then the
+ * rest by priority – Hoch over Mittel over Niedrig – so where dots overlap in a cluster a Niedrig
+ * pin never covers a Hoch one and its chevron (hill climb r13). Phone and desktop alike.
+ */
+export function incidentMarkerZ(
+  priority: string | null | undefined,
+  state: { hovered: boolean; highlighted: boolean },
+): number {
+  if (state.hovered) return Z.incidentHovered
+  if (state.highlighted) return Z.incidentHighlighted
+  return Z.incident + (priority === 'high' ? 2 : priority === 'medium' ? 1 : 0)
+}
 
 /**
  * A style with nothing in it.

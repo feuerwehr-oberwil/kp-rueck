@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { AlertTriangle, Truck, CheckCircle, Circle, Footprints, Car, Binoculars, Package2, Phone, MonitorCog, Siren, MapPin, Undo2, Ban, SlidersHorizontal, X } from "lucide-react"
+import { AlertTriangle, Truck, CheckCircle, Circle, Footprints, Car, Binoculars, Package2, Phone, MonitorCog, MapPin, Undo2, Ban, SlidersHorizontal, X } from "lucide-react"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { EmptyState, type EmptyStateAction } from "@/components/ui/empty-state"
 import {
@@ -28,11 +28,11 @@ import { useMaterials } from "@/lib/contexts/materials-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
-import { getIncidentLocationLabel, getIncidentRefLabel } from "@/lib/incident-types"
+import { getIncidentLocationLabel, getIncidentRefLabel, getIncidentRefParts } from "@/lib/incident-types"
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { cn } from "@/lib/utils"
-import { ELSEWHERE_NOTE, ELSEWHERE_TEXT, ListSection, TILE_GRID, TILE_HOVER, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
+import { ElsewhereNote, ListSection, type OccupancyLabel, TILE_GRID, TILE_HOVER, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
 import {
   MaterialAssignmentList,
   MaterialTypeChips,
@@ -102,10 +102,6 @@ const vehicleMatchesQuery = (v: { name: string; type: string }, query: string) =
   const q = query.trim().toLowerCase()
   return !q || v.name.toLowerCase().includes(q) || v.type.toLowerCase().includes(q)
 }
-
-/** Where an occupied resource currently is: `short` is length-capped for the
- *  card subtitle, `full` untruncated for the hover title and confirm copy. */
-type OccupancyLabel = { short: string; full: string }
 
 /**
  * One place a resource is currently held, with enough to RELEASE it again.
@@ -276,8 +272,9 @@ export function ResourceAssignmentDialog({
 
   // EVERY place an occupied vehicle/material/person is currently held, resolved
   // from the operations + Auftrag contexts (no prop threading): vehicle id →
-  // bindings, material id → bindings, person id → bindings. Each binding carries a truncated `short` for the card, an
-  // untruncated `full` for the hover title, and what is needed to release it.
+  // bindings, material id → bindings, person id → bindings. Each binding carries the card's
+  // two lines (`head` = number · address, `detail` = type and Meldung – the note's CSS
+  // clamps them), an untruncated `full` for the hover title, and what is needed to release it.
   // The current assign target never counts as "elsewhere" — note operationId
   // holds the GROUP id when assignTarget === 'route'.
   //
@@ -294,7 +291,7 @@ export function ResourceAssignmentDialog({
     }
     for (const op of operations) {
       if (assignTarget === 'incident' && op.id === operationId) continue
-      const label = { short: getIncidentRefLabel(op, 40), full: getIncidentRefLabel(op, 1000) }
+      const label = { ...getIncidentRefParts(op, 1000), full: getIncidentRefLabel(op, 1000) }
       for (const v of op.vehicles) push(vehicleMap, v.vehicleId, { ...label, kind: 'incident', id: op.id })
       for (const id of op.materials) push(materialMap, id, { ...label, kind: 'incident', id: op.id })
       for (const m of op.crew) push(personMap, m.personnelId, { ...label, kind: 'incident', id: op.id })
@@ -302,7 +299,7 @@ export function ResourceAssignmentDialog({
     for (const group of groups) {
       if (assignTarget === 'route' && group.id === operationId) continue
       const res = getGroupResources(group.id)
-      const label = { short: group.name, full: group.name }
+      const label = { head: group.name, full: group.name }
       for (const v of res.vehicles) push(vehicleMap, v.resourceId, { ...label, kind: 'route', id: group.id, assignmentId: v.assignmentId })
       for (const m of res.materials) push(materialMap, m.resourceId, { ...label, kind: 'route', id: group.id, assignmentId: m.assignmentId })
       for (const p of res.personnel) push(personMap, p.resourceId, { ...label, kind: 'route', id: group.id, assignmentId: p.assignmentId })
@@ -384,7 +381,7 @@ export function ResourceAssignmentDialog({
   // target.
   const genericElsewhereLabel = (): OccupancyLabel => {
     const generic = t('assignmentDialog.occupiedElsewhere')
-    return { short: generic, full: generic }
+    return { head: generic, full: generic }
   }
   const vehicleElsewhereLabel = (vehicle: { id: string; name: string }): OccupancyLabel | null => {
     if (assignedVehicleIds.includes(vehicle.id)) return null
@@ -1021,13 +1018,7 @@ export function ResourceAssignmentDialog({
               exactly when the operator most needs to see that
               this is the TLF 1's driver. */}
           {elsewhere && (
-            <span
-              title={elsewhere.full}
-              className={cn(ELSEWHERE_NOTE, "text-amber-700 dark:text-amber-400")}
-            >
-              <Siren className={TILE_META_ICON} />
-              <span className={ELSEWHERE_TEXT}>{elsewhere.short}</span>
-            </span>
+            <ElsewhereNote label={elsewhere} />
           )}
           {special.map((fn) => (
             <span
@@ -1106,13 +1097,7 @@ export function ResourceAssignmentDialog({
                 {t('assignmentDialog.outOfService')}
               </p>
             ) : elsewhere ? (
-              <span
-                title={elsewhere.full}
-                className={cn(ELSEWHERE_NOTE, "text-amber-700 dark:text-amber-400")}
-              >
-                <Siren className={TILE_META_ICON} />
-                <span className={ELSEWHERE_TEXT}>{elsewhere.short}</span>
-              </span>
+              <ElsewhereNote label={elsewhere} />
             ) : (
               <p className="text-xs text-muted-foreground truncate">{vehicle.type}</p>
             )}
