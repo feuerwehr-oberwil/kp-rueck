@@ -922,7 +922,9 @@ export default function SettingsPage() {
                   if (groupSections.length === 0) return null;
                   return (
                     <div key={group}>
-                      <p className={`px-3 py-2 text-xs font-semibold tracking-wide text-muted-foreground ${groupIndex > 0 ? 'mt-4' : ''}`}>
+                      {/* A group head names a place, so it takes the caps label role like every
+                          other header – title case read like one more item. */}
+                      <p className={`type-label px-3 py-2 text-muted-foreground ${groupIndex > 0 ? 'mt-4' : ''}`}>
                         {t(`page.groups.${group}`)}
                       </p>
                       {groupSections.map((section) => {
@@ -978,7 +980,7 @@ export default function SettingsPage() {
                     const groupLabel = t(`page.groups.${group}`);
                     return (
                       <div key={group}>
-                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground tracking-wide">
+                        <div className="type-label px-2 py-1.5 text-muted-foreground">
                           {groupLabel}
                         </div>
                         {groupSections.map((section) => (
