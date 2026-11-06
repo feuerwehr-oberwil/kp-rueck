@@ -1271,10 +1271,14 @@ export function ResourceAssignmentDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* Fixed (definite) height: gives flex-1 a real basis so the list scrolls
           internally instead of overflowing, and keeps the dialog the same size as
-          you switch quick filters so the top doesn't jump. overflow-hidden clips. */}
+          you switch quick filters so the top doesn't jump. overflow-hidden clips.
+          On a phone it takes the whole height bar the 1rem inset it already has at the
+          sides (hill climb r9): at 80dvh the page's own footer action («Neuer Einsatz»,
+          ink, the same 1rem inset) stuck out under it through the scrim and read as a
+          second, offset frame. */}
       {/* sm:max-w-6xl is required — the DialogContent base sets sm:max-w-lg (512px),
           a responsive variant that an unprefixed max-w-* does NOT override. */}
-      <DialogContent className="max-w-6xl sm:max-w-6xl w-[calc(100vw-2rem)] h-[80dvh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-6xl sm:max-w-6xl w-[calc(100vw-2rem)] h-[80dvh] max-sm:h-[calc(100dvh-2rem)] overflow-hidden flex flex-col">
         {/* ONE header on every size: title (18/600, 22px line) · the destination (14/500, up to
             two lines) · the counts (12, muted), 6px then 4px apart – left-aligned with the search
             field, no icon before the title (the words say what is assigned). `ps-0!` cancels the
