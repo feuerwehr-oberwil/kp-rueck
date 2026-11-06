@@ -27,8 +27,9 @@ import { MapLegend } from "./map-legend"
 import { GpsSimBanner } from "./gps-sim-banner"
 import { colorAccent, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 import { AssignmentLines } from "./map/assignment-lines"
-import { MAP_INCIDENT_NUMBER, OperationHoverCard } from "./map/operation-hover-card"
+import { OperationHoverCard } from "./map/operation-hover-card"
 import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
+import { markerGlyphInk, priorityGlyphPath } from "@/lib/map-priority"
 import { DEFAULT_CENTER_LATLNG, fitTo, Z, type LatLngPoint } from "@/lib/map-view"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { VehicleTrails } from "./map/vehicle-trails"
@@ -89,7 +90,8 @@ const NO_OPERATIONS = new Map<string, Operation>()
 
 /**
  * One incident's dot: priority (or «Färben nach») fill, white ring, and an outer ring whose
- * DASH STYLE — solid / dashed / dotted — carries the status group. Never colour alone.
+ * DASH STYLE — solid / dashed / dotted — carries the status group. Never colour alone: the
+ * board's priority chevron / dash sits in the fill (`lib/map-priority.ts`), under any colouring.
  */
 function IncidentPin({
   incident,
@@ -161,6 +163,16 @@ function IncidentPin({
         stroke={highlighted ? MAP_COLORS.info : "white"}
         strokeWidth={3}
         filter={`url(#${shadowId})`}
+      />
+
+      {/* Priority glyph: ▲ Hoch, – Mittel, ▼ Niedrig, as on the board's cards. */}
+      <path
+        d={priorityGlyphPath(incident.priority, borderRadius, borderRadius, size / 24)}
+        fill="none"
+        stroke={markerGlyphInk(fillColor)}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
 
       {/* Status border ring (outer) */}
@@ -483,32 +495,27 @@ const MAGAZIN_STYLE: CSSProperties = { ...pillStyle(MAP_COLORS.info, 24), fontSi
 /**
  * Leaflet's tooltip bubble, rebuilt as a marker child.
  *
- * MapLibre has no tooltip of its own, and `<MapTooltip>` (which reproduces the same look for the
- * hover bubbles) is deliberately inert: a label is CLICKABLE, opaque, and may carry a leader line
+ * MapLibre has no tooltip of its own, and `<MapTooltip>` (which shares this look for the hover
+ * bubbles) is deliberately inert: a label is CLICKABLE, opaque, and may carry a leader line
  * instead of an arrow — so it gets its own chrome here.
+ *
+ * The app's own surface, not Leaflet's white: card / card-foreground / border tokens (so a dark
+ * board gets a dark label, light stays light), Sora — `font-sans` beats the Helvetica MapLibre
+ * sets on its container — the small-control radius and a restrained shadow. 6px padding + 18px
+ * line + the 1px border each side = LABEL_HEIGHT.
  */
-const LABEL_BUBBLE: CSSProperties = {
-  position: "absolute",
-  left: 0,
-  top: 0,
-  padding: 6,
-  background: "#fff",
-  border: "1px solid #fff",
-  borderRadius: 3,
-  color: "#222",
-  whiteSpace: "nowrap",
-  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.4)",
-  cursor: "pointer",
-}
+const LABEL_BUBBLE =
+  "absolute left-0 top-0 cursor-pointer whitespace-nowrap rounded-sm border border-border bg-card p-1.5 " +
+  "font-sans text-xs leading-[18px] text-card-foreground shadow-[0_1px_2px_rgb(0_0_0/0.25)]"
 
-/** The 6px triangle on the bubble's left edge, pointing back at the dot. */
+/** The 6px triangle on the bubble's left edge, pointing back at the dot – in the bubble's fill. */
 const LABEL_ARROW: CSSProperties = {
   position: "absolute",
   top: "50%",
   left: -12,
   marginTop: -6,
   border: "6px solid transparent",
-  borderRightColor: "#fff",
+  borderRightColor: "var(--card)",
   pointerEvents: "none",
 }
 
@@ -631,7 +638,8 @@ function IncidentLabel({
       <div style={{ position: "relative", width: 0, height: 0 }}>
         <div
           ref={doubleClickRef}
-          style={{ ...LABEL_BUBBLE, transform: `translate(${LABEL_LEADER_DX}px, calc(-50% + ${dy}px))` }}
+          className={LABEL_BUBBLE}
+          style={{ transform: `translate(${LABEL_LEADER_DX}px, calc(-50% + ${dy}px))` }}
           onMouseEnter={onHoverStart}
           onMouseLeave={onHoverEnd}
         >
@@ -1464,25 +1472,26 @@ export default function MapView({
                     />
                   ) : (
                     <>
-                      <span style={{ fontSize: '11px', fontWeight: 600 }}>
-                        {incidentNumber != null && <span style={MAP_INCIDENT_NUMBER}>{incidentNumber}</span>}
-                        {/* Its own element: the address is what a label is found by. */}
-                        <span>{shortAddress}</span>
-                      </span>
+                      {/* Mono 11 number, Sora 12/600 address – the list rail's pairing. */}
+                      {incidentNumber != null && (
+                        <span className="mr-1 font-mono text-2xs font-medium text-muted-foreground">{incidentNumber}</span>
+                      )}
+                      {/* Its own element: the address is what a label is found by. */}
+                      <span className="font-semibold">{shortAddress}</span>
                       {(vehicleCount > 0 || personnelCount > 0) && (
                         <span
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', marginLeft: '5px', fontSize: '10px', color: '#6b7280' }}
+                          className="ml-1.5 inline-flex items-center gap-1.5 text-2xs font-medium text-muted-foreground"
                           title={t('view.crewSummary', { vehicles: vehicleCount, personnel: personnelCount })}
                         >
                           {vehicleCount > 0 && (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                              <Truck style={{ width: '10px', height: '10px' }} aria-hidden />
+                            <span className="inline-flex items-center gap-0.5">
+                              <Truck className="size-2.5" aria-hidden />
                               {vehicleCount}
                             </span>
                           )}
                           {personnelCount > 0 && (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                              <Users style={{ width: '10px', height: '10px' }} aria-hidden />
+                            <span className="inline-flex items-center gap-0.5">
+                              <Users className="size-2.5" aria-hidden />
                               {personnelCount}
                             </span>
                           )}

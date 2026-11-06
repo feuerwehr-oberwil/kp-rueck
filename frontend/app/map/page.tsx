@@ -28,7 +28,8 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { incidentTimeSource } from "@/lib/incident-time"
-import { type Priority, PRIORITY_DOT_CLASSES } from "@/lib/priority"
+import { type Priority, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
+import { PRIORITY_LIST_ICONS } from "@/lib/map-priority"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { useIncidents, useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
@@ -1073,6 +1074,9 @@ export default function MapPage() {
                         <div className="space-y-0.5">
                           {rows.map((incident) => {
                             const isSelected = selectedIncidentId === incident.id
+                            const priority = (incident.priority ?? 'low') as Priority
+                            const PriorityIcon = PRIORITY_LIST_ICONS[priority]
+                            const priorityLabel = priority === 'high' ? t('common.priorityHigh') : priority === 'medium' ? t('common.priorityMedium') : t('common.priorityLow')
                             // Pickup flags live on the Operation, one lookup away.
                             const operation = operationsById.get(incident.id)
                             return (
@@ -1091,12 +1095,16 @@ export default function MapPage() {
                                   }`}
                                   aria-current={isSelected ? 'true' : undefined}
                                 >
+                                  {/* Priority as the board's chevron / dash, tinted – never
+                                      a colour dot alone (the marker carries the same glyph). */}
                                   <span
-                                    className={`h-2 w-2 flex-shrink-0 rounded-full ${
-                                      PRIORITY_DOT_CLASSES[(incident.priority ?? 'low') as Priority]
-                                    }`}
-                                    title={incident.priority === 'high' ? t('common.priorityHigh') : incident.priority === 'medium' ? t('common.priorityMedium') : t('common.priorityLow')}
-                                  />
+                                    role="img"
+                                    className="flex-shrink-0"
+                                    title={priorityLabel}
+                                    aria-label={priorityLabel}
+                                  >
+                                    <PriorityIcon className={`h-4 w-4 ${PRIORITY_TEXT_CLASSES[priority]}`} aria-hidden="true" />
+                                  </span>
                                   <span
                                     className="min-w-0 flex-1 truncate text-[13px] font-medium"
                                     title={incident.location_address ? formatLocation(incident.location_address) : incident.title}

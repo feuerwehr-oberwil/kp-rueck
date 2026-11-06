@@ -28,11 +28,11 @@ import { useMaterials } from "@/lib/contexts/materials-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
-import { getIncidentRefLabel } from "@/lib/incident-types"
+import { getIncidentLocationLabel, getIncidentRefLabel } from "@/lib/incident-types"
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { cn } from "@/lib/utils"
-import { ListSection } from "@/components/kanban/assignment-list-section"
+import { ELSEWHERE_NOTE, ELSEWHERE_TEXT, ListSection, TILE_GRID } from "@/components/kanban/assignment-list-section"
 import {
   MaterialAssignmentList,
   MaterialTypeChips,
@@ -302,6 +302,14 @@ export function ResourceAssignmentDialog({
     }
     return { vehicleOccupancy: vehicleMap, materialOccupancy: materialMap, personOccupancy: personMap }
   }, [operations, groups, getGroupResources, assignTarget, operationId])
+
+  /** The Einsatz the title's «zu Einsatz» means, named under it (number + address), so the
+   *  operator sees WHICH one before ticking. An Auftrag already names itself in the title. */
+  const destination = useMemo(() => {
+    if (assignTarget === 'route') return null
+    const op = operations.find((o) => o.id === operationId)
+    return op ? { number: op.number ?? null, address: getIncidentLocationLabel(op) } : null
+  }, [assignTarget, operations, operationId])
 
   /** The «Neu:» half of the conflict prompt — where the resource is heading. */
   const targetLabel = useMemo(() => {
@@ -937,11 +945,11 @@ export function ResourceAssignmentDialog({
   const getDialogDescription = () => {
     switch (resourceType) {
       case 'crew':
-        return t('assignmentDialog.selectedCount', { selected: selectedPersonnel.size, available: selectablePersonnel.length })
+        return t('assignmentDialog.selectedCountCrew', { selected: selectedPersonnel.size, total: selectablePersonnel.length })
       case 'vehicles':
         return t('assignmentDialog.vehiclesAssigned', { count: assignedVehicleIds.length }) + (zuFuss ? t('assignmentDialog.zuFussSuffix') : '')
       case 'materials':
-        return t('assignmentDialog.selectedCount', { selected: selectedMaterials.size, available: selectableMaterials.length })
+        return t('assignmentDialog.selectedCountMaterials', { selected: selectedMaterials.size, total: selectableMaterials.length })
       default:
         return ''
     }
@@ -998,7 +1006,7 @@ export function ResourceAssignmentDialog({
         key={person.id}
         onClick={() => handleTogglePersonSelection(person)}
         className={cn(
-          "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-sel-edge hover:bg-secondary/30 transition-all text-left hover-delight",
+          "flex cursor-pointer items-center gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 hover:border-sel-edge hover:bg-secondary/30 transition-all text-left hover-delight",
           isSelected && "border-sel-edge bg-sel-wash",
         )}
       >
@@ -1023,10 +1031,10 @@ export function ResourceAssignmentDialog({
           {elsewhere && (
             <span
               title={elsewhere.full}
-              className="mt-0.5 flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-700 dark:text-amber-400"
+              className={cn(ELSEWHERE_NOTE, "text-amber-700 dark:text-amber-400")}
             >
-              <Siren className="h-3 w-3 flex-shrink-0" />
-              <span className="truncate">{elsewhere.short}</span>
+              <Siren className="h-3 w-3 flex-shrink-0 max-sm:mt-px" />
+              <span className={ELSEWHERE_TEXT}>{elsewhere.short}</span>
             </span>
           )}
           {special.map((fn) => (
@@ -1071,7 +1079,7 @@ export function ResourceAssignmentDialog({
       <div
         key={vehicle.id}
         className={cn(
-          "flex items-center gap-2 p-2.5 rounded-lg border border-border/50 transition-all",
+          "flex items-center gap-2 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-all",
           !isOutOfService && "hover:border-sel-edge hover:bg-secondary/30 hover-delight",
           isAssigned && "border-sel-edge bg-sel-wash",
           isOutOfService && "border-dashed opacity-60"
@@ -1081,7 +1089,7 @@ export function ResourceAssignmentDialog({
           onClick={() => handleToggleVehicle(vehicle)}
           disabled={isOutOfService}
           className={cn(
-            "flex min-w-0 flex-1 items-center gap-2.5 text-left",
+            "flex min-w-0 flex-1 items-center gap-3 text-left",
             isOutOfService ? "cursor-not-allowed" : "cursor-pointer",
           )}
         >
@@ -1104,10 +1112,10 @@ export function ResourceAssignmentDialog({
             ) : elsewhere ? (
               <span
                 title={elsewhere.full}
-                className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-700 dark:text-amber-400"
+                className={cn(ELSEWHERE_NOTE, "text-amber-700 dark:text-amber-400")}
               >
-                <Siren className="h-3 w-3 flex-shrink-0" />
-                <span className="truncate">{elsewhere.short}</span>
+                <Siren className="h-3 w-3 flex-shrink-0 max-sm:mt-px" />
+                <span className={ELSEWHERE_TEXT}>{elsewhere.short}</span>
               </span>
             ) : (
               <p className="text-xs text-muted-foreground truncate">{vehicle.type}</p>
@@ -1282,12 +1290,26 @@ export function ResourceAssignmentDialog({
       {/* sm:max-w-6xl is required — the DialogContent base sets sm:max-w-lg (512px),
           a responsive variant that an unprefixed max-w-* does NOT override. */}
       <DialogContent className="max-w-6xl sm:max-w-6xl w-[calc(100vw-2rem)] h-[80dvh] overflow-hidden flex flex-col">
-        <DialogHeader>
+        {/* Title · the destination (14/600, up to two lines) · the counts on their own quiet
+            12px line. */}
+        <DialogHeader className="gap-1.5">
           <DialogTitle className="flex items-center gap-2 pr-8">
             <Icon className="h-5 w-5" />
             {getDialogTitle()}
           </DialogTitle>
-          <DialogDescription>{getDialogDescription()}</DialogDescription>
+          {destination && (
+            <p
+              className="line-clamp-2 break-words text-sm font-semibold text-foreground"
+              title={destination.number != null ? `${destination.number} · ${destination.address}` : destination.address}
+              data-testid="assignment-destination"
+            >
+              {destination.number != null && (
+                <span className="mr-1.5 font-mono text-xs font-medium text-muted-foreground">{destination.number}</span>
+              )}
+              {destination.address}
+            </p>
+          )}
+          <DialogDescription className="text-xs">{getDialogDescription()}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col min-h-0 flex-1 gap-4">
@@ -1404,14 +1426,14 @@ export function ResourceAssignmentDialog({
                   )}
                   {crewSections.free.length > 0 && (
                     <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: crewSections.free.length })}>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      <div className={TILE_GRID}>
                         {crewSections.free.map(renderPersonTile)}
                       </div>
                     </ListSection>
                   )}
                   {crewSections.busy.length > 0 && (
                     <ListSection tone="busy" label={t('assignmentDialog.sectionBusy', { count: crewSections.busy.length })}>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      <div className={TILE_GRID}>
                         {crewSections.busy.map(renderPersonTile)}
                       </div>
                     </ListSection>
@@ -1427,14 +1449,14 @@ export function ResourceAssignmentDialog({
                   {(vehicleSections.free.length > 0 || allBusy ||
                     (!!onToggleZuFuss && emptyReason !== 'search' && emptyReason !== 'filter')) && (
                     <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: vehicleSections.free.length })}>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      <div className={TILE_GRID}>
                         {/* «Zu Fuss» is not a vehicle and is never spoken for,
                             so it leads the free block. */}
                         {onToggleZuFuss && (
                           <button
                             onClick={onToggleZuFuss}
                             className={cn(
-                              "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-sel-edge hover:bg-secondary/30 transition-all text-left hover-delight",
+                              "flex cursor-pointer items-center gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 hover:border-sel-edge hover:bg-secondary/30 transition-all text-left hover-delight",
                               zuFuss && "border-sel-edge bg-sel-wash"
                             )}
                           >
@@ -1456,7 +1478,7 @@ export function ResourceAssignmentDialog({
                   )}
                   {vehicleSections.busy.length > 0 && (
                     <ListSection tone="busy" label={t('assignmentDialog.sectionBusy', { count: vehicleSections.busy.length })}>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      <div className={TILE_GRID}>
                         {vehicleSections.busy.map(renderVehicleTile)}
                       </div>
                     </ListSection>

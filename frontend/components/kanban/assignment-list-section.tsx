@@ -2,6 +2,14 @@
 
 import { cn } from "@/lib/utils"
 
+/** The tile grid of every block: three columns from `sm`, ONE below it, so a phone shows a
+ *  name in full («Hoffmann Lisa», not «Hoffmann L…») and the where-note gets the width. */
+export const TILE_GRID = "grid grid-cols-1 sm:grid-cols-3 gap-2"
+/** A tile's «where is it now» note: one truncated line in the grid, up to two lines on the
+ *  phone's single column. Tone (amber) comes from the caller. */
+export const ELSEWHERE_NOTE = "mt-0.5 flex max-w-full items-center max-sm:items-start gap-1 overflow-hidden text-2xs font-medium"
+export const ELSEWHERE_TEXT = "min-w-0 sm:truncate max-sm:line-clamp-2 max-sm:break-words"
+
 /**
  * The rule above one of the two blocks the lists are split into.
  *
