@@ -422,7 +422,7 @@ export function FeldActions({
                         {t('rapportAction')}
                       </Button>
                     ) : (
-                      <p className="pt-px text-sm text-muted-foreground/70">{t('rapportNext')}</p>
+                      <p className="pt-px text-sm text-muted-foreground">{t('rapportNext')}</p>
                     )
                   ) : confirmOpen ? (
                     /* The confirmation grows IN PLACE of the button — it can

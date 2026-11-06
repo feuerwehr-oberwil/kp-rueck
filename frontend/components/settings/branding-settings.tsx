@@ -11,8 +11,9 @@
  *
  * It still *renders* as one of them: a `<SettingRow>`, so the preview lands in the same
  * control column as the selects above it instead of in a hand-built row that happened to
- * be a few pixels off. The row is wider than `SETTING_CONTROL_COLUMN`'s 200px — that
- * column is a `min-w`, so the preview plus its two buttons take what they need.
+ * be a few pixels off. With a logo set the row is wider than `SETTING_CONTROL_COLUMN`'s
+ * 256px — that column never goes below its content (`min-w-min`), so the preview plus its
+ * two buttons take what they need.
  */
 
 import { useCallback, useRef, useState } from 'react'

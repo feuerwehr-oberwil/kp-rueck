@@ -64,6 +64,16 @@ const STATUS_COLLAPSE_KEY = "kp-display-status-collapsed"
  */
 const ROW_SURFACE = "bg-muted/30"
 
+/** A resource's name on this wall — vehicle, person, material: 18/600 from `xl`,
+ *  the line that has to carry across the room. `leading-6` keeps a person row
+ *  as tall as it was at 14px, so the columns that fitted still fit. Wraps,
+ *  never truncates (`WALL_TEXT_WRAP`). */
+const WALL_NAME = cn("min-w-0 text-sm xl:text-lg font-semibold leading-5 xl:leading-6", WALL_TEXT_WRAP)
+
+/** Where a resource is (→ address, Auftrag, «nicht einsatzbereit»): 16/600 from
+ *  `xl` – one step under the name, not three. Wraps like the name. */
+const WALL_DESTINATION = cn("min-w-0 text-xs xl:text-base font-semibold", WALL_TEXT_WRAP)
+
 /** A panel on a phone: stacked full width (lib/wall-stack), a rule under it instead of beside it. */
 const STACKED_PANEL = cn(WALL_STACK_COLUMN, "max-sm:border-r-0 max-sm:border-b")
 
@@ -668,9 +678,9 @@ function VehicleRow({ vehicle: v, auftrag, onClick }: { vehicle: VehicleWithStat
         <div className={cn("w-3 h-3 xl:w-3.5 xl:h-3.5 rounded-sm shrink-0", RESOURCE_STATE_DOT_CLASSES[state])} />
       )}
       <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2">
-          <span className={cn("font-bold text-sm xl:text-base", isOutOfService && "text-muted-foreground")}>{v.name}</span>
-          {v.driverName && <span className="text-[11px] xl:text-xs text-muted-foreground truncate">{v.driverName}</span>}
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <span className={cn(WALL_NAME, isOutOfService && "text-muted-foreground")}>{v.name}</span>
+          {v.driverName && <span className={cn("min-w-0 text-xs xl:text-sm text-muted-foreground", WALL_TEXT_WRAP)}>{v.driverName}</span>}
         </div>
         {/* Where it is. An Auftrag wins over the single stop's address — the same
             answer the Fahrzeugstatus-Sheet gives — and its dot carries the route's
@@ -679,19 +689,19 @@ function VehicleRow({ vehicle: v, auftrag, onClick }: { vehicle: VehicleWithStat
             (#10b981 on white was 2.3:1 – sweep 2026-10, VISUAL-05).
             «Nicht einsatzbereit» wins over both: it is why the vehicle is nowhere. */}
         {isOutOfService ? (
-          <p className="mt-0.5 truncate text-xs xl:text-sm font-medium text-muted-foreground">{tk('notReady')}</p>
+          <p className={cn("mt-0.5", WALL_DESTINATION, "text-muted-foreground")}>{tk('notReady')}</p>
         ) : auftrag ? (
           <p className="mt-0.5 flex items-center gap-1.5 min-w-0">
             <span
               className="h-2 w-2 xl:h-2.5 xl:w-2.5 shrink-0 rounded-full"
               style={{ backgroundColor: auftrag.color ?? "var(--muted-foreground)" }}
             />
-            <span className="truncate text-xs xl:text-sm font-medium text-foreground">
+            <span className={WALL_DESTINATION}>
               {tv('auftragLabel', { name: auftrag.name })}
             </span>
           </p>
         ) : isDeployed ? (
-          <p className="text-xs xl:text-sm text-muted-foreground truncate mt-0.5">→ {incidentLocationLabel(v.assignedOperation!)}</p>
+          <p className={cn("mt-0.5", WALL_DESTINATION)}>→ {incidentLocationLabel(v.assignedOperation!)}</p>
         ) : null}
       </div>
       {/* Only a real Einsatz has a clock — a route-owned vehicle has no incident
@@ -765,7 +775,7 @@ function PersonRow({ person: p, assignedTo, onOpenIncident }: { person: Person; 
     >
       {/* Reko counts as busy here: a Reko is an Auftrag, but it never sets status="assigned" */}
       <span className={cn("h-1.5 w-1.5 xl:h-2 xl:w-2 rounded-full shrink-0", RESOURCE_STATE_DOT_CLASSES[personResourceState(p)])} />
-      <span className="text-xs xl:text-sm truncate flex-1"><PersonName name={p.name} kennung={p.kennung ?? null} /></span>
+      <span className={cn("flex-1", WALL_NAME)}><PersonName name={p.name} kennung={p.kennung ?? null} /></span>
       {/* Special-function markers — same icon language as the board roster. */}
       {p.isReko && (
         <span className="inline-flex items-center gap-0.5 text-2xs xl:text-xs text-muted-foreground shrink-0">
@@ -781,7 +791,7 @@ function PersonRow({ person: p, assignedTo, onOpenIncident }: { person: Person; 
         <span className="text-2xs xl:text-xs text-blue-700 dark:text-blue-400 shrink-0">{p.driverVehicleName}</span>
       )}
       {clickable && (
-        <span className="text-2xs xl:text-xs text-muted-foreground truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {assignedTo!.label}</span>
+        <span className={cn(WALL_DESTINATION, "text-right text-muted-foreground")}>→ {assignedTo!.label}</span>
       )}
     </div>
   )
@@ -820,11 +830,11 @@ function MaterialRow({ material: m, assignedTo, onOpenIncident }: { material: Ma
         <span className={cn("h-1.5 w-1.5 xl:h-2 xl:w-2 rounded-full shrink-0", RESOURCE_STATE_DOT_CLASSES[state])} />
       )}
       {m.consumable && !isOutOfService && <InfinityIcon className="h-3 w-3 xl:h-3.5 xl:w-3.5 shrink-0 text-muted-foreground" aria-label={tk('material.consumableUnlimited')} />}
-      <span className={cn("text-xs xl:text-sm truncate flex-1", isOutOfService && "text-muted-foreground")}>{m.name}</span>
+      <span className={cn("flex-1", WALL_NAME, isOutOfService && "text-muted-foreground")}>{m.name}</span>
       {isOutOfService ? (
         <span className="text-2xs xl:text-xs font-medium text-muted-foreground shrink-0">{tc('notReady')}</span>
       ) : single ? (
-        <span className="text-2xs xl:text-xs text-muted-foreground truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {single.label}</span>
+        <span className={cn(WALL_DESTINATION, "text-right text-muted-foreground")}>→ {single.label}</span>
       ) : assignedTo.length > 1 ? (
         <span
           className="text-2xs xl:text-xs text-muted-foreground shrink-0"

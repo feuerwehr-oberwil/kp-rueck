@@ -81,10 +81,15 @@ const AGE = "text-base font-bold"
 
 /** Every chip on the wall card — crew, vehicles, material, the Reko's dangers.
  *  0.8rem (not the desk's 12px) and no vertical padding: the name is the fact,
- *  the pill around it is not. `min-w-0 max-w-full shrink` + truncate inside, as
- *  on the kanban card: a lone over-long chip shrinks instead of shoving the row
- *  past the card edge. */
-const WALL_CHIP = "min-w-0 max-w-full shrink text-[0.8rem] leading-snug px-1.5 py-0 font-normal flex items-center gap-1"
+ *  the pill around it is not. `min-w-0 max-w-full shrink`: a lone over-long chip
+ *  shrinks to the card instead of shoving the row past its edge — and then its
+ *  text WRAPS inside it (`CHIP_TEXT`), never ellipsises: «Müller H…» is not a
+ *  name anybody at 4 m can act on, and a wall has no pointer for a `title`. */
+const WALL_CHIP =
+  "min-w-0 max-w-full shrink whitespace-normal justify-start text-left text-[0.8rem] leading-snug px-1.5 py-0 font-normal flex items-center gap-1"
+
+/** The text inside a wall chip: wraps like all wall text (`WALL_TEXT_WRAP`). */
+const CHIP_TEXT = cn("min-w-0", WALL_TEXT_WRAP)
 
 /** Where this card sits on its Auftrag, 1-based — the route's own order, or the
  *  incident's group position when the route has lost the stop. */
@@ -387,16 +392,15 @@ export function DisplayIncidentCard({
               <div className="flex items-start gap-1.5">
                 <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                 <div className="flex flex-wrap items-center gap-1 min-w-0">
-                  {/* `min-w-0 max-w-full shrink` + truncate, same as the kanban
-                      card's chips: a lone over-long chip must shrink and
-                      ellipsise, not shove the row past the card edge. And never
-                      an empty pill — a lost name reads as «Unbekannt». Applies
-                      to every chip row below. */}
+                  {/* `WALL_CHIP` + `CHIP_TEXT`: a lone over-long chip shrinks
+                      to the card and wraps, it never shoves the row past the
+                      card edge. And never an empty pill — a lost name reads as
+                      «Unbekannt». Applies to every chip row below. */}
                   <RemovableChip
                     variant="secondary"
                     className={WALL_CHIP}
                   >
-                    <span className="truncate">{operation.assignedReko.name.trim() || t("common.unknownResource")}</span>
+                    <span className={CHIP_TEXT}>{operation.assignedReko.name.trim() || t("common.unknownResource")}</span>
                   </RemovableChip>
                   {operation.rekoArrivedAt && !operation.hasCompletedReko && (
                     <span className="text-xs text-muted-foreground">
@@ -426,7 +430,7 @@ export function DisplayIncidentCard({
                       >
                         {isConflict && <AlertTriangle className="h-3 w-3 flex-shrink-0" />}
                         <LeaderBadge isLeader={operation.leaderId === personnelId} />
-                        <span className="truncate">
+                        <span className={CHIP_TEXT}>
                           <PersonName name={crewName} personnelId={personnelId} display={crewName.trim() || t("common.unknownResource")} />
                         </span>
                       </RemovableChip>
@@ -442,7 +446,7 @@ export function DisplayIncidentCard({
                   {operation.zuFuss && (
                     <RemovableChip variant="secondary" className={WALL_CHIP}>
                       <Footprints className="h-3 w-3 flex-shrink-0" />
-                      <span className="truncate">{t("common.zuFuss")}</span>
+                      <span className={CHIP_TEXT}>{t("common.zuFuss")}</span>
                     </RemovableChip>
                   )}
                   {operation.vehicles.map(({ vehicleId, name: vehicleName, callsign, driverStay }) => {
@@ -454,11 +458,16 @@ export function DisplayIncidentCard({
                         className={WALL_CHIP}
                         title={callsign ? t("common.funkrufname", { callsign }) : undefined}
                       >
-                        <span className="flex min-w-0 items-center gap-1">
-                          <span className="truncate">
+                        {/* Three facts that each stay whole: vehicle + call
+                            sign, the driver, the stay state. They share a line
+                            while they fit and wrap one under the other when they
+                            don't — the stay chip used to eat the width and leave
+                            «Müller H…» behind. */}
+                        <span className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 py-px">
+                          <span className={CHIP_TEXT}>
                             {vehicleName}{callsign ? ` · ${callsign}` : ""}
-                            {driverName && <span className="text-muted-foreground"> ({driverName})</span>}
                           </span>
+                          {driverName && <span className={cn(CHIP_TEXT, "text-muted-foreground")}>({driverName})</span>}
                           {/* The state, in full, on a screen that is only ever
                               read — and read from across the room. The click was
                               already gone; the two 12px glyphs that stood for it
@@ -486,7 +495,7 @@ export function DisplayIncidentCard({
                             className={WALL_CHIP}
                           >
                             <Layers className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
-                            <span className="truncate">{group.name}</span>
+                            <span className={CHIP_TEXT}>{group.name}</span>
                           </RemovableChip>
                         ))}
                         {ungrouped.map((materialId) => {
@@ -502,7 +511,7 @@ export function DisplayIncidentCard({
                               )}
                             >
                               {onSite && <MapPin className="h-3 w-3 flex-shrink-0" />}
-                              <span className="truncate">{material?.name || materialId}</span>
+                              <span className={CHIP_TEXT}>{material?.name || materialId}</span>
                             </RemovableChip>
                           )
                         })}
@@ -576,7 +585,7 @@ export function DisplayIncidentCard({
                       className={WALL_CHIP}
                     >
                       <LeaderBadge isLeader={Boolean(p.isLeader)} />
-                      <span className="truncate">{p.name.trim() || t("common.unknownResource")}</span>
+                      <span className={CHIP_TEXT}>{p.name.trim() || t("common.unknownResource")}</span>
                     </RemovableChip>
                   ))}
                 </div>

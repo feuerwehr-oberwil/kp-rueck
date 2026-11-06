@@ -100,7 +100,7 @@ import { ChecklistSettings } from '@/components/settings/checklist-settings';
 import { AuftragTemplateSettings } from '@/components/settings/auftrag-template-settings';
 import { UserSettings } from '@/components/settings/user-settings';
 import { DemoLock } from '@/components/settings/demo-lock';
-import { SettingBlock, SettingCard } from '@/components/settings/setting-row';
+import { SettingBlock, SettingCard, SettingGroup } from '@/components/settings/setting-row';
 import { SettingUnavailableNote } from '@/components/settings/setting-unavailable';
 import { IntegrationsSection } from './integrations-section';
 import { useTileAvailability } from '@/lib/hooks/use-tile-availability';
@@ -208,20 +208,34 @@ function resolveSection(param: string | null, visible: readonly Section[]): Sect
   return visible.find(s => s.id === param)?.id ?? DEFAULT_SECTION;
 }
 
+/**
+ * «Allgemein» in three headed groups (`SettingGroup`, heading `settings.page.general.groups.*`),
+ * so ten rows are not one undivided card: who the station is and where its Magazin stands,
+ * what the map and the incident clock show, and what the printed Einsatzrapport carries – the
+ * Stationslogo row (`BrandingSettings`) closes that last group. Every config names its group,
+ * so a new key cannot fall out of the card.
+ */
+const GENERAL_GROUPS = ['station', 'map', 'rapport'] as const;
+type GeneralGroup = (typeof GENERAL_GROUPS)[number];
+
 // Labels/descriptions/option labels come from settings.page.general.configs.*
-const SETTING_CONFIGS: SettingConfig[] = [
+// Within a group, the order here is the order on the page.
+const SETTING_CONFIGS: (SettingConfig & { group: GeneralGroup })[] = [
   {
     key: 'home_city',
+    group: 'station',
     type: 'text',
   },
   {
     key: 'funkrufname',
+    group: 'station',
     type: 'text',
   },
   // Pre-printed next to the «Kommandant» signature line on the Einsatzrapport
   // (mirrors KP Front). Empty = the line stays blank.
   {
     key: 'kommandant_name',
+    group: 'rapport',
     type: 'text',
   },
   // Station identity. All three have been PATCHable through the generic settings
@@ -236,30 +250,36 @@ const SETTING_CONFIGS: SettingConfig[] = [
   // strip it off them.)
   {
     key: 'firestation_name',
+    group: 'station',
     type: 'text',
   },
   {
     key: 'firestation_latitude',
+    group: 'station',
     type: 'number',
     range: LATITUDE_RANGE,
   },
   {
     key: 'firestation_longitude',
+    group: 'station',
     type: 'number',
     range: LONGITUDE_RANGE,
   },
   {
     key: 'map_mode',
+    group: 'map',
     type: 'select',
     options: ['auto', 'online', 'offline'],
   },
   {
     key: 'map_style',
+    group: 'map',
     type: 'select',
     options: ['osm', 'topo', 'carto-light', 'carto-dark'],
   },
   {
     key: 'incident_time_display',
+    group: 'map',
     type: 'select',
     options: ['start', 'column', 'total'],
   },
@@ -443,23 +463,27 @@ export default function SettingsPage() {
                 </div>
               ) : (
                 <DemoLock active={demoMode}>
-                  <StationSettingsForm
-                    configs={SETTING_CONFIGS}
-                    store={stationSettings}
-                    isEditor={isEditor}
-                    extras={{
-                      // What «Nur Offline» would actually get you, right at the control
-                      // that offers it – see use-tile-availability.ts.
-                      map_mode: {
-                        footer: renderTileAvailability(),
-                        unavailableOptions: offlineTilesUnavailable
-                          ? { offline: t('page.general.tiles.optionUnavailable') }
-                          : undefined,
-                      },
-                    }}
-                  />
-                  {/* Renders its own <SettingRow>, so it needs no spacer of its own. */}
-                  <BrandingSettings readOnly={!isEditor} />
+                  {GENERAL_GROUPS.map((group) => (
+                    <SettingGroup key={group} title={t(`page.general.groups.${group}`)}>
+                      <StationSettingsForm
+                        configs={SETTING_CONFIGS.filter((config) => config.group === group)}
+                        store={stationSettings}
+                        isEditor={isEditor}
+                        extras={{
+                          // What «Nur Offline» would actually get you, right at the control
+                          // that offers it – see use-tile-availability.ts.
+                          map_mode: {
+                            footer: renderTileAvailability(),
+                            unavailableOptions: offlineTilesUnavailable
+                              ? { offline: t('page.general.tiles.optionUnavailable') }
+                              : undefined,
+                          },
+                        }}
+                      />
+                      {/* Renders its own <SettingRow>, so it needs no spacer of its own. */}
+                      {group === 'rapport' && <BrandingSettings readOnly={!isEditor} />}
+                    </SettingGroup>
+                  ))}
                 </DemoLock>
               )}
             </SettingCard>

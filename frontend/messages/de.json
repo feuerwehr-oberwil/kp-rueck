@@ -1773,6 +1773,11 @@
         "languageHint": "Sprache der Oberfläche auf diesem Gerät",
         "selectPlaceholder": "Wählen …",
         "editorsOnlyNote": "Nur Bearbeiter können Einstellungen ändern.",
+        "groups": {
+          "station": "Station",
+          "map": "Karte und Anzeige",
+          "rapport": "Einsatzrapport"
+        },
         "configs": {
           "home_city": {
             "label": "Einsatzgebiet (Ort)",
@@ -3901,9 +3906,7 @@
       "rekoByName": "Reko von {name}",
       "summaryFallback": "Meldung, Mannschaft und Material",
       "driver": "Fahrer: {name}",
-      "vehicleViaAuftrag": "Auftrag – fährt mit",
-      "vehicleStays": "bleibt vor Ort",
-      "vehicleReturns": "fährt zurück"
+      "vehicleViaAuftrag": "Auftrag – fährt mit"
     },
     "rapportState": {
       "none": "kein Rapport",

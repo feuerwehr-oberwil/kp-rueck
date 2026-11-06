@@ -27,8 +27,9 @@
  */
 
 import { useTranslations } from 'next-intl'
-import { Binoculars, MapPin, MessageSquareText, Package, Phone, TriangleAlert, Truck, Undo2, Users, Waypoints } from 'lucide-react'
+import { Binoculars, MessageSquareText, Package, Phone, TriangleAlert, Truck, Users, Waypoints } from 'lucide-react'
 
+import { DriverStayGlyph } from '@/components/ui/driver-stay-glyph'
 import { FeldSection } from '@/components/feld/feld-section'
 import type { ApiFeldAssignment, ApiFeldMaterialLine, ApiFeldVehicleLine } from '@/lib/api-client'
 import { formatTime } from '@/lib/format-time'
@@ -219,22 +220,13 @@ export function FeldBriefing({
                     {t('vehicleViaAuftrag')}
                   </span>
                 )}
-                {/* Amber for the one that costs something — the same colour the
-                    board gives it. A vehicle parked at the address is blocked
-                    in; one that drives back is the normal state of the world.
-                    Nothing at all when the answer is null: an Auftrag has no
-                    driver-stay toggle, so «fährt zurück» there would be the
-                    board answering for a decision nobody made. */}
-                {vehicle.stays !== null && vehicle.stays !== undefined && (
-                  <span
-                    className={`inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${
-                      vehicle.stays ? 'bg-warning/15 text-warning-foreground' : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    {vehicle.stays ? <MapPin className="h-3 w-3 shrink-0" /> : <Undo2 className="h-3 w-3 shrink-0" />}
-                    {t(vehicle.stays ? 'vehicleStays' : 'vehicleReturns')}
-                  </span>
-                )}
+                {/* The board's own driver-stay chip: neutral ink, the words in
+                    full, pin / return arrow – a fact, not a «schau hin». Amber
+                    on this page is for «kein Rapport». Nothing at all when the
+                    answer is null: an Auftrag has no driver-stay toggle, so
+                    «fährt zurück» there would be the board answering for a
+                    decision nobody made. */}
+                <DriverStayGlyph stays={vehicle.stays ?? undefined} />
               </p>
             ))}
           </div>
