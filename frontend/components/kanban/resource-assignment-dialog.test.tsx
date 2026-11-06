@@ -212,6 +212,36 @@ describe("special functions in the crew list", () => {
     expect(tile.querySelector('[class*="text-amber-700"]')).not.toBeNull()
   })
 
+  it("paints one amber line per busy tile: the where-note, not the role under it", () => {
+    // Hill climb r18: place, Meldung and the vehicle line were all amber — fourteen
+    // busy tiles read as an amber wall. The where-note says «schau hin»; the rest is fact.
+    renderWithIntl(
+      <ResourceAssignmentDialog
+        open
+        onOpenChange={vi.fn()}
+        resourceType="crew"
+        operationId="incident-1"
+        personnel={[person({ name: "Egger Olivier", status: "assigned", isDriver: true, driverVehicleName: "TLF" })]}
+        vehicles={[]}
+        materials={[]}
+        assignedPersonnelIds={[]}
+        assignedVehicleIds={[]}
+        assignedMaterials={[]}
+        occupiedPersonnelIds={new Set(["Egger Olivier"])}
+        onAssignPerson={vi.fn()}
+        onAssignVehicle={vi.fn()}
+        onAssignMaterial={vi.fn()}
+        onRemovePerson={vi.fn()}
+        onRemoveVehicle={vi.fn()}
+        onRemoveMaterial={vi.fn()}
+      />,
+    )
+
+    const tile = screen.getByRole("button", { name: /Egger Olivier/ })
+    expect(tile.querySelectorAll('[class*="text-amber-700"]')).toHaveLength(1)
+    expect(screen.getByTitle("TLF").className).toContain("text-muted-foreground")
+  })
+
   it("keeps the crew of THIS incident under «Verfügbar», ticked", () => {
     renderCrewWithAssigned(
       [

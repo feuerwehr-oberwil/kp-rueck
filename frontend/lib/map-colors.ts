@@ -9,8 +9,8 @@ import { STATUS_GROUP_BORDER_STYLE, type StatusGroup } from "./types/incidents"
  * scatter raw hex values across half a dozen files, we keep them here and
  * reference by name.
  *
- * These two are DEVICE state, not incident state — "is this vehicle
- * reporting?" — which is why they are the only named colours left here.
+ * `info` / `offline` are DEVICE state, not incident state — "is this vehicle
+ * reporting?"; `station` is the ink of the two fixed places (firestation, Magazin).
  * Status and priority marker fills come from `PRIORITY_MARKER_COLORS` below
  * and `INCIDENT_TYPE_MARKER_COLORS` further down; the table used to also
  * carry `destructive` / `warning` / `success` mirrors of the semantic tokens,
@@ -20,11 +20,14 @@ import { STATUS_GROUP_BORDER_STYLE, type StatusGroup } from "./types/incidents"
 
 export const MAP_COLORS = {
   /** Same hue as `--info`. Used for selected/highlighted markers + GPS-online dots, and as
-   *  the fill under the white ⌂ / vehicle glyphs – hence blue-600, not 500 (3.7:1 under white;
+   *  the fill under the white vehicle labels – hence blue-600, not 500 (3.7:1 under white;
    *  600 holds 5.2:1). */
   info: "#2563eb",
   /** Tailwind gray-500 — used as the "offline / no signal" marker fill. */
   offline: "#6b7280",
+  /** Slate-800 ink under the white ⌂ of the firestation and the Magazin: a PLACE, not a state,
+   *  so no hue – blue means an Auftrag (and a reporting vehicle), red priority (hill climb r18). */
+  station: "#1e293b",
 } as const
 
 /**

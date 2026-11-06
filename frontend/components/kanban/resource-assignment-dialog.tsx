@@ -237,8 +237,9 @@ export function ResourceAssignmentDialog({
    * names the VEHICLE, because «Fahrer» alone raises the question it answers.
    *
    * `elsewhere` says whether the role is ANOTHER commitment – the only case the
-   * tile paints amber («schau hin»). Driving a vehicle that is on this very
-   * target is a plain fact about this crew, not a double booking.
+   * tile paints amber («schau hin»), and only while no where-note above it is
+   * amber already. Driving a vehicle that is on this very target is a plain
+   * fact about this crew, not a double booking.
    */
   const specialFunctionsOf = (p: Person): { label: string; Icon: typeof Car; elsewhere: boolean }[] => {
     const functions: { label: string; Icon: typeof Car; elsewhere: boolean }[] = []
@@ -1027,7 +1028,9 @@ export function ResourceAssignmentDialog({
               className={cn(
                 "mt-0.5 flex max-w-full items-start gap-1",
                 TILE_META,
-                fn.elsewhere ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground",
+                // Amber once per tile: when the where-note already says «schau hin», a role
+                // under it (the vehicle this person drives, Reko …) is a muted fact.
+                fn.elsewhere && !elsewhere ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground",
               )}
             >
               <fn.Icon className={TILE_META_ICON} />

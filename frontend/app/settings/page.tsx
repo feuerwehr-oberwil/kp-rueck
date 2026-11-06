@@ -998,12 +998,17 @@ export default function SettingsPage() {
 
           {/* Content area – min-h-0 so it scrolls inside the flex column on
               mobile; `pb-nav-reserve` so the end clears the bottom nav by its measured height. */}
-          <main className="flex-1 min-h-0 overflow-y-auto p-4 pb-nav-reserve md:p-6 md:pb-6">
-            {/* Form sections keep a reading width; the four resource LISTS get
-                the whole screen — a five-column table squeezed to 896px on a
-                1920 board while half the page stood empty was the opposite of
-                density with order. */}
-            <div className={`${['personnel', 'vehicles', 'materials', 'users'].includes(activeSection) ? 'max-w-none' : 'max-w-4xl'} space-y-6`}>
+          <main className="flex-1 min-h-0 overflow-y-auto p-4 pb-nav-reserve md:p-6 md:pt-8 md:pb-6">
+            {/* Form sections keep a reading width, CENTRED in what the sidebar leaves (a
+                896px column hung left with ~760px of empty canvas beside it on a 1920
+                board, hill climb r18); the four resource LISTS get the whole screen — a
+                five-column table squeezed to 896px while half the page stood empty was
+                the opposite of density with order. Off the phone the column opens with
+                the section's name, 20/600 (the phone's section picker already says it). */}
+            <div className={`${['personnel', 'vehicles', 'materials', 'users'].includes(activeSection) ? 'max-w-none' : 'mx-auto max-w-4xl'} space-y-6`}>
+              {!isMobile && (
+                <h2 className="text-xl font-semibold tracking-tight">{t(`page.sections.${activeSection}`)}</h2>
+              )}
               {renderContent()}
             </div>
           </main>

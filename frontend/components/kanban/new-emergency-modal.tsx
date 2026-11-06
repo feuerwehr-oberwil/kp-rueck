@@ -511,15 +511,13 @@ export function NewEmergencyModal({
       <>
       <Sheet open={open} onOpenChange={closeGuard.handleOpenChange}>
         <SheetContent side="bottom" className="modal-h-tall gap-0 rounded-t-2xl" onKeyDown={onKeyDown}>
-          {/* While typing, the head is as short as it can be: the band above the keys is
-              ~350px on an iPhone, and the sentence under the title is the one thing in it
-              nobody needs at that moment. */}
-          <SheetHeader className="px-4 pt-5 pb-2 pr-12 [:root[data-kb]_&]:pb-1">
-            <div className="flex items-center gap-3">
-              <Plus className="h-6 w-6 text-muted-foreground" />
-              <SheetTitle className="text-lg leading-none">{t('common.newIncident')}</SheetTitle>
-            </div>
-            <SheetDescription className="[:root[data-kb]_&]:sr-only">{t('newEmergency.description')}</SheetDescription>
+          {/* HEADER (both forms): the plain title, 18/600, no glyph – the frame of every
+              other dialog and sheet (the assign dialog, the footer sheets). The sentence
+              under it only restated the title, so it is for screen readers alone. 16px to
+              the first field; while typing 4px, the band above the keys is ~350px. */}
+          <SheetHeader className="px-4 pt-5 pb-4 pr-12 [:root[data-kb]_&]:pb-1">
+            <SheetTitle className="text-lg leading-none">{t('common.newIncident')}</SheetTitle>
+            <SheetDescription className="sr-only">{t('newEmergency.description')}</SheetDescription>
           </SheetHeader>
           <SheetBody className="px-4">{fields}</SheetBody>
           <SheetFooter className="mt-0 flex-row gap-2 border-t px-4 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">
@@ -539,14 +537,10 @@ export function NewEmergencyModal({
           so a bare `max-w-*` loses to it at desktop widths and the form gets
           crushed into ~440px — clipped selects, icon-only Einsatzort. */}
       <DialogContent className="sm:max-w-xl" onKeyDown={onKeyDown}>
+        {/* The plain title (see HEADER above); the grid's gap-4 is the 16px to the first field. */}
         <DialogHeader>
-          <div className="flex items-center gap-3">
-            <Plus className="h-6 w-6 text-muted-foreground" />
-            <DialogTitle>{t('common.newIncident')}</DialogTitle>
-          </div>
-          <DialogDescription>
-            {t('newEmergency.description')}
-          </DialogDescription>
+          <DialogTitle>{t('common.newIncident')}</DialogTitle>
+          <DialogDescription className="sr-only">{t('newEmergency.description')}</DialogDescription>
         </DialogHeader>
 
         {fields}

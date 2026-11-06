@@ -381,15 +381,18 @@ export function FeldActions({
 
       {isCrew && (
         <ol className="relative space-y-2">
-          {/* The connector behind the markers — the chain reads as one journey. */}
-          <span aria-hidden className="absolute bottom-2 left-[7px] top-2 w-px bg-border" />
+          {/* The connector behind the markers — the chain reads as one journey. 2px at
+              muted-foreground/70 (≥ 3:1 on this card, light and dark); `--border` was
+              ~1.3:1 and the chain fell apart into dots (hill climb r18). */}
+          <span aria-hidden className="absolute bottom-2 left-[7px] top-2 w-0.5 bg-muted-foreground/70" />
           {journey.map((step, index) => {
             const isCurrent = index === currentIndex
             const confirmOpen = panel === confirmPanelFor[step.key]
             return (
               <li key={step.key} className="relative flex items-start gap-2.5">
                 {/* Marker: emerald = done, ink = the step owed now (same ink
-                    as the main button it points at), hollow grey = later. */}
+                    as the main button it points at), hollow muted-foreground
+                    ring = later (a `--border` ring was ~1.3:1 on the card). */}
                 <span
                   aria-hidden
                   className={`relative z-raised mt-[3px] flex size-4 shrink-0 items-center justify-center rounded-full border-2 ${
@@ -397,7 +400,7 @@ export function FeldActions({
                       ? 'border-emerald-500 bg-emerald-500 text-white'
                       : isCurrent
                         ? 'border-action bg-action'
-                        : 'border-border bg-secondary'
+                        : 'border-muted-foreground bg-secondary'
                   }`}
                 >
                   {step.done && <Check className="size-2.5" />}

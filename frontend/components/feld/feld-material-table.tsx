@@ -113,7 +113,7 @@ export function FeldMaterialTable({ materials }: { materials: ApiFeldMaterialIte
               }
             >
               <h3
-                className={`mb-1 text-[11px] font-semibold uppercase tracking-wide ${
+                className={`mb-1 type-label ${
                   state === 'left' ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'
                 }`}
               >
