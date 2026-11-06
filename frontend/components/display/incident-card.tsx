@@ -44,7 +44,7 @@ import { IncidentNumber } from "@/components/ui/incident-number"
 import { useTranslations } from "next-intl"
 import {
   AlertTriangle, Axe, Binoculars, Building2, FileCheck, FileText, Footprints,
-  Layers, MapPin, Package, Phone, Search, Siren, Timer, Truck, Users, Waypoints,
+  Clock, Layers, MapPin, Package, Phone, Search, Siren, Timer, Truck, Users, Waypoints,
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -65,6 +65,7 @@ import { sortCrewByLeader } from "@/lib/crew-order"
 import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
 import { PRIORITY_CARD_CLASSES, type Priority } from "@/lib/priority"
 import { formatClockTime } from "@/lib/incident-time"
+import { formatDurationHours } from "@/lib/duration"
 import { WALL_TEXT_WRAP } from "@/lib/kanban-utils"
 import { cn } from "@/lib/utils"
 import { PersonName } from "@/components/person-name"
@@ -77,7 +78,7 @@ import { PersonName } from "@/components/person-name"
 const SECTION_RULE = "border-t pt-1.5"
 
 /** The wall's ONE caption size (hill climb r3): Einsatzart, Melder, the Auftrag
- *  stop line, «vor Ort seit», Nachbarhilfe, the Reko's Pers./h.
+ *  stop line, «vor Ort seit», Nachbarhilfe.
  *  0.8rem = 11.2px at the fit's 14px floor – the board's `type-micro` floor
  *  (11px) never undercut, and the same size as the incident number. The
  *  hierarchy stays address (1.25rem) > chips and states (1rem) > Meldung
@@ -209,6 +210,7 @@ export function DisplayIncidentCard({
 }: DisplayIncidentCardProps) {
   const t = useTranslations("kanban")
   const tFeld = useTranslations("feld.board")
+  const tBoard = useTranslations("display.board")
 
   const priority = (operation.priority || "low") as Priority
   // «Am Warten · Grund», or just the label – the desk card's wording, word for word.
@@ -504,8 +506,9 @@ export function DisplayIncidentCard({
                             sign, the driver, the stay state. They share a line
                             while they fit and wrap one under the other when they
                             don't — the stay chip used to eat the width and leave
-                            «Müller H…» behind. */}
-                        <span className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 py-px">
+                            «Müller H…» behind. 6px between them (`gap-x-1.5`):
+                            at 4px «Omega 1(Müller Hans)» read as one word. */}
+                        <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 py-px">
                           <span className={CHIP_TEXT}>
                             {vehicleName}{callsign ? ` · ${callsign}` : ""}
                           </span>
@@ -668,12 +671,29 @@ export function DisplayIncidentCard({
               </div>
             )}
 
+            {/* What the Reko asks for – people and time – at the state line's
+                14/18, 600 ink with a glyph per fact (hill climb r18), like the
+                Melder's number: at the caption's muted 11px it was the one
+                result on the card nobody at 4 m could read. The duration goes
+                through `formatDurationHours` («2h 30'», never «2.5h»), the same
+                formatter as the desk card. */}
             {(operation.rekoSummary.personnelCount || operation.rekoSummary.estimatedDuration) && (
-              <div className={cn("text-muted-foreground", WALL_CAPTION)}>
+              <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-0.5 font-semibold text-foreground", WALL_STATE_LINE)}>
                 {operation.rekoSummary.personnelCount && (
-                  <span className="mr-3">{t("card.persCount", { count: operation.rekoSummary.personnelCount })}</span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Users aria-hidden className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                    {t("card.persCount", { count: operation.rekoSummary.personnelCount })}
+                  </span>
                 )}
-                {operation.rekoSummary.estimatedDuration && <span>{operation.rekoSummary.estimatedDuration}h</span>}
+                {operation.rekoSummary.estimatedDuration && (() => {
+                  const duration = formatDurationHours(operation.rekoSummary.estimatedDuration)
+                  return (
+                    <span className="inline-flex items-center gap-1.5 tabular-nums" title={`${tBoard("estimatedDuration")} ${duration}`}>
+                      <Clock aria-hidden className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                      {duration}
+                    </span>
+                  )
+                })()}
               </div>
             )}
 
