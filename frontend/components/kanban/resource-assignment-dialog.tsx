@@ -919,8 +919,9 @@ export function ResourceAssignmentDialog({
   }
 
   const getDialogTitle = () => {
-    // Make the assignment target explicit: an Auftrag (route) names the route in
-    // «…»; a plain incident reads "… zu Einsatz zuweisen".
+    // An Auftrag (route) names the route in «…»; a plain incident reads «Mannschaft
+    // zuweisen» – the Einsatz is named on the line under the title, and «… zu Einsatz
+    // zuweisen» wrapped to two lines on a phone (hill climb r21).
     const route = assignTarget === 'route'
     const name = routeName ?? ''
     switch (resourceType) {

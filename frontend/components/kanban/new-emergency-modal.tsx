@@ -510,11 +510,13 @@ export function NewEmergencyModal({
     return (
       <>
       <Sheet open={open} onOpenChange={closeGuard.handleOpenChange}>
-        <SheetContent side="bottom" className="modal-h-tall gap-0 rounded-t-2xl" onKeyDown={onKeyDown}>
+        <SheetContent side="bottom" className="modal-h-tall gap-0 rounded-t-2xl [&>[data-slot=sheet-close]]:top-[29px] [&>[data-slot=sheet-close]]:-translate-y-1/2" onKeyDown={onKeyDown}>
           {/* HEADER (both forms): the plain title, 18/600, no glyph – the frame of every
               other dialog and sheet (the assign dialog, the footer sheets). The sentence
               under it only restated the title, so it is for screen readers alone. 16px to
-              the first field; while typing 4px, the band above the keys is ~350px. */}
+              the first field; while typing 4px, the band above the keys is ~350px.
+              The ✕ (44px on a phone, the touch rule) is centred on the title's line box –
+              20px top padding + half of its 18px line = 29px – not hung 9px below it. */}
           <SheetHeader className="px-4 pt-5 pb-4 pr-12 [:root[data-kb]_&]:pb-1">
             <SheetTitle className="text-lg leading-none">{t('common.newIncident')}</SheetTitle>
             <SheetDescription className="sr-only">{t('newEmergency.description')}</SheetDescription>
