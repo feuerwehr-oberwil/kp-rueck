@@ -568,14 +568,13 @@ export function OperationDetailContent({
   // brings its own `py-1`, nothing is stacked on top) and ONE section step
   // between two sections — the column groups, «Status ändern», «Kräfte» and,
   // stacked in the panel, the two columns themselves (`gap-x-8` is the modal's
-  // column gutter). The step is 16px in both mounts, 8px from a heading to its
-  // rows (`DetailGroupHeading`). The panel had 12 since hill climb r11, because
-  // at 16 the second «Status ändern» row sat on the footer rule on a laptop with
-  // nothing saying the list went on; the panel now fades out under the footer
-  // while more is below (`scrollEndFade`), so the cut is announced and the
-  // headings get their 16 (r18). Only the panel's outer padding stays 12.
+  // column gutter). The step is 12px in the panel and 16px in the modal, 8px from
+  // a heading to its rows (`DetailGroupHeading`). The panel keeps 12 (hill climb
+  // r11): at 16 the second «Status ändern» row sits on the footer rule on a
+  // laptop. Where the list still runs on under the footer, the panel fades out
+  // while more is below (`scrollEndFade`, r18), so the cut is announced.
   const sectionStep = dense
-    ? { gap: "gap-y-4", pad: "py-3", stack: "space-y-4", after: "mb-4", fields: "space-y-1" }
+    ? { gap: "gap-y-3", pad: "py-3", stack: "space-y-3", after: "mb-3", fields: "space-y-1" }
     : { gap: "gap-y-4", pad: "py-4", stack: "space-y-4", after: "mb-4", fields: "space-y-2" }
   const tabGridClass = cn(
     "grid grid-cols-1 gap-x-8",
