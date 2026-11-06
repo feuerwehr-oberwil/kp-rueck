@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import { apiClient, type ApiViewerData } from '@/lib/api-client'
 import { usePolling } from '@/lib/hooks/use-polling'
-import { Eye, ChevronDown } from 'lucide-react'
+import { Eye } from 'lucide-react'
 import { DisplayStaleBanner } from '@/components/display/display-stale-banner'
-import { columns, STATUS_ACCENT, WALL_COLUMN_COUNT_CLASS, WALL_COLUMN_HEADER_CLASS, WALL_TEXT_WRAP } from '@/lib/kanban-utils'
+import { columns, STATUS_ACCENT } from '@/lib/kanban-utils'
 import { useCollapsedSections } from '@/lib/hooks/use-collapsed-sections'
 import { useWallFit } from '@/lib/hooks/use-wall-fit'
 import { WALL_STACK_BOARD, WALL_STACK_BODY, WALL_STACK_COLUMN } from '@/lib/wall-stack'
@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils'
 import { buildSituationData, viewerGroupsToIncidentGroups } from '@/lib/viewer-data'
 import { DisplayIncidentCard, crewShownAtStop } from '@/components/display/incident-card'
 import { IncidentDetailModal } from '@/components/display/incident-detail-modal'
-import { WallColumnAgeChip } from '@/components/display/wall-column-age-chip'
+import { WallColumnHead } from '@/components/display/wall-column-head'
 import { WallFoldedColumn } from '@/components/display/wall-folded-column'
 import { WallScrollBody } from '@/components/display/wall-more-below'
 import { useDisplaySearch } from '@/lib/contexts/display-search-context'
@@ -53,8 +53,8 @@ function keepColumnInView(columnKey: string) {
 }
 
 /**
- * One column, identical to the logged-in display board's — chevron, title,
- * overdue chip (`WallColumnAgeChip`) and count pill, and the same fold for
+ * One column, identical to the logged-in display board's — the same head
+ * (`WallColumnHead`: chevron, title, count, overdue chip), and the same fold for
  * every column including ABGESCHLOSSEN. The share link used to draw its own header (a subtitle line
  * instead of the pill) and hang «Abgeschlossen» off a separate dashed strip.
  */
@@ -96,16 +96,7 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
         aria-expanded
         className="mb-2 w-full cursor-pointer rounded-md px-1 py-2 text-left transition-colors hover:bg-foreground/5"
       >
-        {/* 6px between chevron, name, overdue chip and count: at 8px
-            «REKO ABGESCHLOSSEN ⏱ 2 ≥ 60' 2» missed one line by 2px at 1920. */}
-        <div className="flex items-center gap-1.5">
-          <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-          <h2 className={cn("min-w-0 flex-1", WALL_TEXT_WRAP, WALL_COLUMN_HEADER_CLASS)}>{tk(`columns.${column.id}`)}</h2>
-          {/* The overdue chip («⏱ 2 ≥ 60'») before the count, as on the
-              logged-in wall. */}
-          <WallColumnAgeChip operations={operations} />
-          <span className={WALL_COLUMN_COUNT_CLASS}>{operations.length}</span>
-        </div>
+        <WallColumnHead name={tk(`columns.${column.id}`)} operations={operations} />
       </button>
       <WallScrollBody data-wall-column-body className={cn('flex-1 space-y-2 overflow-y-auto rounded-lg p-2', WALL_STACK_BODY)}>
         {operations.map((operation) => {

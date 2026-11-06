@@ -88,8 +88,14 @@ describe('the wall card’s Auftrag row', () => {
     renderCard()
     expect(screen.getByText('Sturmholz Oberwil')).toBeInTheDocument()
     // «Stopp», not «Stop» — and spelled out, so «6/7» cannot be read as a date.
-    expect(screen.getByText('Stopp 6 von 7')).toBeInTheDocument()
-    expect(screen.getByText(/Pio · 1 Gerät/)).toBeInTheDocument()
+    expect(screen.getByText('Stopp 6 von 7 · Pio · 1 Gerät')).toBeInTheDocument()
+  })
+
+  it('wraps the stop metadata only before a «·», never between a figure and its unit', () => {
+    renderCard()
+    const meta = screen.getByText('Stopp 6 von 7 · Pio · 1 Gerät')
+    // The only breakable spaces stand in front of a separator (lib/meta-line).
+    expect(meta.textContent?.split(' ')).toEqual(['Stopp\u00a06\u00a0von\u00a07', '·\u00a0Pio', '·\u00a01\u00a0Gerät'])
   })
 
   it('names the crew instead of counting it — the wall carries one field fewer', () => {
@@ -119,7 +125,7 @@ describe('the wall card’s Auftrag row', () => {
         auftragResources={auftragResources}
       />,
     )
-    expect(screen.getByText('Stopp 6 von 7')).toBeInTheDocument()
+    expect(screen.getByText(/^Stopp 6 von 7 ·/)).toBeInTheDocument()
   })
 })
 

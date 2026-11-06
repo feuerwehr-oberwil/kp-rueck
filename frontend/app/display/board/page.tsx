@@ -15,16 +15,15 @@ import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { CARD_VIEW_PRESETS } from "@/lib/card-view"
-import { columns, STATUS_ACCENT, WALL_COLUMN_COUNT_CLASS, WALL_COLUMN_HEADER_CLASS, WALL_TEXT_WRAP } from "@/lib/kanban-utils"
+import { columns, STATUS_ACCENT } from "@/lib/kanban-utils"
 import { WALL_STACK_BOARD, WALL_STACK_BODY, WALL_STACK_COLUMN } from "@/lib/wall-stack"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { useWallFit } from "@/lib/hooks/use-wall-fit"
 import { DisplayIncidentCard, crewShownAtStop } from "@/components/display/incident-card"
 import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
-import { WallColumnAgeChip } from "@/components/display/wall-column-age-chip"
+import { WallColumnHead } from "@/components/display/wall-column-head"
 import { WallFoldedColumn } from "@/components/display/wall-folded-column"
 import { WallScrollBody } from "@/components/display/wall-more-below"
-import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 /** Per-device fold state for the viewer board (see useCollapsedSections). */
@@ -217,7 +216,7 @@ function BoardDisplay() {
         const ops = operationsByColumn[column.id] || []
         const isCollapsed = collapsedColumns.isCollapsed(column.id)
         // Something in here has sat past the board's own warning threshold:
-        // `WallColumnAgeChip` says how many and from when, beside the count. It
+        // `WallColumnAgeChip` says how many and from when, at the head's end. It
         // stays on the folded strip too – a column that hides its overdue
         // incident behind a title is exactly what folding must not do.
 
@@ -285,17 +284,7 @@ function BoardDisplay() {
               aria-expanded
               className="mb-2 w-full cursor-pointer rounded-md px-1 py-2 text-left transition-colors hover:bg-foreground/5"
             >
-              {/* 6px between chevron, name, overdue chip and count: at 8px
-                  «REKO ABGESCHLOSSEN ⏱ 2 ≥ 60' 2» missed one line by 2px at 1920. */}
-              <div className="flex items-center gap-1.5">
-                <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                {/* Wraps instead of truncating: in Sora, at 1280, «DISPONIERT / …»
-                    and «REKO ABGESC…» were all a wall could read of three headers.
-                    The overdue chip («⏱ 2 ≥ 60'») stands before the count. */}
-                <h2 className={cn("min-w-0 flex-1", WALL_TEXT_WRAP, WALL_COLUMN_HEADER_CLASS)}>{tk(`columns.${column.id}`)}</h2>
-                <WallColumnAgeChip operations={ops} />
-                <span className={WALL_COLUMN_COUNT_CLASS}>{ops.length}</span>
-              </div>
+              <WallColumnHead name={tk(`columns.${column.id}`)} operations={ops} />
             </button>
             {/* space-y-2, one step tighter than the board's space-y-3: the
                 denser wall card (VISUAL-07 C). `data-wall-column-body` is what

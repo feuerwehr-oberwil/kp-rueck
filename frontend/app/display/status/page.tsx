@@ -47,6 +47,13 @@ import { useMaterialSplit } from "@/components/display/material-split"
 
 const STATUS_ORDER = ["incoming", "reko", "reko_done", "enroute", "active", "returning"]
 
+/** «Offen» – not yet dispatched, a Reko on the way included. The Kennzahlen's own
+ *  split (`WAITING_STATUSES` in backend/app/services/reaction_times.py): the
+ *  Einsätze head says «10 offen · 9 in Arbeit» with the very words and figures of
+ *  the tiles under it (hill climb r22 – «5 eingegangen · 14 in Bearbeitung» over
+ *  «Offen 10 · In Arbeit 9» was two splits of one column). */
+const WAITING_STATUSES: ReadonlySet<string> = new Set(["incoming", "reko", "reko_done"])
+
 /** Per-device fold state for this display (see useCollapsedSections). */
 const STATUS_COLLAPSE_KEY = "kp-display-status-collapsed"
 
@@ -109,7 +116,9 @@ const RESOURCE_ROW_WHERE = "flex min-w-0 flex-wrap items-center justify-end gap-
 const WALL_MARK_GUTTER = "flex w-3.5 xl:w-4 shrink-0 items-center justify-center"
 const WALL_MARK = "size-2 xl:size-2.5 rounded-full"
 
-/** What the column foot's «+n weiter ↓» counts (WallScrollBody): one row each. */
+/** What the column foot's «+n weiter ↓» counts (WallScrollBody): one row each –
+ *  except that an Einsatz listed twice (its stop row under the Auftrag, its row
+ *  under its status) is one Einsatz: both rows carry `data-wall-key={op.id}`. */
 const WALL_ITEM = "[data-wall-item]"
 
 /** The Personal and Material rows' box: 8px in from the column, and each row 8px
@@ -337,7 +346,11 @@ function SituationBoard({
     return groups
   }, [operations])
 
-  const totalActiveOps = operations.filter((op) => op.status !== "complete").length
+  // The head's figure and its split, from the rows this column lists (the search
+  // narrows them like the sections below). Abgeschlossen is not on this wall; the
+  // Kennzahlen count it as «Erledigt».
+  const activeOps = operations.filter((op) => op.status !== "complete")
+  const waitingOps = activeOps.filter((op) => WAITING_STATUSES.has(op.status)).length
 
   // person id → { incident id, short label } so the "→ Einsatz" reference is
   // itself clickable and jumps straight to that incident's detail dialog.
@@ -548,9 +561,9 @@ function SituationBoard({
       <div className={cn("flex flex-1 flex-col min-w-[300px] border-r border-border overflow-hidden", STACKED_PANEL)}>
         <PanelHeader
           title={t('incidents')}
-          count={totalActiveOps}
+          count={activeOps.length}
 
-          subtitle={t('incomingInProgress', { incoming: stats.incomingCount, inProgress: stats.activeOperations - stats.incomingCount })}
+          subtitle={t('waitingInProgress', { waiting: waitingOps, inProgress: activeOps.length - waitingOps })}
         />
         <WallScrollBody itemSelector={WALL_ITEM} className={cn("relative flex-1 overflow-y-auto", WALL_STACK_BODY)}>
           {/* Aufträge first — the grouping the radio talks in. Each route names
@@ -558,11 +571,12 @@ function SituationBoard({
               readable from across the room without opening anything. */}
           {/* Kennzahlen first: the Lage in four numbers and the Reaktionszeiten,
               folded like every other section (search does not narrow them —
-              they describe the whole Ereignis). */}
+              they describe the whole Ereignis). No count chip: the section lists
+              no rows, and a bare «21» (Meldungen, Erledigt included) beside the
+              head's 19 Einsätze read as a third total (hill climb r22). */}
           {figures && figures.total > 0 && (
             <CollapsibleSection
               label={t('figures')}
-              count={figures.total}
               badge={
                 <span className="shrink-0 text-2xs xl:text-xs tabular-nums text-muted-foreground">
                   {tFigures('wallBadge', {
@@ -836,6 +850,7 @@ function IncidentRow({ operation: op, onClick }: { operation: Operation; onClick
   return (
     <div
       data-wall-item
+      data-wall-key={op.id}
       className={cn(
         // border-l-4 like both card surfaces: same edge, same width, same
         // meaning. High and medium colour it; low closes it (see priority.ts).

@@ -899,7 +899,7 @@ function DraggableOperationBase({
                   {/* Breaks only between facts, the «·» going with the fact after it:
                       «1 Gerät» never wraps as «1 / Gerät» (r22, `lib/meta-line.ts`). */}
                   <span className="break-words type-micro tabular-nums text-muted-foreground">
-                    {metaFacts(auftragFacts).join(' ·\u00a0')}
+                    {metaFacts(auftragFacts)}
                   </span>
                 </span>
               </button>
