@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl"
 import { Badge } from "@/components/ui/badge"
 import { Reveal } from "@/components/ui/reveal"
-import { ELSEWHERE_NOTE, ELSEWHERE_TEXT, ListSection, TILE_GRID, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
+import { ELSEWHERE_NOTE, ELSEWHERE_TEXT, ListSection, TILE_GRID, TILE_HOVER, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
 import { CheckCircle, Circle, Layers, ChevronDown, ChevronRight, Siren, Ban, Truck } from "lucide-react"
 import { type Material } from "@/lib/contexts/operations-context"
 import { materialResourceState } from "@/lib/resource-status"
@@ -198,9 +198,9 @@ const renderMaterialTile = (material: Material) => {
       onClick={() => onToggleMaterial(material)}
       disabled={isOutOfService}
       className={cn(
-        "flex items-start gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-all text-left",
-        isOutOfService ? "cursor-not-allowed border-dashed opacity-60" : "cursor-pointer hover:border-sel-edge hover:bg-secondary/30 hover-delight",
-        isSelected && "border-sel-edge bg-sel-wash"
+        "flex items-start gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-colors text-left",
+        isOutOfService ? "cursor-not-allowed border-dashed opacity-60" : "cursor-pointer",
+        isSelected ? "border-sel-edge bg-sel-wash" : !isOutOfService && TILE_HOVER
       )}
     >
       {isOutOfService ? (
@@ -262,8 +262,8 @@ const renderMaterialTile = (material: Material) => {
           <div key={`group-${groupId}`}>
             {/* Group header row */}
             <div className={cn(
-              "flex items-center rounded-lg border border-border/50 transition-all hover:border-sel-edge hover:bg-secondary/30",
-              allSelected && "border-sel-edge bg-sel-wash"
+              "flex items-center rounded-lg border border-border/50 transition-colors",
+              allSelected ? "border-sel-edge bg-sel-wash" : TILE_HOVER
             )}>
               {/* Expand/collapse toggle */}
               <button

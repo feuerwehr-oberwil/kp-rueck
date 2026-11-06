@@ -2491,7 +2491,7 @@
     "page": {
       "loading": "Chargement de la carte …",
       "title": "Carte de situation",
-      "activeBadge": "{count} en cours",
+      "activeBadge": "{count, plural, one {# intervention} other {# interventions}}",
       "incidentsHeading": "Interventions ({count})",
       "labels": "Étiquettes",
       "lines": "Lignes",

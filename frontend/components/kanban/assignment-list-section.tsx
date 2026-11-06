@@ -17,6 +17,11 @@ export const ELSEWHERE_NOTE = "mt-0.5 flex max-w-full items-start gap-1 overflow
 export const ELSEWHERE_TEXT = "min-w-0 line-clamp-2 break-words"
 /** A 12px glyph at the start of a 16px caption line. */
 export const TILE_META_ICON = "mt-0.5 h-3 w-3 flex-shrink-0"
+/** An UNCHECKED tile under the pointer: the neutral edge and a quiet wash – no lift, no
+ *  shadow, no slate, so a hover never competes with the checked tiles' slate wash + edge + ✓
+ *  (hill climb r5). Only on unchecked tiles: a `hover:` edge on a checked one would take its
+ *  slate edge away while the pointer rests on it. */
+export const TILE_HOVER = "hover:border-border hover:bg-muted/40"
 
 /**
  * The rule above one of the two blocks the lists are split into.

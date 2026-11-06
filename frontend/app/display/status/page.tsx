@@ -74,6 +74,11 @@ const WALL_NAME = cn("min-w-0 text-sm xl:text-lg font-semibold leading-5 xl:lead
  *  `xl` – one step under the name, not three. Wraps like the name. */
 const WALL_DESTINATION = cn("min-w-0 text-xs xl:text-base font-semibold", WALL_TEXT_WRAP)
 
+/** A person's function where a destination would stand («Reko», «Magazin»): the
+ *  destination's type and muted ink, glyph 12px → 14px from `xl`. */
+const PERSON_FUNCTION = "inline-flex shrink-0 items-center gap-1 text-right text-muted-foreground"
+const PERSON_FUNCTION_ICON = "h-3 w-3 xl:h-3.5 xl:w-3.5 shrink-0"
+
 /** Personal/Material rows: the availability mark sits centred in ONE fixed leading
  *  gutter, so every name starts at one edge whether the row carries a dot, a ring or
  *  the «nicht einsatzbereit» Ban glyph. The mark is ~10px from `xl` – read across a
@@ -785,15 +790,18 @@ function PersonRow({ person: p, assignedTo, onOpenIncident }: { person: Person; 
         <span className={cn(WALL_MARK, RESOURCE_STATE_WALL_DOT_CLASSES[personResourceState(p)])} />
       </span>
       <span className={cn("flex-1", WALL_NAME)}><PersonName name={p.name} kennung={p.kennung ?? null} /></span>
-      {/* Special-function markers — same icon language as the board roster. */}
+      {/* Special-function markers — same icon language as the board roster.
+          They answer «where» like the street beside the next name, so they wear
+          the destination's size, weight and ink tier (hill climb r5): a smaller,
+          lighter «Reko» read as a footnote to the row above it. */}
       {p.isReko && (
-        <span className="inline-flex items-center gap-0.5 text-2xs xl:text-xs text-muted-foreground shrink-0">
-          <Binoculars className="h-3 w-3" /> {tk('common.reko')}
+        <span className={cn(PERSON_FUNCTION, WALL_DESTINATION)}>
+          <Binoculars className={PERSON_FUNCTION_ICON} /> {tk('common.reko')}
         </span>
       )}
       {p.isMagazin && (
-        <span className="inline-flex items-center gap-0.5 text-2xs xl:text-xs text-muted-foreground shrink-0">
-          <Package2 className="h-3 w-3" /> {tk('common.magazin')}
+        <span className={cn(PERSON_FUNCTION, WALL_DESTINATION)}>
+          <Package2 className={PERSON_FUNCTION_ICON} /> {tk('common.magazin')}
         </span>
       )}
       {p.isDriver && p.driverVehicleName && (
