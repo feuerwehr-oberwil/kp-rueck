@@ -48,6 +48,7 @@ import RekoReportSection from "@/components/reko/reko-report-section"
 import { SchadenplatzRapportSection } from "@/components/kanban/schadenplatz-rapport-section"
 import { MaterialReturnList } from "@/components/kanban/material-return-list"
 import { DetailField, DetailFlags, DetailGroupHeading, DENSE_CONTROL } from "@/components/kanban/detail-field"
+import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
 import { FieldSaveStatus, fieldSaveEdgeClass, useFieldSave } from "@/components/kanban/field-save-status"
 import { LocationInput } from "@/components/location/location-input"
 import { toast } from "sonner"
@@ -65,6 +66,7 @@ import { FieldRequestList } from "@/components/kanban/field-requests"
 import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import {
+  CrewChipSlot,
   RouteResourceSections,
   ResourceRow,
   RESOURCE_CHIP,
@@ -598,29 +600,13 @@ export function OperationDetailContent({
   // chip row) must wrap or clip — the panel itself never scrolls sideways.
   const tabPanelClass = "min-h-0 flex-1 overflow-y-scroll overflow-x-hidden"
   /**
-   * The last child of every scrolling tab: while content waits below, the bottom
-   * 24px fade into the surface – the assignment dialog's `ScrollArea fadeEnd`
-   * ramp (hill climb r6/r8), here without JS. It is `sticky bottom-0`, so with
-   * more below it rides on the scroller's bottom edge over the content; at the
-   * end it settles into its own place after the content, over nothing. The
+   * The last child of every scrolling tab: the shared `ScrollEndFade` (r18). The
    * `-mt-3` lays half of it over the grid's 12px bottom padding, so the tab gains
    * 12px of end room and the last row scrolls fully clear of the footer rule
-   * instead of being cut through its glyphs (r18).
-   *
-   * The ramp ends in the surface the tab sits on: `--background` in the modal
-   * (a dialog), the panel's `bg-card/30` over the board's background in the side
-   * panel – mixed here, because a translucent stop would let the rows through.
+   * instead of being cut through its glyphs. It ends in the surface the tab sits
+   * on: the dialog's in the modal, the panel's in the side panel.
    */
-  const scrollEndFade = (
-    <div
-      aria-hidden
-      data-slot="detail-scroll-fade"
-      className={cn(
-        "pointer-events-none sticky bottom-0 -mt-3 h-6 bg-linear-to-t to-transparent",
-        layout === 'modal' ? "from-background" : "from-[color-mix(in_oklab,var(--card)_30%,var(--background))]",
-      )}
-    />
-  )
+  const scrollEndFade = <ScrollEndFade surface={layout === 'modal' ? 'dialog' : 'panel'} className="-mt-3" />
   /**
    * The banners: what came in from the field and is still waiting for the KP to
    * do something about it — «Feld meldet beendet / angekommen» and «Abholung».
@@ -682,6 +668,10 @@ export function OperationDetailContent({
    */
   const showEmptyOwnSections = !auftrag
   const ownAddAction = canEdit && onAssignResource && !auftrag
+  // The own crew's leader slot (`CrewChipSlot`): only where it can hold something –
+  // never on a stop inside an Auftrag (the route leads), and on a read-only view only
+  // while somebody actually leads.
+  const ownCrewHasLeaderSlot = !auftrag && (canEdit || operation.crew.some(({ personnelId }) => personnelId === operation.leaderId))
   const ownResourceSections = (
     <>
       {/* Mannschaft (Crew) */}
@@ -701,40 +691,46 @@ export function OperationDetailContent({
           {sortCrewByLeader(operation.crew, operation.leaderId).map(({ personnelId, name: member }) => {
               const isLeader = operation.leaderId === personnelId
               return (
-                <RemovableChip
+                <CrewChipSlot
                   key={personnelId}
-                  variant="secondary"
-                  // The Einsatzleiter is told by the EL badge inside the chip, as
-                  // on the card – no edge of its own: the filled chip shows an
-                  // edge only on hover/focus (hill climb r18).
-                  className={RESOURCE_CHIP}
-                  onRemove={canEdit && onRemoveCrew ? () => onRemoveCrew(operation.id, personnelId) : undefined}
-                  removeTitle={t('detail.removePerson')}
-                  removeButtonClassName="ml-1"
-                  // Touch: the hover-only EL stub below does not exist without
-                  // a mouse, so promotion is a menu row — offered exactly where
-                  // the stub is.
-                  menuTitle={naming.inline({ name: member, personnelId })}
-                  menuSubtitle={<PersonMenuSubtitle personnelId={personnelId} isLeader={!auftrag && isLeader} />}
-                  menuActions={
-                    !auftrag && canEdit && !isLeader
-                      ? [{ label: t('leader.promote'), icon: <LeaderGlyph />, onSelect: () => void promoteToLeader(personnelId) }]
-                      : undefined
+                  // The EL hangs in the slot before the chip (`CrewChipSlot`). A
+                  // stop inside an Auftrag takes its leader from the route, so the
+                  // badge – and with it the slot – is not offered on the stop's
+                  // own crew: it would set a second, competing leader.
+                  leader={
+                    ownCrewHasLeaderSlot && (
+                      <LeaderBadge
+                        isLeader={isLeader}
+                        onPromote={canEdit ? () => void promoteToLeader(personnelId) : undefined}
+                      />
+                    )
                   }
-                  removeLabel={t('chipMenu.removeFromIncident')}
-                  removeIcon={UserMinus}
                 >
-                  {/* A stop inside an Auftrag takes its leader from the route,
-                      so the badge is not offered on the stop's own crew — it
-                      would set a second, competing leader. */}
-                  {!auftrag && (
-                    <LeaderBadge
-                      isLeader={isLeader}
-                      onPromote={canEdit ? () => void promoteToLeader(personnelId) : undefined}
-                    />
-                  )}
-                  <PersonName name={member} personnelId={personnelId} />
-                </RemovableChip>
+                  <RemovableChip
+                    variant="secondary"
+                    // No edge of its own for the Einsatzleiter: the EL badge says
+                    // it, as on the card – the filled chip shows an edge only on
+                    // hover/focus (hill climb r18).
+                    className={RESOURCE_CHIP}
+                    onRemove={canEdit && onRemoveCrew ? () => onRemoveCrew(operation.id, personnelId) : undefined}
+                    removeTitle={t('detail.removePerson')}
+                    removeButtonClassName="ml-1"
+                    // Touch: the hover-only EL stub does not exist without a
+                    // mouse, so promotion is a menu row — offered exactly where
+                    // the stub is.
+                    menuTitle={naming.inline({ name: member, personnelId })}
+                    menuSubtitle={<PersonMenuSubtitle personnelId={personnelId} isLeader={!auftrag && isLeader} />}
+                    menuActions={
+                      !auftrag && canEdit && !isLeader
+                        ? [{ label: t('leader.promote'), icon: <LeaderGlyph />, onSelect: () => void promoteToLeader(personnelId) }]
+                        : undefined
+                    }
+                    removeLabel={t('chipMenu.removeFromIncident')}
+                    removeIcon={UserMinus}
+                  >
+                    <PersonName name={member} personnelId={personnelId} />
+                  </RemovableChip>
+                </CrewChipSlot>
               )
             })}
         </ResourceRow>

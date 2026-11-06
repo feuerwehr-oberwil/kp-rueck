@@ -41,14 +41,17 @@ import {
  *
  * The desktop detail draws each section as a `Label (N) │ chips` row under the
  * «Kräfte» heading (no per-section icon any more) and says an empty section
- * with a short muted `empty` value; the phone sheet keeps its own full
- * sentences (`mobileEmpty`, `mobileDetail.*` keys).
+ * with a short muted `empty` value; the phone sheet heads each section with a
+ * caps «Label · N» (`mobileHeading`) and keeps its own full sentences
+ * (`mobileEmpty`, `mobileDetail.*` keys).
  */
 const SECTIONS = [
   {
     id: 'crew',
     /** `common.crewCount` etc. — the row label is section name + live count. */
     heading: /^Mannschaft \(\d+\)$/,
+    /** The phone sheet's caps head (`mobileDetail.*`): the count after a middle dot. */
+    mobileHeading: /^Mannschaft · \d+$/,
     zero: 'Mannschaft (0)',
     /** `title` on the add control (`common.assignCrew`). */
     addTitle: 'Mannschaft zuweisen',
@@ -58,6 +61,8 @@ const SECTIONS = [
   {
     id: 'vehicles',
     heading: /^Fahrzeuge \(\d+\)$/,
+    /** The phone sheet's caps head (`mobileDetail.*`): the count after a middle dot. */
+    mobileHeading: /^Fahrzeuge · \d+$/,
     zero: 'Fahrzeuge (0)',
     addTitle: 'Fahrzeug zuweisen',
     empty: 'keine',
@@ -66,6 +71,8 @@ const SECTIONS = [
   {
     id: 'materials',
     heading: /^Material \(\d+\)$/,
+    /** The phone sheet's caps head (`mobileDetail.*`): the count after a middle dot. */
+    mobileHeading: /^Material · \d+$/,
     zero: 'Material (0)',
     addTitle: 'Material zuweisen',
     empty: 'keine',
@@ -463,7 +470,7 @@ test.describe('Resource summary — phone layout', () => {
     await expect(sheet).toBeVisible({ timeout: 15_000 });
 
     for (const section of SECTIONS) {
-      await expect(sheet.getByText(section.heading)).toBeVisible();
+      await expect(sheet.getByText(section.mobileHeading)).toBeVisible();
       // The phone sheet keeps its full sentences — it is a different component
       // (`mobile-incident-detail-sheet.tsx`) with its own `mobileDetail.*` keys.
       await expect(sheet.getByText(section.mobileEmpty)).toBeVisible();

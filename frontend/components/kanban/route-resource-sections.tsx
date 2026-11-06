@@ -72,7 +72,8 @@ export function ResourceSectionHeader({ icon: Icon, label, action }: ResourceSec
  * pill reads as a tag you filter by, a squared chip as an object that sits
  * somewhere, and these are objects. Colour on this board is for status and
  * priority, not for resource type; what genuinely distinguishes a chip lives
- * INSIDE it: the EL badge, the driver name, the depot.
+ * in words: the driver name, the depot – and the EL badge in the crew's
+ * leading slot (`CrewChipSlot`).
  *
  * The hover tint is the remove affordance. `duration-150` rather than the bare
  * `transition-colors` default: an instant jump to destructive red on a row of
@@ -81,6 +82,35 @@ export function ResourceSectionHeader({ icon: Icon, label, action }: ResourceSec
 export const RESOURCE_CHIP =
   "group gap-1 rounded-sm border-transparent px-2 pr-1 text-[13px] leading-[18px] font-medium " +
   "transition-colors duration-150 hover:border-border hover:bg-destructive/20 focus-within:border-border"
+
+/**
+ * One crew member of a detail resource row: a 28px leader slot, then the chip –
+ * the 22px «EL» plus the chip row's 6px gap.
+ *
+ * The «EL» badge (or, with a mouse, the hover-only promote stub) stands in the
+ * slot BEFORE the chip, not inside it, so every crew chip starts its name 8px in
+ * and is as wide as its name – and the names of a column hang on one edge, the
+ * EL in the margin like a list mark. Inside the chip, the invisible stub kept
+ * ~30px of filled chip in front of every other name, so «Hoffmann Lisa» read as
+ * centred in a fixed-width pill beside a left-aligned «EL Müller Hans» (hill
+ * climb r19). `group`: hovering the person – slot or chip – reveals the stub.
+ *
+ * `leader` omitted = no slot: a row where nobody leads and nobody can be
+ * promoted (read-only, a stop inside an Auftrag) has nothing to hang there. The
+ * slot swallows its own clicks, so the space around the badge is not the row's
+ * «zuweisen» target.
+ */
+export function CrewChipSlot({ leader, children }: { leader?: ReactNode; children: ReactNode }) {
+  if (!leader) return <>{children}</>
+  return (
+    <span className="group inline-flex min-w-0 max-w-full items-center">
+      <span className="flex w-7 shrink-0 items-center" onClick={(event) => event.stopPropagation()}>
+        {leader}
+      </span>
+      {children}
+    </span>
+  )
+}
 
 /** Width of the resource row's label gutter — the same 120px `DetailField` uses. */
 const RESOURCE_LABEL_GUTTER = "w-[120px]"
@@ -311,6 +341,8 @@ interface RouteResourceSectionsProps {
 export function RouteResourceSections({ resources, onAssign, onUnassign, vehicleDrivers, readOnly = false, onPromoteLeader, onPickDriver, driversKnown }: RouteResourceSectionsProps) {
   const knowsDrivers = driversKnown ?? Boolean(vehicleDrivers)
   const t = useTranslations("kanban")
+  // The leader slot only where it can hold something (see `CrewChipSlot`).
+  const crewHasLeaderSlot = (!readOnly && Boolean(onPromoteLeader)) || resources.personnel.some((p) => p.isLeader)
   return (
     <>
       {/* Mannschaft */}
@@ -324,30 +356,37 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
       >
         {/* EL first (decision 23) — the route's leader heads the route's crew. */}
         {sortCrewByLeader(resources.personnel, (p) => Boolean(p.isLeader)).map((p) => (
-          <RemovableChip
+          <CrewChipSlot
             key={p.assignmentId}
-            variant="secondary"
-            className={RESOURCE_CHIP}
-            onRemove={!readOnly ? () => onUnassign(p.assignmentId) : undefined}
-            removeTitle={t("common.removeNamed", { name: p.name })}
-            removeButtonClassName="ml-1"
-            // Touch: the same two actions the mouse has (EL stub, ✕), as rows.
-            menuTitle={p.name}
-            menuSubtitle={<PersonMenuSubtitle personnelId={p.resourceId} isLeader={Boolean(p.isLeader)} />}
-            menuActions={
-              !readOnly && onPromoteLeader && !p.isLeader
-                ? [{ label: t("leader.promote"), icon: <LeaderGlyph />, onSelect: () => onPromoteLeader(p.assignmentId) }]
-                : undefined
+            leader={
+              crewHasLeaderSlot && (
+                <LeaderBadge
+                  isLeader={Boolean(p.isLeader)}
+                  onPromote={!readOnly && onPromoteLeader ? () => onPromoteLeader(p.assignmentId) : undefined}
+                />
+              )
             }
-            removeLabel={t("chipMenu.removeFromAuftrag")}
-            removeIcon={UserMinus}
           >
-            <LeaderBadge
-              isLeader={Boolean(p.isLeader)}
-              onPromote={!readOnly && onPromoteLeader ? () => onPromoteLeader(p.assignmentId) : undefined}
-            />
-            {p.name}
-          </RemovableChip>
+            <RemovableChip
+              variant="secondary"
+              className={RESOURCE_CHIP}
+              onRemove={!readOnly ? () => onUnassign(p.assignmentId) : undefined}
+              removeTitle={t("common.removeNamed", { name: p.name })}
+              removeButtonClassName="ml-1"
+              // Touch: the same two actions the mouse has (EL stub, ✕), as rows.
+              menuTitle={p.name}
+              menuSubtitle={<PersonMenuSubtitle personnelId={p.resourceId} isLeader={Boolean(p.isLeader)} />}
+              menuActions={
+                !readOnly && onPromoteLeader && !p.isLeader
+                  ? [{ label: t("leader.promote"), icon: <LeaderGlyph />, onSelect: () => onPromoteLeader(p.assignmentId) }]
+                  : undefined
+              }
+              removeLabel={t("chipMenu.removeFromAuftrag")}
+              removeIcon={UserMinus}
+            >
+              {p.name}
+            </RemovableChip>
+          </CrewChipSlot>
         ))}
       </ResourceRow>
 

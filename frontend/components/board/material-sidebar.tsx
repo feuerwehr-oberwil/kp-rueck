@@ -17,6 +17,7 @@ import { Check, ChevronRight, PanelRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Kbd } from "@/components/ui/kbd"
+import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
 import { SearchInput } from "@/components/ui/search-input"
 import { MaterialGroupBlock } from "@/components/kanban/material-group-block"
 import { MaterialOnSitePanel, type selectMaterialOnSite } from "@/components/kanban/material-on-site-panel"
@@ -159,8 +160,8 @@ export function MaterialSidebar({
             assigned, i.e. exactly this material) can filter the answer to
             "what is still out there" away. Renders nothing at zero. */}
         <MaterialOnSitePanel entries={materialOnSiteEntries} onOpenIncident={openIncidentDetail} />
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1 pb-3">
+        {/* Scrollable content – ends in the `ScrollEndFade`, as the Personen-Leiste. */}
+        <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1">
           {!isLoaded ? (
             <SidebarLoading label={tDash('materialLoading')} />
           ) : boardNeverLoaded ? (
@@ -285,6 +286,7 @@ export function MaterialSidebar({
               })}
             </div>
           )}
+          <ScrollEndFade surface="panel" />
         </div>
         {/* Fixed availability counter at bottom — see the left sidebar,
             including why it has three states. */}
