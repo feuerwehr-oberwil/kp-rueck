@@ -40,18 +40,25 @@ export const MAPLIBRE_WORKER_URL = '/maplibre/maplibre-gl-worker.mjs'
  * The one z-order for DOM markers on the main map and its overlays.
  *
  * MapLibre appends every marker to the canvas container, so a plain `zIndex` on the marker
- * element settles stacking. The values keep Leaflet's relative order: an Auftrag's numbered stop
- * pin covers a plain incident dot but yields to a highlighted or hovered one, an assignment's
- * distance pill sits above both, and the three label tiers mirror Leaflet's tooltip pane sitting
- * above the marker pane – a label is text to be read and always wins. The map controls
- * (`.maplibregl-ctrl-*`) are pinned above the whole range by `base-map.tsx`'s
+ * element settles stacking. An incident's permanent label is its OWN marker (IncidentLabel in
+ * `components/map-view.tsx`), so pins and labels can sit in separate bands:
+ *
+ * - at rest every pin paints above every label (hill climb r14) – a label may run under a
+ *   neighbouring dot, but it never hides that dot's priority colour and chevron; inside each
+ *   band Hoch over Mittel over Niedrig (`incidentZ`);
+ * - an Auftrag's numbered stop pin covers a plain incident dot;
+ * - the selected/highlighted incident (label, then its pin) clears every resting pin and stop;
+ * - the pointed-at one (label/hover card, then its pin) clears everything – the hovered route
+ *   stop included.
+ *
+ * The map controls (`.maplibregl-ctrl-*`) are pinned above the whole range by `base-map.tsx`'s
  * `z-maplibre-ctrl`, and our own map chrome that has to clear the range uses `z-map-control`
  * (the z-order block in app/globals.css holds both). Numbers, not those rungs, because these go
  * on a MapLibre `<Marker>` as an inline style — and because the page's ladder must stay out of a
  * scale that is only ever read inside the map's `isolate`.
  *
- * `incident` is the floor of a three-step band (`incidentMarkerZ`): unselected dots stack by
- * priority, still under every route stop.
+ * `label` and `incident` are the floors of three-step priority bands; read them through
+ * `incidentZ`, not directly.
  *
  * The dialog maps (Routen-Editor, Einsatz-Picker) keep their own small local scales – separate
  * maps, no incident markers, no reason to couple them.
@@ -59,30 +66,35 @@ export const MAPLIBRE_WORKER_URL = '/maplibre/maplibre-gl-worker.mjs'
 export const Z = {
   station: 10,
   vehicle: 40,
-  incident: 50,
+  label: 50,
+  incident: 60,
   routeStop: 100,
   distancePill: 250,
-  incidentHighlighted: 300,
-  routeStopHighlighted: 300,
+  labelSelected: 300,
+  incidentHighlighted: 310,
+  routeStopHighlighted: 310,
   routeStopHovered: 400,
-  incidentHovered: 600,
-  label: 700,
-  labelSelected: 900,
-  labelHovered: 1000,
+  labelHovered: 600,
+  incidentHovered: 610,
 } as const
 
+const PRIORITY_RANK: Partial<Record<string, number>> = { high: 2, medium: 1 }
+
 /**
- * An incident dot's z: the pointed-at one on top, then the selected/highlighted ones, then the
- * rest by priority – Hoch over Mittel over Niedrig – so where dots overlap in a cluster a Niedrig
- * pin never covers a Hoch one and its chevron (hill climb r13). Phone and desktop alike.
+ * The z of an incident's pin or its label (see `Z`). `hovered` = pointed at (a label also counts
+ * its pinned, click-selected incident as hovered – it shows the hover card); `highlighted` =
+ * selected on the map or highlighted from the list/Reko. Phone and desktop alike: on a phone the
+ * kept labels never cover a dot anyway (`lib/map-labels.ts`).
  */
-export function incidentMarkerZ(
+export function incidentZ(
+  part: 'pin' | 'label',
   priority: string | null | undefined,
   state: { hovered: boolean; highlighted: boolean },
 ): number {
-  if (state.hovered) return Z.incidentHovered
-  if (state.highlighted) return Z.incidentHighlighted
-  return Z.incident + (priority === 'high' ? 2 : priority === 'medium' ? 1 : 0)
+  const pin = part === 'pin'
+  if (state.hovered) return pin ? Z.incidentHovered : Z.labelHovered
+  if (state.highlighted) return pin ? Z.incidentHighlighted : Z.labelSelected
+  return (pin ? Z.incident : Z.label) + (PRIORITY_RANK[priority ?? ''] ?? 0)
 }
 
 /**
