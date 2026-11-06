@@ -81,6 +81,9 @@ export function EventFiguresView({
   const byPriority = new Map(figures.by_priority.map((p) => [p.priority, p]))
   const waitingOf = (p: Priority) => byPriority.get(p)?.waiting ?? 0
 
+  // Counted from Eingang (`created_at`), like the Reaktionszeiten under it – not
+  // the card's clock (by default time in its column), so the label names it:
+  // «seit Eingang 45′» beside a card reading 40′ is two clocks, not a mistake.
   const oldest = figures.oldest_waiting_high
   const oldestSince = oldest ? new Date(oldest.created_at) : null
   const oldestAge = oldestSince ? formatDuration(Date.now() - oldestSince.getTime()) : null

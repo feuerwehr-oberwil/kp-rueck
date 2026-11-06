@@ -684,7 +684,7 @@
       "inProgress": "En cours",
       "done": "Terminées",
       "oldestHigh": "Plus ancienne annonce «haute» en attente",
-      "waitingSince": "attend depuis {age}",
+      "waitingSince": "depuis la réception {age}",
       "noWaitingHigh": "Aucune annonce «haute» en attente.",
       "openIncident": "Ouvrir l’intervention",
       "reactionTitle": "Temps de réaction depuis la réception",
