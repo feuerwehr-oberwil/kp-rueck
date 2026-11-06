@@ -1402,8 +1402,10 @@ export function ResourceAssignmentDialog({
           )}
 
           {/* Resource List — flexes to fill the space between chips and footer,
-              so the list scrolls internally and the dialog never exceeds 85dvh. */}
-          <ScrollArea className="flex-1 min-h-0 pr-2">
+              so the list scrolls internally and the dialog never exceeds 85dvh. `fadeEnd`:
+              while tiles run on below, its bottom edge fades instead of cutting a tile
+              off flush against the footer. */}
+          <ScrollArea className="flex-1 min-h-0 pr-2" fadeEnd>
             <div className="space-y-2">
               {resourceType === 'crew' && (
                 <div className="space-y-4">
@@ -1508,8 +1510,9 @@ export function ResourceAssignmentDialog({
             </div>
           </ScrollArea>
 
-          {/* Footer */}
-          <div className="flex justify-end gap-2 pt-2">
+          {/* Footer — a rule and 16px above the buttons, so the last tiles and section heads
+              end at an edge instead of running into the footer's surface. */}
+          <div className="flex justify-end gap-2 border-t border-border pt-4">
             {(resourceType === 'crew' || resourceType === 'materials') && (
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 {t('common.cancel')}

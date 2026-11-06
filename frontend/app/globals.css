@@ -1187,19 +1187,6 @@
   }
 }
 
-/* Incident markers are sized in JS (24/32px) for wall monitors. On small
-   screens that reads as oversized, so scale the inner svg down. The transform
-   stays on the svg and off the .custom-marker wrapper: MapLibre positions a
-   marker by writing a transform onto its ROOT element (the wrapper is our own
-   box inside that root), so `transform-origin: center` here is measured against
-   the pin itself and the centre anchor stays put. */
-@media (max-width: 640px) {
-  .custom-marker svg {
-    transform: scale(0.62);
-    transform-origin: center;
-  }
-}
-
 .priority-high-pulse {
   animation: priority-pulse 2s ease-in-out infinite;
 }

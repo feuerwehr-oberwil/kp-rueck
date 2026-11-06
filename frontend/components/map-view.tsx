@@ -28,7 +28,7 @@ import { GpsSimBanner } from "./gps-sim-banner"
 import { colorAccent, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 import { AssignmentLines } from "./map/assignment-lines"
 import { OperationHoverCard } from "./map/operation-hover-card"
-import { MAP_COLORS, PRIORITY_MARKER_COLORS, STATUS_RING } from "@/lib/map-colors"
+import { MAP_COLORS, PRIORITY_MARKER_COLORS, STATUS_RING, incidentPinRings, incidentPinSize } from "@/lib/map-colors"
 import { markerGlyphInk, priorityGlyphPath } from "@/lib/map-priority"
 import { DEFAULT_CENTER_LATLNG, fitTo, Z, type LatLngPoint } from "@/lib/map-view"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
@@ -93,11 +93,14 @@ const NO_OPERATIONS = new Map<string, Operation>()
 function IncidentPin({
   incident,
   highlighted,
+  compact,
   accentColor,
   onActivate,
 }: {
   incident: Incident
   highlighted: boolean
+  /** Phone geometry (`STATUS_RING.phone`): bigger pin, 3px frame, spaced dashes / round dots. */
+  compact: boolean
   accentColor?: string | null
   onActivate: () => void
 }) {
@@ -107,14 +110,11 @@ function IncidentPin({
   const priorityColor =
     PRIORITY_MARKER_COLORS[incident.priority as keyof typeof PRIORITY_MARKER_COLORS] ?? MAP_COLORS.offline
   const fillColor = accentColor || priorityColor
-  const size = highlighted ? 32 : 24
+  const size = incidentPinSize(highlighted, compact)
 
   const statusGroup = STATUS_TO_GROUP[incident.status as IncidentStatus] || 'open'
   const borderStyle = STATUS_GROUP_BORDER_STYLE[statusGroup]
-
-  const borderRadius = size / 2
-  const innerRadius = borderRadius - 3 // Leave space for border
-  const borderOffset = STATUS_RING.width / 2
+  const rings = incidentPinRings(size, compact, statusGroup)
 
   // D8: tabbable + screen-reader-friendly marker. Enter/Space activate it directly now —
   // under Leaflet the icon was an HTML string, so the key had to be caught on the map wrapper
@@ -152,18 +152,18 @@ function IncidentPin({
 
       {/* Priority fill circle with white border */}
       <circle
-        cx={borderRadius}
-        cy={borderRadius}
-        r={innerRadius}
+        cx={rings.r}
+        cy={rings.r}
+        r={rings.fillR}
         fill={fillColor}
         stroke={highlighted ? MAP_COLORS.info : "white"}
-        strokeWidth={3}
+        strokeWidth={rings.halo}
         filter={`url(#${shadowId})`}
       />
 
       {/* Priority glyph: ▲ Hoch, – Mittel, ▼ Niedrig, as on the board's cards. */}
       <path
-        d={priorityGlyphPath(incident.priority, borderRadius, borderRadius, size / 24)}
+        d={priorityGlyphPath(incident.priority, rings.r, rings.r, size / 24)}
         fill="none"
         stroke={markerGlyphInk(fillColor)}
         strokeWidth={2}
@@ -173,13 +173,14 @@ function IncidentPin({
 
       {/* Status border ring (outer) */}
       <circle
-        cx={borderRadius}
-        cy={borderRadius}
-        r={borderRadius - borderOffset}
+        cx={rings.r}
+        cy={rings.r}
+        r={rings.ringR}
         fill="none"
         stroke={STATUS_RING.color}
-        strokeWidth={STATUS_RING.width}
-        strokeDasharray={borderStyle.dasharray}
+        strokeWidth={rings.ringWidth}
+        strokeDasharray={rings.dasharray}
+        strokeLinecap={rings.linecap}
       />
     </svg>
   )
@@ -217,6 +218,7 @@ function useOpenOnDoubleClick(onOpen?: () => void) {
 function IncidentMarker({
   incident,
   highlighted,
+  compact,
   accentColor,
   zIndex,
   onSelect,
@@ -226,6 +228,8 @@ function IncidentMarker({
 }: {
   incident: Incident
   highlighted: boolean
+  /** Phone geometry – see IncidentPin. */
+  compact: boolean
   accentColor?: string | null
   zIndex: number
   onSelect: () => void
@@ -234,7 +238,7 @@ function IncidentMarker({
   onHoverStart: () => void
   onHoverEnd: () => void
 }) {
-  const size = highlighted ? 32 : 24
+  const size = incidentPinSize(highlighted, compact)
   const doubleClickRef = useOpenOnDoubleClick(onOpen)
   return (
     <Marker
@@ -248,10 +252,8 @@ function IncidentMarker({
         onSelect()
       }}
     >
-      {/* `.custom-marker` is what the small-screen scale-down in globals.css hangs on. */}
       <div
         ref={doubleClickRef}
-        className="custom-marker"
         style={{ position: "relative", width: size, height: size }}
         onMouseEnter={onHoverStart}
         onMouseLeave={onHoverEnd}
@@ -259,6 +261,7 @@ function IncidentMarker({
         <IncidentPin
           incident={incident}
           highlighted={highlighted}
+          compact={compact}
           accentColor={accentColor}
           onActivate={onSelect}
         />
@@ -658,8 +661,9 @@ function shortAddressOf(incident: Incident): string {
 }
 
 const NO_LABELS: ReadonlySet<string> = new Set()
-// The incident dot at rest (IncidentPin), which no kept label may cover.
-const INCIDENT_DOT_SIZE = 24
+// The incident dot at rest (IncidentPin), which no kept label may cover. Fit labels only run on
+// the compact map, so this is the phone pin.
+const INCIDENT_DOT_SIZE = incidentPinSize(false, true)
 
 /**
  * The phone's collision-checked labels (label mode `fit`, see `lib/map-labels.ts`): which ids may
@@ -1430,6 +1434,7 @@ export default function MapView({
               <IncidentMarker
                 incident={incident}
                 highlighted={isHighlighted}
+                compact={compactMap}
                 accentColor={effectiveMarkerAccents?.get(incident.id) ?? null}
                 // Two markers a few metres apart overlap; the one being pointed at (or
                 // selected) belongs on top, not wherever the DOM order put it.
