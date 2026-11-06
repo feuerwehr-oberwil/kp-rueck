@@ -136,11 +136,12 @@ describe('an Auftrag’s crew, once per column', () => {
     expect([...folded]).toEqual([['s3', 2], ['s4', 2]])
   })
 
-  it('folds the chips into the stop line', () => {
+  it('folds the chips into one «Mannschaft wie Stopp n» line, apart from the stop metadata', () => {
     renderWithIntl(
       <DisplayIncidentCard operation={operation()} auftrag={auftrag} auftragResources={auftragResources} crewShownAt={2} />,
     )
-    expect(screen.getByText(/Mannschaft wie Stopp 2/)).toBeInTheDocument()
+    expect(screen.getByText('Mannschaft wie Stopp 2')).toBeInTheDocument()
+    expect(screen.getByText(/Pio · 1 Gerät/).textContent).not.toMatch(/Mannschaft/)
     expect(screen.queryByText('Weber Martin')).not.toBeInTheDocument()
   })
 
@@ -154,5 +155,12 @@ describe('an Auftrag’s crew, once per column', () => {
       />,
     )
     expect(screen.queryByText(/Mannschaft wie/)).not.toBeInTheDocument()
+  })
+})
+
+describe('the wall card’s waiting state', () => {
+  it('says «Am Warten» and the reason in words, as the desk card does', () => {
+    renderWithIntl(<DisplayIncidentCard operation={operation({ amWarten: true, amWartenNote: ' DL aus Reinach ' })} />)
+    expect(screen.getByText('Am Warten · DL aus Reinach')).toBeInTheDocument()
   })
 })
