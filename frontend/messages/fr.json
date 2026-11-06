@@ -296,11 +296,21 @@
       "no": "Non",
       "personCount": "{count, plural, one {# personne} other {# personnes}}",
       "staleWarn": "Liaison perturbée – dernier état à {time}. L’actualisation continue.",
-      "staleAlert": "Pas de liaison · état à {time}"
+      "staleAlert": "Pas de liaison · état à {time}",
+      "moreBelow": "+{count} de plus ↓"
     },
     "board": {
       "loginRequired": "Connecte-toi pour afficher le tableau.",
       "collapsedColumnTitle": "{title} – {count} – cliquer pour déplier",
+      "railLabel": {
+        "incoming": "Reçu",
+        "reko": "Reco",
+        "reko_done": "Reco term.",
+        "enroute": "En route",
+        "active": "Interv.",
+        "returning": "Retour",
+        "complete": "Clôturé"
+      },
       "columnAlarmTitle": "{count} en retard : {titles}",
       "columnAlarmMore": "… et {count} autres",
       "columnAgedChip": "{count} ≥ {threshold}",

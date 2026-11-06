@@ -15,8 +15,8 @@
  *
  * Renders nothing while no incident in the column has reached 60'.
  *
- * Usage: `<WallColumnAgeChip operations={columnOps} />`, `folded` on the 48px
- * strip, where it runs vertically like the strip's label.
+ * Usage: `<WallColumnAgeChip operations={columnOps} />` – the same chip on the
+ * open header and on the folded rail (components/display/wall-folded-column).
  */
 
 import { useTranslations } from "next-intl"
@@ -34,10 +34,7 @@ export const AGED_FROM_MINUTES = 60
 /** The age the wall counts from: time in the current status (the card's age chip). */
 const ageSince = (op: Pick<Operation, "statusChangedAt" | "dispatchTime">) => op.statusChangedAt || op.dispatchTime
 
-export function WallColumnAgeChip({ operations, folded = false }: {
-  operations: readonly Operation[]
-  folded?: boolean
-}) {
+export function WallColumnAgeChip({ operations }: { operations: readonly Operation[] }) {
   const t = useTranslations("display.board")
   const aged = operations.filter((op) => ageLevel(ageSince(op)) !== "normal")
   if (aged.length === 0) return null
@@ -58,8 +55,7 @@ export function WallColumnAgeChip({ operations, folded = false }: {
       className={cn(
         // The count chip's geometry and type (WALL_COLUMN_COUNT_CLASS), its
         // neutral fill too: the colour is the text's, as on the card's age.
-        "inline-flex flex-shrink-0 items-center gap-1 rounded-sm bg-foreground/10 text-sm leading-[1.125rem] tabular-nums whitespace-nowrap",
-        folded ? "w-6 py-1.5 [writing-mode:vertical-rl]" : "h-6 px-1.5",
+        "inline-flex h-6 flex-shrink-0 items-center gap-1 rounded-sm bg-foreground/10 px-1.5 text-sm leading-[1.125rem] tabular-nums whitespace-nowrap",
         ageChipClass(ageSince(oldest)),
         "font-semibold",
       )}

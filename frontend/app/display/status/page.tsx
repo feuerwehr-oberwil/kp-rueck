@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useCallback } from "react"
+import { useMemo, useState, useCallback, useRef } from "react"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
 import { Binoculars, Package2, Ban, Infinity as InfinityIcon, Truck } from "lucide-react"
@@ -42,6 +42,8 @@ import { useEventFigures } from "@/lib/hooks/use-event-figures"
 import type { ApiEventFigures } from "@/lib/api-client"
 import { PersonName, PersonNamingProvider } from "@/components/person-name"
 import { auftragByResource } from "@/lib/auftrag-by-resource"
+import { WallScrollBody } from "@/components/display/wall-more-below"
+import { useMaterialSplit } from "@/components/display/material-split"
 
 const STATUS_ORDER = ["incoming", "reko", "reko_done", "enroute", "active", "returning"]
 
@@ -90,12 +92,28 @@ const PERSON_FUNCTION_ICON = "h-3 w-3 xl:h-3.5 xl:w-3.5 shrink-0"
 const DRIVER_VEHICLE_TAG =
   "inline-flex shrink-0 items-center gap-1 rounded-sm bg-foreground/10 px-1.5 text-xs leading-4 xl:text-sm xl:leading-[1.125rem] font-semibold text-foreground"
 
+/** A Personal/Material row: the name group on the left, the where-group on the
+ *  right, 12px apart at the least (hill climb r19 – at 8px a long name ran into
+ *  «Mawa → Bättwilerstrasse 7»). The where-group wraps inside the row's inset,
+ *  right-aligned, before it squeezes the name. */
+const RESOURCE_ROW = "flex items-center gap-3 px-2 py-1.5 rounded-sm"
+const RESOURCE_ROW_NAME = "flex min-w-0 flex-1 items-center gap-2"
+const RESOURCE_ROW_WHERE = "flex min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-0.5"
+
 /** Personal/Material rows: the availability mark sits centred in ONE fixed leading
  *  gutter, so every name starts at one edge whether the row carries a dot, a ring or
  *  the «nicht einsatzbereit» Ban glyph. The mark is ~10px from `xl` – read across a
  *  room, the board's 8px marks read like punctuation. */
 const WALL_MARK_GUTTER = "flex w-3.5 xl:w-4 shrink-0 items-center justify-center"
 const WALL_MARK = "size-2 xl:size-2.5 rounded-full"
+
+/** What the column foot's «+n weiter ↓» counts (WallScrollBody): one row each. */
+const WALL_ITEM = "[data-wall-item]"
+
+/** The Personal and Material rows' box: 8px in from the column, and each row 8px
+ *  more, so a name starts 16px in – under the section head's chevron – and a
+ *  destination ends 16px before the divider (hill climb r19). */
+const RESOURCE_ROWS = "px-2 py-1 space-y-0.5 xl:space-y-1"
 
 /** A panel on a phone: stacked full width (lib/wall-stack), a rule under it instead of beside it. */
 const STACKED_PANEL = cn(WALL_STACK_COLUMN, "max-sm:border-r-0 max-sm:border-b")
@@ -398,6 +416,49 @@ function SituationBoard({
     return groups
   }, [materials])
 
+  // Material that does not fit its own column continues under the vehicle
+  // tiles, group by group (components/display/material-split).
+  const vehicleBodyRef = useRef<HTMLDivElement>(null)
+  const vehicleListRef = useRef<HTMLDivElement>(null)
+  const materialBodyRef = useRef<HTMLDivElement>(null)
+  const materialSplitAt = useMaterialSplit({
+    vehicleBody: vehicleBodyRef,
+    vehicleList: vehicleListRef,
+    materialBody: materialBodyRef,
+    groupsKey: groupedMaterials.map((g) => g.category).join("\u0000"),
+  })
+
+  // One Materialkategorie, in whichever column it stands.
+  const materialGroup = ({ category, items }: (typeof groupedMaterials)[number]) => {
+    // «frei» means it can be sent out — neither on an Einsatz nor broken.
+    const free = items.filter((m) => materialResourceState(m) === "available").length
+    return (
+      <div key={category} data-material-group={category}>
+        <CollapsibleSection
+          label={category}
+          count={items.length}
+          badge={
+            <span className={cn(
+              "shrink-0 text-2xs xl:text-xs tabular-nums",
+              free === 0 ? "font-semibold text-foreground" : "text-muted-foreground",
+            )}>
+              {t('freeOfTotal', { free, total: items.length })}
+            </span>
+          }
+          collapsed={sections.isCollapsed(`material:${category}`)}
+          onToggle={() => sections.toggle(`material:${category}`)}
+          headerClassName="bg-muted/40"
+        >
+          <div className={RESOURCE_ROWS}>
+            {items.map((m) => (
+              <MaterialRow key={m.id} material={m} assignedTo={materialAssignment.get(m.id) ?? []} auftrag={auftragByMaterialId.get(m.id)} onOpenIncident={setSelectedOperationId} />
+            ))}
+          </div>
+        </CollapsibleSection>
+      </div>
+    )
+  }
+
   // Vehicle readiness beats deployment, so both numbers are read off the same
   // helper the rows draw with — «6 verfügbar» must not include the one on the
   // ramp with a broken pump. A vehicle out on an Auftrag is deployed too: it
@@ -441,16 +502,25 @@ function SituationBoard({
               })
             : t('availableDeployed', { available: vehicleStatus.length - deployed, deployed })}
         />
-        <div className={cn("flex-1 overflow-y-auto p-2 xl:p-3 space-y-1.5 xl:space-y-2", WALL_STACK_BODY)}>
-          {vehicleStatus.map((v) => (
-            <VehicleRow
-              key={v.id}
-              vehicle={v}
-              auftrag={auftragByVehicleId.get(v.id)}
-              onClick={v.assignedOperation ? () => setSelectedOperationId(v.assignedOperation!.id) : undefined}
-            />
-          ))}
-        </div>
+        <WallScrollBody bodyRef={vehicleBodyRef} itemSelector={WALL_ITEM} className={cn("relative flex-1 overflow-y-auto", WALL_STACK_BODY)}>
+          <div ref={vehicleListRef} className="p-2 xl:p-3 space-y-1.5 xl:space-y-2">
+            {vehicleStatus.map((v) => (
+              <VehicleRow
+                key={v.id}
+                vehicle={v}
+                auftrag={auftragByVehicleId.get(v.id)}
+                onClick={v.assignedOperation ? () => setSelectedOperationId(v.assignedOperation!.id) : undefined}
+              />
+            ))}
+          </div>
+          {/* Material's first groups, when its own column is too short for all of them. */}
+          {materialSplitAt > 0 && (
+            <div data-material-continued-head className="px-3 xl:px-4 py-2 xl:py-2.5 border-y border-border bg-muted/40">
+              <h2 className="text-sm xl:text-base font-bold tracking-tight uppercase">{t('material')}</h2>
+            </div>
+          )}
+          {groupedMaterials.slice(0, materialSplitAt).map(materialGroup)}
+        </WallScrollBody>
       </div>
 
       {/* ── Column 2: Active Incidents ── */}
@@ -461,7 +531,7 @@ function SituationBoard({
 
           subtitle={t('incomingInProgress', { incoming: stats.incomingCount, inProgress: stats.activeOperations - stats.incomingCount })}
         />
-        <div className={cn("relative flex-1 overflow-y-auto", WALL_STACK_BODY)}>
+        <WallScrollBody itemSelector={WALL_ITEM} className={cn("relative flex-1 overflow-y-auto", WALL_STACK_BODY)}>
           {/* Aufträge first — the grouping the radio talks in. Each route names
               its stops in the order they are driven, so «Stopp 2 von 3» is
               readable from across the room without opening anything. */}
@@ -551,7 +621,7 @@ function SituationBoard({
               </CollapsibleSection>
             ))
           )}
-        </div>
+        </WallScrollBody>
       </div>
 
       {/* ── Column 3: Personnel ── */}
@@ -562,7 +632,7 @@ function SituationBoard({
 
           subtitle={t('availableDeployed', { available: stats.personnelAvailable, deployed: assignedPersonnelCount })}
         />
-        <div className={cn("relative flex-1 overflow-y-auto", WALL_STACK_BODY)}>
+        <WallScrollBody itemSelector={WALL_ITEM} className={cn("relative flex-1 overflow-y-auto", WALL_STACK_BODY)}>
           {groupedPersonnel.map(({ role, people }) => {
             const free = people.filter((p) => personResourceState(p) !== "assigned").length
             return (
@@ -585,7 +655,7 @@ function SituationBoard({
                 onToggle={() => sections.toggle(`role:${role}`)}
                 headerClassName="bg-muted/40"
               >
-                <div className="px-2 xl:px-3 py-1 space-y-0.5 xl:space-y-1">
+                <div className={RESOURCE_ROWS}>
                   {people.map((p) => (
                     <PersonRow key={p.id} person={p} assignedTo={personAssignment.get(p.id)} auftrag={auftragByPersonId.get(p.id)} onOpenIncident={setSelectedOperationId} />
                   ))}
@@ -593,7 +663,7 @@ function SituationBoard({
               </CollapsibleSection>
             )
           })}
-        </div>
+        </WallScrollBody>
       </div>
 
       {/* ── Column 4: Materials ── */}
@@ -610,39 +680,12 @@ function SituationBoard({
               })
             : t('availableDeployed', { available: materials.length - assignedMaterialCount, deployed: assignedMaterialCount })}
         />
-        <div className={cn("relative flex-1 overflow-y-auto", WALL_STACK_BODY)}>
-          {groupedMaterials.map(({ category, items }) => {
-            // «frei» means it can be sent out — neither on an Einsatz nor broken.
-            const free = items.filter((m) => materialResourceState(m) === "available").length
-            return (
-              <CollapsibleSection
-                key={category}
-                label={category}
-                count={items.length}
-                badge={
-                  <span className={cn(
-                    "shrink-0 text-2xs xl:text-xs tabular-nums",
-                    free === 0 ? "font-semibold text-foreground" : "text-muted-foreground",
-                  )}>
-                    {t('freeOfTotal', { free, total: items.length })}
-                  </span>
-                }
-                collapsed={sections.isCollapsed(`material:${category}`)}
-                onToggle={() => sections.toggle(`material:${category}`)}
-                headerClassName="bg-muted/40"
-              >
-                <div className="px-2 xl:px-3 py-1 space-y-0.5 xl:space-y-1">
-                  {items.map((m) => (
-                    <MaterialRow key={m.id} material={m} assignedTo={materialAssignment.get(m.id) ?? []} auftrag={auftragByMaterialId.get(m.id)} onOpenIncident={setSelectedOperationId} />
-                  ))}
-                </div>
-              </CollapsibleSection>
-            )
-          })}
+        <WallScrollBody bodyRef={materialBodyRef} itemSelector={WALL_ITEM} className={cn("relative flex-1 overflow-y-auto", WALL_STACK_BODY)}>
+          {groupedMaterials.slice(materialSplitAt).map(materialGroup)}
           {materials.length === 0 && (
             <div className="text-center text-muted-foreground py-12 text-sm xl:text-base">{t('noMaterial')}</div>
           )}
-        </div>
+        </WallScrollBody>
       </div>
 
       <IncidentDetailModal
@@ -693,6 +736,7 @@ function VehicleRow({ vehicle: v, auftrag, onClick }: { vehicle: VehicleWithStat
   const isOutOfService = state === "unavailable"
   return (
     <div
+      data-wall-item
       className={cn(
         "flex items-center gap-3 px-3 xl:px-4 py-2 xl:py-2.5 rounded-md",
         isDeployed ? "bg-muted/40" : "bg-muted/20",
@@ -758,6 +802,7 @@ function IncidentRow({ operation: op, onClick }: { operation: Operation; onClick
   const priority = (op.priority ?? "low") as Priority
   return (
     <div
+      data-wall-item
       className={cn(
         // border-l-4 like both card surfaces: same edge, same width, same
         // meaning. High and medium colour it; low closes it (see priority.ts).
@@ -815,42 +860,46 @@ function PersonRow({ person: p, assignedTo, auftrag, onOpenIncident }: { person:
   const clickable = isAssigned && !!assignedTo
   return (
     <div
-      className={cn(
-        "flex items-center gap-2 px-3 xl:px-4 py-1.5 xl:py-2 rounded-sm",
-        clickable && "cursor-pointer transition-colors hover:bg-muted/60"
-      )}
+      data-wall-item
+      className={cn(RESOURCE_ROW, clickable && "cursor-pointer transition-colors hover:bg-muted/60")}
       onClick={clickable ? () => onOpenIncident(assignedTo!.operationId) : undefined}
     >
-      {/* Reko counts as busy here: a Reko is an Auftrag, but it never sets status="assigned" */}
-      <span className={WALL_MARK_GUTTER} aria-hidden="true">
-        <span className={cn(WALL_MARK, RESOURCE_STATE_DOT_CLASSES[personResourceState(p)])} />
+      <span className={RESOURCE_ROW_NAME}>
+        {/* Reko counts as busy here: a Reko is an Auftrag, but it never sets status="assigned" */}
+        <span className={WALL_MARK_GUTTER} aria-hidden="true">
+          <span className={cn(WALL_MARK, RESOURCE_STATE_DOT_CLASSES[personResourceState(p)])} />
+        </span>
+        <span className={cn("flex-1", WALL_NAME)}><PersonName name={p.name} kennung={p.kennung ?? null} /></span>
       </span>
-      <span className={cn("flex-1", WALL_NAME)}><PersonName name={p.name} kennung={p.kennung ?? null} /></span>
-      {/* Special-function markers — same icon language as the board roster.
-          They answer «where» like the street beside the next name, so they wear
-          the destination's size, weight and ink tier (hill climb r5): a smaller,
-          lighter «Reko» read as a footnote to the row above it. */}
-      {p.isReko && (
-        <span className={cn(PERSON_FUNCTION, WALL_DESTINATION)}>
-          <Binoculars className={PERSON_FUNCTION_ICON} /> {tk('common.reko')}
+      {(p.isReko || p.isMagazin || (p.isDriver && p.driverVehicleName) || clickable || auftrag) && (
+        <span className={RESOURCE_ROW_WHERE}>
+          {/* Special-function markers — same icon language as the board roster.
+              They answer «where» like the street beside the next name, so they wear
+              the destination's size, weight and ink tier (hill climb r5): a smaller,
+              lighter «Reko» read as a footnote to the row above it. */}
+          {p.isReko && (
+            <span className={cn(PERSON_FUNCTION, WALL_DESTINATION)}>
+              <Binoculars className={PERSON_FUNCTION_ICON} /> {tk('common.reko')}
+            </span>
+          )}
+          {p.isMagazin && (
+            <span className={cn(PERSON_FUNCTION, WALL_DESTINATION)}>
+              <Package2 className={PERSON_FUNCTION_ICON} /> {tk('common.magazin')}
+            </span>
+          )}
+          {p.isDriver && p.driverVehicleName && (
+            <span className={DRIVER_VEHICLE_TAG} title={tk('person.driverFunction', { vehicle: p.driverVehicleName })}>
+              <Truck aria-hidden className={cn(PERSON_FUNCTION_ICON, "text-muted-foreground")} />
+              {p.driverVehicleName}
+            </span>
+          )}
+          {clickable ? (
+            <span className={cn(WALL_DESTINATION, "text-right text-muted-foreground")}>→ {assignedTo!.label}</span>
+          ) : auftrag ? (
+            <AuftragDestination auftrag={auftrag} />
+          ) : null}
         </span>
       )}
-      {p.isMagazin && (
-        <span className={cn(PERSON_FUNCTION, WALL_DESTINATION)}>
-          <Package2 className={PERSON_FUNCTION_ICON} /> {tk('common.magazin')}
-        </span>
-      )}
-      {p.isDriver && p.driverVehicleName && (
-        <span className={DRIVER_VEHICLE_TAG} title={tk('person.driverFunction', { vehicle: p.driverVehicleName })}>
-          <Truck aria-hidden className={cn(PERSON_FUNCTION_ICON, "text-muted-foreground")} />
-          {p.driverVehicleName}
-        </span>
-      )}
-      {clickable ? (
-        <span className={cn(WALL_DESTINATION, "text-right text-muted-foreground")}>→ {assignedTo!.label}</span>
-      ) : auftrag ? (
-        <AuftragDestination auftrag={auftrag} />
-      ) : null}
     </div>
   )
 }
@@ -873,24 +922,23 @@ function MaterialRow({ material: m, assignedTo, auftrag, onOpenIncident }: { mat
   const clickable = !!single
   return (
     <div
-      className={cn(
-        "flex items-center gap-2 px-3 xl:px-4 py-1.5 xl:py-2 rounded-sm",
-        isOutOfService && "opacity-70",
-        clickable && "cursor-pointer transition-colors hover:bg-muted/60"
-      )}
+      data-wall-item
+      className={cn(RESOURCE_ROW, isOutOfService && "opacity-70", clickable && "cursor-pointer transition-colors hover:bg-muted/60")}
       onClick={clickable ? () => onOpenIncident(single!.operationId) : undefined}
     >
-      {/* Verbrauchsmaterial stays green even while assigned — it is stocked, not
-          lent out. Broken beats both: a defective Fass is not "unlimited". */}
-      <span className={WALL_MARK_GUTTER} aria-hidden="true">
-        {isOutOfService ? (
-          <Ban className="h-3 w-3 xl:h-3.5 xl:w-3.5 text-muted-foreground" />
-        ) : (
-          <span className={cn(WALL_MARK, RESOURCE_STATE_DOT_CLASSES[state])} />
-        )}
+      <span className={RESOURCE_ROW_NAME}>
+        {/* Verbrauchsmaterial stays green even while assigned — it is stocked, not
+            lent out. Broken beats both: a defective Fass is not "unlimited". */}
+        <span className={WALL_MARK_GUTTER} aria-hidden="true">
+          {isOutOfService ? (
+            <Ban className="h-3 w-3 xl:h-3.5 xl:w-3.5 text-muted-foreground" />
+          ) : (
+            <span className={cn(WALL_MARK, RESOURCE_STATE_DOT_CLASSES[state])} />
+          )}
+        </span>
+        {m.consumable && !isOutOfService && <InfinityIcon className="h-3 w-3 xl:h-3.5 xl:w-3.5 shrink-0 text-muted-foreground" aria-label={tk('material.consumableUnlimited')} />}
+        <span className={cn("flex-1", WALL_NAME, isOutOfService && "text-muted-foreground")}>{m.name}</span>
       </span>
-      {m.consumable && !isOutOfService && <InfinityIcon className="h-3 w-3 xl:h-3.5 xl:w-3.5 shrink-0 text-muted-foreground" aria-label={tk('material.consumableUnlimited')} />}
-      <span className={cn("flex-1", WALL_NAME, isOutOfService && "text-muted-foreground")}>{m.name}</span>
       {isOutOfService ? (
         <span className="text-2xs xl:text-xs font-medium text-muted-foreground shrink-0">{tc('notReady')}</span>
       ) : single ? (

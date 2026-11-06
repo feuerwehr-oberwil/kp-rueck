@@ -206,8 +206,12 @@ function DisplayChrome({
           keeps it thumb-reachable there). Pinned: it is the only bar the display
           pages have, and on a share link it also carries the «Nur-Lesen» badge
           that used to sit in a second header of its own.
-          Token/viewer mode omits the back link so there's no path to the editor. */}
-      <header className="order-last sm:order-first flex items-center justify-between gap-3 border-t sm:border-t-0 sm:border-b border-border bg-header px-3 py-2 sm:py-1.5 min-h-10 shrink-0">
+          Token/viewer mode omits the back link so there's no path to the editor.
+          From `sm` up the two things read across the room – which Ereignis, what
+          time – are pinned in px (Ereignis 18/600, clock 20/600 mono), and so is
+          the bar's 44px: the wall boards fit their root size (use-wall-fit), and
+          a rem bar made the name 12px on a full board (hill climb r19). */}
+      <header className="order-last sm:order-first flex items-center justify-between gap-3 border-t sm:border-t-0 sm:border-b border-border bg-header px-3 py-2 sm:py-1 min-h-10 sm:min-h-[44px] shrink-0">
         <div className="flex flex-1 items-center gap-2 min-w-0">
           {!token && (
             <>
@@ -232,7 +236,7 @@ function DisplayChrome({
               {t('layout.selectEvent')}
             </Link>
           ) : (
-            <h1 className="min-w-0 max-w-[42vw] sm:max-w-none text-sm font-semibold tracking-tight text-foreground truncate" title={eventName}>{eventName}</h1>
+            <h1 className="min-w-0 max-w-[42vw] sm:max-w-none text-sm sm:text-[18px] sm:leading-[24px] font-semibold tracking-tight text-foreground truncate" title={eventName}>{eventName}</h1>
           )}
           {isTraining && <TrainingBadge label={t('layout.training')} />}
           {/* Was a panel of its own on the share-link board, under a header that
@@ -274,7 +278,9 @@ function DisplayChrome({
                     key={p.href}
                     href={token ? `${p.href}?token=${token}` : p.href}
                     className={cn(
-                      "relative hit-area flex items-center justify-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-sm text-xs font-medium transition-colors",
+                      // Caption-sized at 12px whatever the wall's root size: a
+                      // rem `text-xs` read 10.5px on a board fitted to 14px.
+                      "relative hit-area flex items-center justify-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-sm text-[12px] leading-[16px] font-medium transition-colors",
                       isActive
                         ? "bg-background text-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground"
@@ -309,9 +315,9 @@ function DisplayChrome({
             </button>
           </div>
 
-          <div className="hidden sm:flex items-center gap-1.5 rounded-md bg-secondary/50 px-2.5 py-1">
-            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="font-mono text-sm font-semibold tabular-nums">
+          <div className="hidden sm:flex items-center gap-1.5 rounded-md bg-secondary/50 px-2.5 py-0.5">
+            <Clock className="size-[16px] text-muted-foreground" />
+            <span className="font-mono text-[20px] leading-[28px] font-semibold tabular-nums">
               {currentTime ? currentTime.toLocaleTimeString(intlLocale) : "--:--:--"}
             </span>
           </div>
