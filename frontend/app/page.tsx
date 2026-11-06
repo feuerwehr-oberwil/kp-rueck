@@ -1468,12 +1468,13 @@ export default function FireStationDashboard() {
             // pinned over the board, and the extra 16px is what keeps it off the
             // outer column at rest. It is the board's own margin, not a strip of
             // its own, so nothing is drawn beside the board.
+            //
+            // `@container` + `--board-pr`: the columns size themselves from this box and
+            // its right padding (droppable-column.tsx, «five open columns»).
             className={cn(
-              "flex-1 overflow-x-auto overscroll-contain pt-4 pb-0 bg-muted/30 dark:bg-background",
+              "@container flex-1 overflow-x-auto overscroll-contain pt-4 pb-0 pr-(--board-pr) bg-muted/30 dark:bg-background",
               showLeftSidebar ? "pl-4" : "pl-8",
-              !showRightSidebar
-                ? "pr-8"
-                : "pr-4",
+              showRightSidebar ? "[--board-pr:1rem]" : "[--board-pr:2rem]",
             )}
           >
             {/* A board that never arrived gets the error panel, not seven

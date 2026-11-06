@@ -113,9 +113,9 @@ interface EdgeChipProps extends ChipFacts {
   compact: boolean
 }
 
-/** One hidden column: chevron toward its edge, status tick, title, count (red dot when Hoch).
+/** One hidden column: chevron toward its edge, status bar, title, count (red dot when Hoch).
  *  A real button, and a drop target for its column – a card dragged onto it lands there.
- *  `compact` when the bar runs short: tick, count and chevron only. */
+ *  `compact` when the bar runs short: status bar, count and chevron only. */
 function EdgeChip({ column, count, high, side, onShow, compact }: EdgeChipProps) {
   const t = useTranslations('kanban')
   const ref = useRef<HTMLButtonElement | null>(null)
@@ -153,7 +153,9 @@ function EdgeChip({ column, count, high, side, onShow, compact }: EdgeChipProps)
       )}
     >
       {side === 'left' && chevron}
-      <span aria-hidden className={cn('h-3.5 w-0.5 shrink-0 rounded-full', STATUS_ACCENT[column.id]?.dot)} />
+      {/* The status key: a 3 × 14px bar in the column's header-line colour, 6px to the
+          label (the button's 8px gap less 2). At 1–2px it read as a pipe, «| RÜCKFAHRT». */}
+      <span aria-hidden className={cn('-mr-0.5 h-3.5 w-[3px] shrink-0 rounded-full', STATUS_ACCENT[column.id]?.dot)} />
       {!compact && <span aria-hidden className={cn(COLUMN_HEADER_CLASS, 'whitespace-nowrap')}>{title}</span>}
       <span aria-hidden className="relative inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-sm bg-foreground/10 px-1.5 text-foreground type-label tabular-nums">
         {count}

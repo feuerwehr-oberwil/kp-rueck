@@ -85,9 +85,9 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
       )}
       onClick={onClick}
     >
-      {/* The chevron sits beside the HEADER only (address, EL, Abholung,
-          Duplikat, status + type); from the rule down, the fact block and the
-          time run the card's full width, as the desk card's body does.
+      {/* The chevron and the age sit beside the HEADER only (address, EL,
+          Abholung, Duplikat, status + type); from the rule down, the fact block
+          runs the card's full width, as the desk card's body does.
           Indenting the whole card under the chevron cost the fact values 24px
           per line on a phone — enough to push «TLF · Fahrer: Müller Hans» and
           its stay chip onto two lines. */}
@@ -175,6 +175,29 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
             )}
           </div>
         </div>
+
+        {/* The age on the address row's right, as a list reads (hill climb r20: on a
+            line of its own under the facts it cost a line per card). Read-only: the
+            phone list is for looking, and a dropdown inside a tappable row fights the
+            tap that opens the incident. 14/18 600 in the desk card's age colours
+            (`colorByAge` = `ageLevel`: amber ≥ 60′, red ≥ 120′). */}
+        <div className="flex shrink-0 flex-col items-end gap-0.5 pt-px text-right">
+          <IncidentTimeRow
+            operation={operation}
+            readOnly
+            colorByAge
+            className="gap-1.5"
+            startClassName="text-sm leading-[18px] font-semibold"
+            chipClassName="text-sm leading-[18px] font-semibold"
+            startIconClassName="h-3.5 w-3.5"
+            iconClassName="h-3.5 w-3.5"
+          />
+          {/* The one debt that survives completion (image #21): a quiet line
+              directly under the time, not a pill in the title row. */}
+          {rapportMissing && (
+            <p className="text-xs text-muted-foreground">{tMobile("noRapport")}</p>
+          )}
+        </div>
       </div>
 
       {/* The fact block (image #21): Meldung, Mannschaft, Fahrzeuge (with
@@ -220,30 +243,6 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
         </div>
       )}
 
-      {/* Time */}
-      <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-        {/* Read-only: the phone list is for looking, and a dropdown inside a
-            tappable row fights the tap that opens the incident. `colorByAge`:
-            the desk card's amber ≥ 60′ / red ≥ 120′ (`ageLevel`), so «1h 8′»
-            reads the same on both; aged values at 600, since 12px at 500 is
-            easy to miss on a phone held at arm's length. */}
-        <IncidentTimeRow
-          operation={operation}
-          readOnly
-          colorByAge
-          agedClassName="font-semibold"
-          className="gap-1.5"
-          startClassName="text-xs"
-          chipClassName="text-xs"
-          startIconClassName="h-3 w-3"
-          iconClassName="h-3 w-3"
-        />
-      </div>
-      {/* The one debt that survives completion (image #21): a quiet line
-          under the time, not a pill in the title row. */}
-      {rapportMissing && (
-        <p className="mt-1 text-xs text-muted-foreground">{tMobile("noRapport")}</p>
-      )}
     </Card>
   )
 }

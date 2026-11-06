@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { RemovableChip } from "@/components/ui/removable-chip"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PrioritySelect } from "@/components/kanban/priority-select"
+import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Kbd } from "@/components/ui/kbd"
 import { ArrowLeft, ArrowRight, MapPin, Trash2, MessageCircle, ArrowRightLeft, Search, Check, ChevronRight, Link2, LayoutDashboard, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, Users, Truck, Package, UserMinus, Shield, type LucideIcon } from 'lucide-react'
@@ -988,7 +989,10 @@ export function OperationDetailContent({
                 ? formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)
                 : undefined}
             >
-              <MapPin className="h-5 w-5 shrink-0 text-muted-foreground" />
+              {/* The card's priority mark before the number (it was a muted map pin, so
+                  the header said nothing about priority): the wall's drawing, 14px at 2px,
+                  beside an 18–20px address (hill climb r20). */}
+              <PriorityGlyph priority={operation.priority} size="wall" />
               <IncidentNumber number={operation.number} className="shrink-0 text-sm" />
               {/* min-w-0 as well as truncate: a flex item refuses to shrink
                   below its content without it, so the address pushed the clock

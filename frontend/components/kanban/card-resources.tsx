@@ -272,7 +272,8 @@ export function CardResources({
                     the pair does not fit beside the identity it drops
                     beneath it, instead of the old single line that
                     ellipsized the call sign («Mowa · Omega 3 (…») to keep
-                    the pill. Only the driver's name may still truncate
+                    the pill. The driver and the stay chip wrap as wholes too
+                    (a 260px column, r20). Only the driver's name may still truncate
                     (full name in `title`); the identity shrinks only on a
                     card too narrow for it alone. Plain text, not a
                     button: the whole chip used to toggle the driver
@@ -282,7 +283,7 @@ export function CardResources({
                   <span className="min-w-0 truncate">
                     {vehicleName}{callsign ? ` · ${callsign}` : ''}
                   </span>
-                  <span className="flex min-w-0 items-center gap-1">
+                  <span className="flex min-w-0 flex-wrap items-center gap-1">
                   {driverName && (
                     <span className="min-w-0 truncate text-muted-foreground" title={driverName}>({driverName})</span>
                   )}

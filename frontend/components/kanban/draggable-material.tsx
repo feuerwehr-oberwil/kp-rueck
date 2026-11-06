@@ -63,18 +63,18 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        {/* Taken draws the gebunden ring — the one state mark, in the same fixed
-            12px leading gutter as the person row (draggable-person.tsx), so the
-            two sidebars mark a bound resource in one place. The gutter stays when
-            the device is free: every name starts at one edge. */}
+        {/* The state mark in the fixed 12px leading gutter the person row uses
+            (draggable-person.tsx): taken = the hollow gebunden ring, free = the
+            green frei dot (the three-state table) – this list is grouped by
+            vehicle, not by frei/gebunden, so the mark is the only place a free
+            device says so (hill climb r20). Every name starts at one edge. The
+            person list draws no frei dot: it is grouped under «FREI · n». */}
         <span className="-mr-2 flex w-3 shrink-0 items-center">
-          {isOccupied && (
-            <span
-              aria-label={t('common.inUse')}
-              title={t('common.inUse')}
-              className={cn("size-2 rounded-full", RESOURCE_STATE_DOT_CLASSES.assigned)}
-            />
-          )}
+          <span
+            aria-label={t(isOccupied ? 'common.inUse' : 'common.available')}
+            title={t(isOccupied ? 'common.inUse' : 'common.available')}
+            className={cn("size-2 rounded-full", RESOURCE_STATE_DOT_CLASSES[isOccupied ? "assigned" : "available"])}
+          />
         </span>
         <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
           {/* Wraps to its full length on hover — same reasoning as the person

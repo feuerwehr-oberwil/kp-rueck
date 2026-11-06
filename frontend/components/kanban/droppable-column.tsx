@@ -93,6 +93,28 @@ interface DroppableColumnProps {
   searchActive?: boolean
 }
 
+/**
+ * An open column's width: as many WHOLE columns as the board's view holds at 260–320px, up
+ * to five – at rest no column shows as a sliver at the edge (hill climb r20: at 1920 with
+ * both sidebars «Im Einsatz», the one column with crews out, was a 30px strip). n columns
+ * share the view = `#kanban-main`'s content box (`100cqw`, it is the `@container`) plus its
+ * right padding (`--board-pr`), less n − 1 gaps of 12px and 6px more, so the n-th ends just
+ * inside the view and the next starts just past it. n = 5 from a 1338px box (1920 with both
+ * sidebars: Eingegangen … Im Einsatz at 261px), 4 from 1066, 3 from 794 (a 1536 laptop with
+ * both sidebars: 315px); the step is where n columns get 260 (272n − 22, for the 16px pad).
+ * Never wider at rest than the 320px the board always had, so a board with room for all
+ * seven still shows them; a board too narrow for three (the detail panel open on a laptop)
+ * keeps 320 rather than going narrow for nothing. Below 260 the cards stop surviving
+ * (address, chips): the 1536 laptop would need 232 for four. A fold (48px strip) shifts the
+ * sum; a column cut by the edge then draws as always (board-edge-chips.tsx).
+ */
+const COLUMN_WIDTH = [
+  "min-w-[320px]",
+  "@min-[794px]:min-w-[clamp(260px,calc((100cqw+var(--board-pr,1rem)-30px)/3),320px)]",
+  "@min-[1066px]:min-w-[clamp(260px,calc((100cqw+var(--board-pr,1rem)-42px)/4),320px)]",
+  "@min-[1338px]:min-w-[clamp(260px,calc((100cqw+var(--board-pr,1rem)-54px)/5),320px)]",
+].join(" ")
+
 // Custom comparison: skip re-render if operations for this column haven't actually changed
 function arePropsEqual(prev: DroppableColumnProps, next: DroppableColumnProps): boolean {
   // Always re-render if non-operation props changed
@@ -338,7 +360,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   }
 
   return (
-    <div data-column={column.id} className="flex min-w-[320px] max-w-[420px] flex-1 flex-col transition-all">
+    <div data-column={column.id} className={cn("flex max-w-[420px] flex-1 flex-col transition-all", COLUMN_WIDTH)}>
       <div className="mb-2">
         {/* The accent as a 2px rule above the header, not a wash behind it. */}
         <div aria-hidden className={cn("h-0.5 rounded-full", accent?.dot)} />
@@ -349,10 +371,15 @@ export const DroppableColumn = memo(function DroppableColumn({
               the wall board can afford but this one cannot: the header also
               carries the sort menu, and a button inside a button is not a
               control. */}
+          {/* `-ml-2` / the right group's `gap-1`: the 32px buttons draw a 14px glyph, so
+              their blank sides give back the 12px a 260px column needs for «REKO
+              ABGESCHLOSSEN» and «DISPONIERT / ANFAHRT» whole (r20); the chevron then
+              stands over the cards' left edge. */}
           {onToggleCollapsed && (
             <Button
               variant="ghost"
               size="icon-xs"
+              className="-ml-2"
               onClick={collapse}
               aria-expanded
               title={t('column.collapse')}
@@ -366,7 +393,7 @@ export const DroppableColumn = memo(function DroppableColumn({
           {/* COLUMN_HEADER_CLASS — caps, like every header: a label must not
               read like an item (Bastian's verdict from the field round). */}
           <h2 className={cn("min-w-0 flex-1 truncate", COLUMN_HEADER_CLASS)} title={columnTooltip}>{columnTitle}</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {onSort && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
