@@ -219,10 +219,15 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
       {/* Time */}
       <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
         {/* Read-only: the phone list is for looking, and a dropdown inside a
-            tappable row fights the tap that opens the incident. */}
+            tappable row fights the tap that opens the incident. `colorByAge`:
+            the desk card's amber ≥ 60′ / red ≥ 120′ (`ageLevel`), so «1h 8′»
+            reads the same on both; aged values at 600, since 12px at 500 is
+            easy to miss on a phone held at arm's length. */}
         <IncidentTimeRow
           operation={operation}
           readOnly
+          colorByAge
+          agedClassName="font-semibold"
           className="gap-1.5"
           startClassName="text-xs"
           chipClassName="text-xs"
