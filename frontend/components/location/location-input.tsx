@@ -439,7 +439,7 @@ export function LocationInput({
               denseRow
                 ? "text-xs font-normal text-muted-foreground"
                 // = STACKED_LABEL (detail-field.tsx): the phone's field label
-                : "text-sm leading-tight font-semibold text-muted-foreground",
+                : "text-[13px] leading-tight font-medium text-muted-foreground",
             )}
           >
             {t('locationInput.addressLabel')}

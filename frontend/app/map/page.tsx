@@ -20,6 +20,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
 import { openCommandPalette } from "@/components/ui/command-palette"
 import { Badge } from "@/components/ui/badge"
+import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
 import { SearchInput } from "@/components/ui/search-input"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { FileText, Check, Milestone, Binoculars, Layers, ChevronDown } from "lucide-react"
@@ -724,20 +725,25 @@ export default function MapPage() {
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [gPrefix, selectedIncidentId, incidents, refreshIncidents, router, openIncidentDetail, vehicleTypes, gpsAvailable, setColorByPersisted])
 
-  // Ansicht — every map display option in one popover. The button lights up
-  // subtly when any option differs from the defaults. Desktop: on the heading's
+  // Ansicht — every map display option in one popover. While any option differs
+  // from the defaults the button wears the selection (slate wash + edge, as
+  // `variant="selected"`). Desktop: on the heading's
   // row, right-aligned (the view options of the list below it), so the tool row
   // under it holds only the two editor modes and never wraps 2 + 1 inside the
-  // 320px rail (hill climb r19). Phone: beside the search, one row.
+  // 320px rail (hill climb r19). Phone: beside the search, one row, and at rest
+  // on the search field's own surface (transparent + the 1px input edge) – the
+  // muted tool wash beside a white field read as pressed (hill climb r21).
   // 28px tall off the phone (`rounded-sm`: controls under 32px), 44px on it.
+  const viewChanged =
+    !showLabels || (gpsAvailable && (!showAssignmentLines || showDistances)) || showGroupRoutes || colorBy !== 'priority' || (weatherAvailable && showWeather)
   const viewMenu = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           className={`${RAIL_TOOL} max-md:h-11 max-md:shrink-0 max-md:rounded-md max-md:px-3 max-md:text-sm ${
-            !showLabels || (gpsAvailable && (!showAssignmentLines || showDistances)) || showGroupRoutes || colorBy !== 'priority' || (weatherAvailable && showWeather)
-              ? 'border-sel-edge bg-secondary/50 text-foreground'
-              : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+            viewChanged
+              ? 'border-sel-edge bg-sel-wash text-sel-foreground'
+              : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted max-md:border-input max-md:bg-transparent max-md:text-foreground max-md:shadow-xs max-md:dark:bg-input/30'
           }`}
           title={t('page.viewMenuLabel')}
         >
@@ -1062,7 +1068,12 @@ export default function MapPage() {
               {/* On mobile the fixed bottom navbar overlays the page, so pad the
                   scrollable list past its measured height (`pb-nav-reserve`) —
                   otherwise the last incidents sit behind the bar. */}
-              <div className={`flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 py-3 ${isMobile ? 'pb-nav-reserve' : ''}`}>
+              {/* No bottom padding of its own off the phone: the closing
+                  `ScrollEndFade` is the end (r21). On the phone the padding is the
+                  nav's reserve + 12px, and a sticky box stops at the scroller's
+                  padding edge – so the fade takes those 12px back (`-bottom-3`)
+                  and rides on the nav's top edge. */}
+              <div className={`flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 pt-3 ${isMobile ? 'pb-nav-reserve' : ''}`}>
               {/* One-line rows in sections. The rail stopped repeating the
                   board's cards: detail lives on the marker's hover card and
                   behind «Details anzeigen» (double-click, or the icon that
@@ -1184,6 +1195,7 @@ export default function MapPage() {
                   </p>
                 )}
               </div>
+              <ScrollEndFade surface="panel" className={isMobile ? '-bottom-3' : undefined} />
               </div>
               </>
               )}

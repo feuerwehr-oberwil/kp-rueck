@@ -209,7 +209,7 @@ async function createTestMaterial(
  */
 async function assignMaterialFromDetail(page: Page, modal: Locator, materialName: string) {
   await modal.getByTitle('Material zuweisen').click();
-  const dialog = page.getByRole('dialog', { name: 'Material zu Einsatz zuweisen' });
+  const dialog = page.getByRole('dialog', { name: 'Material zuweisen' });
   await expect(dialog).toBeVisible({ timeout: 15_000 });
 
   await dialog.getByPlaceholder('Suchen …').fill(materialName);
@@ -289,7 +289,7 @@ test.describe('Resource summary — the add controls', () => {
     await authenticatedPage.keyboard.press('Enter');
 
     await expect(
-      authenticatedPage.getByRole('dialog', { name: 'Mannschaft zu Einsatz zuweisen' }),
+      authenticatedPage.getByRole('dialog', { name: 'Mannschaft zuweisen' }),
     ).toBeVisible({ timeout: 15_000 });
   });
 });
@@ -338,7 +338,7 @@ test.describe('Resource summary — assigned state', () => {
     const modal = await openDetail(authenticatedPage, fixture.address);
     await modal.getByTitle('Material zuweisen').click();
     const dialog = authenticatedPage.getByRole('dialog', {
-      name: 'Material zu Einsatz zuweisen',
+      name: 'Material zuweisen',
     });
     await expect(dialog).toBeVisible({ timeout: 15_000 });
 
@@ -370,7 +370,7 @@ test.describe('Resource summary — assigned state', () => {
 
     await modal.getByTitle('Material zuweisen').click();
     const dialog = authenticatedPage.getByRole('dialog', {
-      name: 'Material zu Einsatz zuweisen',
+      name: 'Material zuweisen',
     });
     await expect(dialog).toBeVisible({ timeout: 15_000 });
     await dialog.getByPlaceholder('Suchen …').fill(material.name);

@@ -90,11 +90,14 @@ interface DetailFieldProps {
   children: ReactNode
 }
 
-/** The label of a stacked (phone) field — the same class the reko and /feld fields wear.
- *  8px to its control and a tight line box (no 3px of half-leading above it), so a
- *  label sits visibly WITH the field under it rather than halfway to the one above
- *  (hill climb r7: the phone form read as loose groups). */
-export const STACKED_LABEL = "mb-2 block text-sm leading-tight font-semibold text-muted-foreground"
+/** The label of a stacked (phone) field — every phone form built from `DetailField` /
+ *  `DetailToggle` (create dialog, the phone Übersicht, the settings and Ereignis dialogs, reko)
+ *  and `LocationInput`'s mirror of it. 8px to its control and a tight line box (no 3px of
+ *  half-leading above it), so a label sits visibly WITH the field under it rather than halfway
+ *  to the one above (hill climb r7: the phone form read as loose groups). 13/500 secondary ink,
+ *  a step under the field text like the desktop label column – at 14/600 the labels were nearly
+ *  as heavy as the sheet's title (hill climb r21). */
+export const STACKED_LABEL = "mb-2 block text-[13px] leading-tight font-medium text-muted-foreground"
 
 /**
  * Left padding that lines a second line up with the control instead of the label:
