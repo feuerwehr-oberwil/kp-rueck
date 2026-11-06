@@ -202,6 +202,8 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
             {/* Where the person is, as a second quiet line — the binding used to
                 live only in a hover tooltip. Incident address or Auftrag first,
                 function (Fahrer TLF, Reko, Telefondienst …) as the fallback.
+                The place only («1 · Langegasse 28»): Einsatzart and Meldung are
+                in the line's `title` (r22 – they were what overflowed).
                 Time on duty is deliberately NOT here (owner, 09.10.: too much in
                 the default view) — it lives in the Dienstzeiten sheet. */}
             {/* The Grad leads it, «Wm · Sturmholz Oberwil», in the same muted caption. */}

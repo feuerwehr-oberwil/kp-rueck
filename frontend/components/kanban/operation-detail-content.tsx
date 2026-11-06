@@ -96,6 +96,12 @@ const ROW_ACTION =
 const TAB_ARROW_KEY = "hidden size-6 shrink-0 px-0 lg:inline-flex"
 const TAB_ARROW_ICON = "size-3.5"
 
+/** The panel's free-text fields (Meldung, Notizen) on an 18px line: with the field's 4px
+ *  padding and its border, one line is exactly the panel's 28px field and every line after
+ *  costs 18px – a dictated Meldung of five lines gives the laptop 10px back (hill climb r22).
+ *  The label's `pt-1.5` still centres on the first line. */
+const DENSE_TEXT_LINES = "leading-[18px]"
+
 /** Whether the provenance toggles apply to this card at all.
  *
  *  Only "operator", "intake" and "feld" are an editor's to claim ("Telefonisch
@@ -569,7 +575,8 @@ export function OperationDetailContent({
   // 1100px modal half — the toggle switches ended up 800px from their labels
   // and read as unaligned. The resources column takes what remains.
   // One vertical rhythm on every tab: 8px between two rows (each `DetailField`
-  // brings its own `py-1`, nothing is stacked on top) and ONE section step
+  // brings its own `py-1`, nothing is stacked on top; 6px in the panel, whose root
+  // sets `--detail-row-py: 3px`) and ONE section step
   // between two sections — the column groups, «Status ändern», «Kräfte» and,
   // stacked in the panel, the two columns themselves (`gap-x-8` is the modal's
   // column gutter). The step is 12px in the panel and 16px in the modal, 8px from
@@ -578,7 +585,7 @@ export function OperationDetailContent({
   // laptop. Where the list still runs on under the footer, the panel fades out
   // while more is below (`scrollEndFade`, r18), so the cut is announced.
   const sectionStep = dense
-    ? { gap: "gap-y-3", pad: "py-3", stack: "space-y-3", after: "mb-3", fields: "space-y-1" }
+    ? { gap: "gap-y-3", pad: "py-3", stack: "space-y-3", after: "mb-3", fields: "space-y-1.5" }
     : { gap: "gap-y-4", pad: "py-4", stack: "space-y-4", after: "mb-4", fields: "space-y-2" }
   const tabGridClass = cn(
     "grid grid-cols-1 gap-x-8",
@@ -939,6 +946,12 @@ export function OperationDetailContent({
       className={cn(
         "flex h-full min-h-0 flex-col",
         layout === 'panel' && "outline-none",
+        // The panel's own density (hill climb r22): every dense control 28px instead of the
+        // token's 32 and 6px between two rows instead of 8 – still ONE height for the whole
+        // form, restated here rather than in the token, because the modal has the room the
+        // 420px panel lacks. It buys the laptop the «Kräfte» rows above the footer. From `md`
+        // only: below it the token is the 44px touch floor, and that one stays.
+        layout === 'panel' && "[--detail-row-py:3px] md:[--field-h-dense:1.75rem]",
         // Only when the Ressourcen block itself is NOT the target: a nested
         // drop target leaves its parent "entered" too, and two rings around one
         // drop is a question about which of them takes it.
@@ -1116,7 +1129,8 @@ export function OperationDetailContent({
           {/* Left Column — the fields, as rows in both mounts, gathered under
               the small grey group headings. No hairlines between rows any more:
               whitespace separates, the headings group. */}
-          {/* `fields` + the rows' own `py-1` = the section step (12 / 16px). */}
+          {/* `fields` + the rows' own padding = the section step (6 + 3 + 3 = 12px in the
+              panel, 8 + 4 + 4 = 16px in the modal). */}
           <div className={sectionStep.fields}>
           {/* Where, what, how urgent. The fields carry their own labels, so a
               «Lage» heading over them said nothing – gone, whitespace groups. */}
@@ -1178,6 +1192,7 @@ export function OperationDetailContent({
                 "h-auto resize-none py-1",
                 // Three lines of floor: the field must READ as a textarea, not a textbox.
                 dense ? "max-h-[14rem] min-h-[3.75rem]" : "max-h-[20rem] min-h-[3.75rem]",
+                dense && DENSE_TEXT_LINES,
                 fieldSaveEdgeClass(notesSave),
               )}
             />
@@ -1308,6 +1323,7 @@ export function OperationDetailContent({
                 dense
                   ? "placeholder-shown:not-focus:min-h-(--field-h-dense)"
                   : "placeholder-shown:not-focus:min-h-(--field-h)",
+                dense && DENSE_TEXT_LINES,
                 fieldSaveEdgeClass(internalNotesSave),
               )}
             />

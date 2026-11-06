@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useTranslations } from "next-intl"
 import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
-import { ArrowRight, ArrowUpRight, Ban, CircleCheck, Package2 } from "lucide-react"
+import { ArrowRight, ArrowUpRight, Ban, Check, CircleCheck, Package2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ContextMenu, ContextMenuCheckboxItem, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/context-menu"
@@ -20,7 +20,7 @@ import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { DraggableMaterial } from "@/components/kanban/draggable-material"
 import { isNavigableBinding, shortDate, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
 import type { Material } from "@/lib/contexts/operations-context"
-import { materialResourceState, RESOURCE_STATE_DOT_CLASSES } from "@/lib/resource-status"
+import { materialResourceState, RESOURCE_STATE_DOT_CLASSES, type ResourceSummary } from "@/lib/resource-status"
 import { cn } from "@/lib/utils"
 import { LoadingStatus } from "@/components/ui/shell-loader"
 
@@ -120,6 +120,34 @@ export function AvailableOnlyToggle({
     >
       <CircleCheck className="size-4" />
     </Button>
+  )
+}
+
+/**
+ * The availability line at the foot of both resource sidebars: «2 frei von 19 · 17 gebunden».
+ * The free count is the green fact (with its ✓), «von n» its word-spaced tail, and «gebunden»
+ * stands apart behind the board's middle dot with 8px either side – with only a gap between
+ * them the two numbers read as one («19 17», hill climb r22). «gebunden» is plain muted text:
+ * a fact, not a warning (VISUAL-03); it is left out when nothing is bound.
+ */
+export function SidebarCounter({ summary }: { summary: ResourceSummary }) {
+  const t = useTranslations("kanban.common")
+  return (
+    <div className="flex items-center justify-center gap-2 text-xs">
+      <span className="inline-flex items-center gap-1">
+        <span className="inline-flex items-center gap-1 type-caption text-emerald-700 dark:text-emerald-400">
+          <Check className="size-3.5" />
+          {t("rosterFree", { count: summary.free })}
+        </span>
+        <span className="text-muted-foreground">{t("rosterOf", { total: summary.total })}</span>
+      </span>
+      {summary.bound > 0 && (
+        <>
+          <span aria-hidden="true" className="text-muted-foreground">·</span>
+          <span className="text-muted-foreground">{t("rosterBound", { count: summary.bound })}</span>
+        </>
+      )}
+    </div>
   )
 }
 

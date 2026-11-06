@@ -13,7 +13,7 @@
 
 import type { Dispatch, SetStateAction } from "react"
 import { useTranslations } from "next-intl"
-import { Check, ChevronRight, PanelRight } from "lucide-react"
+import { ChevronRight, PanelRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Kbd } from "@/components/ui/kbd"
@@ -26,6 +26,7 @@ import {
   AggregatedMaterialRow,
   AvailableOnlyToggle,
   MaterialSidebarRow,
+  SidebarCounter,
   SidebarEmpty,
   SidebarLoading,
 } from "@/components/board/sidebar-parts"
@@ -300,19 +301,7 @@ export function MaterialSidebar({
           </p>
           {/* Same helper as the list filter — see the crew footer above. */}
           {isLoaded && !boardNeverLoaded && !effectiveMaterialQuery && (
-            <div className="flex items-center justify-center gap-2 text-xs">
-              <span className="inline-flex items-center gap-1 type-caption text-emerald-700 dark:text-emerald-400">
-                <Check className="size-3.5" />
-                {tCommon('rosterFree', { count: materialSummary.free })}
-              </span>
-              <span className="text-muted-foreground">{tCommon('rosterOf', { total: materialSummary.total })}</span>
-              {materialSummary.bound > 0 && (
-                // Plain muted text: «gebunden» is a fact, not a warning (VISUAL-03).
-                <span className="text-muted-foreground">
-                  {tCommon('rosterBound', { count: materialSummary.bound })}
-                </span>
-              )}
-            </div>
+            <SidebarCounter summary={materialSummary} />
           )}
         </div>
       </aside>

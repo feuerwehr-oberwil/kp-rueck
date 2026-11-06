@@ -24,7 +24,7 @@ import { DraggablePerson } from "@/components/kanban/draggable-person"
 import { DiveraIncomingBlock } from "@/components/kanban/divera-incoming-block"
 import { CrewDutyButton } from "@/components/kanban/crew-duty-sheet"
 import { ResourcesNotLoaded } from "@/components/board-load-error"
-import { AvailableOnlyToggle, BindingsPopoverBody, SidebarEmpty, SidebarLoading } from "@/components/board/sidebar-parts"
+import { AvailableOnlyToggle, BindingsPopoverBody, SidebarCounter, SidebarEmpty, SidebarLoading } from "@/components/board/sidebar-parts"
 import type { BindingsPopoverState, ResourceBinding } from "@/lib/board-sidebar"
 import type { Person } from "@/lib/contexts/operations-context"
 import type { DoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
@@ -303,19 +303,7 @@ export function PersonnelSidebar({
               visible rows. Deliberately NOT broken down by function: this
               is the line read in half a second, not a statistic. */}
           {isLoaded && !boardNeverLoaded && !effectivePersonnelQuery && (
-            <div className="flex items-center justify-center gap-2 text-xs">
-              <span className="inline-flex items-center gap-1 type-caption text-emerald-700 dark:text-emerald-400">
-                <Check className="size-3.5" />
-                {tCommon('rosterFree', { count: rosterSummary.free })}
-              </span>
-              <span className="text-muted-foreground">{tCommon('rosterOf', { total: rosterSummary.total })}</span>
-              {rosterSummary.bound > 0 && (
-                // Plain muted text: «gebunden» is a fact, not a warning (VISUAL-03).
-                <span className="text-muted-foreground">
-                  {tCommon('rosterBound', { count: rosterSummary.bound })}
-                </span>
-              )}
-            </div>
+            <SidebarCounter summary={rosterSummary} />
           )}
           {/* Who is here for how long — the Dienstzeiten overview.
               Its own line: beside the counter it pushed «2 frei» onto two lines. */}
