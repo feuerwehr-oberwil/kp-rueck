@@ -519,7 +519,7 @@ export function NewEmergencyModal({
             <SheetTitle className="text-lg leading-none">{t('common.newIncident')}</SheetTitle>
             <SheetDescription className="sr-only">{t('newEmergency.description')}</SheetDescription>
           </SheetHeader>
-          <SheetBody className="px-4">{fields}</SheetBody>
+          <SheetBody className="px-4 pb-4">{fields}</SheetBody>
           <SheetFooter className="mt-0 flex-row gap-2 border-t px-4 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">
             {cancelButton}
             {createButton}

@@ -95,6 +95,10 @@ const COLOR_BY_SHORTCUTS: ReadonlyArray<readonly [key: string, dim: ColorByDimen
   ['a', 'auftrag'],
 ]
 
+/** The rail's tool buttons («Ansicht», «Routenplanung», «Reko-Modus»): 28px, 12/500,
+ *  `rounded-sm` like every control under 32px. The phone overrides height and type. */
+const RAIL_TOOL = 'flex h-7 items-center gap-1.5 rounded-sm border px-2.5 text-xs font-medium transition-colors'
+
 export default function MapPage() {
   const t = useTranslations('map')
   const tKanban = useTranslations('kanban')
@@ -720,6 +724,146 @@ export default function MapPage() {
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [gPrefix, selectedIncidentId, incidents, refreshIncidents, router, openIncidentDetail, vehicleTypes, gpsAvailable, setColorByPersisted])
 
+  // Ansicht — every map display option in one popover. The button lights up
+  // subtly when any option differs from the defaults. Desktop: on the heading's
+  // row, right-aligned (the view options of the list below it), so the tool row
+  // under it holds only the two editor modes and never wraps 2 + 1 inside the
+  // 320px rail (hill climb r19). Phone: beside the search, one row.
+  // 28px tall off the phone (`rounded-sm`: controls under 32px), 44px on it.
+  const viewMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className={`${RAIL_TOOL} max-md:h-11 max-md:shrink-0 max-md:rounded-md max-md:px-3 max-md:text-sm ${
+            !showLabels || (gpsAvailable && (!showAssignmentLines || showDistances)) || showGroupRoutes || colorBy !== 'priority' || (weatherAvailable && showWeather)
+              ? 'border-sel-edge bg-secondary/50 text-foreground'
+              : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+          }`}
+          title={t('page.viewMenuLabel')}
+        >
+          <Layers className="h-3 w-3" />
+          {t('page.view')}
+          <ChevronDown className="h-3 w-3 opacity-60" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align={isMobile ? 'start' : 'end'} collisionPadding={8} className="w-60">
+        <DropdownMenuLabel>{t('page.viewMenuLabel')}</DropdownMenuLabel>
+        {/* e.preventDefault keeps the menu open so several options can
+            be flipped in one visit (and the legend updates live). */}
+        <DropdownMenuCheckboxItem
+          checked={showLabels}
+          onSelect={(e) => { e.preventDefault(); setShowLabels(!showLabels) }}
+        >
+          <span className="flex-1">{t('page.labels')}</span>
+          {!isMobile && <Kbd className="text-2xs">L</Kbd>}
+        </DropdownMenuCheckboxItem>
+        {/* Both are drawn from vehicle GPS — without it they are dead
+            switches, so they only exist when GPS does. */}
+        {gpsAvailable && (
+          <>
+            <DropdownMenuCheckboxItem
+              checked={showAssignmentLines}
+              onSelect={(e) => { e.preventDefault(); setShowAssignmentLines(!showAssignmentLines) }}
+            >
+              <span className="flex-1">{t('page.lines')}</span>
+              {!isMobile && <Kbd className="text-2xs">I</Kbd>}
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={showDistances}
+              // A distance measures a line, so switching it on
+              // switches «Linien» on too — otherwise the menu says
+              // the lines are off while the map is drawing them.
+              onSelect={(e) => {
+                e.preventDefault()
+                const next = !showDistances
+                setShowDistances(next)
+                if (next) setShowAssignmentLines(true)
+              }}
+            >
+              <span className="flex-1">{t('page.distance')}</span>
+            </DropdownMenuCheckboxItem>
+          </>
+        )}
+        {/* Switching this on also forces "Färben nach" to Auftrag.
+            Silently taking over another control is the kind of thing
+            that reads as a bug at 3am, so both ends say so: the cause
+            here, the effect under the Färben-nach label below. */}
+        <DropdownMenuCheckboxItem
+          checked={showGroupRoutes}
+          onSelect={(e) => { e.preventDefault(); toggleGroupRoutes() }}
+          className="items-start"
+        >
+          <span className="flex-1">
+            {t('page.groupRoutes')}
+            <span className="block text-[11px] leading-snug text-muted-foreground">
+              {t('page.groupRoutesColorHint')}
+            </span>
+          </span>
+        </DropdownMenuCheckboxItem>
+        {weatherAvailable && (
+          <DropdownMenuCheckboxItem
+            checked={showWeather}
+            onSelect={(e) => { e.preventDefault(); toggleWeather() }}
+            className="items-start"
+          >
+            <span className="flex-1">
+              {t('weather.layer')}
+              <span className="block text-[11px] leading-snug text-muted-foreground">
+                {t('weather.layerHint')}
+              </span>
+            </span>
+          </DropdownMenuCheckboxItem>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>{t('common.colorByMenuLabel')}</DropdownMenuLabel>
+        {showGroupRoutes && colorBy === 'auftrag' && (
+          <p className="px-2 pb-1.5 text-[11px] leading-snug text-muted-foreground">
+            {t('page.colorByRoutesOverride')}
+          </p>
+        )}
+        {COLOR_BY_SHORTCUTS.map(([key, dim]) => (
+          <DropdownMenuItem
+            key={dim}
+            onSelect={(e) => { e.preventDefault(); setColorByPersisted(dim) }}
+            className="cursor-pointer"
+          >
+            <span className="flex-1">{t(`colorBy.${dim}`)}</span>
+            {colorBy === dim && <Check className="h-3.5 w-3.5" />}
+            {!isMobile && <Kbd className="text-2xs">{key.toUpperCase()}</Kbd>}
+          </DropdownMenuItem>
+        ))}
+        {colorLegend.length > 0 && (
+          <>
+            <DropdownMenuSeparator />
+            <div className="px-2 py-1.5 space-y-1 max-h-48 overflow-y-auto overscroll-contain">
+              {colorLegend.map((g) => (
+                <div key={g.key} className="flex items-center gap-2 text-xs">
+                  <span className="h-3 w-3 rounded-sm flex-shrink-0" style={{ backgroundColor: g.color }} />
+                  <span className="truncate">{g.label}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        {/* Phone: the two editor modes live here (see the row above). */}
+        {isMobile && isEditor && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>{t('page.modesMenuLabel')}</DropdownMenuLabel>
+            <DropdownMenuItem onSelect={() => enterPlanning()} className="cursor-pointer">
+              <Milestone className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="flex-1">{t('page.routePlanning')}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => enterRekoMode()} className="cursor-pointer">
+              <Binoculars className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="flex-1">{t('rekoMode.title')}</span>
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+
   return (
     <ProtectedRoute>
       <div className="flex h-full flex-col bg-background text-foreground">
@@ -841,9 +985,12 @@ export default function MapPage() {
               {/* Fixed header: title through search live outside the scroll
                   container below, so they simply never move. */}
               <div className="flex-shrink-0 p-4 pb-3 border-b border-border/50">
-              <h2 className="text-lg font-bold mb-3">
-                {t('page.incidentsHeading', { count: activeIncidents.length })}
-              </h2>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h2 className="min-w-0 text-lg font-bold">
+                  {t('page.incidentsHeading', { count: activeIncidents.length })}
+                </h2>
+                {!isMobile && viewMenu}
+              </div>
 
               {/* No pill row any more: the list's section headings ARE the
                   status filter (they toggle the same `statusFilters`, list and
@@ -857,7 +1004,8 @@ export default function MapPage() {
                   The two editor modes move into the Ansicht menu there: they are
                   KP-desk tools, each swaps the whole list for its panel, and one
                   extra tap is a fair price for a whole row of list. */}
-              <div className={isMobile ? 'flex items-center gap-2' : 'flex flex-wrap gap-2 mb-4'}>
+              {(isMobile || isEditor) && (
+              <div className={isMobile ? 'flex items-center gap-2' : 'mb-3 flex flex-wrap gap-1.5'}>
                 {isMobile && (
                   <SearchInput
                     id="map-search-input"
@@ -867,155 +1015,23 @@ export default function MapPage() {
                     onValueChange={setSearchQuery}
                   />
                 )}
-                {/* Ansicht — every map display option in one popover. The button
-                    lights up subtly when any option differs from the defaults. */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors flex items-center gap-1.5 max-md:h-11 max-md:shrink-0 max-md:text-sm ${
-                        !showLabels || (gpsAvailable && (!showAssignmentLines || showDistances)) || showGroupRoutes || colorBy !== 'priority' || (weatherAvailable && showWeather)
-                          ? 'border-sel-edge bg-secondary/50 text-foreground'
-                          : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
-                      }`}
-                      title={t('page.viewMenuLabel')}
-                    >
-                      <Layers className="h-3 w-3" />
-                      {t('page.view')}
-                      <ChevronDown className="h-3 w-3 opacity-60" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" collisionPadding={8} className="w-60">
-                    <DropdownMenuLabel>{t('page.viewMenuLabel')}</DropdownMenuLabel>
-                    {/* e.preventDefault keeps the menu open so several options can
-                        be flipped in one visit (and the legend updates live). */}
-                    <DropdownMenuCheckboxItem
-                      checked={showLabels}
-                      onSelect={(e) => { e.preventDefault(); setShowLabels(!showLabels) }}
-                    >
-                      <span className="flex-1">{t('page.labels')}</span>
-                      {!isMobile && <Kbd className="text-2xs">L</Kbd>}
-                    </DropdownMenuCheckboxItem>
-                    {/* Both are drawn from vehicle GPS — without it they are dead
-                        switches, so they only exist when GPS does. */}
-                    {gpsAvailable && (
-                      <>
-                        <DropdownMenuCheckboxItem
-                          checked={showAssignmentLines}
-                          onSelect={(e) => { e.preventDefault(); setShowAssignmentLines(!showAssignmentLines) }}
-                        >
-                          <span className="flex-1">{t('page.lines')}</span>
-                          {!isMobile && <Kbd className="text-2xs">I</Kbd>}
-                        </DropdownMenuCheckboxItem>
-                        <DropdownMenuCheckboxItem
-                          checked={showDistances}
-                          // A distance measures a line, so switching it on
-                          // switches «Linien» on too — otherwise the menu says
-                          // the lines are off while the map is drawing them.
-                          onSelect={(e) => {
-                            e.preventDefault()
-                            const next = !showDistances
-                            setShowDistances(next)
-                            if (next) setShowAssignmentLines(true)
-                          }}
-                        >
-                          <span className="flex-1">{t('page.distance')}</span>
-                        </DropdownMenuCheckboxItem>
-                      </>
-                    )}
-                    {/* Switching this on also forces "Färben nach" to Auftrag.
-                        Silently taking over another control is the kind of thing
-                        that reads as a bug at 3am, so both ends say so: the cause
-                        here, the effect under the Färben-nach label below. */}
-                    <DropdownMenuCheckboxItem
-                      checked={showGroupRoutes}
-                      onSelect={(e) => { e.preventDefault(); toggleGroupRoutes() }}
-                      className="items-start"
-                    >
-                      <span className="flex-1">
-                        {t('page.groupRoutes')}
-                        <span className="block text-[11px] leading-snug text-muted-foreground">
-                          {t('page.groupRoutesColorHint')}
-                        </span>
-                      </span>
-                    </DropdownMenuCheckboxItem>
-                    {weatherAvailable && (
-                      <DropdownMenuCheckboxItem
-                        checked={showWeather}
-                        onSelect={(e) => { e.preventDefault(); toggleWeather() }}
-                        className="items-start"
-                      >
-                        <span className="flex-1">
-                          {t('weather.layer')}
-                          <span className="block text-[11px] leading-snug text-muted-foreground">
-                            {t('weather.layerHint')}
-                          </span>
-                        </span>
-                      </DropdownMenuCheckboxItem>
-                    )}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel>{t('common.colorByMenuLabel')}</DropdownMenuLabel>
-                    {showGroupRoutes && colorBy === 'auftrag' && (
-                      <p className="px-2 pb-1.5 text-[11px] leading-snug text-muted-foreground">
-                        {t('page.colorByRoutesOverride')}
-                      </p>
-                    )}
-                    {COLOR_BY_SHORTCUTS.map(([key, dim]) => (
-                      <DropdownMenuItem
-                        key={dim}
-                        onSelect={(e) => { e.preventDefault(); setColorByPersisted(dim) }}
-                        className="cursor-pointer"
-                      >
-                        <span className="flex-1">{t(`colorBy.${dim}`)}</span>
-                        {colorBy === dim && <Check className="h-3.5 w-3.5" />}
-                        {!isMobile && <Kbd className="text-2xs">{key.toUpperCase()}</Kbd>}
-                      </DropdownMenuItem>
-                    ))}
-                    {colorLegend.length > 0 && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <div className="px-2 py-1.5 space-y-1 max-h-48 overflow-y-auto overscroll-contain">
-                          {colorLegend.map((g) => (
-                            <div key={g.key} className="flex items-center gap-2 text-xs">
-                              <span className="h-3 w-3 rounded-sm flex-shrink-0" style={{ backgroundColor: g.color }} />
-                              <span className="truncate">{g.label}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                    {/* Phone: the two editor modes live here (see the row above). */}
-                    {isMobile && isEditor && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuLabel>{t('page.modesMenuLabel')}</DropdownMenuLabel>
-                        <DropdownMenuItem onSelect={() => enterPlanning()} className="cursor-pointer">
-                          <Milestone className="h-3.5 w-3.5" aria-hidden="true" />
-                          <span className="flex-1">{t('page.routePlanning')}</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => enterRekoMode()} className="cursor-pointer">
-                          <Binoculars className="h-3.5 w-3.5" aria-hidden="true" />
-                          <span className="flex-1">{t('rekoMode.title')}</span>
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {isMobile && viewMenu}
 
                 {/* The two editor modes, as direct buttons — a dropdown for
                     exactly two entries was a click to see two words. Both swap
-                    the sidebar for their panel; same rounded-md so tools read
-                    apart from filters. */}
+                    the sidebar for their panel; the same squared tool shape as
+                    «Ansicht» so tools read apart from the list's filters. */}
                 {isEditor && !isMobile && (
                   <>
                     <button
-                      className="px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-muted/50 text-muted-foreground hover:bg-muted transition-colors flex items-center gap-1.5"
+                      className={`${RAIL_TOOL} border-border bg-muted/50 text-muted-foreground hover:bg-muted`}
                       onClick={() => enterPlanning()}
                     >
                       <Milestone className="h-3 w-3" />
                       {t('page.routePlanning')}
                     </button>
                     <button
-                      className="px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-muted/50 text-muted-foreground hover:bg-muted transition-colors flex items-center gap-1.5"
+                      className={`${RAIL_TOOL} border-border bg-muted/50 text-muted-foreground hover:bg-muted`}
                       onClick={() => enterRekoMode()}
                     >
                       <Binoculars className="h-3 w-3" />
@@ -1024,6 +1040,7 @@ export default function MapPage() {
                   </>
                 )}
               </div>
+              )}
 
               {/* Search bar (desktop — the phone has it in the row above) */}
               {!isMobile && (

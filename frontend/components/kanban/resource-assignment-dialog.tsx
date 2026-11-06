@@ -1018,19 +1018,20 @@ export function ResourceAssignmentDialog({
               used to be hidden the moment the person was busy —
               exactly when the operator most needs to see that
               this is the TLF 1's driver. */}
+          {/* Busy: the roles ride on the where-line (ElsewhereNote says why). */}
           {elsewhere && (
-            <ElsewhereNote label={elsewhere} />
+            <ElsewhereNote label={elsewhere} roles={special} />
           )}
-          {special.map((fn) => (
+          {!elsewhere && special.map((fn) => (
             <span
               key={fn.label}
               title={fn.label}
               className={cn(
                 "mt-0.5 flex max-w-full items-start gap-1",
                 TILE_META,
-                // Amber once per tile: when the where-note already says «schau hin», a role
-                // under it (the vehicle this person drives, Reko …) is a muted fact.
-                fn.elsewhere && !elsewhere ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground",
+                // A role held elsewhere is the tile's one «schau hin»; a busy tile carries
+                // its roles muted on the where-line instead.
+                fn.elsewhere ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground",
               )}
             >
               <fn.Icon className={TILE_META_ICON} />

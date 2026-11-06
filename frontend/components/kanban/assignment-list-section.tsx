@@ -1,6 +1,6 @@
 "use client"
 
-import { Siren } from "lucide-react"
+import { Siren, type LucideIcon } from "lucide-react"
 
 /** The tile grid of every block: three columns from `sm`, ONE below it, so a phone shows a
  *  name in full («Hoffmann Lisa», not «Hoffmann L…») and the where-note gets the width. */
@@ -16,6 +16,9 @@ export const TILE_META = "type-caption"
  *  be absent), `full` everything untruncated for the hover title and the confirm copy. */
 export type OccupancyLabel = { head: string; detail?: string; full: string }
 
+/** Something a person holds besides their place – a driven vehicle, Reko, Magazin … */
+export type TileRole = { label: string; Icon: LucideIcon }
+
 /** A 12px glyph at the start of a 16px caption line. */
 export const TILE_META_ICON = "mt-0.5 h-3 w-3 flex-shrink-0"
 
@@ -23,19 +26,34 @@ export const TILE_META_ICON = "mt-0.5 h-3 w-3 flex-shrink-0"
  * A tile's «where is it now» note, inside two lines: line 1 the place at 12/16 600 with its
  * glyph (what the Einsatz is found by), line 2 the rest at 12/16 500 – each one line with an
  * ellipsis, the full text in `title`. One evenly weighted two-line passage ran number, address,
- * type and Meldung together (hill climb r13). Only line 1 is amber – it is ANOTHER commitment,
- * «schau hin»; the Meldung under it is a fact and muted, or fourteen busy tiles were an amber
- * wall (hill climb r18). Shared by the crew, vehicle and material tiles.
+ * type and Meldung together (hill climb r13). Only the place is amber – it is ANOTHER
+ * commitment, «schau hin»; the Meldung under it is a fact and muted, or fourteen busy tiles
+ * were an amber wall (hill climb r18). Shared by the crew, vehicle and material tiles.
+ *
+ * `roles` (crew tiles only) are what the person holds besides – the vehicle they drive, Reko …
+ * They ride on line 1 after the place, muted with their glyph («15 · Bättwilerstrasse 7 · 🚗
+ * Mawa»), and never shrink: the place ellipsizes first. On lines of their own they made one busy
+ * tile four lines tall, and the grid row stretched every tile beside it (hill climb r19).
  */
-export function ElsewhereNote({ label }: { label: OccupancyLabel }) {
+export function ElsewhereNote({ label, roles }: { label: OccupancyLabel; roles?: readonly TileRole[] }) {
+  const title = roles?.length ? [label.full, ...roles.map(role => role.label)].join(' · ') : label.full
   return (
     <span
-      title={label.full}
+      title={title}
       className="mt-0.5 flex max-w-full items-start gap-1 overflow-hidden text-amber-700 dark:text-amber-400"
     >
       <Siren className={TILE_META_ICON} />
-      <span className="min-w-0">
-        <span className="block truncate text-xs font-semibold">{label.head}</span>
+      <span className="min-w-0 flex-1">
+        <span className="flex min-w-0 items-start">
+          <span className="truncate text-xs font-semibold">{label.head}</span>
+          {roles?.map(role => (
+            <span key={role.label} className="ml-1 flex shrink-0 items-start gap-1 type-caption text-muted-foreground">
+              <span aria-hidden>·</span>
+              <role.Icon className={TILE_META_ICON} aria-hidden />
+              {role.label}
+            </span>
+          ))}
+        </span>
         {label.detail && <span className="block truncate type-caption text-muted-foreground">{label.detail}</span>}
       </span>
     </span>

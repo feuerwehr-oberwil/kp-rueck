@@ -272,12 +272,11 @@ export function FeldActions({
   const isCrew = assignment.source === 'crew'
 
   // The journey, as a visible chain: Angekommen → Einsatz beendet → Rapport.
-  // Done steps carry their time, the CURRENT step is the one red primary
+  // Done steps carry their time, the CURRENT step is the one ink main
   // button, the rest waits in grey. The old 2×2 grid put four same-red slabs
   // of three different consequence classes under one thumb; the chain has
   // exactly one pressable thing, and it always names the next step. The
-  // markers follow: red = you owe a step (same red as the button), emerald =
-  // done.
+  // markers follow the three states – done, current, later – see below.
   const rapportRelevant = rapportApplies({
     hasBeenDispatched: assignment.has_been_dispatched,
     status: assignment.incident_status,
@@ -377,7 +376,7 @@ export function FeldActions({
 
   return (
     <section className="rounded-xl bg-secondary/50 p-4 space-y-3">
-      <h2 className="text-sm font-medium text-muted-foreground">{t('title')}</h2>
+      <h2 className="type-label text-muted-foreground">{t('title')}</h2>
 
       {isCrew && (
         <ol className="relative space-y-2">
@@ -390,20 +389,29 @@ export function FeldActions({
             const confirmOpen = panel === confirmPanelFor[step.key]
             return (
               <li key={step.key} className="relative flex items-start gap-2.5">
-                {/* Marker: emerald = done, ink = the step owed now (same ink
-                    as the main button it points at), hollow muted-foreground
-                    ring = later (a `--border` ring was ~1.3:1 on the card). */}
+                {/* Marker, three states in a 16px slot centred on the connector:
+                    done = a filled 12px muted dot with an 8px ✓ cut out of it (past,
+                    read like the muted «… gemeldet · hh:mm» beside it – not green,
+                    which is frei/verfügbar only); current = a 14px ink ring with a
+                    4px ink centre (the step owed now, same ink as the button under
+                    it); later = the hollow muted-foreground ring, ≥ 3:1 on the card
+                    (a `--border` ring was ~1.3:1). A solid ink dot for «current»
+                    read as «done» right above «Angekommen melden» (hill climb r19). */}
                 <span
                   aria-hidden
-                  className={`relative z-raised mt-[3px] flex size-4 shrink-0 items-center justify-center rounded-full border-2 ${
-                    step.done
-                      ? 'border-emerald-500 bg-emerald-500 text-white'
-                      : isCurrent
-                        ? 'border-action bg-action'
-                        : 'border-muted-foreground bg-secondary'
-                  }`}
+                  className={`relative z-raised flex size-4 shrink-0 items-center justify-center ${isCurrent ? 'mt-1' : 'mt-[3px]'}`}
                 >
-                  {step.done && <Check className="size-2.5" />}
+                  {step.done ? (
+                    <span className="flex size-3 items-center justify-center rounded-full bg-muted-foreground text-secondary">
+                      <Check className="size-2" strokeWidth={3.5} />
+                    </span>
+                  ) : isCurrent ? (
+                    <span className="flex size-3.5 items-center justify-center rounded-full border-2 border-action bg-secondary">
+                      <span className="size-1 rounded-full bg-action" />
+                    </span>
+                  ) : (
+                    <span className="size-3.5 rounded-full border-2 border-muted-foreground bg-secondary" />
+                  )}
                 </span>
                 <div className="min-w-0 flex-1">
                   {step.done ? (
@@ -454,7 +462,7 @@ export function FeldActions({
                     /* The step's name, and the one pressable thing directly
                        under it — label and button belong to each other. */
                     <>
-                      <p className="pt-px text-sm font-medium">{step.name}</p>
+                      <p className="text-base font-semibold">{step.name}</p>
                       <Button
                         size="lg"
                         className="mt-1.5 h-12 w-full"

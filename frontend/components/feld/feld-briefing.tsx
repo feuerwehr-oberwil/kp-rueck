@@ -29,6 +29,7 @@
 import { useTranslations } from 'next-intl'
 import { Binoculars, MessageSquareText, Package, Phone, TriangleAlert, Truck, Users, Waypoints } from 'lucide-react'
 
+import { LeaderGlyph } from '@/components/kanban/leader-badge'
 import { DriverStayGlyph } from '@/components/ui/driver-stay-glyph'
 import { MelderLink } from '@/components/ui/melder-link'
 import { FeldSection } from '@/components/feld/feld-section'
@@ -95,6 +96,8 @@ function rekoLabel(t: (key: string, values?: Record<string, string>) => string, 
 /**
  * One labelled row of the detail section: icon · label · content, the same for every row —
  * Meldung included, which used to be the one row without an icon and stood out of the column.
+ * The label is the shared `type-label` caps role: every header in caps, so «Mannschaft» reads
+ * as the name of a place and not as one more line of content (hill climb r19).
  */
 function BriefingRow({
   icon: Icon,
@@ -107,9 +110,9 @@ function BriefingRow({
 }) {
   return (
     <div className="flex items-start gap-2">
-      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      <Icon className="mt-px h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="type-label text-muted-foreground">{label}</p>
         <div className="text-sm">{children}</div>
       </div>
     </div>
@@ -117,15 +120,20 @@ function BriefingRow({
 }
 
 /**
- * A bullet list inside a row (Mannschaft, Material): one entry per line, a long entry wraps
- * under its own text (hanging indent), never under the bullet.
+ * A list inside a row (Mannschaft, Material): one entry per ~28px line, no bullets – the
+ * board's card and detail list people bare, and a bullet before every name was a second
+ * mark competing with «EL». `lead` is an entry's leading mark («EL» before the leader): when
+ * any entry has one, every entry gets the 28px slot, so all names start at one edge. A long
+ * entry wraps under its own text, never under the slot.
  */
-function BriefingList({ items }: { items: { key: string; content: React.ReactNode }[] }) {
+function BriefingList({ items }: { items: { key: string; content: React.ReactNode; lead?: React.ReactNode }[] }) {
+  const slotted = items.some(item => item.lead)
   return (
-    <ul className="list-disc space-y-0.5 pl-4 marker:text-muted-foreground">
+    <ul>
       {items.map(item => (
-        <li key={item.key} className="break-words pl-0.5">
-          {item.content}
+        <li key={item.key} className="flex items-start py-1 first:pt-0.5">
+          {slotted && <span className="flex h-5 w-7 shrink-0 items-center">{item.lead}</span>}
+          <span className="min-w-0 break-words">{item.content}</span>
         </li>
       ))}
     </ul>
@@ -150,6 +158,7 @@ export function FeldBriefing({
   bare?: boolean
 }) {
   const t = useTranslations('feld.briefing')
+  const tLeader = useTranslations('kanban.leader')
   const { description, contact, contact_phone: phone, crew, vehicles, materials, reko } = assignment
 
   const hasResources = crew.length > 0 || vehicles.length > 0 || materials.length > 0
@@ -189,10 +198,24 @@ export function FeldBriefing({
 
       {/* One person per line, as a list: «Aebi Lionel, Aebischer Yannick, Bühlmann
           Carina, …» broke names across lines at 360px and made counting heads a
-          reading exercise. The same bullet list as the material below. */}
+          reading exercise. The same list as the material below. The leader carries
+          the board's neutral «EL» chip before the name (a screen reader hears the
+          role); matched by name, the only key the crew list has. */}
       {crew.length > 0 && (
         <BriefingRow icon={Users} label={t('crew')}>
-          <BriefingList items={crew.map((name) => ({ key: name, content: name }))} />
+          <BriefingList
+            items={crew.map((name) => ({
+              key: name,
+              content: name,
+              lead:
+                assignment.leader_name && name === assignment.leader_name ? (
+                  <>
+                    <LeaderGlyph />
+                    <span className="sr-only">{tLeader('is')}: </span>
+                  </>
+                ) : undefined,
+            }))}
+          />
         </BriefingRow>
       )}
 
@@ -293,7 +316,7 @@ export function FeldBriefing({
 
   return (
     <section className="rounded-xl bg-secondary/30 p-4 space-y-3">
-      <h2 className="text-sm font-medium text-muted-foreground">{t('title')}</h2>
+      <h2 className="type-label text-muted-foreground">{t('title')}</h2>
       {body}
     </section>
   )

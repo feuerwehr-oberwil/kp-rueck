@@ -194,6 +194,11 @@ const SECTIONS = [
 ] as const;
 
 type SectionId = typeof SECTIONS[number]['id'];
+
+/** A group whose only visible row carries the group's own name («Dieses Gerät») – the nav
+ *  draws no head over it, the row stands alone above the next group. */
+const isSelfNamedGroup = (group: typeof GROUPS[number], sections: readonly { id: SectionId }[]) =>
+  sections.length === 1 && sections[0].id === group;
 type Section = typeof SECTIONS[number];
 
 const DEFAULT_SECTION: SectionId = 'general';
@@ -921,12 +926,16 @@ export default function SettingsPage() {
                   const groupSections = visibleSections.filter(s => s.group === group);
                   if (groupSections.length === 0) return null;
                   return (
-                    <div key={group}>
+                    <div key={group} className={groupIndex > 0 ? 'mt-4' : undefined}>
                       {/* A group head names a place, so it takes the caps label role like every
-                          other header – title case read like one more item. */}
-                      <p className={`type-label px-3 py-2 text-muted-foreground ${groupIndex > 0 ? 'mt-4' : ''}`}>
-                        {t(`page.groups.${group}`)}
-                      </p>
+                          other header – title case read like one more item. A group whose one
+                          row says the same word («Dieses Gerät») has no head: it only repeated
+                          the row under it (hill climb r19). */}
+                      {!isSelfNamedGroup(group, groupSections) && (
+                        <p className="type-label px-3 py-2 text-muted-foreground">
+                          {t(`page.groups.${group}`)}
+                        </p>
+                      )}
                       {groupSections.map((section) => {
                         const Icon = section.icon;
                         const isActive = activeSection === section.id;
@@ -977,12 +986,13 @@ export default function SettingsPage() {
                   {GROUPS.map((group) => {
                     const groupSections = visibleSections.filter(s => s.group === group);
                     if (groupSections.length === 0) return null;
-                    const groupLabel = t(`page.groups.${group}`);
                     return (
                       <div key={group}>
-                        <div className="type-label px-2 py-1.5 text-muted-foreground">
-                          {groupLabel}
-                        </div>
+                        {!isSelfNamedGroup(group, groupSections) && (
+                          <div className="type-label px-2 py-1.5 text-muted-foreground">
+                            {t(`page.groups.${group}`)}
+                          </div>
+                        )}
                         {groupSections.map((section) => (
                           <SelectItem key={section.id} value={section.id}>
                             {t(`page.sections.${section.id}`)}

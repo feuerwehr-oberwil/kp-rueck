@@ -943,7 +943,7 @@ function FeldSurface() {
         aria-expanded={materialExpanded}
         className="flex w-full items-center gap-2 text-left"
       >
-        <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('material.title')}</h2>
+        <h2 className="type-label text-muted-foreground">{t('material.title')}</h2>
         {/* Folded, the header carries the one number worth carrying — the table
             says the same thing in its own first line once it is open. */}
         {!materialExpanded && (
@@ -1297,13 +1297,13 @@ function FeldSurface() {
                 lands on the Restliste as work somebody has to check. */}
             {token && selectedPerson && selectedAssignment.source === 'crew' && !incidentHasRapport(selectedAssignment) && (
               <section className="rounded-xl bg-secondary/30 p-4">
-                <h2 className="text-sm font-medium mb-2">{t('detail.rapportTitle')}</h2>
+                <h2 className="type-label mb-2 text-muted-foreground">{t('detail.rapportTitle')}</h2>
                 <p className="text-sm text-muted-foreground">{tRapport('notDispatched')}</p>
               </section>
             )}
             {token && selectedPerson && assignmentRapportApplies(selectedAssignment) && (
               <section id="feld-rapport-section" className="scroll-mt-4 space-y-3">
-                <h2 className="px-1 text-sm font-medium text-muted-foreground">{t('detail.rapportTitle')}</h2>
+                <h2 className="type-label px-1 text-muted-foreground">{t('detail.rapportTitle')}</h2>
                 <FeldRapportForm
                   key={selectedAssignment.incident_id}
                   incidentId={selectedAssignment.incident_id}
