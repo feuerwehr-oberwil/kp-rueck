@@ -1,5 +1,6 @@
 "use client"
 
+import { Siren } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 /** The tile grid of every block: three columns from `sm`, ONE below it, so a phone shows a
@@ -10,13 +11,36 @@ export const TILE_GRID = "grid grid-cols-1 sm:grid-cols-3 gap-2"
  *  name stays 14/500, the one thing to read first. Tiles align their contents to the TOP: a grid row is as tall as
  *  its tallest tile, and centred contents put the names of one row at different heights. */
 export const TILE_META = "type-caption"
-/** A tile's «where is it now» note: up to two lines, then an ellipsis (full text in `title`) –
- *  one dense ellipsis line hid the Einsatz it named (hill climb r2). Tone (amber) comes from the
- *  caller; its icon takes `TILE_META_ICON` so it sits on the first line. */
-export const ELSEWHERE_NOTE = "mt-0.5 flex max-w-full items-start gap-1 overflow-hidden type-caption"
-export const ELSEWHERE_TEXT = "min-w-0 line-clamp-2 break-words"
+/** Where an occupied resource currently is: `head` names the place (number · address, an
+ *  Auftrag's name, or the generic «Im Einsatz»), `detail` the rest («Einsatzart: Meldung», may
+ *  be absent), `full` everything untruncated for the hover title and the confirm copy. */
+export type OccupancyLabel = { head: string; detail?: string; full: string }
+
 /** A 12px glyph at the start of a 16px caption line. */
 export const TILE_META_ICON = "mt-0.5 h-3 w-3 flex-shrink-0"
+
+/**
+ * A tile's amber «where is it now» note, inside two lines: line 1 the place at 12/16 600 (what
+ * the Einsatz is found by), line 2 the rest at 12/500 – each one line with an ellipsis, the full
+ * text in `title`. One evenly weighted two-line passage ran number, address, type and Meldung
+ * together (hill climb r13). Amber because it is ANOTHER commitment; shared by the crew, vehicle
+ * and material tiles.
+ */
+export function ElsewhereNote({ label }: { label: OccupancyLabel }) {
+  return (
+    <span
+      title={label.full}
+      className="mt-0.5 flex max-w-full items-start gap-1 overflow-hidden text-amber-700 dark:text-amber-400"
+    >
+      <Siren className={TILE_META_ICON} />
+      <span className="min-w-0">
+        <span className="block truncate text-xs font-semibold">{label.head}</span>
+        {label.detail && <span className="block truncate type-caption">{label.detail}</span>}
+      </span>
+    </span>
+  )
+}
+
 /** An UNCHECKED tile under the pointer: the neutral edge and a quiet wash – no lift, no
  *  shadow, no slate, so a hover never competes with the checked tiles' slate wash + edge + ✓
  *  (hill climb r5). Only on unchecked tiles: a `hover:` edge on a checked one would take its

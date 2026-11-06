@@ -3,8 +3,8 @@
 import { useTranslations } from "next-intl"
 import { Badge } from "@/components/ui/badge"
 import { Reveal } from "@/components/ui/reveal"
-import { ELSEWHERE_NOTE, ELSEWHERE_TEXT, ListSection, TILE_GRID, TILE_HOVER, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
-import { CheckCircle, Circle, Layers, ChevronDown, ChevronRight, Siren, Ban, Truck } from "lucide-react"
+import { ElsewhereNote, ListSection, type OccupancyLabel, TILE_GRID, TILE_HOVER, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
+import { CheckCircle, Circle, Layers, ChevronDown, ChevronRight, Ban, Truck } from "lucide-react"
 import { type Material } from "@/lib/contexts/operations-context"
 import { materialResourceState } from "@/lib/resource-status"
 import { getActiveLocale } from "@/lib/i18n-messages"
@@ -146,7 +146,7 @@ interface MaterialAssignmentListProps {
   selectedMaterials: ReadonlySet<string>
   occupiedElsewhereMaterialIds: ReadonlySet<string>
   /** Where a material is held elsewhere, or null when free / on this target. */
-  materialElsewhereLabel: (material: Material) => { short: string; full: string } | null
+  materialElsewhereLabel: (material: Material) => OccupancyLabel | null
   /** Vehicle names on this target — a depot that IS one of them is on scene. */
   assignedVehicles: string[]
   /** Id of the tile (or `group-<first id>`) whose tick just appeared. */
@@ -220,13 +220,7 @@ const renderMaterialTile = (material: Material) => {
             {t('assignmentDialog.outOfService')}
           </p>
         ) : elsewhere ? (
-          <span
-            title={elsewhere.full}
-            className={cn(ELSEWHERE_NOTE, "text-amber-700 dark:text-amber-400")}
-          >
-            <Siren className={TILE_META_ICON} />
-            <span className={ELSEWHERE_TEXT}>{elsewhere.short}</span>
-          </span>
+          <ElsewhereNote label={elsewhere} />
         ) : vehicleOnScene ? (
           <span
             title={t('assignmentDialog.vehicleOnSceneHint', { name: material.category })}

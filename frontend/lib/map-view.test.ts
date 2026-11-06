@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Map as MlMap } from 'maplibre-gl'
-import { boundsOfLatLng, fitTo, type LatLngPoint } from './map-view'
+import { boundsOfLatLng, fitTo, incidentMarkerZ, Z, type LatLngPoint } from './map-view'
 
 // The one fit shared by the Lagekarte, the print page and the two Auftrag dialogs. Worth
 // pinning because all four hand it `[lat, lng]` while MapLibre answers in `[lng, lat]` — a
@@ -67,5 +67,22 @@ describe('fitTo', () => {
       ],
       { padding: 60, maxZoom: 16, duration: 600 },
     )
+  })
+})
+
+describe('incidentMarkerZ', () => {
+  const rest = { hovered: false, highlighted: false }
+
+  it('stacks unselected dots Hoch over Mittel over Niedrig, all under a route stop', () => {
+    const [high, medium, low] = (['high', 'medium', 'low'] as const).map((p) => incidentMarkerZ(p, rest))
+    expect(high).toBeGreaterThan(medium)
+    expect(medium).toBeGreaterThan(low)
+    expect(high).toBeLessThan(Z.routeStop)
+  })
+
+  it('keeps the selected and the pointed-at dot above every priority', () => {
+    const selectedLow = incidentMarkerZ('low', { hovered: false, highlighted: true })
+    expect(selectedLow).toBeGreaterThan(incidentMarkerZ('high', rest))
+    expect(incidentMarkerZ('low', { hovered: true, highlighted: false })).toBeGreaterThan(selectedLow)
   })
 })

@@ -231,6 +231,10 @@ export function StationSettingsForm({
           // and its spinner is useless at six decimal places.
           type="text"
           inputMode={config.range ? 'decimal' : undefined}
+          // A number (today: the Magazin's latitude/longitude, up to 15 decimals) reads in
+          // Spline Sans Mono with tabular figures. Size and padding stay the Input's own:
+          // 14/20 from md, 16px below it (iOS zooms into a smaller field).
+          className={config.type === 'number' ? 'font-mono tabular-nums' : undefined}
           value={value}
           aria-invalid={validationError ? true : undefined}
           aria-describedby={validationError ? `${config.key}-error` : undefined}

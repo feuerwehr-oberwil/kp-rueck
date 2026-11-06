@@ -30,7 +30,7 @@ import { AssignmentLines } from "./map/assignment-lines"
 import { OperationHoverCard } from "./map/operation-hover-card"
 import { MAP_COLORS, PRIORITY_MARKER_COLORS, STATUS_RING, incidentPinRings, incidentPinSize } from "@/lib/map-colors"
 import { markerGlyphInk, priorityGlyphPath } from "@/lib/map-priority"
-import { DEFAULT_CENTER_LATLNG, fitTo, Z, type LatLngPoint } from "@/lib/map-view"
+import { DEFAULT_CENTER_LATLNG, fitTo, incidentMarkerZ, Z, type LatLngPoint } from "@/lib/map-view"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { VehicleTrails } from "./map/vehicle-trails"
 import { ChevronDown, Maximize, AlertTriangle, Truck, Users } from "lucide-react"
@@ -1438,14 +1438,11 @@ export default function MapView({
                 compact={compactMap}
                 accentColor={effectiveMarkerAccents?.get(incident.id) ?? null}
                 // Two markers a few metres apart overlap; the one being pointed at (or
-                // selected) belongs on top, not wherever the DOM order put it.
-                zIndex={
-                  hoveredIncidentId === incident.id
-                    ? Z.incidentHovered
-                    : isHighlighted
-                      ? Z.incidentHighlighted
-                      : Z.incident
-                }
+                // selected) belongs on top, the rest by priority – not by DOM order.
+                zIndex={incidentMarkerZ(incident.priority, {
+                  hovered: hoveredIncidentId === incident.id,
+                  highlighted: isHighlighted,
+                })}
                 onSelect={select}
                 onOpen={openDetail}
                 onHoverStart={hoverStart}
