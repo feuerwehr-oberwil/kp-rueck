@@ -80,13 +80,16 @@ const TYPE_LINE = "min-w-0 break-words text-[0.78rem] text-foreground/80"
 const AGE = "text-base font-bold"
 
 /** Every chip on the wall card — crew, vehicles, material, the Reko's dangers.
- *  0.8rem (not the desk's 12px) and no vertical padding: the name is the fact,
- *  the pill around it is not. `min-w-0 max-w-full shrink`: a lone over-long chip
+ *  1rem / 500 with a ≈16px line (hill climb r2): «wer ist mit welchem Fahrzeug
+ *  draussen» is what somebody walks up to the wall to read, so the names sit
+ *  one step under the address, never at caption size – 14px even at the fit's
+ *  floor. No vertical padding: the name is the fact, the pill around it is not.
+ *  `min-w-0 max-w-full shrink`: a lone over-long chip
  *  shrinks to the card instead of shoving the row past its edge — and then its
  *  text WRAPS inside it (`CHIP_TEXT`), never ellipsises: «Müller H…» is not a
  *  name anybody at 4 m can act on, and a wall has no pointer for a `title`. */
 const WALL_CHIP =
-  "min-w-0 max-w-full shrink whitespace-normal justify-start text-left text-[0.8rem] leading-snug px-1.5 py-0 font-normal flex items-center gap-1"
+  "min-w-0 max-w-full shrink whitespace-normal justify-start text-left text-base leading-[1.15] px-1.5 py-0 font-medium flex items-center gap-1"
 
 /** The text inside a wall chip: wraps like all wall text (`WALL_TEXT_WRAP`). */
 const CHIP_TEXT = cn("min-w-0", WALL_TEXT_WRAP)
@@ -428,7 +431,7 @@ export function DisplayIncidentCard({
                         )}
                         title={isConflict ? t("card.doubleBookedTooltip", { name: crewName }) : undefined}
                       >
-                        {isConflict && <AlertTriangle className="h-3 w-3 flex-shrink-0" />}
+                        {isConflict && <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />}
                         <LeaderBadge isLeader={operation.leaderId === personnelId} />
                         <span className={CHIP_TEXT}>
                           <PersonName name={crewName} personnelId={personnelId} display={crewName.trim() || t("common.unknownResource")} />
@@ -445,7 +448,7 @@ export function DisplayIncidentCard({
                 <div className="flex flex-wrap gap-1 min-w-0">
                   {operation.zuFuss && (
                     <RemovableChip variant="secondary" className={WALL_CHIP}>
-                      <Footprints className="h-3 w-3 flex-shrink-0" />
+                      <Footprints className="h-3.5 w-3.5 flex-shrink-0" />
                       <span className={CHIP_TEXT}>{t("common.zuFuss")}</span>
                     </RemovableChip>
                   )}
@@ -471,8 +474,9 @@ export function DisplayIncidentCard({
                           {/* The state, in full, on a screen that is only ever
                               read — and read from across the room. The click was
                               already gone; the two 12px glyphs that stood for it
-                              have gone too. */}
-                          <DriverStayGlyph stays={driverStay} />
+                              have gone too. At the chip's own size: it wraps
+                              onto its own line rather than shrink. */}
+                          <DriverStayGlyph stays={driverStay} size="wall" />
                         </span>
                       </RemovableChip>
                     )
@@ -494,7 +498,7 @@ export function DisplayIncidentCard({
                             variant="secondary"
                             className={WALL_CHIP}
                           >
-                            <Layers className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+                            <Layers className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
                             <span className={CHIP_TEXT}>{group.name}</span>
                           </RemovableChip>
                         ))}
@@ -510,7 +514,7 @@ export function DisplayIncidentCard({
                                 onSite && "bg-warning/15 text-warning-foreground",
                               )}
                             >
-                              {onSite && <MapPin className="h-3 w-3 flex-shrink-0" />}
+                              {onSite && <MapPin className="h-3.5 w-3.5 flex-shrink-0" />}
                               <span className={CHIP_TEXT}>{material?.name || materialId}</span>
                             </RemovableChip>
                           )
