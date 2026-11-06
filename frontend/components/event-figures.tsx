@@ -27,6 +27,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 
 export type EventFiguresDensity = "panel" | "wall"
 
+/**
+ * The wall's type steps for the Reaktionszeiten table and the dispatch chart, read across a room
+ * (hill climb r6: at 14/12px the two read as one uniform texture). Principal = what a row says
+ * (priority, median) 16/20 600; supporting = what qualifies it (counts, P90, column heads) 14/18.
+ * The panel keeps its denser 14/12px steps.
+ */
+const WALL_TYPE = {
+  principal: "text-base leading-5 font-semibold",
+  supporting: "text-sm leading-4.5",
+} as const
+
 export interface EventFiguresViewProps {
   figures: ApiEventFigures
   /** Turns the oldest waiting «hoch» Meldung into a button that opens it. */
@@ -34,7 +45,8 @@ export interface EventFiguresViewProps {
   /** How the oldest waiting Meldung is named — the board's location label when
    *  the caller has the incident, else its title. */
   incidentLabel?: (incidentId: string) => string | undefined
-  /** `wall` = the status display's column: tighter, no definitions button. */
+  /** `wall` = the status display's column: tighter tiles, the table and chart a step larger
+   *  (`WALL_TYPE`), no definitions button. */
   density?: EventFiguresDensity
   className?: string
 }
@@ -142,7 +154,7 @@ export function EventFiguresView({
         </div>
         <table className="w-full table-fixed border-collapse text-sm tabular-nums">
           <thead>
-            <tr className="text-left text-xs text-muted-foreground">
+            <tr className={cn("text-left text-muted-foreground", wall ? WALL_TYPE.supporting : "text-xs")}>
               <th scope="col" className="w-[28%] py-1 pr-2 font-medium">{t("colPriority")}</th>
               {STAGES.map((stage) => (
                 <th key={stage} scope="col" className="py-1 pr-2 font-medium">{stageLabel[stage]}</th>
@@ -156,13 +168,13 @@ export function EventFiguresView({
                 className={cn("border-t border-border align-top", row.priority === "all" && "font-medium")}
               >
                 <th scope="row" className="py-1.5 pr-2 text-left font-medium">
-                  <span className="inline-flex items-center gap-1.5">
+                  <span className={cn("inline-flex items-center gap-1.5", wall && WALL_TYPE.principal)}>
                     {row.priority !== "all" && (
                       <span className={cn("size-2 shrink-0 rounded-full", PRIORITY_DOT_CLASSES[row.priority])} aria-hidden />
                     )}
                     {priorityLabel[row.priority]}
                   </span>
-                  <span className="block text-xs font-normal text-muted-foreground">
+                  <span className={cn("block font-normal text-muted-foreground", wall ? WALL_TYPE.supporting : "text-xs")}>
                     {t("incidentCount", { count: row.total })}
                   </span>
                 </th>
@@ -178,6 +190,7 @@ export function EventFiguresView({
                       count: row[stage].count,
                     })}
                     p90Label={(value) => t("p90", { value })}
+                    wall={wall}
                   />
                 ))}
               </tr>
@@ -194,6 +207,7 @@ export function EventFiguresView({
         legendP90={t("legendP90")}
         priorityLabel={priorityLabel}
         noneLabel={t("noneYet")}
+        wall={wall}
       />
 
     </div>
@@ -284,14 +298,27 @@ function OldestWaiting({
   )
 }
 
-function StageCell({ stage, title, p90Label }: { stage: ApiStageFigures; title: string; p90Label: (value: string) => string }) {
+function StageCell({
+  stage,
+  title,
+  p90Label,
+  wall,
+}: {
+  stage: ApiStageFigures
+  title: string
+  p90Label: (value: string) => string
+  /** The wall's steps (`WALL_TYPE`): median 16/20, P90 14/18. */
+  wall: boolean
+}) {
   if (stage.count === 0) {
-    return <td className="py-1.5 pr-2 text-muted-foreground" title={title}>–</td>
+    return <td className={cn("py-1.5 pr-2 text-muted-foreground", wall && WALL_TYPE.principal)} title={title}>–</td>
   }
   return (
     <td className="py-1.5 pr-2" title={title}>
-      <span className="block font-semibold">{seconds(stage.median_seconds)}</span>
-      <span className="block text-xs text-muted-foreground">{p90Label(seconds(stage.p90_seconds))}</span>
+      <span className={cn("block font-semibold", wall && WALL_TYPE.principal)}>{seconds(stage.median_seconds)}</span>
+      <span className={cn("block text-muted-foreground", wall ? WALL_TYPE.supporting : "text-xs")}>
+        {p90Label(seconds(stage.p90_seconds))}
+      </span>
     </td>
   )
 }
@@ -299,7 +326,8 @@ function StageCell({ stage, title, p90Label }: { stage: ApiStageFigures; title: 
 /**
  * Median (solid) and the stretch to P90 (faint) on one shared scale, so «hoch is
  * dispatched faster than niedrig» reads without a number. Neutral ink: the bars
- * carry magnitude, the label beside them carries the priority.
+ * carry magnitude, the label beside them carries the priority. On the wall the row
+ * reads at 16px with the median in ink and its P90 muted, like the faint bar it names.
  */
 function DispatchBars({
   rows,
@@ -308,6 +336,7 @@ function DispatchBars({
   legendP90,
   priorityLabel,
   noneLabel,
+  wall,
 }: {
   rows: ApiPriorityFigures[]
   title: string
@@ -315,6 +344,7 @@ function DispatchBars({
   legendP90: string
   priorityLabel: Record<Priority | "all", string>
   noneLabel: string
+  wall: boolean
 }) {
   const max = Math.max(1, ...rows.map((r) => r.dispatched.p90_seconds ?? 0))
   return (
@@ -332,9 +362,13 @@ function DispatchBars({
           const p90 = row.dispatched.p90_seconds
           const label = priorityLabel[row.priority]
           return (
-            <li key={row.priority} className="grid grid-cols-[5.5rem_1fr_auto] items-center gap-2 text-sm">
-              <span className="truncate" title={label}>{label}</span>
-              <span className="relative h-3 overflow-hidden rounded-sm bg-foreground/[0.06]" aria-hidden>
+            <li
+              key={row.priority}
+              className={cn("grid grid-cols-[5.5rem_1fr_auto] items-center gap-2", wall ? "text-base leading-5" : "text-sm")}
+            >
+              {/* Wall text wraps, it doesn't truncate (CLAUDE.md). */}
+              <span className={wall ? "min-w-0 break-words" : "truncate"} title={label}>{label}</span>
+              <span className={cn("relative overflow-hidden rounded-sm bg-foreground/[0.06]", wall ? "h-4" : "h-3")} aria-hidden>
                 {p90 !== null && (
                   <span className="absolute inset-y-0 left-0 rounded-sm bg-foreground/25" style={{ width: `${(p90 / max) * 100}%` }} />
                 )}
@@ -347,7 +381,15 @@ function DispatchBars({
                 )}
               </span>
               <span className="min-w-[4.5rem] text-right tabular-nums text-muted-foreground">
-                {median === null ? noneLabel : `${seconds(median)} · ${seconds(p90)}`}
+                {median === null ? (
+                  noneLabel
+                ) : wall ? (
+                  <>
+                    <span className="font-semibold text-foreground">{seconds(median)}</span> · {seconds(p90)}
+                  </>
+                ) : (
+                  `${seconds(median)} · ${seconds(p90)}`
+                )}
               </span>
             </li>
           )

@@ -3,48 +3,50 @@
 import { useEffect, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import { Truck, ChevronDown, List } from "lucide-react"
-import { MAP_COLORS, PRIORITY_MARKER_COLORS, STATUS_RING } from "@/lib/map-colors"
-import { STATUS_GROUP_BORDER_STYLE } from "@/lib/types/incidents"
+import { MAP_COLORS, PRIORITY_MARKER_COLORS, incidentPinRings, incidentPinSize } from "@/lib/map-colors"
+import type { StatusGroup } from "@/lib/types/incidents"
+import { useCompactMap } from "@/lib/hooks/use-compact-map"
 import { markerGlyphInk, priorityGlyphPath } from "@/lib/map-priority"
 import type { Priority } from "@/lib/priority"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 
-// SVG marker for the legend – the map's IncidentPin at rest, same geometry and frame width.
+// SVG marker for the legend – the map's IncidentPin at rest, same geometry and frame
+// (`incidentPinRings`, phone or desktop by the same `useCompactMap` test the markers use).
 // The frame takes `--muted-foreground` rather than the markers' gray-700: the key sits on the
 // card, where gray-700 all but vanished in dark mode (STATUS_RING in lib/map-colors.ts).
 function LegendMarker({
   fillColor,
-  dasharray,
+  group,
   priority,
 }: {
   /** null in the status section: there the frame carries the meaning, and a grey
    *  dot in the middle only invites the question which status "grey" is. */
   fillColor: string | null
-  dasharray: string
+  /** Whose frame to draw; the fill sections draw the solid (active) one. */
+  group: StatusGroup
   /** The priority section draws the marker's glyph too (chevron / dash, lib/map-priority.ts). */
   priority?: Priority
 }) {
-  const size = 24
-  const borderRadius = size / 2
-  const innerRadius = borderRadius - 3
-  const borderOffset = STATUS_RING.width / 2
+  const compact = useCompactMap()
+  const size = incidentPinSize(false, compact)
+  const rings = incidentPinRings(size, compact, group)
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="flex-shrink-0" aria-hidden="true">
       {fillColor && (
         <circle
-          cx={borderRadius}
-          cy={borderRadius}
-          r={innerRadius}
+          cx={rings.r}
+          cy={rings.r}
+          r={rings.fillR}
           fill={fillColor}
           stroke="white"
-          strokeWidth="3"
+          strokeWidth={rings.halo}
         />
       )}
       {fillColor && priority && (
         <path
-          d={priorityGlyphPath(priority, borderRadius, borderRadius)}
+          d={priorityGlyphPath(priority, rings.r, rings.r, size / 24)}
           fill="none"
           stroke={markerGlyphInk(fillColor)}
           strokeWidth={2}
@@ -53,13 +55,14 @@ function LegendMarker({
         />
       )}
       <circle
-        cx={borderRadius}
-        cy={borderRadius}
-        r={borderRadius - borderOffset}
+        cx={rings.r}
+        cy={rings.r}
+        r={rings.ringR}
         fill="none"
         className="stroke-muted-foreground"
-        strokeWidth={STATUS_RING.width}
-        strokeDasharray={dasharray}
+        strokeWidth={rings.ringWidth}
+        strokeDasharray={rings.dasharray}
+        strokeLinecap={rings.linecap}
       />
     </svg>
   )
@@ -154,7 +157,7 @@ export function MapLegend({
             colorGroups.length > 0 ? (
               colorGroups.map((g) => (
                 <div key={g.key} className="flex items-center gap-2">
-                  <LegendMarker fillColor={g.color} dasharray="none" />
+                  <LegendMarker fillColor={g.color} group="active" />
                   <span className="text-xs">{g.label}</span>
                 </div>
               ))
@@ -164,15 +167,15 @@ export function MapLegend({
           ) : (
             <>
               <div className="flex items-center gap-2">
-                <LegendMarker fillColor={PRIORITY_MARKER_COLORS.high} dasharray="none" priority="high" />
+                <LegendMarker fillColor={PRIORITY_MARKER_COLORS.high} group="active" priority="high" />
                 <span className="text-xs">{t('common.priorityHigh')}</span>
               </div>
               <div className="flex items-center gap-2">
-                <LegendMarker fillColor={PRIORITY_MARKER_COLORS.medium} dasharray="none" priority="medium" />
+                <LegendMarker fillColor={PRIORITY_MARKER_COLORS.medium} group="active" priority="medium" />
                 <span className="text-xs">{t('common.priorityMedium')}</span>
               </div>
               <div className="flex items-center gap-2">
-                <LegendMarker fillColor={PRIORITY_MARKER_COLORS.low} dasharray="none" priority="low" />
+                <LegendMarker fillColor={PRIORITY_MARKER_COLORS.low} group="active" priority="low" />
                 <span className="text-xs">{t('common.priorityLow')}</span>
               </div>
             </>
@@ -188,12 +191,12 @@ export function MapLegend({
         {/* Each frame style stands for a GROUP of board columns, so the legend
             names them: the group label alone left «Rückfahrt» ambiguous — is a
             vehicle driving back still running, or finished? The dash patterns are the
-            markers' own (STATUS_GROUP_BORDER_STYLE); the key draws every frame at full
+            markers' own (incidentPinRings); the key draws every frame at full
             strength – the map dims finished markers, but a dimmed sample was a key nobody
             could read (hill climb r2). */}
         <div className="space-y-1.5">
           <div className="flex items-start gap-2">
-            <LegendMarker fillColor={null} dasharray={STATUS_GROUP_BORDER_STYLE.open.dasharray} />
+            <LegendMarker fillColor={null} group="open" />
             <span className="text-xs">
               {t('legend.statusOpen')}
               <span className="block text-2xs leading-tight text-muted-foreground">
@@ -202,7 +205,7 @@ export function MapLegend({
             </span>
           </div>
           <div className="flex items-start gap-2">
-            <LegendMarker fillColor={null} dasharray={STATUS_GROUP_BORDER_STYLE.active.dasharray} />
+            <LegendMarker fillColor={null} group="active" />
             <span className="text-xs">
               {t('legend.statusActive')}
               <span className="block text-2xs leading-tight text-muted-foreground">
@@ -211,7 +214,7 @@ export function MapLegend({
             </span>
           </div>
           <div className="flex items-start gap-2">
-            <LegendMarker fillColor={null} dasharray={STATUS_GROUP_BORDER_STYLE.completed.dasharray} />
+            <LegendMarker fillColor={null} group="completed" />
             <span className="text-xs">
               {t('legend.statusCompleted')}
               <span className="block text-2xs leading-tight text-muted-foreground">
