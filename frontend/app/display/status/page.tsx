@@ -505,7 +505,10 @@ function SituationBoard({
               <div className="p-2 xl:p-3 space-y-1.5 xl:space-y-2">
                 {stops.map((op, index) => (
                   <div key={op.id} className="flex items-start gap-2">
-                    <span className="mt-2.5 w-5 shrink-0 text-right text-[11px] xl:text-xs font-semibold tabular-nums text-muted-foreground">
+                    {/* The stop's place in the route, 14/18 600 mono like the
+                        row's clock, centred in a fixed 20px gutter and on the
+                        address's first line (row padding + half its line). */}
+                    <span className="mt-2.5 xl:mt-[0.8125rem] w-5 shrink-0 text-center font-mono text-sm leading-[1.125rem] font-semibold tabular-nums text-muted-foreground">
                       {index + 1}
                     </span>
                     <div className="min-w-0 flex-1">

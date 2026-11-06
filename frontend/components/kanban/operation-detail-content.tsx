@@ -105,15 +105,21 @@ function isEditorClaimedSource(source: string | undefined): boolean {
 /**
  * One action on the detail's footer bar.
  *
- * The modal has room for the word and shows it. The 420px panel does not — four
- * labelled controls do not fit and wrapping grows the bar into the content — so
- * there the icon stands alone AND CARRIES A HOVER LABEL. Not the browser's
- * `title`: that waits about a second and cannot be styled, which is no help to
- * somebody who does not already know that ⇄ means «Ressourcen übertragen». The
- * app's own tooltip opens with `delayDuration = 0`, i.e. on contact.
+ * The modal has room for the word and shows it. The panel does not have room
+ * for the full names — «WhatsApp kopieren · Ressourcen übertragen · An Auftrag
+ * verteilen» need ~580px, and wrapping grows the bar into the content. So there
+ * the icon carries a HOVER LABEL with the full name, and `panelLabel` — the
+ * short word («WhatsApp», «Übertragen», «Verteilen») — stands beside it, 12/500,
+ * once the bar is at least 27rem wide (a container query on the bar: the 480px
+ * panel from `2xl`, where even a Divera button in the row still leaves the
+ * delete its air). The 420px panel keeps the bare icons. Not the browser's `title`: that
+ * waits about a second and cannot be styled, which is no help to somebody who
+ * does not already know that ⇄ means «Ressourcen übertragen». The app's own
+ * tooltip opens with `delayDuration = 0`, i.e. on contact.
  *
  * `aria-label` is set in BOTH layouts, so the control keeps one name regardless
- * of how wide the window happens to be.
+ * of how wide the window happens to be; a `panelLabel` must be a word OF that
+ * name, so the visible text stays part of the accessible one.
  *
  * Module level on purpose: declared inside the component it would be a new type
  * every render, and React would remount the button mid-interaction.
@@ -122,6 +128,7 @@ function ActionBarButton({
   icon: Icon,
   label,
   visibleLabel,
+  panelLabel,
   dense,
   onClick,
   disabled,
@@ -134,6 +141,8 @@ function ActionBarButton({
   label: string
   /** What the modal prints on the button; defaults to `label`. */
   visibleLabel?: string
+  /** The short word the wide panel prints beside the icon (see above). */
+  panelLabel?: string
   dense: boolean
   onClick: () => void
   disabled?: boolean
@@ -153,6 +162,7 @@ function ActionBarButton({
     >
       {busy ? <ShellLoader className="size-3.5" /> : <Icon className="size-3.5" />}
       {!dense && (visibleLabel ?? label)}
+      {dense && panelLabel && <span className="hidden text-xs font-medium @min-[27rem]:inline">{panelLabel}</span>}
     </Button>
   )
 
@@ -1852,15 +1862,16 @@ export function OperationDetailContent({
             «Löschen» (plus Divera where it is configured), i.e. a button behind a
             button — and in the 420px panel its content opened downwards into the
             board footer, where it was clipped.
-            The panel has no room for four labelled controls, so there the icons
-            stand alone and the label arrives ON HOVER — see `ActionBarButton`,
-            which uses the app's tooltip rather than the browser's delayed
-            `title`. Löschen is pushed to the far end by `ml-auto`, away from the
+            The panel has no room for the full names, so there the full name
+            arrives ON HOVER and the wide panel prints a short word beside the
+            icon — see `ActionBarButton`; `@container` is what its word asks
+            about. Löschen is pushed to the far end by `ml-auto`, away from the
             things that are merely useful. */}
-        <div className="flex-shrink-0 flex items-center gap-2 pt-3 mt-auto border-t">
+        <div className="@container flex-shrink-0 flex items-center gap-2 pt-3 mt-auto border-t">
           <ActionBarButton
             icon={MessageCircle}
             label={t('detail.copyWhatsapp')}
+            panelLabel={t('sidePanel.whatsapp')}
             visibleLabel={isCopyingWhatsApp ? t('common.copying') : undefined}
             dense={dense}
             disabled={isCopyingWhatsApp}
@@ -1872,6 +1883,7 @@ export function OperationDetailContent({
             <ActionBarButton
               icon={ArrowRightLeft}
               label={t('common.transferResources')}
+              panelLabel={t('sidePanel.transfer')}
               dense={dense}
               onClick={() => onTransferResources(operation.id)}
             />
@@ -1881,6 +1893,7 @@ export function OperationDetailContent({
             <ActionBarButton
               icon={Waypoints}
               label={t('common.distributeToAuftrag')}
+              panelLabel={t('sidePanel.distribute')}
               dense={dense}
               onClick={() => onDistributeToAuftrag(operation.id)}
             />

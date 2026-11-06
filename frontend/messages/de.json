@@ -792,7 +792,8 @@
       "clickToView": "Klicke auf einen Einsatz, um Details anzuzeigen",
       "selectPlaceholder": "Auswählen",
       "transfer": "Übertragen",
-      "whatsapp": "WhatsApp"
+      "whatsapp": "WhatsApp",
+      "distribute": "Verteilen"
     },
     "personMenu": {
       "vehicleTaken": "Fahrzeug bereits zugewiesen",
