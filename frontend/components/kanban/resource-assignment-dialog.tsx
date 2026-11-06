@@ -1217,7 +1217,7 @@ export function ResourceAssignmentDialog({
               {categories.map((cat) => (
                 <DropdownMenuRadioItem key={cat} value={cat} onSelect={keepMenuOpen}>
                   {resourceType === 'materials' && assignedVehicleNames.includes(cat) && (
-                    <Truck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                    <Truck className="h-3 w-3 text-foreground" aria-hidden="true" />
                   )}
                   {cat}
                 </DropdownMenuRadioItem>
@@ -1350,6 +1350,7 @@ export function ResourceAssignmentDialog({
                 // A material depot/location that matches an already-assigned
                 // vehicle (e.g. "MoWa") — flag it so the operator sees at a glance
                 // which stock is already on scene. Materials only; matched by name.
+                // A fact, so ink text + truck glyph – never green (frei only).
                 const vehiclePresent = resourceType === 'materials' && assignedVehicleNames.includes(cat)
                 const isActive = categoryFilter === cat
                 return (
@@ -1362,7 +1363,7 @@ export function ResourceAssignmentDialog({
                       isActive
                         ? "bg-sel-wash text-sel-foreground border-sel-edge"
                         : vehiclePresent
-                          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/50 hover:bg-emerald-500/20"
+                          ? "bg-muted/50 text-foreground border-border hover:bg-muted"
                           : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
                     )}
                   >
