@@ -15,7 +15,8 @@
  * address 1.25rem, age 1rem bold, the whole Meldung in foreground, never
  * clamped. Every size is rem, so the board's live root size (`useWallFit`)
  * scales all of it at once. And stops 2…n of one Auftrag in a column print the
- * crew once («Mannschaft wie Stopp n», `crewShownAtStop`).
+ * crew once («Mannschaft wie Stopp n», `crewShownAtStop`) – on the crew's own
+ * line at chip size, because it answers the same «wer ist dort».
  *
  * What was removed, and why each one is a control rather than information:
  *  * drag source, drop target, context menu, the card's own status controls;
@@ -74,9 +75,23 @@ import { PersonName } from "@/components/person-name"
  *  fit (`useWallFit`) cannot give to the type. */
 const SECTION_RULE = "border-t pt-1.5"
 
+/** The wall's ONE caption size (hill climb r3): Einsatzart, Melder, the Auftrag
+ *  name and stop line, «vor Ort seit», Nachbarhilfe, the Reko's Pers./h.
+ *  0.8rem = 11.2px at the fit's 14px floor – the board's `type-micro` floor
+ *  (11px) never undercut, and the same size as the incident number. The
+ *  hierarchy stays address (1.25rem) > chips and states (1rem) > Meldung
+ *  (0.84rem) > captions. Its own leading, so a caption line costs 14.6px at the
+ *  floor rather than whatever the parent's line-height happens to be. */
+const WALL_CAPTION = "text-[0.8rem] leading-[1.3]"
+
+/** A line that answers «wer» or «was ist los» at chip size – «Am Warten»,
+ *  «Mannschaft wie Stopp n»: 1rem on a 1.2857rem line (14/18 at the floor).
+ *  Wraps, never truncates, like all wall text. */
+const WALL_STATE_LINE = cn("min-w-0 text-base leading-[1.2857]", WALL_TEXT_WRAP)
+
 /** The Einsatzart line and its age, the two facts of the second row. The age
  *  is the one number on the card somebody reads from the door: 1rem bold. */
-const TYPE_LINE = "min-w-0 break-words text-[0.78rem] text-foreground/80"
+const TYPE_LINE = cn("min-w-0 break-words text-foreground/80", WALL_CAPTION)
 const AGE = "text-base font-bold"
 
 /** Every chip on the wall card — crew, vehicles, material, the Reko's dangers.
@@ -185,6 +200,9 @@ export function DisplayIncidentCard({
   const tFeld = useTranslations("feld.board")
 
   const priority = (operation.priority || "low") as Priority
+  // «Am Warten · Grund», or just the label – the desk card's wording, word for word.
+  const amWartenNote = operation.amWartenNote?.trim()
+  const amWartenLabel = amWartenNote ? `${t("common.amWarten")} · ${amWartenNote}` : t("common.amWarten")
 
   const auftragTotal = auftrag ? auftrag.stopIds.length : 0
   const auftragStopPos = auftrag ? auftragStopPosition(auftrag, operation.id, operation.groupPosition) : 0
@@ -298,11 +316,8 @@ export function DisplayIncidentCard({
                 <Axe className="h-4 w-4 text-muted-foreground/80" />
               </div>
             )}
-            {operation.amWarten && (
-              <div className="p-1.5 rounded-md bg-amber-100 dark:bg-amber-900/30" title={t("common.amWarten")}>
-                <Timer className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              </div>
-            )}
+            {/* «Am Warten» is not in this glyph row: it is a labelled line
+                under the head, as on the desk card (see below). */}
             {operation.nachbarhilfe && (
               <div className="p-1.5 rounded-md bg-muted/60" title={t("common.nachbarhilfe")}>
                 <Building2 className="h-4 w-4 text-muted-foreground/80" />
@@ -333,6 +348,18 @@ export function DisplayIncidentCard({
             ) : null}
           </div>
         </div>
+
+        {/* «Am Warten», in words, where the desk card says it: a stuck card is
+            the one the room has to notice, and a 16px amber stopwatch in the
+            corner said so to nobody at 4 m. The shared amber tokens (amber =
+            «schau hin»), the desk card's copy with the reason, 1rem / 600, and
+            it wraps instead of truncating – a wall has no pointer for a title. */}
+        {operation.amWarten && (
+          <div className="flex w-fit max-w-full items-start gap-1.5 rounded-sm border border-warning/60 bg-warning/15 px-1.5 py-px text-warning-foreground">
+            <Timer className="h-4 w-4 flex-shrink-0 mt-0.5" />
+            <span className={cn(WALL_STATE_LINE, "font-semibold")}>{amWartenLabel}</span>
+          </div>
+        )}
 
         {/* Einsatzart and time on one row, each half independently switchable —
             the board's own three branches. `readOnly`: the mode follows the
@@ -377,7 +404,7 @@ export function DisplayIncidentCard({
         {/* Melder — the name and the number, as text: there is nothing to dial
             from a wall, and a link the room cannot click is a control. */}
         {showMelderBlock && (
-          <div className="flex items-start gap-1.5 text-[0.78rem]">
+          <div className={cn("flex items-start gap-1.5", WALL_CAPTION)}>
             <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-px" />
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
               {operation.contact && <span className="text-foreground/80 break-words">{operation.contact}</span>}
@@ -390,7 +417,7 @@ export function DisplayIncidentCard({
 
         {/* RESSOURCEN — who and what is at this address. */}
         {showResourceBlock && (
-          <div className={cn(SECTION_RULE, "space-y-1 text-xs")}>
+          <div className={cn(SECTION_RULE, "space-y-1", WALL_CAPTION)}>
             {showRekoPerson && operation.assignedReko && (
               <div className="flex items-start gap-1.5">
                 <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
@@ -406,7 +433,7 @@ export function DisplayIncidentCard({
                     <span className={CHIP_TEXT}>{operation.assignedReko.name.trim() || t("common.unknownResource")}</span>
                   </RemovableChip>
                   {operation.rekoArrivedAt && !operation.hasCompletedReko && (
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-muted-foreground">
                       {t("card.onSiteSince", { time: formatClockTime(operation.rekoArrivedAt) })}
                     </span>
                   )}
@@ -548,36 +575,45 @@ export function DisplayIncidentCard({
             also why the summary line above deliberately carries one field fewer
             than the kanban card's: no «N Pers» over a list of the same names. */}
         {showAuftragBlock && auftrag && (
-          <div className={cn("text-xs", !showResourceBlock && SECTION_RULE)}>
+          <div className={cn(WALL_CAPTION, !showResourceBlock && SECTION_RULE)}>
             <div className="flex w-full min-w-0 items-start gap-1.5" title={auftragTitle}>
-              <Waypoints className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+              <Waypoints className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-px" />
               <span
                 className="h-2 w-2 rounded-full flex-shrink-0 mt-1"
                 style={{ backgroundColor: auftrag.color ?? "var(--muted-foreground)" }}
               />
               {/* Two lines, the same shape as the kanban card — and needed here
-                  more, not less. Measured on this board: one line gave the
+                  more, not less. Measured on this board (at text-xs): one line gave the
                   summary 19px of the 264px card at 1280 (39px of 284px at 1920)
                   for 106px of content, so it rendered «P…», and a wall has
                   nobody to hover the tooltip that could give it back. Split, the
                   second line has 193px at 1280 (213px at 1920) for 135.4px of
                   «Stopp 6 von 7 · Pio · 1 Gerät» — 174.9px before the crew count
-                  came out of `auftragSummary` above. Neither width truncates —
-                  and since the stop line also carries «Mannschaft wie Stopp n»
-                  both lines WRAP rather than truncate, as wall text does. */}
+                  came out of `auftragSummary` above. Neither line truncates:
+                  both WRAP, as wall text does. */}
               <span className="flex min-w-0 flex-1 flex-col gap-px">
                 <span className={cn("font-medium text-foreground/80", WALL_TEXT_WRAP)}>{auftrag.name}</span>
-                <span className={cn("text-xs text-muted-foreground", WALL_TEXT_WRAP)}>
+                <span className={cn("text-muted-foreground", WALL_TEXT_WRAP)}>
                   <span className="tabular-nums">
                     {t("card.auftragStopLine", { pos: auftragStopPos, total: auftragTotal })}
                   </span>
-                  {auftragCrewFolded && <> · {t("card.auftragCrewAsStop", { pos: crewShownAt })}</>}
                   {auftragSummary && <> · {auftragSummary}</>}
                 </span>
               </span>
             </div>
             {/* Folded when an earlier card of this column already names the
-                same squad (`crewShownAt`): the stop line says so instead. */}
+                same squad (`crewShownAt`): the crew's line then says «Mannschaft
+                wie Stopp n» – in the chips' place and at their size, not as a
+                caption among the stop metadata, because it answers the same
+                question the chips do. */}
+            {auftragCrewFolded && (
+              <div className="mt-1 flex items-start gap-1.5">
+                <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-[0.2rem]" />
+                <span className={cn(WALL_STATE_LINE, "font-medium text-foreground")}>
+                  {t("card.auftragCrewAsStop", { pos: crewShownAt })}
+                </span>
+              </div>
+            )}
             {auftragCrew.length > 0 && !auftragCrewFolded && (
               <div className="mt-1 flex items-start gap-1.5">
                 <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
@@ -616,7 +652,7 @@ export function DisplayIncidentCard({
             )}
 
             {(operation.rekoSummary.personnelCount || operation.rekoSummary.estimatedDuration) && (
-              <div className="text-xs text-muted-foreground">
+              <div className={cn("text-muted-foreground", WALL_CAPTION)}>
                 {operation.rekoSummary.personnelCount && (
                   <span className="mr-3">{t("card.persCount", { count: operation.rekoSummary.personnelCount })}</span>
                 )}
