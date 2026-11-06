@@ -747,9 +747,7 @@
       "rekoByName": "Reconnaissance par {name}",
       "summaryFallback": "Annonce, effectif et matériel",
       "driver": "Conducteur : {name}",
-      "vehicleViaAuftrag": "Mission – vient avec",
-      "vehicleStays": "reste sur place",
-      "vehicleReturns": "rentre à la caserne"
+      "vehicleViaAuftrag": "Mission – vient avec"
     },
     "rapportState": {
       "none": "pas de rapport",
@@ -3499,6 +3497,11 @@
         "languageHint": "Langue de l’interface sur cet appareil",
         "selectPlaceholder": "Choisir …",
         "editorsOnlyNote": "Seuls les éditeurs peuvent modifier les réglages.",
+        "groups": {
+          "station": "Caserne",
+          "map": "Carte et affichage",
+          "rapport": "Rapport d’intervention"
+        },
         "configs": {
           "home_city": {
             "label": "Secteur d’intervention (localité)",

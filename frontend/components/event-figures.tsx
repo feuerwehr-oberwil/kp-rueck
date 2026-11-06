@@ -105,6 +105,7 @@ export function EventFiguresView({
           overdue={ageLevel(oldestSince) !== "normal"}
           openLabel={t("openIncident")}
           onOpen={onOpenIncident ? () => onOpenIncident(oldest.incident_id) : undefined}
+          wall={wall}
         />
       ) : (
         figures.total > 0 && <p className="text-sm text-muted-foreground">{t("noWaitingHigh")}</p>
@@ -230,11 +231,14 @@ export function EventFiguresPanel({
   )
 }
 
+/** One count tile. On the wall it steps back (10px padding, a 20px figure under
+ *  its muted 12px caption): four equal tiles must not out-shout the free
+ *  resources and the oldest waiting «hoch» beside them. */
 function Count({ label, value, detail, wall }: { label: string; value: number; detail?: string; wall: boolean }) {
   return (
-    <div className="flex min-w-0 flex-col rounded-md border border-border bg-muted/30 px-3 py-2">
+    <div className={cn("flex min-w-0 flex-col rounded-md border border-border bg-muted/30", wall ? "p-2.5" : "px-3 py-2")}>
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={cn("font-semibold tabular-nums leading-tight", wall ? "text-xl xl:text-2xl" : "text-2xl")}>{value}</dd>
+      <dd className={cn("font-semibold tabular-nums leading-tight", wall ? "text-lg xl:text-xl" : "text-2xl")}>{value}</dd>
       {detail && <dd className="break-words text-xs text-muted-foreground">{detail}</dd>}
     </div>
   )
@@ -247,6 +251,7 @@ function OldestWaiting({
   overdue,
   openLabel,
   onOpen,
+  wall,
 }: {
   label: string
   name: string
@@ -254,13 +259,15 @@ function OldestWaiting({
   overdue: boolean
   openLabel: string
   onOpen?: () => void
+  /** The wall reads the address and its wait at 18/600 – the one row to act on. */
+  wall: boolean
 }) {
   const body = (
     <>
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="flex flex-wrap items-baseline justify-between gap-x-3">
-        <span className="min-w-0 break-words font-medium">{name}</span>
-        <span className={cn("shrink-0 text-sm font-semibold tabular-nums", overdue ? "text-destructive" : "text-foreground")}>
+      <span className={cn("flex flex-wrap items-baseline justify-between gap-x-3", wall && "text-base xl:text-lg font-semibold")}>
+        <span className={cn("min-w-0 break-words", !wall && "font-medium")}>{name}</span>
+        <span className={cn("shrink-0 tabular-nums", !wall && "text-sm font-semibold", overdue ? "text-destructive" : "text-foreground")}>
           {age}
         </span>
       </span>

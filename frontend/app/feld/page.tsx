@@ -87,16 +87,6 @@ const INCIDENT_COOKIE = 'feld-selected-incident'
  */
 const FELD_POLL_MS = 10000
 
-/**
- * Bottom padding of the two views that carry the floating «＋ Neuer Schadenplatz»
- * (`meldenFab`): its offset (`bottom-5`, 1.25rem) + its height (`h-13`, 3.25rem)
- * + 3.5rem, so scrolled to the very end nothing on the page is under it. The pill
- * may float over content mid-scroll — one scroll moves it out of the way — but the
- * end of the page must always come clear. Change the pill, change this.
- */
-const MELDEN_FAB_CLEARANCE = 'pb-32'
-
-
 /** The board's statuses, as `feld.kpStatus.*` names them. A closed set — the
  *  guard keeps a future status from crashing `t()` on every phone at once. */
 const KP_STATUS_KEYS = new Set([
@@ -920,19 +910,6 @@ function FeldSurface() {
   }, [])
 
   /**
-   * «＋ Neuer Schadenplatz» — the crew reporting something they are standing in front of.
-   *
-   * One node, rendered by BOTH the list and the detail view. The person who
-   * spots the next tree is the one already four taps deep at a Schadenplatz,
-   * and having to find the way back to the list first is how a Meldung turns
-   * into a radio call — or into nothing. Only one of the two views is mounted
-   * at a time, so this stays a single sheet with a single piece of state; the
-   * sheet closing when the crew leaves the detail is the wanted behaviour.
-   *
-   * The FAB belongs to the person, not to a row: same corner in both views, so
-   * it is the same button rather than two that happen to look alike.
-   */
-  /**
    * Does this person have work of their own on the page?
    *
    * The one question that decides where the Magazin's table goes. A Materialwart
@@ -981,40 +958,48 @@ function FeldSurface() {
     </section>
   ) : null
 
-  const meldenFab =
-    token && selectedPerson && !atTheStation(functions) ? (
-      <>
-        {/* Gone while the sheet is open. On a desktop viewport the sheet is
-            non-modal and its dim layer does not cover a `fixed` element outside
-            the portal, so the button sat lit up on top of the dimmed page — the
-            one bright thing on screen, offering to open what is already open. */}
-        {!meldenOpen && (
-          <button
-            type="button"
-            onClick={() => setMeldenOpen(true)}
-            className="fixed bottom-5 right-4 z-page-chrome flex h-13 items-center gap-2 rounded-full bg-action px-5 text-sm font-semibold text-action-foreground shadow-lg"
-          >
-            <Plus className="size-4" />
-            {functions.includes('telefondienst') ? t('melden.fabPhone') : t('melden.fab')}
-          </button>
-        )}
-        <FeldMeldenSheet
-          open={meldenOpen}
-          onOpenChange={setMeldenOpen}
-          personnelId={selectedPerson.personnel_id}
-          token={token}
-          isPhoneDesk={functions.includes('telefondienst')}
-          // A Reko trupp cannot "take it on": they were sent to look and
-          // report back. The escape hatch is crew work the reko fallback
-          // cannot swallow — a squad assigned to an Auftrag holds no personnel
-          // row on any stop, so those rows really do come back as `crew`
-          // (`visibility.py`, the route block). A reko holder given ordinary
-          // per-incident crew rows reads as reko throughout the Ereignis, and
-          // that collapse is deliberate and documented there.
-          canTakeOver={!functions.includes('reko') || assignments.some(item => item.source === 'crew')}
-          onReported={() => loadAssignments(selectedPerson.personnel_id)}
-        />
-      </>
+  /**
+   * «＋ Neuer Schadenplatz» — the crew reporting something they are standing in front of.
+   *
+   * One node, rendered by BOTH the list and the detail view. The person who
+   * spots the next tree is the one already four taps deep at a Schadenplatz,
+   * and having to find the way back to the list first is how a Meldung turns
+   * into a radio call — or into nothing. Only one of the two views is mounted
+   * at a time, so this stays a single sheet with a single piece of state; the
+   * sheet closing when the crew leaves the detail is the wanted behaviour.
+   *
+   * It belongs to the person, not to a row: the same full-width outline button
+   * in both views, IN the flow of the page – under the status card on the
+   * detail, at the end of the list. It used to float over the bottom-right
+   * corner, where it covered «danach: Rapport …» and stood as a second ink
+   * button beside «Angekommen melden»; outline keeps that one the page's main
+   * action, and in flow it never sits on anything.
+   */
+  const showMelden = !!token && !!selectedPerson && !atTheStation(functions)
+  const meldenButton = showMelden ? (
+    <Button size="lg" variant="outline" className="w-full" onClick={() => setMeldenOpen(true)}>
+      <Plus className="size-4" />
+      {functions.includes('telefondienst') ? t('melden.fabPhone') : t('melden.fab')}
+    </Button>
+  ) : null
+  const meldenSheet =
+    showMelden && token && selectedPerson ? (
+      <FeldMeldenSheet
+        open={meldenOpen}
+        onOpenChange={setMeldenOpen}
+        personnelId={selectedPerson.personnel_id}
+        token={token}
+        isPhoneDesk={functions.includes('telefondienst')}
+        // A Reko trupp cannot "take it on": they were sent to look and
+        // report back. The escape hatch is crew work the reko fallback
+        // cannot swallow — a squad assigned to an Auftrag holds no personnel
+        // row on any stop, so those rows really do come back as `crew`
+        // (`visibility.py`, the route block). A reko holder given ordinary
+        // per-incident crew rows reads as reko throughout the Ereignis, and
+        // that collapse is deliberate and documented there.
+        canTakeOver={!functions.includes('reko') || assignments.some(item => item.source === 'crew')}
+        onReported={() => loadAssignments(selectedPerson.personnel_id)}
+      />
     ) : null
 
   if (error) {
@@ -1126,11 +1111,7 @@ function FeldSurface() {
       ?? formatLocationForDisplay(selectedAssignment.location_address ?? '', getGlobalHomeCity())
     const navigateUrl = navigationUrl(selectedAssignment)
     return (
-      // The floating «＋ Neuer Schadenplatz» stays where it is while scrolling;
-      // the end of the page can always scroll clear of it (MELDEN_FAB_CLEARANCE).
-      // Scrolled to the end — where a crew filing a Rapport ends up — the last
-      // thing, the Rapport's own full-width «Senden», sits a thumb above it.
-      <div className={`min-h-screen bg-background ${MELDEN_FAB_CLEARANCE}`}>
+      <div className="min-h-screen bg-background pb-[env(safe-area-inset-bottom)]">
         {/* The address, always on screen. Folded blocks mean a crew can be four
             taps deep in a Rapport with nothing left in view that says WHICH
             Schadenplatz they are filing — and on a storm night there are six.
@@ -1267,6 +1248,10 @@ function FeldSurface() {
               />
             )}
 
+            {/* «＋ Neuer Schadenplatz» right under the actions: the crew standing
+                here is the one who sees the next tree (see `meldenButton`). */}
+            {meldenButton}
+
             {/* Section: «Meldungen vom KP» (sweep 27 §P3.2) — the other half of
                 the Meldung loop. On the KP's side a field Meldung is an urgent
                 toast; here the KP's sentence gets the one tinted card on the
@@ -1364,17 +1349,15 @@ function FeldSurface() {
           </div>
         </div>
 
-        {/* The same «＋ Neuer Schadenplatz» the list carries. The crew standing at this
-            Schadenplatz is the one who sees the next tree, and making them
-            navigate back to report it is how the Meldung becomes a radio call. */}
-        {meldenFab}
+        {/* The one «Neuer Schadenplatz» sheet, opened by the button above. */}
+        {meldenSheet}
       </div>
     )
   }
 
   // -------------------------------------------------------- assignments
   return (
-    <div className={`min-h-screen bg-background ${MELDEN_FAB_CLEARANCE}`}>
+    <div className="min-h-screen bg-background pb-[env(safe-area-inset-bottom)]">
       <FeldIdentityBar
         name={selectedPerson?.name ?? ''}
         subtitle={roleLine || selectedPerson?.role || eventName}
@@ -1674,6 +1657,9 @@ function FeldSurface() {
             is how it came to hide a two-stop Auftrag under itself. */}
         {hasOwnWork && materialSection}
 
+        {/* «＋ Neuer Schadenplatz» ends the list, in flow (see `meldenButton`). */}
+        {meldenButton && <div className="pt-1">{meldenButton}</div>}
+
         {/* No «Eingecheckt» row. Checking IN is the crew's and checking out is
             not — abmelden from a phone in a vehicle edits the roll call the KP
             is keeping — so what was left was a button-less statement of
@@ -1682,8 +1668,8 @@ function FeldSurface() {
             not-checked-in case still speaks for itself, loudly, above. */}
       </div>
 
-      {/* The floating «＋ Neuer Schadenplatz», built once above — see `meldenFab`. */}
-      {meldenFab}
+      {/* The «Neuer Schadenplatz» sheet, built once above — see `meldenButton`. */}
+      {meldenSheet}
 
       {/* The correction sheet — the same form, prefilled. Keyed by incident so
           opening a second Meldung remounts it rather than showing the first
