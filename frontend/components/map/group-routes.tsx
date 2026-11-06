@@ -29,8 +29,7 @@ import { OperationHoverCard } from "./operation-hover-card"
 import { MapTooltip } from "./map-tooltip"
 import { colorAccent, toStopMirrorStatus, type StopMirrorStatus } from "@/lib/kanban-utils"
 import { STATUS_GROUP_BORDER_STYLE, type StatusGroup } from "@/lib/types/incidents"
-
-const NEUTRAL_BORDER_COLOR = "#374151" // gray-700 — same neutral marker outline the incident markers use
+import { STATUS_RING } from "@/lib/map-colors"
 
 /** The one source/layer pair every route line lives in. Exported so a surface can order around it. */
 export const GROUP_ROUTES_SOURCE_ID = "group-routes"
@@ -99,7 +98,7 @@ function sequencePinStyle(
     background: routeColor,
     color: "white",
     border: "2px solid white",
-    outline: `2px ${borderStyleForDasharray(dasharray)} ${NEUTRAL_BORDER_COLOR}`,
+    outline: `${STATUS_RING.width}px ${borderStyleForDasharray(dasharray)} ${STATUS_RING.color}`,
     outlineOffset: 1,
     boxShadow: "0 2px 6px rgba(0, 0, 0, 0.35)",
     borderRadius: "50%",

@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl"
 import { Badge } from "@/components/ui/badge"
 import { Reveal } from "@/components/ui/reveal"
-import { ELSEWHERE_NOTE, ELSEWHERE_TEXT, ListSection, TILE_GRID } from "@/components/kanban/assignment-list-section"
+import { ELSEWHERE_NOTE, ELSEWHERE_TEXT, ListSection, TILE_GRID, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
 import { CheckCircle, Circle, Layers, ChevronDown, ChevronRight, Siren, Ban, Truck } from "lucide-react"
 import { type Material } from "@/lib/contexts/operations-context"
 import { materialResourceState } from "@/lib/resource-status"
@@ -196,7 +196,7 @@ const renderMaterialTile = (material: Material) => {
       onClick={() => onToggleMaterial(material)}
       disabled={isOutOfService}
       className={cn(
-        "flex items-center gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-all text-left",
+        "flex items-start gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-all text-left",
         isOutOfService ? "cursor-not-allowed border-dashed opacity-60" : "cursor-pointer hover:border-sel-edge hover:bg-secondary/30 hover-delight",
         isSelected && "border-sel-edge bg-sel-wash",
         vehicleOnScene && !isSelected && "border-emerald-500/30"
@@ -215,7 +215,7 @@ const renderMaterialTile = (material: Material) => {
       <div className="min-w-0">
         <p className={cn("font-medium text-sm truncate", isOutOfService && "text-muted-foreground")} title={material.name}>{material.name}</p>
         {isOutOfService ? (
-          <p className="truncate text-2xs font-medium text-muted-foreground">
+          <p className={cn(TILE_META, "truncate text-muted-foreground")}>
             {t('assignmentDialog.outOfService')}
           </p>
         ) : elsewhere ? (
@@ -223,15 +223,15 @@ const renderMaterialTile = (material: Material) => {
             title={elsewhere.full}
             className={cn(ELSEWHERE_NOTE, "text-amber-700 dark:text-amber-400")}
           >
-            <Siren className="h-3 w-3 flex-shrink-0 max-sm:mt-px" />
+            <Siren className={TILE_META_ICON} />
             <span className={ELSEWHERE_TEXT}>{elsewhere.short}</span>
           </span>
         ) : vehicleOnScene ? (
           <span
             title={t('assignmentDialog.vehicleOnSceneHint', { name: material.category })}
-            className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-emerald-700 dark:text-emerald-400"
+            className={cn("mt-0.5 inline-flex max-w-full items-start gap-1 truncate", TILE_META, "text-emerald-700 dark:text-emerald-400")}
           >
-            <Truck className="h-3 w-3 flex-shrink-0" />
+            <Truck className={TILE_META_ICON} />
             <span className="truncate">{material.category}</span>
           </span>
         ) : (

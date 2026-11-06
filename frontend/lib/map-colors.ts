@@ -27,6 +27,17 @@ export const MAP_COLORS = {
 } as const
 
 /**
+ * The status frame («Rahmen») around every incident dot and route stop: its DASH style carries
+ * the status group (`STATUS_GROUP_BORDER_STYLE`), never a colour. One width everywhere – the
+ * markers, the route pins' outline and the legend's key – so the key draws what the map shows.
+ *
+ * `color` is for frames ON the basemap (light by day, the dimmed mid grey at night – gray-700
+ * reads on both). The legend sits on the card instead, where gray-700 vanished in dark mode
+ * (hill climb r2): it strokes its samples with the `--muted-foreground` token.
+ */
+export const STATUS_RING = { color: "#374151", width: 2 } as const
+
+/**
  * Map from incident priority → marker fill color. Re-exported from
  * `lib/priority.ts` rather than restated, so the board, the display wall, the
  * print view and the map cannot drift: high = red, medium = amber, low =
