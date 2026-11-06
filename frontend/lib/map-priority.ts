@@ -11,6 +11,8 @@ import type { Priority } from "./priority"
  * so `priorityGlyphPath` redraws the same three shapes at marker scale; `markerGlyphInk` picks
  * dark ink or white for the fill underneath – the priority fills all take ink, a «Färben nach»
  * colour may be dark enough to need white (the glyph stays, so priority survives recolouring).
+ * Both walls draw their mark before an address with the same path, larger
+ * (`components/display/wall-priority-glyph.tsx`).
  */
 
 export const PRIORITY_LIST_ICONS: Record<Priority, LucideIcon> = {

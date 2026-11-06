@@ -43,12 +43,13 @@
 import { IncidentNumber } from "@/components/ui/incident-number"
 import { useTranslations } from "next-intl"
 import {
-  AlertTriangle, Axe, Binoculars, Building2, ChevronDown, ChevronUp, FileCheck, FileText, Footprints,
-  Layers, MapPin, Minus, Package, Phone, Search, Siren, Timer, Truck, Users, Waypoints,
+  AlertTriangle, Axe, Binoculars, Building2, FileCheck, FileText, Footprints,
+  Layers, MapPin, Package, Phone, Search, Siren, Timer, Truck, Users, Waypoints,
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { DriverStayGlyph } from "@/components/ui/driver-stay-glyph"
+import { WallPriorityGlyph } from "@/components/display/wall-priority-glyph"
 import { Card } from "@/components/ui/card"
 import { RemovableChip } from "@/components/ui/removable-chip"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
@@ -62,7 +63,7 @@ import { groupAssignedMaterials } from "@/lib/material-grouping"
 import { rapportApplies } from "@/lib/rapport-visibility"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
-import { PRIORITY_CARD_CLASSES, PRIORITY_ICON_CLASSES, type Priority } from "@/lib/priority"
+import { PRIORITY_CARD_CLASSES, type Priority } from "@/lib/priority"
 import { formatClockTime } from "@/lib/incident-time"
 import { WALL_TEXT_WRAP } from "@/lib/kanban-utils"
 import { cn } from "@/lib/utils"
@@ -278,15 +279,9 @@ export function DisplayIncidentCard({
       <div className="space-y-1.5">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-2 min-w-0 flex-1">
-            <div className="flex items-center flex-shrink-0 mt-1">
-              {priority === "high" ? (
-                <ChevronUp className={cn("h-4 w-4", PRIORITY_ICON_CLASSES[priority])} aria-label={t("card.priorityHighAria")} />
-              ) : priority === "medium" ? (
-                <Minus className={cn("h-4 w-4", PRIORITY_ICON_CLASSES[priority])} aria-label={t("card.priorityMediumAria")} />
-              ) : (
-                <ChevronDown className={cn("h-4 w-4", PRIORITY_ICON_CLASSES[priority])} aria-label={t("card.priorityLowAria")} />
-              )}
-            </div>
+            {/* Centred on the address's first line (text-xl, leading 1.15),
+                the same glyph the wall status rows draw. */}
+            <WallPriorityGlyph priority={priority} lineClassName="text-xl h-[1.15em]" />
             <div className="min-w-0 flex-1">
               {/* 1.25rem (VISUAL-07 C): the address is what the room reads
                   first. It hyphenates rather than truncating (WALL_TEXT_WRAP). */}
