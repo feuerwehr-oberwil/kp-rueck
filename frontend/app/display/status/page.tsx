@@ -41,6 +41,7 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { useEventFigures } from "@/lib/hooks/use-event-figures"
 import type { ApiEventFigures } from "@/lib/api-client"
 import { PersonName, PersonNamingProvider } from "@/components/person-name"
+import { auftragByResource } from "@/lib/auftrag-by-resource"
 
 const STATUS_ORDER = ["incoming", "reko", "reko_done", "enroute", "active", "returning"]
 
@@ -246,12 +247,7 @@ function SituationBoard({
   const auftragByVehicleId = useMemo(() => {
     const all = detailGroups ?? groups
     const byId = new Map(all.map((g) => [g.id, g]))
-    const map = new Map<string, IncidentGroup>()
-    for (const g of all) {
-      for (const a of g.assignments) {
-        if (a.resourceType === "vehicle") map.set(a.resourceId, g)
-      }
-    }
+    const map = auftragByResource(all, "vehicle")
     for (const v of vehicleStatus) {
       if (map.has(v.id)) continue
       const fallback = v.assignedOperation?.groupId ? byId.get(v.assignedOperation.groupId) : undefined
@@ -335,6 +331,14 @@ function SituationBoard({
     }
     return map
   }, [operations])
+
+  // Person / material → the Auftrag that holds it: a route's crew and material
+  // stand on no incident of their own, so the maps above leave them blank while
+  // the board sidebar says «Sturmholz Oberwil». The same lookup as the sidebar
+  // (lib/auftrag-by-resource). Token mode's payload carries no route
+  // assignments, so these stay empty there.
+  const auftragByPersonId = useMemo(() => auftragByResource(detailGroups ?? groups, "personnel"), [detailGroups, groups])
+  const auftragByMaterialId = useMemo(() => auftragByResource(detailGroups ?? groups, "material"), [detailGroups, groups])
 
   const groupedPersonnel = useMemo(() => {
     // Rank first, in-use before free inside a rank, then the name. The two name
@@ -572,7 +576,7 @@ function SituationBoard({
               >
                 <div className="px-2 xl:px-3 py-1 space-y-0.5 xl:space-y-1">
                   {people.map((p) => (
-                    <PersonRow key={p.id} person={p} assignedTo={personAssignment.get(p.id)} onOpenIncident={setSelectedOperationId} />
+                    <PersonRow key={p.id} person={p} assignedTo={personAssignment.get(p.id)} auftrag={auftragByPersonId.get(p.id)} onOpenIncident={setSelectedOperationId} />
                   ))}
                 </div>
               </CollapsibleSection>
@@ -618,7 +622,7 @@ function SituationBoard({
               >
                 <div className="px-2 xl:px-3 py-1 space-y-0.5 xl:space-y-1">
                   {items.map((m) => (
-                    <MaterialRow key={m.id} material={m} assignedTo={materialAssignment.get(m.id) ?? []} onOpenIncident={setSelectedOperationId} />
+                    <MaterialRow key={m.id} material={m} assignedTo={materialAssignment.get(m.id) ?? []} auftrag={auftragByMaterialId.get(m.id)} onOpenIncident={setSelectedOperationId} />
                   ))}
                 </div>
               </CollapsibleSection>
@@ -706,10 +710,7 @@ function VehicleRow({ vehicle: v, auftrag, onClick }: { vehicle: VehicleWithStat
           <p className={cn("mt-0.5", WALL_DESTINATION, "text-muted-foreground")}>{tk('notReady')}</p>
         ) : auftrag ? (
           <p className="mt-0.5 flex items-center gap-1.5 min-w-0">
-            <span
-              className="h-2 w-2 xl:h-2.5 xl:w-2.5 shrink-0 rounded-full"
-              style={{ backgroundColor: auftrag.color ?? "var(--muted-foreground)" }}
-            />
+            <AuftragSwatch auftrag={auftrag} />
             <span className={WALL_DESTINATION}>
               {tv('auftragLabel', { name: auftrag.name })}
             </span>
@@ -797,7 +798,7 @@ function IncidentRow({ operation: op, onClick }: { operation: Operation; onClick
   )
 }
 
-function PersonRow({ person: p, assignedTo, onOpenIncident }: { person: Person; assignedTo?: AssignmentRef; onOpenIncident: (id: string) => void }) {
+function PersonRow({ person: p, assignedTo, auftrag, onOpenIncident }: { person: Person; assignedTo?: AssignmentRef; auftrag?: IncidentGroup; onOpenIncident: (id: string) => void }) {
   const tk = useTranslations('kanban')
   const isAssigned = p.status === "assigned"
   const clickable = isAssigned && !!assignedTo
@@ -831,14 +832,16 @@ function PersonRow({ person: p, assignedTo, onOpenIncident }: { person: Person; 
       {p.isDriver && p.driverVehicleName && (
         <span className="text-2xs xl:text-xs text-blue-700 dark:text-blue-400 shrink-0">{p.driverVehicleName}</span>
       )}
-      {clickable && (
+      {clickable ? (
         <span className={cn(WALL_DESTINATION, "text-right text-muted-foreground")}>→ {assignedTo!.label}</span>
-      )}
+      ) : auftrag ? (
+        <AuftragDestination auftrag={auftrag} />
+      ) : null}
     </div>
   )
 }
 
-function MaterialRow({ material: m, assignedTo, onOpenIncident }: { material: Material; assignedTo: AssignmentRef[]; onOpenIncident: (id: string) => void }) {
+function MaterialRow({ material: m, assignedTo, auftrag, onOpenIncident }: { material: Material; assignedTo: AssignmentRef[]; auftrag?: IncidentGroup; onOpenIncident: (id: string) => void }) {
   const t = useTranslations('display.status')
   const tk = useTranslations('kanban')
   const tc = useTranslations('kanban.common')
@@ -885,9 +888,37 @@ function MaterialRow({ material: m, assignedTo, onOpenIncident }: { material: Ma
         >
           → {t('onIncidents', { count: assignedTo.length })}
         </span>
+      ) : auftrag ? (
+        <AuftragDestination auftrag={auftrag} />
       ) : (
         !isAssigned && <span className="text-2xs xl:text-xs text-muted-foreground shrink-0">{t('available')}</span>
       )}
     </div>
+  )
+}
+
+/** The route's colour as a swatch beside its name – never as the text colour
+ *  (sweep 2026-10, VISUAL-05). One size for every wall row. `inline-block`, so
+ *  inside wrapping text it rides at the start of the first line. */
+function AuftragSwatch({ auftrag, className }: { auftrag: IncidentGroup; className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn("inline-block size-2 xl:size-2.5 shrink-0 rounded-full", className)}
+      style={{ backgroundColor: auftrag.color ?? "var(--muted-foreground)" }}
+    />
+  )
+}
+
+/** A person's or a device's right-hand destination when it is out on an Auftrag:
+ *  swatch + the Auftrag's name in the destination's type and ink, where an
+ *  address would stand after «→». Wraps like every wall destination; the board
+ *  sidebar names the same Auftrag (lib/auftrag-by-resource). */
+function AuftragDestination({ auftrag }: { auftrag: IncidentGroup }) {
+  return (
+    <span className={cn(WALL_DESTINATION, "text-right text-muted-foreground")}>
+      <AuftragSwatch auftrag={auftrag} className="mr-1.5 align-middle" />
+      {auftrag.name}
+    </span>
   )
 }

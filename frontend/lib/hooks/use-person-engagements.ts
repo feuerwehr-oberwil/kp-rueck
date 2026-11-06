@@ -25,6 +25,7 @@
 import { useMemo } from 'react'
 import { useTranslations } from 'next-intl'
 
+import { auftragByResource } from '@/lib/auftrag-by-resource'
 import { useGroups } from '@/lib/contexts/groups-context'
 import { useOperations } from '@/lib/contexts/operations-context'
 import { getIncidentRefLabel } from '@/lib/incident-types'
@@ -38,7 +39,7 @@ export interface PersonEngagement {
 
 export function usePersonEngagements(): Map<string, PersonEngagement> {
   const { operations, personnel } = useOperations()
-  const { groups, getGroupResources } = useGroups()
+  const { groups } = useGroups()
   const t = useTranslations('kanban')
 
   return useMemo(() => {
@@ -63,13 +64,10 @@ export function usePersonEngagements(): Map<string, PersonEngagement> {
         full: `${role} · ${getIncidentRefLabel(op, 1000)}`,
       })
     }
-    for (const group of groups) {
-      const resources = getGroupResources(group.id)
-      const label = { short: group.name, full: group.name }
-      for (const person of resources.personnel) {
-        if (!map.has(person.resourceId)) map.set(person.resourceId, label)
-      }
+    // Route-level crew: the same lookup the wall's destination column reads.
+    for (const [personId, group] of auftragByResource(groups, 'personnel')) {
+      if (!map.has(personId)) map.set(personId, { short: group.name, full: group.name })
     }
     return map
-  }, [operations, personnel, groups, getGroupResources, t])
+  }, [operations, personnel, groups, t])
 }
