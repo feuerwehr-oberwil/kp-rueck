@@ -111,7 +111,7 @@ interface DraggableOperationProps {
 }
 
 // The boundary between the card's three sections — Kopf/Meldung, Ressourcen,
-// Reko. Everything inside a section keeps the plain 12px rhythm; only these two
+// Reko. Everything inside a section keeps the plain 8px rhythm; only these two
 // boundaries get a rule, because Ressourcen and Reko are the two blocks that are
 // genuinely a different kind of fact from the incident's own data.
 //
@@ -119,7 +119,7 @@ interface DraggableOperationProps {
 // section that renders nothing (Kompakt, a route stop whose resources live on
 // the Auftrag, an incident without a Reko) then takes its rule with it and
 // cannot leave an orphan line above nothing.
-const SECTION_RULE = 'border-t pt-3'
+const SECTION_RULE = 'border-t pt-2'
 
 /**
  * «Echt-Alarm» — the one legitimate per-incident training marker.
@@ -443,7 +443,7 @@ function DraggableOperationBase({
               // Ressourcen-Bindung) otherwise lands flush against the column edge or
               // the panel beside it, and its highlight ring is what gets clipped —
               // the one part that has to be seen. Applies to both axes.
-              'operation-card scroll-m-4 border border-border border-l-4 bg-card/80 backdrop-blur-sm p-4 transition-all hover:bg-muted/20 cursor-pointer',
+              'operation-card scroll-m-4 border border-border border-l-4 bg-card/80 backdrop-blur-sm px-4 py-3 transition-all hover:bg-muted/20 cursor-pointer',
               // Priority styling. Kept while the card is selected AND while it is
               // hovered: selection is a neutral frame now and no longer borrows
               // the priority colours, and hover has no business overwriting them
@@ -538,7 +538,12 @@ function DraggableOperationBase({
             // before it gets here — see `openDetailFrom`.
             onClick={() => openDetail()}
           >
-        <div className="space-y-3">
+        {/* The card's rhythm: 12px above and below, 8px between blocks, 8px on
+            either side of a section rule, 12px between cards
+            (droppable-column.tsx). Tight on purpose — a laptop column has to
+            show its fifth card. The sides keep 16px: the height is what costs
+            cards per column, and the text measure stays what it was. */}
+        <div className="space-y-2">
           <div className="flex items-start justify-between gap-2">
             {/* Draggable area */}
             <div className="flex items-start gap-2 min-w-0 flex-1">
@@ -573,8 +578,11 @@ function DraggableOperationBase({
                 )}
               </div>
             </div>
-            {/* Non-draggable icons area */}
-            <div className="flex items-center gap-1.5 flex-shrink-0">
+            {/* Non-draggable icons area. `-my-1`: the 28px buttons hang 4px
+                into the padding above and the gap below, so the header row is
+                as tall as the address (20px) and the meta line follows it 8px
+                down instead of 16 — the hit areas stay 28px. */}
+            <div className="-my-1 flex items-center gap-1.5 flex-shrink-0">
               {operation.source === 'intake' && (
                 <div
                   className="p-1.5 rounded-md bg-muted/60"
@@ -766,7 +774,7 @@ function DraggableOperationBase({
 
           {/* Meldung (notes) — what came in on the phone. Still part of the first
               section: everything down to the Melder is the incident's own data,
-              12px apart and with no rule between any two of them. The card used
+              8px apart and with no rule between any two of them. The card used
               to fence off every single block, which read as a hierarchy the
               content does not have; the two rules it kept (see SECTION_RULE)
               mark the only real change of subject. */}
@@ -821,7 +829,7 @@ function DraggableOperationBase({
               answers it in one place. */}
           {showResourceBlock && (
             <div
-              className={cn(SECTION_RULE, "space-y-3 text-xs")}
+              className={cn(SECTION_RULE, "space-y-2 text-xs")}
               onClick={openDetailFrom('overview', 'resources')}
             >
               <CardResources
@@ -912,7 +920,7 @@ function DraggableOperationBase({
           ) && (
             // What the Reko found — so the block opens the Reko tab, which is
             // where the whole report is.
-            <div className={cn(SECTION_RULE, "space-y-3")} onClick={openDetailFrom('reko')}>
+            <div className={cn(SECTION_RULE, "space-y-2")} onClick={openDetailFrom('reko')}>
               {/* The Reko's verdict, where it says «nothing to do here»: the
                   one sentence that tells an operator this card can close. */}
               {operation.rekoSummary.isRelevant === false && (

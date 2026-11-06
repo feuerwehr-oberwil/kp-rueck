@@ -167,9 +167,9 @@ describe('the card view switches', () => {
   it('reads as three sections: two rules on a full card, none inside a section', () => {
     const { container: full, unmount } = renderCard(CARD_VIEW_PRESETS.standard)
     // Kopf/Meldung | Ressourcen | Reko — the Ressourcen block and the Reko block
-    // each open a section, everything else is 12px of rhythm and nothing more.
+    // each open a section, everything else is 8px of rhythm and nothing more.
     expect(full.querySelectorAll('.operation-card .border-t')).toHaveLength(2)
-    const fullBlocks = full.querySelectorAll('.operation-card > .space-y-3 > *').length
+    const fullBlocks = full.querySelectorAll('.operation-card > .space-y-2 > *').length
     expect(fullBlocks).toBeGreaterThan(0)
     unmount()
 
@@ -178,7 +178,7 @@ describe('the card view switches', () => {
     expect(compact.querySelectorAll('.operation-card .border-t')).toHaveLength(0)
     // A switched-off block leaves nothing behind — no wrapper still holding its
     // own spacing, which would make Kompakt no shorter than Standard.
-    expect(compact.querySelectorAll('.operation-card > .space-y-3 > *').length).toBeLessThan(fullBlocks)
+    expect(compact.querySelectorAll('.operation-card > .space-y-2 > *').length).toBeLessThan(fullBlocks)
   })
 
   it('drops the resource block – and its rule – when all three resource switches are off', () => {
