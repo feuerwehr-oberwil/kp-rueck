@@ -13,9 +13,10 @@
  * shrunk, and a wall that fits as it is stays as it is.
  *
  * Usage (app/display/status/page.tsx): `const split = useMaterialSplit(refs, key)`,
- * then the first `split` groups render in the Fahrzeuge column under a MATERIAL
- * head and the rest in the Material column. Each group's box carries
- * `data-material-group`, the head `data-material-continued-head`.
+ * then the first `split` groups render in the Fahrzeuge column under Material's
+ * full head (count, summary) and the rest in the Material column under a quiet
+ * «MATERIAL · FORTS.» (hill climb r21). Each group's box carries
+ * `data-material-group`, the head in the Fahrzeuge column `data-material-head`.
  */
 
 import { useEffect, useState, type RefObject } from "react"
@@ -50,8 +51,8 @@ export function materialSplit({ groupHeights, free, head, own }: {
 /** Below `sm` the panels stack and the page scrolls: no split there (lib/wall-stack). */
 const SPLIT_MEDIA = "(min-width: 640px)"
 
-/** The head's height before it has ever been drawn – one 40px bar. */
-const HEAD_FALLBACK_PX = 40
+/** The head's height before it has ever been drawn – the 60px column head + its top rule. */
+const HEAD_FALLBACK_PX = 61
 
 /**
  * Measures and re-measures the split live: on a resize of either column or the
@@ -94,7 +95,7 @@ export function useMaterialSplit({ vehicleBody, vehicleList, materialBody, group
         setSplit(0)
         return
       }
-      const head = body.querySelector<HTMLElement>("[data-material-continued-head]")
+      const head = body.querySelector<HTMLElement>("[data-material-head]")
       if (head) headPx = head.offsetHeight
       setSplit(materialSplit({
         groupHeights: groupBoxes().map((box) => box?.offsetHeight ?? 0),

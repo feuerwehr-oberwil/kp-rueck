@@ -8,7 +8,7 @@ import { getActiveLocale } from "@/lib/i18n-messages"
 import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useStatusData, type VehicleWithStatus } from "@/lib/hooks/use-status-data"
-import { ageLevel, columns, STATUS_ACCENT, WALL_TEXT_WRAP } from "@/lib/kanban-utils"
+import { ageLevel, columns, STATUS_ACCENT, WALL_COLUMN_HEADER_CLASS, WALL_TEXT_WRAP } from "@/lib/kanban-utils"
 import { IncidentTime } from "@/components/ui/incident-time"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { CollapsibleSection } from "@/components/display/collapsible-section"
@@ -116,6 +116,11 @@ const WALL_ITEM = "[data-wall-item]"
  *  more, so a name starts 16px in – under the section head's chevron – and a
  *  destination ends 16px before the divider (hill climb r19). */
 const RESOURCE_ROWS = "px-2 py-1 space-y-0.5 xl:space-y-1"
+
+/** The box of every column head (`PanelHeader`, `ContinuedPanelHeader`): one
+ *  min height, so the four heads end on one rule whatever they carry. */
+const PANEL_HEADER_BOX = "px-3 xl:px-4 py-2.5 xl:py-3 border-b border-border bg-muted/40 shrink-0 min-h-[60px]"
+const PANEL_HEADER_SUMMARY = "text-2xs xl:text-xs text-muted-foreground mt-0.5"
 
 /** A panel on a phone: stacked full width (lib/wall-stack), a rule under it instead of beside it. */
 const STACKED_PANEL = cn(WALL_STACK_COLUMN, "max-sm:border-r-0 max-sm:border-b")
@@ -479,6 +484,13 @@ function SituationBoard({
   const materialStates = materials.map((m) => materialResourceState(m))
   const assignedMaterialCount = materialStates.filter((s) => s === "assigned").length
   const materialsNotReady = materialStates.filter((s) => s === "unavailable").length
+  const materialSubtitle = materialsNotReady > 0
+    ? t('availableDeployedNotReady', {
+        available: materials.length - assignedMaterialCount - materialsNotReady,
+        deployed: assignedMaterialCount,
+        notReady: materialsNotReady,
+      })
+    : t('availableDeployed', { available: materials.length - assignedMaterialCount, deployed: assignedMaterialCount })
 
   return (
     // `relative` here and on each column's list: the rows' sr-only labels need a positioned
@@ -515,11 +527,18 @@ function SituationBoard({
               />
             ))}
           </div>
-          {/* Material's first groups, when its own column is too short for all of them. */}
+          {/* Material's first groups, when its own column is too short for all of
+              them. Read in order, this is where Material STARTS, so the full head
+              (count, summary) stands here and column 4 only says it goes on
+              (hill climb r21 – two equal «MATERIAL» heads, the count on the second). */}
           {materialSplitAt > 0 && (
-            <div data-material-continued-head className="px-3 xl:px-4 py-2 xl:py-2.5 border-y border-border bg-muted/40">
-              <h2 className="text-sm xl:text-base font-bold tracking-tight uppercase">{t('material')}</h2>
-            </div>
+            <PanelHeader
+              data-material-head
+              className="border-t"
+              title={t('material')}
+              count={materials.length}
+              subtitle={materialSubtitle}
+            />
           )}
           {groupedMaterials.slice(0, materialSplitAt).map(materialGroup)}
         </WallScrollBody>
@@ -670,18 +689,11 @@ function SituationBoard({
 
       {/* ── Column 4: Materials ── */}
       <div className={cn("flex flex-1 flex-col min-w-[300px] overflow-hidden", STACKED_PANEL)}>
-        <PanelHeader
-          title={t('material')}
-          count={materials.length}
-
-          subtitle={materialsNotReady > 0
-            ? t('availableDeployedNotReady', {
-                available: materials.length - assignedMaterialCount - materialsNotReady,
-                deployed: assignedMaterialCount,
-                notReady: materialsNotReady,
-              })
-            : t('availableDeployed', { available: materials.length - assignedMaterialCount, deployed: assignedMaterialCount })}
-        />
+        {materialSplitAt > 0 ? (
+          <ContinuedPanelHeader title={t('materialContinued')} />
+        ) : (
+          <PanelHeader title={t('material')} count={materials.length} subtitle={materialSubtitle} />
+        )}
         <WallScrollBody bodyRef={materialBodyRef} itemSelector={WALL_ITEM} className={cn("relative flex-1 overflow-y-auto", WALL_STACK_BODY)}>
           {groupedMaterials.slice(materialSplitAt).map(materialGroup)}
           {materials.length === 0 && (
@@ -709,18 +721,37 @@ function SituationBoard({
   )
 }
 
-function PanelHeader({ title, count, subtitle }: {
-  title: string; count: number; accent?: string; subtitle?: string
+/** A column's head: caps title, the ink count chip, the summary line under it.
+ *  `className`/`data-*` go to the box (Material's head under the vehicles adds
+ *  a top rule and the attribute material-split measures). */
+function PanelHeader({ title, count, subtitle, className, ...rest }: {
+  title: string; count: number; subtitle?: string; className?: string
+  "data-material-head"?: boolean
 }) {
   return (
-    <div className="px-3 xl:px-4 py-2.5 xl:py-3 border-b border-border bg-muted/40 shrink-0 min-h-[60px]">
+    <div {...rest} className={cn(PANEL_HEADER_BOX, className)}>
       <div className="flex items-center justify-between">
         <h2 className="text-sm xl:text-base font-bold tracking-tight uppercase">{title}</h2>
         <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground text-xs xl:text-sm font-bold tabular-nums">
           {count}
         </span>
       </div>
-      {subtitle && <p className="text-2xs xl:text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+      {subtitle && <p className={PANEL_HEADER_SUMMARY}>{subtitle}</p>}
+    </div>
+  )
+}
+
+/** Column 4's head while Material's first groups stand under the vehicles: a
+ *  quiet muted caps «MATERIAL · FORTS.» – no count, no summary (those are on the
+ *  head in column 1). The summary's line stays as an empty line, so this head is
+ *  as tall as its neighbours and the four heads still end on one rule. */
+function ContinuedPanelHeader({ title }: { title: string }) {
+  return (
+    <div className={PANEL_HEADER_BOX}>
+      <div className="flex h-6 items-center">
+        <h2 className={WALL_COLUMN_HEADER_CLASS}>{title}</h2>
+      </div>
+      <p aria-hidden className={PANEL_HEADER_SUMMARY}>{"\u00a0"}</p>
     </div>
   )
 }
@@ -934,7 +965,6 @@ function MaterialRow({ material: m, assignedTo, auftrag, onOpenIncident }: { mat
   const t = useTranslations('display.status')
   const tk = useTranslations('kanban')
   const tc = useTranslations('kanban.common')
-  const isAssigned = m.status === "assigned"
   // «Nicht einsatzbereit» ▸ «im Einsatz» ▸ «verfügbar», through the board's own
   // helper. Said in three ways at once, never colour alone: the dot becomes a Ban
   // glyph, the row dims, and the trailing slot spells the word out.
@@ -980,9 +1010,9 @@ function MaterialRow({ material: m, assignedTo, auftrag, onOpenIncident }: { mat
           </span>
         ) : auftrag ? (
           <AuftragDestination auftrag={auftrag} />
-        ) : (
-          !isAssigned && <span className="text-2xs xl:text-xs text-muted-foreground">{t('available')}</span>
-        )
+        ) : null
+        // Free says nothing more: the green dot is the word, as on a Personal row
+        // (hill climb r21 – twenty muted «verfügbar» down one column).
       }
     />
   )
