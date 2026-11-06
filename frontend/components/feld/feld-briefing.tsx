@@ -30,6 +30,7 @@ import { useTranslations } from 'next-intl'
 import { Binoculars, MessageSquareText, Package, Phone, TriangleAlert, Truck, Users, Waypoints } from 'lucide-react'
 
 import { DriverStayGlyph } from '@/components/ui/driver-stay-glyph'
+import { MelderLink } from '@/components/ui/melder-link'
 import { FeldSection } from '@/components/feld/feld-section'
 import type { ApiFeldAssignment, ApiFeldMaterialLine, ApiFeldVehicleLine } from '@/lib/api-client'
 import { formatTime } from '@/lib/format-time'
@@ -176,19 +177,10 @@ export function FeldBriefing({
       {(contact || phone) && (
         <BriefingRow icon={Phone} label={t('melder')}>
           {/* A tel: link, because the whole point of carrying the Melder here is
-              that somebody rings them from the pavement. ONE link, but the name
-              and the number on their own lines: run together, «061 111 11 11»
-              broke after «111» and left «11 11» alone on the next line. The
-              number never wraps; the «·» stays for the accessible name. */}
+              that somebody rings them from the pavement – `MelderLink`, shared
+              with the phone Einsatz sheet. */}
           {phone ? (
-            <a
-              href={`tel:${phone.replace(/\s/g, '')}`}
-              aria-label={contact ? `${contact} · ${phone}` : undefined}
-              className="inline-flex max-w-full flex-col gap-1 text-foreground"
-            >
-              {contact && <span className="break-words underline underline-offset-2">{contact}</span>}
-              <span className="whitespace-nowrap tabular-nums underline underline-offset-2">{phone}</span>
-            </a>
+            <MelderLink contact={contact} phone={phone} />
           ) : (
             contact
           )}

@@ -143,7 +143,12 @@
      --card, ≈4.8:1 on --muted. Edges, washes and fills keep --destructive. */
   --destructive-text: oklch(0.72 0.16 24);
   --border: oklch(0.42 0.012 250);
-  --input: oklch(0.29 0.012 250);
+  /* The edge of every control (inputs, selects, textareas, outline buttons,
+     checkboxes) and, at /30, their fill. 0.29 sat 0.025 above --card: fill and
+     edge melted into the card and the fields read as recessed / inactive (hill
+     climb r3). 0.40 puts the edge plainly off the card and lifts the /30 fill
+     a step (≈0.30) above it – still neutral, still under --muted. */
+  --input: oklch(0.40 0.012 250);
   --ring: var(--sel-line);
   --chart-1: oklch(0.50 0.16 25);
   --chart-2: oklch(0.50 0.15 250);

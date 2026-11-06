@@ -188,7 +188,9 @@ const renderMaterialTile = (material: Material) => {
   // as defective is shown, named as such, and cannot be ticked.
   const isOutOfService = materialResourceState(material) === 'unavailable' && !isSelected
   // This material's depot IS a vehicle already assigned to the target (e.g.
-  // Mowa): its stock is on scene. Emphasis only — nothing gets preselected.
+  // Mowa): its stock is on scene. Emphasis only — nothing gets preselected. A
+  // fact, so ink (truck glyph + depot in foreground), not green: green means
+  // frei / verfügbar on availability marks and nothing else.
   const vehicleOnScene = !elsewhere && assignedVehicles.includes(material.category)
   return (
     <button
@@ -198,8 +200,7 @@ const renderMaterialTile = (material: Material) => {
       className={cn(
         "flex items-start gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-all text-left",
         isOutOfService ? "cursor-not-allowed border-dashed opacity-60" : "cursor-pointer hover:border-sel-edge hover:bg-secondary/30 hover-delight",
-        isSelected && "border-sel-edge bg-sel-wash",
-        vehicleOnScene && !isSelected && "border-emerald-500/30"
+        isSelected && "border-sel-edge bg-sel-wash"
       )}
     >
       {isOutOfService ? (
@@ -229,7 +230,7 @@ const renderMaterialTile = (material: Material) => {
         ) : vehicleOnScene ? (
           <span
             title={t('assignmentDialog.vehicleOnSceneHint', { name: material.category })}
-            className={cn("mt-0.5 inline-flex max-w-full items-start gap-1 truncate", TILE_META, "text-emerald-700 dark:text-emerald-400")}
+            className={cn("mt-0.5 inline-flex max-w-full items-start gap-1 truncate", TILE_META, "text-foreground")}
           >
             <Truck className={TILE_META_ICON} />
             <span className="truncate">{material.category}</span>

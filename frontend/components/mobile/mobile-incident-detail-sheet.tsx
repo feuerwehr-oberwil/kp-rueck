@@ -35,6 +35,7 @@ import {
 import { useOperations, type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { RemovableChip } from "@/components/ui/removable-chip"
+import { MelderLink } from "@/components/ui/melder-link"
 import { DriverStayGlyph } from "@/components/ui/driver-stay-glyph"
 import { LeaderBadge } from "@/components/kanban/leader-badge"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
@@ -498,44 +499,54 @@ export function MobileIncidentDetailSheet({
 
           <Separator />
 
-          {/* Contact */}
+          {/* Contact. The number goes under the name as /feld draws it
+              (`MelderLink`: one tel: link, the number whole on its own line).
+              A viewer gets exactly that; an editor keeps the name as the tap
+              target that edits it, so only the number line is the link. */}
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Phone className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">{t('mobileDetail.contact')}</span>
             </div>
-            {showContactEditor ? (
-              <Input
-                ref={contactRef}
-                value={editingContact ? contactValue : contactSave.value}
-                onFocus={beginContact}
-                onChange={(e) => setContactValue(e.target.value)}
-                onBlur={handleContactSave}
-                onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
-                placeholder={t('mobileDetail.contactPlaceholder')}
-                aria-invalid={contactSave.failed || undefined}
-                className={cn("text-sm", fieldSaveEdgeClass(contactSave))}
-              />
+            {!canEdit && operation.contactPhone ? (
+              <MelderLink contact={contactSave.value} phone={operation.contactPhone} className="text-sm" />
             ) : (
-              <div
-                onClick={startEditingContact}
-                className={cn(
-                  canEdit && "cursor-pointer hover:bg-muted/50 rounded-md px-2 py-1 -mx-2 transition-colors"
-                )}
-              >
-                {contactSave.value ? (
-                  <p className="text-sm text-foreground">{contactSave.value}</p>
-                ) : canEdit ? (
-                  <p className="text-sm text-muted-foreground flex items-center gap-2">
-                    <Pencil className="h-3.5 w-3.5" />
-                    {t('mobileDetail.contactPlaceholder')}
-                  </p>
+              <>
+                {showContactEditor ? (
+                  <Input
+                    ref={contactRef}
+                    value={editingContact ? contactValue : contactSave.value}
+                    onFocus={beginContact}
+                    onChange={(e) => setContactValue(e.target.value)}
+                    onBlur={handleContactSave}
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                    placeholder={t('mobileDetail.contactPlaceholder')}
+                    aria-invalid={contactSave.failed || undefined}
+                    className={cn("text-sm", fieldSaveEdgeClass(contactSave))}
+                  />
                 ) : (
-                  <p className="text-sm text-muted-foreground">{t('mobileDetail.noContact')}</p>
+                  <div
+                    onClick={startEditingContact}
+                    className={cn(
+                      canEdit && "cursor-pointer hover:bg-muted/50 rounded-md px-2 py-1 -mx-2 transition-colors"
+                    )}
+                  >
+                    {contactSave.value ? (
+                      <p className="text-sm text-foreground">{contactSave.value}</p>
+                    ) : canEdit ? (
+                      <p className="text-sm text-muted-foreground flex items-center gap-2">
+                        <Pencil className="h-3.5 w-3.5" />
+                        {t('mobileDetail.contactPlaceholder')}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">{t('mobileDetail.noContact')}</p>
+                    )}
+                  </div>
                 )}
-              </div>
+                <FieldSaveStatus view={contactSave} onRetry={retryContact} className="mt-1.5" />
+                {operation.contactPhone && <MelderLink phone={operation.contactPhone} className="text-sm" />}
+              </>
             )}
-            <FieldSaveStatus view={contactSave} onRetry={retryContact} className="mt-1.5" />
           </div>
 
           {/* Reko Report Section */}
