@@ -109,6 +109,11 @@ const RESOURCE_ROW = "flex items-center gap-4 px-2 py-1.5 rounded-sm"
 const RESOURCE_ROW_NAME = "flex min-w-0 flex-1 items-center gap-2"
 const RESOURCE_ROW_WHERE = "flex min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-0.5 text-right"
 
+/** A Funktion's / Materialkategorie's «n/m frei» in its group head: 12/600 ink tabular
+ *  from `xl`, and the head's ONLY figure – a count chip beside it said the total twice
+ *  (hill climb r23). Ink, not amber, at «0/5 frei» too: gebunden is a fact (VISUAL-03). */
+const WALL_FREE_OF_TOTAL = "shrink-0 text-2xs xl:text-xs font-semibold tabular-nums text-foreground"
+
 /** Personal/Material rows: the availability mark sits centred in ONE fixed leading
  *  gutter, so every name starts at one edge whether the row carries a dot, a ring or
  *  the «nicht einsatzbereit» Ban glyph. The mark is ~10px from `xl` – read across a
@@ -456,15 +461,8 @@ function SituationBoard({
       <div key={category} data-material-group={category}>
         <CollapsibleSection
           label={category}
-          count={items.length}
-          badge={
-            <span className={cn(
-              "shrink-0 text-2xs xl:text-xs tabular-nums",
-              free === 0 ? "font-semibold text-foreground" : "text-muted-foreground",
-            )}>
-              {t('freeOfTotal', { free, total: items.length })}
-            </span>
-          }
+          // No count chip: «n/m frei» already says the total (hill climb r23).
+          badge={<span className={WALL_FREE_OF_TOTAL}>{t('freeOfTotal', { free, total: items.length })}</span>}
           collapsed={sections.isCollapsed(`material:${category}`)}
           onToggle={() => sections.toggle(`material:${category}`)}
           headerClassName="bg-muted/40"
@@ -674,18 +672,10 @@ function SituationBoard({
               <CollapsibleSection
                 key={role}
                 label={role}
-                count={people.length}
                 // How many of this Funktion are still free has to survive the
                 // fold — «Maschinisten 6» tells nobody that all six are out.
-                // «0/5 frei» is ink, not amber: gebunden is a fact (VISUAL-03).
-                badge={
-                  <span className={cn(
-                    "shrink-0 text-2xs xl:text-xs tabular-nums",
-                    free === 0 ? "font-semibold text-foreground" : "text-muted-foreground",
-                  )}>
-                    {t('freeOfTotal', { free, total: people.length })}
-                  </span>
-                }
+                // No count chip: «n/m frei» already says the total (hill climb r23).
+                badge={<span className={WALL_FREE_OF_TOTAL}>{t('freeOfTotal', { free, total: people.length })}</span>}
                 collapsed={sections.isCollapsed(`role:${role}`)}
                 onToggle={() => sections.toggle(`role:${role}`)}
                 headerClassName="bg-muted/40"

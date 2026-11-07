@@ -70,7 +70,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { DETAIL_MESSAGE_INDENT, DetailField, DetailFlags } from "@/components/kanban/detail-field"
+import { DETAIL_CONTROL_INDENT, DETAIL_MESSAGE_INDENT, DetailField, DetailFlags } from "@/components/kanban/detail-field"
 import { Axe, ChevronDown, Phone, Plus } from 'lucide-react'
 import { type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
@@ -444,9 +444,11 @@ export function NewEmergencyModal({
             />
 
             {/* The phone has no drag & drop and its detail sheet does not assign — the hint
-                would send the editor looking for something that is not there. */}
+                would send the editor looking for something that is not there. It starts in
+                the CONTROL column like every field above it (not at the labels' edge), 12/16
+                muted, 8px under the Merkmale chips (the row's own 4px + 4px). */}
             {!isMobile && (
-              <p className="pt-3 text-xs leading-relaxed text-muted-foreground">
+              <p className={cn("pt-1 text-xs text-muted-foreground", DETAIL_CONTROL_INDENT)}>
                 {t('newEmergency.infoDragDrop')}
               </p>
             )}

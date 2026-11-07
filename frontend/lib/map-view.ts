@@ -184,6 +184,36 @@ export function fitTo(map: MlMap, points: readonly LatLngPoint[], options: FitTo
   map.fitBounds(bounds, fitOptions)
 }
 
+/** A rectangle in client pixels – what `getBoundingClientRect()` returns, minus the methods. */
+export type ClientBox = Pick<DOMRectReadOnly, 'top' | 'right' | 'bottom' | 'left' | 'width' | 'height'>
+
+/** Clear space between map chrome and the nearest fitted point. */
+const CHROME_FIT_GAP = 16
+
+/**
+ * Fit padding that keeps the fitted points out from under the map's own chrome: `base` on every
+ * edge, and more on the right while the legend panel is open (its width from the map's right
+ * edge + 16px) and at the top while the top-right chip row holds something (its foot + 16px).
+ * Without it the Lagekarte framed «6 Reinacherstrasse 30» under the open legend with empty map
+ * on the left (hill climb r23). A cover that is absent or 0 tall/wide adds nothing; no edge takes
+ * more than half the map, so a narrow map still has a box to fit into.
+ */
+export function chromeFitPadding(
+  base: number,
+  map: ClientBox,
+  cover: { legend?: ClientBox | null; topRow?: ClientBox | null },
+): { top: number; right: number; bottom: number; left: number } {
+  const { legend, topRow } = cover
+  const right = legend && legend.width > 0 ? map.right - legend.left + CHROME_FIT_GAP : 0
+  const top = topRow && topRow.height > 0 ? topRow.bottom - map.top + CHROME_FIT_GAP : 0
+  return {
+    top: Math.min(Math.max(base, top), map.height / 2),
+    right: Math.min(Math.max(base, right), map.width / 2),
+    bottom: base,
+    left: base,
+  }
+}
+
 /**
  * Basemap paint, per theme – the raster equivalent of a CSS filter over the tiles.
  *

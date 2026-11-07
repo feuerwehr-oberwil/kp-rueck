@@ -172,7 +172,9 @@ export function MapLegend({
   }
 
   return (
-    <div className="absolute bottom-11 right-2.5 max-h-[calc(100%-3.5rem)] w-52 overflow-y-auto bg-card/95 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg z-map-chrome">
+    // `data-map-legend-panel`: MapView measures the open panel so a fit keeps markers out from
+    // under it (`chromeFitPadding`).
+    <div data-map-legend-panel className="absolute bottom-11 right-2.5 max-h-[calc(100%-3.5rem)] w-52 overflow-y-auto bg-card/95 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg z-map-chrome">
       <button
         onClick={() => setOpen(false)}
         className="relative hit-area flex items-center justify-between w-full mb-3"
