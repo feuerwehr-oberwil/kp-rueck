@@ -156,21 +156,27 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
           )}
 
           {/* Status + Type: the status is the one chip; the type is a label,
-              so it is plain muted text and never outshines the status. */}
-          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              so it is plain muted text and never outshines the status. ONE line on
+              every card (hill climb r23: a wrapping row put the type beside a short
+              status but under «Disponiert / Anfahrt»): the chip and the marks keep
+              their size, the type ellipsizes with its full text in `title`. */}
+          <div className="flex items-center gap-2 mt-1.5">
             <Badge variant="secondary" className="text-xs px-1.5 py-0 max-w-full">
               {getOperationStatusLabel(operation.status)}
             </Badge>
-            <span className="min-w-0 break-words text-xs text-muted-foreground">
+            <span
+              className="min-w-0 truncate text-xs text-muted-foreground"
+              title={getIncidentTypeLabel(operation.incidentType)}
+            >
               {getIncidentTypeLabel(operation.incidentType)}
             </span>
             {operation.hasCompletedReko && (
-              <span title={t("rekoCompleted")}>
+              <span className="shrink-0" title={t("rekoCompleted")}>
                 <FileCheck className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
               </span>
             )}
             {operation.rekoSummary?.hasDangers && (
-              <span title={tDetail("dangers")}>
+              <span className="shrink-0" title={tDetail("dangers")}>
                 <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
               </span>
             )}
