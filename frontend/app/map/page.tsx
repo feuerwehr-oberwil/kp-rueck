@@ -30,7 +30,7 @@ import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension,
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { incidentTimeSource } from "@/lib/incident-time"
 import { type Priority, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
-import { PRIORITY_LIST_ICONS } from "@/lib/map-priority"
+import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import { statusGroupCaption } from "@/components/map-legend"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { useIncidents, useOperations, type Operation } from "@/lib/contexts/operations-context"
@@ -1088,16 +1088,23 @@ export default function MapPage() {
                   return (
                     // ONE dimming: the muted text itself. A folded group used to
                     // add opacity-60 on top of a `/70` line (1.8:1, sweep
-                    // 2026-10); the turned chevron already says «folded».
+                    // 2026-10); the turned caret already says «folded». The fold
+                    // mark is a FILLED 8px caret (▸/▾) – the rows below lead with a
+                    // stroked priority chevron in the same column, and one glyph for
+                    // both read «OFFEN» as a Niedrig row (hill climb r23).
                     <div key={group}>
                       <button
                         onClick={() => toggleStatusFilter(group)}
                         aria-expanded={enabled}
                         className="relative hit-area flex w-full items-center gap-1 px-2 py-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
                       >
-                        <ChevronDown
-                          className={`h-3 w-3 transition-transform ${enabled ? '' : '-rotate-90'}`}
-                        />
+                        <svg
+                          viewBox="0 0 8 8"
+                          aria-hidden="true"
+                          className={`mx-0.5 size-2 shrink-0 fill-current transition-transform ${enabled ? 'rotate-90' : ''}`}
+                        >
+                          <path d="M2 0.5 L6.5 4 L2 7.5 Z" />
+                        </svg>
                         {t(`statusGroups.${group}`)} · {statusGroupCounts[group]}
                       </button>
                       {/* Which board columns feed this section. A group name is
@@ -1113,7 +1120,6 @@ export default function MapPage() {
                           {rows.map((incident) => {
                             const isSelected = selectedIncidentId === incident.id
                             const priority = (incident.priority ?? 'low') as Priority
-                            const PriorityIcon = PRIORITY_LIST_ICONS[priority]
                             const priorityLabel = priority === 'high' ? t('common.priorityHigh') : priority === 'medium' ? t('common.priorityMedium') : t('common.priorityLow')
                             // Pickup flags live on the Operation, one lookup away.
                             const operation = operationsById.get(incident.id)
@@ -1133,15 +1139,16 @@ export default function MapPage() {
                                   }`}
                                   aria-current={isSelected ? 'true' : undefined}
                                 >
-                                  {/* Priority as the board's chevron / dash, tinted – never
-                                      a colour dot alone (the marker carries the same glyph). */}
-                                  <span
-                                    role="img"
-                                    className="flex-shrink-0"
-                                    title={priorityLabel}
-                                    aria-label={priorityLabel}
-                                  >
-                                    <PriorityIcon className={`h-4 w-4 ${PRIORITY_TEXT_CLASSES[priority]}`} aria-hidden="true" />
+                                  {/* Priority as the shared `PriorityGlyph` (the marker's own
+                                      path) – never a colour dot alone – at the 14px / 2px
+                                      drawing in a 16px gutter: lucide's dash read as a list
+                                      hyphen, its chevron as the group's fold mark (r23). The
+                                      rail keeps its own tint (amber-700 Mittel, as before): with
+                                      no amber card edge beside it the board's near-black light
+                                      Mittel read as a hyphen again. The glyph names itself; the
+                                      span only adds the hover word. */}
+                                  <span className="flex-shrink-0" title={priorityLabel}>
+                                    <PriorityGlyph priority={priority} size="wall" className={PRIORITY_TEXT_CLASSES[priority]} />
                                   </span>
                                   <span
                                     className="min-w-0 flex-1 truncate text-[13px] font-medium"

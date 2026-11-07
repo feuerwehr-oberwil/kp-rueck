@@ -30,7 +30,7 @@ import { AssignmentLines } from "./map/assignment-lines"
 import { OperationHoverCard } from "./map/operation-hover-card"
 import { MAP_COLORS, PRIORITY_MARKER_COLORS, STATUS_RING, incidentPinRings, incidentPinSize } from "@/lib/map-colors"
 import { markerGlyphInk, priorityGlyphPath } from "@/lib/map-priority"
-import { DEFAULT_CENTER_LATLNG, fitTo, incidentZ, Z, type LatLngPoint } from "@/lib/map-view"
+import { chromeFitPadding, DEFAULT_CENTER_LATLNG, fitTo, incidentZ, Z, type LatLngPoint } from "@/lib/map-view"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { VehicleTrails } from "./map/vehicle-trails"
 import { ChevronDown, Maximize, AlertTriangle, Truck, Users } from "lucide-react"
@@ -728,6 +728,10 @@ function locatedPoints(incidents: Incident[]): LatLngPoint[] {
 /** Leaflet's `padding: [x, y]`, in MapLibre's per-edge shape. */
 const pad = (value: number) => ({ top: value, bottom: value, left: value, right: value })
 
+/** The fit padding for a base inset, measured at the moment of the fit (`chromeFitPadding`):
+ *  the open legend and the top-right chip row widen their edges. */
+type FitPadding = (base: number) => ReturnType<typeof pad>
+
 /** Live zoom level, so the vehicle pills can shrink when the operator zooms out. */
 function useMapZoom(map: MlMap | null, fallback: number): number {
   const [zoom, setZoom] = useState(fallback)
@@ -746,15 +750,15 @@ function useMapZoom(map: MlMap | null, fallback: number): number {
  * but keeps watching until then: on a cold cache the incidents arrive well after the map mounts,
  * and a mount-only effect would leave the operator at the default zoom forever.
  */
-function useFitBoundsOnce(map: MlMap | null, incidents: Incident[]) {
+function useFitBoundsOnce(map: MlMap | null, incidents: Incident[], padding: FitPadding) {
   const done = useRef(false)
   useEffect(() => {
     if (!map) return
     const points = locatedPoints(incidents)
     if (done.current || points.length === 0) return
-    fitTo(map, points, { padding: pad(50), maxZoom: 15, duration: 0 })
+    fitTo(map, points, { padding: padding(50), maxZoom: 15, duration: 0 })
     done.current = true
-  }, [map, incidents])
+  }, [map, incidents, padding])
 }
 
 /**
@@ -812,7 +816,7 @@ function usePanToVehicle(
 }
 
 /** Reset zoom to show all incidents (the `z` shortcut / panel resize). */
-function useResetZoom(map: MlMap | null, trigger: number, incidents: Incident[]) {
+function useResetZoom(map: MlMap | null, trigger: number, incidents: Incident[], padding: FitPadding) {
   const incidentsRef = useRef(incidents)
   useEffect(() => { incidentsRef.current = incidents }, [incidents])
 
@@ -821,8 +825,8 @@ function useResetZoom(map: MlMap | null, trigger: number, incidents: Incident[])
     // The trigger also fires on a panel resize. `<BaseMap>` watches the container itself, so this
     // is only a belt-and-braces nudge — it replaces Leaflet's `invalidateSize()` double-timeout.
     map.resize()
-    fitTo(map, locatedPoints(incidentsRef.current), { padding: pad(50), maxZoom: 15, duration: 800 })
-  }, [map, trigger])
+    fitTo(map, locatedPoints(incidentsRef.current), { padding: padding(50), maxZoom: 15, duration: 800 })
+  }, [map, trigger, padding])
 }
 
 /**
@@ -835,7 +839,7 @@ function useResetZoom(map: MlMap | null, trigger: number, incidents: Incident[])
  * Positioned over the map like the legend. Pointer events are stopped so pressing it never
  * doubles as a map drag.
  */
-function FitAllButton({ map, incidents }: { map: MlMap | null; incidents: Incident[] }) {
+function FitAllButton({ map, incidents, padding }: { map: MlMap | null; incidents: Incident[]; padding: FitPadding }) {
   const t = useTranslations('map')
   const points = locatedPoints(incidents)
   if (!map || points.length === 0) return null
@@ -846,7 +850,7 @@ function FitAllButton({ map, incidents }: { map: MlMap | null; incidents: Incide
         e.stopPropagation()
         // padding keeps a marker's label off the edge; maxZoom stops a single incident from
         // slamming to street level, which loses all context
-        fitTo(map, points, { padding: pad(60), maxZoom: 16, duration: 600 })
+        fitTo(map, points, { padding: padding(60), maxZoom: 16, duration: 600 })
       }}
       onDoubleClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
@@ -1272,10 +1276,22 @@ export default function MapView({
   })
 
   useInitialStationView(map, firestationCoords, tokenMode || firestationSettingsReady, mappableIncidents.length > 0)
-  useFitBoundsOnce(map, mappableIncidents)
+  // Every fit of the Lagekarte keeps its points out from under the map's own chrome: the
+  // open legend (right) and the top-right chip row (top), measured when the fit happens.
+  const rootRef = useRef<HTMLDivElement>(null)
+  const topRowRef = useRef<HTMLDivElement>(null)
+  const fitPadding = useCallback<FitPadding>((base) => {
+    const root = rootRef.current
+    if (!root) return pad(base)
+    return chromeFitPadding(base, root.getBoundingClientRect(), {
+      legend: root.querySelector("[data-map-legend-panel]")?.getBoundingClientRect(),
+      topRow: topRowRef.current?.getBoundingClientRect(),
+    })
+  }, [])
+  useFitBoundsOnce(map, mappableIncidents, fitPadding)
   usePanToSelected(map, selectedIncidentId ?? null, mappableIncidents, panTrigger)
   usePanToVehicle(map, focusVehicleName, focusVehicleTrigger, mappedVehiclePositions)
-  useResetZoom(map, resetZoomTrigger, mappableIncidents)
+  useResetZoom(map, resetZoomTrigger, mappableIncidents, fitPadding)
 
   // Routenplanung: an empty-map click adds a stop. Every marker stops its own click from
   // reaching the canvas, so only genuinely empty map arrives here.
@@ -1309,6 +1325,7 @@ export default function MapView({
     // `isolate`: the fit-all button (`z-map-control`), the hint chip and the legend are map chrome and
     // stay inside the map's layer — see MAP_STACKING in base-map.tsx. No overlay is ever below.
     <div
+      ref={rootRef}
       className="relative isolate w-full h-full rounded-lg overflow-hidden"
       role="region"
       aria-label={t('view.mapAria')}
@@ -1509,12 +1526,12 @@ export default function MapView({
       </BaseMap>
 
       {/* Fit-all sits over the map, not inside it — the map's own children are markers. */}
-      <FitAllButton map={map} incidents={mappableIncidents} />
+      <FitAllButton map={map} incidents={mappableIncidents} padding={fitPadding} />
 
       {/* Top-right control row: the page's controls, then the warning for incidents without a
           location. One flex row that wraps (right-aligned) and keeps clear of the zoom buttons
           (`left-16`), so nothing in it can overlap at any width. Only its children take clicks. */}
-      <div className="pointer-events-none absolute top-2.5 right-2.5 left-16 z-map-chrome flex flex-wrap items-start justify-end gap-2 [&>*]:pointer-events-auto">
+      <div ref={topRowRef} className="pointer-events-none absolute top-2.5 right-2.5 left-16 z-map-chrome flex flex-wrap items-start justify-end gap-2 [&>*]:pointer-events-auto">
         {topRightControls}
         {weather && <WeatherWarningChip weather={weather} warnings={warnings} now={now} />}
         <MissingLocationsWarning

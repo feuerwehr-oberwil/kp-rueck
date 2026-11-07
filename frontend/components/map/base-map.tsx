@@ -120,8 +120,12 @@ const CONTROL_Z_ORDER =
  * dark board looked pasted on (hill climb r1, finding 9). Here they take the card / border tokens
  * (dark board, dark controls; light stays light), the small-control radius (`rounded-sm` – each
  * button is 29px), a hairline ring + restrained shadow instead of MapLibre's 2px grey halo, and
- * a muted hover. The icons are MapLibre's own dark SVG backgrounds, so dark mode inverts them
- * rather than redrawing them. `!` for the same reason as CONTROL_Z_ORDER below.
+ * a muted hover. The zoom icons are MapLibre's own dark SVG backgrounds, so dark mode inverts
+ * them rather than redrawing them. The attribution ⓘ is the zoom group's surface in a 24px
+ * circle – card fill, the 1px border ring, a muted 14/600 «i» drawn as text – not MapLibre's
+ * solid near-black disc, which was the heaviest object in the light chrome (hill climb r23);
+ * its 24px box (and the hit pad in globals.css) is unchanged. `!` for the same reason as
+ * CONTROL_Z_ORDER below.
  */
 const CONTROL_LOOK =
   '[&_.maplibregl-ctrl-group]:bg-card! [&_.maplibregl-ctrl-group]:rounded-sm! [&_.maplibregl-ctrl-group]:overflow-hidden ' +
@@ -131,8 +135,11 @@ const CONTROL_LOOK =
   'dark:[&_.maplibregl-ctrl-icon]:invert ' +
   '[&_.maplibregl-ctrl-attrib.maplibregl-compact]:bg-card! [&_.maplibregl-ctrl-attrib.maplibregl-compact]:text-card-foreground! ' +
   '[&_.maplibregl-ctrl-attrib.maplibregl-compact]:shadow-[0_0_0_1px_var(--border),0_1px_2px_rgb(0_0_0/0.25)] ' +
+  '[&_.maplibregl-ctrl-attrib.maplibregl-compact]:rounded-full! ' +
   '[&_.maplibregl-ctrl-attrib_a]:text-card-foreground! ' +
-  'dark:[&_.maplibregl-ctrl-attrib-button]:bg-transparent! dark:[&_.maplibregl-ctrl-attrib-button]:invert-[0.85]'
+  '[&_.maplibregl-ctrl-attrib-button]:bg-none! [&_.maplibregl-ctrl-attrib-button]:bg-transparent! ' +
+  "[&_.maplibregl-ctrl-attrib-button]:before:absolute [&_.maplibregl-ctrl-attrib-button]:before:inset-0 [&_.maplibregl-ctrl-attrib-button]:before:flex [&_.maplibregl-ctrl-attrib-button]:before:items-center [&_.maplibregl-ctrl-attrib-button]:before:justify-center [&_.maplibregl-ctrl-attrib-button]:before:content-['i'] " +
+  '[&_.maplibregl-ctrl-attrib-button]:before:font-sans [&_.maplibregl-ctrl-attrib-button]:before:text-sm [&_.maplibregl-ctrl-attrib-button]:before:leading-none [&_.maplibregl-ctrl-attrib-button]:before:font-semibold [&_.maplibregl-ctrl-attrib-button]:before:text-muted-foreground'
 
 /**
  * …and all of that stays INSIDE the map.

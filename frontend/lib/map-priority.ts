@@ -1,25 +1,15 @@
-import { ChevronDown, ChevronUp, Minus, type LucideIcon } from "lucide-react"
-import type { Priority } from "./priority"
 
 /**
  * The priority mark the Lagekarte draws, so priority is never colour alone (sweep hill climb r1,
  * finding 6): the board's chevron up / dash / chevron down, inside every incident marker (and its
  * legend swatch) and beside every address in the map's list.
  *
- * `PRIORITY_LIST_ICONS` is the board card's set (`draggable-operation.tsx`), tinted with
- * `PRIORITY_TEXT_CLASSES`. The marker cannot nest lucide's 24-unit icon legibly in a 22–24px fill,
- * so `priorityGlyphPath` redraws the same three shapes at marker scale; `markerGlyphInk` picks
- * dark ink or white for the fill underneath – the priority fills all take ink, a «Färben nach»
- * colour may be dark enough to need white (the glyph stays, so priority survives recolouring).
- * Both walls draw their mark before an address with the same path, larger
- * (`components/display/wall-priority-glyph.tsx`).
+ * Lucide's 24-unit icons cannot nest legibly in a 22–24px fill, so `priorityGlyphPath` draws the
+ * three shapes at marker scale; `markerGlyphInk` picks dark ink or white for the fill underneath –
+ * the priority fills all take ink, a «Färben nach» colour may be dark enough to need white (the
+ * glyph stays, so priority survives recolouring). The same path is the board card's, both walls'
+ * and the map list's mark beside an address (`components/ui/priority-glyph.tsx`).
  */
-
-export const PRIORITY_LIST_ICONS: Record<Priority, LucideIcon> = {
-  high: ChevronUp,
-  medium: Minus,
-  low: ChevronDown,
-}
 
 /**
  * SVG path of the glyph centred on (cx, cy). `scale` is the marker size / 24: on the 32px pin

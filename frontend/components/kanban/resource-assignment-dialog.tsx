@@ -32,7 +32,7 @@ import { getIncidentLocationLabel, getIncidentRefLabel, getIncidentRefParts } fr
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { cn } from "@/lib/utils"
-import { ElsewhereNote, ListSection, type OccupancyLabel, TileCheck, type TileRole, TILE_GRID, TILE_HOVER, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
+import { ElsewhereNote, ListSection, type OccupancyLabel, PersonTileLine, TileCheck, type TileRole, TILE_GRID, TILE_HOVER, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
 import {
   MaterialAssignmentList,
   MaterialTypeChips,
@@ -236,21 +236,19 @@ export function ResourceAssignmentDialog({
    * that taking them also takes the fleet's only driver. The driver's label
    * names the VEHICLE, because «Fahrer» alone raises the question it answers.
    *
-   * `elsewhere` says whether the role is ANOTHER commitment – the only case the
-   * tile paints amber («schau hin»), and only while no where-note above it is
-   * amber already. Driving a vehicle that is on this very target is a plain
-   * fact about this crew, not a double booking.
+   *
+   * `place` marks a role that says where the person IS (Reko, Magazin, …): the
+   * first one is the tile's amber where-note when the person is on no
+   * Einsatz/Auftrag. The driven vehicle is not a place; it comes last, muted
+   * (`PersonTileLine`).
    */
-  const specialFunctionsOf = (p: Person): (TileRole & { elsewhere: boolean })[] => {
-    const functions: (TileRole & { elsewhere: boolean })[] = []
-    if (p.isDriver) {
-      const drivesThisTarget = !!p.driverVehicleId && assignedVehicleIds.includes(p.driverVehicleId)
-      functions.push({ label: p.driverVehicleName || t('assignmentDialog.driverBadge'), Icon: Truck, elsewhere: !drivesThisTarget })
-    }
-    if (p.isReko || rekoPersonnelIds.includes(p.id)) functions.push({ label: t('common.reko'), Icon: Binoculars, elsewhere: true })
-    if (p.isMagazin) functions.push({ label: t('common.magazin'), Icon: Package2, elsewhere: true })
-    if (p.isTelefondienst) functions.push({ label: t('common.telefondienst'), Icon: Phone, elsewhere: true })
-    if (p.isKommandoposten) functions.push({ label: t('common.kommandoposten'), Icon: MonitorCog, elsewhere: true })
+  const specialFunctionsOf = (p: Person): (TileRole & { place: boolean })[] => {
+    const functions: (TileRole & { place: boolean })[] = []
+    if (p.isReko || rekoPersonnelIds.includes(p.id)) functions.push({ label: t('common.reko'), Icon: Binoculars, place: true })
+    if (p.isMagazin) functions.push({ label: t('common.magazin'), Icon: Package2, place: true })
+    if (p.isTelefondienst) functions.push({ label: t('common.telefondienst'), Icon: Phone, place: true })
+    if (p.isKommandoposten) functions.push({ label: t('common.kommandoposten'), Icon: MonitorCog, place: true })
+    if (p.isDriver) functions.push({ label: p.driverVehicleName || t('assignmentDialog.driverBadge'), Icon: Truck, place: false })
     return functions
   }
 
@@ -300,7 +298,7 @@ export function ResourceAssignmentDialog({
     for (const group of groups) {
       if (assignTarget === 'route' && group.id === operationId) continue
       const res = getGroupResources(group.id)
-      const label = { head: group.name, full: group.name }
+      const label = { head: group.name, full: group.name, swatch: group.color ?? null }
       for (const v of res.vehicles) push(vehicleMap, v.resourceId, { ...label, kind: 'route', id: group.id, assignmentId: v.assignmentId })
       for (const m of res.materials) push(materialMap, m.resourceId, { ...label, kind: 'route', id: group.id, assignmentId: m.assignmentId })
       for (const p of res.personnel) push(personMap, p.resourceId, { ...label, kind: 'route', id: group.id, assignmentId: p.assignmentId })
@@ -988,10 +986,11 @@ export function ResourceAssignmentDialog({
     const isSelected = isPersonSelected(person.id)
     const wasJustAssigned = justAssigned === person.id
     const special = specialFunctionsOf(person)
-    // Already on another incident/Auftrag → amber note with the
-    // reference, taking precedence over the special-function badge. The tile
+    // Already on another incident/Auftrag → the amber where-note names it; else a
+    // place-like role (Reko, Magazin, …; never the driven vehicle) does. The tile
     // itself stays neutral: the note says where, no tinted block.
     const elsewhere = personElsewhereLabel(person)
+    const placeRole = elsewhere ? undefined : special.find(fn => fn.place)
     return (
       <button
         key={person.id}
@@ -1006,43 +1005,16 @@ export function ResourceAssignmentDialog({
           <p className="font-medium text-sm truncate" title={person.name}>
             <PersonName name={person.name} kennung={person.kennung ?? null} />
           </p>
-          {/* «Im Einsatz» and the Ereignis roles are different
-              facts and both are shown: where somebody is now,
-              and what taking them costs the Ereignis. The roles
-              used to be hidden the moment the person was busy —
-              exactly when the operator most needs to see that
-              this is the TLF 1's driver. */}
-          {/* Busy: the roles ride on the where-line (ElsewhereNote says why). */}
-          {elsewhere && (
-            <ElsewhereNote label={elsewhere} roles={special} />
-          )}
-          {/* Free: line 2 is always the rank, and the roles follow it after a «·» with
-              their glyph – «Offizier · 🚚 TLF», the same order the busy tile's place line
-              uses (place · roles). A role on a line of its own pushed the rank off the
-              tile, so «Müller Hans» read «🚚 TLF» where every other tile read a rank
-              (hill climb r22). The rank ellipsizes first; the roles never shrink. */}
-          {!elsewhere && (person.role || special.length > 0) && (
-            <p
-              title={[person.role, ...special.map(fn => fn.label)].filter(Boolean).join(' · ')}
-              className="mt-0.5 flex max-w-full items-start overflow-hidden text-muted-foreground"
-            >
-              {person.role && <span className="truncate text-xs">{person.role}</span>}
-              {special.map((fn, i) => {
-                const after = !!person.role || i > 0
-                return (
-                  <span key={fn.label} className={cn("flex shrink-0 items-start gap-1", TILE_META, after && "ml-1")}>
-                    {after && <span aria-hidden>·</span>}
-                    {/* A role held elsewhere is the tile's one «schau hin»; a busy tile
-                        carries its roles muted on the where-line instead. */}
-                    <span className={cn("flex items-start gap-1", fn.elsewhere && "text-amber-700 dark:text-amber-400")}>
-                      <fn.Icon className={TILE_META_ICON} aria-hidden />
-                      {fn.label}
-                    </span>
-                  </span>
-                )
-              })}
-            </p>
-          )}
+          {/* ONE line for every person tile, busy or free: rank · where · roles
+              (`PersonTileLine` says why). «Im Einsatz» and the Ereignis roles are
+              different facts and both stay: where somebody is now, and what taking
+              them costs the Ereignis (the TLF 1's driver). A person on no Einsatz
+              but in Reko/Magazin … is THERE – that role is the where-note. */}
+          <PersonTileLine
+            rank={person.role || undefined}
+            where={elsewhere ?? (placeRole ? { head: placeRole.label, full: placeRole.label, Icon: placeRole.Icon } : null)}
+            roles={special.filter(fn => fn !== placeRole)}
+          />
         </div>
       </button>
     )

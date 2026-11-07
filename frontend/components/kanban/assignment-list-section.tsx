@@ -1,5 +1,6 @@
 "use client"
 
+import { Fragment } from "react"
 import { Check, Minus, Siren, type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -7,15 +8,17 @@ import { cn } from "@/lib/utils"
  *  name in full («Hoffmann Lisa», not «Hoffmann L…») and the where-note gets the width. */
 export const TILE_GRID = "grid grid-cols-1 sm:grid-cols-3 gap-2"
 /** Every line under a tile's name is 12/16 – a fact in plain `text-xs` muted, a note in
- *  `type-caption` (12/500; amber only where it asks for a look: where it is, a role held
- *  elsewhere on a tile that names no place, «kein Fahrer») – and the
- *  name stays 14/500, the one thing to read first. Tiles align their contents to the TOP: a grid row is as tall as
- *  its tallest tile, and centred contents put the names of one row at different heights. */
+ *  `type-caption` (12/500; amber only where it asks for a look: where it is – another
+ *  commitment – and «kein Fahrer») – and the name stays 14/500, the one thing to read first.
+ *  Tiles align their contents to the TOP: a grid row is as tall as its tallest tile, and
+ *  centred contents put the names of one row at different heights. */
 export const TILE_META = "type-caption"
 /** Where an occupied resource currently is: `head` names the place (number · address, an
  *  Auftrag's name, or the generic «Im Einsatz»), `detail` the rest («Einsatzart: Meldung», may
- *  be absent), `full` everything untruncated for the hover title and the confirm copy. */
-export type OccupancyLabel = { head: string; detail?: string; full: string }
+ *  be absent), `full` everything untruncated for the hover title and the confirm copy.
+ *  `swatch` is set (the Auftrag's colour, null when it has none) only when the place IS an
+ *  Auftrag – the note then leads with its colour dot instead of the Einsatz glyph. */
+export type OccupancyLabel = { head: string; detail?: string; full: string; swatch?: string | null }
 
 /** Something a person holds besides their place – a driven vehicle, Reko, Magazin … */
 export type TileRole = { label: string; Icon: LucideIcon }
@@ -23,41 +26,86 @@ export type TileRole = { label: string; Icon: LucideIcon }
 /** A 12px glyph at the start of a 16px caption line. */
 export const TILE_META_ICON = "mt-0.5 h-3 w-3 flex-shrink-0"
 
+/** The glyph a where-note leads with: an Auftrag's colour dot (a route colour is never text –
+ *  a dot beside neutral text), else `Icon` (the Einsatz siren unless a role names the place). */
+function WhereGlyph({ label, Icon = Siren }: { label: OccupancyLabel; Icon?: LucideIcon }) {
+  if (label.swatch !== undefined) {
+    return (
+      <span
+        aria-hidden
+        className="mt-1 size-2 shrink-0 rounded-full border border-black/10"
+        style={{ backgroundColor: label.swatch ?? "var(--muted-foreground)" }}
+      />
+    )
+  }
+  return <Icon className={TILE_META_ICON} aria-hidden />
+}
+
 /**
- * A tile's «where is it now» note, inside two lines: line 1 the place at 12/16 600 with its
- * glyph (what the Einsatz is found by), line 2 the rest at 12/16 500 – each one line with an
- * ellipsis, the full text in `title`. One evenly weighted two-line passage ran number, address,
- * type and Meldung together (hill climb r13). Only the place is amber – it is ANOTHER
- * commitment, «schau hin»; the Meldung under it is a fact and muted, or fourteen busy tiles
- * were an amber wall (hill climb r18). Shared by the crew, vehicle and material tiles.
- *
- * `roles` (crew tiles only) are what the person holds besides – the vehicle they drive, Reko …
- * They ride on line 1 after the place, muted with their glyph («15 · Bättwilerstrasse 7 · 🚚
- * Mawa»), and never shrink: the place ellipsizes first. On lines of their own they made one busy
- * tile four lines tall, and the grid row stretched every tile beside it (hill climb r19).
+ * A vehicle or material tile's «where is it now» note, inside two lines: line 1 the place at
+ * 12/16 600 with its glyph (what the Einsatz is found by), line 2 the rest at 12/16 500 – each
+ * one line with an ellipsis, the full text in `title`. Only the place is amber – it is ANOTHER
+ * commitment, «schau hin»; the Meldung under it is a fact and muted (hill climb r13/r18).
+ * Person tiles say it on their one line instead (`PersonTileLine`).
  */
-export function ElsewhereNote({ label, roles }: { label: OccupancyLabel; roles?: readonly TileRole[] }) {
-  const title = roles?.length ? [label.full, ...roles.map(role => role.label)].join(' · ') : label.full
+export function ElsewhereNote({ label }: { label: OccupancyLabel }) {
   return (
     <span
-      title={title}
+      title={label.full}
       className="mt-0.5 flex max-w-full items-start gap-1 overflow-hidden text-amber-700 dark:text-amber-400"
     >
-      <Siren className={TILE_META_ICON} />
+      <WhereGlyph label={label} />
       <span className="min-w-0 flex-1">
-        <span className="flex min-w-0 items-start">
-          <span className="truncate text-xs font-semibold">{label.head}</span>
-          {roles?.map(role => (
-            <span key={role.label} className="ml-1 flex shrink-0 items-start gap-1 type-caption text-muted-foreground">
-              <span aria-hidden>·</span>
-              <role.Icon className={TILE_META_ICON} aria-hidden />
-              {role.label}
-            </span>
-          ))}
-        </span>
+        <span className="block truncate text-xs font-semibold">{label.head}</span>
         {label.detail && <span className="block truncate type-caption text-muted-foreground">{label.detail}</span>}
       </span>
     </span>
+  )
+}
+
+/** Where a person is besides here: a binding (Einsatz / Auftrag) or a role that IS a place
+ *  (Reko, Magazin …) – then `Icon` is that role's glyph. */
+export type PersonWhere = OccupancyLabel & { Icon?: LucideIcon }
+
+/**
+ * The ONE line under every person tile's name (hill climb r23 – the final rule; r13/r19/r20/r22
+ * moved these lines around): rank (muted) · where (amber, its glyph) · roles (muted, their
+ * glyph – the driven vehicle last). One 12/16 line, a fixed 16px tall even when empty, so every
+ * person tile is the same height and the grid has no ragged rows. The where part ellipsizes
+ * first, the roles never shrink; the full text – the Meldung included, which no longer gets a
+ * line of its own – is in `title`. Amber marks only the where part: it is ANOTHER commitment,
+ * «schau hin»; rank and roles are facts.
+ */
+export function PersonTileLine({ rank, where, roles }: { rank?: string; where: PersonWhere | null; roles: readonly TileRole[] }) {
+  const title = [rank, where?.full, ...roles.map(role => role.label)].filter(Boolean).join(" · ")
+  const segments: { key: string; className: string; content: React.ReactNode }[] = []
+  if (rank) segments.push({ key: "rank", className: "min-w-[3ch] truncate", content: rank })
+  if (where) {
+    segments.push({
+      key: "where",
+      className: "flex min-w-0 items-start gap-1 type-caption text-amber-700 dark:text-amber-400",
+      content: <><WhereGlyph label={where} Icon={where.Icon} /><span className="truncate">{where.head}</span></>,
+    })
+  }
+  for (const role of roles) {
+    segments.push({
+      key: role.label,
+      className: "flex shrink-0 items-start gap-1",
+      content: <><role.Icon className={TILE_META_ICON} aria-hidden />{role.label}</>,
+    })
+  }
+  return (
+    <p
+      title={title || undefined}
+      className="mt-0.5 flex h-4 max-w-full items-start overflow-hidden whitespace-nowrap text-xs text-muted-foreground"
+    >
+      {segments.map((segment, i) => (
+        <Fragment key={segment.key}>
+          {i > 0 && <span aria-hidden className="mx-1 shrink-0">·</span>}
+          <span className={segment.className}>{segment.content}</span>
+        </Fragment>
+      ))}
+    </p>
   )
 }
 
