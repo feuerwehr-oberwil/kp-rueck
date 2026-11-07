@@ -90,4 +90,11 @@ describe('the phone Einsatz card', () => {
     expect(line).not.toHaveClass('rounded-full')
     expect(card.querySelectorAll('[data-slot="badge"]')).toHaveLength(1)
   })
+
+  it('keeps the type on the status chip line, cut with its full text in the tooltip', () => {
+    const card = cardOf(operation({ incidentType: 'elementarereignis' }))
+    const type = card.querySelector('[title="Elementarereignis"]')
+    expect(type).toHaveClass('truncate', 'min-w-0')
+    expect(type?.parentElement).not.toHaveClass('flex-wrap')
+  })
 })
