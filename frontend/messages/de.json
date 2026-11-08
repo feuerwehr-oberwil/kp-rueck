@@ -3037,7 +3037,10 @@
       "nothingNew": "Keine neuen Alarme.",
       "emptyTitle": "Noch keine Alarme",
       "emptyDescription": "Ein Alarm aus der Alarmierung erscheint hier, sobald er eingeht.",
-      "noMatches": "Keine Treffer für «{query}»."
+      "noMatches": "Keine Treffer für «{query}».",
+      "loadFailedTitle": "Alarme nicht geladen",
+      "loadFailedDescription": "Der Server hat nicht geantwortet oder einen Fehler gemeldet.",
+      "reload": "Erneut laden"
     },
     "alarmSettings": {
       "cardTitle": "Ausalarmierung",

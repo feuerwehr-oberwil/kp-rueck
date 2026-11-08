@@ -448,7 +448,10 @@
       "nothingNew": "Aucune nouvelle alarme.",
       "emptyTitle": "Pas encore d’alarme",
       "emptyDescription": "Une alarme du système d’alarme apparaît ici dès qu’elle arrive.",
-      "noMatches": "Aucun résultat pour «{query}»."
+      "noMatches": "Aucun résultat pour «{query}».",
+      "loadFailedTitle": "Alarmes non chargées",
+      "loadFailedDescription": "Le serveur n’a pas répondu ou a signalé une erreur.",
+      "reload": "Recharger"
     },
     "alarmSettings": {
       "cardTitle": "Alarmement",
