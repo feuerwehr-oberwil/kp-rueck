@@ -44,6 +44,8 @@ export interface DuplicateHintProps<C extends DuplicateHintCandidate = Duplicate
   onDismiss: () => void
   /** The candidate being merged right now (its button shows the trail). */
   mergingId?: string | null
+  /** Another write of the same form is running (an attach): both answers wait for it. */
+  busy?: boolean
   /** False on narrow mounts (the phone sheet) — the sketch needs ~7rem. */
   showSketch?: boolean
   /** «Zusammenführen» is not offered (a viewer, or a bulk attach). */
@@ -59,6 +61,7 @@ export function DuplicateHint<C extends DuplicateHintCandidate>({
   onMerge,
   onDismiss,
   mergingId = null,
+  busy: formBusy = false,
   showSketch = true,
   readOnly = false,
   density = 'dense',
@@ -67,7 +70,7 @@ export function DuplicateHint<C extends DuplicateHintCandidate>({
   const t = useTranslations('duplicates')
   if (candidates.length === 0) return null
 
-  const busy = mergingId !== null
+  const busy = formBusy || mergingId !== null
   const buttonSize = density === 'touch' ? 'default' : 'xs'
   // One candidate (the usual case): the sentence, then both answers side by side.
   // Several: each line carries its own «Zusammenführen», «Trotzdem neu» answers for all.

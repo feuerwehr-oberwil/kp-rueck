@@ -422,6 +422,8 @@
       "attachDialogTitle": "Rattacher à un événement",
       "attachDialogDescription": "{count, plural, one {# urgence sera attribuée} other {# urgences seront attribuées}} à l’événement choisi.",
       "selectEventPlaceholder": "Choisir un événement …",
+      "eventLabel": "Événement",
+      "noAttachableEvents": "{training, select, true {Aucun exercice ouvert – les alarmes d’exercice ne vont qu’à des exercices.} other {Aucun événement ouvert – en ouvrir un d’abord.}}",
       "eventTraining": "{name} (exercice)",
       "cancel": "Annuler",
       "attaching": "Rattachement …",

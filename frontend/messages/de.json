@@ -3011,6 +3011,8 @@
       "attachDialogTitle": "An Ereignis anhängen",
       "attachDialogDescription": "{count, plural, one {# Notfall wird} other {# Notfälle werden}} dem gewählten Ereignis zugewiesen.",
       "selectEventPlaceholder": "Ereignis wählen …",
+      "eventLabel": "Ereignis",
+      "noAttachableEvents": "{training, select, true {Keine offene Übung – Übungs-Alarme gehen nur an Übungen.} other {Kein offenes Ereignis – zuerst eines eröffnen.}}",
       "eventTraining": "{name} (Übung)",
       "cancel": "Abbrechen",
       "attaching": "Wird angehängt …",
