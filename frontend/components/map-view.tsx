@@ -888,7 +888,7 @@ function SpotList({
       role="group"
       aria-label={address}
       className={`rounded-lg border border-border bg-popover py-1.5 font-sans text-sm text-popover-foreground shadow-lg ${
-        docked ? "absolute inset-x-2 bottom-2 z-map-chrome flex max-h-[calc(100%-1rem)] flex-col" : "w-80"
+        docked ? "absolute inset-x-2 bottom-2 z-map-control flex max-h-[calc(100%-1rem)] flex-col" : "w-80"
       }`}
       onKeyDown={(event) => {
         if (event.key === "Escape") onClose()
@@ -1929,7 +1929,8 @@ export default function MapView({
       />
 
       {/* Phone: the tapped same-address pin's list, docked along the map's foot – after the
-          legend in the DOM, so it lies over the legend pill while open. */}
+          legend and the fit-all button in the DOM and on their `z-map-control` tier, so it lies
+          over both while open (six or more rows reach the top of the map). */}
       {dockedSpot && (
         <SpotList
           spot={dockedSpot}
