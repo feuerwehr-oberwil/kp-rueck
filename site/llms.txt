@@ -1,0 +1,33 @@
+# KP Rück
+
+> KP Rück is an open-source, self-hosted incident board for the rear command post. It coordinates incidents, personnel, vehicles and equipment on a shared board and map, supports simultaneous incidents, records an append-only incident log and produces incident reports.
+
+## Canonical website pages
+
+- German (default): https://kp-rueck.ch/
+- French: https://kp-rueck.ch/fr/
+- Italian: https://kp-rueck.ch/it/
+- Romansh: https://kp-rueck.ch/rm/
+- English: https://kp-rueck.ch/en/
+
+## Product facts
+
+- The application is developed from operational use at Feuerwehr Oberwil BL.
+- Each organisation runs its own installation and controls its own incident, personnel, vehicle and equipment data.
+- The application is licensed under AGPL-3.0.
+- The application interface is currently available in German and French.
+- Alarm intake, Divera, FireHub, vehicle GPS, online maps and thermal printing are optional integrations.
+- The website is available in German, French, Italian, Romansh and English.
+
+## Official resources
+
+- Public demo: https://demo.kp-rueck.ch/
+- Source code: https://github.com/feuerwehr-oberwil/kp-rueck
+- Setup guide: https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md
+- Changelog: https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/CHANGELOG.md
+- Security: https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/SECURITY.md
+- Privacy: https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/PRIVACY.md#the-project-website
+
+## Related product
+
+- KP Front is the independent application for incident command at the scene: https://kp-front.ch/
