@@ -96,7 +96,6 @@ import { useBoardCardActions } from "@/components/board/use-board-card-actions"
 
 export default function FireStationDashboard() {
   const {
-    materials,
     operations,
     setOperations,
     formatLocation,
@@ -191,7 +190,9 @@ export default function FireStationDashboard() {
   // computed once here, passed down, so the memoized cards stay cheap.
   const personEngagements = usePersonEngagements()
 
-  const { materialGroups, setMaterialOutOfService } = useMaterials()
+  // The depot with BOTH deployments folded in – Einsätze and Aufträge – so the
+  // material sidebar, its counter and every drop read one frei/gebunden.
+  const { materials, materialGroups, setMaterialOutOfService } = useMaterials()
   const { selectedEvent, isEventLoaded, events, setSelectedEvent } = useEvent()
   const { isEditor } = useAuth()
   const { toggleSidebar: toggleNotificationSidebar, registerNavigateHandler, registerFieldActionHandler, registerAssignHandler, closeSidebar: closeNotificationSidebar, settings: notificationSettings } = useNotifications()

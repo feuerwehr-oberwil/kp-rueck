@@ -32,6 +32,11 @@ Geografische Übersicht aller Einsatzorte. Farbige Marker zeigen Priorität (Gr�
 - **Priorität (Füllung):** Grau=Niedrig, Gelb=Mittel, Rot=Hoch
 - **Status (Rahmen):** Gestrichelt=Offen, Durchgezogen=Aktiv, Gepunktet+Verblasst=Rückfahrt & Abgeschlossen
 - **Fahrzeuge (GPS):** Blau=Online, Grau=Offline
+- **Handy – Blase mit Zahl:** mehrere Einsätze, deren Marker sich überdecken; Marke und Rahmen des dringendsten (höchste Priorität). Antippen zoomt auf die Gruppe. Ab Strassen-Zoom stehen die Marker wieder einzeln.
+
+**Beschriftungen (Desktop):** Jede Adresse steht neben ihrem Marker, normalerweise rechts. Wo rechts schon eine andere Beschriftung oder ein Marker steht, wechselt sie auf die linke Seite – ist auch die besetzt, bleibt sie rechts, und die überfahrene kommt nach vorn.
+
+**Liste:** In jeder Gruppe (Offen, Aktiv, …) stehen die Einsätze nach Priorität – Hoch, Mittel, Niedrig – und darin der älteste zuerst, gemessen wie die Zeit in der Zeile.
 
 **Tastatur:** `L` Labels, `I` Linien, `1-5` Fahrzeug anzeigen – siehe [Tastaturkürzel](#tastaturkürzel).
 
@@ -54,7 +59,7 @@ Ereignisse verwalten, wechseln, archivieren, exportieren.
 **Archivieren sagt, was noch offen ist.** Der Dialog listet, was das Archivieren abschneiden würde: nicht abgeschlossene Einsätze (mit «Auf dem Board zeigen»), offene Abholungen, Material noch am Schadenplatz und Personen, die noch angemeldet sind. Das vorab angekreuzte «automatisch abmelden» meldet beim Archivieren alle ab – Abmeldezeit = Ereignisende. Solange etwas offen ist, heisst der Knopf «Trotzdem archivieren».
 
 ### Einstellungen (`G S`)
-System-Konfiguration: Benutzer, Drucker, Kartenstil und mehr. Benutzer und das Audit-Protokoll sehen nur Admins.
+System-Konfiguration: Benutzer, Drucker, Kartenstil und mehr. Benutzer und das Audit-Protokoll sehen nur Admins. Die Koordinaten der Feuerwehr (Allgemein) stehen und speichern mit 6 Nachkommastellen (≈ 10 cm); mehr wird beim Verlassen des Felds gerundet.
 
 ### Hilfe (`G H`)
 Diese Dokumentationsseite.
@@ -529,7 +534,7 @@ Das Grundmodell: **Ein Auftrag ist eine einzige Einheit, die die ganze Route sel
 
 Daraus folgt:
 
-- Ein Auftrag **besitzt seine Ressourcen selbst**: Fahrzeug, Personal und Material werden **dem Auftrag** zugewiesen und gelten **für alle Stopps gemeinsam** – der Trupp fährt sie ja der Reihe nach ab. Die einzelnen Stopps tragen **keine eigenen Ressourcen**.
+- Ein Auftrag **besitzt seine Ressourcen selbst**: Fahrzeug, Personal und Material werden **dem Auftrag** zugewiesen und gelten **für alle Stopps gemeinsam** – der Trupp fährt sie ja der Reihe nach ab. Die einzelnen Stopps tragen **keine eigenen Ressourcen**. Material auf einem Auftrag gilt überall als **gebunden** – in der Material-Leiste, ihrem Zähler und auf der Status-Wand –, wie das Personal.
 - Ein Einsatz ist **ganz im Auftrag oder gar nicht** – es gibt kein «halb drin». Zusätzliche Ressourcen nur für einen einzelnen Stopp (halb-im-Auftrag) werden **nicht** unterstützt. Braucht ein Schadenplatz einen eigenen Trupp mit eigenem Material, gehört er nicht in diesen Auftrag, sondern bleibt ein eigenständiger Einsatz (oder kommt in einen zweiten Auftrag).
 - Die Ressourcen werden **automatisch freigegeben, wenn der letzte Stopp abgeschlossen** ist.
 
