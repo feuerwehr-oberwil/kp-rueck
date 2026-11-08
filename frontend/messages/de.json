@@ -133,6 +133,7 @@
         "hint": "Einsatz, dann Fahrzeug / Person – z. B.",
         "hintExample": "7 tlf keller",
         "hintTab": "ergänzt",
+        "hintTabKey": "Tabulator",
         "group": "Ausführen",
         "incidentTitle": "Einsatz {number}",
         "arrowAssign": "bekommt",

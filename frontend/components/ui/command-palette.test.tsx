@@ -292,5 +292,14 @@ describe("CommandPalette — ⇥ completes", () => {
     expect(input()).toHaveAttribute("placeholder", "Befehl suchen oder zuweisen …")
     expect(screen.getByText("Einsatz, dann Fahrzeug / Person – z. B.")).toBeInTheDocument()
     expect(screen.getByText("ergänzt")).toBeInTheDocument()
+    // The input is described by that line, the ⇥ read as its key name.
+    expect(input()).toHaveAccessibleDescription(/^Einsatz, dann Fahrzeug \/ Person – z\. B\..*Tabulator.*ergänzt$/)
+  })
+
+  it("invites nobody to assign who cannot: no onDispatch (viewer, standby mirror) → no hint", () => {
+    setup({ onDispatch: undefined })
+    expect(input()).toHaveAttribute("placeholder", "Befehl suchen …")
+    expect(screen.queryByText("Einsatz, dann Fahrzeug / Person – z. B.")).not.toBeInTheDocument()
+    expect(input()).not.toHaveAttribute("aria-describedby")
   })
 })

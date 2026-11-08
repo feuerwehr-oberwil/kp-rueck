@@ -242,6 +242,7 @@
         "hint": "Intervention, puis véhicule / personne – p. ex.",
         "hintExample": "7 tlf keller",
         "hintTab": "complète",
+        "hintTabKey": "Tabulation",
         "group": "Exécuter",
         "incidentTitle": "Intervention {number}",
         "arrowAssign": "reçoit",
