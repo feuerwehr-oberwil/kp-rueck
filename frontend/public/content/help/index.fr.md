@@ -128,7 +128,7 @@ En ligne de commande, `just tiles-status` distingue « uniquement les tuiles min
 
 La barre de recherche (`S` ou `/`) parcourt toutes les interventions par adresse, genre, priorité et statut (tels qu’ils figurent sur la carte, p. ex. « haute », « En intervention »), texte de l’annonce et **nom de mission** ; « reko » ou « reconnaissance » trouve les interventions dont la reconnaissance est terminée – qui cherche l’itinéraire en trouve les étapes. Idéal pour retrouver rapidement la bonne carte quand il y a beaucoup d’interventions.
 
-Sur les pages d’affichage [Tableau](#tableau-displayboard) et [État](#état-displaystatus), la même recherche se trouve dans l’en-tête, avec les deux mêmes touches – qui passe du PC à l’écran mural n’a rien de second à retenir. Elle ne réagit pas tant qu’un champ a le curseur ou qu’une fenêtre est ouverte.
+Sur les pages d’affichage [Tableau](#tableau-displayboard) et [État](#état-displaystatus), la même recherche se trouve dans l’en-tête, avec les deux mêmes touches – qui passe du PC à l’écran mural n’a rien de second à retenir. Elle ne réagit pas tant qu’un champ a le curseur ou qu’une fenêtre est ouverte. Après 10 secondes sans souris ni touche, le champ de recherche et la flèche de retour s’estompent sur place (rien ne se déplace) ; le premier mouvement de souris ou `S` les fait revenir. Une recherche en cours reste affichée.
 
 ---
 

@@ -128,7 +128,7 @@ Auf der Kommandozeile beantwortet `just tiles-status` dieselbe Frage: es untersc
 
 Die Suchleiste (`S` oder `/`) durchsucht alle Einsätze nach Adresse, Typ, Priorität und Status (so wie sie auf der Karte stehen, z. B. «hoch», «Im Einsatz»), Meldungstext und **Auftragsname**; «reko» findet die Einsätze mit abgeschlossener Reko – wer nach der Route sucht, findet ihre Stopps. Ideal um bei vielen Einsätzen schnell die richtige Karte zu finden.
 
-Auf den Anzeige-Seiten [Board](#board-displayboard) und [Status](#status-displaystatus) liegt dieselbe Suche in der Kopfzeile, mit denselben zwei Tasten – wer vom KP zum Wandschirm geht, muss sich nichts Zweites merken. Sie reagiert nicht, während ein Feld den Cursor hat oder ein Dialog offen ist.
+Auf den Anzeige-Seiten [Board](#board-displayboard) und [Status](#status-displaystatus) liegt dieselbe Suche in der Kopfzeile, mit denselben zwei Tasten – wer vom KP zum Wandschirm geht, muss sich nichts Zweites merken. Sie reagiert nicht, während ein Feld den Cursor hat oder ein Dialog offen ist. Nach 10 Sekunden ohne Maus und Taste blenden Suchfeld und Zurück-Pfeil an Ort und Stelle aus (nichts verschiebt sich); die erste Mausbewegung oder `S` holt sie zurück. Eine laufende Suche bleibt stehen.
 
 ---
 

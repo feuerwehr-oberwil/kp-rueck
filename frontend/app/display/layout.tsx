@@ -18,6 +18,7 @@ import { DisplaySearchProvider, useDisplaySearch } from "@/lib/contexts/display-
 import { TrainingBand, TrainingBadge } from "@/components/training-mode-chrome"
 import { useDisplayErrorRecovery } from "@/components/display-error"
 import { RouteSlot } from "@/components/route-slot"
+import { useWallIdle } from "@/components/display/use-wall-idle"
 
 const displayPages = [
   { href: "/display/map", labelKey: "pageMap", icon: Map },
@@ -116,6 +117,20 @@ function DisplayChrome({
   const isSearchable = SEARCHABLE_PAGES.includes(pathname)
   const searchRef = useRef<HTMLInputElement>(null)
 
+  // Idle chrome (owner pick U5 B): after 10 s without a mouse move or a key, the
+  // back arrow and the search field fade IN PLACE – opacity, not display, so the
+  // Ereignis name and everything else in the bar stay exactly where they are. The
+  // first mouse move or key («S» focuses the search in that same keystroke) brings
+  // them back. A search in force never fades: a filtered wall must say so, and a
+  // field holding the caret stays (`focus-within`). Under reduced motion it is a
+  // cut, not a fade.
+  const chromeIdle = useWallIdle() && !query
+  const idleChromeClass = cn(
+    "transition-opacity duration-500 motion-reduce:transition-none",
+    // No `pointer-events-none`: a pointer can only reach them by moving, which wakes them.
+    chromeIdle && "opacity-0 focus-within:opacity-100",
+  )
+
   // `s` (or `/`) jumps to the search field — the same two keys as the main
   // board, so somebody who walks from the KP to the wall screen does not have to
   // learn a second habit. Registered only where there IS a field to focus, and
@@ -157,7 +172,8 @@ function DisplayChrome({
   // does: it is the ONLY bar now (the board pages had a second, near-identical
   // header of their own), and it carries the two things people read a wall
   // display for from across the room — which Ereignis, and what time it is.
-  // A screen nobody touches would have hidden both within eight seconds.
+  // A screen nobody touches would have hidden both within eight seconds. What
+  // fades now is only the back arrow and the search field (`chromeIdle` above).
 
   // Fullscreen tracking
   useEffect(() => {
@@ -214,17 +230,19 @@ function DisplayChrome({
       <header className="order-last sm:order-first flex items-center justify-between gap-3 border-t sm:border-t-0 sm:border-b border-border bg-header px-3 py-2 sm:py-1 min-h-10 sm:min-h-[44px] shrink-0">
         <div className="flex flex-1 items-center gap-2 min-w-0">
           {!token && (
-            <>
+            // One box for the arrow and its divider, so the idle fade has one
+            // target; `gap-2` is the row's own gap, so nothing moves.
+            <div className={cn("hidden sm:flex items-center gap-2 shrink-0", idleChromeClass)}>
               <Link
                 href={isIndexPage ? "/" : "/display"}
-                className="hidden sm:flex items-center justify-center h-7 w-7 shrink-0 rounded-sm hover:bg-muted transition-colors"
+                className="flex items-center justify-center h-7 w-7 shrink-0 rounded-sm hover:bg-muted transition-colors"
                 title={isIndexPage ? t('layout.backToEditor') : t('layout.displayOverview')}
               >
                 <ArrowLeft className="h-3.5 w-3.5 text-muted-foreground" />
               </Link>
 
-              <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
-            </>
+              <div className="w-px h-5 bg-border shrink-0" />
+            </div>
           )}
 
           {needsEventPick ? (
@@ -260,7 +278,7 @@ function DisplayChrome({
               placeholder={t('layout.searchPlaceholder')}
               // From lg up only: at 768 the bar had ~30px left for it, «Suchen …» cut to «Su»
               // and the Ereignis name squeezed to an ellipsis (overflow sweep, 03.10.).
-              containerClassName="ml-2 hidden w-64 shrink-0 lg:block"
+              containerClassName={cn("ml-2 hidden w-64 shrink-0 lg:block", idleChromeClass)}
               className="h-7 text-sm"
               hint={<Kbd>S</Kbd>}
             />
