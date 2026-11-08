@@ -10,6 +10,7 @@ import { markerGlyphInk, priorityGlyphPath } from "@/lib/map-priority"
 import type { Priority } from "@/lib/priority"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
+import { ClusterBubble } from "@/components/map/cluster-bubble"
 
 // SVG marker for the legend – the map's IncidentPin at rest, same geometry and frame
 // (`incidentPinRings`, phone or desktop by the same `useCompactMap` test the markers use).
@@ -129,6 +130,8 @@ export function MapLegend({
   const coloring = colorBy !== "priority"
 
   const isMobile = useIsMobile()
+  // Only the compact map groups overlapping pins into count bubbles (lib/map-clusters.ts).
+  const compact = useCompactMap()
   const [open, setOpen] = useState<boolean | null>(null)
 
   // A "Färben nach" dimension is unreadable without its key — arbitrary colours
@@ -216,6 +219,17 @@ export function MapLegend({
                 <span className="text-xs">{t('common.priorityLow')}</span>
               </div>
             </>
+          )}
+          {/* The phone's count bubble: the number of Einsätze under it, in the mark of the most
+              urgent one. 38px keeps its count at 11px (the screen floor); the -3px each side
+              keeps the label on the 32px samples' text edge. */}
+          {compact && (
+            <div className="flex items-center gap-2">
+              <span className="-mx-[3px] flex-shrink-0">
+                <ClusterBubble count={3} priority="high" group="active" size={38} legend />
+              </span>
+              <span className="text-xs">{t('legend.cluster')}</span>
+            </div>
           )}
         </div>
       </div>

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { useIntegrationCapability } from "@/lib/hooks/use-integrations"
 import { SettingUnavailableNote } from "@/components/settings/setting-unavailable"
+import { COORDINATE_DECIMALS } from "@/components/settings/setting-validation"
 import {
   SettingCard,
   SettingGroup,
@@ -243,7 +244,7 @@ export function GpsSettingsCard({
               <span className="flex items-center gap-3 text-sm">
                 <span className={effectiveCoords ? "tabular-nums" : "text-muted-foreground"}>
                   {effectiveCoords
-                    ? `${effectiveCoords[0].toFixed(5)} · ${effectiveCoords[1].toFixed(5)}`
+                    ? `${effectiveCoords[0].toFixed(COORDINATE_DECIMALS)} · ${effectiveCoords[1].toFixed(COORDINATE_DECIMALS)}`
                     : t("gps.stationCoordsUnset")}
                 </span>
                 <Link

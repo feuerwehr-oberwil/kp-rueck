@@ -20,7 +20,6 @@ import { usePolling } from "@/lib/hooks/use-polling"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
 import { usePersonnel } from "./personnel-context"
-import { useMaterials } from "./materials-context"
 import { refusalReason } from "@/lib/assignment-refusal"
 
 // Re-export the client type for convenience (as materials-context exposes Material).
@@ -124,11 +123,12 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, loading: authLoading } = useAuth()
   const { selectedEvent, isEventLoaded } = useEvent()
   const { personnel } = usePersonnel()
-  const { materials } = useMaterials()
   // Readiness lives in the operations context (refreshed with every poll).
   // GroupsProvider sits inside OperationsProvider in the root layout.
-  // So does the fleet, for naming a route's vehicle assignments (they carry ids).
-  const { outOfServiceVehicleIds, requestVehicleDriver, beginAssignmentSettling, vehicles } = useOperations()
+  // So does the fleet, for naming a route's vehicle assignments (they carry ids),
+  // and the depot, for naming its material – straight off the board, not
+  // `useMaterials()`, which folds THIS provider's Aufträge into the deployment.
+  const { outOfServiceVehicleIds, requestVehicleDriver, beginAssignmentSettling, vehicles, materials } = useOperations()
 
   const [groups, setGroups] = useState<IncidentGroup[]>([])
   const [isLoaded, setIsLoaded] = useState(false)

@@ -29,6 +29,8 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { incidentTimeSource } from "@/lib/incident-time"
+import { useIncidentTimeMode } from "@/lib/hooks/use-incident-time-mode"
+import { sortForMapList } from "@/lib/map-list-order"
 import { type Priority, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import { statusGroupCaption } from "@/components/map-legend"
@@ -582,7 +584,10 @@ export default function MapPage() {
   // The rail's sections: the SEARCHED list split by status group. The section
   // headings are the filter now — toggling one flips `statusFilters`, which
   // also drives the map's markers, exactly as the old pill row did. Split from
-  // the search-only list so a collapsed section still knows its count.
+  // the search-only list so a collapsed section still knows its count. Each
+  // section reads Hoch → Mittel → Niedrig, then oldest first by the age its
+  // rows show (`sortForMapList`).
+  const { mode: timeMode } = useIncidentTimeMode()
   const sectionedIncidents = useMemo(() => {
     const searched = !searchQuery
       ? incidents
@@ -600,8 +605,9 @@ export default function MapPage() {
       const group = STATUS_TO_GROUP[inc.status as IncidentStatus]
       if (group) sections[group].push(inc)
     }
+    for (const group of Object.keys(sections) as StatusGroup[]) sections[group] = sortForMapList(sections[group], timeMode)
     return sections
-  }, [incidents, searchQuery, tIncidents, tKanban])
+  }, [incidents, searchQuery, tIncidents, tKanban, timeMode])
 
 
   // Refresh incidents immediately when map page loads

@@ -32,6 +32,11 @@ Vue d’ensemble géographique de tous les lieux d’intervention. Des marqueurs
 - **Priorité (remplissage) :** gris = basse, jaune = moyenne, rouge = haute
 - **Statut (cadre) :** tirets = ouverte, trait plein = en cours, pointillés + estompé = retour et clôturées
 - **Véhicules (GPS) :** bleu = en ligne, gris = hors ligne
+- **Téléphone – bulle avec nombre :** plusieurs interventions dont les marqueurs se recouvrent ; marque et cadre de la plus urgente (priorité la plus haute). Un toucher zoome sur le groupe. Dès le zoom de rue, les marqueurs se séparent à nouveau.
+
+**Étiquettes (ordinateur) :** chaque adresse se trouve à côté de son marqueur, normalement à droite. Si une autre étiquette ou un marqueur occupe déjà la droite, elle passe à gauche – si la gauche est prise aussi, elle reste à droite et celle que l’on survole passe devant.
+
+**Liste :** dans chaque groupe (ouvertes, en cours, …), les interventions sont triées par priorité – haute, moyenne, basse – et, à priorité égale, la plus ancienne d’abord, mesurée comme le temps affiché dans la ligne.
 
 **Clavier :** `L` étiquettes, `I` lignes, `1-5` afficher un véhicule – voir [Raccourcis clavier](#raccourcis-clavier).
 
@@ -52,7 +57,7 @@ Gérer, changer, archiver et exporter les événements.
 **L’archivage dit ce qui est encore ouvert.** La fenêtre liste ce que l’archivage couperait : les interventions non clôturées (avec « Afficher sur le tableau »), les récupérations ouvertes, le matériel encore sur une place sinistrée et les personnes encore annoncées. La case « désannoncer automatiquement », cochée par défaut, annonce le départ de tout le monde à l’archivage – heure de départ = fin de l’événement. Tant que quelque chose est ouvert, le bouton s’appelle « Archiver quand même ».
 
 ### Réglages (`G S`)
-Configuration du système : utilisateurs, imprimante, style de carte et plus encore. Les utilisateurs et le journal d’audit ne sont visibles que pour les admins.
+Configuration du système : utilisateurs, imprimante, style de carte et plus encore. Les utilisateurs et le journal d’audit ne sont visibles que pour les admins. Les coordonnées de la caserne (Général) s’affichent et s’enregistrent avec 6 décimales (≈ 10 cm) ; au-delà, elles sont arrondies en quittant le champ.
 
 ### Aide (`G H`)
 Cette page de documentation.
@@ -531,7 +536,7 @@ Le modèle de base : **une mission est une unité unique qui parcourt tout l’i
 
 Il en découle :
 
-- Une mission **possède ses ressources elle-même** : véhicule, personnel et matériel sont attribués **à la mission** et valent **pour toutes les étapes en commun** – le groupe les parcourt bien l’une après l’autre. Les étapes individuelles ne portent **aucune ressource propre**.
+- Une mission **possède ses ressources elle-même** : véhicule, personnel et matériel sont attribués **à la mission** et valent **pour toutes les étapes en commun** – le groupe les parcourt bien l’une après l’autre. Les étapes individuelles ne portent **aucune ressource propre**. Le matériel d’une mission compte partout comme **engagé** – dans la barre du matériel, son compteur et sur l’écran de statut –, comme le personnel.
 - Une intervention est **entièrement dans la mission ou pas du tout** – il n’y a pas de « à moitié dedans ». Des ressources supplémentaires pour une seule étape (à moitié dans la mission) ne sont **pas** prises en charge. Si une place sinistrée a besoin de son propre groupe avec son propre matériel, elle n’a pas sa place dans cette mission : elle reste une intervention autonome (ou entre dans une deuxième mission).
 - Les ressources sont **libérées automatiquement lorsque la dernière étape est clôturée**.
 

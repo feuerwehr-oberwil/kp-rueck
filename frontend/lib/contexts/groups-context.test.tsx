@@ -55,7 +55,6 @@ vi.mock("@/lib/contexts/auth-context", () => ({ useAuth: () => authState }))
 vi.mock("@/lib/contexts/event-context", () => ({ useEvent: () => eventState }))
 // The provider resolves resource names via these sibling contexts.
 vi.mock("@/lib/contexts/personnel-context", () => ({ usePersonnel: () => ({ personnel: [] }) }))
-vi.mock("@/lib/contexts/materials-context", () => ({ useMaterials: () => ({ materials: [] }) }))
 // Readiness («Nicht einsatzbereit») comes from the operations context — the
 // assign guard reads this set. Mutable so a test can flag a vehicle.
 const operationsState = vi.hoisted(() => {
@@ -63,6 +62,7 @@ const operationsState = vi.hoisted(() => {
   return {
     outOfServiceVehicleIds: new Set<string>(),
     vehicles: [] as { id: string; name: string }[],
+    materials: [] as { id: string; name: string }[],
     requestVehicleDriver: vi.fn(),
     settling,
     beginAssignmentSettling: () => {

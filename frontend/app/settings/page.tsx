@@ -81,7 +81,7 @@ import { ExcelImportSection } from '@/components/settings/excel-import-section';
 import { AuditLogSection } from '@/components/settings/audit-log-section';
 import { useAuditLog } from '@/components/settings/use-audit-log';
 import { useExcelImport } from '@/components/settings/use-excel-import';
-import { LATITUDE_RANGE, LONGITUDE_RANGE } from '@/components/settings/setting-validation';
+import { COORDINATE_DECIMALS, LATITUDE_RANGE, LONGITUDE_RANGE } from '@/components/settings/setting-validation';
 import {
   StationSettingsForm,
   useStationSettings,
@@ -263,12 +263,14 @@ const SETTING_CONFIGS: (SettingConfig & { group: GeneralGroup })[] = [
     group: 'station',
     type: 'number',
     range: LATITUDE_RANGE,
+    decimals: COORDINATE_DECIMALS,
   },
   {
     key: 'firestation_longitude',
     group: 'station',
     type: 'number',
     range: LONGITUDE_RANGE,
+    decimals: COORDINATE_DECIMALS,
   },
   {
     key: 'map_mode',

@@ -1492,7 +1492,8 @@
       "clickToNavigate": "Klicken um zu Einsatz zu navigieren",
       "retry": "Erneut versuchen",
       "mapAria": "Einsatzkarte – Pfeiltasten zum Verschieben, Tab zum Markieren",
-      "glLost": "Die Kartendarstellung wurde vom Browser beendet."
+      "glLost": "Die Kartendarstellung wurde vom Browser beendet.",
+      "clusterAria": "{count} Einsätze, höchste: {priority} – tippen zum Vergrössern"
     },
     "legend": {
       "show": "Legende anzeigen",
@@ -1508,7 +1509,8 @@
       "vehicleOnline": "Fahrzeug online",
       "vehicleOffline": "Fahrzeug offline",
       "assignments": "Zuweisungen",
-      "vehicleToIncident": "Fahrzeug → Einsatz"
+      "vehicleToIncident": "Fahrzeug → Einsatz",
+      "cluster": "Mehrere Einsätze (Anzahl)"
     },
     "assignmentLines": {
       "incidentFallback": "Einsatz"

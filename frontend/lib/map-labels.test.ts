@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { estimateLabelWidth, labelMode, pickVisibleLabels, PHONE_LABEL_MIN_ZOOM, type LabelCandidate } from './map-labels'
+import { estimateLabelWidth, labelMode, pickVisibleLabels, placeLabelSides, PHONE_LABEL_MIN_ZOOM, type LabelCandidate } from './map-labels'
 
 const GEOMETRY = { labelOffsetX: 20, labelHeight: 28, dotSize: 24 }
 
@@ -94,5 +94,47 @@ describe('estimateLabelWidth', () => {
     const long = estimateLabelWidth('Bahnhofstrasse 1, Coop Center', 0)
     expect(long).toBeGreaterThan(short)
     expect(estimateLabelWidth('Weg 1', 2)).toBeGreaterThan(short)
+  })
+})
+
+describe('placeLabelSides (desktop)', () => {
+  it('keeps a label that collides with nothing on the right', () => {
+    expect([...placeLabelSides([candidate('a', 200, 0), candidate('b', 200, 100)], GEOMETRY)]).toEqual([])
+  })
+
+  it('flips the lower claim of two colliding labels to the left of its pin', () => {
+    // Rebbergstrasse 31 (Hoch) over Rebbergstrasse 5 (Mittel), 20px apart: 5 goes left.
+    const left = placeLabelSides(
+      [candidate('31', 210, 0, { priority: 'high' }), candidate('5', 200, 20, { priority: 'medium' })],
+      GEOMETRY,
+    )
+    expect([...left]).toEqual(['5'])
+  })
+
+  it('flips a label whose right side would lie on another incident’s dot', () => {
+    // b's dot sits inside a's right-hand label (x 220–320).
+    expect([...placeLabelSides([candidate('a', 200, 0, { priority: 'high' }), candidate('b', 260, 0)], GEOMETRY)]).toContain('a')
+  })
+
+  it('stays right when the left side is taken too – overlapping, never dropped', () => {
+    // c sits between two dots that cover both of its sides.
+    const left = placeLabelSides(
+      [candidate('w', 140, 0, { priority: 'high' }), candidate('c', 200, 0), candidate('e', 260, 0, { priority: 'high' })],
+      GEOMETRY,
+    )
+    expect(left.has('c')).toBe(false)
+  })
+
+  it('flips a label that would hang off the map’s right edge', () => {
+    const left = placeLabelSides([candidate('edge', 350, 100)], { ...GEOMETRY, viewport: { width: 390, height: 400 } })
+    expect([...left]).toEqual(['edge'])
+  })
+
+  it('keeps a stepped shared-address label on the right, where its leader line runs', () => {
+    const left = placeLabelSides(
+      [candidate('a', 200, 0, { priority: 'high' }), candidate('b', 200, 0, { dy: 4 })],
+      GEOMETRY,
+    )
+    expect(left.has('b')).toBe(false)
   })
 })
