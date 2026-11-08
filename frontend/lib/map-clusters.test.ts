@@ -38,6 +38,16 @@ describe('clusterPins', () => {
     expect(clusterPins([pin('coop', 0, 0, { count: 3 }), pin('b', 38, 0)], SIZES)).toEqual([])
   })
 
+  it('joins a neighbour that would cover a same-address pin’s count badge – only on the badge’s side', () => {
+    // The 32px pin's badge: 18px, centred 14px right and 13px up (`pinBadgeCircle`).
+    const withBadge = { ...SIZES, badge: { dx: 14, dy: -13, size: 18 } }
+    // ~37px off diagonally: the pins clear each other (16 + 16 + 4 < 36.8), the badge does not.
+    expect(ids(clusterPins([pin('coop', 0, 0, { count: 3 }), pin('b', 26, -26)], withBadge))).toEqual([['b', 'coop']])
+    expect(clusterPins([pin('coop', 0, 0, { count: 3 }), pin('b', -26, 26)], withBadge)).toEqual([])
+    // A pin of one incident wears no badge.
+    expect(clusterPins([pin('a', 0, 0), pin('b', 26, -26)], withBadge)).toEqual([])
+  })
+
   it('gives the same bubbles whatever order the pins arrive in', () => {
     const pins = [pin('a', 0, 0), pin('b', 20, 0), pin('c', 200, 0), pin('d', 215, 10)]
     expect(ids(clusterPins(pins, SIZES))).toEqual(ids(clusterPins([...pins].reverse(), SIZES)))

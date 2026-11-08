@@ -75,14 +75,29 @@ export function clusterLead(pins: readonly ClusterPin[]): ClusterPin {
  * overlap most merge, again and again until nothing touches. So a bubble never lies on a pin or another bubble
  * either, and a pin that merely sits near a heap stays its own pin.
  *
+ * A same-address pin (`count` > 1) also wears its count badge, a small circle off its top-right
+ * (`badge`: offset from the pin centre + diameter, `pinBadgeCircle`): a neighbour that would
+ * cover the count touches it as much as one on the pin itself.
+ *
  * Returns the bubbles only; every pin not in one is drawn as itself.
  */
 export function clusterPins(
   pins: readonly ClusterPin[],
-  { pinSize, bubbleSize, gap = 4 }: { pinSize: number; bubbleSize: number; gap?: number },
+  {
+    pinSize,
+    bubbleSize,
+    badge,
+    gap = 4,
+  }: { pinSize: number; bubbleSize: number; badge?: { dx: number; dy: number; size: number }; gap?: number },
 ): PinCluster[] {
   type Node = { pins: ClusterPin[]; x: number; y: number }
-  const radius = (node: Node) => (node.pins.length > 1 ? bubbleSize : pinSize) / 2
+  type Circle = { x: number; y: number; r: number }
+  const circles = (node: Node): Circle[] => {
+    if (node.pins.length > 1) return [{ x: node.x, y: node.y, r: bubbleSize / 2 }]
+    const own = { x: node.x, y: node.y, r: pinSize / 2 }
+    if (!badge || (node.pins[0].count ?? 1) < 2) return [own]
+    return [own, { x: node.x + badge.dx, y: node.y + badge.dy, r: badge.size / 2 }]
+  }
   // Sorted by id: the same pins give the same bubbles whatever order the incidents arrive in.
   const nodes: Node[] = [...pins].sort((a, b) => a.id.localeCompare(b.id)).map((pin) => ({ pins: [pin], x: pin.x, y: pin.y }))
 
@@ -90,8 +105,12 @@ export function clusterPins(
     let best: { i: number; j: number; overlap: number } | null = null
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
-        const distance = Math.hypot(nodes[i].x - nodes[j].x, nodes[i].y - nodes[j].y)
-        const overlap = radius(nodes[i]) + radius(nodes[j]) + gap - distance
+        let overlap = -Infinity
+        for (const a of circles(nodes[i])) {
+          for (const b of circles(nodes[j])) {
+            overlap = Math.max(overlap, a.r + b.r + gap - Math.hypot(a.x - b.x, a.y - b.y))
+          }
+        }
         if (overlap > 0 && (!best || overlap > best.overlap)) best = { i, j, overlap }
       }
     }

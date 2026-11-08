@@ -34,7 +34,7 @@ import { boundsOfLatLng, chromeFitPadding, DEFAULT_CENTER_LATLNG, fitTo, inciden
 import { CLUSTER_MAX_ZOOM, clusterPins, type PinCluster } from "@/lib/map-clusters"
 import { clusterableSpots, groupSpots, spotNumberText, type MapSpot } from "@/lib/map-spots"
 import { CLUSTER_BUBBLE_SIZE, ClusterBubble } from "./map/cluster-bubble"
-import { PinCountBadge } from "./map/pin-count-badge"
+import { PinCountBadge, pinBadgeCircle } from "./map/pin-count-badge"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { VehicleTrails } from "./map/vehicle-trails"
@@ -764,24 +764,36 @@ function usePinClusters(
           count: spot.incidents.length,
         }
       })
-      const next = clusterPins(pins, { pinSize: incidentPinSize(false, compact), bubbleSize: CLUSTER_BUBBLE_SIZE }).map(
-        (cluster: PinCluster): IncidentCluster => {
-          const members = cluster.pins.flatMap((pin) => byKey.get(pin.id)!.incidents)
-          return {
-            key: cluster.pins.map((pin) => pin.id).join(","),
-            spotKeys: cluster.pins.map((pin) => pin.id),
-            incidents: members,
-            lead: byKey.get(cluster.lead.id)!.lead,
-            latitude: members.reduce((sum, inc) => sum + inc.location_lat!, 0) / members.length,
-            longitude: members.reduce((sum, inc) => sum + inc.location_lng!, 0) / members.length,
-          }
-        },
-      )
-      // Same grouping, same array: the incident list is a new array on every poll.
+      const pinSize = incidentPinSize(false, compact)
+      const next = clusterPins(pins, {
+        pinSize,
+        bubbleSize: CLUSTER_BUBBLE_SIZE,
+        badge: pinBadgeCircle(pinSize),
+      }).map((cluster: PinCluster): IncidentCluster => {
+        const joined = cluster.pins.map((pin) => byKey.get(pin.id)!)
+        return {
+          key: cluster.pins.map((pin) => pin.id).join(","),
+          spotKeys: cluster.pins.map((pin) => pin.id),
+          incidents: joined.flatMap((spot) => spot.incidents),
+          lead: byKey.get(cluster.lead.id)!.lead,
+          // The plain mean of the joined PINS – where `clusterPins` tested the bubble for
+          // overlap. Weighted by incidents, a 3-incident pin would pull it onto a neighbour.
+          latitude: joined.reduce((sum, spot) => sum + spot.latitude, 0) / joined.length,
+          longitude: joined.reduce((sum, spot) => sum + spot.longitude, 0) / joined.length,
+        }
+      })
+      // Same grouping, same array: the incident list is a new array on every poll. The members
+      // count too – a status filter can hide one of a joined spot's incidents, keeping key + lead.
       setClusters((previous) => {
         const same =
           previous.length === next.length &&
-          previous.every((cluster, i) => cluster.key === next[i].key && cluster.lead === next[i].lead)
+          previous.every(
+            (cluster, i) =>
+              cluster.key === next[i].key &&
+              cluster.lead === next[i].lead &&
+              cluster.incidents.length === next[i].incidents.length &&
+              cluster.incidents.every((incident, j) => incident.id === next[i].incidents[j].id),
+          )
         return same ? previous : next.length === 0 ? NO_CLUSTERS : next
       })
     }
@@ -876,13 +888,13 @@ function SpotList({
       role="group"
       aria-label={address}
       className={`rounded-lg border border-border bg-popover py-1.5 font-sans text-sm text-popover-foreground shadow-lg ${
-        docked ? "absolute inset-x-2 bottom-2 z-map-chrome" : "w-80"
+        docked ? "absolute inset-x-2 bottom-2 z-map-chrome flex max-h-[calc(100%-1rem)] flex-col" : "w-80"
       }`}
       onKeyDown={(event) => {
         if (event.key === "Escape") onClose()
       }}
     >
-      <div className="flex items-start gap-2 px-3 pb-1 pt-0.5">
+      <div className="flex shrink-0 items-start gap-2 px-3 pb-1 pt-0.5">
         <p className="min-w-0 flex-1 break-words font-semibold">{address}</p>
         {docked && (
           <button
@@ -895,15 +907,19 @@ function SpotList({
           </button>
         )}
       </div>
-      {spot.incidents.map((incident) => (
-        <SpotListRow
-          key={incident.id}
-          incident={incident}
-          selected={incident.id === selectedId}
-          onPick={onPick}
-          onOpen={onOpen}
-        />
-      ))}
+      {/* Docked, the rows scroll under the address and the ✕ once they outgrow the map (six
+          incidents at one address on a phone). */}
+      <div className={docked ? "relative min-h-0 overflow-y-auto overscroll-contain" : undefined}>
+        {spot.incidents.map((incident) => (
+          <SpotListRow
+            key={incident.id}
+            incident={incident}
+            selected={incident.id === selectedId}
+            onPick={onPick}
+            onOpen={onOpen}
+          />
+        ))}
+      </div>
       {/* The one thing a row cannot show by itself: a double-click opens it. A finger has no
           double-click here – the selected Einsatz opens from the page's own card. */}
       {!docked && onOpen && (
