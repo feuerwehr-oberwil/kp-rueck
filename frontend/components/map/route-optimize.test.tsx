@@ -107,10 +107,13 @@ describe("useRouteOptimizeAction", () => {
     expect(restoreGroupStops).toHaveBeenCalledTimes(1)
   })
 
-  it("says so when the order is already the shortest, without saving", async () => {
+  it("says so when the order is already the shortest, without saving – and the start row follows", async () => {
+    const vehicleStart: RouteStart = { mode: "vehicle", requested: "vehicle", coords: [0, 0], vehicleName: "TLF", reportedAt: null }
     const { planning, hook } = setup(["c", "a", "b"])
-    await act(async () => { await hook.result.current.runOptimize("magazin") })
+    planning.optimizeFrom.mockReturnValue({ ids: ["c", "a", "b"], start: vehicleStart })
+    await act(async () => { await hook.result.current.runOptimize("vehicle") })
     expect(planning.reorder).not.toHaveBeenCalled()
     expect(toasts.calls.at(-1)).toMatchObject({ kind: "info" })
+    expect(hook.result.current.lastRun?.start).toEqual(vehicleStart)
   })
 })

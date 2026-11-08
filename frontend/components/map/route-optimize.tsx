@@ -83,6 +83,8 @@ export function useRouteOptimizeAction(planning: Planning) {
       if (ids.length === 0 || !start) return
       const startLine = t("startLine", { start: routeStartSummary(describeRouteStart(start, t, Date.now(), locale)) })
       if (sameOrder(ids, previous)) {
+        // Still a run from `start`: the timeline's start row and the note name it, like the toast.
+        setLastRun({ groupId: group.id, ids, start })
         toast.info(t("unchanged"), { description: startLine })
         return
       }
