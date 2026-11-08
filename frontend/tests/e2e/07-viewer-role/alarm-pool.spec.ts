@@ -36,6 +36,15 @@ test.describe('Viewer role — the Alarmeingang', () => {
       data: { source: 'elz', source_id: `e2e-${stamp}`, title, address: `${street}, 4104 Oberwil` },
     });
     expect(posted.ok(), await posted.text()).toBeTruthy();
+    // A live Ereignis with auto-attach on takes every fresh alarm, so this one would never be «neu».
+    const ack = (await posted.json()) as { auto_attached_incident_id: string | null };
+    if (ack.auto_attached_incident_id) {
+      const all = (await (await page.request.get(`${API_BASE}/api/events/`, { headers })).json()) as {
+        events: { name: string; training_flag: boolean; auto_attach_divera: boolean; archived_at: string | null }[];
+      };
+      const takers = all.events.filter((e) => e.auto_attach_divera && !e.training_flag && !e.archived_at).map((e) => e.name);
+      expect(takers, 'a live Ereignis with Divera auto-attach takes the alarm').toEqual([]);
+    }
 
     await selectEvent(page, '/divera-pool', event.id);
     await page.waitForURL((url) => url.pathname === '/', { timeout: 15_000 });
