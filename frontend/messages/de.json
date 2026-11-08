@@ -3029,7 +3029,7 @@
       "sectionNew": "Neu · {count}",
       "sectionToday": "Heute zugewiesen · {count}",
       "sectionEarlier": "Früher · {count}",
-      "earlierHint": "älter als 24 Stunden",
+      "earlierHint": "frühere Tage und archivierte",
       "attachAll": "Alle anhängen",
       "attachAllCount": "Alle {count} anhängen",
       "attachOneAria": "«{title}» anhängen",

@@ -440,7 +440,7 @@
       "sectionNew": "Nouvelles · {count}",
       "sectionToday": "Attribuées aujourd’hui · {count}",
       "sectionEarlier": "Plus anciennes · {count}",
-      "earlierHint": "plus de 24 heures",
+      "earlierHint": "jours précédents et archivées",
       "attachAll": "Tout rattacher",
       "attachAllCount": "Rattacher les {count}",
       "attachOneAria": "Rattacher «{title}»",
