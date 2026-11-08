@@ -110,8 +110,9 @@ export function RoutenplanungPanel({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="mb-4 flex items-center justify-between gap-2 border-b pb-3">
+      {/* Header – wraps, so «Beenden» stays on screen in a rail squeezed by the page (768px with
+          the notification sidebar open) instead of being cut off at its edge. */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b pb-3">
         <div className="flex items-center gap-2">
           <RouteIcon className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-lg font-bold">{t("title")}</h2>
