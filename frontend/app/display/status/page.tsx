@@ -56,6 +56,10 @@ const WAITING_STATUSES: ReadonlySet<string> = new Set(["incoming", "reko", "reko
 
 /** Per-device fold state for this display (see useCollapsedSections). */
 const STATUS_COLLAPSE_KEY = "kp-display-status-collapsed"
+/** The Reaktionszeiten fold keeps its own key: it starts CLOSED (owner pick U6 C), and a
+ *  wall that has already stored a fold set under the key above would otherwise come up
+ *  with it open – a stored set replaces the defaults. */
+const STATUS_REACTIONS_KEY = "kp-display-status-reactions"
 
 /**
  * How an incident row says what it is.
@@ -305,8 +309,12 @@ function SituationBoard({
 
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
   // Every section folds; all of them start open. A big station scrolls forever
-  // otherwise — but nothing folds itself away without someone deciding so.
+  // otherwise — but nothing folds itself away without someone deciding so. The one
+  // exception is the Reaktionszeiten table + chart (owner pick U6 C): they describe
+  // the evening, not what to do next, and open they took ~690 of 1036 px, so the
+  // wall showed 3 of 19 Einsätze. The board wall lists every Einsatz anyway.
   const sections = useCollapsedSections(STATUS_COLLAPSE_KEY)
+  const reactions = useCollapsedSections(STATUS_REACTIONS_KEY, ["reactions"])
 
   // Resolve from live data each render so the dialog stays in sync while open
   // and closes itself when the incident disappears.
@@ -567,37 +575,54 @@ function SituationBoard({
           {/* Aufträge first — the grouping the radio talks in. Each route names
               its stops in the order they are driven, so «Stopp 2 von 3» is
               readable from across the room without opening anything. */}
-          {/* Kennzahlen first: the Lage in four numbers and the Reaktionszeiten,
-              folded like every other section (search does not narrow them —
+          {/* Kennzahlen first: the Lage in four numbers and the oldest waiting
+              «hoch», folded like every other section (search does not narrow them —
               they describe the whole Ereignis). No count chip: the section lists
               no rows, and a bare «21» (Meldungen, Erledigt included) beside the
-              head's 19 Einsätze read as a third total (hill climb r22). */}
+              head's 19 Einsätze read as a third total (hill climb r22). The
+              Reaktionszeiten follow as a fold of their own, closed by default. */}
           {figures && figures.total > 0 && (
-            <CollapsibleSection
-              label={t('figures')}
-              badge={
-                <span className="shrink-0 text-2xs xl:text-xs tabular-nums text-muted-foreground">
-                  {tFigures('wallBadge', {
-                    waiting: figures.waiting,
-                    high: figures.by_priority.find((p) => p.priority === "high")?.waiting ?? 0,
-                  })}
-                </span>
-              }
-              alarm={!!figures.oldest_waiting_high && ageLevel(new Date(figures.oldest_waiting_high.created_at)) !== "normal"}
-              collapsed={sections.isCollapsed("figures")}
-              onToggle={() => sections.toggle("figures")}
-              headerClassName="bg-muted/40"
-            >
-              <EventFiguresView
-                figures={figures}
-                density="wall"
-                incidentLabel={(id) => {
-                  const op = allOperations.find((o) => o.id === id)
-                  return op ? incidentLocationLabel(op) : undefined
-                }}
-                onOpenIncident={(id) => setSelectedOperationId(id)}
-              />
-            </CollapsibleSection>
+            <>
+              <CollapsibleSection
+                label={t('figures')}
+                badge={
+                  <span className="shrink-0 text-2xs xl:text-xs tabular-nums text-muted-foreground">
+                    {tFigures('wallBadge', {
+                      waiting: figures.waiting,
+                      high: figures.by_priority.find((p) => p.priority === "high")?.waiting ?? 0,
+                    })}
+                  </span>
+                }
+                alarm={!!figures.oldest_waiting_high && ageLevel(new Date(figures.oldest_waiting_high.created_at)) !== "normal"}
+                collapsed={sections.isCollapsed("figures")}
+                onToggle={() => sections.toggle("figures")}
+                headerClassName="bg-muted/40"
+              >
+                <EventFiguresView
+                  figures={figures}
+                  density="wall"
+                  part="summary"
+                  incidentLabel={(id) => {
+                    const op = allOperations.find((o) => o.id === id)
+                    return op ? incidentLocationLabel(op) : undefined
+                  }}
+                  onOpenIncident={(id) => setSelectedOperationId(id)}
+                />
+              </CollapsibleSection>
+              <CollapsibleSection
+                label={tFigures('reactionTitle')}
+                badge={
+                  <span className="shrink-0 text-2xs xl:text-xs text-muted-foreground">
+                    {tFigures('reactionHint')}
+                  </span>
+                }
+                collapsed={reactions.isCollapsed("reactions")}
+                onToggle={() => reactions.toggle("reactions")}
+                headerClassName="bg-muted/40"
+              >
+                <EventFiguresView figures={figures} density="wall" part="reactions" />
+              </CollapsibleSection>
+            </>
           )}
           {auftraege.map(({ group, stops }) => (
             <CollapsibleSection

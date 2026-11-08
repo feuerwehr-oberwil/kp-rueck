@@ -91,7 +91,7 @@ Le mur ne suit **pas** la « Vue » de l’opérateur : *Compact* existe pour ca
 **Sur le téléphone** (les comptes lecteur arrivent ici), les colonnes sont empilées au lieu d’être côte à côte : les mêmes cartes, on fait défiler vers le bas, pas sur le côté. De même pour les quatre colonnes d’« État ».
 
 ### État (`/display/status`)
-Vue à quatre colonnes : véhicules, interventions (groupées par statut), personnel (groupé par rôle) et matériel (groupé par emplacement). Pour les ressources attribuées, le lieu d’intervention est indiqué. S’agrandit automatiquement sur les grands écrans. Au-dessus des interventions figurent, repliables, les [indicateurs](#tableau-board-g-b).
+Vue à quatre colonnes : véhicules, interventions (groupées par statut), personnel (groupé par rôle) et matériel (groupé par emplacement). Pour les ressources attribuées, le lieu d’intervention est indiqué. S’agrandit automatiquement sur les grands écrans. Au-dessus des interventions figurent, repliables, les [indicateurs](#tableau-board-g-b) – les quatre chiffres et le plus ancien message « haute » en attente ; les temps de réaction (tableau et diagramme) forment une section à part, repliée par défaut, pour laisser plus de place aux interventions.
 
 ### Replier des sections
 

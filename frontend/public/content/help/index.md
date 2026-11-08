@@ -91,7 +91,7 @@ Die Wand folgt dabei **nicht** der «Ansicht» des Bedieners: *Kompakt* gibt es,
 **Auf dem Handy** (Viewer-Konten landen hier) stehen die Spalten untereinander statt nebeneinander: dieselben Karten, man scrollt nach unten, nicht zur Seite. Ebenso die vier Spalten von «Status».
 
 ### Status (`/display/status`)
-Vier-Spalten-Übersicht: Fahrzeuge, Einsätze (gruppiert nach Status), Personal (gruppiert nach Rolle) und Material (gruppiert nach Standort). Zeigt bei zugewiesenen Ressourcen den Einsatzort an. Skaliert auf grösseren Bildschirmen automatisch hoch. Über den Einsätzen stehen, zuklappbar, die [Kennzahlen](#board-g-b).
+Vier-Spalten-Übersicht: Fahrzeuge, Einsätze (gruppiert nach Status), Personal (gruppiert nach Rolle) und Material (gruppiert nach Standort). Zeigt bei zugewiesenen Ressourcen den Einsatzort an. Skaliert auf grösseren Bildschirmen automatisch hoch. Über den Einsätzen stehen, zuklappbar, die [Kennzahlen](#board-g-b) – die vier Zahlen und die älteste wartende «Hoch»-Meldung; die Reaktionszeiten (Tabelle und Diagramm) sind ein eigener Abschnitt und standardmässig zugeklappt, damit mehr Einsätze Platz haben.
 
 ### Abschnitte einklappen
 
