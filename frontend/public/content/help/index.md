@@ -44,6 +44,8 @@ Auf breiten Bildschirmen (>1280px) erscheint rechts ein Seitenpanel mit den **De
 - **Einfach-Klick**: Zeigt Einsatz-Details im Seitenpanel
 - **Doppelklick**: Öffnet den vollständigen Detail-Dialog (Modal)
 
+**Status im Detail:** Unter den **Merkmalen** steht die Zeile **Status** – eine Auswahl mit den Spalten des Boards in ihrer Reihenfolge. Ein Wechsel dort stellt dieselben Rückfragen wie das Verschieben der Karte (fehlende Ressourcen beim Disponieren, Reko, «Gerade geändert»). Darunter folgen gleich die **Kräfte**.
+
 ### Ereignisse (`G E`)
 Ereignisse verwalten, wechseln, archivieren, exportieren.
 

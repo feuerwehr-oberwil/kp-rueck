@@ -44,6 +44,8 @@ Sur les écrans larges (>1280 px), un panneau latéral apparaît à droite avec 
 - **Simple clic** : affiche les détails de l’intervention dans le panneau latéral
 - **Double clic** : ouvre la fenêtre de détail complète (modale)
 
+**Statut dans le détail :** sous les **Caractéristiques** se trouve la ligne **Statut** – une liste avec les colonnes du tableau, dans leur ordre. Un changement à cet endroit pose les mêmes questions que le déplacement de la carte (ressources manquantes au moment de disposer, Reko, «Modifié à l’instant»). Juste en dessous suivent les **Moyens**.
+
 ### Événements (`G E`)
 Gérer, changer, archiver et exporter les événements.
 
