@@ -23786,6 +23786,20 @@
             "type": "string",
             "title": "Incident Status"
           },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/IncidentPriority"
+          },
           "description": {
             "anyOf": [
               {
@@ -24103,7 +24117,8 @@
           "incident_id",
           "incident_title",
           "incident_type",
-          "incident_status"
+          "incident_status",
+          "priority"
         ],
         "title": "FeldAssignment",
         "description": "One Schadenplatz a person is (or was) assigned to in this event.\n\nSince §18.22 the row also carries the **briefing**: the Meldung, the Melder,\nwhat the board dispatched (crew, vehicles, material) and what the Reko\nfound. It rides on this response rather than on a per-incident endpoint of\nits own for the same reason ``message_chips`` does — a crew on the edge of\ncoverage taps a row and must get a screen, not a second round trip — and\nbecause the list row itself shows a condensed form of the same facts.\n\nReleased assignments are included in ``crew`` / ``vehicles`` / ``materials``\non purpose, exactly like the row itself survives its own release: completing\nan incident releases everything while the crew is still standing at the\naddress filing, and a briefing that empties out underneath them at 02:00 is\nworse than one that names a vehicle which has already driven off."

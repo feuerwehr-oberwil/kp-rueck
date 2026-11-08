@@ -11,6 +11,8 @@ function assignment(overrides: Partial<ApiFeldAssignment> = {}): ApiFeldAssignme
     incident_title: 'Keller Wasser',
     incident_type: 'elementarereignis',
     incident_status: 'active',
+    number: 1,
+    priority: 'medium',
     description: null,
     contact: null,
     contact_phone: null,
