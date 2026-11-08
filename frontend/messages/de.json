@@ -1476,7 +1476,12 @@
       "noStops": "Noch keine Stopps in diesem Auftrag.",
       "stopAdded": "Stopp zur Route hinzugefügt.",
       "stopAlreadyOnRoute": "Dieser Einsatz ist bereits auf der Route.",
-      "noGroups": "Noch keine Aufträge vorhanden"
+      "noGroups": "Noch keine Aufträge vorhanden",
+      "stopCount": "{count, plural, one {# Stopp} other {# Stopps}}",
+      "startLabel": "Start · {start}",
+      "addStopMapHint": "Klick auf die Karte",
+      "resizeLabel": "Breite der Routenplanung",
+      "resizeHint": "Breite ziehen · Doppelklick: Standard"
     },
     "view": {
       "markerAria": "Einsatz: {label}",
