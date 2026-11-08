@@ -21,6 +21,7 @@ import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
 import { usePersonnel } from "./personnel-context"
 import { refusalReason } from "@/lib/assignment-refusal"
+import { darkenForWhiteText } from "@/lib/map-colors"
 
 // Re-export the client type for convenience (as materials-context exposes Material).
 export type { IncidentGroup } from "@/lib/types/groups"
@@ -89,12 +90,13 @@ const apiAssignmentsToClient = (g: ApiIncidentGroup): GroupAssignment[] =>
     isLeader: a.is_leader,
   }))
 
-// Convert the API shape to the camelCase client type (dates parsed to Date).
+// Convert the API shape to the camelCase client type (dates parsed to Date). The colour is the
+// one drawn: a route stored with an older, lighter swatch comes in darkened for white text.
 const apiGroupToGroup = (g: ApiIncidentGroup): IncidentGroup => ({
   id: String(g.id),
   eventId: String(g.event_id),
   name: g.name,
-  color: g.color ?? null,
+  color: g.color ? darkenForWhiteText(g.color) : null,
   notes: g.notes ?? null,
   position: g.position,
   createdAt: new Date(g.created_at),

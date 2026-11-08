@@ -1,7 +1,7 @@
 import { type Operation, type OperationStatus } from "./contexts/operations-context"
 import { getIncidentTypeLabel } from "./incident-types"
 import { PRIORITY_COLORS, PRIORITY_LABELS } from "./priority"
-import { INCIDENT_TYPE_MARKER_COLORS } from "./map-colors"
+import { INCIDENT_TYPE_MARKER_COLORS, darkenForWhiteText } from "./map-colors"
 import { formatDurationSince } from "./duration"
 
 /**
@@ -248,9 +248,10 @@ export function colorAccent(
   }
   // Aufträge use the route's own colour (matches the map polylines) so a route
   // reads the same across the board, list and markers; hashed hue is a fallback.
+  // Either is darkened for the white stop numbers drawn on it (`darkenForWhiteText`).
   if (dimension === "auftrag") {
     const g = groups?.find((gr) => gr.id === key)
-    if (g?.color) return g.color
+    return darkenForWhiteText(g?.color || ACCENT_PALETTE[hashString(key) % ACCENT_PALETTE.length])
   }
   return ACCENT_PALETTE[hashString(key) % ACCENT_PALETTE.length]
 }
