@@ -108,12 +108,14 @@ interface DroppableColumnProps {
  * keeps 320 rather than going narrow for nothing. Below 260 the cards stop surviving
  * (address, chips): the 1536 laptop would need 232 for four. A fold (48px strip) shifts the
  * sum; a column cut by the edge then draws as always (board-edge-chips.tsx).
+ * Whole pixels (`round(down, …, 1px)`): a fractional width left the board's scroll position
+ * to rounding – the detail-open board landed 1px apart between two identical renders.
  */
 const COLUMN_WIDTH = [
   "min-w-[320px]",
-  "@min-[794px]:min-w-[clamp(260px,calc((100cqw+var(--board-pr,1rem)-30px)/3),320px)]",
-  "@min-[1066px]:min-w-[clamp(260px,calc((100cqw+var(--board-pr,1rem)-42px)/4),320px)]",
-  "@min-[1338px]:min-w-[clamp(260px,calc((100cqw+var(--board-pr,1rem)-54px)/5),320px)]",
+  "@min-[794px]:min-w-[round(down,clamp(260px,calc((100cqw+var(--board-pr,1rem)-30px)/3),320px),1px)]",
+  "@min-[1066px]:min-w-[round(down,clamp(260px,calc((100cqw+var(--board-pr,1rem)-42px)/4),320px),1px)]",
+  "@min-[1338px]:min-w-[round(down,clamp(260px,calc((100cqw+var(--board-pr,1rem)-54px)/5),320px),1px)]",
 ].join(" ")
 
 // Custom comparison: skip re-render if operations for this column haven't actually changed
@@ -360,8 +362,10 @@ export const DroppableColumn = memo(function DroppableColumn({
     )
   }
 
+  // No width transition: the column fits the board (`COLUMN_WIDTH`), so opening the detail
+  // panel resizes it, and an animated width moved the cards under `scrollToCard`'s target.
   return (
-    <div data-column={column.id} className={cn("flex max-w-[420px] flex-1 flex-col transition-all", COLUMN_WIDTH)}>
+    <div data-column={column.id} className={cn("flex max-w-[420px] flex-1 flex-col transition-[opacity,background-color,box-shadow]", COLUMN_WIDTH)}>
       <div className="mb-2">
         {/* The accent as a 2px rule above the header, not a wash behind it. */}
         <div aria-hidden className={cn("h-0.5 rounded-full", accent?.dot)} />

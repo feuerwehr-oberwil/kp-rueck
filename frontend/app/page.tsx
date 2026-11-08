@@ -322,7 +322,8 @@ export default function FireStationDashboard() {
           )
 
           mainContainer.scrollTo({
-            left: Math.min(Math.max(0, gutteredLeft), maxScroll),
+            // whole pixels, or where the board comes to rest depends on rounding
+            left: Math.round(Math.min(Math.max(0, gutteredLeft), maxScroll)),
             behavior: 'smooth'
           })
         }
