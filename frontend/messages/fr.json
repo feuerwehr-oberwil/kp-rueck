@@ -2724,9 +2724,6 @@
       "diveraLabel": "Divera",
       "display": "Affichage",
       "displayOverview": "Vue d’ensemble des affichages",
-      "situationMap": "Carte de situation",
-      "board": "Tableau",
-      "statusDisplay": "État",
       "management": "Administration",
       "events": "Événements",
       "settings": "Réglages",
@@ -2736,7 +2733,7 @@
       "reportPdf": "Rapport d’intervention (PDF)",
       "auditXlsx": "Export d’audit (XLSX)",
       "lageblattA4": "Feuille de situation (A4)",
-      "commands": "Commandes et raccourcis clavier",
+      "commands": "Commandes et raccourcis",
       "help": "Aide",
       "openMenu": "Ouvrir le menu utilisateur",
       "figures": "Indicateurs"

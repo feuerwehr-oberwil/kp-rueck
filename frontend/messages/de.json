@@ -208,9 +208,6 @@
       "diveraLabel": "Divera",
       "display": "Anzeige",
       "displayOverview": "Display-Übersicht",
-      "situationMap": "Lagekarte",
-      "board": "Board",
-      "statusDisplay": "Status",
       "management": "Verwaltung",
       "events": "Ereignisse",
       "settings": "Einstellungen",
@@ -220,7 +217,7 @@
       "reportPdf": "Einsatzrapport (PDF)",
       "auditXlsx": "Audit-Export (XLSX)",
       "lageblattA4": "Lageblatt (A4)",
-      "commands": "Befehle & Tastaturkürzel",
+      "commands": "Befehle & Kürzel",
       "help": "Hilfe",
       "openMenu": "Benutzermenü öffnen",
       "figures": "Kennzahlen"
