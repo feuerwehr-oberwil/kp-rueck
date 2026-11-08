@@ -46,5 +46,5 @@ test.describe('Vehicle assignment from the incident detail', () => {
 function detailModal(page: import('@playwright/test').Page) {
   return page
     .locator('[role="dialog"][data-slot="dialog-content"][data-state="open"]')
-    .filter({ hasText: /Fahrzeuge \(\d+\)/ });
+    .filter({ hasText: /Fahrzeuge · \d+/ });
 }
