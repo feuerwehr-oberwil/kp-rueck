@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/command"
 import { defaultFilter } from "cmdk"
 import { DispatchChoice, DispatchPreview } from "@/components/ui/command-dispatch-preview"
+import { Kbd } from "@/components/ui/kbd"
 import {
   completeDispatch,
   parseDispatch,
@@ -371,6 +372,18 @@ export function CommandPalette() {
             onKeyDown={onSearchKeyDown}
             showClose
           />
+          {/* The dispatch grammar under the input, not in the placeholder: the whole sentence
+              was clipped in the 512px palette (owner, 08.11.). */}
+          {getDispatchVocabulary && (
+            <p className="flex items-center gap-1.5 border-b px-(--field-px) py-1.5 text-xs text-muted-foreground">
+              <span className="min-w-0 truncate">{t('dispatch.hint')}</span>
+              <Kbd className="font-mono">{t('dispatch.hintExample')}</Kbd>
+              <span className="ml-auto flex shrink-0 items-center gap-1.5 pl-2">
+                <Kbd>⇥</Kbd>
+                {t('dispatch.hintTab')}
+              </span>
+            </p>
+          )}
           <div ref={listWrapperRef} className="relative">
           <CommandList>
             <CommandEmpty>{t('noResults')}</CommandEmpty>

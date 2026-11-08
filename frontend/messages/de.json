@@ -129,7 +129,10 @@
       "figures": "Kennzahlen öffnen",
       "crewDuty": "Dienstzeiten",
       "dispatch": {
-        "placeholder": "Befehl suchen oder zuweisen: Einsatz, dann Fahrzeug / Person · ⇥ ergänzt",
+        "placeholder": "Befehl suchen oder zuweisen …",
+        "hint": "Einsatz, dann Fahrzeug / Person – z. B.",
+        "hintExample": "7 tlf keller",
+        "hintTab": "ergänzt",
         "group": "Ausführen",
         "incidentTitle": "Einsatz {number}",
         "arrowAssign": "bekommt",

@@ -238,7 +238,10 @@
       "figures": "Ouvrir les indicateurs",
       "crewDuty": "Temps de service",
       "dispatch": {
-        "placeholder": "Chercher une commande ou attribuer : intervention, puis véhicule / personne · ⇥ complète",
+        "placeholder": "Chercher une commande ou attribuer …",
+        "hint": "Intervention, puis véhicule / personne – p. ex.",
+        "hintExample": "7 tlf keller",
+        "hintTab": "complète",
         "group": "Exécuter",
         "incidentTitle": "Intervention {number}",
         "arrowAssign": "reçoit",

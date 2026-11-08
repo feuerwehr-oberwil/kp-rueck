@@ -287,8 +287,10 @@ describe("CommandPalette — ⇥ completes", () => {
     expect(input()).toHaveValue("14 Meier Anna ")
   })
 
-  it("says what it is for in the empty field", () => {
+  it("says what it is for: a short placeholder, the grammar on the line under it", () => {
     setup()
-    expect(input()).toHaveAttribute("placeholder", expect.stringContaining("⇥ ergänzt"))
+    expect(input()).toHaveAttribute("placeholder", "Befehl suchen oder zuweisen …")
+    expect(screen.getByText("Einsatz, dann Fahrzeug / Person – z. B.")).toBeInTheDocument()
+    expect(screen.getByText("ergänzt")).toBeInTheDocument()
   })
 })
