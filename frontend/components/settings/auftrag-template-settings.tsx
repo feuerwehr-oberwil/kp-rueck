@@ -53,7 +53,7 @@ import {
 } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { Reveal } from '@/components/ui/reveal';
-import { AUFTRAG_SWATCHES } from '@/lib/map-colors';
+import { AUFTRAG_SWATCHES, darkenForWhiteText } from '@/lib/map-colors';
 
 /** One selectable vehicle or material, flattened for the picker. */
 interface ResourceOption {
@@ -344,6 +344,8 @@ function TemplateRow({
   const selectedKeys = new Set(template.resources.map(resourceKey));
 
   const setResources = (next: ApiAuftragTemplateResource[]) => onPatch({ resources: next });
+  // As a route from it will be drawn: an older, lighter swatch shows (and ticks) as its darker successor.
+  const drawnColor = template.color ? darkenForWhiteText(template.color) : null;
 
   return (
     <div
@@ -364,7 +366,7 @@ function TemplateRow({
         </div>
         <span
           className="h-2.5 w-2.5 shrink-0 rounded-sm"
-          style={{ backgroundColor: template.color ?? 'var(--muted-foreground)' }}
+          style={{ backgroundColor: drawnColor ?? 'var(--muted-foreground)' }}
         />
         <button
           type="button"
@@ -423,11 +425,11 @@ function TemplateRow({
                   onClick={() => onPatch({ color: swatch })}
                   className={cn(
                     'h-5 w-5 rounded-sm border-2 disabled:cursor-not-allowed',
-                    template.color === swatch ? 'border-foreground' : 'border-transparent'
+                    drawnColor === swatch ? 'border-foreground' : 'border-transparent'
                   )}
                   style={{ backgroundColor: swatch }}
                   aria-label={t('colorSwatch', { color: swatch })}
-                  aria-pressed={template.color === swatch}
+                  aria-pressed={drawnColor === swatch}
                 />
               ))}
             </div>

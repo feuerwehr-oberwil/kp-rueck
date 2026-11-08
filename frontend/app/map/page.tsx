@@ -990,7 +990,9 @@ export default function MapPage() {
                 ? 'flex-1 border-t border-border'
                 : `border-l border-border flex-shrink-0 ${planningActive ? '' : 'w-80'}`
             }`}
-            style={!isMobile && planningActive ? { width: planningWidth.width } : undefined}
+            // Capped by the page too: at 768px with the notification sidebar open the page is
+            // 448px, and a rail dragged to 560 would push its own exit button off the screen.
+            style={!isMobile && planningActive ? { width: planningWidth.width, maxWidth: 'calc(100% - 12rem)' } : undefined}
           >
             <div className={`${planningActive || rekoModeActive ? 'p-4 flex-1 min-h-0' : 'flex flex-col flex-1 min-h-0'}`}>
               {planningActive ? (
