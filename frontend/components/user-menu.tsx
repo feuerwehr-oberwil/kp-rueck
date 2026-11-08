@@ -11,7 +11,7 @@ import { useTranslations } from 'next-intl';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Settings, User, LogOut, Radio, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Keyboard, Download, FileText, FileSpreadsheet, CircleHelp, ClipboardList, ChartColumn } from 'lucide-react';
+import { Settings, User, LogOut, Inbox, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Keyboard, Download, FileText, FileSpreadsheet, CircleHelp, ClipboardList, ChartColumn } from 'lucide-react';
 import { toast } from 'sonner';
 import { useEvent } from '@/lib/contexts/event-context';
 import { getApiUrl } from '@/lib/env';
@@ -22,6 +22,7 @@ import { AccountBlock } from '@/components/auth/account-block';
 import { VersionLabel } from '@/components/version-label';
 import { useLogout } from '@/lib/hooks/use-logout';
 import { openCommandPalette } from '@/components/ui/command-palette';
+import { openAlarmInbox } from '@/components/alarm-inbox/alarm-inbox-store';
 import { FiguresDialog, toggleFigures } from '@/components/figures-dialog';
 import { useCommandPaletteHint } from '@/lib/hooks/use-is-mac';
 import {
@@ -411,11 +412,10 @@ export function UserMenu({
               <span>{t('settings')}</span>
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/divera-pool" className="cursor-pointer">
-              <Radio className="mr-2 h-4 w-4" />
-              <span>{t('diveraPool')}</span>
-            </Link>
+          {/* The sheet over this page – the header's inbox icon opens the same one. */}
+          <DropdownMenuItem onClick={openAlarmInbox} className="cursor-pointer">
+            <Inbox className="mr-2 h-4 w-4" />
+            <span>{t('diveraPool')}</span>
           </DropdownMenuItem>
 
           {isEditor && (

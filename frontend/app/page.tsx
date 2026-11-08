@@ -1374,7 +1374,8 @@ export default function FireStationDashboard() {
                 placeholder={tCommon('search')}
                 value={searchQuery}
                 onValueChange={setSearchQuery}
-                className="w-72"
+                // narrower below lg: at 768px the header (with the Alarmeingang icon) ran 20px over
+                className="w-56 lg:w-72"
                 hint={<Kbd>S</Kbd>}
               />
 

@@ -4,8 +4,8 @@
  * per item — and the current page's anchor still navigated while the button it
  * wrapped was `disabled`. These tests pin the shape that replaced it.
  *
- * UserMenu and the notification bell are stubbed: they drag in auth, event and
- * notification contexts and are not what this component is being tested for.
+ * UserMenu, the Alarmeingang icon and the notification bell are stubbed: they drag in auth,
+ * event and notification contexts and are not what this component is being tested for.
  */
 
 import { describe, expect, it } from "vitest"
@@ -17,6 +17,9 @@ import de from "@/messages/de.json"
 
 vi.mock("@/components/user-menu", () => ({
   UserMenu: () => <button type="button">Benutzermenü öffnen</button>,
+}))
+vi.mock("@/components/alarm-inbox/alarm-inbox-button", () => ({
+  AlarmInboxButton: () => <button type="button">Alarmeingang</button>,
 }))
 vi.mock("@/components/notifications/notification-bell-trigger", () => ({
   NotificationBellTrigger: () => <button type="button">Benachrichtigungen</button>,

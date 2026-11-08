@@ -1,27 +1,60 @@
 import { test, expect } from '../../fixtures/auth.fixture';
-import { expectBouncedToDisplayBoard } from './viewer-role.helpers';
+import { API_BASE, cookieHeaderFor, dismissOverlays, expectBouncedToDisplayBoard, selectEvent } from './viewer-role.helpers';
+import { createEvent } from '../../helpers/api.helper';
 
 /**
- * Viewer role — the alarm intake pool.
+ * The Alarmeingang — a sheet over the board, not a page (owner, 08.11.2026).
  *
- * `/divera-pool` used to be the one page a viewer reached without being redirected, and this
- * file pinned the `isEditor` branch inside it. The RBAC sweep (6fecc78a) put the page behind
- * `ProtectedRoute`, so the gate that holds is now the redirect, as on the board, map and
- * settings: the editor half proves the page and its attach action exist, the viewer half that
- * the role never gets there.
+ * The old `/divera-pool` address still arrives: it opens the sheet over the board. An editor
+ * attaches an alarm from its row and sees the card appear on the board behind the still open
+ * sheet; Esc closes it, the header's inbox icon brings it back. The role gate is still
+ * `ProtectedRoute`'s redirect: a viewer never gets there.
  */
 
-test.describe('Viewer role — alarm intake pool', () => {
-  test('the pool opens for an editor, with its attach action, and is closed to a viewer', async ({
-    authenticatedPage,
+test.describe('Viewer role — the Alarmeingang', () => {
+  test('an editor attaches an alarm from the sheet over the board, a viewer is bounced', async ({
+    authenticatedPage: page,
     viewerPage,
   }) => {
-    await authenticatedPage.goto('/divera-pool');
-    await expect(authenticatedPage.getByRole('heading', { name: 'Alarmeingang' })).toBeVisible({
-      timeout: 15_000,
+    const cookie = await cookieHeaderFor(page);
+    const headers = { cookie };
+    const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+    const event = await createEvent(page.request, cookie, `Alarmeingang ${stamp}`, { training_flag: false });
+
+    // One provider-neutral alarm through the real webhook.
+    let { secret } = (await (await page.request.get(`${API_BASE}/api/settings/alarm-webhook-secret`, { headers })).json()) as {
+      secret: string | null;
+    };
+    if (!secret) {
+      ({ secret } = (await (
+        await page.request.post(`${API_BASE}/api/settings/alarm-webhook-secret/rotate`, { headers })
+      ).json()) as { secret: string });
+    }
+    const title = `Wasser im Keller ${stamp}`;
+    const street = `Alarmweg ${stamp}`;
+    const posted = await page.request.post(`${API_BASE}/api/alarms?secret=${secret}`, {
+      data: { source: 'elz', source_id: `e2e-${stamp}`, title, address: `${street}, 4104 Oberwil` },
     });
-    // Present but disabled until rows are selected, hence visible rather than enabled.
-    await expect(authenticatedPage.getByRole('button', { name: 'Anhängen' })).toBeVisible();
+    expect(posted.ok(), await posted.text()).toBeTruthy();
+
+    await selectEvent(page, '/divera-pool', event.id);
+    await page.waitForURL((url) => url.pathname === '/', { timeout: 15_000 });
+    await dismissOverlays(page);
+    const sheet = page.getByRole('dialog', { name: 'Alarmeingang' });
+    await expect(sheet).toBeVisible();
+
+    await sheet.getByRole('button', { name: `«${title}» anhängen` }).click();
+    const dialog = page.getByRole('dialog', { name: 'An Ereignis anhängen' });
+    await expect(dialog.getByRole('combobox')).toContainText(event.name);
+    await dialog.getByRole('button', { name: 'Anhängen' }).click();
+
+    await expect(page.getByTestId('incident-card').filter({ hasText: street })).toBeVisible({ timeout: 15_000 });
+    await expect(sheet.getByRole('region', { name: /^Heute zugewiesen/ }).getByText(title)).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(sheet).toBeHidden();
+    await page.getByRole('button', { name: /^Alarmeingang –/ }).click();
+    await expect(sheet).toBeVisible();
 
     await expectBouncedToDisplayBoard(viewerPage, '/divera-pool');
   });
