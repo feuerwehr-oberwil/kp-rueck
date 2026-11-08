@@ -1438,3 +1438,35 @@ html.link-page-no-zoom :is(input, textarea, select) {
     padding-inline-start: 2.5rem;
   }
 }
+
+/* …and the ✕'s glyph ENDS on the content edge, like the last field and the footer buttons
+   below it. A fixed `right-4` put it there only by accident of one box size: under the 44px
+   touch rule the box grew inwards and the glyph stood 14–31px inside the edge (owner,
+   08.11.2026). `--close-edge` = the content's end padding (dialog p-6, sheet header p-4); a
+   caller with other padding sets it (`[--close-edge:1.5rem]`). Lucide's X draws 3px inside its
+   16px box. Clamped at 0: on a 16px sheet the 44px box would leave the panel, so the glyph
+   stands 1px in. `--close-centre` keeps the glyph on the title's line at either box size
+   (measured: dialog titles centre 33–35px down). Layered, so a caller's utility wins – the phone
+   sheets with a taller header set their own `top`. */
+@layer base {
+  [data-slot='dialog-content'] {
+    --close-edge: 1.5rem;
+    --close-centre: 34px;
+  }
+  [data-slot='sheet-content'] {
+    --close-edge: 1rem;
+    --close-centre: 32px;
+  }
+  [data-slot='dialog-close'],
+  [data-slot='sheet-close'] {
+    --close-box: 32px;
+    top: calc(var(--close-centre) - var(--close-box) / 2);
+    inset-inline-end: max(0px, calc(var(--close-edge) - 3px - (var(--close-box) - 16px) / 2));
+  }
+  @media (max-width: 768px) {
+    [data-slot='dialog-close'],
+    [data-slot='sheet-close'] {
+      --close-box: 44px;
+    }
+  }
+}
