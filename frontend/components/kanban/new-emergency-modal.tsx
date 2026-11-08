@@ -89,6 +89,8 @@ import { useDuplicateCandidates } from "@/lib/hooks/use-duplicate-candidates"
 import { DuplicateHint } from "@/components/duplicates/duplicate-hint"
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning"
 import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog"
+import { Kbd } from "@/components/ui/kbd"
+import { useIsMac } from "@/lib/hooks/use-is-mac"
 
 /** LocationInput's own input id — the field a blocked submit focuses. */
 const LOCATION_FIELD_ID = "location_address"
@@ -155,6 +157,7 @@ export function NewEmergencyModal({
 }: NewEmergencyModalProps) {
   const t = useTranslations('kanban')
   const isMobile = useIsMobile()
+  const isMac = useIsMac()
   const [formData, setFormData] = useState(emptyForm)
 
   // Form validation state
@@ -493,9 +496,15 @@ export function NewEmergencyModal({
             focusFirstBlockingField([LOCATION_FIELD_ID])
           }}
         >
+          {/* The one place the shortcut is named (U13 C): Enter in the Meldung is
+              a newline, so a ↵ on the main button would tell half the truth. Same
+              keycap as the footer's «Ctrl K»; ⌘ on a Mac, where the key is ⌘. */}
           <DropdownMenuItem onSelect={handleCreateAndNext}>
+            <Plus className="h-4 w-4" />
             {t('newEmergency.createAndNext')}
-            <DropdownMenuShortcut>Ctrl ↵</DropdownMenuShortcut>
+            <DropdownMenuShortcut className="pl-4 tracking-normal">
+              <Kbd className="h-5 px-1.5 text-2xs">{isMac ? '⌘ ↵' : 'Ctrl ↵'}</Kbd>
+            </DropdownMenuShortcut>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

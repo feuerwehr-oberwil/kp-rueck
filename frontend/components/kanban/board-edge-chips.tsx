@@ -191,10 +191,10 @@ interface BoardEdgeChipBarProps {
 }
 
 /**
- * The columns entirely out of view, as chips in the board's top bar (UX-DESKTOP-07, owner
- * pick «C», 2026-10-25): left-hidden ones at the bar's start, right-hidden ones at its end,
- * nothing laid over the board – a partly visible column, its cards and the sidebar handles
- * stay clear. Fills the free room between the Ereignis title and the search; when the full
+ * The columns out of view – or showing less than `MIN_READABLE_PX` (D7, 08.11.2026) – as
+ * chips in the board's top bar (UX-DESKTOP-07, owner pick «C», 2026-10-25): left-hidden ones
+ * at the bar's start, right-hidden ones at its end, nothing laid over the board – a partly
+ * visible column, its cards and the sidebar handles stay clear. Fills the free room between the Ereignis title and the search; when the full
  * chips do not fit there they turn compact («6 ›»), and when not even those fit (a narrow
  * window with both sidebars) the bar stays empty rather than showing a clipped chip – the
  * cut column and the scrollbar still say there is more. Empty when every column shows.

@@ -2,7 +2,7 @@
  * Which board columns lie past the edges of `#kanban-main`, and where to scroll to bring one
  * back (UX-DESKTOP-07). Pure geometry – the DOM is measured by `useBoardEdgeOverflow` in
  * `components/kanban/board-edge-chips.tsx`, whose chips in the top bar name what this finds.
- * Nothing changes size: a column that does not fit stays a column.
+ * Nothing changes size: a column that does not fit stays a column, even when its chip shows.
  */
 
 export interface BoardColumnSpan {
@@ -27,9 +27,19 @@ export interface EdgeOverflow {
 }
 
 /**
- * The columns to name at each edge (owner, 2026-10-25): a column is named only while NONE of
- * it is inside the scroller. Any pixel in view and it is simply a partly visible column,
- * drawn as always. A name goes to the edge nearer its column's centre.
+ * Less than this much of a column in view and it counts as hidden. A strip that narrow
+ * shows a header fragment and the edges of cards – nothing an operator reads – so the
+ * column gets its chip like one entirely out of view (owner, 08.11.2026, D7). It still
+ * draws: the chip is added, nothing is taken away.
+ */
+export const MIN_READABLE_PX = 96
+
+/**
+ * The columns to name at each edge: a column is named while less than `MIN_READABLE_PX` of
+ * it is inside the scroller – or, for one narrower than that (the 48px folded strip), while
+ * any of it is cut. This refines the owner's rule of 2026-10-25 («only a column with nothing
+ * in view becomes a chip»), under which a 4px sliver counted as shown and kept its chip
+ * away. A name goes to the edge nearer its column's centre.
  */
 export function computeEdgeOverflow(g: BoardScrollGeometry): EdgeOverflow {
   const viewL = g.scrollLeft
@@ -39,7 +49,8 @@ export function computeEdgeOverflow(g: BoardScrollGeometry): EdgeOverflow {
   const left: string[] = []
   const right: string[] = []
   for (const c of g.columns) {
-    if (Math.min(c.right, viewR) - Math.max(c.left, viewL) > 0) continue
+    const inView = Math.min(c.right, viewR) - Math.max(c.left, viewL)
+    if (inView >= Math.min(MIN_READABLE_PX, c.right - c.left)) continue
     ;((c.left + c.right) / 2 >= mid ? right : left).push(c.id)
   }
   return { left, right }
