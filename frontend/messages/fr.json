@@ -238,7 +238,7 @@
       "figures": "Ouvrir les indicateurs",
       "crewDuty": "Temps de service",
       "dispatch": {
-        "placeholder": "Chercher une commande ou attribuer …",
+        "placeholder": "Chercher ou attribuer …",
         "hint": "Intervention, puis véhicule / personne – p. ex.",
         "hintExample": "7 tlf keller",
         "hintTab": "complète",
