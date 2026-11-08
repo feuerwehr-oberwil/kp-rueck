@@ -40,6 +40,8 @@ import { useGroups } from "@/lib/contexts/groups-context"
 import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
 import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
 import { RoutenplanungPanel } from "@/components/map/routenplanung-panel"
+import { ResizeGrip } from "@/components/ui/resize-grip"
+import { useResizableWidth } from "@/lib/hooks/use-resizable-width"
 import { RekoModusPanel } from "@/components/map/reko-modus-panel"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -205,6 +207,15 @@ export default function MapPage() {
   } | null>(null)
   // Shared routing hook — active only while planning a selected group.
   const planning = useRoutePlanning(planningActive ? planningGroupId : null)
+  // Desktop: the Routenplanung rail's width is the operator's, dragged by its left
+  // edge and remembered on this device (owner pick 08.11.2026). 320 = the rail's own.
+  const planningWidth = useResizableWidth({
+    storageKey: 'kp-map-planningWidth',
+    defaultWidth: 320,
+    min: 280,
+    max: 560,
+    side: 'left',
+  })
   // id → Operation lookup for the GroupRoutes overlay (stops are real incidents).
   const operationsById = useMemo(
     () => new Map(operations.map((op) => [op.id, op] as const)),
@@ -963,12 +974,24 @@ export default function MapPage() {
               never move — no sticky, no overscroll spring. */}
           {/* Back at 320px (Bastian's second field round): the one-line rows
               were right, the narrower rail was not — addresses truncated and
-              the mode panels burst their headers. */}
-          <aside className={`bg-card/30 backdrop-blur-sm flex flex-col overflow-hidden ${
-            isMobile
-              ? 'flex-1 border-t border-border'
-              : 'w-80 border-l border-border flex-shrink-0'
-          }`}>
+              the mode panels burst their headers. In Routenplanung the operator
+              drags it between 280 and 560 (the grip on its left edge). */}
+          {!isMobile && planningActive && (
+            <ResizeGrip
+              resize={planningWidth}
+              side="left"
+              label={t('planning.resizeLabel')}
+              hint={t('planning.resizeHint')}
+            />
+          )}
+          <aside
+            className={`bg-card/30 backdrop-blur-sm flex flex-col overflow-hidden ${
+              isMobile
+                ? 'flex-1 border-t border-border'
+                : `border-l border-border flex-shrink-0 ${planningActive ? '' : 'w-80'}`
+            }`}
+            style={!isMobile && planningActive ? { width: planningWidth.width } : undefined}
+          >
             <div className={`${planningActive || rekoModeActive ? 'p-4 flex-1 min-h-0' : 'flex flex-col flex-1 min-h-0'}`}>
               {planningActive ? (
                 <RoutenplanungPanel

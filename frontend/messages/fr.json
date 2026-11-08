@@ -2540,7 +2540,12 @@
       "noStops": "Aucune étape dans cette mission pour l’instant.",
       "stopAdded": "Étape ajoutée à l’itinéraire.",
       "stopAlreadyOnRoute": "Cette intervention est déjà sur l’itinéraire.",
-      "noGroups": "Aucune mission pour l’instant"
+      "noGroups": "Aucune mission pour l’instant",
+      "stopCount": "{count, plural, one {# étape} other {# étapes}}",
+      "startLabel": "Départ · {start}",
+      "addStopMapHint": "Clic sur la carte",
+      "resizeLabel": "Largeur de la planification d’itinéraire",
+      "resizeHint": "Glisser pour élargir · double-clic : par défaut"
     },
     "view": {
       "markerAria": "Intervention : {label}",
