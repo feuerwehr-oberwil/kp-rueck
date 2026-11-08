@@ -3012,6 +3012,8 @@
       "attachDialogTitle": "An Ereignis anhängen",
       "attachDialogDescription": "{count, plural, one {# Notfall wird} other {# Notfälle werden}} dem gewählten Ereignis zugewiesen.",
       "selectEventPlaceholder": "Ereignis wählen …",
+      "eventLabel": "Ereignis",
+      "noAttachableEvents": "{training, select, true {Keine offene Übung – Übungs-Alarme gehen nur an Übungen.} other {Kein offenes Ereignis – zuerst eines eröffnen.}}",
       "eventTraining": "{name} (Übung)",
       "cancel": "Abbrechen",
       "attaching": "Wird angehängt …",
@@ -3030,7 +3032,7 @@
       "sectionNew": "Neu · {count}",
       "sectionToday": "Heute zugewiesen · {count}",
       "sectionEarlier": "Früher · {count}",
-      "earlierHint": "älter als 24 Stunden",
+      "earlierHint": "frühere Tage und archivierte",
       "attachAll": "Alle anhängen",
       "attachAllCount": "Alle {count} anhängen",
       "attachOneAria": "«{title}» anhängen",
@@ -3038,7 +3040,10 @@
       "nothingNew": "Keine neuen Alarme.",
       "emptyTitle": "Noch keine Alarme",
       "emptyDescription": "Ein Alarm aus der Alarmierung erscheint hier, sobald er eingeht.",
-      "noMatches": "Keine Treffer für «{query}»."
+      "noMatches": "Keine Treffer für «{query}».",
+      "loadFailedTitle": "Alarme nicht geladen",
+      "loadFailedDescription": "Der Server hat nicht geantwortet oder einen Fehler gemeldet.",
+      "reload": "Erneut laden"
     },
     "alarmSettings": {
       "cardTitle": "Ausalarmierung",

@@ -423,6 +423,8 @@
       "attachDialogTitle": "Rattacher à un événement",
       "attachDialogDescription": "{count, plural, one {# urgence sera attribuée} other {# urgences seront attribuées}} à l’événement choisi.",
       "selectEventPlaceholder": "Choisir un événement …",
+      "eventLabel": "Événement",
+      "noAttachableEvents": "{training, select, true {Aucun exercice ouvert – les alarmes d’exercice ne vont qu’à des exercices.} other {Aucun événement ouvert – en ouvrir un d’abord.}}",
       "eventTraining": "{name} (exercice)",
       "cancel": "Annuler",
       "attaching": "Rattachement …",
@@ -441,7 +443,7 @@
       "sectionNew": "Nouvelles · {count}",
       "sectionToday": "Attribuées aujourd’hui · {count}",
       "sectionEarlier": "Plus anciennes · {count}",
-      "earlierHint": "plus de 24 heures",
+      "earlierHint": "jours précédents et archivées",
       "attachAll": "Tout rattacher",
       "attachAllCount": "Rattacher les {count}",
       "attachOneAria": "Rattacher «{title}»",
@@ -449,7 +451,10 @@
       "nothingNew": "Aucune nouvelle alarme.",
       "emptyTitle": "Pas encore d’alarme",
       "emptyDescription": "Une alarme du système d’alarme apparaît ici dès qu’elle arrive.",
-      "noMatches": "Aucun résultat pour «{query}»."
+      "noMatches": "Aucun résultat pour «{query}».",
+      "loadFailedTitle": "Alarmes non chargées",
+      "loadFailedDescription": "Le serveur n’a pas répondu ou a signalé une erreur.",
+      "reload": "Recharger"
     },
     "alarmSettings": {
       "cardTitle": "Alarmement",

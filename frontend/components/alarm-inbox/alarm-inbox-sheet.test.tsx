@@ -1,7 +1,7 @@
 /**
  * The Alarmeingang sheet against a stubbed pool: the three sections, the Einsatz number an
  * attached alarm became, «Früher» folded, «Anhängen» per row into the attach dialog, the
- * header icon's count – and nothing at all for a viewer.
+ * header icon's count, a failed load that says so – and nothing at all for a viewer.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -15,7 +15,14 @@ import type { ApiDiveraEmergency } from '@/lib/api-client'
 const auth = vi.hoisted(() => ({
   current: { user: { role: 'editor' }, isAuthenticated: true, isEditor: true, isViewer: false },
 }))
-const pool = vi.hoisted(() => ({ emergencies: [] as ApiDiveraEmergency[] }))
+const pool = vi.hoisted(() => ({
+  emergencies: [] as ApiDiveraEmergency[],
+  /** the pool fetch throws while set */
+  fail: false,
+  events: [{ id: 'ev', name: 'Unwetter Oberwil', training_flag: false }],
+  /** settles the attach request the test started */
+  finishAttach: null as (() => void) | null,
+}))
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/' }))
 vi.mock('@/lib/contexts/auth-context', () => ({ useAuth: () => auth.current }))
@@ -35,14 +42,17 @@ vi.mock('@/lib/websocket-client', () => ({
 vi.mock('@/lib/api-client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api-client')>()),
   apiClient: {
-    getDiveraEmergencies: async () => ({
-      emergencies: pool.emergencies,
-      total: pool.emergencies.length,
-      unattached_count: 0,
-    }),
+    getDiveraEmergencies: async () => {
+      if (pool.fail) throw new Error('Verbindung zum Server unterbrochen')
+      return { emergencies: pool.emergencies, total: pool.emergencies.length, unattached_count: 0 }
+    },
     getDemoStatus: async () => null,
-    getEvents: async () => ({ events: [{ id: 'ev', name: 'Unwetter Oberwil', training_flag: false }] }),
+    getEvents: async () => ({ events: pool.events }),
     getDuplicateCandidates: async () => ({ candidates: [] }),
+    attachEmergencyToEvent: () =>
+      new Promise<void>((resolve) => {
+        pool.finishAttach = resolve
+      }),
   },
 }))
 
@@ -80,6 +90,9 @@ const renderInbox = () =>
 
 beforeEach(() => {
   auth.current = { user: { role: 'editor' }, isAuthenticated: true, isEditor: true, isViewer: false }
+  pool.fail = false
+  pool.events = [{ id: 'ev', name: 'Unwetter Oberwil', training_flag: false }]
+  pool.finishAttach = null
   pool.emergencies = [
     alarm('a1', 'Wasser im Keller', { address: 'Allschwilerstrasse 30, 4104 Oberwil' }),
     alarm('a2', 'Baum auf Strasse'),
@@ -126,8 +139,49 @@ describe('AlarmInboxSheet', () => {
     expect(within(dialog).getByText('1 Notfall wird dem gewählten Ereignis zugewiesen.')).toBeInTheDocument()
     expect(await within(dialog).findByText('Unwetter Oberwil')).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: 'Anhängen' })).toBeEnabled()
+    // the select is named by its label and the chosen Ereignis
+    expect(within(dialog).getByRole('combobox', { name: 'Ereignis Unwetter Oberwil' })).toBeInTheDocument()
     // the sheet behind stays open
     expect(screen.getByTestId('alarm-inbox')).toBeInTheDocument()
+  })
+
+  it('stays open while the attach runs – Esc does nothing, both buttons wait', async () => {
+    const user = userEvent.setup()
+    renderInbox()
+    act(() => openAlarmInbox())
+    await user.click(await screen.findByRole('button', { name: '«Wasser im Keller» anhängen' }))
+    const dialog = await screen.findByRole('dialog', { name: 'An Ereignis anhängen' })
+    await within(dialog).findByText('Unwetter Oberwil')
+    await user.click(within(dialog).getByRole('button', { name: 'Anhängen' }))
+    expect(within(dialog).getByRole('button', { name: 'Anhängen' })).toBeDisabled()
+    expect(within(dialog).getByRole('button', { name: 'Abbrechen' })).toBeDisabled()
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('dialog', { name: 'An Ereignis anhängen' })).toBeInTheDocument()
+    await act(async () => pool.finishAttach?.())
+    expect(screen.queryByRole('dialog', { name: 'An Ereignis anhängen' })).toBeNull()
+  })
+
+  it('says why nothing can be chosen when no Ereignis is open', async () => {
+    pool.events = []
+    const user = userEvent.setup()
+    renderInbox()
+    act(() => openAlarmInbox())
+    await user.click(await screen.findByRole('button', { name: '«Wasser im Keller» anhängen' }))
+    const dialog = await screen.findByRole('dialog', { name: 'An Ereignis anhängen' })
+    expect(await within(dialog).findByText('Kein offenes Ereignis – zuerst eines eröffnen.')).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Anhängen' })).toBeDisabled()
+  })
+
+  it('a first load that fails says so and offers «Erneut laden»', async () => {
+    pool.fail = true
+    const user = userEvent.setup()
+    renderInbox()
+    act(() => openAlarmInbox())
+    const sheet = await screen.findByRole('dialog', { name: 'Alarmeingang' })
+    expect(await within(sheet).findByText('Alarme nicht geladen')).toBeInTheDocument()
+    pool.fail = false
+    await user.click(within(sheet).getByRole('button', { name: 'Erneut laden' }))
+    expect(await within(sheet).findByRole('region', { name: 'Neu · 2' })).toBeInTheDocument()
   })
 
   it('opens nothing for a viewer', async () => {

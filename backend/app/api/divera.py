@@ -306,6 +306,11 @@ async def attach_emergency_to_event(
         source_ref=emergency.source_id,
     )
 
+    # Not merged: flagged like bulk attach. The dialog's duplicate hint is advice and may not
+    # have loaded (or been read) before the click, so the card itself offers the merge.
+    if merge_target is None:
+        await duplicates.flag_possible_duplicate(db, incident)
+
     # A re-attach takes the alarm (and its Rückmeldungen) away from another Ereignis.
     previous_event_id = emergency.attached_to_event_id
 

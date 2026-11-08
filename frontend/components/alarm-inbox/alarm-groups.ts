@@ -3,13 +3,12 @@
  *
  * - «Neu»: not attached to any Ereignis, not archived, and received in the last 24 hours – what
  *   still waits for somebody to put it on a board. The header icon counts exactly these.
- * - «Heute zugewiesen»: attached in the last 24 hours (the attach time; the receipt time for
- *   rows that never recorded one).
- * - «Früher»: everything else – earlier Ereignisse, archived rows, and an alarm nobody attached
- *   for a day, which can still be attached from there.
- *
- * A rolling 24 hours rather than the calendar day: a storm night crosses midnight, and at 00:30
- * the alarm from 23:50 is still «neu».
+ *   A rolling 24 hours rather than the calendar day: a storm night crosses midnight, and at 00:30
+ *   the alarm from 23:50 is still «neu».
+ * - «Heute zugewiesen»: attached since local midnight – the calendar day (owner, 08.11.), by the
+ *   attach time, or the receipt time for rows that never recorded one.
+ * - «Früher»: everything else – attached on an earlier day, archived, and an alarm nobody
+ *   attached for a day, which can still be attached from there.
  */
 
 import type { ApiDiveraEmergency } from '@/lib/api-client'
@@ -31,10 +30,11 @@ export function isNewAlarm(e: ApiDiveraEmergency, now: number): boolean {
 
 /** Splits the pool into the sheet's sections; each keeps the pool's order (newest first). */
 export function groupAlarms(list: readonly ApiDiveraEmergency[], now: number): AlarmGroups {
+  const midnight = new Date(now).setHours(0, 0, 0, 0)
   const groups: AlarmGroups = { fresh: [], today: [], earlier: [] }
   for (const e of list) {
     if (isNewAlarm(e, now)) groups.fresh.push(e)
-    else if (e.attached_to_event_id && within(e.attached_at ?? e.received_at, now)) groups.today.push(e)
+    else if (e.attached_to_event_id && Date.parse(e.attached_at ?? e.received_at) >= midnight) groups.today.push(e)
     else groups.earlier.push(e)
   }
   return groups
@@ -43,4 +43,15 @@ export function groupAlarms(list: readonly ApiDiveraEmergency[], now: number): A
 /** The number on the header icon. */
 export function countNewAlarms(list: readonly ApiDiveraEmergency[], now: number): number {
   return list.reduce((n, e) => (isNewAlarm(e, now) ? n + 1 : n), 0)
+}
+
+/** When the next new alarm stops being new (its receipt + 24 h), or null when none is new. */
+export function nextNewExpiry(list: readonly ApiDiveraEmergency[], now: number): number | null {
+  let next: number | null = null
+  for (const e of list) {
+    if (!isNewAlarm(e, now)) continue
+    const expiry = Date.parse(e.received_at) + NEW_WINDOW_MS
+    if (next === null || expiry < next) next = expiry
+  }
+  return next
 }

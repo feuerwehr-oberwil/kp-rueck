@@ -110,7 +110,8 @@ export function AlarmInboxSheet() {
           // --close-edge = the content's end padding (px-4 / px-6), so the ✕ ends on that edge
           isMobile
             ? 'modal-h-tall pb-sheet-safe [--close-edge:1rem]'
-            : 'h-auto w-[31.25rem] max-w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] [--close-edge:1.5rem]',
+            : // narrower than the room left of the notification sidebar, so its left edge stays on screen
+              'h-auto w-[31.25rem] max-w-[calc(100vw_-_var(--notification-sidebar-width,0px)_-_2rem)] sm:max-w-[calc(100vw_-_var(--notification-sidebar-width,0px)_-_2rem)] [--close-edge:1.5rem]',
         )}
         style={
           isMobile
@@ -268,7 +269,16 @@ function AlarmInboxPanel({ isMobile }: { isMobile: boolean }) {
   )
 
   let body: ReactNode
-  if (!pool.loaded) {
+  if (!pool.loaded && pool.failed && !pool.loading) {
+    body = (
+      <EmptyState
+        compact
+        title={t('loadFailedTitle')}
+        description={t('loadFailedDescription')}
+        action={{ label: t('reload'), onClick: () => void reloadAlarmPool() }}
+      />
+    )
+  } else if (!pool.loaded) {
     body = (
       <div className="flex h-48 items-center justify-center">
         <LoadingStatus size="surface" className="text-sm">

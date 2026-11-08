@@ -7,13 +7,14 @@
  * the phone reaches the same sheet through «Mehr» (`AlarmInboxMenuCount`).
  */
 
+import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Inbox } from 'lucide-react'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { toggleAlarmInbox, useAlarmInboxOpen, useAlarmPool } from './alarm-inbox-store'
-import { countNewAlarms } from './alarm-groups'
+import { countNewAlarms, nextNewExpiry } from './alarm-groups'
 
 export function AlarmInboxButton() {
   const { isAuthenticated } = useAuth()
@@ -24,11 +25,26 @@ export function AlarmInboxButton() {
 /** «9+» past nine, like the bell. */
 const badgeText = (count: number) => (count > 9 ? '9+' : String(count))
 
+/**
+ * The number of new alarms, re-counted when the oldest of them turns 24 hours old – on a quiet
+ * page nothing else would render the icon again, and the alarm would stay «neu».
+ */
+function useNewAlarmCount(): number {
+  const { emergencies } = useAlarmPool()
+  const [now, setNow] = useState(() => Date.now())
+  const expiry = nextNewExpiry(emergencies, now)
+  useEffect(() => {
+    if (expiry === null) return
+    const timer = setTimeout(() => setNow(Date.now()), Math.max(0, expiry - Date.now()))
+    return () => clearTimeout(timer)
+  }, [expiry])
+  return countNewAlarms(emergencies, now)
+}
+
 function AlarmInboxToggle() {
   const t = useTranslations('divera.inbox')
   const open = useAlarmInboxOpen()
-  const { emergencies } = useAlarmPool()
-  const count = countNewAlarms(emergencies, Date.now())
+  const count = useNewAlarmCount()
   return (
     <Button
       variant={open ? 'selected' : 'ghost'}
@@ -56,8 +72,7 @@ function AlarmInboxToggle() {
 
 /** The count beside «Alarmeingang» in the phone's «Mehr» sheet; nothing when none is new. */
 export function AlarmInboxMenuCount({ className }: { className?: string }) {
-  const { emergencies } = useAlarmPool()
-  const count = countNewAlarms(emergencies, Date.now())
+  const count = useNewAlarmCount()
   if (count === 0) return null
   return (
     <span

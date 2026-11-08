@@ -11,8 +11,8 @@
  *
  * The pool (`useAlarmPool`) is fetched only while something shows it: the first mounted
  * consumer loads it and listens on the socket (a new alarm, a created incident – which is what
- * an attach makes –, the socket coming back after an outage), the last one to unmount stops.
- * No polling loop of its own.
+ * an attach makes –, an alarm's link changing – a merge creates no card –, the socket coming
+ * back after an outage), the last one to unmount stops. No polling loop of its own.
  */
 
 import { useSyncExternalStore } from 'react'
@@ -53,16 +53,40 @@ export function useAlarmInboxOpen(): boolean {
 // ── the pool ────────────────────────────────────────────────────────────────────────
 
 export interface AlarmPool {
-  /** Newest first, archived included (the server's first page of 100). */
+  /**
+   * Newest first: the server's first page of 100 (archived included) plus every alarm still
+   * waiting beyond it, so a busy day never pushes a waiting alarm out of «Neu» or the count.
+   */
   emergencies: ApiDiveraEmergency[]
   /** Every row the server has, beyond the page too. */
   total: number
   /** True once the first answer came in. */
   loaded: boolean
   loading: boolean
+  /** The last fetch failed (cleared by the next answer). */
+  failed: boolean
 }
 
-const EMPTY: AlarmPool = { emergencies: [], total: 0, loaded: false, loading: false }
+const EMPTY: AlarmPool = { emergencies: [], total: 0, loaded: false, loading: false, failed: false }
+
+const PAGE = 100
+/** The server's maximum page; more alarms than this waiting at once is not a night we plan for. */
+const WAITING_MAX = 500
+
+/** The page and the waiting alarms, as one newest-first list. */
+async function fetchPool(): Promise<Pick<AlarmPool, 'emergencies' | 'total'>> {
+  const [page, waiting] = await Promise.all([
+    apiClient.getDiveraEmergencies({ include_archived: true, limit: PAGE }),
+    apiClient.getDiveraEmergencies({ attached: false, include_archived: false, limit: WAITING_MAX }),
+  ])
+  const onPage = new Set(page.emergencies.map((e) => e.id))
+  const beyond = waiting.emergencies.filter((e) => !onPage.has(e.id))
+  const emergencies =
+    beyond.length === 0
+      ? page.emergencies
+      : [...page.emergencies, ...beyond].sort((a, b) => Date.parse(b.received_at) - Date.parse(a.received_at))
+  return { emergencies, total: page.total }
+}
 
 let pool: AlarmPool = EMPTY
 const poolListeners = new Set<() => void>()
@@ -76,7 +100,8 @@ function setPool(patch: Partial<AlarmPool>) {
 
 /**
  * Fetch the pool again. Calls during a fetch fold into ONE more fetch after it, so a burst of
- * socket events costs two requests, and the last answer is always the newest state.
+ * socket events costs two fetches, and the last answer is always the newest state – also when
+ * the fetch before it failed.
  */
 export function reloadAlarmPool(): Promise<void> {
   if (inflight) {
@@ -88,10 +113,10 @@ export function reloadAlarmPool(): Promise<void> {
     try {
       do {
         again = false
-        const res = await apiClient.getDiveraEmergencies({ include_archived: true })
-        setPool({ emergencies: res.emergencies, total: res.total, loaded: true })
+        setPool({ ...(await fetchPool()), loaded: true, failed: false })
       } while (again)
     } catch (error) {
+      setPool({ failed: true })
       // The transport already said «no connection»; anything else is worth a log line.
       if (!(error instanceof Error) || !error.message.includes('Verbindung zum Server')) {
         console.error('Failed to load the alarm pool:', error)
@@ -99,6 +124,8 @@ export function reloadAlarmPool(): Promise<void> {
     } finally {
       inflight = null
       setPool({ loading: false })
+      // A failure left the loop with a reload still asked for: run it now, not never.
+      if (again) void reloadAlarmPool()
     }
   })()
   return inflight
@@ -114,6 +141,9 @@ function startListening() {
   const offIncident = wsClient.on('incident_update', (data: { action?: string } | undefined) => {
     if (data?.action === 'create') void reloadAlarmPool()
   })
+  // Sent on every attach, merge and re-attach – a merge from another window makes no new card.
+  // Rückmeldungen send it too; a burst of them folds into one more fetch (above).
+  const offLink = wsClient.on('divera_responses_update', () => void reloadAlarmPool())
   // Back after an outage: whatever arrived meanwhile was never pushed.
   let last: WebSocketStatus = wsClient.getStatus()
   const offStatus = wsClient.onStatusChange((status) => {
@@ -123,6 +153,7 @@ function startListening() {
   stopListening = () => {
     offAlarm()
     offIncident()
+    offLink()
     offStatus()
     wsClient.disconnect()
   }
