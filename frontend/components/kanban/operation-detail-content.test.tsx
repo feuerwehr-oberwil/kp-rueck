@@ -230,7 +230,15 @@ describe("OperationDetailContent", () => {
     await user.click(screen.getByRole("button", { name: "Koordinaten löschen" }))
     expect(onUpdate).toHaveBeenCalledWith({ coordinates: null })
 
-    await user.click(screen.getByRole("button", { name: "Disponiert / Anfahrt" }))
+    // Status is a field row (owner pick U11): the board's columns in board order,
+    // and a pick goes out through the same `onChangeStatus` the chips used.
+    const status = screen.getByRole("combobox", { name: "Status" })
+    expect(status).toHaveTextContent("Eingegangen")
+    await user.click(status)
+    expect((await screen.findAllByRole("option")).map((o) => o.textContent)).toEqual([
+      "Eingegangen", "Reko", "Reko abgeschlossen", "Disponiert / Anfahrt", "Im Einsatz", "Rückfahrt", "Abgeschlossen",
+    ])
+    await user.click(screen.getByRole("option", { name: "Disponiert / Anfahrt" }))
     expect(onChangeStatus).toHaveBeenCalledWith("incident-1", "enroute")
 
     // Übersicht keeps ONE Reko line — who is assigned, and a way through. The
@@ -417,7 +425,7 @@ describe("OperationDetailContent", () => {
     // A sentence with its action, not a chip on the meta line.
     expect(screen.getByText(/Abholung – wartet seit 45 Min/)).toBeInTheDocument()
     // The modal has a second column for it: it sits inside Übersicht, above
-    // «Status ändern».
+    // «Kräfte».
     expect(
       screen.getByRole("button", { name: "Abholung disponiert" }).closest('[role="tabpanel"]'),
     ).not.toBeNull()

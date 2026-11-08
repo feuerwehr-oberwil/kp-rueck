@@ -44,6 +44,8 @@ Sur les écrans larges (>1280 px), un panneau latéral apparaît à droite avec 
 - **Simple clic** : affiche les détails de l’intervention dans le panneau latéral
 - **Double clic** : ouvre la fenêtre de détail complète (modale)
 
+**Statut dans le détail :** sous les **Caractéristiques** se trouve la ligne **Statut** – une liste avec les colonnes du tableau, dans leur ordre. Un changement à cet endroit pose les mêmes questions que le déplacement de la carte (ressources manquantes au moment de disposer, Reko, «Modifié à l’instant»). Juste en dessous suivent les **Moyens**.
+
 ### Événements (`G E`)
 Gérer, changer, archiver et exporter les événements.
 
@@ -89,7 +91,7 @@ Le mur ne suit **pas** la « Vue » de l’opérateur : *Compact* existe pour ca
 **Sur le téléphone** (les comptes lecteur arrivent ici), les colonnes sont empilées au lieu d’être côte à côte : les mêmes cartes, on fait défiler vers le bas, pas sur le côté. De même pour les quatre colonnes d’« État ».
 
 ### État (`/display/status`)
-Vue à quatre colonnes : véhicules, interventions (groupées par statut), personnel (groupé par rôle) et matériel (groupé par emplacement). Pour les ressources attribuées, le lieu d’intervention est indiqué. S’agrandit automatiquement sur les grands écrans. Au-dessus des interventions figurent, repliables, les [indicateurs](#tableau-board-g-b).
+Vue à quatre colonnes : véhicules, interventions (groupées par statut), personnel (groupé par rôle) et matériel (groupé par emplacement). Pour les ressources attribuées, le lieu d’intervention est indiqué. S’agrandit automatiquement sur les grands écrans. Au-dessus des interventions figurent, repliables, les [indicateurs](#tableau-board-g-b) – les quatre chiffres et le plus ancien message « haute » en attente ; les temps de réaction (tableau et diagramme) forment une section à part, repliée par défaut, pour laisser plus de place aux interventions.
 
 ### Replier des sections
 
@@ -126,7 +128,7 @@ En ligne de commande, `just tiles-status` distingue « uniquement les tuiles min
 
 La barre de recherche (`S` ou `/`) parcourt toutes les interventions par adresse, genre, priorité et statut (tels qu’ils figurent sur la carte, p. ex. « haute », « En intervention »), texte de l’annonce et **nom de mission** ; « reko » ou « reconnaissance » trouve les interventions dont la reconnaissance est terminée – qui cherche l’itinéraire en trouve les étapes. Idéal pour retrouver rapidement la bonne carte quand il y a beaucoup d’interventions.
 
-Sur les pages d’affichage [Tableau](#tableau-displayboard) et [État](#état-displaystatus), la même recherche se trouve dans l’en-tête, avec les deux mêmes touches – qui passe du PC à l’écran mural n’a rien de second à retenir. Elle ne réagit pas tant qu’un champ a le curseur ou qu’une fenêtre est ouverte.
+Sur les pages d’affichage [Tableau](#tableau-displayboard) et [État](#état-displaystatus), la même recherche se trouve dans l’en-tête, avec les deux mêmes touches – qui passe du PC à l’écran mural n’a rien de second à retenir. Elle ne réagit pas tant qu’un champ a le curseur ou qu’une fenêtre est ouverte. Après 10 secondes sans souris ni touche, le champ de recherche et la flèche de retour s’estompent sur place (rien ne se déplace) ; le premier mouvement de souris ou `S` les fait revenir. Une recherche en cours reste affichée.
 
 ---
 

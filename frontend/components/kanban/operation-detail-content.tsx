@@ -577,16 +577,16 @@ export function OperationDetailContent({
   // One vertical rhythm on every tab: 8px between two rows (each `DetailField`
   // brings its own `py-1`, nothing is stacked on top; 6px in the panel, whose root
   // sets `--detail-row-py: 3px`) and ONE section step
-  // between two sections — the column groups, «Status ändern», «Kräfte» and,
+  // between two sections — the column groups, «Kräfte» and,
   // stacked in the panel, the two columns themselves (`gap-x-8` is the modal's
   // column gutter). The step is 12px in the panel and 16px in the modal, 8px from
   // a heading to its rows (`DetailGroupHeading`). The panel keeps 12 (hill climb
-  // r11): at 16 the second «Status ändern» row sits on the footer rule on a
+  // r11): at 16 the first «Kräfte» rows sit on the footer rule on a
   // laptop. Where the list still runs on under the footer, the panel fades out
   // while more is below (`scrollEndFade`, r18), so the cut is announced.
   const sectionStep = dense
-    ? { gap: "gap-y-3", pad: "py-3", stack: "space-y-3", after: "mb-3", fields: "space-y-1.5" }
-    : { gap: "gap-y-4", pad: "py-4", stack: "space-y-4", after: "mb-4", fields: "space-y-2" }
+    ? { gap: "gap-y-3", pad: "py-3", stack: "space-y-3", fields: "space-y-1.5" }
+    : { gap: "gap-y-4", pad: "py-4", stack: "space-y-4", fields: "space-y-2" }
   const tabGridClass = cn(
     "grid grid-cols-1 gap-x-8",
     sectionStep.gap,
@@ -621,8 +621,8 @@ export function OperationDetailContent({
    * do something about it — «Feld meldet beendet / angekommen» and «Abholung».
    * One group, two homes, because the two mounts have different room for it:
    *
-   *  * modal — first thing in the Übersicht RIGHT column, directly above
-   *    «Status wechseln», which is the control those questions are about.
+   *  * modal — first thing in the Übersicht RIGHT column, above «Kräfte»,
+   *    beside the fields that end in the «Status» row those questions are about.
    *  * panel — a full-width strip directly under the tab bar. 420px has no
    *    second column to put them in, and burying them inside Übersicht would
    *    hide them whenever the operator is on Rapport or Verlauf.
@@ -1433,6 +1433,37 @@ export function OperationDetailContent({
             ]}
           />
 
+          {/* Status — a row under Merkmale like Einsatzart / Priorität (owner pick
+              U11, 08.11.2026): the chip block that used to open the resources
+              column pushed «Kräfte» under the laptop's footer, and the board moves
+              a card by drag or `>` / `<` anyway. Options in board order with the
+              column words; the pick goes through `onChangeStatus` — the board's
+              `requestStatusChange`, so the dispatch gate, the Reko gate and the
+              «Gerade geändert» refusal answer exactly as they did for the chips.
+              Re-picking the current status is no change (Radix only reports a new
+              value). Without the handler (or the right to edit) it reads, disabled. */}
+          <DetailField label={t('common.status')} htmlFor="edit-status">
+            <Select
+              value={operation.status}
+              disabled={!canEdit || !onChangeStatus}
+              onValueChange={(next) => {
+                const target = columns.find((col) => col.id === next)
+                if (target) onChangeStatus?.(operation.id, target.status[0])
+              }}
+            >
+              <SelectTrigger id="edit-status" className={DENSE_CONTROL} tabIndex={0}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {columns.map((col) => (
+                  <SelectItem key={col.id} value={col.id}>
+                    {t(`columns.${col.id}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </DetailField>
+
           </div>
           </div>
           </div>
@@ -1443,51 +1474,13 @@ export function OperationDetailContent({
               answer it in one look. */}
           <div className={tabColumnBreakClass}>
           {/* The modal's home for the banners: the same questions the card
-              asks, in front of the control that answers them — the field
-              reported «angekommen» / «beendet», and the next thing an operator
-              does about it is move the card, which is «Status wechseln»
-              directly below. The nudge's dismissal is shared with the card
+              asks — the field reported «angekommen» / «beendet», and the next
+              thing an operator does about it is move the card (the nudge's own
+              button, or the «Status» row across the gutter). The nudge's dismissal is shared with the card
               behind the modal (one external store in field-status-nudge.tsx),
               so the X only has to be clicked once. In the panel this same group
               sits under the tab bar instead — see `banners` above. */}
           {!dense && banners}
-
-          {/* Status quick-change — one-click move across the board (drops the
-              card at the top of the target column) instead of drag & drop. It
-              opens this column because it is the most-used control on the tab
-              and must not sit below a resource list of unpredictable length. */}
-          {canEdit && onChangeStatus && (
-          <div className={sectionStep.after}>
-            {/* Same heading as Lage / Meldung / Kräfte. It used to be a `text-sm
-                font-medium` line with a full-size icon, which made three heading
-                weights visible at once on one tab — and this one was the loudest
-                of them without being the most important thing on the tab. */}
-            <DetailGroupHeading icon={<ArrowRightLeft className="h-3.5 w-3.5 shrink-0" />}>
-              {t('detail.changeStatus')}
-            </DetailGroupHeading>
-            <div className="flex flex-wrap gap-1.5">
-              {columns.map((col) => {
-                const isCurrent = col.status.includes(operation.status)
-                return (
-                  <Button
-                    key={col.id}
-                    size="xs"
-                    // The current status is a statement, not a dead button:
-                    // tonal «selected» at full opacity (disabled only stops the
-                    // no-op click), so it reads as «here» and not as greyed out.
-                    variant={isCurrent ? "selected" : "outline"}
-                    disabled={isCurrent}
-                    aria-current={isCurrent ? "step" : undefined}
-                    className={isCurrent ? "disabled:opacity-100" : undefined}
-                    onClick={() => onChangeStatus(operation.id, col.status[0])}
-                  >
-                    {t(`columns.${col.id}`)}
-                  </Button>
-                )
-              })}
-            </div>
-          </div>
-          )}
 
           {/* Ressourcen — Reko, Mannschaft, Fahrzeuge, Material. Reached
               directly by a click on the matching block of a kanban card, which
@@ -1504,14 +1497,14 @@ export function OperationDetailContent({
           >
             {/* «Kräfte» — the third of the mock's group headings: who and what
                 is out there. Covers the Reko line and the Ressourcen below;
-                «Status wechseln» above keeps its own control heading. */}
+                it follows the fields directly (status is a field row now). */}
             {/* The count rides on the heading — «Kräfte (7)» is what gets asked
                 for over the radio; the standalone «Ressourcen (n)» line it
                 replaces said the same thing one heading level lower. */}
             {/* «KRÄFTE · 4»: the caps label takes the count as a fact after a
                 middle dot, like the board's column heads – «(4)» in a caps
                 line read as a footnote. Its glyph puts the word on the same
-                edge as «Status ändern» above (hill climb r18). */}
+                edge as the other group headings (hill climb r18). */}
             <DetailGroupHeading icon={<Shield className="h-3.5 w-3.5 shrink-0" />}>
               {t('detail.groups.kraefte')} · {totalResourceCount}
             </DetailGroupHeading>
@@ -1677,7 +1670,7 @@ export function OperationDetailContent({
                   geändert wird. Moved here off Übersicht — Reko was split
                   across two tabs, with the tab NAMED Reko holding only the
                   report while every dispatch control sat in a column that also
-                  carries Status ändern and three resource lists.
+                  carried the status control and three resource lists.
                   It also answers what this tab used to be before a report
                   exists: an empty box. Now the first thing an incident without
                   a Reko offers here is the way to assign one. */}

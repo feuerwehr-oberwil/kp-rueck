@@ -614,6 +614,33 @@ class TestAssignments:
 
     @pytest.mark.asyncio
     @pytest.mark.api
+    async def test_row_carries_the_incident_number_and_priority(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        # The phone puts «14» and the priority mark before the address, like the
+        # board card, the map and the wall (D3) – both come from the server.
+        incident = await _make_incident(db_session, test_event, test_user, "Meine Stelle")
+        incident.priority = "high"
+        await db_session.commit()
+        await db_session.refresh(incident)
+        person = await _make_person(db_session, "Muster Hans")
+        await _assign(db_session, incident, person)
+
+        response = await client.get(
+            f"/api/feld/assignments/{person.id}?token={await feld_device_token(db_session, test_event.id, person.id)}"
+        )
+        assert response.status_code == 200
+        row = response.json()["assignments"][0]
+        assert incident.number is not None
+        assert row["number"] == incident.number
+        assert row["priority"] == "high"
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
     async def test_location_display_is_computed_server_side(
         self,
         client: AsyncClient,

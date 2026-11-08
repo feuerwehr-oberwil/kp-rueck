@@ -241,6 +241,12 @@ class FeldAssignment(BaseModel):
     incident_title: str
     incident_type: str
     incident_status: str
+    # The incident's number within its Ereignis («14») and its priority: the phone
+    # puts both before the address, like the board card, the map and the wall do,
+    # so «die 14» over the radio is the same row on every surface (owner pick D3).
+    # `number` is None only for a row the numbering trigger has not reached yet.
+    number: int | None = None
+    priority: IncidentPriority
     # The Meldung — what the dispatch said this is. The single most-asked
     # question of a crew standing in front of an address.
     description: str | None = None

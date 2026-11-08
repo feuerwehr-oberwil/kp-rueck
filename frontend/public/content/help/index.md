@@ -44,6 +44,8 @@ Auf breiten Bildschirmen (>1280px) erscheint rechts ein Seitenpanel mit den **De
 - **Einfach-Klick**: Zeigt Einsatz-Details im Seitenpanel
 - **Doppelklick**: Öffnet den vollständigen Detail-Dialog (Modal)
 
+**Status im Detail:** Unter den **Merkmalen** steht die Zeile **Status** – eine Auswahl mit den Spalten des Boards in ihrer Reihenfolge. Ein Wechsel dort stellt dieselben Rückfragen wie das Verschieben der Karte (fehlende Ressourcen beim Disponieren, Reko, «Gerade geändert»). Darunter folgen gleich die **Kräfte**.
+
 ### Ereignisse (`G E`)
 Ereignisse verwalten, wechseln, archivieren, exportieren.
 
@@ -89,7 +91,7 @@ Die Wand folgt dabei **nicht** der «Ansicht» des Bedieners: *Kompakt* gibt es,
 **Auf dem Handy** (Viewer-Konten landen hier) stehen die Spalten untereinander statt nebeneinander: dieselben Karten, man scrollt nach unten, nicht zur Seite. Ebenso die vier Spalten von «Status».
 
 ### Status (`/display/status`)
-Vier-Spalten-Übersicht: Fahrzeuge, Einsätze (gruppiert nach Status), Personal (gruppiert nach Rolle) und Material (gruppiert nach Standort). Zeigt bei zugewiesenen Ressourcen den Einsatzort an. Skaliert auf grösseren Bildschirmen automatisch hoch. Über den Einsätzen stehen, zuklappbar, die [Kennzahlen](#board-g-b).
+Vier-Spalten-Übersicht: Fahrzeuge, Einsätze (gruppiert nach Status), Personal (gruppiert nach Rolle) und Material (gruppiert nach Standort). Zeigt bei zugewiesenen Ressourcen den Einsatzort an. Skaliert auf grösseren Bildschirmen automatisch hoch. Über den Einsätzen stehen, zuklappbar, die [Kennzahlen](#board-g-b) – die vier Zahlen und die älteste wartende «Hoch»-Meldung; die Reaktionszeiten (Tabelle und Diagramm) sind ein eigener Abschnitt und standardmässig zugeklappt, damit mehr Einsätze Platz haben.
 
 ### Abschnitte einklappen
 
@@ -126,7 +128,7 @@ Auf der Kommandozeile beantwortet `just tiles-status` dieselbe Frage: es untersc
 
 Die Suchleiste (`S` oder `/`) durchsucht alle Einsätze nach Adresse, Typ, Priorität und Status (so wie sie auf der Karte stehen, z. B. «hoch», «Im Einsatz»), Meldungstext und **Auftragsname**; «reko» findet die Einsätze mit abgeschlossener Reko – wer nach der Route sucht, findet ihre Stopps. Ideal um bei vielen Einsätzen schnell die richtige Karte zu finden.
 
-Auf den Anzeige-Seiten [Board](#board-displayboard) und [Status](#status-displaystatus) liegt dieselbe Suche in der Kopfzeile, mit denselben zwei Tasten – wer vom KP zum Wandschirm geht, muss sich nichts Zweites merken. Sie reagiert nicht, während ein Feld den Cursor hat oder ein Dialog offen ist.
+Auf den Anzeige-Seiten [Board](#board-displayboard) und [Status](#status-displaystatus) liegt dieselbe Suche in der Kopfzeile, mit denselben zwei Tasten – wer vom KP zum Wandschirm geht, muss sich nichts Zweites merken. Sie reagiert nicht, während ein Feld den Cursor hat oder ein Dialog offen ist. Nach 10 Sekunden ohne Maus und Taste blenden Suchfeld und Zurück-Pfeil an Ort und Stelle aus (nichts verschiebt sich); die erste Mausbewegung oder `S` holt sie zurück. Eine laufende Suche bleibt stehen.
 
 ---
 

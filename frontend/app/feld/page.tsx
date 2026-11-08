@@ -18,7 +18,7 @@ import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'rea
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ArrowLeft, Binoculars, CarTaxiFront, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, MapPin, MessageSquare, MonitorCog, Navigation, Phone, Plus, Truck, User, Waypoints } from 'lucide-react'
+import { ArrowLeft, Binoculars, CarTaxiFront, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, MessageSquare, MonitorCog, Navigation, Phone, Plus, Truck, User, Waypoints } from 'lucide-react'
 
 import {
   apiClient,
@@ -42,6 +42,8 @@ import { FeldMaterialTable } from '@/components/feld/feld-material-table'
 import { FeldMeldenSheet } from '@/components/feld/feld-melden-sheet'
 import { FeldRapportForm } from '@/components/feld/feld-rapport-form'
 import { Button } from '@/components/ui/button'
+import { IncidentNumber } from '@/components/ui/incident-number'
+import { PriorityGlyph } from '@/components/ui/priority-glyph'
 import { SearchInput } from '@/components/ui/search-input'
 import { topLoading } from '@/components/ui/top-loading-bar'
 import { useBootGate } from '@/lib/boot-cover'
@@ -1154,22 +1156,35 @@ function FeldSurface() {
                     one-handed is both slow and the easiest place all night to
                     fat-finger it. Falls back to plain text when the Schadenplatz
                     has neither a pin nor an address — see `lib/navigation.ts`. */}
-                {/* 18/600: the heaviest line on the page, above the EL briefing. */}
-                <h1 className="text-lg font-semibold leading-tight">
+                {/* 18/600: the heaviest line on the page, above the EL briefing.
+                    Priority mark + number before the address, as on the phone
+                    Einsatz sheet and every other surface (owner pick D3): the
+                    shared mark in its own column (18px box, centred on the 22px
+                    first line), the number 12/500 mono inline, 8px to the
+                    address. The navigation glyph trails the address now – before
+                    it, it stood between the priority mark and the number. */}
+                <h1 className="flex min-w-0 items-start gap-2 text-lg font-semibold leading-tight">
+                  <PriorityGlyph priority={selectedAssignment.priority} size="wall" className="mt-0.5 size-[18px]" />
                   {navigateUrl ? (
+                    // A flex box, not inline text: the phone's 44px touch floor
+                    // (globals.css) only takes on a box. The number is
+                    // `inline-block` so the link's underline stays on the address.
                     <a
                       href={navigateUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-start gap-1.5 underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground"
+                      className="flex min-w-0 items-start gap-1.5 underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground"
                     >
-                      <Navigation className="h-4 w-4 mt-[3px] shrink-0 text-muted-foreground" />
-                      <span>{address || selectedAssignment.incident_title}</span>
+                      <span className="min-w-0 break-words">
+                        <IncidentNumber number={selectedAssignment.number} className="mr-2 inline-block text-xs" />
+                        {address || selectedAssignment.incident_title}
+                      </span>
+                      <Navigation className="mt-[3px] h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                     </a>
                   ) : (
-                    <span className="flex items-start gap-1.5">
-                      {address && <MapPin className="h-4 w-4 mt-[3px] shrink-0 text-muted-foreground" />}
-                      <span>{address || selectedAssignment.incident_title}</span>
+                    <span className="min-w-0 break-words">
+                      <IncidentNumber number={selectedAssignment.number} className="mr-2 text-xs" />
+                      {address || selectedAssignment.incident_title}
                     </span>
                   )}
                 </h1>
@@ -1486,6 +1501,8 @@ function FeldSurface() {
                     street matches the street, not the dispatcher's title for it;
                     the title stays as the fallback when there is no address. */}
                 <div className="flex items-start justify-between gap-3 mb-1.5">
+                  {/* Stop number (an Auftrag's order), then the priority mark and the
+                      Einsatz number before the address, as on the phone card (D3). */}
                   <h3 className="flex min-w-0 items-start gap-2 font-medium leading-tight">
                     {/* Which stop of the route this is. The number is the whole
                         reason a crew reads the group as an Auftrag rather than
@@ -1499,7 +1516,11 @@ function FeldSurface() {
                         {(assignment.group_position ?? 0) + 1}
                       </span>
                     ) : null}
-                    <span className="min-w-0">{address || assignment.incident_title}</span>
+                    <PriorityGlyph priority={assignment.priority} size="card" className="mt-0.5" />
+                    <span className="min-w-0">
+                      <IncidentNumber number={assignment.number} className="mr-2 text-xs" />
+                      {address || assignment.incident_title}
+                    </span>
                   </h3>
                   <div className="flex shrink-0 items-center gap-2">
                     <SourceLabel assignment={assignment} />
