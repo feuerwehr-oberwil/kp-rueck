@@ -4,7 +4,7 @@ import { estimateLabelWidth, labelMode, pickVisibleLabels, placeLabelSides, PHON
 const GEOMETRY = { labelOffsetX: 20, labelHeight: 28, dotSize: 24 }
 
 function candidate(id: string, x: number, y: number, extra: Partial<LabelCandidate> = {}): LabelCandidate {
-  return { id, x, y, dy: 0, width: 100, priority: 'medium', ...extra }
+  return { id, x, y, width: 100, priority: 'medium', ...extra }
 }
 
 describe('labelMode', () => {
@@ -53,15 +53,6 @@ describe('pickVisibleLabels', () => {
     // b's dot sits inside a's label bubble (a's label runs from x=20 to x=120).
     const visible = pickVisibleLabels([candidate('a', 0, 0, { priority: 'high' }), candidate('b', 60, 0)], GEOMETRY)
     expect(visible.has('a')).toBe(false)
-  })
-
-  it('treats a shared address as one spot, whose stepped labels stack below it', () => {
-    const step = 30
-    const visible = pickVisibleLabels(
-      [candidate('a', 0, 0), candidate('b', 0, 0, { dy: step }), candidate('c', 0, 0, { dy: step * 2 })],
-      GEOMETRY,
-    )
-    expect([...visible].sort()).toEqual(['a', 'b', 'c'])
   })
 
   it('ignores anchors outside the viewport, so they block nothing', () => {
@@ -125,16 +116,14 @@ describe('placeLabelSides (desktop)', () => {
     expect(left.has('c')).toBe(false)
   })
 
+  it('flips a label whose right side would lie on a count bubble', () => {
+    // A bubble at x=260 has no label of its own and belongs to no candidate.
+    const left = placeLabelSides([candidate('a', 200, 0)], { ...GEOMETRY, obstacles: [{ x: 260, y: 0, size: 44 }] })
+    expect([...left]).toEqual(['a'])
+  })
+
   it('flips a label that would hang off the map’s right edge', () => {
     const left = placeLabelSides([candidate('edge', 350, 100)], { ...GEOMETRY, viewport: { width: 390, height: 400 } })
     expect([...left]).toEqual(['edge'])
-  })
-
-  it('keeps a stepped shared-address label on the right, where its leader line runs', () => {
-    const left = placeLabelSides(
-      [candidate('a', 200, 0, { priority: 'high' }), candidate('b', 200, 0, { dy: 4 })],
-      GEOMETRY,
-    )
-    expect(left.has('b')).toBe(false)
   })
 })

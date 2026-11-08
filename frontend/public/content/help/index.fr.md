@@ -32,7 +32,8 @@ Vue d’ensemble géographique de tous les lieux d’intervention. Des marqueurs
 - **Priorité (remplissage) :** gris = basse, jaune = moyenne, rouge = haute
 - **Statut (cadre) :** tirets = ouverte, trait plein = en cours, pointillés + estompé = retour et clôturées
 - **Véhicules (GPS) :** bleu = en ligne, gris = hors ligne
-- **Téléphone – bulle avec nombre :** plusieurs interventions dont les marqueurs se recouvrent ; marque et cadre de la plus urgente (priorité la plus haute). Un toucher zoome sur le groupe. Dès le zoom de rue, les marqueurs se séparent à nouveau.
+- **Marqueur avec nombre :** plusieurs interventions à la même adresse – un marqueur à l’aspect de la plus urgente, une étiquette avec tous les numéros (« 6 · 7 · 9 Bahnhofstrasse 1 »). Le survol ou un clic affiche la liste ; un clic sur une ligne sélectionne cette intervention, un double-clic l’ouvre.
+- **Bulle avec nombre :** plusieurs interventions dont les marqueurs se recouvrent ; marque et cadre de la plus urgente (priorité la plus haute). Un clic ou un toucher zoome sur le groupe. Dès le zoom de rue, les marqueurs se séparent à nouveau.
 
 **Étiquettes (ordinateur) :** chaque adresse se trouve à côté de son marqueur, normalement à droite. Si une autre étiquette ou un marqueur occupe déjà la droite, elle passe à gauche – si la gauche est prise aussi, elle reste à droite et celle que l’on survole passe devant.
 

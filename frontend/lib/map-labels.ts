@@ -1,8 +1,10 @@
 /**
  * Which incident labels the Lagekarte draws permanently, and on which side of the pin.
  *
- * Desktop keeps every label, the pointed-at one in front (see `stackSharedAddresses` in
- * `components/map-view.tsx`). A label hangs to the right of its pin; one that would lie on another
+ * One label per pin: incidents at one address share a pin and its label (`lib/map-spots.ts`), and
+ * pins merged into an overlap bubble below street level have none (`lib/map-clusters.ts`).
+ *
+ * Desktop keeps every label, the pointed-at one in front. A label hangs to the right of its pin; one that would lie on another
  * label or another incident's dot there flips to the LEFT when that side is free – no leader lines
  * that swing as you zoom (owner pick U2 C, 08.11.2026). Neither side free: it stays right and may
  * overlap, as before (`placeLabelSides`). A phone cannot hover, and thirty
@@ -44,12 +46,11 @@ export function labelMode({
 export const COMPACT_MAP_QUERY = '(max-width: 767px), (pointer: coarse)'
 
 export interface LabelCandidate {
+  /** The pin's id – a spot key (`lib/map-spots.ts`). */
   id: string
-  /** Screen position of the incident's anchor (the dot's centre), px. */
+  /** Screen position of the pin's anchor (the dot's centre), px. */
   x: number
   y: number
-  /** Vertical step of a label that shares its address with another, px. */
-  dy: number
   /** Estimated bubble width, px. */
   width: number
   priority: string | null | undefined
@@ -71,18 +72,20 @@ function intersects(a: Rect, b: Rect): boolean {
   return a.left < b.right + GAP && b.left < a.right + GAP && a.top < b.bottom + GAP && b.top < a.bottom + GAP
 }
 
-/** Every on-screen anchor, as the dot no label may cover. */
-function onScreenDots(candidates: LabelCandidate[], dotSize: number, viewport?: Viewport) {
-  const onScreen = viewport
-    ? candidates.filter((c) => c.x >= 0 && c.y >= 0 && c.x <= viewport.width && c.y <= viewport.height)
-    : candidates
-  const half = dotSize / 2
-  const dots = onScreen.map((c) => ({
-    id: c.id,
-    x: c.x,
-    y: c.y,
-    rect: { left: c.x - half, top: c.y - half, right: c.x + half, bottom: c.y + half },
-  }))
+/** Every on-screen anchor, as the dot no label may cover – plus the count bubbles. */
+function onScreenDots({ candidates, dotSize, viewport, obstacles = [] }: LabelGeometry & { candidates: LabelCandidate[] }) {
+  const inside = (p: { x: number; y: number }) =>
+    !viewport || (p.x >= 0 && p.y >= 0 && p.x <= viewport.width && p.y <= viewport.height)
+  const onScreen = candidates.filter(inside)
+  const box = (id: string, x: number, y: number, size: number) => ({
+    id,
+    rect: { left: x - size / 2, top: y - size / 2, right: x + size / 2, bottom: y + size / 2 },
+  })
+  const dots = [
+    ...onScreen.map((c) => box(c.id, c.x, c.y, dotSize)),
+    // A bubble is nobody's own dot: no candidate's id, so it blocks every label.
+    ...obstacles.filter(inside).map((o) => box('', o.x, o.y, o.size)),
+  ]
   return { onScreen, dots }
 }
 
@@ -91,7 +94,7 @@ function byClaim(a: LabelCandidate, b: LabelCandidate): number {
   const pa = PRIORITY_RANK[a.priority ?? ''] ?? 3
   const pb = PRIORITY_RANK[b.priority ?? ''] ?? 3
   if (pa !== pb) return pa - pb
-  if (a.y + a.dy !== b.y + b.dy) return a.y + a.dy - (b.y + b.dy)
+  if (a.y !== b.y) return a.y - b.y
   return a.x - b.x
 }
 
@@ -105,6 +108,9 @@ interface LabelGeometry {
   /** Only anchors on screen take part (an off-screen one would still block), and a label that
    *  would hang off the map's edge does not fit there. */
   viewport?: Viewport
+  /** Other marks no label may cover, centre + diameter px: the overlap bubbles
+   *  (`lib/map-clusters.ts`), which have no label of their own. */
+  obstacles?: { x: number; y: number; size: number }[]
 }
 
 interface Viewport {
@@ -114,7 +120,7 @@ interface Viewport {
 
 /** The bubble's box on one side of its anchor. */
 function labelRect(c: LabelCandidate, side: LabelSide, { labelOffsetX, labelHeight }: LabelGeometry): Rect {
-  const top = c.y + c.dy - labelHeight / 2
+  const top = c.y - labelHeight / 2
   const left = side === 'right' ? c.x + labelOffsetX : c.x - labelOffsetX - c.width
   return { left, top, right: left + c.width, bottom: top + labelHeight }
 }
@@ -123,17 +129,10 @@ function offViewport(rect: Rect, viewport?: Viewport): boolean {
   return !!viewport && (rect.left < 0 || rect.right > viewport.width || rect.top < 0 || rect.bottom > viewport.height)
 }
 
-/** Does `rect` touch a kept label or a dot other than the candidate's own spot? Its own dot does
- *  not count – and neither does a dot at exactly the same spot, which is the same address (those
- *  labels step down instead, see `stackSharedAddresses`). */
+/** Does `rect` touch a kept label or a dot other than the candidate's own? */
 function collides(rect: Rect, c: LabelCandidate, kept: Rect[], dots: ReturnType<typeof onScreenDots>['dots']): boolean {
   if (kept.some((other) => intersects(rect, other))) return true
-  return dots.some(
-    (dot) =>
-      dot.id !== c.id &&
-      !(Math.abs(dot.x - c.x) < 0.5 && Math.abs(dot.y - c.y) < 0.5) &&
-      intersects(rect, dot.rect),
-  )
+  return dots.some((dot) => dot.id !== c.id && intersects(rect, dot.rect))
 }
 
 /**
@@ -142,7 +141,7 @@ function collides(rect: Rect, c: LabelCandidate, kept: Rect[], dots: ReturnType<
  * is left out (a tap still shows it).
  */
 export function pickVisibleLabels(candidates: LabelCandidate[], geometry: LabelGeometry): Set<string> {
-  const { onScreen, dots } = onScreenDots(candidates, geometry.dotSize, geometry.viewport)
+  const { onScreen, dots } = onScreenDots({ ...geometry, candidates })
   const kept: Rect[] = []
   const visible = new Set<string>()
   for (const c of [...onScreen].sort(byClaim)) {
@@ -163,16 +162,15 @@ export type LabelSide = 'right' | 'left'
  * Desktop (label mode `all`): which side of its pin each label hangs on. Same greedy order as the
  * phone pass – Hoch first, then top to bottom – but nothing is dropped: a label whose right side
  * is taken (another label, another incident's dot, the map's edge) flips left when the left side
- * is free, and otherwise stays right. A label stepped below a shared address (`dy ≠ 0`) keeps
- * the right side, where its leader line is drawn. Returns only the ids that flip.
+ * is free, and otherwise stays right. Returns only the ids that flip.
  */
 export function placeLabelSides(candidates: LabelCandidate[], geometry: LabelGeometry): Set<string> {
-  const { onScreen, dots } = onScreenDots(candidates, geometry.dotSize, geometry.viewport)
+  const { onScreen, dots } = onScreenDots({ ...geometry, candidates })
   const kept: Rect[] = []
   const left = new Set<string>()
   for (const c of [...onScreen].sort(byClaim)) {
     const right = labelRect(c, 'right', geometry)
-    if (c.dy !== 0 || (!offViewport(right, geometry.viewport) && !collides(right, c, kept, dots))) {
+    if (!offViewport(right, geometry.viewport) && !collides(right, c, kept, dots)) {
       kept.push(right)
       continue
     }

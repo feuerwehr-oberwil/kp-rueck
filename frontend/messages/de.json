@@ -1493,7 +1493,11 @@
       "retry": "Erneut versuchen",
       "mapAria": "Einsatzkarte – Pfeiltasten zum Verschieben, Tab zum Markieren",
       "glLost": "Die Kartendarstellung wurde vom Browser beendet.",
-      "clusterAria": "{count} Einsätze, höchste: {priority} – tippen zum Vergrössern"
+      "clusterAria": "{count} Einsätze nah beieinander, höchste: {priority} – vergrössern",
+      "spotAria": "{count} Einsätze: {numbers} – {address}",
+      "spotAriaNoNumbers": "{count} Einsätze – {address}",
+      "spotHint": "Klick: Einsatz wählen · Doppelklick: öffnen",
+      "spotClose": "Liste schliessen"
     },
     "legend": {
       "show": "Legende anzeigen",
@@ -1510,7 +1514,8 @@
       "vehicleOffline": "Fahrzeug offline",
       "assignments": "Zuweisungen",
       "vehicleToIncident": "Fahrzeug → Einsatz",
-      "cluster": "Mehrere Einsätze (Anzahl)"
+      "cluster": "Einsätze nah beieinander",
+      "spot": "Einsätze an einer Adresse"
     },
     "assignmentLines": {
       "incidentFallback": "Einsatz"

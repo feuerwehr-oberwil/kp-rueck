@@ -2554,7 +2554,11 @@
       "retry": "Réessayer",
       "mapAria": "Carte des interventions – flèches pour déplacer, tabulation pour sélectionner",
       "glLost": "L’affichage de la carte a été interrompu par le navigateur.",
-      "clusterAria": "{count} interventions, la plus urgente : {priority} – toucher pour agrandir"
+      "clusterAria": "{count} interventions proches, la plus urgente : {priority} – agrandir",
+      "spotAria": "{count} interventions : {numbers} – {address}",
+      "spotAriaNoNumbers": "{count} interventions – {address}",
+      "spotHint": "Clic : choisir l’intervention · double-clic : ouvrir",
+      "spotClose": "Fermer la liste"
     },
     "legend": {
       "show": "Afficher la légende",
@@ -2571,7 +2575,8 @@
       "vehicleOffline": "Véhicule hors ligne",
       "assignments": "Attributions",
       "vehicleToIncident": "Véhicule → intervention",
-      "cluster": "Plusieurs interventions (nombre)"
+      "cluster": "Interventions proches",
+      "spot": "Interventions à une même adresse"
     },
     "assignmentLines": {
       "incidentFallback": "Intervention"
