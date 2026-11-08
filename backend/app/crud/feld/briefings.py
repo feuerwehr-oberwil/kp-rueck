@@ -482,6 +482,9 @@ async def get_feld_assignments_for_personnel(
                 "incident_title": incident.title or incident.location_address or "Unbekannt",
                 "incident_type": incident.type,
                 "incident_status": incident.status,
+                # Number + priority mark before the address, like every other surface.
+                "number": incident.number,
+                "priority": incident.priority,
                 # The briefing (§18.22): what a crew standing at the address
                 # needs before it opens a form.
                 "description": incident.description,

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { useIntegrationCapability } from "@/lib/hooks/use-integrations"
 import { SettingUnavailableNote } from "@/components/settings/setting-unavailable"
+import { COORDINATE_DECIMALS } from "@/components/settings/setting-validation"
 import {
   SettingCard,
   SettingGroup,
@@ -196,9 +197,9 @@ export function GpsSettingsCard({
               label={t("gps.silentLabel")}
               htmlFor="gps-rule-arrival-silent"
               hint={t("gps.silentHint")}
-              footer={
+              advice={
                 settings[ARRIVAL_SILENT_KEY] === "true" ? (
-                  <div className="mt-2 flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning-foreground">
+                  <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning-foreground">
                     <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
                     <span>
                       {t.rich("gps.silentWarning", {
@@ -243,7 +244,7 @@ export function GpsSettingsCard({
               <span className="flex items-center gap-3 text-sm">
                 <span className={effectiveCoords ? "tabular-nums" : "text-muted-foreground"}>
                   {effectiveCoords
-                    ? `${effectiveCoords[0].toFixed(5)} · ${effectiveCoords[1].toFixed(5)}`
+                    ? `${effectiveCoords[0].toFixed(COORDINATE_DECIMALS)} · ${effectiveCoords[1].toFixed(COORDINATE_DECIMALS)}`
                     : t("gps.stationCoordsUnset")}
                 </span>
                 <Link

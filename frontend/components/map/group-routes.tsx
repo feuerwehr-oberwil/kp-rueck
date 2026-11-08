@@ -29,8 +29,7 @@ import { OperationHoverCard } from "./operation-hover-card"
 import { MapTooltip } from "./map-tooltip"
 import { colorAccent, toStopMirrorStatus, type StopMirrorStatus } from "@/lib/kanban-utils"
 import { STATUS_GROUP_BORDER_STYLE, type StatusGroup } from "@/lib/types/incidents"
-
-const NEUTRAL_BORDER_COLOR = "#374151" // gray-700 — same neutral marker outline the incident markers use
+import { STATUS_RING } from "@/lib/map-colors"
 
 /** The one source/layer pair every route line lives in. Exported so a surface can order around it. */
 export const GROUP_ROUTES_SOURCE_ID = "group-routes"
@@ -81,6 +80,9 @@ function borderStyleForDasharray(dasharray: string): "solid" | "dashed" | "dotte
 // encodes the stop's column status (Offen / Disponiert / Einsatz / Beendet) purely
 // through its STYLE — solid / dashed / dotted — matching the incident markers'
 // `Rahmen` convention (STATUS_GROUP_BORDER_STYLE), NOT via any status colour.
+// Same rings as the incident pin's desktop geometry (STATUS_RING): a 24px fill, a 2px white
+// gap (the border), the 2px frame flush on it – 32px across at rest, 36 highlighted. The frame
+// is a CSS outline, so dashed / dotted are the browser's pattern, not the SVG dasharray.
 // `dimmed` softens non-focused groups when the caller focuses one.
 function sequencePinStyle(
   routeColor: string,
@@ -88,7 +90,7 @@ function sequencePinStyle(
   highlighted: boolean,
   dimmed: boolean,
 ): CSSProperties {
-  const size = highlighted ? 30 : 26
+  const size = highlighted ? 32 : 28
   const { dasharray, opacity: statusOpacity } = STATUS_GROUP_BORDER_STYLE[MIRROR_STATUS_GROUP[mirrorStatus]]
   return {
     width: size,
@@ -99,8 +101,8 @@ function sequencePinStyle(
     background: routeColor,
     color: "white",
     border: "2px solid white",
-    outline: `2px ${borderStyleForDasharray(dasharray)} ${NEUTRAL_BORDER_COLOR}`,
-    outlineOffset: 1,
+    outline: `${STATUS_RING.width}px ${borderStyleForDasharray(dasharray)} ${STATUS_RING.color}`,
+    outlineOffset: 0,
     boxShadow: "0 2px 6px rgba(0, 0, 0, 0.35)",
     borderRadius: "50%",
     fontSize: highlighted ? 14 : 12,

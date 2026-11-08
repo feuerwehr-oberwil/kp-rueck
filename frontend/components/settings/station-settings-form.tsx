@@ -18,6 +18,7 @@ import {
 import { SettingRow } from '@/components/settings/setting-row';
 import {
   normalizeDecimal,
+  roundDecimal,
   validateRangedSetting,
   type SettingRange,
   type SettingValidationError,
@@ -42,6 +43,9 @@ export interface SettingConfig {
   options?: string[];
   /** Inclusive bounds for a `number`. Rejected client-side – the PATCH stores any string. */
   range?: SettingRange;
+  /** Fixed decimal places for a `number`: the stored value is SHOWN rounded, and a blur
+   *  saves it rounded (`roundDecimal`) – the station coordinates' 6. */
+  decimals?: number;
 }
 
 export interface StationSettings {
@@ -147,8 +151,8 @@ export function useStationSettings({
 
 /** Per-key additions the page knows and the config does not. */
 export interface SettingRowExtra {
-  /** Rendered under the row (see `SettingRow`'s `footer`). */
-  footer?: ReactNode;
+  /** Rendered under the row's description (see `SettingRow`'s `advice`). */
+  advice?: ReactNode;
   /** Select options to grey out, with the reason shown beside them. The stored
    *  value always stays selectable, or the select would show a disabled item as
    *  its own value. */
@@ -221,6 +225,12 @@ export function StationSettingsForm({
     }
 
     const validationError = settingErrors[config.key];
+    // A value as the server has it shows rounded; once the operator types, the field shows
+    // exactly what they typed until the blur rounds and saves it.
+    const shown =
+      config.decimals !== undefined && value === serverSettings[config.key]
+        ? roundDecimal(value, config.decimals)
+        : value;
 
     return (
       <div className="space-y-1">
@@ -231,7 +241,11 @@ export function StationSettingsForm({
           // and its spinner is useless at six decimal places.
           type="text"
           inputMode={config.range ? 'decimal' : undefined}
-          value={value}
+          // A number (today: the Magazin's latitude/longitude, 6 decimals) reads in
+          // Spline Sans Mono with tabular figures. Size and padding stay the Input's own:
+          // 14/20 from md, 16px below it (iOS zooms into a smaller field).
+          className={config.type === 'number' ? 'font-mono tabular-nums' : undefined}
+          value={shown}
           aria-invalid={validationError ? true : undefined}
           aria-describedby={validationError ? `${config.key}-error` : undefined}
           onChange={(e) => {
@@ -251,7 +265,8 @@ export function StationSettingsForm({
                 return;
               }
             }
-            const next = config.range ? normalizeDecimal(raw) : raw;
+            const normalized = config.range ? normalizeDecimal(raw) : raw;
+            const next = config.decimals !== undefined ? roundDecimal(normalized, config.decimals) : normalized;
             if (next !== raw) setSettings((prev) => ({ ...prev, [config.key]: next }));
             if (next !== serverSettings[config.key]) {
               updateSetting(config.key, next);
@@ -277,7 +292,7 @@ export function StationSettingsForm({
       label={t(`page.general.configs.${config.key}.label`)}
       htmlFor={config.key}
       hint={t(`page.general.configs.${config.key}.description`)}
-      footer={extras[config.key]?.footer ?? null}
+      advice={extras[config.key]?.advice ?? null}
     >
       <div className="flex w-full items-start gap-2">
         {/* Schalter drängen sich an die rechte Kante, alles mit einem Feld

@@ -11,6 +11,8 @@ const board = vi.hoisted(() => ({
       number: 12,
       location: 'Ringstrasse 11',
       locationDisplay: 'Ringstrasse 11',
+      incidentType: 'elementarereignis',
+      notes: 'Wasser im Keller',
       crew: [{ personnelId: 'p-2', assignmentId: 'a-2', name: 'Anna Crew' }],
       vehicles: [{ vehicleId: 'v-mowa', assignmentId: 'a-mowa', name: 'Mowa', callsign: null }],
     },
@@ -38,5 +40,11 @@ describe('usePersonEngagements', () => {
     // Crew on that Einsatz already says where; a vehicle in the depot says nothing here.
     expect(result.current.get('p-2')?.short).toBe('12 · Ringstrasse 11')
     expect(result.current.has('p-3')).toBe(false)
+  })
+
+  // r22: the «(Einsatzart: Meldung)» tail overflowed the row; it lives in the hover title only.
+  it('keeps the where-line to the place and the Einsatzart for the title', () => {
+    const { result } = renderHook(() => usePersonEngagements(), { wrapper })
+    expect(result.current.get('p-2')?.full).toBe('12 · Ringstrasse 11 (Elementarereignis: Wasser im Keller)')
   })
 })

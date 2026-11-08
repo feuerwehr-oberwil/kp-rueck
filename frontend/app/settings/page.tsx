@@ -81,7 +81,7 @@ import { ExcelImportSection } from '@/components/settings/excel-import-section';
 import { AuditLogSection } from '@/components/settings/audit-log-section';
 import { useAuditLog } from '@/components/settings/use-audit-log';
 import { useExcelImport } from '@/components/settings/use-excel-import';
-import { LATITUDE_RANGE, LONGITUDE_RANGE } from '@/components/settings/setting-validation';
+import { COORDINATE_DECIMALS, LATITUDE_RANGE, LONGITUDE_RANGE } from '@/components/settings/setting-validation';
 import {
   StationSettingsForm,
   useStationSettings,
@@ -100,8 +100,8 @@ import { ChecklistSettings } from '@/components/settings/checklist-settings';
 import { AuftragTemplateSettings } from '@/components/settings/auftrag-template-settings';
 import { UserSettings } from '@/components/settings/user-settings';
 import { DemoLock } from '@/components/settings/demo-lock';
-import { SettingBlock, SettingCard } from '@/components/settings/setting-row';
-import { SettingUnavailableNote } from '@/components/settings/setting-unavailable';
+import { SettingBlock, SettingCard, SettingGroup } from '@/components/settings/setting-row';
+import { SettingRowNote } from '@/components/settings/setting-unavailable';
 import { IntegrationsSection } from './integrations-section';
 import { useTileAvailability } from '@/lib/hooks/use-tile-availability';
 import { BrandingSettings } from '@/components/settings/branding-settings';
@@ -194,6 +194,11 @@ const SECTIONS = [
 ] as const;
 
 type SectionId = typeof SECTIONS[number]['id'];
+
+/** A group whose only visible row carries the group's own name («Dieses Gerät») – the nav
+ *  draws no head over it, the row stands alone above the next group. */
+const isSelfNamedGroup = (group: typeof GROUPS[number], sections: readonly { id: SectionId }[]) =>
+  sections.length === 1 && sections[0].id === group;
 type Section = typeof SECTIONS[number];
 
 const DEFAULT_SECTION: SectionId = 'general';
@@ -208,20 +213,34 @@ function resolveSection(param: string | null, visible: readonly Section[]): Sect
   return visible.find(s => s.id === param)?.id ?? DEFAULT_SECTION;
 }
 
+/**
+ * «Allgemein» in three headed groups (`SettingGroup`, heading `settings.page.general.groups.*`),
+ * so ten rows are not one undivided card: who the station is and where its Magazin stands,
+ * what the map and the incident clock show, and what the printed Einsatzrapport carries – the
+ * Stationslogo row (`BrandingSettings`) closes that last group. Every config names its group,
+ * so a new key cannot fall out of the card.
+ */
+const GENERAL_GROUPS = ['station', 'map', 'rapport'] as const;
+type GeneralGroup = (typeof GENERAL_GROUPS)[number];
+
 // Labels/descriptions/option labels come from settings.page.general.configs.*
-const SETTING_CONFIGS: SettingConfig[] = [
+// Within a group, the order here is the order on the page.
+const SETTING_CONFIGS: (SettingConfig & { group: GeneralGroup })[] = [
   {
     key: 'home_city',
+    group: 'station',
     type: 'text',
   },
   {
     key: 'funkrufname',
+    group: 'station',
     type: 'text',
   },
   // Pre-printed next to the «Kommandant» signature line on the Einsatzrapport
   // (mirrors KP Front). Empty = the line stays blank.
   {
     key: 'kommandant_name',
+    group: 'rapport',
     type: 'text',
   },
   // Station identity. All three have been PATCHable through the generic settings
@@ -236,30 +255,38 @@ const SETTING_CONFIGS: SettingConfig[] = [
   // strip it off them.)
   {
     key: 'firestation_name',
+    group: 'station',
     type: 'text',
   },
   {
     key: 'firestation_latitude',
+    group: 'station',
     type: 'number',
     range: LATITUDE_RANGE,
+    decimals: COORDINATE_DECIMALS,
   },
   {
     key: 'firestation_longitude',
+    group: 'station',
     type: 'number',
     range: LONGITUDE_RANGE,
+    decimals: COORDINATE_DECIMALS,
   },
   {
     key: 'map_mode',
+    group: 'map',
     type: 'select',
     options: ['auto', 'online', 'offline'],
   },
   {
     key: 'map_style',
+    group: 'map',
     type: 'select',
     options: ['osm', 'topo', 'carto-light', 'carto-dark'],
   },
   {
     key: 'incident_time_display',
+    group: 'map',
     type: 'select',
     options: ['start', 'column', 'total'],
   },
@@ -332,7 +359,7 @@ export default function SettingsPage() {
         : null;
 
     return (
-      <div className="space-y-2 pl-0.5">
+      <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <Badge
             variant="outline"
@@ -353,19 +380,21 @@ export default function SettingsPage() {
                 .join(' · ')}
             </span>
           )}
-          <Button variant="ghost" size="xs" className="text-muted-foreground" onClick={recheckTiles}>
+          {/* `-my-[5px]`: the 32px button lays out as tall as the 22px chip, so the note
+              stands 8px under the chip, not under the button's hit area. */}
+          <Button variant="ghost" size="xs" className="-my-[5px] text-muted-foreground" onClick={recheckTiles}>
             <RefreshCw className="size-3" />
             {t('page.general.tiles.recheck')}
           </Button>
         </div>
         {!installed && (
-          <SettingUnavailableNote>
+          <SettingRowNote>
             {t(
               tiles.status === 'unreachable'
                 ? 'page.general.tiles.unreachableHint'
                 : 'page.general.tiles.hint',
             )}
-          </SettingUnavailableNote>
+          </SettingRowNote>
         )}
       </div>
     );
@@ -443,23 +472,27 @@ export default function SettingsPage() {
                 </div>
               ) : (
                 <DemoLock active={demoMode}>
-                  <StationSettingsForm
-                    configs={SETTING_CONFIGS}
-                    store={stationSettings}
-                    isEditor={isEditor}
-                    extras={{
-                      // What «Nur Offline» would actually get you, right at the control
-                      // that offers it – see use-tile-availability.ts.
-                      map_mode: {
-                        footer: renderTileAvailability(),
-                        unavailableOptions: offlineTilesUnavailable
-                          ? { offline: t('page.general.tiles.optionUnavailable') }
-                          : undefined,
-                      },
-                    }}
-                  />
-                  {/* Renders its own <SettingRow>, so it needs no spacer of its own. */}
-                  <BrandingSettings readOnly={!isEditor} />
+                  {GENERAL_GROUPS.map((group) => (
+                    <SettingGroup key={group} title={t(`page.general.groups.${group}`)}>
+                      <StationSettingsForm
+                        configs={SETTING_CONFIGS.filter((config) => config.group === group)}
+                        store={stationSettings}
+                        isEditor={isEditor}
+                        extras={{
+                          // What «Nur Offline» would actually get you, right at the control
+                          // that offers it – see use-tile-availability.ts.
+                          map_mode: {
+                            advice: renderTileAvailability(),
+                            unavailableOptions: offlineTilesUnavailable
+                              ? { offline: t('page.general.tiles.optionUnavailable') }
+                              : undefined,
+                          },
+                        }}
+                      />
+                      {/* Renders its own <SettingRow>, so it needs no spacer of its own. */}
+                      {group === 'rapport' && <BrandingSettings readOnly={!isEditor} />}
+                    </SettingGroup>
+                  ))}
                 </DemoLock>
               )}
             </SettingCard>
@@ -897,10 +930,16 @@ export default function SettingsPage() {
                   const groupSections = visibleSections.filter(s => s.group === group);
                   if (groupSections.length === 0) return null;
                   return (
-                    <div key={group}>
-                      <p className={`px-3 py-2 text-xs font-semibold tracking-wide text-muted-foreground ${groupIndex > 0 ? 'mt-4' : ''}`}>
-                        {t(`page.groups.${group}`)}
-                      </p>
+                    <div key={group} className={groupIndex > 0 ? 'mt-4' : undefined}>
+                      {/* A group head names a place, so it takes the caps label role like every
+                          other header – title case read like one more item. A group whose one
+                          row says the same word («Dieses Gerät») has no head: it only repeated
+                          the row under it (hill climb r19). */}
+                      {!isSelfNamedGroup(group, groupSections) && (
+                        <p className="type-label px-3 py-2 text-muted-foreground">
+                          {t(`page.groups.${group}`)}
+                        </p>
+                      )}
                       {groupSections.map((section) => {
                         const Icon = section.icon;
                         const isActive = activeSection === section.id;
@@ -951,12 +990,13 @@ export default function SettingsPage() {
                   {GROUPS.map((group) => {
                     const groupSections = visibleSections.filter(s => s.group === group);
                     if (groupSections.length === 0) return null;
-                    const groupLabel = t(`page.groups.${group}`);
                     return (
                       <div key={group}>
-                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground tracking-wide">
-                          {groupLabel}
-                        </div>
+                        {!isSelfNamedGroup(group, groupSections) && (
+                          <div className="type-label px-2 py-1.5 text-muted-foreground">
+                            {t(`page.groups.${group}`)}
+                          </div>
+                        )}
                         {groupSections.map((section) => (
                           <SelectItem key={section.id} value={section.id}>
                             {t(`page.sections.${section.id}`)}
@@ -972,12 +1012,17 @@ export default function SettingsPage() {
 
           {/* Content area – min-h-0 so it scrolls inside the flex column on
               mobile; `pb-nav-reserve` so the end clears the bottom nav by its measured height. */}
-          <main className="flex-1 min-h-0 overflow-y-auto p-4 pb-nav-reserve md:p-6 md:pb-6">
-            {/* Form sections keep a reading width; the four resource LISTS get
-                the whole screen — a five-column table squeezed to 896px on a
-                1920 board while half the page stood empty was the opposite of
-                density with order. */}
-            <div className={`${['personnel', 'vehicles', 'materials', 'users'].includes(activeSection) ? 'max-w-none' : 'max-w-4xl'} space-y-6`}>
+          <main className="flex-1 min-h-0 overflow-y-auto p-4 pb-nav-reserve md:p-6 md:pt-8 md:pb-6">
+            {/* Form sections keep a reading width, CENTRED in what the sidebar leaves (a
+                896px column hung left with ~760px of empty canvas beside it on a 1920
+                board, hill climb r18); the four resource LISTS get the whole screen — a
+                five-column table squeezed to 896px while half the page stood empty was
+                the opposite of density with order. Off the phone the column opens with
+                the section's name, 20/600 (the phone's section picker already says it). */}
+            <div className={`${['personnel', 'vehicles', 'materials', 'users'].includes(activeSection) ? 'max-w-none' : 'mx-auto max-w-4xl'} space-y-6`}>
+              {!isMobile && (
+                <h2 className="text-xl font-semibold tracking-tight">{t(`page.sections.${activeSection}`)}</h2>
+              )}
               {renderContent()}
             </div>
           </main>

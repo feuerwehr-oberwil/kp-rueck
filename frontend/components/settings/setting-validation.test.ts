@@ -3,6 +3,7 @@ import {
   LATITUDE_RANGE,
   LONGITUDE_RANGE,
   normalizeDecimal,
+  roundDecimal,
   validateRangedSetting,
 } from '@/components/settings/setting-validation'
 
@@ -42,5 +43,21 @@ describe('normalizeDecimal', () => {
   it('produces something parseFloat reads whole', () => {
     expect(normalizeDecimal(' 47,516377 ')).toBe('47.516377')
     expect(parseFloat(normalizeDecimal('47,5'))).toBe(47.5)
+  })
+})
+
+describe('roundDecimal', () => {
+  it('rounds a 15-decimal coordinate to the 6 the settings keep', () => {
+    expect(roundDecimal('47.51637699933488', 6)).toBe('47.516377')
+    expect(roundDecimal('7.561800450458299', 6)).toBe('7.561800')
+  })
+
+  it('normalises the decimal comma on the way', () => {
+    expect(roundDecimal(' 47,5164 ', 6)).toBe('47.516400')
+  })
+
+  it('leaves empty empty and a typo untouched', () => {
+    expect(roundDecimal('', 6)).toBe('')
+    expect(roundDecimal('47.5N', 6)).toBe('47.5N')
   })
 })

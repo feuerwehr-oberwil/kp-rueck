@@ -83,7 +83,7 @@ export function DeviceSettings() {
   }
 
   return (
-    <SettingCard title={t('device.title')} subtitle={t('device.subtitle')}>
+    <SettingCard subtitle={t('device.subtitle')}>
       <SettingRow
         label={t('page.general.appearance')}
         hint={t('page.general.appearanceHint')}

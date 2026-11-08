@@ -438,13 +438,16 @@ export function LocationInput({
             className={cn(
               denseRow
                 ? "text-xs font-normal text-muted-foreground"
-                : "text-sm font-semibold text-muted-foreground",
+                // = STACKED_LABEL (detail-field.tsx): the phone's field label
+                : "text-[13px] leading-tight font-medium text-muted-foreground",
             )}
           >
-            {denseRow ? t('locationInput.addressLabelShort') : t('locationInput.addressLabel')}
+            {t('locationInput.addressLabel')}
           </Label>
+          {/* The required mark is muted ink, not red: red is priority and danger only.
+              What is wrong is said in red UNDER the field, after a failed submit. */}
           {required && (
-            <span className="text-destructive" title={t('locationInput.requiredField')}>*</span>
+            <span className="text-muted-foreground" title={t('locationInput.requiredField')}>*</span>
           )}
         </div>
         {/* items-CENTER, not items-start: the two icon buttons belong on the

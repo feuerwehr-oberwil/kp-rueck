@@ -266,20 +266,27 @@ export function CardResources({
                 menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') }]}
                 removeLabel={t('detail.removeVehicle')}
               >
-                {/* min-w-0 so the NAME truncates while the status pill
-                    (shrink-0 below) stays whole — a long
-                    «Name · Funkrufname (Fahrer)» must never wrap the
-                    chip onto a second line. Plain text, not a button:
-                    the whole chip used to toggle the driver decision,
-                    so reading who drives and CHANGING what he does
-                    afterwards shared one click target. */}
-                <span className="flex min-w-0 items-center gap-1">
-                  <span className="truncate">
+                {/* Two halves that wrap as wholes (4px apart): WHICH
+                    vehicle — «Name · Funkrufname», the identity a radio
+                    call uses — and who drives it plus what he does. When
+                    the pair does not fit beside the identity it drops
+                    beneath it, instead of the old single line that
+                    ellipsized the call sign («Mowa · Omega 3 (…») to keep
+                    the pill. The driver and the stay chip wrap as wholes too
+                    (a 260px column, r20). Only the driver's name may still truncate
+                    (full name in `title`); the identity shrinks only on a
+                    card too narrow for it alone. Plain text, not a
+                    button: the whole chip used to toggle the driver
+                    decision, so reading who drives and CHANGING what he
+                    does afterwards shared one click target. */}
+                <span className="flex min-w-0 flex-wrap items-center gap-1">
+                  <span className="min-w-0 truncate">
                     {vehicleName}{callsign ? ` · ${callsign}` : ''}
-                    {driverName && (
-                      <span className="text-muted-foreground"> ({driverName})</span>
-                    )}
                   </span>
+                  <span className="flex min-w-0 flex-wrap items-center gap-1">
+                  {driverName && (
+                    <span className="min-w-0 truncate text-muted-foreground" title={driverName}>({driverName})</span>
+                  )}
                   {/* The only thing that toggles, and it says what
                       currently holds in full — «bleibt vor Ort» /
                       «fährt zurück». The short forms were a two-word
@@ -298,7 +305,8 @@ export function CardResources({
                     disabled={!onToggleDriverStay}
                     title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
                     className={cn(
-                      "inline-flex shrink-0 items-center gap-0.5 rounded px-1 type-micro transition-colors",
+                      // `hit-area`: the 16px pill is a 26px target (globals.css).
+                      "relative hit-area inline-flex shrink-0 items-center gap-0.5 rounded px-1 type-micro transition-colors",
                       onToggleDriverStay && "cursor-pointer hover:brightness-110",
                       // Neutral ink in both states (quieter cards; the
                       // count-chip treatment, readable at 11px): the
@@ -309,6 +317,7 @@ export function CardResources({
                     {driverStay ? <MapPin className="h-2.5 w-2.5 shrink-0" /> : <Undo2 className="h-2.5 w-2.5 shrink-0" />}
                     {driverStay ? t('common.driverStaysFull') : t('common.driverReturnsFull')}
                   </button>
+                  </span>
                 </span>
               </RemovableChip>
               )

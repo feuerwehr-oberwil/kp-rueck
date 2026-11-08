@@ -13,7 +13,7 @@ import {
  * Resource summary — crew, vehicles and materials per incident.
  *
  * This suite used to assert all of it on the kanban card: "Crew (0)",
- * "Fahrzeuge (0)", "Material (0)", three [+] buttons, a CheckCircle when
+ * "Fahrzeuge · 0", "Material · 0", three [+] buttons, a CheckCircle when
  * something was assigned and an XCircle when nothing was. None of that is on
  * the card any more (`components/kanban/draggable-operation.tsx`): the counted
  * sections moved into the detail view (`operation-detail-content.tsx`, and its
@@ -41,15 +41,18 @@ import {
  *
  * The desktop detail draws each section as a `Label (N) │ chips` row under the
  * «Kräfte» heading (no per-section icon any more) and says an empty section
- * with a short muted `empty` value; the phone sheet keeps its own full
- * sentences (`mobileEmpty`, `mobileDetail.*` keys).
+ * with a short muted `empty` value; the phone sheet heads each section with a
+ * caps «Label · N» (`mobileHeading`) and keeps its own full sentences
+ * (`mobileEmpty`, `mobileDetail.*` keys).
  */
 const SECTIONS = [
   {
     id: 'crew',
     /** `common.crewCount` etc. — the row label is section name + live count. */
-    heading: /^Mannschaft \(\d+\)$/,
-    zero: 'Mannschaft (0)',
+    heading: /^Mannschaft · \d+$/,
+    /** The phone sheet's caps head (`mobileDetail.*`): the count after a middle dot. */
+    mobileHeading: /^Mannschaft · \d+$/,
+    zero: 'Mannschaft · 0',
     /** `title` on the add control (`common.assignCrew`). */
     addTitle: 'Mannschaft zuweisen',
     empty: 'keine',
@@ -57,16 +60,20 @@ const SECTIONS = [
   },
   {
     id: 'vehicles',
-    heading: /^Fahrzeuge \(\d+\)$/,
-    zero: 'Fahrzeuge (0)',
+    heading: /^Fahrzeuge · \d+$/,
+    /** The phone sheet's caps head (`mobileDetail.*`): the count after a middle dot. */
+    mobileHeading: /^Fahrzeuge · \d+$/,
+    zero: 'Fahrzeuge · 0',
     addTitle: 'Fahrzeug zuweisen',
     empty: 'keine',
     mobileEmpty: 'Keine Fahrzeuge zugewiesen',
   },
   {
     id: 'materials',
-    heading: /^Material \(\d+\)$/,
-    zero: 'Material (0)',
+    heading: /^Material · \d+$/,
+    /** The phone sheet's caps head (`mobileDetail.*`): the count after a middle dot. */
+    mobileHeading: /^Material · \d+$/,
+    zero: 'Material · 0',
     addTitle: 'Material zuweisen',
     empty: 'keine',
     mobileEmpty: 'Kein Material zugewiesen',
@@ -202,7 +209,7 @@ async function createTestMaterial(
  */
 async function assignMaterialFromDetail(page: Page, modal: Locator, materialName: string) {
   await modal.getByTitle('Material zuweisen').click();
-  const dialog = page.getByRole('dialog', { name: 'Material zu Einsatz zuweisen' });
+  const dialog = page.getByRole('dialog', { name: 'Material zuweisen' });
   await expect(dialog).toBeVisible({ timeout: 15_000 });
 
   await dialog.getByPlaceholder('Suchen …').fill(materialName);
@@ -282,7 +289,7 @@ test.describe('Resource summary — the add controls', () => {
     await authenticatedPage.keyboard.press('Enter');
 
     await expect(
-      authenticatedPage.getByRole('dialog', { name: 'Mannschaft zu Einsatz zuweisen' }),
+      authenticatedPage.getByRole('dialog', { name: 'Mannschaft zuweisen' }),
     ).toBeVisible({ timeout: 15_000 });
   });
 });
@@ -310,15 +317,15 @@ test.describe('Resource summary — assigned state', () => {
     authenticatedPage,
   }) => {
     const modal = await openDetail(authenticatedPage, fixture.address);
-    const heading = modal.getByText(/^Material \(\d+\)$/);
-    await expect(heading).toHaveText('Material (0)');
+    const heading = modal.getByText(/^Material · \d+$/);
+    await expect(heading).toHaveText('Material · 0');
     await expect(
       sectionAround(heading).getByText('keine', { exact: true }),
     ).toBeVisible();
 
     await assignMaterialFromDetail(authenticatedPage, modal, material.name);
 
-    await expect(heading).toHaveText('Material (1)');
+    await expect(heading).toHaveText('Material · 1');
     await expect(sectionAround(heading).getByText(material.name)).toBeVisible();
   });
 
@@ -331,7 +338,7 @@ test.describe('Resource summary — assigned state', () => {
     const modal = await openDetail(authenticatedPage, fixture.address);
     await modal.getByTitle('Material zuweisen').click();
     const dialog = authenticatedPage.getByRole('dialog', {
-      name: 'Material zu Einsatz zuweisen',
+      name: 'Material zuweisen',
     });
     await expect(dialog).toBeVisible({ timeout: 15_000 });
 
@@ -357,13 +364,13 @@ test.describe('Resource summary — assigned state', () => {
     // resource back was not, and it is the half an operator does under time
     // pressure when a squad is redirected.
     const modal = await openDetail(authenticatedPage, fixture.address);
-    const heading = modal.getByText(/^Material \(\d+\)$/);
+    const heading = modal.getByText(/^Material · \d+$/);
     await assignMaterialFromDetail(authenticatedPage, modal, material.name);
-    await expect(heading).toHaveText('Material (1)');
+    await expect(heading).toHaveText('Material · 1');
 
     await modal.getByTitle('Material zuweisen').click();
     const dialog = authenticatedPage.getByRole('dialog', {
-      name: 'Material zu Einsatz zuweisen',
+      name: 'Material zuweisen',
     });
     await expect(dialog).toBeVisible({ timeout: 15_000 });
     await dialog.getByPlaceholder('Suchen …').fill(material.name);
@@ -372,7 +379,7 @@ test.describe('Resource summary — assigned state', () => {
     await dialog.getByRole('button', { name: 'Fertig' }).click();
     await expect(dialog).toBeHidden({ timeout: 15_000 });
 
-    await expect(heading).toHaveText('Material (0)');
+    await expect(heading).toHaveText('Material · 0');
     await expect(
       sectionAround(heading).getByText('keine', { exact: true }),
     ).toBeVisible();
@@ -424,13 +431,13 @@ test.describe('Resource summary — assigned state', () => {
 
     const firstModal = await openDetail(authenticatedPage, fixture.address);
     await assignMaterialFromDetail(authenticatedPage, firstModal, material.name);
-    await expect(firstModal.getByText(/^Material \(\d+\)$/)).toHaveText('Material (1)');
+    await expect(firstModal.getByText(/^Material · \d+$/)).toHaveText('Material · 1');
     await closeDetail(firstModal);
 
     const secondModal = await openDetail(authenticatedPage, secondAddress);
-    await expect(secondModal.getByText(/^Material \(\d+\)$/)).toHaveText('Material (0)');
+    await expect(secondModal.getByText(/^Material · \d+$/)).toHaveText('Material · 0');
     await expect(
-      sectionAround(secondModal.getByText(/^Material \(\d+\)$/)).getByText(
+      sectionAround(secondModal.getByText(/^Material · \d+$/)).getByText(
         'keine',
         { exact: true },
       ),
@@ -463,7 +470,7 @@ test.describe('Resource summary — phone layout', () => {
     await expect(sheet).toBeVisible({ timeout: 15_000 });
 
     for (const section of SECTIONS) {
-      await expect(sheet.getByText(section.heading)).toBeVisible();
+      await expect(sheet.getByText(section.mobileHeading)).toBeVisible();
       // The phone sheet keeps its full sentences — it is a different component
       // (`mobile-incident-detail-sheet.tsx`) with its own `mobileDetail.*` keys.
       await expect(sheet.getByText(section.mobileEmpty)).toBeVisible();

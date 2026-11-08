@@ -18,7 +18,7 @@ import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'rea
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ArrowLeft, Binoculars, CarTaxiFront, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, MapPin, MessageSquare, MonitorCog, Navigation, Phone, Plus, Truck, User, Waypoints } from 'lucide-react'
+import { ArrowLeft, Binoculars, CarTaxiFront, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, MessageSquare, MonitorCog, Navigation, Phone, Plus, Truck, User, Waypoints } from 'lucide-react'
 
 import {
   apiClient,
@@ -42,6 +42,8 @@ import { FeldMaterialTable } from '@/components/feld/feld-material-table'
 import { FeldMeldenSheet } from '@/components/feld/feld-melden-sheet'
 import { FeldRapportForm } from '@/components/feld/feld-rapport-form'
 import { Button } from '@/components/ui/button'
+import { IncidentNumber } from '@/components/ui/incident-number'
+import { PriorityGlyph } from '@/components/ui/priority-glyph'
 import { SearchInput } from '@/components/ui/search-input'
 import { topLoading } from '@/components/ui/top-loading-bar'
 import { useBootGate } from '@/lib/boot-cover'
@@ -87,16 +89,6 @@ const INCIDENT_COOKIE = 'feld-selected-incident'
  */
 const FELD_POLL_MS = 10000
 
-/**
- * Bottom padding of the two views that carry the floating «＋ Neuer Schadenplatz»
- * (`meldenFab`): its offset (`bottom-5`, 1.25rem) + its height (`h-13`, 3.25rem)
- * + 3.5rem, so scrolled to the very end nothing on the page is under it. The pill
- * may float over content mid-scroll — one scroll moves it out of the way — but the
- * end of the page must always come clear. Change the pill, change this.
- */
-const MELDEN_FAB_CLEARANCE = 'pb-32'
-
-
 /** The board's statuses, as `feld.kpStatus.*` names them. A closed set — the
  *  guard keeps a future status from crashing `t()` on every phone at once. */
 const KP_STATUS_KEYS = new Set([
@@ -110,7 +102,9 @@ const KP_STATUS_KEYS = new Set([
 ])
 
 /**
- * «KP: Im Einsatz» — the board's status, said quietly on the detail (§P3.1).
+ * «KP: Im Einsatz» — the board's status on the detail (§P3.1), 14/600 in ink:
+ * it is the KP's answer a squad waits for, so it must not read as metadata
+ * beside the 12px timestamps (hill climb r8).
  *
  * The rows still carry no status, and the old reasoning there still holds (a
  * crew reads «Anfahrt» on the job they are standing on as a claim about
@@ -121,7 +115,11 @@ const KP_STATUS_KEYS = new Set([
 function KpStatusLine({ status }: { status: string }) {
   const t = useTranslations('feld')
   if (!KP_STATUS_KEYS.has(status)) return null
-  return <span>{t('detail.kpStatus', { status: t(`kpStatus.${status}`) })}</span>
+  return (
+    <span className="text-sm font-semibold text-foreground">
+      {t('detail.kpStatus', { status: t(`kpStatus.${status}`) })}
+    </span>
+  )
 }
 
 /** The journey as a chip. «Vor Ort» carries the weight — it is the one of the
@@ -147,6 +145,8 @@ function JourneyChip({ assignment }: { assignment: ApiFeldAssignment }) {
  * expected to file. Briefed, never enforced — anybody assigned may still file.
  * The empty case reads "kein EL erfasst"; it is never a blank line. Marked with
  * the board's «EL» sign (LeaderGlyph), never a star – leader-badge.tsx says why.
+ * 13px, under the 18px address: the briefing must not outweigh where to go
+ * (hill climb r8); yours = 500 in ink, somebody else's = muted.
  */
 function LeaderLine({
   assignment,
@@ -163,7 +163,7 @@ function LeaderLine({
 
   if (isSelf) {
     return (
-      <p data-slot="feld-leader-line" className={`flex items-baseline gap-1.5 text-sm font-medium text-foreground ${className ?? ''}`}>
+      <p data-slot="feld-leader-line" className={`flex items-baseline gap-1.5 text-[13px] leading-snug font-medium text-foreground ${className ?? ''}`}>
         <LeaderGlyph />
         <span>{t('self')}</span>
       </p>
@@ -171,7 +171,7 @@ function LeaderLine({
   }
 
   return (
-    <p data-slot="feld-leader-line" className={`flex items-baseline gap-1.5 text-sm text-muted-foreground ${className ?? ''}`}>
+    <p data-slot="feld-leader-line" className={`flex items-baseline gap-1.5 text-[13px] leading-snug text-muted-foreground ${className ?? ''}`}>
       <LeaderGlyph />
       {assignment.leader_name ? (
         <>
@@ -920,19 +920,6 @@ function FeldSurface() {
   }, [])
 
   /**
-   * «＋ Neuer Schadenplatz» — the crew reporting something they are standing in front of.
-   *
-   * One node, rendered by BOTH the list and the detail view. The person who
-   * spots the next tree is the one already four taps deep at a Schadenplatz,
-   * and having to find the way back to the list first is how a Meldung turns
-   * into a radio call — or into nothing. Only one of the two views is mounted
-   * at a time, so this stays a single sheet with a single piece of state; the
-   * sheet closing when the crew leaves the detail is the wanted behaviour.
-   *
-   * The FAB belongs to the person, not to a row: same corner in both views, so
-   * it is the same button rather than two that happen to look alike.
-   */
-  /**
    * Does this person have work of their own on the page?
    *
    * The one question that decides where the Magazin's table goes. A Materialwart
@@ -958,7 +945,7 @@ function FeldSurface() {
         aria-expanded={materialExpanded}
         className="flex w-full items-center gap-2 text-left"
       >
-        <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('material.title')}</h2>
+        <h2 className="type-label text-muted-foreground">{t('material.title')}</h2>
         {/* Folded, the header carries the one number worth carrying — the table
             says the same thing in its own first line once it is open. */}
         {!materialExpanded && (
@@ -981,40 +968,48 @@ function FeldSurface() {
     </section>
   ) : null
 
-  const meldenFab =
-    token && selectedPerson && !atTheStation(functions) ? (
-      <>
-        {/* Gone while the sheet is open. On a desktop viewport the sheet is
-            non-modal and its dim layer does not cover a `fixed` element outside
-            the portal, so the button sat lit up on top of the dimmed page — the
-            one bright thing on screen, offering to open what is already open. */}
-        {!meldenOpen && (
-          <button
-            type="button"
-            onClick={() => setMeldenOpen(true)}
-            className="fixed bottom-5 right-4 z-page-chrome flex h-13 items-center gap-2 rounded-full bg-action px-5 text-sm font-semibold text-action-foreground shadow-lg"
-          >
-            <Plus className="size-4" />
-            {functions.includes('telefondienst') ? t('melden.fabPhone') : t('melden.fab')}
-          </button>
-        )}
-        <FeldMeldenSheet
-          open={meldenOpen}
-          onOpenChange={setMeldenOpen}
-          personnelId={selectedPerson.personnel_id}
-          token={token}
-          isPhoneDesk={functions.includes('telefondienst')}
-          // A Reko trupp cannot "take it on": they were sent to look and
-          // report back. The escape hatch is crew work the reko fallback
-          // cannot swallow — a squad assigned to an Auftrag holds no personnel
-          // row on any stop, so those rows really do come back as `crew`
-          // (`visibility.py`, the route block). A reko holder given ordinary
-          // per-incident crew rows reads as reko throughout the Ereignis, and
-          // that collapse is deliberate and documented there.
-          canTakeOver={!functions.includes('reko') || assignments.some(item => item.source === 'crew')}
-          onReported={() => loadAssignments(selectedPerson.personnel_id)}
-        />
-      </>
+  /**
+   * «＋ Neuer Schadenplatz» — the crew reporting something they are standing in front of.
+   *
+   * One node, rendered by BOTH the list and the detail view. The person who
+   * spots the next tree is the one already four taps deep at a Schadenplatz,
+   * and having to find the way back to the list first is how a Meldung turns
+   * into a radio call — or into nothing. Only one of the two views is mounted
+   * at a time, so this stays a single sheet with a single piece of state; the
+   * sheet closing when the crew leaves the detail is the wanted behaviour.
+   *
+   * It belongs to the person, not to a row: the same full-width outline button
+   * in both views, IN the flow of the page – under the status card on the
+   * detail, at the end of the list. It used to float over the bottom-right
+   * corner, where it covered «danach: Rapport …» and stood as a second ink
+   * button beside «Angekommen melden»; outline keeps that one the page's main
+   * action, and in flow it never sits on anything.
+   */
+  const showMelden = !!token && !!selectedPerson && !atTheStation(functions)
+  const meldenButton = showMelden ? (
+    <Button size="lg" variant="outline" className="w-full" onClick={() => setMeldenOpen(true)}>
+      <Plus className="size-4" />
+      {functions.includes('telefondienst') ? t('melden.fabPhone') : t('melden.fab')}
+    </Button>
+  ) : null
+  const meldenSheet =
+    showMelden && token && selectedPerson ? (
+      <FeldMeldenSheet
+        open={meldenOpen}
+        onOpenChange={setMeldenOpen}
+        personnelId={selectedPerson.personnel_id}
+        token={token}
+        isPhoneDesk={functions.includes('telefondienst')}
+        // A Reko trupp cannot "take it on": they were sent to look and
+        // report back. The escape hatch is crew work the reko fallback
+        // cannot swallow — a squad assigned to an Auftrag holds no personnel
+        // row on any stop, so those rows really do come back as `crew`
+        // (`visibility.py`, the route block). A reko holder given ordinary
+        // per-incident crew rows reads as reko throughout the Ereignis, and
+        // that collapse is deliberate and documented there.
+        canTakeOver={!functions.includes('reko') || assignments.some(item => item.source === 'crew')}
+        onReported={() => loadAssignments(selectedPerson.personnel_id)}
+      />
     ) : null
 
   if (error) {
@@ -1126,11 +1121,7 @@ function FeldSurface() {
       ?? formatLocationForDisplay(selectedAssignment.location_address ?? '', getGlobalHomeCity())
     const navigateUrl = navigationUrl(selectedAssignment)
     return (
-      // The floating «＋ Neuer Schadenplatz» stays where it is while scrolling;
-      // the end of the page can always scroll clear of it (MELDEN_FAB_CLEARANCE).
-      // Scrolled to the end — where a crew filing a Rapport ends up — the last
-      // thing, the Rapport's own full-width «Senden», sits a thumb above it.
-      <div className={`min-h-screen bg-background ${MELDEN_FAB_CLEARANCE}`}>
+      <div className="min-h-screen bg-background pb-[env(safe-area-inset-bottom)]">
         {/* The address, always on screen. Folded blocks mean a crew can be four
             taps deep in a Rapport with nothing left in view that says WHICH
             Schadenplatz they are filing — and on a storm night there are six.
@@ -1165,21 +1156,35 @@ function FeldSurface() {
                     one-handed is both slow and the easiest place all night to
                     fat-finger it. Falls back to plain text when the Schadenplatz
                     has neither a pin nor an address — see `lib/navigation.ts`. */}
-                <h1 className="text-base font-semibold leading-tight">
+                {/* 18/600: the heaviest line on the page, above the EL briefing.
+                    Priority mark + number before the address, as on the phone
+                    Einsatz sheet and every other surface (owner pick D3): the
+                    shared mark in its own column (18px box, centred on the 22px
+                    first line), the number 12/500 mono inline, 8px to the
+                    address. The navigation glyph trails the address now – before
+                    it, it stood between the priority mark and the number. */}
+                <h1 className="flex min-w-0 items-start gap-2 text-lg font-semibold leading-tight">
+                  <PriorityGlyph priority={selectedAssignment.priority} size="wall" className="mt-0.5 size-[18px]" />
                   {navigateUrl ? (
+                    // A flex box, not inline text: the phone's 44px touch floor
+                    // (globals.css) only takes on a box. The number is
+                    // `inline-block` so the link's underline stays on the address.
                     <a
                       href={navigateUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-start gap-1.5 underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground"
+                      className="flex min-w-0 items-start gap-1.5 underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground"
                     >
-                      <Navigation className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
-                      <span>{address || selectedAssignment.incident_title}</span>
+                      <span className="min-w-0 break-words">
+                        <IncidentNumber number={selectedAssignment.number} className="mr-2 inline-block text-xs" />
+                        {address || selectedAssignment.incident_title}
+                      </span>
+                      <Navigation className="mt-[3px] h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                     </a>
                   ) : (
-                    <span className="flex items-start gap-1.5">
-                      {address && <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />}
-                      <span>{address || selectedAssignment.incident_title}</span>
+                    <span className="min-w-0 break-words">
+                      <IncidentNumber number={selectedAssignment.number} className="mr-2 text-xs" />
+                      {address || selectedAssignment.incident_title}
                     </span>
                   )}
                 </h1>
@@ -1193,10 +1198,10 @@ function FeldSurface() {
                 <LeaderLine assignment={selectedAssignment} selfId={selectedPerson?.personnel_id} className="mb-2" />
               )}
               {/* The crew's own timestamps, plus — since sweep 27 §P3.1 — the
-                  board's status as one quiet, labelled word. The rows still
+                  board's status as one labelled word in ink. The rows still
                   carry no status; the detail is where a squad waits for the KP
                   to act on what it reported, and «KP: Disponiert» is the ack. */}
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs text-muted-foreground">
                 <KpStatusLine status={selectedAssignment.incident_status} />
                 {selectedAssignment.arrived_at && (
                   <span>
@@ -1267,6 +1272,10 @@ function FeldSurface() {
               />
             )}
 
+            {/* «＋ Neuer Schadenplatz» right under the actions: the crew standing
+                here is the one who sees the next tree (see `meldenButton`). */}
+            {meldenButton}
+
             {/* Section: «Meldungen vom KP» (sweep 27 §P3.2) — the other half of
                 the Meldung loop. On the KP's side a field Meldung is an urgent
                 toast; here the KP's sentence gets the one tinted card on the
@@ -1303,13 +1312,13 @@ function FeldSurface() {
                 lands on the Restliste as work somebody has to check. */}
             {token && selectedPerson && selectedAssignment.source === 'crew' && !incidentHasRapport(selectedAssignment) && (
               <section className="rounded-xl bg-secondary/30 p-4">
-                <h2 className="text-sm font-medium mb-2">{t('detail.rapportTitle')}</h2>
+                <h2 className="type-label mb-2 text-muted-foreground">{t('detail.rapportTitle')}</h2>
                 <p className="text-sm text-muted-foreground">{tRapport('notDispatched')}</p>
               </section>
             )}
             {token && selectedPerson && assignmentRapportApplies(selectedAssignment) && (
               <section id="feld-rapport-section" className="scroll-mt-4 space-y-3">
-                <h2 className="px-1 text-sm font-medium text-muted-foreground">{t('detail.rapportTitle')}</h2>
+                <h2 className="type-label px-1 text-muted-foreground">{t('detail.rapportTitle')}</h2>
                 <FeldRapportForm
                   key={selectedAssignment.incident_id}
                   incidentId={selectedAssignment.incident_id}
@@ -1364,17 +1373,15 @@ function FeldSurface() {
           </div>
         </div>
 
-        {/* The same «＋ Neuer Schadenplatz» the list carries. The crew standing at this
-            Schadenplatz is the one who sees the next tree, and making them
-            navigate back to report it is how the Meldung becomes a radio call. */}
-        {meldenFab}
+        {/* The one «Neuer Schadenplatz» sheet, opened by the button above. */}
+        {meldenSheet}
       </div>
     )
   }
 
   // -------------------------------------------------------- assignments
   return (
-    <div className={`min-h-screen bg-background ${MELDEN_FAB_CLEARANCE}`}>
+    <div className="min-h-screen bg-background pb-[env(safe-area-inset-bottom)]">
       <FeldIdentityBar
         name={selectedPerson?.name ?? ''}
         subtitle={roleLine || selectedPerson?.role || eventName}
@@ -1494,6 +1501,8 @@ function FeldSurface() {
                     street matches the street, not the dispatcher's title for it;
                     the title stays as the fallback when there is no address. */}
                 <div className="flex items-start justify-between gap-3 mb-1.5">
+                  {/* Stop number (an Auftrag's order), then the priority mark and the
+                      Einsatz number before the address, as on the phone card (D3). */}
                   <h3 className="flex min-w-0 items-start gap-2 font-medium leading-tight">
                     {/* Which stop of the route this is. The number is the whole
                         reason a crew reads the group as an Auftrag rather than
@@ -1507,7 +1516,11 @@ function FeldSurface() {
                         {(assignment.group_position ?? 0) + 1}
                       </span>
                     ) : null}
-                    <span className="min-w-0">{address || assignment.incident_title}</span>
+                    <PriorityGlyph priority={assignment.priority} size="card" className="mt-0.5" />
+                    <span className="min-w-0">
+                      <IncidentNumber number={assignment.number} className="mr-2 text-xs" />
+                      {address || assignment.incident_title}
+                    </span>
                   </h3>
                   <div className="flex shrink-0 items-center gap-2">
                     <SourceLabel assignment={assignment} />
@@ -1674,6 +1687,9 @@ function FeldSurface() {
             is how it came to hide a two-stop Auftrag under itself. */}
         {hasOwnWork && materialSection}
 
+        {/* «＋ Neuer Schadenplatz» ends the list, in flow (see `meldenButton`). */}
+        {meldenButton && <div className="pt-1">{meldenButton}</div>}
+
         {/* No «Eingecheckt» row. Checking IN is the crew's and checking out is
             not — abmelden from a phone in a vehicle edits the roll call the KP
             is keeping — so what was left was a button-less statement of
@@ -1682,8 +1698,8 @@ function FeldSurface() {
             not-checked-in case still speaks for itself, loudly, above. */}
       </div>
 
-      {/* The floating «＋ Neuer Schadenplatz», built once above — see `meldenFab`. */}
-      {meldenFab}
+      {/* The «Neuer Schadenplatz» sheet, built once above — see `meldenButton`. */}
+      {meldenSheet}
 
       {/* The correction sheet — the same form, prefilled. Keyed by incident so
           opening a second Meldung remounts it rather than showing the first

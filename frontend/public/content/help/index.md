@@ -9,7 +9,7 @@ Hauptansicht beim Laden der App. Zeigt alle Einsätze in sieben Status-Spalten (
 
 **Die Ansicht bleibt, wie man sie eingestellt hat.** Zugeklappte Seitenleisten, das Seitenpanel und eine weggeklickte Einrichtungs-Checkliste überstehen einen Reload – pro Gerät gemerkt, wie die übrigen Anzeige-Einstellungen.
 
-**Spalten ganz ausserhalb des Bildes stehen als Chips in der Kopfleiste.** Mit beiden Seitenleisten passen auf 1920 px vier Spalten, von der fünften ist ein Streifen zu sehen. Was rechts davon ganz verschwunden ist, nennt ein Chip vor dem Suchfeld – etwa «Rückfahrt 2 ›», «Abgeschlossen 0 ›», «Im Einsatz 2 · 1 Hoch ›» (ein roter Punkt heisst: Hoch drin); nach rechts gescrollt stehen die Spalten links davon als «‹ …» gleich nach dem Ereignisnamen. Ein Klick (oder `Tab` + `Enter`) scrollt die Spalte ins Bild. Sobald auch nur ein Stück einer Spalte zu sehen ist, verschwindet ihr Chip. Eine Karte lässt sich auch direkt auf einen Chip ziehen. Ist die Kopfleiste knapp, wird zuerst der Spaltenname gekürzt (der volle Name steht im Tooltip). Keine Spalte wird dafür schmaler; passt alles (Seitenleisten zu, breiterer Bildschirm), gibt es keine Chips.
+**Spalten ausserhalb des Bildes stehen als Chips in der Kopfleiste.** Mit beiden Seitenleisten passen auf 1920 px fünf Spalten ganz ins Bild. Was rechts davon verschwunden ist, nennt ein Chip vor dem Suchfeld – etwa «Rückfahrt 2 ›», «Abgeschlossen 0 ›», «Im Einsatz 2 · ^ 1 ›» (das Hoch-Zeichen vor der Zahl heisst: Hoch drin); nach rechts gescrollt stehen die Spalten links davon als «‹ …» gleich nach dem Ereignisnamen. Ein Klick (oder `Tab` + `Enter`) scrollt die Spalte ins Bild. Eine Spalte, von der nur ein schmaler Streifen (unter rund 96 px) zu sehen ist, zählt als verdeckt: Der Streifen bleibt stehen, und die Spalte hat trotzdem ihren Chip. Sobald mehr davon zu sehen ist, verschwindet der Chip. Eine Karte lässt sich auch direkt auf einen Chip ziehen. Ist die Kopfleiste knapp, wird zuerst der Spaltenname gekürzt (der volle Name steht im Tooltip). Keine Spalte wird dafür schmaler; passt alles (Seitenleisten zu, breiterer Bildschirm), gibt es keine Chips.
 
 **«3 Geräte vor Ort» am Kopf der Material-Leiste.** Material, das ein Trupp irgendwo stehen liess, ist auf dem Board sonst unsichtbar – es ist weder frei noch erkennbar im Gebrauch. Die Aufklappliste nennt Gerät, Adresse und seit wann, das Älteste zuoberst; ein Klick öffnet den zugehörigen Einsatz. Sie erscheint nur, wenn wirklich etwas draussen steht.
 
@@ -32,6 +32,11 @@ Geografische Übersicht aller Einsatzorte. Farbige Marker zeigen Priorität (Gr�
 - **Priorität (Füllung):** Grau=Niedrig, Gelb=Mittel, Rot=Hoch
 - **Status (Rahmen):** Gestrichelt=Offen, Durchgezogen=Aktiv, Gepunktet+Verblasst=Rückfahrt & Abgeschlossen
 - **Fahrzeuge (GPS):** Blau=Online, Grau=Offline
+- **Handy – Blase mit Zahl:** mehrere Einsätze, deren Marker sich überdecken; Marke und Rahmen des dringendsten (höchste Priorität). Antippen zoomt auf die Gruppe. Ab Strassen-Zoom stehen die Marker wieder einzeln.
+
+**Beschriftungen (Desktop):** Jede Adresse steht neben ihrem Marker, normalerweise rechts. Wo rechts schon eine andere Beschriftung oder ein Marker steht, wechselt sie auf die linke Seite – ist auch die besetzt, bleibt sie rechts, und die überfahrene kommt nach vorn.
+
+**Liste:** In jeder Gruppe (Offen, Aktiv, …) stehen die Einsätze nach Priorität – Hoch, Mittel, Niedrig – und darin der älteste zuerst, gemessen wie die Zeit in der Zeile.
 
 **Tastatur:** `L` Labels, `I` Linien, `1-5` Fahrzeug anzeigen – siehe [Tastaturkürzel](#tastaturkürzel).
 
@@ -44,6 +49,8 @@ Auf breiten Bildschirmen (>1280px) erscheint rechts ein Seitenpanel mit den **De
 - **Einfach-Klick**: Zeigt Einsatz-Details im Seitenpanel
 - **Doppelklick**: Öffnet den vollständigen Detail-Dialog (Modal)
 
+**Status im Detail:** Unter den **Merkmalen** steht die Zeile **Status** – eine Auswahl mit den Spalten des Boards in ihrer Reihenfolge. Ein Wechsel dort stellt dieselben Rückfragen wie das Verschieben der Karte (fehlende Ressourcen beim Disponieren, Reko, «Gerade geändert»). Darunter folgen gleich die **Kräfte**.
+
 ### Ereignisse (`G E`)
 Ereignisse verwalten, wechseln, archivieren, exportieren.
 
@@ -52,7 +59,7 @@ Ereignisse verwalten, wechseln, archivieren, exportieren.
 **Archivieren sagt, was noch offen ist.** Der Dialog listet, was das Archivieren abschneiden würde: nicht abgeschlossene Einsätze (mit «Auf dem Board zeigen»), offene Abholungen, Material noch am Schadenplatz und Personen, die noch angemeldet sind. Das vorab angekreuzte «automatisch abmelden» meldet beim Archivieren alle ab – Abmeldezeit = Ereignisende. Solange etwas offen ist, heisst der Knopf «Trotzdem archivieren».
 
 ### Einstellungen (`G S`)
-System-Konfiguration: Benutzer, Drucker, Kartenstil und mehr. Benutzer und das Audit-Protokoll sehen nur Admins.
+System-Konfiguration: Benutzer, Drucker, Kartenstil und mehr. Benutzer und das Audit-Protokoll sehen nur Admins. Die Koordinaten der Feuerwehr (Allgemein) stehen und speichern mit 6 Nachkommastellen (≈ 10 cm); mehr wird beim Verlassen des Felds gerundet.
 
 ### Hilfe (`G H`)
 Diese Dokumentationsseite.
@@ -89,7 +96,7 @@ Die Wand folgt dabei **nicht** der «Ansicht» des Bedieners: *Kompakt* gibt es,
 **Auf dem Handy** (Viewer-Konten landen hier) stehen die Spalten untereinander statt nebeneinander: dieselben Karten, man scrollt nach unten, nicht zur Seite. Ebenso die vier Spalten von «Status».
 
 ### Status (`/display/status`)
-Vier-Spalten-Übersicht: Fahrzeuge, Einsätze (gruppiert nach Status), Personal (gruppiert nach Rolle) und Material (gruppiert nach Standort). Zeigt bei zugewiesenen Ressourcen den Einsatzort an. Skaliert auf grösseren Bildschirmen automatisch hoch. Über den Einsätzen stehen, zuklappbar, die [Kennzahlen](#board-g-b).
+Vier-Spalten-Übersicht: Fahrzeuge, Einsätze (gruppiert nach Status), Personal (gruppiert nach Rolle) und Material (gruppiert nach Standort). Zeigt bei zugewiesenen Ressourcen den Einsatzort an. Skaliert auf grösseren Bildschirmen automatisch hoch. Über den Einsätzen stehen, zuklappbar, die [Kennzahlen](#board-g-b) – die vier Zahlen und die älteste wartende «Hoch»-Meldung; die Reaktionszeiten (Tabelle und Diagramm) sind ein eigener Abschnitt und standardmässig zugeklappt, damit mehr Einsätze Platz haben.
 
 ### Abschnitte einklappen
 
@@ -126,7 +133,7 @@ Auf der Kommandozeile beantwortet `just tiles-status` dieselbe Frage: es untersc
 
 Die Suchleiste (`S` oder `/`) durchsucht alle Einsätze nach Adresse, Typ, Priorität und Status (so wie sie auf der Karte stehen, z. B. «hoch», «Im Einsatz»), Meldungstext und **Auftragsname**; «reko» findet die Einsätze mit abgeschlossener Reko – wer nach der Route sucht, findet ihre Stopps. Ideal um bei vielen Einsätzen schnell die richtige Karte zu finden.
 
-Auf den Anzeige-Seiten [Board](#board-displayboard) und [Status](#status-displaystatus) liegt dieselbe Suche in der Kopfzeile, mit denselben zwei Tasten – wer vom KP zum Wandschirm geht, muss sich nichts Zweites merken. Sie reagiert nicht, während ein Feld den Cursor hat oder ein Dialog offen ist.
+Auf den Anzeige-Seiten [Board](#board-displayboard) und [Status](#status-displaystatus) liegt dieselbe Suche in der Kopfzeile, mit denselben zwei Tasten – wer vom KP zum Wandschirm geht, muss sich nichts Zweites merken. Sie reagiert nicht, während ein Feld den Cursor hat oder ein Dialog offen ist. Nach 10 Sekunden ohne Maus und Taste blenden Suchfeld und Zurück-Pfeil an Ort und Stelle aus (nichts verschiebt sich); die erste Mausbewegung oder `S` holt sie zurück. Eine laufende Suche bleibt stehen.
 
 ---
 
@@ -527,7 +534,7 @@ Das Grundmodell: **Ein Auftrag ist eine einzige Einheit, die die ganze Route sel
 
 Daraus folgt:
 
-- Ein Auftrag **besitzt seine Ressourcen selbst**: Fahrzeug, Personal und Material werden **dem Auftrag** zugewiesen und gelten **für alle Stopps gemeinsam** – der Trupp fährt sie ja der Reihe nach ab. Die einzelnen Stopps tragen **keine eigenen Ressourcen**.
+- Ein Auftrag **besitzt seine Ressourcen selbst**: Fahrzeug, Personal und Material werden **dem Auftrag** zugewiesen und gelten **für alle Stopps gemeinsam** – der Trupp fährt sie ja der Reihe nach ab. Die einzelnen Stopps tragen **keine eigenen Ressourcen**. Material auf einem Auftrag gilt überall als **gebunden** – in der Material-Leiste, ihrem Zähler und auf der Status-Wand –, wie das Personal.
 - Ein Einsatz ist **ganz im Auftrag oder gar nicht** – es gibt kein «halb drin». Zusätzliche Ressourcen nur für einen einzelnen Stopp (halb-im-Auftrag) werden **nicht** unterstützt. Braucht ein Schadenplatz einen eigenen Trupp mit eigenem Material, gehört er nicht in diesen Auftrag, sondern bleibt ein eigenständiger Einsatz (oder kommt in einen zweiten Auftrag).
 - Die Ressourcen werden **automatisch freigegeben, wenn der letzte Stopp abgeschlossen** ist.
 

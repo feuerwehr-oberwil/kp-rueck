@@ -10,9 +10,11 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { RemovableChip } from "@/components/ui/removable-chip"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { PrioritySelect } from "@/components/kanban/priority-select"
+import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Kbd } from "@/components/ui/kbd"
-import { MapPin, Trash2, MessageCircle, ArrowRightLeft, Search, Check, ChevronRight, Link2, LayoutDashboard, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, Users, Truck, Package, UserMinus, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, ArrowRight, MapPin, Trash2, MessageCircle, ArrowRightLeft, Search, Check, ChevronRight, Link2, LayoutDashboard, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, Users, Truck, Package, UserMinus, Shield, type LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
@@ -38,6 +40,7 @@ import { IncidentTime, useIncidentTimeVisible } from "@/components/ui/incident-t
 import { formatClockTime } from "@/lib/incident-time"
 import { telHref } from "@/lib/phone"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
+import { AddressText } from "@/components/kanban/address-text"
 import { apiClient } from "@/lib/api-client"
 import { useVehicleDriverState } from "@/lib/hooks/use-vehicle-drivers"
 import { useVehicleShortcuts } from "@/lib/contexts/operations/use-vehicle-shortcuts"
@@ -47,6 +50,7 @@ import RekoReportSection from "@/components/reko/reko-report-section"
 import { SchadenplatzRapportSection } from "@/components/kanban/schadenplatz-rapport-section"
 import { MaterialReturnList } from "@/components/kanban/material-return-list"
 import { DetailField, DetailFlags, DetailGroupHeading, DENSE_CONTROL } from "@/components/kanban/detail-field"
+import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
 import { FieldSaveStatus, fieldSaveEdgeClass, useFieldSave } from "@/components/kanban/field-save-status"
 import { LocationInput } from "@/components/location/location-input"
 import { toast } from "sonner"
@@ -64,6 +68,7 @@ import { FieldRequestList } from "@/components/kanban/field-requests"
 import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import {
+  CrewChipSlot,
   RouteResourceSections,
   ResourceRow,
   RESOURCE_CHIP,
@@ -86,6 +91,17 @@ import { ShellLoader } from '@/components/ui/shell-loader'
 const ROW_ACTION =
   "inline-flex cursor-pointer items-center gap-1 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:cursor-not-allowed disabled:no-underline disabled:opacity-50"
 
+/** The ← / → key caps beside the tab bar: hints, not buttons (the Kbd is
+ *  `pointer-events-none`). A 24px cap, a 14px arrow; desktop only. */
+const TAB_ARROW_KEY = "hidden size-6 shrink-0 px-0 lg:inline-flex"
+const TAB_ARROW_ICON = "size-3.5"
+
+/** The panel's free-text fields (Meldung, Notizen) on an 18px line: with the field's 4px
+ *  padding and its border, one line is exactly the panel's 28px field and every line after
+ *  costs 18px – a dictated Meldung of five lines gives the laptop 10px back (hill climb r22).
+ *  The label's `pt-1.5` still centres on the first line. */
+const DENSE_TEXT_LINES = "leading-[18px]"
+
 /** Whether the provenance toggles apply to this card at all.
  *
  *  Only "operator", "intake" and "feld" are an editor's to claim ("Telefonisch
@@ -100,15 +116,21 @@ function isEditorClaimedSource(source: string | undefined): boolean {
 /**
  * One action on the detail's footer bar.
  *
- * The modal has room for the word and shows it. The 420px panel does not — four
- * labelled controls do not fit and wrapping grows the bar into the content — so
- * there the icon stands alone AND CARRIES A HOVER LABEL. Not the browser's
- * `title`: that waits about a second and cannot be styled, which is no help to
- * somebody who does not already know that ⇄ means «Ressourcen übertragen». The
- * app's own tooltip opens with `delayDuration = 0`, i.e. on contact.
+ * The modal has room for the word and shows it. The panel does not have room
+ * for the full names — «WhatsApp kopieren · Ressourcen übertragen · An Auftrag
+ * verteilen» need ~580px, and wrapping grows the bar into the content. So there
+ * the icon carries a HOVER LABEL with the full name, and `panelLabel` — the
+ * short word («WhatsApp», «Übertragen», «Verteilen») — stands beside it, 12/500,
+ * once the bar is at least 27rem wide (a container query on the bar: the 480px
+ * panel from `2xl`, where even a Divera button in the row still leaves the
+ * delete its air). The 420px panel keeps the bare icons. Not the browser's `title`: that
+ * waits about a second and cannot be styled, which is no help to somebody who
+ * does not already know that ⇄ means «Ressourcen übertragen». The app's own
+ * tooltip opens with `delayDuration = 0`, i.e. on contact.
  *
  * `aria-label` is set in BOTH layouts, so the control keeps one name regardless
- * of how wide the window happens to be.
+ * of how wide the window happens to be; a `panelLabel` must be a word OF that
+ * name, so the visible text stays part of the accessible one.
  *
  * Module level on purpose: declared inside the component it would be a new type
  * every render, and React would remount the button mid-interaction.
@@ -117,6 +139,7 @@ function ActionBarButton({
   icon: Icon,
   label,
   visibleLabel,
+  panelLabel,
   dense,
   onClick,
   disabled,
@@ -129,6 +152,8 @@ function ActionBarButton({
   label: string
   /** What the modal prints on the button; defaults to `label`. */
   visibleLabel?: string
+  /** The short word the wide panel prints beside the icon (see above). */
+  panelLabel?: string
   dense: boolean
   onClick: () => void
   disabled?: boolean
@@ -148,6 +173,7 @@ function ActionBarButton({
     >
       {busy ? <ShellLoader className="size-3.5" /> : <Icon className="size-3.5" />}
       {!dense && (visibleLabel ?? label)}
+      {dense && panelLabel && <span className="hidden text-xs font-medium @min-[27rem]:inline">{panelLabel}</span>}
     </Button>
   )
 
@@ -548,8 +574,23 @@ export function OperationDetailContent({
   // The facts column is capped: rows built for the 420px panel sprawl on a
   // 1100px modal half — the toggle switches ended up 800px from their labels
   // and read as unaligned. The resources column takes what remains.
+  // One vertical rhythm on every tab: 8px between two rows (each `DetailField`
+  // brings its own `py-1`, nothing is stacked on top; 6px in the panel, whose root
+  // sets `--detail-row-py: 3px`) and ONE section step
+  // between two sections — the column groups, «Kräfte» and,
+  // stacked in the panel, the two columns themselves (`gap-x-8` is the modal's
+  // column gutter). The step is 12px in the panel and 16px in the modal, 8px from
+  // a heading to its rows (`DetailGroupHeading`). The panel keeps 12 (hill climb
+  // r11): at 16 the first «Kräfte» rows sit on the footer rule on a
+  // laptop. Where the list still runs on under the footer, the panel fades out
+  // while more is below (`scrollEndFade`, r18), so the cut is announced.
+  const sectionStep = dense
+    ? { gap: "gap-y-3", pad: "py-3", stack: "space-y-3", fields: "space-y-1.5" }
+    : { gap: "gap-y-4", pad: "py-4", stack: "space-y-4", fields: "space-y-2" }
   const tabGridClass = cn(
-    "grid grid-cols-1 gap-8 py-4",
+    "grid grid-cols-1 gap-x-8",
+    sectionStep.gap,
+    sectionStep.pad,
     layout === 'modal' && "lg:grid-cols-[minmax(0,34rem)_minmax(0,1fr)]",
   )
   // Die Spalten trennt eine Linie. Waagrecht bleibt es bei Abstand — eine
@@ -558,7 +599,7 @@ export function OperationDetailContent({
   // voneinander trennt, lesen sich bei langen Zeilen als eine, und ein Blick, der
   // von «Notizen» nach rechts wandert, landet in «Kräfte», ohne die Grenze
   // bemerkt zu haben.
-  const tabColumnBreakClass = cn("space-y-5", layout === 'modal' && "lg:border-l lg:border-border lg:pl-8")
+  const tabColumnBreakClass = cn(sectionStep.stack, layout === 'modal' && "lg:border-l lg:border-border lg:pl-8")
   // The one scrolling region: the dialog itself is a fixed 85vh, so switching
   // tabs must never resize it or scroll the header away.
   // `scroll`, not `auto`: every one of these panels grows the moment a folded
@@ -568,12 +609,20 @@ export function OperationDetailContent({
   // chip row) must wrap or clip — the panel itself never scrolls sideways.
   const tabPanelClass = "min-h-0 flex-1 overflow-y-scroll overflow-x-hidden"
   /**
+   * The last child of every scrolling tab: the shared `ScrollEndFade` (r18). The
+   * `-mt-3` lays half of it over the grid's 12px bottom padding, so the tab gains
+   * 12px of end room and the last row scrolls fully clear of the footer rule
+   * instead of being cut through its glyphs. It ends in the surface the tab sits
+   * on: the dialog's in the modal, the panel's in the side panel.
+   */
+  const scrollEndFade = <ScrollEndFade surface={layout === 'modal' ? 'dialog' : 'panel'} className="-mt-3" />
+  /**
    * The banners: what came in from the field and is still waiting for the KP to
    * do something about it — «Feld meldet beendet / angekommen» and «Abholung».
    * One group, two homes, because the two mounts have different room for it:
    *
-   *  * modal — first thing in the Übersicht RIGHT column, directly above
-   *    «Status wechseln», which is the control those questions are about.
+   *  * modal — first thing in the Übersicht RIGHT column, above «Kräfte»,
+   *    beside the fields that end in the «Status» row those questions are about.
    *  * panel — a full-width strip directly under the tab bar. 420px has no
    *    second column to put them in, and burying them inside Übersicht would
    *    hide them whenever the operator is on Rapport or Verlauf.
@@ -584,7 +633,7 @@ export function OperationDetailContent({
    * carries no margin either, so the spacing below can stay on this element.
    */
   const banners = (
-    <div className={cn("space-y-2 empty:hidden", dense ? "flex-shrink-0 pt-3" : "mb-5")}>
+    <div className={cn("space-y-2 empty:hidden", dense ? "flex-shrink-0 pt-3" : "mb-4")}>
       {(operation.fieldCompleteReportedAt || operation.fieldArrivedAt) && (
         <FieldStatusNudge operation={operation} canEdit={canEdit} variant="detail" />
       )}
@@ -617,7 +666,7 @@ export function OperationDetailContent({
    * nowhere on screen. Nobody could see it, and nobody could release it.
    *
    * Grouped, only the types that actually hold something appear: this block is a
-   * leftover to be worked off, not a place to add to, and «Fahrzeuge (0)» under
+   * leftover to be worked off, not a place to add to, and «Fahrzeuge · 0» under
    * it would be a row of frame around nothing. Standalone, all three stay — that
    * is where an operator adds, and an empty section is the target.
    *
@@ -628,6 +677,10 @@ export function OperationDetailContent({
    */
   const showEmptyOwnSections = !auftrag
   const ownAddAction = canEdit && onAssignResource && !auftrag
+  // The own crew's leader slot (`CrewChipSlot`): only where it can hold something –
+  // never on a stop inside an Auftrag (the route leads), and on a read-only view only
+  // while somebody actually leads.
+  const ownCrewHasLeaderSlot = !auftrag && (canEdit || operation.crew.some(({ personnelId }) => personnelId === operation.leaderId))
   const ownResourceSections = (
     <>
       {/* Mannschaft (Crew) */}
@@ -647,40 +700,46 @@ export function OperationDetailContent({
           {sortCrewByLeader(operation.crew, operation.leaderId).map(({ personnelId, name: member }) => {
               const isLeader = operation.leaderId === personnelId
               return (
-                <RemovableChip
+                <CrewChipSlot
                   key={personnelId}
-                  variant="outline"
-                  // The Einsatzleiter keeps a visible accent on the SAME pill:
-                  // an ink edge, like the EL badge itself (a fact, not amber –
-                  // VISUAL-03) — never a different chip family.
-                  className={cn(RESOURCE_CHIP, !auftrag && isLeader && "border-foreground/40")}
-                  onRemove={canEdit && onRemoveCrew ? () => onRemoveCrew(operation.id, personnelId) : undefined}
-                  removeTitle={t('detail.removePerson')}
-                  removeButtonClassName="ml-1"
-                  // Touch: the hover-only EL stub below does not exist without
-                  // a mouse, so promotion is a menu row — offered exactly where
-                  // the stub is.
-                  menuTitle={naming.inline({ name: member, personnelId })}
-                  menuSubtitle={<PersonMenuSubtitle personnelId={personnelId} isLeader={!auftrag && isLeader} />}
-                  menuActions={
-                    !auftrag && canEdit && !isLeader
-                      ? [{ label: t('leader.promote'), icon: <LeaderGlyph />, onSelect: () => void promoteToLeader(personnelId) }]
-                      : undefined
+                  // The EL hangs in the slot before the chip (`CrewChipSlot`). A
+                  // stop inside an Auftrag takes its leader from the route, so the
+                  // badge – and with it the slot – is not offered on the stop's
+                  // own crew: it would set a second, competing leader.
+                  leader={
+                    ownCrewHasLeaderSlot && (
+                      <LeaderBadge
+                        isLeader={isLeader}
+                        onPromote={canEdit ? () => void promoteToLeader(personnelId) : undefined}
+                      />
+                    )
                   }
-                  removeLabel={t('chipMenu.removeFromIncident')}
-                  removeIcon={UserMinus}
                 >
-                  {/* A stop inside an Auftrag takes its leader from the route,
-                      so the badge is not offered on the stop's own crew — it
-                      would set a second, competing leader. */}
-                  {!auftrag && (
-                    <LeaderBadge
-                      isLeader={isLeader}
-                      onPromote={canEdit ? () => void promoteToLeader(personnelId) : undefined}
-                    />
-                  )}
-                  <PersonName name={member} personnelId={personnelId} />
-                </RemovableChip>
+                  <RemovableChip
+                    variant="secondary"
+                    // No edge of its own for the Einsatzleiter: the EL badge says
+                    // it, as on the card – the filled chip shows an edge only on
+                    // hover/focus (hill climb r18).
+                    className={RESOURCE_CHIP}
+                    onRemove={canEdit && onRemoveCrew ? () => onRemoveCrew(operation.id, personnelId) : undefined}
+                    removeTitle={t('detail.removePerson')}
+                    removeButtonClassName="ml-1"
+                    // Touch: the hover-only EL stub does not exist without a
+                    // mouse, so promotion is a menu row — offered exactly where
+                    // the stub is.
+                    menuTitle={naming.inline({ name: member, personnelId })}
+                    menuSubtitle={<PersonMenuSubtitle personnelId={personnelId} isLeader={!auftrag && isLeader} />}
+                    menuActions={
+                      !auftrag && canEdit && !isLeader
+                        ? [{ label: t('leader.promote'), icon: <LeaderGlyph />, onSelect: () => void promoteToLeader(personnelId) }]
+                        : undefined
+                    }
+                    removeLabel={t('chipMenu.removeFromIncident')}
+                    removeIcon={UserMinus}
+                  >
+                    <PersonName name={member} personnelId={personnelId} />
+                  </RemovableChip>
+                </CrewChipSlot>
               )
             })}
         </ResourceRow>
@@ -704,7 +763,7 @@ export function OperationDetailContent({
         >
           {operation.zuFuss && (
             <RemovableChip
-              variant="outline"
+              variant="secondary"
               className={RESOURCE_CHIP}
               onRemove={canEdit ? () => onUpdate({ zuFuss: false }) : undefined}
               removeTitle={t('common.removeZuFuss')}
@@ -720,8 +779,10 @@ export function OperationDetailContent({
               return (
                 <RemovableChip
                   key={vehicleId}
-                  variant="outline"
-                  className={RESOURCE_CHIP}
+                  variant="secondary"
+                  // `shrink` to the row: a long «Name · Funkrufname (Fahrer) vor Ort»
+                  // wraps inside its chip before the row's «+» column.
+                  className={cn(RESOURCE_CHIP, "min-w-0 max-w-full shrink")}
                   title={callsign ? t('common.funkrufname', { callsign }) : undefined}
                   onRemove={canEdit && onRemoveVehicle ? () => onRemoveVehicle(operation.id, vehicleId) : undefined}
                   removeTitle={t('detail.removeVehicle')}
@@ -733,20 +794,37 @@ export function OperationDetailContent({
                     driverStay ? t('common.driverStaysFull') : t('common.driverReturnsFull'),
                   ].filter(Boolean).join(' · ')}
                 >
-                  {vehicleName}{callsign ? ` · ${callsign}` : ''}{driverName ? ` (${driverName})` : ''}
+                  {/* Two halves that wrap as wholes, like the card's vehicle chip
+                      (card-resources.tsx): WHICH vehicle — «Name · Funkrufname» —
+                      and, beneath it when the pair does not fit beside it, who
+                      drives plus the stay toggle. Only the driver's name may
+                      truncate (full name in `title`). */}
+                  <span className="flex min-w-0 flex-wrap items-center gap-x-1">
+                  <span className="min-w-0 truncate">
+                    {vehicleName}{callsign ? ` · ${callsign}` : ''}
+                  </span>
+                  {(driverName || (canEdit && assignmentId)) && (
+                  <span className="flex min-w-0 items-center">
+                  {driverName && (
+                    <span className="min-w-0 truncate" title={driverName}>({driverName})</span>
+                  )}
                   {canEdit && assignmentId && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
                         toggleDriverStay(operation.id, vehicleId)
                       }}
-                      // Neutral palette: the chip is no longer a filled primary
-                      // pill, so the toggle reads as a quiet state inside it.
+                      // Neutral palette, a quiet state inside the chip. On the
+                      // filled chip the «vor Ort» pill takes the ink tint the
+                      // card's stay chip has (`bg-foreground/10`): `bg-muted`
+                      // was the chip's own fill and vanished into it.
                       className={cn(
-                        "ml-1 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors",
+                        // `hit-area`: the 20px pill is a 26px target (globals.css).
+                        "relative hit-area shrink-0 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors",
+                        driverName && "ml-1",
                         driverStay
-                          ? "bg-muted text-foreground hover:bg-muted/70"
-                          : "text-muted-foreground/70 hover:bg-muted hover:text-foreground"
+                          ? "bg-foreground/10 text-foreground hover:bg-foreground/15"
+                          : "text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
                       )}
                       title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
                       tabIndex={-1}
@@ -758,6 +836,9 @@ export function OperationDetailContent({
                       )}
                     </button>
                   )}
+                  </span>
+                  )}
+                  </span>
                 </RemovableChip>
               )
             })}
@@ -781,7 +862,7 @@ export function OperationDetailContent({
                   {completeGroups.map(({ group, materialIds: matIds }) => (
                     <RemovableChip
                       key={`group-${group.id}`}
-                      variant="outline"
+                      variant="secondary"
                       className={RESOURCE_CHIP}
                       onRemove={canEdit && onRemoveMaterial ? () => matIds.forEach((matId) => onRemoveMaterial(operation.id, matId)) : undefined}
                       removeTitle={t('common.removeNamed', { name: group.name })}
@@ -801,7 +882,7 @@ export function OperationDetailContent({
                     return (
                       <RemovableChip
                         key={matId}
-                        variant="outline"
+                        variant="secondary"
                         className={RESOURCE_CHIP}
                         onRemove={canEdit && onRemoveMaterial ? () => onRemoveMaterial(operation.id, matId) : undefined}
                         removeTitle={t('detail.removeMaterial')}
@@ -865,6 +946,12 @@ export function OperationDetailContent({
       className={cn(
         "flex h-full min-h-0 flex-col",
         layout === 'panel' && "outline-none",
+        // The panel's own density (hill climb r22): every dense control 28px instead of the
+        // token's 32 and 6px between two rows instead of 8 – still ONE height for the whole
+        // form, restated here rather than in the token, because the modal has the room the
+        // 420px panel lacks. It buys the laptop the «Kräfte» rows above the footer. From `md`
+        // only: below it the token is the 44px touch floor, and that one stays.
+        layout === 'panel' && "[--detail-row-py:3px] md:[--field-h-dense:1.75rem]",
         // Only when the Ressourcen block itself is NOT the target: a nested
         // drop target leaves its parent "entered" too, and two rings around one
         // drop is a question about which of them takes it.
@@ -916,13 +1003,16 @@ export function OperationDetailContent({
                 ? formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)
                 : undefined}
             >
-              <MapPin className="h-5 w-5 shrink-0 text-muted-foreground" />
+              {/* The card's priority mark before the number (it was a muted map pin, so
+                  the header said nothing about priority): the wall's drawing, 14px at 2px,
+                  beside an 18–20px address (hill climb r20). */}
+              <PriorityGlyph priority={operation.priority} size="wall" />
               <IncidentNumber number={operation.number} className="shrink-0 text-sm" />
               {/* min-w-0 as well as truncate: a flex item refuses to shrink
                   below its content without it, so the address pushed the clock
                   and the panel controls off the row instead of giving way. */}
               <span className={cn(dense && "min-w-0 truncate")}>
-                {formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)}
+                <AddressText text={formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)} />
               </span>
               {dense && showIncidentTime && (
                 // The wrapper, not the component's own className: the chip is a
@@ -969,13 +1059,18 @@ export function OperationDetailContent({
                 address would otherwise squeeze exactly these. Both mounts: the
                 arrows walk the tabs in the panel too, and a shortcut nobody is
                 told about is a shortcut nobody uses. The panel pays for them
-                with a smaller key cap and a tighter gap — 24px of its 420. */}
+                with a tighter gap.
+                One key cap in both mounts (hill climb r11): a 24px cap with a
+                14px / 1.75 stroke arrow in the secondary icon ink — the 11px
+                text arrow in a 16px cap read as a disabled control. The key at
+                the end it cannot pass (← on the first tab, → on the last) is a
+                no-op there and wears the «unavailable» `opacity-40`; only then. */}
             <Kbd
-              className={cn("hidden shrink-0 lg:inline-flex", dense && "h-4 min-w-4 px-0.5 text-2xs")}
+              className={cn(TAB_ARROW_KEY, tab === OPERATION_DETAIL_TABS[0] && "opacity-40")}
               title={t('detail.tabs.switchHint')}
               aria-label={t('detail.tabs.switchHint')}
             >
-              ←
+              <ArrowLeft className={TAB_ARROW_ICON} strokeWidth={1.75} aria-hidden="true" />
             </Kbd>
             <TabsList className={cn(dense ? "min-w-0 flex-1" : "flex-shrink-0")}>
               <TabsTrigger value="overview" className={tabTriggerClass}>{t('detail.tabs.overview')}</TabsTrigger>
@@ -1015,11 +1110,11 @@ export function OperationDetailContent({
             </TabsList>
 
             <Kbd
-              className={cn("hidden shrink-0 lg:inline-flex", dense && "h-4 min-w-4 px-0.5 text-2xs")}
+              className={cn(TAB_ARROW_KEY, tab === OPERATION_DETAIL_TABS.at(-1) && "opacity-40")}
               title={t('detail.tabs.switchHint')}
               aria-hidden="true"
             >
-              →
+              <ArrowRight className={TAB_ARROW_ICON} strokeWidth={1.75} aria-hidden="true" />
             </Kbd>
           </div>
         </header>
@@ -1034,11 +1129,13 @@ export function OperationDetailContent({
           {/* Left Column — the fields, as rows in both mounts, gathered under
               the small grey group headings. No hairlines between rows any more:
               whitespace separates, the headings group. */}
-          <div className="space-y-5">
+          {/* `fields` + the rows' own padding = the section step (6 + 3 + 3 = 12px in the
+              panel, 8 + 4 + 4 = 16px in the modal). */}
+          <div className={sectionStep.fields}>
           {/* Where, what, how urgent. The fields carry their own labels, so a
               «Lage» heading over them said nothing – gone, whitespace groups. */}
           <div>
-          <div className="space-y-1">
+          <div>
           {/* Location - Smart Input with Geocoding. It carries its own label
               and its own map/coordinate buttons, so it lays itself out as a row
               rather than being wrapped in one. */}
@@ -1095,6 +1192,7 @@ export function OperationDetailContent({
                 "h-auto resize-none py-1",
                 // Three lines of floor: the field must READ as a textarea, not a textbox.
                 dense ? "max-h-[14rem] min-h-[3.75rem]" : "max-h-[20rem] min-h-[3.75rem]",
+                dense && DENSE_TEXT_LINES,
                 fieldSaveEdgeClass(notesSave),
               )}
             />
@@ -1123,20 +1221,13 @@ export function OperationDetailContent({
             </DetailField>
 
             <DetailField label={t('common.priority')} htmlFor="edit-priority">
-              <Select
+              <PrioritySelect
+                className={DENSE_CONTROL}
+                tabIndex={0}
                 value={operation.priority}
                 disabled={!canEdit}
-                onValueChange={(value) => onUpdate({ priority: value as "high" | "medium" | "low" })}
-              >
-                <SelectTrigger className={DENSE_CONTROL} tabIndex={0}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">{t('common.priorityLow')}</SelectItem>
-                  <SelectItem value="medium">{t('common.priorityMedium')}</SelectItem>
-                  <SelectItem value="high">{t('common.priorityHigh')}</SelectItem>
-                </SelectContent>
-              </Select>
+                onValueChange={(priority) => onUpdate({ priority })}
+              />
             </DetailField>
           </>
           </div>
@@ -1146,7 +1237,7 @@ export function OperationDetailContent({
               the incident. Unnamed like the block above – the rows carry their
               own labels. */}
           <div>
-          <div className="space-y-1">
+          <div>
           {/* Contact */}
           <DetailField
             label={t('common.contact')}
@@ -1174,7 +1265,7 @@ export function OperationDetailContent({
             action={operation.contactPhone.trim() ? (
               <a
                 href={telHref(operation.contactPhone) ?? undefined}
-                className="inline-flex items-center gap-1 text-xs font-medium text-foreground underline underline-offset-2 hover:decoration-2"
+                className="relative hit-area inline-flex items-center gap-1 text-xs font-medium text-foreground underline underline-offset-2 hover:decoration-2"
               >
                 <Phone className="h-3 w-3 shrink-0" />
                 {t('common.callContact')}
@@ -1224,6 +1315,15 @@ export function OperationDetailContent({
                 "h-auto resize-none py-1",
                 // Three lines of floor: the field must READ as a textarea, not a textbox.
                 dense ? "max-h-[14rem] min-h-[3.75rem]" : "max-h-[20rem] min-h-[3.75rem]",
+                // …once it is in use. EMPTY and unfocused (its placeholder showing) it is
+                // one row of the form's height (r21): most incidents have no Notizen, and
+                // the three-line floor pushed «Kräfte» under the panel's footer on a
+                // laptop. Focus or a first letter gives it the floor back. Height only –
+                // the value, its draft and the save line under it are untouched.
+                dense
+                  ? "placeholder-shown:not-focus:min-h-(--field-h-dense)"
+                  : "placeholder-shown:not-focus:min-h-(--field-h)",
+                dense && DENSE_TEXT_LINES,
                 fieldSaveEdgeClass(internalNotesSave),
               )}
             />
@@ -1333,6 +1433,37 @@ export function OperationDetailContent({
             ]}
           />
 
+          {/* Status — a row under Merkmale like Einsatzart / Priorität (owner pick
+              U11, 08.11.2026): the chip block that used to open the resources
+              column pushed «Kräfte» under the laptop's footer, and the board moves
+              a card by drag or `>` / `<` anyway. Options in board order with the
+              column words; the pick goes through `onChangeStatus` — the board's
+              `requestStatusChange`, so the dispatch gate, the Reko gate and the
+              «Gerade geändert» refusal answer exactly as they did for the chips.
+              Re-picking the current status is no change (Radix only reports a new
+              value). Without the handler (or the right to edit) it reads, disabled. */}
+          <DetailField label={t('common.status')} htmlFor="edit-status">
+            <Select
+              value={operation.status}
+              disabled={!canEdit || !onChangeStatus}
+              onValueChange={(next) => {
+                const target = columns.find((col) => col.id === next)
+                if (target) onChangeStatus?.(operation.id, target.status[0])
+              }}
+            >
+              <SelectTrigger id="edit-status" className={DENSE_CONTROL} tabIndex={0}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {columns.map((col) => (
+                  <SelectItem key={col.id} value={col.id}>
+                    {t(`columns.${col.id}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </DetailField>
+
           </div>
           </div>
           </div>
@@ -1343,51 +1474,13 @@ export function OperationDetailContent({
               answer it in one look. */}
           <div className={tabColumnBreakClass}>
           {/* The modal's home for the banners: the same questions the card
-              asks, in front of the control that answers them — the field
-              reported «angekommen» / «beendet», and the next thing an operator
-              does about it is move the card, which is «Status wechseln»
-              directly below. The nudge's dismissal is shared with the card
+              asks — the field reported «angekommen» / «beendet», and the next
+              thing an operator does about it is move the card (the nudge's own
+              button, or the «Status» row across the gutter). The nudge's dismissal is shared with the card
               behind the modal (one external store in field-status-nudge.tsx),
               so the X only has to be clicked once. In the panel this same group
               sits under the tab bar instead — see `banners` above. */}
           {!dense && banners}
-
-          {/* Status quick-change — one-click move across the board (drops the
-              card at the top of the target column) instead of drag & drop. It
-              opens this column because it is the most-used control on the tab
-              and must not sit below a resource list of unpredictable length. */}
-          {canEdit && onChangeStatus && (
-          <div className="mb-5">
-            {/* Same heading as Lage / Meldung / Kräfte. It used to be a `text-sm
-                font-medium` line with a full-size icon, which made three heading
-                weights visible at once on one tab — and this one was the loudest
-                of them without being the most important thing on the tab. */}
-            <DetailGroupHeading icon={<ArrowRightLeft className="h-3.5 w-3.5 shrink-0" />}>
-              {t('detail.changeStatus')}
-            </DetailGroupHeading>
-            <div className="flex flex-wrap gap-1.5">
-              {columns.map((col) => {
-                const isCurrent = col.status.includes(operation.status)
-                return (
-                  <Button
-                    key={col.id}
-                    size="xs"
-                    // The current status is a statement, not a dead button:
-                    // tonal «selected» at full opacity (disabled only stops the
-                    // no-op click), so it reads as «here» and not as greyed out.
-                    variant={isCurrent ? "selected" : "outline"}
-                    disabled={isCurrent}
-                    aria-current={isCurrent ? "step" : undefined}
-                    className={isCurrent ? "disabled:opacity-100" : undefined}
-                    onClick={() => onChangeStatus(operation.id, col.status[0])}
-                  >
-                    {t(`columns.${col.id}`)}
-                  </Button>
-                )
-              })}
-            </div>
-          </div>
-          )}
 
           {/* Ressourcen — Reko, Mannschaft, Fahrzeuge, Material. Reached
               directly by a click on the matching block of a kanban card, which
@@ -1404,12 +1497,16 @@ export function OperationDetailContent({
           >
             {/* «Kräfte» — the third of the mock's group headings: who and what
                 is out there. Covers the Reko line and the Ressourcen below;
-                «Status wechseln» above keeps its own control heading. */}
+                it follows the fields directly (status is a field row now). */}
             {/* The count rides on the heading — «Kräfte (7)» is what gets asked
                 for over the radio; the standalone «Ressourcen (n)» line it
                 replaces said the same thing one heading level lower. */}
-            <DetailGroupHeading>
-              {t('detail.groups.kraefte')} ({totalResourceCount})
+            {/* «KRÄFTE · 4»: the caps label takes the count as a fact after a
+                middle dot, like the board's column heads – «(4)» in a caps
+                line read as a footnote. Its glyph puts the word on the same
+                edge as the other group headings (hill climb r18). */}
+            <DetailGroupHeading icon={<Shield className="h-3.5 w-3.5 shrink-0" />}>
+              {t('detail.groups.kraefte')} · {totalResourceCount}
             </DetailGroupHeading>
             {/* Reko, as ONE line: who is out looking, since when — and a way
                 through to the rest. The five controls that used to live here
@@ -1464,7 +1561,7 @@ export function OperationDetailContent({
                 // is the one place in the group where a value belongs. The action
                 // is what the ROW is called now (title + aria-label above), which
                 // is where the other three keep theirs.
-                <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground/60">
+                <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
                   {t('detail.resourceEmpty')}
                 </span>
               )}
@@ -1524,6 +1621,7 @@ export function OperationDetailContent({
           </div>
           </div>
           </div>
+            {scrollEndFade}
           </TabsContent>
 
           {/* ----------------------------------------------------------- Reko */}
@@ -1539,7 +1637,7 @@ export function OperationDetailContent({
                 Reko, its Funkmeldung and «noch kein Bericht» in a single narrow
                 run and read as a form with nothing in it. */}
             <div className={tabGridClass}>
-              <div className="space-y-5">
+              <div className={sectionStep.stack}>
               <RekoReportSection
                 incidentId={operation.id}
                 canEdit={canEdit}
@@ -1572,7 +1670,7 @@ export function OperationDetailContent({
                   geändert wird. Moved here off Übersicht — Reko was split
                   across two tabs, with the tab NAMED Reko holding only the
                   report while every dispatch control sat in a column that also
-                  carries Status ändern and three resource lists.
+                  carried the status control and three resource lists.
                   It also answers what this tab used to be before a report
                   exists: an empty box. Now the first thing an incident without
                   a Reko offers here is the way to assign one. */}
@@ -1668,6 +1766,7 @@ export function OperationDetailContent({
                 </div>
               </div>
             </div>
+            {scrollEndFade}
           </TabsContent>
 
           {/* ------------------------------------------- Feld & Rapport */}
@@ -1688,7 +1787,7 @@ export function OperationDetailContent({
               from the field on the left — the crew's sentences and what they
               left standing — and what the KP writes on the right. */}
           <div className={tabGridClass}>
-            <div className="space-y-5">
+            <div className={sectionStep.stack}>
               {/* Feldmeldungen — KP parity (decision 28). Everything a crew taps
                   on /feld, an operator enters here from a radio message.
                   «Reko vor Ort» lives on the Reko tab with the rest of the
@@ -1774,6 +1873,7 @@ export function OperationDetailContent({
             />
             </div>
           </div>
+            {scrollEndFade}
           </TabsContent>
 
           {/* -------------------------------------------------------- Verlauf */}
@@ -1784,7 +1884,7 @@ export function OperationDetailContent({
               assignments and the crew's messages interleaved), and who was
               here — the same three resource kinds as Übersicht but including
               everything already released. Single column on purpose. */}
-          <div className="space-y-4 py-4">
+          <div className={cn(sectionStep.stack, sectionStep.pad)}>
             <IncidentTimeline
               events={timeline.events}
               isLoading={timeline.isLoading}
@@ -1800,6 +1900,7 @@ export function OperationDetailContent({
             />
             <IncidentParticipants incidentId={operation.id} />
           </div>
+            {scrollEndFade}
           </TabsContent>
         </Tabs>
 
@@ -1808,15 +1909,16 @@ export function OperationDetailContent({
             «Löschen» (plus Divera where it is configured), i.e. a button behind a
             button — and in the 420px panel its content opened downwards into the
             board footer, where it was clipped.
-            The panel has no room for four labelled controls, so there the icons
-            stand alone and the label arrives ON HOVER — see `ActionBarButton`,
-            which uses the app's tooltip rather than the browser's delayed
-            `title`. Löschen is pushed to the far end by `ml-auto`, away from the
+            The panel has no room for the full names, so there the full name
+            arrives ON HOVER and the wide panel prints a short word beside the
+            icon — see `ActionBarButton`; `@container` is what its word asks
+            about. Löschen is pushed to the far end by `ml-auto`, away from the
             things that are merely useful. */}
-        <div className="flex-shrink-0 flex items-center gap-2 pt-3 mt-auto border-t">
+        <div className="@container flex-shrink-0 flex items-center gap-2 pt-3 mt-auto border-t">
           <ActionBarButton
             icon={MessageCircle}
             label={t('detail.copyWhatsapp')}
+            panelLabel={t('sidePanel.whatsapp')}
             visibleLabel={isCopyingWhatsApp ? t('common.copying') : undefined}
             dense={dense}
             disabled={isCopyingWhatsApp}
@@ -1828,6 +1930,7 @@ export function OperationDetailContent({
             <ActionBarButton
               icon={ArrowRightLeft}
               label={t('common.transferResources')}
+              panelLabel={t('sidePanel.transfer')}
               dense={dense}
               onClick={() => onTransferResources(operation.id)}
             />
@@ -1837,6 +1940,7 @@ export function OperationDetailContent({
             <ActionBarButton
               icon={Waypoints}
               label={t('common.distributeToAuftrag')}
+              panelLabel={t('sidePanel.distribute')}
               dense={dense}
               onClick={() => onDistributeToAuftrag(operation.id)}
             />

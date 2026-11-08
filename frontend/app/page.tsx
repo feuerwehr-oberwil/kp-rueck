@@ -96,7 +96,6 @@ import { useBoardCardActions } from "@/components/board/use-board-card-actions"
 
 export default function FireStationDashboard() {
   const {
-    materials,
     operations,
     setOperations,
     formatLocation,
@@ -191,7 +190,9 @@ export default function FireStationDashboard() {
   // computed once here, passed down, so the memoized cards stay cheap.
   const personEngagements = usePersonEngagements()
 
-  const { materialGroups, setMaterialOutOfService } = useMaterials()
+  // The depot with BOTH deployments folded in – Einsätze and Aufträge – so the
+  // material sidebar, its counter and every drop read one frei/gebunden.
+  const { materials, materialGroups, setMaterialOutOfService } = useMaterials()
   const { selectedEvent, isEventLoaded, events, setSelectedEvent } = useEvent()
   const { isEditor } = useAuth()
   const { toggleSidebar: toggleNotificationSidebar, registerNavigateHandler, registerFieldActionHandler, registerAssignHandler, closeSidebar: closeNotificationSidebar, settings: notificationSettings } = useNotifications()
@@ -321,7 +322,8 @@ export default function FireStationDashboard() {
           )
 
           mainContainer.scrollTo({
-            left: Math.min(Math.max(0, gutteredLeft), maxScroll),
+            // whole pixels, or where the board comes to rest depends on rounding
+            left: Math.round(Math.min(Math.max(0, gutteredLeft), maxScroll)),
             behavior: 'smooth'
           })
         }
@@ -1468,14 +1470,13 @@ export default function FireStationDashboard() {
             // pinned over the board, and the extra 16px is what keeps it off the
             // outer column at rest. It is the board's own margin, not a strip of
             // its own, so nothing is drawn beside the board.
+            //
+            // `@container` + `--board-pr`: the columns size themselves from this box and
+            // its right padding (droppable-column.tsx, «five open columns»).
             className={cn(
-              "flex-1 overflow-x-auto overscroll-contain pt-4 pb-0 bg-muted/30 dark:bg-background",
+              "@container flex-1 overflow-x-auto overscroll-contain pt-4 pb-0 pr-(--board-pr) bg-muted/30 dark:bg-background",
               showLeftSidebar ? "pl-4" : "pl-8",
-              !showRightSidebar
-                ? "pr-8"
-                // The detail tab only exists from SIDE_PANEL_BREAKPOINT up, so
-                // neither does the room it needs.
-                : sidePanelMode === 'collapsed' ? "pr-4 2xl:pr-8" : "pr-4",
+              showRightSidebar ? "[--board-pr:1rem]" : "[--board-pr:2rem]",
             )}
           >
             {/* A board that never arrived gets the error panel, not seven
@@ -1540,7 +1541,7 @@ export default function FireStationDashboard() {
           {!showLeftSidebar && (
             <button
               onClick={() => setShowLeftSidebar(true)}
-              className="absolute left-1 top-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+              className="absolute hit-area left-1 top-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
               title={`${tDash('toggleLeftSidebar')} ([)`}
               aria-label={tDash('toggleLeftSidebar')}
             >
@@ -1548,12 +1549,14 @@ export default function FireStationDashboard() {
             </button>
           )}
 
-          {/* Einsatz-Detail reopen tab. `2xl:` is SIDE_PANEL_BREAKPOINT — below
-              it the panel does not exist, so neither does its tab. */}
-          {sidePanelMode === 'collapsed' && (
+          {/* Einsatz-Detail reopen tab — only while the Material-Leiste is folded
+              too; with the Leiste open the control leads its search row instead
+              (material-sidebar.tsx), off the board. `2xl:` is SIDE_PANEL_BREAKPOINT
+              — below it the panel does not exist, so neither does its tab. */}
+          {sidePanelMode === 'collapsed' && !showRightSidebar && (
             <button
               onClick={() => setSidePanelMode('detail')}
-              className="absolute right-1 top-3 z-pinned hidden h-12 w-5 min-w-0 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground 2xl:flex"
+              className="absolute hit-area right-1 top-3 z-pinned hidden h-12 w-5 min-w-0 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground 2xl:flex"
               title={`${tSidePanel('railLabel')} (\\)`}
               aria-label={tSidePanel('railLabel')}
             >
@@ -1565,7 +1568,7 @@ export default function FireStationDashboard() {
           {!showRightSidebar && (
             <button
               onClick={() => setShowRightSidebar(true)}
-              className="absolute right-1 top-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+              className="absolute hit-area right-1 top-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
               title={
                 materialOnSiteEntries.length > 0
                   ? `${tDash('toggleRightSidebar')} (]) · ${tDash('materialOnSite.toggle', { count: materialOnSiteEntries.length })}`
@@ -1590,8 +1593,9 @@ export default function FireStationDashboard() {
           <SidePanel
             mode={sidePanelMode}
             onModeChange={setSidePanelMode}
-            // Collapsed, the panel renders nothing here — its reopen tab lives
-            // in the w-7 gutter above, beside the Material-Leiste's.
+            // Collapsed, the panel renders nothing here — its reopen control
+            // leads the Material-Leiste's search row (or, with the Leiste folded
+            // too, is a tab pinned in the board's corner above).
             selectedOperation={selectedOperation}
             onOpenOnMap={() =>
               router.push(selectedOperation ? `/map?highlight=${selectedOperation.id}` : '/map')
@@ -1650,6 +1654,7 @@ export default function FireStationDashboard() {
               setBindingsPopover={setBindingsPopover}
               followBinding={followBinding}
               materialSummary={materialSummary}
+              onOpenSidePanel={sidePanelMode === 'collapsed' ? () => setSidePanelMode('detail') : undefined}
             />
           )}
 

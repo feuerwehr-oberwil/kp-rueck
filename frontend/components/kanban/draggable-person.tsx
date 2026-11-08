@@ -99,6 +99,8 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
   const occupiedTooltip = engagement
     ? t('person.engagedTooltip', { label: engagement.full })
     : functionLabel || t('common.inUse')
+  /** The second line – where a bound person is; absent on a free row. */
+  const whereLine = isOccupied ? (engagement?.short ?? functionLabel) || null : null
 
   return (
     <PersonContextMenu
@@ -127,77 +129,91 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
           isDoubleBooked && "ring-1 ring-warning/50",
         )}
       >
-        <div className="flex flex-col gap-0.5">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
-              {/* The sidebar is narrow enough that longer names truncate. On
-                  hover the name wraps to its full length instead of relying on
-                  the browser's title tooltip, which only appears after a second
-                  and is easy to miss while scanning. */}
-              {/* Bound = the NAME goes quiet, nothing else: who is available
-                  stays answerable at a glance down the column, while the
-                  where-line below – the one fact looked up here – keeps full
-                  strength. A whole-row opacity-60 put it at ≈2.4:1 (sweep
-                  2026-10, VISUAL-04); during a storm that is most rows. */}
-              <span
-                className={cn(
-                  "font-medium text-sm truncate group-hover:overflow-visible group-hover:whitespace-normal group-hover:break-words",
-                  isOccupied && !isDoubleBooked ? "text-muted-foreground group-hover:text-foreground" : "text-foreground",
-                )}
-              >
-                <PersonName name={person.name} kennung={person.kennung ?? null} />
-              </span>
-            </div>
-
-            {/* Rank, then tags and the conflict badge at the outer edge — the
-                marks worth catching sit against the rail, the Grad («Wm»,
-                «Kpl», full word on hover) is a quieter fact just inside them.
-                The gebunden ring (hollow ink – a fact, not amber) only shows when
-                bound — available shows nothing, but the slot stays, so the
-                columns line up across groups. */}
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              {person.role && (
-                <span className="shrink-0 text-right text-xs text-muted-foreground" title={person.role}>
-                  {abbreviateRank(person.role)}
-                </span>
-              )}
-              {person.tags && person.tags.length > 0 ? (
-                <div className="flex gap-1">
-                  {person.tags.map((tag) => (
-                    <Badge key={tag} variant="outline" className="text-xs font-normal px-1.5 py-0">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              ) : null}
-              {isDoubleBooked && (
-                <Badge
-                  variant="outline"
-                  className="text-xs font-medium px-1.5 py-0 gap-1 border-warning/60 text-warning-foreground"
-                  title={t('person.doubleBookedTooltip', { count: assignmentCount ?? 0 })}
+        {/* The gebunden ring stands in ONE fixed 12px leading gutter (an 8px mark +
+            4px to the name), on the name's line: the same place on every row, so it
+            reads as a state mark rather than a speck after the pills (hill climb r7).
+            Available shows nothing, but the gutter stays, so every name starts at
+            one edge across the groups. It replaced the trailing slot one for one
+            (6px mark + 6px gap), so the name is exactly as wide as before. */}
+        <div className="flex">
+          <span className="flex h-5 w-3 shrink-0 items-center">
+            <span
+              aria-label={isOccupied ? occupiedTooltip : undefined}
+              title={isOccupied ? occupiedTooltip : undefined}
+              className={cn("size-2 rounded-full", isOccupied ? RESOURCE_STATE_DOT_CLASSES.assigned : "invisible")}
+            />
+          </span>
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
+                {/* The sidebar is narrow enough that longer names truncate. On
+                    hover the name wraps to its full length instead of relying on
+                    the browser's title tooltip, which only appears after a second
+                    and is easy to miss while scanning. */}
+                {/* Bound = the NAME goes quiet, nothing else: who is available
+                    stays answerable at a glance down the column, while the
+                    where-line below – the one fact looked up here – keeps full
+                    strength. A whole-row opacity-60 put it at ≈2.4:1 (sweep
+                    2026-10, VISUAL-04); during a storm that is most rows. */}
+                <span
+                  className={cn(
+                    "font-medium text-sm truncate group-hover:overflow-visible group-hover:whitespace-normal group-hover:break-words",
+                    isOccupied && !isDoubleBooked ? "text-muted-foreground group-hover:text-foreground" : "text-foreground",
+                  )}
                 >
-                  <AlertTriangle className="h-3 w-3" />
-                  {assignmentCount}×
-                </Badge>
-              )}
-              <span
-                aria-label={isOccupied ? occupiedTooltip : undefined}
-                title={isOccupied ? occupiedTooltip : undefined}
-                className={cn("size-1.5 shrink-0 rounded-full", isOccupied ? RESOURCE_STATE_DOT_CLASSES.assigned : "invisible")}
-              />
-            </div>
-          </div>
+                  <PersonName name={person.name} kennung={person.kennung ?? null} />
+                </span>
+              </div>
 
-          {/* Where the person is, as a second quiet line — the binding used to
-              live only in a hover tooltip. Incident address or Auftrag first,
-              function (Fahrer TLF, Reko, Telefondienst …) as the fallback.
-              Time on duty is deliberately NOT here (owner, 09.10.: too much in
-              the default view) — it lives in the Dienstzeiten sheet. */}
-          {isOccupied && (engagement?.short || functionLabel) && (
-            <div className="truncate type-micro leading-tight text-muted-foreground" title={occupiedTooltip}>
-              {engagement?.short ?? functionLabel}
+              {/* Rank, then tags and the conflict badge at the outer edge — the
+                  marks worth catching sit against the rail, the Grad («Wm»,
+                  «Kpl», full word on hover) is a quieter fact just inside them.
+                  A row WITH a where-line carries the Grad there instead (r21): with
+                  «Wm F Fw» beside it a bound name kept half its width («Baumann
+                  Mic…»), and the name is what the column is read by. */}
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                {person.role && !whereLine && (
+                  <span className="shrink-0 text-right text-xs text-muted-foreground" title={person.role}>
+                    {abbreviateRank(person.role)}
+                  </span>
+                )}
+                {person.tags && person.tags.length > 0 ? (
+                  <div className="flex gap-1">
+                    {person.tags.map((tag) => (
+                      <Badge key={tag} variant="outline" className="text-xs font-normal px-1.5 py-0">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+                {isDoubleBooked && (
+                  <Badge
+                    variant="outline"
+                    className="text-xs font-medium px-1.5 py-0 gap-1 border-warning/60 text-warning-foreground"
+                    title={t('person.doubleBookedTooltip', { count: assignmentCount ?? 0 })}
+                  >
+                    <AlertTriangle className="h-3 w-3" />
+                    {assignmentCount}×
+                  </Badge>
+                )}
+              </div>
             </div>
-          )}
+
+            {/* Where the person is, as a second quiet line — the binding used to
+                live only in a hover tooltip. Incident address or Auftrag first,
+                function (Fahrer TLF, Reko, Telefondienst …) as the fallback.
+                The place only («1 · Langegasse 28»): Einsatzart and Meldung are
+                in the line's `title` (r22 – they were what overflowed).
+                Time on duty is deliberately NOT here (owner, 09.10.: too much in
+                the default view) — it lives in the Dienstzeiten sheet. */}
+            {/* The Grad leads it, «Wm · Sturmholz Oberwil», in the same muted caption. */}
+            {whereLine && (
+              <div className="truncate type-micro leading-tight text-muted-foreground" title={occupiedTooltip}>
+                {person.role && <span title={person.role}>{abbreviateRank(person.role)} · </span>}
+                {whereLine}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </PersonContextMenu>

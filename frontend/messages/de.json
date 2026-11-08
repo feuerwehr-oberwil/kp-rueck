@@ -420,6 +420,7 @@
       "einsatzart": "Einsatzart",
       "einsatzartPlaceholder": "Einsatzart auswählen",
       "priority": "Priorität",
+      "status": "Status",
       "phoneReported": "Telefonisch",
       "phoneReportedDescription": "Meldung kam per Telefon oder durch Laufkundschaft ins KP",
       "feldReported": "Vom Feld",
@@ -442,9 +443,9 @@
       "directLink": "Direkt-Link",
       "dashboard": "Dashboard",
       "noRekoAssigned": "Keine Reko-Person zugewiesen",
-      "crewCount": "Mannschaft ({count})",
-      "vehiclesCount": "Fahrzeuge ({count})",
-      "materialsCount": "Material ({count})",
+      "crewCount": "Mannschaft · {count}",
+      "vehiclesCount": "Fahrzeuge · {count}",
+      "materialsCount": "Material · {count}",
       "assignCrew": "Mannschaft zuweisen",
       "assignVehicle": "Fahrzeug zuweisen",
       "assignMaterial": "Material zuweisen",
@@ -742,7 +743,7 @@
       "locationError": "Einsatzort fehlt – ohne Ort lässt sich der Einsatz nicht erstellen.",
       "phoneShort": "Nummer hat nur {digits} Ziffern – bitte prüfen. Erstellen geht trotzdem.",
       "phoneLong": "Nummer hat {digits} Ziffern – bitte prüfen. Erstellen geht trotzdem.",
-      "infoDragDrop": "Fahrzeuge, Mannschaft und Material können nach dem Erstellen des Einsatzes per Drag & Drop zugewiesen werden.",
+      "infoDragDrop": "Fahrzeuge, Mannschaft und Material können nach dem Erstellen des Einsatzes per Drag & Drop zugewiesen werden.",
       "create": "Einsatz erstellen",
       "createAndNext": "Erstellen und nächsten erfassen",
       "moreActions": "Weitere Aktionen"
@@ -772,7 +773,6 @@
       "removeMaterial": "Material freigeben",
       "noMaterial": "Kein Material zugewiesen",
       "resourceEmpty": "keine",
-      "changeStatus": "Status ändern",
       "copyWhatsapp": "WhatsApp kopieren",
       "moreActions": "Weitere Aktionen",
       "diveraAlarm": "Aufgebot",
@@ -792,7 +792,8 @@
       "clickToView": "Klicke auf einen Einsatz, um Details anzuzeigen",
       "selectPlaceholder": "Auswählen",
       "transfer": "Übertragen",
-      "whatsapp": "WhatsApp"
+      "whatsapp": "WhatsApp",
+      "distribute": "Verteilen"
     },
     "personMenu": {
       "vehicleTaken": "Fahrzeug bereits zugewiesen",
@@ -821,10 +822,11 @@
       "titleCrewRouteGeneric": "Mannschaft zu Auftrag zuweisen",
       "titleVehiclesRouteGeneric": "Fahrzeuge zu Auftrag zuweisen",
       "titleMaterialsRouteGeneric": "Material zu Auftrag zuweisen",
-      "titleCrewIncident": "Mannschaft zu Einsatz zuweisen",
-      "titleVehiclesIncident": "Fahrzeuge zu Einsatz zuweisen",
-      "titleMaterialsIncident": "Material zu Einsatz zuweisen",
-      "selectedCount": "{selected} ausgewählt, {available} verfügbar",
+      "titleCrewIncident": "Mannschaft zuweisen",
+      "titleVehiclesIncident": "Fahrzeuge zuweisen",
+      "titleMaterialsIncident": "Material zuweisen",
+      "selectedCountCrew": "{selected} ausgewählt · {total, plural, one {# Person} other {# Personen}}",
+      "selectedCountMaterials": "{selected} ausgewählt · {total} insgesamt",
       "vehiclesAssigned": "{count, plural, one {# Fahrzeug zugewiesen} other {# Fahrzeuge zugewiesen}}",
       "zuFussSuffix": ", Zu Fuss",
       "quickSelectByType": "Nach Typ:",
@@ -1387,12 +1389,12 @@
       "notesPlaceholder": "Notiz hinzufügen …",
       "dangers": "Gefahren",
       "personnelCount": "{count, plural, one {# Person} other {# Personen}}",
-      "estimatedDuration": "{duration}h geschätzt",
-      "vehicles": "Fahrzeuge ({count})",
+      "estimatedDuration": "{duration} geschätzt",
+      "vehicles": "Fahrzeuge · {count}",
       "noVehicles": "Keine Fahrzeuge zugewiesen",
-      "crew": "Mannschaft ({count})",
+      "crew": "Mannschaft · {count}",
       "noCrew": "Keine Mannschaft zugewiesen",
-      "materials": "Material ({count})",
+      "materials": "Material · {count}",
       "noMaterials": "Kein Material zugewiesen",
       "contact": "Kontakt / Melder",
       "contactPlaceholder": "Kontakt hinzufügen …",
@@ -1442,8 +1444,9 @@
     "page": {
       "loading": "Karte wird geladen …",
       "title": "Lagekarte",
-      "activeBadge": "{count} Aktiv",
-      "incidentsHeading": "Einsätze ({count})",
+      "activeBadge": "{count, plural, one {# Einsatz} other {# Einsätze}}",
+      "incidentsHeading": "Einsätze · {count}",
+      "incidentsHeadingPlain": "Einsätze",
       "labels": "Labels",
       "lines": "Linien",
       "distance": "Distanz",
@@ -1489,7 +1492,8 @@
       "clickToNavigate": "Klicken um zu Einsatz zu navigieren",
       "retry": "Erneut versuchen",
       "mapAria": "Einsatzkarte – Pfeiltasten zum Verschieben, Tab zum Markieren",
-      "glLost": "Die Kartendarstellung wurde vom Browser beendet."
+      "glLost": "Die Kartendarstellung wurde vom Browser beendet.",
+      "clusterAria": "{count} Einsätze, höchste: {priority} – tippen zum Vergrössern"
     },
     "legend": {
       "show": "Legende anzeigen",
@@ -1505,14 +1509,14 @@
       "vehicleOnline": "Fahrzeug online",
       "vehicleOffline": "Fahrzeug offline",
       "assignments": "Zuweisungen",
-      "vehicleToIncident": "Fahrzeug → Einsatz"
+      "vehicleToIncident": "Fahrzeug → Einsatz",
+      "cluster": "Mehrere Einsätze (Anzahl)"
     },
     "assignmentLines": {
       "incidentFallback": "Einsatz"
     },
     "locationInput": {
-      "addressLabel": "Einsatzort (Adresse)",
-      "addressLabelShort": "Einsatzort",
+      "addressLabel": "Einsatzort",
       "requiredField": "Pflichtfeld",
       "addressPlaceholder": "Adresse suchen …",
       "searchPlaceholder": "Adresse suchen …",
@@ -1772,6 +1776,11 @@
         "languageHint": "Sprache der Oberfläche auf diesem Gerät",
         "selectPlaceholder": "Wählen …",
         "editorsOnlyNote": "Nur Bearbeiter können Einstellungen ändern.",
+        "groups": {
+          "station": "Station",
+          "map": "Karte und Anzeige",
+          "rapport": "Einsatzrapport"
+        },
         "configs": {
           "home_city": {
             "label": "Einsatzgebiet (Ort)",
@@ -2603,7 +2612,7 @@
       "inProgress": "In Arbeit",
       "done": "Erledigt",
       "oldestHigh": "Älteste wartende «Hoch»-Meldung",
-      "waitingSince": "wartet seit {age}",
+      "waitingSince": "seit Eingang {age}",
       "noWaitingHigh": "Keine «Hoch»-Meldung wartet.",
       "openIncident": "Einsatz öffnen",
       "reactionTitle": "Reaktionszeiten ab Eingang",
@@ -3701,13 +3710,24 @@
       "no": "Nein",
       "personCount": "{count, plural, one {# Person} other {# Personen}}",
       "staleWarn": "Verbindung gestört – letzter Stand {time} Uhr. Aktualisierung läuft weiter.",
-      "staleAlert": "Keine Verbindung · Stand {time} Uhr"
+      "staleAlert": "Keine Verbindung · Stand {time} Uhr",
+      "moreBelow": "+{count} weiter ↓"
     },
     "board": {
       "loginRequired": "Bitte melde dich an für die Board-Anzeige.",
       "collapsedColumnTitle": "{title} – {count} – zum Aufklappen klicken",
+      "railLabel": {
+        "incoming": "Eingeg.",
+        "reko": "Reko",
+        "reko_done": "Reko abg.",
+        "enroute": "Anfahrt",
+        "active": "Einsatz",
+        "returning": "Rückfahrt",
+        "complete": "Abgeschl."
+      },
       "columnAlarmTitle": "{count} überfällig: {titles}",
       "columnAlarmMore": "… und {count} weitere",
+      "columnAgedChip": "{count} ≥ {threshold}",
       "priorityAria": "Priorität: {label}",
       "materialCount": "{count, plural, one {# Gerät} other {# Geräte}}",
       "nachbarhilfe": "Nachbarhilfe",
@@ -3731,7 +3751,6 @@
       "dangers": "Gefahren: {types}",
       "personnelNeed": "Mannschaftsbedarf:",
       "estimatedDuration": "Geschätzte Dauer:",
-      "durationHours": "{hours}h",
       "contactPhone": "Telefon",
       "intakeBadge": "Telefon / Laufkundschaft",
       "feldBadge": "Vom Feld",
@@ -3766,13 +3785,13 @@
       "vehicles": "Fahrzeuge",
       "availableDeployed": "{available} verfügbar · {deployed} im Einsatz",
       "incidents": "Einsätze",
-      "incomingInProgress": "{incoming} eingegangen · {inProgress} in Bearbeitung",
+      "waitingInProgress": "{waiting} offen · {inProgress} in Arbeit",
       "noActiveIncidents": "Keine aktiven Einsätze",
       "personnel": "Personal",
       "material": "Material",
       "otherRole": "Andere",
       "noMaterial": "Kein Material erfasst",
-      "available": "verfügbar",
+      "materialContinued": "Material · Forts.",
       "freeOfTotal": "{free}/{total} frei",
       "auftragStops": "{count, plural, one {# Stopp} other {# Stopps}}",
       "onIncidents": "{count, plural, one {# Einsatz} other {# Einsätze}}",
@@ -3900,9 +3919,7 @@
       "rekoByName": "Reko von {name}",
       "summaryFallback": "Meldung, Mannschaft und Material",
       "driver": "Fahrer: {name}",
-      "vehicleViaAuftrag": "Auftrag – fährt mit",
-      "vehicleStays": "bleibt vor Ort",
-      "vehicleReturns": "fährt zurück"
+      "vehicleViaAuftrag": "Auftrag – fährt mit"
     },
     "rapportState": {
       "none": "kein Rapport",

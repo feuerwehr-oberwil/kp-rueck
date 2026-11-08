@@ -40,15 +40,25 @@ export const MAPLIBRE_WORKER_URL = '/maplibre/maplibre-gl-worker.mjs'
  * The one z-order for DOM markers on the main map and its overlays.
  *
  * MapLibre appends every marker to the canvas container, so a plain `zIndex` on the marker
- * element settles stacking. The values keep Leaflet's relative order: an Auftrag's numbered stop
- * pin covers a plain incident dot but yields to a highlighted or hovered one, an assignment's
- * distance pill sits above both, and the three label tiers mirror Leaflet's tooltip pane sitting
- * above the marker pane – a label is text to be read and always wins. The map controls
- * (`.maplibregl-ctrl-*`) are pinned above the whole range by `base-map.tsx`'s
+ * element settles stacking. An incident's permanent label is its OWN marker (IncidentLabel in
+ * `components/map-view.tsx`), so pins and labels can sit in separate bands:
+ *
+ * - at rest every pin paints above every label (hill climb r14) – a label may run under a
+ *   neighbouring dot, but it never hides that dot's priority colour and chevron; inside each
+ *   band Hoch over Mittel over Niedrig (`incidentZ`);
+ * - an Auftrag's numbered stop pin covers a plain incident dot;
+ * - the selected/highlighted incident (label, then its pin) clears every resting pin and stop;
+ * - the pointed-at one (label/hover card, then its pin) clears everything – the hovered route
+ *   stop included.
+ *
+ * The map controls (`.maplibregl-ctrl-*`) are pinned above the whole range by `base-map.tsx`'s
  * `z-maplibre-ctrl`, and our own map chrome that has to clear the range uses `z-map-control`
  * (the z-order block in app/globals.css holds both). Numbers, not those rungs, because these go
  * on a MapLibre `<Marker>` as an inline style — and because the page's ladder must stay out of a
  * scale that is only ever read inside the map's `isolate`.
+ *
+ * `label` and `incident` are the floors of three-step priority bands; read them through
+ * `incidentZ`, not directly.
  *
  * The dialog maps (Routen-Editor, Einsatz-Picker) keep their own small local scales – separate
  * maps, no incident markers, no reason to couple them.
@@ -56,17 +66,36 @@ export const MAPLIBRE_WORKER_URL = '/maplibre/maplibre-gl-worker.mjs'
 export const Z = {
   station: 10,
   vehicle: 40,
-  incident: 50,
+  label: 50,
+  incident: 60,
   routeStop: 100,
   distancePill: 250,
-  incidentHighlighted: 300,
-  routeStopHighlighted: 300,
+  labelSelected: 300,
+  incidentHighlighted: 310,
+  routeStopHighlighted: 310,
   routeStopHovered: 400,
-  incidentHovered: 600,
-  label: 700,
-  labelSelected: 900,
-  labelHovered: 1000,
+  labelHovered: 600,
+  incidentHovered: 610,
 } as const
+
+const PRIORITY_RANK: Partial<Record<string, number>> = { high: 2, medium: 1 }
+
+/**
+ * The z of an incident's pin or its label (see `Z`). `hovered` = pointed at (a label also counts
+ * its pinned, click-selected incident as hovered – it shows the hover card); `highlighted` =
+ * selected on the map or highlighted from the list/Reko. Phone and desktop alike: on a phone the
+ * kept labels never cover a dot anyway (`lib/map-labels.ts`).
+ */
+export function incidentZ(
+  part: 'pin' | 'label',
+  priority: string | null | undefined,
+  state: { hovered: boolean; highlighted: boolean },
+): number {
+  const pin = part === 'pin'
+  if (state.hovered) return pin ? Z.incidentHovered : Z.labelHovered
+  if (state.highlighted) return pin ? Z.incidentHighlighted : Z.labelSelected
+  return (pin ? Z.incident : Z.label) + (PRIORITY_RANK[priority ?? ''] ?? 0)
+}
 
 /**
  * A style with nothing in it.
@@ -153,6 +182,36 @@ export function fitTo(map: MlMap, points: readonly LatLngPoint[], options: FitTo
   }
 
   map.fitBounds(bounds, fitOptions)
+}
+
+/** A rectangle in client pixels – what `getBoundingClientRect()` returns, minus the methods. */
+export type ClientBox = Pick<DOMRectReadOnly, 'top' | 'right' | 'bottom' | 'left' | 'width' | 'height'>
+
+/** Clear space between map chrome and the nearest fitted point. */
+const CHROME_FIT_GAP = 16
+
+/**
+ * Fit padding that keeps the fitted points out from under the map's own chrome: `base` on every
+ * edge, and more on the right while the legend panel is open (its width from the map's right
+ * edge + 16px) and at the top while the top-right chip row holds something (its foot + 16px).
+ * Without it the Lagekarte framed «6 Reinacherstrasse 30» under the open legend with empty map
+ * on the left (hill climb r23). A cover that is absent or 0 tall/wide adds nothing; no edge takes
+ * more than half the map, so a narrow map still has a box to fit into.
+ */
+export function chromeFitPadding(
+  base: number,
+  map: ClientBox,
+  cover: { legend?: ClientBox | null; topRow?: ClientBox | null },
+): { top: number; right: number; bottom: number; left: number } {
+  const { legend, topRow } = cover
+  const right = legend && legend.width > 0 ? map.right - legend.left + CHROME_FIT_GAP : 0
+  const top = topRow && topRow.height > 0 ? topRow.bottom - map.top + CHROME_FIT_GAP : 0
+  return {
+    top: Math.min(Math.max(base, top), map.height / 2),
+    right: Math.min(Math.max(base, right), map.width / 2),
+    bottom: base,
+    left: base,
+  }
 }
 
 /**

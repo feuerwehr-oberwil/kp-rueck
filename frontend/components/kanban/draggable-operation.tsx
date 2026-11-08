@@ -16,7 +16,7 @@ import {
   ContextMenu,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Siren, AlertTriangle, ChevronUp, ChevronDown, Minus, Binoculars, Map, Building2, Timer, Phone, Axe, Waypoints, FileText, FileCheck, XCircle } from 'lucide-react'
+import { Siren, AlertTriangle, Binoculars, Map, Building2, Timer, Phone, Axe, Waypoints, FileText, FileCheck, XCircle } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -28,11 +28,16 @@ import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
-import { PRIORITY_CARD_CLASSES, PRIORITY_ICON_CLASSES, type Priority } from "@/lib/priority"
+import { AddressText } from "./address-text"
+import { PRIORITY_CARD_CLASSES, type Priority } from "@/lib/priority"
+import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import { DEFAULT_CARD_VIEW, cardViewEquals, type CardViewSettings } from "@/lib/card-view"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { telHref } from "@/lib/phone"
 import { cn } from "@/lib/utils"
+import { WALL_TEXT_WRAP } from "@/lib/kanban-utils"
+import { formatDurationHours } from "@/lib/duration"
+import { metaFacts } from "@/lib/meta-line"
 import { SIDE_PANEL_BREAKPOINT, SIDE_PANEL_MEDIA_QUERY } from "@/lib/layout-breakpoints"
 import { useMediaQuery } from "@/lib/hooks/use-media-query"
 
@@ -111,7 +116,7 @@ interface DraggableOperationProps {
 }
 
 // The boundary between the card's three sections — Kopf/Meldung, Ressourcen,
-// Reko. Everything inside a section keeps the plain 12px rhythm; only these two
+// Reko. Everything inside a section keeps the plain 8px rhythm; only these two
 // boundaries get a rule, because Ressourcen and Reko are the two blocks that are
 // genuinely a different kind of fact from the incident's own data.
 //
@@ -119,7 +124,13 @@ interface DraggableOperationProps {
 // section that renders nothing (Kompakt, a route stop whose resources live on
 // the Auftrag, an incident without a Reko) then takes its rule with it and
 // cannot leave an orphan line above nothing.
-const SECTION_RULE = 'border-t pt-3'
+const SECTION_RULE = 'border-t pt-2'
+
+// One of the card's 24px buttons in the age row (map, Reko, Rapport, and the
+// source tiles drawn the same size beside them). `relative hit-area` pads the
+// target to 26px without drawing more (globals.css); under 32px tall, so
+// `rounded-sm` (CLAUDE.md → Corners).
+const CARD_ACTION = 'relative hit-area inline-flex size-6 items-center justify-center rounded-sm transition-colors'
 
 /**
  * «Echt-Alarm» — the one legitimate per-incident training marker.
@@ -230,26 +241,18 @@ function DraggableOperationBase({
   // Grouped incidents carry no resources themselves — the route owns them. Read
   // the route's resource roll-up for the card chip summary.
   const auftragResources = auftrag ? getGroupResources(auftrag.id) : null
-  const auftragSummary = auftragResources
+  // The progress line's facts: «Stopp 1 von 4», the vehicles, «3 Pers», «1 Gerät».
+  const auftragFacts = auftrag && auftragResources
     ? [
+        t('card.auftragStopLine', { pos: auftragStopPos, total: auftragTotal }),
         auftragResources.vehicles.map((v) => v.name).join(', '),
         auftragResources.personnel.length ? t('card.auftragPersSummary', { count: auftragResources.personnel.length }) : '',
         auftragResources.materials.length ? t('card.auftragMatSummary', { count: auftragResources.materials.length }) : '',
-      ]
-        .filter(Boolean)
-        .join(' · ')
-    : ''
+      ].filter(Boolean)
+    : []
   // What the row says, in full — the tooltip's job now that the row has two
   // lines that can each still truncate on a narrow column.
-  const auftragTitle = auftrag
-    ? [
-        auftrag.name,
-        t('card.auftragStopLine', { pos: auftragStopPos, total: auftragTotal }),
-        auftragSummary,
-      ]
-        .filter(Boolean)
-        .join(' · ')
-    : ''
+  const auftragTitle = auftrag ? [auftrag.name, ...auftragFacts].join(' · ') : ''
 
   // What this device actually renders. Resolved once, up front, because the
   // resource block owns a `border-t` divider and its own padding: if the wrapper
@@ -443,7 +446,7 @@ function DraggableOperationBase({
               // Ressourcen-Bindung) otherwise lands flush against the column edge or
               // the panel beside it, and its highlight ring is what gets clipped —
               // the one part that has to be seen. Applies to both axes.
-              'operation-card scroll-m-4 border border-border border-l-4 bg-card/80 backdrop-blur-sm p-4 transition-all hover:bg-muted/20 cursor-pointer',
+              'operation-card scroll-m-4 border border-border border-l-4 bg-card/80 backdrop-blur-sm px-4 py-3 transition-all hover:bg-muted/20 cursor-pointer',
               // Priority styling. Kept while the card is selected AND while it is
               // hovered: selection is a neutral frame now and no longer borrows
               // the priority colours, and hover has no business overwriting them
@@ -538,136 +541,47 @@ function DraggableOperationBase({
             // before it gets here — see `openDetailFrom`.
             onClick={() => openDetail()}
           >
-        <div className="space-y-3">
-          <div className="flex items-start justify-between gap-2">
-            {/* Draggable area */}
-            <div className="flex items-start gap-2 min-w-0 flex-1">
-              <div className="flex items-center flex-shrink-0 mt-0.5">
-                {/* Priority indicator - icon only, no colors */}
-                {priority === "high" ? (
-                  <ChevronUp className={cn('h-4 w-4', PRIORITY_ICON_CLASSES[priority])} aria-label={t('card.priorityHighAria')} />
-                ) : priority === "medium" ? (
-                  <Minus className={cn('h-4 w-4', PRIORITY_ICON_CLASSES[priority])} aria-label={t('card.priorityMediumAria')} />
-                ) : (
-                  <ChevronDown className={cn('h-4 w-4', PRIORITY_ICON_CLASSES[priority])} aria-label={t('card.priorityLowAria')} />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3 className="font-bold text-base text-foreground leading-tight break-words">
-                  {/* The incident's number — what ⌘K takes («14 tlf meier»). Quiet
-                      mono, so the address stays the heading. */}
-                  <IncidentNumber number={operation.number} className="mr-1.5 text-xs" />
-                  {locationLabel}
-                </h3>
-                {/* Abholung. Deliberately NOT gated on status: completing the
-                    card auto-releases the crew while they are still standing at
-                    the address, so this is the moment it matters most. */}
-                {operation.pickupNeeded && (
-                  <PickupBadge
-                    requestedAt={operation.pickupRequestedAt}
-                    note={operation.pickupNote}
-                    incidentId={operation.id}
-                    canEdit={canDrag}
-                    className="mt-1.5"
-                  />
-                )}
-              </div>
+        {/* The card's rhythm: 12px above and below, 8px between blocks, 8px on
+            either side of a section rule, 12px between cards
+            (droppable-column.tsx). Tight on purpose — a laptop column has to
+            show its fifth card. The sides keep 16px: the height is what costs
+            cards per column, and the text measure stays what it was. */}
+        <div className="space-y-2">
+          {/* The title row: priority mark, number, address — nothing else, so
+              the address has the card's full width (U9 B, 08.11.2026). The
+              card's buttons used to share this row and broke «Mühlematt- /
+              strasse 12» at 1920; they sit in the age row below now. */}
+          <div className="flex items-start gap-2">
+            <div className="flex items-center flex-shrink-0 mt-0.5">
+              {/* The priority mark: the shape says it, the shared mark colour
+                  repeats it (Niedrig = the light slate, never a faint grey
+                  that reads like a fold chevron). The card folds nowhere. */}
+              <PriorityGlyph priority={priority} size="card" />
             </div>
-            {/* Non-draggable icons area */}
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              {operation.source === 'intake' && (
-                <div
-                  className="p-1.5 rounded-md bg-muted/60"
-                  title={t('card.intakeTooltip')}
-                >
-                  <Phone className="h-4 w-4 text-muted-foreground/80" />
-                </div>
+            <div className="min-w-0 flex-1">
+              {/* Wraps at a syllable (`WALL_TEXT_WRAP`), never at an arbitrary letter:
+                  in a 260px column (droppable-column.tsx, `COLUMN_WIDTH`)
+                  «10 Rebbergstrasse 5» has the row to itself, but the longest
+                  street names still break. The house number stays with its
+                  street (`AddressText`, r21). */}
+              <h3 className={cn("font-bold text-base text-foreground leading-tight", WALL_TEXT_WRAP)}>
+                {/* The incident's number — what ⌘K takes («14 tlf meier»). Quiet
+                    mono, so the address stays the heading. */}
+                <IncidentNumber number={operation.number} className="mr-1.5 text-xs" />
+                <AddressText text={locationLabel} />
+              </h3>
+              {/* Abholung. Deliberately NOT gated on status: completing the
+                  card auto-releases the crew while they are still standing at
+                  the address, so this is the moment it matters most. */}
+              {operation.pickupNeeded && (
+                <PickupBadge
+                  requestedAt={operation.pickupRequestedAt}
+                  note={operation.pickupNote}
+                  incidentId={operation.id}
+                  canEdit={canDrag}
+                  className="mt-1.5"
+                />
               )}
-              {/* Where the Meldung came from, as its own glyph: the phone desk
-                  took a call, a Trupp stood in front of the thing. Both are
-                  "somebody outside the KP said there is something here", and the
-                  difference decides how much of it the operator re-checks — so
-                  it is drawn, not left to the source field in the detail.
-                  Both tiles are muted like the Reko tile: sky is the Rückfahrt
-                  column's hue, and the tooltip carries the meaning. */}
-              {operation.source === 'feld' && (
-                <div
-                  className="p-1.5 rounded-md bg-muted/60"
-                  title={t('card.feldTooltip')}
-                >
-                  <Axe className="h-4 w-4 text-muted-foreground/80" />
-                </div>
-              )}
-              {/* Neither «Am Warten» nor «Nachbarhilfe» is in this glyph row any
-                  more — both moved to labelled chips below, because in both
-                  cases the note is the half that decides whether anyone has to
-                  act, and a glyph cannot carry it. */}
-              {/* Reko carries the Binoculars everywhere else in the app — a
-                  second document glyph next to the Rapport's only invited the
-                  operator to tell two near-identical papers apart.
-                  A button, not a chip: it says a Reko-Bericht exists, so the
-                  useful thing to do with it is read it — it opens the detail on
-                  the Reko tab. Same faint hover as the map link beside it, which
-                  is the card's established «this one is clickable» cue. */}
-              {operation.hasCompletedReko && (
-                <button
-                  type="button"
-                  onClick={openDetailFrom('reko')}
-                  className="p-1.5 rounded-md bg-muted/60 transition-colors hover:bg-muted"
-                  title={t('card.rekoDoneTooltip')}
-                  aria-label={t('card.rekoDoneTooltip')}
-                >
-                  <Binoculars className="h-4 w-4 text-muted-foreground/80" />
-                </button>
-              )}
-              {/* The Schadenplatz-Rapport, filed or missing. Filed = the TICKED
-                  paper in success green — it lights up the same for a crew's
-                  rapport and one typed in the KP, and it must, because a grey
-                  FileText next to the grey Binoculars was unreadable as
-                  "erledigt". Missing on a card that already reached `complete`
-                  = the plain paper dimmed, so the gap is visible without a
-                  dialog and without a block (decision 10 — a blocking gate is
-                  a gate people defeat with empty forms). */}
-              {/* Both states open the detail's Rapport tab: on a filed one
-                  that is where it is read, and on a missing one that is where it
-                  gets written — the gap is the reason to click. Only the missing
-                  one asks for the caret (`kurzbericht`); landing in a filed
-                  Rapport's textarea would put the next keystroke into a sentence
-                  the crew wrote. */}
-              {operation.hasSchadenplatzRapport ? (
-                <button
-                  type="button"
-                  onClick={openDetailFrom('rapport')}
-                  className="p-1.5 rounded-md bg-success/10 transition-colors hover:bg-success/20"
-                  title={tFeld('cardRapportTooltip')}
-                  aria-label={tFeld('cardRapportTooltip')}
-                >
-                  <FileCheck className="h-4 w-4 text-success" />
-                </button>
-              ) : operation.status === 'complete' && rapportApplies({
-                  hasBeenDispatched: operation.hasBeenDispatched,
-                  status: operation.status,
-                  hasReport: operation.hasSchadenplatzRapportDraft,
-                  rekoNotRelevant: operation.rekoSummary?.isRelevant === false,
-                }) ? (
-                <button
-                  type="button"
-                  onClick={openDetailFrom('rapport', 'kurzbericht')}
-                  className="p-1.5 rounded-md bg-muted/40 transition-colors hover:bg-muted"
-                  title={tFeld('cardNoRapportTooltip')}
-                  aria-label={tFeld('cardNoRapportTooltip')}
-                >
-                  <FileText className="h-4 w-4 text-muted-foreground/40" />
-                </button>
-              ) : null}
-              <Link
-                href={`/map?highlight=${operation.id}`}
-                onClick={(e) => e.stopPropagation()}
-                className="p-1.5 rounded-md hover:bg-muted/80 transition-colors group/mapicon"
-                title={t('card.showOnMap')}
-              >
-                <Map className="h-4 w-4 text-muted-foreground group-hover/mapicon:text-foreground transition-colors" />
-              </Link>
             </div>
           </div>
 
@@ -694,67 +608,172 @@ function DraggableOperationBase({
               on — «wartet auf DL aus Reinach» is the half that decides whether
               somebody has to phone Reinach. The wall display and the printed
               slip have carried the reason all along; this is the surface it was
-              typed on. Truncated like every other chip, full text in `title`. */}
+              typed on. The reason wraps to a second line (12/16, the glyph level
+              with the first) and only then clamps, full text in `title`: one line
+              ended «bis Kräft…» exactly where the reason starts to matter. */}
           {(operation.amWarten || operation.nachbarhilfe) && (
-            <div className="flex flex-wrap items-center gap-1 text-xs">
+            <div className="flex flex-wrap items-start gap-1 text-xs">
               {operation.amWarten && (
                 <Badge
                   variant="secondary"
-                  className="min-w-0 max-w-full shrink border border-warning/60 bg-warning/15 text-warning-foreground text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
+                  className="min-w-0 max-w-full shrink border border-warning/60 bg-warning/15 text-warning-foreground text-xs px-1.5 py-0.5 font-normal leading-4 whitespace-normal flex items-start gap-1"
                   title={amWartenLabel}
                 >
-                  <Timer className="h-3 w-3 flex-shrink-0" />
-                  <span className="truncate">{amWartenLabel}</span>
+                  <Timer className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                  <span className="min-w-0 line-clamp-2 break-words">{amWartenLabel}</span>
                 </Badge>
               )}
               {/* Neutral, not amber: «Am Warten» is a card that is STUCK and
                   wants an eye on it, Nachbarhilfe is simply a fact about whose
-                  incident it is. Same shape, same place, same truncation — the
+                  incident it is. Same shape, same place, same two-line clamp — the
                   colour is the only thing that separates a state that costs
                   something from one that does not. */}
               {operation.nachbarhilfe && (
                 <Badge
                   variant="secondary"
-                  className="min-w-0 max-w-full shrink border border-border bg-muted/60 text-muted-foreground text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
+                  className="min-w-0 max-w-full shrink border border-border bg-muted/60 text-muted-foreground text-xs px-1.5 py-0.5 font-normal leading-4 whitespace-normal flex items-start gap-1"
                   title={nachbarhilfeLabel}
                 >
-                  <Building2 className="h-3 w-3 flex-shrink-0" />
-                  <span className="truncate">{nachbarhilfeLabel}</span>
+                  <Building2 className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                  <span className="min-w-0 line-clamp-2 break-words">{nachbarhilfeLabel}</span>
                 </Badge>
               )}
             </div>
           )}
 
-          {/* Einsatzart and time share one line: they are both single short facts,
-              and two stacked rows cost a card's worth of height on a full board.
-              The label truncates rather than wraps so it can never push the time
-              off the row. Each half is independently toggleable (see lib/card-view.ts),
-              so the pair only shares a row when both are switched on — with the time
-              alone the row keeps its original full-width split.
-              Label and time share the chip's type scale (text-xs, 3.5 icon) so the
-              row reads as one line rather than a big label with a small number
-              stuck to it — most Einsatzarten are long enough («Elementarereignis»)
-              that the label is truncating anyway, and the address above is what
-              carries the card.
-              The chip carries the age colouring (amber/red once it has sat too long),
-              which is a separate signal from whichever number the mode shows —
+          {/* ONE meta row on every card: the Einsatzart on the left when the
+              card shows it, the card's buttons, and the age always at the right
+              end. The age used to
+              sit left whenever the type row was off (most cards, since the
+              type only shows when it deviates from the Ereignis's usual one)
+              and right when it was on, so a column of cards had its clocks at
+              two x positions (hill climb r18). Now every clock is in the same
+              reserved slot at the end of the row – `shrink-0` after the
+              buttons' `ml-auto` group, the
+              digits tabular (the chip's own `font-mono tabular-nums`) – and
+              read down a column they stand in one line. The label truncates with
+              its full text in `title` and the time keeps its place: it is
+              `shrink-0`, the label's box `min-w-0` – one line, whatever the type
+              (r21 reversed r20's wrap: a wrapped «Technische / Hilfeleistung»
+              doubled the row beside the clock).
+              Label and time share the chip's type scale (text-xs, 3.5 icon);
+              each half is independently toggleable (see lib/card-view.ts).
+              The chip carries the age colouring (amber/red once it has sat too
+              long), a separate signal from whichever number the mode shows —
               see components/ui/incident-time.tsx. */}
-          {showEinsatzartRow && cardView.zeiten ? (
-            <div className="flex items-center justify-between gap-3">
+          {/* Always rendered: the map link is on every card, so the row has
+              something in it even with «Zeiten» and the type row off. */}
+          <div className="flex items-center gap-3">
+            {showEinsatzartRow && (
               <div className="flex min-w-0 items-center gap-1.5">
                 <Siren className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                <span className="truncate text-xs text-muted-foreground">{getIncidentTypeLabel(operation.incidentType)}</span>
+                <span className="min-w-0 truncate text-xs text-muted-foreground" title={getIncidentTypeLabel(operation.incidentType)}>{getIncidentTypeLabel(operation.incidentType)}</span>
               </div>
+            )}
+            {/* The card's buttons, left of the clock (U9 B). `-my-1`: the 24px
+                buttons hang 4px into the 8px gaps above and below, so the row
+                stays as tall as the clock (16px) and the card no taller than it
+                was with the buttons in the title row. `hit-area` pads each to
+                26px (globals.css), over the mouse floor. */}
+            <div className="ml-auto -my-1 flex flex-shrink-0 items-center gap-1">
+              {operation.source === 'intake' && (
+                <div
+                  className={cn(CARD_ACTION, 'bg-muted/60')}
+                  title={t('card.intakeTooltip')}
+                >
+                  <Phone className="h-3.5 w-3.5 text-muted-foreground/80" />
+                </div>
+              )}
+              {/* Where the Meldung came from, as its own glyph: the phone desk
+                  took a call, a Trupp stood in front of the thing. Both are
+                  "somebody outside the KP said there is something here", and the
+                  difference decides how much of it the operator re-checks — so
+                  it is drawn, not left to the source field in the detail.
+                  Both tiles are muted like the Reko tile: sky is the Rückfahrt
+                  column's hue, and the tooltip carries the meaning. */}
+              {operation.source === 'feld' && (
+                <div
+                  className={cn(CARD_ACTION, 'bg-muted/60')}
+                  title={t('card.feldTooltip')}
+                >
+                  <Axe className="h-3.5 w-3.5 text-muted-foreground/80" />
+                </div>
+              )}
+              {/* Neither «Am Warten» nor «Nachbarhilfe» is in this glyph row any
+                  more — both are labelled chips above, because in both cases
+                  the note is the half that decides whether anyone has to act,
+                  and a glyph cannot carry it. */}
+              {/* Reko carries the Binoculars everywhere else in the app — a
+                  second document glyph next to the Rapport's only invited the
+                  operator to tell two near-identical papers apart.
+                  A button, not a chip: it says a Reko-Bericht exists, so the
+                  useful thing to do with it is read it — it opens the detail on
+                  the Reko tab. Same faint hover as the map link beside it, which
+                  is the card's established «this one is clickable» cue. */}
+              {operation.hasCompletedReko && (
+                <button
+                  type="button"
+                  onClick={openDetailFrom('reko')}
+                  className={cn(CARD_ACTION, 'bg-muted/60 hover:bg-muted')}
+                  title={t('card.rekoDoneTooltip')}
+                  aria-label={t('card.rekoDoneTooltip')}
+                >
+                  <Binoculars className="h-3.5 w-3.5 text-muted-foreground/80" />
+                </button>
+              )}
+              {/* The Schadenplatz-Rapport, filed or missing. Filed = the TICKED
+                  paper in success green — it lights up the same for a crew's
+                  rapport and one typed in the KP, and it must, because a grey
+                  FileText next to the grey Binoculars was unreadable as
+                  "erledigt". Missing on a card that already reached `complete`
+                  = the plain paper dimmed, so the gap is visible without a
+                  dialog and without a block (decision 10 — a blocking gate is
+                  a gate people defeat with empty forms). */}
+              {/* Both states open the detail's Rapport tab: on a filed one
+                  that is where it is read, and on a missing one that is where it
+                  gets written — the gap is the reason to click. Only the missing
+                  one asks for the caret (`kurzbericht`); landing in a filed
+                  Rapport's textarea would put the next keystroke into a sentence
+                  the crew wrote. */}
+              {operation.hasSchadenplatzRapport ? (
+                <button
+                  type="button"
+                  onClick={openDetailFrom('rapport')}
+                  className={cn(CARD_ACTION, 'bg-success/10 hover:bg-success/20')}
+                  title={tFeld('cardRapportTooltip')}
+                  aria-label={tFeld('cardRapportTooltip')}
+                >
+                  <FileCheck className="h-3.5 w-3.5 text-success" />
+                </button>
+              ) : operation.status === 'complete' && rapportApplies({
+                  hasBeenDispatched: operation.hasBeenDispatched,
+                  status: operation.status,
+                  hasReport: operation.hasSchadenplatzRapportDraft,
+                  rekoNotRelevant: operation.rekoSummary?.isRelevant === false,
+                }) ? (
+                <button
+                  type="button"
+                  onClick={openDetailFrom('rapport', 'kurzbericht')}
+                  className={cn(CARD_ACTION, 'bg-muted/40 hover:bg-muted')}
+                  title={tFeld('cardNoRapportTooltip')}
+                  aria-label={tFeld('cardNoRapportTooltip')}
+                >
+                  <FileText className="h-3.5 w-3.5 text-muted-foreground/40" />
+                </button>
+              ) : null}
+              <Link
+                href={`/map?highlight=${operation.id}`}
+                onClick={(e) => e.stopPropagation()}
+                className={cn(CARD_ACTION, 'hover:bg-muted/80 group/mapicon')}
+                title={t('card.showOnMap')}
+              >
+                <Map className="h-3.5 w-3.5 text-muted-foreground group-hover/mapicon:text-foreground transition-colors" />
+              </Link>
+            </div>
+            {cardView.zeiten && (
               <IncidentTimeRow operation={operation} colorByAge className="flex-shrink-0" />
-            </div>
-          ) : showEinsatzartRow ? (
-            <div className="flex items-center gap-1.5">
-              <Siren className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-              <span className="truncate text-xs text-muted-foreground">{getIncidentTypeLabel(operation.incidentType)}</span>
-            </div>
-          ) : cardView.zeiten ? (
-            <IncidentTimeRow operation={operation} colorByAge className="justify-between" />
-          ) : null}
+            )}
+          </div>
 
           {/* What the field reported, as a question instead of a second status
               display. Rendered conditionally so only the handful of cards that
@@ -766,7 +785,7 @@ function DraggableOperationBase({
 
           {/* Meldung (notes) — what came in on the phone. Still part of the first
               section: everything down to the Melder is the incident's own data,
-              12px apart and with no rule between any two of them. The card used
+              8px apart and with no rule between any two of them. The card used
               to fence off every single block, which read as a hierarchy the
               content does not have; the two rules it kept (see SECTION_RULE)
               mark the only real change of subject. */}
@@ -821,7 +840,7 @@ function DraggableOperationBase({
               answers it in one place. */}
           {showResourceBlock && (
             <div
-              className={cn(SECTION_RULE, "space-y-3 text-xs")}
+              className={cn(SECTION_RULE, "space-y-2 text-xs")}
               onClick={openDetailFrom('overview', 'resources')}
             >
               <CardResources
@@ -882,14 +901,16 @@ function DraggableOperationBase({
                     asked for 107px of content in 49px of space (19px on the wall
                     at 1280) and rendered «Pio · 3 …». The name gets the first
                     line to itself and the progress sits under it. The card grows
-                    by one line — but only on a card that is a route stop at all. */}
+                    by one line — but only on a card that is a route stop at all.
+                    The progress line wraps rather than ending in «…» (r20). */}
                 <span className="flex min-w-0 flex-1 flex-col gap-px">
                   <span className="truncate font-medium text-foreground/80 group-hover/auftrag:text-foreground transition-colors">
                     {auftrag.name}
                   </span>
-                  <span className="truncate type-micro text-muted-foreground">
-                    <span className="tabular-nums">{t('card.auftragStopLine', { pos: auftragStopPos, total: auftragTotal })}</span>
-                    {auftragSummary && <> · {auftragSummary}</>}
+                  {/* Breaks only between facts, the «·» going with the fact after it:
+                      «1 Gerät» never wraps as «1 / Gerät» (r22, `lib/meta-line.ts`). */}
+                  <span className="break-words type-micro tabular-nums text-muted-foreground">
+                    {metaFacts(auftragFacts)}
                   </span>
                 </span>
               </button>
@@ -912,7 +933,7 @@ function DraggableOperationBase({
           ) && (
             // What the Reko found — so the block opens the Reko tab, which is
             // where the whole report is.
-            <div className={cn(SECTION_RULE, "space-y-3")} onClick={openDetailFrom('reko')}>
+            <div className={cn(SECTION_RULE, "space-y-2")} onClick={openDetailFrom('reko')}>
               {/* The Reko's verdict, where it says «nothing to do here»: the
                   one sentence that tells an operator this card can close. */}
               {operation.rekoSummary.isRelevant === false && (
@@ -937,14 +958,15 @@ function DraggableOperationBase({
                 </div>
               )}
 
+              {/* «4 Pers. · 2h 30'» — the estimate in the board's duration
+                  notation (`formatDurationHours`, shared with the wall card),
+                  never the decimal «2.5h» it arrives as. */}
               {Boolean(operation.rekoSummary.personnelCount || operation.rekoSummary.estimatedDuration) && (
-                <div className="text-xs text-muted-foreground">
-                  {operation.rekoSummary.personnelCount && (
-                    <span className="mr-3">{t('card.persCount', { count: operation.rekoSummary.personnelCount })}</span>
-                  )}
-                  {operation.rekoSummary.estimatedDuration && (
-                    <span>{operation.rekoSummary.estimatedDuration}h</span>
-                  )}
+                <div className="text-xs tabular-nums text-muted-foreground">
+                  {[
+                    operation.rekoSummary.personnelCount && t('card.persCount', { count: operation.rekoSummary.personnelCount }),
+                    operation.rekoSummary.estimatedDuration && formatDurationHours(operation.rekoSummary.estimatedDuration),
+                  ].filter(Boolean).join(' · ')}
                 </div>
               )}
             </div>

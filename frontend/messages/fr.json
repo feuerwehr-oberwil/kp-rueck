@@ -296,13 +296,24 @@
       "no": "Non",
       "personCount": "{count, plural, one {# personne} other {# personnes}}",
       "staleWarn": "Liaison perturbée – dernier état à {time}. L’actualisation continue.",
-      "staleAlert": "Pas de liaison · état à {time}"
+      "staleAlert": "Pas de liaison · état à {time}",
+      "moreBelow": "+{count} de plus ↓"
     },
     "board": {
       "loginRequired": "Connecte-toi pour afficher le tableau.",
       "collapsedColumnTitle": "{title} – {count} – cliquer pour déplier",
+      "railLabel": {
+        "incoming": "Reçu",
+        "reko": "Reco",
+        "reko_done": "Reco term.",
+        "enroute": "En route",
+        "active": "Interv.",
+        "returning": "Retour",
+        "complete": "Clôturé"
+      },
       "columnAlarmTitle": "{count} en retard : {titles}",
       "columnAlarmMore": "… et {count} autres",
+      "columnAgedChip": "{count} ≥ {threshold}",
       "priorityAria": "Priorité : {label}",
       "materialCount": "{count, plural, one {# engin} other {# engins}}",
       "nachbarhilfe": "Entraide",
@@ -326,7 +337,6 @@
       "dangers": "Dangers : {types}",
       "personnelNeed": "Besoin en effectif :",
       "estimatedDuration": "Durée estimée :",
-      "durationHours": "{hours} h",
       "contactPhone": "Téléphone",
       "intakeBadge": "Téléphone / guichet",
       "feldBadge": "Du terrain",
@@ -361,13 +371,13 @@
       "vehicles": "Véhicules",
       "availableDeployed": "{available} disponibles · {deployed} engagés",
       "incidents": "Interventions",
-      "incomingInProgress": "{incoming} reçues · {inProgress} en cours",
+      "waitingInProgress": "{waiting} en attente · {inProgress} en cours",
       "noActiveIncidents": "Aucune intervention en cours",
       "personnel": "Personnel",
       "material": "Matériel",
       "otherRole": "Autres",
       "noMaterial": "Aucun matériel saisi",
-      "available": "disponibles",
+      "materialContinued": "Matériel · suite",
       "freeOfTotal": "{free}/{total} libres",
       "auftragStops": "{count, plural, one {# arrêt} other {# arrêts}}",
       "onIncidents": "{count, plural, one {# intervention} other {# interventions}}",
@@ -674,7 +684,7 @@
       "inProgress": "En cours",
       "done": "Terminées",
       "oldestHigh": "Plus ancienne annonce «haute» en attente",
-      "waitingSince": "attend depuis {age}",
+      "waitingSince": "depuis la réception {age}",
       "noWaitingHigh": "Aucune annonce «haute» en attente.",
       "openIncident": "Ouvrir l’intervention",
       "reactionTitle": "Temps de réaction depuis la réception",
@@ -747,9 +757,7 @@
       "rekoByName": "Reconnaissance par {name}",
       "summaryFallback": "Annonce, effectif et matériel",
       "driver": "Conducteur : {name}",
-      "vehicleViaAuftrag": "Mission – vient avec",
-      "vehicleStays": "reste sur place",
-      "vehicleReturns": "rentre à la caserne"
+      "vehicleViaAuftrag": "Mission – vient avec"
     },
     "rapportState": {
       "none": "pas de rapport",
@@ -1419,12 +1427,12 @@
       "notesPlaceholder": "Ajouter une note …",
       "dangers": "Dangers",
       "personnelCount": "{count, plural, one {# personne} other {# personnes}}",
-      "estimatedDuration": "{duration} h estimées",
-      "vehicles": "Véhicules ({count})",
+      "estimatedDuration": "{duration} estimées",
+      "vehicles": "Véhicules · {count}",
       "noVehicles": "Aucun véhicule attribué",
-      "crew": "Effectif ({count})",
+      "crew": "Effectif · {count}",
       "noCrew": "Aucun effectif attribué",
-      "materials": "Matériel ({count})",
+      "materials": "Matériel · {count}",
       "noMaterials": "Aucun matériel attribué",
       "contact": "Contact / annonceur",
       "contactPlaceholder": "Ajouter un contact …",
@@ -1679,6 +1687,7 @@
       "einsatzart": "Genre d’intervention",
       "einsatzartPlaceholder": "Choisir le genre d’intervention",
       "priority": "Priorité",
+      "status": "Statut",
       "phoneReported": "Par téléphone",
       "phoneReportedDescription": "L’annonce est arrivée au PC par téléphone ou au guichet",
       "feldReported": "Du terrain",
@@ -1701,9 +1710,9 @@
       "directLink": "Lien direct",
       "dashboard": "Tableau de bord",
       "noRekoAssigned": "Aucune personne de reconnaissance attribuée",
-      "crewCount": "Effectif ({count})",
-      "vehiclesCount": "Véhicules ({count})",
-      "materialsCount": "Matériel ({count})",
+      "crewCount": "Effectif · {count}",
+      "vehiclesCount": "Véhicules · {count}",
+      "materialsCount": "Matériel · {count}",
       "assignCrew": "Attribuer de l’effectif",
       "assignVehicle": "Attribuer un véhicule",
       "assignMaterial": "Attribuer du matériel",
@@ -2001,7 +2010,7 @@
       "locationError": "Saisis un lieu d’intervention",
       "phoneShort": "Le numéro n’a que {digits} chiffres – à vérifier. La création reste possible.",
       "phoneLong": "Le numéro a {digits} chiffres – à vérifier. La création reste possible.",
-      "infoDragDrop": "Les véhicules, l’effectif et le matériel peuvent être attribués par glisser-déposer une fois l’intervention créée.",
+      "infoDragDrop": "Les véhicules, l’effectif et le matériel peuvent être attribués par glisser-⁠déposer une fois l’intervention créée.",
       "create": "Créer l’intervention",
       "createAndNext": "Créer et saisir la suivante",
       "moreActions": "Autres actions"
@@ -2031,7 +2040,6 @@
       "removeMaterial": "Libérer le matériel",
       "noMaterial": "Aucun matériel attribué",
       "resourceEmpty": "aucun",
-      "changeStatus": "Changer de statut",
       "copyWhatsapp": "Copier pour WhatsApp",
       "moreActions": "Autres actions",
       "diveraAlarm": "Convocation",
@@ -2051,7 +2059,8 @@
       "clickToView": "Clique sur une intervention pour afficher les détails",
       "selectPlaceholder": "Sélectionner",
       "transfer": "Transférer",
-      "whatsapp": "WhatsApp"
+      "whatsapp": "WhatsApp",
+      "distribute": "Répartir"
     },
     "personMenu": {
       "vehicleTaken": "Véhicule déjà attribué",
@@ -2080,10 +2089,11 @@
       "titleCrewRouteGeneric": "Attribuer de l’effectif à une mission",
       "titleVehiclesRouteGeneric": "Attribuer des véhicules à une mission",
       "titleMaterialsRouteGeneric": "Attribuer du matériel à une mission",
-      "titleCrewIncident": "Attribuer de l’effectif à une intervention",
-      "titleVehiclesIncident": "Attribuer des véhicules à une intervention",
-      "titleMaterialsIncident": "Attribuer du matériel à une intervention",
-      "selectedCount": "{selected} sélectionnés, {available} disponibles",
+      "titleCrewIncident": "Attribuer de l’effectif",
+      "titleVehiclesIncident": "Attribuer des véhicules",
+      "titleMaterialsIncident": "Attribuer du matériel",
+      "selectedCountCrew": "{selected} sélectionnés · {total, plural, one {# personne} other {# personnes}}",
+      "selectedCountMaterials": "{selected} sélectionnés · {total} au total",
       "vehiclesAssigned": "{count, plural, one {# véhicule attribué} other {# véhicules attribués}}",
       "zuFussSuffix": ", à pied",
       "quickSelectByType": "Par genre :",
@@ -2492,8 +2502,9 @@
     "page": {
       "loading": "Chargement de la carte …",
       "title": "Carte de situation",
-      "activeBadge": "{count} en cours",
-      "incidentsHeading": "Interventions ({count})",
+      "activeBadge": "{count, plural, one {# intervention} other {# interventions}}",
+      "incidentsHeading": "Interventions · {count}",
+      "incidentsHeadingPlain": "Interventions",
       "labels": "Étiquettes",
       "lines": "Lignes",
       "distance": "Distance",
@@ -2539,7 +2550,8 @@
       "clickToNavigate": "Cliquer pour naviguer vers l’intervention",
       "retry": "Réessayer",
       "mapAria": "Carte des interventions – flèches pour déplacer, tabulation pour sélectionner",
-      "glLost": "L’affichage de la carte a été interrompu par le navigateur."
+      "glLost": "L’affichage de la carte a été interrompu par le navigateur.",
+      "clusterAria": "{count} interventions, la plus urgente : {priority} – toucher pour agrandir"
     },
     "legend": {
       "show": "Afficher la légende",
@@ -2555,14 +2567,14 @@
       "vehicleOnline": "Véhicule en ligne",
       "vehicleOffline": "Véhicule hors ligne",
       "assignments": "Attributions",
-      "vehicleToIncident": "Véhicule → intervention"
+      "vehicleToIncident": "Véhicule → intervention",
+      "cluster": "Plusieurs interventions (nombre)"
     },
     "assignmentLines": {
       "incidentFallback": "Intervention"
     },
     "locationInput": {
-      "addressLabel": "Lieu d’intervention (adresse)",
-      "addressLabelShort": "Lieu d’intervention",
+      "addressLabel": "Lieu d’intervention",
       "requiredField": "Champ obligatoire",
       "addressPlaceholder": "Rechercher une adresse …",
       "searchPlaceholder": "Rechercher une adresse …",
@@ -3499,6 +3511,11 @@
         "languageHint": "Langue de l’interface sur cet appareil",
         "selectPlaceholder": "Choisir …",
         "editorsOnlyNote": "Seuls les éditeurs peuvent modifier les réglages.",
+        "groups": {
+          "station": "Caserne",
+          "map": "Carte et affichage",
+          "rapport": "Rapport d’intervention"
+        },
         "configs": {
           "home_city": {
             "label": "Secteur d’intervention (localité)",

@@ -320,7 +320,7 @@ export function AuftraegeSheet({
           rightInset={isMobile ? undefined : "var(--notification-sidebar-width, 0px)"}
           nonModal={!isMobile}
           // phone: a modal sheet over the nav — only the safe area at its foot
-          className={cn("flex flex-col max-w-4xl mx-auto px-6 py-4 modal-h-tall", isMobile && "pb-sheet-safe")}
+          className={cn("flex flex-col max-w-4xl mx-auto px-6 py-4 modal-h-tall [--close-edge:1.5rem]", isMobile && "pb-sheet-safe")}
           onPointerDownOutside={(e) => {
             // A sonner toast is portalled outside this non-modal sheet, so clicking
             // its "Rückgängig" action counts as an outside interaction and would

@@ -17,13 +17,14 @@ import { QRCodeSVG } from "qrcode.react"
 import { Check, ChevronLeft, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
+import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { SearchInput } from "@/components/ui/search-input"
 import { DraggablePerson } from "@/components/kanban/draggable-person"
 import { DiveraIncomingBlock } from "@/components/kanban/divera-incoming-block"
 import { CrewDutyButton } from "@/components/kanban/crew-duty-sheet"
 import { ResourcesNotLoaded } from "@/components/board-load-error"
-import { AvailableOnlyToggle, BindingsPopoverBody, SidebarEmpty, SidebarLoading } from "@/components/board/sidebar-parts"
+import { AvailableOnlyToggle, BindingsPopoverBody, SidebarCounter, SidebarEmpty, SidebarLoading } from "@/components/board/sidebar-parts"
 import type { BindingsPopoverState, ResourceBinding } from "@/lib/board-sidebar"
 import type { Person } from "@/lib/contexts/operations-context"
 import type { DoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
@@ -104,7 +105,7 @@ export function PersonnelSidebar({
         {/* Collapse handle — small chevron centered on the sidebar's inner edge */}
         <button
           onClick={() => setShowLeftSidebar(false)}
-          className="absolute right-0 top-1/2 translate-x-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+          className="absolute hit-area right-0 top-1/2 translate-x-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
           title={`${tDash('toggleLeftSidebar')} ([)`}
           aria-label={tDash('toggleLeftSidebar')}
         >
@@ -129,8 +130,11 @@ export function PersonnelSidebar({
             label={personnelAvailableOnly ? tDash('showAll') : tDash('showAvailableOnly')}
           />
         </div>
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1 pb-3">
+        {/* Scrollable content. No bottom padding: the `ScrollEndFade` closing it is
+            the end room (24px), and while more is below it fades the list into the
+            sidebar above the counter – a row cut by the footer used to look like the
+            end of the list (hill climb r19). */}
+        <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1">
           {/* Divera «Anrückend» on top: at the start of an Einsatz nobody is checked in yet,
               and this is the list that fills the one below. Only once the roster is known,
               or everybody already here would be listed as still coming. */}
@@ -271,6 +275,7 @@ export function PersonnelSidebar({
               ))}
             </div>
           )}
+          <ScrollEndFade surface="panel" />
         </div>
         {/* Fixed availability counter at bottom. No rule above it: the
             slightly lighter bar and its own padding already read as a
@@ -298,19 +303,7 @@ export function PersonnelSidebar({
               visible rows. Deliberately NOT broken down by function: this
               is the line read in half a second, not a statistic. */}
           {isLoaded && !boardNeverLoaded && !effectivePersonnelQuery && (
-            <div className="flex items-center justify-center gap-2 text-xs">
-              <span className="inline-flex items-center gap-1 type-caption text-emerald-700 dark:text-emerald-400">
-                <Check className="size-3.5" />
-                {tCommon('rosterFree', { count: rosterSummary.free })}
-              </span>
-              <span className="text-muted-foreground">{tCommon('rosterOf', { total: rosterSummary.total })}</span>
-              {rosterSummary.bound > 0 && (
-                // Plain muted text: «gebunden» is a fact, not a warning (VISUAL-03).
-                <span className="text-muted-foreground">
-                  {tCommon('rosterBound', { count: rosterSummary.bound })}
-                </span>
-              )}
-            </div>
+            <SidebarCounter summary={rosterSummary} />
           )}
           {/* Who is here for how long — the Dienstzeiten overview.
               Its own line: beside the counter it pushed «2 frei» onto two lines. */}

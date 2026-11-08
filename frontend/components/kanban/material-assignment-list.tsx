@@ -3,8 +3,8 @@
 import { useTranslations } from "next-intl"
 import { Badge } from "@/components/ui/badge"
 import { Reveal } from "@/components/ui/reveal"
-import { ListSection } from "@/components/kanban/assignment-list-section"
-import { CheckCircle, Circle, Layers, ChevronDown, ChevronRight, Siren, Ban, Truck } from "lucide-react"
+import { ElsewhereNote, ListSection, type OccupancyLabel, TileCheck, TILE_GRID, TILE_HOVER, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
+import { Layers, ChevronDown, ChevronRight, Ban, Truck } from "lucide-react"
 import { type Material } from "@/lib/contexts/operations-context"
 import { materialResourceState } from "@/lib/resource-status"
 import { getActiveLocale } from "@/lib/i18n-messages"
@@ -146,7 +146,7 @@ interface MaterialAssignmentListProps {
   selectedMaterials: ReadonlySet<string>
   occupiedElsewhereMaterialIds: ReadonlySet<string>
   /** Where a material is held elsewhere, or null when free / on this target. */
-  materialElsewhereLabel: (material: Material) => { short: string; full: string } | null
+  materialElsewhereLabel: (material: Material) => OccupancyLabel | null
   /** Vehicle names on this target — a depot that IS one of them is on scene. */
   assignedVehicles: string[]
   /** Id of the tile (or `group-<first id>`) whose tick just appeared. */
@@ -188,7 +188,9 @@ const renderMaterialTile = (material: Material) => {
   // as defective is shown, named as such, and cannot be ticked.
   const isOutOfService = materialResourceState(material) === 'unavailable' && !isSelected
   // This material's depot IS a vehicle already assigned to the target (e.g.
-  // Mowa): its stock is on scene. Emphasis only — nothing gets preselected.
+  // Mowa): its stock is on scene. Emphasis only — nothing gets preselected. A
+  // fact, so ink (truck glyph + depot in foreground), not green: green means
+  // frei / verfügbar on availability marks and nothing else.
   const vehicleOnScene = !elsewhere && assignedVehicles.includes(material.category)
   return (
     <button
@@ -196,42 +198,30 @@ const renderMaterialTile = (material: Material) => {
       onClick={() => onToggleMaterial(material)}
       disabled={isOutOfService}
       className={cn(
-        "flex items-center gap-2.5 p-2.5 rounded-lg border border-border/50 transition-all text-left",
-        isOutOfService ? "cursor-not-allowed border-dashed opacity-60" : "cursor-pointer hover:border-sel-edge hover:bg-secondary/30 hover-delight",
-        isSelected && "border-sel-edge bg-sel-wash",
-        vehicleOnScene && !isSelected && "border-emerald-500/30"
+        "flex items-start gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-colors text-left",
+        isOutOfService ? "cursor-not-allowed border-dashed opacity-60" : "cursor-pointer",
+        isSelected ? "border-sel-edge bg-sel-wash" : !isOutOfService && TILE_HOVER
       )}
     >
       {isOutOfService ? (
-        <Ban className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-      ) : isSelected ? (
-        <CheckCircle className={cn(
-          "h-5 w-5 text-sel-foreground flex-shrink-0",
-          wasJustAssigned && "animate-check-appear"
-        )} />
+        <Ban className="mt-0.5 size-4 flex-shrink-0 text-muted-foreground" />
       ) : (
-        <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+        <TileCheck checked={isSelected} animate={wasJustAssigned} />
       )}
       <div className="min-w-0">
         <p className={cn("font-medium text-sm truncate", isOutOfService && "text-muted-foreground")} title={material.name}>{material.name}</p>
         {isOutOfService ? (
-          <p className="truncate text-2xs font-medium text-muted-foreground">
+          <p className={cn(TILE_META, "truncate text-muted-foreground")}>
             {t('assignmentDialog.outOfService')}
           </p>
         ) : elsewhere ? (
-          <span
-            title={elsewhere.full}
-            className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-700 dark:text-amber-400"
-          >
-            <Siren className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">{elsewhere.short}</span>
-          </span>
+          <ElsewhereNote label={elsewhere} />
         ) : vehicleOnScene ? (
           <span
             title={t('assignmentDialog.vehicleOnSceneHint', { name: material.category })}
-            className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-emerald-700 dark:text-emerald-400"
+            className={cn("mt-0.5 inline-flex max-w-full items-start gap-1 truncate", TILE_META, "text-foreground")}
           >
-            <Truck className="h-3 w-3 flex-shrink-0" />
+            <Truck className={TILE_META_ICON} />
             <span className="truncate">{material.category}</span>
           </span>
         ) : (
@@ -261,8 +251,8 @@ const renderMaterialTile = (material: Material) => {
           <div key={`group-${groupId}`}>
             {/* Group header row */}
             <div className={cn(
-              "flex items-center rounded-lg border border-border/50 transition-all hover:border-sel-edge hover:bg-secondary/30",
-              allSelected && "border-sel-edge bg-sel-wash"
+              "flex items-center rounded-lg border border-border/50 transition-colors",
+              allSelected ? "border-sel-edge bg-sel-wash" : TILE_HOVER
             )}>
               {/* Expand/collapse toggle */}
               <button
@@ -279,17 +269,8 @@ const renderMaterialTile = (material: Material) => {
                 onClick={() => onToggleGroup(freeGroupMatIds)}
                 className="flex-1 flex cursor-pointer items-center justify-between py-3 pr-3 text-left"
               >
-                <div className="flex items-center gap-3">
-                  {allSelected ? (
-                    <CheckCircle className={cn(
-                      "h-5 w-5 text-sel-foreground flex-shrink-0",
-                      wasJustAssigned && "animate-check-appear"
-                    )} />
-                  ) : someSelected ? (
-                    <CheckCircle className="h-5 w-5 text-sel-foreground/50 flex-shrink-0" />
-                  ) : (
-                    <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                  )}
+                <div className="flex items-start gap-3">
+                  <TileCheck checked={allSelected || (someSelected && "partial")} animate={allSelected && wasJustAssigned} />
                   <div>
                     <p className="font-medium text-sm flex items-center gap-1.5">
                       <Layers className="h-3.5 w-3.5 text-muted-foreground" />
@@ -315,7 +296,7 @@ const renderMaterialTile = (material: Material) => {
             {/* Slides open (Reveal); the 4px gap under the header
                 is padding inside the clip, so nothing snaps. */}
             <Reveal open={isExpanded} innerClassName="pt-1">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-4 border-l-2 border-border/40 ml-3">
+              <div className={cn(TILE_GRID, "pl-4 border-l-2 border-border/40 ml-3")}>
                 {groupMats.map(renderMaterialTile)}
               </div>
             </Reveal>
@@ -331,14 +312,14 @@ const renderMaterialTile = (material: Material) => {
       )}
       {ungroupedFree.length > 0 && (
         <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: ungroupedFree.length })}>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className={TILE_GRID}>
             {ungroupedFree.map(renderMaterialTile)}
           </div>
         </ListSection>
       )}
       {ungroupedBusy.length > 0 && (
         <ListSection tone="busy" label={t('assignmentDialog.sectionBusy', { count: ungroupedBusy.length })}>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className={TILE_GRID}>
             {ungroupedBusy.map(renderMaterialTile)}
           </div>
         </ListSection>

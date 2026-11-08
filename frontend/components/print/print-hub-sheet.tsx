@@ -17,6 +17,7 @@ import { useTranslations } from "next-intl"
 import { PrintView, type PrintAuftrag, type PrintOptions } from "./print-view"
 import { downloadEventExport, type EventExportKind } from "./event-export"
 import { useOperations } from "@/lib/contexts/operations-context"
+import { useMaterials } from "@/lib/contexts/materials-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useGroups } from "@/lib/contexts/groups-context"
@@ -116,7 +117,9 @@ export function PrintHubSheet({
   // The role labels the field surface already uses — one wording for «Fahrer
   // TLF 1», whether it is read on a phone or off a printout.
   const tRoles = useTranslations("feld.roles")
-  const { operations, personnel, materials, materialOnSite } = useOperations()
+  const { operations, personnel, materialOnSite } = useOperations()
+  // With the Aufträge' material folded in: the Materialliste says «im Einsatz» for it too.
+  const { materials } = useMaterials()
   const { groups, getGroupResources } = useGroups()
   const { selectedEvent } = useEvent()
   const { isEditor } = useAuth()
