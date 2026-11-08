@@ -649,7 +649,7 @@ qu’en glissant s’appliquent (double attribution, chauffeur), et le message q
 **`⇥` complète** le mot commencé : `14 kell` devient `14 Keller Marco`, `grenz` devient `Grenzweg 1`. S’il y a plusieurs candidats, `⇥` à nouveau prend le suivant (indiqué à droite de la ligne), `⇧⇥` le précédent.
 
 Les raccourcis globaux (`G …` et `?`) valent sur chaque page de l’interface – tableau,
-carte, événements, paramètres, aide, exercice, alarmes entrantes. Ils se
+carte, événements, paramètres, aide, exercice. Ils se
 taisent tant qu’un dialogue ou un menu est ouvert ; sur les affichages muraux (`/display`)
 et les formulaires mobiles (terrain, reko, check-in), ils n’existent volontairement pas.
 

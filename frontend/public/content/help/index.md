@@ -643,7 +643,7 @@ den gewohnten Befehlen («neu» ist weiterhin «Neuer Einsatz»). Es gelten dies
 **`⇥` ergänzt** das angefangene Wort: `14 kell` wird zu `14 Keller Marco`, `grenz` zu `Grenzweg 1`. Passen mehrere, nimmt `⇥` nochmals den nächsten (rechts in der Zeile steht, welcher), `⇧⇥` den vorigen.
 
 Die globalen Kürzel (`G …` und `?`) gelten auf jeder Seite der Bedienoberfläche – Board,
-Karte, Ereignisse, Einstellungen, Hilfe, Übung, Alarmeingang. Sie ruhen,
+Karte, Ereignisse, Einstellungen, Hilfe, Übung. Sie ruhen,
 solange ein Dialog oder ein Menü offen ist, und auf den Wandanzeigen (`/display`) sowie den
 Handy-Formularen (Feld, Reko, Check-In) gibt es sie bewusst nicht.
 
