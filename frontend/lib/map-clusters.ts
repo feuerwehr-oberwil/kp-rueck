@@ -1,14 +1,14 @@
 /**
- * Phone Lagekarte: incident pins that overlap merge into ONE count bubble (owner pick U4 B,
- * 08.11.2026). At the fit zoom a storm evening piles eighteen 32px pins into one heap where no
- * single pin can be tapped; a bubble says how many are there and carries the most urgent one's
- * mark – its priority glyph and its status frame – so a Hoch is still visible from afar. A tap
- * zooms to the group (`components/map-view.tsx`).
+ * Lagekarte: incident pins that overlap on screen merge into ONE count bubble – on the phone
+ * (owner pick U4 B, 08.11.2026) and, since round 27 (owner, 08.11.2026: «Joining – Both»), on
+ * the desktop too. At the fit zoom a storm evening piles eighteen 32px pins into one heap where no
+ * single pin can be pointed at, and their labels cover each other; a bubble says how many are
+ * there and carries the most urgent one's mark – its priority glyph and its status frame – so a
+ * Hoch is still visible from afar. A click or tap zooms to the group (`components/map-view.tsx`).
  *
- * Only on the compact map (`COMPACT_MAP_QUERY`, the label rule's own test) and only below
- * `CLUSTER_MAX_ZOOM`: from street level the pins stand apart and the collision-checked labels
- * take over (`lib/map-labels.ts`). Desktop never groups – a mouse can point at a pin in a heap,
- * and the pointed-at one comes to the front.
+ * Only below `CLUSTER_MAX_ZOOM`: from street level the pins stand apart and the labels take over
+ * (`lib/map-labels.ts`). Incidents at the SAME address are one pin before this pass even starts
+ * (`lib/map-spots.ts`) and take part as one pin of weight `count`.
  *
  * The pins are DOM markers, not a GeoJSON layer, so this is a small screen-space pass run when
  * the map comes to rest, not MapLibre's built-in clustering: pure, so it is unit-tested here.
@@ -27,6 +27,8 @@ export interface ClusterPin {
   y: number
   priority: string | null | undefined
   statusGroup: StatusGroup
+  /** How many incidents the pin stands for: more than one for a same-address pin. Default 1. */
+  count?: number
 }
 
 export interface PinCluster {
@@ -34,6 +36,15 @@ export interface PinCluster {
   pins: ClusterPin[]
   /** The one whose mark the bubble wears – see `clusterLead`. */
   lead: ClusterPin
+  /** The incidents under the bubble – the number it shows (pins weighted by `count`). */
+  count: number
+}
+
+/** What decides which of several incidents speaks for them (`byUrgency`). */
+export interface Urgency {
+  id: string
+  priority: string | null | undefined
+  statusGroup: StatusGroup
 }
 
 const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 }
@@ -41,17 +52,21 @@ const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 }
 const GROUP_RANK: Record<StatusGroup, number> = { open: 0, active: 1, completed: 2 }
 
 /**
- * The pin a bubble speaks for: the highest priority (Hoch → Mittel → Niedrig → none), then the
- * most pressing status group (Offen → Aktiv → Rückfahrt & Abgeschlossen), then the id so the
- * answer never flickers between polls.
+ * Most urgent first: the highest priority (Hoch → Mittel → Niedrig → none), then the most pressing
+ * status group (Offen → Aktiv → Rückfahrt & Abgeschlossen), then the id so the answer never
+ * flickers between polls. A sort comparator – shared by the bubbles and the same-address pins.
  */
+export function byUrgency(a: Urgency, b: Urgency): number {
+  return (
+    (PRIORITY_RANK[a.priority ?? ''] ?? 3) - (PRIORITY_RANK[b.priority ?? ''] ?? 3) ||
+    GROUP_RANK[a.statusGroup] - GROUP_RANK[b.statusGroup] ||
+    a.id.localeCompare(b.id)
+  )
+}
+
+/** The pin a bubble speaks for – the most urgent (`byUrgency`). */
 export function clusterLead(pins: readonly ClusterPin[]): ClusterPin {
-  return [...pins].sort(
-    (a, b) =>
-      (PRIORITY_RANK[a.priority ?? ''] ?? 3) - (PRIORITY_RANK[b.priority ?? ''] ?? 3) ||
-      GROUP_RANK[a.statusGroup] - GROUP_RANK[b.statusGroup] ||
-      a.id.localeCompare(b.id),
-  )[0]
+  return [...pins].sort(byUrgency)[0]
 }
 
 /**
@@ -90,5 +105,11 @@ export function clusterPins(
     nodes.splice(best.j, 1)
   }
 
-  return nodes.filter((node) => node.pins.length > 1).map((node) => ({ pins: node.pins, lead: clusterLead(node.pins) }))
+  return nodes
+    .filter((node) => node.pins.length > 1)
+    .map((node) => ({
+      pins: node.pins,
+      lead: clusterLead(node.pins),
+      count: node.pins.reduce((sum, pin) => sum + (pin.count ?? 1), 0),
+    }))
 }

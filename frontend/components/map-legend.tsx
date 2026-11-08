@@ -11,6 +11,7 @@ import type { Priority } from "@/lib/priority"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 import { ClusterBubble } from "@/components/map/cluster-bubble"
+import { PinCountBadge } from "@/components/map/pin-count-badge"
 
 // SVG marker for the legend – the map's IncidentPin at rest, same geometry and frame
 // (`incidentPinRings`, phone or desktop by the same `useCompactMap` test the markers use).
@@ -130,7 +131,7 @@ export function MapLegend({
   const coloring = colorBy !== "priority"
 
   const isMobile = useIsMobile()
-  // Only the compact map groups overlapping pins into count bubbles (lib/map-clusters.ts).
+  // The bubble's frame follows the surface's pin geometry, as the map's does.
   const compact = useCompactMap()
   const [open, setOpen] = useState<boolean | null>(null)
 
@@ -220,17 +221,25 @@ export function MapLegend({
               </div>
             </>
           )}
-          {/* The phone's count bubble: the number of Einsätze under it, in the mark of the most
-              urgent one. 38px keeps its count at 11px (the screen floor); the -3px each side
-              keeps the label on the 32px samples' text edge. */}
-          {compact && (
-            <div className="flex items-center gap-2">
-              <span className="-mx-[3px] flex-shrink-0">
-                <ClusterBubble count={3} priority="high" group="active" size={38} legend />
-              </span>
-              <span className="text-xs">{t('legend.cluster')}</span>
-            </div>
-          )}
+          {/* Several Einsätze at ONE address: the most urgent one's pin with their count
+              (lib/map-spots.ts). Drawn as a Hoch, like the bubble below, under any colouring. */}
+          {/* pt-1: room for the badge, which stands 6px above the sample. */}
+          <div className="flex items-center gap-2 pt-1">
+            <span className="relative flex-shrink-0">
+              <LegendMarker fillColor={PRIORITY_MARKER_COLORS.high} group="active" priority="high" />
+              <PinCountBadge count={3} />
+            </span>
+            <span className="text-xs">{t('legend.spot')}</span>
+          </div>
+          {/* The count bubble below zoom 16: the number of Einsätze under it, in the mark of the
+              most urgent one (lib/map-clusters.ts). 38px keeps its count at 11px (the screen
+              floor); the -3px each side keeps the label on the 32px samples' text edge. */}
+          <div className="flex items-center gap-2">
+            <span className="-mx-[3px] flex-shrink-0">
+              <ClusterBubble count={3} priority="high" group="active" size={38} compact={compact} legend />
+            </span>
+            <span className="text-xs">{t('legend.cluster')}</span>
+          </div>
         </div>
       </div>
 
