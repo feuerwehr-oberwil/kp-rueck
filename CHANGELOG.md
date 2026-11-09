@@ -58,6 +58,10 @@ will keep holding.
   edge, remembered per device; a double-click restores the default.
 - **`/feld` shows the Einsatz number and priority mark before the address.** The Feld API's
   assignments carry `number` and `priority` (additive).
+- **«Appell» at the foot of the Personal sidebar**, beside «Dienstzeiten» – the roll call no
+  longer hides behind the Checkliste and «Links & QR».
+- **Setting «Fahrzeuge auf der Lagekarte»** (Einstellungen → GPS): after how many minutes a
+  vehicle's last GPS report counts as old (default 10). Only then does its pill show the time.
 
 ### Changed
 
@@ -86,6 +90,19 @@ will keep holding.
 - **User menu**: «Anzeige» holds Kennzahlen and Display-Übersicht – the three walls are opened
   from `/display`; «Befehle & Kürzel» shows its keys on one line. The command palette reads
   «Befehl suchen oder zuweisen …» with the typing grammar on a line under the input.
+- **Vehicles on the Lagekarte say their state**: online is a solid blue pill, offline a dashed
+  grey one; vehicles in one place are one pill «6 Fahrzeuge | 4 offline». A pill that would cover
+  an Einsatz steps aside with a thin line to its real position, and labels keep clear of pills.
+  The list on hover shows five vehicles and scrolls. Lines to an Einsatz come from online
+  vehicles only. While the «ohne Koordinaten» list is open, the legend folds.
+- **Every side panel can be dragged wider or narrower** at its edge – Personal, Material and the
+  Einsatz detail on the board, the right rail of `/map` (list, Reko-Modus and Routenplanung share
+  one width), Benachrichtigungen and the Alarmeingang. Widths are remembered per device; a
+  double-click restores the default.
+- **Panels open the same way**: every side panel and bottom sheet slides in from its own edge
+  in about a tenth of a second (instantly with reduced motion); bottom sheets come out from
+  behind the footer. The Checkliste is a bottom sheet like the others, and it no longer opens
+  itself over an open Alarmeingang.
 - **Phone**: «Mannschaft zuweisen» is a bottom sheet.
 - **Settings**: «Allgemein» is grouped (Station, Karte und Anzeige, Einsatzrapport); the
   station coordinates show and save six decimals.
@@ -102,6 +119,10 @@ will keep holding.
 - **Names on the status wall no longer fall apart letter by letter.** Beside a long
   destination («→ Bahnhofstrasse 1, Coop Center») a Personal or Material name could be squeezed
   to nothing and set one letter per line; now the destination moves to its own line.
+  Section heads and long addresses on the status wall wrap instead of ending in «…».
+- **The map no longer flickers while a panel beside it is resized.**
+- **«Beenden» in a narrow Routenplanung rail** turns into a plain ✕ instead of wrapping.
+- **Checkliste titles** wrap instead of being cut off beside their buttons.
 
 ### Security
 
