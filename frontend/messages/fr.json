@@ -4666,6 +4666,7 @@
       "keep": "Conserver (modifié depuis)",
       "delete": "Supprimer",
       "duplicate": "Saisi deux fois – l’autre version n’a pas été reprise",
+      "savedRow": "Version concernée",
       "apply": "Appliquer",
       "decidedThere": "C’est sur {leader} qu’on décide.",
       "resolveFailed": "Impossible d’appliquer. Recharger la liste et choisir à nouveau."

@@ -135,6 +135,8 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
   const labels = useMemo(() => new Map(operations.map((op) => [op.id, operationLabel(op)])), [operations])
   const merged = useMemo(() => mergedInto(entries), [entries])
   const [correcting, setCorrecting] = useState<JournalLine | null>(null)
+  // A correction under way ends when the box takes the Ereignis over: adding stays, correcting not.
+  const activeCorrection = isEditor ? correcting : null
   // ⇧J asks for a NEW line: a correction in progress gives way to it. The request is
   // handed to the composer once and then consumed, so a later remount of the composer
   // (after the next correction, say) does not replay it.
@@ -280,10 +282,10 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
 
       {canWrite && eventId && (
         <JournalComposer
-          key={correcting?.entry.id ?? "new"}
+          key={activeCorrection?.entry.id ?? "new"}
           eventId={eventId}
           operations={operations}
-          correcting={correcting}
+          correcting={activeCorrection}
           composeRequest={pendingCompose}
           onComposeHandled={() => setPendingCompose(null)}
           onCancelCorrection={() => setCorrecting(null)}

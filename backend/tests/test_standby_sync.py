@@ -323,6 +323,25 @@ async def test_a_take_back_on_the_hosted_board_wins_and_the_late_box_edit_become
 
 
 @pytest.mark.asyncio
+async def test_a_taken_back_ereignis_with_nothing_to_send_does_not_call_the_hosted_board(mirrored):
+    box, hosted, event_id, _ = mirrored
+    await sync_event(box, hosted, _push(hosted), event_id)
+    await hosted.execute(
+        "UPDATE event_leads SET holder = 'hosted', since = now() + interval '1 minute' WHERE event_id = $1", event_id
+    )
+    await sync_event(box, hosted, _push(hosted), event_id)  # the box learns it
+    calls: list[list[Op]] = []
+
+    async def counting(event_id: uuid.UUID, ops: list[Op], pending: int) -> list[str]:
+        calls.append(ops)
+        return await _push(hosted)(event_id, ops, pending)
+
+    result = await sync_event(box, hosted, counting, event_id)
+
+    assert result.leader == HOSTED and calls == []
+
+
+@pytest.mark.asyncio
 async def test_the_hosted_side_never_takes_a_row_of_another_ereignis(mirrored, hosted):
     _, _, event_id, _ = mirrored
     other_event = uuid.uuid4()

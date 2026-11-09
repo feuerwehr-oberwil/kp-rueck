@@ -114,24 +114,34 @@ ALTER DEFAULT PRIVILEGES FOR ROLE <backend db user> IN SCHEMA public GRANT SELEC
 ```
 
 For the photos, a **viewer** account on the hosted board (Einstellungen › Benutzer) with a
-password of its own.
+password – the seeded `viewer` will do.
 
 For the way back, a key the box shows the hosted board: generate it (`openssl rand -hex 32`),
 keep it in your password vault, and set it on the hosted **backend** as `STANDBY_SYNC_TOKEN`
 (Railway › backend › Variables; one redeploy). Without it the hosted board refuses every write
 from the box, and the box's work stays on the box.
 
+**What the box can do with the hosted board.** It never holds the hosted database's own login.
+It reads through `kp_standby` (replication and `SELECT`, no write privilege on any table), and
+it writes only through `POST /api/standby/sync` with the key, which takes rows of one Ereignis
+at a time: the Ereignis's own tables (Einsätze, Aufträge, Mannschaft, Tagebuch, Rapporte …),
+for an Ereignis the box took over or created, each row checked against the version the box
+last saw. Users, roster, settings and every other Ereignis are out of its reach. A leaked key
+is still serious – it can rewrite Ereignisse – so it lives in the vault and in the two
+`.env`/Variables entries, nowhere else.
+
 ### 2. The box
 
-1. Install it as a normal compose stack ([`SETUP.md`](SETUP.md)) – a box **without Ereignisse**:
-   the first setup replaces everything on it with the hosted data, and refuses if it holds any.
+1. Install it as a normal compose stack ([`SETUP.md`](SETUP.md)) from a **git checkout** (the
+   follow script below moves it commit for commit) – a box **without Ereignisse**: the first
+   setup replaces everything on it with the hosted data, and refuses if it holds any.
 2. In its `.env`:
 
    ```bash
    COMPOSE_PROFILES=backup,standby
    DEPLOYMENT_ROLE=standby
    STANDBY_SOURCE_URL=postgresql://kp_standby:<generated>@<host>:<port>/railway  # host/port of DATABASE_PUBLIC_URL
-   STANDBY_SOURCE_API=https://kp.example.ch/backend-api
+   STANDBY_SOURCE_API=https://kp.example.ch/backend-api   # or the backend's own address
    STANDBY_PHOTO_USER=<viewer>
    STANDBY_PHOTO_PASSWORD=<its password>
    STANDBY_SYNC_TOKEN=<the same key as on the hosted backend>
@@ -140,6 +150,8 @@ from the box, and the box's work stays on the box.
 
    Remove `ADMIN_SEED_PASSWORD` and `VIEWER_PASSWORD`: the accounts now come from the hosted
    board, and a password re-applied from `.env` on every boot would fight the mirrored one.
+   `LOCAL_AUTOLOGIN_USER` must name an editor that exists on the hosted board; it needs no
+   password there (the hosted board never accepts the passwordless login).
 3. Follow the hosted board's version once (below), then `docker compose up -d`. The
    `standby-mirror` sidecar installs its guards, creates the subscription and copies the
    hosted data. `docker compose ps standby-mirror` reads `healthy` once the copy is current;
@@ -157,7 +169,7 @@ too. The hosted board deploys from `main`, so the box follows **commit for commi
 after a backup, and **never while the box leads an Ereignis** (an update restarts the board). Run it every five minutes, e.g. from cron on the box:
 
 ```
-*/5 * * * *  cd /path/to/kp-rueck && scripts/standby-follow.sh >> /var/log/kp-standby-follow.log 2>&1
+*/5 * * * *  cd /path/to/kp-rueck && scripts/standby-follow.sh >> $HOME/kp-standby-follow.log 2>&1
 ```
 
 ## Is it working?
@@ -205,4 +217,5 @@ versions again once it leads nothing.
 
 `python -m app.standby --reset` (after `just backup`) starts the box over from the hosted data.
 It is the last resort – after the box was lost for days, say – and discards what the box had
-not sent yet.
+not sent yet. An Ereignis the hosted board still says the box leads is taken up again once the
+copy is complete, so work on it carries on from the hosted version.

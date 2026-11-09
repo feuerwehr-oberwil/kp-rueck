@@ -145,8 +145,9 @@ export function StandbyBand() {
           onConfirm={async () => {
             try {
               await standby.takeOver(selectedEvent.id)
-            } catch {
+            } catch (error) {
               toast.error(t('takeover.failed'))
+              throw error // the dialog stays open for another try
             }
           }}
         >
@@ -164,8 +165,9 @@ export function StandbyBand() {
           onConfirm={async () => {
             try {
               await standby.takeOver(selectedEvent.id)
-            } catch {
+            } catch (error) {
               toast.error(t('takeBack.failed'))
+              throw error // the dialog stays open for another try
             }
           }}
         >
@@ -186,7 +188,13 @@ export function StandbyBand() {
         </ConfirmDialog>
       )}
       {selectedEvent && (
-        <StandbyConflictsSheet open={conflictsOpen} onOpenChange={setConflictsOpen} eventId={selectedEvent.id} />
+        // Keyed: another Ereignis never shows (or decides) the previous one's list while it loads.
+        <StandbyConflictsSheet
+          key={selectedEvent.id}
+          open={conflictsOpen}
+          onOpenChange={setConflictsOpen}
+          eventId={selectedEvent.id}
+        />
       )}
     </div>
   )

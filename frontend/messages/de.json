@@ -4666,6 +4666,7 @@
       "keep": "Behalten (seither geändert)",
       "delete": "Löschen",
       "duplicate": "Doppelt erfasst – die andere Fassung wurde nicht übernommen",
+      "savedRow": "Betroffene Fassung",
       "apply": "Übernehmen",
       "decidedThere": "Entschieden wird auf {leader}.",
       "resolveFailed": "Das liess sich nicht übernehmen. Liste neu laden und nochmals wählen."

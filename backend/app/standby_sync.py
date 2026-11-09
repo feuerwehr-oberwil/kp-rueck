@@ -62,7 +62,7 @@ class Table:
     where: str  # SQL on alias `r`: the row belongs to the Ereignis `$1`
     columns: tuple[str, ...]  # everything that travels – identity columns excluded
     skip: tuple[str, ...]  # identity columns: each system's own
-    text: frozenset[str]  # text columns, which «Beide zusammen» can join
+    text: frozenset[str]  # free-text columns (type text), which «Beide zusammen» can join
 
     @property
     def row_sql(self) -> str:
@@ -114,7 +114,9 @@ async def event_tables(conn: asyncpg.Connection) -> dict[str, Table]:
             where=f"({link.replace('{row}', 'r')}) = $1",
             columns=tuple(c["column_name"] for c in columns if c["is_identity"] != "YES"),
             skip=tuple(c["column_name"] for c in columns if c["is_identity"] == "YES"),
-            text=frozenset(c["column_name"] for c in columns if c["data_type"] in ("text", "character varying")),
+            # Not varchar: those are codes and short names (status, priority, colour) that two
+            # values on two lines would break.
+            text=frozenset(c["column_name"] for c in columns if c["data_type"] == "text"),
         )
     return tables
 
@@ -634,6 +636,8 @@ async def sync_event(
         batch = [*lead_ops[side], *ops]
         lead_ops[side] = []
         if side == HOSTED:
+            if not batch and leader == HOSTED:
+                return []  # the heartbeat only matters while the box leads; a taken-back one stays quiet
             results = await push(event_id, batch, pending_before)
             if batch and batch[0].required and results[0] != "ok":
                 raise LeadMovedError

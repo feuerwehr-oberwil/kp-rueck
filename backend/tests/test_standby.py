@@ -19,7 +19,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.models import Event, Incident, Setting
-from app.standby import event_links, install_guards, mirror_state, schema_covers, take_over
+from app.standby import event_links, install_guards, mirror_state, resume_leads, schema_covers, take_over
 
 BACKEND = Path(__file__).resolve().parents[1]
 
@@ -156,6 +156,21 @@ async def test_the_boxs_own_journal_rows_never_take_a_seq_the_hosted_board_hands
     assert own >= 10**15
     await _as_replication(conn, mirrored, uuid4(), start + 3, a.id)
     assert own < 2**53  # still exact as a JavaScript number
+
+
+@pytest.mark.asyncio
+async def test_a_lead_the_hosted_board_still_gives_the_box_is_taken_up_again_after_a_reset(db_session, two_events):
+    a, _, ia, _ = two_events
+    conn = await _driver(db_session)
+    await install_guards(conn)
+    # What a reset leaves: the copied takeover row, but no sync list and nothing agreed.
+    await _as_replication(conn, "INSERT INTO event_leads (event_id, holder, since) VALUES ($1, 'standby', now())", a.id)
+
+    assert await resume_leads(conn) == [a.id]
+    assert set((await mirror_state(conn)).detached) == {a.id}
+    agreed = await conn.fetchval("SELECT count(*) FROM standby.shadow WHERE tbl = 'incidents' AND id = $1", ia.id)
+    assert agreed == 1
+    assert await resume_leads(conn) == []  # once
 
 
 @pytest.mark.asyncio
@@ -296,9 +311,8 @@ async def test_the_sync_endpoint_does_not_exist_without_the_token(client: AsyncC
     body = {"event_id": str(a.id), "ops": []}
 
     assert (await client.post("/api/standby/sync", json=body)).status_code == 404
-    assert (
-        await client.post("/api/standby/sync", json=body, headers={"Authorization": "Bearer nope"})
-    ).status_code == 404
+    for wrong in (b"Bearer nope", "Bearer s3cret-tökén".encode("latin-1")):  # non-ASCII: no 500
+        assert (await client.post("/api/standby/sync", json=body, headers={"Authorization": wrong})).status_code == 404
 
 
 @pytest.mark.asyncio

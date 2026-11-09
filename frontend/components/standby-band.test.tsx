@@ -64,7 +64,6 @@ function lead(holder: 'standby' | 'hosted', over: Record<string, unknown> = {}) 
     event_id: 'ev-1',
     holder,
     since: '2026-10-30T18:42:00Z',
-    taken_by: 'Koch René',
     pending: 0,
     contact_at: new Date().toISOString(),
     open_conflicts: 0,
