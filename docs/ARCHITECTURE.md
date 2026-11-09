@@ -413,6 +413,13 @@ provider-neutral `POST /api/alarms` webhook (see
 adapters that funnel into the same pool, inference, and auto-attach logic. All paths
 store to `divera_emergencies` with `source`/`source_id` provenance.
 
+In the app the pool is the **Alarmeingang** (`frontend/components/alarm-inbox/`): one sheet
+mounted in the root layout and opened over whatever page is up – from the header's inbox icon,
+which counts the alarms of the last 24 h that are on no board yet, the user menu, the phone's
+«Mehr», or the old `/divera-pool` route, which now only redirects. The pool is fetched and kept
+live over the socket (no polling loop of its own) while the icon or the sheet is mounted; a new
+alarm is toasted and sounded while the sheet is open.
+
 ```mermaid
 sequenceDiagram
     participant X as Any dispatch system
@@ -425,17 +432,17 @@ sequenceDiagram
         X->>B: POST /api/alarms (secret + source/source_id)
         B->>B: Store in divera_emergencies (source=slug)
         B->>WS: Broadcast new alarm
-        WS->>C: Show alarm notification
+        WS->>C: Alarmeingang reloads (count on its icon)
     else Divera webhook (adapter)
         D->>B: POST /api/divera/webhook
         B->>B: Store in divera_emergencies (source=divera)
         B->>WS: Broadcast new alarm
-        WS->>C: Show alarm notification
+        WS->>C: Alarmeingang reloads (count on its icon)
     else FireHub webhook (adapter)
         X->>B: POST /api/firehub/webhook (Einsatzstart / Einsatzende)
         B->>B: Start: store (source=firehub) · End: note only, no card moves
         B->>WS: Broadcast new alarm
-        WS->>C: Show alarm notification
+        WS->>C: Alarmeingang reloads (count on its icon)
     else Divera polling (fallback)
         loop Every 30s (when clients connected)
             B->>D: GET /api/v2/alarms

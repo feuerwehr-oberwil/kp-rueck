@@ -91,6 +91,9 @@ event, one operator at the board**, not scaled down from a dispatch center.
   carrying their colour, note and usual equipment.
 - **Alarm intake:** provider-neutral `POST /api/alarms`, a native Divera adapter, a token-gated
   phone/walk-in form, and a capability registry the UI reads instead of hard-coding providers.
+  Alarms wait in the **Alarmeingang**, a panel beside the board with the count of new ones on
+  its header icon, until somebody attaches them (an Ereignis with auto-attach takes them straight
+  onto its board).
 - **The field surface (`/feld`):** one login-less page for everyone out there – crew, driver,
   Reko, Magazin, Telefondienst. You see what is yours, report «Angekommen» and «Einsatz
   beendet», file the Schadenplatz-Rapport with photos, ask for an Abholung, and send a Meldung
