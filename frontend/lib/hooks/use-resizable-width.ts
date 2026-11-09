@@ -61,7 +61,9 @@ export function useResizableWidth({ storageKey, defaultWidth, min, max, side }: 
   const endDrag = (e: PointerEvent<HTMLElement>) => {
     if (!drag) return
     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId)
-    setStored(drag.width)
+    // A click that did not move the edge keeps the saved width: while the page caps the rail,
+    // saving the capped width would leave it narrow once there is room again.
+    if (drag.width !== drag.startWidth) setStored(drag.width)
     setDrag(null)
   }
 

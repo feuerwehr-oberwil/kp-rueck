@@ -194,7 +194,8 @@ export function RoutenplanungPanel({
               className="h-8 min-w-[8rem] flex-1"
               placeholder={t("namePlaceholder")}
             />
-            <div className="flex items-center gap-1">
+            {/* Wraps: at 768px the 44px touch rule makes six swatches wider than a squeezed rail. */}
+            <div className="flex flex-wrap items-center gap-1">
               {AUFTRAG_SWATCHES.map((c) => (
                 <button
                   key={c}

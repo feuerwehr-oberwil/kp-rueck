@@ -21,8 +21,8 @@ function installStorage() {
 }
 
 // A right-hand rail dragged by its left edge, like the Routenplanung panel.
-function Rail() {
-  const resize = useResizableWidth({ storageKey: KEY, defaultWidth: 320, min: 280, max: 560, side: "left" })
+function Rail({ max = 560 }: { max?: number }) {
+  const resize = useResizableWidth({ storageKey: KEY, defaultWidth: 320, min: Math.min(280, max), max, side: "left" })
   return <div {...resize.gripProps} aria-label="Breite" />
 }
 
@@ -50,6 +50,17 @@ describe("useResizableWidth", () => {
     expect(width()).toBe(560)
     fireEvent.pointerUp(grip(), { clientX: 200, pointerId: 1 })
     await waitFor(() => expect(localStorage.getItem(KEY)).toBe("560"))
+  })
+
+  it("a click while the page caps the rail keeps the saved width for when there is room", async () => {
+    localStorage.setItem(KEY, "480")
+    const { rerender } = render(<Rail max={256} />)
+    await waitFor(() => expect(width()).toBe(256))
+    fireEvent.pointerDown(grip(), { button: 0, clientX: 500, pointerId: 1 })
+    fireEvent.pointerUp(grip(), { clientX: 500, pointerId: 1 })
+    expect(localStorage.getItem(KEY)).toBe("480")
+    rerender(<Rail />)
+    expect(width()).toBe(480)
   })
 
   it("restores the stored width and resets to the default on double-click", async () => {

@@ -99,10 +99,11 @@ export function DriverAssignmentDialog({
     return () => clearTimeout(timer)
   }, [justAssigned])
 
-  // Reset search on close
+  // Reset search and the flash on close – reopened within 600ms it must not replay the last assign.
   useEffect(() => {
     if (!open) {
       setSearchQuery("")
+      setJustAssigned(null)
     }
   }, [open])
 
