@@ -358,6 +358,27 @@ class Settings(BaseSettings):
 
         return self
 
+    @model_validator(mode="after")
+    def warn_about_short_tokens(self) -> "Settings":
+        """Say so at boot when a machine credential is short enough to guess.
+
+        A warning, not a refusal: these were accepted at any length before, and a station
+        must not fail to start after an update because of a token it chose a year ago.
+        """
+        for name, value in (
+            ("MASTER_TOKEN", self.master_token),
+            ("STANDBY_SYNC_TOKEN", self.standby_sync_token),
+            ("PRINT_AGENT_TOKEN", self.print_agent_token),
+            ("ALARM_WEBHOOK_SECRET", self.alarm_webhook_secret),
+        ):
+            if value and len(value.strip()) < 32:
+                logger.warning(
+                    "%s is only %d characters long. Replace it with a long random value: openssl rand -hex 32",
+                    name,
+                    len(value.strip()),
+                )
+        return self
+
     # Microsoft Entra ID (optional - if set, enables "Login with Microsoft")
     microsoft_client_id: str = ""  # Azure App Registration client ID
     microsoft_tenant_id: str = ""  # Azure Directory (tenant) ID

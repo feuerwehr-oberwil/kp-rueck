@@ -91,6 +91,17 @@ def test_the_loopback_site_sets_the_secret():
     assert f'request_header {HEADER_NAME} "{{$LOCAL_AUTOLOGIN_SECRET}}"' in local
 
 
+def test_the_loopback_site_answers_loopback_names_only():
+    """A page whose hostname was re-pointed at 127.0.0.1 (DNS rebinding) reaches the listener
+    same-origin; only the Host header gives it away, and it must be refused BEFORE the secret
+    is stamped on."""
+    directives = _directives(_site_blocks()[f":{CONTAINER_PORT}"])
+
+    refuse = directives.index("respond @foreign_host 421")
+    assert "@foreign_host not host localhost 127.0.0.1" in directives
+    assert refuse < next(i for i, d in enumerate(directives) if d.startswith(f"request_header {HEADER_NAME}"))
+
+
 def test_both_sites_serve_the_same_routes():
     """One routing definition, imported twice – the two sites may differ in nothing else."""
     blocks = _site_blocks()
