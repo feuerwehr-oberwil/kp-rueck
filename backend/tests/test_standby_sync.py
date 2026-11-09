@@ -25,6 +25,7 @@ from app.standby_sync import (
     Op,
     apply_ops,
     event_tables,
+    fetch_rows,
     merge,
     settle_lead,
     sync_event,
@@ -137,6 +138,21 @@ def test_deleted_by_the_leader_but_changed_on_the_other_side_is_gone_and_is_a_co
     assert plan.merged[_key(base)] is None
     [conflict] = _conflicts(plan)
     assert conflict["deleted_on"] == STANDBY and conflict["row"] == phone
+
+
+def test_a_clash_found_again_is_the_same_conflict_and_is_not_listed_twice():
+    """A losing write that keeps failing leaves the clash in place: every round finds it again
+    (about twelve times a minute). It must be one row in the list, not one per round."""
+    base, mine, theirs = _incident(), _incident(description="Box."), _incident(description="Hosted.")
+    rows = lambda *rs: {_key(r): r for r in rs}
+    plan = lambda lead, now: merge(rows(base), lead, rows(theirs), event_id=EVENT, leader=STANDBY, now=now)
+
+    [first] = _conflicts(plan(rows(mine), NOW))
+    [again] = _conflicts(plan(rows(mine), "2026-11-09T20:12:05+00:00"))
+    assert again["id"] == first["id"]
+
+    recorded = {**rows(mine), (CONFLICTS, first["id"]): first}
+    assert _conflicts(plan(recorded, "2026-11-09T20:12:10+00:00")) == []
 
 
 def test_bookkeeping_takes_the_later_value_and_never_clashes():
@@ -339,6 +355,38 @@ async def test_a_taken_back_ereignis_with_nothing_to_send_does_not_call_the_host
     result = await sync_event(box, hosted, counting, event_id)
 
     assert result.leader == HOSTED and calls == []
+
+
+@pytest.mark.asyncio
+async def test_a_row_this_schema_refuses_is_held_and_the_rest_of_the_batch_lands(mirrored, hosted):
+    """Version skew: the other side sends a value this side's CHECK does not know yet. That
+    one row waits; it used to fail the batch – and the Ereignis's whole sync – every round."""
+    _, _, event_id, incident_id = mirrored
+    tables = await event_tables(hosted)
+    current = (await fetch_rows(hosted, tables["incidents"], event_id))[0][("incidents", str(incident_id))]
+    line = {
+        "id": str(uuid.uuid4()),
+        "event_id": str(event_id),
+        "kind": "manual",
+        "text": "Strasse gesperrt.",
+        "occurred_at": NOW,
+        "created_at": NOW,
+    }
+
+    async with hosted.transaction():
+        results = await apply_ops(
+            hosted,
+            tables,
+            event_id,
+            [
+                Op("incidents", str(incident_id), {**current, "priority": "a-priority-from-the-future"}, current),
+                Op("journal_entries", line["id"], line, None),
+            ],
+        )
+
+    assert results == ["held", "ok"]
+    assert await hosted.fetchval("SELECT priority FROM incidents WHERE id = $1", incident_id) == "medium"
+    assert await hosted.fetchval("SELECT count(*) FROM journal_entries") == 1
 
 
 @pytest.mark.asyncio

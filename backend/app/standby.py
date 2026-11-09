@@ -45,6 +45,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlsplit
 
 import asyncpg
 import httpx
@@ -137,6 +138,20 @@ def schema_covers(script: ScriptDirectory, local_revision: str, source_revision:
         return any(rev.revision == source_revision for rev in script.iterate_revisions(local_revision, "base"))
     except CommandError:
         return False
+
+
+def source_is_encrypted(url: str) -> bool:
+    """Whether the replication link to the hosted database cannot be read on the way.
+
+    libpq and asyncpg both default to `sslmode=prefer`, which somebody on the path can talk
+    down to plain text – and this link carries the whole database. Only an explicit
+    `require` / `verify-*` (or a source on this very machine) counts.
+    """
+    parts = urlsplit(url)
+    if parts.hostname in ("localhost", "127.0.0.1", "::1"):
+        return True
+    modes = parse_qs(parts.query).get("sslmode", [])
+    return bool(modes) and modes[-1] in ("require", "verify-ca", "verify-full")
 
 
 def libpq_url(url: str) -> str:
@@ -641,6 +656,12 @@ async def run_once(setup: bool) -> bool:
     try:
         if not source_url or not local_url:
             raise StandbyError("config", "STANDBY_SOURCE_URL and DATABASE_URL must both be set (docs/STANDBY.md)")
+        if setup and not source_is_encrypted(source_url):
+            # Said, not refused: a box that mirrors today must not stop mirroring after an update.
+            _log(
+                "WARNING: STANDBY_SOURCE_URL does not demand TLS. Append ?sslmode=require – without it "
+                "the link to the hosted database can be downgraded to plain text (docs/STANDBY.md)."
+            )
         try:
             local = await asyncpg.connect(libpq_url(local_url), timeout=30)
         except (OSError, asyncpg.PostgresError, TimeoutError) as exc:

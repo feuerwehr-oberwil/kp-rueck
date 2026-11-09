@@ -509,3 +509,23 @@ class TestPhotoStorageConfiguration:
         monkeypatch.delenv("RAILWAY_ENVIRONMENT", raising=False)
         settings = Settings()
         assert settings.is_production is False
+
+
+def test_a_synced_photo_is_kept_only_if_it_is_a_jpeg_within_the_limit(photo_service: PhotoStorageService):
+    """The standby sync hands over bytes another KP Rück already processed – always a JPEG,
+    always small. The sync token alone must not be enough to park arbitrary files here."""
+    incident_id = uuid.uuid4()
+    name = f"{uuid.uuid4()}.jpg"
+    jpeg = b"\xff\xd8\xff\xe0" + b"\x00" * 64
+
+    with pytest.raises(HTTPException) as not_jpeg:
+        photo_service.store_synced_photo(incident_id, name, b"<html>" + jpeg)
+    assert not_jpeg.value.status_code == 400
+
+    with pytest.raises(HTTPException) as too_large:
+        photo_service.store_synced_photo(incident_id, name, jpeg + b"\x00" * photo_service.max_size_bytes)
+    assert too_large.value.status_code == 413
+
+    assert photo_service.get_photo_path(incident_id, name) is None
+    assert photo_service.store_synced_photo(incident_id, name, jpeg) is True
+    assert photo_service.store_synced_photo(incident_id, name, jpeg) is False  # already there: left alone
