@@ -209,11 +209,24 @@ export default function MapPage() {
   const planning = useRoutePlanning(planningActive ? planningGroupId : null)
   // Desktop: the Routenplanung rail's width is the operator's, dragged by its left
   // edge and remembered on this device (owner pick 08.11.2026). 320 = the rail's own.
+  // The row the rail sits in, measured: the rail never takes more than the row minus 12rem
+  // for the map (at 768px with the notification sidebar open the row is 448px). The bounds go
+  // into the hook, so the grip's value is the width that is drawn; the stored width stays and
+  // comes back when there is room again.
+  const [railRowWidth, setRailRowWidth] = useState<number | null>(null)
+  const measureRailRow = useCallback((aside: HTMLElement | null) => {
+    const row = aside?.parentElement
+    if (!row) return
+    const observer = new ResizeObserver(([entry]) => setRailRowWidth(entry.contentRect.width))
+    observer.observe(row)
+    return () => observer.disconnect()
+  }, [])
+  const railMax = railRowWidth === null ? 560 : Math.max(0, Math.min(560, Math.round(railRowWidth - 192)))
   const planningWidth = useResizableWidth({
     storageKey: 'kp-map-planningWidth',
     defaultWidth: 320,
-    min: 280,
-    max: 560,
+    min: Math.min(280, railMax),
+    max: railMax,
     side: 'left',
   })
   // id → Operation lookup for the GroupRoutes overlay (stops are real incidents).
@@ -985,14 +998,15 @@ export default function MapPage() {
             />
           )}
           <aside
+            ref={measureRailRow}
             className={`bg-card/30 backdrop-blur-sm flex flex-col overflow-hidden ${
               isMobile
                 ? 'flex-1 border-t border-border'
                 : `border-l border-border flex-shrink-0 ${planningActive ? '' : 'w-80'}`
             }`}
-            // Capped by the page too: at 768px with the notification sidebar open the page is
-            // 448px, and a rail dragged to 560 would push its own exit button off the screen.
-            style={!isMobile && planningActive ? { width: planningWidth.width, maxWidth: 'calc(100% - 12rem)' } : undefined}
+            // Capped by the measured row (railMax above), so a rail dragged to 560 never pushes
+            // its own exit button off a narrow screen.
+            style={!isMobile && planningActive ? { width: planningWidth.width } : undefined}
           >
             <div className={`${planningActive || rekoModeActive ? 'p-4 flex-1 min-h-0' : 'flex flex-col flex-1 min-h-0'}`}>
               {planningActive ? (
