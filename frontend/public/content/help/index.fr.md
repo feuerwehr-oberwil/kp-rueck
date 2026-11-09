@@ -31,7 +31,7 @@ Vue d’ensemble géographique de tous les lieux d’intervention. Des marqueurs
 **Légende de la carte :**
 - **Priorité (remplissage) :** gris = basse, jaune = moyenne, rouge = haute
 - **Statut (cadre) :** tirets = ouverte, trait plein = en cours, pointillés + estompé = retour et clôturées
-- **Véhicules (GPS) :** bleu = en ligne, gris = hors ligne
+- **Véhicules (GPS) :** une pastille par emplacement. Bleu plein = en ligne, creux à tirets gris = hors ligne. Plusieurs au même endroit partagent une pastille (« 6 véhicules | 4 hors ligne »). L’heure du dernier signal n’apparaît sur la pastille que lorsqu’il date de plus que le seuil réglé sous Réglages → GPS (10 min par défaut) ; le survol ou un toucher affiche la liste de chaque véhicule. Une pastille posée sur un marqueur d’intervention s’écarte – un trait fin mène au point où le véhicule se trouve vraiment. Les lignes d’attribution partent seulement des véhicules en ligne.
 - **Marqueur avec nombre :** plusieurs interventions à la même adresse – un marqueur à l’aspect de la plus urgente, une étiquette avec tous les numéros (« 6 · 7 · 9 Bahnhofstrasse 1 »). Le survol ou un clic affiche la liste ; un clic sur une ligne sélectionne cette intervention, un double-clic l’ouvre.
 - **Bulle avec nombre :** plusieurs interventions dont les marqueurs se recouvrent ; marque et cadre de la plus urgente (priorité la plus haute). Un clic ou un toucher zoome sur le groupe. Dès le zoom de rue, les marqueurs se séparent à nouveau.
 

@@ -118,8 +118,15 @@ describe('placeLabelSides (desktop)', () => {
 
   it('flips a label whose right side would lie on a count bubble', () => {
     // A bubble at x=260 has no label of its own and belongs to no candidate.
-    const left = placeLabelSides([candidate('a', 200, 0)], { ...GEOMETRY, obstacles: [{ x: 260, y: 0, size: 44 }] })
+    const left = placeLabelSides([candidate('a', 200, 0)], { ...GEOMETRY, obstacles: [{ x: 260, y: 0, width: 44, height: 44 }] })
     expect([...left]).toEqual(['a'])
+  })
+
+  it('flips a label away from a vehicle pill, and drops it on a phone', () => {
+    // A 70×20 pill centred at x=260 lies on a's right-hand label (x 220–320).
+    const pill = { x: 260, y: 0, width: 70, height: 20 }
+    expect([...placeLabelSides([candidate('a', 200, 0)], { ...GEOMETRY, obstacles: [pill] })]).toEqual(['a'])
+    expect(pickVisibleLabels([candidate('a', 200, 0)], { ...GEOMETRY, obstacles: [pill] }).size).toBe(0)
   })
 
   it('flips a label that would hang off the map’s right edge', () => {

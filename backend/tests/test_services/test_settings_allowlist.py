@@ -59,6 +59,8 @@ def test_every_setting_the_page_offers_can_actually_be_saved():
         # Settings → Checkliste: which steps this station runs, and its own notes.
         "checklist.hidden_tasks",
         "checklist.notes",
+        # Settings → GPS: from when a vehicle pill on the Lagekarte shows its last-report time.
+        "gps.stale_after_minutes",
     ],
 )
 def test_settings_read_by_the_frontend_are_writable(key: str):

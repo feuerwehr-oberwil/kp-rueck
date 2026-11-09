@@ -20,6 +20,7 @@ import type { Incident, IncidentStatus, StatusGroup } from "@/lib/types/incident
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { BaseMap } from "./map/base-map"
 import { MapTooltip } from "./map/map-tooltip"
+import { VehicleSpotMarker, pillTexts } from "./map/vehicle-marker"
 import { GroupRoutes } from "./map/group-routes"
 import { STATUS_TO_GROUP, STATUS_GROUP_BORDER_STYLE } from "@/lib/types/incidents"
 import type { ApiVehiclePosition, ApiVehicle } from "@/lib/api-client"
@@ -40,6 +41,21 @@ import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { VehicleTrails } from "./map/vehicle-trails"
 import { ChevronDown, Maximize, AlertTriangle, Truck, Users, X } from "lucide-react"
 import { usePathname } from "next/navigation"
+import {
+  GPS_STALE_SETTING,
+  PILL_HEIGHT,
+  clusterVehicles,
+  estimatePillWidth,
+  parseStaleMinutes,
+  pillFace,
+  placeVehiclePills,
+  vehicleStackScale,
+  type PillOffset,
+  type ScreenBox,
+} from "@/lib/map-vehicles"
+import { normalizeVehicleName } from "@/lib/vehicle-positions"
+import { haversineKm } from "@/lib/utils/route-geo"
+import { useCurrentTime } from "@/lib/hooks/use-current-time"
 import { isDisplayPath } from "@/lib/utils/display-retry"
 import { useVehiclePositions } from "@/lib/hooks/use-vehicle-positions"
 import { useTranslations } from "next-intl"
@@ -64,25 +80,8 @@ const LABEL_OFFSET_X = LABEL_ANCHOR_X + 6
 // into the next label, short enough that a card never lingers on its own.
 const LABEL_HOVER_CLOSE_MS = 200
 
-// Pill dimensions for vehicle markers (used by icon + tooltip offset).
-const VEHICLE_PILL_HEIGHT = 24
-function vehiclePillWidth(name: string): number {
-  // 13px bold caps ≈ 8px/char + 16px horizontal padding. Floor at 28px.
-  return Math.max(28, name.length * 8 + 16)
-}
-
 // Leaflet's tooltip look, as a shared gap: the arrow's 6px margin sat on top of every `offset`.
 const TOOLTIP_ARROW = 6
-
-/**
- * Above this speed a vehicle counts as MOVING – the floor for the km/h line in the hover
- * tooltip, and for the heading arrow beside the pill.
- *
- * A parked tracker still reports a metre of GPS jitter per fix, which arrives as a fraction of a
- * km/h with whatever `course` the noise happened to point at. Rendering that would make the
- * whole depot twitch.
- */
-const MOVING_SPEED_KMH = 1
 
 // Stable empties: the route overlay must stay MOUNTED even with nothing to draw, or react-map-gl
 // re-appends its source on the next `styledata` and lands it on top of everything (plan 28).
@@ -294,11 +293,11 @@ function IncidentMarker({
   )
 }
 
-/** Shared pill chrome for the vehicle + Magazin markers. */
+/** Pill chrome for the Magazin marker – the shape of the vehicle pills (components/map/vehicle-marker.tsx). */
 function pillStyle(background: string, width: number | string): CSSProperties {
   return {
     width,
-    height: VEHICLE_PILL_HEIGHT,
+    height: PILL_HEIGHT,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -314,148 +313,6 @@ function pillStyle(background: string, width: number | string): CSSProperties {
     padding: "0 8px",
     boxSizing: "border-box",
   }
-}
-
-/**
- * Scale vehicle markers down at lower zoom levels so a stack of them doesn't dominate the town.
- * Full size only when fully zoomed in (zoom ≥ 15); at default Lagekarte zoom (13) they sit at
- * ~0.68, floored at 0.35 when fully zoomed out.
- */
-function vehicleStackScale(zoom: number): number {
-  if (zoom >= 15) return 1
-  if (zoom <= 11) return 0.35
-  return 0.35 + ((zoom - 11) / 4) * 0.65
-}
-
-// Clearance between the pill's edge and the tip of the heading arrow.
-const HEADING_ARROW_GAP = 4
-
-/**
- * Which way a moving vehicle is pointing: a small white triangle just outside the pill's edge,
- * rotated to the GPS `course` (0 = north, clockwise — Traccar's convention, and CSS's).
- *
- * A DOM element, not a MapLibre symbol layer: a style reload — which is exactly what the
- * auto→offline tile fallback does — drops every image registered on the GL map, and an
- * SDF/icon arrow would silently vanish with it. No counter-rotation is needed either, the board's
- * maps are north-up (`dragRotate` off, bearing pinned at 0).
- *
- * It sits at the pill's EDGE along the heading rather than on a fixed circle: the pill is a wide
- * rectangle, so a constant radius would park an eastbound arrow in the middle of the name.
- */
-function HeadingArrow({ course, pillWidth }: { course: number; pillWidth: number }) {
-  const radians = (course * Math.PI) / 180
-  const sin = Math.abs(Math.sin(radians))
-  const cos = Math.abs(Math.cos(radians))
-  // Where the heading ray leaves the pill rectangle, measured from its centre.
-  const distance =
-    Math.min(
-      sin === 0 ? Infinity : pillWidth / 2 / sin,
-      cos === 0 ? Infinity : VEHICLE_PILL_HEIGHT / 2 / cos,
-    ) + HEADING_ARROW_GAP
-
-  return (
-    <span
-      aria-hidden
-      style={{
-        position: "absolute",
-        left: "50%",
-        top: "50%",
-        width: 0,
-        height: 0,
-        // A CSS border triangle, pointing up at `rotate(0)` — i.e. north.
-        borderLeft: "5px solid transparent",
-        borderRight: "5px solid transparent",
-        borderBottom: "6px solid #fff",
-        filter: "drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45))",
-        // Centre on the pill, turn to the heading, then step out along it.
-        transform: `translate(-50%, -50%) rotate(${course}deg) translateY(-${distance}px)`,
-        pointerEvents: "none",
-      }}
-    />
-  )
-}
-
-/**
- * One GPS spot: a single vehicle's pill, or — when several share it — ONE counting pill
- * («5 Fahrzeuge»). Five idle vehicles at the depot used to blanket the village; the hover
- * tooltip still lists every one of them by name.
- */
-function VehicleClusterMarker({
-  vehicles,
-  centroid,
-  scale,
-  groupLabel,
-  nameFor,
-}: {
-  vehicles: ApiVehiclePosition[]
-  centroid: [number, number]
-  scale: number
-  /** Set only when more than one vehicle shares the spot. */
-  groupLabel?: string
-  nameFor: (vehicle: ApiVehiclePosition) => string
-}) {
-  const t = useTranslations('map')
-  const [hovered, setHovered] = useState(false)
-  const label = groupLabel ?? vehicles[0].device_name
-  const online = vehicles.some((vehicle) => vehicle.status === 'online')
-  // Heading is a single vehicle's property. A counting pill speaks for several vehicles that may
-  // well be driving in different directions, so it never wears an arrow.
-  const single = vehicles.length === 1 && !groupLabel ? vehicles[0] : null
-  const heading =
-    single &&
-    single.course !== null &&
-    Number.isFinite(single.course) &&
-    single.speed !== null &&
-    single.speed > MOVING_SPEED_KMH
-      ? single.course
-      : null
-
-  return (
-    <Marker
-      longitude={centroid[1]}
-      latitude={centroid[0]}
-      style={{ zIndex: Z.vehicle }}
-      onClick={(event) => event.originalEvent.stopPropagation()}
-    >
-      {/* `transform: scale` leaves the LAYOUT box at its natural size, so the marker keeps
-          centring the same point the unscaled pill was centred on. */}
-      <div
-        style={{ position: "relative" }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-      >
-        <div style={{ transform: `scale(${scale})` }}>
-          <div
-            style={{
-              ...pillStyle(online ? MAP_COLORS.info : MAP_COLORS.offline, vehiclePillWidth(label)),
-              // Anchors the heading arrow to the pill itself, whatever the label's width.
-              position: "relative",
-            }}
-          >
-            {label}
-            {heading !== null && <HeadingArrow course={heading} pillWidth={vehiclePillWidth(label)} />}
-          </div>
-        </div>
-        {hovered && (
-          <MapTooltip side="top" gap={TOOLTIP_ARROW + (VEHICLE_PILL_HEIGHT * scale) / 2 + 4}>
-            <div className="text-sm space-y-1">
-              {vehicles.map((vehicle) => (
-                <div key={vehicle.device_id}>
-                  <div className="font-semibold">{nameFor(vehicle)}</div>
-                  {vehicle.speed !== null && vehicle.speed > MOVING_SPEED_KMH && (
-                    <div className="text-xs text-muted-foreground">{Math.round(vehicle.speed)} km/h</div>
-                  )}
-                  <div className="text-xs text-muted-foreground">
-                    {vehicle.status === 'online' ? t('common.online') : t('common.offline')}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </MapTooltip>
-        )}
-      </div>
-    </Marker>
-  )
 }
 
 /** A round marker carrying a single glyph — the firestation and the Magazin/GPS homebase. */
@@ -668,7 +525,8 @@ interface LabelSource {
  * Runs a label pass (`lib/map-labels.ts`) at the current view – the phone's collision-checked
  * labels (mode `fit`) or the desktop's flipped sides (mode `all`). Recomputed when the map comes
  * to rest – the DOM labels ride along with their markers while it moves, so nothing jumps
- * mid-gesture. The count bubbles (`bubbles`) are marks no label may cover.
+ * mid-gesture. The count bubbles (`bubbles`) and the vehicle pills where they stand (`pills`,
+ * after stepping aside) are marks no label may cover.
  */
 function useLabelPass(
   map: MlMap | null,
@@ -676,6 +534,7 @@ function useLabelPass(
   pass: LabelPass,
   sources: LabelSource[],
   bubbles: IncidentCluster[],
+  pills: PlacedPill[],
 ): ReadonlySet<string> {
   const [ids, setIds] = useState<ReadonlySet<string>>(NO_LABELS)
   useEffect(() => {
@@ -697,10 +556,14 @@ function useLabelPass(
         labelHeight: LABEL_HEIGHT,
         dotSize: INCIDENT_DOT_SIZE,
         viewport: { width: container.clientWidth, height: container.clientHeight },
-        obstacles: bubbles.map((bubble) => ({
-          ...map.project([bubble.longitude, bubble.latitude]),
-          size: CLUSTER_BUBBLE_SIZE,
-        })),
+        obstacles: [
+          ...bubbles.map((bubble) => ({
+            ...map.project([bubble.longitude, bubble.latitude]),
+            width: CLUSTER_BUBBLE_SIZE,
+            height: CLUSTER_BUBBLE_SIZE,
+          })),
+          ...pillBoxes(map, pills),
+        ],
       })
       // Same answer, same object: the incident list is a new array on every poll (and every
       // render of the context), so a fresh Set each time would re-render forever.
@@ -711,8 +574,90 @@ function useLabelPass(
     compute()
     map.on("moveend", compute)
     return () => { map.off("moveend", compute) }
-  }, [map, active, pass, sources, bubbles])
+  }, [map, active, pass, sources, bubbles, pills])
   return active ? ids : NO_LABELS
+}
+
+/** A vehicle pill as the passes need it: its fix, its drawn size at the current zoom (unscaled ×
+ *  `vehicleStackScale`) and where it stepped to. */
+interface PlacedPill {
+  key: string
+  latitude: number
+  longitude: number
+  /** Unscaled px (`estimatePillWidth`, `PILL_HEIGHT`). */
+  width: number
+  offset: PillOffset | undefined
+}
+
+/** The pills' boxes on screen now: fix + offset, scaled. */
+function pillBoxes(map: MlMap, pills: PlacedPill[]): ScreenBox[] {
+  const scale = vehicleStackScale(map.getZoom())
+  return pills.map((pill) => {
+    const fix = map.project([pill.longitude, pill.latitude])
+    return {
+      x: fix.x + (pill.offset?.dx ?? 0),
+      y: fix.y + (pill.offset?.dy ?? 0),
+      width: pill.width * scale,
+      height: PILL_HEIGHT * scale,
+    }
+  })
+}
+
+const NO_OFFSETS: ReadonlyMap<string, PillOffset> = new Map()
+
+/**
+ * Where each vehicle pill stands (`placeVehiclePills`): off the incident pins (`pins`, one per
+ * visible spot) and the count bubbles, and off each other. Recomputed when the map comes to rest,
+ * like the labels – the pills ride along with their fixes while it moves.
+ */
+function useVehiclePlacement(
+  map: MlMap | null,
+  pills: PlacedPill[],
+  pins: { latitude: number; longitude: number; size: number }[],
+  bubbles: IncidentCluster[],
+): ReadonlyMap<string, PillOffset> {
+  const [offsets, setOffsets] = useState<ReadonlyMap<string, PillOffset>>(NO_OFFSETS)
+  useEffect(() => {
+    if (!map) return
+    const compute = () => {
+      const container = map.getContainer()
+      const scale = vehicleStackScale(map.getZoom())
+      const box = (latitude: number, longitude: number, size: number): ScreenBox => ({
+        ...map.project([longitude, latitude]),
+        width: size,
+        height: size,
+      })
+      const next = placeVehiclePills(
+        pills.map((pill) => ({
+          key: pill.key,
+          ...map.project([pill.longitude, pill.latitude]),
+          width: pill.width * scale,
+          height: PILL_HEIGHT * scale,
+        })),
+        {
+          obstacles: [
+            ...pins.map((pin) => box(pin.latitude, pin.longitude, pin.size)),
+            ...bubbles.map((bubble) => box(bubble.latitude, bubble.longitude, CLUSTER_BUBBLE_SIZE)),
+          ],
+          viewport: { width: container.clientWidth, height: container.clientHeight },
+        },
+      )
+      // Same answer, same object – positions arrive as a new array every poll.
+      setOffsets((previous) =>
+        previous.size === next.size &&
+        [...next].every(([key, o]) => {
+          const before = previous.get(key)
+          return before?.dx === o.dx && before.dy === o.dy && before.crowded === o.crowded
+        })
+          ? previous
+          : next.size === 0 ? NO_OFFSETS : next,
+      )
+    }
+    compute()
+    map.on("moveend", compute)
+    return () => { map.off("moveend", compute) }
+  }, [map, pills, pins, bubbles])
+  return offsets
 }
 
 // --- Same-address pins and overlap bubbles ----------------------------------
@@ -1136,9 +1081,19 @@ function FitAllButton({ map, incidents, padding }: { map: MlMap | null; incident
  * count and «ohne Koordinaten» say what it is, and a tap opens the same list as before. The zoom
  * buttons own the top-left corner, the ⓘ and the legend the bottom-right.
  */
-function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: Incident[]; onIncidentClick?: (incidentId: string) => void }) {
+function MissingLocationsWarning({
+  incidents,
+  onIncidentClick,
+  isExpanded,
+  setIsExpanded,
+}: {
+  incidents: Incident[]
+  onIncidentClick?: (incidentId: string) => void
+  /** Owned by MapView: while the list is open the legend folds to its pill (owner pick r28 2A). */
+  isExpanded: boolean
+  setIsExpanded: (open: boolean) => void
+}) {
   const t = useTranslations('map')
-  const [isExpanded, setIsExpanded] = useState(false)
 
   if (incidents.length === 0) return null
 
@@ -1234,6 +1189,8 @@ interface MapViewProps {
   incidentsOverride?: Incident[]
   vehiclesOverride?: ApiVehicle[]
   positionsOverride?: ApiVehiclePosition[]
+  /** Token mode: the station's staleness threshold (`gps.stale_after_minutes`), from the payload. */
+  vehicleStaleMinutes?: number
   /** Reports whether GPS is live (Traccar configured or a simulation running,
    *  positions present in token mode). The map knows this first-hand; the page
    *  around it uses the answer to hide controls that need GPS to do anything. */
@@ -1280,6 +1237,7 @@ export default function MapView({
   incidentsOverride,
   vehiclesOverride,
   positionsOverride,
+  vehicleStaleMinutes,
   onGpsAvailabilityChange,
   topRightControls,
   onFirstIdle,
@@ -1404,44 +1362,15 @@ export default function MapView({
     onGpsAvailabilityChange?.(gpsAvailable)
   }, [gpsAvailable, onGpsAvailabilityChange])
 
-  // Cluster vehicles that share (roughly) the same GPS coord so they collapse into one
-  // counting pill instead of piling on top of each other.
-  // Epsilon ≈ 0.0005° ≈ ~50m, which is well below firestation-yard scale.
-  // Vehicles inside a cluster are sorted by `display_order` so the hover list
-  // matches the order shown in the kanban / vehicle sheet / settings.
-  const vehicleClusters = useMemo(() => {
-    const EPSILON = 0.0005
-    const positions = mappedVehiclePositions
-    const used = new Set<number>()
-    const clusters: { centroid: [number, number]; vehicles: ApiVehiclePosition[] }[] = []
-
+  // Vehicles that share (roughly) the same GPS coord collapse into one spot, its list in fleet
+  // order (kanban, vehicle sheet, settings), online first (`clusterVehicles`).
+  const vehicleSpots = useMemo(() => {
     // device_name (already mapped to vehicle name) → display_order
-    const nameToOrder = new Map<string, number>(
-      vehicles.map(v => [v.name.toLowerCase(), v.display_order])
+    const nameToOrder = new Map<string, number>(vehicles.map((v) => [v.name.toLowerCase(), v.display_order]))
+    return clusterVehicles(
+      mappedVehiclePositions,
+      (v) => nameToOrder.get(v.device_name.toLowerCase()) ?? Number.MAX_SAFE_INTEGER,
     )
-    const orderFor = (v: ApiVehiclePosition) =>
-      nameToOrder.get(v.device_name.toLowerCase()) ?? Number.MAX_SAFE_INTEGER
-
-    for (let i = 0; i < positions.length; i++) {
-      if (used.has(i)) continue
-      const group = [positions[i]]
-      used.add(i)
-      for (let j = i + 1; j < positions.length; j++) {
-        if (used.has(j)) continue
-        if (
-          Math.abs(positions[i].latitude - positions[j].latitude) < EPSILON &&
-          Math.abs(positions[i].longitude - positions[j].longitude) < EPSILON
-        ) {
-          group.push(positions[j])
-          used.add(j)
-        }
-      }
-      group.sort((a, b) => orderFor(a) - orderFor(b))
-      const lat = group.reduce((s, v) => s + v.latitude, 0) / group.length
-      const lng = group.reduce((s, v) => s + v.longitude, 0) / group.length
-      clusters.push({ centroid: [lat, lng], vehicles: group })
-    }
-    return clusters
   }, [mappedVehiclePositions, vehicles])
 
   // Filter incidents with valid coordinates and based on status filters.
@@ -1537,9 +1466,6 @@ export default function MapView({
   // …except on a phone, where thirty permanent bubbles are a heap: no permanent labels at the
   // default zoom (a tap shows the one you want), collision-checked ones from street level.
   const permanentLabels = labelMode({ showLabels, compact: compactMap, zoom: mapZoom })
-  const fitLabelIds = useLabelPass(map, permanentLabels === "fit", pickVisibleLabels, labelSources, clusters)
-  // Desktop: every label, flipped to the left of its pin where the right is taken.
-  const leftLabelIds = useLabelPass(map, permanentLabels === "all", placeLabelSides, labelSources, clusters)
   // The same-address pin whose list was opened by a click / tap (hover opens it too, desktop).
   // A click on empty map, Escape or a row closes it.
   const [openSpotKey, setOpenSpotKey] = useState<string | null>(null)
@@ -1613,6 +1539,66 @@ export default function MapView({
 
   const vehicleScale = vehicleStackScale(mapZoom)
 
+  // The pill shows a last-report time only once it is older than the station's threshold
+  // (Einstellungen → GPS); the wall gets the threshold with its payload.
+  const staleMinutes = parseStaleMinutes(tokenMode ? vehicleStaleMinutes : stationSettings[GPS_STALE_SETTING])
+  // Half-minute tick: a pill turns stale while nothing else on the map changes.
+  const { currentTime } = useCurrentTime(30_000)
+  const vehicleNow = currentTime?.getTime() ?? 0
+  // Where a vehicle is assigned, for its line in the list: «12 Ringstrasse 11».
+  const assignmentByVehicle = useMemo(() => {
+    const byName = new Map<string, string>()
+    for (const incident of incidents) {
+      if (STATUS_TO_GROUP[incident.status as IncidentStatus] === "completed") continue
+      const label = `${incident.number ?? ""} ${shortAddressOf(incident)}`.trim()
+      for (const vehicle of incident.assigned_vehicles) byName.set(normalizeVehicleName(vehicle.name), label)
+    }
+    return byName
+  }, [incidents])
+  const vehicleAssignmentFor = useCallback(
+    (vehicle: ApiVehiclePosition) => assignmentByVehicle.get(normalizeVehicleName(vehicleNameFor(vehicle))) ?? null,
+    [assignmentByVehicle, vehicleNameFor],
+  )
+  // A spot within the Magazin's radius is «… · Magazin» in its list.
+  const magazinRadiusM = Number.parseFloat(stationSettings["gps.station_radius_meters"] ?? "") || 100
+  const vehicleMarks = useMemo(
+    () =>
+      vehicleSpots.map((spot) => {
+        const face = pillFace(spot, vehicleNameFor, vehicleNow, staleMinutes)
+        const texts = pillTexts(t, face, vehicleNow)
+        return {
+          spot,
+          face,
+          width: estimatePillWidth(face, { primary: texts.label, secondary: texts.offlinePart ?? undefined, time: texts.time ?? undefined }),
+          atMagazin:
+            !!magazinCoords &&
+            haversineKm([spot.latitude, spot.longitude], [magazinCoords[0], magazinCoords[1]]) * 1000 <= magazinRadiusM,
+        }
+      }),
+    [vehicleSpots, vehicleNameFor, vehicleNow, staleMinutes, t, magazinCoords, magazinRadiusM],
+  )
+  const vehiclePlacementInput = useMemo<PlacedPill[]>(
+    () => vehicleMarks.map(({ spot, width }) => ({ key: spot.key, latitude: spot.latitude, longitude: spot.longitude, width, offset: undefined })),
+    [vehicleMarks],
+  )
+  // The pins a pill steps off: every visible spot's dot (a same-address pin with room for its
+  // count badge) – plus the count bubbles.
+  const vehicleObstaclePins = useMemo(() => {
+    const dot = incidentPinSize(false, compactMap)
+    return spots
+      .filter((spot) => !clusteredKeys.has(spot.key))
+      .map((spot) => ({ latitude: spot.latitude, longitude: spot.longitude, size: spot.incidents.length > 1 ? dot + 8 : dot }))
+  }, [spots, clusteredKeys, compactMap])
+  const vehicleOffsets = useVehiclePlacement(map, vehiclePlacementInput, vehicleObstaclePins, clusters)
+  const placedPills = useMemo(
+    () => vehiclePlacementInput.map((pill) => ({ ...pill, offset: vehicleOffsets.get(pill.key) })),
+    [vehiclePlacementInput, vehicleOffsets],
+  )
+  // Labels last: they avoid the pins, the bubbles and the pills where they finally stand.
+  const fitLabelIds = useLabelPass(map, permanentLabels === "fit", pickVisibleLabels, labelSources, clusters, placedPills)
+  // Desktop: every label, flipped to the left of its pin where the right is taken.
+  const leftLabelIds = useLabelPass(map, permanentLabels === "all", placeLabelSides, labelSources, clusters, placedPills)
+
   // Weather: one poll of our own backend per minute (it does the feed polling). Token mode reads
   // it with the viewer token; without one there is nothing it may read.
   const { weather, now } = useWeather({ active: !tokenMode || !!viewerToken, viewerToken })
@@ -1627,12 +1613,17 @@ export default function MapView({
   const [radarOpacity, setRadarOpacity] = useState(0.7)
   const warnings = useMemo(() => (weatherAvailable ? activeWarnings(weather, now) : []), [weatherAvailable, weather, now])
 
+  // The «n ohne Koordinaten» list; open only while there is something in it.
+  const [missingOpen, setMissingOpen] = useState(false)
+  const missingListOpen = missingOpen && incidentsWithoutLocation.length > 0
+
   return (
     // `isolate`: the fit-all button (`z-map-control`), the hint chip and the legend are map chrome and
     // stay inside the map's layer — see MAP_STACKING in base-map.tsx. No overlay is ever below.
     <div
       ref={rootRef}
-      className="relative isolate w-full h-full rounded-lg overflow-hidden"
+      // The legend keeps clear of the top-right chip row while that row holds anything.
+      className="relative isolate w-full h-full rounded-lg overflow-hidden [&:has([data-map-top-row]>*)]:[--legend-top:6rem]"
       role="region"
       aria-label={t('view.mapAria')}
     >
@@ -1696,24 +1687,24 @@ export default function MapView({
             coordinates={magazinCoords}
             label={t('view.magazin')}
             style={MAGAZIN_STYLE}
-            gap={TOOLTIP_ARROW + VEHICLE_PILL_HEIGHT / 2}
+            gap={TOOLTIP_ARROW + PILL_HEIGHT / 2}
           />
         )}
 
-        {/* Vehicle GPS markers — a shared spot collapses to ONE counting pill
-            («5 Fahrzeuge»); the hover tooltip lists them all by name. */}
-        {vehicleClusters.map((cluster) => (
-          <VehicleClusterMarker
-            key={`vehicle-cluster-${cluster.vehicles.map((v) => v.device_id).join('-')}`}
-            vehicles={cluster.vehicles}
-            centroid={cluster.centroid}
+        {/* Vehicle GPS pills – a shared spot is ONE (split) pill, its list names every vehicle;
+            a pill that would lie on a pin steps aside with a leader to its fix. */}
+        {vehicleMarks.map(({ spot, face, atMagazin }) => (
+          <VehicleSpotMarker
+            key={`vehicle-spot-${spot.key}`}
+            spot={spot}
+            face={face}
             scale={vehicleScale}
-            groupLabel={
-              cluster.vehicles.length > 1
-                ? t('page.vehicleCluster', { count: cluster.vehicles.length })
-                : undefined
-            }
+            offset={vehicleOffsets.get(spot.key)}
             nameFor={vehicleNameFor}
+            assignmentFor={vehicleAssignmentFor}
+            atMagazin={atMagazin}
+            now={vehicleNow}
+            staleMinutes={staleMinutes}
           />
         ))}
 
@@ -1909,12 +1900,14 @@ export default function MapView({
       {/* Top-right control row: the page's controls, then the warning for incidents without a
           location. One flex row that wraps (right-aligned) and keeps clear of the zoom buttons
           (`left-16`), so nothing in it can overlap at any width. Only its children take clicks. */}
-      <div ref={topRowRef} className="pointer-events-none absolute top-2.5 right-2.5 left-16 z-map-chrome flex flex-wrap items-start justify-end gap-2 [&>*]:pointer-events-auto">
+      <div ref={topRowRef} data-map-top-row className="pointer-events-none absolute top-2.5 right-2.5 left-16 z-map-chrome flex flex-wrap items-start justify-end gap-2 [&>*]:pointer-events-auto">
         {topRightControls}
         {weather && <WeatherWarningChip weather={weather} warnings={warnings} now={now} />}
         <MissingLocationsWarning
           incidents={incidentsWithoutLocation}
           onIncidentClick={onMarkerClick}
+          isExpanded={missingListOpen}
+          setIsExpanded={setMissingOpen}
         />
       </div>
 
@@ -1926,6 +1919,11 @@ export default function MapView({
         colorGroups={legendShowsRoutes ? routeColorGroups : colorGroups}
         showVehicles={mappedVehiclePositions.length > 0}
         showAssignments={showAssignmentLines && mappedVehiclePositions.length > 0}
+        staleMinutes={staleMinutes}
+        // Both live on the map's right edge: while the «ohne Koordinaten» list is open the legend
+        // folds to its pill, and comes back as it was when the list closes. Its pill closes the list.
+        folded={missingListOpen}
+        onUnfold={() => setMissingOpen(false)}
       />
 
       {/* Phone: the tapped same-address pin's list, docked along the map's foot – after the

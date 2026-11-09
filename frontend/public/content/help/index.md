@@ -31,7 +31,7 @@ Geografische Übersicht aller Einsatzorte. Farbige Marker zeigen Priorität (Gr�
 **Kartenlegende:**
 - **Priorität (Füllung):** Grau=Niedrig, Gelb=Mittel, Rot=Hoch
 - **Status (Rahmen):** Gestrichelt=Offen, Durchgezogen=Aktiv, Gepunktet+Verblasst=Rückfahrt & Abgeschlossen
-- **Fahrzeuge (GPS):** Blau=Online, Grau=Offline
+- **Fahrzeuge (GPS):** eine Pille pro Standort. Blau gefüllt = online, hohl und grau gestrichelt = offline. Mehrere am selben Ort teilen eine Pille («6 Fahrzeuge | 4 offline»). Die Uhrzeit der letzten Meldung steht auf der Pille erst, wenn sie älter ist als unter Einstellungen → GPS eingestellt (Standard 10 Min.); Darüberfahren oder Antippen zeigt die Liste mit jedem Fahrzeug. Liegt eine Pille auf einem Einsatz-Marker, weicht sie aus – eine dünne Linie führt zum Punkt, wo das Fahrzeug wirklich steht. Zuweisungslinien gehen nur von Fahrzeugen aus, die online sind.
 - **Marker mit Zahl:** mehrere Einsätze an derselben Adresse – ein Marker im Aussehen des dringendsten, eine Beschriftung mit allen Nummern («6 · 7 · 9 Bahnhofstrasse 1»). Darüberfahren oder Klick zeigt die Liste; ein Klick auf eine Zeile wählt diesen Einsatz, ein Doppelklick öffnet ihn.
 - **Blase mit Zahl:** mehrere Einsätze, deren Marker sich überdecken; Marke und Rahmen des dringendsten (höchste Priorität). Klick oder Antippen zoomt auf die Gruppe. Ab Strassen-Zoom stehen die Marker wieder einzeln.
 

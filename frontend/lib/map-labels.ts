@@ -72,19 +72,19 @@ function intersects(a: Rect, b: Rect): boolean {
   return a.left < b.right + GAP && b.left < a.right + GAP && a.top < b.bottom + GAP && b.top < a.bottom + GAP
 }
 
-/** Every on-screen anchor, as the dot no label may cover – plus the count bubbles. */
+/** Every on-screen anchor, as the dot no label may cover – plus the count bubbles and vehicle pills. */
 function onScreenDots({ candidates, dotSize, viewport, obstacles = [] }: LabelGeometry & { candidates: LabelCandidate[] }) {
   const inside = (p: { x: number; y: number }) =>
     !viewport || (p.x >= 0 && p.y >= 0 && p.x <= viewport.width && p.y <= viewport.height)
   const onScreen = candidates.filter(inside)
-  const box = (id: string, x: number, y: number, size: number) => ({
+  const box = (id: string, x: number, y: number, width: number, height: number) => ({
     id,
-    rect: { left: x - size / 2, top: y - size / 2, right: x + size / 2, bottom: y + size / 2 },
+    rect: { left: x - width / 2, top: y - height / 2, right: x + width / 2, bottom: y + height / 2 },
   })
   const dots = [
-    ...onScreen.map((c) => box(c.id, c.x, c.y, dotSize)),
-    // A bubble is nobody's own dot: no candidate's id, so it blocks every label.
-    ...obstacles.filter(inside).map((o) => box('', o.x, o.y, o.size)),
+    ...onScreen.map((c) => box(c.id, c.x, c.y, dotSize, dotSize)),
+    // A bubble or a vehicle pill is nobody's own dot: no candidate's id, so it blocks every label.
+    ...obstacles.filter(inside).map((o) => box('', o.x, o.y, o.width, o.height)),
   ]
   return { onScreen, dots }
 }
@@ -108,9 +108,10 @@ interface LabelGeometry {
   /** Only anchors on screen take part (an off-screen one would still block), and a label that
    *  would hang off the map's edge does not fit there. */
   viewport?: Viewport
-  /** Other marks no label may cover, centre + diameter px: the overlap bubbles
-   *  (`lib/map-clusters.ts`), which have no label of their own. */
-  obstacles?: { x: number; y: number; size: number }[]
+  /** Other marks no label may cover, centre + box px: the overlap bubbles (`lib/map-clusters.ts`),
+   *  which have no label of their own, and the vehicle pills where they finally stand
+   *  (`lib/map-vehicles.ts`) – a label flips away from a pill rather than hiding it. */
+  obstacles?: { x: number; y: number; width: number; height: number }[]
 }
 
 interface Viewport {
@@ -187,14 +188,8 @@ export function placeLabelSides(candidates: LabelCandidate[], geometry: LabelGeo
 
 let measureContext: OffscreenCanvasRenderingContext2D | null | undefined
 
-/**
- * Width of a short label bubble: 12px/600 address text (the 11px mono number is measured with
- * it – a px or two wide), 6px padding + 1px border each side, plus the crew counters when there
- * are any. Measured on a canvas when one exists; a per-character estimate
- * otherwise (tests, very old engines). An estimate that is a few px off only shifts where the
- * collision pass draws its line – it never hides the selected label.
- */
-export function estimateLabelWidth(text: string, crewCounters: number): number {
+/** The canvas the widths are measured on – null where there is none (tests, very old engines). */
+function measurer(): OffscreenCanvasRenderingContext2D | null {
   if (measureContext === undefined) {
     try {
       // OffscreenCanvas: every engine the board supports has it (Safari since 16.4), and jsdom
@@ -204,14 +199,36 @@ export function estimateLabelWidth(text: string, crewCounters: number): number {
       measureContext = null
     }
   }
-  let textWidth: number
-  if (measureContext) {
-    const family = typeof document !== 'undefined' ? getComputedStyle(document.body).fontFamily || 'sans-serif' : 'sans-serif'
-    measureContext.font = `600 12px ${family}`
-    textWidth = measureContext.measureText(text).width
-  } else {
-    textWidth = text.length * 7
+  return measureContext
+}
+
+/**
+ * Width of one line of map text in px: Sora (`font-sans`) or, with `mono`, Spline Sans Mono, at
+ * the given weight and size. Measured on a canvas when one exists; a per-character estimate
+ * otherwise. Used for the label bubbles here and the vehicle pills (`lib/map-vehicles.ts`).
+ */
+export function measureTextWidth(text: string, { weight, size, mono = false }: { weight: number; size: number; mono?: boolean }): number {
+  const context = measurer()
+  if (!context) return text.length * size * 0.6
+  let family = mono ? 'monospace' : 'sans-serif'
+  if (typeof document !== 'undefined') {
+    family = mono
+      ? // next/font's own variable: `--font-mono` itself is a `var(…)` chain a canvas cannot read.
+        getComputedStyle(document.body).getPropertyValue('--font-spline-sans-mono').trim() || family
+      : getComputedStyle(document.body).fontFamily || family
   }
+  context.font = `${weight} ${size}px ${family}`
+  return context.measureText(text).width
+}
+
+/**
+ * Width of a short label bubble: 12px/600 address text (the 11px mono number is measured with
+ * it – a px or two wide), 6px padding + 1px border each side, plus the crew counters when there
+ * are any. An estimate that is a few px off only shifts where the collision pass draws its line –
+ * it never hides the selected label.
+ */
+export function estimateLabelWidth(text: string, crewCounters: number): number {
+  const textWidth = measurer() ? measureTextWidth(text, { weight: 600, size: 12 }) : text.length * 7
   // Each counter: 6px gap + 12px icon + 3px + ~7px digit (the label in components/map-view.tsx).
   return Math.ceil(textWidth + 12 + 2 + crewCounters * 28)
 }
