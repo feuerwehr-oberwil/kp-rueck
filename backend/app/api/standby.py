@@ -351,7 +351,7 @@ async def resolve_conflict(
         if result != "ok":
             raise HTTPException(status_code=409, detail="Das lässt sich so nicht mehr übernehmen.")
     await conn.execute(
-        f"UPDATE public.{CONFLICTS} SET resolved_at = now(), resolved_by = $2, resolution = $3 WHERE id = $1",  # noqa: S608
+        f"UPDATE public.{CONFLICTS} SET resolved_at = now(), resolved_by = $2, resolution = $3 WHERE id = $1",  # noqa: S608  # nosec B608 – a constant
         conflict_id,
         current_user.display_name or current_user.username,
         body.choice,

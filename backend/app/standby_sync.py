@@ -500,7 +500,7 @@ async def _apply_one(conn: asyncpg.Connection, table: Table, event_id: uuid.UUID
             return "ok"
         if current != op.expected:
             return "changed"
-        await conn.execute(f"DELETE FROM public.{name} WHERE {table.key} = $1::uuid", op.id)  # noqa: S608
+        await conn.execute(f"DELETE FROM public.{name} WHERE {table.key} = $1::uuid", op.id)  # noqa: S608  # nosec B608 – table and columns from event_tables(), not from the op
         return "ok"
     if current != op.expected:
         return "changed"
@@ -509,13 +509,13 @@ async def _apply_one(conn: asyncpg.Connection, table: Table, event_id: uuid.UUID
     payload = json.dumps(op.row)
     if current is None:
         await conn.execute(
-            f"INSERT INTO public.{name} ({names}) SELECT {names} FROM jsonb_populate_record(NULL::public.{name}, $1::jsonb)",  # noqa: S608
+            f"INSERT INTO public.{name} ({names}) SELECT {names} FROM jsonb_populate_record(NULL::public.{name}, $1::jsonb)",  # noqa: S608  # nosec B608 – table and columns from event_tables(), not from the op
             payload,
         )
     else:
         sets = ", ".join(f'"{c}" = s."{c}"' for c in columns if c != table.key)
         await conn.execute(
-            f"UPDATE public.{name} t SET {sets} FROM jsonb_populate_record(NULL::public.{name}, $1::jsonb) s "  # noqa: S608
+            f"UPDATE public.{name} t SET {sets} FROM jsonb_populate_record(NULL::public.{name}, $1::jsonb) s "  # noqa: S608  # nosec B608 – table and columns from event_tables(), not from the op
             f"WHERE t.{table.key} = $2::uuid",
             payload,
             op.id,
