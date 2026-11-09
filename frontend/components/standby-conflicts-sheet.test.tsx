@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   resolveStandbyConflict: vi.fn(),
   refresh: vi.fn(),
   mirror: true,
+  isEditor: true,
 }))
 
 vi.mock('@/lib/api-client', () => ({
@@ -17,6 +18,7 @@ vi.mock('@/lib/api-client', () => ({
 vi.mock('@/lib/contexts/standby-context', () => ({
   useStandby: () => ({ mirror: mocks.mirror, refresh: mocks.refresh }),
 }))
+vi.mock('@/lib/contexts/auth-context', () => ({ useAuth: () => ({ isEditor: mocks.isEditor }) }))
 
 import { StandbyConflictsSheet } from '@/components/standby-conflicts-sheet'
 
@@ -47,6 +49,7 @@ const DELETED: ApiStandbyConflict = {
   kind: 'deleted',
   deleted_on: 'hosted',
   columns: null,
+  row: { description: 'Wasser im Keller, Pumpe läuft.', updated_at: '2026-11-09T19:40:00+00:00' },
   subject: { incident_id: 'i-14', number: 14, address: 'Poststrasse 6' },
 }
 
@@ -56,6 +59,7 @@ function renderSheet() {
 
 beforeEach(() => {
   mocks.mirror = true
+  mocks.isEditor = true
   mocks.getStandbyConflicts.mockReset().mockResolvedValue({ decidable: true, conflicts: [MELDUNG, DELETED] })
   mocks.resolveStandbyConflict.mockReset().mockResolvedValue(undefined)
   mocks.refresh.mockReset()
@@ -92,6 +96,7 @@ describe('StandbyConflictsSheet', () => {
     const card = await screen.findByRole('region', { name: /Einsatz 14/ })
 
     expect(within(card).queryByRole('radio', { name: /Beide zusammen/ })).not.toBeInTheDocument()
+    expect(within(card).getByText('Wasser im Keller, Pumpe läuft.')).toBeInTheDocument() // what would go
     await userEvent.click(within(card).getByRole('radio', { name: /Löschen/ }))
     await userEvent.click(within(card).getByRole('button', { name: 'Übernehmen' }))
 
@@ -107,5 +112,14 @@ describe('StandbyConflictsSheet', () => {
     expect(within(card).queryByRole('radio')).not.toBeInTheDocument()
     expect(within(card).queryByRole('button', { name: 'Übernehmen' })).not.toBeInTheDocument()
     expect(within(card).getByText('Entschieden wird auf KP Rück Offline.')).toBeInTheDocument()
+  })
+
+  it('lets a viewer read the list but not decide', async () => {
+    mocks.isEditor = false
+    renderSheet()
+
+    const card = await screen.findByRole('region', { name: /Einsatz 7/ })
+    expect(within(card).queryByRole('radio')).not.toBeInTheDocument()
+    expect(within(card).queryByRole('button', { name: 'Übernehmen' })).not.toBeInTheDocument()
   })
 })

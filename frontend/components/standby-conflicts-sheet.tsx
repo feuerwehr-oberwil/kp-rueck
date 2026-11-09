@@ -11,6 +11,7 @@ import { LoadingStatus, ShellLoader } from '@/components/ui/shell-loader'
 import { Textarea } from '@/components/ui/textarea'
 import { apiClient } from '@/lib/api-client'
 import type { ApiStandbyConflict, ApiStandbyConflicts } from '@/lib/api/types'
+import { useAuth } from '@/lib/contexts/auth-context'
 import { useStandby } from '@/lib/contexts/standby-context'
 import { getIntlLocale } from '@/lib/date-locale'
 import { getOperationStatusLabel } from '@/lib/status-labels'
@@ -32,8 +33,8 @@ function time(iso: string | null): string {
  *
  * On the system that leads, each conflict is decided with one choice – this version, the
  * other one, or for text «Beide zusammen», both one below the other in a field that can be
- * rewritten – and «Übernehmen». The other system shows the same list to read. Decided ones
- * fold away under «n erledigt».
+ * rewritten – and «Übernehmen». The other system, and a viewer, see the same list to read.
+ * Decided ones fold away under «n erledigt». Mount it per Ereignis (`key`).
  */
 export function StandbyConflictsSheet({
   open,
@@ -46,12 +47,15 @@ export function StandbyConflictsSheet({
 }) {
   const t = useTranslations('standby.conflicts')
   const standby = useStandby()
+  const { isEditor } = useAuth()
   const [data, setData] = useState<ApiStandbyConflicts | null>(null)
   const [failed, setFailed] = useState(false)
 
   const load = useCallback(async () => {
     try {
-      setData(await apiClient.getStandbyConflicts(eventId))
+      const result = await apiClient.getStandbyConflicts(eventId)
+      if (!result) throw new Error('no answer') // the GET gave up after its retries
+      setData(result)
       setFailed(false)
     } catch {
       setFailed(true)
@@ -85,7 +89,8 @@ export function StandbyConflictsSheet({
               key={conflict.id}
               conflict={conflict}
               here={here}
-              decidable={data?.decidable ?? false}
+              leader={leader}
+              decidable={(data?.decidable ?? false) && isEditor}
               onDone={async () => {
                 await load()
                 await standby.refresh()
@@ -141,11 +146,13 @@ function display(column: string, value: unknown, t: T): string {
 function ConflictCard({
   conflict,
   here,
+  leader,
   decidable,
   onDone,
 }: {
   conflict: ApiStandbyConflict
   here: Side
+  leader: Side
   decidable: boolean
   onDone: () => Promise<void>
 }) {
@@ -203,6 +210,7 @@ function ConflictCard({
       className="rounded-lg border border-amber-500/40 bg-amber-50/60 p-3 dark:border-amber-400/30 dark:bg-amber-950/20"
     >
       <h3 className="mb-2 break-words text-sm font-semibold">{title}</h3>
+      {conflict.kind !== 'field' && conflict.row && <SavedRow row={conflict.row} />}
       <div role={decidable ? 'radiogroup' : undefined} aria-label={title} className="space-y-1.5">
         {options.map((option) => {
           const selected = choice === option.value
@@ -264,7 +272,7 @@ function ConflictCard({
           </Button>
         </div>
       ) : (
-        <p className="mt-2 text-xs text-muted-foreground">{t('decidedThere', { leader: t(`side.${conflict.kept_on}`) })}</p>
+        <p className="mt-2 text-xs text-muted-foreground">{t('decidedThere', { leader: t(`side.${leader}`) })}</p>
       )}
     </section>
   )
@@ -277,4 +285,24 @@ function values(conflict: ApiStandbyConflict, columns: string[], which: 'kept' |
       return columns.length > 1 ? `${columnLabel(c, t)}: ${value}` : value
     })
     .join('\n')
+}
+
+/** The row a deletion or a duplicate is about, by its named fields – so the choice is not blind. */
+function SavedRow({ row }: { row: Record<string, unknown> }) {
+  const t = useTranslations('standby.conflicts')
+  const fields = Object.entries(row).filter(
+    ([column, value]) => !BOOKKEEPING.has(column) && t.has(`columns.${column}`) && value != null && value !== '',
+  )
+  if (fields.length === 0) return null
+  return (
+    <dl className="mb-2 space-y-0.5 rounded-md bg-background/70 px-3 py-2 text-sm">
+      <dt className="sr-only">{t('savedRow')}</dt>
+      {fields.map(([column, value]) => (
+        <dd key={column} className="whitespace-pre-wrap break-words">
+          <span className="text-muted-foreground">{columnLabel(column, t)}: </span>
+          {display(column, value, t)}
+        </dd>
+      ))}
+    </dl>
+  )
 }

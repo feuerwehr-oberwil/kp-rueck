@@ -55,7 +55,6 @@ def _lead_json(event_id: uuid.UUID, lead: Lead) -> dict[str, Any]:
         "event_id": str(event_id),
         "holder": lead.holder,
         "since": lead.since,
-        "taken_by": lead.taken_by,
         "pending": pending,
         "contact_at": contact_at,
         "open_conflicts": lead.open_conflicts,
@@ -175,7 +174,8 @@ def _require_box(authorization: str | None) -> None:
     """The standby box's token, or nothing here exists."""
     token = settings.standby_sync_token
     given = (authorization or "").removeprefix("Bearer ").strip()
-    if deployment_role() == ROLE_STANDBY or not token or not hmac.compare_digest(given, token):
+    # As bytes: compare_digest refuses a str with non-ASCII characters (a 500 instead of the 404).
+    if deployment_role() == ROLE_STANDBY or not token or not hmac.compare_digest(given.encode(), token.encode()):
         raise HTTPException(status_code=404, detail="Nicht gefunden.")
 
 

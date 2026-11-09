@@ -117,7 +117,6 @@ export interface ApiStandbyLead {
   event_id: string
   holder: 'standby' | 'hosted'
   since: string
-  taken_by: string | null
   /** Changes not yet on the other system – on the box: its own; on the hosted board: as the box last said. */
   pending: number
   /** The last time box and hosted board reached each other for this Ereignis. */

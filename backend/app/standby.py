@@ -397,7 +397,8 @@ async def reset(local: asyncpg.Connection, source_url: str) -> str:
     Normally nothing needs this: the two-way sync carries the box's work up by itself. Drops the
     subscription (and its slot on the hosted side), forgets which Ereignisse were taken over and
     what the sync had agreed on, and copies everything again – whatever the box had not sent yet
-    is replaced by the hosted version. Take a backup first (`just backup`).
+    is replaced by the hosted version. An Ereignis the hosted board still says the box leads is
+    taken up again once the copy is complete (`resume_leads`). Take a backup first (`just backup`).
     """
     await local.execute(f"DROP SUBSCRIPTION IF EXISTS {SUBSCRIPTION}")
     await install_guards(local)
@@ -510,6 +511,38 @@ async def take_over(conn: asyncpg.Connection, event_id: uuid.UUID, by: str) -> d
         by,
     )
     return since
+
+
+async def resume_leads(conn: asyncpg.Connection) -> list[uuid.UUID]:
+    """Ereignisse the hosted board says this box leads, but the box no longer syncs – after a
+    `reset`, which forgets them while the hosted board still points here. They are taken up
+    again as they now stand, so the box's edits go up instead of being overwritten by the
+    mirror. Waits until the copy is complete. Returns the ones it took up.
+    """
+    from .standby_sync import snapshot  # the sync builds on this module
+
+    if await conn.fetchval("SELECT EXISTS (SELECT 1 FROM pg_subscription_rel WHERE srsubstate <> 'r')"):
+        return []  # still copying: a snapshot now would miss rows
+    orphans = [
+        r["event_id"]
+        for r in await conn.fetch(
+            """
+            SELECT l.event_id FROM public.event_leads l
+            WHERE l.holder = 'standby'
+              AND NOT EXISTS (SELECT 1 FROM standby.detached_events d WHERE d.event_id = l.event_id)
+            """
+        )
+    ]
+    for event_id in orphans:
+        async with conn.transaction():
+            await conn.execute("SET LOCAL TIME ZONE 'UTC'")
+            await snapshot(conn, event_id)
+            await conn.execute(
+                "INSERT INTO standby.detached_events (event_id, detached_by) VALUES ($1, 'nach Neuaufbau') "
+                "ON CONFLICT (event_id) DO NOTHING",
+                event_id,
+            )
+    return orphans
 
 
 # --- photos ----------------------------------------------------------------------------------
@@ -713,6 +746,7 @@ async def sync_once() -> int:
     try:
         if not await local.fetchval("SELECT to_regclass('standby.sync_status') IS NOT NULL"):
             return 0
+        await resume_leads(local)
         events = [r["event_id"] for r in await local.fetch("SELECT event_id FROM standby.detached_events")]
         if not events:
             return 0
