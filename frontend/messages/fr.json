@@ -2600,7 +2600,13 @@
       "assignments": "Attributions",
       "vehicleToIncident": "Véhicule → intervention",
       "cluster": "Interventions proches",
-      "spot": "Interventions à une même adresse"
+      "spot": "Interventions à une même adresse",
+      "sampleOnline": "Pio",
+      "sampleOffline": "TLF",
+      "pillOnline": "en ligne",
+      "pillStale": "hors ligne · dernier signal (dès {minutes} min)",
+      "pillSpot": "même endroit · hors ligne",
+      "onlineOnly": "(en ligne seulement)"
     },
     "assignmentLines": {
       "incidentFallback": "Intervention"
@@ -2728,6 +2734,18 @@
       "level3": "Orange – dangereux",
       "level4": "Rouge – très dangereux",
       "authorityNotice": "Communication des autorités"
+    },
+    "vehicles": {
+      "online": "en ligne",
+      "offline": "hors ligne",
+      "onlineCount": "{count} en ligne",
+      "offlinePart": "{count} hors ligne",
+      "speed": "{kmh} km/h",
+      "lastReport": "dernier signal {time}",
+      "lastReportUnknown": "dernier signal : inconnu",
+      "yesterday": "hier {time}",
+      "assignedTo": "→ {target}",
+      "scrollMore": "↓ défiler · {count} de plus"
     }
   },
   "nav": {
@@ -3896,7 +3914,13 @@
       },
       "editorsOnly": "Seuls les éditeurs peuvent modifier ces réglages.",
       "trackerUnavailable": "Aucun service de localisation n’est configuré pour cette caserne. L’automatisme suit le rythme des relevés Traccar – sans lui, aucune proposition n’arrive, quoi qu’il soit réglé ici. À configurer côté serveur (TRACCAR_URL) ; l’état est visible sous Réglages → Intégrations.",
-      "returnUnavailable": "Les coordonnées de la caserne manquent. Sans elles, le retour n’est pas détecté – les saisir plus bas sur cette carte, sous «Caserne (base d’attache)»."
+      "returnUnavailable": "Les coordonnées de la caserne manquent. Sans elles, le retour n’est pas détecté – les saisir plus bas sur cette carte, sous «Caserne (base d’attache)».",
+      "map": {
+        "title": "Véhicules sur la carte",
+        "staleLabel": "Afficher le dernier signal dès",
+        "staleHint": "Une pastille de véhicule n’affiche l’heure de son dernier signal GPS que lorsqu’il date de plus de ce nombre de minutes. La liste au survol d’une pastille l’indique toujours.",
+        "minutes": "min"
+      }
     },
     "materials": {
       "loadError": "Le matériel n’a pas pu être chargé",

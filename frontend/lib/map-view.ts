@@ -46,6 +46,11 @@ export const MAPLIBRE_WORKER_URL = '/maplibre/maplibre-gl-worker.mjs'
  * - at rest every pin paints above every label (hill climb r14) – a label may run under a
  *   neighbouring dot, but it never hides that dot's priority colour and chevron; inside each
  *   band Hoch over Mittel over Niedrig (`incidentZ`);
+ * - a vehicle pill (`vehicle`) sits above the resting labels and under every pin: the labels flip
+ *   away from the pills and the pills step off the pins (`lib/map-vehicles.ts`), so this only
+ *   decides the leftovers – a pill that found no free place (`vehicleCrowded`) lies over the
+ *   resting pins it covers least, so it stays readable and tappable; an open vehicle list
+ *   (`vehicleOpen`) clears everything;
  * - an Auftrag's numbered stop pin covers a plain incident dot;
  * - the selected/highlighted incident (label, then its pin) clears every resting pin and stop;
  * - the pointed-at one (label/hover card, then its pin) clears everything – the hovered route
@@ -65,9 +70,10 @@ export const MAPLIBRE_WORKER_URL = '/maplibre/maplibre-gl-worker.mjs'
  */
 export const Z = {
   station: 10,
-  vehicle: 40,
   label: 50,
+  vehicle: 55,
   incident: 60,
+  vehicleCrowded: 70,
   routeStop: 100,
   distancePill: 250,
   labelSelected: 300,
@@ -76,6 +82,7 @@ export const Z = {
   routeStopHovered: 400,
   labelHovered: 600,
   incidentHovered: 610,
+  vehicleOpen: 700,
 } as const
 
 const PRIORITY_RANK: Partial<Record<string, number>> = { high: 2, medium: 1 }

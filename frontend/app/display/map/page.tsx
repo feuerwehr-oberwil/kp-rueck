@@ -591,6 +591,7 @@ function TokenDisplayMap({
         incidentsOverride={incidents}
         vehiclesOverride={data.vehicles}
         positionsOverride={data.vehicle_positions}
+        vehicleStaleMinutes={data.gps_stale_minutes}
         viewerToken={token}
         showGroupRoutes={options.showGroupRoutes && groups.length > 0}
         groups={groups}

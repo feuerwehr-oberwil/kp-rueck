@@ -28,6 +28,7 @@ from app.models import (
     Material,
     Personnel,
     RekoReport,
+    Setting,
     User,
     Vehicle,
 )
@@ -56,6 +57,17 @@ async def test_viewer_snapshot_includes_more_than_one_api_page(db_session, clien
     data = response.json()
     assert {row["id"] for row in data["incidents"]} == {str(row.id) for row in incidents}
     assert data["figures"]["total"] == 501
+
+
+@pytest.mark.asyncio
+async def test_viewer_payload_carries_the_vehicle_staleness_threshold(client: AsyncClient, db_session, test_event):
+    """The wall's vehicle pills show a last-report time by the station's threshold, as the board's do."""
+    token = generate_viewer_token(test_event.id)
+    assert (await client.get("/api/viewer/data", params={"token": token})).json()["gps_stale_minutes"] == 10
+
+    db_session.add(Setting(key="gps.stale_after_minutes", value="25"))
+    await db_session.commit()
+    assert (await client.get("/api/viewer/data", params={"token": token})).json()["gps_stale_minutes"] == 25
 
 
 @pytest_asyncio.fixture
