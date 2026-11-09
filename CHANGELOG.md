@@ -37,6 +37,60 @@ will keep holding.
   `backends` list serves both systems again; KP Rück's thermal slips print exactly as before.
   A bare-Pi install of the A4 path runs on Python 3.9 again (the thermal extra still needs
   3.10).
+- **The Alarmeingang is a panel over the board, not a page.** An inbox icon beside the bell
+  counts the alarms of the last 24 hours that are on no board yet; it opens the Alarmeingang on
+  the right, between header and footer, and the board behind stays usable – an attached alarm
+  appears in «Eingegangen» while the panel is still open. Three sections: **Neu** («Anhängen» per
+  row, «Alle anhängen»), **Heute zugewiesen** (since midnight, with the number of the Einsatz it
+  became) and **Früher** (folded: earlier days and archived). Attaching one alarm checks for an
+  open Einsatz at the same address or within 50 m and offers «Zusammenführen»; a card that is
+  not merged – a bulk attach included – is flagged «Mögliches Duplikat», like an auto-attached
+  one. Bookmarks of `/divera-pool` open the board with the Alarmeingang open. On the phone it is
+  a bottom sheet under «Mehr».
+- **One pin per address on the Lagekarte.** Several Einsätze at one address draw one pin with a
+  count badge and one label («6 · 7 · 9 Bahnhofstrasse 1, Coop Center»); hovering or clicking
+  lists them. Pins that overlap below street zoom become a count bubble – on the desktop too –
+  and a click zooms in.
+- **The Routenplanung on `/map` reads as a timeline**: the start on top with where it comes from
+  (the Magazin from the settings or an «Ersatzstandort», after an optimisation the start it
+  really used, e.g. a vehicle's GPS fix with its time), then the stops with the numbers of their
+  pins, addresses wrapping instead of cut off. The rail is dragged wider or narrower by its left
+  edge, remembered per device; a double-click restores the default.
+- **`/feld` shows the Einsatz number and priority mark before the address.** The Feld API's
+  assignments carry `number` and `priority` (additive).
+
+### Changed
+
+- **Einsatz detail: «Status» is a select under the Merkmale**, in board column order and with
+  the same questions as dragging the card, instead of the row of status buttons – the Kräfte now
+  fit in the first view. Dragging cards is unchanged.
+- **Material on an Auftrag counts as gebunden everywhere** – Material sidebar, its counter, the
+  status wall and print – as personnel already did. The «frei» numbers drop where material
+  rides on a route (e.g. 22 → 21). A wall opened by share link gets no Auftrag data and still
+  shows such material as frei.
+- **Board cards**: the card's buttons sit in the age row, so the address uses the full width
+  (most addresses now fit one line at 1920 px). A column with less than about 96 px in view
+  counts as hidden and gets its chip in the top bar.
+- **Durations and counts read the same everywhere**: «2h 30'» instead of «2.5h», «seit Eingang
+  45'», «Mannschaft · 3», «10 offen · 9 in Arbeit».
+- **Lagekarte**: a label that would cover another moves to the free side; the incident list
+  sorts Hoch → Mittel → Niedrig, then oldest first; every pin carries the priority mark and a
+  status ring. Auftrag colours draw darker so the white stop numbers stay readable – stored
+  colours too, at display time. «Reihenfolge optimieren» needs two stops with coordinates and
+  says so.
+- **Walls**: the search and the back arrow fade after 10 s without input and come back on the
+  first mouse move or `S`. On `/display/board` a column head says «⏱ 2 ≥ 60'» (how many, since
+  when) instead of a red dot, and chips wrap instead of ending in «…»; a column says what is
+  below («+3 weiter ↓»). On `/display/status` the Reaktionszeiten start folded, so about ten
+  Einsätze fit instead of three.
+- **User menu**: «Anzeige» holds Kennzahlen and Display-Übersicht – the three walls are opened
+  from `/display`; «Befehle & Kürzel» shows its keys on one line. The command palette reads
+  «Befehl suchen oder zuweisen …» with the typing grammar on a line under the input.
+- **Phone**: «Mannschaft zuweisen» is a bottom sheet.
+- **Settings**: «Allgemein» is grouped (Station, Karte und Anzeige, Einsatzrapport); the
+  station coordinates show and save six decimals.
+- **Contrast and hit areas** across board, detail, map, dialogs, walls and `/feld`: text that
+  missed WCAG AA and controls smaller than 24 px (44 px on a phone) were brought up to it.
 
 ### Fixed
 
@@ -44,6 +98,10 @@ will keep holding.
   `PRINT_AGENT_SECRET` set on the server, KP Front answers 403 «Druck-Relay deaktiviert»; the
   agent used to treat that like a wrong secret and stop that worker for good. It now logs a
   warning, backs off and prints as soon as the secret is set. A wrong secret still stops it.
+- **A dialog with a long line stays inside its edge** («Ereignis archivieren?» ran past it).
+- **Names on the status wall no longer fall apart letter by letter.** Beside a long
+  destination («→ Bahnhofstrasse 1, Coop Center») a Personal or Material name could be squeezed
+  to nothing and set one letter per line; now the destination moves to its own line.
 
 ### Security
 

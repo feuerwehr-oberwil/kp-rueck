@@ -80,7 +80,7 @@ Diese Dokumentationsseite.
 
 Für Kommandoposten mit mehreren Bildschirmen gibt es spezielle Anzeige-Seiten unter `/display`. Diese sind rein lesend – keine Bearbeitungsfunktionen.
 
-**Zugriff:** Benutzermenü → Abschnitt «Anzeige» (öffnet in neuem Tab), oder direkt `/display` aufrufen.
+**Zugriff:** Benutzermenü → «Anzeige» → **Display-Übersicht** (öffnet in neuem Tab), oder direkt `/display` aufrufen. Dort stehen die drei Wände – Lagekarte, Board, Status – und die Wahl des Ereignisses; zwischen den Wänden wechselt man oben rechts. Im selben Abschnitt des Benutzermenüs stehen die [Kennzahlen](#board-g-b) (`Z`).
 
 ### Lagekarte (`/display/map`)
 Vollbild-Karte ohne Seitenleiste. Zeigt alle Einsatzorte, GPS-Fahrzeugpositionen und animierte Zuweisungslinien (Fahrzeug → Einsatz). Ideal für einen zentralen Lagebildschirm.
@@ -104,7 +104,7 @@ Vier-Spalten-Übersicht: Fahrzeuge, Einsätze (gruppiert nach Status), Personal 
 In den Anzeige-Ansichten lässt sich jeder Abschnitt zuklappen – Board-Spalten, Status-Gruppen, Funktionen beim Personal, Kategorien beim Material. Bei einer grösseren Feuerwehr scrollt man sonst nur.
 
 - **Standard ist offen.** Nichts versteckt sich vor jemandem, der gerade davortritt. Einzige Ausnahme: **ABGESCHLOSSEN** startet weiterhin eingeklappt – das ist erledigte Arbeit.
-- **Eine zugeklappte Kopfzeile zeigt weiter Anzahl und Zustand:** die Anzahl Einträge, bei Personal und Material zusätzlich wie viele davon frei sind, und einen roten Punkt, sobald ein Einsatz in diesem Abschnitt überfällig ist. Einklappen ist Verstecken – und um 3 Uhr darf sich nichts Wichtiges verstecken.
+- **Eine zugeklappte Kopfzeile zeigt weiter Anzahl und Zustand:** die Anzahl Einträge, bei Personal und Material zusätzlich wie viele davon frei sind, und ist ein Einsatz darin überfällig, ein Zeichen dafür – auf dem Board der Alters-Chip «⏱ 2 ≥ 60'» (wie viele, ab wann; gelb ab 60 Minuten, rot ab 120), bei «Status» ein roter Punkt. Einklappen ist Verstecken – und um 3 Uhr darf sich nichts Wichtiges verstecken.
 - **Der Zustand wird pro Gerät gemerkt**, wie die übrigen Anzeige-Einstellungen. Der Wandschirm, das Tablet auf dem Tisch und der Laptop hinten stehen unterschiedlich weit weg; wie viel zugeklappt ist, gehört zum Bildschirm, nicht zum Einsatz.
 
 ### Cross-Window-Sync
@@ -282,6 +282,43 @@ Einsatz abgeschlossen oder selbst zusammengeführt ist. Ein Reko-Link der zusamm
 funktioniert weiter und landet auf der verbleibenden Karte, ein Trupp auf `/feld` findet die
 verbleibende Karte, und Fotos werden kopiert, nie verschoben; die Reaktionszeiten zählen ab der
 ersten Meldung.
+
+### Alarmeingang (Alarme aufs Board holen)
+
+Alarme aus der Alarmierung – Divera oder ein anderes System über die offene
+Webhook-Schnittstelle (`docs/ALARM-INTEGRATIONS.md`) – landen zuerst im **Alarmeingang**.
+Ist bei einem Ereignis das automatische Anhängen eingeschaltet, stehen sie zusätzlich gleich
+als Karte in «Eingegangen».
+
+- **Öffnen:** das Eingangs-Symbol oben neben der Glocke. Die Zahl darauf zählt die **neuen**
+  Alarme der letzten 24 Stunden. Ein zweiter Klick darauf, `Esc` oder ✕ schliesst ihn. Auch im
+  Benutzermenü unter «Verwaltung» und auf dem Handy unter «Mehr»; alte Links auf `/divera-pool`
+  landen auf dem Board mit offenem Alarmeingang.
+- **Neben dem Board, nicht davor:** Auf dem Desktop steht er rechts zwischen Kopf- und Fussleiste,
+  ohne das Board abzudunkeln – man arbeitet weiter, und ein angehängter Alarm erscheint sofort in
+  «Eingegangen». Ein Klick aufs Board schliesst ihn nicht. Auf dem Handy ist er ein Sheet von unten.
+- **Neu** – was noch auf keinem Board ist (höchstens 24 Stunden alt), das Neueste zuoberst, mit
+  Titel, Adresse und Meldung. **Anhängen** pro Zeile, **Alle anhängen** für alle neuen auf einmal
+  (auf dem Handy unten im Sheet).
+- **Heute zugewiesen** – seit Mitternacht angehängt, als kurze Zeile mit der Nummer des Einsatzes,
+  der daraus wurde («→ 14»).
+- **Früher** – zugeklappt: frühere Tage und archivierte. Ein Alarm, den einen Tag lang niemand
+  angehängt hat, steht hier und lässt sich von hier aus noch anhängen.
+- **Suche** über Titel, Meldung, Adresse, Divera-Nummer und Absender; während einer Suche ist
+  «Früher» aufgeklappt. Solange der Alarmeingang offen ist, meldet sich ein neuer Alarm mit
+  Hinweis und Ton.
+
+**Anhängen** fragt, an welches Ereignis – vorgewählt ist das, das dieses Fenster zeigt.
+Übungs-Alarme gehen nur an eine Übung. Ein echter Alarm an eine Übung geht, aber erst nach dem
+Hinweis, was das heisst: die Ausalarmierung wird nur simuliert, und die Überfällig-Schwellen sind
+50 % länger. Bei **einem** Alarm prüft der Dialog wie «Neuer Einsatz», ob schon ein offener
+Einsatz an derselben Adresse oder innert 50 m steht – «Möglicherweise dasselbe wie …» mit
+**Zusammenführen** (der Alarm wird Nachtrag zu jenem Einsatz) oder **Trotzdem neu**. Wird nicht
+zusammengeführt, auch bei «Alle anhängen», trägt die neue Karte «Mögliches Duplikat von …» wie
+ein automatisch angehängter Alarm.
+
+Anhängen dürfen Editoren und Admins; Viewer sehen den Alarmeingang nicht. Im Demo-Modus ist
+keine Alarmierung angebunden, und der Alarmeingang sagt das.
 
 ### Reko durchführen
 
@@ -542,8 +579,9 @@ Daraus folgt:
 ### Route planen & optimieren
 
 - **Routen-Editor** (in der Aufträge-Leiste): grosse Karte mit nummerierten Stopps + Routenlinie neben der geordneten Stopp-Liste. Stopps per Drag & Drop umsortieren, per Kartenklick neue Stopps anhängen.
-- **Routenplanung** auf `/map`: dieselbe Planung auf der grossen Vollbild-Karte.
-- **Reihenfolge optimieren**: berechnet per Nächster-Nachbar-Heuristik eine kurze Reihenfolge ab einem Startpunkt (**Magazin**, **Fahrzeug-GPS** oder **erster Stopp**). Der Vorschlag wird als Vorschau angezeigt – **Übernehmen** oder **Verwerfen**.
+- **Routenplanung** auf `/map`: dieselbe Planung auf der grossen Vollbild-Karte. Die Leiste rechts zeigt die Reihenfolge als **Zeitleiste**: zuoberst der Start mit seiner Herkunft («Start · Magazin» – Standort aus den Einstellungen oder, wenn keiner eingerichtet ist, «Ersatzstandort»; nach einer Optimierung der Start, den sie tatsächlich benutzt hat, etwa Fahrzeug-GPS mit Zeit der letzten Meldung), darunter die Stopps mit **denselben Nummern wie ihre Pins auf der Karte**, zuletzt «Stopp hinzufügen». Lange Adressen brechen um, statt abgeschnitten zu werden.
+- **Breite der Leiste:** Seitenleisten lassen sich an ihrer Kante breiter oder schmaler ziehen – auch die der Routenplanung. Ein Doppelklick auf die Kante setzt die Standardbreite zurück; die Breite wird pro Gerät gemerkt.
+- **Reihenfolge optimieren**: schlägt per Nächster-Nachbar-Heuristik **nach Luftlinie** eine kurze Reihenfolge ab einem Startpunkt vor (**Magazin**, **Fahrzeug-GPS** oder **erster Stopp**) – das Menü nennt vorher bei jedem Startpunkt, woher er kommt und wie alt er ist. Der Vorschlag gilt sofort; **Rückgängig** in der Meldung stellt die alte Reihenfolge wieder her, solange niemand den Auftrag inzwischen geändert hat. Es braucht mindestens zwei Stopps mit Koordinaten. Eine Planungshilfe, keine Strassenroute.
 
 ### Funkdurchsage für einen Auftrag
 
@@ -611,7 +649,7 @@ Personal und Fahrzeuge werden beim Abschliessen automatisch freigegeben; nur Mat
 ## Tastaturkürzel
 
 Drück `Cmd/Ctrl+K` für die Befehlspalette – sie listet alle Befehle samt
-Tastaturkürzel und ist auch über das Benutzermenü («Befehle & Tastaturkürzel»)
+Tastaturkürzel und ist auch über das Benutzermenü («Befehle & Kürzel»)
 erreichbar. Kürzel sind inaktiv, während ein Eingabefeld fokussiert ist.
 
 ### Zuweisen durch Tippen
