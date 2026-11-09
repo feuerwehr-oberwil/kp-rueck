@@ -3,6 +3,7 @@
 import type { ReactNode } from "react"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { WALL_TEXT_WRAP } from "@/lib/kanban-utils"
 import { Reveal } from "@/components/ui/reveal"
 
 /**
@@ -14,6 +15,11 @@ import { Reveal } from "@/components/ui/reveal"
  * hides rows, and a header that shrank to a bare title would hide the fact that
  * three of those rows are overdue. Whoever walks up to the screen has to be able
  * to read that off the closed section.
+ *
+ * Wall text wraps, it never ends in «…» (nobody at a wall can hover a title): the
+ * label wraps, and when label and the right-hand figures (alarm dot, badge, count)
+ * do not fit on one line the figures move under it, right-aligned – the head's
+ * row wraps like a wall resource row (`ResourceRow` on /display/status).
  */
 export function CollapsibleSection({
   label,
@@ -47,25 +53,35 @@ export function CollapsibleSection({
         className={cn(
           // The min height is the count chip's row, so a head without one (the
           // wall's Kennzahlen) stands as tall as its neighbours.
-          "flex min-h-8 xl:min-h-9 w-full items-center gap-2 border-b border-border px-3 xl:px-4 py-1.5 xl:py-2 text-left transition-colors hover:bg-foreground/5",
+          "flex min-h-8 xl:min-h-9 w-full items-start gap-2 border-b border-border px-3 xl:px-4 py-1.5 xl:py-2 text-left transition-colors hover:bg-foreground/5",
           headerClassName,
         )}
       >
-        {collapsed
-          ? <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          : <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-        <span className="flex-1 truncate text-2xs xl:text-xs font-bold uppercase tracking-wider text-foreground/70">
-          {label}
+        {/* The chevron rides on the first line (the count chip's 20px), however
+            many lines the head wraps to. */}
+        <span className="flex h-5 shrink-0 items-center">
+          {collapsed
+            ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+            : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
         </span>
-        {alarm && (
-          <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" aria-hidden />
-        )}
-        {badge}
-        {count !== undefined && (
-          <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm bg-foreground/10 px-1 text-2xs xl:text-xs font-bold tabular-nums text-foreground">
-            {count}
+        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
+          <span className={cn("min-h-5 min-w-0 flex-auto content-center text-2xs xl:text-xs font-bold uppercase tracking-wider text-foreground/70", WALL_TEXT_WRAP)}>
+            {label}
           </span>
-        )}
+          {(alarm || badge || count !== undefined) && (
+            <span className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2 text-right">
+              {alarm && (
+                <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" aria-hidden />
+              )}
+              {badge}
+              {count !== undefined && (
+                <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm bg-foreground/10 px-1 text-2xs xl:text-xs font-bold tabular-nums text-foreground">
+                  {count}
+                </span>
+              )}
+            </span>
+          )}
+        </span>
       </button>
       <Reveal open={!collapsed}>{children}</Reveal>
     </div>

@@ -897,10 +897,10 @@ function IncidentRow({ operation: op, onClick }: { operation: Operation; onClick
           <div className="flex items-start gap-1.5 min-w-0">
             <WallPriorityGlyph priority={priority} lineClassName="text-sm xl:text-base h-[1.25em]" />
             <div className="min-w-0">
-              {/* Two lines, hyphenated, instead of one truncated: «Mühlemattstrasse …»
+              {/* The whole address, hyphenated, as many lines as it takes: «Mühlemattstrasse …»
                   is not an address anybody can act on, and a wall has no pointer for
-                  the title attribute. */}
-              <p className={cn("text-sm xl:text-base font-semibold leading-tight line-clamp-2", WALL_TEXT_WRAP)} title={locationLabel}>{locationLabel}</p>
+                  the title attribute (a two-line clamp still cut the long ones). */}
+              <p className={cn("text-sm xl:text-base font-semibold leading-tight", WALL_TEXT_WRAP)}>{locationLabel}</p>
               <p className={cn("text-[11px] xl:text-xs text-muted-foreground mt-0.5", WALL_TEXT_WRAP)}>{getIncidentTypeLabel(op.incidentType)}</p>
             </div>
           </div>
