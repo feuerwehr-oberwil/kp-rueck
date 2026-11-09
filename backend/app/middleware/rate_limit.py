@@ -119,6 +119,10 @@ class RateLimits:
     PHOTO_UPLOAD = "30/minute"
 
     # Webhooks - prevent flooding
+    # The standby box's sync (api/standby.py): one call per taken-over Ereignis every few
+    # seconds, plus its photos after an outage. Behind a token; this only blunts a stuck loop.
+    STANDBY_SYNC = "240/minute"
+
     WEBHOOK = "10/minute"
 
     # Public alarm intake - token-gated write endpoint, keep tight against abuse

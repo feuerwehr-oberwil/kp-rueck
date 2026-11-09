@@ -3,68 +3,77 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
 import { apiClient } from '@/lib/api-client'
-import type { ApiStandby } from '@/lib/api/types'
+import type { ApiStandby, ApiStandbyLead } from '@/lib/api/types'
 import { AuthContext, useAuth } from '@/lib/contexts/auth-context'
 import { useEvent } from '@/lib/contexts/event-context'
 import { useDeployment } from '@/lib/hooks/use-deployment'
 import { wsClient } from '@/lib/websocket-client'
 
 /**
- * The standby box (`DEPLOYMENT_ROLE=standby`, backend `app/standby.py`): a live mirror of the
- * hosted board, look-only until somebody takes one Ereignis offline.
+ * The standby box and the hosted board leading Ereignisse in turn (backend `app/standby.py`,
+ * `app/standby_sync.py`): exactly one of them leads an Ereignis, the other shows it look-only.
  *
  * `StandbyProvider` sits inside the event context and does two things:
- * - it keeps the mirror's state (`useStandby`) for the band (`components/standby-band.tsx`):
- *   how current it is and which Ereignisse were taken offline;
- * - it re-provides the auth context with `isEditor`/`isAdmin` off while the open Ereignis is
- *   only mirrored, so every control that already hides for a viewer hides here too. The real
- *   role stays in `canTakeOver` – the takeover is the one action a mirror offers.
+ * - it keeps who leads what (`useStandby`) for the band (`components/standby-band.tsx`);
+ * - it re-provides the auth context with `isEditor`/`isAdmin` off while the open Ereignis is led
+ *   on the OTHER system, so every control that already hides for a viewer hides here too. The
+ *   real role stays in `canTakeOver`, and on the hosted board in `canAddNew`: there, new things
+ *   (an Einsatz, a Tagebuch line) may still be added to an Ereignis the box leads.
  *
- * On every other deployment it renders its children untouched and asks nothing after the
- * first `/api/deployment`.
+ * On the box everything is look-only until it leads the open Ereignis. On the hosted board it
+ * asks `/api/standby` now and then and changes nothing unless a box leads the open Ereignis.
  */
+
+export type StandbyLead = Omit<ApiStandbyLead, 'since' | 'contact_at'> & { since: Date; contactAt: Date | null }
 
 interface StandbyState {
   /** This box mirrors a hosted board. False everywhere else. */
   mirror: boolean
-  /** The hosted board was heard from recently. */
+  /** The hosted board was heard from recently (box only). */
   current: boolean
-  /** When it was last heard from – the band's «Stand». */
+  /** When the hosted board was last heard from – the mirror band's «Stand» (box only). */
   lastReceivedAt: Date | null
-  /** Ereignis id → when it was taken offline here. */
-  detached: Map<string, Date>
-  /** The open Ereignis was taken offline: it is worked on here. */
-  selectedDetached: boolean
-  /** Editors and admins may take an Ereignis offline (the role before the gate). */
+  /** Ereignis id → who leads it, for every Ereignis a box took over at some point. */
+  leads: Map<string, StandbyLead>
+  /** The lead of the open Ereignis, if a box was ever involved. */
+  selectedLead: StandbyLead | null
+  /** The open Ereignis is led on this system (on the hosted board: by default). */
+  selectedLedHere: boolean
+  /** Editors and admins may take an Ereignis over (the role before the gate). */
   canTakeOver: boolean
-  /** Take an Ereignis offline. Throws on failure; the caller says so. */
+  /** May still add new things while the other system leads (hosted board only). */
+  canAddNew: boolean
+  /** «Dieses Ereignis offline übernehmen» (box) / «Hier übernehmen» (hosted). Throws on failure. */
   takeOver: (eventId: string) => Promise<void>
+  /** Ask again now – after a conflict was decided, say. */
+  refresh: () => Promise<void>
 }
 
-const OFF: StandbyState = {
+// Outside a provider (tests, isolated pages): a board that leads everything itself.
+const StandbyContext = createContext<StandbyState>({
   mirror: false,
   current: false,
   lastReceivedAt: null,
-  detached: new Map(),
-  selectedDetached: false,
+  leads: new Map(),
+  selectedLead: null,
+  selectedLedHere: true,
   canTakeOver: false,
+  canAddNew: false,
   takeOver: async () => {},
-}
-
-const StandbyContext = createContext<StandbyState>(OFF)
+  refresh: async () => {},
+})
 
 // The band's «Stand» has to move while nothing else happens, and a takeover on another
-// device has to reach this one even without a socket.
+// device or system has to reach this one even without a socket.
 const POLL_MS = 15_000
 
-function toState(raw: ApiStandby | null): Pick<StandbyState, 'mirror' | 'current' | 'lastReceivedAt' | 'detached'> {
-  if (!raw?.mirror) return OFF
-  return {
-    mirror: true,
-    current: raw.current ?? false,
-    lastReceivedAt: raw.last_received_at ? new Date(raw.last_received_at) : null,
-    detached: new Map((raw.detached ?? []).map((d) => [d.event_id, new Date(d.detached_at)])),
-  }
+function toLeads(raw: ApiStandby | null): Map<string, StandbyLead> {
+  return new Map(
+    (raw?.leads ?? []).map(({ since, contact_at, ...rest }) => [
+      rest.event_id,
+      { ...rest, since: new Date(since), contactAt: contact_at ? new Date(contact_at) : null },
+    ]),
+  )
 }
 
 export function StandbyProvider({ children }: { children: React.ReactNode }) {
@@ -80,43 +89,53 @@ export function StandbyProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    if (!isStandby) return
     void refresh()
     const id = window.setInterval(() => void refresh(), POLL_MS)
-    // The backend pushes these when the mirror applied something, and after a takeover.
+    // Pushed when the mirror or the sync wrote something, and after every takeover.
     const off = wsClient.on('incident_update', () => void refresh())
     return () => {
       window.clearInterval(id)
       off()
     }
-  }, [isStandby, refresh])
+  }, [refresh])
 
-  // A just-created Ereignis is offline from its first row; ask again when another one opens.
+  // A just-created Ereignis on the box is led there from its first row; ask again on a switch.
   const selectedId = selectedEvent?.id
   useEffect(() => {
-    if (isStandby && selectedId) void refresh()
-  }, [isStandby, selectedId, refresh])
+    if (selectedId) void refresh()
+  }, [selectedId, refresh])
 
-  const takeOver = useCallback(async (eventId: string) => {
-    setRaw(await apiClient.takeOverEvent(eventId))
-  }, [])
+  const takeOver = useCallback(
+    async (eventId: string) => {
+      setRaw(await (isStandby ? apiClient.takeOverEvent(eventId) : apiClient.takeBackEvent(eventId)))
+    },
+    [isStandby],
+  )
 
   const state = useMemo<StandbyState>(() => {
-    if (!isStandby) return OFF
-    const base = toState(raw)
+    const leads = toLeads(raw)
+    const selectedLead = (selectedEvent && leads.get(selectedEvent.id)) || null
+    const here = isStandby ? 'standby' : 'hosted'
+    // On the box an Ereignis is led here only by an explicit takeover; until the first answer
+    // the box is a mirror – look-only, never editable. On the hosted board, by default.
+    const selectedLedHere = selectedLead ? selectedLead.holder === here : !isStandby
     return {
-      ...base,
-      // Until the first answer, a standby box is treated as a mirror: look-only, never editable.
-      mirror: true,
-      selectedDetached: !!selectedEvent && base.detached.has(selectedEvent.id),
+      mirror: isStandby,
+      current: raw?.current ?? false,
+      lastReceivedAt: raw?.last_received_at ? new Date(raw.last_received_at) : null,
+      leads,
+      selectedLead,
+      selectedLedHere,
       canTakeOver: auth.isEditor,
+      canAddNew: !isStandby && !selectedLedHere && auth.isEditor,
       takeOver,
+      refresh,
     }
-  }, [isStandby, raw, selectedEvent, auth.isEditor, takeOver])
+  }, [isStandby, raw, selectedEvent, auth.isEditor, takeOver, refresh])
 
   const gated = useMemo(
-    () => (state.mirror && !state.selectedDetached ? { ...auth, isEditor: false, isAdmin: false } : auth),
-    [auth, state.mirror, state.selectedDetached],
+    () => (state.selectedLedHere ? auth : { ...auth, isEditor: false, isAdmin: false }),
+    [auth, state.selectedLedHere],
   )
 
   return (

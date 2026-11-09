@@ -4560,21 +4560,120 @@
     },
     "offline": {
       "label": "Conduit hors ligne",
-      "text": "depuis {time} · « {name} » n’est plus synchronisé · retour vers KP Rück en ligne : à la main (procédure de panne)"
+      "sent": "depuis {since} · tout est transmis à KP Rück en ligne · état {time}",
+      "waiting": "depuis {since} · {count, plural, one {# modification attend} other {# modifications attendent}} KP Rück en ligne · état {time}",
+      "unreachable": "depuis {since} · pas de liaison avec KP Rück en ligne depuis {lost} · {count, plural, =0 {tout ce qui précède est transmis} one {# modification attend et partira d’elle-même} other {# modifications attendent et partiront d’elles-mêmes}}",
+      "never": "depuis {since} · pas encore de liaison avec KP Rück en ligne · {count, plural, =0 {rien n’attend} one {# modification attend et partira d’elle-même} other {# modifications attendent et partiront d’elles-mêmes}}"
+    },
+    "ledElsewhere": {
+      "label": "Conduit sur KP Rück hors ligne",
+      "current": "depuis {since} · état {time} · ajouter est possible, modifier ne l’est pas",
+      "silent": "depuis {since} · état {time} · pas de nouvelles de KP Rück hors ligne depuis {ago} · ajouter est possible, modifier ne l’est pas",
+      "never": "depuis {since} · pas encore de nouvelles de KP Rück hors ligne · ajouter est possible, modifier ne l’est pas"
     },
     "takeover": {
       "button": "Reprendre cet événement hors ligne …",
       "title": "Reprendre « {name} » hors ligne ?",
-      "description": "Dès maintenant, cet événement n’est plus conduit que sur cet appareil. Il n’est plus synchronisé, même lorsque KP Rück en ligne redevient joignable.",
+      "description": "Dès maintenant, cet événement est conduit ici. Ce que vous modifiez ici part de lui-même vers KP Rück en ligne dès qu’il est joignable. Là-bas, on peut le consulter et le compléter, mais plus le modifier.",
       "others": "Tous les autres événements restent en miroir.",
-      "reachable": "KP Rück en ligne est encore joignable. Les modifications faites là-bas à cet événement n’apparaîtront plus ici.",
+      "reachable": "KP Rück en ligne est joignable. Qui continue d’y travailler ne pourra plus que consulter.",
       "confirm": "Reprendre hors ligne",
       "failed": "L’événement n’a pas pu être repris hors ligne."
+    },
+    "takeBack": {
+      "button": "Reprendre ici …",
+      "title": "Reprendre « {name} » ici ?",
+      "description": "Dès maintenant, cet événement est conduit ici. KP Rück hors ligne redevient un miroir pour cet événement.",
+      "heard": "Dernières nouvelles de KP Rück hors ligne",
+      "heardAt": "{time} · il y a {ago}",
+      "heardNever": "jamais",
+      "pending": "Pas encore transmis à ce moment-là",
+      "pendingCount": "{count, plural, =0 {aucune modification} one {# modification} other {# modifications}}",
+      "later": "Ce qui y a été modifié depuis arrivera plus tard : le nouveau est ajouté, le modifié va dans la liste des conflits.",
+      "working": "On travaille en ce moment sur KP Rück hors ligne. Qui continue d’y travailler ne pourra plus que consulter.",
+      "confirm": "Reprendre ici",
+      "failed": "L’événement n’a pas pu être repris.",
+      "heardJustNow": "{time} · à l’instant"
+    },
+    "conflicts": {
+      "label": "Conflits",
+      "text": "Du travail de KP Rück hors ligne a été modifié autrement ici – veuillez décider",
+      "open": "{count, plural, one {# conflit} other {# conflits}} ›",
+      "title": "Conflits",
+      "intro": "La même chose a été modifiée ici et sur l’autre système. Tant que vous ne choisissez pas, la version de {leader} s’applique.",
+      "introReadOnly": "La même chose a été modifiée ici et sur l’autre système. La version de {leader} s’applique ; c’est là-bas qu’on décide.",
+      "side": {
+        "standby": "KP Rück hors ligne",
+        "hosted": "KP Rück en ligne"
+      },
+      "here": "Ici",
+      "loading": "Chargement des conflits …",
+      "loadFailed": "Conflits non chargés",
+      "loadFailedHint": "La liaison est interrompue. Rouvrir dans un instant.",
+      "noneOpen": "Aucun conflit ouvert",
+      "noneOpenHint": "Tout ce que les deux systèmes ont modifié est décidé.",
+      "done": "{count, plural, one {# réglé} other {# réglés}}",
+      "resolution": {
+        "kept": "conservé",
+        "other": "autre version reprise",
+        "both": "les deux réunies"
+      },
+      "einsatz": "Intervention {number}",
+      "unknownSubject": "Événement",
+      "columns": {
+        "description": "Message",
+        "title": "Titre",
+        "status": "Statut",
+        "location_address": "Lieu d’intervention",
+        "contact": "Contact / annonceur",
+        "contact_phone": "Numéro de téléphone",
+        "internal_notes": "Notes",
+        "priority": "Priorité",
+        "type": "Type d’intervention",
+        "text": "Texte",
+        "kurzbericht": "Rapport succinct",
+        "summary_text": "Résumé",
+        "additional_notes": "Remarques",
+        "message": "Message",
+        "notes": "Notes",
+        "name": "Nom"
+      },
+      "tables": {
+        "reko_reports": "Reco",
+        "schadenplatz_reports": "Rapport de sinistre",
+        "incident_assignments": "Équipe",
+        "incident_group_assignments": "Mission",
+        "incident_groups": "Mission",
+        "journal_entries": "Journal",
+        "event_attendance": "Présence",
+        "events": "Événement",
+        "field_requests": "Demande du terrain",
+        "incident_field_messages": "Message du terrain",
+        "status_transitions": "Changement de statut",
+        "notifications": "Avis"
+      },
+      "kind": {
+        "field": "modifié",
+        "deleted": "supprimé",
+        "duplicate": "saisi deux fois"
+      },
+      "empty": "(vide)",
+      "yes": "oui",
+      "no": "non",
+      "both": "Les deux ensemble – modifiable librement",
+      "stayDeleted": "Laisser supprimé",
+      "restore": "Restaurer",
+      "keep": "Conserver (modifié depuis)",
+      "delete": "Supprimer",
+      "duplicate": "Saisi deux fois – l’autre version n’a pas été reprise",
+      "apply": "Appliquer",
+      "decidedThere": "C’est sur {leader} qu’on décide.",
+      "resolveFailed": "Impossible d’appliquer. Recharger la liste et choisir à nouveau."
     },
     "newOffline": {
       "button": "Créer un événement hors ligne …",
       "title": "Créer un événement hors ligne",
-      "note": "Cet événement n’est conduit que sur cet appareil et n’est jamais synchronisé avec KP Rück en ligne."
+      "note": "Cet événement est conduit ici et part vers KP Rück en ligne dès qu’il est joignable."
     }
   },
   "panels": {

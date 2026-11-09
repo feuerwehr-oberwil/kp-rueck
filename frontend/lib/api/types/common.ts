@@ -98,6 +98,7 @@ export interface ApiDeployment {
 /** The standby box's mirror of the hosted board (GET /api/standby, backend `app/api/standby.py`).
  *  `mirror` is false on every other deployment, and then nothing else is sent. */
 export interface ApiStandby {
+  /** This is a standby box that mirrors a hosted board. False on the hosted board itself. */
   mirror: boolean
   /** The subscription to the hosted database exists. */
   configured?: boolean
@@ -105,8 +106,50 @@ export interface ApiStandby {
   current?: boolean
   /** When the hosted board was last heard from: the «Stand» of the band. */
   last_received_at?: string | null
-  /** Ereignisse taken offline on this box, oldest first. */
+  /** Ereignisse that left the mirror for the two-way sync, oldest first. */
   detached?: { event_id: string; detached_at: string }[]
+  /** Every Ereignis a standby box took over at some point – on the box AND on the hosted board. */
+  leads?: ApiStandbyLead[]
+}
+
+/** Who leads one Ereignis, and how its two-way sync stands (backend `app/standby_sync.py`). */
+export interface ApiStandbyLead {
+  event_id: string
+  holder: 'standby' | 'hosted'
+  since: string
+  taken_by: string | null
+  /** Changes not yet on the other system – on the box: its own; on the hosted board: as the box last said. */
+  pending: number
+  /** The last time box and hosted board reached each other for this Ereignis. */
+  contact_at: string | null
+  open_conflicts: number
+}
+
+/** Something both systems changed while they could not talk; the leader's version stands. */
+export interface ApiStandbyConflict {
+  id: string
+  table_name: string
+  row_id: string
+  kind: 'field' | 'deleted' | 'duplicate'
+  kept_on: 'standby' | 'hosted'
+  /** For `deleted`: the system on which the row was deleted. */
+  deleted_on: 'standby' | 'hosted' | null
+  /** For `field`: per column what stands and what lost; `text` = «Beide zusammen» can join it. */
+  columns: Record<string, { kept: unknown; lost: unknown; text?: boolean }> | null
+  /** For `deleted`/`duplicate`: the version that did not survive. */
+  row: Record<string, unknown> | null
+  subject: { incident_id: string | null; number: number | null; address: string | null } | null
+  lost_at: string | null
+  detected_at: string
+  resolved_at: string | null
+  resolved_by: string | null
+  resolution: 'kept' | 'other' | 'both' | null
+}
+
+export interface ApiStandbyConflicts {
+  /** This system leads the Ereignis, so its conflicts are decided here. */
+  decidable: boolean
+  conflicts: ApiStandbyConflict[]
 }
 
 /** One provider this build knows about, whether or not this station uses it. `implemented`

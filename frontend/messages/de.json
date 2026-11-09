@@ -4560,21 +4560,120 @@
     },
     "offline": {
       "label": "Offline geführt",
-      "text": "seit {time} · «{name}» wird nicht mehr synchronisiert · zurück zu KP Rück Online: von Hand (Ausfall-SOP)"
+      "sent": "seit {since} · alles an KP Rück Online übertragen · Stand {time}",
+      "waiting": "seit {since} · {count, plural, one {# Änderung wartet} other {# Änderungen warten}} auf KP Rück Online · Stand {time}",
+      "unreachable": "seit {since} · keine Verbindung zu KP Rück Online seit {lost} · {count, plural, =0 {alles Bisherige ist übertragen} one {# Änderung wartet und geht von selbst raus} other {# Änderungen warten und gehen von selbst raus}}",
+      "never": "seit {since} · noch keine Verbindung zu KP Rück Online · {count, plural, =0 {nichts wartet} one {# Änderung wartet und geht von selbst raus} other {# Änderungen warten und gehen von selbst raus}}"
+    },
+    "ledElsewhere": {
+      "label": "Geführt auf KP Rück Offline",
+      "current": "seit {since} · Stand {time} · Neues erfassen geht, Bestehendes ändern nicht",
+      "silent": "seit {since} · Stand {time} · KP Rück Offline seit {ago} nicht gehört · Neues erfassen geht, Bestehendes ändern nicht",
+      "never": "seit {since} · KP Rück Offline noch nicht gehört · Neues erfassen geht, Bestehendes ändern nicht"
     },
     "takeover": {
       "button": "Dieses Ereignis offline übernehmen …",
       "title": "«{name}» offline übernehmen?",
-      "description": "Ab jetzt wird dieses Ereignis nur noch auf diesem Gerät geführt. Es wird nicht mehr synchronisiert, auch nicht, wenn KP Rück Online wieder erreichbar ist.",
+      "description": "Ab jetzt wird dieses Ereignis hier geführt. Was ihr hier ändert, geht von selbst an KP Rück Online, sobald es erreichbar ist. Dort lässt es sich ansehen und ergänzen, aber nicht mehr ändern.",
       "others": "Alle anderen Ereignisse bleiben gespiegelt.",
-      "reachable": "KP Rück Online ist noch erreichbar. Änderungen, die dort an diesem Ereignis gemacht werden, erscheinen hier nicht mehr.",
+      "reachable": "KP Rück Online ist erreichbar. Wer dort weiterarbeitet, kann danach nur noch ansehen.",
       "confirm": "Offline übernehmen",
       "failed": "Das Ereignis konnte nicht offline übernommen werden."
+    },
+    "takeBack": {
+      "button": "Hier übernehmen …",
+      "title": "«{name}» hier übernehmen?",
+      "description": "Ab jetzt wird dieses Ereignis hier geführt. KP Rück Offline wird für dieses Ereignis wieder zum Spiegel.",
+      "heard": "Von KP Rück Offline zuletzt gehört",
+      "heardAt": "{time} · vor {ago}",
+      "heardNever": "noch nie",
+      "pending": "Damals noch nicht übertragen",
+      "pendingCount": "{count, plural, =0 {keine Änderung} one {# Änderung} other {# Änderungen}}",
+      "later": "Was dort seither noch geändert wurde, kommt später an: Neues wird ergänzt, Geändertes landet in der Konfliktliste.",
+      "working": "Auf KP Rück Offline wird gerade gearbeitet. Wer dort weiterarbeitet, kann danach nur noch ansehen.",
+      "confirm": "Hier übernehmen",
+      "failed": "Das Ereignis konnte nicht übernommen werden.",
+      "heardJustNow": "{time} · gerade eben"
+    },
+    "conflicts": {
+      "label": "Konflikte",
+      "text": "Arbeit von KP Rück Offline wurde hier anders geändert – bitte entscheiden",
+      "open": "{count, plural, one {# Konflikt} other {# Konflikte}} ›",
+      "title": "Konflikte",
+      "intro": "Hier und auf dem anderen System wurde dasselbe geändert. Bis ihr wählt, gilt die Fassung von {leader}.",
+      "introReadOnly": "Hier und auf dem anderen System wurde dasselbe geändert. Es gilt die Fassung von {leader}; entschieden wird dort.",
+      "side": {
+        "standby": "KP Rück Offline",
+        "hosted": "KP Rück Online"
+      },
+      "here": "Hier",
+      "loading": "Konflikte werden geladen …",
+      "loadFailed": "Konflikte nicht geladen",
+      "loadFailedHint": "Die Verbindung ist unterbrochen. Gleich nochmals öffnen.",
+      "noneOpen": "Keine offenen Konflikte",
+      "noneOpenHint": "Alles, was beide Systeme geändert haben, ist entschieden.",
+      "done": "{count, plural, one {# erledigt} other {# erledigt}}",
+      "resolution": {
+        "kept": "behalten",
+        "other": "andere Fassung übernommen",
+        "both": "beide zusammengeführt"
+      },
+      "einsatz": "Einsatz {number}",
+      "unknownSubject": "Ereignis",
+      "columns": {
+        "description": "Meldung",
+        "title": "Titel",
+        "status": "Status",
+        "location_address": "Einsatzort",
+        "contact": "Kontakt / Melder",
+        "contact_phone": "Telefonnummer",
+        "internal_notes": "Notizen",
+        "priority": "Priorität",
+        "type": "Einsatzart",
+        "text": "Text",
+        "kurzbericht": "Kurzbericht",
+        "summary_text": "Zusammenfassung",
+        "additional_notes": "Bemerkungen",
+        "message": "Meldung",
+        "notes": "Notizen",
+        "name": "Name"
+      },
+      "tables": {
+        "reko_reports": "Reko",
+        "schadenplatz_reports": "Schadenplatz-Rapport",
+        "incident_assignments": "Mannschaft",
+        "incident_group_assignments": "Auftrag",
+        "incident_groups": "Auftrag",
+        "journal_entries": "Tagebuch",
+        "event_attendance": "Anwesenheit",
+        "events": "Ereignis",
+        "field_requests": "Anfrage vom Feld",
+        "incident_field_messages": "Meldung vom Feld",
+        "status_transitions": "Statuswechsel",
+        "notifications": "Hinweis"
+      },
+      "kind": {
+        "field": "geändert",
+        "deleted": "gelöscht",
+        "duplicate": "doppelt erfasst"
+      },
+      "empty": "(leer)",
+      "yes": "ja",
+      "no": "nein",
+      "both": "Beide zusammen – frei bearbeitbar",
+      "stayDeleted": "Gelöscht lassen",
+      "restore": "Wiederherstellen",
+      "keep": "Behalten (seither geändert)",
+      "delete": "Löschen",
+      "duplicate": "Doppelt erfasst – die andere Fassung wurde nicht übernommen",
+      "apply": "Übernehmen",
+      "decidedThere": "Entschieden wird auf {leader}.",
+      "resolveFailed": "Das liess sich nicht übernehmen. Liste neu laden und nochmals wählen."
     },
     "newOffline": {
       "button": "Neues Ereignis offline anlegen …",
       "title": "Neues Ereignis offline anlegen",
-      "note": "Dieses Ereignis wird nur auf diesem Gerät geführt und nie mit KP Rück Online synchronisiert."
+      "note": "Dieses Ereignis wird hier geführt und geht an KP Rück Online, sobald es erreichbar ist."
     }
   },
   "panels": {
