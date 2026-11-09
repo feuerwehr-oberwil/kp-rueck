@@ -63,8 +63,7 @@ export interface ApiAuditLog {
   action_type: string
   resource_type: string
   resource_id: string | null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  changes_json: Record<string, any> | null
+  changes_json: Record<string, unknown> | null
   timestamp: string
   ip_address: string | null
   user_agent: string | null
