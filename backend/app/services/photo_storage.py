@@ -382,6 +382,21 @@ class PhotoStorageService:
                 raise PhotoCopyError(name) from exc
         return copied
 
+    def store_synced_photo(self, incident_id: uuid.UUID, filename: str, content: bytes) -> bool:
+        """Keep a photo another KP Rück system already processed (the standby sync), as it is.
+
+        The name is checked as for reading; a file that is already there is left alone.
+        Returns whether it was written.
+        """
+        if self.get_photo_path(incident_id, filename) is not None:
+            return False
+        self._get_incident_dir(incident_id)
+        target = self._inside_photos_dir(str(incident_id), filename)
+        partial = target.with_suffix(".part")
+        partial.write_bytes(content)
+        partial.replace(target)
+        return True
+
     def get_photo_path(self, incident_id: uuid.UUID, filename: str) -> Path | None:
         """
         Get full path to photo file with path traversal protection.

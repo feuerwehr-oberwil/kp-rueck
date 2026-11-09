@@ -292,6 +292,9 @@ class Settings(BaseSettings):
 
     # Photo Storage
     photos_dir: str = "data/photos"  # Directory for photo uploads (use /mnt/data/photos on Railway)
+    # The standby box's key to `POST /api/standby/sync` on the hosted board (docs/STANDBY.md): the
+    # same value on both. Empty: the hosted board accepts no standby writes at all.
+    standby_sync_token: str = ""
     max_photo_size_mb: int = 10  # Maximum file size in megabytes
     max_photos_per_report: int = 20  # Maximum photos per Reko report
     allowed_photo_extensions: list[str] = [".jpg", ".jpeg", ".png", ".webp"]
