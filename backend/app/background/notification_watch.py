@@ -34,9 +34,13 @@ Fingerprint = frozenset[tuple[UUID, bool, str]]
 _seen: dict[UUID, Fingerprint] = {}
 
 
-async def evaluate_open_events(session_maker: async_sessionmaker[AsyncSession] = async_session_maker) -> list[UUID]:
-    """One tick. Returns the Ereignisse whose list changed since the tick before (and were told)."""
-    async with session_maker() as db:
+async def evaluate_open_events(session_maker: async_sessionmaker[AsyncSession] | None = None) -> list[UUID]:
+    """One tick. Returns the Ereignisse whose list changed since the tick before (and were told).
+
+    `session_maker` is for tests; the loop uses the app's own.
+    """
+    maker = async_session_maker if session_maker is None else session_maker
+    async with maker() as db:
         event_ids = list(await db.scalars(select(Event.id).where(Event.archived_at.is_(None))))
     for gone in set(_seen) - set(event_ids):
         del _seen[gone]
@@ -45,7 +49,7 @@ async def evaluate_open_events(session_maker: async_sessionmaker[AsyncSession] =
     for event_id in event_ids:
         try:
             # One session and one commit per Ereignis: a failure in one leaves the others alone.
-            async with session_maker() as db:
+            async with maker() as db:
                 notifications = await notification_service.evaluate_notifications(db, event_id)
                 fingerprint: Fingerprint = frozenset((n.id, n.dismissed, n.message) for n in notifications)
                 await db.commit()  # this loop owns the transaction – there is no request to commit it
