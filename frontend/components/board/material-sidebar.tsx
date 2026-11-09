@@ -15,7 +15,6 @@ import type { Dispatch, SetStateAction } from "react"
 import { useTranslations } from "next-intl"
 import { ChevronRight, PanelRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 import { Kbd } from "@/components/ui/kbd"
 import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
 import { SearchInput } from "@/components/ui/search-input"
@@ -99,16 +98,10 @@ export function MaterialSidebar({
   const tDash = useTranslations('kanban.dashboard')
   const tSidePanel = useTranslations('kanban.sidePanel')
   return (
-      <aside
-        className={cn(
-          "relative z-raised w-64 border-l border-border bg-card/30 backdrop-blur-sm flex flex-col",
-          // The detail's reopen control takes 28px of the search row (below); the
-          // sidebar grows by them rather than clipping «Material suchen …». Only
-          // while the panel is folded – opening it gives the board 480px less
-          // anyway, so the 32px never read as a jump of their own.
-          onOpenSidePanel && "2xl:w-72",
-        )}
-      >
+      // Sized and layered by its SlideRail (app/page.tsx), as the Personen-Leiste. The detail's
+      // reopen control takes 28px of the search row (below); the rail grows by them
+      // (`--rail-extra`, set there) rather than clipping «Material suchen …».
+      <aside className="relative w-full border-l border-border bg-card/30 flex flex-col">
         {/* Collapse handle — small chevron centered on the sidebar's inner edge. `min-w-0`
             (on all five edge tabs): the ≤768px 44px touch-target rule widened it to 44px at
             exactly 768, where the board is still the desktop board, and it lay on the
@@ -199,7 +192,7 @@ export function MaterialSidebar({
               />
             )
           ) : (
-            <div className="space-y-4 animate-in fade-in duration-300">
+            <div className="space-y-4">
               {Object.entries(groupedMaterials).map(([category, items]) => {
                 // «Nicht einsatzbereit» leaves the module blocks and the
                 // normal rows and sinks to the bottom of its depot: a

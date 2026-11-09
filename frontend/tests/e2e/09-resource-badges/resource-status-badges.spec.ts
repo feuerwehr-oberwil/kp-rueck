@@ -105,7 +105,7 @@ async function openDetail(page: Page, address: string): Promise<Locator> {
 }
 
 /**
- * Get the Setup-Checkliste popover out of the way — and wait for it first.
+ * Get the Setup-Checkliste (a footer sheet) out of the way — and wait for it first.
  *
  * It opens itself once per newly selected event (`autoOpenedEventRef` in
  * app/page.tsx) but *late*: only after the readiness summary has come back from
@@ -117,7 +117,7 @@ async function openDetail(page: Page, address: string): Promise<Locator> {
  */
 async function dismissSetupChecklist(page: Page) {
   await expect
-    .poll(() => page.locator('[data-radix-popper-content-wrapper]').count(), {
+    .poll(() => page.locator('[data-slot="sheet-content"]').count(), {
       timeout: 30_000,
     })
     .toBeGreaterThan(0);
