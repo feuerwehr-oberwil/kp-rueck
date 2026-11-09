@@ -106,12 +106,19 @@ const DRIVER_VEHICLE_TAG =
 /** A Personal/Material row (`ResourceRow`): the name group on the left, the
  *  where-group on the right, 16px apart at the least (hill climb r19 – at 8px a
  *  long name ran into «Mawa → Bättwilerstrasse 7»; r20 – Material had its own
- *  row and «Tauchpumpe Kl.» ran into «→ Schulstrasse 9»). Both sides are
- *  `min-w-0`: the where-group wraps to a second line inside the row's inset,
- *  right-aligned, before either side eats the gap. */
-const RESOURCE_ROW = "flex items-center gap-4 px-2 py-1.5 rounded-sm"
-const RESOURCE_ROW_NAME = "flex min-w-0 flex-1 items-center gap-2"
-const RESOURCE_ROW_WHERE = "flex min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-0.5 text-right"
+ *  row and «Tauchpumpe Kl.» ran into «→ Schulstrasse 9»).
+ *
+ *  The ROW wraps, not the name: both groups are sized by their whole text
+ *  (`flex-basis: auto`), so when name + destination do not fit side by side the
+ *  where-group moves to its own line, right-aligned, and wraps there if it must.
+ *  Inside it the pieces are inline, so «🚚 Mawa → Mühlemattstrasse 12, Alters- und
+ *  Pflegeheim» flows on as one sentence instead of stacking tag over address.
+ *  The name used to be `flex-1` (basis 0) and got whatever a long «→ Bahnhofstrasse
+ *  1, Coop Center» left over – down to nothing, and `break-words` then set
+ *  «Bendik Dimitri» one letter per line (owner, 09.11.2026). */
+const RESOURCE_ROW = "flex flex-wrap items-center gap-x-4 gap-y-0.5 px-2 py-1.5 rounded-sm"
+const RESOURCE_ROW_NAME = "flex min-w-0 flex-auto items-center gap-2"
+const RESOURCE_ROW_WHERE = "ml-auto min-w-0 flex-initial text-right [&>*+*]:ml-2"
 
 /** A Funktion's / Materialkategorie's «n/m frei» in its group head: 12/600 ink tabular
  *  from `xl`, and the head's ONLY figure – a count chip beside it said the total twice
@@ -894,7 +901,7 @@ function IncidentRow({ operation: op, onClick }: { operation: Operation; onClick
                   is not an address anybody can act on, and a wall has no pointer for
                   the title attribute. */}
               <p className={cn("text-sm xl:text-base font-semibold leading-tight line-clamp-2", WALL_TEXT_WRAP)} title={locationLabel}>{locationLabel}</p>
-              <p className="text-[11px] xl:text-xs text-muted-foreground mt-0.5">{getIncidentTypeLabel(op.incidentType)}</p>
+              <p className={cn("text-[11px] xl:text-xs text-muted-foreground mt-0.5", WALL_TEXT_WRAP)}>{getIncidentTypeLabel(op.incidentType)}</p>
             </div>
           </div>
         </div>
@@ -936,7 +943,7 @@ function ResourceRow({ mark, name, nameClassName, where, onClick, className }: {
     >
       <span className={RESOURCE_ROW_NAME}>
         {mark}
-        <span className={cn("flex-1", WALL_NAME, nameClassName)}>{name}</span>
+        <span className={cn(WALL_NAME, nameClassName)}>{name}</span>
       </span>
       {where && <span className={RESOURCE_ROW_WHERE}>{where}</span>}
     </div>
