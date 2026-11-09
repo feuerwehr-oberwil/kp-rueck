@@ -25,6 +25,7 @@ import {
   reportDay,
   type PillFace,
   type PillOffset,
+  type ScreenBox,
   type VehicleSpot,
 } from "@/lib/map-vehicles"
 import { formatTime } from "@/lib/format-time"
@@ -194,6 +195,7 @@ export function VehicleSpotMarker({
   atMagazin,
   now,
   staleMinutes,
+  chrome,
 }: {
   spot: VehicleSpot
   face: PillFace
@@ -206,6 +208,8 @@ export function VehicleSpotMarker({
   atMagazin: boolean
   now: number
   staleMinutes: number
+  /** The map's buttons and chrome, which draw above the open list – it slides off them. */
+  chrome: () => ScreenBox[]
 }) {
   const t = useTranslations("map")
   const { current: mapRef } = useMap()
@@ -265,6 +269,7 @@ export function VehicleSpotMarker({
       pillHalfHeight,
       list: { width: listWidth, height: listHeight },
       viewport,
+      chrome: chrome(),
       gap: LIST_GAP,
     })
   }

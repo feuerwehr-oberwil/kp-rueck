@@ -92,8 +92,9 @@ will keep holding.
   «Befehl suchen oder zuweisen …» with the typing grammar on a line under the input.
 - **Vehicles on the Lagekarte say their state**: online is a solid blue pill, offline a dashed
   grey one; vehicles in one place are one pill «6 Fahrzeuge | 4 offline». A pill that would cover
-  an Einsatz steps aside with a thin line to its real position, and labels keep clear of pills.
-  The list on hover shows five vehicles and scrolls. Lines to an Einsatz come from online
+  an Einsatz or lie under the map's buttons and legend steps aside with a thin line to its real
+  position, and labels keep clear of pills. The list on hover shows five vehicles, scrolls, and
+  opens beside the map's buttons rather than under them. Lines to an Einsatz come from online
   vehicles only. While the «ohne Koordinaten» list is open, the legend folds.
 - **Every side panel can be dragged wider or narrower** at its edge – Personal, Material and the
   Einsatz detail on the board, the right rail of `/map` (list, Reko-Modus and Routenplanung share

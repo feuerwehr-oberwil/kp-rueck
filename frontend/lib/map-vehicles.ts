@@ -267,16 +267,23 @@ function candidateOffsets(width: number, height: number): PillOffset[] {
 }
 
 /**
- * Step pills off the incident pins and bubbles (`obstacles`) and off each other. Greedy and
- * deterministic: the widest pill first (a depot's split pill), then by key; each takes the first
- * candidate that touches nothing and stays on the map, else the one that covers least (marked
- * `crowded`). Returns an entry only for the pills that move or are crowded.
+ * Step pills off the incident pins and bubbles (`obstacles`), off what floats over the map
+ * (`chrome`: its buttons, the legend, the chip row – they hide a pill entirely, so lying under
+ * them weighs like the edge) and off each other. Greedy and deterministic: the widest pill first
+ * (a depot's split pill), then by key; each takes the first candidate that touches nothing and
+ * stays on the map, else the one that covers least (marked `crowded`). Returns an entry only for
+ * the pills that move or are crowded.
  */
 export function placeVehiclePills(
   pills: readonly PillCandidate[],
-  { obstacles, viewport }: { obstacles: readonly ScreenBox[]; viewport?: { width: number; height: number } },
+  {
+    obstacles,
+    chrome = [],
+    viewport,
+  }: { obstacles: readonly ScreenBox[]; chrome?: readonly ScreenBox[]; viewport?: { width: number; height: number } },
 ): Map<string, PillOffset> {
   const blocked = obstacles.map((o) => rectOf(o.x, o.y, o.width, o.height))
+  const covering = chrome.map((o) => rectOf(o.x, o.y, o.width, o.height))
   const placed: Rect[] = []
   const moved = new Map<string, PillOffset>()
   const order = [...pills].sort((a, b) => b.width - a.width || a.key.localeCompare(b.key))
@@ -285,7 +292,9 @@ export function placeVehiclePills(
     for (const offset of candidateOffsets(pill.width, pill.height)) {
       const rect = rectOf(pill.x + offset.dx, pill.y + offset.dy, pill.width, pill.height)
       const cost =
-        [...blocked, ...placed].reduce((sum, other) => sum + overlap(rect, other), 0) + outside(rect, viewport)
+        [...blocked, ...placed].reduce((sum, other) => sum + overlap(rect, other), 0) +
+        covering.reduce((sum, other) => sum + overlap(rect, other) * OUTSIDE_WEIGHT, 0) +
+        outside(rect, viewport)
       if (!best || cost < best.cost) best = { offset, rect, cost }
       if (cost === 0) break
     }
@@ -308,12 +317,15 @@ export const LIST_ROW_HEIGHT = 28
  * Which side of its pill the hover list opens on, how far it shifts sideways to stay inside the
  * map, and how tall it may be there (`room`): above when it fits there, else below (whichever has
  * more room when neither fits – the list then shows fewer rows and scrolls), never past an edge.
+ * It slides sideways off the map's own buttons and chrome (`chrome`), which draw above it, when
+ * the map is wide enough for that; else it stays centred under its pill.
  */
 export function placeHoverList({
   anchor,
   pillHalfHeight,
   list,
   viewport,
+  chrome = [],
   gap = 10,
   margin = 8,
 }: {
@@ -322,14 +334,24 @@ export function placeHoverList({
   pillHalfHeight: number
   list: { width: number; height: number }
   viewport: { width: number; height: number }
+  chrome?: readonly ScreenBox[]
   gap?: number
   margin?: number
 }): { side: 'top' | 'bottom'; shiftX: number; room: number } {
   const above = anchor.y - pillHalfHeight - gap - margin
   const below = viewport.height - (anchor.y + pillHalfHeight + gap) - margin
   const side = above >= list.height || above >= below ? 'top' : 'bottom'
+  const room = Math.max(0, Math.floor(side === 'top' ? above : below))
+  const height = Math.min(list.height, room)
+  const top = side === 'top' ? anchor.y - pillHalfHeight - gap - height : anchor.y + pillHalfHeight + gap
   const left = anchor.x - list.width / 2
   const maxLeft = viewport.width - margin - list.width
-  const clamped = Math.max(margin, Math.min(left, maxLeft))
-  return { side, shiftX: Math.round(clamped - left), room: Math.max(0, Math.floor(side === 'top' ? above : below)) }
+  const clamp = (x: number) => Math.max(margin, Math.min(x, maxLeft))
+  const boxes = chrome.map((o) => rectOf(o.x, o.y, o.width, o.height))
+  const clear = (x: number) =>
+    boxes.every((b) => overlap({ left: x, right: x + list.width, top, bottom: top + height }, b) === 0)
+  // Centred first, then flush beside each piece of chrome it would lie under.
+  const tries = [clamp(left), ...boxes.flatMap((b) => [clamp(b.right + margin), clamp(b.left - margin - list.width)])]
+  const chosen = tries.find(clear) ?? tries[0]
+  return { side, shiftX: Math.round(chosen - left), room }
 }

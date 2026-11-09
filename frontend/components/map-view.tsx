@@ -605,16 +605,36 @@ function pillBoxes(map: MlMap, pills: PlacedPill[]): ScreenBox[] {
 
 const NO_OFFSETS: ReadonlyMap<string, PillOffset> = new Map()
 
+/** Everything that floats over the map: MapLibre's controls and our own map chrome – which all
+ *  stands on `z-map-chrome` / `z-map-control` – but of the top-right row only its items (the row
+ *  itself spans the map's width). */
+const MAP_CHROME =
+  ".maplibregl-ctrl, [data-map-top-row] > *, :is(.z-map-chrome, .z-map-control):not([data-map-top-row])"
+
+/** The map chrome under `root` (`MAP_CHROME`) as boxes in the map container's px – what a vehicle
+ *  pill and its list keep clear of, because it draws above them. */
+function mapChromeBoxes(root: HTMLElement | null, container: HTMLElement): ScreenBox[] {
+  if (!root) return []
+  const origin = container.getBoundingClientRect()
+  return [...root.querySelectorAll(MAP_CHROME)].flatMap((element) => {
+    const r = element.getBoundingClientRect()
+    if (r.width === 0 || r.height === 0) return []
+    return [{ x: r.left - origin.left + r.width / 2, y: r.top - origin.top + r.height / 2, width: r.width, height: r.height }]
+  })
+}
+
 /**
  * Where each vehicle pill stands (`placeVehiclePills`): off the incident pins (`pins`, one per
- * visible spot) and the count bubbles, and off each other. Recomputed when the map comes to rest,
- * like the labels – the pills ride along with their fixes while it moves.
+ * visible spot) and the count bubbles, out from under the map chrome (`chrome`), and off each
+ * other. Recomputed when the map comes to rest, like the labels – the pills ride along with their
+ * fixes while it moves.
  */
 function useVehiclePlacement(
   map: MlMap | null,
   pills: PlacedPill[],
   pins: { latitude: number; longitude: number; size: number }[],
   bubbles: IncidentCluster[],
+  chrome: () => ScreenBox[],
 ): ReadonlyMap<string, PillOffset> {
   const [offsets, setOffsets] = useState<ReadonlyMap<string, PillOffset>>(NO_OFFSETS)
   useEffect(() => {
@@ -639,6 +659,7 @@ function useVehiclePlacement(
             ...pins.map((pin) => box(pin.latitude, pin.longitude, pin.size)),
             ...bubbles.map((bubble) => box(bubble.latitude, bubble.longitude, CLUSTER_BUBBLE_SIZE)),
           ],
+          chrome: chrome(),
           viewport: { width: container.clientWidth, height: container.clientHeight },
         },
       )
@@ -656,7 +677,7 @@ function useVehiclePlacement(
     compute()
     map.on("moveend", compute)
     return () => { map.off("moveend", compute) }
-  }, [map, pills, pins, bubbles])
+  }, [map, pills, pins, bubbles, chrome])
   return offsets
 }
 
@@ -1589,7 +1610,8 @@ export default function MapView({
       .filter((spot) => !clusteredKeys.has(spot.key))
       .map((spot) => ({ latitude: spot.latitude, longitude: spot.longitude, size: spot.incidents.length > 1 ? dot + 8 : dot }))
   }, [spots, clusteredKeys, compactMap])
-  const vehicleOffsets = useVehiclePlacement(map, vehiclePlacementInput, vehicleObstaclePins, clusters)
+  const chromeBoxes = useCallback(() => (map ? mapChromeBoxes(rootRef.current, map.getContainer()) : []), [map])
+  const vehicleOffsets = useVehiclePlacement(map, vehiclePlacementInput, vehicleObstaclePins, clusters, chromeBoxes)
   const placedPills = useMemo(
     () => vehiclePlacementInput.map((pill) => ({ ...pill, offset: vehicleOffsets.get(pill.key) })),
     [vehiclePlacementInput, vehicleOffsets],
@@ -1705,6 +1727,7 @@ export default function MapView({
             atMagazin={atMagazin}
             now={vehicleNow}
             staleMinutes={staleMinutes}
+            chrome={chromeBoxes}
           />
         ))}
 
