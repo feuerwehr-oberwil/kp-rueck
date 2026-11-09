@@ -120,11 +120,13 @@ async def get_sync_version(
     count = row[0] or 0
     latest = row[1]
 
-    # Also check assignment changes (crew/vehicle/material changes)
+    # Also check assignment changes (crew/vehicle/material changes). A release only stamps
+    # unassigned_at – count and max(assigned_at) stay put – so it is part of the version too.
     assignment_result = await db.execute(
         select(
             sa_func.count(models.IncidentAssignment.id),
             sa_func.max(models.IncidentAssignment.assigned_at),
+            sa_func.max(models.IncidentAssignment.unassigned_at),
         )
         .join(models.Incident, models.IncidentAssignment.incident_id == models.Incident.id)
         .where(models.Incident.event_id == event_id)
@@ -133,6 +135,7 @@ async def get_sync_version(
     a_row = assignment_result.one()
     a_count = a_row[0] or 0
     a_latest = a_row[1]
+    a_unassigned_latest = a_row[2]
 
     # Also fold in Auftrag (incident group) changes so the polling fallback
     # notices group create/rename/reorder even if a group_update WS event is missed.
@@ -188,13 +191,14 @@ async def get_sync_version(
     # Combine into version string
     latest_str = latest.isoformat() if latest else "0"
     a_latest_str = a_latest.isoformat() if a_latest else "0"
+    a_unassigned_str = a_unassigned_latest.isoformat() if a_unassigned_latest else "0"
     g_latest_str = g_latest.isoformat() if g_latest else "0"
     ga_assigned_str = ga_assigned_latest.isoformat() if ga_assigned_latest else "0"
     ga_unassigned_str = ga_unassigned_latest.isoformat() if ga_unassigned_latest else "0"
     reko_str = reko_latest.isoformat() if reko_latest else "0"
     report_str = report_latest.isoformat() if report_latest else "0"
     version = (
-        f"{count}-{latest_str}-{a_count}-{a_latest_str}-{g_count}-{g_latest_str}-"
+        f"{count}-{latest_str}-{a_count}-{a_latest_str}-{a_unassigned_str}-{g_count}-{g_latest_str}-"
         f"{ga_count}-{ga_assigned_str}-{ga_unassigned_str}-{reko_str}-{report_str}"
     )
     return {"version": version}

@@ -162,6 +162,27 @@ async def test_sync_version_not_shadowed_by_incident_id_route(
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_sync_version_moves_when_a_resource_is_released(
+    editor_client: AsyncClient, test_event: Event, test_incident: Incident, test_vehicle
+):
+    """A release only stamps unassigned_at – no new row, no newer assigned_at. Without it in
+    the version, a board on the polling fallback kept showing the vehicle on the card."""
+    assigned = await editor_client.post(
+        f"/api/incidents/{test_incident.id}/assign",
+        json={"resource_type": "vehicle", "resource_id": str(test_vehicle.id)},
+    )
+    assert assigned.status_code == 200
+    url = f"/api/incidents/sync-version?event_id={test_event.id}"
+    before = (await editor_client.get(url)).json()["version"]
+
+    released = await editor_client.post(f"/api/incidents/{test_incident.id}/unassign/{assigned.json()['id']}")
+    assert released.status_code == 204
+
+    assert (await editor_client.get(url)).json()["version"] != before
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_get_incident_invalid_uuid(editor_client: AsyncClient):
     """Test getting incident with invalid UUID returns 422."""
     response = await editor_client.get("/api/incidents/invalid-uuid")
