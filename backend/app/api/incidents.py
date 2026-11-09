@@ -85,7 +85,12 @@ async def list_incidents(
         limit=limit,
         status=status,
     )
-    response.headers["X-Total-Count"] = str(await crud.count_incidents(db=db, event_id=event_id, status=status))
+    # A first page that is not full IS the whole list – no second query on every board load.
+    if skip == 0 and len(incidents) < limit:
+        total = len(incidents)
+    else:
+        total = await crud.count_incidents(db=db, event_id=event_id, status=status)
+    response.headers["X-Total-Count"] = str(total)
     return await incident_display.incidents_with_display(db, incidents)
 
 

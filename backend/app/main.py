@@ -88,6 +88,7 @@ from .database import async_session_maker, commit_request, engine
 from .ensure_accounts import ensure_dev_bypass_user
 from .environment import ROLE_STANDBY, blocked_domains, deployment_role
 from .middleware.audit import AuditMiddleware
+from .middleware.body_limit import BodyLimitMiddleware
 from .middleware.rate_limit import limiter, rate_limit_exceeded_handler
 from .middleware.request_id import RequestIDMiddleware, get_request_id, request_id_var
 from .middleware.security_headers import SecurityHeadersMiddleware
@@ -154,8 +155,9 @@ async def _setup_divera_polling():
 
                 return True  # New alarm processed
 
-            except Exception as e:
-                logger.error(f"Error processing polled alarm {payload.id}: {e}")
+            except Exception:
+                # With the traceback: an alarm that failed here is one the board never showed.
+                logger.exception("Error processing polled alarm %s", payload.id)
                 return False
 
     async def on_polled_responses(snapshots: dict[int, dict[str, Any]]) -> None:
@@ -611,6 +613,10 @@ app.add_middleware(StandbyReadOnlyMiddleware)
 
 # Add security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)
+
+# The backend's own body ceiling: on Railway it is a public origin of its own, with neither
+# Caddy nor the Next proxy in front (app/middleware/body_limit.py).
+app.add_middleware(BodyLimitMiddleware)
 
 # Add request-ID middleware last so it runs first (outermost) and the
 # audit/rate-limit middlewares' logs carry the request ID
