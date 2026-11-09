@@ -19,7 +19,7 @@
  */
 
 import { useState } from "react"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { AlertTriangle, House, MapPin, Plus, Route as RouteIcon, Truck, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -48,6 +48,14 @@ import { AUFTRAG_SWATCHES, MAP_COLORS } from "@/lib/map-colors"
 // Optimize now persists immediately, so the shared list never shows a pending
 // "changed" preview state.
 const EMPTY_CHANGED: Set<string> = new Set()
+
+/** From which rail width the exit button shows its word beside the ✕: the header's icon,
+ *  title, gaps and «✕ Beenden» side by side, measured per language (the French title is
+ *  half as long again). Static class names, so Tailwind sees them. */
+const EXIT_LABEL_ROOM: Record<string, string> = {
+  de: "@min-[19.5rem]/rail:inline",
+  fr: "@min-[24.5rem]/rail:inline",
+}
 
 interface RoutenplanungPanelProps {
   groups: IncidentGroup[]
@@ -80,6 +88,7 @@ export function RoutenplanungPanel({
   canEdit,
 }: RoutenplanungPanelProps) {
   const t = useTranslations("map.planning")
+  const locale = useLocale()
   const { group, operationsById, isAddingStop, reorder } = planning
   const optimizeAction = useRouteOptimizeAction(planning)
   const { updateOperation } = useOperations()
@@ -110,17 +119,30 @@ export function RoutenplanungPanel({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header – wraps, so «Beenden» stays on screen in a rail squeezed by the page (768px with
-          the notification sidebar open) instead of being cut off at its edge. */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b pb-3">
-        <div className="flex items-center gap-2">
-          <RouteIcon className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-lg font-bold">{t("title")}</h2>
+      {/* Header – one line at every rail width. Where the rail (`@container/rail`, the map
+          page) has the room the exit reads «✕ Beenden»; narrower it is the ✕ alone, named
+          «Routenplanung beenden» with the same words as its tooltip. It used to wrap under the
+          title in a narrow rail. The threshold is the room the label needs, per language. */}
+      <div className="mb-4 flex items-center justify-between gap-2 border-b pb-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <RouteIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <h2 className="min-w-0 break-words text-lg font-bold">{t("title")}</h2>
         </div>
-        <Button size="sm" variant="ghost" className="h-8 gap-1.5 max-md:h-11" onClick={onExit}>
-          <X className="size-3.5" />
-          {t("exit")}
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 shrink-0 gap-1.5 px-2 max-md:h-11 max-md:min-w-11"
+              onClick={onExit}
+              aria-label={t("exitLabel")}
+            >
+              <X className="size-3.5" />
+              <span className={cn("hidden", EXIT_LABEL_ROOM[locale] ?? EXIT_LABEL_ROOM.de)}>{t("exit")}</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{t("exitLabel")}</TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Group picker + inline create */}

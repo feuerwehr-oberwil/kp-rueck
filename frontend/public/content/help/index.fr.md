@@ -31,7 +31,7 @@ Vue d’ensemble géographique de tous les lieux d’intervention. Des marqueurs
 **Légende de la carte :**
 - **Priorité (remplissage) :** gris = basse, jaune = moyenne, rouge = haute
 - **Statut (cadre) :** tirets = ouverte, trait plein = en cours, pointillés + estompé = retour et clôturées
-- **Véhicules (GPS) :** bleu = en ligne, gris = hors ligne
+- **Véhicules (GPS) :** une pastille par emplacement. Bleu plein = en ligne, creux à tirets gris = hors ligne. Plusieurs au même endroit partagent une pastille (« 6 véhicules | 4 hors ligne »). L’heure du dernier signal n’apparaît sur la pastille que lorsqu’il date de plus que le seuil réglé sous Réglages → GPS (10 min par défaut) ; le survol ou un toucher affiche la liste de chaque véhicule. Une pastille posée sur un marqueur d’intervention s’écarte – un trait fin mène au point où le véhicule se trouve vraiment. Les lignes d’attribution partent seulement des véhicules en ligne.
 - **Marqueur avec nombre :** plusieurs interventions à la même adresse – un marqueur à l’aspect de la plus urgente, une étiquette avec tous les numéros (« 6 · 7 · 9 Bahnhofstrasse 1 »). Le survol ou un clic affiche la liste ; un clic sur une ligne sélectionne cette intervention, un double-clic l’ouvre.
 - **Bulle avec nombre :** plusieurs interventions dont les marqueurs se recouvrent ; marque et cadre de la plus urgente (priorité la plus haute). Un clic ou un toucher zoome sur le groupe. Dès le zoom de rue, les marqueurs se séparent à nouveau.
 
@@ -80,7 +80,7 @@ Cette page de documentation.
 
 Pour les postes de commandement dotés de plusieurs écrans, des pages d’affichage spéciales existent sous `/display`. Elles sont en lecture seule – aucune fonction d’édition.
 
-**Accès :** menu utilisateur → section « Affichage » (s’ouvre dans un nouvel onglet), ou directement `/display`.
+**Accès :** menu utilisateur → « Affichage » → **Vue d’ensemble des affichages** (s’ouvre dans un nouvel onglet), ou directement `/display`. On y trouve les trois écrans muraux – carte de situation, tableau, état – et le choix de l’événement ; on passe d’un écran à l’autre en haut à droite. La même section du menu utilisateur contient les [Indicateurs](#tableau-board-g-b) (`Z`).
 
 ### Carte de situation (`/display/map`)
 Carte plein écran sans barre latérale. Montre tous les lieux d’intervention, les positions GPS des véhicules et les lignes d’attribution animées (véhicule → intervention). Idéal pour un écran de situation central.
@@ -104,7 +104,7 @@ Vue à quatre colonnes : véhicules, interventions (groupées par statut), perso
 Dans les vues d’affichage, chaque section peut être repliée – colonnes du tableau, groupes de statut, fonctions pour le personnel, catégories pour le matériel. Dans un corps plus grand, on ne ferait sinon que défiler.
 
 - **L’état par défaut est déplié.** Rien ne se cache à quelqu’un qui vient de s’approcher. Seule exception : **CLÔTURÉES** démarre replié – c’est du travail fait.
-- **Un en-tête replié continue d’indiquer le nombre et l’état :** le nombre d’entrées, pour le personnel et le matériel combien sont libres, et un point rouge dès qu’une intervention de cette section est en retard. Replier, c’est cacher – et à 3 heures du matin, rien d’important n’a le droit de se cacher.
+- **Un en-tête replié continue d’indiquer le nombre et l’état :** le nombre d’entrées, pour le personnel et le matériel combien sont libres, et, dès qu’une intervention y est en retard, un signe : sur le tableau la puce d’ancienneté « ⏱ 2 ≥ 60' » (combien, à partir de quand ; jaune dès 60 minutes, rouge dès 120), sur « État » un point rouge. Replier, c’est cacher – et à 3 heures du matin, rien d’important n’a le droit de se cacher.
 - **L’état est mémorisé par appareil**, comme les autres réglages d’affichage. L’écran mural, la tablette sur la table et le portable au fond ne sont pas à la même distance ; ce qui est replié appartient à l’écran, pas à l’intervention.
 
 ### Synchronisation entre fenêtres
@@ -280,6 +280,47 @@ journal note ce qui a été repris (« Repris de … »). Pour annuler : « Annu
 elle-même été fusionnée. Un lien de reconnaissance de la carte fusionnée continue de fonctionner et
 aboutit sur la carte qui reste, une équipe sur `/feld` trouve la carte qui reste, et les photos sont
 copiées, jamais déplacées ; les temps de réaction comptent dès le premier message.
+
+### Alarmes entrantes (amener les alarmes sur le tableau)
+
+Les alarmes du système d’alarme – Divera ou un autre système via l’interface webhook
+ouverte (`docs/ALARM-INTEGRATIONS.md`) – arrivent d’abord dans les **Alarmes entrantes**.
+Si le rattachement automatique est activé pour un événement, elles figurent en plus directement
+comme carte dans « Reçu ».
+
+- **Ouvrir :** le symbole de boîte de réception en haut, à côté de la cloche. Le chiffre qu’il
+  porte compte les **nouvelles** alarmes des dernières 24 heures. Un deuxième clic dessus,
+  `Échap` ou ✕ les referme. Aussi dans le menu utilisateur sous « Administration » et, sur le
+  téléphone, sous « Plus » ; les anciens liens vers `/divera-pool` arrivent sur le tableau avec
+  les Alarmes entrantes ouvertes.
+- **À côté du tableau, pas devant :** sur l’ordinateur, le panneau se tient à droite entre la
+  barre du haut et celle du bas, sans assombrir le tableau – on continue de travailler, et une
+  alarme rattachée apparaît aussitôt dans « Reçu ». Un clic sur le tableau ne le ferme pas.
+  Sur le téléphone, c’est un panneau qui monte du bas.
+- **Nouvelles** – ce qui n’est encore sur aucun tableau (24 heures au plus), la plus récente en
+  haut, avec titre, adresse et message. **Rattacher** par ligne, **Tout rattacher** pour toutes
+  les nouvelles d’un coup (sur le téléphone, en bas du panneau).
+- **Attribuées aujourd’hui** – rattachées depuis minuit, en ligne courte avec le numéro de
+  l’intervention qui en est issue (« → 14 »).
+- **Plus anciennes** – repliées : jours précédents et archivées. Une alarme que personne n’a
+  rattachée pendant un jour se trouve ici et peut encore être rattachée depuis là.
+- **Recherche** sur le titre, le message, l’adresse, le numéro Divera et l’expéditeur ; pendant
+  une recherche, « Plus anciennes » est déplié. Tant que les Alarmes entrantes sont ouvertes,
+  une nouvelle alarme s’annonce par un message et un son.
+
+**Rattacher** demande à quel événement – celui que montre cette fenêtre est présélectionné. Les
+alarmes d’exercice ne vont qu’à un exercice. Une alarme réelle peut aller à un exercice, mais
+seulement après l’avertissement de ce que cela implique : l’alarme sortante est seulement
+simulée, et les seuils de retard sont 50 % plus longs. Pour **une seule** alarme, la fenêtre
+vérifie comme « Nouvelle intervention » s’il existe déjà une intervention ouverte à la même
+adresse ou à moins de 50 m – « Peut-être identique à … » avec **Fusionner** (l’alarme devient un
+complément de cette intervention) ou **Créer quand même**. Sans fusion, aussi avec « Tout
+rattacher », la nouvelle carte porte « Doublon possible de … », comme une alarme rattachée
+automatiquement.
+
+Les éditeurs et les admins peuvent rattacher ; les observateurs ne voient pas les Alarmes
+entrantes. En mode démo, aucun système d’alarme n’est raccordé, et les Alarmes entrantes le
+disent.
 
 ### Faire une reconnaissance
 
@@ -546,8 +587,9 @@ Il en découle :
 ### Planifier et optimiser l’itinéraire
 
 - **Éditeur d’itinéraire** (dans la barre des missions) : grande carte avec les étapes numérotées et la ligne d’itinéraire, à côté de la liste ordonnée des étapes. Réordonner les étapes par glisser-déposer, ajouter de nouvelles étapes par un clic sur la carte.
-- **Planification d’itinéraire** sur `/map` : la même planification sur la grande carte plein écran.
-- **Optimiser l’ordre** : calcule, par heuristique du plus proche voisin, un ordre court à partir d’un point de départ (**caserne**, **GPS du véhicule** ou **première étape**). La proposition s’affiche en aperçu – **Reprendre** ou **Abandonner**.
+- **Planification d’itinéraire** sur `/map` : la même planification sur la grande carte plein écran. Le panneau de droite présente l’ordre sous forme de **frise** : en haut le départ avec sa provenance (« Départ · Caserne » – l’emplacement défini dans les réglages ou, s’il n’y en a pas, « position de secours » ; après une optimisation, le départ réellement utilisé, p. ex. le GPS du véhicule avec l’heure du dernier signal), en dessous les étapes avec **les mêmes numéros que leurs repères sur la carte**, et pour finir « Ajouter une étape ». Les adresses longues passent à la ligne au lieu d’être coupées.
+- **Largeur du panneau :** les barres latérales s’élargissent ou se rétrécissent en tirant sur leur bord – celle de la planification aussi. Un double-clic sur le bord rétablit la largeur par défaut ; la largeur est mémorisée par appareil.
+- **Optimiser l’ordre** : propose, par heuristique du plus proche voisin et **à vol d’oiseau**, un ordre court à partir d’un point de départ (**caserne**, **GPS du véhicule** ou **première étape**) – le menu indique d’abord, pour chaque point de départ, d’où il vient et de quand il date. La proposition s’applique aussitôt ; **Annuler** dans le message rétablit l’ancien ordre tant que personne n’a modifié la mission entre-temps. Il faut au moins deux étapes avec coordonnées. Une aide à la planification, pas un itinéraire routier.
 
 ### Message radio pour une mission
 
@@ -616,7 +658,7 @@ Le personnel et les véhicules sont libérés automatiquement à la clôture ; s
 
 Appuie sur `Cmd/Ctrl+K` pour la palette de commandes – elle liste toutes les commandes
 avec leur raccourci et est également accessible depuis le menu utilisateur
-(« Commandes et raccourcis clavier »). Les raccourcis sont inactifs tant qu’un champ de
+(« Commandes et raccourcis »). Les raccourcis sont inactifs tant qu’un champ de
 saisie a le focus.
 
 ### Attribuer en tapant

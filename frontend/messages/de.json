@@ -1040,7 +1040,8 @@
       "checkOutAllTitle": "Alle abmelden?",
       "checkOutAllDescription": "{count, plural, one {# anwesende Person wird} other {# anwesende Personen werden}} auf «gegangen» gesetzt. Zuweisungen bleiben bestehen.",
       "quickAddHint": "Wird direkt angemeldet",
-      "writeFailed": "Anwesenheit konnte nicht gespeichert werden"
+      "writeFailed": "Anwesenheit konnte nicht gespeichert werden",
+      "openButton": "Appell"
     },
     "diveraIncoming": {
       "title": "Anrückend ({count})",
@@ -1484,8 +1485,7 @@
       "stopCount": "{count, plural, one {# Stopp} other {# Stopps}}",
       "startLabel": "Start · {start}",
       "addStopMapHint": "Klick auf die Karte",
-      "resizeLabel": "Breite der Routenplanung",
-      "resizeHint": "Breite ziehen · Doppelklick: Standard"
+      "exitLabel": "Routenplanung beenden"
     },
     "view": {
       "markerAria": "Einsatz: {label}",
@@ -1521,7 +1521,13 @@
       "assignments": "Zuweisungen",
       "vehicleToIncident": "Fahrzeug → Einsatz",
       "cluster": "Einsätze nah beieinander",
-      "spot": "Einsätze an einer Adresse"
+      "spot": "Einsätze an einer Adresse",
+      "sampleOnline": "Pio",
+      "sampleOffline": "TLF",
+      "pillOnline": "online",
+      "pillStale": "offline · zuletzt (ab {minutes} Min.)",
+      "pillSpot": "am selben Ort · offline",
+      "onlineOnly": "(nur online)"
     },
     "assignmentLines": {
       "incidentFallback": "Einsatz"
@@ -1649,6 +1655,18 @@
       "level3": "Orange – gefährlich",
       "level4": "Rot – sehr gefährlich",
       "authorityNotice": "Behördliche Meldung"
+    },
+    "vehicles": {
+      "online": "online",
+      "offline": "offline",
+      "onlineCount": "{count} online",
+      "offlinePart": "{count} offline",
+      "speed": "{kmh} km/h",
+      "lastReport": "zuletzt {time}",
+      "lastReportUnknown": "zuletzt: unbekannt",
+      "yesterday": "gestern {time}",
+      "assignedTo": "→ {target}",
+      "scrollMore": "↓ scrollen · {count} weitere"
     }
   },
   "settings": {
@@ -2143,7 +2161,13 @@
       },
       "editorsOnly": "Nur Bearbeiter können diese Einstellungen ändern.",
       "trackerUnavailable": "Für diese Station ist kein Ortungsdienst eingerichtet. Die Automatik läuft im Takt des Traccar-Abrufs – ohne ihn kommt nie ein Vorschlag, egal was hier steht. Einzurichten in der Server-Konfiguration (TRACCAR_URL); den Zustand zeigt Einstellungen → Integrationen.",
-      "returnUnavailable": "Die Magazin-Koordinaten fehlen. Ohne sie erkennt das System die Rückkehr nicht – weiter unten auf dieser Karte unter «Magazin (Heimatbasis)» eintragen."
+      "returnUnavailable": "Die Magazin-Koordinaten fehlen. Ohne sie erkennt das System die Rückkehr nicht – weiter unten auf dieser Karte unter «Magazin (Heimatbasis)» eintragen.",
+      "map": {
+        "title": "Fahrzeuge auf der Lagekarte",
+        "staleLabel": "Letzte Meldung anzeigen ab",
+        "staleHint": "Eine Fahrzeug-Pille zeigt die Uhrzeit ihrer letzten GPS-Meldung erst, wenn diese älter ist als so viele Minuten. Die Liste beim Zeigen auf eine Pille nennt sie immer.",
+        "minutes": "Min."
+      }
     },
     "materials": {
       "loadError": "Material konnte nicht geladen werden",
@@ -4551,6 +4575,17 @@
       "button": "Neues Ereignis offline anlegen …",
       "title": "Neues Ereignis offline anlegen",
       "note": "Dieses Ereignis wird nur auf diesem Gerät geführt und nie mit KP Rück Online synchronisiert."
+    }
+  },
+  "panels": {
+    "resizeHint": "Breite ziehen · Doppelklick: Standard",
+    "resize": {
+      "personnel": "Breite der Personal-Leiste",
+      "material": "Breite der Material-Leiste",
+      "detail": "Breite des Einsatz-Details",
+      "notifications": "Breite der Benachrichtigungen",
+      "alarmInbox": "Breite des Alarmeingangs",
+      "mapRail": "Breite der Seitenleiste"
     }
   }
 }

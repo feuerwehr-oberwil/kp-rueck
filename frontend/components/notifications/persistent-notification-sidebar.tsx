@@ -13,10 +13,19 @@ import { FieldRequestInbox } from '@/components/notifications/field-request-inbo
 import { useOpenFieldRequests } from '@/lib/hooks/use-field-requests'
 import { requestIncidentHighlight } from '@/lib/notification-highlight'
 import type { OperationDetailTab } from '@/lib/hooks/use-operation-detail-shortcuts'
-import { cn } from '@/lib/utils'
+import { SlideRail } from '@/components/ui/slide-rail'
+import { useResizableWidth } from '@/lib/hooks/use-resizable-width'
 
+const WIDTH_VAR = '--notification-sidebar-width'
+const publishWidth = (width: number) => document.documentElement.style.setProperty(WIDTH_VAR, `${width}px`)
+
+/**
+ * The Benachrichtigungen rail on the right of every desktop page (app-shell.tsx): a SlideRail
+ * that pushes the page, its width the operator's. Phone: nothing (the bell opens a sheet).
+ */
 export function PersistentNotificationSidebar() {
   const t = useTranslations('notifications.sidebar')
+  const tPanels = useTranslations('panels')
   const { notifications, isSidebarOpen, closeSidebar, dismissNotification, dismissAllNotifications, canNavigateToIncident } = useNotifications()
   const { isAuthenticated } = useAuth()
   const isMobile = useIsMobile()
@@ -29,20 +38,30 @@ export function PersistentNotificationSidebar() {
   // so a session that opened it and then logged out would otherwise show an
   // empty sidebar shell over the login screen.
   const visible = !isMobile && isSidebarOpen && isAuthenticated
+  // 320 = the w-80 it always had. The live width also goes to the root var on every drag step.
+  const resize = useResizableWidth({
+    storageKey: 'kp-notificationSidebarWidth',
+    defaultWidth: 320,
+    min: 280,
+    max: 520,
+    side: 'left',
+    onLiveWidth: publishWidth,
+  })
 
-  // Publish the sidebar's width as a root CSS var while open. Fixed-position
-  // layers (the footer sheets) live outside the flex row that makes room for
-  // this panel, so they read the var to inset their right edge instead of
-  // sliding underneath it. Must match the `w-80` below.
+  // Publish the sidebar's width as a root CSS var while open – the LIVE width (the drag
+  // writes it too, above). Fixed-position layers (the footer sheets, the Alarmeingang) live
+  // outside the flex row that makes room for this panel, so they read the var to inset
+  // their right edge instead of sliding underneath it.
   useEffect(() => {
     if (!visible) return
-    document.documentElement.style.setProperty('--notification-sidebar-width', '20rem')
+    publishWidth(resize.width)
     return () => {
-      document.documentElement.style.removeProperty('--notification-sidebar-width')
+      document.documentElement.style.removeProperty(WIDTH_VAR)
     }
-  }, [visible])
+  }, [visible, resize.width])
 
-  if (!visible) return null
+  // On the phone the rail does not exist at all (not even closed): the bell opens a sheet.
+  if (isMobile || !isAuthenticated) return null
 
   // A bell entry whose field request is still open is shown AS that request
   // (R13), in the section above — one Meldung, one row.
@@ -80,14 +99,14 @@ export function PersistentNotificationSidebar() {
     : undefined
 
   return (
-    <aside
-      className={cn(
-        'w-80 shrink-0 h-full',
-        'bg-card border-l border-border',
-        'flex flex-col',
-        'animate-in slide-in-from-right duration-300'
-      )}
+    <SlideRail
+      open={visible}
+      dock="right"
+      resize={resize}
+      gripLabel={tPanels('resize.notifications')}
+      gripHint={tPanels('resizeHint')}
     >
+    <aside className="flex h-full w-full flex-col border-l border-border bg-card">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-2 min-h-14 border-b border-border/50 bg-card/95 backdrop-blur-sm">
         <div className="flex items-center gap-2">
@@ -176,5 +195,6 @@ export function PersistentNotificationSidebar() {
         )}
       </div>
     </aside>
+    </SlideRail>
   )
 }

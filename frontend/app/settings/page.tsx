@@ -88,7 +88,7 @@ import {
   type SettingConfig,
 } from '@/components/settings/station-settings-form';
 import { DiveraAlarmSettingsCard } from '@/components/divera/divera-alarm-settings-card';
-import { GpsSettingsCard } from '@/components/settings/gps-settings';
+import { GpsMapSettingsCard, GpsSettingsCard } from '@/components/settings/gps-settings';
 import { AlarmDescriptionFilterSettings } from '@/components/settings/alarm-description-filter-settings';
 import { PersonnelSettings } from '@/components/settings/personnel-settings';
 import { VehicleSettings } from '@/components/settings/vehicle-settings';
@@ -747,6 +747,16 @@ export default function SettingsPage() {
           <div className="space-y-6">
             <DemoLock active={demoMode}>
               <GpsSettingsCard
+                settings={settings}
+                serverSettings={serverSettings}
+                setSettings={setSettings}
+                updateSetting={updateSetting}
+                isEditor={isEditor}
+                saving={saving}
+              />
+            </DemoLock>
+            <DemoLock active={demoMode}>
+              <GpsMapSettingsCard
                 settings={settings}
                 serverSettings={serverSettings}
                 setSettings={setSettings}

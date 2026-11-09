@@ -2328,7 +2328,8 @@
       "checkOutAllTitle": "Annoncer tous partants ?",
       "checkOutAllDescription": "{count, plural, one {# personne présente sera passée} other {# personnes présentes seront passées}} sur « partie ». Les affectations sont conservées.",
       "quickAddHint": "Sera annoncé directement",
-      "writeFailed": "La présence n’a pas pu être enregistrée"
+      "writeFailed": "La présence n’a pas pu être enregistrée",
+      "openButton": "Appel"
     },
     "diveraIncoming": {
       "title": "En route ({count})",
@@ -2563,8 +2564,7 @@
       "stopCount": "{count, plural, one {# étape} other {# étapes}}",
       "startLabel": "Départ · {start}",
       "addStopMapHint": "Clic sur la carte",
-      "resizeLabel": "Largeur de la planification d’itinéraire",
-      "resizeHint": "Glisser pour élargir · double-clic : par défaut"
+      "exitLabel": "Terminer la planification d’itinéraire"
     },
     "view": {
       "markerAria": "Intervention : {label}",
@@ -2600,7 +2600,13 @@
       "assignments": "Attributions",
       "vehicleToIncident": "Véhicule → intervention",
       "cluster": "Interventions proches",
-      "spot": "Interventions à une même adresse"
+      "spot": "Interventions à une même adresse",
+      "sampleOnline": "Pio",
+      "sampleOffline": "TLF",
+      "pillOnline": "en ligne",
+      "pillStale": "hors ligne · dernier signal (dès {minutes} min)",
+      "pillSpot": "même endroit · hors ligne",
+      "onlineOnly": "(en ligne seulement)"
     },
     "assignmentLines": {
       "incidentFallback": "Intervention"
@@ -2728,6 +2734,18 @@
       "level3": "Orange – dangereux",
       "level4": "Rouge – très dangereux",
       "authorityNotice": "Communication des autorités"
+    },
+    "vehicles": {
+      "online": "en ligne",
+      "offline": "hors ligne",
+      "onlineCount": "{count} en ligne",
+      "offlinePart": "{count} hors ligne",
+      "speed": "{kmh} km/h",
+      "lastReport": "dernier signal {time}",
+      "lastReportUnknown": "dernier signal : inconnu",
+      "yesterday": "hier {time}",
+      "assignedTo": "→ {target}",
+      "scrollMore": "↓ défiler · {count} de plus"
     }
   },
   "nav": {
@@ -3896,7 +3914,13 @@
       },
       "editorsOnly": "Seuls les éditeurs peuvent modifier ces réglages.",
       "trackerUnavailable": "Aucun service de localisation n’est configuré pour cette caserne. L’automatisme suit le rythme des relevés Traccar – sans lui, aucune proposition n’arrive, quoi qu’il soit réglé ici. À configurer côté serveur (TRACCAR_URL) ; l’état est visible sous Réglages → Intégrations.",
-      "returnUnavailable": "Les coordonnées de la caserne manquent. Sans elles, le retour n’est pas détecté – les saisir plus bas sur cette carte, sous «Caserne (base d’attache)»."
+      "returnUnavailable": "Les coordonnées de la caserne manquent. Sans elles, le retour n’est pas détecté – les saisir plus bas sur cette carte, sous «Caserne (base d’attache)».",
+      "map": {
+        "title": "Véhicules sur la carte",
+        "staleLabel": "Afficher le dernier signal dès",
+        "staleHint": "Une pastille de véhicule n’affiche l’heure de son dernier signal GPS que lorsqu’il date de plus de ce nombre de minutes. La liste au survol d’une pastille l’indique toujours.",
+        "minutes": "min"
+      }
     },
     "materials": {
       "loadError": "Le matériel n’a pas pu être chargé",
@@ -4551,6 +4575,17 @@
       "button": "Créer un événement hors ligne …",
       "title": "Créer un événement hors ligne",
       "note": "Cet événement n’est conduit que sur cet appareil et n’est jamais synchronisé avec KP Rück en ligne."
+    }
+  },
+  "panels": {
+    "resizeHint": "Glisser pour élargir · double-clic : par défaut",
+    "resize": {
+      "personnel": "Largeur de la barre Personnel",
+      "material": "Largeur de la barre Matériel",
+      "detail": "Largeur du détail d’intervention",
+      "notifications": "Largeur des notifications",
+      "alarmInbox": "Largeur de la réception des alarmes",
+      "mapRail": "Largeur de la barre latérale"
     }
   }
 }

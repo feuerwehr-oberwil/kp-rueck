@@ -14,7 +14,7 @@
 import { useMemo, type Dispatch, type SetStateAction } from "react"
 import { useTranslations } from "next-intl"
 import { QRCodeSVG } from "qrcode.react"
-import { Check, ChevronLeft, Copy } from "lucide-react"
+import { Check, ChevronLeft, Copy, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
 import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
@@ -65,6 +65,27 @@ export interface PersonnelSidebarProps {
   onDiveraCheckIn: (personnelId: string) => Promise<void>
   /** Opens the Dienstzeiten overview. */
   onOpenCrewDuty: () => void
+  /** Opens the Appell (attendance-modal.tsx). */
+  onOpenAttendance: () => void
+}
+
+/** «Appell» at the foot of the Personen-Leiste – the same small ghost button as
+ *  `CrewDutyButton` beside it. Opens the existing Appell; who may check in there is
+ *  the modal's business (`canCheckIn`). */
+function AttendanceButton({ onClick }: { onClick: () => void }) {
+  const t = useTranslations("kanban.attendance")
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={t("open")}
+      aria-label={t("open")}
+      className="relative hit-area inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <Users className="size-3.5" />
+      {t("openButton")}
+    </button>
+  )
 }
 
 export function PersonnelSidebar({
@@ -95,13 +116,16 @@ export function PersonnelSidebar({
   canCheckIn,
   onDiveraCheckIn,
   onOpenCrewDuty,
+  onOpenAttendance,
 }: PersonnelSidebarProps) {
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
   // Everybody in this list is checked in; who checked out again the backend flags (`attended`).
   const checkedInIds = useMemo(() => new Set(personnel.map((person) => person.id)), [personnel])
   return (
-      <aside className="relative z-raised w-64 border-r border-border bg-card/30 backdrop-blur-sm flex flex-col">
+      // Sized and layered by its SlideRail (app/page.tsx): no width, z-index or backdrop-blur of
+      // its own – a stacking context here would put the collapse handle under the resize grip.
+      <aside className="relative w-full border-r border-border bg-card/30 flex flex-col">
         {/* Collapse handle — small chevron centered on the sidebar's inner edge */}
         <button
           onClick={() => setShowLeftSidebar(false)}
@@ -159,7 +183,7 @@ export function PersonnelSidebar({
                verfügbar» and a check-in QR — hiding the very people the
                operator had just checked in, and telling them to check in
                again. Assigned people belong in the list, drawn as assigned. */
-            <div className="flex flex-col items-center gap-3 py-4 animate-in fade-in duration-300">
+            <div className="flex flex-col items-center gap-3 py-4">
               <p className="text-sm text-muted-foreground text-center">
                 {tDash('noPersonnelCheckedIn')}
               </p>
@@ -223,7 +247,7 @@ export function PersonnelSidebar({
               />
             )
           ) : (
-            <div className="space-y-4 animate-in fade-in duration-300">
+            <div className="space-y-4">
               {/* Frei first, Gebunden second — the sidebar's first job is
                   «wen kann ich noch schicken?», so availability is the
                   structure and rank is a suffix on the row. Caps, so a
@@ -305,11 +329,14 @@ export function PersonnelSidebar({
           {isLoaded && !boardNeverLoaded && !effectivePersonnelQuery && (
             <SidebarCounter summary={rosterSummary} />
           )}
-          {/* Who is here for how long — the Dienstzeiten overview.
-              Its own line: beside the counter it pushed «2 frei» onto two lines. */}
-          {isLoaded && !boardNeverLoaded && personnel.length > 0 && (
-            <div className="mt-0.5 flex justify-center">
-              <CrewDutyButton onClick={onOpenCrewDuty} />
+          {/* The Appell (who is here – also where an empty roster is filled) and who is here
+              for how long, the Dienstzeiten overview. Their own line: beside the counter they
+              pushed «2 frei» onto two lines. Side by side while the rail has the width, the
+              second one under the first in a rail dragged narrow. */}
+          {isLoaded && !boardNeverLoaded && (
+            <div className="mt-0.5 flex flex-wrap justify-center gap-x-1">
+              <AttendanceButton onClick={onOpenAttendance} />
+              {personnel.length > 0 && <CrewDutyButton onClick={onOpenCrewDuty} />}
             </div>
           )}
         </div>

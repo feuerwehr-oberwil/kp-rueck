@@ -1,13 +1,16 @@
 "use client"
 
-import { Satellite, AlertTriangle } from "lucide-react"
+import { useState } from "react"
+import { Satellite, AlertTriangle, Truck } from "lucide-react"
 import Link from "next/link"
 import { useTranslations } from "next-intl"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { useIntegrationCapability } from "@/lib/hooks/use-integrations"
 import { SettingUnavailableNote } from "@/components/settings/setting-unavailable"
-import { COORDINATE_DECIMALS } from "@/components/settings/setting-validation"
+import { COORDINATE_DECIMALS, normalizeDecimal, validateRangedSetting, type SettingRange, type SettingValidationError } from "@/components/settings/setting-validation"
+import { FormMessage, fieldMessageProps, formMessageId } from "@/components/ui/form-message"
+import { DEFAULT_STALE_MINUTES, GPS_STALE_SETTING } from "@/lib/map-vehicles"
 import {
   SettingCard,
   SettingGroup,
@@ -283,6 +286,76 @@ export function GpsSettingsCard({
       {!isEditor && (
         <p className="pt-3 text-xs text-muted-foreground">{t("gps.editorsOnly")}</p>
       )}
+    </SettingCard>
+  )
+}
+
+/** One minute to one day: below a minute every pause between two fixes would show. */
+const STALE_RANGE: SettingRange = { min: 1, max: 1440 }
+const STALE_FIELD_ID = "gps-stale-after-minutes"
+
+/**
+ * «Fahrzeuge auf der Lagekarte»: from how many minutes on a vehicle pill shows the time of its last
+ * GPS report (`gps.stale_after_minutes`, default 10 – lib/map-vehicles.ts). The hover list always
+ * says it. A display setting, not part of the automation, so it has its own card and shows whether
+ * the automation is on or not. Rendered under `GpsSettingsCard` in the GPS section.
+ */
+export function GpsMapSettingsCard({
+  settings,
+  serverSettings,
+  setSettings,
+  updateSetting,
+  isEditor,
+  saving,
+}: Props) {
+  const t = useTranslations("settings")
+  const [problem, setProblem] = useState<SettingValidationError | null>(null)
+  const fallback = String(DEFAULT_STALE_MINUTES)
+  const value = settings[GPS_STALE_SETTING] ?? fallback
+  return (
+    <SettingCard
+      title={
+        <span className="flex items-center gap-2">
+          <Truck className="size-4 text-muted-foreground" />
+          {t("gps.map.title")}
+        </span>
+      }
+    >
+      <SettingRow label={t("gps.map.staleLabel")} htmlFor={STALE_FIELD_ID} hint={t("gps.map.staleHint")}>
+        <div className="flex flex-col gap-1.5">
+          <span className="flex items-center gap-2">
+            <Input
+              id={STALE_FIELD_ID}
+              type="text"
+              inputMode="numeric"
+              className="w-24 font-mono tabular-nums"
+              value={value}
+              {...fieldMessageProps(STALE_FIELD_ID, problem ? "error" : null)}
+              onChange={(e) => {
+                setProblem(null)
+                setSettings((prev) => ({ ...prev, [GPS_STALE_SETTING]: e.target.value }))
+              }}
+              onBlur={(e) => {
+                const raw = normalizeDecimal(e.target.value)
+                // Empty is not «off» here: it falls back to the default, said in the field.
+                const next = raw === "" ? fallback : raw
+                const error = validateRangedSetting(next, STALE_RANGE)
+                if (error) {
+                  setProblem(error)
+                  return
+                }
+                if (next !== value) setSettings((prev) => ({ ...prev, [GPS_STALE_SETTING]: next }))
+                if (next !== (serverSettings[GPS_STALE_SETTING] ?? fallback)) updateSetting(GPS_STALE_SETTING, next)
+              }}
+              disabled={!isEditor || saving === GPS_STALE_SETTING}
+            />
+            <span className="text-sm text-muted-foreground">{t("gps.map.minutes")}</span>
+          </span>
+          <FormMessage id={formMessageId(STALE_FIELD_ID)}>
+            {problem && t(`page.general.validation.${problem}`, { ...STALE_RANGE })}
+          </FormMessage>
+        </div>
+      </SettingRow>
     </SettingCard>
   )
 }

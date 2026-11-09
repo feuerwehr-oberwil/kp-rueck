@@ -83,6 +83,8 @@ import { useBoardLayoutPrefs } from "@/lib/hooks/use-board-layout-prefs"
 import { isNavigableBinding, soleDestination, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
 import { PersonnelSidebar } from "@/components/board/personnel-sidebar"
 import { MaterialSidebar } from "@/components/board/material-sidebar"
+import { SlideRail } from "@/components/ui/slide-rail"
+import { useResizableWidth } from "@/lib/hooks/use-resizable-width"
 import { BoardFooter, type FooterSheet } from "@/components/board/board-footer"
 import { toggleFigures } from "@/components/figures-dialog"
 import type { JournalComposeRequest } from "@/components/journal/journal-sheet"
@@ -218,6 +220,7 @@ export default function FireStationDashboard() {
   const tRes = useTranslations('kanban.resources')
   const tPrint = useTranslations('print.toasts')
   const tSidePanel = useTranslations('kanban.sidePanel')
+  const tPanels = useTranslations('panels')
   const trackPrint = usePrintJobToast()
 
   // Ref for highlight timeout cleanup
@@ -390,6 +393,24 @@ export default function FireStationDashboard() {
     showRightSidebar,
     setShowRightSidebar,
   } = useBoardLayoutPrefs(isMobile)
+  // Both sidebars' widths are the operator's, dragged by their inner edge and remembered on this
+  // device (owner pick 09.11.2026). 256 = the w-64 they always had, and also the floor: any
+  // narrower and «Personal suchen …» / «Material suchen …» no longer fit beside their key hint
+  // and toggle, while the rows already end in «Baumann Mi…».
+  const personnelWidth = useResizableWidth({
+    storageKey: 'kp-board-personnelWidth',
+    defaultWidth: 256,
+    min: 256,
+    max: 384,
+    side: 'right',
+  })
+  const materialWidth = useResizableWidth({
+    storageKey: 'kp-board-materialWidth',
+    defaultWidth: 256,
+    min: 256,
+    max: 384,
+    side: 'left',
+  })
   // "Open the detail on THIS tab" — set by whoever pointed at one specific
   // thing: a notification, the Rapport-Backlog, or a click on one BLOCK of a
   // kanban card (its Reko part, its resource rows). A click on the card as a
@@ -740,6 +761,14 @@ export default function FireStationDashboard() {
     selectedEvent,
     isMounted,
   })
+  // One footer sheet at a time: another one opening (a pill, a shortcut, the Dienstzeiten
+  // button) closes the Checkliste's. Opening the Checkliste closes the others (board-footer).
+  const closeChecklistSheet = useEffectEvent(() => {
+    if (checklistPopoverOpen) handleChecklistOpenChange(false)
+  })
+  useEffect(() => {
+    if (activeFooterSheet) closeChecklistSheet()
+  }, [activeFooterSheet])
 
   // Refresh operations immediately when Kanban page loads – once, whatever identity
   // `refreshOperations` has later.
@@ -1407,13 +1436,19 @@ export default function FireStationDashboard() {
           /* Desktop View */
           <>
         <div className="relative flex flex-1 overflow-hidden">
-          {/* `z-raised` on both sidebars: their collapse handles straddle the inner
-              edge, so half of each hangs over the board. `backdrop-blur-sm` makes
-              an aside a stacking context, so a handle's own `z-pinned` cannot lift it
-              past a SIBLING — and the board block follows the LEFT sidebar in DOM
-              order with an opaque background, which painted that half away. The
-              right one only ever looked fine because it comes after the board. */}
-          {showLeftSidebar && (
+          {/* Each sidebar stands in a SlideRail: the drag width, the 110 ms slide that moves the
+              board with it, and the `z-raised` layer their collapse handles need – a handle
+              straddles the inner edge, so half of it hangs over the board, and the board block
+              follows the LEFT sidebar in DOM order with an opaque background, which painted
+              that half away while the layer was missing. The right one only ever looked fine
+              because it comes after the board. */}
+          <SlideRail
+            open={showLeftSidebar}
+            dock="left"
+            resize={personnelWidth}
+            gripLabel={tPanels('resize.personnel')}
+            gripHint={tPanels('resizeHint')}
+          >
             <PersonnelSidebar
               setShowLeftSidebar={setShowLeftSidebar}
               personnelSearchQuery={personnelSearchQuery}
@@ -1442,8 +1477,9 @@ export default function FireStationDashboard() {
               canCheckIn={isEditor}
               onDiveraCheckIn={checkInFromDivera}
               onOpenCrewDuty={() => setActiveFooterSheet(prev => prev === 'crew' ? null : 'crew')}
+              onOpenAttendance={openAttendance}
             />
-          )}
+          </SlideRail>
 
           {/* The board and its three reopen tabs share one containing block, so
               `left-1` / `right-1` mean the BOARD's edges — not the window's —
@@ -1457,7 +1493,9 @@ export default function FireStationDashboard() {
               were both times. Out of flow the board keeps the full width and the
               tab is what it looks like — a control pinned to the edge, opaque
               (`bg-card`) and shadowed so scrolled cards pass behind it. */}
-          <div className="relative flex min-w-0 flex-1">
+          {/* `min-w-64`: the room the board keeps when the rails beside it were dragged wide –
+              they yield first (SlideRail), down to their own minimum. */}
+          <div className="relative flex min-w-64 flex-1">
           {/* Main Kanban Board */}
           <main
             id="kanban-main"
@@ -1626,10 +1664,17 @@ export default function FireStationDashboard() {
             {...dialogs.detailActions}
           />
 
-          {/* Same `z-raised` as the left sidebar — see the note there. This side works
-              on DOM order alone today; it carries the class so the handle does not
-              depend on which side of the board its aside happens to sit. */}
-          {showRightSidebar && (
+          {/* Same SlideRail as the left sidebar — see the note there. While the detail is
+              folded its reopen control leads the search row, and the rail grows by its 2rem
+              (`--rail-extra`) from SIDE_PANEL_BREAKPOINT (2xl) up, where that control exists. */}
+          <SlideRail
+            open={showRightSidebar}
+            dock="right"
+            resize={materialWidth}
+            gripLabel={tPanels('resize.material')}
+            gripHint={tPanels('resizeHint')}
+            className={sidePanelMode === 'collapsed' ? '2xl:[--rail-extra:2rem]' : undefined}
+          >
             <MaterialSidebar
               setShowRightSidebar={setShowRightSidebar}
               materialSearchQuery={materialSearchQuery}
@@ -1657,7 +1702,7 @@ export default function FireStationDashboard() {
               materialSummary={materialSummary}
               onOpenSidePanel={sidePanelMode === 'collapsed' ? () => setSidePanelMode('detail') : undefined}
             />
-          )}
+          </SlideRail>
 
         </div>
 
