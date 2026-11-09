@@ -1381,9 +1381,7 @@
       "moveReleasesDriver": "« Déplacer ici » libère aussi le rôle de chauffeur pour {vehicle}."
     },
     "vehicleStatus": {
-      "durationMinutes": "{minutes} min",
-      "durationHoursMinutes": "{hours} h {mins} min",
-      "durationHours": "{hours} h",
+      "bound": "Engagé",
       "available": "Disponible",
       "unavailable": "Indisponible",
       "loadError": "Échec du chargement de l’état des véhicules",
@@ -1396,8 +1394,7 @@
       "readyForOperation": "Prêt à intervenir",
       "changeDriver": "Changer de conducteur",
       "assignDriver": "Attribuer un conducteur",
-      "auftragLabel": "Mission « {name} »",
-      "durationDaysHours": "{days} j {hours} h"
+      "auftragLabel": "Mission « {name} »"
     },
     "gpsArrival": {
       "fallbackVehicle": "Véhicule",
@@ -4294,6 +4291,7 @@
       "removePin": "Retirer le repère",
       "setPin": "Placer un repère sur la carte",
       "dispatch": "Déclencher",
+      "dispatchNeeds": "Choisir un scénario et un lieu, puis déclencher.",
       "dispatchHint": "Ou placer le pin directement sur la carte.",
       "multipleIncidents": "Plusieurs interventions à la fois",
       "burst": "Rafale (5x au hasard)",

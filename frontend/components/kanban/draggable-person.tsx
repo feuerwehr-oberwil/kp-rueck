@@ -115,8 +115,6 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
         onClick={onClick}
         role={canDrag ? "button" : undefined}
         title={person.name}
-        aria-grabbed={isDragging}
-        aria-label={canDrag ? `Drag ${person.name} to assign to incident` : undefined}
         className={cn(
           "group rounded-md px-2 py-1.5 transition-all hover:bg-muted/50",
           canDrag && "draggable",

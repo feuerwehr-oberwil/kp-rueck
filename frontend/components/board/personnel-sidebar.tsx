@@ -206,6 +206,7 @@ export function PersonnelSidebar({
                       size="icon-xs"
                       onClick={copyCheckInUrlToClipboard}
                       title={tCommon('copyLink')}
+                      aria-label={tCommon('copyLink')}
                     >
                       {copied ? (
                         <Check className="size-3.5 text-success" />

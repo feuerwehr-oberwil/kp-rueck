@@ -2,10 +2,12 @@
 
 import { useEffect } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { AlertTriangle, Home, RefreshCw } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { Button } from '@/components/ui/button'
+import { reportClientError } from '@/lib/report-error'
 
 interface RouteErrorProps {
   error: Error & { digest?: string }
@@ -16,11 +18,20 @@ interface RouteErrorProps {
  * Shared error-boundary UI for Next.js per-route `error.tsx` files.
  * Each route's error.tsx is a one-line re-export of this component so
  * we don't end up with nine near-identical copies of the same JSX.
+ *
+ * Reports to the station's server log like the root boundary – a crash on a crew's phone is
+ * otherwise seen by nobody. On the login-less link pages there is no «Zur Startseite»: for
+ * somebody without an account the start page is the login form.
  */
+const LINK_PAGES = ['/feld', '/check-in', '/reko', '/alarm']
+
 export default function RouteError({ error, reset }: RouteErrorProps) {
   const t = useTranslations('errors.routeError')
+  const pathname = usePathname()
+  const isLinkPage = LINK_PAGES.some((route) => pathname === route || pathname.startsWith(`${route}/`))
   useEffect(() => {
     console.error('Route error:', error)
+    reportClientError(error, { kind: 'render' })
   }, [error])
 
   return (
@@ -59,12 +70,14 @@ export default function RouteError({ error, reset }: RouteErrorProps) {
             <RefreshCw className="size-4" />
             {t('retry')}
           </Button>
-          <Button variant="outline" asChild>
-            <Link href="/">
-              <Home className="size-4" />
-              {t('home')}
-            </Link>
-          </Button>
+          {!isLinkPage && (
+            <Button variant="outline" asChild>
+              <Link href="/">
+                <Home className="size-4" />
+                {t('home')}
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
     </div>

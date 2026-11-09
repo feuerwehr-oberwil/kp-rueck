@@ -5,7 +5,7 @@ import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
 import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
 import { PersonName, usePersonNaming } from "@/components/person-name"
 import { useTranslations } from "next-intl"
-import { Users, Package, Truck, AlertTriangle, Search, Footprints, MapPin, Undo2, Layers, Info, UserMinus } from 'lucide-react'
+import { Users, Package, Truck, AlertTriangle, Binoculars, Footprints, MapPin, Undo2, Layers, Info, UserMinus } from 'lucide-react'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { useOperations } from "@/lib/contexts/operations-context"
@@ -112,7 +112,7 @@ export function CardResources({
         // changing that, now lives on the Reko tab. So it overrides its
         // parent's target instead of inheriting it.
         <div className="flex items-start gap-1.5" onClick={openDetailFrom('reko')}>
-          <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
+          <Binoculars className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
           <div className="flex flex-wrap items-center gap-1 min-w-0">
             {/* `min-w-0 max-w-full shrink` overrides the Badge base's
                 `shrink-0` (twMerge) so a lone chip SHRINKS and truncates

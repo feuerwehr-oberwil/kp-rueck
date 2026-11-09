@@ -22,7 +22,7 @@ Hauptansicht beim Laden der App. Zeigt alle Einsätze in sieben Status-Spalten (
 **«Kennzahlen» im Benutzermenü (`Z`).** Oben rechts im Personen-Menü, auch über `Cmd/Ctrl+K` und auf dem Handy unter «Mehr» – nicht mehr in der Fusszeile. Ein Fenster über der Seite mit der Lage in Zahlen – Meldungen, offen (je Priorität), in Arbeit, erledigt – und die Reaktionszeiten ab Eingang bis **Disponiert**, **Vor Ort** und **Abschluss**, als Median und P90 je Priorität, dazu die älteste noch wartende «Hoch»-Meldung (ein Klick öffnet sie). Dieselben Werte wie die Tabelle «Reaktionszeiten» im Einsatzbericht (PDF); wie gerechnet wird, steht hinter dem ⓘ. Bei einer Übung heisst die Ansicht **Übungsauswertung**; für ein vergangenes Ereignis steht sie unter **Ereignisse → ⋯ → Kennzahlen**, und an der Wand im Status-Display (`/display/status`) über den Einsätzen.
 
 ### Kartenansicht (`G M`)
-Geografische Übersicht aller Einsatzorte. Farbige Marker zeigen Priorität (Grün/Gelb/Rot).
+Geografische Übersicht aller Einsatzorte. Die Marker zeigen die Priorität (Grau/Gelb/Rot).
 
 **Klick-Verhalten:**
 - **Marker / Listen-Karte (Einfach-Klick)**: Wählt den Einsatz aus und zoomt zum Marker
@@ -65,9 +65,9 @@ System-Konfiguration: Benutzer, Drucker, Kartenstil und mehr. Benutzer und das A
 ### Hilfe (`G H`)
 Diese Dokumentationsseite.
 
-**Echt vs. Übung:** Ereignisse können als «Übung» markiert werden. Das Badge «Übung» erscheint, Daten werden separat geführt. Echte Ereignisse kommen von Divera.
+**Echt vs. Übung:** Ereignisse können als «Übung» markiert werden. Das Badge «Übung» erscheint, Daten werden separat geführt. Echte Einsätze kommen über den Alarmeingang (Divera, FireHub, Webhook, Meldeformular) oder werden von Hand erfasst.
 
-**Audit-Export:** Einstellungen → Import/Export → Ereignis auswählen → Excel-Export. Enthält alle Einsätze, Zuweisungen (inkl. Historie), Statusänderungen und Reko-Berichte. Für Abrechnung und Nachbesprechung. Das Audit-Protokoll wird im Hintergrund automatisch aufgeräumt (Standard-Aufbewahrung 90 Tage, im Demo-Modus 7 Tage), damit die Tabelle nicht unbegrenzt wächst.
+**Audit-Export:** Einstellungen → Import/Export → Ereignis auswählen → Excel-Export. Enthält alle Einsätze, Zuweisungen (inkl. Historie), Statusänderungen und Reko-Berichte. Für Abrechnung und Nachbesprechung. Das Audit-Protokoll bleibt vollständig erhalten. Aufgeräumt wird es nur, wenn die Person, die den Server betreut, eine Aufbewahrungsfrist gesetzt hat (`AUDIT_RETENTION_DAYS`).
 
 **Drucken & Export:** Footer → «Drucken» oder Taste `D` öffnet **ein** Slide-up mit drei Spalten – alles, was auf Papier oder in eine Datei geht, an einer Stelle:
 - **Thermodruck** – Board-Snapshot auf den [Thermodrucker](#thermodrucker)
@@ -174,10 +174,9 @@ Jede Karte zeigt: Nummer (klein vor der Adresse), Adresse, Typ, zugewiesene Ress
 
 Zeigen, wie lange ein Einsatz bereits offen ist:
 
-- **Grün** = Neu (< 15 Min)
-- **Gelb** = Aktiv (15-60 Min)
-- **Orange** = Länger offen (1-2 Std)
-- **Rot** = Lange offen (> 2 Std) - Aufmerksamkeit nötig
+- **Grau** = unter 60 Minuten
+- **Gelb** = ab 60 Minuten – länger offen
+- **Rot** = ab 120 Minuten – Aufmerksamkeit nötig
 
 ### Nachbarhilfe
 
@@ -615,7 +614,7 @@ Nur verfügbare Ressourcen (grüner Punkt) können zugewiesen werden. Ein **leer
 
 **Rückgängig nach dem Freigeben.** Wird eine Person, ein Fahrzeug, Material, ein Auftrags-Stopp oder eine Routen-Ressource freigegeben, erscheint «… freigegeben · Rückgängig». Rückgängig weist sie auf dem normalen Weg wieder zu (mit denselben Rückfragen); hat sie inzwischen jemand anderswo zugewiesen, bleibt sie dort, und die Meldung sagt wo.
 
-**Auf dem Touchscreen** öffnet ein Tipp auf einen Personen- oder Fahrzeug-Chip ein kleines Menü: «Details öffnen», wo es passt «Als Einsatzleiter markieren», und abgesetzt das rote «Vom Einsatz entfernen». Mit der Maus ändert sich nichts.
+**Auf dem Touchscreen** öffnet ein Tipp auf einen Personen- oder Fahrzeug-Chip ein kleines Menü: «Details öffnen», wo es passt «Als Einsatzleiter markieren», und abgesetzt das rote «Vom Einsatz freigeben». Mit der Maus ändert sich nichts.
 
 ### Spezialrollen (Rechtsklick auf Person)
 
@@ -880,7 +879,7 @@ just down       # Stoppt die Anlage (die Daten bleiben)
 just doctor     # Prüft, ob alles läuft – Datenbank, Drucker, Kacheln, Backup
 ```
 
-Die lokale Instanz läuft unter `http://localhost:3000`.
+Die lokale Instanz läuft auf dem Rechner, der den Server betreibt: `http://<dieser-rechner>:8080` – oder unter eurer eigenen Adresse, falls eine eingerichtet ist.
 
 > **Die `dev-`Rezepte sind nicht für den Betrieb.** `just dev`, `just dev-stop` und
 > `just dev-clean` gehören zur Entwicklung; `just dev-clean` **löscht die Datenbank und
