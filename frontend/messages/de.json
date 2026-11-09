@@ -1606,6 +1606,7 @@
       "fallbackToFirst": "{requested} nicht verfügbar – ab {stop}",
       "optimized": "Reihenfolge nach Luftlinie vorgeschlagen",
       "startLine": "Start: {start} · Planungshilfe, keine Strassenroute",
+      "needsCoordinates": "Zum Optimieren braucht es mindestens zwei Stopps mit Koordinaten.",
       "unchanged": "Die Reihenfolge ist nach Luftlinie bereits die kürzeste.",
       "note": "Vorschlag nach Luftlinie ab {start} · Planungshilfe",
       "undo": "Rückgängig",

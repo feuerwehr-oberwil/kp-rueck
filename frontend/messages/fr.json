@@ -2685,6 +2685,7 @@
       "fallbackToFirst": "{requested} indisponible – depuis {stop}",
       "optimized": "Ordre proposé à vol d’oiseau",
       "startLine": "Départ : {start} · aide à la planification, pas d’itinéraire routier",
+      "needsCoordinates": "Pour optimiser, il faut au moins deux arrêts avec des coordonnées.",
       "unchanged": "L’ordre est déjà le plus court à vol d’oiseau.",
       "note": "Proposition à vol d’oiseau depuis {start} · aide à la planification",
       "undo": "Annuler",

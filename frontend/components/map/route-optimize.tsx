@@ -79,8 +79,13 @@ export function useRouteOptimizeAction(planning: Planning) {
       const group = planning.group
       if (!group) return
       const previous = group.stopIds
-      const { ids, start } = planning.optimizeFrom(mode)
+      const { ids, start, located } = planning.optimizeFrom(mode)
       if (ids.length === 0 || !start) return
+      // Nothing to measure: no air-distance run, so no start row or note claims one.
+      if (located < 2) {
+        toast.info(t("needsCoordinates"))
+        return
+      }
       const startLine = t("startLine", { start: routeStartSummary(describeRouteStart(start, t, Date.now(), locale)) })
       if (sameOrder(ids, previous)) {
         // Still a run from `start`: the timeline's start row and the note name it, like the toast.

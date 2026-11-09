@@ -33,7 +33,7 @@ function setup(stopIds = ["a", "b", "c"]) {
   const planning = {
     group: { id: "g1", stopIds } as never,
     anchors: { magazin: { coords: [0, 0] as [number, number], source: "unset" as const }, vehicle: null, firstStop: null },
-    optimizeFrom: vi.fn(() => ({ ids: ["c", "a", "b"], start: fallbackStart })),
+    optimizeFrom: vi.fn(() => ({ ids: ["c", "a", "b"], start: fallbackStart, located: 3 })),
     reorder: vi.fn(async () => true),
   }
   const hook = renderHook(() => useRouteOptimizeAction(planning), { wrapper })
@@ -110,10 +110,23 @@ describe("useRouteOptimizeAction", () => {
   it("says so when the order is already the shortest, without saving – and the start row follows", async () => {
     const vehicleStart: RouteStart = { mode: "vehicle", requested: "vehicle", coords: [0, 0], vehicleName: "TLF", reportedAt: null }
     const { planning, hook } = setup(["c", "a", "b"])
-    planning.optimizeFrom.mockReturnValue({ ids: ["c", "a", "b"], start: vehicleStart })
+    planning.optimizeFrom.mockReturnValue({ ids: ["c", "a", "b"], start: vehicleStart, located: 3 })
     await act(async () => { await hook.result.current.runOptimize("vehicle") })
+    expect(planning.optimizeFrom).toHaveBeenCalledWith("vehicle")
     expect(planning.reorder).not.toHaveBeenCalled()
     expect(toasts.calls.at(-1)).toMatchObject({ kind: "info" })
     expect(hook.result.current.lastRun?.start).toEqual(vehicleStart)
+  })
+
+  it("with fewer than two located stops it measures nothing, says why and records no run", async () => {
+    const { planning, hook } = setup(["a", "b"])
+    planning.optimizeFrom.mockReturnValue({ ids: ["a", "b"], start: fallbackStart, located: 1 })
+    await act(async () => { await hook.result.current.runOptimize("magazin") })
+    expect(planning.reorder).not.toHaveBeenCalled()
+    expect(toasts.calls.at(-1)).toMatchObject({
+      kind: "info",
+      message: "Zum Optimieren braucht es mindestens zwei Stopps mit Koordinaten.",
+    })
+    expect(hook.result.current.lastRun).toBeNull()
   })
 })
