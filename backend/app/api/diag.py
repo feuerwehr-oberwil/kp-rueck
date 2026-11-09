@@ -90,10 +90,10 @@ async def report_client_error(payload: ClientError, request: Request, db: AsyncS
             payload.build,
             payload.path,
             ua,
-            # One record per report: a line break in the message would let a caller forge
-            # log lines, and the stack's own lines are indented so they read as its body.
+            # One physical line per report: a line break would let a caller forge log lines,
+            # and a stack of 8000 newlines would be 8000 of them. Frames are joined with « | ».
             " ".join(payload.message.splitlines()),
-            "\n\t" + "\n\t".join(payload.stack.splitlines()) if payload.stack else "",
+            " :: " + " | ".join(line.strip() for line in payload.stack.splitlines()) if payload.stack else "",
         )
     except Exception:  # noqa: S110 — a diagnostics sink must never raise
         pass

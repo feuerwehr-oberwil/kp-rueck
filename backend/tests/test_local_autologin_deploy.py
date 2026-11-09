@@ -31,6 +31,9 @@ pytestmark = pytest.mark.skipif(not CADDYFILE.exists(), reason="repo root not av
 #: The loopback listener's port inside the container. `LOCAL_PORT` moves the host side only.
 CONTAINER_PORT = 8081
 
+#: The loopback site's address line: the two loopback names, nothing wider.
+LOOPBACK_SITE = f"http://localhost:{CONTAINER_PORT}, http://127.0.0.1:{CONTAINER_PORT}"
+
 
 def _site_blocks() -> dict[str, str]:
     """The Caddyfile's top-level blocks, keyed by the text before the opening brace.
@@ -86,20 +89,16 @@ def test_the_public_site_never_sets_the_header():
 
 def test_the_loopback_site_sets_the_secret():
     """And takes it from the environment, never from a value committed here."""
-    local = _site_blocks()[f":{CONTAINER_PORT}"]
+    local = _site_blocks()[LOOPBACK_SITE]
 
     assert f'request_header {HEADER_NAME} "{{$LOCAL_AUTOLOGIN_SECRET}}"' in local
 
 
 def test_the_loopback_site_answers_loopback_names_only():
     """A page whose hostname was re-pointed at 127.0.0.1 (DNS rebinding) reaches the listener
-    same-origin; only the Host header gives it away, and it must be refused BEFORE the secret
-    is stamped on."""
-    directives = _directives(_site_blocks()[f":{CONTAINER_PORT}"])
-
-    refuse = directives.index("respond @foreign_host 421")
-    assert "@foreign_host not host localhost 127.0.0.1" in directives
-    assert refuse < next(i for i, d in enumerate(directives) if d.startswith(f"request_header {HEADER_NAME}"))
+    same-origin; only the Host header gives it away. A bare `:8081` site would serve it."""
+    assert LOOPBACK_SITE in _site_blocks()
+    assert f":{CONTAINER_PORT}" not in _site_blocks()
 
 
 def test_both_sites_serve_the_same_routes():
@@ -107,7 +106,7 @@ def test_both_sites_serve_the_same_routes():
     blocks = _site_blocks()
 
     assert "(kp_board)" in blocks, "the shared route snippet is gone; the two sites can now drift"
-    for site in ("{$DOMAIN}", f":{CONTAINER_PORT}"):
+    for site in ("{$DOMAIN}", LOOPBACK_SITE):
         assert "import kp_board" in blocks[site], f"{site} no longer serves the shared routes"
 
 
