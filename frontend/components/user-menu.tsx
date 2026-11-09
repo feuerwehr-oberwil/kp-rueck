@@ -11,7 +11,7 @@ import { useTranslations } from 'next-intl';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Settings, User, LogOut, Radio, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Map, LayoutGrid, BarChart3, Keyboard, Download, FileText, FileSpreadsheet, CircleHelp, ClipboardList, ChartColumn } from 'lucide-react';
+import { Settings, User, LogOut, Inbox, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Keyboard, Download, FileText, FileSpreadsheet, CircleHelp, ClipboardList, ChartColumn } from 'lucide-react';
 import { toast } from 'sonner';
 import { useEvent } from '@/lib/contexts/event-context';
 import { getApiUrl } from '@/lib/env';
@@ -22,6 +22,7 @@ import { AccountBlock } from '@/components/auth/account-block';
 import { VersionLabel } from '@/components/version-label';
 import { useLogout } from '@/lib/hooks/use-logout';
 import { openCommandPalette } from '@/components/ui/command-palette';
+import { openAlarmInbox } from '@/components/alarm-inbox/alarm-inbox-store';
 import { FiguresDialog, toggleFigures } from '@/components/figures-dialog';
 import { useCommandPaletteHint } from '@/lib/hooks/use-is-mac';
 import {
@@ -384,28 +385,12 @@ export function UserMenu({
             <span>{t('figures')}</span>
             <span className="ml-auto text-xs text-muted-foreground">Z</span>
           </DropdownMenuItem>
+          {/* The three walls are one click away on /display (and its tabs) – listed here too they
+              made «Anzeige» the longest group of the menu (owner, 08.11.). */}
           <DropdownMenuItem asChild>
             <Link href="/display" target="_blank" className="cursor-pointer">
               <Monitor className="mr-2 h-4 w-4" />
               <span>{t('displayOverview')}</span>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/display/map" target="_blank" className="cursor-pointer">
-              <Map className="mr-2 h-4 w-4" />
-              <span>{t('situationMap')}</span>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/display/board" target="_blank" className="cursor-pointer">
-              <LayoutGrid className="mr-2 h-4 w-4" />
-              <span>{t('board')}</span>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/display/status" target="_blank" className="cursor-pointer">
-              <BarChart3 className="mr-2 h-4 w-4" />
-              <span>{t('statusDisplay')}</span>
             </Link>
           </DropdownMenuItem>
 
@@ -427,11 +412,10 @@ export function UserMenu({
               <span>{t('settings')}</span>
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/divera-pool" className="cursor-pointer">
-              <Radio className="mr-2 h-4 w-4" />
-              <span>{t('diveraPool')}</span>
-            </Link>
+          {/* The sheet over this page – the header's inbox icon opens the same one. */}
+          <DropdownMenuItem onClick={openAlarmInbox} className="cursor-pointer">
+            <Inbox className="mr-2 h-4 w-4" />
+            <span>{t('diveraPool')}</span>
           </DropdownMenuItem>
 
           {isEditor && (
@@ -479,7 +463,7 @@ export function UserMenu({
           <DropdownMenuItem onClick={openCommandPalette} className="cursor-pointer">
             <Keyboard className="mr-2 h-4 w-4" />
             <span>{t('commands')}</span>
-            <span className="ml-auto text-xs text-muted-foreground">{cmdHint} · ?</span>
+            <span className="ml-auto shrink-0 whitespace-nowrap pl-2 text-xs text-muted-foreground">{cmdHint} · ?</span>
           </DropdownMenuItem>
 
           <DropdownMenuItem asChild>

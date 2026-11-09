@@ -32,10 +32,13 @@ import { MAP_COLORS, PRIORITY_MARKER_COLORS, STATUS_RING, incidentPinRings, inci
 import { markerGlyphInk, priorityGlyphPath } from "@/lib/map-priority"
 import { boundsOfLatLng, chromeFitPadding, DEFAULT_CENTER_LATLNG, fitTo, incidentZ, Z, type LatLngPoint } from "@/lib/map-view"
 import { CLUSTER_MAX_ZOOM, clusterPins, type PinCluster } from "@/lib/map-clusters"
+import { clusterableSpots, groupSpots, spotNumberText, type MapSpot } from "@/lib/map-spots"
 import { CLUSTER_BUBBLE_SIZE, ClusterBubble } from "./map/cluster-bubble"
+import { PinCountBadge, pinBadgeCircle } from "./map/pin-count-badge"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
+import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { VehicleTrails } from "./map/vehicle-trails"
-import { ChevronDown, Maximize, AlertTriangle, Truck, Users } from "lucide-react"
+import { ChevronDown, Maximize, AlertTriangle, Truck, Users, X } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { isDisplayPath } from "@/lib/utils/display-retry"
 import { useVehiclePositions } from "@/lib/hooks/use-vehicle-positions"
@@ -53,10 +56,10 @@ import { activeWarnings, radarIsStale } from "@/lib/weather"
 // Permanent incident labels: the bubble sits to the RIGHT of the dot (on the desktop, the left when
 // the right is taken – `placeLabelSides`), its near edge this far from it — the arrow's tip at
 // `LABEL_ANCHOR_X`, 2px clear of the 32px pin at rest (desktop and phone alike, STATUS_RING), plus
-// the 6px arrow. The leader line of a stepped label bridges exactly that distance back to the dot.
+// the 6px arrow.
 const LABEL_HEIGHT = 32
 const LABEL_ANCHOR_X = incidentPinSize(false, false) / 2 + 2
-const LABEL_LEADER_DX = LABEL_ANCHOR_X + 6
+const LABEL_OFFSET_X = LABEL_ANCHOR_X + 6
 // Grace period before an abandoned card closes — long enough to cross the seam
 // into the next label, short enough that a card never lingers on its own.
 const LABEL_HOVER_CLOSE_MS = 200
@@ -98,6 +101,8 @@ function IncidentPin({
   highlighted,
   compact,
   accentColor,
+  ariaLabel,
+  expanded,
   onActivate,
 }: {
   incident: Incident
@@ -105,6 +110,10 @@ function IncidentPin({
   /** Phone geometry (`STATUS_RING.phone`): 3px frame, spaced dashes / round dots. */
   compact: boolean
   accentColor?: string | null
+  /** A same-address pin names all of its incidents (`view.spotAria`); default: this one. */
+  ariaLabel?: string
+  /** A same-address pin: whether its list is open. */
+  expanded?: boolean
   onActivate: () => void
 }) {
   const t = useTranslations('map')
@@ -132,7 +141,8 @@ function IncidentPin({
       viewBox={`0 0 ${size} ${size}`}
       tabIndex={0}
       role="button"
-      aria-label={t('view.markerAria', { label: a11yLabel })}
+      aria-label={ariaLabel ?? t('view.markerAria', { label: a11yLabel })}
+      aria-expanded={expanded}
       // The pulse used to be a `@keyframes` block injected into every single icon's HTML.
       className={highlighted ? "animate-pulse" : undefined}
       style={{ display: "block", transition: "all 0.2s ease", opacity: borderStyle.opacity, outline: "none" }}
@@ -216,13 +226,17 @@ function useOpenOnDoubleClick(onOpen?: () => void) {
   return ref
 }
 
-/** The incident dot as a map marker. A component for readability only – the hover state lives in
- *  the parent, so hovering one marker re-renders them all. Fine at a board's handful of pins. */
+/** The incident dot as a map marker – or a same-address pin, which is its lead's dot plus a count
+ *  badge (`count`). A component for readability only – the hover state lives in the parent, so
+ *  hovering one marker re-renders them all. Fine at a board's handful of pins. */
 function IncidentMarker({
   incident,
   highlighted,
   compact,
   accentColor,
+  count = 1,
+  ariaLabel,
+  expanded,
   zIndex,
   onSelect,
   onOpen,
@@ -234,6 +248,10 @@ function IncidentMarker({
   /** Phone geometry – see IncidentPin. */
   compact: boolean
   accentColor?: string | null
+  /** Incidents at this spot: from 2 on the pin wears the count badge. */
+  count?: number
+  ariaLabel?: string
+  expanded?: boolean
   zIndex: number
   onSelect: () => void
   /** Double-click: open the Einsatz (see useOpenOnDoubleClick). */
@@ -266,8 +284,11 @@ function IncidentMarker({
           highlighted={highlighted}
           compact={compact}
           accentColor={accentColor}
+          ariaLabel={ariaLabel}
+          expanded={expanded}
           onActivate={onSelect}
         />
+        {count > 1 && <PinCountBadge count={count} />}
       </div>
     </Marker>
   )
@@ -500,8 +521,8 @@ const MAGAZIN_STYLE: CSSProperties = { ...pillStyle(MAP_COLORS.station, 24), fon
  * Leaflet's tooltip bubble, rebuilt as a marker child.
  *
  * MapLibre has no tooltip of its own, and `<MapTooltip>` (which shares this look for the hover
- * bubbles) is deliberately inert: a label is CLICKABLE, opaque, and may carry a leader line
- * instead of an arrow — so it gets its own chrome here.
+ * bubbles) is deliberately inert: a label is CLICKABLE, opaque, and a same-address one carries a
+ * list under it — so it gets its own chrome here.
  *
  * The app's own surface, not Leaflet's white: card / card-foreground / border tokens (so a dark
  * board gets a dark label, light stays light), Sora — `font-sans` beats the Helvetica MapLibre
@@ -535,100 +556,36 @@ const LABEL_ARROW: Record<LabelSide, CSSProperties> = {
 }
 
 /**
- * Vertical offset per label. Empty for all but one case: a label sits at its own
- * dot, full stop.
- *
- * The exception is several incidents at exactly the same address. Their markers
- * are one dot on the screen, so their labels stack downwards from it — the only
- * place a leader line is needed, and a short one.
- *
- * Labels of *different* addresses are never walked away from their markers:
- * resolving every collision that way moved addresses hundreds of pixels off,
- * with leader lines crossing half the town, and the address you then read next
- * to a dot was somebody else's. The most they do is flip to the other side of
- * their own pin (desktop, `placeLabelSides`); where neither side is free they
- * overlap, and the one pointed at comes to the front (see IncidentLabel).
- */
-function stackSharedAddresses(incidents: Incident[]): Map<string, number> {
-  const STEP = LABEL_HEIGHT + 2
-  const offsets = new Map<string, number>()
-  const seen = new Map<string, number>()
-  for (const incident of incidents) {
-    // 6 decimals ≈ 10cm: the same address, not merely the same neighbourhood.
-    const spot = `${incident.location_lat!.toFixed(6)}:${incident.location_lng!.toFixed(6)}`
-    const index = seen.get(spot) ?? 0
-    seen.set(spot, index + 1)
-    if (index > 0) offsets.set(incident.id, index * STEP)
-  }
-  return offsets
-}
-
-/**
- * Leader line for a label that had to step aside. Drawn inside the bubble, from its left edge
- * (which stays vertically centred on the label, even when it swells into the hover card) back to
- * the marker — so the address always names its own dot, never the nearest one.
- */
-function LabelLeader({ dy }: { dy: number }) {
-  const height = Math.abs(dy)
-  return (
-    <svg
-      width={LABEL_LEADER_DX}
-      height={height}
-      style={{
-        position: "absolute",
-        overflow: "visible",
-        pointerEvents: "none",
-        opacity: 0.75,
-        left: -LABEL_LEADER_DX,
-        top: dy > 0 ? `calc(50% - ${height}px)` : "50%",
-      }}
-      aria-hidden="true"
-    >
-      {/* White underlay first: a 1px grey hairline disappears into a busy map. */}
-      {["#ffffff", "#4b5563"].map((stroke, i) => (
-        <line
-          key={stroke}
-          x1={0}
-          y1={dy > 0 ? 0 : height}
-          x2={LABEL_LEADER_DX}
-          y2={dy > 0 ? height : 0}
-          stroke={stroke}
-          strokeWidth={i === 0 ? 3 : 1}
-          strokeLinecap="round"
-        />
-      ))}
-    </svg>
-  )
-}
-
-/**
- * One incident's permanent map label — its own DOM marker at the incident's coordinates.
+ * One pin's permanent map label — its own DOM marker at the pin's coordinates.
  *
  * Under Leaflet this was a tooltip instance that had to be mutated by hand (react-leaflet builds
  * a `<Tooltip>` once and ignores every later prop change), plus a DOM re-append to bring the
- * hovered one to the front. Here the step, the hover state and the stacking are all just props.
+ * hovered one to the front. Here the side, the hover state and the stacking are all just props.
  *
- * The bubble hangs off a zero-sized wrapper, so the wrapper's origin IS the incident's anchor
- * point and the offsets read like Leaflet's did.
+ * Labels are never walked away from their markers: resolving every collision that way moved
+ * addresses hundreds of pixels off, and the address you then read next to a dot was somebody
+ * else's. The most they do is flip to the other side of their own pin (desktop,
+ * `placeLabelSides`); where neither side is free they overlap, and the one pointed at comes to the
+ * front. Incidents at one address share ONE label (`lib/map-spots.ts`), and that one may carry
+ * the list of them (`below`).
+ *
+ * The bubble hangs off a zero-sized wrapper, so the wrapper's origin IS the pin's anchor point.
  */
 function IncidentLabel({
   latitude,
   longitude,
-  dy,
   side,
   zIndex,
   onSelect,
   onOpen,
   onHoverStart,
   onHoverEnd,
+  below,
   children,
 }: {
   latitude: number
   longitude: number
-  /** Downward step for a label sharing its address with another (see stackSharedAddresses). */
-  dy: number
-  /** Which side of the pin the bubble hangs on (`placeLabelSides`); a stepped label is always
-   *  right, where its leader line runs. */
+  /** Which side of the pin the bubble hangs on (`placeLabelSides`). */
   side: LabelSide
   /** `incidentZ('label', …)`: under every resting pin, in front once pointed at or selected. */
   zIndex: number
@@ -637,39 +594,44 @@ function IncidentLabel({
   onOpen?: () => void
   onHoverStart: () => void
   onHoverEnd: () => void
+  /** Hung under the bubble, on the same side: a same-address pin's list (`SpotList`). Its own
+   *  clicks are its own – they do not count as a click on the label. */
+  below?: ReactNode
   children: ReactNode
 }) {
   const doubleClickRef = useOpenOnDoubleClick(onOpen)
+  const shift = side === "right" ? `${LABEL_OFFSET_X}px` : `calc(-100% - ${LABEL_OFFSET_X}px)`
   return (
     <Marker
       longitude={longitude}
       latitude={latitude}
       style={{ zIndex }}
-      // The label is as tappable as the dot (selection, Reko-Modus assignment, …) — and, like
-      // every marker here, must not let the click through to the map underneath.
-      onClick={(event) => {
-        event.originalEvent.stopPropagation()
-        onSelect()
-      }}
+      // Like every marker here, the click must not reach the map underneath.
+      onClick={(event) => event.originalEvent.stopPropagation()}
     >
       <div style={{ position: "relative", width: 0, height: 0 }}>
+        {/* The label is as tappable as the dot (selection, Reko-Modus assignment, …). */}
         <div
           ref={doubleClickRef}
           className={LABEL_BUBBLE}
-          style={{
-            transform:
-              side === "right"
-                ? `translate(${LABEL_LEADER_DX}px, calc(-50% + ${dy}px))`
-                : `translate(calc(-100% - ${LABEL_LEADER_DX}px), calc(-50% + ${dy}px))`,
-          }}
+          style={{ transform: `translate(${shift}, -50%)` }}
+          onClick={onSelect}
           onMouseEnter={onHoverStart}
           onMouseLeave={onHoverEnd}
         >
-          {/* A stepped label is no longer level with its marker, so its arrow would point at
-              empty map — the leader line takes over that job. */}
-          {dy === 0 ? <span style={LABEL_ARROW[side]} /> : <LabelLeader dy={dy} />}
+          <span style={LABEL_ARROW[side]} />
           {children}
         </div>
+        {below && (
+          <div
+            className="absolute left-0"
+            style={{ top: LABEL_HEIGHT / 2 + 6, transform: `translateX(${shift})` }}
+            onMouseEnter={onHoverStart}
+            onMouseLeave={onHoverEnd}
+          >
+            {below}
+          </div>
+        )}
       </div>
     </Marker>
   )
@@ -691,45 +653,54 @@ const INCIDENT_DOT_SIZE = incidentPinSize(false, false)
  *  `placeLabelSides` (who flips left). Both answer with a set of ids. */
 type LabelPass = typeof pickVisibleLabels
 
+/** One pin's label as the passes need it: where the pin is and what the bubble says. */
+interface LabelSource {
+  /** The spot key (`lib/map-spots.ts`). */
+  id: string
+  latitude: number
+  longitude: number
+  text: string
+  crewCounters: number
+  priority: string | null | undefined
+}
+
 /**
  * Runs a label pass (`lib/map-labels.ts`) at the current view – the phone's collision-checked
  * labels (mode `fit`) or the desktop's flipped sides (mode `all`). Recomputed when the map comes
  * to rest – the DOM labels ride along with their markers while it moves, so nothing jumps
- * mid-gesture.
+ * mid-gesture. The count bubbles (`bubbles`) are marks no label may cover.
  */
 function useLabelPass(
   map: MlMap | null,
   active: boolean,
   pass: LabelPass,
-  incidents: Incident[],
-  offsets: Map<string, number>,
+  sources: LabelSource[],
+  bubbles: IncidentCluster[],
 ): ReadonlySet<string> {
   const [ids, setIds] = useState<ReadonlySet<string>>(NO_LABELS)
   useEffect(() => {
     if (!map || !active) return
     const compute = () => {
       const container = map.getContainer()
-      const candidates = incidents.map((incident): LabelCandidate => {
-        const point = map.project([incident.location_lng!, incident.location_lat!])
-        const personnel = (incident as { assigned_personnel?: unknown[] }).assigned_personnel?.length ?? 0
-        const counters = (incident.assigned_vehicles.length > 0 ? 1 : 0) + (personnel > 0 ? 1 : 0)
+      const candidates = sources.map((source): LabelCandidate => {
+        const point = map.project([source.longitude, source.latitude])
         return {
-          id: incident.id,
+          id: source.id,
           x: point.x,
           y: point.y,
-          dy: offsets.get(incident.id) ?? 0,
-          width: estimateLabelWidth(
-            incident.number != null ? `${incident.number} ${shortAddressOf(incident)}` : shortAddressOf(incident),
-            counters,
-          ),
-          priority: incident.priority,
+          width: estimateLabelWidth(source.text, source.crewCounters),
+          priority: source.priority,
         }
       })
       const next = pass(candidates, {
-        labelOffsetX: LABEL_LEADER_DX,
+        labelOffsetX: LABEL_OFFSET_X,
         labelHeight: LABEL_HEIGHT,
         dotSize: INCIDENT_DOT_SIZE,
         viewport: { width: container.clientWidth, height: container.clientHeight },
+        obstacles: bubbles.map((bubble) => ({
+          ...map.project([bubble.longitude, bubble.latitude]),
+          size: CLUSTER_BUBBLE_SIZE,
+        })),
       })
       // Same answer, same object: the incident list is a new array on every poll (and every
       // render of the context), so a fresh Set each time would re-render forever.
@@ -740,15 +711,19 @@ function useLabelPass(
     compute()
     map.on("moveend", compute)
     return () => { map.off("moveend", compute) }
-  }, [map, active, pass, incidents, offsets])
+  }, [map, active, pass, sources, bubbles])
   return active ? ids : NO_LABELS
 }
 
-// --- Phone pin bubbles -----------------------------------------------------
+// --- Same-address pins and overlap bubbles ----------------------------------
+
+type IncidentSpot = MapSpot<Incident>
 
 /** A bubble on the map: its pins' incidents, drawn at their geographic centre. */
 interface IncidentCluster {
   key: string
+  /** The spot keys merged into it – their pins and labels are left out. */
+  spotKeys: string[]
   incidents: Incident[]
   lead: Incident
   latitude: number
@@ -758,81 +733,96 @@ interface IncidentCluster {
 const NO_CLUSTERS: IncidentCluster[] = []
 
 /**
- * The phone's count bubbles (`lib/map-clusters.ts`): which pins merge at the current view.
- * Recomputed when the map comes to rest, like the labels. `exclude` (the selected and the
- * Reko-highlighted incidents) always stay pins of their own.
+ * The count bubbles (`lib/map-clusters.ts`), phone and desktop: which pins merge at the current
+ * view, below `CLUSTER_MAX_ZOOM`. A same-address pin takes part as one pin of weight n. Recomputed
+ * when the map comes to rest, like the labels. `keepApart` (the selected and the Reko-highlighted
+ * incidents) keeps their spots pins of their own (`clusterableSpots`).
  */
 function usePinClusters(
   map: MlMap | null,
-  active: boolean,
-  incidents: Incident[],
-  exclude: ReadonlySet<string>,
+  spots: IncidentSpot[],
+  keepApart: ReadonlySet<string>,
+  compact: boolean,
 ): IncidentCluster[] {
   const [clusters, setClusters] = useState<IncidentCluster[]>(NO_CLUSTERS)
   useEffect(() => {
-    if (!map || !active) return
-    const byId = new Map(incidents.map((incident) => [incident.id, incident]))
+    if (!map) return
+    const byKey = new Map(spots.map((spot) => [spot.key, spot]))
     const compute = () => {
       if (map.getZoom() >= CLUSTER_MAX_ZOOM) {
         setClusters(NO_CLUSTERS)
         return
       }
-      const pins = incidents
-        .filter((incident) => !exclude.has(incident.id))
-        .map((incident) => {
-          const point = map.project([incident.location_lng!, incident.location_lat!])
-          return {
-            id: incident.id,
-            x: point.x,
-            y: point.y,
-            priority: incident.priority,
-            statusGroup: STATUS_TO_GROUP[incident.status as IncidentStatus] || "open",
-          }
-        })
-      const next = clusterPins(pins, { pinSize: incidentPinSize(false, true), bubbleSize: CLUSTER_BUBBLE_SIZE }).map(
-        (cluster: PinCluster): IncidentCluster => {
-          const members = cluster.pins.map((pin) => byId.get(pin.id)!)
-          return {
-            key: cluster.pins.map((pin) => pin.id).join(","),
-            incidents: members,
-            lead: byId.get(cluster.lead.id)!,
-            latitude: members.reduce((sum, inc) => sum + inc.location_lat!, 0) / members.length,
-            longitude: members.reduce((sum, inc) => sum + inc.location_lng!, 0) / members.length,
-          }
-        },
-      )
-      // Same grouping, same array: the incident list is a new array on every poll.
+      const pins = clusterableSpots(spots, keepApart).map((spot) => {
+        const point = map.project([spot.longitude, spot.latitude])
+        return {
+          id: spot.key,
+          x: point.x,
+          y: point.y,
+          priority: spot.lead.priority,
+          statusGroup: STATUS_TO_GROUP[spot.lead.status as IncidentStatus] || "open",
+          count: spot.incidents.length,
+        }
+      })
+      const pinSize = incidentPinSize(false, compact)
+      const next = clusterPins(pins, {
+        pinSize,
+        bubbleSize: CLUSTER_BUBBLE_SIZE,
+        badge: pinBadgeCircle(pinSize),
+      }).map((cluster: PinCluster): IncidentCluster => {
+        const joined = cluster.pins.map((pin) => byKey.get(pin.id)!)
+        return {
+          key: cluster.pins.map((pin) => pin.id).join(","),
+          spotKeys: cluster.pins.map((pin) => pin.id),
+          incidents: joined.flatMap((spot) => spot.incidents),
+          lead: byKey.get(cluster.lead.id)!.lead,
+          // The plain mean of the joined PINS – where `clusterPins` tested the bubble for
+          // overlap. Weighted by incidents, a 3-incident pin would pull it onto a neighbour.
+          latitude: joined.reduce((sum, spot) => sum + spot.latitude, 0) / joined.length,
+          longitude: joined.reduce((sum, spot) => sum + spot.longitude, 0) / joined.length,
+        }
+      })
+      // Same grouping, same array: the incident list is a new array on every poll. The members
+      // count too – a status filter can hide one of a joined spot's incidents, keeping key + lead.
       setClusters((previous) => {
         const same =
           previous.length === next.length &&
-          previous.every((cluster, i) => cluster.key === next[i].key && cluster.lead === next[i].lead)
+          previous.every(
+            (cluster, i) =>
+              cluster.key === next[i].key &&
+              cluster.lead === next[i].lead &&
+              cluster.incidents.length === next[i].incidents.length &&
+              cluster.incidents.every((incident, j) => incident.id === next[i].incidents[j].id),
+          )
         return same ? previous : next.length === 0 ? NO_CLUSTERS : next
       })
     }
     compute()
     map.on("moveend", compute)
     return () => { map.off("moveend", compute) }
-  }, [map, active, incidents, exclude])
-  return active ? clusters : NO_CLUSTERS
+  }, [map, spots, keepApart, compact])
+  return clusters
 }
 
 /**
- * One count bubble. A tap zooms to its incidents – at least one step, so a group that still
- * overlaps at its own fit opens up a little more with every tap – and never past the focus band.
+ * One count bubble. A click or tap zooms to its incidents – at least one step, so a group that
+ * still overlaps at its own fit opens up a little more with every click – and never past the
+ * focus band.
  */
 function ClusterMarker({
   cluster,
   map,
+  compact,
   padding,
 }: {
   cluster: IncidentCluster
   map: MlMap | null
+  compact: boolean
   padding: FitPadding
 }) {
   const t = useTranslations("map")
   const priority = cluster.lead.priority
-  const priorityLabel =
-    priority === "high" ? t("common.priorityHigh") : priority === "medium" ? t("common.priorityMedium") : t("common.priorityLow")
+  const name = t("view.clusterAria", { count: cluster.incidents.length, priority: priorityName(t, priority) })
   const zoomIn = () => {
     if (!map) return
     const bounds = boundsOfLatLng(cluster.incidents.map((inc) => [inc.location_lat!, inc.location_lng!] as LatLngPoint))
@@ -846,22 +836,143 @@ function ClusterMarker({
       longitude={cluster.longitude}
       latitude={cluster.latitude}
       style={{ zIndex: incidentZ("pin", priority, { hovered: false, highlighted: false }) }}
-      // Like every marker: the tap must not reach the map canvas underneath.
+      // Like every marker: the click must not reach the map canvas underneath.
       onClick={(event) => event.originalEvent.stopPropagation()}
     >
-      <button
-        type="button"
-        className="block rounded-full"
-        aria-label={t("view.clusterAria", { count: cluster.incidents.length, priority: priorityLabel })}
-        onClick={zoomIn}
-      >
+      <button type="button" className="block rounded-full" aria-label={name} title={name} onClick={zoomIn}>
         <ClusterBubble
           count={cluster.incidents.length}
           priority={priority}
           group={STATUS_TO_GROUP[cluster.lead.status as IncidentStatus] || "open"}
+          compact={compact}
         />
       </button>
     </Marker>
+  )
+}
+
+/** «Hohe Priorität» & co. for an accessible name – the glyph alone says nothing to a reader. */
+function priorityName(t: ReturnType<typeof useTranslations<"map">>, priority: string | null | undefined): string {
+  return priority === "high" ? t("common.priorityHigh") : priority === "medium" ? t("common.priorityMedium") : t("common.priorityLow")
+}
+
+/**
+ * The list under a same-address label (look 3B): the address, then one row per incident –
+ * priority glyph, number, Meldung (else Einsatzart), status. A row click is a click on that incident's pin (select;
+ * in Reko-Modus / Routenplanung: assign / add it), a double-click opens it. The selected one is
+ * marked. Desktop: hung under the label while the pin or its label is pointed at, after a click
+ * on the pin, and while one of its incidents is selected. Phone (`docked`): after a tap on the
+ * pin, docked along the map's bottom edge – a 320px list off a pin does not fit a 390px map –
+ * with a ✕.
+ */
+function SpotList({
+  spot,
+  address,
+  selectedId,
+  docked,
+  onPick,
+  onOpen,
+  onClose,
+}: {
+  spot: IncidentSpot
+  address: string
+  selectedId: string | null
+  docked: boolean
+  onPick?: (incidentId: string) => void
+  onOpen?: (incidentId: string) => void
+  onClose: () => void
+}) {
+  const t = useTranslations("map")
+  return (
+    <div
+      role="group"
+      aria-label={address}
+      className={`rounded-lg border border-border bg-popover py-1.5 font-sans text-sm text-popover-foreground shadow-lg ${
+        docked ? "absolute inset-x-2 bottom-2 z-map-control flex max-h-[calc(100%-1rem)] flex-col" : "w-80"
+      }`}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") onClose()
+      }}
+    >
+      <div className="flex shrink-0 items-start gap-2 px-3 pb-1 pt-0.5">
+        <p className="min-w-0 flex-1 break-words font-semibold">{address}</p>
+        {docked && (
+          <button
+            type="button"
+            className="-mr-1.5 -mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted"
+            aria-label={t("view.spotClose")}
+            onClick={onClose}
+          >
+            <X className="size-4" aria-hidden="true" />
+          </button>
+        )}
+      </div>
+      {/* Docked, the rows scroll under the address and the ✕ once they outgrow the map (six
+          incidents at one address on a phone). */}
+      <div className={docked ? "relative min-h-0 overflow-y-auto overscroll-contain" : undefined}>
+        {spot.incidents.map((incident) => (
+          <SpotListRow
+            key={incident.id}
+            incident={incident}
+            selected={incident.id === selectedId}
+            onPick={onPick}
+            onOpen={onOpen}
+          />
+        ))}
+      </div>
+      {/* The one thing a row cannot show by itself: a double-click opens it. A finger has no
+          double-click here – the selected Einsatz opens from the page's own card. */}
+      {!docked && onOpen && (
+        <p className="mt-1 border-t border-border px-3 pt-1.5 text-xs text-muted-foreground">{t("view.spotHint")}</p>
+      )}
+    </div>
+  )
+}
+
+/** One row of `SpotList`. */
+function SpotListRow({
+  incident,
+  selected,
+  onPick,
+  onOpen,
+}: {
+  incident: Incident
+  selected: boolean
+  onPick?: (incidentId: string) => void
+  onOpen?: (incidentId: string) => void
+}) {
+  const t = useTranslations("map")
+  const tKanban = useTranslations("kanban")
+  const doubleClickRef = useOpenOnDoubleClick(onOpen ? () => onOpen(incident.id) : undefined)
+  const color = PRIORITY_MARKER_COLORS[incident.priority as keyof typeof PRIORITY_MARKER_COLORS] ?? MAP_COLORS.offline
+  // What tells them apart at one address: the Meldung, else the Einsatzart. Not the title – that
+  // is the address again (the board shows it only where an address is missing).
+  const what = incident.description?.trim() || getIncidentTypeLabel(incident.type)
+  return (
+    <div ref={doubleClickRef}>
+      <button
+        type="button"
+        aria-current={selected || undefined}
+        className={`grid w-full grid-cols-[14px_auto_minmax(0,1fr)_auto] items-center gap-2 px-3 py-1 text-left leading-5 hover:bg-muted focus-visible:bg-muted focus-visible:outline-none pointer-coarse:min-h-11 ${
+          selected ? "bg-sel-wash shadow-[inset_2px_0_0_var(--sel-line)]" : ""
+        }`}
+        onClick={() => onPick?.(incident.id)}
+      >
+        <svg width={14} height={14} viewBox="0 0 14 14" role="img" aria-label={priorityName(t, incident.priority)}>
+          <path
+            d={priorityGlyphPath(incident.priority, 7, 7, 1.2)}
+            fill="none"
+            stroke={color}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        <span className="font-mono text-xs text-muted-foreground">{incident.number}</span>
+        <span className="truncate" title={what}>{what}</span>
+        <span className="text-xs text-muted-foreground">{tKanban(`columns.${incident.status}`)}</span>
+      </button>
+    </div>
   )
 }
 
@@ -1218,25 +1329,26 @@ export default function MapView({
   }, [map])
   // Tracks live zoom so vehicle markers can shrink when zoomed out.
   const mapZoom = useMapZoom(map, 13)
-  // Hovered incident → its label swaps to the rich detail card.
-  const [hoveredIncidentId, setHoveredIncidentId] = useState<string | null>(null)
+  // The pointed-at pin (a spot key, `lib/map-spots.ts`) → a single incident's label swaps to the
+  // rich detail card, a same-address pin opens its list.
+  const [hoveredSpotKey, setHoveredSpotKey] = useState<string | null>(null)
   // Leaving a label does not close its card at once. The grace period rides out
   // the seam between two labels (and the moment the swelling card redraws under
   // the pointer), so a card never blinks on its way from one address to the next.
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current) }, [])
-  const handleHoverStart = useCallback((incidentId: string) => {
+  const handleHoverStart = useCallback((key: string) => {
     if (closeTimer.current) {
       clearTimeout(closeTimer.current)
       closeTimer.current = null
     }
-    setHoveredIncidentId(incidentId)
+    setHoveredSpotKey(key)
   }, [])
-  const handleHoverEnd = useCallback((incidentId: string) => {
+  const handleHoverEnd = useCallback((key: string) => {
     if (closeTimer.current) clearTimeout(closeTimer.current)
     closeTimer.current = setTimeout(() => {
       closeTimer.current = null
-      setHoveredIncidentId((current) => (current === incidentId ? null : current))
+      setHoveredSpotKey((current) => (current === key ? null : current))
     }, LABEL_HOVER_CLOSE_MS)
   }, [])
 
@@ -1386,35 +1498,65 @@ export default function MapView({
   // The legend must describe what the markers actually wear: the route colours
   // only when they are the fallback in use, never over a chosen «Färben nach».
   const legendShowsRoutes = markerAccents === undefined && routeAccents !== undefined
-  // Every label hangs on its own marker; only incidents sharing one address
-  // stack (see stackSharedAddresses). A label whose right side is taken flips to
-  // the left of its pin (desktop); where neither side is free the labels overlap,
-  // and hovering brings the one being pointed at to the front — the map's job
-  // is to say where an incident is, and an address parked next to a stranger's
-  // dot does the opposite.
-  const labelOffsets = useMemo(() => {
-    if (!showLabels) return new Map<string, number>()
-    return stackSharedAddresses(mappableIncidents)
-  }, [showLabels, mappableIncidents])
-  // …except on a phone, where thirty permanent bubbles are a heap: no permanent labels at the
-  // default zoom (a tap shows the one you want), collision-checked ones from street level.
+  // One pin per address: incidents at the same spot share a pin, its look and ONE label
+  // (`lib/map-spots.ts`); the pin's list picks one of them.
+  const spots = useMemo(() => groupSpots(mappableIncidents), [mappableIncidents])
   const compactMap = useCompactMap()
-  const permanentLabels = labelMode({ showLabels, compact: compactMap, zoom: mapZoom })
-  const fitLabelIds = useLabelPass(map, permanentLabels === "fit", pickVisibleLabels, mappableIncidents, labelOffsets)
-  // Desktop: every label, flipped to the left of its pin where the right is taken.
-  const leftLabelIds = useLabelPass(map, permanentLabels === "all", placeLabelSides, mappableIncidents, labelOffsets)
-  // Phone below street level: overlapping pins merge into count bubbles. The selected and the
-  // Reko-highlighted incidents stay pins – they are what the operator is looking for.
-  const unclustered = useMemo(() => {
+  // Below street level overlapping pins merge into count bubbles, phone and desktop. The selected
+  // and the Reko-highlighted incidents stay pins – they are what the operator is looking for.
+  const keepApart = useMemo(() => {
     const ids = new Set(highlightIncidentIds ?? [])
     if (selectedIncidentId) ids.add(selectedIncidentId)
     return ids
   }, [highlightIncidentIds, selectedIncidentId])
-  const clusters = usePinClusters(map, compactMap, mappableIncidents, unclustered)
-  const clusteredIds = useMemo(
-    () => new Set(clusters.flatMap((cluster) => cluster.incidents.map((incident) => incident.id))),
-    [clusters],
+  const clusters = usePinClusters(map, spots, keepApart, compactMap)
+  const clusteredKeys = useMemo(() => new Set(clusters.flatMap((cluster) => cluster.spotKeys)), [clusters])
+  // Every label hangs on its own pin. A label whose right side is taken flips to the left of its
+  // pin (desktop); where neither side is free the labels overlap, and hovering brings the one
+  // being pointed at to the front — the map's job is to say where an incident is, and an
+  // address parked next to a stranger's dot does the opposite.
+  const labelSources = useMemo(
+    () =>
+      spots
+        .filter((spot) => !clusteredKeys.has(spot.key))
+        .map((spot): LabelSource => {
+          const single = spot.incidents.length === 1
+          const numbers = single ? (spot.lead.number != null ? String(spot.lead.number) : "") : spotNumberText(spot.incidents)
+          const personnel = single ? ((spot.lead as { assigned_personnel?: unknown[] }).assigned_personnel?.length ?? 0) : 0
+          return {
+            id: spot.key,
+            latitude: spot.latitude,
+            longitude: spot.longitude,
+            text: `${numbers} ${shortAddressOf(spot.lead)}`.trim(),
+            crewCounters: single ? (spot.lead.assigned_vehicles.length > 0 ? 1 : 0) + (personnel > 0 ? 1 : 0) : 0,
+            priority: spot.lead.priority,
+          }
+        }),
+    [spots, clusteredKeys],
   )
+  // …except on a phone, where thirty permanent bubbles are a heap: no permanent labels at the
+  // default zoom (a tap shows the one you want), collision-checked ones from street level.
+  const permanentLabels = labelMode({ showLabels, compact: compactMap, zoom: mapZoom })
+  const fitLabelIds = useLabelPass(map, permanentLabels === "fit", pickVisibleLabels, labelSources, clusters)
+  // Desktop: every label, flipped to the left of its pin where the right is taken.
+  const leftLabelIds = useLabelPass(map, permanentLabels === "all", placeLabelSides, labelSources, clusters)
+  // The same-address pin whose list was opened by a click / tap (hover opens it too, desktop).
+  // A click on empty map, Escape or a row closes it.
+  const [openSpotKey, setOpenSpotKey] = useState<string | null>(null)
+  const closeSpot = useCallback(() => setOpenSpotKey(null), [])
+  useEffect(() => {
+    if (!map) return
+    map.on("click", closeSpot)
+    return () => { map.off("click", closeSpot) }
+  }, [map, closeSpot])
+  // A row of the list is a click on that incident's pin; the list then gives way to the selection.
+  const pickFromSpot = (incidentId: string) => {
+    setOpenSpotKey(null)
+    onMarkerClick?.(incidentId)
+  }
+  const dockedSpot = compactMap
+    ? spots.find((spot) => spot.key === openSpotKey && spot.incidents.length > 1 && !clusteredKeys.has(spot.key))
+    : undefined
 
   // …and the legend says so, listing the routes by name. A legend that still
   // reads «Priorität» while the markers carry route colours is worse than none.
@@ -1575,22 +1717,99 @@ export default function MapView({
           />
         ))}
 
-        {/* Phone: overlapping pins as count bubbles (their pins are left out below) */}
+        {/* Overlapping pins as count bubbles (their pins are left out below) */}
         {clusters.map((cluster) => (
-          <ClusterMarker key={cluster.key} cluster={cluster} map={map} padding={fitPadding} />
+          <ClusterMarker key={cluster.key} cluster={cluster} map={map} compact={compactMap} padding={fitPadding} />
         ))}
 
-        {/* Incident markers + their permanent labels */}
-        {mappableIncidents.map((incident) => {
-          if (clusteredIds.has(incident.id)) return null
+        {/* Incident pins (one per address) + their permanent labels */}
+        {spots.map((spot) => {
+          if (clusteredKeys.has(spot.key)) return null
+          const incident = spot.lead
+          const shared = spot.incidents.length > 1
+          const selectedHere = spot.incidents.some((member) => member.id === selectedIncidentId)
           const isHighlighted =
-            selectedIncidentId === incident.id || (highlightIncidentIds?.has(incident.id) ?? false)
+            selectedHere || spot.incidents.some((member) => highlightIncidentIds?.has(member.id) ?? false)
+          const pointedAt = hoveredSpotKey === spot.key
+          const shortAddress = shortAddressOf(incident)
+          // A permanent label by the surface's rule — or this pin's own, because it is the
+          // selected one (a phone's only way to read a label at the default zoom).
+          const permanent =
+            permanentLabels === "all" || (permanentLabels === "fit" && fitLabelIds.has(spot.key))
+          const side = permanent && leftLabelIds.has(spot.key) ? "left" : "right"
+          const hoverStart = () => handleHoverStart(spot.key)
+          const hoverEnd = () => handleHoverEnd(spot.key)
+          const accentColor = effectiveMarkerAccents?.get(incident.id) ?? null
+
+          if (shared) {
+            // Several Einsätze at this address: the lead's pin + count, ONE label with the
+            // numbers, and the list to pick one – open after a click or tap on the pin and, with
+            // a mouse, while pointed at or while one of them is selected. The phone's list is
+            // docked at the map's foot (rendered below, outside the map).
+            const open = openSpotKey === spot.key || (!compactMap && (selectedHere || pointedAt))
+            const numbers = spotNumberText(spot.incidents)
+            const allNumbers = spot.incidents.flatMap((member) => (member.number != null ? [member.number] : []))
+            const ariaLabel =
+              allNumbers.length > 0
+                ? t("view.spotAria", { count: spot.incidents.length, numbers: allNumbers.join(", "), address: shortAddress })
+                : t("view.spotAriaNoNumbers", { count: spot.incidents.length, address: shortAddress })
+            const toggle = () => setOpenSpotKey((current) => (current === spot.key ? null : spot.key))
+            // A double-click is two clicks: the list stays open, and the map does not zoom.
+            const keepOpen = () => setOpenSpotKey(spot.key)
+            return (
+              <Fragment key={spot.key}>
+                <IncidentMarker
+                  incident={incident}
+                  highlighted={isHighlighted}
+                  compact={compactMap}
+                  accentColor={accentColor}
+                  count={spot.incidents.length}
+                  ariaLabel={ariaLabel}
+                  expanded={open}
+                  zIndex={incidentZ("pin", incident.priority, { hovered: pointedAt || open, highlighted: isHighlighted })}
+                  onSelect={toggle}
+                  onOpen={keepOpen}
+                  onHoverStart={hoverStart}
+                  onHoverEnd={hoverEnd}
+                />
+                {(permanent || open || selectedHere) && (
+                  <IncidentLabel
+                    latitude={spot.latitude}
+                    longitude={spot.longitude}
+                    side={side}
+                    zIndex={incidentZ("label", incident.priority, { hovered: pointedAt || open, highlighted: isHighlighted })}
+                    onSelect={toggle}
+                    onOpen={keepOpen}
+                    onHoverStart={hoverStart}
+                    onHoverEnd={hoverEnd}
+                    below={
+                      open && !compactMap && (
+                        <SpotList
+                          spot={spot}
+                          address={shortAddress}
+                          selectedId={selectedHere ? selectedIncidentId ?? null : null}
+                          docked={false}
+                          onPick={onMarkerClick ? pickFromSpot : undefined}
+                          onOpen={onMarkerDoubleClick}
+                          onClose={closeSpot}
+                        />
+                      )
+                    }
+                  >
+                    {numbers && <span className="mr-1 font-mono text-2xs font-medium text-muted-foreground">{numbers}</span>}
+                    <span className="font-semibold">{shortAddress}</span>
+                  </IncidentLabel>
+                )}
+              </Fragment>
+            )
+          }
+
           // Hover shows the full picture (type, status, crew, reko, …) via the Operation lookup;
           // the permanent label stays short. Token/display mode has no operations — labels stay
           // short there. A CLICK pins the same card: selecting a marker holds the detail open
           // until the marker is clicked again (deselect).
-          const pinned = selectedIncidentId === incident.id
-          const hovered = hoveredIncidentId === incident.id || pinned
+          const pinned = selectedHere
+          const hovered = pointedAt || pinned
           const hoverOperation =
             hovered && !hoverCardsDisabled ? operationsById?.get(incident.id) : undefined
           // An Auftrag stop owns no resources of its own — they ride on the route — so resolve
@@ -1599,37 +1818,26 @@ export default function MapView({
           const hoverGroup = hoverOperation?.groupId
             ? groups?.find((g) => g.id === hoverOperation.groupId)
             : undefined
-          const dy = labelOffsets.get(incident.id) ?? 0
-          const shortAddress = shortAddressOf(incident)
           // A share-link payload has no number; the board's incidents do.
           const incidentNumber = "number" in incident ? incident.number : null
-          // A permanent label by the surface's rule — or this incident's own, because it is the
-          // selected one (a phone's only way to read a label at the default zoom).
-          const permanent =
-            permanentLabels === "all" || (permanentLabels === "fit" && fitLabelIds.has(incident.id))
           // Split, not summed: a bare "(3)" hid whether that was three people,
           // three vehicles or a mix — an icon each answers it without a click.
           const vehicleCount = incident.assigned_vehicles.length
           const personnelCount = ("assigned_personnel" in incident ? incident.assigned_personnel?.length : 0) || 0
           const select = () => onMarkerClick?.(incident.id)
           const openDetail = onMarkerDoubleClick ? () => onMarkerDoubleClick(incident.id) : undefined
-          const hoverStart = () => handleHoverStart(incident.id)
-          const hoverEnd = () => handleHoverEnd(incident.id)
 
           return (
-            <Fragment key={incident.id}>
+            <Fragment key={spot.key}>
               <IncidentMarker
                 incident={incident}
                 highlighted={isHighlighted}
                 compact={compactMap}
-                accentColor={effectiveMarkerAccents?.get(incident.id) ?? null}
+                accentColor={accentColor}
                 // Two markers a few metres apart overlap; the one being pointed at (or
                 // selected) belongs on top, the rest by priority – not by DOM order – and
                 // above every resting label (see Z in lib/map-view.ts).
-                zIndex={incidentZ("pin", incident.priority, {
-                  hovered: hoveredIncidentId === incident.id,
-                  highlighted: isHighlighted,
-                })}
+                zIndex={incidentZ("pin", incident.priority, { hovered: pointedAt, highlighted: isHighlighted })}
                 onSelect={select}
                 onOpen={openDetail}
                 onHoverStart={hoverStart}
@@ -1640,10 +1848,9 @@ export default function MapView({
                   the operation, and the selected incident always shows its label/card. */}
               {(permanent || pinned || hoverOperation) && (
                 <IncidentLabel
-                  latitude={incident.location_lat!}
-                  longitude={incident.location_lng!}
-                  dy={permanent ? dy : 0}
-                  side={permanent && dy === 0 && leftLabelIds.has(incident.id) ? "left" : "right"}
+                  latitude={spot.latitude}
+                  longitude={spot.longitude}
+                  side={permanent ? side : "right"}
                   zIndex={incidentZ("label", incident.priority, { hovered, highlighted: isHighlighted })}
                   onSelect={select}
                   onOpen={openDetail}
@@ -1720,6 +1927,21 @@ export default function MapView({
         showVehicles={mappedVehiclePositions.length > 0}
         showAssignments={showAssignmentLines && mappedVehiclePositions.length > 0}
       />
+
+      {/* Phone: the tapped same-address pin's list, docked along the map's foot – after the
+          legend and the fit-all button in the DOM and on their `z-map-control` tier, so it lies
+          over both while open (six or more rows reach the top of the map). */}
+      {dockedSpot && (
+        <SpotList
+          spot={dockedSpot}
+          address={shortAddressOf(dockedSpot.lead)}
+          selectedId={selectedIncidentId ?? null}
+          docked
+          onPick={onMarkerClick ? pickFromSpot : undefined}
+          onOpen={onMarkerDoubleClick}
+          onClose={closeSpot}
+        />
+      )}
 
       {radarOn && (
         <WeatherRadarControls

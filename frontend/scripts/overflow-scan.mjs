@@ -337,7 +337,8 @@ function visits(links) {
     { id: 'help', path: '/help' },
     { id: 'resources', path: '/resources' },
     { id: 'training', path: '/training' },
-    { id: 'divera-pool', path: '/divera-pool' },
+    // The old page address now lands on the board with the Alarmeingang sheet open.
+    { id: 'alarm-inbox', path: '/divera-pool' },
     { id: 'admin-audit', path: '/admin/audit' },
     { id: 'admin-import', path: '/admin/import' },
     ...['device', 'general', 'integrations', 'printer', 'gps', 'alerting', 'alarmIntake', 'notifications', 'checklist',

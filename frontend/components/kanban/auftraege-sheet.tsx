@@ -87,7 +87,7 @@ import { stopStatusBorderClass } from "@/lib/kanban-utils"
 import { isToastLayer } from "@/lib/toast-layer"
 import type { GroupResources } from "@/lib/types/groups"
 import { Reveal } from "@/components/ui/reveal"
-import { AUFTRAG_SWATCHES } from "@/lib/map-colors"
+import { AUFTRAG_SWATCHES, darkenForWhiteText } from "@/lib/map-colors"
 
 // True when an event originates inside ANY dialog layered over this sheet.
 //
@@ -374,7 +374,8 @@ export function AuftraegeSheet({
                 >
                   <span
                     className="size-2 rounded-full"
-                    style={{ backgroundColor: template.color ?? "var(--muted-foreground)" }}
+                    // Drawn like the route it creates (groups-context darkens stored colours).
+                    style={{ backgroundColor: template.color ? darkenForWhiteText(template.color) : "var(--muted-foreground)" }}
                   />
                   {template.name}
                 </Button>

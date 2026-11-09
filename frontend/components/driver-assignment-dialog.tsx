@@ -91,10 +91,19 @@ export function DriverAssignmentDialog({
     }
   }, [open, initialDriverId, initialDriverName])
 
-  // Reset search on close
+  // The «just assigned» flash on a row lasts 600ms. The effect owns the timer, so closing or
+  // unmounting the dialog clears it instead of setting state on a component that is gone.
+  useEffect(() => {
+    if (!justAssigned) return
+    const timer = setTimeout(() => setJustAssigned(null), 600)
+    return () => clearTimeout(timer)
+  }, [justAssigned])
+
+  // Reset search and the flash on close – reopened within 600ms it must not replay the last assign.
   useEffect(() => {
     if (!open) {
       setSearchQuery("")
+      setJustAssigned(null)
     }
   }, [open])
 
@@ -241,7 +250,6 @@ export function DriverAssignmentDialog({
       setLocalDriverName(person.name)
 
       setJustAssigned(person.id)
-      setTimeout(() => setJustAssigned(null), 600)
 
       onDriverAssigned()
       onOpenChange(false)

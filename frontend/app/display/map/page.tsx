@@ -221,16 +221,19 @@ function DisplayMapControls({
     // (`topRightControls`), next to its «ohne Koordinaten» chip. Positioned over the map on their
     // own, they lay on top of that chip (owner, 03.10.).
     <>
-      {/* Status filters — pills, matching the normal map view */}
-      <div className="inline-flex rounded-lg border border-border overflow-hidden shadow-md backdrop-blur-sm">
-        {(['open', 'active', 'completed'] as StatusGroup[]).map((group, index) => (
+      {/* Status filters — toggles in one solid track. Each toggle has its own corners: square
+          segments clipped by the track's 12px curve left the wash and its ring short of the
+          corners, and the translucent track let the map tint the wash (owner, 08.11.). */}
+      <div className="inline-flex gap-0.5 rounded-lg border border-border bg-background p-0.5 shadow-md">
+        {(['open', 'active', 'completed'] as StatusGroup[]).map((group) => (
           <button
             key={group}
             onClick={() => onToggleStatusFilter(group)}
-            className={`px-3 py-1.5 text-xs font-medium transition-colors ${index > 0 ? 'border-l border-border' : ''} ${
+            aria-pressed={options.statusFilters[group]}
+            className={`rounded-sm px-2.5 py-1 text-xs font-medium transition-colors ${
               options.statusFilters[group]
                 ? 'sel-choice'
-                : 'bg-background/80 text-muted-foreground hover:bg-muted'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             }`}
           >
             {t(`statusGroups.${group}`)} ({statusCounts[group]})

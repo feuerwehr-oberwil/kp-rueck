@@ -32,7 +32,8 @@ Geografische Übersicht aller Einsatzorte. Farbige Marker zeigen Priorität (Gr�
 - **Priorität (Füllung):** Grau=Niedrig, Gelb=Mittel, Rot=Hoch
 - **Status (Rahmen):** Gestrichelt=Offen, Durchgezogen=Aktiv, Gepunktet+Verblasst=Rückfahrt & Abgeschlossen
 - **Fahrzeuge (GPS):** Blau=Online, Grau=Offline
-- **Handy – Blase mit Zahl:** mehrere Einsätze, deren Marker sich überdecken; Marke und Rahmen des dringendsten (höchste Priorität). Antippen zoomt auf die Gruppe. Ab Strassen-Zoom stehen die Marker wieder einzeln.
+- **Marker mit Zahl:** mehrere Einsätze an derselben Adresse – ein Marker im Aussehen des dringendsten, eine Beschriftung mit allen Nummern («6 · 7 · 9 Bahnhofstrasse 1»). Darüberfahren oder Klick zeigt die Liste; ein Klick auf eine Zeile wählt diesen Einsatz, ein Doppelklick öffnet ihn.
+- **Blase mit Zahl:** mehrere Einsätze, deren Marker sich überdecken; Marke und Rahmen des dringendsten (höchste Priorität). Klick oder Antippen zoomt auf die Gruppe. Ab Strassen-Zoom stehen die Marker wieder einzeln.
 
 **Beschriftungen (Desktop):** Jede Adresse steht neben ihrem Marker, normalerweise rechts. Wo rechts schon eine andere Beschriftung oder ein Marker steht, wechselt sie auf die linke Seite – ist auch die besetzt, bleibt sie rechts, und die überfahrene kommt nach vorn.
 
@@ -642,7 +643,7 @@ den gewohnten Befehlen («neu» ist weiterhin «Neuer Einsatz»). Es gelten dies
 **`⇥` ergänzt** das angefangene Wort: `14 kell` wird zu `14 Keller Marco`, `grenz` zu `Grenzweg 1`. Passen mehrere, nimmt `⇥` nochmals den nächsten (rechts in der Zeile steht, welcher), `⇧⇥` den vorigen.
 
 Die globalen Kürzel (`G …` und `?`) gelten auf jeder Seite der Bedienoberfläche – Board,
-Karte, Ereignisse, Einstellungen, Hilfe, Übung, Alarmeingang. Sie ruhen,
+Karte, Ereignisse, Einstellungen, Hilfe, Übung. Sie ruhen,
 solange ein Dialog oder ein Menü offen ist, und auf den Wandanzeigen (`/display`) sowie den
 Handy-Formularen (Feld, Reko, Check-In) gibt es sie bewusst nicht.
 

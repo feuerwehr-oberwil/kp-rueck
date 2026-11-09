@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react"
+import { useEffect, useId, useState, useCallback, useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import {
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/command"
 import { defaultFilter } from "cmdk"
 import { DispatchChoice, DispatchPreview } from "@/components/ui/command-dispatch-preview"
+import { Kbd } from "@/components/ui/kbd"
 import {
   completeDispatch,
   parseDispatch,
@@ -196,6 +197,10 @@ export function CommandPalette() {
     [vocabulary, search, picks],
   )
   const dispatchPlan = parsed?.plan.kind === "none" ? null : parsed?.plan ?? null
+  // «zuweisen» is only offered where it runs: a viewer or the standby mirror (no `onDispatch`)
+  // still jumps by typing a number, but is not invited to assign.
+  const canDispatch = !!getDispatchVocabulary && !!onDispatch
+  const hintId = useId()
 
   // ⇥ completes the word being typed («kell» → «Keller Marco»); ⇥ again steps to the
   // next candidate, ⇧⇥ back. The cycle lives only while the text is what ⇥ put there.
@@ -365,12 +370,32 @@ export function CommandPalette() {
           onValueChange={setSelectedValue}
           className="**:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
           <CommandInput
-            placeholder={getDispatchVocabulary ? t('dispatch.placeholder') : t('searchPlaceholder')}
+            placeholder={canDispatch ? t('dispatch.placeholder') : t('searchPlaceholder')}
             value={search}
             onValueChange={setSearch}
             onKeyDown={onSearchKeyDown}
+            aria-describedby={canDispatch ? hintId : undefined}
             showClose
           />
+          {/* The dispatch grammar under the input, not in the placeholder: the whole sentence
+              was clipped in the 512px palette (owner, 08.11.). It wraps rather than truncate –
+              French is longer, a phone narrower. */}
+          {canDispatch && (
+            <p
+              id={hintId}
+              className="flex flex-wrap items-center gap-x-1.5 gap-y-1 border-b px-(--field-px) py-1.5 text-xs text-muted-foreground"
+            >
+              <span className="min-w-0 break-words">{t('dispatch.hint')}</span>
+              <Kbd className="font-mono">{t('dispatch.hintExample')}</Kbd>
+              <span className="ml-auto flex shrink-0 items-center gap-1.5 pl-2">
+                <Kbd>
+                  <span aria-hidden="true">⇥</span>
+                  <span className="sr-only">{t('dispatch.hintTabKey')}</span>
+                </Kbd>
+                {t('dispatch.hintTab')}
+              </span>
+            </p>
+          )}
           <div ref={listWrapperRef} className="relative">
           <CommandList>
             <CommandEmpty>{t('noResults')}</CommandEmpty>
