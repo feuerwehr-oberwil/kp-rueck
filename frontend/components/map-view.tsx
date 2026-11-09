@@ -12,7 +12,7 @@
  * resize, GL recovery — belongs to `<BaseMap>`; this file only contributes content.
  */
 
-import { Fragment, useState, useEffect, useMemo, useRef, useCallback, type CSSProperties, type ReactNode } from "react"
+import { Fragment, useState, useEffect, useMemo, useRef, useCallback, type CSSProperties, type ReactNode, type RefObject } from "react"
 import type { Map as MlMap } from "maplibre-gl"
 import { Marker, NavigationControl, type MapLayerMouseEvent } from "react-map-gl/maplibre"
 import { useIncidents, useOperations, type Operation } from "@/lib/contexts/operations-context"
@@ -62,7 +62,7 @@ import { useTranslations } from "next-intl"
 import { useInitialStationView } from "@/lib/hooks/use-initial-station-view"
 import { useCompactMap } from "@/lib/hooks/use-compact-map"
 import { estimateLabelWidth, labelMode, pickVisibleLabels, placeLabelSides, type LabelCandidate, type LabelSide } from "@/lib/map-labels"
-import { Reveal } from "@/components/ui/reveal"
+import { REVEAL_MS, Reveal } from "@/components/ui/reveal"
 import { WeatherRadarLayer } from "./map/weather-radar"
 import { WeatherRadarControls, useRadarPlayback } from "./map/weather-radar-controls"
 import { WeatherWarningChip } from "./map/weather-warning-chip"
@@ -607,9 +607,11 @@ const NO_OFFSETS: ReadonlyMap<string, PillOffset> = new Map()
 
 /** Everything that floats over the map: MapLibre's controls and our own map chrome – which all
  *  stands on `z-map-chrome` / `z-map-control` – but of the top-right row only its items (the row
- *  itself spans the map's width). */
+ *  itself spans the map's width), plus what folds out of them (`data-map-chrome`, e.g. the open
+ *  «ohne Koordinaten» list). */
 const MAP_CHROME =
-  ".maplibregl-ctrl, [data-map-top-row] > *, :is(.z-map-chrome, .z-map-control):not([data-map-top-row])"
+  ".maplibregl-ctrl, [data-map-top-row] > *, [data-map-chrome], " +
+  ":is(.z-map-chrome, .z-map-control):not([data-map-top-row])"
 
 /** The map chrome under `root` (`MAP_CHROME`) as boxes in the map container's px – what a vehicle
  *  pill and its list keep clear of, because it draws above them. */
@@ -627,7 +629,8 @@ function mapChromeBoxes(root: HTMLElement | null, container: HTMLElement): Scree
  * Where each vehicle pill stands (`placeVehiclePills`): off the incident pins (`pins`, one per
  * visible spot) and the count bubbles, out from under the map chrome (`chrome`), and off each
  * other. Recomputed when the map comes to rest, like the labels – the pills ride along with their
- * fixes while it moves.
+ * fixes while it moves – and when the chrome under `root` changes without a move (the legend
+ * opens, the «ohne Koordinaten» list folds out), once its motion has settled.
  */
 function useVehiclePlacement(
   map: MlMap | null,
@@ -635,6 +638,7 @@ function useVehiclePlacement(
   pins: { latitude: number; longitude: number; size: number }[],
   bubbles: IncidentCluster[],
   chrome: () => ScreenBox[],
+  root: RefObject<HTMLElement | null>,
 ): ReadonlyMap<string, PillOffset> {
   const [offsets, setOffsets] = useState<ReadonlyMap<string, PillOffset>>(NO_OFFSETS)
   useEffect(() => {
@@ -676,8 +680,21 @@ function useVehiclePlacement(
     }
     compute()
     map.on("moveend", compute)
-    return () => { map.off("moveend", compute) }
-  }, [map, pills, pins, bubbles, chrome])
+    // The markers live in the canvas container and change with every frame: not chrome.
+    const markers = map.getCanvasContainer()
+    let settle: ReturnType<typeof setTimeout> | undefined
+    const observer = new MutationObserver((records) => {
+      if (records.every((record) => markers.contains(record.target))) return
+      clearTimeout(settle)
+      settle = setTimeout(compute, REVEAL_MS + 50)
+    })
+    if (root.current) observer.observe(root.current, { childList: true, subtree: true, attributes: true })
+    return () => {
+      map.off("moveend", compute)
+      observer.disconnect()
+      clearTimeout(settle)
+    }
+  }, [map, pills, pins, bubbles, chrome, root])
   return offsets
 }
 
@@ -1140,7 +1157,7 @@ function MissingLocationsWarning({
 
       {/* Slides open/closed (Reveal) — the list used to pop in at full height. */}
       <Reveal open={isExpanded} className="absolute right-0 top-full w-max min-w-48 max-w-[min(18rem,calc(100vw-5rem))]">
-        <ul className="mt-1.5 w-full max-h-60 space-y-0.5 overflow-y-auto rounded-lg border border-border bg-card/95 p-1 text-sm text-foreground shadow-md backdrop-blur-sm">
+        <ul data-map-chrome className="mt-1.5 w-full max-h-60 space-y-0.5 overflow-y-auto rounded-lg border border-border bg-card/95 p-1 text-sm text-foreground shadow-md backdrop-blur-sm">
           {incidents.map((incident) => (
             <li key={incident.id}>
               <button
@@ -1611,7 +1628,7 @@ export default function MapView({
       .map((spot) => ({ latitude: spot.latitude, longitude: spot.longitude, size: spot.incidents.length > 1 ? dot + 8 : dot }))
   }, [spots, clusteredKeys, compactMap])
   const chromeBoxes = useCallback(() => (map ? mapChromeBoxes(rootRef.current, map.getContainer()) : []), [map])
-  const vehicleOffsets = useVehiclePlacement(map, vehiclePlacementInput, vehicleObstaclePins, clusters, chromeBoxes)
+  const vehicleOffsets = useVehiclePlacement(map, vehiclePlacementInput, vehicleObstaclePins, clusters, chromeBoxes, rootRef)
   const placedPills = useMemo(
     () => vehiclePlacementInput.map((pill) => ({ ...pill, offset: vehicleOffsets.get(pill.key) })),
     [vehiclePlacementInput, vehicleOffsets],

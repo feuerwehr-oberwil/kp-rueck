@@ -182,8 +182,25 @@ describe('placeHoverList', () => {
     const place = placeHoverList({ anchor: { x: 115, y: 105 }, pillHalfHeight: 11, list, viewport: phone, chrome: [button] })
     expect(place.side).toBe('bottom')
     expect(115 - 136 + place.shiftX).toBe(56)
-    // Too narrow to clear it: it stays inside the map, centred as far as it can be.
+    // Too narrow to clear it: as far off it as the map allows (its right edge at the margin).
     const narrow = placeHoverList({ anchor: { x: 115, y: 105 }, pillHalfHeight: 11, list, viewport: { width: 300, height: 348 }, chrome: [button] })
-    expect(115 - 136 + narrow.shiftX).toBe(8)
+    expect(115 - 136 + narrow.shiftX).toBe(20)
+  })
+
+  it('opens on the other side when chrome blocks its own side and the list fits there clear', () => {
+    // A bar across the whole map above the pill: no sideways slide clears it.
+    const bar = { x: 400, y: 150, width: 800, height: 100 }
+    expect(placeHoverList({ anchor: { x: 400, y: 300 }, pillHalfHeight: 10, list, viewport, chrome: [bar] })).toMatchObject({
+      side: 'bottom',
+      shiftX: 0,
+    })
+  })
+
+  it('with chrome on both sides it takes the position covered least', () => {
+    // Buttons down the left edge of a 300px map: centred (x 14) the list lies 30px over them,
+    // flush right of them (x 20, as far as the map allows) only 24.
+    const buttons = [{ x: 20, y: 150, width: 40, height: 60 }, { x: 20, y: 400, width: 40, height: 60 }]
+    const place = placeHoverList({ anchor: { x: 150, y: 300 }, pillHalfHeight: 10, list, viewport: { width: 300, height: 600 }, chrome: buttons })
+    expect(place).toMatchObject({ side: 'top', shiftX: 6 })
   })
 })

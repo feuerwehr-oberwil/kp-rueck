@@ -317,8 +317,9 @@ export const LIST_ROW_HEIGHT = 28
  * Which side of its pill the hover list opens on, how far it shifts sideways to stay inside the
  * map, and how tall it may be there (`room`): above when it fits there, else below (whichever has
  * more room when neither fits – the list then shows fewer rows and scrolls), never past an edge.
- * It slides sideways off the map's own buttons and chrome (`chrome`), which draw above it, when
- * the map is wide enough for that; else it stays centred under its pill.
+ * It slides sideways off the map's own buttons and chrome (`chrome`), which draw above it; when
+ * no position on its side clears them it opens on the other side if it fits there whole and
+ * clear, else it takes the position they cover least.
  */
 export function placeHoverList({
   anchor,
@@ -340,18 +341,26 @@ export function placeHoverList({
 }): { side: 'top' | 'bottom'; shiftX: number; room: number } {
   const above = anchor.y - pillHalfHeight - gap - margin
   const below = viewport.height - (anchor.y + pillHalfHeight + gap) - margin
-  const side = above >= list.height || above >= below ? 'top' : 'bottom'
-  const room = Math.max(0, Math.floor(side === 'top' ? above : below))
-  const height = Math.min(list.height, room)
-  const top = side === 'top' ? anchor.y - pillHalfHeight - gap - height : anchor.y + pillHalfHeight + gap
   const left = anchor.x - list.width / 2
   const maxLeft = viewport.width - margin - list.width
   const clamp = (x: number) => Math.max(margin, Math.min(x, maxLeft))
   const boxes = chrome.map((o) => rectOf(o.x, o.y, o.width, o.height))
-  const clear = (x: number) =>
-    boxes.every((b) => overlap({ left: x, right: x + list.width, top, bottom: top + height }, b) === 0)
-  // Centred first, then flush beside each piece of chrome it would lie under.
+  // Centred first, then flush beside each piece of chrome it could lie under.
   const tries = [clamp(left), ...boxes.flatMap((b) => [clamp(b.right + margin), clamp(b.left - margin - list.width)])]
-  const chosen = tries.find(clear) ?? tries[0]
-  return { side, shiftX: Math.round(chosen - left), room }
+  const place = (side: 'top' | 'bottom') => {
+    const room = Math.max(0, Math.floor(side === 'top' ? above : below))
+    const height = Math.min(list.height, room)
+    const top = side === 'top' ? anchor.y - pillHalfHeight - gap - height : anchor.y + pillHalfHeight + gap
+    const covered = (x: number) =>
+      boxes.reduce((sum, b) => sum + overlap({ left: x, right: x + list.width, top, bottom: top + height }, b), 0)
+    // The first of the least-covered positions: centred whenever nothing is in the way.
+    const best = tries
+      .map((x) => ({ x, cost: covered(x) }))
+      .reduce((a, b) => (b.cost < a.cost ? b : a))
+    return { side, room, ...best, whole: room >= list.height }
+  }
+  const preferred = place(above >= list.height || above >= below ? 'top' : 'bottom')
+  const other = place(preferred.side === 'top' ? 'bottom' : 'top')
+  const chosen = preferred.cost > 0 && other.whole && other.cost === 0 ? other : preferred
+  return { side: chosen.side, shiftX: Math.round(chosen.x - left), room: chosen.room }
 }
