@@ -3,27 +3,64 @@
 A board hosted on Railway is gone the moment the station loses its internet connection
 ([`AUSFALL_SOP.md`](AUSFALL_SOP.md), table B). A compose stack in the Magazin keeps running on
 the LAN, but only if it already holds the board. The standby box does: it **mirrors the hosted
-database live** (Postgres logical replication, one way), so it holds every Ereignis, every
-Einsatz, the roster and the photos, seconds behind the hosted board.
+database live** (Postgres logical replication), so it holds every Ereignis, every Einsatz, the
+roster and the photos, seconds behind the hosted board.
 
 The mirror's board is **look-only**. When it is needed, somebody opens the Ereignis on the box
-and takes it **offline**: from then on that Ereignis is worked on here, and nothing the hosted
-board does to it arrives any more – not even once the internet is back. Every other Ereignis,
-every new one and the roster keep mirroring.
+and takes it **offline**: from then on the box **leads** that Ereignis. Its work goes to the
+hosted board by itself whenever that answers – also after an outage, the moment the internet is
+back – and the hosted board shows it live. Every other Ereignis, every new one and the roster
+keep mirroring.
+
+**One system leads an Ereignis at a time, and the lead is taken, never handed over:** the side
+that carries on presses the button – «Dieses Ereignis offline übernehmen» on the box, «Hier
+übernehmen» on the hosted board – as often as needed. Whoever leads wins when both changed the
+same thing; the other version is kept in a conflict list (below).
 
 ## How it looks
 
-A band over every page, on every device, that cannot be dismissed:
+A band over every page, on every device, that cannot be dismissed (the takeover buttons on the
+desktop only):
 
-- **Mirror:** «Spiegel von KP Rück Online · Stand 19:30:12 · nur ansehen» (or «keine Verbindung
-  zu KP Rück Online» once the hosted board has not been heard from for 90 s). On the desktop,
-  editors and admins with an Ereignis open get one button: **«Dieses Ereignis offline
-  übernehmen …»**. One confirmation, which says so when the hosted board is still reachable.
-- **Taken offline:** amber, «Offline geführt seit 19:42 · «Name» wird nicht mehr
-  synchronisiert». That Ereignis can be edited as usual.
+- **Box, mirror:** «Spiegel von KP Rück Online · Stand 19:30:12 · nur ansehen» (or «keine
+  Verbindung zu KP Rück Online» once the hosted board has not been heard from for 90 s), and for
+  editors and admins **«Dieses Ereignis offline übernehmen …»**. One confirmation, which says so
+  when the hosted board is still reachable.
+- **Box, leading:** amber, «Offline geführt · seit 19:42 · alles an KP Rück Online übertragen ·
+  Stand 19:58:10» – or, without the internet, «keine Verbindung zu KP Rück Online seit 19:44 ·
+  37 Änderungen warten und gehen von selbst raus». That Ereignis can be edited as usual.
+- **Hosted board, while the box leads:** grey, «Geführt auf KP Rück Offline · seit 19:42 · Stand
+  19:58:10 · Neues erfassen geht, Bestehendes ändern nicht» (or how long the box has not been
+  heard from), and **«Hier übernehmen …»**. Its confirmation says when the box was last heard
+  from and how much it had not sent then, with a warning when somebody is working there.
 
-Behind the band the board is the ordinary one with editing switched off, as for a viewer. The
-API agrees: until an Ereignis is taken offline, every write is answered 403 (`standby_read_only`).
+Behind the band the board is the ordinary one with editing switched off, as for a viewer – on
+the hosted board except for new things: an Einsatz, a Tagebuch line, and everything the field
+sends (Feld reports, photos, alarms), which reach the box with the next round. The box's API
+agrees: while it leads no Ereignis, every write is answered 403 (`standby_read_only`).
+
+## When both changed the same thing
+
+During an outage the hosted board keeps running – phones on mobile data, the Feld flow and
+alarms keep writing to it. When the two meet again, per row and field:
+
+- a change only one side made is taken, from either side (the box changed the Meldung, a phone
+  the status of the same Einsatz: both stand);
+- new rows from either side are added; an Einsatz number both gave out is renumbered, with a
+  Tagebuch line saying so;
+- the same field changed on both: the leader's value stands, the other goes to the **conflict
+  list** – «n Konflikte ›» in the band. On the leading system each conflict is decided with one
+  choice: this version, the other one, or for text **«Beide zusammen»**, both one below the
+  other in a field that can be rewritten. The other system shows the list to read;
+- deleted on one side, changed on the other: the leader decides; the Einsatz stays when the
+  leader changed it, and the deletion waits in the list («Löschen»), and vice versa
+  («Wiederherstellen»);
+- two takeovers in the gap: the later one leads.
+
+The sync (`backend/app/standby_sync.py`) compares both sides with the last state they agreed on,
+every 5 s while the box has taken an Ereignis over. Nothing is dropped without a word: what
+cannot be written yet (a person the roster has not mirrored, say) stays counted in the band and
+is logged by the sidecar until it goes through.
 
 ## What is mirrored
 
@@ -79,6 +116,11 @@ ALTER DEFAULT PRIVILEGES FOR ROLE <backend db user> IN SCHEMA public GRANT SELEC
 For the photos, a **viewer** account on the hosted board (Einstellungen › Benutzer) with a
 password of its own.
 
+For the way back, a key the box shows the hosted board: generate it (`openssl rand -hex 32`),
+keep it in your password vault, and set it on the hosted **backend** as `STANDBY_SYNC_TOKEN`
+(Railway › backend › Variables; one redeploy). Without it the hosted board refuses every write
+from the box, and the box's work stays on the box.
+
 ### 2. The box
 
 1. Install it as a normal compose stack ([`SETUP.md`](SETUP.md)) – a box **without Ereignisse**:
@@ -92,6 +134,7 @@ password of its own.
    STANDBY_SOURCE_API=https://kp.example.ch/backend-api
    STANDBY_PHOTO_USER=<viewer>
    STANDBY_PHOTO_PASSWORD=<its password>
+   STANDBY_SYNC_TOKEN=<the same key as on the hosted backend>
    STANDBY_FOLLOW_URL=https://kp.example.ch
    ```
 
@@ -111,8 +154,7 @@ added has nowhere to go on the box, and replication stops (and retries) until th
 too. The hosted board deploys from `main`, so the box follows **commit for commit**:
 `main-images.yml` publishes the images of every `main` commit as `main-<short sha>`, and
 `scripts/standby-follow.sh` moves the box onto the commit the hosted board runs – forward only,
-after a backup, and **never while an Ereignis is taken offline on the box** (an update restarts
-the board). Run it every five minutes, e.g. from cron on the box:
+after a backup, and **never while the box leads an Ereignis** (an update restarts the board). Run it every five minutes, e.g. from cron on the box:
 
 ```
 */5 * * * *  cd /path/to/kp-rueck && scripts/standby-follow.sh >> /var/log/kp-standby-follow.log 2>&1
@@ -133,26 +175,34 @@ current; `just doctor` says the same. The round's report is `last-status.json` i
 | `mirror` (stale) | Not heard from the hosted board for 90 s | Normal during an outage; otherwise the logs |
 | `photos` | The photo login was refused | `STANDBY_PHOTO_USER` / `STANDBY_PHOTO_PASSWORD` |
 
+The two-way sync reports per Ereignis in the band («n Änderungen warten») and in the sidecar's
+log: `WAIT [sync]` names a row that cannot be written yet, `CONFLICT [sync]` a round that found
+one, `ERROR [sync]` a round that failed (it is simply repeated). A box whose work never arrives
+on the hosted board usually lacks `STANDBY_SYNC_TOKEN`, or has a different one.
+
 ## On the day
 
 1. Devices open the **box's LAN address**. The band says how current it is.
 2. Open the running Ereignis, **«Dieses Ereignis offline übernehmen …»**, confirm. Work on it
    as usual. Everything else stays a mirror and catches up when the internet returns.
    If the outage began before the hosted board had the Ereignis, Ereignisse › **«Neues Ereignis
-   offline anlegen …»**: an Ereignis created on the box is offline from the start.
-3. The thermal print agent and alarm intake still point at the hosted board. Without the
-   internet, alarms do not arrive anyway; the print agent can be pointed at the box
+   offline anlegen …»**: an Ereignis created on the box is led there from the start, and appears
+   on the hosted board once it answers.
+3. Crews outside keep using the hosted board on their phones (Feld reports, photos, Tagebuch):
+   it reaches the box with the next round after the internet is back.
+4. The thermal print agent and alarm intake still point at the hosted board. Without the
+   internet, alarms do not arrive at the box; once it is back, an alarm the hosted board
+   attached to the Ereignis arrives as a new Einsatz. The print agent can be pointed at the box
    ([`PRINT_AGENT.md`](PRINT_AGENT.md)).
 
 ## After the outage
 
-1. Carry the box's work on that Ereignis back to the hosted board by hand: one person, in
-   chronological order, as in the SOP's «Wiederanlauf». The box's PDF export is the record.
-2. The Ereignis stays offline on the box, and the box does not follow new versions while it
-   does. Once its work is on the hosted board, make the box a pure mirror again – this replaces
-   everything on it with the hosted data, so back up first:
+Nothing to carry over by hand: once the box reaches the hosted board, its work goes up and the
+band says «alles an KP Rück Online übertragen». Decide the conflicts, if any («n Konflikte ›»).
+Then whoever carries on takes the lead – keep working on the box, or press **«Hier übernehmen
+…»** on the hosted board; the box becomes a mirror of that Ereignis again and follows new
+versions again once it leads nothing.
 
-   ```bash
-   just backup
-   docker compose exec standby-mirror uv run python -m app.standby --reset
-   ```
+`python -m app.standby --reset` (after `just backup`) starts the box over from the hosted data.
+It is the last resort – after the box was lost for days, say – and discards what the box had
+not sent yet.

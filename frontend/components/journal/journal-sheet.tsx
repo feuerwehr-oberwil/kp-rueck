@@ -46,6 +46,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { FormMessage, fieldMessageProps, formMessageId } from "@/components/ui/form-message"
 import { LoadingStatus, ShellLoader } from "@/components/ui/shell-loader"
 import { useIsMobile } from "@/components/ui/use-mobile"
+import { useStandby } from "@/lib/contexts/standby-context"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -110,6 +111,9 @@ function operationLabel(op: NumberedOperation): string {
 export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor, onOpenIncident, composeRequest }: JournalSheetProps) {
   const t = useTranslations("journal")
   const isMobile = useIsMobile()
+  // While a standby box leads this Ereignis, the hosted board may still add lines – not correct them.
+  const { canAddNew } = useStandby()
+  const canWrite = isEditor || canAddNew
   const { entries, isLoading, failed, reload, accept } = useJournal(eventId, open)
   const [ticked, setTicked] = useState<Set<ApiJournalCategory>>(new Set())
 
@@ -243,7 +247,7 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
         ) : failed && entries.length === 0 ? (
           <EmptyState compact title={t("loadFailed")} action={{ label: t("retry"), onClick: reload }} />
         ) : lines.length === 0 ? (
-          <EmptyState compact title={t("emptyTitle")} description={t(isEditor ? "emptyEditor" : "emptyViewer")} />
+          <EmptyState compact title={t("emptyTitle")} description={t(canWrite ? "emptyEditor" : "emptyViewer")} />
         ) : shown.length === 0 ? (
           <EmptyState
             compact
@@ -274,7 +278,7 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
         )}
       </div>
 
-      {isEditor && eventId && (
+      {canWrite && eventId && (
         <JournalComposer
           key={correcting?.entry.id ?? "new"}
           eventId={eventId}

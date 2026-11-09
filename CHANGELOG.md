@@ -30,6 +30,16 @@ will keep holding.
 
 ### Added
 
+- **A standby box now syncs a taken-over Ereignis both ways** (`docs/STANDBY.md`). The box's work
+  goes to the hosted board by itself whenever that answers – after an outage the moment the
+  internet is back – and the hosted board shows it live under a band «Geführt auf KP Rück
+  Offline», where new things (an Einsatz, Tagebuch lines, Feld reports, alarms) can still be
+  added. Whoever carries on takes the lead: «Hier übernehmen» on the hosted board, «Dieses
+  Ereignis offline übernehmen» on the box, as often as needed. What both changed while apart is
+  merged field by field; where both changed the same field the leader's version stands and the
+  other waits in a conflict list – keep it, take the other, or for text join both. Needs
+  `STANDBY_SYNC_TOKEN` on the hosted backend and on the box; without it nothing changes.
+
 - **The print agent serves KP Front again.** KP Front brought its station print relay back (A4
   PDFs through CUPS, kp-front #524), so the KP Front half that 0.8.0 removed is back: the
   `kp-front` protocol, the `cups` output, the `KP_BASE_URL` / `KP_PRINT_AGENT_SECRET` /
@@ -39,6 +49,10 @@ will keep holding.
   3.10).
 
 ### Fixed
+
+- **The first Tagebuch entry on a standby box after a takeover failed** (`journal_entries_seq_key`):
+  replication copies the hosted board's sequence numbers but not the sequence behind them, so the
+  box handed out 1, 2, 3 … again. The box now numbers its own entries far above the hosted board.
 
 - **A switched-off KP Front relay no longer stops the agent's KP Front worker.** With no
   `PRINT_AGENT_SECRET` set on the server, KP Front answers 403 «Druck-Relay deaktiviert»; the

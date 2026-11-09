@@ -140,26 +140,21 @@ async def test_the_boxs_own_journal_rows_never_take_a_seq_the_hosted_board_hands
     a, *_ = two_events
     conn = await _driver(db_session)
     insert = "INSERT INTO journal_entries (id, event_id, kind, text) VALUES ($1, $2, 'manual', 'x') RETURNING seq"
-    for seq in (1, 2, 3):
-        await _as_replication(
-            conn,
-            "INSERT INTO journal_entries (id, seq, event_id, kind, text) VALUES ($1, $2, $3, 'manual', 'mirrored')",
-            uuid4(),
-            seq,
-            a.id,
-        )
+    mirrored = "INSERT INTO journal_entries (id, seq, event_id, kind, text) VALUES ($1, $2, $3, 'manual', 'mirrored')"
+    # A fresh box: its own sequence would hand out exactly the values the hosted board has
+    # already given out when its rows replicate in. (Sequences outlive a test's rollback, so
+    # it is put back to that state here.)
+    start = await conn.fetchval("SELECT COALESCE(max(seq) FILTER (WHERE seq < 10^15), 0) + 1 FROM journal_entries")
+    await conn.execute("SELECT setval(pg_get_serial_sequence('public.journal_entries', 'seq'), $1, false)", start)
+    for seq in range(start, start + 3):
+        await _as_replication(conn, mirrored, uuid4(), seq, a.id)
 
     await install_guards(conn)
     await take_over(conn, a.id, "editor")
     own = await conn.fetchval(insert, uuid4(), a.id)
-    # The hosted board's next seq would be 4; the box's are far above anything it will reach.
+    # Far above anything the hosted board will reach, so its next rows replicate in as well.
     assert own >= 10**15
-    await _as_replication(
-        conn,
-        "INSERT INTO journal_entries (id, seq, event_id, kind, text) VALUES ($1, 4, $2, 'manual', 'mirrored')",
-        uuid4(),
-        a.id,
-    )
+    await _as_replication(conn, mirrored, uuid4(), start + 3, a.id)
     assert own < 2**53  # still exact as a JavaScript number
 
 
@@ -269,7 +264,7 @@ async def test_a_takeover_leads_here_records_who_and_writes_a_tagebuch_line(
     [lead] = body["leads"]
     assert (lead["event_id"], lead["holder"]) == (str(a.id), "standby")
     conn = await _driver(db_session)
-    assert await conn.fetchval("SELECT text FROM journal_entries WHERE event_id = $1", a.id) == (
+    assert await conn.fetchval("SELECT text FROM journal_entries WHERE event_id = $1 AND kind = 'manual'", a.id) == (
         "Führung übernommen auf KP Rück Offline"
     )
     # The state both systems agree on is what the box held at that moment.
@@ -344,7 +339,7 @@ async def test_hier_uebernehmen_takes_it_back_only_from_the_box(editor_client: A
     assert (await editor_client.post(f"/api/standby/events/{a.id}/lead")).status_code == 409
     assert (await editor_client.post(f"/api/standby/events/{b.id}/lead")).status_code == 409
     conn = await _driver(db_session)
-    assert await conn.fetchval("SELECT text FROM journal_entries WHERE event_id = $1", a.id) == (
+    assert await conn.fetchval("SELECT text FROM journal_entries WHERE event_id = $1 AND kind = 'manual'", a.id) == (
         "Führung übernommen auf KP Rück Online"
     )
 

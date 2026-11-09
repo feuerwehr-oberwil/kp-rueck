@@ -56,6 +56,7 @@ import { isDetailTab, type OperationDetailSection, type OperationDetailTab } fro
 import { useCommandPaletteHint } from "@/lib/hooks/use-is-mac"
 import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
 import { useAuth } from "@/lib/contexts/auth-context"
+import { useStandby } from "@/lib/contexts/standby-context"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { columns } from "@/lib/kanban-utils"
 import { nextCardId, type BoardDirection } from "@/lib/board-keyboard-nav"
@@ -195,6 +196,10 @@ export default function FireStationDashboard() {
   const { materials, materialGroups, setMaterialOutOfService } = useMaterials()
   const { selectedEvent, isEventLoaded, events, setSelectedEvent } = useEvent()
   const { isEditor } = useAuth()
+  // While a standby box leads the open Ereignis this board is look-only, but new things – an
+  // Einsatz, a Tagebuch line – may still be added (`StandbyProvider`).
+  const { canAddNew } = useStandby()
+  const canAdd = isEditor || canAddNew
   const { toggleSidebar: toggleNotificationSidebar, registerNavigateHandler, registerFieldActionHandler, registerAssignHandler, closeSidebar: closeNotificationSidebar, settings: notificationSettings } = useNotifications()
   // «Personalermüdung (Std.)» — where the crew's time-on-duty figures turn amber.
   const fatigueHours = notificationSettings.fatigue_hours
@@ -838,7 +843,7 @@ export default function FireStationDashboard() {
       onToggleLinks: () => setActiveFooterSheet((prev) => (prev === 'links' ? null : 'links')),
       onToggleRapporte: () => setActiveFooterSheet((prev) => (prev === 'rapporte' ? null : 'rapporte')),
       onToggleJournal: () => setActiveFooterSheet((prev) => (prev === 'journal' ? null : 'journal')),
-      onWriteJournal: isEditor && selectedEvent ? () => writeJournal(selectedOperationId ?? null) : undefined,
+      onWriteJournal: canAdd && selectedEvent ? () => writeJournal(selectedOperationId ?? null) : undefined,
       onToggleFigures: toggleFigures,
       onToggleNotifications: toggleNotificationSidebar,
     },
@@ -1400,7 +1405,7 @@ export default function FireStationDashboard() {
             isEditor={isEditor}
             isTraining={selectedEvent?.training_flag}
             isLoading={isLoading}
-            onNewIncident={isEditor ? () => setNewEmergencyModalOpen(true) : undefined}
+            onNewIncident={canAdd ? () => setNewEmergencyModalOpen(true) : undefined}
             openRequest={mobileOpenRequest}
           />
         ) : (
