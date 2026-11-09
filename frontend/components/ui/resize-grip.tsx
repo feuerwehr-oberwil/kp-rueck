@@ -9,7 +9,9 @@ import type { ResizableWidth } from "@/lib/hooks/use-resizable-width"
  * Render it as the flex sibling right where the two panes meet (before a right-hand
  * panel, after a left-hand one): it takes no width itself and lays a 24px hit strip
  * centred on the seam, so neither pane's `overflow-hidden` clips it. At rest a short
- * pill; on hover, focus and while dragging the seam turns into the selection line.
+ * pill; on hover, focus and while dragging (`data-dragging`, set by the hook during the drag)
+ * the seam turns into the selection line. Where a collapse handle already sits on the seam's
+ * middle (the board's sidebars) the handle is drawn above the grip and covers the pill.
  * `label` names the separator for screen readers, `hint` is the tooltip («Breite
  * ziehen · Doppelklick: Standard»), shown on the panel's outer side.
  */
@@ -32,7 +34,6 @@ export function ResizeGrip({
           <div
             {...resize.gripProps}
             aria-label={label}
-            data-dragging={resize.dragging || undefined}
             className="group/grip absolute inset-y-0 -left-3 flex w-6 cursor-col-resize touch-none items-center justify-center outline-none"
           >
             {/* The seam line: only while hovered, focused or dragged. */}

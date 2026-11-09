@@ -59,6 +59,13 @@
      the Radix CollapsibleContent below. */
   --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
   --reveal-duration: 200ms;
+  /* Panel motion (owner pick 09.11.2026, «B – 110 ms»): every rail and sheet opens and closes
+     from its own edge in this one duration and curve – the board's rails (SlideRail), the
+     footer sheets rising from behind the toolbar, the Alarmeingang, every Sheet. Short enough
+     that nobody waits, long enough to say where the panel came from. Reduced motion: instant.
+     `PANEL_MOTION_MS` in components/ui/slide-rail.tsx mirrors the duration. */
+  --motion-panel: 110ms;
+  --ease-panel: cubic-bezier(0.2, 0.8, 0.2, 1);
   --sidebar: oklch(0.96 0 0);
   --sidebar-foreground: oklch(0.15 0 0);
   --sidebar-primary: oklch(0.45 0.18 25);
@@ -1323,6 +1330,63 @@ html[data-snail='standing'] .firefighter-snail * {
 @keyframes toast-life {
   to {
     background-size: 0 2px;
+  }
+}
+
+/* ── Panel motion (--motion-panel) ──
+   In-flow rails (components/ui/slide-rail.tsx): the WIDTH moves, so the board beside the rail
+   moves with it – no jump-then-slide. Off while the operator drags the edge (`data-resizing`)
+   and until the rail has been drawn once (`data-motion`), so a rail restored on load stands. */
+[data-slot='slide-rail'][data-motion='on']:not([data-resizing]) {
+  transition: width var(--motion-panel) var(--ease-panel);
+}
+
+/* Sheets that are not modal (the desktop footer sheets, the Aufträge sheet, the Alarmeingang)
+   come out from BEHIND the edge they stand on and go back behind it: the translate and a clip
+   at the sheet's resting edge run together, so no pixel of it is ever drawn past that edge –
+   not over the footer toolbar, not over the notification sidebar. (The app shell is a fixed
+   box, i.e. its own stacking context, so the toolbar's `z-footer` cannot cover a portalled
+   sheet; the clip is what keeps the sheet off it.) The negative insets leave the shadow.
+   A closed sheet takes no clicks while it leaves (`pointer-events` important: Radix writes
+   its own inline value). */
+@keyframes sheet-rise {
+  from { translate: 0 100%; clip-path: inset(-3rem -3rem 100% -3rem); }
+  to { translate: 0 0; clip-path: inset(-3rem -3rem 0 -3rem); }
+}
+@keyframes sheet-sink {
+  from { translate: 0 0; clip-path: inset(-3rem -3rem 0 -3rem); }
+  to { translate: 0 100%; clip-path: inset(-3rem -3rem 100% -3rem); }
+}
+@keyframes sheet-in-right {
+  from { translate: 100% 0; clip-path: inset(-3rem 100% -3rem -3rem); }
+  to { translate: 0 0; clip-path: inset(-3rem 0 -3rem -3rem); }
+}
+@keyframes sheet-out-right {
+  from { translate: 0 0; clip-path: inset(-3rem 0 -3rem -3rem); }
+  to { translate: 100% 0; clip-path: inset(-3rem 100% -3rem -3rem); }
+}
+[data-slot='sheet-content'][data-edge-clip][data-side='bottom'][data-state='open'] {
+  animation: sheet-rise var(--motion-panel) var(--ease-panel);
+}
+[data-slot='sheet-content'][data-edge-clip][data-side='bottom'][data-state='closed'] {
+  animation: sheet-sink var(--motion-panel) var(--ease-panel) forwards;
+}
+[data-slot='sheet-content'][data-edge-clip][data-side='right'][data-state='open'] {
+  animation: sheet-in-right var(--motion-panel) var(--ease-panel);
+}
+[data-slot='sheet-content'][data-edge-clip][data-side='right'][data-state='closed'] {
+  animation: sheet-out-right var(--motion-panel) var(--ease-panel) forwards;
+}
+[data-slot='sheet-content'][data-edge-clip][data-state='closed'] {
+  pointer-events: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot='slide-rail'] {
+    transition: none !important;
+  }
+  /* `none` lets Radix unmount a closing sheet at once. */
+  [data-slot='sheet-content'][data-edge-clip] {
+    animation: none !important;
   }
 }
 

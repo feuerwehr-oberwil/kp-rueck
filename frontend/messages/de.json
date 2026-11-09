@@ -1040,7 +1040,8 @@
       "checkOutAllTitle": "Alle abmelden?",
       "checkOutAllDescription": "{count, plural, one {# anwesende Person wird} other {# anwesende Personen werden}} auf «gegangen» gesetzt. Zuweisungen bleiben bestehen.",
       "quickAddHint": "Wird direkt angemeldet",
-      "writeFailed": "Anwesenheit konnte nicht gespeichert werden"
+      "writeFailed": "Anwesenheit konnte nicht gespeichert werden",
+      "openButton": "Appell"
     },
     "diveraIncoming": {
       "title": "Anrückend ({count})",
@@ -1484,8 +1485,7 @@
       "stopCount": "{count, plural, one {# Stopp} other {# Stopps}}",
       "startLabel": "Start · {start}",
       "addStopMapHint": "Klick auf die Karte",
-      "resizeLabel": "Breite der Routenplanung",
-      "resizeHint": "Breite ziehen · Doppelklick: Standard"
+      "exitLabel": "Routenplanung beenden"
     },
     "view": {
       "markerAria": "Einsatz: {label}",
@@ -4551,6 +4551,17 @@
       "button": "Neues Ereignis offline anlegen …",
       "title": "Neues Ereignis offline anlegen",
       "note": "Dieses Ereignis wird nur auf diesem Gerät geführt und nie mit KP Rück Online synchronisiert."
+    }
+  },
+  "panels": {
+    "resizeHint": "Breite ziehen · Doppelklick: Standard",
+    "resize": {
+      "personnel": "Breite der Personal-Leiste",
+      "material": "Breite der Material-Leiste",
+      "detail": "Breite des Einsatz-Details",
+      "notifications": "Breite der Benachrichtigungen",
+      "alarmInbox": "Breite des Alarmeingangs",
+      "mapRail": "Breite der Seitenleiste"
     }
   }
 }

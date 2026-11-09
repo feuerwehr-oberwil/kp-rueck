@@ -35,6 +35,8 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { SearchInput } from '@/components/ui/search-input'
 import { LoadingStatus, ShellLoader } from '@/components/ui/shell-loader'
 import { useIsMobile } from '@/components/ui/use-mobile'
+import { ResizeGrip } from '@/components/ui/resize-grip'
+import { useResizableWidth } from '@/lib/hooks/use-resizable-width'
 import {
   Sheet,
   SheetBody,
@@ -94,6 +96,16 @@ export function AlarmInboxSheet() {
   const { user, isViewer } = useAuth()
   const isMobile = useIsMobile()
   const band = usePanelBand(open && !isMobile)
+  const tPanels = useTranslations('panels')
+  // Desktop: dragged by its left edge, remembered on this device. 500 = the 31.25rem it had;
+  // the max-w below still keeps it inside the room left of the notification sidebar.
+  const resize = useResizableWidth({
+    storageKey: 'kp-alarmInboxWidth',
+    defaultWidth: 500,
+    min: 380,
+    max: 760,
+    side: 'left',
+  })
 
   // Signed out: the next sign-in starts with it closed.
   useEffect(() => {
@@ -103,6 +115,7 @@ export function AlarmInboxSheet() {
   return (
     <Sheet modal={isMobile} open={open && !!user && !isViewer} onOpenChange={(next) => !next && closeAlarmInbox()}>
       <SheetContent
+        ref={isMobile ? undefined : resize.panelRef}
         side={isMobile ? 'bottom' : 'right'}
         data-testid="alarm-inbox"
         className={cn(
@@ -111,12 +124,12 @@ export function AlarmInboxSheet() {
           isMobile
             ? 'modal-h-tall pb-sheet-safe [--close-edge:1rem]'
             : // narrower than the room left of the notification sidebar, so its left edge stays on screen
-              'h-auto w-[31.25rem] max-w-[calc(100vw_-_var(--notification-sidebar-width,0px)_-_2rem)] sm:max-w-[calc(100vw_-_var(--notification-sidebar-width,0px)_-_2rem)] [--close-edge:1.5rem]',
+              'h-auto w-(--rail-w) max-w-[calc(100vw_-_var(--notification-sidebar-width,0px)_-_2rem)] sm:max-w-[calc(100vw_-_var(--notification-sidebar-width,0px)_-_2rem)] [--close-edge:1.5rem]',
         )}
         style={
           isMobile
             ? undefined
-            : { top: band.top, bottom: band.bottom, right: 'var(--notification-sidebar-width, 0px)' }
+            : { ...resize.style, top: band.top, bottom: band.bottom, right: 'var(--notification-sidebar-width, 0px)' }
         }
         // Desktop: a panel beside the work, not a layer over it – clicks on the board (and
         // into the attach dialog, which lives outside this element) never close it.
@@ -129,6 +142,12 @@ export function AlarmInboxSheet() {
           if (event.target instanceof HTMLElement) event.target.focus({ preventScroll: true })
         }}
       >
+        {!isMobile && (
+          // The drag edge on the panel's left side; its strip hangs half outside the panel.
+          <div className="absolute inset-y-0 left-0 flex">
+            <ResizeGrip resize={resize} side="left" label={tPanels('resize.alarmInbox')} hint={tPanels('resizeHint')} />
+          </div>
+        )}
         <AlarmInboxPanel isMobile={isMobile} />
       </SheetContent>
     </Sheet>

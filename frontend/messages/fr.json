@@ -2328,7 +2328,8 @@
       "checkOutAllTitle": "Annoncer tous partants ?",
       "checkOutAllDescription": "{count, plural, one {# personne présente sera passée} other {# personnes présentes seront passées}} sur « partie ». Les affectations sont conservées.",
       "quickAddHint": "Sera annoncé directement",
-      "writeFailed": "La présence n’a pas pu être enregistrée"
+      "writeFailed": "La présence n’a pas pu être enregistrée",
+      "openButton": "Appel"
     },
     "diveraIncoming": {
       "title": "En route ({count})",
@@ -2563,8 +2564,7 @@
       "stopCount": "{count, plural, one {# étape} other {# étapes}}",
       "startLabel": "Départ · {start}",
       "addStopMapHint": "Clic sur la carte",
-      "resizeLabel": "Largeur de la planification d’itinéraire",
-      "resizeHint": "Glisser pour élargir · double-clic : par défaut"
+      "exitLabel": "Terminer la planification d’itinéraire"
     },
     "view": {
       "markerAria": "Intervention : {label}",
@@ -4551,6 +4551,17 @@
       "button": "Créer un événement hors ligne …",
       "title": "Créer un événement hors ligne",
       "note": "Cet événement n’est conduit que sur cet appareil et n’est jamais synchronisé avec KP Rück en ligne."
+    }
+  },
+  "panels": {
+    "resizeHint": "Glisser pour élargir · double-clic : par défaut",
+    "resize": {
+      "personnel": "Largeur de la barre Personnel",
+      "material": "Largeur de la barre Matériel",
+      "detail": "Largeur du détail d’intervention",
+      "notifications": "Largeur des notifications",
+      "alarmInbox": "Largeur de la réception des alarmes",
+      "mapRail": "Largeur de la barre latérale"
     }
   }
 }

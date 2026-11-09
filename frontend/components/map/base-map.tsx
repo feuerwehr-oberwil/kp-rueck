@@ -314,7 +314,6 @@ export function BaseMap({
   // when the operator flips the theme.
   const night = useNightTheme() && !forceDayPaint
 
-  const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MlMap | null>(null)
   const [ready, setReady] = useState(false)
   // The map never came up (no WebGL). Tracked separately from `gl.lost`, which watches a canvas
@@ -382,22 +381,12 @@ export function BaseMap({
     gl.recover()
   }, [gl])
 
-  // Radix animates a dialog's size in, and MapLibre only hears about a resize from the window
-  // event – so a map mounted inside one comes up sized for the pre-animation box and stays there.
-  // Replaces the copy-pasted `invalidateSize()` double-timeout dance in both dialogs.
-  useEffect(() => {
-    const element = containerRef.current
-    if (!element || !ready) return
-    const observer = new ResizeObserver(() => {
-      try {
-        mapRef.current?.resize()
-      } catch {
-        /* the map is already torn down */
-      }
-    })
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [ready])
+  // No ResizeObserver of our own. MapLibre 6 watches its container itself (`trackResize`, on by
+  // default): throttled to 50ms and followed by a redraw – a map in a Radix dialog that animates
+  // its size in, a rail dragged or slid beside it, a resized window all come out right. The one
+  // this replaced called `resize()` on every observed frame with no redraw, and `resize()`
+  // resets the canvas size, which clears the WebGL buffer: the map flickered for as long as the
+  // Routenplanung rail was dragged (owner, 09.11.2026).
 
   // Keep the basemap under the overlays across a style swap – see `baseLayerMoves()`. Re-armed on
   // every new map instance (a GL recovery builds one), because the listener sits on the instance.
@@ -439,7 +428,6 @@ export function BaseMap({
 
   return (
     <div
-      ref={containerRef}
       data-testid="base-map"
       className={cn(
         'relative h-full w-full',

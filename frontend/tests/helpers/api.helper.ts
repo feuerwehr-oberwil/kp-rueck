@@ -143,14 +143,14 @@ export async function selectEvent(page: Page, path: string, eventId: string) {
 /**
  * Close anything floating over the board.
  *
- * The Setup-Checkliste popover opens itself once per newly selected event
- * (`autoOpenedEventRef` in app/page.tsx), and every test here selects a fresh one,
- * so on the editor board it is always up and it swallows clicks on the cards
- * behind it. Retried rather than "press Escape and hope": the popover appears on
+ * The Setup-Checkliste (a footer sheet since 09.11.2026) opens itself once per newly
+ * selected event (`autoOpenedEventRef` in app/page.tsx), and every test here selects a
+ * fresh one, so on the editor board it is always up and its backdrop swallows clicks on
+ * the cards behind it. Retried rather than "press Escape and hope": the sheet appears on
  * mount, so a single blind keypress could land before it.
  */
 export async function dismissOverlays(page: Page) {
-  const poppers = page.locator('[data-radix-popper-content-wrapper]');
+  const poppers = page.locator('[data-radix-popper-content-wrapper], [data-slot="sheet-content"]');
   await expect(async () => {
     if (await poppers.count()) {
       await page.keyboard.press('Escape');
