@@ -243,7 +243,9 @@ LOCAL_IDENTITY_START = 10**15
 
 
 async def _lift_identities(conn: asyncpg.Connection) -> None:
-    """Move every identity sequence of a mirrored table into the box's own range. Idempotent."""
+    """Move every identity sequence of a mirrored table into the box's own range – and past any
+    value already in the column, so a row the box wrote before is never handed out twice.
+    Idempotent."""
     rows = await conn.fetch(
         """
         SELECT table_name, column_name FROM information_schema.columns
@@ -253,14 +255,16 @@ async def _lift_identities(conn: asyncpg.Connection) -> None:
     for row in rows:
         if row["table_name"] in SKIPPED_TABLES:
             continue
+        table, column = row["table_name"], row["column_name"]
         await conn.execute(
-            """
+            f"""
             SELECT setval(s, GREATEST($3, (SELECT last_value FROM pg_sequences
-                                            WHERE schemaname || '.' || sequencename = s)))
+                                            WHERE schemaname || '.' || sequencename = s),
+                                      (SELECT max("{column}") FROM public."{table}")))
             FROM pg_get_serial_sequence($1, $2) AS s
-            """,
-            f"public.{row['table_name']}",
-            row["column_name"],
+            """,  # noqa: S608  # nosec B608 – names from information_schema
+            f"public.{table}",
+            column,
             LOCAL_IDENTITY_START,
         )
 
