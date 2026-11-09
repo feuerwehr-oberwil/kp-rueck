@@ -134,6 +134,35 @@ async def test_the_boxs_own_writes_are_never_filtered(db_session, two_events):
 
 
 @pytest.mark.asyncio
+async def test_the_boxs_own_journal_rows_never_take_a_seq_the_hosted_board_hands_out(db_session, two_events):
+    """Replication carries `journal_entries.seq` values but not the sequence behind them."""
+    a, *_ = two_events
+    conn = await _driver(db_session)
+    insert = "INSERT INTO journal_entries (id, event_id, kind, text) VALUES ($1, $2, 'manual', 'x') RETURNING seq"
+    for seq in (1, 2, 3):
+        await _as_replication(
+            conn,
+            "INSERT INTO journal_entries (id, seq, event_id, kind, text) VALUES ($1, $2, $3, 'manual', 'mirrored')",
+            uuid4(),
+            seq,
+            a.id,
+        )
+
+    await install_guards(conn)
+    await detach_event(conn, a.id, "editor")
+    own = await conn.fetchval(insert, uuid4(), a.id)
+    # The hosted board's next seq would be 4; the box's are far above anything it will reach.
+    assert own >= 10**15
+    await _as_replication(
+        conn,
+        "INSERT INTO journal_entries (id, seq, event_id, kind, text) VALUES ($1, 4, $2, 'manual', 'mirrored')",
+        uuid4(),
+        a.id,
+    )
+    assert own < 2**53  # still exact as a JavaScript number
+
+
+@pytest.mark.asyncio
 async def test_event_links_follow_the_schema(db_session):
     links = await event_links(await _driver(db_session))
 

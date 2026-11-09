@@ -215,6 +215,37 @@ def _guard_sql(table: str, link: str | None) -> str:
     """
 
 
+# Where the box's own identity values start. Replication carries the hosted board's values
+# (`journal_entries.seq`) but not the sequence behind them, so the box's sequence would hand out
+# 1, 2, 3 … again – the first Tagebuch entry written here would collide, and a later mirrored row
+# with the same value would stop the replication. The hosted board never gets near this, and it
+# stays below 2**53, so the value is still exact as a JavaScript number.
+LOCAL_IDENTITY_START = 10**15
+
+
+async def _lift_identities(conn: asyncpg.Connection) -> None:
+    """Move every identity sequence of a mirrored table into the box's own range. Idempotent."""
+    rows = await conn.fetch(
+        """
+        SELECT table_name, column_name FROM information_schema.columns
+        WHERE table_schema = 'public' AND is_identity = 'YES'
+        """
+    )
+    for row in rows:
+        if row["table_name"] in SKIPPED_TABLES:
+            continue
+        await conn.execute(
+            """
+            SELECT setval(s, GREATEST($3, (SELECT last_value FROM pg_sequences
+                                            WHERE schemaname || '.' || sequencename = s)))
+            FROM pg_get_serial_sequence($1, $2) AS s
+            """,
+            f"public.{row['table_name']}",
+            row["column_name"],
+            LOCAL_IDENTITY_START,
+        )
+
+
 async def install_guards(conn: asyncpg.Connection) -> int:
     """Create the standby schema and a guard on every table that needs one. Idempotent."""
     await conn.execute(
@@ -244,6 +275,7 @@ async def install_guards(conn: asyncpg.Connection) -> int:
           FOR EACH ROW EXECUTE FUNCTION standby.detach_local_event();
         """
     )
+    await _lift_identities(conn)
     links = await event_links(conn)
     tables = [r["tablename"] for r in await conn.fetch("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")]
     guarded = 0
