@@ -1586,7 +1586,7 @@ export default function MapView({
     () =>
       vehicleSpots.map((spot) => {
         const face = pillFace(spot, vehicleNameFor, vehicleNow, staleMinutes)
-        const texts = pillTexts(t, face, vehicleNow)
+        const texts = pillTexts(t, face, vehicleNow, compactMap)
         return {
           spot,
           face,
@@ -1596,7 +1596,7 @@ export default function MapView({
             haversineKm([spot.latitude, spot.longitude], [magazinCoords[0], magazinCoords[1]]) * 1000 <= magazinRadiusM,
         }
       }),
-    [vehicleSpots, vehicleNameFor, vehicleNow, staleMinutes, t, magazinCoords, magazinRadiusM],
+    [vehicleSpots, vehicleNameFor, vehicleNow, staleMinutes, t, magazinCoords, magazinRadiusM, compactMap],
   )
   const vehiclePlacementInput = useMemo<PlacedPill[]>(
     () => vehicleMarks.map(({ spot, width }) => ({ key: spot.key, latitude: spot.latitude, longitude: spot.longitude, width, offset: undefined })),
@@ -1728,6 +1728,7 @@ export default function MapView({
             now={vehicleNow}
             staleMinutes={staleMinutes}
             chrome={chromeBoxes}
+            short={compactMap}
           />
         ))}
 
