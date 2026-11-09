@@ -146,11 +146,22 @@ export async function selectEvent(page: Page, path: string, eventId: string) {
  * The Setup-Checkliste (a footer sheet since 09.11.2026) opens itself once per newly
  * selected event (`autoOpenedEventRef` in app/page.tsx), and every test here selects a
  * fresh one, so on the editor board it is always up and its backdrop swallows clicks on
- * the cards behind it. Retried rather than "press Escape and hope": the sheet appears on
- * mount, so a single blind keypress could land before it.
+ * the cards behind it. Retried rather than "press Escape and hope": the sheet appears once
+ * its progress has loaded, so a single blind keypress could land before it.
  */
 export async function dismissOverlays(page: Page) {
-  const poppers = page.locator('[data-radix-popper-content-wrapper], [data-slot="sheet-content"]');
+  // Popovers, and the self-opening Checkliste sheet – not every sheet: a test that opens one on
+  // purpose (the Alarmeingang via /divera-pool) must still find it.
+  const poppers = page.locator(
+    '[data-radix-popper-content-wrapper], [data-slot="sheet-content"]:has-text("Setup-Checkliste")',
+  );
+  // The checklist decides to open itself when its progress has loaded – the moment the footer
+  // button shows its count («Checkliste 3/10»). Wait for that first (desktop board only; no such
+  // button elsewhere), or a slow load opens it after the checks below have passed.
+  await page
+    .getByRole('button', { name: /^Checkliste \d+\/\d+/ })
+    .waitFor({ timeout: 10_000 })
+    .catch(() => {});
   await expect(async () => {
     if (await poppers.count()) {
       await page.keyboard.press('Escape');
