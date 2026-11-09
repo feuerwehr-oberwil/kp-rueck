@@ -113,7 +113,10 @@ export function reloadAlarmPool(): Promise<void> {
     try {
       do {
         again = false
-        setPool({ ...(await fetchPool()), loaded: true, failed: false })
+        const next = await fetchPool()
+        // A reload asked for meanwhile supersedes this answer (it may still list an alarm that
+        // was attached since as «neu»); only the very first answer is shown regardless.
+        if (!again || !pool.loaded) setPool({ ...next, loaded: true, failed: false })
       } while (again)
     } catch (error) {
       setPool({ failed: true })

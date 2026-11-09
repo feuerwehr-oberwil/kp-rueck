@@ -1,6 +1,6 @@
 /**
- * The pool's fetch: a reload asked for during a failing fetch still runs, and an alarm still
- * waiting beyond the first page is in the pool.
+ * The pool's fetch: a reload asked for during a failing fetch still runs, an answer a newer
+ * reload superseded is never shown, and an alarm still waiting beyond the first page is in the pool.
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -65,6 +65,39 @@ describe('reloadAlarmPool', () => {
     fail(new Error('Verbindung zum Server unterbrochen'))
     await first
     await vi.waitFor(() => expect(api.getDiveraEmergencies.mock.calls.length).toBeGreaterThan(2))
+  })
+
+  it('never shows an answer a newer reload already superseded', async () => {
+    const fresh = row('x', '2026-11-08T19:00:00Z')
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    let phase: 'initial' | 'stale' | 'current' = 'initial'
+    api.getDiveraEmergencies.mockImplementation(async () => {
+      if (phase === 'initial') return answer([])
+      if (phase === 'stale') {
+        await gate
+        return answer([fresh]) // read just before somebody attached it
+      }
+      return answer([{ ...fresh, attached_to_event_id: 'ev' }])
+    })
+    // Every pool the inbox renders, as «id:attached?».
+    const shown: string[][] = []
+    const { result } = renderHook(() => {
+      const current = useAlarmPool()
+      shown.push(current.emergencies.map((e) => `${e.id}:${e.attached_to_event_id ? 'attached' : 'neu'}`))
+      return current
+    })
+    await waitFor(() => expect(result.current.loaded).toBe(true))
+
+    phase = 'stale'
+    const running = reloadAlarmPool()
+    void reloadAlarmPool() // the attach's socket event, while the first fetch is out
+    phase = 'current'
+    release()
+    await running
+    await waitFor(() => expect(result.current.emergencies).toHaveLength(1))
+    expect(result.current.emergencies[0].attached_to_event_id).toBe('ev')
+    expect(shown.flat()).not.toContain('x:neu')
   })
 
   it('keeps an alarm still waiting beyond the first page, newest first', async () => {
