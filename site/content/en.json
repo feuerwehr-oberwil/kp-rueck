@@ -139,6 +139,12 @@
         "p": "The recon team fills in the form on their own phone – photos included. The report hangs on the right incident instead of getting lost in a group chat."
       },
       {
+        "time": "22:10",
+        "tag": "Assignments",
+        "h3": "The assignments go out.",
+        "p": "KP Rück calculates sensible routes for several incident sites and supports working through the assignments in a dedicated module of the web app. Crews can report back on arrival, recon, photos, material needs and the completion of an assignment, among other things. Communication by radio remains possible as an alternative."
+      },
+      {
         "time": "23:30",
         "tag": "Board",
         "h3": "Everyone sees the same board.",
@@ -303,8 +309,8 @@
   },
   "sibling": {
     "eyebrow": "Related project",
-    "h2": "KP Rück keeps the overview at the rear. KP Front commands at the front.",
-    "p": "<strong>KP Front</strong> turns the situation map and the command table at the scene into digital ones: tactical symbols, site plans and SCBA monitoring, even without a network. Its own app, the same handwriting – both take the same alarm from the dispatch system, and neither needs the other.",
+    "h2": "KP Front brings tactical depth at the incident site. KP Rück brings operational breadth across the overall situation.",
+    "p": "<strong>KP Front</strong> turns the situation map and the command table at the scene into digital ones: tactical symbols, site plans and SCBA monitoring, even without a network. Its own app, the same handwriting – both take the same alarm from the dispatch system, and neither needs the other. Both apps can be used in parallel and independently of each other for the same situation.",
     "cta": "Take a look at KP Front",
     "setup": {
       "h3": "Running both – without setting everything up twice",

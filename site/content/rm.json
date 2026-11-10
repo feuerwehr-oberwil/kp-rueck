@@ -140,6 +140,12 @@
         "p": "La gruppa empla il formular sin l’agen telefonin, inclusiv fotografias. L’annunzia resta\n            colliada cun l’acziun correcta."
       },
       {
+        "time": "22:10",
+        "tag": "Incumbensas",
+        "h3": "Las incumbensas vegnan tramessas.",
+        "p": "KP Rück calculescha rutas adattadas per plirs lieus d’acziun e sustegna l’elavuraziun da las incumbensas\n            cun in agen modul da l’applicaziun web. Las forzas d’intervenziun pon tranter auter annunziar l’arriv, la\n            reko, fotografias, il basegn da material e la fin d’ina incumbensa. Alternativamain resta pussaivla la\n            communicaziun per radio."
+      },
+      {
         "time": "23:30",
         "tag": "Tavla",
         "h3": "Tuts vesan la medema tavla.",
@@ -304,8 +310,8 @@
   },
   "sibling": {
     "eyebrow": "Project parent",
-    "h2": "KP Rück mantegna la survista davos. KP Front maina davant.",
-    "p": "<strong>KP Front</strong> digitalisescha al lieu d’acziun la charta da situaziun e la maisa\n          da direcziun: segns tactics, plans d’object e surveglianza da la protecziun respiratorica,\n          era senza rait. Las duas applicaziuns survegnan il medem alarm dal sistem d’alarmaziun e funcziunan independentamain.",
+    "h2": "KP Front porta profunditad tactica al lieu d’acziun. KP Rück porta ladezza operativa en la situaziun generala.",
+    "p": "<strong>KP Front</strong> digitalisescha al lieu d’acziun la charta da situaziun e la maisa\n          da direcziun: segns tactics, plans d’object e surveglianza da la protecziun respiratorica,\n          era senza rait. Las duas applicaziuns survegnan il medem alarm dal sistem d’alarmaziun e funcziunan independentamain. Ellas pon vegnir utilisadas en parallel en la medema situaziun.",
     "cta": "Vesair KP Front",
     "setup": {
       "h3": "Manar omaduas applicaziuns – senza configurar tut duas giadas",
