@@ -50,6 +50,7 @@
     "h1": "Das Einsatzboard für den Kommandoposten.",
     "lede": "KP Rück bildet die Magnettafel im rückwärtigen KP digital ab:\n      <strong>Einsätze, Personal, Fahrzeuge und Material</strong> auf einem Board –\n      live auf jedem Gerät.",
     "cta": "Demo öffnen",
+    "cta2": "Selbst betreiben",
     "ctaNote": "Ohne Konto – Rolle wählen und loslegen",
     "frameAddr": "BOARD · UNWETTER · 17 EINSÄTZE AKTIV",
     "frameAlt": "Einsatzboard: Spalten von Eingegangen bis Beendet, dazwischen Einsatzkarten, links das Personal, rechts das Material",
@@ -103,8 +104,8 @@
       },
       {
         "n": "Stufe 2",
-        "h3": "Eine zweite Instanz im Magazin",
-        "p": "KP Rück lässt sich zusätzlich lokal betreiben. Der eingebaute Abgleich hält\n            Ereignisse, Einsätze, Personal, Fahrzeuge, Material und Einstellungen zwischen Cloud\n            und lokaler Datenbank auf Stand. Die Karte kommt aus dem eigenen Kartenserver, der\n            Drucker hängt ohnehin im LAN."
+        "h3": "Eine Standby-Box im Magazin",
+        "p": "Ein Mini-PC im Magazin spiegelt das Board laufend mit. Fällt das Internet aus, übernimmt er: Das Board läuft im lokalen Netz weiter, mit Karte aus dem eigenen Kartenserver und dem Drucker im LAN. Ist das Netz zurück, wird das dort Geführte wieder abgeglichen."
       },
       {
         "n": "Stufe 3",
@@ -240,6 +241,30 @@
         "sub": "Übungslagen einspeisen, statt sie zu erfinden – sauber vom Ernstfall getrennt"
       }
     ]
+  },
+  "run": {
+    "eyebrow": "Betrieb",
+    "h2": "Drei Wege zum eigenen Board.",
+    "lede": "Erst die Demo, dann eine Übung – und wenn es passt, läuft KP Rück bei euch. Quelloffen und kostenlos; Daten und Betrieb bleiben bei der Feuerwehr.",
+    "guide": "Zur Anleitung",
+    "ways": [
+      {
+        "h3": "Doppelklick",
+        "tag": "Zum Ausprobieren",
+        "p": "Docker Desktop installieren, eine Datei doppelklicken: Das Board läuft auf dem Rechner im Magazin. Der schnellste Weg zu den eigenen Daten."
+      },
+      {
+        "h3": "Mini-PC im Magazin",
+        "tag": "Läuft auch ohne Internet",
+        "p": "Docker Compose auf einem kleinen Server im eigenen Netz, mit eigenem Kartenserver und dem Drucker im LAN."
+      },
+      {
+        "h3": "Gehostet",
+        "tag": "Niemand betreut eine Kiste",
+        "p": "Bei einem Hosting-Anbieter eurer Wahl. Eine Standby-Box im Magazin kann den Ausfall des Netzes abfangen."
+      }
+    ],
+    "note": "Unterstützung bei Installation und Betrieb gibt es nach Absprache – <a href=\"#kontakt\">Kontakt</a>."
   },
   "change": {
     "eyebrow": "Umstieg",

@@ -51,6 +51,7 @@
     "h1": "Il tavolo operativo per il posto di comando.",
     "lede": "KP Rück porta in digitale la lavagna magnetica del posto di comando arretrato: <strong>interventi, personale, veicoli e materiale</strong> su un solo tavolo – in tempo reale su ogni dispositivo.",
     "cta": "Apri la demo",
+    "cta2": "Gestirlo in proprio",
     "ctaNote": "Senza account – scegliete un ruolo e via",
     "frameAddr": "TAVOLO · MALTEMPO · 17 INTERVENTI ATTIVI",
     "frameAlt": "Tavolo operativo: colonne dall’arrivo alla chiusura, in mezzo le schede degli interventi, a sinistra il personale, a destra il materiale"
@@ -100,8 +101,8 @@
       },
       {
         "n": "Livello 2",
-        "h3": "Una seconda istanza in rimessa",
-        "p": "KP Rück può girare anche in locale, in parallelo. La sincronizzazione integrata tiene allineati eventi, interventi, personale, veicoli, materiale e impostazioni fra il cloud e la banca dati locale. La mappa arriva dal vostro server di mappe, e la stampante è comunque nella rete locale."
+        "h3": "Un box di riserva in rimessa",
+        "p": "Un mini PC in rimessa rispecchia il board di continuo. Se cade Internet, subentra lui: il board continua nella rete locale, con la mappa dal vostro server di mappe e la stampante nella rete locale. Quando la rete torna, quanto gestito lì viene di nuovo sincronizzato."
       },
       {
         "n": "Livello 3",
@@ -211,6 +212,30 @@
         "sub": "Immettere scenari d’esercitazione invece di inventarli – nettamente separati dal caso reale"
       }
     ]
+  },
+  "run": {
+    "eyebrow": "Gestione",
+    "h2": "Tre vie verso il vostro board.",
+    "lede": "Prima la demo, poi un’esercitazione – e se va bene, KP Rück gira da voi. Open source e gratuito; dati e gestione restano ai pompieri.",
+    "guide": "Alla guida",
+    "ways": [
+      {
+        "h3": "Doppio clic",
+        "tag": "Per provare",
+        "p": "Installare Docker Desktop, fare doppio clic su un file: il board gira sul computer in rimessa. La via più rapida verso i vostri dati."
+      },
+      {
+        "h3": "Mini PC in rimessa",
+        "tag": "Funziona anche senza Internet",
+        "p": "Docker Compose su un piccolo server nella vostra rete, con il vostro server di mappe e la stampante nella rete locale."
+      },
+      {
+        "h3": "In hosting",
+        "tag": "Nessuno deve badare a una macchina",
+        "p": "Presso un fornitore di hosting a vostra scelta. Un box di riserva in rimessa può coprire la caduta della rete."
+      }
+    ],
+    "note": "Un supporto per installazione e gestione è possibile su accordo – <a href=\"#kontakt\">contatto</a>."
   },
   "change": {
     "eyebrow": "Il passaggio",

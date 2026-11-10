@@ -446,6 +446,7 @@
       live auf jedem Gerät.</p>
     <div class="cta-row">
       <a class="btn btn-primary" href="https://demo.kp-rueck.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>Demo öffnen</a>
+      <a class="btn btn-ghost" href="#betrieb">Selbst betreiben</a>
       <span class="cta-note">Ohne Konto – Rolle wählen und loslegen</span>
     </div>
     <figure class="frame">
@@ -506,40 +507,6 @@
           <li>Keine Herstellerbindung</li>
           <li>Selbst betreiben, selbst weiterentwickeln</li>
         </ul>
-      </div>
-    </div>
-  </section>
-
-  <section class="tenet">
-    <div class="wrap">
-      <p class="eyebrow">Der Massstab</p>
-      <blockquote>«Wenn das Netz weg ist, führt <em>Papier</em>»</blockquote>
-      <p class="expl">Ein Board, das bei Stromausfall schwarz wird, ist keine
-        Führungsunterlage. Darum ist eine mehrstufige Redundanz eingebaut – <strong>jede Stufe
-        funktioniert ohne die darüber</strong>.</p>
-      <div class="stages">
-        <div class="stage">
-          <p class="stage-n">Stufe 1</p>
-          <h3>Mehrere Geräte auf demselben Stand</h3>
-          <p>Tablets, Beamer-Anzeigen und Handys hängen live am gleichen Board. Fällt ein Gerät
-            aus oder friert ein, macht ein anderes weiter – es gibt nichts zu retten und nichts
-            nachzutragen.</p>
-        </div>
-        <div class="stage">
-          <p class="stage-n">Stufe 2</p>
-          <h3>Eine zweite Instanz im Magazin</h3>
-          <p>KP Rück lässt sich zusätzlich lokal betreiben. Der eingebaute Abgleich hält
-            Ereignisse, Einsätze, Personal, Fahrzeuge, Material und Einstellungen zwischen Cloud
-            und lokaler Datenbank auf Stand. Die Karte kommt aus dem eigenen Kartenserver, der
-            Drucker hängt ohnehin im LAN.</p>
-        </div>
-        <div class="stage">
-          <p class="stage-n">Stufe 3</p>
-          <h3>Papier führt</h3>
-          <p>Der Boardstand geht alle paar Minuten auf den Thermodrucker, das Lageblatt auf
-            Knopfdruck. Fällt alles aus, wird das letzte Blatt zum Board. Beim Wiederanlauf
-            überträgt <strong>eine</strong> Person das manuell Gemachte in die App.</p>
-        </div>
       </div>
     </div>
   </section>
@@ -743,6 +710,66 @@
           <div class="cap-s">Übungslagen einspeisen, statt sie zu erfinden – sauber vom Ernstfall getrennt</div>
         </figcaption>
       </figure>
+    </div>
+  </section>
+
+  <section class="wrap" id="betrieb">
+    <div class="sec-head">
+      <p class="eyebrow">Betrieb</p>
+      <h2>Drei Wege zum eigenen Board.</h2>
+      <p>Erst die Demo, dann eine Übung – und wenn es passt, läuft KP Rück bei euch. Quelloffen und kostenlos; Daten und Betrieb bleiben bei der Feuerwehr.</p>
+    </div>
+    <div class="ways">
+      <div class="way">
+        <p class="way-tag">Zum Ausprobieren</p>
+        <h3>Doppelklick</h3>
+        <p>Docker Desktop installieren, eine Datei doppelklicken: Das Board läuft auf dem Rechner im Magazin. Der schnellste Weg zu den eigenen Daten.</p>
+        <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md#der-schnellste-weg-double-click" target="_blank" rel="noopener">Zur Anleitung<svg class="ico"><use href="#i-arrow"/></svg></a>
+      </div>
+      <div class="way">
+        <p class="way-tag">Läuft auch ohne Internet</p>
+        <h3>Mini-PC im Magazin</h3>
+        <p>Docker Compose auf einem kleinen Server im eigenen Netz, mit eigenem Kartenserver und dem Drucker im LAN.</p>
+        <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/DEPLOYMENT.md" target="_blank" rel="noopener">Zur Anleitung<svg class="ico"><use href="#i-arrow"/></svg></a>
+      </div>
+      <div class="way">
+        <p class="way-tag">Niemand betreut eine Kiste</p>
+        <h3>Gehostet</h3>
+        <p>Bei einem Hosting-Anbieter eurer Wahl. Eine Standby-Box im Magazin kann den Ausfall des Netzes abfangen.</p>
+        <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RAILWAY.md" target="_blank" rel="noopener">Zur Anleitung<svg class="ico"><use href="#i-arrow"/></svg></a>
+      </div>
+    </div>
+    <p class="sec-note ways-note">Unterstützung bei Installation und Betrieb gibt es nach Absprache – <a href="#kontakt">Kontakt</a>.</p>
+  </section>
+
+  <section class="tenet">
+    <div class="wrap">
+      <p class="eyebrow">Der Massstab</p>
+      <blockquote>«Wenn das Netz weg ist, führt <em>Papier</em>»</blockquote>
+      <p class="expl">Ein Board, das bei Stromausfall schwarz wird, ist keine
+        Führungsunterlage. Darum ist eine mehrstufige Redundanz eingebaut – <strong>jede Stufe
+        funktioniert ohne die darüber</strong>.</p>
+      <div class="stages">
+        <div class="stage">
+          <p class="stage-n">Stufe 1</p>
+          <h3>Mehrere Geräte auf demselben Stand</h3>
+          <p>Tablets, Beamer-Anzeigen und Handys hängen live am gleichen Board. Fällt ein Gerät
+            aus oder friert ein, macht ein anderes weiter – es gibt nichts zu retten und nichts
+            nachzutragen.</p>
+        </div>
+        <div class="stage">
+          <p class="stage-n">Stufe 2</p>
+          <h3>Eine Standby-Box im Magazin</h3>
+          <p>Ein Mini-PC im Magazin spiegelt das Board laufend mit. Fällt das Internet aus, übernimmt er: Das Board läuft im lokalen Netz weiter, mit Karte aus dem eigenen Kartenserver und dem Drucker im LAN. Ist das Netz zurück, wird das dort Geführte wieder abgeglichen.</p>
+        </div>
+        <div class="stage">
+          <p class="stage-n">Stufe 3</p>
+          <h3>Papier führt</h3>
+          <p>Der Boardstand geht alle paar Minuten auf den Thermodrucker, das Lageblatt auf
+            Knopfdruck. Fällt alles aus, wird das letzte Blatt zum Board. Beim Wiederanlauf
+            überträgt <strong>eine</strong> Person das manuell Gemachte in die App.</p>
+        </div>
+      </div>
     </div>
   </section>
 

@@ -449,6 +449,7 @@
       en direct sur chaque appareil.</p>
     <div class="cta-row">
       <a class="btn btn-primary" href="https://demo.kp-rueck.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>Ouvrir la démo</a>
+      <a class="btn btn-ghost" href="#betrieb">L’exploiter soi-même</a>
       <span class="cta-note">Sans compte – choisir un rôle et commencer, aussi en français</span>
     </div>
     <figure class="frame">
@@ -509,41 +510,6 @@
           <li>Aucune dépendance à un fournisseur</li>
           <li>À exploiter et à faire évoluer vous-mêmes</li>
         </ul>
-      </div>
-    </div>
-  </section>
-
-  <section class="tenet">
-    <div class="wrap">
-      <p class="eyebrow">La mesure de toute chose</p>
-      <blockquote>«&nbsp;Quand le réseau tombe, c’est le <em>papier</em> qui conduit&nbsp;»</blockquote>
-      <p class="expl">Un tableau qui devient noir à la première coupure de courant n’est pas un document de
-        conduite. D’où une redondance à plusieurs niveaux – <strong>chaque niveau fonctionne
-        sans celui du dessus</strong>.</p>
-      <div class="stages">
-        <div class="stage">
-          <p class="stage-n">Niveau 1</p>
-          <h3>Plusieurs appareils au même état</h3>
-          <p>Tablettes, écrans de projection et téléphones sont reliés en direct au même tableau.
-            Si un appareil tombe ou se fige, un autre continue – il n’y a rien à sauver et rien
-            à reporter.</p>
-        </div>
-        <div class="stage">
-          <p class="stage-n">Niveau 2</p>
-          <h3>Une deuxième instance à la caserne</h3>
-          <p>KP Rück peut en plus tourner localement. La synchronisation intégrée tient à jour
-            événements, interventions, personnel, véhicules, matériel et réglages entre le cloud
-            et la base de données locale. La carte vient de votre propre serveur de tuiles, et
-            l’imprimante est de toute façon sur le réseau local.</p>
-        </div>
-        <div class="stage">
-          <p class="stage-n">Niveau 3</p>
-          <h3>Le papier conduit</h3>
-          <p>L’état du tableau part toutes les quelques minutes sur l’imprimante thermique, la
-            feuille de situation sur simple pression. Si tout tombe, la dernière feuille devient
-            le tableau. Au redémarrage, <strong>une seule</strong> personne reporte dans
-            l’application ce qui a été fait à la main.</p>
-        </div>
       </div>
     </div>
   </section>
@@ -748,6 +714,67 @@
           <div class="cap-s">Injecter des situations d’exercice au lieu de les inventer – proprement séparées du cas réel</div>
         </figcaption>
       </figure>
+    </div>
+  </section>
+
+  <section class="wrap" id="betrieb">
+    <div class="sec-head">
+      <p class="eyebrow">Exploitation</p>
+      <h2>Trois chemins vers votre propre tableau.</h2>
+      <p>D’abord la démo, puis un exercice – et si cela convient, KP Rück tourne chez vous. Open source et gratuit ; les données et l’exploitation restent chez les sapeurs-pompiers.</p>
+    </div>
+    <div class="ways">
+      <div class="way">
+        <p class="way-tag">Pour essayer</p>
+        <h3>Double-clic</h3>
+        <p>Installer Docker Desktop, double-cliquer sur un fichier : le tableau tourne sur l’ordinateur de la caserne. Le chemin le plus court vers vos propres données.</p>
+        <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md#der-schnellste-weg-double-click" target="_blank" rel="noopener">Vers le guide<svg class="ico"><use href="#i-arrow"/></svg></a>
+      </div>
+      <div class="way">
+        <p class="way-tag">Fonctionne aussi sans Internet</p>
+        <h3>Mini-PC à la caserne</h3>
+        <p>Docker Compose sur un petit serveur dans votre réseau, avec votre propre serveur de cartes et l’imprimante sur le réseau local.</p>
+        <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/DEPLOYMENT.md" target="_blank" rel="noopener">Vers le guide<svg class="ico"><use href="#i-arrow"/></svg></a>
+      </div>
+      <div class="way">
+        <p class="way-tag">Personne ne s’occupe d’une machine</p>
+        <h3>Hébergé</h3>
+        <p>Chez l’hébergeur de votre choix. Un boîtier de secours à la caserne peut prendre le relais si le réseau tombe.</p>
+        <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RAILWAY.md" target="_blank" rel="noopener">Vers le guide<svg class="ico"><use href="#i-arrow"/></svg></a>
+      </div>
+    </div>
+    <p class="sec-note ways-note">Un appui pour l’installation et l’exploitation est possible sur entente – <a href="#kontakt">contact</a>.</p>
+  </section>
+
+  <section class="tenet">
+    <div class="wrap">
+      <p class="eyebrow">La mesure de toute chose</p>
+      <blockquote>«&nbsp;Quand le réseau tombe, c’est le <em>papier</em> qui conduit&nbsp;»</blockquote>
+      <p class="expl">Un tableau qui devient noir à la première coupure de courant n’est pas un document de
+        conduite. D’où une redondance à plusieurs niveaux – <strong>chaque niveau fonctionne
+        sans celui du dessus</strong>.</p>
+      <div class="stages">
+        <div class="stage">
+          <p class="stage-n">Niveau 1</p>
+          <h3>Plusieurs appareils au même état</h3>
+          <p>Tablettes, écrans de projection et téléphones sont reliés en direct au même tableau.
+            Si un appareil tombe ou se fige, un autre continue – il n’y a rien à sauver et rien
+            à reporter.</p>
+        </div>
+        <div class="stage">
+          <p class="stage-n">Niveau 2</p>
+          <h3>Un boîtier de secours à la caserne</h3>
+          <p>Un mini-PC à la caserne reflète le tableau en continu. Si Internet tombe, il prend le relais : le tableau continue dans le réseau local, avec la carte de votre propre serveur de tuiles et l’imprimante sur le réseau local. Au retour du réseau, ce qui y a été conduit est de nouveau synchronisé.</p>
+        </div>
+        <div class="stage">
+          <p class="stage-n">Niveau 3</p>
+          <h3>Le papier conduit</h3>
+          <p>L’état du tableau part toutes les quelques minutes sur l’imprimante thermique, la
+            feuille de situation sur simple pression. Si tout tombe, la dernière feuille devient
+            le tableau. Au redémarrage, <strong>une seule</strong> personne reporte dans
+            l’application ce qui a été fait à la main.</p>
+        </div>
+      </div>
     </div>
   </section>
 

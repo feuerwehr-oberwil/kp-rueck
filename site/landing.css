@@ -417,6 +417,31 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
 .shot .cap-t { font-weight: 700; font-size: .98rem; }
 .shot .cap-s { color: var(--ink-faint); font-size: .83rem; margin-top: 3px; }
 
+/* ---------- Selbst betreiben ---------- */
+/* Drei Wege nebeneinander, gleich gewichtet: keiner ist «der richtige». Die Zeile
+   über dem Titel sagt, wofür der Weg steht. */
+.ways { margin-top: 36px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.way {
+  display: flex; flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-surface);
+  padding: 20px 22px;
+}
+.way-tag {
+  font-family: var(--mono); font-size: 11.5px; font-weight: 600;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint);
+}
+.way h3 { font-size: 1.08rem; font-weight: 700; letter-spacing: -.015em; margin-top: 8px; }
+.way p:not(.way-tag) { font-size: .93rem; color: var(--ink-dim); margin-top: 8px; }
+.way a {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: auto; padding-top: 16px;
+  font-size: .9rem; font-weight: 600; color: var(--ink);
+}
+.way a .ico { width: 14px; height: 14px; }
+.ways-note { margin-top: 18px; }
+
 /* ---------- pillars ---------- */
 .pillars-grid { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .pillar {
@@ -785,6 +810,7 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
   .shots-grid { grid-template-columns: 1fr; }
   .pillars-grid { grid-template-columns: 1fr; }
   .stages { grid-template-columns: 1fr; gap: 22px; }
+  .ways { grid-template-columns: 1fr; gap: 14px; }
   .contact-grid { grid-template-columns: 1fr; gap: 28px; }
   .fit-split { grid-template-columns: 1fr; gap: 24px; }
   .entry { grid-template-columns: 52px 16px 1fr; gap: 0 12px; }

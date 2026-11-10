@@ -51,6 +51,7 @@
     "h1": "Le tableau d’intervention du poste de commandement.",
     "lede": "KP Rück reproduit sous forme numérique le tableau magnétique du PC arrière :\n      <strong>interventions, personnel, véhicules et matériel</strong> sur un seul tableau –\n      en direct sur chaque appareil.",
     "cta": "Ouvrir la démo",
+    "cta2": "L’exploiter soi-même",
     "ctaNote": "Sans compte – choisir un rôle et commencer, aussi en français",
     "frameAddr": "BOARD · UNWETTER · 17 EINSÄTZE AKTIV",
     "frameAlt": "Tableau d’intervention : colonnes de Reçu à Terminé, les cartes d’intervention entre les deux, le personnel à gauche, le matériel à droite"
@@ -100,8 +101,8 @@
       },
       {
         "n": "Niveau 2",
-        "h3": "Une deuxième instance à la caserne",
-        "p": "KP Rück peut en plus tourner localement. La synchronisation intégrée tient à jour\n            événements, interventions, personnel, véhicules, matériel et réglages entre le cloud\n            et la base de données locale. La carte vient de votre propre serveur de tuiles, et\n            l’imprimante est de toute façon sur le réseau local."
+        "h3": "Un boîtier de secours à la caserne",
+        "p": "Un mini-PC à la caserne reflète le tableau en continu. Si Internet tombe, il prend le relais : le tableau continue dans le réseau local, avec la carte de votre propre serveur de tuiles et l’imprimante sur le réseau local. Au retour du réseau, ce qui y a été conduit est de nouveau synchronisé."
       },
       {
         "n": "Niveau 3",
@@ -211,6 +212,30 @@
         "sub": "Injecter des situations d’exercice au lieu de les inventer – proprement séparées du cas réel"
       }
     ]
+  },
+  "run": {
+    "eyebrow": "Exploitation",
+    "h2": "Trois chemins vers votre propre tableau.",
+    "lede": "D’abord la démo, puis un exercice – et si cela convient, KP Rück tourne chez vous. Open source et gratuit ; les données et l’exploitation restent chez les sapeurs-pompiers.",
+    "guide": "Vers le guide",
+    "ways": [
+      {
+        "h3": "Double-clic",
+        "tag": "Pour essayer",
+        "p": "Installer Docker Desktop, double-cliquer sur un fichier : le tableau tourne sur l’ordinateur de la caserne. Le chemin le plus court vers vos propres données."
+      },
+      {
+        "h3": "Mini-PC à la caserne",
+        "tag": "Fonctionne aussi sans Internet",
+        "p": "Docker Compose sur un petit serveur dans votre réseau, avec votre propre serveur de cartes et l’imprimante sur le réseau local."
+      },
+      {
+        "h3": "Hébergé",
+        "tag": "Personne ne s’occupe d’une machine",
+        "p": "Chez l’hébergeur de votre choix. Un boîtier de secours à la caserne peut prendre le relais si le réseau tombe."
+      }
+    ],
+    "note": "Un appui pour l’installation et l’exploitation est possible sur entente – <a href=\"#kontakt\">contact</a>."
   },
   "change": {
     "eyebrow": "Le changement",
