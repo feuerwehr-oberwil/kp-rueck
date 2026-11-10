@@ -119,10 +119,11 @@ export function RoutenplanungPanel({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header – one line at every rail width. Where the rail (`@container/rail`, the map
-          page) has the room the exit reads «✕ Beenden»; narrower it is the ✕ alone, named
-          «Routenplanung beenden» with the same words as its tooltip. It used to wrap under the
-          title in a narrow rail. The threshold is the room the label needs, per language. */}
+      {/* Header – the exit never wraps. Where the rail (`@container/rail`, the map page) has
+          the room it reads «✕ Beenden»; narrower it is the ✕ alone, named «Routenplanung
+          beenden» with the same words as its tooltip. It used to wrap under the title in a
+          narrow rail. The threshold is the room the label needs, per language; the longer French
+          title takes a second line in the narrowest rails instead. */}
       <div className="mb-4 flex items-center justify-between gap-2 border-b pb-3">
         <div className="flex min-w-0 items-center gap-2">
           <RouteIcon className="h-4 w-4 shrink-0 text-muted-foreground" />

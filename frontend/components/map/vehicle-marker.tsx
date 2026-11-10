@@ -25,6 +25,7 @@ import {
   reportDay,
   type PillFace,
   type PillOffset,
+  type ScreenBox,
   type VehicleSpot,
 } from "@/lib/map-vehicles"
 import { formatTime } from "@/lib/format-time"
@@ -166,16 +167,29 @@ export function formatReportTime(t: MapT, lastUpdate: string, now: number): stri
   return `${date} ${time}`
 }
 
-/** The words a pill shows for its face (`pillFace`): label, stale time, offline part. */
-export function pillTexts(t: MapT, face: PillFace, now: number): { label: string; time: string | null; offlinePart: string | null } {
+/**
+ * The words a pill shows for its face (`pillFace`): label, stale time, offline part. `short` (the
+ * phone map, owner pick r28f 1B) abbreviates a group – «6 Fz. | 4 off» instead of «6 Fahrzeuge |
+ * 4 offline» – so a depot's pill finds room beside its ⌂; its accessible name and its list keep
+ * the full words.
+ */
+export function pillTexts(
+  t: MapT,
+  face: PillFace,
+  now: number,
+  short = false,
+): { label: string; time: string | null; offlinePart: string | null } {
   if (face.kind === "single") {
     return { label: face.name, time: face.staleAt ? formatReportTime(t, face.staleAt, now) : null, offlinePart: null }
   }
   return {
-    label: t("page.vehicleCluster", { count: face.count }),
+    label: t(short ? "page.vehicleClusterShort" : "page.vehicleCluster", { count: face.count }),
     time: null,
     // Only the part that applies: all online or all offline is one pill.
-    offlinePart: face.online > 0 && face.offline > 0 ? t("vehicles.offlinePart", { count: face.offline }) : null,
+    offlinePart:
+      face.online > 0 && face.offline > 0
+        ? t(short ? "vehicles.offlinePartShort" : "vehicles.offlinePart", { count: face.offline })
+        : null,
   }
 }
 
@@ -194,6 +208,8 @@ export function VehicleSpotMarker({
   atMagazin,
   now,
   staleMinutes,
+  chrome,
+  short,
 }: {
   spot: VehicleSpot
   face: PillFace
@@ -206,6 +222,10 @@ export function VehicleSpotMarker({
   atMagazin: boolean
   now: number
   staleMinutes: number
+  /** The map's buttons and chrome, which draw above the open list – it slides off them. */
+  chrome: () => ScreenBox[]
+  /** The phone map: a group's pill is abbreviated (`pillTexts`). */
+  short: boolean
 }) {
   const t = useTranslations("map")
   const { current: mapRef } = useMap()
@@ -223,7 +243,9 @@ export function VehicleSpotMarker({
   }, [pinned, map])
   const open = hovered || pinned
 
+  // The pill may be abbreviated; what it is called and its list title keep the full words.
   const texts = pillTexts(t, face, now)
+  const shown = short ? pillTexts(t, face, now, true) : texts
   const dx = offset?.dx ?? 0
   const dy = offset?.dy ?? 0
   const online = face.kind === "single" ? face.online : face.online > 0
@@ -265,6 +287,7 @@ export function VehicleSpotMarker({
       pillHalfHeight,
       list: { width: listWidth, height: listHeight },
       viewport,
+      chrome: chrome(),
       gap: LIST_GAP,
     })
   }
@@ -292,7 +315,7 @@ export function VehicleSpotMarker({
             if (event.key === "Escape") setPinned(false)
           }}
         >
-          <VehiclePill online={online} label={texts.label} time={texts.time} offlinePart={texts.offlinePart} heading={headingOf(spot)} />
+          <VehiclePill online={online} label={shown.label} time={shown.time} offlinePart={shown.offlinePart} heading={headingOf(spot)} />
         </button>
         {open && (
           <VehicleList

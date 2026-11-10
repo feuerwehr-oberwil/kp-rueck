@@ -17385,7 +17385,7 @@
           "traccar"
         ],
         "summary": "Get Traccar Status",
-        "description": "Get Traccar configuration status.\n\nReports configured=true while a GPS simulation runs so the map subscribes to\nposition updates even on installations without a real Traccar server.",
+        "description": "Get Traccar configuration status.\n\nReports configured=true while a GPS simulation runs so the map subscribes to\nposition updates even on installations without a real Traccar server – and on the\npublic demo, which serves fixed positions (`services/demo_positions.py`).",
         "operationId": "get_traccar_status_api_traccar_status_get",
         "parameters": [
           {

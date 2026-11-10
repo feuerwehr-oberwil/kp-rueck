@@ -106,6 +106,11 @@ describe('placeVehiclePills', () => {
     expect(placeVehiclePills([pill('a', 100, 100)], { obstacles: [pin(300, 300)] }).size).toBe(0)
   })
 
+  it('steps a pill out from under the map chrome (a button, the legend)', () => {
+    const moved = placeVehiclePills([pill('a', 100, 100)], { obstacles: [], chrome: [{ x: 100, y: 100, width: 36, height: 36 }] })
+    expect(moved.get('a')).toEqual({ dx: 0, dy: 32 })
+  })
+
   it('steps a pill off an incident pin – below first', () => {
     const moved = placeVehiclePills([pill('a', 100, 100)], { obstacles: [pin(100, 100)] })
     expect(moved.get('a')).toEqual({ dx: 0, dy: 32 })
@@ -167,5 +172,35 @@ describe('placeHoverList', () => {
     // Centred on x=50 its left edge would sit at -86: it moves right to the 8px margin.
     expect(placeHoverList({ anchor: { x: 50, y: 300 }, pillHalfHeight: 10, list, viewport }).shiftX).toBe(94)
     expect(placeHoverList({ anchor: { x: 790, y: 300 }, pillHalfHeight: 10, list, viewport }).shiftX).toBe(-134)
+  })
+
+  it('slides off the map buttons it would lie under, when the map is wide enough', () => {
+    // The phone case: the Magazin pill top-left, the list opening below it over the fullscreen
+    // button (x 12–48, y 88–124) – it moves right of the button instead.
+    const phone = { width: 358, height: 348 }
+    const button = { x: 30, y: 106, width: 36, height: 36 }
+    const place = placeHoverList({ anchor: { x: 115, y: 105 }, pillHalfHeight: 11, list, viewport: phone, chrome: [button] })
+    expect(place.side).toBe('bottom')
+    expect(115 - 136 + place.shiftX).toBe(56)
+    // Too narrow to clear it: as far off it as the map allows (its right edge at the margin).
+    const narrow = placeHoverList({ anchor: { x: 115, y: 105 }, pillHalfHeight: 11, list, viewport: { width: 300, height: 348 }, chrome: [button] })
+    expect(115 - 136 + narrow.shiftX).toBe(20)
+  })
+
+  it('opens on the other side when chrome blocks its own side and the list fits there clear', () => {
+    // A bar across the whole map above the pill: no sideways slide clears it.
+    const bar = { x: 400, y: 150, width: 800, height: 100 }
+    expect(placeHoverList({ anchor: { x: 400, y: 300 }, pillHalfHeight: 10, list, viewport, chrome: [bar] })).toMatchObject({
+      side: 'bottom',
+      shiftX: 0,
+    })
+  })
+
+  it('with chrome on both sides it takes the position covered least', () => {
+    // Buttons down the left edge of a 300px map: centred (x 14) the list lies 30px over them,
+    // flush right of them (x 20, as far as the map allows) only 24.
+    const buttons = [{ x: 20, y: 150, width: 40, height: 60 }, { x: 20, y: 400, width: 40, height: 60 }]
+    const place = placeHoverList({ anchor: { x: 150, y: 300 }, pillHalfHeight: 10, list, viewport: { width: 300, height: 600 }, chrome: buttons })
+    expect(place).toMatchObject({ side: 'top', shiftX: 6 })
   })
 })

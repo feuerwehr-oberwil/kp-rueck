@@ -50,7 +50,8 @@ export const MAPLIBRE_WORKER_URL = '/maplibre/maplibre-gl-worker.mjs'
  *   away from the pills and the pills step off the pins (`lib/map-vehicles.ts`), so this only
  *   decides the leftovers – a pill that found no free place (`vehicleCrowded`) lies over the
  *   resting pins it covers least, so it stays readable and tappable; an open vehicle list
- *   (`vehicleOpen`) clears everything;
+ *   (`vehicleOpen`) clears every marker. The map's chrome stays above all of it, so pills and the
+ *   list keep out from under that chrome (`mapChromeBoxes` in components/map-view.tsx);
  * - an Auftrag's numbered stop pin covers a plain incident dot;
  * - the selected/highlighted incident (label, then its pin) clears every resting pin and stop;
  * - the pointed-at one (label/hover card, then its pin) clears everything – the hovered route
