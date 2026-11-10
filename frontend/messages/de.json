@@ -121,7 +121,7 @@
       "priorityMedium": "Priorität: Mittel",
       "priorityHigh": "Priorität: Hoch",
       "toggleZuFuss": "Zu Fuss umschalten",
-      "assignVehicle": "Fahrzeug {number} zuweisen/entfernen",
+      "assignVehicle": "Fahrzeug {number} zuweisen/freigeben",
       "deleteIncident": "Einsatz löschen",
       "linksAndQr": "Links & QR",
       "rapporte": "Rapporte öffnen",
@@ -1024,7 +1024,7 @@
     },
     "attendance": {
       "title": "Anwesenheit · {event}",
-      "summary": "{present} anwesend · {left} gegangen · {total} Mannschaft",
+      "summary": "{present} anwesend · {left} gegangen · {total} Personal",
       "rowLabel": "Anwesenheit",
       "rowCount": "{present} von {total} angemeldet",
       "open": "Appell öffnen",
@@ -1323,14 +1323,12 @@
       "moveReleasesDriver": "«Hierher verschieben» gibt auch die Fahrer-Rolle für {vehicle} frei."
     },
     "vehicleStatus": {
-      "durationMinutes": "{minutes} Min",
-      "durationHoursMinutes": "{hours}h {mins}m",
-      "durationHours": "{hours}h",
+      "bound": "Gebunden",
       "available": "Verfügbar",
       "unavailable": "Nicht verfügbar",
       "loadError": "Fahrzeugstatus konnten nicht geladen werden",
       "title": "Fahrzeugstatus",
-      "description": "Klicken um zu Einsatz zu navigieren • Aktualisiert alle 10 Sekunden",
+      "description": "Klick öffnet den Einsatz · aktualisiert alle 10 Sekunden",
       "refresh": "Aktualisieren",
       "noVehicles": "Keine Fahrzeuge verfügbar",
       "longDuration": "Lange",
@@ -1338,8 +1336,7 @@
       "readyForOperation": "Bereit für Einsatz",
       "changeDriver": "Fahrer ändern",
       "assignDriver": "Fahrer zuweisen",
-      "auftragLabel": "Auftrag «{name}»",
-      "durationDaysHours": "{days}d {hours}h"
+      "auftragLabel": "Auftrag «{name}»"
     },
     "gpsArrival": {
       "fallbackVehicle": "Fahrzeug",
@@ -1347,7 +1344,7 @@
       "movedToActive": "{label} auf Einsatz gesetzt",
       "statusChangeFailed": "Statusänderung fehlgeschlagen",
       "title": "Fahrzeug am Einsatzort",
-      "description": "<strong>{vehicle}</strong> ist beim Einsatz »{label}« angekommen. Auf Einsatz setzen?",
+      "description": "<strong>{vehicle}</strong> ist beim Einsatz «{label}» angekommen. Auf Einsatz setzen?",
       "decline": "Nicht verschieben",
       "confirm": "Auf Einsatz setzen"
     },
@@ -1359,7 +1356,7 @@
       "completed": "{label} abgeschlossen",
       "completeFailed": "Abschliessen fehlgeschlagen",
       "title": "Fahrzeug zurück im Magazin – freigeben?",
-      "description": "<strong>{vehicle}</strong> ist laut GPS wieder im Magazin. Nur die Zuweisung zu »{label}« freigeben – oder den Einsatz gleich ganz abschliessen (gibt alle Ressourcen frei)?",
+      "description": "<strong>{vehicle}</strong> ist laut GPS wieder im Magazin. Nur die Zuweisung zu «{label}» freigeben – oder den Einsatz gleich ganz abschliessen (gibt alle Ressourcen frei)?",
       "decline": "Nicht freigeben",
       "releaseOnly": "Nur {vehicle} freigeben",
       "completeIncident": "Einsatz abschliessen"
@@ -1496,7 +1493,7 @@
       "magazin": "Magazin",
       "missingCoordsAria": "{count, plural, one {# Einsatz} other {# Einsätze}} ohne gültige Koordinaten",
       "missingCoordsChip": "{count} ohne Koordinaten",
-      "clickToNavigate": "Klicken um zu Einsatz zu navigieren",
+      "clickToNavigate": "Klick öffnet den Einsatz",
       "retry": "Erneut versuchen",
       "mapAria": "Einsatzkarte – Pfeiltasten zum Verschieben, Tab zum Markieren",
       "glLost": "Die Kartendarstellung wurde vom Browser beendet.",
@@ -1715,7 +1712,7 @@
         "general": "Allgemein",
         "notifications": "Benachrichtigungen",
         "alerting": "Ausalarmierung",
-        "alarmIntake": "Alarm-Eingang",
+        "alarmIntake": "Alarmeingang",
         "checklist": "Checkliste",
         "auftragTemplates": "Standard-Aufträge",
         "gps": "GPS",
@@ -3514,6 +3511,7 @@
       "removePin": "Pin entfernen",
       "setPin": "Pin auf Karte setzen",
       "dispatch": "Auslösen",
+      "dispatchNeeds": "Szenario und Ort wählen, dann auslösen.",
       "dispatchHint": "Oder den Pin direkt auf die Karte setzen.",
       "multipleIncidents": "Mehrere Einsätze gleichzeitig",
       "burst": "Burst (5x zufällig)",
@@ -3839,7 +3837,7 @@
     "status": {
       "accessRequired": "Zugang erforderlich",
       "vehicles": "Fahrzeuge",
-      "availableDeployed": "{available} verfügbar · {deployed} im Einsatz",
+      "availableDeployed": "{available} frei · {deployed} gebunden",
       "incidents": "Einsätze",
       "waitingInProgress": "{waiting} offen · {inProgress} in Arbeit",
       "noActiveIncidents": "Keine aktiven Einsätze",
@@ -3851,7 +3849,7 @@
       "freeOfTotal": "{free}/{total} frei",
       "auftragStops": "{count, plural, one {# Stopp} other {# Stopps}}",
       "onIncidents": "{count, plural, one {# Einsatz} other {# Einsätze}}",
-      "availableDeployedNotReady": "{available} verfügbar · {deployed} im Einsatz · {notReady} nicht einsatzbereit",
+      "availableDeployedNotReady": "{available} frei · {deployed} gebunden · {notReady} nicht einsatzbereit",
       "figures": "Kennzahlen"
     },
     "tokenBoard": {

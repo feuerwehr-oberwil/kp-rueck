@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { MapPin, RefreshCw, Home } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
+import { reportClientError } from '@/lib/report-error'
 
 export default function MapError({
   error,
@@ -16,6 +17,7 @@ export default function MapError({
   const t = useTranslations('errors.mapError')
   useEffect(() => {
     console.error('Map error:', error)
+    reportClientError(error, { kind: 'render' })
   }, [error])
 
   return (

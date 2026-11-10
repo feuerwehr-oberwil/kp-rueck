@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { SettingGroup, SettingRow } from '@/components/settings/setting-row';
 import { toast } from 'sonner';
 import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils';
+import { FormMessage } from '@/components/ui/form-message';
 import {
   Zap,
   Flame,
@@ -392,6 +393,7 @@ export function TrainingControls() {
                   // incidents), so the target stays generous below `sm`.
                   className="min-h-[44px] min-w-[44px] sm:min-h-[32px] sm:min-w-[32px]"
                   title={t('controls.removePin')}
+                  aria-label={t('controls.removePin')}
                 >
                   <X className="size-3.5" />
                 </Button>
@@ -418,6 +420,7 @@ export function TrainingControls() {
                   onClick={() => setPickerOpen(true)}
                   className="min-h-[44px] min-w-[44px] flex-shrink-0 sm:min-h-[36px] sm:min-w-[36px]"
                   title={t('controls.setPin')}
+                  aria-label={t('controls.setPin')}
                 >
                   <MapPin className="size-3.5" />
                 </Button>
@@ -431,6 +434,7 @@ export function TrainingControls() {
               <Target className="size-4" />
               {t('controls.dispatch')}
             </Button>
+            {!canDispatch && <FormMessage tone="advice">{t('controls.dispatchNeeds')}</FormMessage>}
           </div>
         </SettingGroup>
 

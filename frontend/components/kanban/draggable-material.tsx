@@ -52,8 +52,6 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
       onClick={onClick}
       role={canDrag ? "button" : undefined}
       title={material.name}
-      aria-grabbed={isDragging}
-      aria-label={canDrag ? `Drag ${material.name} to assign to incident` : undefined}
       className={cn(
         "group rounded-md px-2 py-1.5 transition-all hover:bg-muted/50",
         canDrag && "draggable",

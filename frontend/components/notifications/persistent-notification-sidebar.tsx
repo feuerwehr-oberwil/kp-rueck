@@ -118,7 +118,7 @@ export function PersistentNotificationSidebar() {
             </span>
           )}
         </div>
-        <Button variant="ghost" size="icon" onClick={closeSidebar} className="h-8 w-8" title={t('closePanel')}>
+        <Button variant="ghost" size="icon" onClick={closeSidebar} className="h-8 w-8" title={t('closePanel')} aria-label={t('closePanel')}>
           <X className="size-4" />
         </Button>
       </header>
