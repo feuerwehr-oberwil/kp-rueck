@@ -3,7 +3,8 @@
     "title": "KP Rück – Einsatzboard für den Kommandoposten",
     "description": "KP Rück ist die digitale Magnettafel im rückwärtigen Kommandoposten: Einsätze, Personal, Fahrzeuge und Material – live auf allen Geräten, quelloffen.",
     "ogTitle": "KP Rück – Einsatzboard für den Kommandoposten",
-    "ogDescription": "Die digitale Magnettafel im rückwärtigen Kommandoposten: Einsätze, Personal, Fahrzeuge und Material – live auf allen Geräten, quelloffen."
+    "ogDescription": "Die digitale Magnettafel im rückwärtigen Kommandoposten: Einsätze, Personal, Fahrzeuge und Material – live auf allen Geräten, quelloffen.",
+    "imageAlt": "KP Rück mit digitalem Einsatzboard für Einsätze, Personal, Fahrzeuge und Material."
   },
   "schema": {
     "featureList": [

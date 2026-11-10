@@ -18,10 +18,11 @@ import type { LucideIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { FooterSheet as FooterSheetPanel } from "@/components/ui/footer-sheet"
+import { SheetTitle } from "@/components/ui/sheet"
 import { CardViewMenu } from "@/components/kanban/card-view-menu"
 import type { selectFiledRapports, selectOpenRapports } from "@/components/kanban/rapport-backlog-sheet"
-import { ToolbarOverflow } from "@/components/kanban/toolbar-overflow"
+import { TOOLBAR_ICON, ToolbarOverflow } from "@/components/kanban/toolbar-overflow"
 import { EventSetupChecklist } from "@/components/event-setup-checklist"
 import type { useEvent } from "@/lib/contexts/event-context"
 import { cn } from "@/lib/utils"
@@ -89,7 +90,7 @@ function ToolbarToggle({
       title={title ?? label}
       aria-label={label}
     >
-      <Icon className="size-3.5" />
+      <Icon {...TOOLBAR_ICON} />
       <span className="hidden text-xs xl:inline">{label}</span>
       {count !== undefined && (
         <Badge variant="secondary" className="h-4 px-1.5 text-[11px] font-medium tabular-nums">
@@ -157,6 +158,9 @@ export function BoardFooter({
 }: BoardFooterProps) {
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
+  const tChecklist = useTranslations('checklist.setup')
+  const checklistShown =
+    !!selectedEvent && checklistProgress.total > 0 && checklistProgress.completed < checklistProgress.total
   return (
     <>
     {/* Desktop Footer.
@@ -206,61 +210,40 @@ export function BoardFooter({
             ambiguous. It costs 134px — the two labels below give back more
             than that, so the primary action never has to pay. */}
         <div className="flex shrink-0 items-center gap-3">
-          <Button size="sm" className="gap-2 shadow-sm" onClick={() => setNewEmergencyModalOpen(true)}>
-            <Plus className="size-3.5" />
+          <Button size="sm" className="shadow-sm" onClick={() => setNewEmergencyModalOpen(true)}>
+            <Plus {...TOOLBAR_ICON} />
             {tCommon('newIncident')}
           </Button>
 
-          {/* Event Setup Checklist — shown only while setup is incomplete; disappears once done */}
-          {selectedEvent && checklistProgress.total > 0 && checklistProgress.completed < checklistProgress.total && (
-            <Popover open={checklistPopoverOpen} onOpenChange={handleChecklistOpenChange}>
-              <PopoverTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-2"
-                  // Icon-only below 2xl, so the tooltip has to carry the name —
-                  // same contract as `ToolbarToggle`.
-                  title={`${tDash('readiness')} ${checklistProgress.completed}/${checklistProgress.total}`}
-                  aria-label={`${tDash('readiness')} ${checklistProgress.completed}/${checklistProgress.total}`}
-                >
-                  <ClipboardCheck className="size-3.5" />
-                  {/* The word collapses like every other footer label; the
-                      badge never does — `n/m` is the informative half, and
-                      the clipboard icon alone does not carry a count. */}
-                  <span className="hidden 2xl:inline">{tDash('readiness')}</span>
-                  <Badge variant="secondary" className="h-5 px-1.5 text-xs font-medium tabular-nums">
-                    {checklistProgress.completed}/{checklistProgress.total}
-                  </Badge>
-                </Button>
-              </PopoverTrigger>
-              {/* Same offset as CardViewMenu at the other end of the row,
-                  and for the same reason: the trigger sits inside the
-                  toolbar, so the offset has to clear the toolbar and not
-                  just the button. 10 left ~1px, and none at all while the
-                  button is still badge-less ("Checkliste wird geladen…"),
-                  which put the panel's bottom edge under the toolbar. */}
-              <PopoverContent
-                // Clamped: collision handling can shift this panel but not shrink it,
-                // so a flat 600px runs off a narrow desktop window's edge.
-                className="w-[min(600px,calc(100vw-2rem))] p-0"
-                align="start"
-                side="top"
-                sideOffset={20}
-              >
-                <EventSetupChecklist
-                  eventId={selectedEvent.id}
-                  eventName={selectedEvent.name}
-                  onDismiss={() => handleChecklistOpenChange(false)}
-                  onAllTasksComplete={() => handleChecklistOpenChange(false)}
-                  onOpenVehicles={() => setActiveFooterSheet('vehicles')}
-                  onOpenAttendance={() => setAttendanceOpen(true)}
-                  onSendDiveraMessage={(text) => setDiveraMessageText(text)}
-                  onOpenRekoPicker={() => setRekoPickerOpen(true)}
-                  onOverridesChange={() => setChecklistOverridesVersion((v) => v + 1)}
-                />
-              </PopoverContent>
-            </Popover>
+          {/* Event Setup Checklist — shown only while setup is incomplete; disappears once done.
+              It opens a footer sheet like every other tool down here (owner, 09.11.2026): it
+              used to be a popover that popped up above the toolbar, the one panel that did not
+              come out from behind it. Opening it closes whichever footer sheet is open (and
+              the page closes it when another one opens). */}
+          {checklistShown && (
+            <Button
+              size="sm"
+              variant="outline"
+              className={cn(checklistPopoverOpen && "bg-foreground/[0.09]")}
+              onClick={() => {
+                if (!checklistPopoverOpen) setActiveFooterSheet(null)
+                handleChecklistOpenChange(!checklistPopoverOpen)
+              }}
+              aria-expanded={checklistPopoverOpen}
+              // Icon-only below 2xl, so the tooltip has to carry the name —
+              // same contract as `ToolbarToggle`.
+              title={`${tDash('readiness')} ${checklistProgress.completed}/${checklistProgress.total}`}
+              aria-label={`${tDash('readiness')} ${checklistProgress.completed}/${checklistProgress.total}`}
+            >
+              <ClipboardCheck {...TOOLBAR_ICON} />
+              {/* The word collapses like every other footer label; the
+                  badge never does — `n/m` is the informative half, and
+                  the clipboard icon alone does not carry a count. */}
+              <span className="hidden 2xl:inline">{tDash('readiness')}</span>
+              <Badge variant="secondary" className="h-5 px-1.5 text-xs font-medium tabular-nums">
+                {checklistProgress.completed}/{checklistProgress.total}
+              </Badge>
+            </Button>
           )}
         </div>
 
@@ -409,7 +392,7 @@ export function BoardFooter({
                         title={tDash('trainingControl')}
                         aria-label={tDash('trainingControl')}
                       >
-                        <Sparkles className="size-3.5" />
+                        <Sparkles {...TOOLBAR_ICON} />
                         {/* Second collapse stage, at 2xl rather than xl. This is the
                             longest label in the row (143px) and the only pill that
                             is not part of the everyday live board — dropping its
@@ -455,7 +438,7 @@ export function BoardFooter({
         <div className="flex shrink-0 items-center gap-3">
           <button
             onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
-            className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors"
+            className="relative hit-area flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             <Kbd className="h-5 text-2xs px-1.5">{cmdHint}</Kbd>
             <span className="hidden lg:inline">{tDash('commands')}</span>
@@ -463,6 +446,31 @@ export function BoardFooter({
         </div>
       </div>
     </footer>
+
+    {/* The Checkliste's sheet – the frame of the other footer sheets; its own header carries
+        the title, the progress and the ✕. */}
+    {selectedEvent && (
+      <FooterSheetPanel
+        open={checklistShown && checklistPopoverOpen}
+        onOpenChange={handleChecklistOpenChange}
+        className="flex flex-col gap-0 max-w-3xl mx-auto p-0 modal-h-tall"
+      >
+        <SheetTitle className="sr-only">{tChecklist('title')}</SheetTitle>
+        <div className="min-h-0 overflow-y-auto px-2">
+          <EventSetupChecklist
+            eventId={selectedEvent.id}
+            eventName={selectedEvent.name}
+            onDismiss={() => handleChecklistOpenChange(false)}
+            onAllTasksComplete={() => handleChecklistOpenChange(false)}
+            onOpenVehicles={() => setActiveFooterSheet('vehicles')}
+            onOpenAttendance={() => setAttendanceOpen(true)}
+            onSendDiveraMessage={(text) => setDiveraMessageText(text)}
+            onOpenRekoPicker={() => setRekoPickerOpen(true)}
+            onOverridesChange={() => setChecklistOverridesVersion((v) => v + 1)}
+          />
+        </div>
+      </FooterSheetPanel>
+    )}
     </>
   )
 }

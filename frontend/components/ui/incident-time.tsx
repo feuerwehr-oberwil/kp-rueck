@@ -41,7 +41,7 @@ import {
   type IncidentTimeMode,
   type IncidentTimeSource,
 } from '@/lib/incident-time'
-import { ageChipClass } from '@/lib/kanban-utils'
+import { ageChipClass, ageLevel } from '@/lib/kanban-utils'
 import { formatDurationLong } from '@/lib/duration'
 import { cn } from '@/lib/utils'
 
@@ -104,6 +104,10 @@ export interface IncidentTimeProps {
    * displayed mode — the colour is a separate signal from the number.
    */
   colorByAge?: boolean
+  /** Extra classes once `colorByAge` has turned the value amber/red (the phone
+   *  card sets 600 there). Follows the same `ageLevel` as the colour, so the
+   *  two can never disagree about when an incident is overdue. */
+  agedClassName?: string
   /**
    * Render nothing while a duration mode is active. For closed incidents: a
    * running clock on a finished Einsatz reads «19h 40'» the next morning and
@@ -122,6 +126,7 @@ export function IncidentTime({
   operation,
   readOnly = false,
   colorByAge = false,
+  agedClassName,
   suppressDurations = false,
   showIcon = true,
   size = 'default',
@@ -158,6 +163,7 @@ export function IncidentTime({
     'font-mono tabular-nums',
     big && 'text-base font-semibold',
     colorByAge ? ageChipClass(ageReference) : 'text-muted-foreground',
+    colorByAge && ageLevel(ageReference) !== 'normal' && agedClassName,
     className
   )
 

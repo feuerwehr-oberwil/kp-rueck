@@ -44,13 +44,15 @@ class TraccarPoller:
 
     async def start_polling(self) -> None:
         """Start polling for positions and trails."""
+        from .demo_positions import demo_positions_active
         from .gps_simulation import gps_simulation
 
         if self.is_polling:
             return
         # Also run for simulation-only setups (no Traccar configured): the client
-        # then serves purely simulated positions.
-        if not self.is_configured and not gps_simulation.any_active():
+        # then serves purely simulated positions. And on the public demo, whose fixed
+        # positions follow the board (services/demo_positions.py).
+        if not self.is_configured and not gps_simulation.any_active() and not demo_positions_active():
             return
 
         self._should_poll = True
@@ -102,6 +104,9 @@ class TraccarPoller:
                 positions = await traccar_client.get_vehicle_positions()
                 self._last_positions = positions
                 self._last_positions_at = datetime.now(UTC)
+                # The demo's boards see its fixed positions (a training drive overlaid); the cache
+                # above and the automation below keep only real and simulated ones.
+                shown = await self._demo_positions() or positions
                 positions_data = [
                     {
                         "device_id": p.device_id,
@@ -115,7 +120,7 @@ class TraccarPoller:
                         "last_update": p.last_update.isoformat(),
                         "address": p.address,
                     }
-                    for p in positions
+                    for p in shown
                 ]
                 await broadcast_vehicle_positions(positions_data)
                 # GPS-driven status automation (plan 10) — opt-in, off by default. Runs
@@ -131,6 +136,17 @@ class TraccarPoller:
                 await asyncio.sleep(POSITIONS_INTERVAL_SECONDS)
             except asyncio.CancelledError:
                 break
+
+    async def _demo_positions(self) -> list[VehiclePosition]:
+        """On the public demo: its fixed positions with any training drive overlaid; else none."""
+        from ..database import async_session_maker
+        from .demo_positions import demo_positions_active, demo_vehicle_positions
+        from .gps_simulation import gps_simulation
+
+        if not demo_positions_active():
+            return []
+        async with async_session_maker() as db:
+            return gps_simulation.overlay(await demo_vehicle_positions(db))
 
     async def _run_automation(self, positions: list[VehiclePosition]) -> None:
         """Run the GPS automation rules in their own DB session, per tick."""

@@ -4,10 +4,12 @@ import { useState, useMemo, useEffect, useRef } from "react"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { useIsMobile } from "@/components/ui/use-mobile"
 import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { AlertTriangle, Users, Truck, Package, CheckCircle, Circle, Footprints, Car, Binoculars, Package2, Phone, MonitorCog, Siren, MapPin, Undo2, Ban, SlidersHorizontal, X } from "lucide-react"
+import { AlertTriangle, Truck, Footprints, Binoculars, Package2, Phone, MonitorCog, MapPin, Undo2, Ban, SlidersHorizontal, X } from "lucide-react"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { EmptyState, type EmptyStateAction } from "@/components/ui/empty-state"
 import {
@@ -28,11 +30,11 @@ import { useMaterials } from "@/lib/contexts/materials-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
-import { getIncidentRefLabel } from "@/lib/incident-types"
+import { getIncidentLocationLabel, getIncidentRefLabel, getIncidentRefParts } from "@/lib/incident-types"
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { cn } from "@/lib/utils"
-import { ListSection } from "@/components/kanban/assignment-list-section"
+import { ElsewhereNote, ListSection, type OccupancyLabel, PersonTileLine, TileCheck, type TileRole, TILE_GRID, TILE_HOVER, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
 import {
   MaterialAssignmentList,
   MaterialTypeChips,
@@ -103,10 +105,6 @@ const vehicleMatchesQuery = (v: { name: string; type: string }, query: string) =
   return !q || v.name.toLowerCase().includes(q) || v.type.toLowerCase().includes(q)
 }
 
-/** Where an occupied resource currently is: `short` is length-capped for the
- *  card subtitle, `full` untruncated for the hover title and confirm copy. */
-type OccupancyLabel = { short: string; full: string }
-
 /**
  * One place a resource is currently held, with enough to RELEASE it again.
  *
@@ -155,6 +153,8 @@ export function ResourceAssignmentDialog({
   const t = useTranslations('kanban')
   const tEmpty = useTranslations('common.emptyState')
   const compactFilters = useCompactFilters()
+  // Below 768px the dialog is a bottom sheet (see PHONE below).
+  const isMobile = useIsMobile()
   const searchRef = useRef<HTMLInputElement>(null)
   const { materialGroups } = useMaterials()
   const { operations, requestResourceConflict, removeCrew, removeMaterial, outOfServiceVehicleIds } = useOperations()
@@ -239,14 +239,20 @@ export function ResourceAssignmentDialog({
    * «Reko», and somebody on a Schadenplatz read as «Im Einsatz» with no hint
    * that taking them also takes the fleet's only driver. The driver's label
    * names the VEHICLE, because «Fahrer» alone raises the question it answers.
+   *
+   *
+   * `place` marks a role that says where the person IS (Reko, Magazin, …): the
+   * first one is the tile's amber where-note when the person is on no
+   * Einsatz/Auftrag. The driven vehicle is not a place; it comes last, muted
+   * (`PersonTileLine`).
    */
-  const specialFunctionsOf = (p: Person): { label: string; Icon: typeof Car }[] => {
-    const functions: { label: string; Icon: typeof Car }[] = []
-    if (p.isDriver) functions.push({ label: p.driverVehicleName || t('assignmentDialog.driverBadge'), Icon: Car })
-    if (p.isReko || rekoPersonnelIds.includes(p.id)) functions.push({ label: t('common.reko'), Icon: Binoculars })
-    if (p.isMagazin) functions.push({ label: t('common.magazin'), Icon: Package2 })
-    if (p.isTelefondienst) functions.push({ label: t('common.telefondienst'), Icon: Phone })
-    if (p.isKommandoposten) functions.push({ label: t('common.kommandoposten'), Icon: MonitorCog })
+  const specialFunctionsOf = (p: Person): (TileRole & { place: boolean })[] => {
+    const functions: (TileRole & { place: boolean })[] = []
+    if (p.isReko || rekoPersonnelIds.includes(p.id)) functions.push({ label: t('common.reko'), Icon: Binoculars, place: true })
+    if (p.isMagazin) functions.push({ label: t('common.magazin'), Icon: Package2, place: true })
+    if (p.isTelefondienst) functions.push({ label: t('common.telefondienst'), Icon: Phone, place: true })
+    if (p.isKommandoposten) functions.push({ label: t('common.kommandoposten'), Icon: MonitorCog, place: true })
+    if (p.isDriver) functions.push({ label: p.driverVehicleName || t('assignmentDialog.driverBadge'), Icon: Truck, place: false })
     return functions
   }
 
@@ -269,8 +275,9 @@ export function ResourceAssignmentDialog({
 
   // EVERY place an occupied vehicle/material/person is currently held, resolved
   // from the operations + Auftrag contexts (no prop threading): vehicle id →
-  // bindings, material id → bindings, person id → bindings. Each binding carries a truncated `short` for the card, an
-  // untruncated `full` for the hover title, and what is needed to release it.
+  // bindings, material id → bindings, person id → bindings. Each binding carries the card's
+  // two lines (`head` = number · address, `detail` = type and Meldung – the note's CSS
+  // clamps them), an untruncated `full` for the hover title, and what is needed to release it.
   // The current assign target never counts as "elsewhere" — note operationId
   // holds the GROUP id when assignTarget === 'route'.
   //
@@ -287,7 +294,7 @@ export function ResourceAssignmentDialog({
     }
     for (const op of operations) {
       if (assignTarget === 'incident' && op.id === operationId) continue
-      const label = { short: getIncidentRefLabel(op, 40), full: getIncidentRefLabel(op, 1000) }
+      const label = { ...getIncidentRefParts(op, 1000), full: getIncidentRefLabel(op, 1000) }
       for (const v of op.vehicles) push(vehicleMap, v.vehicleId, { ...label, kind: 'incident', id: op.id })
       for (const id of op.materials) push(materialMap, id, { ...label, kind: 'incident', id: op.id })
       for (const m of op.crew) push(personMap, m.personnelId, { ...label, kind: 'incident', id: op.id })
@@ -295,13 +302,21 @@ export function ResourceAssignmentDialog({
     for (const group of groups) {
       if (assignTarget === 'route' && group.id === operationId) continue
       const res = getGroupResources(group.id)
-      const label = { short: group.name, full: group.name }
+      const label = { head: group.name, full: group.name, swatch: group.color ?? null }
       for (const v of res.vehicles) push(vehicleMap, v.resourceId, { ...label, kind: 'route', id: group.id, assignmentId: v.assignmentId })
       for (const m of res.materials) push(materialMap, m.resourceId, { ...label, kind: 'route', id: group.id, assignmentId: m.assignmentId })
       for (const p of res.personnel) push(personMap, p.resourceId, { ...label, kind: 'route', id: group.id, assignmentId: p.assignmentId })
     }
     return { vehicleOccupancy: vehicleMap, materialOccupancy: materialMap, personOccupancy: personMap }
   }, [operations, groups, getGroupResources, assignTarget, operationId])
+
+  /** The Einsatz the title's «zu Einsatz» means, named under it (number + address), so the
+   *  operator sees WHICH one before ticking. An Auftrag already names itself in the title. */
+  const destination = useMemo(() => {
+    if (assignTarget === 'route') return null
+    const op = operations.find((o) => o.id === operationId)
+    return op ? { number: op.number ?? null, address: getIncidentLocationLabel(op) } : null
+  }, [assignTarget, operations, operationId])
 
   /** The «Neu:» half of the conflict prompt — where the resource is heading. */
   const targetLabel = useMemo(() => {
@@ -369,7 +384,7 @@ export function ResourceAssignmentDialog({
   // target.
   const genericElsewhereLabel = (): OccupancyLabel => {
     const generic = t('assignmentDialog.occupiedElsewhere')
-    return { short: generic, full: generic }
+    return { head: generic, full: generic }
   }
   const vehicleElsewhereLabel = (vehicle: { id: string; name: string }): OccupancyLabel | null => {
     if (assignedVehicleIds.includes(vehicle.id)) return null
@@ -906,8 +921,9 @@ export function ResourceAssignmentDialog({
   }
 
   const getDialogTitle = () => {
-    // Make the assignment target explicit: an Auftrag (route) names the route in
-    // «…»; a plain incident reads "… zu Einsatz zuweisen".
+    // An Auftrag (route) names the route in «…»; a plain incident reads «Mannschaft
+    // zuweisen» – the Einsatz is named on the line under the title, and «… zu Einsatz
+    // zuweisen» wrapped to two lines on a phone (hill climb r21).
     const route = assignTarget === 'route'
     const name = routeName ?? ''
     switch (resourceType) {
@@ -937,30 +953,15 @@ export function ResourceAssignmentDialog({
   const getDialogDescription = () => {
     switch (resourceType) {
       case 'crew':
-        return t('assignmentDialog.selectedCount', { selected: selectedPersonnel.size, available: selectablePersonnel.length })
+        return t('assignmentDialog.selectedCountCrew', { selected: selectedPersonnel.size, total: selectablePersonnel.length })
       case 'vehicles':
         return t('assignmentDialog.vehiclesAssigned', { count: assignedVehicleIds.length }) + (zuFuss ? t('assignmentDialog.zuFussSuffix') : '')
       case 'materials':
-        return t('assignmentDialog.selectedCount', { selected: selectedMaterials.size, available: selectableMaterials.length })
+        return t('assignmentDialog.selectedCountMaterials', { selected: selectedMaterials.size, total: selectableMaterials.length })
       default:
         return ''
     }
   }
-
-  const getIcon = () => {
-    switch (resourceType) {
-      case 'crew':
-        return Users
-      case 'vehicles':
-        return Truck
-      case 'materials':
-        return Package
-      default:
-        return Circle
-    }
-  }
-
-  const Icon = getIcon()
 
   // Check if there are pending changes
   const hasPendingChanges = useMemo(() => {
@@ -989,59 +990,35 @@ export function ResourceAssignmentDialog({
     const isSelected = isPersonSelected(person.id)
     const wasJustAssigned = justAssigned === person.id
     const special = specialFunctionsOf(person)
-    // Already on another incident/Auftrag → amber note with the
-    // reference, taking precedence over the special-function badge. The tile
+    // Already on another incident/Auftrag → the amber where-note names it; else a
+    // place-like role (Reko, Magazin, …; never the driven vehicle) does. The tile
     // itself stays neutral: the note says where, no tinted block.
     const elsewhere = personElsewhereLabel(person)
+    const placeRole = elsewhere ? undefined : special.find(fn => fn.place)
     return (
       <button
         key={person.id}
         onClick={() => handleTogglePersonSelection(person)}
         className={cn(
-          "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-sel-edge hover:bg-secondary/30 transition-all text-left hover-delight",
-          isSelected && "border-sel-edge bg-sel-wash",
+          "flex cursor-pointer items-start gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-colors text-left",
+          isSelected ? "border-sel-edge bg-sel-wash" : TILE_HOVER,
         )}
       >
-        {isSelected ? (
-          <CheckCircle className={cn(
-            "h-5 w-5 text-sel-foreground flex-shrink-0",
-            wasJustAssigned && "animate-check-appear"
-          )} />
-        ) : (
-          <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-        )}
+        <TileCheck checked={isSelected} animate={wasJustAssigned} />
         <div className="min-w-0">
           <p className="font-medium text-sm truncate" title={person.name}>
             <PersonName name={person.name} kennung={person.kennung ?? null} />
           </p>
-          {/* «Im Einsatz» and the Ereignis roles are different
-              facts and both are shown: where somebody is now,
-              and what taking them costs the Ereignis. The roles
-              used to be hidden the moment the person was busy —
-              exactly when the operator most needs to see that
-              this is the TLF 1's driver. */}
-          {elsewhere && (
-            <span
-              title={elsewhere.full}
-              className="mt-0.5 flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-700 dark:text-amber-400"
-            >
-              <Siren className="h-3 w-3 flex-shrink-0" />
-              <span className="truncate">{elsewhere.short}</span>
-            </span>
-          )}
-          {special.map((fn) => (
-            <span
-              key={fn.label}
-              title={fn.label}
-              className="mt-0.5 flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-700 dark:text-amber-400"
-            >
-              <fn.Icon className="h-3 w-3 flex-shrink-0" />
-              <span className="truncate">{fn.label}</span>
-            </span>
-          ))}
-          {!elsewhere && special.length === 0 && person.role && (
-            <p className="text-xs text-muted-foreground truncate">{person.role}</p>
-          )}
+          {/* ONE line for every person tile, busy or free: rank · where · roles
+              (`PersonTileLine` says why). «Im Einsatz» and the Ereignis roles are
+              different facts and both stay: where somebody is now, and what taking
+              them costs the Ereignis (the TLF 1's driver). A person on no Einsatz
+              but in Reko/Magazin … is THERE – that role is the where-note. */}
+          <PersonTileLine
+            rank={person.role || undefined}
+            where={elsewhere ?? (placeRole ? { head: placeRole.label, full: placeRole.label, Icon: placeRole.Icon } : null)}
+            roles={special.filter(fn => fn !== placeRole)}
+          />
         </div>
       </button>
     )
@@ -1071,8 +1048,8 @@ export function ResourceAssignmentDialog({
       <div
         key={vehicle.id}
         className={cn(
-          "flex items-center gap-2 p-2.5 rounded-lg border border-border/50 transition-all",
-          !isOutOfService && "hover:border-sel-edge hover:bg-secondary/30 hover-delight",
+          "flex items-start gap-2 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-colors",
+          !isOutOfService && !isAssigned && TILE_HOVER,
           isAssigned && "border-sel-edge bg-sel-wash",
           isOutOfService && "border-dashed opacity-60"
         )}
@@ -1081,34 +1058,23 @@ export function ResourceAssignmentDialog({
           onClick={() => handleToggleVehicle(vehicle)}
           disabled={isOutOfService}
           className={cn(
-            "flex min-w-0 flex-1 items-center gap-2.5 text-left",
+            "flex min-w-0 flex-1 items-start gap-3 text-left",
             isOutOfService ? "cursor-not-allowed" : "cursor-pointer",
           )}
         >
           {isOutOfService ? (
-            <Ban className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-          ) : isAssigned ? (
-            <CheckCircle className={cn(
-              "h-5 w-5 text-sel-foreground flex-shrink-0",
-              wasJustAssigned && "animate-check-appear"
-            )} />
+            <Ban className="mt-0.5 size-4 flex-shrink-0 text-muted-foreground" />
           ) : (
-            <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+            <TileCheck checked={isAssigned} animate={wasJustAssigned} />
           )}
           <div className="min-w-0">
             <p className={cn("font-medium text-sm truncate", isOutOfService && "text-muted-foreground")} title={vehicle.name}>{vehicle.name}</p>
             {isOutOfService ? (
-              <p className="truncate text-2xs font-medium text-muted-foreground">
+              <p className={cn(TILE_META, "truncate text-muted-foreground")}>
                 {t('assignmentDialog.outOfService')}
               </p>
             ) : elsewhere ? (
-              <span
-                title={elsewhere.full}
-                className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-700 dark:text-amber-400"
-              >
-                <Siren className="h-3 w-3 flex-shrink-0" />
-                <span className="truncate">{elsewhere.short}</span>
-              </span>
+              <ElsewhereNote label={elsewhere} />
             ) : (
               <p className="text-xs text-muted-foreground truncate">{vehicle.type}</p>
             )}
@@ -1120,15 +1086,15 @@ export function ResourceAssignmentDialog({
                 whether the vehicle can actually roll. */}
             <p
               className={cn(
-                "flex items-center gap-1 truncate text-2xs",
-                driver ? "text-muted-foreground" : "font-medium text-amber-700 dark:text-amber-400",
+                "flex items-start gap-1 truncate",
+                driver ? "text-xs text-muted-foreground" : cn(TILE_META, "text-amber-700 dark:text-amber-400"),
               )}
               title={driver ? t('assignmentDialog.vehicleDriver', { name: driver }) : undefined}
             >
               {/* Same amber triangle as the Auftrag's «Kein Fahrer» note — not
                   colour alone. Picking it anyway opens the driver prompt right
                   after (incident: performVehicleAssign, Auftrag: promptIfDriverless). */}
-              {!driver && <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden />}
+              {!driver && <AlertTriangle className={TILE_META_ICON} aria-hidden />}
               {driver
                 ? t('assignmentDialog.vehicleDriver', { name: driver })
                 : t('assignmentDialog.vehicleNoDriver')}
@@ -1224,7 +1190,7 @@ export function ResourceAssignmentDialog({
               {categories.map((cat) => (
                 <DropdownMenuRadioItem key={cat} value={cat} onSelect={keepMenuOpen}>
                   {resourceType === 'materials' && assignedVehicleNames.includes(cat) && (
-                    <Truck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                    <Truck className="h-3 w-3 text-foreground" aria-hidden="true" />
                   )}
                   {cat}
                 </DropdownMenuRadioItem>
@@ -1273,253 +1239,325 @@ export function ResourceAssignmentDialog({
     </DropdownMenu>
   ) : null
 
-  return (
+  // The search and the filters above the list — the same on the dialog and the phone sheet.
+  // Search — the shared field: one focus look (the `ring` token), «Suche leeren», a hit count
+  // while searching. Its own animated ring is gone.
+  const filterControls = (
     <>
+      {compactFilters ? (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            {searchField}
+            {filterMenu}
+          </div>
+          {filtersActive && (
+            // What is filtered, readable without opening the menu, and the
+            // one-step way back.
+            <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground" data-testid="filter-summary">
+              <span className="min-w-0 truncate">
+                {t('assignmentDialog.filterSummary', { filters: activeFilterLabels.join(' · ') })}
+              </span>
+              {/* Not twice: an emptied list offers the same reset as its one action. */}
+              {emptyReason !== 'filter' && (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="shrink-0 cursor-pointer underline underline-offset-2 decoration-muted-foreground/50 hover:text-foreground"
+                >
+                  {tEmpty('resetFilters')}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+      {searchField}
+
+      {/* Quick category filter — rank (crew), depot (material), type (vehicles) */}
+      {categories.length > 1 && (
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            onClick={() => setCategoryFilter(null)}
+            className={cn(
+              "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
+              categoryFilter === null
+                ? "bg-sel-wash text-sel-foreground border-sel-edge"
+                : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+            )}
+          >
+            {t('assignmentDialog.all')}
+          </button>
+          {categories.map((cat) => {
+            // A material depot/location that matches an already-assigned
+            // vehicle (e.g. "MoWa") — flag it so the operator sees at a glance
+            // which stock is already on scene. Materials only; matched by name.
+            // A fact, so ink text + truck glyph – never green (frei only).
+            const vehiclePresent = resourceType === 'materials' && assignedVehicleNames.includes(cat)
+            const isActive = categoryFilter === cat
+            return (
+              <button
+                key={cat}
+                onClick={() => setCategoryFilter(isActive ? null : cat)}
+                title={vehiclePresent ? t('assignmentDialog.vehicleOnSceneHint', { name: cat }) : undefined}
+                className={cn(
+                  "inline-flex cursor-pointer items-center gap-1 px-2.5 py-1 rounded-full text-xs border transition-colors",
+                  isActive
+                    ? "bg-sel-wash text-sel-foreground border-sel-edge"
+                    : vehiclePresent
+                      ? "bg-muted/50 text-foreground border-border hover:bg-muted"
+                      : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                )}
+              >
+                {vehiclePresent && <Truck className="h-3 w-3 flex-shrink-0" />}
+                {cat}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Materials: second chip row — FILTER the list to one functional type
+          (e.g. "Wasser") across all depots. Filters only, selects nothing. */}
+      {materialTypeGroups.length > 1 && (
+        <MaterialTypeChips typeGroups={materialTypeGroups} typeFilter={typeFilter} onTypeFilterChange={setTypeFilter} />
+      )}
+
+      {/* Vehicles-only quick filter: show only vehicles already assigned. */}
+      {resourceType === 'vehicles' && (
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            onClick={() => setShowOnlyAssignedVehicles((v) => !v)}
+            className={cn(
+              "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
+              showOnlyAssignedVehicles
+                ? "bg-sel-wash text-sel-foreground border-sel-edge"
+                : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+            )}
+          >
+            {t('common.onlyAssignedVehicles')}
+          </button>
+        </div>
+      )}
+
+        </>
+      )}
+    </>
+  )
+
+  const resourceList = (
+    <div className="space-y-2">
+      {resourceType === 'crew' && (
+        <div className="space-y-4">
+          {allBusy && (
+            <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: 0 })}>
+              <p className="text-sm text-muted-foreground">{allBusyText}</p>
+            </ListSection>
+          )}
+          {crewSections.free.length > 0 && (
+            <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: crewSections.free.length })}>
+              <div className={TILE_GRID}>
+                {crewSections.free.map(renderPersonTile)}
+              </div>
+            </ListSection>
+          )}
+          {crewSections.busy.length > 0 && (
+            <ListSection tone="busy" label={t('assignmentDialog.sectionBusy', { count: crewSections.busy.length })}>
+              <div className={TILE_GRID}>
+                {crewSections.busy.map(renderPersonTile)}
+              </div>
+            </ListSection>
+          )}
+        </div>
+      )}
+
+      {resourceType === 'vehicles' && (
+        <div className="space-y-4">
+          {/* «Zu Fuss» and «Verfügbar · 0» go with a list a search or a
+              filter emptied: next to «Keine Treffer» they read as the
+              one hit. With truly no fleet, «Zu Fuss» is still a choice. */}
+          {(vehicleSections.free.length > 0 || allBusy ||
+            (!!onToggleZuFuss && emptyReason !== 'search' && emptyReason !== 'filter')) && (
+            <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: vehicleSections.free.length })}>
+              <div className={TILE_GRID}>
+                {/* «Zu Fuss» is not a vehicle and is never spoken for,
+                    so it leads the free block. */}
+                {onToggleZuFuss && (
+                  <button
+                    onClick={onToggleZuFuss}
+                    className={cn(
+                      "flex cursor-pointer items-start gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-colors text-left",
+                      zuFuss ? "border-sel-edge bg-sel-wash" : TILE_HOVER
+                    )}
+                  >
+                    {/* The same tick box as every vehicle tile; the footprints
+                        say what it is on the caption line, like a role glyph. */}
+                    <TileCheck checked={zuFuss} />
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">{t('common.zuFuss')}</p>
+                      <p className={cn(TILE_META, "flex items-start gap-1 truncate text-muted-foreground")}>
+                        <Footprints className={TILE_META_ICON} aria-hidden />
+                        {t('assignmentDialog.noVehicle')}
+                      </p>
+                    </div>
+                  </button>
+                )}
+                {vehicleSections.free.map(renderVehicleTile)}
+              </div>
+              {allBusy && <p className="mt-2 text-sm text-muted-foreground">{allBusyText}</p>}
+            </ListSection>
+          )}
+          {vehicleSections.busy.length > 0 && (
+            <ListSection tone="busy" label={t('assignmentDialog.sectionBusy', { count: vehicleSections.busy.length })}>
+              <div className={TILE_GRID}>
+                {vehicleSections.busy.map(renderVehicleTile)}
+              </div>
+            </ListSection>
+          )}
+        </div>
+      )}
+
+      {resourceType === 'materials' && (
+        <MaterialAssignmentList
+          groups={groupedFilteredMaterials.groups}
+          ungroupedFree={ungroupedMaterialSections.free}
+          ungroupedBusy={ungroupedMaterialSections.busy}
+          allBusy={allBusy}
+          selectedMaterials={selectedMaterials}
+          occupiedElsewhereMaterialIds={occupiedElsewhereMaterialIds}
+          materialElsewhereLabel={materialElsewhereLabel}
+          assignedVehicles={assignedVehicleNames}
+          justAssigned={justAssigned}
+          expandedGroups={expandedGroups}
+          onToggleExpanded={(groupId) => setExpandedGroups(prev => {
+            const next = new Set(prev)
+            if (next.has(groupId)) next.delete(groupId)
+            else next.add(groupId)
+            return next
+          })}
+          onToggleMaterial={handleToggleMaterialSelection}
+          onToggleGroup={handleToggleGroupSelection}
+        />
+      )}
+
+      {/* Why the list is empty, and the one way out — never a big icon. */}
+      {emptyContent && (
+        <EmptyState
+          title={emptyContent.title}
+          description={emptyContent.description}
+          action={emptyContent.action}
+        />
+      )}
+    </div>
+  )
+
+  // «Abbrechen» only where «Fertig» commits a selection (crew, material); a vehicle is
+  // assigned on the tap, so «Fertig» just closes.
+  const footerButtons = (
+    <>
+      {(resourceType === 'crew' || resourceType === 'materials') && (
+        <Button variant="outline" onClick={() => onOpenChange(false)}>
+          {t('common.cancel')}
+        </Button>
+      )}
+      <Button
+        onClick={resourceType === 'vehicles' ? () => onOpenChange(false) : handleConfirm}
+        className="hover-delight"
+      >
+        {t('common.done')}
+        {hasPendingChanges && (resourceType === 'crew' || resourceType === 'materials') && (
+          <span className="ml-1.5 px-1.5 py-0.5 text-2xs bg-action-foreground/20 rounded">
+            {t('assignmentDialog.changes')}
+          </span>
+        )}
+      </Button>
+    </>
+  )
+
+  // The destination line under the title: «1 Langegasse 28», up to two lines.
+  const destinationLine = destination && (
+    <p
+      className="mt-0.5 line-clamp-2 break-words text-sm font-medium text-foreground"
+      title={destination.number != null ? `${destination.number} · ${destination.address}` : destination.address}
+      data-testid="assignment-destination"
+    >
+      {destination.number != null && (
+        <span className="mr-1.5 font-mono text-xs font-medium text-muted-foreground">{destination.number}</span>
+      )}
+      {destination.address}
+    </p>
+  )
+
+  // PHONE (U3 B, 08.11.2026): a bottom sheet like «Neuer Einsatz»'s – grip and swipe-to-close
+  // (through `onOpenChange`, like the ✕), the header, the search and filters fixed, the list
+  // scrolling in `SheetBody`, «Abbrechen» / «Fertig» in a footer that stays on the keys. Full
+  // height (`h-[88dvh]`, the `modal-h-tall` cap): the sheet does not jump while a search or a
+  // filter shortens the list. Opening focuses the sheet, not the search (ui/sheet.tsx) – no
+  // keyboard until a tap. The ✕ is centred on the title line: 20px top padding + half its
+  // 22px line = 31px.
+  const sheet = (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="h-[88dvh] modal-h-tall gap-0 rounded-t-2xl [--close-centre:31px]">
+        <SheetHeader className="gap-1 px-4 pt-5 pb-3 pr-12 text-left">
+          <SheetTitle className="text-lg leading-[1.375rem] font-semibold">{getDialogTitle()}</SheetTitle>
+          {destinationLine}
+          <SheetDescription className="text-xs">{getDialogDescription()}</SheetDescription>
+        </SheetHeader>
+        <div className="flex flex-col gap-4 px-4 pb-4">{filterControls}</div>
+        <SheetBody className="px-4 pb-4">{resourceList}</SheetBody>
+        <SheetFooter className="mt-0 flex-row gap-2 border-t px-4 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">
+          {footerButtons}
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
+  )
+
+  const dialog = (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* Fixed (definite) height: gives flex-1 a real basis so the list scrolls
           internally instead of overflowing, and keeps the dialog the same size as
-          you switch quick filters so the top doesn't jump. overflow-hidden clips. */}
+          you switch quick filters so the top doesn't jump. overflow-hidden clips.
+          The phone has its own sheet (above); this is the tablet-to-desktop dialog. */}
       {/* sm:max-w-6xl is required — the DialogContent base sets sm:max-w-lg (512px),
           a responsive variant that an unprefixed max-w-* does NOT override. */}
       <DialogContent className="max-w-6xl sm:max-w-6xl w-[calc(100vw-2rem)] h-[80dvh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 pr-8">
-            <Icon className="h-5 w-5" />
+        {/* ONE header on every size: title (18/600, 22px line) · the destination (14/500, up to
+            two lines) · the counts (12, muted), 6px then 4px apart – left-aligned with the search
+            field, no icon before the title (the words say what is assigned). `ps-0!` cancels the
+            start padding globals.css gives CENTRED phone headers; the 2.5rem kept clear for the ✕
+            at the end stays. */}
+        <DialogHeader className="gap-1 text-left ps-0!">
+          <DialogTitle className="text-lg leading-[1.375rem] font-semibold">
             {getDialogTitle()}
           </DialogTitle>
-          <DialogDescription>{getDialogDescription()}</DialogDescription>
+          {destinationLine}
+          <DialogDescription className="text-xs">{getDialogDescription()}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col min-h-0 flex-1 gap-4">
-          {/* Search — the shared field: one focus look (the `ring` token), «Suche
-              leeren», a hit count while searching. Its own animated ring is gone. */}
-          {compactFilters ? (
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2">
-                {searchField}
-                {filterMenu}
-              </div>
-              {filtersActive && (
-                // What is filtered, readable without opening the menu, and the
-                // one-step way back.
-                <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground" data-testid="filter-summary">
-                  <span className="min-w-0 truncate">
-                    {t('assignmentDialog.filterSummary', { filters: activeFilterLabels.join(' · ') })}
-                  </span>
-                  {/* Not twice: an emptied list offers the same reset as its one action. */}
-                  {emptyReason !== 'filter' && (
-                    <button
-                      type="button"
-                      onClick={resetFilters}
-                      className="shrink-0 cursor-pointer underline underline-offset-2 decoration-muted-foreground/50 hover:text-foreground"
-                    >
-                      {tEmpty('resetFilters')}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          ) : (
-            <>
-          {searchField}
-
-          {/* Quick category filter — rank (crew), depot (material), type (vehicles) */}
-          {categories.length > 1 && (
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                onClick={() => setCategoryFilter(null)}
-                className={cn(
-                  "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
-                  categoryFilter === null
-                    ? "bg-sel-wash text-sel-foreground border-sel-edge"
-                    : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-                )}
-              >
-                {t('assignmentDialog.all')}
-              </button>
-              {categories.map((cat) => {
-                // A material depot/location that matches an already-assigned
-                // vehicle (e.g. "MoWa") — flag it so the operator sees at a glance
-                // which stock is already on scene. Materials only; matched by name.
-                const vehiclePresent = resourceType === 'materials' && assignedVehicleNames.includes(cat)
-                const isActive = categoryFilter === cat
-                return (
-                  <button
-                    key={cat}
-                    onClick={() => setCategoryFilter(isActive ? null : cat)}
-                    title={vehiclePresent ? t('assignmentDialog.vehicleOnSceneHint', { name: cat }) : undefined}
-                    className={cn(
-                      "inline-flex cursor-pointer items-center gap-1 px-2.5 py-1 rounded-full text-xs border transition-colors",
-                      isActive
-                        ? "bg-sel-wash text-sel-foreground border-sel-edge"
-                        : vehiclePresent
-                          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/50 hover:bg-emerald-500/20"
-                          : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-                    )}
-                  >
-                    {vehiclePresent && <Truck className="h-3 w-3 flex-shrink-0" />}
-                    {cat}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-
-          {/* Materials: second chip row — FILTER the list to one functional type
-              (e.g. "Wasser") across all depots. Filters only, selects nothing. */}
-          {materialTypeGroups.length > 1 && (
-            <MaterialTypeChips typeGroups={materialTypeGroups} typeFilter={typeFilter} onTypeFilterChange={setTypeFilter} />
-          )}
-
-          {/* Vehicles-only quick filter: show only vehicles already assigned. */}
-          {resourceType === 'vehicles' && (
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                onClick={() => setShowOnlyAssignedVehicles((v) => !v)}
-                className={cn(
-                  "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
-                  showOnlyAssignedVehicles
-                    ? "bg-sel-wash text-sel-foreground border-sel-edge"
-                    : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-                )}
-              >
-                {t('common.onlyAssignedVehicles')}
-              </button>
-            </div>
-          )}
-
-            </>
-          )}
+          {filterControls}
 
           {/* Resource List — flexes to fill the space between chips and footer,
-              so the list scrolls internally and the dialog never exceeds 85dvh. */}
-          <ScrollArea className="flex-1 min-h-0 pr-2">
-            <div className="space-y-2">
-              {resourceType === 'crew' && (
-                <div className="space-y-4">
-                  {allBusy && (
-                    <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: 0 })}>
-                      <p className="text-sm text-muted-foreground">{allBusyText}</p>
-                    </ListSection>
-                  )}
-                  {crewSections.free.length > 0 && (
-                    <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: crewSections.free.length })}>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {crewSections.free.map(renderPersonTile)}
-                      </div>
-                    </ListSection>
-                  )}
-                  {crewSections.busy.length > 0 && (
-                    <ListSection tone="busy" label={t('assignmentDialog.sectionBusy', { count: crewSections.busy.length })}>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {crewSections.busy.map(renderPersonTile)}
-                      </div>
-                    </ListSection>
-                  )}
-                </div>
-              )}
-
-              {resourceType === 'vehicles' && (
-                <div className="space-y-4">
-                  {/* «Zu Fuss» and «Verfügbar · 0» go with a list a search or a
-                      filter emptied: next to «Keine Treffer» they read as the
-                      one hit. With truly no fleet, «Zu Fuss» is still a choice. */}
-                  {(vehicleSections.free.length > 0 || allBusy ||
-                    (!!onToggleZuFuss && emptyReason !== 'search' && emptyReason !== 'filter')) && (
-                    <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: vehicleSections.free.length })}>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {/* «Zu Fuss» is not a vehicle and is never spoken for,
-                            so it leads the free block. */}
-                        {onToggleZuFuss && (
-                          <button
-                            onClick={onToggleZuFuss}
-                            className={cn(
-                              "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-sel-edge hover:bg-secondary/30 transition-all text-left hover-delight",
-                              zuFuss && "border-sel-edge bg-sel-wash"
-                            )}
-                          >
-                            {zuFuss ? (
-                              <CheckCircle className="h-5 w-5 text-sel-foreground flex-shrink-0" />
-                            ) : (
-                              <Footprints className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                            )}
-                            <div className="min-w-0">
-                              <p className="font-medium text-sm truncate">{t('common.zuFuss')}</p>
-                              <p className="text-xs text-muted-foreground truncate">{t('assignmentDialog.noVehicle')}</p>
-                            </div>
-                          </button>
-                        )}
-                        {vehicleSections.free.map(renderVehicleTile)}
-                      </div>
-                      {allBusy && <p className="mt-2 text-sm text-muted-foreground">{allBusyText}</p>}
-                    </ListSection>
-                  )}
-                  {vehicleSections.busy.length > 0 && (
-                    <ListSection tone="busy" label={t('assignmentDialog.sectionBusy', { count: vehicleSections.busy.length })}>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {vehicleSections.busy.map(renderVehicleTile)}
-                      </div>
-                    </ListSection>
-                  )}
-                </div>
-              )}
-
-              {resourceType === 'materials' && (
-                <MaterialAssignmentList
-                  groups={groupedFilteredMaterials.groups}
-                  ungroupedFree={ungroupedMaterialSections.free}
-                  ungroupedBusy={ungroupedMaterialSections.busy}
-                  allBusy={allBusy}
-                  selectedMaterials={selectedMaterials}
-                  occupiedElsewhereMaterialIds={occupiedElsewhereMaterialIds}
-                  materialElsewhereLabel={materialElsewhereLabel}
-                  assignedVehicles={assignedVehicleNames}
-                  justAssigned={justAssigned}
-                  expandedGroups={expandedGroups}
-                  onToggleExpanded={(groupId) => setExpandedGroups(prev => {
-                    const next = new Set(prev)
-                    if (next.has(groupId)) next.delete(groupId)
-                    else next.add(groupId)
-                    return next
-                  })}
-                  onToggleMaterial={handleToggleMaterialSelection}
-                  onToggleGroup={handleToggleGroupSelection}
-                />
-              )}
-
-              {/* Why the list is empty, and the one way out — never a big icon. */}
-              {emptyContent && (
-                <EmptyState
-                  title={emptyContent.title}
-                  description={emptyContent.description}
-                  action={emptyContent.action}
-                />
-              )}
-            </div>
+              so the list scrolls internally and the dialog never exceeds 85dvh. `fadeEnd`:
+              while tiles run on below, its bottom edge fades instead of cutting a tile
+              off flush against the footer. */}
+          <ScrollArea className="flex-1 min-h-0 pr-2" fadeEnd>
+            {resourceList}
           </ScrollArea>
 
-          {/* Footer */}
-          <div className="flex justify-end gap-2 pt-2">
-            {(resourceType === 'crew' || resourceType === 'materials') && (
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                {t('common.cancel')}
-              </Button>
-            )}
-            <Button
-              onClick={resourceType === 'vehicles' ? () => onOpenChange(false) : handleConfirm}
-              className="hover-delight"
-            >
-              {t('common.done')}
-              {hasPendingChanges && (resourceType === 'crew' || resourceType === 'materials') && (
-                <span className="ml-1.5 px-1.5 py-0.5 text-2xs bg-action-foreground/20 rounded">
-                  {t('assignmentDialog.changes')}
-                </span>
-              )}
-            </Button>
+          {/* Footer — a rule and 16px above the buttons, so the last tiles and section heads
+              end at an edge instead of running into the footer's surface. */}
+          <div className="flex justify-end gap-2 border-t border-border pt-4">
+            {footerButtons}
           </div>
         </div>
       </DialogContent>
     </Dialog>
+  )
+
+  return (
+    <>
+    {isMobile ? sheet : dialog}
 
     {/* Double-booking guard: assigning a driver/reko/magazin to crew asks first. */}
     <ConfirmDialog

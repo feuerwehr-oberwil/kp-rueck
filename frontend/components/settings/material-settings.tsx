@@ -85,7 +85,9 @@ function compareMaterials(a: ApiMaterialResource, b: ApiMaterialResource, column
 }
 
 /** A tab label that may take two lines on a phone rather than run out of its third. */
-const TAB_WRAP = 'h-auto min-h-[calc(2.25rem-7px)] whitespace-normal py-1 leading-tight'
+// `flex-auto`: the tabs share the row by the length of their text, not in equal thirds –
+// «Trier les emplacements» needs more than a third of a phone.
+const TAB_WRAP = 'h-auto min-h-[calc(2.25rem-7px)] min-w-0 flex-auto py-1 leading-tight break-words whitespace-normal hyphens-auto'
 
 export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
   const t = useTranslations('settings');

@@ -86,11 +86,19 @@
 # came through here from one that merely reached it on the compose network.
 #
 # The port INSIDE the container is fixed, like :80 above; LOCAL_PORT in .env moves the host
-# side of the mapping. A bare `:port` address also means Caddy serves it over plain HTTP and
-# asks for no certificate — correct, since nothing but loopback can connect. With the feature
-# off the header is empty and this is simply a second address for the ordinary board, login
-# form and all.
-:8081 {
+# side of the mapping. `http://` means Caddy serves it in plain HTTP and asks for no
+# certificate — correct, since nothing but loopback can connect. With the feature off the
+# header is empty and this is simply a second address for the ordinary board, login form
+# and all.
+#
+# Loopback NAMES only, not a bare `:8081`. The bind keeps other MACHINES out, but not other
+# web pages on this one: a page whose hostname is re-pointed at 127.0.0.1 (DNS rebinding)
+# would reach a catch-all listener same-origin and collect a session. Such a request still
+# carries the foreign name in Host, matches neither address and gets no route at all — it is
+# never stamped and never proxied. (A `respond` inside the block would not do: Caddy orders
+# it after the `handle`s of kp_board.) Host matching ignores the client's port, so a moved
+# LOCAL_PORT still matches.
+http://localhost:8081, http://127.0.0.1:8081 {
 	request_header X-Local-Autologin "{$LOCAL_AUTOLOGIN_SECRET}"
 
 	import kp_board

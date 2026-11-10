@@ -17,6 +17,11 @@
  * place the assignment dialog names. It used to read a bare «Fahrer Mowa», and
  * «where is the Mowa?» was a second lookup.
  *
+ * `short` names the place only – number · address, the `head` of
+ * `getIncidentRefParts`. The «(Einsatzart: Meldung)» tail was what ran out of the
+ * 240px row as «Langegasse 28 (Brandbekä…» (hill climb r22); it stays in `full`,
+ * which the row puts in its `title`.
+ *
  * Keyed by personnel id — two people may share a name. Computed once per board
  * render and passed down as a prop, so the memoized person cards do not each
  * subscribe to the whole operations context.
@@ -25,20 +30,21 @@
 import { useMemo } from 'react'
 import { useTranslations } from 'next-intl'
 
+import { auftragByResource } from '@/lib/auftrag-by-resource'
 import { useGroups } from '@/lib/contexts/groups-context'
 import { useOperations } from '@/lib/contexts/operations-context'
-import { getIncidentRefLabel } from '@/lib/incident-types'
+import { getIncidentRefLabel, getIncidentRefParts } from '@/lib/incident-types'
 
 export interface PersonEngagement {
-  /** Truncated for inline chips. */
+  /** The place alone («12 · Ringstrasse 11»), for the sidebar's where-line. */
   short: string
-  /** Untruncated, for hover titles. */
+  /** Place + «(Einsatzart: Meldung)», untruncated, for hover titles. */
   full: string
 }
 
 export function usePersonEngagements(): Map<string, PersonEngagement> {
   const { operations, personnel } = useOperations()
-  const { groups, getGroupResources } = useGroups()
+  const { groups } = useGroups()
   const t = useTranslations('kanban')
 
   return useMemo(() => {
@@ -46,7 +52,7 @@ export function usePersonEngagements(): Map<string, PersonEngagement> {
     for (const op of operations) {
       // A completed incident has released its crew, so `crew` is empty there —
       // no stale engagement survives a closed card.
-      const label = { short: getIncidentRefLabel(op, 40), full: getIncidentRefLabel(op, 1000) }
+      const label = { short: getIncidentRefParts(op).head, full: getIncidentRefLabel(op, 1000) }
       for (const { personnelId } of op.crew) {
         if (!map.has(personnelId)) map.set(personnelId, label)
       }
@@ -59,17 +65,14 @@ export function usePersonEngagements(): Map<string, PersonEngagement> {
       if (!op) continue
       const role = t('person.driverFunction', { vehicle })
       map.set(person.id, {
-        short: `${role} · ${getIncidentRefLabel(op, 40)}`,
+        short: `${role} · ${getIncidentRefParts(op).head}`,
         full: `${role} · ${getIncidentRefLabel(op, 1000)}`,
       })
     }
-    for (const group of groups) {
-      const resources = getGroupResources(group.id)
-      const label = { short: group.name, full: group.name }
-      for (const person of resources.personnel) {
-        if (!map.has(person.resourceId)) map.set(person.resourceId, label)
-      }
+    // Route-level crew: the same lookup the wall's destination column reads.
+    for (const [personId, group] of auftragByResource(groups, 'personnel')) {
+      if (!map.has(personId)) map.set(personId, { short: group.name, full: group.name })
     }
     return map
-  }, [operations, personnel, groups, getGroupResources, t])
+  }, [operations, personnel, groups, t])
 }

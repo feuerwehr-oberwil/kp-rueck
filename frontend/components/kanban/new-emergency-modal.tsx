@@ -62,6 +62,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { PrioritySelect } from "@/components/kanban/priority-select"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,7 +70,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { DETAIL_MESSAGE_INDENT, DetailField, DetailFlags } from "@/components/kanban/detail-field"
+import { DETAIL_CONTROL_INDENT, DETAIL_MESSAGE_INDENT, DetailField, DetailFlags } from "@/components/kanban/detail-field"
 import { Axe, ChevronDown, Phone, Plus } from 'lucide-react'
 import { type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
@@ -88,6 +89,8 @@ import { useDuplicateCandidates } from "@/lib/hooks/use-duplicate-candidates"
 import { DuplicateHint } from "@/components/duplicates/duplicate-hint"
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning"
 import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog"
+import { Kbd } from "@/components/ui/kbd"
+import { useIsMac } from "@/lib/hooks/use-is-mac"
 
 /** LocationInput's own input id — the field a blocked submit focuses. */
 const LOCATION_FIELD_ID = "location_address"
@@ -154,6 +157,7 @@ export function NewEmergencyModal({
 }: NewEmergencyModalProps) {
   const t = useTranslations('kanban')
   const isMobile = useIsMobile()
+  const isMac = useIsMac()
   const [formData, setFormData] = useState(emptyForm)
 
   // Form validation state
@@ -275,55 +279,61 @@ export function NewEmergencyModal({
             a second column made the eye jump mid-form. Was ist passiert first,
             wer hat gemeldet after, the Merkmale chips last — the SAME order as
             the Übersicht tab, so the modal and the detail read as one form seen
-            twice (UX-DESKTOP-14). */}
-        <div className="space-y-1 py-2">
+            twice (UX-DESKTOP-14). Phone: no extra space between the stacked fields
+            — their own 12px padding + the label's tight line box make the 16px
+            group gap (hill climb r7), so the Merkmale chips reach the screen. */}
+        <div className={isMobile ? undefined : "space-y-1 py-2"}>
             {/* Location carries its own label and its own map/coordinate buttons,
-                so it lays itself out as a row rather than being wrapped in one. */}
-            <LocationInput
-              address={formData.location}
-              latitude={formData.coordinates?.[0] ?? null}
-              longitude={formData.coordinates?.[1] ?? null}
-              // phone: LocationInput's own stacked layout (label above), the /feld one
-              dense={!isMobile}
-              boxed
-              required
-              onAddressChange={(address) => {
-                setFormData(prev => ({ ...prev, location: address || "" }))
-                setTouched(prev => ({ ...prev, location: true }))
-              }}
-              onCoordinatesChange={(lat, lon) =>
-                setFormData(prev => ({
-                  ...prev,
-                  coordinates: lat !== null && lon !== null ? [lat, lon] : null
-                }))
-              }
-              // Desktop: straight into the Einsatzort. Phone: no keyboard until a field is
-              // tapped — the sheet itself does not focus a field either (ui/sheet.tsx).
-              autoFocus={open && !isMobile}
-              error={showLocationError}
-              describedBy={showLocationError ? formMessageId(LOCATION_FIELD_ID) : undefined}
-            />
-            {showLocationError && (
-              <FormMessage
-                id={formMessageId(LOCATION_FIELD_ID)}
-                tone="error"
-                className={isMobile ? "mt-1" : cn("mb-1", DETAIL_MESSAGE_INDENT)}
-              >
-                {t('newEmergency.locationError')}
-              </FormMessage>
-            )}
-            <DuplicateHint
-              candidates={shownCandidates}
-              origin={formData.coordinates ? { lat: formData.coordinates[0], lng: formData.coordinates[1] } : null}
-              onMerge={handleMerge}
-              onDismiss={() => setDismissedKey(duplicateKey)}
-              mergingId={mergingId}
-              showSketch={!isMobile}
-              density={isMobile ? "touch" : "dense"}
-              // The value column, not the label column: margin, so the amber box
-              // starts where the fields start (DETAIL_MESSAGE_INDENT is padding).
-              className={isMobile ? "my-2" : "my-2 sm:ml-[128px]"}
-            />
+                so it lays itself out as a row rather than being wrapped in one.
+                On the phone it takes the stacked DetailField's 6px padding below, so
+                the gap to «Meldung» is the gap between every other two fields. */}
+            <div className={isMobile ? "pb-1.5" : "space-y-1"}>
+              <LocationInput
+                address={formData.location}
+                latitude={formData.coordinates?.[0] ?? null}
+                longitude={formData.coordinates?.[1] ?? null}
+                // phone: LocationInput's own stacked layout (label above), the /feld one
+                dense={!isMobile}
+                boxed
+                required
+                onAddressChange={(address) => {
+                  setFormData(prev => ({ ...prev, location: address || "" }))
+                  setTouched(prev => ({ ...prev, location: true }))
+                }}
+                onCoordinatesChange={(lat, lon) =>
+                  setFormData(prev => ({
+                    ...prev,
+                    coordinates: lat !== null && lon !== null ? [lat, lon] : null
+                  }))
+                }
+                // Desktop: straight into the Einsatzort. Phone: no keyboard until a field is
+                // tapped — the sheet itself does not focus a field either (ui/sheet.tsx).
+                autoFocus={open && !isMobile}
+                error={showLocationError}
+                describedBy={showLocationError ? formMessageId(LOCATION_FIELD_ID) : undefined}
+              />
+              {showLocationError && (
+                <FormMessage
+                  id={formMessageId(LOCATION_FIELD_ID)}
+                  tone="error"
+                  className={isMobile ? "mt-1" : cn("mb-1", DETAIL_MESSAGE_INDENT)}
+                >
+                  {t('newEmergency.locationError')}
+                </FormMessage>
+              )}
+              <DuplicateHint
+                candidates={shownCandidates}
+                origin={formData.coordinates ? { lat: formData.coordinates[0], lng: formData.coordinates[1] } : null}
+                onMerge={handleMerge}
+                onDismiss={() => setDismissedKey(duplicateKey)}
+                mergingId={mergingId}
+                showSketch={!isMobile}
+                density={isMobile ? "touch" : "dense"}
+                // The value column, not the label column: margin, so the amber box
+                // starts where the fields start (DETAIL_MESSAGE_INDENT is padding).
+                className={isMobile ? "my-2" : "my-2 sm:ml-[128px]"}
+              />
+            </div>
 
             <DetailField label={t('common.meldung')} htmlFor="notes" alignStart>
               <Textarea
@@ -359,19 +369,12 @@ export function NewEmergencyModal({
             </DetailField>
 
             <DetailField label={t('common.priority')} htmlFor="priority">
-              <Select
+              <PrioritySelect
+                id="priority"
+                className="w-full"
                 value={formData.priority}
-                onValueChange={(value) => setFormData({ ...formData, priority: value as "high" | "medium" | "low" })}
-              >
-                <SelectTrigger id="priority" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">{t('common.priorityLow')}</SelectItem>
-                  <SelectItem value="medium">{t('common.priorityMedium')}</SelectItem>
-                  <SelectItem value="high">{t('common.priorityHigh')}</SelectItem>
-                </SelectContent>
-              </Select>
+                onValueChange={(priority) => setFormData({ ...formData, priority })}
+              />
             </DetailField>
 
             {/* Wer hat gemeldet: who, then the number. How it came in
@@ -444,9 +447,11 @@ export function NewEmergencyModal({
             />
 
             {/* The phone has no drag & drop and its detail sheet does not assign — the hint
-                would send the editor looking for something that is not there. */}
+                would send the editor looking for something that is not there. It starts in
+                the CONTROL column like every field above it (not at the labels' edge), 12/16
+                muted, 8px under the Merkmale chips (the row's own 4px + 4px). */}
             {!isMobile && (
-              <p className="pt-3 text-xs leading-relaxed text-muted-foreground">
+              <p className={cn("pt-1 text-xs text-muted-foreground", DETAIL_CONTROL_INDENT)}>
                 {t('newEmergency.infoDragDrop')}
               </p>
             )}
@@ -491,9 +496,15 @@ export function NewEmergencyModal({
             focusFirstBlockingField([LOCATION_FIELD_ID])
           }}
         >
+          {/* The one place the shortcut is named (U13 C): Enter in the Meldung is
+              a newline, so a ↵ on the main button would tell half the truth. Same
+              keycap as the footer's «Ctrl K»; ⌘ on a Mac, where the key is ⌘. */}
           <DropdownMenuItem onSelect={handleCreateAndNext}>
+            <Plus className="h-4 w-4" />
             {t('newEmergency.createAndNext')}
-            <DropdownMenuShortcut>Ctrl ↵</DropdownMenuShortcut>
+            <DropdownMenuShortcut className="pl-4 tracking-normal">
+              <Kbd className="h-5 px-1.5 text-2xs">{isMac ? '⌘ ↵' : 'Ctrl ↵'}</Kbd>
+            </DropdownMenuShortcut>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -510,18 +521,18 @@ export function NewEmergencyModal({
     return (
       <>
       <Sheet open={open} onOpenChange={closeGuard.handleOpenChange}>
-        <SheetContent side="bottom" className="modal-h-tall gap-0 rounded-t-2xl" onKeyDown={onKeyDown}>
-          {/* While typing, the head is as short as it can be: the band above the keys is
-              ~350px on an iPhone, and the sentence under the title is the one thing in it
-              nobody needs at that moment. */}
-          <SheetHeader className="px-4 pt-5 pb-2 pr-12 [:root[data-kb]_&]:pb-1">
-            <div className="flex items-center gap-3">
-              <Plus className="h-6 w-6 text-muted-foreground" />
-              <SheetTitle className="text-lg leading-none">{t('common.newIncident')}</SheetTitle>
-            </div>
-            <SheetDescription className="[:root[data-kb]_&]:sr-only">{t('newEmergency.description')}</SheetDescription>
+        <SheetContent side="bottom" className="modal-h-tall gap-0 rounded-t-2xl [&>[data-slot=sheet-close]]:top-[29px] [&>[data-slot=sheet-close]]:-translate-y-1/2" onKeyDown={onKeyDown}>
+          {/* HEADER (both forms): the plain title, 18/600, no glyph – the frame of every
+              other dialog and sheet (the assign dialog, the footer sheets). The sentence
+              under it only restated the title, so it is for screen readers alone. 16px to
+              the first field; while typing 4px, the band above the keys is ~350px.
+              The ✕ (44px on a phone, the touch rule) is centred on the title's line box –
+              20px top padding + half of its 18px line = 29px – not hung 9px below it. */}
+          <SheetHeader className="px-4 pt-5 pb-4 pr-12 [:root[data-kb]_&]:pb-1">
+            <SheetTitle className="text-lg leading-none">{t('common.newIncident')}</SheetTitle>
+            <SheetDescription className="sr-only">{t('newEmergency.description')}</SheetDescription>
           </SheetHeader>
-          <SheetBody className="px-4">{fields}</SheetBody>
+          <SheetBody className="px-4 pb-4">{fields}</SheetBody>
           <SheetFooter className="mt-0 flex-row gap-2 border-t px-4 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">
             {cancelButton}
             {createButton}
@@ -539,14 +550,10 @@ export function NewEmergencyModal({
           so a bare `max-w-*` loses to it at desktop widths and the form gets
           crushed into ~440px — clipped selects, icon-only Einsatzort. */}
       <DialogContent className="sm:max-w-xl" onKeyDown={onKeyDown}>
+        {/* The plain title (see HEADER above); the grid's gap-4 is the 16px to the first field. */}
         <DialogHeader>
-          <div className="flex items-center gap-3">
-            <Plus className="h-6 w-6 text-muted-foreground" />
-            <DialogTitle>{t('common.newIncident')}</DialogTitle>
-          </div>
-          <DialogDescription>
-            {t('newEmergency.description')}
-          </DialogDescription>
+          <DialogTitle>{t('common.newIncident')}</DialogTitle>
+          <DialogDescription className="sr-only">{t('newEmergency.description')}</DialogDescription>
         </DialogHeader>
 
         {fields}

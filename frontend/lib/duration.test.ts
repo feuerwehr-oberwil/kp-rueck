@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { createTranslator } from "next-intl"
 import de from "@/messages/de.json"
 import fr from "@/messages/fr.json"
-import { formatDuration, formatDurationLong, formatDurationSince, splitDuration } from "./duration"
+import { formatDuration, formatDurationHours, formatDurationLong, formatDurationSince, splitDuration } from "./duration"
 import { getTimeSince } from "./kanban-utils"
 import { formatPickupWaiting } from "./pickup"
 
@@ -56,6 +56,19 @@ describe("formatDuration (clock)", () => {
     expect(formatDuration(12 * MIN, "clock")).toBe("12m")
     expect(formatDuration(H + 4 * MIN, "clock")).toBe("1h 04m")
     expect(formatDuration(D + 10 * H + 4 * MIN, "clock")).toBe("1d 10h")
+  })
+})
+
+describe("formatDurationHours", () => {
+  // The Reko's estimate arrives as decimal hours; the card used to print «2.5h».
+  it.each([
+    [2.5, "2h 30'"],
+    [1.5, "1h 30'"],
+    [0.5, "30'"],
+    [1.33, "1h 20'"],
+    [26, "1d 2h"],
+  ])("%d h → %s", (hours, expected) => {
+    expect(formatDurationHours(hours)).toBe(expected)
   })
 })
 

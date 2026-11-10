@@ -238,7 +238,11 @@
       "figures": "Ouvrir les indicateurs",
       "crewDuty": "Temps de service",
       "dispatch": {
-        "placeholder": "Chercher une commande ou attribuer : intervention, puis véhicule / personne · ⇥ complète",
+        "placeholder": "Chercher ou attribuer …",
+        "hint": "Intervention, puis véhicule / personne – p. ex.",
+        "hintExample": "7 tlf keller",
+        "hintTab": "complète",
+        "hintTabKey": "Tabulation",
         "group": "Exécuter",
         "incidentTitle": "Intervention {number}",
         "arrowAssign": "reçoit",
@@ -269,7 +273,9 @@
         "tabComplete": "⇥ complète en « {label} »"
       },
       "journal": "Ouvrir le journal d'intervention",
-      "journalEntry": "Écrire dans le journal"
+      "journalEntry": "Écrire dans le journal",
+      "toggleAmWarten": "Basculer « en attente »",
+      "toggleNachbarhilfe": "Basculer « entraide »"
     },
     "meta": {
       "title": "Tableau de bord KP Rück",
@@ -288,6 +294,12 @@
       "available": "Nouvelle version disponible",
       "hint": "Recharger quand cela convient.",
       "reload": "Recharger"
+    },
+    "reorder": {
+      "moveUp": "Monter",
+      "moveDown": "Descendre",
+      "moveTop": "Placer au début",
+      "menuFor": "Modifier l’ordre de {name}"
     }
   },
   "display": {
@@ -296,13 +308,24 @@
       "no": "Non",
       "personCount": "{count, plural, one {# personne} other {# personnes}}",
       "staleWarn": "Liaison perturbée – dernier état à {time}. L’actualisation continue.",
-      "staleAlert": "Pas de liaison · état à {time}"
+      "staleAlert": "Pas de liaison · état à {time}",
+      "moreBelow": "+{count} de plus ↓"
     },
     "board": {
       "loginRequired": "Connecte-toi pour afficher le tableau.",
       "collapsedColumnTitle": "{title} – {count} – cliquer pour déplier",
+      "railLabel": {
+        "incoming": "Reçu",
+        "reko": "Reco",
+        "reko_done": "Reco term.",
+        "enroute": "En route",
+        "active": "Interv.",
+        "returning": "Retour",
+        "complete": "Clôturé"
+      },
       "columnAlarmTitle": "{count} en retard : {titles}",
       "columnAlarmMore": "… et {count} autres",
+      "columnAgedChip": "{count} ≥ {threshold}",
       "priorityAria": "Priorité : {label}",
       "materialCount": "{count, plural, one {# engin} other {# engins}}",
       "nachbarhilfe": "Entraide",
@@ -326,7 +349,6 @@
       "dangers": "Dangers : {types}",
       "personnelNeed": "Besoin en effectif :",
       "estimatedDuration": "Durée estimée :",
-      "durationHours": "{hours} h",
       "contactPhone": "Téléphone",
       "intakeBadge": "Téléphone / guichet",
       "feldBadge": "Du terrain",
@@ -361,13 +383,13 @@
       "vehicles": "Véhicules",
       "availableDeployed": "{available} disponibles · {deployed} engagés",
       "incidents": "Interventions",
-      "incomingInProgress": "{incoming} reçues · {inProgress} en cours",
+      "waitingInProgress": "{waiting} en attente · {inProgress} en cours",
       "noActiveIncidents": "Aucune intervention en cours",
       "personnel": "Personnel",
       "material": "Matériel",
       "otherRole": "Autres",
       "noMaterial": "Aucun matériel saisi",
-      "available": "disponibles",
+      "materialContinued": "Matériel · suite",
       "freeOfTotal": "{free}/{total} libres",
       "auftragStops": "{count, plural, one {# arrêt} other {# arrêts}}",
       "onIncidents": "{count, plural, one {# intervention} other {# interventions}}",
@@ -397,16 +419,11 @@
       "attachedMany": "{count} urgences ont été attribuées à l’événement",
       "errorTitle": "Erreur",
       "attachError": "Les urgences n’ont pas pu être rattachées",
-      "title": "Alarmes entrantes",
-      "entriesCount": "{count, plural, one {# entrée} other {# entrées}}",
       "searchPlaceholder": "Rechercher …",
-      "selectedClear": "{count} sélectionnées – annuler",
       "attach": "Rattacher",
       "loading": "Chargement …",
       "demoTitle": "Les alarmes entrantes ne sont pas disponibles en mode démo",
       "demoDescription": "Cette page affiche les alarmes entrantes – depuis <b>DIVERA 24/7</b> ou via l’interface webhook ouverte. En mode démo, aucune liaison d’alarme n’est configurée.",
-      "noResults": "Aucun résultat",
-      "noEmergencies": "Aucune urgence",
       "resetSearch": "Effacer la recherche",
       "trainingBadge": "EXERCICE",
       "assigned": "Attribuée",
@@ -414,6 +431,8 @@
       "attachDialogTitle": "Rattacher à un événement",
       "attachDialogDescription": "{count, plural, one {# urgence sera attribuée} other {# urgences seront attribuées}} à l’événement choisi.",
       "selectEventPlaceholder": "Choisir un événement …",
+      "eventLabel": "Événement",
+      "noAttachableEvents": "{training, select, true {Aucun exercice ouvert – les alarmes d’exercice ne vont qu’à des exercices.} other {Aucun événement ouvert – en ouvrir un d’abord.}}",
       "eventTraining": "{name} (exercice)",
       "cancel": "Annuler",
       "attaching": "Rattachement …",
@@ -422,7 +441,35 @@
       "realAlarmWarningTitle": "{count, plural, one {Cette alarme est réelle, l'événement est un exercice} other {Ces alarmes sont réelles, l'événement est un exercice}}",
       "realAlarmWarningAlerting": "L'alarme sortante est seulement simulée – <hint>personne n'est mobilisé.</hint>",
       "realAlarmWarningThresholds": "Les seuils de retard sont 50 % plus longs – <hint>les avertissements arrivent plus tard qu'en cas réel.</hint>",
-      "attachAnyway": "Rattacher quand même à l'exercice"
+      "attachAnyway": "Rattacher quand même à l'exercice",
+      "attachedTo": "Alarme rattachée à « {event} »",
+      "attachedToNumber": "Intervention {number}",
+      "attachOther": "Autre événement …",
+      "attachOtherAria": "Rattacher « {title} » à un autre événement",
+      "detached": "L’alarme est de retour dans les alarmes entrantes",
+      "detachRefused": "Non annulé",
+      "detachRefusedFallback": "L’alarme reste rattachée."
+    },
+    "inbox": {
+      "title": "Alarmes entrantes",
+      "entryAria": "Alarmes entrantes – {count, plural, =0 {aucune nouvelle alarme} one {# nouvelle alarme} other {# nouvelles alarmes}}",
+      "summary": "{count, plural, one {# entrée} other {# entrées}} · les plus récentes d’abord",
+      "refresh": "Actualiser",
+      "sectionNew": "Nouvelles · {count}",
+      "sectionToday": "Attribuées aujourd’hui · {count}",
+      "sectionEarlier": "Plus anciennes · {count}",
+      "earlierHint": "jours précédents et archivées",
+      "attachAll": "Tout rattacher",
+      "attachAllCount": "Rattacher les {count}",
+      "attachOneAria": "Rattacher «{title}»",
+      "becameIncident": "Intervention",
+      "nothingNew": "Aucune nouvelle alarme.",
+      "emptyTitle": "Pas encore d’alarme",
+      "emptyDescription": "Une alarme du système d’alarme apparaît ici dès qu’elle arrive.",
+      "noMatches": "Aucun résultat pour «{query}».",
+      "loadFailedTitle": "Alarmes non chargées",
+      "loadFailedDescription": "Le serveur n’a pas répondu ou a signalé une erreur.",
+      "reload": "Recharger"
     },
     "alarmSettings": {
       "cardTitle": "Alarmement",
@@ -674,7 +721,7 @@
       "inProgress": "En cours",
       "done": "Terminées",
       "oldestHigh": "Plus ancienne annonce «haute» en attente",
-      "waitingSince": "attend depuis {age}",
+      "waitingSince": "depuis la réception {age}",
       "noWaitingHigh": "Aucune annonce «haute» en attente.",
       "openIncident": "Ouvrir l’intervention",
       "reactionTitle": "Temps de réaction depuis la réception",
@@ -747,9 +794,7 @@
       "rekoByName": "Reconnaissance par {name}",
       "summaryFallback": "Annonce, effectif et matériel",
       "driver": "Conducteur : {name}",
-      "vehicleViaAuftrag": "Mission – vient avec",
-      "vehicleStays": "reste sur place",
-      "vehicleReturns": "rentre à la caserne"
+      "vehicleViaAuftrag": "Mission – vient avec"
     },
     "rapportState": {
       "none": "pas de rapport",
@@ -1213,7 +1258,7 @@
       "toc": "Sommaire",
       "loading": "Chargement …",
       "loadError": "# Erreur\n\nLe contenu de l’aide n’a pas pu être chargé.",
-      "searchPlaceholder": "Rechercher dans l’aide",
+      "searchPlaceholder": "Chercher dans l’aide",
       "searchNoResults": "Aucun résultat"
     }
   },
@@ -1295,8 +1340,6 @@
       "vehicleCount": "{count, plural, one {# véhicule} other {# véhicules}}",
       "transferring": "Transfert …",
       "transfer": "Transférer",
-      "confirmTitle": "Vraiment transférer les ressources ?",
-      "confirmDescription": "Toutes les ressources attribuées à « {source} » seront déplacées vers « {target} ». Cette action est irréversible.",
       "confirmCounts": "Seront déplacés : {crew} personnel, {vehicles} véhicules, {materials} matériel."
     },
     "driver": {
@@ -1351,9 +1394,7 @@
       "moveReleasesDriver": "« Déplacer ici » libère aussi le rôle de chauffeur pour {vehicle}."
     },
     "vehicleStatus": {
-      "durationMinutes": "{minutes} min",
-      "durationHoursMinutes": "{hours} h {mins} min",
-      "durationHours": "{hours} h",
+      "bound": "Engagé",
       "available": "Disponible",
       "unavailable": "Indisponible",
       "loadError": "Échec du chargement de l’état des véhicules",
@@ -1366,8 +1407,7 @@
       "readyForOperation": "Prêt à intervenir",
       "changeDriver": "Changer de conducteur",
       "assignDriver": "Attribuer un conducteur",
-      "auftragLabel": "Mission « {name} »",
-      "durationDaysHours": "{days} j {hours} h"
+      "auftragLabel": "Mission « {name} »"
     },
     "gpsArrival": {
       "fallbackVehicle": "Véhicule",
@@ -1419,12 +1459,12 @@
       "notesPlaceholder": "Ajouter une note …",
       "dangers": "Dangers",
       "personnelCount": "{count, plural, one {# personne} other {# personnes}}",
-      "estimatedDuration": "{duration} h estimées",
-      "vehicles": "Véhicules ({count})",
+      "estimatedDuration": "{duration} estimées",
+      "vehicles": "Véhicules · {count}",
       "noVehicles": "Aucun véhicule attribué",
-      "crew": "Effectif ({count})",
+      "crew": "Effectif · {count}",
       "noCrew": "Aucun effectif attribué",
-      "materials": "Matériel ({count})",
+      "materials": "Matériel · {count}",
       "noMaterials": "Aucun matériel attribué",
       "contact": "Contact / annonceur",
       "contactPlaceholder": "Ajouter un contact …",
@@ -1437,7 +1477,7 @@
       "trainingBadge": "Exercice",
       "createTrainingIncident": "Créer une intervention d’exercice",
       "newIncident": "Nouvelle intervention",
-      "searchPlaceholder": "Rechercher une intervention …",
+      "searchPlaceholder": "Intervention …",
       "noActive": "Aucune intervention en cours",
       "noHitsFor": "Aucune intervention pour « {query} ».",
       "searchScope": "Recherche dans le lieu, l’annonce, le type, les véhicules, l’équipe et le matériel.",
@@ -1679,6 +1719,7 @@
       "einsatzart": "Genre d’intervention",
       "einsatzartPlaceholder": "Choisir le genre d’intervention",
       "priority": "Priorité",
+      "status": "Statut",
       "phoneReported": "Par téléphone",
       "phoneReportedDescription": "L’annonce est arrivée au PC par téléphone ou au guichet",
       "feldReported": "Du terrain",
@@ -1701,9 +1742,9 @@
       "directLink": "Lien direct",
       "dashboard": "Tableau de bord",
       "noRekoAssigned": "Aucune personne de reconnaissance attribuée",
-      "crewCount": "Effectif ({count})",
-      "vehiclesCount": "Véhicules ({count})",
-      "materialsCount": "Matériel ({count})",
+      "crewCount": "Effectif · {count}",
+      "vehiclesCount": "Véhicules · {count}",
+      "materialsCount": "Matériel · {count}",
       "assignCrew": "Attribuer de l’effectif",
       "assignVehicle": "Attribuer un véhicule",
       "assignMaterial": "Attribuer du matériel",
@@ -1738,7 +1779,12 @@
       "rosterFree": "{count} libres",
       "rosterOf": "sur {total}",
       "rosterBound": "{count} engagés",
-      "bindingsNone": "Aucune affectation – rien à atteindre."
+      "bindingsNone": "Aucune affectation – rien à atteindre.",
+      "transferredToast": "Ressources transférées vers « {target} »",
+      "transferredToastCount": "{count, plural, one {# attribution} other {# attributions}} depuis « {source} »",
+      "transferUndone": "Transfert annulé",
+      "transferUndoFailed": "Non annulé",
+      "transferUndoFailedDescription": "Les attributions restent où elles sont."
     },
     "dashboard": {
       "loading": "Chargement …",
@@ -1751,8 +1797,8 @@
       "toggleRightSidebar": "Afficher/masquer la barre latérale droite",
       "newEvent": "Nouvel événement",
       "allEvents": "Tous les événements",
-      "personnelSearch": "Rechercher du personnel …",
-      "materialSearch": "Rechercher du matériel …",
+      "personnelSearch": "Personnel …",
+      "materialSearch": "Matériel …",
       "showAvailableOnly": "N’afficher que les disponibles",
       "showAll": "Tout afficher",
       "noneAvailableFiltered": "Rien de disponible",
@@ -2001,7 +2047,7 @@
       "locationError": "Saisis un lieu d’intervention",
       "phoneShort": "Le numéro n’a que {digits} chiffres – à vérifier. La création reste possible.",
       "phoneLong": "Le numéro a {digits} chiffres – à vérifier. La création reste possible.",
-      "infoDragDrop": "Les véhicules, l’effectif et le matériel peuvent être attribués par glisser-déposer une fois l’intervention créée.",
+      "infoDragDrop": "Les véhicules, l’effectif et le matériel peuvent être attribués par glisser-⁠déposer une fois l’intervention créée.",
       "create": "Créer l’intervention",
       "createAndNext": "Créer et saisir la suivante",
       "moreActions": "Autres actions"
@@ -2031,7 +2077,6 @@
       "removeMaterial": "Libérer le matériel",
       "noMaterial": "Aucun matériel attribué",
       "resourceEmpty": "aucun",
-      "changeStatus": "Changer de statut",
       "copyWhatsapp": "Copier pour WhatsApp",
       "moreActions": "Autres actions",
       "diveraAlarm": "Convocation",
@@ -2051,7 +2096,8 @@
       "clickToView": "Clique sur une intervention pour afficher les détails",
       "selectPlaceholder": "Sélectionner",
       "transfer": "Transférer",
-      "whatsapp": "WhatsApp"
+      "whatsapp": "WhatsApp",
+      "distribute": "Répartir"
     },
     "personMenu": {
       "vehicleTaken": "Véhicule déjà attribué",
@@ -2080,10 +2126,11 @@
       "titleCrewRouteGeneric": "Attribuer de l’effectif à une mission",
       "titleVehiclesRouteGeneric": "Attribuer des véhicules à une mission",
       "titleMaterialsRouteGeneric": "Attribuer du matériel à une mission",
-      "titleCrewIncident": "Attribuer de l’effectif à une intervention",
-      "titleVehiclesIncident": "Attribuer des véhicules à une intervention",
-      "titleMaterialsIncident": "Attribuer du matériel à une intervention",
-      "selectedCount": "{selected} sélectionnés, {available} disponibles",
+      "titleCrewIncident": "Attribuer de l’effectif",
+      "titleVehiclesIncident": "Attribuer des véhicules",
+      "titleMaterialsIncident": "Attribuer du matériel",
+      "selectedCountCrew": "{selected} sélectionnés · {total, plural, one {# personne} other {# personnes}}",
+      "selectedCountMaterials": "{selected} sélectionnés · {total} au total",
       "vehiclesAssigned": "{count, plural, one {# véhicule attribué} other {# véhicules attribués}}",
       "zuFussSuffix": ", à pied",
       "quickSelectByType": "Par genre :",
@@ -2207,7 +2254,8 @@
       "repeatRadioNoStop": "Cette mission n’a encore aucune étape. Le message naîtra avec la première.",
       "repeatRadioCopy": "Copier le texte",
       "repeatRadioCopied": "Message radio copié",
-      "moreOptions": "Autres options"
+      "moreOptions": "Autres options",
+      "stopActions": "Ordre et actions pour {name}"
     },
     "closedStop": {
       "title": "L’intervention est clôturée",
@@ -2222,8 +2270,7 @@
       "einsatz": "En intervention",
       "beendet": "Retour",
       "abgeschlossen": "Clôturé",
-      "advance": "Passer à {label}",
-      "jumpTo": "Choisir le statut"
+      "change": "Statut : {label} – modifier"
     },
     "routenEditorModal": {
       "title": "Éditeur d’itinéraire",
@@ -2244,12 +2291,13 @@
       "contextOpen": "Ouvert",
       "contextInRoute": "Dans la mission « {name} »",
       "contextClickToAdd": "Cliquer pour l’ajouter comme étape",
-      "contextStopAdded": "Intervention ajoutée comme étape."
+      "contextStopAdded": "Intervention ajoutée comme étape.",
+      "stopActions": "Ordre et actions pour {name}"
     },
     "incidentPicker": {
       "title": "Ajouter des interventions comme étapes",
       "description": "Sélectionner des interventions existantes. Une intervention appartenant à une autre mission sera déplacée ici.",
-      "searchPlaceholder": "Rechercher une intervention …",
+      "searchPlaceholder": "Intervention …",
       "empty": "Aucune intervention correspondante.",
       "inRoute": "Actuellement dans la mission « {name} »",
       "createNew": "Nouvelle intervention",
@@ -2296,7 +2344,8 @@
       "checkOutAllTitle": "Annoncer tous partants ?",
       "checkOutAllDescription": "{count, plural, one {# personne présente sera passée} other {# personnes présentes seront passées}} sur « partie ». Les affectations sont conservées.",
       "quickAddHint": "Sera annoncé directement",
-      "writeFailed": "La présence n’a pas pu être enregistrée"
+      "writeFailed": "La présence n’a pas pu être enregistrée",
+      "openButton": "Appel"
     },
     "diveraIncoming": {
       "title": "En route ({count})",
@@ -2492,14 +2541,16 @@
     "page": {
       "loading": "Chargement de la carte …",
       "title": "Carte de situation",
-      "activeBadge": "{count} en cours",
-      "incidentsHeading": "Interventions ({count})",
+      "activeBadge": "{count, plural, one {# intervention} other {# interventions}}",
+      "incidentsHeading": "Interventions · {count}",
+      "incidentsHeadingPlain": "Interventions",
       "labels": "Étiquettes",
       "lines": "Lignes",
       "distance": "Distance",
       "searchPlaceholder": "Rechercher …",
       "showDetails": "Afficher les détails",
       "vehicleCluster": "{count} véhicules",
+      "vehicleClusterShort": "{count} véh.",
       "groupRoutes": "Missions",
       "groupRoutesColorHint": "Colore la carte par mission",
       "colorByRoutesOverride": "Défini par « Missions » – la coloration précédente est rétablie à la désactivation.",
@@ -2526,7 +2577,11 @@
       "noStops": "Aucune étape dans cette mission pour l’instant.",
       "stopAdded": "Étape ajoutée à l’itinéraire.",
       "stopAlreadyOnRoute": "Cette intervention est déjà sur l’itinéraire.",
-      "noGroups": "Aucune mission pour l’instant"
+      "noGroups": "Aucune mission pour l’instant",
+      "stopCount": "{count, plural, one {# étape} other {# étapes}}",
+      "startLabel": "Départ · {start}",
+      "addStopMapHint": "Clic sur la carte",
+      "exitLabel": "Terminer la planification d’itinéraire"
     },
     "view": {
       "markerAria": "Intervention : {label}",
@@ -2539,7 +2594,12 @@
       "clickToNavigate": "Cliquer pour naviguer vers l’intervention",
       "retry": "Réessayer",
       "mapAria": "Carte des interventions – flèches pour déplacer, tabulation pour sélectionner",
-      "glLost": "L’affichage de la carte a été interrompu par le navigateur."
+      "glLost": "L’affichage de la carte a été interrompu par le navigateur.",
+      "clusterAria": "{count} interventions proches, la plus urgente : {priority} – agrandir",
+      "spotAria": "{count} interventions : {numbers} – {address}",
+      "spotAriaNoNumbers": "{count} interventions – {address}",
+      "spotHint": "Clic : choisir l’intervention · double-clic : ouvrir",
+      "spotClose": "Fermer la liste"
     },
     "legend": {
       "show": "Afficher la légende",
@@ -2555,17 +2615,24 @@
       "vehicleOnline": "Véhicule en ligne",
       "vehicleOffline": "Véhicule hors ligne",
       "assignments": "Attributions",
-      "vehicleToIncident": "Véhicule → intervention"
+      "vehicleToIncident": "Véhicule → intervention",
+      "cluster": "Interventions proches",
+      "spot": "Interventions à une même adresse",
+      "sampleOnline": "Pio",
+      "sampleOffline": "TLF",
+      "pillOnline": "en ligne",
+      "pillStale": "hors ligne · dernier signal (dès {minutes} min)",
+      "pillSpot": "même endroit · hors ligne",
+      "onlineOnly": "(en ligne seulement)"
     },
     "assignmentLines": {
       "incidentFallback": "Intervention"
     },
     "locationInput": {
-      "addressLabel": "Lieu d’intervention (adresse)",
-      "addressLabelShort": "Lieu d’intervention",
+      "addressLabel": "Lieu d’intervention",
       "requiredField": "Champ obligatoire",
-      "addressPlaceholder": "Rechercher une adresse …",
-      "searchPlaceholder": "Rechercher une adresse …",
+      "addressPlaceholder": "Adresse …",
+      "searchPlaceholder": "Adresse …",
       "searching": "Recherche en cours …",
       "noResults": "Aucune adresse trouvée.",
       "useFreetext": "Reprendre « {query} »",
@@ -2641,6 +2708,7 @@
       "fallbackToFirst": "{requested} indisponible – depuis {stop}",
       "optimized": "Ordre proposé à vol d’oiseau",
       "startLine": "Départ : {start} · aide à la planification, pas d’itinéraire routier",
+      "needsCoordinates": "Pour optimiser, il faut au moins deux arrêts avec des coordonnées.",
       "unchanged": "L’ordre est déjà le plus court à vol d’oiseau.",
       "note": "Proposition à vol d’oiseau depuis {start} · aide à la planification",
       "undo": "Annuler",
@@ -2683,6 +2751,19 @@
       "level3": "Orange – dangereux",
       "level4": "Rouge – très dangereux",
       "authorityNotice": "Communication des autorités"
+    },
+    "vehicles": {
+      "online": "en ligne",
+      "offline": "hors ligne",
+      "onlineCount": "{count} en ligne",
+      "offlinePart": "{count} hors ligne",
+      "offlinePartShort": "{count} off",
+      "speed": "{kmh} km/h",
+      "lastReport": "dernier signal {time}",
+      "lastReportUnknown": "dernier signal : inconnu",
+      "yesterday": "hier {time}",
+      "assignedTo": "→ {target}",
+      "scrollMore": "↓ défiler · {count} de plus"
     }
   },
   "nav": {
@@ -2712,9 +2793,6 @@
       "diveraLabel": "Divera",
       "display": "Affichage",
       "displayOverview": "Vue d’ensemble des affichages",
-      "situationMap": "Carte de situation",
-      "board": "Tableau",
-      "statusDisplay": "État",
       "management": "Administration",
       "events": "Événements",
       "settings": "Réglages",
@@ -2724,7 +2802,7 @@
       "reportPdf": "Rapport d’intervention (PDF)",
       "auditXlsx": "Export d’audit (XLSX)",
       "lageblattA4": "Feuille de situation (A4)",
-      "commands": "Commandes et raccourcis clavier",
+      "commands": "Commandes et raccourcis",
       "help": "Aide",
       "openMenu": "Ouvrir le menu utilisateur",
       "figures": "Indicateurs"
@@ -3499,6 +3577,11 @@
         "languageHint": "Langue de l’interface sur cet appareil",
         "selectPlaceholder": "Choisir …",
         "editorsOnlyNote": "Seuls les éditeurs peuvent modifier les réglages.",
+        "groups": {
+          "station": "Caserne",
+          "map": "Carte et affichage",
+          "rapport": "Rapport d’intervention"
+        },
         "configs": {
           "home_city": {
             "label": "Secteur d’intervention (localité)",
@@ -3774,7 +3857,7 @@
         "show": "Afficher",
         "showDetails": "Afficher les détails"
       },
-      "searchPlaceholder": "Rechercher un réglage …",
+      "searchPlaceholder": "Réglage …",
       "searchNoResults": "Aucun résultat.",
       "searchHitCount": "{count} résultats · ↵ ouvrir"
     },
@@ -3849,7 +3932,13 @@
       },
       "editorsOnly": "Seuls les éditeurs peuvent modifier ces réglages.",
       "trackerUnavailable": "Aucun service de localisation n’est configuré pour cette caserne. L’automatisme suit le rythme des relevés Traccar – sans lui, aucune proposition n’arrive, quoi qu’il soit réglé ici. À configurer côté serveur (TRACCAR_URL) ; l’état est visible sous Réglages → Intégrations.",
-      "returnUnavailable": "Les coordonnées de la caserne manquent. Sans elles, le retour n’est pas détecté – les saisir plus bas sur cette carte, sous «Caserne (base d’attache)»."
+      "returnUnavailable": "Les coordonnées de la caserne manquent. Sans elles, le retour n’est pas détecté – les saisir plus bas sur cette carte, sous «Caserne (base d’attache)».",
+      "map": {
+        "title": "Véhicules sur la carte",
+        "staleLabel": "Afficher le dernier signal dès",
+        "staleHint": "Une pastille de véhicule n’affiche l’heure de son dernier signal GPS que lorsqu’il date de plus de ce nombre de minutes. La liste au survol d’une pastille l’indique toujours.",
+        "minutes": "min"
+      }
     },
     "materials": {
       "loadError": "Le matériel n’a pas pu être chargé",
@@ -4196,7 +4285,31 @@
       "alreadyClaimedTitle": "Déjà configuré",
       "alreadyClaimedBody": "Ce tableau a déjà été configuré. Connectez-vous avec votre compte.",
       "goToLogin": "Vers la connexion",
-      "footer": "Tout le reste – comptes, cartes, sauvegardes – vous attend dans les réglages. Pour la configuration par fichier : <code>docs/SETUP.md</code>."
+      "footer": "Tout le reste – comptes, cartes, sauvegardes – vous attend dans les réglages. Pour la configuration par fichier : <code>docs/SETUP.md</code>.",
+      "usernameNote": "Nom d’utilisateur pour la connexion : <name>admin</name>"
+    },
+    "station": {
+      "title": "Configurer la caserne",
+      "progress": "{done} sur 3 terminé",
+      "signedInAs": "Connecté en tant que <name></name>",
+      "location": "Emplacement du dépôt",
+      "locationHint": "Encore la valeur par défaut « Musterstadt » – la carte et la recherche d’adresse s’y réfèrent.",
+      "locationAction": "Chercher une adresse …",
+      "inventory": "Personnel et véhicules",
+      "inventoryHint": "Rien de saisi – sans eux, aucune intervention ne peut être dotée.",
+      "inventoryAction": "Importer un fichier Excel …",
+      "dismiss": "Masquer",
+      "dialogTitle": "Emplacement du dépôt",
+      "dialogDescription": "La carte s’ouvre ici, et la recherche d’adresse place en tête les résultats de votre secteur. Modifiable plus tard sous Réglages › Général.",
+      "addressLabel": "Adresse du dépôt",
+      "homeCityLabel": "Secteur d’intervention (localité)",
+      "homeCityPlaceholder": "Oberwil, BL",
+      "locationMissing": "Choisir une adresse ou la placer sur la carte – il faut des coordonnées.",
+      "homeCityMissing": "Saisir la localité, p. ex. « Oberwil, BL ».",
+      "save": "Enregistrer l’emplacement",
+      "saved": "Emplacement enregistré",
+      "saveFailed": "Emplacement non enregistré",
+      "cancel": "Annuler"
     }
   },
   "training": {
@@ -4223,6 +4336,7 @@
       "removePin": "Retirer le repère",
       "setPin": "Placer un repère sur la carte",
       "dispatch": "Déclencher",
+      "dispatchNeeds": "Choisir un scénario et un lieu, puis déclencher.",
       "dispatchHint": "Ou placer le pin directement sur la carte.",
       "multipleIncidents": "Plusieurs interventions à la fois",
       "burst": "Rafale (5x au hasard)",
@@ -4489,21 +4603,132 @@
     },
     "offline": {
       "label": "Conduit hors ligne",
-      "text": "depuis {time} · « {name} » n’est plus synchronisé · retour vers KP Rück en ligne : à la main (procédure de panne)"
+      "sent": "depuis {since} · tout est transmis à KP Rück en ligne · état {time}",
+      "waiting": "depuis {since} · {count, plural, one {# modification attend} other {# modifications attendent}} KP Rück en ligne · état {time}",
+      "unreachable": "depuis {since} · pas de liaison avec KP Rück en ligne depuis {lost} · {count, plural, =0 {tout ce qui précède est transmis} one {# modification attend et partira d’elle-même} other {# modifications attendent et partiront d’elles-mêmes}}",
+      "never": "depuis {since} · pas encore de liaison avec KP Rück en ligne · {count, plural, =0 {rien n’attend} one {# modification attend et partira d’elle-même} other {# modifications attendent et partiront d’elles-mêmes}}"
+    },
+    "ledElsewhere": {
+      "label": "Conduit sur KP Rück hors ligne",
+      "current": "depuis {since} · état {time} · ajouter est possible, modifier ne l’est pas",
+      "silent": "depuis {since} · état {time} · pas de nouvelles de KP Rück hors ligne depuis {ago} · ajouter est possible, modifier ne l’est pas",
+      "never": "depuis {since} · pas encore de nouvelles de KP Rück hors ligne · ajouter est possible, modifier ne l’est pas"
     },
     "takeover": {
       "button": "Reprendre cet événement hors ligne …",
       "title": "Reprendre « {name} » hors ligne ?",
-      "description": "Dès maintenant, cet événement n’est plus conduit que sur cet appareil. Il n’est plus synchronisé, même lorsque KP Rück en ligne redevient joignable.",
+      "description": "Dès maintenant, cet événement est conduit ici. Ce que vous modifiez ici part de lui-même vers KP Rück en ligne dès qu’il est joignable. Là-bas, on peut le consulter et le compléter, mais plus le modifier.",
       "others": "Tous les autres événements restent en miroir.",
-      "reachable": "KP Rück en ligne est encore joignable. Les modifications faites là-bas à cet événement n’apparaîtront plus ici.",
+      "reachable": "KP Rück en ligne est joignable. Qui continue d’y travailler ne pourra plus que consulter.",
       "confirm": "Reprendre hors ligne",
       "failed": "L’événement n’a pas pu être repris hors ligne."
+    },
+    "takeBack": {
+      "button": "Reprendre ici …",
+      "title": "Reprendre « {name} » ici ?",
+      "description": "Dès maintenant, cet événement est conduit ici. KP Rück hors ligne redevient un miroir pour cet événement.",
+      "heard": "Dernières nouvelles de KP Rück hors ligne",
+      "heardAt": "{time} · il y a {ago}",
+      "heardNever": "jamais",
+      "pending": "Pas encore transmis à ce moment-là",
+      "pendingCount": "{count, plural, =0 {aucune modification} one {# modification} other {# modifications}}",
+      "later": "Ce qui y a été modifié depuis arrivera plus tard : le nouveau est ajouté, le modifié va dans la liste des conflits.",
+      "working": "On travaille en ce moment sur KP Rück hors ligne. Qui continue d’y travailler ne pourra plus que consulter.",
+      "confirm": "Reprendre ici",
+      "failed": "L’événement n’a pas pu être repris.",
+      "heardJustNow": "{time} · à l’instant"
+    },
+    "conflicts": {
+      "label": "Conflits",
+      "text": "Du travail de KP Rück hors ligne a été modifié autrement ici – veuillez décider",
+      "open": "{count, plural, one {# conflit} other {# conflits}} ›",
+      "title": "Conflits",
+      "intro": "La même chose a été modifiée ici et sur l’autre système. Tant que vous ne choisissez pas, la version de {leader} s’applique.",
+      "introReadOnly": "La même chose a été modifiée ici et sur l’autre système. La version de {leader} s’applique ; c’est là-bas qu’on décide.",
+      "side": {
+        "standby": "KP Rück hors ligne",
+        "hosted": "KP Rück en ligne"
+      },
+      "here": "Ici",
+      "loading": "Chargement des conflits …",
+      "loadFailed": "Conflits non chargés",
+      "loadFailedHint": "La liaison est interrompue. Rouvrir dans un instant.",
+      "noneOpen": "Aucun conflit ouvert",
+      "noneOpenHint": "Tout ce que les deux systèmes ont modifié est décidé.",
+      "done": "{count, plural, one {# réglé} other {# réglés}}",
+      "resolution": {
+        "kept": "conservé",
+        "other": "autre version reprise",
+        "both": "les deux réunies"
+      },
+      "einsatz": "Intervention {number}",
+      "unknownSubject": "Événement",
+      "columns": {
+        "description": "Message",
+        "title": "Titre",
+        "status": "Statut",
+        "location_address": "Lieu d’intervention",
+        "contact": "Contact / annonceur",
+        "contact_phone": "Numéro de téléphone",
+        "internal_notes": "Notes",
+        "priority": "Priorité",
+        "type": "Type d’intervention",
+        "text": "Texte",
+        "kurzbericht": "Rapport succinct",
+        "summary_text": "Résumé",
+        "additional_notes": "Remarques",
+        "message": "Message",
+        "notes": "Notes",
+        "name": "Nom"
+      },
+      "tables": {
+        "reko_reports": "Reco",
+        "schadenplatz_reports": "Rapport de sinistre",
+        "incident_assignments": "Équipe",
+        "incident_group_assignments": "Mission",
+        "incident_groups": "Mission",
+        "journal_entries": "Journal",
+        "event_attendance": "Présence",
+        "events": "Événement",
+        "field_requests": "Demande du terrain",
+        "incident_field_messages": "Message du terrain",
+        "status_transitions": "Changement de statut",
+        "notifications": "Avis"
+      },
+      "kind": {
+        "field": "modifié",
+        "deleted": "supprimé",
+        "duplicate": "saisi deux fois"
+      },
+      "empty": "(vide)",
+      "yes": "oui",
+      "no": "non",
+      "both": "Les deux ensemble – modifiable librement",
+      "stayDeleted": "Laisser supprimé",
+      "restore": "Restaurer",
+      "keep": "Conserver (modifié depuis)",
+      "delete": "Supprimer",
+      "duplicate": "Saisi deux fois – l’autre version n’a pas été reprise",
+      "savedRow": "Version concernée",
+      "apply": "Appliquer",
+      "decidedThere": "C’est sur {leader} qu’on décide.",
+      "resolveFailed": "Impossible d’appliquer. Recharger la liste et choisir à nouveau."
     },
     "newOffline": {
       "button": "Créer un événement hors ligne …",
       "title": "Créer un événement hors ligne",
-      "note": "Cet événement n’est conduit que sur cet appareil et n’est jamais synchronisé avec KP Rück en ligne."
+      "note": "Cet événement est conduit ici et part vers KP Rück en ligne dès qu’il est joignable."
+    }
+  },
+  "panels": {
+    "resizeHint": "Glisser pour élargir · double-clic : par défaut",
+    "resize": {
+      "personnel": "Largeur de la barre Personnel",
+      "material": "Largeur de la barre Matériel",
+      "detail": "Largeur du détail d’intervention",
+      "notifications": "Largeur des notifications",
+      "alarmInbox": "Largeur de la réception des alarmes",
+      "mapRail": "Largeur de la barre latérale"
     }
   }
 }

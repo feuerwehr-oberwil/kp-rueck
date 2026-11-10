@@ -4,7 +4,8 @@
     "title": "KP Rück – le tableau d’intervention du poste de commandement",
     "description": "KP Rück est le tableau magnétique numérique du poste de commandement arrière : interventions, personnel, véhicules et matériel – en direct, open source.",
     "ogTitle": "KP Rück – le tableau d’intervention du poste de commandement",
-    "ogDescription": "Le tableau magnétique numérique du poste de commandement arrière : interventions, personnel, véhicules et matériel – en direct, open source."
+    "ogDescription": "Le tableau magnétique numérique du poste de commandement arrière : interventions, personnel, véhicules et matériel – en direct, open source.",
+    "imageAlt": "KP Rück avec tableau d’intervention numérique pour les interventions, le personnel, les véhicules et le matériel."
   },
   "schema": {
     "featureList": [
@@ -256,7 +257,7 @@
           "Attribuer personnel, véhicules et matériel – KP Rück avertit en cas de double affectation et rend visibles les conflits de ressources",
           "Le matériel sur les lieux : quel moyen est attribué à quelle intervention, et depuis quand",
           "Priorités, durées et délais visibles par intervention",
-          "Missions : plusieurs interventions comme une tournée pour une équipe, ordre optimisé selon la distance d’une pression",
+          "Missions : plusieurs interventions comme une tournée pour une équipe, ordre optimisé selon la distance sur simple pression d’un bouton",
           "Les missions récurrentes, comme le barrage d’une zone ou l’enlèvement de bois après une tempête, peuvent être préparées et mises à disposition directement lors d’un événement",
           "Enregistrement par code QR – qui arrive s’annonce lui-même",
           "Temps de service : qui est là depuis quand, combien de ce temps en intervention et qui est en pause – les présences trop longues ressortent",

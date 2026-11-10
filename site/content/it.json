@@ -4,7 +4,8 @@
     "title": "KP Rück – il tavolo operativo per il posto di comando",
     "description": "KP Rück è la lavagna magnetica digitale del posto di comando arretrato: interventi, personale, veicoli e materiale – in tempo reale, open source.",
     "ogTitle": "KP Rück – il tavolo operativo per il posto di comando",
-    "ogDescription": "La lavagna magnetica digitale del posto di comando arretrato: interventi, personale, veicoli e materiale – in tempo reale, open source."
+    "ogDescription": "La lavagna magnetica digitale del posto di comando arretrato: interventi, personale, veicoli e materiale – in tempo reale, open source.",
+    "imageAlt": "KP Rück con tavolo operativo digitale per interventi, personale, veicoli e materiale."
   },
   "schema": {
     "featureList": [
@@ -271,7 +272,7 @@
           "<strong>Interfaccia aperta</strong> – qualsiasi sistema di disposizione può aprire interventi",
           "Può riprendere gli allarmi da Divera o FireHub <span class=\"opt\">facoltativo</span>",
           "Modulo di segnalazione via link o QR per il telefono e per chi si presenta di persona",
-          "Gli arrivi finiscono nel serbatoio, presa in carico con un clic",
+          "Le segnalazioni in entrata confluiscono in un elenco e vengono prese in carico con un clic",
           "Le segnalazioni doppie per lo stesso luogo d’intervento vengono riconosciute; due interventi si possono unire – con squadra, ricognizione e rapporto – e separare di nuovo",
           "Allertamento della squadra direttamente dal tavolo <span class=\"opt\">facoltativo</span>",
           "In arrivo: chi ha risposto sì all’allarme Divera compare nell’appello – check-in con un clic <span class=\"opt\">facoltativo</span>",
@@ -292,7 +293,7 @@
         ]
       },
       {
-        "h3": "Dopo &amp; esercizio",
+        "h3": "Dopo l’intervento &amp; gestione",
         "items": [
           "<strong>Rapporto d’intervento in PDF</strong> con diario d’intervento e tempi di reazione – si forma durante l’intervento ed è già in gran parte preparato al rientro in caserma",
           "Diario d’intervento sul tavolo: registra da sé cambi di stato, assegnazioni e segnalazioni, le proprie voci con ⇧J – integrato, mai sovrascritto",

@@ -5,7 +5,8 @@
  *
  * It used to be the login name plus the role badge on the desktop and the badge alone on the
  * phone (in the sheet's title, far from «Abmelden»). Now both read the same: the display name
- * (the login name when there is none, or beside it when they differ) and the role badge.
+ * (the login name when there is none) on its own line, then the role badge with the login name
+ * beside it when they differ – one line for both cut «Name @login» off in the 256px menu.
  */
 
 import { useTranslations } from 'next-intl';
@@ -23,10 +24,14 @@ export function AccountBlock({ className }: { className?: string }) {
     <div className={cn('flex min-w-0 flex-col gap-1.5', className)} aria-label={t('signedInAs', { name })}>
       <p className="truncate text-sm font-medium leading-none" title={name}>
         {name}
-        {showLogin && <span className="ml-1.5 text-xs font-normal text-muted-foreground">@{user.username}</span>}
       </p>
-      <div>
+      <div className="flex min-w-0 items-center gap-2">
         <RoleBadge />
+        {showLogin && (
+          <span className="truncate text-xs text-muted-foreground" title={`@${user.username}`}>
+            @{user.username}
+          </span>
+        )}
       </div>
     </div>
   );

@@ -287,8 +287,45 @@ describe("CommandPalette — ⇥ completes", () => {
     expect(input()).toHaveValue("14 Meier Anna ")
   })
 
-  it("says what it is for in the empty field", () => {
+  it("says what it is for: a short placeholder, the grammar on the line under it", () => {
     setup()
-    expect(input()).toHaveAttribute("placeholder", expect.stringContaining("⇥ ergänzt"))
+    expect(input()).toHaveAttribute("placeholder", "Befehl suchen oder zuweisen …")
+    expect(screen.getByText("Einsatz, dann Fahrzeug / Person – z. B.")).toBeInTheDocument()
+    expect(screen.getByText("ergänzt")).toBeInTheDocument()
+    // The input is described by that line, the ⇥ read as its key name.
+    expect(input()).toHaveAccessibleDescription(/^Einsatz, dann Fahrzeug \/ Person – z\. B\..*Tabulator.*ergänzt$/)
+  })
+
+  it("invites nobody to assign who cannot: no onDispatch (viewer, standby mirror) → no hint", () => {
+    setup({ onDispatch: undefined })
+    expect(input()).toHaveAttribute("placeholder", "Befehl suchen …")
+    expect(screen.queryByText("Einsatz, dann Fahrzeug / Person – z. B.")).not.toBeInTheDocument()
+    expect(input()).not.toHaveAttribute("aria-describedby")
+  })
+})
+
+// Owner pick UX-03 A (10.11.2026): what a card offers on right-click is in the commands too.
+describe("CommandPalette — the card's right-click actions", () => {
+  it("runs the action on the selected Einsatz", async () => {
+    const onIncidentCommand = vi.fn()
+    const { user } = setup({ onIncidentCommand, incidentCommands: ["assignCrew", "toggleAmWarten"], hasSelectedIncident: true })
+    await typeIn(user, "mannschaft zuw")
+    await user.click(screen.getByRole("option", { name: "Mannschaft zuweisen …" }))
+    expect(onIncidentCommand).toHaveBeenCalledWith("assignCrew")
+  })
+
+  it("lists only what this user may run", async () => {
+    const { user } = setup({ onIncidentCommand: vi.fn(), incidentCommands: ["print"], hasSelectedIncident: true })
+    await typeIn(user, "einsatz")
+    expect(screen.getByRole("option", { name: "Einsatzzettel drucken" })).toBeInTheDocument()
+    expect(screen.queryByRole("option", { name: "Einsatz abschliessen …" })).not.toBeInTheDocument()
+  })
+
+  it("offers Appell and Checkliste where the board registered them", async () => {
+    const onOpenAttendance = vi.fn()
+    const { user } = setup({ onOpenAttendance, onOpenChecklist: vi.fn() })
+    await typeIn(user, "appell")
+    await user.click(screen.getByRole("option", { name: "Appell" }))
+    expect(onOpenAttendance).toHaveBeenCalledTimes(1)
   })
 })

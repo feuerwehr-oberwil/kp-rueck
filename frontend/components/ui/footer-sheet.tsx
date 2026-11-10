@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { useIsMobile } from "@/components/ui/use-mobile"
 
@@ -8,11 +8,13 @@ import { useIsMobile } from "@/components/ui/use-mobile"
  * Live height of the page's footer toolbar, as a CSS length for
  * `overlayOffset`. The footer's height depends on its content and padding
  * (and can change with viewport width), so a hard-coded offset lets docked
- * sheets slide underneath it and clip — measure instead.
+ * sheets slide underneath it and clip — measure instead. Measured before the
+ * sheet's first paint (layout effect): the sheet rises from behind the footer's
+ * top edge and is clipped there, so a first frame at a guessed offset would show.
  */
 export function useFooterOffset(active: boolean): string {
   const [offset, setOffset] = useState("42px")
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!active) return
     const measure = () => {
       const footer = document.querySelector("footer")

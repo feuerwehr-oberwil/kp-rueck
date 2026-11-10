@@ -77,7 +77,7 @@ describe("AuftragTemplateSettings", () => {
     const user = userEvent.setup();
     renderWithIntl(<AuftragTemplateSettings />);
 
-    await user.click(await screen.findByRole("button", { name: /Sturmholz/ }));
+    await user.click(await screen.findByRole("button", { name: /^Sturmholz/ }));
     await user.click(screen.getByRole("button", { name: "Ressource" }));
     await user.click(await screen.findByRole("option", { name: /TLF 1/ }));
 
@@ -135,7 +135,7 @@ describe("AuftragTemplateSettings", () => {
     const user = userEvent.setup();
     renderWithIntl(<AuftragTemplateSettings />);
 
-    await user.click(await screen.findByRole("button", { name: /Sturmholz/ }));
+    await user.click(await screen.findByRole("button", { name: /^Sturmholz/ }));
     // Silently dropping it would leave the station wondering why the next Lage
     // opens short of a piece of equipment it thinks it configured.
     expect(await screen.findByText("Gelöschte Ressource")).toBeInTheDocument();

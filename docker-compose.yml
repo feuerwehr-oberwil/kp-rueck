@@ -371,6 +371,9 @@ services:
       STANDBY_SOURCE_API: ${STANDBY_SOURCE_API:-}
       STANDBY_PHOTO_USER: ${STANDBY_PHOTO_USER:-}
       STANDBY_PHOTO_PASSWORD: ${STANDBY_PHOTO_PASSWORD:-}
+      # The key to the hosted board's sync endpoint: the box's work on an Ereignis it leads
+      # goes up with it. Empty = nothing goes up (docs/STANDBY.md).
+      STANDBY_SYNC_TOKEN: ${STANDBY_SYNC_TOKEN:-}
       PHOTOS_DIR: /mnt/data/photos
       STANDBY_STATUS_DIR: /mnt/data/standby
     volumes:

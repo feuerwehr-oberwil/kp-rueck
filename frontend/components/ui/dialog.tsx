@@ -32,6 +32,12 @@ function DialogClose({
   return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
 }
 
+/** The corner ✕ of DialogContent and SheetContent: a ghost square, 32px (44px under the touch
+ *  rule), glyph centred. Where it stands is globals.css's (`--close-edge`, `--close-centre`), so
+ *  the glyph ends on the content edge and sits on the title line whatever the box size. */
+export const CORNER_CLOSE_CLASS =
+  "ring-offset-background focus:ring-ring hover:bg-muted hover:text-foreground absolute grid size-8 place-items-center rounded-md transition-colors cursor-pointer focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0"
+
 function DialogOverlay({
   className,
   ...props
@@ -84,17 +90,17 @@ function DialogContent({
           // the screen in the measurement above), and overlay and content have to
           // leave together — a backdrop that vanishes while the panel is still
           // fading would read as a bug. Enter animations stay on both.
-          'bg-background data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-overlay grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-2xl ring-1 ring-white/10 duration-200 sm:max-w-lg',
+          // `grid-cols-[minmax(0,1fr)]`: the implicit `auto` column grew to the widest nowrap
+          // line inside (a `truncate` detail), so the body ran past the dialog's right edge
+          // («Ereignis archivieren?», 08.11.). Same in alert-dialog.tsx.
+          'bg-background data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-overlay grid grid-cols-[minmax(0,1fr)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-2xl ring-1 ring-white/10 duration-200 sm:max-w-lg',
           className,
         )}
         {...props}
       >
         {children}
         {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            className="ring-offset-background focus:ring-ring hover:bg-muted hover:text-foreground absolute top-4 right-4 rounded-md p-2 transition-colors cursor-pointer focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-          >
+          <DialogPrimitive.Close data-slot="dialog-close" className={CORNER_CLOSE_CLASS}>
             <XIcon />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>

@@ -20,6 +20,7 @@ import { SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
+import { TOOLBAR_ICON } from '@/components/kanban/toolbar-overflow'
 import {
   CARD_VIEW_KEYS,
   CARD_VIEW_PRESET_ORDER,
@@ -53,12 +54,12 @@ export function CardViewMenu({
           title={t('tooltip')}
           aria-label={t('label')}
         >
-          <SlidersHorizontal className="size-3.5" />
+          <SlidersHorizontal {...TOOLBAR_ICON} />
           {/* Same rule as the ToolbarToggle pills next to it: below `xl` the
               footer is icons, because a labelled row is wider than the window
               and a footer that cannot shrink drags the whole page sideways. */}
           <span className="hidden text-xs xl:inline">{t('label')}</span>
-          <span className="hidden text-2xs tabular-nums text-muted-foreground/70 xl:inline">
+          <span className="hidden text-2xs tabular-nums xl:inline">
             {preset ? t(`preset.${preset}`) : t('custom', { count: activeCount })}
           </span>
         </Button>

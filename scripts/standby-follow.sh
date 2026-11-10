@@ -36,9 +36,9 @@ tag="main-${target:0:7}"
 current="$(envval KP_RUECK_TAG)"
 [ "$current" = "$tag" ] && exit 0
 
-detached="$(docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT count(*) FROM standby.detached_events"' 2>/dev/null | tr -d '[:space:]' || true)"
-if [ -n "$detached" ] && [ "$detached" != "0" ]; then
-    log "an Ereignis is taken offline on this box – not updating to $tag while it is the board"
+leading="$(docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT count(*) FROM public.event_leads WHERE holder = '"'"'standby'"'"'"' 2>/dev/null | tr -d '[:space:]' || true)"
+if [ -n "$leading" ] && [ "$leading" != "0" ]; then
+    log "this box leads an Ereignis – not updating to $tag while it is the board"
     exit 0
 fi
 

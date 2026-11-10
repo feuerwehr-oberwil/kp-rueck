@@ -75,12 +75,19 @@ interface RemovableChipProps {
 //   back onto the first line, which hovers it again. The chip oscillates for as
 //   long as the pointer rests near a wrap boundary.
 //
-// The hit area is 24px via an invisible `after` overlay, which costs no layout
-// because it is absolutely positioned.
+// The hit area is ≥ 24px via `hit-area` (globals.css), an invisible absolute
+// pad that costs no layout.
 const REMOVE_BUTTON_VISIBILITY =
   "hidden pointer-fine:inline-flex items-center justify-center w-3 rounded-sm " +
   "opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 " +
-  "relative after:absolute after:-inset-1.5 after:content-['']"
+  "relative hit-area"
+
+// The Badge clips (`overflow-hidden`), which clipped those pads to the chip:
+// a 20px chip left the ✕, «EL» and the driver-stay toggle a 16–20px target.
+// `overflow-clip` with a clip margin still cuts a long label at the chip's
+// edge but lets the pads reach 8px past it (Chromium/Firefox; elsewhere the
+// pad is clipped as before).
+const PAD_FRIENDLY_CLIP = "overflow-clip [overflow-clip-margin:0.5rem]"
 
 // The menu is sized like the card's right-click menu (draggable-operation.tsx),
 // not as a touch-only special: the primitive's own 32px rows (`px-2 py-1.5
@@ -143,7 +150,7 @@ export function RemovableChip({
 
   if (!hasMenu) {
     return (
-      <Badge variant={variant} className={cn("group relative transition-colors", className)} title={title}>
+      <Badge variant={variant} className={cn("group relative transition-colors", PAD_FRIENDLY_CLIP, className)} title={title}>
         {children}
         {onRemove && (
           <button

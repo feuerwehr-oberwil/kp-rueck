@@ -109,7 +109,7 @@ describe('Einstellungen › Allgemein — speichern', () => {
     expect(api.updateSetting).toHaveBeenCalledTimes(1)
   })
 
-  it('refuses an out-of-range coordinate, keeps it for correcting, and saves the fixed one with a dot', async () => {
+  it('refuses an out-of-range coordinate, keeps it for correcting, and saves the fixed one with a dot and 6 decimals', async () => {
     const user = userEvent.setup()
     openSection('general')
     const field = await screen.findByLabelText('Magazin – Breitengrad')
@@ -128,13 +128,13 @@ describe('Einstellungen › Allgemein — speichern', () => {
     expect(await screen.findByText('Keine gültige Zahl.')).toBeInTheDocument()
     expect(api.updateSetting).not.toHaveBeenCalled()
 
-    // Typing clears the error; a comma decimal is saved as a dot.
+    // Typing clears the error; a comma decimal is saved as a dot, with the coordinates' 6 places.
     await user.clear(field)
     expect(screen.queryByText('Keine gültige Zahl.')).not.toBeInTheDocument()
     await user.type(field, '47,5164')
     fireEvent.blur(field)
-    await waitFor(() => expect(api.updateSetting).toHaveBeenCalledWith('firestation_latitude', '47.5164'))
-    expect(field).toHaveValue('47.5164')
+    await waitFor(() => expect(api.updateSetting).toHaveBeenCalledWith('firestation_latitude', '47.516400'))
+    expect(field).toHaveValue('47.516400')
   })
 })
 

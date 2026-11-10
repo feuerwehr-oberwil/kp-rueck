@@ -88,6 +88,9 @@ const shots = [
         await page.waitForTimeout(700)
         i++
       }
+      // Der Zeiger stand zum Zoomen über der Karte – dort öffnet er sonst die Hover-Karte des
+      // Einsatzes darunter.
+      await page.mouse.move(1, 1)
       await page.waitForTimeout(2500)
     },
   },

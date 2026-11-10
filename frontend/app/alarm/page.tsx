@@ -773,7 +773,7 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
       {/* Meldung — what was reported (not the address, that's the location above) */}
       <div>
         <Label htmlFor="title" className="text-sm font-semibold text-muted-foreground">
-          {t('messageLabel')} <span className="text-destructive" aria-hidden="true">*</span>
+          {t('messageLabel')} <span className="text-muted-foreground" aria-hidden="true">*</span>
         </Label>
         <Input
           id={MESSAGE_FIELD_ID}

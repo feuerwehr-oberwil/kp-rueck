@@ -46,6 +46,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { FormMessage, fieldMessageProps, formMessageId } from "@/components/ui/form-message"
 import { LoadingStatus, ShellLoader } from "@/components/ui/shell-loader"
 import { useIsMobile } from "@/components/ui/use-mobile"
+import { useStandby } from "@/lib/contexts/standby-context"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -110,6 +111,9 @@ function operationLabel(op: NumberedOperation): string {
 export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor, onOpenIncident, composeRequest }: JournalSheetProps) {
   const t = useTranslations("journal")
   const isMobile = useIsMobile()
+  // While a standby box leads this Ereignis, the hosted board may still add lines – not correct them.
+  const { canAddNew } = useStandby()
+  const canWrite = isEditor || canAddNew
   const { entries, isLoading, failed, reload, accept } = useJournal(eventId, open)
   const [ticked, setTicked] = useState<Set<ApiJournalCategory>>(new Set())
 
@@ -131,6 +135,8 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
   const labels = useMemo(() => new Map(operations.map((op) => [op.id, operationLabel(op)])), [operations])
   const merged = useMemo(() => mergedInto(entries), [entries])
   const [correcting, setCorrecting] = useState<JournalLine | null>(null)
+  // A correction under way ends when the box takes the Ereignis over: adding stays, correcting not.
+  const activeCorrection = isEditor ? correcting : null
   // ⇧J asks for a NEW line: a correction in progress gives way to it. The request is
   // handed to the composer once and then consumed, so a later remount of the composer
   // (after the next correction, say) does not replay it.
@@ -243,7 +249,7 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
         ) : failed && entries.length === 0 ? (
           <EmptyState compact title={t("loadFailed")} action={{ label: t("retry"), onClick: reload }} />
         ) : lines.length === 0 ? (
-          <EmptyState compact title={t("emptyTitle")} description={t(isEditor ? "emptyEditor" : "emptyViewer")} />
+          <EmptyState compact title={t("emptyTitle")} description={t(canWrite ? "emptyEditor" : "emptyViewer")} />
         ) : shown.length === 0 ? (
           <EmptyState
             compact
@@ -274,12 +280,12 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
         )}
       </div>
 
-      {isEditor && eventId && (
+      {canWrite && eventId && (
         <JournalComposer
-          key={correcting?.entry.id ?? "new"}
+          key={activeCorrection?.entry.id ?? "new"}
           eventId={eventId}
           operations={operations}
-          correcting={correcting}
+          correcting={activeCorrection}
           composeRequest={pendingCompose}
           onComposeHandled={() => setPendingCompose(null)}
           onCancelCorrection={() => setCorrecting(null)}

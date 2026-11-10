@@ -13,8 +13,10 @@
 
 import type { Dispatch, SetStateAction } from "react"
 import { useTranslations } from "next-intl"
-import { Check, ChevronRight } from "lucide-react"
+import { ChevronRight, PanelRight } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
+import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
 import { SearchInput } from "@/components/ui/search-input"
 import { MaterialGroupBlock } from "@/components/kanban/material-group-block"
 import { MaterialOnSitePanel, type selectMaterialOnSite } from "@/components/kanban/material-on-site-panel"
@@ -23,6 +25,7 @@ import {
   AggregatedMaterialRow,
   AvailableOnlyToggle,
   MaterialSidebarRow,
+  SidebarCounter,
   SidebarEmpty,
   SidebarLoading,
 } from "@/components/board/sidebar-parts"
@@ -58,6 +61,9 @@ export interface MaterialSidebarProps {
   bindingsPopover: BindingsPopoverState | null
   setBindingsPopover: Dispatch<SetStateAction<BindingsPopoverState | null>>
   followBinding: (binding: ResourceBinding) => void
+  /** Reopen the Einsatz-Detail side panel. Passed only while it is collapsed; the button
+   *  exists from SIDE_PANEL_BREAKPOINT (2xl) up, like the panel. */
+  onOpenSidePanel?: () => void
   materialSummary: ReturnType<typeof summarizeMaterials>
 }
 
@@ -86,25 +92,47 @@ export function MaterialSidebar({
   setBindingsPopover,
   followBinding,
   materialSummary,
+  onOpenSidePanel,
 }: MaterialSidebarProps) {
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
+  const tSidePanel = useTranslations('kanban.sidePanel')
   return (
-      <aside className="relative z-raised w-64 border-l border-border bg-card/30 backdrop-blur-sm flex flex-col">
+      // Sized and layered by its SlideRail (app/page.tsx), as the Personen-Leiste. The detail's
+      // reopen control takes 28px of the search row (below); the rail grows by them
+      // (`--rail-extra`, set there) rather than clipping «Material suchen …».
+      <aside className="relative w-full border-l border-border bg-card/30 flex flex-col">
         {/* Collapse handle — small chevron centered on the sidebar's inner edge. `min-w-0`
             (on all five edge tabs): the ≤768px 44px touch-target rule widened it to 44px at
             exactly 768, where the board is still the desktop board, and it lay on the
             «Depot» heading (overflow sweep, 03.10.). */}
         <button
           onClick={() => setShowRightSidebar(false)}
-          className="absolute left-0 top-1/2 -translate-x-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+          className="absolute hit-area left-0 top-1/2 -translate-x-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
           title={`${tDash('toggleRightSidebar')} (])`}
           aria-label={tDash('toggleRightSidebar')}
         >
           <ChevronRight className="h-4 w-4" />
         </button>
-        {/* Search */}
+        {/* Search. While the Einsatz-Detail panel is collapsed, the control that reopens it
+            leads this row, at the edge where the panel will open: it used to be a tab pinned
+            over the board's top-right corner, on the header of whatever column scrolled
+            under it (hill climb r18). Edge tabs are for a strip with 0px left on screen –
+            this sidebar is on screen, so the control sits inside it. 24px wide (a mouse
+            target); the aside grows by its room, so the field keeps «Material suchen …». */}
         <div className="flex items-center gap-1 px-2 pt-3 pb-2">
+          {onOpenSidePanel && (
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={onOpenSidePanel}
+              className="hidden min-w-6 w-6 shrink-0 text-muted-foreground hover:text-foreground 2xl:inline-flex"
+              title={`${tSidePanel('railLabel')} (\\)`}
+              aria-label={tSidePanel('railLabel')}
+            >
+              <PanelRight className="size-4" />
+            </Button>
+          )}
           <SearchInput
             id="material-search-input"
             size="sm"
@@ -126,8 +154,8 @@ export function MaterialSidebar({
             assigned, i.e. exactly this material) can filter the answer to
             "what is still out there" away. Renders nothing at zero. */}
         <MaterialOnSitePanel entries={materialOnSiteEntries} onOpenIncident={openIncidentDetail} />
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1 pb-3">
+        {/* Scrollable content – ends in the `ScrollEndFade`, as the Personen-Leiste. */}
+        <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1">
           {!isLoaded ? (
             <SidebarLoading label={tDash('materialLoading')} />
           ) : boardNeverLoaded ? (
@@ -164,7 +192,7 @@ export function MaterialSidebar({
               />
             )
           ) : (
-            <div className="space-y-4 animate-in fade-in duration-300">
+            <div className="space-y-4">
               {Object.entries(groupedMaterials).map(([category, items]) => {
                 // «Nicht einsatzbereit» leaves the module blocks and the
                 // normal rows and sinks to the bottom of its depot: a
@@ -252,6 +280,7 @@ export function MaterialSidebar({
               })}
             </div>
           )}
+          <ScrollEndFade surface="panel" />
         </div>
         {/* Fixed availability counter at bottom — see the left sidebar,
             including why it has three states. */}
@@ -265,19 +294,7 @@ export function MaterialSidebar({
           </p>
           {/* Same helper as the list filter — see the crew footer above. */}
           {isLoaded && !boardNeverLoaded && !effectiveMaterialQuery && (
-            <div className="flex items-center justify-center gap-2 text-xs">
-              <span className="inline-flex items-center gap-1 type-caption text-emerald-700 dark:text-emerald-400">
-                <Check className="size-3.5" />
-                {tCommon('rosterFree', { count: materialSummary.free })}
-              </span>
-              <span className="text-muted-foreground">{tCommon('rosterOf', { total: materialSummary.total })}</span>
-              {materialSummary.bound > 0 && (
-                // Plain muted text: «gebunden» is a fact, not a warning (VISUAL-03).
-                <span className="text-muted-foreground">
-                  {tCommon('rosterBound', { count: materialSummary.bound })}
-                </span>
-              )}
-            </div>
+            <SidebarCounter summary={materialSummary} />
           )}
         </div>
       </aside>

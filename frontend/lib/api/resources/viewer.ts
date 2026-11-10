@@ -144,6 +144,8 @@ export interface ApiViewerData {
   reko_summaries?: Record<string, ApiViewerRekoSummary>
   /** Kennzahlen for the status wall — counts and reaction times only. */
   figures?: ApiEventFigures
+  /** The station's `gps.stale_after_minutes`: from when a vehicle pill shows its last report. */
+  gps_stale_minutes?: number
 }
 
 export class ViewerApi {

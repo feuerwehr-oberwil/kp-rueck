@@ -6,6 +6,8 @@
  * know who is normally expected to file before any form exists (decision 22).
  */
 
+import type { Priority } from '@/lib/priority'
+
 /** 'none' – no rapport row yet · 'draft' – started · 'submitted' – filed. */
 export type ApiFeldRapportState = 'none' | 'draft' | 'submitted'
 
@@ -176,6 +178,11 @@ export interface ApiFeldAssignment {
   incident_title: string
   incident_type: string
   incident_status: string
+  /** The number within the Ereignis («14») and the priority – the list row and the
+   *  detail put both before the address, like the board card (owner pick D3).
+   *  `number` is null only before the numbering trigger has run. */
+  number: number | null
+  priority: Priority
   /**
    * The briefing (§18.22): the Meldung, the Melder, what the board dispatched
    * and what the Reko found. Rows the KP released mid-incident (a corrected

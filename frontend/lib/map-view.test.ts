@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Map as MlMap } from 'maplibre-gl'
-import { boundsOfLatLng, fitTo, type LatLngPoint } from './map-view'
+import { boundsOfLatLng, chromeFitPadding, fitTo, incidentZ, Z, type LatLngPoint } from './map-view'
 
 // The one fit shared by the Lagekarte, the print page and the two Auftrag dialogs. Worth
 // pinning because all four hand it `[lat, lng]` while MapLibre answers in `[lng, lat]` — a
@@ -67,5 +67,58 @@ describe('fitTo', () => {
       ],
       { padding: 60, maxZoom: 16, duration: 600 },
     )
+  })
+})
+
+describe('incidentZ', () => {
+  const rest = { hovered: false, highlighted: false }
+  const priorities = ['high', 'medium', 'low'] as const
+  const atRest = (part: 'pin' | 'label') => priorities.map((p) => incidentZ(part, p, rest))
+
+  it('stacks resting pins and resting labels Hoch over Mittel over Niedrig', () => {
+    for (const part of ['pin', 'label'] as const) {
+      const [high, medium, low] = atRest(part)
+      expect(high).toBeGreaterThan(medium)
+      expect(medium).toBeGreaterThan(low)
+    }
+  })
+
+  it('paints every resting pin above every resting label, all under a route stop', () => {
+    expect(Math.min(...atRest('pin'))).toBeGreaterThan(Math.max(...atRest('label')))
+    expect(Math.max(...atRest('pin'))).toBeLessThan(Z.routeStop)
+  })
+
+  it('lifts the selected and then the pointed-at incident, label and pin, above everything at rest', () => {
+    const selected = { hovered: false, highlighted: true }
+    const hovered = { hovered: true, highlighted: false }
+    const selectedLabel = incidentZ('label', 'low', selected)
+    const selectedPin = incidentZ('pin', 'low', selected)
+    expect(selectedLabel).toBeGreaterThan(Math.max(...atRest('pin'), Z.routeStop))
+    expect(selectedPin).toBeGreaterThan(selectedLabel)
+    const hoveredLabel = incidentZ('label', 'low', hovered)
+    expect(hoveredLabel).toBeGreaterThan(Math.max(selectedPin, Z.routeStopHovered))
+    expect(incidentZ('pin', 'low', hovered)).toBeGreaterThan(hoveredLabel)
+  })
+})
+
+describe('chromeFitPadding', () => {
+  const box = (left: number, top: number, width: number, height: number) => ({
+    left, top, width, height, right: left + width, bottom: top + height,
+  })
+  const map = box(100, 50, 1200, 800)
+
+  it('clears the open legend on the right and the chip row at the top', () => {
+    // Legend 208px wide, 10px in from the map's right edge; chip row 32px tall, 10px down.
+    const padding = chromeFitPadding(50, map, { legend: box(1082, 400, 208, 380), topRow: box(700, 60, 590, 32) })
+    expect(padding).toEqual({ top: 58, right: 234, bottom: 50, left: 50 })
+  })
+
+  it('keeps the base where nothing covers the map', () => {
+    expect(chromeFitPadding(50, map, { legend: null, topRow: box(1290, 60, 0, 0) })).toEqual({ top: 50, right: 50, bottom: 50, left: 50 })
+  })
+
+  it('never lets one edge take more than half the map', () => {
+    const narrow = box(0, 0, 360, 600)
+    expect(chromeFitPadding(50, narrow, { legend: box(140, 300, 208, 200) }).right).toBe(180)
   })
 })

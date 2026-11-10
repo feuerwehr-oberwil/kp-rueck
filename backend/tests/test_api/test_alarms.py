@@ -100,6 +100,14 @@ async def test_alarm_rejects_wrong_secret(client: AsyncClient, webhook_secret: s
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_alarm_rejects_a_non_ascii_secret_like_any_wrong_one(client: AsyncClient, webhook_secret: str):
+    """compare_digest raises on a non-ASCII str – that was a 500 for the relay, not the 403."""
+    response = await _post(client, alarm_payload(), secret="geheim-ä")
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_alarm_accepts_secret_via_header(client: AsyncClient, webhook_secret: str):
     with patch("app.api.alarms.broadcast_emergency_received", new_callable=AsyncMock):
         response = await _post(client, alarm_payload(), header=True)

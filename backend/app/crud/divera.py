@@ -252,6 +252,15 @@ async def attach_emergency_to_event(
     return emergency
 
 
+async def detach_emergency(db: AsyncSession, emergency: models.DiveraEmergency) -> None:
+    """Put an alarm back into the pool: no Ereignis, no card. The caller holds the row lock
+    (``lock_divera_emergency``) and has dealt with the card."""
+    emergency.attached_to_event_id = None
+    emergency.attached_at = None
+    emergency.created_incident_id = None
+    await db.flush()
+
+
 async def archive_divera_emergency(
     db: AsyncSession,
     emergency_id: UUID,

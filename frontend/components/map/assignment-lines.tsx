@@ -29,6 +29,7 @@ import { MapTooltip } from "./map-tooltip"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { haversineKm } from "@/lib/utils/route-geo"
 import { findVehiclePosition, normalizeVehicleName } from "@/lib/vehicle-positions"
+import { isOnline } from "@/lib/map-vehicles"
 
 /** The one source/layer pair every assignment line lives in. Exported so a surface can order around it. */
 export const ASSIGNMENT_SOURCE_ID = "assignment-lines"
@@ -233,15 +234,17 @@ export function AssignmentLines({
 
     return result
 
-    /** Push one vehicle→place line, once, if that vehicle has a GPS fix. */
+    /** Push one vehicle→place line, once, if that vehicle reports a GPS fix. */
     function addLine(vehicleName: string, incident: Incident) {
       if (incident.location_lat == null || incident.location_lng == null) return
       const key = `${normalizeVehicleName(vehicleName)}|${incident.id}`
       if (drawn.has(key)) return
       const vp = findVehiclePosition(vehicleName, vehiclePositions)
       // No match is the normal case for a vehicle without a tracker, so it is
-      // silent: logging it fired once per vehicle per render.
-      if (!vp) return
+      // silent: logging it fired once per vehicle per render. An OFFLINE tracker's
+      // fix is where the vehicle was, not where it is – a line from there says
+      // something false (owner pick r28). Online at the Magazin still draws.
+      if (!vp || !isOnline(vp)) return
       drawn.add(key)
 
       result.push({

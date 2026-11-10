@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../../fixtures/auth.fixture';
+import { API_BASE, cookieHeaderFor, deleteEvent } from '../../helpers/api.helper';
 
 /**
  * Event Selection Empty State Tests
@@ -106,14 +107,29 @@ test.describe('Event Selection Empty State – open Ereignisse from the last 24 
 });
 
 test.describe('Event Selection Empty State - With Event Selected', () => {
+  // The Ereignis the test creates through the UI. It is live with Divera auto-attach on (the
+  // form's default), so it is deleted afterwards or it takes every alarm a later spec posts.
+  let createdName: string | undefined;
+
   test.beforeEach(async ({ authenticatedPage }) => {
     // First navigate to events page
     await authenticatedPage.goto('/events');
   });
 
+  test.afterEach(async ({ authenticatedPage: page }) => {
+    if (!createdName) return;
+    const cookie = await cookieHeaderFor(page);
+    const listed = await page.request.get(`${API_BASE}/api/events/`, { headers: { cookie } });
+    const { events } = (await listed.json()) as { events: { id: string; name: string }[] };
+    const created = events.find((e) => e.name === createdName);
+    if (created) await deleteEvent(page.request, cookie, created.id);
+    createdName = undefined;
+  });
+
   test('empty state does not show when event is selected', async ({ authenticatedPage }) => {
     // Create a test event
     const eventName = `Test Event ${Date.now()}`;
+    createdName = eventName;
     const createButton = authenticatedPage.getByRole('button', { name: 'Neues Ereignis', exact: true });
     await createButton.click();
 

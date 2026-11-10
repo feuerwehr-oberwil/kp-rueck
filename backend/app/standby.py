@@ -1,23 +1,25 @@
-"""A standby box: a live, one-way mirror of the hosted board, and the takeover of one Ereignis.
+"""A standby box: a live mirror of the hosted board, and the takeover of one Ereignis.
 
 A station whose board runs hosted (Railway) keeps a compose stack in the Magazin that follows
 the hosted database through native Postgres logical replication (`DEPLOYMENT_ROLE=standby`,
 compose profile `standby`). Until somebody takes an Ereignis over, the box is a mirror and its
-board is look-only. Taking an Ereignis offline detaches exactly that one for good: nothing the
-hosted board does to it arrives any more, even once the internet is back, while every other
-Ereignis, every new one and the roster keep mirroring. docs/STANDBY.md is the operator's side.
+board is look-only. Taking an Ereignis over moves exactly that one out of the replication and
+into the two-way sync (app/standby_sync.py): the box leads it, its work goes to the hosted board
+whenever that answers, and the hosted board can take it back. Every other Ereignis, every new
+one and the roster keep mirroring. docs/STANDBY.md is the operator's side.
 
 How the detaching works: every replicated table carries a trigger that fires ONLY for
 replication (`ENABLE REPLICA TRIGGER`) and drops an incoming row that belongs to a detached
-Ereignis. The box's own writes never fire it. The same mechanism keeps tables that describe the
-box itself (its schema revision, telemetry, print queue …) and the box's own settings out of
-the mirror.
+Ereignis – the sync reads and writes those itself. The box's own writes never fire it. The same
+mechanism keeps tables that describe the box itself (its schema revision, telemetry, print
+queue …) and the box's own settings out of the mirror.
 
     python -m app.standby           set up and report once
-    python -m app.standby --loop    keep it set up, copy photos, report (the compose sidecar)
+    python -m app.standby --loop    keep it set up, copy photos, report, and run the two-way sync
+                                    of the Ereignisse taken over (the compose sidecar)
     python -m app.standby --check   exit 0 only if the last report is recent and the mirror runs
-    python -m app.standby --reset   after an outage: drop the mirror, forget what was taken offline,
-                                    and copy everything from the hosted board again (back up first)
+    python -m app.standby --reset   last resort: drop the mirror, forget what was taken over, and
+                                    copy everything from the hosted board again (back up first)
 
 Environment (the sidecar):
 
@@ -28,7 +30,10 @@ Environment (the sidecar):
     STANDBY_PHOTO_PASSWORD   (photos are skipped while either is empty)
     PHOTOS_DIR             where this box keeps photos            (default /mnt/data/photos)
     STANDBY_STATUS_DIR     where last-status.json goes            (default /mnt/data/standby)
-    STANDBY_INTERVAL_SECONDS  pace of the loop                    (default 30)
+    STANDBY_SYNC_TOKEN     the key to the hosted board's `POST /api/standby/sync` (the same
+                           value as its STANDBY_SYNC_TOKEN); without it nothing goes up
+    STANDBY_INTERVAL_SECONDS  pace of the mirror loop             (default 30)
+    STANDBY_SYNC_SECONDS      pace of the two-way sync            (default 5)
 """
 
 import asyncio
@@ -40,6 +45,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlsplit
 
 import asyncpg
 import httpx
@@ -84,6 +90,18 @@ class StandbyError(Exception):
 
 
 @dataclass
+class Lead:
+    """An Ereignis the box has taken over at some point, and how its two-way sync stands."""
+
+    holder: str  # who leads now: 'standby' (this box) or 'hosted'
+    since: datetime
+    taken_by: str | None
+    pending: int = 0  # rows changed here that the hosted board does not have yet
+    contact_at: datetime | None = None  # the last round that reached the hosted board
+    open_conflicts: int = 0
+
+
+@dataclass
 class MirrorState:
     """What the band and the sidecar report: is the mirror running, how current, what is detached."""
 
@@ -91,7 +109,9 @@ class MirrorState:
     enabled: bool = False
     last_received_at: datetime | None = None
     apply_errors: int = 0
+    # Ereignisse that left the replication for the two-way sync, and since when.
     detached: dict[uuid.UUID, datetime] = field(default_factory=dict)
+    leads: dict[uuid.UUID, Lead] = field(default_factory=dict)
 
     @property
     def current(self) -> bool:
@@ -118,6 +138,20 @@ def schema_covers(script: ScriptDirectory, local_revision: str, source_revision:
         return any(rev.revision == source_revision for rev in script.iterate_revisions(local_revision, "base"))
     except CommandError:
         return False
+
+
+def source_is_encrypted(url: str) -> bool:
+    """Whether the replication link to the hosted database cannot be read on the way.
+
+    libpq and asyncpg both default to `sslmode=prefer`, which somebody on the path can talk
+    down to plain text – and this link carries the whole database. Only an explicit
+    `require` / `verify-*` (or a source on this very machine) counts.
+    """
+    parts = urlsplit(url)
+    if parts.hostname in ("localhost", "127.0.0.1", "::1"):
+        return True
+    modes = parse_qs(parts.query).get("sslmode", [])
+    return bool(modes) and modes[-1] in ("require", "verify-ca", "verify-full")
 
 
 def libpq_url(url: str) -> str:
@@ -215,6 +249,41 @@ def _guard_sql(table: str, link: str | None) -> str:
     """
 
 
+# Where the box's own identity values start. Replication carries the hosted board's values
+# (`journal_entries.seq`) but not the sequence behind them, so the box's sequence would hand out
+# 1, 2, 3 … again – the first Tagebuch entry written here would collide, and a later mirrored row
+# with the same value would stop the replication. The hosted board never gets near this, and it
+# stays below 2**53, so the value is still exact as a JavaScript number.
+LOCAL_IDENTITY_START = 10**15
+
+
+async def _lift_identities(conn: asyncpg.Connection) -> None:
+    """Move every identity sequence of a mirrored table into the box's own range – and past any
+    value already in the column, so a row the box wrote before is never handed out twice.
+    Idempotent."""
+    rows = await conn.fetch(
+        """
+        SELECT table_name, column_name FROM information_schema.columns
+        WHERE table_schema = 'public' AND is_identity = 'YES'
+        """
+    )
+    for row in rows:
+        if row["table_name"] in SKIPPED_TABLES:
+            continue
+        table, column = row["table_name"], row["column_name"]
+        await conn.execute(
+            f"""
+            SELECT setval(s, GREATEST($3, (SELECT last_value FROM pg_sequences
+                                            WHERE schemaname || '.' || sequencename = s),
+                                      (SELECT max("{column}") FROM public."{table}")))
+            FROM pg_get_serial_sequence($1, $2) AS s
+            """,  # noqa: S608  # nosec B608 – names from information_schema
+            f"public.{table}",
+            column,
+            LOCAL_IDENTITY_START,
+        )
+
+
 async def install_guards(conn: asyncpg.Connection) -> int:
     """Create the standby schema and a guard on every table that needs one. Idempotent."""
     await conn.execute(
@@ -225,17 +294,38 @@ async def install_guards(conn: asyncpg.Connection) -> int:
             detached_at timestamptz NOT NULL DEFAULT now(),
             detached_by text
         );
+        -- The last state of each row both systems agreed on (app/standby_sync.py).
+        CREATE TABLE IF NOT EXISTS standby.shadow (
+            event_id uuid NOT NULL,
+            tbl text NOT NULL,
+            id uuid NOT NULL,
+            row jsonb NOT NULL,
+            PRIMARY KEY (tbl, id)
+        );
+        CREATE INDEX IF NOT EXISTS shadow_event ON standby.shadow (event_id, tbl);
+        -- What the last sync round found, per Ereignis: the band's «übertragen» / «n warten».
+        CREATE TABLE IF NOT EXISTS standby.sync_status (
+            event_id uuid PRIMARY KEY,
+            leader text NOT NULL,
+            pending integer NOT NULL DEFAULT 0,
+            contact_at timestamptz,
+            checked_at timestamptz NOT NULL DEFAULT now(),
+            written_at timestamptz,
+            message text
+        );
         """
     )
-    # An Ereignis created ON the box never existed on the hosted board: it is offline from its
-    # first row («Neues Ereignis offline anlegen»). A plain trigger – replicated rows never fire
-    # it, only the box's own inserts do.
+    # An Ereignis created ON the box never existed on the hosted board: it is led here from its
+    # first row («Neues Ereignis offline anlegen») and reaches the hosted board with the sync. A
+    # plain trigger – replicated rows never fire it, only the box's own inserts do.
     await conn.execute(
         """
         CREATE OR REPLACE FUNCTION standby.detach_local_event() RETURNS trigger LANGUAGE plpgsql AS $f$
         BEGIN
           INSERT INTO standby.detached_events (event_id, detached_by) VALUES (NEW.id, 'neu offline')
           ON CONFLICT (event_id) DO NOTHING;
+          INSERT INTO public.event_leads (event_id, holder, since, taken_by)
+          VALUES (NEW.id, 'standby', now(), 'neu offline') ON CONFLICT (event_id) DO NOTHING;
           RETURN NULL;
         END
         $f$;
@@ -244,6 +334,7 @@ async def install_guards(conn: asyncpg.Connection) -> int:
           FOR EACH ROW EXECUTE FUNCTION standby.detach_local_event();
         """
     )
+    await _lift_identities(conn)
     links = await event_links(conn)
     tables = [r["tablename"] for r in await conn.fetch("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")]
     guarded = 0
@@ -316,15 +407,19 @@ async def ensure_subscription(local: asyncpg.Connection, source_url: str, *, rep
 
 
 async def reset(local: asyncpg.Connection, source_url: str) -> str:
-    """Make the box a pure mirror again, after an outage whose work was carried back by hand.
+    """Start the box over as a pure mirror – the last resort, e.g. after the box was lost for days.
 
-    Drops the subscription (and its slot on the hosted side), forgets which Ereignisse were
-    taken offline, and copies everything again – the box's own work on them is replaced by the
-    hosted version. Take a backup first (`just backup`).
+    Normally nothing needs this: the two-way sync carries the box's work up by itself. Drops the
+    subscription (and its slot on the hosted side), forgets which Ereignisse were taken over and
+    what the sync had agreed on, and copies everything again – whatever the box had not sent yet
+    is replaced by the hosted version. An Ereignis the hosted board still says the box leads is
+    taken up again once the copy is complete (`resume_leads`). Take a backup first (`just backup`).
     """
     await local.execute(f"DROP SUBSCRIPTION IF EXISTS {SUBSCRIPTION}")
     await install_guards(local)
-    await local.execute("DELETE FROM standby.detached_events")
+    await local.execute(
+        "DELETE FROM standby.detached_events; DELETE FROM standby.shadow; DELETE FROM standby.sync_status"
+    )
     return await ensure_subscription(local, source_url, replace=True)
 
 
@@ -343,35 +438,126 @@ async def mirror_state(conn: asyncpg.Connection) -> MirrorState:
         SUBSCRIPTION,
     )
     detached: dict[uuid.UUID, datetime] = {}
-    if await conn.fetchval("SELECT to_regclass('standby.detached_events') IS NOT NULL"):
+    leads: dict[uuid.UUID, Lead] = {}
+    if await conn.fetchval("SELECT to_regclass('standby.sync_status') IS NOT NULL"):
         detached = {r["event_id"]: r["detached_at"] for r in await conn.fetch("SELECT * FROM standby.detached_events")}
+        leads = await _leads(conn, with_status=True)
     if row is None:
-        return MirrorState(configured=False, detached=detached)
+        return MirrorState(configured=False, detached=detached, leads=leads)
     return MirrorState(
         configured=True,
         enabled=row["enabled"],
         last_received_at=row["received"],
         apply_errors=row["errors"],
         detached=detached,
+        leads=leads,
     )
 
 
-async def detach_event(conn: asyncpg.Connection, event_id: uuid.UUID, by: str) -> datetime:
-    """Take one Ereignis offline for good. Returns when; idempotent for an already detached one."""
-    if not await conn.fetchval("SELECT to_regclass('standby.detached_events') IS NOT NULL"):
+async def _leads(conn: asyncpg.Connection, *, with_status: bool) -> dict[uuid.UUID, Lead]:
+    """Every Ereignis with a takeover row; on the box with what its last sync round found."""
+    columns, join = (
+        (
+            "COALESCE(s.pending, 0) AS pending, s.contact_at",
+            "LEFT JOIN standby.sync_status s ON s.event_id = l.event_id",
+        )
+        if with_status
+        else ("0 AS pending, NULL::timestamptz AS contact_at", "")
+    )
+    rows = await conn.fetch(
+        f"""
+        SELECT l.event_id, l.holder, l.since, l.taken_by, {columns},
+               (SELECT count(*) FROM public.event_conflicts c WHERE c.event_id = l.event_id AND c.resolved_at IS NULL)
+                 AS open_conflicts
+        FROM public.event_leads l {join}
+        """  # noqa: S608 – two constant variants
+    )
+    return {
+        r["event_id"]: Lead(
+            holder=r["holder"],
+            since=r["since"],
+            taken_by=r["taken_by"],
+            pending=r["pending"],
+            contact_at=r["contact_at"],
+            open_conflicts=r["open_conflicts"],
+        )
+        for r in rows
+    }
+
+
+async def hosted_leads(conn: asyncpg.Connection) -> dict[uuid.UUID, Lead]:
+    """The takeover rows as the hosted board has them (it has no sync status of its own)."""
+    return await _leads(conn, with_status=False)
+
+
+async def take_over(conn: asyncpg.Connection, event_id: uuid.UUID, by: str) -> datetime:
+    """Take one Ereignis over on this box. Returns since when it leads here; idempotent.
+
+    From now on the Ereignis is worked on here and synced with the hosted board both ways
+    (app/standby_sync.py); its rows as they are now are the state both systems agree on.
+    """
+    from .standby_sync import snapshot  # the sync builds on this module
+
+    if not await conn.fetchval("SELECT to_regclass('standby.sync_status') IS NOT NULL"):
         raise StandbyError("config", "the standby is not set up on this box yet")
     if not await conn.fetchval("SELECT EXISTS (SELECT 1 FROM public.events WHERE id = $1)", event_id):
         raise StandbyError("unknown_event", "this Ereignis does not exist on this box")
-    when: datetime = await conn.fetchval(
+    current = await conn.fetchrow("SELECT holder, since FROM public.event_leads WHERE event_id = $1", event_id)
+    if current is not None and current["holder"] == "standby":
+        since: datetime = current["since"]
+        return since
+    await conn.execute("SET LOCAL TIME ZONE 'UTC'")  # the shadow's timestamps read as the sync reads them
+    await snapshot(conn, event_id)
+    await conn.execute(
         """
         INSERT INTO standby.detached_events (event_id, detached_by) VALUES ($1, $2)
-        ON CONFLICT (event_id) DO UPDATE SET event_id = EXCLUDED.event_id
-        RETURNING detached_at
+        ON CONFLICT (event_id) DO NOTHING
         """,
         event_id,
         by,
     )
-    return when
+    since = await conn.fetchval(
+        """
+        INSERT INTO public.event_leads (event_id, holder, since, taken_by) VALUES ($1, 'standby', now(), $2)
+        ON CONFLICT (event_id) DO UPDATE SET holder = 'standby', since = now(), taken_by = EXCLUDED.taken_by
+        RETURNING since
+        """,
+        event_id,
+        by,
+    )
+    return since
+
+
+async def resume_leads(conn: asyncpg.Connection) -> list[uuid.UUID]:
+    """Ereignisse the hosted board says this box leads, but the box no longer syncs – after a
+    `reset`, which forgets them while the hosted board still points here. They are taken up
+    again as they now stand, so the box's edits go up instead of being overwritten by the
+    mirror. Waits until the copy is complete. Returns the ones it took up.
+    """
+    from .standby_sync import snapshot  # the sync builds on this module
+
+    if await conn.fetchval("SELECT EXISTS (SELECT 1 FROM pg_subscription_rel WHERE srsubstate <> 'r')"):
+        return []  # still copying: a snapshot now would miss rows
+    orphans = [
+        r["event_id"]
+        for r in await conn.fetch(
+            """
+            SELECT l.event_id FROM public.event_leads l
+            WHERE l.holder = 'standby'
+              AND NOT EXISTS (SELECT 1 FROM standby.detached_events d WHERE d.event_id = l.event_id)
+            """
+        )
+    ]
+    for event_id in orphans:
+        async with conn.transaction():
+            await conn.execute("SET LOCAL TIME ZONE 'UTC'")
+            await snapshot(conn, event_id)
+            await conn.execute(
+                "INSERT INTO standby.detached_events (event_id, detached_by) VALUES ($1, 'nach Neuaufbau') "
+                "ON CONFLICT (event_id) DO NOTHING",
+                event_id,
+            )
+    return orphans
 
 
 # --- photos ----------------------------------------------------------------------------------
@@ -470,6 +656,12 @@ async def run_once(setup: bool) -> bool:
     try:
         if not source_url or not local_url:
             raise StandbyError("config", "STANDBY_SOURCE_URL and DATABASE_URL must both be set (docs/STANDBY.md)")
+        if setup and not source_is_encrypted(source_url):
+            # Said, not refused: a box that mirrors today must not stop mirroring after an update.
+            _log(
+                "WARNING: STANDBY_SOURCE_URL does not demand TLS. Append ?sslmode=require – without it "
+                "the link to the hosted database can be downgraded to plain text (docs/STANDBY.md)."
+            )
         try:
             local = await asyncpg.connect(libpq_url(local_url), timeout=30)
         except (OSError, asyncpg.PostgresError, TimeoutError) as exc:
@@ -521,15 +713,190 @@ async def run_once(setup: bool) -> bool:
     return True
 
 
+# --- the two-way sync of the Ereignisse taken over (app/standby_sync.py) ----------------------
+
+# Photos taken here go up at this pace; a sync round runs every few seconds.
+PHOTO_PUSH_EVERY = timedelta(seconds=30)
+_photos_pushed_at: datetime | None = None
+_reported_held: set[str] = set()
+
+
+async def _record_status(
+    local: asyncpg.Connection,
+    event_id: uuid.UUID,
+    leader: str,
+    pending: int,
+    *,
+    reached: bool,
+    wrote: bool,
+    message: str | None,
+) -> None:
+    await local.execute(
+        """
+        INSERT INTO standby.sync_status (event_id, leader, pending, contact_at, checked_at, written_at, message)
+        VALUES ($1, $2, $3, CASE WHEN $4 THEN now() END, now(), CASE WHEN $5 THEN now() END, $6)
+        ON CONFLICT (event_id) DO UPDATE SET
+          leader = EXCLUDED.leader, pending = EXCLUDED.pending, checked_at = now(), message = EXCLUDED.message,
+          contact_at = COALESCE(EXCLUDED.contact_at, standby.sync_status.contact_at),
+          written_at = COALESCE(EXCLUDED.written_at, standby.sync_status.written_at)
+        """,
+        event_id,
+        leader,
+        pending,
+        reached,
+        wrote,
+        message,
+    )
+
+
+async def sync_once() -> int:
+    """One two-way round for every Ereignis the box has taken over. Returns how many it reached.
+
+    Without the hosted board (no internet, the normal case on the day) it only counts what is
+    waiting, for the band; the next round that reaches it sends it.
+    """
+    from .standby_sync import LeadMovedError, Op, event_tables, pending_changes, sync_event
+
+    local_url, source_url = os.environ.get("DATABASE_URL", ""), os.environ.get("STANDBY_SOURCE_URL", "")
+    api, token = os.environ.get("STANDBY_SOURCE_API", "").rstrip("/"), os.environ.get("STANDBY_SYNC_TOKEN", "")
+    if not local_url:
+        return 0
+    utc = {"timezone": "UTC"}
+    local = await asyncpg.connect(libpq_url(local_url), timeout=30, server_settings=utc)
+    reached = 0
+    try:
+        if not await local.fetchval("SELECT to_regclass('standby.sync_status') IS NOT NULL"):
+            return 0
+        await resume_leads(local)
+        events = [r["event_id"] for r in await local.fetch("SELECT event_id FROM standby.detached_events")]
+        if not events:
+            return 0
+        source: asyncpg.Connection | None = None
+        if source_url and api and token:
+            try:
+                source = await asyncpg.connect(libpq_url(source_url), timeout=15, server_settings=utc)
+            except (OSError, asyncpg.PostgresError, TimeoutError):
+                source = None
+        async with httpx.AsyncClient(base_url=api or "http://offline", timeout=30) as client:
+            headers = {"Authorization": f"Bearer {token}"}
+
+            async def push(event_id: uuid.UUID, ops: list[Op], pending: int) -> list[str]:
+                resp = await client.post(
+                    "/api/standby/sync",
+                    json={"event_id": str(event_id), "ops": [op.to_json() for op in ops], "pending": pending},
+                    headers=headers,
+                )
+                if resp.status_code == 409:
+                    raise LeadMovedError
+                resp.raise_for_status()
+                results: list[str] = resp.json()["results"]
+                return results
+
+            tables = await event_tables(local)
+            for event_id in events:
+                leader = await local.fetchval("SELECT holder FROM public.event_leads WHERE event_id = $1", event_id)
+                try:
+                    if source is None:
+                        raise OSError("KP Rück Online nicht erreichbar")
+                    result = await sync_event(local, source, push, event_id)
+                except LeadMovedError:
+                    continue  # the hosted board took it meanwhile; the next round reads again
+                except (OSError, TimeoutError, httpx.HTTPError, asyncpg.PostgresError) as exc:
+                    waiting = await pending_changes(local, tables, event_id)
+                    await _record_status(
+                        local, event_id, leader or "hosted", waiting, reached=False, wrote=False, message=str(exc)
+                    )
+                    continue
+                reached += 1
+                for line in result.held:
+                    if line not in _reported_held:
+                        _reported_held.add(line)
+                        _log(f"WAIT   [sync] {event_id} {line}")
+                if result.conflicts:
+                    _log(f"CONFLICT [sync] {event_id}: {result.conflicts} conflict(s) recorded")
+                await _record_status(
+                    local,
+                    event_id,
+                    result.leader,
+                    result.pending,
+                    reached=True,
+                    wrote=result.written_here > 0,
+                    message=None,
+                )
+            if source is not None:
+                await source.close()
+                await _push_photos(local, client, headers, events)
+    finally:
+        await local.close()
+    return reached
+
+
+async def _push_photos(
+    local: asyncpg.Connection, client: httpx.AsyncClient, headers: dict[str, str], events: list[uuid.UUID]
+) -> int:
+    """Photos of the Ereignisse taken over that the hosted board does not have yet. Returns how many."""
+    global _photos_pushed_at
+    now = datetime.now(UTC)
+    if _photos_pushed_at and now - _photos_pushed_at < PHOTO_PUSH_EVERY:
+        return 0
+    _photos_pushed_at = now
+    photos_dir = Path(os.environ.get("PHOTOS_DIR", "/mnt/data/photos"))
+    rows = await local.fetch(
+        """
+        SELECT r.incident_id, jsonb_array_elements_text(r.photos_json) AS name
+        FROM (SELECT incident_id, photos_json FROM public.reko_reports
+              UNION ALL SELECT incident_id, photos_json FROM public.schadenplatz_reports) r
+        JOIN public.incidents i ON i.id = r.incident_id
+        WHERE i.event_id = ANY($1::uuid[]) AND jsonb_typeof(r.photos_json) = 'array'
+        """,
+        events,
+    )
+    here = [
+        {"incident_id": str(r["incident_id"]), "name": r["name"]}
+        for r in rows
+        if "/" not in r["name"] and (photos_dir / str(r["incident_id"]) / r["name"]).is_file()
+    ]
+    if not here:
+        return 0
+    resp = await client.post("/api/standby/photos/missing", json={"photos": here}, headers=headers)
+    resp.raise_for_status()
+    sent = 0
+    for ref in resp.json()["missing"]:
+        content = (photos_dir / ref["incident_id"] / ref["name"]).read_bytes()
+        put = await client.put(
+            f"/api/standby/photos/{ref['incident_id']}/{ref['name']}", content=content, headers=headers
+        )
+        if put.status_code == 200:
+            sent += 1
+    return sent
+
+
 async def run_loop() -> None:
-    """Set up, then keep reporting. A failed round is reported and the next one sets up again."""
+    """Set up, then keep reporting – and sync the Ereignisse taken over, every few seconds.
+
+    A failed mirror round is reported and the next one sets up again; a failed sync round is
+    logged and simply repeated.
+    """
     interval = float(os.environ.get("STANDBY_INTERVAL_SECONDS", "30"))
-    _log(f"standby mirror started – every {interval:.0f} s")
-    setup = True
-    while True:
-        ok = await run_once(setup)
-        setup = not ok  # after a failure, re-check guards and the subscription next round
-        await asyncio.sleep(interval)
+    sync_interval = float(os.environ.get("STANDBY_SYNC_SECONDS", "5"))
+    _log(f"standby mirror started – every {interval:.0f} s, two-way sync every {sync_interval:.0f} s")
+
+    async def mirror() -> None:
+        setup = True
+        while True:
+            ok = await run_once(setup)
+            setup = not ok  # after a failure, re-check guards and the subscription next round
+            await asyncio.sleep(interval)
+
+    async def two_way() -> None:
+        while True:
+            try:
+                await sync_once()
+            except Exception as exc:  # a failed round must never end the loop
+                _log(f"ERROR  [sync] {type(exc).__name__}: {exc}")
+            await asyncio.sleep(sync_interval)
+
+    await asyncio.gather(mirror(), two_way())
 
 
 async def _reset_from_env() -> int:

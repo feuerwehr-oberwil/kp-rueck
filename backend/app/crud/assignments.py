@@ -683,12 +683,17 @@ async def _resolve_resource_label(db: AsyncSession, resource_type: str, resource
     return f"{type_label} {obj.name}" if obj is not None else f"{type_label} {resource_id}"
 
 
+class TransferChangedError(ValueError):
+    """An undo named assignments that are no longer all active on the incident."""
+
+
 async def transfer_assignments(
     db: AsyncSession,
     source_incident_id: uuid.UUID,
     target_incident_id: uuid.UUID,
     current_user: User,
     request: Request,
+    only_assignment_ids: list[uuid.UUID] | None = None,
 ) -> dict[str, Any]:
     """
     Transfer all active assignments from source incident to target incident.
@@ -717,8 +722,13 @@ async def transfer_assignments(
     and refuses the whole transfer. Lock order (``crud/locking.py``): both Einsätze
     with their Aufträge, then all resource rows (``lock_resources``).
 
+    ``only_assignment_ids`` is the undo of a transfer: exactly those rows move, and only
+    if every one of them is still active on the source – an undo is a new write that must
+    still be valid now, so a crew somebody has since released or re-sorted stays put.
+
     Raises:
         ValueError: If source has no assignments or if conflicts exist
+        TransferChangedError: (a ``ValueError``) the undo's rows are no longer all there
         ResourceNotAssignableError: (a ``ValueError``) the policy refused a resource
     """
     locked = await lock_incidents_with_groups(db, [source_incident_id, target_incident_id])
@@ -751,6 +761,12 @@ async def transfer_assignments(
             for a in source_assignments
             if not (a.resource_type == "personnel" and a.resource_id in reko_personnel_ids)
         ]
+
+    if only_assignment_ids is not None:
+        wanted = set(only_assignment_ids)
+        source_assignments = [a for a in source_assignments if a.id in wanted]
+        if len(source_assignments) != len(wanted):
+            raise TransferChangedError("Nicht mehr rückgängig machbar – die Zuweisungen wurden inzwischen geändert.")
 
     if not source_assignments:
         raise ValueError("Quell-Einsatz hat keine aktiven Ressourcen zum Übertragen.")

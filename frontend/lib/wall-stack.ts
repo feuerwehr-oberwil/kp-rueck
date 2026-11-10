@@ -13,9 +13,5 @@ export const WALL_STACK_BOARD = "max-sm:flex-col max-sm:gap-3.5 max-sm:overflow-
 export const WALL_STACK_COLUMN = "max-sm:min-w-0 max-sm:flex-none max-sm:overflow-visible"
 /** A column body: grows with its cards (the board scrolls, not the column). */
 export const WALL_STACK_BODY = "max-sm:flex-none max-sm:overflow-visible"
-/** A folded column: the 48px vertical strip becomes a 48px full-width row. */
-export const WALL_STACK_FOLDED = "max-sm:h-12 max-sm:w-full max-sm:flex-row max-sm:px-3 max-sm:pb-0"
-/** The folded strip's accent rule: across the top of the row, out of the flow. */
-export const WALL_STACK_FOLDED_ACCENT = "max-sm:absolute max-sm:inset-x-0 max-sm:top-0"
-/** The folded strip's label reads across again. */
-export const WALL_STACK_FOLDED_LABEL = "max-sm:[writing-mode:horizontal-tb]"
+/** A folded column (components/display/wall-folded-column): the narrow rail becomes a 48px full-width row. */
+export const WALL_STACK_FOLDED = "max-sm:h-12 max-sm:w-full max-sm:flex-row max-sm:gap-3 max-sm:px-3 max-sm:py-0"
