@@ -399,7 +399,7 @@
       },
       {
         "q": "Does KP Rück require KP Front?",
-        "a": "No. KP Rück runs entirely on its own – with its own database, its own login and its own updates. It comes into its own alongside <a href=\"https://kp-front.ch/\">KP Front</a>, the application for the front line at the incident: both take the same alarms from the dispatch system, read the same roster and classify alarms by the same keyword list, optionally with the same Divera access. Front and rear thus work from the same source data, without maintaining the alarm integration and the crew twice."
+        "a": "No. KP Rück runs entirely on its own – with its own database, its own login and its own updates. It comes into its own alongside <a href=\"https://kp-front.ch/en/\">KP Front</a>, the application for the front line at the incident: both take the same alarms from the dispatch system, read the same roster and classify alarms by the same keyword list, optionally with the same Divera access. Front and rear thus work from the same source data, without maintaining the alarm integration and the crew twice."
       },
       {
         "q": "What is the local station printer for in KP Rück?",
