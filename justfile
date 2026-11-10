@@ -939,6 +939,14 @@ visual-accept run_id:
     git status --short -- "$dir"
     echo "Review the changed PNGs, then commit them alone: git add $dir && git commit -s -m 'test(visual): accept baselines – <why the screen changed>'"
 
+# The fast gates CI runs, in one command and without the dev stack: format, lint, types,
+# shared files. Run it before a push; the test suites are `just test`.
+check:
+    cd backend && uv run ruff format --check . && uv run ruff check .
+    cd backend && uv run mypy app/auth app/middleware app/schemas app/services app/crud app/background app/api app/websocket_manager.py app/models.py app/traccar.py app/standby.py app/standby_sync.py --ignore-missing-imports
+    cd frontend && pnpm lint && pnpm typecheck
+    python3 scripts/check_shared.py
+
 # Lint all code (backend + frontend)
 lint:
     @echo "\033[1;34m→ Linting backend...\033[0m"
