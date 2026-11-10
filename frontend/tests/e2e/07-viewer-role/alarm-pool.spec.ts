@@ -46,7 +46,11 @@ test.describe('Viewer role — the Alarmeingang', () => {
       expect(takers, 'a live Ereignis with Divera auto-attach takes the alarm').toEqual([]);
     }
 
+    // The row's button attaches directly only once the selected Ereignis is restored; before
+    // that it opens the dialog. So wait for that load, not just for the page.
+    const eventRestored = page.waitForResponse((r) => r.url().endsWith(`/events/${event.id}`) && r.ok());
     await selectEvent(page, '/divera-pool', event.id);
+    await eventRestored;
     await page.waitForURL((url) => url.pathname === '/', { timeout: 15_000 });
     await dismissOverlays(page);
     const sheet = page.getByRole('dialog', { name: 'Alarmeingang' });
