@@ -273,7 +273,9 @@
         "tabComplete": "⇥ complète en « {label} »"
       },
       "journal": "Ouvrir le journal d'intervention",
-      "journalEntry": "Écrire dans le journal"
+      "journalEntry": "Écrire dans le journal",
+      "toggleAmWarten": "Basculer « en attente »",
+      "toggleNachbarhilfe": "Basculer « entraide »"
     },
     "meta": {
       "title": "Tableau de bord KP Rück",

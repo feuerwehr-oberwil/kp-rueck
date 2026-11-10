@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { useTranslations } from "next-intl"
 import Link from "next/link"
 import {
@@ -10,9 +9,7 @@ import {
 } from "@/components/ui/context-menu"
 import { Users, Package, Truck, Binoculars, PenLine, Map, Building2, Printer, Timer, CheckCircle2, ArrowRightLeft, Waypoints, Route, Trash2 } from 'lucide-react'
 import { type Operation } from "@/lib/contexts/operations-context"
-import { apiClient } from "@/lib/api-client"
-import { toast } from "sonner"
-import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
+import { usePrintAssignmentSlip } from "@/lib/hooks/use-print-assignment-slip"
 
 interface CardContextMenuProps {
   operation: Operation
@@ -35,7 +32,7 @@ interface CardContextMenuProps {
  * The right-click menu of an Einsatz card. Rendered by `DraggableOperation` as
  * the content of its `<ContextMenu>`, next to the trigger that wraps the card.
  * A row shows only when its handler is passed – the board passes the editing
- * ones to editors only. Owns the thermal-print action and its busy state.
+ * ones to editors only. The thermal-print action is `usePrintAssignmentSlip`.
  *
  * Re-renders with the card (not memoised), so it never shows a stale label.
  */
@@ -54,25 +51,8 @@ export function CardContextMenu({
   printerEnabled,
 }: CardContextMenuProps) {
   const t = useTranslations('kanban')
-  const tPrint = useTranslations('print.toasts')
-  const trackPrint = usePrintJobToast()
-  const [isPrinting, setIsPrinting] = useState(false)
-
-  // Handle thermal print. The "gesendet" toast is now the START of the story —
-  // trackPrintJob replaces it with what the printer actually did.
-  const handlePrint = async () => {
-    if (isPrinting) return
-    setIsPrinting(true)
-    try {
-      const job = await apiClient.queueAssignmentPrint(operation.id)
-      trackPrint(job.id, { sentTitle: t('common.printJobSent'), subject: tPrint('subjectSlip') })
-    } catch (error) {
-      console.error('Print failed:', error)
-      toast.error(t('common.printFailed'))
-    } finally {
-      setIsPrinting(false)
-    }
-  }
+  const { print, printing: isPrinting } = usePrintAssignmentSlip()
+  const handlePrint = () => void print(operation.id)
 
   return (
     <ContextMenuContent

@@ -661,6 +661,12 @@ avec leur raccourci et est également accessible depuis le menu utilisateur
 (« Commandes et raccourcis »). Les raccourcis sont inactifs tant qu’un champ de
 saisie a le focus.
 
+Ce qu’une carte propose au clic droit s’y trouve aussi, sous **Intervention sélectionnée** :
+attribuer la reconnaissance, de l’effectif, un véhicule et du matériel, transférer les ressources,
+répartir sur une mission, basculer « entraide » et « en attente », clôturer l’intervention, imprimer
+la fiche d’intervention. S’y ajoutent les vues **Alarmes entrantes**, **Appel** et **Checklist** –
+rien de tout cela ne demande la souris.
+
 ### Attribuer en tapant
 Sur le tableau, la palette comprend aussi les interventions, les personnes, les véhicules et le
 matériel – avec des espaces seulement, sans caractère spécial. En tête vient l’intervention :

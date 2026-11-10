@@ -94,7 +94,9 @@ import { useBoardDialogActions } from "@/components/board/use-board-dialog-actio
 import { useBoardDispatch } from "@/components/board/use-board-dispatch"
 import { useResourceBindings } from "@/components/board/use-resource-bindings"
 import { useBoardChecklist } from "@/components/board/use-board-checklist"
-import { useBoardCommandHandlers } from "@/components/board/use-board-command-handlers"
+import { usePrintAssignmentSlip } from "@/lib/hooks/use-print-assignment-slip"
+import type { IncidentCommand } from "@/lib/contexts/command-palette-context"
+import { useBoardCommandHandlers, type BoardCommands } from "@/components/board/use-board-command-handlers"
 import { useBoardCardActions } from "@/components/board/use-board-card-actions"
 
 export default function FireStationDashboard() {
@@ -149,6 +151,10 @@ export default function FireStationDashboard() {
     run: (command: DispatchCommand) => void
     jump: (target: DispatchResource) => void
   }>({ vocabulary: () => ({ incidents: [], persons: [], vehicles: [], materials: [] }), run: () => {}, jump: () => {} })
+
+  // The right-click actions and two views as commands (Ctrl K) – same early
+  // registration, filled in below once the dialogs and the checklist exist.
+  const boardCommandsRef = useRef<BoardCommands>({ incident: () => {}, openAttendance: () => {}, openChecklist: () => {} })
 
   // The roster the board draws, with «steht auf einem Auftrag» folded in.
   const personnel = useAuftragRoster()
@@ -719,6 +725,8 @@ export default function FireStationDashboard() {
   })
 
   useBoardCommandHandlers({
+    boardCommandsRef,
+    printerEnabled,
     writeJournal,
     fleet,
     operations,
@@ -1305,6 +1313,29 @@ export default function FireStationDashboard() {
     setRekoAssignDialogOpen,
     setRekoAssignOperationId,
   })
+
+  // What the commands run on the selected card: each entry is the handler its
+  // right-click row calls, so both ways stay one behaviour.
+  const { print: printAssignmentSlip } = usePrintAssignmentSlip()
+  boardCommandsRef.current = {
+    incident: (command, operationId) => {
+      const run: Record<IncidentCommand, () => void> = {
+        assignCrew: () => dialogs.openAssignment('crew', operationId),
+        assignVehicle: () => dialogs.openAssignment('vehicles', operationId),
+        assignMaterial: () => dialogs.openAssignment('materials', operationId),
+        assignReko: () => handleOpenRekoAssignDialog(operationId),
+        transfer: () => void dialogs.openTransfer(operationId),
+        distribute: () => dialogs.openAuftragPicker(operationId),
+        toggleAmWarten: () => handleToggleAmWarten(operationId),
+        toggleNachbarhilfe: () => handleToggleNachbarhilfe(operationId),
+        complete: () => requestCompletion(operationId),
+        print: () => void printAssignmentSlip(operationId),
+      }
+      run[command]()
+    },
+    openAttendance,
+    openChecklist: () => handleChecklistOpenChange(true),
+  }
 
   // Don't render drag and drop until client-side to avoid hydration errors.
   // Inside ProtectedRoute like every other branch, so all three share ONE ProtectedRoute at
