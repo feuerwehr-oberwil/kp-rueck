@@ -7,6 +7,7 @@ import type { ApiStandby, ApiStandbyLead } from '@/lib/api/types'
 import { AuthContext, useAuth } from '@/lib/contexts/auth-context'
 import { useEvent } from '@/lib/contexts/event-context'
 import { useDeployment } from '@/lib/hooks/use-deployment'
+import { usePolling } from '@/lib/hooks/use-polling'
 import { wsClient } from '@/lib/websocket-client'
 
 /**
@@ -88,16 +89,10 @@ export function StandbyProvider({ children }: { children: React.ReactNode }) {
     if (next) setRaw(next)
   }, [])
 
-  useEffect(() => {
-    void refresh()
-    const id = window.setInterval(() => void refresh(), POLL_MS)
-    // Pushed when the mirror or the sync wrote something, and after every takeover.
-    const off = wsClient.on('incident_update', () => void refresh())
-    return () => {
-      window.clearInterval(id)
-      off()
-    }
-  }, [refresh])
+  // The shared loop: pauses in a hidden tab and asks again the moment it shows.
+  usePolling(refresh, { intervalMs: POLL_MS })
+  // Pushed when the mirror or the sync wrote something, and after every takeover.
+  useEffect(() => wsClient.on('incident_update', () => void refresh()), [refresh])
 
   // A just-created Ereignis on the box is led there from its first row; ask again on a switch.
   const selectedId = selectedEvent?.id

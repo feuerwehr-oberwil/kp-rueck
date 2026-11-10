@@ -147,7 +147,6 @@ export const test = base.extend<VisualFixtures, VisualWorkerFixtures>({
 
   adminRequest: async ({ playwright, storage }, use) => {
     const request = await playwright.request.newContext({ storageState: storage });
-    // eslint-disable-next-line react-hooks/rules-of-hooks -- Playwright's fixture `use`, not React's
     await use(request);
     await request.dispose();
   },
@@ -166,14 +165,12 @@ export const test = base.extend<VisualFixtures, VisualWorkerFixtures>({
         [SELECTED_EVENT_KEY, CHECKLIST_DISMISSED_KEY, seededEventId] as const,
       );
     }
-    // eslint-disable-next-line react-hooks/rules-of-hooks -- Playwright's fixture `use`, not React's
     await use(context);
   },
 
   page: async ({ page }, use) => {
     // Date only; timers keep running, so polling, sockets and React behave as usual.
     await page.clock.setFixedTime(VISUAL_NOW);
-    // eslint-disable-next-line react-hooks/rules-of-hooks -- Playwright's fixture `use`, not React's
     await use(page);
   },
 });
