@@ -487,7 +487,12 @@
       "rosterFree": "{count} frei",
       "rosterOf": "von {total}",
       "rosterBound": "{count} gebunden",
-      "bindingsNone": "Keine Zuweisung – nichts zum Anspringen."
+      "bindingsNone": "Keine Zuweisung – nichts zum Anspringen.",
+      "transferredToast": "Ressourcen nach «{target}» übertragen",
+      "transferredToastCount": "{count, plural, one {# Zuweisung} other {# Zuweisungen}} von «{source}»",
+      "transferUndone": "Übertragung zurückgenommen",
+      "transferUndoFailed": "Nicht zurückgenommen",
+      "transferUndoFailedDescription": "Die Zuweisungen bleiben, wo sie sind."
     },
     "dashboard": {
       "loading": "Wird geladen …",
@@ -1274,8 +1279,6 @@
       "vehicleCount": "{count, plural, one {# Fahrzeug} other {# Fahrzeuge}}",
       "transferring": "Wird übertragen …",
       "transfer": "Übertragen",
-      "confirmTitle": "Ressourcen wirklich übertragen?",
-      "confirmDescription": "Alle zugewiesenen Ressourcen von «{source}» werden auf «{target}» verschoben. Das lässt sich nicht rückgängig machen.",
       "confirmCounts": "Es werden verschoben: {crew} Personal, {vehicles} Fahrzeuge, {materials} Material."
     },
     "driver": {

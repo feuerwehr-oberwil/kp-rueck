@@ -1338,8 +1338,6 @@
       "vehicleCount": "{count, plural, one {# véhicule} other {# véhicules}}",
       "transferring": "Transfert …",
       "transfer": "Transférer",
-      "confirmTitle": "Vraiment transférer les ressources ?",
-      "confirmDescription": "Toutes les ressources attribuées à « {source} » seront déplacées vers « {target} ». Cette action est irréversible.",
       "confirmCounts": "Seront déplacés : {crew} personnel, {vehicles} véhicules, {materials} matériel."
     },
     "driver": {
@@ -1779,7 +1777,12 @@
       "rosterFree": "{count} libres",
       "rosterOf": "sur {total}",
       "rosterBound": "{count} engagés",
-      "bindingsNone": "Aucune affectation – rien à atteindre."
+      "bindingsNone": "Aucune affectation – rien à atteindre.",
+      "transferredToast": "Ressources transférées vers « {target} »",
+      "transferredToastCount": "{count, plural, one {# attribution} other {# attributions}} depuis « {source} »",
+      "transferUndone": "Transfert annulé",
+      "transferUndoFailed": "Non annulé",
+      "transferUndoFailedDescription": "Les attributions restent où elles sont."
     },
     "dashboard": {
       "loading": "Chargement …",

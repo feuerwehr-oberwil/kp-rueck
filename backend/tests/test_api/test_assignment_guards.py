@@ -306,3 +306,92 @@ async def test_transfer_onto_a_closed_einsatz_is_409(
     )
 
     assert response.status_code == 409
+
+
+class TestTransferUndo:
+    """«Rückgängig» of a transfer moves back exactly what the transfer moved (sweep 11.2026, UX-10)."""
+
+    async def _transferred(
+        self,
+        editor_client: AsyncClient,
+        db: AsyncSession,
+        event: Event,
+        user: User,
+        person: Personnel,
+        vehicle: Vehicle,
+    ):
+        """`person` moved from source to target; `vehicle` was on the target before."""
+        source = await _incident(db, event, user)
+        target = await _incident(db, event, user)
+        db.add_all(
+            [
+                IncidentAssignment(
+                    incident_id=source.id, resource_type="personnel", resource_id=person.id, assigned_by=user.id
+                ),
+                IncidentAssignment(
+                    incident_id=target.id, resource_type="vehicle", resource_id=vehicle.id, assigned_by=user.id
+                ),
+            ]
+        )
+        await db.commit()
+        source_id, target_id = source.id, target.id
+        moved = await editor_client.post(
+            f"/api/incidents/{source_id}/transfer", json={"target_incident_id": str(target_id)}
+        )
+        assert moved.status_code == 200
+        return source_id, target_id, moved.json()["assignment_ids"]
+
+    async def _active(self, db: AsyncSession, incident_id) -> set[str]:
+        rows = await db.execute(
+            select(IncidentAssignment.resource_type).where(
+                IncidentAssignment.incident_id == incident_id, IncidentAssignment.unassigned_at.is_(None)
+            )
+        )
+        return set(rows.scalars().all())
+
+    async def test_moves_back_only_what_the_transfer_moved(
+        self,
+        editor_client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_editor: User,
+        test_personnel: Personnel,
+        test_vehicle: Vehicle,
+    ):
+        source_id, target_id, moved_ids = await self._transferred(
+            editor_client, db_session, test_event, test_editor, test_personnel, test_vehicle
+        )
+
+        undo = await editor_client.post(
+            f"/api/incidents/{target_id}/transfer",
+            json={"target_incident_id": str(source_id), "assignment_ids": moved_ids},
+        )
+
+        assert undo.status_code == 200
+        assert undo.json()["transferred_count"] == 1
+        # The vehicle the target held before the transfer stays where it was.
+        assert await self._active(db_session, source_id) == {"personnel"}
+        assert await self._active(db_session, target_id) == {"vehicle"}
+
+    async def test_is_refused_once_a_moved_resource_was_released(
+        self,
+        editor_client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_editor: User,
+        test_personnel: Personnel,
+        test_vehicle: Vehicle,
+    ):
+        source_id, target_id, moved_ids = await self._transferred(
+            editor_client, db_session, test_event, test_editor, test_personnel, test_vehicle
+        )
+        released = await editor_client.post(f"/api/incidents/{target_id}/unassign/{moved_ids[0]}")
+        assert released.status_code in (200, 204)
+
+        undo = await editor_client.post(
+            f"/api/incidents/{target_id}/transfer",
+            json={"target_incident_id": str(source_id), "assignment_ids": moved_ids},
+        )
+
+        assert undo.status_code == 409
+        assert await self._active(db_session, source_id) == set()

@@ -97,7 +97,9 @@ async function loadTransferTargets(eventId: string): Promise<Incident[]> {
  */
 export function useIncidentDialogs() {
   const t = useTranslations("kanban")
-  const { operations, materials, changeStatusToTop, removeMaterial, refreshOperations } = useOperations()
+  // The board's one «Rückgängig» label — reused rather than copied.
+  const tNotifications = useTranslations("notifications.operations")
+  const { operations, materials, formatLocation, changeStatusToTop, removeMaterial, refreshOperations } = useOperations()
   const { groups, getGroupResources, unassignResource } = useGroups()
   const { selectedEvent } = useEvent()
   const { isEditor } = useAuth()
@@ -164,15 +166,46 @@ export function useIncidentDialogs() {
     }
   }, [operations, selectedEvent, t])
 
-  /** Run the transfer. The backend returns a specific German reason on failure. */
+  /**
+   * Run the transfer. No question first: the toast names where the resources went and
+   * offers «Rückgängig», which moves back exactly the rows this transfer made – the
+   * server refuses once one of them was released or moved on (409, its sentence is shown).
+   * The backend returns a specific German reason on failure.
+   */
   const runTransfer = useCallback(async (targetIncidentId: string) => {
     if (!transfer) return
+    const sourceId = transfer.sourceId
+    const source = operations.find((o) => o.id === sourceId)
+    const target = transfer.targets.find((incident) => incident.id === targetIncidentId)
+    const label = (address: string | null | undefined, title: string | null | undefined) =>
+      formatLocation(address ?? "") || title || ""
     try {
       setIsTransferring(true)
-      await apiClient.transferAssignments(transfer.sourceId, targetIncidentId)
+      const moved = await apiClient.transferAssignments(sourceId, targetIncidentId)
       await refreshOperations()
       setTransfer(null)
-      toast.success(t("common.transferResources"))
+      toast.success(
+        t("common.transferredToast", { target: target?.location_display ?? label(target?.location_address, target?.title) }),
+        {
+          description: t("common.transferredToastCount", {
+            count: moved.transferred_count,
+            source: label(source?.location, source ? getIncidentTypeLabel(source.incidentType) : ""),
+          }),
+          action: {
+            label: tNotifications("undoLabel"),
+            onClick: () =>
+              void apiClient
+                .transferAssignments(targetIncidentId, sourceId, moved.assignment_ids)
+                .then(() => toast(t("common.transferUndone")))
+                .catch((error: unknown) =>
+                  toast.error(t("common.transferUndoFailed"), {
+                    description: (error instanceof Error && error.message) || t("common.transferUndoFailedDescription"),
+                  }),
+                )
+                .finally(() => void refreshOperations()),
+          },
+        },
+      )
     } catch (error) {
       toast.error(t("common.transferFailed"), {
         description: (error instanceof Error && error.message) || t("common.transferFailedDescription"),
@@ -180,7 +213,7 @@ export function useIncidentDialogs() {
     } finally {
       setIsTransferring(false)
     }
-  }, [refreshOperations, t, transfer])
+  }, [refreshOperations, t, tNotifications, transfer, operations, formatLocation])
 
   /** What the Einsatz detail (modal or side panel) needs from this layer –
    *  spread onto it. Editor-only, like everything the layer opens. */
