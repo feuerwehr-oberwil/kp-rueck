@@ -1,5 +1,5 @@
-"""The public demo's fixed vehicle positions: crews out stand at their Einsatz, the rest at the
-Magazin; only demo mode without a Traccar serves them, and only to the map – never to the GPS
+"""The public demo's fixed vehicle positions: crews out stand at their Einsatz or their Auftrag's
+current stop, the rest at the Magazin; only demo mode without a Traccar serves them, and only to the map – never to the GPS
 automation."""
 
 from datetime import UTC, datetime, timedelta
@@ -9,7 +9,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Event, Incident, IncidentAssignment, Vehicle
+from app.models import Event, Incident, IncidentAssignment, IncidentGroup, IncidentGroupAssignment, Vehicle
 from app.services import traccar_poller as poller_module
 from app.services.demo_positions import AT_INCIDENT, demo_vehicle_positions
 from app.services.settings import update_setting
@@ -17,10 +17,13 @@ from app.services.traccar_poller import TraccarPoller
 
 MAGAZIN = (47.5164, 7.5618)
 EINSATZ = (47.5096, 7.5583)
+# Pio's Auftrag: the first stop is done, so Pio stands at the second.
+STOP_DONE = (47.5120, 7.5550)
+STOP_NEXT = (47.5130, 7.5560)
 
 
 async def _board(db: AsyncSession) -> None:
-    """One open Einsatz with TLF on it; Pio, Trawa and Mawa at home."""
+    """One open Einsatz with TLF on it, an Auftrag with Pio on it; Trawa and Mawa at home."""
     event = Event(id=uuid4(), name="Demo", training_flag=False)
     incident = Incident(
         id=uuid4(),
@@ -32,20 +35,41 @@ async def _board(db: AsyncSession) -> None:
         location_lat=EINSATZ[0],
         location_lng=EINSATZ[1],
     )
-    db.add_all([event, incident])
+    auftrag = IncidentGroup(id=uuid4(), event_id=event.id, name="Bäume Wald")
+    stops = [
+        Incident(
+            id=uuid4(),
+            event_id=event.id,
+            group_id=auftrag.id,
+            group_position=position,
+            title=f"Baum {position}",
+            type="elementarereignis",
+            priority="low",
+            status=status,
+            location_lat=lat,
+            location_lng=lng,
+        )
+        for position, (status, (lat, lng)) in enumerate([("complete", STOP_DONE), ("incoming", STOP_NEXT)])
+    ]
+    db.add_all([event, incident, auftrag])
     await db.flush()
+    db.add_all(stops)
     for order, name in enumerate(["TLF", "Pio", "Trawa", "Mawa"], start=1):
         vehicle = Vehicle(id=uuid4(), name=name, type="MTW", status="available", display_order=order)
         db.add(vehicle)
         if name == "TLF":
             db.add(IncidentAssignment(incident_id=incident.id, resource_type="vehicle", resource_id=vehicle.id))
+        if name == "Pio":
+            db.add(
+                IncidentGroupAssignment(incident_group_id=auftrag.id, resource_type="vehicle", resource_id=vehicle.id)
+            )
     await update_setting(db, "firestation_latitude", str(MAGAZIN[0]), None)
     await update_setting(db, "firestation_longitude", str(MAGAZIN[1]), None)
     await db.commit()
 
 
 @pytest.mark.asyncio
-async def test_crews_out_stand_at_their_einsatz_the_rest_at_the_magazin(db_session):
+async def test_crews_out_stand_at_their_einsatz_or_current_stop_the_rest_at_the_magazin(db_session):
     await _board(db_session)
     now = datetime(2026, 11, 10, 19, 0, tzinfo=UTC)
 
@@ -57,12 +81,18 @@ async def test_crews_out_stand_at_their_einsatz_the_rest_at_the_magazin(db_sessi
         pytest.approx(EINSATZ[0] + AT_INCIDENT[0]),
         pytest.approx(EINSATZ[1] + AT_INCIDENT[1]),
     )
+    pio = by_name["Pio"]
+    assert (pio.status, pio.latitude, pio.longitude) == (
+        "online",
+        pytest.approx(STOP_NEXT[0] + AT_INCIDENT[0]),
+        pytest.approx(STOP_NEXT[1] + AT_INCIDENT[1]),
+    )
     # Home: a few metres around the Magazin, alternately online and offline.
-    assert [by_name[n].status for n in ("Pio", "Trawa", "Mawa")] == ["online", "offline", "online"]
-    for name in ("Pio", "Trawa", "Mawa"):
+    assert [by_name[n].status for n in ("Trawa", "Mawa")] == ["online", "offline"]
+    for name in ("Trawa", "Mawa"):
         assert by_name[name].latitude == pytest.approx(MAGAZIN[0], abs=0.0002)
     # An offline vehicle's last report is hours old, so the map shows it as stale.
-    assert now - by_name["Trawa"].last_update > timedelta(hours=2)
+    assert now - by_name["Mawa"].last_update > timedelta(hours=2)
 
 
 @pytest.mark.asyncio
