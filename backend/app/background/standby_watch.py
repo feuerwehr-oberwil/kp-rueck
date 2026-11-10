@@ -2,8 +2,9 @@
 
 Replicated rows land in the database without passing through this backend, so none of the
 usual WebSocket pushes go out – and a board on a live socket does not poll. This loop watches
-how far the subscription has got (`pg_stat_subscription.received_lsn`) and, when it moves,
-sends the generic updates a board already reloads on. Only on `DEPLOYMENT_ROLE=standby`.
+how far the subscription has got (`pg_stat_subscription.received_lsn`) and when the two-way
+sync last wrote here (`standby.sync_status.written_at`, app/standby_sync.py) and, when either
+moves, sends the generic updates a board already reloads on. Only on `DEPLOYMENT_ROLE=standby`.
 """
 
 import asyncio
@@ -27,10 +28,14 @@ async def _watch() -> None:
     while True:
         try:
             async with async_session_maker() as db:
-                position = await db.scalar(
+                received = await db.scalar(
                     text("SELECT received_lsn::text FROM pg_stat_subscription WHERE subname = :name AND relid IS NULL"),
                     {"name": SUBSCRIPTION},
                 )
+                synced = None
+                if await db.scalar(text("SELECT to_regclass('standby.sync_status') IS NOT NULL")):
+                    synced = await db.scalar(text("SELECT max(written_at)::text FROM standby.sync_status"))
+            position = f"{received}|{synced}" if received is not None or synced is not None else None
             if position is not None and position != last:
                 if last is not None:
                     await broadcast_incident_update({}, "refresh")

@@ -64,6 +64,17 @@ export function formatDuration(ms: number, style: DurationStyle = 'board'): stri
   return totalHours > 0 ? `${totalHours}h ${minutes}'` : `${minutes}'`
 }
 
+/**
+ * A duration that arrives as decimal HOURS (the Reko's estimated effort,
+ * `rekoSummary.estimatedDuration`: 2.5) in the board notation: «2h 30'».
+ * Rounded to the minute, so 1.33 h reads «1h 20'», never «1.33h». The ONE
+ * formatter for the Reko result line on the desk card, the wall card and the
+ * wall's detail dialog – a hand-written `${hours}h` printed «2.5h».
+ */
+export function formatDurationHours(hours: number, style: DurationStyle = 'board'): string {
+  return formatDuration(Math.round(hours * 60) * MINUTE_MS, style)
+}
+
 /** Compact duration from `since` until `now`. */
 export function formatDurationSince(since: Date, now: number = Date.now(), style: DurationStyle = 'board'): string {
   return formatDuration(now - since.getTime(), style)

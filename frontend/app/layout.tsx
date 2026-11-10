@@ -24,6 +24,7 @@ import { GpsReleasePrompt } from '@/components/gps-release-prompt'
 import { GpsArrivalPrompt } from '@/components/gps-arrival-prompt'
 import { StatusConflictDialog } from '@/components/kanban/status-conflict-dialog'
 import { PickupDonePrompt } from '@/components/pickup-done-prompt'
+import { AlarmInboxSheet } from '@/components/alarm-inbox/alarm-inbox-sheet'
 import { ErrorReporter } from '@/components/error-reporter'
 import { RuntimeBackendOrigin } from '@/components/runtime-backend-origin'
 import { publicBackendOrigin } from '@/lib/env'
@@ -154,6 +155,8 @@ export default async function RootLayout({
                       <GpsArrivalPrompt />
                       <StatusConflictDialog />
                       <PickupDonePrompt />
+                      {/* The Alarmeingang: one sheet over whichever page opened it. */}
+                      <AlarmInboxSheet />
                     </CommandPaletteProvider>
                   </NotificationProvider>
                 </GroupsProvider>

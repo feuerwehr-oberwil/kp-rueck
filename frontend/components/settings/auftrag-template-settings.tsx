@@ -19,6 +19,8 @@ import { useTranslations } from 'next-intl';
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine';
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { reorder } from '@atlaskit/pragmatic-drag-and-drop/reorder';
+import { ReorderMenu } from '@/components/ui/reorder-menu';
+import { moveInList, type MoveTo } from '@/lib/move-in-list';
 import {
   attachClosestEdge,
   extractClosestEdge,
@@ -53,7 +55,7 @@ import {
 } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { Reveal } from '@/components/ui/reveal';
-import { AUFTRAG_SWATCHES } from '@/lib/map-colors';
+import { AUFTRAG_SWATCHES, darkenForWhiteText } from '@/lib/map-colors';
 
 /** One selectable vehicle or material, flattened for the picker. */
 interface ResourceOption {
@@ -211,7 +213,7 @@ export function AuftragTemplateSettings({ readOnly = false }: { readOnly?: boole
   const autoCount = templates.filter((template) => template.auto_create).length;
 
   return (
-    <SettingCard title={t('title')} subtitle={t('description')}>
+    <SettingCard subtitle={t('description')}>
       <div className="space-y-4">
         {templates.length === 0 ? (
           <p className="text-sm text-muted-foreground rounded-lg border border-dashed border-border p-6 text-center">
@@ -236,6 +238,15 @@ export function AuftragTemplateSettings({ readOnly = false }: { readOnly?: boole
                 onToggleExpanded={() =>
                   setExpandedId((current) => (current === template.id ? null : template.id))
                 }
+                count={templates.length}
+                onMove={(to) => {
+                  const next = moveInList(templates, index, to);
+                  if (!next) return;
+                  setTemplates(next);
+                  void apiClient
+                    .reorderAuftragTemplates(next.map((item) => item.id))
+                    .catch(() => toast.error(t('saveFailed')));
+                }}
                 onPatch={(changes) => void patch(template, changes)}
                 onDelete={() => setPendingDelete(template)}
               />
@@ -293,11 +304,16 @@ function TemplateRow({
   options,
   optionsByKey,
   onToggleExpanded,
+  count,
+  onMove,
   onPatch,
   onDelete,
 }: {
   template: ApiAuftragTemplate;
   index: number;
+  /** Templates in the list, and the menu way to reorder them (persisted like a drop). */
+  count: number;
+  onMove: (to: MoveTo) => void;
   expanded: boolean;
   dragging: boolean;
   saving: boolean;
@@ -309,6 +325,7 @@ function TemplateRow({
   onDelete: () => void;
 }) {
   const t = useTranslations('settings.page.auftragTemplates');
+  const tReorder = useTranslations('common.reorder');
   const rowRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLDivElement>(null);
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null);
@@ -344,6 +361,8 @@ function TemplateRow({
   const selectedKeys = new Set(template.resources.map(resourceKey));
 
   const setResources = (next: ApiAuftragTemplateResource[]) => onPatch({ resources: next });
+  // As a route from it will be drawn: an older, lighter swatch shows (and ticks) as its darker successor.
+  const drawnColor = template.color ? darkenForWhiteText(template.color) : null;
 
   return (
     <div
@@ -364,7 +383,7 @@ function TemplateRow({
         </div>
         <span
           className="h-2.5 w-2.5 shrink-0 rounded-sm"
-          style={{ backgroundColor: template.color ?? 'var(--muted-foreground)' }}
+          style={{ backgroundColor: drawnColor ?? 'var(--muted-foreground)' }}
         />
         <button
           type="button"
@@ -391,6 +410,14 @@ function TemplateRow({
           onCheckedChange={(on) => onPatch({ auto_create: on })}
           aria-label={t('autoLabel', { name: template.name })}
         />
+        {!readOnly && (
+          <ReorderMenu
+            label={tReorder('menuFor', { name: template.name })}
+            index={index}
+            count={count}
+            onMove={onMove}
+          />
+        )}
       </div>
 
       {/* Slides open (Reveal); the 8px under the header is padding inside the
@@ -423,11 +450,11 @@ function TemplateRow({
                   onClick={() => onPatch({ color: swatch })}
                   className={cn(
                     'h-5 w-5 rounded-sm border-2 disabled:cursor-not-allowed',
-                    template.color === swatch ? 'border-foreground' : 'border-transparent'
+                    drawnColor === swatch ? 'border-foreground' : 'border-transparent'
                   )}
                   style={{ backgroundColor: swatch }}
                   aria-label={t('colorSwatch', { color: swatch })}
-                  aria-pressed={template.color === swatch}
+                  aria-pressed={drawnColor === swatch}
                 />
               ))}
             </div>

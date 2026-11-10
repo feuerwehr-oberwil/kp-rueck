@@ -45,6 +45,7 @@ export function ExcelImportSection({
   isAdmin: boolean;
 }) {
   const t = useTranslations('settings');
+  const tCommon = useTranslations('common');
   const {
     preview,
     stock,
@@ -94,7 +95,7 @@ export function ExcelImportSection({
             <div className="flex-1">
               <p className="text-sm text-destructive/90">{importError}</p>
             </div>
-            <Button variant="ghost" size="icon-xs" onClick={() => setImportError(null)}>
+            <Button variant="ghost" size="icon-xs" aria-label={tCommon('closeToast')} onClick={() => setImportError(null)}>
               <X className="size-3.5" />
             </Button>
           </div>
@@ -108,7 +109,7 @@ export function ExcelImportSection({
             <div className="flex-1">
               <p className="text-sm text-success">{importSuccess}</p>
             </div>
-            <Button variant="ghost" size="icon-xs" onClick={() => setImportSuccess(null)}>
+            <Button variant="ghost" size="icon-xs" aria-label={tCommon('closeToast')} onClick={() => setImportSuccess(null)}>
               <X className="size-3.5" />
             </Button>
           </div>

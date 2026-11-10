@@ -14,7 +14,7 @@
  * said here any more. It used to be a `viaLabel` badge stamped into all three
  * section heads, which printed the Auftrag's name three times in a 372px column
  * and — sitting next to a `truncate`d label as a non-shrinkable span — pushed
- * the one genuinely new piece of information, the count in «Mannschaft (3)», out
+ * the one genuinely new piece of information, the count in «Mannschaft · 3», out
  * of the heading. It is now said once, by the frame these sections sit in:
  * `ResourceSourceBlock` below.
  */
@@ -22,7 +22,6 @@
 import { Fragment, type ComponentType, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { AlertTriangle, Users, Truck, Package, Plus, UserMinus } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { RemovableChip } from "@/components/ui/removable-chip"
 import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
 import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
@@ -59,26 +58,65 @@ export function ResourceSectionHeader({ icon: Icon, label, action }: ResourceSec
 }
 
 /**
- * The one chip every resource wears — person, vehicle, material and module
- * alike: bordered, softly squared, quiet.
+ * The one chip every resource wears in the detail — person, vehicle, material
+ * and module alike: the board card's filled muted chip (`<RemovableChip
+ * variant="secondary">`), softly squared, 13/18 500.
  *
- * `rounded-md` rather than a pill: a pill reads as a tag you filter by, a
- * squared chip as an object that sits somewhere, and these are objects. The
- * three chip families this replaces (filled grey person, filled primary vehicle,
- * outlined material) told an operator nothing — colour on this board is for
- * status and priority, not for resource type. What genuinely distinguishes a
- * chip lives INSIDE it: the EL badge, the driver name, the depot.
+ * Filled, like the card and the phone sheet. It was an outlined chip here and a
+ * filled one there, so one person on one Einsatz looked like three different
+ * objects depending on where you read it (hill climb r18). The edge comes back
+ * only on hover and keyboard focus, where it says «this one» together with the
+ * remove tint.
+ *
+ * `rounded-sm` (8px, the radius of a control under 32px) rather than a pill: a
+ * pill reads as a tag you filter by, a squared chip as an object that sits
+ * somewhere, and these are objects. Colour on this board is for status and
+ * priority, not for resource type; what genuinely distinguishes a chip lives
+ * in words: the driver name, the depot – and the EL badge in the crew's
+ * leading slot (`CrewChipSlot`).
  *
  * The hover tint is the remove affordance. `duration-150` rather than the bare
  * `transition-colors` default: an instant jump to destructive red on a row of
  * twelve chips reads as flicker while the pointer crosses them.
  */
 export const RESOURCE_CHIP =
-  "group gap-1 rounded-md border-border bg-transparent px-2.5 pr-1 text-sm font-normal " +
-  "transition-colors duration-150 hover:bg-destructive/20"
+  "group gap-1 rounded-sm border-transparent px-2 pr-1 text-[13px] leading-[18px] font-medium " +
+  "transition-colors duration-150 hover:border-border hover:bg-destructive/20 focus-within:border-border"
+
+/**
+ * One crew member of a detail resource row: a 28px leader slot, then the chip –
+ * the 22px «EL» plus the chip row's 6px gap.
+ *
+ * The «EL» badge (or, with a mouse, the hover-only promote stub) stands in the
+ * slot BEFORE the chip, not inside it, so every crew chip starts its name 8px in
+ * and is as wide as its name – and the names of a column hang on one edge, the
+ * EL in the margin like a list mark. Inside the chip, the invisible stub kept
+ * ~30px of filled chip in front of every other name, so «Hoffmann Lisa» read as
+ * centred in a fixed-width pill beside a left-aligned «EL Müller Hans» (hill
+ * climb r19). `group`: hovering the person – slot or chip – reveals the stub.
+ *
+ * `leader` omitted = no slot: a row where nobody leads and nobody can be
+ * promoted (read-only, a stop inside an Auftrag) has nothing to hang there. The
+ * slot swallows its own clicks, so the space around the badge is not the row's
+ * «zuweisen» target.
+ */
+export function CrewChipSlot({ leader, children }: { leader?: ReactNode; children: ReactNode }) {
+  if (!leader) return <>{children}</>
+  return (
+    <span className="group inline-flex min-w-0 max-w-full items-center">
+      <span className="flex w-7 shrink-0 items-center" onClick={(event) => event.stopPropagation()}>
+        {leader}
+      </span>
+      {children}
+    </span>
+  )
+}
 
 /** Width of the resource row's label gutter — the same 120px `DetailField` uses. */
 const RESOURCE_LABEL_GUTTER = "w-[120px]"
+
+/** The row's trailing action column: 24px wide, as tall as a chip line. */
+const RESOURCE_ACTION_COLUMN = "flex h-6 w-6 shrink-0 items-center justify-center"
 
 /**
  * One resource row: `Symbol Beschriftung (n) │ Chips │ +`.
@@ -196,74 +234,22 @@ export function ResourceRow({
           hunt for the next one. The rows are capped (`tabGridClass`), so the end
           of the line is a short trip, not the 500px it was on an uncapped one. */}
       {isEmpty ? (
-        <span className="min-w-0 flex-1 py-0.5 text-sm text-muted-foreground/60">{emptyLabel}</span>
+        <span className="min-w-0 flex-1 py-0.5 text-sm text-muted-foreground">{emptyLabel}</span>
       ) : (
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">{children}</div>
       )}
       {/* The add glyph is decoration over a target that already spans the line —
-          `tabIndex -1` and `aria-hidden` so the keyboard and a screen reader meet
-          ONE control, not two answering to the same name. The negative margin
-          keeps a 32px control from stretching a ~24px chip line. */}
-      {addLabelled && addLabel && (
-        <span className="-my-1 shrink-0">
-          <ResourceAddButton compact label={addLabel} onClick={onAdd!} inert />
+          `aria-hidden` so the keyboard and a screen reader meet ONE control, not
+          two answering to the same name. It stands in a fixed 24px action column
+          (8px after the chips, the row's gap), so the «+» of all three rows sit in
+          one column and a long chip wraps before it instead of running into it
+          (hill climb r5). */}
+      {addLabelled && (
+        <span className={RESOURCE_ACTION_COLUMN} aria-hidden="true">
+          <Plus className="size-3.5" />
         </span>
       )}
     </div>
-  )
-}
-
-/**
- * The add control of one resource section.
- *
- * `compact` drops the word «Hinzufügen» and leaves the glyph. Where several
- * sections stand under one provenance heading — the incident detail — the word
- * was said once per section for something that is a possibility, not
- * information, while the content below it is what the operator came for. The
- * name survives as the accessible name AND as the hover title, so nothing is
- * lost for a screen reader or for somebody who does not know the glyph.
- */
-export function ResourceAddButton({
-  label,
-  onClick,
-  compact = false,
-  inert = false,
-}: {
-  /** What this adds, e.g. «Fahrzeug zuweisen» — accessible name and hover title. */
-  label: string
-  onClick: () => void
-  compact?: boolean
-  /**
-   * The glyph is drawn but is no longer its own control: something larger around
-   * it already carries the click and the name (an empty `ResourceRow` is one
-   * target end to end). Keeps the affordance visible without putting a second
-   * button with the same name in the tab order.
-   */
-  inert?: boolean
-}) {
-  const t = useTranslations("kanban")
-
-  return (
-    <Button
-      size="xs"
-      variant="ghost"
-      onClick={inert ? undefined : onClick}
-      className={cn(
-        compact ? "px-1.5" : "gap-1 px-2",
-        // Inert = the row around it is the control. A ghost Button still lights
-        // its own background on hover, so the row and the glyph inside it lit up
-        // as two separate targets on one pass of the pointer — which is exactly
-        // the "aim at the small thing" the row-wide target removed.
-        inert && "pointer-events-none bg-transparent hover:bg-transparent",
-      )}
-      title={inert ? undefined : label}
-      aria-label={inert ? undefined : label}
-      aria-hidden={inert || undefined}
-      tabIndex={inert ? -1 : 0}
-    >
-      <Plus className="size-3.5" />
-      {!compact && t("common.add")}
-    </Button>
   )
 }
 
@@ -355,6 +341,8 @@ interface RouteResourceSectionsProps {
 export function RouteResourceSections({ resources, onAssign, onUnassign, vehicleDrivers, readOnly = false, onPromoteLeader, onPickDriver, driversKnown }: RouteResourceSectionsProps) {
   const knowsDrivers = driversKnown ?? Boolean(vehicleDrivers)
   const t = useTranslations("kanban")
+  // The leader slot only where it can hold something (see `CrewChipSlot`).
+  const crewHasLeaderSlot = (!readOnly && Boolean(onPromoteLeader)) || resources.personnel.some((p) => p.isLeader)
   return (
     <>
       {/* Mannschaft */}
@@ -368,30 +356,37 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
       >
         {/* EL first (decision 23) — the route's leader heads the route's crew. */}
         {sortCrewByLeader(resources.personnel, (p) => Boolean(p.isLeader)).map((p) => (
-          <RemovableChip
+          <CrewChipSlot
             key={p.assignmentId}
-            variant="outline"
-            className={RESOURCE_CHIP}
-            onRemove={!readOnly ? () => onUnassign(p.assignmentId) : undefined}
-            removeTitle={t("common.removeNamed", { name: p.name })}
-            removeButtonClassName="ml-1"
-            // Touch: the same two actions the mouse has (EL stub, ✕), as rows.
-            menuTitle={p.name}
-            menuSubtitle={<PersonMenuSubtitle personnelId={p.resourceId} isLeader={Boolean(p.isLeader)} />}
-            menuActions={
-              !readOnly && onPromoteLeader && !p.isLeader
-                ? [{ label: t("leader.promote"), icon: <LeaderGlyph />, onSelect: () => onPromoteLeader(p.assignmentId) }]
-                : undefined
+            leader={
+              crewHasLeaderSlot && (
+                <LeaderBadge
+                  isLeader={Boolean(p.isLeader)}
+                  onPromote={!readOnly && onPromoteLeader ? () => onPromoteLeader(p.assignmentId) : undefined}
+                />
+              )
             }
-            removeLabel={t("chipMenu.removeFromAuftrag")}
-            removeIcon={UserMinus}
           >
-            <LeaderBadge
-              isLeader={Boolean(p.isLeader)}
-              onPromote={!readOnly && onPromoteLeader ? () => onPromoteLeader(p.assignmentId) : undefined}
-            />
-            {p.name}
-          </RemovableChip>
+            <RemovableChip
+              variant="secondary"
+              className={RESOURCE_CHIP}
+              onRemove={!readOnly ? () => onUnassign(p.assignmentId) : undefined}
+              removeTitle={t("common.removeNamed", { name: p.name })}
+              removeButtonClassName="ml-1"
+              // Touch: the same two actions the mouse has (EL stub, ✕), as rows.
+              menuTitle={p.name}
+              menuSubtitle={<PersonMenuSubtitle personnelId={p.resourceId} isLeader={Boolean(p.isLeader)} />}
+              menuActions={
+                !readOnly && onPromoteLeader && !p.isLeader
+                  ? [{ label: t("leader.promote"), icon: <LeaderGlyph />, onSelect: () => onPromoteLeader(p.assignmentId) }]
+                  : undefined
+              }
+              removeLabel={t("chipMenu.removeFromAuftrag")}
+              removeIcon={UserMinus}
+            >
+              {p.name}
+            </RemovableChip>
+          </CrewChipSlot>
         ))}
       </ResourceRow>
 
@@ -416,7 +411,7 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
           return (
             <Fragment key={v.assignmentId}>
             <RemovableChip
-              variant="outline"
+              variant="secondary"
               className={RESOURCE_CHIP}
               onRemove={!readOnly ? () => onUnassign(v.assignmentId) : undefined}
               removeTitle={t("common.removeNamed", { name: v.name })}
@@ -463,7 +458,7 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
         {resources.materials.map((m) => (
           <RemovableChip
             key={m.assignmentId}
-            variant="outline"
+            variant="secondary"
             className={RESOURCE_CHIP}
             onRemove={!readOnly ? () => onUnassign(m.assignmentId) : undefined}
             removeTitle={t("common.removeNamed", { name: m.name })}

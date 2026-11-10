@@ -85,7 +85,12 @@ async def list_incidents(
         limit=limit,
         status=status,
     )
-    response.headers["X-Total-Count"] = str(await crud.count_incidents(db=db, event_id=event_id, status=status))
+    # A first page that is not full IS the whole list – no second query on every board load.
+    if skip == 0 and len(incidents) < limit:
+        total = len(incidents)
+    else:
+        total = await crud.count_incidents(db=db, event_id=event_id, status=status)
+    response.headers["X-Total-Count"] = str(total)
     return await incident_display.incidents_with_display(db, incidents)
 
 
@@ -120,11 +125,13 @@ async def get_sync_version(
     count = row[0] or 0
     latest = row[1]
 
-    # Also check assignment changes (crew/vehicle/material changes)
+    # Also check assignment changes (crew/vehicle/material changes). A release only stamps
+    # unassigned_at – count and max(assigned_at) stay put – so it is part of the version too.
     assignment_result = await db.execute(
         select(
             sa_func.count(models.IncidentAssignment.id),
             sa_func.max(models.IncidentAssignment.assigned_at),
+            sa_func.max(models.IncidentAssignment.unassigned_at),
         )
         .join(models.Incident, models.IncidentAssignment.incident_id == models.Incident.id)
         .where(models.Incident.event_id == event_id)
@@ -133,6 +140,7 @@ async def get_sync_version(
     a_row = assignment_result.one()
     a_count = a_row[0] or 0
     a_latest = a_row[1]
+    a_unassigned_latest = a_row[2]
 
     # Also fold in Auftrag (incident group) changes so the polling fallback
     # notices group create/rename/reorder even if a group_update WS event is missed.
@@ -188,13 +196,14 @@ async def get_sync_version(
     # Combine into version string
     latest_str = latest.isoformat() if latest else "0"
     a_latest_str = a_latest.isoformat() if a_latest else "0"
+    a_unassigned_str = a_unassigned_latest.isoformat() if a_unassigned_latest else "0"
     g_latest_str = g_latest.isoformat() if g_latest else "0"
     ga_assigned_str = ga_assigned_latest.isoformat() if ga_assigned_latest else "0"
     ga_unassigned_str = ga_unassigned_latest.isoformat() if ga_unassigned_latest else "0"
     reko_str = reko_latest.isoformat() if reko_latest else "0"
     report_str = report_latest.isoformat() if report_latest else "0"
     version = (
-        f"{count}-{latest_str}-{a_count}-{a_latest_str}-{g_count}-{g_latest_str}-"
+        f"{count}-{latest_str}-{a_count}-{a_latest_str}-{a_unassigned_str}-{g_count}-{g_latest_str}-"
         f"{ga_count}-{ga_assigned_str}-{ga_unassigned_str}-{reko_str}-{report_str}"
     )
     return {"version": version}
@@ -1340,7 +1349,11 @@ async def transfer_assignments(
             target_incident_id=transfer_request.target_incident_id,
             current_user=current_user,
             request=request,
+            only_assignment_ids=transfer_request.assignment_ids,
         )
+    except assignment_crud.TransferChangedError as e:
+        # The undo's rows are no longer all there: nothing moves, the operator is told.
+        raise HTTPException(status_code=409, detail=str(e)) from e
     except assignment_crud.ResourceNotAssignableError as e:
         # The target may not take a resource (closed Einsatz, archived Ereignis, …): 409 like assign.
         raise HTTPException(status_code=409, detail=str(e)) from e

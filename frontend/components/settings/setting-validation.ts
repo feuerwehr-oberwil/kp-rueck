@@ -43,6 +43,26 @@ export function normalizeDecimal(value: string): string {
   return value.trim().replace(',', '.')
 }
 
+/**
+ * `value` rounded to `decimals` places, as the fixed string that is shown and saved
+ * (comma → dot first, like `normalizeDecimal`). Empty stays empty; something that is
+ * not a number comes back untouched – `validateRangedSetting` says what is wrong
+ * with it, and this must not turn a typo into a different coordinate.
+ */
+export function roundDecimal(value: string, decimals: number): string {
+  const normalized = normalizeDecimal(value)
+  if (normalized === '') return ''
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed.toFixed(decimals) : value
+}
+
+/**
+ * Station coordinates keep 6 decimals (≈ 10 cm) – shown and saved (owner pick D5,
+ * 08.11.2026). A map picker or a pasted GPS fix handed over 15, which read as noise
+ * and promised a precision nobody has.
+ */
+export const COORDINATE_DECIMALS = 6
+
 /** WGS84 bounds. Wider than Switzerland on purpose – the app is not Swiss-only. */
 export const LATITUDE_RANGE: SettingRange = { min: -90, max: 90 }
 export const LONGITUDE_RANGE: SettingRange = { min: -180, max: 180 }

@@ -87,7 +87,6 @@ export function IntegrationsSection() {
   return (
     <div className="space-y-4">
       <SettingCard
-        title={t('title')}
         subtitle={t('description')}
         action={
           <Badge variant="secondary" className="shrink-0">

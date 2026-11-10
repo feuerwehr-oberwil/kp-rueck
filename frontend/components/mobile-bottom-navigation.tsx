@@ -7,7 +7,7 @@
  * Enhanced with delightful micro-interactions
  */
 
-import { BookOpenText, ChartColumn, Columns3, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Radio, QrCode, Sparkles, LogOut, Users, Truck, Printer, Plus, ChevronRight } from 'lucide-react'
+import { BookOpenText, ChartColumn, Columns3, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Inbox, QrCode, Sparkles, LogOut, Users, Truck, Printer, Plus, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
@@ -22,6 +22,8 @@ import { AccountBlock } from '@/components/auth/account-block'
 import { VersionLabel } from '@/components/version-label'
 import { useLogout } from '@/lib/hooks/use-logout'
 import { useNavReserve } from '@/components/viewport-insets'
+import { openAlarmInbox } from '@/components/alarm-inbox/alarm-inbox-store'
+import { AlarmInboxMenuCount } from '@/components/alarm-inbox/alarm-inbox-button'
 
 interface MobileBottomNavigationProps {
   currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'help' | string
@@ -94,7 +96,6 @@ export function MobileBottomNavigation({
   // its own section below since it needs the live event list).
   const secondaryItems = [
     { id: 'settings', label: t('settings'), icon: Settings, href: '/settings', category: 'Verwaltung' },
-    { id: 'divera', label: t('diveraPool'), icon: Radio, href: '/divera-pool', category: 'Verwaltung' },
     { id: 'help', label: t('helpDocs'), icon: HelpCircle, href: '/help', category: 'Support' },
   ]
 
@@ -418,6 +419,20 @@ export function MobileBottomNavigation({
                       </Link>
                     )
                   })}
+                  {/* The Alarmeingang is a sheet over this page, not a page of its own: close
+                      «Mehr» first, then open it (the same hand-over as «Links & QR»). */}
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
+                    onClick={() => {
+                      setSheetOpen(false)
+                      setTimeout(openAlarmInbox, 350)
+                    }}
+                  >
+                    <Inbox className="size-4" />
+                    <span>{t('diveraPool')}</span>
+                    <AlarmInboxMenuCount className="ml-auto" />
+                  </Button>
                 </div>
               </div>
 

@@ -14,12 +14,16 @@ as `positionsOverride`). `components/map-view.tsx` already described this endpoi
 
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import CurrentUser
 from app.config import settings
+from app.database import get_db
+from app.services.demo_positions import demo_positions_active, demo_vehicle_positions
 from app.services.gps_simulation import gps_simulation
 from app.traccar import traccar_client
 
@@ -55,17 +59,24 @@ async def get_traccar_status(current_user: CurrentUser) -> TraccarStatusResponse
     """Get Traccar configuration status.
 
     Reports configured=true while a GPS simulation runs so the map subscribes to
-    position updates even on installations without a real Traccar server.
+    position updates even on installations without a real Traccar server – and on the
+    public demo, which serves fixed positions (`services/demo_positions.py`).
     """
     return TraccarStatusResponse(
-        configured=traccar_client.is_configured or gps_simulation.any_active(),
+        configured=traccar_client.is_configured or gps_simulation.any_active() or demo_positions_active(),
         url=settings.traccar_url if traccar_client.is_configured else None,
     )
 
 
 @router.get("/positions", response_model=list[VehiclePositionResponse])
-async def get_vehicle_positions(current_user: CurrentUser) -> list[VehiclePositionResponse]:
+async def get_vehicle_positions(
+    current_user: CurrentUser, db: Annotated[AsyncSession, Depends(get_db)]
+) -> list[VehiclePositionResponse]:
     """Get current GPS positions of all tracked vehicles."""
+    if demo_positions_active():
+        # A training drive started on the demo moves its vehicle off the fixed spot.
+        positions = gps_simulation.overlay(await demo_vehicle_positions(db))
+        return [VehiclePositionResponse(**p.model_dump()) for p in positions]
     if not traccar_client.is_configured and not gps_simulation.any_active():
         raise HTTPException(
             status_code=503,
@@ -120,6 +131,8 @@ async def get_vehicle_trails(
     minutes: int = Query(default=30, ge=5, le=120, description="Trail duration in minutes"),
 ) -> list[VehicleTrailResponse]:
     """Get recent position history (breadcrumb trails) for all tracked vehicles."""
+    if demo_positions_active():
+        return []  # The demo's vehicles stand still.
     if not traccar_client.is_configured:
         raise HTTPException(status_code=503, detail="Traccar ist nicht konfiguriert")
 

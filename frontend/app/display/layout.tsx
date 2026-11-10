@@ -18,6 +18,7 @@ import { DisplaySearchProvider, useDisplaySearch } from "@/lib/contexts/display-
 import { TrainingBand, TrainingBadge } from "@/components/training-mode-chrome"
 import { useDisplayErrorRecovery } from "@/components/display-error"
 import { RouteSlot } from "@/components/route-slot"
+import { useWallIdle } from "@/components/display/use-wall-idle"
 
 const displayPages = [
   { href: "/display/map", labelKey: "pageMap", icon: Map },
@@ -116,6 +117,20 @@ function DisplayChrome({
   const isSearchable = SEARCHABLE_PAGES.includes(pathname)
   const searchRef = useRef<HTMLInputElement>(null)
 
+  // Idle chrome (owner pick U5 B): after 10 s without a mouse move or a key, the
+  // back arrow and the search field fade IN PLACE – opacity, not display, so the
+  // Ereignis name and everything else in the bar stay exactly where they are. The
+  // first mouse move or key («S» focuses the search in that same keystroke) brings
+  // them back. A search in force never fades: a filtered wall must say so, and a
+  // field holding the caret stays (`focus-within`). Under reduced motion it is a
+  // cut, not a fade.
+  const chromeIdle = useWallIdle() && !query
+  const idleChromeClass = cn(
+    "transition-opacity duration-500 motion-reduce:transition-none",
+    // No `pointer-events-none`: a pointer can only reach them by moving, which wakes them.
+    chromeIdle && "opacity-0 focus-within:opacity-100",
+  )
+
   // `s` (or `/`) jumps to the search field — the same two keys as the main
   // board, so somebody who walks from the KP to the wall screen does not have to
   // learn a second habit. Registered only where there IS a field to focus, and
@@ -157,7 +172,8 @@ function DisplayChrome({
   // does: it is the ONLY bar now (the board pages had a second, near-identical
   // header of their own), and it carries the two things people read a wall
   // display for from across the room — which Ereignis, and what time it is.
-  // A screen nobody touches would have hidden both within eight seconds.
+  // A screen nobody touches would have hidden both within eight seconds. What
+  // fades now is only the back arrow and the search field (`chromeIdle` above).
 
   // Fullscreen tracking
   useEffect(() => {
@@ -206,21 +222,27 @@ function DisplayChrome({
           keeps it thumb-reachable there). Pinned: it is the only bar the display
           pages have, and on a share link it also carries the «Nur-Lesen» badge
           that used to sit in a second header of its own.
-          Token/viewer mode omits the back link so there's no path to the editor. */}
-      <header className="order-last sm:order-first flex items-center justify-between gap-3 border-t sm:border-t-0 sm:border-b border-border bg-header px-3 py-2 sm:py-1.5 min-h-10 shrink-0">
+          Token/viewer mode omits the back link so there's no path to the editor.
+          From `sm` up the two things read across the room – which Ereignis, what
+          time – are pinned in px (Ereignis 18/600, clock 20/600 mono), and so is
+          the bar's 44px: the wall boards fit their root size (use-wall-fit), and
+          a rem bar made the name 12px on a full board (hill climb r19). */}
+      <header className="order-last sm:order-first flex items-center justify-between gap-3 border-t sm:border-t-0 sm:border-b border-border bg-header px-3 py-2 sm:py-1 min-h-10 sm:min-h-[44px] shrink-0">
         <div className="flex flex-1 items-center gap-2 min-w-0">
           {!token && (
-            <>
+            // One box for the arrow and its divider, so the idle fade has one
+            // target; `gap-2` is the row's own gap, so nothing moves.
+            <div className={cn("hidden sm:flex items-center gap-2 shrink-0", idleChromeClass)}>
               <Link
                 href={isIndexPage ? "/" : "/display"}
-                className="hidden sm:flex items-center justify-center h-7 w-7 shrink-0 rounded-sm hover:bg-muted transition-colors"
+                className="flex items-center justify-center h-7 w-7 shrink-0 rounded-sm hover:bg-muted transition-colors"
                 title={isIndexPage ? t('layout.backToEditor') : t('layout.displayOverview')}
               >
                 <ArrowLeft className="h-3.5 w-3.5 text-muted-foreground" />
               </Link>
 
-              <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
-            </>
+              <div className="w-px h-5 bg-border shrink-0" />
+            </div>
           )}
 
           {needsEventPick ? (
@@ -232,7 +254,7 @@ function DisplayChrome({
               {t('layout.selectEvent')}
             </Link>
           ) : (
-            <h1 className="min-w-0 max-w-[42vw] sm:max-w-none text-sm font-semibold tracking-tight text-foreground truncate" title={eventName}>{eventName}</h1>
+            <h1 className="min-w-0 max-w-[42vw] sm:max-w-none text-sm sm:text-[18px] sm:leading-[24px] font-semibold tracking-tight text-foreground truncate" title={eventName}>{eventName}</h1>
           )}
           {isTraining && <TrainingBadge label={t('layout.training')} />}
           {/* Was a panel of its own on the share-link board, under a header that
@@ -256,7 +278,7 @@ function DisplayChrome({
               placeholder={t('layout.searchPlaceholder')}
               // From lg up only: at 768 the bar had ~30px left for it, «Suchen …» cut to «Su»
               // and the Ereignis name squeezed to an ellipsis (overflow sweep, 03.10.).
-              containerClassName="ml-2 hidden w-64 shrink-0 lg:block"
+              containerClassName={cn("ml-2 hidden w-64 shrink-0 lg:block", idleChromeClass)}
               className="h-7 text-sm"
               hint={<Kbd>S</Kbd>}
             />
@@ -274,7 +296,9 @@ function DisplayChrome({
                     key={p.href}
                     href={token ? `${p.href}?token=${token}` : p.href}
                     className={cn(
-                      "flex items-center justify-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-sm text-xs font-medium transition-colors",
+                      // Caption-sized at 12px whatever the wall's root size: a
+                      // rem `text-xs` read 10.5px on a board fitted to 14px.
+                      "relative hit-area flex items-center justify-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-sm text-[12px] leading-[16px] font-medium transition-colors",
                       isActive
                         ? "bg-background text-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground"
@@ -309,9 +333,9 @@ function DisplayChrome({
             </button>
           </div>
 
-          <div className="hidden sm:flex items-center gap-1.5 rounded-md bg-secondary/50 px-2.5 py-1">
-            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="font-mono text-sm font-semibold tabular-nums">
+          <div className="hidden sm:flex items-center gap-1.5 rounded-md bg-secondary/50 px-2.5 py-0.5">
+            <Clock className="size-[16px] text-muted-foreground" />
+            <span className="font-mono text-[20px] leading-[28px] font-semibold tabular-nums">
               {currentTime ? currentTime.toLocaleTimeString(intlLocale) : "--:--:--"}
             </span>
           </div>

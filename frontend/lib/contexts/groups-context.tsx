@@ -20,8 +20,8 @@ import { usePolling } from "@/lib/hooks/use-polling"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
 import { usePersonnel } from "./personnel-context"
-import { useMaterials } from "./materials-context"
 import { refusalReason } from "@/lib/assignment-refusal"
+import { darkenForWhiteText } from "@/lib/map-colors"
 
 // Re-export the client type for convenience (as materials-context exposes Material).
 export type { IncidentGroup } from "@/lib/types/groups"
@@ -90,12 +90,13 @@ const apiAssignmentsToClient = (g: ApiIncidentGroup): GroupAssignment[] =>
     isLeader: a.is_leader,
   }))
 
-// Convert the API shape to the camelCase client type (dates parsed to Date).
+// Convert the API shape to the camelCase client type (dates parsed to Date). The colour is the
+// one drawn: a route stored with an older, lighter swatch comes in darkened for white text.
 const apiGroupToGroup = (g: ApiIncidentGroup): IncidentGroup => ({
   id: String(g.id),
   eventId: String(g.event_id),
   name: g.name,
-  color: g.color ?? null,
+  color: g.color ? darkenForWhiteText(g.color) : null,
   notes: g.notes ?? null,
   position: g.position,
   createdAt: new Date(g.created_at),
@@ -124,11 +125,12 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, loading: authLoading } = useAuth()
   const { selectedEvent, isEventLoaded } = useEvent()
   const { personnel } = usePersonnel()
-  const { materials } = useMaterials()
   // Readiness lives in the operations context (refreshed with every poll).
   // GroupsProvider sits inside OperationsProvider in the root layout.
-  // So does the fleet, for naming a route's vehicle assignments (they carry ids).
-  const { outOfServiceVehicleIds, requestVehicleDriver, beginAssignmentSettling, vehicles } = useOperations()
+  // So does the fleet, for naming a route's vehicle assignments (they carry ids),
+  // and the depot, for naming its material – straight off the board, not
+  // `useMaterials()`, which folds THIS provider's Aufträge into the deployment.
+  const { outOfServiceVehicleIds, requestVehicleDriver, beginAssignmentSettling, vehicles, materials } = useOperations()
 
   const [groups, setGroups] = useState<IncidentGroup[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
@@ -773,33 +775,56 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
   }, [groups])
 
   const selectedEventId = selectedEvent && isValidUUID(selectedEvent.id) ? selectedEvent.id : null
-  const scopedGroups = selectedEventId ? groups.filter((group) => group.eventId === selectedEventId) : []
-
-  return (
-    <GroupsContext.Provider
-      value={{
-        groups: scopedGroups,
-        isLoaded: isLoaded && loadedEventId === selectedEventId,
-        refreshGroups,
-        createGroup,
-        updateGroup,
-        recordAnnouncement,
-        deleteGroup,
-        reorderGroups,
-        reorderGroupStops,
-        restoreGroupStops,
-        addStops,
-        removeStop,
-        assignResource,
-        unassignResource,
-        getGroupResources,
-        groupResourcesFor,
-        occupiedResourceIds,
-      }}
-    >
-      {children}
-    </GroupsContext.Provider>
+  const scopedGroups = useMemo(
+    () => (selectedEventId ? groups.filter((group) => group.eventId === selectedEventId) : []),
+    [groups, selectedEventId],
   )
+  const loaded = isLoaded && loadedEventId === selectedEventId
+
+  // Memoised: this provider re-renders on every board change (it reads the operations
+  // context), and every card reads this value – a fresh literal re-rendered them all.
+  const value = useMemo(
+    () => ({
+      groups: scopedGroups,
+      isLoaded: loaded,
+      refreshGroups,
+      createGroup,
+      updateGroup,
+      recordAnnouncement,
+      deleteGroup,
+      reorderGroups,
+      reorderGroupStops,
+      restoreGroupStops,
+      addStops,
+      removeStop,
+      assignResource,
+      unassignResource,
+      getGroupResources,
+      groupResourcesFor,
+      occupiedResourceIds,
+    }),
+    [
+      scopedGroups,
+      loaded,
+      refreshGroups,
+      createGroup,
+      updateGroup,
+      recordAnnouncement,
+      deleteGroup,
+      reorderGroups,
+      reorderGroupStops,
+      restoreGroupStops,
+      addStops,
+      removeStop,
+      assignResource,
+      unassignResource,
+      getGroupResources,
+      groupResourcesFor,
+      occupiedResourceIds,
+    ],
+  )
+
+  return <GroupsContext.Provider value={value}>{children}</GroupsContext.Provider>
 }
 
 export function useGroups() {

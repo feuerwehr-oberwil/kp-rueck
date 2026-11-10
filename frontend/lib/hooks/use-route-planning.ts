@@ -16,8 +16,9 @@
  *   distance over located stops from a start point ('magazin' | 'vehicle' |
  *   'first'); returns the proposed ordered ids. `optimizeFrom(start)` returns the
  *   same plus the start point actually used (`RouteStart`, with provenance — see
- *   `lib/route-start.ts`). Unlocated stops sink to the end preserving their
- *   relative order.
+ *   `lib/route-start.ts`) and how many stops have coordinates (`located`; under
+ *   two there is nothing to optimise). Unlocated stops sink to the end preserving
+ *   their relative order.
  * - `anchors` — Magazin (with source: settings / fallback), the route vehicle's
  *   GPS fix (with its report time) and the first stop; `magazinCoords` /
  *   `vehicleStart` are their bare coordinates (null when unknown).
@@ -141,9 +142,8 @@ export function useRoutePlanning(groupId: string | null | undefined) {
         const address = (await reverseGeocode(lat, lng)) ?? `${lat.toFixed(6)}, ${lng.toFixed(6)}`
         // createOperation with a preset groupId attaches the new incident to the
         // Auftrag at creation (backend stamps group_position) — the streamlined
-        // "+ Stop" path. Its declared return type is void but the runtime value is
-        // the underlying Promise, so awaiting it genuinely blocks on the POST.
-        await (createOperation({
+        // "+ Stop" path. Awaited, so the refresh below sees the new stop.
+        await createOperation({
           location: address,
           vehicle: null,
           vehicles: [],
@@ -172,7 +172,7 @@ export function useRoutePlanning(groupId: string | null | undefined) {
           leaderId: null,
           leaderName: null,
           materialAssignments: new Map(),
-        }) as unknown as Promise<void>)
+        })
         // The new stop rides the incident WS path into operations-context; pull the
         // group so its stopIds pick up the freshly-attached member.
         await Promise.all([refreshGroups(), refreshOperations()])
@@ -206,8 +206,8 @@ export function useRoutePlanning(groupId: string | null | undefined) {
    * original relative order). Pure — the caller previews then confirms via reorder.
    */
   const optimizeFrom = useCallback(
-    (requested: RouteStartMode): { ids: string[]; start: RouteStart | null } => {
-      if (!group) return { ids: [], start: null }
+    (requested: RouteStartMode): { ids: string[]; start: RouteStart | null; located: number } => {
+      if (!group) return { ids: [], start: null, located: 0 }
 
       const located = orderedStops.filter((s): s is { id: string; op: LocatedOperation } => isLocated(s.op))
       const unlocated = orderedStops.filter((s) => !isLocated(s.op))
@@ -215,7 +215,7 @@ export function useRoutePlanning(groupId: string | null | undefined) {
       // Falls back to the first located stop when the requested anchor is
       // unknown — and the returned `start` records that it did.
       const start = resolveRouteStart(requested, anchors)
-      if (located.length <= 1 || !start) return { ids: group.stopIds, start }
+      if (located.length <= 1 || !start) return { ids: group.stopIds, start, located: located.length }
       const anchor = start.coords
 
       const remaining = [...located]
@@ -236,7 +236,7 @@ export function useRoutePlanning(groupId: string | null | undefined) {
         current = next.op.coordinates
       }
 
-      return { ids: [...ordered.map((s) => s.id), ...unlocated.map((s) => s.id)], start }
+      return { ids: [...ordered.map((s) => s.id), ...unlocated.map((s) => s.id)], start, located: located.length }
     },
     [group, orderedStops, anchors],
   )

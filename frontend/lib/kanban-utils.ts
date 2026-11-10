@@ -1,7 +1,7 @@
 import { type Operation, type OperationStatus } from "./contexts/operations-context"
 import { getIncidentTypeLabel } from "./incident-types"
 import { PRIORITY_COLORS, PRIORITY_LABELS } from "./priority"
-import { INCIDENT_TYPE_MARKER_COLORS } from "./map-colors"
+import { INCIDENT_TYPE_MARKER_COLORS, darkenForWhiteText } from "./map-colors"
 import { formatDurationSince } from "./duration"
 
 /**
@@ -155,9 +155,27 @@ export const DEFAULT_COLLAPSED_COLUMN_IDS: OperationStatus[] = columns
  * kind of thing and the eye stops finding the column boundaries. It is a label
  * above the cards, not a heading competing with them.
  *
- * Change it here and all three change together — that is the point.
+ * Change it here and all three change together — that is the point. The two
+ * wall boards wear it one size up (`WALL_COLUMN_HEADER_CLASS` below): same caps,
+ * spacing and tier, only bigger.
  */
 export const COLUMN_HEADER_CLASS = "type-label text-muted-foreground"
+
+/**
+ * The same header one step up, for the two WALL boards (`app/display/board/page.tsx`,
+ * `token-board.tsx`) only: read from across the room, 12px caps under 20px card
+ * addresses were the one line a wall could not find (hill climb r7). 14/18 600, still
+ * caps, spaced and muted — the label/heading distinction above holds, it is only
+ * legible from 4 m now. In rem, so the wall's root-font fit scales it with the cards.
+ * The desk board keeps `COLUMN_HEADER_CLASS`.
+ */
+export const WALL_COLUMN_HEADER_CLASS =
+  "text-sm leading-[1.125rem] font-semibold uppercase tracking-wider text-muted-foreground"
+
+/** The neutral ink count chip beside a wall column header (and on the folded strip),
+ *  at the header's 14/18 600. 24px tall, the header line's existing height. */
+export const WALL_COLUMN_COUNT_CLASS =
+  "relative inline-flex h-6 min-w-6 flex-shrink-0 items-center justify-center rounded-sm bg-foreground/10 px-1.5 text-sm leading-[1.125rem] font-semibold tabular-nums text-foreground"
 
 /** How wall text that must not truncate breaks instead (the /display card titles, column
  *  heads, the status list's addresses). Hyphenate at a syllable in the page's
@@ -230,9 +248,10 @@ export function colorAccent(
   }
   // Aufträge use the route's own colour (matches the map polylines) so a route
   // reads the same across the board, list and markers; hashed hue is a fallback.
+  // Either is darkened for the white stop numbers drawn on it (`darkenForWhiteText`).
   if (dimension === "auftrag") {
     const g = groups?.find((gr) => gr.id === key)
-    if (g?.color) return g.color
+    return darkenForWhiteText(g?.color || ACCENT_PALETTE[hashString(key) % ACCENT_PALETTE.length])
   }
   return ACCENT_PALETTE[hashString(key) % ACCENT_PALETTE.length]
 }

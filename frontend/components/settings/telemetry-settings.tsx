@@ -273,7 +273,7 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
       {/* ── Manual report: available to everyone, and the app is not the transport ── */}
       <SettingCard title={t('reportTitle')} subtitle={t('reportIntro')}>
         <div className="space-y-3">
-          {/* A textarea does not fit a 200px control column, so this is a `SettingBlock` —
+          {/* A textarea does not fit the 256px control column, so this is a `SettingBlock` —
               label over full-width field — and the counter takes the block's action slot
               instead of hanging under the field. */}
           <SettingBlock

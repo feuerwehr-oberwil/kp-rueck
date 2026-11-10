@@ -18,7 +18,8 @@ on offer.
 | **Bugs that break an event** | Taken seriously and quickly, because we run this too. |
 | **Other bugs, questions, ideas** | Answered as time allows. Best effort, no SLA, no guaranteed response time. |
 | **Uptime of your deployment** | Yours. This is self-hosted software; nobody is watching your instance. |
-| **Managed hosting** | Not offered. |
+| **Managed hosting** | Not offered as a product. Run it on your own machine or with a hosting provider of your choice. |
+| **Help with installation, setup, updates or operation** | Possible by individual arrangement, and may be charged for. Ask through the contact form on [kp-rueck.ch](https://kp-rueck.ch). General questions stay free. |
 
 Please don't read silence as indifference. A polite reminder on a quiet thread is welcome, not
 a nuisance.
@@ -53,8 +54,9 @@ Redact or describe. We do not need your data to fix your bug.
 
 ## What this project will not do for you
 
-- Configure your station, import your roster, or set up your printer.
-  [`docs/SETUP.md`](docs/SETUP.md) is the guide; the work is yours.
+- Configure your station, import your roster, or set up your printer – not as part of the
+  free, best-effort support. [`docs/SETUP.md`](docs/SETUP.md) is the guide; hands-on help is
+  the arrangement in the table above.
 - Guarantee suitability for your canton's requirements, or any certification. KP Rück is a tool,
   not an approved system, and the operational responsibility stays with your command. The
   [outage SOP](docs/AUSFALL_SOP.md) exists because software fails and paper does not.

@@ -73,7 +73,8 @@ async def check_webhook_secret(db: AsyncSession, request: Request | None, *, lab
     if request is not None:
         provided = request.query_params.get("secret", "") or request.headers.get("X-Webhook-Secret", "")
 
-    if not provided or not _secrets.compare_digest(provided, webhook_secret):
+    # As bytes: compare_digest raises on a str with non-ASCII characters (a 500, not the 403).
+    if not provided or not _secrets.compare_digest(provided.encode(), webhook_secret.encode()):
         logger.warning("%s rejected: invalid or missing secret", label)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
 

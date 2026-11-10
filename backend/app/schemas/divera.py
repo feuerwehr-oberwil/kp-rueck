@@ -80,6 +80,14 @@ class AttachEmergencyRequest(BaseModel):
     merge_into_incident_id: UUID | None = None
 
 
+class DetachEmergencyRequest(BaseModel):
+    """«Rückgängig» of an attach: the card the attach made goes away again and the alarm
+    is back in the Alarmeingang. ``incident_id`` is that card – the undo only runs while
+    the alarm is still linked to it and nobody has worked on it."""
+
+    incident_id: UUID
+
+
 class BulkAttachEmergenciesRequest(BaseModel):
     """Request to attach multiple Divera emergencies to an Event."""
 

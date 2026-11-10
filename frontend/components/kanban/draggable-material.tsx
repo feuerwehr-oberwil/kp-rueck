@@ -52,8 +52,6 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
       onClick={onClick}
       role={canDrag ? "button" : undefined}
       title={material.name}
-      aria-grabbed={isDragging}
-      aria-label={canDrag ? `Drag ${material.name} to assign to incident` : undefined}
       className={cn(
         "group rounded-md px-2 py-1.5 transition-all hover:bg-muted/50",
         canDrag && "draggable",
@@ -63,6 +61,19 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
       )}
     >
       <div className="flex items-center justify-between gap-2">
+        {/* The state mark in the fixed 12px leading gutter the person row uses
+            (draggable-person.tsx): taken = the hollow gebunden ring, free = the
+            green frei dot (the three-state table) – this list is grouped by
+            vehicle, not by frei/gebunden, so the mark is the only place a free
+            device says so (hill climb r20). Every name starts at one edge. The
+            person list draws no frei dot: it is grouped under «FREI · n». */}
+        <span className="-mr-2 flex w-3 shrink-0 items-center">
+          <span
+            aria-label={t(isOccupied ? 'common.inUse' : 'common.available')}
+            title={t(isOccupied ? 'common.inUse' : 'common.available')}
+            className={cn("size-2 rounded-full", RESOURCE_STATE_DOT_CLASSES[isOccupied ? "assigned" : "available"])}
+          />
+        </span>
         <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
           {/* Wraps to its full length on hover — same reasoning as the person
               row. A device that is spoken for gets a quiet name, not a faded
@@ -99,14 +110,6 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
             <MapPin className="h-2.5 w-2.5" />
             {t('material.onSite')}
           </span>
-        )}
-        {/* Taken draws the gebunden ring — the one state mark, same as everywhere. */}
-        {isOccupied && (
-          <span
-            aria-label={t('common.inUse')}
-            title={t('common.inUse')}
-            className={cn("size-1.5 shrink-0 rounded-full", RESOURCE_STATE_DOT_CLASSES.assigned)}
-          />
         )}
       </div>
     </div>

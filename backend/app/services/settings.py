@@ -153,6 +153,10 @@ DEFAULT_SETTINGS = {
     # short so the prompt lands while the vehicle is still rolling to a stop; the
     # speed gate + confirm-modal carry the false-positive protection.
     "gps.speed_gate_kmh": "10",  # Treat as stationary only below this speed
+    # Lagekarte, not automation: from how many minutes on a vehicle pill shows the time of its
+    # last GPS report (frontend lib/map-vehicles.ts; Settings → GPS «Fahrzeuge auf der Lagekarte»).
+    # Also handed to the wall display with the viewer payload (api/viewer.py).
+    "gps.stale_after_minutes": "10",
     # `/feld` Freitext-Meldung: the one-tap chips a crew sends instead of typing
     # (plan 25, decision 20). Station-configurable and deliberately NOT i18n –
     # the same reasoning that already makes the outbound message templates above

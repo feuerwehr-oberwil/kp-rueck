@@ -233,7 +233,10 @@ class WebSocketManager:
                 logger.debug("Traccar poller not available")
                 return
 
-        if not self._traccar_poller.is_configured:
+        from .services.demo_positions import demo_positions_active
+
+        # The public demo has no Traccar but pushes its fixed positions the same way.
+        if not self._traccar_poller.is_configured and not demo_positions_active():
             return
 
         if self.get_connection_count() == 1 and not self._traccar_poller.is_polling:

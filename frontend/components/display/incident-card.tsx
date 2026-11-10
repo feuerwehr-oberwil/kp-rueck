@@ -15,7 +15,8 @@
  * address 1.25rem, age 1rem bold, the whole Meldung in foreground, never
  * clamped. Every size is rem, so the board's live root size (`useWallFit`)
  * scales all of it at once. And stops 2…n of one Auftrag in a column print the
- * crew once («Mannschaft wie Stopp n», `crewShownAtStop`).
+ * crew once («Mannschaft wie Stopp n», `crewShownAtStop`) – on the crew's own
+ * line at chip size, because it answers the same «wer ist dort».
  *
  * What was removed, and why each one is a control rather than information:
  *  * drag source, drop target, context menu, the card's own status controls;
@@ -42,12 +43,13 @@
 import { IncidentNumber } from "@/components/ui/incident-number"
 import { useTranslations } from "next-intl"
 import {
-  AlertTriangle, Axe, Binoculars, Building2, ChevronDown, ChevronUp, FileCheck, FileText, Footprints,
-  Layers, MapPin, Minus, Package, Phone, Search, Siren, Timer, Truck, Users, Waypoints,
+  AlertTriangle, Axe, Binoculars, Building2, FileCheck, FileText, Footprints,
+  Clock, Layers, MapPin, Package, Phone, Search, Siren, Timer, Truck, Users, Waypoints,
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { DriverStayGlyph } from "@/components/ui/driver-stay-glyph"
+import { WallPriorityGlyph } from "@/components/display/wall-priority-glyph"
 import { Card } from "@/components/ui/card"
 import { RemovableChip } from "@/components/ui/removable-chip"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
@@ -61,9 +63,11 @@ import { groupAssignedMaterials } from "@/lib/material-grouping"
 import { rapportApplies } from "@/lib/rapport-visibility"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
-import { PRIORITY_CARD_CLASSES, PRIORITY_ICON_CLASSES, type Priority } from "@/lib/priority"
+import { PRIORITY_CARD_CLASSES, type Priority } from "@/lib/priority"
 import { formatClockTime } from "@/lib/incident-time"
+import { formatDurationHours } from "@/lib/duration"
 import { WALL_TEXT_WRAP } from "@/lib/kanban-utils"
+import { metaFacts } from "@/lib/meta-line"
 import { cn } from "@/lib/utils"
 import { PersonName } from "@/components/person-name"
 
@@ -74,17 +78,49 @@ import { PersonName } from "@/components/person-name"
  *  fit (`useWallFit`) cannot give to the type. */
 const SECTION_RULE = "border-t pt-1.5"
 
+/** The wall's ONE caption size (hill climb r3): Einsatzart, Melder, the Auftrag
+ *  stop line, «vor Ort seit», Nachbarhilfe.
+ *  0.8rem = 11.2px at the fit's 14px floor – the board's `type-micro` floor
+ *  (11px) never undercut, and the same size as the incident number. The
+ *  hierarchy stays address (1.25rem) > chips and states (1rem) > Meldung
+ *  (0.84rem) > captions. Its own leading, so a caption line costs 14.6px at the
+ *  floor rather than whatever the parent's line-height happens to be. */
+const WALL_CAPTION = "text-[0.8rem] leading-[1.3]"
+
+/** A line that answers «wer» or «was ist los» at chip size – «Am Warten»,
+ *  «Mannschaft wie Stopp n»: 1rem on a 1.2857rem line (14/18 at the floor).
+ *  Wraps, never truncates, like all wall text. */
+const WALL_STATE_LINE = cn("min-w-0 text-base leading-[1.2857]", WALL_TEXT_WRAP)
+
+/** The Auftrag's name on a stop card: the state line's 1rem on 1.2857rem
+ *  (14/18 at the floor), 600, foreground – the squad's handle, a step above
+ *  the stop metadata («Stopp 2 von 4 · …») that stays `WALL_CAPTION`. */
+const AUFTRAG_NAME = "text-base leading-[1.2857] font-semibold text-foreground"
+
+/** The Melder's telephone number: 1rem / 500 on a 1.2857rem line (14/18 at the
+ *  floor), normal tracking and tabular figures, so «061 222 22 22» reads as
+ *  digit groups from across the room rather than as a thin, spaced caption. */
+const WALL_PHONE = "text-base leading-[1.2857] font-medium tracking-normal tabular-nums text-foreground"
+
 /** The Einsatzart line and its age, the two facts of the second row. The age
  *  is the one number on the card somebody reads from the door: 1rem bold. */
-const TYPE_LINE = "min-w-0 break-words text-[0.78rem] text-foreground/80"
+const TYPE_LINE = cn("min-w-0 break-words text-foreground/80", WALL_CAPTION)
 const AGE = "text-base font-bold"
 
 /** Every chip on the wall card — crew, vehicles, material, the Reko's dangers.
- *  0.8rem (not the desk's 12px) and no vertical padding: the name is the fact,
- *  the pill around it is not. `min-w-0 max-w-full shrink` + truncate inside, as
- *  on the kanban card: a lone over-long chip shrinks instead of shoving the row
- *  past the card edge. */
-const WALL_CHIP = "min-w-0 max-w-full shrink text-[0.8rem] leading-snug px-1.5 py-0 font-normal flex items-center gap-1"
+ *  1rem / 500 with a ≈16px line (hill climb r2): «wer ist mit welchem Fahrzeug
+ *  draussen» is what somebody walks up to the wall to read, so the names sit
+ *  one step under the address, never at caption size – 14px even at the fit's
+ *  floor. No vertical padding: the name is the fact, the pill around it is not.
+ *  `min-w-0 max-w-full shrink`: a lone over-long chip
+ *  shrinks to the card instead of shoving the row past its edge — and then its
+ *  text WRAPS inside it (`CHIP_TEXT`), never ellipsises: «Müller H…» is not a
+ *  name anybody at 4 m can act on, and a wall has no pointer for a `title`. */
+const WALL_CHIP =
+  "min-w-0 max-w-full shrink whitespace-normal justify-start text-left text-base leading-[1.15] px-1.5 py-0 font-medium flex items-center gap-1"
+
+/** The text inside a wall chip: wraps like all wall text (`WALL_TEXT_WRAP`). */
+const CHIP_TEXT = cn("min-w-0", WALL_TEXT_WRAP)
 
 /** Where this card sits on its Auftrag, 1-based — the route's own order, or the
  *  incident's group position when the route has lost the stop. */
@@ -175,8 +211,12 @@ export function DisplayIncidentCard({
 }: DisplayIncidentCardProps) {
   const t = useTranslations("kanban")
   const tFeld = useTranslations("feld.board")
+  const tBoard = useTranslations("display.board")
 
   const priority = (operation.priority || "low") as Priority
+  // «Am Warten · Grund», or just the label – the desk card's wording, word for word.
+  const amWartenNote = operation.amWartenNote?.trim()
+  const amWartenLabel = amWartenNote ? `${t("common.amWarten")} · ${amWartenNote}` : t("common.amWarten")
 
   const auftragTotal = auftrag ? auftrag.stopIds.length : 0
   const auftragStopPos = auftrag ? auftragStopPosition(auftrag, operation.id, operation.groupPosition) : 0
@@ -189,23 +229,25 @@ export function DisplayIncidentCard({
   // number survives. The wall draws every name uncapped, 4px below this line
   // (see the AUFTRAG block), which makes «3 Pers» a caption for a list the reader
   // is already looking at — and buys back the width the untruncated names need.
+  const auftragStopLine = auftrag ? t("card.auftragStopLine", { pos: auftragStopPos, total: auftragTotal }) : ""
   const auftragSummary = auftragResources
     ? [
         auftragResources.vehicles.map((v) => v.name).join(", "),
         auftragResources.materials.length ? t("card.auftragMatSummary", { count: auftragResources.materials.length }) : "",
       ]
-        .filter(Boolean)
-        .join(" · ")
-    : ""
+    : []
+  // The stop metadata under the Auftrag's name, «Stopp 1 von 4 · Pio · 1 Gerät»:
+  // each fact one unbreakable run, a wrap only before a «·» (lib/meta-line).
+  const auftragMeta = metaFacts([auftragStopLine, ...auftragSummary])
   // The whole row as one string. Kept even though a wall has no pointer: the
   // logged-in /display/board is also opened on a desk, and the attribute used to
   // carry the Auftrag NAME — the one part of the row that was never cut off.
   const auftragTitle = auftrag
     ? [
         auftrag.name,
-        t("card.auftragStopLine", { pos: auftragStopPos, total: auftragTotal }),
+        auftragStopLine,
         auftragCrewFolded ? t("card.auftragCrewAsStop", { pos: crewShownAt }) : "",
-        auftragSummary,
+        ...auftragSummary,
       ]
         .filter(Boolean)
         .join(" · ")
@@ -247,15 +289,9 @@ export function DisplayIncidentCard({
       <div className="space-y-1.5">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-2 min-w-0 flex-1">
-            <div className="flex items-center flex-shrink-0 mt-1">
-              {priority === "high" ? (
-                <ChevronUp className={cn("h-4 w-4", PRIORITY_ICON_CLASSES[priority])} aria-label={t("card.priorityHighAria")} />
-              ) : priority === "medium" ? (
-                <Minus className={cn("h-4 w-4", PRIORITY_ICON_CLASSES[priority])} aria-label={t("card.priorityMediumAria")} />
-              ) : (
-                <ChevronDown className={cn("h-4 w-4", PRIORITY_ICON_CLASSES[priority])} aria-label={t("card.priorityLowAria")} />
-              )}
-            </div>
+            {/* Centred on the address's first line (text-xl, leading 1.15),
+                the same glyph the wall status rows draw. */}
+            <WallPriorityGlyph priority={priority} lineClassName="text-xl h-[1.15em]" />
             <div className="min-w-0 flex-1">
               {/* 1.25rem (VISUAL-07 C): the address is what the room reads
                   first. It hyphenates rather than truncating (WALL_TEXT_WRAP). */}
@@ -290,11 +326,8 @@ export function DisplayIncidentCard({
                 <Axe className="h-4 w-4 text-muted-foreground/80" />
               </div>
             )}
-            {operation.amWarten && (
-              <div className="p-1.5 rounded-md bg-amber-100 dark:bg-amber-900/30" title={t("common.amWarten")}>
-                <Timer className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              </div>
-            )}
+            {/* «Am Warten» is not in this glyph row: it is a labelled line
+                under the head, as on the desk card (see below). */}
             {operation.nachbarhilfe && (
               <div className="p-1.5 rounded-md bg-muted/60" title={t("common.nachbarhilfe")}>
                 <Building2 className="h-4 w-4 text-muted-foreground/80" />
@@ -325,6 +358,18 @@ export function DisplayIncidentCard({
             ) : null}
           </div>
         </div>
+
+        {/* «Am Warten», in words, where the desk card says it: a stuck card is
+            the one the room has to notice, and a 16px amber stopwatch in the
+            corner said so to nobody at 4 m. The shared amber tokens (amber =
+            «schau hin»), the desk card's copy with the reason, 1rem / 600, and
+            it wraps instead of truncating – a wall has no pointer for a title. */}
+        {operation.amWarten && (
+          <div className="flex w-fit max-w-full items-start gap-1.5 rounded-sm border border-warning/60 bg-warning/15 px-1.5 py-px text-warning-foreground">
+            <Timer className="h-4 w-4 flex-shrink-0 mt-0.5" />
+            <span className={cn(WALL_STATE_LINE, "font-semibold")}>{amWartenLabel}</span>
+          </div>
+        )}
 
         {/* Einsatzart and time on one row, each half independently switchable —
             the board's own three branches. `readOnly`: the mode follows the
@@ -367,39 +412,45 @@ export function DisplayIncidentCard({
         )}
 
         {/* Melder — the name and the number, as text: there is nothing to dial
-            from a wall, and a link the room cannot click is a control. */}
+            from a wall, and a link the room cannot click is a control. The
+            number is what somebody copies down from 4 m, so it takes its own
+            line at chip size (`WALL_PHONE`); who answers it stays a caption
+            above it (hill climb r5). */}
         {showMelderBlock && (
-          <div className="flex items-start gap-1.5 text-[0.78rem]">
-            <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-px" />
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
-              {operation.contact && <span className="text-foreground/80 break-words">{operation.contact}</span>}
-              {operation.contactPhone && (
-                <span className="tabular-nums text-foreground/80">{operation.contactPhone}</span>
+          <div className="flex items-start gap-1.5">
+            <Phone
+              className={cn(
+                "h-3.5 w-3.5 text-muted-foreground flex-shrink-0",
+                // Centred on whichever line comes first: the caption, or the number.
+                operation.contact ? "mt-px" : "mt-0.5",
               )}
+            />
+            <div className="flex min-w-0 flex-col">
+              {operation.contact && <span className={cn("text-foreground/80 break-words", WALL_CAPTION)}>{operation.contact}</span>}
+              {operation.contactPhone && <span className={WALL_PHONE}>{operation.contactPhone}</span>}
             </div>
           </div>
         )}
 
         {/* RESSOURCEN — who and what is at this address. */}
         {showResourceBlock && (
-          <div className={cn(SECTION_RULE, "space-y-1 text-xs")}>
+          <div className={cn(SECTION_RULE, "space-y-1", WALL_CAPTION)}>
             {showRekoPerson && operation.assignedReko && (
               <div className="flex items-start gap-1.5">
                 <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                 <div className="flex flex-wrap items-center gap-1 min-w-0">
-                  {/* `min-w-0 max-w-full shrink` + truncate, same as the kanban
-                      card's chips: a lone over-long chip must shrink and
-                      ellipsise, not shove the row past the card edge. And never
-                      an empty pill — a lost name reads as «Unbekannt». Applies
-                      to every chip row below. */}
+                  {/* `WALL_CHIP` + `CHIP_TEXT`: a lone over-long chip shrinks
+                      to the card and wraps, it never shoves the row past the
+                      card edge. And never an empty pill — a lost name reads as
+                      «Unbekannt». Applies to every chip row below. */}
                   <RemovableChip
                     variant="secondary"
                     className={WALL_CHIP}
                   >
-                    <span className="truncate">{operation.assignedReko.name.trim() || t("common.unknownResource")}</span>
+                    <span className={CHIP_TEXT}>{operation.assignedReko.name.trim() || t("common.unknownResource")}</span>
                   </RemovableChip>
                   {operation.rekoArrivedAt && !operation.hasCompletedReko && (
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-muted-foreground">
                       {t("card.onSiteSince", { time: formatClockTime(operation.rekoArrivedAt) })}
                     </span>
                   )}
@@ -424,9 +475,9 @@ export function DisplayIncidentCard({
                         )}
                         title={isConflict ? t("card.doubleBookedTooltip", { name: crewName }) : undefined}
                       >
-                        {isConflict && <AlertTriangle className="h-3 w-3 flex-shrink-0" />}
+                        {isConflict && <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />}
                         <LeaderBadge isLeader={operation.leaderId === personnelId} />
-                        <span className="truncate">
+                        <span className={CHIP_TEXT}>
                           <PersonName name={crewName} personnelId={personnelId} display={crewName.trim() || t("common.unknownResource")} />
                         </span>
                       </RemovableChip>
@@ -441,8 +492,8 @@ export function DisplayIncidentCard({
                 <div className="flex flex-wrap gap-1 min-w-0">
                   {operation.zuFuss && (
                     <RemovableChip variant="secondary" className={WALL_CHIP}>
-                      <Footprints className="h-3 w-3 flex-shrink-0" />
-                      <span className="truncate">{t("common.zuFuss")}</span>
+                      <Footprints className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span className={CHIP_TEXT}>{t("common.zuFuss")}</span>
                     </RemovableChip>
                   )}
                   {operation.vehicles.map(({ vehicleId, name: vehicleName, callsign, driverStay }) => {
@@ -454,16 +505,23 @@ export function DisplayIncidentCard({
                         className={WALL_CHIP}
                         title={callsign ? t("common.funkrufname", { callsign }) : undefined}
                       >
-                        <span className="flex min-w-0 items-center gap-1">
-                          <span className="truncate">
+                        {/* Three facts that each stay whole: vehicle + call
+                            sign, the driver, the stay state. They share a line
+                            while they fit and wrap one under the other when they
+                            don't — the stay chip used to eat the width and leave
+                            «Müller H…» behind. 6px between them (`gap-x-1.5`):
+                            at 4px «Omega 1(Müller Hans)» read as one word. */}
+                        <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 py-px">
+                          <span className={CHIP_TEXT}>
                             {vehicleName}{callsign ? ` · ${callsign}` : ""}
-                            {driverName && <span className="text-muted-foreground"> ({driverName})</span>}
                           </span>
+                          {driverName && <span className={cn(CHIP_TEXT, "text-muted-foreground")}>({driverName})</span>}
                           {/* The state, in full, on a screen that is only ever
                               read — and read from across the room. The click was
                               already gone; the two 12px glyphs that stood for it
-                              have gone too. */}
-                          <DriverStayGlyph stays={driverStay} />
+                              have gone too. At the chip's own size: it wraps
+                              onto its own line rather than shrink. */}
+                          <DriverStayGlyph stays={driverStay} size="wall" />
                         </span>
                       </RemovableChip>
                     )
@@ -485,8 +543,8 @@ export function DisplayIncidentCard({
                             variant="secondary"
                             className={WALL_CHIP}
                           >
-                            <Layers className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
-                            <span className="truncate">{group.name}</span>
+                            <Layers className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                            <span className={CHIP_TEXT}>{group.name}</span>
                           </RemovableChip>
                         ))}
                         {ungrouped.map((materialId) => {
@@ -501,8 +559,8 @@ export function DisplayIncidentCard({
                                 onSite && "bg-warning/15 text-warning-foreground",
                               )}
                             >
-                              {onSite && <MapPin className="h-3 w-3 flex-shrink-0" />}
-                              <span className="truncate">{material?.name || materialId}</span>
+                              {onSite && <MapPin className="h-3.5 w-3.5 flex-shrink-0" />}
+                              <span className={CHIP_TEXT}>{material?.name || materialId}</span>
                             </RemovableChip>
                           )
                         })}
@@ -535,36 +593,46 @@ export function DisplayIncidentCard({
             also why the summary line above deliberately carries one field fewer
             than the kanban card's: no «N Pers» over a list of the same names. */}
         {showAuftragBlock && auftrag && (
-          <div className={cn("text-xs", !showResourceBlock && SECTION_RULE)}>
+          <div className={cn(WALL_CAPTION, !showResourceBlock && SECTION_RULE)}>
             <div className="flex w-full min-w-0 items-start gap-1.5" title={auftragTitle}>
-              <Waypoints className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+              {/* Icon and swatch centred on the NAME's 1.2857rem line. */}
+              <Waypoints className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-[0.2rem]" />
               <span
-                className="h-2 w-2 rounded-full flex-shrink-0 mt-1"
+                className="h-2 w-2 rounded-full flex-shrink-0 mt-[0.39rem]"
                 style={{ backgroundColor: auftrag.color ?? "var(--muted-foreground)" }}
               />
               {/* Two lines, the same shape as the kanban card — and needed here
-                  more, not less. Measured on this board: one line gave the
+                  more, not less. Measured on this board (at text-xs): one line gave the
                   summary 19px of the 264px card at 1280 (39px of 284px at 1920)
                   for 106px of content, so it rendered «P…», and a wall has
                   nobody to hover the tooltip that could give it back. Split, the
                   second line has 193px at 1280 (213px at 1920) for 135.4px of
                   «Stopp 6 von 7 · Pio · 1 Gerät» — 174.9px before the crew count
-                  came out of `auftragSummary` above. Neither width truncates —
-                  and since the stop line also carries «Mannschaft wie Stopp n»
-                  both lines WRAP rather than truncate, as wall text does. */}
+                  came out of `auftragSummary` above. Neither line truncates:
+                  both WRAP, as wall text does – the metadata only before a «·»,
+                  never between a figure and its unit (`auftragMeta`, hill climb r22).
+                  The NAME is the squad's handle and reads at the state line's
+                  14/18 in 600 foreground (hill climb r12) – at caption size and
+                  muted it sank into the stop metadata under it, which stays the
+                  wall caption. */}
               <span className="flex min-w-0 flex-1 flex-col gap-px">
-                <span className={cn("font-medium text-foreground/80", WALL_TEXT_WRAP)}>{auftrag.name}</span>
-                <span className={cn("text-xs text-muted-foreground", WALL_TEXT_WRAP)}>
-                  <span className="tabular-nums">
-                    {t("card.auftragStopLine", { pos: auftragStopPos, total: auftragTotal })}
-                  </span>
-                  {auftragCrewFolded && <> · {t("card.auftragCrewAsStop", { pos: crewShownAt })}</>}
-                  {auftragSummary && <> · {auftragSummary}</>}
-                </span>
+                <span className={cn(AUFTRAG_NAME, WALL_TEXT_WRAP)}>{auftrag.name}</span>
+                <span className={cn("tabular-nums text-muted-foreground", WALL_TEXT_WRAP)}>{auftragMeta}</span>
               </span>
             </div>
             {/* Folded when an earlier card of this column already names the
-                same squad (`crewShownAt`): the stop line says so instead. */}
+                same squad (`crewShownAt`): the crew's line then says «Mannschaft
+                wie Stopp n» – in the chips' place and at their size, not as a
+                caption among the stop metadata, because it answers the same
+                question the chips do. */}
+            {auftragCrewFolded && (
+              <div className="mt-1 flex items-start gap-1.5">
+                <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-[0.2rem]" />
+                <span className={cn(WALL_STATE_LINE, "font-medium text-foreground")}>
+                  {t("card.auftragCrewAsStop", { pos: crewShownAt })}
+                </span>
+              </div>
+            )}
             {auftragCrew.length > 0 && !auftragCrewFolded && (
               <div className="mt-1 flex items-start gap-1.5">
                 <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
@@ -576,7 +644,7 @@ export function DisplayIncidentCard({
                       className={WALL_CHIP}
                     >
                       <LeaderBadge isLeader={Boolean(p.isLeader)} />
-                      <span className="truncate">{p.name.trim() || t("common.unknownResource")}</span>
+                      <span className={CHIP_TEXT}>{p.name.trim() || t("common.unknownResource")}</span>
                     </RemovableChip>
                   ))}
                 </div>
@@ -602,12 +670,29 @@ export function DisplayIncidentCard({
               </div>
             )}
 
+            {/* What the Reko asks for – people and time – at the state line's
+                14/18, 600 ink with a glyph per fact (hill climb r18), like the
+                Melder's number: at the caption's muted 11px it was the one
+                result on the card nobody at 4 m could read. The duration goes
+                through `formatDurationHours` («2h 30'», never «2.5h»), the same
+                formatter as the desk card. */}
             {(operation.rekoSummary.personnelCount || operation.rekoSummary.estimatedDuration) && (
-              <div className="text-xs text-muted-foreground">
+              <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-0.5 font-semibold text-foreground", WALL_STATE_LINE)}>
                 {operation.rekoSummary.personnelCount && (
-                  <span className="mr-3">{t("card.persCount", { count: operation.rekoSummary.personnelCount })}</span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Users aria-hidden className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                    {metaFacts([t("card.persCount", { count: operation.rekoSummary.personnelCount })])}
+                  </span>
                 )}
-                {operation.rekoSummary.estimatedDuration && <span>{operation.rekoSummary.estimatedDuration}h</span>}
+                {operation.rekoSummary.estimatedDuration && (() => {
+                  const duration = metaFacts([formatDurationHours(operation.rekoSummary.estimatedDuration)])
+                  return (
+                    <span className="inline-flex items-center gap-1.5 tabular-nums" title={`${tBoard("estimatedDuration")} ${duration}`}>
+                      <Clock aria-hidden className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                      {duration}
+                    </span>
+                  )
+                })()}
               </div>
             )}
 

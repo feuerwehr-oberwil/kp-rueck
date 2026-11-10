@@ -15,11 +15,11 @@ const buttonVariants = cva(
         default: 'bg-action text-action-foreground hover:bg-action/90',
         // Red outline + red text, never a red fill: the action is dangerous,
         // not urgent, and a filled red button reads as the thing to press.
-        // `dark:text-red-400` because the dark `--destructive` is tuned as a
-        // FILL (deep, low-chroma) and as text on the dark board it falls
-        // under 4.5:1.
+        // The edge is the FILL red (`--destructive`), the text the lighter
+        // text step `text-destructive` resolves to in dark (`--destructive-text`,
+        // globals.css).
         destructive:
-          'border border-destructive/60 bg-transparent text-destructive hover:bg-destructive/10 hover:text-destructive dark:border-destructive/70 dark:text-red-400 dark:hover:bg-destructive/15 dark:hover:text-red-400',
+          'border border-destructive/60 bg-transparent text-destructive hover:bg-destructive/10 hover:text-destructive dark:border-destructive/70 dark:hover:bg-destructive/15',
         outline:
           'border bg-background shadow-xs hover:bg-muted hover:text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50',
         secondary:

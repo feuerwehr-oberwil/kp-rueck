@@ -13,6 +13,8 @@ import {
 } from "@/components/kanban/operation-detail-content"
 import { SIDE_PANEL_BREAKPOINT } from "@/lib/layout-breakpoints"
 import { useUnsavedDraftLeaveGuard } from "@/components/kanban/field-save-status"
+import { SlideRail } from "@/components/ui/slide-rail"
+import { useResizableWidth } from "@/lib/hooks/use-resizable-width"
 
 interface SidePanelProps extends Omit<OperationDetailContentProps, 'operation' | 'layout' | 'active' | 'headerActions'> {
   mode: 'detail' | 'collapsed'
@@ -32,10 +34,21 @@ export function SidePanel({
   ...detailProps
 }: SidePanelProps) {
   const t = useTranslations('kanban')
+  const tPanels = useTranslations('panels')
   const { selectedEvent } = useEvent()
   const [isWideEnough, setIsWideEnough] = useState<boolean | null>(null)
   // Closing the panel over a text the server has not got asks first.
   const leaveGuard = useUnsavedDraftLeaveGuard(selectedOperation?.id)
+  // Dragged by its left edge, remembered on this device. 480 = the width it always had (the
+  // panel only exists from SIDE_PANEL_BREAKPOINT up, where it was w-[480px]); 420 = its old
+  // narrow width, below which the dense rows cut their values.
+  const resize = useResizableWidth({
+    storageKey: 'kp-board-detailWidth',
+    defaultWidth: 480,
+    min: 420,
+    max: 720,
+    side: 'left',
+  })
 
   useEffect(() => {
     const checkWidth = () => setIsWideEnough(window.innerWidth >= SIDE_PANEL_BREAKPOINT)
@@ -50,13 +63,14 @@ export function SidePanel({
 
   if (isWideEnough !== true) return null
 
-  // Collapsed, this component renders NOTHING. The tab that reopens it is drawn
-  // by the board instead, pinned inside the board's own box (see app/page.tsx) —
+  // Collapsed, the rail is 0px wide and draws NOTHING. The control that reopens it
+  // is drawn by the board instead: at the head of the Material-Leiste's search row,
+  // or — with the Leiste folded too — a tab pinned inside the board's own box
+  // (see app/page.tsx, material-sidebar.tsx) —
   // because anything rendered here is a flex item of the outer row, and a flex
   // item reserves its width down the ENTIRE height of the board even when the
   // control itself is 48px tall. That empty 20px column beside the
   // Material-Leiste was exactly what it looked like: a column.
-  if (mode === 'collapsed') return null
 
   const modeControls = (
     <>
@@ -96,7 +110,14 @@ export function SidePanel({
   )
 
   return (
-    <aside className="flex w-[420px] flex-col border-l border-border bg-card/30 backdrop-blur-sm 2xl:w-[480px]">
+    <SlideRail
+      open={mode === 'detail'}
+      dock="right"
+      resize={resize}
+      gripLabel={tPanels('resize.detail')}
+      gripHint={tPanels('resizeHint')}
+    >
+    <aside className="flex w-full flex-col border-l border-border bg-card/30">
       {leaveGuard.dialog}
       {/* No bar of its own. Details/Karte and the close button ride in the
           detail's title row — three stacked control rows (bar, title, tabs) in a
@@ -123,5 +144,6 @@ export function SidePanel({
         )}
       </div>
     </aside>
+    </SlideRail>
   )
 }

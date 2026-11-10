@@ -495,7 +495,7 @@ export default function RekoForm() {
         disabled={isMarkingArrived || !!arrivedAt}
         variant={arrivedAt ? "secondary" : "default"}
         size="lg"
-        className={`w-full ${arrivedAt ? 'bg-muted text-muted-foreground' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+        className={`w-full ${arrivedAt ? 'bg-muted text-muted-foreground' : ''}`}
       >
         {isMarkingArrived ? (
           <>

@@ -1,55 +1,109 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
-import { Truck, ChevronDown, List } from "lucide-react"
-import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
+import { ChevronDown, List } from "lucide-react"
+import { PRIORITY_MARKER_COLORS, incidentPinRings, incidentPinSize } from "@/lib/map-colors"
+import type { StatusGroup } from "@/lib/types/incidents"
+import { useCompactMap } from "@/lib/hooks/use-compact-map"
+import { markerGlyphInk, priorityGlyphPath } from "@/lib/map-priority"
+import type { Priority } from "@/lib/priority"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
+import { ClusterBubble } from "@/components/map/cluster-bubble"
+import { PinCountBadge } from "@/components/map/pin-count-badge"
+import { VehiclePill } from "@/components/map/vehicle-marker"
+import { DEFAULT_STALE_MINUTES } from "@/lib/map-vehicles"
 
-// Status border color (matches map-view.tsx)
-const STATUS_BORDER_COLOR = "#374151" // gray-700
-
-// SVG marker with status border for legend
+// SVG marker for the legend – the map's IncidentPin at rest, same geometry and frame
+// (`incidentPinRings`, phone or desktop by the same `useCompactMap` test the markers use).
+// The frame takes `--muted-foreground` rather than the markers' gray-700: the key sits on the
+// card, where gray-700 all but vanished in dark mode (STATUS_RING in lib/map-colors.ts).
 function LegendMarker({
   fillColor,
-  dasharray,
-  opacity = 1,
+  group,
+  priority,
 }: {
   /** null in the status section: there the frame carries the meaning, and a grey
    *  dot in the middle only invites the question which status "grey" is. */
   fillColor: string | null
-  dasharray: string
-  opacity?: number
+  /** Whose frame to draw; the fill sections draw the solid (active) one. */
+  group: StatusGroup
+  /** The priority section draws the marker's glyph too (chevron / dash, lib/map-priority.ts). */
+  priority?: Priority
 }) {
-  const size = 24
-  const borderRadius = size / 2
-  const innerRadius = borderRadius - 3
-  const strokeWidth = 2.5
-  const borderOffset = strokeWidth / 2
+  const compact = useCompactMap()
+  const size = incidentPinSize(false, compact)
+  const rings = incidentPinRings(size, compact, group)
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ opacity }} className="flex-shrink-0" aria-hidden="true">
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="flex-shrink-0" aria-hidden="true">
       {fillColor && (
         <circle
-          cx={borderRadius}
-          cy={borderRadius}
-          r={innerRadius}
+          cx={rings.r}
+          cy={rings.r}
+          r={rings.fillR}
           fill={fillColor}
           stroke="white"
-          strokeWidth="3"
+          strokeWidth={rings.halo}
+        />
+      )}
+      {fillColor && priority && (
+        <path
+          d={priorityGlyphPath(priority, rings.r, rings.r, size / 24)}
+          fill="none"
+          stroke={markerGlyphInk(fillColor)}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
       )}
       <circle
-        cx={borderRadius}
-        cy={borderRadius}
-        r={borderRadius - borderOffset}
+        cx={rings.r}
+        cy={rings.r}
+        r={rings.ringR}
         fill="none"
-        stroke={STATUS_BORDER_COLOR}
-        strokeWidth={strokeWidth}
-        strokeDasharray={dasharray}
+        className="stroke-muted-foreground"
+        strokeWidth={rings.ringWidth}
+        strokeDasharray={rings.dasharray}
+        strokeLinecap={rings.linecap}
       />
     </svg>
+  )
+}
+
+/**
+ * A status group's member caption («Rückfahrt · Abgeschlossen»), or null when it only repeats
+ * the group's own name («Rückfahrt & Abgeschlossen»): every member already reads in the name, so
+ * the caption adds nothing and only costs a line (hill climb r22). The rule, not a special case –
+ * it follows the catalogue in every language. Used by the legend and the Lagekarte's list rail.
+ */
+export function statusGroupCaption(name: string, members: string): string | null {
+  const said = name.toLocaleLowerCase()
+  const repeats = members.split(" · ").every((member) => said.includes(member.toLocaleLowerCase()))
+  return repeats ? null : members
+}
+
+/**
+ * The board columns a status frame stands for, under its group name – «Disponiert / Anfahrt ·
+ * Im Einsatz». The catalogue keeps them as ONE « · »-joined string; each name is drawn unbroken
+ * (its « ·» glued to it) so the 208px legend wraps only between names, never inside one
+ * («Disponiert / Anfahrt · Im / Einsatz», hill climb r18). Draws nothing when the caption only
+ * repeats the name (`statusGroupCaption`).
+ */
+function StatusMembers({ label, names }: { label: string; names: string }) {
+  const caption = statusGroupCaption(label, names)
+  if (!caption) return null
+  const parts = caption.split(" · ")
+  return (
+    <span className="block text-2xs leading-tight text-muted-foreground">
+      {parts.map((name, i) => (
+        <span key={name}>
+          <span className="whitespace-nowrap">{i < parts.length - 1 ? `${name} ·` : name}</span>
+          {i < parts.length - 1 && " "}
+        </span>
+      ))}
+    </span>
   )
 }
 
@@ -58,6 +112,9 @@ export function MapLegend({
   colorGroups = [],
   showVehicles = true,
   showAssignments = true,
+  staleMinutes = DEFAULT_STALE_MINUTES,
+  folded = false,
+  onUnfold,
 }: {
   colorBy?: ColorByDimension
   colorGroups?: ColorGroup[]
@@ -68,6 +125,13 @@ export function MapLegend({
    *  them from. A legend entry for something that cannot be on screen is not documentation,
    *  it is a promise the map does not keep. */
   showAssignments?: boolean
+  /** The station's threshold from which a pill shows its last-report time (`gps.stale_after_minutes`). */
+  staleMinutes?: number
+  /** Shown as its «Legende» pill whatever its own state – while another panel on the map's right
+   *  edge is open (the «ohne Koordinaten» list). Its own state is kept and returns afterwards. */
+  folded?: boolean
+  /** The pill was pressed while `folded`: the other panel should close. */
+  onUnfold?: () => void
 }) {
   const t = useTranslations('map')
   // For priority the markers use the built-in priority colours (static legend
@@ -79,6 +143,8 @@ export function MapLegend({
   const coloring = colorBy !== "priority"
 
   const isMobile = useIsMobile()
+  // The bubble's frame follows the surface's pin geometry, as the map's does.
+  const compact = useCompactMap()
   const [open, setOpen] = useState<boolean | null>(null)
 
   // A "Färben nach" dimension is unreadable without its key — arbitrary colours
@@ -103,15 +169,20 @@ export function MapLegend({
   // copyright line (sweep 2026-10, VISUAL-08).
   const expanded = open ?? !isMobile
 
+  // `--legend-top` (set by MapView while its top-right chip row holds something): the panel never
+  // reaches that row (10px + a 32px chip + a gap), however tall the key grows – it scrolls instead.
   // `bottom-11 right-2.5`: the legend stands just ABOVE the map's attribution ⓘ (bottom-right,
   // 10px in), never on it. They used to overlap and the ⓘ only won because map controls leaked
   // above everything; now that the map is isolated (MAP_STACKING in base-map.tsx) the legend
   // would bury the OSM attribution.
 
-  if (!expanded) {
+  if (!expanded || folded) {
     return (
       <button
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setOpen(true)
+          if (folded) onUnfold?.()
+        }}
         className="absolute bottom-11 right-2.5 z-map-chrome flex h-8 items-center gap-1.5 rounded-full bg-card/95 px-3 text-xs font-medium text-foreground backdrop-blur-sm border border-border shadow-lg hover:bg-card"
         aria-label={t('legend.show')}
       >
@@ -122,10 +193,12 @@ export function MapLegend({
   }
 
   return (
-    <div className="absolute bottom-11 right-2.5 max-h-[calc(100%-3.5rem)] w-52 overflow-y-auto bg-card/95 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg z-map-chrome">
+    // `data-map-legend-panel`: MapView measures the open panel so a fit keeps markers out from
+    // under it (`chromeFitPadding`).
+    <div data-map-legend-panel className="absolute bottom-11 right-2.5 max-h-[calc(100%-var(--legend-top,3.5rem))] w-52 overflow-y-auto bg-card/95 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg z-map-chrome">
       <button
         onClick={() => setOpen(false)}
-        className="flex items-center justify-between w-full mb-3"
+        className="relative hit-area flex items-center justify-between w-full mb-3"
         aria-label={t('legend.hide')}
       >
         <h3 className="font-bold text-sm">{t('legend.title')}</h3>
@@ -142,7 +215,7 @@ export function MapLegend({
             colorGroups.length > 0 ? (
               colorGroups.map((g) => (
                 <div key={g.key} className="flex items-center gap-2">
-                  <LegendMarker fillColor={g.color} dasharray="none" />
+                  <LegendMarker fillColor={g.color} group="active" />
                   <span className="text-xs">{g.label}</span>
                 </div>
               ))
@@ -152,19 +225,38 @@ export function MapLegend({
           ) : (
             <>
               <div className="flex items-center gap-2">
-                <LegendMarker fillColor={PRIORITY_MARKER_COLORS.high} dasharray="none" />
+                <LegendMarker fillColor={PRIORITY_MARKER_COLORS.high} group="active" priority="high" />
                 <span className="text-xs">{t('common.priorityHigh')}</span>
               </div>
               <div className="flex items-center gap-2">
-                <LegendMarker fillColor={PRIORITY_MARKER_COLORS.medium} dasharray="none" />
+                <LegendMarker fillColor={PRIORITY_MARKER_COLORS.medium} group="active" priority="medium" />
                 <span className="text-xs">{t('common.priorityMedium')}</span>
               </div>
               <div className="flex items-center gap-2">
-                <LegendMarker fillColor={PRIORITY_MARKER_COLORS.low} dasharray="none" />
+                <LegendMarker fillColor={PRIORITY_MARKER_COLORS.low} group="active" priority="low" />
                 <span className="text-xs">{t('common.priorityLow')}</span>
               </div>
             </>
           )}
+          {/* Several Einsätze at ONE address: the most urgent one's pin with their count
+              (lib/map-spots.ts). Drawn as a Hoch, like the bubble below, under any colouring. */}
+          {/* pt-1: room for the badge, which stands 6px above the sample. */}
+          <div className="flex items-center gap-2 pt-1">
+            <span className="relative flex-shrink-0">
+              <LegendMarker fillColor={PRIORITY_MARKER_COLORS.high} group="active" priority="high" />
+              <PinCountBadge count={3} />
+            </span>
+            <span className="text-xs">{t('legend.spot')}</span>
+          </div>
+          {/* The count bubble below zoom 16: the number of Einsätze under it, in the mark of the
+              most urgent one (lib/map-clusters.ts). 38px keeps its count at 11px (the screen
+              floor); the -3px each side keeps the label on the 32px samples' text edge. */}
+          <div className="flex items-center gap-2">
+            <span className="-mx-[3px] flex-shrink-0">
+              <ClusterBubble count={3} priority="high" group="active" size={38} compact={compact} legend />
+            </span>
+            <span className="text-xs">{t('legend.cluster')}</span>
+          </div>
         </div>
       </div>
 
@@ -175,33 +267,30 @@ export function MapLegend({
         </p>
         {/* Each frame style stands for a GROUP of board columns, so the legend
             names them: the group label alone left «Rückfahrt» ambiguous — is a
-            vehicle driving back still running, or finished? */}
+            vehicle driving back still running, or finished? The dash patterns are the
+            markers' own (incidentPinRings); the key draws every frame at full
+            strength – the map dims finished markers, but a dimmed sample was a key nobody
+            could read (hill climb r2). */}
         <div className="space-y-1.5">
           <div className="flex items-start gap-2">
-            <LegendMarker fillColor={null} dasharray="4,3" />
+            <LegendMarker fillColor={null} group="open" />
             <span className="text-xs">
               {t('legend.statusOpen')}
-              <span className="block text-2xs leading-tight text-muted-foreground">
-                {t('statusGroups.openMembers')}
-              </span>
+              <StatusMembers label={t('legend.statusOpen')} names={t('statusGroups.openMembers')} />
             </span>
           </div>
           <div className="flex items-start gap-2">
-            <LegendMarker fillColor={null} dasharray="none" />
+            <LegendMarker fillColor={null} group="active" />
             <span className="text-xs">
               {t('legend.statusActive')}
-              <span className="block text-2xs leading-tight text-muted-foreground">
-                {t('statusGroups.activeMembers')}
-              </span>
+              <StatusMembers label={t('legend.statusActive')} names={t('statusGroups.activeMembers')} />
             </span>
           </div>
           <div className="flex items-start gap-2">
-            <LegendMarker fillColor={null} dasharray="2,2" opacity={0.6} />
+            <LegendMarker fillColor={null} group="completed" />
             <span className="text-xs">
               {t('legend.statusCompleted')}
-              <span className="block text-2xs leading-tight text-muted-foreground">
-                {t('statusGroups.completedMembers')}
-              </span>
+              <StatusMembers label={t('legend.statusCompleted')} names={t('statusGroups.completedMembers')} />
             </span>
           </div>
         </div>
@@ -213,19 +302,18 @@ export function MapLegend({
         <p className="text-xs font-semibold text-muted-foreground tracking-wide">
           {t('legend.vehiclesGps')}
         </p>
+        {/* The map's own pills (components/map/vehicle-marker.tsx), not a symbol for them. The
+            samples sit in a fixed 84px column so the three texts start on one edge. */}
         <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-blue-500 border-2 border-white shadow-sm flex-shrink-0 flex items-center justify-center" role="img" aria-label={t('legend.vehicleOnline')}>
-              <Truck className="w-4 h-4 text-white" aria-hidden="true" />
-            </div>
-            <span className="text-xs">{t('common.online')}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded border-2 border-white shadow-sm flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: MAP_COLORS.offline }} role="img" aria-label={t('legend.vehicleOffline')}>
-              <Truck className="w-4 h-4 text-white" aria-hidden="true" />
-            </div>
-            <span className="text-xs">{t('common.offline')}</span>
-          </div>
+          <LegendPillRow sample={<VehiclePill online label={t('legend.sampleOnline')} />} aria={t('legend.vehicleOnline')}>
+            {t('legend.pillOnline')}
+          </LegendPillRow>
+          <LegendPillRow sample={<VehiclePill online={false} label={t('legend.sampleOffline')} time="18:41" />} aria={t('legend.vehicleOffline')}>
+            {t('legend.pillStale', { minutes: staleMinutes })}
+          </LegendPillRow>
+          <LegendPillRow sample={<VehiclePill online label="3" offlinePart="2" />} aria={t('legend.pillSpot')}>
+            {t('legend.pillSpot')}
+          </LegendPillRow>
         </div>
       </div>
       )}
@@ -246,11 +334,25 @@ export function MapLegend({
                 strokeLinecap="round"
               />
             </svg>
-            <span className="text-xs">{t('legend.vehicleToIncident')}</span>
+            <span className="text-xs">
+              {t('legend.vehicleToIncident')} <span className="text-muted-foreground">{t('legend.onlineOnly')}</span>
+            </span>
           </div>
         </div>
       </div>
       )}
+    </div>
+  )
+}
+
+/** One vehicle sample in the legend: the real pill (scaled to the key's size), then its words. */
+function LegendPillRow({ sample, aria, children }: { sample: ReactNode; aria: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span role="img" aria-label={aria} className="flex h-6 w-[84px] shrink-0 items-center">
+        <span className="pointer-events-none">{sample}</span>
+      </span>
+      <span className="text-xs">{children}</span>
     </div>
   )
 }

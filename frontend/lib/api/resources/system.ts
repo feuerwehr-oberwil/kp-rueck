@@ -6,7 +6,15 @@
  */
 
 import { request as httpRequest } from '../http'
-import type { ApiDeployment, ApiStandby, ApiSetupStatus, ApiSetupClaim, ApiSetupResult, DemoStatus } from '../types'
+import type {
+  ApiDeployment,
+  ApiStandby,
+  ApiStandbyConflicts,
+  ApiSetupStatus,
+  ApiSetupClaim,
+  ApiSetupResult,
+  DemoStatus,
+} from '../types'
 
 export class SystemApi {
   /**
@@ -35,9 +43,30 @@ export class SystemApi {
     }
   }
 
-  /** Take one Ereignis offline on the standby box, for good (editors and admins). */
+  /** «Dieses Ereignis offline übernehmen» on the standby box (editors and admins). */
   async takeOverEvent(eventId: string): Promise<ApiStandby> {
     return httpRequest<ApiStandby>(`/api/standby/events/${encodeURIComponent(eventId)}/takeover`, { method: 'POST' })
+  }
+
+  /** «Hier übernehmen» on the hosted board: take an Ereignis back from the box (editors and admins). */
+  async takeBackEvent(eventId: string): Promise<ApiStandby> {
+    return httpRequest<ApiStandby>(`/api/standby/events/${encodeURIComponent(eventId)}/lead`, { method: 'POST' })
+  }
+
+  async getStandbyConflicts(eventId: string): Promise<ApiStandbyConflicts> {
+    return httpRequest<ApiStandbyConflicts>(`/api/standby/events/${encodeURIComponent(eventId)}/conflicts`)
+  }
+
+  /** Decide a conflict on the system that leads: keep, take the other, or (text) both joined. */
+  async resolveStandbyConflict(
+    conflictId: string,
+    choice: 'kept' | 'other' | 'both',
+    text?: Record<string, string>,
+  ): Promise<void> {
+    await httpRequest(`/api/standby/conflicts/${encodeURIComponent(conflictId)}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ choice, text }),
+    })
   }
 
   // Demo Mode

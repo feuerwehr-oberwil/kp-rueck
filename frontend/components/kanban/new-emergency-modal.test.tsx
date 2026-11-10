@@ -254,7 +254,7 @@ describe('NewEmergencyModal — Handy', () => {
     viewport.mobile = true
     try {
       renderModal()
-      expect(screen.queryByText(/Drag & Drop/)).toBeNull()
+      expect(screen.queryByText(/Drag\s&\sDrop/)).toBeNull()
     } finally {
       viewport.mobile = false
     }

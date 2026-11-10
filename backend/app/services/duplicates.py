@@ -11,8 +11,9 @@ Three pieces, one module:
   Ereignis within `DUPLICATE_RADIUS_M` or at a normalised-equal address. Closed
   (`complete`), deleted and merged cards never match, nor do other Ereignisse.
 - **Flagging** (`flag_possible_duplicate`): the automatic doors (webhook,
-  poller, public /alarm, bulk attach) never merge on their own. They create the
-  card and leave `possible_duplicate_of_id` on it; the card offers the merge.
+  poller, public /alarm, bulk attach, and a pool attach not answered with
+  «Zusammenführen») never merge on their own. They create the card and leave
+  `possible_duplicate_of_id` on it; the card offers the merge.
 - **Merging** (`merge_report` / `unmerge_report`): the second report is folded
   into the first card as a Nachtrag in «Notizen» (append-only, the same rule as
   the /alarm and /feld corrections), an empty Melder/Telefon on the target is

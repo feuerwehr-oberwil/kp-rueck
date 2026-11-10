@@ -5,8 +5,10 @@
  *
  * Leaflet drew these itself (`<Tooltip>`, in a pane of its own); MapLibre has no
  * equivalent, so the bubble is an absolutely positioned child of the marker element.
- * The look is Leaflet's default tooltip 1:1 — white bubble, 6px arrow, 0.9 opacity,
- * pointer-events off — so the ported surfaces read exactly as they did.
+ * Leaflet's geometry (6px arrow, 0.9 opacity, pointer-events off) in the app's own surface:
+ * card / card-foreground / border tokens (dark board, dark bubble), Sora 12 – `font-sans`
+ * beats the Helvetica MapLibre sets on its container – the small-control radius and a
+ * restrained shadow, the same chrome as the Lagekarte's permanent labels (map-view.tsx).
  *
  * It positions from the marker's ANCHOR (its lng/lat), not from the pin's box:
  * `gap` is the distance between that point and the bubble's near edge, which is what
@@ -24,17 +26,14 @@ const BUBBLE: CSSProperties = {
   position: "absolute",
   left: "50%",
   top: "50%",
-  padding: 6,
-  background: "#fff",
-  border: "1px solid #fff",
-  borderRadius: 3,
-  color: "#222",
-  whiteSpace: "nowrap",
-  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.4)",
   opacity: 0.9,
   pointerEvents: "none",
   zIndex: 1,
 }
+
+const BUBBLE_LOOK =
+  "whitespace-nowrap rounded-sm border border-border bg-card p-1.5 font-sans text-xs " +
+  "text-card-foreground shadow-[0_1px_2px_rgb(0_0_0/0.25)]"
 
 const ARROW: CSSProperties = {
   position: "absolute",
@@ -51,9 +50,9 @@ function bubbleTransform(side: MapTooltipSide, gap: number): string {
 
 /** The 6px triangle, on the bubble edge that faces the marker. */
 function arrowStyle(side: MapTooltipSide): CSSProperties {
-  if (side === "top") return { ...ARROW, left: "50%", marginLeft: -6, bottom: -12, borderTopColor: "#fff" }
-  if (side === "left") return { ...ARROW, top: "50%", marginTop: -6, right: -12, borderLeftColor: "#fff" }
-  return { ...ARROW, top: "50%", marginTop: -6, left: -12, borderRightColor: "#fff" }
+  if (side === "top") return { ...ARROW, left: "50%", marginLeft: -6, bottom: -12, borderTopColor: "var(--card)" }
+  if (side === "left") return { ...ARROW, top: "50%", marginTop: -6, right: -12, borderLeftColor: "var(--card)" }
+  return { ...ARROW, top: "50%", marginTop: -6, left: -12, borderRightColor: "var(--card)" }
 }
 
 export function MapTooltip({
@@ -67,7 +66,7 @@ export function MapTooltip({
   children: ReactNode
 }) {
   return (
-    <div style={{ ...BUBBLE, transform: bubbleTransform(side, gap) }}>
+    <div className={BUBBLE_LOOK} style={{ ...BUBBLE, transform: bubbleTransform(side, gap) }}>
       {children}
       <span style={arrowStyle(side)} />
     </div>

@@ -292,6 +292,9 @@ class Settings(BaseSettings):
 
     # Photo Storage
     photos_dir: str = "data/photos"  # Directory for photo uploads (use /mnt/data/photos on Railway)
+    # The standby box's key to `POST /api/standby/sync` on the hosted board (docs/STANDBY.md): the
+    # same value on both. Empty: the hosted board accepts no standby writes at all.
+    standby_sync_token: str = ""
     max_photo_size_mb: int = 10  # Maximum file size in megabytes
     max_photos_per_report: int = 20  # Maximum photos per Reko report
     allowed_photo_extensions: list[str] = [".jpg", ".jpeg", ".png", ".webp"]
@@ -353,6 +356,27 @@ class Settings(BaseSettings):
                 f"{len(secret)}). Generate one with: openssl rand -hex 32"
             )
 
+        return self
+
+    @model_validator(mode="after")
+    def warn_about_short_tokens(self) -> "Settings":
+        """Say so at boot when a machine credential is short enough to guess.
+
+        A warning, not a refusal: these were accepted at any length before, and a station
+        must not fail to start after an update because of a token it chose a year ago.
+        """
+        for name, value in (
+            ("MASTER_TOKEN", self.master_token),
+            ("STANDBY_SYNC_TOKEN", self.standby_sync_token),
+            ("PRINT_AGENT_TOKEN", self.print_agent_token),
+            ("ALARM_WEBHOOK_SECRET", self.alarm_webhook_secret),
+        ):
+            if value and len(value.strip()) < 32:
+                logger.warning(
+                    "%s is only %d characters long. Replace it with a long random value: openssl rand -hex 32",
+                    name,
+                    len(value.strip()),
+                )
         return self
 
     # Microsoft Entra ID (optional - if set, enables "Login with Microsoft")

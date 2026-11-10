@@ -3,9 +3,11 @@
 import { useState, useEffect, useRef } from "react"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import Link from "next/link"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
+import { formatDurationHours } from "@/lib/duration"
 import { Button } from "@/components/ui/button"
+import { IncidentNumber } from "@/components/ui/incident-number"
 import { ShellLoader } from "@/components/ui/shell-loader"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
@@ -26,20 +28,21 @@ import {
   MessageCircle,
   Map as MapIcon,
   Phone,
-  ChevronUp,
-  ChevronDown,
-  Minus,
   Pencil,
   Footprints,
 } from "lucide-react"
 import { useOperations, type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { RemovableChip } from "@/components/ui/removable-chip"
+import { MelderLink } from "@/components/ui/melder-link"
 import { DriverStayGlyph } from "@/components/ui/driver-stay-glyph"
 import { LeaderBadge } from "@/components/kanban/leader-badge"
+import { DetailGroupHeading } from "@/components/kanban/detail-field"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
-import { type Priority, PRIORITY_DOT_CLASSES, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
+import { PriorityGlyph } from "@/components/ui/priority-glyph"
+import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
 import { incidentTypeLabels } from "@/lib/incident-types"
+import { AddressText } from "@/components/kanban/address-text"
 import { useTranslations } from "next-intl"
 import { cn, copyToClipboardAsync } from "@/lib/utils"
 import { sortCrewByLeader } from "@/lib/crew-order"
@@ -234,7 +237,6 @@ export function MobileIncidentDetailSheet({
   if (!operation) return null
 
   const priority = operation.priority || "low"
-  const priorityConfig = { dot: PRIORITY_DOT_CLASSES[priority as Priority], chevron: PRIORITY_TEXT_CLASSES[priority as Priority] }
   const canEdit = isEditor && !!onUpdateOperation
   // A text the server has not got stays an open field, red-edged, so the
   // operator sees exactly what is missing and can retry or copy it.
@@ -253,34 +255,38 @@ export function MobileIncidentDetailSheet({
         // No description line: it used to print the Einsatz-ID (two lines of UUID) under the
         // title — a database key nobody on a phone reads, says or types.
         aria-describedby={undefined}
-        // Covers the nav, so the foot pays only the safe area (`pb-sheet-safe`).
-        className="modal-h-tall overflow-y-auto px-4 pb-sheet-safe"
+        // The frame every phone sheet has (new-emergency-modal.tsx): header, a body that
+        // scrolls, a foot that stays. It covers the nav, so the foot pays only the safe
+        // area (`pb-sheet-safe`). One sheet-long scroller used to leave «Auf Karte
+        // anzeigen» wherever the content ended – on a busy Einsatz on the screen's bottom
+        // edge (hill climb r7).
+        // The ✕ (44px on a phone) centred on the title's 28px first line, 16 + 14 = 30px down –
+        // at the sheet's `top-4` it hung 9px below the title (hill climb r22), the same fix as
+        // the «Neuer Einsatz» sheet's.
+        className="modal-h-tall gap-0 [&>[data-slot=sheet-close]]:top-[30px] [&>[data-slot=sheet-close]]:-translate-y-1/2"
       >
-        <SheetHeader className="pb-4 border-b mb-4">
-          <div className="flex items-start gap-3">
-            {/* Priority indicator */}
-            <div className="flex items-center gap-0.5 flex-shrink-0 mt-1">
-              <div
-                className={cn("w-3 h-3 rounded-full", priorityConfig?.dot)}
-                aria-hidden="true"
-              />
-              {priority === "high" ? (
-                <ChevronUp className={cn("h-5 w-5", priorityConfig?.chevron)} />
-              ) : priority === "medium" ? (
-                <Minus className={cn("h-5 w-5", priorityConfig?.chevron)} />
-              ) : (
-                <ChevronDown className={cn("h-5 w-5", priorityConfig?.chevron)} />
-              )}
-            </div>
+        <SheetHeader className="border-b px-4 pb-4">
+          <div className="flex items-start gap-2">
+            {/* Priority: the shared mark alone, as on the desk card and the desk
+                detail – a dot in front of it said the same thing twice (hill climb
+                r5). The wall's drawing in an 18px box = a 16px mark (r20), centred
+                on the title's 28px first line. */}
+            <PriorityGlyph priority={priority} size="wall" className="mt-[5px] size-[18px]" />
             <div className="flex-1 min-w-0">
               <SheetTitle className="text-xl text-left">
-                {formatLocation(operation.location) || typeLabel(operation.incidentType)}
+                {/* The number before the address, as on the phone card and the desk detail. */}
+                <IncidentNumber number={operation.number} className="mr-2 text-xs" />
+                {formatLocation(operation.location)
+                  ? <AddressText text={formatLocation(operation.location)} />
+                  : typeLabel(operation.incidentType)}
               </SheetTitle>
             </div>
           </div>
         </SheetHeader>
 
-        <div className="space-y-5">
+        {/* 16px everywhere: header rule → status, section → section, group → group.
+            No bottom padding: the body ends in the shared end fade (below). */}
+        <SheetBody className="space-y-4 px-4 pt-4">
           {/* Abholung (decision 24) — the `banner` variant, the same shape the
               desktop detail uses, because this sheet is the phone's detail
               surface. Read-only (`canEdit={false}`): the phone is for looking,
@@ -317,15 +323,16 @@ export function MobileIncidentDetailSheet({
                 {t(`status.${operation.status}`)}
               </Badge>
             )}
-            {/* `border-input`, the Select's own frame: a label beside the one
-                control must not be boxed louder than it. */}
-            <Badge variant="outline" className="border-input text-sm">
+            {/* The Einsatzart is a fact beside the one control, so it is plain
+                muted text (14/20 500), as on the phone card: boxed, it read as a
+                second select (hill climb r18). The age stands at the row's end. */}
+            <span className="min-w-0 text-sm font-medium text-muted-foreground">
               {typeLabel(operation.incidentType)}
-            </Badge>
+            </span>
             <IncidentTimeRow
-          readOnly
+              readOnly
               operation={operation}
-              className="gap-1.5 text-sm text-muted-foreground"
+              className="ml-auto gap-1.5 text-sm text-muted-foreground"
               chipClassName="text-sm"
             />
             {operation.hasCompletedReko && (
@@ -392,7 +399,7 @@ export function MobileIncidentDetailSheet({
                     <span className="mr-3">{t('mobileDetail.personnelCount', { count: operation.rekoSummary.personnelCount })}</span>
                   )}
                   {operation.rekoSummary.estimatedDuration && (
-                    <span>{t('mobileDetail.estimatedDuration', { duration: String(operation.rekoSummary.estimatedDuration) })}</span>
+                    <span>{t('mobileDetail.estimatedDuration', { duration: formatDurationHours(operation.rekoSummary.estimatedDuration) })}</span>
                   )}
                 </div>
               )}
@@ -401,14 +408,14 @@ export function MobileIncidentDetailSheet({
 
           <Separator />
 
-          {/* Assigned Resources */}
+          {/* Assigned Resources. Each section opens with the desk detail's caps
+              label (`DetailGroupHeading`: type-label, 14px muted glyph, 8px to the
+              chips) – «FAHRZEUGE · 1» like «KRÄFTE · 4»; the title-case 14/500
+              heads read as one more item (hill climb r19). 16px between sections. */}
           <div className="space-y-4">
             {/* Vehicles */}
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Truck className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">{t('mobileDetail.vehicles', { count: operation.vehicles.length })}</span>
-              </div>
+              <DetailGroupHeading icon={<Truck className="h-3.5 w-3.5 shrink-0" />}>{t('mobileDetail.vehicles', { count: operation.vehicles.length })}</DetailGroupHeading>
               {/* «Zu Fuss» is a deliberate state, not an absence: a crew that
                   walked to the address has to read as such here, exactly as it
                   does on the board and on the wall. Without it the sheet said
@@ -426,24 +433,36 @@ export function MobileIncidentDetailSheet({
                   {operation.vehicles.map(({ vehicleId, name: vehicleName, callsign, driverStay }) => {
                     const driverName = vehicleDrivers.get(vehicleId)
                     return (
-                      <RemovableChip
-                        key={vehicleId}
-                        variant="secondary"
-                        className="text-sm max-w-full font-normal"
-                        title={callsign ? tKanban('common.funkrufname', { callsign }) : undefined}
-                      >
-                        <span>
-                          {vehicleName}{callsign ? ` · ${callsign}` : ''}
-                          {driverName && (
-                            <span className="text-muted-foreground"> ({driverName})</span>
-                          )}
-                        </span>
+                      <div key={vehicleId} className="flex max-w-full flex-col items-start gap-1.5">
+                        <RemovableChip
+                          variant="secondary"
+                          className="text-sm max-w-full font-normal"
+                          title={callsign ? tKanban('common.funkrufname', { callsign }) : undefined}
+                        >
+                          <span>
+                            {vehicleName}{callsign ? ` · ${callsign}` : ''}
+                            {driverName && (
+                              <span className="text-muted-foreground"> ({driverName})</span>
+                            )}
+                          </span>
+                        </RemovableChip>
                         {/* Whether the driver stays with the vehicle — the same
                             state the board and the wall carry per chip. The
                             phone shows the state only; the toggle is a control
-                            and stays on the board. */}
-                        <DriverStayGlyph stays={driverStay} />
-                      </RemovableChip>
+                            and stays on the board. Its own caption line under
+                            the chip, as on /feld: squeezed in beside vehicle +
+                            driver it read as part of the name (hill climb r12).
+                            6px under the chip and 22px tall (12/16 + 3px), so it
+                            reads as its own line and not as the chip's shadow (r18).
+                            On the vehicle chip's own surface (`bg-secondary`), not the
+                            glyph's darker ink tint: two greys stacked read as two
+                            kinds of thing (r22). */}
+                        <DriverStayGlyph
+                          stays={driverStay}
+                          size="caption"
+                          className="bg-secondary px-1.5 py-[3px] text-secondary-foreground"
+                        />
+                      </div>
                     )
                   })}
                 </div>
@@ -454,10 +473,7 @@ export function MobileIncidentDetailSheet({
 
             {/* Crew */}
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">{t('mobileDetail.crew', { count: operation.crew.length })}</span>
-              </div>
+              <DetailGroupHeading icon={<Users className="h-3.5 w-3.5 shrink-0" />}>{t('mobileDetail.crew', { count: operation.crew.length })}</DetailGroupHeading>
               {operation.crew.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {/* EL first (decision 23): the phone is a viewing surface, and
@@ -478,10 +494,7 @@ export function MobileIncidentDetailSheet({
 
             {/* Materials */}
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Package className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">{t('mobileDetail.materials', { count: operation.materials.length })}</span>
-              </div>
+              <DetailGroupHeading icon={<Package className="h-3.5 w-3.5 shrink-0" />}>{t('mobileDetail.materials', { count: operation.materials.length })}</DetailGroupHeading>
               {operation.materials.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {operation.materials.map((matId) => (
@@ -498,44 +511,51 @@ export function MobileIncidentDetailSheet({
 
           <Separator />
 
-          {/* Contact */}
+          {/* Contact. The number goes under the name as /feld draws it
+              (`MelderLink`: one tel: link, the number whole on its own line).
+              A viewer gets exactly that; an editor keeps the name as the tap
+              target that edits it, so only the number line is the link. */}
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Phone className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">{t('mobileDetail.contact')}</span>
-            </div>
-            {showContactEditor ? (
-              <Input
-                ref={contactRef}
-                value={editingContact ? contactValue : contactSave.value}
-                onFocus={beginContact}
-                onChange={(e) => setContactValue(e.target.value)}
-                onBlur={handleContactSave}
-                onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
-                placeholder={t('mobileDetail.contactPlaceholder')}
-                aria-invalid={contactSave.failed || undefined}
-                className={cn("text-sm", fieldSaveEdgeClass(contactSave))}
-              />
+            <DetailGroupHeading icon={<Phone className="h-3.5 w-3.5 shrink-0" />}>{t('mobileDetail.contact')}</DetailGroupHeading>
+            {!canEdit && operation.contactPhone ? (
+              <MelderLink contact={contactSave.value} phone={operation.contactPhone} className="text-sm" />
             ) : (
-              <div
-                onClick={startEditingContact}
-                className={cn(
-                  canEdit && "cursor-pointer hover:bg-muted/50 rounded-md px-2 py-1 -mx-2 transition-colors"
-                )}
-              >
-                {contactSave.value ? (
-                  <p className="text-sm text-foreground">{contactSave.value}</p>
-                ) : canEdit ? (
-                  <p className="text-sm text-muted-foreground flex items-center gap-2">
-                    <Pencil className="h-3.5 w-3.5" />
-                    {t('mobileDetail.contactPlaceholder')}
-                  </p>
+              <>
+                {showContactEditor ? (
+                  <Input
+                    ref={contactRef}
+                    value={editingContact ? contactValue : contactSave.value}
+                    onFocus={beginContact}
+                    onChange={(e) => setContactValue(e.target.value)}
+                    onBlur={handleContactSave}
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                    placeholder={t('mobileDetail.contactPlaceholder')}
+                    aria-invalid={contactSave.failed || undefined}
+                    className={cn("text-sm", fieldSaveEdgeClass(contactSave))}
+                  />
                 ) : (
-                  <p className="text-sm text-muted-foreground">{t('mobileDetail.noContact')}</p>
+                  <div
+                    onClick={startEditingContact}
+                    className={cn(
+                      canEdit && "cursor-pointer hover:bg-muted/50 rounded-md px-2 py-1 -mx-2 transition-colors"
+                    )}
+                  >
+                    {contactSave.value ? (
+                      <p className="text-sm text-foreground">{contactSave.value}</p>
+                    ) : canEdit ? (
+                      <p className="text-sm text-muted-foreground flex items-center gap-2">
+                        <Pencil className="h-3.5 w-3.5" />
+                        {t('mobileDetail.contactPlaceholder')}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">{t('mobileDetail.noContact')}</p>
+                    )}
+                  </div>
                 )}
-              </div>
+                <FieldSaveStatus view={contactSave} onRetry={retryContact} className="mt-1.5" />
+                {operation.contactPhone && <MelderLink phone={operation.contactPhone} className="text-sm" />}
+              </>
             )}
-            <FieldSaveStatus view={contactSave} onRetry={retryContact} className="mt-1.5" />
           </div>
 
           {/* Reko Report Section */}
@@ -546,27 +566,35 @@ export function MobileIncidentDetailSheet({
             </>
           )}
 
-          {/* Action buttons */}
-          <div className="flex flex-col gap-2 pt-2">
-            <Link href={`/map?highlight=${operation.id}`} onClick={() => onOpenChange(false)}>
-              <Button variant="outline" size="lg" className="w-full gap-2">
-                <MapIcon className="h-4 w-4" />
-                {t('mobileDetail.showOnMap')}
-              </Button>
-            </Link>
+          {/* The WhatsApp copy closes the content: an export of what is above it.
+              The way to the map is the sheet's foot (below). */}
+          <Button
+            variant="outline"
+            onClick={handleCopyWhatsApp}
+            disabled={isCopyingWhatsApp}
+            size="lg"
+            className="w-full gap-2"
+          >
+            {isCopyingWhatsApp ? <ShellLoader className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />}
+            {isCopyingWhatsApp ? t('mobileDetail.copying') : t('mobileDetail.copyWhatsApp')}
+          </Button>
+          {/* While more waits below, the last 24px fade into the sheet above the foot's
+              rule, so a section is never cut flat against it (hill climb r20). `-mt-4`
+              takes back the `space-y-4` step: at the end the fade lies over the 24px
+              after the last section, which is the body's end padding. */}
+          <ScrollEndFade surface="dialog" className="-mt-4" />
+        </SheetBody>
 
-            <Button
-              variant="outline"
-              onClick={handleCopyWhatsApp}
-              disabled={isCopyingWhatsApp}
-              size="lg"
-              className="w-full gap-2"
-            >
-              {isCopyingWhatsApp ? <ShellLoader className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />}
-              {isCopyingWhatsApp ? t('mobileDetail.copying') : t('mobileDetail.copyWhatsApp')}
+        {/* The one way on from here, in the foot that stays: never on the screen's edge,
+            never scrolled away. The same foot frame as «Neuer Einsatz». */}
+        <SheetFooter className="mt-0 border-t px-4 pt-3 pb-sheet-safe">
+          <Link href={`/map?highlight=${operation.id}`} onClick={() => onOpenChange(false)}>
+            <Button variant="outline" size="lg" className="w-full gap-2">
+              <MapIcon className="h-4 w-4" />
+              {t('mobileDetail.showOnMap')}
             </Button>
-          </div>
-        </div>
+          </Link>
+        </SheetFooter>
       </SheetContent>
     </Sheet>
     </>
