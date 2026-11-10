@@ -682,6 +682,7 @@ export default function FireStationDashboard() {
     handleColumnSort,
     moveOperationRight,
     moveOperationLeft,
+    moveInColumn,
     toggleVehicleAssignment,
     setOperationPriority,
     toggleZuFuss,
@@ -1557,6 +1558,7 @@ export default function FireStationDashboard() {
                       onToggleZuFuss={handleToggleZuFuss}
                       onRequestComplete={isEditor ? requestCompletion : undefined}
                       onRequestDelete={isEditor ? handleRequestDelete : undefined}
+                      onMoveInColumn={isEditor ? moveInColumn : undefined}
                       onTransfer={isEditor ? dialogs.openTransfer : undefined}
                       onDistributeToAuftrag={isEditor ? dialogs.openAuftragPicker : undefined}
                       cardView={cardView}

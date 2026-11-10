@@ -273,8 +273,19 @@ describe("RouteStopList — resource drop contract", () => {
   })
 })
 
-describe("StopStatusControl — terminal completion", () => {
-  it("does not cycle a completed stop back to incoming", async () => {
+describe("StopStatusControl — a menu, not a switch", () => {
+  it("says the status in full and changes it only through the menu", async () => {
+    const onSetStatus = vi.fn()
+    renderList({ stopIds: ["A"], onSetStopStatus: (_id, status) => onSetStatus(status) })
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("button", { name: "Status: Eingegangen – ändern" }))
+    // Opening it changed nothing – the old pill advanced the stop on this click.
+    expect(onSetStatus).not.toHaveBeenCalled()
+    await user.click(screen.getByRole("menuitem", { name: "Im Einsatz" }))
+    expect(onSetStatus).toHaveBeenCalledWith("active")
+  })
+
+  it("does not reopen a completed stop", async () => {
     const onSetStatus = vi.fn()
     renderList({
       stopIds: ["A"],
@@ -282,8 +293,28 @@ describe("StopStatusControl — terminal completion", () => {
       operationsById: new Map([["A", { ...makeOp("A"), status: "complete" }]]),
       onSetStopStatus: (_id, status) => onSetStatus(status),
     })
-    await userEvent.setup().click(screen.getByRole("button", { name: "Abgeschlossen" }))
+    const pill = screen.getByRole("button", { name: "Abgeschlossen" })
+    expect(pill).toBeDisabled()
+    await userEvent.setup().click(pill)
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument()
     expect(onSetStatus).not.toHaveBeenCalled()
+  })
+})
+
+describe("RouteStopList — reorder without dragging", () => {
+  it("«Nach oben» in a stop's ⋮ menu sends the same reorder a drop would", async () => {
+    const { onReorder } = renderList({ stopIds: ["A", "B", "C"] })
+    const user = userEvent.setup()
+    await user.click(screen.getAllByRole("button", { name: /^Reihenfolge und Aktionen für/ })[1])
+    await user.click(screen.getByRole("menuitem", { name: "Nach oben" }))
+    expect(onReorder).toHaveBeenCalledWith(["B", "A", "C"])
+  })
+
+  it("offers no move while reordering is off", async () => {
+    renderList({ stopIds: ["A", "B"], reorderDisabled: true, onRemoveStop: vi.fn() })
+    await userEvent.setup().click(screen.getAllByRole("button", { name: /^Reihenfolge und Aktionen für/ })[0])
+    expect(screen.queryByRole("menuitem", { name: "Nach unten" })).not.toBeInTheDocument()
+    expect(screen.getByRole("menuitem", { name: "Stopp entfernen" })).toBeInTheDocument()
   })
 })
 
