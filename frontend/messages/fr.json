@@ -433,7 +433,14 @@
       "realAlarmWarningTitle": "{count, plural, one {Cette alarme est réelle, l'événement est un exercice} other {Ces alarmes sont réelles, l'événement est un exercice}}",
       "realAlarmWarningAlerting": "L'alarme sortante est seulement simulée – <hint>personne n'est mobilisé.</hint>",
       "realAlarmWarningThresholds": "Les seuils de retard sont 50 % plus longs – <hint>les avertissements arrivent plus tard qu'en cas réel.</hint>",
-      "attachAnyway": "Rattacher quand même à l'exercice"
+      "attachAnyway": "Rattacher quand même à l'exercice",
+      "attachedTo": "Alarme rattachée à « {event} »",
+      "attachedToNumber": "Intervention {number}",
+      "attachOther": "Autre événement …",
+      "attachOtherAria": "Rattacher « {title} » à un autre événement",
+      "detached": "L’alarme est de retour dans les alarmes entrantes",
+      "detachRefused": "Non annulé",
+      "detachRefusedFallback": "L’alarme reste rattachée."
     },
     "inbox": {
       "title": "Alarmes entrantes",

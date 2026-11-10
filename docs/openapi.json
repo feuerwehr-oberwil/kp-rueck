@@ -2394,6 +2394,85 @@
         }
       }
     },
+    "/api/divera/emergencies/{emergency_id}/detach": {
+      "post": {
+        "tags": [
+          "divera"
+        ],
+        "summary": "Detach Emergency From Event",
+        "description": "«Rückgängig» of an attach: the alarm goes back into the Alarmeingang.\n\nAn undo is a new write that must still be valid now (CLAUDE.md «Undo never restores a\nsnapshot blindly»): it runs only while the alarm is still linked to the card that attach\nmade, and that card is as the attach left it – in «Eingegangen», on no Auftrag, with\nnothing assigned. Otherwise 409 and nothing changes: somebody has started working on it.\nThe card is soft-deleted like any deleted card.\n\nEditor role required.",
+        "operationId": "detach_emergency_from_event_api_divera_emergencies__emergency_id__detach_post",
+        "parameters": [
+          {
+            "name": "emergency_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Emergency Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DetachEmergencyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/divera/emergencies/bulk-attach": {
       "post": {
         "tags": [
@@ -22182,6 +22261,21 @@
         ],
         "title": "DeploymentRole",
         "description": "What this instance is allowed to do to the outside world (see app/environment.py)."
+      },
+      "DetachEmergencyRequest": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id"
+        ],
+        "title": "DetachEmergencyRequest",
+        "description": "«Rückgängig» of an attach: the card the attach made goes away again and the alarm\nis back in the Alarmeingang. ``incident_id`` is that card – the undo only runs while\nthe alarm is still linked to it and nobody has worked on it."
       },
       "DiveraAlarmRecipient": {
         "properties": {

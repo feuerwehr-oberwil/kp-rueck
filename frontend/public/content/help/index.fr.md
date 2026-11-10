@@ -308,7 +308,12 @@ comme carte dans « Reçu ».
   une recherche, « Plus anciennes » est déplié. Tant que les Alarmes entrantes sont ouvertes,
   une nouvelle alarme s’annonce par un message et un son.
 
-**Rattacher** demande à quel événement – celui que montre cette fenêtre est présélectionné. Les
+**Rattacher** sur une ligne rattache l’alarme sans question à l’événement que montre cette
+fenêtre ; le message nomme l’événement et le numéro d’intervention et propose **Annuler** –
+l’alarme revient alors dans les alarmes entrantes, tant que personne n’a travaillé sur la nouvelle
+carte. La question reste posée là où il y a quelque chose à décider : doublon possible, alarme
+réelle vers un exercice, **Tout rattacher** et **Autre événement …** – l’événement de cette fenêtre
+y est présélectionné. Les
 alarmes d’exercice ne vont qu’à un exercice. Une alarme réelle peut aller à un exercice, mais
 seulement après l’avertissement de ce que cela implique : l’alarme sortante est seulement
 simulée, et les seuils de retard sont 50 % plus longs. Pour **une seule** alarme, la fenêtre

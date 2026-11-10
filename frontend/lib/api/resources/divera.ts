@@ -78,6 +78,17 @@ export class DiveraApi {
     })
   }
 
+  /** «Rückgängig» of an attach: the alarm goes back into the pool and the card it made
+   *  goes away – refused (409) once that card was worked on. */
+  async detachEmergency(emergencyId: string, incidentId: string): Promise<void> {
+    return httpRequest<void>(`/api/divera/emergencies/${emergencyId}/detach`, {
+      method: 'POST',
+      body: JSON.stringify({ incident_id: incidentId }),
+      // The refusal is said by the caller, in its own toast.
+      skipToast: true,
+    })
+  }
+
   async bulkAttachEmergencies(
     emergencyIds: string[],
     eventId: string,

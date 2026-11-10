@@ -1055,3 +1055,79 @@ async def test_personnel_sync_remove_stale_allows_admin(admin_client: AsyncClien
     response = await admin_client.post("/api/divera/personnel-sync/execute", json={"remove_stale": True})
     # past the role gate, stopped by the missing key
     assert response.status_code == 400
+
+
+# ============================================
+# Detach – «Rückgängig» of an attach
+# ============================================
+
+
+async def _attach(editor_client: AsyncClient, emergency: DiveraEmergency, event: Event) -> str:
+    with patch("app.api.divera.broadcast_incident_update", new_callable=AsyncMock):
+        response = await editor_client.post(
+            f"/api/divera/emergencies/{emergency.id}/attach", json={"event_id": str(event.id)}
+        )
+    assert response.status_code == 201
+    return response.json()["id"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_detach_puts_the_alarm_back_and_removes_its_card(
+    editor_client: AsyncClient, test_emergency: DiveraEmergency, test_event: Event
+):
+    incident_id = await _attach(editor_client, test_emergency, test_event)
+
+    with patch("app.api.divera.broadcast_incident_update", new_callable=AsyncMock):
+        response = await editor_client.post(
+            f"/api/divera/emergencies/{test_emergency.id}/detach", json={"incident_id": incident_id}
+        )
+    assert response.status_code == 204
+
+    pool = (await editor_client.get("/api/divera/emergencies?attached=false")).json()
+    assert str(test_emergency.id) in [e["id"] for e in pool["emergencies"]]
+    board = (await editor_client.get(f"/api/incidents/?event_id={test_event.id}")).json()
+    assert incident_id not in [i["id"] for i in board]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_detach_is_refused_once_the_card_was_worked_on(
+    editor_client: AsyncClient, test_emergency: DiveraEmergency, test_event: Event
+):
+    """An undo must still be valid now: a card that has moved on keeps its alarm."""
+    incident_id = await _attach(editor_client, test_emergency, test_event)
+    with patch("app.api.incidents.broadcast_incident_update", new_callable=AsyncMock):
+        moved = await editor_client.patch(f"/api/incidents/{incident_id}", json={"status": "reko"})
+    assert moved.status_code == 200
+
+    response = await editor_client.post(
+        f"/api/divera/emergencies/{test_emergency.id}/detach", json={"incident_id": incident_id}
+    )
+    assert response.status_code == 409
+    pool = (await editor_client.get("/api/divera/emergencies?attached=false")).json()
+    assert str(test_emergency.id) not in [e["id"] for e in pool["emergencies"]]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_detach_names_the_card_it_undoes(
+    editor_client: AsyncClient, test_emergency: DiveraEmergency, test_event: Event
+):
+    """A stale undo (the alarm is linked to another card by now) changes nothing."""
+    await _attach(editor_client, test_emergency, test_event)
+    response = await editor_client.post(
+        f"/api/divera/emergencies/{test_emergency.id}/detach",
+        json={"incident_id": "00000000-0000-0000-0000-000000000001"},
+    )
+    assert response.status_code == 409
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_detach_viewer_forbidden(viewer_client: AsyncClient, test_emergency: DiveraEmergency):
+    response = await viewer_client.post(
+        f"/api/divera/emergencies/{test_emergency.id}/detach",
+        json={"incident_id": "00000000-0000-0000-0000-000000000001"},
+    )
+    assert response.status_code == 403
