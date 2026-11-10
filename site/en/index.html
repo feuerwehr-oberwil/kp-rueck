@@ -240,7 +240,7 @@
         "height": 937
       },
       "inLanguage": "en",
-      "dateModified": "2026-11-08",
+      "dateModified": "2026-11-10",
       "isPartOf": {
         "@id": "https://kp-rueck.ch/#website"
       },
@@ -444,6 +444,7 @@
     <p class="lede">KP Rück turns the magnetic board in the rear command post into a digital one: <strong>incidents, crews, vehicles and equipment</strong> on one board – live on every device.</p>
     <div class="cta-row">
       <a class="btn btn-primary" href="https://demo.kp-rueck.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>Open the demo</a>
+      <a class="btn btn-ghost" href="#betrieb">Run it yourself</a>
       <span class="cta-note">No account – pick a role and go</span>
     </div>
     <figure class="frame">
@@ -502,31 +503,6 @@
           <li>No vendor lock-in</li>
           <li>Run it yourself, extend it yourself</li>
         </ul>
-      </div>
-    </div>
-  </section>
-
-  <section class="tenet">
-    <div class="wrap">
-      <p class="eyebrow">The benchmark</p>
-      <blockquote>«When the network is gone, <em>paper</em> is in charge»</blockquote>
-      <p class="expl">A board that goes black in a power cut is not a command tool. So redundancy is built in at several levels – <strong>every level works without the one above it</strong>.</p>
-      <div class="stages">
-        <div class="stage">
-          <p class="stage-n">Level 1</p>
-          <h3>Several devices on the same state</h3>
-          <p>Tablets, projector displays and phones all hang live off the same board. If one device fails or freezes, another carries on – there is nothing to rescue and nothing to catch up on.</p>
-        </div>
-        <div class="stage">
-          <p class="stage-n">Level 2</p>
-          <h3>A second instance at the station</h3>
-          <p>KP Rück can also be run locally alongside. The built-in sync keeps events, incidents, crews, vehicles, equipment and settings in step between the cloud and the local database. The map comes from your own tile server, and the printer is on the LAN anyway.</p>
-        </div>
-        <div class="stage">
-          <p class="stage-n">Level 3</p>
-          <h3>Paper is in charge</h3>
-          <p>The state of the board goes to the thermal printer every few minutes, the situation sheet at the push of a button. If everything fails, the last sheet becomes the board. On restart, <strong>one</strong> person transfers what was done by hand back into the app.</p>
-        </div>
       </div>
     </div>
   </section>
@@ -705,6 +681,60 @@
           <div class="cap-s">Feed in exercise situations instead of inventing them – cleanly separated from the real thing</div>
         </figcaption>
       </figure>
+    </div>
+  </section>
+
+  <section class="wrap" id="betrieb">
+    <div class="sec-head">
+      <p class="eyebrow">Running it</p>
+      <h2>Three ways to a board of your own.</h2>
+      <p>First the demo, then a drill – and if it fits, KP Rück runs at your station. Open source and free of charge; data and operation stay with the fire service.</p>
+    </div>
+    <div class="ways">
+      <div class="way">
+        <p class="way-tag">To try it out</p>
+        <h3>Double-click</h3>
+        <p>Install Docker Desktop, double-click one file: the board runs on the computer at the station. The quickest way to your own data.</p>
+        <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md#der-schnellste-weg-double-click" target="_blank" rel="noopener">Read the guide<svg class="ico"><use href="#i-arrow"/></svg></a>
+      </div>
+      <div class="way">
+        <p class="way-tag">Keeps running without internet</p>
+        <h3>Mini PC at the station</h3>
+        <p>Docker Compose on a small server in your own network, with your own tile server and the printer on the LAN.</p>
+        <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/DEPLOYMENT.md" target="_blank" rel="noopener">Read the guide<svg class="ico"><use href="#i-arrow"/></svg></a>
+      </div>
+      <div class="way">
+        <p class="way-tag">Nobody looks after a box</p>
+        <h3>Hosted</h3>
+        <p>With a hosting provider of your choice. A standby box at the station can cover a network outage.</p>
+        <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RAILWAY.md" target="_blank" rel="noopener">Read the guide<svg class="ico"><use href="#i-arrow"/></svg></a>
+      </div>
+    </div>
+    <p class="sec-note ways-note">Help with installation and operation is available by arrangement – <a href="#kontakt">contact</a>.</p>
+  </section>
+
+  <section class="tenet">
+    <div class="wrap">
+      <p class="eyebrow">The benchmark</p>
+      <blockquote>«When the network is gone, <em>paper</em> is in charge»</blockquote>
+      <p class="expl">A board that goes black in a power cut is not a command tool. So redundancy is built in at several levels – <strong>every level works without the one above it</strong>.</p>
+      <div class="stages">
+        <div class="stage">
+          <p class="stage-n">Level 1</p>
+          <h3>Several devices on the same state</h3>
+          <p>Tablets, projector displays and phones all hang live off the same board. If one device fails or freezes, another carries on – there is nothing to rescue and nothing to catch up on.</p>
+        </div>
+        <div class="stage">
+          <p class="stage-n">Level 2</p>
+          <h3>A standby box at the station</h3>
+          <p>A mini PC at the station mirrors the board continuously. If the internet goes down, it takes over: the board keeps running on the local network, with the map from your own tile server and the printer on the LAN. Once the network is back, what was run there is synced again.</p>
+        </div>
+        <div class="stage">
+          <p class="stage-n">Level 3</p>
+          <h3>Paper is in charge</h3>
+          <p>The state of the board goes to the thermal printer every few minutes, the situation sheet at the push of a button. If everything fails, the last sheet becomes the board. On restart, <strong>one</strong> person transfers what was done by hand back into the app.</p>
+        </div>
+      </div>
     </div>
   </section>
 

@@ -142,6 +142,7 @@
     <p class="lede">{{hero.lede}}</p>
     <div class="cta-row">
       <a class="btn btn-primary" href="https://demo.kp-rueck.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>{{hero.cta}}</a>
+      <a class="btn btn-ghost" href="#betrieb">{{hero.cta2}}</a>
       <span class="cta-note">{{hero.ctaNote}}</span>
     </div>
     <figure class="frame">
@@ -213,23 +214,6 @@
     </div>
   </section>
 
-  <section class="tenet">
-    <div class="wrap">
-      <p class="eyebrow">{{tenet.eyebrow}}</p>
-      <blockquote>{{tenet.quote}}</blockquote>
-      <p class="expl">{{tenet.expl}}</p>
-      <div class="stages">
-        {{#tenet.stages}}
-        <div class="stage">
-          <p class="stage-n">{{n}}</p>
-          <h3>{{h3}}</h3>
-          <p>{{p}}</p>
-        </div>
-        {{/tenet.stages}}
-      </div>
-    </div>
-  </section>
-
   <section class="wrap" id="einsatz">
     <div class="sec-head">
       <p class="eyebrow">{{incident.eyebrow}}</p>
@@ -274,6 +258,56 @@
         </figcaption>
       </figure>
       {{/shots.items}}
+    </div>
+  </section>
+
+  <!--@template «Und jetzt?» direkt unter den Bildern: die drei Wege, die es in der Doku schon gibt.
+       Die Adressen der Anleitungen stehen hier im Markup, nicht im Text – wie überall. -->
+  <section class="wrap" id="betrieb">
+    <div class="sec-head">
+      <p class="eyebrow">{{run.eyebrow}}</p>
+      <h2>{{run.h2}}</h2>
+      <p>{{run.lede}}</p>
+    </div>
+    <div class="ways">
+      <div class="way">
+        <p class="way-tag">{{run.ways.0.tag}}</p>
+        <h3>{{run.ways.0.h3}}</h3>
+        <p>{{run.ways.0.p}}</p>
+        <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md#der-schnellste-weg-double-click" target="_blank" rel="noopener">{{run.guide}}<svg class="ico"><use href="#i-arrow"/></svg></a>
+      </div>
+      <div class="way">
+        <p class="way-tag">{{run.ways.1.tag}}</p>
+        <h3>{{run.ways.1.h3}}</h3>
+        <p>{{run.ways.1.p}}</p>
+        <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/DEPLOYMENT.md" target="_blank" rel="noopener">{{run.guide}}<svg class="ico"><use href="#i-arrow"/></svg></a>
+      </div>
+      <div class="way">
+        <p class="way-tag">{{run.ways.2.tag}}</p>
+        <h3>{{run.ways.2.h3}}</h3>
+        <p>{{run.ways.2.p}}</p>
+        <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RAILWAY.md" target="_blank" rel="noopener">{{run.guide}}<svg class="ico"><use href="#i-arrow"/></svg></a>
+      </div>
+    </div>
+    <p class="sec-note ways-note">{{run.note}}</p>
+  </section>
+
+  <!--@template Der Massstab steht hinter den Bildern und den Wegen: wer das Board gesehen hat,
+       versteht, was beim Ausfall auf dem Spiel steht. -->
+  <section class="tenet">
+    <div class="wrap">
+      <p class="eyebrow">{{tenet.eyebrow}}</p>
+      <blockquote>{{tenet.quote}}</blockquote>
+      <p class="expl">{{tenet.expl}}</p>
+      <div class="stages">
+        {{#tenet.stages}}
+        <div class="stage">
+          <p class="stage-n">{{n}}</p>
+          <h3>{{h3}}</h3>
+          <p>{{p}}</p>
+        </div>
+        {{/tenet.stages}}
+      </div>
     </div>
   </section>
 

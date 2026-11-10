@@ -51,6 +51,7 @@
     "h1": "La tavla d’acziun per il post da commando.",
     "lede": "KP Rück digitalisescha la tavla magnetica dal post da commando posteriur:\n      <strong>acziuns, persunal, vehichels e material</strong> sin ina tavla –\n      en temp real sin mintga apparat.",
     "cta": "Avrir la demo",
+    "cta2": "Manar sez",
     "ctaNote": "Senza conto – tscherner ina rolla e cumenzar",
     "frameAddr": "BOARD · UNWETTER · 17 EINSÄTZE AKTIV",
     "frameAlt": "Tavla d’acziun: colonnas tenor fasa d’acziun cun las cartas d’acziun, a sanestra il persunal, a dretga il material"
@@ -100,8 +101,8 @@
       },
       {
         "n": "Stgalim 2",
-        "h3": "Ina segunda instanza en il magazin",
-        "p": "KP Rück po vegnir manà supplementarmain local. La sincronisaziun integrada mantegna\n            eveniments, acziuns, persunal, vehichels, material e configuraziuns al medem stadi tranter\n            cloud e banca da datas locala. La charta deriva dal server local ed il stampader è collià\n            cun la rait locala."
+        "h3": "Ina box da reserva en il magazin",
+        "p": "In mini-PC en il magazin reflectescha il board cuntinuadamain. Sche l’internet croda, surpiglia el: il board funcziuna vinavant en la rait locala, cun la charta dal agen server da chartas ed il stampader en la rait locala. Cur che la rait è enavos, vegn quai ch’è vegnì manà là puspè sincronisà."
       },
       {
         "n": "Stgalim 3",
@@ -205,6 +206,30 @@
         "sub": "Importar situaziuns d’exercizi empè d’inventar ellas – separadas cleramain dal cas real"
       }
     ]
+  },
+  "run": {
+    "eyebrow": "Manaschi",
+    "h2": "Trais vias al agen board.",
+    "lede": "L’emprim la demo, lura in exercizi – e sch’i constat, funcziuna KP Rück tar vus. Open source e gratuit; datas e manaschi restan tar ils pumpiers.",
+    "guide": "A l’instrucziun",
+    "ways": [
+      {
+        "h3": "Clic dubel",
+        "tag": "Per empruvar",
+        "p": "Installar Docker Desktop, far in clic dubel sin ina datoteca: il board funcziuna sin il computer en il magazin. La via la pli svelta a las atgnas datas."
+      },
+      {
+        "h3": "Mini-PC en il magazin",
+        "tag": "Funcziuna era senza internet",
+        "p": "Docker Compose sin in pitschen server en l’atgna rait, cun agen server da chartas ed il stampader en la rait locala."
+      },
+      {
+        "h3": "Hosting",
+        "tag": "Nagin sto tgirar ina maschina",
+        "p": "Tar in purschider da hosting da vossa tscherna. Ina box da reserva en il magazin po surpigliar, sche la rait croda."
+      }
+    ],
+    "note": "Sustegn per installaziun e manaschi è pussaivel suenter cunvegna – <a href=\"#kontakt\">contact</a>."
   },
   "change": {
     "eyebrow": "Midada",

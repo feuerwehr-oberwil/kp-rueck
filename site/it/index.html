@@ -240,7 +240,7 @@
         "height": 937
       },
       "inLanguage": "it-CH",
-      "dateModified": "2026-11-08",
+      "dateModified": "2026-11-10",
       "isPartOf": {
         "@id": "https://kp-rueck.ch/#website"
       },
@@ -447,6 +447,7 @@
     <p class="lede">KP Rück porta in digitale la lavagna magnetica del posto di comando arretrato: <strong>interventi, personale, veicoli e materiale</strong> su un solo tavolo – in tempo reale su ogni dispositivo.</p>
     <div class="cta-row">
       <a class="btn btn-primary" href="https://demo.kp-rueck.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>Apri la demo</a>
+      <a class="btn btn-ghost" href="#betrieb">Gestirlo in proprio</a>
       <span class="cta-note">Senza account – scegliete un ruolo e via</span>
     </div>
     <figure class="frame">
@@ -505,31 +506,6 @@
           <li>Nessun vincolo con il fornitore</li>
           <li>Da gestire e sviluppare da voi</li>
         </ul>
-      </div>
-    </div>
-  </section>
-
-  <section class="tenet">
-    <div class="wrap">
-      <p class="eyebrow">Il metro</p>
-      <blockquote>«Quando la rete non c’è più, comanda la <em>carta</em>»</blockquote>
-      <p class="expl">Un tavolo che si spegne durante un blackout non è uno strumento di condotta. Per questo la ridondanza è integrata su più livelli – <strong>ogni livello funziona senza quello sopra</strong>.</p>
-      <div class="stages">
-        <div class="stage">
-          <p class="stage-n">Livello 1</p>
-          <h3>Più dispositivi allo stesso stato</h3>
-          <p>Tablet, proiezioni a muro e telefoni sono collegati in tempo reale allo stesso tavolo. Se un dispositivo si guasta o si blocca, un altro prosegue – non c’è nulla da recuperare e nulla da riportare.</p>
-        </div>
-        <div class="stage">
-          <p class="stage-n">Livello 2</p>
-          <h3>Una seconda istanza in rimessa</h3>
-          <p>KP Rück può girare anche in locale, in parallelo. La sincronizzazione integrata tiene allineati eventi, interventi, personale, veicoli, materiale e impostazioni fra il cloud e la banca dati locale. La mappa arriva dal vostro server di mappe, e la stampante è comunque nella rete locale.</p>
-        </div>
-        <div class="stage">
-          <p class="stage-n">Livello 3</p>
-          <h3>Comanda la carta</h3>
-          <p>Lo stato del tavolo va alla stampante termica ogni pochi minuti, il foglio della situazione a comando. Se tutto si ferma, l’ultimo foglio diventa il tavolo. Alla ripartenza <strong>una</strong> sola persona riporta nell’app quanto è stato fatto a mano.</p>
-        </div>
       </div>
     </div>
   </section>
@@ -708,6 +684,60 @@
           <div class="cap-s">Immettere scenari d’esercitazione invece di inventarli – nettamente separati dal caso reale</div>
         </figcaption>
       </figure>
+    </div>
+  </section>
+
+  <section class="wrap" id="betrieb">
+    <div class="sec-head">
+      <p class="eyebrow">Gestione</p>
+      <h2>Tre vie verso il vostro board.</h2>
+      <p>Prima la demo, poi un’esercitazione – e se va bene, KP Rück gira da voi. Open source e gratuito; dati e gestione restano ai pompieri.</p>
+    </div>
+    <div class="ways">
+      <div class="way">
+        <p class="way-tag">Per provare</p>
+        <h3>Doppio clic</h3>
+        <p>Installare Docker Desktop, fare doppio clic su un file: il board gira sul computer in rimessa. La via più rapida verso i vostri dati.</p>
+        <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md#der-schnellste-weg-double-click" target="_blank" rel="noopener">Alla guida<svg class="ico"><use href="#i-arrow"/></svg></a>
+      </div>
+      <div class="way">
+        <p class="way-tag">Funziona anche senza Internet</p>
+        <h3>Mini PC in rimessa</h3>
+        <p>Docker Compose su un piccolo server nella vostra rete, con il vostro server di mappe e la stampante nella rete locale.</p>
+        <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/DEPLOYMENT.md" target="_blank" rel="noopener">Alla guida<svg class="ico"><use href="#i-arrow"/></svg></a>
+      </div>
+      <div class="way">
+        <p class="way-tag">Nessuno deve badare a una macchina</p>
+        <h3>In hosting</h3>
+        <p>Presso un fornitore di hosting a vostra scelta. Un box di riserva in rimessa può coprire la caduta della rete.</p>
+        <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RAILWAY.md" target="_blank" rel="noopener">Alla guida<svg class="ico"><use href="#i-arrow"/></svg></a>
+      </div>
+    </div>
+    <p class="sec-note ways-note">Un supporto per installazione e gestione è possibile su accordo – <a href="#kontakt">contatto</a>.</p>
+  </section>
+
+  <section class="tenet">
+    <div class="wrap">
+      <p class="eyebrow">Il metro</p>
+      <blockquote>«Quando la rete non c’è più, comanda la <em>carta</em>»</blockquote>
+      <p class="expl">Un tavolo che si spegne durante un blackout non è uno strumento di condotta. Per questo la ridondanza è integrata su più livelli – <strong>ogni livello funziona senza quello sopra</strong>.</p>
+      <div class="stages">
+        <div class="stage">
+          <p class="stage-n">Livello 1</p>
+          <h3>Più dispositivi allo stesso stato</h3>
+          <p>Tablet, proiezioni a muro e telefoni sono collegati in tempo reale allo stesso tavolo. Se un dispositivo si guasta o si blocca, un altro prosegue – non c’è nulla da recuperare e nulla da riportare.</p>
+        </div>
+        <div class="stage">
+          <p class="stage-n">Livello 2</p>
+          <h3>Un box di riserva in rimessa</h3>
+          <p>Un mini PC in rimessa rispecchia il board di continuo. Se cade Internet, subentra lui: il board continua nella rete locale, con la mappa dal vostro server di mappe e la stampante nella rete locale. Quando la rete torna, quanto gestito lì viene di nuovo sincronizzato.</p>
+        </div>
+        <div class="stage">
+          <p class="stage-n">Livello 3</p>
+          <h3>Comanda la carta</h3>
+          <p>Lo stato del tavolo va alla stampante termica ogni pochi minuti, il foglio della situazione a comando. Se tutto si ferma, l’ultimo foglio diventa il tavolo. Alla ripartenza <strong>una</strong> sola persona riporta nell’app quanto è stato fatto a mano.</p>
+        </div>
+      </div>
     </div>
   </section>
 

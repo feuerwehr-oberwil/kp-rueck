@@ -50,6 +50,7 @@
     "h1": "The incident board for the command post.",
     "lede": "KP Rück turns the magnetic board in the rear command post into a digital one: <strong>incidents, crews, vehicles and equipment</strong> on one board – live on every device.",
     "cta": "Open the demo",
+    "cta2": "Run it yourself",
     "ctaNote": "No account – pick a role and go",
     "frameAddr": "BOARD · STORM · 17 INCIDENTS ACTIVE",
     "frameAlt": "Incident board: columns from received through to closed, incident cards in between, crews on the left, equipment on the right"
@@ -99,8 +100,8 @@
       },
       {
         "n": "Level 2",
-        "h3": "A second instance at the station",
-        "p": "KP Rück can also be run locally alongside. The built-in sync keeps events, incidents, crews, vehicles, equipment and settings in step between the cloud and the local database. The map comes from your own tile server, and the printer is on the LAN anyway."
+        "h3": "A standby box at the station",
+        "p": "A mini PC at the station mirrors the board continuously. If the internet goes down, it takes over: the board keeps running on the local network, with the map from your own tile server and the printer on the LAN. Once the network is back, what was run there is synced again."
       },
       {
         "n": "Level 3",
@@ -204,6 +205,30 @@
         "sub": "Feed in exercise situations instead of inventing them – cleanly separated from the real thing"
       }
     ]
+  },
+  "run": {
+    "eyebrow": "Running it",
+    "h2": "Three ways to a board of your own.",
+    "lede": "First the demo, then a drill – and if it fits, KP Rück runs at your station. Open source and free of charge; data and operation stay with the fire service.",
+    "guide": "Read the guide",
+    "ways": [
+      {
+        "h3": "Double-click",
+        "tag": "To try it out",
+        "p": "Install Docker Desktop, double-click one file: the board runs on the computer at the station. The quickest way to your own data."
+      },
+      {
+        "h3": "Mini PC at the station",
+        "tag": "Keeps running without internet",
+        "p": "Docker Compose on a small server in your own network, with your own tile server and the printer on the LAN."
+      },
+      {
+        "h3": "Hosted",
+        "tag": "Nobody looks after a box",
+        "p": "With a hosting provider of your choice. A standby box at the station can cover a network outage."
+      }
+    ],
+    "note": "Help with installation and operation is available by arrangement – <a href=\"#kontakt\">contact</a>."
   },
   "change": {
     "eyebrow": "Switching over",
