@@ -7,6 +7,7 @@ token (`STANDBY_SYNC_TOKEN`). Conflicts are listed on both and decided on the on
 docs/STANDBY.md is the operator's side.
 """
 
+import asyncio
 import hmac
 import json
 import uuid
@@ -237,14 +238,19 @@ async def photos_missing(
 ) -> dict[str, Any]:
     """Which of the box's photos this board does not have yet."""
     _require_box(authorization)
-    missing = []
-    for ref in photos:
-        try:
-            if photo_storage.get_photo_path(ref.incident_id, ref.name) is None:
-                missing.append(ref.model_dump(mode="json"))
-        except HTTPException:
-            continue  # not a photo name; never asked for again
-    return {"missing": missing}
+
+    def missing() -> list[dict[str, Any]]:
+        out = []
+        for ref in photos:
+            try:
+                if photo_storage.get_photo_path(ref.incident_id, ref.name) is None:
+                    out.append(ref.model_dump(mode="json"))
+            except HTTPException:
+                continue  # not a photo name; never asked for again
+        return out
+
+    # One stat per photo – off the event loop, the list is the box's whole Ereignis.
+    return {"missing": await asyncio.to_thread(missing)}
 
 
 @router.put("/photos/{incident_id}/{name}", response_model=None, include_in_schema=False)
@@ -265,7 +271,8 @@ async def photo_from_box(
     )
     if not led:
         raise HTTPException(status_code=404, detail="Einsatz nicht gefunden.")
-    return {"written": photo_storage.store_synced_photo(incident_id, name, await request.body())}
+    content = await request.body()
+    return {"written": await asyncio.to_thread(photo_storage.store_synced_photo, incident_id, name, content)}
 
 
 # --- conflicts (both) --------------------------------------------------------------------------

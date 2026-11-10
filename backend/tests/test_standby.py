@@ -19,7 +19,15 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.models import Event, Incident, Setting
-from app.standby import event_links, install_guards, mirror_state, resume_leads, schema_covers, take_over
+from app.standby import (
+    event_links,
+    install_guards,
+    mirror_state,
+    resume_leads,
+    schema_covers,
+    source_is_encrypted,
+    take_over,
+)
 
 BACKEND = Path(__file__).resolve().parents[1]
 
@@ -182,6 +190,16 @@ async def test_event_links_follow_the_schema(db_session):
     assert "public.incident_groups" in links["incident_group_assignments"]
     assert links["journal_entries"] == "{row}.event_id"
     assert "personnel" not in links and "settings" not in links
+
+
+def test_only_an_explicit_sslmode_counts_as_an_encrypted_replication_link():
+    """libpq's default `prefer` can be talked down to plain text, so no sslmode is not enough."""
+    base = "postgresql://kp_standby:x@db.example.ch:5432/railway"
+    assert not source_is_encrypted(base)
+    assert not source_is_encrypted(f"{base}?sslmode=prefer")
+    assert source_is_encrypted(f"{base}?sslmode=require")
+    assert source_is_encrypted(f"{base}?application_name=box&sslmode=verify-full")
+    assert source_is_encrypted("postgresql://kp:x@localhost:5432/kprueck")
 
 
 def test_schema_covers_only_ancestors():
