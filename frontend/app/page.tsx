@@ -94,6 +94,7 @@ import { useBoardDialogActions } from "@/components/board/use-board-dialog-actio
 import { useBoardDispatch } from "@/components/board/use-board-dispatch"
 import { useResourceBindings } from "@/components/board/use-resource-bindings"
 import { useBoardChecklist } from "@/components/board/use-board-checklist"
+import { StationSetupStrip } from "@/components/station-setup-strip"
 import { useBoardCommandHandlers } from "@/components/board/use-board-command-handlers"
 import { useBoardCardActions } from "@/components/board/use-board-card-actions"
 
@@ -1423,6 +1424,8 @@ export default function FireStationDashboard() {
             </div>
           )}
         </header>
+        {/* What a freshly claimed station still has to set up – admin only, gone once done. */}
+        <StationSetupStrip className="mx-4 mt-3 hidden shrink-0 md:block md:mx-6" />
 
         {/* Mobile View */}
         {isMobile ? (
