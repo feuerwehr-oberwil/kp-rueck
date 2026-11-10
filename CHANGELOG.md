@@ -109,7 +109,8 @@ will keep holding.
   keeps the full words. Lines to an Einsatz come from online vehicles only. While the «ohne
   Koordinaten» list is open, the legend folds.
 - **The public demo shows vehicles** (`DEMO_MODE=true` without Traccar): fixed positions, the
-  vehicles of open Einsätze at them, the rest at the Magazin, some offline; an assignment moves
+  vehicles of open Einsätze at them, an Auftrag's at its current stop, the rest at the Magazin,
+  some offline; an assignment moves
   its vehicle within 10 s. Only the map sees them – no GPS automation, no geofence.
 - **Every side panel can be dragged wider or narrower** at its edge – Personal, Material and the
   Einsatz detail on the board, the right rail of `/map` (list, Reko-Modus and Routenplanung share

@@ -6,12 +6,15 @@ for the map: `api/traccar.py` answers with them, and the poller (`services/tracc
 broadcasts them every 10 s so an assignment moves its vehicle. The poller's cache, the GPS
 automation and the geofence never see them, so nothing changes an incident on its own.
 
-The picture follows the board: a vehicle assigned to an open Einsatz stands at it, online;
-the others stand at the Magazin, alternately online and offline – offline ones with a last
-report hours ago, so the map shows its stale state too.
+The picture follows the board: a vehicle assigned to an open Einsatz stands at it, online, and
+one on an Auftrag stands at the route's current stop – the stop the map draws its line to
+(`currentStop` in `components/map/assignment-lines.tsx`). The others stand at the Magazin,
+alternately online and offline – offline ones with a last report hours ago, so the map shows
+its stale state too.
 """
 
 from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +28,11 @@ from .settings import get_station_coordinates
 AT_INCIDENT = (0.0002, -0.0002)
 # The Magazin's vehicles stand a few metres apart, close enough to count as one place.
 MAGAZIN_STEP = 0.00004
+# Statuses whose crew has left: the map draws no line to them (Rückfahrt, Abgeschlossen).
+DONE = ("returning", "complete")
+
+# Where one assigned vehicle stands: (assigned_at, vehicle id, lat, lng).
+type Placement = tuple[datetime, UUID, float, float]
 
 
 def demo_positions_active() -> bool:
@@ -50,22 +58,9 @@ async def demo_vehicle_positions(db: AsyncSession, now: datetime | None = None) 
         .scalars()
         .all()
     )
-    # Where each assigned vehicle is: its newest active assignment to an open, located Einsatz.
-    rows = await db.execute(
-        select(models.IncidentAssignment.resource_id, models.Incident.location_lat, models.Incident.location_lng)
-        .join(models.Incident, models.Incident.id == models.IncidentAssignment.incident_id)
-        .join(models.Event, models.Event.id == models.Incident.event_id)
-        .where(
-            models.IncidentAssignment.resource_type == "vehicle",
-            models.IncidentAssignment.unassigned_at.is_(None),
-            models.Incident.deleted_at.is_(None),
-            models.Incident.status != "complete",
-            models.Incident.location_lat.is_not(None),
-            models.Event.archived_at.is_(None),
-        )
-        .order_by(models.IncidentAssignment.assigned_at)
-    )
-    at_incident = {vehicle_id: (float(lat), float(lng)) for vehicle_id, lat, lng in rows}
+    # Oldest first, so a vehicle on two assignments ends up at its newest.
+    placements = sorted([*await _at_einsatz(db), *await _at_auftrag(db)], key=lambda row: row[0])
+    at_incident = {vehicle_id: (lat, lng) for _, vehicle_id, lat, lng in placements}
 
     positions: list[VehiclePosition] = []
     home = 0
@@ -92,3 +87,72 @@ async def demo_vehicle_positions(db: AsyncSession, now: datetime | None = None) 
             )
         )
     return positions
+
+
+async def _at_einsatz(db: AsyncSession) -> list[Placement]:
+    """Vehicles on an open, located Einsatz of a live Ereignis."""
+    rows = await db.execute(
+        select(
+            models.IncidentAssignment.assigned_at,
+            models.IncidentAssignment.resource_id,
+            models.Incident.location_lat,
+            models.Incident.location_lng,
+        )
+        .join(models.Incident, models.Incident.id == models.IncidentAssignment.incident_id)
+        .join(models.Event, models.Event.id == models.Incident.event_id)
+        .where(
+            models.IncidentAssignment.resource_type == "vehicle",
+            models.IncidentAssignment.unassigned_at.is_(None),
+            models.Incident.deleted_at.is_(None),
+            models.Incident.status.not_in(DONE),
+            models.Incident.location_lat.is_not(None),
+            models.Event.archived_at.is_(None),
+        )
+    )
+    return [(at, vehicle_id, float(lat), float(lng)) for at, vehicle_id, lat, lng in rows]
+
+
+async def _at_auftrag(db: AsyncSession) -> list[Placement]:
+    """Vehicles on an Auftrag of a live Ereignis, at its current stop: the first located stop
+    with its crew on site (`active`), else the first one not done – the map's `currentStop`."""
+    crews = (
+        await db.execute(
+            select(
+                models.IncidentGroupAssignment.assigned_at,
+                models.IncidentGroupAssignment.resource_id,
+                models.IncidentGroupAssignment.incident_group_id,
+            )
+            .join(models.IncidentGroup, models.IncidentGroup.id == models.IncidentGroupAssignment.incident_group_id)
+            .join(models.Event, models.Event.id == models.IncidentGroup.event_id)
+            .where(
+                models.IncidentGroupAssignment.resource_type == "vehicle",
+                models.IncidentGroupAssignment.unassigned_at.is_(None),
+                models.IncidentGroup.deleted_at.is_(None),
+                models.Event.archived_at.is_(None),
+            )
+        )
+    ).all()
+    if not crews:
+        return []
+    stops = (
+        await db.execute(
+            select(
+                models.Incident.group_id,
+                models.Incident.status,
+                models.Incident.location_lat,
+                models.Incident.location_lng,
+            )
+            .where(
+                models.Incident.group_id.in_({group_id for _, _, group_id in crews}),
+                models.Incident.deleted_at.is_(None),
+                models.Incident.status.not_in(DONE),
+                models.Incident.location_lat.is_not(None),
+            )
+            .order_by(models.Incident.group_position)
+        )
+    ).all()
+    current: dict[UUID, tuple[float, float]] = {}
+    # Stops on site first, each in route order; the first one per Auftrag is its current stop.
+    for group_id, _status, lat, lng in sorted(stops, key=lambda stop: stop.status != "active"):
+        current.setdefault(group_id, (float(lat), float(lng)))
+    return [(at, vehicle_id, *current[group_id]) for at, vehicle_id, group_id in crews if group_id in current]
