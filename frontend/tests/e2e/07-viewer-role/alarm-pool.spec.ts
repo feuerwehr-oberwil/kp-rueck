@@ -52,10 +52,9 @@ test.describe('Viewer role — the Alarmeingang', () => {
     const sheet = page.getByRole('dialog', { name: 'Alarmeingang' });
     await expect(sheet).toBeVisible();
 
+    // With an Ereignis selected the row's button attaches straight to it – no dialog in between.
     await sheet.getByRole('button', { name: `«${title}» anhängen` }).click();
-    const dialog = page.getByRole('dialog', { name: 'An Ereignis anhängen' });
-    await expect(dialog.getByRole('combobox')).toContainText(event.name);
-    await dialog.getByRole('button', { name: 'Anhängen' }).click();
+    await expect(page.getByText(`Alarm an «${event.name}» angehängt`).first()).toBeVisible();
 
     await expect(page.getByTestId('incident-card').filter({ hasText: street })).toBeVisible({ timeout: 15_000 });
     await expect(sheet.getByRole('region', { name: /^Heute zugewiesen/ }).getByText(title)).toBeVisible();
