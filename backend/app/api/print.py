@@ -56,7 +56,8 @@ async def require_print_agent(x_agent_token: str = Header(default="")) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Print-Agent deaktiviert (PRINT_AGENT_TOKEN nicht gesetzt)",
         )
-    if not secrets.compare_digest(x_agent_token, app_settings.print_agent_token):
+    # As bytes: compare_digest raises on a str with non-ASCII characters (a 500, not the 401).
+    if not secrets.compare_digest(x_agent_token.encode(), app_settings.print_agent_token.encode()):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ungültiges Agent-Token")
 
 

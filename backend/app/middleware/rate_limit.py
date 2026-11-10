@@ -103,6 +103,11 @@ class RateLimits:
     # useless as an oracle if a session is ever stolen. Every call is in the audit log.
     SECRET_REVEAL = "10/minute"  # noqa: S105 – a rate limit, not a secret
 
+    # The client-error sink has no login (the boot screen reports before anyone is signed
+    # in), so the ceiling is per client IP: well above a crashing wall display behind the
+    # station's NAT, far below what it takes to rotate the backend's log window away.
+    CLIENT_ERROR = "60/minute"
+
     # General API - moderate limits
     DEFAULT = "100/minute"
 
