@@ -400,7 +400,7 @@
       },
       {
         "q": "KP Rück a-t-il absolument besoin de KP Front ?",
-        "a": "Non. KP Rück fonctionne de manière entièrement autonome – avec sa propre base de données, sa propre connexion et ses propres mises à jour. Il donne toute sa mesure en combinaison avec <a href=\"https://kp-front.ch/\">KP Front</a>, l’application pour le front sur le lieu d’intervention : les deux reçoivent les mêmes alarmes du système de dispatching, lisent la même liste du personnel et classent les alarmes selon la même liste de mots-clés, si souhaité avec le même accès Divera. Le front et l’arrière travaillent ainsi avec les mêmes données de départ, sans devoir entretenir deux fois le raccordement d’alarme et l’effectif."
+        "a": "Non. KP Rück fonctionne de manière entièrement autonome – avec sa propre base de données, sa propre connexion et ses propres mises à jour. Il donne toute sa mesure en combinaison avec <a href=\"https://kp-front.ch/fr/\">KP Front</a>, l’application pour le front sur le lieu d’intervention : les deux reçoivent les mêmes alarmes du système de dispatching, lisent la même liste du personnel et classent les alarmes selon la même liste de mots-clés, si souhaité avec le même accès Divera. Le front et l’arrière travaillent ainsi avec les mêmes données de départ, sans devoir entretenir deux fois le raccordement d’alarme et l’effectif."
       },
       {
         "q": "À quoi sert l’imprimante locale de la caserne dans KP Rück ?",

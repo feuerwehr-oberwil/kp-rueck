@@ -1,5 +1,6 @@
 {
   "origin": "https://kp-rueck.ch",
+  "sister": "https://kp-front.ch/",
   "product": {
     "name": "KP Rück",
     "repo": "https://github.com/feuerwehr-oberwil/kp-rueck",

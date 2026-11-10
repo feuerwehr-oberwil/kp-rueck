@@ -1,28 +1,39 @@
 # site/ – die öffentliche Landingpage (kp-rueck.ch)
 
-Statische Seite, kein Framework – aber seit der zweiten Sprache **generiert**:
+Statische Seite, kein Framework – aber **generiert**, in fünf Sprachen (DE, FR, IT, RM, EN):
 
 ```
 site/
   index.template.html   ← Struktur und Markup (Text steht hier NICHT)
-  content/config.json   ← welche Sprachen es gibt, und unter welcher URL
+  404.template.html     ← die eine Fehlerseite für alle Sprachen
+  content/config.json   ← welche Sprachen es gibt, unter welcher URL, und die Adresse von kp-front.ch
   content/de.json       ← der deutsche Text – die Grundlage
-  content/fr.json       ← die Übersetzung, über de.json gelegt
+  content/fr.json       ← die Übersetzungen, je über de.json gelegt
+  content/it.json
+  content/rm.json
+  content/en.json
+  content/release.json  ← der zuletzt gesehene GitHub-Release (gebaut, eingecheckt)
   landing.css           ← das gemeinsame Design von KP Rück und KP Front
+  theme.js              ← hell/dunkel, wird in jede Seite eingebettet
   fonts/                ← Sora + Spline Sans Mono (variable, gehostet, kein CDN)
-  shots/                ← Screenshots aus einer echten Instanz (generiert, WebP)
+  shots/                ← Screenshots aus einer echten Instanz (generiert, WebP; shots/dark/ nachts)
   capture.mjs           ← nimmt shots/ neu auf
   build.mjs             ← baut aus Vorlage + Texten die Seiten
+  llms.txt              ← Kurzbeschreibung für Sprachmodelle (von Hand gepflegt)
+  CNAME                 ← kp-rueck.ch für GitHub Pages
 
   index.html            ← gebaut, eingecheckt, wird ausgeliefert
-  fr/index.html         ← dito
+  fr/ it/ rm/ en/index.html  ← dito, je Sprache
+  404.html              ← gebaut, eingecheckt
+  sitemap.xml           ← gebaut, eingecheckt
+  robots.txt            ← gebaut, eingecheckt
   dist/…/index.html     ← alles eingebettet, nicht eingecheckt
 ```
 
 ## Bauen
 
 ```bash
-node site/build.mjs            # fragt GitHub nach dem neusten Release, schreibt index.html, die Sprachseiten und dist/
+node site/build.mjs            # fragt GitHub nach dem neusten Release, schreibt index.html, die Sprachseiten, 404.html, sitemap.xml, robots.txt und dist/
 node site/build.mjs --offline  # dasselbe aus content/release.json, ohne GitHub zu fragen
 node site/build.mjs --check    # schreibt nichts, meldet nur Abweichungen (das macht die CI – offline)
 ```
@@ -34,8 +45,9 @@ der gespeicherte Stand; ohne einen fallen Zeile und Eigenschaften ganz weg – n
 `WebPage.dateModified` ist pro Sprachseite der Tag ihrer letzten Änderung: ein Bauen, das nichts
 ändert, behält ihn.
 
-⚠️ **`index.html` und `fr/index.html` sind Ergebnisse, keine Quellen.** Wer dort hineinschreibt,
-verliert es beim nächsten Bauen. Trotzdem sind beide eingecheckt: GitHub Pages liefert `site/`
+⚠️ **`index.html`, die Sprachseiten (`fr/`, `it/`, `rm/`, `en/`), `404.html`, `sitemap.xml` und
+`robots.txt` sind Ergebnisse, keine Quellen.** Wer dort hineinschreibt, verliert es beim nächsten
+Bauen. Trotzdem sind alle eingecheckt: GitHub Pages liefert `site/`
 unverändert aus, die Seite im Repo **ist** die Seite im Netz. Damit das nicht auseinanderläuft,
 prüft die CI (`node site/build.mjs --check`) bei jedem Push, dass die gebauten Seiten zum Stand
 von Vorlage und Texten passen.
@@ -49,9 +61,10 @@ Deutsch ist die Grundlage, jede weitere Sprache **überlagert** sie. Eine Übers
 nur, was sie übersetzt; alles andere fällt sichtbar auf Deutsch zurück, und `build.mjs` meldet
 nach jedem Lauf, wie viele Texte das sind.
 
-Eine dritte Sprache ist **ein Eintrag in `content/config.json` und eine Datei in `content/`** – an
-der Vorlage ändert sich nichts. Umgekehrt gilt: **eine Sprache wird erst ausgeliefert, wenn sie in
-`config.json` steht.** Ein halb übersetztes `it/` ist schlimmer als gar keins.
+Eine weitere Sprache ist **ein Eintrag in `content/config.json` und eine Datei in `content/`** – an
+der Vorlage ändert sich nichts; Sprachseite, 404-Block, Sitemap und hreflang kommen von selbst.
+Umgekehrt gilt: **eine Sprache wird erst ausgeliefert, wenn sie in `config.json` steht.** Eine halb
+übersetzte Sprachseite ist schlimmer als gar keine.
 
 Bewusst entschieden und nicht aus Versehen so:
 
@@ -66,9 +79,9 @@ Bewusst entschieden und nicht aus Versehen so:
   der FAQ «In welchen Sprachen ist KP Rück verfügbar?» und in `product.inLanguage`
   (`config.json`, → `SoftwareApplication.inLanguage`). Wer der App eine Sprache gibt, zieht
   beide nach, in allen fünf Texten. Die Website-Sprachen stehen auf `WebSite`/`WebPage`.
-- **Eine Übersetzung, die keine französischsprachige Feuerwehr-Person gelesen hat, sagt das
-  oben auf der Seite** (`notice` in `fr.json`). Diese Zeile verschwindet, wenn jemand
-  gegengelesen hat – sie ist kein Dekor. Es ist dieselbe Freigabe-Person, die Plan 06 braucht.
+- **Eine Übersetzung, die keine Feuerwehr-Person dieser Sprache gelesen hat, sagt das oben auf
+  der Seite** (`notice` in `fr.json`, `it.json` und `rm.json`). Diese Zeile verschwindet, wenn
+  jemand gegengelesen hat – sie ist kein Dekor. Es ist dieselbe Freigabe-Person, die Plan 06 braucht.
 
 ## Theme assets and shared runtime
 
@@ -137,14 +150,17 @@ Wer die Templates umbenennt, muss die `?template=…`-Links in `index.template.h
 
 Das Aussehen («Schweizer Plakat × Tageslicht») steckt komplett in `landing.css`, und **diese
 Datei ist in kp-rueck und kp-front identisch**. Wer das Design ändert, kopiert sie ins andere
-Repo hinüber – sonst laufen die beiden Schwesterseiten auseinander. Nur Vorlage und Texte
-unterscheiden sich: Inhalt, Bilder und die gegenseitige Verlinkung
-(`kp-rueck.ch` ⇄ `kp-front.ch`).
+Repo hinüber – sonst laufen die beiden Schwesterseiten auseinander. Nur Vorlage, Texte und
+`config.json` unterscheiden sich: Inhalt, Bilder und die gegenseitige Verlinkung
+(`kp-rueck.ch` ⇄ `kp-front.ch`). Die Schwesterseite steht als `sister` in `config.json`;
+`build.mjs` hängt den Sprachordner an, so führt `/fr/` auf `https://kp-front.ch/fr/`. Nur die
+FAQ-Antwort zu KP Front nennt die Adresse im Text – dort steht sie in jeder Sprachdatei mit dem
+passenden Ordner.
 
 ## Hosten
 
 `site/` ist direkt ausrollbar (statische Dateien, keine Server-Logik). `dist/index.html` und
-`dist/fr/index.html` sind dieselben Seiten als je eine einzige Datei mit eingebetteten Schriften
+`dist/<sprache>/index.html` (fr, it, rm, en) sind dieselben Seiten als je eine einzige Datei mit eingebetteten Schriften
 und Bildern – zum Weitergeben oder für einen Host, der nur eine Datei annimmt.
 
 ### README-Bilder
