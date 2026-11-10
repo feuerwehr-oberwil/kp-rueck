@@ -391,6 +391,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from .background.standby_watch import start_standby_watch
 
         start_standby_watch()
+    else:
+        # A mirror's notification rows come from the hosted board; everywhere else the rules
+        # are evaluated on a clock (app/background/notification_watch.py).
+        from .background.notification_watch import start_notification_watch
+
+        start_notification_watch()
 
     logger.info("Application startup complete")
     yield
@@ -399,6 +405,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from .background.standby_watch import stop_standby_watch
 
         await stop_standby_watch()
+    else:
+        from .background.notification_watch import stop_notification_watch
+
+        await stop_notification_watch()
 
     # Shutdown: Stop fallback auto-print task
     if not settings.demo_mode:
