@@ -1340,7 +1340,11 @@ async def transfer_assignments(
             target_incident_id=transfer_request.target_incident_id,
             current_user=current_user,
             request=request,
+            only_assignment_ids=transfer_request.assignment_ids,
         )
+    except assignment_crud.TransferChangedError as e:
+        # The undo's rows are no longer all there: nothing moves, the operator is told.
+        raise HTTPException(status_code=409, detail=str(e)) from e
     except assignment_crud.ResourceNotAssignableError as e:
         # The target may not take a resource (closed Einsatz, archived Ereignis, …): 409 like assign.
         raise HTTPException(status_code=409, detail=str(e)) from e

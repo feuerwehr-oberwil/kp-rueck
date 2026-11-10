@@ -33448,6 +33448,21 @@
             "type": "string",
             "format": "uuid",
             "title": "Target Incident Id"
+          },
+          "assignment_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignment Ids"
           }
         },
         "type": "object",
@@ -33455,7 +33470,7 @@
           "target_incident_id"
         ],
         "title": "TransferAssignmentsRequest",
-        "description": "Request to transfer all assignments from one incident to another."
+        "description": "Request to transfer all assignments from one incident to another.\n\n``assignment_ids``: «Rückgängig» of a transfer – move back exactly these rows (the\n``assignment_ids`` the transfer answered with) and nothing the incident held before.\nRefused (409) unless every one of them is still active on the incident."
       },
       "TransferAssignmentsResponse": {
         "properties": {
