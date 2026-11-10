@@ -212,6 +212,47 @@ describe("special functions in the crew list", () => {
     expect(tile.querySelector('[class*="text-amber-700"]')).not.toBeNull()
   })
 
+  it("says every person on ONE line: rank · where (the only amber) · vehicle", () => {
+    // Hill climb r23: free, Einsatz and Auftrag tiles had three line layouts and two heights.
+    renderWithIntl(
+      <ResourceAssignmentDialog
+        open
+        onOpenChange={vi.fn()}
+        resourceType="crew"
+        operationId="incident-1"
+        personnel={[person({ name: "Egger Olivier", role: "Korporal", status: "assigned", isDriver: true, driverVehicleName: "TLF" })]}
+        vehicles={[]}
+        materials={[]}
+        assignedPersonnelIds={[]}
+        assignedVehicleIds={[]}
+        assignedMaterials={[]}
+        occupiedPersonnelIds={new Set(["Egger Olivier"])}
+        onAssignPerson={vi.fn()}
+        onAssignVehicle={vi.fn()}
+        onAssignMaterial={vi.fn()}
+        onRemovePerson={vi.fn()}
+        onRemoveVehicle={vi.fn()}
+        onRemoveMaterial={vi.fn()}
+      />,
+    )
+
+    const tile = screen.getByRole("button", { name: /Egger Olivier/ })
+    const lines = tile.querySelectorAll("p")
+    expect(lines).toHaveLength(2)
+    expect(lines[1].textContent).toBe("Korporal·Im Einsatz·TLF")
+    expect(lines[1].getAttribute("title")).toBe("Korporal · Im Einsatz · TLF")
+    const amber = tile.querySelectorAll('[class*="text-amber-700"]')
+    expect(amber).toHaveLength(1)
+    expect(amber[0].textContent).toBe("Im Einsatz")
+  })
+
+  it("makes a place-like role the where-note of a person on no Einsatz", () => {
+    renderCrew([person({ name: "Müller Hans", role: "Offizier", isReko: true, isDriver: true, driverVehicleName: "TLF" })])
+    const tile = screen.getByRole("button", { name: /Müller Hans/ })
+    expect(tile.querySelectorAll("p")[1].textContent).toBe("Offizier·Reko·TLF")
+    expect(tile.querySelector('[class*="text-amber-700"]')?.textContent).toBe("Reko")
+  })
+
   it("keeps the crew of THIS incident under «Verfügbar», ticked", () => {
     renderCrewWithAssigned(
       [

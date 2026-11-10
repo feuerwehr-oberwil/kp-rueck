@@ -20,6 +20,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
 import { openCommandPalette } from "@/components/ui/command-palette"
 import { Badge } from "@/components/ui/badge"
+import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
 import { SearchInput } from "@/components/ui/search-input"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { FileText, Check, Milestone, Binoculars, Layers, ChevronDown } from "lucide-react"
@@ -28,13 +29,19 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { incidentTimeSource } from "@/lib/incident-time"
-import { type Priority, PRIORITY_DOT_CLASSES } from "@/lib/priority"
+import { useIncidentTimeMode } from "@/lib/hooks/use-incident-time-mode"
+import { sortForMapList } from "@/lib/map-list-order"
+import { type Priority, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
+import { PriorityGlyph } from "@/components/ui/priority-glyph"
+import { statusGroupCaption } from "@/components/map-legend"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { useIncidents, useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
 import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
 import { RoutenplanungPanel } from "@/components/map/routenplanung-panel"
+import { ResizeGrip } from "@/components/ui/resize-grip"
+import { useResizableWidth } from "@/lib/hooks/use-resizable-width"
 import { RekoModusPanel } from "@/components/map/reko-modus-panel"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -94,6 +101,10 @@ const COLOR_BY_SHORTCUTS: ReadonlyArray<readonly [key: string, dim: ColorByDimen
   ['a', 'auftrag'],
 ]
 
+/** The rail's tool buttons («Ansicht», «Routenplanung», «Reko-Modus»): 28px, 12/500,
+ *  `rounded-sm` like every control under 32px. The phone overrides height and type. */
+const RAIL_TOOL = 'flex h-7 items-center gap-1.5 rounded-sm border px-2.5 text-xs font-medium transition-colors'
+
 export default function MapPage() {
   const t = useTranslations('map')
   const tKanban = useTranslations('kanban')
@@ -116,6 +127,7 @@ export default function MapPage() {
   // has drawn its first frame (`idle`: style, tiles and markers) — not an empty grey box.
   const [mapIdle, setMapIdle] = useState(false)
   const tBoot = useTranslations('map.page')
+  const tPanels = useTranslations('panels')
   useBootGate('map', operationsLoaded && mapIdle, tBoot('loading'))
   // vehicle id → driver name, live — the rail's vehicle chips carry the same
   // «Name · Funkrufname (Fahrer)» line the board card shows.
@@ -196,6 +208,39 @@ export default function MapPage() {
   } | null>(null)
   // Shared routing hook — active only while planning a selected group.
   const planning = useRoutePlanning(planningActive ? planningGroupId : null)
+  // Desktop: the right rail's width is the operator's – ONE width for the Einsätze list, the
+  // Reko-Modus and the Routenplanung (owner picks 08. + 09.11.2026) – dragged by its left edge
+  // and remembered on this device. 320 = the rail's own. The storage key is the one the
+  // Routenplanung-only width had, so a width dragged there stays.
+  // The row the rail sits in, measured: the rail never takes more than the row minus 12rem
+  // for the map (at 768px with the notification sidebar open the row is 448px). The bounds go
+  // into the hook, so the grip's value is the width that is drawn; the stored width stays and
+  // comes back when there is room again. A drag writes the width into the DOM only, so neither
+  // this page nor the map re-renders per pointer move.
+  const [railRowWidth, setRailRowWidth] = useState<number | null>(null)
+  const measureRailRow = useCallback((aside: HTMLElement | null) => {
+    const row = aside?.parentElement
+    if (!row) return
+    const observer = new ResizeObserver(([entry]) => setRailRowWidth(entry.contentRect.width))
+    observer.observe(row)
+    return () => observer.disconnect()
+  }, [])
+  const railMax = railRowWidth === null ? 560 : Math.max(0, Math.min(560, Math.round(railRowWidth - 192)))
+  const railWidth = useResizableWidth({
+    storageKey: 'kp-map-planningWidth',
+    defaultWidth: 320,
+    min: Math.min(280, railMax),
+    max: railMax,
+    side: 'left',
+  })
+  const { panelRef: railPanelRef } = railWidth
+  const railRef = useCallback(
+    (aside: HTMLElement | null) => {
+      railPanelRef(aside)
+      return measureRailRow(aside)
+    },
+    [railPanelRef, measureRailRow],
+  )
   // id → Operation lookup for the GroupRoutes overlay (stops are real incidents).
   const operationsById = useMemo(
     () => new Map(operations.map((op) => [op.id, op] as const)),
@@ -575,7 +620,10 @@ export default function MapPage() {
   // The rail's sections: the SEARCHED list split by status group. The section
   // headings are the filter now — toggling one flips `statusFilters`, which
   // also drives the map's markers, exactly as the old pill row did. Split from
-  // the search-only list so a collapsed section still knows its count.
+  // the search-only list so a collapsed section still knows its count. Each
+  // section reads Hoch → Mittel → Niedrig, then oldest first by the age its
+  // rows show (`sortForMapList`).
+  const { mode: timeMode } = useIncidentTimeMode()
   const sectionedIncidents = useMemo(() => {
     const searched = !searchQuery
       ? incidents
@@ -593,8 +641,9 @@ export default function MapPage() {
       const group = STATUS_TO_GROUP[inc.status as IncidentStatus]
       if (group) sections[group].push(inc)
     }
+    for (const group of Object.keys(sections) as StatusGroup[]) sections[group] = sortForMapList(sections[group], timeMode)
     return sections
-  }, [incidents, searchQuery, tIncidents, tKanban])
+  }, [incidents, searchQuery, tIncidents, tKanban, timeMode])
 
 
   // Refresh incidents immediately when map page loads
@@ -719,6 +768,151 @@ export default function MapPage() {
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [gPrefix, selectedIncidentId, incidents, refreshIncidents, router, openIncidentDetail, vehicleTypes, gpsAvailable, setColorByPersisted])
 
+  // Ansicht — every map display option in one popover. While any option differs
+  // from the defaults the button wears the selection (slate wash + edge, as
+  // `variant="selected"`). Desktop: on the heading's
+  // row, right-aligned (the view options of the list below it), so the tool row
+  // under it holds only the two editor modes and never wraps 2 + 1 inside the
+  // 320px rail (hill climb r19). Phone: beside the search, one row, and at rest
+  // on the search field's own surface (transparent + the 1px input edge) – the
+  // muted tool wash beside a white field read as pressed (hill climb r21).
+  // 28px tall off the phone (`rounded-sm`: controls under 32px), 44px on it.
+  const viewChanged =
+    !showLabels || (gpsAvailable && (!showAssignmentLines || showDistances)) || showGroupRoutes || colorBy !== 'priority' || (weatherAvailable && showWeather)
+  const viewMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className={`${RAIL_TOOL} max-md:h-11 max-md:shrink-0 max-md:rounded-md max-md:px-3 max-md:text-sm ${
+            viewChanged
+              ? 'border-sel-edge bg-sel-wash text-sel-foreground'
+              : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted max-md:border-input max-md:bg-transparent max-md:text-foreground max-md:shadow-xs max-md:dark:bg-input/30'
+          }`}
+          title={t('page.viewMenuLabel')}
+        >
+          <Layers className="h-3 w-3" />
+          {t('page.view')}
+          <ChevronDown className="h-3 w-3 opacity-60" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align={isMobile ? 'start' : 'end'} collisionPadding={8} className="w-60">
+        <DropdownMenuLabel>{t('page.viewMenuLabel')}</DropdownMenuLabel>
+        {/* e.preventDefault keeps the menu open so several options can
+            be flipped in one visit (and the legend updates live). */}
+        <DropdownMenuCheckboxItem
+          checked={showLabels}
+          onSelect={(e) => { e.preventDefault(); setShowLabels(!showLabels) }}
+        >
+          <span className="flex-1">{t('page.labels')}</span>
+          {!isMobile && <Kbd className="text-2xs">L</Kbd>}
+        </DropdownMenuCheckboxItem>
+        {/* Both are drawn from vehicle GPS — without it they are dead
+            switches, so they only exist when GPS does. */}
+        {gpsAvailable && (
+          <>
+            <DropdownMenuCheckboxItem
+              checked={showAssignmentLines}
+              onSelect={(e) => { e.preventDefault(); setShowAssignmentLines(!showAssignmentLines) }}
+            >
+              <span className="flex-1">{t('page.lines')}</span>
+              {!isMobile && <Kbd className="text-2xs">I</Kbd>}
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={showDistances}
+              // A distance measures a line, so switching it on
+              // switches «Linien» on too — otherwise the menu says
+              // the lines are off while the map is drawing them.
+              onSelect={(e) => {
+                e.preventDefault()
+                const next = !showDistances
+                setShowDistances(next)
+                if (next) setShowAssignmentLines(true)
+              }}
+            >
+              <span className="flex-1">{t('page.distance')}</span>
+            </DropdownMenuCheckboxItem>
+          </>
+        )}
+        {/* Switching this on also forces "Färben nach" to Auftrag.
+            Silently taking over another control is the kind of thing
+            that reads as a bug at 3am, so both ends say so: the cause
+            here, the effect under the Färben-nach label below. */}
+        <DropdownMenuCheckboxItem
+          checked={showGroupRoutes}
+          onSelect={(e) => { e.preventDefault(); toggleGroupRoutes() }}
+          className="items-start"
+        >
+          <span className="flex-1">
+            {t('page.groupRoutes')}
+            <span className="block text-[11px] leading-snug text-muted-foreground">
+              {t('page.groupRoutesColorHint')}
+            </span>
+          </span>
+        </DropdownMenuCheckboxItem>
+        {weatherAvailable && (
+          <DropdownMenuCheckboxItem
+            checked={showWeather}
+            onSelect={(e) => { e.preventDefault(); toggleWeather() }}
+            className="items-start"
+          >
+            <span className="flex-1">
+              {t('weather.layer')}
+              <span className="block text-[11px] leading-snug text-muted-foreground">
+                {t('weather.layerHint')}
+              </span>
+            </span>
+          </DropdownMenuCheckboxItem>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>{t('common.colorByMenuLabel')}</DropdownMenuLabel>
+        {showGroupRoutes && colorBy === 'auftrag' && (
+          <p className="px-2 pb-1.5 text-[11px] leading-snug text-muted-foreground">
+            {t('page.colorByRoutesOverride')}
+          </p>
+        )}
+        {COLOR_BY_SHORTCUTS.map(([key, dim]) => (
+          <DropdownMenuItem
+            key={dim}
+            onSelect={(e) => { e.preventDefault(); setColorByPersisted(dim) }}
+            className="cursor-pointer"
+          >
+            <span className="flex-1">{t(`colorBy.${dim}`)}</span>
+            {colorBy === dim && <Check className="h-3.5 w-3.5" />}
+            {!isMobile && <Kbd className="text-2xs">{key.toUpperCase()}</Kbd>}
+          </DropdownMenuItem>
+        ))}
+        {colorLegend.length > 0 && (
+          <>
+            <DropdownMenuSeparator />
+            <div className="px-2 py-1.5 space-y-1 max-h-48 overflow-y-auto overscroll-contain">
+              {colorLegend.map((g) => (
+                <div key={g.key} className="flex items-center gap-2 text-xs">
+                  <span className="h-3 w-3 rounded-sm flex-shrink-0" style={{ backgroundColor: g.color }} />
+                  <span className="truncate">{g.label}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        {/* Phone: the two editor modes live here (see the row above). */}
+        {isMobile && isEditor && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>{t('page.modesMenuLabel')}</DropdownMenuLabel>
+            <DropdownMenuItem onSelect={() => enterPlanning()} className="cursor-pointer">
+              <Milestone className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="flex-1">{t('page.routePlanning')}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => enterRekoMode()} className="cursor-pointer">
+              <Binoculars className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="flex-1">{t('rekoMode.title')}</span>
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+
   return (
     <ProtectedRoute>
       <div className="flex h-full flex-col bg-background text-foreground">
@@ -736,6 +930,8 @@ export default function MapPage() {
             {/* The word next to the page title, in the same warning colour the
                 board's event switcher uses — colour alone never carries it. */}
             {selectedEvent?.training_flag && <TrainingBadge label={tKanban('dashboard.training')} />}
+            {/* «18 Einsätze», not «18 Aktiv»: it counts every shown Einsatz, open
+                ones included, and the rail's «AKTIV · 8» group is a different number. */}
             <Badge variant="secondary" className="hidden sm:inline-flex">
               {t('page.activeBadge', { count: activeIncidents.length })}
             </Badge>
@@ -803,12 +999,28 @@ export default function MapPage() {
               never move — no sticky, no overscroll spring. */}
           {/* Back at 320px (Bastian's second field round): the one-line rows
               were right, the narrower rail was not — addresses truncated and
-              the mode panels burst their headers. */}
-          <aside className={`bg-card/30 backdrop-blur-sm flex flex-col overflow-hidden ${
-            isMobile
-              ? 'flex-1 border-t border-border'
-              : 'w-80 border-l border-border flex-shrink-0'
-          }`}>
+              the mode panels burst their headers. The operator drags it between
+              280 and 560 (the grip on its left edge), in every mode. `@container/rail`:
+              the panels fit their headers to the rail's width, not the window's. */}
+          {!isMobile && (
+            <ResizeGrip
+              resize={railWidth}
+              side="left"
+              label={tPanels('resize.mapRail')}
+              hint={tPanels('resizeHint')}
+            />
+          )}
+          <aside
+            ref={railRef}
+            className={`@container/rail bg-card/30 backdrop-blur-sm flex flex-col overflow-hidden ${
+              isMobile
+                ? 'flex-1 border-t border-border'
+                : 'border-l border-border flex-shrink-0 w-(--rail-w)'
+            }`}
+            // Capped by the measured row (railMax above), so a rail dragged to 560 never pushes
+            // its own exit button off a narrow screen.
+            style={isMobile ? undefined : railWidth.style}
+          >
             <div className={`${planningActive || rekoModeActive ? 'p-4 flex-1 min-h-0' : 'flex flex-col flex-1 min-h-0'}`}>
               {planningActive ? (
                 <RoutenplanungPanel
@@ -838,9 +1050,17 @@ export default function MapPage() {
               {/* Fixed header: title through search live outside the scroll
                   container below, so they simply never move. */}
               <div className="flex-shrink-0 p-4 pb-3 border-b border-border/50">
-              <h2 className="text-lg font-bold mb-3">
-                {t('page.incidentsHeading', { count: activeIncidents.length })}
-              </h2>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                {/* The count only where no header chip says it: from md the
+                    header's «18 Einsätze» does, and the heading repeating it
+                    read twice (hill climb r20). The phone has no header. */}
+                <h2 className="min-w-0 text-lg font-bold">
+                  {isMobile
+                    ? t('page.incidentsHeading', { count: activeIncidents.length })
+                    : t('page.incidentsHeadingPlain')}
+                </h2>
+                {!isMobile && viewMenu}
+              </div>
 
               {/* No pill row any more: the list's section headings ARE the
                   status filter (they toggle the same `statusFilters`, list and
@@ -854,7 +1074,8 @@ export default function MapPage() {
                   The two editor modes move into the Ansicht menu there: they are
                   KP-desk tools, each swaps the whole list for its panel, and one
                   extra tap is a fair price for a whole row of list. */}
-              <div className={isMobile ? 'flex items-center gap-2' : 'flex flex-wrap gap-2 mb-4'}>
+              {(isMobile || isEditor) && (
+              <div className={isMobile ? 'flex items-center gap-2' : 'mb-3 flex flex-wrap gap-1.5'}>
                 {isMobile && (
                   <SearchInput
                     id="map-search-input"
@@ -864,155 +1085,23 @@ export default function MapPage() {
                     onValueChange={setSearchQuery}
                   />
                 )}
-                {/* Ansicht — every map display option in one popover. The button
-                    lights up subtly when any option differs from the defaults. */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors flex items-center gap-1.5 max-md:h-11 max-md:shrink-0 max-md:text-sm ${
-                        !showLabels || (gpsAvailable && (!showAssignmentLines || showDistances)) || showGroupRoutes || colorBy !== 'priority' || (weatherAvailable && showWeather)
-                          ? 'border-sel-edge bg-secondary/50 text-foreground'
-                          : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
-                      }`}
-                      title={t('page.viewMenuLabel')}
-                    >
-                      <Layers className="h-3 w-3" />
-                      {t('page.view')}
-                      <ChevronDown className="h-3 w-3 opacity-60" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" collisionPadding={8} className="w-60">
-                    <DropdownMenuLabel>{t('page.viewMenuLabel')}</DropdownMenuLabel>
-                    {/* e.preventDefault keeps the menu open so several options can
-                        be flipped in one visit (and the legend updates live). */}
-                    <DropdownMenuCheckboxItem
-                      checked={showLabels}
-                      onSelect={(e) => { e.preventDefault(); setShowLabels(!showLabels) }}
-                    >
-                      <span className="flex-1">{t('page.labels')}</span>
-                      {!isMobile && <Kbd className="text-2xs">L</Kbd>}
-                    </DropdownMenuCheckboxItem>
-                    {/* Both are drawn from vehicle GPS — without it they are dead
-                        switches, so they only exist when GPS does. */}
-                    {gpsAvailable && (
-                      <>
-                        <DropdownMenuCheckboxItem
-                          checked={showAssignmentLines}
-                          onSelect={(e) => { e.preventDefault(); setShowAssignmentLines(!showAssignmentLines) }}
-                        >
-                          <span className="flex-1">{t('page.lines')}</span>
-                          {!isMobile && <Kbd className="text-2xs">I</Kbd>}
-                        </DropdownMenuCheckboxItem>
-                        <DropdownMenuCheckboxItem
-                          checked={showDistances}
-                          // A distance measures a line, so switching it on
-                          // switches «Linien» on too — otherwise the menu says
-                          // the lines are off while the map is drawing them.
-                          onSelect={(e) => {
-                            e.preventDefault()
-                            const next = !showDistances
-                            setShowDistances(next)
-                            if (next) setShowAssignmentLines(true)
-                          }}
-                        >
-                          <span className="flex-1">{t('page.distance')}</span>
-                        </DropdownMenuCheckboxItem>
-                      </>
-                    )}
-                    {/* Switching this on also forces "Färben nach" to Auftrag.
-                        Silently taking over another control is the kind of thing
-                        that reads as a bug at 3am, so both ends say so: the cause
-                        here, the effect under the Färben-nach label below. */}
-                    <DropdownMenuCheckboxItem
-                      checked={showGroupRoutes}
-                      onSelect={(e) => { e.preventDefault(); toggleGroupRoutes() }}
-                      className="items-start"
-                    >
-                      <span className="flex-1">
-                        {t('page.groupRoutes')}
-                        <span className="block text-[11px] leading-snug text-muted-foreground">
-                          {t('page.groupRoutesColorHint')}
-                        </span>
-                      </span>
-                    </DropdownMenuCheckboxItem>
-                    {weatherAvailable && (
-                      <DropdownMenuCheckboxItem
-                        checked={showWeather}
-                        onSelect={(e) => { e.preventDefault(); toggleWeather() }}
-                        className="items-start"
-                      >
-                        <span className="flex-1">
-                          {t('weather.layer')}
-                          <span className="block text-[11px] leading-snug text-muted-foreground">
-                            {t('weather.layerHint')}
-                          </span>
-                        </span>
-                      </DropdownMenuCheckboxItem>
-                    )}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel>{t('common.colorByMenuLabel')}</DropdownMenuLabel>
-                    {showGroupRoutes && colorBy === 'auftrag' && (
-                      <p className="px-2 pb-1.5 text-[11px] leading-snug text-muted-foreground">
-                        {t('page.colorByRoutesOverride')}
-                      </p>
-                    )}
-                    {COLOR_BY_SHORTCUTS.map(([key, dim]) => (
-                      <DropdownMenuItem
-                        key={dim}
-                        onSelect={(e) => { e.preventDefault(); setColorByPersisted(dim) }}
-                        className="cursor-pointer"
-                      >
-                        <span className="flex-1">{t(`colorBy.${dim}`)}</span>
-                        {colorBy === dim && <Check className="h-3.5 w-3.5" />}
-                        {!isMobile && <Kbd className="text-2xs">{key.toUpperCase()}</Kbd>}
-                      </DropdownMenuItem>
-                    ))}
-                    {colorLegend.length > 0 && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <div className="px-2 py-1.5 space-y-1 max-h-48 overflow-y-auto overscroll-contain">
-                          {colorLegend.map((g) => (
-                            <div key={g.key} className="flex items-center gap-2 text-xs">
-                              <span className="h-3 w-3 rounded-sm flex-shrink-0" style={{ backgroundColor: g.color }} />
-                              <span className="truncate">{g.label}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                    {/* Phone: the two editor modes live here (see the row above). */}
-                    {isMobile && isEditor && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuLabel>{t('page.modesMenuLabel')}</DropdownMenuLabel>
-                        <DropdownMenuItem onSelect={() => enterPlanning()} className="cursor-pointer">
-                          <Milestone className="h-3.5 w-3.5" aria-hidden="true" />
-                          <span className="flex-1">{t('page.routePlanning')}</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => enterRekoMode()} className="cursor-pointer">
-                          <Binoculars className="h-3.5 w-3.5" aria-hidden="true" />
-                          <span className="flex-1">{t('rekoMode.title')}</span>
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {isMobile && viewMenu}
 
                 {/* The two editor modes, as direct buttons — a dropdown for
                     exactly two entries was a click to see two words. Both swap
-                    the sidebar for their panel; same rounded-md so tools read
-                    apart from filters. */}
+                    the sidebar for their panel; the same squared tool shape as
+                    «Ansicht» so tools read apart from the list's filters. */}
                 {isEditor && !isMobile && (
                   <>
                     <button
-                      className="px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-muted/50 text-muted-foreground hover:bg-muted transition-colors flex items-center gap-1.5"
+                      className={`${RAIL_TOOL} border-border bg-muted/50 text-muted-foreground hover:bg-muted`}
                       onClick={() => enterPlanning()}
                     >
                       <Milestone className="h-3 w-3" />
                       {t('page.routePlanning')}
                     </button>
                     <button
-                      className="px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-muted/50 text-muted-foreground hover:bg-muted transition-colors flex items-center gap-1.5"
+                      className={`${RAIL_TOOL} border-border bg-muted/50 text-muted-foreground hover:bg-muted`}
                       onClick={() => enterRekoMode()}
                     >
                       <Binoculars className="h-3 w-3" />
@@ -1021,6 +1110,7 @@ export default function MapPage() {
                   </>
                 )}
               </div>
+              )}
 
               {/* Search bar (desktop — the phone has it in the row above) */}
               {!isMobile && (
@@ -1037,7 +1127,12 @@ export default function MapPage() {
               {/* On mobile the fixed bottom navbar overlays the page, so pad the
                   scrollable list past its measured height (`pb-nav-reserve`) —
                   otherwise the last incidents sit behind the bar. */}
-              <div className={`flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 py-3 ${isMobile ? 'pb-nav-reserve' : ''}`}>
+              {/* No bottom padding of its own off the phone: the closing
+                  `ScrollEndFade` is the end (r21). On the phone the padding is the
+                  nav's reserve + 12px, and a sticky box stops at the scroller's
+                  padding edge – so the fade takes those 12px back (`-bottom-3`)
+                  and rides on the nav's top edge. */}
+              <div className={`flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 pt-3 ${isMobile ? 'pb-nav-reserve' : ''}`}>
               {/* One-line rows in sections. The rail stopped repeating the
                   board's cards: detail lives on the marker's hover card and
                   behind «Details anzeigen» (double-click, or the icon that
@@ -1047,32 +1142,43 @@ export default function MapPage() {
                 {(['open', 'active', 'completed'] as StatusGroup[]).map((group) => {
                   const rows = sectionedIncidents[group]
                   const enabled = statusFilters[group]
+                  const caption = statusGroupCaption(t(`statusGroups.${group}`), t(`statusGroups.${group}Members`))
                   return (
                     // ONE dimming: the muted text itself. A folded group used to
                     // add opacity-60 on top of a `/70` line (1.8:1, sweep
-                    // 2026-10); the turned chevron already says «folded».
+                    // 2026-10); the turned caret already says «folded». The fold
+                    // mark is a FILLED 8px caret (▸/▾) – the rows below lead with a
+                    // stroked priority chevron in the same column, and one glyph for
+                    // both read «OFFEN» as a Niedrig row (hill climb r23).
                     <div key={group}>
                       <button
                         onClick={() => toggleStatusFilter(group)}
                         aria-expanded={enabled}
-                        className="flex w-full items-center gap-1 px-2 py-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                        className="relative hit-area flex w-full items-center gap-1 px-2 py-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
                       >
-                        <ChevronDown
-                          className={`h-3 w-3 transition-transform ${enabled ? '' : '-rotate-90'}`}
-                        />
+                        <svg
+                          viewBox="0 0 8 8"
+                          aria-hidden="true"
+                          className={`mx-0.5 size-2 shrink-0 fill-current transition-transform ${enabled ? 'rotate-90' : ''}`}
+                        >
+                          <path d="M2 0.5 L6.5 4 L2 7.5 Z" />
+                        </svg>
                         {t(`statusGroups.${group}`)} · {statusGroupCounts[group]}
                       </button>
                       {/* Which board columns feed this section. A group name is
                           shorter than the statuses it stands for, and on its own
                           it left the operator guessing whether «Rückfahrt»
-                          counted as finished — so the section says so. */}
-                      <p className="px-2 pb-1 text-2xs leading-tight text-muted-foreground">
-                        {t(`statusGroups.${group}Members`)}
-                      </p>
+                          counted as finished — so the section says so, unless the
+                          name already lists them (`statusGroupCaption`). */}
+                      {caption && (
+                        <p className="px-2 pb-1 text-2xs leading-tight text-muted-foreground">{caption}</p>
+                      )}
                       <Reveal open={enabled && rows.length > 0}>
                         <div className="space-y-0.5">
                           {rows.map((incident) => {
                             const isSelected = selectedIncidentId === incident.id
+                            const priority = (incident.priority ?? 'low') as Priority
+                            const priorityLabel = priority === 'high' ? t('common.priorityHigh') : priority === 'medium' ? t('common.priorityMedium') : t('common.priorityLow')
                             // Pickup flags live on the Operation, one lookup away.
                             const operation = operationsById.get(incident.id)
                             return (
@@ -1084,17 +1190,24 @@ export default function MapPage() {
                                   // ONE selected state (A2): the slate wash, nothing else. It
                                   // was a grey wash plus a 2px slate bar inset 4px top and
                                   // bottom — two shapes that never lined up (owner, 02.10.).
-                                  className={`group relative flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 transition-colors ${
+                                  // 44px on the phone: the row's time chip is a button the touch
+                                  // rule makes 44px tall, and at 32px it lay over its neighbours'.
+                                  className={`group relative flex h-8 max-md:h-11 cursor-pointer items-center gap-2 rounded-md px-2 transition-colors ${
                                     isSelected ? 'bg-sel-wash' : 'hover:bg-muted/50'
                                   }`}
                                   aria-current={isSelected ? 'true' : undefined}
                                 >
-                                  <span
-                                    className={`h-2 w-2 flex-shrink-0 rounded-full ${
-                                      PRIORITY_DOT_CLASSES[(incident.priority ?? 'low') as Priority]
-                                    }`}
-                                    title={incident.priority === 'high' ? t('common.priorityHigh') : incident.priority === 'medium' ? t('common.priorityMedium') : t('common.priorityLow')}
-                                  />
+                                  {/* Priority as the shared `PriorityGlyph` (the marker's own
+                                      path) – never a colour dot alone – at the 14px / 2px
+                                      drawing in a 16px gutter: lucide's dash read as a list
+                                      hyphen, its chevron as the group's fold mark (r23). The
+                                      rail keeps its own tint (amber-700 Mittel, as before): with
+                                      no amber card edge beside it the board's near-black light
+                                      Mittel read as a hyphen again. The glyph names itself; the
+                                      span only adds the hover word. */}
+                                  <span className="flex-shrink-0" title={priorityLabel}>
+                                    <PriorityGlyph priority={priority} size="wall" className={PRIORITY_TEXT_CLASSES[priority]} />
+                                  </span>
                                   <span
                                     className="min-w-0 flex-1 truncate text-[13px] font-medium"
                                     title={incident.location_address ? formatLocation(incident.location_address) : incident.title}
@@ -1150,6 +1263,7 @@ export default function MapPage() {
                   </p>
                 )}
               </div>
+              <ScrollEndFade surface="panel" className={isMobile ? '-bottom-3' : undefined} />
               </div>
               </>
               )}

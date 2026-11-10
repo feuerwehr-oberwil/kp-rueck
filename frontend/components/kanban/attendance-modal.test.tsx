@@ -62,7 +62,7 @@ describe('attendance state', () => {
     expect(attendanceState(absent)).toBe('absent')
   })
 
-  it('counts present, gone and the whole Mannschaft', () => {
+  it('counts present, gone and the whole roster', () => {
     expect(summarizeAttendance([present, left, absent, unavailable])).toEqual({
       present: 1,
       left: 1,
@@ -70,7 +70,7 @@ describe('attendance state', () => {
     })
   })
 
-  it('counts an unavailable person as Mannschaft but never as present', () => {
+  it('counts an unavailable person as roster but never as present', () => {
     expect(summarizeAttendance([unavailable])).toEqual({ present: 0, left: 0, total: 1 })
   })
 })
@@ -116,7 +116,7 @@ describe('AttendanceModal', () => {
       <AttendanceModal open onOpenChange={() => {}} eventId="ev-1" eventName="Unwetter 08.08." />
     )
 
-    expect(await screen.findByText('1 anwesend · 1 gegangen · 4 Mannschaft')).toBeInTheDocument()
+    expect(await screen.findByText('1 anwesend · 1 gegangen · 4 Personal')).toBeInTheDocument()
 
     const unavailableRow = screen.getByRole('button', { name: /Ammann Urs/ })
     expect(unavailableRow).toBeDisabled()
@@ -253,7 +253,7 @@ describe('AttendanceModal · Divera «Anrückend»', () => {
   it('is neither fetched nor rendered for a viewer (the endpoint is editor-only)', async () => {
     getEventDiveraResponses.mockClear()
     renderWithIntl(<AttendanceModal open onOpenChange={() => {}} eventId="ev-1" eventName="Unwetter 08.08." />)
-    expect(await screen.findByText('1 anwesend · 1 gegangen · 3 Mannschaft')).toBeInTheDocument()
+    expect(await screen.findByText('1 anwesend · 1 gegangen · 3 Personal')).toBeInTheDocument()
     expect(screen.queryByTestId('divera-incoming')).not.toBeInTheDocument()
     expect(getEventDiveraResponses).not.toHaveBeenCalled()
   })
@@ -263,7 +263,7 @@ describe('AttendanceModal · Divera «Anrückend»', () => {
     renderWithIntl(
       <AttendanceModal open onOpenChange={() => {}} eventId="ev-1" eventName="Unwetter 08.08." canCheckIn />
     )
-    expect(await screen.findByText('1 anwesend · 1 gegangen · 3 Mannschaft')).toBeInTheDocument()
+    expect(await screen.findByText('1 anwesend · 1 gegangen · 3 Personal')).toBeInTheDocument()
     await waitFor(() => expect(getEventDiveraResponses).toHaveBeenCalled())
     expect(screen.queryByTestId('divera-incoming')).not.toBeInTheDocument()
   })

@@ -105,9 +105,10 @@ test.describe('Viewer role — operations board', () => {
     await expect(
       editorDialog.getByRole('button', { name: 'Löschen', exact: true }),
     ).toBeVisible();
+    // Status is the «Status» select row under Merkmale (owner pick U11).
     await expect(
-      editorDialog.getByRole('button', { name: 'Disponiert / Anfahrt' }),
-    ).toBeVisible();
+      editorDialog.getByRole('combobox', { name: 'Status' }),
+    ).toBeEnabled();
     await expect(
       editorDialog.getByRole('button', { name: 'Ressourcen übertragen' }),
     ).toBeVisible();
@@ -127,7 +128,7 @@ test.describe('Viewer role — operations board', () => {
       viewerDialog.getByRole('button', { name: 'Löschen', exact: true }),
     ).toHaveCount(0);
     await expect(
-      viewerDialog.getByRole('button', { name: 'Disponiert / Anfahrt' }),
+      viewerDialog.getByRole('combobox', { name: 'Status' }),
     ).toHaveCount(0);
     await expect(
       viewerDialog.getByRole('button', { name: 'Ressourcen übertragen' }),

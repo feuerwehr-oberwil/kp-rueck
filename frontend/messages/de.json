@@ -121,7 +121,7 @@
       "priorityMedium": "Priorität: Mittel",
       "priorityHigh": "Priorität: Hoch",
       "toggleZuFuss": "Zu Fuss umschalten",
-      "assignVehicle": "Fahrzeug {number} zuweisen/entfernen",
+      "assignVehicle": "Fahrzeug {number} zuweisen/freigeben",
       "deleteIncident": "Einsatz löschen",
       "linksAndQr": "Links & QR",
       "rapporte": "Rapporte öffnen",
@@ -129,7 +129,11 @@
       "figures": "Kennzahlen öffnen",
       "crewDuty": "Dienstzeiten",
       "dispatch": {
-        "placeholder": "Befehl suchen oder zuweisen: Einsatz, dann Fahrzeug / Person · ⇥ ergänzt",
+        "placeholder": "Befehl suchen oder zuweisen …",
+        "hint": "Einsatz, dann Fahrzeug / Person – z. B.",
+        "hintExample": "7 tlf keller",
+        "hintTab": "ergänzt",
+        "hintTabKey": "Tabulator",
         "group": "Ausführen",
         "incidentTitle": "Einsatz {number}",
         "arrowAssign": "bekommt",
@@ -160,7 +164,9 @@
         "tabComplete": "⇥ ergänzt zu «{label}»"
       },
       "journal": "Einsatztagebuch öffnen",
-      "journalEntry": "Tagebuch-Eintrag schreiben"
+      "journalEntry": "Tagebuch-Eintrag schreiben",
+      "toggleAmWarten": "Am Warten umschalten",
+      "toggleNachbarhilfe": "Nachbarhilfe umschalten"
     },
     "meta": {
       "title": "KP Rück Dashboard",
@@ -179,6 +185,12 @@
       "available": "Neue Version verfügbar",
       "hint": "Neu laden, sobald es passt.",
       "reload": "Neu laden"
+    },
+    "reorder": {
+      "moveUp": "Nach oben",
+      "moveDown": "Nach unten",
+      "moveTop": "An den Anfang",
+      "menuFor": "Reihenfolge von {name} ändern"
     }
   },
   "nav": {
@@ -208,9 +220,6 @@
       "diveraLabel": "Divera",
       "display": "Anzeige",
       "displayOverview": "Display-Übersicht",
-      "situationMap": "Lagekarte",
-      "board": "Board",
-      "statusDisplay": "Status",
       "management": "Verwaltung",
       "events": "Ereignisse",
       "settings": "Einstellungen",
@@ -220,7 +229,7 @@
       "reportPdf": "Einsatzrapport (PDF)",
       "auditXlsx": "Audit-Export (XLSX)",
       "lageblattA4": "Lageblatt (A4)",
-      "commands": "Befehle & Tastaturkürzel",
+      "commands": "Befehle & Kürzel",
       "help": "Hilfe",
       "openMenu": "Benutzermenü öffnen",
       "figures": "Kennzahlen"
@@ -420,6 +429,7 @@
       "einsatzart": "Einsatzart",
       "einsatzartPlaceholder": "Einsatzart auswählen",
       "priority": "Priorität",
+      "status": "Status",
       "phoneReported": "Telefonisch",
       "phoneReportedDescription": "Meldung kam per Telefon oder durch Laufkundschaft ins KP",
       "feldReported": "Vom Feld",
@@ -442,9 +452,9 @@
       "directLink": "Direkt-Link",
       "dashboard": "Dashboard",
       "noRekoAssigned": "Keine Reko-Person zugewiesen",
-      "crewCount": "Mannschaft ({count})",
-      "vehiclesCount": "Fahrzeuge ({count})",
-      "materialsCount": "Material ({count})",
+      "crewCount": "Mannschaft · {count}",
+      "vehiclesCount": "Fahrzeuge · {count}",
+      "materialsCount": "Material · {count}",
       "assignCrew": "Mannschaft zuweisen",
       "assignVehicle": "Fahrzeug zuweisen",
       "assignMaterial": "Material zuweisen",
@@ -479,7 +489,12 @@
       "rosterFree": "{count} frei",
       "rosterOf": "von {total}",
       "rosterBound": "{count} gebunden",
-      "bindingsNone": "Keine Zuweisung – nichts zum Anspringen."
+      "bindingsNone": "Keine Zuweisung – nichts zum Anspringen.",
+      "transferredToast": "Ressourcen nach «{target}» übertragen",
+      "transferredToastCount": "{count, plural, one {# Zuweisung} other {# Zuweisungen}} von «{source}»",
+      "transferUndone": "Übertragung zurückgenommen",
+      "transferUndoFailed": "Nicht zurückgenommen",
+      "transferUndoFailedDescription": "Die Zuweisungen bleiben, wo sie sind."
     },
     "dashboard": {
       "loading": "Wird geladen …",
@@ -742,7 +757,7 @@
       "locationError": "Einsatzort fehlt – ohne Ort lässt sich der Einsatz nicht erstellen.",
       "phoneShort": "Nummer hat nur {digits} Ziffern – bitte prüfen. Erstellen geht trotzdem.",
       "phoneLong": "Nummer hat {digits} Ziffern – bitte prüfen. Erstellen geht trotzdem.",
-      "infoDragDrop": "Fahrzeuge, Mannschaft und Material können nach dem Erstellen des Einsatzes per Drag & Drop zugewiesen werden.",
+      "infoDragDrop": "Fahrzeuge, Mannschaft und Material können nach dem Erstellen des Einsatzes per Drag & Drop zugewiesen werden.",
       "create": "Einsatz erstellen",
       "createAndNext": "Erstellen und nächsten erfassen",
       "moreActions": "Weitere Aktionen"
@@ -772,7 +787,6 @@
       "removeMaterial": "Material freigeben",
       "noMaterial": "Kein Material zugewiesen",
       "resourceEmpty": "keine",
-      "changeStatus": "Status ändern",
       "copyWhatsapp": "WhatsApp kopieren",
       "moreActions": "Weitere Aktionen",
       "diveraAlarm": "Aufgebot",
@@ -792,7 +806,8 @@
       "clickToView": "Klicke auf einen Einsatz, um Details anzuzeigen",
       "selectPlaceholder": "Auswählen",
       "transfer": "Übertragen",
-      "whatsapp": "WhatsApp"
+      "whatsapp": "WhatsApp",
+      "distribute": "Verteilen"
     },
     "personMenu": {
       "vehicleTaken": "Fahrzeug bereits zugewiesen",
@@ -821,10 +836,11 @@
       "titleCrewRouteGeneric": "Mannschaft zu Auftrag zuweisen",
       "titleVehiclesRouteGeneric": "Fahrzeuge zu Auftrag zuweisen",
       "titleMaterialsRouteGeneric": "Material zu Auftrag zuweisen",
-      "titleCrewIncident": "Mannschaft zu Einsatz zuweisen",
-      "titleVehiclesIncident": "Fahrzeuge zu Einsatz zuweisen",
-      "titleMaterialsIncident": "Material zu Einsatz zuweisen",
-      "selectedCount": "{selected} ausgewählt, {available} verfügbar",
+      "titleCrewIncident": "Mannschaft zuweisen",
+      "titleVehiclesIncident": "Fahrzeuge zuweisen",
+      "titleMaterialsIncident": "Material zuweisen",
+      "selectedCountCrew": "{selected} ausgewählt · {total, plural, one {# Person} other {# Personen}}",
+      "selectedCountMaterials": "{selected} ausgewählt · {total} insgesamt",
       "vehiclesAssigned": "{count, plural, one {# Fahrzeug zugewiesen} other {# Fahrzeuge zugewiesen}}",
       "zuFussSuffix": ", Zu Fuss",
       "quickSelectByType": "Nach Typ:",
@@ -948,7 +964,8 @@
       "repeatRadioNoStop": "Dieser Auftrag hat noch keinen Stopp. Die Durchsage entsteht mit dem ersten.",
       "repeatRadioCopy": "Text kopieren",
       "repeatRadioCopied": "Funkdurchsage kopiert",
-      "moreOptions": "Weitere Optionen"
+      "moreOptions": "Weitere Optionen",
+      "stopActions": "Reihenfolge und Aktionen für {name}"
     },
     "closedStop": {
       "title": "Einsatz ist abgeschlossen",
@@ -963,8 +980,7 @@
       "einsatz": "Im Einsatz",
       "beendet": "Rückfahrt",
       "abgeschlossen": "Abgeschlossen",
-      "advance": "Weiter zu {label}",
-      "jumpTo": "Status wählen"
+      "change": "Status: {label} – ändern"
     },
     "routenEditorModal": {
       "title": "Routen-Editor",
@@ -985,7 +1001,8 @@
       "contextOpen": "Offen",
       "contextInRoute": "In Auftrag «{name}»",
       "contextClickToAdd": "Klicken, um als Stopp hinzuzufügen",
-      "contextStopAdded": "Einsatz als Stopp hinzugefügt."
+      "contextStopAdded": "Einsatz als Stopp hinzugefügt.",
+      "stopActions": "Reihenfolge und Aktionen für {name}"
     },
     "incidentPicker": {
       "title": "Einsätze als Stopps hinzufügen",
@@ -1021,7 +1038,7 @@
     },
     "attendance": {
       "title": "Anwesenheit · {event}",
-      "summary": "{present} anwesend · {left} gegangen · {total} Mannschaft",
+      "summary": "{present} anwesend · {left} gegangen · {total} Personal",
       "rowLabel": "Anwesenheit",
       "rowCount": "{present} von {total} angemeldet",
       "open": "Appell öffnen",
@@ -1037,7 +1054,8 @@
       "checkOutAllTitle": "Alle abmelden?",
       "checkOutAllDescription": "{count, plural, one {# anwesende Person wird} other {# anwesende Personen werden}} auf «gegangen» gesetzt. Zuweisungen bleiben bestehen.",
       "quickAddHint": "Wird direkt angemeldet",
-      "writeFailed": "Anwesenheit konnte nicht gespeichert werden"
+      "writeFailed": "Anwesenheit konnte nicht gespeichert werden",
+      "openButton": "Appell"
     },
     "diveraIncoming": {
       "title": "Anrückend ({count})",
@@ -1263,8 +1281,6 @@
       "vehicleCount": "{count, plural, one {# Fahrzeug} other {# Fahrzeuge}}",
       "transferring": "Wird übertragen …",
       "transfer": "Übertragen",
-      "confirmTitle": "Ressourcen wirklich übertragen?",
-      "confirmDescription": "Alle zugewiesenen Ressourcen von «{source}» werden auf «{target}» verschoben. Das lässt sich nicht rückgängig machen.",
       "confirmCounts": "Es werden verschoben: {crew} Personal, {vehicles} Fahrzeuge, {materials} Material."
     },
     "driver": {
@@ -1319,14 +1335,12 @@
       "moveReleasesDriver": "«Hierher verschieben» gibt auch die Fahrer-Rolle für {vehicle} frei."
     },
     "vehicleStatus": {
-      "durationMinutes": "{minutes} Min",
-      "durationHoursMinutes": "{hours}h {mins}m",
-      "durationHours": "{hours}h",
+      "bound": "Gebunden",
       "available": "Verfügbar",
       "unavailable": "Nicht verfügbar",
       "loadError": "Fahrzeugstatus konnten nicht geladen werden",
       "title": "Fahrzeugstatus",
-      "description": "Klicken um zu Einsatz zu navigieren • Aktualisiert alle 10 Sekunden",
+      "description": "Klick öffnet den Einsatz · aktualisiert alle 10 Sekunden",
       "refresh": "Aktualisieren",
       "noVehicles": "Keine Fahrzeuge verfügbar",
       "longDuration": "Lange",
@@ -1334,8 +1348,7 @@
       "readyForOperation": "Bereit für Einsatz",
       "changeDriver": "Fahrer ändern",
       "assignDriver": "Fahrer zuweisen",
-      "auftragLabel": "Auftrag «{name}»",
-      "durationDaysHours": "{days}d {hours}h"
+      "auftragLabel": "Auftrag «{name}»"
     },
     "gpsArrival": {
       "fallbackVehicle": "Fahrzeug",
@@ -1343,7 +1356,7 @@
       "movedToActive": "{label} auf Einsatz gesetzt",
       "statusChangeFailed": "Statusänderung fehlgeschlagen",
       "title": "Fahrzeug am Einsatzort",
-      "description": "<strong>{vehicle}</strong> ist beim Einsatz »{label}« angekommen. Auf Einsatz setzen?",
+      "description": "<strong>{vehicle}</strong> ist beim Einsatz «{label}» angekommen. Auf Einsatz setzen?",
       "decline": "Nicht verschieben",
       "confirm": "Auf Einsatz setzen"
     },
@@ -1355,7 +1368,7 @@
       "completed": "{label} abgeschlossen",
       "completeFailed": "Abschliessen fehlgeschlagen",
       "title": "Fahrzeug zurück im Magazin – freigeben?",
-      "description": "<strong>{vehicle}</strong> ist laut GPS wieder im Magazin. Nur die Zuweisung zu »{label}« freigeben – oder den Einsatz gleich ganz abschliessen (gibt alle Ressourcen frei)?",
+      "description": "<strong>{vehicle}</strong> ist laut GPS wieder im Magazin. Nur die Zuweisung zu «{label}» freigeben – oder den Einsatz gleich ganz abschliessen (gibt alle Ressourcen frei)?",
       "decline": "Nicht freigeben",
       "releaseOnly": "Nur {vehicle} freigeben",
       "completeIncident": "Einsatz abschliessen"
@@ -1387,12 +1400,12 @@
       "notesPlaceholder": "Notiz hinzufügen …",
       "dangers": "Gefahren",
       "personnelCount": "{count, plural, one {# Person} other {# Personen}}",
-      "estimatedDuration": "{duration}h geschätzt",
-      "vehicles": "Fahrzeuge ({count})",
+      "estimatedDuration": "{duration} geschätzt",
+      "vehicles": "Fahrzeuge · {count}",
       "noVehicles": "Keine Fahrzeuge zugewiesen",
-      "crew": "Mannschaft ({count})",
+      "crew": "Mannschaft · {count}",
       "noCrew": "Keine Mannschaft zugewiesen",
-      "materials": "Material ({count})",
+      "materials": "Material · {count}",
       "noMaterials": "Kein Material zugewiesen",
       "contact": "Kontakt / Melder",
       "contactPlaceholder": "Kontakt hinzufügen …",
@@ -1442,14 +1455,16 @@
     "page": {
       "loading": "Karte wird geladen …",
       "title": "Lagekarte",
-      "activeBadge": "{count} Aktiv",
-      "incidentsHeading": "Einsätze ({count})",
+      "activeBadge": "{count, plural, one {# Einsatz} other {# Einsätze}}",
+      "incidentsHeading": "Einsätze · {count}",
+      "incidentsHeadingPlain": "Einsätze",
       "labels": "Labels",
       "lines": "Linien",
       "distance": "Distanz",
       "searchPlaceholder": "Suchen …",
       "showDetails": "Details anzeigen",
       "vehicleCluster": "{count} Fahrzeuge",
+      "vehicleClusterShort": "{count} Fz.",
       "groupRoutes": "Aufträge",
       "groupRoutesColorHint": "Färbt die Karte nach Auftrag",
       "colorByRoutesOverride": "Von «Aufträge» gesetzt – beim Ausschalten wird die vorherige Färbung wiederhergestellt.",
@@ -1476,7 +1491,11 @@
       "noStops": "Noch keine Stopps in diesem Auftrag.",
       "stopAdded": "Stopp zur Route hinzugefügt.",
       "stopAlreadyOnRoute": "Dieser Einsatz ist bereits auf der Route.",
-      "noGroups": "Noch keine Aufträge vorhanden"
+      "noGroups": "Noch keine Aufträge vorhanden",
+      "stopCount": "{count, plural, one {# Stopp} other {# Stopps}}",
+      "startLabel": "Start · {start}",
+      "addStopMapHint": "Klick auf die Karte",
+      "exitLabel": "Routenplanung beenden"
     },
     "view": {
       "markerAria": "Einsatz: {label}",
@@ -1486,10 +1505,15 @@
       "magazin": "Magazin",
       "missingCoordsAria": "{count, plural, one {# Einsatz} other {# Einsätze}} ohne gültige Koordinaten",
       "missingCoordsChip": "{count} ohne Koordinaten",
-      "clickToNavigate": "Klicken um zu Einsatz zu navigieren",
+      "clickToNavigate": "Klick öffnet den Einsatz",
       "retry": "Erneut versuchen",
       "mapAria": "Einsatzkarte – Pfeiltasten zum Verschieben, Tab zum Markieren",
-      "glLost": "Die Kartendarstellung wurde vom Browser beendet."
+      "glLost": "Die Kartendarstellung wurde vom Browser beendet.",
+      "clusterAria": "{count} Einsätze nah beieinander, höchste: {priority} – vergrössern",
+      "spotAria": "{count} Einsätze: {numbers} – {address}",
+      "spotAriaNoNumbers": "{count} Einsätze – {address}",
+      "spotHint": "Klick: Einsatz wählen · Doppelklick: öffnen",
+      "spotClose": "Liste schliessen"
     },
     "legend": {
       "show": "Legende anzeigen",
@@ -1505,14 +1529,21 @@
       "vehicleOnline": "Fahrzeug online",
       "vehicleOffline": "Fahrzeug offline",
       "assignments": "Zuweisungen",
-      "vehicleToIncident": "Fahrzeug → Einsatz"
+      "vehicleToIncident": "Fahrzeug → Einsatz",
+      "cluster": "Einsätze nah beieinander",
+      "spot": "Einsätze an einer Adresse",
+      "sampleOnline": "Pio",
+      "sampleOffline": "TLF",
+      "pillOnline": "online",
+      "pillStale": "offline · zuletzt (ab {minutes} Min.)",
+      "pillSpot": "am selben Ort · offline",
+      "onlineOnly": "(nur online)"
     },
     "assignmentLines": {
       "incidentFallback": "Einsatz"
     },
     "locationInput": {
-      "addressLabel": "Einsatzort (Adresse)",
-      "addressLabelShort": "Einsatzort",
+      "addressLabel": "Einsatzort",
       "requiredField": "Pflichtfeld",
       "addressPlaceholder": "Adresse suchen …",
       "searchPlaceholder": "Adresse suchen …",
@@ -1591,6 +1622,7 @@
       "fallbackToFirst": "{requested} nicht verfügbar – ab {stop}",
       "optimized": "Reihenfolge nach Luftlinie vorgeschlagen",
       "startLine": "Start: {start} · Planungshilfe, keine Strassenroute",
+      "needsCoordinates": "Zum Optimieren braucht es mindestens zwei Stopps mit Koordinaten.",
       "unchanged": "Die Reihenfolge ist nach Luftlinie bereits die kürzeste.",
       "note": "Vorschlag nach Luftlinie ab {start} · Planungshilfe",
       "undo": "Rückgängig",
@@ -1633,6 +1665,19 @@
       "level3": "Orange – gefährlich",
       "level4": "Rot – sehr gefährlich",
       "authorityNotice": "Behördliche Meldung"
+    },
+    "vehicles": {
+      "online": "online",
+      "offline": "offline",
+      "onlineCount": "{count} online",
+      "offlinePart": "{count} offline",
+      "offlinePartShort": "{count} off",
+      "speed": "{kmh} km/h",
+      "lastReport": "zuletzt {time}",
+      "lastReportUnknown": "zuletzt: unbekannt",
+      "yesterday": "gestern {time}",
+      "assignedTo": "→ {target}",
+      "scrollMore": "↓ scrollen · {count} weitere"
     }
   },
   "settings": {
@@ -1679,7 +1724,7 @@
         "general": "Allgemein",
         "notifications": "Benachrichtigungen",
         "alerting": "Ausalarmierung",
-        "alarmIntake": "Alarm-Eingang",
+        "alarmIntake": "Alarmeingang",
         "checklist": "Checkliste",
         "auftragTemplates": "Standard-Aufträge",
         "gps": "GPS",
@@ -1772,6 +1817,11 @@
         "languageHint": "Sprache der Oberfläche auf diesem Gerät",
         "selectPlaceholder": "Wählen …",
         "editorsOnlyNote": "Nur Bearbeiter können Einstellungen ändern.",
+        "groups": {
+          "station": "Station",
+          "map": "Karte und Anzeige",
+          "rapport": "Einsatzrapport"
+        },
         "configs": {
           "home_city": {
             "label": "Einsatzgebiet (Ort)",
@@ -2122,7 +2172,13 @@
       },
       "editorsOnly": "Nur Bearbeiter können diese Einstellungen ändern.",
       "trackerUnavailable": "Für diese Station ist kein Ortungsdienst eingerichtet. Die Automatik läuft im Takt des Traccar-Abrufs – ohne ihn kommt nie ein Vorschlag, egal was hier steht. Einzurichten in der Server-Konfiguration (TRACCAR_URL); den Zustand zeigt Einstellungen → Integrationen.",
-      "returnUnavailable": "Die Magazin-Koordinaten fehlen. Ohne sie erkennt das System die Rückkehr nicht – weiter unten auf dieser Karte unter «Magazin (Heimatbasis)» eintragen."
+      "returnUnavailable": "Die Magazin-Koordinaten fehlen. Ohne sie erkennt das System die Rückkehr nicht – weiter unten auf dieser Karte unter «Magazin (Heimatbasis)» eintragen.",
+      "map": {
+        "title": "Fahrzeuge auf der Lagekarte",
+        "staleLabel": "Letzte Meldung anzeigen ab",
+        "staleHint": "Eine Fahrzeug-Pille zeigt die Uhrzeit ihrer letzten GPS-Meldung erst, wenn diese älter ist als so viele Minuten. Die Liste beim Zeigen auf eine Pille nennt sie immer.",
+        "minutes": "Min."
+      }
     },
     "materials": {
       "loadError": "Material konnte nicht geladen werden",
@@ -2502,7 +2558,31 @@
       "alreadyClaimedTitle": "Bereits eingerichtet",
       "alreadyClaimedBody": "Dieses Board wurde bereits eingerichtet. Melde dich mit deinem Konto an.",
       "goToLogin": "Zur Anmeldung",
-      "footer": "Alles Weitere – Konten, Karten, Backups – wartet in den Einstellungen. Wer per Konfigurationsdatei einrichtet: <code>docs/SETUP.md</code>."
+      "footer": "Alles Weitere – Konten, Karten, Backups – wartet in den Einstellungen. Wer per Konfigurationsdatei einrichtet: <code>docs/SETUP.md</code>.",
+      "usernameNote": "Benutzername für die Anmeldung: <name>admin</name>"
+    },
+    "station": {
+      "title": "Station einrichten",
+      "progress": "{done} von 3 erledigt",
+      "signedInAs": "Angemeldet als <name></name>",
+      "location": "Standort des Magazins",
+      "locationHint": "Noch der Platzhalter «Musterstadt» – Karte und Adresssuche richten sich danach.",
+      "locationAction": "Adresse suchen …",
+      "inventory": "Personal und Fahrzeuge",
+      "inventoryHint": "Noch nichts erfasst – ohne sie lässt sich kein Einsatz besetzen.",
+      "inventoryAction": "Excel importieren …",
+      "dismiss": "Ausblenden",
+      "dialogTitle": "Standort des Magazins",
+      "dialogDescription": "Die Karte öffnet hier, und die Adresssuche reiht Treffer aus eurem Einsatzgebiet zuoberst ein. Später änderbar unter Einstellungen › Allgemein.",
+      "addressLabel": "Adresse des Magazins",
+      "homeCityLabel": "Einsatzgebiet (Ort)",
+      "homeCityPlaceholder": "Oberwil, BL",
+      "locationMissing": "Adresse wählen oder auf der Karte setzen – es braucht Koordinaten.",
+      "homeCityMissing": "Ort eintragen, z. B. «Oberwil, BL».",
+      "save": "Standort speichern",
+      "saved": "Standort gespeichert",
+      "saveFailed": "Standort nicht gespeichert",
+      "cancel": "Abbrechen"
     }
   },
   "events": {
@@ -2603,7 +2683,7 @@
       "inProgress": "In Arbeit",
       "done": "Erledigt",
       "oldestHigh": "Älteste wartende «Hoch»-Meldung",
-      "waitingSince": "wartet seit {age}",
+      "waitingSince": "seit Eingang {age}",
       "noWaitingHigh": "Keine «Hoch»-Meldung wartet.",
       "openIncident": "Einsatz öffnen",
       "reactionTitle": "Reaktionszeiten ab Eingang",
@@ -2980,16 +3060,11 @@
       "attachedMany": "{count} Notfälle wurden dem Ereignis zugewiesen",
       "errorTitle": "Fehler",
       "attachError": "Notfälle konnten nicht angehängt werden",
-      "title": "Alarmeingang",
-      "entriesCount": "{count, plural, one {# Eintrag} other {# Einträge}}",
       "searchPlaceholder": "Suchen …",
-      "selectedClear": "{count} ausgewählt – Aufheben",
       "attach": "Anhängen",
       "loading": "Wird geladen …",
       "demoTitle": "Alarmeingang ist im Demo-Modus nicht verfügbar",
       "demoDescription": "Diese Seite zeigt eingehende Alarme an – aus <b>DIVERA 24/7</b> oder über die offene Webhook-Schnittstelle. Im Demo-Modus ist keine Alarmierungs-Anbindung konfiguriert.",
-      "noResults": "Keine Treffer",
-      "noEmergencies": "Keine Notfälle vorhanden",
       "resetSearch": "Suche leeren",
       "trainingBadge": "ÜBUNG",
       "assigned": "Zugewiesen",
@@ -2997,6 +3072,8 @@
       "attachDialogTitle": "An Ereignis anhängen",
       "attachDialogDescription": "{count, plural, one {# Notfall wird} other {# Notfälle werden}} dem gewählten Ereignis zugewiesen.",
       "selectEventPlaceholder": "Ereignis wählen …",
+      "eventLabel": "Ereignis",
+      "noAttachableEvents": "{training, select, true {Keine offene Übung – Übungs-Alarme gehen nur an Übungen.} other {Kein offenes Ereignis – zuerst eines eröffnen.}}",
       "eventTraining": "{name} (Übung)",
       "cancel": "Abbrechen",
       "attaching": "Wird angehängt …",
@@ -3005,7 +3082,35 @@
       "realAlarmWarningTitle": "{count, plural, one {Dieser Alarm ist echt, das Ereignis ist eine Übung} other {Diese Alarme sind echt, das Ereignis ist eine Übung}}",
       "realAlarmWarningAlerting": "Die Ausalarmierung wird nur simuliert – <hint>es wird niemand aufgeboten.</hint>",
       "realAlarmWarningThresholds": "Die Überfällig-Schwellen sind 50 % länger – <hint>Warnungen kommen später als im Ernstfall.</hint>",
-      "attachAnyway": "Trotzdem an die Übung anhängen"
+      "attachAnyway": "Trotzdem an die Übung anhängen",
+      "attachedTo": "Alarm an «{event}» angehängt",
+      "attachedToNumber": "Einsatz {number}",
+      "attachOther": "Anderes Ereignis …",
+      "attachOtherAria": "«{title}» an ein anderes Ereignis anhängen",
+      "detached": "Alarm ist zurück im Alarmeingang",
+      "detachRefused": "Nicht zurückgenommen",
+      "detachRefusedFallback": "Der Alarm bleibt angehängt."
+    },
+    "inbox": {
+      "title": "Alarmeingang",
+      "entryAria": "Alarmeingang – {count, plural, =0 {keine neuen Alarme} one {# neuer Alarm} other {# neue Alarme}}",
+      "summary": "{count, plural, one {# Eintrag} other {# Einträge}} · neue zuerst",
+      "refresh": "Aktualisieren",
+      "sectionNew": "Neu · {count}",
+      "sectionToday": "Heute zugewiesen · {count}",
+      "sectionEarlier": "Früher · {count}",
+      "earlierHint": "frühere Tage und archivierte",
+      "attachAll": "Alle anhängen",
+      "attachAllCount": "Alle {count} anhängen",
+      "attachOneAria": "«{title}» anhängen",
+      "becameIncident": "Einsatz",
+      "nothingNew": "Keine neuen Alarme.",
+      "emptyTitle": "Noch keine Alarme",
+      "emptyDescription": "Ein Alarm aus der Alarmierung erscheint hier, sobald er eingeht.",
+      "noMatches": "Keine Treffer für «{query}».",
+      "loadFailedTitle": "Alarme nicht geladen",
+      "loadFailedDescription": "Der Server hat nicht geantwortet oder einen Fehler gemeldet.",
+      "reload": "Erneut laden"
     },
     "alarmSettings": {
       "cardTitle": "Ausalarmierung",
@@ -3449,6 +3554,7 @@
       "removePin": "Pin entfernen",
       "setPin": "Pin auf Karte setzen",
       "dispatch": "Auslösen",
+      "dispatchNeeds": "Szenario und Ort wählen, dann auslösen.",
       "dispatchHint": "Oder den Pin direkt auf die Karte setzen.",
       "multipleIncidents": "Mehrere Einsätze gleichzeitig",
       "burst": "Burst (5x zufällig)",
@@ -3701,13 +3807,24 @@
       "no": "Nein",
       "personCount": "{count, plural, one {# Person} other {# Personen}}",
       "staleWarn": "Verbindung gestört – letzter Stand {time} Uhr. Aktualisierung läuft weiter.",
-      "staleAlert": "Keine Verbindung · Stand {time} Uhr"
+      "staleAlert": "Keine Verbindung · Stand {time} Uhr",
+      "moreBelow": "+{count} weiter ↓"
     },
     "board": {
       "loginRequired": "Bitte melde dich an für die Board-Anzeige.",
       "collapsedColumnTitle": "{title} – {count} – zum Aufklappen klicken",
+      "railLabel": {
+        "incoming": "Eingeg.",
+        "reko": "Reko",
+        "reko_done": "Reko abg.",
+        "enroute": "Anfahrt",
+        "active": "Einsatz",
+        "returning": "Rückfahrt",
+        "complete": "Abgeschl."
+      },
       "columnAlarmTitle": "{count} überfällig: {titles}",
       "columnAlarmMore": "… und {count} weitere",
+      "columnAgedChip": "{count} ≥ {threshold}",
       "priorityAria": "Priorität: {label}",
       "materialCount": "{count, plural, one {# Gerät} other {# Geräte}}",
       "nachbarhilfe": "Nachbarhilfe",
@@ -3731,7 +3848,6 @@
       "dangers": "Gefahren: {types}",
       "personnelNeed": "Mannschaftsbedarf:",
       "estimatedDuration": "Geschätzte Dauer:",
-      "durationHours": "{hours}h",
       "contactPhone": "Telefon",
       "intakeBadge": "Telefon / Laufkundschaft",
       "feldBadge": "Vom Feld",
@@ -3764,19 +3880,19 @@
     "status": {
       "accessRequired": "Zugang erforderlich",
       "vehicles": "Fahrzeuge",
-      "availableDeployed": "{available} verfügbar · {deployed} im Einsatz",
+      "availableDeployed": "{available} frei · {deployed} gebunden",
       "incidents": "Einsätze",
-      "incomingInProgress": "{incoming} eingegangen · {inProgress} in Bearbeitung",
+      "waitingInProgress": "{waiting} offen · {inProgress} in Arbeit",
       "noActiveIncidents": "Keine aktiven Einsätze",
       "personnel": "Personal",
       "material": "Material",
       "otherRole": "Andere",
       "noMaterial": "Kein Material erfasst",
-      "available": "verfügbar",
+      "materialContinued": "Material · Forts.",
       "freeOfTotal": "{free}/{total} frei",
       "auftragStops": "{count, plural, one {# Stopp} other {# Stopps}}",
       "onIncidents": "{count, plural, one {# Einsatz} other {# Einsätze}}",
-      "availableDeployedNotReady": "{available} verfügbar · {deployed} im Einsatz · {notReady} nicht einsatzbereit",
+      "availableDeployedNotReady": "{available} frei · {deployed} gebunden · {notReady} nicht einsatzbereit",
       "figures": "Kennzahlen"
     },
     "tokenBoard": {
@@ -3900,9 +4016,7 @@
       "rekoByName": "Reko von {name}",
       "summaryFallback": "Meldung, Mannschaft und Material",
       "driver": "Fahrer: {name}",
-      "vehicleViaAuftrag": "Auftrag – fährt mit",
-      "vehicleStays": "bleibt vor Ort",
-      "vehicleReturns": "fährt zurück"
+      "vehicleViaAuftrag": "Auftrag – fährt mit"
     },
     "rapportState": {
       "none": "kein Rapport",
@@ -4489,21 +4603,132 @@
     },
     "offline": {
       "label": "Offline geführt",
-      "text": "seit {time} · «{name}» wird nicht mehr synchronisiert · zurück zu KP Rück Online: von Hand (Ausfall-SOP)"
+      "sent": "seit {since} · alles an KP Rück Online übertragen · Stand {time}",
+      "waiting": "seit {since} · {count, plural, one {# Änderung wartet} other {# Änderungen warten}} auf KP Rück Online · Stand {time}",
+      "unreachable": "seit {since} · keine Verbindung zu KP Rück Online seit {lost} · {count, plural, =0 {alles Bisherige ist übertragen} one {# Änderung wartet und geht von selbst raus} other {# Änderungen warten und gehen von selbst raus}}",
+      "never": "seit {since} · noch keine Verbindung zu KP Rück Online · {count, plural, =0 {nichts wartet} one {# Änderung wartet und geht von selbst raus} other {# Änderungen warten und gehen von selbst raus}}"
+    },
+    "ledElsewhere": {
+      "label": "Geführt auf KP Rück Offline",
+      "current": "seit {since} · Stand {time} · Neues erfassen geht, Bestehendes ändern nicht",
+      "silent": "seit {since} · Stand {time} · KP Rück Offline seit {ago} nicht gehört · Neues erfassen geht, Bestehendes ändern nicht",
+      "never": "seit {since} · KP Rück Offline noch nicht gehört · Neues erfassen geht, Bestehendes ändern nicht"
     },
     "takeover": {
       "button": "Dieses Ereignis offline übernehmen …",
       "title": "«{name}» offline übernehmen?",
-      "description": "Ab jetzt wird dieses Ereignis nur noch auf diesem Gerät geführt. Es wird nicht mehr synchronisiert, auch nicht, wenn KP Rück Online wieder erreichbar ist.",
+      "description": "Ab jetzt wird dieses Ereignis hier geführt. Was ihr hier ändert, geht von selbst an KP Rück Online, sobald es erreichbar ist. Dort lässt es sich ansehen und ergänzen, aber nicht mehr ändern.",
       "others": "Alle anderen Ereignisse bleiben gespiegelt.",
-      "reachable": "KP Rück Online ist noch erreichbar. Änderungen, die dort an diesem Ereignis gemacht werden, erscheinen hier nicht mehr.",
+      "reachable": "KP Rück Online ist erreichbar. Wer dort weiterarbeitet, kann danach nur noch ansehen.",
       "confirm": "Offline übernehmen",
       "failed": "Das Ereignis konnte nicht offline übernommen werden."
+    },
+    "takeBack": {
+      "button": "Hier übernehmen …",
+      "title": "«{name}» hier übernehmen?",
+      "description": "Ab jetzt wird dieses Ereignis hier geführt. KP Rück Offline wird für dieses Ereignis wieder zum Spiegel.",
+      "heard": "Von KP Rück Offline zuletzt gehört",
+      "heardAt": "{time} · vor {ago}",
+      "heardNever": "noch nie",
+      "pending": "Damals noch nicht übertragen",
+      "pendingCount": "{count, plural, =0 {keine Änderung} one {# Änderung} other {# Änderungen}}",
+      "later": "Was dort seither noch geändert wurde, kommt später an: Neues wird ergänzt, Geändertes landet in der Konfliktliste.",
+      "working": "Auf KP Rück Offline wird gerade gearbeitet. Wer dort weiterarbeitet, kann danach nur noch ansehen.",
+      "confirm": "Hier übernehmen",
+      "failed": "Das Ereignis konnte nicht übernommen werden.",
+      "heardJustNow": "{time} · gerade eben"
+    },
+    "conflicts": {
+      "label": "Konflikte",
+      "text": "Arbeit von KP Rück Offline wurde hier anders geändert – bitte entscheiden",
+      "open": "{count, plural, one {# Konflikt} other {# Konflikte}} ›",
+      "title": "Konflikte",
+      "intro": "Hier und auf dem anderen System wurde dasselbe geändert. Bis ihr wählt, gilt die Fassung von {leader}.",
+      "introReadOnly": "Hier und auf dem anderen System wurde dasselbe geändert. Es gilt die Fassung von {leader}; entschieden wird dort.",
+      "side": {
+        "standby": "KP Rück Offline",
+        "hosted": "KP Rück Online"
+      },
+      "here": "Hier",
+      "loading": "Konflikte werden geladen …",
+      "loadFailed": "Konflikte nicht geladen",
+      "loadFailedHint": "Die Verbindung ist unterbrochen. Gleich nochmals öffnen.",
+      "noneOpen": "Keine offenen Konflikte",
+      "noneOpenHint": "Alles, was beide Systeme geändert haben, ist entschieden.",
+      "done": "{count, plural, one {# erledigt} other {# erledigt}}",
+      "resolution": {
+        "kept": "behalten",
+        "other": "andere Fassung übernommen",
+        "both": "beide zusammengeführt"
+      },
+      "einsatz": "Einsatz {number}",
+      "unknownSubject": "Ereignis",
+      "columns": {
+        "description": "Meldung",
+        "title": "Titel",
+        "status": "Status",
+        "location_address": "Einsatzort",
+        "contact": "Kontakt / Melder",
+        "contact_phone": "Telefonnummer",
+        "internal_notes": "Notizen",
+        "priority": "Priorität",
+        "type": "Einsatzart",
+        "text": "Text",
+        "kurzbericht": "Kurzbericht",
+        "summary_text": "Zusammenfassung",
+        "additional_notes": "Bemerkungen",
+        "message": "Meldung",
+        "notes": "Notizen",
+        "name": "Name"
+      },
+      "tables": {
+        "reko_reports": "Reko",
+        "schadenplatz_reports": "Schadenplatz-Rapport",
+        "incident_assignments": "Mannschaft",
+        "incident_group_assignments": "Auftrag",
+        "incident_groups": "Auftrag",
+        "journal_entries": "Tagebuch",
+        "event_attendance": "Anwesenheit",
+        "events": "Ereignis",
+        "field_requests": "Anfrage vom Feld",
+        "incident_field_messages": "Meldung vom Feld",
+        "status_transitions": "Statuswechsel",
+        "notifications": "Hinweis"
+      },
+      "kind": {
+        "field": "geändert",
+        "deleted": "gelöscht",
+        "duplicate": "doppelt erfasst"
+      },
+      "empty": "(leer)",
+      "yes": "ja",
+      "no": "nein",
+      "both": "Beide zusammen – frei bearbeitbar",
+      "stayDeleted": "Gelöscht lassen",
+      "restore": "Wiederherstellen",
+      "keep": "Behalten (seither geändert)",
+      "delete": "Löschen",
+      "duplicate": "Doppelt erfasst – die andere Fassung wurde nicht übernommen",
+      "savedRow": "Betroffene Fassung",
+      "apply": "Übernehmen",
+      "decidedThere": "Entschieden wird auf {leader}.",
+      "resolveFailed": "Das liess sich nicht übernehmen. Liste neu laden und nochmals wählen."
     },
     "newOffline": {
       "button": "Neues Ereignis offline anlegen …",
       "title": "Neues Ereignis offline anlegen",
-      "note": "Dieses Ereignis wird nur auf diesem Gerät geführt und nie mit KP Rück Online synchronisiert."
+      "note": "Dieses Ereignis wird hier geführt und geht an KP Rück Online, sobald es erreichbar ist."
+    }
+  },
+  "panels": {
+    "resizeHint": "Breite ziehen · Doppelklick: Standard",
+    "resize": {
+      "personnel": "Breite der Personal-Leiste",
+      "material": "Breite der Material-Leiste",
+      "detail": "Breite des Einsatz-Details",
+      "notifications": "Breite der Benachrichtigungen",
+      "alarmInbox": "Breite des Alarmeingangs",
+      "mapRail": "Breite der Seitenleiste"
     }
   }
 }

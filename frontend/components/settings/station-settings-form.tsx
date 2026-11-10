@@ -3,7 +3,10 @@
 import { useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { useEffectEvent } from '@/lib/hooks/use-effect-event';
 import { useTranslations } from 'next-intl';
-import { Save } from 'lucide-react';
+import { Check } from 'lucide-react';
+import { SAVED_LINE_MS } from '@/components/kanban/field-save-status';
+import { formatClockTime } from '@/lib/incident-time';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { Input } from '@/components/ui/input';
@@ -18,6 +21,7 @@ import {
 import { SettingRow } from '@/components/settings/setting-row';
 import {
   normalizeDecimal,
+  roundDecimal,
   validateRangedSetting,
   type SettingRange,
   type SettingValidationError,
@@ -42,6 +46,9 @@ export interface SettingConfig {
   options?: string[];
   /** Inclusive bounds for a `number`. Rejected client-side – the PATCH stores any string. */
   range?: SettingRange;
+  /** Fixed decimal places for a `number`: the stored value is SHOWN rounded, and a blur
+   *  saves it rounded (`roundDecimal`) – the station coordinates' 6. */
+  decimals?: number;
 }
 
 export interface StationSettings {
@@ -54,6 +61,8 @@ export interface StationSettings {
   error: string | null;
   /** The key whose PATCH is in flight. */
   saving: string | null;
+  /** When the server last confirmed each key in this visit – what «Gespeichert – hh:mm» reads. */
+  savedAt: Record<string, Date>;
   /** Per-key validation failures of `StationSettingsForm`. Kept here, not in the
    *  form, so they outlive a switch to another section and back. */
   settingErrors: Record<string, SettingValidationError>;
@@ -82,6 +91,7 @@ export function useStationSettings({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<Record<string, Date>>({});
   // Per-key validation failures for the ranged settings (the station coordinates).
   // A rejected value stays in the input so the operator can fix the typo instead of
   // retyping the whole coordinate – it is simply not PATCHed.
@@ -122,6 +132,7 @@ export function useStationSettings({
       await apiClient.updateSetting(key, value);
       setSettings((prev) => ({ ...prev, [key]: value }));
       setServerSettings((prev) => ({ ...prev, [key]: value }));
+      setSavedAt((prev) => ({ ...prev, [key]: new Date() }));
       onSaved?.(key, value);
     } catch (err) {
       console.error(`Failed to update setting ${key}:`, err);
@@ -138,6 +149,7 @@ export function useStationSettings({
     loading,
     error,
     saving,
+    savedAt,
     settingErrors,
     setSettingErrors,
     reload,
@@ -145,10 +157,53 @@ export function useStationSettings({
   };
 }
 
+/**
+ * The quiet line under a setting's control: «Wird gespeichert …» while the PATCH is
+ * out, then «Gespeichert – hh:mm» once the server confirmed – the same words and the
+ * same few seconds as under a text field of the Einsatz detail (`FieldSaveStatus`).
+ * These settings save by themselves on blur or on a click and have no button, so
+ * without it only a failure ever said anything. A failure is still the toast.
+ */
+export function SettingSaveLine({
+  saving,
+  savedAt,
+  className = 'mt-1',
+}: {
+  saving: boolean;
+  savedAt: Date | undefined;
+  /** Default: the gap under a field. Beside a switch pass none. */
+  className?: string;
+}) {
+  const t = useTranslations('kanban.fieldSave');
+  // The confirmation whose line has run out – by identity, so a newer one shows at once.
+  const [expired, setExpired] = useState<Date | null>(null);
+  useEffect(() => {
+    if (!savedAt) return;
+    const left = Math.max(0, SAVED_LINE_MS - (Date.now() - savedAt.getTime()));
+    const id = window.setTimeout(() => setExpired(savedAt), left);
+    return () => window.clearTimeout(id);
+  }, [savedAt]);
+
+  if (saving) {
+    return (
+      <p role="status" aria-live="polite" className={cn('text-xs text-muted-foreground', className)}>
+        {t('saving')}
+      </p>
+    );
+  }
+  if (!savedAt || expired === savedAt) return null;
+  return (
+    <p role="status" aria-live="polite" className={cn('flex items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground', className)}>
+      <Check className="size-3 shrink-0 text-success" aria-hidden="true" />
+      {t('savedAt', { time: formatClockTime(savedAt) })}
+    </p>
+  );
+}
+
 /** Per-key additions the page knows and the config does not. */
 export interface SettingRowExtra {
-  /** Rendered under the row (see `SettingRow`'s `footer`). */
-  footer?: ReactNode;
+  /** Rendered under the row's description (see `SettingRow`'s `advice`). */
+  advice?: ReactNode;
   /** Select options to grey out, with the reason shown beside them. The stored
    *  value always stays selectable, or the select would show a disabled item as
    *  its own value. */
@@ -171,7 +226,7 @@ export function StationSettingsForm({
   extras?: Partial<Record<string, SettingRowExtra>>;
 }) {
   const t = useTranslations('settings');
-  const { settings, setSettings, serverSettings, saving, settingErrors, setSettingErrors, updateSetting } = store;
+  const { settings, setSettings, serverSettings, saving, savedAt, settingErrors, setSettingErrors, updateSetting } = store;
 
   const renderSettingInput = (config: SettingConfig) => {
     const value = settings[config.key] || '';
@@ -221,6 +276,12 @@ export function StationSettingsForm({
     }
 
     const validationError = settingErrors[config.key];
+    // A value as the server has it shows rounded; once the operator types, the field shows
+    // exactly what they typed until the blur rounds and saves it.
+    const shown =
+      config.decimals !== undefined && value === serverSettings[config.key]
+        ? roundDecimal(value, config.decimals)
+        : value;
 
     return (
       <div className="space-y-1">
@@ -231,7 +292,11 @@ export function StationSettingsForm({
           // and its spinner is useless at six decimal places.
           type="text"
           inputMode={config.range ? 'decimal' : undefined}
-          value={value}
+          // A number (today: the Magazin's latitude/longitude, 6 decimals) reads in
+          // Spline Sans Mono with tabular figures. Size and padding stay the Input's own:
+          // 14/20 from md, 16px below it (iOS zooms into a smaller field).
+          className={config.type === 'number' ? 'font-mono tabular-nums' : undefined}
+          value={shown}
           aria-invalid={validationError ? true : undefined}
           aria-describedby={validationError ? `${config.key}-error` : undefined}
           onChange={(e) => {
@@ -251,7 +316,8 @@ export function StationSettingsForm({
                 return;
               }
             }
-            const next = config.range ? normalizeDecimal(raw) : raw;
+            const normalized = config.range ? normalizeDecimal(raw) : raw;
+            const next = config.decimals !== undefined ? roundDecimal(normalized, config.decimals) : normalized;
             if (next !== raw) setSettings((prev) => ({ ...prev, [config.key]: next }));
             if (next !== serverSettings[config.key]) {
               updateSetting(config.key, next);
@@ -277,16 +343,22 @@ export function StationSettingsForm({
       label={t(`page.general.configs.${config.key}.label`)}
       htmlFor={config.key}
       hint={t(`page.general.configs.${config.key}.description`)}
-      footer={extras[config.key]?.footer ?? null}
+      advice={extras[config.key]?.advice ?? null}
     >
-      <div className="flex w-full items-start gap-2">
-        {/* Schalter drängen sich an die rechte Kante, alles mit einem Feld
-            füllt die Spalte – so steht eine Kante über die ganze Karte. */}
-        <div className={config.type === 'boolean' && !config.options ? 'ml-auto' : 'min-w-0 flex-1'}>
+      {config.type === 'boolean' && !config.options ? (
+        // A switch keeps the right edge; its line stands beside it, so the row does not
+        // grow and shrink with every click.
+        <div className="ml-auto flex items-center justify-end gap-2">
+          <SettingSaveLine saving={saving === config.key} savedAt={savedAt[config.key]} className="" />
           {renderSettingInput(config)}
         </div>
-        {saving === config.key && <Save className="mt-2.5 h-4 w-4 shrink-0 text-muted-foreground animate-pulse" />}
-      </div>
+      ) : (
+        // Everything with a field fills the column – one edge down the whole card.
+        <div className="w-full min-w-0">
+          {renderSettingInput(config)}
+          <SettingSaveLine saving={saving === config.key} savedAt={savedAt[config.key]} />
+        </div>
+      )}
     </SettingRow>
   ));
 }

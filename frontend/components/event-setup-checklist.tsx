@@ -50,7 +50,7 @@ interface EventSetupChecklistProps {
   onOpenAttendance?: () => void
   /** Opens the Divera-Mitteilung confirmation with this text. Owned by the page:
    *  a dialog rendered in here would be unmounted the moment its own opening
-   *  closed the popover it lives in (same reason as the driver prompt). */
+   *  closed the sheet it lives in (same reason as the driver prompt). */
   onSendDiveraMessage?: (text: string) => void
   /** Opens the Reko picker (`RekoPickerDialog`). Owned by the page for the same
    *  unmount reason as the Divera dialog above. */
@@ -224,8 +224,9 @@ export function EventSetupChecklist({
         onOpenFallbackSettings: () => {
           window.location.href = '/settings?section=fallback'
         },
-        // A step that names a modal should open it. Closing the popover first,
-        // because the sheet it opens sits behind it.
+        // A step that names a modal should open it. Closing the checklist sheet
+        // first: one footer sheet at a time, and a modal opened over it would sit
+        // above a sheet nobody is looking at.
         onOpenVehicles: () => {
           onDismiss()
           onOpenVehicles?.()
@@ -235,7 +236,7 @@ export function EventSetupChecklist({
           onOpenAttendance?.()
         },
         // Same closing dance as the Divera dialog: the picker is a page-owned
-        // modal, and a dialog mounted in this popover dies with it.
+        // modal, and a dialog mounted in this sheet dies with it.
         onOpenRekoPicker: () => {
           onDismiss()
           onOpenRekoPicker?.()
@@ -335,8 +336,11 @@ export function EventSetupChecklist({
                   }
                 }}
                 aria-pressed={isCompleted}
+                // Wraps: where title and buttons do not fit side by side (a narrow window,
+                // «Standby-WhatsApp senden» beside two buttons) the buttons go under the
+                // title instead of the title ending in «sen…».
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors',
+                  'flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors',
                   isCompleted ? 'bg-muted/30 hover:bg-muted/50' : 'bg-muted/50 hover:bg-muted/70'
                 )}
               >
@@ -351,13 +355,14 @@ export function EventSetupChecklist({
                   )}
                 </div>
 
-                {/* Title + status detail */}
-                <div className="flex-1 min-w-0">
-                  <span className={cn('block truncate', isCompleted && 'text-muted-foreground line-through')}>
+                {/* Title + status detail – both wrap, never cut. 12rem before the buttons
+                    give way and drop to their own line. */}
+                <div className="min-w-0 flex-1 basis-48">
+                  <span className={cn('block break-words', isCompleted && 'text-muted-foreground line-through')}>
                     {task.title}
                   </span>
                   {task.metadata?.details && !isCompleted && (
-                    <span className="block text-xs text-muted-foreground/80 truncate">
+                    <span className="block break-words text-xs text-muted-foreground">
                       {task.metadata.details}
                     </span>
                   )}
@@ -366,9 +371,10 @@ export function EventSetupChecklist({
                       wen» — which is the part a rare operator has to guess. */}
                   {/* Wraps rather than truncating: on a row with two buttons the
                       note is the first thing to lose width, and «…1 Ausdruck pro
-                      F…» answers nothing. Two lines is the cap. */}
+                      F…» answers nothing. No line cap either – a clamped note
+                      ends in «…» with nothing to read the rest in. */}
                   {task.note && !isCompleted && (
-                    <span className="block text-xs leading-snug text-muted-foreground/70 line-clamp-2">
+                    <span className="block text-xs leading-snug text-muted-foreground">
                       {task.note}
                     </span>
                   )}
@@ -376,7 +382,7 @@ export function EventSetupChecklist({
 
                 {/* Actions — clicks here must NOT toggle the row */}
                 <div
-                  className="flex flex-shrink-0 items-center gap-1.5"
+                  className="ml-auto flex flex-shrink-0 flex-wrap items-center justify-end gap-1.5"
                   onClick={(e) => e.stopPropagation()}
                   onKeyDown={(e) => e.stopPropagation()}
                 >
@@ -467,8 +473,8 @@ export function EventSetupChecklist({
 /**
  * The «Reko-Offiziere wählen» picker behind the checklist row of the same name.
  *
- * Mounted by the page, not by the checklist: the checklist lives in a popover,
- * and a modal opened from inside one is unmounted the moment the popover closes
+ * Mounted by the page, not by the checklist: the checklist lives in a footer sheet,
+ * and a modal opened from inside one is unmounted the moment the sheet closes
  * under it (same reason the Divera confirmation is page-owned).
  *
  * Marks people via the SAME call every other surface uses

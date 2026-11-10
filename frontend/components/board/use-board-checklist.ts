@@ -6,6 +6,7 @@ import { summarizeChecklist } from "@/lib/checklist-tasks"
 import { useChecklistFacts } from "@/lib/hooks/use-checklist-facts"
 import { usePersistedState } from "@/lib/hooks/use-persisted-state"
 import { isStringArray } from "@/lib/utils/safe-storage"
+import { useAlarmInboxOpen } from "@/components/alarm-inbox/alarm-inbox-store"
 import type { Event } from "@/lib/types/incidents"
 
 /** Events whose Bereitschaft checklist the operator has closed — see the auto-open effect. */
@@ -87,6 +88,10 @@ export function useBoardChecklist(input: UseBoardChecklistInput) {
   // and not on the next reload either (the persisted dismissal). The dismissal
   // list is read from localStorage on mount, well before `checklistProgress`
   // arrives from the API, so it always gets the first word.
+  // An operator who came for the Alarmeingang (its icon, or a /divera-pool link) is not
+  // interrupted: the checklist then skips its one auto-open for this event and stays on the
+  // footer button.
+  const alarmInboxOpen = useAlarmInboxOpen()
   useEffect(() => {
     if (!selectedEvent || !isMounted) return
     if (checklistProgress.total === 0) return
@@ -94,8 +99,9 @@ export function useBoardChecklist(input: UseBoardChecklistInput) {
     if (autoOpenedEventRef.current === selectedEvent.id) return
     if (dismissedChecklistEvents.includes(selectedEvent.id)) return
     autoOpenedEventRef.current = selectedEvent.id
+    if (alarmInboxOpen) return
     setChecklistPopoverOpen(true)
-  }, [selectedEvent, isMounted, checklistProgress, dismissedChecklistEvents])
+  }, [selectedEvent, isMounted, checklistProgress, dismissedChecklistEvents, alarmInboxOpen])
 
   return {
     checklistPopoverOpen,

@@ -2394,6 +2394,85 @@
         }
       }
     },
+    "/api/divera/emergencies/{emergency_id}/detach": {
+      "post": {
+        "tags": [
+          "divera"
+        ],
+        "summary": "Detach Emergency From Event",
+        "description": "«Rückgängig» of an attach: the alarm goes back into the Alarmeingang.\n\nAn undo is a new write that must still be valid now (CLAUDE.md «Undo never restores a\nsnapshot blindly»): it runs only while the alarm is still linked to the card that attach\nmade, and that card is as the attach left it – in «Eingegangen», on no Auftrag, with\nnothing assigned. Otherwise 409 and nothing changes: somebody has started working on it.\nThe card is soft-deleted like any deleted card.\n\nEditor role required.",
+        "operationId": "detach_emergency_from_event_api_divera_emergencies__emergency_id__detach_post",
+        "parameters": [
+          {
+            "name": "emergency_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Emergency Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DetachEmergencyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/divera/emergencies/bulk-attach": {
       "post": {
         "tags": [
@@ -4601,90 +4680,6 @@
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/help/export-pdf": {
-      "post": {
-        "tags": [
-          "help"
-        ],
-        "summary": "Export Help Pdf",
-        "description": "Export all help documentation as PDF.\n\nCombines all markdown files from frontend/content/help/ into a single PDF.",
-        "operationId": "export_help_pdf_api_help_export_pdf_post",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/help/topics": {
-      "get": {
-        "tags": [
-          "help"
-        ],
-        "summary": "Get Help Topics",
-        "description": "Get list of available help topics.",
-        "operationId": "get_help_topics_api_help_topics_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
               }
             }
           }
@@ -16827,7 +16822,7 @@
           "standby"
         ],
         "summary": "Standby Status",
-        "description": "Is this box a mirror, how current is it, and which Ereignisse were taken offline.\n\nUnauthenticated, like `/api/deployment`: the band says «Spiegel … nur ansehen» on the login\nscreen too. It carries a timestamp and Ereignis ids, nothing else.",
+        "description": "Is this a mirror, how current, and which Ereignisse are led where.\n\nUnauthenticated, like `/api/deployment`: the band speaks on the login screen too. It carries\ntimestamps, counts and Ereignis ids, nothing else. On a hosted board `leads` lists the\nEreignisse a standby box took over at some point (usually none).",
         "operationId": "standby_status_api_standby_get",
         "responses": {
           "200": {
@@ -16847,7 +16842,7 @@
           "standby"
         ],
         "summary": "Take Event Offline",
-        "description": "Take one Ereignis offline on this box, for good. Editors and admins.\n\nFrom now on nothing the hosted board does to this Ereignis arrives here, even once it is\nreachable again; every other Ereignis keeps mirroring. There is no way back in the app –\ncarrying the work back to the hosted board is the Ausfall-SOP's «Wiederanlauf».",
+        "description": "«Dieses Ereignis offline übernehmen» on the box. Editors and admins.\n\nFrom now on the Ereignis is led here; the sidecar syncs it with the hosted board both ways\n(app/standby_sync.py), so the hosted board shows the work here and may take it back.",
         "operationId": "take_event_offline_api_standby_events__event_id__takeover_post",
         "parameters": [
           {
@@ -16893,6 +16888,238 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/standby/events/{event_id}/lead": {
+      "post": {
+        "tags": [
+          "standby"
+        ],
+        "summary": "Take Event Back",
+        "description": "«Hier übernehmen» on the hosted board: take an Ereignis back from the box. Editors and admins.\n\nThe box learns it with its next sync round and becomes a mirror of it again; what it changed\nbefore it knew still arrives – new things are added, clashing edits become conflicts here.",
+        "operationId": "take_event_back_api_standby_events__event_id__lead_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/standby/events/{event_id}/conflicts": {
+      "get": {
+        "tags": [
+          "standby"
+        ],
+        "summary": "List Conflicts",
+        "description": "The conflicts of one Ereignis, open ones first, and whether they can be decided here.",
+        "operationId": "list_conflicts_api_standby_events__event_id__conflicts_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/standby/conflicts/{conflict_id}/resolve": {
+      "post": {
+        "tags": [
+          "standby"
+        ],
+        "summary": "Resolve Conflict",
+        "description": "Decide a conflict – on the system that leads its Ereignis. Editors and admins.\n\nThe write is an ordinary one here, so the sync carries it to the other system.",
+        "operationId": "resolve_conflict_api_standby_conflicts__conflict_id__resolve_post",
+        "parameters": [
+          {
+            "name": "conflict_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conflict Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveIn"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -17153,7 +17380,7 @@
           "traccar"
         ],
         "summary": "Get Traccar Status",
-        "description": "Get Traccar configuration status.\n\nReports configured=true while a GPS simulation runs so the map subscribes to\nposition updates even on installations without a real Traccar server.",
+        "description": "Get Traccar configuration status.\n\nReports configured=true while a GPS simulation runs so the map subscribes to\nposition updates even on installations without a real Traccar server – and on the\npublic demo, which serves fixed positions (`services/demo_positions.py`).",
         "operationId": "get_traccar_status_api_traccar_status_get",
         "parameters": [
           {
@@ -21951,6 +22178,21 @@
         "title": "DeploymentRole",
         "description": "What this instance is allowed to do to the outside world (see app/environment.py)."
       },
+      "DetachEmergencyRequest": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id"
+        ],
+        "title": "DetachEmergencyRequest",
+        "description": "«Rückgängig» of an attach: the card the attach made goes away again and the alarm\nis back in the Alarmeingang. ``incident_id`` is that card – the undo only runs while\nthe alarm is still linked to it and nobody has worked on it."
+      },
       "DiveraAlarmRecipient": {
         "properties": {
           "personnel_id": {
@@ -23786,6 +24028,20 @@
             "type": "string",
             "title": "Incident Status"
           },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/IncidentPriority"
+          },
           "description": {
             "anyOf": [
               {
@@ -24103,7 +24359,8 @@
           "incident_id",
           "incident_title",
           "incident_type",
-          "incident_status"
+          "incident_status",
+          "priority"
         ],
         "title": "FeldAssignment",
         "description": "One Schadenplatz a person is (or was) assigned to in this event.\n\nSince §18.22 the row also carries the **briefing**: the Meldung, the Melder,\nwhat the board dispatched (crew, vehicles, material) and what the Reko\nfound. It rides on this response rather than on a per-incident endpoint of\nits own for the same reason ``message_chips`` does — a crew on the edge of\ncoverage taps a row and must get a screen, not a second round trip — and\nbecause the list row itself shows a condensed form of the same facts.\n\nReleased assignments are included in ``crew`` / ``vehicles`` / ``materials``\non purpose, exactly like the row itself survives its own release: completing\nan incident releases everything while the crew is still standing at the\naddress filing, and a briefing that empties out underneath them at 02:00 is\nworse than one that names a vehicle which has already driven off."
@@ -32019,6 +32276,38 @@
         "title": "RekoSummary",
         "description": "Lightweight Reko report summary for bulk loading (used in kanban board)."
       },
+      "ResolveIn": {
+        "properties": {
+          "choice": {
+            "type": "string",
+            "enum": [
+              "kept",
+              "other",
+              "both"
+            ],
+            "title": "Choice"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "choice"
+        ],
+        "title": "ResolveIn"
+      },
       "RestlisteIncident": {
         "properties": {
           "incident_id": {
@@ -33169,6 +33458,21 @@
             "type": "string",
             "format": "uuid",
             "title": "Target Incident Id"
+          },
+          "assignment_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignment Ids"
           }
         },
         "type": "object",
@@ -33176,7 +33480,7 @@
           "target_incident_id"
         ],
         "title": "TransferAssignmentsRequest",
-        "description": "Request to transfer all assignments from one incident to another."
+        "description": "Request to transfer all assignments from one incident to another.\n\n``assignment_ids``: «Rückgängig» of a transfer – move back exactly these rows (the\n``assignment_ids`` the transfer answered with) and nothing the incident held before.\nRefused (409) unless every one of them is still active on the incident."
       },
       "TransferAssignmentsResponse": {
         "properties": {

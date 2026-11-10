@@ -87,7 +87,10 @@ Der Unterschied in der ersten Zeile ist der ganze Punkt: bei A) ist ein Internet
 **B) mit Standby-Box im Magazin:** Ein Compose-Stack, der das gehostete Board laufend spiegelt –
 Ereignisse, Einsätze, Personal, Fotos (`docs/STANDBY.md`). Fällt das Internet aus, öffnen die
 Geräte die LAN-Adresse der Box; dort das laufende Ereignis mit «Dieses Ereignis offline
-übernehmen …» übernehmen und weiterführen. Papier braucht es dann nur, falls auch die Box ausfällt.
+übernehmen …» übernehmen und weiterführen. Sobald das Internet zurück ist, geht die Arbeit der Box
+von selbst an das gehostete Board – nichts von Hand nachtragen; was beide Seiten gleichzeitig
+geändert haben, steht in der Konfliktliste. Wer danach weiterführt, übernimmt («Hier übernehmen»
+auf dem gehosteten Board). Papier braucht es dann nur, falls auch die Box ausfällt.
 
 Der Wert des automatischen Druckens/Downloads liegt darin, dass **im Moment des
 Ausfalls** ein höchstens 15 Minuten alter Stand auf Papier bzw. lokal auf dem

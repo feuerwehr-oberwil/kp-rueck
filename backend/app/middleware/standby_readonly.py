@@ -1,17 +1,18 @@
-"""Look-only until an Ereignis is taken offline: refuses writes on a standby mirror.
+"""Look-only until the box leads an Ereignis: refuses writes on a standby mirror.
 
 On `DEPLOYMENT_ROLE=standby` the board shows the hosted board's data as it replicates in, and a
 write would be overwritten by the next change from there – or stop the replication outright
-with a duplicate key. So until somebody takes an Ereignis offline (app/api/standby.py), every
+with a duplicate key. So while the box leads no Ereignis (app/api/standby.py), every
 POST/PUT/PATCH/DELETE under /api is answered 403, except logging in and the takeover itself.
-From the first takeover on the box is a board again and writes go through; the frontend keeps
-the still-mirrored Ereignisse look-only (`StandbyGate`).
+While it leads one, the box is a board again and writes go through; the frontend keeps the
+mirrored Ereignisse look-only (`StandbyProvider`). Once the hosted board has taken every one
+back, the box is look-only again.
 
 Pure ASGI, like the other middlewares here (BaseHTTPMiddleware breaks when stacked). The
 "anything taken offline yet?" answer is cached for a few seconds, so a busy board does not ask
 the database once per request.
 
-From the first takeover on, writes go through for every Ereignis – the API does not tell them
+While the box leads one, writes go through for every Ereignis – the API does not tell them
 apart; the frontend does.
 """
 
@@ -43,21 +44,23 @@ class StandbyReadOnlyMiddleware:
 
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
-        self._detached_any = False
+        self._leads = False
         self._checked_at = 0.0
 
-    async def _anything_detached(self) -> bool:
+    async def _leads_any(self) -> bool:
         if time.monotonic() - self._checked_at < CACHE_SECONDS:
-            return self._detached_any
+            return self._leads
         async with async_session_maker() as db:
             # Two statements: Postgres resolves a table name when it plans the query, so naming
             # a table that does not exist yet fails even behind `to_regclass(...) AND`.
-            exists = await db.scalar(text("SELECT to_regclass('standby.detached_events') IS NOT NULL"))
+            exists = await db.scalar(text("SELECT to_regclass('public.event_leads') IS NOT NULL"))
             if exists:
-                exists = await db.scalar(text("SELECT EXISTS (SELECT 1 FROM standby.detached_events)"))
+                exists = await db.scalar(
+                    text("SELECT EXISTS (SELECT 1 FROM public.event_leads WHERE holder = 'standby')")
+                )
         self._checked_at = time.monotonic()
-        self._detached_any = bool(exists)
-        return self._detached_any
+        self._leads = bool(exists)
+        return self._leads
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if (
@@ -67,7 +70,7 @@ class StandbyReadOnlyMiddleware:
             or scope["path"].startswith(ALLOWED_PREFIXES)
             or (scope["method"], scope["path"]) in ALLOWED_EXACT
             or deployment_role() != ROLE_STANDBY
-            or await self._anything_detached()
+            or await self._leads_any()
         ):
             await self.app(scope, receive, send)
             return

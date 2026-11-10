@@ -9,8 +9,8 @@ The rules under test (services/duplicates.py):
   empty Melder, keeps the report's own row (soft-deleted, provenance intact)
   and is audited; «Trennen» undoes exactly that and nothing an operator
   changed since;
-- the automatic doors (webhook auto-attach, public /alarm, bulk attach) never
-  merge — they create the card and flag it.
+- the automatic doors (webhook auto-attach, public /alarm, bulk attach, a pool
+  attach without «Zusammenführen») never merge — they create the card and flag it.
 """
 
 from datetime import UTC, datetime
@@ -429,6 +429,36 @@ class TestPoolAttach:
         await db_session.refresh(report)
         assert report.merged_into_id == target.id
         assert report.source_ref == "777"
+
+    async def test_attach_without_merge_creates_and_flags(
+        self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ) -> None:
+        # «Anhängen» before the dialog's hint came up: a new card, flagged like bulk attach.
+        target = await _card(db_session, test_event)
+        emergency = DiveraEmergency(
+            id=uuid4(),
+            divera_id=778,
+            title="ELEMENTAR Wasser im Keller",
+            address="Hauptstr. 6, 4104 Oberwil",
+            latitude=str(_offset(15)),
+            longitude=str(LNG),
+            received_at=datetime.now(UTC),
+            source="divera",
+            source_id="778",
+        )
+        db_session.add(emergency)
+        await db_session.commit()
+
+        with patch("app.api.divera.broadcast_incident_update", new_callable=AsyncMock):
+            response = await editor_client.post(
+                f"/api/divera/emergencies/{emergency.id}/attach", json={"event_id": str(test_event.id)}
+            )
+        assert response.status_code == 201, response.text
+        body = response.json()
+        assert body["id"] != str(target.id)
+        assert body["possible_duplicate_of_id"] == str(target.id)
+        await db_session.refresh(target)
+        assert target.internal_notes is None
 
 
 class TestFeld:

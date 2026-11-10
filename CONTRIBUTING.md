@@ -52,7 +52,8 @@ See the [README](README.md#quick-start) for detailed setup instructions.
 
 ```bash
 just dev       # Start all services with Docker (hot reload)
-just test      # Run E2E tests
+just test      # Backend + frontend unit + E2E (needs the dev stack)
+just check     # Format, lint, types – the fast gates CI runs
 just lint      # Lint frontend + backend
 ```
 
@@ -69,7 +70,8 @@ just lint      # Lint frontend + backend
 - **Linter**: ESLint (`pnpm lint` or `just lint`)
 - Use TypeScript strictly, avoid `any`
 - Follow Next.js 15 App Router conventions
-- Use `"use client"` only when the component needs interactivity
+- Every page under `app/` is a Client Component, on purpose (see `CLAUDE.md`); server
+  components are for static leaves that touch no context
 - Use shadcn/ui components from `components/ui/` where applicable
 
 ## Commit Messages
@@ -123,11 +125,12 @@ person who wrote the diff.
 ## Areas for Contribution
 
 ### High Impact
-- **Translations / i18n** – the next-intl layer is in place, but `de.json` is the only
-  catalogue, so any second language is largely a translation job rather than a plumbing one
+- **Translations / i18n** – German and French ship; the French has not been reviewed by a
+  French-speaking firefighter yet, and Italian is an empty catalogue (`it.json`) waiting for
+  one. A new language is a translation job, not a plumbing one
 - **Alerting integrations** – connect to platforms like Alamos, BORS, or other regional systems
+  through the alarm intake and `AlarmProvider` seams (`docs/ALARM-INTEGRATIONS.md`)
 - **CAD integration** – connect to Computer-Aided Dispatch systems
-- **PDF report generation** – export incidents, board snapshots, or statistics as PDF
 
 ### Good First Issues
 - UI improvements and accessibility
@@ -140,9 +143,6 @@ person who wrote the diff.
 - A **generic OIDC** sign-in adapter – external identity is Microsoft Entra-only today, so
   Google Workspace, Keycloak, Authentik and Zitadel are out of reach for one code path
 - Generalising **vehicle GPS** behind a provider seam, the way alarm intake already is
-- Progressive Web App (PWA) support
-- Mobile app (React Native)
-- Analytics / statistics dashboard
 
 ## Testing
 
@@ -167,18 +167,18 @@ pnpm screenshots    # Re-capture the help-page screenshots (a tool, not a test)
 
 Or via just:
 ```bash
-just test            # Run all E2E tests
+just test            # Backend + frontend unit + E2E
 just test-ui         # Interactive UI mode
 ```
 
-> **CI runs eight of the ~300 E2E specs. The rest is your job.**
+> **CI runs the `@smoke` subset of the E2E specs. The rest is your job.**
 >
 > The `@smoke` subset – log in, land on the board, create an event, select it, create an
-> incident, alarm intake in and out – runs on every pull request. The full suite takes about 25
-> minutes and is flaky enough that gating merges on it taught people to click through red, so it
-> runs nightly instead (`.github/workflows/e2e-nightly.yml`, failures open an issue).
+> incident, alarm intake in and out – runs on every pull request. The full suite takes ten to
+> twenty minutes, too long to gate every merge on, so it runs nightly instead
+> (`.github/workflows/e2e-nightly.yml`, failures open an issue).
 >
-> That leaves a real gap on every path outside those eight specs, so **run `pnpm test:e2e`
+> That leaves a real gap on every path outside the subset, so **run `pnpm test:e2e`
 > locally before a release and after any change to auth, the board, or alarm intake.** It needs
 > the backend and frontend up (`just dev`).
 >
@@ -193,11 +193,11 @@ just test-ui         # Interactive UI mode
 
 - **Backend**: FastAPI with async SQLAlchemy, PostgreSQL, Alembic migrations
 - **Frontend**: Next.js 15 App Router, React 19, Tailwind CSS 4, shadcn/ui
-- **State management**: React Context with polling-based sync
+- **State management**: React Context; Socket.IO pushes, polling as the fallback
 - **Database settings**: Key-value store for runtime configuration (no restarts needed)
 - **Print agent**: Standalone Python service for thermal printer support
 
-See the [README](README.md#project-structure) for the full project structure.
+See the [README](README.md#repository-layout) for the full project structure.
 
 ## Questions?
 

@@ -9,7 +9,7 @@ Vue principale au chargement de l’application. Affiche toutes les intervention
 
 **La vue reste telle qu’on l’a réglée.** Les barres latérales repliées, le panneau latéral et une liste de mise en route écartée survivent à un rechargement – mémorisés par appareil, comme les autres réglages d’affichage.
 
-**Les colonnes entièrement hors de l’écran apparaissent comme puces dans la barre du haut.** Avec les deux barres latérales, quatre colonnes tiennent sur 1920 px et une bande de la cinquième reste visible. Ce qui a entièrement disparu à droite est nommé par une puce devant le champ de recherche – par exemple « Retour 2 › », « Clôturé 0 › », « En intervention 2 · 1 haute › » (un point rouge signale une priorité haute) ; une fois défilé vers la droite, les colonnes de gauche apparaissent en « ‹ … » juste après le nom de l’événement. Un clic (ou `Tab` + `Entrée`) amène la colonne à l’écran. Dès qu’une partie d’une colonne est visible, sa puce disparaît. On peut aussi glisser une carte directement sur une puce. Si la barre manque de place, le nom de la colonne est raccourci en premier (le nom complet figure dans l’infobulle). Aucune colonne ne rétrécit pour autant ; quand tout tient (barres latérales fermées, écran plus large), il n’y a pas de puces.
+**Les colonnes hors de l’écran apparaissent comme puces dans la barre du haut.** Avec les deux barres latérales, cinq colonnes tiennent entièrement sur 1920 px. Ce qui a disparu à droite est nommé par une puce devant le champ de recherche – par exemple « Retour 2 › », « Clôturé 0 › », « En intervention 2 · ^ 1 › » (le signe de priorité haute devant le nombre signale une priorité haute) ; une fois défilé vers la droite, les colonnes de gauche apparaissent en « ‹ … » juste après le nom de l’événement. Un clic (ou `Tab` + `Entrée`) amène la colonne à l’écran. Une colonne dont seule une bande étroite (moins d’environ 96 px) est visible compte comme masquée : la bande reste affichée et la colonne a quand même sa puce. Dès qu’on en voit davantage, la puce disparaît. On peut aussi glisser une carte directement sur une puce. Si la barre manque de place, le nom de la colonne est raccourci en premier (le nom complet figure dans l’infobulle). Aucune colonne ne rétrécit pour autant ; quand tout tient (barres latérales fermées, écran plus large), il n’y a pas de puces.
 
 **« 3 engins sur place » en tête de la barre du matériel.** Le matériel qu’une équipe a laissé quelque part est autrement invisible sur le tableau – il n’est ni libre ni visiblement en service. La liste dépliante indique l’engin, l’adresse et depuis quand, le plus ancien en haut ; un clic ouvre l’intervention correspondante. Elle n’apparaît que s’il y a réellement quelque chose dehors.
 
@@ -22,7 +22,7 @@ Vue principale au chargement de l’application. Affiche toutes les intervention
 **« Indicateurs » dans le menu utilisateur (`Z`).** En haut à droite, dans le menu de la personne, aussi via `Cmd/Ctrl+K` et, sur le téléphone, sous « Plus » – plus dans la barre du bas. Une fenêtre au-dessus de la page avec la situation en chiffres – annonces, en attente (par priorité), en cours, terminées – et les temps de réaction depuis la réception jusqu’à **Engagé**, **Sur place** et **Clôture**, en médiane et P90 par priorité, ainsi que la plus ancienne annonce « haute » encore en attente (un clic l’ouvre). Les mêmes valeurs que le tableau « Reaktionszeiten » du rapport d’intervention (PDF) ; le mode de calcul se trouve derrière le ⓘ. Pour un exercice, la vue s’appelle **Évaluation de l’exercice** ; pour un événement passé, elle se trouve sous **Événements → ⋯ → Indicateurs**, et au mur dans l’affichage d’état (`/display/status`), au-dessus des interventions.
 
 ### Vue carte (`G M`)
-Vue d’ensemble géographique de tous les lieux d’intervention. Des marqueurs colorés indiquent la priorité (vert/jaune/rouge).
+Vue d’ensemble géographique de tous les lieux d’intervention. Les marqueurs indiquent la priorité (gris/jaune/rouge).
 
 **Comportement au clic :**
 - **Marqueur / carte de la liste (simple clic)** : sélectionne l’intervention et zoome sur le marqueur
@@ -31,7 +31,13 @@ Vue d’ensemble géographique de tous les lieux d’intervention. Des marqueurs
 **Légende de la carte :**
 - **Priorité (remplissage) :** gris = basse, jaune = moyenne, rouge = haute
 - **Statut (cadre) :** tirets = ouverte, trait plein = en cours, pointillés + estompé = retour et clôturées
-- **Véhicules (GPS) :** bleu = en ligne, gris = hors ligne
+- **Véhicules (GPS) :** une pastille par emplacement. Bleu plein = en ligne, creux à tirets gris = hors ligne. Plusieurs au même endroit partagent une pastille (« 6 véhicules | 4 hors ligne »). L’heure du dernier signal n’apparaît sur la pastille que lorsqu’il date de plus que le seuil réglé sous Réglages → GPS (10 min par défaut) ; le survol ou un toucher affiche la liste de chaque véhicule. Une pastille posée sur un marqueur d’intervention s’écarte – un trait fin mène au point où le véhicule se trouve vraiment. Les lignes d’attribution partent seulement des véhicules en ligne.
+- **Marqueur avec nombre :** plusieurs interventions à la même adresse – un marqueur à l’aspect de la plus urgente, une étiquette avec tous les numéros (« 6 · 7 · 9 Bahnhofstrasse 1 »). Le survol ou un clic affiche la liste ; un clic sur une ligne sélectionne cette intervention, un double-clic l’ouvre.
+- **Bulle avec nombre :** plusieurs interventions dont les marqueurs se recouvrent ; marque et cadre de la plus urgente (priorité la plus haute). Un clic ou un toucher zoome sur le groupe. Dès le zoom de rue, les marqueurs se séparent à nouveau.
+
+**Étiquettes (ordinateur) :** chaque adresse se trouve à côté de son marqueur, normalement à droite. Si une autre étiquette ou un marqueur occupe déjà la droite, elle passe à gauche – si la gauche est prise aussi, elle reste à droite et celle que l’on survole passe devant.
+
+**Liste :** dans chaque groupe (ouvertes, en cours, …), les interventions sont triées par priorité – haute, moyenne, basse – et, à priorité égale, la plus ancienne d’abord, mesurée comme le temps affiché dans la ligne.
 
 **Clavier :** `L` étiquettes, `I` lignes, `1-5` afficher un véhicule – voir [Raccourcis clavier](#raccourcis-clavier).
 
@@ -44,6 +50,8 @@ Sur les écrans larges (>1280 px), un panneau latéral apparaît à droite avec 
 - **Simple clic** : affiche les détails de l’intervention dans le panneau latéral
 - **Double clic** : ouvre la fenêtre de détail complète (modale)
 
+**Statut dans le détail :** sous les **Caractéristiques** se trouve la ligne **Statut** – une liste avec les colonnes du tableau, dans leur ordre. Un changement à cet endroit pose les mêmes questions que le déplacement de la carte (ressources manquantes au moment de disposer, Reko, «Modifié à l’instant»). Juste en dessous suivent les **Moyens**.
+
 ### Événements (`G E`)
 Gérer, changer, archiver et exporter les événements.
 
@@ -52,14 +60,14 @@ Gérer, changer, archiver et exporter les événements.
 **L’archivage dit ce qui est encore ouvert.** La fenêtre liste ce que l’archivage couperait : les interventions non clôturées (avec « Afficher sur le tableau »), les récupérations ouvertes, le matériel encore sur une place sinistrée et les personnes encore annoncées. La case « désannoncer automatiquement », cochée par défaut, annonce le départ de tout le monde à l’archivage – heure de départ = fin de l’événement. Tant que quelque chose est ouvert, le bouton s’appelle « Archiver quand même ».
 
 ### Réglages (`G S`)
-Configuration du système : utilisateurs, imprimante, style de carte et plus encore. Les utilisateurs et le journal d’audit ne sont visibles que pour les admins.
+Configuration du système : utilisateurs, imprimante, style de carte et plus encore. Les utilisateurs et le journal d’audit ne sont visibles que pour les admins. Les coordonnées de la caserne (Général) s’affichent et s’enregistrent avec 6 décimales (≈ 10 cm) ; au-delà, elles sont arrondies en quittant le champ.
 
 ### Aide (`G H`)
 Cette page de documentation.
 
-**Réel vs exercice :** un événement peut être marqué « exercice ». Le badge « Exercice » apparaît et les données sont tenues séparément. Les événements réels viennent de Divera.
+**Réel vs exercice :** un événement peut être marqué « exercice ». Le badge « Exercice » apparaît et les données sont tenues séparément. Les interventions réelles arrivent par la réception des alarmes (Divera, FireHub, webhook, formulaire d’annonce) ou sont saisies à la main.
 
-**Export d’audit :** Réglages → Import/export → choisir un événement → export Excel. Contient toutes les interventions, les attributions (historique compris), les changements de statut et les rapports de reconnaissance. Pour la facturation et le débriefing. Le journal d’audit est nettoyé automatiquement en arrière-plan (conservation par défaut 90 jours, 7 jours en mode démo), afin que la table ne grossisse pas indéfiniment.
+**Export d’audit :** Réglages → Import/export → choisir un événement → export Excel. Contient toutes les interventions, les attributions (historique compris), les changements de statut et les rapports de reconnaissance. Pour la facturation et le débriefing. Le journal d’audit est conservé en entier. Il n’est nettoyé que si la personne qui gère le serveur a fixé une durée de conservation (`AUDIT_RETENTION_DAYS`).
 
 **Impression et export :** barre du bas → « Imprimer » ou touche `D` ouvre **un seul** panneau à trois colonnes – tout ce qui part sur papier ou dans un fichier au même endroit :
 - **Impression thermique** – instantané du tableau sur l’[imprimante thermique](#imprimante-thermique)
@@ -72,7 +80,7 @@ Cette page de documentation.
 
 Pour les postes de commandement dotés de plusieurs écrans, des pages d’affichage spéciales existent sous `/display`. Elles sont en lecture seule – aucune fonction d’édition.
 
-**Accès :** menu utilisateur → section « Affichage » (s’ouvre dans un nouvel onglet), ou directement `/display`.
+**Accès :** menu utilisateur → « Affichage » → **Vue d’ensemble des affichages** (s’ouvre dans un nouvel onglet), ou directement `/display`. On y trouve les trois écrans muraux – carte de situation, tableau, état – et le choix de l’événement ; on passe d’un écran à l’autre en haut à droite. La même section du menu utilisateur contient les [Indicateurs](#tableau-board-g-b) (`Z`).
 
 ### Carte de situation (`/display/map`)
 Carte plein écran sans barre latérale. Montre tous les lieux d’intervention, les positions GPS des véhicules et les lignes d’attribution animées (véhicule → intervention). Idéal pour un écran de situation central.
@@ -89,14 +97,14 @@ Le mur ne suit **pas** la « Vue » de l’opérateur : *Compact* existe pour ca
 **Sur le téléphone** (les comptes lecteur arrivent ici), les colonnes sont empilées au lieu d’être côte à côte : les mêmes cartes, on fait défiler vers le bas, pas sur le côté. De même pour les quatre colonnes d’« État ».
 
 ### État (`/display/status`)
-Vue à quatre colonnes : véhicules, interventions (groupées par statut), personnel (groupé par rôle) et matériel (groupé par emplacement). Pour les ressources attribuées, le lieu d’intervention est indiqué. S’agrandit automatiquement sur les grands écrans. Au-dessus des interventions figurent, repliables, les [indicateurs](#tableau-board-g-b).
+Vue à quatre colonnes : véhicules, interventions (groupées par statut), personnel (groupé par rôle) et matériel (groupé par emplacement). Pour les ressources attribuées, le lieu d’intervention est indiqué. S’agrandit automatiquement sur les grands écrans. Au-dessus des interventions figurent, repliables, les [indicateurs](#tableau-board-g-b) – les quatre chiffres et le plus ancien message « haute » en attente ; les temps de réaction (tableau et diagramme) forment une section à part, repliée par défaut, pour laisser plus de place aux interventions.
 
 ### Replier des sections
 
 Dans les vues d’affichage, chaque section peut être repliée – colonnes du tableau, groupes de statut, fonctions pour le personnel, catégories pour le matériel. Dans un corps plus grand, on ne ferait sinon que défiler.
 
 - **L’état par défaut est déplié.** Rien ne se cache à quelqu’un qui vient de s’approcher. Seule exception : **CLÔTURÉES** démarre replié – c’est du travail fait.
-- **Un en-tête replié continue d’indiquer le nombre et l’état :** le nombre d’entrées, pour le personnel et le matériel combien sont libres, et un point rouge dès qu’une intervention de cette section est en retard. Replier, c’est cacher – et à 3 heures du matin, rien d’important n’a le droit de se cacher.
+- **Un en-tête replié continue d’indiquer le nombre et l’état :** le nombre d’entrées, pour le personnel et le matériel combien sont libres, et, dès qu’une intervention y est en retard, un signe : sur le tableau la puce d’ancienneté « ⏱ 2 ≥ 60' » (combien, à partir de quand ; jaune dès 60 minutes, rouge dès 120), sur « État » un point rouge. Replier, c’est cacher – et à 3 heures du matin, rien d’important n’a le droit de se cacher.
 - **L’état est mémorisé par appareil**, comme les autres réglages d’affichage. L’écran mural, la tablette sur la table et le portable au fond ne sont pas à la même distance ; ce qui est replié appartient à l’écran, pas à l’intervention.
 
 ### Synchronisation entre fenêtres
@@ -126,7 +134,7 @@ En ligne de commande, `just tiles-status` distingue « uniquement les tuiles min
 
 La barre de recherche (`S` ou `/`) parcourt toutes les interventions par adresse, genre, priorité et statut (tels qu’ils figurent sur la carte, p. ex. « haute », « En intervention »), texte de l’annonce et **nom de mission** ; « reko » ou « reconnaissance » trouve les interventions dont la reconnaissance est terminée – qui cherche l’itinéraire en trouve les étapes. Idéal pour retrouver rapidement la bonne carte quand il y a beaucoup d’interventions.
 
-Sur les pages d’affichage [Tableau](#tableau-displayboard) et [État](#état-displaystatus), la même recherche se trouve dans l’en-tête, avec les deux mêmes touches – qui passe du PC à l’écran mural n’a rien de second à retenir. Elle ne réagit pas tant qu’un champ a le curseur ou qu’une fenêtre est ouverte.
+Sur les pages d’affichage [Tableau](#tableau-displayboard) et [État](#état-displaystatus), la même recherche se trouve dans l’en-tête, avec les deux mêmes touches – qui passe du PC à l’écran mural n’a rien de second à retenir. Elle ne réagit pas tant qu’un champ a le curseur ou qu’une fenêtre est ouverte. Après 10 secondes sans souris ni touche, le champ de recherche et la flèche de retour s’estompent sur place (rien ne se déplace) ; le premier mouvement de souris ou `S` les fait revenir. Une recherche en cours reste affichée.
 
 ---
 
@@ -166,10 +174,9 @@ Chaque carte montre : numéro (en petit devant l’adresse), adresse, genre, res
 
 Ils montrent depuis combien de temps une intervention est ouverte :
 
-- **Vert** = nouvelle (< 15 min)
-- **Jaune** = en cours (15–60 min)
-- **Orange** = ouverte depuis un moment (1–2 h)
-- **Rouge** = ouverte depuis longtemps (> 2 h) – demande de l’attention
+- **Gris** = moins de 60 minutes
+- **Jaune** = dès 60 minutes – ouverte depuis un moment
+- **Rouge** = dès 120 minutes – demande de l’attention
 
 ### Entraide
 
@@ -272,6 +279,52 @@ journal note ce qui a été repris (« Repris de … »). Pour annuler : « Annu
 elle-même été fusionnée. Un lien de reconnaissance de la carte fusionnée continue de fonctionner et
 aboutit sur la carte qui reste, une équipe sur `/feld` trouve la carte qui reste, et les photos sont
 copiées, jamais déplacées ; les temps de réaction comptent dès le premier message.
+
+### Alarmes entrantes (amener les alarmes sur le tableau)
+
+Les alarmes du système d’alarme – Divera ou un autre système via l’interface webhook
+ouverte (`docs/ALARM-INTEGRATIONS.md`) – arrivent d’abord dans les **Alarmes entrantes**.
+Si le rattachement automatique est activé pour un événement, elles figurent en plus directement
+comme carte dans « Reçu ».
+
+- **Ouvrir :** le symbole de boîte de réception en haut, à côté de la cloche. Le chiffre qu’il
+  porte compte les **nouvelles** alarmes des dernières 24 heures. Un deuxième clic dessus,
+  `Échap` ou ✕ les referme. Aussi dans le menu utilisateur sous « Administration » et, sur le
+  téléphone, sous « Plus » ; les anciens liens vers `/divera-pool` arrivent sur le tableau avec
+  les Alarmes entrantes ouvertes.
+- **À côté du tableau, pas devant :** sur l’ordinateur, le panneau se tient à droite entre la
+  barre du haut et celle du bas, sans assombrir le tableau – on continue de travailler, et une
+  alarme rattachée apparaît aussitôt dans « Reçu ». Un clic sur le tableau ne le ferme pas.
+  Sur le téléphone, c’est un panneau qui monte du bas.
+- **Nouvelles** – ce qui n’est encore sur aucun tableau (24 heures au plus), la plus récente en
+  haut, avec titre, adresse et message. **Rattacher** par ligne, **Tout rattacher** pour toutes
+  les nouvelles d’un coup (sur le téléphone, en bas du panneau).
+- **Attribuées aujourd’hui** – rattachées depuis minuit, en ligne courte avec le numéro de
+  l’intervention qui en est issue (« → 14 »).
+- **Plus anciennes** – repliées : jours précédents et archivées. Une alarme que personne n’a
+  rattachée pendant un jour se trouve ici et peut encore être rattachée depuis là.
+- **Recherche** sur le titre, le message, l’adresse, le numéro Divera et l’expéditeur ; pendant
+  une recherche, « Plus anciennes » est déplié. Tant que les Alarmes entrantes sont ouvertes,
+  une nouvelle alarme s’annonce par un message et un son.
+
+**Rattacher** sur une ligne rattache l’alarme sans question à l’événement que montre cette
+fenêtre ; le message nomme l’événement et le numéro d’intervention et propose **Annuler** –
+l’alarme revient alors dans les alarmes entrantes, tant que personne n’a travaillé sur la nouvelle
+carte. La question reste posée là où il y a quelque chose à décider : doublon possible, alarme
+réelle vers un exercice, **Tout rattacher** et **Autre événement …** – l’événement de cette fenêtre
+y est présélectionné. Les
+alarmes d’exercice ne vont qu’à un exercice. Une alarme réelle peut aller à un exercice, mais
+seulement après l’avertissement de ce que cela implique : l’alarme sortante est seulement
+simulée, et les seuils de retard sont 50 % plus longs. Pour **une seule** alarme, la fenêtre
+vérifie comme « Nouvelle intervention » s’il existe déjà une intervention ouverte à la même
+adresse ou à moins de 50 m – « Peut-être identique à … » avec **Fusionner** (l’alarme devient un
+complément de cette intervention) ou **Créer quand même**. Sans fusion, aussi avec « Tout
+rattacher », la nouvelle carte porte « Doublon possible de … », comme une alarme rattachée
+automatiquement.
+
+Les éditeurs et les admins peuvent rattacher ; les observateurs ne voient pas les Alarmes
+entrantes. En mode démo, aucun système d’alarme n’est raccordé, et les Alarmes entrantes le
+disent.
 
 ### Faire une reconnaissance
 
@@ -486,7 +539,7 @@ Il n’existe pas d’« archive » pour une intervention isolée – c’est l�
 
 **Déplacer :** faire glisser la carte dans une nouvelle colonne, ou utiliser les touches `>` / `<`.
 
-**Ordre à l’intérieur d’une colonne :** les cartes se trient par glisser-déposer à l’intérieur d’une même colonne. L’ordre manuel est conservé et s’affiche à l’identique après un rechargement ou sur d’autres appareils (il ne revient plus à l’ordre initial).
+**Ordre à l’intérieur d’une colonne :** les cartes se trient par glisser-déposer à l’intérieur d’une même colonne – ou sans glisser, par **Monter** / **Descendre** dans le menu contextuel de la carte. L’ordre manuel est conservé et s’affiche à l’identique après un rechargement ou sur d’autres appareils (il ne revient plus à l’ordre initial).
 
 **Sauter des colonnes :** autorisé. Toutes les interventions n’ont pas besoin d’une reconnaissance.
 
@@ -531,15 +584,16 @@ Le modèle de base : **une mission est une unité unique qui parcourt tout l’i
 
 Il en découle :
 
-- Une mission **possède ses ressources elle-même** : véhicule, personnel et matériel sont attribués **à la mission** et valent **pour toutes les étapes en commun** – le groupe les parcourt bien l’une après l’autre. Les étapes individuelles ne portent **aucune ressource propre**.
+- Une mission **possède ses ressources elle-même** : véhicule, personnel et matériel sont attribués **à la mission** et valent **pour toutes les étapes en commun** – le groupe les parcourt bien l’une après l’autre. Les étapes individuelles ne portent **aucune ressource propre**. Le matériel d’une mission compte partout comme **engagé** – dans la barre du matériel, son compteur et sur l’écran de statut –, comme le personnel.
 - Une intervention est **entièrement dans la mission ou pas du tout** – il n’y a pas de « à moitié dedans ». Des ressources supplémentaires pour une seule étape (à moitié dans la mission) ne sont **pas** prises en charge. Si une place sinistrée a besoin de son propre groupe avec son propre matériel, elle n’a pas sa place dans cette mission : elle reste une intervention autonome (ou entre dans une deuxième mission).
 - Les ressources sont **libérées automatiquement lorsque la dernière étape est clôturée**.
 
 ### Planifier et optimiser l’itinéraire
 
-- **Éditeur d’itinéraire** (dans la barre des missions) : grande carte avec les étapes numérotées et la ligne d’itinéraire, à côté de la liste ordonnée des étapes. Réordonner les étapes par glisser-déposer, ajouter de nouvelles étapes par un clic sur la carte.
-- **Planification d’itinéraire** sur `/map` : la même planification sur la grande carte plein écran.
-- **Optimiser l’ordre** : calcule, par heuristique du plus proche voisin, un ordre court à partir d’un point de départ (**caserne**, **GPS du véhicule** ou **première étape**). La proposition s’affiche en aperçu – **Reprendre** ou **Abandonner**.
+- **Éditeur d’itinéraire** (dans la barre des missions) : grande carte avec les étapes numérotées et la ligne d’itinéraire, à côté de la liste ordonnée des étapes. Réordonner les étapes par glisser-déposer ou par le **⋮** de l’étape (**Monter**, **Descendre**, **Placer au début** – de même dans la barre des missions). Le **statut d’une étape** est écrit en toutes lettres sur un bouton ; un clic ouvre le choix de tous les statuts et ne change rien de lui-même. Enfin, ajouter de nouvelles étapes par un clic sur la carte.
+- **Planification d’itinéraire** sur `/map` : la même planification sur la grande carte plein écran. Le panneau de droite présente l’ordre sous forme de **frise** : en haut le départ avec sa provenance (« Départ · Caserne » – l’emplacement défini dans les réglages ou, s’il n’y en a pas, « position de secours » ; après une optimisation, le départ réellement utilisé, p. ex. le GPS du véhicule avec l’heure du dernier signal), en dessous les étapes avec **les mêmes numéros que leurs repères sur la carte**, et pour finir « Ajouter une étape ». Les adresses longues passent à la ligne au lieu d’être coupées.
+- **Largeur du panneau :** les barres latérales s’élargissent ou se rétrécissent en tirant sur leur bord – celle de la planification aussi. Un double-clic sur le bord rétablit la largeur par défaut ; la largeur est mémorisée par appareil.
+- **Optimiser l’ordre** : propose, par heuristique du plus proche voisin et **à vol d’oiseau**, un ordre court à partir d’un point de départ (**caserne**, **GPS du véhicule** ou **première étape**) – le menu indique d’abord, pour chaque point de départ, d’où il vient et de quand il date. La proposition s’applique aussitôt ; **Annuler** dans le message rétablit l’ancien ordre tant que personne n’a modifié la mission entre-temps. Il faut au moins deux étapes avec coordonnées. Une aide à la planification, pas un itinéraire routier.
 
 ### Message radio pour une mission
 
@@ -573,7 +627,7 @@ Seules les ressources disponibles (point vert) peuvent être attribuées. Un **a
 
 **Annuler après une libération.** Quand une personne, un véhicule, du matériel, une étape de mission ou une ressource d’itinéraire est libéré, « … libéré · Annuler » apparaît. Annuler la réattribue par le chemin normal (avec les mêmes questions) ; si quelqu’un l’a placée ailleurs entre-temps, elle y reste, et le message dit où.
 
-**Sur un écran tactile**, un toucher sur une puce de personne ou de véhicule ouvre un petit menu : « Ouvrir les détails », là où cela s’applique « Marquer comme chef d’intervention », et, à l’écart, le « Retirer de l’intervention » rouge. À la souris, rien ne change.
+**Sur un écran tactile**, un toucher sur une puce de personne ou de véhicule ouvre un petit menu : « Ouvrir les détails », là où cela s’applique « Marquer comme chef d’intervention », et, à l’écart, le « Libérer de l’intervention » rouge. À la souris, rien ne change.
 
 ### Rôles spéciaux (clic droit sur une personne)
 
@@ -608,8 +662,14 @@ Le personnel et les véhicules sont libérés automatiquement à la clôture ; s
 
 Appuie sur `Cmd/Ctrl+K` pour la palette de commandes – elle liste toutes les commandes
 avec leur raccourci et est également accessible depuis le menu utilisateur
-(« Commandes et raccourcis clavier »). Les raccourcis sont inactifs tant qu’un champ de
+(« Commandes et raccourcis »). Les raccourcis sont inactifs tant qu’un champ de
 saisie a le focus.
+
+Ce qu’une carte propose au clic droit s’y trouve aussi, sous **Intervention sélectionnée** :
+attribuer la reconnaissance, de l’effectif, un véhicule et du matériel, transférer les ressources,
+répartir sur une mission, basculer « entraide » et « en attente », clôturer l’intervention, imprimer
+la fiche d’intervention. S’y ajoutent les vues **Alarmes entrantes**, **Appel** et **Checklist** –
+rien de tout cela ne demande la souris.
 
 ### Attribuer en tapant
 Sur le tableau, la palette comprend aussi les interventions, les personnes, les véhicules et le
@@ -641,7 +701,7 @@ qu’en glissant s’appliquent (double attribution, chauffeur), et le message q
 **`⇥` complète** le mot commencé : `14 kell` devient `14 Keller Marco`, `grenz` devient `Grenzweg 1`. S’il y a plusieurs candidats, `⇥` à nouveau prend le suivant (indiqué à droite de la ligne), `⇧⇥` le précédent.
 
 Les raccourcis globaux (`G …` et `?`) valent sur chaque page de l’interface – tableau,
-carte, événements, paramètres, aide, exercice, alarmes entrantes. Ils se
+carte, événements, paramètres, aide, exercice. Ils se
 taisent tant qu’un dialogue ou un menu est ouvert ; sur les affichages muraux (`/display`)
 et les formulaires mobiles (terrain, reko, check-in), ils n’existent volontairement pas.
 
@@ -841,7 +901,7 @@ just down       # Arrête l’installation (les données restent)
 just doctor     # Vérifie que tout tourne – base de données, imprimante, tuiles, sauvegarde
 ```
 
-L’instance locale tourne sur `http://localhost:3000`.
+L’instance locale tourne sur la machine qui héberge le serveur : `http://<cette-machine>:8080` – ou à votre propre adresse, si elle est configurée.
 
 > **Les recettes `dev-` ne sont pas faites pour l’exploitation.** `just dev`, `just dev-stop`
 > et `just dev-clean` servent au développement ; `just dev-clean` **efface la base de données

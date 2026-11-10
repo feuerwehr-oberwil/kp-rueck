@@ -470,7 +470,7 @@ export function CrewDutyButton({ onClick, className }: { onClick: () => void; cl
       title={t("openTitle")}
       aria-label={t("openTitle")}
       className={cn(
-        "inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs text-muted-foreground transition-colors",
+        "relative hit-area inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs text-muted-foreground transition-colors",
         "hover:bg-foreground/[0.06] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         className,
       )}

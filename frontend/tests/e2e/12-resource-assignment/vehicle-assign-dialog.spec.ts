@@ -31,7 +31,7 @@ test.describe('Vehicle assignment from the incident detail', () => {
   }) => {
     await page.locator(VEHICLE_ADD_BUTTON).click();
 
-    const dialog = page.getByRole('dialog', { name: 'Fahrzeuge zu Einsatz zuweisen' });
+    const dialog = page.getByRole('dialog', { name: 'Fahrzeuge zuweisen' });
     await expect(dialog).toBeVisible();
 
     // «Zu Fuss» lives in the dialog — the not-a-vehicle choice travels with
@@ -46,5 +46,5 @@ test.describe('Vehicle assignment from the incident detail', () => {
 function detailModal(page: import('@playwright/test').Page) {
   return page
     .locator('[role="dialog"][data-slot="dialog-content"][data-state="open"]')
-    .filter({ hasText: /Fahrzeuge \(\d+\)/ });
+    .filter({ hasText: /Fahrzeuge · \d+/ });
 }

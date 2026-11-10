@@ -9,15 +9,23 @@ import { request as httpRequest } from '../http'
 import type { ApiAssignment, ApiAssignmentCreate, ApiTransferAssignmentsResponse } from '../types'
 
 export class AssignmentsApi {
+  /** `assignmentIds`: «Rückgängig» of a transfer – move back exactly these (the ids the
+   *  transfer answered with); refused (409) unless all are still active on the source. */
   async transferAssignments(
     sourceIncidentId: string,
-    targetIncidentId: string
+    targetIncidentId: string,
+    assignmentIds?: string[],
   ): Promise<ApiTransferAssignmentsResponse> {
     return httpRequest<ApiTransferAssignmentsResponse>(
       `/api/incidents/${sourceIncidentId}/transfer`,
       {
         method: 'POST',
-        body: JSON.stringify({ target_incident_id: targetIncidentId }),
+        body: JSON.stringify({
+          target_incident_id: targetIncidentId,
+          ...(assignmentIds ? { assignment_ids: assignmentIds } : {}),
+        }),
+        // The caller says a refused undo in its own toast.
+        ...(assignmentIds ? { skipToast: true } : {}),
       }
     )
   }

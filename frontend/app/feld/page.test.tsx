@@ -95,6 +95,8 @@ function assignment(overrides: Partial<ApiFeldAssignment> = {}): ApiFeldAssignme
     incident_title: 'Keller Wasser',
     incident_type: 'elementarereignis',
     incident_status: 'active',
+    number: 1,
+    priority: 'medium',
     description: null,
     contact: null,
     contact_phone: null,
@@ -578,6 +580,16 @@ describe('/feld renders the server-computed address label', () => {
 
     expect(await screen.findByText('Hauptstrasse 1')).toBeInTheDocument()
     expect(screen.queryByText('Hauptstrasse 1, 4104 Oberwil')).not.toBeInTheDocument()
+  })
+
+  it('puts the priority mark and the Einsatz number before the address (D3)', async () => {
+    withAssignment({ location_display: 'Hauptstrasse 1', number: 14, priority: 'high' })
+    renderWithIntl(<FeldPage />)
+
+    const heading = (await screen.findByText('Hauptstrasse 1')).closest('h3')
+    expect(heading).not.toBeNull()
+    expect(heading?.textContent).toBe('14Hauptstrasse 1')
+    expect(within(heading as HTMLElement).getByRole('img', { name: 'Hohe Priorität' })).toBeInTheDocument()
   })
 
   it('falls back to client formatting when the payload has no label', async () => {

@@ -252,7 +252,24 @@ export function useBoardSync(input: BoardSyncInput) {
         // rejecting refreshPersonnel/refreshMaterials). Settings and the
         // Restliste are the exceptions — a failure there keeps the previous
         // value instead of failing the board.
-        const [incidentPage, personnelList, materialsList, settings, vehiclesList, restliste] = await Promise.all([
+        //
+        // ⚠️ Special functions, assignments and reko summaries are part of the snapshot, not
+        // decoration: they used to be allSettled and «non-fatal», so a failed assignments
+        // fetch painted every card without its crew and every person as available — a board
+        // that invites a double dispatch. Any of them failing fails the reload, and the
+        // board keeps its last good state. They depend on nothing but the Ereignis, so they
+        // go out with the rest instead of a round trip later.
+        const [
+          incidentPage,
+          personnelList,
+          materialsList,
+          settings,
+          vehiclesList,
+          restliste,
+          specialFunctions,
+          assignmentsByIncident,
+          rekoSummaries,
+        ] = await Promise.all([
           apiClient.getIncidentsWithTotal(eventId),
           refreshPersonnel({ skipStateUpdate: true }),
           refreshMaterials({ skipStateUpdate: true }),
@@ -261,21 +278,11 @@ export function useBoardSync(input: BoardSyncInput) {
           // Never fatal: a board that cannot say which pump is still in a cellar is
           // still a board.
           apiClient.getEventRestliste(eventId).catch(() => undefined),
-        ])
-        const apiIncidents = incidentPage.incidents
-
-        // Fetch special functions, assignments, and reko summaries in parallel.
-        //
-        // ⚠️ Part of the snapshot, not decoration: these used to be allSettled
-        // and «non-fatal», so a failed assignments fetch painted every card
-        // without its crew and every person as available — a board that invites
-        // a double dispatch. Now any of them failing fails the reload, and the
-        // board keeps its last good state.
-        const [specialFunctions, assignmentsByIncident, rekoSummaries] = await Promise.all([
           apiClient.getEventSpecialFunctions(eventId).then(answered),
           apiClient.getAssignmentsByEvent(eventId).then(answered),
           apiClient.getEventRekoSummaries(eventId).then(answered),
         ])
+        const apiIncidents = incidentPage.incidents
 
         // Cards, roster and depot for THIS Ereignis — see ./operations/reconcile.
         const { ops, eventScopedPersonnel, eventScopedMaterials } = buildEventState({

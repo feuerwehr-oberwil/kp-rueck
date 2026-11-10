@@ -1,5 +1,23 @@
 import { test, expect } from '../../fixtures/auth.fixture';
 import { EventsPage } from '../../pages/events.page';
+import { API_BASE, cookieHeaderFor, deleteEvent } from '../../helpers/api.helper';
+
+/**
+ * Every Ereignis this file creates through the UI, deleted after each test – passed, failed or
+ * retried. A live one keeps Divera auto-attach on (the form's default) and would take every alarm
+ * a later spec posts to the intake (07-viewer-role/alarm-pool).
+ */
+const created = new Set<string>();
+const track = (name: string) => (created.add(name), name);
+
+test.afterEach(async ({ authenticatedPage: page }) => {
+  if (created.size === 0) return;
+  const cookie = await cookieHeaderFor(page);
+  const listed = await page.request.get(`${API_BASE}/api/events/`, { headers: { cookie } });
+  const { events } = (await listed.json()) as { events: { id: string; name: string }[] };
+  for (const e of events) if (created.has(e.name)) await deleteEvent(page.request, cookie, e.id);
+  created.clear();
+});
 
 /**
  * Event Creation & Management Tests
@@ -36,7 +54,7 @@ test.describe('Event Creation', () => {
   });
 
   test('should create new event with custom name', { tag: '@smoke' }, async () => {
-    const eventName = `Test Event ${Date.now()}`;
+    const eventName = track(`Test Event ${Date.now()}`);
 
     await eventsPage.clickNewEvent();
     await eventsPage.fillEventName(eventName);
@@ -51,7 +69,7 @@ test.describe('Event Creation', () => {
   });
 
   test('should create event with training flag enabled', async () => {
-    const eventName = `Training Event ${Date.now()}`;
+    const eventName = track(`Training Event ${Date.now()}`);
 
     await eventsPage.clickNewEvent();
     await eventsPage.fillEventName(eventName);
@@ -68,7 +86,7 @@ test.describe('Event Creation', () => {
   });
 
   test('should create event with Divera auto-attach enabled', async () => {
-    const eventName = `Divera Event ${Date.now()}`;
+    const eventName = track(`Divera Event ${Date.now()}`);
 
     await eventsPage.clickNewEvent();
     await eventsPage.fillEventName(eventName);
@@ -134,7 +152,7 @@ test.describe('Event Management', () => {
     await eventsPage.goto();
 
     // Create a test event
-    testEventName = `Management Test ${Date.now()}`;
+    testEventName = track(`Management Test ${Date.now()}`);
     await eventsPage.createEvent(testEventName);
     await eventsPage.goto(); // Go back to events page
   });
@@ -199,7 +217,7 @@ test.describe('Event Search & Filtering', () => {
     await eventsPage.goto();
 
     // Create a uniquely named event
-    searchableEventName = `Searchable XYZ ${Date.now()}`;
+    searchableEventName = track(`Searchable XYZ ${Date.now()}`);
     await eventsPage.createEvent(searchableEventName);
     await eventsPage.goto();
   });

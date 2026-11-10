@@ -62,7 +62,8 @@ async def get_current_user(
         import secrets as _secrets
 
         token = authorization.removeprefix("Bearer ").strip()
-        if _secrets.compare_digest(token, app_settings.master_token):
+        # As bytes: compare_digest raises on a str with non-ASCII characters (a 500, not a 401).
+        if _secrets.compare_digest(token.encode(), app_settings.master_token.encode()):
             from datetime import datetime
 
             mock_user = User(
@@ -97,14 +98,16 @@ async def get_current_user(
         if payload.get("type") != "access":
             raise credentials_exception
 
-        # Check if token has been revoked (logout)
-        jti = payload.get("jti")
-        if jti and await token_blocklist.is_revoked(jti):
-            logger.debug("Token has been revoked")
+        family = session_family(payload)
+        if family is not None and family.expires_at <= time.time():
             raise credentials_exception
 
-        family = session_family(payload)
-        if family is not None and (family.expires_at <= time.time() or await token_blocklist.is_revoked(family.jti)):
+        # Check if the token or its session family has been revoked (logout) – one lookup
+        # for both, this runs on every authenticated request.
+        jti = payload.get("jti")
+        revocable = [j for j in (jti, family.jti if family is not None else None) if j]
+        if revocable and await token_blocklist.is_revoked(*revocable):
+            logger.debug("Token has been revoked")
             raise credentials_exception
 
         # Extract user ID

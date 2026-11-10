@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react"
+import { useEffect, useId, useState, useCallback, useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import {
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/command"
 import { defaultFilter } from "cmdk"
 import { DispatchChoice, DispatchPreview } from "@/components/ui/command-dispatch-preview"
+import { Kbd } from "@/components/ui/kbd"
 import {
   completeDispatch,
   parseDispatch,
@@ -57,6 +58,14 @@ import {
   ChevronDown,
   Waypoints,
   Printer,
+  Binoculars,
+  ArrowRightLeft,
+  Building2,
+  Timer,
+  CheckCircle2,
+  Inbox,
+  ClipboardCheck,
+  ListChecks,
   Palette,
   QrCode,
   FileText,
@@ -65,7 +74,8 @@ import {
   ChartColumn,
   Clock,
 } from "lucide-react"
-import { useCommandPaletteHandlers } from "@/lib/contexts/command-palette-context"
+import { useCommandPaletteHandlers, type IncidentCommand } from "@/lib/contexts/command-palette-context"
+import { openAlarmInbox } from "@/components/alarm-inbox/alarm-inbox-store"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { PRIORITY_ICONS, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 // Hints come from the one chord table — they said «G K» for weeks after the
@@ -131,6 +141,24 @@ export function CommandPalette() {
   // The «Färben nach» mode names — reused from the map's own Ansicht menu so
   // the palette and the dropdown can never disagree on what a mode is called.
   const tMapColorBy = useTranslations('map.colorBy')
+  // The card's right-click rows and the view names are said in their own words here too.
+  const tKanban = useTranslations('kanban')
+  const tNav = useTranslations('nav.userMenu')
+  // The selected Einsatz's right-click actions as command rows, in the menu's order and
+  // in the menu's own words. `dialog`: opens a dialog rather than acting at once (« …»).
+  // The two flags are worded by state in the menu («markieren» / «entfernen»); here they toggle.
+  const incidentRows: ReadonlyArray<{ command: IncidentCommand; Icon: typeof Users; label: string; dialog?: boolean }> = [
+    { command: 'assignReko', Icon: Binoculars, label: tKanban('card.assignReko'), dialog: true },
+    { command: 'assignCrew', Icon: Users, label: tKanban('common.assignCrew'), dialog: true },
+    { command: 'assignVehicle', Icon: Truck, label: tKanban('common.assignVehicle'), dialog: true },
+    { command: 'assignMaterial', Icon: Package, label: tKanban('common.assignMaterial'), dialog: true },
+    { command: 'transfer', Icon: ArrowRightLeft, label: tKanban('common.transferResources'), dialog: true },
+    { command: 'distribute', Icon: Waypoints, label: tKanban('common.distributeToAuftrag'), dialog: true },
+    { command: 'toggleNachbarhilfe', Icon: Building2, label: t('toggleNachbarhilfe') },
+    { command: 'toggleAmWarten', Icon: Timer, label: t('toggleAmWarten') },
+    { command: 'complete', Icon: CheckCircle2, label: tKanban('card.completeIncident'), dialog: true },
+    { command: 'print', Icon: Printer, label: tKanban('common.printSlip') },
+  ]
   const [open, setOpen] = useState(false)
   const router = useRouter()
 
@@ -175,6 +203,10 @@ export function CommandPalette() {
     onDispatch,
     onDispatchJump,
     onOpenIncident,
+    incidentCommands = [],
+    onIncidentCommand,
+    onOpenAttendance,
+    onOpenChecklist,
   } = useCommandPaletteHandlers()
 
   // Type-to-dispatch. The text is controlled so the parser sees it; picks answer
@@ -196,6 +228,10 @@ export function CommandPalette() {
     [vocabulary, search, picks],
   )
   const dispatchPlan = parsed?.plan.kind === "none" ? null : parsed?.plan ?? null
+  // «zuweisen» is only offered where it runs: a viewer or the standby mirror (no `onDispatch`)
+  // still jumps by typing a number, but is not invited to assign.
+  const canDispatch = !!getDispatchVocabulary && !!onDispatch
+  const hintId = useId()
 
   // ⇥ completes the word being typed («kell» → «Keller Marco»); ⇥ again steps to the
   // next candidate, ⇧⇥ back. The cycle lives only while the text is what ⇥ put there.
@@ -365,12 +401,32 @@ export function CommandPalette() {
           onValueChange={setSelectedValue}
           className="**:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
           <CommandInput
-            placeholder={getDispatchVocabulary ? t('dispatch.placeholder') : t('searchPlaceholder')}
+            placeholder={canDispatch ? t('dispatch.placeholder') : t('searchPlaceholder')}
             value={search}
             onValueChange={setSearch}
             onKeyDown={onSearchKeyDown}
+            aria-describedby={canDispatch ? hintId : undefined}
             showClose
           />
+          {/* The dispatch grammar under the input, not in the placeholder: the whole sentence
+              was clipped in the 512px palette (owner, 08.11.). It wraps rather than truncate –
+              French is longer, a phone narrower. */}
+          {canDispatch && (
+            <p
+              id={hintId}
+              className="flex flex-wrap items-center gap-x-1.5 gap-y-1 border-b px-(--field-px) py-1.5 text-xs text-muted-foreground"
+            >
+              <span className="min-w-0 break-words">{t('dispatch.hint')}</span>
+              <Kbd className="font-mono">{t('dispatch.hintExample')}</Kbd>
+              <span className="ml-auto flex shrink-0 items-center gap-1.5 pl-2">
+                <Kbd>
+                  <span aria-hidden="true">⇥</span>
+                  <span className="sr-only">{t('dispatch.hintTabKey')}</span>
+                </Kbd>
+                {t('dispatch.hintTab')}
+              </span>
+            </p>
+          )}
           <div ref={listWrapperRef} className="relative">
           <CommandList>
             <CommandEmpty>{t('noResults')}</CommandEmpty>
@@ -485,6 +541,23 @@ export function CommandPalette() {
                 <CommandItem onSelect={() => runCommand(onToggleCrewDuty)}>
                   <Clock className="mr-2 h-4 w-4" />
                   <span>{t('crewDuty')}</span>
+                </CommandItem>
+              )}
+              {/* The alarm inbox is a sheet of the app shell, so it opens from every page. */}
+              <CommandItem onSelect={() => runCommand(openAlarmInbox)}>
+                <Inbox className="mr-2 h-4 w-4" />
+                <span>{tNav('diveraPool')}</span>
+              </CommandItem>
+              {onOpenAttendance && (
+                <CommandItem onSelect={() => runCommand(onOpenAttendance)}>
+                  <ClipboardCheck className="mr-2 h-4 w-4" />
+                  <span>{tKanban('attendance.openButton')}</span>
+                </CommandItem>
+              )}
+              {onOpenChecklist && (
+                <CommandItem onSelect={() => runCommand(onOpenChecklist)}>
+                  <ListChecks className="mr-2 h-4 w-4" />
+                  <span>{tKanban('dashboard.readiness')}</span>
                 </CommandItem>
               )}
               {onRefresh && (
@@ -733,6 +806,17 @@ export function CommandPalette() {
                   <Truck className="mr-2 h-4 w-4" />
                   <span>{t('assignVehicle', { number: n })}</span>
                   <span className="ml-auto text-xs text-muted-foreground">{n}</span>
+                </CommandItem>
+              ))}
+              {/* The card's right-click rows: nothing on a card needs a mouse. «…» = opens a dialog. */}
+              {incidentRows.filter((row) => incidentCommands.includes(row.command)).map(({ command, Icon, label, dialog }) => (
+                <CommandItem
+                  key={command}
+                  disabled={!hasSelectedIncident}
+                  onSelect={() => runCommand(() => (hasSelectedIncident ? onIncidentCommand?.(command) : undefined))}
+                >
+                  <Icon className="mr-2 h-4 w-4" />
+                  <span>{dialog ? `${label} …` : label}</span>
                 </CommandItem>
               ))}
               <CommandItem

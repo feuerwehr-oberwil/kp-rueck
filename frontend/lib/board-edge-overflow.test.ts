@@ -18,21 +18,27 @@ const board = (scrollLeft: number, { clientWidth = 1408, padRight = 16 } = {}): 
 })
 
 describe('computeEdgeOverflow', () => {
-  it('at rest only the columns with no pixel in view are named – the partly visible Im Einsatz stays a column', () => {
-    // Im Einsatz starts at 1344 of a 1408px view: 64px of it show, so it is not named
-    expect(computeEdgeOverflow(board(0))).toEqual({ left: [], right: ['returning', 'complete'] })
+  it('at rest a column showing less than 96px is named – the 64px of Im Einsatz count as hidden (D7)', () => {
+    // Im Einsatz starts at 1344 of a 1408px view: 64px of it show
+    expect(computeEdgeOverflow(board(0))).toEqual({ left: [], right: ['active', 'returning', 'complete'] })
   })
 
-  it('1px in view is not named; 0px is', () => {
-    // Rückfahrt starts at 1676
-    expect(computeEdgeOverflow(board(1676 - 1408 + 1)).right).toEqual(['complete'])
-    expect(computeEdgeOverflow(board(1676 - 1408)).right).toEqual(['returning', 'complete'])
+  it('96px in view is a column; 95px is a chip', () => {
+    // Im Einsatz starts at 1344
+    expect(computeEdgeOverflow(board(1344 + 96 - 1408)).right).toEqual(['returning', 'complete'])
+    expect(computeEdgeOverflow(board(1344 + 95 - 1408)).right).toEqual(['active', 'returning', 'complete'])
     // Eingegangen ends at 336
-    expect(computeEdgeOverflow(board(335)).left).toEqual([])
-    expect(computeEdgeOverflow(board(336)).left).toEqual(['incoming'])
+    expect(computeEdgeOverflow(board(336 - 96)).left).toEqual([])
+    expect(computeEdgeOverflow(board(336 - 95)).left).toEqual(['incoming'])
   })
 
-  it('detail open (narrow board, scrolled to Im Einsatz): Reko abgeschlossen shows partly and is not named', () => {
+  it('the 48px folded strip is a column once it is whole in view, and named while any of it is cut', () => {
+    const strip = columns[columns.length - 1]
+    expect(computeEdgeOverflow(board(strip.right - 1408)).right).toEqual([])
+    expect(computeEdgeOverflow(board(strip.right - 1 - 1408)).right).toEqual(['complete'])
+  })
+
+  it('detail open (narrow board, scrolled to Im Einsatz): Reko abgeschlossen shows 262px and is not named', () => {
     const o = computeEdgeOverflow(board(columns[2].left + 58, { clientWidth: 928 }))
     expect(o).toEqual({ left: ['incoming', 'reko'], right: ['returning', 'complete'] })
   })
@@ -41,9 +47,9 @@ describe('computeEdgeOverflow', () => {
     expect(computeEdgeOverflow(board(0, { clientWidth: 2200 }))).toEqual({ left: [], right: [] })
   })
 
-  it('scrolled fully right, the left edge names the columns out of view there (Reko keeps a 4px sliver)', () => {
+  it('scrolled fully right, the 4px sliver of Reko is named with Eingegangen', () => {
     const g = board(0)
-    expect(computeEdgeOverflow(board(g.scrollWidth - g.clientWidth))).toEqual({ left: ['incoming'], right: [] })
+    expect(computeEdgeOverflow(board(g.scrollWidth - g.clientWidth))).toEqual({ left: ['incoming', 'reko'], right: [] })
   })
 })
 
@@ -51,7 +57,8 @@ describe('scrollTargetFor', () => {
   it('brings a clicked column fully into view, with the board padding beside it', () => {
     const target = scrollTargetFor(board(0), 'returning')!
     expect(target + 1408 - columns[5].right).toBe(16)
-    expect(computeEdgeOverflow(board(target)).right).toEqual([])
+    // Rückfahrt is no longer named; the strip after it shows 4px of 48 and still is
+    expect(computeEdgeOverflow(board(target)).right).toEqual(['complete'])
   })
 
   it('scrolls to the very end for the last column, so nothing is named on the right', () => {

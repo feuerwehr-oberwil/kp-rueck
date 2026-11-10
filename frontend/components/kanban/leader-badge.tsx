@@ -82,7 +82,8 @@ export function LeaderBadge({
       aria-label={isLeader ? t("is") : t("promote")}
       className={cn(
         BADGE_BASE,
-        "transition-colors",
+        // A 16px mark: `hit-area` pads it to the mouse floor without drawing more.
+        "relative hit-area transition-colors",
         isLeader
           ? // Without a mouse the whole chip is the menu's trigger, so a tap
             // on the badge must fall through to it.

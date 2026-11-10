@@ -13,6 +13,7 @@ import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-t
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import type { Dispatch, SetStateAction, RefObject } from "react"
 import type { Released } from "@/lib/release-undo"
+import { moveInList, type MoveTo } from "@/lib/move-in-list"
 
 /** Priority → its label key under `kanban.common`, for the toast a keyboard
  *  priority change raises. */
@@ -145,6 +146,23 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
     // in words is noise on a surface whose job is staying calm.
     reorderColumn(ordered)
   }, [operations, groups, setOperations, reorderColumn])
+
+  // «Nach oben / Nach unten» in a card's menu: the same write as dragging the
+  // card inside its column. At the column's edge nothing moves and nothing is sent.
+  const moveInColumn = useCallback((operationId: string, to: MoveTo) => {
+    const operation = operations.find((op) => op.id === operationId)
+    const column = operation && columns.find((candidate) => candidate.status.includes(operation.status))
+    if (!column) return
+    const columnOperations = operations.filter((op) => column.status.includes(op.status))
+    const moved = moveInList(columnOperations, columnOperations.findIndex((op) => op.id === operationId), to)
+    if (!moved) return
+    // Replace only this column's slots so every other column keeps its order.
+    setOperations((prev) => {
+      let nextIndex = 0
+      return prev.map((op) => column.status.includes(op.status) ? moved[nextIndex++] : op)
+    })
+    reorderColumn(moved.map((op) => op.id))
+  }, [operations, setOperations, reorderColumn])
 
   /** «X → Im Einsatz» — a keyboard move can land on a card that is scrolled out
    *  of sight, so the board says what it just did. */
@@ -318,6 +336,7 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
     setRouteStopStatus,
     collapsedColumns,
     handleColumnSort,
+    moveInColumn,
     moveOperationRight,
     moveOperationLeft,
     toggleVehicleAssignment,
