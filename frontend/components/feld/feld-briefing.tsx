@@ -27,8 +27,11 @@
  */
 
 import { useTranslations } from 'next-intl'
-import { Binoculars, MapPin, MessageSquareText, Package, Phone, TriangleAlert, Truck, Undo2, Users, Waypoints } from 'lucide-react'
+import { Binoculars, MessageSquareText, Package, Phone, TriangleAlert, Truck, Users, Waypoints } from 'lucide-react'
 
+import { LeaderGlyph } from '@/components/kanban/leader-badge'
+import { DriverStayGlyph } from '@/components/ui/driver-stay-glyph'
+import { MelderLink } from '@/components/ui/melder-link'
 import { FeldSection } from '@/components/feld/feld-section'
 import type { ApiFeldAssignment, ApiFeldMaterialLine, ApiFeldVehicleLine } from '@/lib/api-client'
 import { formatTime } from '@/lib/format-time'
@@ -93,6 +96,8 @@ function rekoLabel(t: (key: string, values?: Record<string, string>) => string, 
 /**
  * One labelled row of the detail section: icon · label · content, the same for every row —
  * Meldung included, which used to be the one row without an icon and stood out of the column.
+ * The label is the shared `type-label` caps role: every header in caps, so «Mannschaft» reads
+ * as the name of a place and not as one more line of content (hill climb r19).
  */
 function BriefingRow({
   icon: Icon,
@@ -105,9 +110,9 @@ function BriefingRow({
 }) {
   return (
     <div className="flex items-start gap-2">
-      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      <Icon className="mt-px h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="type-label text-muted-foreground">{label}</p>
         <div className="text-sm">{children}</div>
       </div>
     </div>
@@ -115,15 +120,20 @@ function BriefingRow({
 }
 
 /**
- * A bullet list inside a row (Mannschaft, Material): one entry per line, a long entry wraps
- * under its own text (hanging indent), never under the bullet.
+ * A list inside a row (Mannschaft, Material): one entry per ~28px line, no bullets – the
+ * board's card and detail list people bare, and a bullet before every name was a second
+ * mark competing with «EL». `lead` is an entry's leading mark («EL» before the leader): when
+ * any entry has one, every entry gets the 28px slot, so all names start at one edge. A long
+ * entry wraps under its own text, never under the slot.
  */
-function BriefingList({ items }: { items: { key: string; content: React.ReactNode }[] }) {
+function BriefingList({ items }: { items: { key: string; content: React.ReactNode; lead?: React.ReactNode }[] }) {
+  const slotted = items.some(item => item.lead)
   return (
-    <ul className="list-disc space-y-0.5 pl-4 marker:text-muted-foreground">
+    <ul>
       {items.map(item => (
-        <li key={item.key} className="break-words pl-0.5">
-          {item.content}
+        <li key={item.key} className="flex items-start py-1 first:pt-0.5">
+          {slotted && <span className="flex h-5 w-7 shrink-0 items-center">{item.lead}</span>}
+          <span className="min-w-0 break-words">{item.content}</span>
         </li>
       ))}
     </ul>
@@ -148,6 +158,7 @@ export function FeldBriefing({
   bare?: boolean
 }) {
   const t = useTranslations('feld.briefing')
+  const tLeader = useTranslations('kanban.leader')
   const { description, contact, contact_phone: phone, crew, vehicles, materials, reko } = assignment
 
   const hasResources = crew.length > 0 || vehicles.length > 0 || materials.length > 0
@@ -175,11 +186,10 @@ export function FeldBriefing({
       {(contact || phone) && (
         <BriefingRow icon={Phone} label={t('melder')}>
           {/* A tel: link, because the whole point of carrying the Melder here is
-              that somebody rings them from the pavement. */}
+              that somebody rings them from the pavement – `MelderLink`, shared
+              with the phone Einsatz sheet. */}
           {phone ? (
-            <a href={`tel:${phone.replace(/\s/g, '')}`} className="text-foreground underline underline-offset-2">
-              {contact ? `${contact} · ${phone}` : phone}
-            </a>
+            <MelderLink contact={contact} phone={phone} />
           ) : (
             contact
           )}
@@ -188,10 +198,24 @@ export function FeldBriefing({
 
       {/* One person per line, as a list: «Aebi Lionel, Aebischer Yannick, Bühlmann
           Carina, …» broke names across lines at 360px and made counting heads a
-          reading exercise. The same bullet list as the material below. */}
+          reading exercise. The same list as the material below. The leader carries
+          the board's neutral «EL» chip before the name (a screen reader hears the
+          role); matched by name, the only key the crew list has. */}
       {crew.length > 0 && (
         <BriefingRow icon={Users} label={t('crew')}>
-          <BriefingList items={crew.map((name) => ({ key: name, content: name }))} />
+          <BriefingList
+            items={crew.map((name) => ({
+              key: name,
+              content: name,
+              lead:
+                assignment.leader_name && name === assignment.leader_name ? (
+                  <>
+                    <LeaderGlyph />
+                    <span className="sr-only">{tLeader('is')}: </span>
+                  </>
+                ) : undefined,
+            }))}
+          />
         </BriefingRow>
       )}
 
@@ -201,42 +225,44 @@ export function FeldBriefing({
           whether it BELONGS to the Auftrag (an Auftrag's vehicles are shared
           across every stop, so it comes to the next one — a Schadenplatz's do
           not), and whether it STAYS here or drives back once you are dropped
-          off. «TLF 1» on its own answered none of them. */}
+          off. «TLF 1» on its own answered none of them.
+          Vehicle + driver are line 1; the chips get a line of their own under it,
+          4px down and starting at the vehicle's first letter (hill climb r10) –
+          the board card's chip shape. Squeezed into one line at 360px they broke
+          «Fahrer: Müller Hans» away from its vehicle. */}
       {vehicles.length > 0 && (
         <BriefingRow icon={Truck} label={t('vehicles')}>
-          <div className="space-y-1">
-            {vehicles.map(vehicle => (
-              <p key={vehicle.name} className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-                <span>
-                  {vehicle.name}
-                  {vehicle.driver && (
-                    <span className="text-muted-foreground"> · {t('driver', { name: vehicle.driver })}</span>
+          <div className="space-y-2">
+            {vehicles.map(vehicle => {
+              const hasChips = vehicle.via_auftrag || (vehicle.stays !== null && vehicle.stays !== undefined)
+              return (
+                <div key={vehicle.name}>
+                  <p className="break-words">
+                    {vehicle.name}
+                    {vehicle.driver && (
+                      <span className="text-muted-foreground"> · {t('driver', { name: vehicle.driver })}</span>
+                    )}
+                  </p>
+                  {hasChips && (
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      {vehicle.via_auftrag && (
+                        <span className="type-caption inline-flex shrink-0 items-center gap-1 rounded-md bg-info/15 px-1.5 py-0.5 text-info">
+                          <Waypoints className="h-3 w-3 shrink-0" />
+                          {t('vehicleViaAuftrag')}
+                        </span>
+                      )}
+                      {/* The board's own driver-stay chip: neutral ink, the words in
+                          full, pin / return arrow – a fact, not a «schau hin». Amber
+                          on this page is for «kein Rapport». Nothing at all when the
+                          answer is null: an Auftrag has no driver-stay toggle, so
+                          «fährt zurück» there would be the board answering for a
+                          decision nobody made. */}
+                      <DriverStayGlyph stays={vehicle.stays ?? undefined} size="caption" />
+                    </div>
                   )}
-                </span>
-                {vehicle.via_auftrag && (
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-info/15 px-1.5 py-0.5 text-[11px] font-medium text-info">
-                    <Waypoints className="h-3 w-3 shrink-0" />
-                    {t('vehicleViaAuftrag')}
-                  </span>
-                )}
-                {/* Amber for the one that costs something — the same colour the
-                    board gives it. A vehicle parked at the address is blocked
-                    in; one that drives back is the normal state of the world.
-                    Nothing at all when the answer is null: an Auftrag has no
-                    driver-stay toggle, so «fährt zurück» there would be the
-                    board answering for a decision nobody made. */}
-                {vehicle.stays !== null && vehicle.stays !== undefined && (
-                  <span
-                    className={`inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${
-                      vehicle.stays ? 'bg-warning/15 text-warning-foreground' : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    {vehicle.stays ? <MapPin className="h-3 w-3 shrink-0" /> : <Undo2 className="h-3 w-3 shrink-0" />}
-                    {t(vehicle.stays ? 'vehicleStays' : 'vehicleReturns')}
-                  </span>
-                )}
-              </p>
-            ))}
+                </div>
+              )
+            })}
           </div>
         </BriefingRow>
       )}
@@ -290,7 +316,7 @@ export function FeldBriefing({
 
   return (
     <section className="rounded-xl bg-secondary/30 p-4 space-y-3">
-      <h2 className="text-sm font-medium text-muted-foreground">{t('title')}</h2>
+      <h2 className="type-label text-muted-foreground">{t('title')}</h2>
       {body}
     </section>
   )

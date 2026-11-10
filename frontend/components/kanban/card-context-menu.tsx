@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { useTranslations } from "next-intl"
 import Link from "next/link"
 import {
@@ -8,11 +7,10 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
 } from "@/components/ui/context-menu"
-import { Users, Package, Truck, Binoculars, PenLine, Map, Building2, Printer, Timer, CheckCircle2, ArrowRightLeft, Waypoints, Route, Trash2 } from 'lucide-react'
+import { Users, Package, Truck, Binoculars, PenLine, Map, Building2, Printer, Timer, CheckCircle2, ArrowRightLeft, Waypoints, Route, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
 import { type Operation } from "@/lib/contexts/operations-context"
-import { apiClient } from "@/lib/api-client"
-import { toast } from "sonner"
-import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
+import type { MoveTo } from "@/lib/move-in-list"
+import { usePrintAssignmentSlip } from "@/lib/hooks/use-print-assignment-slip"
 
 interface CardContextMenuProps {
   operation: Operation
@@ -28,6 +26,7 @@ interface CardContextMenuProps {
   onToggleAmWarten?: () => void
   onRequestComplete?: () => void
   onRequestDelete?: () => void
+  onMoveInColumn?: (to: MoveTo) => void
   printerEnabled?: boolean
 }
 
@@ -35,7 +34,7 @@ interface CardContextMenuProps {
  * The right-click menu of an Einsatz card. Rendered by `DraggableOperation` as
  * the content of its `<ContextMenu>`, next to the trigger that wraps the card.
  * A row shows only when its handler is passed – the board passes the editing
- * ones to editors only. Owns the thermal-print action and its busy state.
+ * ones to editors only. The thermal-print action is `usePrintAssignmentSlip`.
  *
  * Re-renders with the card (not memoised), so it never shows a stale label.
  */
@@ -51,28 +50,13 @@ export function CardContextMenu({
   onToggleAmWarten,
   onRequestComplete,
   onRequestDelete,
+  onMoveInColumn,
   printerEnabled,
 }: CardContextMenuProps) {
   const t = useTranslations('kanban')
-  const tPrint = useTranslations('print.toasts')
-  const trackPrint = usePrintJobToast()
-  const [isPrinting, setIsPrinting] = useState(false)
-
-  // Handle thermal print. The "gesendet" toast is now the START of the story —
-  // trackPrintJob replaces it with what the printer actually did.
-  const handlePrint = async () => {
-    if (isPrinting) return
-    setIsPrinting(true)
-    try {
-      const job = await apiClient.queueAssignmentPrint(operation.id)
-      trackPrint(job.id, { sentTitle: t('common.printJobSent'), subject: tPrint('subjectSlip') })
-    } catch (error) {
-      console.error('Print failed:', error)
-      toast.error(t('common.printFailed'))
-    } finally {
-      setIsPrinting(false)
-    }
-  }
+  const tReorder = useTranslations('common.reorder')
+  const { print, printing: isPrinting } = usePrintAssignmentSlip()
+  const handlePrint = () => void print(operation.id)
 
   return (
     <ContextMenuContent
@@ -169,6 +153,22 @@ export function CardContextMenu({
           or delete one that was never an incident at all. Two intentions, two
           rows: «abgeschlossen» is a statement about work that happened, and a
           typo that gets closed sits in the Einsatzhistorie for ever. */}
+      {/* Order inside the column, for keyboard and touch. Both rows always show:
+          the memoised card does not know its place, the board ignores a move at the edge. */}
+      {onMoveInColumn && (
+        <>
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={() => onMoveInColumn('up')}>
+            <ArrowUp className="mr-2 h-4 w-4" />
+            {tReorder('moveUp')}
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => onMoveInColumn('down')}>
+            <ArrowDown className="mr-2 h-4 w-4" />
+            {tReorder('moveDown')}
+          </ContextMenuItem>
+        </>
+      )}
+
       {((onRequestComplete && operation.status !== "complete") || onRequestDelete) && <ContextMenuSeparator />}
       {onRequestComplete && operation.status !== "complete" && (
         <ContextMenuItem onClick={() => onRequestComplete()}>

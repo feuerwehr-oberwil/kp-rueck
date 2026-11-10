@@ -11,30 +11,35 @@
  * davon auf derselben Karte; Kartenpolsterung `p-4`, `p-5` und `p-6` nebeneinander; und die
  * Bedienelemente in `w-24`, `w-48` oder `w-56`, je nachdem, wer die Zeile geschrieben hatte.
  *
- * **Keine Trennlinien.** Eine Zeile bringt schon zwei Signale mit, die sie von der nächsten
- * abheben – eine fette Beschriftung und eine graue zweite Zeile –, und eine Haarlinie
- * dazwischen sagt nichts, was der Zeilenumbruch nicht sagt. Vorher gab es sogar zwei Sorten,
- * die übereinanderfielen: eine unter jeder Zeile und eine über jeder Gruppe, also zwei Striche
- * mit 12 Pixeln Luft dazwischen und sofort wieder einer direkt unter der Überschrift. Das las
- * sich als Gitter, nicht als Gliederung. Getrennt wird jetzt durch Abstand, gruppiert durch
- * eine kleine graue Überschrift, und die Karte ist der Rahmen.
+ * **Keine Trennlinien zwischen Zeilen.** Eine Zeile bringt schon zwei Signale mit, die sie
+ * von der nächsten abheben – eine fette Beschriftung und eine graue zweite Zeile –, und eine
+ * Haarlinie dazwischen sagt nichts, was der Zeilenumbruch nicht sagt. Vorher gab es sogar zwei
+ * Sorten, die übereinanderfielen: eine unter jeder Zeile und eine über jeder Gruppe. Das las
+ * sich als Gitter, nicht als Gliederung. Getrennt wird durch Abstand; gegliedert wird durch
+ * `SettingGroup` – EINE leise Linie über jeder Gruppe ausser der ersten, 24 px Luft davor und
+ * danach, dann die Überschrift in der Label-Rolle (`type-label`). Die Karte ist der Rahmen.
  *
- * Die feste Bedienelementspalte ist der Punkt. Ein rechter Rand, an dem das Auge herunterläuft,
- * ist bei zwanzig Zeilen mehr wert als jede einzelne optimal breite Eingabe – darum füllen
+ * Die feste Bedienelementspalte ist der Punkt. Zwei Kanten, an denen das Auge herunterläuft,
+ * sind bei zwanzig Zeilen mehr wert als jede einzelne optimal breite Eingabe – darum füllen
  * Auswahlfelder und Textfelder die Spalte, und nur Zahlenfelder bleiben schmal (eine Minutenzahl
- * in 200 Pixeln liest sich als Fehler).
+ * in 256 Pixeln liest sich als Fehler); sie stehen rechtsbündig an der rechten Kante.
  *
  * **Auf dem Handy steht die Beschriftung ÜBER dem Feld** (Regel des Owners, 02.10.2026):
- * Beschriftung → Hinweis → Bedienelement in voller Breite. Die 200-Pixel-Spalte liess einem
+ * Beschriftung → Hinweis → Bedienelement in voller Breite. Die feste Spalte liess einem
  * 390er-Handy rund 80 Pixel für Beschriftung und Hinweis, und die standen dann als Wortsäule
  * neben dem Feld. Ausnahme Schalter: die bleiben rechts neben ihrer Beschriftung, wie überall
  * auf dem Handy (`DetailToggle`). Entschieden wird über `useStackedFields` – dieselbe Weiche
  * wie beim `DetailField`; die Aufruferin muss nichts tun.
  *
  * Die drei Teile der Sperre stecken mit drin (`unavailable`), damit «gesperrt» nicht wieder in
- * jedem Abschnitt anders aussieht: Marke an der Beschriftung, Satz in voller Breite unter der
- * Zeile, und das `title` am Bedienelement bleibt Sache der Aufruferin – sie hält es ohnehin
+ * jedem Abschnitt anders aussieht: Marke an der Beschriftung, Satz unter der Beschreibung,
+ * und das `title` am Bedienelement bleibt Sache der Aufruferin – sie hält es ohnehin
  * schon in der Hand. Siehe `setting-unavailable.tsx`.
+ *
+ * **Rat zur Zeile steht in der Beschreibungsspalte** (`advice`, und der Satz zu `unavailable`):
+ * er beginnt an der Textkante der Beschriftung und endet vor der Bedienspalte – auf dem Desktop
+ * ein Raster, dessen zweite Zeile nur die erste Spalte belegt. Was die volle Breite braucht
+ * (das Notizfeld der Checkliste), ist `footer`.
  */
 
 import type { ReactNode } from 'react'
@@ -44,18 +49,20 @@ import { Label } from '@/components/ui/label'
 import { useStackedFields } from '@/components/ui/use-stacked-fields'
 import { cn } from '@/lib/utils'
 import {
+  SettingRowNote,
   SettingUnavailableBadge,
-  SettingUnavailableNote,
 } from '@/components/settings/setting-unavailable'
 
 /**
  * Breite der Bedienelementspalte. Eine Zahl, damit sie sich nicht wieder aufteilt.
  *
- * `min-w`, nicht `w`: rechtsbündig in einer Flex-Zeile enden alle Bedienelemente ohnehin an
- * derselben Kante, und ein Element, das breiter ist als 200 Pixel – die drei Erscheinungsbild-
- * Knöpfe – darf sich dann nehmen, was es braucht, statt aus einer festen Breite zu ragen.
+ * Fest 256 px (`w-64`), nicht `min-w`: als Mindestbreite nahm sich jedes Auswahlfeld so viel,
+ * wie sein längster Eintrag brauchte («OpenStreetMap (Standard)» 250, «Nur Online» 200), und die
+ * linken Kanten der Felder sprangen von Zeile zu Zeile. `min-w-min` lässt nur zu, was nicht
+ * schmaler GEHT – die drei Erscheinungsbild-Knöpfe, Logo plus zwei Knöpfe –, statt dass es aus
+ * der Spalte ragt.
  */
-export const SETTING_CONTROL_COLUMN = 'min-w-[200px]'
+export const SETTING_CONTROL_COLUMN = 'w-64 min-w-min'
 
 interface SettingRowProps {
   label: ReactNode
@@ -76,7 +83,13 @@ interface SettingRowProps {
   unavailable?: string | null
   /** Text der Marke. Vorgabe ist `settings.common.notConfiguredBadge` («Nicht eingerichtet»). */
   unavailableBadge?: string
-  /** Zusätzliche Zeilen unter der Hauptzeile – der Fortschrittsbalken des Testdrucks etwa. */
+  /**
+   * Rat zur Zeile – ein Zustand, eine Warnung, was eine Wahl kosten würde. Steht unter Beschriftung
+   * und Hinweis in der Beschreibungsspalte, nie unter der Bedienspalte; ein Satz darin ist
+   * `SettingRowNote` (ohne Kasten), eine Warnung höchstens ein 1-px-Kasten an genau diesen Kanten.
+   */
+  advice?: ReactNode
+  /** Zusätzliche Zeilen in voller Breite unter der Hauptzeile – das Notizfeld der Checkliste. */
   footer?: ReactNode
   /** Das Bedienelement. */
   children?: ReactNode
@@ -105,6 +118,7 @@ export function SettingRow({
   icon,
   unavailable,
   unavailableBadge,
+  advice,
   footer,
   children,
   stacked: stackedProp,
@@ -112,6 +126,12 @@ export function SettingRow({
 }: SettingRowProps) {
   const t = useTranslations('settings.common')
   const stacked = useStackedFields(stackedProp)
+  const adviceBlock = (unavailable || advice) && (
+    <div className={cn('mt-2 space-y-2', !stacked && 'col-start-1')}>
+      {unavailable && <SettingRowNote>{unavailable}</SettingRowNote>}
+      {advice}
+    </div>
+  )
 
   return (
     // `data-slot`: the settings search lands ON the row (scroll + flash) — it
@@ -119,16 +139,30 @@ export function SettingRow({
     <div
       data-slot="setting-row"
       data-stacked={stacked ? '' : undefined}
-      className={cn('py-3', className)}
+      // 20 px between settings on the phone (py-2.5), 24 px on desktop (py-3).
+      className={cn(stacked ? 'py-2.5' : 'py-3', className)}
     >
-      <div className={stacked ? STACKED_ROW : 'flex items-center gap-5'}>
+      {/* Desktop: a grid, so the advice under the description ends exactly where the control
+          column begins – whatever width `min-w-min` gives that column. */}
+      <div
+        className={
+          stacked
+            ? STACKED_ROW
+            : cn('grid items-center gap-x-5', children ? 'grid-cols-[minmax(0,1fr)_auto]' : 'grid-cols-1')
+        }
+      >
         <div className="min-w-0 flex-1">
           {/* Die Marken stehen NEBEN der Beschriftung, nie darin: ein Button innerhalb
               eines <label> löst beim Klick das Bedienelement aus, zu dem er gehört. */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {/* Semibold when stacked: on the phone the hint wraps to three or four lines
+                right under the label, and at 500 the label read as lighter than its hint. */}
             <Label
               htmlFor={htmlFor}
-              className="flex items-center gap-1.5 text-sm font-medium leading-snug"
+              className={cn(
+                'flex items-center gap-1.5 text-sm leading-snug',
+                stacked ? 'font-semibold' : 'font-medium',
+              )}
             >
               {icon}
               {label}
@@ -149,15 +183,19 @@ export function SettingRow({
             {children}
           </div>
         )}
+        {!stacked && adviceBlock}
       </div>
-      {unavailable && <SettingUnavailableNote className="mt-2">{unavailable}</SettingUnavailableNote>}
+      {/* Stacked: under the whole row – a switch row is a flex row on the phone, and the
+          advice must not stand beside the switch. */}
+      {stacked && adviceBlock}
       {footer}
     </div>
   )
 }
 
 interface SettingCardProps {
-  /** Fehlt der Titel, ist die Karte ein reiner Zeilenbehälter ohne Kopf. */
+  /** Fehlt der Titel, ist die Karte ein reiner Zeilenbehälter ohne Kopf. Keinen Titel, der nur
+   *  den Abschnittsnamen wiederholt: den nennt schon die Seitenüberschrift. */
   title?: ReactNode
   subtitle?: ReactNode
   /** Rechts im Kopf – «Aktualisieren», ein Zustandsabzeichen. */
@@ -171,8 +209,8 @@ interface SettingCardProps {
 }
 
 /**
- * Der Behälter um eine Gruppe von Zeilen. Eine Polsterung für alle (`p-5`), damit die Seite
- * nicht bei jedem Abschnitt eine andere Kante hat.
+ * Der Behälter um eine Gruppe von Zeilen. Eine Polsterung für alle (`p-5`, auf dem Handy
+ * `p-4`), damit die Seite nicht bei jedem Abschnitt eine andere Kante hat.
  */
 export function SettingCard({
   title,
@@ -182,8 +220,8 @@ export function SettingCard({
   className,
 }: SettingCardProps) {
   return (
-    <Card className={cn('p-5', className)}>
-      {(title || action) && (
+    <Card className={cn('p-4 md:p-5', className)}>
+      {(title || subtitle || action) && (
         // Wraps: when title and action do not both fit (a 360px phone), the action moves under
         // the title instead of squeezing it to a column one word wide (overflow sweep, 03.10.).
         <div className={cn('flex flex-wrap items-start gap-x-4 gap-y-2', children && 'mb-3')}>
@@ -202,7 +240,7 @@ export function SettingCard({
 }
 
 /**
- * Die Zeile für alles, was nicht in eine 200-Pixel-Spalte passt: Nachrichtenvorlagen,
+ * Die Zeile für alles, was nicht in die feste Bedienelementspalte passt: Nachrichtenvorlagen,
  * Chip-Listen, Filterlisten – also mehrzeilige Textfelder.
  *
  * Beschriftung oben, rechts daneben die eine Aktion, die dazugehört («Zurücksetzen»),
@@ -240,9 +278,11 @@ export function SettingBlock({
 }
 
 /**
- * Eine Untergruppe innerhalb einer Karte – «Magazin (Heimatbasis)», «Feinabstimmung».
- * Abstand darüber, kleine graue Überschrift, dann wieder Zeilen. Kein `uppercase`: die
- * Hauptanwendung schreibt in Grossschreibung nur auf dem Wanddisplay.
+ * Eine Untergruppe innerhalb einer Karte – «Station», «Magazin (Heimatbasis)», «Feinabstimmung».
+ * Eine leise Linie mit 24 px Luft davor und danach (nicht über der ersten Gruppe einer Karte –
+ * über ihr steht schon der Kartenrand), die Überschrift in der Label-Rolle (`type-label`,
+ * 12/600 in Grossschreibung: jede Überschrift, die einen ORT benennt, damit sie sich nicht wie
+ * eine Einstellung liest), dann wieder Zeilen.
  *
  * `action` ist derselbe Platz wie im Kartenkopf, für den einen Schalter, der die ganze
  * Gruppe an- und abstellt (die Automatik der Übungssteuerung). Ohne ihn müsste die Gruppe
@@ -263,13 +303,13 @@ export function SettingGroup({
   className?: string
 }) {
   return (
-    <div className={cn('mt-6', className)}>
+    <div className={cn('mt-3 border-t border-border/60 pt-6 first:mt-0 first:border-t-0 first:pt-0', className)}>
       {/* Wraps instead of squeezing: an action wider than a switch («Rapporte eintreffen
           lassen») drops under the title on a phone rather than leaving the title and hint
           a one-word column beside it. */}
       <div className="flex flex-wrap items-start gap-x-4 gap-y-1">
         <div className="min-w-[min(12rem,100%)] flex-1">
-          <p className="text-xs font-semibold text-muted-foreground">{title}</p>
+          <p className="type-label text-muted-foreground">{title}</p>
           {hint && <p className="mt-0.5 mb-1 text-xs leading-snug text-muted-foreground">{hint}</p>}
         </div>
         {action && <div className="shrink-0">{action}</div>}
@@ -298,7 +338,8 @@ export function SettingActions({
   return (
     <div className={cn('flex flex-wrap items-center gap-x-3 gap-y-2 pt-4', className)}>
       {leading}
-      <div className="ml-auto flex gap-2">{children}</div>
+      {/* The buttons wrap among themselves too: two long labels do not fit one phone line in French. */}
+      <div className="ml-auto flex flex-wrap justify-end gap-2">{children}</div>
     </div>
   )
 }

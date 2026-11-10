@@ -1719,6 +1719,71 @@ class AuditLog(Base):
 # ============================================
 
 
+class EventLead(Base):
+    """Which system leads an Ereignis a standby box has taken over (docs/STANDBY.md).
+
+    No row: the hosted board leads, as for every Ereignis no box ever touched. The box writes
+    `standby` when somebody takes the Ereignis offline there, the hosted board writes `hosted`
+    when somebody takes it back («Hier übernehmen»). Both sides keep this row, and when they
+    disagree after an outage the later `since` wins (app/standby_sync.py).
+    """
+
+    __tablename__ = "event_leads"
+
+    event_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("events.id", ondelete="CASCADE"), primary_key=True
+    )
+    holder: Mapped[str] = mapped_column(String(16), nullable=False)
+    since: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    taken_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    __table_args__ = (CheckConstraint("holder IN ('hosted', 'standby')", name="valid_event_lead_holder"),)
+
+
+class EventConflict(Base):
+    """Something both systems changed while they could not talk, and what was not kept.
+
+    Written by the standby sync (app/standby_sync.py) when it merges an Ereignis: the leading
+    system's version stands, the other one is kept here until somebody decides on the leading
+    system – keep it, take the other one, or (for text) both together.
+
+    - `field`: the same row, different values in `columns` ({column: {kept, lost}}).
+    - `deleted`: one side deleted the row, the other changed it. `deleted_on` says which;
+      `row` is the version that did not survive, for «Wiederherstellen».
+    - `duplicate`: both created the same thing (e.g. one Schadenplatz-Rapport per Einsatz);
+      `row` is the one that was not kept.
+    `subject` carries the facts for the label (Einsatz number and address), so the list still
+    reads when the row itself is gone.
+    """
+
+    __tablename__ = "event_conflicts"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    event_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    table_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    row_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    kept_on: Mapped[str] = mapped_column(String(16), nullable=False)
+    deleted_on: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    columns: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    row: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    subject: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    lost_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolved_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    resolution: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("kind IN ('field', 'deleted', 'duplicate')", name="valid_event_conflict_kind"),
+        CheckConstraint(
+            "resolution IS NULL OR resolution IN ('kept', 'other', 'both')", name="valid_conflict_resolution"
+        ),
+    )
+
+
 class Setting(Base):
     """System settings and configuration."""
 

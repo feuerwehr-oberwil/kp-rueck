@@ -129,6 +129,7 @@ describe('label coverage', () => {
   const STATUS_KEYED_BLOCKS = [
     'kanban.statusLabels', // t(`statusLabels.${status}`) — map search, timeline popover
     'kanban.columns', // t(`columns.${column.id}`) — board, display board/status, hover card
+    'display.board.railLabel', // t(`railLabel.${columnId}`) — the wall's folded column rail
     'incidents.status', // t(`status.${…}`) + translateOutsideReact(`incidents.status.${…}`)
     'print.view.statusHeading', // t(`statusHeading.${status}`) — print view
     // NOT listed: `incidents.columns`. It held an ALL-CAPS copy of these labels and was

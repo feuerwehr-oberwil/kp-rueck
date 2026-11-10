@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response, status
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -306,6 +307,11 @@ async def attach_emergency_to_event(
         source_ref=emergency.source_id,
     )
 
+    # Not merged: flagged like bulk attach. The dialog's duplicate hint is advice and may not
+    # have loaded (or been read) before the click, so the card itself offers the merge.
+    if merge_target is None:
+        await duplicates.flag_possible_duplicate(db, incident)
+
     # A re-attach takes the alarm (and its Rückmeldungen) away from another Ereignis.
     previous_event_id = emergency.attached_to_event_id
 
@@ -364,6 +370,60 @@ async def attach_emergency_to_event(
     )
 
     return incident_response
+
+
+@router.post("/emergencies/{emergency_id}/detach", status_code=status.HTTP_204_NO_CONTENT)
+async def detach_emergency_from_event(
+    emergency_id: UUID,
+    request_data: schemas.DetachEmergencyRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> None:
+    """
+    «Rückgängig» of an attach: the alarm goes back into the Alarmeingang.
+
+    An undo is a new write that must still be valid now (CLAUDE.md «Undo never restores a
+    snapshot blindly»): it runs only while the alarm is still linked to the card that attach
+    made, and that card is as the attach left it – in «Eingegangen», on no Auftrag, with
+    nothing assigned. Otherwise 409 and nothing changes: somebody has started working on it.
+    The card is soft-deleted like any deleted card.
+
+    Editor role required.
+    """
+    emergency = await divera_crud.lock_divera_emergency(db, emergency_id)
+    if not emergency:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Divera-Alarm nicht gefunden")
+
+    changed = HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="Der Einsatz wurde inzwischen bearbeitet – der Alarm bleibt angehängt.",
+    )
+    if emergency.attached_to_event_id is None or emergency.created_incident_id != request_data.incident_id:
+        raise changed
+    incident = await lock_incident(db, request_data.incident_id)
+    if incident is None or incident.deleted_at is not None or incident.status != "incoming" or incident.group_id:
+        raise changed
+    assigned = await db.scalar(
+        select(models.IncidentAssignment.id)
+        .where(
+            models.IncidentAssignment.incident_id == incident.id,
+            models.IncidentAssignment.unassigned_at.is_(None),
+        )
+        .limit(1)
+    )
+    if assigned is not None:
+        raise changed
+
+    event_id = emergency.attached_to_event_id
+    await incidents_crud.delete_incident(db=db, incident_id=incident.id, current_user=current_user, request=request)
+    await divera_crud.detach_emergency(db, emergency)
+
+    background_tasks.add_task(broadcast_incident_update, {"id": str(incident.id)}, "delete")
+    # «Anrückend» on that Ereignis no longer counts this alarm.
+    background_tasks.add_task(divera_responses.broadcast_link_change, event_id, None)
+    logger.info("Divera emergency %s detached from event %s (undo of attach)", emergency_id, event_id)
 
 
 @router.post("/emergencies/bulk-attach", response_model=schemas.BulkAttachEmergenciesResponse)

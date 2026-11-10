@@ -7,6 +7,7 @@ import { XIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ignoreToastLayer } from '@/lib/toast-layer'
 import { OVERLAY_CLASS } from '@/components/ui/overlay'
+import { CORNER_CLOSE_CLASS } from '@/components/ui/dialog'
 import { registerBottomSheet, scheduleSheetTop } from '@/lib/viewport-insets'
 import {
   HANDLE_SELECTOR,
@@ -19,8 +20,15 @@ import {
   swipeIntent,
 } from '@/lib/sheet-swipe'
 
-function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
-  return <SheetPrimitive.Root data-slot="sheet" {...props} />
+/** Whether the open Sheet is modal – SheetContent picks its motion by it (see there). */
+const SheetModalContext = React.createContext(true)
+
+function Sheet({ modal = true, ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
+  return (
+    <SheetModalContext.Provider value={modal}>
+      <SheetPrimitive.Root data-slot="sheet" modal={modal} {...props} />
+    </SheetModalContext.Provider>
+  )
 }
 
 function SheetTrigger({
@@ -275,6 +283,14 @@ function SheetContent({
   swipeToClose?: boolean
 }) {
   const isBottom = side === 'bottom'
+  // A non-modal sheet on the bottom or right comes out from behind the edge it stands on and
+  // goes back behind it, clipped there (globals.css «Panel motion»): a desktop footer sheet
+  // rises from behind the toolbar instead of being drawn across it. It may leave with an exit
+  // animation because nothing locks the page meanwhile and the closed panel takes no clicks.
+  // A MODAL sheet keeps the enter-only slide: while its exit ran, Radix's body lock would still
+  // be on and the backdrop gone (dialog.tsx), so it unmounts at once.
+  const modal = React.useContext(SheetModalContext)
+  const edgeClip = !modal && (side === 'bottom' || side === 'right')
   // A desktop footer sheet is docked above the toolbar (offset, non-modal): no keyboard to
   // stand on, no grip, no swipe — a mouse has the ✕ and the backdrop.
   const docked = isBottom && (!!overlayOffset || nonModal)
@@ -332,25 +348,29 @@ function SheetContent({
         data-side={side}
         data-docked={docked ? '' : undefined}
         data-swipe={swipe ? '' : undefined}
+        data-edge-clip={edgeClip ? '' : undefined}
         // Dismissing a toast must never dismiss the slide-up behind it; any
         // other outside interaction still reaches the caller's own guard.
         onInteractOutside={ignoreToastLayer(onInteractOutside)}
         onOpenAutoFocus={handleOpenAutoFocus}
         className={cn(
-          // The slide-out goes with it. The closed Content was measured lingering
-          // over 375x587 with `pointer-events: auto` for the full 300ms — and
-          // the panel has to leave with its backdrop, or the board shows through
-          // under a still-sliding sheet. Entering still slides.
-          'bg-background data-[state=open]:animate-in fixed flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=open]:duration-500',
+          // One duration and curve for every panel (`--motion-panel`). A modal sheet slides in
+          // and has no slide-out: the closed Content was measured lingering over 375x587 with
+          // `pointer-events: auto` for the full exit, and the panel has to leave with its
+          // backdrop, or the board shows through under a still-sliding sheet. The edge-clipped
+          // non-modal sheets animate both ways from globals.css instead of these classes.
+          'bg-background fixed flex flex-col gap-4 shadow-lg transition ease-in-out',
+          !edgeClip &&
+            'data-[state=open]:animate-in data-[state=open]:duration-(--motion-panel) data-[state=open]:ease-(--ease-panel)',
           elevated ? 'z-elevated' : 'z-overlay',
           side === 'right' &&
-            'data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm',
+            cn(!edgeClip && 'data-[state=open]:slide-in-from-right', 'inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm'),
           side === 'left' &&
             'data-[state=open]:slide-in-from-left inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm',
           side === 'top' &&
             'data-[state=open]:slide-in-from-top inset-x-0 top-0 h-auto border-b',
           side === 'bottom' &&
-            'data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 h-auto border-t rounded-t-lg outline-none',
+            cn(!edgeClip && 'data-[state=open]:slide-in-from-bottom', 'inset-x-0 bottom-0 h-auto border-t rounded-t-lg outline-none'),
           className,
         )}
         // Merge instead of letting a caller-provided `style` (even undefined,
@@ -382,8 +402,8 @@ function SheetContent({
           <SheetPrimitive.Close ref={closeRef} hidden tabIndex={-1} aria-hidden="true" data-slot="sheet-swipe-close" />
         )}
         {!hideCloseButton && (
-          <SheetPrimitive.Close data-slot="sheet-close" className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none cursor-pointer">
-            <XIcon className="size-4" />
+          <SheetPrimitive.Close data-slot="sheet-close" className={CORNER_CLOSE_CLASS}>
+            <XIcon />
             <span className="sr-only">Close</span>
           </SheetPrimitive.Close>
         )}
@@ -411,7 +431,8 @@ function SheetBody({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="sheet-body"
-      className={cn('min-h-0 flex-1 overflow-y-auto overscroll-contain', className)}
+      // `relative`: sr-only labels inside are absolute and must be clipped with this scroller.
+      className={cn('relative min-h-0 flex-1 overflow-y-auto overscroll-contain', className)}
       {...props}
     />
   )

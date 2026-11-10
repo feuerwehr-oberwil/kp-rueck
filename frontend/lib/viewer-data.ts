@@ -16,6 +16,7 @@ import { type Material } from "@/lib/contexts/materials-context"
 import { type IncidentGroup } from "@/lib/types/groups"
 import { type VehicleWithStatus, type StatusStats } from "@/lib/hooks/use-status-data"
 import { columns } from "@/lib/kanban-utils"
+import { darkenForWhiteText } from "@/lib/map-colors"
 import { apiCoordinatesToTuple } from "@/lib/coordinate-parser"
 
 /** The view-model the display pages render — fed by useStatusData (auth) or a token payload. */
@@ -121,13 +122,14 @@ function viewerIncidentToOperation(a: ApiViewerIncident, reko?: ApiViewerRekoSum
   }
 }
 
-/** Map the payload's Auftrag rows onto the domain IncidentGroup shape. */
+/** Map the payload's Auftrag rows onto the domain IncidentGroup shape (colour as drawn, like
+ *  `groups-context`). */
 export function viewerGroupsToIncidentGroups(payload: ApiViewerData): IncidentGroup[] {
   return (payload.groups ?? []).map((group) => ({
     id: String(group.id),
     eventId: String(group.event_id),
     name: group.name,
-    color: group.color ?? null,
+    color: group.color ? darkenForWhiteText(group.color) : null,
     notes: group.notes ?? null,
     position: group.position,
     createdAt: new Date(group.created_at),

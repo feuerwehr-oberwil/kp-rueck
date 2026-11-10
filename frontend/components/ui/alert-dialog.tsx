@@ -66,7 +66,8 @@ function AlertDialogContent({
           // Content leaves with the overlay, for the same two reasons as in
           // dialog.tsx: it is a click sink of its own, and a backdrop that
           // disappears while the panel is still fading reads as a bug.
-          'bg-background data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-overlay grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg',
+          // The `minmax(0,1fr)` column keeps long lines inside – see dialog.tsx.
+          'bg-background data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-overlay grid grid-cols-[minmax(0,1fr)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg',
           className,
         )}
         {...props}

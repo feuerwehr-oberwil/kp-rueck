@@ -104,7 +104,8 @@ def code_matches(event: Event, code: str) -> bool:
     costs one function call and removes the need for the next reader to work
     out whether it matters here.
     """
-    return secrets.compare_digest((event.feld_code or "").strip(), (code or "").strip())
+    # As bytes: compare_digest raises on a str with non-ASCII characters, and this one is typed.
+    return secrets.compare_digest((event.feld_code or "").strip().encode(), (code or "").strip().encode())
 
 
 async def _rotate_code(db: AsyncSession, event: Event) -> None:

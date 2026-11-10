@@ -16,7 +16,7 @@ import { useOperations } from "@/lib/contexts/operations-context"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
 import { toast } from "sonner"
-import { Car, Binoculars, Package2, Phone, MonitorCog, Check } from 'lucide-react'
+import { Truck, Binoculars, Package2, Phone, MonitorCog, Check } from 'lucide-react'
 import { usePersonNaming } from "@/components/person-name"
 
 interface PersonContextMenuProps {
@@ -253,7 +253,7 @@ export function PersonContextMenu({
               >
                 <div className="flex items-center">
                   {isThisPersonDriver && <Check className="mr-2 h-4 w-4" />}
-                  <Car className={`mr-2 h-4 w-4 ${!isThisPersonDriver ? 'ml-6' : ''}`} />
+                  <Truck className={`mr-2 h-4 w-4 ${!isThisPersonDriver ? 'ml-6' : ''}`} />
                   {vehicle.name}
                 </div>
                 {currentDriver && !isThisPersonDriver && (

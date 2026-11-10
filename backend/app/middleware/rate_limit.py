@@ -103,6 +103,11 @@ class RateLimits:
     # useless as an oracle if a session is ever stolen. Every call is in the audit log.
     SECRET_REVEAL = "10/minute"  # noqa: S105 – a rate limit, not a secret
 
+    # The client-error sink has no login (the boot screen reports before anyone is signed
+    # in), so the ceiling is per client IP: well above a crashing wall display behind the
+    # station's NAT, far below what it takes to rotate the backend's log window away.
+    CLIENT_ERROR = "60/minute"
+
     # General API - moderate limits
     DEFAULT = "100/minute"
 
@@ -119,6 +124,10 @@ class RateLimits:
     PHOTO_UPLOAD = "30/minute"
 
     # Webhooks - prevent flooding
+    # The standby box's sync (api/standby.py): one call per taken-over Ereignis every few
+    # seconds, plus its photos after an outage. Behind a token; this only blunts a stuck loop.
+    STANDBY_SYNC = "240/minute"
+
     WEBHOOK = "10/minute"
 
     # Public alarm intake - token-gated write endpoint, keep tight against abuse

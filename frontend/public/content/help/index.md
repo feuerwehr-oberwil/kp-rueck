@@ -9,7 +9,7 @@ Hauptansicht beim Laden der App. Zeigt alle Einsätze in sieben Status-Spalten (
 
 **Die Ansicht bleibt, wie man sie eingestellt hat.** Zugeklappte Seitenleisten, das Seitenpanel und eine weggeklickte Einrichtungs-Checkliste überstehen einen Reload – pro Gerät gemerkt, wie die übrigen Anzeige-Einstellungen.
 
-**Spalten ganz ausserhalb des Bildes stehen als Chips in der Kopfleiste.** Mit beiden Seitenleisten passen auf 1920 px vier Spalten, von der fünften ist ein Streifen zu sehen. Was rechts davon ganz verschwunden ist, nennt ein Chip vor dem Suchfeld – etwa «Rückfahrt 2 ›», «Abgeschlossen 0 ›», «Im Einsatz 2 · 1 Hoch ›» (ein roter Punkt heisst: Hoch drin); nach rechts gescrollt stehen die Spalten links davon als «‹ …» gleich nach dem Ereignisnamen. Ein Klick (oder `Tab` + `Enter`) scrollt die Spalte ins Bild. Sobald auch nur ein Stück einer Spalte zu sehen ist, verschwindet ihr Chip. Eine Karte lässt sich auch direkt auf einen Chip ziehen. Ist die Kopfleiste knapp, wird zuerst der Spaltenname gekürzt (der volle Name steht im Tooltip). Keine Spalte wird dafür schmaler; passt alles (Seitenleisten zu, breiterer Bildschirm), gibt es keine Chips.
+**Spalten ausserhalb des Bildes stehen als Chips in der Kopfleiste.** Mit beiden Seitenleisten passen auf 1920 px fünf Spalten ganz ins Bild. Was rechts davon verschwunden ist, nennt ein Chip vor dem Suchfeld – etwa «Rückfahrt 2 ›», «Abgeschlossen 0 ›», «Im Einsatz 2 · ^ 1 ›» (das Hoch-Zeichen vor der Zahl heisst: Hoch drin); nach rechts gescrollt stehen die Spalten links davon als «‹ …» gleich nach dem Ereignisnamen. Ein Klick (oder `Tab` + `Enter`) scrollt die Spalte ins Bild. Eine Spalte, von der nur ein schmaler Streifen (unter rund 96 px) zu sehen ist, zählt als verdeckt: Der Streifen bleibt stehen, und die Spalte hat trotzdem ihren Chip. Sobald mehr davon zu sehen ist, verschwindet der Chip. Eine Karte lässt sich auch direkt auf einen Chip ziehen. Ist die Kopfleiste knapp, wird zuerst der Spaltenname gekürzt (der volle Name steht im Tooltip). Keine Spalte wird dafür schmaler; passt alles (Seitenleisten zu, breiterer Bildschirm), gibt es keine Chips.
 
 **«3 Geräte vor Ort» am Kopf der Material-Leiste.** Material, das ein Trupp irgendwo stehen liess, ist auf dem Board sonst unsichtbar – es ist weder frei noch erkennbar im Gebrauch. Die Aufklappliste nennt Gerät, Adresse und seit wann, das Älteste zuoberst; ein Klick öffnet den zugehörigen Einsatz. Sie erscheint nur, wenn wirklich etwas draussen steht.
 
@@ -22,7 +22,7 @@ Hauptansicht beim Laden der App. Zeigt alle Einsätze in sieben Status-Spalten (
 **«Kennzahlen» im Benutzermenü (`Z`).** Oben rechts im Personen-Menü, auch über `Cmd/Ctrl+K` und auf dem Handy unter «Mehr» – nicht mehr in der Fusszeile. Ein Fenster über der Seite mit der Lage in Zahlen – Meldungen, offen (je Priorität), in Arbeit, erledigt – und die Reaktionszeiten ab Eingang bis **Disponiert**, **Vor Ort** und **Abschluss**, als Median und P90 je Priorität, dazu die älteste noch wartende «Hoch»-Meldung (ein Klick öffnet sie). Dieselben Werte wie die Tabelle «Reaktionszeiten» im Einsatzbericht (PDF); wie gerechnet wird, steht hinter dem ⓘ. Bei einer Übung heisst die Ansicht **Übungsauswertung**; für ein vergangenes Ereignis steht sie unter **Ereignisse → ⋯ → Kennzahlen**, und an der Wand im Status-Display (`/display/status`) über den Einsätzen.
 
 ### Kartenansicht (`G M`)
-Geografische Übersicht aller Einsatzorte. Farbige Marker zeigen Priorität (Grün/Gelb/Rot).
+Geografische Übersicht aller Einsatzorte. Die Marker zeigen die Priorität (Grau/Gelb/Rot).
 
 **Klick-Verhalten:**
 - **Marker / Listen-Karte (Einfach-Klick)**: Wählt den Einsatz aus und zoomt zum Marker
@@ -31,7 +31,13 @@ Geografische Übersicht aller Einsatzorte. Farbige Marker zeigen Priorität (Gr�
 **Kartenlegende:**
 - **Priorität (Füllung):** Grau=Niedrig, Gelb=Mittel, Rot=Hoch
 - **Status (Rahmen):** Gestrichelt=Offen, Durchgezogen=Aktiv, Gepunktet+Verblasst=Rückfahrt & Abgeschlossen
-- **Fahrzeuge (GPS):** Blau=Online, Grau=Offline
+- **Fahrzeuge (GPS):** eine Pille pro Standort. Blau gefüllt = online, hohl und grau gestrichelt = offline. Mehrere am selben Ort teilen eine Pille («6 Fahrzeuge | 4 offline»). Die Uhrzeit der letzten Meldung steht auf der Pille erst, wenn sie älter ist als unter Einstellungen → GPS eingestellt (Standard 10 Min.); Darüberfahren oder Antippen zeigt die Liste mit jedem Fahrzeug. Liegt eine Pille auf einem Einsatz-Marker, weicht sie aus – eine dünne Linie führt zum Punkt, wo das Fahrzeug wirklich steht. Zuweisungslinien gehen nur von Fahrzeugen aus, die online sind.
+- **Marker mit Zahl:** mehrere Einsätze an derselben Adresse – ein Marker im Aussehen des dringendsten, eine Beschriftung mit allen Nummern («6 · 7 · 9 Bahnhofstrasse 1»). Darüberfahren oder Klick zeigt die Liste; ein Klick auf eine Zeile wählt diesen Einsatz, ein Doppelklick öffnet ihn.
+- **Blase mit Zahl:** mehrere Einsätze, deren Marker sich überdecken; Marke und Rahmen des dringendsten (höchste Priorität). Klick oder Antippen zoomt auf die Gruppe. Ab Strassen-Zoom stehen die Marker wieder einzeln.
+
+**Beschriftungen (Desktop):** Jede Adresse steht neben ihrem Marker, normalerweise rechts. Wo rechts schon eine andere Beschriftung oder ein Marker steht, wechselt sie auf die linke Seite – ist auch die besetzt, bleibt sie rechts, und die überfahrene kommt nach vorn.
+
+**Liste:** In jeder Gruppe (Offen, Aktiv, …) stehen die Einsätze nach Priorität – Hoch, Mittel, Niedrig – und darin der älteste zuerst, gemessen wie die Zeit in der Zeile.
 
 **Tastatur:** `L` Labels, `I` Linien, `1-5` Fahrzeug anzeigen – siehe [Tastaturkürzel](#tastaturkürzel).
 
@@ -44,6 +50,8 @@ Auf breiten Bildschirmen (>1280px) erscheint rechts ein Seitenpanel mit den **De
 - **Einfach-Klick**: Zeigt Einsatz-Details im Seitenpanel
 - **Doppelklick**: Öffnet den vollständigen Detail-Dialog (Modal)
 
+**Status im Detail:** Unter den **Merkmalen** steht die Zeile **Status** – eine Auswahl mit den Spalten des Boards in ihrer Reihenfolge. Ein Wechsel dort stellt dieselben Rückfragen wie das Verschieben der Karte (fehlende Ressourcen beim Disponieren, Reko, «Gerade geändert»). Darunter folgen gleich die **Kräfte**.
+
 ### Ereignisse (`G E`)
 Ereignisse verwalten, wechseln, archivieren, exportieren.
 
@@ -52,14 +60,14 @@ Ereignisse verwalten, wechseln, archivieren, exportieren.
 **Archivieren sagt, was noch offen ist.** Der Dialog listet, was das Archivieren abschneiden würde: nicht abgeschlossene Einsätze (mit «Auf dem Board zeigen»), offene Abholungen, Material noch am Schadenplatz und Personen, die noch angemeldet sind. Das vorab angekreuzte «automatisch abmelden» meldet beim Archivieren alle ab – Abmeldezeit = Ereignisende. Solange etwas offen ist, heisst der Knopf «Trotzdem archivieren».
 
 ### Einstellungen (`G S`)
-System-Konfiguration: Benutzer, Drucker, Kartenstil und mehr. Benutzer und das Audit-Protokoll sehen nur Admins.
+System-Konfiguration: Benutzer, Drucker, Kartenstil und mehr. Benutzer und das Audit-Protokoll sehen nur Admins. Die Koordinaten der Feuerwehr (Allgemein) stehen und speichern mit 6 Nachkommastellen (≈ 10 cm); mehr wird beim Verlassen des Felds gerundet.
 
 ### Hilfe (`G H`)
 Diese Dokumentationsseite.
 
-**Echt vs. Übung:** Ereignisse können als «Übung» markiert werden. Das Badge «Übung» erscheint, Daten werden separat geführt. Echte Ereignisse kommen von Divera.
+**Echt vs. Übung:** Ereignisse können als «Übung» markiert werden. Das Badge «Übung» erscheint, Daten werden separat geführt. Echte Einsätze kommen über den Alarmeingang (Divera, FireHub, Webhook, Meldeformular) oder werden von Hand erfasst.
 
-**Audit-Export:** Einstellungen → Import/Export → Ereignis auswählen → Excel-Export. Enthält alle Einsätze, Zuweisungen (inkl. Historie), Statusänderungen und Reko-Berichte. Für Abrechnung und Nachbesprechung. Das Audit-Protokoll wird im Hintergrund automatisch aufgeräumt (Standard-Aufbewahrung 90 Tage, im Demo-Modus 7 Tage), damit die Tabelle nicht unbegrenzt wächst.
+**Audit-Export:** Einstellungen → Import/Export → Ereignis auswählen → Excel-Export. Enthält alle Einsätze, Zuweisungen (inkl. Historie), Statusänderungen und Reko-Berichte. Für Abrechnung und Nachbesprechung. Das Audit-Protokoll bleibt vollständig erhalten. Aufgeräumt wird es nur, wenn die Person, die den Server betreut, eine Aufbewahrungsfrist gesetzt hat (`AUDIT_RETENTION_DAYS`).
 
 **Drucken & Export:** Footer → «Drucken» oder Taste `D` öffnet **ein** Slide-up mit drei Spalten – alles, was auf Papier oder in eine Datei geht, an einer Stelle:
 - **Thermodruck** – Board-Snapshot auf den [Thermodrucker](#thermodrucker)
@@ -72,7 +80,7 @@ Diese Dokumentationsseite.
 
 Für Kommandoposten mit mehreren Bildschirmen gibt es spezielle Anzeige-Seiten unter `/display`. Diese sind rein lesend – keine Bearbeitungsfunktionen.
 
-**Zugriff:** Benutzermenü → Abschnitt «Anzeige» (öffnet in neuem Tab), oder direkt `/display` aufrufen.
+**Zugriff:** Benutzermenü → «Anzeige» → **Display-Übersicht** (öffnet in neuem Tab), oder direkt `/display` aufrufen. Dort stehen die drei Wände – Lagekarte, Board, Status – und die Wahl des Ereignisses; zwischen den Wänden wechselt man oben rechts. Im selben Abschnitt des Benutzermenüs stehen die [Kennzahlen](#board-g-b) (`Z`).
 
 ### Lagekarte (`/display/map`)
 Vollbild-Karte ohne Seitenleiste. Zeigt alle Einsatzorte, GPS-Fahrzeugpositionen und animierte Zuweisungslinien (Fahrzeug → Einsatz). Ideal für einen zentralen Lagebildschirm.
@@ -89,14 +97,14 @@ Die Wand folgt dabei **nicht** der «Ansicht» des Bedieners: *Kompakt* gibt es,
 **Auf dem Handy** (Viewer-Konten landen hier) stehen die Spalten untereinander statt nebeneinander: dieselben Karten, man scrollt nach unten, nicht zur Seite. Ebenso die vier Spalten von «Status».
 
 ### Status (`/display/status`)
-Vier-Spalten-Übersicht: Fahrzeuge, Einsätze (gruppiert nach Status), Personal (gruppiert nach Rolle) und Material (gruppiert nach Standort). Zeigt bei zugewiesenen Ressourcen den Einsatzort an. Skaliert auf grösseren Bildschirmen automatisch hoch. Über den Einsätzen stehen, zuklappbar, die [Kennzahlen](#board-g-b).
+Vier-Spalten-Übersicht: Fahrzeuge, Einsätze (gruppiert nach Status), Personal (gruppiert nach Rolle) und Material (gruppiert nach Standort). Zeigt bei zugewiesenen Ressourcen den Einsatzort an. Skaliert auf grösseren Bildschirmen automatisch hoch. Über den Einsätzen stehen, zuklappbar, die [Kennzahlen](#board-g-b) – die vier Zahlen und die älteste wartende «Hoch»-Meldung; die Reaktionszeiten (Tabelle und Diagramm) sind ein eigener Abschnitt und standardmässig zugeklappt, damit mehr Einsätze Platz haben.
 
 ### Abschnitte einklappen
 
 In den Anzeige-Ansichten lässt sich jeder Abschnitt zuklappen – Board-Spalten, Status-Gruppen, Funktionen beim Personal, Kategorien beim Material. Bei einer grösseren Feuerwehr scrollt man sonst nur.
 
 - **Standard ist offen.** Nichts versteckt sich vor jemandem, der gerade davortritt. Einzige Ausnahme: **ABGESCHLOSSEN** startet weiterhin eingeklappt – das ist erledigte Arbeit.
-- **Eine zugeklappte Kopfzeile zeigt weiter Anzahl und Zustand:** die Anzahl Einträge, bei Personal und Material zusätzlich wie viele davon frei sind, und einen roten Punkt, sobald ein Einsatz in diesem Abschnitt überfällig ist. Einklappen ist Verstecken – und um 3 Uhr darf sich nichts Wichtiges verstecken.
+- **Eine zugeklappte Kopfzeile zeigt weiter Anzahl und Zustand:** die Anzahl Einträge, bei Personal und Material zusätzlich wie viele davon frei sind, und ist ein Einsatz darin überfällig, ein Zeichen dafür – auf dem Board der Alters-Chip «⏱ 2 ≥ 60'» (wie viele, ab wann; gelb ab 60 Minuten, rot ab 120), bei «Status» ein roter Punkt. Einklappen ist Verstecken – und um 3 Uhr darf sich nichts Wichtiges verstecken.
 - **Der Zustand wird pro Gerät gemerkt**, wie die übrigen Anzeige-Einstellungen. Der Wandschirm, das Tablet auf dem Tisch und der Laptop hinten stehen unterschiedlich weit weg; wie viel zugeklappt ist, gehört zum Bildschirm, nicht zum Einsatz.
 
 ### Cross-Window-Sync
@@ -126,7 +134,7 @@ Auf der Kommandozeile beantwortet `just tiles-status` dieselbe Frage: es untersc
 
 Die Suchleiste (`S` oder `/`) durchsucht alle Einsätze nach Adresse, Typ, Priorität und Status (so wie sie auf der Karte stehen, z. B. «hoch», «Im Einsatz»), Meldungstext und **Auftragsname**; «reko» findet die Einsätze mit abgeschlossener Reko – wer nach der Route sucht, findet ihre Stopps. Ideal um bei vielen Einsätzen schnell die richtige Karte zu finden.
 
-Auf den Anzeige-Seiten [Board](#board-displayboard) und [Status](#status-displaystatus) liegt dieselbe Suche in der Kopfzeile, mit denselben zwei Tasten – wer vom KP zum Wandschirm geht, muss sich nichts Zweites merken. Sie reagiert nicht, während ein Feld den Cursor hat oder ein Dialog offen ist.
+Auf den Anzeige-Seiten [Board](#board-displayboard) und [Status](#status-displaystatus) liegt dieselbe Suche in der Kopfzeile, mit denselben zwei Tasten – wer vom KP zum Wandschirm geht, muss sich nichts Zweites merken. Sie reagiert nicht, während ein Feld den Cursor hat oder ein Dialog offen ist. Nach 10 Sekunden ohne Maus und Taste blenden Suchfeld und Zurück-Pfeil an Ort und Stelle aus (nichts verschiebt sich); die erste Mausbewegung oder `S` holt sie zurück. Eine laufende Suche bleibt stehen.
 
 ---
 
@@ -166,10 +174,9 @@ Jede Karte zeigt: Nummer (klein vor der Adresse), Adresse, Typ, zugewiesene Ress
 
 Zeigen, wie lange ein Einsatz bereits offen ist:
 
-- **Grün** = Neu (< 15 Min)
-- **Gelb** = Aktiv (15-60 Min)
-- **Orange** = Länger offen (1-2 Std)
-- **Rot** = Lange offen (> 2 Std) - Aufmerksamkeit nötig
+- **Grau** = unter 60 Minuten
+- **Gelb** = ab 60 Minuten – länger offen
+- **Rot** = ab 120 Minuten – Aufmerksamkeit nötig
 
 ### Nachbarhilfe
 
@@ -274,6 +281,48 @@ Einsatz abgeschlossen oder selbst zusammengeführt ist. Ein Reko-Link der zusamm
 funktioniert weiter und landet auf der verbleibenden Karte, ein Trupp auf `/feld` findet die
 verbleibende Karte, und Fotos werden kopiert, nie verschoben; die Reaktionszeiten zählen ab der
 ersten Meldung.
+
+### Alarmeingang (Alarme aufs Board holen)
+
+Alarme aus der Alarmierung – Divera oder ein anderes System über die offene
+Webhook-Schnittstelle (`docs/ALARM-INTEGRATIONS.md`) – landen zuerst im **Alarmeingang**.
+Ist bei einem Ereignis das automatische Anhängen eingeschaltet, stehen sie zusätzlich gleich
+als Karte in «Eingegangen».
+
+- **Öffnen:** das Eingangs-Symbol oben neben der Glocke. Die Zahl darauf zählt die **neuen**
+  Alarme der letzten 24 Stunden. Ein zweiter Klick darauf, `Esc` oder ✕ schliesst ihn. Auch im
+  Benutzermenü unter «Verwaltung» und auf dem Handy unter «Mehr»; alte Links auf `/divera-pool`
+  landen auf dem Board mit offenem Alarmeingang.
+- **Neben dem Board, nicht davor:** Auf dem Desktop steht er rechts zwischen Kopf- und Fussleiste,
+  ohne das Board abzudunkeln – man arbeitet weiter, und ein angehängter Alarm erscheint sofort in
+  «Eingegangen». Ein Klick aufs Board schliesst ihn nicht. Auf dem Handy ist er ein Sheet von unten.
+- **Neu** – was noch auf keinem Board ist (höchstens 24 Stunden alt), das Neueste zuoberst, mit
+  Titel, Adresse und Meldung. **Anhängen** pro Zeile, **Alle anhängen** für alle neuen auf einmal
+  (auf dem Handy unten im Sheet).
+- **Heute zugewiesen** – seit Mitternacht angehängt, als kurze Zeile mit der Nummer des Einsatzes,
+  der daraus wurde («→ 14»).
+- **Früher** – zugeklappt: frühere Tage und archivierte. Ein Alarm, den einen Tag lang niemand
+  angehängt hat, steht hier und lässt sich von hier aus noch anhängen.
+- **Suche** über Titel, Meldung, Adresse, Divera-Nummer und Absender; während einer Suche ist
+  «Früher» aufgeklappt. Solange der Alarmeingang offen ist, meldet sich ein neuer Alarm mit
+  Hinweis und Ton.
+
+**Anhängen** auf einer Zeile hängt den Alarm ohne Rückfrage an das Ereignis, das dieses Fenster
+zeigt; die Meldung nennt das Ereignis und die Einsatznummer und bietet **Rückgängig** – der Alarm
+steht dann wieder im Alarmeingang, solange an der neuen Karte noch niemand gearbeitet hat. Gefragt
+wird weiterhin, wo es etwas zu entscheiden gibt: bei einem möglichen Duplikat, bei einem echten
+Alarm in eine Übung, bei **Alle anhängen** und über **Anderes Ereignis …** – dort ist das Ereignis
+dieses Fensters vorgewählt.
+Übungs-Alarme gehen nur an eine Übung. Ein echter Alarm an eine Übung geht, aber erst nach dem
+Hinweis, was das heisst: die Ausalarmierung wird nur simuliert, und die Überfällig-Schwellen sind
+50 % länger. Bei **einem** Alarm prüft der Dialog wie «Neuer Einsatz», ob schon ein offener
+Einsatz an derselben Adresse oder innert 50 m steht – «Möglicherweise dasselbe wie …» mit
+**Zusammenführen** (der Alarm wird Nachtrag zu jenem Einsatz) oder **Trotzdem neu**. Wird nicht
+zusammengeführt, auch bei «Alle anhängen», trägt die neue Karte «Mögliches Duplikat von …» wie
+ein automatisch angehängter Alarm.
+
+Anhängen dürfen Editoren und Admins; Viewer sehen den Alarmeingang nicht. Im Demo-Modus ist
+keine Alarmierung angebunden, und der Alarmeingang sagt das.
 
 ### Reko durchführen
 
@@ -482,7 +531,7 @@ Ein «Archiv» für einzelne Einsätze gibt es nicht – archiviert wird das **E
 
 **Verschieben:** Karte in neue Spalte ziehen, oder `>` / `<` Tasten nutzen.
 
-**Reihenfolge innerhalb einer Spalte:** Karten lassen sich innerhalb derselben Spalte per Drag & Drop sortieren. Die manuelle Reihenfolge bleibt erhalten und wird auch nach einem Reload bzw. auf anderen Geräten gleich angezeigt (sie springt nicht mehr in die ursprüngliche Reihenfolge zurück).
+**Reihenfolge innerhalb einer Spalte:** Karten lassen sich innerhalb derselben Spalte per Drag & Drop sortieren – oder ohne Ziehen über **Nach oben** / **Nach unten** im Rechtsklick-Menü der Karte. Die manuelle Reihenfolge bleibt erhalten und wird auch nach einem Reload bzw. auf anderen Geräten gleich angezeigt (sie springt nicht mehr in die ursprüngliche Reihenfolge zurück).
 
 **Spalten überspringen:** Erlaubt. Nicht jeder Einsatz braucht Reko.
 
@@ -527,15 +576,16 @@ Das Grundmodell: **Ein Auftrag ist eine einzige Einheit, die die ganze Route sel
 
 Daraus folgt:
 
-- Ein Auftrag **besitzt seine Ressourcen selbst**: Fahrzeug, Personal und Material werden **dem Auftrag** zugewiesen und gelten **für alle Stopps gemeinsam** – der Trupp fährt sie ja der Reihe nach ab. Die einzelnen Stopps tragen **keine eigenen Ressourcen**.
+- Ein Auftrag **besitzt seine Ressourcen selbst**: Fahrzeug, Personal und Material werden **dem Auftrag** zugewiesen und gelten **für alle Stopps gemeinsam** – der Trupp fährt sie ja der Reihe nach ab. Die einzelnen Stopps tragen **keine eigenen Ressourcen**. Material auf einem Auftrag gilt überall als **gebunden** – in der Material-Leiste, ihrem Zähler und auf der Status-Wand –, wie das Personal.
 - Ein Einsatz ist **ganz im Auftrag oder gar nicht** – es gibt kein «halb drin». Zusätzliche Ressourcen nur für einen einzelnen Stopp (halb-im-Auftrag) werden **nicht** unterstützt. Braucht ein Schadenplatz einen eigenen Trupp mit eigenem Material, gehört er nicht in diesen Auftrag, sondern bleibt ein eigenständiger Einsatz (oder kommt in einen zweiten Auftrag).
 - Die Ressourcen werden **automatisch freigegeben, wenn der letzte Stopp abgeschlossen** ist.
 
 ### Route planen & optimieren
 
-- **Routen-Editor** (in der Aufträge-Leiste): grosse Karte mit nummerierten Stopps + Routenlinie neben der geordneten Stopp-Liste. Stopps per Drag & Drop umsortieren, per Kartenklick neue Stopps anhängen.
-- **Routenplanung** auf `/map`: dieselbe Planung auf der grossen Vollbild-Karte.
-- **Reihenfolge optimieren**: berechnet per Nächster-Nachbar-Heuristik eine kurze Reihenfolge ab einem Startpunkt (**Magazin**, **Fahrzeug-GPS** oder **erster Stopp**). Der Vorschlag wird als Vorschau angezeigt – **Übernehmen** oder **Verwerfen**.
+- **Routen-Editor** (in der Aufträge-Leiste): grosse Karte mit nummerierten Stopps + Routenlinie neben der geordneten Stopp-Liste. Stopps per Drag & Drop umsortieren oder über das **⋮** am Stopp (**Nach oben**, **Nach unten**, **An den Anfang** – dasselbe in der Aufträge-Leiste), per Kartenklick neue Stopps anhängen. Der **Status eines Stopps** steht ausgeschrieben auf einem Knopf; ein Klick öffnet die Auswahl aller Status und ändert von sich aus nichts.
+- **Routenplanung** auf `/map`: dieselbe Planung auf der grossen Vollbild-Karte. Die Leiste rechts zeigt die Reihenfolge als **Zeitleiste**: zuoberst der Start mit seiner Herkunft («Start · Magazin» – Standort aus den Einstellungen oder, wenn keiner eingerichtet ist, «Ersatzstandort»; nach einer Optimierung der Start, den sie tatsächlich benutzt hat, etwa Fahrzeug-GPS mit Zeit der letzten Meldung), darunter die Stopps mit **denselben Nummern wie ihre Pins auf der Karte**, zuletzt «Stopp hinzufügen». Lange Adressen brechen um, statt abgeschnitten zu werden.
+- **Breite der Leiste:** Seitenleisten lassen sich an ihrer Kante breiter oder schmaler ziehen – auch die der Routenplanung. Ein Doppelklick auf die Kante setzt die Standardbreite zurück; die Breite wird pro Gerät gemerkt.
+- **Reihenfolge optimieren**: schlägt per Nächster-Nachbar-Heuristik **nach Luftlinie** eine kurze Reihenfolge ab einem Startpunkt vor (**Magazin**, **Fahrzeug-GPS** oder **erster Stopp**) – das Menü nennt vorher bei jedem Startpunkt, woher er kommt und wie alt er ist. Der Vorschlag gilt sofort; **Rückgängig** in der Meldung stellt die alte Reihenfolge wieder her, solange niemand den Auftrag inzwischen geändert hat. Es braucht mindestens zwei Stopps mit Koordinaten. Eine Planungshilfe, keine Strassenroute.
 
 ### Funkdurchsage für einen Auftrag
 
@@ -569,7 +619,7 @@ Nur verfügbare Ressourcen (grüner Punkt) können zugewiesen werden. Ein **leer
 
 **Rückgängig nach dem Freigeben.** Wird eine Person, ein Fahrzeug, Material, ein Auftrags-Stopp oder eine Routen-Ressource freigegeben, erscheint «… freigegeben · Rückgängig». Rückgängig weist sie auf dem normalen Weg wieder zu (mit denselben Rückfragen); hat sie inzwischen jemand anderswo zugewiesen, bleibt sie dort, und die Meldung sagt wo.
 
-**Auf dem Touchscreen** öffnet ein Tipp auf einen Personen- oder Fahrzeug-Chip ein kleines Menü: «Details öffnen», wo es passt «Als Einsatzleiter markieren», und abgesetzt das rote «Vom Einsatz entfernen». Mit der Maus ändert sich nichts.
+**Auf dem Touchscreen** öffnet ein Tipp auf einen Personen- oder Fahrzeug-Chip ein kleines Menü: «Details öffnen», wo es passt «Als Einsatzleiter markieren», und abgesetzt das rote «Vom Einsatz freigeben». Mit der Maus ändert sich nichts.
 
 ### Spezialrollen (Rechtsklick auf Person)
 
@@ -603,8 +653,13 @@ Personal und Fahrzeuge werden beim Abschliessen automatisch freigegeben; nur Mat
 ## Tastaturkürzel
 
 Drück `Cmd/Ctrl+K` für die Befehlspalette – sie listet alle Befehle samt
-Tastaturkürzel und ist auch über das Benutzermenü («Befehle & Tastaturkürzel»)
+Tastaturkürzel und ist auch über das Benutzermenü («Befehle & Kürzel»)
 erreichbar. Kürzel sind inaktiv, während ein Eingabefeld fokussiert ist.
+
+Auch was eine Karte im Rechtsklick-Menü anbietet, steht dort unter **Ausgewählter Einsatz**:
+Reko, Mannschaft, Fahrzeug und Material zuweisen, Ressourcen übertragen, an Auftrag verteilen,
+Nachbarhilfe und Am Warten umschalten, Einsatz abschliessen, Einsatzzettel drucken. Dazu die
+Ansichten **Alarmeingang**, **Appell** und **Checkliste** – nichts davon braucht die Maus.
 
 ### Zuweisen durch Tippen
 Auf dem Board versteht die Befehlspalette auch Einsätze, Personen, Fahrzeuge und Material –
@@ -635,7 +690,7 @@ den gewohnten Befehlen («neu» ist weiterhin «Neuer Einsatz»). Es gelten dies
 **`⇥` ergänzt** das angefangene Wort: `14 kell` wird zu `14 Keller Marco`, `grenz` zu `Grenzweg 1`. Passen mehrere, nimmt `⇥` nochmals den nächsten (rechts in der Zeile steht, welcher), `⇧⇥` den vorigen.
 
 Die globalen Kürzel (`G …` und `?`) gelten auf jeder Seite der Bedienoberfläche – Board,
-Karte, Ereignisse, Einstellungen, Hilfe, Übung, Alarmeingang. Sie ruhen,
+Karte, Ereignisse, Einstellungen, Hilfe, Übung. Sie ruhen,
 solange ein Dialog oder ein Menü offen ist, und auf den Wandanzeigen (`/display`) sowie den
 Handy-Formularen (Feld, Reko, Check-In) gibt es sie bewusst nicht.
 
@@ -834,7 +889,7 @@ just down       # Stoppt die Anlage (die Daten bleiben)
 just doctor     # Prüft, ob alles läuft – Datenbank, Drucker, Kacheln, Backup
 ```
 
-Die lokale Instanz läuft unter `http://localhost:3000`.
+Die lokale Instanz läuft auf dem Rechner, der den Server betreibt: `http://<dieser-rechner>:8080` – oder unter eurer eigenen Adresse, falls eine eingerichtet ist.
 
 > **Die `dev-`Rezepte sind nicht für den Betrieb.** `just dev`, `just dev-stop` und
 > `just dev-clean` gehören zur Entwicklung; `just dev-clean` **löscht die Datenbank und

@@ -4,7 +4,8 @@ KP Rück nimmt Alarme aus **jedem** Dispositions- oder Alarmierungssystem entgeg
 – nicht nur aus DIVERA 24/7. Ein einzelner HTTP-Aufruf genügt; es braucht kein
 SDK, keinen Anbieter-Account und keine Anpassung im Quellcode.
 
-Eingehende Alarme landen im **Eingangspool** (Alarme-Seite), werden – falls für
+Eingehende Alarme landen im **Eingangspool** (in der App: der **Alarmeingang**, ein Fenster
+über dem Board, geöffnet über das Eingangs-Symbol neben der Glocke), werden – falls für
 das aktive Ereignis aktiviert – automatisch als Einsatz angehängt und erscheinen
 in Echtzeit auf allen verbundenen Geräten. Einsatzart und Priorität werden aus
 Titel/Text abgeleitet (gleiche Logik wie bei DIVERA-Alarmen), sofern der Sender sie
@@ -186,7 +187,8 @@ curl -X POST "https://<backend>/api/alarms" \
 
 ## Verhalten im System
 
-- **Pool:** Alarme erscheinen auf der Alarme-Seite; Nicht-DIVERA-Alarme tragen
+- **Pool:** Alarme erscheinen im Alarmeingang (unter «Neu», gezählt auf dem Symbol in der
+  Kopfleiste); Nicht-DIVERA-Alarme tragen
   ein Badge mit ihrem `source`-Slug (z.B. `LEITSTELLE`).
 - **Auto-Anhängen:** identisch zu DIVERA – der Alarm wird als neuer Einsatz
   (Status «Eingegangen») an das neueste aktive Ereignis mit aktiviertem

@@ -17,11 +17,17 @@
   --secondary: oklch(0.955 0.003 60);
   --secondary-foreground: oklch(0.30 0.01 60);
   --muted: oklch(0.945 0.005 60);
-  --muted-foreground: oklch(0.50 0.01 60);
+  /* 0.47, not 0.50: the secondary tier also sits on tinted surfaces (the Hoch
+     and Im-Einsatz washes, muted fills), and 0.50 measured 4.2:1 there. 0.47
+     holds ≥ 4.7:1 on every one of them (hill climb r0, 06.11.2026). */
+  --muted-foreground: oklch(0.47 0.01 60);
   --accent: oklch(0.50 0.12 250);
   --accent-foreground: oklch(0.98 0 0);
   --destructive: oklch(0.50 0.22 28);
   --destructive-foreground: oklch(0.98 0 0);
+  /* Red as TEXT (`text-destructive`, via `--text-color-destructive` below).
+     Light: the fill red already reads as text. */
+  --destructive-text: var(--destructive);
   --border: oklch(0.90 0.003 60);
   --input: oklch(0.92 0.003 60);
   /* Focus = slate, not the red primary: a red ring reads as an error. */
@@ -53,6 +59,13 @@
      the Radix CollapsibleContent below. */
   --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
   --reveal-duration: 200ms;
+  /* Panel motion (owner pick 09.11.2026, «B – 110 ms»): every rail and sheet opens and closes
+     from its own edge in this one duration and curve – the board's rails (SlideRail), the
+     footer sheets rising from behind the toolbar, the Alarmeingang, every Sheet. Short enough
+     that nobody waits, long enough to say where the panel came from. Reduced motion: instant.
+     `PANEL_MOTION_MS` in components/ui/slide-rail.tsx mirrors the duration. */
+  --motion-panel: 110ms;
+  --ease-panel: cubic-bezier(0.2, 0.8, 0.2, 1);
   --sidebar: oklch(0.96 0 0);
   --sidebar-foreground: oklch(0.15 0 0);
   --sidebar-primary: oklch(0.45 0.18 25);
@@ -117,10 +130,12 @@
   --secondary: oklch(0.30 0.012 250);
   --secondary-foreground: oklch(0.95 0 0);
   --muted: oklch(0.32 0.01 250);
-  /* 0.66, not 0.60: the secondary tier (Meldung, descriptions, placeholders)
-     sits on --card far more than on the page, and 0.60 measured ≈3.9:1 there.
-     0.66 ≈4.9:1 on --card, ≈5.6:1 on --background (sweep 2026-10, VISUAL-01). */
-  --muted-foreground: oklch(0.66 0.01 250);
+  /* 0.70: the secondary tier (Meldung, descriptions, placeholders) sits on
+     --card and on the raised fills above it (muted, kbd, tab list, popover).
+     0.60 measured ≈3.9:1 on --card (sweep 2026-10, VISUAL-01); 0.66 still
+     ≈4.1:1 on --muted. 0.70 ≈5.1:1 on --card, ≈4.8:1 on --muted (hill climb
+     r0, 06.11.2026). Never dimmer than this tier. */
+  --muted-foreground: oklch(0.70 0.01 250);
   --accent: oklch(0.50 0.15 250);
   --accent-foreground: oklch(0.98 0 0);
   /* Deeper + lower-chroma than the old 0.60/0.26 (which rendered as pure
@@ -130,8 +145,17 @@
      the washed-out `dark:bg-destructive/60` opacity trick. */
   --destructive: oklch(0.55 0.20 27);
   --destructive-foreground: oklch(0.98 0 0);
+  /* …which is a FILL red: as text on the dark board it measured 2.4–3.5:1.
+     Text gets its own lighter step (≈ red-400, a touch less chroma): ≈5.1:1 on
+     --card, ≈4.8:1 on --muted. Edges, washes and fills keep --destructive. */
+  --destructive-text: oklch(0.72 0.16 24);
   --border: oklch(0.42 0.012 250);
-  --input: oklch(0.29 0.012 250);
+  /* The edge of every control (inputs, selects, textareas, outline buttons,
+     checkboxes) and, at /30, their fill. 0.29 sat 0.025 above --card: fill and
+     edge melted into the card and the fields read as recessed / inactive (hill
+     climb r3). 0.40 puts the edge plainly off the card and lifts the /30 fill
+     a step (≈0.30) above it – still neutral, still under --muted. */
+  --input: oklch(0.40 0.012 250);
   --ring: var(--sel-line);
   --chart-1: oklch(0.50 0.16 25);
   --chart-2: oklch(0.50 0.15 250);
@@ -200,6 +224,10 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  /* Tailwind's `text-*` colour reads `--text-color-*` before `--color-*`, so
+     this re-points `text-destructive` (and its `/nn` steps) alone; `bg-`,
+     `border-`, `ring-destructive` keep the fill token. */
+  --text-color-destructive: var(--destructive-text);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -248,6 +276,15 @@
   --color-sel-line: var(--sel-line);
   --color-action: var(--action);
   --color-action-foreground: var(--action-foreground);
+}
+
+/* Amber TEXT in light is Tailwind's 700 step (VISUAL-05) – «schau hin»: Mittel,
+   age ≥ 60′, the busy note, form advice. Stock amber-700 (#bb4d00) measured
+   4.0:1 on the Hoch wash and 4.1:1 on the selection wash, so the step itself
+   is set darker here: ≥ 4.8:1 on every wash, still amber beside the 400/500
+   dark steps. Only text uses amber-700 (hill climb r0, 06.11.2026). */
+@theme {
+  --color-amber-700: oklch(0.50 0.155 49);
 }
 
 /* ── THE z-ORDER ──────────────────────────────────────────────────────────────
@@ -406,6 +443,39 @@
   font-size: var(--text-2xs);
   line-height: var(--text-2xs--line-height);
   font-weight: 500;
+}
+
+/* An invisible hit pad: grows what a pointer can hit to at least --hit-min
+   square, centred, without changing what is drawn – for dense controls whose
+   look stays small (the ✕ on a chip, «EL», the driver-stay toggle, edge tabs,
+   the footer's quiet links). A box that is already big enough gets no pad.
+   The element must be positioned (`relative`, or already absolute); a parent
+   that clips (`overflow-hidden`) clips the pad too. Never let two pads
+   overlap a neighbour's control: the later one in the DOM takes the click.
+   26px, not 24: one pixel of slack each side, so rounding never drops a
+   23.5px pad under the 24px mouse floor (WCAG 2.5.8). On ≤768px the
+   global 44px touch rule sizes the controls themselves; the pad is 46px. */
+@utility hit-area {
+  &::after {
+    content: "";
+    position: absolute;
+    inset: min(0px, calc(50% - var(--hit-min) / 2));
+  }
+}
+:root {
+  --hit-min: 26px;
+}
+@media (max-width: 768px) {
+  :root {
+    --hit-min: 46px;
+  }
+}
+/* The same pad on MapLibre's attribution ⓘ (24px, already absolute): a 44px
+   touch target on the phone, the drawn circle unchanged. */
+.maplibregl-ctrl-attrib-button::after {
+  content: "";
+  position: absolute;
+  inset: min(0px, calc(50% - var(--hit-min) / 2));
 }
 
 @utility sel-choice {
@@ -1124,19 +1194,6 @@
   }
 }
 
-/* Incident markers are sized in JS (24/32px) for wall monitors. On small
-   screens that reads as oversized, so scale the inner svg down. The transform
-   stays on the svg and off the .custom-marker wrapper: MapLibre positions a
-   marker by writing a transform onto its ROOT element (the wrapper is our own
-   box inside that root), so `transform-origin: center` here is measured against
-   the pin itself and the centre anchor stays put. */
-@media (max-width: 640px) {
-  .custom-marker svg {
-    transform: scale(0.62);
-    transform-origin: center;
-  }
-}
-
 .priority-high-pulse {
   animation: priority-pulse 2s ease-in-out infinite;
 }
@@ -1276,6 +1333,63 @@ html[data-snail='standing'] .firefighter-snail * {
   }
 }
 
+/* ── Panel motion (--motion-panel) ──
+   In-flow rails (components/ui/slide-rail.tsx): the WIDTH moves, so the board beside the rail
+   moves with it – no jump-then-slide. Off while the operator drags the edge (`data-resizing`)
+   and until the rail has been drawn once (`data-motion`), so a rail restored on load stands. */
+[data-slot='slide-rail'][data-motion='on']:not([data-resizing]) {
+  transition: width var(--motion-panel) var(--ease-panel);
+}
+
+/* Sheets that are not modal (the desktop footer sheets, the Aufträge sheet, the Alarmeingang)
+   come out from BEHIND the edge they stand on and go back behind it: the translate and a clip
+   at the sheet's resting edge run together, so no pixel of it is ever drawn past that edge –
+   not over the footer toolbar, not over the notification sidebar. (The app shell is a fixed
+   box, i.e. its own stacking context, so the toolbar's `z-footer` cannot cover a portalled
+   sheet; the clip is what keeps the sheet off it.) The negative insets leave the shadow.
+   A closed sheet takes no clicks while it leaves (`pointer-events` important: Radix writes
+   its own inline value). */
+@keyframes sheet-rise {
+  from { translate: 0 100%; clip-path: inset(-3rem -3rem 100% -3rem); }
+  to { translate: 0 0; clip-path: inset(-3rem -3rem 0 -3rem); }
+}
+@keyframes sheet-sink {
+  from { translate: 0 0; clip-path: inset(-3rem -3rem 0 -3rem); }
+  to { translate: 0 100%; clip-path: inset(-3rem -3rem 100% -3rem); }
+}
+@keyframes sheet-in-right {
+  from { translate: 100% 0; clip-path: inset(-3rem 100% -3rem -3rem); }
+  to { translate: 0 0; clip-path: inset(-3rem 0 -3rem -3rem); }
+}
+@keyframes sheet-out-right {
+  from { translate: 0 0; clip-path: inset(-3rem 0 -3rem -3rem); }
+  to { translate: 100% 0; clip-path: inset(-3rem 100% -3rem -3rem); }
+}
+[data-slot='sheet-content'][data-edge-clip][data-side='bottom'][data-state='open'] {
+  animation: sheet-rise var(--motion-panel) var(--ease-panel);
+}
+[data-slot='sheet-content'][data-edge-clip][data-side='bottom'][data-state='closed'] {
+  animation: sheet-sink var(--motion-panel) var(--ease-panel) forwards;
+}
+[data-slot='sheet-content'][data-edge-clip][data-side='right'][data-state='open'] {
+  animation: sheet-in-right var(--motion-panel) var(--ease-panel);
+}
+[data-slot='sheet-content'][data-edge-clip][data-side='right'][data-state='closed'] {
+  animation: sheet-out-right var(--motion-panel) var(--ease-panel) forwards;
+}
+[data-slot='sheet-content'][data-edge-clip][data-state='closed'] {
+  pointer-events: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot='slide-rail'] {
+    transition: none !important;
+  }
+  /* `none` lets Radix unmount a closing sheet at once. */
+  [data-slot='sheet-content'][data-edge-clip] {
+    animation: none !important;
+  }
+}
+
 /* The footer toolbar goes UNDER a modal dialog — and only under a modal dialog.
 
    Its `z-footer` is deliberate: a footer sheet slides UP into place
@@ -1386,5 +1500,37 @@ html.link-page-no-zoom :is(input, textarea, select) {
 @media (max-width: 639px) {
   [data-slot='dialog-content']:has(> [data-slot='dialog-close']) [data-slot='dialog-header'] {
     padding-inline-start: 2.5rem;
+  }
+}
+
+/* …and the ✕'s glyph ENDS on the content edge, like the last field and the footer buttons
+   below it. A fixed `right-4` put it there only by accident of one box size: under the 44px
+   touch rule the box grew inwards and the glyph stood 14–31px inside the edge (owner,
+   08.11.2026). `--close-edge` = the content's end padding (dialog p-6, sheet header p-4); a
+   caller with other padding sets it (`[--close-edge:1.5rem]`). Lucide's X draws 3px inside its
+   16px box. Clamped at 0: on a 16px sheet the 44px box would leave the panel, so the glyph
+   stands 1px in. `--close-centre` keeps the glyph on the title's line at either box size
+   (measured: dialog titles centre 33–35px down). Layered, so a caller's utility wins – the phone
+   sheets with a taller header set their own `top`. */
+@layer base {
+  [data-slot='dialog-content'] {
+    --close-edge: 1.5rem;
+    --close-centre: 34px;
+  }
+  [data-slot='sheet-content'] {
+    --close-edge: 1rem;
+    --close-centre: 32px;
+  }
+  [data-slot='dialog-close'],
+  [data-slot='sheet-close'] {
+    --close-box: 32px;
+    top: calc(var(--close-centre) - var(--close-box) / 2);
+    inset-inline-end: max(0px, calc(var(--close-edge) - 3px - (var(--close-box) - 16px) / 2));
+  }
+  @media (max-width: 768px) {
+    [data-slot='dialog-close'],
+    [data-slot='sheet-close'] {
+      --close-box: 44px;
+    }
   }
 }

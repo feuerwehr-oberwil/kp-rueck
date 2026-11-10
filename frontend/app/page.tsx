@@ -56,6 +56,7 @@ import { isDetailTab, type OperationDetailSection, type OperationDetailTab } fro
 import { useCommandPaletteHint } from "@/lib/hooks/use-is-mac"
 import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
 import { useAuth } from "@/lib/contexts/auth-context"
+import { useStandby } from "@/lib/contexts/standby-context"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { columns } from "@/lib/kanban-utils"
 import { nextCardId, type BoardDirection } from "@/lib/board-keyboard-nav"
@@ -83,6 +84,8 @@ import { useBoardLayoutPrefs } from "@/lib/hooks/use-board-layout-prefs"
 import { isNavigableBinding, soleDestination, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
 import { PersonnelSidebar } from "@/components/board/personnel-sidebar"
 import { MaterialSidebar } from "@/components/board/material-sidebar"
+import { SlideRail } from "@/components/ui/slide-rail"
+import { useResizableWidth } from "@/lib/hooks/use-resizable-width"
 import { BoardFooter, type FooterSheet } from "@/components/board/board-footer"
 import { toggleFigures } from "@/components/figures-dialog"
 import type { JournalComposeRequest } from "@/components/journal/journal-sheet"
@@ -91,12 +94,14 @@ import { useBoardDialogActions } from "@/components/board/use-board-dialog-actio
 import { useBoardDispatch } from "@/components/board/use-board-dispatch"
 import { useResourceBindings } from "@/components/board/use-resource-bindings"
 import { useBoardChecklist } from "@/components/board/use-board-checklist"
-import { useBoardCommandHandlers } from "@/components/board/use-board-command-handlers"
+import { StationSetupStrip } from "@/components/station-setup-strip"
+import { usePrintAssignmentSlip } from "@/lib/hooks/use-print-assignment-slip"
+import type { IncidentCommand } from "@/lib/contexts/command-palette-context"
+import { useBoardCommandHandlers, type BoardCommands } from "@/components/board/use-board-command-handlers"
 import { useBoardCardActions } from "@/components/board/use-board-card-actions"
 
 export default function FireStationDashboard() {
   const {
-    materials,
     operations,
     setOperations,
     formatLocation,
@@ -148,6 +153,10 @@ export default function FireStationDashboard() {
     jump: (target: DispatchResource) => void
   }>({ vocabulary: () => ({ incidents: [], persons: [], vehicles: [], materials: [] }), run: () => {}, jump: () => {} })
 
+  // The right-click actions and two views as commands (Ctrl K) – same early
+  // registration, filled in below once the dialogs and the checklist exist.
+  const boardCommandsRef = useRef<BoardCommands>({ incident: () => {}, openAttendance: () => {}, openChecklist: () => {} })
+
   // The roster the board draws, with «steht auf einem Auftrag» folded in.
   const personnel = useAuftragRoster()
 
@@ -191,9 +200,15 @@ export default function FireStationDashboard() {
   // computed once here, passed down, so the memoized cards stay cheap.
   const personEngagements = usePersonEngagements()
 
-  const { materialGroups, setMaterialOutOfService } = useMaterials()
+  // The depot with BOTH deployments folded in – Einsätze and Aufträge – so the
+  // material sidebar, its counter and every drop read one frei/gebunden.
+  const { materials, materialGroups, setMaterialOutOfService } = useMaterials()
   const { selectedEvent, isEventLoaded, events, setSelectedEvent } = useEvent()
   const { isEditor } = useAuth()
+  // While a standby box leads the open Ereignis this board is look-only, but new things – an
+  // Einsatz, a Tagebuch line – may still be added (`StandbyProvider`).
+  const { canAddNew } = useStandby()
+  const canAdd = isEditor || canAddNew
   const { toggleSidebar: toggleNotificationSidebar, registerNavigateHandler, registerFieldActionHandler, registerAssignHandler, closeSidebar: closeNotificationSidebar, settings: notificationSettings } = useNotifications()
   // «Personalermüdung (Std.)» — where the crew's time-on-duty figures turn amber.
   const fatigueHours = notificationSettings.fatigue_hours
@@ -217,6 +232,7 @@ export default function FireStationDashboard() {
   const tRes = useTranslations('kanban.resources')
   const tPrint = useTranslations('print.toasts')
   const tSidePanel = useTranslations('kanban.sidePanel')
+  const tPanels = useTranslations('panels')
   const trackPrint = usePrintJobToast()
 
   // Ref for highlight timeout cleanup
@@ -321,7 +337,8 @@ export default function FireStationDashboard() {
           )
 
           mainContainer.scrollTo({
-            left: Math.min(Math.max(0, gutteredLeft), maxScroll),
+            // whole pixels, or where the board comes to rest depends on rounding
+            left: Math.round(Math.min(Math.max(0, gutteredLeft), maxScroll)),
             behavior: 'smooth'
           })
         }
@@ -388,6 +405,24 @@ export default function FireStationDashboard() {
     showRightSidebar,
     setShowRightSidebar,
   } = useBoardLayoutPrefs(isMobile)
+  // Both sidebars' widths are the operator's, dragged by their inner edge and remembered on this
+  // device (owner pick 09.11.2026). 256 = the w-64 they always had, and also the floor: any
+  // narrower and «Personal suchen …» / «Material suchen …» no longer fit beside their key hint
+  // and toggle, while the rows already end in «Baumann Mi…».
+  const personnelWidth = useResizableWidth({
+    storageKey: 'kp-board-personnelWidth',
+    defaultWidth: 256,
+    min: 256,
+    max: 384,
+    side: 'right',
+  })
+  const materialWidth = useResizableWidth({
+    storageKey: 'kp-board-materialWidth',
+    defaultWidth: 256,
+    min: 256,
+    max: 384,
+    side: 'left',
+  })
   // "Open the detail on THIS tab" — set by whoever pointed at one specific
   // thing: a notification, the Rapport-Backlog, or a click on one BLOCK of a
   // kanban card (its Reko part, its resource rows). A click on the card as a
@@ -654,6 +689,7 @@ export default function FireStationDashboard() {
     handleColumnSort,
     moveOperationRight,
     moveOperationLeft,
+    moveInColumn,
     toggleVehicleAssignment,
     setOperationPriority,
     toggleZuFuss,
@@ -691,6 +727,8 @@ export default function FireStationDashboard() {
   })
 
   useBoardCommandHandlers({
+    boardCommandsRef,
+    printerEnabled,
     writeJournal,
     fleet,
     operations,
@@ -738,6 +776,14 @@ export default function FireStationDashboard() {
     selectedEvent,
     isMounted,
   })
+  // One footer sheet at a time: another one opening (a pill, a shortcut, the Dienstzeiten
+  // button) closes the Checkliste's. Opening the Checkliste closes the others (board-footer).
+  const closeChecklistSheet = useEffectEvent(() => {
+    if (checklistPopoverOpen) handleChecklistOpenChange(false)
+  })
+  useEffect(() => {
+    if (activeFooterSheet) closeChecklistSheet()
+  }, [activeFooterSheet])
 
   // Refresh operations immediately when Kanban page loads – once, whatever identity
   // `refreshOperations` has later.
@@ -836,7 +882,7 @@ export default function FireStationDashboard() {
       onToggleLinks: () => setActiveFooterSheet((prev) => (prev === 'links' ? null : 'links')),
       onToggleRapporte: () => setActiveFooterSheet((prev) => (prev === 'rapporte' ? null : 'rapporte')),
       onToggleJournal: () => setActiveFooterSheet((prev) => (prev === 'journal' ? null : 'journal')),
-      onWriteJournal: isEditor && selectedEvent ? () => writeJournal(selectedOperationId ?? null) : undefined,
+      onWriteJournal: canAdd && selectedEvent ? () => writeJournal(selectedOperationId ?? null) : undefined,
       onToggleFigures: toggleFigures,
       onToggleNotifications: toggleNotificationSidebar,
     },
@@ -1270,6 +1316,29 @@ export default function FireStationDashboard() {
     setRekoAssignOperationId,
   })
 
+  // What the commands run on the selected card: each entry is the handler its
+  // right-click row calls, so both ways stay one behaviour.
+  const { print: printAssignmentSlip } = usePrintAssignmentSlip()
+  boardCommandsRef.current = {
+    incident: (command, operationId) => {
+      const run: Record<IncidentCommand, () => void> = {
+        assignCrew: () => dialogs.openAssignment('crew', operationId),
+        assignVehicle: () => dialogs.openAssignment('vehicles', operationId),
+        assignMaterial: () => dialogs.openAssignment('materials', operationId),
+        assignReko: () => handleOpenRekoAssignDialog(operationId),
+        transfer: () => void dialogs.openTransfer(operationId),
+        distribute: () => dialogs.openAuftragPicker(operationId),
+        toggleAmWarten: () => handleToggleAmWarten(operationId),
+        toggleNachbarhilfe: () => handleToggleNachbarhilfe(operationId),
+        complete: () => requestCompletion(operationId),
+        print: () => void printAssignmentSlip(operationId),
+      }
+      run[command]()
+    },
+    openAttendance,
+    openChecklist: () => handleChecklistOpenChange(true),
+  }
+
   // Don't render drag and drop until client-side to avoid hydration errors.
   // Inside ProtectedRoute like every other branch, so all three share ONE ProtectedRoute at
   // the root: on a cold start the server-rendered boot screen (snail, «KP RÜCK», phase) is
@@ -1372,7 +1441,8 @@ export default function FireStationDashboard() {
                 placeholder={tCommon('search')}
                 value={searchQuery}
                 onValueChange={setSearchQuery}
-                className="w-72"
+                // narrower below lg: at 768px the header (with the Alarmeingang icon) ran 20px over
+                className="w-56 lg:w-72"
                 hint={<Kbd>S</Kbd>}
               />
 
@@ -1386,6 +1456,8 @@ export default function FireStationDashboard() {
             </div>
           )}
         </header>
+        {/* What a freshly claimed station still has to set up – admin only, gone once done. */}
+        <StationSetupStrip className="mx-4 mt-3 hidden shrink-0 md:block md:mx-6" />
 
         {/* Mobile View */}
         {isMobile ? (
@@ -1397,20 +1469,26 @@ export default function FireStationDashboard() {
             isEditor={isEditor}
             isTraining={selectedEvent?.training_flag}
             isLoading={isLoading}
-            onNewIncident={isEditor ? () => setNewEmergencyModalOpen(true) : undefined}
+            onNewIncident={canAdd ? () => setNewEmergencyModalOpen(true) : undefined}
             openRequest={mobileOpenRequest}
           />
         ) : (
           /* Desktop View */
           <>
         <div className="relative flex flex-1 overflow-hidden">
-          {/* `z-raised` on both sidebars: their collapse handles straddle the inner
-              edge, so half of each hangs over the board. `backdrop-blur-sm` makes
-              an aside a stacking context, so a handle's own `z-pinned` cannot lift it
-              past a SIBLING — and the board block follows the LEFT sidebar in DOM
-              order with an opaque background, which painted that half away. The
-              right one only ever looked fine because it comes after the board. */}
-          {showLeftSidebar && (
+          {/* Each sidebar stands in a SlideRail: the drag width, the 110 ms slide that moves the
+              board with it, and the `z-raised` layer their collapse handles need – a handle
+              straddles the inner edge, so half of it hangs over the board, and the board block
+              follows the LEFT sidebar in DOM order with an opaque background, which painted
+              that half away while the layer was missing. The right one only ever looked fine
+              because it comes after the board. */}
+          <SlideRail
+            open={showLeftSidebar}
+            dock="left"
+            resize={personnelWidth}
+            gripLabel={tPanels('resize.personnel')}
+            gripHint={tPanels('resizeHint')}
+          >
             <PersonnelSidebar
               setShowLeftSidebar={setShowLeftSidebar}
               personnelSearchQuery={personnelSearchQuery}
@@ -1439,8 +1517,9 @@ export default function FireStationDashboard() {
               canCheckIn={isEditor}
               onDiveraCheckIn={checkInFromDivera}
               onOpenCrewDuty={() => setActiveFooterSheet(prev => prev === 'crew' ? null : 'crew')}
+              onOpenAttendance={openAttendance}
             />
-          )}
+          </SlideRail>
 
           {/* The board and its three reopen tabs share one containing block, so
               `left-1` / `right-1` mean the BOARD's edges — not the window's —
@@ -1454,7 +1533,9 @@ export default function FireStationDashboard() {
               were both times. Out of flow the board keeps the full width and the
               tab is what it looks like — a control pinned to the edge, opaque
               (`bg-card`) and shadowed so scrolled cards pass behind it. */}
-          <div className="relative flex min-w-0 flex-1">
+          {/* `min-w-64`: the room the board keeps when the rails beside it were dragged wide –
+              they yield first (SlideRail), down to their own minimum. */}
+          <div className="relative flex min-w-64 flex-1">
           {/* Main Kanban Board */}
           <main
             id="kanban-main"
@@ -1468,14 +1549,13 @@ export default function FireStationDashboard() {
             // pinned over the board, and the extra 16px is what keeps it off the
             // outer column at rest. It is the board's own margin, not a strip of
             // its own, so nothing is drawn beside the board.
+            //
+            // `@container` + `--board-pr`: the columns size themselves from this box and
+            // its right padding (droppable-column.tsx, «five open columns»).
             className={cn(
-              "flex-1 overflow-x-auto overscroll-contain pt-4 pb-0 bg-muted/30 dark:bg-background",
+              "@container flex-1 overflow-x-auto overscroll-contain pt-4 pb-0 pr-(--board-pr) bg-muted/30 dark:bg-background",
               showLeftSidebar ? "pl-4" : "pl-8",
-              !showRightSidebar
-                ? "pr-8"
-                // The detail tab only exists from SIDE_PANEL_BREAKPOINT up, so
-                // neither does the room it needs.
-                : sidePanelMode === 'collapsed' ? "pr-4 2xl:pr-8" : "pr-4",
+              showRightSidebar ? "[--board-pr:1rem]" : "[--board-pr:2rem]",
             )}
           >
             {/* A board that never arrived gets the error panel, not seven
@@ -1512,6 +1592,7 @@ export default function FireStationDashboard() {
                       onToggleZuFuss={handleToggleZuFuss}
                       onRequestComplete={isEditor ? requestCompletion : undefined}
                       onRequestDelete={isEditor ? handleRequestDelete : undefined}
+                      onMoveInColumn={isEditor ? moveInColumn : undefined}
                       onTransfer={isEditor ? dialogs.openTransfer : undefined}
                       onDistributeToAuftrag={isEditor ? dialogs.openAuftragPicker : undefined}
                       cardView={cardView}
@@ -1540,7 +1621,7 @@ export default function FireStationDashboard() {
           {!showLeftSidebar && (
             <button
               onClick={() => setShowLeftSidebar(true)}
-              className="absolute left-1 top-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+              className="absolute hit-area left-1 top-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
               title={`${tDash('toggleLeftSidebar')} ([)`}
               aria-label={tDash('toggleLeftSidebar')}
             >
@@ -1548,12 +1629,14 @@ export default function FireStationDashboard() {
             </button>
           )}
 
-          {/* Einsatz-Detail reopen tab. `2xl:` is SIDE_PANEL_BREAKPOINT — below
-              it the panel does not exist, so neither does its tab. */}
-          {sidePanelMode === 'collapsed' && (
+          {/* Einsatz-Detail reopen tab — only while the Material-Leiste is folded
+              too; with the Leiste open the control leads its search row instead
+              (material-sidebar.tsx), off the board. `2xl:` is SIDE_PANEL_BREAKPOINT
+              — below it the panel does not exist, so neither does its tab. */}
+          {sidePanelMode === 'collapsed' && !showRightSidebar && (
             <button
               onClick={() => setSidePanelMode('detail')}
-              className="absolute right-1 top-3 z-pinned hidden h-12 w-5 min-w-0 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground 2xl:flex"
+              className="absolute hit-area right-1 top-3 z-pinned hidden h-12 w-5 min-w-0 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground 2xl:flex"
               title={`${tSidePanel('railLabel')} (\\)`}
               aria-label={tSidePanel('railLabel')}
             >
@@ -1565,7 +1648,7 @@ export default function FireStationDashboard() {
           {!showRightSidebar && (
             <button
               onClick={() => setShowRightSidebar(true)}
-              className="absolute right-1 top-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+              className="absolute hit-area right-1 top-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
               title={
                 materialOnSiteEntries.length > 0
                   ? `${tDash('toggleRightSidebar')} (]) · ${tDash('materialOnSite.toggle', { count: materialOnSiteEntries.length })}`
@@ -1590,8 +1673,9 @@ export default function FireStationDashboard() {
           <SidePanel
             mode={sidePanelMode}
             onModeChange={setSidePanelMode}
-            // Collapsed, the panel renders nothing here — its reopen tab lives
-            // in the w-7 gutter above, beside the Material-Leiste's.
+            // Collapsed, the panel renders nothing here — its reopen control
+            // leads the Material-Leiste's search row (or, with the Leiste folded
+            // too, is a tab pinned in the board's corner above).
             selectedOperation={selectedOperation}
             onOpenOnMap={() =>
               router.push(selectedOperation ? `/map?highlight=${selectedOperation.id}` : '/map')
@@ -1621,10 +1705,17 @@ export default function FireStationDashboard() {
             {...dialogs.detailActions}
           />
 
-          {/* Same `z-raised` as the left sidebar — see the note there. This side works
-              on DOM order alone today; it carries the class so the handle does not
-              depend on which side of the board its aside happens to sit. */}
-          {showRightSidebar && (
+          {/* Same SlideRail as the left sidebar — see the note there. While the detail is
+              folded its reopen control leads the search row, and the rail grows by its 2rem
+              (`--rail-extra`) from SIDE_PANEL_BREAKPOINT (2xl) up, where that control exists. */}
+          <SlideRail
+            open={showRightSidebar}
+            dock="right"
+            resize={materialWidth}
+            gripLabel={tPanels('resize.material')}
+            gripHint={tPanels('resizeHint')}
+            className={sidePanelMode === 'collapsed' ? '2xl:[--rail-extra:2rem]' : undefined}
+          >
             <MaterialSidebar
               setShowRightSidebar={setShowRightSidebar}
               materialSearchQuery={materialSearchQuery}
@@ -1650,8 +1741,9 @@ export default function FireStationDashboard() {
               setBindingsPopover={setBindingsPopover}
               followBinding={followBinding}
               materialSummary={materialSummary}
+              onOpenSidePanel={sidePanelMode === 'collapsed' ? () => setSidePanelMode('detail') : undefined}
             />
-          )}
+          </SlideRail>
 
         </div>
 

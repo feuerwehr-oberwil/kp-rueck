@@ -105,7 +105,9 @@ export const topLoading = {
 /**
  * Thin progress bar pinned to the top of the viewport. Fires automatically on
  * route changes and can be driven by data fetches via `topLoading`. Calm and
- * minimal: a 2px primary line, no spinner chrome.
+ * minimal: a 2px neutral line (`--muted-foreground`), no spinner chrome. Not the
+ * red brand `primary` it once was – red is priority and danger only, and a red
+ * rule along the top edge read as an alarm (hill climb r18).
  */
 export function TopLoadingBar() {
   const state = useSyncExternalStore(
@@ -133,11 +135,11 @@ export function TopLoadingBar() {
       className="pointer-events-none fixed inset-x-0 top-0 z-loading-bar h-0.5"
     >
       <div
-        className="h-full bg-primary transition-[width,opacity] duration-200 ease-out"
+        className="h-full bg-muted-foreground transition-[width,opacity] duration-200 ease-out"
         style={{
           width: `${state.progress}%`,
           opacity: state.active && !hidden ? 1 : 0,
-          // No glow. An 8px halo on a line pinned to the top edge is a blurred red band right
+          // No glow. An 8px halo on a line pinned to the top edge is a blurred band right
           // under the status bar of the home-screen app, on every navigation.
         }}
       />

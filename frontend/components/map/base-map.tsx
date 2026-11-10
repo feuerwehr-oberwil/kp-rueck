@@ -114,6 +114,34 @@ const CONTROL_Z_ORDER =
   '[&_.maplibregl-ctrl-bottom-left]:z-maplibre-ctrl! [&_.maplibregl-ctrl-bottom-right]:z-maplibre-ctrl!'
 
 /**
+ * MapLibre's stock controls in the app's own surface, not its fixed white.
+ *
+ * The zoom group and the compact attribution ⓘ ship as white boxes with dark icons, which on the
+ * dark board looked pasted on (hill climb r1, finding 9). Here they take the card / border tokens
+ * (dark board, dark controls; light stays light), the small-control radius (`rounded-sm` – each
+ * button is 29px), a hairline ring + restrained shadow instead of MapLibre's 2px grey halo, and
+ * a muted hover. The zoom icons are MapLibre's own dark SVG backgrounds, so dark mode inverts
+ * them rather than redrawing them. The attribution ⓘ is the zoom group's surface in a 24px
+ * circle – card fill, the 1px border ring, a muted 14/600 «i» drawn as text – not MapLibre's
+ * solid near-black disc, which was the heaviest object in the light chrome (hill climb r23);
+ * its 24px box (and the hit pad in globals.css) is unchanged. `!` for the same reason as
+ * CONTROL_Z_ORDER below.
+ */
+const CONTROL_LOOK =
+  '[&_.maplibregl-ctrl-group]:bg-card! [&_.maplibregl-ctrl-group]:rounded-sm! [&_.maplibregl-ctrl-group]:overflow-hidden ' +
+  '[&_.maplibregl-ctrl-group:not(:empty)]:shadow-[0_0_0_1px_var(--border),0_1px_2px_rgb(0_0_0/0.25)]! ' +
+  '[&_.maplibregl-ctrl-group_button+button]:border-border! ' +
+  '[&_.maplibregl-ctrl-group_button:not(:disabled):hover]:bg-muted! ' +
+  'dark:[&_.maplibregl-ctrl-icon]:invert ' +
+  '[&_.maplibregl-ctrl-attrib.maplibregl-compact]:bg-card! [&_.maplibregl-ctrl-attrib.maplibregl-compact]:text-card-foreground! ' +
+  '[&_.maplibregl-ctrl-attrib.maplibregl-compact]:shadow-[0_0_0_1px_var(--border),0_1px_2px_rgb(0_0_0/0.25)] ' +
+  '[&_.maplibregl-ctrl-attrib.maplibregl-compact]:rounded-full! ' +
+  '[&_.maplibregl-ctrl-attrib_a]:text-card-foreground! ' +
+  '[&_.maplibregl-ctrl-attrib-button]:bg-none! [&_.maplibregl-ctrl-attrib-button]:bg-transparent! ' +
+  "[&_.maplibregl-ctrl-attrib-button]:before:absolute [&_.maplibregl-ctrl-attrib-button]:before:inset-0 [&_.maplibregl-ctrl-attrib-button]:before:flex [&_.maplibregl-ctrl-attrib-button]:before:items-center [&_.maplibregl-ctrl-attrib-button]:before:justify-center [&_.maplibregl-ctrl-attrib-button]:before:content-['i'] " +
+  '[&_.maplibregl-ctrl-attrib-button]:before:font-sans [&_.maplibregl-ctrl-attrib-button]:before:text-sm [&_.maplibregl-ctrl-attrib-button]:before:leading-none [&_.maplibregl-ctrl-attrib-button]:before:font-semibold [&_.maplibregl-ctrl-attrib-button]:before:text-muted-foreground'
+
+/**
  * …and all of that stays INSIDE the map.
  *
  * Those z-indices (markers up to 1000, controls `z-maplibre-ctrl`) only mean something against
@@ -286,7 +314,6 @@ export function BaseMap({
   // when the operator flips the theme.
   const night = useNightTheme() && !forceDayPaint
 
-  const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MlMap | null>(null)
   const [ready, setReady] = useState(false)
   // The map never came up (no WebGL). Tracked separately from `gl.lost`, which watches a canvas
@@ -354,22 +381,12 @@ export function BaseMap({
     gl.recover()
   }, [gl])
 
-  // Radix animates a dialog's size in, and MapLibre only hears about a resize from the window
-  // event – so a map mounted inside one comes up sized for the pre-animation box and stays there.
-  // Replaces the copy-pasted `invalidateSize()` double-timeout dance in both dialogs.
-  useEffect(() => {
-    const element = containerRef.current
-    if (!element || !ready) return
-    const observer = new ResizeObserver(() => {
-      try {
-        mapRef.current?.resize()
-      } catch {
-        /* the map is already torn down */
-      }
-    })
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [ready])
+  // No ResizeObserver of our own. MapLibre 6 watches its container itself (`trackResize`, on by
+  // default): throttled to 50ms and followed by a redraw – a map in a Radix dialog that animates
+  // its size in, a rail dragged or slid beside it, a resized window all come out right. The one
+  // this replaced called `resize()` on every observed frame with no redraw, and `resize()`
+  // resets the canvas size, which clears the WebGL buffer: the map flickered for as long as the
+  // Routenplanung rail was dragged (owner, 09.11.2026).
 
   // Keep the basemap under the overlays across a style swap – see `baseLayerMoves()`. Re-armed on
   // every new map instance (a GL recovery builds one), because the listener sits on the instance.
@@ -411,12 +428,12 @@ export function BaseMap({
 
   return (
     <div
-      ref={containerRef}
       data-testid="base-map"
       className={cn(
         'relative h-full w-full',
         MAP_STACKING,
         CONTROL_Z_ORDER,
+        CONTROL_LOOK,
         offline?.kind === 'vector' && VECTOR_CANVAS_FILTER,
         className,
       )}

@@ -25,6 +25,12 @@
  * `undefined` still renders nothing: an absent assignment flag is not the same
  * statement as "he is coming back", and the wall and the board used to disagree
  * about that.
+ *
+ * `size="wall"` sets the words at the wall chip's own 1rem / 500 (14px at the
+ * fit's floor) instead of the 11px micro role: read from 4 m, the stay state is
+ * as much the fact as the vehicle it belongs to. `size="caption"` is the 12/16
+ * caption role for `/feld` and the phone's detail sheet, where the chip stands
+ * on its own line under the vehicle and is read on a phone (hill climb r10, r12).
  */
 
 import { useTranslations } from "next-intl"
@@ -32,12 +38,21 @@ import { MapPin, Undo2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+/** Type + icon per size; the type role and a `text-*` never meet on one element. */
+const SIZES = {
+  default: { text: "type-micro", icon: "h-3 w-3" },
+  caption: { text: "type-caption", icon: "h-3 w-3" },
+  wall: { text: "text-base leading-[1.15] font-medium", icon: "h-3.5 w-3.5" },
+} as const
+
 export function DriverStayGlyph({
   stays,
+  size = "default",
   className,
 }: {
   /** `undefined` when the assignment carries no answer — draws nothing. */
   stays: boolean | undefined
+  size?: keyof typeof SIZES
   className?: string
 }) {
   const t = useTranslations("kanban.common")
@@ -47,12 +62,15 @@ export function DriverStayGlyph({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-0.5 rounded px-1 type-micro whitespace-nowrap",
+        "inline-flex shrink-0 items-center gap-0.5 rounded px-1 whitespace-nowrap",
         "bg-foreground/10 text-foreground",
+        SIZES[size].text,
         className,
       )}
     >
-      {stays ? <MapPin className="h-3 w-3 shrink-0" /> : <Undo2 className="h-3 w-3 shrink-0" />}
+      {stays
+        ? <MapPin className={cn(SIZES[size].icon, "shrink-0")} />
+        : <Undo2 className={cn(SIZES[size].icon, "shrink-0")} />}
       {t(stays ? "driverStaysFull" : "driverReturnsFull")}
     </span>
   )

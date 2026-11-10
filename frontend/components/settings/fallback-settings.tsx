@@ -98,7 +98,7 @@ export function FallbackSettings({
   const printerMissing = loaded && !printerConfigured ? t('fallback.autoPrintPrinterRequired') : null;
 
   return (
-    <SettingCard title={t('fallback.title')} subtitle={t('fallback.intro')}>
+    <SettingCard subtitle={t('fallback.intro')}>
       {/* Server-side: automatic thermal snapshots (shared setting → locked in demo). */}
       <DemoLock active={demoMode}>
         <SettingRow

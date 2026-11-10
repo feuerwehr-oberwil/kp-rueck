@@ -11,12 +11,18 @@
  * The page owns `groupId`, `addMode` and `focusStopId` so it can wire the map's
  * click-to-add and marker highlight; this panel owns the inline-create UI and the
  * optimize action (which persists immediately, with an undo toast).
+ *
+ * The order reads as a timeline: the start point with its provenance on top, the
+ * stops numbered like their pins on the map, «Stopp hinzufügen» as the last node.
+ * The list is only as tall as its rows. The page hosts it in a rail whose width
+ * the operator drags (`useResizableWidth`), so rows are built to wrap, not to cut.
  */
 
 import { useState } from "react"
-import { useTranslations } from "next-intl"
-import { Plus, Route as RouteIcon, MousePointerClick, X, MapPinned } from "lucide-react"
+import { useLocale, useTranslations } from "next-intl"
+import { AlertTriangle, House, MapPin, Plus, Route as RouteIcon, Truck, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
@@ -32,14 +38,24 @@ import type { IncidentGroup } from "@/lib/types/groups"
 import type { useRoutePlanning } from "@/lib/hooks/use-route-planning"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
-import { RouteStopList } from "./route-stop-list"
+import { useIntlLocale } from "@/lib/date-locale"
+import { describeRouteStart, describeStartOption } from "@/lib/route-start"
+import { RouteStopList, RouteTimelineItem, TIMELINE_ROW, TimelineNode } from "./route-stop-list"
 import { RouteOptimizeButton, RouteOptimizeNote, useRouteOptimizeAction } from "./route-optimize"
 import { ShellLoader } from "@/components/ui/shell-loader"
-import { AUFTRAG_SWATCHES } from "@/lib/map-colors"
+import { AUFTRAG_SWATCHES, MAP_COLORS } from "@/lib/map-colors"
 
 // Optimize now persists immediately, so the shared list never shows a pending
 // "changed" preview state.
 const EMPTY_CHANGED: Set<string> = new Set()
+
+/** From which rail width the exit button shows its word beside the ✕: the header's icon,
+ *  title, gaps and «✕ Beenden» side by side, measured per language (the French title is
+ *  half as long again). Static class names, so Tailwind sees them. */
+const EXIT_LABEL_ROOM: Record<string, string> = {
+  de: "@min-[19.5rem]/rail:inline",
+  fr: "@min-[24.5rem]/rail:inline",
+}
 
 interface RoutenplanungPanelProps {
   groups: IncidentGroup[]
@@ -72,6 +88,7 @@ export function RoutenplanungPanel({
   canEdit,
 }: RoutenplanungPanelProps) {
   const t = useTranslations("map.planning")
+  const locale = useLocale()
   const { group, operationsById, isAddingStop, reorder } = planning
   const optimizeAction = useRouteOptimizeAction(planning)
   const { updateOperation } = useOperations()
@@ -84,6 +101,8 @@ export function RoutenplanungPanel({
 
   const stopIds = group?.stopIds ?? []
   const displayOrder = stopIds
+  // The same resolver as the map's polylines and pins, so node 3 here is pin 3 there.
+  const routeColor = group ? colorAccent(group.id, "auftrag", groups) : undefined
 
   const startCreate = () => {
     setNewName(t("defaultName", { n: groups.length + 1 }))
@@ -100,16 +119,31 @@ export function RoutenplanungPanel({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
+      {/* Header – the exit never wraps. Where the rail (`@container/rail`, the map page) has
+          the room it reads «✕ Beenden»; narrower it is the ✕ alone, named «Routenplanung
+          beenden» with the same words as its tooltip. It used to wrap under the title in a
+          narrow rail. The threshold is the room the label needs, per language; the longer French
+          title takes a second line in the narrowest rails instead. */}
       <div className="mb-4 flex items-center justify-between gap-2 border-b pb-3">
-        <div className="flex items-center gap-2">
-          <RouteIcon className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-lg font-bold">{t("title")}</h2>
+        <div className="flex min-w-0 items-center gap-2">
+          <RouteIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <h2 className="min-w-0 break-words text-lg font-bold">{t("title")}</h2>
         </div>
-        <Button size="sm" variant="ghost" className="h-8 gap-1.5" onClick={onExit}>
-          <X className="size-3.5" />
-          {t("exit")}
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 shrink-0 gap-1.5 px-2 max-md:h-11 max-md:min-w-11"
+              onClick={onExit}
+              aria-label={t("exitLabel")}
+            >
+              <X className="size-3.5" />
+              <span className={cn("hidden", EXIT_LABEL_ROOM[locale] ?? EXIT_LABEL_ROOM.de)}>{t("exit")}</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{t("exitLabel")}</TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Group picker + inline create */}
@@ -157,7 +191,7 @@ export function RoutenplanungPanel({
                   <Button
                     size="icon-sm"
                     variant="outline"
-                    className="shrink-0"
+                    className="shrink-0 max-md:size-11"
                     onClick={startCreate}
                     aria-label={t("newAuftrag")}
                   >
@@ -183,7 +217,8 @@ export function RoutenplanungPanel({
               className="h-8 min-w-[8rem] flex-1"
               placeholder={t("namePlaceholder")}
             />
-            <div className="flex items-center gap-1">
+            {/* Wraps: at 768px the 44px touch rule makes six swatches wider than a squeezed rail. */}
+            <div className="flex flex-wrap items-center gap-1">
               {AUFTRAG_SWATCHES.map((c) => (
                 <button
                   key={c}
@@ -209,76 +244,125 @@ export function RoutenplanungPanel({
       </div>
 
       {!group ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-muted/20 px-6 py-10 text-center">
-          <MapPinned className="h-8 w-8 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">{t("noGroupSelected")}</p>
-        </div>
+        <EmptyState compact title={t("noGroupSelected")} />
       ) : (
         <>
-          {/* Reihenfolge heading + optimize wand (a single button whose menu picks
-              the start anchor and runs optimize immediately). */}
-          <div className="mb-2 flex items-center justify-between gap-2">
+          {/* Reihenfolge heading + count + optimize wand (a single button whose menu
+              picks the start anchor and runs optimize immediately). */}
+          <div className="mb-2 flex items-center gap-2">
             <span className="text-sm font-semibold">{t("order")}</span>
-            {canEdit && <RouteOptimizeButton action={optimizeAction} disabled={displayOrder.length < 2} />}
+            <span className="text-xs text-muted-foreground">{t("stopCount", { count: displayOrder.length })}</span>
+            {canEdit && (
+              <RouteOptimizeButton action={optimizeAction} disabled={displayOrder.length < 2} className="ml-auto max-md:size-11" />
+            )}
           </div>
           <RouteOptimizeNote action={optimizeAction} className="mb-2" />
 
-          {/* Ordered stop list */}
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-lg border bg-muted/20 p-2">
-            <div className="space-y-0.5">
-              {displayOrder.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-2 px-4 py-8 text-center">
-                  <MapPinned className="h-8 w-8 text-muted-foreground/40" />
-                  <p className="text-sm text-muted-foreground">{t("noStops")}</p>
-                </div>
-              ) : (
-                <RouteStopList
-                  groupId={group.id}
-                  stopIds={stopIds}
-                  displayOrder={displayOrder}
-                  operationsById={operationsById}
-                  changedPositions={EMPTY_CHANGED}
-                  reorderDisabled={!canEdit}
-                  onReorder={(ids) => void reorder(ids)}
-                  focusStopId={focusStopId}
-                  onSelectStop={onFocusStopChange}
-                  onSetStopStatus={(incidentId, status) => updateOperation(incidentId, { status })}
-                  onRemoveStop={(incidentId) => void release.releaseStop(group.id, incidentId)}
-                  showStatusControl={false}
-                  // The `/map` planner has no access to the dashboard completion
-                  // flow (material prompt + returning-vehicle check), so don't
-                  // offer "Abgeschlossen" here — completion stays on the board.
-                  allowComplete={false}
-                  readOnly={!canEdit}
-                />
-              )}
+          {/* The timeline: start → numbered stops → «Stopp hinzufügen». Only as tall
+              as its rows; it scrolls once they outgrow the panel (on the phone past
+              the bottom nav). `@container` lets a row show the Meldung when the
+              panel is dragged wide. */}
+          <div className="-mx-1 min-h-0 overflow-y-auto overscroll-contain px-1 max-md:pb-nav-reserve">
+            {displayOrder.length === 0 && <p className="mb-2 text-sm text-muted-foreground">{t("noStops")}</p>}
+            <ol className="@container">
+              {displayOrder.length > 0 && <RouteStartItem planning={planning} lastRun={optimizeAction.lastRun} />}
+              <RouteStopList
+                groupId={group.id}
+                stopIds={stopIds}
+                displayOrder={displayOrder}
+                operationsById={operationsById}
+                changedPositions={EMPTY_CHANGED}
+                reorderDisabled={!canEdit}
+                onReorder={(ids) => void reorder(ids)}
+                focusStopId={focusStopId}
+                onSelectStop={onFocusStopChange}
+                onSetStopStatus={(incidentId, status) => updateOperation(incidentId, { status })}
+                onRemoveStop={(incidentId) => void release.releaseStop(group.id, incidentId)}
+                showStatusControl={false}
+                // The `/map` planner has no access to the dashboard completion
+                // flow (material prompt + returning-vehicle check), so don't
+                // offer "Abgeschlossen" here — completion stays on the board.
+                allowComplete={false}
+                readOnly={!canEdit}
+                timelineColor={routeColor}
+              />
 
-              {/* Add-row: a full-width "+ Stop hinzufügen" toggle below the last
-                  stop (table "add row"), toggling map click-to-add. Matches a stop
-                  row's height/padding; the "click the map to place a stop" hint now
-                  lives on hover instead of as a separate line. */}
-              {canEdit && <Tooltip>
-                <TooltipTrigger asChild>
+              {/* The last node: toggles map click-to-add. Its second line says how
+                  («Klick auf die Karte») instead of hiding that in a tooltip. */}
+              {canEdit && (
+                <RouteTimelineItem>
                   <button
                     type="button"
+                    aria-pressed={addMode}
                     onClick={() => onAddModeChange(!addMode)}
                     className={cn(
-                      "flex min-h-10 w-full items-center gap-2 rounded-md border border-dashed px-1.5 py-1.5 text-sm transition-colors",
-                      addMode
-                        ? "border-sel-edge bg-sel-wash text-foreground"
-                        : "border-border text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+                      TIMELINE_ROW,
+                      "transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                      addMode ? "bg-sel-wash ring-1 ring-sel-edge" : "hover:bg-muted/40",
                     )}
                   >
-                    {isAddingStop ? <ShellLoader className="h-3.5 w-3.5 flex-shrink-0" /> : <MousePointerClick className="h-3.5 w-3.5 flex-shrink-0" />}
-                    {t("addStopToggle")}
+                    <TimelineNode className="border-dashed border-muted-foreground/70 bg-transparent text-muted-foreground shadow-none">
+                      {isAddingStop ? <ShellLoader className="size-3.5" /> : <Plus className="size-3.5" />}
+                    </TimelineNode>
+                    <span className="min-w-0 flex-1 pt-1 leading-tight">
+                      <span className="block text-sm font-medium">{t("addStopToggle")}</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        {isAddingStop ? t("addingStop") : addMode ? t("addStopHint") : t("addStopMapHint")}
+                      </span>
+                    </span>
                   </button>
-                </TooltipTrigger>
-                <TooltipContent>{isAddingStop ? t("addingStop") : t("addStopHint")}</TooltipContent>
-              </Tooltip>}
-            </div>
+                </RouteTimelineItem>
+              )}
+            </ol>
           </div>
         </>
       )}
     </div>
+  )
+}
+
+/**
+ * The timeline's first node: where the route starts, with the provenance
+ * `lib/route-start.ts` gives it. After an optimisation – while its order still
+ * stands – that is the start it actually used (Fahrzeug-GPS with its report age,
+ * the fallback to the first stop); otherwise the Magazin, where a crew leaves from,
+ * as the settings place it or flagged as «Ersatzstandort».
+ */
+function RouteStartItem({
+  planning,
+  lastRun,
+}: {
+  planning: ReturnType<typeof useRoutePlanning>
+  lastRun: ReturnType<typeof useRouteOptimizeAction>["lastRun"]
+}) {
+  const t = useTranslations("map.planning")
+  const tStart = useTranslations("map.routeOptimize")
+  const locale = useIntlLocale()
+  const text = lastRun
+    ? describeRouteStart(lastRun.start, tStart, Date.now(), locale)
+    : describeStartOption("magazin", planning.anchors, tStart, Date.now(), locale)
+  const mode = lastRun?.start.mode ?? "magazin"
+  const Icon = mode === "vehicle" ? Truck : mode === "first" ? MapPin : House
+  return (
+    <RouteTimelineItem>
+      <div className={TIMELINE_ROW}>
+        {/* The Magazin's ink on the map (MAP_COLORS.station), not an Auftrag colour. */}
+        <TimelineNode style={{ backgroundColor: MAP_COLORS.station }}>
+          <Icon className="size-3.5" />
+        </TimelineNode>
+        <div className="min-w-0 flex-1 pt-1 leading-tight">
+          <div className="text-sm font-medium break-words">{t("startLabel", { start: text.label })}</div>
+          <div
+            className={cn(
+              "mt-0.5 flex items-start gap-1 text-xs",
+              text.caution ? "text-warning-foreground" : "text-muted-foreground",
+            )}
+          >
+            {text.caution && <AlertTriangle className="mt-px size-3 shrink-0" aria-hidden />}
+            <span className="min-w-0 break-words">{text.detail}</span>
+          </div>
+        </div>
+      </div>
+    </RouteTimelineItem>
   )
 }

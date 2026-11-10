@@ -546,7 +546,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
           <>
             <div>
               <Label htmlFor={MESSAGE_FIELD_ID} className={LABEL}>
-                {t('message')} <span className="text-destructive" aria-hidden="true">*</span>
+                {t('message')} <span className="text-muted-foreground" aria-hidden="true">*</span>
               </Label>
               <Input
                 id={MESSAGE_FIELD_ID}
@@ -568,7 +568,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
 
             <div>
               <Label className={LABEL}>
-                {t('priority')} <span className="text-destructive" aria-hidden="true">*</span>
+                {t('priority')} <span className="text-muted-foreground" aria-hidden="true">*</span>
               </Label>
               <div className="mt-2 grid grid-cols-3 gap-2">
                 {(Object.entries(PRIORITY_LABELS) as [IncidentPriority, string][]).map(([key, label]) => (
@@ -587,7 +587,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
 
             <div>
               <Label className={LABEL}>
-                {t('what')} <span className="text-destructive" aria-hidden="true">*</span>
+                {t('what')} <span className="text-muted-foreground" aria-hidden="true">*</span>
               </Label>
               {/* A plain Select, like the board's own «Neuer Einsatz» modal.
                   The searchable Popover `/alarm` uses is right on a full page

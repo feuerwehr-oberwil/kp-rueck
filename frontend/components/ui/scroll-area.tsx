@@ -5,11 +5,22 @@ import * as ScrollAreaPrimitive from '@radix-ui/react-scroll-area'
 
 import { cn } from '@/lib/utils'
 
+/**
+ * A vertically scrolling area with the board's slim bar. `fadeEnd`: while more content waits
+ * below, the last 24px fade out into `--background` – the surface of a dialog – telling a list
+ * that ends from one that runs on under the footer (assignment dialog, hill climb r6). A plain
+ * transparent → surface ramp, no tinted stop: the r6 shade in the `--border` tone read as a light
+ * strip in dark and doubled the footer's rule on the phone (r8). Only for an area that sits on
+ * `--background`; on another surface the ramp would end in the wrong colour.
+ */
 function ScrollArea({
   className,
   children,
+  fadeEnd = false,
   ...props
-}: React.ComponentProps<typeof ScrollAreaPrimitive.Root>) {
+}: React.ComponentProps<typeof ScrollAreaPrimitive.Root> & { fadeEnd?: boolean }) {
+  const viewportRef = React.useRef<HTMLDivElement>(null)
+  const moreBelow = useMoreBelow(viewportRef, fadeEnd)
   return (
     <ScrollAreaPrimitive.Root
       data-slot="scroll-area"
@@ -17,6 +28,7 @@ function ScrollArea({
       {...props}
     >
       <ScrollAreaPrimitive.Viewport
+        ref={viewportRef}
         data-slot="scroll-area-viewport"
         // `[&>div]:!block`: Radix wraps the children in a `display: table` div, which grows to
         // the widest unbreakable line inside — one long code line in the Hilfe made the whole
@@ -27,10 +39,38 @@ function ScrollArea({
       >
         {children}
       </ScrollAreaPrimitive.Viewport>
+      {moreBelow && (
+        <div
+          aria-hidden
+          data-slot="scroll-area-more-below"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-linear-to-t from-background to-transparent"
+        />
+      )}
       <ScrollBar />
       <ScrollAreaPrimitive.Corner />
     </ScrollAreaPrimitive.Root>
   )
+}
+
+/** Whether the viewport has content below its bottom edge – re-measured on scroll and whenever
+ *  the viewport or its content changes size (a filter switch, a section folding). */
+function useMoreBelow(viewportRef: React.RefObject<HTMLDivElement | null>, enabled: boolean): boolean {
+  const [moreBelow, setMoreBelow] = React.useState(false)
+  React.useEffect(() => {
+    const viewport = viewportRef.current
+    if (!enabled || !viewport) return
+    const measure = () => setMoreBelow(viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight > 1)
+    measure()
+    viewport.addEventListener('scroll', measure, { passive: true })
+    const observer = new ResizeObserver(measure)
+    observer.observe(viewport)
+    if (viewport.firstElementChild) observer.observe(viewport.firstElementChild)
+    return () => {
+      viewport.removeEventListener('scroll', measure)
+      observer.disconnect()
+    }
+  }, [viewportRef, enabled])
+  return enabled && moreBelow
 }
 
 function ScrollBar({

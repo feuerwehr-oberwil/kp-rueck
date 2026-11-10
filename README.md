@@ -15,8 +15,10 @@ follow along read-only on any screen. KP Rück owns its own incident state, map,
 
 Originally developed by [Feuerwehr Oberwil BL](https://www.feuerwehr-oberwil.ch/) and designed
 to be adaptable for other communal militia fire departments facing the same shape of work:
-many damage sites spread across a municipality during a storm or flood. It is not built for
-industrial fire brigades or permanently staffed dispatch centres.
+many damage sites spread across a municipality during a storm or flood. Professional and
+industrial fire brigades and other rescue organisations use the same board for the same job –
+coordinating crews, vehicles and material in the background of a large or parallel operation.
+It is not a dispatch centre: it takes alarms in, it does not replace the system that sends them.
 
 | Operations Board | Interactive Map |
 |:---:|:---:|
@@ -35,17 +37,19 @@ event, one operator at the board**, not scaled down from a dispatch center.
 
 - **Replaces the magnet board.** The same spatial mental model – columns for status, cards for
   incidents, magnets for crew and vehicles – but live, shared, and self-documenting.
-- **Made for the command post.** Dense, calm, dark-mode-first and keyboard-fast on a desktop –
+- **Made for the command post.** Dense, calm, light or dark, and keyboard-fast on a desktop –
   the board is run with mouse and keyboard, not thumbs – though since 0.8.0 a phone is a real
   editing surface too. Status and priority read at a glance.
 - **Provider-neutral intake.** Any dispatch or alarm system can open incidents through one
-  generic webhook; Divera, a phone form, and a QR walk-in slip are adapters on top of it.
+  generic webhook; Divera, FireHub, a phone form, and a QR walk-in slip are adapters on top of it.
 - **Training that mirrors reality.** A full training mode with auto-generated incidents and
   simulated GPS drives runs on the same database, filtered by a flag – never mixed with live
   work.
 - **Prepared for network failure.** Offline map tiles, a paper Lageblatt fallback, automatic
-  thermal snapshots, and a documented outage SOP – not offline editing: when the connection
-  goes, you go to paper.
+  thermal snapshots, and a documented outage SOP. A hosted board can add a **standby box**: a
+  machine at the station that mirrors it, takes an Ereignis over when the internet is gone and
+  hands the work back afterwards ([docs/STANDBY.md](docs/STANDBY.md)). Without one, when the
+  connection goes, you go to paper.
 - **Defensible records.** An append-only audit log, an Einsatztagebuch the board keeps as things
   happen, and an after-action PDF (Einsatztagebuch, Reaktionszeiten) back every operation.
 - **Open and self-hostable.** One AGPL-licensed deployment per station, no per-seat licence.
@@ -91,6 +95,9 @@ event, one operator at the board**, not scaled down from a dispatch center.
   carrying their colour, note and usual equipment.
 - **Alarm intake:** provider-neutral `POST /api/alarms`, a native Divera adapter, a token-gated
   phone/walk-in form, and a capability registry the UI reads instead of hard-coding providers.
+  Alarms wait in the **Alarmeingang**, a panel beside the board with the count of new ones on
+  its header icon, until somebody attaches them (an Ereignis with auto-attach takes them straight
+  onto its board).
 - **The field surface (`/feld`):** one login-less page for everyone out there – crew, driver,
   Reko, Magazin, Telefondienst. You see what is yours, report «Angekommen» and «Einsatz
   beendet», file the Schadenplatz-Rapport with photos, ask for an Abholung, and send a Meldung
@@ -290,9 +297,11 @@ New connectors are welcome contributions – the alarm and alerting seams are th
   error details are German-only, and no French-speaking firefighter has reviewed the translation
   yet. Italian is a registered stub (`it.json` is empty) and stays hidden until
   it covers every German key.
-- **The board needs a network.** Offline coverage means map tiles, the paper Lageblatt, and
-  automatic thermal snapshots – not offline editing. When the connection goes, you go to paper;
-  see [docs/AUSFALL_SOP.md](docs/AUSFALL_SOP.md).
+- **The board needs a network** – its own. A self-hosted board keeps working on the station
+  LAN without internet; a hosted one does not, unless a standby box mirrors it
+  ([docs/STANDBY.md](docs/STANDBY.md)). A browser alone never edits offline. Beyond that,
+  offline coverage means map tiles, the paper Lageblatt and automatic thermal snapshots; see
+  [docs/AUSFALL_SOP.md](docs/AUSFALL_SOP.md).
 - **Vehicle GPS is Traccar-specific.** Alarm intake and outbound alerting sit behind provider
   seams; GPS does not yet.
 - **Sign-in with an external identity provider is Microsoft-only.** There is no generic OIDC

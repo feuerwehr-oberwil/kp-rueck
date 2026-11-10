@@ -92,11 +92,15 @@ class TokenBlocklist:
             await session.commit()
             logger.debug(f"Token revoked: {jti[:8]}... (expires: {expires_at})")
 
-    async def is_revoked(self, jti: str) -> bool:
-        """Hot path: single indexed PK lookup; ``True`` iff the JTI is blocklisted."""
+    async def is_revoked(self, *jtis: str) -> bool:
+        """Hot path: one indexed PK lookup; ``True`` iff ANY of the JTIs is blocklisted.
+
+        Takes several so a request checks its own token and its session family in one
+        round trip (one pool checkout) instead of one per JTI.
+        """
         async with self._factory()() as session:
             found = (
-                await session.execute(select(RevokedToken.jti).where(RevokedToken.jti == jti))
+                await session.execute(select(RevokedToken.jti).where(RevokedToken.jti.in_(jtis)).limit(1))
             ).scalar_one_or_none()
             return found is not None
 

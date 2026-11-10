@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { UserMenu } from '@/components/user-menu';
 import { NotificationBellTrigger } from '@/components/notifications/notification-bell-trigger';
+import { AlarmInboxButton } from '@/components/alarm-inbox/alarm-inbox-button';
 // `Columns3` for the board, not a generic list glyph: the page IS cards in
 // status columns, and it stays distinct from the Karte and Events icons beside
 // it as well as from the `LayoutGrid` the UserMenu uses for the wall display.
@@ -178,6 +179,10 @@ export function PageNavigation({
           onVehicleStatus={onVehicleStatus}
           onPrint={onPrint}
         />
+
+        {/* The Alarmeingang: its inbox icon with the count of new alarms, always there (owner,
+            08.11.); it opens the sheet over this page. */}
+        <AlarmInboxButton />
 
         {/* Notification Bell Trigger - rightmost to align with fixed sidebar */}
         <NotificationBellTrigger />

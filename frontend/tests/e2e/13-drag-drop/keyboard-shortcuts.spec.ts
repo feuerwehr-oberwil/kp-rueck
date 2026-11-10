@@ -16,7 +16,7 @@ import { setupBoard } from '../../helpers/api.helper';
 
 /**
  * The palette's input. An editor on the board gets the type-to-dispatch placeholder
- * («Befehl suchen oder zuweisen: …», `common.commandPalette.dispatch.placeholder`), everyone else
+ * («Befehl suchen oder zuweisen …», `common.commandPalette.dispatch.placeholder`), everyone else
  * «Befehl suchen …» – both start the same, and this suite runs as an editor.
  */
 const PALETTE_INPUT = /^Befehl suchen/;

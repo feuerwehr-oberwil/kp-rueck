@@ -15,16 +15,15 @@ import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { CARD_VIEW_PRESETS } from "@/lib/card-view"
-import { columns, ageLevel, COLUMN_HEADER_CLASS, STATUS_ACCENT, WALL_TEXT_WRAP } from "@/lib/kanban-utils"
-import {
-  WALL_STACK_BOARD, WALL_STACK_BODY, WALL_STACK_COLUMN, WALL_STACK_FOLDED, WALL_STACK_FOLDED_ACCENT, WALL_STACK_FOLDED_LABEL,
-} from "@/lib/wall-stack"
+import { columns, STATUS_ACCENT } from "@/lib/kanban-utils"
+import { WALL_STACK_BOARD, WALL_STACK_BODY, WALL_STACK_COLUMN } from "@/lib/wall-stack"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { useWallFit } from "@/lib/hooks/use-wall-fit"
-import { getIncidentLocationLabel } from "@/lib/incident-types"
 import { DisplayIncidentCard, crewShownAtStop } from "@/components/display/incident-card"
 import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
-import { ChevronDown, ChevronRight } from "lucide-react"
+import { WallColumnHead } from "@/components/display/wall-column-head"
+import { WallFoldedColumn } from "@/components/display/wall-folded-column"
+import { WallScrollBody } from "@/components/display/wall-more-below"
 import { cn } from "@/lib/utils"
 
 /** Per-device fold state for the viewer board (see useCollapsedSections). */
@@ -51,7 +50,6 @@ export default function DisplayBoardPage() {
 }
 
 function BoardDisplay() {
-  const t = useTranslations('display')
   const tk = useTranslations('kanban')
   const { operations: allOperations, materialOnSite } = useOperations()
   const { materials, materialGroups } = useMaterials()
@@ -217,57 +215,28 @@ function BoardDisplay() {
       {columns.map((column) => {
         const ops = operationsByColumn[column.id] || []
         const isCollapsed = collapsedColumns.isCollapsed(column.id)
-        // Something in here has sat past the board's own warning threshold. It
-        // stays visible on the folded bar: a column that hides its overdue
+        // Something in here has sat past the board's own warning threshold:
+        // `WallColumnAgeChip` says how many and from when, at the head's end. It
+        // stays on the folded strip too – a column that hides its overdue
         // incident behind a title is exactly what folding must not do.
-        // The dot alone only says "something", which is the one thing an
-        // operator can't act on — so it carries the names of the incidents that
-        // tripped the threshold, up to three, on hover.
-        const alarmOps = ops.filter((op) => ageLevel(op.statusChangedAt || op.dispatchTime) !== "normal")
-        const hasAlarm = alarmOps.length > 0
-        const alarmTitle = hasAlarm
-          ? t('board.columnAlarmTitle', {
-              count: alarmOps.length,
-              titles: alarmOps.slice(0, 3).map((op) => getIncidentLocationLabel(op)).join(', ')
-                + (alarmOps.length > 3 ? ` ${t('board.columnAlarmMore', { count: alarmOps.length - 3 })}` : ''),
-            })
-          : undefined
 
         // The column's accent, worn as a 2px rule instead of the old pastel
         // wash — the same treatment the command-post board got. `column.id` IS
         // a status (see kanban-utils), so the lookup cannot miss.
         const accent = STATUS_ACCENT[column.id as OperationStatus]
 
-        // Collapsed: thin vertical toggle bar showing the count, reclaiming width.
+        // Folded: the narrow rail with the count, the overdue mark and the short name.
         if (isCollapsed) {
           return (
-            <button
+            <WallFoldedColumn
               key={column.id}
-              type="button"
-              data-column={column.id}
-              onClick={() => {
+              columnId={column.id}
+              operations={ops}
+              onOpen={() => {
                 requestKeepInView(column.id)
                 collapsedColumns.toggle(column.id)
               }}
-              className={cn("relative flex w-12 flex-shrink-0 flex-col items-center gap-3 overflow-hidden rounded-lg border border-border bg-card pb-3 transition-colors hover:bg-foreground/5", WALL_STACK_FOLDED)}
-              title={t('board.collapsedColumnTitle', { title: tk(`columns.${column.id}`), count: ops.length })}
-            >
-              <span aria-hidden className={cn("h-0.5 w-full", WALL_STACK_FOLDED_ACCENT, accent?.dot)} />
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              <span className="relative inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground type-label tabular-nums">
-                {ops.length}
-                {hasAlarm && (
-                  <span
-                    title={alarmTitle}
-                    aria-label={alarmTitle}
-                    className="absolute -right-1 -top-1 h-2 w-2 cursor-help rounded-full bg-red-500 transition-[transform,box-shadow] hover:scale-150 hover:shadow-[0_0_0_3px_oklch(from_var(--color-red-500)_l_c_h/0.25)]"
-                  />
-                )}
-              </span>
-              <span className={cn(COLUMN_HEADER_CLASS, "[writing-mode:vertical-rl]", WALL_STACK_FOLDED_LABEL)}>
-                {tk(`columns.${column.id}`)}
-              </span>
-            </button>
+            />
           )
         }
 
@@ -315,29 +284,13 @@ function BoardDisplay() {
               aria-expanded
               className="mb-2 w-full cursor-pointer rounded-md px-1 py-2 text-left transition-colors hover:bg-foreground/5"
             >
-              <div className="flex items-center gap-2">
-                <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                {/* Wraps instead of truncating: in Sora, at 1280, «DISPONIERT / …»
-                    and «REKO ABGESC…» were all a wall could read of three headers.
-                    The overdue dot rides on the count badge, as on the folded
-                    strip, instead of taking 16px of the label's line. */}
-                <h2 className={cn("min-w-0 flex-1 leading-tight", WALL_TEXT_WRAP, COLUMN_HEADER_CLASS)}>{tk(`columns.${column.id}`)}</h2>
-                <span className="relative inline-flex flex-shrink-0 items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground type-label tabular-nums">
-                  {ops.length}
-                  {hasAlarm && (
-                    <span
-                      title={alarmTitle}
-                      aria-label={alarmTitle}
-                      className="absolute -right-1 -top-1 h-2 w-2 cursor-help rounded-full bg-red-500 transition-[transform,box-shadow] hover:scale-150 hover:shadow-[0_0_0_3px_oklch(from_var(--color-red-500)_l_c_h/0.25)]"
-                    />
-                  )}
-                </span>
-              </div>
+              <WallColumnHead name={tk(`columns.${column.id}`)} operations={ops} />
             </button>
             {/* space-y-2, one step tighter than the board's space-y-3: the
                 denser wall card (VISUAL-07 C). `data-wall-column-body` is what
-                the fit measures. */}
-            <div data-wall-column-body className={cn("flex-1 space-y-2 overflow-y-auto rounded-lg p-2", WALL_STACK_BODY)}>
+                the fit measures; what is below its end says so at its foot
+                (WallScrollBody). */}
+            <WallScrollBody data-wall-column-body className={cn("flex-1 space-y-2 overflow-y-auto rounded-lg p-2", WALL_STACK_BODY)}>
               {ops.map((op) => {
                 const auftrag = op.groupId ? groups.find((g) => g.id === op.groupId) : undefined
                 return (
@@ -359,7 +312,7 @@ function BoardDisplay() {
                   />
                 )
               })}
-            </div>
+            </WallScrollBody>
           </div>
         )
       })}

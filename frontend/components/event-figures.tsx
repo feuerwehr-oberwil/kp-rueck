@@ -27,6 +27,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 
 export type EventFiguresDensity = "panel" | "wall"
 
+/**
+ * The wall's type steps for the Reaktionszeiten table and the dispatch chart, read across a room
+ * (hill climb r6: at 14/12px the two read as one uniform texture). Principal = what a row says
+ * (priority, median) 16/20 600; supporting = what qualifies it (counts, P90, column heads) 14/18.
+ * The panel keeps its denser 14/12px steps.
+ */
+const WALL_TYPE = {
+  principal: "text-base leading-5 font-semibold",
+  supporting: "text-sm leading-4.5",
+} as const
+
 export interface EventFiguresViewProps {
   figures: ApiEventFigures
   /** Turns the oldest waiting «hoch» Meldung into a button that opens it. */
@@ -34,8 +45,15 @@ export interface EventFiguresViewProps {
   /** How the oldest waiting Meldung is named — the board's location label when
    *  the caller has the incident, else its title. */
   incidentLabel?: (incidentId: string) => string | undefined
-  /** `wall` = the status display's column: tighter, no definitions button. */
+  /** `wall` = the status display's column: tighter tiles, the table and chart a step larger
+   *  (`WALL_TYPE`), no definitions button. */
   density?: EventFiguresDensity
+  /** Which half to draw: `summary` = the count tiles + the oldest waiting «hoch»,
+   *  `reactions` = the Reaktionszeiten table + the dispatch chart, `all` = both. The
+   *  status wall folds the reactions on their own (owner pick U6 C); there the fold's
+   *  head already says «Reaktionszeiten · Median ab Eingang», so `reactions` leaves
+   *  out its own heading row. */
+  part?: "all" | "summary" | "reactions"
   className?: string
 }
 
@@ -51,6 +69,7 @@ export function EventFiguresView({
   onOpenIncident,
   incidentLabel,
   density = "panel",
+  part = "all",
   className,
 }: EventFiguresViewProps) {
   const t = useTranslations("events.figures")
@@ -69,6 +88,9 @@ export function EventFiguresView({
   const byPriority = new Map(figures.by_priority.map((p) => [p.priority, p]))
   const waitingOf = (p: Priority) => byPriority.get(p)?.waiting ?? 0
 
+  // Counted from Eingang (`created_at`), like the Reaktionszeiten under it – not
+  // the card's clock (by default time in its column), so the label names it:
+  // «seit Eingang 45′» beside a card reading 40′ is two clocks, not a mistake.
   const oldest = figures.oldest_waiting_high
   const oldestSince = oldest ? new Date(oldest.created_at) : null
   const oldestAge = oldestSince ? formatDuration(Date.now() - oldestSince.getTime()) : null
@@ -83,117 +105,134 @@ export function EventFiguresView({
     // `@container`: the same view sits in a 720px sheet, a 300–480px wall column and a
     // phone dialog — the count tiles go 2×2 by the room they get, not the window.
     <div className={cn("@container flex flex-col", wall ? "gap-3 p-3 xl:p-4" : "gap-4", className)} data-testid="event-figures">
-      {/* ── Counts ── */}
-      <dl className="grid grid-cols-2 gap-2 @xl:grid-cols-4">
-        <Count label={t("total")} value={figures.total} wall={wall} />
-        <Count
-          label={t("waiting")}
-          value={figures.waiting}
-          wall={wall}
-          detail={t("waitingByPriority", { high: waitingOf("high"), medium: waitingOf("medium"), low: waitingOf("low") })}
-        />
-        <Count label={t("inProgress")} value={figures.in_progress} wall={wall} />
-        <Count label={t("done")} value={figures.done} wall={wall} />
-      </dl>
+      {part !== "reactions" && (
+        <>
+          {/* ── Counts ── */}
+          <dl className="grid grid-cols-2 gap-2 @xl:grid-cols-4">
+            <Count label={t("total")} value={figures.total} wall={wall} />
+            <Count
+              label={t("waiting")}
+              value={figures.waiting}
+              wall={wall}
+              detail={t("waitingByPriority", { high: waitingOf("high"), medium: waitingOf("medium"), low: waitingOf("low") })}
+            />
+            <Count label={t("inProgress")} value={figures.in_progress} wall={wall} />
+            <Count label={t("done")} value={figures.done} wall={wall} />
+          </dl>
 
-      {/* ── Oldest waiting «hoch» ── the one number somebody should act on. */}
-      {oldest && oldestSince ? (
-        <OldestWaiting
-          label={t("oldestHigh")}
-          name={oldestName ?? ""}
-          age={t("waitingSince", { age: oldestAge ?? "" })}
-          overdue={ageLevel(oldestSince) !== "normal"}
-          openLabel={t("openIncident")}
-          onOpen={onOpenIncident ? () => onOpenIncident(oldest.incident_id) : undefined}
-        />
-      ) : (
-        figures.total > 0 && <p className="text-sm text-muted-foreground">{t("noWaitingHigh")}</p>
+          {/* ── Oldest waiting «hoch» ── the one number somebody should act on. */}
+          {oldest && oldestSince ? (
+            <OldestWaiting
+              label={t("oldestHigh")}
+              name={oldestName ?? ""}
+              age={t("waitingSince", { age: oldestAge ?? "" })}
+              overdue={ageLevel(oldestSince) !== "normal"}
+              openLabel={t("openIncident")}
+              onOpen={onOpenIncident ? () => onOpenIncident(oldest.incident_id) : undefined}
+              wall={wall}
+            />
+          ) : (
+            figures.total > 0 && <p className="text-sm text-muted-foreground">{t("noWaitingHigh")}</p>
+          )}
+        </>
       )}
 
-      {/* ── Reaktionszeiten: median, P90 underneath ── */}
-      <section aria-labelledby="figures-reaction-title" className="flex flex-col gap-1.5">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-          <h3 id="figures-reaction-title" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            {t("reactionTitle")}
-          </h3>
-          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-            {t("reactionHint")}
-            {/* How it is counted, one tap away instead of a paragraph under every view
-                (owner, 10.10.2026: «I don't want to see this much stuff»). */}
-            {!wall && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex size-6 cursor-pointer items-center justify-center rounded-sm hover:bg-muted hover:text-foreground"
-                    aria-label={t("definitionsButton")}
-                    title={t("definitionsButton")}
-                  >
-                    <Info className="size-3.5" aria-hidden />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] text-xs leading-relaxed text-muted-foreground">
-                  {t("definitions")}
-                </PopoverContent>
-              </Popover>
+      {part !== "summary" && (
+        <>
+          {/* ── Reaktionszeiten: median, P90 underneath ── */}
+          <section
+            aria-labelledby={part === "reactions" ? undefined : "figures-reaction-title"}
+            aria-label={part === "reactions" ? t("reactionTitle") : undefined}
+            className="flex flex-col gap-1.5"
+          >
+            {part !== "reactions" && (
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                <h3 id="figures-reaction-title" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {t("reactionTitle")}
+                </h3>
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  {t("reactionHint")}
+                  {/* How it is counted, one tap away instead of a paragraph under every view
+                      (owner, 10.10.2026: «I don't want to see this much stuff»). */}
+                  {!wall && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="inline-flex size-6 cursor-pointer items-center justify-center rounded-sm hover:bg-muted hover:text-foreground"
+                          aria-label={t("definitionsButton")}
+                          title={t("definitionsButton")}
+                        >
+                          <Info className="size-3.5" aria-hidden />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] text-xs leading-relaxed text-muted-foreground">
+                        {t("definitions")}
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                </span>
+              </div>
             )}
-          </span>
-        </div>
-        <table className="w-full table-fixed border-collapse text-sm tabular-nums">
-          <thead>
-            <tr className="text-left text-xs text-muted-foreground">
-              <th scope="col" className="w-[28%] py-1 pr-2 font-medium">{t("colPriority")}</th>
-              {STAGES.map((stage) => (
-                <th key={stage} scope="col" className="py-1 pr-2 font-medium">{stageLabel[stage]}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr
-                key={row.priority}
-                className={cn("border-t border-border align-top", row.priority === "all" && "font-medium")}
-              >
-                <th scope="row" className="py-1.5 pr-2 text-left font-medium">
-                  <span className="inline-flex items-center gap-1.5">
-                    {row.priority !== "all" && (
-                      <span className={cn("size-2 shrink-0 rounded-full", PRIORITY_DOT_CLASSES[row.priority])} aria-hidden />
-                    )}
-                    {priorityLabel[row.priority]}
-                  </span>
-                  <span className="block text-xs font-normal text-muted-foreground">
-                    {t("incidentCount", { count: row.total })}
-                  </span>
-                </th>
-                {STAGES.map((stage) => (
-                  <StageCell
-                    key={stage}
-                    stage={row[stage]}
-                    title={t("cellTitle", {
-                      stage: stageLabel[stage],
-                      priority: priorityLabel[row.priority],
-                      median: seconds(row[stage].median_seconds),
-                      p90: seconds(row[stage].p90_seconds),
-                      count: row[stage].count,
-                    })}
-                    p90Label={(value) => t("p90", { value })}
-                  />
+            <table className="w-full table-fixed border-collapse text-sm tabular-nums">
+              <thead>
+                <tr className={cn("text-left text-muted-foreground", wall ? WALL_TYPE.supporting : "text-xs")}>
+                  <th scope="col" className="w-[28%] py-1 pr-2 font-medium">{t("colPriority")}</th>
+                  {STAGES.map((stage) => (
+                    <th key={stage} scope="col" className="py-1 pr-2 font-medium">{stageLabel[stage]}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr
+                    key={row.priority}
+                    className={cn("border-t border-border align-top", row.priority === "all" && "font-medium")}
+                  >
+                    <th scope="row" className="py-1.5 pr-2 text-left font-medium">
+                      <span className={cn("inline-flex items-center gap-1.5", wall && WALL_TYPE.principal)}>
+                        {row.priority !== "all" && (
+                          <span className={cn("size-2 shrink-0 rounded-full", PRIORITY_DOT_CLASSES[row.priority])} aria-hidden />
+                        )}
+                        {priorityLabel[row.priority]}
+                      </span>
+                      <span className={cn("block font-normal text-muted-foreground", wall ? WALL_TYPE.supporting : "text-xs")}>
+                        {t("incidentCount", { count: row.total })}
+                      </span>
+                    </th>
+                    {STAGES.map((stage) => (
+                      <StageCell
+                        key={stage}
+                        stage={row[stage]}
+                        title={t("cellTitle", {
+                          stage: stageLabel[stage],
+                          priority: priorityLabel[row.priority],
+                          median: seconds(row[stage].median_seconds),
+                          p90: seconds(row[stage].p90_seconds),
+                          count: row[stage].count,
+                        })}
+                        p90Label={(value) => t("p90", { value })}
+                        wall={wall}
+                      />
+                    ))}
+                  </tr>
                 ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+              </tbody>
+            </table>
+          </section>
 
-      {/* ── One bar per priority: Eingang → Disponiert ── */}
-      <DispatchBars
-        rows={figures.by_priority}
-        title={t("chartTitle")}
-        legendMedian={t("legendMedian")}
-        legendP90={t("legendP90")}
-        priorityLabel={priorityLabel}
-        noneLabel={t("noneYet")}
-      />
+          {/* ── One bar per priority: Eingang → Disponiert ── */}
+          <DispatchBars
+            rows={figures.by_priority}
+            title={t("chartTitle")}
+            legendMedian={t("legendMedian")}
+            legendP90={t("legendP90")}
+            priorityLabel={priorityLabel}
+            noneLabel={t("noneYet")}
+            wall={wall}
+          />
+        </>
+      )}
 
     </div>
   )
@@ -230,11 +269,14 @@ export function EventFiguresPanel({
   )
 }
 
+/** One count tile. On the wall it steps back (10px padding, a 20px figure under
+ *  its muted 12px caption): four equal tiles must not out-shout the free
+ *  resources and the oldest waiting «hoch» beside them. */
 function Count({ label, value, detail, wall }: { label: string; value: number; detail?: string; wall: boolean }) {
   return (
-    <div className="flex min-w-0 flex-col rounded-md border border-border bg-muted/30 px-3 py-2">
+    <div className={cn("flex min-w-0 flex-col rounded-md border border-border bg-muted/30", wall ? "p-2.5" : "px-3 py-2")}>
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={cn("font-semibold tabular-nums leading-tight", wall ? "text-xl xl:text-2xl" : "text-2xl")}>{value}</dd>
+      <dd className={cn("font-semibold tabular-nums leading-tight", wall ? "text-lg xl:text-xl" : "text-2xl")}>{value}</dd>
       {detail && <dd className="break-words text-xs text-muted-foreground">{detail}</dd>}
     </div>
   )
@@ -247,6 +289,7 @@ function OldestWaiting({
   overdue,
   openLabel,
   onOpen,
+  wall,
 }: {
   label: string
   name: string
@@ -254,13 +297,15 @@ function OldestWaiting({
   overdue: boolean
   openLabel: string
   onOpen?: () => void
+  /** The wall reads the address and its wait at 18/600 – the one row to act on. */
+  wall: boolean
 }) {
   const body = (
     <>
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="flex flex-wrap items-baseline justify-between gap-x-3">
-        <span className="min-w-0 break-words font-medium">{name}</span>
-        <span className={cn("shrink-0 text-sm font-semibold tabular-nums", overdue ? "text-destructive" : "text-foreground")}>
+      <span className={cn("flex flex-wrap items-baseline justify-between gap-x-3", wall && "text-base xl:text-lg font-semibold")}>
+        <span className={cn("min-w-0 break-words", !wall && "font-medium")}>{name}</span>
+        <span className={cn("shrink-0 tabular-nums", !wall && "text-sm font-semibold", overdue ? "text-destructive" : "text-foreground")}>
           {age}
         </span>
       </span>
@@ -277,14 +322,27 @@ function OldestWaiting({
   )
 }
 
-function StageCell({ stage, title, p90Label }: { stage: ApiStageFigures; title: string; p90Label: (value: string) => string }) {
+function StageCell({
+  stage,
+  title,
+  p90Label,
+  wall,
+}: {
+  stage: ApiStageFigures
+  title: string
+  p90Label: (value: string) => string
+  /** The wall's steps (`WALL_TYPE`): median 16/20, P90 14/18. */
+  wall: boolean
+}) {
   if (stage.count === 0) {
-    return <td className="py-1.5 pr-2 text-muted-foreground" title={title}>–</td>
+    return <td className={cn("py-1.5 pr-2 text-muted-foreground", wall && WALL_TYPE.principal)} title={title}>–</td>
   }
   return (
     <td className="py-1.5 pr-2" title={title}>
-      <span className="block font-semibold">{seconds(stage.median_seconds)}</span>
-      <span className="block text-xs text-muted-foreground">{p90Label(seconds(stage.p90_seconds))}</span>
+      <span className={cn("block font-semibold", wall && WALL_TYPE.principal)}>{seconds(stage.median_seconds)}</span>
+      <span className={cn("block text-muted-foreground", wall ? WALL_TYPE.supporting : "text-xs")}>
+        {p90Label(seconds(stage.p90_seconds))}
+      </span>
     </td>
   )
 }
@@ -292,7 +350,8 @@ function StageCell({ stage, title, p90Label }: { stage: ApiStageFigures; title: 
 /**
  * Median (solid) and the stretch to P90 (faint) on one shared scale, so «hoch is
  * dispatched faster than niedrig» reads without a number. Neutral ink: the bars
- * carry magnitude, the label beside them carries the priority.
+ * carry magnitude, the label beside them carries the priority. On the wall the row
+ * reads at 16px with the median in ink and its P90 muted, like the faint bar it names.
  */
 function DispatchBars({
   rows,
@@ -301,6 +360,7 @@ function DispatchBars({
   legendP90,
   priorityLabel,
   noneLabel,
+  wall,
 }: {
   rows: ApiPriorityFigures[]
   title: string
@@ -308,6 +368,7 @@ function DispatchBars({
   legendP90: string
   priorityLabel: Record<Priority | "all", string>
   noneLabel: string
+  wall: boolean
 }) {
   const max = Math.max(1, ...rows.map((r) => r.dispatched.p90_seconds ?? 0))
   return (
@@ -325,9 +386,13 @@ function DispatchBars({
           const p90 = row.dispatched.p90_seconds
           const label = priorityLabel[row.priority]
           return (
-            <li key={row.priority} className="grid grid-cols-[5.5rem_1fr_auto] items-center gap-2 text-sm">
-              <span className="truncate" title={label}>{label}</span>
-              <span className="relative h-3 overflow-hidden rounded-sm bg-foreground/[0.06]" aria-hidden>
+            <li
+              key={row.priority}
+              className={cn("grid grid-cols-[5.5rem_1fr_auto] items-center gap-2", wall ? "text-base leading-5" : "text-sm")}
+            >
+              {/* Wall text wraps, it doesn't truncate (CLAUDE.md). */}
+              <span className={wall ? "min-w-0 break-words" : "truncate"} title={label}>{label}</span>
+              <span className={cn("relative overflow-hidden rounded-sm bg-foreground/[0.06]", wall ? "h-4" : "h-3")} aria-hidden>
                 {p90 !== null && (
                   <span className="absolute inset-y-0 left-0 rounded-sm bg-foreground/25" style={{ width: `${(p90 / max) * 100}%` }} />
                 )}
@@ -340,7 +405,15 @@ function DispatchBars({
                 )}
               </span>
               <span className="min-w-[4.5rem] text-right tabular-nums text-muted-foreground">
-                {median === null ? noneLabel : `${seconds(median)} · ${seconds(p90)}`}
+                {median === null ? (
+                  noneLabel
+                ) : wall ? (
+                  <>
+                    <span className="font-semibold text-foreground">{seconds(median)}</span> · {seconds(p90)}
+                  </>
+                ) : (
+                  `${seconds(median)} · ${seconds(p90)}`
+                )}
               </span>
             </li>
           )

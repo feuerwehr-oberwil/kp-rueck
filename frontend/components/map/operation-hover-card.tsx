@@ -3,9 +3,9 @@
 /**
  * OperationHoverCard — rich hover content for map markers (incident markers and
  * Auftrag route stops). Renders inside a map hover bubble (`MapTooltip`, or the
- * incident label on `/map`), which is always white regardless of theme – so
- * everything is inline styles with fixed colours: a fixed width for predictable
- * wrapping, fixed grays instead of theme variables.
+ * incident label on `/map`), which wears the app's card surface in either theme –
+ * so the colours are the theme's tokens (`var(--muted-foreground)`, `--border`),
+ * and a fixed width keeps the wrapping predictable.
  */
 
 import type { CSSProperties } from "react"
@@ -26,31 +26,25 @@ const CARD: CSSProperties = {
   lineHeight: 1.35,
 }
 const TITLE: CSSProperties = { margin: 0, fontSize: 12, fontWeight: 600 }
-const META: CSSProperties = { margin: "2px 0 0", fontSize: 11, color: "#6b7280" }
+const META: CSSProperties = { margin: "2px 0 0", fontSize: 11, color: "var(--muted-foreground)" }
 const ROW: CSSProperties = { margin: "2px 0 0", fontSize: 11 }
-const MUTED: CSSProperties = { color: "#6b7280" }
+const MUTED: CSSProperties = { color: "var(--muted-foreground)" }
 /** The Einsatz number before the address — the card's quiet mono, inline-styled like the rest of this card. */
-export const MAP_INCIDENT_NUMBER: CSSProperties = { fontFamily: "var(--font-mono)", fontWeight: 500, color: "#6b7280", marginRight: 4 }
+export const MAP_INCIDENT_NUMBER: CSSProperties = { fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 500, color: "var(--muted-foreground)", marginRight: 4 }
 const ROUTE_BLOCK: CSSProperties = {
   margin: "5px 0 0",
   paddingTop: 4,
-  borderTop: "1px solid #e5e7eb",
+  borderTop: "1px solid var(--border)",
 }
-const ROUTE_TITLE: CSSProperties = { margin: 0, fontSize: 11, fontWeight: 600, color: "#374151" }
-const PICKUP: CSSProperties = {
-  margin: "3px 0 0",
-  fontSize: 11,
-  fontWeight: 600,
-  color: "#92400e",
-  background: "#fef3c7",
-  borderRadius: 4,
-  padding: "1px 5px",
-  display: "inline-block",
-}
+const ROUTE_TITLE: CSSProperties = { margin: 0, fontSize: 11, fontWeight: 600 }
+/** PickupBadge's amber, as classes: the bubble is in the app's tree, so they reach it. */
+const PICKUP =
+  "mt-[3px] inline-block rounded-sm bg-amber-100 px-[5px] py-px text-2xs font-semibold text-amber-800 " +
+  "dark:bg-amber-900/40 dark:text-amber-300"
 const NOTES: CSSProperties = {
   margin: "3px 0 0",
   fontSize: 11,
-  color: "#6b7280",
+  color: "var(--muted-foreground)",
   display: "-webkit-box",
   WebkitLineClamp: 2,
   WebkitBoxOrient: "vertical",
@@ -108,10 +102,10 @@ export function OperationHoverCard({
       </p>
       {/* Abholung (decision 24). The pickup is a driving job and whoever assigns
           it is looking at where things are, so the map carries the chip too.
-          Inline amber rather than <PickupBadge>: this tooltip lives outside the
-          app's styled tree, where Tailwind classes do not reach. */}
+          PickupBadge's colours rather than the badge itself: here it is a read-only
+          line, not a control. */}
       {operation.pickupNeeded && (
-        <p style={PICKUP}>
+        <p className={PICKUP}>
           {tFeld("pickup.badge")}
           {formatPickupSince(operation.pickupRequestedAt)
             ? ` · ${tFeld("pickup.since", { time: formatPickupSince(operation.pickupRequestedAt) })}`

@@ -16,6 +16,7 @@ import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { columns } from "@/lib/kanban-utils"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { formatClockTime } from "@/lib/incident-time"
+import { formatDurationHours } from "@/lib/duration"
 import { telHref } from "@/lib/phone"
 import { rekoPhotoUrl } from "@/lib/reko-photos"
 import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
@@ -432,7 +433,7 @@ export function IncidentDetailModal({
                       {rekoSummary.estimatedDuration !== null && (
                         <span>
                           <span className="text-muted-foreground">{t('board.estimatedDuration')}</span>{" "}
-                          {t('board.durationHours', { hours: rekoSummary.estimatedDuration })}
+                          {formatDurationHours(rekoSummary.estimatedDuration)}
                         </span>
                       )}
                     </div>

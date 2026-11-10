@@ -68,7 +68,7 @@ describe("EventFiguresView", () => {
       <EventFiguresView figures={figures()} incidentLabel={() => "Hauptstrasse 5"} onOpenIncident={onOpen} />,
     )
     const button = screen.getByRole("button", { name: /Hauptstrasse 5/ })
-    expect(within(button).getByText("wartet seit 48'")).toBeTruthy()
+    expect(within(button).getByText("seit Eingang 48'")).toBeTruthy()
     fireEvent.click(button)
     expect(onOpen).toHaveBeenCalledWith("inc-1")
   })

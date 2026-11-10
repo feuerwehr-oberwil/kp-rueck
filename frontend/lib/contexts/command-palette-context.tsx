@@ -3,6 +3,24 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import type { DispatchPlan, DispatchResource, DispatchVocabulary } from '@/lib/command-dispatch'
 
+/**
+ * What the commands can do to the selected Einsatz beyond the shortcut keys – the
+ * entries of the card's right-click menu, so none of them needs a mouse.
+ */
+export const INCIDENT_COMMANDS = [
+  'assignCrew',
+  'assignVehicle',
+  'assignMaterial',
+  'assignReko',
+  'transfer',
+  'distribute',
+  'toggleAmWarten',
+  'toggleNachbarhilfe',
+  'complete',
+  'print',
+] as const
+export type IncidentCommand = (typeof INCIDENT_COMMANDS)[number]
+
 export interface CommandPaletteHandlers {
   // Actions
   onNewOperation?: () => void
@@ -49,6 +67,12 @@ export interface CommandPaletteHandlers {
   onSelectNextIncident?: () => void
   // Whether an incident is currently selected
   hasSelectedIncident?: boolean
+  /** The right-click actions this user may run on the selected Einsatz (editor, printer). */
+  incidentCommands?: readonly IncidentCommand[]
+  onIncidentCommand?: (command: IncidentCommand) => void
+  // Board views that had no command: the Appell and the Bereitschaft checklist
+  onOpenAttendance?: () => void
+  onOpenChecklist?: () => void
   // Map view (Lagekarte) actions — only registered on the map page
   onToggleMapLabels?: () => void
   onToggleMapLines?: () => void

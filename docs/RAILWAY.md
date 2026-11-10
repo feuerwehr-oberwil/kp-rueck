@@ -236,6 +236,7 @@ almost always one of these refusing a weak or missing value, and the message nam
 | `CORS_ORIGINS` | `https://<frontend>` | The frontend's exact origin |
 | `PORT` | `8000` | Railway sets this automatically |
 | `DEPLOYMENT_ROLE` | `production` (default) or `staging` | What this instance may do to the outside world. Leave it unset on the real deployment; see §5.1 |
+| `STANDBY_SYNC_TOKEN` | 32-byte hex | Only with a standby box ([`STANDBY.md`](STANDBY.md)): its key to `POST /api/standby/sync`, the same value on the box. Unset = the board accepts no standby writes |
 
 Optional, per integration: `DIVERA_ACCESS_KEY`, `TRACCAR_*`, `PRINT_AGENT_TOKEN`. See
 [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) and [`PRINT_AGENT.md`](PRINT_AGENT.md).

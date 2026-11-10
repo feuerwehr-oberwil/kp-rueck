@@ -31,7 +31,8 @@ SECRET = "test_secret"  # a test fixture value, not a credential (S105 is off fo
 # Public write routes that carry NO rate limit today. This is a BACKLOG, not an exemption
 # list: every entry is a real gap found on 2026-08-11 when the coverage test below was first
 # written, and the audit finding it came from ("decorated on every public route") turned out
-# to be too optimistic — these eleven were never decorated at all.
+# to be too optimistic — eleven were never decorated at all (diag/client-error has since
+# been capped: RateLimits.CLIENT_ERROR).
 #
 # They are recorded rather than capped on the spot because each needs a number chosen against
 # how it is really used, and a wrong number here breaks an incident rather than an abuser:
@@ -43,13 +44,11 @@ SECRET = "test_secret"  # a test fixture value, not a credential (S105 is off fo
 #     an IP-keyed limit punishes the crew, not the attacker.
 #   * reko submit/update/arrived/photos — token-gated, and the surface autosaves.
 #   * auth/logout — cheap, and refusing a logout is worse than serving it.
-#   * diag/client-error — genuinely open; the obvious candidate to cap first.
 #
 # Removing an entry (with a limit and a test) is the point. Adding one needs the same
 # argument in writing.
 KNOWN_UNLIMITED = {
     "app.api.auth.logout",
-    "app.api.diag.report_client_error",
     "app.api.personnel_checkin.check_in",
     "app.api.personnel_checkin.check_out",
     "app.api.print.claim_print_job",

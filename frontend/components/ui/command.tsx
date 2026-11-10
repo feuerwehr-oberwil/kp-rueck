@@ -23,7 +23,8 @@ function Command({
     <CommandPrimitive
       data-slot="command"
       className={cn(
-        'bg-popover text-popover-foreground flex h-full w-full flex-col overflow-hidden rounded-md',
+        // `relative`: the sr-only key names inside are absolute and must stay inside this box.
+        'bg-popover text-popover-foreground relative flex h-full w-full flex-col overflow-hidden rounded-md',
         className,
       )}
       {...props}
