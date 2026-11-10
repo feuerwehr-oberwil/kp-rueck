@@ -9,6 +9,8 @@ import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indi
 import { Button } from '@/components/ui/button';
 import { SettingCard } from '@/components/settings/setting-row';
 import { GripVertical, Save } from 'lucide-react';
+import { ReorderMenu } from '@/components/ui/reorder-menu';
+import { moveInList, type MoveTo } from '@/lib/move-in-list';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 
@@ -30,14 +32,20 @@ interface CategorySortOrderProps {
 function SortableItem({
   category,
   index,
+  count,
   isDragging,
   readOnly = false,
+  onMove,
 }: {
   category: Category;
   index: number;
+  count: number;
   isDragging: boolean;
   readOnly?: boolean;
+  /** Reorder without dragging (the ⋮ menu). */
+  onMove: (to: MoveTo) => void;
 }) {
+  const tReorder = useTranslations('common.reorder');
   const t = useTranslations('settings');
   const ref = useRef<HTMLDivElement>(null);
   const dragHandleRef = useRef<HTMLDivElement>(null);
@@ -97,6 +105,14 @@ function SortableItem({
         <div className="text-sm text-muted-foreground">{t('common.entriesCount', { count: category.count })}</div>
       </div>
       <div className="text-sm text-muted-foreground">#{category.sort_order}</div>
+      {!readOnly && (
+        <ReorderMenu
+          label={tReorder('menuFor', { name: category.name || t('categorySort.noCategory') })}
+          index={index}
+          count={count}
+          onMove={onMove}
+        />
+      )}
       {closestEdge && <DropIndicator edge={closestEdge} />}
     </div>
   );
@@ -219,7 +235,15 @@ export function CategorySortOrder({ title, description, categories: initialCateg
             key={category.name}
             category={category}
             index={index}
+            count={categories.length}
             isDragging={draggingIndex === index}
+            readOnly={readOnly}
+            onMove={(to) => {
+              const next = moveInList(categories, index, to);
+              if (!next) return;
+              setCategories(next.map((item, position) => ({ ...item, sort_order: position + 1 })));
+              setHasChanges(true);
+            }}
           />
         ))}
       </div>

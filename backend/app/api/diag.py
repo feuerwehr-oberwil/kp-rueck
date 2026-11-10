@@ -37,6 +37,7 @@ from ..auth.dependencies import CurrentAdmin, CurrentUser
 from ..config import settings
 from ..database import get_db
 from ..logging_config import get_logger
+from ..middleware.rate_limit import RateLimits, limiter
 from ..models import TelemetryOutbox
 from ..telemetry import consent as consent_mod
 from ..telemetry import outbox, recent, scrub
@@ -78,6 +79,7 @@ async def _queued_last_hour(db: AsyncSession) -> int:
 
 
 @router.post("/client-error", status_code=204)
+@limiter.limit(RateLimits.CLIENT_ERROR)
 async def report_client_error(payload: ClientError, request: Request, db: AsyncSession = Depends(get_db)) -> None:
     """Log a client-reported error at WARNING (visible without DEBUG). Never raises."""
     ua = request.headers.get("user-agent", "?")[:300]
@@ -88,8 +90,10 @@ async def report_client_error(payload: ClientError, request: Request, db: AsyncS
             payload.build,
             payload.path,
             ua,
-            payload.message,
-            f"\n{payload.stack}" if payload.stack else "",
+            # One physical line per report: a line break would let a caller forge log lines,
+            # and a stack of 8000 newlines would be 8000 of them. Frames are joined with « | ».
+            " ".join(payload.message.splitlines()),
+            " :: " + " | ".join(line.strip() for line in payload.stack.splitlines()) if payload.stack else "",
         )
     except Exception:  # noqa: S110 — a diagnostics sink must never raise
         pass

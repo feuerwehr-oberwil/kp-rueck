@@ -675,7 +675,9 @@ material indexed by what you can see.
 5. **Your map opens where the settings say your station is.** The seed writes a placeholder
    (`Feuerwehr Musterstadt`, 47.5596 / 7.5886), so an unset board opens on somebody else's canton
    and biases every address search there. Overwrite `firestation_name` and the two coordinates
-   with yours (§3).
+   with yours (§3). The board says so itself: while the placeholder stands (or roster and fleet are
+   empty), an admin sees a «Station einrichten» strip with an address search for the Magazin and
+   a link to the Excel import.
 6. **All four images move together.** Don't pin them individually; one `KP_RUECK_TAG` for the set.
 7. **Offline tiles are big, slow to fetch, and default to the wrong region.** Set `TILES_BOUNDS`
    for your area (§4) – on the `just tiles-download` command line, not in `.env`; that script

@@ -7,8 +7,9 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
 } from "@/components/ui/context-menu"
-import { Users, Package, Truck, Binoculars, PenLine, Map, Building2, Printer, Timer, CheckCircle2, ArrowRightLeft, Waypoints, Route, Trash2 } from 'lucide-react'
+import { Users, Package, Truck, Binoculars, PenLine, Map, Building2, Printer, Timer, CheckCircle2, ArrowRightLeft, Waypoints, Route, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
 import { type Operation } from "@/lib/contexts/operations-context"
+import type { MoveTo } from "@/lib/move-in-list"
 import { usePrintAssignmentSlip } from "@/lib/hooks/use-print-assignment-slip"
 
 interface CardContextMenuProps {
@@ -25,6 +26,7 @@ interface CardContextMenuProps {
   onToggleAmWarten?: () => void
   onRequestComplete?: () => void
   onRequestDelete?: () => void
+  onMoveInColumn?: (to: MoveTo) => void
   printerEnabled?: boolean
 }
 
@@ -48,9 +50,11 @@ export function CardContextMenu({
   onToggleAmWarten,
   onRequestComplete,
   onRequestDelete,
+  onMoveInColumn,
   printerEnabled,
 }: CardContextMenuProps) {
   const t = useTranslations('kanban')
+  const tReorder = useTranslations('common.reorder')
   const { print, printing: isPrinting } = usePrintAssignmentSlip()
   const handlePrint = () => void print(operation.id)
 
@@ -149,6 +153,22 @@ export function CardContextMenu({
           or delete one that was never an incident at all. Two intentions, two
           rows: «abgeschlossen» is a statement about work that happened, and a
           typo that gets closed sits in the Einsatzhistorie for ever. */}
+      {/* Order inside the column, for keyboard and touch. Both rows always show:
+          the memoised card does not know its place, the board ignores a move at the edge. */}
+      {onMoveInColumn && (
+        <>
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={() => onMoveInColumn('up')}>
+            <ArrowUp className="mr-2 h-4 w-4" />
+            {tReorder('moveUp')}
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => onMoveInColumn('down')}>
+            <ArrowDown className="mr-2 h-4 w-4" />
+            {tReorder('moveDown')}
+          </ContextMenuItem>
+        </>
+      )}
+
       {((onRequestComplete && operation.status !== "complete") || onRequestDelete) && <ContextMenuSeparator />}
       {onRequestComplete && operation.status !== "complete" && (
         <ContextMenuItem onClick={() => onRequestComplete()}>

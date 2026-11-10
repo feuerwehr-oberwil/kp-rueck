@@ -84,7 +84,7 @@ describe('apiClient — the method names callers (and their mocks) rely on', () 
     'createPersonnel', 'createRekoReportAsEditor', 'createUser', 'createVehicle', 'deleteAuftragTemplate',
     'deleteEvent', 'deleteFeldPhoto', 'deleteIncident', 'deleteIncidentGroup', 'deleteMaterialGroup',
     'deleteMaterialResource', 'deletePersonnel', 'deletePrintJob', 'deleteRapportPhoto', 'deleteRekoPhoto',
-    'deleteRekoPhotoAsEditor', 'deleteReportLogo', 'deleteUser', 'deleteVehicle', 'dismissDuplicate',
+    'deleteRekoPhotoAsEditor', 'deleteReportLogo', 'deleteUser', 'deleteVehicle', 'detachEmergency', 'dismissDuplicate',
     'downloadImportTemplate', 'executeDiveraSync', 'executeExcelImport', 'exportAllData', 'exportEventAudit',
     'exportEventEinsaetze', 'exportEventLageblatt', 'exportEventReport', 'feldPhotoUrl', 'feldReportArrived',
     'feldReportComplete', 'feldReportPickup', 'feldSendMessage', 'generateAlarmLink', 'generateCheckInLink',
@@ -213,7 +213,9 @@ const rows: Row[] = [
   ['mergeIncidentInto', () => apiClient.mergeIncidentInto('i2', 'i1'), 'POST', '/api/incidents/i2/merge', { target_id: 'i1' }],
   ['unmergeIncident', () => apiClient.unmergeIncident('i2'), 'POST', '/api/incidents/i2/unmerge'],
   ['dismissDuplicate', () => apiClient.dismissDuplicate('i2'), 'POST', '/api/incidents/i2/not-duplicate'],
+  ['transferAssignments(undo)', () => apiClient.transferAssignments('i2', 'i1', ['a1']), 'POST', '/api/incidents/i2/transfer', { target_incident_id: 'i1', assignment_ids: ['a1'] }],
   ['attachEmergencyToEvent(merge)', () => apiClient.attachEmergencyToEvent('d1', 'e1', 'i1'), 'POST', '/api/divera/emergencies/d1/attach', { event_id: 'e1', merge_into_incident_id: 'i1' }],
+  ['detachEmergency', () => apiClient.detachEmergency('d1', 'i1'), 'POST', '/api/divera/emergencies/d1/detach', { incident_id: 'i1' }],
   ['setIncidentFieldReport', () => apiClient.setIncidentFieldReport('i1', { kind: 'arrived' } as never), 'POST', '/api/incidents/i1/field-report', { kind: 'arrived' }],
   // Print / users / setup
   ['queueBoardPrint', () => apiClient.queueBoardPrint('e1', { include_incidents: true }), 'POST', '/api/print/board/', { event_id: 'e1', include_incidents: true }],

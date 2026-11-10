@@ -20,7 +20,9 @@ vi.mock('@/lib/api-client', () => ({
   },
 }))
 vi.mock('@/lib/contexts/event-context', () => ({ useEvent: () => ({ selectedEvent: mocks.selectedEvent }) }))
-vi.mock('@/lib/websocket-client', () => ({ wsClient: { on: () => () => {} } }))
+vi.mock('@/lib/websocket-client', () => ({
+  wsClient: { on: () => () => {}, getStatus: () => 'connected', onStatusChange: () => () => {} },
+}))
 
 import { StandbyBand } from '@/components/standby-band'
 import { AuthContext, type AuthContextType, useAuth } from '@/lib/contexts/auth-context'

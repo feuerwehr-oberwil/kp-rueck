@@ -38,15 +38,15 @@ export interface ApiExcelImportDeletions {
   cascade_personnel_identities?: number
 }
 
+/** One spreadsheet row of the import preview, keyed by column: a cell is text, a number or empty. */
+export type ApiExcelPreviewRow = Record<string, string | number | boolean | null>
+
 export interface ApiExcelImportPreview {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  personnel_preview: Array<Record<string, any>>
+  personnel_preview: ApiExcelPreviewRow[]
   personnel_total: number
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  vehicles_preview: Array<Record<string, any>>
+  vehicles_preview: ApiExcelPreviewRow[]
   vehicles_total: number
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  materials_preview: Array<Record<string, any>>
+  materials_preview: ApiExcelPreviewRow[]
   materials_total: number
   mode: ExcelImportMode
   deletions: ApiExcelImportDeletions

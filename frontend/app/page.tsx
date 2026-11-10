@@ -94,6 +94,7 @@ import { useBoardDialogActions } from "@/components/board/use-board-dialog-actio
 import { useBoardDispatch } from "@/components/board/use-board-dispatch"
 import { useResourceBindings } from "@/components/board/use-resource-bindings"
 import { useBoardChecklist } from "@/components/board/use-board-checklist"
+import { StationSetupStrip } from "@/components/station-setup-strip"
 import { usePrintAssignmentSlip } from "@/lib/hooks/use-print-assignment-slip"
 import type { IncidentCommand } from "@/lib/contexts/command-palette-context"
 import { useBoardCommandHandlers, type BoardCommands } from "@/components/board/use-board-command-handlers"
@@ -688,6 +689,7 @@ export default function FireStationDashboard() {
     handleColumnSort,
     moveOperationRight,
     moveOperationLeft,
+    moveInColumn,
     toggleVehicleAssignment,
     setOperationPriority,
     toggleZuFuss,
@@ -1454,6 +1456,8 @@ export default function FireStationDashboard() {
             </div>
           )}
         </header>
+        {/* What a freshly claimed station still has to set up – admin only, gone once done. */}
+        <StationSetupStrip className="mx-4 mt-3 hidden shrink-0 md:block md:mx-6" />
 
         {/* Mobile View */}
         {isMobile ? (
@@ -1588,6 +1592,7 @@ export default function FireStationDashboard() {
                       onToggleZuFuss={handleToggleZuFuss}
                       onRequestComplete={isEditor ? requestCompletion : undefined}
                       onRequestDelete={isEditor ? handleRequestDelete : undefined}
+                      onMoveInColumn={isEditor ? moveInColumn : undefined}
                       onTransfer={isEditor ? dialogs.openTransfer : undefined}
                       onDistributeToAuftrag={isEditor ? dialogs.openAuftragPicker : undefined}
                       cardView={cardView}

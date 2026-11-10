@@ -180,12 +180,12 @@ describe("AuftraegeSheet — derived checklist + progress", () => {
     expect(screen.getByText("Keller Ringstr. 8")).toBeInTheDocument()
     expect(screen.getByText("Ast Bahnhofstr. 2")).toBeInTheDocument()
 
-    // Kanban-column mirror labels per stop status (each appears exactly once):
-    // complete is distinct and terminal. The mirror columns now use the board's
-    // own words, so active reads «Im Einsatz» and incoming «Eingegangen».
-    expect(screen.getByText("Abgeschlossen")).toBeInTheDocument()
-    expect(screen.getByText("Im Einsatz")).toBeInTheDocument()
-    expect(screen.getByText("Eingegangen")).toBeInTheDocument()
+    // Kanban-column mirror per stop status, in the board's own words: each stop's
+    // status button names its status (every label is laid out invisibly inside it
+    // for the width, so the visible text is not unique – the button's name is).
+    expect(screen.getByRole("button", { name: "Abgeschlossen" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "Status: Im Einsatz – ändern" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Status: Eingegangen – ändern" })).toBeInTheDocument()
   })
 })
 

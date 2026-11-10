@@ -22,7 +22,7 @@ Vue principale au chargement de l’application. Affiche toutes les intervention
 **« Indicateurs » dans le menu utilisateur (`Z`).** En haut à droite, dans le menu de la personne, aussi via `Cmd/Ctrl+K` et, sur le téléphone, sous « Plus » – plus dans la barre du bas. Une fenêtre au-dessus de la page avec la situation en chiffres – annonces, en attente (par priorité), en cours, terminées – et les temps de réaction depuis la réception jusqu’à **Engagé**, **Sur place** et **Clôture**, en médiane et P90 par priorité, ainsi que la plus ancienne annonce « haute » encore en attente (un clic l’ouvre). Les mêmes valeurs que le tableau « Reaktionszeiten » du rapport d’intervention (PDF) ; le mode de calcul se trouve derrière le ⓘ. Pour un exercice, la vue s’appelle **Évaluation de l’exercice** ; pour un événement passé, elle se trouve sous **Événements → ⋯ → Indicateurs**, et au mur dans l’affichage d’état (`/display/status`), au-dessus des interventions.
 
 ### Vue carte (`G M`)
-Vue d’ensemble géographique de tous les lieux d’intervention. Des marqueurs colorés indiquent la priorité (vert/jaune/rouge).
+Vue d’ensemble géographique de tous les lieux d’intervention. Les marqueurs indiquent la priorité (gris/jaune/rouge).
 
 **Comportement au clic :**
 - **Marqueur / carte de la liste (simple clic)** : sélectionne l’intervention et zoome sur le marqueur
@@ -65,9 +65,9 @@ Configuration du système : utilisateurs, imprimante, style de carte et plus enc
 ### Aide (`G H`)
 Cette page de documentation.
 
-**Réel vs exercice :** un événement peut être marqué « exercice ». Le badge « Exercice » apparaît et les données sont tenues séparément. Les événements réels viennent de Divera.
+**Réel vs exercice :** un événement peut être marqué « exercice ». Le badge « Exercice » apparaît et les données sont tenues séparément. Les interventions réelles arrivent par la réception des alarmes (Divera, FireHub, webhook, formulaire d’annonce) ou sont saisies à la main.
 
-**Export d’audit :** Réglages → Import/export → choisir un événement → export Excel. Contient toutes les interventions, les attributions (historique compris), les changements de statut et les rapports de reconnaissance. Pour la facturation et le débriefing. Le journal d’audit est nettoyé automatiquement en arrière-plan (conservation par défaut 90 jours, 7 jours en mode démo), afin que la table ne grossisse pas indéfiniment.
+**Export d’audit :** Réglages → Import/export → choisir un événement → export Excel. Contient toutes les interventions, les attributions (historique compris), les changements de statut et les rapports de reconnaissance. Pour la facturation et le débriefing. Le journal d’audit est conservé en entier. Il n’est nettoyé que si la personne qui gère le serveur a fixé une durée de conservation (`AUDIT_RETENTION_DAYS`).
 
 **Impression et export :** barre du bas → « Imprimer » ou touche `D` ouvre **un seul** panneau à trois colonnes – tout ce qui part sur papier ou dans un fichier au même endroit :
 - **Impression thermique** – instantané du tableau sur l’[imprimante thermique](#imprimante-thermique)
@@ -174,10 +174,9 @@ Chaque carte montre : numéro (en petit devant l’adresse), adresse, genre, res
 
 Ils montrent depuis combien de temps une intervention est ouverte :
 
-- **Vert** = nouvelle (< 15 min)
-- **Jaune** = en cours (15–60 min)
-- **Orange** = ouverte depuis un moment (1–2 h)
-- **Rouge** = ouverte depuis longtemps (> 2 h) – demande de l’attention
+- **Gris** = moins de 60 minutes
+- **Jaune** = dès 60 minutes – ouverte depuis un moment
+- **Rouge** = dès 120 minutes – demande de l’attention
 
 ### Entraide
 
@@ -308,7 +307,12 @@ comme carte dans « Reçu ».
   une recherche, « Plus anciennes » est déplié. Tant que les Alarmes entrantes sont ouvertes,
   une nouvelle alarme s’annonce par un message et un son.
 
-**Rattacher** demande à quel événement – celui que montre cette fenêtre est présélectionné. Les
+**Rattacher** sur une ligne rattache l’alarme sans question à l’événement que montre cette
+fenêtre ; le message nomme l’événement et le numéro d’intervention et propose **Annuler** –
+l’alarme revient alors dans les alarmes entrantes, tant que personne n’a travaillé sur la nouvelle
+carte. La question reste posée là où il y a quelque chose à décider : doublon possible, alarme
+réelle vers un exercice, **Tout rattacher** et **Autre événement …** – l’événement de cette fenêtre
+y est présélectionné. Les
 alarmes d’exercice ne vont qu’à un exercice. Une alarme réelle peut aller à un exercice, mais
 seulement après l’avertissement de ce que cela implique : l’alarme sortante est seulement
 simulée, et les seuils de retard sont 50 % plus longs. Pour **une seule** alarme, la fenêtre
@@ -535,7 +539,7 @@ Il n’existe pas d’« archive » pour une intervention isolée – c’est l�
 
 **Déplacer :** faire glisser la carte dans une nouvelle colonne, ou utiliser les touches `>` / `<`.
 
-**Ordre à l’intérieur d’une colonne :** les cartes se trient par glisser-déposer à l’intérieur d’une même colonne. L’ordre manuel est conservé et s’affiche à l’identique après un rechargement ou sur d’autres appareils (il ne revient plus à l’ordre initial).
+**Ordre à l’intérieur d’une colonne :** les cartes se trient par glisser-déposer à l’intérieur d’une même colonne – ou sans glisser, par **Monter** / **Descendre** dans le menu contextuel de la carte. L’ordre manuel est conservé et s’affiche à l’identique après un rechargement ou sur d’autres appareils (il ne revient plus à l’ordre initial).
 
 **Sauter des colonnes :** autorisé. Toutes les interventions n’ont pas besoin d’une reconnaissance.
 
@@ -586,7 +590,7 @@ Il en découle :
 
 ### Planifier et optimiser l’itinéraire
 
-- **Éditeur d’itinéraire** (dans la barre des missions) : grande carte avec les étapes numérotées et la ligne d’itinéraire, à côté de la liste ordonnée des étapes. Réordonner les étapes par glisser-déposer, ajouter de nouvelles étapes par un clic sur la carte.
+- **Éditeur d’itinéraire** (dans la barre des missions) : grande carte avec les étapes numérotées et la ligne d’itinéraire, à côté de la liste ordonnée des étapes. Réordonner les étapes par glisser-déposer ou par le **⋮** de l’étape (**Monter**, **Descendre**, **Placer au début** – de même dans la barre des missions). Le **statut d’une étape** est écrit en toutes lettres sur un bouton ; un clic ouvre le choix de tous les statuts et ne change rien de lui-même. Enfin, ajouter de nouvelles étapes par un clic sur la carte.
 - **Planification d’itinéraire** sur `/map` : la même planification sur la grande carte plein écran. Le panneau de droite présente l’ordre sous forme de **frise** : en haut le départ avec sa provenance (« Départ · Caserne » – l’emplacement défini dans les réglages ou, s’il n’y en a pas, « position de secours » ; après une optimisation, le départ réellement utilisé, p. ex. le GPS du véhicule avec l’heure du dernier signal), en dessous les étapes avec **les mêmes numéros que leurs repères sur la carte**, et pour finir « Ajouter une étape ». Les adresses longues passent à la ligne au lieu d’être coupées.
 - **Largeur du panneau :** les barres latérales s’élargissent ou se rétrécissent en tirant sur leur bord – celle de la planification aussi. Un double-clic sur le bord rétablit la largeur par défaut ; la largeur est mémorisée par appareil.
 - **Optimiser l’ordre** : propose, par heuristique du plus proche voisin et **à vol d’oiseau**, un ordre court à partir d’un point de départ (**caserne**, **GPS du véhicule** ou **première étape**) – le menu indique d’abord, pour chaque point de départ, d’où il vient et de quand il date. La proposition s’applique aussitôt ; **Annuler** dans le message rétablit l’ancien ordre tant que personne n’a modifié la mission entre-temps. Il faut au moins deux étapes avec coordonnées. Une aide à la planification, pas un itinéraire routier.
@@ -623,7 +627,7 @@ Seules les ressources disponibles (point vert) peuvent être attribuées. Un **a
 
 **Annuler après une libération.** Quand une personne, un véhicule, du matériel, une étape de mission ou une ressource d’itinéraire est libéré, « … libéré · Annuler » apparaît. Annuler la réattribue par le chemin normal (avec les mêmes questions) ; si quelqu’un l’a placée ailleurs entre-temps, elle y reste, et le message dit où.
 
-**Sur un écran tactile**, un toucher sur une puce de personne ou de véhicule ouvre un petit menu : « Ouvrir les détails », là où cela s’applique « Marquer comme chef d’intervention », et, à l’écart, le « Retirer de l’intervention » rouge. À la souris, rien ne change.
+**Sur un écran tactile**, un toucher sur une puce de personne ou de véhicule ouvre un petit menu : « Ouvrir les détails », là où cela s’applique « Marquer comme chef d’intervention », et, à l’écart, le « Libérer de l’intervention » rouge. À la souris, rien ne change.
 
 ### Rôles spéciaux (clic droit sur une personne)
 
@@ -897,7 +901,7 @@ just down       # Arrête l’installation (les données restent)
 just doctor     # Vérifie que tout tourne – base de données, imprimante, tuiles, sauvegarde
 ```
 
-L’instance locale tourne sur `http://localhost:3000`.
+L’instance locale tourne sur la machine qui héberge le serveur : `http://<cette-machine>:8080` – ou à votre propre adresse, si elle est configurée.
 
 > **Les recettes `dev-` ne sont pas faites pour l’exploitation.** `just dev`, `just dev-stop`
 > et `just dev-clean` servent au développement ; `just dev-clean` **efface la base de données

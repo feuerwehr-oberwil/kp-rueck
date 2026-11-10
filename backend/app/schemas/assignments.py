@@ -43,9 +43,15 @@ class AssignmentResponse(BaseModel):
 
 # Transfer
 class TransferAssignmentsRequest(BaseModel):
-    """Request to transfer all assignments from one incident to another."""
+    """Request to transfer all assignments from one incident to another.
+
+    ``assignment_ids``: «Rückgängig» of a transfer – move back exactly these rows (the
+    ``assignment_ids`` the transfer answered with) and nothing the incident held before.
+    Refused (409) unless every one of them is still active on the incident.
+    """
 
     target_incident_id: UUID
+    assignment_ids: list[UUID] | None = None
 
 
 class TransferAssignmentsResponse(BaseModel):

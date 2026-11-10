@@ -3,7 +3,10 @@
 import { useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { useEffectEvent } from '@/lib/hooks/use-effect-event';
 import { useTranslations } from 'next-intl';
-import { Save } from 'lucide-react';
+import { Check } from 'lucide-react';
+import { SAVED_LINE_MS } from '@/components/kanban/field-save-status';
+import { formatClockTime } from '@/lib/incident-time';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { Input } from '@/components/ui/input';
@@ -58,6 +61,8 @@ export interface StationSettings {
   error: string | null;
   /** The key whose PATCH is in flight. */
   saving: string | null;
+  /** When the server last confirmed each key in this visit – what «Gespeichert – hh:mm» reads. */
+  savedAt: Record<string, Date>;
   /** Per-key validation failures of `StationSettingsForm`. Kept here, not in the
    *  form, so they outlive a switch to another section and back. */
   settingErrors: Record<string, SettingValidationError>;
@@ -86,6 +91,7 @@ export function useStationSettings({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<Record<string, Date>>({});
   // Per-key validation failures for the ranged settings (the station coordinates).
   // A rejected value stays in the input so the operator can fix the typo instead of
   // retyping the whole coordinate – it is simply not PATCHed.
@@ -126,6 +132,7 @@ export function useStationSettings({
       await apiClient.updateSetting(key, value);
       setSettings((prev) => ({ ...prev, [key]: value }));
       setServerSettings((prev) => ({ ...prev, [key]: value }));
+      setSavedAt((prev) => ({ ...prev, [key]: new Date() }));
       onSaved?.(key, value);
     } catch (err) {
       console.error(`Failed to update setting ${key}:`, err);
@@ -142,11 +149,55 @@ export function useStationSettings({
     loading,
     error,
     saving,
+    savedAt,
     settingErrors,
     setSettingErrors,
     reload,
     updateSetting,
   };
+}
+
+/**
+ * The quiet line under a setting's control: «Wird gespeichert …» while the PATCH is
+ * out, then «Gespeichert – hh:mm» once the server confirmed – the same words and the
+ * same few seconds as under a text field of the Einsatz detail (`FieldSaveStatus`).
+ * These settings save by themselves on blur or on a click and have no button, so
+ * without it only a failure ever said anything. A failure is still the toast.
+ */
+export function SettingSaveLine({
+  saving,
+  savedAt,
+  className = 'mt-1',
+}: {
+  saving: boolean;
+  savedAt: Date | undefined;
+  /** Default: the gap under a field. Beside a switch pass none. */
+  className?: string;
+}) {
+  const t = useTranslations('kanban.fieldSave');
+  // The confirmation whose line has run out – by identity, so a newer one shows at once.
+  const [expired, setExpired] = useState<Date | null>(null);
+  useEffect(() => {
+    if (!savedAt) return;
+    const left = Math.max(0, SAVED_LINE_MS - (Date.now() - savedAt.getTime()));
+    const id = window.setTimeout(() => setExpired(savedAt), left);
+    return () => window.clearTimeout(id);
+  }, [savedAt]);
+
+  if (saving) {
+    return (
+      <p role="status" aria-live="polite" className={cn('text-xs text-muted-foreground', className)}>
+        {t('saving')}
+      </p>
+    );
+  }
+  if (!savedAt || expired === savedAt) return null;
+  return (
+    <p role="status" aria-live="polite" className={cn('flex items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground', className)}>
+      <Check className="size-3 shrink-0 text-success" aria-hidden="true" />
+      {t('savedAt', { time: formatClockTime(savedAt) })}
+    </p>
+  );
 }
 
 /** Per-key additions the page knows and the config does not. */
@@ -175,7 +226,7 @@ export function StationSettingsForm({
   extras?: Partial<Record<string, SettingRowExtra>>;
 }) {
   const t = useTranslations('settings');
-  const { settings, setSettings, serverSettings, saving, settingErrors, setSettingErrors, updateSetting } = store;
+  const { settings, setSettings, serverSettings, saving, savedAt, settingErrors, setSettingErrors, updateSetting } = store;
 
   const renderSettingInput = (config: SettingConfig) => {
     const value = settings[config.key] || '';
@@ -294,14 +345,20 @@ export function StationSettingsForm({
       hint={t(`page.general.configs.${config.key}.description`)}
       advice={extras[config.key]?.advice ?? null}
     >
-      <div className="flex w-full items-start gap-2">
-        {/* Schalter drängen sich an die rechte Kante, alles mit einem Feld
-            füllt die Spalte – so steht eine Kante über die ganze Karte. */}
-        <div className={config.type === 'boolean' && !config.options ? 'ml-auto' : 'min-w-0 flex-1'}>
+      {config.type === 'boolean' && !config.options ? (
+        // A switch keeps the right edge; its line stands beside it, so the row does not
+        // grow and shrink with every click.
+        <div className="ml-auto flex items-center justify-end gap-2">
+          <SettingSaveLine saving={saving === config.key} savedAt={savedAt[config.key]} className="" />
           {renderSettingInput(config)}
         </div>
-        {saving === config.key && <Save className="mt-2.5 h-4 w-4 shrink-0 text-muted-foreground animate-pulse" />}
-      </div>
+      ) : (
+        // Everything with a field fills the column – one edge down the whole card.
+        <div className="w-full min-w-0">
+          {renderSettingInput(config)}
+          <SettingSaveLine saving={saving === config.key} savedAt={savedAt[config.key]} />
+        </div>
+      )}
     </SettingRow>
   ));
 }

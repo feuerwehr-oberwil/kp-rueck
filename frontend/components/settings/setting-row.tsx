@@ -338,7 +338,8 @@ export function SettingActions({
   return (
     <div className={cn('flex flex-wrap items-center gap-x-3 gap-y-2 pt-4', className)}>
       {leading}
-      <div className="ml-auto flex gap-2">{children}</div>
+      {/* The buttons wrap among themselves too: two long labels do not fit one phone line in French. */}
+      <div className="ml-auto flex flex-wrap justify-end gap-2">{children}</div>
     </div>
   )
 }

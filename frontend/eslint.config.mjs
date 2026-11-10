@@ -64,6 +64,14 @@ export default [
     rules: { "no-console": "off" },
   },
   {
+    // Playwright's fixture callback is called `use` – not React's hook, and nothing in a
+    // fixture file is a component.
+    files: ["tests/**/*.fixture.ts"],
+    rules: {
+      "react-hooks/rules-of-hooks": "off",
+    },
+  },
+  {
     ignores: [
       ".next/**",
       "node_modules/**",

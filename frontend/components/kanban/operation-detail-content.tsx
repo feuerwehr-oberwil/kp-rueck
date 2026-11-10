@@ -14,7 +14,7 @@ import { PrioritySelect } from "@/components/kanban/priority-select"
 import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Kbd } from "@/components/ui/kbd"
-import { ArrowLeft, ArrowRight, MapPin, Trash2, MessageCircle, ArrowRightLeft, Search, Check, ChevronRight, Link2, LayoutDashboard, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, Users, Truck, Package, UserMinus, Shield, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, ArrowRight, MapPin, Trash2, MessageCircle, ArrowRightLeft, Binoculars, Check, ChevronRight, Link2, LayoutDashboard, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, Users, Truck, Package, UserMinus, Shield, type LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
@@ -1539,10 +1539,10 @@ export function OperationDetailContent({
                   four values of the group start on one edge. It used to be an
                   icon plus a bold «Reko» sized to the word, which put the name
                   70px to the left of every chip under it — the one row of the
-                  group that did not line up. The magnifier stays, demoted into
+                  group that did not line up. The binoculars stay, demoted into
                   the label: it is the mnemonic, not a second heading level. */}
               <span className="flex w-[120px] shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-                <Search className="h-3.5 w-3.5 shrink-0" />
+                <Binoculars className="h-3.5 w-3.5 shrink-0" />
                 {t('common.reko')}
               </span>
               {assignedRekoPersonnel ? (
@@ -1677,7 +1677,7 @@ export function OperationDetailContent({
               <div className={cn(tabColumnBreakClass, "space-y-2")}>
                 {/* One heading style across all four tabs — this was the last
                     `text-sm font-medium` + full-size icon pair left over. */}
-                <DetailGroupHeading icon={<Search className="h-3.5 w-3.5 shrink-0" />}>
+                <DetailGroupHeading icon={<Binoculars className="h-3.5 w-3.5 shrink-0" />}>
                   {t('detail.rekoAuftrag')}
                 </DetailGroupHeading>
                 {/* The Auftrag as `DetailField` rows — the same 104px gutter as

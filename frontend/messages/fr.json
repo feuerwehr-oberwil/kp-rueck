@@ -294,6 +294,12 @@
       "available": "Nouvelle version disponible",
       "hint": "Recharger quand cela convient.",
       "reload": "Recharger"
+    },
+    "reorder": {
+      "moveUp": "Monter",
+      "moveDown": "Descendre",
+      "moveTop": "Placer au début",
+      "menuFor": "Modifier l’ordre de {name}"
     }
   },
   "display": {
@@ -435,7 +441,14 @@
       "realAlarmWarningTitle": "{count, plural, one {Cette alarme est réelle, l'événement est un exercice} other {Ces alarmes sont réelles, l'événement est un exercice}}",
       "realAlarmWarningAlerting": "L'alarme sortante est seulement simulée – <hint>personne n'est mobilisé.</hint>",
       "realAlarmWarningThresholds": "Les seuils de retard sont 50 % plus longs – <hint>les avertissements arrivent plus tard qu'en cas réel.</hint>",
-      "attachAnyway": "Rattacher quand même à l'exercice"
+      "attachAnyway": "Rattacher quand même à l'exercice",
+      "attachedTo": "Alarme rattachée à « {event} »",
+      "attachedToNumber": "Intervention {number}",
+      "attachOther": "Autre événement …",
+      "attachOtherAria": "Rattacher « {title} » à un autre événement",
+      "detached": "L’alarme est de retour dans les alarmes entrantes",
+      "detachRefused": "Non annulé",
+      "detachRefusedFallback": "L’alarme reste rattachée."
     },
     "inbox": {
       "title": "Alarmes entrantes",
@@ -1245,7 +1258,7 @@
       "toc": "Sommaire",
       "loading": "Chargement …",
       "loadError": "# Erreur\n\nLe contenu de l’aide n’a pas pu être chargé.",
-      "searchPlaceholder": "Rechercher dans l’aide",
+      "searchPlaceholder": "Chercher dans l’aide",
       "searchNoResults": "Aucun résultat"
     }
   },
@@ -1327,8 +1340,6 @@
       "vehicleCount": "{count, plural, one {# véhicule} other {# véhicules}}",
       "transferring": "Transfert …",
       "transfer": "Transférer",
-      "confirmTitle": "Vraiment transférer les ressources ?",
-      "confirmDescription": "Toutes les ressources attribuées à « {source} » seront déplacées vers « {target} ». Cette action est irréversible.",
       "confirmCounts": "Seront déplacés : {crew} personnel, {vehicles} véhicules, {materials} matériel."
     },
     "driver": {
@@ -1383,9 +1394,7 @@
       "moveReleasesDriver": "« Déplacer ici » libère aussi le rôle de chauffeur pour {vehicle}."
     },
     "vehicleStatus": {
-      "durationMinutes": "{minutes} min",
-      "durationHoursMinutes": "{hours} h {mins} min",
-      "durationHours": "{hours} h",
+      "bound": "Engagé",
       "available": "Disponible",
       "unavailable": "Indisponible",
       "loadError": "Échec du chargement de l’état des véhicules",
@@ -1398,8 +1407,7 @@
       "readyForOperation": "Prêt à intervenir",
       "changeDriver": "Changer de conducteur",
       "assignDriver": "Attribuer un conducteur",
-      "auftragLabel": "Mission « {name} »",
-      "durationDaysHours": "{days} j {hours} h"
+      "auftragLabel": "Mission « {name} »"
     },
     "gpsArrival": {
       "fallbackVehicle": "Véhicule",
@@ -1469,7 +1477,7 @@
       "trainingBadge": "Exercice",
       "createTrainingIncident": "Créer une intervention d’exercice",
       "newIncident": "Nouvelle intervention",
-      "searchPlaceholder": "Rechercher une intervention …",
+      "searchPlaceholder": "Intervention …",
       "noActive": "Aucune intervention en cours",
       "noHitsFor": "Aucune intervention pour « {query} ».",
       "searchScope": "Recherche dans le lieu, l’annonce, le type, les véhicules, l’équipe et le matériel.",
@@ -1771,7 +1779,12 @@
       "rosterFree": "{count} libres",
       "rosterOf": "sur {total}",
       "rosterBound": "{count} engagés",
-      "bindingsNone": "Aucune affectation – rien à atteindre."
+      "bindingsNone": "Aucune affectation – rien à atteindre.",
+      "transferredToast": "Ressources transférées vers « {target} »",
+      "transferredToastCount": "{count, plural, one {# attribution} other {# attributions}} depuis « {source} »",
+      "transferUndone": "Transfert annulé",
+      "transferUndoFailed": "Non annulé",
+      "transferUndoFailedDescription": "Les attributions restent où elles sont."
     },
     "dashboard": {
       "loading": "Chargement …",
@@ -1784,8 +1797,8 @@
       "toggleRightSidebar": "Afficher/masquer la barre latérale droite",
       "newEvent": "Nouvel événement",
       "allEvents": "Tous les événements",
-      "personnelSearch": "Rechercher du personnel …",
-      "materialSearch": "Rechercher du matériel …",
+      "personnelSearch": "Personnel …",
+      "materialSearch": "Matériel …",
       "showAvailableOnly": "N’afficher que les disponibles",
       "showAll": "Tout afficher",
       "noneAvailableFiltered": "Rien de disponible",
@@ -2241,7 +2254,8 @@
       "repeatRadioNoStop": "Cette mission n’a encore aucune étape. Le message naîtra avec la première.",
       "repeatRadioCopy": "Copier le texte",
       "repeatRadioCopied": "Message radio copié",
-      "moreOptions": "Autres options"
+      "moreOptions": "Autres options",
+      "stopActions": "Ordre et actions pour {name}"
     },
     "closedStop": {
       "title": "L’intervention est clôturée",
@@ -2256,8 +2270,7 @@
       "einsatz": "En intervention",
       "beendet": "Retour",
       "abgeschlossen": "Clôturé",
-      "advance": "Passer à {label}",
-      "jumpTo": "Choisir le statut"
+      "change": "Statut : {label} – modifier"
     },
     "routenEditorModal": {
       "title": "Éditeur d’itinéraire",
@@ -2278,12 +2291,13 @@
       "contextOpen": "Ouvert",
       "contextInRoute": "Dans la mission « {name} »",
       "contextClickToAdd": "Cliquer pour l’ajouter comme étape",
-      "contextStopAdded": "Intervention ajoutée comme étape."
+      "contextStopAdded": "Intervention ajoutée comme étape.",
+      "stopActions": "Ordre et actions pour {name}"
     },
     "incidentPicker": {
       "title": "Ajouter des interventions comme étapes",
       "description": "Sélectionner des interventions existantes. Une intervention appartenant à une autre mission sera déplacée ici.",
-      "searchPlaceholder": "Rechercher une intervention …",
+      "searchPlaceholder": "Intervention …",
       "empty": "Aucune intervention correspondante.",
       "inRoute": "Actuellement dans la mission « {name} »",
       "createNew": "Nouvelle intervention",
@@ -2617,8 +2631,8 @@
     "locationInput": {
       "addressLabel": "Lieu d’intervention",
       "requiredField": "Champ obligatoire",
-      "addressPlaceholder": "Rechercher une adresse …",
-      "searchPlaceholder": "Rechercher une adresse …",
+      "addressPlaceholder": "Adresse …",
+      "searchPlaceholder": "Adresse …",
       "searching": "Recherche en cours …",
       "noResults": "Aucune adresse trouvée.",
       "useFreetext": "Reprendre « {query} »",
@@ -3843,7 +3857,7 @@
         "show": "Afficher",
         "showDetails": "Afficher les détails"
       },
-      "searchPlaceholder": "Rechercher un réglage …",
+      "searchPlaceholder": "Réglage …",
       "searchNoResults": "Aucun résultat.",
       "searchHitCount": "{count} résultats · ↵ ouvrir"
     },
@@ -4271,7 +4285,31 @@
       "alreadyClaimedTitle": "Déjà configuré",
       "alreadyClaimedBody": "Ce tableau a déjà été configuré. Connectez-vous avec votre compte.",
       "goToLogin": "Vers la connexion",
-      "footer": "Tout le reste – comptes, cartes, sauvegardes – vous attend dans les réglages. Pour la configuration par fichier : <code>docs/SETUP.md</code>."
+      "footer": "Tout le reste – comptes, cartes, sauvegardes – vous attend dans les réglages. Pour la configuration par fichier : <code>docs/SETUP.md</code>.",
+      "usernameNote": "Nom d’utilisateur pour la connexion : <name>admin</name>"
+    },
+    "station": {
+      "title": "Configurer la caserne",
+      "progress": "{done} sur 3 terminé",
+      "signedInAs": "Connecté en tant que <name></name>",
+      "location": "Emplacement du dépôt",
+      "locationHint": "Encore la valeur par défaut « Musterstadt » – la carte et la recherche d’adresse s’y réfèrent.",
+      "locationAction": "Chercher une adresse …",
+      "inventory": "Personnel et véhicules",
+      "inventoryHint": "Rien de saisi – sans eux, aucune intervention ne peut être dotée.",
+      "inventoryAction": "Importer un fichier Excel …",
+      "dismiss": "Masquer",
+      "dialogTitle": "Emplacement du dépôt",
+      "dialogDescription": "La carte s’ouvre ici, et la recherche d’adresse place en tête les résultats de votre secteur. Modifiable plus tard sous Réglages › Général.",
+      "addressLabel": "Adresse du dépôt",
+      "homeCityLabel": "Secteur d’intervention (localité)",
+      "homeCityPlaceholder": "Oberwil, BL",
+      "locationMissing": "Choisir une adresse ou la placer sur la carte – il faut des coordonnées.",
+      "homeCityMissing": "Saisir la localité, p. ex. « Oberwil, BL ».",
+      "save": "Enregistrer l’emplacement",
+      "saved": "Emplacement enregistré",
+      "saveFailed": "Emplacement non enregistré",
+      "cancel": "Annuler"
     }
   },
   "training": {
@@ -4298,6 +4336,7 @@
       "removePin": "Retirer le repère",
       "setPin": "Placer un repère sur la carte",
       "dispatch": "Déclencher",
+      "dispatchNeeds": "Choisir un scénario et un lieu, puis déclencher.",
       "dispatchHint": "Ou placer le pin directement sur la carte.",
       "multipleIncidents": "Plusieurs interventions à la fois",
       "burst": "Rafale (5x au hasard)",

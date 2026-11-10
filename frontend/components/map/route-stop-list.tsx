@@ -33,7 +33,7 @@ import {
   type Edge,
 } from "@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge"
 import { DropIndicator } from "@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box"
-import { AlertTriangle, GripVertical, Check, CircleDashed, ChevronDown, Navigation, Flame, X, Trash2, Wand2 } from "lucide-react"
+import { AlertTriangle, GripVertical, Check, CircleDashed, ChevronDown, Navigation, Flame, Trash2, Wand2 } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,6 +54,8 @@ import { useOperations, type Operation, type OperationStatus } from "@/lib/conte
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { isLocated } from "@/lib/utils/route-geo"
+import { moveInList, type MoveTo } from "@/lib/move-in-list"
+import { MoveMenuItems, ReorderMenu } from "@/components/ui/reorder-menu"
 import { stopStatusBorderClass, stopStatusTextClass } from "@/lib/kanban-utils"
 import type { RouteStartMode } from "@/lib/route-start"
 
@@ -157,9 +159,9 @@ export function deriveStopState(op: Operation | undefined): StopState {
 
 // ── Kanban-column mirror ─────────────────────────────────────────────────────
 // A stop's status control is a mirror of the board columns (single source of
-// truth = the incident's status). Four collapsed states — Offen → Disponiert →
-// Einsatz → Beendet — map onto real incident statuses; left-click advances to
-// the next, a caret menu jumps to any.
+// truth = the incident's status). The collapsed states — Eingegangen → Disponiert →
+// Im Einsatz → Rückfahrt → Abgeschlossen — map onto real incident statuses; the
+// control is a menu of all of them.
 export type MirrorStatus = Extract<OperationStatus, "incoming" | "enroute" | "active" | "returning" | "complete">
 export const MIRROR_ORDER: MirrorStatus[] = ["incoming", "enroute", "active", "returning", "complete"]
 
@@ -187,88 +189,68 @@ export const MIRROR_CONFIG: Record<MirrorStatus, { labelKey: string; Icon: typeo
 }
 
 /**
- * Stop status control — mirrors the board columns. Left-click advances to the
- * next column; the caret opens a menu to jump to any of the four. `compact`
- * hides the text label (icon only), used in the dense sheet checklist.
+ * Stop status control — mirrors the board columns. One button that says the
+ * status in full and opens a menu of all of them; a click never changes the
+ * status by itself (it used to advance to the next one, which read as a display).
+ * Every label is laid out invisibly in the same cell, so the button is as wide as
+ * the longest one in the current language: no label is cut and the rows of a list
+ * stay aligned. A completed stop is not reopened from here.
  */
 export function StopStatusControl({
   op,
   onSetStatus,
-  compact = false,
 }: {
   op: Operation | undefined
   onSetStatus: (status: MirrorStatus) => void
-  compact?: boolean
 }) {
   const t = useTranslations("kanban.stopStatus")
   const current = toMirrorStatus(op)
   const conf = MIRROR_CONFIG[current]
   const Icon = conf.Icon
-  const next = current === "complete" ? null : MIRROR_ORDER[MIRROR_ORDER.indexOf(current) + 1]
+  const done = current === "complete"
+  const label = t(conf.labelKey)
 
   return (
-    // One cohesive bordered pill: the icon+label button and the caret share a
-    // single border and height (a thin inner divider separates the caret), so
-    // there is no gap/seam or offset box between them.
-    <div
-      className={cn(
-        "inline-flex h-6 flex-shrink-0 items-stretch overflow-hidden rounded-sm border border-border/60",
-        !compact && "w-28",
-      )}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          if (next) onSetStatus(next)
-        }}
-        className={cn(
-          "flex items-center gap-1 px-1.5 text-xs font-medium transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-          compact ? "justify-center" : "min-w-0 flex-1 justify-start",
-          conf.cls,
-          !next && "cursor-default",
-        )}
-        title={next ? t("advance", { label: t(MIRROR_CONFIG[next].labelKey) }) : t(conf.labelKey)}
-        aria-label={next ? t("advance", { label: t(MIRROR_CONFIG[next].labelKey) }) : t(conf.labelKey)}
-        disabled={!next}
-      >
-        <Icon className="h-3.5 w-3.5 flex-shrink-0" />
-        {!compact && <span className="truncate">{t(conf.labelKey)}</span>}
-      </button>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            onClick={(e) => e.stopPropagation()}
-            className="flex items-center border-l border-border/60 px-0.5 text-muted-foreground transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-            title={t("jumpTo")}
-            aria-label={t("jumpTo")}
-          >
-            <ChevronDown className="h-3 w-3" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="z-elevated">
-          {(current === "complete" ? (["complete"] as MirrorStatus[]) : MIRROR_ORDER).map((s) => {
-            const c = MIRROR_CONFIG[s]
-            const SIcon = c.Icon
-            return (
-              <DropdownMenuItem
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild disabled={done}>
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          className={cn(
+            "inline-flex h-6 flex-shrink-0 items-center gap-1 rounded-sm border border-border/60 px-1.5 text-xs font-medium whitespace-nowrap transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset disabled:cursor-default disabled:hover:bg-transparent",
+            conf.cls,
+          )}
+          aria-label={done ? label : t("change", { label })}
+        >
+          <Icon className="h-3.5 w-3.5 flex-shrink-0" aria-hidden />
+          <span className="grid text-left">
+            {MIRROR_ORDER.map((s) => (
+              <span
                 key={s}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onSetStatus(s)
-                }}
+                aria-hidden={s !== current}
+                className={cn("col-start-1 row-start-1", s !== current && "invisible")}
               >
-                <SIcon className={cn("mr-2 h-4 w-4", c.cls)} />
-                {t(c.labelKey)}
-                {s === current && <Check className="ml-auto h-3.5 w-3.5 text-muted-foreground" />}
-              </DropdownMenuItem>
-            )
-          })}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+                {t(MIRROR_CONFIG[s].labelKey)}
+              </span>
+            ))}
+          </span>
+          {!done && <ChevronDown className="h-3 w-3 flex-shrink-0 text-muted-foreground" aria-hidden />}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="z-elevated" onClick={(e) => e.stopPropagation()}>
+        {MIRROR_ORDER.map((s) => {
+          const c = MIRROR_CONFIG[s]
+          const SIcon = c.Icon
+          return (
+            <DropdownMenuItem key={s} onClick={() => onSetStatus(s)}>
+              <SIcon className={cn("mr-2 h-4 w-4", c.cls)} />
+              {t(c.labelKey)}
+              {s === current && <Check className="ml-auto h-3.5 w-3.5 text-muted-foreground" />}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -352,6 +334,14 @@ export function RouteStopList({
     })
   }, [enabled, groupId, stopIds, onReorder, readOnly])
 
+  // The menu way to reorder («Nach oben / Nach unten»): the same write as a drop,
+  // off the authoritative order. Off while dragging is off (preview, read-only).
+  const canMove = !reorderDisabled && !readOnly
+  const move = (incidentId: string, to: MoveTo) => {
+    const next = moveInList(stopIds, stopIds.indexOf(incidentId), to)
+    if (next) onReorder(next)
+  }
+
   return (
     <>
       {displayOrder.map((incidentId, index) =>
@@ -361,6 +351,8 @@ export function RouteStopList({
             groupId={groupId}
             incidentId={incidentId}
             index={index}
+            count={displayOrder.length}
+            onMove={canMove ? (to) => move(incidentId, to) : undefined}
             op={operationsById.get(incidentId)}
             color={timelineColor}
             reorderDisabled={reorderDisabled || readOnly}
@@ -376,6 +368,8 @@ export function RouteStopList({
             groupId={groupId}
             incidentId={incidentId}
             index={index}
+            count={displayOrder.length}
+            onMove={canMove ? (to) => move(incidentId, to) : undefined}
             op={operationsById.get(incidentId)}
             changed={changedPositions.has(incidentId)}
             reorderDisabled={reorderDisabled || readOnly}
@@ -445,20 +439,26 @@ function useStopRowDnd(groupId: string, incidentId: string, index: number, reord
 }
 
 /**
- * Right-click on a stop row: the same per-stop actions as its controls. The
+ * Right-click on a stop row: the same per-stop actions as its controls and its ⋮ menu. The
  * trigger wraps a PLAIN div (the dnd/click row is the child) so the draggable
  * ref + handlers don't clobber the contextmenu listener — the forwarding-div
  * pattern used for the Auftrag header.
  */
 function StopRowMenu({
   incidentId,
+  index,
+  count,
   mirror,
   onSetStatus,
+  onMove,
   onRemove,
   allowComplete,
   children,
 }: {
   incidentId: string
+  index: number
+  count: number
+  onMove?: (to: MoveTo) => void
   mirror: MirrorStatus
   onSetStatus?: (incidentId: string, status: MirrorStatus) => void
   onRemove?: (incidentId: string) => void
@@ -490,7 +490,9 @@ function StopRowMenu({
               </ContextMenuItem>
             )
           })}
-        {onSetStatus && onRemove && <ContextMenuSeparator />}
+        {onSetStatus && onMove && <ContextMenuSeparator />}
+        {onMove && <MoveMenuItems Item={ContextMenuItem} index={index} count={count} onMove={onMove} />}
+        {(onSetStatus || onMove) && onRemove && <ContextMenuSeparator />}
         {onRemove && (
           <ContextMenuItem onClick={() => onRemove(incidentId)} className="text-destructive focus:text-destructive">
             <Trash2 className="mr-2 h-4 w-4" />
@@ -502,10 +504,46 @@ function StopRowMenu({
   )
 }
 
+/**
+ * The ⋮ at the end of a stop row: «Nach oben / Nach unten / An den Anfang» and
+ * «Stopp entfernen». Nothing at all on a read-only row.
+ */
+function StopRowActions({
+  label,
+  index,
+  count,
+  onMove,
+  onRemove,
+}: {
+  /** The stop's address (or type) – names the button. */
+  label: string
+  index: number
+  count: number
+  onMove?: (to: MoveTo) => void
+  onRemove?: () => void
+}) {
+  const t = useTranslations("kanban.routenEditorModal")
+  if (!onMove && !onRemove) return null
+  return (
+    <ReorderMenu label={t("stopActions", { name: label })} index={index} count={count} onMove={onMove} className="flex-shrink-0">
+      {onRemove && (
+        <DropdownMenuItem variant="destructive" onClick={onRemove}>
+          <Trash2 className="mr-2 h-4 w-4" />
+          {t("removeStop")}
+        </DropdownMenuItem>
+      )}
+    </ReorderMenu>
+  )
+}
+
 interface StopListRowProps {
   groupId: string
   incidentId: string
   index: number
+  /** Stops in the list – with `onMove`, what the ⋮ menu's move entries need. */
+  count: number
+  /** Reorder without dragging; absent while reordering is off. */
+  onMove?: (to: MoveTo) => void
   op: Operation | undefined
   changed: boolean
   reorderDisabled: boolean
@@ -521,6 +559,8 @@ export function StopListRow({
   groupId,
   incidentId,
   index,
+  count,
+  onMove,
   op,
   changed,
   reorderDisabled,
@@ -547,7 +587,7 @@ export function StopListRow({
   return (
     <div className="relative">
       {closestEdge === "top" && <DropIndicator edge="top" gap="2px" />}
-      <StopRowMenu incidentId={incidentId} mirror={mirror} onSetStatus={onSetStatus} onRemove={onRemove} allowComplete={allowComplete}>
+      <StopRowMenu incidentId={incidentId} index={index} count={count} onMove={onMove} mirror={mirror} onSetStatus={onSetStatus} onRemove={onRemove} allowComplete={allowComplete}>
       <div
         ref={ref}
         onClick={onSelect}
@@ -596,20 +636,13 @@ export function StopListRow({
             {t("noCoordsBadge")}
           </span>
         )}
-        {onRemove && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              onRemove(incidentId)
-            }}
-            className="flex-shrink-0 rounded p-0.5 text-muted-foreground/50 transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            title={t("removeStop")}
-            aria-label={t("removeStop")}
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        )}
+        <StopRowActions
+          label={address ?? name}
+          index={index}
+          count={count}
+          onMove={onMove}
+          onRemove={onRemove ? () => onRemove(incidentId) : undefined}
+        />
       </div>
       </StopRowMenu>
       {closestEdge === "bottom" && <DropIndicator edge="bottom" gap="2px" />}
@@ -675,6 +708,10 @@ interface TimelineStopRowProps {
   groupId: string
   incidentId: string
   index: number
+  /** Stops in the list – with `onMove`, what the ⋮ menu's move entries need. */
+  count: number
+  /** Reorder without dragging; absent while reordering is off. */
+  onMove?: (to: MoveTo) => void
   op: Operation | undefined
   color: string
   reorderDisabled: boolean
@@ -695,6 +732,8 @@ function TimelineStopRow({
   groupId,
   incidentId,
   index,
+  count,
+  onMove,
   op,
   color,
   reorderDisabled,
@@ -722,7 +761,7 @@ function TimelineStopRow({
   return (
     <RouteTimelineItem lineColor={color}>
       {closestEdge === "top" && <DropIndicator edge="top" gap="2px" />}
-      <StopRowMenu incidentId={incidentId} mirror={mirror} onSetStatus={onSetStatus} onRemove={onRemove} allowComplete={allowComplete}>
+      <StopRowMenu incidentId={incidentId} index={index} count={count} onMove={onMove} mirror={mirror} onSetStatus={onSetStatus} onRemove={onRemove} allowComplete={allowComplete}>
         <div
           ref={ref}
           onClick={onSelect}
@@ -768,20 +807,13 @@ function TimelineStopRow({
             >
               <GripVertical className="size-3.5" />
             </button>
-            {onRemove && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onRemove(incidentId)
-                }}
-                className="inline-flex size-6 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                title={t("removeStop")}
-                aria-label={t("removeStop")}
-              >
-                <X className="size-3.5" />
-              </button>
-            )}
+            <StopRowActions
+              label={address ?? type}
+              index={index}
+              count={count}
+              onMove={onMove}
+              onRemove={onRemove ? () => onRemove(incidentId) : undefined}
+            />
           </div>
         </div>
       </StopRowMenu>
