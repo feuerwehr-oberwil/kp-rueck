@@ -125,10 +125,11 @@ from the box, and the box's work stays on the box.
 It reads through `kp_standby` (replication and `SELECT`, no write privilege on any table), and
 it writes only through `POST /api/standby/sync` with the key, which takes rows of one Ereignis
 at a time: the Ereignis's own tables (Einsätze, Aufträge, Mannschaft, Tagebuch, Rapporte …),
-for an Ereignis the box took over or created, each row checked against the version the box
-last saw. Users, roster, settings and every other Ereignis are out of its reach. A leaked key
-is still serious – it can rewrite Ereignisse – so it lives in the vault and in the two
-`.env`/Variables entries, nowhere else.
+each row checked against the version the box last saw. Users, roster and settings are out of
+its reach. Which Ereignis is not: a takeover happens on the box, offline, and the hosted board
+learns of it from the box – so whoever holds the key can declare any Ereignis taken over and
+rewrite it. That is why it lives in the vault and in the two `.env`/Variables entries, nowhere
+else, and why a lost box means a new key (below).
 
 ### 2. The box
 
@@ -140,13 +141,17 @@ is still serious – it can rewrite Ereignisse – so it lives in the vault and 
    ```bash
    COMPOSE_PROFILES=backup,standby
    DEPLOYMENT_ROLE=standby
-   STANDBY_SOURCE_URL=postgresql://kp_standby:<generated>@<host>:<port>/railway  # host/port of DATABASE_PUBLIC_URL
+   STANDBY_SOURCE_URL=postgresql://kp_standby:<generated>@<host>:<port>/railway?sslmode=require  # host/port of DATABASE_PUBLIC_URL
    STANDBY_SOURCE_API=https://kp.example.ch/backend-api   # or the backend's own address
    STANDBY_PHOTO_USER=<viewer>
    STANDBY_PHOTO_PASSWORD=<its password>
    STANDBY_SYNC_TOKEN=<the same key as on the hosted backend>
    STANDBY_FOLLOW_URL=https://kp.example.ch
    ```
+
+   Keep `?sslmode=require` on `STANDBY_SOURCE_URL`: this link carries the whole database,
+   and without it Postgres clients fall back to plain text when somebody on the path asks
+   them to. The sidecar says so in its log when it is missing.
 
    Remove `ADMIN_SEED_PASSWORD` and `VIEWER_PASSWORD`: the accounts now come from the hosted
    board, and a password re-applied from `.env` on every boot would fight the mirrored one.
@@ -206,6 +211,29 @@ on the hosted board usually lacks `STANDBY_SYNC_TOKEN`, or has a different one.
    internet, alarms do not arrive at the box; once it is back, an alarm the hosted board
    attached to the Ereignis arrives as a new Einsatz. The print agent can be pointed at the box
    ([`PRINT_AGENT.md`](PRINT_AGENT.md)).
+
+## If the box is lost or stolen
+
+The box holds a full copy of the hosted database – password hashes included – and three
+credentials in its `.env`. Its disk should be encrypted (BitLocker, FileVault, LUKS) so that
+a lost notebook is a lost notebook. Either way, the same day:
+
+1. **Cut the replication login.** On the hosted database, as its owner:
+
+   ```sql
+   SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename = 'kp_standby';
+   SELECT pg_drop_replication_slot(slot_name) FROM pg_replication_slots WHERE slot_name LIKE 'kp_standby%';
+   ALTER ROLE kp_standby NOLOGIN;   -- or a new password, for the replacement box
+   ```
+
+2. **New sync key.** Generate one, set `STANDBY_SYNC_TOKEN` on the hosted backend (one
+   redeploy) and update the vault. The old key can rewrite Ereignisse until then.
+3. **New password for the photo viewer** (Einstellungen › Benutzer) – the box had it in clear.
+4. **If the disk was not encrypted:** everybody gets a new password (the hashes are bcrypt,
+   but a short password does not survive an offline guess), and rotate the alarm webhook
+   secret – the settings table was on the box too.
+5. An Ereignis the box was leading: press **«Hier übernehmen …»** on the hosted board. What
+   the box had not sent is gone.
 
 ## After the outage
 

@@ -61,12 +61,12 @@ name: CI
 # REQUIRED SINCE 2026-08-21:
 #   e2e-smoke – the @smoke-tagged Playwright specs on the core path. It used to be `if: false`
 #         and covered nothing; it was then held out of the required list until it had proved
-#         stable across real runs, and since 2026-08-21 it IS required on main. The full ~300-spec suite is a human step (`cd frontend && pnpm test:e2e`,
+#         stable across real runs, and since 2026-08-21 it IS required on main. The full suite is a human step (`cd frontend && pnpm test:e2e`,
 #         with `AUTH_BYPASS_AUTH_DEV=false` or the role assertions mean nothing) plus the
 #         nightly schedule in e2e-nightly.yml.
 #
 # Coverage: backend floor 87% (`--cov-fail-under` in backend-test), set just under the real
-# figure (88% on 2026-10-08, 3457 tests). Raise it when the real number moves; never lower it.
+# figure (88% on 2026-11-09). Raise it when the real number moves; never lower it.
 
 on:
   push:
@@ -78,6 +78,12 @@ on:
     branches: [main]
   # release.yml runs this whole gate against the tag before publishing images.
   workflow_call:
+
+# A push to a PR supersedes the run before it: 15 jobs that nobody will read stop. Only on
+# pull requests – a push to main and the release gate (workflow_call, a tag ref) always finish.
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

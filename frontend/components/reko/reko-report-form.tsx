@@ -560,7 +560,8 @@ export function RekoReportForm({
               aria-pressed={value.power_supply === option}
               onClick={() => update('power_supply', option)}
               disabled={disabled}
-              className="text-sm"
+              // Wraps instead of running out of its half of the grid («Groupe électrogène nécessaire»).
+              className="text-sm leading-tight whitespace-normal"
             >
               {t(`powerLabels.${option}`)}
             </Button>

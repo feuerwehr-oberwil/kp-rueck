@@ -30,7 +30,6 @@ from ...services.incident_dispatch import dispatched_incident_ids, rapport_appli
 from .reports import is_automation_user
 from .requests import requests_for_incidents
 from .visibility import (
-    _event_incidents,
     _rapport_state,
     _rapport_states,
     get_incident_leaders,
@@ -430,17 +429,18 @@ async def get_feld_assignments_for_personnel(
     has to be able to say *why* an incident nobody assigned you to is in your
     list, and because only a ``crew`` row may be asked for a Rapport.
     """
-    incidents = await _event_incidents(db, event_id)
-    incident_ids = list(incidents)
-    if not incident_ids:
-        return []
-
     mine_sources = await visible_incidents_for_personnel(db, event_id, personnel_id)
     if not mine_sources:
         return []
     mine = {incident_id: source.is_active for incident_id, source in mine_sources.items()}
 
     mine_ids = list(mine)
+    # Only this person's rows, not the Ereignis again: the visibility rule above already read
+    # every incident once, and this runs on every phone's poll.
+    incidents = {
+        incident.id: incident
+        for incident in (await db.execute(select(Incident).where(Incident.id.in_(mine_ids)))).scalars()
+    }
     reports = await _rapport_states(db, mine_ids)
     # No rapport before the Schadenplatz was disponiert (§18.27) — one query for
     # the whole list, so a crew with fourteen rows still costs one round trip.

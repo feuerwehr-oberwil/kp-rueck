@@ -94,7 +94,10 @@ import { useBoardDialogActions } from "@/components/board/use-board-dialog-actio
 import { useBoardDispatch } from "@/components/board/use-board-dispatch"
 import { useResourceBindings } from "@/components/board/use-resource-bindings"
 import { useBoardChecklist } from "@/components/board/use-board-checklist"
-import { useBoardCommandHandlers } from "@/components/board/use-board-command-handlers"
+import { StationSetupStrip } from "@/components/station-setup-strip"
+import { usePrintAssignmentSlip } from "@/lib/hooks/use-print-assignment-slip"
+import type { IncidentCommand } from "@/lib/contexts/command-palette-context"
+import { useBoardCommandHandlers, type BoardCommands } from "@/components/board/use-board-command-handlers"
 import { useBoardCardActions } from "@/components/board/use-board-card-actions"
 
 export default function FireStationDashboard() {
@@ -149,6 +152,10 @@ export default function FireStationDashboard() {
     run: (command: DispatchCommand) => void
     jump: (target: DispatchResource) => void
   }>({ vocabulary: () => ({ incidents: [], persons: [], vehicles: [], materials: [] }), run: () => {}, jump: () => {} })
+
+  // The right-click actions and two views as commands (Ctrl K) – same early
+  // registration, filled in below once the dialogs and the checklist exist.
+  const boardCommandsRef = useRef<BoardCommands>({ incident: () => {}, openAttendance: () => {}, openChecklist: () => {} })
 
   // The roster the board draws, with «steht auf einem Auftrag» folded in.
   const personnel = useAuftragRoster()
@@ -682,6 +689,7 @@ export default function FireStationDashboard() {
     handleColumnSort,
     moveOperationRight,
     moveOperationLeft,
+    moveInColumn,
     toggleVehicleAssignment,
     setOperationPriority,
     toggleZuFuss,
@@ -719,6 +727,8 @@ export default function FireStationDashboard() {
   })
 
   useBoardCommandHandlers({
+    boardCommandsRef,
+    printerEnabled,
     writeJournal,
     fleet,
     operations,
@@ -1306,6 +1316,29 @@ export default function FireStationDashboard() {
     setRekoAssignOperationId,
   })
 
+  // What the commands run on the selected card: each entry is the handler its
+  // right-click row calls, so both ways stay one behaviour.
+  const { print: printAssignmentSlip } = usePrintAssignmentSlip()
+  boardCommandsRef.current = {
+    incident: (command, operationId) => {
+      const run: Record<IncidentCommand, () => void> = {
+        assignCrew: () => dialogs.openAssignment('crew', operationId),
+        assignVehicle: () => dialogs.openAssignment('vehicles', operationId),
+        assignMaterial: () => dialogs.openAssignment('materials', operationId),
+        assignReko: () => handleOpenRekoAssignDialog(operationId),
+        transfer: () => void dialogs.openTransfer(operationId),
+        distribute: () => dialogs.openAuftragPicker(operationId),
+        toggleAmWarten: () => handleToggleAmWarten(operationId),
+        toggleNachbarhilfe: () => handleToggleNachbarhilfe(operationId),
+        complete: () => requestCompletion(operationId),
+        print: () => void printAssignmentSlip(operationId),
+      }
+      run[command]()
+    },
+    openAttendance,
+    openChecklist: () => handleChecklistOpenChange(true),
+  }
+
   // Don't render drag and drop until client-side to avoid hydration errors.
   // Inside ProtectedRoute like every other branch, so all three share ONE ProtectedRoute at
   // the root: on a cold start the server-rendered boot screen (snail, «KP RÜCK», phase) is
@@ -1423,6 +1456,8 @@ export default function FireStationDashboard() {
             </div>
           )}
         </header>
+        {/* What a freshly claimed station still has to set up – admin only, gone once done. */}
+        <StationSetupStrip className="mx-4 mt-3 hidden shrink-0 md:block md:mx-6" />
 
         {/* Mobile View */}
         {isMobile ? (
@@ -1557,6 +1592,7 @@ export default function FireStationDashboard() {
                       onToggleZuFuss={handleToggleZuFuss}
                       onRequestComplete={isEditor ? requestCompletion : undefined}
                       onRequestDelete={isEditor ? handleRequestDelete : undefined}
+                      onMoveInColumn={isEditor ? moveInColumn : undefined}
                       onTransfer={isEditor ? dialogs.openTransfer : undefined}
                       onDistributeToAuftrag={isEditor ? dialogs.openAuftragPicker : undefined}
                       cardView={cardView}

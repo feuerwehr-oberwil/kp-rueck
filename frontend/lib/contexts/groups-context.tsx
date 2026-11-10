@@ -775,33 +775,56 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
   }, [groups])
 
   const selectedEventId = selectedEvent && isValidUUID(selectedEvent.id) ? selectedEvent.id : null
-  const scopedGroups = selectedEventId ? groups.filter((group) => group.eventId === selectedEventId) : []
-
-  return (
-    <GroupsContext.Provider
-      value={{
-        groups: scopedGroups,
-        isLoaded: isLoaded && loadedEventId === selectedEventId,
-        refreshGroups,
-        createGroup,
-        updateGroup,
-        recordAnnouncement,
-        deleteGroup,
-        reorderGroups,
-        reorderGroupStops,
-        restoreGroupStops,
-        addStops,
-        removeStop,
-        assignResource,
-        unassignResource,
-        getGroupResources,
-        groupResourcesFor,
-        occupiedResourceIds,
-      }}
-    >
-      {children}
-    </GroupsContext.Provider>
+  const scopedGroups = useMemo(
+    () => (selectedEventId ? groups.filter((group) => group.eventId === selectedEventId) : []),
+    [groups, selectedEventId],
   )
+  const loaded = isLoaded && loadedEventId === selectedEventId
+
+  // Memoised: this provider re-renders on every board change (it reads the operations
+  // context), and every card reads this value – a fresh literal re-rendered them all.
+  const value = useMemo(
+    () => ({
+      groups: scopedGroups,
+      isLoaded: loaded,
+      refreshGroups,
+      createGroup,
+      updateGroup,
+      recordAnnouncement,
+      deleteGroup,
+      reorderGroups,
+      reorderGroupStops,
+      restoreGroupStops,
+      addStops,
+      removeStop,
+      assignResource,
+      unassignResource,
+      getGroupResources,
+      groupResourcesFor,
+      occupiedResourceIds,
+    }),
+    [
+      scopedGroups,
+      loaded,
+      refreshGroups,
+      createGroup,
+      updateGroup,
+      recordAnnouncement,
+      deleteGroup,
+      reorderGroups,
+      reorderGroupStops,
+      restoreGroupStops,
+      addStops,
+      removeStop,
+      assignResource,
+      unassignResource,
+      getGroupResources,
+      groupResourcesFor,
+      occupiedResourceIds,
+    ],
+  )
+
+  return <GroupsContext.Provider value={value}>{children}</GroupsContext.Provider>
 }
 
 export function useGroups() {

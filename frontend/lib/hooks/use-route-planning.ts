@@ -142,9 +142,8 @@ export function useRoutePlanning(groupId: string | null | undefined) {
         const address = (await reverseGeocode(lat, lng)) ?? `${lat.toFixed(6)}, ${lng.toFixed(6)}`
         // createOperation with a preset groupId attaches the new incident to the
         // Auftrag at creation (backend stamps group_position) — the streamlined
-        // "+ Stop" path. Its declared return type is void but the runtime value is
-        // the underlying Promise, so awaiting it genuinely blocks on the POST.
-        await (createOperation({
+        // "+ Stop" path. Awaited, so the refresh below sees the new stop.
+        await createOperation({
           location: address,
           vehicle: null,
           vehicles: [],
@@ -173,7 +172,7 @@ export function useRoutePlanning(groupId: string | null | undefined) {
           leaderId: null,
           leaderName: null,
           materialAssignments: new Map(),
-        }) as unknown as Promise<void>)
+        })
         // The new stop rides the incident WS path into operations-context; pull the
         // group so its stopIds pick up the freshly-attached member.
         await Promise.all([refreshGroups(), refreshOperations()])

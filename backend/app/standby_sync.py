@@ -27,6 +27,7 @@ The merge itself (`merge`, `settle_lead`) is pure; `sync_event` is the round aro
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass, field
@@ -36,6 +37,8 @@ from typing import Any
 import asyncpg
 
 from .standby import SKIPPED_TABLES, event_links
+
+logger = logging.getLogger(__name__)
 
 HOSTED = "hosted"
 STANDBY = "standby"
@@ -281,6 +284,8 @@ def merge(
         row = conflict_row(
             table, row_id, kind, event_id=event_id, leader=leader, now=now, lead=lead, other=other, **facts
         )
+        if _recorded(row["id"], lead, other):
+            return
         plan.merged[(CONFLICTS, row["id"])] = row
         plan.to_leader.append(Op(CONFLICTS, row["id"], row, None))
         plan.to_follower.append(Op(CONFLICTS, row["id"], row, None))
@@ -352,9 +357,18 @@ def conflict_row(
     row: Row | None = None,
     **facts: Any,
 ) -> Row:
-    """An `event_conflicts` row. `row` is the version that did not survive (`field`: the merged one)."""
+    """An `event_conflicts` row. `row` is the version that did not survive (`field`: the merged one).
+
+    Its id is derived from WHAT clashed, not from when it was noticed: a clash whose losing
+    write keeps failing is found again every round, and must be the same row each time.
+    """
+    what = json.dumps(
+        [facts.get("columns"), facts.get("deleted_on"), None if kind == "field" else row],
+        sort_keys=True,
+        default=str,
+    )
     return {
-        "id": str(uuid.uuid5(uuid.NAMESPACE_URL, f"kp-conflict:{table}:{row_id}:{kind}:{now}")),
+        "id": str(uuid.uuid5(uuid.NAMESPACE_URL, f"kp-conflict:{table}:{row_id}:{kind}:{what}")),
         "event_id": event_id,
         "table_name": table,
         "row_id": row_id,
@@ -371,6 +385,12 @@ def conflict_row(
         "resolution": None,
         **facts,
     }
+
+
+def _recorded(conflict_id: str, lead: Rows, other: Rows) -> bool:
+    """This very clash is already in the list (open or decided) – it is not reported twice."""
+    key = (CONFLICTS, conflict_id)
+    return key in lead or key in other
 
 
 def _subject(table: str, row: Row, lead: Rows, other: Rows) -> Row | None:
@@ -455,7 +475,8 @@ async def apply_ops(
 
     - `ok`: written (or a delete that found nothing to delete);
     - `changed`: the target no longer holds `expected` – the next round reads again;
-    - `held`: a key it needs is not there yet (the roster has not mirrored, a swap of positions);
+    - `held`: a key it needs is not there yet (the roster has not mirrored, a swap of positions),
+      or this side's schema refuses the row (logged, not retried within the call);
     - `duplicate`: a new row clashes with a different row holding the same thing;
     - `refused`: unknown table, or a row of another Ereignis.
 
@@ -482,6 +503,12 @@ async def apply_ops(
             except asyncpg.UniqueViolationError:
                 results[i] = "duplicate" if op.expected is None else "held"
                 again.append(i)
+            except (asyncpg.IntegrityConstraintViolationError, asyncpg.DataError) as exc:
+                # A row this side's schema will not take (a CHECK or NOT NULL the other
+                # version does not have): it stays pending and is named, instead of failing
+                # the whole batch – and with it the Ereignis's sync – every round.
+                results[i] = "held"
+                logger.warning("standby sync: %s/%s cannot be written here yet: %s", op.table, op.id, exc)
         if len(again) == len(todo):
             break
         todo = again
@@ -592,7 +619,8 @@ async def sync_event(
         changed = [
             t
             for t in tables
-            if t == LEADS or not (theirs_hash.get(t, "") == mine_hash.get(t, "") == agreed_hash.get(t, ""))
+            # The conflict list is always read: a clash found again must find its own row.
+            if t in (LEADS, CONFLICTS) or not (theirs_hash.get(t, "") == mine_hash.get(t, "") == agreed_hash.get(t, ""))
         ]
         base = await shadow_rows(local, event_id, changed)
         mine: Rows = {}
@@ -669,10 +697,13 @@ async def sync_event(
         )
         duplicates.add((op.table, op.id))
         plan.merged[(op.table, op.id)] = None
+        extra_follower.append(Op(op.table, op.id, None, op.row))
+        if _recorded(row["id"], lead_rows, other_rows):
+            continue  # found again because its copy could not be removed yet
         plan.merged[(CONFLICTS, row["id"])] = row
         plan.conflicts += 1
         extra_leader.append(Op(CONFLICTS, row["id"], row, None))
-        extra_follower += [Op(CONFLICTS, row["id"], row, None), Op(op.table, op.id, None, op.row)]
+        extra_follower.append(Op(CONFLICTS, row["id"], row, None))
     if extra_leader:
         await write(leader, extra_leader)
     await write(follower, [*plan.to_follower, *extra_follower])

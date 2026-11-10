@@ -8,6 +8,8 @@ const ctx = vi.hoisted(() => ({ events: [] as Event[], setSelectedEvent: vi.fn()
 const push = vi.hoisted(() => vi.fn())
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }))
+// The admin's «Station einrichten» strip has its own test; here it would need auth and the API.
+vi.mock('@/components/station-setup-strip', () => ({ StationSetupStrip: () => null }))
 vi.mock('@/lib/contexts/event-context', () => ({
   useEvent: () => ({ events: ctx.events, isLoading: false, setSelectedEvent: ctx.setSelectedEvent }),
 }))

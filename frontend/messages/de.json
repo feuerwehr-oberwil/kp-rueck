@@ -121,7 +121,7 @@
       "priorityMedium": "Priorität: Mittel",
       "priorityHigh": "Priorität: Hoch",
       "toggleZuFuss": "Zu Fuss umschalten",
-      "assignVehicle": "Fahrzeug {number} zuweisen/entfernen",
+      "assignVehicle": "Fahrzeug {number} zuweisen/freigeben",
       "deleteIncident": "Einsatz löschen",
       "linksAndQr": "Links & QR",
       "rapporte": "Rapporte öffnen",
@@ -164,7 +164,9 @@
         "tabComplete": "⇥ ergänzt zu «{label}»"
       },
       "journal": "Einsatztagebuch öffnen",
-      "journalEntry": "Tagebuch-Eintrag schreiben"
+      "journalEntry": "Tagebuch-Eintrag schreiben",
+      "toggleAmWarten": "Am Warten umschalten",
+      "toggleNachbarhilfe": "Nachbarhilfe umschalten"
     },
     "meta": {
       "title": "KP Rück Dashboard",
@@ -183,6 +185,12 @@
       "available": "Neue Version verfügbar",
       "hint": "Neu laden, sobald es passt.",
       "reload": "Neu laden"
+    },
+    "reorder": {
+      "moveUp": "Nach oben",
+      "moveDown": "Nach unten",
+      "moveTop": "An den Anfang",
+      "menuFor": "Reihenfolge von {name} ändern"
     }
   },
   "nav": {
@@ -481,7 +489,12 @@
       "rosterFree": "{count} frei",
       "rosterOf": "von {total}",
       "rosterBound": "{count} gebunden",
-      "bindingsNone": "Keine Zuweisung – nichts zum Anspringen."
+      "bindingsNone": "Keine Zuweisung – nichts zum Anspringen.",
+      "transferredToast": "Ressourcen nach «{target}» übertragen",
+      "transferredToastCount": "{count, plural, one {# Zuweisung} other {# Zuweisungen}} von «{source}»",
+      "transferUndone": "Übertragung zurückgenommen",
+      "transferUndoFailed": "Nicht zurückgenommen",
+      "transferUndoFailedDescription": "Die Zuweisungen bleiben, wo sie sind."
     },
     "dashboard": {
       "loading": "Wird geladen …",
@@ -951,7 +964,8 @@
       "repeatRadioNoStop": "Dieser Auftrag hat noch keinen Stopp. Die Durchsage entsteht mit dem ersten.",
       "repeatRadioCopy": "Text kopieren",
       "repeatRadioCopied": "Funkdurchsage kopiert",
-      "moreOptions": "Weitere Optionen"
+      "moreOptions": "Weitere Optionen",
+      "stopActions": "Reihenfolge und Aktionen für {name}"
     },
     "closedStop": {
       "title": "Einsatz ist abgeschlossen",
@@ -966,8 +980,7 @@
       "einsatz": "Im Einsatz",
       "beendet": "Rückfahrt",
       "abgeschlossen": "Abgeschlossen",
-      "advance": "Weiter zu {label}",
-      "jumpTo": "Status wählen"
+      "change": "Status: {label} – ändern"
     },
     "routenEditorModal": {
       "title": "Routen-Editor",
@@ -988,7 +1001,8 @@
       "contextOpen": "Offen",
       "contextInRoute": "In Auftrag «{name}»",
       "contextClickToAdd": "Klicken, um als Stopp hinzuzufügen",
-      "contextStopAdded": "Einsatz als Stopp hinzugefügt."
+      "contextStopAdded": "Einsatz als Stopp hinzugefügt.",
+      "stopActions": "Reihenfolge und Aktionen für {name}"
     },
     "incidentPicker": {
       "title": "Einsätze als Stopps hinzufügen",
@@ -1024,7 +1038,7 @@
     },
     "attendance": {
       "title": "Anwesenheit · {event}",
-      "summary": "{present} anwesend · {left} gegangen · {total} Mannschaft",
+      "summary": "{present} anwesend · {left} gegangen · {total} Personal",
       "rowLabel": "Anwesenheit",
       "rowCount": "{present} von {total} angemeldet",
       "open": "Appell öffnen",
@@ -1267,8 +1281,6 @@
       "vehicleCount": "{count, plural, one {# Fahrzeug} other {# Fahrzeuge}}",
       "transferring": "Wird übertragen …",
       "transfer": "Übertragen",
-      "confirmTitle": "Ressourcen wirklich übertragen?",
-      "confirmDescription": "Alle zugewiesenen Ressourcen von «{source}» werden auf «{target}» verschoben. Das lässt sich nicht rückgängig machen.",
       "confirmCounts": "Es werden verschoben: {crew} Personal, {vehicles} Fahrzeuge, {materials} Material."
     },
     "driver": {
@@ -1323,14 +1335,12 @@
       "moveReleasesDriver": "«Hierher verschieben» gibt auch die Fahrer-Rolle für {vehicle} frei."
     },
     "vehicleStatus": {
-      "durationMinutes": "{minutes} Min",
-      "durationHoursMinutes": "{hours}h {mins}m",
-      "durationHours": "{hours}h",
+      "bound": "Gebunden",
       "available": "Verfügbar",
       "unavailable": "Nicht verfügbar",
       "loadError": "Fahrzeugstatus konnten nicht geladen werden",
       "title": "Fahrzeugstatus",
-      "description": "Klicken um zu Einsatz zu navigieren • Aktualisiert alle 10 Sekunden",
+      "description": "Klick öffnet den Einsatz · aktualisiert alle 10 Sekunden",
       "refresh": "Aktualisieren",
       "noVehicles": "Keine Fahrzeuge verfügbar",
       "longDuration": "Lange",
@@ -1338,8 +1348,7 @@
       "readyForOperation": "Bereit für Einsatz",
       "changeDriver": "Fahrer ändern",
       "assignDriver": "Fahrer zuweisen",
-      "auftragLabel": "Auftrag «{name}»",
-      "durationDaysHours": "{days}d {hours}h"
+      "auftragLabel": "Auftrag «{name}»"
     },
     "gpsArrival": {
       "fallbackVehicle": "Fahrzeug",
@@ -1347,7 +1356,7 @@
       "movedToActive": "{label} auf Einsatz gesetzt",
       "statusChangeFailed": "Statusänderung fehlgeschlagen",
       "title": "Fahrzeug am Einsatzort",
-      "description": "<strong>{vehicle}</strong> ist beim Einsatz »{label}« angekommen. Auf Einsatz setzen?",
+      "description": "<strong>{vehicle}</strong> ist beim Einsatz «{label}» angekommen. Auf Einsatz setzen?",
       "decline": "Nicht verschieben",
       "confirm": "Auf Einsatz setzen"
     },
@@ -1359,7 +1368,7 @@
       "completed": "{label} abgeschlossen",
       "completeFailed": "Abschliessen fehlgeschlagen",
       "title": "Fahrzeug zurück im Magazin – freigeben?",
-      "description": "<strong>{vehicle}</strong> ist laut GPS wieder im Magazin. Nur die Zuweisung zu »{label}« freigeben – oder den Einsatz gleich ganz abschliessen (gibt alle Ressourcen frei)?",
+      "description": "<strong>{vehicle}</strong> ist laut GPS wieder im Magazin. Nur die Zuweisung zu «{label}» freigeben – oder den Einsatz gleich ganz abschliessen (gibt alle Ressourcen frei)?",
       "decline": "Nicht freigeben",
       "releaseOnly": "Nur {vehicle} freigeben",
       "completeIncident": "Einsatz abschliessen"
@@ -1496,7 +1505,7 @@
       "magazin": "Magazin",
       "missingCoordsAria": "{count, plural, one {# Einsatz} other {# Einsätze}} ohne gültige Koordinaten",
       "missingCoordsChip": "{count} ohne Koordinaten",
-      "clickToNavigate": "Klicken um zu Einsatz zu navigieren",
+      "clickToNavigate": "Klick öffnet den Einsatz",
       "retry": "Erneut versuchen",
       "mapAria": "Einsatzkarte – Pfeiltasten zum Verschieben, Tab zum Markieren",
       "glLost": "Die Kartendarstellung wurde vom Browser beendet.",
@@ -1715,7 +1724,7 @@
         "general": "Allgemein",
         "notifications": "Benachrichtigungen",
         "alerting": "Ausalarmierung",
-        "alarmIntake": "Alarm-Eingang",
+        "alarmIntake": "Alarmeingang",
         "checklist": "Checkliste",
         "auftragTemplates": "Standard-Aufträge",
         "gps": "GPS",
@@ -2549,7 +2558,31 @@
       "alreadyClaimedTitle": "Bereits eingerichtet",
       "alreadyClaimedBody": "Dieses Board wurde bereits eingerichtet. Melde dich mit deinem Konto an.",
       "goToLogin": "Zur Anmeldung",
-      "footer": "Alles Weitere – Konten, Karten, Backups – wartet in den Einstellungen. Wer per Konfigurationsdatei einrichtet: <code>docs/SETUP.md</code>."
+      "footer": "Alles Weitere – Konten, Karten, Backups – wartet in den Einstellungen. Wer per Konfigurationsdatei einrichtet: <code>docs/SETUP.md</code>.",
+      "usernameNote": "Benutzername für die Anmeldung: <name>admin</name>"
+    },
+    "station": {
+      "title": "Station einrichten",
+      "progress": "{done} von 3 erledigt",
+      "signedInAs": "Angemeldet als <name></name>",
+      "location": "Standort des Magazins",
+      "locationHint": "Noch der Platzhalter «Musterstadt» – Karte und Adresssuche richten sich danach.",
+      "locationAction": "Adresse suchen …",
+      "inventory": "Personal und Fahrzeuge",
+      "inventoryHint": "Noch nichts erfasst – ohne sie lässt sich kein Einsatz besetzen.",
+      "inventoryAction": "Excel importieren …",
+      "dismiss": "Ausblenden",
+      "dialogTitle": "Standort des Magazins",
+      "dialogDescription": "Die Karte öffnet hier, und die Adresssuche reiht Treffer aus eurem Einsatzgebiet zuoberst ein. Später änderbar unter Einstellungen › Allgemein.",
+      "addressLabel": "Adresse des Magazins",
+      "homeCityLabel": "Einsatzgebiet (Ort)",
+      "homeCityPlaceholder": "Oberwil, BL",
+      "locationMissing": "Adresse wählen oder auf der Karte setzen – es braucht Koordinaten.",
+      "homeCityMissing": "Ort eintragen, z. B. «Oberwil, BL».",
+      "save": "Standort speichern",
+      "saved": "Standort gespeichert",
+      "saveFailed": "Standort nicht gespeichert",
+      "cancel": "Abbrechen"
     }
   },
   "events": {
@@ -3049,7 +3082,14 @@
       "realAlarmWarningTitle": "{count, plural, one {Dieser Alarm ist echt, das Ereignis ist eine Übung} other {Diese Alarme sind echt, das Ereignis ist eine Übung}}",
       "realAlarmWarningAlerting": "Die Ausalarmierung wird nur simuliert – <hint>es wird niemand aufgeboten.</hint>",
       "realAlarmWarningThresholds": "Die Überfällig-Schwellen sind 50 % länger – <hint>Warnungen kommen später als im Ernstfall.</hint>",
-      "attachAnyway": "Trotzdem an die Übung anhängen"
+      "attachAnyway": "Trotzdem an die Übung anhängen",
+      "attachedTo": "Alarm an «{event}» angehängt",
+      "attachedToNumber": "Einsatz {number}",
+      "attachOther": "Anderes Ereignis …",
+      "attachOtherAria": "«{title}» an ein anderes Ereignis anhängen",
+      "detached": "Alarm ist zurück im Alarmeingang",
+      "detachRefused": "Nicht zurückgenommen",
+      "detachRefusedFallback": "Der Alarm bleibt angehängt."
     },
     "inbox": {
       "title": "Alarmeingang",
@@ -3514,6 +3554,7 @@
       "removePin": "Pin entfernen",
       "setPin": "Pin auf Karte setzen",
       "dispatch": "Auslösen",
+      "dispatchNeeds": "Szenario und Ort wählen, dann auslösen.",
       "dispatchHint": "Oder den Pin direkt auf die Karte setzen.",
       "multipleIncidents": "Mehrere Einsätze gleichzeitig",
       "burst": "Burst (5x zufällig)",
@@ -3839,7 +3880,7 @@
     "status": {
       "accessRequired": "Zugang erforderlich",
       "vehicles": "Fahrzeuge",
-      "availableDeployed": "{available} verfügbar · {deployed} im Einsatz",
+      "availableDeployed": "{available} frei · {deployed} gebunden",
       "incidents": "Einsätze",
       "waitingInProgress": "{waiting} offen · {inProgress} in Arbeit",
       "noActiveIncidents": "Keine aktiven Einsätze",
@@ -3851,7 +3892,7 @@
       "freeOfTotal": "{free}/{total} frei",
       "auftragStops": "{count, plural, one {# Stopp} other {# Stopps}}",
       "onIncidents": "{count, plural, one {# Einsatz} other {# Einsätze}}",
-      "availableDeployedNotReady": "{available} verfügbar · {deployed} im Einsatz · {notReady} nicht einsatzbereit",
+      "availableDeployedNotReady": "{available} frei · {deployed} gebunden · {notReady} nicht einsatzbereit",
       "figures": "Kennzahlen"
     },
     "tokenBoard": {

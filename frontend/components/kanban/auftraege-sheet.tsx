@@ -38,6 +38,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   DropdownMenu,
+  DropdownMenuSeparator,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -80,6 +81,8 @@ import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
 import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
 import { RouteOptimizeButton, RouteOptimizeNote, useRouteOptimizeAction } from "@/components/map/route-optimize"
+import { moveInList, type MoveTo } from "@/lib/move-in-list"
+import { MoveMenuItems } from "@/components/ui/reorder-menu"
 import { StopStatusControl, toMirrorStatus, MIRROR_ORDER, MIRROR_CONFIG, type MirrorStatus } from "@/components/map/route-stop-list"
 import { RouteResourceSections, ResourceSectionHeader } from "@/components/kanban/route-resource-sections"
 import { AuftragRadioDialog } from "@/components/kanban/auftrag-radio-dialog"
@@ -463,6 +466,7 @@ export function AuftraegeSheet({
                 onPromoteLeader={(assignmentId) => void promoteLeader(group.id, assignmentId)}
                 onOpenDetail={onOpenDetail}
                 onRemoveStop={(incidentId) => release.releaseStop(group.id, incidentId)}
+                onReorderStops={(orderedIds) => void reorderGroupStops(group.id, orderedIds)}
                 registerRowRef={(el) => rowRefs.current.set(group.id, el)}
                 canEdit={canEdit}
                 onSetStopStatus={onSetStopStatus}
@@ -528,6 +532,7 @@ interface AuftragCardProps {
   onPromoteLeader: (assignmentId: string) => void
   onOpenDetail: (operationId: string) => void
   onRemoveStop: (incidentId: string) => void
+  onReorderStops: (orderedIds: string[]) => void
   registerRowRef: (el: HTMLDivElement | null) => void
   canEdit: boolean
   onSetStopStatus?: (incidentId: string, status: OperationStatus) => void
@@ -557,6 +562,7 @@ function AuftragCard({
   onPromoteLeader,
   onOpenDetail,
   onRemoveStop,
+  onReorderStops,
   onSetStopStatus,
   registerRowRef,
   canEdit,
@@ -900,6 +906,11 @@ function AuftragCard({
                   groupId={group.id}
                   incidentId={incidentId}
                   index={index}
+                  count={group.stopIds.length}
+                  onMove={(to) => {
+                    const next = moveInList(group.stopIds, index, to)
+                    if (next) onReorderStops(next)
+                  }}
                   op={opById.get(incidentId)}
                   onRemove={() => onRemoveStop(incidentId)}
                   onSetStatus={(status) => onSetStopStatus?.(incidentId, status)}
@@ -960,6 +971,9 @@ interface StopRowProps {
   groupId: string
   incidentId: string
   index: number
+  /** Stops in this Auftrag, and the menu way to reorder them (same write as a drop). */
+  count: number
+  onMove: (to: MoveTo) => void
   op: Operation | undefined
   onRemove: () => void
   /** Set the stop's status directly (mirror of the board columns). */
@@ -969,7 +983,7 @@ interface StopRowProps {
   readOnly?: boolean
 }
 
-function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpenDetail, onOpenMap, readOnly = false }: StopRowProps) {
+function StopRow({ groupId, incidentId, index, count, onMove, op, onRemove, onSetStatus, onOpenDetail, onOpenMap, readOnly = false }: StopRowProps) {
   const t = useTranslations("kanban.auftraege")
   const tStatus = useTranslations("kanban.stopStatus")
   const { formatLocation } = useOperations()
@@ -1039,7 +1053,7 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
           <GripVertical className="h-3.5 w-3.5" />
         </button>}
         <span className="tabular-nums text-xs text-muted-foreground w-6 text-right flex-shrink-0">{index + 1}.</span>
-        {/* Status control — mirrors the board columns; click advances, caret jumps. */}
+        {/* Status control — mirrors the board columns: a menu of all of them. */}
         {readOnly ? (() => { const c = MIRROR_CONFIG[mirror]; const Icon = c.Icon; return <Icon className={cn("h-4 w-4 flex-shrink-0", c.cls)} /> })() : <StopStatusControl op={op} onSetStatus={onSetStatus} />}
         {/* Primary line = the address (home city stripped); the incident type is
             the muted secondary line; the Meldung shows in a tooltip on hover. */}
@@ -1072,11 +1086,18 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-xs" className="flex-shrink-0" aria-label={t("moreOptions")}>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="flex-shrink-0"
+              aria-label={t("stopActions", { name: op?.location ? formatLocation(op.location) : String(index + 1) })}
+            >
               <MoreHorizontal className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" collisionPadding={{ top: 8, bottom: 80, left: 8, right: 8 }}>
+            {!readOnly && <MoveMenuItems Item={DropdownMenuItem} index={index} count={count} onMove={onMove} />}
+            {!readOnly && <DropdownMenuSeparator />}
             <DropdownMenuItem onClick={onOpenDetail}>{t("openDetail")}</DropdownMenuItem>
             {!readOnly && <DropdownMenuItem variant="destructive" onClick={onRemove}>
               {t("removeStop")}
@@ -1102,6 +1123,8 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
               </ContextMenuItem>
             )
           })}
+          {!readOnly && <ContextMenuSeparator />}
+          {!readOnly && <MoveMenuItems Item={ContextMenuItem} index={index} count={count} onMove={onMove} />}
           {!readOnly && <ContextMenuSeparator />}
           <ContextMenuItem onClick={() => onOpenMap(incidentId)}>
             <MapIcon className="mr-2 h-4 w-4" />

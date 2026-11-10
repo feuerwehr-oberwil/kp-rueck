@@ -141,6 +141,12 @@
         "p": "Elle remplit le formulaire sur son propre téléphone – photos comprises. L’annonce est\n            rattachée à la bonne intervention, au lieu de se perdre dans un groupe de discussion."
       },
       {
+        "time": "22:10",
+        "tag": "Missions",
+        "h3": "Les missions partent.",
+        "p": "KP Rück calcule des itinéraires appropriés pour plusieurs places sinistrées et soutient le traitement des\n            missions via un module dédié de l’application web. Les intervenants peuvent notamment annoncer en retour\n            leur arrivée, la reconnaissance, des photos, les besoins en matériel et la fin d’une mission. La\n            communication par radio reste possible comme alternative."
+      },
+      {
         "time": "23:30",
         "tag": "Tableau",
         "h3": "Tout le monde voit le même tableau.",
@@ -329,8 +335,8 @@
   },
   "sibling": {
     "eyebrow": "Projet apparenté",
-    "h2": "KP Rück garde la vue d’ensemble à l’arrière. KP Front conduit à l’avant.",
-    "p": "<strong>KP Front</strong> reproduit sous forme numérique la carte de situation et la table\n          de conduite sur les lieux : signes conventionnels, plans d’objet et surveillance PR, même\n          sans réseau. Application distincte, même écriture – les deux reçoivent la même alarme du\n          système d’alarme et n’ont pas besoin l’une de l’autre.",
+    "h2": "KP Front apporte la profondeur tactique sur la place sinistrée. KP Rück apporte l’ampleur opérationnelle dans la situation d’ensemble.",
+    "p": "<strong>KP Front</strong> reproduit sous forme numérique la carte de situation et la table\n          de conduite sur les lieux : signes conventionnels, plans d’objet et surveillance PR, même\n          sans réseau. Application distincte, même écriture – les deux reçoivent la même alarme du\n          système d’alarme et n’ont pas besoin l’une de l’autre. Les deux applications peuvent être engagées dans une même situation, en parallèle et indépendamment l’une de l’autre.",
     "cta": "Découvrir KP Front",
     "setup": {
       "h3": "Exploiter les deux – sans tout configurer deux fois",

@@ -2394,6 +2394,85 @@
         }
       }
     },
+    "/api/divera/emergencies/{emergency_id}/detach": {
+      "post": {
+        "tags": [
+          "divera"
+        ],
+        "summary": "Detach Emergency From Event",
+        "description": "«Rückgängig» of an attach: the alarm goes back into the Alarmeingang.\n\nAn undo is a new write that must still be valid now (CLAUDE.md «Undo never restores a\nsnapshot blindly»): it runs only while the alarm is still linked to the card that attach\nmade, and that card is as the attach left it – in «Eingegangen», on no Auftrag, with\nnothing assigned. Otherwise 409 and nothing changes: somebody has started working on it.\nThe card is soft-deleted like any deleted card.\n\nEditor role required.",
+        "operationId": "detach_emergency_from_event_api_divera_emergencies__emergency_id__detach_post",
+        "parameters": [
+          {
+            "name": "emergency_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Emergency Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DetachEmergencyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/divera/emergencies/bulk-attach": {
       "post": {
         "tags": [
@@ -4601,90 +4680,6 @@
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/help/export-pdf": {
-      "post": {
-        "tags": [
-          "help"
-        ],
-        "summary": "Export Help Pdf",
-        "description": "Export all help documentation as PDF.\n\nCombines all markdown files from frontend/content/help/ into a single PDF.",
-        "operationId": "export_help_pdf_api_help_export_pdf_post",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/help/topics": {
-      "get": {
-        "tags": [
-          "help"
-        ],
-        "summary": "Get Help Topics",
-        "description": "Get list of available help topics.",
-        "operationId": "get_help_topics_api_help_topics_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
               }
             }
           }
@@ -22183,6 +22178,21 @@
         "title": "DeploymentRole",
         "description": "What this instance is allowed to do to the outside world (see app/environment.py)."
       },
+      "DetachEmergencyRequest": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id"
+        ],
+        "title": "DetachEmergencyRequest",
+        "description": "«Rückgängig» of an attach: the card the attach made goes away again and the alarm\nis back in the Alarmeingang. ``incident_id`` is that card – the undo only runs while\nthe alarm is still linked to it and nobody has worked on it."
+      },
       "DiveraAlarmRecipient": {
         "properties": {
           "personnel_id": {
@@ -33448,6 +33458,21 @@
             "type": "string",
             "format": "uuid",
             "title": "Target Incident Id"
+          },
+          "assignment_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignment Ids"
           }
         },
         "type": "object",
@@ -33455,7 +33480,7 @@
           "target_incident_id"
         ],
         "title": "TransferAssignmentsRequest",
-        "description": "Request to transfer all assignments from one incident to another."
+        "description": "Request to transfer all assignments from one incident to another.\n\n``assignment_ids``: «Rückgängig» of a transfer – move back exactly these rows (the\n``assignment_ids`` the transfer answered with) and nothing the incident held before.\nRefused (409) unless every one of them is still active on the incident."
       },
       "TransferAssignmentsResponse": {
         "properties": {

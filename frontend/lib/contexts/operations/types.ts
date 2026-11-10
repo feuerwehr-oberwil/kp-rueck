@@ -260,7 +260,8 @@ export interface OperationsContextType {
   /** Change an incident's status and move it to the TOP of the target column —
    *  the one-click equivalent of dragging it across (mirrors the reko auto-move). */
   changeStatusToTop: (operationId: string, newStatus: OperationStatus, extraUpdates?: Partial<Operation>) => void
-  createOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => void
+  /** Resolves once the server answered (and the board holds the new card, or the failure toast). */
+  createOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => Promise<void>
   /** «Zusammenführen» from «Neuer Einsatz»: the typed report becomes a Nachtrag
    *  on `targetId` (no new card) and an undo toast is offered. Resolves false
    *  when the server refused or the call failed (a toast already said so). */

@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/dialog"
 import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
-import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, AlertCircle } from "lucide-react"
 import type { Incident } from "@/lib/types/incidents"
@@ -31,9 +30,9 @@ interface TransferIncidentDialogProps {
   availableIncidents: Incident[]
   onTransfer: (targetIncidentId: string) => void
   isTransferring?: boolean
-  /** What this transfer will move. Shown in the confirmation so the operator sees the
-   *  size of the move before making it — «Ressourcen übertragen» takes a whole crew off
-   *  one incident with no undo, and used to do so on a single click with no summary. */
+  /** What this transfer will move. Said above the buttons once a target is chosen, so the
+   *  operator sees the size of the move before making it — «Ressourcen übertragen» takes a
+   *  whole crew off one incident. */
   resourceSummary?: { crew: number; vehicles: number; materials: number }
 }
 
@@ -50,21 +49,12 @@ export function TransferIncidentDialog({
   const t = useTranslations('incidents')
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
-  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const selectedIncident = availableIncidents.find((inc) => inc.id === selectedIncidentId) ?? null
 
+  // No second question: the dialog says what moves (below), and the toast offers «Rückgängig».
   const handleTransfer = () => {
-    if (selectedIncidentId) {
-      setConfirmOpen(true)
-    }
-  }
-
-  const confirmTransfer = () => {
-    if (selectedIncidentId) {
-      onTransfer(selectedIncidentId)
-    }
-    setConfirmOpen(false)
+    if (selectedIncidentId) onTransfer(selectedIncidentId)
   }
 
   const handleClose = () => {
@@ -207,6 +197,16 @@ export function TransferIncidentDialog({
           )}
         </div>
 
+        {resourceSummary && selectedIncident && (
+          <p role="status" className="text-sm text-muted-foreground">
+            {t('transfer.confirmCounts', {
+              crew: resourceSummary.crew,
+              vehicles: resourceSummary.vehicles,
+              materials: resourceSummary.materials,
+            })}
+          </p>
+        )}
+
         <DialogFooter>
           <Button variant="outline" onClick={handleClose} disabled={isTransferring}>
             {t('common.cancel')}
@@ -221,34 +221,6 @@ export function TransferIncidentDialog({
         </DialogFooter>
       </DialogContent>
 
-      {/* A transfer moves a whole crew off one incident and onto another, and there is no
-          undo. It used to happen on the click above, with no statement of what was moving
-          or where — so this names both incidents and counts the resources first. */}
-      <ConfirmDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        title={t('transfer.confirmTitle')}
-        description={t('transfer.confirmDescription', {
-          source: sourceName || sourceIncident.title || '',
-          target: selectedIncident
-            ? selectedIncident.location_display ??
-              (formatLocationForDisplay(selectedIncident.location_address ?? '', getGlobalHomeCity()) ||
-                selectedIncident.title)
-            : '',
-        })}
-        confirmText={t('transfer.transfer')}
-        onConfirm={confirmTransfer}
-      >
-        {resourceSummary && (
-          <p className="text-sm text-muted-foreground">
-            {t('transfer.confirmCounts', {
-              crew: resourceSummary.crew,
-              vehicles: resourceSummary.vehicles,
-              materials: resourceSummary.materials,
-            })}
-          </p>
-        )}
-      </ConfirmDialog>
     </Dialog>
   )
 }

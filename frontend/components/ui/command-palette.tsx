@@ -58,6 +58,14 @@ import {
   ChevronDown,
   Waypoints,
   Printer,
+  Binoculars,
+  ArrowRightLeft,
+  Building2,
+  Timer,
+  CheckCircle2,
+  Inbox,
+  ClipboardCheck,
+  ListChecks,
   Palette,
   QrCode,
   FileText,
@@ -66,7 +74,8 @@ import {
   ChartColumn,
   Clock,
 } from "lucide-react"
-import { useCommandPaletteHandlers } from "@/lib/contexts/command-palette-context"
+import { useCommandPaletteHandlers, type IncidentCommand } from "@/lib/contexts/command-palette-context"
+import { openAlarmInbox } from "@/components/alarm-inbox/alarm-inbox-store"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { PRIORITY_ICONS, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 // Hints come from the one chord table — they said «G K» for weeks after the
@@ -132,6 +141,24 @@ export function CommandPalette() {
   // The «Färben nach» mode names — reused from the map's own Ansicht menu so
   // the palette and the dropdown can never disagree on what a mode is called.
   const tMapColorBy = useTranslations('map.colorBy')
+  // The card's right-click rows and the view names are said in their own words here too.
+  const tKanban = useTranslations('kanban')
+  const tNav = useTranslations('nav.userMenu')
+  // The selected Einsatz's right-click actions as command rows, in the menu's order and
+  // in the menu's own words. `dialog`: opens a dialog rather than acting at once (« …»).
+  // The two flags are worded by state in the menu («markieren» / «entfernen»); here they toggle.
+  const incidentRows: ReadonlyArray<{ command: IncidentCommand; Icon: typeof Users; label: string; dialog?: boolean }> = [
+    { command: 'assignReko', Icon: Binoculars, label: tKanban('card.assignReko'), dialog: true },
+    { command: 'assignCrew', Icon: Users, label: tKanban('common.assignCrew'), dialog: true },
+    { command: 'assignVehicle', Icon: Truck, label: tKanban('common.assignVehicle'), dialog: true },
+    { command: 'assignMaterial', Icon: Package, label: tKanban('common.assignMaterial'), dialog: true },
+    { command: 'transfer', Icon: ArrowRightLeft, label: tKanban('common.transferResources'), dialog: true },
+    { command: 'distribute', Icon: Waypoints, label: tKanban('common.distributeToAuftrag'), dialog: true },
+    { command: 'toggleNachbarhilfe', Icon: Building2, label: t('toggleNachbarhilfe') },
+    { command: 'toggleAmWarten', Icon: Timer, label: t('toggleAmWarten') },
+    { command: 'complete', Icon: CheckCircle2, label: tKanban('card.completeIncident'), dialog: true },
+    { command: 'print', Icon: Printer, label: tKanban('common.printSlip') },
+  ]
   const [open, setOpen] = useState(false)
   const router = useRouter()
 
@@ -176,6 +203,10 @@ export function CommandPalette() {
     onDispatch,
     onDispatchJump,
     onOpenIncident,
+    incidentCommands = [],
+    onIncidentCommand,
+    onOpenAttendance,
+    onOpenChecklist,
   } = useCommandPaletteHandlers()
 
   // Type-to-dispatch. The text is controlled so the parser sees it; picks answer
@@ -512,6 +543,23 @@ export function CommandPalette() {
                   <span>{t('crewDuty')}</span>
                 </CommandItem>
               )}
+              {/* The alarm inbox is a sheet of the app shell, so it opens from every page. */}
+              <CommandItem onSelect={() => runCommand(openAlarmInbox)}>
+                <Inbox className="mr-2 h-4 w-4" />
+                <span>{tNav('diveraPool')}</span>
+              </CommandItem>
+              {onOpenAttendance && (
+                <CommandItem onSelect={() => runCommand(onOpenAttendance)}>
+                  <ClipboardCheck className="mr-2 h-4 w-4" />
+                  <span>{tKanban('attendance.openButton')}</span>
+                </CommandItem>
+              )}
+              {onOpenChecklist && (
+                <CommandItem onSelect={() => runCommand(onOpenChecklist)}>
+                  <ListChecks className="mr-2 h-4 w-4" />
+                  <span>{tKanban('dashboard.readiness')}</span>
+                </CommandItem>
+              )}
               {onRefresh && (
                 <CommandItem onSelect={() => runCommand(onRefresh)}>
                   <RefreshCw className="mr-2 h-4 w-4" />
@@ -758,6 +806,17 @@ export function CommandPalette() {
                   <Truck className="mr-2 h-4 w-4" />
                   <span>{t('assignVehicle', { number: n })}</span>
                   <span className="ml-auto text-xs text-muted-foreground">{n}</span>
+                </CommandItem>
+              ))}
+              {/* The card's right-click rows: nothing on a card needs a mouse. «…» = opens a dialog. */}
+              {incidentRows.filter((row) => incidentCommands.includes(row.command)).map(({ command, Icon, label, dialog }) => (
+                <CommandItem
+                  key={command}
+                  disabled={!hasSelectedIncident}
+                  onSelect={() => runCommand(() => (hasSelectedIncident ? onIncidentCommand?.(command) : undefined))}
+                >
+                  <Icon className="mr-2 h-4 w-4" />
+                  <span>{dialog ? `${label} …` : label}</span>
                 </CommandItem>
               ))}
               <CommandItem

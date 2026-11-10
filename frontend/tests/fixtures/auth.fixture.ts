@@ -80,7 +80,6 @@ export const test = base.extend<AuthFixtures, AuthWorkerFixtures>({
    */
   authenticatedPage: async ({ page, authCookies }, use) => {
     await page.context().addCookies(authCookies);
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(page);
   },
 
@@ -98,7 +97,6 @@ export const test = base.extend<AuthFixtures, AuthWorkerFixtures>({
     const context = await browser.newContext();
     await context.addCookies(viewerCookies);
     const page = await context.newPage();
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(page);
     await context.close();
   },
@@ -108,7 +106,6 @@ export const test = base.extend<AuthFixtures, AuthWorkerFixtures>({
    */
   loginPage: async ({ page }, use) => {
     const loginPage = new LoginPage(page);
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(loginPage);
   },
 
@@ -117,7 +114,6 @@ export const test = base.extend<AuthFixtures, AuthWorkerFixtures>({
    */
   dashboardPage: async ({ page }, use) => {
     const dashboardPage = new DashboardPage(page);
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(dashboardPage);
   },
 });

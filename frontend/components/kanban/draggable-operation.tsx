@@ -1,5 +1,6 @@
 "use client"
 
+import type { MoveTo } from "@/lib/move-in-list"
 import { IncidentNumber } from "@/components/ui/incident-number"
 import { useEffect, useRef, useState, memo } from "react"
 import { useTranslations } from "next-intl"
@@ -87,6 +88,8 @@ interface DraggableOperationProps {
    *  a double entry) and must not turn up in the Ereignisbericht as handled
    *  work. The board owns the confirmation dialog. */
   onRequestDelete?: () => void
+  /** Reorder inside the column without dragging; the board decides whether anything moves. */
+  onMoveInColumn?: (to: MoveTo) => void
   /** Editor-only: open the "Ressourcen übertragen" dialog for this incident. */
   onTransfer?: () => void
   /** Editor-only: open the Auftrag picker to distribute this incident into a route. */
@@ -197,6 +200,7 @@ function DraggableOperationBase({
   onToggleZuFuss,
   onRequestComplete,
   onRequestDelete,
+  onMoveInColumn,
   onTransfer,
   onDistributeToAuftrag,
   cardView = DEFAULT_CARD_VIEW,
@@ -988,6 +992,7 @@ function DraggableOperationBase({
         onToggleAmWarten={onToggleAmWarten}
         onRequestComplete={onRequestComplete}
         onRequestDelete={onRequestDelete}
+        onMoveInColumn={onMoveInColumn}
         printerEnabled={printerEnabled}
       />
     </ContextMenu>

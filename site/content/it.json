@@ -141,6 +141,12 @@
         "p": "La squadra di ricognizione compila il modulo dal proprio telefono – foto comprese. La segnalazione resta agganciata all’intervento giusto invece di perdersi nella chat di gruppo."
       },
       {
+        "time": "22:10",
+        "tag": "Incarichi",
+        "h3": "Gli incarichi partono.",
+        "p": "KP Rück calcola percorsi adeguati per più luoghi d’intervento e supporta la gestione degli incarichi tramite un modulo dedicato dell’app web. Le forze d’intervento possono tra l’altro segnalare l’arrivo, la ricognizione, foto, il fabbisogno di materiale e la conclusione di un incarico. In alternativa resta possibile la comunicazione via radio."
+      },
+      {
         "time": "23:30",
         "tag": "Tavolo",
         "h3": "Tutti vedono lo stesso tavolo.",
@@ -329,8 +335,8 @@
   },
   "sibling": {
     "eyebrow": "Progetto affine",
-    "h2": "KP Rück tiene la visione d’insieme dietro. KP Front conduce davanti.",
-    "p": "<strong>KP Front</strong> porta in digitale la carta della situazione e il tavolo di condotta sul posto: simboli tattici, piani d’oggetto e sorveglianza della protezione respiratoria, anche senza rete. App propria, stessa impronta – i due ricevono lo stesso allarme dal sistema di allertamento, e nessuno dei due ha bisogno dell’altro.",
+    "h2": "KP Front crea profondità tattica sul luogo d’intervento. KP Rück crea ampiezza operativa nella situazione generale.",
+    "p": "<strong>KP Front</strong> porta in digitale la carta della situazione e il tavolo di condotta sul posto: simboli tattici, piani d’oggetto e sorveglianza della protezione respiratoria, anche senza rete. App propria, stessa impronta – i due ricevono lo stesso allarme dal sistema di allertamento, e nessuno dei due ha bisogno dell’altro. Le due applicazioni possono essere impiegate nella stessa situazione in parallelo e in modo indipendente l’una dall’altra.",
     "cta": "Guarda KP Front",
     "setup": {
       "h3": "Gestirli entrambi – senza configurare tutto due volte",

@@ -6,7 +6,7 @@
  * Enhanced with visual grouping for better navigation organization
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import { wsClient, type WebSocketStatus } from '@/lib/websocket-client';
 import { AccountBlock } from '@/components/auth/account-block';
 import { VersionLabel } from '@/components/version-label';
 import { useLogout } from '@/lib/hooks/use-logout';
+import { usePolling } from '@/lib/hooks/use-polling';
 import { openCommandPalette } from '@/components/ui/command-palette';
 import { openAlarmInbox } from '@/components/alarm-inbox/alarm-inbox-store';
 import { FiguresDialog, toggleFigures } from '@/components/figures-dialog';
@@ -52,6 +53,9 @@ interface UserMenuProps {
   onVehicleStatus?: () => void;
   onPrint?: () => void;
 }
+
+/** How often the menu's printer, Divera and server dots are refreshed. */
+const STATUS_POLL_MS = 30_000
 
 export function UserMenu({
   onNewIncident,
@@ -140,60 +144,38 @@ export function UserMenu({
     return unsubscribe;
   }, []);
 
-  // Fetch printer status
-  useEffect(() => {
-    if (!isAuthenticated) return;
+  // Three status probes behind the menu's dots. On `usePolling` so they pause in a hidden
+  // tab like every other timer – a board left open overnight asked thrice every 30 s.
+  const fetchPrinterStatus = useCallback(async () => {
+    try {
+      setPrinterStatus(await apiClient.getPrinterStatus());
+    } catch {
+      // Printer API might not be available (e.g., Railway deployment)
+      setPrinterStatus(null);
+    }
+  }, []);
+  usePolling(fetchPrinterStatus, { intervalMs: STATUS_POLL_MS, enabled: isAuthenticated });
 
-    const fetchPrinterStatus = async () => {
-      try {
-        const status = await apiClient.getPrinterStatus();
-        setPrinterStatus(status);
-      } catch {
-        // Printer API might not be available (e.g., Railway deployment)
-        setPrinterStatus(null);
-      }
-    };
-    fetchPrinterStatus();
-    // Refresh printer status every 30 seconds
-    const interval = setInterval(fetchPrinterStatus, 30000);
-    return () => clearInterval(interval);
-  }, [isAuthenticated]);
-
-  // Fetch Divera connection status
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const fetchDiveraStatus = async () => {
-      try {
-        setDiveraStatus(await apiClient.getDiveraPollingStatus());
-      } catch {
-        // Divera API might not be available — leave status unknown.
-        setDiveraStatus(null);
-      }
-    };
-    fetchDiveraStatus();
-    const interval = setInterval(fetchDiveraStatus, 30000);
-    return () => clearInterval(interval);
-  }, [isAuthenticated]);
+  const fetchDiveraStatus = useCallback(async () => {
+    try {
+      setDiveraStatus(await apiClient.getDiveraPollingStatus());
+    } catch {
+      // Divera API might not be available — leave status unknown.
+      setDiveraStatus(null);
+    }
+  }, []);
+  usePolling(fetchDiveraStatus, { intervalMs: STATUS_POLL_MS, enabled: isAuthenticated });
 
   // One health poll for the whole mount (`apiUrl` is fixed at mount).
-  useEffect(() => {
-    const checkConnection = async () => {
-      try {
-        const response = await fetch(`${apiUrl}/health`);
-        if (response.ok) {
-          setStatus("connected");
-        } else {
-          setStatus("disconnected");
-        }
-      } catch {
-        setStatus("disconnected");
-      }
-    };
-    checkConnection();
-    const interval = setInterval(checkConnection, 30000);
-    return () => clearInterval(interval);
+  const checkConnection = useCallback(async () => {
+    try {
+      const response = await fetch(`${apiUrl}/health`);
+      setStatus(response.ok ? "connected" : "disconnected");
+    } catch {
+      setStatus("disconnected");
+    }
   }, [apiUrl]);
+  usePolling(checkConnection, { intervalMs: STATUS_POLL_MS });
 
   if (!isAuthenticated || !user) {
     return null;

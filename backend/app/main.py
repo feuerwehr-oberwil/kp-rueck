@@ -37,7 +37,6 @@ from .api.firehub import router as firehub_router
 from .api.geocoding import router as geocoding_router
 from .api.groups import router as groups_router
 from .api.health import router as health_router
-from .api.help import router as help_router
 from .api.incidents import router as incidents_router
 from .api.intake import router as intake_router
 from .api.integrations import router as integrations_router
@@ -89,6 +88,7 @@ from .database import async_session_maker, commit_request, engine
 from .ensure_accounts import ensure_dev_bypass_user
 from .environment import ROLE_STANDBY, blocked_domains, deployment_role
 from .middleware.audit import AuditMiddleware
+from .middleware.body_limit import BodyLimitMiddleware
 from .middleware.rate_limit import limiter, rate_limit_exceeded_handler
 from .middleware.request_id import RequestIDMiddleware, get_request_id, request_id_var
 from .middleware.security_headers import SecurityHeadersMiddleware
@@ -155,8 +155,9 @@ async def _setup_divera_polling():
 
                 return True  # New alarm processed
 
-            except Exception as e:
-                logger.error(f"Error processing polled alarm {payload.id}: {e}")
+            except Exception:
+                # With the traceback: an alarm that failed here is one the board never showed.
+                logger.exception("Error processing polled alarm %s", payload.id)
                 return False
 
     async def on_polled_responses(snapshots: dict[int, dict[str, Any]]) -> None:
@@ -390,6 +391,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from .background.standby_watch import start_standby_watch
 
         start_standby_watch()
+    else:
+        # A mirror's notification rows come from the hosted board; everywhere else the rules
+        # are evaluated on a clock (app/background/notification_watch.py).
+        from .background.notification_watch import start_notification_watch
+
+        start_notification_watch()
 
     logger.info("Application startup complete")
     yield
@@ -398,6 +405,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from .background.standby_watch import stop_standby_watch
 
         await stop_standby_watch()
+    else:
+        from .background.notification_watch import stop_notification_watch
+
+        await stop_notification_watch()
 
     # Shutdown: Stop fallback auto-print task
     if not settings.demo_mode:
@@ -613,6 +624,10 @@ app.add_middleware(StandbyReadOnlyMiddleware)
 # Add security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)
 
+# The backend's own body ceiling: on Railway it is a public origin of its own, with neither
+# Caddy nor the Next proxy in front (app/middleware/body_limit.py).
+app.add_middleware(BodyLimitMiddleware)
+
 # Add request-ID middleware last so it runs first (outermost) and the
 # audit/rate-limit middlewares' logs carry the request ID
 app.add_middleware(RequestIDMiddleware)
@@ -634,7 +649,6 @@ app.include_router(journal_router, prefix=settings.api_v1_prefix)
 app.include_router(firehub_router, prefix=settings.api_v1_prefix)
 app.include_router(geocoding_router, prefix=settings.api_v1_prefix)
 app.include_router(exports_router, prefix=settings.api_v1_prefix)
-app.include_router(help_router, prefix=settings.api_v1_prefix)
 app.include_router(incidents_router, prefix=settings.api_v1_prefix)
 app.include_router(groups_router, prefix=settings.api_v1_prefix)
 app.include_router(integrations_router, prefix=settings.api_v1_prefix)

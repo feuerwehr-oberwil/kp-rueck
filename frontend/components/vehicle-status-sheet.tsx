@@ -14,12 +14,11 @@ import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-clien
 import { isIncidentStatus } from "@/lib/types/incidents"
 import { toast } from "sonner"
 import { useTranslations } from "next-intl"
-import { translateOutsideReact } from "@/lib/i18n-messages"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { RESOURCE_STATE_BADGE_CLASSES } from "@/lib/resource-status"
-import { splitDuration } from "@/lib/duration"
+import { formatDuration } from "@/lib/duration"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { DriverAssignmentDialog } from "./driver-assignment-dialog"
 
@@ -48,24 +47,9 @@ interface VehicleStatusSheetProps {
   eventId: string | null
 }
 
-function formatDuration(minutes: number | null): string {
-  if (minutes === null) return "-"
-
-  if (minutes < 60) {
-    return translateOutsideReact('incidents.vehicleStatus.durationMinutes', { minutes })
-  }
-
-  // Shared split (lib/duration.ts): a vehicle out since yesterday reads
-  // «1d 10h», not «34h 12m».
-  const parts = splitDuration(minutes * 60_000)
-  if (parts.days > 0) {
-    return translateOutsideReact('incidents.vehicleStatus.durationDaysHours', { days: parts.days, hours: parts.hours })
-  }
-  const hours = Math.floor(parts.totalMinutes / 60)
-  const mins = parts.minutes
-  return mins > 0
-    ? translateOutsideReact('incidents.vehicleStatus.durationHoursMinutes', { hours, mins })
-    : translateOutsideReact('incidents.vehicleStatus.durationHours', { hours })
+/** The board's own notation (lib/duration.ts): «38'», «1h 8'», «1d 10h». */
+function formatMinutes(minutes: number | null): string {
+  return minutes === null ? "-" : formatDuration(minutes * 60_000)
 }
 
 function getDurationColor(minutes: number | null): string {
@@ -351,6 +335,8 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                 const isClickable = !!vehicle.incident_id
                 const auftrag = auftragByVehicleId.get(vehicle.id)
                 const auftragName = auftrag?.name
+                // Out on an Einsatz OR on an Auftrag: either way not «Verfügbar».
+                const isBound = !!vehicle.incident_id || !!auftrag
                 const showDurationWarning = vehicle.assignment_duration_minutes && vehicle.assignment_duration_minutes >= 120
                 // Where the vehicle is: Auftrag name, else home-town-free incident
                 // address. The server ships that label already computed
@@ -392,7 +378,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                             <span className="font-bold text-sm">{vehicle.name}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            {!vehicle.incident_id && vehicle.status === "available" && (
+                            {!isBound && vehicle.status === "available" && (
                               <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.available)}>
                                 {t('vehicleStatus.available')}
                               </Badge>
@@ -400,6 +386,11 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                             {vehicle.status === "unavailable" && (
                               <Badge className="text-xs bg-muted text-muted-foreground border-border">
                                 {t('vehicleStatus.unavailable')}
+                              </Badge>
+                            )}
+                            {auftrag && !vehicle.incident_id && vehicle.status !== "unavailable" && (
+                              <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.assigned)}>
+                                {t('vehicleStatus.bound')}
                               </Badge>
                             )}
                             {vehicle.incident_id && vehicle.incident_status && (
@@ -442,7 +433,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                             <div className="flex items-center gap-1.5">
                               <Clock className="h-3 w-3 flex-shrink-0" />
                               <span className={cn("text-xs font-medium", getDurationColor(vehicle.assignment_duration_minutes))}>
-                                {formatDuration(vehicle.assignment_duration_minutes)}
+                                {formatMinutes(vehicle.assignment_duration_minutes)}
                               </span>
                             </div>
                           )}
@@ -524,7 +515,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                             <>
                               <Clock className="h-3 w-3 flex-shrink-0" />
                               <span className={cn("text-xs font-medium", getDurationColor(vehicle.assignment_duration_minutes))}>
-                                {formatDuration(vehicle.assignment_duration_minutes)}
+                                {formatMinutes(vehicle.assignment_duration_minutes)}
                               </span>
                             </>
                           )}
@@ -534,7 +525,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                             «Verfügbar» sits under «Verfügbar» however many badges
                             the row above carries. */}
                         <div className="flex items-center justify-self-end gap-1.5">
-                          {!vehicle.incident_id && vehicle.status === "available" && (
+                          {!isBound && vehicle.status === "available" && (
                             <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.available)}>
                               {t('vehicleStatus.available')}
                             </Badge>
@@ -542,6 +533,11 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                           {vehicle.status === "unavailable" && (
                             <Badge className="text-xs bg-muted text-muted-foreground border-border">
                               {t('vehicleStatus.unavailable')}
+                            </Badge>
+                          )}
+                          {auftrag && !vehicle.incident_id && vehicle.status !== "unavailable" && (
+                            <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.assigned)}>
+                              {t('vehicleStatus.bound')}
                             </Badge>
                           )}
                           {vehicle.incident_id && vehicle.incident_status && (

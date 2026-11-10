@@ -9,6 +9,7 @@
  * the config-file path is documented in docs/SETUP.md.
  */
 
+import { BrandMark } from '@/components/brand-mark';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -113,9 +114,7 @@ export default function SetupPage() {
         <Card className="border border-border bg-card/80 backdrop-blur-sm overflow-hidden">
           <div className="p-8">
             {/* Logo mark */}
-            <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-[10px] bg-primary text-[15px] font-bold tracking-tight text-primary-foreground">
-              KP
-            </div>
+            <BrandMark size={40} className="mb-5" />
 
             {claimed === null && (
               <div className="flex items-center justify-center py-8">
@@ -243,6 +242,13 @@ export default function SetupPage() {
                     {submitting ? t('submitting') : t('submit')}
                   </Button>
                 </form>
+
+                {/* The claim creates the account `admin` – said here, because the login form asks for it later. */}
+                <p className="mt-3 text-xs text-muted-foreground">
+                  {t.rich('usernameNote', {
+                    name: (chunks) => <b className="font-mono font-semibold text-foreground">{chunks}</b>,
+                  })}
+                </p>
 
                 <p className="mt-5 border-t border-border pt-4 text-xs text-muted-foreground">
                   {t.rich('footer', {

@@ -390,6 +390,12 @@ class PhotoStorageService:
         """
         if self.get_photo_path(incident_id, filename) is not None:
             return False
+        # Processed photos are JPEG and far below the upload limit; anything else did not
+        # come out of a KP Rück and is not kept, sync token or not.
+        if len(content) > self.max_size_bytes:
+            raise HTTPException(status_code=413, detail="Bild zu gross.")
+        if not content.startswith(b"\xff\xd8\xff"):
+            raise HTTPException(status_code=400, detail="Kein JPEG.")
         self._get_incident_dir(incident_id)
         target = self._inside_photos_dir(str(incident_id), filename)
         partial = target.with_suffix(".part")
