@@ -41,13 +41,15 @@ interface MobileIncidentCardProps {
 }
 
 /** `label | value` line of the card's fact block — same reading the incident
- *  detail uses, shrunk to the phone. Renders nothing without a value. */
+ *  detail uses, shrunk to the phone. Renders nothing without a value. Two cells of
+ *  the block's grid: the label column is as wide as the longest label in the
+ *  current language («Reconnaissance» does not fit a fixed 4.5rem). */
 function FactRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex gap-2 text-xs leading-snug">
-      <span className="w-[4.5rem] shrink-0 text-muted-foreground">{label}</span>
-      <div className="min-w-0 flex-1">{children}</div>
-    </div>
+    <>
+      <span className="text-muted-foreground">{label}</span>
+      <div className="min-w-0">{children}</div>
+    </>
   )
 }
 
@@ -211,7 +213,7 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
           driver and the stays/returns word), Reko. Rows without a value
           disappear, so a fresh card stays two lines tall. */}
       {(operation.notes.trim() || operation.crew.length > 0 || operation.vehicles.length > 0 || rekoText) && (
-        <div className="mt-2 space-y-1 border-t border-border/50 pt-2">
+        <div className="mt-2 grid grid-cols-[minmax(4.5rem,auto)_minmax(0,1fr)] gap-x-2 gap-y-1 border-t border-border/50 pt-2 text-xs leading-snug">
           {operation.notes.trim() && (
             <FactRow label={tMobile("meldung")}>
               <p className="line-clamp-2 whitespace-pre-wrap">{operation.notes.trim()}</p>

@@ -431,7 +431,8 @@ function SheetBody({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="sheet-body"
-      className={cn('min-h-0 flex-1 overflow-y-auto overscroll-contain', className)}
+      // `relative`: sr-only labels inside are absolute and must be clipped with this scroller.
+      className={cn('relative min-h-0 flex-1 overflow-y-auto overscroll-contain', className)}
       {...props}
     />
   )
