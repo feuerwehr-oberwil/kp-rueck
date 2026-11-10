@@ -69,6 +69,8 @@ interface LocationInputProps {
    *  marking it on the detail asked the operator to satisfy a rule they had
    *  satisfied when the card was created. */
   required?: boolean
+  /** What the address field is called where it is not an Einsatzort (the Magazin's location). */
+  label?: string
 }
 
 export function LocationInput({
@@ -86,6 +88,7 @@ export function LocationInput({
   dense = false,
   boxed = false,
   required = false,
+  label,
 }: LocationInputProps) {
   const t = useTranslations('map')
   const stackedOnPhone = useStackedFields()
@@ -442,7 +445,7 @@ export function LocationInput({
                 : "text-[13px] leading-tight font-medium text-muted-foreground",
             )}
           >
-            {t('locationInput.addressLabel')}
+            {label ?? t('locationInput.addressLabel')}
           </Label>
           {/* The required mark is muted ink, not red: red is priority and danger only.
               What is wrong is said in red UNDER the field, after a failed submit. */}

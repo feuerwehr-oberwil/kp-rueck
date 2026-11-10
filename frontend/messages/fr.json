@@ -4283,7 +4283,31 @@
       "alreadyClaimedTitle": "Déjà configuré",
       "alreadyClaimedBody": "Ce tableau a déjà été configuré. Connectez-vous avec votre compte.",
       "goToLogin": "Vers la connexion",
-      "footer": "Tout le reste – comptes, cartes, sauvegardes – vous attend dans les réglages. Pour la configuration par fichier : <code>docs/SETUP.md</code>."
+      "footer": "Tout le reste – comptes, cartes, sauvegardes – vous attend dans les réglages. Pour la configuration par fichier : <code>docs/SETUP.md</code>.",
+      "usernameNote": "Nom d’utilisateur pour la connexion : <name>admin</name>"
+    },
+    "station": {
+      "title": "Configurer la caserne",
+      "progress": "{done} sur 3 terminé",
+      "signedInAs": "Connecté en tant que <name></name>",
+      "location": "Emplacement du dépôt",
+      "locationHint": "Encore la valeur par défaut « Musterstadt » – la carte et la recherche d’adresse s’y réfèrent.",
+      "locationAction": "Chercher une adresse …",
+      "inventory": "Personnel et véhicules",
+      "inventoryHint": "Rien de saisi – sans eux, aucune intervention ne peut être dotée.",
+      "inventoryAction": "Importer un fichier Excel …",
+      "dismiss": "Masquer",
+      "dialogTitle": "Emplacement du dépôt",
+      "dialogDescription": "La carte s’ouvre ici, et la recherche d’adresse place en tête les résultats de votre secteur. Modifiable plus tard sous Réglages › Général.",
+      "addressLabel": "Adresse du dépôt",
+      "homeCityLabel": "Secteur d’intervention (localité)",
+      "homeCityPlaceholder": "Oberwil, BL",
+      "locationMissing": "Choisir une adresse ou la placer sur la carte – il faut des coordonnées.",
+      "homeCityMissing": "Saisir la localité, p. ex. « Oberwil, BL ».",
+      "save": "Enregistrer l’emplacement",
+      "saved": "Emplacement enregistré",
+      "saveFailed": "Emplacement non enregistré",
+      "cancel": "Annuler"
     }
   },
   "training": {

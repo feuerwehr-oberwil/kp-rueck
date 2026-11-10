@@ -2556,7 +2556,31 @@
       "alreadyClaimedTitle": "Bereits eingerichtet",
       "alreadyClaimedBody": "Dieses Board wurde bereits eingerichtet. Melde dich mit deinem Konto an.",
       "goToLogin": "Zur Anmeldung",
-      "footer": "Alles Weitere – Konten, Karten, Backups – wartet in den Einstellungen. Wer per Konfigurationsdatei einrichtet: <code>docs/SETUP.md</code>."
+      "footer": "Alles Weitere – Konten, Karten, Backups – wartet in den Einstellungen. Wer per Konfigurationsdatei einrichtet: <code>docs/SETUP.md</code>.",
+      "usernameNote": "Benutzername für die Anmeldung: <name>admin</name>"
+    },
+    "station": {
+      "title": "Station einrichten",
+      "progress": "{done} von 3 erledigt",
+      "signedInAs": "Angemeldet als <name></name>",
+      "location": "Standort des Magazins",
+      "locationHint": "Noch der Platzhalter «Musterstadt» – Karte und Adresssuche richten sich danach.",
+      "locationAction": "Adresse suchen …",
+      "inventory": "Personal und Fahrzeuge",
+      "inventoryHint": "Noch nichts erfasst – ohne sie lässt sich kein Einsatz besetzen.",
+      "inventoryAction": "Excel importieren …",
+      "dismiss": "Ausblenden",
+      "dialogTitle": "Standort des Magazins",
+      "dialogDescription": "Die Karte öffnet hier, und die Adresssuche reiht Treffer aus eurem Einsatzgebiet zuoberst ein. Später änderbar unter Einstellungen › Allgemein.",
+      "addressLabel": "Adresse des Magazins",
+      "homeCityLabel": "Einsatzgebiet (Ort)",
+      "homeCityPlaceholder": "Oberwil, BL",
+      "locationMissing": "Adresse wählen oder auf der Karte setzen – es braucht Koordinaten.",
+      "homeCityMissing": "Ort eintragen, z. B. «Oberwil, BL».",
+      "save": "Standort speichern",
+      "saved": "Standort gespeichert",
+      "saveFailed": "Standort nicht gespeichert",
+      "cancel": "Abbrechen"
     }
   },
   "events": {

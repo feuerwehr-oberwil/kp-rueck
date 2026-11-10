@@ -1,5 +1,6 @@
 "use client"
 
+import { StationSetupStrip } from '@/components/station-setup-strip'
 import { useEffect, useMemo } from 'react'
 import { Calendar, ChevronRight, Plus } from 'lucide-react'
 import { useFormatter, useNow, useTranslations } from 'next-intl'
@@ -65,7 +66,9 @@ export function EventSelectionEmptyState() {
     // Safari 100vh is the LARGE viewport (toolbar collapsed) — taller than the dvh <main> it sits
     // in while the toolbar shows, so a screen that fits scrolled by the difference (owner,
     // iPhone, 02.10.2026). `min-` so a short landscape phone can still scroll to the buttons.
-    <div className="flex min-h-full items-center justify-center bg-background p-4">
+    <div className="flex min-h-full flex-col items-center justify-center gap-4 bg-background p-4">
+      {/* A freshly claimed board lands here: what the station still has to set up (admin only). */}
+      <StationSetupStrip className="w-full max-w-2xl" />
       {isLoading && events.length === 0 ? (
         <LoadingStatus size="surface" className="text-sm">{t('emptyState.loading')}</LoadingStatus>
       ) : first ? (
