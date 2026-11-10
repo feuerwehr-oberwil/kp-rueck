@@ -183,6 +183,12 @@
       "available": "Neue Version verfügbar",
       "hint": "Neu laden, sobald es passt.",
       "reload": "Neu laden"
+    },
+    "reorder": {
+      "moveUp": "Nach oben",
+      "moveDown": "Nach unten",
+      "moveTop": "An den Anfang",
+      "menuFor": "Reihenfolge von {name} ändern"
     }
   },
   "nav": {
@@ -951,7 +957,8 @@
       "repeatRadioNoStop": "Dieser Auftrag hat noch keinen Stopp. Die Durchsage entsteht mit dem ersten.",
       "repeatRadioCopy": "Text kopieren",
       "repeatRadioCopied": "Funkdurchsage kopiert",
-      "moreOptions": "Weitere Optionen"
+      "moreOptions": "Weitere Optionen",
+      "stopActions": "Reihenfolge und Aktionen für {name}"
     },
     "closedStop": {
       "title": "Einsatz ist abgeschlossen",
@@ -966,8 +973,7 @@
       "einsatz": "Im Einsatz",
       "beendet": "Rückfahrt",
       "abgeschlossen": "Abgeschlossen",
-      "advance": "Weiter zu {label}",
-      "jumpTo": "Status wählen"
+      "change": "Status: {label} – ändern"
     },
     "routenEditorModal": {
       "title": "Routen-Editor",
@@ -988,7 +994,8 @@
       "contextOpen": "Offen",
       "contextInRoute": "In Auftrag «{name}»",
       "contextClickToAdd": "Klicken, um als Stopp hinzuzufügen",
-      "contextStopAdded": "Einsatz als Stopp hinzugefügt."
+      "contextStopAdded": "Einsatz als Stopp hinzugefügt.",
+      "stopActions": "Reihenfolge und Aktionen für {name}"
     },
     "incidentPicker": {
       "title": "Einsätze als Stopps hinzufügen",

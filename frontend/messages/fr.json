@@ -292,6 +292,12 @@
       "available": "Nouvelle version disponible",
       "hint": "Recharger quand cela convient.",
       "reload": "Recharger"
+    },
+    "reorder": {
+      "moveUp": "Monter",
+      "moveDown": "Descendre",
+      "moveTop": "Placer au début",
+      "menuFor": "Modifier l’ordre de {name}"
     }
   },
   "display": {
@@ -2236,7 +2242,8 @@
       "repeatRadioNoStop": "Cette mission n’a encore aucune étape. Le message naîtra avec la première.",
       "repeatRadioCopy": "Copier le texte",
       "repeatRadioCopied": "Message radio copié",
-      "moreOptions": "Autres options"
+      "moreOptions": "Autres options",
+      "stopActions": "Ordre et actions pour {name}"
     },
     "closedStop": {
       "title": "L’intervention est clôturée",
@@ -2251,8 +2258,7 @@
       "einsatz": "En intervention",
       "beendet": "Retour",
       "abgeschlossen": "Clôturé",
-      "advance": "Passer à {label}",
-      "jumpTo": "Choisir le statut"
+      "change": "Statut : {label} – modifier"
     },
     "routenEditorModal": {
       "title": "Éditeur d’itinéraire",
@@ -2273,7 +2279,8 @@
       "contextOpen": "Ouvert",
       "contextInRoute": "Dans la mission « {name} »",
       "contextClickToAdd": "Cliquer pour l’ajouter comme étape",
-      "contextStopAdded": "Intervention ajoutée comme étape."
+      "contextStopAdded": "Intervention ajoutée comme étape.",
+      "stopActions": "Ordre et actions pour {name}"
     },
     "incidentPicker": {
       "title": "Ajouter des interventions comme étapes",

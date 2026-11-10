@@ -1,5 +1,6 @@
 "use client"
 
+import type { MoveTo } from "@/lib/move-in-list"
 import { useEffect, useRef, useState, memo } from "react"
 import { useTranslations } from "next-intl"
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
@@ -63,6 +64,8 @@ interface DroppableColumnProps {
   /** Editor-only: ask to DELETE the incident — for a card that was never an
    *  incident (a typo, a double entry). Confirmed by the board's delete dialog. */
   onRequestDelete?: (operationId: string) => void
+  /** Reorder a card inside its column without dragging («Nach oben / Nach unten»). */
+  onMoveInColumn?: (operationId: string, to: MoveTo) => void
   /** Editor-only: open the "Ressourcen übertragen" dialog for an incident. */
   onTransfer?: (operationId: string) => void
   /** Editor-only: open the Auftrag picker to distribute an incident into a route. */
@@ -178,6 +181,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   onToggleZuFuss,
   onRequestComplete,
   onRequestDelete,
+  onMoveInColumn,
   onTransfer,
   onDistributeToAuftrag,
   cardView,
@@ -506,6 +510,7 @@ export const DroppableColumn = memo(function DroppableColumn({
                 onToggleZuFuss={onToggleZuFuss ? () => onToggleZuFuss(operation.id) : undefined}
                 onRequestComplete={onRequestComplete ? () => onRequestComplete(operation.id) : undefined}
                 onRequestDelete={onRequestDelete ? () => onRequestDelete(operation.id) : undefined}
+                onMoveInColumn={onMoveInColumn ? (to) => onMoveInColumn(operation.id, to) : undefined}
                 onTransfer={onTransfer ? () => onTransfer(operation.id) : undefined}
                 onDistributeToAuftrag={onDistributeToAuftrag ? () => onDistributeToAuftrag(operation.id) : undefined}
                 cardView={cardView}

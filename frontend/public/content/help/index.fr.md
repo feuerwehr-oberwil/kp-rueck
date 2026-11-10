@@ -534,7 +534,7 @@ Il n’existe pas d’« archive » pour une intervention isolée – c’est l�
 
 **Déplacer :** faire glisser la carte dans une nouvelle colonne, ou utiliser les touches `>` / `<`.
 
-**Ordre à l’intérieur d’une colonne :** les cartes se trient par glisser-déposer à l’intérieur d’une même colonne. L’ordre manuel est conservé et s’affiche à l’identique après un rechargement ou sur d’autres appareils (il ne revient plus à l’ordre initial).
+**Ordre à l’intérieur d’une colonne :** les cartes se trient par glisser-déposer à l’intérieur d’une même colonne – ou sans glisser, par **Monter** / **Descendre** dans le menu contextuel de la carte. L’ordre manuel est conservé et s’affiche à l’identique après un rechargement ou sur d’autres appareils (il ne revient plus à l’ordre initial).
 
 **Sauter des colonnes :** autorisé. Toutes les interventions n’ont pas besoin d’une reconnaissance.
 
@@ -585,7 +585,7 @@ Il en découle :
 
 ### Planifier et optimiser l’itinéraire
 
-- **Éditeur d’itinéraire** (dans la barre des missions) : grande carte avec les étapes numérotées et la ligne d’itinéraire, à côté de la liste ordonnée des étapes. Réordonner les étapes par glisser-déposer, ajouter de nouvelles étapes par un clic sur la carte.
+- **Éditeur d’itinéraire** (dans la barre des missions) : grande carte avec les étapes numérotées et la ligne d’itinéraire, à côté de la liste ordonnée des étapes. Réordonner les étapes par glisser-déposer ou par le **⋮** de l’étape (**Monter**, **Descendre**, **Placer au début** – de même dans la barre des missions). Le **statut d’une étape** est écrit en toutes lettres sur un bouton ; un clic ouvre le choix de tous les statuts et ne change rien de lui-même. Enfin, ajouter de nouvelles étapes par un clic sur la carte.
 - **Planification d’itinéraire** sur `/map` : la même planification sur la grande carte plein écran. Le panneau de droite présente l’ordre sous forme de **frise** : en haut le départ avec sa provenance (« Départ · Caserne » – l’emplacement défini dans les réglages ou, s’il n’y en a pas, « position de secours » ; après une optimisation, le départ réellement utilisé, p. ex. le GPS du véhicule avec l’heure du dernier signal), en dessous les étapes avec **les mêmes numéros que leurs repères sur la carte**, et pour finir « Ajouter une étape ». Les adresses longues passent à la ligne au lieu d’être coupées.
 - **Largeur du panneau :** les barres latérales s’élargissent ou se rétrécissent en tirant sur leur bord – celle de la planification aussi. Un double-clic sur le bord rétablit la largeur par défaut ; la largeur est mémorisée par appareil.
 - **Optimiser l’ordre** : propose, par heuristique du plus proche voisin et **à vol d’oiseau**, un ordre court à partir d’un point de départ (**caserne**, **GPS du véhicule** ou **première étape**) – le menu indique d’abord, pour chaque point de départ, d’où il vient et de quand il date. La proposition s’applique aussitôt ; **Annuler** dans le message rétablit l’ancien ordre tant que personne n’a modifié la mission entre-temps. Il faut au moins deux étapes avec coordonnées. Une aide à la planification, pas un itinéraire routier.

@@ -19,6 +19,8 @@ import { useTranslations } from 'next-intl';
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine';
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { reorder } from '@atlaskit/pragmatic-drag-and-drop/reorder';
+import { ReorderMenu } from '@/components/ui/reorder-menu';
+import { moveInList, type MoveTo } from '@/lib/move-in-list';
 import {
   attachClosestEdge,
   extractClosestEdge,
@@ -236,6 +238,15 @@ export function AuftragTemplateSettings({ readOnly = false }: { readOnly?: boole
                 onToggleExpanded={() =>
                   setExpandedId((current) => (current === template.id ? null : template.id))
                 }
+                count={templates.length}
+                onMove={(to) => {
+                  const next = moveInList(templates, index, to);
+                  if (!next) return;
+                  setTemplates(next);
+                  void apiClient
+                    .reorderAuftragTemplates(next.map((item) => item.id))
+                    .catch(() => toast.error(t('saveFailed')));
+                }}
                 onPatch={(changes) => void patch(template, changes)}
                 onDelete={() => setPendingDelete(template)}
               />
@@ -293,11 +304,16 @@ function TemplateRow({
   options,
   optionsByKey,
   onToggleExpanded,
+  count,
+  onMove,
   onPatch,
   onDelete,
 }: {
   template: ApiAuftragTemplate;
   index: number;
+  /** Templates in the list, and the menu way to reorder them (persisted like a drop). */
+  count: number;
+  onMove: (to: MoveTo) => void;
   expanded: boolean;
   dragging: boolean;
   saving: boolean;
@@ -309,6 +325,7 @@ function TemplateRow({
   onDelete: () => void;
 }) {
   const t = useTranslations('settings.page.auftragTemplates');
+  const tReorder = useTranslations('common.reorder');
   const rowRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLDivElement>(null);
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null);
@@ -393,6 +410,14 @@ function TemplateRow({
           onCheckedChange={(on) => onPatch({ auto_create: on })}
           aria-label={t('autoLabel', { name: template.name })}
         />
+        {!readOnly && (
+          <ReorderMenu
+            label={tReorder('menuFor', { name: template.name })}
+            index={index}
+            count={count}
+            onMove={onMove}
+          />
+        )}
       </div>
 
       {/* Slides open (Reveal); the 8px under the header is padding inside the

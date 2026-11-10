@@ -526,7 +526,7 @@ Ein «Archiv» für einzelne Einsätze gibt es nicht – archiviert wird das **E
 
 **Verschieben:** Karte in neue Spalte ziehen, oder `>` / `<` Tasten nutzen.
 
-**Reihenfolge innerhalb einer Spalte:** Karten lassen sich innerhalb derselben Spalte per Drag & Drop sortieren. Die manuelle Reihenfolge bleibt erhalten und wird auch nach einem Reload bzw. auf anderen Geräten gleich angezeigt (sie springt nicht mehr in die ursprüngliche Reihenfolge zurück).
+**Reihenfolge innerhalb einer Spalte:** Karten lassen sich innerhalb derselben Spalte per Drag & Drop sortieren – oder ohne Ziehen über **Nach oben** / **Nach unten** im Rechtsklick-Menü der Karte. Die manuelle Reihenfolge bleibt erhalten und wird auch nach einem Reload bzw. auf anderen Geräten gleich angezeigt (sie springt nicht mehr in die ursprüngliche Reihenfolge zurück).
 
 **Spalten überspringen:** Erlaubt. Nicht jeder Einsatz braucht Reko.
 
@@ -577,7 +577,7 @@ Daraus folgt:
 
 ### Route planen & optimieren
 
-- **Routen-Editor** (in der Aufträge-Leiste): grosse Karte mit nummerierten Stopps + Routenlinie neben der geordneten Stopp-Liste. Stopps per Drag & Drop umsortieren, per Kartenklick neue Stopps anhängen.
+- **Routen-Editor** (in der Aufträge-Leiste): grosse Karte mit nummerierten Stopps + Routenlinie neben der geordneten Stopp-Liste. Stopps per Drag & Drop umsortieren oder über das **⋮** am Stopp (**Nach oben**, **Nach unten**, **An den Anfang** – dasselbe in der Aufträge-Leiste), per Kartenklick neue Stopps anhängen. Der **Status eines Stopps** steht ausgeschrieben auf einem Knopf; ein Klick öffnet die Auswahl aller Status und ändert von sich aus nichts.
 - **Routenplanung** auf `/map`: dieselbe Planung auf der grossen Vollbild-Karte. Die Leiste rechts zeigt die Reihenfolge als **Zeitleiste**: zuoberst der Start mit seiner Herkunft («Start · Magazin» – Standort aus den Einstellungen oder, wenn keiner eingerichtet ist, «Ersatzstandort»; nach einer Optimierung der Start, den sie tatsächlich benutzt hat, etwa Fahrzeug-GPS mit Zeit der letzten Meldung), darunter die Stopps mit **denselben Nummern wie ihre Pins auf der Karte**, zuletzt «Stopp hinzufügen». Lange Adressen brechen um, statt abgeschnitten zu werden.
 - **Breite der Leiste:** Seitenleisten lassen sich an ihrer Kante breiter oder schmaler ziehen – auch die der Routenplanung. Ein Doppelklick auf die Kante setzt die Standardbreite zurück; die Breite wird pro Gerät gemerkt.
 - **Reihenfolge optimieren**: schlägt per Nächster-Nachbar-Heuristik **nach Luftlinie** eine kurze Reihenfolge ab einem Startpunkt vor (**Magazin**, **Fahrzeug-GPS** oder **erster Stopp**) – das Menü nennt vorher bei jedem Startpunkt, woher er kommt und wie alt er ist. Der Vorschlag gilt sofort; **Rückgängig** in der Meldung stellt die alte Reihenfolge wieder her, solange niemand den Auftrag inzwischen geändert hat. Es braucht mindestens zwei Stopps mit Koordinaten. Eine Planungshilfe, keine Strassenroute.

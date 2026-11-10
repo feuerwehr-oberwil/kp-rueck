@@ -324,6 +324,8 @@ function visits(links) {
     { id: 'links-qr', path: '/', act: async (p, w) => { if (phone(w)) await openMehr(p); await click(p, /Links/) } },
     { id: 'appell', path: '/', act: async (p, w) => { if (phone(w)) await openMehr(p); await click(p, /Links/); await click(p, /Appell öffnen/, { wait: 1500 }) } },
     { id: 'auftraege', path: '/', desktopOnly: true, act: (p) => click(p, /Aufträge/) },
+    // An Auftrag opened: its stop rows with the status menu button (as wide as the longest status) and the ⋮.
+    { id: 'auftraege-stops', path: '/', desktopOnly: true, act: async (p) => { await click(p, /Aufträge/); await p.getByRole('dialog').locator('[aria-expanded=false]').first().click({ timeout: 6000 }); await p.waitForTimeout(900) } },
     { id: 'personnel', path: '/', phoneOnly: true, act: async (p) => { await openMehr(p); await click(p, /^Personal/) } },
     { id: 'crew-duty', path: '/', act: async (p, w) => { if (phone(w)) { await openMehr(p); await click(p, /^Personal/) } await click(p, /^Dienstzeiten/, { wait: 1500 }) } },
     { id: 'vehicles', path: '/', act: async (p, w) => { if (phone(w)) await openMehr(p); await click(p, /Fahrzeug/) } },
