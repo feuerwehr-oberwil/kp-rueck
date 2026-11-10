@@ -3053,7 +3053,14 @@
       "realAlarmWarningTitle": "{count, plural, one {Dieser Alarm ist echt, das Ereignis ist eine Übung} other {Diese Alarme sind echt, das Ereignis ist eine Übung}}",
       "realAlarmWarningAlerting": "Die Ausalarmierung wird nur simuliert – <hint>es wird niemand aufgeboten.</hint>",
       "realAlarmWarningThresholds": "Die Überfällig-Schwellen sind 50 % länger – <hint>Warnungen kommen später als im Ernstfall.</hint>",
-      "attachAnyway": "Trotzdem an die Übung anhängen"
+      "attachAnyway": "Trotzdem an die Übung anhängen",
+      "attachedTo": "Alarm an «{event}» angehängt",
+      "attachedToNumber": "Einsatz {number}",
+      "attachOther": "Anderes Ereignis …",
+      "attachOtherAria": "«{title}» an ein anderes Ereignis anhängen",
+      "detached": "Alarm ist zurück im Alarmeingang",
+      "detachRefused": "Nicht zurückgenommen",
+      "detachRefusedFallback": "Der Alarm bleibt angehängt."
     },
     "inbox": {
       "title": "Alarmeingang",

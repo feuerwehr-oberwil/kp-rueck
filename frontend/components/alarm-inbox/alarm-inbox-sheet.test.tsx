@@ -1,16 +1,22 @@
 /**
  * The Alarmeingang sheet against a stubbed pool: the three sections, the Einsatz number an
- * attached alarm became, «Früher» folded, «Anhängen» per row into the attach dialog, the
- * header icon's count, a failed load that says so – and nothing at all for a viewer.
+ * attached alarm became, «Früher» folded, «Anhängen» per row straight onto the board (the
+ * dialog for what needs a decision), the header icon's count, a failed load that says so – and nothing at all for a viewer.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 
 import de from '@/messages/de.json'
 import type { ApiDiveraEmergency } from '@/lib/api-client'
+
+const toastSuccess = vi.hoisted(() => vi.fn())
+vi.mock('sonner', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('sonner')>()
+  return { ...actual, toast: Object.assign(vi.fn(), { ...actual.toast, success: toastSuccess, error: vi.fn() }) }
+})
 
 const auth = vi.hoisted(() => ({
   current: { user: { role: 'editor' }, isAuthenticated: true, isEditor: true, isViewer: false },
@@ -22,6 +28,10 @@ const pool = vi.hoisted(() => ({
   events: [{ id: 'ev', name: 'Unwetter Oberwil', training_flag: false }],
   /** settles the attach request the test started */
   finishAttach: null as (() => void) | null,
+  /** what the duplicate lookup answers */
+  candidates: [] as { id: string }[],
+  attached: [] as string[],
+  detach: vi.fn(async () => {}),
 }))
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/' }))
@@ -29,7 +39,9 @@ vi.mock('@/lib/contexts/auth-context', () => ({ useAuth: () => auth.current }))
 vi.mock('@/lib/contexts/operations-context', () => ({
   useOperations: () => ({ operations: [{ id: 'inc-6', number: 6 }] }),
 }))
-vi.mock('@/lib/contexts/event-context', () => ({ useEvent: () => ({ selectedEvent: { id: 'ev' } }) }))
+vi.mock('@/lib/contexts/event-context', () => ({
+  useEvent: () => ({ selectedEvent: { id: 'ev', name: 'Unwetter Oberwil', training_flag: false, archived_at: null } }),
+}))
 vi.mock('@/lib/websocket-client', () => ({
   wsClient: {
     connect: vi.fn(),
@@ -48,11 +60,14 @@ vi.mock('@/lib/api-client', async (importOriginal) => ({
     },
     getDemoStatus: async () => null,
     getEvents: async () => ({ events: pool.events }),
-    getDuplicateCandidates: async () => ({ candidates: [] }),
-    attachEmergencyToEvent: () =>
-      new Promise<void>((resolve) => {
-        pool.finishAttach = resolve
-      }),
+    getDuplicateCandidates: async () => ({ candidates: pool.candidates }),
+    attachEmergencyToEvent: (id: string) => {
+      pool.attached.push(id)
+      return new Promise<{ id: string; number: number }>((resolve) => {
+        pool.finishAttach = () => resolve({ id: 'inc-new', number: 20 })
+      })
+    },
+    detachEmergency: pool.detach,
   },
 }))
 
@@ -93,6 +108,10 @@ beforeEach(() => {
   pool.fail = false
   pool.events = [{ id: 'ev', name: 'Unwetter Oberwil', training_flag: false }]
   pool.finishAttach = null
+  pool.candidates = []
+  pool.attached = []
+  pool.detach.mockClear()
+  toastSuccess.mockClear()
   pool.emergencies = [
     alarm('a1', 'Wasser im Keller', { address: 'Allschwilerstrasse 30, 4104 Oberwil' }),
     alarm('a2', 'Baum auf Strasse'),
@@ -130,11 +149,11 @@ describe('AlarmInboxSheet', () => {
     expect(within(sheet).getByText('BMA Alarm Schulhaus')).toBeInTheDocument()
   })
 
-  it('«Anhängen» on a row asks for ONE alarm, onto the Ereignis this window shows', async () => {
+  it('«Anderes Ereignis …» on a row asks for ONE alarm, preset to the Ereignis this window shows', async () => {
     const user = userEvent.setup()
     renderInbox()
     act(() => openAlarmInbox())
-    await user.click(await screen.findByRole('button', { name: '«Wasser im Keller» anhängen' }))
+    await user.click(await screen.findByRole('button', { name: '«Wasser im Keller» an ein anderes Ereignis anhängen' }))
     const dialog = await screen.findByRole('dialog', { name: 'An Ereignis anhängen' })
     expect(within(dialog).getByText('1 Notfall wird dem gewählten Ereignis zugewiesen.')).toBeInTheDocument()
     expect(await within(dialog).findByText('Unwetter Oberwil')).toBeInTheDocument()
@@ -149,7 +168,7 @@ describe('AlarmInboxSheet', () => {
     const user = userEvent.setup()
     renderInbox()
     act(() => openAlarmInbox())
-    await user.click(await screen.findByRole('button', { name: '«Wasser im Keller» anhängen' }))
+    await user.click(await screen.findByRole('button', { name: '«Wasser im Keller» an ein anderes Ereignis anhängen' }))
     const dialog = await screen.findByRole('dialog', { name: 'An Ereignis anhängen' })
     await within(dialog).findByText('Unwetter Oberwil')
     await user.click(within(dialog).getByRole('button', { name: 'Anhängen' }))
@@ -166,10 +185,38 @@ describe('AlarmInboxSheet', () => {
     const user = userEvent.setup()
     renderInbox()
     act(() => openAlarmInbox())
-    await user.click(await screen.findByRole('button', { name: '«Wasser im Keller» anhängen' }))
+    await user.click(await screen.findByRole('button', { name: '«Wasser im Keller» an ein anderes Ereignis anhängen' }))
     const dialog = await screen.findByRole('dialog', { name: 'An Ereignis anhängen' })
     expect(await within(dialog).findByText('Kein offenes Ereignis – zuerst eines eröffnen.')).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: 'Anhängen' })).toBeDisabled()
+  })
+
+  // Owner pick UX-02 A (10.11.2026)
+  it('«Anhängen» puts a new alarm straight onto the Ereignis of this window and offers «Rückgängig»', async () => {
+    const user = userEvent.setup()
+    renderInbox()
+    act(() => openAlarmInbox())
+    await user.click(await screen.findByRole('button', { name: '«Wasser im Keller» anhängen' }))
+    await waitFor(() => expect(pool.attached).toEqual(['a1']))
+    expect(screen.queryByRole('dialog', { name: 'An Ereignis anhängen' })).toBeNull()
+    await act(async () => pool.finishAttach?.())
+    expect(toastSuccess).toHaveBeenCalledWith(
+      'Alarm an «Unwetter Oberwil» angehängt',
+      expect.objectContaining({ description: 'Einsatz 20', action: expect.objectContaining({ label: 'Rückgängig' }) }),
+    )
+    // «Rückgängig» names the card the attach made – the server refuses if it moved on.
+    await act(async () => toastSuccess.mock.calls[0][1].action.onClick())
+    expect(pool.detach).toHaveBeenCalledWith('a1', 'inc-new')
+  })
+
+  it('still asks when the alarm may be the same Schadenplatz as an open card', async () => {
+    pool.candidates = [{ id: 'inc-6' }]
+    const user = userEvent.setup()
+    renderInbox()
+    act(() => openAlarmInbox())
+    await user.click(await screen.findByRole('button', { name: '«Wasser im Keller» anhängen' }))
+    expect(await screen.findByRole('dialog', { name: 'An Ereignis anhängen' })).toBeInTheDocument()
+    expect(pool.attached).toEqual([])
   })
 
   it('a first load that fails says so and offers «Erneut laden»', async () => {

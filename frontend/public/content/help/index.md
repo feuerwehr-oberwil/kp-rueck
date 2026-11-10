@@ -307,7 +307,12 @@ als Karte in «Eingegangen».
   «Früher» aufgeklappt. Solange der Alarmeingang offen ist, meldet sich ein neuer Alarm mit
   Hinweis und Ton.
 
-**Anhängen** fragt, an welches Ereignis – vorgewählt ist das, das dieses Fenster zeigt.
+**Anhängen** auf einer Zeile hängt den Alarm ohne Rückfrage an das Ereignis, das dieses Fenster
+zeigt; die Meldung nennt das Ereignis und die Einsatznummer und bietet **Rückgängig** – der Alarm
+steht dann wieder im Alarmeingang, solange an der neuen Karte noch niemand gearbeitet hat. Gefragt
+wird weiterhin, wo es etwas zu entscheiden gibt: bei einem möglichen Duplikat, bei einem echten
+Alarm in eine Übung, bei **Alle anhängen** und über **Anderes Ereignis …** – dort ist das Ereignis
+dieses Fensters vorgewählt.
 Übungs-Alarme gehen nur an eine Übung. Ein echter Alarm an eine Übung geht, aber erst nach dem
 Hinweis, was das heisst: die Ausalarmierung wird nur simuliert, und die Überfällig-Schwellen sind
 50 % länger. Bei **einem** Alarm prüft der Dialog wie «Neuer Einsatz», ob schon ein offener

@@ -55,6 +55,7 @@ import {
 } from './alarm-inbox-store'
 import { groupAlarms } from './alarm-groups'
 import { AttachAlarmsDialog } from './attach-alarms-dialog'
+import { useDirectAttach } from './use-direct-attach'
 
 /**
  * Where the desktop panel may stand: from the bottom of the page header (the one holding the
@@ -167,6 +168,8 @@ function AlarmInboxPanel({ isMobile }: { isMobile: boolean }) {
   const [earlierOpen, setEarlierOpen] = useState(false)
   const [attachFor, setAttachFor] = useState<readonly ApiDiveraEmergency[] | null>(null)
   const [demoMode, setDemoMode] = useState(false)
+  // One alarm goes on directly (with «Rückgängig»); the dialog is for what needs a decision.
+  const direct = useDirectAttach({ openDialog: setAttachFor, onChanged: () => void reloadAlarmPool() })
 
   useEffect(() => {
     let live = true
@@ -223,10 +226,12 @@ function AlarmInboxPanel({ isMobile }: { isMobile: boolean }) {
     <Button
       size={isMobile ? 'default' : compact ? 'xs' : 'sm'}
       variant="outline"
-      onClick={() => setAttachFor(alarms)}
+      // One alarm: straight onto this window's Ereignis. Several: the dialog names where to.
+      onClick={() => (alarms.length === 1 ? void direct.attach(alarms[0]) : setAttachFor(alarms))}
+      disabled={direct.busyId !== null}
       aria-label={ariaLabel}
     >
-      <Link2 className="size-3.5" />
+      {alarms.length === 1 && direct.busyId === alarms[0].id ? <ShellLoader className="size-3.5" /> : <Link2 className="size-3.5" />}
       {label}
     </Button>
   )
@@ -362,6 +367,18 @@ function AlarmInboxPanel({ isMobile }: { isMobile: boolean }) {
                         {ago(e.received_at)}
                       </time>
                       {isEditor && attachButton([e], tPool('attach'), t('attachOneAria', { title: e.title }))}
+                      {/* The dialog, for the alarm that belongs on another Ereignis than this window's. */}
+                      {isEditor && (
+                        <Button
+                          variant="link"
+                          size="xs"
+                          className="px-0 text-muted-foreground"
+                          onClick={() => setAttachFor([e])}
+                          aria-label={tPool('attachOtherAria', { title: e.title })}
+                        >
+                          {tPool('attachOther')}
+                        </Button>
+                      )}
                     </div>
                   </li>
                 ))}
