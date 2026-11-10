@@ -9,11 +9,23 @@ import { type FooterSheet } from "@/components/board/board-footer"
 import { toggleFigures } from "@/components/figures-dialog"
 import type { Dispatch, SetStateAction, RefObject } from "react"
 import type { ApiVehicle } from "@/lib/api-client"
-import type { CommandPaletteHandlers } from "@/lib/contexts/command-palette-context"
+import { INCIDENT_COMMANDS, type CommandPaletteHandlers, type IncidentCommand } from "@/lib/contexts/command-palette-context"
 import type { useRouter } from "next/navigation"
 import type { SidePanelMode } from "@/lib/hooks/use-board-layout-prefs"
 
+/**
+ * The board actions the commands reach through a ref: they are defined further down
+ * the page than this hook is called (dialogs, completion, the checklist).
+ */
+export interface BoardCommands {
+  incident: (command: IncidentCommand, operationId: string) => void
+  openAttendance: () => void
+  openChecklist: () => void
+}
+
 export interface UseBoardCommandHandlersInput {
+  boardCommandsRef: RefObject<BoardCommands>
+  printerEnabled: boolean
   fleet: ApiVehicle[]
   operations: Operation[]
   materials: Material[]
@@ -53,6 +65,8 @@ export interface UseBoardCommandHandlersInput {
  */
 export function useBoardCommandHandlers(input: UseBoardCommandHandlersInput) {
   const {
+    boardCommandsRef,
+    printerEnabled,
     fleet,
     operations,
     materials,
@@ -130,6 +144,13 @@ export function useBoardCommandHandlers(input: UseBoardCommandHandlersInput) {
         setTimeout(() => document.getElementById('material-search-input')?.focus(), 50)
       },
       hasSelectedIncident: !!selectedOperationId,
+      // Everything but the print is a write; the slip needs a printer.
+      incidentCommands: INCIDENT_COMMANDS.filter((command) => (command === 'print' ? printerEnabled : isEditor)),
+      onIncidentCommand: (command) => {
+        if (selectedOperationId) boardCommandsRef.current.incident(command, selectedOperationId)
+      },
+      onOpenAttendance: () => boardCommandsRef.current.openAttendance(),
+      onOpenChecklist: () => boardCommandsRef.current.openChecklist(),
       onEditIncident: () => {
         if (selectedOperationId) {
           const operation = operations.find(op => op.id === selectedOperationId)
@@ -198,6 +219,8 @@ export function useBoardCommandHandlers(input: UseBoardCommandHandlersInput) {
     toggleVehicleAssignment,
     openIncidentDetail,
     dispatchRef,
+    boardCommandsRef,
+    printerEnabled,
     setActiveFooterSheet,
     setAuftraegeFocusGroupId,
     setNewEmergencyModalOpen,

@@ -656,6 +656,11 @@ Drück `Cmd/Ctrl+K` für die Befehlspalette – sie listet alle Befehle samt
 Tastaturkürzel und ist auch über das Benutzermenü («Befehle & Kürzel»)
 erreichbar. Kürzel sind inaktiv, während ein Eingabefeld fokussiert ist.
 
+Auch was eine Karte im Rechtsklick-Menü anbietet, steht dort unter **Ausgewählter Einsatz**:
+Reko, Mannschaft, Fahrzeug und Material zuweisen, Ressourcen übertragen, an Auftrag verteilen,
+Nachbarhilfe und Am Warten umschalten, Einsatz abschliessen, Einsatzzettel drucken. Dazu die
+Ansichten **Alarmeingang**, **Appell** und **Checkliste** – nichts davon braucht die Maus.
+
 ### Zuweisen durch Tippen
 Auf dem Board versteht die Befehlspalette auch Einsätze, Personen, Fahrzeuge und Material –
 nur mit Leerzeichen, ohne Sonderzeichen. Vorne steht der Einsatz: seine Nummer (klein vor der

@@ -164,7 +164,9 @@
         "tabComplete": "⇥ ergänzt zu «{label}»"
       },
       "journal": "Einsatztagebuch öffnen",
-      "journalEntry": "Tagebuch-Eintrag schreiben"
+      "journalEntry": "Tagebuch-Eintrag schreiben",
+      "toggleAmWarten": "Am Warten umschalten",
+      "toggleNachbarhilfe": "Nachbarhilfe umschalten"
     },
     "meta": {
       "title": "KP Rück Dashboard",
