@@ -32,7 +32,8 @@
  * Env: SCAN_EDITOR=editor:editor, SCAN_ADMIN=user:pass (for the admin-only settings sections;
  * skipped when unset), SCAN_VIEWER=user:pass (the logged-in wall a viewer is sent to – its
  * phone stack; skipped when unset), SCAN_BROWSER=chromium|webkit, SCAN_WEBKIT_EXECUTABLE (custom WebKit),
- * SCAN_THEMES=light,dark, SCAN_CONCURRENCY=3, SCAN_SHOTS=1 (a PNG per visit with findings; `all` for every visit — to check the visits reach their state).
+ * SCAN_THEMES=light,dark, SCAN_LOCALE=fr (longer words; visits opened by a German button name are
+ * skipped as ERR), SCAN_CONCURRENCY=3, SCAN_SHOTS=1 (a PNG per visit with findings; `all` for every visit — to check the visits reach their state).
  */
 import { chromium, webkit } from '@playwright/test'
 import fs from 'node:fs'
@@ -46,6 +47,9 @@ if (!['localhost', '127.0.0.1'].includes(host)) {
 }
 const WIDTHS = (process.env.SCAN_WIDTHS || '360,393,768,1280,1920').split(',').map(Number)
 const THEMES = (process.env.SCAN_THEMES || 'light,dark').split(',')
+// The interface language (the NEXT_LOCALE cookie). Visits that open something by its German
+// button name fail in another language and are listed as ERR; the routes themselves are scanned.
+const LOCALE = process.env.SCAN_LOCALE || ''
 const ONLY = process.env.SCAN_ONLY ? process.env.SCAN_ONLY.split(',') : null
 const OUT = path.resolve(process.env.SCAN_OUT || 'overflow-scan')
 const CONCURRENCY = Number(process.env.SCAN_CONCURRENCY || 3)
@@ -474,6 +478,7 @@ async function runVisit(browser, states, visit, width, theme) {
     colorScheme: theme,
     storageState: role ? states[role] || states.editor : undefined,
   })
+  if (LOCALE) await ctx.addCookies([{ name: 'NEXT_LOCALE', value: LOCALE, url: BASE }])
   await ctx.addInitScript(([t, ev, checklist]) => {
     try {
       localStorage.setItem('theme', t)

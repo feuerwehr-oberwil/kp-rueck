@@ -1249,7 +1249,7 @@
       "toc": "Sommaire",
       "loading": "Chargement …",
       "loadError": "# Erreur\n\nLe contenu de l’aide n’a pas pu être chargé.",
-      "searchPlaceholder": "Rechercher dans l’aide",
+      "searchPlaceholder": "Chercher dans l’aide",
       "searchNoResults": "Aucun résultat"
     }
   },
@@ -1470,7 +1470,7 @@
       "trainingBadge": "Exercice",
       "createTrainingIncident": "Créer une intervention d’exercice",
       "newIncident": "Nouvelle intervention",
-      "searchPlaceholder": "Rechercher une intervention …",
+      "searchPlaceholder": "Intervention …",
       "noActive": "Aucune intervention en cours",
       "noHitsFor": "Aucune intervention pour « {query} ».",
       "searchScope": "Recherche dans le lieu, l’annonce, le type, les véhicules, l’équipe et le matériel.",
@@ -1785,8 +1785,8 @@
       "toggleRightSidebar": "Afficher/masquer la barre latérale droite",
       "newEvent": "Nouvel événement",
       "allEvents": "Tous les événements",
-      "personnelSearch": "Rechercher du personnel …",
-      "materialSearch": "Rechercher du matériel …",
+      "personnelSearch": "Personnel …",
+      "materialSearch": "Matériel …",
       "showAvailableOnly": "N’afficher que les disponibles",
       "showAll": "Tout afficher",
       "noneAvailableFiltered": "Rien de disponible",
@@ -2285,7 +2285,7 @@
     "incidentPicker": {
       "title": "Ajouter des interventions comme étapes",
       "description": "Sélectionner des interventions existantes. Une intervention appartenant à une autre mission sera déplacée ici.",
-      "searchPlaceholder": "Rechercher une intervention …",
+      "searchPlaceholder": "Intervention …",
       "empty": "Aucune intervention correspondante.",
       "inRoute": "Actuellement dans la mission « {name} »",
       "createNew": "Nouvelle intervention",
@@ -2619,8 +2619,8 @@
     "locationInput": {
       "addressLabel": "Lieu d’intervention",
       "requiredField": "Champ obligatoire",
-      "addressPlaceholder": "Rechercher une adresse …",
-      "searchPlaceholder": "Rechercher une adresse …",
+      "addressPlaceholder": "Adresse …",
+      "searchPlaceholder": "Adresse …",
       "searching": "Recherche en cours …",
       "noResults": "Aucune adresse trouvée.",
       "useFreetext": "Reprendre « {query} »",
@@ -3845,7 +3845,7 @@
         "show": "Afficher",
         "showDetails": "Afficher les détails"
       },
-      "searchPlaceholder": "Rechercher un réglage …",
+      "searchPlaceholder": "Réglage …",
       "searchNoResults": "Aucun résultat.",
       "searchHitCount": "{count} résultats · ↵ ouvrir"
     },
