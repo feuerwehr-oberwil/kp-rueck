@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, screen } from '@testing-library/react'
+import { act, fireEvent, screen } from '@testing-library/react'
 
 import { StationSettingsForm, type SettingConfig, type StationSettings } from '@/components/settings/station-settings-form'
 import { COORDINATE_DECIMALS, LATITUDE_RANGE } from '@/components/settings/setting-validation'
@@ -14,7 +14,17 @@ const CONFIGS: SettingConfig[] = [
   { key: 'firestation_latitude', type: 'number', range: LATITUDE_RANGE, decimals: COORDINATE_DECIMALS },
 ]
 
-function Harness({ stored, updateSetting }: { stored: string; updateSetting: StationSettings['updateSetting'] }) {
+function Harness({
+  stored,
+  updateSetting,
+  saving = null,
+  savedAt = {},
+}: {
+  stored: string
+  updateSetting: StationSettings['updateSetting']
+  saving?: StationSettings['saving']
+  savedAt?: StationSettings['savedAt']
+}) {
   const [settings, setSettings] = useState<Record<string, string>>({ firestation_latitude: stored })
   const [settingErrors, setSettingErrors] = useState<StationSettings['settingErrors']>({})
   const store: StationSettings = {
@@ -23,7 +33,8 @@ function Harness({ stored, updateSetting }: { stored: string; updateSetting: Sta
     serverSettings: { firestation_latitude: stored },
     loading: false,
     error: null,
-    saving: null,
+    saving,
+    savedAt,
     settingErrors,
     setSettingErrors,
     reload: async () => {},
@@ -64,5 +75,34 @@ describe('StationSettingsForm – coordinates', () => {
     fireEvent.blur(field())
     expect(updateSetting).not.toHaveBeenCalled()
     expect(screen.getByText(/Zahl/)).toBeInTheDocument()
+  })
+})
+
+/**
+ * Owner pick UX-05 A (10.11.2026): a setting saves by itself, so the server's confirmation is
+ * said under the field – the words of the Einsatz detail – and goes quiet again.
+ */
+describe('StationSettingsForm – «Gespeichert»', () => {
+  it('says «Wird gespeichert …» while the save is out', () => {
+    renderWithIntl(<Harness stored="47.516377" updateSetting={vi.fn()} saving="firestation_latitude" />)
+    expect(screen.getByRole('status')).toHaveTextContent('Wird gespeichert …')
+  })
+
+  it('says when the server confirmed, then goes quiet', () => {
+    vi.useFakeTimers()
+    try {
+      const at = new Date()
+      renderWithIntl(<Harness stored="47.516377" updateSetting={vi.fn()} savedAt={{ firestation_latitude: at }} />)
+      expect(screen.getByRole('status')).toHaveTextContent(/^Gespeichert – \d\d:\d\d$/)
+      act(() => void vi.advanceTimersByTime(6_000))
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('says nothing for a setting nobody touched', () => {
+    renderWithIntl(<Harness stored="47.516377" updateSetting={vi.fn()} />)
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 })
