@@ -80,7 +80,7 @@ Diese Dokumentationsseite.
 
 Für Kommandoposten mit mehreren Bildschirmen gibt es spezielle Anzeige-Seiten unter `/display`. Diese sind rein lesend – keine Bearbeitungsfunktionen.
 
-**Zugriff:** Benutzermenü → «Anzeige» → **Display-Übersicht** (öffnet in neuem Tab), oder direkt `/display` aufrufen. Dort stehen die drei Wände – Lagekarte, Board, Status – und die Wahl des Ereignisses; zwischen den Wänden wechselt man oben rechts. Im selben Abschnitt des Benutzermenüs stehen die [Kennzahlen](#board-g-b) (`Z`).
+**Zugriff:** Benutzermenü → «Anzeige» → **Display-Übersicht** (öffnet in neuem Tab), oder direkt `/display` aufrufen. Dort stehen die drei Wände – Lagekarte, Board, Status –, die Seite «Bereitschaft» und die Wahl des Ereignisses; zwischen den Seiten wechselt man oben rechts. Im selben Abschnitt des Benutzermenüs stehen die [Kennzahlen](#board-g-b) (`Z`).
 
 ### Lagekarte (`/display/map`)
 Vollbild-Karte ohne Seitenleiste. Zeigt alle Einsatzorte, GPS-Fahrzeugpositionen und animierte Zuweisungslinien (Fahrzeug → Einsatz). Ideal für einen zentralen Lagebildschirm.
@@ -98,6 +98,11 @@ Die Wand folgt dabei **nicht** der «Ansicht» des Bedieners: *Kompakt* gibt es,
 
 ### Status (`/display/status`)
 Vier-Spalten-Übersicht: Fahrzeuge, Einsätze (gruppiert nach Status), Personal (gruppiert nach Rolle) und Material (gruppiert nach Standort). Zeigt bei zugewiesenen Ressourcen den Einsatzort an. Skaliert auf grösseren Bildschirmen automatisch hoch. Über den Einsätzen stehen, zuklappbar, die [Kennzahlen](#board-g-b) – die vier Zahlen und die älteste wartende «Hoch»-Meldung; die Reaktionszeiten (Tabelle und Diagramm) sind ein eigener Abschnitt und standardmässig zugeklappt, damit mehr Einsätze Platz haben.
+
+### Bereitschaft (`/display/bereitschaft`)
+Für die Mannschaft, die im Magazin auf einen Einsatz wartet – gedacht für ein gemeinsames Tablet in der Hand, nicht für eine Wand. Von oben nach unten: wo die Fahrzeuge sind, was **bereit zum Ausrücken** ist (Reko abgeschlossen, mit Personalbedarf, Dauer und Gefahren aus dem Reko-Bericht), was noch **wartet** und wer **draussen** ist. Jede Liste ist nach Priorität und dann nach der längsten Wartezeit geordnet. Antippen öffnet das Einsatz-Detail; ändern lässt sich nichts.
+
+Auf einem Tablet bleiben Zurück-Pfeil und Suche stehen (kein Ausblenden nach 10 s), die Seitenwahl oben ist fingergross, und das Board lässt sich mit breiteren Spalten seitwärts wischen.
 
 ### Abschnitte einklappen
 
@@ -796,7 +801,7 @@ Im öffentlichen Demo-Modus erhält jeder Editor-Login (`demo-editor`) eine **pe
 
 ### Viewer-Link (Nur-Lesen)
 
-Für Personen ohne Login: Fusszeile → «Links & QR» → **Wandanzeige** – ein Link mit 24 h Gültigkeit. Er öffnet die Übersicht `/display`, von dort Board, Karte und Status, ohne Bearbeitungsmöglichkeit – dieselbe Einsatzkarte wie der Kommandoposten. Aktualisiert automatisch alle 5 Sekunden.
+Für Personen ohne Login: Fusszeile → «Links & QR» → **Wandanzeige** – ein Link mit 24 h Gültigkeit. Er öffnet die Übersicht `/display`, von dort Board, Karte, Status und Bereitschaft, ohne Bearbeitungsmöglichkeit – dieselbe Einsatzkarte wie der Kommandoposten. Aktualisiert automatisch alle 5 Sekunden.
 
 **Der Link zeigt neu auch das Reko-Ergebnis**: relevant ja/nein, Gefahren, Aufwandschätzung, Kurzbericht **und die Fotos vom Schadenplatz**. Vorher stand dort nur, *dass* eine Reko stattgefunden hat – was den Link für die Gemeinde oder eine Nachbarwehr wenig wert machte.
 

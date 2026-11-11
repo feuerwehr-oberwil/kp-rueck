@@ -86,8 +86,9 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
     // The logged-in wall's floors (see app/display/board/page.tsx): 160px from
     // `sm` up, so all seven columns fit a 1280 wall — at 280 everything from
     // IM EINSATZ on sat off-screen behind a scrollbar a wall cannot use — and
-    // stacked full width on a phone (lib/wall-stack).
-    <div data-column={column.id} className={cn('flex flex-1 flex-col min-w-[160px] overflow-hidden', WALL_STACK_COLUMN)}>
+    // stacked full width on a phone (lib/wall-stack). 240px on a touch screen,
+    // where a finger scrolls the board sideways.
+    <div data-column={column.id} className={cn('flex flex-1 flex-col min-w-[160px] pointer-coarse:sm:min-w-[240px] overflow-hidden', WALL_STACK_COLUMN)}>
       {/* The accent as a 2px rule above the header, not a wash behind it. */}
       <div aria-hidden className={cn('h-0.5 rounded-full', accent?.dot)} />
       <button

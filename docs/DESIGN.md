@@ -14,7 +14,10 @@ tool replaces a physical magnet board, so spatial familiarity and at-a-glance re
 
 **Tablets are KP Front's brief, not this one.** KP Rück's UI is not sized around touch targets; a
 phone is used for *viewing* (and, with an editor account, for spawning training incidents), never
-for running the board. The viewer role is strictly read-only. Sizing decisions follow from this –
+for running the board. The one tablet surface here is `/display/bereitschaft`: a shared tablet
+at the station on which a waiting crew *reads* what is ready, what waits and who is out – it
+writes nothing, and the other `/display` pages are navigable by touch, not laid out for it.
+The viewer role is strictly read-only. Sizing decisions follow from this –
 see the button size scale in `frontend/components/ui/button.tsx`.
 
 ## Brand personality

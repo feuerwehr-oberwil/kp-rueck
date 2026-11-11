@@ -268,7 +268,12 @@ function BoardDisplay() {
             // On a phone (below `sm`) there is no floor: the columns stack
             // (WALL_STACK_COLUMN) and each takes the full width. The token
             // board uses the same floor and the same stack.
-            className={cn("flex flex-1 flex-col min-w-[160px] overflow-hidden", WALL_STACK_COLUMN)}
+            //
+            // On a touch screen (a tablet at the station) the floor is 240px:
+            // there a finger scrolls the board sideways, so a readable card
+            // beats seven columns in view. A touch wall at 1280 and up still
+            // fits them all from 1760px.
+            className={cn("flex flex-1 flex-col min-w-[160px] pointer-coarse:sm:min-w-[240px] overflow-hidden", WALL_STACK_COLUMN)}
           >
             {/* The accent as a 2px rule above the header, not a wash behind
                 it — the header is a line of the board now, not a box on it.

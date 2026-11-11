@@ -80,7 +80,7 @@ Cette page de documentation.
 
 Pour les postes de commandement dotés de plusieurs écrans, des pages d’affichage spéciales existent sous `/display`. Elles sont en lecture seule – aucune fonction d’édition.
 
-**Accès :** menu utilisateur → « Affichage » → **Vue d’ensemble des affichages** (s’ouvre dans un nouvel onglet), ou directement `/display`. On y trouve les trois écrans muraux – carte de situation, tableau, état – et le choix de l’événement ; on passe d’un écran à l’autre en haut à droite. La même section du menu utilisateur contient les [Indicateurs](#tableau-board-g-b) (`Z`).
+**Accès :** menu utilisateur → « Affichage » → **Vue d’ensemble des affichages** (s’ouvre dans un nouvel onglet), ou directement `/display`. On y trouve les trois écrans muraux – carte de situation, tableau, état –, la page « Piquet » et le choix de l’événement ; on passe d’une page à l’autre en haut à droite. La même section du menu utilisateur contient les [Indicateurs](#tableau-board-g-b) (`Z`).
 
 ### Carte de situation (`/display/map`)
 Carte plein écran sans barre latérale. Montre tous les lieux d’intervention, les positions GPS des véhicules et les lignes d’attribution animées (véhicule → intervention). Idéal pour un écran de situation central.
@@ -98,6 +98,11 @@ Le mur ne suit **pas** la « Vue » de l’opérateur : *Compact* existe pour ca
 
 ### État (`/display/status`)
 Vue à quatre colonnes : véhicules, interventions (groupées par statut), personnel (groupé par rôle) et matériel (groupé par emplacement). Pour les ressources attribuées, le lieu d’intervention est indiqué. S’agrandit automatiquement sur les grands écrans. Au-dessus des interventions figurent, repliables, les [indicateurs](#tableau-board-g-b) – les quatre chiffres et le plus ancien message « haute » en attente ; les temps de réaction (tableau et diagramme) forment une section à part, repliée par défaut, pour laisser plus de place aux interventions.
+
+### Piquet (`/display/bereitschaft`)
+Pour l’équipe qui attend une intervention au local – pensée pour une tablette partagée tenue en main, pas pour un mur. De haut en bas : où se trouvent les véhicules, ce qui est **prêt à partir** (reconnaissance terminée, avec l’effectif, la durée et les dangers du rapport de reconnaissance), ce qui est encore **en attente** et qui est **sur le terrain**. Chaque liste est triée par priorité, puis par la plus longue attente. Un appui ouvre le détail de l’intervention ; rien ne peut être modifié.
+
+Sur une tablette, la flèche de retour et la recherche restent affichées (pas de masquage après 10 s), le choix de la page en haut est à la taille du doigt, et le tableau se fait défiler latéralement avec des colonnes plus larges.
 
 ### Replier des sections
 
@@ -807,7 +812,7 @@ En mode démo public, chaque connexion éditeur (`demo-editor`) reçoit une **si
 
 ### Lien observateur (lecture seule)
 
-Pour les personnes sans compte : barre du bas → « Liens & QR » → **Écran mural** – un lien valable 24 h. Il ouvre la vue d’ensemble `/display`, de là le tableau, la carte et l’état, sans possibilité d’édition – la même carte d’intervention qu’au poste de commandement. Actualisation automatique toutes les 5 secondes.
+Pour les personnes sans compte : barre du bas → « Liens & QR » → **Écran mural** – un lien valable 24 h. Il ouvre la vue d’ensemble `/display`, de là le tableau, la carte, l’état et le piquet, sans possibilité d’édition – la même carte d’intervention qu’au poste de commandement. Actualisation automatique toutes les 5 secondes.
 
 **Le lien montre désormais aussi le résultat de la reconnaissance** : pertinent oui/non, dangers, estimation de l’engagement, rapport bref **et les photos de la place sinistrée**. Auparavant il n’y figurait que le fait *qu’*une reconnaissance avait eu lieu – ce qui rendait le lien peu utile pour la commune ou un corps voisin.
 
