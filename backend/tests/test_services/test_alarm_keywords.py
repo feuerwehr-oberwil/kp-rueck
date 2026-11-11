@@ -129,7 +129,7 @@ def test_the_word_bounded_set_comes_from_the_shared_file():
         ("VU Strasse", schemas.IncidentType.STRASSENRETTUNG),
         ("BMA Schulhaus", schemas.IncidentType.BMA_UNECHTE_ALARME),
         ("Ölspur Hauptstrasse", schemas.IncidentType.OELWEHR),
-        ("Tierrettung Katze", schemas.IncidentType.GERETTETE_TIERE),
+        ("Tierrettung Katze", schemas.IncidentType.TECHNISCHE_HILFELEISTUNG),
         ("Katzenwäsche", schemas.IncidentType.DIVERSE_EINSAETZE),
     ],
 )
@@ -164,6 +164,8 @@ def test_priority_end_to_end(title: str, expected: schemas.IncidentPriority):
         ("Elementarereignis, Hauptstrasse 1", schemas.IncidentType.ELEMENTAREREIGNIS),
         ("Med Ustü dringlich, Hauptstrasse 1", schemas.IncidentType.DIVERSE_EINSAETZE),
         ("Med Ustü nicht dringlich, Kaibmattweg 3", schemas.IncidentType.DIVERSE_EINSAETZE),
+        # FKS: a Tierrettung is a Technische Hilfeleistung; «gerettete Tiere» is only a count.
+        ("Grosstierrettung, Hauptstrasse 1", schemas.IncidentType.TECHNISCHE_HILFELEISTUNG),
     ],
 )
 def test_classification_reads_the_einsatzart_not_the_street(title: str, expected: schemas.IncidentType):
