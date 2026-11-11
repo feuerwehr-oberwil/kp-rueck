@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildSituationData } from '@/lib/viewer-data'
+import { buildSituationData, viewerGroupsToIncidentGroups } from '@/lib/viewer-data'
 import type { ApiViewerData } from '@/lib/api-client'
 
 /**
@@ -118,5 +118,47 @@ describe('buildSituationData — pickup and the crew leader', () => {
     expect(operations[0].pickupNeeded).toBe(true)
     expect(operations[0].pickupRequestedAt).toEqual(new Date('2026-08-13T21:30:00Z'))
     expect(operations[0].pickupNote).toBe('')
+  })
+})
+
+describe('the resources of a route on a shared display', () => {
+  const withRoute: ApiViewerData = {
+    ...payload(null),
+    personnel: [
+      { id: 'p-route', name: 'Weber Martin' },
+      { id: 'p-released', name: 'Moser Lea' },
+    ] as unknown as ApiViewerData['personnel'],
+    groups: [
+      {
+        id: 'grp-1',
+        event_id: 'evt-1',
+        name: 'Sturmholz',
+        position: 0,
+        created_at: '2026-08-13T10:00:00Z',
+        updated_at: '2026-08-13T10:00:00Z',
+        stop_ids: ['inc-1'],
+        assignments: [
+          { id: 'a-1', resource_type: 'vehicle', resource_id: 'veh-1', driver_stay: false, is_leader: false },
+          { id: 'a-2', resource_type: 'personnel', resource_id: 'p-route', driver_stay: false, is_leader: true },
+          { id: 'a-3', resource_type: 'personnel', resource_id: 'p-released', unassigned_at: '2026-08-13T11:00:00Z', driver_stay: false, is_leader: false },
+        ],
+      },
+    ] as unknown as ApiViewerData['groups'],
+  }
+
+  it('keeps what the route owns and drops the released rows', () => {
+    const [group] = viewerGroupsToIncidentGroups(withRoute)
+    expect(group.assignments.map((a) => [a.resourceType, a.resourceId, a.isLeader])).toEqual([
+      ['vehicle', 'veh-1', false],
+      ['personnel', 'p-route', true],
+    ])
+  })
+
+  it('marks the crew of the route as on an Auftrag, not as free', () => {
+    const { personnel } = buildSituationData(withRoute)
+    expect(personnel.map((p) => [p.id, p.isOnAuftrag])).toEqual([
+      ['p-route', true],
+      ['p-released', false],
+    ])
   })
 })
