@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useTranslations } from "next-intl"
 import { useIntlLocale } from "@/lib/date-locale"
-import { Clock, Wifi, WifiOff, ArrowLeft, Map, LayoutGrid, BarChart3, Maximize, Minimize, Eye, CalendarRange } from "lucide-react"
+import { Clock, Wifi, WifiOff, ArrowLeft, Map, LayoutGrid, BarChart3, Maximize, Minimize, Eye, CalendarRange, Hourglass } from "lucide-react"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useSearchParams, usePathname, useRouter } from "next/navigation"
@@ -19,15 +19,18 @@ import { TrainingBand, TrainingBadge } from "@/components/training-mode-chrome"
 import { useDisplayErrorRecovery } from "@/components/display-error"
 import { RouteSlot } from "@/components/route-slot"
 import { useWallIdle } from "@/components/display/use-wall-idle"
+import { usePointerFine } from "@/lib/hooks/use-pointer-fine"
 
 const displayPages = [
   { href: "/display/map", labelKey: "pageMap", icon: Map },
   { href: "/display/board", labelKey: "pageBoard", icon: LayoutGrid },
   { href: "/display/status", labelKey: "pageStatus", icon: BarChart3 },
+  // The one page built for a tablet in the hand rather than a wall: crews waiting at the station.
+  { href: "/display/bereitschaft", labelKey: "pageStandby", icon: Hourglass },
 ] as const
 
 /** Which display pages filter on the top bar's search field. */
-const SEARCHABLE_PAGES = ["/display/board", "/display/status"]
+const SEARCHABLE_PAGES = ["/display/board", "/display/status", "/display/bereitschaft"]
 
 /** True while any Radix dialog is open on the page (the incident detail, mostly). */
 function isModalOpen(): boolean {
@@ -124,7 +127,12 @@ function DisplayChrome({
   // them back. A search in force never fades: a filtered wall must say so, and a
   // field holding the caret stays (`focus-within`). Under reduced motion it is a
   // cut, not a fade.
-  const chromeIdle = useWallIdle() && !query
+  //
+  // Only where a pointer can move: on a touch screen (a tablet at the station)
+  // nothing wakes the chrome but a tap, and a tap on a faded back arrow would
+  // navigate. There the controls stay, at 44px.
+  const pointerFine = usePointerFine()
+  const chromeIdle = useWallIdle() && !query && pointerFine
   const idleChromeClass = cn(
     "transition-opacity duration-500 motion-reduce:transition-none",
     // No `pointer-events-none`: a pointer can only reach them by moving, which wakes them.
@@ -235,7 +243,7 @@ function DisplayChrome({
             <div className={cn("hidden sm:flex items-center gap-2 shrink-0", idleChromeClass)}>
               <Link
                 href={isIndexPage ? "/" : "/display"}
-                className="flex items-center justify-center h-7 w-7 shrink-0 rounded-sm hover:bg-muted transition-colors"
+                className="flex items-center justify-center h-7 w-7 pointer-coarse:size-11 shrink-0 rounded-sm hover:bg-muted transition-colors"
                 title={isIndexPage ? t('layout.backToEditor') : t('layout.displayOverview')}
               >
                 <ArrowLeft className="h-3.5 w-3.5 text-muted-foreground" />
@@ -280,7 +288,8 @@ function DisplayChrome({
               // and the Ereignis name squeezed to an ellipsis (overflow sweep, 03.10.).
               containerClassName={cn("ml-2 hidden w-64 shrink-0 lg:block", idleChromeClass)}
               className="h-7 text-sm"
-              hint={<Kbd>S</Kbd>}
+              // The «S» shortcut is a keyboard's; a touch screen has none to press.
+              hint={pointerFine ? <Kbd>S</Kbd> : undefined}
             />
           )}
         </div>
@@ -299,14 +308,21 @@ function DisplayChrome({
                       // Caption-sized at 12px whatever the wall's root size: a
                       // rem `text-xs` read 10.5px on a board fitted to 14px.
                       "relative hit-area flex items-center justify-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-sm text-[12px] leading-[16px] font-medium transition-colors",
+                      // Touch: a 44px target and a label at reading size.
+                      "pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:sm:text-[14px]",
                       isActive
                         ? "bg-background text-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground"
                     )}
                     title={t(`layout.${p.labelKey}`)}
+                    aria-label={t(`layout.${p.labelKey}`)}
+                    aria-current={isActive ? "page" : undefined}
                   >
-                    <p.icon className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">{t(`layout.${p.labelKey}`)}</span>
+                    <p.icon className="h-3.5 w-3.5 pointer-coarse:size-4" />
+                    {/* A tablet in portrait has no room for four 44px tabs with
+                        their words and the Ereignis name: there only the page
+                        one is on keeps its word, the others are their icon. */}
+                    <span className={cn("hidden sm:inline", !isActive && "pointer-coarse:max-lg:hidden")}>{t(`layout.${p.labelKey}`)}</span>
                   </Link>
                 )
               })}
@@ -322,7 +338,7 @@ function DisplayChrome({
             </div>
             <button
               onClick={toggleFullscreen}
-              className="hidden sm:flex items-center justify-center h-7 w-7 rounded-sm hover:bg-muted transition-colors"
+              className="hidden sm:flex items-center justify-center h-7 w-7 pointer-coarse:size-11 rounded-sm hover:bg-muted transition-colors"
               title={isFullscreen ? t('layout.exitFullscreen') : t('layout.fullscreen')}
             >
               {isFullscreen ? (

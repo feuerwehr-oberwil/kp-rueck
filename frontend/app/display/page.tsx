@@ -5,7 +5,7 @@ import { useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { useLogout } from "@/lib/hooks/use-logout"
-import { ArrowLeft, Check, LogOut, Map, LayoutGrid, BarChart3, type LucideIcon } from "lucide-react"
+import { ArrowLeft, Check, Hourglass, LogOut, Map, LayoutGrid, BarChart3, type LucideIcon } from "lucide-react"
 
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
@@ -61,8 +61,8 @@ export default function DisplayIndexPage() {
     // page exists for.
     <div className="flex h-full overflow-y-auto p-6">
       <div className="m-auto flex w-full flex-col items-center gap-8">
-        {/* Wraps rather than overflows: three px-6 buttons are ~350px, wider than
-            a small phone, and a centred row that overflows is clipped on BOTH
+        {/* Wraps rather than overflows: the px-6 buttons are wider than
+            a small phone together, and a centred row that overflows is clipped on BOTH
             sides — «Karte» was cut in half at 340px. */}
         <nav className="flex flex-wrap justify-center gap-3">
           {/* The token rides along, or a shared /display link would open wall
@@ -70,6 +70,7 @@ export default function DisplayIndexPage() {
           <DisplayLink href={token ? `/display/map?token=${token}` : "/display/map"} label={t('pageMap')} icon={Map} />
           <DisplayLink href={token ? `/display/board?token=${token}` : "/display/board"} label={t('pageBoard')} icon={LayoutGrid} />
           <DisplayLink href={token ? `/display/status?token=${token}` : "/display/status"} label={t('pageStatus')} icon={BarChart3} />
+          <DisplayLink href={token ? `/display/bereitschaft?token=${token}` : "/display/bereitschaft"} label={t('pageStandby')} icon={Hourglass} />
         </nav>
 
         {!token && isAuthenticated && (

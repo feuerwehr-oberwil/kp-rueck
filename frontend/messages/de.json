@@ -3863,6 +3863,7 @@
       "pageMap": "Karte",
       "pageBoard": "Board",
       "pageStatus": "Status",
+      "pageStandby": "Bereitschaft",
       "connected": "Verbunden",
       "disconnected": "Verbindung unterbrochen",
       "backToEditor": "Zurück zum Editor",
@@ -3904,6 +3905,20 @@
       "invalidLink": "Ungültiger oder abgelaufener Link. Bitte einen neuen Link anfordern.",
       "readOnly": "Nur-Lesen",
       "showCompleted": "Abgeschlossen anzeigen"
+    },
+    "standby": {
+      "vehicles": "Fahrzeuge",
+      "vehiclesEmpty": "Keine Fahrzeuge erfasst.",
+      "vehicleFree": "Frei",
+      "ready": "Bereit zum Ausrücken",
+      "readyHint": "Reko abgeschlossen, wartet auf Kräfte",
+      "readyEmpty": "Kein Einsatz mit abgeschlossener Reko.",
+      "waiting": "Wartet",
+      "waitingEmpty": "Kein Einsatz wartet.",
+      "out": "Draussen",
+      "outEmpty": "Niemand ist draussen.",
+      "rekoBy": "Reko · {name}",
+      "leader": "{name} (EL)"
     }
   },
   "intake": {

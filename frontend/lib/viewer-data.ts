@@ -8,12 +8,12 @@
  * assignments rather than the (never event-scoped) availability column.
  */
 
-import { type ApiViewerData, type ApiViewerIncident, type ApiViewerRekoSummary } from "@/lib/api-client"
+import { type ApiViewerData, type ApiViewerGroup, type ApiViewerIncident, type ApiViewerRekoSummary } from "@/lib/api-client"
 import { personResourceState } from "@/lib/resource-status"
 import { rekoDangerTypes, type Operation, type RekoSummary } from "@/lib/contexts/operations-context"
 import { type Person, type PersonStatus } from "@/lib/contexts/personnel-context"
 import { type Material } from "@/lib/contexts/materials-context"
-import { type IncidentGroup } from "@/lib/types/groups"
+import { type GroupResourceType, type IncidentGroup } from "@/lib/types/groups"
 import { type VehicleWithStatus, type StatusStats } from "@/lib/hooks/use-status-data"
 import { columns } from "@/lib/kanban-utils"
 import { darkenForWhiteText } from "@/lib/map-colors"
@@ -123,7 +123,9 @@ function viewerIncidentToOperation(a: ApiViewerIncident, reko?: ApiViewerRekoSum
 }
 
 /** Map the payload's Auftrag rows onto the domain IncidentGroup shape (colour as drawn, like
- *  `groups-context`). */
+ *  `groups-context`). The route's resources come along without the released rows: they are
+ *  what says a vehicle or a person is out on that Auftrag – with none, a share link showed a
+ *  vehicle on a route as «frei». */
 export function viewerGroupsToIncidentGroups(payload: ApiViewerData): IncidentGroup[] {
   return (payload.groups ?? []).map((group) => ({
     id: String(group.id),
@@ -137,11 +139,22 @@ export function viewerGroupsToIncidentGroups(payload: ApiViewerData): IncidentGr
     // Not in the share payload: who created the route is not part of it.
     createdBy: null,
     stopIds: group.stop_ids.map(String),
-    assignments: [],
+    assignments: liveGroupAssignments(group).map((a) => ({
+      id: String(a.id),
+      resourceType: a.resource_type as GroupResourceType,
+      resourceId: String(a.resource_id),
+      driverStay: a.driver_stay,
+      isLeader: a.is_leader,
+    })),
     progress: group.progress ?? { total: group.stop_ids.length, done: 0 },
     // Viewers never make a Funkdurchsage, so the payload doesn't carry one.
     lastAnnounced: null,
   }))
+}
+
+/** What a route still owns: its assignments without the released ones. */
+function liveGroupAssignments(group: ApiViewerGroup) {
+  return (group.assignments ?? []).filter((assignment) => !assignment.unassigned_at)
 }
 
 /** Build the full display view-model from a share-token payload. */
@@ -220,6 +233,16 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
     }
   }
 
+  // A route's crew lives on the Auftrag, not on its stops: «steht auf einem Auftrag», the
+  // same enrichment `useStatusData` does for the logged-in display.
+  const onAuftragPersonIds = new Set(
+    (payload.groups ?? []).flatMap((group) =>
+      liveGroupAssignments(group)
+        .filter((assignment) => assignment.resource_type === "personnel")
+        .map((assignment) => String(assignment.resource_id)),
+    ),
+  )
+
   const personnel: Person[] = payload.personnel.map((p) => ({
     id: String(p.id),
     name: p.name,
@@ -232,6 +255,7 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
     driverVehicleId: driverInfoByPerson.get(String(p.id))?.vehicleId || undefined,
     driverVehicleName: driverInfoByPerson.get(String(p.id))?.vehicleName || undefined,
     isMagazin: magazinPersonnelIds.has(String(p.id)),
+    isOnAuftrag: onAuftragPersonIds.has(String(p.id)),
     roleSortOrder: p.role_sort_order,
     // Not in the share payload — whether a person is linked to another system
     // is nothing a display draws, and a viewer never sends alarms.

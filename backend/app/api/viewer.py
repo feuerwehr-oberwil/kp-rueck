@@ -86,7 +86,7 @@ async def generate_viewer_link(
     Anyone with this link can view the current state without logging in.
 
     The link opens the `/display` overview, which forwards the token to the
-    board, map and status wall pages — there is no `/viewer` page.
+    display pages (board, map, status, Bereitschaft) — there is no `/viewer` page.
     """
     token = generate_viewer_token(event_id)
     link = f"/display?token={token}"

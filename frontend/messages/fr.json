@@ -364,6 +364,7 @@
       "pageMap": "Carte",
       "pageBoard": "Tableau",
       "pageStatus": "État",
+      "pageStandby": "Piquet",
       "connected": "Connecté",
       "disconnected": "Liaison interrompue",
       "backToEditor": "Retour à l’éditeur",
@@ -405,6 +406,20 @@
       "invalidLink": "Lien non valable ou échu. Demande un nouveau lien.",
       "readOnly": "Lecture seule",
       "showCompleted": "Afficher les clôturées"
+    },
+    "standby": {
+      "vehicles": "Véhicules",
+      "vehiclesEmpty": "Aucun véhicule saisi.",
+      "vehicleFree": "Libre",
+      "ready": "Prêt à partir",
+      "readyHint": "Reconnaissance terminée, en attente de forces",
+      "readyEmpty": "Aucune intervention avec reconnaissance terminée.",
+      "waiting": "En attente",
+      "waitingEmpty": "Aucune intervention n’attend.",
+      "out": "Sur le terrain",
+      "outEmpty": "Personne n’est sur le terrain.",
+      "rekoBy": "Reconnaissance · {name}",
+      "leader": "{name} (CI)"
     }
   },
   "divera": {

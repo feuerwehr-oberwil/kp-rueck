@@ -352,13 +352,13 @@ function visits(links) {
       .map((s) => ({ id: `settings-${s}`, path: `/settings?section=${s}` })),
     ...(ADMIN ? ['users', 'sync'].map((s) => ({ id: `settings-${s}`, path: `/settings?section=${s}`, role: 'admin' })) : []),
     // A viewer is redirected to the wall, on a phone too (UX-PHONE-10): the session boards, not the token ones.
-    ...(VIEWER ? ['board', 'status'].map((d) => ({ id: `display-viewer-${d}`, path: `/display/${d}`, role: 'viewer' })) : []),
+    ...(VIEWER ? ['board', 'status', 'bereitschaft'].map((d) => ({ id: `display-viewer-${d}`, path: `/display/${d}`, role: 'viewer' })) : []),
   ]
   if (links.checkin) v.push({ id: 'check-in', path: links.checkin, role: null })
   if (links.alarm) v.push({ id: 'alarm', path: links.alarm, role: null })
   if (links.reko) v.push({ id: 'reko', path: links.reko, role: null })
   if (links.viewer) {
-    for (const d of ['', '/board', '/map', '/status']) v.push({ id: `display${d.replace('/', '-') || '-root'}`, path: `/display${d}?token=${links.viewer}`, role: null })
+    for (const d of ['', '/board', '/map', '/status', '/bereitschaft']) v.push({ id: `display${d.replace('/', '-') || '-root'}`, path: `/display${d}?token=${links.viewer}`, role: null })
   }
   if (links.feld) {
     const feldCode = async (p) => { await p.keyboard.type(links.feldCode); await p.waitForTimeout(2500) }
