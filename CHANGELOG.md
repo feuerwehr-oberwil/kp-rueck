@@ -72,6 +72,10 @@ will keep holding.
   longer hides behind the Checkliste and «Links & QR».
 - **Setting «Fahrzeuge auf der Lagekarte»** (Einstellungen → GPS): after how many minutes a
   vehicle's last GPS report counts as old (default 10). Only then does its pill show the time.
+- **«Hier» in «Neuer Einsatz» on a phone or touch device**: a locate button in the address field
+  takes one GPS fix and fills the Einsatzort with the address and the pin («aus GPS · ±12 m»); a
+  refusal or no fix is said under the field.
+- **The phone Lagekarte brings the selected Einsatz into view with its card**, not only its pin.
 
 ### Changed
 
@@ -147,6 +151,9 @@ will keep holding.
 - **The map no longer flickers while a panel beside it is resized.**
 - **«Beenden» in a narrow Routenplanung rail** turns into a plain ✕ instead of wrapping.
 - **Checkliste titles** wrap instead of being cut off beside their buttons.
+- **Reverse geocoding found no address at all**, so /feld «Standort übernehmen» left the
+  address empty: swisstopo's address layer labels a hit with its numeric id, and the address is
+  now built from its street, number and postcode.
 
 ### Security
 

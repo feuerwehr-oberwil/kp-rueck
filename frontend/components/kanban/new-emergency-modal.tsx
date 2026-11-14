@@ -296,6 +296,8 @@ export function NewEmergencyModal({
                 dense={!isMobile}
                 boxed
                 required
+                // «Hier» on a phone or touch device: the operator may be standing at the place.
+                locateHere
                 onAddressChange={(address) => {
                   setFormData(prev => ({ ...prev, location: address || "" }))
                   setTouched(prev => ({ ...prev, location: true }))

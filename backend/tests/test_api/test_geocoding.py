@@ -178,15 +178,24 @@ async def test_disabled_provider_and_non_swiss_search_do_not_dispatch(editor_cli
     assert provider[1] == []
 
 
+def _address_hit(lon: float, lat: float, street: str, number: str) -> dict:
+    """One identify hit on the official address layer, in swisstopo's shape: `label` is the
+    numeric address id, the address itself comes in parts."""
+    return {
+        "geometry": {"type": "Point", "coordinates": [lon, lat]},
+        "properties": {"stn_label": street, "adr_number": number, "zip_label": "4104 Oberwil BL", "label": 101149711},
+    }
+
+
 async def test_swiss_reverse_chooses_nearest_point_within_100m(editor_client, provider):
     _, calls, payload = provider
     payload["results"] = [
-        {"geometry": {"type": "Point", "coordinates": [7.1, 47.1]}, "properties": {"label": "Outside"}},
-        {"geometry": {"type": "Point", "coordinates": [7, 47.0002]}, "properties": {"label": "Further"}},
-        {"geometry": {"type": "Point", "coordinates": [7, 47.0001]}, "properties": {"label": "Nearest"}},
+        _address_hit(7.1, 47.1, "Outside", "1"),
+        _address_hit(7, 47.0002, "Further", "2"),
+        _address_hit(7, 47.0001, "Bahnhofstrasse", "6"),
     ]
     response = await editor_client.get("/api/geocoding/reverse", params={"lat": 47, "lon": 7})
-    assert response.json() == {"address": "Nearest"}
+    assert response.json() == {"address": "Bahnhofstrasse 6, 4104 Oberwil BL"}
     assert calls[0].url.params["layers"] == "all:" + geocoding.ADDRESS_LAYER
     assert calls[0].url.params["geometryType"] == "esriGeometryEnvelope"
     assert calls[0].url.params["tolerance"] == "0"
@@ -194,7 +203,7 @@ async def test_swiss_reverse_chooses_nearest_point_within_100m(editor_client, pr
 
 async def test_swiss_reverse_does_not_invent_a_distant_address(editor_client, provider):
     provider[2]["results"] = [
-        {"geometry": {"type": "Point", "coordinates": [7.1, 47.1]}, "properties": {"label": "Outside"}},
+        _address_hit(7.1, 47.1, "Outside", "1"),
     ]
     assert (await editor_client.get("/api/geocoding/reverse", params={"lat": 47, "lon": 7})).json() == {"address": None}
 

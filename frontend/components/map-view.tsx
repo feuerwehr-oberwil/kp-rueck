@@ -61,7 +61,8 @@ import { useVehiclePositions } from "@/lib/hooks/use-vehicle-positions"
 import { useTranslations } from "next-intl"
 import { useInitialStationView } from "@/lib/hooks/use-initial-station-view"
 import { useCompactMap } from "@/lib/hooks/use-compact-map"
-import { estimateLabelWidth, labelMode, pickVisibleLabels, placeLabelSides, type LabelCandidate, type LabelSide } from "@/lib/map-labels"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
+import { estimateLabelWidth, focusOffset, labelMode, pickVisibleLabels, placeLabelSides, type LabelCandidate, type LabelSide } from "@/lib/map-labels"
 import { REVEAL_MS, Reveal } from "@/components/ui/reveal"
 import { WeatherRadarLayer } from "./map/weather-radar"
 import { WeatherRadarControls, useRadarPlayback } from "./map/weather-radar-controls"
@@ -76,6 +77,8 @@ import { activeWarnings, radarIsStale } from "@/lib/weather"
 const LABEL_HEIGHT = 32
 const LABEL_ANCHOR_X = incidentPinSize(false, false) / 2 + 2
 const LABEL_OFFSET_X = LABEL_ANCHOR_X + 6
+/** Marks the selected incident's label bubble – what `selectedLabelBox` measures. */
+const SELECTED_LABEL_ATTR = "data-map-selected-label"
 // Grace period before an abandoned card closes — long enough to cross the seam
 // into the next label, short enough that a card never lingers on its own.
 const LABEL_HOVER_CLOSE_MS = 200
@@ -438,6 +441,7 @@ function IncidentLabel({
   onHoverStart,
   onHoverEnd,
   below,
+  selected = false,
   children,
 }: {
   latitude: number
@@ -454,6 +458,9 @@ function IncidentLabel({
   /** Hung under the bubble, on the same side: a same-address pin's list (`SpotList`). Its own
    *  clicks are its own – they do not count as a click on the label. */
   below?: ReactNode
+  /** The selected incident's label: the phone camera measures it to bring it into view
+   *  (`usePanToSelected`). */
+  selected?: boolean
   children: ReactNode
 }) {
   const doubleClickRef = useOpenOnDoubleClick(onOpen)
@@ -472,6 +479,7 @@ function IncidentLabel({
           ref={doubleClickRef}
           className={LABEL_BUBBLE}
           style={{ transform: `translate(${shift}, -50%)` }}
+          {...(selected && { [SELECTED_LABEL_ATTR]: "" })}
           onClick={onSelect}
           onMouseEnter={onHoverStart}
           onMouseLeave={onHoverEnd}
@@ -1014,16 +1022,59 @@ function useFitBoundsOnce(map: MlMap | null, incidents: Incident[], padding: Fit
 const MIN_FOCUS_ZOOM = 13
 const MAX_FOCUS_ZOOM = 17
 
-/** Pan to the selected incident, KEEPING the operator's zoom. */
+/** The phone camera's margin around pin + card, inside the map's own chrome. */
+const FOCUS_MARGIN = 12
+
+/**
+ * Pin + the selected label (its card on the board) as a box around the pin's anchor, px – read
+ * from the rendered bubble, so the card's real width, side and height count, not a guess. Just
+ * the pin when no label is drawn (the pin sits in an overlap bubble, say).
+ */
+function selectedLabelBox(map: MlMap, lngLat: [number, number]) {
+  const half = INCIDENT_DOT_SIZE / 2
+  const box = { left: -half, top: -half, right: half, bottom: half }
+  const bubble = map.getContainer().querySelector(`[${SELECTED_LABEL_ATTR}]`)
+  if (!bubble) return box
+  const container = map.getContainer().getBoundingClientRect()
+  const rect = bubble.getBoundingClientRect()
+  const anchor = map.project(lngLat)
+  return {
+    left: Math.min(box.left, rect.left - container.left - anchor.x),
+    top: Math.min(box.top, rect.top - container.top - anchor.y),
+    right: Math.max(box.right, rect.right - container.left - anchor.x),
+    bottom: Math.max(box.bottom, rect.bottom - container.top - anchor.y),
+  }
+}
+
+/**
+ * Pan to the selected incident, KEEPING the operator's zoom. On the desktop the pin is centred; on
+ * a phone (`compact`) the pin AND its card are – the pin lands left of centre so the card ends
+ * inside the map, clear of the chrome (`focusOffset`, owner pick 6A).
+ */
 function usePanToSelected(
   map: MlMap | null,
   selectedIncidentId: string | null,
   incidents: Incident[],
   trigger: number,
+  compact: boolean,
+  padding: FitPadding,
 ) {
   // The incidents are read, not depended on: a poll tick must not re-fly the map.
   const incidentsRef = useRef(incidents)
   useEffect(() => { incidentsRef.current = incidents }, [incidents])
+
+  // The surface and the chrome are read at the moment of the flight: turning the phone or opening
+  // the legend must not re-fly the map.
+  const focusOffsetFor = useEffectEvent((center: [number, number]) =>
+    compact && map
+      ? focusOffset({
+          width: map.getContainer().clientWidth,
+          height: map.getContainer().clientHeight,
+          padding: padding(FOCUS_MARGIN),
+          box: selectedLabelBox(map, center),
+        })
+      : undefined,
+  )
 
   useEffect(() => {
     if (!map || !selectedIncidentId) return
@@ -1034,7 +1085,10 @@ function usePanToSelected(
     // again — the operator set a working scale and every click threw it away. The zoom is only
     // touched when it is outside the band where a marker is actually readable.
     const clamped = Math.min(Math.max(map.getZoom(), MIN_FOCUS_ZOOM), MAX_FOCUS_ZOOM)
-    map.flyTo({ center: [incident.location_lng, incident.location_lat], zoom: clamped, duration: 800 })
+    const center: [number, number] = [incident.location_lng, incident.location_lat]
+    // Measured before the flight, at the current zoom: the card is screen-sized, so its box
+    // around the pin is the same at the zoom the flight ends on.
+    map.flyTo({ center, zoom: clamped, offset: focusOffsetFor(center), duration: 800 })
   }, [map, selectedIncidentId, trigger])
 }
 
@@ -1559,7 +1613,7 @@ export default function MapView({
     })
   }, [])
   useFitBoundsOnce(map, mappableIncidents, fitPadding)
-  usePanToSelected(map, selectedIncidentId ?? null, mappableIncidents, panTrigger)
+  usePanToSelected(map, selectedIncidentId ?? null, mappableIncidents, panTrigger, compactMap, fitPadding)
   usePanToVehicle(map, focusVehicleName, focusVehicleTrigger, mappedVehiclePositions)
   useResetZoom(map, resetZoomTrigger, mappableIncidents, fitPadding)
 
@@ -1809,6 +1863,7 @@ export default function MapView({
                     latitude={spot.latitude}
                     longitude={spot.longitude}
                     side={side}
+                    selected={selectedHere}
                     zIndex={incidentZ("label", incident.priority, { hovered: pointedAt || open, highlighted: isHighlighted })}
                     onSelect={toggle}
                     onOpen={keepOpen}
@@ -1883,6 +1938,7 @@ export default function MapView({
                   latitude={spot.latitude}
                   longitude={spot.longitude}
                   side={permanent ? side : "right"}
+                  selected={pinned}
                   zIndex={incidentZ("label", incident.priority, { hovered, highlighted: isHighlighted })}
                   onSelect={select}
                   onOpen={openDetail}
