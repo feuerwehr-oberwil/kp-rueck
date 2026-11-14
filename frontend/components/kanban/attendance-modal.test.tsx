@@ -156,6 +156,17 @@ describe('AttendanceModal on a phone', () => {
     expect(screen.queryByRole('button', { name: 'Alle abmelden' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Neue Person hinzufügen/ })).toBeInTheDocument()
   })
+
+  it('opens the add form in the footer without a second frame around it', async () => {
+    getEventCheckInList.mockResolvedValue({ personnel: [absent], event_id: 'ev-1', event_name: 'Unwetter 08.08.' })
+
+    renderWithIntl(<AttendanceModal open onOpenChange={() => {}} eventId="ev-1" eventName="Unwetter 08.08." />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /Neue Person hinzufügen/ }))
+    const form = screen.getByPlaceholderText('Name eingeben …').closest('[data-slot="quick-add-form"]')
+    expect(form?.closest('[data-slot="sheet-footer"]')).not.toBeNull()
+    expect(form).not.toHaveClass('border-2')
+  })
 })
 
 describe('AttendanceModal', () => {

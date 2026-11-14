@@ -21,6 +21,10 @@ interface QuickAddPersonnelProps {
   /** Optional guard: return true if a person with this name already exists.
    *  Prevents creating indistinguishable same-name duplicates at check-in. */
   isNameTaken?: (name: string) => boolean
+  /** `false` drops the card frame around the open form – for a mount that already sits
+   *  in its own framed footer (the phone Appell sheet), where a box inside the bar was
+   *  one frame too many. Default `true` (the /check-in page). */
+  framed?: boolean
 }
 
 export function QuickAddPersonnel({
@@ -28,6 +32,7 @@ export function QuickAddPersonnel({
   checkInToken,
   checkInEventId,
   isNameTaken,
+  framed = true,
 }: QuickAddPersonnelProps) {
   const t = useTranslations('incidents.quickAdd')
   const tCommon = useTranslations('incidents.common')
@@ -118,7 +123,10 @@ export function QuickAddPersonnel({
           {t('addNewPerson')}
         </Button>
       ) : (
-        <div className="bg-card border-2 border-border rounded-lg p-4 space-y-3">
+        <div
+          data-slot="quick-add-form"
+          className={framed ? 'bg-card border-2 border-border rounded-lg p-4 space-y-3' : 'space-y-2'}
+        >
           <Input
             type="text"
             placeholder={t('namePlaceholder')}

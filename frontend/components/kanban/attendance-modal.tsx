@@ -359,6 +359,9 @@ export function AttendanceModal({
         }}
         checkInEventId={eventId}
         isNameTaken={isNameTaken}
+        // The sheet footer is already the frame on the phone; the desktop dialog keeps
+        // today's boxed form.
+        framed={!isMobile}
       />
       <p className="mt-1 text-center text-xs text-muted-foreground">{t('quickAddHint')}</p>
     </>
