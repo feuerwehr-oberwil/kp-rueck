@@ -10,7 +10,16 @@ import { useTranslations } from 'next-intl'
  * button in it natively (the same trick as `DemoLock`). The page leaves two sections editable
  * (`PHONE_EDITABLE_SECTIONS`): «Dieses Gerät», which only changes this phone, and «Problem melden».
  */
-export function PhoneReadOnly({ active, children }: { active: boolean; children: ReactNode }) {
+export function PhoneReadOnly({
+  active,
+  lockControls = true,
+  children,
+}: {
+  active: boolean
+  /** false: the section draws its own read-only phone view (a list whose search must work). */
+  lockControls?: boolean
+  children: ReactNode
+}) {
   const t = useTranslations('settings.page')
   if (!active) return <>{children}</>
   return (
@@ -18,9 +27,13 @@ export function PhoneReadOnly({ active, children }: { active: boolean; children:
       <p role="note" className="text-sm text-muted-foreground">
         {t('phoneReadOnly')}
       </p>
-      <fieldset disabled className="m-0 min-w-0 space-y-6 border-0 p-0">
-        {children}
-      </fieldset>
+      {lockControls ? (
+        <fieldset disabled className="m-0 min-w-0 space-y-6 border-0 p-0">
+          {children}
+        </fieldset>
+      ) : (
+        children
+      )}
     </>
   )
 }

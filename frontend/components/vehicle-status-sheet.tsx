@@ -267,8 +267,9 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
 
   const handleVehicleClick = (vehicle: VehicleStatus) => {
     if (vehicle.incident_id) {
-      // Navigate to Kanban with highlighted incident
-      router.push(`/?highlight=${vehicle.incident_id}`)
+      // Navigate to Kanban with highlighted incident – on a phone also opened (its Einsatz
+      // sheet, `&detail=1`): a ring on a list card is not what «Tippen öffnet den Einsatz» says.
+      router.push(`/?highlight=${vehicle.incident_id}${isMobile ? '&detail=1' : ''}`)
       onOpenChange(false)
     }
   }
@@ -294,17 +295,21 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
     >
         <SheetHeader className="p-0">
           <div className="flex items-center justify-between gap-4">
-            <div>
+            <div className="min-w-0">
               <SheetTitle>{t('vehicleStatus.title')}</SheetTitle>
+              {/* The phone: one line in its own words, and no «Aktualisieren» – the list refreshes
+                  every 10 s by itself, and beside the button the line wrapped three times. */}
               <SheetDescription>
-                {t('vehicleStatus.description')}
+                {t(isMobile ? 'vehicleStatus.descriptionPhone' : 'vehicleStatus.description')}
               </SheetDescription>
             </div>
 
-            <Button variant="outline" size="sm" onClick={handleManualRefresh} disabled={loading} className="flex-shrink-0">
-              {loading ? <ShellLoader className="size-3.5" /> : <RefreshCw className="size-3.5" />}
-              {t('vehicleStatus.refresh')}
-            </Button>
+            {!isMobile && (
+              <Button variant="outline" size="sm" onClick={handleManualRefresh} disabled={loading} className="flex-shrink-0">
+                {loading ? <ShellLoader className="size-3.5" /> : <RefreshCw className="size-3.5" />}
+                {t('vehicleStatus.refresh')}
+              </Button>
+            )}
           </div>
         </SheetHeader>
 

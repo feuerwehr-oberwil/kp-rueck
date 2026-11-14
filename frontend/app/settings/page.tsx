@@ -206,6 +206,9 @@ const DEFAULT_SECTION: SectionId = 'general';
 
 /** The sections a phone may still change (owner, 14.11.2026); every other one is read-only there. */
 const PHONE_EDITABLE_SECTIONS: ReadonlySet<SectionId> = new Set(['device', 'telemetry']);
+/** Read-only on a phone too, but drawn by the section itself as a phone view (its search must
+ *  stay usable, which the disabled fieldset would not allow). */
+const PHONE_OWN_VIEW_SECTIONS: ReadonlySet<SectionId> = new Set(['personnel']);
 
 /** The sections a role may open – the sidebar, the mobile picker, the search and `?section=` all use it. */
 function visibleSectionsFor(isEditor: boolean, isAdmin: boolean): Section[] {
@@ -1039,7 +1042,12 @@ export default function SettingsPage() {
               )}
               {/* The phone looks, the desk changes – except «Dieses Gerät» (this phone only) and
                   «Problem melden» (for whoever hit the problem, wherever they are). */}
-              <PhoneReadOnly active={isMobile && !PHONE_EDITABLE_SECTIONS.has(activeSection)}>{renderContent()}</PhoneReadOnly>
+              <PhoneReadOnly
+                active={isMobile && !PHONE_EDITABLE_SECTIONS.has(activeSection)}
+                lockControls={!PHONE_OWN_VIEW_SECTIONS.has(activeSection)}
+              >
+                {renderContent()}
+              </PhoneReadOnly>
             </div>
           </main>
         </div>

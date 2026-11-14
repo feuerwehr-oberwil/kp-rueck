@@ -160,18 +160,16 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
           )}
 
           {/* Status + Type: the status is the one chip; the type is a label,
-              so it is plain muted text and never outshines the status. ONE line on
-              every card (hill climb r23: a wrapping row put the type beside a short
-              status but under «Disponiert / Anfahrt»): the chip and the marks keep
-              their size, the type ellipsizes with its full text in `title`. */}
-          <div className="flex items-center gap-2 mt-1.5">
+              so it is plain muted text and never outshines the status. The row
+              WRAPS (phone sweep 14.11.2026, owner's pick – it replaces hill climb
+              r23's one line, which cut a Hoch card's type to «Elementare…»): the type
+              goes under a long chip instead of losing its end, and «kein Rapport»
+              closes the row – at its end when it fits, under it when not. */}
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
             <Badge variant="secondary" className="text-xs px-1.5 py-0 max-w-full">
               {getOperationStatusLabel(operation.status)}
             </Badge>
-            <span
-              className="min-w-0 truncate text-xs text-muted-foreground"
-              title={getIncidentTypeLabel(operation.incidentType)}
-            >
+            <span className="min-w-0 break-words text-xs text-muted-foreground">
               {getIncidentTypeLabel(operation.incidentType)}
             </span>
             {operation.hasCompletedReko && (
@@ -184,6 +182,10 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
                 <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
               </span>
             )}
+            {/* The one debt that survives completion (image #21): a quiet word, not a pill. */}
+            {rapportMissing && (
+              <span className="ml-auto shrink-0 text-xs text-muted-foreground">{tMobile("noRapport")}</span>
+            )}
           </div>
         </div>
 
@@ -191,8 +193,9 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
             line of its own under the facts it cost a line per card). Read-only: the
             phone list is for looking, and a dropdown inside a tappable row fights the
             tap that opens the incident. 14/18 600 in the desk card's age colours
-            (`colorByAge` = `ageLevel`: amber ≥ 60′, red ≥ 120′). */}
-        <div className="flex shrink-0 flex-col items-end gap-0.5 pt-px text-right">
+            (`colorByAge` = `ageLevel`: amber ≥ 60′, red ≥ 120′). Alone in this column,
+            so it takes only the clock's width from the header beside it. */}
+        <div className="flex shrink-0 flex-col items-end pt-px text-right">
           <IncidentTimeRow
             operation={operation}
             readOnly
@@ -203,11 +206,6 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
             startIconClassName="h-3.5 w-3.5"
             iconClassName="h-3.5 w-3.5"
           />
-          {/* The one debt that survives completion (image #21): a quiet line
-              directly under the time, not a pill in the title row. */}
-          {rapportMissing && (
-            <p className="text-xs text-muted-foreground">{tMobile("noRapport")}</p>
-          )}
         </div>
       </div>
 

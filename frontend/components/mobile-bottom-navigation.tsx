@@ -11,6 +11,9 @@
  *
  * The phone board is read-only (owner, 14.11.2026): «Mehr» switches the Ereignis (navigation)
  * but offers no «Neues Ereignis» – an Ereignis is opened on the desktop.
+ *
+ * Every «Mehr» entry is the same ghost row: a page link is the Button itself (`asChild`), not a
+ * 21px <a> wrapped around a 44px <button> (phone sweep 14.11.2026).
  */
 
 import { BookOpenText, ChartColumn, Columns3, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Inbox, QrCode, Sparkles, LogOut, Users, Truck, Printer, ChevronRight } from 'lucide-react'
@@ -211,15 +214,16 @@ export function MobileBottomNavigation({
                       <span className="min-w-0 break-words">{event.name}</span>
                     </Button>
                   ))}
-                  <Link href="/events" onClick={() => setSheetOpen(false)}>
-                    <Button
-                      variant={currentPage === 'events' ? 'secondary' : 'ghost'}
-                      className="w-full justify-start gap-3 touch-manipulation hover-delight"
-                    >
+                  <Button
+                    asChild
+                    variant={currentPage === 'events' ? 'secondary' : 'ghost'}
+                    className="w-full justify-start gap-3 touch-manipulation hover-delight"
+                  >
+                    <Link href="/events" onClick={() => setSheetOpen(false)}>
                       <Calendar className="size-4" />
                       <span>{t('allEvents')}</span>
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
                 </div>
               </div>
 
@@ -347,15 +351,16 @@ export function MobileBottomNavigation({
 
                   {/* Training Control - only for training events */}
                   {selectedEvent?.training_flag && (
-                    <Link href="/training" onClick={() => setSheetOpen(false)}>
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
-                      >
+                    <Button
+                      asChild
+                      variant="ghost"
+                      className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
+                    >
+                      <Link href="/training" onClick={() => setSheetOpen(false)}>
                         <Sparkles className="size-4 text-orange-500" />
                         <span>{t('trainingControl')}</span>
-                      </Button>
-                    </Link>
+                      </Link>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -374,18 +379,20 @@ export function MobileBottomNavigation({
                     const Icon = item.icon
                     const isActive = currentPage === item.id
                     return (
-                      <Link key={item.id} href={item.href} onClick={() => setSheetOpen(false)}>
-                        <Button
-                          variant={isActive ? "secondary" : "ghost"}
-                          className={cn(
-                            "w-full justify-start gap-3 touch-manipulation hover-delight",
-                            `animate-stagger-fade-in stagger-delay-${Math.min(index + 1, 5)}`
-                          )}
-                        >
+                      <Button
+                        key={item.id}
+                        asChild
+                        variant={isActive ? "secondary" : "ghost"}
+                        className={cn(
+                          "w-full justify-start gap-3 touch-manipulation hover-delight",
+                          `animate-stagger-fade-in stagger-delay-${Math.min(index + 1, 5)}`
+                        )}
+                      >
+                        <Link href={item.href} onClick={() => setSheetOpen(false)}>
                           <Icon className="size-4" />
                           <span>{item.label}</span>
-                        </Button>
-                      </Link>
+                        </Link>
+                      </Button>
                     )
                   })}
                   {/* The Alarmeingang is a sheet over this page, not a page of its own: close
@@ -417,18 +424,20 @@ export function MobileBottomNavigation({
                     const Icon = item.icon
                     const isActive = currentPage === item.id
                     return (
-                      <Link key={item.id} href={item.href} onClick={() => setSheetOpen(false)}>
-                        <Button
-                          variant={isActive ? "secondary" : "ghost"}
-                          className={cn(
-                            "w-full justify-start gap-3 touch-manipulation hover-delight",
-                            `animate-stagger-fade-in stagger-delay-${Math.min(index + 1, 5)}`
-                          )}
-                        >
+                      <Button
+                        key={item.id}
+                        asChild
+                        variant={isActive ? "secondary" : "ghost"}
+                        className={cn(
+                          "w-full justify-start gap-3 touch-manipulation hover-delight",
+                          `animate-stagger-fade-in stagger-delay-${Math.min(index + 1, 5)}`
+                        )}
+                      >
+                        <Link href={item.href} onClick={() => setSheetOpen(false)}>
                           <Icon className="size-4" />
                           <span>{item.label}</span>
-                        </Button>
-                      </Link>
+                        </Link>
+                      </Button>
                     )
                   })}
                 </div>

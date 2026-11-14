@@ -577,7 +577,9 @@ export default function EventsPage() {
                         onClick={() => handleSelectEvent(event)}
                         className="flex min-h-[52px] cursor-pointer items-center gap-3 px-4 py-2 hover:bg-muted/50"
                       >
-                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                        {/* On a phone the «Übung» chip goes under the name: beside it, «Auswählen»
+                            and ⋯ squeezed «Übung 26.10.2025» onto two lines (phone sweep 14.11.). */}
+                        <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:gap-2">
                           <span className="min-w-0 break-words text-[15px] font-medium">{event.name}</span>
                           {event.training_flag && <TrainingBadge label={tTraining('dashboard.training')} />}
                         </div>

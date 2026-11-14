@@ -1340,6 +1340,7 @@
       "loadError": "Fahrzeugstatus konnten nicht geladen werden",
       "title": "Fahrzeugstatus",
       "description": "Klick öffnet den Einsatz · aktualisiert alle 10 Sekunden",
+      "descriptionPhone": "Tippen öffnet den Einsatz",
       "refresh": "Aktualisieren",
       "noVehicles": "Keine Fahrzeuge verfügbar",
       "longDuration": "Lange",
@@ -1435,8 +1436,11 @@
       "searchPlaceholder": "Personal suchen …",
       "roleOther": "Andere",
       "rekoBadge": "Reko",
-      "available": "Verfügbar",
-      "assigned": "Zugewiesen",
+      "state": {
+        "available": "verfügbar",
+        "assigned": "zugewiesen",
+        "unavailable": "nicht verfügbar"
+      },
       "noResults": "Keine Personen gefunden"
     }
   },
@@ -4559,6 +4563,8 @@
     "correcting": "Korrektur von «{text}» – das Original bleibt sichtbar.",
     "cancelCorrection": "Korrektur abbrechen",
     "placeholder": "Eintrag … (# verknüpft einen Einsatz)",
+    "placeholderShort": "Eintrag …",
+    "hashHint": "# im Text verknüpft einen Einsatz",
     "placeholderCorrect": "Neuer Wortlaut",
     "inputLabel": "Neuer Eintrag im Einsatztagebuch",
     "submit": "Eintragen",

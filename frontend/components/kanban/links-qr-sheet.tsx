@@ -277,13 +277,17 @@ export function LinksQrSheet({
               {eventId && (
                 <div className="flex items-center gap-3 px-2.5 py-2">
                   <Users className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="text-sm font-medium">{tAttendance("rowLabel")}</span>
-                  <span className="flex-1 text-sm text-muted-foreground">
-                    {attendance
-                      ? tAttendance("rowCount", { present: attendance.present, total: attendance.total })
-                      : ""}
-                  </span>
-                  <Button size="sm" variant="outline" onClick={onOpenAttendance}>
+                  {/* On a phone the count goes under the label: beside it, «17 von 61 angemeldet»
+                      pushed «Appell öffnen» past the card's edge at 393px (phone sweep 14.11.). */}
+                  <div className="flex min-w-0 flex-1 flex-col md:flex-row md:items-center md:gap-3">
+                    <span className="text-sm font-medium">{tAttendance("rowLabel")}</span>
+                    <span className="min-w-0 break-words text-sm text-muted-foreground md:flex-1">
+                      {attendance
+                        ? tAttendance("rowCount", { present: attendance.present, total: attendance.total })
+                        : ""}
+                    </span>
+                  </div>
+                  <Button size="sm" variant="outline" className="shrink-0" onClick={onOpenAttendance}>
                     {tAttendance("open")}
                   </Button>
                 </div>

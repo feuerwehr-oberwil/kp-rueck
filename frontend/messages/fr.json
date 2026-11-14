@@ -1416,6 +1416,7 @@
       "loadError": "Échec du chargement de l’état des véhicules",
       "title": "État des véhicules",
       "description": "Cliquer pour naviguer vers l’intervention • actualisé toutes les 10 secondes",
+      "descriptionPhone": "Toucher ouvre l’intervention",
       "refresh": "Actualiser",
       "noVehicles": "Aucun véhicule disponible",
       "longDuration": "Longue",
@@ -1511,8 +1512,11 @@
       "searchPlaceholder": "Rechercher du personnel …",
       "roleOther": "Autres",
       "rekoBadge": "Reco",
-      "available": "Disponible",
-      "assigned": "Attribuée",
+      "state": {
+        "available": "disponible",
+        "assigned": "attribuée",
+        "unavailable": "indisponible"
+      },
       "noResults": "Aucune personne trouvée"
     }
   },
@@ -4559,6 +4563,8 @@
     "correcting": "Correction de «{text}» – l'original reste visible.",
     "cancelCorrection": "Annuler la correction",
     "placeholder": "Entrée … (# lie une intervention)",
+    "placeholderShort": "Entrée …",
+    "hashHint": "# dans le texte lie une intervention",
     "placeholderCorrect": "Nouveau libellé",
     "inputLabel": "Nouvelle entrée du journal",
     "submit": "Inscrire",

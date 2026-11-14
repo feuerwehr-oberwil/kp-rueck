@@ -44,6 +44,8 @@ const api = vi.hoisted(() => ({
   updateSetting: vi.fn(),
   getAuditLogs: vi.fn(),
   getAllPersonnel: vi.fn(),
+  // Personal asks which provider syncs the roster; not this test's question – never answers.
+  getIntegrations: vi.fn(() => new Promise(() => {})),
   getVehicles: vi.fn(),
   getAllMaterials: vi.fn(),
   previewExcelImport: vi.fn(),
@@ -181,6 +183,15 @@ describe('Einstellungen › Telefon — nur Ansicht, ausser «Dieses Gerät»', 
     openSection(section)
     expect(screen.queryByRole('note')).toBeNull()
     expect(document.querySelector('fieldset:disabled')).toBeNull()
+  })
+
+  it('Personal: the line, then its own read-only list whose search still works', async () => {
+    phone.current = true
+    api.getAllPersonnel.mockResolvedValue([])
+    openSection('personnel')
+    expect(screen.getByRole('note')).toBeInTheDocument()
+    expect(document.querySelector('fieldset:disabled')).toBeNull()
+    expect(await screen.findByPlaceholderText('Name, Rolle, Tag …')).toBeEnabled()
   })
 
   it('changes nothing on the desk', async () => {

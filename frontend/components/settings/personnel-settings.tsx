@@ -67,6 +67,7 @@ import {
   setGlobalRankAbbreviations,
 } from '@/lib/roster-order';
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader';
+import { useIsMobile } from '@/components/ui/use-mobile';
 
 type SortColumn = 'name' | 'role' | 'status';
 
@@ -105,6 +106,8 @@ function comparePersonnel(a: ApiPersonnel, b: ApiPersonnel, column: SortColumn):
  */
 export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoMode?: boolean; isAdmin?: boolean }) {
   const t = useTranslations('settings');
+  // On a phone: a read-only list, see the phone branch above the main return.
+  const isPhone = useIsMobile();
   const [newTag, setNewTag] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [personnelToDelete, setPersonnelToDelete] = useState<ApiPersonnel | null>(null);
@@ -406,6 +409,48 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
   const trimmedName = (form.watch('name') ?? '').trim();
   const trimmedRole = (roleValue ?? '').trim();
   const submitDisabled = isSaving || !trimmedName || !trimmedRole;
+
+  // The phone (owner, 14.11.2026: Settings are read-only there): the desk's toolbar – a
+  // half-width search, «Person erstellen» and the sync stacked at the right, a five-column
+  // table – squeezed into 393px. Instead the search over the whole width and a plain list,
+  // name on line 1, Grad · tags · «nicht verfügbar» on line 2. No tabs, no actions: the
+  // roster is edited on the desk. The page draws the read-only line above it.
+  if (isPhone) {
+    return (
+      <div className="space-y-3">
+        <SearchInput
+          placeholder={t('personnel.listSearchPlaceholder')}
+          value={listQuery}
+          onValueChange={setListQuery}
+        />
+        <p className="text-xs tabular-nums text-muted-foreground">
+          {t('common.listCount', { shown: visibleRows.length, total: personnel.length })}
+        </p>
+        {visibleRows.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            {personnel.length === 0 ? t('personnel.empty') : t('personnel.emptyFiltered')}
+          </p>
+        ) : (
+          <ul className="divide-y divide-border/60 rounded-lg border border-border bg-card">
+            {visibleRows.map((person) => (
+              <li key={person.id} className="px-3 py-2.5">
+                <p className="break-words text-sm font-medium">{person.name}</p>
+                <p className="mt-0.5 break-words font-mono text-xs text-muted-foreground">
+                  {[
+                    person.role || '–',
+                    ...(person.tags ?? []),
+                    person.status !== 'available' && t('common.unavailable'),
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
