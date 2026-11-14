@@ -4,8 +4,11 @@
  * «Person / Fahrzeug / Material hinzufügen» – the one way the Rapport's three
  * resource sections add what the board did not send (owner pick 2A, 14.11.2026).
  *
- * One button in the section opens a bottom sheet: a search field, the list in
- * groups, and «Fertig (n)» in the footer. A tap TICKS a row and the sheet stays
+ * One button in the section opens the picker: a search field, the list in
+ * groups, and «Fertig (n)» in the footer. Below 768px it is a bottom sheet (the
+ * phone rules: opens without focusing the search, grip + swipe); from 768px –
+ * the board's incident detail mounts the same Rapport form – a centred dialog
+ * with the same content, the split `new-emergency-modal.tsx` makes. A tap TICKS a row and the sheet stays
  * open, so three people are three taps and one «Fertig», not three trips. Text
  * that matches no row exactly becomes the first row – «‹Text› als Gast
  * hinzufügen» – when the section can store a name that is on no list
@@ -26,9 +29,11 @@ import { useTranslations } from 'next-intl'
 import { CheckCircle, Circle, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SearchInput } from '@/components/ui/search-input'
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { useIsMobile } from '@/components/ui/use-mobile'
 import { cn } from '@/lib/utils'
 
 /** One row the picker can offer. `group` is a heading; rows keep their order within it. */
@@ -97,6 +102,7 @@ export function FeldAddPicker({
   onAdd,
 }: FeldAddPickerProps) {
   const t = useTranslations('feld.rapport.picker')
+  const isMobile = useIsMobile()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [ticked, setTicked] = useState<string[]>([])
@@ -131,6 +137,64 @@ export function FeldAddPicker({
     setFreeTexts([])
   }
 
+  const handleOpenChange = (next: boolean) => (next ? setOpen(true) : close())
+  const doneLabel = t('done', { count })
+  const searchField = (
+    <SearchInput value={search} onValueChange={setSearch} placeholder={searchPlaceholder} autoComplete="off" />
+  )
+  const list = (
+    <>
+      {freeTexts.map(name => (
+        <PickRow
+          key={`free-${name}`}
+          name={name}
+          hint={freeTextHint}
+          ticked
+          onClick={() => setFreeTexts(prev => prev.filter(entry => entry !== name))}
+        />
+      ))}
+      {freeText && freeTextLabel && (
+        <button
+          type="button"
+          onClick={() => {
+            setFreeTexts(prev => [...prev, freeText])
+            setSearch('')
+          }}
+          className="flex min-h-12 w-full cursor-pointer items-center gap-2.5 rounded-lg border border-dashed border-border px-3 py-2 text-left text-sm"
+        >
+          <Plus className="h-5 w-5 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 break-words">{freeTextLabel(freeText)}</span>
+        </button>
+      )}
+      {groups.map(group => (
+        <div key={group.label ?? ''} className="space-y-1">
+          {showHeadings && group.label && (
+            <p className="px-3 pt-2 pb-0.5 text-xs text-muted-foreground">{group.label}</p>
+          )}
+          {group.items.map(item => (
+            <PickRow
+              key={item.key}
+              name={item.name}
+              ticked={ticked.includes(item.key)}
+              onClick={() => toggle(item.key)}
+            />
+          ))}
+        </div>
+      ))}
+      {groups.length === 0 &&
+        !freeText &&
+        (search.trim() ? (
+          <EmptyState
+            compact
+            title={t('noMatch', { query: search.trim() })}
+            action={{ label: t('clearSearch'), onClick: () => setSearch('') }}
+          />
+        ) : (
+          <EmptyState compact title={t('nothingLeft')} />
+        ))}
+    </>
+  )
+
   return (
     <>
       <Button
@@ -144,71 +208,46 @@ export function FeldAddPicker({
         {label}
       </Button>
 
-      <Sheet open={open} onOpenChange={next => (next ? setOpen(true) : close())}>
-        <SheetContent side="bottom" className="mx-auto modal-h-tall max-w-md gap-0 rounded-t-2xl p-0">
-          <SheetHeader className="gap-3 px-4 pt-5 pb-3 pr-12">
-            <SheetTitle className="text-lg">{label}</SheetTitle>
-            <SearchInput value={search} onValueChange={setSearch} placeholder={searchPlaceholder} autoComplete="off" />
-          </SheetHeader>
-
-          <SheetBody className="space-y-1 px-2 pb-3">
-            {freeTexts.map(name => (
-              <PickRow
-                key={`free-${name}`}
-                name={name}
-                hint={freeTextHint}
-                ticked
-                onClick={() => setFreeTexts(prev => prev.filter(entry => entry !== name))}
-              />
-            ))}
-            {freeText && freeTextLabel && (
-              <button
-                type="button"
-                onClick={() => {
-                  setFreeTexts(prev => [...prev, freeText])
-                  setSearch('')
-                }}
-                className="flex min-h-12 w-full cursor-pointer items-center gap-2.5 rounded-lg border border-dashed border-border px-3 py-2 text-left text-sm"
-              >
-                <Plus className="h-5 w-5 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 break-words">{freeTextLabel(freeText)}</span>
-              </button>
-            )}
-            {groups.map(group => (
-              <div key={group.label ?? ''} className="space-y-1">
-                {showHeadings && group.label && (
-                  <p className="px-3 pt-2 pb-0.5 text-xs text-muted-foreground">{group.label}</p>
-                )}
-                {group.items.map(item => (
-                  <PickRow
-                    key={item.key}
-                    name={item.name}
-                    ticked={ticked.includes(item.key)}
-                    onClick={() => toggle(item.key)}
-                  />
-                ))}
-              </div>
-            ))}
-            {groups.length === 0 && !freeText && (
-              search.trim() ? (
-                <EmptyState
-                  compact
-                  title={t('noMatch', { query: search.trim() })}
-                  action={{ label: t('clearSearch'), onClick: () => setSearch('') }}
-                />
-              ) : (
-                <EmptyState compact title={t('nothingLeft')} />
-              )
-            )}
-          </SheetBody>
-
-          <SheetFooter className="mt-0 border-t px-4 pt-3 pb-sheet-safe">
-            <Button type="button" size="lg" className="w-full" onClick={close}>
-              {t('done', { count })}
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+      {isMobile ? (
+        <Sheet open={open} onOpenChange={handleOpenChange}>
+          <SheetContent
+            side="bottom"
+            className="mx-auto modal-h-tall max-w-md gap-0 rounded-t-2xl p-0"
+            aria-describedby={undefined}
+          >
+            <SheetHeader className="gap-3 px-4 pt-5 pb-3 pr-12">
+              <SheetTitle className="text-lg">{label}</SheetTitle>
+              {searchField}
+            </SheetHeader>
+            <SheetBody className="space-y-1 px-2 pb-3">{list}</SheetBody>
+            <SheetFooter className="mt-0 border-t px-4 pt-3 pb-sheet-safe">
+              <Button type="button" size="lg" className="w-full" onClick={close}>
+                {doneLabel}
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <Dialog open={open} onOpenChange={handleOpenChange}>
+          {/* The board's detail is desktop: a centred dialog with the list scrolling
+              between the search and «Fertig», not a strip along the screen's foot. */}
+          <DialogContent
+            className="flex modal-h-tall flex-col gap-0 overflow-hidden p-0 sm:max-w-md"
+            aria-describedby={undefined}
+          >
+            <DialogHeader className="gap-3 px-5 pt-5 pb-3 pr-12">
+              <DialogTitle>{label}</DialogTitle>
+              {searchField}
+            </DialogHeader>
+            <div className="relative min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-3 pb-3">{list}</div>
+            <DialogFooter className="border-t px-5 py-3">
+              <Button type="button" onClick={close}>
+                {doneLabel}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   )
 }
