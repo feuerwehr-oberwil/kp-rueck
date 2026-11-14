@@ -30,6 +30,12 @@ will keep holding.
 
 ### Added
 
+- **`/feld` is quicker to fill in.** The header says who is signed in, the Ereignis and its day,
+  with «Neuer Schadenplatz» as one «+» on the right; the card underneath is the Schadenplatz
+  (address, Einsatzart, title, Meldung), and the «KP: {status}» line is gone. Mannschaft,
+  Fahrzeuge and Material are added with one «Hinzufügen» button: a sheet with search where a tap
+  ticks, «Fertig (n)» adds, and a name not on the list is added as a guest. The Notiz field for
+  guests is gone. The Feld API's assignments carry `event_started_at` (additive).
 - **A standby box now syncs a taken-over Ereignis both ways** (`docs/STANDBY.md`). The box's work
   goes to the hosted board by itself whenever that answers – after an outage the moment the
   internet is back – and the hosted board shows it live under a band «Geführt auf KP Rück
