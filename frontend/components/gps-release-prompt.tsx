@@ -8,6 +8,7 @@ import { apiClient } from "@/lib/api-client"
 import { reportStatusConflict } from "@/lib/status-conflict"
 import type { IncidentStatus } from "@/lib/types/incidents"
 import { useAuth } from "@/lib/contexts/auth-context"
+import { useIsMobile } from "@/components/ui/use-mobile"
 import { Button } from "@/components/ui/button"
 import {
   AlertDialog,
@@ -40,15 +41,20 @@ interface ReleasePrompt {
  * are the pages where the operator manages resources. Elsewhere
  * (Übungssteuerung, settings, …) the modal would only interrupt; the bell
  * notification still covers it.
+ *
+ * Never on a phone: the phone board is read-only (owner, 14.11.2026), and this dialog exists only
+ * to ask for a write. The bell notification tells the phone what happened.
  */
 export function GpsReleasePrompt() {
   const t = useTranslations('incidents.gpsRelease')
   const { isEditor } = useAuth()
+  const isPhone = useIsMobile()
   const pathname = usePathname()
   const [prompt, setPrompt] = useState<ReleasePrompt | null>(null)
   const [releasing, setReleasing] = useState(false)
 
-  const onOperatorPage = pathname === "/" || pathname === "/map"
+  // The board or the Lagekarte, on a desk – see the note above.
+  const onOperatorPage = !isPhone && (pathname === "/" || pathname === "/map")
 
   // Drop any pending prompt when leaving the board/map so it can't pop up
   // stale after navigating back.

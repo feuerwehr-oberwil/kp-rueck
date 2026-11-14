@@ -176,11 +176,11 @@ describe('Einstellungen › Telefon — nur Ansicht, ausser «Dieses Gerät»', 
     expect(screen.getByRole('note').textContent).toBe('Nur Ansicht – Einstellungen werden am Desktop geändert.')
   })
 
-  it('leaves «Dieses Gerät» editable – it only changes this phone', () => {
+  it.each(['device', 'telemetry'])('leaves «%s» editable – this phone only, or a problem report', (section) => {
     phone.current = true
-    openSection('device')
+    openSection(section)
     expect(screen.queryByRole('note')).toBeNull()
-    expect(screen.getAllByRole('button').every((button) => !(button as HTMLButtonElement).disabled)).toBe(true)
+    expect(document.querySelector('fieldset:disabled')).toBeNull()
   })
 
   it('changes nothing on the desk', async () => {

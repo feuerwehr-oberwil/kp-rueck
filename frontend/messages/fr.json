@@ -706,6 +706,7 @@
     "emptyState": {
       "title": "Choisir un événement",
       "description": "Aucun événement n’a été ouvert au cours des dernières 24 heures. Ouvre-en un nouveau ou choisis-en un plus ancien.",
+      "descriptionPhone": "Aucun événement n’a été ouvert au cours des dernières 24 heures. Choisis-en un plus ancien – un nouveau s’ouvre sur l’ordinateur.",
       "recentDescription": "Ouverts au cours des dernières 24 heures – le premier a été actif en dernier.",
       "openedToday": "ouvert aujourd’hui à {time}",
       "openedYesterday": "ouvert hier à {time}",

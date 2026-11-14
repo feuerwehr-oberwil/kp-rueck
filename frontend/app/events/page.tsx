@@ -120,7 +120,11 @@ export default function EventsPage() {
   // outage that starts before the hosted board had it). Editors and admins only.
   const standby = useStandby()
   const tStandby = useTranslations('standby')
-  const canCreate = !standby.mirror || standby.canTakeOver
+  // The phone only SWITCHES the Ereignis (owner, 14.11.2026: the phone board is read-only):
+  // creating, archiving, restoring and deleting one are the desk's. Kennzahlen and the exports
+  // stay – they only read.
+  const manages = !isMobile
+  const canCreate = manages && (!standby.mirror || standby.canTakeOver)
   const newEventLabel = standby.mirror ? tStandby('newOffline.button') : t('page.newEvent')
 
   const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -402,8 +406,8 @@ export default function EventsPage() {
             <ReceiptText className="mr-2 h-4 w-4" />
             {t('page.exportEinsaetze')}
           </DropdownMenuItem>
-          {(!archived || isAdmin) && <DropdownMenuSeparator />}
-          {archived ? (
+          {manages && (!archived || isAdmin) && <DropdownMenuSeparator />}
+          {!manages ? null : archived ? (
             isAdmin && (
               <DropdownMenuItem
                 className="cursor-pointer text-destructive focus:text-destructive"
@@ -632,13 +636,15 @@ export default function EventsPage() {
                             <span className="hidden w-28 shrink-0 text-right text-sm tabular-nums text-muted-foreground md:block">
                               {format.relativeTime(new Date(event.archived_at!), now)}
                             </span>
-                            <button
-                              type="button"
-                              className="shrink-0 text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                              onClick={() => handleUnarchive(event)}
-                            >
-                              {t('page.restore')}
-                            </button>
+                            {manages && (
+                              <button
+                                type="button"
+                                className="shrink-0 text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                                onClick={() => handleUnarchive(event)}
+                              >
+                                {t('page.restore')}
+                              </button>
+                            )}
                             {renderRowMenu(event, true)}
                           </div>
                         ))}
@@ -652,7 +658,7 @@ export default function EventsPage() {
         </main>
 
         {/* Create Event Dialog */}
-        <Dialog open={showCreateDialog} onOpenChange={handleCreateDialogChange}>
+        <Dialog open={showCreateDialog && manages} onOpenChange={handleCreateDialogChange}>
           <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
             <DialogHeader>
               <DialogTitle>{standby.mirror ? tStandby('newOffline.title') : t('createDialog.title')}</DialogTitle>

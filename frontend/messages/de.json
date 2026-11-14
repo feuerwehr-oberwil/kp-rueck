@@ -2654,6 +2654,7 @@
     "emptyState": {
       "title": "Ereignis wählen",
       "description": "In den letzten 24 Stunden wurde kein Ereignis eröffnet. Eröffne ein neues oder wähle ein früheres.",
+      "descriptionPhone": "In den letzten 24 Stunden wurde kein Ereignis eröffnet. Wähle ein früheres – ein neues wird am Desktop eröffnet.",
       "recentDescription": "In den letzten 24 Stunden eröffnet – das oberste war zuletzt aktiv.",
       "openedToday": "eröffnet heute {time}",
       "openedYesterday": "eröffnet gestern {time}",

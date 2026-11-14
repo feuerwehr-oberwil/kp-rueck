@@ -68,8 +68,9 @@ vi.mock('@/components/protected-route', () => ({
   ProtectedRoute: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 vi.mock('@/components/events/event-restliste', () => ({ EventRestliste: () => null }))
-// Desktop layout erzwingen (matchMedia gibt es in jsdom nicht).
-vi.mock('@/components/ui/use-mobile', () => ({ useIsMobile: () => false }))
+// Desktop layout by default (jsdom has no matchMedia); the phone block flips it.
+const phone = vi.hoisted(() => ({ current: false }))
+vi.mock('@/components/ui/use-mobile', () => ({ useIsMobile: () => phone.current }))
 vi.mock('@/components/page-navigation', () => ({ PageNavigation: () => null }))
 vi.mock('@/components/mobile-bottom-navigation', () => ({ MobileBottomNavigation: () => null }))
 
@@ -122,6 +123,32 @@ async function openDialog(name: 'Archivieren' | 'Löschen') {
 
 beforeEach(() => {
   role.isAdmin = true
+  phone.current = false
+})
+
+describe('Ereignisse — auf dem Telefon nur wechseln', () => {
+  afterEach(() => cleanup())
+
+  it('offers no «Neues Ereignis», no Archivieren, Wiederherstellen or Löschen – the exports stay', async () => {
+    phone.current = true
+    const user = userEvent.setup()
+    renderWithIntl(<EventsPage />)
+    expect(screen.queryByRole('button', { name: 'Neues Ereignis' })).toBeNull()
+
+    const active = screen.getAllByTestId('event-card').find((c) => within(c).queryByText('Sturm Ost')) as HTMLElement
+    expect(within(active).getByRole('button', { name: 'Auswählen' })).toBeInTheDocument()
+    await user.click(within(active).getByRole('button', { name: 'Aktionen' }))
+    expect(await screen.findByRole('menuitem', { name: 'Einsatzrapport (PDF)' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Archivieren' })).toBeNull()
+    await user.keyboard('{Escape}')
+
+    await user.click(screen.getByRole('button', { name: 'Archiv (1)' }))
+    const archived = screen.getAllByTestId('event-card').find((c) => within(c).queryByText('Hochwasser Alt')) as HTMLElement
+    expect(within(archived).queryByRole('button', { name: 'Wiederherstellen' })).toBeNull()
+    await user.click(within(archived).getByRole('button', { name: 'Aktionen' }))
+    expect(await screen.findByRole('menuitem', { name: 'Einsatzrapport (PDF)' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Löschen' })).toBeNull()
+  })
 })
 
 describe('Ereignisse — Archivieren/Löschen bestätigen', () => {

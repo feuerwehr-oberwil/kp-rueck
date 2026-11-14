@@ -204,6 +204,9 @@ type Section = typeof SECTIONS[number];
 
 const DEFAULT_SECTION: SectionId = 'general';
 
+/** The sections a phone may still change (owner, 14.11.2026); every other one is read-only there. */
+const PHONE_EDITABLE_SECTIONS: ReadonlySet<SectionId> = new Set(['device', 'telemetry']);
+
 /** The sections a role may open – the sidebar, the mobile picker, the search and `?section=` all use it. */
 function visibleSectionsFor(isEditor: boolean, isAdmin: boolean): Section[] {
   return SECTIONS.filter(s => (!s.editorOnly || isEditor) && (!s.adminOnly || isAdmin));
@@ -1034,8 +1037,9 @@ export default function SettingsPage() {
               {!isMobile && (
                 <h2 className="text-xl font-semibold tracking-tight">{t(`page.sections.${activeSection}`)}</h2>
               )}
-              {/* The phone looks, the desk changes – except «Dieses Gerät», which is this phone. */}
-              <PhoneReadOnly active={isMobile && activeSection !== 'device'}>{renderContent()}</PhoneReadOnly>
+              {/* The phone looks, the desk changes – except «Dieses Gerät» (this phone only) and
+                  «Problem melden» (for whoever hit the problem, wherever they are). */}
+              <PhoneReadOnly active={isMobile && !PHONE_EDITABLE_SECTIONS.has(activeSection)}>{renderContent()}</PhoneReadOnly>
             </div>
           </main>
         </div>

@@ -1,7 +1,8 @@
 "use client"
 
 /**
- * RoutenplanungPanel — editor-only route-building panel for the `/map` page.
+ * RoutenplanungPanel — editor-only route-building panel for the `/map` page; on a phone it only
+ * shows the route (no optimise, no reorder, no add/remove – the phone board is read-only).
  *
  * The full-screen counterpart to the Routen-Editor modal: it drives the same
  * `useRoutePlanning` hook and reuses the shared `RouteStopList`, but leaves the
@@ -43,6 +44,7 @@ import { describeRouteStart, describeStartOption } from "@/lib/route-start"
 import { RouteStopList, RouteTimelineItem, TIMELINE_ROW, TimelineNode } from "./route-stop-list"
 import { RouteOptimizeButton, RouteOptimizeNote, useRouteOptimizeAction } from "./route-optimize"
 import { ShellLoader } from "@/components/ui/shell-loader"
+import { useIsMobile } from "@/components/ui/use-mobile"
 import { AUFTRAG_SWATCHES, MAP_COLORS } from "@/lib/map-colors"
 
 // Optimize now persists immediately, so the shared list never shows a pending
@@ -90,6 +92,10 @@ export function RoutenplanungPanel({
   const t = useTranslations("map.planning")
   const locale = useLocale()
   const { group, operationsById, isAddingStop, reorder } = planning
+  // Read-only on a phone (owner, 14.11.2026): the route and its order are shown, nothing is
+  // optimised, dragged, added or taken off there – the desk plans.
+  const isPhone = useIsMobile()
+  const editable = canEdit && !isPhone
   const optimizeAction = useRouteOptimizeAction(planning)
   const { updateOperation } = useOperations()
   // Taking a stop off the route offers «Rückgängig» (lib/release-undo.ts).
@@ -154,7 +160,7 @@ export function RoutenplanungPanel({
           {groups.length === 0 ? (
             // No Aufträge yet: an empty picker is a dead end — offer creation
             // directly (editors) or say why there's nothing to pick (viewers).
-            canEdit ? (
+            editable ? (
               <Button size="sm" variant="outline" className="flex-1" onClick={startCreate}>
                 <Plus className="size-3.5" />
                 {t("newAuftrag")}
@@ -186,7 +192,7 @@ export function RoutenplanungPanel({
                   ))}
                 </SelectContent>
               </Select>
-              {canEdit && <Tooltip>
+              {editable && <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     size="icon-sm"
@@ -252,7 +258,7 @@ export function RoutenplanungPanel({
           <div className="mb-2 flex items-center gap-2">
             <span className="text-sm font-semibold">{t("order")}</span>
             <span className="text-xs text-muted-foreground">{t("stopCount", { count: displayOrder.length })}</span>
-            {canEdit && (
+            {editable && (
               <RouteOptimizeButton action={optimizeAction} disabled={displayOrder.length < 2} className="ml-auto max-md:size-11" />
             )}
           </div>
@@ -272,7 +278,7 @@ export function RoutenplanungPanel({
                 displayOrder={displayOrder}
                 operationsById={operationsById}
                 changedPositions={EMPTY_CHANGED}
-                reorderDisabled={!canEdit}
+                reorderDisabled={!editable}
                 onReorder={(ids) => void reorder(ids)}
                 focusStopId={focusStopId}
                 onSelectStop={onFocusStopChange}
@@ -283,13 +289,13 @@ export function RoutenplanungPanel({
                 // flow (material prompt + returning-vehicle check), so don't
                 // offer "Abgeschlossen" here — completion stays on the board.
                 allowComplete={false}
-                readOnly={!canEdit}
+                readOnly={!editable}
                 timelineColor={routeColor}
               />
 
               {/* The last node: toggles map click-to-add. Its second line says how
                   («Klick auf die Karte») instead of hiding that in a tooltip. */}
-              {canEdit && (
+              {editable && (
                 <RouteTimelineItem>
                   <button
                     type="button"
