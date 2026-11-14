@@ -75,6 +75,7 @@ import { useMessages, useTranslations } from 'next-intl';
 import { useIntlLocale } from '@/lib/date-locale';
 import { PageNavigation } from '@/components/page-navigation';
 import { MobileBottomNavigation } from '@/components/mobile-bottom-navigation';
+import { PhoneReadOnly } from './phone-read-only';
 import { NotificationSettingsCard } from '@/components/notifications/notification-settings';
 import { AlarmWebhookSecretCard } from '@/components/settings/alarm-webhook-secret-card';
 import { ExcelImportSection } from '@/components/settings/excel-import-section';
@@ -1033,7 +1034,8 @@ export default function SettingsPage() {
               {!isMobile && (
                 <h2 className="text-xl font-semibold tracking-tight">{t(`page.sections.${activeSection}`)}</h2>
               )}
-              {renderContent()}
+              {/* The phone looks, the desk changes – except «Dieses Gerät», which is this phone. */}
+              <PhoneReadOnly active={isMobile && activeSection !== 'device'}>{renderContent()}</PhoneReadOnly>
             </div>
           </main>
         </div>

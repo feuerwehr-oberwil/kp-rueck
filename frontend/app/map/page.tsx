@@ -1280,8 +1280,6 @@ export default function MapPage() {
             onOpenChange={(open) => { if (!open) setPhoneDetailId(null) }}
             materials={materials}
             formatLocation={formatLocation}
-            onUpdateOperation={isEditor ? updateOperation : undefined}
-            isEditor={isEditor}
           />
         )}
 

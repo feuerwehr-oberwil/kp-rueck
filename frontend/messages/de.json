@@ -243,7 +243,6 @@
       "event": "Ereignis",
       "noEventSelected": "Kein Ereignis ausgewählt",
       "training": "Übung",
-      "newEvent": "Neues Ereignis",
       "allEvents": "Alle Ereignisse",
       "quickActions": "Schnellzugriff",
       "personnel": "Personal",
@@ -1394,10 +1393,7 @@
       "driver": "Fahrer: {name}"
     },
     "mobileDetail": {
-      "copied": "In Zwischenablage kopiert",
-      "copyError": "Kopieren fehlgeschlagen",
       "rekoBadge": "Reko",
-      "notesPlaceholder": "Notiz hinzufügen …",
       "dangers": "Gefahren",
       "personnelCount": "{count, plural, one {# Person} other {# Personen}}",
       "estimatedDuration": "{duration} geschätzt",
@@ -1408,11 +1404,8 @@
       "materials": "Material · {count}",
       "noMaterials": "Kein Material zugewiesen",
       "contact": "Kontakt / Melder",
-      "contactPlaceholder": "Kontakt hinzufügen …",
       "noContact": "Kein Kontakt",
-      "showOnMap": "Auf Karte anzeigen",
-      "copying": "Wird kopiert …",
-      "copyWhatsApp": "WhatsApp-Nachricht kopieren"
+      "showOnMap": "Auf Karte anzeigen"
     },
     "mobileList": {
       "trainingBadge": "Übung",
@@ -1427,7 +1420,14 @@
       "filter": "Filtern",
       "filterOn": "Filtern – {filters}",
       "filterSummary": "Gefiltert: {filters}",
-      "filterGroupStatus": "Status"
+      "filterGroupStatus": "Status",
+      "sortGroup": "Sortieren",
+      "sort": {
+        "status": "Status",
+        "newest": "Neueste zuerst",
+        "longestWait": "Längste Wartezeit"
+      },
+      "sortSummary": "Sortiert: {sort}"
     },
     "mobilePersonnel": {
       "title": "Personal",
@@ -2099,7 +2099,8 @@
       },
       "searchPlaceholder": "Einstellung suchen …",
       "searchNoResults": "Nichts gefunden.",
-      "searchHitCount": "{count} Treffer · ↵ öffnen"
+      "searchHitCount": "{count} Treffer · ↵ öffnen",
+      "phoneReadOnly": "Nur Ansicht – Einstellungen werden am Desktop geändert."
     },
     "categorySort": {
       "noCategory": "(Keine Rolle)",

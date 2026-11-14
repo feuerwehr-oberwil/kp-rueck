@@ -3,14 +3,19 @@
 /**
  * Mobile Bottom Navigation Component
  * Bottom tab bar for mobile devices with iOS/Android safe area support
- * Shows primary navigation tabs + "More" sheet for secondary functions
- * Enhanced with delightful micro-interactions
+ * Shows primary navigation tabs + "More" sheet for secondary functions.
+ *
+ * The tab pill (owner's pick 4A, 14.11.2026): 8px of air above and below icon + label, and it
+ * never grows – no scale on the current tab, no bounce on a tap. The tap answers with the app's
+ * press wash (globals.css), like every other control.
+ *
+ * The phone board is read-only (owner, 14.11.2026): «Mehr» switches the Ereignis (navigation)
+ * but offers no «Neues Ereignis» – an Ereignis is opened on the desktop.
  */
 
-import { BookOpenText, ChartColumn, Columns3, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Inbox, QrCode, Sparkles, LogOut, Users, Truck, Printer, Plus, ChevronRight } from 'lucide-react'
+import { BookOpenText, ChartColumn, Columns3, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Inbox, QrCode, Sparkles, LogOut, Users, Truck, Printer, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -59,9 +64,7 @@ export function MobileBottomNavigation({
   const tAccount = useTranslations('nav.account')
   const { requestLogout, logoutDialog } = useLogout()
   const { selectedEvent, events, setSelectedEvent } = useEvent()
-  const router = useRouter()
   const [sheetOpen, setSheetOpen] = useState(false)
-  const [tapAnimation, setTapAnimation] = useState<string | null>(null)
   // Publishes this bar's measured height as `--nav-reserve` — the one number every phone list
   // pads its end by (`pb-nav-reserve`) and the toast lane clears.
   const navRef = useRef<HTMLElement>(null)
@@ -108,21 +111,9 @@ export function MobileBottomNavigation({
     || !!onFigures
     || !!selectedEvent?.training_flag
 
-  // Handle tap animation. The timer is kept and cleared on unmount: a tab tap usually
-  // navigates away, and a 200 ms timer outliving the bar set state on an unmounted component
-  // (in the unit tests it fired after jsdom was torn down – «window is not defined», a red CI).
-  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(() => () => {
-    if (tapTimer.current) clearTimeout(tapTimer.current)
-  }, [])
-  const handleTap = (tabId: string) => {
-    setTapAnimation(tabId)
-    if (tapTimer.current) clearTimeout(tapTimer.current)
-    tapTimer.current = setTimeout(() => {
-      tapTimer.current = null
-      setTapAnimation(null)
-    }, 200)
-  }
+  // One tab's frame: a 56px pill (8px + 20px icon + 4px + 16px label + 8px), so the current
+  // tab's tint has air around its content; the bar adds 4px above and below it.
+  const tabClass = "flex flex-col items-center justify-center gap-1 flex-1 min-h-[44px] py-2 rounded-lg transition-colors touch-manipulation"
 
   return (
     // The nav shares the overlay rung rather than sitting under it (which is where a plain
@@ -136,7 +127,7 @@ export function MobileBottomNavigation({
         paddingBottom: 'env(safe-area-inset-bottom, 0px)'
       }}
     >
-      <div className="flex items-center justify-around min-h-[60px] px-2">
+      <div className="flex items-center justify-around min-h-[60px] px-2 py-1">
         {tabs.map((tab) => {
           const Icon = tab.icon
           const isActive = currentPage === tab.id
@@ -145,26 +136,17 @@ export function MobileBottomNavigation({
             <Link
               key={tab.id}
               href={tab.href}
-              onClick={() => !tab.disabled && handleTap(tab.id)}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 flex-1 min-h-[44px] rounded-lg transition-all touch-manipulation",
-                isActive && "bg-foreground/[0.09] text-foreground scale-105",
+                tabClass,
+                isActive && "bg-foreground/[0.09] text-foreground",
                 !isActive && "text-muted-foreground hover:text-foreground",
                 tab.disabled && "opacity-40 pointer-events-none",
-                tapAnimation === tab.id && "animate-bounce-tap",
-                isActive && "animate-tab-switch"
               )}
               aria-label={tab.label}
               aria-current={isActive ? 'page' : undefined}
             >
-              <Icon className={cn(
-                "h-5 w-5 transition-transform",
-                isActive && "scale-110"
-              )} aria-hidden="true" />
-              <span className={cn(
-                "text-xs font-medium transition-all",
-                isActive && "font-semibold"
-              )}>{tab.label}</span>
+              <Icon className="h-5 w-5" aria-hidden="true" />
+              <span className={cn("text-xs font-medium", isActive && "font-semibold")}>{tab.label}</span>
             </Link>
           )
         })}
@@ -173,12 +155,10 @@ export function MobileBottomNavigation({
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
           <SheetTrigger asChild>
             <button
-              onClick={() => handleTap('more')}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 flex-1 min-h-[44px] rounded-lg transition-all touch-manipulation",
-                (currentPage === 'settings' || currentPage === 'help') && "bg-foreground/[0.09] text-foreground scale-105",
+                tabClass,
+                (currentPage === 'settings' || currentPage === 'help') && "bg-foreground/[0.09] text-foreground",
                 (currentPage !== 'settings' && currentPage !== 'help') && "text-muted-foreground hover:text-foreground",
-                tapAnimation === 'more' && "animate-bounce-tap"
               )}
               aria-label={t('moreOptions')}
             >
@@ -231,17 +211,6 @@ export function MobileBottomNavigation({
                       <span className="min-w-0 break-words">{event.name}</span>
                     </Button>
                   ))}
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start gap-3 touch-manipulation hover-delight"
-                    onClick={() => {
-                      router.push('/events?action=create')
-                      setSheetOpen(false)
-                    }}
-                  >
-                    <Plus className="size-4" />
-                    <span>{t('newEvent')}</span>
-                  </Button>
                   <Link href="/events" onClick={() => setSheetOpen(false)}>
                     <Button
                       variant={currentPage === 'events' ? 'secondary' : 'ghost'}

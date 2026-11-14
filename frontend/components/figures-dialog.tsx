@@ -7,8 +7,9 @@
  * Was a footer pill + footer sheet. The owner moved it into the user menu
  * (10.10.2026): it is looked at now and then, not worked in, so it does not earn
  * a place in the toolbar an operator scans all shift. One dialog for every page,
- * mounted by the user menu; `Z` on the board, the palette and the phone's «Mehr»
- * open the same one through `toggleFigures()`.
+ * mounted once by the root layout (it used to sit in the desk's user menu, so the
+ * phone's «Mehr» → «Kennzahlen» opened nothing); the user menu, `Z` on the board,
+ * the palette and «Mehr» open it through `toggleFigures()`.
  */
 
 import { useEffect, useState } from "react"
@@ -18,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { EventFiguresPanel } from "@/components/event-figures"
 import { useEvent } from "@/lib/contexts/event-context"
 import { requestIncidentHighlight } from "@/lib/notification-highlight"
+import { isPhoneViewport } from "@/lib/incident-detail"
 
 const TOGGLE_FIGURES_EVENT = "kp:toggle-figures"
 
@@ -40,10 +42,12 @@ export function FiguresDialog() {
   }, [])
 
   // The oldest waiting «hoch» Meldung opens on the board: in place when the board
-  // is the page, through its deep link from anywhere else.
+  // is the page, through its deep link from anywhere else. On the phone in place
+  // means its Einsatz sheet – a highlight alone opens nothing on a narrow screen
+  // (`allowModal`, lib/notification-highlight.ts); the desk keeps its side panel.
   const openIncident = (incidentId: string) => {
     setOpen(false)
-    if (pathname === "/") requestIncidentHighlight(incidentId)
+    if (pathname === "/") requestIncidentHighlight(incidentId, { allowModal: isPhoneViewport() })
     else router.push(`/?highlight=${encodeURIComponent(incidentId)}&detail=1`)
   }
 

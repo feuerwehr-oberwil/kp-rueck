@@ -83,8 +83,6 @@ function sheet(op: Operation) {
       onOpenChange={vi.fn()}
       materials={[] as unknown as Material[]}
       formatLocation={(a) => a}
-      onUpdateOperation={vi.fn()}
-      isEditor={false}
     />
   )
 }

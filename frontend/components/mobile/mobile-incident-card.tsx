@@ -79,7 +79,8 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
       className={cn(
         // `gap-0`: the Card's own `gap-6` would open 24px between the header and
         // every body row; the rows carry their own 4–8px steps.
-        "gap-0 p-3 transition-all active:scale-[0.98] cursor-pointer touch-manipulation",
+        // A tap answers with the app's press wash (`data-press`, globals.css) – nothing moves.
+        "gap-0 p-3 cursor-pointer touch-manipulation",
         // The board card's own priority reading (lib/priority.ts): a 4px left
         // edge — red + wash + ring + pulse for Hoch, amber for Mittel, plain
         // border for Niedrig. No status tint: the status is the badge's job.
@@ -87,6 +88,7 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
         PRIORITY_CARD_CLASSES[priority],
       )}
       onClick={onClick}
+      data-press
     >
       {/* The chevron and the age sit beside the HEADER only (address, EL,
           Abholung, Duplikat, status + type); from the rule down, the fact block

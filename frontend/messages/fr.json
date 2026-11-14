@@ -1468,10 +1468,7 @@
       "driver": "Conducteur : {name}"
     },
     "mobileDetail": {
-      "copied": "Copié dans le presse-papiers",
-      "copyError": "Échec de la copie",
       "rekoBadge": "Reco",
-      "notesPlaceholder": "Ajouter une note …",
       "dangers": "Dangers",
       "personnelCount": "{count, plural, one {# personne} other {# personnes}}",
       "estimatedDuration": "{duration} estimées",
@@ -1482,11 +1479,8 @@
       "materials": "Matériel · {count}",
       "noMaterials": "Aucun matériel attribué",
       "contact": "Contact / annonceur",
-      "contactPlaceholder": "Ajouter un contact …",
       "noContact": "Aucun contact",
-      "showOnMap": "Afficher sur la carte",
-      "copying": "Copie …",
-      "copyWhatsApp": "Copier le message WhatsApp"
+      "showOnMap": "Afficher sur la carte"
     },
     "mobileList": {
       "trainingBadge": "Exercice",
@@ -1501,7 +1495,14 @@
       "filter": "Filtrer",
       "filterOn": "Filtrer – {filters}",
       "filterSummary": "Filtré : {filters}",
-      "filterGroupStatus": "Statut"
+      "filterGroupStatus": "Statut",
+      "sortGroup": "Trier",
+      "sort": {
+        "status": "Statut",
+        "newest": "Plus récentes d’abord",
+        "longestWait": "Attente la plus longue"
+      },
+      "sortSummary": "Trié : {sort}"
     },
     "mobilePersonnel": {
       "title": "Personnel",
@@ -2831,7 +2832,6 @@
       "event": "Événement",
       "noEventSelected": "Aucun événement sélectionné",
       "training": "Exercice",
-      "newEvent": "Nouvel événement",
       "allEvents": "Tous les événements",
       "quickActions": "Accès rapide",
       "personnel": "Personnel",
@@ -3874,7 +3874,8 @@
       },
       "searchPlaceholder": "Réglage …",
       "searchNoResults": "Aucun résultat.",
-      "searchHitCount": "{count} résultats · ↵ ouvrir"
+      "searchHitCount": "{count} résultats · ↵ ouvrir",
+      "phoneReadOnly": "Lecture seule – les réglages se modifient sur l’ordinateur."
     },
     "categorySort": {
       "noCategory": "(Aucun rôle)",

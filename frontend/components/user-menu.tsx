@@ -24,7 +24,7 @@ import { useLogout } from '@/lib/hooks/use-logout';
 import { usePolling } from '@/lib/hooks/use-polling';
 import { openCommandPalette } from '@/components/ui/command-palette';
 import { openAlarmInbox } from '@/components/alarm-inbox/alarm-inbox-store';
-import { FiguresDialog, toggleFigures } from '@/components/figures-dialog';
+import { toggleFigures } from '@/components/figures-dialog';
 import { useCommandPaletteHint } from '@/lib/hooks/use-is-mac';
 import {
   DropdownMenu,
@@ -466,7 +466,6 @@ export function UserMenu({
         </DropdownMenuContent>
     </DropdownMenu>
     {logoutDialog}
-    <FiguresDialog />
     </>
   );
 }
