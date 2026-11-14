@@ -595,6 +595,7 @@ async def get_feld_assignments(
         driver_vehicles=driver_vehicles,
         event_id=event.id,
         event_name=event.name,
+        event_started_at=event.created_at,
         assignments=[
             schemas.FeldAssignment(
                 **a,

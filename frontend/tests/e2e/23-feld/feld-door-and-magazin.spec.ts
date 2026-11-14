@@ -46,7 +46,8 @@ import {
  *  2. a wrong code is a red line and nothing else: no picker, and deliberately
  *     no toast (a typo is the expected answer here, not a fault to report).
  *  3. the right code reveals the picker, picking a name reveals that person's
- *     list — and "Nicht ich" asks first, then lands back on the code screen.
+ *     list — and "Nicht ich" (behind the name in the header) asks first, then
+ *     lands back on the code screen.
  *  4. a Magazin person assigned to nothing at all still sees the Schadenplatz
  *     their material is on, read-only.
  *
@@ -259,11 +260,11 @@ test.describe('/feld: die Tür und der Magazin-Blick', { tag: '@smoke' }, () => 
         timeout: FELD_TIMEOUT,
       });
 
-      // The button sits one thumb-width from the rest of the header on a wet
-      // phone, and since plan 26 it costs the device its bound token — so it
-      // asks. A "Nicht ich" that just swapped the name could be tapped by
-      // accident; this one cannot.
-      await phone.getByRole('button', { name: 'Nicht ich' }).first().click();
+      // «Nicht ich» sits behind the name in the header (owner pick 1A): one tap
+      // opens the menu, the second picks it. Since plan 26 it costs the device
+      // its bound token — so it still asks. A "Nicht ich" that just swapped the
+      // name could be tapped by accident; this one cannot.
+      await feld.notMe();
       const confirm = phone.getByRole('alertdialog');
       await expect(confirm.getByText('Abmelden?')).toBeVisible({ timeout: FELD_TIMEOUT });
       // Nothing has happened yet: the list is still the same person's.

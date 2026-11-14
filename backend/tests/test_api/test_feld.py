@@ -614,6 +614,28 @@ class TestAssignments:
 
     @pytest.mark.asyncio
     @pytest.mark.api
+    async def test_carries_when_the_ereignis_started(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        # The header says «Ereignis · Sa 14.11.»: the date is the Ereignis' own,
+        # not the phone's today, so a night past midnight keeps its date.
+        incident = await _make_incident(db_session, test_event, test_user, "Meine Stelle")
+        person = await _make_person(db_session, "Muster Hans")
+        await _assign(db_session, incident, person)
+
+        response = await client.get(
+            f"/api/feld/assignments/{person.id}?token={await feld_device_token(db_session, test_event.id, person.id)}"
+        )
+        assert response.status_code == 200
+        started = datetime.fromisoformat(response.json()["event_started_at"])
+        assert started == test_event.created_at
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
     async def test_row_carries_the_incident_number_and_priority(
         self,
         client: AsyncClient,

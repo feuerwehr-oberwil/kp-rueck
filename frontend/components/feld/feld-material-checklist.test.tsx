@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { ApiRapportExtraMaterial, ApiRapportMaterialRow } from '@/lib/api/types'
@@ -88,11 +88,13 @@ describe('FeldMaterialChecklist — Weiteres Material', () => {
     expect(screen.queryByText(/Board/)).toBeNull()
   })
 
-  it('shows the whole catalogue one tap away, without typing a name first', async () => {
-    // §18.34: a multi-select, in the shape the app uses for picking people —
-    // neither the datalist nor the combobox before it showed anything until you
-    // had already started typing. It sits behind the fold now, the same fold
-    // the Personal and Fahrzeuge sections have, and the fold says how many.
+  /** Opens «Material hinzufügen» and returns its sheet. */
+  async function openPicker() {
+    await userEvent.click(screen.getByRole('button', { name: 'Material hinzufügen' }))
+    return screen.findByRole('dialog')
+  }
+
+  it('offers the whole catalogue behind one button, without typing a name first', async () => {
     renderWithIntl(
       <FeldMaterialChecklist
         rows={[]}
@@ -103,32 +105,12 @@ describe('FeldMaterialChecklist — Weiteres Material', () => {
       />,
     )
 
-    await userEvent.click(screen.getByRole('button', { name: /Katalog anzeigen \(2\)/ }))
-    expect(screen.getByRole('button', { name: /Motorsäge/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Nassauger/ })).toBeInTheDocument()
+    const sheet = await openPicker()
+    expect(within(sheet).getByRole('button', { name: 'Motorsäge' })).toBeInTheDocument()
+    expect(within(sheet).getByRole('button', { name: 'Nassauger' })).toBeInTheDocument()
   })
 
-  it('picks a name as an entry, carrying no id', async () => {
-    const onExtraMaterialsChange = vi.fn()
-    renderWithIntl(
-      <FeldMaterialChecklist
-        rows={[]}
-        extraMaterials={[]}
-        suggestions={['Nassauger']}
-        onChange={vi.fn()}
-        onExtraMaterialsChange={onExtraMaterialsChange}
-      />,
-    )
-
-    await userEvent.click(screen.getByRole('button', { name: /Katalog anzeigen/ }))
-    await userEvent.click(screen.getByRole('button', { name: /Nassauger/ }))
-
-    // A name and one tick, and nothing else (decision 18) — picking a name is
-    // not picking a unit, and /feld still never writes an assignment.
-    expect(onExtraMaterialsChange).toHaveBeenCalledWith([{ name: 'Nassauger', left_on_site: false }])
-  })
-
-  it('adds a second pick instead of replacing the first', async () => {
+  it('adds picks as entries after what is there, carrying no id', async () => {
     const onExtraMaterialsChange = vi.fn()
     renderWithIntl(
       <FeldMaterialChecklist
@@ -140,9 +122,14 @@ describe('FeldMaterialChecklist — Weiteres Material', () => {
       />,
     )
 
-    await userEvent.click(screen.getByRole('button', { name: /Katalog anzeigen/ }))
-    await userEvent.click(screen.getByRole('button', { name: /Motorsäge/ }))
+    const sheet = await openPicker()
+    // Already on the list: not offered twice — taking it out is the row's ✕.
+    expect(within(sheet).queryByRole('button', { name: 'Nassauger' })).toBeNull()
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Motorsäge' }))
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Fertig (1)' }))
 
+    // A name and one tick, and nothing else (decision 18) — picking a name is
+    // not picking a unit, and /feld still never writes an assignment.
     expect(onExtraMaterialsChange).toHaveBeenCalledWith([
       { name: 'Nassauger', left_on_site: false },
       { name: 'Motorsäge', left_on_site: false },
@@ -205,7 +192,7 @@ describe('FeldMaterialChecklist — Weiteres Material', () => {
     expect(screen.getByText(/kein erfasstes Material/)).toBeInTheDocument()
   })
 
-  it('keeps free text for something that is in no catalogue at all', async () => {
+  it('takes a typed name for something that is in no catalogue at all', async () => {
     const onExtraMaterialsChange = vi.fn()
     renderWithIntl(
       <FeldMaterialChecklist
@@ -219,14 +206,19 @@ describe('FeldMaterialChecklist — Weiteres Material', () => {
 
     // A crew that borrowed the neighbouring brigade's pump has to be able to
     // write it — the catalogue is a naming aid, not the vocabulary.
-    await userEvent.type(screen.getByLabelText('Weiteres gebrauchtes Material'), 'P')
-    expect(onExtraMaterialsChange).toHaveBeenLastCalledWith([
+    const sheet = await openPicker()
+    await userEvent.type(within(sheet).getByPlaceholderText('Material suchen'), 'Pumpe vom Nachbarzug')
+    await userEvent.click(within(sheet).getByRole('button', { name: '«Pumpe vom Nachbarzug» hinzufügen' }))
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Fertig (1)' }))
+    expect(onExtraMaterialsChange).toHaveBeenCalledWith([
       { name: 'Nassauger', left_on_site: false },
-      { name: 'P', left_on_site: false },
+      { name: 'Pumpe vom Nachbarzug', left_on_site: false },
     ])
   })
 
-  it('separates the picked catalogue names from the typed ones', () => {
+  it('reads a rapport saved with the old comma line back as rows', () => {
+    // Typed and picked names were always the same `{name, left_on_site}` entry,
+    // so nothing saved before the picker needs converting.
     renderWithIntl(
       <FeldMaterialChecklist
         rows={[]}
@@ -237,24 +229,8 @@ describe('FeldMaterialChecklist — Weiteres Material', () => {
       />,
     )
 
-    // The stored list is the single source of truth and comes back apart into
-    // the same three controls on the next phone.
     expect(screen.getByRole('button', { name: 'Nassauger entfernen' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Weiteres gebrauchtes Material')).toHaveValue('Pumpe vom Nachbarzug')
+    expect(screen.getByRole('button', { name: 'Pumpe vom Nachbarzug entfernen' })).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: 'Vor Ort verblieben: Pumpe vom Nachbarzug' })).toBeChecked()
-  })
-
-  it('is a plain text field when there is nothing to suggest', () => {
-    renderWithIntl(
-      <FeldMaterialChecklist
-        rows={[]}
-        extraMaterials={[]}
-        onChange={vi.fn()}
-        onExtraMaterialsChange={vi.fn()}
-      />,
-    )
-
-    expect(screen.getByLabelText('Weiteres gebrauchtes Material')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Nassauger/ })).toBeNull()
   })
 })
