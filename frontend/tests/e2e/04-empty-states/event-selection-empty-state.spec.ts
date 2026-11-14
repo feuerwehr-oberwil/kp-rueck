@@ -70,21 +70,15 @@ test.describe('Event Selection Empty State – nothing opened in 24 h', () => {
     await expect(authenticatedPage).toHaveURL(/\/events/);
   });
 
-  test('empty state is responsive on mobile', async ({ authenticatedPage }) => {
+  test('on a phone it only picks an Ereignis – a new one is opened at the desk', async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize({ width: 375, height: 667 });
     await expect(authenticatedPage.getByRole('heading', { name: 'Ereignis wählen' })).toBeVisible();
 
-    // The two actions stack instead of sitting side by side (`flex-col sm:flex-row`),
-    // asserted through the geometry the operator actually sees.
-    const createButton = authenticatedPage.getByRole('button', { name: 'Neues Ereignis' });
-    const viewButton = authenticatedPage.getByRole('button', { name: 'Ereignisse anzeigen' });
-    await expect(createButton).toBeVisible();
-    await expect(viewButton).toBeVisible();
-
-    const createBox = (await createButton.boundingBox())!;
-    const viewBox = (await viewButton.boundingBox())!;
-    expect(viewBox.y).toBeGreaterThanOrEqual(createBox.y + createBox.height);
-    expect(viewBox.x).toBe(createBox.x);
+    // The phone views the board (owner, 14.11.2026): no «Neues Ereignis», «Ereignisse anzeigen»
+    // is the main action, and the line says where a new one is opened.
+    await expect(authenticatedPage.getByRole('button', { name: 'Neues Ereignis' })).toHaveCount(0);
+    await expect(authenticatedPage.getByRole('button', { name: 'Ereignisse anzeigen' })).toBeVisible();
+    await expect(authenticatedPage.getByText('ein neues wird am Desktop eröffnet')).toBeVisible();
   });
 });
 

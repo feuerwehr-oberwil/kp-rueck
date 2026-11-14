@@ -48,7 +48,8 @@ test.describe('Mobile bottom navigation', () => {
     test(`«Mehr» reaches ${entry}`, async ({ authenticatedPage: page }) => {
       await setupBoard(page, 'Mobile Mehr', { count: 0 });
       await bottomNav(page).getByRole('button', { name: 'Mehr Optionen' }).click();
-      await page.getByRole('dialog').getByRole('button', { name: entry }).click();
+      // A page entry is the row itself as a link (Button asChild), not a button inside a link.
+      await page.getByRole('dialog').getByRole('link', { name: entry }).click();
       await expect(page).toHaveURL(path, { timeout: ROUTE_COMPILE_MS });
     });
   }
