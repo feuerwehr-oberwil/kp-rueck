@@ -232,3 +232,48 @@ export function estimateLabelWidth(text: string, crewCounters: number): number {
   // Each counter: 6px gap + 12px icon + 3px + ~7px digit (the label in components/map-view.tsx).
   return Math.ceil(textWidth + 12 + 2 + crewCounters * 28)
 }
+
+/** A box relative to some origin, px – `left`/`top` usually negative. */
+export interface OffsetBox {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+
+/**
+ * Where the camera must put a selected pin so that the pin AND its card are in view (phone, owner
+ * pick 6A, 14.11.2026): the answer is MapLibre's `offset` for `flyTo` – how far from the map's
+ * centre the pin lands. Centring the pin alone ran the 232px card off the right edge of a 343px
+ * map.
+ *
+ * `box` is pin + card together, relative to the pin's anchor (measured from the rendered label;
+ * just the pin when there is no card). `padding` keeps it clear of the map's own chrome
+ * (`chromeFitPadding`). The box is centred in what the padding leaves; on an axis where it does
+ * not fit, the CARD wins – right edge in view horizontally (the card hangs right of the pin), top
+ * edge vertically (its first line is the address) – and the pin may end up under the edge.
+ */
+export function focusOffset({
+  width,
+  height,
+  padding,
+  box,
+}: {
+  /** The map's size, px. */
+  width: number
+  height: number
+  padding: { top: number; right: number; bottom: number; left: number }
+  box: OffsetBox
+}): [number, number] {
+  // One axis: where the pin goes, from the map's left/top edge, then minus half the map.
+  const axis = (size: number, padStart: number, padEnd: number, start: number, end: number, keepEnd: boolean) => {
+    const room = size - padStart - padEnd
+    const extent = end - start
+    const boxStart = extent <= room ? padStart + (room - extent) / 2 : keepEnd ? size - padEnd - extent : padStart
+    return Math.round(boxStart - start - size / 2)
+  }
+  return [
+    axis(width, padding.left, padding.right, box.left, box.right, true),
+    axis(height, padding.top, padding.bottom, box.top, box.bottom, false),
+  ]
+}

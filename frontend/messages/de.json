@@ -130,6 +130,7 @@
       "crewDuty": "Dienstzeiten",
       "dispatch": {
         "placeholder": "Befehl suchen oder zuweisen …",
+        "placeholderShort": "Suchen oder zuweisen …",
         "hint": "Einsatz, dann Fahrzeug / Person – z. B.",
         "hintExample": "7 tlf keller",
         "hintTab": "ergänzt",
@@ -243,7 +244,6 @@
       "event": "Ereignis",
       "noEventSelected": "Kein Ereignis ausgewählt",
       "training": "Übung",
-      "newEvent": "Neues Ereignis",
       "allEvents": "Alle Ereignisse",
       "quickActions": "Schnellzugriff",
       "personnel": "Personal",
@@ -1047,6 +1047,7 @@
       "since": "seit {time}",
       "unavailable": "nicht verfügbar",
       "assignedChip": "zugewiesen",
+      "assignedTo": "zugewiesen: {where}",
       "assignedTitle": "Person ist noch zugewiesen",
       "assignedDescription": "{name} ist noch «{where}» zugewiesen – trotzdem abmelden? Die Zuweisung bleibt bestehen.",
       "checkOutAnyway": "Trotzdem abmelden",
@@ -1341,6 +1342,7 @@
       "loadError": "Fahrzeugstatus konnten nicht geladen werden",
       "title": "Fahrzeugstatus",
       "description": "Klick öffnet den Einsatz · aktualisiert alle 10 Sekunden",
+      "descriptionPhone": "Tippen öffnet den Einsatz",
       "refresh": "Aktualisieren",
       "noVehicles": "Keine Fahrzeuge verfügbar",
       "longDuration": "Lange",
@@ -1394,10 +1396,7 @@
       "driver": "Fahrer: {name}"
     },
     "mobileDetail": {
-      "copied": "In Zwischenablage kopiert",
-      "copyError": "Kopieren fehlgeschlagen",
       "rekoBadge": "Reko",
-      "notesPlaceholder": "Notiz hinzufügen …",
       "dangers": "Gefahren",
       "personnelCount": "{count, plural, one {# Person} other {# Personen}}",
       "estimatedDuration": "{duration} geschätzt",
@@ -1408,11 +1407,8 @@
       "materials": "Material · {count}",
       "noMaterials": "Kein Material zugewiesen",
       "contact": "Kontakt / Melder",
-      "contactPlaceholder": "Kontakt hinzufügen …",
       "noContact": "Kein Kontakt",
-      "showOnMap": "Auf Karte anzeigen",
-      "copying": "Wird kopiert …",
-      "copyWhatsApp": "WhatsApp-Nachricht kopieren"
+      "showOnMap": "Auf Karte anzeigen"
     },
     "mobileList": {
       "trainingBadge": "Übung",
@@ -1427,7 +1423,14 @@
       "filter": "Filtern",
       "filterOn": "Filtern – {filters}",
       "filterSummary": "Gefiltert: {filters}",
-      "filterGroupStatus": "Status"
+      "filterGroupStatus": "Status",
+      "sortGroup": "Sortieren",
+      "sort": {
+        "status": "Status",
+        "newest": "Neueste zuerst",
+        "longestWait": "Längste Wartezeit"
+      },
+      "sortSummary": "Sortiert: {sort}"
     },
     "mobilePersonnel": {
       "title": "Personal",
@@ -1435,8 +1438,11 @@
       "searchPlaceholder": "Personal suchen …",
       "roleOther": "Andere",
       "rekoBadge": "Reko",
-      "available": "Verfügbar",
-      "assigned": "Zugewiesen",
+      "state": {
+        "available": "verfügbar",
+        "assigned": "zugewiesen",
+        "unavailable": "nicht verfügbar"
+      },
       "noResults": "Keine Personen gefunden"
     }
   },
@@ -1562,7 +1568,14 @@
       "formatDetected": "Format erkannt: {format}",
       "invalidFormat": "Ungültiges Format",
       "coordinatesSwapped": "Koordinaten wurden getauscht",
-      "supportedFormats": "Unterstützte Formate: Dezimal (47.5164, 7.5618), Swiss LV95 (2621234, 1260789), DMS (47°31'2.96\"N), Google Maps URL"
+      "supportedFormats": "Unterstützte Formate: Dezimal (47.5164, 7.5618), Swiss LV95 (2621234, 1260789), DMS (47°31'2.96\"N), Google Maps URL",
+      "locateHere": "Hier – meinen Standort übernehmen",
+      "locating": "Standort wird bestimmt …",
+      "fromGps": "aus GPS · ±{meters} m",
+      "locateDenied": "Kein Zugriff auf den Standort – im Browser erlauben oder Adresse eintippen.",
+      "locateUnavailable": "Kein GPS-Standort verfügbar – Adresse eintippen oder auf der Karte wählen.",
+      "locateTimeout": "Kein GPS-Standort innert 10 Sekunden – nochmals versuchen oder Adresse eintippen.",
+      "locateNoAddress": "Standort übernommen, aber keine Adresse dazu gefunden – bitte Adresse eintippen."
     },
     "mapPicker": {
       "title": "Einsatzort auf Karte wählen",
@@ -2099,7 +2112,8 @@
       },
       "searchPlaceholder": "Einstellung suchen …",
       "searchNoResults": "Nichts gefunden.",
-      "searchHitCount": "{count} Treffer · ↵ öffnen"
+      "searchHitCount": "{count} Treffer · ↵ öffnen",
+      "phoneReadOnly": "Nur Ansicht – Einstellungen werden am Desktop geändert."
     },
     "categorySort": {
       "noCategory": "(Keine Rolle)",
@@ -2653,6 +2667,7 @@
     "emptyState": {
       "title": "Ereignis wählen",
       "description": "In den letzten 24 Stunden wurde kein Ereignis eröffnet. Eröffne ein neues oder wähle ein früheres.",
+      "descriptionPhone": "In den letzten 24 Stunden wurde kein Ereignis eröffnet. Wähle ein früheres – ein neues wird am Desktop eröffnet.",
       "recentDescription": "In den letzten 24 Stunden eröffnet – das oberste war zuletzt aktiv.",
       "openedToday": "eröffnet heute {time}",
       "openedYesterday": "eröffnet gestern {time}",
@@ -4547,6 +4562,8 @@
     "correcting": "Korrektur von «{text}» – das Original bleibt sichtbar.",
     "cancelCorrection": "Korrektur abbrechen",
     "placeholder": "Eintrag … (# verknüpft einen Einsatz)",
+    "placeholderShort": "Eintrag …",
+    "hashHint": "# im Text verknüpft einen Einsatz",
     "placeholderCorrect": "Neuer Wortlaut",
     "inputLabel": "Neuer Eintrag im Einsatztagebuch",
     "submit": "Eintragen",

@@ -239,6 +239,7 @@
       "crewDuty": "Temps de service",
       "dispatch": {
         "placeholder": "Chercher ou attribuer …",
+        "placeholderShort": "Chercher ou attribuer …",
         "hint": "Intervention, puis véhicule / personne – p. ex.",
         "hintExample": "7 tlf keller",
         "hintTab": "complète",
@@ -706,6 +707,7 @@
     "emptyState": {
       "title": "Choisir un événement",
       "description": "Aucun événement n’a été ouvert au cours des dernières 24 heures. Ouvre-en un nouveau ou choisis-en un plus ancien.",
+      "descriptionPhone": "Aucun événement n’a été ouvert au cours des dernières 24 heures. Choisis-en un plus ancien – un nouveau s’ouvre sur l’ordinateur.",
       "recentDescription": "Ouverts au cours des dernières 24 heures – le premier a été actif en dernier.",
       "openedToday": "ouvert aujourd’hui à {time}",
       "openedYesterday": "ouvert hier à {time}",
@@ -1405,6 +1407,7 @@
       "loadError": "Échec du chargement de l’état des véhicules",
       "title": "État des véhicules",
       "description": "Cliquer pour naviguer vers l’intervention • actualisé toutes les 10 secondes",
+      "descriptionPhone": "Toucher ouvre l’intervention",
       "refresh": "Actualiser",
       "noVehicles": "Aucun véhicule disponible",
       "longDuration": "Longue",
@@ -1458,10 +1461,7 @@
       "driver": "Conducteur : {name}"
     },
     "mobileDetail": {
-      "copied": "Copié dans le presse-papiers",
-      "copyError": "Échec de la copie",
       "rekoBadge": "Reco",
-      "notesPlaceholder": "Ajouter une note …",
       "dangers": "Dangers",
       "personnelCount": "{count, plural, one {# personne} other {# personnes}}",
       "estimatedDuration": "{duration} estimées",
@@ -1472,11 +1472,8 @@
       "materials": "Matériel · {count}",
       "noMaterials": "Aucun matériel attribué",
       "contact": "Contact / annonceur",
-      "contactPlaceholder": "Ajouter un contact …",
       "noContact": "Aucun contact",
-      "showOnMap": "Afficher sur la carte",
-      "copying": "Copie …",
-      "copyWhatsApp": "Copier le message WhatsApp"
+      "showOnMap": "Afficher sur la carte"
     },
     "mobileList": {
       "trainingBadge": "Exercice",
@@ -1491,7 +1488,14 @@
       "filter": "Filtrer",
       "filterOn": "Filtrer – {filters}",
       "filterSummary": "Filtré : {filters}",
-      "filterGroupStatus": "Statut"
+      "filterGroupStatus": "Statut",
+      "sortGroup": "Trier",
+      "sort": {
+        "status": "Statut",
+        "newest": "Plus récentes d’abord",
+        "longestWait": "Attente la plus longue"
+      },
+      "sortSummary": "Trié : {sort}"
     },
     "mobilePersonnel": {
       "title": "Personnel",
@@ -1499,8 +1503,11 @@
       "searchPlaceholder": "Rechercher du personnel …",
       "roleOther": "Autres",
       "rekoBadge": "Reco",
-      "available": "Disponible",
-      "assigned": "Attribuée",
+      "state": {
+        "available": "disponible",
+        "assigned": "attribuée",
+        "unavailable": "indisponible"
+      },
       "noResults": "Aucune personne trouvée"
     }
   },
@@ -2342,6 +2349,7 @@
       "since": "depuis {time}",
       "unavailable": "indisponible",
       "assignedChip": "affectée",
+      "assignedTo": "affectée : {where}",
       "assignedTitle": "La personne est encore affectée",
       "assignedDescription": "{name} est encore affecté à {where} – l’annoncer partant quand même ? L’affectation est conservée.",
       "checkOutAnyway": "Annoncer partant quand même",
@@ -2653,7 +2661,14 @@
       "formatDetected": "Format reconnu : {format}",
       "invalidFormat": "Format non valable",
       "coordinatesSwapped": "Les coordonnées ont été interverties",
-      "supportedFormats": "Formats pris en charge : décimal (47.5164, 7.5618), Swiss LV95 (2621234, 1260789), DMS (47°31'2.96\"N), URL Google Maps"
+      "supportedFormats": "Formats pris en charge : décimal (47.5164, 7.5618), Swiss LV95 (2621234, 1260789), DMS (47°31'2.96\"N), URL Google Maps",
+      "locateHere": "Ici – reprendre ma position",
+      "locating": "Position en cours de détermination …",
+      "fromGps": "par GPS · ±{meters} m",
+      "locateDenied": "Pas d’accès à la position – autorise-la dans le navigateur ou saisis l’adresse.",
+      "locateUnavailable": "Aucune position GPS disponible – saisis l’adresse ou choisis sur la carte.",
+      "locateTimeout": "Aucune position GPS en 10 secondes – réessaie ou saisis l’adresse.",
+      "locateNoAddress": "Position reprise, mais aucune adresse trouvée – saisis l’adresse."
     },
     "mapPicker": {
       "title": "Choisir le lieu d’intervention sur la carte",
@@ -2821,7 +2836,6 @@
       "event": "Événement",
       "noEventSelected": "Aucun événement sélectionné",
       "training": "Exercice",
-      "newEvent": "Nouvel événement",
       "allEvents": "Tous les événements",
       "quickActions": "Accès rapide",
       "personnel": "Personnel",
@@ -3864,7 +3878,8 @@
       },
       "searchPlaceholder": "Réglage …",
       "searchNoResults": "Aucun résultat.",
-      "searchHitCount": "{count} résultats · ↵ ouvrir"
+      "searchHitCount": "{count} résultats · ↵ ouvrir",
+      "phoneReadOnly": "Lecture seule – les réglages se modifient sur l’ordinateur."
     },
     "categorySort": {
       "noCategory": "(Aucun rôle)",
@@ -4547,6 +4562,8 @@
     "correcting": "Correction de «{text}» – l'original reste visible.",
     "cancelCorrection": "Annuler la correction",
     "placeholder": "Entrée … (# lie une intervention)",
+    "placeholderShort": "Entrée …",
+    "hashHint": "# dans le texte lie une intervention",
     "placeholderCorrect": "Nouveau libellé",
     "inputLabel": "Nouvelle entrée du journal",
     "submit": "Inscrire",

@@ -282,11 +282,18 @@ class Geocoder:
                 lon, lat = _coordinate(coordinates[0], 180), _coordinate(coordinates[1], 90)
             except ValueError:
                 continue
-            label = _label(properties.get("label"))
+            label = _address_label(properties)
             distance = _distance(point.lat, point.lon, lat, lon)
             if label and distance <= 100:
                 candidates.append((distance, label))
         return min(candidates)[1] if candidates else None
+
+
+def _address_label(properties: dict[str, Any]) -> str:
+    """«Bahnhofstrasse 6, 4104 Oberwil BL» from an identify hit on the official address layer.
+    Its `label` is the numeric address id (EGAID), not text – the address is in its parts."""
+    street = " ".join(filter(None, (_label(properties.get("stn_label")), _label(properties.get("adr_number")))))
+    return ", ".join(filter(None, (street, _label(properties.get("zip_label")))))
 
 
 def _swiss_entries(payload: object) -> list[Any]:

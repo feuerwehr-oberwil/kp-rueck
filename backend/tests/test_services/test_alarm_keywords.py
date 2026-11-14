@@ -129,7 +129,7 @@ def test_the_word_bounded_set_comes_from_the_shared_file():
         ("VU Strasse", schemas.IncidentType.STRASSENRETTUNG),
         ("BMA Schulhaus", schemas.IncidentType.BMA_UNECHTE_ALARME),
         ("Ölspur Hauptstrasse", schemas.IncidentType.OELWEHR),
-        ("Tierrettung Katze", schemas.IncidentType.GERETTETE_TIERE),
+        ("Tierrettung Katze", schemas.IncidentType.TECHNISCHE_HILFELEISTUNG),
         ("Katzenwäsche", schemas.IncidentType.DIVERSE_EINSAETZE),
     ],
 )
@@ -150,3 +150,37 @@ def test_classification_end_to_end(title: str, expected: schemas.IncidentType):
 )
 def test_priority_end_to_end(title: str, expected: schemas.IncidentPriority):
     assert divera_intake.infer_priority_from_text(title) == expected
+
+
+@pytest.mark.parametrize(
+    ("title", "expected"),
+    [
+        # The real alarm of 2026-11-10 (SMS «…, Verunreinigung, Ölspur»), filed as Diverse.
+        ("Verunreinigung, Allschwilerstrasse", schemas.IncidentType.OELWEHR),
+        # The street must not classify: BAHN and BMA sit earlier in the list than these words.
+        ("Wasserschaden, Bahnhofstrasse 5", schemas.IncidentType.TECHNISCHE_HILFELEISTUNG),
+        ("Türöffnung, Kaibmattweg 3", schemas.IncidentType.TECHNISCHE_HILFELEISTUNG),
+        ("Hilfeleistung, Hauptstrasse 1", schemas.IncidentType.TECHNISCHE_HILFELEISTUNG),
+        ("Elementarereignis, Hauptstrasse 1", schemas.IncidentType.ELEMENTAREREIGNIS),
+        ("Med Ustü dringlich, Hauptstrasse 1", schemas.IncidentType.DIVERSE_EINSAETZE),
+        ("Med Ustü nicht dringlich, Kaibmattweg 3", schemas.IncidentType.DIVERSE_EINSAETZE),
+        # FKS: a Tierrettung is a Technische Hilfeleistung; «gerettete Tiere» is only a count.
+        ("Grosstierrettung, Hauptstrasse 1", schemas.IncidentType.TECHNISCHE_HILFELEISTUNG),
+    ],
+)
+def test_classification_reads_the_einsatzart_not_the_street(title: str, expected: schemas.IncidentType):
+    # fwo-divera titles an alarm «Einsatzart, Strasse»; only the part before the comma counts.
+    assert divera_intake.detect_incident_type(title) == expected
+
+
+@pytest.mark.parametrize(
+    ("title", "text", "expected"),
+    [
+        ("Wasserschaden, Kaibmattweg 3", "Meldung: Keller unter Wasser", schemas.IncidentPriority.LOW),
+        ("Hilfeleistung, Hauptstrasse 1", "Meldung: Person in Lift", schemas.IncidentPriority.HIGH),
+    ],
+)
+def test_priority_reads_the_einsatzart_and_the_text_not_the_street(
+    title: str, text: str, expected: schemas.IncidentPriority
+):
+    assert divera_intake.infer_priority_from_text(title, text) == expected

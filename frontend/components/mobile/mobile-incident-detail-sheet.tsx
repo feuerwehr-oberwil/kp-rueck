@@ -1,37 +1,32 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { useEffectEvent } from "@/lib/hooks/use-effect-event"
+/**
+ * The phone's Einsatz detail – a bottom sheet over the board's phone list and the Lagekarte.
+ *
+ * READ-ONLY, for every role (owner's pick, 14.11.2026: «Board read-only, intake stays»): the
+ * phone looks, the desk works the board. Status is a word, the Meldung is text, the Melder is a
+ * `tel:` link – no tap-to-edit, no status select, no WhatsApp export (that stays on the desk).
+ * What a phone may still write is intake: «Neuer Einsatz», Übungs-Einsätze, the Appell.
+ */
+
 import Link from "next/link"
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { formatDurationHours } from "@/lib/duration"
 import { Button } from "@/components/ui/button"
 import { IncidentNumber } from "@/components/ui/incident-number"
-import { ShellLoader } from "@/components/ui/shell-loader"
 import { Separator } from "@/components/ui/separator"
-import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import {
   Truck,
   Users,
   Package,
   FileCheck,
   AlertTriangle,
-  MessageCircle,
   Map as MapIcon,
   Phone,
-  Pencil,
   Footprints,
 } from "lucide-react"
-import { useOperations, type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
+import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { RemovableChip } from "@/components/ui/removable-chip"
 import { MelderLink } from "@/components/ui/melder-link"
@@ -44,22 +39,11 @@ import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
 import { incidentTypeLabels } from "@/lib/incident-types"
 import { AddressText } from "@/components/kanban/address-text"
 import { useTranslations } from "next-intl"
-import { cn, copyToClipboardAsync } from "@/lib/utils"
 import { sortCrewByLeader } from "@/lib/crew-order"
-import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
-import { getMessageTemplates } from "@/lib/message-template"
-import { apiClient, type ApiRekoReportResponse } from "@/lib/api-client"
-import { toast } from "sonner"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import RekoReportSection from "@/components/reko/reko-report-section"
-import {
-  FieldSaveStatus,
-  fieldSaveEdgeClass,
-  useFieldSave,
-  useUnsavedDraftLeaveGuard,
-} from "@/components/kanban/field-save-status"
-import { PersonName, usePersonNaming } from "@/components/person-name"
+import { PersonName } from "@/components/person-name"
 
 interface MobileIncidentDetailSheetProps {
   operation: Operation | null
@@ -67,11 +51,7 @@ interface MobileIncidentDetailSheetProps {
   onOpenChange: (open: boolean) => void
   materials: Material[]
   formatLocation: (address: string) => string
-  onUpdateOperation?: (id: string, updates: Partial<Operation>) => void
-  isEditor?: boolean
 }
-
-const statusKeys: OperationStatus[] = ["incoming", "reko", "enroute", "active", "returning", "complete"]
 
 export function MobileIncidentDetailSheet({
   operation,
@@ -79,177 +59,25 @@ export function MobileIncidentDetailSheet({
   onOpenChange,
   materials,
   formatLocation,
-  onUpdateOperation,
-  isEditor = false,
 }: MobileIncidentDetailSheetProps) {
   const t = useTranslations('incidents')
   // The resource chips reuse the board's own labels (Funkrufname, Zu Fuss …)
   // so the phone and the board name the same thing the same way.
   const tKanban = useTranslations('kanban')
   const { selectedEvent } = useEvent()
-  const { changeStatusToTop } = useOperations()
-  const [isCopyingWhatsApp, setIsCopyingWhatsApp] = useState(false)
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
-  const { text: personText } = usePersonNaming()
-  const [editingNotes, setEditingNotes] = useState(false)
-  const [editingContact, setEditingContact] = useState(false)
-  const [notesValue, setNotesValue] = useState("")
-  const [contactValue, setContactValue] = useState("")
-  const notesRef = useRef<HTMLTextAreaElement>(null)
-  const contactRef = useRef<HTMLInputElement>(null)
-  // What the field held when editing began: blur sends only a CHANGE. A kept
-  // draft that is merely focused and left again is not resent behind the
-  // operator's back — «Erneut speichern» is the way to do that.
-  const notesStartRef = useRef("")
-  const contactStartRef = useRef("")
-  // Save state per field (lib/field-save). Hooks before the early return.
-  const notesSave = useFieldSave(operation?.id ?? "", "notes", operation?.notes)
-  const contactSave = useFieldSave(operation?.id ?? "", "contact", operation?.contact)
-  const leaveGuard = useUnsavedDraftLeaveGuard(operation?.id)
 
   // Byte-identical fallback to the raw type value for unknown types
   const typeLabel = (type: string) => (type in incidentTypeLabels ? t(`types.${type}`) : type)
 
-  // Reset editing state when operation changes or sheet closes
-  useEffect(() => {
-    if (!open) {
-      setEditingNotes(false)
-      setEditingContact(false)
-    }
-  }, [open, operation?.id])
-
-  // Sync local values when the incident changes — but never under the
-  // operator's fingers: a background reload landing mid-sentence used to put
-  // the server's text back into the field being typed in. And a held draft
-  // (pending or not saved) is what the field shows, not the board's value.
-  // Whether a field is being edited is read, not depended on: the sync runs when
-  // the incident or its saved value changes, not when editing ends.
-  const syncNotes = useEffectEvent((value: string) => {
-    if (!editingNotes) setNotesValue(value)
-  })
-  const syncContact = useEffectEvent((value: string) => {
-    if (!editingContact) setContactValue(value)
-  })
-  useEffect(() => syncNotes(notesSave.value), [operation?.id, notesSave.value])
-  useEffect(() => syncContact(contactSave.value), [operation?.id, contactSave.value])
-
-  // Driver map (live-synced via WebSocket + custom event in useVehicleDrivers)
-
-  const handleStatusChange = (newStatus: string) => {
-    if (!operation || !onUpdateOperation) return
-    // Move the card to the top of its new column (parity with the desktop modal),
-    // so a one-tap status change surfaces it the same way the reko auto-move does.
-    changeStatusToTop(operation.id, newStatus as OperationStatus)
-  }
-
-  const handleNotesSave = () => {
-    if (!operation || !onUpdateOperation) return
-    if (notesValue !== notesStartRef.current) {
-      onUpdateOperation(operation.id, { notes: notesValue })
-    }
-    setEditingNotes(false)
-  }
-
-  const handleContactSave = () => {
-    if (!operation || !onUpdateOperation) return
-    if (contactValue !== contactStartRef.current) {
-      onUpdateOperation(operation.id, { contact: contactValue })
-    }
-    setEditingContact(false)
-  }
-
-  const beginNotes = () => {
-    if (editingNotes) return
-    notesStartRef.current = notesSave.value
-    setNotesValue(notesSave.value)
-    setEditingNotes(true)
-  }
-
-  const beginContact = () => {
-    if (editingContact) return
-    contactStartRef.current = contactSave.value
-    setContactValue(contactSave.value)
-    setEditingContact(true)
-  }
-
-  const startEditingNotes = () => {
-    if (!isEditor || !onUpdateOperation) return
-    beginNotes()
-    setTimeout(() => notesRef.current?.focus(), 50)
-  }
-
-  const startEditingContact = () => {
-    if (!isEditor || !onUpdateOperation) return
-    beginContact()
-    setTimeout(() => contactRef.current?.focus(), 50)
-  }
-
-  const retryNotes = (notes: string) => operation && onUpdateOperation?.(operation.id, { notes })
-  const retryContact = (contact: string) => operation && onUpdateOperation?.(operation.id, { contact })
-
-  // Handler for copying WhatsApp message
-  // Uses copyToClipboardAsync for Safari support - must call synchronously with a Promise
-  const handleCopyWhatsApp = () => {
-    if (!operation) return
-
-    setIsCopyingWhatsApp(true)
-
-    // Create a promise that fetches data and formats the message
-    const messagePromise = (async () => {
-      let rekoReport: ApiRekoReportResponse | null = null
-      if (operation.hasCompletedReko) {
-        try {
-          const reports = await apiClient.getIncidentRekoReports(operation.id)
-          const completedReports = reports.filter(r => !r.is_draft)
-          if (completedReports.length > 0) {
-            rekoReport = completedReports[completedReports.length - 1]
-          }
-        } catch (error) {
-          console.error("Failed to fetch Reko report:", error)
-        }
-      }
-
-      const { whatsappIncident } = await getMessageTemplates()
-      return formatWhatsAppMessage({
-        operation,
-        materials,
-        rekoReport,
-        vehicleDrivers,
-        template: whatsappIncident,
-        personText,
-      })
-    })()
-
-    // Call synchronously with the promise - Safari will "reserve" clipboard access
-    copyToClipboardAsync(messagePromise)
-      .then(() => {
-        toast.success(t('mobileDetail.copied'))
-      })
-      .catch((error) => {
-        console.error("Failed to copy WhatsApp message:", error)
-        toast.error(t('mobileDetail.copyError'))
-      })
-      .finally(() => {
-        setIsCopyingWhatsApp(false)
-      })
-  }
-
   if (!operation) return null
 
   const priority = operation.priority || "low"
-  const canEdit = isEditor && !!onUpdateOperation
-  // A text the server has not got stays an open field, red-edged, so the
-  // operator sees exactly what is missing and can retry or copy it.
-  const showNotesEditor = editingNotes || (canEdit && notesSave.failed)
-  const showContactEditor = editingContact || (canEdit && contactSave.failed)
+  const notes = operation.notes?.trim()
+  const contact = operation.contact?.trim()
 
   return (
-    <>
-    {leaveGuard.dialog}
-    <Sheet
-      open={open}
-      onOpenChange={(next) => (next ? onOpenChange(true) : leaveGuard.guard(() => onOpenChange(false)))}
-    >
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
         // No description line: it used to print the Einsatz-ID (two lines of UUID) under the
@@ -305,25 +133,10 @@ export function MobileIncidentDetailSheet({
 
           {/* Status & Time Row */}
           <div className="flex items-center gap-3 flex-wrap">
-            {canEdit ? (
-              <Select value={operation.status} onValueChange={handleStatusChange}>
-                <SelectTrigger size="sm" className="w-auto min-h-[44px] text-sm gap-1.5">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusKeys.map((key) => (
-                    <SelectItem key={key} value={key}>
-                      {t(`status.${key}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Badge variant="secondary" className="text-sm max-w-full">
-                {t(`status.${operation.status}`)}
-              </Badge>
-            )}
-            {/* The Einsatzart is a fact beside the one control, so it is plain
+            <Badge variant="secondary" className="text-sm max-w-full">
+              {t(`status.${operation.status}`)}
+            </Badge>
+            {/* The Einsatzart is a fact beside the status, so it is plain
                 muted text (14/20 500), as on the phone card: boxed, it read as a
                 second select (hill climb r18). The age stands at the row's end. */}
             <span className="min-w-0 text-sm font-medium text-muted-foreground">
@@ -343,41 +156,13 @@ export function MobileIncidentDetailSheet({
             )}
           </div>
 
-          {/* Notes/Meldung */}
-          <div className="space-y-1.5">
-            {showNotesEditor ? (
-              <Textarea
-                ref={notesRef}
-                value={editingNotes ? notesValue : notesSave.value}
-                onFocus={beginNotes}
-                onChange={(e) => setNotesValue(e.target.value)}
-                onBlur={handleNotesSave}
-                placeholder={t('mobileDetail.notesPlaceholder')}
-                aria-invalid={notesSave.failed || undefined}
-                className={cn("min-h-[80px] text-sm", fieldSaveEdgeClass(notesSave))}
-              />
-            ) : (
-              <div
-                onClick={startEditingNotes}
-                className={cn(
-                  "bg-muted/50 rounded-lg p-3",
-                  canEdit && "cursor-pointer hover:bg-muted/70 transition-colors"
-                )}
-              >
-                {notesSave.value ? (
-                  <p className="text-sm text-foreground whitespace-pre-wrap">
-                    {notesSave.value}
-                  </p>
-                ) : canEdit ? (
-                  <p className="text-sm text-muted-foreground flex items-center gap-2">
-                    <Pencil className="h-3.5 w-3.5" />
-                    {t('mobileDetail.notesPlaceholder')}
-                  </p>
-                ) : null}
-              </div>
-            )}
-            <FieldSaveStatus view={notesSave} onRetry={retryNotes} />
-          </div>
+          {/* The Meldung, as text. Nothing when there is none: an empty grey box read as a
+              field waiting for input. */}
+          {notes && (
+            <div className="bg-muted/50 rounded-lg p-3">
+              <p className="text-sm text-foreground whitespace-pre-wrap break-words">{notes}</p>
+            </div>
+          )}
 
           {/* Danger warnings from Reko */}
           {operation.rekoSummary?.hasDangers && operation.rekoSummary.dangerTypes.length > 0 && (
@@ -511,50 +296,16 @@ export function MobileIncidentDetailSheet({
 
           <Separator />
 
-          {/* Contact. The number goes under the name as /feld draws it
-              (`MelderLink`: one tel: link, the number whole on its own line).
-              A viewer gets exactly that; an editor keeps the name as the tap
-              target that edits it, so only the number line is the link. */}
+          {/* Contact. The number goes under the name as /feld draws it (`MelderLink`: one tel:
+              link, the number whole on its own line); a name without a number is plain text. */}
           <div>
             <DetailGroupHeading icon={<Phone className="h-3.5 w-3.5 shrink-0" />}>{t('mobileDetail.contact')}</DetailGroupHeading>
-            {!canEdit && operation.contactPhone ? (
-              <MelderLink contact={contactSave.value} phone={operation.contactPhone} className="text-sm" />
+            {operation.contactPhone ? (
+              <MelderLink contact={contact} phone={operation.contactPhone} className="text-sm" />
             ) : (
-              <>
-                {showContactEditor ? (
-                  <Input
-                    ref={contactRef}
-                    value={editingContact ? contactValue : contactSave.value}
-                    onFocus={beginContact}
-                    onChange={(e) => setContactValue(e.target.value)}
-                    onBlur={handleContactSave}
-                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
-                    placeholder={t('mobileDetail.contactPlaceholder')}
-                    aria-invalid={contactSave.failed || undefined}
-                    className={cn("text-sm", fieldSaveEdgeClass(contactSave))}
-                  />
-                ) : (
-                  <div
-                    onClick={startEditingContact}
-                    className={cn(
-                      canEdit && "cursor-pointer hover:bg-muted/50 rounded-md px-2 py-1 -mx-2 transition-colors"
-                    )}
-                  >
-                    {contactSave.value ? (
-                      <p className="text-sm text-foreground">{contactSave.value}</p>
-                    ) : canEdit ? (
-                      <p className="text-sm text-muted-foreground flex items-center gap-2">
-                        <Pencil className="h-3.5 w-3.5" />
-                        {t('mobileDetail.contactPlaceholder')}
-                      </p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">{t('mobileDetail.noContact')}</p>
-                    )}
-                  </div>
-                )}
-                <FieldSaveStatus view={contactSave} onRetry={retryContact} className="mt-1.5" />
-                {operation.contactPhone && <MelderLink phone={operation.contactPhone} className="text-sm" />}
-              </>
+              <p className={contact ? "text-sm text-foreground break-words" : "text-sm text-muted-foreground"}>
+                {contact || t('mobileDetail.noContact')}
+              </p>
             )}
           </div>
 
@@ -566,18 +317,6 @@ export function MobileIncidentDetailSheet({
             </>
           )}
 
-          {/* The WhatsApp copy closes the content: an export of what is above it.
-              The way to the map is the sheet's foot (below). */}
-          <Button
-            variant="outline"
-            onClick={handleCopyWhatsApp}
-            disabled={isCopyingWhatsApp}
-            size="lg"
-            className="w-full gap-2"
-          >
-            {isCopyingWhatsApp ? <ShellLoader className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />}
-            {isCopyingWhatsApp ? t('mobileDetail.copying') : t('mobileDetail.copyWhatsApp')}
-          </Button>
           {/* While more waits below, the last 24px fade into the sheet above the foot's
               rule, so a section is never cut flat against it (hill climb r20). `-mt-4`
               takes back the `space-y-4` step: at the end the fade lies over the 24px
@@ -597,6 +336,5 @@ export function MobileIncidentDetailSheet({
         </SheetFooter>
       </SheetContent>
     </Sheet>
-    </>
   )
 }

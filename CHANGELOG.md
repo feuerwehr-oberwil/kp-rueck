@@ -78,9 +78,16 @@ will keep holding.
   longer hides behind the Checkliste and «Links & QR».
 - **Setting «Fahrzeuge auf der Lagekarte»** (Einstellungen → GPS): after how many minutes a
   vehicle's last GPS report counts as old (default 10). Only then does its pill show the time.
+- **«Hier» in «Neuer Einsatz» on a phone or touch device**: a locate button in the address field
+  takes one GPS fix and fills the Einsatzort with the address and the pin («aus GPS · ±12 m»); a
+  refusal or no fix is said under the field.
+- **The phone Lagekarte brings the selected Einsatz into view with its card**, not only its pin.
 
 ### Changed
 
+- **The Appell is a bottom sheet on the phone**, each person on two lines – the full name, then
+  since when, the Einsatz and where – instead of a centred dialog that cut every assigned name.
+  «Alle abmelden» stays on the desktop.
 - **Einsatz detail: «Status» is a select under the Merkmale**, in board column order and with
   the same questions as dragging the card, instead of the row of status buttons – the Kräfte now
   fit in the first view. Dragging cards is unchanged.
@@ -131,6 +138,22 @@ will keep holding.
   station coordinates show and save six decimals.
 - **Contrast and hit areas** across board, detail, map, dialogs, walls and `/feld`: text that
   missed WCAG AA and controls smaller than 24 px (44 px on a phone) were brought up to it.
+- **The phone views the board; it no longer edits it.** On a phone the Einsatz sheet shows status,
+  Meldung and Melder as text (the Melder as a tel: link), without tap-to-edit and without
+  «WhatsApp-Nachricht kopieren»; Settings are read-only apart from «Dieses Gerät» and «Problem
+  melden»; /events only switches the Ereignis (no new, archive, restore or delete); the
+  Routenplanung has no «Route optimieren», reorder or stop changes; and the GPS release/arrival
+  asks and «Abholung disponiert?» do not open. «Neuer Einsatz» (Übung included) and the Appell
+  stay usable. The desktop is unchanged.
+- **The phone feels like KP Front**: a tapped button, row, chip or card gets an instant ink wash
+  (nothing moves), the app no longer zooms – not by pinch, not into a field (every field stays at
+  16px on a phone) – while the map keeps its own pinch, and the selected tab in the bottom nav has
+  more air. «Mehr» → «Kennzahlen» opens again on the phone, as a bottom sheet.
+- **«Sortieren» in the Einsätze funnel on the phone**: Status (default), Neueste zuerst or Längste
+  Wartezeit, remembered per device.
+- **Phone dialogs tidied after a sweep at 360/393 px**: the Personal sheet, Dienstzeiten, Links &
+  QR, Fahrzeuge (a tap opens the Einsatz), the Einsatztagebuch field, «Alle Ereignisse», /check-in,
+  the ⌘K palette and the Kennzahlen table no longer cut or spill text.
 
 ### Fixed
 
@@ -150,6 +173,9 @@ will keep holding.
 - **The map no longer flickers while a panel beside it is resized.**
 - **«Beenden» in a narrow Routenplanung rail** turns into a plain ✕ instead of wrapping.
 - **Checkliste titles** wrap instead of being cut off beside their buttons.
+- **Reverse geocoding found no address at all**, so /feld «Standort übernehmen» left the
+  address empty: swisstopo's address layer labels a hit with its numeric id, and the address is
+  now built from its street, number and postcode.
 
 ### Security
 

@@ -7,7 +7,10 @@ import type { Event } from '@/lib/types/incidents'
 const ctx = vi.hoisted(() => ({ events: [] as Event[], setSelectedEvent: vi.fn() }))
 const push = vi.hoisted(() => vi.fn())
 
+const phone = vi.hoisted(() => ({ current: false }))
+
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }))
+vi.mock('@/components/ui/use-mobile', () => ({ useIsMobile: () => phone.current }))
 // The admin's «Station einrichten» strip has its own test; here it would need auth and the API.
 vi.mock('@/components/station-setup-strip', () => ({ StationSetupStrip: () => null }))
 vi.mock('@/lib/contexts/event-context', () => ({
@@ -33,6 +36,7 @@ function ev(name: string, openedHoursAgo: number, activeHoursAgo: number): Event
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  phone.current = false
 })
 
 describe('EventSelectionEmptyState', () => {
@@ -62,5 +66,25 @@ describe('EventSelectionEmptyState', () => {
     expect(screen.queryByText(/Kein Problem/)).toBeNull()
     fireEvent.keyDown(document.body, { key: 'Enter' })
     expect(ctx.setSelectedEvent).not.toHaveBeenCalled()
+  })
+})
+
+describe('EventSelectionEmptyState on the phone – it switches, the desk opens a new one', () => {
+  it('makes «Ereignisse anzeigen» the main action and says where a new one is opened', () => {
+    phone.current = true
+    ctx.events = [ev('Alt', 30, 1)]
+    renderWithIntl(<EventSelectionEmptyState />)
+    expect(screen.queryByRole('button', { name: /Neues Ereignis/ })).toBeNull()
+    expect(screen.getByText(/ein neues wird am Desktop eröffnet/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Ereignisse anzeigen/ }))
+    expect(push).toHaveBeenCalledWith('/events')
+  })
+
+  it('still lists the recent Ereignisse to open, without «Neues Ereignis»', () => {
+    phone.current = true
+    ctx.events = [ev('Unwetter Oberwil', 5, 0.2)]
+    renderWithIntl(<EventSelectionEmptyState />)
+    expect(screen.getByRole('button', { name: 'Unwetter Oberwil: Öffnen' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Neues Ereignis/ })).toBeNull()
   })
 })

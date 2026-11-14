@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { estimateLabelWidth, labelMode, pickVisibleLabels, placeLabelSides, PHONE_LABEL_MIN_ZOOM, type LabelCandidate } from './map-labels'
+import { estimateLabelWidth, focusOffset, labelMode, pickVisibleLabels, placeLabelSides, PHONE_LABEL_MIN_ZOOM, type LabelCandidate } from './map-labels'
 
 const GEOMETRY = { labelOffsetX: 20, labelHeight: 28, dotSize: 24 }
 
@@ -132,5 +132,43 @@ describe('placeLabelSides (desktop)', () => {
   it('flips a label that would hang off the map’s right edge', () => {
     const left = placeLabelSides([candidate('edge', 350, 100)], { ...GEOMETRY, viewport: { width: 390, height: 400 } })
     expect([...left]).toEqual(['edge'])
+  })
+})
+
+describe('focusOffset', () => {
+  const NO_PADDING = { top: 0, right: 0, bottom: 0, left: 0 }
+  // A 32px pin, its 232px card hanging 24px right of the anchor, 80px tall.
+  const PIN_AND_CARD = { left: -16, top: -40, right: 24 + 232, bottom: 40 }
+
+  it('puts the pin left of centre so pin + card sit centred together', () => {
+    const [dx, dy] = focusOffset({ width: 343, height: 400, padding: NO_PADDING, box: PIN_AND_CARD })
+    // Box 272 wide: starts at (343 - 272) / 2 = 35.5, pin 16px further = 51.5 → 171.5 left of centre.
+    expect(dx).toBe(-120)
+    expect(dy).toBe(0)
+    // …and the card ends inside the map.
+    expect(343 / 2 + dx + PIN_AND_CARD.right).toBeLessThanOrEqual(343)
+  })
+
+  it('centres a lone pin, as before, when there is no card', () => {
+    expect(focusOffset({ width: 343, height: 400, padding: NO_PADDING, box: { left: -16, top: -16, right: 16, bottom: 16 } }))
+      .toEqual([0, 0])
+  })
+
+  it('centres in what the chrome leaves – a chip row on top pushes the pin down', () => {
+    const [, dy] = focusOffset({ width: 343, height: 400, padding: { ...NO_PADDING, top: 60 }, box: PIN_AND_CARD })
+    expect(dy).toBe(30)
+  })
+
+  it('keeps the card in view when the map is narrower than pin + card', () => {
+    const padding = { top: 12, right: 12, bottom: 12, left: 12 }
+    const [dx] = focusOffset({ width: 240, height: 400, padding, box: PIN_AND_CARD })
+    // The card's right edge lands exactly on the padded right edge; the pin is pushed past the left.
+    expect(240 / 2 + dx + PIN_AND_CARD.right).toBe(240 - 12)
+  })
+
+  it('keeps the card\'s top in view when it is taller than the map', () => {
+    const padding = { top: 10, right: 0, bottom: 10, left: 0 }
+    const [, dy] = focusOffset({ width: 400, height: 60, padding, box: PIN_AND_CARD })
+    expect(60 / 2 + dy + PIN_AND_CARD.top).toBe(10)
   })
 })

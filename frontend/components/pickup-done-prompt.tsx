@@ -9,6 +9,7 @@ import { useTranslations } from "next-intl"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/lib/contexts/auth-context"
+import { useIsMobile } from "@/components/ui/use-mobile"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { wsClient } from "@/lib/websocket-client"
 import { getIncidentRefLabel } from "@/lib/incident-types"
@@ -37,7 +38,7 @@ import { formatPickupWaiting } from "@/lib/pickup"
  * second one. That also means demo mode is already handled — the backend rule
  * does not run there — and the assignment half checks the demo flag itself.
  *
- * Editors only, board and map only: same reasoning as `GpsReleasePrompt`.
+ * Editors only, board and map only, and never on a phone: same reasoning as `GpsReleasePrompt`.
  */
 
 type Trigger = "assigned" | "returned"
@@ -59,6 +60,7 @@ export function PickupDonePrompt() {
   const t = useTranslations("feld.pickupPrompt")
   const tPickup = useTranslations("feld.pickup")
   const { isEditor } = useAuth()
+  const isPhone = useIsMobile()
   const pathname = usePathname()
   const { operations, refreshOperations } = useOperations()
 
@@ -69,7 +71,7 @@ export function PickupDonePrompt() {
   /** Vehicle ids per incident as of the previous render, to spot a new one. */
   const vehiclesRef = useRef<Map<string, Set<string>> | null>(null)
 
-  const onOperatorPage = pathname === "/" || pathname === "/map"
+  const onOperatorPage = !isPhone && (pathname === "/" || pathname === "/map")
   const active = isEditor && onOperatorPage && isDemo === false
 
   useEffect(() => {

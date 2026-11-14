@@ -11,6 +11,7 @@ import { Kbd } from '@/components/ui/kbd'
 import { LoadingStatus } from '@/components/ui/shell-loader'
 import { TrainingBadge } from '@/components/training-mode-chrome'
 import { useEvent } from '@/lib/contexts/event-context'
+import { useIsMobile } from '@/components/ui/use-mobile'
 import { recentOpenEvents } from '@/lib/recent-events'
 import type { Event } from '@/lib/types/incidents'
 
@@ -20,6 +21,10 @@ import type { Event } from '@/lib/types/incidents'
  * one carries the ink «Öffnen» and ↵ (UX-DESKTOP-06 – at 3 am the loudest button must not
  * split the storm evening into two Ereignisse). None → the fallback card, where «Neues
  * Ereignis» is the main action. Rendered by `app/page.tsx` only.
+ *
+ * On a phone there is no «Neues Ereignis» (owner, 14.11.2026: the phone only switches the
+ * Ereignis – it is opened on the desk), so the fallback card's main action is «Ereignisse
+ * anzeigen» and its line says where a new one is opened.
  */
 export function EventSelectionEmptyState() {
   const t = useTranslations('events')
@@ -28,6 +33,7 @@ export function EventSelectionEmptyState() {
   const now = useNow({ updateInterval: 60_000 })
   const router = useRouter()
   const { events, isLoading, setSelectedEvent } = useEvent()
+  const canCreate = !useIsMobile()
 
   const recent = useMemo(() => recentOpenEvents(events, now), [events, now])
   const first = recent[0]
@@ -112,10 +118,12 @@ export function EventSelectionEmptyState() {
             </ul>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" onClick={() => router.push('/events?action=create')}>
-                <Plus className="size-4" />
-                {t('emptyState.createButton')}
-              </Button>
+              {canCreate && (
+                <Button variant="outline" onClick={() => router.push('/events?action=create')}>
+                  <Plus className="size-4" />
+                  {t('emptyState.createButton')}
+                </Button>
+              )}
               <Button variant="ghost" className="ml-auto" onClick={() => router.push('/events')}>
                 {t('emptyState.allEvents')}
                 <ChevronRight className="size-4" />
@@ -136,15 +144,24 @@ export function EventSelectionEmptyState() {
 
             <div className="space-y-3">
               <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('emptyState.title')}</h1>
-              <p className="mx-auto max-w-md text-base text-muted-foreground">{t('emptyState.description')}</p>
+              <p className="mx-auto max-w-md text-base text-muted-foreground">
+                {t(canCreate ? 'emptyState.description' : 'emptyState.descriptionPhone')}
+              </p>
             </div>
 
             <div className="flex flex-col justify-center gap-3 pt-2 sm:flex-row">
-              <Button size="lg" className="min-h-[52px] hover-delight" onClick={() => router.push('/events?action=create')}>
-                <Plus className="size-4" />
-                {t('emptyState.createButton')}
-              </Button>
-              <Button size="lg" variant="outline" className="min-h-[52px] hover-delight" onClick={() => router.push('/events')}>
+              {canCreate && (
+                <Button size="lg" className="min-h-[52px] hover-delight" onClick={() => router.push('/events?action=create')}>
+                  <Plus className="size-4" />
+                  {t('emptyState.createButton')}
+                </Button>
+              )}
+              <Button
+                size="lg"
+                variant={canCreate ? 'outline' : 'default'}
+                className="min-h-[52px] hover-delight"
+                onClick={() => router.push('/events')}
+              >
                 {t('emptyState.viewButton')}
                 <ChevronRight className="size-4" />
               </Button>

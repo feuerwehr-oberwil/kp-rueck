@@ -5,12 +5,11 @@ import { useTranslations } from "next-intl"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { SearchInput } from "@/components/ui/search-input"
 import { compareByRankThenName } from "@/lib/roster-order"
-import { Badge } from "@/components/ui/badge"
 import { Users } from "lucide-react"
 import { type Person, type Operation } from "@/lib/contexts/operations-context"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
-import { RESOURCE_STATE_DOT_CLASSES, RESOURCE_STATE_BADGE_CLASSES } from "@/lib/resource-status"
+import { RESOURCE_STATE_DOT_CLASSES } from "@/lib/resource-status"
 import { CrewDutyButton } from "@/components/kanban/crew-duty-sheet"
 
 interface MobilePersonnelSheetProps {
@@ -108,63 +107,28 @@ export function MobilePersonnelSheet({
               <div className="space-y-1.5">
                 {people.map((person) => {
                   const assignedTo = getAssignedIncident(person)
+                  // Line 2, the facts (the new Appell's pattern): where, the state in a word
+                  // (the dot is never the only sign), Reko, the tags. It wraps; nothing beside the
+                  // name takes its width any more – a badge there cut «Bendik-Dimitrijević …».
+                  const facts = [assignedTo, t(`state.${person.status}`), person.isReko && t("rekoBadge"), ...(person.tags ?? [])]
+                    .filter(Boolean)
+                    .join(" · ")
                   return (
                     <div
                       key={person.id}
-                      className="flex items-center gap-3 rounded-lg px-3 py-2.5 bg-card border"
+                      className="flex items-start gap-3 rounded-lg px-3 py-2.5 bg-card border"
                     >
-                      {/* Status indicator */}
+                      {/* Status indicator, centred on the name's first line */}
                       <div
                         className={cn(
-                          "h-2.5 w-2.5 rounded-full flex-shrink-0",
+                          "mt-1.5 h-2.5 w-2.5 rounded-full flex-shrink-0",
                           RESOURCE_STATE_DOT_CLASSES[person.status]
                         )}
                       />
-
-                      {/* Name and info */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium truncate" title={person.name}>
-                            {person.name}
-                          </span>
-                          {person.isReko && (
-                            <Badge variant="outline" className="text-xs px-1.5 py-0 h-5">
-                              {t("rekoBadge")}
-                            </Badge>
-                          )}
-                        </div>
-                        {assignedTo && (
-                          <p className="text-xs text-muted-foreground truncate mt-0.5" title={assignedTo}>
-                            {assignedTo}
-                          </p>
-                        )}
+                        <p className="text-sm font-medium break-words">{person.name}</p>
+                        <p className="mt-0.5 font-mono text-xs text-muted-foreground break-words">{facts}</p>
                       </div>
-
-                      {/* Tags */}
-                      {person.tags && person.tags.length > 0 && (
-                        <div className="flex gap-1 flex-shrink-0">
-                          {person.tags.map((tag, idx) => (
-                            <Badge
-                              key={idx}
-                              variant="secondary"
-                              className="text-xs px-1.5 py-0 h-5"
-                            >
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Status badge */}
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "text-xs flex-shrink-0",
-                          RESOURCE_STATE_BADGE_CLASSES[person.status]
-                        )}
-                      >
-                        {person.status === "available" ? t("available") : t("assigned")}
-                      </Badge>
                     </div>
                   )
                 })}

@@ -100,17 +100,29 @@ def _incident_type(category: str) -> schemas.IncidentType:
 INCIDENT_TYPE_MAPPING = {keyword: _incident_type(category) for keyword, category in KEYWORD_TO_CATEGORY}
 
 
+def _einsatzart(title: str | None) -> str:
+    """The part of an alarm title the keywords are matched against: up to the first comma.
+
+    fwo-divera titles an alarm «Verunreinigung, Allschwilerstrasse» – Einsatzart, then the
+    street (the Gemeinde for Nachbarhilfe) – and street names carry keywords: «Bahnhofstrasse»
+    holds BAHN, «Kaibmattweg» holds BMA. A title without a comma is matched whole. There is
+    deliberately no whole-title retry when the Einsatzart matches nothing: that retry would
+    hand exactly those alarms back to the street names.
+    """
+    return (title or "").partition(",")[0]
+
+
 def detect_incident_type(title: str) -> schemas.IncidentType:
     """
-    Detect incident type from Divera title.
+    Detect incident type from the Einsatzart of a Divera title (see `_einsatzart`).
 
     Args:
-        title: Divera alarm title (e.g., "FEUER3", "THL-VERKEHR")
+        title: Divera alarm title (e.g., "FEUER3", "Verunreinigung, Allschwilerstrasse")
 
     Returns:
         Detected IncidentType, defaults to DIVERSE_EINSAETZE if no match
     """
-    title_upper = title.upper()
+    title_upper = _einsatzart(title).upper()
 
     for keyword, incident_type in INCIDENT_TYPE_MAPPING.items():
         if keyword in title_upper:
@@ -155,14 +167,15 @@ def infer_priority_from_text(title: str, text: str | None = None) -> schemas.Inc
     Everything else defaults to LOW. Only life-threatening situations are HIGH.
 
     Args:
-        title: Incident title (e.g., "Wohnungsbrand", "BMA Schulhaus")
+        title: Incident title (e.g., "Wohnungsbrand", "BMA Schulhaus"); only its Einsatzart
+            is read (see `_einsatzart`), so «Wasserschaden, Kaibmattweg 3» is not a BMA
         text: Optional incident description/text
 
     Returns:
         IncidentPriority.HIGH for critical situations, LOW otherwise
     """
-    # Combine title and text for keyword search
-    combined = f"{title} {text or ''}".upper()
+    # Combine the title's Einsatzart and the text for keyword search
+    combined = f"{_einsatzart(title)} {text or ''}".upper()
 
     # The list — grouped and annotated — lives in app/data/alarm_keywords.json, shared with
     # kp-front. Any match makes the alarm HIGH, so order carries no meaning here.

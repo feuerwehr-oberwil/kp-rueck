@@ -445,8 +445,9 @@ function CrewDutyRow({
         {entry.now ?? t("free")}
       </span>
 
-      {/* Phone: one quiet line under the name — seit · Pause · Einsätze · jetzt. */}
-      <span className="col-span-2 mt-0.5 min-w-0 truncate text-xs text-muted-foreground sm:hidden">
+      {/* Phone: one quiet line under the name — seit · Pause · Einsätze · jetzt. It wraps: «jetzt»
+          (where the person is) comes last and is the fact you opened this for (phone sweep 14.11.). */}
+      <span className="col-span-2 mt-0.5 min-w-0 break-words text-xs text-muted-foreground sm:hidden">
         {[
           duty ? t("since", { time: duty.since }) : null,
           entry.pause !== null ? t("pauseShort", { duration: minutes(entry.pause) }) : null,

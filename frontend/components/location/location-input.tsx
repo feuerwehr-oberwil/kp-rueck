@@ -10,6 +10,10 @@
  *
  * Changes to this component automatically apply everywhere it's used.
  * Ensure backward compatibility when modifying props or behavior.
+ *
+ * «Hier» (`locateHere`): one GPS fix → reverse geocode → address + coordinates, said under the
+ * field as «aus GPS · ±8 m». Phone or touch only, where the operator is standing at the place
+ * (owner pick 5A, 14.11.2026 – KP Front's pattern).
  */
 
 import { useState, useEffect, useRef, type ReactNode } from "react"
@@ -20,11 +24,15 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { SHEET_LAYER_ATTR } from "@/components/ui/footer-sheet"
-import { MapPin, Check, AlertCircle, ArrowUpDown, X, Map, Navigation } from "lucide-react"
+import { MapPin, Check, AlertCircle, ArrowUpDown, X, Map, Navigation, LocateFixed } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DENSE_CONTROL } from "@/components/kanban/detail-field"
 import { useStackedFields } from "@/components/ui/use-stacked-fields"
-import { searchAddress, geocodeAddress } from "@/lib/geocoding"
+import { searchAddress, geocodeAddress, reverseGeocode } from "@/lib/geocoding"
+import { getDevicePosition, type PositionFailure } from "@/lib/device-position"
+import { useMediaQuery } from "@/lib/hooks/use-media-query"
+import { FormMessage } from "@/components/ui/form-message"
+import { ShellLoader } from "@/components/ui/shell-loader"
 import { parseCoordinates, checkRegion } from "@/lib/coordinate-parser"
 import type { SearchResult } from "@/lib/geocoding"
 import { apiClient } from "@/lib/api-client"
@@ -71,7 +79,19 @@ interface LocationInputProps {
   required?: boolean
   /** What the address field is called where it is not an Einsatzort (the Magazin's location). */
   label?: string
+  /** Offer «Hier» (a GPS fix) at the field's right end – shown only on a phone or touch device
+   *  whose browser has geolocation. «Neuer Einsatz» opts in; /feld has its own button. */
+  locateHere?: boolean
 }
+
+/** Phone width or a finger: where the operator may be standing at the Einsatzort. */
+const PHONE_OR_TOUCH_QUERY = "(max-width: 767px), (pointer: coarse)"
+
+/** What «Hier» last did, and for which value of the field: it is said only while the field
+ *  still holds exactly that – any other edit makes it history. */
+type LocateNote =
+  | { kind: "fix"; accuracy: number; address: string | null; lat: number; lon: number }
+  | { kind: "problem"; problem: PositionFailure | "noAddress"; address: string | null; lat: number | null; lon: number | null }
 
 export function LocationInput({
   address,
@@ -89,6 +109,7 @@ export function LocationInput({
   boxed = false,
   required = false,
   label,
+  locateHere = false,
 }: LocationInputProps) {
   const t = useTranslations('map')
   const stackedOnPhone = useStackedFields()
@@ -106,6 +127,11 @@ export function LocationInput({
   const [parseSuccess, setParseSuccess] = useState<string | null>(null)
   const [stationCenter, setStationCenter] = useState<[number, number] | null>(null)
   const [countryCodes, setCountryCodes] = useState<string | null>(null)
+  const phoneOrTouch = useMediaQuery(PHONE_OR_TOUCH_QUERY, false)
+  // The media query answers false on the server and while hydrating, so this never mismatches.
+  const canLocate = locateHere && phoneOrTouch && typeof navigator !== "undefined" && !!navigator.geolocation
+  const [locating, setLocating] = useState(false)
+  const [locateNote, setLocateNote] = useState<LocateNote | null>(null)
 
   // Which result the keyboard is on. -1 = none, and Enter then commits the typed
   // text as freetext — the board is operated at speed, and reaching for the mouse
@@ -288,8 +314,11 @@ export function LocationInput({
     // pointing at the old spot. Cleared only when the text actually changed;
     // re-committing the same address (a blur, a stray Enter) must not throw
     // away a pin that was picked on the map. If the geocoder does know the new
-    // text after all, the geocode effect above sets a fresh pin.
-    if (text !== (address ?? "").trim()) onCoordinatesChange(null, null)
+    // text after all, the geocode effect above sets a fresh pin. A pin set while the field
+    // was EMPTY («Hier», or the map with no address found) belonged to no address: the
+    // street typed now names it, and the pin stays.
+    const previous = (address ?? "").trim()
+    if (previous && text !== previous) onCoordinatesChange(null, null)
     onAddressChange(text)
     setEditing(false)
     setAddressSearchOpen(false)
@@ -379,6 +408,49 @@ export function LocationInput({
     }
   }
 
+  /** «Hier»: the device's position becomes the Einsatzort, in words and as a pin. */
+  const handleLocate = async () => {
+    if (locating) return
+    const addressAtTap = address
+    setLocating(true)
+    setLocateNote(null)
+    const fix = await getDevicePosition()
+    const label = fix.ok ? await reverseGeocode(fix.lat, fix.lon) : null
+    setLocating(false)
+    // Somebody typed or picked an address while the fix was on its way: theirs stands.
+    if (geocodeInputsRef.current.address !== addressAtTap) return
+    if (!fix.ok) {
+      const now = geocodeInputsRef.current
+      setLocateNote({ kind: "problem", problem: fix.reason, address: now.address, lat: now.latitude, lon: now.longitude })
+      return
+    }
+    onCoordinatesChange(fix.lat, fix.lon)
+    if (!label) {
+      // The pin is right; the street is for the operator to say.
+      setLocateNote({ kind: "problem", problem: "noAddress", address: addressAtTap, lat: fix.lat, lon: fix.lon })
+      return
+    }
+    onAddressChange(label)
+    setEditing(false)
+    setAddressSearchOpen(false)
+    setAddressSearchQuery(label)
+    setLocateNote({ kind: "fix", accuracy: fix.accuracy, address: label, lat: fix.lat, lon: fix.lon })
+  }
+
+  const currentNote =
+    locateNote && locateNote.address === address && locateNote.lat === latitude && locateNote.lon === longitude
+      ? locateNote
+      : null
+
+  const locateProblemText = (problem: PositionFailure | "noAddress") => {
+    switch (problem) {
+      case "denied": return t('locationInput.locateDenied')
+      case "timeout": return t('locationInput.locateTimeout')
+      case "noAddress": return t('locationInput.locateNoAddress')
+      default: return t('locationInput.locateUnavailable')
+    }
+  }
+
   const hasValidCoordinates =
     latitude !== null &&
     longitude !== null &&
@@ -419,6 +491,23 @@ export function LocationInput({
       >
         <Navigation className={dense || boxed ? "size-3.5" : "size-4"} />
       </Button>
+      {/* «Hier» at the right end, as in KP Front. In the tab order, unlike the two above: on a
+          phone it is the fastest way to fill the field. */}
+      {canLocate && (
+        <Button
+          type="button"
+          variant={dense || boxed ? "ghost" : "outline"}
+          size={dense || boxed ? "icon-xs" : "icon"}
+          className={cn((dense || boxed) && "size-7")}
+          onClick={handleLocate}
+          disabled={disabled}
+          aria-busy={locating}
+          aria-label={locating ? t('locationInput.locating') : t('locationInput.locateHere')}
+          title={t('locationInput.locateHere')}
+        >
+          {locating ? <ShellLoader /> : <LocateFixed className={dense || boxed ? "size-3.5" : "size-4"} />}
+        </Button>
+      )}
     </>
   )
 
@@ -536,7 +625,9 @@ export function LocationInput({
                     // its resting border: every value around it read as
                     // editable and the Einsatzort read as printed text.
                     dense && !boxed && DENSE_CONTROL,
-                    boxed && "pr-16",
+                    // Room for the buttons inside the field: 32px each, 44px under the phone's
+                    // touch rule (globals.css, ≤768px) – the text must end before them.
+                    boxed && (canLocate ? "pr-28 max-[769px]:pr-36" : "pr-16 max-[769px]:pr-24"),
                     // The hover/focus variants have to be beaten in kind:
                     // `DENSE_CONTROL` sets `hover:border-border` and
                     // `focus-visible:border-border`, and an unprefixed
@@ -674,6 +765,18 @@ export function LocationInput({
           {extraAction}
         </div>
       </div>
+
+      {/* What «Hier» did – under the field, never a toast. */}
+      {currentNote?.kind === "fix" && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {t('locationInput.fromGps', { meters: Math.max(1, Math.round(currentNote.accuracy)) })}
+        </p>
+      )}
+      {currentNote?.kind === "problem" && (
+        <FormMessage tone="advice" className="mt-1">
+          {locateProblemText(currentNote.problem)}
+        </FormMessage>
+      )}
 
       {/* Coordinates Input - Hidden by default, shown when button clicked.
           The margin exists only while open — see the wrapper note above. */}
