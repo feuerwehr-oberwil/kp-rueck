@@ -826,8 +826,7 @@
       "arrivedAt": "Arrivé : {time}",
       "arrivedAtAuto": "Arrivé (GPS) : {time}",
       "completeAt": "Intervention terminée : {time}",
-      "rapportTitle": "Rapport de place sinistrée",
-      "kpStatus": "PC : {status}"
+      "rapportTitle": "Rapport de place sinistrée"
     },
     "actions": {
       "title": "Statut au PC",
@@ -843,7 +842,7 @@
       "confirmCompleteYes": "Oui, terminée",
       "message": "Annonce",
       "messageTitle": "Annonce au PC",
-      "messagePlaceholder": "Écrire une brève annonce …",
+      "messagePlaceholder": "Texte libre …",
       "failed": "Envoi impossible – le texte est conservé. Vérifie la liaison.",
       "sending": "Envoi de « {label} » …",
       "sent": "« {label} » est arrivée au PC.",
@@ -952,25 +951,21 @@
         "leftOnSite": "resté sur place",
         "leftOnSiteAria": "Resté sur place : {name}",
         "extraLabel": "Autre matériel utilisé",
-        "extraPlaceholder": "Pas au catalogue ? Tape-le ici, sépare par des virgules",
         "extraSearchPlaceholder": "Rechercher du matériel",
-        "extraNoneFound": "Rien trouvé – tape-le simplement ci-dessous.",
         "extraRemove": "Retirer {name}",
         "extraLeftOnSiteHint": "Passe sur la liste de récupération. Pas dans « Matériel de retour – libérer » : ce sont des noms, pas du matériel saisi.",
-        "extraShowAll": "Afficher le catalogue ({count})",
-        "extraHideAll": "Masquer le catalogue"
+        "add": "Ajouter du matériel",
+        "addTyped": "Ajouter « {name} »"
       },
       "vehicles": {
         "present": "était là",
         "presentAria": "Était là : {name}",
         "empty": "Aucun véhicule engagé.",
         "searchPlaceholder": "Rechercher un véhicule",
-        "showRest": "Tout le parc ({count})",
-        "hideRest": "Masquer le parc",
-        "noMatch": "Aucun véhicule trouvé",
         "dispatchedLabel": "Engagés sur ce lieu d’intervention",
-        "addLabel": "Quel autre véhicule était là",
-        "removeAria": "Retirer {name}"
+        "addLabel": "Également présents",
+        "removeAria": "Retirer {name}",
+        "add": "Ajouter un véhicule"
       },
       "kurzberichtPlaceholder": "Situation, activité, matériel",
       "handedOverTo": "Place sinistrée remise à",
@@ -1022,16 +1017,14 @@
         "presentAria": "Était là : {name}",
         "empty": "Le tableau n’a affecté personne ici.",
         "searchPlaceholder": "Rechercher une personne",
-        "showRest": "Autres personnes ({count})",
-        "hideRest": "Masquer les autres personnes",
-        "noMatch": "Aucune personne trouvée",
-        "extraNamePlaceholder": "Autre personne (nom)",
-        "extraNotePlaceholder": "Note, p. ex. SP Allschwil",
-        "addExtra": "Ajouter",
         "removeAria": "Retirer {name}",
         "dispatchedLabel": "Convoqués sur ce lieu d’intervention",
-        "addLabel": "Qui d’autre était là",
-        "checkedIn": "annoncé"
+        "addLabel": "Également présents",
+        "add": "Ajouter une personne",
+        "addGuest": "Ajouter « {name} » comme invité",
+        "guest": "Invité",
+        "groupCheckedIn": "Annoncés aujourd’hui",
+        "groupAll": "Tous"
       },
       "summary": {
         "material": "{count, plural, one {# position} other {# positions}}",
@@ -1044,6 +1037,12 @@
         "personnelEmpty": "personne de saisi",
         "vehicles": "{count, plural, one {# véhicule} other {# véhicules}}",
         "vehiclesEmpty": "aucun véhicule"
+      },
+      "picker": {
+        "done": "Terminé ({count})",
+        "noMatch": "Aucun résultat pour « {query} ».",
+        "clearSearch": "Effacer la recherche",
+        "nothingLeft": "Plus rien à ajouter."
       }
     },
     "materialReturn": {
@@ -1193,15 +1192,6 @@
       "stateDone": "Terminé",
       "edit": "Modifier",
       "stateMerged": "Fusionné dans {label}"
-    },
-    "kpStatus": {
-      "incoming": "Reçu",
-      "reko": "Reconnaissance",
-      "reko_done": "Reconnaissance terminée",
-      "enroute": "Engagé / en route",
-      "active": "En intervention",
-      "returning": "Retour",
-      "complete": "Clôturé"
     },
     "kpMessages": {
       "title": "Messages du PC",

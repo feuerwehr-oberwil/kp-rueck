@@ -2,10 +2,17 @@
 
 import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
-import { User } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 
 import { LINK_PAGE_HEADER_CLASS, LINK_PAGE_HEADER_ROW_CLASS } from '@/components/link-page/link-page'
-import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { clearCookie, readCookie, writeCookie } from '@/lib/cookie'
 
 /**
@@ -35,26 +42,72 @@ export function clearFeldName() {
 }
 
 /**
- * Who this phone is, always on screen.
+ * «Sa 14.11.» — the Ereignis' day for the header's second line, in the device's
+ * language (`intlLocale` from `useIntlLocale`). The date is the Ereignis' own
+ * (when it was opened), not today's, so a night that runs past midnight keeps
+ * its date. `''` when there is none or it does not parse.
+ */
+export function formatEventDay(value: string | null | undefined, intlLocale: string): string {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  // de-CH writes «Sa», fr-CH «sam.» — the dot goes, the day and the date read as one word pair.
+  const weekday = date.toLocaleDateString(intlLocale, { weekday: 'short' }).replace(/\.$/, '')
+  const day = date.toLocaleDateString(intlLocale, { day: '2-digit', month: '2-digit' })
+  return `${weekday} ${day}`
+}
+
+/**
+ * Who this phone is, always on screen — the /feld header (owner pick 1A, 14.11.2026).
  *
  * The page is login-less and gets handed around a vehicle, so "which crew am I
- * looking at" is a real question — and it used to be answerable only on the
- * list, which is exactly where somebody is *not* when they are filing. It rides
- * along into the detail view for that reason.
+ * looking at" is a real question on every screen, the detail four taps deep
+ * included. The bar is meta only, one row high: the way back (`children`), the
+ * name over one quiet line («Sturm Oberwil · Sa 14.11.»), and `trailing` on the
+ * right — /feld puts the ink «+» for «Neuer Schadenplatz» there. Everything
+ * about the Schadenplatz itself is in the page's main card, not up here.
+ *
+ * With `onNotMe` the name is a menu: what this person was given tonight
+ * (`roleLine`, «Fahrer TLF 1») and «Nicht ich». /reko passes neither and gets
+ * the plain name.
  */
 export function FeldIdentityBar({
   name,
   subtitle,
+  roleLine,
   onNotMe,
+  trailing,
   children,
 }: {
   name: string
   subtitle?: string | null
+  /** What the KP gave this person tonight — shown at the top of the name menu. */
+  roleLine?: string | null
   onNotMe?: () => void
+  /** Right-hand control: the «Neuer Schadenplatz» button on /feld. */
+  trailing?: ReactNode
   /** Leading control — the detail view puts its back button here. */
   children?: ReactNode
 }) {
   const t = useTranslations('feld')
+  // Fixed height whether or not the name has arrived. The bar is the topmost
+  // thing on the page, so anything that grows here pushes the whole list down
+  // after the first paint.
+  const nameLine = name ? (
+    <span className="flex min-w-0 items-center gap-1">
+      <span className="truncate text-sm font-semibold leading-tight">{name}</span>
+      {onNotMe && <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />}
+    </span>
+  ) : (
+    <span className="block h-3.5 w-24 rounded bg-muted" aria-hidden />
+  )
+  const lines = (
+    <>
+      {nameLine}
+      {subtitle && <span className="block truncate text-xs text-muted-foreground">{subtitle}</span>}
+    </>
+  )
+
   return (
     // Opaque, no backdrop blur: the bar is the first row under the status bar of the home-screen
     // app, and a frosted bar there read as a blurred strip at the top of the screen whenever the
@@ -62,27 +115,32 @@ export function FeldIdentityBar({
     <div className={LINK_PAGE_HEADER_CLASS}>
       <div className={LINK_PAGE_HEADER_ROW_CLASS}>
         {children}
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted">
-            <User className="size-3.5 text-muted-foreground" />
-          </div>
-          {/* Fixed height whether or not the name has arrived. The bar is the
-              topmost thing on the page, so anything that grows here pushes the
-              whole list down after the first paint. */}
-          <div className="min-w-0 flex h-8 flex-col justify-center">
-            {name ? (
-              <div className="truncate text-sm font-semibold leading-tight">{name}</div>
-            ) : (
-              <div className="h-3.5 w-24 rounded bg-muted" aria-hidden />
-            )}
-            {subtitle && <div className="truncate text-xs text-muted-foreground">{subtitle}</div>}
-          </div>
-        </div>
-        {onNotMe && (
-          <Button variant="ghost" size="sm" onClick={onNotMe} className="min-h-11 shrink-0">
-            {t('assignments.notMe')}
-          </Button>
+        {onNotMe && name ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="-mx-1.5 flex min-h-11 min-w-0 flex-1 cursor-pointer flex-col justify-center rounded-md px-1.5 text-left"
+              >
+                {lines}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-56">
+              {roleLine && (
+                <>
+                  <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{roleLine}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              <DropdownMenuItem className="min-h-11" onSelect={onNotMe}>
+                {t('assignments.notMe')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <div className="flex min-h-11 min-w-0 flex-1 flex-col justify-center">{lines}</div>
         )}
+        {trailing}
       </div>
     </div>
   )

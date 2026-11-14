@@ -24417,6 +24417,11 @@
             "type": "string",
             "title": "Event Name"
           },
+          "event_started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Event Started At"
+          },
           "assignments": {
             "items": {
               "$ref": "#/components/schemas/FeldAssignment"
@@ -24463,6 +24468,7 @@
           "personnel_name",
           "event_id",
           "event_name",
+          "event_started_at",
           "assignments"
         ],
         "title": "FeldAssignmentsResponse",

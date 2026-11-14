@@ -130,3 +130,27 @@ export function incidentHasRapport(assignment: ApiFeldAssignment): boolean {
 export function assignmentRapportApplies(assignment: ApiFeldAssignment): boolean {
   return assignment.source === 'crew' && incidentHasRapport(assignment)
 }
+
+/**
+ * The line under the detail's address: «Diverse Einsätze · Türöffnung».
+ *
+ * The Einsatzart always; the dispatcher's title only when it adds something —
+ * not when it is empty, repeats the Einsatzart, or is already the headline (a
+ * Schadenplatz without an address shows its title up there instead).
+ */
+export function einsatzartLine(typeLabel: string, title: string | null | undefined, headline: string): string {
+  const said = (text: string) => text.trim().toLowerCase()
+  const extra = (title ?? '').trim()
+  const addsSomething = extra && said(extra) !== said(typeLabel) && said(extra) !== said(headline)
+  return addsSomething ? `${typeLabel} · ${extra}` : typeLabel
+}
+
+/**
+ * An address whose house number cannot be wrapped away from its street:
+ * «Mühlemattstrasse 18» breaks before the street or after the number, never
+ * between them. A no-break space goes between a word and the number after it;
+ * the postcode after a comma («…, 4104 Oberwil») keeps its ordinary space.
+ */
+export function keepHouseNumber(address: string): string {
+  return address.replace(/([\p{L}.]) (\d)/gu, '$1 $2')
+}

@@ -55,8 +55,10 @@ describe('FeldVehicleChecklist', () => {
     const onChange = vi.fn()
     render({ candidates: [candidate()], onChange })
 
-    await userEvent.click(screen.getByRole('button', { name: /\(1\)/ }))
-    await userEvent.click(screen.getByRole('button', { name: 'ADL Oberwil' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Fahrzeug hinzufügen' }))
+    const sheet = await screen.findByRole('dialog')
+    await userEvent.click(within(sheet).getByRole('button', { name: 'ADL Oberwil' }))
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Fertig (1)' }))
 
     expect(onChange).toHaveBeenCalledWith([
       expect.objectContaining({ vehicle_id: 'f1' }),
@@ -80,13 +82,14 @@ describe('FeldVehicleChecklist', () => {
     ])
   })
 
-  it('hides a removed row and offers the vehicle again', () => {
+  it('hides a removed row and offers the vehicle again', async () => {
     render({
       rows: [vehicle(), vehicle({ vehicle_id: 'c1', name: 'ADL Oberwil', present: false, on_board: false })],
       candidates: [candidate()],
     })
     expect(screen.queryByText('ADL Oberwil')).toBeNull()
-    expect(screen.getByRole('button', { name: /\(1\)/ })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Fahrzeug hinzufügen' }))
+    expect(within(await screen.findByRole('dialog')).getByRole('button', { name: 'ADL Oberwil' })).toBeInTheDocument()
   })
 
   it('says so when the board disponiert nothing — and keeps the fleet folded', () => {
@@ -96,33 +99,23 @@ describe('FeldVehicleChecklist', () => {
     expect(screen.queryByRole('button', { name: 'ADL Oberwil' })).not.toBeInTheDocument()
   })
 
-  it('does not offer a tick to a read-only mount', () => {
-    render({ disabled: true })
+  it('does not offer a tick or the picker to a read-only mount', () => {
+    render({ disabled: true, candidates: [candidate()] })
     expect(screen.getByRole('checkbox', { name: /TLF Oberwil/ })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Fahrzeug hinzufügen' })).not.toBeInTheDocument()
   })
 
-  it('folds a 30-vehicle fleet away and says how many are behind it', async () => {
-    const candidates = Array.from({ length: 28 }, (_, i) =>
-      candidate({ vehicle_id: `x${i}`, name: `Anhänger ${i}` }),
-    )
-    render({ rows: [vehicle(), vehicle({ vehicle_id: 'f2', name: 'MTW Oberwil' })], candidates })
-
-    expect(screen.getByRole('checkbox', { name: /TLF Oberwil/ })).toBeChecked()
-    expect(screen.queryByRole('button', { name: 'Anhänger 7' })).not.toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: /\(28\)/ }))
-    expect(screen.getByRole('button', { name: 'Anhänger 7' })).toBeInTheDocument()
+  it('offers no typed vehicle: a rapport row is a fleet vehicle or nothing', async () => {
+    render({ candidates: [candidate()] })
+    await userEvent.click(screen.getByRole('button', { name: 'Fahrzeug hinzufügen' }))
+    const sheet = await screen.findByRole('dialog')
+    await userEvent.type(within(sheet).getByPlaceholderText('Fahrzeug suchen'), 'Pikett-Auto')
+    expect(within(sheet).queryByRole('button', { name: /hinzufügen/ })).not.toBeInTheDocument()
+    expect(within(sheet).getByText('Keine Treffer für «Pikett-Auto».')).toBeInTheDocument()
   })
 
-  it('searches the whole fleet without expanding it first', async () => {
-    const candidates = Array.from({ length: 29 }, (_, i) =>
-      candidate({ vehicle_id: `x${i}`, name: `Anhänger ${i}` }),
-    )
-    render({ candidates })
-
-    await userEvent.type(screen.getByPlaceholderText('Fahrzeug suchen'), 'Anhänger 12')
-    expect(screen.getByRole('button', { name: 'Anhänger 12' })).toBeInTheDocument()
-    // …and the answer the crew already gave stays on screen while they search.
-    expect(screen.getByRole('checkbox', { name: /TLF Oberwil/ })).toBeChecked()
+  it('has no button when the whole fleet is already on the list', () => {
+    render({ candidates: [] })
+    expect(screen.queryByRole('button', { name: 'Fahrzeug hinzufügen' })).not.toBeInTheDocument()
   })
 })

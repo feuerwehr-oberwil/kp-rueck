@@ -295,6 +295,8 @@ export interface ApiFeldAssignmentsResponse {
   reports?: ApiFeldOwnReport[]
   event_id: string
   event_name: string
+  /** When the Ereignis was opened — the header's «Sa 14.11.». */
+  event_started_at: string
   assignments: ApiFeldAssignment[]
   /**
    * The station's Freitext-Meldung chips. Station config, NOT i18n

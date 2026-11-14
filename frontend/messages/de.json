@@ -4061,8 +4061,7 @@
       "arrivedAt": "Angekommen: {time}",
       "arrivedAtAuto": "Angekommen (GPS): {time}",
       "completeAt": "Einsatz beendet: {time}",
-      "rapportTitle": "Schadenplatz-Rapport",
-      "kpStatus": "KP: {status}"
+      "rapportTitle": "Schadenplatz-Rapport"
     },
     "actions": {
       "title": "Status an den KP",
@@ -4078,7 +4077,7 @@
       "confirmCompleteYes": "Ja, beendet",
       "message": "Meldung",
       "messageTitle": "Meldung an den KP",
-      "messagePlaceholder": "Kurze Meldung schreiben …",
+      "messagePlaceholder": "Eigener Text …",
       "failed": "Konnte nicht gesendet werden – der Text bleibt erhalten. Verbindung prüfen.",
       "sending": "«{label}» wird gesendet …",
       "sent": "«{label}» ist beim KP angekommen.",
@@ -4187,25 +4186,21 @@
         "leftOnSite": "vor Ort verblieben",
         "leftOnSiteAria": "Vor Ort verblieben: {name}",
         "extraLabel": "Weiteres gebrauchtes Material",
-        "extraPlaceholder": "Nicht im Katalog? Hier eintippen, mit Komma trennen",
         "extraSearchPlaceholder": "Material suchen",
-        "extraNoneFound": "Nichts gefunden – einfach unten eintippen.",
         "extraRemove": "{name} entfernen",
         "extraLeftOnSiteHint": "Kommt auf die Abholliste. Nicht bei «Material zurück – freigeben»: das sind Namen, kein erfasstes Material.",
-        "extraShowAll": "Katalog anzeigen ({count})",
-        "extraHideAll": "Katalog ausblenden"
+        "add": "Material hinzufügen",
+        "addTyped": "«{name}» hinzufügen"
       },
       "vehicles": {
         "present": "war dabei",
         "presentAria": "War dabei: {name}",
         "empty": "Kein Fahrzeug disponiert.",
         "searchPlaceholder": "Fahrzeug suchen",
-        "showRest": "Ganze Flotte ({count})",
-        "hideRest": "Flotte ausblenden",
-        "noMatch": "Kein Fahrzeug gefunden",
         "dispatchedLabel": "Disponiert auf diesen Schadenplatz",
-        "addLabel": "Welches Fahrzeug sonst noch dabei war",
-        "removeAria": "{name} entfernen"
+        "addLabel": "Zusätzlich dabei",
+        "removeAria": "{name} entfernen",
+        "add": "Fahrzeug hinzufügen"
       },
       "kurzberichtPlaceholder": "Lage, Tätigkeit, Material",
       "handedOverTo": "Schadenplatz übergeben an",
@@ -4257,16 +4252,14 @@
         "presentAria": "War dabei: {name}",
         "empty": "Das Board hat hierher niemanden zugewiesen.",
         "searchPlaceholder": "Person suchen",
-        "showRest": "Weitere Personen ({count})",
-        "hideRest": "Weitere Personen ausblenden",
-        "noMatch": "Keine Person gefunden",
-        "extraNamePlaceholder": "Weitere Person (Name)",
-        "extraNotePlaceholder": "Notiz, z. B. FW Allschwil",
-        "addExtra": "Hinzufügen",
         "removeAria": "{name} entfernen",
         "dispatchedLabel": "Aufgeboten auf diesen Schadenplatz",
-        "addLabel": "Wer sonst noch dabei war",
-        "checkedIn": "angemeldet"
+        "addLabel": "Zusätzlich dabei",
+        "add": "Person hinzufügen",
+        "addGuest": "«{name}» als Gast hinzufügen",
+        "guest": "Gast",
+        "groupCheckedIn": "Heute angemeldet",
+        "groupAll": "Alle"
       },
       "summary": {
         "material": "{count, plural, one {# Position} other {# Positionen}}",
@@ -4279,6 +4272,12 @@
         "personnelEmpty": "niemand erfasst",
         "vehicles": "{count, plural, one {# Fahrzeug} other {# Fahrzeuge}}",
         "vehiclesEmpty": "kein Fahrzeug"
+      },
+      "picker": {
+        "done": "Fertig ({count})",
+        "noMatch": "Keine Treffer für «{query}».",
+        "clearSearch": "Suche leeren",
+        "nothingLeft": "Nichts mehr hinzuzufügen."
       }
     },
     "materialReturn": {
@@ -4428,15 +4427,6 @@
       "stateDone": "Abgeschlossen",
       "edit": "Bearbeiten",
       "stateMerged": "Zusammengeführt in {label}"
-    },
-    "kpStatus": {
-      "incoming": "Eingegangen",
-      "reko": "Reko",
-      "reko_done": "Reko abgeschlossen",
-      "enroute": "Disponiert / Anfahrt",
-      "active": "Im Einsatz",
-      "returning": "Rückfahrt",
-      "complete": "Abgeschlossen"
     },
     "kpMessages": {
       "title": "Meldungen vom KP",
