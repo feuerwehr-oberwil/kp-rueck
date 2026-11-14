@@ -23,6 +23,7 @@ import {
 import { defaultFilter } from "cmdk"
 import { DispatchChoice, DispatchPreview } from "@/components/ui/command-dispatch-preview"
 import { Kbd } from "@/components/ui/kbd"
+import { useIsMobile } from "@/components/ui/use-mobile"
 import {
   completeDispatch,
   parseDispatch,
@@ -138,6 +139,10 @@ function previewValue(parsed: ParsedDispatch): string {
 
 export function CommandPalette() {
   const t = useTranslations('common.commandPalette')
+  // Below 768px the field is 16px (no iOS focus zoom) and has ~226px at 360: the long
+  // dispatch placeholder was clipped there, so the phone gets the short one – never a
+  // smaller font (WebKit scan, 14.11.2026).
+  const isPhone = useIsMobile()
   // The «Färben nach» mode names — reused from the map's own Ansicht menu so
   // the palette and the dropdown can never disagree on what a mode is called.
   const tMapColorBy = useTranslations('map.colorBy')
@@ -401,7 +406,7 @@ export function CommandPalette() {
           onValueChange={setSelectedValue}
           className="**:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
           <CommandInput
-            placeholder={canDispatch ? t('dispatch.placeholder') : t('searchPlaceholder')}
+            placeholder={canDispatch ? t(isPhone ? 'dispatch.placeholderShort' : 'dispatch.placeholder') : t('searchPlaceholder')}
             value={search}
             onValueChange={setSearch}
             onKeyDown={onSearchKeyDown}

@@ -85,16 +85,19 @@ describe('the phone Einsatz card', () => {
 
   it('says «kein Rapport» as a quiet line, not a pill, and the type as text, not a chip', () => {
     const card = cardOf(operation({ status: 'active', hasBeenDispatched: true }))
-    const line = Array.from(card.querySelectorAll('p')).find((p) => p.textContent === 'kein Rapport')
+    const line = Array.from(card.querySelectorAll('span')).find((span) => span.textContent === 'kein Rapport')
     expect(line).toHaveClass('text-muted-foreground')
     expect(line).not.toHaveClass('rounded-full')
     expect(card.querySelectorAll('[data-slot="badge"]')).toHaveLength(1)
   })
 
-  it('keeps the type on the status chip line, cut with its full text in the tooltip', () => {
-    const card = cardOf(operation({ incidentType: 'elementarereignis' }))
-    const type = card.querySelector('[title="Elementarereignis"]')
-    expect(type).toHaveClass('truncate', 'min-w-0')
-    expect(type?.parentElement).not.toHaveClass('flex-wrap')
+  // Phone sweep 14.11.2026: a Hoch card cut the type to «Elementare…». The row wraps instead,
+  // and «kein Rapport» ends the same row rather than taking width from the whole header.
+  it('never cuts the type: the status row wraps and «kein Rapport» closes it', () => {
+    const card = cardOf(operation({ incidentType: 'elementarereignis', status: 'active', hasBeenDispatched: true }))
+    const type = Array.from(card.querySelectorAll('span')).find((span) => span.textContent === 'Elementarereignis')
+    expect(type).not.toHaveClass('truncate')
+    expect(type?.parentElement).toHaveClass('flex-wrap')
+    expect(type?.parentElement?.textContent).toContain('kein Rapport')
   })
 })

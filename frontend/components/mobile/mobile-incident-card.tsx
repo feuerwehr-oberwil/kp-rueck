@@ -79,7 +79,8 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
       className={cn(
         // `gap-0`: the Card's own `gap-6` would open 24px between the header and
         // every body row; the rows carry their own 4–8px steps.
-        "gap-0 p-3 transition-all active:scale-[0.98] cursor-pointer touch-manipulation",
+        // A tap answers with the app's press wash (`data-press`, globals.css) – nothing moves.
+        "gap-0 p-3 cursor-pointer touch-manipulation",
         // The board card's own priority reading (lib/priority.ts): a 4px left
         // edge — red + wash + ring + pulse for Hoch, amber for Mittel, plain
         // border for Niedrig. No status tint: the status is the badge's job.
@@ -87,9 +88,10 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
         PRIORITY_CARD_CLASSES[priority],
       )}
       onClick={onClick}
+      data-press
     >
       {/* The chevron and the age sit beside the HEADER only (address, EL,
-          Abholung, Duplikat, status + type); from the rule down, the fact block
+          Abholung, Duplikat); the status row and, from the rule down, the fact block
           runs the card's full width, as the desk card's body does.
           Indenting the whole card under the chevron cost the fact values 24px
           per line on a phone — enough to push «TLF · Fahrer: Müller Hans» and
@@ -156,41 +158,15 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
               className="mt-1.5"
             />
           )}
-
-          {/* Status + Type: the status is the one chip; the type is a label,
-              so it is plain muted text and never outshines the status. ONE line on
-              every card (hill climb r23: a wrapping row put the type beside a short
-              status but under «Disponiert / Anfahrt»): the chip and the marks keep
-              their size, the type ellipsizes with its full text in `title`. */}
-          <div className="flex items-center gap-2 mt-1.5">
-            <Badge variant="secondary" className="text-xs px-1.5 py-0 max-w-full">
-              {getOperationStatusLabel(operation.status)}
-            </Badge>
-            <span
-              className="min-w-0 truncate text-xs text-muted-foreground"
-              title={getIncidentTypeLabel(operation.incidentType)}
-            >
-              {getIncidentTypeLabel(operation.incidentType)}
-            </span>
-            {operation.hasCompletedReko && (
-              <span className="shrink-0" title={t("rekoCompleted")}>
-                <FileCheck className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
-              </span>
-            )}
-            {operation.rekoSummary?.hasDangers && (
-              <span className="shrink-0" title={tDetail("dangers")}>
-                <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-              </span>
-            )}
-          </div>
         </div>
 
         {/* The age on the address row's right, as a list reads (hill climb r20: on a
             line of its own under the facts it cost a line per card). Read-only: the
             phone list is for looking, and a dropdown inside a tappable row fights the
             tap that opens the incident. 14/18 600 in the desk card's age colours
-            (`colorByAge` = `ageLevel`: amber ≥ 60′, red ≥ 120′). */}
-        <div className="flex shrink-0 flex-col items-end gap-0.5 pt-px text-right">
+            (`colorByAge` = `ageLevel`: amber ≥ 60′, red ≥ 120′). Alone in this column,
+            so it takes only the clock's width from the header beside it. */}
+        <div className="flex shrink-0 flex-col items-end pt-px text-right">
           <IncidentTimeRow
             operation={operation}
             readOnly
@@ -201,12 +177,39 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
             startIconClassName="h-3.5 w-3.5"
             iconClassName="h-3.5 w-3.5"
           />
-          {/* The one debt that survives completion (image #21): a quiet line
-              directly under the time, not a pill in the title row. */}
-          {rapportMissing && (
-            <p className="text-xs text-muted-foreground">{tMobile("noRapport")}</p>
-          )}
         </div>
+      </div>
+
+      {/* Status + Type: the status is the one chip; the type is a label, so it is
+          plain muted text and never outshines the status. The row WRAPS (phone
+          sweep 14.11.2026, owner's pick – it replaces hill climb r23's one line,
+          which cut a Hoch card's type to «Elementare…»): the type goes under a long
+          chip instead of losing its end, and «kein Rapport» closes the row – at its
+          end when it fits, under it when not. The row runs under the clock to the
+          card's edge (after-shots 14.11.: inside the header column «kein Rapport»
+          dropped to a line of its own beside room it could not use); `pl-6` keeps
+          it under the address, past the chevron. */}
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 pl-6">
+        <Badge variant="secondary" className="text-xs px-1.5 py-0 max-w-full">
+          {getOperationStatusLabel(operation.status)}
+        </Badge>
+        <span className="min-w-0 break-words text-xs text-muted-foreground">
+          {getIncidentTypeLabel(operation.incidentType)}
+        </span>
+        {operation.hasCompletedReko && (
+          <span className="shrink-0" title={t("rekoCompleted")}>
+            <FileCheck className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+          </span>
+        )}
+        {operation.rekoSummary?.hasDangers && (
+          <span className="shrink-0" title={tDetail("dangers")}>
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+          </span>
+        )}
+        {/* The one debt that survives completion (image #21): a quiet word, not a pill. */}
+        {rapportMissing && (
+          <span className="ml-auto shrink-0 text-xs text-muted-foreground">{tMobile("noRapport")}</span>
+        )}
       </div>
 
       {/* The fact block (image #21): Meldung, Mannschaft, Fahrzeuge (with

@@ -72,10 +72,14 @@ vi.mock("sonner", () => ({
   },
 }));
 
+const phone = vi.hoisted(() => ({ current: false }));
+vi.mock("@/components/ui/use-mobile", () => ({ useIsMobile: () => phone.current }));
+
 import { PersonnelSettings } from "@/components/settings/personnel-settings";
 import { resetIntegrationsCache } from "@/lib/hooks/use-integrations";
 
 beforeEach(() => {
+  phone.current = false;
   getAllPersonnel.mockReset().mockResolvedValue([]);
   createPersonnel.mockReset();
   updatePersonnel.mockReset();
@@ -181,5 +185,29 @@ describe("PersonnelSettings", () => {
     expect(createPersonnel).toHaveBeenCalledWith(
       expect.objectContaining({ tags: ["Atemschutz"] }),
     );
+  });
+});
+
+// Phone sweep 14.11.2026: the desk toolbar (half-width search, two buttons, a five-column table)
+// squeezed into 393px. The phone gets a full-width search over a plain read-only list.
+describe("PersonnelSettings on a phone", () => {
+  it("lists name over Grad · tags · «Nicht verfügbar», searchable, with no way to edit", async () => {
+    phone.current = true;
+    getAllPersonnel.mockResolvedValue([
+      apiPerson({ id: "p1", name: "Bendik-Dimitrijević Alexandra", role: "Mannschaft", tags: ["Atemschutz"] }),
+      apiPerson({ id: "p2", name: "Müller Stefan", role: "Offizier", status: "unavailable" }),
+    ]);
+    const user = userEvent.setup();
+    renderWithIntl(<PersonnelSettings />);
+
+    expect(await screen.findByText("Bendik-Dimitrijević Alexandra")).toBeInTheDocument();
+    expect(screen.getByText("Mannschaft · Atemschutz")).toBeInTheDocument();
+    expect(screen.getByText("Offizier · Nicht verfügbar")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Person erstellen|Von Divera synchronisieren|Aktionen/ })).toBeNull();
+
+    await user.type(screen.getByPlaceholderText("Name, Rolle, Tag …"), "müller");
+    expect(screen.queryByText("Bendik-Dimitrijević Alexandra")).toBeNull();
+    expect(screen.getByText("Müller Stefan")).toBeInTheDocument();
   });
 });

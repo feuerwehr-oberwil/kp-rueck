@@ -14,6 +14,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -23,6 +25,13 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { matchesIncidentQuery } from "@/lib/incident-search"
+import { usePersistedState } from "@/lib/hooks/use-persisted-state"
+import {
+  MOBILE_INCIDENT_SORTS,
+  MOBILE_INCIDENT_SORT_KEY,
+  isMobileIncidentSort,
+  sortMobileIncidents,
+} from "@/lib/mobile-incident-sort"
 import { MobileIncidentCard } from "./mobile-incident-card"
 import { MobileIncidentDetailSheet } from "./mobile-incident-detail-sheet"
 
@@ -30,7 +39,6 @@ interface MobileIncidentListViewProps {
   operations: Operation[]
   materials: Material[]
   formatLocation: (address: string) => string
-  onUpdateOperation?: (id: string, updates: Partial<Operation>) => void
   isEditor?: boolean
   isTraining?: boolean
   isLoading?: boolean
@@ -39,17 +47,6 @@ interface MobileIncidentListViewProps {
   /** Open this Einsatz's sheet from outside — a notification, the board's `?detail=1` link
    *  (lib/incident-detail.ts). A new `nonce` re-opens the same id. */
   openRequest?: { incidentId: string; nonce: number } | null
-}
-
-// Status order for sorting (active incidents first)
-const statusOrder: Record<string, number> = {
-  active: 0,
-  enroute: 1,
-  incoming: 2,
-  reko: 3,
-  reko_done: 4,
-  returning: 5,
-  complete: 6,
 }
 
 // One row per STATUS in the funnel menu, in board order; ticking several shows
@@ -71,7 +68,6 @@ export function MobileIncidentListView({
   operations,
   materials,
   formatLocation,
-  onUpdateOperation,
   isEditor = false,
   isTraining = false,
   isLoading = false,
@@ -107,6 +103,10 @@ export function MobileIncidentListView({
   // The ticked statuses (keys from `filterStatuses`); empty = everything.
   const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set())
   const filtering = ticked.size > 0
+  // «Sortieren» (lib/mobile-incident-sort.ts), remembered on this device. Anything but the
+  // default order turns the funnel on just like a tick does: the list is not as it was.
+  const [sort, setSort] = usePersistedState(MOBILE_INCIDENT_SORT_KEY, "status", isMobileIncidentSort)
+  const sorted = sort !== "status"
   const searchRef = useRef<HTMLInputElement>(null)
   // The footer's measured height, published on the root as `--list-foot` so the list's scroll
   // reserve can account for it while the keyboard is up (see the scroller's padding).
@@ -141,22 +141,8 @@ export function MobileIncidentListView({
       filtered = filtered.filter((op) => matchesSearch(op, searchQuery))
     }
 
-    // Sort by status order, then by priority, then by time
-    return [...filtered].sort((a, b) => {
-      // First by status
-      const statusDiff = (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)
-      if (statusDiff !== 0) return statusDiff
-
-      // Then by priority (high first)
-      const priorityOrder = { high: 0, medium: 1, low: 2 }
-      const priorityDiff = (priorityOrder[a.priority as keyof typeof priorityOrder] ?? 1) -
-                          (priorityOrder[b.priority as keyof typeof priorityOrder] ?? 1)
-      if (priorityDiff !== 0) return priorityDiff
-
-      // Then by time (newest first)
-      return b.dispatchTime.getTime() - a.dispatchTime.getTime()
-    })
-  }, [operations, searchQuery, ticked, matchesSearch])
+    return sortMobileIncidents(filtered, sort)
+  }, [operations, searchQuery, ticked, matchesSearch, sort])
 
   // The menu's counts: over what the list would show WITHOUT the ticks (the search applies), so
   // a row's number is what ticking it adds — KP Front's Verlauf filter does the same.
@@ -172,6 +158,12 @@ export function MobileIncidentListView({
     return counts
   }, [searchHits])
   const tickedLabels = filterStatuses.filter(status => ticked.has(status)).map(status => tStatus(status)).join(' · ')
+  // The menu's state in words – the line under the search and the funnel's name:
+  // «Sortiert: Längste Wartezeit · Gefiltert: Im Einsatz».
+  const menuSummary = [
+    sorted && t('sortSummary', { sort: t(`sort.${sort}`) }),
+    filtering && t('filterSummary', { filters: tickedLabels }),
+  ].filter(Boolean).join(' · ')
   const toggleGroup = (id: string, on: boolean) =>
     setTicked(prev => {
       const next = new Set(prev)
@@ -244,16 +236,32 @@ export function MobileIncidentListView({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
-                variant={filtering ? "selected" : "outline"}
+                variant={menuSummary ? "selected" : "outline"}
                 size="icon"
                 className="size-11 shrink-0"
-                aria-label={filtering ? t('filterOn', { filters: tickedLabels }) : t('filter')}
-                title={filtering ? t('filterOn', { filters: tickedLabels }) : t('filter')}
+                aria-label={menuSummary ? t('filterOn', { filters: menuSummary }) : t('filter')}
+                title={menuSummary ? t('filterOn', { filters: menuSummary }) : t('filter')}
               >
                 <Filter aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">
+              {/* The order first, one choice of three; picking one keeps the menu open like a
+                  tick does (the owner's mock, 14.11.2026). */}
+              <DropdownMenuLabel className="text-xs text-muted-foreground">{t('sortGroup')}</DropdownMenuLabel>
+              <DropdownMenuRadioGroup value={sort} onValueChange={(value) => isMobileIncidentSort(value) && setSort(value)}>
+                {MOBILE_INCIDENT_SORTS.map(option => (
+                  <DropdownMenuRadioItem
+                    key={option}
+                    value={option}
+                    onSelect={(event) => event.preventDefault()}
+                    className="min-h-11 data-[state=checked]:sel-choice"
+                  >
+                    {t(`sort.${option}`)}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+              <DropdownMenuSeparator />
               {/* «Alle zeigen» only while something is ticked; it is an action and closes the menu.
                   The rows are checkboxes and keep it open — a selection is several ticks. */}
               {filtering && (
@@ -282,12 +290,13 @@ export function MobileIncidentListView({
           </DropdownMenu>
         </div>
 
-        {/* What is filtered, readable without opening the menu, and the one way back — not
-            twice: an emptied list offers the same «Alle zeigen» as its one action. */}
-        {filtering ? (
+        {/* How the list is sorted and what is filtered, readable without opening the menu, and the
+            one way back from a filter — not twice: an emptied list offers the same «Alle zeigen»
+            as its one action. The order is changed back in the menu. */}
+        {menuSummary ? (
           <div className="mt-1 -mb-1 flex min-h-8 min-w-0 items-center gap-2 text-xs text-muted-foreground" data-testid="filter-summary">
-            <span className="min-w-0 truncate">{t('filterSummary', { filters: tickedLabels })}</span>
-            {filteredOperations.length > 0 && (
+            <span className="min-w-0 truncate" title={menuSummary}>{menuSummary}</span>
+            {filtering && filteredOperations.length > 0 && (
               <button
                 type="button"
                 onClick={showAll}
@@ -379,8 +388,6 @@ export function MobileIncidentListView({
         onOpenChange={setDetailSheetOpen}
         materials={materials}
         formatLocation={formatLocation}
-        onUpdateOperation={onUpdateOperation}
-        isEditor={isEditor}
       />
     </div>
   )

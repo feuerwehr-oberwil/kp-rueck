@@ -296,6 +296,19 @@ describe("CommandPalette — ⇥ completes", () => {
     expect(input()).toHaveAccessibleDescription(/^Einsatz, dann Fahrzeug \/ Person – z\. B\..*Tabulator.*ergänzt$/)
   })
 
+  // At 360px the field (16px on a phone) has ~226px; the long placeholder needs 250 and was
+  // clipped (WebKit scan 14.11.2026). Shorter words, never a smaller font.
+  it("on a phone says the same in fewer words", () => {
+    const width = window.innerWidth
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 360 })
+    try {
+      setup()
+      expect(input()).toHaveAttribute("placeholder", "Suchen oder zuweisen …")
+    } finally {
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: width })
+    }
+  })
+
   it("invites nobody to assign who cannot: no onDispatch (viewer, standby mirror) → no hint", () => {
     setup({ onDispatch: undefined })
     expect(input()).toHaveAttribute("placeholder", "Befehl suchen …")

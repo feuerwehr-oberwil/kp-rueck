@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
-import { Filter, Hash, Link2, Pencil, X } from "lucide-react"
+import { Filter, Hash, Link2, Pencil, SendHorizontal, X } from "lucide-react"
 
 import { apiClient, type ApiJournalCategory, type ApiJournalEntry } from "@/lib/api-client"
 import type { Operation } from "@/lib/contexts/operations-context"
@@ -514,6 +514,10 @@ function JournalComposer({
   onWritten: (entry: ApiJournalEntry) => void
 }) {
   const t = useTranslations("journal")
+  // On a phone the field sits between the link button and the send button in ~130px: the
+  // placeholder is short, the «#» hint is a line under it, and «Eintragen» is a send icon
+  // (phone sweep 14.11.2026 – the long placeholder was clipped).
+  const isPhone = useIsMobile()
   const [text, setText] = useState(correcting?.text ?? "")
   const [linked, setLinked] = useState<IncidentChoice | null>(null)
   const [sending, setSending] = useState(false)
@@ -804,7 +808,7 @@ function JournalComposer({
             if (error) setError(null)
           }}
           onKeyDown={onKeyDown}
-          placeholder={t(correcting ? "placeholderCorrect" : "placeholder")}
+          placeholder={t(correcting ? "placeholderCorrect" : isPhone ? "placeholderShort" : "placeholder")}
           aria-label={t(correcting ? "placeholderCorrect" : "inputLabel")}
           autoComplete="off"
           enterKeyHint="send"
@@ -812,11 +816,26 @@ function JournalComposer({
           className="min-w-0 flex-1"
           {...fieldMessageProps(INPUT_ID, error ? "error" : null)}
         />
-        <Button type="submit" size="sm" disabled={!text.trim() || sending} className="shrink-0 gap-1.5 min-h-[var(--field-h,36px)]">
-          {sending && <ShellLoader />}
-          {t(correcting ? "submitCorrect" : "submit")}
-        </Button>
+        {isPhone ? (
+          <Button
+            type="submit"
+            size="icon"
+            disabled={!text.trim() || sending}
+            className="size-(--field-h) min-h-0 min-w-0 shrink-0"
+            aria-label={t(correcting ? "submitCorrect" : "submit")}
+          >
+            {sending ? <ShellLoader /> : <SendHorizontal className="size-4" aria-hidden="true" />}
+          </Button>
+        ) : (
+          <Button type="submit" size="sm" disabled={!text.trim() || sending} className="shrink-0 gap-1.5 min-h-[var(--field-h,36px)]">
+            {sending && <ShellLoader />}
+            {t(correcting ? "submitCorrect" : "submit")}
+          </Button>
+        )}
       </form>
+      {isPhone && !correcting && !linked && choices.length > 0 && !error && (
+        <p className="mt-1 text-xs text-muted-foreground">{t("hashHint")}</p>
+      )}
       <FormMessage id={formMessageId(INPUT_ID)} className="mt-1">
         {error}
       </FormMessage>

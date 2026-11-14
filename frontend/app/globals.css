@@ -112,6 +112,11 @@
      danger. Light: the text colour as fill. */
   --action: var(--foreground);
   --action-foreground: var(--background);
+
+  /* The press wash (KP Front's --press): ink at 9%, laid over a tapped control as a
+     background-IMAGE by the press rule in @layer base. Re-declared in .dark so it follows the
+     night ink there. */
+  --press: color-mix(in oklab, var(--foreground) 9%, transparent);
 }
 
 /* Dark mode - Professional emergency services theme */
@@ -200,6 +205,8 @@
      white would glare against the dark board. */
   --action: #c3cddc;
   --action-foreground: #0d1118;
+
+  --press: color-mix(in oklab, var(--foreground) 9%, transparent);
 }
 
 @theme inline {
@@ -519,6 +526,44 @@
     cursor: pointer;
   }
 
+  /* THE press rule (KP Front's, 02-base.css): on a touch screen a tap answers at once with
+     the ink wash `--press` – buttons, links, list and menu rows, tabs, chips, and any card
+     that says `data-press`. A background-IMAGE, so it lies over whatever fill the control
+     has (ghost, outline, the slate «selected», the ink main button). Nothing moves: a scale
+     on press reads as lag under a finger, and an iOS :hover lift stuck after the tap.
+     Touch only – a mouse press on the desk board stays as it was.
+     Left out: whatever is disabled; a link that only wraps a button (the button answers, not
+     both); map markers (an SVG pin would show a square); anything draggable (the drag image
+     would carry the wash); and whatever opts out with `data-no-press`. */
+  @media (pointer: coarse) {
+    :where(
+      button,
+      a[href]:not(:has(button)),
+      summary,
+      [role='button'],
+      [role='link'],
+      [role='tab'],
+      [role='option'],
+      [role^='menuitem'],
+      [role='checkbox'],
+      [role='radio'],
+      [role='switch'],
+      [data-press]
+    ):active:not(
+      :disabled,
+      [aria-disabled='true'],
+      [data-disabled],
+      svg,
+      .maplibregl-marker *,
+      [draggable='true'],
+      [draggable='true'] *,
+      [data-no-press],
+      [data-no-press] *
+    ) {
+      background-image: linear-gradient(var(--press), var(--press));
+    }
+  }
+
   /* The shell is h-dvh/overflow-hidden, so the page can never scroll — but macOS
      still rubber-bands the whole view on a stray trackpad swipe, which reads as
      the board drifting for no reason. No bounce, no scroll chaining. */
@@ -627,14 +672,23 @@
   }
 
   /* Mobile-first responsive utilities */
-  @media (max-width: 768px) {
-    /* Prevent iOS zoom on input focus by ensuring minimum 16px font size */
+  /* No focus zoom: iOS zooms into any focused field under 16px. The plain size is not
+     enough – a call site's `text-sm` (or the Input's own `md:text-sm`, which applies at 768px)
+     is a utility and beats this layer. So the field also redefines the small steps for
+     ITSELF: `text-sm` is `font-size: var(--text-sm)`, and on an input that variable is 1rem
+     here. Bigger sizes are untouched. Phones, and any coarse pointer (a tablet over 768px). */
+  @media (max-width: 768px), (pointer: coarse) {
     input,
     textarea,
     select {
       font-size: max(16px, 1rem);
+      --text-2xs: 1rem;
+      --text-xs: 1rem;
+      --text-sm: 1rem;
     }
+  }
 
+  @media (max-width: 768px) {
     /* …and give them the same 44px the buttons below get. A field is a tap
        target too, and without this a text input (h-9) sat 8px shorter than the
        icon buttons beside it — which is what the address row in every location
@@ -878,50 +932,18 @@
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .hover-delight:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px oklch(from var(--foreground) l c h / 0.3);
+  /* Only where a pointer really hovers: on iOS a tapped element keeps :hover until the next
+     tap elsewhere, so the lift stuck on whatever was last touched. */
+  @media (hover: hover) {
+    .hover-delight:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px oklch(from var(--foreground) l c h / 0.3);
+    }
   }
 
   .hover-delight:active:not(:disabled) {
     transform: translateY(0);
     box-shadow: 0 2px 4px oklch(from var(--foreground) l c h / 0.2);
-  }
-
-  /* Tab switch animation for mobile bottom navigation */
-  @keyframes tab-switch {
-    0% {
-      opacity: 0.5;
-      transform: scale(0.95);
-    }
-    60% {
-      transform: scale(1.05);
-    }
-    100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
-  .animate-tab-switch {
-    animation: tab-switch 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  /* Haptic-like bounce tap feedback */
-  @keyframes bounce-tap {
-    0% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(0.95);
-    }
-    100% {
-      transform: scale(1);
-    }
-  }
-
-  .animate-bounce-tap {
-    animation: bounce-tap 0.2s ease-out;
   }
 
   /* Assignment tick: circle → circle with tickmark. Deliberately small and
@@ -1029,8 +1051,6 @@
     .animate-fade-in-up,
     .animate-wiggle,
     .animate-scale-in,
-    .animate-tab-switch,
-    .animate-bounce-tap,
     .animate-check-appear,
     .animate-stagger-fade-in,
     .animate-search-focus,
@@ -1476,14 +1496,12 @@ body:has([data-slot='dialog-overlay'], [data-slot='alert-dialog-overlay']) foote
   }
 }
 
-/* The «Links & QR» pages (/feld, /check-in, /reko, /alarm): no zoom
-   (components/link-page/link-page.tsx). Pan only — a pinch or a double tap does nothing, a map's
-   own gestures (JS) still work. Fields at 16px or more: iOS zooms into any focused input below. */
-html.link-page-no-zoom {
+/* No zoom, app-wide (KP Front's recipe; the JS half is lib/zoom-lock.ts): pan only – a pinch or
+   a double tap on the page does nothing. The map is not affected: maplibre-gl.css gives its
+   canvas `touch-action: none` and MapLibre zooms in JS. The 16px fields (no focus zoom) are in
+   @layer base above. */
+html {
   touch-action: pan-x pan-y;
-}
-html.link-page-no-zoom :is(input, textarea, select) {
-  font-size: max(16px, 1em);
 }
 
 /* The ✕ of a dialog or sheet sits absolute in the top-right corner, over whatever the header

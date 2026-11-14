@@ -78,7 +78,7 @@ function listCard(op: Operation) {
   return <MobileIncidentCard operation={op} onClick={vi.fn()} formatLocation={(a) => a} />
 }
 
-function sheet(op: Operation, isEditor = false) {
+function sheet(op: Operation) {
   return (
     <MobileIncidentDetailSheet
       operation={op}
@@ -86,8 +86,6 @@ function sheet(op: Operation, isEditor = false) {
       onOpenChange={vi.fn()}
       materials={[] as unknown as Material[]}
       formatLocation={(a) => a}
-      onUpdateOperation={vi.fn()}
-      isEditor={isEditor}
     />
   )
 }
@@ -136,8 +134,8 @@ describe('the Abholung banner in the phone detail sheet', () => {
     expect(screen.getByText(/Abholung –/)).toBeInTheDocument()
   })
 
-  it('offers no clear button, not even to an editor', () => {
-    renderWithIntl(sheet(WAITING, true))
+  it('offers no clear button', () => {
+    renderWithIntl(sheet(WAITING))
     expect(screen.queryByRole('button', { name: 'Abholung disponiert' })).not.toBeInTheDocument()
   })
 })

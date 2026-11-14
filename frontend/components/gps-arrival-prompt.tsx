@@ -8,6 +8,7 @@ import { apiClient } from "@/lib/api-client"
 import { reportStatusConflict } from "@/lib/status-conflict"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { useAuth } from "@/lib/contexts/auth-context"
+import { useIsMobile } from "@/components/ui/use-mobile"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { toast } from "sonner"
 import { useTranslations } from "next-intl"
@@ -30,14 +31,19 @@ interface ArrivalPrompt {
  * Mounted once in the root layout, but only ACTIVE on the board and map — those are
  * the pages where the operator manages incident status. Elsewhere (Übungssteuerung,
  * settings, …) the modal would only interrupt; the bell notification still covers it.
+ *
+ * Never on a phone: the phone board is read-only (owner, 14.11.2026), and this dialog exists only
+ * to ask for a write. The bell notification tells the phone what happened.
  */
 export function GpsArrivalPrompt() {
   const t = useTranslations('incidents.gpsArrival')
   const { isEditor } = useAuth()
+  const isPhone = useIsMobile()
   const pathname = usePathname()
   const [prompt, setPrompt] = useState<ArrivalPrompt | null>(null)
 
-  const onOperatorPage = pathname === "/" || pathname === "/map"
+  // The board or the Lagekarte, on a desk – see the note above.
+  const onOperatorPage = !isPhone && (pathname === "/" || pathname === "/map")
 
   // Drop any pending prompt when leaving the board/map so it can't pop up
   // stale after navigating back.
