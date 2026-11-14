@@ -2352,6 +2352,7 @@
       "since": "depuis {time}",
       "unavailable": "indisponible",
       "assignedChip": "affectée",
+      "assignedTo": "affectée : {where}",
       "assignedTitle": "La personne est encore affectée",
       "assignedDescription": "{name} est encore affecté à {where} – l’annoncer partant quand même ? L’affectation est conservée.",
       "checkOutAnyway": "Annoncer partant quand même",

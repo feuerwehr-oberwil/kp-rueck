@@ -1047,6 +1047,7 @@
       "since": "seit {time}",
       "unavailable": "nicht verfügbar",
       "assignedChip": "zugewiesen",
+      "assignedTo": "zugewiesen: {where}",
       "assignedTitle": "Person ist noch zugewiesen",
       "assignedDescription": "{name} ist noch «{where}» zugewiesen – trotzdem abmelden? Die Zuweisung bleibt bestehen.",
       "checkOutAnyway": "Trotzdem abmelden",

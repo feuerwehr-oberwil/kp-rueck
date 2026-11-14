@@ -75,6 +75,9 @@ will keep holding.
 
 ### Changed
 
+- **The Appell is a bottom sheet on the phone**, each person on two lines – the full name, then
+  since when, the Einsatz and where – instead of a centred dialog that cut every assigned name.
+  «Alle abmelden» stays on the desktop.
 - **Einsatz detail: «Status» is a select under the Merkmale**, in board column order and with
   the same questions as dragging the card, instead of the row of status buttons – the Kräfte now
   fit in the first view. Dragging cards is unchanged.

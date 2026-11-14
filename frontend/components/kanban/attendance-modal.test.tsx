@@ -27,6 +27,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
 import {
   AttendanceModal,
+  attendanceFacts,
   attendanceState,
   sortAttendance,
   summarizeAttendance,
@@ -96,6 +97,75 @@ describe('roll-call order', () => {
       unavailable,
     ]).map((p) => p.name)
     expect(ticked).toEqual(before)
+  })
+})
+
+describe('what a row says besides the name', () => {
+  it('a present person: since when, then where they are assigned', () => {
+    expect(attendanceFacts(present, '14 · Talstrasse 25')).toEqual([
+      { kind: 'since', time: expect.stringMatching(/^\d\d:\d\d$/) },
+      { kind: 'assigned', where: '14 · Talstrasse 25' },
+    ])
+  })
+
+  it('somebody who left: in – out, never «zugewiesen»', () => {
+    const facts = attendanceFacts(left, '14 · Talstrasse 25')
+    expect(facts).toHaveLength(1)
+    expect(facts[0]).toMatchObject({ kind: 'span' })
+  })
+
+  it('nothing for somebody who never came, «nicht verfügbar» before anything else', () => {
+    expect(attendanceFacts(absent, null)).toEqual([])
+    expect(attendanceFacts({ ...unavailable, checked_in: true, checked_in_at: present.checked_in_at }, 'x')).toEqual([
+      { kind: 'unavailable' },
+    ])
+  })
+})
+
+describe('AttendanceModal on a phone', () => {
+  beforeEach(() => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 393 })
+    return () => Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 })
+  })
+
+  it('is a bottom sheet whose rows keep the full name and put the facts on line 2', async () => {
+    const longName = 'Birrer-Abdullahi Maximilian Alexander'
+    getEventCheckInList.mockResolvedValue({
+      personnel: [person({ name: longName, checked_in: true, checked_in_at: '2026-08-10T17:22:00Z' })],
+      event_id: 'ev-1',
+      event_name: 'Unwetter 08.08.',
+    })
+
+    renderWithIntl(
+      <AttendanceModal
+        open
+        onOpenChange={() => {}}
+        eventId="ev-1"
+        eventName="Unwetter 08.08."
+        assignmentLabelFor={() => '14 · Talstrasse 25'}
+      />
+    )
+
+    const row = await screen.findByRole('button', { name: new RegExp(longName) })
+    expect(row.closest('[data-slot="sheet-content"]')).toHaveAttribute('data-side', 'bottom')
+    const [nameLine, factsLine] = row.querySelectorAll('span.block')
+    expect(nameLine).toHaveTextContent(longName)
+    expect(nameLine).not.toHaveClass('truncate')
+    expect(factsLine).toHaveTextContent(/^seit \d\d:\d\d · zugewiesen: 14 · Talstrasse 25$/)
+    // One action on a phone list: the quick-add in the footer, no «Alle abmelden».
+    expect(screen.queryByRole('button', { name: 'Alle abmelden' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Neue Person hinzufügen/ })).toBeInTheDocument()
+  })
+
+  it('opens the add form in the footer without a second frame around it', async () => {
+    getEventCheckInList.mockResolvedValue({ personnel: [absent], event_id: 'ev-1', event_name: 'Unwetter 08.08.' })
+
+    renderWithIntl(<AttendanceModal open onOpenChange={() => {}} eventId="ev-1" eventName="Unwetter 08.08." />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /Neue Person hinzufügen/ }))
+    const form = screen.getByPlaceholderText('Name eingeben …').closest('[data-slot="quick-add-form"]')
+    expect(form?.closest('[data-slot="sheet-footer"]')).not.toBeNull()
+    expect(form).not.toHaveClass('border-2')
   })
 })
 

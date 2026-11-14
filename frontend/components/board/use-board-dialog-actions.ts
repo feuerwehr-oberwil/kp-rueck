@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { type Person, type Operation } from "@/lib/contexts/operations-context"
 import { apiClient } from "@/lib/api-client"
+import { getIncidentRefParts } from "@/lib/incident-types"
 import { type OperationDetailSection, type OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { type FooterSheet } from "@/components/board/board-footer"
 import type { Event } from "@/lib/types/incidents"
@@ -84,11 +85,14 @@ export function useBoardDialogActions(input: UseBoardDialogActionsInput) {
     setAttendanceOpen(true)
   }
 
-  /** Where this person is still assigned, so a check-out can warn instead of surprising.
+  /** Where this person is still assigned («14 · Talstrasse 25», the Einsatz as the card names
+   *  it), so a check-out can warn instead of surprising and the Appell row can say where.
    *  Never used to block, and never to release the assignment. */
   const assignmentLabelForPerson = useCallback(
-    (person: { id: string }) =>
-      operations.find((op) => op.status !== 'complete' && op.crew.some((m) => m.personnelId === person.id))?.location ?? null,
+    (person: { id: string }) => {
+      const op = operations.find((o) => o.status !== 'complete' && o.crew.some((m) => m.personnelId === person.id))
+      return op ? getIncidentRefParts(op).head : null
+    },
     [operations]
   )
 
