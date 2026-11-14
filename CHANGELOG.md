@@ -125,6 +125,22 @@ will keep holding.
   station coordinates show and save six decimals.
 - **Contrast and hit areas** across board, detail, map, dialogs, walls and `/feld`: text that
   missed WCAG AA and controls smaller than 24 px (44 px on a phone) were brought up to it.
+- **The phone views the board; it no longer edits it.** On a phone the Einsatz sheet shows status,
+  Meldung and Melder as text (the Melder as a tel: link), without tap-to-edit and without
+  «WhatsApp-Nachricht kopieren»; Settings are read-only apart from «Dieses Gerät» and «Problem
+  melden»; /events only switches the Ereignis (no new, archive, restore or delete); the
+  Routenplanung has no «Route optimieren», reorder or stop changes; and the GPS release/arrival
+  asks and «Abholung disponiert?» do not open. «Neuer Einsatz» (Übung included) and the Appell
+  stay usable. The desktop is unchanged.
+- **The phone feels like KP Front**: a tapped button, row, chip or card gets an instant ink wash
+  (nothing moves), the app no longer zooms – not by pinch, not into a field (every field stays at
+  16px on a phone) – while the map keeps its own pinch, and the selected tab in the bottom nav has
+  more air. «Mehr» → «Kennzahlen» opens again on the phone, as a bottom sheet.
+- **«Sortieren» in the Einsätze funnel on the phone**: Status (default), Neueste zuerst or Längste
+  Wartezeit, remembered per device.
+- **Phone dialogs tidied after a sweep at 360/393 px**: the Personal sheet, Dienstzeiten, Links &
+  QR, Fahrzeuge (a tap opens the Einsatz), the Einsatztagebuch field, «Alle Ereignisse», /check-in,
+  the ⌘K palette and the Kennzahlen table no longer cut or spill text.
 
 ### Fixed
 
