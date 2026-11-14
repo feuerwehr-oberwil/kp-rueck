@@ -27,12 +27,14 @@
  *   offering the action would be a lie; hiding the name would make the operator hunt for it.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { CheckCircle2, Circle, LogOut, Users } from 'lucide-react'
 import { apiClient, type ApiPersonnelListItem } from '@/lib/api-client'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { useIsMobile } from '@/components/ui/use-mobile'
 import { LoadingStatus } from '@/components/ui/shell-loader'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
@@ -88,6 +90,33 @@ export function sortAttendance(people: ApiPersonnelListItem[]): ApiPersonnelList
   return sortByName(people)
 }
 
+/** One fact a row states besides the name. Times are already «17:22» clock strings. */
+export type AttendanceFact =
+  | { kind: 'unavailable' }
+  | { kind: 'since'; time: string }
+  | { kind: 'span'; from: string | null; until: string }
+  | { kind: 'assigned'; where: string }
+
+/**
+ * What a row says about a person, in reading order – the phone's second line
+ * («seit 17:22 · zugewiesen: 14 · Talstrasse 25») and the desktop row's chip + time.
+ * Empty for somebody who never came: the open circle already says it. `assignedAt`
+ * counts only while the person is in – somebody who went home is not «zugewiesen» here.
+ */
+export function attendanceFacts(person: ApiPersonnelListItem, assignedAt: string | null): AttendanceFact[] {
+  if (person.status === 'unavailable') return [{ kind: 'unavailable' }]
+  const since = formatTime(person.checked_in_at) || null
+  const state = attendanceState(person)
+  if (state === 'present') {
+    const facts: AttendanceFact[] = since ? [{ kind: 'since', time: since }] : []
+    if (assignedAt) facts.push({ kind: 'assigned', where: assignedAt })
+    return facts
+  }
+  const until = formatTime(person.checked_out_at) || null
+  if (state === 'left' && until) return [{ kind: 'span', from: since, until }]
+  return []
+}
+
 
 interface AttendanceModalProps {
   open: boolean
@@ -117,6 +146,7 @@ export function AttendanceModal({
 }: AttendanceModalProps) {
   const t = useTranslations('kanban.attendance')
   const tCommon = useTranslations('kanban.common')
+  const isMobile = useIsMobile()
   const [people, setPeople] = useState<ApiPersonnelListItem[]>([])
   const [search, setSearch] = useState('')
   const [isLoading, setIsLoading] = useState(true)
@@ -268,101 +298,142 @@ export function AttendanceModal({
   const isNameTaken = (name: string) =>
     people.some((person) => person.name.trim().toLowerCase() === name.trim().toLowerCase())
 
+  const title = t('title', { event: eventName })
+  const summary = t('summary', { present: stats.present, left: stats.left, total: stats.total })
+
+  const searchField = (
+    <SearchInput
+      value={search}
+      onValueChange={setSearch}
+      placeholder={tCommon('search')}
+      containerClassName="min-w-0 flex-1"
+    />
+  )
+
+  const list = (
+    <>
+      {/* Who Divera says is coming, above the roll-call. Out of the way while a search
+          narrows the list: that is a different question, and the name is below anyway. */}
+      {!isLoading && !search.trim() && (
+        <DiveraIncomingBlock
+          eventId={eventId}
+          enabled={open}
+          attendedIds={attendedIds}
+          canCheckIn={canCheckIn}
+          onCheckIn={checkInFromDivera}
+          className="mb-3"
+        />
+      )}
+      {isLoading ? (
+        <div className="flex justify-center py-6">
+          <LoadingStatus className="text-sm">{t('loading')}</LoadingStatus>
+        </div>
+      ) : visible.length === 0 ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">{t('noneFound')}</p>
+      ) : (
+        // ONE column, on every width. Two columns meant the roll-call ran
+        // down the left half and back up the right, so the name after
+        // «Aebi» was «Ammann» two rows down and «Aebischer» sat on the
+        // other side — read aloud from top to bottom, that is how somebody
+        // gets skipped. A roll-call is a single list.
+        <div className="grid grid-cols-1 gap-1.5">
+          {visible.map((person) => (
+            <AttendanceRow
+              key={person.id}
+              person={person}
+              assignedAt={person.checked_in ? (assignmentLabelFor?.(person) ?? null) : null}
+              twoLines={isMobile}
+              onClick={() => cycle(person)}
+            />
+          ))}
+        </div>
+      )}
+    </>
+  )
+
+  const quickAdd = (
+    <>
+      <QuickAddPersonnel
+        onPersonAdded={async () => {
+          await load()
+        }}
+        checkInEventId={eventId}
+        isNameTaken={isNameTaken}
+      />
+      <p className="mt-1 text-center text-xs text-muted-foreground">{t('quickAddHint')}</p>
+    </>
+  )
+
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        {/* On the modal height scale like every other dialog, instead of the
-            hand-rolled `max-h-[62vh]` the list used to carry. That clamped only
-            the list, so header + search + quick-add stacked on top of it and the
-            dialog came out ~95vh tall — 757px in an 800px window, 21px of air
-            top and bottom, and `vh` rather than `dvh` (see modal-h-* in
-            globals.css: with `vh` a mobile address bar pushes the quick-add row
-            out of reach). The list scrolls inside the clamp now.
+      {isMobile ? (
+        // The phone: a bottom sheet by the phone-form rules (CLAUDE.md «Phone geometry») –
+        // search on top, the list scrolls in SheetBody, «Neue Person hinzufügen» stays in the
+        // footer above the keys. It opens without focusing the search (no keyboard until a
+        // tap) and swipes down to close. The centred dialog it replaces cut every name that
+        // had a «zugewiesen» chip and a time beside it («Birrer Abd…»), so a row here is two
+        // lines: the full name, then the facts. «Alle abmelden» is desktop-only: a list
+        // screen on the phone has one action, and sending everybody home is the end of the
+        // Ereignis, done at the board.
+        <Sheet open={open} onOpenChange={onOpenChange}>
+          <SheetContent
+            side="bottom"
+            className="h-[88dvh] modal-h-tall gap-0 rounded-t-2xl [&>[data-slot=sheet-close]]:top-[29px] [&>[data-slot=sheet-close]]:-translate-y-1/2"
+          >
+            {/* Same frame as «Neuer Einsatz»: title 18/600, the ✕ centred on its line. The
+                height is fixed (88dvh, the tall clamp) so the sheet – and the search field under
+                the thumb – does not jump while a search narrows the list; with the keyboard up,
+                globals.css sizes it to the visible band instead. */}
+            <SheetHeader className="gap-1 px-4 pt-5 pb-3 pr-12">
+              <SheetTitle className="text-lg leading-tight break-words">{title}</SheetTitle>
+              <SheetDescription>{summary}</SheetDescription>
+            </SheetHeader>
+            <div className="flex px-4 pb-2">{searchField}</div>
+            <SheetBody className="px-4 pb-3">{list}</SheetBody>
+            <SheetFooter className="mt-0 gap-0 border-t px-4 pt-3 pb-sheet-safe">{quickAdd}</SheetFooter>
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+          {/* On the modal height scale like every other dialog, instead of the
+              hand-rolled `max-h-[62vh]` the list used to carry. That clamped only
+              the list, so header + search + quick-add stacked on top of it and the
+              dialog came out ~95vh tall — 757px in an 800px window, 21px of air
+              top and bottom, and `vh` rather than `dvh` (see modal-h-* in
+              globals.css: with `vh` a mobile address bar pushes the quick-add row
+              out of reach). The list scrolls inside the clamp now.
 
-            `sm:max-w-3xl` needs its prefix: DialogContent's own `sm:max-w-lg`
-            is variant-scoped, so the bare `max-w-3xl` this used to carry never
-            won at desktop widths and the roll-call ran in a 512px column. */}
-        <DialogContent className="flex modal-h-tall sm:max-w-3xl flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Users className="size-4" />
-              {t('title', { event: eventName })}
-            </DialogTitle>
-            <DialogDescription>
-              {t('summary', { present: stats.present, left: stats.left, total: stats.total })}
-            </DialogDescription>
-          </DialogHeader>
+              `sm:max-w-3xl` needs its prefix: DialogContent's own `sm:max-w-lg`
+              is variant-scoped, so the bare `max-w-3xl` this used to carry never
+              won at desktop widths and the roll-call ran in a 512px column. */}
+          <DialogContent className="flex modal-h-tall sm:max-w-3xl flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Users className="size-4" />
+                {title}
+              </DialogTitle>
+              <DialogDescription>{summary}</DialogDescription>
+            </DialogHeader>
 
-          {/* Stacked on a phone: beside «Alle abmelden» the field was ~130px at 360 and its
-              own placeholder ended in «Such» (overflow sweep, 03.10.). */}
-          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-            <SearchInput
-              value={search}
-              onValueChange={setSearch}
-              placeholder={tCommon('search')}
-              containerClassName="min-w-0 flex-1"
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setConfirmOutAll(true)}
-              disabled={stats.present === 0}
-            >
-              <LogOut className="size-3.5" />
-              {t('checkOutAll')}
-            </Button>
-          </div>
+            <div className="flex flex-row items-center gap-2">
+              {searchField}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirmOutAll(true)}
+                disabled={stats.present === 0}
+              >
+                <LogOut className="size-3.5" />
+                {t('checkOutAll')}
+              </Button>
+            </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-            {/* Who Divera says is coming, above the roll-call. Out of the way while a search
-                narrows the list: that is a different question, and the name is below anyway. */}
-            {!isLoading && !search.trim() && (
-              <DiveraIncomingBlock
-                eventId={eventId}
-                enabled={open}
-                attendedIds={attendedIds}
-                canCheckIn={canCheckIn}
-                onCheckIn={checkInFromDivera}
-                className="mb-3"
-              />
-            )}
-            {isLoading ? (
-              <div className="flex justify-center py-6">
-                <LoadingStatus className="text-sm">{t('loading')}</LoadingStatus>
-              </div>
-            ) : visible.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">{t('noneFound')}</p>
-            ) : (
-              // ONE column, on every width. Two columns meant the roll-call ran
-              // down the left half and back up the right, so the name after
-              // «Aebi» was «Ammann» two rows down and «Aebischer» sat on the
-              // other side — read aloud from top to bottom, that is how somebody
-              // gets skipped. A roll-call is a single list.
-              <div className="grid grid-cols-1 gap-1.5">
-                {visible.map((person) => (
-                  <AttendanceRow
-                    key={person.id}
-                    person={person}
-                    assignedAt={person.checked_in ? (assignmentLabelFor?.(person) ?? null) : null}
-                    onClick={() => cycle(person)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">{list}</div>
 
-          <div className="border-t pt-3">
-            <QuickAddPersonnel
-              onPersonAdded={async () => {
-                await load()
-              }}
-              checkInEventId={eventId}
-              isNameTaken={isNameTaken}
-            />
-            <p className="mt-1 text-center text-xs text-muted-foreground">{t('quickAddHint')}</p>
-          </div>
-        </DialogContent>
-      </Dialog>
+            <div className="border-t pt-3">{quickAdd}</div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       <ConfirmDialog
         open={!!confirmOut}
@@ -390,21 +461,54 @@ export function AttendanceModal({
   )
 }
 
+/**
+ * One person, one target: a click cycles the state (see `cycle`). The glyph on the left
+ * says the state. `twoLines` is the phone: line 1 the full name (wraps, never truncates),
+ * line 2 the facts in mono. The desktop row keeps everything on one line – it has the
+ * width – with «zugewiesen» as a chip and the time on the right.
+ */
 function AttendanceRow({
   person,
   assignedAt,
+  twoLines,
   onClick,
 }: {
   person: ApiPersonnelListItem
   assignedAt: string | null
+  twoLines: boolean
   onClick: () => void
 }) {
   const t = useTranslations('kanban.attendance')
   const tCommon = useTranslations('kanban.common')
   const state = attendanceState(person)
   const unavailable = person.status === 'unavailable'
-  const since = formatTime(person.checked_in_at) || null
-  const until = formatTime(person.checked_out_at) || null
+  const facts = attendanceFacts(person, assignedAt)
+  const name = person.name.trim() || tCommon('unknownResource')
+
+  const factText = (fact: AttendanceFact): string => {
+    switch (fact.kind) {
+      case 'unavailable':
+        return t('unavailable')
+      case 'since':
+        return t('since', { time: fact.time })
+      case 'span':
+        return `${fact.from ?? '–'} – ${fact.until}`
+      case 'assigned':
+        return twoLines ? t('assignedTo', { where: fact.where }) : t('assignedChip')
+    }
+  }
+
+  const glyph =
+    state === 'present' ? (
+      <CheckCircle2 className="size-4 shrink-0 text-success" />
+    ) : state === 'left' ? (
+      <LogOut className="size-4 shrink-0" />
+    ) : (
+      <Circle className="size-4 shrink-0 text-muted-foreground" />
+    )
+
+  const assigned = facts.find((fact) => fact.kind === 'assigned')
+  const time = facts.find((fact) => fact.kind !== 'assigned')
 
   return (
     <button
@@ -413,7 +517,8 @@ function AttendanceRow({
       disabled={unavailable}
       aria-pressed={state === 'present'}
       className={cn(
-        'flex w-full items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm transition-colors',
+        'flex w-full gap-2.5 rounded-md border px-3 text-left text-sm transition-colors',
+        twoLines ? 'min-h-11 items-start py-2' : 'items-center py-2',
         // ring-inset: the focus ring must not grow the row's footprint — an outset ring made
         // the focused row sit 2px proud of its neighbours (field test 08.09.)
         'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
@@ -423,31 +528,44 @@ function AttendanceRow({
         unavailable && 'cursor-not-allowed opacity-50 hover:bg-transparent'
       )}
     >
-      {state === 'present' ? (
-        <CheckCircle2 className="size-4 shrink-0 text-success" />
-      ) : state === 'left' ? (
-        <LogOut className="size-4 shrink-0" />
+      {twoLines ? (
+        <>
+          {/* 2px down: the glyph sits on the name's line, not between the two lines. */}
+          <span className="mt-0.5 flex shrink-0">{glyph}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-base break-words">{name}</span>
+            {facts.length > 0 && (
+              // Each fact an inline-block: a wrap falls between «seit 17:22» and
+              // «zugewiesen: 14 · Talstrasse 25», not inside the Einsatz, unless one alone
+              // is wider than the row.
+              <span className="mt-0.5 block font-mono text-xs break-words text-muted-foreground">
+                {facts.map((fact, i) => (
+                  <Fragment key={fact.kind}>
+                    {i > 0 && ' '}
+                    <span className="inline-block max-w-full">
+                      {factText(fact)}
+                      {i < facts.length - 1 && '\u00a0·'}
+                    </span>
+                  </Fragment>
+                ))}
+              </span>
+            )}
+          </span>
+        </>
       ) : (
-        <Circle className="size-4 shrink-0 text-muted-foreground" />
+        <>
+          {glyph}
+          <span className="min-w-0 flex-1 truncate" title={name}>
+            {name}
+          </span>
+          {assigned && (
+            <span className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-2xs font-medium text-warning-foreground">
+              {factText(assigned)}
+            </span>
+          )}
+          <span className="shrink-0 font-mono text-xs text-muted-foreground">{time ? factText(time) : ''}</span>
+        </>
       )}
-
-      <span className="min-w-0 flex-1 truncate">{person.name.trim() || tCommon('unknownResource')}</span>
-
-      {assignedAt && (
-        <span className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-2xs font-medium text-warning-foreground">
-          {t('assignedChip')}
-        </span>
-      )}
-
-      <span className="shrink-0 font-mono text-xs text-muted-foreground">
-        {unavailable
-          ? t('unavailable')
-          : state === 'present' && since
-            ? t('since', { time: since })
-            : state === 'left' && until
-              ? `${since ?? '–'} – ${until}`
-              : ''}
-      </span>
     </button>
   )
 }
