@@ -1,5 +1,5 @@
 import { StrictMode, useState } from "react"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { act, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
@@ -7,8 +7,9 @@ import { renderWithIntl } from "@/test-utils/render-with-intl"
 const geocodeAddress = vi.hoisted(() => vi.fn().mockResolvedValue(null))
 const searchAddress = vi.hoisted(() => vi.fn().mockResolvedValue([]))
 const getAllSettings = vi.hoisted(() => vi.fn().mockResolvedValue({}))
+const reverseGeocode = vi.hoisted(() => vi.fn().mockResolvedValue(null))
 
-vi.mock("@/lib/geocoding", () => ({ geocodeAddress, searchAddress }))
+vi.mock("@/lib/geocoding", () => ({ geocodeAddress, searchAddress, reverseGeocode }))
 vi.mock("@/lib/api-client", () => ({ apiClient: { getAllSettings } }))
 vi.mock("next/dynamic", () => ({ default: () => () => null }))
 
@@ -260,4 +261,91 @@ it("preserves a manually selected pin while an earlier address lookup completes"
   await act(async () => { complete?.({ lat: 46, lon: 7 }) })
   expect(onCoordinatesChange).not.toHaveBeenCalled()
   geocodeAddress.mockResolvedValue(null)
+})
+
+describe("LocationInput «Hier» (locateHere)", () => {
+  /** A phone with geolocation answering `answer`; undone after each test. */
+  function onPhoneWithGps(answer: (ok: PositionCallback, fail: PositionErrorCallback) => void) {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: true, media: query, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    }))
+    vi.stubGlobal("navigator", { ...navigator, geolocation: { getCurrentPosition: answer } })
+  }
+  afterEach(() => vi.unstubAllGlobals())
+
+  /** The field as a form holds it: what it reports comes back as props. */
+  function Form({ locateHere = true }: { locateHere?: boolean }) {
+    const [address, setAddress] = useState<string | null>(null)
+    const [coords, setCoords] = useState<[number | null, number | null]>([null, null])
+    return (
+      <LocationInput
+        address={address}
+        latitude={coords[0]}
+        longitude={coords[1]}
+        onAddressChange={setAddress}
+        onCoordinatesChange={(lat, lon) => setCoords([lat, lon])}
+        locateHere={locateHere}
+      />
+    )
+  }
+
+  it("fills address and pin from one fix and says where they came from", async () => {
+    onPhoneWithGps((ok) => ok({ coords: { latitude: 47.51, longitude: 7.56, accuracy: 7.6 } } as GeolocationPosition))
+    reverseGeocode.mockResolvedValueOnce("Hauptstrasse 21, Oberwil")
+    const user = userEvent.setup()
+    renderWithIntl(<Form />)
+
+    await user.click(screen.getByRole("button", { name: "Hier – meinen Standort übernehmen" }))
+
+    await waitFor(() => expect(screen.getByRole("combobox")).toHaveValue("Hauptstrasse 21, Oberwil"))
+    expect(reverseGeocode).toHaveBeenCalledWith(47.51, 7.56)
+    expect(screen.getByText("aus GPS · ±8 m")).toBeInTheDocument()
+  })
+
+  it("says a refused position under the field, as advice", async () => {
+    onPhoneWithGps((_, fail) => fail({ code: 1, message: "" } as GeolocationPositionError))
+    const user = userEvent.setup()
+    renderWithIntl(<Form />)
+
+    await user.click(screen.getByRole("button", { name: "Hier – meinen Standort übernehmen" }))
+
+    const advice = await screen.findByRole("status")
+    expect(advice).toHaveTextContent("Kein Zugriff auf den Standort")
+    expect(screen.getByRole("combobox")).toHaveValue("")
+  })
+
+  it("keeps the GPS pin when no address was found and the operator types the street", async () => {
+    onPhoneWithGps((ok) => ok({ coords: { latitude: 47.51, longitude: 7.56, accuracy: 12 } } as GeolocationPosition))
+    reverseGeocode.mockResolvedValueOnce(null)
+    const onCoordinatesChange = vi.fn()
+    const user = userEvent.setup()
+    function Spy() {
+      const [address, setAddress] = useState<string | null>(null)
+      const [coords, setCoords] = useState<[number | null, number | null]>([null, null])
+      return (
+        <LocationInput
+          address={address}
+          latitude={coords[0]}
+          longitude={coords[1]}
+          onAddressChange={setAddress}
+          onCoordinatesChange={(lat, lon) => { onCoordinatesChange(lat, lon); setCoords([lat, lon]) }}
+          locateHere
+        />
+      )
+    }
+    renderWithIntl(<Spy />)
+
+    await user.click(screen.getByRole("button", { name: "Hier – meinen Standort übernehmen" }))
+    expect(await screen.findByRole("status")).toHaveTextContent("keine Adresse dazu gefunden")
+    await user.type(screen.getByRole("combobox"), "Hinter dem Schulhaus{Enter}")
+
+    expect(onCoordinatesChange).toHaveBeenCalledWith(47.51, 7.56)
+    expect(onCoordinatesChange).not.toHaveBeenCalledWith(null, null)
+  })
+
+  it("is not offered unless the form opts in", () => {
+    onPhoneWithGps(() => {})
+    renderWithIntl(<Form locateHere={false} />)
+    expect(screen.queryByRole("button", { name: "Hier – meinen Standort übernehmen" })).not.toBeInTheDocument()
+  })
 })

@@ -1563,7 +1563,14 @@
       "formatDetected": "Format erkannt: {format}",
       "invalidFormat": "Ungültiges Format",
       "coordinatesSwapped": "Koordinaten wurden getauscht",
-      "supportedFormats": "Unterstützte Formate: Dezimal (47.5164, 7.5618), Swiss LV95 (2621234, 1260789), DMS (47°31'2.96\"N), Google Maps URL"
+      "supportedFormats": "Unterstützte Formate: Dezimal (47.5164, 7.5618), Swiss LV95 (2621234, 1260789), DMS (47°31'2.96\"N), Google Maps URL",
+      "locateHere": "Hier – meinen Standort übernehmen",
+      "locating": "Standort wird bestimmt …",
+      "fromGps": "aus GPS · ±{meters} m",
+      "locateDenied": "Kein Zugriff auf den Standort – im Browser erlauben oder Adresse eintippen.",
+      "locateUnavailable": "Kein GPS-Standort verfügbar – Adresse eintippen oder auf der Karte wählen.",
+      "locateTimeout": "Kein GPS-Standort innert 10 Sekunden – nochmals versuchen oder Adresse eintippen.",
+      "locateNoAddress": "Standort übernommen, aber keine Adresse dazu gefunden – bitte Adresse eintippen."
     },
     "mapPicker": {
       "title": "Einsatzort auf Karte wählen",

@@ -55,6 +55,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { apiClient, type ApiFeldIncidentCreated, type ApiFeldOwnReport } from '@/lib/api-client'
 import { ApiError } from '@/lib/api/types'
 import { reverseGeocode } from '@/lib/geocoding'
+import { getDevicePosition } from '@/lib/device-position'
 import { PRIORITY_LABELS } from '@/lib/priority'
 import { asIncidentType, INCIDENT_TYPE_LABELS } from '@/lib/types/incidents'
 import type { IncidentPriority, IncidentType } from '@/lib/types/incidents'
@@ -257,33 +258,31 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
 
   /** The reporter is standing there, so their own position is the best address
    *  they have — and typing a street name one-handed in the rain is the worst. */
-  const locate = () => {
+  const locate = async () => {
     if (!navigator.geolocation) return
     setLocating(true)
-    navigator.geolocation.getCurrentPosition(
-      async position => {
-        const { latitude, longitude } = position.coords
-        setLat(latitude)
-        setLng(longitude)
-        // A coordinate is not an address: the KP dispatches against a street and
-        // reads it out over the radio. So the pin is turned into words, and the
-        // crew can correct them — «Standort erfasst» with an empty field was a
-        // button that looked like it had done something and had not.
-        try {
-          const label = await reverseGeocode(latitude, longitude)
-          if (label) setAddress(current => current?.trim() || label)
-        } catch (error) {
-          console.error('Reverse geocoding failed:', error)
-        }
-        setLocating(false)
-      },
-      error => {
-        console.error('Geolocation failed:', error)
-        setLocating(false)
-        toast.error(t('locateFailed'))
-      },
-      { enableHighAccuracy: true, timeout: 10_000 },
-    )
+    // A fresh fix (`maximumAge: 0`): the crew may have just driven up, and a 30-second-old
+    // position is somewhere back along the road.
+    const fix = await getDevicePosition({ maximumAge: 0 })
+    if (!fix.ok) {
+      console.error('Geolocation failed:', fix.reason)
+      setLocating(false)
+      toast.error(t('locateFailed'))
+      return
+    }
+    setLat(fix.lat)
+    setLng(fix.lon)
+    // A coordinate is not an address: the KP dispatches against a street and
+    // reads it out over the radio. So the pin is turned into words, and the
+    // crew can correct them — «Standort erfasst» with an empty field was a
+    // button that looked like it had done something and had not.
+    try {
+      const label = await reverseGeocode(fix.lat, fix.lon)
+      if (label) setAddress(current => current?.trim() || label)
+    } catch (error) {
+      console.error('Reverse geocoding failed:', error)
+    }
+    setLocating(false)
   }
 
   // Asked on the review step only — the form is still being typed before it,
