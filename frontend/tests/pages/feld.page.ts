@@ -17,7 +17,8 @@ import { BasePage } from './base.page';
 export class FeldPage extends BasePage {
   readonly title: Locator;
   readonly personSearch: Locator;
-  readonly notMeButton: Locator;
+  /** The name in the header: a menu with tonight's role and «Nicht ich» (owner pick 1A). */
+  readonly nameMenu: Locator;
 
   // --- the door: Feld-Code → picker → bound device (plan 26). The fourth
   // digit submits by itself since the door redesign — there is no button. ---
@@ -50,7 +51,9 @@ export class FeldPage extends BasePage {
 
     this.title = page.getByRole('heading', { name: 'Schadenplatz-Rapport' }).first();
     this.personSearch = page.getByPlaceholder('Name suchen …');
-    this.notMeButton = page.getByRole('button', { name: 'Nicht ich' });
+    // The trigger's name is the person's own, so it is found by what it opens,
+    // inside the header — the rows below are buttons that can carry names too.
+    this.nameMenu = page.getByRole('banner').locator('button[aria-haspopup="menu"]');
 
     // The door (plan 26): four digits before anything at all. The fourth
     // digit submits by itself.
@@ -186,6 +189,16 @@ export class FeldPage extends BasePage {
     await expect(this.submittedBadge.or(this.confirmGapsButton)).toBeVisible({ timeout: 15_000 });
     if (await this.confirmGapsButton.isVisible()) await this.confirmGapsButton.click();
     await expect(this.submittedBadge).toBeVisible({ timeout: 15_000 });
+  }
+
+  /**
+   * «Nicht ich»: behind the name in the header since the header went meta-only
+   * (owner pick 1A, 14.11.2026). Opens the menu and picks it; the confirmation
+   * it asks for is the caller's to answer.
+   */
+  async notMe() {
+    await this.nameMenu.click();
+    await this.page.getByRole('menuitem', { name: 'Nicht ich' }).click();
   }
 
   /** "Angekommen", through the confirmation it asks for first (§18.18). */

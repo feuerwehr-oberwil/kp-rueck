@@ -112,7 +112,8 @@ export function FeldIdentityBar({
     // Opaque, no backdrop blur: the bar is the first row under the status bar of the home-screen
     // app, and a frosted bar there read as a blurred strip at the top of the screen whenever the
     // page scrolled under it. The status bar takes the same colour (lib/theme-color.ts).
-    <div className={LINK_PAGE_HEADER_CLASS}>
+    // A <header> (the page's banner), like the shared LinkPageHeader on the picker.
+    <header data-slot="feld-identity-bar" className={LINK_PAGE_HEADER_CLASS}>
       <div className={LINK_PAGE_HEADER_ROW_CLASS}>
         {children}
         {onNotMe && name ? (
@@ -142,6 +143,6 @@ export function FeldIdentityBar({
         )}
         {trailing}
       </div>
-    </div>
+    </header>
   )
 }
