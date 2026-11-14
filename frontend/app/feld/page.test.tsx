@@ -187,7 +187,9 @@ describe('/feld handing the phone to someone else', () => {
 
   async function confirmLogout() {
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: 'Nicht ich' }))
+    // «Nicht ich» sits behind the name in the header (owner pick 1A).
+    await user.click(await screen.findByRole('button', { name: /Muster Hans/ }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Nicht ich' }))
     await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Abmelden' }))
   }
 
@@ -396,6 +398,8 @@ describe('/feld before the Schadenplatz was disponiert', () => {
       personnel_role: 'Offizier',
       event_id: 'e-1',
       event_name: 'Sturm Oberwil',
+      // Midday, so the header's day is Saturday 14.11. in any test machine's zone.
+      event_started_at: '2026-11-14T12:00:00Z',
       assignments: [assignment({ incident_id: 'inc-1', ...overrides })],
       message_chips: [],
     })
@@ -431,11 +435,14 @@ describe('/feld before the Schadenplatz was disponiert', () => {
     expect(screen.getByTestId('feld-rapport-form')).toBeInTheDocument()
   })
 
-  it('says the board status as one quiet labelled word (§P3.1)', async () => {
+  it('says the Einsatzart and the title under the address, and no «KP: …» status', async () => {
     await openDetail({ incident_status: 'enroute', has_been_dispatched: true })
 
-    // Labelled as the KP's word — the ack that the KP acted on the Meldung.
-    expect(screen.getByText('KP: Disponiert / Anfahrt')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Hauptstrasse 1')
+    expect(screen.getByText('Elementarereignis · Keller Wasser')).toBeInTheDocument()
+    // The board's status word is gone (P12); the header is meta only.
+    expect(screen.queryByText(/^KP: /)).not.toBeInTheDocument()
+    expect(screen.getByText('Sturm Oberwil · Sa 14.11.')).toBeInTheDocument()
   })
 
   it('shows the KP\'s messages to the squad (§P3.2)', async () => {

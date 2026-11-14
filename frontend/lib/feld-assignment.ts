@@ -130,3 +130,17 @@ export function incidentHasRapport(assignment: ApiFeldAssignment): boolean {
 export function assignmentRapportApplies(assignment: ApiFeldAssignment): boolean {
   return assignment.source === 'crew' && incidentHasRapport(assignment)
 }
+
+/**
+ * The line under the detail's address: «Diverse Einsätze · Türöffnung».
+ *
+ * The Einsatzart always; the dispatcher's title only when it adds something —
+ * not when it is empty, repeats the Einsatzart, or is already the headline (a
+ * Schadenplatz without an address shows its title up there instead).
+ */
+export function einsatzartLine(typeLabel: string, title: string | null | undefined, headline: string): string {
+  const said = (text: string) => text.trim().toLowerCase()
+  const extra = (title ?? '').trim()
+  const addsSomething = extra && said(extra) !== said(typeLabel) && said(extra) !== said(headline)
+  return addsSomething ? `${typeLabel} · ${extra}` : typeLabel
+}

@@ -387,6 +387,10 @@ class FeldAssignmentsResponse(BaseModel):
     driver_vehicles: list[str] = []
     event_id: UUID
     event_name: str
+    # When the Ereignis was opened. The phone's header reads «Sturm Oberwil ·
+    # Sa 14.11.» — two Ereignisse called «Unwetter» a month apart must not look
+    # like the same night on a phone that was handed over from the last one.
+    event_started_at: datetime
     assignments: list[FeldAssignment]
     # The station's Freitext-Meldung chips (decision 20). Carried on this
     # response rather than on an endpoint of their own: the detail view is one

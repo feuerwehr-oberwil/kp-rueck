@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   assignmentRapportApplies,
   decodeFeldCredential,
+  einsatzartLine,
   feedBucket,
   incidentHasRapport,
   isLiveAssignment,
@@ -211,5 +212,18 @@ describe('decodeFeldCredential', () => {
     expect(decodeFeldCredential(token({ type: 'reko', unlocked: true }))).toBeNull()
     expect(decodeFeldCredential('poster-token-without-dots')).toBeNull()
     expect(decodeFeldCredential('a.!!!.c')).toBeNull()
+  })
+})
+
+describe('einsatzartLine', () => {
+  it('adds the title when it says more than the Einsatzart and the headline', () => {
+    expect(einsatzartLine('Diverse Einsätze', 'Türöffnung', 'Talstrasse 19')).toBe('Diverse Einsätze · Türöffnung')
+  })
+
+  it('leaves the title out when it is empty, repeats the Einsatzart or is already the headline', () => {
+    expect(einsatzartLine('Diverse Einsätze', '  ', 'Talstrasse 19')).toBe('Diverse Einsätze')
+    expect(einsatzartLine('Diverse Einsätze', 'diverse einsätze', 'Talstrasse 19')).toBe('Diverse Einsätze')
+    // No address: the title is the headline and is not said twice.
+    expect(einsatzartLine('Ölwehr', 'Öl auf Strasse', 'Öl auf Strasse')).toBe('Ölwehr')
   })
 })

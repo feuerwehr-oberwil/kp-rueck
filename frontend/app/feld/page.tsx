@@ -37,7 +37,7 @@ import { FeldActions } from '@/components/feld/feld-actions'
 import { FeldBriefing, FeldBriefingLine } from '@/components/feld/feld-briefing'
 import { FELD_COOKIE_SCOPE, readDeviceToken, useFeldDoor } from '@/components/feld/feld-door'
 import { LinkPageHeader } from '@/components/link-page/link-page'
-import { FeldIdentityBar, clearFeldName, writeFeldName } from '@/components/feld/feld-identity-bar'
+import { FeldIdentityBar, clearFeldName, formatEventDay, writeFeldName } from '@/components/feld/feld-identity-bar'
 import { FeldMaterialTable } from '@/components/feld/feld-material-table'
 import { FeldMeldenSheet } from '@/components/feld/feld-melden-sheet'
 import { FeldRapportForm } from '@/components/feld/feld-rapport-form'
@@ -48,10 +48,13 @@ import { SearchInput } from '@/components/ui/search-input'
 import { topLoading } from '@/components/ui/top-loading-bar'
 import { useBootGate } from '@/lib/boot-cover'
 import { clearCookie, readCookie, writeCookie } from '@/lib/cookie'
+import { useIntlLocale } from '@/lib/date-locale'
 import { formatTime } from '@/lib/format-time'
+import { getIncidentTypeLabel } from '@/lib/incident-types'
 import {
   assignmentRapportApplies,
   decodeFeldCredential,
+  einsatzartLine,
   feedBucket,
   incidentHasRapport,
   isLiveAssignment,
@@ -88,39 +91,6 @@ const INCIDENT_COOKIE = 'feld-selected-incident'
  * the requests from a phone on mobile data.
  */
 const FELD_POLL_MS = 10000
-
-/** The board's statuses, as `feld.kpStatus.*` names them. A closed set — the
- *  guard keeps a future status from crashing `t()` on every phone at once. */
-const KP_STATUS_KEYS = new Set([
-  'incoming',
-  'reko',
-  'reko_done',
-  'enroute',
-  'active',
-  'returning',
-  'complete',
-])
-
-/**
- * «KP: Im Einsatz» — the board's status on the detail (§P3.1), 14/600 in ink:
- * it is the KP's answer a squad waits for, so it must not read as metadata
- * beside the 12px timestamps (hill climb r8).
- *
- * The rows still carry no status, and the old reasoning there still holds (a
- * crew reads «Anfahrt» on the job they are standing on as a claim about
- * themselves). The detail is different: it is where a squad waits for the KP
- * to act on what they reported, and «Disponiert» appearing here IS the ack.
- * Labelled as the KP's word, not as a fact about the crew.
- */
-function KpStatusLine({ status }: { status: string }) {
-  const t = useTranslations('feld')
-  if (!KP_STATUS_KEYS.has(status)) return null
-  return (
-    <span className="text-sm font-semibold text-foreground">
-      {t('detail.kpStatus', { status: t(`kpStatus.${status}`) })}
-    </span>
-  )
-}
 
 /** The journey as a chip. «Vor Ort» carries the weight — it is the one of the
  *  three that means "this is what you are doing right now". */
@@ -303,6 +273,8 @@ function FeldSurface() {
     setRapportFocusSignal(0)
   }, [selectedIncidentId])
   const [eventName, setEventName] = useState<string>('')
+  const [eventStartedAt, setEventStartedAt] = useState<string | null>(null)
+  const intlLocale = useIntlLocale()
   // Station-configurable Freitext chips (decision 20), served with the list.
   // Two sets: what a crew radios in, and what a DRIVER does — a driver may not
   // report «Angekommen» or «Einsatz beendet» at all, so «fertig in ~30 Min»
@@ -382,12 +354,14 @@ function FeldSurface() {
           : {}
 
   /**
-   * What this person was given for THIS Ereignis, for the header.
+   * What this person was given for THIS Ereignis, at the top of the name menu.
    *
    * Not `personnel.role` — that is the rank on the roster («Gruppenführer») and
    * it is the same at every Ereignis. The line that matters on a phone is the
    * one that says what the KP gave *you tonight*, and for a driver that is a
-   * vehicle name. Falls back to the rank, then to the Ereignis.
+   * vehicle name. Falls back to the rank. In the menu rather than under the
+   * name since 14.11.2026: the header's second line is the Ereignis and its
+   * day, and the header stays one row high.
    */
   const roleLine = [
     drivenVehicles ? t('roles.driver', { vehicle: drivenVehicles }) : null,
@@ -488,6 +462,7 @@ function FeldSurface() {
       setDriverMessageChips(data.driver_message_chips ?? [])
       setRequestMaterials(data.request_materials ?? [])
       setEventName(data.event_name)
+      setEventStartedAt(data.event_started_at ?? null)
       setCheckedIn(Boolean(data.checked_in))
       const roles = data.functions ?? []
       setFunctions(roles)
@@ -971,27 +946,34 @@ function FeldSurface() {
   /**
    * «＋ Neuer Schadenplatz» — the crew reporting something they are standing in front of.
    *
-   * One node, rendered by BOTH the list and the detail view. The person who
-   * spots the next tree is the one already four taps deep at a Schadenplatz,
-   * and having to find the way back to the list first is how a Meldung turns
-   * into a radio call — or into nothing. Only one of the two views is mounted
-   * at a time, so this stays a single sheet with a single piece of state; the
-   * sheet closing when the crew leaves the detail is the wanted behaviour.
+   * The ink square on the right of the header (owner pick 1A, 14.11.2026), on
+   * the list and on the detail alike. The person who spots the next tree is the
+   * one already four taps deep at a Schadenplatz, and having to find the way
+   * back to the list first is how a Meldung turns into a radio call — or into
+   * nothing. In the header it is one tap from every screen and sits on nothing:
+   * the in-flow outline button it replaces had to be scrolled to, and the
+   * floating one before that covered «danach: Rapport …». Only one of the two
+   * views is mounted at a time, so this stays a single sheet with a single piece
+   * of state; the sheet closing when the crew leaves the detail is wanted.
    *
-   * It belongs to the person, not to a row: the same full-width outline button
-   * in both views, IN the flow of the page – under the status card on the
-   * detail, at the end of the list. It used to float over the bottom-right
-   * corner, where it covered «danach: Rapport …» and stood as a second ink
-   * button beside «Angekommen melden»; outline keeps that one the page's main
-   * action, and in flow it never sits on anything.
+   * The Telefondienst's form writes down somebody else's report, so their
+   * square says «Anruf erfassen».
    */
   const showMelden = !!token && !!selectedPerson && !atTheStation(functions)
+  const meldenLabel = functions.includes('telefondienst') ? t('melden.fabPhone') : t('melden.fab')
   const meldenButton = showMelden ? (
-    <Button size="lg" variant="outline" className="w-full" onClick={() => setMeldenOpen(true)}>
-      <Plus className="size-4" />
-      {functions.includes('telefondienst') ? t('melden.fabPhone') : t('melden.fab')}
+    <Button
+      size="icon"
+      className="shrink-0"
+      aria-label={meldenLabel}
+      title={meldenLabel}
+      onClick={() => setMeldenOpen(true)}
+    >
+      <Plus className="size-5" />
     </Button>
   ) : null
+  /** The header's second line: «Sturm Oberwil · Sa 14.11.». */
+  const eventLine = [eventName, formatEventDay(eventStartedAt, intlLocale)].filter(Boolean).join(' · ')
   const meldenSheet =
     showMelden && token && selectedPerson ? (
       <FeldMeldenSheet
@@ -1122,17 +1104,27 @@ function FeldSurface() {
     const navigateUrl = navigationUrl(selectedAssignment)
     return (
       <div className="min-h-screen bg-background pb-[env(safe-area-inset-bottom)]">
-        {/* The address, always on screen. Folded blocks mean a crew can be four
-            taps deep in a Rapport with nothing left in view that says WHICH
-            Schadenplatz they are filing — and on a storm night there are six.
-            So the way back and the address ride along at the top. */}
-        {/* The identity rides along here too. Somebody four taps deep in a
-            Rapport, on a phone that gets handed around a vehicle, must be able
-            to answer "whose page is this" without going back for it. */}
-        <FeldIdentityBar name={selectedPerson?.name ?? ''} subtitle={selectedAssignment.incident_title}>
-          <Button variant="ghost" size="sm" onClick={leaveAssignment} className="min-h-11 shrink-0 -ml-1">
-            <ArrowLeft className="size-3.5" />
-            {tCommon('back')}
+        {/* The header is meta only — the way back, who this phone is, the
+            Ereignis and its day, «＋». Somebody four taps deep in a Rapport, on
+            a phone that gets handed around a vehicle, must be able to answer
+            "whose page is this" without going back for it. Everything about the
+            Schadenplatz is in the main card below. */}
+        <FeldIdentityBar
+          name={selectedPerson?.name ?? ''}
+          subtitle={eventLine}
+          roleLine={roleLine || selectedPerson?.role}
+          onNotMe={askNotMe}
+          trailing={meldenButton}
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={leaveAssignment}
+            aria-label={tCommon('back')}
+            title={tCommon('back')}
+            className="-ml-2 shrink-0"
+          >
+            <ArrowLeft className="size-5" />
           </Button>
         </FeldIdentityBar>
 
@@ -1146,11 +1138,9 @@ function FeldSurface() {
             {/* Section: header — what and where, plus the EL briefing */}
             <section className="rounded-xl bg-secondary/50 p-4">
               <div className="flex items-start justify-between gap-3 mb-2">
-                {/* The address leads the card: the incident title is in the
-                    sticky bar above and does not need saying twice. */}
                 {/* The page's h1. The address leads because that is what a crew
-                    standing on a street matches against; the incident title
-                    rides in the bar above and is not said twice. */}
+                    standing on a street matches against; the Einsatzart and the
+                    title follow on the line under it. */}
                 {/* Tappable: the next thing that happens after reading this is
                     somebody drives, and re-typing a street name into another app
                     one-handed is both slow and the easiest place all night to
@@ -1194,15 +1184,23 @@ function FeldSurface() {
                   <RapportStateChip state={selectedAssignment.rapport_state} />
                 )}
               </div>
+              {/* «Diverse Einsätze · Türöffnung» — what kind of job this is, and
+                  the dispatcher's title when it says more than the headline. */}
+              <p className="mb-2 -mt-1 break-words text-sm text-muted-foreground">
+                {einsatzartLine(
+                  getIncidentTypeLabel(selectedAssignment.incident_type),
+                  selectedAssignment.incident_title,
+                  address || selectedAssignment.incident_title,
+                )}
+              </p>
               {selectedAssignment.source !== 'reko' && (
                 <LeaderLine assignment={selectedAssignment} selfId={selectedPerson?.personnel_id} className="mb-2" />
               )}
-              {/* The crew's own timestamps, plus — since sweep 27 §P3.1 — the
-                  board's status as one labelled word in ink. The rows still
-                  carry no status; the detail is where a squad waits for the KP
-                  to act on what it reported, and «KP: Disponiert» is the ack. */}
-              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                <KpStatusLine status={selectedAssignment.incident_status} />
+              {/* The crew's own timestamps. The board's status («KP: Im Einsatz»,
+                  sweep 27 §P3.1) is gone again (owner, 14.11.2026): the KP's
+                  workflow word read as a claim about the crew, and the answer a
+                  squad waits for is in «Angefordert» and «Meldungen vom KP». */}
+              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs text-muted-foreground empty:hidden">
                 {selectedAssignment.arrived_at && (
                   <span>
                     {/* Said differently when the automation saw it (§18.24), so
@@ -1271,10 +1269,6 @@ function FeldSurface() {
                 }
               />
             )}
-
-            {/* «＋ Neuer Schadenplatz» right under the actions: the crew standing
-                here is the one who sees the next tree (see `meldenButton`). */}
-            {meldenButton}
 
             {/* Section: «Meldungen vom KP» (sweep 27 §P3.2) — the other half of
                 the Meldung loop. On the KP's side a field Meldung is an urgent
@@ -1373,7 +1367,7 @@ function FeldSurface() {
           </div>
         </div>
 
-        {/* The one «Neuer Schadenplatz» sheet, opened by the button above. */}
+        {/* The one «Neuer Schadenplatz» sheet, opened by the header's «＋». */}
         {meldenSheet}
       </div>
     )
@@ -1384,8 +1378,10 @@ function FeldSurface() {
     <div className="min-h-screen bg-background pb-[env(safe-area-inset-bottom)]">
       <FeldIdentityBar
         name={selectedPerson?.name ?? ''}
-        subtitle={roleLine || selectedPerson?.role || eventName}
+        subtitle={eventLine}
+        roleLine={roleLine || selectedPerson?.role}
         onNotMe={askNotMe}
+        trailing={meldenButton}
       />
 
       <div className="max-w-md mx-auto space-y-3 p-4">
@@ -1686,9 +1682,6 @@ function FeldSurface() {
             what decides the next hour. Unfolded it is thirty-eight rows, which
             is how it came to hide a two-stop Auftrag under itself. */}
         {hasOwnWork && materialSection}
-
-        {/* «＋ Neuer Schadenplatz» ends the list, in flow (see `meldenButton`). */}
-        {meldenButton && <div className="pt-1">{meldenButton}</div>}
 
         {/* No «Eingecheckt» row. Checking IN is the crew's and checking out is
             not — abmelden from a phone in a vehicle edits the roll call the KP
