@@ -375,14 +375,17 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                     }}
                   >
                     {isMobile ? (
-                      /* Mobile: Card-based vertical layout */
+                      /* Mobile: Card-based vertical layout. The name and the status chips share a
+                         line only while they fit; otherwise the chips wrap under the name. At
+                         360px «Disponiert / Anfahrt» + «Lange» ran over «Trawa» and 2px past the
+                         card (WebKit scan, 14.11.2026). */
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+                          <div className="flex min-w-0 items-center gap-2">
                             <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                            <span className="font-bold text-sm">{vehicle.name}</span>
+                            <span className="min-w-0 break-words font-bold text-sm">{vehicle.name}</span>
                           </div>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                             {!isBound && vehicle.status === "available" && (
                               <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.available)}>
                                 {t('vehicleStatus.available')}

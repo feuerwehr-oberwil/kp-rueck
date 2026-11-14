@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, screen } from '@testing-library/react'
+import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import { onIncidentHighlight, type IncidentHighlightOptions } from '@/lib/notification-highlight'
@@ -40,6 +40,25 @@ describe('Kennzahlen › the oldest «Hoch» opens its Einsatz', () => {
   it('on the phone: as its Einsatz sheet, and the dialog makes way', async () => {
     expect(await openOldestHoch(393)).toEqual([['incident-7', { tab: undefined, allowModal: true }]])
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  // After-shots 14.11.2026: a centred dialog with the title wrapping beside a ✕ that wore a
+  // focus ring from the first frame. The phone gets the bottom sheet, focus on the sheet.
+  it('opens on the phone as a bottom sheet with nothing focused inside it', async () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 393 })
+    renderWithIntl(<FiguresDialog />)
+    act(() => toggleFigures())
+    const sheet = await screen.findByRole('dialog')
+    expect(sheet).toHaveAttribute('data-slot', 'sheet-content')
+    expect(screen.getByText('Sturm Ost')).toBeInTheDocument()
+    await waitFor(() => expect(document.activeElement).toBe(sheet))
+  })
+
+  it('stays a dialog on the desk', async () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1440 })
+    renderWithIntl(<FiguresDialog />)
+    act(() => toggleFigures())
+    expect(await screen.findByRole('dialog')).toHaveAttribute('data-slot', 'dialog-content')
   })
 
   it('on the desk: the highlight it always was (side panel, never a modal)', async () => {

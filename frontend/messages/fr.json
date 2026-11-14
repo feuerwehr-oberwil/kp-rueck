@@ -239,6 +239,7 @@
       "crewDuty": "Temps de service",
       "dispatch": {
         "placeholder": "Chercher ou attribuer …",
+        "placeholderShort": "Chercher ou attribuer …",
         "hint": "Intervention, puis véhicule / personne – p. ex.",
         "hintExample": "7 tlf keller",
         "hintTab": "complète",
