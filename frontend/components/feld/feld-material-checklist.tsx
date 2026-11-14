@@ -22,30 +22,26 @@
  *   the exceptions — exactly the shape the vehicle list next to it has.
  */
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useTranslations } from 'next-intl'
-import { CheckCircle, ChevronDown, ChevronUp, Circle, PackageOpen, X } from 'lucide-react'
+import { PackageOpen, X } from 'lucide-react'
 
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { SearchInput } from '@/components/ui/search-input'
-import { cn } from '@/lib/utils'
+import { FeldAddPicker } from '@/components/feld/feld-add-picker'
 import type { ApiRapportExtraMaterial, ApiRapportMaterialRow } from '@/lib/api/types'
 import {
+  addExtraMaterial,
   groupMaterialsByLocation,
-  setExtraMaterialFreeText,
+  removeExtraMaterial,
   setExtraMaterialLeftOnSite,
-  splitExtraMaterial,
-  toggleExtraMaterial,
 } from '@/lib/rapport-draft'
 
 interface FeldMaterialChecklistProps {
   rows: ApiRapportMaterialRow[]
   extraMaterials: ApiRapportExtraMaterial[]
   /**
-   * Known material names from the catalogue. Offered as a multi-select under
-   * "Weiteres Material" so the crew does not have to spell "Tauchpumpe TP-4"
-   * from memory — names only, never a unit (see below).
+   * Known material names from the catalogue. Offered in «Material hinzufügen»
+   * so the crew does not have to spell "Tauchpumpe TP-4" from memory — names
+   * only, never a unit (see below).
    */
   suggestions?: string[]
   disabled?: boolean
@@ -56,33 +52,27 @@ interface FeldMaterialChecklistProps {
 }
 
 /**
- * "Weiteres gebrauchtes Material" — a multi-select, a free-text line, and one
- * on-site tick per entry (§18.35).
+ * "Weiteres gebrauchtes Material" — one row per entry with its on-site tick,
+ * and «Material hinzufügen» under them (§18.35, owner pick 2A).
  *
- * The shape is the one the app already uses for picking people
- * (`resource-assignment-dialog`): a search field and a grid of tick rows with
- * the CheckCircle / Circle pair. What is picked appears above as a **row per
- * entry** rather than as a chip, because each entry now carries its own answer
- * to the only question worth asking about it.
+ * The picker offers the catalogue, and a typed name that is in no catalogue —
+ * the neighbouring brigade's pump — becomes «‹Name› hinzufügen». Both land as
+ * the same `{name, left_on_site}` entry the old multi-select and comma line
+ * wrote, so a rapport saved before reads back unchanged.
  *
  * **There is no `gebraucht` tick here and there must not be one.** Naming a
  * thing on this list already says it was used; a second tick would only ever be
  * ticked. What nothing else in the system knows is whether the borrowed pump is
- * still standing in the cellar — so that is the tick, per entry, because one
- * borrowed thing stays while the other goes home with the crew.
+ * still standing in the cellar — so that is the tick, per entry.
  *
  * **Decision 18's boundary is untouched, and it is the whole point.** This
  * writes NAMES: no id travels with a pick, nothing here is resolved to a unit,
- * and `/feld` still never creates an assignment — a different authorization and
- * conflict problem than anything else in this plan. The consequence is visible
+ * and `/feld` still never creates an assignment. The consequence is visible
  * rather than hidden: an entry marked *vor Ort verblieben* reaches the Restliste
  * and the Abholliste, and it deliberately does NOT reach "Material zurück –
  * freigeben", which frees assignments. The hint under the list says so.
- *
- * The free-text line stays for exactly the case the catalogue cannot answer: a
- * crew that borrowed the neighbouring brigade's pump has to be able to write it.
  */
-function ExtraMaterialPicker({
+function ExtraMaterialList({
   entries,
   suggestions,
   disabled,
@@ -94,36 +84,15 @@ function ExtraMaterialPicker({
   onChange: (next: ApiRapportExtraMaterial[]) => void
 }) {
   const t = useTranslations('feld.rapport.material')
-  const [search, setSearch] = useState('')
 
-  // The stored list is the single source of truth: all three controls are
-  // derived from it on every render, so a draft written on another phone comes
-  // back apart into the same three controls.
-  const { picked, freeText } = useMemo(() => splitExtraMaterial(entries, suggestions), [entries, suggestions])
-  const pickedNames = useMemo(() => new Set(picked.map(entry => entry.name)), [picked])
-
-  const searching = search.trim().length > 0
-  const filtered = useMemo(() => {
-    const needle = search.trim().toLowerCase()
-    if (!needle) return suggestions
-    return suggestions.filter(name => name.toLowerCase().includes(needle))
-  }, [suggestions, search])
-
-  /**
-   * The catalogue is not rendered unasked — a scroll area INSIDE a scrolling
-   * page is the worst of both on a phone. But it used to be *only* reachable by
-   * typing, which asks the crew to guess the station's own names before the list
-   * will admit they exist. So it collapses behind one tap instead. Search still
-   * narrows it, and what is already picked stays visible above as a row either
-   * way — that is the answer to "habe ich das erfasst?".
-   *
-   * There is no size threshold on the fold any more. Personal, Fahrzeuge and
-   * Material are one grammar now — bestätigen, suchen, tippen — and a section
-   * that changes shape at nine catalogue entries is a section the crew has to
-   * re-read.
-   */
-  const [showAll, setShowAll] = useState(false)
-  const listOpen = showAll || searching
+  // Only what is not on the list yet — taking a name back out is the row's ✕.
+  const pickable = useMemo(() => {
+    const taken = new Set(entries.map(entry => entry.name.trim().toLowerCase()))
+    return suggestions
+      .filter(name => !taken.has(name.trim().toLowerCase()))
+      .map(name => ({ key: name, name }))
+  }, [entries, suggestions])
+  const takenNames = useMemo(() => entries.map(entry => entry.name), [entries])
 
   return (
     <div className="space-y-2">
@@ -155,7 +124,7 @@ function ExtraMaterialPicker({
                 <button
                   type="button"
                   disabled={disabled}
-                  onClick={() => onChange(toggleExtraMaterial(entries, entry.name))}
+                  onClick={() => onChange(removeExtraMaterial(entries, entry.name))}
                   title={t('extraRemove', { name: entry.name })}
                   aria-label={t('extraRemove', { name: entry.name })}
                   className="inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
@@ -174,82 +143,16 @@ function ExtraMaterialPicker({
         </div>
       )}
 
-      {suggestions.length > 0 && (
-        <>
-          <SearchInput
-            value={search}
-            onValueChange={setSearch}
-            placeholder={t('extraSearchPlaceholder')}
-            disabled={disabled}
-          />
-          {!listOpen ? (
-            <button
-              type="button"
-              className="flex w-full items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-left text-sm text-muted-foreground"
-              onClick={() => setShowAll(true)}
-            >
-              <ChevronDown className="h-4 w-4 shrink-0" />
-              {t('extraShowAll', { count: suggestions.length })}
-            </button>
-          ) : (
-            <>
-              {showAll && !searching && (
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-1.5 px-1 py-1 text-left text-xs text-muted-foreground"
-                  onClick={() => setShowAll(false)}
-                >
-                  <ChevronUp className="h-3.5 w-3.5 shrink-0" />
-                  {t('extraHideAll')}
-                </button>
-              )}
-              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                {filtered.map(name => {
-                  const isPicked = pickedNames.has(name)
-                  return (
-                    <button
-                      key={name}
-                      type="button"
-                      disabled={disabled}
-                      aria-pressed={isPicked}
-                      onClick={() => onChange(toggleExtraMaterial(entries, name))}
-                      className={cn(
-                        'flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border border-border/50 px-2.5 py-2 text-left transition-colors',
-                        'hover:border-sel-edge hover:bg-secondary/30 disabled:cursor-not-allowed disabled:opacity-50',
-                        isPicked && 'border-sel-edge bg-sel-wash',
-                      )}
-                    >
-                      {isPicked ? (
-                        <CheckCircle className="h-5 w-5 shrink-0 text-sel-foreground" />
-                      ) : (
-                        <Circle className="h-5 w-5 shrink-0 text-muted-foreground" />
-                      )}
-                      <span className="truncate text-sm">{name}</span>
-                    </button>
-                  )
-                })}
-                {filtered.length === 0 && (
-                  <p className="col-span-full py-2 text-xs text-muted-foreground">
-                    {t('extraNoneFound')}
-                  </p>
-                )}
-              </div>
-            </>
-          )}
-        </>
+      {!disabled && (
+        <FeldAddPicker
+          label={t('add')}
+          searchPlaceholder={t('extraSearchPlaceholder')}
+          items={pickable}
+          freeTextLabel={name => t('addTyped', { name })}
+          takenNames={takenNames}
+          onAdd={(picked, typed) => onChange(addExtraMaterial(entries, [...picked.map(item => item.name), ...typed]))}
+        />
       )}
-
-      {/* Anything in no catalogue at all. No caption under it: the placeholder
-          («Nicht im Katalog? …») already says what the line is for, and the
-          Personal section's free-text row is captionless for the same reason. */}
-      <Input
-        id="rapport-extra-material"
-        autoComplete="off"
-        value={freeText}
-        disabled={disabled}
-        placeholder={t('extraPlaceholder')}
-        onChange={e => onChange(setExtraMaterialFreeText(entries, e.target.value, suggestions))}
-      />
     </div>
   )
 }
@@ -348,15 +251,10 @@ export function FeldMaterialChecklist({
       )}
 
       <div className="space-y-2">
-        <Label htmlFor="rapport-extra-material" className="text-xs font-normal text-muted-foreground">
-          {t('extraLabel')}
-        </Label>
+        <p className="text-xs text-muted-foreground">{t('extraLabel')}</p>
         {/* Still names in the data model, and it still never creates an
-            assignment (decision 18): a picker that resolved to units would make
-            /feld a writer of assignments, a different authorization and conflict
-            problem than anything else in this plan. The list below names things
-            — anything typed stays valid, and nothing here carries an id. */}
-        <ExtraMaterialPicker
+            assignment (decision 18) — see `ExtraMaterialList`. */}
+        <ExtraMaterialList
           entries={extraMaterials}
           suggestions={suggestions}
           disabled={disabled}

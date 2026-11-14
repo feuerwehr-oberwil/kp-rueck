@@ -60,14 +60,23 @@ describe('FeldPersonnelChecklist', () => {
 
   it('adds somebody the board never sent, with their personnel_id and not as free text', async () => {
     const onChange = vi.fn()
-    render({ candidates: [candidate()], onChange })
+    render({ candidates: [candidate(), candidate({ personnel_id: 'c2', name: 'Wyss Peter', checked_in: false })], onChange })
 
-    await userEvent.click(screen.getByRole('button', { name: /\(1\)/ }))
-    await userEvent.click(screen.getByRole('button', { name: /Koch René/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Person hinzufügen' }))
+    const sheet = await screen.findByRole('dialog')
+    // A tap ticks and the sheet stays open (owner pick 2A) — nothing is added yet.
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Koch René' }))
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Wyss Peter' }))
+    expect(onChange).not.toHaveBeenCalled()
+    expect(within(sheet).getByRole('button', { name: 'Koch René' })).toHaveAttribute('aria-pressed', 'true')
+
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Fertig (2)' }))
     expect(onChange).toHaveBeenCalledWith([
       expect.objectContaining({ personnel_id: 'p1' }),
       { personnel_id: 'c1', name: 'Koch René', present: true, on_board: false },
+      { personnel_id: 'c2', name: 'Wyss Peter', present: true, on_board: false },
     ])
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('takes an added name back off the list by unticking, not by dropping it', async () => {
@@ -88,61 +97,54 @@ describe('FeldPersonnelChecklist', () => {
     ])
   })
 
-  it('hides a removed row and offers the name again', () => {
+  it('hides a removed row and offers the name again', async () => {
     render({
       rows: [person(), person({ personnel_id: 'c1', name: 'Koch René', present: false, on_board: false })],
       candidates: [candidate()],
     })
     expect(screen.queryByText('Koch René')).toBeNull()
-    // …and the fold offers them again, or the removal could not be taken back.
-    expect(screen.getByRole('button', { name: /\(1\)/ })).toBeInTheDocument()
+    // …and the picker offers them again, or the removal could not be taken back.
+    await userEvent.click(screen.getByRole('button', { name: 'Person hinzufügen' }))
+    expect(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Koch René' })).toBeInTheDocument()
   })
 
-  it('takes a name and a note for somebody on no roster of this station', async () => {
+  it('adds a typed name nobody has on a roster as a guest, without a note', async () => {
     const onExtraChange = vi.fn()
     render({ onExtraChange })
 
-    await userEvent.type(screen.getByPlaceholderText('Weitere Person (Name)'), 'Bräm Urs')
-    await userEvent.type(screen.getByPlaceholderText(/FW Allschwil/), 'FW Allschwil, ab 21:00')
-    await userEvent.click(screen.getByRole('button', { name: 'Hinzufügen' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Person hinzufügen' }))
+    const sheet = await screen.findByRole('dialog')
+    await userEvent.type(within(sheet).getByPlaceholderText('Person suchen'), 'Bräm Urs')
+    await userEvent.click(within(sheet).getByRole('button', { name: '«Bräm Urs» als Gast hinzufügen' }))
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Fertig (1)' }))
 
-    expect(onExtraChange).toHaveBeenCalledWith([{ name: 'Bräm Urs', note: 'FW Allschwil, ab 21:00' }])
+    expect(onExtraChange).toHaveBeenCalledWith([{ name: 'Bräm Urs', note: '' }])
   })
 
-  it('folds the rest of the roster away and says how many are behind it', async () => {
-    const candidates = Array.from({ length: 29 }, (_, i) =>
-      candidate({ personnel_id: `x${i}`, name: `Angemeldet ${i}`, checked_in: true }),
-    )
-    render({ candidates })
-
-    expect(screen.queryByRole('button', { name: /Angemeldet 7/ })).not.toBeInTheDocument()
-    // The count is on screen unopened: an under-reported crew costs real money,
-    // so the section never hides the fact that there is more to look at.
-    await userEvent.click(screen.getByRole('button', { name: /\(29\)/ }))
-    expect(screen.getByRole('button', { name: /Angemeldet 7/ })).toBeInTheDocument()
+  it('still shows the note of a guest saved before the Notiz field went', () => {
+    render({ extra: [{ name: 'Bräm Urs', note: 'FW Allschwil' }] })
+    expect(screen.getByText('Bräm Urs')).toBeInTheDocument()
+    expect(screen.getByText('FW Allschwil')).toBeInTheDocument()
+    expect(screen.getByText('Gast')).toBeInTheDocument()
   })
 
-  it('opens the roster by itself when the board dispatched nobody', () => {
-    render({ rows: [], candidates: [candidate()] })
-    // A closed fold over an empty section is a dead end.
-    expect(screen.getByRole('button', { name: /Koch René/ })).toBeInTheDocument()
-  })
-
-  it('searches the whole roster without expanding it first', async () => {
-    const candidates = [
-      candidate({ personnel_id: 'c1', name: 'Graf Thomas', checked_in: true }),
-      candidate({ personnel_id: 'c2', name: 'Suter Elias', checked_in: false }),
-    ]
-    render({ candidates })
-
-    await userEvent.type(screen.getByPlaceholderText('Person suchen'), 'graf')
-    expect(screen.getByRole('button', { name: /Graf Thomas/ })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Suter Elias/ })).not.toBeInTheDocument()
+  it('offers the Appell first, then the rest of the roster', async () => {
+    render({
+      candidates: [
+        candidate({ personnel_id: 'c2', name: 'Suter Elias', checked_in: false }),
+        candidate({ personnel_id: 'c1', name: 'Graf Thomas', checked_in: true }),
+      ],
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Person hinzufügen' }))
+    const text = (await screen.findByRole('dialog')).textContent ?? ''
+    const order = ['Heute angemeldet', 'Graf Thomas', 'Alle', 'Suter Elias'].map(word => text.indexOf(word))
+    expect(order.every(index => index >= 0)).toBe(true)
+    expect([...order].sort((a, b) => a - b)).toEqual(order)
   })
 
   it('offers no controls in a read-only mount', () => {
     render({ disabled: true, extra: [{ name: 'Bräm Urs', note: '' }] })
     expect(screen.getByRole('checkbox', { name: /Muster Hans/ })).toBeDisabled()
-    expect(screen.queryByPlaceholderText('Weitere Person (Name)')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Person hinzufügen' })).not.toBeInTheDocument()
   })
 })

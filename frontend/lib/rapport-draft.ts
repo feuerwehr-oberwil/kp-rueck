@@ -260,93 +260,39 @@ export function groupMaterialsByLocation(rows: ApiRapportMaterialRow[]): Materia
 }
 
 /**
- * "Weiteres gebrauchtes Material" — a list of entries, three controls (§18.35).
+ * "Weiteres gebrauchtes Material" — a list of entries (§18.35).
  *
  * The field is still **names and nothing else**: no id travels with a pick, and
- * `/feld` still never writes an assignment (decision 18). What changed is that
- * it stopped being one comma-separated string. *Vor Ort verblieben* is a
- * question per item — one borrowed pump stays in the cellar while the shovels
- * go home — and a string can only ever answer it once.
- *
- * So the stored value is `{name, left_on_site}[]`, and three controls are
- * derived from it: the catalogue multi-select, the free-text line for anything
- * in no catalogue, and one on-site tick per entry. The derivation lives here
- * rather than in the component because it has to round-trip: whatever the three
- * controls produce must come apart into the same three when the form reloads on
- * another phone.
+ * `/feld` still never writes an assignment (decision 18). *Vor Ort verblieben*
+ * is a question per item — one borrowed pump stays in the cellar while the
+ * shovels go home — so the stored value is `{name, left_on_site}[]`. A name
+ * gets in through «Material hinzufügen» (a catalogue pick or a typed name, same
+ * shape either way), and a row's ✕ takes it out.
  *
  * There is deliberately **no `gebraucht` tick** on these rows. Listing a thing
  * here already says it was used; a second tick would only ever be ticked.
  */
-export interface ExtraMaterialSelection {
-  /** Entries whose name matches the catalogue, in the catalogue's spelling. */
-  picked: ApiRapportExtraMaterial[]
-  /** Everything else, comma-joined and left exactly as it was typed. */
-  freeText: string
-}
-
-/** Case-insensitive lookup of the catalogue's own spelling. */
-function canonicalNames(catalogue: string[]): Map<string, string> {
-  return new Map(catalogue.map(name => [name.trim().toLowerCase(), name]))
-}
-
-export function splitExtraMaterial(
-  entries: ApiRapportExtraMaterial[],
-  catalogue: string[],
-): ExtraMaterialSelection {
-  const canonical = canonicalNames(catalogue)
-  const picked: ApiRapportExtraMaterial[] = []
-  const free: string[] = []
-  for (const entry of entries ?? []) {
-    const name = (entry?.name ?? '').trim()
-    if (!name) continue
-    const match = canonical.get(name.toLowerCase())
-    if (match) picked.push({ ...entry, name: match })
-    else free.push(name)
-  }
-  return { picked, freeText: free.join(', ') }
-}
-
-/** Add or remove one catalogue name, keeping every other entry untouched. */
-export function toggleExtraMaterial(
-  entries: ApiRapportExtraMaterial[],
-  name: string,
-): ApiRapportExtraMaterial[] {
-  const needle = name.trim().toLowerCase()
-  const existing = (entries ?? []).some(entry => entry.name.trim().toLowerCase() === needle)
-  if (existing) return (entries ?? []).filter(entry => entry.name.trim().toLowerCase() !== needle)
-  return [...(entries ?? []), { name, left_on_site: false }]
-}
+const nameKey = (name: string) => name.trim().toLowerCase()
 
 /**
- * The free-text line, re-split into entries.
- *
- * Matched **by name**, so an entry that already carries *vor Ort verblieben*
- * keeps it while the crew edits the rest of the line: losing the answer that
- * sends somebody driving to a keystroke would be the worst kind of quiet bug.
- * Catalogue picks keep their order in front, exactly as the old single string
- * joined them.
+ * Append names, unticked — nobody has been asked the on-site question yet. A
+ * name already on the list (any case) is skipped, so one thing never appears twice.
  */
-export function setExtraMaterialFreeText(
-  entries: ApiRapportExtraMaterial[],
-  freeText: string,
-  catalogue: string[],
-): ApiRapportExtraMaterial[] {
-  const { picked } = splitExtraMaterial(entries ?? [], catalogue)
-  const previous = new Map((entries ?? []).map(entry => [entry.name.trim().toLowerCase(), entry]))
-  const canonical = canonicalNames(catalogue)
-  const seen = new Set(picked.map(entry => entry.name.trim().toLowerCase()))
-  const free: ApiRapportExtraMaterial[] = []
-  for (const raw of freeText.split(',')) {
+export function addExtraMaterial(entries: ApiRapportExtraMaterial[], names: string[]): ApiRapportExtraMaterial[] {
+  const seen = new Set((entries ?? []).map(entry => nameKey(entry.name)))
+  const next = [...(entries ?? [])]
+  for (const raw of names) {
     const name = raw.trim()
-    const key = name.toLowerCase()
-    // A typed name that IS in the catalogue belongs to the multi-select, not
-    // twice into the list.
-    if (!name || seen.has(key) || canonical.has(key)) continue
-    seen.add(key)
-    free.push({ name, left_on_site: previous.get(key)?.left_on_site ?? false })
+    if (!name || seen.has(nameKey(name))) continue
+    seen.add(nameKey(name))
+    next.push({ name, left_on_site: false })
   }
-  return [...picked, ...free]
+  return next
+}
+
+/** Take one entry out, by name. */
+export function removeExtraMaterial(entries: ApiRapportExtraMaterial[], name: string): ApiRapportExtraMaterial[] {
+  return (entries ?? []).filter(entry => nameKey(entry.name) !== nameKey(name))
 }
 
 /** Flip one entry's "vor Ort verblieben", by name. */
@@ -355,8 +301,7 @@ export function setExtraMaterialLeftOnSite(
   name: string,
   leftOnSite: boolean,
 ): ApiRapportExtraMaterial[] {
-  const needle = name.trim().toLowerCase()
   return (entries ?? []).map(entry =>
-    entry.name.trim().toLowerCase() === needle ? { ...entry, left_on_site: leftOnSite } : entry,
+    nameKey(entry.name) === nameKey(name) ? { ...entry, left_on_site: leftOnSite } : entry,
   )
 }

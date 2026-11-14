@@ -543,7 +543,8 @@ describe('the Abschluss question (UX-PHONE-05)', () => {
     const dialog = await screen.findByRole('alertdialog')
     await userEvent.click(within(dialog).getByRole('button', { name: /^Material/ }))
 
-    const header = screen.getByRole('button', { name: /^Material/ })
+    // Not «Material hinzufügen», the picker button inside the section.
+    const header = screen.getByRole('button', { name: /^Material(?! hinzufügen)/ })
     await vi.waitFor(() => expect(header.closest('section')).toHaveClass('feld-jump-ring'))
     expect(header).toHaveAttribute('aria-expanded', 'true')
     expect(header.closest('section')?.contains(document.activeElement)).toBe(false)
