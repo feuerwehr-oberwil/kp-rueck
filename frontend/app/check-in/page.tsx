@@ -273,26 +273,26 @@ export default function CheckInPage() {
                 )}
               </div>
 
-              {/* Info */}
-              <div className="flex-1 text-left">
-                <div className="font-semibold text-lg">{person.name}</div>
-              </div>
-
-              {/* Status Badge */}
-              <div className="flex-shrink-0">
-                {person.is_assigned ? (
-                  <span className="bg-foreground/10 text-foreground px-3 py-1 rounded-full text-sm font-semibold">
-                    {t('badgeAssigned')}
-                  </span>
-                ) : person.checked_in ? (
-                  <span className="bg-sel-wash text-sel-foreground px-3 py-1 rounded-full text-sm font-semibold">
-                    {t('badgeCheckedIn')}
-                  </span>
-                ) : (
-                  <span className="bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
-                    {t('badgeNotCheckedIn')}
-                  </span>
-                )}
+              {/* Name, then the state pill – under the name on a phone, beside it from `sm`.
+                  Beside it on a 393px row the pill kept its width and «Bendik-Dimitrijević
+                  Alexandra» broke over three lines (phone sweep 14.11.2026). */}
+              <div className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="min-w-0 break-words font-semibold text-lg">{person.name}</div>
+                <div className="flex shrink-0 whitespace-nowrap">
+                  {person.is_assigned ? (
+                    <span className="bg-foreground/10 text-foreground px-3 py-1 rounded-full text-sm font-semibold">
+                      {t('badgeAssigned')}
+                    </span>
+                  ) : person.checked_in ? (
+                    <span className="bg-sel-wash text-sel-foreground px-3 py-1 rounded-full text-sm font-semibold">
+                      {t('badgeCheckedIn')}
+                    </span>
+                  ) : (
+                    <span className="bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
+                      {t('badgeNotCheckedIn')}
+                    </span>
+                  )}
+                </div>
               </div>
             </button>
           )})

@@ -174,7 +174,10 @@ export function EventFiguresView({
                 </span>
               </div>
             )}
-            <table className="w-full table-fixed border-collapse text-sm tabular-nums">
+            {/* Fixed columns, so a word longer than its column must be allowed to break:
+                at 360px «Disponiert» and «2 Meldungen» ran 1px out of their cells in WebKit.
+                Hyphenated first (the page's `lang`), mid-word only as the last resort. */}
+            <table className="w-full table-fixed border-collapse text-sm tabular-nums break-words hyphens-auto">
               <thead>
                 <tr className={cn("text-left text-muted-foreground", wall ? WALL_TYPE.supporting : "text-xs")}>
                   <th scope="col" className="w-[28%] py-1 pr-2 font-medium">{t("colPriority")}</th>

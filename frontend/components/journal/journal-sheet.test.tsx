@@ -330,4 +330,20 @@ describe("JournalSheet", () => {
     expect(screen.getByRole("button", { name: "Filtern" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: /^Manuell/ })).toBeNull()
   })
+
+  // Phone sweep 14.11.2026: between 🔗 and «Eintragen» the field had ~130px and the long
+  // placeholder was clipped. Short placeholder, the «#» hint as its own line, a send icon.
+  it("phone: a short placeholder, the # hint under the line, and a send icon that writes", async () => {
+    mobile.value = true
+    api.appendJournal.mockResolvedValue(row({ kind: "manual", text: "Polizei informiert" }))
+    const user = userEvent.setup()
+    renderSheet()
+    await screen.findAllByTestId("journal-row")
+    const input = screen.getByPlaceholderText("Eintrag …")
+    expect(screen.getByText("# im Text verknüpft einen Einsatz")).toBeInTheDocument()
+
+    await user.type(input, "Polizei informiert")
+    await user.click(screen.getByRole("button", { name: "Eintragen" }))
+    await waitFor(() => expect(api.appendJournal).toHaveBeenCalledOnce())
+  })
 })

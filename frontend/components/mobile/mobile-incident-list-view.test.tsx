@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
@@ -192,8 +192,8 @@ describe('MobileIncidentListView — the funnel filter', () => {
     expect(screen.getAllByTestId('card').map((c) => c.textContent).sort()).toEqual(
       ['Hauptstrasse 41', 'Hauptstrasse 9', 'Langegasse 97'],
     )
-    // Named in board order, not in the order they were ticked.
-    expect(funnel()).toHaveAttribute('aria-label', 'Filtern – Disponiert / Anfahrt · Im Einsatz · Rückfahrt')
+    // Named in board order, not in the order they were ticked – the same words as the line below.
+    expect(funnel()).toHaveAttribute('aria-label', 'Filtern – Gefiltert: Disponiert / Anfahrt · Im Einsatz · Rückfahrt')
     expect(funnel().className).toContain('bg-sel-wash')
     expect(screen.getByTestId('filter-summary').textContent).toContain('Gefiltert: Disponiert / Anfahrt · Im Einsatz · Rückfahrt')
   })
@@ -223,6 +223,58 @@ describe('MobileIncidentListView — the funnel filter', () => {
     expect((await row(/^Im Einsatz/)).textContent).toContain('1')
     expect((await row(/^Rückfahrt/)).textContent).toContain('1')
     expect((await row(/^Eingegangen/)).textContent).toContain('0')
+  })
+})
+
+describe('MobileIncidentListView — «Sortieren» in the funnel', () => {
+  afterEach(() => localStorage.clear())
+  // 1 alarmed first but moved to Im Einsatz at 10:50 · 2 alarmed last · 3 Eingegangen since 10:10
+  const ops = [
+    { ...op('1', 'Hauptstrasse 41', 'active'), dispatchTime: new Date('2026-11-14T10:00:00Z'), statusChangedAt: new Date('2026-11-14T10:50:00Z') },
+    { ...op('2', 'Langegasse 97', 'incoming'), dispatchTime: new Date('2026-11-14T10:40:00Z') },
+    { ...op('3', 'Kirchgasse 3', 'incoming'), dispatchTime: new Date('2026-11-14T10:10:00Z') },
+  ] as Operation[]
+  const renderOps = () =>
+    renderWithIntl(<MobileIncidentListView operations={ops} materials={[]} formatLocation={(a) => a} />)
+  const funnel = () => screen.getByRole('button', { name: /^Filtern/ })
+  const cards = () => screen.getAllByTestId('card').map((c) => c.textContent)
+
+  it('starts on «Status» – the order the list always had – with the funnel off', async () => {
+    const user = userEvent.setup()
+    renderOps()
+    expect(cards()).toEqual(['Hauptstrasse 41', 'Langegasse 97', 'Kirchgasse 3'])
+    expect(funnel().className).not.toContain('bg-sel-wash')
+    expect(screen.queryByTestId('filter-summary')).toBeNull()
+    await user.click(funnel())
+    expect(await screen.findByRole('menuitemradio', { name: 'Status' })).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('another order turns the funnel on and says so under the search, together with a filter', async () => {
+    const user = userEvent.setup()
+    renderOps()
+    await user.click(funnel())
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Längste Wartezeit' }))
+    // the menu stays open, like a tick
+    await user.click(await screen.findByRole('menuitemcheckbox', { name: /^Eingegangen/ }))
+    await user.keyboard('{Escape}')
+
+    expect(cards()).toEqual(['Kirchgasse 3', 'Langegasse 97'])
+    expect(funnel().className).toContain('bg-sel-wash')
+    expect(screen.getByTestId('filter-summary').textContent).toContain('Sortiert: Längste Wartezeit · Gefiltert: Eingegangen')
+    expect(funnel()).toHaveAttribute('aria-label', 'Filtern – Sortiert: Längste Wartezeit · Gefiltert: Eingegangen')
+  })
+
+  it('is remembered on this device', async () => {
+    const user = userEvent.setup()
+    const first = renderOps()
+    await user.click(funnel())
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Neueste zuerst' }))
+    await user.keyboard('{Escape}')
+    first.unmount()
+
+    renderOps()
+    expect(cards()).toEqual(['Langegasse 97', 'Kirchgasse 3', 'Hauptstrasse 41'])
+    expect(screen.getByTestId('filter-summary').textContent).toBe('Sortiert: Neueste zuerst')
   })
 })
 

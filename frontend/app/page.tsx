@@ -1465,7 +1465,6 @@ export default function FireStationDashboard() {
             operations={filteredOperations}
             materials={materials}
             formatLocation={formatLocation}
-            onUpdateOperation={updateOperation}
             isEditor={isEditor}
             isTraining={selectedEvent?.training_flag}
             isLoading={isLoading}

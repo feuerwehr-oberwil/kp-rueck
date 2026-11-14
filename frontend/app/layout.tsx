@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import localFont from 'next/font/local'
 import { NextIntlClientProvider } from 'next-intl'
 import { getLocale, getMessages, getTranslations } from 'next-intl/server'
@@ -32,6 +32,9 @@ import { TopLoadingBar } from '@/components/ui/top-loading-bar'
 import { ViewportInsets } from '@/components/viewport-insets'
 import { ThemeColorSync } from '@/components/theme-color-sync'
 import { THEME_COLOR } from '@/lib/theme-color'
+import { APP_VIEWPORT } from '@/lib/zoom-lock'
+import { ZoomLock } from '@/components/zoom-lock'
+import { FiguresDialog } from '@/components/figures-dialog'
 
 // Sora + Spline Sans Mono — the same faces as KP Front and kp-rueck.ch, so the
 // two apps and the site read as one family. Self-hosted (variable woff2, Latin
@@ -61,6 +64,9 @@ const splineSansMono = localFont({
  * management never puts the server value back after a navigation.
  */
 const THEME_COLOR_BOOT = `try{var t=localStorage.getItem('theme');var d=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',d?'${THEME_COLOR.dark}':'${THEME_COLOR.light}')}catch(e){}`
+
+/** Scale fixed at 1 on every route – the app-wide zoom lock (lib/zoom-lock.ts). */
+export const viewport: Viewport = APP_VIEWPORT
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('common.meta')
@@ -123,6 +129,8 @@ export default async function RootLayout({
         <TopLoadingBar />
         {/* --kb-inset / --vv-height on <html>: the on-screen keyboard, for the phone sheets. */}
         <ViewportInsets />
+        {/* No pinch or double-tap zoom outside a map (lib/zoom-lock.ts). */}
+        <ZoomLock />
         {/* Catches what escapes the React tree (rejected promises, listeners) and posts
             it to this station's OWN server log. Opt-in forwarding is a separate decision
             made server-side — see lib/report-error.ts. */}
@@ -157,6 +165,9 @@ export default async function RootLayout({
                       <PickupDonePrompt />
                       {/* The Alarmeingang: one sheet over whichever page opened it. */}
                       <AlarmInboxSheet />
+                      {/* Kennzahlen: one dialog for every page and both layouts – the desk's
+                          user menu, `Z`, the palette and the phone's «Mehr» toggle it. */}
+                      <FiguresDialog />
                     </CommandPaletteProvider>
                   </NotificationProvider>
                 </GroupsProvider>

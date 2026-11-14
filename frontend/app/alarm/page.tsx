@@ -30,6 +30,7 @@ import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
 import { Reveal } from '@/components/ui/reveal'
 import { FormMessage, focusFirstBlockingField, formMessageId } from '@/components/ui/form-message'
 import { LinkInvalidCard, LinkPageHeader } from '@/components/link-page/link-page'
+import { usePointerFine } from '@/lib/hooks/use-pointer-fine'
 
 export default function AlarmPage() {
   return (
@@ -518,6 +519,9 @@ interface AlarmFormProps {
 
 function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel, onSuccess }: AlarmFormProps) {
   const t = useTranslations('intake.alarm')
+  // Autofocus only with a mouse: on a touch screen it raised the keyboard over half the form
+  // before anybody chose a field (phone sweep 14.11.2026).
+  const pointerFine = usePointerFine()
   const start = initial ?? EMPTY_DRAFT
   /** What the caller said the thing IS. Lands in the incident's `description`,
    *  which is the column the board labels «Meldung» — see the submit below. */
@@ -759,8 +763,8 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
         disabled={submitting}
         // The first thing a caller says is where. Autofocus used to sit on the
         // Meldung below, so the operator typed the address into the wrong field
-        // or reached for the mouse before the sentence was finished.
-        autoFocus
+        // or reached for the mouse before the sentence was finished. Desk only.
+        autoFocus={pointerFine}
         error={showLocationError}
         describedBy={showLocationError ? formMessageId(LOCATION_FIELD_ID) : undefined}
       />

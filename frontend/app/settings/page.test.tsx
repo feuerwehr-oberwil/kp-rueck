@@ -44,6 +44,8 @@ const api = vi.hoisted(() => ({
   updateSetting: vi.fn(),
   getAuditLogs: vi.fn(),
   getAllPersonnel: vi.fn(),
+  // Personal asks which provider syncs the roster; not this test's question – never answers.
+  getIntegrations: vi.fn(() => new Promise(() => {})),
   getVehicles: vi.fn(),
   getAllMaterials: vi.fn(),
   previewExcelImport: vi.fn(),
@@ -61,7 +63,8 @@ vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), succe
 vi.mock('@/components/protected-route', () => ({
   ProtectedRoute: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
-vi.mock('@/components/ui/use-mobile', () => ({ useIsMobile: () => false }))
+const phone = vi.hoisted(() => ({ current: false }))
+vi.mock('@/components/ui/use-mobile', () => ({ useIsMobile: () => phone.current }))
 vi.mock('@/components/page-navigation', () => ({ PageNavigation: () => null }))
 vi.mock('@/components/mobile-bottom-navigation', () => ({ MobileBottomNavigation: () => null }))
 vi.mock('@/components/settings/branding-settings', () => ({ BrandingSettings: () => null }))
@@ -78,6 +81,7 @@ function openSection(section: string) {
 
 beforeEach(() => {
   role.isAdmin = true
+  phone.current = false
   params.current = new URLSearchParams()
   push.mockReset()
   api.getDemoStatus.mockReset().mockResolvedValue(null)
@@ -163,6 +167,39 @@ async function chooseFile(user: ReturnType<typeof userEvent.setup>) {
   await user.upload(input, new File(['x'], 'roster.xlsx'))
   expect(await screen.findByText('roster.xlsx')).toBeInTheDocument()
 }
+
+describe('Einstellungen › Telefon — nur Ansicht, ausser «Dieses Gerät»', () => {
+  it('shows a station section with its values, every control disabled, under one line', async () => {
+    phone.current = true
+    openSection('general')
+    const field = await screen.findByLabelText('Einsatzgebiet (Ort)')
+    expect(field).toHaveValue('Oberwil')
+    expect(field).toBeDisabled()
+    expect(screen.getByRole('note').textContent).toBe('Nur Ansicht – Einstellungen werden am Desktop geändert.')
+  })
+
+  it.each(['device', 'telemetry'])('leaves «%s» editable – this phone only, or a problem report', (section) => {
+    phone.current = true
+    openSection(section)
+    expect(screen.queryByRole('note')).toBeNull()
+    expect(document.querySelector('fieldset:disabled')).toBeNull()
+  })
+
+  it('Personal: the line, then its own read-only list whose search still works', async () => {
+    phone.current = true
+    api.getAllPersonnel.mockResolvedValue([])
+    openSection('personnel')
+    expect(screen.getByRole('note')).toBeInTheDocument()
+    expect(document.querySelector('fieldset:disabled')).toBeNull()
+    expect(await screen.findByPlaceholderText('Name, Rolle, Tag …')).toBeEnabled()
+  })
+
+  it('changes nothing on the desk', async () => {
+    openSection('general')
+    expect(await screen.findByLabelText('Einsatzgebiet (Ort)')).toBeEnabled()
+    expect(screen.queryByRole('note')).toBeNull()
+  })
+})
 
 describe('Einstellungen › Import — Vorschau, dann Ersetzen mit Rückfrage', () => {
   it('previews in the chosen mode and asks before replacing, naming what is lost', async () => {
