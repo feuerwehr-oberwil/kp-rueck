@@ -123,7 +123,7 @@ export function FeldVehicleChecklist({ rows, candidates = [], disabled, onChange
               >
                 <span className="flex min-w-0 items-center gap-2">
                   <Truck className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="truncate text-sm">{row.name}</span>
+                  <span className="min-w-0 break-words text-sm">{row.name}</span>
                 </span>
                 {!disabled && (
                   <Button
@@ -171,16 +171,18 @@ function VehicleRow({
   onToggle: (vehicleId: string, present: boolean) => void
 }) {
   const t = useTranslations('feld.rapport.vehicles')
+  // The whole row is the label, so the whole row is the tap target — at least
+  // 44px high on a phone; the 16px box inside it is not what a thumb aims at.
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg bg-secondary/40 px-3 py-2">
+    <label className="flex max-md:min-h-11 pointer-coarse:min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg bg-secondary/40 px-3 py-2">
       <span className="flex min-w-0 items-center gap-2">
         <Truck className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <span className="truncate text-sm">{row.name}</span>
+        <span className="min-w-0 break-words text-sm">{row.name}</span>
       </span>
       <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
         <input
           type="checkbox"
-          className="h-4 w-4 cursor-pointer accent-sel"
+          className="size-4 cursor-pointer accent-sel max-md:size-5"
           checked={row.present}
           disabled={disabled}
           aria-label={t('presentAria', { name: row.name })}

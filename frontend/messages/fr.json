@@ -840,7 +840,7 @@
       "confirmCompleteYes": "Oui, terminée",
       "message": "Annonce",
       "messageTitle": "Annonce au PC",
-      "messagePlaceholder": "Écrire une brève annonce …",
+      "messagePlaceholder": "Texte libre …",
       "failed": "Envoi impossible – le texte est conservé. Vérifie la liaison.",
       "sending": "Envoi de « {label} » …",
       "sent": "« {label} » est arrivée au PC.",

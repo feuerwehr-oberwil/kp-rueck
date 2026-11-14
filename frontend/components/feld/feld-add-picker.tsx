@@ -210,9 +210,13 @@ export function FeldAddPicker({
 
       {isMobile ? (
         <Sheet open={open} onOpenChange={handleOpenChange}>
+          {/* A fixed height (`h-[88dvh]`, the `modal-h-tall` cap), like the
+              assignment and Appell sheets: sized to its content, the sheet shrank
+              with every letter typed and the search field slid away under the
+              thumb. With the keyboard up globals.css fits it to the visible band. */}
           <SheetContent
             side="bottom"
-            className="mx-auto modal-h-tall max-w-md gap-0 rounded-t-2xl p-0"
+            className="mx-auto h-[88dvh] modal-h-tall max-w-md gap-0 rounded-t-2xl p-0"
             aria-describedby={undefined}
           >
             <SheetHeader className="gap-3 px-4 pt-5 pb-3 pr-12">

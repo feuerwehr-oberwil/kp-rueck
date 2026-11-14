@@ -105,15 +105,15 @@ function ExtraMaterialList({
             >
               <div className="flex min-w-0 items-center gap-2">
                 <PackageOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="truncate text-sm">{entry.name}</span>
+                <span className="min-w-0 break-words text-sm">{entry.name}</span>
               </div>
               <div className="flex items-center gap-2">
                 {/* The same control and the same wording as the checklist
                     above — one question, asked the same way twice. */}
-                <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                <label className="flex max-md:min-h-11 pointer-coarse:min-h-11 cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
                   <input
                     type="checkbox"
-                    className="h-4 w-4 cursor-pointer accent-sel"
+                    className="size-4 cursor-pointer accent-sel max-md:size-5"
                     checked={entry.left_on_site}
                     disabled={disabled}
                     aria-label={t('leftOnSiteAria', { name: entry.name })}
@@ -204,7 +204,7 @@ export function FeldMaterialChecklist({
                 >
                   <div className="flex min-w-0 items-center gap-2">
                     <PackageOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="truncate text-sm">{row.name}</span>
+                    <span className="min-w-0 break-words text-sm">{row.name}</span>
                     {row.consumable && (
                       <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-2xs text-muted-foreground">
                         {t('consumable')}
@@ -216,10 +216,10 @@ export function FeldMaterialChecklist({
                         the same wording as "vor Ort verblieben" next to it and
                         as the vehicle list below, rather than a fourth way of
                         answering a yes/no question. */}
-                    <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                    <label className="flex max-md:min-h-11 pointer-coarse:min-h-11 cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
                       <input
                         type="checkbox"
-                        className="h-4 w-4 cursor-pointer accent-sel"
+                        className="size-4 cursor-pointer accent-sel max-md:size-5"
                         checked={row.used}
                         disabled={disabled}
                         aria-label={t('usedAria', { name: row.name })}
@@ -230,10 +230,10 @@ export function FeldMaterialChecklist({
                     {/* Consumables have no second tick at all — not a disabled
                         one. A control that can never be used is noise. */}
                     {!row.consumable && (
-                      <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                      <label className="flex max-md:min-h-11 pointer-coarse:min-h-11 cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
                         <input
                           type="checkbox"
-                          className="h-4 w-4 cursor-pointer accent-sel"
+                          className="size-4 cursor-pointer accent-sel max-md:size-5"
                           checked={row.left_on_site}
                           disabled={disabled}
                           aria-label={t('leftOnSiteAria', { name: row.name })}

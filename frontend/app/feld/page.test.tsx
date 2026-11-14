@@ -350,7 +350,7 @@ describe('/feld preselect from the Einsatzzettel QR', () => {
     // "meine Einsatzstellen" list it would otherwise land on.
     await waitFor(() => expect(screen.getByTestId('feld-rapport-form')).toBeInTheDocument())
     // The detail's h1 is the ADDRESS now; the incident title rides in the bar.
-    expect(screen.getByRole('heading', { name: /Baumgasse 7/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Baumgasse\s7/ })).toBeInTheDocument()
   })
 
   it('lands on the list when the slip names an incident that is not mine', async () => {
@@ -438,7 +438,11 @@ describe('/feld before the Schadenplatz was disponiert', () => {
   it('says the Einsatzart and the title under the address, and no «KP: …» status', async () => {
     await openDetail({ incident_status: 'enroute', has_been_dispatched: true })
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Hauptstrasse 1')
+    // The headline has the full width: the rapport chip sits on the Einsatzart line,
+    // and the house number cannot wrap away from its street.
+    const headline = screen.getByRole('heading', { level: 1 })
+    expect(headline.textContent).toContain('Hauptstrasse\u00A01')
+    expect(headline).not.toHaveTextContent('kein Rapport')
     expect(screen.getByText('Elementarereignis · Keller Wasser')).toBeInTheDocument()
     // The board's status word is gone (P12); the header is meta only.
     expect(screen.queryByText(/^KP: /)).not.toBeInTheDocument()
@@ -505,13 +509,13 @@ describe('/feld remembers the open Schadenplatz across a reload', () => {
     const first = renderWithIntl(<FeldPage />)
     await user.click(await screen.findByText('Baumgasse 7'))
     await waitFor(() => // The detail's h1 is the ADDRESS now; the incident title rides in the bar.
-    expect(screen.getByRole('heading', { name: /Baumgasse 7/ })).toBeInTheDocument())
+    expect(screen.getByRole('heading', { name: /Baumgasse\s7/ })).toBeInTheDocument())
     first.unmount()
 
     // Same device, fresh page: person AND place come back.
     renderWithIntl(<FeldPage />)
     await waitFor(() => // The detail's h1 is the ADDRESS now; the incident title rides in the bar.
-    expect(screen.getByRole('heading', { name: /Baumgasse 7/ })).toBeInTheDocument())
+    expect(screen.getByRole('heading', { name: /Baumgasse\s7/ })).toBeInTheDocument())
   })
 
   it('forgets it when the crew leaves via «Zurück»', async () => {
@@ -519,7 +523,7 @@ describe('/feld remembers the open Schadenplatz across a reload', () => {
     const first = renderWithIntl(<FeldPage />)
     await user.click(await screen.findByText('Baumgasse 7'))
     await waitFor(() => // The detail's h1 is the ADDRESS now; the incident title rides in the bar.
-    expect(screen.getByRole('heading', { name: /Baumgasse 7/ })).toBeInTheDocument())
+    expect(screen.getByRole('heading', { name: /Baumgasse\s7/ })).toBeInTheDocument())
     await user.click(screen.getByRole('button', { name: 'Zurück' }))
     first.unmount()
 
@@ -595,7 +599,7 @@ describe('/feld renders the server-computed address label', () => {
 
     const heading = (await screen.findByText('Hauptstrasse 1')).closest('h3')
     expect(heading).not.toBeNull()
-    expect(heading?.textContent).toBe('14Hauptstrasse 1')
+    expect(heading?.textContent).toBe('14Hauptstrasse\u00A01')
     expect(within(heading as HTMLElement).getByRole('img', { name: 'Hohe Priorität' })).toBeInTheDocument()
   })
 

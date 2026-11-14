@@ -128,16 +128,21 @@ describe('FeldPersonnelChecklist', () => {
     expect(screen.getByText('Gast')).toBeInTheDocument()
   })
 
-  it('offers the Appell first, then the rest of the roster', async () => {
+  it('offers the Appell first, then the rest of the roster, each by name', async () => {
+    // The server sends rank order; a picker searched by name reads alphabetically.
     render({
       candidates: [
-        candidate({ personnel_id: 'c2', name: 'Suter Elias', checked_in: false }),
+        candidate({ personnel_id: 'c4', name: 'Suter Elias', checked_in: false }),
         candidate({ personnel_id: 'c1', name: 'Graf Thomas', checked_in: true }),
+        candidate({ personnel_id: 'c3', name: 'Ammann Lea', checked_in: false }),
+        candidate({ personnel_id: 'c2', name: 'Berger Nina', checked_in: true }),
       ],
     })
     await userEvent.click(screen.getByRole('button', { name: 'Person hinzufügen' }))
     const text = (await screen.findByRole('dialog')).textContent ?? ''
-    const order = ['Heute angemeldet', 'Graf Thomas', 'Alle', 'Suter Elias'].map(word => text.indexOf(word))
+    const order = ['Heute angemeldet', 'Berger Nina', 'Graf Thomas', 'Alle', 'Ammann Lea', 'Suter Elias'].map(word =>
+      text.indexOf(word),
+    )
     expect(order.every(index => index >= 0)).toBe(true)
     expect([...order].sort((a, b) => a - b)).toEqual(order)
   })

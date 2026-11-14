@@ -4,6 +4,7 @@ import {
   decodeFeldCredential,
   einsatzartLine,
   feedBucket,
+  keepHouseNumber,
   incidentHasRapport,
   isLiveAssignment,
   journeyState,
@@ -225,5 +226,13 @@ describe('einsatzartLine', () => {
     expect(einsatzartLine('Diverse Einsätze', 'diverse einsätze', 'Talstrasse 19')).toBe('Diverse Einsätze')
     // No address: the title is the headline and is not said twice.
     expect(einsatzartLine('Ölwehr', 'Öl auf Strasse', 'Öl auf Strasse')).toBe('Ölwehr')
+  })
+})
+
+describe('keepHouseNumber', () => {
+  it('ties the number to its street and leaves the postcode alone', () => {
+    expect(keepHouseNumber('Mühlemattstrasse 18')).toBe('Mühlemattstrasse\u00A018')
+    expect(keepHouseNumber('Hauptstr. 5a, 4104 Oberwil')).toBe('Hauptstr.\u00A05a, 4104 Oberwil')
+    expect(keepHouseNumber('Wasser im Keller')).toBe('Wasser im Keller')
   })
 })

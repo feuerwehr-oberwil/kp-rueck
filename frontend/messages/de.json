@@ -4062,7 +4062,7 @@
       "confirmCompleteYes": "Ja, beendet",
       "message": "Meldung",
       "messageTitle": "Meldung an den KP",
-      "messagePlaceholder": "Kurze Meldung schreiben …",
+      "messagePlaceholder": "Eigener Text …",
       "failed": "Konnte nicht gesendet werden – der Text bleibt erhalten. Verbindung prüfen.",
       "sending": "«{label}» wird gesendet …",
       "sent": "«{label}» ist beim KP angekommen.",

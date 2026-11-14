@@ -56,6 +56,7 @@ import {
   decodeFeldCredential,
   einsatzartLine,
   feedBucket,
+  keepHouseNumber,
   incidentHasRapport,
   isLiveAssignment,
   journeyState,
@@ -226,7 +227,7 @@ function RapportStateChip({ state }: { state: ApiFeldAssignment['rapport_state']
     submitted: 'bg-success/15 text-success',
   }
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${styles[state]}`}>
+    <span className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${styles[state]}`}>
       {state === 'submitted' ? <CheckCircle2 className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
       {t(state)}
     </span>
@@ -1102,6 +1103,8 @@ function FeldSurface() {
     const address = selectedAssignment.location_display
       ?? formatLocationForDisplay(selectedAssignment.location_address ?? '', getGlobalHomeCity())
     const navigateUrl = navigationUrl(selectedAssignment)
+    // The house number stays with its street: «Mühlemattstrasse / 18» never.
+    const headline = keepHouseNumber(address || selectedAssignment.incident_title)
     return (
       <div className="min-h-screen bg-background pb-[env(safe-area-inset-bottom)]">
         {/* The header is meta only — the way back, who this phone is, the
@@ -1137,7 +1140,10 @@ function FeldSurface() {
           <div className="space-y-4">
             {/* Section: header — what and where, plus the EL briefing */}
             <section className="rounded-xl bg-secondary/50 p-4">
-              <div className="flex items-start justify-between gap-3 mb-2">
+              {/* The headline has the card's full width: the rapport chip beside it
+                  squeezed «Mühlemattstrasse 18» onto two lines and wrapped
+                  itself to «kein / Rapport» (after-shots, 14.11.2026). */}
+              <div className="mb-2">
                 {/* The page's h1. The address leads because that is what a crew
                     standing on a street matches against; the Einsatzart and the
                     title follow on the line under it. */}
@@ -1167,32 +1173,36 @@ function FeldSurface() {
                     >
                       <span className="min-w-0 break-words">
                         <IncidentNumber number={selectedAssignment.number} className="mr-2 inline-block text-xs" />
-                        {address || selectedAssignment.incident_title}
+                        {headline}
                       </span>
                       <Navigation className="mt-[3px] h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                     </a>
                   ) : (
                     <span className="min-w-0 break-words">
                       <IncidentNumber number={selectedAssignment.number} className="mr-2 text-xs" />
-                      {address || selectedAssignment.incident_title}
+                      {headline}
                     </span>
                   )}
                 </h1>
+              </div>
+              {/* «Diverse Einsätze · Türöffnung» — what kind of job this is, and
+                  the dispatcher's title when it says more than the headline —
+                  with the rapport chip on the same line, wrapping under it as a
+                  whole when the line is full. */}
+              <div className="mb-2 -mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <p className="min-w-0 break-words text-sm text-muted-foreground">
+                  {einsatzartLine(
+                    getIncidentTypeLabel(selectedAssignment.incident_type),
+                    selectedAssignment.incident_title,
+                    address || selectedAssignment.incident_title,
+                  )}
+                </p>
                 {/* No chip on a Schadenplatz nobody was ever sent to: "kein
                     Rapport" would read as a to-do the crew cannot do. */}
                 {assignmentRapportApplies(selectedAssignment) && (
                   <RapportStateChip state={selectedAssignment.rapport_state} />
                 )}
               </div>
-              {/* «Diverse Einsätze · Türöffnung» — what kind of job this is, and
-                  the dispatcher's title when it says more than the headline. */}
-              <p className="mb-2 -mt-1 break-words text-sm text-muted-foreground">
-                {einsatzartLine(
-                  getIncidentTypeLabel(selectedAssignment.incident_type),
-                  selectedAssignment.incident_title,
-                  address || selectedAssignment.incident_title,
-                )}
-              </p>
               {selectedAssignment.source !== 'reko' && (
                 <LeaderLine assignment={selectedAssignment} selfId={selectedPerson?.personnel_id} className="mb-2" />
               )}
@@ -1515,7 +1525,7 @@ function FeldSurface() {
                     <PriorityGlyph priority={assignment.priority} size="card" className="mt-0.5" />
                     <span className="min-w-0">
                       <IncidentNumber number={assignment.number} className="mr-2 text-xs" />
-                      {address || assignment.incident_title}
+                      {keepHouseNumber(address || assignment.incident_title)}
                     </span>
                   </h3>
                   <div className="flex shrink-0 items-center gap-2">

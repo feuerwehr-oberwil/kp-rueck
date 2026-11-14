@@ -37,6 +37,7 @@ import type {
   ApiRapportPersonnelCandidate,
   ApiRapportPersonnelRow,
 } from '@/lib/api/types'
+import { sortByName } from '@/lib/roster-order'
 
 interface FeldPersonnelChecklistProps {
   rows: ApiRapportPersonnelRow[]
@@ -112,10 +113,12 @@ export function FeldPersonnelChecklist({
   }, [rows])
 
   // What the picker offers: the Appell under «Heute angemeldet», the rest under
-  // «Alle». A row that is neither dispatched nor ticked is a removal in flight —
-  // the person is offerable again, or a removal could not be taken back.
+  // «Alle», each by name like every roster list (`sortByName`) — the server
+  // sends them in rank order, which nobody searching for a name can follow.
+  // A row that is neither dispatched nor ticked is a removal in flight — the
+  // person is offerable again, or a removal could not be taken back.
   const pickable = useMemo(() => {
-    const listed = candidates.filter(
+    const listed = sortByName(candidates).filter(
       candidate =>
         !rows.some(row => row.personnel_id === candidate.personnel_id && (row.on_board || row.present)),
     )
@@ -215,16 +218,18 @@ function PersonRow({
   onToggle: (personnelId: string, present: boolean) => void
 }) {
   const t = useTranslations('feld.rapport.personnel')
+  // The whole row is the label, so the whole row is the tap target — at least
+  // 44px high on a phone; the 16px box inside it is not what a thumb aims at.
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg bg-secondary/40 px-3 py-2">
+    <label className="flex max-md:min-h-11 pointer-coarse:min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg bg-secondary/40 px-3 py-2">
       <span className="flex min-w-0 items-center gap-2">
         <UserRound className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <span className="truncate text-sm">{row.name}</span>
+        <span className="min-w-0 break-words text-sm">{row.name}</span>
       </span>
       <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
         <input
           type="checkbox"
-          className="h-4 w-4 cursor-pointer accent-sel"
+          className="size-4 cursor-pointer accent-sel max-md:size-5"
           checked={row.present}
           disabled={disabled}
           aria-label={t('presentAria', { name: row.name })}
@@ -263,11 +268,11 @@ function AddedRow({
     <div className="flex items-center justify-between gap-2 rounded-lg bg-secondary/40 px-3 py-2">
       <span className="flex min-w-0 items-center gap-2">
         <UserRound className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <span className="truncate text-sm">{name}</span>
+        <span className="min-w-0 break-words text-sm">{name}</span>
         {guest && (
           <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-2xs text-muted-foreground">{t('guest')}</span>
         )}
-        {note && <span className="truncate text-xs text-muted-foreground">{note}</span>}
+        {note && <span className="min-w-0 break-words text-xs text-muted-foreground">{note}</span>}
       </span>
       {!disabled && (
         <Button

@@ -354,7 +354,7 @@ describe('Freitext-Meldung', () => {
     const user = userEvent.setup()
     render()
     await user.click(screen.getByRole('button', { name: 'Meldung an den KP' }))
-    await user.type(screen.getByPlaceholderText(/Kurze Meldung/), '   ')
+    await user.type(screen.getByPlaceholderText('Eigener Text …'), '   ')
 
     expect(feldSendMessage).not.toHaveBeenCalled()
   })
@@ -377,13 +377,13 @@ describe('delivery feedback (a phone on a bad connection)', () => {
     const user = userEvent.setup()
     render()
     await user.click(screen.getByRole('button', { name: 'Meldung an den KP' }))
-    const input = screen.getByPlaceholderText(/Kurze Meldung/)
+    const input = screen.getByPlaceholderText('Eigener Text …')
     await user.type(input, 'Keller 40cm Wasser')
     await user.click(screen.getByRole('button', { name: 'Meldung senden' }))
 
     await waitFor(() => expect(screen.getByText(/nicht übermittelt/)).toBeInTheDocument())
     // The text is still there — retyping a Meldung in the rain is not a retry.
-    expect(screen.getByPlaceholderText(/Kurze Meldung/)).toHaveValue('Keller 40cm Wasser')
+    expect(screen.getByPlaceholderText('Eigener Text …')).toHaveValue('Keller 40cm Wasser')
 
     feldSendMessage.mockResolvedValueOnce(undefined)
     await user.click(screen.getByRole('button', { name: /Nochmals senden/ }))

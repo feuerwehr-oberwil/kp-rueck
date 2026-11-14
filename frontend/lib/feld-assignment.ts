@@ -144,3 +144,13 @@ export function einsatzartLine(typeLabel: string, title: string | null | undefin
   const addsSomething = extra && said(extra) !== said(typeLabel) && said(extra) !== said(headline)
   return addsSomething ? `${typeLabel} · ${extra}` : typeLabel
 }
+
+/**
+ * An address whose house number cannot be wrapped away from its street:
+ * «Mühlemattstrasse 18» breaks before the street or after the number, never
+ * between them. A no-break space goes between a word and the number after it;
+ * the postcode after a comma («…, 4104 Oberwil») keeps its ordinary space.
+ */
+export function keepHouseNumber(address: string): string {
+  return address.replace(/([\p{L}.]) (\d)/gu, '$1 $2')
+}
