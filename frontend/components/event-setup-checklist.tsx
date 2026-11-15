@@ -17,6 +17,7 @@ import { X, ClipboardCheck, Check, MessageCircle, Send, Binoculars } from 'lucid
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
 import { FeldAccessCard } from '@/components/feld/feld-access-card'
+import { queueLinkQrPrint, type LinkKind } from '@/lib/link-qr-print'
 import { MarkExistingRekoPersonnel } from '@/components/incidents/assign-reko-dialog'
 import { useOperations } from '@/lib/contexts/operations-context'
 import type { Person } from '@/lib/contexts/personnel-context'
@@ -110,12 +111,13 @@ export function EventSetupChecklist({
 
   const shareLink = useCallback(
     async (
-      generate: () => Promise<{ link: string }>,
+      kind: LinkKind,
+      generate: () => Promise<{ link: string; valid_until?: string }>,
       mode: 'copy' | 'print',
       meta: { title: string; subtitle: string; copyLabel: string }
     ) => {
       try {
-        const { link } = await generate()
+        const { link, valid_until } = await generate()
         const url = toFullUrl(link)
         if (mode === 'copy') {
           await copyToClipboard(url)
@@ -123,11 +125,11 @@ export function EventSetupChecklist({
             description: t('linkCopiedDescription'),
           })
         } else {
-          await apiClient.queueQRCodePrint({
-            qr_content: url,
+          await queueLinkQrPrint(kind, eventId, {
+            url,
             title: meta.title,
             subtitle: meta.subtitle,
-            event_id: eventId,
+            validUntil: valid_until,
           })
           toast.info(t('qrPrinting'), {
             description: t('qrPrintingDescription'),
@@ -157,12 +159,12 @@ export function EventSetupChecklist({
     copyLabel: t('feldCopyLabel'),
   }
 
-  const handleCopyCheckInLink = () => shareLink(() => apiClient.generateCheckInLink(eventId), 'copy', checkInMeta)
-  const handlePrintCheckInLink = () => shareLink(() => apiClient.generateCheckInLink(eventId), 'print', checkInMeta)
-  const handleCopyAlarmLink = () => shareLink(() => apiClient.generateAlarmLink(eventId), 'copy', alarmMeta)
-  const handlePrintAlarmLink = () => shareLink(() => apiClient.generateAlarmLink(eventId), 'print', alarmMeta)
-  const handleCopyFeldLink = () => shareLink(() => apiClient.generateFeldLink(eventId), 'copy', feldMeta)
-  const handlePrintFeldLink = () => shareLink(() => apiClient.generateFeldLink(eventId), 'print', feldMeta)
+  const handleCopyCheckInLink = () => shareLink('checkin', () => apiClient.generateCheckInLink(eventId), 'copy', checkInMeta)
+  const handlePrintCheckInLink = () => shareLink('checkin', () => apiClient.generateCheckInLink(eventId), 'print', checkInMeta)
+  const handleCopyAlarmLink = () => shareLink('alarm', () => apiClient.generateAlarmLink(eventId), 'copy', alarmMeta)
+  const handlePrintAlarmLink = () => shareLink('alarm', () => apiClient.generateAlarmLink(eventId), 'print', alarmMeta)
+  const handleCopyFeldLink = () => shareLink('feld', () => apiClient.generateFeldLink(eventId), 'copy', feldMeta)
+  const handlePrintFeldLink = () => shareLink('feld', () => apiClient.generateFeldLink(eventId), 'print', feldMeta)
 
   const handleTestPrint = async () => {
     try {
