@@ -459,8 +459,8 @@ async def test_status_transition_consistency(
     assert response.json()["status_changed_at"] is not None
 
     # Verify status history was recorded
-    response = await editor_client.get(f"/api/incidents/{test_incident.id}/history")
-    history = response.json()
+    response = await editor_client.get(f"/api/incidents/{test_incident.id}/timeline")
+    history = [e for e in response.json()["events"] if e["event_type"] == "status_change"]
     assert len(history) == 1
     assert history[0]["from_status"] == "incoming"
     assert history[0]["to_status"] == "reko"
@@ -641,25 +641,6 @@ async def test_data_consistency_after_failed_create(
 # ============================================
 # Idempotency Tests
 # ============================================
-
-
-@pytest.mark.asyncio
-@pytest.mark.integration
-async def test_release_all_idempotent(editor_client: AsyncClient, test_incident: Incident, test_personnel: Personnel):
-    """Test that release-all operation is idempotent."""
-    # Assign resource
-    await editor_client.post(
-        f"/api/incidents/{test_incident.id}/assign",
-        json={"resource_type": "personnel", "resource_id": str(test_personnel.id)},
-    )
-
-    # First release-all
-    response = await editor_client.post(f"/api/incidents/{test_incident.id}/release-all")
-    assert response.status_code == 204
-
-    # Second release-all should also succeed (idempotent)
-    response = await editor_client.post(f"/api/incidents/{test_incident.id}/release-all")
-    assert response.status_code == 204
 
 
 @pytest.mark.asyncio

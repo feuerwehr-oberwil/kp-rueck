@@ -35,17 +35,9 @@ export class SettingsApi {
     return httpRequest<ApiAuditLog[]>(endpoint)
   }
 
-  async getResourceHistory(resourceType: string, resourceId: string): Promise<ApiAuditLog[]> {
-    return httpRequest<ApiAuditLog[]>(`/api/audit/resource/${resourceType}/${resourceId}`)
-  }
-
   // Settings
   async getAllSettings(): Promise<Record<string, string>> {
     return httpRequest<Record<string, string>>('/api/settings/')
-  }
-
-  async getSetting(key: string): Promise<{ key: string; value: string }> {
-    return httpRequest<{ key: string; value: string }>(`/api/settings/${key}`)
   }
 
   async updateSetting(key: string, value: string): Promise<{ key: string; value: string }> {

@@ -68,12 +68,6 @@ export interface ApiFeldPersonnel {
   checked_in?: boolean
 }
 
-export interface ApiFeldPersonnelListResponse {
-  personnel: ApiFeldPersonnel[]
-  event_id: string
-  event_name: string
-}
-
 /** One vehicle on the briefing, with whoever drives it in this Ereignis.
  *  `driver` is null when the KP has not named one — «TLF 1» alone left a crew
  *  unable to say who is sitting outside in it. */

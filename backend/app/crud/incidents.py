@@ -1245,16 +1245,6 @@ async def reorder_incidents(
     return updated
 
 
-async def get_incident_status_history(db: AsyncSession, incident_id: uuid.UUID) -> list[StatusTransition]:
-    """Get all status transitions for an incident."""
-    result = await db.execute(
-        select(StatusTransition)
-        .where(StatusTransition.incident_id == incident_id)
-        .order_by(StatusTransition.timestamp.asc())
-    )
-    return list(result.scalars().all())
-
-
 async def _get_assigned_vehicles(db: AsyncSession, incident_id: uuid.UUID) -> list[schemas.AssignedVehicle]:
     """
     Get all assigned vehicles for an incident with vehicle details.

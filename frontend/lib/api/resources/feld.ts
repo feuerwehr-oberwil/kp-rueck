@@ -19,7 +19,6 @@ import {
   NetworkError,
   type ApiFeldDuplicateCandidatesResponse,
   type ApiFieldRequestCreate,
-  type ApiFeldPersonnelListResponse,
   type ApiFeldAssignmentsResponse,
   type ApiFeldAccessState,
   type ApiFeldContextResponse,
@@ -316,12 +315,6 @@ export class FeldApi {
     return httpRequest<{ incident_id: string; token: string; link: string }>(
       feldQuery(incidentId, 'reko-link', personnelId, token),
       { method: 'POST' }
-    )
-  }
-
-  async getFeldPersonnel(token: string): Promise<ApiFeldPersonnelListResponse> {
-    return httpRequest<ApiFeldPersonnelListResponse>(
-      `/api/feld/personnel?token=${encodeURIComponent(token)}`
     )
   }
 

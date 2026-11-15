@@ -9,12 +9,10 @@ import { request as httpRequest } from '../http'
 import type {
   ApiEvent,
   ApiEventCreate,
-  ApiEventUpdate,
   ApiEventListResponse,
   ApiEventSpecialFunctionCreate,
   ApiEventSpecialFunctionDelete,
   ApiEventSpecialFunctionResponse,
-  ApiEventStats,
   ApiEventFigures,
   ApiPersonnelActivity,
   ApiEventRestliste,
@@ -48,13 +46,6 @@ export class EventsApi {
   async createEvent(data: ApiEventCreate): Promise<ApiEvent> {
     return httpRequest<ApiEvent>('/api/events/', {
       method: 'POST',
-      body: JSON.stringify(data),
-    })
-  }
-
-  async updateEvent(eventId: string, data: ApiEventUpdate): Promise<ApiEvent> {
-    return httpRequest<ApiEvent>(`/api/events/${eventId}`, {
-      method: 'PUT',
       body: JSON.stringify(data),
     })
   }
@@ -101,11 +92,6 @@ export class EventsApi {
       method: 'DELETE',
       body: JSON.stringify(data),
     })
-  }
-
-  // Event Stats
-  async getEventStats(eventId: string): Promise<ApiEventStats> {
-    return httpRequest<ApiEventStats>(`/api/events/${eventId}/stats`)
   }
 
   /** Kennzahlen: Lage counts + Reaktionszeiten per priority (the PDF's stage times). */

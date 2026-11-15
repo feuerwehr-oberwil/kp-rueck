@@ -19,7 +19,6 @@ import { ApiError } from '@/lib/api/types/common'
 
 const searchParams = vi.hoisted(() => new URLSearchParams())
 const routerPush = vi.hoisted(() => vi.fn())
-const getFeldPersonnel = vi.hoisted(() => vi.fn())
 const getFeldAssignments = vi.hoisted(() => vi.fn())
 const unlockFeld = vi.hoisted(() => vi.fn())
 // A phone that is not logged in to Rück: the session door answers «no», the code screen shows.
@@ -51,7 +50,6 @@ const FeldUnlockError = vi.hoisted(
 vi.mock('@/lib/api-client', () => ({
   FeldUnlockError,
   apiClient: {
-    getFeldPersonnel,
     getFeldAssignments,
     unlockFeld,
     unlockFeldWithSession,
@@ -266,11 +264,6 @@ describe('/feld preselect from the Einsatzzettel QR', () => {
     vi.clearAllMocks()
     forgetDevice()
     seedDevice()
-    getFeldPersonnel.mockResolvedValue({
-      personnel: [PERSON],
-      event_id: 'e-1',
-      event_name: 'Sturm Oberwil',
-    })
     getFeldAssignments.mockResolvedValue({
       personnel_id: 'p-1',
       personnel_name: 'Muster Hans',
@@ -384,11 +377,6 @@ describe('/feld before the Schadenplatz was disponiert', () => {
     vi.clearAllMocks()
     forgetDevice()
     seedDevice()
-    getFeldPersonnel.mockResolvedValue({
-      personnel: [PERSON],
-      event_id: 'e-1',
-      event_name: 'Sturm Oberwil',
-    })
   })
 
   const openDetail = async (overrides: Partial<ApiFeldAssignment>) => {
@@ -487,11 +475,6 @@ describe('/feld remembers the open Schadenplatz across a reload', () => {
     forgetDevice()
     seedDevice()
     document.cookie = 'feld-selected-incident=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld'
-    getFeldPersonnel.mockResolvedValue({
-      personnel: [PERSON],
-      event_id: 'e-1',
-      event_name: 'Sturm Oberwil',
-    })
     getFeldAssignments.mockResolvedValue({
       personnel_id: 'p-1',
       personnel_name: 'Muster Hans',
@@ -562,11 +545,6 @@ describe('/feld renders the server-computed address label', () => {
     forgetDevice()
     seedDevice()
     document.cookie = 'feld-selected-incident=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld'
-    getFeldPersonnel.mockResolvedValue({
-      personnel: [PERSON],
-      event_id: 'e-1',
-      event_name: 'Sturm Oberwil',
-    })
     setParams({ token: 'feld-token' })
   })
 

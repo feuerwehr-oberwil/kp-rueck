@@ -29,10 +29,6 @@ export class PersonnelApi {
     return httpRequest<ApiPersonnel[]>(`/api/personnel/${query}`)
   }
 
-  async getPersonnelById(id: string): Promise<ApiPersonnel> {
-    return httpRequest<ApiPersonnel>(`/api/personnel/${id}`)
-  }
-
   async createPersonnel(data: ApiPersonnelCreate): Promise<ApiPersonnel> {
     return httpRequest<ApiPersonnel>('/api/personnel/', {
       method: 'POST',
@@ -137,23 +133,9 @@ export class PersonnelApi {
     )
   }
 
-  async getCheckInStats(token: string): Promise<ApiCheckInStats> {
-    return httpRequest<ApiCheckInStats>(
-      `/api/personnel/check-in/stats?token=${encodeURIComponent(token)}`
-    )
-  }
-
   async getEventCheckInStats(eventId: string): Promise<ApiCheckInStats> {
     return httpRequest<ApiCheckInStats>(
       `/api/personnel/check-in/stats?event_id=${encodeURIComponent(eventId)}`
     )
-  }
-
-  /**
-   * Get attendance for an event (all personnel with their check-in status)
-   * This is an alias for getAllPersonnel with event filtering
-   */
-  async getEventAttendance(eventId: string): Promise<ApiPersonnel[]> {
-    return this.getAllPersonnel({ event_id: eventId })
   }
 }

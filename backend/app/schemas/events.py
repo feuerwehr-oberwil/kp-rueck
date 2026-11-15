@@ -1,12 +1,10 @@
-"""Event + special-function + event-stats schemas."""
+"""Event + special-function + event-figures schemas."""
 
 from datetime import datetime
 from enum import Enum
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
-
-from .personnel import PersonnelActivity
 
 
 class EventBase(BaseModel):
@@ -161,34 +159,3 @@ class EventFigures(BaseModel):
     overall: PriorityFigures
     by_priority: list[PriorityFigures]
     oldest_waiting_high: OldestWaitingFigure | None = None
-
-
-# Stats
-class EventStats(BaseModel):
-    """Real-time statistics for an event."""
-
-    status_counts: dict[str, int]
-    personnel_available: int
-    personnel_total: int
-    avg_duration_minutes: int
-    resource_utilization_percent: float
-    personnel_activity: list[PersonnelActivity] = []
-
-
-class SpecialFunctionTypeResponse(BaseModel):
-    """One role a station can give somebody for an Ereignis.
-
-    The labels are columns rather than i18n keys on purpose: a station that adds
-    "Verkehrsdienst" is naming its own role, and a name a brigade chose has no
-    business going through a translation round to appear on its own board. The
-    roles that SHIP still read naturally in both languages because the seed
-    fills both columns.
-    """
-
-    model_config = ConfigDict(from_attributes=True)
-
-    key: str
-    label_de: str
-    label_fr: str | None = None
-    requires_vehicle: bool = False
-    sort_order: int = 0

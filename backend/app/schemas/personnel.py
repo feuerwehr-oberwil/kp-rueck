@@ -141,7 +141,7 @@ class CheckInListResponse(BaseModel):
 
 
 class PersonnelActivity(BaseModel):
-    """One checked-in person's time on duty (``GET /events/{id}/stats``, `api/stats.py`)."""
+    """One checked-in person's time on duty (``GET /events/{id}/personnel-activity``, `api/stats.py`)."""
 
     personnel_id: UUID
     name: str

@@ -256,16 +256,6 @@ export type IncidentTextField =
   | 'nachbarhilfe_note'
   | 'am_warten_note'
 
-export interface ApiStatusTransition {
-  id: string
-  incident_id: string
-  from_status: string
-  to_status: string
-  timestamp: string
-  user_id: string | null
-  notes: string | null
-}
-
 export interface ApiIncidentTimelineEvent {
   /** `kp_message` is the KP's own «Meldung an den Trupp» (sweep 27 §P3.2) —
    *  the other direction of `field_message`, with `actor_name` = the sender. */

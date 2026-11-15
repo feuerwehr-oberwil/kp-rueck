@@ -170,22 +170,12 @@ async def test_complete_incident_lifecycle(editor_client: AsyncClient, db_sessio
         assert response.json()["status"] == to_status
 
     # Step 5: Verify status history
-    response = await editor_client.get(f"/api/incidents/{incident_id}/history")
+    response = await editor_client.get(f"/api/incidents/{incident_id}/timeline")
     assert response.status_code == 200
-    history = response.json()
+    history = [e for e in response.json()["events"] if e["event_type"] == "status_change"]
     assert len(history) == 5  # 5 transitions
 
-    # Step 6: Release all resources
-    response = await editor_client.post(f"/api/incidents/{incident_id}/release-all")
-    assert response.status_code == 204
-
-    # Verify resources are released
-    response = await editor_client.get(f"/api/incidents/{incident_id}/assignments")
-    assert response.status_code == 200
-    # Active assignments should be empty (unassigned_at is set)
-    # Note: The endpoint may still return assignments with unassigned_at set
-
-    # Step 7: Archive event
+    # Step 6: Archive event
     response = await editor_client.post(f"/api/events/{event_id}/archive")
     assert response.status_code == 200
     assert response.json()["archived_at"] is not None
@@ -239,9 +229,10 @@ async def test_incident_status_history_tracking(editor_client: AsyncClient, db_s
         assert response.status_code == 200
 
     # Check history
-    response = await editor_client.get(f"/api/incidents/{incident_id}/history")
+    response = await editor_client.get(f"/api/incidents/{incident_id}/timeline")
     assert response.status_code == 200
-    history = response.json()
+    # The timeline is newest first; read it oldest first.
+    history = [e for e in reversed(response.json()["events"]) if e["event_type"] == "status_change"]
 
     # Verify all transitions are recorded in order
     assert len(history) == 3

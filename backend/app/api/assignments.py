@@ -151,50 +151,6 @@ async def update_assignment(
     return response
 
 
-@router.post("/{incident_id}/release-all", status_code=status.HTTP_204_NO_CONTENT)
-async def release_all_resources(
-    incident_id: uuid.UUID,
-    request: Request,
-    background_tasks: BackgroundTasks,
-    current_user: CurrentEditor,
-    db: AsyncSession = Depends(get_db),
-) -> None:
-    """
-    Release the incident's personnel and vehicles. **Material stays assigned.**
-
-    Called when an incident completes (moves to 'complete'), and the same cascade
-    is available on its own from the board.
-
-    Materials are excluded on purpose (`auto_release_incident_resources(exclude_materials=True)`):
-    equipment is regularly left standing on site after the crew drives off, and
-    the station tracks where it is until someone brings it back. Returning it is
-    its own step – `GET /api/incidents/{incident_id}/rapport/material-return`
-    lists what the crew reported as returned versus left on site, and the operator
-    releases those rows through `POST /api/incidents/{incident_id}/unassign/{assignment_id}`.
-    A field form must not silently release a pump that is still running in a cellar.
-
-    So this endpoint does NOT leave the incident with zero assignments, and callers
-    that need that – the Excel `replace` import is the one that got caught – have
-    to deal with the material rows separately.
-
-    Idempotent: releasing an incident that holds nothing is a 204.
-    """
-    await crud.auto_release_incident_resources(
-        db=db,
-        incident_id=incident_id,
-        current_user=current_user,
-        request=request,
-    )
-
-    # auto_release/unassign_resource flush only — the request's ONE commit makes the whole
-    # release all-or-nothing instead of a partial release on crash (H3).
-
-    # Broadcast WebSocket update for bulk release
-    background_tasks.add_task(
-        broadcast_assignment_update, {"incident_id": str(incident_id), "action": "release_all"}, "bulk_delete"
-    )
-
-
 # Bulk assignments endpoint (outside incidents prefix)
 from fastapi import APIRouter as NewRouter
 
