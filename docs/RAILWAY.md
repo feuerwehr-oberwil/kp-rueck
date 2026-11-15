@@ -236,7 +236,7 @@ almost always one of these refusing a weak or missing value, and the message nam
 | `CORS_ORIGINS` | `https://<frontend>` | The frontend's exact origin |
 | `PORT` | `8000` | Railway sets this automatically |
 | `DEPLOYMENT_ROLE` | `production` (default) or `staging` | What this instance may do to the outside world. Leave it unset on the real deployment; see §5.1 |
-| `CLIENT_ADDRESS_SECRET` | 32-byte hex | The **same value on the frontend**. Lets the backend tell callers apart: the frontend's `/backend-api` proxy reaches it through the backend's public domain, whose edge appends the frontend's own address – without this every browser shares one rate-limit, login-throttle and Feld-Code bucket. Check with `GET /backend-api/api/diag/client-address` as admin: `source` `frontend-proxy` and your own address |
+| `CLIENT_ADDRESS_SECRET` | 32-byte hex | The **same value on the frontend**. Lets the backend tell callers apart: the frontend's `/backend-api` proxy reaches it through the backend's public domain, whose edge rewrites X-Forwarded-For to «frontend, edge node»; with the secret the proxy names the caller from the `X-Real-IP` its own edge set – without this every browser shares one rate-limit, login-throttle and Feld-Code bucket. Check with `GET /backend-api/api/diag/client-address` as admin: `source` `frontend-proxy` and your own address |
 | `STANDBY_SYNC_TOKEN` | 32-byte hex | Only with a standby box ([`STANDBY.md`](STANDBY.md)): its key to `POST /api/standby/sync`, the same value on the box. Unset = the board accepts no standby writes |
 
 Optional, per integration: `DIVERA_ACCESS_KEY`, `TRACCAR_*`, `PRINT_AGENT_TOKEN`. See

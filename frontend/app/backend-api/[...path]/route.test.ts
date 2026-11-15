@@ -115,6 +115,17 @@ describe('bounded API proxy', () => {
     expect(withSecret.get('x-kp-client-address-secret')).toBe('s3cret')
   })
 
+  it("names the caller by Railway's X-Real-IP, not the edge node at the end of X-Forwarded-For", async () => {
+    fetchMock.mockResolvedValue(new Response('ok'))
+    vi.stubEnv('CLIENT_ADDRESS_SECRET', 's3cret')
+    // What Railway's edge hands the frontend: X-Forwarded-For rewritten to «client, edge node».
+    await POST(post('x', { 'x-forwarded-for': '203.0.113.7, 152.233.12.241', 'x-real-ip': '203.0.113.7' }))
+
+    const forwarded = new Headers(fetchMock.mock.calls[0][1]?.headers)
+    expect(forwarded.get('x-kp-client-address')).toBe('203.0.113.7')
+    expect(forwarded.has('x-real-ip')).toBe(false)
+  })
+
   it('does not send cookies or an upload to a cross-origin redirect', async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 307, headers: { location: 'https://other.example/' } }))
     expect((await POST(post('payload', { cookie: 'access_token=opaque' }))).status).toBe(502)

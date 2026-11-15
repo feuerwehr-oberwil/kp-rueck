@@ -158,10 +158,10 @@ will keep holding.
 ### Fixed
 
 - **On Railway, every browser shared one rate-limit and Feld-Code bucket.** The frontend's
-  proxy reaches the backend through its public domain, and that edge appends the frontend's own
-  address, which the backend took for the caller. With the new `CLIENT_ADDRESS_SECRET` (same
-  value on both services) the proxy names the caller and the backend believes it only with the
-  secret. `GET /api/diag/client-address` (admin) shows which address the backend takes.
+  proxy reaches the backend through its public domain, and that edge rewrites X-Forwarded-For to
+  «frontend, edge node», so the address the backend took was the same for every browser. With
+  the new `CLIENT_ADDRESS_SECRET` (same value on both services) the proxy names the caller (from
+  the `X-Real-IP` its own edge set) and the backend believes it only with the secret. `GET /api/diag/client-address` (admin) shows which address the backend takes.
   Compose stacks need nothing: their proxy reaches the backend directly.
 - **«QR drucken» for Feld in the Setup-Checkliste printed a slip without the Feld-Code and the
   expiry**, so whoever scanned it reached a code prompt they could not answer. Both print buttons

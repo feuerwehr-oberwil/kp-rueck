@@ -45,9 +45,9 @@ def client_ip_and_source(request: Request) -> tuple[str | None, ClientIpSource]:
 
     **From the frontend proxy, when it proves itself.** On Railway the browser's HTTP calls go
     browser → edge → frontend → `API_URL` (the backend's PUBLIC domain) → edge → backend. The
-    second edge appends the address it saw – the frontend's own – so the rightmost
-    X-Forwarded-For entry is the same for every caller. The proxy therefore sends the address
-    its own edge appended in `X-KP-Client-Address`, with `CLIENT_ADDRESS_SECRET`; only a
+    second edge rewrites X-Forwarded-For to «frontend, edge node», so the entry read below is
+    the same for every caller. The proxy therefore sends the caller's address (the X-Real-IP its
+    own edge set) in `X-KP-Client-Address`, with `CLIENT_ADDRESS_SECRET`; only a
     request carrying that secret is believed. Direct callers (the WebSocket, webhooks, the
     print agent) never carry it and fall through to the rule below.
 

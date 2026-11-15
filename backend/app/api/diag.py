@@ -264,5 +264,6 @@ async def client_address(request: Request, current_user: CurrentAdmin) -> dict[s
         "address": address,
         "source": source,
         "x_forwarded_for": request.headers.get("X-Forwarded-For"),
+        "x_real_ip": request.headers.get("X-Real-IP"),
         "socket": request.client.host if request.client else None,
     }
