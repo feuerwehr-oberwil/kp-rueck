@@ -440,3 +440,18 @@ async def test_taking_the_other_version_of_a_deleted_einsatz_deletes_it_here_too
 
     assert answer.status_code == 200
     assert "Unwetter" not in await _titles(await _driver(db_session))
+
+
+@pytest.mark.asyncio
+async def test_the_hosted_board_does_not_delete_an_ereignis_the_box_leads(
+    admin_client: AsyncClient, db_session, two_events
+):
+    a, *_ = two_events
+    await _led_by_box(db_session, a)
+    assert (await admin_client.post(f"/api/events/{a.id}/archive")).status_code == 200
+
+    answer = await admin_client.delete(f"/api/events/{a.id}")
+
+    assert answer.status_code == 409
+    assert "KP Rück Offline" in answer.json()["detail"]
+    assert await (await _driver(db_session)).fetchval("SELECT count(*) FROM events WHERE id = $1", a.id) == 1

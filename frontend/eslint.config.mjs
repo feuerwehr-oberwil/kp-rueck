@@ -78,7 +78,6 @@ export default [
       "playwright-report/**",
       "test-results/**",
       "coverage/**",
-      ".stryker-tmp/**",
       ".local/**",
       "reports/**",
       "*.config.js",

@@ -502,90 +502,6 @@
         }
       }
     },
-    "/api/admin/seed-training": {
-      "post": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Seed Training Templates",
-        "description": "Manually seed training emergency templates and locations.\nUse this endpoint if automatic seeding failed during deployment.\n\nArgs:\n    skip_geocoding: Also repair known legacy fallback addresses when True, preserving custom locations.\n        Seeding never calls external address providers.\n    force_reseed: Delete existing data and reseed (useful for updating addresses)",
-        "operationId": "seed_training_templates_api_admin_seed_training_post",
-        "parameters": [
-          {
-            "name": "skip_geocoding",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": true,
-              "title": "Skip Geocoding"
-            }
-          },
-          {
-            "name": "force_reseed",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false,
-              "title": "Force Reseed"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/alarms": {
       "post": {
         "tags": [
@@ -1198,95 +1114,6 @@
                     "$ref": "#/components/schemas/AuditLogEntry"
                   },
                   "title": "Response Query Audit Log Api Audit Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/audit/resource/{resource_type}/{resource_id}": {
-      "get": {
-        "tags": [
-          "audit"
-        ],
-        "summary": "Get Resource History",
-        "description": "Get complete history for a specific resource.\n\nExample: Get all changes to incident XYZ\n    GET /api/audit/resource/incident/{incident_id}",
-        "operationId": "get_resource_history_api_audit_resource__resource_type___resource_id__get",
-        "parameters": [
-          {
-            "name": "resource_type",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Resource Type"
-            }
-          },
-          {
-            "name": "resource_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Resource Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AuditLogEntry"
-                  },
-                  "title": "Response Get Resource History Api Audit Resource  Resource Type   Resource Id  Get"
                 }
               }
             }
@@ -3690,7 +3517,7 @@
           "events"
         ],
         "summary": "Delete Event",
-        "description": "Permanently delete an event (admin only – archiving stays with editors).\n\nEvent must be archived first before it can be deleted.",
+        "description": "Permanently delete an event (admin only – archiving stays with editors).\n\nEvent must be archived first before it can be deleted. Not on the hosted board while a\nstandby box leads it (docs/STANDBY.md): the box keeps working on it and would sync into an\nEreignis that no longer exists. Archiving stays allowed – it removes nothing from the sync.",
         "operationId": "delete_event_api_events__event_id__delete",
         "parameters": [
           {
@@ -6809,86 +6636,6 @@
         }
       }
     },
-    "/api/incidents/{incident_id}/history": {
-      "get": {
-        "tags": [
-          "incidents"
-        ],
-        "summary": "Get Status History",
-        "description": "Get status transition history for incident.",
-        "operationId": "get_status_history_api_incidents__incident_id__history_get",
-        "parameters": [
-          {
-            "name": "incident_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/StatusTransitionResponse"
-                  },
-                  "title": "Response Get Status History Api Incidents  Incident Id  History Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/incidents/{incident_id}/participants": {
       "get": {
         "tags": [
@@ -9034,75 +8781,6 @@
                 }
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/incidents/{incident_id}/release-all": {
-      "post": {
-        "tags": [
-          "assignments"
-        ],
-        "summary": "Release All Resources",
-        "description": "Release the incident's personnel and vehicles. **Material stays assigned.**\n\nCalled when an incident completes (moves to 'complete'), and the same cascade\nis available on its own from the board.\n\nMaterials are excluded on purpose (`auto_release_incident_resources(exclude_materials=True)`):\nequipment is regularly left standing on site after the crew drives off, and\nthe station tracks where it is until someone brings it back. Returning it is\nits own step – `GET /api/incidents/{incident_id}/rapport/material-return`\nlists what the crew reported as returned versus left on site, and the operator\nreleases those rows through `POST /api/incidents/{incident_id}/unassign/{assignment_id}`.\nA field form must not silently release a pump that is still running in a cellar.\n\nSo this endpoint does NOT leave the incident with zero assignments, and callers\nthat need that – the Excel `replace` import is the one that got caught – have\nto deal with the material rows separately.\n\nIdempotent: releasing an incident that holds nothing is a 204.",
-        "operationId": "release_all_resources_api_incidents__incident_id__release_all_post",
-        "parameters": [
-          {
-            "name": "incident_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -16473,86 +16151,6 @@
         }
       }
     },
-    "/api/events/{event_id}/special-functions/types": {
-      "get": {
-        "tags": [
-          "special-functions"
-        ],
-        "summary": "List Function Types",
-        "description": "The roles this station has (plan 26, decision 5).\n\nData rather than a CHECK constraint since plan 26, so a station can name a\nVerkehrsdienst without a migration. What each role *does* still lives in\ncode — this is the list of names, not a permission model.",
-        "operationId": "list_function_types_api_events__event_id__special_functions_types_get",
-        "parameters": [
-          {
-            "name": "event_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Event Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SpecialFunctionTypeResponse"
-                  },
-                  "title": "Response List Function Types Api Events  Event Id  Special Functions Types Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/events/{event_id}/special-functions/": {
       "get": {
         "tags": [
@@ -17210,89 +16808,13 @@
         }
       }
     },
-    "/api/events/{event_id}/stats": {
-      "get": {
-        "tags": [
-          "stats"
-        ],
-        "summary": "Get Event Stats",
-        "description": "Get real-time statistics for an event.\n\nReturns:\n    - Active incidents count by status\n    - Personnel availability (X/Y available)\n    - Average incident duration\n    - Resource utilization percentage",
-        "operationId": "get_event_stats_api_events__event_id__stats_get",
-        "parameters": [
-          {
-            "name": "event_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Event Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EventStats"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/events/{event_id}/figures": {
       "get": {
         "tags": [
           "stats"
         ],
         "summary": "Get Event Figures",
-        "description": "Kennzahlen of an event: Lage counts, Reaktionszeiten per priority (median / P90)\nand the oldest «hoch» Meldung still waiting.\n\nThe same stage times as the PDF's Reaktionszeiten table (`services/reaction_times.py`).\nIts own route rather than part of ``/stats``: the board and the wall reload it every\n10 s, and this needs two queries (incidents, their transitions), nothing else.",
+        "description": "Kennzahlen of an event: Lage counts, Reaktionszeiten per priority (median / P90)\nand the oldest «hoch» Meldung still waiting.\n\nThe same stage times as the PDF's Reaktionszeiten table (`services/reaction_times.py`).\nThe board and the wall reload it every 10 s; it needs two queries (incidents, their\ntransitions), nothing else.",
         "operationId": "get_event_figures_api_events__event_id__figures_get",
         "parameters": [
           {
@@ -17368,7 +16890,7 @@
           "stats"
         ],
         "summary": "Get Personnel Activity",
-        "description": "Time on duty of everybody checked in for this Ereignis — the Dienstzeiten overview.\n\nThe same rows as ``personnel_activity`` in ``/stats``, without the incident statistics\naround them: the overview asks again whenever somebody's assignment changes.",
+        "description": "Time on duty of everybody checked in for this Ereignis — the Dienstzeiten overview.\n\nThe overview asks again whenever somebody's assignment changes.",
         "operationId": "get_personnel_activity_api_events__event_id__personnel_activity_get",
         "parameters": [
           {
@@ -23805,51 +23327,6 @@
         "title": "EventSpecialFunctionResponse",
         "description": "Special function assignment response."
       },
-      "EventStats": {
-        "properties": {
-          "status_counts": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "type": "object",
-            "title": "Status Counts"
-          },
-          "personnel_available": {
-            "type": "integer",
-            "title": "Personnel Available"
-          },
-          "personnel_total": {
-            "type": "integer",
-            "title": "Personnel Total"
-          },
-          "avg_duration_minutes": {
-            "type": "integer",
-            "title": "Avg Duration Minutes"
-          },
-          "resource_utilization_percent": {
-            "type": "number",
-            "title": "Resource Utilization Percent"
-          },
-          "personnel_activity": {
-            "items": {
-              "$ref": "#/components/schemas/PersonnelActivity"
-            },
-            "type": "array",
-            "title": "Personnel Activity",
-            "default": []
-          }
-        },
-        "type": "object",
-        "required": [
-          "status_counts",
-          "personnel_available",
-          "personnel_total",
-          "avg_duration_minutes",
-          "resource_utilization_percent"
-        ],
-        "title": "EventStats",
-        "description": "Real-time statistics for an event."
-      },
       "EventUpdate": {
         "properties": {
           "name": {
@@ -30061,7 +29538,7 @@
           "assignment_count"
         ],
         "title": "PersonnelActivity",
-        "description": "One checked-in person's time on duty (``GET /events/{id}/stats``, `api/stats.py`)."
+        "description": "One checked-in person's time on duty (``GET /events/{id}/personnel-activity``, `api/stats.py`)."
       },
       "PersonnelCheckInResponse": {
         "properties": {
@@ -33218,46 +32695,6 @@
         "title": "SimulateVehicleBreakdownResponse",
         "description": "Result of a simulated vehicle breakdown."
       },
-      "SpecialFunctionTypeResponse": {
-        "properties": {
-          "key": {
-            "type": "string",
-            "title": "Key"
-          },
-          "label_de": {
-            "type": "string",
-            "title": "Label De"
-          },
-          "label_fr": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Label Fr"
-          },
-          "requires_vehicle": {
-            "type": "boolean",
-            "title": "Requires Vehicle",
-            "default": false
-          },
-          "sort_order": {
-            "type": "integer",
-            "title": "Sort Order",
-            "default": 0
-          }
-        },
-        "type": "object",
-        "required": [
-          "key",
-          "label_de"
-        ],
-        "title": "SpecialFunctionTypeResponse",
-        "description": "One role a station can give somebody for an Ereignis.\n\nThe labels are columns rather than i18n keys on purpose: a station that adds\n\"Verkehrsdienst\" is naming its own role, and a name a brigade chose has no\nbusiness going through a translation round to appear on its own board. The\nroles that SHIP still read naturally in both languages because the seed\nfills both columns."
-      },
       "StageFigures": {
         "properties": {
           "count": {
@@ -33331,66 +32768,6 @@
         ],
         "title": "StatusTransitionCreate",
         "description": "Body of POST /incidents/{id}/status.\n\n`from_status` is the status the client SAW. When the card has moved since\n(somebody else's move landed first), the server refuses with 409\n`incident_status_changed` and changes nothing. Sending the move again with\n`override_status` = the status that answer named applies it anyway; the\ntransition then keeps `from_status` as its `seen_status` («war schon …»)."
-      },
-      "StatusTransitionResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "incident_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Incident Id"
-          },
-          "from_status": {
-            "type": "string",
-            "title": "From Status"
-          },
-          "to_status": {
-            "type": "string",
-            "title": "To Status"
-          },
-          "timestamp": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Timestamp"
-          },
-          "user_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "User Id"
-          },
-          "notes": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "incident_id",
-          "from_status",
-          "to_status",
-          "timestamp"
-        ],
-        "title": "StatusTransitionResponse",
-        "description": "Status transition response schema."
       },
       "TraccarStatusResponse": {
         "properties": {

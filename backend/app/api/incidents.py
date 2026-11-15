@@ -1099,16 +1099,6 @@ async def apply_rapport_material_decisions(
     return schemas.RapportMaterialDecisionsResponse(applied=applied)
 
 
-@router.get("/{incident_id}/history", response_model=list[schemas.StatusTransitionResponse])
-async def get_status_history(
-    incident_id: uuid.UUID,
-    db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: CurrentUser,
-) -> list[models.StatusTransition]:
-    """Get status transition history for incident."""
-    return await crud.get_incident_status_history(db, incident_id)
-
-
 @router.get("/{incident_id}/participants", response_model=schemas.IncidentParticipantsResponse)
 async def get_incident_participants(
     incident_id: uuid.UUID,

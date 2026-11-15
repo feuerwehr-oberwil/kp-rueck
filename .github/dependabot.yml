@@ -17,8 +17,10 @@ updates:
       minor-and-patch:
         update-types: [minor, patch]
 
-  # Backend (uv / pip-compatible)
-  - package-ecosystem: pip
+  # Backend (uv). The `uv` ecosystem updates pyproject.toml AND uv.lock; `pip` only
+  # understands requirements files and pyproject, so it never touched the lockfile the
+  # images are built from.
+  - package-ecosystem: uv
     directory: "/backend"
     schedule:
       interval: weekly

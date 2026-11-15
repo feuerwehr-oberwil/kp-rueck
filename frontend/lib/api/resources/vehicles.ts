@@ -17,10 +17,6 @@ export class VehiclesApi {
     return httpRequest<ApiVehicle[]>(`/api/vehicles/${query}`)
   }
 
-  async getVehicleById(id: string): Promise<ApiVehicle> {
-    return httpRequest<ApiVehicle>(`/api/vehicles/${id}`)
-  }
-
   async createVehicle(data: ApiVehicleCreate): Promise<ApiVehicle> {
     return httpRequest<ApiVehicle>('/api/vehicles/', {
       method: 'POST',

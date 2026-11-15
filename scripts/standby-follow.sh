@@ -9,8 +9,9 @@
 # `main-<short sha>`:
 #
 #   1. read the commit the hosted board runs ($STANDBY_FOLLOW_URL/build-info)
-#   2. nothing to do if this box runs it already – or if an Ereignis is taken offline here:
-#      an update restarts the board, which must not happen in the middle of an operation
+#   2. nothing to do if this box runs it already – or if an Ereignis is taken offline here, or
+#      the database cannot say: an update restarts the board, which must not happen in the
+#      middle of an operation
 #   3. only forward: a commit that is not a descendant of this checkout is refused (an older
 #      image cannot run against a database a newer one migrated)
 #   4. pull that commit's images first – not published yet means «try again next time»
@@ -36,9 +37,15 @@ tag="main-${target:0:7}"
 current="$(envval KP_RUECK_TAG)"
 [ "$current" = "$tag" ] && exit 0
 
-leading="$(docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT count(*) FROM public.event_leads WHERE holder = '"'"'standby'"'"'"' 2>/dev/null | tr -d '[:space:]' || true)"
-if [ -n "$leading" ] && [ "$leading" != "0" ]; then
-    log "this box leads an Ereignis – not updating to $tag while it is the board"
+# Only a clear «0» lets the update through. A failed or empty answer (db container down, psql
+# erroring) says nothing about whether an Ereignis is taken offline here, so the round is skipped.
+leading="$(docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT count(*) FROM public.event_leads WHERE holder = '"'"'standby'"'"'"' 2>/dev/null | tr -d '[:space:]')" || leading=""
+if [ "$leading" != "0" ]; then
+    if [[ "$leading" =~ ^[0-9]+$ ]]; then
+        log "this box leads an Ereignis – not updating to $tag while it is the board"
+    else
+        log "could not ask the database whether this box leads an Ereignis – not updating to $tag this round"
+    fi
     exit 0
 fi
 

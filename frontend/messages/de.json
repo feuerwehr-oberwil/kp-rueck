@@ -4701,7 +4701,8 @@
         "additional_notes": "Bemerkungen",
         "message": "Meldung",
         "notes": "Notizen",
-        "name": "Name"
+        "name": "Name",
+        "is_leader": "Einsatzleiter"
       },
       "tables": {
         "reko_reports": "Reko",

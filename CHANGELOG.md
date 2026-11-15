@@ -163,6 +163,27 @@ will keep holding.
   value on both services) the proxy names the caller and the backend believes it only with the
   secret. `GET /api/diag/client-address` (admin) shows which address the backend takes.
   Compose stacks need nothing: their proxy reaches the backend directly.
+- **«QR drucken» for Feld in the Setup-Checkliste printed a slip without the Feld-Code and the
+  expiry**, so whoever scanned it reached a code prompt they could not answer. Both print buttons
+  (Checkliste and «Links & QR») now build the slip the same way, and the Feld slip always carries
+  the current code and the day the link stops working.
+- **`scripts/standby-follow.sh` no longer updates a standby box it could not ask.** When the
+  «does this box lead an Ereignis?» query failed or answered nothing, the script read that as «not
+  leading» and updated and restarted the stack – possibly in the middle of an operation. It now
+  goes on only on a clear «0»; otherwise it logs one line and tries again next round.
+- **The standby sync no longer deletes an Einsatz for sharing a place with another one.** When
+  the hosted board and the box each added a stop at the same place of one Auftrag, the sync took
+  the hosted one for a duplicate and deleted it (with its Reko and Schadenplatz rows). Only a
+  real copy is removed now; a stop at a taken place moves to the next free one, a second
+  Einsatzleiter stays in the Mannschaft and is listed as a conflict, and anything else waits
+  instead of being deleted.
+- **A clash in a later takeover is listed again.** Its conflict entry used to be identified only
+  by the clashing values, so the same clash in a later outage matched the old, decided entry and
+  was dropped without a word.
+- **An Ereignis a standby box leads can no longer be deleted on the hosted board.** The box
+  kept working on it and synced into an Ereignis that was gone. The hosted board now answers
+  «Dieses Ereignis wird gerade auf KP Rück Offline geführt …»; take it back with «Hier
+  übernehmen» first.
 - **The first Tagebuch entry on a standby box after a takeover failed** (`journal_entries_seq_key`):
   replication copies the hosted board's sequence numbers but not the sequence behind them, so the
   box handed out 1, 2, 3 … again. The box now numbers its own entries far above the hosted board.
@@ -191,6 +212,16 @@ will keep holding.
   `LOCAL_AUTOLOGIN_SECRET` there now stops the boot with that reason, instead of running a
   version where the shared secret alone stands between the internet and an editor session.
   Nothing changes for the compose stack, and nothing was ever enabled on Railway.
+
+### Removed
+
+- **Six API endpoints nothing called**: `GET /api/events/{id}/stats` (the Kennzahlen are
+  `/figures`, the Dienstzeiten `/personnel-activity`), `GET /api/events/{id}/special-functions/types`,
+  `GET /api/audit/resource/{type}/{id}` (filter `GET /api/audit` instead),
+  `GET /api/incidents/{id}/history` (the status changes are in `/timeline`),
+  `POST /api/incidents/{id}/release-all` (completing an Einsatz still releases its crew), and
+  `POST /api/admin/seed-training` (`python -m app.seed` seeds the training templates). A script
+  that called one of them gets a 404 or 405.
 
 ### Upgrade notes
 

@@ -1,7 +1,6 @@
 """Audit log query endpoints (admin only – the log carries IP addresses and user agents)."""
 
 import uuid
-from collections.abc import Sequence
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -102,25 +101,3 @@ async def query_audit_log(
 
     # Always return a list, even if empty
     return list(entries) if entries else []
-
-
-@router.get("/resource/{resource_type}/{resource_id}", response_model=list[schemas.AuditLogEntry])
-async def get_resource_history(
-    resource_type: str,
-    resource_id: uuid.UUID,
-    current_user: CurrentAdmin,
-    db: AsyncSession = Depends(get_db),
-) -> Sequence[AuditLog]:
-    """
-    Get complete history for a specific resource.
-
-    Example: Get all changes to incident XYZ
-        GET /api/audit/resource/incident/{incident_id}
-    """
-    result = await db.execute(
-        select(AuditLog)
-        .where(AuditLog.resource_type == resource_type, AuditLog.resource_id == resource_id)
-        .order_by(AuditLog.timestamp.desc())
-    )
-
-    return result.scalars().all()

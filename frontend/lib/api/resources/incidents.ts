@@ -15,7 +15,6 @@ import {
   type ApiMergeResponse,
   type ApiUnmergeResponse,
   type ApiIncidentUpdate,
-  type ApiStatusTransition,
   type ApiIncidentTimelineResponse,
   type ApiIncidentParticipantsResponse,
 } from '../types'
@@ -166,10 +165,6 @@ export class IncidentsApi {
         notes,
       }),
     })
-  }
-
-  async getIncidentStatusHistory(id: string): Promise<ApiStatusTransition[]> {
-    return httpRequest<ApiStatusTransition[]>(`/api/incidents/${id}/history`)
   }
 
   async getIncidentTimeline(id: string): Promise<ApiIncidentTimelineResponse> {

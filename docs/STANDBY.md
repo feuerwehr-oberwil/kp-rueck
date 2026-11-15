@@ -38,6 +38,8 @@ Behind the band the board is the ordinary one with editing switched off, as for 
 the hosted board except for new things: an Einsatz, a Tagebuch line, and everything the field
 sends (Feld reports, photos, alarms), which reach the box with the next round. The box's API
 agrees: while it leads no Ereignis, every write is answered 403 (`standby_read_only`).
+The hosted board's API refuses one thing outright while the box leads an Ereignis: deleting it
+(409 – take it back with «Hier übernehmen» first). Archiving it is still possible.
 
 ## When both changed the same thing
 
@@ -48,6 +50,12 @@ alarms keep writing to it. When the two meet again, per row and field:
   the status of the same Einsatz: both stand);
 - new rows from either side are added; an Einsatz number both gave out is renumbered, with a
   Tagebuch line saying so;
+- two different rows in the same one-per-something slot are both kept: a stop both added at the
+  same place of an Auftrag moves to its next free place, and of two Einsatzleiter named for one
+  Einsatz the leader's stays leader, the other stays in the Mannschaft (a conflict). Only a real
+  copy – the same person checked in twice, the Einsatz's Schadenplatz-Rapport written on both – is
+  removed where it came from, and its content goes to the conflict list. What cannot be settled
+  either way (two drivers for one vehicle) waits, counted in the band, and is never deleted;
 - the same field changed on both: the leader's value stands, the other goes to the **conflict
   list** – «n Konflikte ›» in the band. On the leading system each conflict is decided with one
   choice: this version, the other one, or for text **«Beide zusammen»**, both one below the
@@ -56,6 +64,8 @@ alarms keep writing to it. When the two meet again, per row and field:
   leader changed it, and the deletion waits in the list («Löschen»), and vice versa
   («Wiederherstellen»);
 - two takeovers in the gap: the later one leads.
+- a clash is listed once per takeover: the same two values clashing again in a later outage are
+  a new entry, not the one already decided.
 
 The sync (`backend/app/standby_sync.py`) compares both sides with the last state they agreed on,
 every 5 s while the box has taken an Ereignis over. Nothing is dropped without a word: what
@@ -171,7 +181,8 @@ added has nowhere to go on the box, and replication stops (and retries) until th
 too. The hosted board deploys from `main`, so the box follows **commit for commit**:
 `main-images.yml` publishes the images of every `main` commit as `main-<short sha>`, and
 `scripts/standby-follow.sh` moves the box onto the commit the hosted board runs – forward only,
-after a backup, and **never while the box leads an Ereignis** (an update restarts the board). Run it every five minutes, e.g. from cron on the box:
+after a backup, and **never while the box leads an Ereignis** (an update restarts the board) –
+nor in a round where the box's database cannot say whether it leads one. Run it every five minutes, e.g. from cron on the box:
 
 ```
 */5 * * * *  cd /path/to/kp-rueck && scripts/standby-follow.sh >> $HOME/kp-standby-follow.log 2>&1

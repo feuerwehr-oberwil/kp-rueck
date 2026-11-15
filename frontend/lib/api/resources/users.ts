@@ -14,10 +14,6 @@ export class UsersApi {
     return httpRequest<ApiUser[]>('/api/users/')
   }
 
-  async getUser(userId: string): Promise<ApiUser> {
-    return httpRequest<ApiUser>(`/api/users/${userId}`)
-  }
-
   async createUser(user: ApiUserCreate): Promise<ApiUser> {
     return httpRequest<ApiUser>('/api/users/', {
       method: 'POST',
