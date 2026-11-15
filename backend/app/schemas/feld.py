@@ -87,6 +87,10 @@ class FeldUnlockRequest(BaseModel):
     """
 
     code: str | None = Field(default=None, min_length=1, max_length=8)
+    # The phone's own random id (kept in its browser), so wrong codes count per phone as well as
+    # per address. Not a credential: a phone that sends none, or a new one, is still counted by
+    # its address.
+    device: UUID | None = None
 
 
 class FeldUnlockResponse(BaseModel):

@@ -302,10 +302,6 @@ def field_merged(place: str, by: str) -> Built:
     return (f"Nachtrag vom Feld: {place} ({by})", {"place": place, "by": by, "merged": True})
 
 
-def feld_code_rotated(event_name: str) -> Built:
-    return (f"Feld-Code für {event_name} nach zu vielen Fehlversuchen neu erzeugt", {"event": event_name})
-
-
 # --- Übung ------------------------------------------------------------------------------
 
 

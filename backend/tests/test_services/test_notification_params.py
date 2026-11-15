@@ -232,11 +232,6 @@ CASES = [
         {"place": "Hauptstrasse 41", "by": "Fabio Wyss", "merged": True},
     ),
     (
-        texts.feld_code_rotated("Unwetter"),
-        "Feld-Code für Unwetter nach zu vielen Fehlversuchen neu erzeugt",
-        {"event": "Unwetter"},
-    ),
-    (
         texts.training_new("Kellerbrand", "Bahnhofstrasse 1, 4104 Oberwil"),
         "Neuer Übungs-Einsatz: Kellerbrand (Bahnhofstrasse 1, 4104 Oberwil)",
         {"variant": "new", "title": "Kellerbrand", "address": "Bahnhofstrasse 1, 4104 Oberwil"},

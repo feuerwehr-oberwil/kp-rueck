@@ -85,6 +85,11 @@ will keep holding.
 
 ### Changed
 
+- **Wrong Feld-Codes are counted per phone and per address, and never change the code.** Five
+  tries, then 1, 5, then 15 minutes of waiting, said on the phone; the count lives in the
+  database (`feld_code_attempts`), so a restart gives nobody a fresh budget. The automatic
+  rotation after 30 wrong codes against one Ereignis is gone – anybody with the poster could
+  use it to lock every crew out. «Neuer Code» by hand stays.
 - **The Appell is a bottom sheet on the phone**, each person on two lines – the full name, then
   since when, the Einsatz and where – instead of a centred dialog that cut every assigned name.
   «Alle abmelden» stays on the desktop.
@@ -157,6 +162,12 @@ will keep holding.
 
 ### Fixed
 
+- **On Railway, every browser shared one rate-limit and Feld-Code bucket.** The frontend's
+  proxy reaches the backend through its public domain, and that edge rewrites X-Forwarded-For to
+  «frontend, edge node», so the address the backend took was the same for every browser. With
+  the new `CLIENT_ADDRESS_SECRET` (same value on both services) the proxy names the caller (from
+  the `X-Real-IP` its own edge set) and the backend believes it only with the secret. `GET /api/diag/client-address` (admin) shows which address the backend takes.
+  Compose stacks need nothing: their proxy reaches the backend directly.
 - **«QR drucken» for Feld in the Setup-Checkliste printed a slip without the Feld-Code and the
   expiry**, so whoever scanned it reached a code prompt they could not answer. Both print buttons
   (Checkliste and «Links & QR») now build the slip the same way, and the Feld slip always carries
@@ -219,6 +230,11 @@ will keep holding.
 
 ### Upgrade notes
 
+- **Railway:** set `CLIENT_ADDRESS_SECRET` (`openssl rand -hex 32`) to the same value on the
+  backend and the frontend service and restart both (docs/RAILWAY.md §5).
+- `FELD_CODE_MAX_FAILED_ATTEMPTS` and `FELD_CODE_FAILED_WINDOW_SECONDS` are no longer read;
+  remove them from `.env` if you set them. The migration drops the two counter columns on
+  `events` and adds `feld_code_attempts`; it has a downgrade.
 - **A box that prints for KP Front** needs its `kp-front` entry in the config file (or the
   `KP_*` variables) and, outside the container, a working CUPS queue (`lp`, `lpstat`). An agent
   updated to 0.8.0 or 0.9.0 skipped that entry with a log line; it prints again after this
