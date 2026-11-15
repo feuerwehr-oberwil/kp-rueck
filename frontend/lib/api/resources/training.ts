@@ -14,7 +14,6 @@ import type {
   ApiTrainingLocation,
   ApiSimulatedRapport,
   ApiSimulatedRapportBulk,
-  ApiDiveraEmergency,
 } from '../types'
 
 export class TrainingApi {
@@ -73,22 +72,6 @@ export class TrainingApi {
     return httpRequest(`/api/training/events/${eventId}/simulate/checkin`, {
       method: 'POST',
       body: JSON.stringify({ count, over_minutes: overMinutes }),
-    })
-  }
-
-  /** Inject a simulated Divera alarm into the pool (training intake exercise).
-   *
-   * No caller since 2026-07-28 – the Übungssteuerung buttons were removed while
-   * the recipient model is unresolved. Endpoint and generator still exist, so
-   * restoring the UI is a small change once that model lands.
-   */
-  async simulateDiveraAlarm(
-    eventId: string,
-    category?: 'normal' | 'critical' | null
-  ): Promise<ApiDiveraEmergency> {
-    return httpRequest<ApiDiveraEmergency>(`/api/training/events/${eventId}/simulate/divera`, {
-      method: 'POST',
-      body: JSON.stringify({ category: category ?? null }),
     })
   }
 

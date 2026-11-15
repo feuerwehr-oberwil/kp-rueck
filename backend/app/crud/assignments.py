@@ -495,8 +495,7 @@ async def auto_release_incident_resources(
 
     Returns the rows it closed, in the shape ``StatusTransition.released_assignments_json``
     stores — the completing caller stamps them on the transition so that reopening
-    the incident can undo exactly this release and nothing else. Callers that are
-    not a status transition may ignore the return value.
+    the incident can undo exactly this release and nothing else.
 
     Freezes the Einsatzleiter of record FIRST, then releases with the stamp
     switched off. Both halves matter:

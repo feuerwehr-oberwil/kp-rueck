@@ -27,7 +27,6 @@ dependencies = [
     "httpx>=0.28.1",
     "reportlab>=4.4.4",
     "apscheduler>=3.10.4",
-    "markdown>=3.9",
     "python-socketio>=5.14.3",
     "slowapi>=0.1.9",
     # Weather layer (app/services/weather/radar.py): MeteoSwiss publishes its precipitation
@@ -38,17 +37,6 @@ dependencies = [
     "numpy>=2.0",
     # openpyxl uses it to reject XML entity expansion in uploaded workbooks.
     "defusedxml>=0.7.1",
-]
-
-[project.optional-dependencies]
-dev = [
-    "ruff>=0.8.0",
-    "mypy>=1.13.0",
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.23.0",
-    "pytest-cov>=4.1.0",
-    "httpx>=0.27.0",
-    "bandit>=1.7.0",
 ]
 
 [build-system]
@@ -223,7 +211,6 @@ dev = [
     "httpx>=0.28.1",
     "bandit>=1.7.0",
     "pypdf>=6.15.0",
-    "mutmut==3.8.1",
 ]
 
 [tool.coverage.run]
@@ -232,24 +219,3 @@ dev = [
 # fiction — that is where the old `--cov-fail-under=35` note came from; measured properly
 # the suite sits at ~88 %. Keep `thread` alongside it for the background pollers.
 concurrency = ["greenlet", "thread"]
-
-[tool.mutmut]
-source_paths = ["app/"]
-only_mutate = [
-    "app/auth/login_throttle.py",
-    "app/auth/security.py",
-    "app/services/tokens.py",
-    "app/crud/feld/visibility.py",
-    "app/services/print_signal.py",
-]
-pytest_add_cli_args = ["-q", "-x"]
-pytest_add_cli_args_test_selection = [
-    "tests/test_auth/",
-    "tests/test_services/test_tokens.py",
-    "tests/test_crud/test_feld_visibility.py",
-    "tests/test_crud/test_print_job_ttl.py",
-    "tests/test_background/test_fallback_print.py",
-]
-# Fixtures use a disposable PostgreSQL schema. Run mutmut with --max-children 1:
-# concurrent forks would otherwise drop each other's tables.
-also_copy = ["alembic/", "alembic.ini"]

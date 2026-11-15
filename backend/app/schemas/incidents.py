@@ -437,20 +437,6 @@ class StatusTransitionCreate(BaseModel):
     override_status: IncidentStatus | None = None
 
 
-class StatusTransitionResponse(BaseModel):
-    """Status transition response schema."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-    incident_id: UUID
-    from_status: str
-    to_status: str
-    timestamp: datetime
-    user_id: UUID | None = None
-    notes: str | None = None
-
-
 # Timeline
 class IncidentTimelineEvent(BaseModel):
     """A single event on the incident timeline.

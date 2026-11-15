@@ -135,11 +135,6 @@ export class GroupsApi {
 
   // --- Route-owned resources (Auftrag assignments) ---------------------------
 
-  /** List the active resources owned by a route. */
-  async getGroupAssignments(groupId: string): Promise<ApiGroupAssignment[]> {
-    return httpRequest<ApiGroupAssignment[]>(`/api/incident-groups/${groupId}/assignments`)
-  }
-
   /** Attach a resource to a route (409 on duplicate). */
   async assignGroupResource(groupId: string, data: ApiGroupAssignmentCreate): Promise<ApiGroupAssignment> {
     return httpRequest<ApiGroupAssignment>(`/api/incident-groups/${groupId}/assign`, {

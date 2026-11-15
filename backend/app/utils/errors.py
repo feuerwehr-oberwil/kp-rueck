@@ -43,6 +43,10 @@ class ErrorMessages:
     DUPLICATE_ENTRY = "Eintrag existiert bereits"
     ALARM_EXISTS = "Alarm existiert bereits"
     SYNC_IN_PROGRESS = "Synchronisation läuft bereits"
+    EVENT_LED_OFFLINE = (
+        "Dieses Ereignis wird gerade auf KP Rück Offline geführt und kann hier nicht gelöscht werden. "
+        "Erst mit «Hier übernehmen» zurückholen, dann löschen."
+    )
 
     # 500 Internal Server Error
     INTERNAL_ERROR = "Interner Serverfehler"

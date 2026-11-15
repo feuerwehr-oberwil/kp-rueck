@@ -23,10 +23,6 @@ export class MaterialsApi {
     return httpRequest<ApiMaterialResource[]>(`/api/materials/${query}`)
   }
 
-  async getMaterialById(id: string): Promise<ApiMaterialResource> {
-    return httpRequest<ApiMaterialResource>(`/api/materials/${id}`)
-  }
-
   async createMaterialResource(data: ApiMaterialCreate): Promise<ApiMaterialResource> {
     return httpRequest<ApiMaterialResource>('/api/materials/', {
       method: 'POST',

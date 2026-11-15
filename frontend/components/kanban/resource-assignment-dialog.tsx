@@ -168,6 +168,15 @@ export function ResourceAssignmentDialog({
   const naming = usePersonNaming()
   const [searchQuery, setSearchQuery] = useState("")
   const [justAssigned, setJustAssigned] = useState<string | null>(null)
+  // The 600 ms «just assigned» flash on a tile. One timer at a time, cleared on
+  // unmount so it never sets state on a dialog that is gone.
+  const justAssignedTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const flashJustAssigned = (id: string) => {
+    setJustAssigned(id)
+    clearTimeout(justAssignedTimerRef.current)
+    justAssignedTimerRef.current = setTimeout(() => setJustAssigned(null), 600)
+  }
+  useEffect(() => () => clearTimeout(justAssignedTimerRef.current), [])
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   // Quick category filter (null = all): rank for crew, depot/location for
   // material, type for vehicles. Sits as chips below the search.
@@ -560,8 +569,7 @@ export function ResourceAssignmentDialog({
       next.add(person.id)
       return next
     })
-    setJustAssigned(person.id)
-    setTimeout(() => setJustAssigned(null), 600)
+    flashJustAssigned(person.id)
   }
 
   const handleTogglePersonSelection = (person: Person) => {
@@ -606,8 +614,7 @@ export function ResourceAssignmentDialog({
       onRemoveVehicle(operationId, vehicle.id)
     } else {
       onAssignVehicle(vehicle.id, vehicle.name, operationId)
-      setJustAssigned(vehicle.id)
-      setTimeout(() => setJustAssigned(null), 600)
+      flashJustAssigned(vehicle.id)
     }
   }
 
@@ -618,8 +625,7 @@ export function ResourceAssignmentDialog({
       next.add(materialId)
       return next
     })
-    setJustAssigned(materialId)
-    setTimeout(() => setJustAssigned(null), 600)
+    flashJustAssigned(materialId)
   }
 
   // Toggle selection for materials (local state only, doesn't call API)
@@ -660,8 +666,7 @@ export function ResourceAssignmentDialog({
         for (const id of groupMaterialIds) {
           next.add(id)
         }
-        setJustAssigned(`group-${groupMaterialIds[0]}`)
-        setTimeout(() => setJustAssigned(null), 600)
+        flashJustAssigned(`group-${groupMaterialIds[0]}`)
       }
       return next
     })

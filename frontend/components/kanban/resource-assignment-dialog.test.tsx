@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { screen, waitFor } from "@testing-library/react"
+import { fireEvent, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
 
@@ -105,6 +105,19 @@ describe("material double-booking guard", () => {
     // Ticked immediately – the confirm never opens.
     await waitFor(() => expect(screen.getByText("Änderungen")).toBeDefined())
     expect(screen.queryByText("Doppelbelegung?")).toBeNull()
+  })
+
+  it("clears the «just assigned» flash timer when the dialog unmounts", () => {
+    const setSpy = vi.spyOn(globalThis, "setTimeout")
+    const clearSpy = vi.spyOn(globalThis, "clearTimeout")
+    const { unmount } = renderDialog()
+
+    fireEvent.click(screen.getByRole("button", { name: /Triopan \/ Absperrband/ }))
+    const flashTimer = setSpy.mock.results[setSpy.mock.calls.findIndex(([, ms]) => ms === 600)]?.value
+    expect(flashTimer).toBeDefined()
+
+    unmount()
+    expect(clearSpy).toHaveBeenCalledWith(flashTimer)
   })
 })
 

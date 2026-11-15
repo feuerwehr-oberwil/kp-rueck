@@ -1,4 +1,4 @@
-"""Stats API endpoints for real-time event statistics."""
+"""Event figures (Kennzahlen) and time on duty (Dienstzeiten) of an Ereignis."""
 
 from collections import defaultdict
 from collections.abc import Sequence
@@ -20,111 +20,6 @@ from ..utils.errors import ErrorMessages
 router = APIRouter(prefix="/events", tags=["stats"])
 
 
-@router.get("/{event_id}/stats", response_model=schemas.EventStats)
-async def get_event_stats(
-    event_id: UUID,
-    db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: CurrentUser,
-) -> schemas.EventStats:
-    """
-    Get real-time statistics for an event.
-
-    Returns:
-        - Active incidents count by status
-        - Personnel availability (X/Y available)
-        - Average incident duration
-        - Resource utilization percentage
-    """
-    # Verify event exists
-    event_result = await db.execute(select(models.Event).where(models.Event.id == event_id))
-    event = event_result.scalar_one_or_none()
-    if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
-
-    # Get all incidents for this event (active and completed)
-    incidents_result = await db.execute(
-        select(models.Incident).where(models.Incident.event_id == event_id, models.Incident.deleted_at.is_(None))
-    )
-    incidents = incidents_result.scalars().all()
-
-    # Count incidents by status
-    status_counts = {}
-    incident_statuses = ["incoming", "reko", "reko_done", "enroute", "active", "returning", "complete"]
-    for status_value in incident_statuses:
-        count = sum(1 for i in incidents if i.status == status_value)
-        status_counts[status_value] = count
-
-    # Get personnel availability (only checked-in personnel for this event).
-    # `checked_in` alone, like the board's roster: a re-check-in keeps the earlier
-    # `checked_out_at` stamp, so also requiring it to be NULL left everybody who had
-    # gone home and come back out of the count.
-    checked_in_result = await db.execute(
-        select(models.EventAttendance.personnel_id, models.EventAttendance.checked_in_at).where(
-            models.EventAttendance.event_id == event_id,
-            models.EventAttendance.checked_in,
-        )
-    )
-    checked_in_rows = checked_in_result.all()
-    checked_in_personnel_ids = [row[0] for row in checked_in_rows]
-    checked_in_at_by_id = {row[0]: row[1] for row in checked_in_rows}
-
-    # Get those personnel records
-    if checked_in_personnel_ids:
-        personnel_result = await db.execute(
-            select(models.Personnel).where(models.Personnel.id.in_(checked_in_personnel_ids))
-        )
-        personnel = personnel_result.scalars().all()
-    else:
-        personnel = []
-
-    available = sum(1 for p in personnel if p.status == "available")
-    total_personnel = len(personnel)
-
-    # Calculate average duration for completed incidents
-    # (from created_at to completed_at)
-    completed_incidents = [i for i in incidents if i.completed_at is not None]
-    if completed_incidents:
-        durations = [
-            (completed_at - i.created_at).total_seconds()
-            for i in completed_incidents
-            if (completed_at := i.completed_at) is not None
-        ]
-        avg_duration_sec = sum(durations) / len(durations)
-        avg_duration_minutes = int(avg_duration_sec / 60)
-    else:
-        avg_duration_minutes = 0
-
-    # Calculate resource utilization (percentage of personnel assigned to incidents)
-    # Get personnel assigned to any active incident in this event
-    assigned_result = await db.execute(
-        select(models.IncidentAssignment.resource_id)
-        .distinct()
-        .join(models.Incident, models.IncidentAssignment.incident_id == models.Incident.id)
-        .where(
-            models.IncidentAssignment.resource_type == "personnel",
-            models.IncidentAssignment.unassigned_at.is_(None),
-            models.Incident.event_id == event_id,
-            models.Incident.deleted_at.is_(None),
-        )
-    )
-    assigned_personnel_ids = {row[0] for row in assigned_result.all()}
-
-    # Count checked-in personnel who are assigned to incidents
-    assigned_count = sum(1 for p in personnel if p.id in assigned_personnel_ids)
-    utilization = assigned_count / total_personnel * 100 if total_personnel > 0 else 0.0
-
-    personnel_activity = await _personnel_activity(db, event_id, personnel, checked_in_at_by_id)
-
-    return schemas.EventStats(
-        status_counts=status_counts,
-        personnel_available=available,
-        personnel_total=total_personnel,
-        avg_duration_minutes=avg_duration_minutes,
-        resource_utilization_percent=round(utilization, 1),
-        personnel_activity=personnel_activity,
-    )
-
-
 @router.get("/{event_id}/figures", response_model=schemas.EventFigures)
 async def get_event_figures(
     event_id: UUID,
@@ -135,8 +30,8 @@ async def get_event_figures(
     and the oldest «hoch» Meldung still waiting.
 
     The same stage times as the PDF's Reaktionszeiten table (`services/reaction_times.py`).
-    Its own route rather than part of ``/stats``: the board and the wall reload it every
-    10 s, and this needs two queries (incidents, their transitions), nothing else.
+    The board and the wall reload it every 10 s; it needs two queries (incidents, their
+    transitions), nothing else.
     """
     event = await db.get(models.Event, event_id)
     if event is None:
@@ -163,8 +58,7 @@ async def get_personnel_activity(
 ) -> list[schemas.PersonnelActivity]:
     """Time on duty of everybody checked in for this Ereignis — the Dienstzeiten overview.
 
-    The same rows as ``personnel_activity`` in ``/stats``, without the incident statistics
-    around them: the overview asks again whenever somebody's assignment changes.
+    The overview asks again whenever somebody's assignment changes.
     """
     event_result = await db.execute(select(models.Event.id).where(models.Event.id == event_id))
     if event_result.scalar_one_or_none() is None:

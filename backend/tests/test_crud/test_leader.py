@@ -465,8 +465,8 @@ class TestLeaderOfRecord:
         assert await self._record(db_session, incident.id) == solo.id
 
     async def test_bulk_release_without_completing_keeps_the_leader(self, db_session, incident, user, mock_request):
-        # `release-all` is the same cascade shape as completion and gets the same
-        # guard — the record must not walk down the crew list to the last row.
+        # The release cascade on its own (completion's half) keeps the same guard —
+        # the record must not walk down the crew list to the last row.
         for name, role in (("Offi Oskar", "Offizier"), ("Wacht Wanda", "Wachtmeister"), ("Mann Milo", "Mannschaft")):
             await _assign(db_session, incident, await _person(db_session, name, role), user)
         boss_id = await self._record(db_session, incident.id)

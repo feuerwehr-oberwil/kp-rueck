@@ -174,6 +174,10 @@ will keep holding.
 - **A clash in a later takeover is listed again.** Its conflict entry used to be identified only
   by the clashing values, so the same clash in a later outage matched the old, decided entry and
   was dropped without a word.
+- **An Ereignis a standby box leads can no longer be deleted on the hosted board.** The box
+  kept working on it and synced into an Ereignis that was gone. The hosted board now answers
+  «Dieses Ereignis wird gerade auf KP Rück Offline geführt …»; take it back with «Hier
+  übernehmen» first.
 - **The first Tagebuch entry on a standby box after a takeover failed** (`journal_entries_seq_key`):
   replication copies the hosted board's sequence numbers but not the sequence behind them, so the
   box handed out 1, 2, 3 … again. The box now numbers its own entries far above the hosted board.
@@ -202,6 +206,16 @@ will keep holding.
   `LOCAL_AUTOLOGIN_SECRET` there now stops the boot with that reason, instead of running a
   version where the shared secret alone stands between the internet and an editor session.
   Nothing changes for the compose stack, and nothing was ever enabled on Railway.
+
+### Removed
+
+- **Six API endpoints nothing called**: `GET /api/events/{id}/stats` (the Kennzahlen are
+  `/figures`, the Dienstzeiten `/personnel-activity`), `GET /api/events/{id}/special-functions/types`,
+  `GET /api/audit/resource/{type}/{id}` (filter `GET /api/audit` instead),
+  `GET /api/incidents/{id}/history` (the status changes are in `/timeline`),
+  `POST /api/incidents/{id}/release-all` (completing an Einsatz still releases its crew), and
+  `POST /api/admin/seed-training` (`python -m app.seed` seeds the training templates). A script
+  that called one of them gets a 404 or 405.
 
 ### Upgrade notes
 
