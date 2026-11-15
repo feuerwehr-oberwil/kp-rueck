@@ -42,10 +42,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { FeldAccessCard } from "@/components/feld/feld-access-card"
 import { apiClient } from "@/lib/api-client"
+import { queueLinkQrPrint, type LinkKind } from "@/lib/link-qr-print"
 import { copyToClipboard } from "@/lib/utils"
 
 /** The links the board hands out, in the order the KP needs them on a callout. */
-const LINK_KEYS = ["checkin", "feld", "alarm", "display"] as const
+const LINK_KEYS = ["checkin", "feld", "alarm", "display"] as const satisfies readonly LinkKind[]
 type LinkKey = (typeof LINK_KEYS)[number]
 
 interface LinksQrSheetProps {
@@ -72,17 +73,10 @@ export function LinksQrSheet({
   const [copied, setCopied] = useState<LinkKey | null>(null)
   const [enlarged, setEnlarged] = useState<LinkKey | null>(null)
   /**
-   * What the FELD slip needs beyond its QR: the four digits the scanned page
-   * asks for next, and the day the link dies.
-   *
-   * A printed Feld QR without the code is a poster that leads to a prompt it
-   * cannot answer — the code screen deliberately gives no hint about where the
-   * code lives, because the answer is "on this slip". So it has to be on it.
-   * The code comes from the card below (which is the thing that can change it);
-   * the expiry rides along with the minted link. Both are handed to the print
-   * job, which forwards them to the agent's `format_qr_code_slip`.
+   * The day the Feld link dies, from its mint. The print puts it on the Feld
+   * slip together with the Feld-Code (`queueLinkQrPrint` reads that fresh), so
+   * a slip in the Magazin can be recognised as dead.
    */
-  const [feldCode, setFeldCode] = useState<string | null>(null)
   const [feldValidUntil, setFeldValidUntil] = useState<string | null>(null)
   // The Appell row's count — a label, not live state; the Appell itself
   // refreshes it on every write.
@@ -165,18 +159,11 @@ export function LinksQrSheet({
     const url = urls[key]
     if (!url || !eventId) return
     try {
-      await apiClient.queueQRCodePrint({
-        qr_content: url,
+      await queueLinkQrPrint(key, eventId, {
+        url,
         title: t(`${key}.title`),
         subtitle: t(`${key}.subtitle`),
-        event_id: eventId,
-        // Feld only: the other three links open on their own. A slip that
-        // carries the QR without the code strands whoever scans it, and one
-        // that carries no expiry looks exactly like a slip that still works
-        // long after it stopped.
-        ...(key === "feld" && feldCode
-          ? { code: feldCode, valid_until: feldValidUntil ?? undefined }
-          : {}),
+        validUntil: key === "feld" ? feldValidUntil : undefined,
       })
       toast.info(tCommon("printQrCode"))
     } catch (error) {
@@ -303,7 +290,7 @@ export function LinksQrSheet({
             </p>
             <div className="rounded-lg border border-border/60 divide-y divide-border/50">
               {linkRow("feld", true)}
-              {eventId && <FeldAccessCard eventId={eventId} bare onCodeChange={setFeldCode} />}
+              {eventId && <FeldAccessCard eventId={eventId} bare />}
             </div>
           </section>
 
@@ -333,7 +320,7 @@ export function LinksQrSheet({
               {/* The Feld QR is useless on its own now — whoever scans it is
                   asked for the code next, so it belongs on the same surface. */}
               {enlarged === "feld" && eventId && (
-                <FeldAccessCard eventId={eventId} onCodeChange={setFeldCode} />
+                <FeldAccessCard eventId={eventId} />
               )}
             </div>
           )}

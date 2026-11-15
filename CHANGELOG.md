@@ -157,6 +157,10 @@ will keep holding.
 
 ### Fixed
 
+- **«QR drucken» for Feld in the Setup-Checkliste printed a slip without the Feld-Code and the
+  expiry**, so whoever scanned it reached a code prompt they could not answer. Both print buttons
+  (Checkliste and «Links & QR») now build the slip the same way, and the Feld slip always carries
+  the current code and the day the link stops working.
 - **The first Tagebuch entry on a standby box after a takeover failed** (`journal_entries_seq_key`):
   replication copies the hosted board's sequence numbers but not the sequence behind them, so the
   box handed out 1, 2, 3 … again. The box now numbers its own entries far above the hosted board.
