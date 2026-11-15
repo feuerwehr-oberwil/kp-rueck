@@ -306,6 +306,11 @@ class Settings(BaseSettings):
     # deployments – Caddy in the compose stack, Railway's edge on Railway. Set 0 when the
     # app is exposed directly, which makes the header be ignored entirely.
     trusted_proxy_count: int = 1
+    # Shared with the frontend service (the same variable there): its `/backend-api` proxy
+    # sends the caller's address with this secret, and only then is it believed
+    # (middleware/rate_limit.client_ip_and_source). Needed where the proxy reaches the backend
+    # through a public edge (Railway); empty = the header is never trusted.
+    client_address_secret: str = ""
 
     # Traccar GPS Integration
     traccar_url: str = ""  # Traccar server URL (e.g., https://gps.example.com)

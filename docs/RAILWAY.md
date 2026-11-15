@@ -236,6 +236,7 @@ almost always one of these refusing a weak or missing value, and the message nam
 | `CORS_ORIGINS` | `https://<frontend>` | The frontend's exact origin |
 | `PORT` | `8000` | Railway sets this automatically |
 | `DEPLOYMENT_ROLE` | `production` (default) or `staging` | What this instance may do to the outside world. Leave it unset on the real deployment; see §5.1 |
+| `CLIENT_ADDRESS_SECRET` | 32-byte hex | The **same value on the frontend**. Lets the backend tell callers apart: the frontend's `/backend-api` proxy reaches it through the backend's public domain, whose edge appends the frontend's own address – without this every browser shares one rate-limit, login-throttle and Feld-Code bucket. Check with `GET /backend-api/api/diag/client-address` as admin: `source` `frontend-proxy` and your own address |
 | `STANDBY_SYNC_TOKEN` | 32-byte hex | Only with a standby box ([`STANDBY.md`](STANDBY.md)): its key to `POST /api/standby/sync`, the same value on the box. Unset = the board accepts no standby writes |
 
 Optional, per integration: `DIVERA_ACCESS_KEY`, `TRACCAR_*`, `PRINT_AGENT_TOKEN`. See
@@ -253,6 +254,7 @@ never take the board down with it. Same variable and cadence in KP Front.
 | Variable | Value | Notes |
 |---|---|---|
 | `API_URL` | `https://<backend>` | Read at **runtime** – by the `/backend-api` proxy *and* as the WebSocket origin handed to the browser (§1.1). **Required** |
+| `CLIENT_ADDRESS_SECRET` | 32-byte hex | The same value as on the backend (§5 Backend). The proxy sends the caller's address with it |
 | `CARTO_API_KEY` | CARTO browser API key | Read at **runtime** and added only to CARTO raster tile requests. Required when the station selects Voyager or Dark Matter |
 | `NEXT_PUBLIC_WS_URL` | `wss://<backend>` | Optional override, needed by almost nobody since `API_URL` supersedes it (§1.2). Inlined at build time – changing it needs a redeploy |
 | `PORT` | `3000` | Railway sets this automatically |
@@ -647,6 +649,8 @@ The database itself stays small – incidents and personnel are text rows.
 - [ ] Backend: `DATABASE_URL` uses the `${{Postgres.DATABASE_URL}}` reference
 - [ ] Backend: volume mounted at `/mnt/data` and `PHOTOS_DIR=/mnt/data/photos`
 - [ ] Backend: `CORS_ORIGINS` matches the frontend origin exactly
+- [ ] Both: the same `CLIENT_ADDRESS_SECRET`; `/backend-api/api/diag/client-address` (as admin)
+      shows your own address, not the same one on every device
 - [ ] Frontend: `API_URL` set, `NEXT_PUBLIC_API_URL` **not** set
 - [ ] Startup logs show `Photos directory ready: /mnt/data/photos`
 - [ ] Logged in as `admin` and changed the seeded password

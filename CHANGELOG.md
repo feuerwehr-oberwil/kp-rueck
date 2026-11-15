@@ -157,6 +157,12 @@ will keep holding.
 
 ### Fixed
 
+- **On Railway, every browser shared one rate-limit and Feld-Code bucket.** The frontend's
+  proxy reaches the backend through its public domain, and that edge appends the frontend's own
+  address, which the backend took for the caller. With the new `CLIENT_ADDRESS_SECRET` (same
+  value on both services) the proxy names the caller and the backend believes it only with the
+  secret. `GET /api/diag/client-address` (admin) shows which address the backend takes.
+  Compose stacks need nothing: their proxy reaches the backend directly.
 - **The first Tagebuch entry on a standby box after a takeover failed** (`journal_entries_seq_key`):
   replication copies the hosted board's sequence numbers but not the sequence behind them, so the
   box handed out 1, 2, 3 … again. The box now numbers its own entries far above the hosted board.
@@ -188,6 +194,8 @@ will keep holding.
 
 ### Upgrade notes
 
+- **Railway:** set `CLIENT_ADDRESS_SECRET` (`openssl rand -hex 32`) to the same value on the
+  backend and the frontend service and restart both (docs/RAILWAY.md §5).
 - **A box that prints for KP Front** needs its `kp-front` entry in the config file (or the
   `KP_*` variables) and, outside the container, a working CUPS queue (`lp`, `lpstat`). An agent
   updated to 0.8.0 or 0.9.0 skipped that entry with a log line; it prints again after this

@@ -14,6 +14,8 @@ happened.
   issue. Any logged-in user, no consent involved: it hands them their own instance's
   sanitised error traces so a Rückmeldung can say more than "es ist abgestürzt". Nothing is
   transmitted by this route — the operator is, quite literally, the transport.
+* ``GET /diag/client-address`` — admin only: the caller's address as the backend sees it, for
+  checking a proxy chain (``middleware/rate_limit.client_ip_and_source``).
 
 There used to be a third, ``POST /diag/report``: the Fehlerberichte form posted the operator's
 text here and the forwarder carried it upstream. It went when the maintainer's ingest did. A
@@ -37,7 +39,7 @@ from ..auth.dependencies import CurrentAdmin, CurrentUser
 from ..config import settings
 from ..database import get_db
 from ..logging_config import get_logger
-from ..middleware.rate_limit import RateLimits, limiter
+from ..middleware.rate_limit import RateLimits, client_ip_and_source, limiter
 from ..models import TelemetryOutbox
 from ..telemetry import consent as consent_mod
 from ..telemetry import outbox, recent, scrub
@@ -246,3 +248,21 @@ async def rotate_install_id(current_user: CurrentAdmin, db: AsyncSession = Depen
     """Mint a fresh install id, cutting the link to everything sent so far."""
     new_id = await consent_mod.regenerate_install_id(db)
     return {"installId": new_id}
+
+
+@router.get("/client-address")
+async def client_address(request: Request, current_user: CurrentAdmin) -> dict[str, Any]:
+    """Which address the backend takes for the caller, and where it read it – admin only.
+
+    For checking a deployment's proxy chain: open it once through the app
+    (`/backend-api/api/diag/client-address`) and once on the backend's own domain, and both
+    `address` values should be your own public address. The same address on every device
+    means every caller shares one rate-limit and Feld-Code bucket (docs/RAILWAY.md).
+    """
+    address, source = client_ip_and_source(request)
+    return {
+        "address": address,
+        "source": source,
+        "x_forwarded_for": request.headers.get("X-Forwarded-For"),
+        "socket": request.client.host if request.client else None,
+    }

@@ -68,6 +68,14 @@ async function proxyRequest(request: NextRequest) {
   // Appending our own hop would push the real entry one place left, so we don't.
   // The other x-forwarded-* and x-real-ip are still dropped: the backend reads none of them
   // and a client could set them freely.
+  //
+  // That is enough where this route reaches the backend without another proxy (compose:
+  // API_URL=http://backend:8000). On Railway API_URL is the backend's PUBLIC domain, whose
+  // edge appends THIS container's address – the same for every caller. So, with
+  // CLIENT_ADDRESS_SECRET set on both services, the caller's address (the rightmost entry,
+  // the one our own edge appended) goes along in X-KP-Client-Address, which the backend
+  // believes only with the secret (middleware/rate_limit.client_ip_and_source). A client's
+  // own copies of those two headers are always dropped.
   const skipHeaders = [
     'host',
     'cookie',
@@ -81,12 +89,21 @@ async function proxyRequest(request: NextRequest) {
     'x-forwarded-host',
     'x-forwarded-proto',
     'x-real-ip',
+    'x-kp-client-address',
+    'x-kp-client-address-secret',
   ]
   request.headers.forEach((value, key) => {
     if (!skipHeaders.includes(key.toLowerCase())) {
       headers.set(key, value)
     }
   })
+
+  const secret = process.env.CLIENT_ADDRESS_SECRET
+  const caller = request.headers.get('x-forwarded-for')?.split(',').map(hop => hop.trim()).filter(Boolean).at(-1)
+  if (secret && caller) {
+    headers.set('X-KP-Client-Address', caller)
+    headers.set('X-KP-Client-Address-Secret', secret)
+  }
 
   const controller = new AbortController()
   const abort = () => controller.abort(request.signal.reason)

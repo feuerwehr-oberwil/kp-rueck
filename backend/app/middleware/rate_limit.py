@@ -18,8 +18,11 @@ Features:
 - Retry-After header on 429 responses
 """
 
+import ipaddress
 import re
+import secrets
 import time
+from typing import Literal
 
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
@@ -29,36 +32,64 @@ from starlette.responses import JSONResponse
 
 from ..config import settings
 
+# The caller's address as the frontend's `/backend-api` proxy saw it, and the secret that
+# proves the header came from that proxy (CLIENT_ADDRESS_SECRET, set on both services).
+CLIENT_ADDRESS_HEADER = "X-KP-Client-Address"
+CLIENT_ADDRESS_SECRET_HEADER = "X-KP-Client-Address-Secret"  # noqa: S105 – a header name, not a secret
 
-def client_ip(request: Request) -> str | None:
-    """The caller's IP address, taken from X-Forwarded-For in a way a caller cannot forge.
+ClientIpSource = Literal["frontend-proxy", "x-forwarded-for", "socket"]
 
-    This header is written by the client first and appended to by each proxy on the way in,
-    so its LEFTMOST entry is whatever the caller typed – reading that (which both this
-    function and the audit log used to do) meant anyone could pick their own IP by sending
-    `X-Forwarded-For: 1.2.3.4`. That defeated the login throttle, the request rate limit,
-    and the attribution in the audit trail all at once.
 
-    The trustworthy entry is the one OUR OWN outermost proxy appended, i.e. the
-    `trusted_proxy_count`-th from the right. With the reference deployments that is one hop
-    – Caddy in the compose stack, Railway's edge on Railway – and it holds for app traffic
-    too, because the Next.js `/backend-api` proxy forwards the header it received rather
-    than adding to it.
+def client_ip_and_source(request: Request) -> tuple[str | None, ClientIpSource]:
+    """The caller's IP address in a way a caller cannot forge, and where it was read from.
+
+    **From the frontend proxy, when it proves itself.** On Railway the browser's HTTP calls go
+    browser → edge → frontend → `API_URL` (the backend's PUBLIC domain) → edge → backend. The
+    second edge appends the address it saw – the frontend's own – so the rightmost
+    X-Forwarded-For entry is the same for every caller. The proxy therefore sends the address
+    its own edge appended in `X-KP-Client-Address`, with `CLIENT_ADDRESS_SECRET`; only a
+    request carrying that secret is believed. Direct callers (the WebSocket, webhooks, the
+    print agent) never carry it and fall through to the rule below.
+
+    **Otherwise X-Forwarded-For**: the client writes this header first and each proxy appends,
+    so its LEFTMOST entry is whatever the caller typed. The trustworthy entry is the one OUR
+    OWN outermost proxy appended, i.e. the `trusted_proxy_count`-th from the right (one hop:
+    Caddy in the compose stack, Railway's edge for a direct call). Behind Caddy the frontend
+    proxy reaches the backend on the private network, adds no hop, and needs no secret.
 
     Set `TRUSTED_PROXY_COUNT=0` when the app is directly exposed with no proxy in front:
     then the header is ignored entirely and only the socket address counts.
     """
+    secret = settings.client_address_secret
+    if secret:
+        sent = request.headers.get(CLIENT_ADDRESS_SECRET_HEADER, "")
+        address = _ip(request.headers.get(CLIENT_ADDRESS_HEADER))
+        if address and secrets.compare_digest(sent.encode(), secret.encode()):
+            return address, "frontend-proxy"
+
     count = settings.trusted_proxy_count
     if count > 0:
         forwarded = request.headers.get("X-Forwarded-For")
         if forwarded:
             hops = [part.strip() for part in forwarded.split(",") if part.strip()]
             if len(hops) >= count:
-                return hops[-count]
+                return hops[-count], "x-forwarded-for"
             # Fewer hops than configured: the request did not traverse the expected
             # chain. Trust the socket instead of guessing.
 
-    return request.client.host if request.client else None
+    return (request.client.host if request.client else None), "socket"
+
+
+def _ip(raw: str | None) -> str | None:
+    try:
+        return str(ipaddress.ip_address((raw or "").strip()))
+    except ValueError:
+        return None
+
+
+def client_ip(request: Request) -> str | None:
+    """The caller's IP address – see `client_ip_and_source` for how it is read."""
+    return client_ip_and_source(request)[0]
 
 
 def get_client_identifier(request: Request) -> str:
