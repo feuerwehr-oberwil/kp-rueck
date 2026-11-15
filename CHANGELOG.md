@@ -161,6 +161,19 @@ will keep holding.
   expiry**, so whoever scanned it reached a code prompt they could not answer. Both print buttons
   (Checkliste and «Links & QR») now build the slip the same way, and the Feld slip always carries
   the current code and the day the link stops working.
+- **`scripts/standby-follow.sh` no longer updates a standby box it could not ask.** When the
+  «does this box lead an Ereignis?» query failed or answered nothing, the script read that as «not
+  leading» and updated and restarted the stack – possibly in the middle of an operation. It now
+  goes on only on a clear «0»; otherwise it logs one line and tries again next round.
+- **The standby sync no longer deletes an Einsatz for sharing a place with another one.** When
+  the hosted board and the box each added a stop at the same place of one Auftrag, the sync took
+  the hosted one for a duplicate and deleted it (with its Reko and Schadenplatz rows). Only a
+  real copy is removed now; a stop at a taken place moves to the next free one, a second
+  Einsatzleiter stays in the Mannschaft and is listed as a conflict, and anything else waits
+  instead of being deleted.
+- **A clash in a later takeover is listed again.** Its conflict entry used to be identified only
+  by the clashing values, so the same clash in a later outage matched the old, decided entry and
+  was dropped without a word.
 - **The first Tagebuch entry on a standby box after a takeover failed** (`journal_entries_seq_key`):
   replication copies the hosted board's sequence numbers but not the sequence behind them, so the
   box handed out 1, 2, 3 … again. The box now numbers its own entries far above the hosted board.

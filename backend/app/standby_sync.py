@@ -32,6 +32,7 @@ import uuid
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from functools import partial
 from typing import Any
 
 import asyncpg
@@ -47,6 +48,33 @@ CONFLICTS = "event_conflicts"
 
 # Both systems stamp these on every write; the later one is right, and it is never a clash.
 BOOKKEEPING = frozenset({"updated_at", "last_activity_at"})
+
+# Unique indexes that say «this is the same thing twice»: the same person checked in or driving
+# the same function, the same resource on the same Einsatz or Auftrag, the same phone request or
+# Tagebuch entry, the one open Abholung, the Einsatz's one Schadenplatz-Rapport, the same alarm. A
+# new row from the other side that hits one is a copy: the leader's stays, the copy is removed
+# where it came from and listed as a conflict with its full content. Unnamed constraints differ
+# between a migrated database (`…_key`) and `create_all` (`ix_…`), so both names are here.
+#
+# Every other unique index – a stop's place in its Auftrag, the one Einsatzleiter, a vehicle's one
+# driver, one added later – is a clash between two real things and never deletes anything: the
+# merge moves a stop to the next free place and keeps the second leader as crew (`_settle_slots`);
+# what it cannot settle is held on its side, counted as pending, until somebody changes one of them.
+SAME_THING = frozenset(
+    {
+        "unique_event_personnel_attendance",
+        "unique_personnel_function_assignment",
+        "uq_assignments_active_resource",
+        "uq_group_assignments_active_resource",
+        "field_requests_client_request_id_key",
+        "uq_field_requests_open_pickup",
+        "uq_journal_event_client_id",
+        "uq_schadenplatz_report_incident",
+        "uq_divera_emergencies_source_source_id",
+        "divera_emergencies_divera_id_key",
+        "ix_divera_emergencies_divera_id",
+    }
+)
 
 # Missing from a row: the other system's schema has a column this one does not (yet).
 _MISSING = object()
@@ -269,12 +297,14 @@ def merge(
     *,
     event_id: str,
     leader: str,
+    takeover: str,
     now: str,
     text_columns: dict[str, frozenset[str]] | None = None,
 ) -> Plan:
     """Merge one Ereignis. `lead`/`other` are the leading and the other system's rows.
 
     Keys absent everywhere are ignored, so callers may pass only the tables that changed.
+    `takeover` is the lead's `since` – which takeover this round belongs to (see `conflict_row`).
     `text_columns` marks which clashing columns «Beide zusammen» can join.
     """
     plan = Plan()
@@ -282,7 +312,16 @@ def merge(
 
     def conflict(table: str, row_id: str, kind: str, **facts: Any) -> None:
         row = conflict_row(
-            table, row_id, kind, event_id=event_id, leader=leader, now=now, lead=lead, other=other, **facts
+            table,
+            row_id,
+            kind,
+            event_id=event_id,
+            leader=leader,
+            takeover=takeover,
+            now=now,
+            lead=lead,
+            other=other,
+            **facts,
         )
         if _recorded(row["id"], lead, other):
             return
@@ -341,6 +380,7 @@ def merge(
             conflict(table, row_id, "field", columns=clashes, row=merged, lost_at=t.get("updated_at"))
 
     _renumber(plan, base, lead, other, event_id=event_id, now=now)
+    _settle_slots(plan, lead, other, conflict)
     return plan
 
 
@@ -351,6 +391,7 @@ def conflict_row(
     *,
     event_id: str,
     leader: str,
+    takeover: str,
     now: str,
     lead: Rows,
     other: Rows,
@@ -359,8 +400,10 @@ def conflict_row(
 ) -> Row:
     """An `event_conflicts` row. `row` is the version that did not survive (`field`: the merged one).
 
-    Its id is derived from WHAT clashed, not from when it was noticed: a clash whose losing
-    write keeps failing is found again every round, and must be the same row each time.
+    Its id is derived from WHAT clashed and in which takeover (`takeover`, the lead's `since`),
+    not from when it was noticed: a clash whose losing write keeps failing is found again every
+    round, and must be the same row each time. The same clash in a later takeover is new – the
+    decided one from an earlier outage must not swallow it.
     """
     what = json.dumps(
         [facts.get("columns"), facts.get("deleted_on"), None if kind == "field" else row],
@@ -368,7 +411,7 @@ def conflict_row(
         default=str,
     )
     return {
-        "id": str(uuid.uuid5(uuid.NAMESPACE_URL, f"kp-conflict:{table}:{row_id}:{kind}:{what}")),
+        "id": str(uuid.uuid5(uuid.NAMESPACE_URL, f"kp-conflict:{takeover}:{table}:{row_id}:{kind}:{what}")),
         "event_id": event_id,
         "table_name": table,
         "row_id": row_id,
@@ -443,6 +486,67 @@ def _renumber(plan: Plan, base: Rows, lead: Rows, other: Rows, *, event_id: str,
         plan.to_follower.append(Op("journal_entries", line["id"], line, None))
 
 
+Conflict = Callable[..., None]
+
+
+def _settle_slots(plan: Plan, lead: Rows, other: Rows, conflict: Conflict) -> None:
+    """Two rows the systems put into the same one-per-something slot in the gap. Both stay.
+
+    The phone adds a stop as an Auftrag's first, the box does too (`uq_incidents_group_position_active`);
+    each names an Einsatzleiter for the same Einsatz (`uq_…_single_leader`). Neither is a copy of
+    the other, so neither is deleted: the leader's row keeps the slot, the other stop moves to the
+    Auftrag's next free place, the other leader stays in the crew – and that one is a conflict.
+    """
+    for key, row in _slot_losers(plan, lead, "incidents", _stop_slot):
+        group = [
+            r for k, r in plan.merged.items() if k[0] == "incidents" and r and r.get("group_id") == row["group_id"]
+        ]
+        free = 1 + max(r.get("group_position") or 0 for r in group)
+        _replace(plan, lead, other, key, {**row, "group_position": free})
+    for table, parent in (("incident_assignments", "incident_id"), ("incident_group_assignments", "incident_group_id")):
+        for key, row in _slot_losers(plan, lead, table, partial(_leader_slot, parent=parent)):
+            fixed = {**row, "is_leader": False}
+            _replace(plan, lead, other, key, fixed)
+            conflict(
+                table, key[1], "field", columns={"is_leader": {"kept": False, "lost": True, "text": False}}, row=fixed
+            )
+
+
+def _stop_slot(row: Row) -> Any:
+    return (
+        (row["group_id"], row.get("group_position")) if row.get("group_id") and row.get("deleted_at") is None else None
+    )
+
+
+def _leader_slot(row: Row, parent: str) -> Any:
+    return row.get(parent) if row.get("is_leader") and row.get("unassigned_at") is None else None
+
+
+def _slot_losers(plan: Plan, lead: Rows, table: str, slot: Callable[[Row], Any]) -> list[tuple[Key, Row]]:
+    """The merged rows of `table` that find their slot taken: the leader's version holds it first."""
+    rows = [(k, r) for k, r in plan.merged.items() if k[0] == table and r is not None and slot(r) is not None]
+    rows.sort(key=lambda kr: (kr[0] not in lead or slot(lead[kr[0]]) != slot(kr[1]), kr[0][1]))
+    held: set[Any] = set()
+    losers = []
+    for key, row in rows:
+        if slot(row) in held:
+            losers.append((key, row))
+        held.add(slot(row))
+    return losers
+
+
+def _replace(plan: Plan, lead: Rows, other: Rows, key: Key, row: Row) -> None:
+    """`row` is now the agreed version of `key`: each side gets exactly one op for it, if any."""
+    plan.merged[key] = row
+    plan.to_leader = _retarget(plan.to_leader, key, row, lead.get(key))
+    plan.to_follower = _retarget(plan.to_follower, key, row, other.get(key))
+
+
+def _retarget(ops: list[Op], key: Key, row: Row, current: Row | None) -> list[Op]:
+    kept = [op for op in ops if (op.table, op.id) != key]
+    return kept if current == row else [*kept, Op(key[0], key[1], row, current)]
+
+
 def _journal_line(event_id: str, incident_id: str | None, text: str, now: str) -> Row:
     return {
         "id": str(uuid.uuid5(uuid.NAMESPACE_URL, f"kp-journal:{incident_id}:{text}")),
@@ -477,7 +581,8 @@ async def apply_ops(
     - `changed`: the target no longer holds `expected` – the next round reads again;
     - `held`: a key it needs is not there yet (the roster has not mirrored, a swap of positions),
       or this side's schema refuses the row (logged, not retried within the call);
-    - `duplicate`: a new row clashes with a different row holding the same thing;
+    - `duplicate`: a new row is a copy of a different row – the same thing twice (`SAME_THING`);
+      a new row that clashes on any other unique index is `held`, never a duplicate;
     - `refused`: unknown table, or a row of another Ereignis.
 
     Ops that fail on a missing key are retried until a pass gets nowhere, so parents may come
@@ -500,8 +605,9 @@ async def apply_ops(
             except asyncpg.ForeignKeyViolationError:
                 results[i] = "held"
                 again.append(i)
-            except asyncpg.UniqueViolationError:
-                results[i] = "duplicate" if op.expected is None else "held"
+            except asyncpg.UniqueViolationError as exc:
+                copy = op.expected is None and exc.constraint_name in SAME_THING
+                results[i] = "duplicate" if copy else "held"
                 again.append(i)
             except (asyncpg.IntegrityConstraintViolationError, asyncpg.DataError) as exc:
                 # A row this side's schema will not take (a CHECK or NOT NULL the other
@@ -638,6 +744,7 @@ async def sync_event(
     lead_key = (LEADS, str(event_id))
     lead = settle_lead(mine.get(lead_key), theirs.get(lead_key))
     leader = lead["holder"] if lead else HOSTED
+    takeover = str(lead["since"]) if lead else ""
     lead_rows, other_rows = (mine, theirs) if leader == STANDBY else (theirs, mine)
     plan = merge(
         base,
@@ -645,6 +752,7 @@ async def sync_event(
         other_rows,
         event_id=str(event_id),
         leader=leader,
+        takeover=takeover,
         now=now,
         text_columns={t.name: t.text for t in tables.values()},
     )
@@ -675,8 +783,9 @@ async def sync_event(
         outcome.extend((side, op, r) for op, r in zip(batch, results, strict=True))
         return results[len(batch) - len(ops) :]
 
-    # The leader is written first. A new row from the other side that the leader cannot take
-    # (the same Schadenplatz-Rapport twice) becomes a conflict, and is removed where it came from.
+    # The leader is written first. A new row from the other side that is a copy of one the
+    # leader has (the same Schadenplatz-Rapport twice, `SAME_THING`) becomes a conflict, and is
+    # removed where it came from. Nothing else is ever removed for a clash.
     results = await write(leader, plan.to_leader)
     extra_leader: list[Op] = []
     extra_follower: list[Op] = []
@@ -690,6 +799,7 @@ async def sync_event(
             "duplicate",
             event_id=str(event_id),
             leader=leader,
+            takeover=takeover,
             now=now,
             lead=lead_rows,
             other=other_rows,

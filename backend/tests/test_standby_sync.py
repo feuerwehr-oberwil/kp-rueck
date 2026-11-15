@@ -34,6 +34,7 @@ from tests.conftest import create_scratch_database, drop_scratch_database, worke
 
 EVENT = str(uuid.uuid4())
 NOW = "2026-11-09T20:12:00+00:00"
+TAKEOVER = "2026-11-09T19:42:00+00:00"
 
 
 def _incident(**over: object) -> dict:
@@ -54,7 +55,7 @@ def _key(row: dict) -> tuple[str, str]:
 
 def _merge(base: list[dict], lead: list[dict], other: list[dict], leader: str = STANDBY):
     rows = lambda rs: {_key(r): r for r in rs}
-    return merge(rows(base), rows(lead), rows(other), event_id=EVENT, leader=leader, now=NOW)
+    return merge(rows(base), rows(lead), rows(other), event_id=EVENT, leader=leader, takeover=TAKEOVER, now=NOW)
 
 
 def _conflicts(plan) -> list[dict]:
@@ -145,7 +146,9 @@ def test_a_clash_found_again_is_the_same_conflict_and_is_not_listed_twice():
     (about twelve times a minute). It must be one row in the list, not one per round."""
     base, mine, theirs = _incident(), _incident(description="Box."), _incident(description="Hosted.")
     rows = lambda *rs: {_key(r): r for r in rs}
-    plan = lambda lead, now: merge(rows(base), lead, rows(theirs), event_id=EVENT, leader=STANDBY, now=now)
+    plan = lambda lead, now: merge(
+        rows(base), lead, rows(theirs), event_id=EVENT, leader=STANDBY, takeover=TAKEOVER, now=now
+    )
 
     [first] = _conflicts(plan(rows(mine), NOW))
     [again] = _conflicts(plan(rows(mine), "2026-11-09T20:12:05+00:00"))
@@ -153,6 +156,46 @@ def test_a_clash_found_again_is_the_same_conflict_and_is_not_listed_twice():
 
     recorded = {**rows(mine), (CONFLICTS, first["id"]): first}
     assert _conflicts(plan(recorded, "2026-11-09T20:12:10+00:00")) == []
+
+
+def test_the_same_clash_in_a_later_takeover_is_a_new_conflict():
+    """Takeover 1: Box and hosted board both change the Meldung; the clash is listed and decided.
+    Takeover 2, a later outage: the very same two texts clash again. That is a new clash the
+    operator has not seen, not the old, decided one."""
+    base, mine, theirs = _incident(), _incident(description="Box."), _incident(description="Hosted.")
+    rows = lambda *rs: {_key(r): r for r in rs}
+
+    first_plan = merge(rows(base), rows(mine), rows(theirs), event_id=EVENT, leader=STANDBY, takeover=TAKEOVER, now=NOW)
+    [first] = _conflicts(first_plan)
+    decided = {**first, "resolved_at": "2026-11-09T20:30:00+00:00", "resolution": "kept"}
+    recorded = {**rows(mine), (CONFLICTS, first["id"]): decided}
+
+    second_takeover = "2026-11-12T07:55:00+00:00"
+    later = merge(rows(base), recorded, rows(theirs), event_id=EVENT, leader=STANDBY, takeover=second_takeover, now=NOW)
+
+    [second] = _conflicts(later)
+    assert second["id"] != first["id"] and second["resolved_at"] is None
+
+
+def test_two_einsatzleiter_named_in_the_gap_keep_the_leaders_and_the_other_stays_in_the_crew():
+    incident = _incident()["id"]
+    named = lambda person: {
+        "id": str(uuid.uuid5(uuid.NAMESPACE_URL, person)),
+        "incident_id": incident,
+        "resource_id": person,
+        "is_leader": True,
+        "unassigned_at": None,
+    }
+    box, phone = named("Koch"), named("Frei")
+    key = lambda r: ("incident_assignments", r["id"])
+
+    plan = merge({}, {key(box): box}, {key(phone): phone}, event_id=EVENT, leader=STANDBY, takeover=TAKEOVER, now=NOW)
+
+    assert plan.merged[key(box)]["is_leader"] is True
+    assert plan.merged[key(phone)] == {**phone, "is_leader": False}
+    assert [op.row for op in plan.to_leader if op.table == "incident_assignments"] == [plan.merged[key(phone)]]
+    [conflict] = _conflicts(plan)
+    assert conflict["row_id"] == phone["id"] and conflict["columns"]["is_leader"]["lost"] is True
 
 
 def test_bookkeeping_takes_the_later_value_and_never_clashes():
@@ -429,3 +472,52 @@ async def test_a_lead_row_that_moved_meanwhile_stops_the_round(mirrored):
         await sync_event(box, hosted, racing, event_id)
     # Nothing of the refused batch landed: the hosted board keeps its own takeover.
     assert await hosted.fetchval(f"SELECT holder FROM {LEADS} WHERE event_id = $1", event_id) == HOSTED
+
+
+GROUP_SQL = (
+    "INSERT INTO incident_groups (id, event_id, name, position, leader_manual, created_at, updated_at) "
+    "VALUES ($1, $2, 'Route West', 0, false, $3, $3)"
+)
+STOP_SQL = (
+    "INSERT INTO incidents (id, event_id, number, title, type, priority, location_address, status, "
+    "nachbarhilfe, am_warten, zu_fuss, leader_manual, group_id, group_position) VALUES ($1, $2, $3, 'Baum', "
+    "'elementarereignis', 'medium', $4, 'incoming', false, false, false, false, $5, 0)"
+)
+
+
+@pytest.mark.asyncio
+async def test_two_stops_added_at_the_same_place_of_one_auftrag_are_both_kept(mirrored):
+    """The phone (hosted) and the box each add a stop as the Auftrag's first one in the gap. A
+    clash on the position is not the same Einsatz twice: neither may be deleted."""
+    box, hosted, event_id, _ = mirrored
+    group_id = uuid.uuid4()
+    for conn in (box, hosted):
+        await conn.execute(GROUP_SQL, group_id, event_id, datetime(2026, 11, 9, 19, 30, tzinfo=UTC))
+    on_box, on_phone = uuid.uuid4(), uuid.uuid4()
+    await box.execute(STOP_SQL, on_box, event_id, 8, "Hauptstrasse 1", group_id)
+    await hosted.execute(STOP_SQL, on_phone, event_id, 9, "Mühleweg 4", group_id)
+
+    result = await sync_event(box, hosted, _push(hosted), event_id)
+
+    for conn in (box, hosted):
+        stops = dict(await conn.fetch("SELECT id, group_position FROM incidents WHERE group_id = $1", group_id))
+        assert stops == {on_box: 0, on_phone: 1}  # the leader's stop keeps its place
+    assert result.pending == 0 and result.held == []
+
+
+@pytest.mark.asyncio
+async def test_a_new_row_that_clashes_on_a_place_rather_than_a_copy_is_held_not_a_duplicate(mirrored, hosted):
+    """Only `duplicate` makes the round delete the row where it came from."""
+    _, _, event_id, _ = mirrored
+    group_id = uuid.uuid4()
+    await hosted.execute(GROUP_SQL, group_id, event_id, datetime(2026, 11, 9, 19, 30, tzinfo=UTC))
+    await hosted.execute(STOP_SQL, uuid.uuid4(), event_id, 8, "Hauptstrasse 1", group_id)
+    tables = await event_tables(hosted)
+    rows, _ = await fetch_rows(hosted, tables["incidents"], event_id)
+    [stop] = [r for r in rows.values() if r["group_id"]]
+    other = {**stop, "id": str(uuid.uuid4()), "number": 9}
+
+    async with hosted.transaction():
+        [result] = await apply_ops(hosted, tables, event_id, [Op("incidents", other["id"], other, None)])
+
+    assert result == "held"
