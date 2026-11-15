@@ -38,6 +38,8 @@ Behind the band the board is the ordinary one with editing switched off, as for 
 the hosted board except for new things: an Einsatz, a Tagebuch line, and everything the field
 sends (Feld reports, photos, alarms), which reach the box with the next round. The box's API
 agrees: while it leads no Ereignis, every write is answered 403 (`standby_read_only`).
+The hosted board's API refuses one thing outright while the box leads an Ereignis: deleting it
+(409 – take it back with «Hier übernehmen» first). Archiving it is still possible.
 
 ## When both changed the same thing
 
