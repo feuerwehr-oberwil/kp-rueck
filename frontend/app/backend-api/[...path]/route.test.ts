@@ -101,6 +101,31 @@ describe('bounded API proxy', () => {
     expect(forwarded.has('x-forwarded-host')).toBe(false)
   })
 
+  it('names the caller to the backend with the shared secret, and never passes a client copy on', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'))
+    const forged = { 'x-kp-client-address': '9.9.9.9', 'x-kp-client-address-secret': 'guess' }
+    await POST(post('x', { 'x-forwarded-for': '6.6.6.6, 203.0.113.7', ...forged }))
+    vi.stubEnv('CLIENT_ADDRESS_SECRET', 's3cret')
+    await POST(post('x', { 'x-forwarded-for': '6.6.6.6, 203.0.113.7', ...forged }))
+
+    const [without, withSecret] = fetchMock.mock.calls.map(([, init]) => new Headers(init?.headers))
+    expect(without.has('x-kp-client-address')).toBe(false)
+    expect(without.has('x-kp-client-address-secret')).toBe(false)
+    expect(withSecret.get('x-kp-client-address')).toBe('203.0.113.7')
+    expect(withSecret.get('x-kp-client-address-secret')).toBe('s3cret')
+  })
+
+  it("names the caller by Railway's X-Real-IP, not the edge node at the end of X-Forwarded-For", async () => {
+    fetchMock.mockResolvedValue(new Response('ok'))
+    vi.stubEnv('CLIENT_ADDRESS_SECRET', 's3cret')
+    // What Railway's edge hands the frontend: X-Forwarded-For rewritten to «client, edge node».
+    await POST(post('x', { 'x-forwarded-for': '203.0.113.7, 152.233.12.241', 'x-real-ip': '203.0.113.7' }))
+
+    const forwarded = new Headers(fetchMock.mock.calls[0][1]?.headers)
+    expect(forwarded.get('x-kp-client-address')).toBe('203.0.113.7')
+    expect(forwarded.has('x-real-ip')).toBe(false)
+  })
+
   it('does not send cookies or an upload to a cross-origin redirect', async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 307, headers: { location: 'https://other.example/' } }))
     expect((await POST(post('payload', { cookie: 'access_token=opaque' }))).status).toBe(502)

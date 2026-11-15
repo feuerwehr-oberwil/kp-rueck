@@ -1814,6 +1814,74 @@
         }
       }
     },
+    "/api/diag/client-address": {
+      "get": {
+        "tags": [
+          "diag"
+        ],
+        "summary": "Client Address",
+        "description": "Which address the backend takes for the caller, and where it read it – admin only.\n\nFor checking a deployment's proxy chain: open it once through the app\n(`/backend-api/api/diag/client-address`) and once on the backend's own domain, and both\n`address` values should be your own public address. The same address on every device\nmeans every caller shares one rate-limit and Feld-Code bucket (docs/RAILWAY.md).",
+        "operationId": "client_address_api_diag_client_address_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Client Address Api Diag Client Address Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/divera/webhook": {
       "post": {
         "tags": [

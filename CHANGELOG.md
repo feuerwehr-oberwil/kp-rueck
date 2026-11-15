@@ -157,6 +157,12 @@ will keep holding.
 
 ### Fixed
 
+- **On Railway, every browser shared one rate-limit and Feld-Code bucket.** The frontend's
+  proxy reaches the backend through its public domain, and that edge rewrites X-Forwarded-For to
+  «frontend, edge node», so the address the backend took was the same for every browser. With
+  the new `CLIENT_ADDRESS_SECRET` (same value on both services) the proxy names the caller (from
+  the `X-Real-IP` its own edge set) and the backend believes it only with the secret. `GET /api/diag/client-address` (admin) shows which address the backend takes.
+  Compose stacks need nothing: their proxy reaches the backend directly.
 - **«QR drucken» for Feld in the Setup-Checkliste printed a slip without the Feld-Code and the
   expiry**, so whoever scanned it reached a code prompt they could not answer. Both print buttons
   (Checkliste and «Links & QR») now build the slip the same way, and the Feld slip always carries
@@ -219,6 +225,8 @@ will keep holding.
 
 ### Upgrade notes
 
+- **Railway:** set `CLIENT_ADDRESS_SECRET` (`openssl rand -hex 32`) to the same value on the
+  backend and the frontend service and restart both (docs/RAILWAY.md §5).
 - **A box that prints for KP Front** needs its `kp-front` entry in the config file (or the
   `KP_*` variables) and, outside the container, a working CUPS queue (`lp`, `lpstat`). An agent
   updated to 0.8.0 or 0.9.0 skipped that entry with a log line; it prints again after this

@@ -63,3 +63,44 @@ def test_no_header_uses_the_socket_address():
 def test_handles_a_missing_peer():
     with patch("app.middleware.rate_limit.settings.trusted_proxy_count", 0):
         assert client_ip(_request(None, peer=None)) is None
+
+
+# Railway: browser → edge → frontend → API_URL (the backend's public domain) → edge → backend.
+# The second edge appends the frontend's own address, so the rightmost entry is the same for
+# every caller. The proxy sends the address its own edge appended, with the shared secret.
+RAILWAY_PROXIED = "1.2.3.4, 203.0.113.7, 100.64.0.2"  # forged, the caller, the frontend's egress
+
+
+def _proxied(secret: str | None, address: str = "203.0.113.7"):
+    request = _request(RAILWAY_PROXIED)
+    request.headers = {**request.headers, "X-KP-Client-Address": address}
+    if secret is not None:
+        request.headers["X-KP-Client-Address-Secret"] = secret
+    return request
+
+
+def test_the_frontend_proxy_is_believed_only_with_the_shared_secret():
+    with (
+        patch("app.middleware.rate_limit.settings.trusted_proxy_count", 1),
+        patch("app.middleware.rate_limit.settings.client_address_secret", "s3cret"),
+    ):
+        assert client_ip(_proxied("s3cret")) == "203.0.113.7"
+        # A caller who sets the header himself gets the ordinary rule.
+        assert client_ip(_proxied(None, address="9.9.9.9")) == "100.64.0.2"
+        assert client_ip(_proxied("guess", address="9.9.9.9")) == "100.64.0.2"
+        assert client_ip(_proxied("s3cret", address="not an address")) == "100.64.0.2"
+
+
+def test_without_a_configured_secret_the_header_is_never_trusted():
+    with (
+        patch("app.middleware.rate_limit.settings.trusted_proxy_count", 1),
+        patch("app.middleware.rate_limit.settings.client_address_secret", ""),
+    ):
+        assert client_ip(_proxied("")) == "100.64.0.2"
+
+
+@pytest.mark.asyncio
+async def test_an_admin_can_see_which_address_the_backend_takes(admin_client):
+    seen = await admin_client.get("/api/diag/client-address", headers={"X-Forwarded-For": "203.0.113.7"})
+    assert seen.status_code == 200
+    assert (seen.json()["address"], seen.json()["source"]) == ("203.0.113.7", "x-forwarded-for")
