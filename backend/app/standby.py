@@ -63,7 +63,16 @@ PUBLICATION = "kp_standby"
 # make its backend believe it runs a schema it does not have. geocoding_dispatch has a serial
 # key whose sequence is not replicated, so mirrored rows would collide with the box's own.
 SKIPPED_TABLES = frozenset(
-    {"alembic_version", "telemetry_outbox", "microsoft_login_transactions", "print_jobs", "geocoding_dispatch"}
+    {
+        "alembic_version",
+        "telemetry_outbox",
+        "microsoft_login_transactions",
+        "print_jobs",
+        "geocoding_dispatch",
+        # Wrong Feld-Codes are counted where they were typed; the box and the hosted board each
+        # keep their own.
+        "feld_code_attempts",
+    }
 )
 
 # Settings that describe this box, not the station: they keep the box's own value.

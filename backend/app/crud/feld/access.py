@@ -15,17 +15,17 @@ proof of identity — somebody may still deliberately pick the wrong name — an
 that is the stated, accepted trust assumption of a brigade (decision 2).
 """
 
+import math
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import delete, select, update
 from sqlalchemy import func as sa_func
-from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...config import settings
 from ...database import execute_dml
-from ...models import Event, FeldDeviceClaim, FeldUnlockClaim
+from ...models import Event, FeldCodeAttempt, FeldDeviceClaim, FeldUnlockClaim
 
 FELD_UNLOCK_MINUTES = 5
 
@@ -92,7 +92,8 @@ def generate_code() -> str:
 
     ``secrets`` rather than ``random`` — this is a credential, however short.
     Four is enough because the code never stands alone: it gates a link the
-    holder had to obtain in the first place, and the endpoint is rate limited.
+    holder had to obtain in the first place, and wrong tries are throttled per
+    phone and per address (``record_code_failure``).
     """
     return f"{secrets.randbelow(10000):04d}"
 
@@ -109,17 +110,10 @@ def code_matches(event: Event, code: str) -> bool:
 
 
 async def _rotate_code(db: AsyncSession, event: Event) -> None:
-    """New digits, outstanding picker grants revoked, failure count reset. No commit.
-
-    The count restarts because the guesses were against the OLD code: they say
-    nothing about the new one, and carrying them over would rotate a code
-    nobody has had the chance to guess yet.
-    """
+    """New digits and outstanding picker grants revoked. No commit."""
     old_code = event.feld_code
     while event.feld_code == old_code:
         event.feld_code = generate_code()
-    event.feld_code_failures = 0
-    event.feld_code_failures_since = None
     await _revoke_unlocks(db, event.id)
 
 
@@ -136,41 +130,64 @@ async def regenerate_code(db: AsyncSession, event: Event) -> str:
     return event.feld_code
 
 
-async def record_code_failure(db: AsyncSession, event: Event) -> bool:
-    """Count one wrong code against the whole Ereignis; rotate at the ceiling.
+# Wrong Feld-Codes per phone and per address: this many are free, then every further one
+# locks that phone or address for the next wait – 1, 5, then 15 minutes for good.
+FREE_CODE_TRIES = 5
+CODE_WAITS_SECONDS = (60, 300, 900)
 
-    Returns True when this failure rotated the code. The caller must hold the
-    event row lock (``lock_event``) — the unlock endpoint does — so two phones
-    failing at the same instant cannot both read 29 and write 30.
 
-    **The rules**, because each one is a decision:
+def code_subjects(address: str, device: uuid.UUID | None) -> list[str]:
+    """Whom a try counts against: the address always, the phone when it says which it is."""
+    return [f"ip:{address}"] + ([f"device:{device}"] if device else [])
 
-    * Fixed window from the first failure: once ``feld_code_failed_window_seconds``
-      has passed since it, the next failure starts a new count at 1. A slow
-      trickle of typos over a three-day Ereignis never adds up to a rotation.
-    * A correct code does NOT reset the count. The per-IP throttle may forget
-      a success's fumbles — that is one phone proving itself — but here a reset
-      would let a guesser hide behind the crews: every legitimate unlock in the
-      depot would hand the attacker a fresh budget of 29.
-    * A rotation (this one, or «Neu generieren» on the board) resets it.
 
-    Flushes; the CALLER commits before the 403 it raises next, or the count is rolled back with it.
-    """
-    limit = settings.feld_code_max_failed_attempts
+async def _attempts(db: AsyncSession, event_id: uuid.UUID, subjects: list[str]) -> list[FeldCodeAttempt]:
+    result = await db.execute(
+        select(FeldCodeAttempt).where(FeldCodeAttempt.event_id == event_id, FeldCodeAttempt.subject.in_(subjects))
+    )
+    return list(result.scalars().all())
+
+
+def _seconds_until(moment: datetime | None, now: datetime) -> int:
+    return max(0, math.ceil((moment - now).total_seconds())) if moment else 0
+
+
+async def code_wait_seconds(db: AsyncSession, event_id: uuid.UUID, subjects: list[str]) -> int:
+    """How long these subjects must still wait before trying again (0 = they may try now)."""
     now = datetime.now(UTC)
-    window = timedelta(seconds=settings.feld_code_failed_window_seconds)
-    since = event.feld_code_failures_since
-    if since is None or now - since > window:
-        event.feld_code_failures = 0
-        event.feld_code_failures_since = now
-    event.feld_code_failures += 1
+    return max((_seconds_until(a.locked_until, now) for a in await _attempts(db, event_id, subjects)), default=0)
 
-    rotated = limit > 0 and event.feld_code_failures >= limit
-    if rotated:
-        await _rotate_code(db, event)
+
+async def record_code_failure(db: AsyncSession, event_id: uuid.UUID, subjects: list[str]) -> tuple[int, int]:
+    """Count one wrong code against each subject. Returns (seconds to wait, tries left).
+
+    The caller holds the event row lock (``lock_event``), so two phones failing at the same
+    instant cannot both read 4 and write 5. Flushes; the CALLER commits before the 403/429 it
+    raises next, or the count is rolled back with it. The code itself never moves here – a
+    guesser must not be able to lock every crew out of the door (rotating is «Neu generieren»).
+    """
+    now = datetime.now(UTC)
+    known = {a.subject: a for a in await _attempts(db, event_id, subjects)}
+    wait, left = 0, FREE_CODE_TRIES
+    for subject in subjects:
+        attempt = known.get(subject) or FeldCodeAttempt(event_id=event_id, subject=subject, failures=0)
+        db.add(attempt)
+        attempt.failures += 1
+        over = attempt.failures - FREE_CODE_TRIES
+        if over >= 0:
+            attempt.locked_until = now + timedelta(seconds=CODE_WAITS_SECONDS[min(over, len(CODE_WAITS_SECONDS) - 1)])
+        wait = max(wait, _seconds_until(attempt.locked_until, now))
+        left = min(left, max(0, FREE_CODE_TRIES - attempt.failures))
     await db.flush()
-    await db.refresh(event)
-    return rotated
+    return wait, left
+
+
+async def clear_code_failures(db: AsyncSession, event_id: uuid.UUID, subjects: list[str]) -> None:
+    """The right code: that phone and that address start over (the next phone on the same
+    Wi-Fi must not carry the fumbles of the one before)."""
+    await db.execute(
+        delete(FeldCodeAttempt).where(FeldCodeAttempt.event_id == event_id, FeldCodeAttempt.subject.in_(subjects))
+    )
 
 
 async def create_claim(db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid.UUID) -> FeldDeviceClaim:

@@ -1063,7 +1063,7 @@
       "attemptsLeft": "{count, plural, one {Encore # essai.} other {Encore # essais.}}",
       "whereHint": "Le code figure sur le billet, sous le code QR.",
       "lockedTitle": "Bloqué un instant – {time}",
-      "lockedBody": "Trop d'essais infructueux depuis le même réseau.",
+      "lockedBody": "Trop d'essais infructueux depuis ce téléphone ou ce réseau.",
       "expiredTitle": "Lien expiré",
       "expiredHeading": "Ce code QR n'est plus valable",
       "expiredBody": "Les liens Terrain expirent après 30 jours.",

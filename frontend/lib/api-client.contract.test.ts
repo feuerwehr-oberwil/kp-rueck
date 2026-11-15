@@ -259,7 +259,8 @@ describe('apiClient — what each method sends', () => {
     const request = sent()
     expect(request.method).toBe('POST')
     expect(request.path).toBe('/api/feld/unlock?token=t%2Fx')
-    expect(request.body).toEqual({ code: '1234' })
+    // The phone's own id rides along, so wrong codes count per phone as well as per address.
+    expect(request.body).toEqual({ code: '1234', device: expect.stringMatching(/^[0-9a-f-]{36}$/) })
     expect(request.init.credentials).toBe('include')
   })
 

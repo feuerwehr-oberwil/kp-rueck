@@ -4298,7 +4298,7 @@
       "attemptsLeft": "{count, plural, one {Noch # Versuch.} other {Noch # Versuche.}}",
       "whereHint": "Der Code steht auf dem Zettel unter dem QR-Code.",
       "lockedTitle": "Kurz gesperrt – {time}",
-      "lockedBody": "Zu viele Fehlversuche vom gleichen Netz.",
+      "lockedBody": "Zu viele Fehlversuche von diesem Telefon oder Netz.",
       "expiredTitle": "Link abgelaufen",
       "expiredHeading": "Dieser QR-Code ist nicht mehr gültig",
       "expiredBody": "Feld-Links laufen nach 30 Tagen ab.",

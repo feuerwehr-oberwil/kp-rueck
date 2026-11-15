@@ -25488,6 +25488,18 @@
               }
             ],
             "title": "Code"
+          },
+          "device": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device"
           }
         },
         "type": "object",

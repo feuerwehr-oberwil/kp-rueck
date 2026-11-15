@@ -6,6 +6,7 @@
  */
 
 import { getApiUrl } from '../../env'
+import { feldDeviceId } from '../../feld-device'
 import { translateOutsideReact } from '../../i18n-messages'
 import {
   markRestReachable,
@@ -173,7 +174,7 @@ export class FeldApi {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code, device: feldDeviceId() }),
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       })
     } catch (error) {

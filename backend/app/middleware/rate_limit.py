@@ -145,9 +145,9 @@ class RateLimits:
     # every phone behind one address — so a tight value here locks crews out of
     # the poster on the one night it matters, from the eleventh phone on.
     #
-    # Guessing is handled by `feld_code_throttle` in `api/feld.py`, which keys
-    # on (IP, Ereignis) and counts only FAILURES. This ceiling just blunts a
-    # flood from a single host and sits well above any real depot.
+    # Guessing is handled by `record_code_failure` in `crud/feld/access.py`,
+    # which counts only FAILURES, per phone and per address. This ceiling just
+    # blunts a flood from a single host and sits well above any real depot.
     FELD_UNLOCK = "120/minute"
 
 
