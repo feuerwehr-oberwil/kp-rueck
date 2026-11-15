@@ -17,12 +17,13 @@ import pytest
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.models import (
     Event,
     EventSpecialFunction,
+    FeldCodeAttempt,
     FeldDeviceClaim,
     FeldUnlockClaim,
     Incident,
@@ -515,247 +516,105 @@ class TestOwnAttendance:
         assert response.status_code == 403
 
 
-class TestCodeThrottle:
-    """Guessing is throttled per (IP, Ereignis) — never per IP alone.
+class TestWrongCodes:
+    """Wrong Feld-Codes count per phone AND per address: five tries, then a growing wait.
 
-    The obvious control was a rate limit on the route, and it was wrong for
-    exactly the reason `auth/login_throttle.py` exists: a station NATs every
-    phone behind one public IP, so crews scanning the poster in the depot would
-    lock each other out from the eleventh phone on — on the one night the page
-    matters. Counting only failures is what makes a busy depot free and a
-    guesser expensive.
+    Per phone, so a fumbling crew member does not cost the depot's shared Wi-Fi its budget
+    alone; per address, so a guesser cannot buy fresh tries by inventing phones. The wait grows
+    1 → 5 → 15 minutes and stays there. Wrong tries never move the code – a guesser must not be
+    able to throw every crew out of the door; rotating stays the KP's «Neu generieren».
+    Counted in the database (``feld_code_attempts``), so a restart gives nobody a fresh budget.
     """
-
-    @pytest.mark.asyncio
-    @pytest.mark.api
-    async def test_a_correct_code_costs_the_next_phone_nothing(
-        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
-    ):
-        from app.api.feld import feld_code_throttle
-
-        await feld_code_throttle.reset()
-        await _person_on_an_incident(db_session, test_event, test_user)
-        wrong = "0000" if test_event.feld_code != "0000" else "1111"
-        link = generate_feld_token(test_event.id)
-
-        # Two fumbles, then the right one — the shape of a cold, wet hand.
-        for _ in range(2):
-            await client.post(f"/api/feld/unlock?token={link}", json={"code": wrong})
-        assert (
-            await client.post(f"/api/feld/unlock?token={link}", json={"code": test_event.feld_code})
-        ).status_code == 200
-
-        # The next twenty phones on the same Wi-Fi are unaffected, because the
-        # success cleared the counter and successes were never counted anyway.
-        for _ in range(20):
-            assert (
-                await client.post(f"/api/feld/unlock?token={link}", json={"code": test_event.feld_code})
-            ).status_code == 200
-
-    @pytest.mark.asyncio
-    @pytest.mark.api
-    async def test_repeated_wrong_codes_are_locked_out(
-        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
-    ):
-        from app.api.feld import feld_code_throttle
-        from app.config import settings
-
-        await feld_code_throttle.reset()
-        await _person_on_an_incident(db_session, test_event, test_user)
-        wrong = "0000" if test_event.feld_code != "0000" else "1111"
-        link = generate_feld_token(test_event.id)
-
-        for _ in range(settings.login_max_failed_attempts):
-            await client.post(f"/api/feld/unlock?token={link}", json={"code": wrong})
-
-        # 429 with a Retry-After, not a 403: at this point the honest answer is
-        # "wait", and the page can say so instead of insisting the code is wrong.
-        blocked = await client.post(f"/api/feld/unlock?token={link}", json={"code": test_event.feld_code})
-        assert blocked.status_code == 429
-        assert int(blocked.headers["Retry-After"]) > 0
-        await feld_code_throttle.reset()
-
-
-class TestEreignisWideCeiling:
-    """Wrong codes from EVERY address add up, and the code moves at a ceiling.
-
-    The per-(IP, Ereignis) throttle above stops one phone; it does nothing
-    against a poster link tried from a thousand addresses at five guesses each.
-    The rules under test live in ``crud/feld/access.py::record_code_failure``.
-    """
-
-    CEILING = 6
-
-    @pytest.fixture(autouse=True)
-    async def _small_ceiling(self, monkeypatch):
-        from app.api.feld import feld_code_throttle
-        from app.config import settings
-
-        monkeypatch.setattr(settings, "feld_code_max_failed_attempts", self.CEILING)
-        await feld_code_throttle.reset()
-        yield
-        await feld_code_throttle.reset()
 
     @staticmethod
     def _wrong(event: Event) -> str:
         return "0000" if event.feld_code != "0000" else "1111"
 
     @staticmethod
-    async def _guess(client: AsyncClient, link: str, code: str, ip: str):
-        # trusted_proxy_count=1: the right-most X-Forwarded-For hop is the one
-        # our own proxy wrote, i.e. the caller's address.
-        return await client.post(f"/api/feld/unlock?token={link}", json={"code": code}, headers={"X-Forwarded-For": ip})
-
-    async def _notifications(self, db: AsyncSession, event: Event) -> list:
-        from app.models import Notification
-
-        result = await db.execute(
-            select(Notification).where(Notification.event_id == event.id, Notification.type == "feld_code_rotated")
+    async def _try(client: AsyncClient, event: Event, code: str, *, ip: str, device: uuid.UUID | None):
+        # trusted_proxy_count=1: the right-most X-Forwarded-For hop is the caller's address.
+        body: dict[str, str] = {"code": code}
+        if device:
+            body["device"] = str(device)
+        return await client.post(
+            f"/api/feld/unlock?token={generate_feld_token(event.id)}", json=body, headers={"X-Forwarded-For": ip}
         )
-        return list(result.scalars().all())
 
     @pytest.mark.asyncio
     @pytest.mark.api
-    async def test_guesses_spread_over_many_addresses_rotate_the_code_and_tell_the_kp(
-        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User, monkeypatch
+    @pytest.mark.parametrize("same", ["phone", "address"])
+    async def test_five_wrong_tries_from_one_phone_or_one_address_mean_a_minute_of_waiting(
+        self, client: AsyncClient, test_event: Event, same: str
     ):
-        await _person_on_an_incident(db_session, test_event, test_user)
-        broadcasts: list[dict] = []
+        phone = uuid.uuid4()
+        for i in range(5):
+            answer = await self._try(
+                client,
+                test_event,
+                self._wrong(test_event),
+                ip="203.0.113.1" if same == "address" else f"198.51.100.{i}",
+                device=phone if same == "phone" else uuid.uuid4(),
+            )
+        assert answer.status_code == 429
+        assert answer.json()["detail"]["retry_after"] == 60
+        assert answer.json()["detail"]["message"] == "Zu viele Fehlversuche. Bitte 1 Minute warten."
 
-        async def capture(data: dict, action: str) -> None:
-            broadcasts.append({**data, "action": action})
-
-        monkeypatch.setattr("app.websocket_manager.broadcast_notification_update", capture)
-        link = generate_feld_token(test_event.id)
-        old_code = test_event.feld_code
-        wrong = self._wrong(test_event)
-        # A picker grant handed out before the attack must not survive it.
-        picker = await feld_unlock_token(client, test_event)
-
-        # Two guesses per address: nobody gets anywhere near the per-IP lockout.
-        for i in range(self.CEILING):
-            response = await self._guess(client, link, wrong, f"203.0.113.{i // 2}")
-            # The guesser is told nothing new, not even on the rotating guess.
-            assert response.status_code == 403
-            assert response.json()["detail"]["error"] == "wrong_code"
-
-        await db_session.refresh(test_event)
-        assert test_event.feld_code != old_code
-        assert test_event.feld_code_failures == 0
-        assert test_event.feld_code_failures_since is None
-        # The old code opens nothing any more, from anywhere.
-        assert (await self._guess(client, link, old_code, "198.51.100.7")).status_code == 403
-        assert (await client.get(f"/api/feld/personnel?token={picker}")).status_code == 401
-        # ...and the new one works: the brigade only needs the digits from the KP.
-        assert (await self._guess(client, link, test_event.feld_code, "198.51.100.8")).status_code == 200
-
-        [notification] = await self._notifications(db_session, test_event)
-        assert notification.severity == "warning"
-        assert notification.incident_id is None
-        assert notification.message == "Feld-Code für Test Event nach zu vielen Fehlversuchen neu erzeugt"
-        # Never the new code in the bell — viewers read it too.
-        assert test_event.feld_code not in notification.message
-        expected = {"id": str(notification.id), "type": "feld_code_rotated", "event_id": str(test_event.id)}
-        assert {**expected, "action": "create"} in broadcasts
-
-    @pytest.mark.asyncio
-    @pytest.mark.api
-    async def test_the_per_address_lockout_is_unchanged(
-        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
-    ):
-        from app.config import settings
-
-        await _person_on_an_incident(db_session, test_event, test_user)
-        link = generate_feld_token(test_event.id)
-        old_code = test_event.feld_code
-        wrong = self._wrong(test_event)
-
-        for _ in range(settings.login_max_failed_attempts):
-            await self._guess(client, link, wrong, "203.0.113.1")
-        # Locked out at five from one address, before the Ereignis-wide six...
-        assert (await self._guess(client, link, old_code, "203.0.113.1")).status_code == 429
-        # ...and a refused attempt is not a guess: it does not count towards six.
-        for _ in range(3):
-            assert (await self._guess(client, link, wrong, "203.0.113.1")).status_code == 429
-        await db_session.refresh(test_event)
-        assert test_event.feld_code == old_code
-        assert test_event.feld_code_failures == settings.login_max_failed_attempts
-        # Another address is not affected by the first one's lockout.
-        assert (await self._guess(client, link, old_code, "203.0.113.2")).status_code == 200
-
-    @pytest.mark.asyncio
-    @pytest.mark.api
-    async def test_a_correct_code_does_not_reset_the_ereignis_count(
-        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
-    ):
-        # A guesser must not be able to hide behind the crews: if every honest
-        # unlock in the depot reset the count, the ceiling would never be hit.
-        await _person_on_an_incident(db_session, test_event, test_user)
-        link = generate_feld_token(test_event.id)
-        old_code = test_event.feld_code
-        wrong = self._wrong(test_event)
-
-        for i in range(self.CEILING - 1):
-            await self._guess(client, link, wrong, f"203.0.113.{i}")
-        assert (await self._guess(client, link, old_code, "198.51.100.1")).status_code == 200
-        await db_session.refresh(test_event)
-        assert test_event.feld_code_failures == self.CEILING - 1
-
-        await self._guess(client, link, wrong, "203.0.113.99")
-        await db_session.refresh(test_event)
-        assert test_event.feld_code != old_code
-
-    @pytest.mark.asyncio
-    @pytest.mark.api
-    async def test_failures_older_than_the_window_are_forgotten(
-        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
-    ):
-        from app.config import settings
-
-        await _person_on_an_incident(db_session, test_event, test_user)
-        link = generate_feld_token(test_event.id)
-        old_code = test_event.feld_code
-        # A slow trickle: five misses that started just over an hour ago.
-        test_event.feld_code_failures = self.CEILING - 1
-        test_event.feld_code_failures_since = datetime.now(UTC) - timedelta(
-            seconds=settings.feld_code_failed_window_seconds + 1
+        # The right code waits too, from that phone or address – and works from anywhere else.
+        blocked = await self._try(
+            client, test_event, test_event.feld_code, ip="203.0.113.1", device=phone if same == "phone" else None
         )
-        await db_session.commit()
-
-        await self._guess(client, link, self._wrong(test_event), "203.0.113.1")
-        await db_session.refresh(test_event)
-        assert test_event.feld_code == old_code
-        assert test_event.feld_code_failures == 1
+        assert blocked.status_code == 429
+        assert (
+            await self._try(client, test_event, test_event.feld_code, ip="192.0.2.9", device=None)
+        ).status_code == 200
 
     @pytest.mark.asyncio
     @pytest.mark.api
-    async def test_regenerating_by_hand_starts_the_count_over(
-        self, client: AsyncClient, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event
+    async def test_the_wait_grows_to_five_then_fifteen_minutes_and_stays_there(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event
     ):
-        link = generate_feld_token(test_event.id)
-        for i in range(self.CEILING - 1):
-            await self._guess(client, link, self._wrong(test_event), f"203.0.113.{i}")
-        assert (await editor_client.post(f"/api/feld/access/regenerate?event_id={test_event.id}")).status_code == 200
-
-        await db_session.refresh(test_event)
-        assert test_event.feld_code_failures == 0
-        assert await self._notifications(db_session, test_event) == []
+        phone = uuid.uuid4()
+        waits = []
+        for _ in range(8):
+            answer = await self._try(client, test_event, self._wrong(test_event), ip="203.0.113.1", device=phone)
+            if answer.status_code == 429:
+                waits.append(answer.json()["detail"]["retry_after"])
+                # The wait is over – the next wrong try is the next lockout.
+                await db_session.execute(
+                    update(FeldCodeAttempt)
+                    .where(FeldCodeAttempt.event_id == test_event.id)
+                    .values(locked_until=datetime.now(UTC) - timedelta(seconds=1))
+                )
+                await db_session.commit()
+            else:
+                assert answer.json()["detail"]["error"] == "wrong_code"
+        assert waits == [60, 300, 900, 900]
 
     @pytest.mark.asyncio
     @pytest.mark.api
-    async def test_a_ceiling_of_zero_turns_it_off(
-        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, monkeypatch
+    async def test_wrong_tries_never_rotate_the_code(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event
     ):
-        from app.config import settings
-
-        monkeypatch.setattr(settings, "feld_code_max_failed_attempts", 0)
-        link = generate_feld_token(test_event.id)
-        old_code = test_event.feld_code
-        for i in range(self.CEILING * 2):
-            await self._guess(client, link, self._wrong(test_event), f"203.0.113.{i}")
+        code = test_event.feld_code
+        for i in range(40):
+            await self._try(client, test_event, self._wrong(test_event), ip=f"203.0.113.{i}", device=uuid.uuid4())
         await db_session.refresh(test_event)
-        assert test_event.feld_code == old_code
-        assert await self._notifications(db_session, test_event) == []
+        assert test_event.feld_code == code
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_the_right_code_clears_that_phones_and_that_addresss_count(
+        self, client: AsyncClient, test_event: Event
+    ):
+        phone = uuid.uuid4()
+        for _ in range(4):
+            await self._try(client, test_event, self._wrong(test_event), ip="203.0.113.1", device=phone)
+        assert (
+            await self._try(client, test_event, test_event.feld_code, ip="203.0.113.1", device=phone)
+        ).status_code == 200
+
+        answer = await self._try(client, test_event, self._wrong(test_event), ip="203.0.113.1", device=phone)
+        assert answer.json()["detail"]["attempts_left"] == 4
 
 
 @pytest.mark.asyncio

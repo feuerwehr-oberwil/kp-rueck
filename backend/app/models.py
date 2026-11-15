@@ -96,6 +96,22 @@ class FeldUnlockClaim(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class FeldCodeAttempt(Base):
+    """Wrong Feld-Codes from one phone or one address against one Ereignis (crud/feld/access.py).
+
+    `subject` is `device:<id>` (the phone's own random id) or `ip:<address>` (what the rate
+    limiter takes for the caller). In the database rather than in memory, so a restart or a
+    deploy gives a guesser no fresh budget. Each system's own: the standby sync skips it.
+    """
+
+    __tablename__ = "feld_code_attempts"
+
+    event_id: Mapped[UUID] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), primary_key=True)
+    subject: Mapped[str] = mapped_column(String(80), primary_key=True)
+    failures: Mapped[int] = mapped_column(Integer, nullable=False)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class GeocodingDispatch(Base):
     """One shared upstream request budget; contains no address or coordinate data."""
 
@@ -349,19 +365,6 @@ class Event(Base):
     # (decision 30). Throwing people out is the separate, deliberate act of
     # revoking the claims below.
     feld_code: Mapped[str] = mapped_column(String(4), nullable=False, default=lambda: f"{secrets.randbelow(10000):04d}")
-    # Wrong Feld-Codes against this Ereignis from ANY address, since
-    # ``feld_code_failures_since`` (2026-09-23). The per-(IP, Ereignis) throttle
-    # in api/feld.py stops one phone guessing; it does nothing against a poster
-    # link that has gone round and is tried from a thousand addresses at five
-    # guesses each — 10,000 codes fall in an afternoon that way. This counter
-    # is the Ereignis-wide ceiling: at `FELD_CODE_MAX_FAILED_ATTEMPTS` the code
-    # is rotated and the KP gets a bell entry (crud/feld/access.py).
-    #
-    # In the DATABASE, not in memory like the per-IP throttle, because an
-    # attacker who can make the process restart (or simply waits for a deploy)
-    # must not get a fresh budget against the same four digits.
-    feld_code_failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
-    feld_code_failures_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

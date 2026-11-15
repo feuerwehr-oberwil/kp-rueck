@@ -42,6 +42,7 @@ line here. The field surface is the first place kp-rueck touches citizen PII.
 """
 
 import logging
+import math
 import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -54,16 +55,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, OptionalUser
-from ..auth.login_throttle import LoginThrottle
-from ..config import settings
 from ..crud import events as events_crud
 from ..crud import feld as crud
 from ..crud import personnel_checkin as personnel_checkin_crud
 from ..crud.feld.melden import never_left_the_window
 from ..database import after_commit, get_db
-from ..middleware.rate_limit import RateLimits, client_ip, limiter
+from ..middleware.rate_limit import RateLimits, get_client_identifier, limiter
 from ..models import Event, Incident, Personnel, SchadenplatzReport
-from ..services import duplicates, incident_display, notification_service
+from ..services import duplicates, incident_display
 from ..services.duplicates import MergeRefusedError
 from ..services.photo_storage import enforce_demo_photo_limits, photo_storage
 from ..services.settings import (
@@ -267,41 +266,6 @@ async def revoke_feld_devices(
     )
 
 
-class _FeldCodeThrottle(LoginThrottle):
-    """The login throttle plus the one number the code screen needs.
-
-    A phone in the rain deserves to know whether it has three tries left or
-    one, and only the throttle knows. Naming the remaining tries is safe here
-    in a way it is not on a login form: the secret is four digits scoped to a
-    single Ereignis, the counter counts failures only, and the lockout that
-    follows is the real defence.
-    """
-
-    async def attempts_left(self, ip: str, scope: str) -> int:
-        """Failed attempts still available before the lockout kicks in."""
-        async with self._lock:
-            entry = self._attempts.get(self._key(ip, scope))
-            used = entry.count if entry is not None else 0
-        return max(0, settings.login_max_failed_attempts - used)
-
-
-#: Wrong Feld-Codes, counted per (IP, Ereignis) — never per IP alone.
-#:
-#: This is the per-PHONE control. The per-EREIGNIS one — every address added
-#: together, persisted, rotating the code at a ceiling — is
-#: ``crud.record_code_failure``; the two answer different attackers and
-#: neither replaces the other.
-#:
-#: The obvious control was a plain rate limit on this route, and it was wrong
-#: for exactly the reason `auth/login_throttle.py` exists: a station NATs every
-#: phone behind one public IP, so crews scanning the poster in the depot would
-#: have locked each other out from the eleventh phone on — on the one night the
-#: page matters. Counting only FAILURES fixes that: a correct code is not an
-#: attack and costs nobody else their budget, while somebody sitting there
-#: guessing four digits against one Ereignis is cut off after a handful.
-feld_code_throttle = _FeldCodeThrottle()
-
-
 @router.get("/context", response_model=schemas.FeldContextResponse)
 @limiter.limit(RateLimits.FELD)
 async def get_feld_context(
@@ -364,16 +328,15 @@ async def unlock_feld(
     if claims.unlocked or claims.personnel_id is not None or claims.claim_id is not None:
         raise CodedHTTPException(403, ErrorCode.FELD_REOPEN_QR, "Bitte den QR-Code erneut öffnen")
     event = await _load_event(db, claims.event_id, lock=True)
-    scope = str(event.id)
-    ip = client_ip(request) or "unknown"
 
     def locked(wait: int) -> HTTPException:
+        minutes = math.ceil(wait / 60)
         return HTTPException(
             status_code=429,
             detail={
                 "error": "locked",
                 "retry_after": wait,
-                "message": "Zu viele Fehlversuche. Bitte kurz warten.",
+                "message": f"Zu viele Fehlversuche. Bitte {minutes} {'Minute' if minutes == 1 else 'Minuten'} warten.",
             },
             headers={"Retry-After": str(wait)},
         )
@@ -387,46 +350,33 @@ async def unlock_feld(
         logger.info("Feld door for event %s opened on the session of %s (no code)", event.id, user.username)
         return await _unlocked_response(db, event, claims)
 
-    wait = await feld_code_throttle.retry_after(ip, scope)
+    # Counted per phone AND per address (crud/feld/access.py has the rule). The address is
+    # whatever the rate limiter takes for the caller, so both agree on who is asking.
+    subjects = crud.code_subjects(get_client_identifier(request), payload.device)
+    wait = await crud.code_wait_seconds(db, event.id, subjects)
     if wait:
         raise locked(wait)
 
     if not crud.code_matches(event, payload.code):
-        await feld_code_throttle.record_failure(ip, scope)
-        # The Ereignis-wide ceiling, across every address (crud/feld/access.py
-        # has the rules). The caller still gets the ordinary «Falscher Code»
-        # below — telling a guesser that the code just moved would only tell
-        # them to start over sooner. The KP is told instead.
-        if await crud.record_code_failure(db, event):
-            logger.warning(
-                "Feld-Code for event %s rotated after %d failed attempts across all addresses",
-                event.id,
-                settings.feld_code_max_failed_attempts,
-            )
-            await notification_service.create_feld_code_rotated_notification(db, event)
-        # Committed here, not with the request: the count (and the KP's notice) must survive
-        # the 403 below, which rolls the request back.
+        wait, left = await crud.record_code_failure(db, event.id, subjects)
+        # Committed here, not with the request: the count must survive the 403/429 below,
+        # which rolls the request back.
         await db.commit()
-        # The failure that fills the counter answers "wait", not "wrong": the
-        # code the crew types next is refused whatever it says, and telling
-        # them it was wrong would send them looking for a better one.
-        wait = await feld_code_throttle.retry_after(ip, scope)
+        # The failure that fills the count answers "wait", not "wrong": the code the crew
+        # types next is refused whatever it says, and telling them it was wrong would send
+        # them looking for a better one.
         if wait:
             raise locked(wait)
         # No hint about length, no "close" — and deliberately the same shape of
         # answer whether the code was wrong or malformed.
         raise HTTPException(
             status_code=403,
-            detail={
-                "error": "wrong_code",
-                "attempts_left": await feld_code_throttle.attempts_left(ip, scope),
-                "message": "Falscher Code",
-            },
+            detail={"error": "wrong_code", "attempts_left": left, "message": "Falscher Code"},
         )
 
-    # A correct code clears the counter: the crew that just fumbled it twice
-    # must not be carrying that against the next phone on the same Wi-Fi.
-    await feld_code_throttle.record_success(ip, scope)
+    # A correct code clears that phone's and that address's count: the crew that just fumbled
+    # it twice must not be carrying that against the next phone on the same Wi-Fi.
+    await crud.clear_code_failures(db, event.id, subjects)
     return await _unlocked_response(db, event, claims)
 
 
