@@ -171,7 +171,8 @@ added has nowhere to go on the box, and replication stops (and retries) until th
 too. The hosted board deploys from `main`, so the box follows **commit for commit**:
 `main-images.yml` publishes the images of every `main` commit as `main-<short sha>`, and
 `scripts/standby-follow.sh` moves the box onto the commit the hosted board runs – forward only,
-after a backup, and **never while the box leads an Ereignis** (an update restarts the board). Run it every five minutes, e.g. from cron on the box:
+after a backup, and **never while the box leads an Ereignis** (an update restarts the board) –
+nor in a round where the box's database cannot say whether it leads one. Run it every five minutes, e.g. from cron on the box:
 
 ```
 */5 * * * *  cd /path/to/kp-rueck && scripts/standby-follow.sh >> $HOME/kp-standby-follow.log 2>&1
