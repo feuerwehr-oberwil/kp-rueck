@@ -9,7 +9,6 @@ import { request as httpRequest } from '../http'
 import type {
   ApiDiveraResponsesSummary,
   ApiIncident,
-  ApiDiveraEmergency,
   ApiDiveraEmergencyListResponse,
   ApiDiveraSyncPreview,
   ApiDiveraSyncResult,
@@ -57,10 +56,6 @@ export class DiveraApi {
     return httpRequest<ApiDiveraEmergencyListResponse>(endpoint)
   }
 
-  async getDiveraEmergency(emergencyId: string): Promise<ApiDiveraEmergency> {
-    return httpRequest<ApiDiveraEmergency>(`/api/divera/emergencies/${emergencyId}`)
-  }
-
   /** `mergeIntoIncidentId`: the operator answered «Zusammenführen» to the
    *  duplicate hint — the alarm becomes a Nachtrag on that card and the
    *  response is that card. */
@@ -99,12 +94,6 @@ export class DiveraApi {
         emergency_ids: emergencyIds,
         event_id: eventId,
       }),
-    })
-  }
-
-  async archiveDiveraEmergency(emergencyId: string): Promise<void> {
-    return httpRequest<void>(`/api/divera/emergencies/${emergencyId}`, {
-      method: 'DELETE',
     })
   }
 

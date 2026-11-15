@@ -58,14 +58,4 @@ export class PrintApi {
   async getPrintJob(jobId: string): Promise<ApiPrintJob> {
     return httpRequest<ApiPrintJob>(`/api/print/jobs/${jobId}/`)
   }
-
-  async getPendingPrintJobs(): Promise<ApiPrintJob[]> {
-    return httpRequest<ApiPrintJob[]>('/api/print/jobs/pending/')
-  }
-
-  async deletePrintJob(jobId: string): Promise<void> {
-    return httpRequest<void>(`/api/print/jobs/${jobId}/`, {
-      method: 'DELETE',
-    })
-  }
 }

@@ -58,10 +58,6 @@ export class AssignmentsApi {
     })
   }
 
-  async getIncidentAssignments(incidentId: string): Promise<ApiAssignment[]> {
-    return httpRequest<ApiAssignment[]>(`/api/incidents/${incidentId}/assignments`)
-  }
-
   /**
    * Get all assignments for all incidents in an event (bulk endpoint).
    * Optimizes performance by fetching all assignments in one request instead of N requests.
@@ -71,11 +67,5 @@ export class AssignmentsApi {
    */
   async getAssignmentsByEvent(eventId: string): Promise<Record<string, ApiAssignment[]>> {
     return httpRequest<Record<string, ApiAssignment[]>>(`/api/assignments/by-event/${eventId}`)
-  }
-
-  async releaseAllResources(incidentId: string): Promise<void> {
-    return httpRequest<void>(`/api/incidents/${incidentId}/release-all`, {
-      method: 'POST',
-    })
   }
 }

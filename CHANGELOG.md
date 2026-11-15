@@ -207,6 +207,16 @@ will keep holding.
   version where the shared secret alone stands between the internet and an editor session.
   Nothing changes for the compose stack, and nothing was ever enabled on Railway.
 
+### Removed
+
+- **Six API endpoints nothing called**: `GET /api/events/{id}/stats` (the Kennzahlen are
+  `/figures`, the Dienstzeiten `/personnel-activity`), `GET /api/events/{id}/special-functions/types`,
+  `GET /api/audit/resource/{type}/{id}` (filter `GET /api/audit` instead),
+  `GET /api/incidents/{id}/history` (the status changes are in `/timeline`),
+  `POST /api/incidents/{id}/release-all` (completing an Einsatz still releases its crew), and
+  `POST /api/admin/seed-training` (`python -m app.seed` seeds the training templates). A script
+  that called one of them gets a 404 or 405.
+
 ### Upgrade notes
 
 - **A box that prints for KP Front** needs its `kp-front` entry in the config file (or the

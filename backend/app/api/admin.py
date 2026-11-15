@@ -13,7 +13,6 @@ from .. import schemas
 from ..auth.dependencies import CurrentEditor
 from ..config import settings
 from ..database import get_db
-from ..seed_training import seed_training_data
 from ..services.audit import log_action
 from ..services.excel_import_export import (
     AssignmentBlocker,
@@ -203,8 +202,8 @@ def _refuse_active_assignments(active_count: int, blockers: list[AssignmentBlock
     retry, and get the same number back. Name the incidents, break them down by
     resource type, and keep the three ways out.
 
-    The material sentence is the other half of that dead end. `release-all` (and
-    completing an incident) deliberately keeps materials assigned until they are
+    The material sentence is the other half of that dead end. Completing an
+    incident deliberately keeps materials assigned until they are
     returned via the Rapport, so an operator who did the one thing they know
     about still walks into this refusal – with the count unchanged if material
     was all that was left. This message has to be true for *that* operator.
@@ -460,65 +459,3 @@ async def export_all_data(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
-
-
-@router.post("/seed-training", response_model=None)
-async def seed_training_templates(
-    current_user: CurrentEditor,
-    request: Request,
-    skip_geocoding: bool = True,
-    force_reseed: bool = False,
-    db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
-    """
-    Manually seed training emergency templates and locations.
-    Use this endpoint if automatic seeding failed during deployment.
-
-    Args:
-        skip_geocoding: Also repair known legacy fallback addresses when True, preserving custom locations.
-            Seeding never calls external address providers.
-        force_reseed: Delete existing data and reseed (useful for updating addresses)
-    """
-    if settings.demo_mode:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Seeding ist im Demo-Modus nicht verfügbar",
-        )
-
-    try:
-        # If force_reseed, delete existing training data first
-        if force_reseed:
-            from sqlalchemy import delete
-
-            from ..models import EmergencyTemplate, TrainingLocation
-
-            await db.execute(delete(TrainingLocation))
-            await db.execute(delete(EmergencyTemplate))
-            await db.commit()
-
-        await seed_training_data(skip_geocoding=skip_geocoding)
-
-        # Audit log
-        await log_action(
-            db=db,
-            action_type="seed",
-            resource_type="training_data",
-            resource_id=None,
-            user=current_user,
-            changes={
-                "skip_geocoding": skip_geocoding,
-                "force_reseed": force_reseed,
-                "action": "manual_seed_training_data",
-            },
-            request=request,
-        )
-
-        return {
-            "success": True,
-            "message": "Training data seeded successfully",
-            "skip_geocoding": skip_geocoding,
-            "force_reseed": force_reseed,
-        }
-    except Exception as e:
-        logger.error("Failed to seed training data: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail=ErrorMessages.PROCESSING_FAILED) from e

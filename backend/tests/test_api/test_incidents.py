@@ -559,25 +559,6 @@ async def test_update_status_not_found(editor_client: AsyncClient):
     assert response.status_code == 404
 
 
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_get_status_history(editor_client: AsyncClient, test_incident: Incident):
-    """Test getting status history for an incident."""
-    # First make a status change
-    status_data = {
-        "from_status": "incoming",
-        "to_status": "reko",
-    }
-    await editor_client.post(f"/api/incidents/{test_incident.id}/status", json=status_data)
-
-    # Get history
-    response = await editor_client.get(f"/api/incidents/{test_incident.id}/history")
-    assert response.status_code == 200
-    history = response.json()
-    assert len(history) >= 1
-    assert history[0]["to_status"] == "reko"
-
-
 # ============================================
 # Delete Incident Tests
 # ============================================

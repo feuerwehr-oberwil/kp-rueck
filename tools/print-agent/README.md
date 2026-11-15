@@ -158,24 +158,3 @@ coming out is covered. One test blocks `escpos`/`pillow`/`httpx` from importing 
 core still works without them. **What tests cannot cover is the printer itself**; that is a
 manual check on the station Pi.
 
-Mutation testing uses the backend's pinned development toolchain, without adding runtime
-dependencies to this agent. From the repository root:
-
-```bash
-(cd backend && uv sync --dev)
-# After changing tests, save any reports you need, then clear cached test associations:
-rm -rf tools/print-agent/mutants/
-(cd tools/print-agent && ../../backend/.venv/bin/mutmut run --max-children 3 '*')
-(cd tools/print-agent && ../../backend/.venv/bin/mutmut results)
-(cd tools/print-agent && ../../backend/.venv/bin/mutmut export-cicd-stats)
-```
-
-This mutates `core.py` and both protocols: HTTP, QR sizing, KP Rück's config refresh,
-claiming, long polling and completion/retry decisions, and KP Front's claim, download and
-refusal handling. The fast contract tests use controlled clocks;
-the existing tests still exercise real local HTTP servers. After changing tests, save any
-reports you need and remove `mutants/` from this directory so test-to-function associations
-are measured again. The quoted `'*'` reruns verdicts but does not refresh associations for
-edited tests with unchanged IDs. Inspect surviving diffs, and keep equivalent changes and
-cosmetic log changes distinct from missed behavior. Reports and cached mutants stay under
-the ignored `mutants/`.

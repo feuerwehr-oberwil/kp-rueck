@@ -234,9 +234,9 @@ async def test_complete_incident_lifecycle(editor_client: AsyncClient, resources
     # ========================================
     # Step 5: Verify Status History
     # ========================================
-    history_response = await editor_client.get(f"/api/incidents/{incident_id}/history")
+    history_response = await editor_client.get(f"/api/incidents/{incident_id}/timeline")
     assert history_response.status_code == 200
-    history = history_response.json()
+    history = [e for e in history_response.json()["events"] if e["event_type"] == "status_change"]
 
     # Should have 5 status transitions
     assert len(history) == 5
@@ -256,18 +256,7 @@ async def test_complete_incident_lifecycle(editor_client: AsyncClient, resources
     assert final_incident["status"] == "complete"
 
     # ========================================
-    # Step 7: Release All Resources
-    # ========================================
-    release_response = await editor_client.post(f"/api/incidents/{incident_id}/release-all")
-    assert release_response.status_code == 204
-
-    # Verify assignments are released (empty or all have unassigned_at)
-    assignments_after_release = await editor_client.get(f"/api/incidents/{incident_id}/assignments")
-    assert assignments_after_release.status_code == 200
-    # Active assignments should be empty after release-all
-
-    # ========================================
-    # Step 8: Delete Incident (soft delete)
+    # Step 7: Delete Incident (soft delete)
     # ========================================
     delete_response = await editor_client.delete(f"/api/incidents/{incident_id}")
     assert delete_response.status_code == 204
@@ -280,7 +269,7 @@ async def test_complete_incident_lifecycle(editor_client: AsyncClient, resources
     assert incident_id not in incident_ids
 
     # ========================================
-    # Step 9: Archive Event
+    # Step 8: Archive Event
     # ========================================
     archive_response = await editor_client.post(f"/api/events/{event_id}/archive")
     assert archive_response.status_code == 200

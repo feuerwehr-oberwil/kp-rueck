@@ -198,37 +198,3 @@ class TestAuditLogQuery:
 
         data = response.json()
         assert data == []
-
-
-class TestResourceHistory:
-    """Test resource history endpoint."""
-
-    @pytest.mark.asyncio
-    async def test_get_resource_history(self, admin_client: AsyncClient, test_audit_entries: list[AuditLog]):
-        """Get complete history for a specific resource."""
-        resource_id = test_audit_entries[0].resource_id
-        resource_type = test_audit_entries[0].resource_type
-
-        response = await admin_client.get(f"/api/audit/resource/{resource_type}/{resource_id}")
-        assert response.status_code == 200
-
-        data = response.json()
-        assert len(data) == 3  # create, update, delete for same resource
-        assert all(entry["resource_id"] == str(resource_id) for entry in data)
-        assert all(entry["resource_type"] == resource_type for entry in data)
-
-        # Verify chronological order (most recent first)
-        timestamps = [entry["timestamp"] for entry in data]
-        assert timestamps == sorted(timestamps, reverse=True)
-
-    @pytest.mark.asyncio
-    async def test_get_resource_history_refuses_viewer(self, viewer_client: AsyncClient):
-        """Verify viewer role gets 403."""
-        response = await viewer_client.get(f"/api/audit/resource/incident/{uuid4()}")
-        assert response.status_code == 403
-
-    @pytest.mark.asyncio
-    async def test_get_resource_history_refuses_editor(self, editor_client: AsyncClient):
-        """Only the admin audit view reads the log – an editor gets 403."""
-        response = await editor_client.get(f"/api/audit/resource/incident/{uuid4()}")
-        assert response.status_code == 403

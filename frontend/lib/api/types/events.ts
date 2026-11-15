@@ -20,13 +20,6 @@ export interface ApiEventCreate {
   auto_attach_divera?: boolean
 }
 
-export interface ApiEventUpdate {
-  name?: string
-  training_flag?: boolean
-  auto_attach_divera?: boolean
-  archived_at?: string | null
-}
-
 export interface ApiEventListResponse {
   events: ApiEvent[]
   total: number
@@ -120,13 +113,4 @@ export interface ApiPersonnelActivity {
   /** Where they are now (short address / Auftrag name), « · »-joined. */
   current_incident_title: string | null
   checked_in_at: string | null
-}
-
-export interface ApiEventStats {
-  status_counts: Record<string, number> // Keys are incident statuses as strings
-  personnel_available: number
-  personnel_total: number
-  avg_duration_minutes: number
-  resource_utilization_percent: number
-  personnel_activity: ApiPersonnelActivity[]
 }

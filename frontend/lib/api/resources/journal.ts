@@ -11,7 +11,6 @@ import type {
   ApiJournalPage,
   ApiKpFieldMessage,
   ApiFieldRequest,
-  ApiFieldRequestCreate,
   ApiFieldRequestStatus,
 } from '../types'
 
@@ -52,21 +51,9 @@ export class JournalApi {
     })
   }
 
-  async getKpFieldMessages(incidentId: string): Promise<ApiKpFieldMessage[]> {
-    return httpRequest<ApiKpFieldMessage[]>(`/api/incidents/${incidentId}/field-messages`)
-  }
-
   /** Every request the field made of this Schadenplatz, any state (R13). */
   async getFieldRequests(incidentId: string): Promise<ApiFieldRequest[]> {
     return httpRequest<ApiFieldRequest[]>(`/api/incidents/${incidentId}/field-requests`)
-  }
-
-  /** The board twin: a request taken over the radio, provenance «im KP erfasst». */
-  async createFieldRequest(incidentId: string, payload: ApiFieldRequestCreate): Promise<ApiFieldRequest> {
-    return httpRequest<ApiFieldRequest>(`/api/incidents/${incidentId}/field-requests`, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    })
   }
 
   /** Work a request: offen → in Arbeit → erledigt, or back to offen. */
