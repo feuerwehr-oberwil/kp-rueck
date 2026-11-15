@@ -3622,7 +3622,7 @@
           "events"
         ],
         "summary": "Delete Event",
-        "description": "Permanently delete an event (admin only – archiving stays with editors).\n\nEvent must be archived first before it can be deleted.",
+        "description": "Permanently delete an event (admin only – archiving stays with editors).\n\nEvent must be archived first before it can be deleted. Not on the hosted board while a\nstandby box leads it (docs/STANDBY.md): the box keeps working on it and would sync into an\nEreignis that no longer exists. Archiving stays allowed – it removes nothing from the sync.",
         "operationId": "delete_event_api_events__event_id__delete",
         "parameters": [
           {

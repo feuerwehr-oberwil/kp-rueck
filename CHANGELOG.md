@@ -174,6 +174,10 @@ will keep holding.
 - **A clash in a later takeover is listed again.** Its conflict entry used to be identified only
   by the clashing values, so the same clash in a later outage matched the old, decided entry and
   was dropped without a word.
+- **An Ereignis a standby box leads can no longer be deleted on the hosted board.** The box
+  kept working on it and synced into an Ereignis that was gone. The hosted board now answers
+  «Dieses Ereignis wird gerade auf KP Rück Offline geführt …»; take it back with «Hier
+  übernehmen» first.
 - **The first Tagebuch entry on a standby box after a takeover failed** (`journal_entries_seq_key`):
   replication copies the hosted board's sequence numbers but not the sequence behind them, so the
   box handed out 1, 2, 3 … again. The box now numbers its own entries far above the hosted board.

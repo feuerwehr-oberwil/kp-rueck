@@ -5,6 +5,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
@@ -13,6 +14,8 @@ from ..crud import events as crud
 from ..crud import feld as feld_crud
 from ..crud import personnel_checkin as checkin_crud
 from ..database import get_db
+from ..environment import ROLE_STANDBY, deployment_role
+from ..models import EventLead
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_personnel_update
 
@@ -249,8 +252,14 @@ async def delete_event(
     """
     Permanently delete an event (admin only – archiving stays with editors).
 
-    Event must be archived first before it can be deleted.
+    Event must be archived first before it can be deleted. Not on the hosted board while a
+    standby box leads it (docs/STANDBY.md): the box keeps working on it and would sync into an
+    Ereignis that no longer exists. Archiving stays allowed – it removes nothing from the sync.
     """
+    if deployment_role() != ROLE_STANDBY:
+        holder = await db.scalar(select(EventLead.holder).where(EventLead.event_id == event_id))
+        if holder == "standby":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ErrorMessages.EVENT_LED_OFFLINE)
     try:
         success = await crud.delete_event(db, event_id, current_user, request)
         if not success:
