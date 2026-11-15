@@ -4701,7 +4701,8 @@
         "additional_notes": "Remarques",
         "message": "Message",
         "notes": "Notes",
-        "name": "Nom"
+        "name": "Nom",
+        "is_leader": "Chef d’intervention"
       },
       "tables": {
         "reko_reports": "Reco",
