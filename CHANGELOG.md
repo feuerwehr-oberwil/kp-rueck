@@ -157,6 +157,15 @@ will keep holding.
 
 ### Fixed
 
+- **The standby sync no longer deletes an Einsatz for sharing a place with another one.** When
+  the hosted board and the box each added a stop at the same place of one Auftrag, the sync took
+  the hosted one for a duplicate and deleted it (with its Reko and Schadenplatz rows). Only a
+  real copy is removed now; a stop at a taken place moves to the next free one, a second
+  Einsatzleiter stays in the Mannschaft and is listed as a conflict, and anything else waits
+  instead of being deleted.
+- **A clash in a later takeover is listed again.** Its conflict entry used to be identified only
+  by the clashing values, so the same clash in a later outage matched the old, decided entry and
+  was dropped without a word.
 - **The first Tagebuch entry on a standby box after a takeover failed** (`journal_entries_seq_key`):
   replication copies the hosted board's sequence numbers but not the sequence behind them, so the
   box handed out 1, 2, 3 … again. The box now numbers its own entries far above the hosted board.
