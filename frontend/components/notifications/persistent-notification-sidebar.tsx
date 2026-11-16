@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Bell, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ShortcutTooltip } from '@/components/ui/shortcut-tooltip'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { useIsMobile } from '@/components/ui/use-mobile'
@@ -118,9 +119,11 @@ export function PersistentNotificationSidebar() {
             </span>
           )}
         </div>
-        <Button variant="ghost" size="icon" onClick={closeSidebar} className="h-8 w-8" title={t('closePanel')} aria-label={t('closePanel')}>
+        <ShortcutTooltip label={t('closePanel')} keys={['B']} side="bottom">
+        <Button variant="ghost" size="icon" onClick={closeSidebar} className="h-8 w-8" aria-label={t('closePanel')}>
           <X className="size-4" />
         </Button>
+        </ShortcutTooltip>
       </header>
 
       {/* Scrollable content */}

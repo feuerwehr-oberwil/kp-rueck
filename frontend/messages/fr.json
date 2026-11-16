@@ -1874,8 +1874,7 @@
       "distributeConfirmTransfer": "« {incident} » appartient déjà à la mission « {from} » et y sera déplacé. Cette action est irréversible.",
       "distributeConfirmDispatched": "« {incident} » est déjà engagé. L’ajout à la mission est irréversible.",
       "distributeConfirmAction": "Oui, ajouter",
-      "journal": "Journal",
-      "journalTitle": "Journal (J)"
+      "journal": "Journal"
     },
     "missingResources": {
       "title": "Il manque des ressources",
@@ -2841,7 +2840,6 @@
       "personnel": "Personnel",
       "vehicles": "Véhicules",
       "print": "Imprimer",
-      "thermoPrint": "Impression thermique",
       "trainingControl": "Commande d’exercice",
       "settings": "Réglages",
       "diveraPool": "Alarmes entrantes",
@@ -3031,6 +3029,7 @@
     },
     "toasts": {
       "overflowTitle": "{count, plural, one {# autre annonce} other {# autres annonces}}",
+      "stormTitle": "{count, plural, one {# annonce ouverte} other {# annonces ouvertes}}",
       "overflowDescription": "À consulter dans le panneau des notifications.",
       "overflowAction": "Ouvrir",
       "openIncident": "Ouvrir l’intervention",
@@ -3055,8 +3054,8 @@
       "emptyTitle": "Aucune notification active",
       "emptySubtitle": "Tout est en ordre",
       "dismissAria": "Fermer la notification",
-      "closePanel": "Fermer le panneau (B)",
-      "bellTitle": "Notifications (B)"
+      "closePanel": "Fermer le panneau",
+      "bellTitle": "Notifications"
     },
     "card": {
       "severityCritical": "Critique",

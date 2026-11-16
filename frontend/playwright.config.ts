@@ -53,8 +53,9 @@ export default defineConfig({
     },
   ],
 
-  // the perf run brings its own production build (scripts/fat-perf.sh)
-  webServer: process.env.FAT_PRESET ? undefined : {
+  // An E2E_BASE_URL means the caller brought its own server (fat-perf.sh, notification-storm.sh,
+  // a throwaway stack); otherwise `pnpm dev` on :3000.
+  webServer: process.env.E2E_BASE_URL ? undefined : {
     command: 'pnpm dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,

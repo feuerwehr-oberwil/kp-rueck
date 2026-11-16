@@ -22,7 +22,6 @@ import { DiveraMessageDialog } from "@/components/divera/divera-message-dialog"
 import { RekoPickerDialog } from "@/components/event-setup-checklist"
 import { AttendanceModal } from "@/components/kanban/attendance-modal"
 import { AuftraegeSheet } from "@/components/kanban/auftraege-sheet"
-import { toggleFigures } from "@/components/figures-dialog"
 import { CrewDutySheet } from "@/components/kanban/crew-duty-sheet"
 import { ClosedStopDialog } from "@/components/kanban/closed-stop-dialog"
 import type { IncidentDialogsController } from "@/components/kanban/incident-dialogs"
@@ -32,7 +31,6 @@ import { OperationDetailModal } from "@/components/kanban/operation-detail-modal
 import { JournalSheet, type JournalComposeRequest } from "@/components/journal/journal-sheet"
 import { RapportBacklogSheet, type selectFiledRapports, type selectOpenRapports } from "@/components/kanban/rapport-backlog-sheet"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
-import { MobilePersonnelSheet } from "@/components/mobile/mobile-personnel-sheet"
 import { PrintHubSheet, type ThermoPrintOptions } from "@/components/print/print-hub-sheet"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { VehicleStatusSheet } from "@/components/vehicle-status-sheet"
@@ -107,7 +105,6 @@ export interface BoardDialogsProps {
   isPrintingBoard: boolean
   linksSheetOpen: boolean
   materials: Material[]
-  mobilePersonnelSheetOpen: boolean
   newEmergencyGroupId: string | null
   newEmergencyModalOpen: boolean
   openAttendance: () => void
@@ -140,7 +137,6 @@ export interface BoardDialogsProps {
   setDeleteDialogOpen: Dispatch<SetStateAction<boolean>>
   setDetailModalOpen: Dispatch<SetStateAction<boolean>>
   setDiveraMessageText: Dispatch<SetStateAction<string | null>>
-  setMobilePersonnelSheetOpen: Dispatch<SetStateAction<boolean>>
   setNewEmergencyGroupId: Dispatch<SetStateAction<string | null>>
   setNewEmergencyModalOpen: Dispatch<SetStateAction<boolean>>
   setRekoAssignDialogOpen: Dispatch<SetStateAction<boolean>>
@@ -186,7 +182,6 @@ export function BoardDialogs({
   isPrintingBoard,
   linksSheetOpen,
   materials,
-  mobilePersonnelSheetOpen,
   newEmergencyGroupId,
   newEmergencyModalOpen,
   openAttendance,
@@ -217,7 +212,6 @@ export function BoardDialogs({
   setDeleteDialogOpen,
   setDetailModalOpen,
   setDiveraMessageText,
-  setMobilePersonnelSheetOpen,
   setNewEmergencyGroupId,
   setNewEmergencyModalOpen,
   setRekoAssignDialogOpen,
@@ -432,33 +426,8 @@ export function BoardDialogs({
         printerEnabled={printerEnabled}
       />
 
-      {/* Mobile Personnel Sheet */}
-      <MobilePersonnelSheet
-        open={mobilePersonnelSheetOpen}
-        onOpenChange={setMobilePersonnelSheetOpen}
-        personnel={personnel}
-        operations={operations}
-        onOpenCrewDuty={() => {
-          // One layer at a time on the phone: the overview replaces the list.
-          setMobilePersonnelSheetOpen(false)
-          setActiveFooterSheet('crew')
-        }}
-      />
-
-      {/* Mobile Bottom Navigation. No separate Thermo entry any more: the one
-          print sheet carries the thermal column itself, gated on the same
-          `printerEnabled` it is still handed here. */}
-      <MobileBottomNavigation
-        currentPage="kanban"
-        hasSelectedEvent={!!selectedEvent}
-        onLinks={() => setActiveFooterSheet(linksSheetOpen ? null : 'links')}
-        onJournal={selectedEvent ? () => setActiveFooterSheet('journal') : undefined}
-        onFigures={selectedEvent ? toggleFigures : undefined}
-        onPersonnel={() => setMobilePersonnelSheetOpen(true)}
-        onVehicleStatus={() => setActiveFooterSheet('vehicles')}
-        onPrint={() => setActiveFooterSheet(printSheetOpen ? null : 'print')}
-        printerEnabled={printerEnabled}
-      />
+      {/* Mobile Bottom Navigation – it owns its «Mehr» sheets (components/mobile/phone-quick-sheets.tsx). */}
+      <MobileBottomNavigation currentPage="kanban" hasSelectedEvent={!!selectedEvent} />
     </>
   )
 }

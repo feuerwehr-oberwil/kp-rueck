@@ -41,6 +41,25 @@ describe('MobilePersonnelSheet', () => {
     expect(screen.getByText('nicht verfügbar')).toBeInTheDocument()
   })
 
+  // A route crew is held on its Auftrag, not on an incident: `status` stays «available», and the
+  // sheet called them frei while the board's sidebar drew them gebunden.
+  it('counts nobody on an Auftrag or a Reko as verfügbar', () => {
+    renderWithIntl(
+      <MobilePersonnelSheet
+        open
+        onOpenChange={() => {}}
+        operations={[]}
+        personnel={[
+          person({ id: 'p1', name: 'Aebi Lionel' }),
+          person({ id: 'p2', name: 'Frei Marc', isOnAuftrag: true }),
+          person({ id: 'p3', name: 'Keller Marco', isReko: true }),
+        ]}
+      />,
+    )
+    expect(screen.getByText('1/3 verfügbar')).toBeInTheDocument()
+    expect(screen.getAllByText(/zugewiesen/)).toHaveLength(2)
+  })
+
   // `t(`state.${status}`)` is a dynamic key: neither tsc nor the literal-key check follows it.
   it('has a word for every person state', () => {
     expect(Object.keys(de.incidents.mobilePersonnel.state).sort()).toEqual(['assigned', 'available', 'unavailable'])

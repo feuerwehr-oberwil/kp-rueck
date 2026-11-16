@@ -8,6 +8,8 @@
 
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
+import { ShortcutTooltip } from '@/components/ui/shortcut-tooltip';
+import { gPrefixHint } from '@/lib/hooks/use-g-prefix-navigation';
 import { UserMenu } from '@/components/user-menu';
 import { NotificationBellTrigger } from '@/components/notifications/notification-bell-trigger';
 import { AlarmInboxButton } from '@/components/alarm-inbox/alarm-inbox-button';
@@ -69,6 +71,10 @@ function NavIcon({
   current: boolean;
   unavailable?: boolean;
 }) {
+  // «G B» → the caps G, B: the chord that goes here from anywhere (use-g-prefix-navigation.ts).
+  const chord = gPrefixHint(href.split('?')[0])?.split(' ');
+  // Only the live link teaches its chord: the inert «you are here» and «pick an Ereignis
+  // first» buttons keep their plain title (a disabled button gets no hover for a tooltip).
   if (current || unavailable) {
     return (
       <Button
@@ -89,16 +95,18 @@ function NavIcon({
     );
   }
   return (
-    <Button
-      asChild
-      variant="ghost"
-      size="icon-sm"
-      className={`${NAV_ITEM} text-muted-foreground hover:bg-background/50 hover:text-foreground`}
-    >
-      <Link href={href} prefetch={true} aria-label={label} title={label}>
-        <Icon className="size-4" />
-      </Link>
-    </Button>
+    <ShortcutTooltip label={label} keys={chord} side="bottom">
+      <Button
+        asChild
+        variant="ghost"
+        size="icon-sm"
+        className={`${NAV_ITEM} text-muted-foreground hover:bg-background/50 hover:text-foreground`}
+      >
+        <Link href={href} prefetch={true} aria-label={label}>
+          <Icon className="size-4" />
+        </Link>
+      </Button>
+    </ShortcutTooltip>
   );
 }
 

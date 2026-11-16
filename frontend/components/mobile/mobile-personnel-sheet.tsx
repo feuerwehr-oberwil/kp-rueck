@@ -9,7 +9,7 @@ import { Users } from "lucide-react"
 import { type Person, type Operation } from "@/lib/contexts/operations-context"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
-import { RESOURCE_STATE_DOT_CLASSES } from "@/lib/resource-status"
+import { personResourceState, RESOURCE_STATE_DOT_CLASSES } from "@/lib/resource-status"
 import { CrewDutyButton } from "@/components/kanban/crew-duty-sheet"
 
 interface MobilePersonnelSheetProps {
@@ -64,7 +64,9 @@ export function MobilePersonnelSheet({
     return (op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())) || getIncidentTypeLabel(op.incidentType)
   }
 
-  const availableCount = personnel.filter((p) => p.status === "available").length
+  // Reko and Auftrag crews keep `status: "available"` – a route holds them on its group, which
+  // the event reconciliation never sees – so count and dot go through the board's own rule.
+  const availableCount = personnel.filter((p) => personResourceState(p) === "available").length
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -107,10 +109,11 @@ export function MobilePersonnelSheet({
               <div className="space-y-1.5">
                 {people.map((person) => {
                   const assignedTo = getAssignedIncident(person)
+                  const state = personResourceState(person)
                   // Line 2, the facts (the new Appell's pattern): where, the state in a word
                   // (the dot is never the only sign), Reko, the tags. It wraps; nothing beside the
                   // name takes its width any more – a badge there cut «Bendik-Dimitrijević …».
-                  const facts = [assignedTo, t(`state.${person.status}`), person.isReko && t("rekoBadge"), ...(person.tags ?? [])]
+                  const facts = [assignedTo, t(`state.${state}`), person.isReko && t("rekoBadge"), ...(person.tags ?? [])]
                     .filter(Boolean)
                     .join(" · ")
                   return (
@@ -122,7 +125,7 @@ export function MobilePersonnelSheet({
                       <div
                         className={cn(
                           "mt-1.5 h-2.5 w-2.5 rounded-full flex-shrink-0",
-                          RESOURCE_STATE_DOT_CLASSES[person.status]
+                          RESOURCE_STATE_DOT_CLASSES[state]
                         )}
                       />
                       <div className="flex-1 min-w-0">

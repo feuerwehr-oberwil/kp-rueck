@@ -54,7 +54,8 @@ import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
 import { useKanbanShortcuts } from "@/lib/hooks/use-kanban-shortcuts"
 import { isDetailTab, type OperationDetailSection, type OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { useCommandPaletteHint } from "@/lib/hooks/use-is-mac"
-import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
+import { usePrintBoard } from "@/lib/hooks/use-print-board"
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useStandby } from "@/lib/contexts/standby-context"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
@@ -76,7 +77,6 @@ import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { filterIncidents } from "@/lib/incident-search"
 import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
 import { MobileIncidentListView } from "@/components/mobile/mobile-incident-list-view"
-import type { ThermoPrintOptions } from "@/components/print/print-hub-sheet"
 import { IncidentDialogs, useIncidentDialogs } from "@/components/kanban/incident-dialogs"
 import { useAuftragRoster } from "@/lib/hooks/use-auftrag-roster"
 import { cn } from "@/lib/utils"
@@ -230,10 +230,8 @@ export default function FireStationDashboard() {
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
   const tRes = useTranslations('kanban.resources')
-  const tPrint = useTranslations('print.toasts')
   const tSidePanel = useTranslations('kanban.sidePanel')
   const tPanels = useTranslations('panels')
-  const trackPrint = usePrintJobToast()
 
   // Ref for highlight timeout cleanup
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -545,7 +543,6 @@ export default function FireStationDashboard() {
   const { view: cardView, preset: cardViewPreset, applyPreset: applyCardViewPreset, toggleKey: toggleCardViewKey } = useCardView()
   // One global /feld link per Ereignis — the poster in the vehicle hall, not a
   // link per incident or per vehicle (plan 25, decision 1).
-  const [mobilePersonnelSheetOpen, setMobilePersonnelSheetOpen] = useState(false)
   const toggleDriverStay = useToggleDriverStay()
 
   // The Einsatz dialogs this page shares with the Lagekarte (assignment, Auftrag
@@ -654,28 +651,10 @@ export default function FireStationDashboard() {
 
   // Thermal printer, Divera and the Funkrufname – what the buttons may offer.
   const { printerEnabled, diveraEnabled, funkrufname } = useStationCapabilities()
-  const [isPrintingBoard, setIsPrintingBoard] = useState(false)
-
-
-  // Handle thermal board print
-  const handlePrintBoard = useCallback(async (options?: ThermoPrintOptions) => {
-    if (!selectedEvent || isPrintingBoard) return
-    setIsPrintingBoard(true)
-    try {
-      const job = await apiClient.queueBoardPrint(selectedEvent.id, options ? {
-        include_incidents: options.includeIncidents,
-        include_completed: options.includeCompleted,
-        include_vehicles: options.includeVehicles,
-        include_personnel: options.includePersonnel,
-      } : undefined)
-      trackPrint(job.id, { sentTitle: tDash('boardPrintSent'), subject: tPrint('subjectBoard') })
-      setActiveFooterSheet(null)
-    } catch {
-      toast.error(tCommon('printFailed'))
-    } finally {
-      setIsPrintingBoard(false)
-    }
-  }, [selectedEvent, isPrintingBoard, tCommon, tDash, tPrint, trackPrint])
+  // Thermal board print; the print sheet closes once the job is queued – unless the operator
+  // has moved on to another sheet meanwhile.
+  const closePrintSheet = useCallback(() => setActiveFooterSheet((prev) => (prev === 'print' ? null : prev)), [])
+  const { print: handlePrintBoard, printing: isPrintingBoard } = usePrintBoard(selectedEvent?.id ?? null, closePrintSheet)
 
   // QR-slip printing lives in the Links & QR sheet (and the Checkliste), which
   // queue the job themselves — the page no longer owns a print handler for it.
@@ -1618,14 +1597,15 @@ export default function FireStationDashboard() {
               one border side removed reads as a control the window had cut in
               half. One shape, one size, going in and coming out. */}
           {!showLeftSidebar && (
-            <button
-              onClick={() => setShowLeftSidebar(true)}
-              className="absolute hit-area left-1 top-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
-              title={`${tDash('toggleLeftSidebar')} ([)`}
-              aria-label={tDash('toggleLeftSidebar')}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
+            <ShortcutTooltip label={tDash('toggleLeftSidebar')} keys={['Q']} side="right">
+              <button
+                onClick={() => setShowLeftSidebar(true)}
+                className="absolute hit-area left-1 top-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+                aria-label={tDash('toggleLeftSidebar')}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </ShortcutTooltip>
           )}
 
           {/* Einsatz-Detail reopen tab — only while the Material-Leiste is folded
@@ -1633,38 +1613,44 @@ export default function FireStationDashboard() {
               (material-sidebar.tsx), off the board. `2xl:` is SIDE_PANEL_BREAKPOINT
               — below it the panel does not exist, so neither does its tab. */}
           {sidePanelMode === 'collapsed' && !showRightSidebar && (
-            <button
-              onClick={() => setSidePanelMode('detail')}
-              className="absolute hit-area right-1 top-3 z-pinned hidden h-12 w-5 min-w-0 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground 2xl:flex"
-              title={`${tSidePanel('railLabel')} (\\)`}
-              aria-label={tSidePanel('railLabel')}
-            >
-              <PanelRight className="h-4 w-4" />
-            </button>
+            <ShortcutTooltip label={tSidePanel('railLabel')} keys={['I']} side="left">
+              <button
+                onClick={() => setSidePanelMode('detail')}
+                className="absolute hit-area right-1 top-3 z-pinned hidden h-12 w-5 min-w-0 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground 2xl:flex"
+                aria-label={tSidePanel('railLabel')}
+              >
+                <PanelRight className="h-4 w-4" />
+              </button>
+            </ShortcutTooltip>
           )}
 
           {/* Material-Leiste reopen tab (shown when collapsed; "]" also toggles). */}
           {!showRightSidebar && (
-            <button
-              onClick={() => setShowRightSidebar(true)}
-              className="absolute hit-area right-1 top-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
-              title={
+            <ShortcutTooltip
+              label={
                 materialOnSiteEntries.length > 0
-                  ? `${tDash('toggleRightSidebar')} (]) · ${tDash('materialOnSite.toggle', { count: materialOnSiteEntries.length })}`
-                  : `${tDash('toggleRightSidebar')} (])`
+                  ? `${tDash('toggleRightSidebar')} · ${tDash('materialOnSite.toggle', { count: materialOnSiteEntries.length })}`
+                  : tDash('toggleRightSidebar')
               }
-              aria-label={tDash('toggleRightSidebar')}
+              keys={['W']}
+              side="left"
             >
-              <ChevronLeft className="h-4 w-4" />
-              {/* The «vor Ort» roll-up lives inside this panel, so a folded
-                  panel would hide the one thing on the board that says a pump
-                  is still in a stranger's cellar. A dot, not a number: it is a
-                  "there is something behind this" mark, and the count is one
-                  click and a tooltip away. */}
-              {materialOnSiteEntries.length > 0 && (
-                <span className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-warning" aria-hidden />
-              )}
-            </button>
+              <button
+                onClick={() => setShowRightSidebar(true)}
+                className="absolute hit-area right-1 top-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+                aria-label={tDash('toggleRightSidebar')}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                {/* The «vor Ort» roll-up lives inside this panel, so a folded
+                    panel would hide the one thing on the board that says a pump
+                    is still in a stranger's cellar. A dot, not a number: it is a
+                    "there is something behind this" mark, and the count is one
+                    click and a tooltip away. */}
+                {materialOnSiteEntries.length > 0 && (
+                  <span className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-warning" aria-hidden />
+                )}
+              </button>
+            </ShortcutTooltip>
           )}
           </div>
 
@@ -1809,7 +1795,6 @@ export default function FireStationDashboard() {
         isPrintingBoard={isPrintingBoard}
         linksSheetOpen={linksSheetOpen}
         materials={materials}
-        mobilePersonnelSheetOpen={mobilePersonnelSheetOpen}
         newEmergencyGroupId={newEmergencyGroupId}
         newEmergencyModalOpen={newEmergencyModalOpen}
         openAttendance={openAttendance}
@@ -1840,7 +1825,6 @@ export default function FireStationDashboard() {
         setDeleteDialogOpen={setDeleteDialogOpen}
         setDetailModalOpen={setDetailModalOpen}
         setDiveraMessageText={setDiveraMessageText}
-        setMobilePersonnelSheetOpen={setMobilePersonnelSheetOpen}
         setNewEmergencyGroupId={setNewEmergencyGroupId}
         setNewEmergencyModalOpen={setNewEmergencyModalOpen}
         setRekoAssignDialogOpen={setRekoAssignDialogOpen}
