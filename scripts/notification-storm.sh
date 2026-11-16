@@ -36,6 +36,22 @@ cleanup() {
 }
 trap 'cleanup; rm -rf "$log"' EXIT
 
+# wait_up <what> <logfile|-> <pid|-> <command…>: retry the command for at most 120 s, and give
+# up early when the server it waits for has exited – the EXIT trap then cleans up.
+wait_up() {
+  local what=$1 logfile=$2 pid=$3; shift 3
+  local deadline=$((SECONDS + 120))
+  until "$@" >/dev/null 2>&1; do
+    if [ "$pid" != - ] && ! kill -0 "$pid" 2>/dev/null; then
+      echo "✗ ${what} exited before it was ready" >&2; [ "$logfile" != - ] && tail -20 "$logfile" >&2; exit 1
+    fi
+    if [ "$SECONDS" -ge "$deadline" ]; then
+      echo "✗ ${what} not ready after 120 s" >&2; [ "$logfile" != - ] && tail -20 "$logfile" >&2; exit 1
+    fi
+    sleep 1
+  done
+}
+
 for port in "$api_port" "$web_port"; do
   if curl -s "localhost:${port}" >/dev/null 2>&1; then echo "port ${port} is already taken" >&2; exit 1; fi
 done
@@ -51,7 +67,7 @@ secret_key=$(od -An -tx1 -N32 /dev/urandom | tr -d ' \n')
 db_url="postgresql+asyncpg://kprueck:kprueck@localhost:${pg_port}/kprueck"
 docker run -d --name "$pg" -e POSTGRES_USER=kprueck -e POSTGRES_PASSWORD=kprueck -e POSTGRES_DB=kprueck \
   -p "${pg_port}:5432" postgres:16-alpine >/dev/null
-until docker exec "$pg" pg_isready -U kprueck -q 2>/dev/null; do sleep 1; done
+wait_up Postgres - - docker exec "$pg" pg_isready -U kprueck -q
 sleep 1
 (cd backend && DATABASE_URL=$db_url uv run alembic upgrade head >"$log/migrate.log" 2>&1) || { tail -20 "$log/migrate.log" >&2; exit 1; }
 (cd backend && DEMO_MODE=false DATABASE_URL=$db_url ADMIN_SEED_PASSWORD=$password VIEWER_PASSWORD=$password \
@@ -64,8 +80,8 @@ api_pid=$!
 (cd frontend/.next/standalone && PORT=$web_port HOSTNAME=127.0.0.1 API_URL="http://localhost:${api_port}" \
   exec setsid node server.js >"$log/web.log" 2>&1) &
 web_pid=$!
-until curl -sf "localhost:${api_port}/health" >/dev/null; do sleep 1; done
-until curl -sf -o /dev/null "localhost:${web_port}/login"; do sleep 1; done
+wait_up backend "$log/api.log" "$api_pid" curl -sf --max-time 5 "localhost:${api_port}/health"
+wait_up frontend "$log/web.log" "$web_pid" curl -sf --max-time 5 -o /dev/null "localhost:${web_port}/login"
 
 (cd frontend && STORM_NOTIFICATIONS=$count STORM_PG_CONTAINER=$pg \
   E2E_BASE_URL="http://localhost:${web_port}" API_BASE_URL="http://localhost:${api_port}" \

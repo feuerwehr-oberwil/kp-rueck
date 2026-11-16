@@ -651,9 +651,10 @@ export default function FireStationDashboard() {
 
   // Thermal printer, Divera and the Funkrufname – what the buttons may offer.
   const { printerEnabled, diveraEnabled, funkrufname } = useStationCapabilities()
-  // Thermal board print; the print sheet closes once the job is queued.
-  const closeFooterSheet = useCallback(() => setActiveFooterSheet(null), [])
-  const { print: handlePrintBoard, printing: isPrintingBoard } = usePrintBoard(selectedEvent?.id ?? null, closeFooterSheet)
+  // Thermal board print; the print sheet closes once the job is queued – unless the operator
+  // has moved on to another sheet meanwhile.
+  const closePrintSheet = useCallback(() => setActiveFooterSheet((prev) => (prev === 'print' ? null : prev)), [])
+  const { print: handlePrintBoard, printing: isPrintingBoard } = usePrintBoard(selectedEvent?.id ?? null, closePrintSheet)
 
   // QR-slip printing lives in the Links & QR sheet (and the Checkliste), which
   // queue the job themselves — the page no longer owns a print handler for it.

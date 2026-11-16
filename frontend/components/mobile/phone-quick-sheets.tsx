@@ -14,7 +14,7 @@
  * does «Dienstzeiten» from Personal.
  */
 
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import { AttendanceModal } from '@/components/kanban/attendance-modal'
 import { CrewDutySheet } from '@/components/kanban/crew-duty-sheet'
 import { LinksQrSheet } from '@/components/kanban/links-qr-sheet'
@@ -27,6 +27,7 @@ import { useEvent } from '@/lib/contexts/event-context'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { useOperations } from '@/lib/contexts/operations-context'
 import { usePersonnel } from '@/lib/contexts/personnel-context'
+import { useAuftragRoster } from '@/lib/hooks/use-auftrag-roster'
 import { usePersonEngagements } from '@/lib/hooks/use-person-engagements'
 import { usePrintBoard } from '@/lib/hooks/use-print-board'
 import { useStationCapabilities } from '@/lib/hooks/use-station-capabilities'
@@ -42,13 +43,22 @@ interface PhoneQuickSheetsProps {
 export function PhoneQuickSheets({ open, onOpenChange }: PhoneQuickSheetsProps) {
   const { selectedEvent } = useEvent()
   const { isEditor } = useAuth()
-  const { operations, personnel } = useOperations()
+  const { operations } = useOperations()
+  // Auftrag crews folded in, as the board's sidebar draws them – the raw list calls them frei.
+  const personnel = useAuftragRoster()
   const { refreshPersonnel } = usePersonnel()
   const { navigateToIncident, settings } = useNotifications()
   const personEngagements = usePersonEngagements()
   const { printerEnabled } = useStationCapabilities()
   const close = useCallback(() => onOpenChange(null), [onOpenChange])
-  const { print, printing } = usePrintBoard(selectedEvent?.id ?? null, close)
+  // A print queued a moment ago closes ITS sheet only: by the time the request answers the
+  // operator may have closed it and opened another one, which must stay.
+  const openRef = useRef(open)
+  openRef.current = open
+  const closePrint = useCallback(() => {
+    if (openRef.current === 'print') onOpenChange(null)
+  }, [onOpenChange])
+  const { print, printing } = usePrintBoard(selectedEvent?.id ?? null, closePrint)
   const eventId = selectedEvent?.id ?? null
 
   /** A sheet's own close only clears it while it is still the open one – a hand-over

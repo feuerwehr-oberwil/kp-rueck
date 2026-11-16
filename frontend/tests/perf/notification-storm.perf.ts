@@ -33,12 +33,14 @@ async function ok(res: APIResponse, what: string) {
   return res
 }
 
-/** The notification mix of a long Übung: per card a stale-time warning and a missing-crew
- *  alarm, the rest field and vehicle traffic. Oldest first, spread over the last three hours. */
+/** The notification mix of a long Übung: per card a stale-time warning and a crew waiting to
+ *  be collected, the rest field and vehicle traffic. Oldest first, over the last three hours. */
 function stormSql(eventId: string, incidentIds: string[], total: number): string {
   const mix: [type: string, severity: string, message: string][] = [
     ['time_overdue', 'warning', 'Einsatz seit über 60 Minuten offen'],
-    ['no_personnel', 'critical', 'Keine Mannschaft zugewiesen'],
+    // not `no_personnel`: the backend re-evaluates that one on every fetch and resolves a row
+    // whose message is not its own, so it never reaches the browser
+    ['field_pickup', 'warning', 'Trupp wartet auf Abholung'],
     ['field_report', 'info', 'Neuer Schadenplatz vom Feld'],
     ['vehicle_arrived', 'info', 'Fahrzeug am Einsatzort angekommen'],
     ['reko_submitted', 'info', 'Reko-Bericht eingereicht'],
@@ -73,6 +75,10 @@ test('open an Ereignis with a notification storm', async ({ page, browserName })
     incidentIds.push((await res.json()).id)
   }
   if (STORM) execFileSync('docker', ['exec', '-i', PG, 'psql', '-q', '-U', 'kprueck', '-d', 'kprueck'], { input: stormSql(event.id, incidentIds, STORM!) })
+  // what the board will actually be handed – the same evaluation the browser's first fetch runs
+  const served: { dismissed: boolean; severity: string }[] = await (await ok(await api.get(`/api/notifications/?event_id=${event.id}`), 'notifications')).json()
+  const active = served.filter((n) => !n.dismissed)
+  const bySeverity = Object.entries(Object.groupBy(active, (n) => n.severity)).map(([k, v]) => `${v?.length} ${k}`).join(', ')
   await api.dispose()
 
   await page.context().addCookies(storageState.cookies)
@@ -118,6 +124,10 @@ test('open an Ereignis with a notification storm', async ({ page, browserName })
   await card.click({ timeout: 300_000 })
   await page.getByRole('dialog').first().waitFor({ state: 'visible', timeout: 300_000 })
   const usable = performance.now() - t0
+  // the notifications arrive on their own fetch, after mount: wait for their first toast so the
+  // window below covers them, however slow that request is
+  const firstToast = await page.locator('[data-sonner-toast]').first().waitFor({ timeout: 60_000 })
+    .then(() => performance.now() - t0, () => NaN)
   await page.waitForTimeout(10_000)
   const { toasts, long } = await page.evaluate(() => {
     const s = (window as unknown as { __storm: { toasts: Set<string>; long: number[] } }).__storm
@@ -127,6 +137,8 @@ test('open an Ereignis with a notification storm', async ({ page, browserName })
   line(`\n${STORM} notifications (${KINDS?.join(', ') ?? 'every kind'}) on ${INCIDENTS} cards, CPU ×${CPU_THROTTLE}`)
   line(`open → first card          ${ms(firstCard)}`)
   line(`open → card click answered ${ms(usable)}`)
+  line(`served to the board        ${active.length} active (${bySeverity || 'none'})`)
+  line(`open → first toast         ${Number.isNaN(firstToast) ? 'none within 60 s after the click' : ms(firstToast)}`)
   line(`toasts mounted             ${toasts}`)
   line(`long tasks                 ${long.length}, ${ms(long.reduce((a, b) => a + b, 0))} blocked, worst ${ms(Math.max(0, ...long))}`)
 })
