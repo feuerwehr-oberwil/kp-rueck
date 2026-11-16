@@ -131,6 +131,20 @@ describe("NotificationToasts", () => {
     expect(mocks.dismiss).toHaveBeenCalledWith(notification.id)
   })
 
+  it("opens a busy Ereignis with ONE summary – not a toast per notification, urgent or not", () => {
+    mocks.notifications = Array.from({ length: 12 }, (_, i) =>
+      fieldMessage({ id: `storm-${i}`, created_at: new Date(Date.UTC(2026, 7, 17, 10, i)) }),
+    )
+    render(
+      <NextIntlClientProvider locale="de" messages={loadMessages("de")}>
+        <NotificationToasts />
+      </NextIntlClientProvider>,
+    )
+    expect(mocks.toastCalls).toHaveLength(1)
+    expect(mocks.toastCalls[0].title).toBe("12 offene Meldungen")
+    expect(mocks.toastCalls[0].options.id).toBe("notification-overflow")
+  })
+
   it("reads what is asked first, then where · who, with the field glyph", () => {
     const fired = firedToast(fieldMessage({ incident_id: undefined }))
     render(<>{fired.title as ReactNode}</>)

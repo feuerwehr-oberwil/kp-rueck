@@ -54,16 +54,27 @@ test.describe('Mobile bottom navigation', () => {
     });
   }
 
-  test('the «Mehr» sheet offers an editor the quick actions', async ({ authenticatedPage: page }) => {
-    await setupBoard(page, 'Mobile Mehr', { count: 0 });
-    await bottomNav(page).getByRole('button', { name: 'Mehr Optionen' }).click();
+  // The same menu on the board and on the Lagekarte (owner, 16.11.2026): the sheets are the
+  // nav's own, so the map opens them over itself instead of offering only Kennzahlen.
+  for (const [where, path] of [
+    ['the board', '/'],
+    ['the Lagekarte', '/map'],
+  ] as const) {
+    test(`the «Mehr» sheet offers an editor the quick actions on ${where}`, async ({ authenticatedPage: page }) => {
+      await setupBoard(page, 'Mobile Mehr', { count: 0 });
+      if (path !== '/') await page.goto(path);
+      await bottomNav(page).getByRole('button', { name: 'Mehr Optionen' }).click({ timeout: ROUTE_COMPILE_MS });
 
-    const sheet = page.getByRole('dialog');
-    await expect(sheet.getByRole('heading', { name: 'Schnellzugriff' })).toBeVisible();
-    await expect(sheet.getByRole('button', { name: 'Links & QR' })).toBeVisible();
-    await expect(sheet.getByRole('button', { name: 'Personal' })).toBeVisible();
-    await expect(sheet.getByRole('button', { name: 'Fahrzeuge' })).toBeVisible();
-  });
+      const sheet = page.getByRole('dialog');
+      await expect(sheet.getByRole('heading', { name: 'Schnellzugriff' })).toBeVisible();
+      await expect(sheet.getByRole('button', { name: 'Links & QR' })).toBeVisible();
+      await expect(sheet.getByRole('button', { name: 'Personal' })).toBeVisible();
+      await sheet.getByRole('button', { name: 'Fahrzeuge' }).click();
+
+      await expect(page.getByRole('dialog', { name: 'Fahrzeugstatus' })).toBeVisible();
+      await expect(page).toHaveURL(path);
+    });
+  }
 
   test('without a chosen Ereignis the board and map tabs cannot be tapped', async ({
     authenticatedPage: page,

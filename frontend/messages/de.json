@@ -249,7 +249,6 @@
       "personnel": "Personal",
       "vehicles": "Fahrzeuge",
       "print": "Drucken",
-      "thermoPrint": "Thermodruck",
       "trainingControl": "Übungs-Steuerung",
       "settings": "Einstellungen",
       "diveraPool": "Alarmeingang",
@@ -572,8 +571,7 @@
       "distributeConfirmTransfer": "«{incident}» gehört bereits zu Auftrag «{from}» und wird dorthin verschoben. Das lässt sich nicht rückgängig machen.",
       "distributeConfirmDispatched": "«{incident}» ist bereits disponiert. Die Aufnahme in den Auftrag lässt sich nicht rückgängig machen.",
       "distributeConfirmAction": "Ja, aufnehmen",
-      "journal": "Tagebuch",
-      "journalTitle": "Tagebuch (J)"
+      "journal": "Tagebuch"
     },
     "missingResources": {
       "title": "Ressourcen fehlen",
@@ -3358,6 +3356,7 @@
     },
     "toasts": {
       "overflowTitle": "{count, plural, one {# weitere Meldung} other {# weitere Meldungen}}",
+      "stormTitle": "{count, plural, one {# offene Meldung} other {# offene Meldungen}}",
       "overflowDescription": "Im Benachrichtigungs-Panel ansehen.",
       "overflowAction": "Öffnen",
       "openIncident": "Einsatz öffnen",
@@ -3382,8 +3381,8 @@
       "emptyTitle": "Keine aktiven Benachrichtigungen",
       "emptySubtitle": "Alles ist in Ordnung",
       "dismissAria": "Benachrichtigung schliessen",
-      "closePanel": "Panel schliessen (B)",
-      "bellTitle": "Benachrichtigungen (B)"
+      "closePanel": "Panel schliessen",
+      "bellTitle": "Benachrichtigungen"
     },
     "card": {
       "severityCritical": "Kritisch",

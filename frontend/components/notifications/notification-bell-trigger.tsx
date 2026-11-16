@@ -3,6 +3,7 @@
 import { Bell } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
+import { ShortcutTooltip } from '@/components/ui/shortcut-tooltip'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { useBellCount, useOpenFieldRequests } from '@/lib/hooks/use-field-requests'
 import { useAuth } from '@/lib/contexts/auth-context'
@@ -28,6 +29,7 @@ export function NotificationBellTrigger() {
 
   // On desktop, render a toggle button for the persistent sidebar
   return (
+    <ShortcutTooltip label={t('bellTitle')} keys={['B']} side="bottom">
     <Button
       variant="ghost"
       size="icon"
@@ -38,7 +40,6 @@ export function NotificationBellTrigger() {
       )}
       aria-label={t('bellAria', { unread: unreadCount > 0 ? t('bellUnread', { count: unreadCount }) : '' })}
       aria-pressed={isSidebarOpen}
-      title={t('bellTitle')}
     >
       <Bell className="size-4 md:size-5" />
       {unreadCount > 0 && (
@@ -47,5 +48,6 @@ export function NotificationBellTrigger() {
         </span>
       )}
     </Button>
+    </ShortcutTooltip>
   )
 }

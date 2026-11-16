@@ -186,7 +186,9 @@ export function NotificationToasts() {
       // Decide the whole batch up front — ordered oldest-first, capped, urgent
       // ones exempt from the cap — instead of firing one toast per array entry
       // in whatever order the API happened to return.
-      const { toast: toBeToasted, overflow } = planToastBurst(newNotifications, TOAST_BURST_LIMIT)
+      // From TOAST_STORM_THRESHOLD on (opening a busy Ereignis, a reconnect) nothing toasts on
+      // its own: one summary with the whole count.
+      const { toast: toBeToasted, overflow, storm } = planToastBurst(newNotifications, TOAST_BURST_LIMIT)
 
       // Everything in the batch counts as seen, including the quiet and the
       // summarised ones: they are in the bell, and re-toasting them on the next
@@ -282,7 +284,7 @@ export function NotificationToasts() {
       // The rest is one line, not fifteen toasts. Fixed id so a second burst
       // replaces the summary instead of stacking another one behind it.
       if (overflow.length > 0) {
-        toast.info(tToasts('overflowTitle', { count: overflow.length }), {
+        toast.info(tToasts(storm ? 'stormTitle' : 'overflowTitle', { count: overflow.length }), {
           id: 'notification-overflow',
           description: tToasts('overflowDescription'),
           action: {

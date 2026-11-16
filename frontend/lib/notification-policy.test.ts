@@ -4,6 +4,7 @@ import {
   supersededNewIncidentNotifications,
   toastPolicyFor,
   TOAST_BURST_LIMIT,
+  TOAST_STORM_THRESHOLD,
   type SupersedeOperation,
 } from './notification-policy'
 import type { Notification, NotificationSeverity, NotificationType } from './types/notification'
@@ -70,17 +71,17 @@ describe('planToastBurst', () => {
     expect(planToastBurst([a, b], 3).toast.map((n) => n.id)).toEqual(['aaa', 'bbb'])
   })
 
-  it('collapses a storm into a capped stack plus an overflow rest', () => {
-    const burst = Array.from({ length: 20 }, () => make('vehicle_arrived', 'info'))
+  it('collapses a burst into a capped stack plus an overflow rest', () => {
+    const burst = Array.from({ length: 8 }, () => make('vehicle_arrived', 'info'))
     const plan = planToastBurst(burst, 3)
     // The summary occupies one of the three slots.
     expect(plan.toast).toHaveLength(2)
-    expect(plan.overflow).toHaveLength(18)
-    expect(plan.toast.length + plan.overflow.length).toBe(20)
+    expect(plan.overflow).toHaveLength(6)
+    expect(plan.storm).toBe(false)
   })
 
-  it('never drops an urgent notification into the overflow', () => {
-    const noise = Array.from({ length: 15 }, () => make('vehicle_arrived', 'info'))
+  it('never drops an urgent notification of a burst into the overflow', () => {
+    const noise = Array.from({ length: 6 }, () => make('vehicle_arrived', 'info'))
     const pickup = make('field_pickup', 'warning')
     const message = make('field_message', 'info')
     const plan = planToastBurst([...noise, pickup, message], 3)
@@ -97,6 +98,23 @@ describe('planToastBurst', () => {
     const plan = planToastBurst(urgent, 3)
     expect(plan.toast).toHaveLength(6)
     expect(plan.overflow).toHaveLength(0)
+  })
+
+  it(`toasts nothing on its own from ${TOAST_STORM_THRESHOLD} on – not even the urgent ones`, () => {
+    const pickup = make('field_pickup', 'warning')
+    const overdue = Array.from({ length: TOAST_STORM_THRESHOLD - 1 }, () => make('time_overdue', 'warning'))
+    const plan = planToastBurst([...overdue, pickup], 3)
+    expect(plan.storm).toBe(true)
+    expect(plan.toast).toEqual([])
+    expect(plan.overflow).toHaveLength(TOAST_STORM_THRESHOLD)
+    expect(plan.overflow.map((n) => n.id)).toContain(pickup.id)
+  })
+
+  it(`still toasts every urgent one just below ${TOAST_STORM_THRESHOLD}`, () => {
+    const overdue = Array.from({ length: TOAST_STORM_THRESHOLD - 1 }, () => make('time_overdue', 'warning'))
+    const plan = planToastBurst(overdue, 3)
+    expect(plan.storm).toBe(false)
+    expect(plan.toast).toHaveLength(TOAST_STORM_THRESHOLD - 1)
   })
 
   it('toasts an arrival — it announces the auto-move since sweep 27 §P3.3', () => {

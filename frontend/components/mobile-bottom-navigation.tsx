@@ -14,11 +14,16 @@
  *
  * Every «Mehr» entry is the same ghost row: a page link is the Button itself (`asChild`), not a
  * 21px <a> wrapped around a 44px <button> (phone sweep 14.11.2026).
+ *
+ * «Mehr» is the same menu on every page (owner, 16.11.2026): the Schnellzugriff sheets are the
+ * nav's own (`PhoneQuickSheets`), not handed in by the board – the Lagekarte used to offer only
+ * Kennzahlen there.
  */
 
 import { BookOpenText, ChartColumn, Columns3, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Inbox, QrCode, Sparkles, LogOut, Users, Truck, Printer, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { useRef, useState } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -32,35 +37,18 @@ import { useLogout } from '@/lib/hooks/use-logout'
 import { useNavReserve } from '@/components/viewport-insets'
 import { openAlarmInbox } from '@/components/alarm-inbox/alarm-inbox-store'
 import { AlarmInboxMenuCount } from '@/components/alarm-inbox/alarm-inbox-button'
+import { toggleFigures } from '@/components/figures-dialog'
+import { PhoneQuickSheets, type PhoneQuickSheet } from '@/components/mobile/phone-quick-sheets'
+import { useIsMobile } from '@/components/ui/use-mobile'
 
 interface MobileBottomNavigationProps {
   currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'help' | string
   hasSelectedEvent?: boolean
-  /** Opens the one «Links & QR» sheet (plan 26, decision 29). */
-  onLinks?: () => void
-  /** Opens the Einsatztagebuch. Everyone reads it — viewers too — so it is not gated on
-   *  `isEditor` like the other quick actions. */
-  onJournal?: () => void
-  /** Kennzahlen (the user menu's modal on the desktop). */
-  onFigures?: () => void
-  onPersonnel?: () => void
-  onVehicleStatus?: () => void
-  onPrint?: () => void
-  onThermo?: () => void
-  printerEnabled?: boolean
 }
 
 export function MobileBottomNavigation({
   currentPage,
   hasSelectedEvent = true,
-  onLinks,
-  onJournal,
-  onFigures,
-  onPersonnel,
-  onVehicleStatus,
-  onPrint,
-  onThermo,
-  printerEnabled = false,
 }: MobileBottomNavigationProps) {
   const t = useTranslations('nav.mobileBottomNav')
   const { isEditor } = useAuth()
@@ -68,6 +56,9 @@ export function MobileBottomNavigation({
   const { requestLogout, logoutDialog } = useLogout()
   const { selectedEvent, events, setSelectedEvent } = useEvent()
   const [sheetOpen, setSheetOpen] = useState(false)
+  // The Schnellzugriff sheet open over the page (`PhoneQuickSheets`, phone only).
+  const [quickSheet, setQuickSheet] = useState<PhoneQuickSheet | null>(null)
+  const isMobile = useIsMobile()
   // Publishes this bar's measured height as `--nav-reserve` — the one number every phone list
   // pads its end by (`pb-nav-reserve`) and the toast lane clears.
   const navRef = useRef<HTMLElement>(null)
@@ -105,14 +96,23 @@ export function MobileBottomNavigation({
     { id: 'help', label: t('helpDocs'), icon: HelpCircle, href: '/help', category: 'Support' },
   ]
 
-  // «Schnellzugriff» only when it has something in it. The board passes its sheets (Links & QR,
-  // Personal, Fahrzeuge, Drucken); every other page — the Lagekarte, Einstellungen, Hilfe — passes
-  // none, so outside an Übung the heading stood alone over nothing (owner, 03.10.).
-  const hasQuickActions =
-    (isEditor && !!(onLinks || onPersonnel || onVehicleStatus || onPrint || (onThermo && printerEnabled)))
-    || !!onJournal
-    || !!onFigures
-    || !!selectedEvent?.training_flag
+  // «Schnellzugriff» needs an Ereignis: every entry is about the open one. The editing sheets
+  // (links, roster, vehicles, print) are an editor's; the Tagebuch and Kennzahlen everyone's.
+  const quickActions: { id: string; label: string; icon: LucideIcon; open: () => void }[] = selectedEvent
+    ? [
+        ...(isEditor ? [{ id: 'links', label: t('linksAndQr'), icon: QrCode, open: () => setQuickSheet('links') }] : []),
+        { id: 'journal', label: t('journal'), icon: BookOpenText, open: () => setQuickSheet('journal') },
+        { id: 'figures', label: t('figures'), icon: ChartColumn, open: toggleFigures },
+        ...(isEditor
+          ? [
+              { id: 'personnel', label: t('personnel'), icon: Users, open: () => setQuickSheet('personnel') },
+              { id: 'vehicles', label: t('vehicles'), icon: Truck, open: () => setQuickSheet('vehicles') },
+              { id: 'print', label: t('print'), icon: Printer, open: () => setQuickSheet('print') },
+            ]
+          : []),
+      ]
+    : []
+  const hasQuickActions = quickActions.length > 0 || !!selectedEvent?.training_flag
 
   // One tab's frame: a 56px pill (8px + 20px icon + 4px + 16px label + 8px), so the current
   // tab's tint has air around its content; the bar adds 4px above and below it.
@@ -241,113 +241,27 @@ export function MobileBottomNavigation({
                   {t('quickActions')}
                 </h3>
                 <div className="space-y-1">
-                  {/* One entry for every link the board hands out — the same
-                      consolidation the desktop footer got (plan 26, decision
-                      29). It was three: Check-In, Reko and Anzeige, each
-                      opening its own sheet that did the same three things, and
-                      Reko pointing at a page that no longer exists. */}
-                  {isEditor && onLinks && (
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-1"
-                      onClick={() => {
-                        setSheetOpen(false)
-                        setTimeout(() => onLinks(), 350)
-                      }}
-                    >
-                      <QrCode className="size-4" />
-                      <span>{t('linksAndQr')}</span>
-                    </Button>
-                  )}
-
-                  {/* Einsatztagebuch — read by everyone, written by editors */}
-                  {onJournal && (
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-1"
-                      onClick={() => {
-                        setSheetOpen(false)
-                        setTimeout(() => onJournal(), 350)
-                      }}
-                    >
-                      <BookOpenText className="size-4" />
-                      <span>{t('journal')}</span>
-                    </Button>
-                  )}
-
-                  {onFigures && (
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-1"
-                      onClick={() => {
-                        setSheetOpen(false)
-                        setTimeout(() => onFigures(), 350)
-                      }}
-                    >
-                      <ChartColumn className="size-4" />
-                      <span>{t('figures')}</span>
-                    </Button>
-                  )}
-
-                  {/* Personnel */}
-                  {isEditor && onPersonnel && (
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
-                      onClick={() => {
-                        setSheetOpen(false)
-                        setTimeout(() => onPersonnel(), 350)
-                      }}
-                    >
-                      <Users className="size-4" />
-                      <span>{t('personnel')}</span>
-                    </Button>
-                  )}
-
-                  {/* Vehicle Status */}
-                  {isEditor && onVehicleStatus && (
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-3"
-                      onClick={() => {
-                        setSheetOpen(false)
-                        setTimeout(() => onVehicleStatus(), 350)
-                      }}
-                    >
-                      <Truck className="size-4" />
-                      <span>{t('vehicles')}</span>
-                    </Button>
-                  )}
-
-                  {/* Print */}
-                  {isEditor && onPrint && (
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-4"
-                      onClick={() => {
-                        setSheetOpen(false)
-                        setTimeout(() => onPrint(), 350)
-                      }}
-                    >
-                      <Printer className="size-4" />
-                      <span>{t('print')}</span>
-                    </Button>
-                  )}
-
-                  {/* Thermo Print */}
-                  {isEditor && onThermo && printerEnabled && (
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-5"
-                      onClick={() => {
-                        setSheetOpen(false)
-                        setTimeout(() => onThermo(), 350)
-                      }}
-                    >
-                      <Printer className="size-4" />
-                      <span>{t('thermoPrint')}</span>
-                    </Button>
-                  )}
+                  {/* Close «Mehr» first, then open the sheet: one layer at a time. */}
+                  {quickActions.map((action, index) => {
+                    const Icon = action.icon
+                    return (
+                      <Button
+                        key={action.id}
+                        variant="ghost"
+                        className={cn(
+                          "w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in",
+                          `stagger-delay-${Math.min(index + 1, 5)}`,
+                        )}
+                        onClick={() => {
+                          setSheetOpen(false)
+                          setTimeout(action.open, 350)
+                        }}
+                      >
+                        <Icon className="size-4" />
+                        <span>{action.label}</span>
+                      </Button>
+                    )
+                  })}
 
                   {/* Training Control - only for training events */}
                   {selectedEvent?.training_flag && (
@@ -470,6 +384,7 @@ export function MobileBottomNavigation({
           </SheetContent>
         </Sheet>
         {logoutDialog}
+        {isMobile && <PhoneQuickSheets open={quickSheet} onOpenChange={setQuickSheet} />}
       </div>
     </nav>
   )

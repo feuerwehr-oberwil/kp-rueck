@@ -17,6 +17,7 @@ import { QRCodeSVG } from "qrcode.react"
 import { Check, ChevronLeft, Copy, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip"
 import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { SearchInput } from "@/components/ui/search-input"
@@ -127,14 +128,15 @@ export function PersonnelSidebar({
       // its own – a stacking context here would put the collapse handle under the resize grip.
       <aside className="relative w-full border-r border-border bg-card/30 flex flex-col">
         {/* Collapse handle — small chevron centered on the sidebar's inner edge */}
-        <button
-          onClick={() => setShowLeftSidebar(false)}
-          className="absolute hit-area right-0 top-1/2 translate-x-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
-          title={`${tDash('toggleLeftSidebar')} ([)`}
-          aria-label={tDash('toggleLeftSidebar')}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
+        <ShortcutTooltip label={tDash('toggleLeftSidebar')} keys={['Q']} side="right">
+          <button
+            onClick={() => setShowLeftSidebar(false)}
+            className="absolute hit-area right-0 top-1/2 translate-x-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+            aria-label={tDash('toggleLeftSidebar')}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        </ShortcutTooltip>
         {/* Search. px-2 / gap-1 (both sidebars): with px-3 the field was 6px too narrow for
             «Personal suchen …» beside its P hint and the toggle (overflow sweep, 03.10.). */}
         <div className="flex items-center gap-1 px-2 pt-3 pb-2">

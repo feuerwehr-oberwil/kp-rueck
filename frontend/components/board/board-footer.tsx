@@ -18,6 +18,7 @@ import type { LucideIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip"
 import { FooterSheet as FooterSheetPanel } from "@/components/ui/footer-sheet"
 import { SheetTitle } from "@/components/ui/sheet"
 import { CardViewMenu } from "@/components/kanban/card-view-menu"
@@ -54,6 +55,7 @@ function ToolbarToggle({
   active,
   disabled,
   title,
+  shortcut,
   count,
   onActivate,
 }: {
@@ -61,7 +63,10 @@ function ToolbarToggle({
   label: string
   active: boolean
   disabled?: boolean
+  /** The tooltip text when it says more than the label. */
   title?: string
+  /** The board key that does the same (`lib/hooks/use-kanban-shortcuts.ts`), shown as a cap. */
+  shortcut?: string
   /** Optional count badge. It survives the icon-only collapse below `xl`, for the
    *  same reason the Bereitschaft badge does: the number IS the information, and
    *  an icon on its own does not carry it. */
@@ -69,6 +74,7 @@ function ToolbarToggle({
   onActivate: () => void
 }) {
   return (
+    <ShortcutTooltip label={title ?? label} keys={shortcut ? [shortcut] : undefined}>
     <Button
       size="xs"
       variant="ghost"
@@ -85,9 +91,8 @@ function ToolbarToggle({
         onActivate()
       }}
       disabled={disabled}
-      // The tooltip carries the name at every width, so the icon-only mode is
-      // never a control nobody can identify.
-      title={title ?? label}
+      // The tooltip carries the name (and the key) at every width, so the icon-only
+      // mode is never a control nobody can identify.
       aria-label={label}
     >
       <Icon {...TOOLBAR_ICON} />
@@ -98,6 +103,7 @@ function ToolbarToggle({
         </Badge>
       )}
     </Button>
+    </ShortcutTooltip>
   )
 }
 
@@ -210,10 +216,12 @@ export function BoardFooter({
             ambiguous. It costs 134px — the two labels below give back more
             than that, so the primary action never has to pay. */}
         <div className="flex shrink-0 items-center gap-3">
-          <Button size="sm" className="shadow-sm" onClick={() => setNewEmergencyModalOpen(true)}>
-            <Plus {...TOOLBAR_ICON} />
-            {tCommon('newIncident')}
-          </Button>
+          <ShortcutTooltip label={tCommon('newIncident')} keys={['N']}>
+            <Button size="sm" className="shadow-sm" onClick={() => setNewEmergencyModalOpen(true)}>
+              <Plus {...TOOLBAR_ICON} />
+              {tCommon('newIncident')}
+            </Button>
+          </ShortcutTooltip>
 
           {/* Event Setup Checklist — shown only while setup is incomplete; disappears once done.
               It opens a footer sheet like every other tool down here (owner, 09.11.2026): it
@@ -279,6 +287,7 @@ export function BoardFooter({
                 <ToolbarToggle
                   icon={QrCode}
                   label={tDash('linksAndQr')}
+                  shortcut="T"
                   active={linksSheetOpen}
                   onActivate={() => setActiveFooterSheet(linksSheetOpen ? null : 'links')}
                 />
@@ -291,6 +300,7 @@ export function BoardFooter({
                 <ToolbarToggle
                   icon={Truck}
                   label={tDash('vehicles')}
+                  shortcut="F"
                   active={vehicleStatusSheetOpen}
                   disabled={!selectedEvent}
                   onActivate={() => {
@@ -306,6 +316,7 @@ export function BoardFooter({
                 <ToolbarToggle
                   icon={Waypoints}
                   label={tDash('auftraege')}
+                  shortcut="A"
                   active={auftraegeSheetOpen}
                   disabled={!selectedEvent}
                   onActivate={() => {
@@ -330,6 +341,7 @@ export function BoardFooter({
                     <ToolbarToggle
                       icon={FileText}
                       label={tDash('rapporte')}
+                      shortcut="O"
                       active={rapportBacklogSheetOpen}
                       count={openRapports.length > 0 ? openRapports.length : undefined}
                       title={tDash('rapportBacklog.toggleTitle', { count: openRapports.length })}
@@ -347,9 +359,9 @@ export function BoardFooter({
                 <ToolbarToggle
                   icon={BookOpenText}
                   label={tDash('journal')}
+                  shortcut="J"
                   active={journalSheetOpen}
                   disabled={!selectedEvent}
-                  title={tDash('journalTitle')}
                   onActivate={() => {
                     if (!selectedEvent) return
                     setActiveFooterSheet(journalSheetOpen ? null : 'journal')
@@ -369,6 +381,7 @@ export function BoardFooter({
                 <ToolbarToggle
                   icon={Printer}
                   label={tDash('print')}
+                  shortcut="D"
                   active={printSheetOpen}
                   disabled={!selectedEvent}
                   title={tDash('printTitle')}

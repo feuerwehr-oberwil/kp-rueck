@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
 import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
 import { SearchInput } from "@/components/ui/search-input"
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip"
 import { MaterialGroupBlock } from "@/components/kanban/material-group-block"
 import { MaterialOnSitePanel, type selectMaterialOnSite } from "@/components/kanban/material-on-site-panel"
 import { ResourcesNotLoaded } from "@/components/board-load-error"
@@ -106,14 +107,15 @@ export function MaterialSidebar({
             (on all five edge tabs): the ≤768px 44px touch-target rule widened it to 44px at
             exactly 768, where the board is still the desktop board, and it lay on the
             «Depot» heading (overflow sweep, 03.10.). */}
-        <button
-          onClick={() => setShowRightSidebar(false)}
-          className="absolute hit-area left-0 top-1/2 -translate-x-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
-          title={`${tDash('toggleRightSidebar')} (])`}
-          aria-label={tDash('toggleRightSidebar')}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
+        <ShortcutTooltip label={tDash('toggleRightSidebar')} keys={['W']} side="left">
+          <button
+            onClick={() => setShowRightSidebar(false)}
+            className="absolute hit-area left-0 top-1/2 -translate-x-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+            aria-label={tDash('toggleRightSidebar')}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </ShortcutTooltip>
         {/* Search. While the Einsatz-Detail panel is collapsed, the control that reopens it
             leads this row, at the edge where the panel will open: it used to be a tab pinned
             over the board's top-right corner, on the header of whatever column scrolled
@@ -122,16 +124,17 @@ export function MaterialSidebar({
             target); the aside grows by its room, so the field keeps «Material suchen …». */}
         <div className="flex items-center gap-1 px-2 pt-3 pb-2">
           {onOpenSidePanel && (
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              onClick={onOpenSidePanel}
-              className="hidden min-w-6 w-6 shrink-0 text-muted-foreground hover:text-foreground 2xl:inline-flex"
-              title={`${tSidePanel('railLabel')} (\\)`}
-              aria-label={tSidePanel('railLabel')}
-            >
-              <PanelRight className="size-4" />
-            </Button>
+            <ShortcutTooltip label={tSidePanel('railLabel')} keys={['I']} side="bottom">
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                onClick={onOpenSidePanel}
+                className="hidden min-w-6 w-6 shrink-0 text-muted-foreground hover:text-foreground 2xl:inline-flex"
+                aria-label={tSidePanel('railLabel')}
+              >
+                <PanelRight className="size-4" />
+              </Button>
+            </ShortcutTooltip>
           )}
           <SearchInput
             id="material-search-input"

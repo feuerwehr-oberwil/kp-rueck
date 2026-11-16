@@ -916,6 +916,11 @@ test-ui:
 fat-perf *presets:
     bash scripts/fat-perf.sh {{presets}}
 
+# Open an Ereignis holding [count] notifications (default 563) on a throwaway stack and a
+# throttled browser: time to the first card, to a usable board, and how many toasts it raised.
+notification-storm count="563":
+    bash scripts/notification-storm.sh {{count}}
+
 # docs/VISUAL_TESTS.md. Extra args go to Playwright (`just visual board`). Locally a look,
 # not a verdict: the baselines are CI renders.
 # Screenshot regression tests on a throwaway stack (production build + visual seed)

@@ -11,7 +11,8 @@ import type { IncidentStatus } from '@/lib/types/incidents'
  * still decides how a notification *looks*; this decides whether it earns the
  * screen.
  *
- * - `urgent`  — always toasted, never collapsed into the overflow summary.
+ * - `urgent`  — always toasted, never collapsed into the overflow summary – unless the whole
+ *               batch is a storm (`TOAST_STORM_THRESHOLD`).
  * - `normal`  — toasted while there is room in the burst budget.
  * - `quiet`   — bell and sidebar only. Never a toast.
  */
@@ -62,6 +63,17 @@ export function toastPolicyFor(notification: Pick<Notification, 'type' | 'severi
  */
 export const TOAST_BURST_LIMIT = 3
 
+/**
+ * From this many toast-worthy notifications in one batch on, none is toasted on its own: the
+ * screen gets ONE summary («563 offene Meldungen · Öffnen») and the bell holds the rest.
+ *
+ * A batch that size is never news arriving one by one – it is an Ereignis being opened, or the
+ * socket coming back after an outage. Urgent ones are NOT exempt here (owner, 16.11.2026): the
+ * Test Einsatz opened with 563, a third of them urgent, and the board was unusable for minutes
+ * while the stack filled. Below the threshold the burst rules above apply unchanged.
+ */
+export const TOAST_STORM_THRESHOLD = 9
+
 export interface ToastPlan {
   /** Toasted individually, oldest first — the order they happened in. */
   toast: Notification[]
@@ -69,6 +81,9 @@ export interface ToastPlan {
   overflow: Notification[]
   /** Bell/sidebar only — no toast, no summary. */
   quiet: Notification[]
+  /** The batch reached `TOAST_STORM_THRESHOLD`: `toast` is empty, `overflow` is all of it, and
+   *  the summary names the whole count rather than «weitere». */
+  storm: boolean
 }
 
 /**
@@ -86,12 +101,7 @@ export function planToastBurst(
   notifications: Notification[],
   limit: number = TOAST_BURST_LIMIT
 ): ToastPlan {
-  const ordered = [...notifications].sort((a, b) => {
-    const byTime = a.created_at.getTime() - b.created_at.getTime()
-    // Same-millisecond ties (a seeded event, a bulk evaluation) must still have
-    // ONE order, or two renders disagree about which toast is on top.
-    return byTime !== 0 ? byTime : a.id.localeCompare(b.id)
-  })
+  const ordered = [...notifications].sort(byOccurrence)
 
   const quiet: Notification[] = []
   const urgent: Notification[] = []
@@ -104,6 +114,10 @@ export function planToastBurst(
     else normal.push(notification)
   }
 
+  if (urgent.length + normal.length >= TOAST_STORM_THRESHOLD) {
+    return { toast: [], overflow: [...urgent, ...normal].sort(byOccurrence), quiet, storm: true }
+  }
+
   // Urgent first come, urgent first served: they take the budget, and if they
   // alone exceed it they still all show. A dropped Abholung is the bug.
   //
@@ -112,12 +126,16 @@ export function planToastBurst(
   // to keep the stack short is quietly one taller than it claims.
   const budget = Math.max(0, limit - urgent.length)
   const room = normal.length > budget ? Math.max(0, budget - 1) : budget
-  const toast = [...urgent, ...normal.slice(0, room)].sort((a, b) => {
-    const byTime = a.created_at.getTime() - b.created_at.getTime()
-    return byTime !== 0 ? byTime : a.id.localeCompare(b.id)
-  })
+  const toast = [...urgent, ...normal.slice(0, room)].sort(byOccurrence)
 
-  return { toast, overflow: normal.slice(room), quiet }
+  return { toast, overflow: normal.slice(room), quiet, storm: false }
+}
+
+/** Oldest first. Same-millisecond ties (a seeded event, a bulk evaluation) must still have ONE
+ *  order, or two renders disagree about which toast is on top. */
+function byOccurrence(a: Notification, b: Notification): number {
+  const byTime = a.created_at.getTime() - b.created_at.getTime()
+  return byTime !== 0 ? byTime : a.id.localeCompare(b.id)
 }
 
 /** The one board order, shared with `notification-field-action.ts`. */
