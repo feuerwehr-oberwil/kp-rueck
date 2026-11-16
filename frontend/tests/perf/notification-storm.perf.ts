@@ -124,10 +124,21 @@ test('open an Ereignis with a notification storm', async ({ page, browserName })
   await card.click({ timeout: 300_000 })
   await page.getByRole('dialog').first().waitFor({ state: 'visible', timeout: 300_000 })
   const usable = performance.now() - t0
-  // the notifications arrive on their own fetch, after mount: wait for their first toast so the
-  // window below covers them, however slow that request is
-  const firstToast = await page.locator('[data-sonner-toast]').first().waitFor({ timeout: 60_000 })
-    .then(() => performance.now() - t0, () => NaN)
+  // The notifications arrive on their own fetch, after mount, so the click above may beat them.
+  // Wait for their first toast – a storm that never shows is a failed run, not a fast one – and
+  // time a second click once they are in: that is the board the operator is left with.
+  let firstToast = NaN
+  let afterStorm = NaN
+  if (active.length > 0) {
+    await page.locator('[data-sonner-toast]').first().waitFor({ timeout: 300_000 })
+    firstToast = performance.now() - t0
+    await page.keyboard.press('Escape')
+    await page.getByRole('dialog').first().waitFor({ state: 'hidden', timeout: 300_000 })
+    const t1 = performance.now()
+    await card.click({ timeout: 300_000 })
+    await page.getByRole('dialog').first().waitFor({ state: 'visible', timeout: 300_000 })
+    afterStorm = performance.now() - t1
+  }
   await page.waitForTimeout(10_000)
   const { toasts, long } = await page.evaluate(() => {
     const s = (window as unknown as { __storm: { toasts: Set<string>; long: number[] } }).__storm
@@ -138,7 +149,10 @@ test('open an Ereignis with a notification storm', async ({ page, browserName })
   line(`open → first card          ${ms(firstCard)}`)
   line(`open → card click answered ${ms(usable)}`)
   line(`served to the board        ${active.length} active (${bySeverity || 'none'})`)
-  line(`open → first toast         ${Number.isNaN(firstToast) ? 'none within 60 s after the click' : ms(firstToast)}`)
+  if (active.length > 0) {
+    line(`open → first toast         ${ms(firstToast)}`)
+    line(`click after the storm      ${ms(afterStorm)} to the detail`)
+  }
   line(`toasts mounted             ${toasts}`)
   line(`long tasks                 ${long.length}, ${ms(long.reduce((a, b) => a + b, 0))} blocked, worst ${ms(Math.max(0, ...long))}`)
 })
