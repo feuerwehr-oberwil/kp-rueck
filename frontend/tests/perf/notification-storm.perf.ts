@@ -130,7 +130,14 @@ test('open an Ereignis with a notification storm', async ({ page, browserName })
   let firstToast = NaN
   let afterStorm = NaN
   if (active.length > 0) {
-    await page.locator('[data-sonner-toast]').first().waitFor({ timeout: 300_000 })
+    // Notification-specific, from the recorder that saw every toast since load (so one that came
+    // and went already counts): the storm summary, or one of the seeded messages («… #12»).
+    await page.waitForFunction(
+      () => [...(window as unknown as { __storm: { toasts: Set<string> } }).__storm.toasts]
+        .some((text) => /(offene|weitere) Meldung|#\d+/.test(text)),
+      undefined,
+      { timeout: 300_000, polling: 100 },
+    )
     firstToast = performance.now() - t0
     await page.keyboard.press('Escape')
     await page.getByRole('dialog').first().waitFor({ state: 'hidden', timeout: 300_000 })
@@ -150,7 +157,7 @@ test('open an Ereignis with a notification storm', async ({ page, browserName })
   line(`open → card click answered ${ms(usable)}`)
   line(`served to the board        ${active.length} active (${bySeverity || 'none'})`)
   if (active.length > 0) {
-    line(`open → first toast         ${ms(firstToast)}`)
+    line(`open → notifications shown ${ms(firstToast)}`)
     line(`click after the storm      ${ms(afterStorm)} to the detail`)
   }
   line(`toasts mounted             ${toasts}`)
