@@ -383,7 +383,7 @@ async def merge_new_report(
         result = await duplicates.merge_report(db, report=report, target=target, user=current_user, request=request)
     except duplicates.MergeRefusedError as e:
         await db.rollback()
-        raise HTTPException(status_code=e.status_code, detail=e.reason) from None
+        raise e.to_http() from None
     return await merge_and_broadcast(db, background_tasks, result)
 
 
@@ -1234,7 +1234,7 @@ async def merge_incident_into(
         result = await duplicates.merge_report(db, report=report, target=target, user=current_user, request=request)
     except duplicates.MergeRefusedError as e:
         await db.rollback()
-        raise HTTPException(status_code=e.status_code, detail=e.reason) from None
+        raise e.to_http() from None
     return await merge_and_broadcast(db, background_tasks, result)
 
 
@@ -1256,7 +1256,7 @@ async def unmerge_incident(
     if report is None:
         raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
     if report.merged_into_id is None:
-        raise HTTPException(status_code=409, detail="Diese Meldung ist nicht zusammengeführt.")
+        raise CodedHTTPException(409, ErrorCode.INCIDENT_NOT_MERGED, duplicates.NOT_MERGED)
     report, _target = await lock_pair(db, incident_id, report.merged_into_id)
     if report is None:
         raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
@@ -1264,7 +1264,7 @@ async def unmerge_incident(
         result = await duplicates.unmerge_report(db, report, user=current_user, request=request)
     except duplicates.MergeRefusedError as e:
         await db.rollback()
-        raise HTTPException(status_code=e.status_code, detail=e.reason) from None
+        raise e.to_http() from None
     except IntegrityError:
         await db.rollback()
         raise HTTPException(status_code=409, detail=ErrorMessages.CONFLICT) from None

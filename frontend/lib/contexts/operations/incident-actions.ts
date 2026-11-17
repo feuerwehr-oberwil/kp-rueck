@@ -57,8 +57,8 @@ function operationToIncidentCreate(
 }
 
 
-/** The server's 409 for «not merged (any more)» — `services/duplicates.unmerge_report`. */
-const ALREADY_SEPARATED = "Diese Meldung ist nicht zusammengeführt."
+/** The server's code for «not merged (any more)» — `services/duplicates.unmerge_report`. */
+const NOT_MERGED_CODE = "incident_not_merged"
 
 export function createIncidentActions(board: BoardMutationContext) {
   const {
@@ -537,7 +537,7 @@ export function createIncidentActions(board: BoardMutationContext) {
       if (ApiError.isConflictError(err)) {
         await refreshOperations()
         // Already separated (a second click, or another board was faster): quiet.
-        if (err.message === ALREADY_SEPARATED) return true
+        if (err.code === NOT_MERGED_CODE) return true
         // A refusal the server put into words — the card it went into is closed,
         // or was merged on itself (R2 review): the operator has to read why.
         toast.error(translateOutsideReact('duplicates.unmergeFailed'), { description: err.message })

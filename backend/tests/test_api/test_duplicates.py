@@ -288,7 +288,9 @@ class TestMergeAFlaggedCardAndUndo:
         assert {i["id"] for i in board.json()} == {str(target.id), str(dup.id)}
 
         # Twice is a 409, not a second restore.
-        assert (await editor_client.post(f"/api/incidents/{dup.id}/unmerge")).status_code == 409
+        again = await editor_client.post(f"/api/incidents/{dup.id}/unmerge")
+        # The board answers a second click quietly by this code, not by the German sentence.
+        assert (again.status_code, again.json().get("code")) == (409, "incident_not_merged")
         timeline = (await editor_client.get(f"/api/incidents/{target.id}/timeline")).json()["events"]
         assert [e["merge_active"] for e in timeline if e["event_type"] == "merge"] == [False]
         assert [e["event_type"] for e in timeline if e["event_type"] == "unmerge"] == ["unmerge"]

@@ -3508,7 +3508,9 @@
       "reko_report_not_found": "Bericht nicht gefunden",
       "reko_report_no_access": "Kein Zugriff auf diesen Bericht.",
       "incident_status_changed": "Status inzwischen geändert – der Einsatz wurde neu geladen.",
-      "text_conflict": "Inzwischen anderswo geändert – nicht gespeichert."
+      "text_conflict": "Inzwischen anderswo geändert – nicht gespeichert.",
+      "assignment_race": "Ressource bereits zugewiesen",
+      "incident_not_merged": "Diese Meldung ist nicht zusammengeführt."
     }
   },
   "training": {

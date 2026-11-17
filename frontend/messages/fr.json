@@ -648,7 +648,9 @@
       "reko_report_not_found": "Rapport introuvable",
       "reko_report_no_access": "Pas d’accès à ce rapport.",
       "incident_status_changed": "Statut modifié entre-temps – l’intervention a été rechargée.",
-      "text_conflict": "Modifié ailleurs entre-temps – non enregistré."
+      "text_conflict": "Modifié ailleurs entre-temps – non enregistré.",
+      "assignment_race": "Ressource déjà attribuée",
+      "incident_not_merged": "Ce signalement n’est pas fusionné."
     }
   },
   "events": {

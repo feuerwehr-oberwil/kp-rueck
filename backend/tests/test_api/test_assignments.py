@@ -143,6 +143,18 @@ async def test_assign_personnel_success(editor_client: AsyncClient, test_inciden
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_assigning_twice_is_a_coded_race(
+    editor_client: AsyncClient, test_incident: Incident, test_personnel: Personnel
+):
+    """The board tells a lost race from a refusal it must show by ``code``, not by the sentence."""
+    body = {"resource_type": "personnel", "resource_id": str(test_personnel.id)}
+    assert (await editor_client.post(f"/api/incidents/{test_incident.id}/assign", json=body)).status_code == 200
+    again = await editor_client.post(f"/api/incidents/{test_incident.id}/assign", json=body)
+    assert (again.status_code, again.json().get("code")) == (409, "assignment_race")
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_assign_vehicle_success(editor_client: AsyncClient, test_incident: Incident, test_vehicle: Vehicle):
     """Test assigning vehicle to incident."""
     assignment_data = {
