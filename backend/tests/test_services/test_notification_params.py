@@ -32,12 +32,17 @@ CASES = [
     ),
     (
         texts.materials("Depot", 0),
-        "Keine Einheiten von 'Depot' mehr verfügbar",
+        "Keine Geräte von 'Depot' mehr verfügbar",
         {"location": "Depot", "available": 0},
     ),
     (
+        texts.materials("TLF", 1),
+        "Nur noch 1 Gerät von 'TLF' verfügbar",
+        {"location": "TLF", "available": 1},
+    ),
+    (
         texts.materials("TLF", 2),
-        "Nur noch 2 Einheiten von 'TLF' verfügbar",
+        "Nur noch 2 Geräte von 'TLF' verfügbar",
         {"location": "TLF", "available": 2},
     ),
     (

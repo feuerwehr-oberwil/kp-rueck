@@ -69,9 +69,9 @@ def no_personnel() -> Built:
 def materials(location: str, available: int) -> Built:
     """``no_materials``: ``available`` 0 = none left (critical), else «only N left»."""
     if available == 0:
-        return (f"Keine Einheiten von '{location}' mehr verfügbar", {"location": location, "available": 0})
+        return (f"Keine Geräte von '{location}' mehr verfügbar", {"location": location, "available": 0})
     return (
-        f"Nur noch {available} Einheiten von '{location}' verfügbar",
+        f"Nur noch {available} {'Gerät' if available == 1 else 'Geräte'} von '{location}' verfügbar",
         {"location": location, "available": available},
     )
 
