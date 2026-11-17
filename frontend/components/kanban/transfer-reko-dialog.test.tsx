@@ -17,7 +17,7 @@ vi.mock("@/lib/contexts/event-context", () => ({
 }))
 
 vi.mock("@/lib/contexts/operations-context", () => ({
-  useOperations: () => ({ personnel: state.personnel, refreshOperations }),
+  useOperations: () => ({ personnel: state.personnel, refreshOperations, formatLocation: (address: string) => address }),
 }))
 
 vi.mock("@/lib/api-client", () => ({
@@ -77,6 +77,7 @@ describe("TransferRekoDialog", () => {
     expect(screen.getByText("Keine anderen Reko-Personen verfügbar")).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Person als Reko markieren" }))
     await user.click(screen.getByRole("button", { name: /Neue Reko/ }))
+    await user.click(screen.getByRole("button", { name: "Übernehmen" }))
 
     await waitFor(() => expect(transferRekoAssignments).toHaveBeenCalledTimes(1))
     expect(assignSpecialFunction).toHaveBeenCalledWith("event-1", {
@@ -121,6 +122,7 @@ describe("TransferRekoDialog", () => {
     )
 
     await user.click(screen.getByRole("button", { name: /Reko Ziel/ }))
+    await user.click(screen.getByRole("button", { name: "Übernehmen" }))
 
     await waitFor(() => expect(transferRekoAssignments).toHaveBeenCalledWith("source", "target", "event-1"))
     expect(assignSpecialFunction).not.toHaveBeenCalled()
@@ -142,6 +144,7 @@ describe("TransferRekoDialog", () => {
 
     await user.click(screen.getByRole("button", { name: "Person als Reko markieren" }))
     await user.click(screen.getByRole("button", { name: /Neue Reko/ }))
+    await user.click(screen.getByRole("button", { name: "Übernehmen" }))
 
     await waitFor(() => expect(unassignSpecialFunction).toHaveBeenCalledWith("event-1", {
       personnel_id: "candidate",
@@ -169,6 +172,7 @@ describe("TransferRekoDialog", () => {
 
     await user.click(screen.getByRole("button", { name: "Person als Reko markieren" }))
     await user.click(screen.getByRole("button", { name: /Neue Reko/ }))
+    await user.click(screen.getByRole("button", { name: "Übernehmen" }))
 
     await waitFor(() => expect(unassignSpecialFunction).toHaveBeenCalledOnce())
     expect(refreshOperations).toHaveBeenCalledOnce()
@@ -178,7 +182,45 @@ describe("TransferRekoDialog", () => {
   })
 })
 
+const rekoRow = (personnel_id: string, name: string, open_count = 0) => ({
+  personnel_id,
+  name,
+  role: "Wm",
+  assignment_count: open_count,
+  open_count,
+  done_count: 0,
+  open_assignments: [],
+  distance_m: null,
+  distance_source: null,
+})
+
 describe("AssignRekoDialog", () => {
+  // The Reko already on the Einsatz is the ticked tile; «Übernehmen» on it keeps it –
+  // the status gate's way forward – and writes nothing.
+  it("keeps the current Reko on «Übernehmen» and assigns another only once ticked", async () => {
+    const user = userEvent.setup()
+    const onAssigned = vi.fn()
+    getAvailableRekoPersonnel.mockResolvedValue({
+      personnel: [rekoRow("current", "Reko Jetzt", 1), rekoRow("other", "Reko Anders")],
+      currently_assigned_id: "current",
+    })
+
+    renderWithIntl(
+      <AssignRekoDialog open onOpenChange={vi.fn()} incidentId="incident-1" incidentTitle="Hauptstrasse 1" onAssigned={onAssigned} />,
+    )
+
+    const current = await screen.findByRole("button", { name: /Reko Jetzt/ })
+    expect(current).toHaveAttribute("aria-pressed", "true")
+    expect(current).toHaveTextContent("aktuell")
+    await user.click(screen.getByRole("button", { name: "Übernehmen" }))
+    expect(onAssigned).toHaveBeenCalledOnce()
+    expect(assignRekoPersonnel).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole("button", { name: /Reko Anders/ }))
+    await user.click(screen.getByRole("button", { name: "Übernehmen" }))
+    await waitFor(() => expect(assignRekoPersonnel).toHaveBeenCalledWith("incident-1", "other"))
+  })
+
   it("removes a newly assigned Reko role when assigning the incident fails", async () => {
     const user = userEvent.setup()
     assignRekoPersonnel.mockRejectedValueOnce(new Error("assignment failed"))
@@ -194,6 +236,7 @@ describe("AssignRekoDialog", () => {
 
     await user.click(await screen.findByRole("button", { name: "Person als Reko markieren" }))
     await user.click(screen.getByRole("button", { name: /Neue Reko/ }))
+    await user.click(screen.getByRole("button", { name: "Übernehmen" }))
 
     await waitFor(() => expect(unassignSpecialFunction).toHaveBeenCalledWith("event-1", {
       personnel_id: "candidate",
@@ -221,6 +264,7 @@ describe("AssignRekoDialog", () => {
 
     await user.click(await screen.findByRole("button", { name: "Person als Reko markieren" }))
     await user.click(screen.getByRole("button", { name: /Neue Reko/ }))
+    await user.click(screen.getByRole("button", { name: "Übernehmen" }))
 
     await waitFor(() => expect(unassignSpecialFunction).toHaveBeenCalledOnce())
     expect(refreshOperations).toHaveBeenCalledOnce()

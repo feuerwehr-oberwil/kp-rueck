@@ -102,7 +102,7 @@
     },
     "rekoPicker": {
       "title": "Choisir les officiers de reconnaissance",
-      "description": "Touche une personne annoncée pour la marquer comme reconnaissance. Les adresses s'attribuent via le mode reconnaissance sur la carte.",
+      "description": "Choisis une personne présente et marque-la comme reconnaissance – plusieurs à la suite si besoin. Les adresses s'attribuent via le mode reconnaissance sur la carte.",
       "marked": "{name} marqué comme reconnaissance",
       "failed": "Échec. Réessaie.",
       "done": "Terminé"
@@ -314,6 +314,11 @@
       "moveDown": "Descendre",
       "moveTop": "Placer au début",
       "menuFor": "Modifier l’ordre de {name}"
+    },
+    "personPick": {
+      "current": "actuel",
+      "apply": "Valider",
+      "noneChosen": "Aucune personne choisie."
     }
   },
   "display": {
@@ -1313,8 +1318,6 @@
       "markNoCheckedIn": "Personne n’est annoncé. Enregistre d’abord l’arrivée du personnel.",
       "markError": "La personne n’est pas marquée comme reconnaissance.",
       "back": "Retour",
-      "assigned": "Attribuée",
-      "keepAssigned": "Conserver l’attribution",
       "recommended": "Recommandée",
       "openCount": "{count} ouvertes",
       "noOpenWork": "libre",
@@ -1349,14 +1352,11 @@
       "title": "Conducteur de {vehicle}",
       "currentDriver": "Conducteur actuel : {driver}",
       "noDriverAssigned": "Aucun conducteur attribué",
-      "currentDriverLabel": "Conducteur actuel",
       "searchPlaceholder": "Rechercher une personne …",
       "driversSection": "Conducteurs",
       "othersSection": "Autres",
-      "inOperation": "En intervention",
       "noAvailablePersons": "Aucune personne disponible",
       "allAssignedHint": "Toutes les personnes sont déjà attribuées comme conducteur ou ne sont pas annoncées",
-      "close": "Fermer",
       "conflictTitle": "La personne est attribuée à une intervention",
       "conflictDescription": "<strong>{name}</strong> est actuellement {count, plural, one {attribuée à l’intervention « {location} »} other {attribuée à # interventions}}. Comme conducteur, la personne ne peut pas être attribuée à une intervention en même temps.",
       "conflictConfirm": "Libérer de l’intervention et attribuer",
@@ -1378,7 +1378,8 @@
       "duplicateName": "Une personne portant ce nom existe déjà.",
       "markAsDriver": "Marquer comme conducteur",
       "markedAsDriver": "{name} marqué comme conducteur",
-      "markError": "Échec du marquage"
+      "markError": "Échec du marquage",
+      "withoutDriver": "Sans conducteur"
     },
     "resourceConflict": {
       "moveHere": "Déplacer ici",

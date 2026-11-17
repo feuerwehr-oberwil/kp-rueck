@@ -252,7 +252,7 @@ describe("special functions in the crew list", () => {
     const tile = screen.getByRole("button", { name: /Egger Olivier/ })
     const lines = tile.querySelectorAll("p")
     expect(lines).toHaveLength(2)
-    expect(lines[1].textContent).toBe("Korporal·Im Einsatz·TLF")
+    expect(lines[1].textContent).toBe("Kpl·Im Einsatz·TLF")
     expect(lines[1].getAttribute("title")).toBe("Korporal · Im Einsatz · TLF")
     const amber = tile.querySelectorAll('[class*="text-warning-foreground"]')
     expect(amber).toHaveLength(1)
@@ -262,7 +262,7 @@ describe("special functions in the crew list", () => {
   it("makes a place-like role the where-note of a person on no Einsatz", () => {
     renderCrew([person({ name: "Müller Hans", role: "Offizier", isReko: true, isDriver: true, driverVehicleName: "TLF" })])
     const tile = screen.getByRole("button", { name: /Müller Hans/ })
-    expect(tile.querySelectorAll("p")[1].textContent).toBe("Offizier·Reko·TLF")
+    expect(tile.querySelectorAll("p")[1].textContent).toBe("Of·Reko·TLF")
     expect(tile.querySelector('[class*="text-warning-foreground"]')?.textContent).toBe("Reko")
   })
 
@@ -310,8 +310,8 @@ describe("special functions in the crew list", () => {
 
     expect(screen.getAllByRole("button", { name: /Meier Alex/ })).toHaveLength(2)
     // Swap them: untick the one on this incident, tick the namesake.
-    await user.click(screen.getByRole("button", { name: /Meier Alex\s*Soldat/ }))
-    await user.click(screen.getByRole("button", { name: /Meier Alex\s*Korporal/ }))
+    await user.click(screen.getByRole("button", { name: /Meier Alex\s*Sdt/ }))
+    await user.click(screen.getByRole("button", { name: /Meier Alex\s*Kpl/ }))
     await user.click(screen.getByRole("button", { name: /Fertig/ }))
 
     expect(onAssignPerson).toHaveBeenCalledExactlyOnceWith("p-2", "Meier Alex", "incident-1")

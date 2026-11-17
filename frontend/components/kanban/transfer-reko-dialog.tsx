@@ -1,23 +1,19 @@
 "use client"
 
-import { PersonName } from "@/components/person-name"
 import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
-import { ArrowLeft, ArrowRightLeft, Binoculars } from "lucide-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog"
+import { ArrowLeft } from "lucide-react"
+import { PickerDialog } from "@/components/ui/picker-dialog"
 import { Button } from "@/components/ui/button"
+import { EmptyState } from "@/components/ui/empty-state"
+import { FormMessage } from "@/components/ui/form-message"
+import { ShellLoader } from "@/components/ui/shell-loader"
+import { PersonPickTile } from "@/components/kanban/assignment-list-section"
 import { type Person } from "@/lib/contexts/personnel-context"
 import { apiClient } from "@/lib/api-client"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useOperations } from "@/lib/contexts/operations-context"
-import { MarkExistingRekoPersonnel } from "@/components/incidents/assign-reko-dialog"
+import { MarkRekoRow, REKO_PICK_MESSAGE_ID, useRekoCandidatePicker } from "@/components/incidents/assign-reko-dialog"
 import { toast } from "sonner"
 
 interface TransferRekoDialogProps {
@@ -28,6 +24,12 @@ interface TransferRekoDialogProps {
   onTransferred: () => void
 }
 
+/**
+ * «Rekos übertragen»: hand all open Reko-Aufträge of `fromPerson` to another person – the
+ * other Reko people as person tiles (ENT-10 A), one to tick, «Übernehmen» transfers.
+ * «Person als Reko markieren» lists the checked-in people who are not Reko yet; the ticked
+ * one is marked first, then gets the Rekos. A bottom sheet on the phone (`PickerDialog`).
+ */
 export function TransferRekoDialog({
   open,
   onOpenChange,
@@ -37,15 +39,24 @@ export function TransferRekoDialog({
 }: TransferRekoDialogProps) {
   const t = useTranslations('kanban')
   const tAssign = useTranslations('incidents.assignReko')
+  const tPick = useTranslations('common.personPick')
   const { selectedEvent } = useEvent()
   const { personnel, refreshOperations } = useOperations()
   const [isTransferring, setIsTransferring] = useState(false)
   const [markMode, setMarkMode] = useState(false)
+  const [chosenId, setChosenId] = useState<string | null>(null)
+  const [pickMessage, setPickMessage] = useState<string | null>(null)
   const [uncertainPersonnelIds, setUncertainPersonnelIds] = useState<ReadonlySet<string>>(new Set())
+  const mark = useRekoCandidatePicker({ personnel, excludedPersonnelIds: uncertainPersonnelIds, disabled: isTransferring })
+  const resetMark = mark.reset
 
   useEffect(() => {
-    if (open) setMarkMode(false)
-  }, [open])
+    if (!open) return
+    setMarkMode(false)
+    setChosenId(null)
+    setPickMessage(null)
+    resetMark()
+  }, [open, resetMark])
 
   if (!fromPerson) return null
 
@@ -54,7 +65,6 @@ export function TransferRekoDialog({
 
   const handleTransfer = async (toPerson: Person) => {
     if (!selectedEvent) return
-    setIsTransferring(true)
     try {
       await apiClient.transferRekoAssignments(
         fromPerson.id,
@@ -65,8 +75,6 @@ export function TransferRekoDialog({
       onOpenChange(false)
     } catch {
       toast.error(t('transferReko.failed'))
-    } finally {
-      setIsTransferring(false)
     }
   }
 
@@ -105,61 +113,81 @@ export function TransferRekoDialog({
     }
   }
 
+  /** «Übernehmen»: transfer to the ticked person (marking them Reko first in the mark
+   *  list). Nothing ticked is said above the list, never a greyed-out button. */
+  const applyChoice = async () => {
+    const target = markMode ? mark.chosen : targetOptions.find((person) => person.id === chosenId) ?? null
+    if (!target) {
+      setPickMessage(tPick('noneChosen'))
+      return
+    }
+    setIsTransferring(true)
+    try {
+      await (markMode ? handleMarkAndTransfer(target) : handleTransfer(target))
+    } finally {
+      setIsTransferring(false)
+    }
+  }
+
+  const switchMode = (next: boolean) => {
+    setMarkMode(next)
+    setPickMessage(null)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>{t('transferReko.title')}</DialogTitle>
-          <DialogDescription>
-            {t('transferReko.description', { name: fromPerson.name })}
-          </DialogDescription>
-        </DialogHeader>
-
-        {markMode ? (
-          <div className="space-y-4">
-            <MarkExistingRekoPersonnel
-              personnel={personnel}
-              onSelect={handleMarkAndTransfer}
-              excludedPersonnelIds={uncertainPersonnelIds}
-            />
-            <Button variant="ghost" onClick={() => setMarkMode(false)}>
-              <ArrowLeft className="h-4 w-4" />
-              {tAssign('back')}
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {targetOptions.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                {t('transferReko.noOthers')}
-              </p>
-            ) : (
-              targetOptions.map((person) => (
-                <Button
-                  key={person.id}
-                  variant="outline"
-                  className="w-full justify-start gap-2"
-                  onClick={() => handleTransfer(person)}
-                  disabled={isTransferring}
-                >
-                  <ArrowRightLeft className="h-4 w-4" />
-                  <PersonName name={person.name} personnelId={person.id} />
-                </Button>
-              ))
-            )}
-            <Button className="w-full gap-2" onClick={() => setMarkMode(true)}>
-              <Binoculars className="h-4 w-4" />
-              {tAssign('markExisting')}
-            </Button>
-          </div>
-        )}
-
-        <DialogFooter>
+    <PickerDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={markMode ? tAssign('markExisting') : t('transferReko.title')}
+      description={t('transferReko.description', { name: fromPerson.name })}
+      toolbar={
+        <>
+          {markMode ? (
+            <>
+              <Button variant="ghost" size="sm" className="-ml-2 self-start" onClick={() => switchMode(false)}>
+                <ArrowLeft className="size-3.5" />
+                {tAssign('back')}
+              </Button>
+              {mark.searchField}
+            </>
+          ) : (
+            <MarkRekoRow onClick={() => switchMode(true)} />
+          )}
+          <FormMessage id={REKO_PICK_MESSAGE_ID}>{pickMessage}</FormMessage>
+        </>
+      }
+      footer={
+        <>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isTransferring}>
             {t('common.cancel')}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <Button onClick={() => void applyChoice()} disabled={isTransferring}>
+            {isTransferring && <ShellLoader className="size-4" />}
+            {tPick('apply')}
+          </Button>
+        </>
+      }
+    >
+      {markMode ? (
+        mark.list
+      ) : targetOptions.length === 0 ? (
+        <EmptyState compact title={t('transferReko.noOthers')} />
+      ) : (
+        targetOptions.map((person) => (
+          <PersonPickTile
+            key={person.id}
+            name={person.name}
+            personnelId={person.id}
+            rank={person.role}
+            checked={chosenId === person.id}
+            disabled={isTransferring}
+            onClick={() => {
+              setChosenId((current) => (current === person.id ? null : person.id))
+              setPickMessage(null)
+            }}
+          />
+        ))
+      )}
+    </PickerDialog>
   )
 }

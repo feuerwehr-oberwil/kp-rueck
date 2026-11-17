@@ -205,6 +205,11 @@
       "moveDown": "Nach unten",
       "moveTop": "An den Anfang",
       "menuFor": "Reihenfolge von {name} ändern"
+    },
+    "personPick": {
+      "current": "aktuell",
+      "apply": "Übernehmen",
+      "noneChosen": "Keine Person gewählt."
     }
   },
   "nav": {
@@ -1247,8 +1252,6 @@
       "markNoCheckedIn": "Niemand ist eingecheckt. Checke zuerst Personal ein.",
       "markError": "Die Person ist nicht als Reko markiert.",
       "back": "Zurück",
-      "assigned": "Zugewiesen",
-      "keepAssigned": "Zuweisung übernehmen",
       "recommended": "Empfohlen",
       "openCount": "{count} offen",
       "noOpenWork": "frei",
@@ -1283,14 +1286,11 @@
       "title": "Fahrer für {vehicle}",
       "currentDriver": "Aktueller Fahrer: {driver}",
       "noDriverAssigned": "Kein Fahrer zugewiesen",
-      "currentDriverLabel": "Aktueller Fahrer",
       "searchPlaceholder": "Person suchen …",
       "driversSection": "Fahrer",
       "othersSection": "Andere",
-      "inOperation": "Im Einsatz",
       "noAvailablePersons": "Keine verfügbaren Personen",
       "allAssignedHint": "Alle Personen sind bereits als Fahrer zugewiesen oder nicht eingecheckt",
-      "close": "Schliessen",
       "conflictTitle": "Person ist einem Einsatz zugewiesen",
       "conflictDescription": "<strong>{name}</strong> ist aktuell {count, plural, one {dem Einsatz «{location}» zugewiesen} other {# Einsätzen zugewiesen}}. Als Fahrer kann die Person nicht gleichzeitig einem Einsatz zugewiesen sein.",
       "conflictConfirm": "Vom Einsatz freigeben & zuweisen",
@@ -1312,7 +1312,8 @@
       "duplicateName": "Es existiert bereits eine Person mit diesem Namen.",
       "markAsDriver": "Als Fahrer markieren",
       "markedAsDriver": "{name} als Fahrer markiert",
-      "markError": "Markierung fehlgeschlagen"
+      "markError": "Markierung fehlgeschlagen",
+      "withoutDriver": "Ohne Fahrer"
     },
     "resourceConflict": {
       "moveHere": "Hierher verschieben",
@@ -3786,7 +3787,7 @@
     },
     "rekoPicker": {
       "title": "Reko-Offiziere wählen",
-      "description": "Angemeldete Person antippen, um sie als Reko zu markieren. Adressen verteilt der Reko-Modus auf der Karte.",
+      "description": "Anwesende Person wählen und als Reko markieren – auch mehrere nacheinander. Adressen verteilt der Reko-Modus auf der Karte.",
       "marked": "{name} als Reko markiert",
       "failed": "Hat nicht geklappt. Erneut versuchen.",
       "done": "Fertig"

@@ -1,7 +1,10 @@
 "use client"
 
-import { Fragment } from "react"
+import { Fragment, type ReactNode } from "react"
+import { useTranslations } from "next-intl"
 import { Check, Minus, Siren, type LucideIcon } from "lucide-react"
+import { PersonName } from "@/components/person-name"
+import { abbreviateRank } from "@/lib/roster-order"
 import { cn } from "@/lib/utils"
 
 /** The tile grid of every block: three columns from `sm`, ONE below it, so a phone shows a
@@ -76,8 +79,14 @@ export type PersonWhere = OccupancyLabel & { Icon?: LucideIcon }
  * line of its own – is in `title`. Amber marks only the where part: it is ANOTHER commitment,
  * «schau hin»; rank and roles are facts.
  */
-export function PersonTileLine({ rank, where, roles }: { rank?: string; where: PersonWhere | null; roles: readonly TileRole[] }) {
-  const title = [rank, where?.full, ...roles.map(role => role.label)].filter(Boolean).join(" · ")
+export function PersonTileLine({ rank, rankFull, where, roles }: {
+  rank?: string
+  /** The unabbreviated rank for the `title`, when `rank` is the short form. */
+  rankFull?: string
+  where: PersonWhere | null
+  roles: readonly TileRole[]
+}) {
+  const title = [rankFull ?? rank, where?.full, ...roles.map(role => role.label)].filter(Boolean).join(" · ")
   const segments: { key: string; className: string; content: React.ReactNode }[] = []
   if (rank) segments.push({ key: "rank", className: "min-w-[3ch] truncate", content: rank })
   if (where) {
@@ -144,6 +153,76 @@ export function TileCheck({ checked, animate }: { checked: boolean | "partial"; 
  *  (hill climb r5). Only on unchecked tiles: a `hover:` edge on a checked one would take its
  *  slate edge away while the pointer rests on it. */
 export const TILE_HOVER = "hover:border-border hover:bg-muted/40"
+
+/**
+ * THE person tile of every «pick a person» surface: the assignment dialog's crew grid, and the
+ * single-choice pickers (Fahrer, Reko zuweisen / übertragen, Reko-Modus – ENT-10 A). Tick box,
+ * name through `PersonName` (namesakes get their Kennung), the one `PersonTileLine` under it
+ * (the rank abbreviated, like the sidebar's), and an optional `aside` on the right for a
+ * picker's own fact (open Rekos, the map swatch). Chosen = slate wash + edge + ✓, never a tint
+ * of its own. `current` adds «· aktuell» after the name: the person who holds the role now –
+ * a fact that stays while the operator ticks somebody else.
+ */
+export function PersonPickTile({
+  name,
+  personnelId,
+  kennung,
+  rank,
+  where = null,
+  roles = [],
+  checked,
+  current,
+  animate,
+  badge,
+  aside,
+  onClick,
+  disabled,
+  className,
+}: {
+  name: string
+  personnelId?: string
+  kennung?: string | null
+  rank?: string | null
+  where?: PersonWhere | null
+  roles?: readonly TileRole[]
+  checked: boolean
+  current?: boolean
+  animate?: boolean
+  /** Beside the name («Empfohlen»). */
+  badge?: ReactNode
+  aside?: ReactNode
+  onClick: () => void
+  disabled?: boolean
+  className?: string
+}) {
+  const t = useTranslations("common.personPick")
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={checked}
+      className={cn(
+        "flex w-full cursor-pointer items-start gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-colors text-left disabled:cursor-not-allowed disabled:opacity-60",
+        checked ? "border-sel-edge bg-sel-wash" : TILE_HOVER,
+        className,
+      )}
+    >
+      <TileCheck checked={checked} animate={animate} />
+      <div className="min-w-0 flex-1">
+        <p className="flex min-w-0 items-center gap-1.5 text-sm font-medium" title={name}>
+          <span className="min-w-0 truncate">
+            <PersonName name={name} personnelId={personnelId} kennung={kennung} />
+          </span>
+          {current && <span className="shrink-0 text-xs font-medium text-sel-foreground">· {t("current")}</span>}
+          {badge}
+        </p>
+        <PersonTileLine rank={rank ? abbreviateRank(rank) : undefined} rankFull={rank ?? undefined} where={where} roles={roles} />
+      </div>
+      {aside && <div className="flex shrink-0 flex-col items-end gap-0.5 text-xs">{aside}</div>}
+    </button>
+  )
+}
 
 /**
  * The rule above one of the two blocks the lists are split into.
