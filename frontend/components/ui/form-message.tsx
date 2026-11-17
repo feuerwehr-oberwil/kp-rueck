@@ -19,7 +19,7 @@
  */
 
 import * as React from 'react'
-import { CircleAlert, TriangleAlert } from 'lucide-react'
+import { AlertCircle, AlertTriangle } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -60,7 +60,7 @@ export interface FormMessageProps extends Omit<React.ComponentProps<'p'>, 'role'
 
 export function FormMessage({ tone = 'error', className, children, ...props }: FormMessageProps) {
   if (children == null || children === false || children === '') return null
-  const Icon = tone === 'error' ? CircleAlert : TriangleAlert
+  const Icon = tone === 'error' ? AlertCircle : AlertTriangle
   return (
     <p
       data-slot="form-message"

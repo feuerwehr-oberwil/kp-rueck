@@ -29,7 +29,7 @@ import { useIntlLocale } from '@/lib/date-locale'
 import {
   CarTaxiFront,
   Check,
-  CircleAlert,
+  AlertCircle,
   FileText,
   Flag,
   MapPin,
@@ -531,7 +531,7 @@ export function FeldActions({
         {delivery.status === 'failed' && (
           <div className="space-y-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
             <p className="flex items-start gap-2">
-              <CircleAlert className="mt-0.5 size-4 shrink-0" />
+              <AlertCircle className="mt-0.5 size-4 shrink-0" />
               <span className="min-w-0 break-words">
                 {t('failedTitle', { label: delivery.label })}
                 <span className="block text-xs opacity-90">{t('failed')}</span>

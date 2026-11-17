@@ -12,7 +12,7 @@ import {
   ClipboardCheck,
   Footprints,
   Package,
-  PenLine,
+  Pencil,
   Plus,
   Truck,
   Users,
@@ -1208,7 +1208,7 @@ export function IncidentStatusWorkflowDialogs({
             <>
               <AlertDialogHeader>
                 <AlertDialogTitle className="flex items-center gap-2">
-                  <PenLine className="h-5 w-5 text-muted-foreground" />
+                  <Pencil className="h-5 w-5 text-muted-foreground" />
                   {tCorrection("title")}
                 </AlertDialogTitle>
                 <AlertDialogDescription>

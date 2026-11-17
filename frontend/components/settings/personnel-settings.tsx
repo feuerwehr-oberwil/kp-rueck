@@ -35,7 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Edit, Trash2, RefreshCw, ChevronDown, ChevronRight, MoreHorizontal, X } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2, RefreshCw, ChevronDown, ChevronRight, MoreHorizontal, X } from 'lucide-react';
 import { SearchInput } from '@/components/ui/search-input';
 import {
   DropdownMenu,
@@ -597,7 +597,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => handleEdit(person)} className="cursor-pointer">
-                          <Edit className="mr-2 size-3.5" />
+                          <Pencil className="mr-2 size-3.5" />
                           {t('common.edit')}
                         </DropdownMenuItem>
                         <DropdownMenuItem

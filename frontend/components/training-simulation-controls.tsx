@@ -20,7 +20,7 @@ import Link from 'next/link';
 import {
   ClipboardCheck,
   Bot,
-  Bus,
+  CarTaxiFront,
   MapPin,
   MapPinCheck,
   Truck,
@@ -634,7 +634,7 @@ export function TrainingSimulationControls() {
                               still have three people standing in the rain — and
                               the lift arriving is a report of its own. */}
                           <DropdownMenuItem onClick={() => handleInject(op, 'pickup')}>
-                            <Bus className="mr-2 h-4 w-4 flex-shrink-0 text-warning-foreground" />
+                            <CarTaxiFront className="mr-2 h-4 w-4 flex-shrink-0 text-warning-foreground" />
                             <span className="min-w-0">
                               <span className="block">
                                 {op.pickupNeeded ? t('injectPickupDone') : t('injectPickupNeeded')}

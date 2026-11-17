@@ -45,7 +45,7 @@ import {
   Package,
   ArrowRight,
   ArrowLeft,
-  Edit,
+  Pencil,
   Trash2,
   Truck,
   Bell,
@@ -633,7 +633,7 @@ export function CommandPalette() {
                   command any more — it lives here and nowhere else. */}
               {onSidePanelDetail && (
                 <CommandItem onSelect={() => runCommand(onSidePanelDetail)}>
-                  <Edit className="mr-2 h-4 w-4" />
+                  <Pencil className="mr-2 h-4 w-4" />
                   <span>{t('sidePanelDetail')}</span>
                 </CommandItem>
               )}
@@ -742,7 +742,7 @@ export function CommandPalette() {
                 disabled={!hasSelectedIncident}
                 onSelect={() => runCommand(() => incidentOnly(onEditIncident)?.())}
               >
-                <Edit className="mr-2 h-4 w-4" />
+                <Pencil className="mr-2 h-4 w-4" />
                 <span>{t('openDetails')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">E</span>
               </CommandItem>

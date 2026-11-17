@@ -27,7 +27,7 @@
  */
 
 import { useTranslations } from 'next-intl'
-import { Binoculars, MessageSquareText, Package, Phone, TriangleAlert, Truck, Users, Waypoints } from 'lucide-react'
+import { Binoculars, MessageSquareText, Package, Phone, AlertTriangle, Truck, Users, Waypoints } from 'lucide-react'
 
 import { LeaderGlyph } from '@/components/kanban/leader-badge'
 import { DriverStayGlyph } from '@/components/ui/driver-stay-glyph'
@@ -61,7 +61,7 @@ export function FeldDangerBadges({ dangers, className }: { dangers: string[]; cl
           key={danger}
           className="inline-flex items-center gap-1 rounded-full bg-destructive/15 px-2 py-0.5 text-xs font-medium text-destructive"
         >
-          <TriangleAlert className="h-3 w-3" />
+          <AlertTriangle className="h-3 w-3" />
           {tDanger(danger)}
         </span>
       ))}

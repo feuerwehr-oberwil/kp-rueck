@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import * as SheetPrimitive from '@radix-ui/react-dialog'
-import { XIcon } from 'lucide-react'
+import { X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { ignoreToastLayer } from '@/lib/toast-layer'
@@ -403,7 +403,7 @@ function SheetContent({
         )}
         {!hideCloseButton && (
           <SheetPrimitive.Close data-slot="sheet-close" className={CORNER_CLOSE_CLASS}>
-            <XIcon />
+            <X />
             <CloseLabel />
           </SheetPrimitive.Close>
         )}
