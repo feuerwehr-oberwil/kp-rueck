@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useId, useState, useRef } from 'react'
 import { apiClient, type ApiPersonnelCreate } from '@/lib/api-client'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
+import { FormMessage, fieldMessageProps, focusFirstBlockingField, formMessageId } from '@/components/ui/form-message'
 import { useTranslations } from 'next-intl'
 
 interface QuickAddPersonnelProps {
@@ -39,6 +40,9 @@ export function QuickAddPersonnel({
   const [showAddForm, setShowAddForm] = useState(false)
   const [newPersonName, setNewPersonName] = useState('')
   const [addingPerson, setAddingPerson] = useState(false)
+  // What is wrong with the typed name (missing, or already on the list), said under it.
+  const [nameError, setNameError] = useState<string | null>(null)
+  const nameId = useId()
   // Synchronous guard: React state updates async, so two very fast Enter/tap
   // presses can both pass an `if (addingPerson)` check before the first
   // setState lands. A ref flips immediately, and a short cooldown after
@@ -47,11 +51,17 @@ export function QuickAddPersonnel({
 
   const addNewPerson = async () => {
     const trimmedName = newPersonName.trim()
-    if (!trimmedName) return
     if (addingRef.current) return
-    // Disallow indistinguishable same-name duplicates
-    if (isNameTaken?.(trimmedName)) {
-      toast.error(t('duplicateTitle'), { description: t('duplicateDescription') })
+    // Disallow indistinguishable same-name duplicates. The server's own 409 below
+    // stays a toast: by then the form has been sent.
+    const problem = !trimmedName
+      ? tCommon('nameRequired')
+      : isNameTaken?.(trimmedName)
+        ? t('duplicateDescription')
+        : null
+    if (problem) {
+      setNameError(problem)
+      focusFirstBlockingField([nameId])
       return
     }
     addingRef.current = true
@@ -128,10 +138,15 @@ export function QuickAddPersonnel({
           className={framed ? 'bg-card border-2 border-border rounded-lg p-4 space-y-3' : 'space-y-2'}
         >
           <Input
+            id={nameId}
             type="text"
             placeholder={t('namePlaceholder')}
             value={newPersonName}
-            onChange={(e) => setNewPersonName(e.target.value)}
+            onChange={(e) => {
+              setNewPersonName(e.target.value)
+              setNameError(null)
+            }}
+            {...fieldMessageProps(nameId, nameError ? 'error' : null)}
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
                 addNewPerson()
@@ -140,10 +155,11 @@ export function QuickAddPersonnel({
             className="h-12 text-lg"
             autoFocus
           />
+          <FormMessage id={formMessageId(nameId)}>{nameError}</FormMessage>
           <div className="flex gap-2">
             <Button
               onClick={addNewPerson}
-              disabled={!newPersonName.trim() || addingPerson}
+              disabled={addingPerson}
               className="flex-1"
             >
               {addingPerson ? t('adding') : t('add')}
@@ -152,6 +168,7 @@ export function QuickAddPersonnel({
               onClick={() => {
                 setShowAddForm(false)
                 setNewPersonName('')
+                setNameError(null)
               }}
               variant="outline"
               className="flex-1"

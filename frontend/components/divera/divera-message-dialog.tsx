@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils"
 import { useEvent } from "@/lib/contexts/event-context"
 import { toast } from "sonner"
 import { ShellLoader, LoadingStatus } from "@/components/ui/shell-loader"
+import { FormMessage, fieldMessageProps, focusFirstBlockingField, formMessageId } from "@/components/ui/form-message"
 
 interface DiveraMessageDialogProps {
   open: boolean
@@ -63,6 +64,8 @@ export function DiveraMessageDialog({
   const [title, setTitle] = useState("")
   const [text, setText] = useState("")
   const [isSending, setIsSending] = useState(false)
+  // Set by a send that found something missing: from then on the missing field says so.
+  const [tried, setTried] = useState(false)
 
   // Re-prefill on every open, so an edited template (or a changed event) is
   // picked up instead of a stale first render being sent. The event is read as it is at
@@ -75,6 +78,7 @@ export function DiveraMessageDialog({
     setText(isTraining ? `🔶 ÜBUNG – dies ist eine Übung.\n\n${defaultText}` : defaultText)
     setTarget("groups")
     setSelectedGroups(new Set())
+    setTried(false)
 
     let cancelled = false
     setIsLoadingGroups(true)
@@ -105,10 +109,15 @@ export function DiveraMessageDialog({
   }
 
   const recipientsChosen = target === "all" || selectedGroups.size > 0
+  const recipientsError = tried && !recipientsChosen ? t("noRecipientsError") : undefined
+  const textError = tried && !text.trim() ? t("textRequired") : undefined
 
   const handleSend = async () => {
-    if (!recipientsChosen) {
-      toast.error(t("noRecipientsError"))
+    // What is missing is said under its field and the cursor goes there – the
+    // button stays live instead of greying out without a word.
+    if (!recipientsChosen || !text.trim()) {
+      setTried(true)
+      focusFirstBlockingField([!recipientsChosen && "divera-message-recipients", !text.trim() && "divera-message-text"])
       return
     }
     setIsSending(true)
@@ -163,7 +172,9 @@ export function DiveraMessageDialog({
           <DetailField label={t("recipients")} alignStart>
             <div className="rounded-lg border border-border">
               <button
+                id="divera-message-recipients"
                 type="button"
+                {...fieldMessageProps("divera-message-recipients", recipientsError ? "error" : null)}
                 onClick={() => setTarget("groups")}
                 className={cn(
                   "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
@@ -219,6 +230,11 @@ export function DiveraMessageDialog({
                 </p>
               )}
             </div>
+            {/* By hand, not DetailField's `error`: that needs `htmlFor`, and a label
+                pointing at the «Gruppen» button would press it. */}
+            <FormMessage id={formMessageId("divera-message-recipients")} className="mt-1">
+              {recipientsError}
+            </FormMessage>
           </DetailField>
 
           <DetailField label={t("titleLabel")} htmlFor="divera-message-title">
@@ -230,9 +246,10 @@ export function DiveraMessageDialog({
             />
           </DetailField>
 
-          <DetailField label={t("textLabel")} htmlFor="divera-message-text" alignStart>
+          <DetailField label={t("textLabel")} htmlFor="divera-message-text" alignStart error={textError}>
             <Textarea
               id="divera-message-text"
+              {...fieldMessageProps("divera-message-text", textError ? "error" : null)}
               value={text}
               rows={7}
               className="text-xs"
@@ -247,7 +264,7 @@ export function DiveraMessageDialog({
             <Button
               onClick={handleSend}
               title={blockedReason ?? undefined}
-              disabled={Boolean(blockedReason) || isSending || !recipientsChosen || !text.trim()}
+              disabled={Boolean(blockedReason) || isSending}
             >
               {isSending ? <ShellLoader className="size-4" /> : <MessageCircle className="size-4" />}
               {target === "all" ? t("sendAll") : t("send", { count: selectedGroups.size })}

@@ -186,6 +186,9 @@
       "confirm": "Abandonner",
       "cancel": "Continuer à éditer"
     },
+    "formMessage": {
+      "nameRequired": "Le nom manque."
+    },
     "commandPalette": {
       "title": "Palette de commandes",
       "description": "Rechercher et exécuter des commandes.",
@@ -494,7 +497,7 @@
       "titleFieldHint": "Titre du push. Reste bref. Champs disponibles : '{type}, {location}, {priority}'.",
       "textFieldLabel": "Texte de l’alarme",
       "textFieldHint": "Texte du push. Champs disponibles : '{notes}, {contact}, {internal_notes}, {vehicles}, {crew}, {materials}'.",
-      "selectPersonError": "Choisis une personne",
+      "selectPersonError": "Choisis une personne – c’est elle qui reçoit l’alarme de test.",
       "testSent": "Alarme de test envoyée à {name}",
       "testFailed": "Échec de l’alarme de test",
       "templatesLabel": "Modèles",
@@ -510,7 +513,7 @@
       "notConfiguredHint": "Aucun fournisseur d’alarme enregistré. La clé d’accès est saisie par la personne qui s’occupe du serveur – ensuite seulement l’interrupteur peut être activé."
     },
     "sendDialog": {
-      "noRecipientsError": "Aucun destinataire lié sélectionné",
+      "noRecipientsError": "Personne n’est sélectionné – coche au moins une personne liée.",
       "sent": "Convocation envoyée à {count, plural, one {# personne} other {# personnes}}",
       "sentWithSkipped": "Convocation envoyée à {count, plural, one {# personne} other {# personnes}}, {skipped, plural, one {# ignorée} other {# ignorées}}",
       "simulatedTitle": "Exercice : convocation simulée",
@@ -543,7 +546,8 @@
       "noGroups": "Aucun groupe n’est défini dans Divera.",
       "titleLabel": "Titre",
       "textLabel": "Texte",
-      "noRecipientsError": "Aucun destinataire sélectionné",
+      "noRecipientsError": "Aucun groupe choisi – coches-en au moins un ou choisis « Tout le site ».",
+      "textRequired": "Le texte manque – un message vide ne peut pas être envoyé.",
       "sentToGroups": "Message envoyé à {groups}",
       "sentToAll": "Message envoyé à tout le site",
       "simulatedTitle": "Exercice : message simulé",
@@ -1269,7 +1273,8 @@
   },
   "incidents": {
     "common": {
-      "cancel": "Annuler"
+      "cancel": "Annuler",
+      "nameRequired": "Le nom manque – sans nom, personne ne peut être ajouté."
     },
     "types": {
       "brandbekaempfung": "Lutte contre le feu",

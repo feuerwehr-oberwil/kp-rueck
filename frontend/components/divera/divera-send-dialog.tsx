@@ -29,6 +29,7 @@ import { getMessageTemplates } from "@/lib/message-template"
 import { apiClient } from "@/lib/api-client"
 import { useDeploymentBlock } from "@/lib/hooks/use-deployment"
 import { toast } from "sonner"
+import { FormMessage, fieldMessageProps, focusFirstBlockingField, formMessageId } from "@/components/ui/form-message"
 import { ShellLoader } from "@/components/ui/shell-loader"
 import { PersonName, usePersonNaming } from "@/components/person-name"
 
@@ -86,6 +87,8 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
   const [text, setText] = useState("")
   const [priority, setPriority] = useState(false)
   const [isSending, setIsSending] = useState(false)
+  // Set by a send without a recipient: from then on the list says so.
+  const [tried, setTried] = useState(false)
   // True once the async template fetch has populated title/text. Guards against
   // sending while the editable fields are still empty (the fetch hadn't resolved).
   const [templatesReady, setTemplatesReady] = useState(false)
@@ -105,6 +108,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
       ),
     )
     setPriority(false)
+    setTried(false)
     setTemplatesReady(false)
     // Prefill title/text from the editable templates (fetched async). Until this
     // resolves, the fields stay empty and the send button is disabled, so we can
@@ -144,13 +148,18 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
   const selectedLinkedCount = recipients.filter(
     (r) => selected.has(r.person.id) && r.person.diveraLinked,
   ).length
+  const recipientsError = tried && selectedLinkedCount === 0 ? t("noRecipientsError") : undefined
+  // The first tickable row – where the cursor goes when nobody is ticked.
+  const firstLinkedId = recipients.find((r) => r.person.diveraLinked)?.person.id
 
   const handleSend = async () => {
     const personnelIds = recipients
       .filter((r) => selected.has(r.person.id) && r.person.diveraLinked)
       .map((r) => r.person.id)
     if (personnelIds.length === 0) {
-      toast.error(t("noRecipientsError"))
+      // Said under the list, not as a toast; the button stays live.
+      setTried(true)
+      focusFirstBlockingField(["divera-recipients"])
       return
     }
     setIsSending(true)
@@ -227,6 +236,10 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
                       }`}
                     >
                       <Checkbox
+                        id={r.person.id === firstLinkedId ? "divera-recipients" : undefined}
+                        {...(r.person.id === firstLinkedId
+                          ? fieldMessageProps("divera-recipients", recipientsError ? "error" : null)
+                          : {})}
                         checked={selected.has(r.person.id)}
                         onCheckedChange={() => linked && toggle(r.person.id)}
                         disabled={!linked}
@@ -252,6 +265,11 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
                 })}
               </div>
             )}
+            {/* By hand, not DetailField's `error`: that needs `htmlFor`, and a label
+                pointing at the first checkbox would tick it. */}
+            <FormMessage id={formMessageId("divera-recipients")} className="mt-1">
+              {recipientsError}
+            </FormMessage>
           </DetailField>
 
           <DetailField label={t("titleLabel")} htmlFor="divera-title">
@@ -299,7 +317,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
             <Button
               onClick={handleSend}
               title={blockedReason ?? undefined}
-              disabled={Boolean(blockedReason) || isSending || selectedLinkedCount === 0 || !templatesReady}
+              disabled={Boolean(blockedReason) || isSending || !templatesReady}
             >
               {isSending ? (
                 <ShellLoader className="size-4" />

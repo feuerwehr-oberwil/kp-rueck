@@ -77,6 +77,9 @@
       "confirm": "Verwerfen",
       "cancel": "Weiter bearbeiten"
     },
+    "formMessage": {
+      "nameRequired": "Name fehlt."
+    },
     "commandPalette": {
       "title": "Befehlspalette",
       "description": "Suche und führe Befehle aus.",
@@ -1204,7 +1207,8 @@
   },
   "incidents": {
     "common": {
-      "cancel": "Abbrechen"
+      "cancel": "Abbrechen",
+      "nameRequired": "Name fehlt – ohne Namen lässt sich niemand hinzufügen."
     },
     "types": {
       "brandbekaempfung": "Brandbekämpfung",
@@ -3129,7 +3133,7 @@
       "titleFieldHint": "Push-Titel. Kurz halten. Platzhalter: «{type}, {location}, {priority}».",
       "textFieldLabel": "Alarmtext",
       "textFieldHint": "Push-Text. Platzhalter: «{notes}, {contact}, {internal_notes}, {vehicles}, {crew}, {materials}».",
-      "selectPersonError": "Bitte eine Person auswählen",
+      "selectPersonError": "Person wählen – an sie geht der Testalarm.",
       "testSent": "Testalarm gesendet an {name}",
       "testFailed": "Testalarm fehlgeschlagen",
       "templatesLabel": "Vorlagen",
@@ -3145,7 +3149,7 @@
       "notConfiguredHint": "Kein Alarmierungs-Anbieter hinterlegt. Den Zugangsschlüssel trägt die Person ein, die den Server betreut – danach lässt sich der Schalter umlegen."
     },
     "sendDialog": {
-      "noRecipientsError": "Keine verknüpften Empfänger ausgewählt",
+      "noRecipientsError": "Niemand ausgewählt – mindestens eine verknüpfte Person ankreuzen.",
       "sent": "Aufgebot gesendet an {count, plural, one {# Person} other {# Personen}}",
       "sentWithSkipped": "Aufgebot gesendet an {count, plural, one {# Person} other {# Personen}}, {skipped} übersprungen",
       "simulatedTitle": "Übung: Aufgebot simuliert",
@@ -3178,7 +3182,8 @@
       "noGroups": "In Divera sind keine Gruppen angelegt.",
       "titleLabel": "Titel",
       "textLabel": "Text",
-      "noRecipientsError": "Keine Empfänger ausgewählt",
+      "noRecipientsError": "Keine Gruppe gewählt – mindestens eine ankreuzen oder «Alle im Standort» wählen.",
+      "textRequired": "Text fehlt – eine leere Mitteilung lässt sich nicht senden.",
       "sentToGroups": "Mitteilung gesendet an {groups}",
       "sentToAll": "Mitteilung an alle im Standort gesendet",
       "simulatedTitle": "Übung: Mitteilung simuliert",

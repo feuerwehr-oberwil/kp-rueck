@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { User, CheckCircle, Circle, Trash2, AlertTriangle, UserPlus, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { FormMessage, fieldMessageProps, focusFirstBlockingField, formMessageId } from "@/components/ui/form-message"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
 import { type Person, type Operation, useOperations } from "@/lib/contexts/operations-context"
 import { personMatchesQuery } from "@/lib/resource-status"
@@ -32,6 +33,9 @@ interface DriverAssignmentDialogProps {
   /** Resolves false when the removal failed (already rolled back + toasted). */
   removeCrew: (operationId: string, personnelId: string) => Promise<boolean>
 }
+
+/** The walk-in name field – its message and the submit's focus target. */
+const WALK_IN_NAME_ID = "walk-in-driver-name"
 
 export function DriverAssignmentDialog({
   open,
@@ -58,6 +62,7 @@ export function DriverAssignmentDialog({
   // and isn't in the checked-in roster yet).
   const [showAddForm, setShowAddForm] = useState(false)
   const [newPersonName, setNewPersonName] = useState("")
+  const [newPersonError, setNewPersonError] = useState<string | null>(null)
   const [isAddingPerson, setIsAddingPerson] = useState(false)
 
   // Track driver locally so we can update UI immediately
@@ -268,9 +273,16 @@ export function DriverAssignmentDialog({
   // Fahrer, and assign them as this vehicle's driver in one go.
   const addWalkInDriver = async () => {
     const name = newPersonName.trim()
-    if (!name || isAddingPerson) return
-    if (personnel.some(p => p.name.trim().toLowerCase() === name.toLowerCase())) {
-      toast.error(t('duplicateName'))
+    if (isAddingPerson) return
+    // Said under the name field, and the cursor stays there.
+    const problem = !name
+      ? tCommon('nameRequired')
+      : personnel.some(p => p.name.trim().toLowerCase() === name.toLowerCase())
+        ? t('duplicateName')
+        : null
+    if (problem) {
+      setNewPersonError(problem)
+      focusFirstBlockingField([WALK_IN_NAME_ID])
       return
     }
     setIsAddingPerson(true)
@@ -467,20 +479,23 @@ export function DriverAssignmentDialog({
               <div className="shrink-0 space-y-2 rounded-lg border border-border bg-muted/30 p-3">
                 <p className="text-xs text-muted-foreground">{t('addPersonHint')}</p>
                 <Input
+                  id={WALK_IN_NAME_ID}
                   type="text"
                   autoFocus
                   placeholder={t('addNamePlaceholder')}
                   value={newPersonName}
-                  onChange={(e) => setNewPersonName(e.target.value)}
+                  onChange={(e) => { setNewPersonName(e.target.value); setNewPersonError(null) }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') { e.preventDefault(); addWalkInDriver() }
-                    if (e.key === 'Escape') { setShowAddForm(false); setNewPersonName("") }
+                    if (e.key === 'Escape') { setShowAddForm(false); setNewPersonName(""); setNewPersonError(null) }
                   }}
+                  {...fieldMessageProps(WALK_IN_NAME_ID, newPersonError ? 'error' : null)}
                 />
+                <FormMessage id={formMessageId(WALK_IN_NAME_ID)}>{newPersonError}</FormMessage>
                 <div className="flex gap-2">
                   <Button
                     onClick={addWalkInDriver}
-                    disabled={!newPersonName.trim() || isAddingPerson}
+                    disabled={isAddingPerson}
                     className="flex-1"
                     size="sm"
                   >
@@ -493,7 +508,7 @@ export function DriverAssignmentDialog({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => { setShowAddForm(false); setNewPersonName("") }}
+                    onClick={() => { setShowAddForm(false); setNewPersonName(""); setNewPersonError(null) }}
                     disabled={isAddingPerson}
                   >
                     {tCommon('cancel')}
