@@ -1,4 +1,5 @@
 import { test, expect, Browser } from '@playwright/test';
+import de from '../../../messages/de.json';
 
 /**
  * Demo Sandbox Tests
@@ -32,7 +33,7 @@ async function demoEditorLogin(browser: Browser) {
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto('/login');
-  await page.getByRole('button', { name: /Als Editor einloggen/i }).click();
+  await page.getByRole('button', { name: de.login.page.loginAsEditor, exact: true }).click();
   await page.waitForURL('/');
   return { context, page };
 }
