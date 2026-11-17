@@ -3,6 +3,7 @@
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { XIcon } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { ignoreToastLayer } from '@/lib/toast-layer'
@@ -66,6 +67,12 @@ function DialogOverlay({
   )
 }
 
+/** The corner ✕'s accessible name, «Schliessen» / «Fermer» – shared with sheet.tsx. */
+export function CloseLabel() {
+  const t = useTranslations('kanban.common')
+  return <span className="sr-only">{t('close')}</span>
+}
+
 function DialogContent({
   className,
   children,
@@ -102,7 +109,7 @@ function DialogContent({
         {showCloseButton && (
           <DialogPrimitive.Close data-slot="dialog-close" className={CORNER_CLOSE_CLASS}>
             <XIcon />
-            <span className="sr-only">Close</span>
+            <CloseLabel />
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>

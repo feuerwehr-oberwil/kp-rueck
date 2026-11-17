@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 
@@ -59,7 +59,7 @@ describe('bottom Sheet swipe-to-dismiss', () => {
 
   it('draws a grip and closes on a long pull from the header', () => {
     const onOpenChange = vi.fn()
-    render(<BottomSheet onOpenChange={onOpenChange} />)
+    renderWithIntl(<BottomSheet onOpenChange={onOpenChange} />)
     expect(document.querySelector('[data-slot="sheet-grip"]')).not.toBeNull()
     pull(screen.getByText('Weitere Funktionen'), 100, 300)
     expect(onOpenChange).toHaveBeenCalledWith(false)
@@ -67,14 +67,14 @@ describe('bottom Sheet swipe-to-dismiss', () => {
 
   it('snaps back after a short pull', () => {
     const onOpenChange = vi.fn()
-    render(<BottomSheet onOpenChange={onOpenChange} />)
+    renderWithIntl(<BottomSheet onOpenChange={onOpenChange} />)
     pull(screen.getByText('Weitere Funktionen'), 100, 130)
     expect(onOpenChange).not.toHaveBeenCalled()
   })
 
   it('leaves a pull on scrolled content to the scroller', () => {
     const onOpenChange = vi.fn()
-    render(
+    renderWithIntl(
       <BottomSheet onOpenChange={onOpenChange}>
         <div data-testid="list" style={{ overflowY: 'auto' }}>
           <p>Zeile</p>
@@ -96,7 +96,7 @@ describe('bottom Sheet swipe-to-dismiss', () => {
 
   it('never drags from a control', () => {
     const onOpenChange = vi.fn()
-    render(
+    renderWithIntl(
       <BottomSheet onOpenChange={onOpenChange}>
         <button type="button">Fahrzeuge</button>
       </BottomSheet>,
@@ -107,7 +107,7 @@ describe('bottom Sheet swipe-to-dismiss', () => {
 
   it('has no grip and no swipe on a docked desktop footer sheet', () => {
     const onOpenChange = vi.fn()
-    render(<BottomSheet onOpenChange={onOpenChange} overlayOffset="42px" nonModal />)
+    renderWithIntl(<BottomSheet onOpenChange={onOpenChange} overlayOffset="42px" nonModal />)
     expect(document.querySelector('[data-slot="sheet-grip"]')).toBeNull()
     pull(screen.getByText('Weitere Funktionen'), 100, 400)
     expect(onOpenChange).not.toHaveBeenCalled()
@@ -116,13 +116,13 @@ describe('bottom Sheet swipe-to-dismiss', () => {
   it('leaves an undocked bottom sheet\'s geometry to the keyboard rule (no inline bottom)', () => {
     // globals.css moves it into the visible band while a keyboard is up; an inline `bottom`
     // would beat that rule
-    render(<BottomSheet onOpenChange={() => {}} />)
+    renderWithIntl(<BottomSheet onOpenChange={() => {}} />)
     expect(content()!.style.bottom).toBe('')
     expect(content()).not.toHaveAttribute('data-docked')
   })
 
   it('does not focus a field when a phone sheet opens (no keyboard until a tap)', () => {
-    render(
+    renderWithIntl(
       <Sheet open onOpenChange={() => {}}>
         <SheetContent side="bottom" aria-describedby={undefined}>
           <SheetTitle>Neuer Einsatz</SheetTitle>
@@ -135,7 +135,7 @@ describe('bottom Sheet swipe-to-dismiss', () => {
   })
 
   it('still focuses the first field of a side sheet', () => {
-    render(
+    renderWithIntl(
       <Sheet open onOpenChange={() => {}}>
         <SheetContent side="right" aria-describedby={undefined}>
           <SheetTitle>Filter</SheetTitle>
@@ -173,7 +173,7 @@ describe('bottom Sheet swipe-to-dismiss', () => {
   })
 
   it('publishes --sheet-top while open and 0 once closed', () => {
-    const { rerender } = render(
+    const { rerender } = renderWithIntl(
       <Sheet open onOpenChange={() => {}}>
         <SheetContent side="bottom" aria-describedby={undefined}>
           <SheetTitle>Fahrzeuge</SheetTitle>
@@ -197,7 +197,7 @@ describe('bottom Sheet Escape', () => {
   it('closes an inner popover first, the sheet with the next Escape', async () => {
     const user = userEvent.setup()
     const onOpenChange = vi.fn()
-    render(
+    renderWithIntl(
       <BottomSheet onOpenChange={onOpenChange}>
         <Popover>
           <PopoverTrigger>Einsatzart</PopoverTrigger>

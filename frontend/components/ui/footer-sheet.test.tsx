@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
+import { renderWithIntl } from "@/test-utils/render-with-intl"
 import userEvent from "@testing-library/user-event"
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
@@ -47,7 +48,7 @@ describe("FooterSheet outside-click guard", () => {
   it("stays open when a tagged portalled layer is clicked", async () => {
     const user = userEvent.setup()
     const onOpenChange = vi.fn()
-    render(<Board onOpenChange={onOpenChange} />)
+    renderWithIntl(<Board onOpenChange={onOpenChange} />)
 
     await user.click(screen.getByRole("button", { name: "Hauptstrasse 1" }))
     expect(onOpenChange).not.toHaveBeenCalled()
@@ -56,7 +57,7 @@ describe("FooterSheet outside-click guard", () => {
   it("stays open while a modal layer above it owns the pointer", async () => {
     const user = userEvent.setup()
     const onOpenChange = vi.fn()
-    render(<Board onOpenChange={onOpenChange} pickerOpen />)
+    renderWithIntl(<Board onOpenChange={onOpenChange} pickerOpen />)
 
     // Radix locks `<body>` for a modal layer; the sheet reads that as "the
     // click belongs to whatever is above me" — dropping a pin on the picker's
@@ -69,7 +70,7 @@ describe("FooterSheet outside-click guard", () => {
   it("still closes on a click on the page behind it", async () => {
     const user = userEvent.setup()
     const onOpenChange = vi.fn()
-    render(<Board onOpenChange={onOpenChange} />)
+    renderWithIntl(<Board onOpenChange={onOpenChange} />)
 
     await user.click(screen.getByRole("button", { name: "Karte" }))
     expect(onOpenChange).toHaveBeenCalledWith(false)

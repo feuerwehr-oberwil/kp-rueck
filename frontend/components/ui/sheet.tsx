@@ -7,7 +7,7 @@ import { XIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ignoreToastLayer } from '@/lib/toast-layer'
 import { OVERLAY_CLASS } from '@/components/ui/overlay'
-import { CORNER_CLOSE_CLASS } from '@/components/ui/dialog'
+import { CloseLabel, CORNER_CLOSE_CLASS } from '@/components/ui/dialog'
 import { registerBottomSheet, scheduleSheetTop } from '@/lib/viewport-insets'
 import {
   HANDLE_SELECTOR,
@@ -404,7 +404,7 @@ function SheetContent({
         {!hideCloseButton && (
           <SheetPrimitive.Close data-slot="sheet-close" className={CORNER_CLOSE_CLASS}>
             <XIcon />
-            <span className="sr-only">Close</span>
+            <CloseLabel />
           </SheetPrimitive.Close>
         )}
       </SheetPrimitive.Content>

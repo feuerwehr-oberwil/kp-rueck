@@ -132,7 +132,7 @@ async function dismissSetupChecklist(page: Page) {
  * reads a modal nobody meant to leave open.
  */
 async function closeDetail(modal: Locator) {
-  await modal.getByRole('button', { name: 'Close' }).click();
+  await modal.locator('[data-slot="dialog-close"]').click();
   await expect(modal).toBeHidden({ timeout: 15_000 });
 }
 
