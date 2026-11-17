@@ -486,7 +486,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <span className={`px-2 py-1 rounded text-xs ${isArchived ? 'bg-muted text-muted-foreground' : 'bg-accent text-accent-foreground'}`}>
+                    <span className="px-2 py-1 rounded text-xs bg-muted text-muted-foreground">
                       {material.location || 'General'}
                     </span>
                   </TableCell>
@@ -676,7 +676,7 @@ function MaterialGroupSettings({
               <TableRow key={group.id}>
                 <TableCell className="font-medium">{group.name}</TableCell>
                 <TableCell>
-                  <span className="px-2 py-1 rounded text-xs bg-accent text-accent-foreground">
+                  <span className="px-2 py-1 rounded text-xs bg-muted text-muted-foreground">
                     {group.location || '–'}
                   </span>
                 </TableCell>
@@ -758,7 +758,7 @@ function MaterialGroupSettings({
                           type="checkbox"
                           checked={selectedMaterialIds.has(mat.id)}
                           onChange={() => toggleMaterial(mat.id)}
-                          className="rounded"
+                          className="rounded accent-sel"
                         />
                         <span className="text-sm">{mat.name}</span>
                         <span className="text-xs text-muted-foreground ml-auto">{mat.location}</span>

@@ -35,7 +35,7 @@ desktop only):
   from and how much it had not sent then, with a warning when somebody is working there.
 
 Behind the band the board is the ordinary one with editing switched off, as for a viewer – on
-the hosted board except for new things: an Einsatz, a Tagebuch line, and everything the field
+the hosted board except for new things: an Einsatz, a Verlauf line, and everything the field
 sends (Feld reports, photos, alarms), which reach the box with the next round. The box's API
 agrees: while it leads no Ereignis, every write is answered 403 (`standby_read_only`).
 The hosted board's API refuses one thing outright while the box leads an Ereignis: deleting it
@@ -49,7 +49,7 @@ alarms keep writing to it. When the two meet again, per row and field:
 - a change only one side made is taken, from either side (the box changed the Meldung, a phone
   the status of the same Einsatz: both stand);
 - new rows from either side are added; an Einsatz number both gave out is renumbered, with a
-  Tagebuch line saying so;
+  Verlauf line saying so;
 - two different rows in the same one-per-something slot are both kept: a stop both added at the
   same place of an Auftrag moves to its next free place, and of two Einsatzleiter named for one
   Einsatz the leader's stays leader, the other stays in the Mannschaft (a conflict). Only a real
@@ -134,7 +134,7 @@ from the box, and the box's work stays on the box.
 **What the box can do with the hosted board.** It never holds the hosted database's own login.
 It reads through `kp_standby` (replication and `SELECT`, no write privilege on any table), and
 it writes only through `POST /api/standby/sync` with the key, which takes rows of one Ereignis
-at a time: the Ereignis's own tables (Einsätze, Aufträge, Mannschaft, Tagebuch, Rapporte …),
+at a time: the Ereignis's own tables (Einsätze, Aufträge, Mannschaft, Verlauf, Rapporte …),
 each row checked against the version the box last saw. Users, roster and settings are out of
 its reach. Which Ereignis is not: a takeover happens on the box, offline, and the hosted board
 learns of it from the box – so whoever holds the key can declare any Ereignis taken over and
@@ -216,7 +216,7 @@ on the hosted board usually lacks `STANDBY_SYNC_TOKEN`, or has a different one.
    If the outage began before the hosted board had the Ereignis, Ereignisse › **«Neues Ereignis
    offline anlegen …»**: an Ereignis created on the box is led there from the start, and appears
    on the hosted board once it answers.
-3. Crews outside keep using the hosted board on their phones (Feld reports, photos, Tagebuch):
+3. Crews outside keep using the hosted board on their phones (Feld reports, photos, Verlauf):
    it reaches the box with the next round after the internet is back.
 4. The thermal print agent and alarm intake still point at the hosted board. Without the
    internet, alarms do not arrive at the box; once it is back, an alarm the hosted board

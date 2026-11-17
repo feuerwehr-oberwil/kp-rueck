@@ -5245,7 +5245,7 @@
           "incidents"
         ],
         "summary": "Delete Incident",
-        "description": "Delete incident (hard delete for training, soft delete for live).",
+        "description": "Soft-delete an incident (every one, live or Übung); `POST /restore` is the undo.",
         "operationId": "delete_incident_api_incidents__incident_id__delete",
         "parameters": [
           {
@@ -23886,6 +23886,17 @@
               }
             ],
             "title": "Group Name"
+          },
+          "group_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Color"
           },
           "group_position": {
             "anyOf": [

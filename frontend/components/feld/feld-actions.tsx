@@ -51,6 +51,7 @@ import { deliveryReducer, IDLE, isBusy, type FeldActionKind } from '@/lib/feld-d
 import { formatPickupSince, formatPickupWaiting } from '@/lib/pickup'
 import { rapportApplies } from '@/lib/rapport-visibility'
 import { ShellLoader } from '@/components/ui/shell-loader'
+import { FormMessage, formMessageId, useRequiredField } from '@/components/ui/form-message'
 
 /**
  * Which follow-up panel is open. Exactly one at a time, so the phone never
@@ -125,6 +126,10 @@ export function FeldActions({
   const [askItem, setAskItem] = useState('')
   const [askQuantity, setAskQuantity] = useState(1)
   const [askNote, setAskNote] = useState('')
+  // A send with nothing to send says so under the field (INT-07), never a silently greyed
+  // button. A material request needs a material OR a note; a Verstärkung can go bare.
+  const messageField = useRequiredField('feld-message', message, t('messageRequired'))
+  const askItemField = useRequiredField('feld-ask-item', askItem.trim() || askNote.trim(), tAsk('materialRequired'))
   // One state machine for all four reports: pending → sent | failed. A tap that
   // silently does nothing is the thing being fixed here, so every path ends in
   // a visible answer.
@@ -209,6 +214,7 @@ export function FeldActions({
   const handleMessage = async (text: string) => {
     const trimmed = text.trim()
     if (!trimmed) return
+    messageField.reset()
     // One id per send, built ONCE: «Erneut senden» repeats this exact payload,
     // so the server recognises the repeat instead of opening a second request.
     const payload: ApiFieldRequestCreate = { message: trimmed, client_request_id: randomUuid() }
@@ -226,6 +232,7 @@ export function FeldActions({
 
   /** Open the «what, how many» picker — with a sensible count for each kind. */
   const openAsk = (kind: 'material' | 'personnel') => {
+    askItemField.reset()
     setAskItem('')
     setAskNote('')
     setAskQuantity(kind === 'personnel' ? 2 : 1)
@@ -233,6 +240,7 @@ export function FeldActions({
   }
 
   const handleAsk = async (kind: 'material' | 'personnel') => {
+    if (kind === 'material' && !askItemField.check()) return
     const payload: ApiFieldRequestCreate = {
       kind,
       item: askItem.trim() || null,
@@ -522,7 +530,7 @@ export function FeldActions({
         )}
 
         {delivery.status === 'sent' && (
-          <p className="flex items-center gap-2 rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200">
+          <p className="flex items-center gap-2 rounded-lg bg-success/15 px-3 py-2 text-sm text-foreground">
             <Check className="size-4 shrink-0" />
             <span className="min-w-0 break-words">{t('sent', { label: delivery.label })}</span>
           </p>
@@ -587,7 +595,7 @@ export function FeldActions({
           «Abholung disponiert». Without this line the red box just vanished —
           to a crew in the rain, indistinguishable from a lost request. */}
       {!pickupNeeded && assignment.pickup_resolved_at && (
-        <div className="rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200">
+        <div className="rounded-lg bg-success/15 px-3 py-2 text-sm text-foreground">
           <p className="flex items-center gap-1.5 font-medium">
             <Check className="size-4 shrink-0" />
             {tPickup('ackResolved', { time: formatPickupSince(toDate(assignment.pickup_resolved_at)) })}
@@ -702,24 +710,26 @@ export function FeldActions({
               and `icon` keeps the button square instead of a wide slab. */}
           <div className="flex items-stretch gap-2">
             <Input
+              {...messageField.controlProps}
               placeholder={t('messagePlaceholder')}
               value={message}
               maxLength={500}
               onChange={e => setMessage(e.target.value)}
               onKeyDown={e => {
-                if (e.key === 'Enter') handleMessage(message)
+                if (e.key === 'Enter' && messageField.check()) handleMessage(message)
               }}
               className="h-11 text-sm"
             />
             <Button
               size="icon"
               aria-label={t('send')}
-              disabled={busy || !message.trim()}
-              onClick={() => handleMessage(message)}
+              disabled={busy}
+              onClick={() => messageField.check() && handleMessage(message)}
             >
               {isBusy(delivery, 'message') ? <ShellLoader className="size-4" /> : <Send className="size-4" />}
             </Button>
           </div>
+          <FormMessage id={formMessageId('feld-message')}>{messageField.error}</FormMessage>
         </div>
       )}
       {/* --- «Material nötig» / «Verstärkung nötig» (R13) ------------------ */}
@@ -731,6 +741,7 @@ export function FeldActions({
           {panel === 'request-material' && (
             <>
               <Input
+                {...askItemField.controlProps}
                 placeholder={tAsk('materialPlaceholder')}
                 value={askItem}
                 maxLength={120}
@@ -738,6 +749,7 @@ export function FeldActions({
                 onChange={e => setAskItem(e.target.value)}
                 className="h-11 text-sm"
               />
+              <FormMessage id={formMessageId('feld-ask-item')}>{askItemField.error}</FormMessage>
               {materialMatches.length > 0 && (
                 <div className="flex flex-wrap gap-2" role="group" aria-label={tAsk('materialListLabel')}>
                   {materialMatches.map(name => (
@@ -803,7 +815,7 @@ export function FeldActions({
               {t('cancel')}
             </Button>
             <Button
-              disabled={busy || (panel === 'request-material' && !askItem.trim() && !askNote.trim())}
+              disabled={busy}
               onClick={() => handleAsk(panel === 'request-material' ? 'material' : 'personnel')}
             >
               {isBusy(delivery, 'message') ? <ShellLoader className="size-4" /> : <Send className="size-4" />}
@@ -830,7 +842,7 @@ export function FeldActions({
                   key={request.id}
                   className={`rounded-lg px-3 py-2 text-sm ${
                     state === 'done'
-                      ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200'
+                      ? 'bg-success/15 text-foreground'
                       : 'bg-background'
                   }`}
                 >

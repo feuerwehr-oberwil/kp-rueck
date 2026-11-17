@@ -1,7 +1,9 @@
 "use client"
 
 /**
- * AssignmentLines — the red "ant trail" from a vehicle's GPS fix to the place it is driving to.
+ * AssignmentLines — the ink "ant trail" from a vehicle's GPS fix to the place it is driving to.
+ * Ink, dashed: a connection, not a state – it was red, which beside the red Hoch pins read as
+ * danger (owner pick ENT-16 A, 17.11.2026).
  *
  * MapLibre port (plan 28): all lines live in ONE GeoJSON source/line layer instead of a
  * `<Polyline>` each, so a board with twenty assignments is still one draw call. Two things have
@@ -30,6 +32,7 @@ import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { haversineKm } from "@/lib/utils/route-geo"
 import { findVehiclePosition, normalizeVehicleName } from "@/lib/vehicle-positions"
 import { isOnline } from "@/lib/map-vehicles"
+import { MAP_INK } from "@/lib/map-colors"
 
 /** The one source/layer pair every assignment line lives in. Exported so a surface can order around it. */
 export const ASSIGNMENT_SOURCE_ID = "assignment-lines"
@@ -37,7 +40,7 @@ export const ASSIGNMENT_LINE_LAYER_ID = "assignment-lines-line"
 /** The invisible fat line under the visible one – see `HIT_PAINT`. This is what hover listens on. */
 export const ASSIGNMENT_HIT_LAYER_ID = "assignment-lines-hit"
 
-const LINE_COLOR = "#dc2626"
+const LINE_COLOR = MAP_INK
 const LINE_WIDTH_PX = 2.5
 
 // `line-dasharray` counts in LINE WIDTHS, not pixels – Leaflet's `dashArray: "8, 12"` on a

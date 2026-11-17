@@ -33,6 +33,7 @@ import { BaseMap } from "@/components/map/base-map"
 import { MapTooltip, type MapTooltipSide } from "@/components/map/map-tooltip"
 import { isLocated, type LocatedOperation } from "@/lib/utils/route-geo"
 import { DEFAULT_CENTER_LATLNG, fitTo, type LatLngPoint } from "@/lib/map-view"
+import { MAP_NONE } from "@/lib/map-colors"
 import type { Operation } from "@/lib/contexts/operations-context"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
 
@@ -109,8 +110,10 @@ function CandidatePin({
             borderRadius: "50%",
             background: fill,
             border: `2px ${dashed ? "dashed" : "solid"} white`,
+            // Selected = the selection ring + the bigger size; the fill keeps saying which
+            // route the pin is in (ENT-04 A – it turned red, which is Hoch).
             boxShadow: selected
-              ? "0 0 0 3px rgba(239, 68, 68, 0.35), 0 2px 5px rgba(0, 0, 0, 0.35)"
+              ? "0 0 0 3px var(--sel-line), 0 2px 5px rgba(0, 0, 0, 0.35)"
               : "0 1px 4px rgba(0, 0, 0, 0.3)",
             cursor: "pointer",
           }}
@@ -249,6 +252,16 @@ export function IncidentPickerDialog({
 
   // Map markers: all located candidates (selectable — members render pre-checked).
   const locatedCandidates = useMemo(() => candidates.filter(isLocated), [candidates])
+  // The colours of the OTHER routes on the map, for the legend – the swatch it shows is one
+  // the map really draws.
+  const otherRouteColors = useMemo(() => {
+    const colors = new Set<string>()
+    for (const op of locatedCandidates) {
+      const color = op.groupId && op.groupId !== targetGroupId ? groupById.get(op.groupId)?.color : undefined
+      if (color) colors.add(color)
+    }
+    return [...colors].slice(0, 4)
+  }, [locatedCandidates, targetGroupId, groupById])
   const allMapPositions = useMemo<LatLngPoint[]>(
     () => locatedCandidates.map((op) => op.coordinates),
     [locatedCandidates],
@@ -326,7 +339,7 @@ export function IncidentPickerDialog({
           <CandidatePin
             key={op.id}
             op={op}
-            fill={isChecked ? "#ef4444" : otherGroup?.color ?? "#64748b"}
+            fill={otherGroup?.color ?? MAP_NONE}
             selected={isChecked}
             dashed={!!otherGroup && !isChecked}
             title={`${location || getIncidentTypeLabel(op.incidentType)}${otherGroup ? ` · ${otherGroup.name}` : ""}`}
@@ -435,15 +448,22 @@ export function IncidentPickerDialog({
             {locatedCandidates.length > 0 && (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-0.5 text-2xs text-muted-foreground">
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full border border-white" style={{ backgroundColor: "#ef4444" }} />
+                  <span className="h-2.5 w-2.5 rounded-full ring-2 ring-sel-line" />
                   {t("legendSelected")}
                 </span>
+                {/* The swatches the map really draws: the other routes' own colours. */}
+                {otherRouteColors.length > 0 && (
+                  <span className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-0.5">
+                      {otherRouteColors.map((color) => (
+                        <span key={color} className="h-2.5 w-2.5 rounded-full border border-dashed border-white" style={{ backgroundColor: color }} />
+                      ))}
+                    </span>
+                    {t("legendOtherRoute")}
+                  </span>
+                )}
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full border border-dashed border-white" style={{ backgroundColor: "#10b981" }} />
-                  {t("legendOtherRoute")}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full border border-white" style={{ backgroundColor: "#64748b" }} />
+                  <span className="h-2.5 w-2.5 rounded-full border border-white" style={{ backgroundColor: MAP_NONE }} />
                   {t("legendUnassigned")}
                 </span>
               </div>
@@ -499,11 +519,12 @@ export function IncidentPickerDialog({
         </div>
         )}
 
-        {/* The escape hatch goes left on its own (`sm:mr-auto`); Abbrechen stays
-            in the right-hand group beside the primary button. Same geometry as
-            `ConfirmDialog`'s `extraAction`, which is the app's one footer shape.
-            `justify-between` plus a `<span />` spacer did the same thing, but
-            only as long as something stood in the left slot. */}
+        {/* A picker's footer, not a question's: the escape hatch goes left on its
+            own (`sm:mr-auto`), Abbrechen stays in the right-hand group beside the
+            primary button. (A confirmation's third answer is a line of its own –
+            `ConfirmDialog`'s `extraAction`.) `justify-between` plus a `<span />`
+            spacer did the same thing, but only as long as something stood in the
+            left slot. */}
         <DialogFooter className="flex-shrink-0">
           {onCreateNew && (
             <Button

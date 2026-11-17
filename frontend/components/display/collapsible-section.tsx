@@ -29,9 +29,12 @@ export function CollapsibleSection({
   collapsed,
   onToggle,
   headerClassName,
+  lead,
   children,
 }: {
   label: string
+  /** A mark before the label – an Auftrag's swatch, so the section wears the route's own colour. */
+  lead?: ReactNode
   /** How many rows are in there — shown open and closed alike. Left out by a
    *  section that lists no rows (the wall's Kennzahlen), whose badge says it all. */
   count?: number
@@ -66,12 +69,13 @@ export function CollapsibleSection({
         </span>
         <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
           <span className={cn("min-h-5 min-w-0 flex-auto content-center text-2xs xl:text-xs font-bold uppercase tracking-wider text-foreground/70", WALL_TEXT_WRAP)}>
+            {lead}
             {label}
           </span>
           {(alarm || badge || count !== undefined) && (
             <span className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2 text-right">
               {alarm && (
-                <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" aria-hidden />
+                <span className="h-2 w-2 shrink-0 rounded-full bg-destructive" aria-hidden />
               )}
               {badge}
               {count !== undefined && (

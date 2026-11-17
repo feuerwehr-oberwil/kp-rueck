@@ -13,6 +13,7 @@ import { LoadingStatus, ShellLoader } from '@/components/ui/shell-loader';
 import { SettingCard } from '@/components/settings/setting-row';
 import { AUDIT_ACTION_TYPES, AUDIT_RESOURCE_TYPES, type AuditLog } from '@/components/settings/use-audit-log';
 import type { useEvent } from '@/lib/contexts/event-context';
+import { TrainingBadge } from '@/components/training-mode-chrome'
 
 /**
  * «Audit»: the per-Ereignis protocol export, then the log — search, resource
@@ -77,7 +78,7 @@ export function AuditLogSection({
                       <SelectItem key={event.id} value={event.id}>
                         {event.name}
                         {event.training_flag && (
-                          <span className="ml-2 text-xs text-muted-foreground">{t('page.audit.trainingTag')}</span>
+                          <TrainingBadge square label={t('page.audit.trainingTag')} className="ml-2" />
                         )}
                       </SelectItem>
                     ))}
@@ -92,7 +93,7 @@ export function AuditLogSection({
                           <SelectItem key={event.id} value={event.id}>
                             {event.name}
                             {event.training_flag && (
-                              <span className="ml-2 text-xs text-muted-foreground">{t('page.audit.trainingTag')}</span>
+                              <TrainingBadge square label={t('page.audit.trainingTag')} className="ml-2" />
                             )}
                           </SelectItem>
                         ))}

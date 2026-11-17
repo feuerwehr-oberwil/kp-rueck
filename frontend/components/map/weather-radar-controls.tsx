@@ -14,15 +14,13 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Pause, Play } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { formatAgo } from "@/lib/duration"
 import { Slider } from "@/components/ui/slider"
 import { useIntlLocale } from "@/lib/date-locale"
 import { formatWeatherTime, frameAgeMinutes, latestFrameIndex, type WeatherRadar } from "@/lib/weather"
 import { cn } from "@/lib/utils"
 
 const STEP_MS = 650
-/** The shared Slider fills with `--primary`, which is the fire-service red here – reserved for
- *  priority and danger. A scrubber is neither, so it wears the slate selection line. */
-const SLATE_SLIDER = "[&_[data-slot=slider-range]]:bg-sel-line [&_[data-slot=slider-thumb]]:border-sel-line"
 /** Extra ticks the loop rests on the newest frame before starting over. */
 const HOLD_TICKS = 3
 
@@ -112,6 +110,7 @@ export function WeatherRadarControls({
   now: number
 }) {
   const t = useTranslations("map.weather")
+  const tDuration = useTranslations("common.duration")
   const intlLocale = useIntlLocale()
   const frames = radar?.frames ?? []
   const frame = frames[frameIndex]
@@ -152,7 +151,7 @@ export function WeatherRadarControls({
             value={[frameIndex]}
             onValueChange={([value]) => onPick(value)}
             aria-label={t("frameSlider")}
-            className={cn("min-w-0 flex-1", SLATE_SLIDER)}
+            className="min-w-0 flex-1"
           />
           <span
             className={cn("shrink-0 text-right font-mono tabular-nums", stale && "text-muted-foreground")}
@@ -164,7 +163,7 @@ export function WeatherRadarControls({
       )}
       {frames.length > 0 && (
         <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-          <span className="tabular-nums">{age > 0 ? t("frameAgo", { minutes: age }) : t("latest")}</span>
+          <span className="tabular-nums">{age > 0 ? formatAgo(age * 60_000, tDuration) : t("latest")}</span>
           {/* Phone: the map is 45vh and only looked at – opacity and the colour key stay
               desktop tools so the panel does not cover the town. */}
           <label className="flex min-w-0 items-center gap-1.5 max-sm:hidden">
@@ -176,7 +175,7 @@ export function WeatherRadarControls({
               value={[Math.round(opacity * 100)]}
               onValueChange={([value]) => onOpacityChange(value / 100)}
               aria-label={t("opacity")}
-              className={cn("w-16", SLATE_SLIDER)}
+              className="w-16"
             />
           </label>
         </div>

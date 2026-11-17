@@ -30,6 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { DisponierTransitionDialog } from "@/components/kanban/disponiert-transition-dialog"
 import { apiClient } from "@/lib/api-client"
@@ -861,142 +862,89 @@ export function IncidentStatusWorkflowDialogs({
         onToggleZuFuss={onToggleZuFuss}
       />
 
-      <AlertDialog open={!!controller.returningVehicleOperation} onOpenChange={(open) => !open && controller.cancelGate("returningVehicle")}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Footprints className="h-5 w-5 text-warning-foreground" />
-              {tReturning("title")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {controller.returningVehicleOperation && tReturning.rich("description", {
-                location: operationLabel(controller.returningVehicleOperation),
-                hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-              })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <Button variant="ghost" onClick={() => controller.closeGate("returningVehicle")} className="sm:mr-auto">
-              {tReturning("endAnyway")}
-            </Button>
-            <Button variant="outline" onClick={() => controller.cancelGate("returningVehicle")}>
-              {tCommon("cancel")}
-            </Button>
-            <Button onClick={() => {
-              const operation = controller.returningVehicleOperation
-              if (operation) openAssignment("vehicles", operation.id)
-            }}>
-              {tReturning("assignVehicle")}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={!!controller.returningVehicleOperation}
+        onCancel={() => controller.cancelGate("returningVehicle")}
+        icon={<Footprints className="h-5 w-5 text-warning-foreground" />}
+        title={tReturning("title")}
+        description={controller.returningVehicleOperation && tReturning.rich("description", {
+          location: operationLabel(controller.returningVehicleOperation),
+          hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+        })}
+        extraAction={{ label: tReturning("endAnyway"), onSelect: () => controller.closeGate("returningVehicle") }}
+        cancelText={tCommon("cancel")}
+        confirmText={tReturning("assignVehicle")}
+        onConfirm={() => {
+          const operation = controller.returningVehicleOperation
+          if (operation) openAssignment("vehicles", operation.id)
+        }}
+      />
 
       {/* «Nächsten Stopp starten?» — queued BEHIND the missing-vehicle gate
           (`&& !returningVehicleOperation`) rather than racing it: both are
           answers to the same move, and two modals over one card is a question
           about which of them counts. */}
-      <AlertDialog
+      <ConfirmDialog
         open={!!controller.nextStopPrompt && !controller.returningVehicleOperation}
         onOpenChange={(open) => !open && controller.closeNextStopPrompt()}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Waypoints className="h-5 w-5 text-muted-foreground" />
-              {tNext("title")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {controller.nextStopPrompt && tNext.rich("description", {
-                finished: operationLabel(controller.nextStopPrompt.finished),
-                auftrag: controller.nextStopPrompt.auftrag.name,
-                next: operationLabel(controller.nextStopPrompt.next),
-                hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-              })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <Button variant="outline" onClick={controller.closeNextStopPrompt}>
-              {tCommon("cancel")}
-            </Button>
-            <Button onClick={() => {
-              const next = controller.nextStopPrompt?.next
-              if (next) controller.startNextStop(next.id)
-            }}>{tNext("confirm")}</Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        icon={<Waypoints className="h-5 w-5 text-muted-foreground" />}
+        title={tNext("title")}
+        description={controller.nextStopPrompt && tNext.rich("description", {
+          finished: operationLabel(controller.nextStopPrompt.finished),
+          auftrag: controller.nextStopPrompt.auftrag.name,
+          next: operationLabel(controller.nextStopPrompt.next),
+          hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+        })}
+        cancelText={tCommon("cancel")}
+        confirmText={tNext("confirm")}
+        onConfirm={() => {
+          const next = controller.nextStopPrompt?.next
+          if (next) controller.startNextStop(next.id)
+        }}
+      />
 
       {/* «Nicht verschieben», not «Abbrechen»: the card goes back where it came from
-          (Esc too), and the text says the move has NOT happened yet. Wide enough for
-          the three answers on one row in German. */}
-      <AlertDialog open={!!controller.rekoMissingOperation} onOpenChange={(open) => !open && controller.cancelGate("rekoMissing")}>
-        <AlertDialogContent className="sm:max-w-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Binoculars className="h-5 w-5 text-muted-foreground" />
-              {tCommon("noRekoAssigned")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {controller.rekoMissingOperation && tReko.rich("description", {
-                location: operationLabel(controller.rekoMissingOperation),
-                hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-              })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <Button variant="ghost" onClick={() => controller.closeGate("rekoMissing")} className="sm:mr-auto">
-              {tReko("proceedAnyway")}
-            </Button>
-            <Button variant="outline" onClick={() => controller.cancelGate("rekoMissing")}>
-              {tReko("dontMove")}
-            </Button>
-            <Button onClick={controller.openRekoAssignment}>
-              {tReko("assignReko")}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          (Esc too), and the text says the move has NOT happened yet. */}
+      <ConfirmDialog
+        open={!!controller.rekoMissingOperation}
+        onCancel={() => controller.cancelGate("rekoMissing")}
+        icon={<Binoculars className="h-5 w-5 text-muted-foreground" />}
+        title={tCommon("noRekoAssigned")}
+        description={controller.rekoMissingOperation && tReko.rich("description", {
+          location: operationLabel(controller.rekoMissingOperation),
+          hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+        })}
+        extraAction={{ label: tReko("proceedAnyway"), onSelect: () => controller.closeGate("rekoMissing") }}
+        cancelText={tReko("dontMove")}
+        confirmText={tReko("assignReko")}
+        onConfirm={controller.openRekoAssignment}
+      />
 
-      <AlertDialog open={!!controller.rekoFormMissingOperation} onOpenChange={(open) => !open && controller.cancelGate("rekoFormMissing")}>
-        {/* xl: three answers on one row in German, like the Reko gate above. */}
-        <AlertDialogContent className="sm:max-w-xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <ClipboardCheck className="h-5 w-5 text-muted-foreground" />
-              {tRekoForm("title")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {controller.rekoFormMissingOperation && tRekoForm.rich("description", {
-                location: operationLabel(controller.rekoFormMissingOperation),
-                hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-              })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <Button variant="ghost" onClick={() => controller.closeGate("rekoFormMissing")} className="sm:mr-auto">
-              {tRekoForm("proceedAnyway")}
-            </Button>
-            <Button variant="outline" onClick={() => controller.cancelGate("rekoFormMissing")}>
-              {tCommon("cancel")}
-            </Button>
-            <Button onClick={() => {
-              const operation = controller.rekoFormMissingOperation
-              // closeGate also drops the revert status — opening
-              // the Reko details is a "proceed", not a cancel.
-              controller.closeGate("rekoFormMissing")
-              // …on the REKO tab, with the entry form already open. The
-              // dialog's whole subject is that no Reko report was filled in,
-              // and it used to land the operator on Übersicht — the one tab
-              // that says nothing about it — with the «erstellen» button two
-              // clicks away.
-              if (operation) onOpenDetail(operation.id, 'reko', 'newReport')
-            }}>
-              {tRekoForm("openReko")}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={!!controller.rekoFormMissingOperation}
+        onCancel={() => controller.cancelGate("rekoFormMissing")}
+        icon={<ClipboardCheck className="h-5 w-5 text-muted-foreground" />}
+        title={tRekoForm("title")}
+        description={controller.rekoFormMissingOperation && tRekoForm.rich("description", {
+          location: operationLabel(controller.rekoFormMissingOperation),
+          hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+        })}
+        extraAction={{ label: tRekoForm("proceedAnyway"), onSelect: () => controller.closeGate("rekoFormMissing") }}
+        cancelText={tCommon("cancel")}
+        confirmText={tRekoForm("openReko")}
+        onConfirm={() => {
+          const operation = controller.rekoFormMissingOperation
+          // closeGate also drops the revert status — opening
+          // the Reko details is a "proceed", not a cancel.
+          controller.closeGate("rekoFormMissing")
+          // …on the REKO tab, with the entry form already open. The
+          // dialog's whole subject is that no Reko report was filled in,
+          // and it used to land the operator on Übersicht — the one tab
+          // that says nothing about it — with the «erstellen» button two
+          // clicks away.
+          if (operation) onOpenDetail(operation.id, 'reko', 'newReport')
+        }}
+      />
 
       {/* The completion gate. One window for the whole of «was passiert beim
           Abschliessen»: what is released by name, and — underneath — the
@@ -1009,182 +957,167 @@ export function IncidentStatusWorkflowDialogs({
           for the route alone, with no release list and none promised: on a
           standard Auftrag the Mittel belong to the route, so a stop hands
           nothing back and the offer would otherwise never be seen. */}
-      <AlertDialog open={!!controller.materialDecisionOperation} onOpenChange={(open) => !open && controller.cancelGate("materialDecision")}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              {continuation ? (
-                <Waypoints className="h-5 w-5 text-muted-foreground" />
-              ) : release ? (
-                <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
-              ) : (
-                <Package className="h-5 w-5 text-muted-foreground" />
-              )}
-              {continuation ? tCompletion("stopTitle") : release ? tCompletion("title") : tMat("title")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {controller.materialDecisionOperation && (continuation
-                // Mid-route the release list is the only thing that can sit
-                // under this sentence (the material question is gone — see
-                // `materialDecisionItems`), so when there is no release the
-                // text must not promise one: on a standard Auftrag the Mittel
-                // belong to the route and the stop hands nothing back.
-                ? tCompletion.rich(release ? "stopDescription" : "stopDescriptionNoRelease", {
-                    location: operationLabel(controller.materialDecisionOperation),
-                    auftrag: continuation.auftrag.name,
-                    hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-                  })
-                : release
-                ? tCompletion.rich("description", {
-                    location: operationLabel(controller.materialDecisionOperation),
-                    hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-                  })
-                : tMat.rich(
-                    // A rapport that answered everything turns this from a decision
-                    // into a confirmation, and the text has to say so — otherwise the
-                    // operator reads "entscheide pro Mittel" over answers that are
-                    // already made and starts checking work somebody else did.
-                    controller.materialRapportBy
-                      ? controller.materialDecisionOpenCount === 0
-                        ? "descriptionFromRapport"
-                        : "descriptionPartialRapport"
-                      : "description",
-                    {
-                      location: operationLabel(controller.materialDecisionOperation),
-                      count: controller.materialDecisionOpenCount,
-                      hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-                    },
-                  ))}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {/* Where the squad goes now — named, because «der nächste Stopp» is
-              an address somebody has to read out over the radio. */}
-          {continuation && (
-            <div className="flex items-center gap-3 rounded-md border border-border bg-muted/40 px-3 py-2">
-              <Waypoints className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                {tCompletion("nextStop", { location: operationLabel(continuation.next) })}
-              </span>
-            </div>
-          )}
-          {/* What the completion hands back, by name. Read off the card before
-              the status change emptied it (see CompletionRelease) — this is the
-              list an operator used to have to reconstruct from memory. */}
-          {release && (
-            <div className="space-y-1.5 py-1">
-              {release.crew.length > 0 && (
-                <div className="flex items-center gap-3 rounded-md border px-3 py-2">
-                  <Users className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate text-sm" title={release.crew.join(", ")}>
-                    {tCommon("personCount", { count: release.crew.length })}
-                    <span className="text-muted-foreground"> – {release.crew.join(", ")}</span>
-                  </span>
-                  <span className="flex-shrink-0 text-xs text-muted-foreground">{tCompletion("toAvailable")}</span>
-                </div>
-              )}
-              {release.vehicles.length > 0 && (
-                <div className="flex items-center gap-3 rounded-md border px-3 py-2">
-                  <Truck className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate text-sm" title={release.vehicles.join(", ")}>
-                    {release.vehicles.join(", ")}
-                  </span>
-                  <span className="flex-shrink-0 text-xs text-muted-foreground">{tCompletion("toAvailable")}</span>
-                </div>
-              )}
-              {materialCount > 0 && (
-                <div className="flex items-center gap-3 rounded-md border px-3 py-2">
-                  <Package className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate text-sm">
-                    {tCompletion("materialCount", { count: materialCount })}
-                  </span>
-                  <span className="flex-shrink-0 text-xs text-warning-foreground">{tCompletion("toDecision")}</span>
-                </div>
-              )}
-            </div>
-          )}
-          {/* The material question keeps its own heading once it sits under a
-              release list — two subjects in one window, each labelled. */}
-          {release && materialCount > 0 && (
-            <p className="border-t pt-3 text-sm font-medium">{tMat("title")}</p>
-          )}
-          {/* …and only while there is material to say it about: a completion
-              that releases people alone must not cite a Materialrapport. */}
-          {controller.materialRapportBy && materialCount > 0 && (
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <ClipboardCheck className="h-3.5 w-3.5 flex-shrink-0" />
-              {/* "Rapport" vs "Rapport-Entwurf" (§18.23): the gate reads a
-                  draft too now, and an operator weighing a half-finished
-                  answer has to know it is half-finished. */}
-              {tMat(controller.materialRapportIsDraft ? "rapportSourceDraft" : "rapportSource", {
-                name: controller.materialRapportBy,
-              })}
-            </p>
-          )}
-          {/* Mid-route the list is empty (`materialDecisionItems`), and an empty
-              scroll area is padding pretending to be a section. */}
-          {materialCount > 0 && (
-            <div className="max-h-64 space-y-1.5 overflow-y-auto py-1">
-              {controller.materialDecisionItems.map((item) => {
-                const materialId = item.id
-                const choice = controller.materialChoice(item)
-                const name = controller.materials.find((material) => material.id === materialId)?.name ?? materialId
-                return (
-                  <div key={materialId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-                    <div className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium" title={name}>{name}</span>
-                      {item.source && (
-                        <span className="block text-xs text-muted-foreground">
-                          {tMat(item.source === "consumable" ? "consumableHint" : "answeredHint")}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex flex-shrink-0 gap-1">
-                      <Button size="xs" variant={choice === "magazin" ? "selected" : "outline"} aria-pressed={choice === "magazin"} onClick={() => controller.setMaterialDecision(materialId, "magazin")}>
-                        {tMat("toMagazinShort")}
-                      </Button>
-                      {/* A consumable has no "vor Ort" state — offering the button
-                          would offer a state the backend refuses to store. */}
-                      {!item.consumable && (
-                        <Button size="xs" variant={choice === "vorort" ? "selected" : "outline"} aria-pressed={choice === "vorort"} onClick={() => controller.setMaterialDecision(materialId, "vorort")}>
-                          {tMat("onSiteShort")}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-          {/* Two ways out that both close the stop, and one of them also puts
-              the next one on Einsatz (`confirmCompletion`). The offer sits in
-              the quiet ghost slot the other gates use for their non-default
-              action, and only appears mid-route: closing the stop stays the
-              single obvious click it was, because the squad may just as well be
-              standing down and the next stop may be one the KP dispatches
-              deliberately. */}
-          <AlertDialogFooter>
-            {nextStopOffer && (
-              <Button
-                variant="ghost"
-                onClick={() => confirmCompletion(nextStopOffer)}
-                className="sm:mr-auto"
-              >
-                {tCompletion("stopConfirmAndNext")}
-              </Button>
+      <ConfirmDialog
+        open={!!controller.materialDecisionOperation}
+        onCancel={() => controller.cancelGate("materialDecision")}
+        icon={continuation ? (
+          <Waypoints className="h-5 w-5 text-muted-foreground" />
+        ) : release ? (
+          <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
+        ) : (
+          <Package className="h-5 w-5 text-muted-foreground" />
+        )}
+        title={continuation ? tCompletion("stopTitle") : release ? tCompletion("title") : tMat("title")}
+        description={controller.materialDecisionOperation && (continuation
+          // Mid-route the release list is the only thing that can sit
+          // under this sentence (the material question is gone — see
+          // `materialDecisionItems`), so when there is no release the
+          // text must not promise one: on a standard Auftrag the Mittel
+          // belong to the route and the stop hands nothing back.
+          ? tCompletion.rich(release ? "stopDescription" : "stopDescriptionNoRelease", {
+              location: operationLabel(controller.materialDecisionOperation),
+              auftrag: continuation.auftrag.name,
+              hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+            })
+          : release
+          ? tCompletion.rich("description", {
+              location: operationLabel(controller.materialDecisionOperation),
+              hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+            })
+          : tMat.rich(
+              // A rapport that answered everything turns this from a decision
+              // into a confirmation, and the text has to say so — otherwise the
+              // operator reads "entscheide pro Mittel" over answers that are
+              // already made and starts checking work somebody else did.
+              controller.materialRapportBy
+                ? controller.materialDecisionOpenCount === 0
+                  ? "descriptionFromRapport"
+                  : "descriptionPartialRapport"
+                : "description",
+              {
+                location: operationLabel(controller.materialDecisionOperation),
+                count: controller.materialDecisionOpenCount,
+                hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+              },
+            ))}
+        // Two ways out that both close the stop, and one of them also puts the
+        // next one on Einsatz (`confirmCompletion`). The offer is the third
+        // answer and only appears mid-route: closing the stop stays the single
+        // obvious click it was, because the squad may just as well be standing
+        // down and the next stop may be one the KP dispatches deliberately.
+        extraAction={nextStopOffer ? {
+          label: tCompletion("stopConfirmAndNext"),
+          onSelect: () => confirmCompletion(nextStopOffer),
+        } : undefined}
+        cancelText={tMat("cancel")}
+        confirmText={continuation
+          ? tCompletion("stopConfirm")
+          : release
+            ? tCompletion("confirm")
+            : controller.materialRapportBy && controller.materialDecisionOpenCount === 0
+              ? tMat("confirmRapport")
+              : tMat("confirm")}
+        onConfirm={() => confirmCompletion(null)}
+      >
+        {/* Where the squad goes now — named, because «der nächste Stopp» is
+            an address somebody has to read out over the radio. */}
+        {continuation && (
+          <div className="flex items-center gap-3 rounded-md border border-border bg-muted/40 px-3 py-2">
+            <Waypoints className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate text-sm font-medium">
+              {tCompletion("nextStop", { location: operationLabel(continuation.next) })}
+            </span>
+          </div>
+        )}
+        {/* What the completion hands back, by name. Read off the card before
+            the status change emptied it (see CompletionRelease) — this is the
+            list an operator used to have to reconstruct from memory. */}
+        {release && (
+          <div className="space-y-1.5 py-1">
+            {release.crew.length > 0 && (
+              <div className="flex items-center gap-3 rounded-md border px-3 py-2">
+                <Users className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1 truncate text-sm" title={release.crew.join(", ")}>
+                  {tCommon("personCount", { count: release.crew.length })}
+                  <span className="text-muted-foreground"> – {release.crew.join(", ")}</span>
+                </span>
+                <span className="flex-shrink-0 text-xs text-muted-foreground">{tCompletion("toAvailable")}</span>
+              </div>
             )}
-            <Button variant="outline" onClick={() => controller.cancelGate("materialDecision")}>{tMat("cancel")}</Button>
-            <Button onClick={() => confirmCompletion(null)}>
-              {continuation
-                ? tCompletion("stopConfirm")
-                : release
-                  ? tCompletion("confirm")
-                  : controller.materialRapportBy && controller.materialDecisionOpenCount === 0
-                    ? tMat("confirmRapport")
-                    : tMat("confirm")}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            {release.vehicles.length > 0 && (
+              <div className="flex items-center gap-3 rounded-md border px-3 py-2">
+                <Truck className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1 truncate text-sm" title={release.vehicles.join(", ")}>
+                  {release.vehicles.join(", ")}
+                </span>
+                <span className="flex-shrink-0 text-xs text-muted-foreground">{tCompletion("toAvailable")}</span>
+              </div>
+            )}
+            {materialCount > 0 && (
+              <div className="flex items-center gap-3 rounded-md border px-3 py-2">
+                <Package className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1 truncate text-sm">
+                  {tCompletion("materialCount", { count: materialCount })}
+                </span>
+                <span className="flex-shrink-0 text-xs text-warning-foreground">{tCompletion("toDecision")}</span>
+              </div>
+            )}
+          </div>
+        )}
+        {/* The material question keeps its own heading once it sits under a
+            release list — two subjects in one window, each labelled. */}
+        {release && materialCount > 0 && (
+          <p className="border-t pt-3 text-sm font-medium">{tMat("title")}</p>
+        )}
+        {/* …and only while there is material to say it about: a completion
+            that releases people alone must not cite a Materialrapport. */}
+        {controller.materialRapportBy && materialCount > 0 && (
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <ClipboardCheck className="h-3.5 w-3.5 flex-shrink-0" />
+            {/* "Rapport" vs "Rapport-Entwurf" (§18.23): the gate reads a
+                draft too now, and an operator weighing a half-finished
+                answer has to know it is half-finished. */}
+            {tMat(controller.materialRapportIsDraft ? "rapportSourceDraft" : "rapportSource", {
+              name: controller.materialRapportBy,
+            })}
+          </p>
+        )}
+        {/* Mid-route the list is empty (`materialDecisionItems`), and an empty
+            scroll area is padding pretending to be a section. */}
+        {materialCount > 0 && (
+          <div className="max-h-64 space-y-1.5 overflow-y-auto py-1">
+            {controller.materialDecisionItems.map((item) => {
+              const materialId = item.id
+              const choice = controller.materialChoice(item)
+              const name = controller.materials.find((material) => material.id === materialId)?.name ?? materialId
+              return (
+                <div key={materialId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium" title={name}>{name}</span>
+                    {item.source && (
+                      <span className="block text-xs text-muted-foreground">
+                        {tMat(item.source === "consumable" ? "consumableHint" : "answeredHint")}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-shrink-0 gap-1">
+                    <Button size="xs" variant={choice === "magazin" ? "selected" : "outline"} aria-pressed={choice === "magazin"} onClick={() => controller.setMaterialDecision(materialId, "magazin")}>
+                      {tMat("toMagazinShort")}
+                    </Button>
+                    {/* A consumable has no "vor Ort" state — offering the button
+                        would offer a state the backend refuses to store. */}
+                    {!item.consumable && (
+                      <Button size="xs" variant={choice === "vorort" ? "selected" : "outline"} aria-pressed={choice === "vorort"} onClick={() => controller.setMaterialDecision(materialId, "vorort")}>
+                        {tMat("onSiteShort")}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </ConfirmDialog>
 
       {/* «Status korrigieren?» — the backward way into «Disponiert / Anfahrt».
           Deliberately NOT the dispatch dialog: a Funkdurchsage is a statement
@@ -1192,60 +1125,41 @@ export function IncidentStatusWorkflowDialogs({
           collect a second Aufgebotseintrag because a status was straightened.
           «Neu disponieren …» is one click away for when it really is a new
           departure — or when the backward move was itself the misfire. */}
-      <AlertDialog
+      <ConfirmDialog
         open={!!correction?.operation}
-        onOpenChange={(open) => !open && controller.cancelGate("statusCorrection")}
+        onCancel={() => controller.cancelGate("statusCorrection")}
+        icon={<Pencil className="h-5 w-5 text-muted-foreground" />}
+        title={tCorrection("title")}
+        description={correction?.operation && tCorrection.rich("description", {
+          location: operationLabel(correction.operation),
+          hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+        })}
+        extraAction={{ label: tCorrection("dispatchAgain"), onSelect: controller.dispatchAfterCorrection }}
+        cancelText={tCommon("cancel")}
+        confirmText={tCorrection("confirm")}
+        onConfirm={() => controller.closeGate("statusCorrection")}
       >
-        <AlertDialogContent>
-          {correction?.operation && (
-            <>
-              <AlertDialogHeader>
-                <AlertDialogTitle className="flex items-center gap-2">
-                  <Pencil className="h-5 w-5 text-muted-foreground" />
-                  {tCorrection("title")}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {tCorrection.rich("description", {
-                    location: operationLabel(correction.operation),
-                    hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-                  })}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <div className="space-y-2 py-1">
-                {/* The two chips are the two COLUMNS, painted from the board's
-                    own table (statusBadgeClass) — a status that is orange on
-                    the board must not be something else in a dialog about it.
-                    The word stays inside the chip: the colour repeats it, it
-                    never replaces it. */}
-                <div className="flex items-center gap-2">
-                  <Badge className={statusBadgeClass(correction.previousStatus)}>
-                    {tColumns(correction.previousStatus)}
-                  </Badge>
-                  <ArrowRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                  <Badge className={statusBadgeClass("enroute")}>
-                    {tColumns("enroute")}
-                  </Badge>
-                </div>
-                <p className="border-t pt-2 text-sm text-muted-foreground">{tCorrection("noAnnouncement")}</p>
-                <p className="text-xs text-muted-foreground">{tCorrection("dispatchHint")}</p>
-              </div>
-              <AlertDialogFooter>
-                <Button
-                  variant="ghost"
-                  onClick={controller.dispatchAfterCorrection}
-                  className="sm:mr-auto"
-                >
-                  {tCorrection("dispatchAgain")}
-                </Button>
-                <Button variant="outline" onClick={() => controller.cancelGate("statusCorrection")}>
-                  {tCommon("cancel")}
-                </Button>
-                <Button onClick={() => controller.closeGate("statusCorrection")}>{tCorrection("confirm")}</Button>
-              </AlertDialogFooter>
-            </>
-          )}
-        </AlertDialogContent>
-      </AlertDialog>
+        {correction && (
+          <div className="space-y-2 py-1">
+            {/* The two chips are the two COLUMNS, painted from the board's
+                own table (statusBadgeClass) — a status that is orange on
+                the board must not be something else in a dialog about it.
+                The word stays inside the chip: the colour repeats it, it
+                never replaces it. */}
+            <div className="flex items-center gap-2">
+              <Badge className={statusBadgeClass(correction.previousStatus)}>
+                {tColumns(correction.previousStatus)}
+              </Badge>
+              <ArrowRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+              <Badge className={statusBadgeClass("enroute")}>
+                {tColumns("enroute")}
+              </Badge>
+            </div>
+            <p className="border-t pt-2 text-sm text-muted-foreground">{tCorrection("noAnnouncement")}</p>
+            <p className="text-xs text-muted-foreground">{tCorrection("dispatchHint")}</p>
+          </div>
+        )}
+      </ConfirmDialog>
 
       <DisponierTransitionDialog
         open={!!controller.disponiertOperation}
@@ -1284,7 +1198,7 @@ export function IncidentStatusWorkflowDialogs({
  * PRESS TWICE (owner pick, UX-DESKTOP-09 B): «Disponieren» is always live and
  * always in the same place. With a blocking gap open (no crew, or no vehicle and
  * not «zu Fuss») the first press only ARMS it: the missing row turns amber and
- * asks «wirklich so ausrücken?», the button says what it will do («Ja, ohne
+ * asks «wirklich so ausrücken?», the button says what it will do («Ohne
  * Fahrzeug disponieren»), and «Abbrechen» becomes «Zurück». The second press —
  * or Enter, the button has the focus — dispatches; Zurück or Esc disarms. There
  * is no greyed-out button and no third «Trotzdem» button any more.
@@ -1367,7 +1281,7 @@ function DispatchGateDialog({
     <AlertDialog open={!!missingOperation} onOpenChange={(open) => !open && controller.cancelGate("missingResources")}>
       <AlertDialogContent
         // A little wider than the default: the armed button names both gaps
-        // («Ja, ohne Mannschaft und Fahrzeug disponieren») beside «Zurück».
+        // («Ohne Mannschaft und Fahrzeug disponieren») beside «Zurück».
         className="sm:max-w-xl"
         // The dispatch button takes the focus, so Enter is the first press and
         // Enter again the confirmation — the keyboard path of the mouse's two clicks.

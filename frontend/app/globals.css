@@ -21,8 +21,6 @@
      and Im-Einsatz washes, muted fills), and 0.50 measured 4.2:1 there. 0.47
      holds ≥ 4.7:1 on every one of them (hill climb r0, 06.11.2026). */
   --muted-foreground: oklch(0.47 0.01 60);
-  --accent: oklch(0.50 0.12 250);
-  --accent-foreground: oklch(0.98 0 0);
   --destructive: oklch(0.50 0.22 28);
   --destructive-foreground: oklch(0.98 0 0);
   /* Red as TEXT (`text-destructive`, via `--text-color-destructive` below).
@@ -30,13 +28,8 @@
   --destructive-text: var(--destructive);
   --border: oklch(0.90 0.003 60);
   --input: oklch(0.92 0.003 60);
-  /* Focus = slate, not the red primary: a red ring reads as an error. */
+  /* Focus = the selection blue, not the red primary: a red ring reads as an error. */
   --ring: var(--sel-line);
-  --chart-1: oklch(0.45 0.18 25);
-  --chart-2: oklch(0.50 0.15 250);
-  --chart-3: oklch(0.65 0.20 60);
-  --chart-4: oklch(0.55 0.12 145);
-  --chart-5: oklch(0.60 0.15 300);
   /* Corners (review step C2): 12px on every box, 8px on controls under 32px
      tall (`rounded-sm`: badges, kbd, h-5…h-7 chips), pills stay pills. */
   --radius: 0.75rem;
@@ -66,46 +59,61 @@
      `PANEL_MOTION_MS` in components/ui/slide-rail.tsx mirrors the duration. */
   --motion-panel: 110ms;
   --ease-panel: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --sidebar: oklch(0.96 0 0);
-  --sidebar-foreground: oklch(0.15 0 0);
-  --sidebar-primary: oklch(0.45 0.18 25);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.94 0.005 250);
-  --sidebar-accent-foreground: oklch(0.25 0 0);
-  --sidebar-border: oklch(0.88 0 0);
-  --sidebar-ring: var(--sel-line);
 
-  /* Refined status colors - light mode */
-  --status-available: oklch(0.55 0.12 145);
-  --status-assigned: oklch(0.50 0.15 250);
-  --status-incoming: oklch(0.65 0.15 85);
-  --status-ready: oklch(0.55 0.12 145);
-  --status-enroute: oklch(0.50 0.15 250);
-  --status-active: oklch(0.65 0.20 60);
-  --status-returning: oklch(0.50 0.15 250);
-  --status-complete: oklch(0.55 0.08 0);
-
-  /* Semantic feedback colors for UI states - light mode */
+  /* Semantic feedback colours. Each has a FILL tone (`bg-*`, `border-*`, edges,
+     washes) and a TEXT tone (`text-*`, wired through `--text-color-*` in @theme
+     below), because a fill that reads as a wash is too faint as a word – at night
+     `text-success` on the fill tone measured 2.2:1 (sweep 17.11., COL-01).
+       success  ✓ bestätigt – the second green role, always with ✓ or a word (ENT-11)
+       warning  «schau hin»
+       free     frei / verfügbar – read ONLY through `RESOURCE_STATE_*`
+                (lib/resource-status.ts) */
   --success: oklch(0.55 0.15 145);
   --success-foreground: oklch(0.25 0.05 145);
+  --success-text: oklch(0.45 0.13 145);
   --warning: oklch(0.70 0.15 85);
   --warning-foreground: oklch(0.30 0.10 85);
-  --info: oklch(0.55 0.15 250);
-  --info-foreground: oklch(0.25 0.10 250);
+  --warning-text: var(--warning-foreground);
+  --free: oklch(0.696 0.149 162.5);
+  --free-text: oklch(0.508 0.105 165.6);
 
-  /* Selection («A2», decided 2026-10): a muted SLATE blue, tonal rather than
-     filled, so «chosen» never borrows the red that means priority/danger.
-       --sel            switch «an» fill
-       --sel-foreground text / ✓ of a chosen chip, preset, row
+  /* Priority – one value per priority for every role: card edge, glyph, text,
+     dot, pin (sweep 17.11., COL-03). Hoch is the danger red itself, Mittel one
+     amber (≥ 3:1 as an edge on the light card and the dark one), Niedrig a light
+     slate MARK (cards close their edge with --border instead). The hex mirror for
+     MapLibre and SVG is `PRIORITY_COLORS` in lib/priority.ts, held to these light
+     values by its test. The text tone is a step darker in light / lighter at night
+     so a word or a 12px glyph holds 4.5:1. */
+  --prio-high: var(--destructive);
+  --prio-medium: oklch(0.6658 0.1574 58.32);
+  --prio-low: oklch(0.711 0.035 256.8);
+  --prio-high-text: var(--destructive-text);
+  --prio-medium-text: oklch(0.50 0.155 49);
+  --prio-low-text: oklch(0.554 0.041 257.4);
+
+  /* Selection (XAPP-06 B, 17.11.2026): KP Front's blue hue (#1f6feb), still TONAL
+     here – wash + edge, never a filled chip – so «chosen» reads the same in both
+     apps and never borrows the red that means priority/danger. Front fills it on the
+     tablet; Rück's desktop keeps the quiet wash.
+       --sel            switch «an» fill, the native checkbox tick
+       --sel-foreground text / ✓ of a chosen chip, preset, row (Front's --blue-strong)
        --sel-wash       background of a chosen chip, preset, row, card
        --sel-edge       1px edge of a chosen chip or row
        --sel-line       2px outline of the selected Einsatz card; also the focus ring
-     Rules: CLAUDE.md → Design Context → Colour roles. */
-  --sel: oklch(0.50 0.07 250);
-  --sel-foreground: oklch(0.42 0.075 250);
-  --sel-wash: oklch(0.55 0.07 250 / 0.12);
-  --sel-edge: oklch(0.45 0.07 250 / 0.55);
-  --sel-line: oklch(0.47 0.075 250);
+     Blue as a COLOUR means an Auftrag only; this is UI chrome. The first Auftrag
+     swatch moved to petrol so the two never meet (lib/map-colors.ts).
+     Rules: docs/DESIGN.md → Colour roles. */
+  --sel: oklch(0.569 0.202 259.7);
+  --sel-foreground: oklch(0.514 0.187 260.3);
+  --sel-wash: oklch(0.569 0.202 259.7 / 0.12);
+  --sel-edge: oklch(0.569 0.202 259.7 / 0.55);
+  --sel-line: oklch(0.569 0.202 259.7);
+
+  /* Übung (ENT-09, 17.11.2026) – KP Front's ÜBUNG tag: hatched, outlined, no hue.
+     4px strong ink stripes on an 8px period, a 1.5px dim-ink ring, ink text. The
+     `.training-hatch` utilities below draw it; nothing else wears it. */
+  --training-stripe: color-mix(in oklch, var(--foreground) 25%, transparent);
+  --training-edge: color-mix(in oklch, var(--foreground) 72%, transparent);
 
   /* The main action button (Button `default`) is INK, not red (review step
      C3): red never fills an action on this board — it means priority and
@@ -141,8 +149,6 @@
      ≈4.1:1 on --muted. 0.70 ≈5.1:1 on --card, ≈4.8:1 on --muted (hill climb
      r0, 06.11.2026). Never dimmer than this tier. */
   --muted-foreground: oklch(0.70 0.01 250);
-  --accent: oklch(0.50 0.15 250);
-  --accent-foreground: oklch(0.98 0 0);
   /* Deeper + lower-chroma than the old 0.60/0.26 (which rendered as pure
      rgb(245,0,0) — harsh, and only 4.05:1 under the 0.98 foreground). This
      value measures 5.07:1 against the destructive-foreground and 3.47:1
@@ -162,44 +168,36 @@
      a step (≈0.30) above it – still neutral, still under --muted. */
   --input: oklch(0.40 0.012 250);
   --ring: var(--sel-line);
-  --chart-1: oklch(0.50 0.16 25);
-  --chart-2: oklch(0.50 0.15 250);
-  --chart-3: oklch(0.72 0.22 60);
-  --chart-4: oklch(0.48 0.08 0);
-  --chart-5: oklch(0.45 0.1 0);
-  --sidebar: oklch(0.205 0.008 250);
-  --sidebar-foreground: oklch(0.96 0 0);
-  --sidebar-primary: oklch(0.50 0.16 25);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.30 0.012 250);
-  --sidebar-accent-foreground: oklch(0.95 0 0);
-  --sidebar-border: oklch(0.42 0.012 250);
-  --sidebar-ring: var(--sel-line);
 
-  /* Refined status colors - dark mode */
-  --status-available: oklch(0.48 0.08 0);
-  --status-assigned: oklch(0.5 0.1 0);
-  --status-incoming: oklch(0.48 0.08 0);
-  --status-ready: oklch(0.48 0.08 0);
-  --status-enroute: oklch(0.50 0.15 250);
-  --status-active: oklch(0.72 0.22 60);
-  --status-returning: oklch(0.50 0.15 250);
-  --status-complete: oklch(0.42 0.08 0);
-
-  /* Semantic feedback colors - dark mode */
+  /* Semantic feedback colours (see :root). The text tones are light steps that
+     hold ≥ 4.5:1 on --card and --muted. */
   --success: oklch(0.45 0.12 145);
   --success-foreground: oklch(0.85 0.08 145);
+  --success-text: oklch(0.78 0.14 145);
   --warning: oklch(0.45 0.12 85);
   --warning-foreground: oklch(0.90 0.08 85);
-  --info: oklch(0.45 0.12 250);
-  --info-foreground: oklch(0.85 0.08 250);
+  --warning-text: var(--warning-foreground);
+  --free: oklch(0.696 0.149 162.5);
+  --free-text: oklch(0.773 0.153 163.2);
 
-  /* Selection (see :root) – lighter slate on the dark surfaces. */
-  --sel: oklch(0.60 0.07 250);
-  --sel-foreground: oklch(0.82 0.06 250);
-  --sel-wash: oklch(0.70 0.06 250 / 0.18);
-  --sel-edge: oklch(0.75 0.06 250 / 0.55);
-  --sel-line: oklch(0.74 0.07 250);
+  /* Priority (see :root). Night: the dark --destructive for Hoch; amber and slate
+     stay bright enough to read on the dark card. */
+  --prio-high: var(--destructive);
+  --prio-medium: oklch(0.6658 0.1574 58.32);
+  --prio-low: oklch(0.711 0.035 256.8);
+  --prio-high-text: var(--destructive-text);
+  --prio-medium-text: oklch(0.769 0.165 70.1);
+  --prio-low-text: oklch(0.711 0.035 256.8);
+
+  /* Selection (see :root) – KP Front's night blue (#5aa0ff) on the dark surfaces. */
+  --sel: oklch(0.703 0.157 256.6);
+  --sel-foreground: oklch(0.787 0.109 256.8);
+  --sel-wash: oklch(0.703 0.157 256.6 / 0.18);
+  --sel-edge: oklch(0.703 0.157 256.6 / 0.55);
+  --sel-line: oklch(0.703 0.157 256.6);
+
+  --training-stripe: color-mix(in oklch, var(--foreground) 25%, transparent);
+  --training-edge: color-mix(in oklch, var(--foreground) 72%, transparent);
 
   /* Night: a light ink fill with dark text — KP Front's --btn-primary. Full
      white would glare against the dark board. */
@@ -227,8 +225,6 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   /* Tailwind's `text-*` colour reads `--text-color-*` before `--color-*`, so
@@ -238,11 +234,6 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
   /* One box corner (12px) for md/lg/xl alike — buttons, inputs, popovers,
      cards and dialogs used to sit at 6/8/12px and read as three families.
      `sm` (8px) is the small-control step. Bare `rounded` (4px) is left to the
@@ -252,14 +243,6 @@
   --radius-md: var(--radius);
   --radius-lg: var(--radius);
   --radius-xl: var(--radius);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
 
   /* The micro tier. Replaces ~49 hand-written text-[10px]/text-[11px]:
      one named step for card captions, chips and timestamps. 11px is the
@@ -267,13 +250,33 @@
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1rem;
 
-  /* Semantic feedback colors */
+  /* Semantic feedback colours. `text-success` / `text-warning` / `text-free` read
+     their TEXT tone (like `text-destructive` above); every other utility the fill. */
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
+  --text-color-success: var(--success-text);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
-  --color-info: var(--info);
-  --color-info-foreground: var(--info-foreground);
+  --text-color-warning: var(--warning-text);
+  --color-free: var(--free);
+  --text-color-free: var(--free-text);
+
+  /* Paper – the one paper palette (backend/app/services/paper_palette.py), for the browser
+     print view: ink, dim, panel, grid, rule. A cool slate family, the same on every sheet
+     (COL-13). Fixed values: paper has no dark mode. */
+  --color-paper-ink: #1b2330;
+  --color-paper-dim: #5b6573;
+  --color-paper-panel: #eef2f7;
+  --color-paper-grid: #d7dde5;
+  --color-paper-rule: #a3acb9;
+
+  /* Priority roles: border-l-prio-medium, text-prio-high, bg-prio-low, … */
+  --color-prio-high: var(--prio-high);
+  --color-prio-medium: var(--prio-medium);
+  --color-prio-low: var(--prio-low);
+  --text-color-prio-high: var(--prio-high-text);
+  --text-color-prio-medium: var(--prio-medium-text);
+  --text-color-prio-low: var(--prio-low-text);
 
   /* Selection roles (bg-sel-wash, text-sel-foreground, ring-sel-edge, …) */
   --color-sel: var(--sel);
@@ -283,15 +286,6 @@
   --color-sel-line: var(--sel-line);
   --color-action: var(--action);
   --color-action-foreground: var(--action-foreground);
-}
-
-/* Amber TEXT in light is Tailwind's 700 step (VISUAL-05) – «schau hin»: Mittel,
-   age ≥ 60′, the busy note, form advice. Stock amber-700 (#bb4d00) measured
-   4.0:1 on the Hoch wash and 4.1:1 on the selection wash, so the step itself
-   is set darker here: ≥ 4.8:1 on every wash, still amber beside the 400/500
-   dark steps. Only text uses amber-700 (hill climb r0, 06.11.2026). */
-@theme {
-  --color-amber-700: oklch(0.50 0.155 49);
 }
 
 /* ── THE z-ORDER ──────────────────────────────────────────────────────────────
@@ -419,7 +413,7 @@
 }
 
 /* The chosen option of a choice that has no border of its own (segmented
-   toggles, chips): slate wash + slate text + a 1px slate edge drawn INSIDE
+   toggles, chips): selection wash + selection text + a 1px selection edge drawn INSIDE
    (inset shadow), so choosing never shifts the layout. Bordered controls use
    `border-sel-edge bg-sel-wash text-sel-foreground` instead, or <Button
    variant="selected">. */
@@ -529,7 +523,7 @@
   /* THE press rule (KP Front's, 02-base.css): on a touch screen a tap answers at once with
      the ink wash `--press` – buttons, links, list and menu rows, tabs, chips, and any card
      that says `data-press`. A background-IMAGE, so it lies over whatever fill the control
-     has (ghost, outline, the slate «selected», the ink main button). Nothing moves: a scale
+     has (ghost, outline, the tonal «selected», the ink main button). Nothing moves: a scale
      on press reads as lag under a finger, and an iOS :hover lift stuck after the tap.
      Touch only – a mouse press on the desk board stays as it was.
      Left out: whatever is disabled; a link that only wraps a button (the button answers, not
@@ -594,7 +588,7 @@
     @apply text-lg;
   }
 
-  /* THE focus style: a crisp 2px slate outline with a 2px gap. Button, Input,
+  /* THE focus style: a crisp 2px selection-blue outline with a 2px gap. Button, Input,
      Select, Textarea, Checkbox and Switch (components/ui) draw no focus style of
      their own and rely on this rule – they used to add a soft 3px ring halo, so
      tabbing across the top bar alternated between two languages (sweep
@@ -831,51 +825,54 @@
     animation: gentle-pulse 3s ease-in-out infinite;
   }
 
-  /* The settings search landed here: a short flash plus a left rule that
-     lingers, so the eye finds the row the jump was aiming at. */
-  @keyframes settings-search-flash {
-    0% {
-      background-color: var(--sel-wash);
-      box-shadow: inset 2px 0 0 var(--sel-line);
-    }
-    60% {
-      background-color: transparent;
-      box-shadow: inset 2px 0 0 var(--sel-line);
-    }
-    100% {
-      background-color: transparent;
-      box-shadow: none;
-    }
-  }
-
-  .settings-search-flash {
-    border-radius: var(--radius-sm, 0.25rem);
-    animation: settings-search-flash 2.4s ease-out;
-  }
-
-  /* «This one» on /feld: a row of the «Rapport abschliessen» question landed
-     on its section (FeldSection `jumpSignal`). KP Front's two-beat ink ring
-     (02-base.css · ui-flash-ring), 1.9 s – ink, not a hue, because on the
-     sections amber already means «fehlt» and green «erfasst». Under reduced
-     motion the ring stands still; the jump's timer takes it off again. */
-  @keyframes feld-jump-ring {
+  /* «THIS ONE» – the one landing / highlight signal (owner pick COL-05 A, 17.11.2026):
+     KP Front's two-beat INK ring (02-base.css · ui-flash-ring), 1.9 s, then gone. Ink, not
+     a hue, so it collides with nothing – not the priority edge (which stays), not the blue
+     selection, not amber «fehlt» / green «erfasst» on the /feld sections. Worn by: the
+     board's «Hier steht sie» Spotlight card, the wall card «the other window means this
+     one», the wall's status-change flash, the highlighted Lagekarte pin, the /feld jump
+     (FeldSection `jumpSignal`) and the settings search landing.
+     An OUTLINE, not a box-shadow: `priority-high-pulse` animates box-shadow outright and
+     would eat the ring on exactly the Hoch card. `this-one-ring-inset` draws it inside the
+     box, for a row whose scroller would clip a ring outside it. Under reduced motion the
+     ring stands still while the class is on. */
+  @keyframes this-one-ring {
     0%, 22%, 48%, 74% {
-      box-shadow: 0 0 0 4px color-mix(in oklch, var(--foreground) 62%, transparent);
+      outline-color: color-mix(in oklch, var(--foreground) 62%, transparent);
     }
     11%, 36%, 62%, 100% {
-      box-shadow: 0 0 0 4px transparent;
+      outline-color: transparent;
     }
   }
 
-  .feld-jump-ring {
-    animation: feld-jump-ring 1.9s ease-out 1;
+  .this-one-ring {
+    outline: 4px solid transparent;
+    outline-offset: 2px;
+    animation: this-one-ring 1.9s ease-out 1;
+  }
+
+  .this-one-ring-inset {
+    outline-offset: -4px;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .feld-jump-ring {
+    .this-one-ring {
       animation: none;
-      box-shadow: 0 0 0 4px color-mix(in oklch, var(--foreground) 62%, transparent);
+      outline-color: color-mix(in oklch, var(--foreground) 62%, transparent);
     }
+  }
+
+  /* ÜBUNG – KP Front's tag (13-incident.css · .ip-badge-exercise, ENT-09): hatched, outlined,
+     no hue, so a training is never mistaken for a real Einsatz and never for «schau hin».
+     `training-hatch` = the stripes + the ring (the tag, the «Ü» square, the simulation pill);
+     `training-hatch-band` = the stripes alone, in full ink, for the top band (ENT-09b A). */
+  .training-hatch {
+    background-image: repeating-linear-gradient(-45deg, var(--training-stripe) 0 4px, transparent 4px 8px);
+    box-shadow: inset 0 0 0 1.5px var(--training-edge);
+  }
+
+  .training-hatch-band {
+    background-image: repeating-linear-gradient(-45deg, var(--training-edge) 0 4px, transparent 4px 8px);
   }
 
   /* Fade in with slight slide up for cards */
@@ -1167,14 +1164,14 @@
 
   .print-view th,
   .print-view td {
-    border: 1px solid #333 !important;
+    border: 1px solid var(--color-paper-ink) !important;
     padding: 3px 6px !important;
     text-align: left !important;
     vertical-align: top !important;
   }
 
   .print-view th {
-    background: #f0f0f0 !important;
+    background: var(--color-paper-panel) !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -1195,31 +1192,19 @@
   }
 }
 
-/* High-priority incident pulse animation */
+/* High-priority incident pulse animation – in the Hoch red itself (`--prio-high`),
+   so it follows the theme without a second keyframe set. */
 @keyframes priority-pulse {
   0%, 100% {
-    box-shadow: 0 0 0 0 oklch(0.50 0.22 28 / 0.5);
+    box-shadow: 0 0 0 0 oklch(from var(--prio-high) l c h / 0.5);
   }
   50% {
-    box-shadow: 0 0 14px 4px oklch(0.50 0.22 28 / 0.25);
-  }
-}
-
-@keyframes priority-pulse-dark {
-  0%, 100% {
-    box-shadow: 0 0 0 0 oklch(0.60 0.26 28 / 0.5);
-  }
-  50% {
-    box-shadow: 0 0 16px 5px oklch(0.60 0.26 28 / 0.3);
+    box-shadow: 0 0 14px 4px oklch(from var(--prio-high) l c h / 0.25);
   }
 }
 
 .priority-high-pulse {
   animation: priority-pulse 2s ease-in-out infinite;
-}
-
-.dark .priority-high-pulse {
-  animation-name: priority-pulse-dark;
 }
 
 /* --- Spotlight ------------------------------------------------------------

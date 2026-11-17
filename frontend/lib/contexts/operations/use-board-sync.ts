@@ -6,6 +6,7 @@ import { useState, useEffect, useRef, useCallback, type Dispatch, type SetStateA
 import { apiClient, NetworkError, type ApiEventSpecialFunctionResponse, type ApiVehicle } from "@/lib/api-client"
 import { setGlobalHomeCity } from "@/lib/utils"
 import { RANK_ABBREVIATIONS_KEY, setGlobalRankAbbreviations } from "@/lib/roster-order"
+import { rememberStationName } from "@/lib/station-name"
 import { isValidUUID } from "@/lib/utils/validation"
 import type { Person } from "../personnel-context"
 import type { Material } from "../materials-context"
@@ -356,6 +357,8 @@ export function useBoardSync(input: BoardSyncInput) {
           // home city and visibly re-render to the short label later.
           setGlobalHomeCity(settings.home_city || "")
           setGlobalRankAbbreviations(settings[RANK_ABBREVIATIONS_KEY] || "")
+          // For the boot and login screens, which come before any session (lib/station-name.ts).
+          rememberStationName(settings.firestation_name || "")
           setHomeCity(settings.home_city || "")
         }
         setIsLoaded(true)

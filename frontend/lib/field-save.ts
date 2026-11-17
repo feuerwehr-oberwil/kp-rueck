@@ -1,15 +1,16 @@
 /**
- * What the Einsatz detail says under a text field: «Wird gespeichert …»,
- * «Gespeichert – 09:41», «Nicht gespeichert».
+ * What the Einsatz detail says under a text field: «Wird synchronisiert …»,
+ * «Synchronisiert – 09:41», «Nicht synchronisiert».
  *
- * «Gespeichert» means ONE thing here: the server answered the PATCH that
- * carried the newest text of that field. Not «the request left», not «the
+ * «Synchronisiert» means ONE thing here: the server answered the PATCH that
+ * carried the newest text of that field – KP Front's word for the same fact
+ * («gespeichert» there is «on this device», which Rück has no notion of). Not «the request left», not «the
  * debounce fired», and never while a newer keystroke is still queued or in
  * flight behind it. That is Front's rule (`combinedSyncStatus`: saving is done
  * only when every change is acknowledged) without Front's IndexedDB outbox —
  * Rück's server stays the only store, so a failed write is held as a DRAFT in
  * memory, shown in the field it came from, and sent again only when the
- * operator says so («Erneut speichern»). There is no queue that retries on its
+ * operator says so («Erneut synchronisieren»). There is no queue that retries on its
  * own: a confirmed change is never resent, and an unconfirmed one is resent by
  * a person who can see what they are sending.
  *
@@ -249,7 +250,7 @@ export function noteFieldSend(ticket: FieldSaveTicket): FieldSaveTicket {
     const entry = entries.get(key)
     if (!entry) continue
     textBase[SAVED_TEXT_API_FIELD[field]] = entry.acked
-    // «Wird gespeichert» only if this batch carries the newest text; a newer one still waits.
+    // «Wird synchronisiert» only if this batch carries the newest text; a newer one still waits.
     const carriesNewest = entry.version === ticket.versions[field]
     put(key, {
       ...entry,
@@ -264,7 +265,7 @@ export function noteFieldSend(ticket: FieldSaveTicket): FieldSaveTicket {
 /**
  * The PATCH settled. Only a request that carried the field's NEWEST version
  * may decide its state — an older one landing late says nothing about the
- * text on screen. And «Gespeichert» waits until nothing for that field is in
+ * text on screen. And «Synchronisiert» waits until nothing for that field is in
  * flight any more.
  */
 export function noteFieldSettled(

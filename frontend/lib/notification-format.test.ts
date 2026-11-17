@@ -165,10 +165,10 @@ describe('notificationParts — Reko, vehicles, time', () => {
 
   it('time_overdue: the board’s column title and the board’s duration notation', () => {
     const row = { type: 'time_overdue', params: { variant: 'status', place: 'Mühlemattstrasse 18', minutes: 56, status: 'enroute' } }
-    expect(parts(row)).toEqual({ what: '56m im Status «Disponiert / Anfahrt»', where: 'Mühlemattstrasse 18', source: 'time' })
-    expect(parts(row, fr).what).toBe('56m dans l’état « Engagé / en route »')
+    expect(parts(row)).toEqual({ what: "56' im Status «Disponiert / Anfahrt»", where: 'Mühlemattstrasse 18', source: 'time' })
+    expect(parts(row, fr).what).toBe("56' dans l’état « Engagé / en route »")
     expect(parts({ type: 'time_overdue', params: { variant: 'not_archived', place: 'Hauptstrasse 41', minutes: 65 } }).what).toBe(
-      'Seit 1h 05m abgeschlossen, nicht archiviert',
+      "Seit 1h 5' abgeschlossen, nicht archiviert",
     )
   })
 })
@@ -197,20 +197,20 @@ describe('notificationParts — system notifications stay one line', () => {
       params: { hours: 4, count: 7, people: [{ name: 'Müller Hans', hours: 6 }, { name: 'Meier Anna', hours: 5 }], more: 5 },
     }
     expect(parts(row)).toEqual({
-      what: '7 Personen seit über 4 h im Einsatz', who: 'Müller Hans (6 h), Meier Anna (5 h) und 5 weitere', source: 'system',
+      what: '7 Personen seit über 4h im Einsatz', who: 'Müller Hans (6h), Meier Anna (5h) und 5 weitere', source: 'system',
     })
     expect(parts(row, fr)).toEqual({
-      what: '7 personnes en service depuis plus de 4 h', who: 'Müller Hans (6 h), Meier Anna (5 h) et 5 autres', source: 'system',
+      what: '7 personnes en service depuis plus de 4h', who: 'Müller Hans (6h), Meier Anna (5h) et 5 autres', source: 'system',
     })
     const one = { type: 'personnel_fatigue', params: { hours: 4, count: 1, people: [{ name: 'Müller Hans', hours: 5 }], more: 0 } }
-    expect(parts(one, fr)).toMatchObject({ what: 'En service depuis plus de 4 h', who: 'Müller Hans (5 h)' })
+    expect(parts(one, fr)).toMatchObject({ what: 'En service depuis plus de 4h', who: 'Müller Hans (5h)' })
     const sixth = { ...row, params: { ...row.params, count: 3, more: 1 } }
-    expect(parts(sixth, fr).who).toBe('Müller Hans (6 h), Meier Anna (5 h) et 1 autre')
+    expect(parts(sixth, fr).who).toBe('Müller Hans (6h), Meier Anna (5h) et 1 autre')
   })
 
   it('resources, data quality, storage, the door', () => {
     expect(parts({ type: 'no_personnel', params: {} }, fr).what).toBe(
-      'Plus de personnel disponible – toutes les personnes enregistrées sont attribuées',
+      'Plus de personnel disponible – toutes les personnes présentes sont attribuées',
     )
     expect(parts({ type: 'no_materials', params: { location: 'Depot', available: 0 } }).what).toBe('Keine Geräte von «Depot» mehr verfügbar')
     expect(parts({ type: 'no_materials', params: { location: 'TLF', available: 1 } }).what).toBe('Nur noch 1 Gerät von «TLF» verfügbar')
@@ -266,7 +266,7 @@ describe('notificationParts — the German sentence is the fallback', () => {
     const lenient = createTranslator({ locale: 'de', messages: loadMessages('de'), onError: () => {} }) as unknown as NotificationTranslator
     expect(
       parts({ type: 'time_overdue', params: { variant: 'status', place: 'X', minutes: 5, status: 'parked' } }, lenient).what,
-    ).toBe('5m im Status «parked»')
+    ).toBe("5' im Status «parked»")
     expect(
       parts({ type: 'reko_submitted', params: { place: 'X', relevant: true, dangers: ['lava'] } }, lenient).what,
     ).toBe('Reko abgeschlossen – Einsatz relevant (Gefahren: lava)')

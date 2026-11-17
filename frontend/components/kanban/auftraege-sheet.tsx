@@ -29,6 +29,7 @@ import {
   Wand2,
   Check,
   Info,
+  Unlink,
   Radio,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -1099,8 +1100,12 @@ function StopRow({ groupId, incidentId, index, count, onMove, op, onRemove, onSe
           <DropdownMenuContent align="end" collisionPadding={{ top: 8, bottom: 80, left: 8, right: 8 }}>
             {!readOnly && <MoveMenuItems Item={DropdownMenuItem} index={index} count={count} onMove={onMove} />}
             {!readOnly && <DropdownMenuSeparator />}
-            <DropdownMenuItem onClick={onOpenDetail}>{t("openDetail")}</DropdownMenuItem>
-            {!readOnly && <DropdownMenuItem variant="destructive" onClick={onRemove}>
+            <DropdownMenuItem onClick={onOpenDetail}>
+              <Info className="mr-2 h-4 w-4" />
+              {t("openDetail")}
+            </DropdownMenuItem>
+            {!readOnly && <DropdownMenuItem onClick={onRemove}>
+              <Unlink className="mr-2 h-4 w-4" />
               {t("removeStop")}
             </DropdownMenuItem>}
           </DropdownMenuContent>
@@ -1136,8 +1141,8 @@ function StopRow({ groupId, incidentId, index, count, onMove, op, onRemove, onSe
             {t("openDetail")}
           </ContextMenuItem>
           {!readOnly && <ContextMenuSeparator />}
-          {!readOnly && <ContextMenuItem variant="destructive" onClick={onRemove}>
-            <Trash2 className="mr-2 h-4 w-4" />
+          {!readOnly && <ContextMenuItem onClick={onRemove}>
+            <Unlink className="mr-2 h-4 w-4" />
             {t("removeStop")}
           </ContextMenuItem>}
         </ContextMenuContent>

@@ -5,15 +5,7 @@ import { useTranslations } from "next-intl"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { drivenElsewhere } from "@/lib/driver-conflict"
 import { getIncidentRefLabel } from "@/lib/incident-types"
-import { Button } from "@/components/ui/button"
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 
 /**
  * A person, a vehicle and a Tauchpumpe are all single physical things — each can
@@ -59,68 +51,52 @@ export function ResourceConflictPrompt() {
       : resourceConflict.conflicts
 
   return (
-    <AlertDialog open={true} onOpenChange={(open) => { if (!open) cancelResourceConflict() }}>
-      {/* xl: the three answers fit one row in German (the footer wraps rather than overflow). */}
-      <AlertDialogContent className="sm:max-w-xl">
-        <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-2">
-            <Icon className="h-5 w-5 text-muted-foreground" />
-            {t('titleNamed', { name: resourceName })}
-          </AlertDialogTitle>
-          <AlertDialogDescription>{t('prompt')}</AlertDialogDescription>
-        </AlertDialogHeader>
-
-        {/* Bisher → Neu. Each row carries a word and a glyph, never a colour on
-            its own: an arrow for a binding that exists, a plus for the one being
-            made. */}
-        <div className="rounded-lg border bg-muted/30 p-2 text-sm">
-          {conflicts.map((conflict) => (
-            <div key={conflict.operationId} className="flex items-start gap-2.5 px-1 py-1.5">
-              <ArrowRight className="mt-0.5 size-4 shrink-0 text-warning-foreground" aria-hidden="true" />
+    // The answers: *move* it here is the main one – what the operator almost always
+    // means; keeping the double booking is the "…but do this instead" line above
+    // Abbrechen. Every answer clears the conflict itself.
+    <ConfirmDialog
+      open
+      onCancel={cancelResourceConflict}
+      icon={<Icon className="h-5 w-5 text-muted-foreground" />}
+      title={t('titleNamed', { name: resourceName })}
+      description={t('prompt')}
+      extraAction={{ label: t('keepBoth'), onSelect: () => resolveResourceConflict("keep") }}
+      cancelText={tCommon('cancel')}
+      confirmText={t('moveHere')}
+      onConfirm={() => resolveResourceConflict("move")}
+    >
+      {/* Bisher → Neu. Each row carries a word and a glyph, never a colour on
+          its own: an arrow for a binding that exists, a plus for the one being
+          made. */}
+      <div className="rounded-lg border bg-muted/30 p-2 text-sm">
+        {conflicts.map((conflict) => (
+          <div key={conflict.operationId} className="flex items-start gap-2.5 px-1 py-1.5">
+            <ArrowRight className="mt-0.5 size-4 shrink-0 text-warning-foreground" aria-hidden="true" />
+            <span className="min-w-0">
+              <span className="text-muted-foreground">{t('currentLabel')}: </span>
+              <span className="font-medium text-foreground">{conflict.operationLabel}</span>
+              {driving?.operationId === conflict.operationId && (
+                <span className="text-muted-foreground"> · {t('drives', { vehicle: driving.vehicleName })}</span>
+              )}
+            </span>
+          </div>
+        ))}
+        {targetOperationLabel && (
+          <>
+            <div className="my-1.5 h-px bg-border" />
+            <div className="flex items-start gap-2.5 px-1 py-1.5">
+              <Plus className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
               <span className="min-w-0">
-                <span className="text-muted-foreground">{t('currentLabel')}: </span>
-                <span className="font-medium text-foreground">{conflict.operationLabel}</span>
-                {driving?.operationId === conflict.operationId && (
-                  <span className="text-muted-foreground"> · {t('drives', { vehicle: driving.vehicleName })}</span>
-                )}
+                <span className="text-muted-foreground">{t('newLabel')}: </span>
+                <span className="font-medium text-foreground">{targetOperationLabel}</span>
               </span>
             </div>
-          ))}
-          {targetOperationLabel && (
-            <>
-              <div className="my-1.5 h-px bg-border" />
-              <div className="flex items-start gap-2.5 px-1 py-1.5">
-                <Plus className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
-                <span className="min-w-0">
-                  <span className="text-muted-foreground">{t('newLabel')}: </span>
-                  <span className="font-medium text-foreground">{targetOperationLabel}</span>
-                </span>
-              </div>
-            </>
-          )}
-        </div>
-        {driving && (
-          <p className="text-sm text-muted-foreground">{t('moveReleasesDriver', { vehicle: driving.vehicleName })}</p>
+          </>
         )}
-
-        {/* One row, one height, and the ConfirmDialog geometry: the
-            «…aber mach stattdessen das» answer — keep the double booking —
-            takes the far-left slot, while «Abbrechen» stays grouped with the
-            primary button on the right, the one place every dialog in the app
-            puts it. The primary is outermost, where the pointer is already
-            heading: moving is what the operator almost always means. */}
-        <AlertDialogFooter>
-          <Button variant="outline" onClick={() => resolveResourceConflict("keep")} className="sm:mr-auto">
-            {t('keepBoth')}
-          </Button>
-          <Button variant="ghost" onClick={cancelResourceConflict}>
-            {tCommon('cancel')}
-          </Button>
-          <Button onClick={() => resolveResourceConflict("move")}>
-            {t('moveHere')}
-          </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      </div>
+      {driving && (
+        <p className="text-sm text-muted-foreground">{t('moveReleasesDriver', { vehicle: driving.vehicleName })}</p>
+      )}
+    </ConfirmDialog>
   )
 }

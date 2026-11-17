@@ -33,12 +33,13 @@ from decimal import Decimal
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
-from fastapi import Request
+from fastapi import HTTPException, Request
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models
 from ..crud import events as events_crud
+from ..utils.error_codes import CodedHTTPException, ErrorCode
 from .audit import log_action
 from .merge_requests import move_requests_back, move_requests_in
 from .merge_work import MergeWorkError, move_work_back, move_work_in
@@ -240,13 +241,25 @@ async def flag_possible_duplicate(db: AsyncSession, incident: models.Incident) -
 # ---------------------------------------------------------------- merging
 
 
-class MergeRefusedError(Exception):
-    """The merge cannot be done as asked. `reason` is the German sentence for the API."""
+#: The refusal for «not merged (any more)» – a second click on the undo, or another board.
+NOT_MERGED = "Diese Meldung ist nicht zusammengeführt."
 
-    def __init__(self, reason: str, *, status_code: int = 409) -> None:
+
+class MergeRefusedError(Exception):
+    """The merge cannot be done as asked. `reason` is the German sentence for the API;
+    `code`, when set, is the stable code the board reads instead of the sentence."""
+
+    def __init__(self, reason: str, *, status_code: int = 409, code: ErrorCode | None = None) -> None:
         super().__init__(reason)
         self.reason = reason
         self.status_code = status_code
+        self.code = code
+
+    def to_http(self) -> HTTPException:
+        """The API answer: coded when the refusal has a code, plain otherwise."""
+        if self.code is not None:
+            return CodedHTTPException(self.status_code, self.code, self.reason)
+        return HTTPException(status_code=self.status_code, detail=self.reason)
 
 
 _SOURCE_LABELS = {
@@ -528,7 +541,7 @@ async def unmerge_report(
     response says whether the note came out.
     """
     if report.merged_into_id is None or report.deleted_at is None:
-        raise MergeRefusedError("Diese Meldung ist nicht zusammengeführt.")
+        raise MergeRefusedError(NOT_MERGED, code=ErrorCode.INCIDENT_NOT_MERGED)
     target = await db.get(models.Incident, report.merged_into_id)
     if target is not None and target.merged_into_id is not None:
         # The card it went into was merged on itself: separate that one first, or

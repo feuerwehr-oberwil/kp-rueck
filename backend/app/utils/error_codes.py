@@ -56,6 +56,11 @@ class ErrorCode(StrEnum):
     # A text save from a stale board: somebody else saved that field first (409; the field
     # keeps the draft and asks; params: field, current, changed_at?, changed_by?).
     TEXT_CONFLICT = "text_conflict"
+    # The board reads these instead of matching the German ``detail`` (COPY-14): an assign
+    # that lost a race to another board (409; the client says it in its own sentence) and an
+    # unmerge of a report that is not merged (any more) – a second click, answered quietly.
+    ASSIGNMENT_RACE = "assignment_race"
+    INCIDENT_NOT_MERGED = "incident_not_merged"
     # The Reko form (`/reko`, opened from a board link or from /feld)
     REKO_LINK_INVALID = "reko_link_invalid"
     REKO_REPORT_NOT_FOUND = "reko_report_not_found"

@@ -65,7 +65,7 @@ describe('login page in French', () => {
     renderIn('fr')
 
     expect(await screen.findByText(fr.login.page.submit)).toBeInTheDocument()
-    expect(screen.getByText(fr.login.page.subtitle)).toBeInTheDocument()
+    expect(screen.getByText(fr.login.page.usernameLabel)).toBeInTheDocument()
     // The German equivalents must be gone — a fallback here would be silent.
     expect(screen.queryByText(de.login.page.submit)).not.toBeInTheDocument()
     // next-intl renders `namespace.key` verbatim when a key is missing.

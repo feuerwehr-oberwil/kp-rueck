@@ -31,7 +31,7 @@ import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { incidentTimeSource } from "@/lib/incident-time"
 import { useIncidentTimeMode } from "@/lib/hooks/use-incident-time-mode"
 import { sortForMapList } from "@/lib/map-list-order"
-import { type Priority, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
+import { type Priority } from "@/lib/priority"
 import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import { statusGroupCaption } from "@/components/map-legend"
 import { getIncidentRefLabel } from "@/lib/incident-types"
@@ -769,7 +769,7 @@ export default function MapPage() {
   }, [gPrefix, selectedIncidentId, incidents, refreshIncidents, router, openIncidentDetail, vehicleTypes, gpsAvailable, setColorByPersisted])
 
   // Ansicht — every map display option in one popover. While any option differs
-  // from the defaults the button wears the selection (slate wash + edge, as
+  // from the defaults the button wears the selection (wash + edge, as
   // `variant="selected"`). Desktop: on the heading's
   // row, right-aligned (the view options of the list below it), so the tool row
   // under it holds only the two editor modes and never wraps 2 + 1 inside the
@@ -1187,8 +1187,8 @@ export default function MapPage() {
                                   id={`map-incident-card-${incident.id}`}
                                   onClick={() => handleIncidentClick(incident.id)}
                                   onDoubleClick={() => openIncidentDetail(incident.id)}
-                                  // ONE selected state (A2): the slate wash, nothing else. It
-                                  // was a grey wash plus a 2px slate bar inset 4px top and
+                                  // ONE selected state (A2): the selection wash, nothing else. It
+                                  // was a grey wash plus a 2px bar inset 4px top and
                                   // bottom — two shapes that never lined up (owner, 02.10.).
                                   // 44px on the phone: the row's time chip is a button the touch
                                   // rule makes 44px tall, and at 32px it lay over its neighbours'.
@@ -1200,13 +1200,12 @@ export default function MapPage() {
                                   {/* Priority as the shared `PriorityGlyph` (the marker's own
                                       path) – never a colour dot alone – at the 14px / 2px
                                       drawing in a 16px gutter: lucide's dash read as a list
-                                      hyphen, its chevron as the group's fold mark (r23). The
-                                      rail keeps its own tint (amber-700 Mittel, as before): with
-                                      no amber card edge beside it the board's near-black light
-                                      Mittel read as a hyphen again. The glyph names itself; the
-                                      span only adds the hover word. */}
+                                      hyphen, its chevron as the group's fold mark (r23). One
+                                      priority colour everywhere (COL-03), so the rail's tint is
+                                      the board's. The glyph names itself; the span only adds the
+                                      hover word. */}
                                   <span className="flex-shrink-0" title={priorityLabel}>
-                                    <PriorityGlyph priority={priority} size="wall" className={PRIORITY_TEXT_CLASSES[priority]} />
+                                    <PriorityGlyph priority={priority} size="wall" />
                                   </span>
                                   <span
                                     className="min-w-0 flex-1 truncate text-[13px] font-medium"

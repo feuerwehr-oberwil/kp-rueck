@@ -61,7 +61,7 @@ export interface StationSettings {
   error: string | null;
   /** The key whose PATCH is in flight. */
   saving: string | null;
-  /** When the server last confirmed each key in this visit – what «Gespeichert – hh:mm» reads. */
+  /** When the server last confirmed each key in this visit – what «Synchronisiert – hh:mm» reads. */
   savedAt: Record<string, Date>;
   /** Per-key validation failures of `StationSettingsForm`. Kept here, not in the
    *  form, so they outlive a switch to another section and back. */
@@ -184,8 +184,8 @@ export function useSettingSaver(failedMessage: string) {
 }
 
 /**
- * The quiet line under a setting's control: «Wird gespeichert …» while the PATCH is
- * out, then «Gespeichert – hh:mm» once the server confirmed – the same words and the
+ * The quiet line under a setting's control: «Wird synchronisiert …» while the PATCH is
+ * out, then «Synchronisiert – hh:mm» once the server confirmed – the same words and the
  * same few seconds as under a text field of the Einsatz detail (`FieldSaveStatus`).
  * These settings save by themselves on blur or on a click and have no button, so
  * without it only a failure ever said anything. A failure is still the toast.

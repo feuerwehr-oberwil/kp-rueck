@@ -119,7 +119,7 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
           "group rounded-md px-2 py-1.5 transition-all hover:bg-muted/50",
           canDrag && "draggable",
           isDragging && "dragging",
-          isDragging && person.isDriver && "ring-2 ring-blue-500/50",
+          isDragging && person.isDriver && "ring-2 ring-sel-line",
           !canDrag && person.status === "assigned" && "cursor-not-allowed",
           !canDrag && person.status !== "assigned" && "cursor-pointer",
           // Double-booked is the one exception: a genuine conflict the operator

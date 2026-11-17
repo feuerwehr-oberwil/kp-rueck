@@ -148,7 +148,7 @@ test.describe('/feld — die eigene Zuteilung (crew)', () => {
       // same word on every row of a single-role person's list, which is how a
       // tag stops meaning anything.
       await expect(row.getByText('Als Fahrer', { exact: false })).toHaveCount(0);
-      await expect(row.getByText('Reko-Auftrag')).toHaveCount(0);
+      await expect(row.getByText('Als Reko')).toHaveCount(0);
       await expect(row.getByText('Magazin')).toHaveCount(0);
       // …and no explanation sentence either: there is nothing to explain.
       await expect(row.getByText('du bist nicht selbst zugeteilt', { exact: false })).toHaveCount(0);

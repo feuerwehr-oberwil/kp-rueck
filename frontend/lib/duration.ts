@@ -8,8 +8,9 @@
  * it means anything, and wide enough to push the location off a phone card.
  *
  * So from one day on every compact form switches to days + hours («1d 10h»).
- * Below a day each surface keeps the notation it has always had: the board's
- * magnet-board `12'` / `1h 23'`, the Ereignis clock's `12m` / `1h 04m`.
+ * Below a day it is the magnet-board notation `12'` / `1h 23'` – on every
+ * surface: card chips, the Ereignis clock, notifications, «vor 12'» (owner,
+ * 17.11.2026: one notation; the Ereignis clock's old `12m` / `1h 04m` is gone).
  * Minutes are dropped at day scale on purpose: on a multi-day Einsatz the
  * minute is noise, and the full value is always in the accessible label
  * (`formatDurationLong`) and the tooltip.
@@ -46,21 +47,11 @@ export function splitDuration(ms: number): DurationParts {
   }
 }
 
-/**
- * - `board` — the card / list notation the station reads off the magnet board:
- *   `12'`, `1h 23'`, `1d 10h`.
- * - `clock` — the Ereignis clock in the header: `12m`, `1h 04m`, `1d 10h`.
- */
-export type DurationStyle = 'board' | 'clock'
-
-/** Compact duration for a chip. ≥ 1 day always reads `«d»d «h»h`. */
-export function formatDuration(ms: number, style: DurationStyle = 'board'): string {
+/** Compact duration, the magnet-board notation: `12'`, `1h 23'`, `1d 10h`. */
+export function formatDuration(ms: number): string {
   const { totalMinutes, days, hours, minutes } = splitDuration(ms)
   if (days > 0) return `${days}d ${hours}h`
   const totalHours = Math.floor(totalMinutes / 60)
-  if (style === 'clock') {
-    return totalHours > 0 ? `${totalHours}h ${String(minutes).padStart(2, '0')}m` : `${minutes}m`
-  }
   return totalHours > 0 ? `${totalHours}h ${minutes}'` : `${minutes}'`
 }
 
@@ -71,13 +62,35 @@ export function formatDuration(ms: number, style: DurationStyle = 'board'): stri
  * formatter for the Reko result line on the desk card, the wall card and the
  * wall's detail dialog – a hand-written `${hours}h` printed «2.5h».
  */
-export function formatDurationHours(hours: number, style: DurationStyle = 'board'): string {
-  return formatDuration(Math.round(hours * 60) * MINUTE_MS, style)
+export function formatDurationHours(hours: number): string {
+  return formatDuration(Math.round(hours * 60) * MINUTE_MS)
 }
 
 /** Compact duration from `since` until `now`. */
-export function formatDurationSince(since: Date, now: number = Date.now(), style: DurationStyle = 'board'): string {
-  return formatDuration(now - since.getTime(), style)
+export function formatDurationSince(since: Date, now: number = Date.now()): string {
+  return formatDuration(now - since.getTime())
+}
+
+/**
+ * Translator for `common.duration.ago` («vor {duration}») and
+ * `common.duration.justNow`. Passed in like `DurationTranslator`.
+ */
+export type AgoTranslator = (key: 'ago' | 'justNow', values?: { duration: string }) => string
+
+/**
+ * How long ago, in the board notation: «vor 12'», «vor 1h 23'», «vor 1d 10h»;
+ * under a minute «gerade eben» (also for a timestamp slightly in the future).
+ * The one «vor …» of the app – notification cards, the status conflict, the
+ * duplicate hint, the weather frame, the alarm inbox, the standby band.
+ */
+export function formatAgo(ms: number, t: AgoTranslator): string {
+  if (!Number.isFinite(ms) || ms < MINUTE_MS) return t('justNow')
+  return t('ago', { duration: formatDuration(ms) })
+}
+
+/** `formatAgo` from `since` until `now`. */
+export function formatAgoSince(since: Date, t: AgoTranslator, now: number = Date.now()): string {
+  return formatAgo(now - since.getTime(), t)
 }
 
 /**

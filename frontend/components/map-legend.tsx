@@ -325,10 +325,12 @@ export function MapLegend({
         </p>
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <svg width="24" height="6" viewBox="0 0 24 6" className="flex-shrink-0" aria-hidden="true">
+            {/* The map draws the line in its ink; on the card that is the foreground token,
+                which stays readable at night (the map ink would vanish on the dark card). */}
+            <svg width="24" height="6" viewBox="0 0 24 6" className="flex-shrink-0 text-foreground" aria-hidden="true">
               <line
                 x1="0" y1="3" x2="24" y2="3"
-                stroke="#dc2626"
+                stroke="currentColor"
                 strokeWidth="2.5"
                 strokeDasharray="4,6"
                 strokeLinecap="round"

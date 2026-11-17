@@ -1,3 +1,5 @@
+import { MAP_INK as INK } from "./map-colors"
+
 
 /**
  * The priority mark the Lagekarte draws, so priority is never colour alone (sweep hill climb r1,
@@ -22,8 +24,6 @@ export function priorityGlyphPath(priority: string | null | undefined, cx: numbe
   if (priority === "medium") return `M${cx - w} ${cy}L${cx + w} ${cy}`
   return `M${cx - w} ${cy - h}L${cx} ${cy + h}L${cx + w} ${cy - h}`
 }
-
-const INK = "#111827" // gray-900
 
 /** Relative luminance (WCAG) of a `#rrggbb` / `#rgb` colour; anything else counts as mid-grey. */
 function luminance(hex: string): number {

@@ -244,14 +244,16 @@ runtime `API_URL`. Same reasoning for map tiles (`getTileBaseUrl` → `/tiles`).
   need an entry in the label-coverage tests instead.
 - **Words**: **Mannschaft** = the crew of an Einsatz/Auftrag; **Personal** = the roster
   (sidebar, settings, check-in). The verb is **zuweisen** (never zuteilen); releasing a resource
-  is «freigeben».
+  is «freigeben». A confirm button names the consequence («Ohne Mannschaft disponieren»,
+  «Angekommen melden»), never «Ja, …» (KP Front WORD.7).
 - **Wall text (`/display/*`) wraps, it doesn't truncate** – nobody at a wall can hover a
   tooltip. Addresses, column heads and labels use `WALL_TEXT_WRAP` (`lib/kanban-utils.ts`:
   hyphenate, `break-words` only as last resort, never `break-all`); a fact that still must fit
   one line moves to its own line rather than ending in «…».
 - **Resource conflicts**: UI warns when assigning already-assigned personnel/vehicles/materials
 - **Loading states – one signal, always with words.** A full-screen start (auth probe, Microsoft
-  callback) is `components/boot-screen.tsx`: snail + «KP RÜCK» + the phase, no percentage, and
+  callback) is `components/boot-screen.tsx`: snail + «KP RÜCK» + the station's name once this device
+  has loaded a board (`lib/station-name.ts`; the login card shows it too) + the phase, no percentage, and
   «Neu starten» after 9 s. In the app it is the shell trail (`components/ui/shell-loader.tsx`):
   `LoadingStatus` for a stand-alone wait (words required, `role="status"`; `surface` = 48px
   stacked for an empty dialog/panel, `inline` = 20px beside the text), `ShellLoader` in the icon
@@ -282,16 +284,17 @@ runtime `API_URL`. Same reasoning for map tiles (`getTileBaseUrl` → `/tiles`).
   changing a notification = a builder there (+ its pinned test) and a case + copy (de AND fr) +
   test in `notification-format.ts`. A row without params, an unknown type/variant or a missing
   fact falls back to the German `message` on one line, so nothing is lost. Never parse `message`.
-- **«Gespeichert» means the server confirmed it** (`lib/field-save.ts`, `components/kanban/field-save-status.tsx`).
-  The detail's free-text fields show «Wird gespeichert …» / «Gespeichert – hh:mm» / «Nicht gespeichert»
-  under the field. The store is fed by `updateOperation` (the one funnel) and a field is «saved» only
+- **«Synchronisiert» means the server confirmed it** (`lib/field-save.ts`, `components/kanban/field-save-status.tsx`)
+  – KP Front's word for the same fact; Front's «gespeichert» means «on this device». The detail's
+  free-text fields (and the self-saving settings) show «Wird synchronisiert …» / «Synchronisiert – hh:mm» /
+  «Nicht synchronisiert» under the field. The store is fed by `updateOperation` (the one funnel) and a field is «saved» only
   when the PATCH carrying its NEWEST text answered; PATCHes run one at a time per incident
   (`KeyedSerialQueue`, no line-skipping – not even on `pagehide`) so the server sees edits in order.
   Each text goes out with `text_base` (the text this window last saw the server confirm); somebody
   else's newer text is a 409 `text_conflict`, said in amber under the field with «Meinen Text
-  speichern» / «Diese Fassung übernehmen». A failed text stays as a draft in the field —
+  behalten» / «Diese Fassung übernehmen». A failed text stays as a draft in the field —
   render the control's `value` from `useFieldSave(...).value`, never straight from `operation`, or a
-  reload replaces it — and is sent again only via «Erneut speichern». No automatic resend (the HTTP
+  reload replaces it — and is sent again only via «Erneut synchronisieren». No automatic resend (the HTTP
   client never retries a mutation), no offline queue. Drafts are scoped to user + Ereignis; a user
   switch drops them and a queued write of the previous user is not sent. A new free-text incident
   field goes into `SAVED_TEXT_FIELDS` and the backend's `IncidentTextField`.
@@ -303,6 +306,16 @@ runtime `API_URL`. Same reasoning for map tiles (`getTileBaseUrl` → `/tiles`).
   `focusFirstBlockingField`); amber `advice` is a polite status and never blocks. No toast for a
   field problem, and no submit button greyed out without a word. `DetailField` takes `error` /
   `advice` and renders it with the id `formMessageId(htmlFor)`.
+- **Questions = `ConfirmDialog`** (`components/ui/confirm-dialog.tsx`): Abbrechen + the main
+  answer in the footer row; a third «… stattdessen» answer (`extraAction`) is a full-width line
+  of its own ABOVE that row (`AlternativeAnswer`), never a ghost button beside Abbrechen. A gate
+  whose Abbrechen is an undo passes `onCancel` (the caller closes it) instead of `onOpenChange`,
+  so a confirm can never count as a cancel.
+- **Pick a person = `PersonPickTile`** (`components/kanban/assignment-list-section.tsx`) in a
+  `PickerDialog` (`components/ui/picker-dialog.tsx`: dialog on a desk, bottom sheet on a
+  phone): tick box, `PersonName`, the one rank · where · roles line; chosen = sel wash, the
+  current holder «aktuell». A tap ticks, «Übernehmen» applies; nothing ticked is said above
+  the list. Driver, Reko zuweisen/übertragen, Reko-Modus and the assignment dialog's crew.
 - **Empty lists** (`components/ui/empty-state.tsx`): say WHY and offer the one way out – search
   (`SearchEmptyState`: «Keine Treffer für «q»» + «Suche leeren», under every `SearchInput`),
   filter (name it + «Filter zurücksetzen», which keeps the search and every tick), truly nothing
@@ -337,9 +350,12 @@ runtime `API_URL`. Same reasoning for map tiles (`getTileBaseUrl` → `/tiles`).
   through the ordinary assign functions after `checkRestore` (`lib/release-undo.ts`) confirmed
   nobody put the resource elsewhere meanwhile. Wrap the operator's *own* releases with
   `useReleaseUndo`; internal releases (conflict «verschieben», completion) stay raw.
-- **Durations go through `lib/duration.ts`** (`formatDuration` / `formatDurationLong`) – no
-  hand-rolled minute maths. From one day on every compact clock reads `1d 10h`; the full value
-  («1 Tag 10 Stunden») goes into the accessible name/tooltip. The 60/120-minute age colours
+- **Durations go through `lib/duration.ts`** (`formatDuration` / `formatAgo` / `formatDurationLong`) – no
+  hand-rolled minute maths, no date-fns. ONE notation on every surface, the magnet board's: `12'`,
+  `1h 23'`, `1d 10h`, «vor 12'», under a minute «gerade eben» – card chips, the Ereignis clock,
+  notifications (the backend's `duration_de` too), every «vor …». The full value
+  («1 Tag 10 Stunden») goes into the accessible name/tooltip. A catalogue string never puts `'`
+  right before `{` or `}` (ICU quoting) – pass the formatted duration in instead. The 60/120-minute age colours
   (`ageLevel`) are a Fachentscheidung – formatting changes must not touch them.
 - **Route optimisation is a Luftlinie suggestion**: label it «Vorschlag nach Luftlinie ·
   Planungshilfe» and show the start point with provenance (`lib/route-start.ts`: settings vs.
@@ -354,13 +370,21 @@ Users, brand, aesthetic, the full colour roles and the reasoning behind every ru
 - **Desktop with mouse and keyboard is the brief.** Dense targets, power-user shortcuts; a phone
   views (an editor may spawn training incidents), tablets are KP Front's. Sizes follow the button
   scale in `frontend/components/ui/button.tsx`.
-- **Colour roles – one colour, one meaning** (tokens in `frontend/app/globals.css`):
-  - selection = slate, tonal, never a fill (`<Button variant="selected">`, `sel-choice`, `--sel*`);
+- **Colour roles – one colour, one meaning** (tokens in `frontend/app/globals.css`; the full map
+  in DESIGN.md «Colour roles», held by `lib/colour-roles.test.ts`):
+  - selection = KP Front's blue hue, tonal, never a fill (`<Button variant="selected">`,
+    `sel-choice`, `--sel*`); focus = the same blue (`--ring`), never red;
+  - «this one» (Spotlight, wall highlight, map highlight, a jump) = the `this-one-ring` ink ring;
   - red = priority and danger only, never an action (`destructive` is a red outline);
-  - green = frei / verfügbar on availability dots and badges only (Niedrig is grey);
-  - focus = slate (`--ring`), never red;
+  - priority = `--prio-high/-medium/-low` (+ the test-pinned `PRIORITY_COLORS` hex mirror);
+  - green = frei (`--free`, only via `RESOURCE_STATE_*`) and ✓ bestätigt (`success`, always with
+    ✓ or a word); Niedrig is grey;
+  - blue as a colour = an Auftrag, drawn in its own swatch (`auftragColor`); no «info» blue; map
+    things are `MAP_INK`;
+  - Übung = the hatched ink `TrainingBadge` / `TrainingBand`, no hue;
   - status colour only where crews are out: Reko violet, Im Einsatz fuchsia, every other status
-    grey (`STATUS_ACCENT`); column header lines are the status key, cards don't repeat it.
+    grey (`STATUS_ACCENT`); column header lines are the status key, cards don't repeat it;
+  - no raw palette class or colour literal outside the allowed tables, no `hsl(var(--…))`.
 - **Main button = ink** (`<Button>` default), one per surface.
 - **Type**: Sora (`font-sans`) and Spline Sans Mono (`font-mono`) only.
 - **Corners**: `rounded-md`/`-lg`/`-xl` are all 12px; controls under 32px tall use `rounded-sm`

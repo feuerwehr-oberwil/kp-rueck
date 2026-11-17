@@ -70,8 +70,8 @@ export class FeldPage extends BasePage {
     // real use (§18.9) — the crew asks, the KP clears.
     this.pickupButton = page.getByRole('button', { name: /^Abholung anfordern$/ });
 
-    this.confirmArrivedButton = page.getByRole('button', { name: 'Ja, angekommen' });
-    this.confirmCompleteButton = page.getByRole('button', { name: 'Ja, beendet' });
+    this.confirmArrivedButton = page.getByRole('button', { name: 'Angekommen melden' });
+    this.confirmCompleteButton = page.getByRole('button', { name: 'Beendet melden' });
 
     this.pickupFollowupQuestion = page.getByText('Kommt ihr selbst zurück?');
     this.needPickupButton = page.getByRole('button', { name: 'Wir müssen abgeholt werden' });

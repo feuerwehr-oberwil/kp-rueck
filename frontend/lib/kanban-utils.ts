@@ -1,7 +1,7 @@
 import { type Operation, type OperationStatus } from "./contexts/operations-context"
 import { getIncidentTypeLabel } from "./incident-types"
 import { PRIORITY_COLORS, isPriority } from "./priority"
-import { INCIDENT_TYPE_MARKER_COLORS, darkenForWhiteText } from "./map-colors"
+import { GROUP_PALETTE, INCIDENT_TYPE_MARKER_COLORS, MAP_NONE, darkenForWhiteText } from "./map-colors"
 import { formatDurationSince } from "./duration"
 import { translateOutsideReact } from "./i18n-messages"
 
@@ -18,7 +18,7 @@ import { translateOutsideReact } from "./i18n-messages"
  * Colour only where crews are out (owner, 2026-10-25, sweep VISUAL-03 E): Reko
  * is violet and Im Einsatz fuchsia, and the five other statuses share one
  * neutral grey. So no status speaks a signal colour – not red or amber
- * (priority), not green (frei / verfügbar), not slate (selection) – and the two
+ * (priority), not green (frei / verfügbar), not the selection blue – and the two
  * columns where people are in the field are the ones the eye finds. The two
  * hues differ, so a lone dot on the wall or a route-stop row still says which
  * of the two it is; the grey statuses are told apart by position, word and the
@@ -213,17 +213,14 @@ export interface ColorGroupSource {
 
 // Neutral grey for incidents with no value in the active dimension (e.g. no
 // Reko/vehicle assigned yet) — surfaced as an "Ohne Zuweisung" legend entry.
-export const COLOR_NONE = "#9ca3af"
+export const COLOR_NONE = MAP_NONE
 
 // localStorage key for the persisted board/map coloring choice.
 export const COLOR_BY_STORAGE_KEY = "kp-board-colorBy"
 
-// Distinct, high-contrast hues for categorical dimensions (reko/vehicle/type).
-const ACCENT_PALETTE = [
-  "#ef4444", "#f97316", "#eab308", "#22c55e", "#14b8a6",
-  "#3b82f6", "#6366f1", "#a855f7", "#ec4899", "#0ea5e9",
-  "#84cc16", "#f43f5e",
-]
+// Hashed hues for the categorical dimensions (reko/vehicle, an unknown Einsatzart, a route
+// without a colour): the Auftrag family, never a hue a role already speaks (ENT-05 B).
+const ACCENT_PALETTE = GROUP_PALETTE
 // Priority keeps its semantic colours instead of a hashed hue — shared with
 // the map markers and display board so the same priority never changes colour
 // between views.
@@ -240,7 +237,7 @@ export function colorAccent(
   dimension: ColorByDimension,
   groups?: ColorGroupSource[],
 ): string {
-  if (dimension === "priority") return PRIORITY_ACCENTS[key] ?? "#64748b"
+  if (dimension === "priority") return PRIORITY_ACCENTS[key] ?? PRIORITY_COLORS.low
   // Einsatzart has a MEANING, so it gets a table rather than the hashed fallback below. An
   // unknown//custom type still hashes, so a station that adds one is not left colourless.
   if (dimension === "type") {
@@ -250,11 +247,15 @@ export function colorAccent(
   // Aufträge use the route's own colour (matches the map polylines) so a route
   // reads the same across the board, list and markers; hashed hue is a fallback.
   // Either is darkened for the white stop numbers drawn on it (`darkenForWhiteText`).
-  if (dimension === "auftrag") {
-    const g = groups?.find((gr) => gr.id === key)
-    return darkenForWhiteText(g?.color || ACCENT_PALETTE[hashString(key) % ACCENT_PALETTE.length])
-  }
+  if (dimension === "auftrag") return auftragColor(key, groups?.find((gr) => gr.id === key)?.color)
   return ACCENT_PALETTE[hashString(key) % ACCENT_PALETTE.length]
+}
+
+/** An Auftrag's drawn colour: its stored colour, or the hashed family tone for one stored
+ *  without, darkened for the white stop numbers. The map, the board, /feld and the wall all
+ *  draw an Auftrag through here, so a crew on the teal route sees teal everywhere. */
+export function auftragColor(groupId: string, stored?: string | null): string {
+  return darkenForWhiteText(stored || ACCENT_PALETTE[hashString(groupId) % ACCENT_PALETTE.length])
 }
 
 /** The colour group an operation belongs to for the chosen dimension, or null
@@ -499,7 +500,7 @@ export function isBackwardTransition(from: OperationStatus, to: OperationStatus)
 export function ageChipClass(date: Date): string {
   switch (ageLevel(date)) {
     case "alarm":
-      return "text-red-600 dark:text-red-400 font-medium"
+      return "text-destructive font-medium"
     case "warn":
       return "text-warning-foreground font-medium"
     default:

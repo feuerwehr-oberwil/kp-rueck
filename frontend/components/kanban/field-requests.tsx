@@ -40,7 +40,7 @@ const KIND_ICON: Record<ApiFieldRequestKind, typeof Package> = {
 }
 
 
-/** offen = amber (it wants somebody), in Arbeit = slate, erledigt = quiet + ✓. */
+/** offen = amber (it wants somebody), in Arbeit = the selection tone, erledigt = quiet + ✓. */
 export function FieldRequestStatusChip({ request, className }: { request: ApiFieldRequest; className?: string }) {
   const t = useTranslations('feld.requests')
   return (

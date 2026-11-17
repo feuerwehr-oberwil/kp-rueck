@@ -326,7 +326,7 @@ async def attach_emergency_to_event(
             )
         except duplicates.MergeRefusedError as e:
             await db.rollback()
-            raise HTTPException(status_code=e.status_code, detail=e.reason) from None
+            raise e.to_http() from None
 
     # Link emergency to event and incident (the request commits both)
     try:

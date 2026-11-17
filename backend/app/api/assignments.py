@@ -12,6 +12,7 @@ from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import assignments as crud
 from ..database import get_db
 from ..models import IncidentAssignment
+from ..utils.error_codes import CodedHTTPException, ErrorCode
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_assignment_update
 
@@ -62,7 +63,7 @@ async def assign_resource(
         ) from e
     except ValueError as e:
         logger.warning("Assignment conflict for incident %s: %s", incident_id, e)
-        raise HTTPException(status_code=409, detail=ErrorMessages.RESOURCE_ALREADY_ASSIGNED) from e
+        raise CodedHTTPException(409, ErrorCode.ASSIGNMENT_RACE, ErrorMessages.RESOURCE_ALREADY_ASSIGNED) from e
 
     # Convert SQLAlchemy model to Pydantic for response
     assignment_response = schemas.AssignmentResponse.model_validate(result)

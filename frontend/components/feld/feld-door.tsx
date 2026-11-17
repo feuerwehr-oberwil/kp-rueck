@@ -29,6 +29,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ShellLoader } from '@/components/ui/shell-loader'
 import { clearCookie, readCookie, writeCookie } from '@/lib/cookie'
 import { decodeFeldCredential } from '@/lib/feld-assignment'
+import { TrainingBadge } from '@/components/training-mode-chrome'
 
 /** Where every `/feld` cookie lives: path-scoped to `/feld`, seven days — the
  *  page's person and Schadenplatz memory and the device token below. (The name
@@ -324,9 +325,7 @@ function FeldCodeScreen({
             {doorContext?.event_name ?? t('code.title')}
           </h1>
           {doorContext?.training_flag && (
-            <span className="mt-2 inline-flex items-center rounded-sm border border-warning/40 bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-foreground">
-              {t('code.training')}
-            </span>
+            <TrainingBadge label={t('code.training')} className="mt-2" />
           )}
         </div>
 
@@ -411,7 +410,7 @@ function FeldCodeScreen({
 
         {/* Offline: nothing was checked, so nothing is known about the code. */}
         {codeError?.kind === 'offline' && (
-          <div className="mt-3 rounded-lg border border-info/40 bg-info/10 p-3 text-sm text-foreground">
+          <div className="mt-3 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-foreground">
             <p className="font-medium">{t('code.offlineTitle')}</p>
             <p className="mt-0.5">{t('code.offlineBody')}</p>
             <p className="mt-1 text-xs text-muted-foreground">{t('code.offlineHint')}</p>

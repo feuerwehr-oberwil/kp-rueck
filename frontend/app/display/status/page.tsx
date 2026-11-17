@@ -643,7 +643,10 @@ function SituationBoard({
               }
               collapsed={sections.isCollapsed(`auftrag:${group.id}`)}
               onToggle={() => sections.toggle(`auftrag:${group.id}`)}
-              headerClassName="bg-info/10"
+              // The route's own colour as a swatch, like its vehicle rows below – a generic
+              // blue head said «Auftrag» in a colour the route might not have (COL-04).
+              headerClassName="bg-muted/40"
+              lead={<AuftragSwatch auftrag={group} className="mr-1.5 align-middle" />}
             >
               <div className="p-2 xl:p-3 space-y-1.5 xl:space-y-2">
                 {stops.map((op, index) => (

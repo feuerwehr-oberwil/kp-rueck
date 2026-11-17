@@ -152,8 +152,8 @@ describe('AttendanceModal on a phone', () => {
     expect(nameLine).toHaveTextContent(longName)
     expect(nameLine).not.toHaveClass('truncate')
     expect(factsLine).toHaveTextContent(/^seit \d\d:\d\d · zugewiesen: 14 · Talstrasse 25$/)
-    // One action on a phone list: the quick-add in the footer, no «Alle abmelden».
-    expect(screen.queryByRole('button', { name: 'Alle abmelden' })).not.toBeInTheDocument()
+    // One action on a phone list: the quick-add in the footer, no «Alle auschecken».
+    expect(screen.queryByRole('button', { name: 'Alle auschecken' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Neue Person hinzufügen/ })).toBeInTheDocument()
   })
 
@@ -237,7 +237,7 @@ describe('AttendanceModal', () => {
     expect(checkOutPersonnelForEvent).not.toHaveBeenCalled()
     expect(await screen.findByText(/noch «Hauptstrasse 12» zugewiesen/)).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Trotzdem abmelden' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Trotzdem auschecken' }))
     await waitFor(() =>
       expect(checkOutPersonnelForEvent).toHaveBeenCalledWith('Bürgin Anton', 'ev-1')
     )

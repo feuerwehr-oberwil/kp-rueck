@@ -112,7 +112,7 @@ function request(overrides: Partial<ApiFieldRequest> = {}): ApiFieldRequest {
  */
 async function confirmArrived(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: /Angekommen/ }))
-  await user.click(screen.getByRole('button', { name: 'Ja, angekommen' }))
+  await user.click(screen.getByRole('button', { name: 'Angekommen melden' }))
 }
 
 async function confirmComplete(user: ReturnType<typeof userEvent.setup>) {
@@ -120,7 +120,7 @@ async function confirmComplete(user: ReturnType<typeof userEvent.setup>) {
   // turn offers the quiet inline «melden» link instead — never a trap.
   const primary = screen.queryByRole('button', { name: 'Einsatz beendet melden' })
   await user.click(primary ?? screen.getByRole('button', { name: 'melden' }))
-  await user.click(screen.getByRole('button', { name: 'Ja, beendet' }))
+  await user.click(screen.getByRole('button', { name: 'Beendet melden' }))
 }
 
 beforeEach(() => {
@@ -350,13 +350,17 @@ describe('Freitext-Meldung', () => {
     await waitFor(() => expect(feldSendMessage).toHaveBeenCalledWith('inc-1', 'p-1', 'tok', expect.objectContaining({ message: 'fertig in ~30 Min' })))
   })
 
-  it('refuses to send whitespace', async () => {
+  it('refuses to send whitespace, and says so under the field', async () => {
     const user = userEvent.setup()
     render()
     await user.click(screen.getByRole('button', { name: 'Meldung an den KP' }))
-    await user.type(screen.getByPlaceholderText('Eigener Text …'), '   ')
+    const field = screen.getByPlaceholderText('Eigener Text …')
+    await user.type(field, '   ')
+    await user.click(screen.getByRole('button', { name: 'Meldung senden' }))
 
     expect(feldSendMessage).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toHaveTextContent('Meldung fehlt.')
+    expect(field).toHaveFocus()
   })
 })
 
@@ -456,12 +460,15 @@ describe('structured requests (R13)', () => {
     )
   })
 
-  it('a material request without a material cannot be sent', async () => {
+  it('a material request without a material or a note is not sent – the field says why', async () => {
     const user = userEvent.setup()
     render()
     await user.click(screen.getByRole('button', { name: 'Meldung an den KP' }))
     await user.click(screen.getByRole('button', { name: 'Material nötig' }))
-    expect(screen.getByRole('button', { name: 'Anfordern' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Anfordern' }))
+
+    expect(feldSendMessage).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toHaveTextContent('Material oder Notiz fehlt.')
   })
 
   it('shows what the KP did about each request', () => {

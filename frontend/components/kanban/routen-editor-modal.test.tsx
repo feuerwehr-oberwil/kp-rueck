@@ -314,7 +314,7 @@ describe("RouteStopList — reorder without dragging", () => {
     renderList({ stopIds: ["A", "B"], reorderDisabled: true, onRemoveStop: vi.fn() })
     await userEvent.setup().click(screen.getAllByRole("button", { name: /^Reihenfolge und Aktionen für/ })[0])
     expect(screen.queryByRole("menuitem", { name: "Nach unten" })).not.toBeInTheDocument()
-    expect(screen.getByRole("menuitem", { name: "Stopp entfernen" })).toBeInTheDocument()
+    expect(screen.getByRole("menuitem", { name: "Aus Auftrag entfernen" })).toBeInTheDocument()
   })
 })
 

@@ -88,8 +88,8 @@ export function EventClock({ className }: { className?: string }) {
     if (m === 'time') return wallClock
     if (!startedAt || !isMounted || !currentTime) return '--:--'
     if (m === 'start') return formatTime(startedAt, intlLocale)
-    // "12m" / "1h 04m" / "1d 10h" — the clock style of the shared formatter.
-    return formatDuration(currentTime.getTime() - startedAt.getTime(), 'clock')
+    // "12'" / "1h 4'" / "1d 10h" — the board notation, like every other duration.
+    return formatDuration(currentTime.getTime() - startedAt.getTime())
   }
 
   const ActiveIcon = MODE_ICON[mode]

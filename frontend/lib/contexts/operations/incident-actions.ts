@@ -57,8 +57,8 @@ function operationToIncidentCreate(
 }
 
 
-/** The server's 409 for «not merged (any more)» — `services/duplicates.unmerge_report`. */
-const ALREADY_SEPARATED = "Diese Meldung ist nicht zusammengeführt."
+/** The server's code for «not merged (any more)» — `services/duplicates.unmerge_report`. */
+const NOT_MERGED_CODE = "incident_not_merged"
 
 export function createIncidentActions(board: BoardMutationContext) {
   const {
@@ -537,7 +537,7 @@ export function createIncidentActions(board: BoardMutationContext) {
       if (ApiError.isConflictError(err)) {
         await refreshOperations()
         // Already separated (a second click, or another board was faster): quiet.
-        if (err.message === ALREADY_SEPARATED) return true
+        if (err.code === NOT_MERGED_CODE) return true
         // A refusal the server put into words — the card it went into is closed,
         // or was merged on itself (R2 review): the operator has to read why.
         toast.error(translateOutsideReact('duplicates.unmergeFailed'), { description: err.message })
@@ -646,10 +646,22 @@ export function createIncidentActions(board: BoardMutationContext) {
       setOperations((ops) => ops.filter((op) => op.id !== operationId))
 
       // Offer an undo. Only when the delete was persisted (isLoaded) — a purely
-      // local optimistic delete has no backend row to restore.
+      // local optimistic delete has no backend row to restore. There is no
+      // «wirklich löschen?» before this (owner, 17.11.2026): the toast is the
+      // safety net, so it also says what the card took off the board with it –
+      // a card that was never an incident usually had people and a vehicle on it.
+      // The server keeps those assignments on the soft-deleted row; the undo
+      // brings them back with the card.
       if (isLoaded) {
+        const released = [
+          operation.crew.length ? translateOutsideReact('kanban.common.personCount', { count: operation.crew.length }) : null,
+          operation.vehicles.length ? operation.vehicles.map((v) => v.name).join(', ') : null,
+        ].filter(Boolean)
         undoToast(translateOutsideReact('notifications.operations.deletedTitle'), {
-          description: getIncidentRefLabel(operation),
+          description: [
+            getIncidentRefLabel(operation),
+            released.length ? translateOutsideReact('kanban.common.deleteIncidentReleases', { what: released.join(', ') }) : null,
+          ].filter(Boolean).join(' · '),
           onUndo: () => handleRestore(operationId),
         })
       }

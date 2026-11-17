@@ -20,7 +20,6 @@ from io import BytesIO
 from typing import Any
 from xml.sax.saxutils import escape
 
-from reportlab.lib import colors
 from reportlab.lib.enums import TA_LEFT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
@@ -47,6 +46,7 @@ from ..models import (
     StatusTransition,
     Vehicle,
 )
+from . import paper_palette as paper
 from .address_display import format_location_for_display
 from .audit_export_service import EventReportData
 from .incident_leader import effective_leader_ids
@@ -88,8 +88,9 @@ ROW_HEIGHT = 9 * mm
 _PHOTO_PER_ROW = 4
 _PHOTO_MAX_H = 35 * mm
 
-_BORDER = colors.HexColor("#a1a1aa")
-_HEADER_BG = colors.HexColor("#f4f4f5")
+# The one paper palette (`paper_palette`): the ruled grid, the report's table-head panel.
+_BORDER = paper.RULE
+_HEADER_BG = paper.PANEL
 
 #: «H» / «M» / «N» – the initials of the board's Hoch / Mittel / Niedrig.
 _PRIORITY_SHORT = {key: label[0] for key, label in PRIORITY_LABELS.items()}
@@ -677,7 +678,7 @@ def build_lageblatt_pdf(
     story.append(_HandwritingGrid(col_widths, footer_reserve=8 * mm))
 
     footer_style = ParagraphStyle(
-        "lageblatt_footer", fontName="Helvetica", fontSize=6.5, leading=8, textColor=colors.grey
+        "lageblatt_footer", fontName="Helvetica", fontSize=6.5, leading=8, textColor=paper.DIM
     )
     footer_text = "KP Rück – Lageblatt (angelehnt an Führungsformular Elementarschaden FWI BL/BS)"
     if station_name.strip():

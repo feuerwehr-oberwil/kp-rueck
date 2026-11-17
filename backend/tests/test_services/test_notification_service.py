@@ -587,13 +587,13 @@ class TestFatigueNotification:
         return list(result.scalars().all())
 
     def test_message_single_and_grouped(self):
-        assert fatigue_message([("Müller Hans", 5 * 60 + 10)], 4) == "Seit über 4 h im Einsatz: Müller Hans (5 h)"
+        assert fatigue_message([("Müller Hans", 5 * 60 + 10)], 4) == "Seit über 4h im Einsatz: Müller Hans (5h)"
         assert (
             fatigue_message([("Müller Hans", 6 * 60), ("Meier Anna", 4 * 60 + 59)], 4)
-            == "2 Personen seit über 4 h im Einsatz: Müller Hans (6 h), Meier Anna (4 h)"
+            == "2 Personen seit über 4h im Einsatz: Müller Hans (6h), Meier Anna (4h)"
         )
         many = [(f"P{i}", 300) for i in range(7)]
-        assert fatigue_message(many, 4).endswith("P4 (5 h) und 2 weitere")
+        assert fatigue_message(many, 4).endswith("P4 (5h) und 2 weitere")
 
     @pytest.mark.asyncio
     async def test_measured_from_check_in_not_from_assignment(
@@ -614,7 +614,7 @@ class TestFatigueNotification:
         current = await _sync_fatigue_notification(db_session, notif_event.id, NotificationSettings(fatigue_hours=4))
 
         assert current is not None
-        assert current.message == "Seit über 4 h im Einsatz: Müller Hans (5 h)"
+        assert current.message == "Seit über 4h im Einsatz: Müller Hans (5h)"
         assert current.severity == "warning"
         assert current.incident_id is None
 
@@ -641,7 +641,7 @@ class TestFatigueNotification:
         rows = await self._fatigue_rows(db_session, notif_event)
         assert len(rows) == 1
         assert rows[0].message == (
-            "3 Personen seit über 4 h im Einsatz: Müller Hans (6 h), Huber Max (5 h), Meier Anna (4 h)"
+            "3 Personen seit über 4h im Einsatz: Müller Hans (6h), Huber Max (5h), Meier Anna (4h)"
         )
         # The same facts for the client to say in its own language.
         assert rows[0].params == {
@@ -668,7 +668,7 @@ class TestFatigueNotification:
         assert second is not None and second.id == first.id
         rows = await self._fatigue_rows(db_session, notif_event)
         assert len(rows) == 1
-        assert rows[0].message.startswith("2 Personen seit über 4 h im Einsatz")
+        assert rows[0].message.startswith("2 Personen seit über 4h im Einsatz")
         assert rows[0].params["count"] == 2
         assert [p["name"] for p in rows[0].params["people"]] == ["Müller Hans", "Meier Anna"]
         assert rows[0].dismissed is False
@@ -785,7 +785,7 @@ class TestFatigueNotification:
 
         fresh = await _sync_fatigue_notification(db_session, notif_event.id, NotificationSettings(fatigue_hours=4))
         assert fresh is not None
-        assert fresh.message == "Seit über 4 h im Einsatz: Müller Hans (5 h)"
+        assert fresh.message == "Seit über 4h im Einsatz: Müller Hans (5h)"
 
     @pytest.mark.asyncio
     async def test_re_alarm_interval_brings_it_back(
@@ -843,7 +843,7 @@ class TestFatigueNotification:
         rows = await self._fatigue_rows(db_session, notif_event)
         open_rows = [r for r in rows if not r.dismissed]
         assert len(open_rows) == 1
-        assert open_rows[0].message.startswith("2 Personen seit über 4 h im Einsatz")
+        assert open_rows[0].message.startswith("2 Personen seit über 4h im Einsatz")
 
     @pytest.mark.asyncio
     async def test_threshold_zero_or_disabled_switches_it_off(self, db_session: AsyncSession, notif_event: Event):

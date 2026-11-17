@@ -2,9 +2,8 @@ import { describe, expect, it } from "vitest"
 import { createTranslator } from "next-intl"
 import de from "@/messages/de.json"
 import fr from "@/messages/fr.json"
-import { formatDuration, formatDurationHours, formatDurationLong, formatDurationSince, splitDuration } from "./duration"
+import { formatAgo, formatAgoSince, formatDuration, formatDurationHours, formatDurationLong, formatDurationSince, splitDuration } from "./duration"
 import { getTimeSince } from "./kanban-utils"
-import { formatPickupWaiting } from "./pickup"
 
 const MIN = 60_000
 const H = 60 * MIN
@@ -51,11 +50,25 @@ describe("formatDuration (board)", () => {
   })
 })
 
-describe("formatDuration (clock)", () => {
-  it("keeps the Ereignis clock's notation below a day and switches to days above", () => {
-    expect(formatDuration(12 * MIN, "clock")).toBe("12m")
-    expect(formatDuration(H + 4 * MIN, "clock")).toBe("1h 04m")
-    expect(formatDuration(D + 10 * H + 4 * MIN, "clock")).toBe("1d 10h")
+describe("formatAgo", () => {
+  it.each([
+    [0, "gerade eben"],
+    [59_999, "gerade eben"],
+    [-30_000, "gerade eben"],
+    [MIN, "vor 1'"],
+    [H + 23 * MIN, "vor 1h 23'"],
+    [34 * H, "vor 1d 10h"],
+  ])("%d ms → %s", (ms, expected) => {
+    expect(formatAgo(ms, tDe)).toBe(expected)
+  })
+
+  it("speaks French around the same notation", () => {
+    expect(formatAgo(12 * MIN, tFr)).toBe("il y a 12'")
+    expect(formatAgo(0, tFr)).toBe("à l’instant")
+  })
+
+  it("formatAgoSince measures against an explicit now", () => {
+    expect(formatAgoSince(new Date(0), tDe, 5 * MIN)).toBe("vor 5'")
   })
 })
 
@@ -83,14 +96,5 @@ describe("formatDurationLong", () => {
 
   it("uses the French plurals", () => {
     expect(formatDurationLong(D + 2 * H, tFr)).toBe("1 jour 2 heures")
-  })
-})
-
-describe("formatPickupWaiting", () => {
-  it("switches to days at 24 hours", () => {
-    const now = new Date("2026-10-02T12:00:00Z")
-    expect(formatPickupWaiting(new Date(now.getTime() - (26 * H + 5 * MIN)), now)).toBe("1 d 2 h")
-    expect(formatPickupWaiting(new Date(now.getTime() - 2 * D), now)).toBe("2 d")
-    expect(formatPickupWaiting(new Date(now.getTime() - (H + 20 * MIN)), now)).toBe("1 h 20")
   })
 })

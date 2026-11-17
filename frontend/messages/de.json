@@ -177,13 +177,13 @@
         "toastMoved": "{name} von {from} freigegeben",
         "tabComplete": "⇥ ergänzt zu «{label}»"
       },
-      "journal": "Einsatztagebuch öffnen",
-      "journalEntry": "Tagebuch-Eintrag schreiben",
+      "journal": "Verlauf öffnen",
+      "journalEntry": "Eintrag in den Verlauf schreiben",
       "toggleAmWarten": "Am Warten umschalten",
       "toggleNachbarhilfe": "Nachbarhilfe umschalten"
     },
     "meta": {
-      "title": "KP Rück Dashboard",
+      "title": "KP Rück",
       "description": "Einsatzübersicht für die Mannschafts- und Materialdisposition der Feuerwehr."
     },
     "dismissAllToasts": "Alle schliessen",
@@ -193,7 +193,9 @@
     "duration": {
       "days": "{count, plural, one {# Tag} other {# Tage}}",
       "hours": "{count, plural, one {# Stunde} other {# Stunden}}",
-      "minutes": "{count, plural, one {# Minute} other {# Minuten}}"
+      "minutes": "{count, plural, one {# Minute} other {# Minuten}}",
+      "ago": "vor {duration}",
+      "justNow": "gerade eben"
     },
     "update": {
       "available": "Neue Version verfügbar",
@@ -205,6 +207,11 @@
       "moveDown": "Nach unten",
       "moveTop": "An den Anfang",
       "menuFor": "Reihenfolge von {name} ändern"
+    },
+    "personPick": {
+      "current": "aktuell",
+      "apply": "Übernehmen",
+      "noneChosen": "Keine Person gewählt."
     }
   },
   "nav": {
@@ -270,7 +277,7 @@
       "support": "Support",
       "account": "Konto",
       "linksAndQr": "Links & QR",
-      "journal": "Einsatztagebuch",
+      "journal": "Verlauf",
       "figures": "Kennzahlen"
     },
     "pageNav": {
@@ -408,8 +415,6 @@
       "transferFailed": "Übertragen fehlgeschlagen",
       "transferFailedDescription": "Die Ressourcen konnten nicht übertragen werden.",
       "noEventSelected": "Kein Ereignis ausgewählt.",
-      "deleteIncidentTitle": "Einsatz wirklich löschen?",
-      "deleteIncidentDescription": "Der Einsatz «{name}» wird gelöscht und nicht nur archiviert – er wird vollständig vom Board entfernt.",
       "removeNamed": "{name} freigeben",
       "available": "Verfügbar",
       "inUse": "Im Einsatz",
@@ -479,7 +484,7 @@
       "driverReturnsToast": "{vehicle}: Fahrer kehrt zurück",
       "driverStayToastHint": "Steht so auf der Funkdurchsage und dem Einsatzzettel",
       "personCount": "{count, plural, one {# Person} other {# Personen}}",
-      "deleteIncidentReleases": "Freigegeben werden: {what}.",
+      "deleteIncidentReleases": "freigegeben: {what}",
       "notReady": "Nicht einsatzbereit",
       "notReadyOne": "Ein Gerät als nicht einsatzbereit markieren",
       "aggregateCountTitle": "{free} von {total} frei",
@@ -523,7 +528,7 @@
         "auftrag": "Nach Auftrag",
         "type": "Nach Typ"
       },
-      "noPersonnelCheckedIn": "Niemand angemeldet",
+      "noPersonnelCheckedIn": "Niemand anwesend",
       "personnelLoading": "Personal wird geladen …",
       "materialLoading": "Material wird geladen …",
       "notLoaded": "Nicht geladen",
@@ -574,8 +579,8 @@
       "distributeConfirmTitle": "In Auftrag aufnehmen?",
       "distributeConfirmTransfer": "«{incident}» gehört bereits zu Auftrag «{from}» und wird dorthin verschoben. Das lässt sich nicht rückgängig machen.",
       "distributeConfirmDispatched": "«{incident}» ist bereits disponiert. Die Aufnahme in den Auftrag lässt sich nicht rückgängig machen.",
-      "distributeConfirmAction": "Ja, aufnehmen",
-      "journal": "Tagebuch"
+      "distributeConfirmAction": "In Auftrag aufnehmen",
+      "journal": "Verlauf"
     },
     "missingResources": {
       "title": "Ressourcen fehlen",
@@ -590,9 +595,9 @@
       "mittelSummary": "{count, plural, one {# Gerät} other {# Geräte}}",
       "done": "Disponieren",
       "back": "Zurück",
-      "dispatchWithoutCrew": "Ja, ohne Mannschaft disponieren",
-      "dispatchWithoutVehicle": "Ja, ohne Fahrzeug disponieren",
-      "dispatchWithoutBoth": "Ja, ohne Mannschaft und Fahrzeug disponieren",
+      "dispatchWithoutCrew": "Ohne Mannschaft disponieren",
+      "dispatchWithoutVehicle": "Ohne Fahrzeug disponieren",
+      "dispatchWithoutBoth": "Ohne Mannschaft und Fahrzeug disponieren",
       "armedCrew": "Keine Mannschaft – wirklich so ausrücken?",
       "armedVehicles": "Kein Fahrzeug – wirklich so ausrücken?",
       "armedHint": "Nochmals klicken oder Enter bestätigt · Esc geht zurück"
@@ -715,9 +720,9 @@
       "noVehicleKeyword": "ohne fahrzeug"
     },
     "timeline": {
-      "loadFailed": "Verlauf konnte nicht geladen werden.",
+      "loadFailed": "Chronik konnte nicht geladen werden.",
       "retry": "Erneut versuchen",
-      "title": "Verlauf",
+      "title": "Chronik",
       "subtitle": "Statusänderungen, Zuweisungen und Meldungen",
       "empty": "Noch keine Einträge.",
       "removed": "freigegeben",
@@ -733,9 +738,6 @@
       "byWhoComplete": "<b>{who}</b> hat <b>{label}</b> {ago} abgeschlossen.",
       "byNobody": "<b>{label}</b> wurde {ago} auf «{statusLabel}» gesetzt.",
       "byNobodyComplete": "<b>{label}</b> wurde {ago} abgeschlossen.",
-      "agoNow": "soeben",
-      "agoSeconds": "vor {seconds} s",
-      "agoDuration": "vor {duration}",
       "fallbackLabel": "Einsatz",
       "now": "Jetzt",
       "wanted": "Du wolltest",
@@ -765,7 +767,7 @@
       "moreActions": "Weitere Aktionen"
     },
     "detail": {
-      "rekoAuftrag": "Reko-Auftrag",
+      "rekoAuftrag": "Reko-Zuweisung",
       "groups": {
         "kraefte": "Kräfte"
       },
@@ -775,7 +777,7 @@
         "rapport": "Feld",
         "rapportFiled": "Rapport",
         "rapportDraft": "Entwurf",
-        "history": "Verlauf",
+        "history": "Chronik",
         "switchHint": "Tab wechseln"
       },
       "incidentsLoadFailedDescription": "Die Einsätze konnten nicht geladen werden.",
@@ -793,7 +795,7 @@
       "moreActions": "Weitere Aktionen",
       "diveraAlarm": "Aufgebot",
       "eventWideRekoTransfer": "Alle offenen Rekos übertragen",
-      "eventWideRekoTransferTooltip": "Überträgt alle offenen Reko-Aufträge dieser Person im gesamten Ereignis, nicht nur diesen Einsatz.",
+      "eventWideRekoTransferTooltip": "Überträgt alle offenen Rekos dieser Person im gesamten Ereignis, nicht nur diesen Einsatz.",
       "sourceAuftrag": "Auftrag «{name}»",
       "sourceAuftragHint": "Fährt mit zum nächsten Stopp",
       "sourceIncident": "Nur dieser Einsatz",
@@ -875,7 +877,7 @@
       "filterHidesSearch": "{count, plural, one {Der Filter {filters} blendet} other {Die Filter {filters} blenden}} die Treffer für «{query}» aus.",
       "onlyAssignedNoneIncident": "Der Filter «Nur zugewiesene» blendet alle Fahrzeuge aus – diesem Einsatz ist noch keines zugewiesen.",
       "onlyAssignedNoneRoute": "Der Filter «Nur zugewiesene» blendet alle Fahrzeuge aus – diesem Auftrag ist noch keines zugewiesen.",
-      "noneCrewTitle": "Noch niemand eingecheckt",
+      "noneCrewTitle": "Noch niemand anwesend",
       "noneCrewBody": "Wer eincheckt, erscheint hier. Den Check-in-Link gibt es unter «Links & QR».",
       "showCheckInLink": "Check-in-Link zeigen",
       "noneVehiclesTitle": "Keine Fahrzeuge erfasst",
@@ -902,7 +904,7 @@
       "failed": "Übertragung fehlgeschlagen",
       "markAndTransferFailed": "Die Person konnte nicht als Reko-Ziel verwendet werden – nichts wurde übertragen.",
       "title": "Rekos übertragen",
-      "description": "Offene Reko-Aufträge von {name} an eine andere Person übertragen.",
+      "description": "Offene Rekos von {name} an eine andere Person übertragen.",
       "noOthers": "Keine anderen Reko-Personen verfügbar"
     },
     "person": {
@@ -955,7 +957,7 @@
       "map": "Karte",
       "dragStop": "Stopp verschieben",
       "openDetail": "Details öffnen",
-      "removeStop": "Stopp entfernen",
+      "removeStop": "Aus Auftrag entfernen",
       "changeColor": "Farbe ändern",
       "optimizeOrder": "Optimieren",
       "repeatRadio": "Durchsage wiederholen",
@@ -999,7 +1001,7 @@
       "dragStop": "Stopp verschieben",
       "noCoords": "Dieser Stopp hat keine Koordinaten und liegt nicht auf der Route.",
       "noCoordsBadge": "kein Ort",
-      "removeStop": "Stopp entfernen",
+      "removeStop": "Aus Auftrag entfernen",
       "contextOpen": "Offen",
       "contextInRoute": "In Auftrag «{name}»",
       "contextClickToAdd": "Klicken, um als Stopp hinzuzufügen",
@@ -1020,7 +1022,7 @@
       "viewMap": "Karte",
       "mapLoading": "Karte wird geladen …",
       "mapEmpty": "Keine verorteten Einsätze auf der Karte.",
-      "legendSelected": "rot = ausgewählt",
+      "legendSelected": "Ring = ausgewählt",
       "legendOtherRoute": "farbig = schon in einem anderen Auftrag (wird verschoben)",
       "legendUnassigned": "grau = in keinem Auftrag",
       "hiddenCount": "{count} ausgeblendet",
@@ -1042,7 +1044,7 @@
       "title": "Anwesenheit · {event}",
       "summary": "{present} anwesend · {left} gegangen · {total} Personal",
       "rowLabel": "Anwesenheit",
-      "rowCount": "{present} von {total} angemeldet",
+      "rowCount": "{present} von {total} anwesend",
       "open": "Appell öffnen",
       "loading": "Wird geladen …",
       "noneFound": "Keine Personen gefunden",
@@ -1051,12 +1053,12 @@
       "assignedChip": "zugewiesen",
       "assignedTo": "zugewiesen: {where}",
       "assignedTitle": "Person ist noch zugewiesen",
-      "assignedDescription": "{name} ist noch «{where}» zugewiesen – trotzdem abmelden? Die Zuweisung bleibt bestehen.",
-      "checkOutAnyway": "Trotzdem abmelden",
-      "checkOutAll": "Alle abmelden",
-      "checkOutAllTitle": "Alle abmelden?",
+      "assignedDescription": "{name} ist noch «{where}» zugewiesen – trotzdem auschecken? Die Zuweisung bleibt bestehen.",
+      "checkOutAnyway": "Trotzdem auschecken",
+      "checkOutAll": "Alle auschecken",
+      "checkOutAllTitle": "Alle auschecken?",
       "checkOutAllDescription": "{count, plural, one {# anwesende Person wird} other {# anwesende Personen werden}} auf «gegangen» gesetzt. Zuweisungen bleiben bestehen.",
-      "quickAddHint": "Wird direkt angemeldet",
+      "quickAddHint": "Ist danach gleich anwesend",
       "writeFailed": "Anwesenheit konnte nicht gespeichert werden",
       "openButton": "Appell"
     },
@@ -1066,13 +1068,13 @@
       "countComing": "{count, plural, one {# kommt} other {# kommen}}",
       "countNotComing": "{count, plural, one {# kommt nicht} other {# kommen nicht}}",
       "noAnswersYet": "Noch keine Rückmeldung",
-      "allHere": "Alle, die kommen, sind angemeldet",
+      "allHere": "Alle, die kommen, sind anwesend",
       "notComingGroup": "Kommt nicht ({count})",
       "notComing": "kommt nicht",
       "unmapped": "{count, plural, one {# Rückmeldung} other {# Rückmeldungen}} ohne Person im Bestand",
       "checkIn": "da",
       "checkInLabel": "{name} als anwesend melden",
-      "checkInFailed": "Anmeldung fehlgeschlagen"
+      "checkInFailed": "Check-in fehlgeschlagen"
     },
     "links": {
       "title": "Links & QR",
@@ -1125,9 +1127,9 @@
       "confirm": "Status korrigieren"
     },
     "fieldSave": {
-      "saving": "Wird gespeichert …",
-      "savedAt": "Gespeichert – {time}",
-      "failed": "Nicht gespeichert.",
+      "saving": "Wird synchronisiert …",
+      "savedAt": "Synchronisiert – {time}",
+      "failed": "Nicht synchronisiert.",
       "failedBody": "{reason} – der Text bleibt hier stehen.",
       "reason": {
         "network": "Keine Verbindung zum Server",
@@ -1141,21 +1143,21 @@
       "serverNow": "Auf dem Server steht inzwischen: «{text}»",
       "serverNowEmpty": "Auf dem Server ist das Feld inzwischen leer.",
       "conflict": {
-        "title": "Nicht gespeichert – inzwischen geändert.",
+        "title": "Nicht synchronisiert – inzwischen geändert.",
         "byAt": "{by} hat um {time} geändert:",
         "by": "{by} hat inzwischen geändert:",
         "at": "Um {time} anderswo geändert:",
         "unknown": "Anderswo geändert:",
         "empty": "Das Feld ist jetzt leer.",
-        "keepMine": "Meinen Text speichern",
+        "keepMine": "Meinen Text behalten",
         "takeTheirs": "Diese Fassung übernehmen"
       },
-      "retry": "Erneut speichern",
+      "retry": "Erneut synchronisieren",
       "copy": "Text kopieren",
       "copied": "Kopiert",
       "leave": {
-        "title": "Text nicht gespeichert",
-        "description": "{count, plural, one {{fields} konnte} other {{fields} konnten}} nicht gespeichert werden. Der Text bleibt in diesem Fenster erhalten, bis die Seite neu geladen wird.",
+        "title": "Text nicht synchronisiert",
+        "description": "{count, plural, one {{fields} konnte} other {{fields} konnten}} nicht synchronisiert werden. Der Text bleibt in diesem Fenster erhalten, bis die Seite neu geladen wird.",
         "confirm": "Trotzdem schliessen",
         "cancel": "Zurück zum Einsatz"
       }
@@ -1169,7 +1171,7 @@
     "crewDuty": {
       "title": "Dienstzeiten",
       "summary": "{present} anwesend",
-      "summaryOver": "{present} anwesend · {over} über {hours} h",
+      "summaryOver": "{present} anwesend · {over} über {hours}h",
       "colName": "Name",
       "colSince": "Seit",
       "colOnDuty": "Anwesend",
@@ -1180,11 +1182,11 @@
       "count": "{count, plural, =0 {noch kein Einsatz} one {# Einsatz} other {# Einsätze}}",
       "countTitle": "Einsätze in diesem Ereignis, abgeschlossene und laufende",
       "countUnavailable": "Anzahl Einsätze gerade nicht abrufbar",
-      "empty": "Niemand eingecheckt.",
+      "empty": "Niemand anwesend.",
       "openButton": "Dienstzeiten",
       "openTitle": "Dienstzeiten – wer ist wie lange da",
       "onDutyTooltip": "Seit {time} im Einsatz – {duration}",
-      "onDutyTooltipOver": "Seit {time} im Einsatz – {duration}, über {hours} h",
+      "onDutyTooltipOver": "Seit {time} im Einsatz – {duration}, über {hours}h",
       "colAssigned": "Eingesetzt",
       "colPause": "Pause",
       "pauseTitle": "Pause: anwesend, aber auf keinem Einsatz und keinem Auftrag",
@@ -1243,17 +1245,15 @@
       "emptyHint": "Oder: Rechtsklick auf eine Person in der Seitenleiste → «Als Reko zuweisen».",
       "markExisting": "Person als Reko markieren",
       "markSearchPlaceholder": "Person suchen …",
-      "markAllReko": "Alle eingecheckten Personen sind bereits als Reko markiert.",
-      "markNoCheckedIn": "Niemand ist eingecheckt. Checke zuerst Personal ein.",
+      "markAllReko": "Alle anwesenden Personen sind bereits als Reko markiert.",
+      "markNoCheckedIn": "Niemand ist anwesend. Checke zuerst Personal ein.",
       "markError": "Die Person ist nicht als Reko markiert.",
       "back": "Zurück",
-      "assigned": "Zugewiesen",
-      "keepAssigned": "Zuweisung übernehmen",
       "recommended": "Empfohlen",
       "openCount": "{count} offen",
       "noOpenWork": "frei",
       "doneCount": "{count} erledigt",
-      "distanceOpenTooltip": "Luftlinie zum nächstgelegenen offenen Reko-Auftrag",
+      "distanceOpenTooltip": "Luftlinie zur nächstgelegenen offenen Reko",
       "distanceLastTooltip": "Luftlinie zum zuletzt zugewiesenen Einsatz",
       "distanceLastSuffix": "(zuletzt)"
     },
@@ -1283,14 +1283,11 @@
       "title": "Fahrer für {vehicle}",
       "currentDriver": "Aktueller Fahrer: {driver}",
       "noDriverAssigned": "Kein Fahrer zugewiesen",
-      "currentDriverLabel": "Aktueller Fahrer",
       "searchPlaceholder": "Person suchen …",
       "driversSection": "Fahrer",
       "othersSection": "Andere",
-      "inOperation": "Im Einsatz",
       "noAvailablePersons": "Keine verfügbaren Personen",
-      "allAssignedHint": "Alle Personen sind bereits als Fahrer zugewiesen oder nicht eingecheckt",
-      "close": "Schliessen",
+      "allAssignedHint": "Alle Personen sind bereits als Fahrer zugewiesen oder nicht anwesend",
       "conflictTitle": "Person ist einem Einsatz zugewiesen",
       "conflictDescription": "<strong>{name}</strong> ist aktuell {count, plural, one {dem Einsatz «{location}» zugewiesen} other {# Einsätzen zugewiesen}}. Als Fahrer kann die Person nicht gleichzeitig einem Einsatz zugewiesen sein.",
       "conflictConfirm": "Vom Einsatz freigeben & zuweisen",
@@ -1302,17 +1299,18 @@
       "removeConfirmDescription": "<strong>{name}</strong> ist danach nicht mehr Fahrer von <strong>{vehicle}</strong> und gilt wieder als normale Einsatzkraft.",
       "removeConfirmAction": "Fahrer entfernen",
       "addPersonButton": "Person hinzufügen",
-      "addPersonHint": "Nicht eingecheckte Aushilfe (z. B. früherer Fahrer) direkt als Fahrer erfassen",
+      "addPersonHint": "Nicht anwesende Aushilfe (z. B. früherer Fahrer) direkt als Fahrer erfassen",
       "addNamePlaceholder": "Name der Person",
       "addAndAssign": "Hinzufügen & als Fahrer",
       "adding": "Wird hinzugefügt …",
       "addError": "Person konnte nicht hinzugefügt werden",
-      "checkInFailedTitle": "Anmeldung fehlgeschlagen",
-      "checkInFailedDescription": "{name} wurde erfasst, ist aber nicht als anwesend angemeldet und darum nicht auf dem Board sichtbar. Person im Appell anmelden und danach als Fahrer zuweisen.",
+      "checkInFailedTitle": "Check-in fehlgeschlagen",
+      "checkInFailedDescription": "{name} wurde erfasst, ist aber nicht als anwesend gemeldet und darum nicht auf dem Board sichtbar. Person im Appell einchecken und danach als Fahrer zuweisen.",
       "duplicateName": "Es existiert bereits eine Person mit diesem Namen.",
       "markAsDriver": "Als Fahrer markieren",
       "markedAsDriver": "{name} als Fahrer markiert",
-      "markError": "Markierung fehlgeschlagen"
+      "markError": "Markierung fehlgeschlagen",
+      "withoutDriver": "Ohne Fahrer"
     },
     "resourceConflict": {
       "moveHere": "Hierher verschieben",
@@ -1492,7 +1490,7 @@
     },
     "view": {
       "markerAria": "Einsatz: {label}",
-      "trailTooltip": "{vehicle} – letzte {minutes} Min.",
+      "trailTooltip": "{vehicle} – letzte {minutes}'",
       "firestationFallback": "Feuerwehr",
       "crewSummary": "{vehicles, plural, one {# Fahrzeug} other {# Fahrzeuge}}, {personnel, plural, one {# Person} other {# Personen}} zugewiesen",
       "magazin": "Magazin",
@@ -1528,7 +1526,7 @@
       "sampleOnline": "Pio",
       "sampleOffline": "TLF",
       "pillOnline": "online",
-      "pillStale": "offline · zuletzt (ab {minutes} Min.)",
+      "pillStale": "offline · zuletzt (ab {minutes}')",
       "pillSpot": "am selben Ort · offline",
       "onlineOnly": "(nur online)"
     },
@@ -1639,7 +1637,6 @@
       "play": "Letzte Stunde abspielen",
       "pause": "Anhalten (zurück auf aktuell)",
       "frameSlider": "Radarbild wählen",
-      "frameAgo": "vor {minutes} min",
       "latest": "aktuellstes Bild",
       "opacity": "Deckkraft",
       "legendLight": "schwach",
@@ -1783,8 +1780,8 @@
         "lockedState": "vom Betreiber gesperrt",
         "explain": "Eingeschaltet werden bereinigte Absturzmeldungen an die Entwicklung gesendet: Version, Geräteart, Fehlertyp. Keine Adressen, keine Namen, keine Einsatzdaten, keine IP. Jede einzelne Übertragung steht unten und zusätzlich im Server-Log.",
         "lockedNote": "Auf dieser Anlage ist der Versand per Umgebungsvariable abgeschaltet (KP_TELEMETRY_ENABLED=0). Dieser Schalter kann daran nichts ändern – so gedacht: wer die Anlage betreibt, entscheidet vor allen anderen.",
-        "askYes": "Ja, Abstürze melden",
-        "askNo": "Nein, nichts senden",
+        "askYes": "Abstürze melden",
+        "askNo": "Nichts senden",
         "turnOn": "Einschalten",
         "turnOff": "Ausschalten",
         "installId": "Kennung dieser Anlage:",
@@ -2080,7 +2077,7 @@
         "exportTitle": "Einsatz-Protokoll exportieren (Excel)",
         "exportDescription": "Vollständiges Protokoll eines Ereignisses zur Archivierung und Abrechnung: alle Einsätze, die komplette Zuweisungshistorie von Personal, Fahrzeugen und Material mit Zeitstempeln (zugewiesen/freigegeben), Status-Verlauf und Reko-Berichte.",
         "selectEventPlaceholder": "Ereignis auswählen …",
-        "trainingTag": "(Übung)",
+        "trainingTag": "Übung",
         "archivedDivider": "– Archiviert –",
         "exporting": "Wird exportiert …",
         "exportButton": "Audit exportieren",
@@ -2115,7 +2112,7 @@
       "loadFailed": "Einstellungen konnten nicht geladen werden",
       "saveFailed": "Einstellung konnte nicht gespeichert werden",
       "autoDownloadActive": "Lageblatt Auto-Download aktiv",
-      "autoDownloadActiveDescription": "Erster Download in ~{minutes} Min., danach alle {minutes} Min. auf diesem Gerät.",
+      "autoDownloadActiveDescription": "Erster Download in ~{minutes}', danach alle {minutes}' auf diesem Gerät.",
       "downloadFailed": "Lageblatt konnte nicht heruntergeladen werden",
       "title": "Ausfallsicherheit",
       "intro": "Hält den aktuellen Board-Stand ausserhalb des Systems bereit – auf Papier und auf diesem Gerät. Fällt das System aus: den zuletzt gedruckten Board-Schnappschuss weiterführen und das Lageblatt aus dem Download-Ordner dazunehmen. Das ganze Vorgehen steht in der Hilfe unter «Ausfallsicherheit».",
@@ -2511,7 +2508,6 @@
   },
   "login": {
     "page": {
-      "subtitle": "Einsatz-Dashboard",
       "demoBadge": "Demo-Modus",
       "loginFailed": "Anmeldung fehlgeschlagen. Bitte überprüfe Benutzername und Passwort.",
       "demoLoginFailed": "Demo-Anmeldung fehlgeschlagen.",
@@ -2615,7 +2611,8 @@
       "createFailed": "Ereignis erstellen fehlgeschlagen",
       "archiveFailed": "Archivieren fehlgeschlagen",
       "unarchiveFailed": "Wiederherstellen fehlgeschlagen",
-      "deleteFailed": "Löschen fehlgeschlagen"
+      "deleteFailed": "Löschen fehlgeschlagen",
+      "newShort": "Neu"
     },
     "createDialog": {
       "title": "Neues Ereignis erstellen",
@@ -2636,9 +2633,9 @@
       "openIncidents": "{count, plural, one {# Einsatz nicht abgeschlossen} other {# Einsätze nicht abgeschlossen}}",
       "openPickups": "{count, plural, one {# Abholung offen} other {# Abholungen offen}}",
       "materialOnSite": "{count, plural, one {# Gerät noch vor Ort} other {# Geräte noch vor Ort}}",
-      "attendeesPresent": "{count, plural, one {# Person noch angemeldet} other {# Personen noch angemeldet}}",
-      "attendeesDetail": "nie abgemeldet – zählen sonst weiter als anwesend",
-      "autoCheckout": "Alle Angemeldeten beim Archivieren automatisch abmelden (Abmeldezeit = Ereignisende)",
+      "attendeesPresent": "{count, plural, one {# Person noch anwesend} other {# Personen noch anwesend}}",
+      "attendeesDetail": "nie ausgecheckt – zählen sonst weiter als anwesend",
+      "autoCheckout": "Alle Anwesenden beim Archivieren automatisch auschecken (gegangen = Ereignisende)",
       "showOnBoard": "Auf dem Board zeigen",
       "moreItems": "+{count} weitere",
       "confirmAnyway": "Trotzdem archivieren",
@@ -3004,7 +3001,7 @@
       "since": "seit {time}",
       "meldung": "Meldung",
       "interneNotizen": "Interne Notizen",
-      "personalHeading": "PERSONAL ({count} eingecheckt)",
+      "personalHeading": "PERSONAL ({count} anwesend)",
       "statusCol": "Status",
       "nameCol": "Name",
       "funktionCol": "Funktion",
@@ -3227,7 +3224,7 @@
       "reorderFailedDescription": "Die Ansicht wurde auf den letzten Stand zurückgesetzt.",
       "createFailedTitle": "Einsatz konnte nicht erstellt werden",
       "createFailedDescription": "Prüfe die Verbindung – auf dem Board ist nichts dazugekommen.",
-      "recentRemovalWarningTitle": "{name} war vor {seconds}s noch auf «{incident}»",
+      "recentRemovalWarningTitle": "{name} war {ago} noch auf «{incident}»",
       "recentRemovalWarningDescription": "Doppelbelegung – bitte prüfen.",
       "assignFailedTitle": "Nicht zugewiesen",
       "assignConflictDescription": "{name} wurde gerade von jemand anderem geändert – nichts zugewiesen.",
@@ -3282,7 +3279,7 @@
     },
     "gpsSim": {
       "arrived": "angekommen",
-      "etaMinutes": "noch ~{minutes} min. {seconds}s",
+      "etaMinutes": "noch ~{duration}",
       "etaSeconds": "noch ~{seconds}s"
     },
     "trainingActions": {
@@ -3354,7 +3351,7 @@
       "bellUnread": "{count} ungelesene",
       "activeHeading": "Aktiv",
       "dismissAll": "Alle schliessen",
-      "historyHeading": "Verlauf",
+      "historyHeading": "Geschlossen",
       "emptyTitle": "Keine aktiven Benachrichtigungen",
       "emptySubtitle": "Alles ist in Ordnung",
       "dismissAria": "Benachrichtigung schliessen",
@@ -3365,22 +3362,18 @@
       "severityCritical": "Kritisch",
       "severityWarning": "Warnung",
       "severityInfo": "Info",
-      "timeDays": "vor {days}d",
-      "timeHours": "vor {hours}h",
-      "timeMinutes": "vor {minutes}m",
-      "justNow": "gerade eben",
       "moveToActive": "Nach Einsatz verschieben",
       "moveToComplete": "Nach Rückfahrt"
     },
     "messages": {
       "feldCodeRotated": "Feld-Code für {event} nach zu vielen Fehlversuchen neu erzeugt",
-      "fatigueOne": "Seit über {hours} h im Einsatz",
-      "fatigueMany": "{count} Personen seit über {hours} h im Einsatz",
-      "fatiguePerson": "{name} ({hours} h)",
+      "fatigueOne": "Seit über {hours}h im Einsatz",
+      "fatigueMany": "{count} Personen seit über {hours}h im Einsatz",
+      "fatiguePerson": "{name} ({hours}h)",
       "fatigueMore": "{names} und {count} weitere",
       "timeInStatus": "{duration} im Status «{status}»",
       "timeNotArchived": "Seit {duration} abgeschlossen, nicht archiviert",
-      "noPersonnel": "Kein Personal mehr verfügbar – alle eingecheckten Personen sind zugewiesen",
+      "noPersonnel": "Kein Personal mehr verfügbar – alle anwesenden Personen sind zugewiesen",
       "materialsNone": "Keine Geräte von «{location}» mehr verfügbar",
       "materialsLow": "Nur noch {count, plural, one {# Gerät} other {# Geräte}} von «{location}» verfügbar",
       "missingLocation": "Einsatz «{title}» hat keine geokodierte Position",
@@ -3422,7 +3415,7 @@
         "alreadyBack": "{resource} ist bereits wieder bei {target}.",
         "elsewhere": "Inzwischen bei {where} zugewiesen – diese neuere Zuweisung bleibt.",
         "outOfService": "{resource} ist nicht einsatzbereit.",
-        "resourceGone": "{resource} ist nicht mehr im Bestand oder abgemeldet.",
+        "resourceGone": "{resource} ist nicht mehr auf dem Board.",
         "unavailable": "{resource} ist als nicht verfügbar gemeldet."
       }
     }
@@ -3516,7 +3509,9 @@
       "reko_report_not_found": "Bericht nicht gefunden",
       "reko_report_no_access": "Kein Zugriff auf diesen Bericht.",
       "incident_status_changed": "Status inzwischen geändert – der Einsatz wurde neu geladen.",
-      "text_conflict": "Inzwischen anderswo geändert – nicht gespeichert."
+      "text_conflict": "Inzwischen anderswo geändert – nicht gespeichert.",
+      "assignment_race": "Ressource bereits zugewiesen",
+      "incident_not_merged": "Diese Meldung ist nicht zusammengeführt."
     }
   },
   "training": {
@@ -3567,7 +3562,7 @@
       "saveFailed": "Einstellung konnte nicht gespeichert werden",
       "started": "Automatik gestartet",
       "stopped": "Automatik gestoppt",
-      "startedDescription": "Neue Alarme alle ~{interval} Min (erste 30 Min doppeltes Tempo).",
+      "startedDescription": "Neue Alarme alle ~{interval}' (erste 30' doppeltes Tempo).",
       "stoppedDescription": "Es werden keine Einsätze mehr automatisch generiert."
     },
     "checkin": {
@@ -3575,13 +3570,13 @@
       "description": "Checkt zufällige verfügbare Personen ein – sofort oder gestaffelt, wie AdF wirklich eintreffen",
       "countAria": "Anzahl Personen",
       "immediately": "sofort",
-      "overMinutes": "über {count} Min",
+      "overMinutes": "über {count}'",
       "checkingIn": "Wird eingecheckt …",
       "checkin": "Einchecken",
       "scheduled": "{count, plural, one {# Check-in geplant} other {# Check-ins geplant}}",
       "scheduledDescription": "Die Personen checken über die nächsten {minutes} Minuten ein.",
       "noMorePersons": "Keine weiteren Personen verfügbar",
-      "noMorePersonsDescription": "Alle verfügbaren Personen sind bereits eingecheckt.",
+      "noMorePersonsDescription": "Alle verfügbaren Personen sind bereits anwesend.",
       "failed": "Check-ins simulieren fehlgeschlagen"
     },
     "gpsSim": {
@@ -3643,7 +3638,7 @@
       "injectRapport": "Rapport eingetroffen",
       "injectRapportDesc": "Ein ausgefüllter Schadenplatz-Rapport trifft ein.",
       "injectFieldMessage": "Meldung vom Feld",
-      "injectFieldMessageDesc": "Kurze Meldung des Trupps ans KP – Glocke und Tagebuch.",
+      "injectFieldMessageDesc": "Kurze Meldung des Trupps ans KP – Glocke und Verlauf.",
       "injectPickupNeeded": "Abholung nötig melden",
       "injectPickupNeededDesc": "Der Trupp steht ohne Fahrzeug da und braucht eine Abholung.",
       "injectPickupDone": "Abholung disponiert melden",
@@ -3697,7 +3692,7 @@
       },
       "personnel-checkin": {
         "title": "Personal einchecken",
-        "details": "{count, plural, one {# Person} other {# Personen}} eingecheckt",
+        "details": "{count, plural, one {# Person} other {# Personen}} anwesend",
         "description": "Mindestens 3 Personen für Einsatzbereitschaft",
         "note": "Für die Mannschaft · 1 Ausdruck im Magazin"
       },
@@ -3786,7 +3781,7 @@
     },
     "rekoPicker": {
       "title": "Reko-Offiziere wählen",
-      "description": "Angemeldete Person antippen, um sie als Reko zu markieren. Adressen verteilt der Reko-Modus auf der Karte.",
+      "description": "Anwesende Person wählen und als Reko markieren – auch mehrere nacheinander. Adressen verteilt der Reko-Modus auf der Karte.",
       "marked": "{name} als Reko markiert",
       "failed": "Hat nicht geklappt. Erneut versuchen.",
       "done": "Fertig"
@@ -3845,7 +3840,7 @@
       "rekoPhotoAlt": "Reko-Bild {index}",
       "rekoReportSection": "Reko-Bericht",
       "rapportSection": "Schadenplatz-Rapport",
-      "historySection": "Verlauf",
+      "historySection": "Chronik",
       "rekoPhotoOpen": "Bild in voller Grösse öffnen"
     },
     "layout": {
@@ -3958,8 +3953,8 @@
     "checkin": {
       "invalidCode": "Ungültiger oder abgelaufener Code. Bitte QR-Code erneut scannen.",
       "missingCode": "Zugriffscode fehlt. Bitte QR-Code scannen.",
-      "checkoutBlocked": "Abmeldung nicht möglich",
-      "checkoutBlockedDescription": "Diese Person ist einem Einsatz zugewiesen und kann nicht abgemeldet werden.",
+      "checkoutBlocked": "Auschecken nicht möglich",
+      "checkoutBlockedDescription": "Diese Person ist einem Einsatz zugewiesen und kann nicht ausgecheckt werden.",
       "statusError": "Status ändern fehlgeschlagen",
       "statusErrorDescription": "Bitte versuche es erneut.",
       "accessRequired": "Zugriff erforderlich",
@@ -3973,7 +3968,7 @@
       "noneFound": "Keine Personen gefunden",
       "badgeAssigned": "Im Einsatz",
       "badgeCheckedIn": "Anwesend",
-      "badgeNotCheckedIn": "Nicht hier",
+      "badgeNotCheckedIn": "Nicht anwesend",
       "checkedOut": "{name} ausgecheckt."
     }
   },
@@ -4045,9 +4040,9 @@
       "completeDone": "Beendet gemeldet",
       "cancel": "Abbrechen",
       "confirmArrivedQuestion": "Angekommen melden?",
-      "confirmArrivedYes": "Ja, angekommen",
+      "confirmArrivedYes": "Angekommen melden",
       "confirmCompleteQuestion": "Einsatz beendet melden?",
-      "confirmCompleteYes": "Ja, beendet",
+      "confirmCompleteYes": "Beendet melden",
       "message": "Meldung",
       "messageTitle": "Meldung an den KP",
       "messagePlaceholder": "Eigener Text …",
@@ -4062,7 +4057,8 @@
       "rapportNext": "danach: Rapport erfassen",
       "rapportDone": "Rapport erfasst",
       "reportNow": "melden",
-      "rapportAction": "Rapport erfassen"
+      "rapportAction": "Rapport erfassen",
+      "messageRequired": "Meldung fehlt."
     },
     "pickup": {
       "badge": "Abholung",
@@ -4134,7 +4130,8 @@
       "toField": "an den Trupp, {name}, {time}",
       "send": "An Trupp senden",
       "sendPlaceholder": "Meldung an den Trupp …",
-      "sendFailed": "Meldung konnte nicht gesendet werden"
+      "sendFailed": "Meldung konnte nicht gesendet werden",
+      "sendRequired": "Meldung fehlt."
     },
     "rapport": {
       "sectionTitle": "Schadenplatz-Rapport",
@@ -4231,7 +4228,7 @@
         "add": "Person hinzufügen",
         "addGuest": "«{name}» als Gast hinzufügen",
         "guest": "Gast",
-        "groupCheckedIn": "Heute angemeldet",
+        "groupCheckedIn": "Heute anwesend",
         "groupAll": "Alle"
       },
       "summary": {
@@ -4284,7 +4281,7 @@
       "training": "Übung"
     },
     "source": {
-      "reko": "Reko-Auftrag",
+      "reko": "Als Reko",
       "driver": "Als Fahrer · {vehicle}",
       "magazin": "Magazin",
       "rekoReason": "Vom KP als Reko zugewiesen",
@@ -4357,10 +4354,10 @@
       "locationHintPhone": "Adresse eintippen oder auf der Karte tippen."
     },
     "attendance": {
-      "notHereTitle": "Du bist nicht eingecheckt",
+      "notHereTitle": "Du bist nicht anwesend",
       "checkIn": "Einchecken",
       "checkOut": "Ich rücke ab",
-      "here": "Eingecheckt",
+      "here": "Anwesend",
       "hereNoJob": "Noch kein Auftrag"
     },
     "material": {
@@ -4381,7 +4378,7 @@
       "driverTitle": "Du fährst {vehicle}",
       "driverBody": "Sobald {vehicle} disponiert wird, erscheint die Einsatzstelle hier.",
       "rekoTitle": "Dir ist die Reko zugewiesen",
-      "rekoBody": "Sobald dir der KP einen Erkundungsauftrag gibt, erscheint er hier."
+      "rekoBody": "Sobald dir der KP eine Reko zuweist, erscheint sie hier."
     },
     "roles": {
       "driver": "Fahrer {vehicle}",
@@ -4462,14 +4459,14 @@
       "stateSeen": "Vom KP gesehen",
       "stateInProgress": "KP: in Arbeit",
       "stateDone": "erledigt · {time}",
-      "stateDoneBy": "erledigt · {time} · {name}"
+      "stateDoneBy": "erledigt · {time} · {name}",
+      "materialRequired": "Material oder Notiz fehlt."
     }
   },
   "duplicates": {
     "lead": "Möglicherweise dasselbe wie",
     "distance": "{meters} m",
     "sameAddress": "gleiche Adresse",
-    "ago": "vor {duration}",
     "merge": "Zusammenführen",
     "mergeHint": "Diese Meldung als Nachtrag an den bestehenden Einsatz anhängen – kein neuer Einsatz",
     "createAnyway": "Trotzdem neu",
@@ -4494,7 +4491,7 @@
       "workRapport": "Rapport",
       "workRequests": "Anfragen vom Feld",
       "confirmTitle": "Mit {label} zusammenführen?",
-      "confirmBody": "Mit diesem Einsatz ziehen um: {items}. «Trennen» im Verlauf macht es rückgängig."
+      "confirmBody": "Mit diesem Einsatz ziehen um: {items}. «Trennen» in der Chronik macht es rückgängig."
     },
     "timeline": {
       "merged": "Meldung zusammengeführt",
@@ -4505,7 +4502,7 @@
     "feldMerged": "Zum bestehenden Einsatz hinzugefügt – der KP sieht es als Nachtrag."
   },
   "journal": {
-    "title": "Einsatztagebuch",
+    "title": "Verlauf",
     "description": "Alles, was im Ereignis geschah – neueste zuerst.",
     "filter": "Filtern",
     "filterOn": "Gefiltert: {filters}",
@@ -4514,13 +4511,13 @@
     "resetFilter": "Filter zurücksetzen",
     "filters": {
       "all": "Alle",
-      "manual": "Manuell",
+      "manual": "Info",
       "field": "Feld",
       "status": "Status",
       "resources": "Ressourcen"
     },
-    "loading": "Einsatztagebuch wird geladen …",
-    "loadFailed": "Einsatztagebuch konnte nicht geladen werden",
+    "loading": "Verlauf wird geladen …",
+    "loadFailed": "Verlauf konnte nicht geladen werden",
     "retry": "Erneut versuchen",
     "emptyTitle": "Noch keine Einträge",
     "emptyEditor": "Statuswechsel, Zuweisungen und Meldungen erscheinen hier von selbst. Was zu keinem Einsatz gehört, unten eintragen.",
@@ -4535,10 +4532,10 @@
     "placeholderShort": "Eintrag …",
     "hashHint": "# im Text verknüpft einen Einsatz",
     "placeholderCorrect": "Neuer Wortlaut",
-    "inputLabel": "Neuer Eintrag im Einsatztagebuch",
+    "inputLabel": "Neuer Eintrag im Verlauf",
     "submit": "Eintragen",
     "submitCorrect": "Korrigieren",
-    "saveFailed": "Nicht gespeichert – der Text ist noch da. Erneut senden.",
+    "saveFailed": "Nicht synchronisiert – der Text ist noch da. Erneut senden.",
     "textRequired": "Eintrag fehlt – erst schreiben, dann senden.",
     "linkTitle": "Einsatz verknüpfen",
     "linkSearch": "Einsatz nach Nummer oder Ort suchen",
@@ -4605,7 +4602,7 @@
     "ledElsewhere": {
       "label": "Geführt auf KP Rück Offline",
       "current": "seit {since} · Stand {time} · Neues erfassen geht, Bestehendes ändern nicht",
-      "silent": "seit {since} · Stand {time} · KP Rück Offline seit {ago} nicht gehört · Neues erfassen geht, Bestehendes ändern nicht",
+      "silent": "seit {since} · Stand {time} · KP Rück Offline seit {silence} nicht gehört · Neues erfassen geht, Bestehendes ändern nicht",
       "never": "seit {since} · KP Rück Offline noch nicht gehört · Neues erfassen geht, Bestehendes ändern nicht"
     },
     "takeover": {
@@ -4622,15 +4619,14 @@
       "title": "«{name}» hier übernehmen?",
       "description": "Ab jetzt wird dieses Ereignis hier geführt. KP Rück Offline wird für dieses Ereignis wieder zum Spiegel.",
       "heard": "Von KP Rück Offline zuletzt gehört",
-      "heardAt": "{time} · vor {ago}",
+      "heardAt": "{time} · {ago}",
       "heardNever": "noch nie",
       "pending": "Damals noch nicht übertragen",
       "pendingCount": "{count, plural, =0 {keine Änderung} one {# Änderung} other {# Änderungen}}",
       "later": "Was dort seither noch geändert wurde, kommt später an: Neues wird ergänzt, Geändertes landet in der Konfliktliste.",
       "working": "Auf KP Rück Offline wird gerade gearbeitet. Wer dort weiterarbeitet, kann danach nur noch ansehen.",
       "confirm": "Hier übernehmen",
-      "failed": "Das Ereignis konnte nicht übernommen werden.",
-      "heardJustNow": "{time} · gerade eben"
+      "failed": "Das Ereignis konnte nicht übernommen werden."
     },
     "conflicts": {
       "label": "Konflikte",
@@ -4682,7 +4678,7 @@
         "incident_assignments": "Mannschaft",
         "incident_group_assignments": "Auftrag",
         "incident_groups": "Auftrag",
-        "journal_entries": "Tagebuch",
+        "journal_entries": "Verlauf",
         "event_attendance": "Anwesenheit",
         "events": "Ereignis",
         "field_requests": "Anfrage vom Feld",

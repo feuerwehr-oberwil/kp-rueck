@@ -16,7 +16,6 @@
 
 import type { Dispatch, SetStateAction } from "react"
 import dynamic from "next/dynamic"
-import { useTranslations } from "next-intl"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { DiveraMessageDialog } from "@/components/divera/divera-message-dialog"
 import { RekoPickerDialog } from "@/components/event-setup-checklist"
@@ -32,7 +31,6 @@ import { JournalSheet, type JournalComposeRequest } from "@/components/journal/j
 import { RapportBacklogSheet, type selectFiledRapports, type selectOpenRapports } from "@/components/kanban/rapport-backlog-sheet"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { PrintHubSheet, type ThermoPrintOptions } from "@/components/print/print-hub-sheet"
-import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { VehicleStatusSheet } from "@/components/vehicle-status-sheet"
 import type { FooterSheet } from "@/components/board/board-footer"
 import type { useEvent } from "@/lib/contexts/event-context"
@@ -44,7 +42,6 @@ import type { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import type { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
 import type { useReleaseUndo } from "@/lib/hooks/use-release-undo"
-import { getIncidentTypeLabel } from "@/lib/incident-types"
 
 /**
  * The two Auftrag dialogs that carry a map, loaded on their own chunk.
@@ -79,8 +76,6 @@ export interface BoardDialogsProps {
   closedStopGuard: ReturnType<typeof useClosedStopGuard>
   createOperation: Ops["createOperation"]
   mergeOperationInto: Ops["mergeOperationInto"]
-  deleteDialogOpen: boolean
-  deleteReleaseHint: string | null
   detailModalOpen: boolean
   /** The Einsatz dialogs shared with the Lagekarte (incident-dialogs.tsx): the
    *  detail's actions and the Aufträge sheet's route assign open through it. */
@@ -88,11 +83,9 @@ export interface BoardDialogsProps {
   diveraEnabled: boolean
   diveraMessageText: string | null
   filedRapports: ReturnType<typeof selectFiledRapports>
-  formatLocation: Ops["formatLocation"]
   funkrufname: string
   groups: Groups["groups"]
   handleConfirmAddStops: (incidentIds: string[]) => void
-  handleDeleteOperationConfirm: () => Promise<void>
   handleOpenIncidentFromNotification: (incidentId: string) => void
   journalCompose: JournalComposeRequest | null
   handleOpenRapport: (operationId: string) => void
@@ -110,7 +103,6 @@ export interface BoardDialogsProps {
   openDetailOnTab: OpenDetailOnTab | null
   openIncidentDetail: (operationId: string, tab?: OperationDetailTab, section?: OperationDetailSection) => void
   openRapports: ReturnType<typeof selectOpenRapports>
-  operationToDelete: Operation | null
   operations: Operation[]
   personnel: Person[]
   /** The Dienstzeiten overview (footer sheet `'crew'`). */
@@ -133,7 +125,6 @@ export interface BoardDialogsProps {
   selectedOperation: Operation | null
   setActiveFooterSheet: Dispatch<SetStateAction<FooterSheet | null>>
   setAttendanceOpen: Dispatch<SetStateAction<boolean>>
-  setDeleteDialogOpen: Dispatch<SetStateAction<boolean>>
   setDetailModalOpen: Dispatch<SetStateAction<boolean>>
   setDiveraMessageText: Dispatch<SetStateAction<string | null>>
   setNewEmergencyGroupId: Dispatch<SetStateAction<string | null>>
@@ -157,18 +148,14 @@ export function BoardDialogs({
   closedStopGuard,
   createOperation,
   mergeOperationInto,
-  deleteDialogOpen,
-  deleteReleaseHint,
   detailModalOpen,
   dialogs,
   diveraEnabled,
   diveraMessageText,
   filedRapports,
-  formatLocation,
   funkrufname,
   groups,
   handleConfirmAddStops,
-  handleDeleteOperationConfirm,
   handleOpenIncidentFromNotification,
   journalCompose,
   handleOpenRapport,
@@ -186,7 +173,6 @@ export function BoardDialogs({
   openDetailOnTab,
   openIncidentDetail,
   openRapports,
-  operationToDelete,
   operations,
   personnel,
   crewDutySheetOpen,
@@ -207,7 +193,6 @@ export function BoardDialogs({
   selectedOperation,
   setActiveFooterSheet,
   setAttendanceOpen,
-  setDeleteDialogOpen,
   setDetailModalOpen,
   setDiveraMessageText,
   setNewEmergencyGroupId,
@@ -221,7 +206,6 @@ export function BoardDialogs({
   stopPickerGroupId,
   vehicleStatusSheetOpen,
 }: BoardDialogsProps) {
-  const tCommon = useTranslations('kanban.common')
   return (
     <>
       <OperationDetailModal
@@ -326,7 +310,7 @@ export function BoardDialogs({
         onOpenRapport={handleOpenRapport}
       />
 
-      {/* Einsatztagebuch — `J`, the footer pill, the palette, the phone's «Mehr» */}
+      {/* Verlauf — `J`, the footer pill, the palette, the phone's «Mehr» */}
       <JournalSheet
         open={activeFooterSheet === 'journal'}
         onOpenChange={(open) => !open && activeFooterSheet === 'journal' && setActiveFooterSheet(null)}
@@ -374,20 +358,6 @@ export function BoardDialogs({
         prompt={closedStopGuard.prompt}
         onProceed={closedStopGuard.proceed}
         onCancel={closedStopGuard.dismiss}
-      />
-
-      {/* Delete Operation Confirmation Dialog. The description names what the
-          deletion also RELEASES — a card that was never an incident is usually
-          one somebody had already put people and a vehicle on. */}
-      <DeleteConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        title={tCommon('deleteIncidentTitle')}
-        description={[
-          tCommon('deleteIncidentDescription', { name: operationToDelete ? (formatLocation(operationToDelete.location ?? '') || getIncidentTypeLabel(operationToDelete.incidentType)) : '' }),
-          deleteReleaseHint,
-        ].filter(Boolean).join(' ')}
-        onConfirm={handleDeleteOperationConfirm}
       />
 
       {/* Reko Assignment Dialog (from context menu) */}

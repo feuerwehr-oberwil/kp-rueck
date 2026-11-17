@@ -7,7 +7,7 @@ import { Layer, Popup, Source, useMap, type LineLayerSpecification } from "react
 import { apiClient, type ApiVehicleTrail } from "@/lib/api-client"
 import { wsClient } from "@/lib/websocket-client"
 import { usePolling } from "@/lib/hooks/use-polling"
-import { MAP_COLORS } from "@/lib/map-colors"
+import { MAP_INK } from "@/lib/map-colors"
 import { vis, type FeatureCollectionData } from "@/lib/map-view"
 import { cn } from "@/lib/utils"
 import { useTranslations } from "next-intl"
@@ -126,7 +126,8 @@ export function VehicleTrails({
         .map((trail) => ({
           type: "Feature",
           id: trail.device_id,
-          properties: { name: trail.device_name, color: MAP_COLORS.info },
+          // Ink, thin and dashed: a device's path, not an Auftrag – blue is the route's (COL-04 A).
+          properties: { name: trail.device_name, color: MAP_INK },
           geometry: {
             type: "LineString",
             coordinates: trail.points.map((p) => [p.longitude, p.latitude]),

@@ -74,8 +74,8 @@ interface FeldSectionProps {
   children: ReactNode
 }
 
-/** Class the jump puts on the section; the two-beat ring is in globals.css. */
-const JUMP_RING_CLASS = 'feld-jump-ring'
+/** Class the jump puts on the section: the shared «this one» ring (globals.css). */
+const JUMP_RING_CLASS = 'this-one-ring'
 /** The ring's 1.9 s plus a beat; also how long the reduced-motion static ring stays. */
 const JUMP_RING_MS = 2000
 

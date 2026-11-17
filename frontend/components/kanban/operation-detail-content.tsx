@@ -5,7 +5,6 @@ import { IncidentNumber } from "@/components/ui/incident-number"
 import { useState, useEffect, useCallback, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
-import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -86,7 +85,7 @@ import { ShellLoader } from '@/components/ui/shell-loader'
  *
  * Grey and underlined, never blue: on this board colour carries status and
  * priority, and a row of four blue words would read as four warnings. Used by
- * the Reko-Auftrag rows, where four `xs` buttons used to wrap over three lines
+ * the Reko-Zuweisung rows, where four `xs` buttons used to wrap over three lines
  * in the 420px panel.
  */
 const ROW_ACTION =
@@ -295,7 +294,6 @@ export function OperationDetailContent({
     },
     [refreshGroups, t],
   )
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   // The text fields' save state (lib/field-save): what each one shows — the
   // operator's draft while one is held, so neither a reload nor a remote
@@ -369,7 +367,6 @@ export function OperationDetailContent({
   const currentRequestedTab = useEffectEvent(() => requestedTab)
 
   useEffect(() => {
-    setShowDeleteConfirm(false)
     setRekoDialogOpen(false)
     setRekoTransferDialogOpen(false)
     // A different incident brings its own remembered tab, Übersicht if it has
@@ -567,7 +564,7 @@ export function OperationDetailContent({
   // The panel's tab bar shares its row with the ← / → hints, so its triggers
   // take their own label plus a share of whatever is left (`flex-auto`) rather
   // than a fixed quarter each (`flex-1`, the default): «Rapport · erfasst» is
-  // wider than a quarter of 420px and would spill over «Verlauf».
+  // wider than a quarter of 420px and would spill over «Chronik».
   // Natural widths in the modal: the shared trigger is `flex-1` (basis 0), which splits the
   // list into equal quarters — narrower than «Übersicht» itself, which then ran out of its
   // tab (overflow sweep, 03.10.).
@@ -1526,7 +1523,7 @@ export function OperationDetailContent({
               // Unassigned, this line reads «Reko zuweisen» — so it does that,
               // rather than dropping the operator on a tab where they have to
               // find the button again. It still switches tabs first, so the
-              // dialog closes onto the Reko-Auftrag block that now owns the
+              // dialog closes onto the Reko-Zuweisung block that now owns the
               // assignment and not onto the Übersicht they came from.
               onClick={() => {
                 selectTab('reko')
@@ -1669,7 +1666,7 @@ export function OperationDetailContent({
               />
               </div>
 
-              {/* Der Reko-Auftrag: wer schaut es an, und alles, was daran
+              {/* Die Reko-Zuweisung: wer schaut es an, und alles, was daran
                   geändert wird. Moved here off Übersicht — Reko was split
                   across two tabs, with the tab NAMED Reko holding only the
                   report while every dispatch control sat in a column that also
@@ -1967,20 +1964,11 @@ export function OperationDetailContent({
               dense
               variant="ghost"
               className="ml-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
-              onClick={() => setShowDeleteConfirm(true)}
+              // Deletes at once – the undo toast is the way back (no «wirklich?»).
+              onClick={() => onDelete(operation.id)}
             />
           )}
         </div>
-
-      {canEdit && onDelete && <DeleteConfirmDialog
-        open={showDeleteConfirm}
-        onOpenChange={setShowDeleteConfirm}
-        title={t('common.deleteIncidentTitle')}
-        description={t('common.deleteIncidentDescription', { name: formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType) })}
-        onConfirm={() => {
-          onDelete(operation.id)
-        }}
-      />}
 
       {/* Assign Reko Dialog */}
       <AssignRekoDialog

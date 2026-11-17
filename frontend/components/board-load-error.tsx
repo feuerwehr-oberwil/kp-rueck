@@ -65,7 +65,7 @@ export function BoardLoadErrorPanel() {
 
 /**
  * The resource sidebars' counterpart: «Nicht geladen», never «Niemand
- * angemeldet» / «Noch kein Material erfasst». Those are statements about the
+ * anwesend» / «Noch kein Material erfasst». Those are statements about the
  * station; with no answer from the server there is nothing to state.
  */
 export function ResourcesNotLoaded({ label }: { label: string }) {

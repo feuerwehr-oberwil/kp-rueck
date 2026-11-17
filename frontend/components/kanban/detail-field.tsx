@@ -385,7 +385,7 @@ export interface DetailFlag {
  * «the toggles at the bottom, out of sight, because we don't use them unless
  * explicitly»). Four switch rows took twice the height and read as four fields.
  *
- * A chip is a pressed/unpressed button (`aria-pressed`); on = the slate selected
+ * A chip is a pressed/unpressed button (`aria-pressed`); on = the tonal selected
  * state (`variant="selected"`), like every other «chosen» control. A flag with a
  * note gets the note as its own labelled row under the chips while it is on —
  * «Nachbarhilfe │ Feuerwehr, Kontakt …» — so two notes never stand unnamed.
@@ -477,7 +477,7 @@ export function DetailFlags({
 
 /**
  * The small grey heading over a run of detail rows — «Lage», «Meldung»,
- * «Kräfte», «Reko-Auftrag», «Meldungen vom Feld». Since the rows lost their
+ * «Kräfte», «Reko-Zuweisung», «Meldungen vom Feld». Since the rows lost their
  * hairlines (the «Nur Abstand» pick), whitespace separates and these headings
  * group; the same decision the settings made, and the same idiom as their
  * `SettingGroup` heading.

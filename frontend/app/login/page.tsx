@@ -30,10 +30,12 @@ import {
 } from '@/lib/i18n-messages';
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader';
 import { launchCover, useBootGate } from '@/lib/boot-cover';
+import { useStationName } from '@/lib/station-name';
 
 export default function LoginPage() {
   const t = useTranslations('login.page');
   const tLoading = useTranslations('common');
+  const stationName = useStationName();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -169,9 +171,11 @@ export default function LoginPage() {
               <h1 className="text-2xl font-bold tracking-tight text-foreground">
                 KP Rück
               </h1>
-              <p className="mt-1.5 text-sm text-muted-foreground">
-                {t('subtitle')}
-              </p>
+              {/* Which station this board is, when the device knows it (XAPP-15 B, like the
+                  boot screen) – not a product slogan. */}
+              {stationName && (
+                <p className="mt-1.5 text-sm text-muted-foreground">{stationName}</p>
+              )}
               {isDemo && (
                 <span className="mt-2 inline-block rounded-full bg-warning/10 px-3 py-1 text-xs font-semibold text-warning-foreground border border-warning/30">
                   {t('demoBadge')}

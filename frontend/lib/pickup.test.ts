@@ -19,8 +19,8 @@ describe('pickupWaitingMinutes', () => {
   })
 
   it('never goes negative', () => {
-    // The server clock can be ahead of this device; "-3 Min" on a chip an
-    // operator scans at 02:00 is worse than "0 Min".
+    // The server clock can be ahead of this device; «-3'» on a chip an
+    // operator scans at 02:00 is worse than «0'».
     expect(pickupWaitingMinutes(new Date(NOW.getTime() + 90_000), NOW)).toBe(0)
   })
 
@@ -35,21 +35,11 @@ describe('formatPickupWaiting', () => {
     expect(formatPickupWaiting(null, NOW)).toBe('')
   })
 
-  it('stays in minutes below an hour', () => {
-    expect(formatPickupWaiting(minutesAgo(0), NOW)).toBe('0 Min')
-    expect(formatPickupWaiting(minutesAgo(59), NOW)).toBe('59 Min')
-  })
-
-  it('switches to hours at 60 minutes', () => {
-    expect(formatPickupWaiting(minutesAgo(60), NOW)).toBe('1 h')
-    expect(formatPickupWaiting(minutesAgo(80), NOW)).toBe('1 h 20')
-    expect(formatPickupWaiting(minutesAgo(185), NOW)).toBe('3 h 05')
-  })
-
-  it('switches to days and omits zero hours', () => {
-    expect(formatPickupWaiting(minutesAgo(24 * 60), NOW)).toBe('1 d')
-    expect(formatPickupWaiting(minutesAgo(28 * 60 + 12), NOW)).toBe('1 d 4 h')
-    expect(formatPickupWaiting(minutesAgo(48 * 60), NOW)).toBe('2 d')
+  it('reads in the board notation', () => {
+    expect(formatPickupWaiting(minutesAgo(0), NOW)).toBe("0'")
+    expect(formatPickupWaiting(minutesAgo(59), NOW)).toBe("59'")
+    expect(formatPickupWaiting(minutesAgo(80), NOW)).toBe("1h 20'")
+    expect(formatPickupWaiting(minutesAgo(28 * 60 + 12), NOW)).toBe('1d 4h')
   })
 })
 

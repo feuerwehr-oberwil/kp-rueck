@@ -11,6 +11,7 @@ import { formatEta, liveDrive } from '@/lib/gps-sim';
 import { nextActions, secondsInStep, isActionDue, stepStartedAt, type NextAction } from '@/lib/training-lifecycle';
 import { getTimeSince } from '@/lib/kanban-utils';
 import { Button } from '@/components/ui/button';
+import { AlternativeAnswer } from '@/components/ui/confirm-dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { SettingGroup } from '@/components/settings/setting-row';
@@ -435,7 +436,7 @@ export function TrainingSimulationControls() {
       <CardHeader>
         <div>
           <CardTitle className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-purple-600" />
+            <Bot className="h-5 w-5 text-muted-foreground" />
             {t('title')}
           </CardTitle>
           <CardDescription>
@@ -508,7 +509,7 @@ export function TrainingSimulationControls() {
                         due
                           ? 'border-warning/70 bg-warning/10'
                           : anyRolling
-                            ? 'border-purple-400/70 bg-purple-50/60 dark:bg-purple-950/30'
+                            ? 'border-foreground/40'
                             : 'border-border'
                       }`}
                     >
@@ -522,7 +523,7 @@ export function TrainingSimulationControls() {
                           {/* The "beendet" report lives ONLY here — the board is
                               informed in the exercise itself (e.g. via radio). */}
                           {op.fieldCompleteReportedAt && op.status === 'active' && (
-                            <span className="text-emerald-700 dark:text-emerald-400"> · {t('fieldComplete')}</span>
+                            <span className="text-success"> · {t('fieldComplete')}</span>
                           )}
                         </div>
                       </div>
@@ -537,9 +538,9 @@ export function TrainingSimulationControls() {
                           return (
                             <div key={action.key} className="flex-shrink-0 text-xs text-muted-foreground">
                               {slowest.kind === 'magazin' ? (
-                                <Home className="mr-1 inline h-3.5 w-3.5 text-purple-600" />
+                                <Home className="mr-1 inline h-3.5 w-3.5" />
                               ) : (
-                                <Truck className="mr-1 inline h-3.5 w-3.5 text-purple-600" />
+                                <Truck className="mr-1 inline h-3.5 w-3.5" />
                               )}
                               {Math.round(live.progress * 100)}% · {formatEta(live.eta)}
                             </div>
@@ -590,14 +591,14 @@ export function TrainingSimulationControls() {
                           <DropdownMenuLabel>{t('inject')}</DropdownMenuLabel>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => handleInject(op, 'escalate')}>
-                            <AlertTriangle className="mr-2 h-4 w-4 flex-shrink-0 text-red-600" />
+                            <AlertTriangle className="mr-2 h-4 w-4 flex-shrink-0 text-destructive" />
                             <span className="min-w-0">
                               <span className="block">{t('injectEscalate')}</span>
                               <span className="block text-xs text-muted-foreground">{t('injectEscalateDesc')}</span>
                             </span>
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleInject(op, 'reinforcement')}>
-                            <Megaphone className="mr-2 h-4 w-4 flex-shrink-0 text-warning-foreground" />
+                            <Megaphone className="mr-2 h-4 w-4 flex-shrink-0" />
                             <span className="min-w-0">
                               <span className="block">{t('injectReinforcement')}</span>
                               <span className="block text-xs text-muted-foreground">{t('injectReinforcementDesc')}</span>
@@ -623,21 +624,21 @@ export function TrainingSimulationControls() {
                             onClick={() => handleInject(op, 'arrived')}
                             disabled={op.fieldArrivedAt != null}
                           >
-                            <MapPinCheck className="mr-2 h-4 w-4 flex-shrink-0 text-emerald-600" />
+                            <MapPinCheck className="mr-2 h-4 w-4 flex-shrink-0" />
                             <span className="min-w-0">
                               <span className="block">{t('injectArrived')}</span>
                               <span className="block text-xs text-muted-foreground">{t('injectArrivedDesc')}</span>
                             </span>
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleInject(op, 'rapport')}>
-                            <ClipboardCheck className="mr-2 h-4 w-4 flex-shrink-0 text-emerald-600" />
+                            <ClipboardCheck className="mr-2 h-4 w-4 flex-shrink-0" />
                             <span className="min-w-0">
                               <span className="block">{t('injectRapport')}</span>
                               <span className="block text-xs text-muted-foreground">{t('injectRapportDesc')}</span>
                             </span>
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleInject(op, 'fieldMessage')}>
-                            <MessageSquare className="mr-2 h-4 w-4 flex-shrink-0 text-blue-600" />
+                            <MessageSquare className="mr-2 h-4 w-4 flex-shrink-0" />
                             <span className="min-w-0">
                               <span className="block">{t('injectFieldMessage')}</span>
                               <span className="block text-xs text-muted-foreground">{t('injectFieldMessageDesc')}</span>
@@ -647,7 +648,7 @@ export function TrainingSimulationControls() {
                               still have three people standing in the rain — and
                               the lift arriving is a report of its own. */}
                           <DropdownMenuItem onClick={() => handleInject(op, 'pickup')}>
-                            <CarTaxiFront className="mr-2 h-4 w-4 flex-shrink-0 text-warning-foreground" />
+                            <CarTaxiFront className="mr-2 h-4 w-4 flex-shrink-0" />
                             <span className="min-w-0">
                               <span className="block">
                                 {op.pickupNeeded ? t('injectPickupDone') : t('injectPickupNeeded')}
@@ -764,29 +765,22 @@ export function TrainingSimulationControls() {
                 : ''}
             </DialogDescription>
           </DialogHeader>
-          {/* The app's footer shape (see ConfirmDialog): the "…but do this
-              instead" option sits left on `mr-auto`, the answers right, the
-              recommended one last and loudest. `flex-wrap` because three German
-              labels are wider than any max-width guess — the buttons carry
-              `shrink-0`, so without it the last one simply overflowed the
-              dialog's own padding, which is what made the row look unbalanced.
+          {/* The app's three-answer shape (ConfirmDialog's `AlternativeAnswer`): the
+              "…but do this instead" option on its own line, the answers in the row
+              under it, the recommended one last and loudest.
 
               Emphasis, deliberately moved: «Lage entscheidet» used to be the
               primary. It is not an answer to the question — it hands the
               decision to the backend's inference (zu Fuss / kein Fahrzeug), and
               as the loud default it made the pickup inject almost unreachable
               in a normal exercise, because a crew with a vehicle always infers
-              "fährt selbst". So it drops to a quiet aside. The primary is now
+              "fährt selbst". So it is the aside. The primary is
               «Fährt selbst»: the true answer in the large majority of cases and
               the only one of the three that costs the operator nothing. */}
-          <DialogFooter className="flex-wrap">
-            <Button
-              variant="ghost"
-              className="sm:mr-auto"
-              onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt)}
-            >
-              {t('pickupAuto')}
-            </Button>
+          <AlternativeAnswer onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt)}>
+            {t('pickupAuto')}
+          </AlternativeAnswer>
+          <DialogFooter>
             <Button
               variant="outline"
               onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt, true)}

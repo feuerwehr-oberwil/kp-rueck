@@ -1,23 +1,23 @@
 "use client"
 
 /**
- * The quiet line under a text field of the Einsatz detail — «Wird gespeichert
- * …», «Gespeichert – 09:41», «Nicht gespeichert» — and, on a failure, the kept
- * text's two ways out («Erneut speichern», «Text kopieren»). When the failure is
+ * The quiet line under a text field of the Einsatz detail — «Wird synchronisiert
+ * …», «Synchronisiert – 09:41», «Nicht synchronisiert» — and, on a failure, the kept
+ * text's two ways out («Erneut synchronisieren», «Text kopieren»). When the failure is
  * a conflict (somebody else saved the field meanwhile, review F05) the block
- * turns amber, quotes the other text and asks: «Meinen Text speichern» or
+ * turns amber, quotes the other text and asks: «Meinen Text behalten» or
  * «Diese Fassung übernehmen» (mockup 2A, owner 26.10.2026).
  *
  * Option B of the save-status mockups (runde3-neu §3): the line sits under the
  * field being saved, because that is where the operator is looking and where
  * a failure has to be said anyway. One field's line follows only that field —
- * see `lib/field-save` for what «Gespeichert» is allowed to mean.
+ * see `lib/field-save` for what «Synchronisiert» is allowed to mean.
  *
- * «Gespeichert» does not stay. The Reko form's footer kept saying «Gespeichert
+ * «Synchronisiert» does not stay. The Reko form's footer kept saying «Synchronisiert
  * um 20:14» through twenty minutes of failed saves; a confirmation that lingers
  * turns into a claim about a later edit it never saw. So it shows for a few
  * seconds after the server answered and then the line is empty again — quiet
- * is the normal state. «Wird gespeichert» and «Nicht gespeichert» stay as long
+ * is the normal state. «Wird synchronisiert» and «Nicht synchronisiert» stay as long
  * as they are true.
  */
 
@@ -40,7 +40,7 @@ import {
 import { formatClockTime } from "@/lib/incident-time"
 import { cn, copyToClipboard } from "@/lib/utils"
 
-/** How long «Gespeichert – hh:mm» stays before the line goes quiet. */
+/** How long «Synchronisiert – hh:mm» stays before the line goes quiet. */
 export const SAVED_LINE_MS = 5_000
 
 /** The red edge a field gets while it holds text the server has not got. */
@@ -116,7 +116,7 @@ export function FieldSaveStatus({
    *   while saving, ✓ when saved, ! when failed; the words are its `title`
    *   and a live region. Never takes layout space — for rows that must keep
    *   their height (the toggle notes, owner 02.10.).
-   * `failure` — only the failure block (reason, «Erneut speichern», «Text
+   * `failure` — only the failure block (reason, «Erneut synchronisieren», «Text
    *   kopieren»): an error is allowed to take space, saving/saved are not.
    */
   part?: "all" | "mark" | "failure"

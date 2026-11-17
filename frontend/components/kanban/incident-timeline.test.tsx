@@ -35,13 +35,13 @@ describe("IncidentTimeline – a stale move", () => {
         from_status: "complete",
         to_status: "enroute",
         seen_status: "reko_done",
-        stale_seconds: 4,
+        stale_seconds: 190,
       }),
       move({ actor_name: "Fischer Thomas" }),
     ])
 
     expect(stale).toHaveTextContent("Reko abgeschlossen→Disponiert / Anfahrt · editor")
-    expect(stale).toHaveTextContent("war schon abgeschlossen (vor 4 s)")
+    expect(stale).toHaveTextContent("war schon abgeschlossen (vor 3')")
     expect(race).toHaveTextContent("Reko abgeschlossen→Abgeschlossen · Fischer Thomas")
     expect(race).not.toHaveTextContent("war schon")
   })

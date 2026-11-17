@@ -19,6 +19,7 @@ import { useGroups } from "@/lib/contexts/groups-context"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { requestIncidentHighlight } from "@/lib/notification-highlight"
 import { cn } from "@/lib/utils"
+import { RESOURCE_FREE_TEXT_CLASS } from "@/lib/resource-status"
 import { ArrowRight, ArrowUpRight, ChevronDown, ChevronRight, Layers } from "lucide-react"
 import { Reveal } from "@/components/ui/reveal"
 
@@ -108,7 +109,7 @@ export function MaterialGroupBlock({
         {/* Status indicator */}
         <span className={cn(
           "text-xs font-medium tabular-nums px-1.5 py-0.5 rounded",
-          allAvailable && "text-emerald-700 dark:text-emerald-400 bg-emerald-500/10",
+          allAvailable && cn(RESOURCE_FREE_TEXT_CLASS, "bg-free/10"),
           someAssigned && !allAssigned && "text-foreground bg-foreground/10",
           allAssigned && "text-muted-foreground bg-muted"
         )}>

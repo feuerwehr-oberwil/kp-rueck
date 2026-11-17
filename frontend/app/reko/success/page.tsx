@@ -26,8 +26,8 @@ export default function RekoSuccessPage() {
     <div className="min-h-screen bg-background p-4 md:p-6 flex items-center justify-center">
       <Card className="max-w-md w-full">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-info/10">
-            <CheckCircle2 className="h-10 w-10 text-info" />
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-success/15">
+            <CheckCircle2 className="h-10 w-10 text-success" />
           </div>
           <CardTitle>{t('title')}</CardTitle>
           <CardDescription className="break-words">

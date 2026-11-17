@@ -83,7 +83,7 @@ function ToolbarToggle({
         // is the only thing keeping one item's label off the next item's icon.
         "px-2.5 transition-colors",
         // Where-you-are (an open panel) is an ink tint, not a colour: red means
-        // priority/danger here, slate means «chosen» (CLAUDE.md → Colour roles).
+        // priority/danger here, the selection blue means «chosen» (CLAUDE.md → Colour roles).
         active ? "bg-foreground/[0.09] text-foreground" : "text-muted-foreground hover:text-foreground",
       )}
       onPointerDown={(e) => {
@@ -350,7 +350,7 @@ export function BoardFooter({
                   ),
                 }]
               : []),
-            /* The Einsatztagebuch (idea R8): the Ereignis' log — the board's own
+            /* The Verlauf (idea R8): the Ereignis' log — the board's own
                facts plus the lines that belong to no card. Always there: an
                empty log is still where the first line gets written. */
             {

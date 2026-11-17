@@ -15,7 +15,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
-import { dismissStatusConflict, formatStaleAgo, useStatusConflict } from "@/lib/status-conflict"
+import { formatAgo } from "@/lib/duration"
+import { dismissStatusConflict, useStatusConflict } from "@/lib/status-conflict"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 
 /**
@@ -33,6 +34,7 @@ export function StatusConflictDialog() {
   const { operations, updateOperation } = useOperations()
   const t = useTranslations("kanban")
   const tStatus = useTranslations("kanban.columns")
+  const tDuration = useTranslations("common.duration")
   const keepRef = useRef<HTMLButtonElement>(null)
 
   if (!conflict) return null
@@ -42,7 +44,7 @@ export function StatusConflictDialog() {
     ? (operation.locationDisplay ?? formatLocationForDisplay(operation.location, getGlobalHomeCity())) ||
       getIncidentTypeLabel(operation.incidentType)
     : t("statusConflict.fallbackLabel")
-  const ago = formatStaleAgo(conflict.secondsAgo, t)
+  const ago = formatAgo((conflict.secondsAgo ?? 0) * 1000, tDuration)
   const current = tStatus(conflict.current)
   const action = t(`statusConflict.force.${conflict.wanted}`)
   const closed = conflict.current === "complete"
