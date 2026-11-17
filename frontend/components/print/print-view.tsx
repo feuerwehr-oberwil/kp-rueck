@@ -1,5 +1,6 @@
 "use client"
 
+import { formatDurationHours } from "@/lib/duration"
 import { vehicleLabel } from "@/lib/vehicle-label"
 import type { VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { forwardRef, useEffect } from "react"
@@ -416,7 +417,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                     ? t("persCount", { count: op.rekoSummary.personnelCount })
                     : null,
                   op.rekoSummary?.estimatedDuration
-                    ? t("durationHours", { count: op.rekoSummary.estimatedDuration })
+                    ? formatDurationHours(op.rekoSummary.estimatedDuration)
                     : null,
                 ].filter((bit): bit is string => Boolean(bit))
 

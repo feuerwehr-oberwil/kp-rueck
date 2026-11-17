@@ -145,10 +145,10 @@ describe('notificationParts — Reko, vehicles, time', () => {
       },
     }
     expect(parts(row)).toEqual({
-      what: 'Reko abgeschlossen – Einsatz relevant (3 Pers., ~2 h, Gefahren: Feuer, Gefahrstoffe)',
+      what: "Reko abgeschlossen – Einsatz relevant (3 Pers., 2h 0', Gefahren: Feuer, Gefahrstoffe)",
       where: 'Hauptstrasse 41', who: 'Lisa Hoffmann', source: 'reko',
     })
-    expect(parts(row, fr).what).toMatch(/^Reconnaissance terminée – intervention nécessaire \(3 pers\., ~2 h, Dangers : /)
+    expect(parts(row, fr).what).toMatch(/^Reconnaissance terminée – intervention nécessaire \(3 pers\., 2h 0', Dangers : /)
     expect(
       parts({ type: 'reko_submitted', params: { place: 'Hauptstrasse 41', by: null, relevant: false, dangers: [] } }).what,
     ).toBe('Reko abgeschlossen – Kein Einsatz nötig')

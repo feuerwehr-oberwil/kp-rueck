@@ -35,6 +35,7 @@
  * longer says whether Reko is on site.
  */
 
+import { formatDurationHours } from "@/lib/duration"
 import { useState, useEffect, useCallback, useMemo, useRef, Fragment, type ReactNode } from 'react'
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import Image from 'next/image'
@@ -524,7 +525,7 @@ function useReportFacts(
   if (report.effort_json?.estimated_duration_hours) {
     facts.push({
       label: t('durationLabel'),
-      value: t('durationValue', { hours: report.effort_json.estimated_duration_hours }),
+      value: formatDurationHours(report.effort_json.estimated_duration_hours),
     })
   }
   if (report.effort_json?.vehicles_needed?.length) {
