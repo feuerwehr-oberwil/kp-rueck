@@ -35,6 +35,7 @@ import { apiClient, type ApiAuftragTemplate } from "@/lib/api-client"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Button } from "@/components/ui/button"
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip"
 import { Input } from "@/components/ui/input"
 import {
   DropdownMenu,
@@ -721,11 +722,13 @@ function AuftragCard({
 
             {canEdit && <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon-xs" aria-label={t("moreOptions")}>
-                    <MoreHorizontal className="size-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
+                <ShortcutTooltip label={t("moreOptions")}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon-xs" aria-label={t("moreOptions")}>
+                      <MoreHorizontal className="size-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </ShortcutTooltip>
                 <DropdownMenuContent
                   align="end"
                   // The menu's exit-animation focus-restore lands AFTER the popover
@@ -1068,27 +1071,30 @@ function StopRow({ groupId, incidentId, index, count, onMove, op, onRemove, onSe
           </div>
         )}
         {/* Karte — opens the Routen-Editor centred on this stop. */}
-        <Button
-          size="icon-xs"
-          variant="ghost"
-          className="flex-shrink-0"
-          onClick={() => onOpenMap(incidentId)}
-          title={t("map")}
-          aria-label={t("map")}
-        >
-          <MapIcon className="size-3.5" />
-        </Button>
+        <ShortcutTooltip label={t("map")}>
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            className="flex-shrink-0"
+            onClick={() => onOpenMap(incidentId)}
+            aria-label={t("map")}
+          >
+            <MapIcon className="size-3.5" />
+          </Button>
+        </ShortcutTooltip>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              className="flex-shrink-0"
-              aria-label={t("stopActions", { name: op?.location ? formatLocation(op.location) : String(index + 1) })}
-            >
-              <MoreHorizontal className="size-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
+          <ShortcutTooltip label={t("moreOptions")}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="flex-shrink-0"
+                aria-label={t("stopActions", { name: op?.location ? formatLocation(op.location) : String(index + 1) })}
+              >
+                <MoreHorizontal className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+          </ShortcutTooltip>
           <DropdownMenuContent align="end" collisionPadding={{ top: 8, bottom: 80, left: 8, right: 8 }}>
             {!readOnly && <MoveMenuItems Item={DropdownMenuItem} index={index} count={count} onMove={onMove} />}
             {!readOnly && <DropdownMenuSeparator />}

@@ -203,19 +203,20 @@ export function PersonnelSidebar({
                     <p className="text-xs text-muted-foreground text-center">
                       {tDash('scanCheckInQr')}
                     </p>
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={copyCheckInUrlToClipboard}
-                      title={tCommon('copyLink')}
-                      aria-label={tCommon('copyLink')}
-                    >
-                      {copied ? (
-                        <Check className="size-3.5 text-success" />
-                      ) : (
-                        <Copy className="size-3.5" />
-                      )}
-                    </Button>
+                    <ShortcutTooltip label={tCommon('copyLink')}>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={copyCheckInUrlToClipboard}
+                        aria-label={tCommon('copyLink')}
+                      >
+                        {copied ? (
+                          <Check className="size-3.5 text-success" />
+                        ) : (
+                          <Copy className="size-3.5" />
+                        )}
+                      </Button>
+                    </ShortcutTooltip>
                   </div>
                 </div>
               ) : null}
