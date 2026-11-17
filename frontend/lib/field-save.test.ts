@@ -115,7 +115,7 @@ describe("text_base (review F05)", () => {
     expect(noteFieldSend(noteFieldQueued("inc-1", { notes: "ab" })).textBase).toEqual({ description: "a" })
   })
 
-  it("«Meinen Text speichern» makes the other text the base for the retry", () => {
+  it("«Meinen Text behalten» makes the other text the base for the retry", () => {
     noteFieldEdit("inc-1", "notes", "Mine", "server")
     noteFieldSettled(noteFieldSend(noteFieldQueued("inc-1", { notes: "Mine" })), { ok: false, reason: "conflict", conflict })
     expect(getFieldSave("inc-1", "notes")?.conflict?.text).toBe("Theirs")

@@ -247,7 +247,7 @@ describe("JournalSheet", () => {
     await screen.findAllByTestId("journal-row")
     const input = screen.getByRole("textbox", { name: "Neuer Eintrag im Einsatztagebuch" })
     await user.type(input, "Strom Quartier Nord aus{Enter}")
-    expect(await screen.findByRole("alert")).toHaveTextContent("Nicht gespeichert")
+    expect(await screen.findByRole("alert")).toHaveTextContent("Nicht synchronisiert")
     expect(input).toHaveValue("Strom Quartier Nord aus")
     await user.type(input, "{Enter}")
     await waitFor(() => expect(api.appendJournal).toHaveBeenCalledTimes(2))

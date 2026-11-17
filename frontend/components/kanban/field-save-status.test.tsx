@@ -81,7 +81,7 @@ describe("FieldSaveStatus", () => {
     const below = screen.getByTestId("below")
 
     edit("FW Therwil", "")
-    expect(row.querySelector("[role=status]")).toHaveAttribute("title", "Wird gespeichert …")
+    expect(row.querySelector("[role=status]")).toHaveAttribute("title", "Wird synchronisiert …")
     expect(below).toBeEmptyDOMElement()
 
     let ticket!: ReturnType<typeof noteFieldSend>
@@ -89,7 +89,7 @@ describe("FieldSaveStatus", () => {
       ticket = noteFieldSend(noteFieldQueued("inc-1", { notes: "x" }))
     })
     act(() => noteFieldSettled(ticket, { ok: true }))
-    expect(row.querySelector("[role=status]")).toHaveAttribute("title", "Gespeichert – 09:41")
+    expect(row.querySelector("[role=status]")).toHaveAttribute("title", "Synchronisiert – 09:41")
     expect(below).toBeEmptyDOMElement()
 
     edit("FW Therwil, Kdt.", "FW Therwil")
@@ -97,8 +97,8 @@ describe("FieldSaveStatus", () => {
       ticket = noteFieldSend(noteFieldQueued("inc-1", { notes: "x" }))
     })
     act(() => noteFieldSettled(ticket, { ok: false, reason: "network" }))
-    expect(within(below).getByRole("button", { name: "Erneut speichern" })).toBeInTheDocument()
-    expect(row.querySelector("[title='Nicht gespeichert.']")).not.toBeNull()
+    expect(within(below).getByRole("button", { name: "Erneut synchronisieren" })).toBeInTheDocument()
+    expect(row.querySelector("[title='Nicht synchronisiert.']")).not.toBeNull()
   })
 
   it("is quiet until something is edited", () => {
@@ -113,16 +113,16 @@ describe("FieldSaveStatus", () => {
     renderWithIntl(<Field server="Keller" />)
 
     edit("Keller, 40 cm")
-    expect(screen.getByRole("status")).toHaveTextContent("Wird gespeichert …")
+    expect(screen.getByRole("status")).toHaveTextContent("Wird synchronisiert …")
 
     let ticket!: ReturnType<typeof noteFieldSend>
     act(() => {
       ticket = noteFieldSend(noteFieldQueued("inc-1", { notes: "x" }))
     })
-    expect(screen.getByRole("status")).toHaveTextContent("Wird gespeichert …")
+    expect(screen.getByRole("status")).toHaveTextContent("Wird synchronisiert …")
 
     act(() => noteFieldSettled(ticket, { ok: true }))
-    expect(screen.getByRole("status")).toHaveTextContent("Gespeichert – 09:41")
+    expect(screen.getByRole("status")).toHaveTextContent("Synchronisiert – 09:41")
 
     act(() => {
       vi.advanceTimersByTime(SAVED_LINE_MS + 10)
@@ -145,11 +145,11 @@ describe("FieldSaveStatus", () => {
     expect(field).toHaveValue("Keller, Pumpe läuft")
     expect(field).toHaveAttribute("aria-invalid", "true")
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Nicht gespeichert. Keine Verbindung zum Server – der Text bleibt hier stehen.",
+      "Nicht synchronisiert. Keine Verbindung zum Server – der Text bleibt hier stehen.",
     )
-    expect(screen.queryByText(/Gespeichert –/)).toBeNull()
+    expect(screen.queryByText(/Synchronisiert –/)).toBeNull()
 
-    fireEvent.click(screen.getByRole("button", { name: "Erneut speichern" }))
+    fireEvent.click(screen.getByRole("button", { name: "Erneut synchronisieren" }))
     expect(onRetry).toHaveBeenCalledWith("Keller, Pumpe läuft")
 
     await act(async () => {
@@ -182,9 +182,9 @@ describe("FieldSaveStatus", () => {
     const conflict = { field: "notes" as const, conflict: { text: "Keller, Nachtrag KP", by: "Koch René", at: null } }
     act(() => noteFieldSettled(noteFieldSend(noteFieldQueued("inc-1", { notes: "Keller, Pumpe läuft" })), { ok: false, reason: "conflict", conflict }))
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Nicht gespeichert – inzwischen geändert. Koch René hat inzwischen geändert:")
+    expect(screen.getByRole("alert")).toHaveTextContent("Nicht synchronisiert – inzwischen geändert. Koch René hat inzwischen geändert:")
     expect(screen.getByText("Keller, Nachtrag KP")).toBeInTheDocument()
-    fireEvent.click(screen.getByRole("button", { name: "Meinen Text speichern" }))
+    fireEvent.click(screen.getByRole("button", { name: "Meinen Text behalten" }))
     expect(onRetry).toHaveBeenCalledWith("Keller, Pumpe läuft")
   })
 
@@ -235,7 +235,7 @@ describe("FieldSaveStatus", () => {
 
       fireEvent.click(screen.getByRole("button", { name: "Schliessen" }))
       expect(onClose).not.toHaveBeenCalled()
-      expect(screen.getByRole("alertdialog")).toHaveTextContent("«Meldung» konnte nicht gespeichert werden.")
+      expect(screen.getByRole("alertdialog")).toHaveTextContent("«Meldung» konnte nicht synchronisiert werden.")
 
       fireEvent.click(screen.getByRole("button", { name: "Trotzdem schliessen" }))
       expect(onClose).toHaveBeenCalledTimes(1)

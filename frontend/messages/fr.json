@@ -2402,9 +2402,9 @@
       "confirm": "Corriger le statut"
     },
     "fieldSave": {
-      "saving": "Enregistrement …",
-      "savedAt": "Enregistré – {time}",
-      "failed": "Non enregistré.",
+      "saving": "Synchronisation …",
+      "savedAt": "Synchronisé – {time}",
+      "failed": "Non synchronisé.",
       "failedBody": "{reason} – le texte reste ici.",
       "reason": {
         "network": "Pas de liaison avec le serveur",
@@ -2418,21 +2418,21 @@
       "serverNow": "Sur le serveur entre-temps : « {text} »",
       "serverNowEmpty": "Sur le serveur, le champ est entre-temps vide.",
       "conflict": {
-        "title": "Non enregistré – modifié entre-temps.",
+        "title": "Non synchronisé – modifié entre-temps.",
         "byAt": "{by} a modifié à {time} :",
         "by": "{by} a modifié entre-temps :",
         "at": "Modifié ailleurs à {time} :",
         "unknown": "Modifié ailleurs :",
         "empty": "Le champ est maintenant vide.",
-        "keepMine": "Enregistrer mon texte",
+        "keepMine": "Garder mon texte",
         "takeTheirs": "Reprendre cette version"
       },
-      "retry": "Enregistrer à nouveau",
+      "retry": "Synchroniser à nouveau",
       "copy": "Copier le texte",
       "copied": "Copié",
       "leave": {
-        "title": "Texte non enregistré",
-        "description": "{count, plural, one {{fields} n’a pas pu être enregistré} other {{fields} n’ont pas pu être enregistrés}}. Le texte reste conservé dans cette fenêtre jusqu’au rechargement de la page.",
+        "title": "Texte non synchronisé",
+        "description": "{count, plural, one {{fields} n’a pas pu être synchronisé} other {{fields} n’ont pas pu être synchronisés}}. Le texte reste conservé dans cette fenêtre jusqu’au rechargement de la page.",
         "confirm": "Fermer quand même",
         "cancel": "Retour à l’intervention"
       }
@@ -4538,7 +4538,7 @@
     "inputLabel": "Nouvelle entrée du journal",
     "submit": "Inscrire",
     "submitCorrect": "Corriger",
-    "saveFailed": "Non enregistré – le texte est toujours là. Renvoyer.",
+    "saveFailed": "Non synchronisé – le texte est toujours là. Renvoyer.",
     "textRequired": "L’entrée manque – écris d’abord, puis envoie.",
     "linkTitle": "Lier une intervention",
     "linkSearch": "Chercher une intervention par numéro ou lieu",

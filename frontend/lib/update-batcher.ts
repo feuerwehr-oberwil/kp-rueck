@@ -70,14 +70,14 @@ export class UpdateBatcher<T> {
  * not stop the NEXT batch from leaving while the previous one is still in
  * flight — and on a slow uplink (exactly when this matters) two PATCHes of the
  * same incident could reach the server in either order. The older text would
- * then win on the server while the field had already said «Gespeichert» for
+ * then win on the server while the field had already said «Synchronisiert» for
  * the newer one. Chaining them per incident is what makes that word true.
  *
  * There is deliberately no way to skip the line, not even for the `pagehide`
  * flush: a request sent past an older one in flight can arrive first and be
  * overwritten by it (review F06). If the tab closes while a save is still in
- * flight, the queued edit may not leave – the field said «Wird gespeichert»,
- * never «Gespeichert», so nothing claims otherwise.
+ * flight, the queued edit may not leave – the field said «Wird synchronisiert»,
+ * never «Synchronisiert», so nothing claims otherwise.
  */
 export class KeyedSerialQueue {
   private tails = new Map<string, Promise<void>>()

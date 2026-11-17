@@ -282,16 +282,17 @@ runtime `API_URL`. Same reasoning for map tiles (`getTileBaseUrl` → `/tiles`).
   changing a notification = a builder there (+ its pinned test) and a case + copy (de AND fr) +
   test in `notification-format.ts`. A row without params, an unknown type/variant or a missing
   fact falls back to the German `message` on one line, so nothing is lost. Never parse `message`.
-- **«Gespeichert» means the server confirmed it** (`lib/field-save.ts`, `components/kanban/field-save-status.tsx`).
-  The detail's free-text fields show «Wird gespeichert …» / «Gespeichert – hh:mm» / «Nicht gespeichert»
-  under the field. The store is fed by `updateOperation` (the one funnel) and a field is «saved» only
+- **«Synchronisiert» means the server confirmed it** (`lib/field-save.ts`, `components/kanban/field-save-status.tsx`)
+  – KP Front's word for the same fact; Front's «gespeichert» means «on this device». The detail's
+  free-text fields (and the self-saving settings) show «Wird synchronisiert …» / «Synchronisiert – hh:mm» /
+  «Nicht synchronisiert» under the field. The store is fed by `updateOperation` (the one funnel) and a field is «saved» only
   when the PATCH carrying its NEWEST text answered; PATCHes run one at a time per incident
   (`KeyedSerialQueue`, no line-skipping – not even on `pagehide`) so the server sees edits in order.
   Each text goes out with `text_base` (the text this window last saw the server confirm); somebody
   else's newer text is a 409 `text_conflict`, said in amber under the field with «Meinen Text
-  speichern» / «Diese Fassung übernehmen». A failed text stays as a draft in the field —
+  behalten» / «Diese Fassung übernehmen». A failed text stays as a draft in the field —
   render the control's `value` from `useFieldSave(...).value`, never straight from `operation`, or a
-  reload replaces it — and is sent again only via «Erneut speichern». No automatic resend (the HTTP
+  reload replaces it — and is sent again only via «Erneut synchronisieren». No automatic resend (the HTTP
   client never retries a mutation), no offline queue. Drafts are scoped to user + Ereignis; a user
   switch drops them and a queued write of the previous user is not sent. A new free-text incident
   field goes into `SAVED_TEXT_FIELDS` and the backend's `IncidentTextField`.

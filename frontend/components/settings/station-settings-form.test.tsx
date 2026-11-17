@@ -82,10 +82,10 @@ describe('StationSettingsForm – coordinates', () => {
  * Owner pick UX-05 A (10.11.2026): a setting saves by itself, so the server's confirmation is
  * said under the field – the words of the Einsatz detail – and goes quiet again.
  */
-describe('StationSettingsForm – «Gespeichert»', () => {
-  it('says «Wird gespeichert …» while the save is out', () => {
+describe('StationSettingsForm – «Synchronisiert»', () => {
+  it('says «Wird synchronisiert …» while the save is out', () => {
     renderWithIntl(<Harness stored="47.516377" updateSetting={vi.fn()} saving="firestation_latitude" />)
-    expect(screen.getByRole('status')).toHaveTextContent('Wird gespeichert …')
+    expect(screen.getByRole('status')).toHaveTextContent('Wird synchronisiert …')
   })
 
   it('says when the server confirmed, then goes quiet', () => {
@@ -93,7 +93,7 @@ describe('StationSettingsForm – «Gespeichert»', () => {
     try {
       const at = new Date()
       renderWithIntl(<Harness stored="47.516377" updateSetting={vi.fn()} savedAt={{ firestation_latitude: at }} />)
-      expect(screen.getByRole('status')).toHaveTextContent(/^Gespeichert – \d\d:\d\d$/)
+      expect(screen.getByRole('status')).toHaveTextContent(/^Synchronisiert – \d\d:\d\d$/)
       act(() => void vi.advanceTimersByTime(6_000))
       expect(screen.queryByRole('status')).not.toBeInTheDocument()
     } finally {

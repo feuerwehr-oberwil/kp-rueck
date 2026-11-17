@@ -6,7 +6,7 @@ import { useState, type ReactNode } from "react"
 import type { ApiIncident } from "@/lib/api-client"
 
 // The save state of the detail's text fields, driven through the real
-// provider: what «Gespeichert» waits for, what a failure keeps, what a reload
+// provider: what «Synchronisiert» waits for, what a failure keeps, what a reload
 // may not touch, and what a session switch must never send.
 
 const EVENT_A = "11111111-1111-1111-1111-111111111111"
@@ -230,7 +230,7 @@ describe("text field save state", () => {
     expect(notesState()).toMatchObject({ status: "failed", draft: "Pumpe läuft", base: "Keller unter Wasser" })
   })
 
-  it("«Erneut speichern» sends exactly the kept field, and only that", async () => {
+  it("«Erneut synchronisieren» sends exactly the kept field, and only that", async () => {
     const { result } = await renderLoaded()
 
     act(() => result.current.updateOperation("1", { notes: "Pumpe läuft", contact: "Frau Meier" }))
