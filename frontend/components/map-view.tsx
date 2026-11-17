@@ -123,7 +123,7 @@ function IncidentPin({
   // When a "Färben nach" dimension is active, the marker fill is overridden with
   // that group's colour; otherwise it falls back to the priority colour.
   const priorityColor =
-    PRIORITY_MARKER_COLORS[incident.priority as keyof typeof PRIORITY_MARKER_COLORS] ?? MAP_COLORS.offline
+    PRIORITY_MARKER_COLORS[incident.priority as keyof typeof PRIORITY_MARKER_COLORS] ?? PRIORITY_MARKER_COLORS.low
   const fillColor = accentColor || priorityColor
   const size = incidentPinSize(highlighted, compact)
 
@@ -146,9 +146,10 @@ function IncidentPin({
       role="button"
       aria-label={ariaLabel ?? t('view.markerAria', { label: a11yLabel })}
       aria-expanded={expanded}
-      // The pulse used to be a `@keyframes` block injected into every single icon's HTML.
-      className={highlighted ? "animate-pulse" : undefined}
-      style={{ display: "block", transition: "all 0.2s ease", opacity: borderStyle.opacity, outline: "none" }}
+      // Highlighted = bigger plus the shared two-beat ink ring (`this-one-ring`, COL-05 A) – the
+      // board's «this one». It was a blue halo, the colour of an Auftrag.
+      className={highlighted ? "this-one-ring" : undefined}
+      style={{ display: "block", transition: "all 0.2s ease", opacity: borderStyle.opacity, borderRadius: "50%", ...(highlighted ? {} : { outline: "none" }) }}
       onKeyDown={(event) => {
         if (event.key !== "Enter" && event.key !== " ") return
         event.preventDefault()
@@ -172,7 +173,7 @@ function IncidentPin({
         cy={rings.r}
         r={rings.fillR}
         fill={fillColor}
-        stroke={highlighted ? MAP_COLORS.info : "white"}
+        stroke="white"
         strokeWidth={rings.halo}
         filter={`url(#${shadowId})`}
       />
@@ -936,7 +937,7 @@ function SpotListRow({
   const t = useTranslations("map")
   const tKanban = useTranslations("kanban")
   const doubleClickRef = useOpenOnDoubleClick(onOpen ? () => onOpen(incident.id) : undefined)
-  const color = PRIORITY_MARKER_COLORS[incident.priority as keyof typeof PRIORITY_MARKER_COLORS] ?? MAP_COLORS.offline
+  const color = PRIORITY_MARKER_COLORS[incident.priority as keyof typeof PRIORITY_MARKER_COLORS] ?? PRIORITY_MARKER_COLORS.low
   // What tells them apart at one address: the Meldung, else the Einsatzart. Not the title – that
   // is the address again (the board shows it only where an address is missing).
   const what = incident.description?.trim() || getIncidentTypeLabel(incident.type)

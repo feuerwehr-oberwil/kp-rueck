@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { markerGlyphInk, priorityGlyphPath } from './map-priority'
-import { INCIDENT_TYPE_MARKER_COLORS, PRIORITY_MARKER_COLORS } from './map-colors'
+import { INCIDENT_TYPE_MARKER_COLORS, MAP_INK, PRIORITY_MARKER_COLORS } from './map-colors'
 
 describe('markerGlyphInk', () => {
-  it('draws the glyph in ink on every priority fill', () => {
-    for (const fill of Object.values(PRIORITY_MARKER_COLORS)) expect(markerGlyphInk(fill)).toBe('#111827')
+  it('draws the glyph in ink on the Mittel and Niedrig fills, white on the Hoch red', () => {
+    // Hoch is the danger red itself since COL-03 (17.11.2026) – dark enough to want white.
+    expect(markerGlyphInk(PRIORITY_MARKER_COLORS.medium)).toBe(MAP_INK)
+    expect(markerGlyphInk(PRIORITY_MARKER_COLORS.low)).toBe(MAP_INK)
+    expect(markerGlyphInk(PRIORITY_MARKER_COLORS.high)).toBe('#ffffff')
   })
 
   it('switches to white on a dark «Färben nach» fill', () => {

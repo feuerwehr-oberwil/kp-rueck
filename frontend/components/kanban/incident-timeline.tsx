@@ -165,11 +165,11 @@ function EventIcon({ event }: { event: ApiIncidentTimelineEvent }) {
     return <Split className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
   }
   if (event.event_type === "field_message") {
-    return <MessageSquare className="mt-px h-3.5 w-3.5 shrink-0 text-info" />
+    return <MessageSquare className="mt-px h-3.5 w-3.5 shrink-0 text-muted-foreground" />
   }
   if (event.event_type === "kp_message") {
-    // The KP's own «Meldung an den Trupp» (§P3.2) — outbound, so not the
-    // inbound message's info tint.
+    // The KP's own «Meldung an den Trupp» (§P3.2) — outbound; both directions
+    // are muted, the icon tells them apart.
     return <Send className="mt-px h-3.5 w-3.5 shrink-0 text-muted-foreground" />
   }
   if (event.event_type === "assignment") {

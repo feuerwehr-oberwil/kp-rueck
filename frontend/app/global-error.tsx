@@ -103,11 +103,13 @@ export default function GlobalError({
     cursor: 'pointer',
   }
 
+  // The main button is ink, never red (red = priority and danger; ENT-16): the night
+  // `--action` pair, since this page stands on its own dark ground without the stylesheet.
   const primaryButton: React.CSSProperties = {
     ...button,
-    background: '#dc2626',
-    borderColor: '#dc2626',
-    color: '#ffffff',
+    background: '#c3cddc',
+    borderColor: '#c3cddc',
+    color: '#0d1118',
   }
 
   return (

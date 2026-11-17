@@ -574,7 +574,7 @@ export default function RekoForm() {
                ends by itself. The one instruction that matters is to leave the
                form open, because closing it is what would actually cost the
                text. */
-            <div className="rounded-lg border border-info/40 bg-info/10 p-3 text-sm">
+            <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
               <p className="font-medium">{t('offlineTitle')}</p>
               <p className="mt-0.5">{t('offlineBody')}</p>
               <p className="mt-1 text-xs text-muted-foreground">{t('offlineHint')}</p>

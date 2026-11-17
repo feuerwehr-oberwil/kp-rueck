@@ -27,17 +27,16 @@ import { MapPin, Check } from "lucide-react"
 import { reverseGeocode } from "@/lib/geocoding"
 import { BaseMap } from "@/components/map/base-map"
 import { DEFAULT_CENTER_LATLNG, type LatLngPoint } from "@/lib/map-view"
+import { MAP_INK } from "@/lib/map-colors"
 
 /** `[lat, lon]`, the order every caller of this picker speaks. MapLibre wants them the other way. */
 type LatLon = LatLngPoint
 
 /**
- * The blue of Leaflet's default marker pin.
- *
- * MapLibre's own default is teal; hard-coding the old blue keeps a picker that has always shown a
- * blue pin showing a blue pin. Not a status colour – the picked point carries no state.
+ * The picked point is a thing, not a state: the map ink. It was Leaflet's default blue, and blue
+ * on the map means an Auftrag (COL-04). MapLibre's own default is teal.
  */
-const PIN_COLOR = "#2a81cb"
+const PIN_COLOR = MAP_INK
 
 interface MapPickerModalProps {
   open: boolean

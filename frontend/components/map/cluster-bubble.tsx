@@ -41,7 +41,7 @@ export function ClusterBubble({
 }) {
   const rings = incidentPinRings(size, compact, group)
   const r = rings.r
-  const accent = PRIORITY_MARKER_COLORS[priority as keyof typeof PRIORITY_MARKER_COLORS] ?? MAP_COLORS.offline
+  const accent = PRIORITY_MARKER_COLORS[priority as keyof typeof PRIORITY_MARKER_COLORS] ?? PRIORITY_MARKER_COLORS.low
   // The core sits a white hairline inside the frame; its ring is 3px of the priority colour.
   const coreR = r - rings.ringWidth - 3
   const scale = size / CLUSTER_BUBBLE_SIZE

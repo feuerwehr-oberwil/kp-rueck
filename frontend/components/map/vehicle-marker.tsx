@@ -49,8 +49,10 @@ const LIST_GAP = 10
 const PILL_BASE =
   "relative hit-area flex items-center whitespace-nowrap font-sans text-[13px] font-bold leading-none " +
   "box-border shadow-[0_2px_6px_rgb(0_0_0/0.3)]"
-// Online: the reporting blue with the white frame every map mark wears.
-const SOLID: CSSProperties = { background: MAP_COLORS.info, color: "white", border: "2px solid white" }
+// Online: an ink label with the white frame every map mark wears, and the green «sendet» dot
+// (`LiveDot`) on its corner – the live state told by a shape, not by a hue on the whole pill.
+// It was blue, the colour of an Auftrag route beside it (owner pick COL-04 A, 17.11.2026).
+const SOLID: CSSProperties = { background: MAP_COLORS.station, color: "white", border: "2px solid white" }
 // Offline: hollow – the card colour behind a dashed grey frame, the text muted. No fill colour
 // for «not reporting» (grey was easy to read as just another vehicle).
 const HOLLOW: CSSProperties = { border: `2px dashed ${MAP_COLORS.offline}` }
@@ -77,8 +79,9 @@ export function VehiclePill({
   if (offlinePart) {
     return (
       <span className={`${PILL_BASE} rounded-[4px]`} style={height}>
-        <span className="box-border flex h-full items-center rounded-l-[4px] px-2" style={{ ...SOLID, borderRight: 0 }}>
+        <span className="relative box-border flex h-full items-center rounded-l-[4px] px-2" style={{ ...SOLID, borderRight: 0 }}>
           {label}
+          <LiveDot />
         </span>
         <span
           className="box-border flex h-full items-center rounded-r-[4px] bg-card px-[7px] text-xs font-semibold text-muted-foreground"
@@ -97,7 +100,19 @@ export function VehiclePill({
       {label}
       {time && <span className="font-mono text-2xs font-medium">{time}</span>}
       {heading != null && <HeadingArrow course={heading} />}
+      {online && <LiveDot />}
     </span>
+  )
+}
+
+/** The «sendet» mark: a small green dot with a white ring, on the label's top-right corner. */
+function LiveDot() {
+  return (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute -right-1 -top-1 size-2 rounded-full shadow-[0_0_0_1.5px_white]"
+      style={{ background: MAP_COLORS.live }}
+    />
   )
 }
 
@@ -488,10 +503,10 @@ function VehicleRow({
   )
 }
 
-/** Solid blue = online, dashed grey ring = offline – the pills' own language in small. */
+/** The green «sendet» dot = online, dashed grey ring = offline – the pills' own language in small. */
 function StateDot({ online }: { online: boolean }) {
   return online ? (
-    <span aria-hidden className="size-[9px] shrink-0 rounded-full shadow-[0_0_0_1.5px_white]" style={{ background: MAP_COLORS.info }} />
+    <span aria-hidden className="size-[9px] shrink-0 rounded-full shadow-[0_0_0_1.5px_white]" style={{ background: MAP_COLORS.live }} />
   ) : (
     <span aria-hidden className="box-border size-[9px] shrink-0 rounded-full" style={{ border: `1.5px dashed ${MAP_COLORS.offline}` }} />
   )

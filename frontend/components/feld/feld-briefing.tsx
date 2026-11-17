@@ -35,6 +35,7 @@ import { MelderLink } from '@/components/ui/melder-link'
 import { FeldSection } from '@/components/feld/feld-section'
 import type { ApiFeldAssignment, ApiFeldMaterialLine, ApiFeldVehicleLine } from '@/lib/api-client'
 import { formatTime } from '@/lib/format-time'
+import { auftragColor } from '@/lib/kanban-utils'
 
 /** The `DangersAssessment` keys the board renders badges for. */
 const DANGER_KEYS = ['fire', 'fire_danger', 'explosion', 'collapse', 'chemical', 'electrical'] as const
@@ -246,8 +247,12 @@ export function FeldBriefing({
                   {hasChips && (
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
                       {vehicle.via_auftrag && (
-                        <span className="type-caption inline-flex shrink-0 items-center gap-1 rounded-sm bg-info/15 px-1.5 py-0.5 text-info">
-                          <Waypoints className="h-3 w-3 shrink-0" />
+                        // A fact, so the ink chip; the route glyph wears the Auftrag's own colour (COL-04).
+                        <span className="type-caption inline-flex shrink-0 items-center gap-1 rounded-sm bg-foreground/10 px-1.5 py-0.5 text-foreground">
+                          <Waypoints
+                            className="h-3 w-3 shrink-0"
+                            style={assignment.group_id ? { color: auftragColor(assignment.group_id, assignment.group_color) } : undefined}
+                          />
                           {t('vehicleViaAuftrag')}
                         </span>
                       )}
