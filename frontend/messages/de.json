@@ -2375,7 +2375,7 @@
       "displayNamePlaceholder": "Max Mustermann",
       "passwordLabel": "Passwort",
       "roleLabel": "Rolle",
-      "roleAdmin": "Administrator",
+      "roleAdmin": "Admin",
       "creating": "Wird erstellt …",
       "editDialogTitle": "Benutzer bearbeiten",
       "editDialogDescription": "Ändere die Benutzerdaten.",
@@ -2741,7 +2741,7 @@
     },
     "dashboard": {
       "invalidCode": "Ungültiger oder abgelaufener Code. Bitte Link erneut anfordern.",
-      "missingCode": "Zugriffscode fehlt. Bitte Link vom Editor anfordern.",
+      "missingCode": "Zugriffscode fehlt. Bitte den Link beim KP anfordern.",
       "accessRequired": "Zugriff erforderlich",
       "title": "Reko",
       "noPersonnel": "Keine Reko-Personen verfügbar",

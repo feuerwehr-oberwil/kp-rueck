@@ -54,6 +54,7 @@ from ..schemas import (
 )
 from ..services import incident_display, notification_params
 from ..services.divera_intake import broadcast_emergency_received
+from ..services.rapport_rows import STATUS_LABELS
 from ..services.tokens import generate_form_token
 from ..services.training import (
     file_simulated_rapport,
@@ -288,7 +289,7 @@ async def simulate_reko_arrived(
     if incident.status != "reko":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Einsatz muss im Status 'reko' sein (aktuell: '{incident.status}')",
+            detail=f"Einsatz muss im Status «Reko» sein (aktuell: «{STATUS_LABELS.get(incident.status, incident.status)}»)",
         )
 
     token = generate_form_token(str(incident_id), "reko")
@@ -329,7 +330,7 @@ async def simulate_reko(
     if incident.status != "reko":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Einsatz muss im Status 'reko' sein (aktuell: '{incident.status}')",
+            detail=f"Einsatz muss im Status «Reko» sein (aktuell: «{STATUS_LABELS.get(incident.status, incident.status)}»)",
         )
 
     # Generate token and mark arrival

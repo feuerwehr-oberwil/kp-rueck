@@ -3282,7 +3282,7 @@
     },
     "dashboard": {
       "invalidCode": "Code non valable ou échu. Demande à nouveau le lien.",
-      "missingCode": "Code d’accès manquant. Demande le lien à l’éditeur.",
+      "missingCode": "Code d’accès manquant. Demande le lien au PC.",
       "accessRequired": "Accès requis",
       "title": "Reconnaissance",
       "noPersonnel": "Aucune personne de reconnaissance disponible",
@@ -4142,7 +4142,7 @@
       "displayNamePlaceholder": "Jean Dupont",
       "passwordLabel": "Mot de passe",
       "roleLabel": "Rôle",
-      "roleAdmin": "Administrateur",
+      "roleAdmin": "Admin",
       "creating": "Création …",
       "editDialogTitle": "Modifier l’utilisateur",
       "editDialogDescription": "Modifie les données de l’utilisateur.",

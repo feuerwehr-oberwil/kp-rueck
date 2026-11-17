@@ -33,10 +33,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 # Spelled out in every mode error: the operator picking a mode is picking whether
-# the station keeps its roster, so the message has to say what each one does.
+# the station keeps its roster, so the message has to say what each one does. The
+# button's word first («Ersetzen» / «Anhängen», settings.page.import.*), then the value a
+# script sends – these 400s only reach a caller that sent no or a wrong `mode`.
 _MODE_CHOICES = (
-    "'replace' (löscht Personal, Fahrzeuge und Material vollständig und lädt dann die Datei) "
-    "oder 'append' (behält den Bestand und fügt die Zeilen der Datei hinzu)"
+    "«Ersetzen» ('replace': löscht Personal, Fahrzeuge und Material vollständig und lädt dann die Datei) "
+    "oder «Anhängen» ('append': behält den Bestand und fügt die Zeilen der Datei hinzu)"
 )
 
 # The same fact for the committed contract, which is the ONLY API reference a
@@ -77,7 +79,7 @@ def _require_import_mode(mode: str | None) -> Literal["replace", "append"]:
             status_code=400,
             detail=(
                 "Der Modus 'merge' wird nicht mehr angeboten – er hat nie zusammengeführt, "
-                f"sondern wie 'replace' alles gelöscht. Wähle {_MODE_CHOICES}."
+                f"sondern wie «Ersetzen» alles gelöscht. Wähle {_MODE_CHOICES}."
             ),
         )
     if mode not in ("replace", "append"):
@@ -139,10 +141,10 @@ def _refuse_missing_sheets(parsed_data: ParsedImport, impact: ImportDeletionImpa
     raise HTTPException(
         status_code=status.HTTP_409_CONFLICT,
         detail=(
-            f"Import im Modus 'replace' abgelehnt: In der Datei {fehlt}. "
-            "'replace' würde diese Daten löschen, ohne etwas an ihre Stelle zu setzen. "
+            f"Import im Modus «Ersetzen» abgelehnt: In der Datei {fehlt}. "
+            "«Ersetzen» würde diese Daten löschen, ohne etwas an ihre Stelle zu setzen. "
             "Entweder eine Datei mit allen benötigten Blättern hochladen – ein Blatt mit Kopfzeile und ohne "
-            "Zeilen leert die Tabelle bewusst – oder den Modus 'append' verwenden."
+            "Zeilen leert die Tabelle bewusst – oder den Modus «Anhängen» verwenden."
         ),
     )
 
@@ -246,10 +248,10 @@ def _refuse_active_assignments(active_count: int, blockers: list[AssignmentBlock
     raise HTTPException(
         status_code=status.HTTP_409_CONFLICT,
         detail=(
-            f"Import im Modus 'replace' abgelehnt: {active_count} aktive Zuweisung(en) auf {holders} "
+            f"Import im Modus «Ersetzen» abgelehnt: {active_count} aktive Zuweisung(en) auf {holders} "
             "zeigen auf Personal, Fahrzeuge oder Material, das dabei gelöscht würde. "
             f"{betroffen}{material_hint}"
-            f"{way_out} – oder den Modus 'append' verwenden."
+            f"{way_out} – oder den Modus «Anhängen» verwenden."
         ),
     )
 
@@ -356,7 +358,7 @@ async def execute_excel_import(
     if import_mode == "replace" and current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Import im Modus 'replace' erfordert Admin-Berechtigung",
+            detail="Import im Modus «Ersetzen» erfordert Admin-Berechtigung",
         )
 
     if not (file.filename or "").endswith((".xlsx", ".xls")):

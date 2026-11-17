@@ -159,7 +159,7 @@ async def get_current_editor(current_user: Annotated[User, Depends(get_current_u
         HTTPException 403: If user is not an editor or admin
     """
     if current_user.role not in ("editor", "admin"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Editor-Berechtigung erforderlich")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bearbeiter-Berechtigung erforderlich")
     return current_user
 
 
