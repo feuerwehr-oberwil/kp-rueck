@@ -61,7 +61,7 @@ describe("AuftragTemplateSettings", () => {
     renderWithIntl(<AuftragTemplateSettings />);
     await screen.findByText("Sturmholz");
 
-    expect(screen.getByText("Bei jeder Lage")).toBeInTheDocument();
+    expect(screen.getByText("Bei jedem Ereignis")).toBeInTheDocument();
     await user.click(screen.getByRole("switch"));
 
     await waitFor(() => expect(updateAuftragTemplate).toHaveBeenCalledTimes(1));
@@ -100,7 +100,7 @@ describe("AuftragTemplateSettings", () => {
     await waitFor(() => expect(toastError).toHaveBeenCalled());
     // The optimistic flip is rolled back — the switch must not claim a state the
     // station does not actually have when the next Lage opens.
-    expect(screen.getByText("Bei jeder Lage")).toBeInTheDocument();
+    expect(screen.getByText("Bei jedem Ereignis")).toBeInTheDocument();
   });
 
   it("creates a Vorlage and opens it for editing", async () => {
