@@ -4,9 +4,10 @@ import { useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 
 import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
-import { isOverlayOpen } from "@/lib/hooks/use-kanban-shortcuts"
+import { isMenuOpen, isOverlayOpen } from "@/lib/hooks/use-kanban-shortcuts"
 import { isTypingTarget } from "@/lib/typing-target"
 import { openCommandPalette } from "@/components/ui/command-palette"
+import { undoNewest } from "@/lib/toast-undo"
 
 /**
  * Pages that run their own keydown handler and drive the g-prefix machine from
@@ -76,8 +77,28 @@ export function useGlobalNavigation() {
   }, [gPrefix, enabled])
 }
 
+/**
+ * ⌘Z / Ctrl+Z presses the «Rückgängig» of the newest undo toast still standing
+ * (`lib/toast-undo.ts`), on every page – the undo is the operator's own last action,
+ * wherever they took it. Stands down in a field (there ⌘Z is the text's own undo) and
+ * while a menu owns the keyboard – not for an open dialog: the detail modal's own
+ * releases offer the undo it would press. With no undo standing the key does nothing.
+ */
+export function useUndoShortcut() {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const undoChord = (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && (e.key === "z" || e.key === "Z")
+      if (!undoChord || isTypingTarget(e.target) || isMenuOpen()) return
+      if (undoNewest()) e.preventDefault()
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [])
+}
+
 /** Renders nothing; the AppShell mounts it once for a signed-in user. */
 export function GlobalShortcuts() {
   useGlobalNavigation()
+  useUndoShortcut()
   return null
 }

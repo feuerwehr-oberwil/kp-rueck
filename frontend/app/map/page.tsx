@@ -707,12 +707,13 @@ export default function MapPage() {
         setResetZoomTrigger((prev) => prev + 1)
         setSelectedIncidentId(null)
       }
-      // 'e' or 'Enter' key to open details for selected incident. Enter is the
-      // activation key of whatever has focus, so it only means "open details"
-      // while focus is not on a button or link — same rule as the board.
+      // Enter or Space opens details for the selected incident. Both are the
+      // activation keys of whatever has focus, so they only mean "open details"
+      // while focus is not on a button or link — same keys and rule as the board
+      // (`E` is «Eintrag schreiben» there, so it does not open anything here).
       else if (
-        (((e.key === 'e' || e.key === 'E') && !e.metaKey && !e.ctrlKey) ||
-          (e.key === 'Enter' && !isActivationTarget(e.target))) &&
+        (e.key === 'Enter' || e.key === ' ') &&
+        !isActivationTarget(e.target) &&
         selectedIncidentId
       ) {
         e.preventDefault()

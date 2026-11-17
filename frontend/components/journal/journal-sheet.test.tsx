@@ -189,7 +189,7 @@ describe("JournalSheet", () => {
     expect(api.appendJournal).not.toHaveBeenCalled()
   })
 
-  it("⇧J: the line gets the caret, linked to the selected card; Backspace on the empty line unlinks", async () => {
+  it("E: the line gets the caret, linked to the selected card; Backspace on the empty line unlinks", async () => {
     const user = userEvent.setup()
     renderWithIntl(
       <JournalSheet
@@ -211,7 +211,7 @@ describe("JournalSheet", () => {
     expect(screen.getByRole("button", { name: "Einsatz verknüpfen" })).toBeInTheDocument()
   })
 
-  it("⇧J without a selected card clears an earlier link, and ends a correction in progress", async () => {
+  it("E without a selected card clears an earlier link, and ends a correction in progress", async () => {
     const user = userEvent.setup()
     api.appendJournal.mockImplementation(async (_e: string, body: { text: string; incident_id: string | null }) =>
       row({ text: body.text, incident_id: body.incident_id }),
@@ -220,7 +220,7 @@ describe("JournalSheet", () => {
     const view = renderWithIntl(<JournalSheet {...props} composeRequest={{ incidentId: "i1", at: 1 }} />)
     await waitFor(() => expect(screen.getByTestId("journal-linked")).toBeInTheDocument())
 
-    // Start correcting the manual line, then ⇧J again – with no card selected.
+    // Start correcting the manual line, then E again – with no card selected.
     await user.click((await screen.findAllByRole("button", { name: "Eintrag korrigieren" }))[0])
     expect(screen.getByRole("textbox", { name: "Neuer Wortlaut" })).toBeInTheDocument()
     view.rerender(<JournalSheet {...props} composeRequest={{ incidentId: null, at: 2 }} />)
