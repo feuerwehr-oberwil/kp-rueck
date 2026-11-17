@@ -1259,7 +1259,7 @@
       "vehicleCount": "{count, plural, one {# Fahrzeug} other {# Fahrzeuge}}",
       "transferring": "Wird übertragen …",
       "transfer": "Übertragen",
-      "confirmCounts": "Es werden verschoben: {crew} Personal, {vehicles} Fahrzeuge, {materials} Material."
+      "confirmCounts": "Es werden verschoben: {crew, plural, one {# Person} other {# Personen}}, {vehicles} Fahrzeuge, {materials} Material."
     },
     "driver": {
       "assignErrorTitle": "Fahrer zuweisen fehlgeschlagen",
@@ -2923,7 +2923,7 @@
       "materialInventory": "Material-Inventar",
       "mapOverview": "Karten-Übersicht",
       "summaryIncidents": "{count} Einsätze",
-      "summaryPersonnel": "{count} Personal",
+      "summaryPersonnel": "{count, plural, one {# Person} other {# Personen}}",
       "summaryVehicles": "{count} Fahrzeuge",
       "summaryMaterials": "{count} Material"
     },

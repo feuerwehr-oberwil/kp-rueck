@@ -1327,7 +1327,7 @@
       "vehicleCount": "{count, plural, one {# véhicule} other {# véhicules}}",
       "transferring": "Transfert …",
       "transfer": "Transférer",
-      "confirmCounts": "Seront déplacés : {crew} personnel, {vehicles} véhicules, {materials} matériel."
+      "confirmCounts": "Seront déplacés : {crew, plural, one {# personne} other {# personnes}}, {vehicles} véhicules, {materials} matériel."
     },
     "driver": {
       "assignErrorTitle": "Échec de l’attribution du conducteur",
@@ -3124,7 +3124,7 @@
       "materialInventory": "Inventaire du matériel",
       "mapOverview": "Vue d’ensemble de la carte",
       "summaryIncidents": "{count} interventions",
-      "summaryPersonnel": "{count} personnes",
+      "summaryPersonnel": "{count, plural, one {# personne} other {# personnes}}",
       "summaryVehicles": "{count} véhicules",
       "summaryMaterials": "{count} matériels"
     },
