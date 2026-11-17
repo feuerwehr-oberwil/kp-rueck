@@ -231,7 +231,7 @@ LABELS: dict[str, str] = {
     "signature_commander": "Kommandant",
 }
 
-#: The board's column names – exactly ``incidents.status.*`` in frontend/messages/de.json,
+#: The board's column names – exactly ``kanban.columns.*`` in frontend/messages/de.json,
 #: held there by ``tests/test_services/test_rapport_rows.py``. Every German text the server
 #: writes about a status (paper, notification sentence, 409 detail) reads this table.
 STATUS_LABELS: dict[str, str] = {
