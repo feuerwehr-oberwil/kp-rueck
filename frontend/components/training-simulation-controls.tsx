@@ -466,7 +466,7 @@ export function TrainingSimulationControls() {
               className="text-muted-foreground"
               title={t('rapportHint')}
             >
-              <ClipboardCheck className="size-3.5" />
+              {isFilingRapports ? <ShellLoader className="size-3.5" /> : <ClipboardCheck className="size-3.5" />}
               {isFilingRapports ? t('rapportFiling') : t('rapportBulk')}
             </Button>
           }

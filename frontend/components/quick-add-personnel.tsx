@@ -4,6 +4,7 @@ import { useId, useState, useRef } from 'react'
 import { apiClient, type ApiPersonnelCreate } from '@/lib/api-client'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { ShellLoader } from '@/components/ui/shell-loader'
 import { UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { FormMessage, fieldMessageProps, focusFirstBlockingField, formMessageId } from '@/components/ui/form-message'
@@ -163,6 +164,7 @@ export function QuickAddPersonnel({
               disabled={addingPerson}
               className="flex-1"
             >
+              {addingPerson && <ShellLoader className="size-4" />}
               {addingPerson ? t('adding') : t('add')}
             </Button>
             <Button

@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { SearchInput } from '@/components/ui/search-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { LoadingStatus } from '@/components/ui/shell-loader';
+import { LoadingStatus, ShellLoader } from '@/components/ui/shell-loader';
 import { SettingCard } from '@/components/settings/setting-row';
 import { AUDIT_ACTION_TYPES, AUDIT_RESOURCE_TYPES, type AuditLog } from '@/components/settings/use-audit-log';
 import type { useEvent } from '@/lib/contexts/event-context';
@@ -105,7 +105,7 @@ export function AuditLogSection({
               disabled={!auditExportEventId || auditExportLoading || eventsLoading}
               className="w-full sm:w-auto"
             >
-              <Download className="size-4" />
+              {auditExportLoading ? <ShellLoader className="size-4" /> : <Download className="size-4" />}
               {auditExportLoading ? t('page.audit.exporting') : t('page.audit.exportButton')}
             </Button>
           </div>
