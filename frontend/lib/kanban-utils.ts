@@ -1,8 +1,9 @@
 import { type Operation, type OperationStatus } from "./contexts/operations-context"
 import { getIncidentTypeLabel } from "./incident-types"
-import { PRIORITY_COLORS, PRIORITY_LABELS } from "./priority"
+import { PRIORITY_COLORS, isPriority } from "./priority"
 import { INCIDENT_TYPE_MARKER_COLORS, darkenForWhiteText } from "./map-colors"
 import { formatDurationSince } from "./duration"
+import { translateOutsideReact } from "./i18n-messages"
 
 /**
  * The one status colour table.
@@ -286,7 +287,7 @@ export function colorGroupFor(
       break
     case "priority":
       key = operation.priority || "low"
-      label = PRIORITY_LABELS[key as keyof typeof PRIORITY_LABELS] ?? key
+      label = isPriority(key) ? translateOutsideReact(`incidents.priority.${key}`) : key
       break
     case "auftrag":
       key = operation.groupId ?? undefined

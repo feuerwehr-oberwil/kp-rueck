@@ -67,7 +67,7 @@ import {
 import { sortByName } from '@/lib/roster-order'
 import { navigationUrl } from '@/lib/navigation'
 import { ApiError } from '@/lib/api/types/common'
-import { asIncidentType, INCIDENT_TYPE_LABELS } from '@/lib/types/incidents'
+import { asIncidentType } from '@/lib/types/incidents'
 import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
 import { Reveal } from '@/components/ui/reveal'
 import { PersonName, PersonNamingProvider } from "@/components/person-name"
@@ -1662,7 +1662,7 @@ function FeldSurface() {
                 >
                   <h3 className="font-medium leading-tight">{address || report.title}</h3>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {[formatTime(report.created_at), INCIDENT_TYPE_LABELS[asIncidentType(report.type)], report.description]
+                    {[formatTime(report.created_at), getIncidentTypeLabel(asIncidentType(report.type)), report.description]
                       .filter(Boolean)
                       .join(' · ')}
                   </p>

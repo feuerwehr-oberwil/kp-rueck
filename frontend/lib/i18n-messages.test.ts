@@ -137,7 +137,7 @@ describe('label coverage', () => {
     // ever read `incidents.columns`; this list was the only thing keeping it alive, which
     // is why the orphan sweep could not see it. Deleted 2026-07-30.
   ]
-  // Mirrors incidentTypeLabels in lib/incident-types.ts
+  // Mirrors INCIDENT_TYPES in lib/types/incidents.ts
   const INCIDENT_TYPES = [
     'brandbekaempfung', 'elementarereignis', 'strassenrettung', 'technische_hilfeleistung',
     'oelwehr', 'chemiewehr', 'strahlenwehr', 'einsatz_bahnanlagen', 'bma_unechte_alarme',

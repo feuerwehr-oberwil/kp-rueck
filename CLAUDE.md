@@ -233,6 +233,11 @@ runtime `API_URL`. Same reasoning for map tiles (`getTileBaseUrl` → `/tiles`).
   except notifications (`type` + `params`, see «Notification text») and the `/feld` errors,
   which carry a stable `code` the client says per locale (`errors.codes.*`,
   `backend/app/utils/error_codes.py`; raise `CodedHTTPException`, keep the German `detail`).
+  Message text the frontend builds for the CREW – WhatsApp (`lib/whatsapp-formatter.ts`), Divera
+  (`lib/divera-formatter.ts`, the Divera send/message dialogs) – is German by design, whatever the
+  device's language: it lands in the crew's group. Everything the operator reads on screen goes
+  through the catalogue, incident types and priorities included (`getIncidentTypeLabel`,
+  `incidents.priority.*` – there is no German label map in code).
   **Renaming a key means renaming every call site**: next-intl renders a missing key as its
   path instead of throwing. `lib/i18n-keys-used.test.ts` resolves every literal `t('…')` to its
   `useTranslations` namespace and fails on keys absent from `de.json`; dynamic `${…}` keys

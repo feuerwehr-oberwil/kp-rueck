@@ -1548,7 +1548,9 @@
       "locateDenied": "Kein Zugriff auf den Standort – im Browser erlauben oder Adresse eintippen.",
       "locateUnavailable": "Kein GPS-Standort verfügbar – Adresse eintippen oder auf der Karte wählen.",
       "locateTimeout": "Kein GPS-Standort innert 10 Sekunden – nochmals versuchen oder Adresse eintippen.",
-      "locateNoAddress": "Standort übernommen, aber keine Adresse dazu gefunden – bitte Adresse eintippen."
+      "locateNoAddress": "Standort übernommen, aber keine Adresse dazu gefunden – bitte Adresse eintippen.",
+      "outsideRegion": "Diese Koordinaten liegen ausserhalb der Region {region}",
+      "outsideSwitzerland": "Diese Koordinaten liegen ausserhalb der Schweiz"
     },
     "mapPicker": {
       "title": "Einsatzort auf Karte wählen",

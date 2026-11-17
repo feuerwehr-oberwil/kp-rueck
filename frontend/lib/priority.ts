@@ -31,10 +31,13 @@
 
 export type Priority = "high" | "medium" | "low"
 
-export const PRIORITY_LABELS: Record<Priority, string> = {
-  high: "Hoch",
-  medium: "Mittel",
-  low: "Niedrig",
+/** The priorities, highest first – the order a picker offers them. Their words
+ *  are `incidents.priority.*` in the catalogue, never a map here. */
+export const PRIORITIES = ["high", "medium", "low"] as const satisfies readonly Priority[]
+
+/** Whether a string is one of the three priorities. */
+export function isPriority(value: string): value is Priority {
+  return (PRIORITIES as readonly string[]).includes(value)
 }
 
 /** Semantic hex colours — used for map markers and colour-by accents. */

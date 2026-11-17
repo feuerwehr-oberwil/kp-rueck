@@ -21,9 +21,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { LocationInput } from '@/components/location/location-input'
-import { INCIDENT_TYPE_LABELS } from '@/lib/types/incidents'
+import { INCIDENT_TYPES } from '@/lib/types/incidents'
+import { getIncidentTypeLabel } from '@/lib/incident-types'
 import type { IncidentType, IncidentPriority } from '@/lib/types/incidents'
-import { PRIORITY_LABELS } from '@/lib/priority'
+import { PRIORITIES } from '@/lib/priority'
 import { apiClient } from '@/lib/api-client'
 import { getApiUrl } from '@/lib/env'
 import { cn, CONTACT_PHONE_MAX, sanitizePhoneInput } from '@/lib/utils'
@@ -520,6 +521,7 @@ interface AlarmFormProps {
 
 function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel, onSuccess }: AlarmFormProps) {
   const t = useTranslations('intake.alarm')
+  const tPriority = useTranslations('incidents.priority')
   // Autofocus only with a mouse: on a touch screen it raised the keyboard over half the form
   // before anybody chose a field (phone sweep 14.11.2026).
   const pointerFine = usePointerFine()
@@ -580,8 +582,8 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
       hint: address?.trim() && lat !== null && lng !== null ? t('review.hasPin') : undefined,
     },
     { label: t('messageLabel'), value: message.trim() },
-    { label: t('priorityLabel'), value: PRIORITY_LABELS[priority] },
-    { label: t('typeLabel'), value: INCIDENT_TYPE_LABELS[type] },
+    { label: t('priorityLabel'), value: tPriority(priority) },
+    { label: t('typeLabel'), value: getIncidentTypeLabel(type) },
     { label: t('hintsLabel'), value: hints.trim() },
     { label: t('contactLabel'), value: contact.trim() },
     { label: t('contactPhoneLabel'), value: contactPhone.trim() },
@@ -820,7 +822,7 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
       <div>
         <Label className="text-sm font-semibold text-muted-foreground">{t('priorityLabel')}</Label>
         <div className="mt-2 grid grid-cols-3 gap-2">
-          {(Object.entries(PRIORITY_LABELS) as [IncidentPriority, string][]).map(([key, label]) => (
+          {PRIORITIES.map((key) => (
             <Button
               key={key}
               type="button"
@@ -830,7 +832,7 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
               size="lg"
               className="text-base"
             >
-              {label}
+              {tPriority(key)}
             </Button>
           ))}
         </div>
@@ -849,7 +851,7 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
               size="lg"
               className="mt-2 w-full justify-between text-base font-normal"
             >
-              {INCIDENT_TYPE_LABELS[type]}
+              {getIncidentTypeLabel(type)}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
@@ -859,17 +861,17 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
               <CommandList>
                 <CommandEmpty>{t('typeNotFound')}</CommandEmpty>
                 <CommandGroup>
-                  {Object.entries(INCIDENT_TYPE_LABELS).map(([key, label]) => (
+                  {INCIDENT_TYPES.map((key) => (
                     <CommandItem
                       key={key}
-                      value={label}
+                      value={getIncidentTypeLabel(key)}
                       onSelect={() => {
-                        setType(key as IncidentType)
+                        setType(key)
                         setTypeOpen(false)
                       }}
                     >
                       <Check className={cn('mr-2 h-4 w-4', type === key ? 'opacity-100' : 'opacity-0')} />
-                      {label}
+                      {getIncidentTypeLabel(key)}
                     </CommandItem>
                   ))}
                 </CommandGroup>

@@ -37,7 +37,7 @@ import { DetailGroupHeading } from "@/components/kanban/detail-field"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
-import { incidentTypeLabels } from "@/lib/incident-types"
+import { isIncidentType } from "@/lib/types/incidents"
 import { AddressText } from "@/components/kanban/address-text"
 import { useTranslations } from "next-intl"
 import { sortCrewByLeader } from "@/lib/crew-order"
@@ -70,7 +70,7 @@ export function MobileIncidentDetailSheet({
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
 
   // Byte-identical fallback to the raw type value for unknown types
-  const typeLabel = (type: string) => (type in incidentTypeLabels ? t(`types.${type}`) : type)
+  const typeLabel = (type: string) => (isIncidentType(type) ? t(`types.${type}`) : type)
 
   if (!operation) return null
 

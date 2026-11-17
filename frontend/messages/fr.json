@@ -2634,7 +2634,9 @@
       "locateDenied": "Pas d’accès à la position – autorise-la dans le navigateur ou saisis l’adresse.",
       "locateUnavailable": "Aucune position GPS disponible – saisis l’adresse ou choisis sur la carte.",
       "locateTimeout": "Aucune position GPS en 10 secondes – réessaie ou saisis l’adresse.",
-      "locateNoAddress": "Position reprise, mais aucune adresse trouvée – saisis l’adresse."
+      "locateNoAddress": "Position reprise, mais aucune adresse trouvée – saisis l’adresse.",
+      "outsideRegion": "Ces coordonnées se trouvent hors de la région {region}",
+      "outsideSwitzerland": "Ces coordonnées se trouvent hors de Suisse"
     },
     "mapPicker": {
       "title": "Choisir le lieu d’intervention sur la carte",
