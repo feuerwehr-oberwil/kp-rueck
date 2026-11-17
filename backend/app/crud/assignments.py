@@ -22,6 +22,7 @@ from ..models import (
     Vehicle,
 )
 from ..services.audit import log_action
+from ..services.ranks import rank_tier
 from .locking import (
     AssignableResource,
     lock_incident_with_group,
@@ -846,25 +847,18 @@ async def transfer_assignments(
     }
 
 
-# Rank order used when a station has not filled in `Personnel.role_sort_order`
-# — which is the common case, since it is set by the importer and defaults to 0
-# for everyone. Without this the "highest ranking person" rule silently decays
-# into "whoever was assigned first", which is not the same thing and looks like
-# a bug the first time an Offizier joins a crew and stays unmarked.
-# An explicit non-zero `role_sort_order` always wins over this table.
-_RANK_FALLBACK = {
-    "offizier": 1,
-    "wachtmeister": 2,
-    "korporal": 3,
-    "mannschaft": 4,
-}
-
-
 def leader_rank(person: Personnel) -> int:
-    """Lower is more senior. Unknown roles sort last but still ahead of nothing."""
+    """Lower is more senior. Unknown roles sort last but still ahead of nothing.
+
+    An explicit non-zero ``Personnel.role_sort_order`` wins. It is 0 for everyone on most
+    stations (set by the importer or in Einstellungen), so the Grad's tier
+    (``services.ranks``) stands in: without it the "highest ranking person" rule silently
+    decays into "whoever was assigned first", which looks like a bug the first time an
+    Offizier joins a crew and stays unmarked.
+    """
     if person.role_sort_order:
         return person.role_sort_order
-    return _RANK_FALLBACK.get((person.role or "").strip().lower(), 99)
+    return rank_tier(person.role) or 99
 
 
 async def _reko_personnel_ids(db: AsyncSession, event_id: uuid.UUID | None) -> set[uuid.UUID]:

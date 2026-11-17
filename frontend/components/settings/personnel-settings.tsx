@@ -510,7 +510,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
                   size="sm"
                   className="h-8 text-xs"
                 >
-                  {roleFilter ? `${t('common.role')}: ${roleFilter}` : t('common.role')}
+                  {roleFilter ? `${t('common.rank')}: ${roleFilter}` : t('common.rank')}
                   {roleFilter ? <X className="size-3" /> : <ChevronDown className="size-3 opacity-60" />}
                 </Button>
               </DropdownMenuTrigger>
@@ -537,7 +537,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
                   {t('common.name')}
                 </SortableHead>
                 <SortableHead sort={sort} column="role">
-                  {t('common.role')}
+                  {t('common.rank')}
                 </SortableHead>
                 <TableHead>{t('personnel.tags')}</TableHead>
                 <SortableHead sort={sort} column="status">

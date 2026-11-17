@@ -115,7 +115,7 @@ describe("PersonnelSettings", () => {
     await user.click(screen.getByRole("button", { name: /Person erstellen/i }));
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Meier Alex");
-    await user.type(within(dialog).getByLabelText(/Rolle/i), "Offizier");
+    await user.type(within(dialog).getByLabelText(/Grad/i), "Offizier");
     await user.click(within(dialog).getByRole("button", { name: /Erstellen/i }));
 
     const kennung = within(dialog).getByLabelText(/^Kennung$/);
@@ -137,7 +137,7 @@ describe("PersonnelSettings", () => {
     await user.click(screen.getByRole("button", { name: /Person erstellen/i }));
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Müller Stefan");
-    await user.type(within(dialog).getByLabelText(/Rolle/i), "Offizier");
+    await user.type(within(dialog).getByLabelText(/Grad/i), "Offizier");
     await user.click(within(dialog).getByRole("button", { name: /Erstellen/i }));
 
     await waitFor(() => expect(createPersonnel).toHaveBeenCalledTimes(1));
@@ -173,7 +173,7 @@ describe("PersonnelSettings", () => {
     await user.click(screen.getByRole("button", { name: /Person erstellen/i }));
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Müller Stefan");
-    await user.type(within(dialog).getByLabelText(/Rolle/i), "Offizier");
+    await user.type(within(dialog).getByLabelText(/Grad/i), "Offizier");
 
     const tagInput = within(dialog).getByPlaceholderText(/Neuer Tag/i);
     await user.type(tagInput, "Atemschutz");
@@ -206,7 +206,7 @@ describe("PersonnelSettings on a phone", () => {
     expect(screen.queryByRole("table")).toBeNull();
     expect(screen.queryByRole("button", { name: /Person erstellen|Von Divera synchronisieren|Aktionen/ })).toBeNull();
 
-    await user.type(screen.getByPlaceholderText("Name, Rolle, Tag …"), "müller");
+    await user.type(screen.getByPlaceholderText("Name, Grad, Tag …"), "müller");
     expect(screen.queryByText("Bendik-Dimitrijević Alexandra")).toBeNull();
     expect(screen.getByText("Müller Stefan")).toBeInTheDocument();
   });

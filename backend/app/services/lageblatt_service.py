@@ -53,6 +53,7 @@ from .incident_leader import effective_leader_ids
 from .pdf_report_service import logo_flowable, photo_grid
 from .notification_params import duration_hours_de
 from .photo_storage import ExportPhoto
+from .ranks import rank_abbr, rank_tier
 from .rapport_rows import (
     LOCAL_TZ,
     POWER_LABELS,
@@ -92,15 +93,6 @@ _HEADER_BG = colors.HexColor("#f4f4f5")
 
 #: «H» / «M» / «N» – the initials of the board's Hoch / Mittel / Niedrig.
 _PRIORITY_SHORT = {key: label[0] for key, label in PRIORITY_LABELS.items()}
-
-# Swiss fire service rank order (highest first) and compact display prefixes.
-# role_sort_order in the DB is not reliably populated, so rank by name.
-# «offizier» singular — the canonical spelling everywhere else in the app
-# (crud/assignments._RANK_FALLBACK, both seeds). The plural key here silently
-# ranked every Offizier LAST, so «Wer» named the Wachtmeister of a squad an
-# Offizier was leading (field test 07.09.).
-_ROLE_RANK = {"offizier": 0, "wachtmeister": 1, "korporal": 2, "mannschaft": 3}
-_ROLE_ABBR = {"offizier": "Of", "wachtmeister": "Wm", "korporal": "Kpl", "mannschaft": ""}
 
 _CELL = ParagraphStyle(
     "lageblatt_cell",
@@ -256,8 +248,9 @@ def _leader_ids(data: EventReportData, inc: Incident) -> set[uuid.UUID]:
 
 
 def _rank_key(person: Personnel) -> tuple[int, int, str]:
-    role = (person.role or "").lower()
-    return (_ROLE_RANK.get(role, 98), person.role_sort_order, person.name)
+    """Grad tier first (``services.ranks``; role_sort_order is not reliably set), then the
+    station's own order, then the name."""
+    return (rank_tier(person.role) or 98, person.role_sort_order, person.name)
 
 
 def _mittel(inc: Incident, vehicles: list[Vehicle]) -> list[str]:
@@ -273,7 +266,7 @@ def _crew_compact(crew: list[Personnel]) -> str:
     if not crew:
         return ""
     top = min(crew, key=_rank_key)
-    abbr = _ROLE_ABBR.get((top.role or "").lower())
+    abbr = rank_abbr(top.role)
     if abbr is None:
         abbr = _clip(top.role or "", 8)
     label = f"{abbr} {top.name}".strip()

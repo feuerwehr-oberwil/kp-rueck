@@ -3,7 +3,7 @@
 The matching rules are tested pure in ``tests/test_roster_snapshot_ingest.py`` (byte-identical
 with KP Front's). This file is the part that is KP Rück's own: a plan lands in ``personnel`` +
 ``personnel_external_identities``; «deactivated» means unavailable AND marked, so an operator's
-own «unavailable» is never undone by a feed; rank keys become role words; nothing is deleted;
+own «unavailable» is never undone by a feed; rank keys become the Grad; nothing is deleted;
 a failure leaves the roster and the last good snapshot alone; the cap holds until an admin
 releases it; and on a station without a source nothing at all happens.
 """
@@ -66,8 +66,10 @@ async def test_a_first_run_creates_people_with_roles_and_identities(db_session, 
     assert status["outcome"]["created"] == 3
     people = await _people(db_session)
     assert set(people) == {"Muster Hans", "Beispiel Anna", "Dorfmatt Peter"}
-    assert people["Muster Hans"].role == "Offizier"  # maj
+    # The Grad itself, as KP Front shows the same key – not a coarse tier word.
+    assert people["Muster Hans"].role == "Major"  # maj
     assert people["Beispiel Anna"].role == "Wachtmeister"  # wm
+    assert people["Dorfmatt Peter"].role == "Feldweibel"  # fw
     assert all(p.status == "available" for p in people.values())
     idents = await _identities(db_session)
     assert ("Muster Hans", "musterdorf-personalstamm", "pers-0001") in idents
