@@ -30,6 +30,7 @@ import { PickupBadge } from '@/components/kanban/pickup-badge'
 import { apiClient, type ApiEventRestliste, type ApiRestlisteIncident, type ApiRestlisteUnit } from '@/lib/api-client'
 import { usePrintJobToast } from '@/lib/hooks/use-print-job-toast'
 import { getActiveLocale } from '@/lib/i18n-messages'
+import { getIncidentRefLabel } from '@/lib/incident-types'
 import { ShellLoader } from '@/components/ui/shell-loader'
 import { Reveal } from '@/components/ui/reveal'
 
@@ -55,6 +56,19 @@ function formatSince(value: string | null): string {
     month: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
+  })
+}
+
+/** A row's Schadenplatz the way the board names it, «12 · Hauptstrasse 8»; the
+ *  title stands in for a card without an address. */
+function restlisteRef(
+  row: Pick<ApiRestlisteIncident, 'number' | 'location_address' | 'location_display'>,
+  title: string,
+): string {
+  return getIncidentRefLabel({
+    location: row.location_address ?? '',
+    locationDisplay: row.location_display || title,
+    number: row.number,
   })
 }
 
@@ -118,7 +132,7 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
       onClick={() => onOpenIncident(row.incident_id)}
       className="flex w-full items-baseline gap-2 rounded px-2 py-1 text-left text-xs hover:bg-muted/60"
     >
-      <span className="truncate font-medium text-foreground">{row.location_address || row.title}</span>
+      <span className="truncate font-medium text-foreground">{restlisteRef(row, row.title)}</span>
       {extra && <span className="ml-auto shrink-0 text-muted-foreground">{extra}</span>}
     </button>
   )
@@ -137,7 +151,7 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
     >
       <span className="truncate font-medium text-foreground">{row.name}</span>
       {!row.tracked && <span className="shrink-0 text-muted-foreground">{t('untracked')}</span>}
-      <span className="truncate text-muted-foreground">{row.location_address || row.incident_title}</span>
+      <span className="truncate text-muted-foreground">{restlisteRef(row, row.incident_title)}</span>
       {row.since && <span className="ml-auto shrink-0 text-muted-foreground">{formatSince(row.since)}</span>}
     </button>
   )
