@@ -338,9 +338,12 @@ runtime `API_URL`. Same reasoning for map tiles (`getTileBaseUrl` → `/tiles`).
   through the ordinary assign functions after `checkRestore` (`lib/release-undo.ts`) confirmed
   nobody put the resource elsewhere meanwhile. Wrap the operator's *own* releases with
   `useReleaseUndo`; internal releases (conflict «verschieben», completion) stay raw.
-- **Durations go through `lib/duration.ts`** (`formatDuration` / `formatDurationLong`) – no
-  hand-rolled minute maths. From one day on every compact clock reads `1d 10h`; the full value
-  («1 Tag 10 Stunden») goes into the accessible name/tooltip. The 60/120-minute age colours
+- **Durations go through `lib/duration.ts`** (`formatDuration` / `formatAgo` / `formatDurationLong`) – no
+  hand-rolled minute maths, no date-fns. ONE notation on every surface, the magnet board's: `12'`,
+  `1h 23'`, `1d 10h`, «vor 12'», under a minute «gerade eben» – card chips, the Ereignis clock,
+  notifications (the backend's `duration_de` too), every «vor …». The full value
+  («1 Tag 10 Stunden») goes into the accessible name/tooltip. A catalogue string never puts `'`
+  right before `{` or `}` (ICU quoting) – pass the formatted duration in instead. The 60/120-minute age colours
   (`ageLevel`) are a Fachentscheidung – formatting changes must not touch them.
 - **Route optimisation is a Luftlinie suggestion**: label it «Vorschlag nach Luftlinie ·
   Planungshilfe» and show the start point with provenance (`lib/route-start.ts`: settings vs.

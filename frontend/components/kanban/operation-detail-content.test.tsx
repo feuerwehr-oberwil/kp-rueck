@@ -423,7 +423,7 @@ describe("OperationDetailContent", () => {
     )
 
     // A sentence with its action, not a chip on the meta line.
-    expect(screen.getByText(/Abholung – wartet seit 45 Min/)).toBeInTheDocument()
+    expect(screen.getByText(/Abholung – wartet seit 45'/)).toBeInTheDocument()
     // The modal has a second column for it: it sits inside Übersicht, above
     // «Kräfte».
     expect(

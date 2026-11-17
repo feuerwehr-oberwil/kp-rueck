@@ -29,13 +29,17 @@ Built = tuple[str, Params]
 
 
 def duration_de(minutes: int) -> str:
-    """«56m», «1h 5m» — the notation these sentences have always used."""
-    hours, rest = divmod(max(0, minutes), 60)
-    return f"{hours}h {rest}m" if hours > 0 else f"{rest}m"
+    """«56'», «1h 5'», «1d 10h» — the board's magnet notation (frontend ``formatDuration``),
+    so the German ``message`` reads like the card it is about."""
+    total_hours, rest = divmod(max(0, minutes), 60)
+    days, hours = divmod(total_hours, 24)
+    if days > 0:
+        return f"{days}d {hours}h"
+    return f"{total_hours}h {rest}'" if total_hours > 0 else f"{rest}'"
 
 
 def duration_hours_de(hours: float) -> str:
-    """A decimal-hours estimate (the Reko's 2.5) in ``duration_de``'s notation: «2h 30m», never
+    """A decimal-hours estimate (the Reko's 2.5) in ``duration_de``'s notation: «2h 30'», never
     «2.5h». The one formatter for the Reko duration in the notification and the Lageblatt."""
     return duration_de(round(hours * 60))
 
@@ -87,18 +91,18 @@ def fatigue(over: list[tuple[str, int]], fatigue_hours: int) -> Built:
     rewritten in place whenever this changes, and a minute in it would rewrite the row
     every poll for a number the board already shows live on the person chip.
 
-    «Seit über 4 h im Einsatz: Müller Hans (6 h)» /
-    «3 Personen seit über 4 h im Einsatz: Müller Hans (6 h), Meier Anna (5 h), Huber Max (4 h)»
+    «Seit über 4h im Einsatz: Müller Hans (6h)» /
+    «3 Personen seit über 4h im Einsatz: Müller Hans (6h), Meier Anna (5h), Huber Max (4h)»
     """
     shown = over[:FATIGUE_NAMES_SHOWN]
     more = max(0, len(over) - FATIGUE_NAMES_SHOWN)
-    names = ", ".join(f"{name} ({minutes // 60} h)" for name, minutes in shown)
+    names = ", ".join(f"{name} ({minutes // 60}h)" for name, minutes in shown)
     if more:
         names += f" und {more} weitere"
     head = (
-        f"Seit über {fatigue_hours} h im Einsatz"
+        f"Seit über {fatigue_hours}h im Einsatz"
         if len(over) == 1
-        else f"{len(over)} Personen seit über {fatigue_hours} h im Einsatz"
+        else f"{len(over)} Personen seit über {fatigue_hours}h im Einsatz"
     )
     return (
         f"{head}: {names}",
@@ -175,7 +179,7 @@ def reko_submitted(
     duration_hours: float | None,
     dangers: list[str],
 ) -> Built:
-    """«Reko abgeschlossen: Hauptstrasse 41 von Lisa Hoffmann – Einsatz relevant (3 Pers., 2h 30m)»"""
+    """«Reko abgeschlossen: Hauptstrasse 41 von Lisa Hoffmann – Einsatz relevant (3 Pers., 2h 30')»"""
     parts = [f"Reko abgeschlossen: {place}"]
     if by:
         parts.append(f"von {by}")

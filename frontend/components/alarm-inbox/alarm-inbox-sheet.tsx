@@ -18,14 +18,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { formatDistanceToNow } from 'date-fns'
+import { formatAgo } from '@/lib/duration'
 import { toast } from 'sonner'
 import { ChevronRight, Info, Link2, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { useOperations } from '@/lib/contexts/operations-context'
 import { apiClient, type ApiDiveraEmergency } from '@/lib/api-client'
 import { wsClient } from '@/lib/websocket-client'
-import { getDateFnsLocale } from '@/lib/date-locale'
 import { formatDurationSince } from '@/lib/duration'
 import { toastLifetime } from '@/lib/toast-lifetime'
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
@@ -161,6 +160,7 @@ const LABEL = 'text-xs font-semibold uppercase tracking-wide text-muted-foregrou
 function AlarmInboxPanel({ isMobile }: { isMobile: boolean }) {
   const t = useTranslations('divera.inbox')
   const tPool = useTranslations('divera.pool')
+  const tDuration = useTranslations('common.duration')
   const { isEditor } = useAuth()
   const { operations } = useOperations()
   const pool = useAlarmPool()
@@ -213,13 +213,7 @@ function AlarmInboxPanel({ isMobile }: { isMobile: boolean }) {
   const showEarlier = earlierOpen || !!needle
   const canAttachAll = isEditor && groups.fresh.length > 1
 
-  const ago = (iso: string) => {
-    try {
-      return formatDistanceToNow(new Date(iso), { addSuffix: true, locale: getDateFnsLocale() })
-    } catch {
-      return iso
-    }
-  }
+  const ago = (iso: string) => formatAgo(now - Date.parse(iso), tDuration)
 
   // `compact`: in a one-line row. The phone keeps its 44px touch rule either way.
   const attachButton = (alarms: readonly ApiDiveraEmergency[], label: string, ariaLabel?: string, compact = false) => (

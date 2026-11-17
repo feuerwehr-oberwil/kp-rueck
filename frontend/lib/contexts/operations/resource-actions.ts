@@ -12,6 +12,7 @@ import type { Material } from "../materials-context"
 import { toast } from "sonner"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { findRecentRemoval, recordRemoval } from "@/lib/recent-removals"
+import { formatAgo } from "@/lib/duration"
 import { drivenElsewhere, type DrivenElsewhere } from "@/lib/driver-conflict"
 import type { Operation, OperationStatus, OperationsContextType } from "./types"
 import type { BoardMutationContext } from "./board-context"
@@ -237,8 +238,8 @@ export function createResourceActions(board: BoardMutationContext) {
     // B6: warn (don't block) when re-assigning someone we just took off another incident.
     const recentRemoval = findRecentRemoval(recentRemovalsRef.current, personId, operationId)
     if (recentRemoval) {
-      const elapsedSec = Math.round((Date.now() - recentRemoval.removedAt) / 1000)
-      toast.warning(translateOutsideReact('notifications.operations.recentRemovalWarningTitle', { name: personName, seconds: elapsedSec, incident: recentRemoval.incidentLabel }), {
+      const ago = formatAgo(Date.now() - recentRemoval.removedAt, (key, values) => translateOutsideReact(`common.duration.${key}`, values))
+      toast.warning(translateOutsideReact('notifications.operations.recentRemovalWarningTitle', { name: personName, ago, incident: recentRemoval.incidentLabel }), {
         description: translateOutsideReact('notifications.operations.recentRemovalWarningDescription'),
       })
       // Don't repeat the warning if the same operator re-confirms the assignment.

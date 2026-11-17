@@ -93,7 +93,7 @@ describe('CrewDutySheet', () => {
     expect(within(rows[1]).getAllByText('Telefondienst').length).toBeGreaterThan(0)
     expect(within(rows[2]).getAllByText('frei').length).toBeGreaterThan(0)
 
-    expect(screen.getByText('3 anwesend · 2 über 4 h')).toBeInTheDocument()
+    expect(screen.getByText('3 anwesend · 2 über 4h')).toBeInTheDocument()
   })
 
   it('asks again when an assignment changes, and only then', async () => {

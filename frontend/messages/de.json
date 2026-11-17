@@ -193,7 +193,9 @@
     "duration": {
       "days": "{count, plural, one {# Tag} other {# Tage}}",
       "hours": "{count, plural, one {# Stunde} other {# Stunden}}",
-      "minutes": "{count, plural, one {# Minute} other {# Minuten}}"
+      "minutes": "{count, plural, one {# Minute} other {# Minuten}}",
+      "ago": "vor {duration}",
+      "justNow": "gerade eben"
     },
     "update": {
       "available": "Neue Version verfügbar",
@@ -733,9 +735,6 @@
       "byWhoComplete": "<b>{who}</b> hat <b>{label}</b> {ago} abgeschlossen.",
       "byNobody": "<b>{label}</b> wurde {ago} auf «{statusLabel}» gesetzt.",
       "byNobodyComplete": "<b>{label}</b> wurde {ago} abgeschlossen.",
-      "agoNow": "soeben",
-      "agoSeconds": "vor {seconds} s",
-      "agoDuration": "vor {duration}",
       "fallbackLabel": "Einsatz",
       "now": "Jetzt",
       "wanted": "Du wolltest",
@@ -1169,7 +1168,7 @@
     "crewDuty": {
       "title": "Dienstzeiten",
       "summary": "{present} anwesend",
-      "summaryOver": "{present} anwesend · {over} über {hours} h",
+      "summaryOver": "{present} anwesend · {over} über {hours}h",
       "colName": "Name",
       "colSince": "Seit",
       "colOnDuty": "Anwesend",
@@ -1184,7 +1183,7 @@
       "openButton": "Dienstzeiten",
       "openTitle": "Dienstzeiten – wer ist wie lange da",
       "onDutyTooltip": "Seit {time} im Einsatz – {duration}",
-      "onDutyTooltipOver": "Seit {time} im Einsatz – {duration}, über {hours} h",
+      "onDutyTooltipOver": "Seit {time} im Einsatz – {duration}, über {hours}h",
       "colAssigned": "Eingesetzt",
       "colPause": "Pause",
       "pauseTitle": "Pause: anwesend, aber auf keinem Einsatz und keinem Auftrag",
@@ -1492,7 +1491,7 @@
     },
     "view": {
       "markerAria": "Einsatz: {label}",
-      "trailTooltip": "{vehicle} – letzte {minutes} Min.",
+      "trailTooltip": "{vehicle} – letzte {minutes}'",
       "firestationFallback": "Feuerwehr",
       "crewSummary": "{vehicles, plural, one {# Fahrzeug} other {# Fahrzeuge}}, {personnel, plural, one {# Person} other {# Personen}} zugewiesen",
       "magazin": "Magazin",
@@ -1528,7 +1527,7 @@
       "sampleOnline": "Pio",
       "sampleOffline": "TLF",
       "pillOnline": "online",
-      "pillStale": "offline · zuletzt (ab {minutes} Min.)",
+      "pillStale": "offline · zuletzt (ab {minutes}')",
       "pillSpot": "am selben Ort · offline",
       "onlineOnly": "(nur online)"
     },
@@ -1639,7 +1638,6 @@
       "play": "Letzte Stunde abspielen",
       "pause": "Anhalten (zurück auf aktuell)",
       "frameSlider": "Radarbild wählen",
-      "frameAgo": "vor {minutes} min",
       "latest": "aktuellstes Bild",
       "opacity": "Deckkraft",
       "legendLight": "schwach",
@@ -2115,7 +2113,7 @@
       "loadFailed": "Einstellungen konnten nicht geladen werden",
       "saveFailed": "Einstellung konnte nicht gespeichert werden",
       "autoDownloadActive": "Lageblatt Auto-Download aktiv",
-      "autoDownloadActiveDescription": "Erster Download in ~{minutes} Min., danach alle {minutes} Min. auf diesem Gerät.",
+      "autoDownloadActiveDescription": "Erster Download in ~{minutes}', danach alle {minutes}' auf diesem Gerät.",
       "downloadFailed": "Lageblatt konnte nicht heruntergeladen werden",
       "title": "Ausfallsicherheit",
       "intro": "Hält den aktuellen Board-Stand ausserhalb des Systems bereit – auf Papier und auf diesem Gerät. Fällt das System aus: den zuletzt gedruckten Board-Schnappschuss weiterführen und das Lageblatt aus dem Download-Ordner dazunehmen. Das ganze Vorgehen steht in der Hilfe unter «Ausfallsicherheit».",
@@ -3227,7 +3225,7 @@
       "reorderFailedDescription": "Die Ansicht wurde auf den letzten Stand zurückgesetzt.",
       "createFailedTitle": "Einsatz konnte nicht erstellt werden",
       "createFailedDescription": "Prüfe die Verbindung – auf dem Board ist nichts dazugekommen.",
-      "recentRemovalWarningTitle": "{name} war vor {seconds}s noch auf «{incident}»",
+      "recentRemovalWarningTitle": "{name} war {ago} noch auf «{incident}»",
       "recentRemovalWarningDescription": "Doppelbelegung – bitte prüfen.",
       "assignFailedTitle": "Nicht zugewiesen",
       "assignConflictDescription": "{name} wurde gerade von jemand anderem geändert – nichts zugewiesen.",
@@ -3282,7 +3280,7 @@
     },
     "gpsSim": {
       "arrived": "angekommen",
-      "etaMinutes": "noch ~{minutes} min. {seconds}s",
+      "etaMinutes": "noch ~{duration}",
       "etaSeconds": "noch ~{seconds}s"
     },
     "trainingActions": {
@@ -3365,18 +3363,14 @@
       "severityCritical": "Kritisch",
       "severityWarning": "Warnung",
       "severityInfo": "Info",
-      "timeDays": "vor {days}d",
-      "timeHours": "vor {hours}h",
-      "timeMinutes": "vor {minutes}m",
-      "justNow": "gerade eben",
       "moveToActive": "Nach Einsatz verschieben",
       "moveToComplete": "Nach Rückfahrt"
     },
     "messages": {
       "feldCodeRotated": "Feld-Code für {event} nach zu vielen Fehlversuchen neu erzeugt",
-      "fatigueOne": "Seit über {hours} h im Einsatz",
-      "fatigueMany": "{count} Personen seit über {hours} h im Einsatz",
-      "fatiguePerson": "{name} ({hours} h)",
+      "fatigueOne": "Seit über {hours}h im Einsatz",
+      "fatigueMany": "{count} Personen seit über {hours}h im Einsatz",
+      "fatiguePerson": "{name} ({hours}h)",
       "fatigueMore": "{names} und {count} weitere",
       "timeInStatus": "{duration} im Status «{status}»",
       "timeNotArchived": "Seit {duration} abgeschlossen, nicht archiviert",
@@ -3567,7 +3561,7 @@
       "saveFailed": "Einstellung konnte nicht gespeichert werden",
       "started": "Automatik gestartet",
       "stopped": "Automatik gestoppt",
-      "startedDescription": "Neue Alarme alle ~{interval} Min (erste 30 Min doppeltes Tempo).",
+      "startedDescription": "Neue Alarme alle ~{interval}' (erste 30' doppeltes Tempo).",
       "stoppedDescription": "Es werden keine Einsätze mehr automatisch generiert."
     },
     "checkin": {
@@ -3575,7 +3569,7 @@
       "description": "Checkt zufällige verfügbare Personen ein – sofort oder gestaffelt, wie AdF wirklich eintreffen",
       "countAria": "Anzahl Personen",
       "immediately": "sofort",
-      "overMinutes": "über {count} Min",
+      "overMinutes": "über {count}'",
       "checkingIn": "Wird eingecheckt …",
       "checkin": "Einchecken",
       "scheduled": "{count, plural, one {# Check-in geplant} other {# Check-ins geplant}}",
@@ -4469,7 +4463,6 @@
     "lead": "Möglicherweise dasselbe wie",
     "distance": "{meters} m",
     "sameAddress": "gleiche Adresse",
-    "ago": "vor {duration}",
     "merge": "Zusammenführen",
     "mergeHint": "Diese Meldung als Nachtrag an den bestehenden Einsatz anhängen – kein neuer Einsatz",
     "createAnyway": "Trotzdem neu",
@@ -4605,7 +4598,7 @@
     "ledElsewhere": {
       "label": "Geführt auf KP Rück Offline",
       "current": "seit {since} · Stand {time} · Neues erfassen geht, Bestehendes ändern nicht",
-      "silent": "seit {since} · Stand {time} · KP Rück Offline seit {ago} nicht gehört · Neues erfassen geht, Bestehendes ändern nicht",
+      "silent": "seit {since} · Stand {time} · KP Rück Offline seit {silence} nicht gehört · Neues erfassen geht, Bestehendes ändern nicht",
       "never": "seit {since} · KP Rück Offline noch nicht gehört · Neues erfassen geht, Bestehendes ändern nicht"
     },
     "takeover": {
@@ -4622,15 +4615,14 @@
       "title": "«{name}» hier übernehmen?",
       "description": "Ab jetzt wird dieses Ereignis hier geführt. KP Rück Offline wird für dieses Ereignis wieder zum Spiegel.",
       "heard": "Von KP Rück Offline zuletzt gehört",
-      "heardAt": "{time} · vor {ago}",
+      "heardAt": "{time} · {ago}",
       "heardNever": "noch nie",
       "pending": "Damals noch nicht übertragen",
       "pendingCount": "{count, plural, =0 {keine Änderung} one {# Änderung} other {# Änderungen}}",
       "later": "Was dort seither noch geändert wurde, kommt später an: Neues wird ergänzt, Geändertes landet in der Konfliktliste.",
       "working": "Auf KP Rück Offline wird gerade gearbeitet. Wer dort weiterarbeitet, kann danach nur noch ansehen.",
       "confirm": "Hier übernehmen",
-      "failed": "Das Ereignis konnte nicht übernommen werden.",
-      "heardJustNow": "{time} · gerade eben"
+      "failed": "Das Ereignis konnte nicht übernommen werden."
     },
     "conflicts": {
       "label": "Konflikte",

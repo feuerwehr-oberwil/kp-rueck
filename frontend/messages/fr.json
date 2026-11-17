@@ -302,7 +302,9 @@
     "duration": {
       "days": "{count, plural, one {# jour} other {# jours}}",
       "hours": "{count, plural, one {# heure} other {# heures}}",
-      "minutes": "{count, plural, one {# minute} other {# minutes}}"
+      "minutes": "{count, plural, one {# minute} other {# minutes}}",
+      "ago": "il y a {duration}",
+      "justNow": "à l’instant"
     },
     "update": {
       "available": "Nouvelle version disponible",
@@ -2010,9 +2012,6 @@
       "byWhoComplete": "<b>{who}</b> a clôturé <b>{label}</b> {ago}.",
       "byNobody": "<b>{label}</b> a été mis sur « {statusLabel} » {ago}.",
       "byNobodyComplete": "<b>{label}</b> a été clôturé {ago}.",
-      "agoNow": "à l’instant",
-      "agoSeconds": "il y a {seconds} s",
-      "agoDuration": "il y a {duration}",
       "fallbackLabel": "Intervention",
       "now": "Maintenant",
       "wanted": "Tu voulais",
@@ -2446,7 +2445,7 @@
     "crewDuty": {
       "title": "Temps de service",
       "summary": "{present} présents",
-      "summaryOver": "{present} présents · {over} depuis plus de {hours} h",
+      "summaryOver": "{present} présents · {over} depuis plus de {hours}h",
       "colName": "Nom",
       "colSince": "Depuis",
       "colOnDuty": "Présent",
@@ -2461,7 +2460,7 @@
       "openButton": "Temps de service",
       "openTitle": "Temps de service – qui est là depuis combien de temps",
       "onDutyTooltip": "En service depuis {time} – {duration}",
-      "onDutyTooltipOver": "En service depuis {time} – {duration}, plus de {hours} h",
+      "onDutyTooltipOver": "En service depuis {time} – {duration}, plus de {hours}h",
       "colAssigned": "Engagé",
       "colPause": "Pause",
       "pauseTitle": "Pause : présent, mais sur aucune intervention ni mission",
@@ -2576,7 +2575,7 @@
     },
     "view": {
       "markerAria": "Intervention : {label}",
-      "trailTooltip": "{vehicle} – {minutes} dernières min.",
+      "trailTooltip": "{vehicle} – {minutes}' derniers",
       "firestationFallback": "Sapeurs-pompiers",
       "crewSummary": "{vehicles, plural, one {# véhicule} other {# véhicules}}, {personnel, plural, one {# personne attribuée} other {# personnes attribuées}}",
       "magazin": "Caserne",
@@ -2612,7 +2611,7 @@
       "sampleOnline": "Pio",
       "sampleOffline": "TLF",
       "pillOnline": "en ligne",
-      "pillStale": "hors ligne · dernier signal (dès {minutes} min)",
+      "pillStale": "hors ligne · dernier signal (dès {minutes}')",
       "pillSpot": "même endroit · hors ligne",
       "onlineOnly": "(en ligne seulement)"
     },
@@ -2723,7 +2722,6 @@
       "play": "Lire la dernière heure",
       "pause": "Arrêter (retour à l'image actuelle)",
       "frameSlider": "Choisir l'image radar",
-      "frameAgo": "il y a {minutes} min",
       "latest": "image la plus récente",
       "opacity": "Opacité",
       "legendLight": "faible",
@@ -2903,7 +2901,7 @@
       "reorderFailedDescription": "La vue a été ramenée à son dernier état.",
       "createFailedTitle": "L’intervention n’a pas pu être créée",
       "createFailedDescription": "Vérifie la liaison – rien n’a été ajouté au tableau.",
-      "recentRemovalWarningTitle": "{name} était encore sur « {incident} » il y a {seconds} s",
+      "recentRemovalWarningTitle": "{name} était encore sur « {incident} » {ago}",
       "recentRemovalWarningDescription": "Double attribution – à vérifier.",
       "assignFailedTitle": "Non attribué",
       "assignConflictDescription": "{name} vient d’être modifié par quelqu’un d’autre – rien n’a été attribué.",
@@ -2958,7 +2956,7 @@
     },
     "gpsSim": {
       "arrived": "arrivé",
-      "etaMinutes": "encore ~{minutes} min {seconds} s",
+      "etaMinutes": "encore ~{duration}",
       "etaSeconds": "encore ~{seconds} s"
     },
     "trainingActions": {
@@ -3041,18 +3039,14 @@
       "severityCritical": "Critique",
       "severityWarning": "Avertissement",
       "severityInfo": "Info",
-      "timeDays": "il y a {days} j",
-      "timeHours": "il y a {hours} h",
-      "timeMinutes": "il y a {minutes} min",
-      "justNow": "à l’instant",
       "moveToActive": "Déplacer vers Intervention",
       "moveToComplete": "Vers Retour"
     },
     "messages": {
       "feldCodeRotated": "Nouveau code terrain pour {event} après trop de tentatives erronées",
-      "fatigueOne": "En service depuis plus de {hours} h",
-      "fatigueMany": "{count} personnes en service depuis plus de {hours} h",
-      "fatiguePerson": "{name} ({hours} h)",
+      "fatigueOne": "En service depuis plus de {hours}h",
+      "fatigueMany": "{count} personnes en service depuis plus de {hours}h",
+      "fatiguePerson": "{name} ({hours}h)",
       "fatigueMore": "{names} et {count, plural, one {# autre} other {# autres}}",
       "timeInStatus": "{duration} dans l’état « {status} »",
       "timeNotArchived": "Clôturé depuis {duration}, pas archivé",
@@ -3860,7 +3854,7 @@
       "loadFailed": "Les réglages n’ont pas pu être chargés",
       "saveFailed": "Le réglage n’a pas pu être enregistré",
       "autoDownloadActive": "Téléchargement automatique de la feuille de situation actif",
-      "autoDownloadActiveDescription": "Premier téléchargement dans ~{minutes} min, puis toutes les {minutes} min sur cet appareil.",
+      "autoDownloadActiveDescription": "Premier téléchargement dans ~{minutes}', puis toutes les {minutes}' sur cet appareil.",
       "downloadFailed": "La feuille de situation n’a pas pu être téléchargée",
       "title": "Résilience",
       "intro": "Garde l’état actuel du tableau disponible hors du système – sur papier et sur cet appareil. En cas de panne : poursuivre sur le dernier instantané imprimé du tableau et y joindre la feuille de situation du dossier de téléchargement. La marche à suivre complète figure dans l’aide, sous « Résilience ».",
@@ -4349,7 +4343,7 @@
       "saveFailed": "Le réglage n’a pas pu être enregistré",
       "started": "Automatisme démarré",
       "stopped": "Automatisme arrêté",
-      "startedDescription": "Nouvelles alarmes toutes les ~{interval} min (double vitesse les 30 premières minutes).",
+      "startedDescription": "Nouvelles alarmes toutes les ~{interval}' (double vitesse les 30' premières).",
       "stoppedDescription": "Plus aucune intervention n’est générée automatiquement."
     },
     "checkin": {
@@ -4357,7 +4351,7 @@
       "description": "Annonce des personnes disponibles au hasard – tout de suite ou échelonné, comme les SP arrivent réellement",
       "countAria": "Nombre de personnes",
       "immediately": "tout de suite",
-      "overMinutes": "sur {count} min",
+      "overMinutes": "sur {count}'",
       "checkingIn": "Enregistrement …",
       "checkin": "Enregistrer l’arrivée",
       "scheduled": "{count, plural, one {# arrivée planifiée} other {# arrivées planifiées}}",
@@ -4469,7 +4463,6 @@
     "lead": "Peut-être identique à",
     "distance": "{meters} m",
     "sameAddress": "même adresse",
-    "ago": "il y a {duration}",
     "merge": "Fusionner",
     "mergeHint": "Ajouter ce message comme complément à l’intervention existante – pas de nouvelle intervention",
     "createAnyway": "Créer quand même",
@@ -4605,7 +4598,7 @@
     "ledElsewhere": {
       "label": "Conduit sur KP Rück hors ligne",
       "current": "depuis {since} · état {time} · ajouter est possible, modifier ne l’est pas",
-      "silent": "depuis {since} · état {time} · pas de nouvelles de KP Rück hors ligne depuis {ago} · ajouter est possible, modifier ne l’est pas",
+      "silent": "depuis {since} · état {time} · pas de nouvelles de KP Rück hors ligne depuis {silence} · ajouter est possible, modifier ne l’est pas",
       "never": "depuis {since} · pas encore de nouvelles de KP Rück hors ligne · ajouter est possible, modifier ne l’est pas"
     },
     "takeover": {
@@ -4622,15 +4615,14 @@
       "title": "Reprendre « {name} » ici ?",
       "description": "Dès maintenant, cet événement est conduit ici. KP Rück hors ligne redevient un miroir pour cet événement.",
       "heard": "Dernières nouvelles de KP Rück hors ligne",
-      "heardAt": "{time} · il y a {ago}",
+      "heardAt": "{time} · {ago}",
       "heardNever": "jamais",
       "pending": "Pas encore transmis à ce moment-là",
       "pendingCount": "{count, plural, =0 {aucune modification} one {# modification} other {# modifications}}",
       "later": "Ce qui y a été modifié depuis arrivera plus tard : le nouveau est ajouté, le modifié va dans la liste des conflits.",
       "working": "On travaille en ce moment sur KP Rück hors ligne. Qui continue d’y travailler ne pourra plus que consulter.",
       "confirm": "Reprendre ici",
-      "failed": "L’événement n’a pas pu être repris.",
-      "heardJustNow": "{time} · à l’instant"
+      "failed": "L’événement n’a pas pu être repris."
     },
     "conflicts": {
       "label": "Conflits",

@@ -22,12 +22,12 @@
  */
 
 import { useTranslations } from 'next-intl'
+import { formatAgoSince } from '@/lib/duration'
 import { Combine, AlertTriangle } from 'lucide-react'
 
 import {
   DUPLICATE_RADIUS_M,
   type DuplicateHintCandidate,
-  candidateAge,
   candidateDistance,
   candidateLabel,
   offsetMetres,
@@ -68,6 +68,7 @@ export function DuplicateHint<C extends DuplicateHintCandidate>({
   className,
 }: DuplicateHintProps<C>) {
   const t = useTranslations('duplicates')
+  const tDuration = useTranslations('common.duration')
   if (candidates.length === 0) return null
 
   const busy = formBusy || mergingId !== null
@@ -116,7 +117,7 @@ export function DuplicateHint<C extends DuplicateHintCandidate>({
             const distance = candidateDistance(candidate)
             const facts = [
               distance !== null ? t('distance', { meters: distance }) : t('sameAddress'),
-              t('ago', { duration: candidateAge(candidate.created_at) }),
+              formatAgoSince(new Date(candidate.created_at), tDuration),
             ]
             return (
               <li key={candidate.id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5">

@@ -60,7 +60,7 @@ const nextConfig = {
   // Experimental features for better performance
   experimental: {
     // Enable faster runtime
-    optimizePackageImports: ['lucide-react', 'date-fns'],
+    optimizePackageImports: ['lucide-react'],
   },
 
   // Security headers for all routes.

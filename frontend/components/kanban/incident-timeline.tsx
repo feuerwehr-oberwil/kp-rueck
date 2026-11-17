@@ -23,7 +23,7 @@ import { useTranslations } from "next-intl"
 import { AlertCircle, ArrowRight, Combine, MessageSquare, Package, Send, Split, Truck, UserMinus, UserPlus } from "lucide-react"
 
 import type { ApiIncidentTimelineEvent } from "@/lib/api-client"
-import { formatStaleAgo } from "@/lib/status-conflict"
+import { formatAgo } from "@/lib/duration"
 import { isIncidentStatus } from "@/lib/types/incidents"
 import { cn } from "@/lib/utils"
 import { LoadingStatus, ShellLoader } from "@/components/ui/shell-loader"
@@ -137,11 +137,12 @@ function TimelineRow({
   )
 }
 
-/** «war schon abgeschlossen (vor 4 s)» under a stale move: where the card really stood, and for how long. */
+/** «war schon abgeschlossen (vor 3')» under a stale move: where the card really stood, and for how long. */
 function StaleMark({ event }: { event: ApiIncidentTimelineEvent }) {
   const t = useTranslations('kanban')
+  const tDuration = useTranslations('common.duration')
   const status = event.from_status ?? ''
-  const ago = formatStaleAgo(event.stale_seconds, t)
+  const ago = formatAgo((event.stale_seconds ?? 0) * 1000, tDuration)
   return (
     <span className="mt-1 inline-flex max-w-full items-center gap-1 rounded-sm border border-warning/45 px-1.5 py-px text-2xs font-semibold text-warning-foreground">
       <AlertCircle className="size-3 shrink-0" aria-hidden="true" />

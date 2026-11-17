@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { candidateAge, candidateDistance, candidateLabel, duplicateQueryKey, offsetMetres } from './duplicates'
+import { candidateDistance, candidateLabel, duplicateQueryKey, offsetMetres } from './duplicates'
 
 describe('duplicate hint helpers', () => {
   it('names the card by its short address, the title only as a fallback', () => {
@@ -14,11 +14,6 @@ describe('duplicate hint helpers', () => {
     expect(candidateDistance({ distance_m: 40, match: 'distance' })).toBe(40)
     expect(candidateDistance({ distance_m: 40, match: 'both' })).toBe(40)
     expect(candidateDistance({ distance_m: null, match: 'address' })).toBeNull()
-  })
-
-  it("says the card's age in board notation", () => {
-    const now = Date.parse('2026-10-08T14:38:00Z')
-    expect(candidateAge('2026-10-08T14:32:00Z', now)).toBe("6'")
   })
 
   it('places a pin 40 m north of the report 40 m up', () => {
@@ -71,10 +66,9 @@ describe('duplicate hint helpers', () => {
     expect(offsetMetres({ lat: 47, lng: 7 }, point)).toBeNull()
   })
 
-  it('trims labels and clamps a future report age to zero', () => {
+  it('trims labels', () => {
     expect(candidateLabel({ location_display: '  Hauptstrasse 6  ', title: 'Fire' })).toBe('Hauptstrasse 6')
     expect(candidateLabel({ location_display: '  ', title: 'Fire' })).toBe('Fire')
     expect(candidateDistance({ distance_m: 40, match: 'address' })).toBeNull()
-    expect(candidateAge('2026-10-08T15:00:00Z', Date.parse('2026-10-08T14:00:00Z'))).toBe("0'")
   })
 })
