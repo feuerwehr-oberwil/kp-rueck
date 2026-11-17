@@ -20,7 +20,7 @@ import {
   Truck,
   Users,
   Package,
-  FileCheck,
+  Binoculars,
   AlertTriangle,
   Map as MapIcon,
   Phone,
@@ -148,9 +148,11 @@ export function MobileIncidentDetailSheet({
               className="ml-auto gap-1.5 text-sm text-muted-foreground"
               chipClassName="text-sm"
             />
+            {/* Muted Binoculars = Reko filed, as on the board and the wall; the green
+                ticked paper is the Schadenplatz-Rapport's mark only. */}
             {operation.hasCompletedReko && (
-              <Badge variant="outline" className="gap-1 text-success border-success/30">
-                <FileCheck className="h-3 w-3" />
+              <Badge variant="outline" className="gap-1 text-muted-foreground">
+                <Binoculars className="h-3 w-3" />
                 {t('mobileDetail.rekoBadge')}
               </Badge>
             )}

@@ -15,7 +15,7 @@ import { memo } from "react"
 import { useTranslations } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ChevronUp, ChevronDown, Minus, FileCheck, AlertTriangle } from "lucide-react"
+import { ChevronUp, ChevronDown, Minus, Binoculars, AlertTriangle } from "lucide-react"
 import { type Operation } from "@/lib/contexts/operations-context"
 import { IncidentNumber } from "@/components/ui/incident-number"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
@@ -196,9 +196,11 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
         <span className="min-w-0 break-words text-xs text-muted-foreground">
           {getIncidentTypeLabel(operation.incidentType)}
         </span>
+        {/* A filed Reko is the muted Binoculars, as on the board and the wall; the
+            green ticked paper is the Schadenplatz-Rapport's mark only. */}
         {operation.hasCompletedReko && (
           <span className="shrink-0" title={t("rekoCompleted")}>
-            <FileCheck className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+            <Binoculars className="h-3.5 w-3.5 text-muted-foreground" />
           </span>
         )}
         {operation.rekoSummary?.hasDangers && (
