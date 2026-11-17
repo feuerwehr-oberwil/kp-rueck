@@ -421,6 +421,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
       <div className="space-y-3">
         <SearchInput
           placeholder={t('personnel.listSearchPlaceholder')}
+          title={t('personnel.listSearchScope')}
           value={listQuery}
           onValueChange={setListQuery}
         />
@@ -503,6 +504,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
               size="sm"
               containerClassName="w-64"
               placeholder={t('personnel.listSearchPlaceholder')}
+              title={t('personnel.listSearchScope')}
               value={listQuery}
               onValueChange={setListQuery}
             />

@@ -39,7 +39,7 @@ export class EventsPage extends BasePage {
     // Header elements
     this.newEventButton = page.locator('button:has-text("Neues Ereignis")').first();
     this.newEventButtonMobile = page.locator('button[class*="sm:hidden"]').filter({ has: page.locator('svg') }).first();
-    this.searchInput = page.locator('input[placeholder*="Ereignisse durchsuchen"]');
+    this.searchInput = page.locator('input[placeholder*="Ereignis suchen"]');
 
     // Dialog elements
     this.createDialog = page.locator('div[role="dialog"]', { hasText: 'Neues Ereignis erstellen' });

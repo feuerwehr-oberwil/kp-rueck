@@ -206,7 +206,7 @@ describe("PersonnelSettings on a phone", () => {
     expect(screen.queryByRole("table")).toBeNull();
     expect(screen.queryByRole("button", { name: /Person erstellen|Von Divera synchronisieren|Aktionen/ })).toBeNull();
 
-    await user.type(screen.getByPlaceholderText("Name, Rolle, Tag …"), "müller");
+    await user.type(screen.getByPlaceholderText("Person suchen …"), "müller");
     expect(screen.queryByText("Bendik-Dimitrijević Alexandra")).toBeNull();
     expect(screen.getByText("Müller Stefan")).toBeInTheDocument();
   });

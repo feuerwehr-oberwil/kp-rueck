@@ -1183,14 +1183,15 @@
       "filterFree": "Frei",
       "filterBusy": "Im Einsatz",
       "showAll": "Alle zeigen",
-      "searchPlaceholder": "Name oder Ort",
+      "searchPlaceholder": "Person suchen …",
       "sortBy": "Sortieren nach",
       "sortByColumn": "Nach «{column}» sortieren",
       "sortedBy": "Sortiert nach {column}",
       "sortAsc": "aufsteigend",
       "sortDesc": "absteigend",
       "emptyFilteredTitle": "Niemand passt zu diesem Filter",
-      "resetFilter": "Filter zurücksetzen"
+      "resetFilter": "Filter zurücksetzen",
+      "searchScope": "Gesucht wird in Name und Ort."
     }
   },
   "incidents": {
@@ -2225,7 +2226,7 @@
       "syncError": "Synchronisieren fehlgeschlagen",
       "syncErrorDescription": "Die Verbindung zu Divera konnte nicht hergestellt werden. Versuche es erneut.",
       "tabList": "Personalliste",
-      "listSearchPlaceholder": "Name, Rolle, Tag …",
+      "listSearchPlaceholder": "Person suchen …",
       "roleFilterAll": "Alle Rollen",
       "emptyFiltered": "Kein Eintrag passt zum Filter.",
       "syncButton": "Von Divera synchronisieren",
@@ -2261,7 +2262,8 @@
       "kennungLabel": "Kennung",
       "kennungPlaceholder": "z. B. Jahrgang oder Personal-Nr.",
       "kennungHelp": "Nur nötig bei gleichem Namen. Erscheint nur dann auf dem Board.",
-      "syncKeptAssigned": "{count} behalten (noch zugewiesen)"
+      "syncKeptAssigned": "{count} behalten (noch zugewiesen)",
+      "listSearchScope": "Gesucht wird in Name, Rolle und Tags."
     },
     "printer": {
       "toasts": {
@@ -2577,7 +2579,7 @@
     "page": {
       "title": "Ereignisse",
       "newEvent": "Neues Ereignis",
-      "searchPlaceholder": "Ereignisse durchsuchen …",
+      "searchPlaceholder": "Ereignis suchen …",
       "emptyNone": "Keine Ereignisse vorhanden. Erstelle ein neues Ereignis, um zu beginnen.",
       "incidentCountShort": "{count, plural, one {# Einsatz} other {# Einsätze}}",
       "lastActivityRelative": "zuletzt {rel}",
@@ -3418,7 +3420,7 @@
       "toc": "Inhalt",
       "loading": "Wird geladen …",
       "loadError": "# Fehler\n\nDer Hilfeinhalt konnte nicht geladen werden.",
-      "searchPlaceholder": "Hilfe durchsuchen"
+      "searchPlaceholder": "Hilfe suchen …"
     }
   },
   "errors": {
@@ -4143,7 +4145,7 @@
         "leftOnSite": "vor Ort verblieben",
         "leftOnSiteAria": "Vor Ort verblieben: {name}",
         "extraLabel": "Weiteres gebrauchtes Material",
-        "extraSearchPlaceholder": "Material suchen",
+        "extraSearchPlaceholder": "Material suchen …",
         "extraRemove": "{name} entfernen",
         "extraLeftOnSiteHint": "Kommt auf die Abholliste. Nicht bei «Material zurück – freigeben»: das sind Namen, kein erfasstes Material.",
         "add": "Material hinzufügen",
@@ -4153,7 +4155,7 @@
         "present": "war dabei",
         "presentAria": "War dabei: {name}",
         "empty": "Kein Fahrzeug disponiert.",
-        "searchPlaceholder": "Fahrzeug suchen",
+        "searchPlaceholder": "Fahrzeug suchen …",
         "dispatchedLabel": "Disponiert auf diesen Schadenplatz",
         "addLabel": "Zusätzlich dabei",
         "removeAria": "{name} entfernen",
@@ -4208,7 +4210,7 @@
         "present": "war dabei",
         "presentAria": "War dabei: {name}",
         "empty": "Das Board hat hierher niemanden zugewiesen.",
-        "searchPlaceholder": "Person suchen",
+        "searchPlaceholder": "Person suchen …",
         "removeAria": "{name} entfernen",
         "dispatchedLabel": "Aufgeboten auf diesen Schadenplatz",
         "addLabel": "Zusätzlich dabei",
@@ -4526,7 +4528,7 @@
     "saveFailed": "Nicht gespeichert – der Text ist noch da. Erneut senden.",
     "linkTitle": "Einsatz verknüpfen",
     "linkSearch": "Einsatz nach Nummer oder Ort suchen",
-    "linkSearchPlaceholder": "Nummer oder Ort",
+    "linkSearchPlaceholder": "Einsatz suchen …",
     "linkNone": "Kein Einsatz passt.",
     "linkClosed": "abgeschlossen",
     "unlink": "Verknüpfung entfernen",
@@ -4569,7 +4571,8 @@
     },
     "refDeleted": "{ref} (gelöscht)",
     "refMerged": "{ref} → {target}",
-    "linkHint": "Einsatz verknüpfen – oder # im Text"
+    "linkHint": "Einsatz verknüpfen – oder # im Text",
+    "linkSearchScope": "Gesucht wird in Nummer und Ort."
   },
   "standby": {
     "mirror": {

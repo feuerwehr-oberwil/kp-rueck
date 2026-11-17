@@ -251,6 +251,7 @@ export function CrewDutySheet({ open, onOpenChange, eventId, personnel, personEn
               value={query}
               onValueChange={setQuery}
               placeholder={t("searchPlaceholder")}
+              title={t("searchScope")}
               aria-label={t("searchPlaceholder")}
               containerClassName="w-48"
               className="h-7 text-xs"
@@ -265,6 +266,7 @@ export function CrewDutySheet({ open, onOpenChange, eventId, personnel, personEn
             value={query}
             onValueChange={setQuery}
             placeholder={t("searchPlaceholder")}
+            title={t("searchScope")}
             aria-label={t("searchPlaceholder")}
             containerClassName="min-w-0 flex-1"
           />

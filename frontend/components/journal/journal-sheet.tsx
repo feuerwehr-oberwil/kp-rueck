@@ -758,6 +758,7 @@ function JournalComposer({
                 onValueChange={(value) => { setPickerQuery(value); setHighlight(0) }}
                 aria-label={t("linkSearch")}
                 placeholder={t("linkSearchPlaceholder")}
+                title={t("linkSearchScope")}
                 onKeyDown={(event) => {
                   if (pickerSuggestions.length === 0) return
                   if (event.key === "ArrowDown" || event.key === "ArrowUp") {

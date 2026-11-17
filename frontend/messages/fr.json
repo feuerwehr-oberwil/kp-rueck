@@ -639,7 +639,7 @@
     "page": {
       "title": "Événements",
       "newEvent": "Nouvel événement",
-      "searchPlaceholder": "Rechercher des événements …",
+      "searchPlaceholder": "Rechercher un événement …",
       "emptyNone": "Aucun événement. Crée un nouvel événement pour commencer.",
       "incidentCountShort": "{count, plural, one {# intervention} other {# interventions}}",
       "lastActivityRelative": "dernière activité {rel}",
@@ -946,7 +946,7 @@
         "leftOnSite": "resté sur place",
         "leftOnSiteAria": "Resté sur place : {name}",
         "extraLabel": "Autre matériel utilisé",
-        "extraSearchPlaceholder": "Rechercher du matériel",
+        "extraSearchPlaceholder": "Rechercher du matériel …",
         "extraRemove": "Retirer {name}",
         "extraLeftOnSiteHint": "Passe sur la liste de récupération. Pas dans « Matériel de retour – libérer » : ce sont des noms, pas du matériel saisi.",
         "add": "Ajouter du matériel",
@@ -956,7 +956,7 @@
         "present": "était là",
         "presentAria": "Était là : {name}",
         "empty": "Aucun véhicule engagé.",
-        "searchPlaceholder": "Rechercher un véhicule",
+        "searchPlaceholder": "Rechercher un véhicule …",
         "dispatchedLabel": "Engagés sur cette place sinistrée",
         "addLabel": "Également présents",
         "removeAria": "Retirer {name}",
@@ -1011,7 +1011,7 @@
         "present": "était là",
         "presentAria": "Était là : {name}",
         "empty": "Le tableau n’a attribué personne ici.",
-        "searchPlaceholder": "Rechercher une personne",
+        "searchPlaceholder": "Rechercher une personne …",
         "removeAria": "Retirer {name}",
         "dispatchedLabel": "Convoqués sur cette place sinistrée",
         "addLabel": "Également présents",
@@ -1258,7 +1258,7 @@
       "toc": "Sommaire",
       "loading": "Chargement …",
       "loadError": "# Erreur\n\nLe contenu de l’aide n’a pas pu être chargé.",
-      "searchPlaceholder": "Chercher dans l’aide"
+      "searchPlaceholder": "Chercher dans l’aide …"
     }
   },
   "incidents": {
@@ -2462,14 +2462,15 @@
       "filterFree": "Libres",
       "filterBusy": "Engagés",
       "showAll": "Tout afficher",
-      "searchPlaceholder": "Nom ou lieu",
+      "searchPlaceholder": "Rechercher une personne …",
       "sortBy": "Trier par",
       "sortByColumn": "Trier par « {column} »",
       "sortedBy": "Trié par {column}",
       "sortAsc": "croissant",
       "sortDesc": "décroissant",
       "emptyFilteredTitle": "Personne ne correspond à ce filtre",
-      "resetFilter": "Réinitialiser le filtre"
+      "resetFilter": "Réinitialiser le filtre",
+      "searchScope": "Recherche dans le nom et le lieu."
     }
   },
   "login": {
@@ -3972,7 +3973,7 @@
       "syncError": "Échec de la synchronisation",
       "syncErrorDescription": "La liaison avec Divera n’a pas pu être établie. Réessaie.",
       "tabList": "Liste du personnel",
-      "listSearchPlaceholder": "Nom, rôle, tag …",
+      "listSearchPlaceholder": "Rechercher une personne …",
       "roleFilterAll": "Tous les rôles",
       "emptyFiltered": "Aucune entrée ne correspond au filtre.",
       "syncButton": "Synchroniser depuis Divera",
@@ -4008,7 +4009,8 @@
       "kennungLabel": "Identifiant",
       "kennungPlaceholder": "p. ex. année de naissance ou n° personnel",
       "kennungHelp": "Seulement nécessaire en cas de nom identique. N’apparaît alors que sur le tableau.",
-      "syncKeptAssigned": "{count} conservées (encore attribuées)"
+      "syncKeptAssigned": "{count} conservées (encore attribuées)",
+      "listSearchScope": "Recherche dans le nom, le rôle et les tags."
     },
     "printer": {
       "toasts": {
@@ -4526,7 +4528,7 @@
     "saveFailed": "Non enregistré – le texte est toujours là. Renvoyer.",
     "linkTitle": "Lier une intervention",
     "linkSearch": "Chercher une intervention par numéro ou lieu",
-    "linkSearchPlaceholder": "Numéro ou lieu",
+    "linkSearchPlaceholder": "Rechercher une intervention …",
     "linkNone": "Aucune intervention ne correspond.",
     "linkClosed": "terminée",
     "unlink": "Retirer le lien",
@@ -4569,7 +4571,8 @@
     },
     "refDeleted": "{ref} (supprimée)",
     "refMerged": "{ref} → {target}",
-    "linkHint": "Lier une intervention – ou # dans le texte"
+    "linkHint": "Lier une intervention – ou # dans le texte",
+    "linkSearchScope": "Recherche dans le numéro et le lieu."
   },
   "standby": {
     "mirror": {

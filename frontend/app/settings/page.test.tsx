@@ -191,7 +191,7 @@ describe('Einstellungen › Telefon — nur Ansicht, ausser «Dieses Gerät»', 
     openSection('personnel')
     expect(screen.getByRole('note')).toBeInTheDocument()
     expect(document.querySelector('fieldset:disabled')).toBeNull()
-    expect(await screen.findByPlaceholderText('Name, Rolle, Tag …')).toBeEnabled()
+    expect(await screen.findByPlaceholderText('Person suchen …')).toBeEnabled()
   })
 
   it('changes nothing on the desk', async () => {

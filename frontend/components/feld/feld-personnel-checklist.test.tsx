@@ -114,7 +114,7 @@ describe('FeldPersonnelChecklist', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Person hinzufügen' }))
     const sheet = await screen.findByRole('dialog')
-    await userEvent.type(within(sheet).getByPlaceholderText('Person suchen'), 'Bräm Urs')
+    await userEvent.type(within(sheet).getByPlaceholderText('Person suchen …'), 'Bräm Urs')
     await userEvent.click(within(sheet).getByRole('button', { name: '«Bräm Urs» als Gast hinzufügen' }))
     await userEvent.click(within(sheet).getByRole('button', { name: 'Fertig (1)' }))
 
