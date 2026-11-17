@@ -12,6 +12,8 @@
  * - **Expired is gone, not stale.** A warning past its `expires` disappears immediately.
  */
 
+import { formatTime } from '@/lib/format-time'
+
 export interface WeatherSourceStatus {
   last_attempt_at: string | null
   last_success_at: string | null
@@ -150,7 +152,7 @@ export function frameAgeMinutes(radar: WeatherRadar, index: number): number {
 /** «17:05», or «Fr 08:00» when the moment is not today (device-local, Swiss formatting). */
 export function formatWeatherTime(iso: string, intlLocale: string, now: number): string {
   const date = new Date(iso)
-  const time = date.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' })
+  const time = formatTime(date, intlLocale)
   if (new Date(now).toDateString() === date.toDateString()) return time
   const day = date.toLocaleDateString(intlLocale, { weekday: 'short' }).replace(/\.$/, '')
   return `${day} ${time}`

@@ -1,5 +1,6 @@
 'use client'
 
+import { formatTime } from '@/lib/format-time'
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
@@ -445,7 +446,7 @@ function ReceiptScreen({
         <p className="mt-1 text-sm text-muted-foreground">
           {t('receiptMeta', {
             eventName,
-            time: receipt.at.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' }),
+            time: formatTime(receipt.at, intlLocale),
           })}
         </p>
       </div>

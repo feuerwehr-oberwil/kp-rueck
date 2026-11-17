@@ -1,5 +1,6 @@
 'use client'
 
+import { formatTime } from '@/lib/format-time'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -13,7 +14,6 @@ import { apiClient } from '@/lib/api-client'
 import type { ApiStandbyConflict, ApiStandbyConflicts } from '@/lib/api/types'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { useStandby } from '@/lib/contexts/standby-context'
-import { getIntlLocale } from '@/lib/date-locale'
 import { getOperationStatusLabel } from '@/lib/status-labels'
 import { cn } from '@/lib/utils'
 
@@ -24,7 +24,7 @@ type Side = ApiStandbyConflict['kept_on']
 const BOOKKEEPING = new Set(['updated_at', 'last_activity_at'])
 
 function time(iso: string | null): string {
-  return iso ? new Date(iso).toLocaleTimeString(getIntlLocale(), { hour: '2-digit', minute: '2-digit' }) : ''
+  return formatTime(iso)
 }
 
 /**

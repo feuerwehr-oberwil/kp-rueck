@@ -16,6 +16,7 @@
  * its sidebar entry.
  */
 
+import { formatTime } from '@/lib/format-time'
 import { SearchEmptyState } from "@/components/ui/empty-state"
 import { useMemo, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -382,7 +383,7 @@ export default function SettingsPage() {
           {tiles.status === 'installed' && (
             <span className="text-xs text-muted-foreground">
               {[tiles.name, zoom, t('page.general.tiles.checkedAt', {
-                time: tiles.checkedAt.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' }),
+                time: formatTime(tiles.checkedAt, intlLocale),
               })]
                 .filter(Boolean)
                 .join(' · ')}

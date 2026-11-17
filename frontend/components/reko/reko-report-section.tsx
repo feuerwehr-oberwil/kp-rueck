@@ -35,6 +35,7 @@
  * longer says whether Reko is on site.
  */
 
+import { formatTime } from '@/lib/format-time'
 import { formatDurationHours } from "@/lib/duration"
 import { useState, useEffect, useCallback, useMemo, useRef, Fragment, type ReactNode } from 'react'
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
@@ -447,7 +448,7 @@ interface RekoReportCardProps {
  */
 function formatStamp(iso: string): string {
   const date = new Date(iso)
-  const time = date.toLocaleTimeString(getIntlLocale(), { hour: '2-digit', minute: '2-digit' })
+  const time = formatTime(date)
   const now = new Date()
   const isToday =
     date.getFullYear() === now.getFullYear() &&

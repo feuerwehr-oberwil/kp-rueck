@@ -29,6 +29,7 @@
  * state and not a guess dressed up as a crew report.
  */
 
+import { formatTime } from '@/lib/format-time'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Binoculars, CarTaxiFront, Flag, MapPin, MessageSquare, Send } from 'lucide-react'
@@ -43,7 +44,6 @@ import { apiClient, type ApiIncidentTimelineEvent } from '@/lib/api-client'
 import type { ApiFieldReportUpdate } from '@/lib/api/types'
 import { useOperations, type Operation } from '@/lib/contexts/operations-context'
 import { usePersonnel } from '@/lib/contexts/personnel-context'
-import { getActiveLocale } from '@/lib/i18n-messages'
 import { applyTimeEdit, toTimeInput } from '@/lib/field-time'
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
 
@@ -538,7 +538,7 @@ export function FieldMessageThread({
 }
 
 function formatMessageTime(at: Date): string {
-  return at.toLocaleTimeString(getActiveLocale(), { hour: '2-digit', minute: '2-digit' })
+  return formatTime(at)
 }
 
 /**

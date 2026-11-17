@@ -6,6 +6,8 @@
  * «v0.7.0 · 1a2b3c4 · 03.10.2026», the commit only when the build knew it.
  */
 
+import { getIntlLocale } from "@/lib/date-locale"
+
 export const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.0.0"
 export const GIT_SHA = process.env.NEXT_PUBLIC_GIT_SHA ?? ""
 export const BUILD_TIME = process.env.NEXT_PUBLIC_BUILD_TIME ?? ""
@@ -19,7 +21,7 @@ export function buildLabel(
   const date = info.time ? new Date(info.time) : null
   const day =
     date && !Number.isNaN(date.getTime())
-      ? date.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" })
+      ? date.toLocaleDateString(getIntlLocale(), { day: "2-digit", month: "2-digit", year: "numeric" })
       : ""
   return [`v${info.version}`, info.sha, day].filter(Boolean).join(" · ")
 }

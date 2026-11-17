@@ -1,5 +1,6 @@
 'use client'
 
+import { formatTime } from '@/lib/format-time'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -505,7 +506,7 @@ export default function RekoForm() {
         ) : arrivedAt ? (
           <>
             <Check className="h-5 w-5" />
-            {t('arrivalReported', { time: arrivedAt.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' }) })}
+            {t('arrivalReported', { time: formatTime(arrivedAt, intlLocale) })}
           </>
         ) : (
           <>
@@ -544,7 +545,7 @@ export default function RekoForm() {
               {lastSaved && (
                 <p className="text-sm">
                   {t('syncedAt', {
-                    time: lastSaved.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' }),
+                    time: formatTime(lastSaved, intlLocale),
                   })}
                 </p>
               )}
@@ -557,7 +558,7 @@ export default function RekoForm() {
                 <p className="mt-0.5">
                   {lastSaved
                     ? t('unsentBody', {
-                        time: lastSaved.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' }),
+                        time: formatTime(lastSaved, intlLocale),
                       })
                     : t('unsentBodyNever')}
                 </p>

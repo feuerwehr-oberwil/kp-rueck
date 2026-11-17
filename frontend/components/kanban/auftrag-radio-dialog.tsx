@@ -1,5 +1,6 @@
 "use client"
 
+import { formatTime } from '@/lib/format-time'
 import { useMemo, useState } from "react"
 import { useTranslations } from "next-intl"
 import { useIntlLocale } from "@/lib/date-locale"
@@ -98,7 +99,7 @@ export function AuftragRadioDialog({ open, onOpenChange, group, funkrufname }: A
           <DialogDescription>
             {announced
               ? tAuftraege("repeatRadioDescription", {
-                  time: announced.at.toLocaleTimeString(intlLocale, { hour: "2-digit", minute: "2-digit" }),
+                  time: formatTime(announced.at, intlLocale),
                 })
               : radio
                 ? tAuftraege("repeatRadioPreview")

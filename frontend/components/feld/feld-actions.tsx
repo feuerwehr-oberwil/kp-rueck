@@ -22,6 +22,7 @@
  * Schadenplatz can be finished and still have three people standing in the rain.
  */
 
+import { formatTime } from '@/lib/format-time'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { useIntlLocale } from '@/lib/date-locale'
@@ -285,7 +286,7 @@ export function FeldActions({
   })
   const timeOf = (value: string | null): string | null => {
     const date = toDate(value)
-    return date ? date.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' }) : null
+    return date ? formatTime(date, intlLocale) : null
   }
   type JourneyStep = {
     key: 'arrived' | 'complete' | 'rapport'
