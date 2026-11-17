@@ -17,6 +17,7 @@ import { toast } from "sonner"
 import { Binoculars, MousePointerClick, X, User, Plus, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { RESOURCE_FREE_TEXT_CLASS } from "@/lib/resource-status"
 import { apiClient } from "@/lib/api-client"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
@@ -155,7 +156,7 @@ export function RekoModusPanel({
                     "text-xs font-medium whitespace-nowrap flex-shrink-0",
                     openOps.length > 0
                       ? "text-muted-foreground"
-                      : "text-emerald-700 dark:text-emerald-400"
+                      : RESOURCE_FREE_TEXT_CLASS
                   )}
                 >
                   {openOps.length > 0 ? t("openCount", { count: openOps.length }) : t("free")}

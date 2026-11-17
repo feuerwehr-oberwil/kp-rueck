@@ -356,7 +356,7 @@ export const DroppableColumn = memo(function DroppableColumn({
             <span
               title={overdueTitle}
               aria-label={overdueTitle}
-              className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500"
+              className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-destructive"
             />
           )}
         </span>

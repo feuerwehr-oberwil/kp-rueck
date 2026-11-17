@@ -47,7 +47,7 @@ export function DisplayStaleBanner({ lastRefresh }: { lastRefresh: Date | null }
         alert
           // Sized to be legible from across the room, because at this point the screen is
           // actively misleading anyone who glances at it.
-          ? "border-destructive/50 bg-destructive/20 py-3 text-destructive-foreground text-lg md:text-2xl tracking-wide uppercase"
+          ? "border-destructive/50 bg-destructive/20 py-3 text-foreground text-lg md:text-2xl tracking-wide uppercase"
           : "border-warning/30 bg-warning/15 py-1.5 text-sm text-warning-foreground",
       )}
     >

@@ -522,7 +522,7 @@ export function FeldActions({
         )}
 
         {delivery.status === 'sent' && (
-          <p className="flex items-center gap-2 rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200">
+          <p className="flex items-center gap-2 rounded-lg bg-success/15 px-3 py-2 text-sm text-foreground">
             <Check className="size-4 shrink-0" />
             <span className="min-w-0 break-words">{t('sent', { label: delivery.label })}</span>
           </p>
@@ -587,7 +587,7 @@ export function FeldActions({
           «Abholung disponiert». Without this line the red box just vanished —
           to a crew in the rain, indistinguishable from a lost request. */}
       {!pickupNeeded && assignment.pickup_resolved_at && (
-        <div className="rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200">
+        <div className="rounded-lg bg-success/15 px-3 py-2 text-sm text-foreground">
           <p className="flex items-center gap-1.5 font-medium">
             <Check className="size-4 shrink-0" />
             {tPickup('ackResolved', { time: formatPickupSince(toDate(assignment.pickup_resolved_at)) })}
@@ -830,7 +830,7 @@ export function FeldActions({
                   key={request.id}
                   className={`rounded-lg px-3 py-2 text-sm ${
                     state === 'done'
-                      ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200'
+                      ? 'bg-success/15 text-foreground'
                       : 'bg-background'
                   }`}
                 >

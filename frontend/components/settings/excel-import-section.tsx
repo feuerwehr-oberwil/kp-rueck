@@ -270,7 +270,7 @@ export function ExcelImportSection({
               />
               <label
                 htmlFor="file-upload"
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-md border bg-background hover:bg-accent cursor-pointer text-sm"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md border bg-background hover:bg-muted cursor-pointer text-sm"
               >
                 <Upload className="h-4 w-4" />
                 {selectedFile ? t('page.import.changeFile') : t('page.import.chooseFile')}

@@ -140,7 +140,7 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
   const rows: ReportRow[] = ([
     {
       key: 'rekoArrived',
-      icon: <Binoculars className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />,
+      icon: <Binoculars className="h-3.5 w-3.5 shrink-0 text-success" />,
       label: t('rekoArrived'),
       at: operation.rekoArrivedAt,
       on: Boolean(operation.rekoArrivedAt),

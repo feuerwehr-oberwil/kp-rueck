@@ -14,6 +14,7 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { useOperations } from "@/lib/contexts/operations-context"
 import type { Person } from "@/lib/contexts/personnel-context"
 import { cn } from "@/lib/utils"
+import { RESOURCE_FREE_TEXT_CLASS } from "@/lib/resource-status"
 import { toast } from "sonner"
 import { useTranslations } from "next-intl"
 import { ShellLoader, LoadingStatus } from "@/components/ui/shell-loader"
@@ -339,7 +340,7 @@ export function AssignRekoDialog({
                                   // beside the green «frei» (VISUAL-03).
                                   person.open_count > 0
                                     ? "text-muted-foreground"
-                                    : "text-emerald-700 dark:text-emerald-400"
+                                    : RESOURCE_FREE_TEXT_CLASS
                                 )}>
                                   {person.open_count > 0
                                     ? t('openCount', { count: person.open_count })

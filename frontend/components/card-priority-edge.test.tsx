@@ -105,7 +105,7 @@ describe.each([
     // are wiped on exactly this card. `border-left-color` is a different
     // property and survives — which is why the edge, not a ring, carries it.
     expect(card().className).toContain('priority-high-pulse')
-    expect(card().className).toContain('border-l-destructive')
+    expect(card().className).toContain('border-l-prio-high')
   })
 
   it('never colours the edge by status', () => {

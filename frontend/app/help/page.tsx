@@ -351,7 +351,7 @@ export default function HelpPage() {
     ),
     // Search highlight
     mark: ({ children, ...props }) => (
-      <mark className="bg-primary/25 text-foreground rounded px-0.5" {...props}>
+      <mark className="bg-sel-wash text-foreground rounded px-0.5" {...props}>
         {children}
       </mark>
     ),

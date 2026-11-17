@@ -181,7 +181,7 @@ export function DemoBanner() {
 
           <section className="space-y-2">
             <h3 className="flex items-center gap-2 text-sm font-semibold">
-              <Check className="h-4 w-4 text-emerald-500" />
+              <Check className="h-4 w-4 text-success" />
               {t('welcome.canTitle')}
             </h3>
             <ul className="space-y-1.5 pl-6 text-sm leading-relaxed text-muted-foreground">

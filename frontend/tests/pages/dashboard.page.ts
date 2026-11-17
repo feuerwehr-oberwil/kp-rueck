@@ -58,7 +58,7 @@ export class DashboardPage extends BasePage {
   getAvailablePersonnel(name: string): Locator {
     return this.personnelSidebar
       .locator('[data-testid="personnel-card"]', { hasText: name })
-      .filter({ has: this.page.locator('.bg-emerald-500') });
+      .filter({ has: this.page.locator('.bg-free') });
   }
 
   /**
@@ -76,7 +76,7 @@ export class DashboardPage extends BasePage {
   getAvailableMaterial(name: string): Locator {
     return this.materialSidebar
       .locator('[data-testid="material-card"]', { hasText: name })
-      .filter({ has: this.page.locator('.bg-emerald-500') });
+      .filter({ has: this.page.locator('.bg-free') });
   }
 
   /**

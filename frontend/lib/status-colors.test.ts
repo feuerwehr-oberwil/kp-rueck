@@ -77,14 +77,14 @@ describe('a status has one colour on every surface', () => {
 })
 
 describe('status and priority never speak the same colour', () => {
-  it('priority owns destructive and warning, and no status may borrow them', () => {
+  it('priority owns the prio tokens, and no status may borrow them', () => {
     const priorityTokens = Object.values({ ...PRIORITY_EDGE_CLASSES, ...PRIORITY_CARD_CLASSES, ...PRIORITY_ICON_CLASSES }).join(' ')
-    expect(priorityTokens).toMatch(/destructive/)
-    expect(priorityTokens).toMatch(/warning/)
+    expect(priorityTokens).toMatch(/prio-high/)
+    expect(priorityTokens).toMatch(/prio-medium/)
 
     for (const [status, accent] of Object.entries(STATUS_ACCENT)) {
       const all = [accent.surface, accent.border, accent.text, accent.dot].join(' ')
-      expect(all, `${status} must not use a priority colour`).not.toMatch(/destructive|warning/)
+      expect(all, `${status} must not use a priority colour`).not.toMatch(/prio-|destructive|warning/)
       // Red and amber are the palette steps behind those two tokens.
       expect(hues(all), `${status} must not use a priority hue`).not.toContain('red')
       expect(hues(all), `${status} must not use a priority hue`).not.toContain('amber')

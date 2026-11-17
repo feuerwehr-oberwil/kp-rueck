@@ -41,7 +41,7 @@ export function dutyLevel(minutes: number | null, fatigueHours: number): DutyLev
 export const DUTY_TEXT_CLASSES: Record<DutyLevel, string> = {
   normal: 'text-muted-foreground',
   long: 'font-semibold text-warning-foreground',
-  over: 'font-semibold text-red-600 dark:text-red-400',
+  over: 'font-semibold text-destructive',
 }
 
 /** How many of `people` are at or past the threshold right now. */

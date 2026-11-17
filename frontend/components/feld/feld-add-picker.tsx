@@ -252,7 +252,7 @@ export function FeldAddPicker({
   )
 }
 
-/** One tappable row: the name, ticked = slate wash + edge + ✓ (DESIGN.md «Colour roles»). */
+/** One tappable row: the name, ticked = selection wash + edge + ✓ (DESIGN.md «Colour roles»). */
 function PickRow({
   name,
   hint,
