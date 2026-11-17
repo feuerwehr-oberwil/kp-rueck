@@ -47,6 +47,7 @@ import { CategorySortOrder } from './category-sort-order';
 import { DemoLock } from './demo-lock';
 import { SettingUnavailableNote } from './setting-unavailable';
 import { SettingCard } from './setting-row';
+import { SettingSaveLine, useSettingSaver } from './station-settings-form';
 import { useIntegrationCapability } from '@/lib/hooks/use-integrations';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
@@ -313,6 +314,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
    * render, so an empty input is a visible «default», not a mystery.
    */
   const [roleAbbreviations, setRoleAbbreviations] = useState<Record<string, string>>({});
+  const abbreviationSaver = useSettingSaver(t('personnel.abbreviationsSaveError'));
   useEffect(() => {
     apiClient
       .getAllSettings()
@@ -346,14 +348,8 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
         .filter(([, abbreviation]) => abbreviation),
     );
     const json = Object.keys(clean).length > 0 ? JSON.stringify(clean) : '';
-    try {
-      await apiClient.updateSetting(RANK_ABBREVIATIONS_KEY, json);
-      // The board reads the module mirror — update it now, not on next load.
-      setGlobalRankAbbreviations(json);
-    } catch (error) {
-      console.error('Failed to save role abbreviations:', error);
-      toast.error(t('personnel.abbreviationsSaveError'));
-    }
+    // The board reads the module mirror — update it now, not on next load.
+    if (await abbreviationSaver.save(RANK_ABBREVIATIONS_KEY, json)) setGlobalRankAbbreviations(json);
   };
 
   const handleSaveRoleSortOrder = async (categories: Array<{ name: string; sort_order: number }>) => {
@@ -647,6 +643,11 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
                     />
                   </div>
                 ))}
+                {/* One setting holds all of them: one line under the list. */}
+                <SettingSaveLine
+                  saving={abbreviationSaver.saving === RANK_ABBREVIATIONS_KEY}
+                  savedAt={abbreviationSaver.savedAt[RANK_ABBREVIATIONS_KEY]}
+                />
               </div>
             </DemoLock>
           </SettingCard>

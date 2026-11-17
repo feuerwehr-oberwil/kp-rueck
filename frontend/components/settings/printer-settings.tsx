@@ -21,7 +21,7 @@ import {
 import { apiClient, type ApiPrinterStatus } from '@/lib/api-client';
 import { Progress } from '@/components/ui/progress';
 import { SettingCard, SettingRow, SettingActions } from '@/components/settings/setting-row';
-import { useStationSettings } from '@/components/settings/station-settings-form';
+import { SettingSaveLine, useStationSettings } from '@/components/settings/station-settings-form';
 import { toast } from 'sonner';
 import { ShellLoader } from '@/components/ui/shell-loader';
 
@@ -42,7 +42,7 @@ export function PrinterSettings() {
   // (`canEdit: true`): the section is editor-only and the page sits behind
   // `ProtectedRoute`, so a viewer never gets here – and the PATCH is refused
   // server-side anyway. A confirmed save re-reads the printer status.
-  const { settings, setSettings, serverSettings, loading, saving, updateSetting } = useStationSettings({
+  const { settings, setSettings, serverSettings, loading, saving, savedAt, updateSetting } = useStationSettings({
     enabled: true,
     canEdit: true,
     onSaved: () => {
@@ -260,42 +260,48 @@ export function PrinterSettings() {
         </SettingRow>
 
         <SettingRow label={t('ipLabel')} htmlFor="printer-ip" hint={t('ipHint')}>
-          <Input
-            id="printer-ip"
-            type="text"
-            placeholder="192.168.1.100"
-            value={printerIp}
-            onChange={(e) =>
-              setSettings((prev) => ({ ...prev, 'printer.ip': e.target.value }))
-            }
-            onBlur={(e) => {
-              if (e.target.value !== serverSettings['printer.ip']) {
-                updateSetting('printer.ip', e.target.value);
+          <div className="w-full min-w-0">
+            <Input
+              id="printer-ip"
+              type="text"
+              placeholder="192.168.1.100"
+              value={printerIp}
+              onChange={(e) =>
+                setSettings((prev) => ({ ...prev, 'printer.ip': e.target.value }))
               }
-            }}
-            disabled={saving === 'printer.ip'}
-          />
+              onBlur={(e) => {
+                if (e.target.value !== serverSettings['printer.ip']) {
+                  updateSetting('printer.ip', e.target.value);
+                }
+              }}
+              disabled={saving === 'printer.ip'}
+            />
+            <SettingSaveLine saving={saving === 'printer.ip'} savedAt={savedAt['printer.ip']} />
+          </div>
         </SettingRow>
 
         {/* Eine Portnummer in 200 Pixeln liest sich als Fehler – Zahlenfelder bleiben schmal
             und rücken an die rechte Kante der Spalte. */}
         <SettingRow label={t('portLabel')} htmlFor="printer-port" hint={t('portHint')}>
-          <Input
-            id="printer-port"
-            type="number"
-            className="w-24"
-            placeholder="9100"
-            value={printerPort}
-            onChange={(e) =>
-              setSettings((prev) => ({ ...prev, 'printer.port': e.target.value }))
-            }
-            onBlur={(e) => {
-              if (e.target.value !== serverSettings['printer.port']) {
-                updateSetting('printer.port', e.target.value);
+          <div>
+            <Input
+              id="printer-port"
+              type="number"
+              className="w-24"
+              placeholder="9100"
+              value={printerPort}
+              onChange={(e) =>
+                setSettings((prev) => ({ ...prev, 'printer.port': e.target.value }))
               }
-            }}
-            disabled={saving === 'printer.port'}
-          />
+              onBlur={(e) => {
+                if (e.target.value !== serverSettings['printer.port']) {
+                  updateSetting('printer.port', e.target.value);
+                }
+              }}
+              disabled={saving === 'printer.port'}
+            />
+            <SettingSaveLine saving={saving === 'printer.port'} savedAt={savedAt['printer.port']} />
+          </div>
         </SettingRow>
 
         {/* Auto-print. ONE trigger: the incident reaching «Disponiert / Anfahrt»

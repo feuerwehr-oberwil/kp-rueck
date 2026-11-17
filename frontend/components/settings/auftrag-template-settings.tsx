@@ -40,6 +40,7 @@ import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { FormMessage, formMessageId, useRequiredField } from '@/components/ui/form-message';
 import { ShellLoader } from '@/components/ui/shell-loader';
 import { SettingCard } from '@/components/settings/setting-row';
+import { SettingSaveLine } from '@/components/settings/station-settings-form';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Command,
@@ -78,6 +79,10 @@ export function AuftragTemplateSettings({ readOnly = false }: { readOnly?: boole
   const [loaded, setLoaded] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  // The fields of the PATCH in flight, and when the server confirmed each `${id}.${field}`
+  // – what the «Gespeichert – hh:mm» under the name and the notes reads.
+  const [savingFields, setSavingFields] = useState<string[]>([]);
+  const [savedAt, setSavedAt] = useState<Record<string, Date>>({});
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
   const tForm = useTranslations('common.formMessage');
@@ -121,6 +126,7 @@ export function AuftragTemplateSettings({ readOnly = false }: { readOnly?: boole
   const patch = useCallback(
     async (template: ApiAuftragTemplate, changes: Parameters<typeof apiClient.updateAuftragTemplate>[1]) => {
       setSavingId(template.id);
+      setSavingFields(Object.keys(changes));
       const previous = templates;
       setTemplates((current) =>
         current.map((item) => (item.id === template.id ? { ...item, ...changes } : item))
@@ -128,6 +134,11 @@ export function AuftragTemplateSettings({ readOnly = false }: { readOnly?: boole
       try {
         const updated = await apiClient.updateAuftragTemplate(template.id, changes);
         setTemplates((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+        const at = new Date();
+        setSavedAt((current) => ({
+          ...current,
+          ...Object.fromEntries(Object.keys(changes).map((field) => [`${template.id}.${field}`, at])),
+        }));
       } catch {
         setTemplates(previous);
         toast.error(t('saveFailed'));
@@ -236,6 +247,8 @@ export function AuftragTemplateSettings({ readOnly = false }: { readOnly?: boole
                 expanded={expandedId === template.id}
                 dragging={draggingId === template.id}
                 saving={savingId === template.id}
+                savingFields={savingId === template.id ? savingFields : []}
+                savedAt={(field) => savedAt[`${template.id}.${field}`]}
                 readOnly={readOnly}
                 options={options}
                 optionsByKey={optionsByKey}
@@ -309,6 +322,8 @@ function TemplateRow({
   expanded,
   dragging,
   saving,
+  savingFields,
+  savedAt,
   readOnly,
   options,
   optionsByKey,
@@ -326,6 +341,10 @@ function TemplateRow({
   expanded: boolean;
   dragging: boolean;
   saving: boolean;
+  /** Which of this row's fields the PATCH in flight carries (empty when none). */
+  savingFields: readonly string[];
+  /** When the server last confirmed `field` of this template. */
+  savedAt: (field: 'name' | 'notes') => Date | undefined;
   readOnly: boolean;
   options: ResourceOption[];
   optionsByKey: Map<string, ResourceOption>;
@@ -446,6 +465,7 @@ function TemplateRow({
                 else event.target.value = template.name;
               }}
             />
+            <SettingSaveLine saving={savingFields.includes('name')} savedAt={savedAt('name')} />
           </div>
 
           <div>
@@ -482,6 +502,7 @@ function TemplateRow({
                 if (value !== (template.notes ?? '')) onPatch({ notes: value || null });
               }}
             />
+            <SettingSaveLine saving={savingFields.includes('notes')} savedAt={savedAt('notes')} />
           </div>
 
           <div>

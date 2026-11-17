@@ -31,6 +31,7 @@ import {
   DEFAULT_ALARM_TEXT_TEMPLATE,
 } from "@/lib/message-template"
 import { toast } from "sonner"
+import { SettingSaveLine } from "@/components/settings/station-settings-form"
 import { FormMessage, fieldMessageProps, focusFirstBlockingField, formMessageId } from "@/components/ui/form-message"
 import { ShellLoader } from "@/components/ui/shell-loader"
 
@@ -43,6 +44,8 @@ interface Props {
   updateSetting: (key: string, value: string) => void | Promise<void>
   isEditor: boolean
   saving: string | null
+  /** When the server confirmed each key – the «Gespeichert – hh:mm» under a field. */
+  savedAt: Record<string, Date>
 }
 
 export function DiveraAlarmSettingsCard({
@@ -52,6 +55,7 @@ export function DiveraAlarmSettingsCard({
   updateSetting,
   isEditor,
   saving,
+  savedAt,
 }: Props) {
   const t = useTranslations("divera.alarmSettings")
   const tBlocked = useTranslations("common.deploymentBlocked")
@@ -222,6 +226,7 @@ export function DiveraAlarmSettingsCard({
                   }}
                   disabled={!isEditor || isCurrentlySaving}
                 />
+                <SettingSaveLine saving={isCurrentlySaving} savedAt={savedAt[field.key]} />
               </SettingBlock>
             )
           })}
