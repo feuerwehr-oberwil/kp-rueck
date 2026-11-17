@@ -386,7 +386,7 @@ describe('delivery feedback (a phone on a bad connection)', () => {
     expect(screen.getByPlaceholderText('Eigener Text …')).toHaveValue('Keller 40cm Wasser')
 
     feldSendMessage.mockResolvedValueOnce(undefined)
-    await user.click(screen.getByRole('button', { name: /Nochmals senden/ }))
+    await user.click(screen.getByRole('button', { name: /Erneut senden/ }))
 
     await waitFor(() => expect(feldSendMessage).toHaveBeenCalledTimes(2))
     await waitFor(() => expect(screen.getByText(/beim KP angekommen/)).toBeInTheDocument())
@@ -408,7 +408,7 @@ describe('delivery feedback (a phone on a bad connection)', () => {
     await user.click(screen.getByRole('button', { name: 'Wir müssen abgeholt werden' }))
 
     await waitFor(() => expect(screen.getByText(/nicht übermittelt/)).toBeInTheDocument())
-    expect(screen.getByRole('button', { name: /Nochmals senden/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Erneut senden/ })).toBeInTheDocument()
   })
 })
 
@@ -490,14 +490,14 @@ describe('structured requests (R13)', () => {
 })
 
 describe('a retry is the same request (R13 review)', () => {
-  it('«Nochmals senden» repeats the same client_request_id', async () => {
+  it('«Erneut senden» repeats the same client_request_id', async () => {
     feldSendMessage.mockRejectedValueOnce(new Error('offline'))
     const user = userEvent.setup()
     render()
     await user.click(screen.getByRole('button', { name: 'Meldung an den KP' }))
     await user.click(screen.getByRole('button', { name: 'fertig in ~30 Min' }))
     await waitFor(() => expect(screen.getByText(/nicht übermittelt/)).toBeInTheDocument())
-    await user.click(screen.getByRole('button', { name: 'Nochmals senden' }))
+    await user.click(screen.getByRole('button', { name: 'Erneut senden' }))
 
     await waitFor(() => expect(feldSendMessage).toHaveBeenCalledTimes(2))
     const [first, second] = feldSendMessage.mock.calls.map(call => call[3])

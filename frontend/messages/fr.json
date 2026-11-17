@@ -2887,7 +2887,7 @@
       "loadFailedDescription": "La liste du matériel est peut-être périmée.",
       "groupsLoadFailed": "Les groupes de matériel n’ont pas pu être chargés",
       "readinessFailedTitle": "L'état de disponibilité n'a pas pu être modifié",
-      "readinessFailedDescription": "L'état est revenu comme avant. Réessaie.",
+      "readinessFailedDescription": "L’état est revenu comme avant.",
       "outOfServiceBlockedTitle": "{name} n'est pas prêt à l'engagement",
       "outOfServiceBlockedDescription": "Marqué comme non prêt dans la gestion – le libérer là d'abord."
     },

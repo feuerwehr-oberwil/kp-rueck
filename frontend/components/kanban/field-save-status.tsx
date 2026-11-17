@@ -23,7 +23,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react"
 import { useTranslations } from "next-intl"
-import { AlertCircle, Check, Copy, RotateCcw } from "lucide-react"
+import { AlertCircle, Check, Copy, RefreshCw } from "lucide-react"
 import { ShellLoader } from "@/components/ui/shell-loader"
 
 import { Button } from "@/components/ui/button"
@@ -275,7 +275,7 @@ export function FieldSaveStatus({
       )}
       <div className="flex flex-wrap gap-2">
         <Button type="button" variant="outline" size="xs" onClick={() => view.draft !== null && onRetry(view.draft)}>
-          <RotateCcw className="size-3.5" aria-hidden="true" />
+          <RefreshCw className="size-3.5" aria-hidden="true" />
           {t("retry")}
         </Button>
         <Button type="button" variant="secondary" size="xs" onClick={() => void copy()}>

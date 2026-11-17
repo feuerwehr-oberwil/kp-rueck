@@ -36,7 +36,7 @@ import {
   Minus,
   Package,
   Plus,
-  RotateCcw,
+  RefreshCw,
   Send,
   Users,
 } from 'lucide-react'
@@ -128,7 +128,7 @@ export function FeldActions({
   // silently does nothing is the thing being fixed here, so every path ends in
   // a visible answer.
   const [delivery, dispatch] = useReducer(deliveryReducer, IDLE)
-  // What "Nochmals senden" repeats. Held in a ref rather than in state: it is a
+  // What "Erneut senden" repeats. Held in a ref rather than in state: it is a
   // closure over the request, not something the render reads.
   const retryRef = useRef<(() => void) | null>(null)
   const attemptRef = useRef(0)
@@ -208,7 +208,7 @@ export function FeldActions({
   const handleMessage = async (text: string) => {
     const trimmed = text.trim()
     if (!trimmed) return
-    // One id per send, built ONCE: «Nochmals senden» repeats this exact payload,
+    // One id per send, built ONCE: «Erneut senden» repeats this exact payload,
     // so the server recognises the repeat instead of opening a second request.
     const payload: ApiFieldRequestCreate = { message: trimmed, client_request_id: randomUuid() }
     const ok = await run('message', trimmed, async () => {
@@ -244,7 +244,7 @@ export function FeldActions({
       { kind, text: payload.message || null, item: payload.item ?? null, quantity: askQuantity, label: '' },
       tRequest,
     )
-    // Built once per tap; «Nochmals senden» repeats exactly this request.
+    // Built once per tap; «Erneut senden» repeats exactly this request.
     const ok = await run('message', label, async () => {
       await apiClient.feldSendMessage(assignment.incident_id, personnelId, token, payload)
     })
@@ -542,7 +542,7 @@ export function FeldActions({
               className="w-full"
               onClick={() => retryRef.current?.()}
             >
-              <RotateCcw className="size-4" />
+              <RefreshCw className="size-4" />
               {t('retry')}
             </Button>
           </div>

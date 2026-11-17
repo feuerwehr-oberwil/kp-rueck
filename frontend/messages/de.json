@@ -1585,7 +1585,7 @@
       "fromGps": "aus GPS · ±{meters} m",
       "locateDenied": "Kein Zugriff auf den Standort – im Browser erlauben oder Adresse eintippen.",
       "locateUnavailable": "Kein GPS-Standort verfügbar – Adresse eintippen oder auf der Karte wählen.",
-      "locateTimeout": "Kein GPS-Standort innert 10 Sekunden – nochmals versuchen oder Adresse eintippen.",
+      "locateTimeout": "Kein GPS-Standort innert 10 Sekunden – erneut versuchen oder Adresse eintippen.",
       "locateNoAddress": "Standort übernommen, aber keine Adresse dazu gefunden – bitte Adresse eintippen."
     },
     "mapPicker": {
@@ -2778,7 +2778,7 @@
       "rowRetrying": "{percent} % · Versuch {attempt} von {total}",
       "rowSent": "Gesendet",
       "rowFailed": "{count, plural, one {Abgebrochen nach # Versuch} other {Abgebrochen nach # Versuchen}}",
-      "rowRetry": "Nochmals senden",
+      "rowRetry": "Erneut senden",
       "rowDiscard": "Verwerfen",
       "queueProgress": "{done} von {total} beim KP · läuft weiter, auch wenn du weiterschreibst",
       "offlineTitle": "{count, plural, one {# Foto wartet auf Verbindung} other {# Fotos warten auf Verbindung}}",
@@ -3216,7 +3216,7 @@
       "loadFailedDescription": "Die Materialliste ist möglicherweise veraltet.",
       "groupsLoadFailed": "Materialgruppen konnten nicht geladen werden",
       "readinessFailedTitle": "Einsatzbereitschaft konnte nicht geändert werden",
-      "readinessFailedDescription": "Der Zustand steht wieder wie vorher. Nochmals versuchen.",
+      "readinessFailedDescription": "Der Zustand steht wieder wie vorher.",
       "outOfServiceBlockedTitle": "{name} ist nicht einsatzbereit",
       "outOfServiceBlockedDescription": "In der Verwaltung als nicht einsatzbereit geführt – zuerst dort freigeben."
     },
@@ -3825,7 +3825,7 @@
       "title": "Reko-Offiziere wählen",
       "description": "Angemeldete Person antippen, um sie als Reko zu markieren. Adressen verteilt der Reko-Modus auf der Karte.",
       "marked": "{name} als Reko markiert",
-      "failed": "Hat nicht geklappt. Nochmals versuchen.",
+      "failed": "Hat nicht geklappt. Erneut versuchen.",
       "done": "Fertig"
     }
   },
@@ -4094,7 +4094,7 @@
       "sending": "«{label}» wird gesendet …",
       "sent": "«{label}» ist beim KP angekommen.",
       "failedTitle": "«{label}» wurde nicht übermittelt.",
-      "retry": "Nochmals senden",
+      "retry": "Erneut senden",
       "send": "Meldung senden",
       "arrivedAction": "Angekommen melden",
       "completeAction": "Einsatz beendet melden",
@@ -4254,7 +4254,7 @@
       "autosaveHint": "Wird laufend gespeichert – kein Abschliessen nötig.",
       "submitted": "Rapport erfasst.",
       "submittedBadge": "Abgeschlossen {at}",
-      "submitError": "Rapport konnte nicht abgeschlossen werden. Nochmals versuchen.",
+      "submitError": "Rapport konnte nicht abgeschlossen werden. Erneut versuchen.",
       "unsentChanges": "Änderungen noch nicht übermittelt",
       "sendChanges": "Änderungen senden",
       "loadError": "Rapport konnte nicht geladen werden.",
@@ -4320,7 +4320,7 @@
       "reopenBody": "Bitte den QR-Code auf dem Plakat erneut scannen.",
       "offlineTitle": "Keine Verbindung zum KP",
       "offlineBody": "Der Code wurde nicht geprüft – er ist wahrscheinlich richtig.",
-      "offlineHint": "Ein paar Schritte ins Freie und nochmals versuchen.",
+      "offlineHint": "Ein paar Schritte ins Freie, dann erneut versuchen.",
       "retry": "Erneut versuchen",
       "training": "Übung"
     },
@@ -4340,7 +4340,7 @@
       "revoke": "Abmelden",
       "regenerated": "Neuer Feld-Code erstellt",
       "revoked": "Alle Geräte abgemeldet",
-      "failed": "Hat nicht geklappt. Nochmals versuchen.",
+      "failed": "Hat nicht geklappt. Erneut versuchen.",
       "regenerateTitle": "Neuen Feld-Code erstellen?",
       "regenerateDescription": "Neue Geräte brauchen ab sofort den neuen Code. Wer bereits angemeldet ist, arbeitet ungestört weiter – es wird niemand abgemeldet.",
       "revokeTitle": "Alle Geräte abmelden?",
@@ -4445,7 +4445,7 @@
       "from": "KP · {name} · {time}"
     },
     "claim": {
-      "offline": "Keine Verbindung zum KP. Der Name wurde nicht übernommen – nochmals versuchen."
+      "offline": "Keine Verbindung zum KP. Der Name wurde nicht übernommen – erneut versuchen."
     },
     "requests": {
       "material": "Material: {what}",

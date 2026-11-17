@@ -28,7 +28,7 @@ export const IDLE: DeliveryState = { status: 'idle' }
 
 /**
  * ``attempt`` is what makes a retry safe on a flaky link: a first request that
- * finally times out *after* the crew already hit "Nochmals senden" must not turn
+ * finally times out *after* the crew already hit "Erneut senden" must not turn
  * the second attempt's spinner into a red error. Answers that do not belong to
  * the attempt on screen are dropped.
  *
