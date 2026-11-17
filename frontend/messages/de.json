@@ -764,7 +764,7 @@
       "moreActions": "Weitere Aktionen"
     },
     "detail": {
-      "rekoAuftrag": "Reko-Auftrag",
+      "rekoAuftrag": "Reko-Zuweisung",
       "groups": {
         "kraefte": "Kräfte"
       },
@@ -792,7 +792,7 @@
       "moreActions": "Weitere Aktionen",
       "diveraAlarm": "Aufgebot",
       "eventWideRekoTransfer": "Alle offenen Rekos übertragen",
-      "eventWideRekoTransferTooltip": "Überträgt alle offenen Reko-Aufträge dieser Person im gesamten Ereignis, nicht nur diesen Einsatz.",
+      "eventWideRekoTransferTooltip": "Überträgt alle offenen Rekos dieser Person im gesamten Ereignis, nicht nur diesen Einsatz.",
       "sourceAuftrag": "Auftrag «{name}»",
       "sourceAuftragHint": "Fährt mit zum nächsten Stopp",
       "sourceIncident": "Nur dieser Einsatz",
@@ -901,7 +901,7 @@
       "failed": "Übertragung fehlgeschlagen",
       "markAndTransferFailed": "Die Person konnte nicht als Reko-Ziel verwendet werden – nichts wurde übertragen.",
       "title": "Rekos übertragen",
-      "description": "Offene Reko-Aufträge von {name} an eine andere Person übertragen.",
+      "description": "Offene Rekos von {name} an eine andere Person übertragen.",
       "noOthers": "Keine anderen Reko-Personen verfügbar"
     },
     "person": {
@@ -1252,7 +1252,7 @@
       "openCount": "{count} offen",
       "noOpenWork": "frei",
       "doneCount": "{count} erledigt",
-      "distanceOpenTooltip": "Luftlinie zum nächstgelegenen offenen Reko-Auftrag",
+      "distanceOpenTooltip": "Luftlinie zur nächstgelegenen offenen Reko",
       "distanceLastTooltip": "Luftlinie zum zuletzt zugewiesenen Einsatz",
       "distanceLastSuffix": "(zuletzt)"
     },
@@ -4278,7 +4278,7 @@
       "training": "Übung"
     },
     "source": {
-      "reko": "Reko-Auftrag",
+      "reko": "Als Reko",
       "driver": "Als Fahrer · {vehicle}",
       "magazin": "Magazin",
       "rekoReason": "Vom KP als Reko zugewiesen",
@@ -4375,7 +4375,7 @@
       "driverTitle": "Du fährst {vehicle}",
       "driverBody": "Sobald {vehicle} disponiert wird, erscheint die Einsatzstelle hier.",
       "rekoTitle": "Dir ist die Reko zugewiesen",
-      "rekoBody": "Sobald dir der KP einen Erkundungsauftrag gibt, erscheint er hier."
+      "rekoBody": "Sobald dir der KP eine Reko zuweist, erscheint sie hier."
     },
     "roles": {
       "driver": "Fahrer {vehicle}",

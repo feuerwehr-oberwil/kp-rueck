@@ -1085,7 +1085,7 @@
       "training": "Exercice"
     },
     "source": {
-      "reko": "Mandat de reco",
+      "reko": "Comme reco",
       "driver": "Comme conducteur · {vehicle}",
       "magazin": "Caserne",
       "rekoReason": "Assigné en reconnaissance par le PC",
@@ -1182,7 +1182,7 @@
       "driverTitle": "Tu conduis {vehicle}",
       "driverBody": "Dès que {vehicle} est engagé, l’intervention apparaît ici.",
       "rekoTitle": "Tu es attribué à la reconnaissance",
-      "rekoBody": "Dès que le PC te donne un mandat de reconnaissance, il apparaît ici."
+      "rekoBody": "Dès que le PC t’attribue une reco, elle apparaît ici."
     },
     "roles": {
       "driver": "Conducteur {vehicle}",
@@ -1321,7 +1321,7 @@
       "openCount": "{count} ouvertes",
       "noOpenWork": "libre",
       "doneCount": "{count} faites",
-      "distanceOpenTooltip": "Distance à vol d’oiseau jusqu’à la mission de reconnaissance ouverte la plus proche",
+      "distanceOpenTooltip": "Distance à vol d’oiseau jusqu’à la reco ouverte la plus proche",
       "distanceLastTooltip": "Distance à vol d’oiseau jusqu’à la dernière intervention attribuée",
       "distanceLastSuffix": "(dernière)"
     },
@@ -2041,7 +2041,7 @@
       "moreActions": "Autres actions"
     },
     "detail": {
-      "rekoAuftrag": "Mission de reconnaissance",
+      "rekoAuftrag": "Attribution de la reco",
       "groups": {
         "kraefte": "Moyens"
       },
@@ -2069,7 +2069,7 @@
       "moreActions": "Autres actions",
       "diveraAlarm": "Convocation",
       "eventWideRekoTransfer": "Transférer toutes les reconnaissances ouvertes",
-      "eventWideRekoTransferTooltip": "Transfère toutes les missions de reconnaissance ouvertes de cette personne dans tout l’événement, pas seulement cette intervention.",
+      "eventWideRekoTransferTooltip": "Transfère toutes les recos ouvertes de cette personne dans tout l’événement, pas seulement cette intervention.",
       "sourceAuftrag": "Mission « {name} »",
       "sourceAuftragHint": "Poursuit vers l'étape suivante",
       "sourceIncident": "Uniquement cette intervention",
@@ -2178,7 +2178,7 @@
       "failed": "Échec du transfert",
       "markAndTransferFailed": "La personne n’a pas pu servir de cible de reconnaissance – rien n’a été transféré.",
       "title": "Transférer les reconnaissances",
-      "description": "Transférer les missions de reconnaissance ouvertes de {name} à une autre personne.",
+      "description": "Transférer les recos ouvertes de {name} à une autre personne.",
       "noOthers": "Aucune autre personne de reconnaissance disponible"
     },
     "person": {

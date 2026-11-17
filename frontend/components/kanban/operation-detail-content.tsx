@@ -86,7 +86,7 @@ import { ShellLoader } from '@/components/ui/shell-loader'
  *
  * Grey and underlined, never blue: on this board colour carries status and
  * priority, and a row of four blue words would read as four warnings. Used by
- * the Reko-Auftrag rows, where four `xs` buttons used to wrap over three lines
+ * the Reko-Zuweisung rows, where four `xs` buttons used to wrap over three lines
  * in the 420px panel.
  */
 const ROW_ACTION =
@@ -1526,7 +1526,7 @@ export function OperationDetailContent({
               // Unassigned, this line reads «Reko zuweisen» — so it does that,
               // rather than dropping the operator on a tab where they have to
               // find the button again. It still switches tabs first, so the
-              // dialog closes onto the Reko-Auftrag block that now owns the
+              // dialog closes onto the Reko-Zuweisung block that now owns the
               // assignment and not onto the Übersicht they came from.
               onClick={() => {
                 selectTab('reko')
@@ -1669,7 +1669,7 @@ export function OperationDetailContent({
               />
               </div>
 
-              {/* Der Reko-Auftrag: wer schaut es an, und alles, was daran
+              {/* Die Reko-Zuweisung: wer schaut es an, und alles, was daran
                   geändert wird. Moved here off Übersicht — Reko was split
                   across two tabs, with the tab NAMED Reko holding only the
                   report while every dispatch control sat in a column that also

@@ -43,7 +43,7 @@ import {
  *      a Reko trupp the working crew's page.
  *
  * Copy comes from `frontend/messages/de.json` under `feld.source.*` — the tag
- * («Reko-Auftrag»), the sentence that explains the row («Vom KP als Reko
+ * («Als Reko»), the sentence that explains the row («Vom KP als Reko
  * zugeteilt») and the action it promises («Reko erfassen»).
  *
  * **Why this file is `serial` and arranges once.** The Feld-Code door is rate
@@ -228,7 +228,7 @@ test.describe('/feld als Reko-Trupp', () => {
     await kpPage.context().close();
   });
 
-  test('der Reko-Auftrag steht auf der Liste – als Reko angeschrieben, nicht als Einsatz', async ({
+  test('die Reko steht auf der Liste – als Reko angeschrieben, nicht als Einsatz', async ({
     browser,
   }) => {
     const { page: phone } = await phoneFor(browser, fixture.rekoAssigned);
@@ -239,7 +239,7 @@ test.describe('/feld als Reko-Trupp', () => {
     // The tag, the sentence and the promise — `feld.source.reko`, `rekoReason`,
     // `rekoAction`. Three separate strings because they answer three separate
     // questions: what this is, why it is on MY list, and what tapping does.
-    await expect(rekoRow.getByText('Reko-Auftrag', { exact: true })).toBeVisible();
+    await expect(rekoRow.getByText('Als Reko', { exact: true })).toBeVisible();
     await expect(rekoRow.getByText('Vom KP als Reko zugewiesen')).toBeVisible();
     await expect(rekoRow.getByText('Reko erfassen', { exact: true })).toBeVisible();
 
@@ -310,7 +310,7 @@ test.describe('/feld als Reko-Trupp', () => {
     // somebody the board draws as the Reko.
     const fallbackRow = row(phone, fixture.fallbackIncident);
     await expect(fallbackRow).toBeVisible({ timeout: FIELD_TIMEOUT });
-    await expect(fallbackRow.getByText('Reko-Auftrag', { exact: true })).toBeVisible();
+    await expect(fallbackRow.getByText('Als Reko', { exact: true })).toBeVisible();
     await expect(fallbackRow.getByText('Vom KP als Reko zugewiesen')).toBeVisible();
     await expect(fallbackRow.getByText('Reko erfassen', { exact: true })).toBeVisible();
     await expect(fallbackRow.getByText('kein EL erfasst')).toHaveCount(0);
