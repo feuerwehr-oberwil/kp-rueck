@@ -29,8 +29,6 @@
  * card, the label in a picker), so neither relies on colour alone.
  */
 
-import { AlertCircle, AlertTriangle, Info, type LucideIcon } from "lucide-react"
-
 export type Priority = "high" | "medium" | "low"
 
 export const PRIORITY_LABELS: Record<Priority, string> = {
@@ -44,12 +42,6 @@ export const PRIORITY_COLORS: Record<Priority, string> = {
   high: "#ef4444", // red — destructive
   medium: "#f59e0b", // amber — warning
   low: "#94a3b8", // slate-400 — no signal
-}
-
-export const PRIORITY_ICONS: Record<Priority, LucideIcon> = {
-  high: AlertTriangle,
-  medium: AlertCircle,
-  low: Info,
 }
 
 /**
