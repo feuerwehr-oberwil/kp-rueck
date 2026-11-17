@@ -22,6 +22,10 @@ import { RouteSlot } from "@/components/route-slot"
 import { useWallIdle } from "@/components/display/use-wall-idle"
 import { usePointerFine } from "@/lib/hooks/use-pointer-fine"
 
+import { useViewerFeed, ViewerPayloadContext } from "@/lib/hooks/use-viewer-situation"
+import { DisplayStaleBanner } from "@/components/display/display-stale-banner"
+import { LoadingStatus } from "@/components/ui/shell-loader"
+
 const displayPages = [
   { href: "/display/map", labelKey: "pageMap", icon: Map },
   { href: "/display/board", labelKey: "pageBoard", icon: LayoutGrid },
@@ -40,27 +44,21 @@ function isModalOpen(): boolean {
   )
 }
 
-function ConnectionIndicator({ token }: { token: string | null }) {
-  const t = useTranslations('display')
+function SessionConnectionIndicator() {
   const [online, setOnline] = useState(true)
-
   const check = useCallback(async () => {
     try {
-      // Probe something THIS viewer can actually reach. `getAllSettings` is authenticated,
-      // so on a share-token display it failed every single time and the icon sat
-      // permanently red — the only warning these screens had was stuck crying wolf, which
-      // is worse than no indicator at all: a real alert next to it reads as more noise.
-      const answer = token ? await apiClient.getViewerData(token) : await apiClient.getAllSettings()
-      // A GET with no answer at all resolves to nothing rather than throwing — that is
-      // exactly the outage this icon exists for, not a green light.
-      setOnline(answer !== undefined)
+      setOnline((await apiClient.getAllSettings()) !== undefined)
     } catch {
       setOnline(false)
     }
-  }, [token])
-  // Unattended wall screen: never paused on visibility (see `usePolling`).
+  }, [])
   usePolling(check, { intervalMs: 15000, pauseWhenHidden: false })
+  return <ConnectionIndicator online={online} />
+}
 
+function ConnectionIndicator({ online }: { online: boolean }) {
+  const t = useTranslations('display')
   return (
     <div className="flex items-center gap-1.5" title={online ? t('layout.connected') : t('layout.disconnected')}>
       {online ? (
@@ -73,26 +71,28 @@ function ConnectionIndicator({ token }: { token: string | null }) {
 }
 
 export default function DisplayLayout({ children }: { children: React.ReactNode }) {
+  const token = useSearchParams().get("token")
   return (
     <DisplaySearchProvider>
-      <DisplayChrome>{children}</DisplayChrome>
+      <DisplayChrome key={token} token={token}>{children}</DisplayChrome>
     </DisplaySearchProvider>
   )
 }
 
 function DisplayChrome({
-  children,
+  children, token,
 }: {
   children: React.ReactNode
+  token: string | null
 }) {
   const t = useTranslations('display')
   const intlLocale = useIntlLocale()
   const { selectedEvent } = useEvent()
-  const searchParams = useSearchParams()
   const pathname = usePathname()
   const router = useRouter()
   const { isAuthenticated, loading: authLoading } = useAuth()
-  const token = searchParams.get("token")
+  const feed = useViewerFeed(token)
+  const tCommon = useTranslations("common")
   const isIndexPage = pathname === "/display"
   const isSubPage = !isIndexPage
 
@@ -115,7 +115,6 @@ function DisplayChrome({
   useDisplayErrorRecovery()
 
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
-  const [tokenEvent, setTokenEvent] = useState<{ name: string; training_flag: boolean } | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const { query, setQuery } = useDisplaySearch()
   const isSearchable = SEARCHABLE_PAGES.includes(pathname)
@@ -165,18 +164,6 @@ function DisplayChrome({
     return () => clearInterval(timer)
   }, [])
 
-  // Token event loading
-  useEffect(() => {
-    if (!token) return
-    const loadTokenEvent = async () => {
-      try {
-        const data = await apiClient.getViewerData(token)
-        setTokenEvent({ name: data.event.name, training_flag: data.event.training_flag })
-      } catch { /* silent */ }
-    }
-    loadTokenEvent()
-  }, [token])
-
   // The bar used to slide away after 8s of no mouse movement. It no longer
   // does: it is the ONLY bar now (the board pages had a second, near-identical
   // header of their own), and it carries the two things people read a wall
@@ -202,8 +189,9 @@ function DisplayChrome({
     }
   }
 
-  const eventName = selectedEvent?.name || tokenEvent?.name || "KP Rück"
-  const isTraining = selectedEvent?.training_flag || tokenEvent?.training_flag || false
+  const event = token ? feed.snapshot?.payload.event : selectedEvent
+  const eventName = event?.name || "KP Rück"
+  const isTraining = event?.training_flag ?? false
   // A logged-in display with no Ereignis picked draws empty columns and calls
   // itself «KP Rück», which reads as "nothing is happening" rather than "nothing
   // is selected" — and the only way out was an unlabelled ← that says «zurück».
@@ -335,7 +323,7 @@ function DisplayChrome({
           {/* Utility icons — grouped for consistent visual weight */}
           <div className="flex items-center gap-0.5">
             <div className="flex h-7 w-7 items-center justify-center">
-              <ConnectionIndicator token={token} />
+              {token ? <ConnectionIndicator online={feed.status === 'ready'} /> : <SessionConnectionIndicator />}
             </div>
             <button
               onClick={toggleFullscreen}
@@ -359,11 +347,22 @@ function DisplayChrome({
         </div>
       </header>
 
+      {token && feed.snapshot && <DisplayStaleBanner lastRefresh={feed.snapshot.received} />}
       <main className="flex-1 overflow-hidden">
         {/* Nothing is rendered while the redirect above is in flight — a flash of the display
             chrome would be the same wrong promise, just briefer. */}
         {/* In a RouteSlot, never straight in <main>: React error #418 on a cold load (route-slot.tsx). */}
-        <RouteSlot>{mayView || authLoading ? children : null}</RouteSlot>
+        {token && !feed.snapshot ? (
+          <div className="flex h-full items-center justify-center px-6 text-center text-muted-foreground">
+            {feed.status === 'loading'
+              ? <LoadingStatus size="surface">{tCommon('loading')}</LoadingStatus>
+              : <p role="status">{feed.status === 'invalid' ? t('tokenBoard.invalidLink') : t('common.retrying')}</p>}
+          </div>
+        ) : (
+          <ViewerPayloadContext.Provider value={feed.snapshot?.payload ?? null}>
+            <RouteSlot>{mayView || authLoading ? children : null}</RouteSlot>
+          </ViewerPayloadContext.Provider>
+        )}
       </main>
     </div>
   )

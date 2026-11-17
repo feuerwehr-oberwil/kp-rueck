@@ -57,8 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []); // Only run once on mount
 
   useEffect(() => {
-    // The api-client fires this when any request comes back 401 — the cookie
-    // session expired underneath us (e.g. laptop asleep past token expiry).
+    // A cookie-authenticated request answered 401, e.g. after the laptop slept
+    // past token expiry. Public form and viewer tokens expire independently.
     // Without it, every mutation fails silently and optimistic UI reverts
     // with no explanation until the user happens to reload.
     const handleSessionExpired = () => {

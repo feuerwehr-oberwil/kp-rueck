@@ -60,6 +60,10 @@ class ErrorCode(StrEnum):
     # that lost a race to another board (409; the client says it in its own sentence) and an
     # unmerge of a report that is not merged (any more) – a second click, answered quietly.
     ASSIGNMENT_RACE = "assignment_race"
+    INCIDENT_ALREADY_RESTORED = "incident_already_restored"
+    INCIDENT_RESTORE_MERGED = "incident_restore_merged"
+    INCIDENT_RESTORE_CONFLICT = "incident_restore_conflict"
+    INCIDENT_RESTORE_RESOURCE_CONFLICT = "incident_restore_resource_conflict"
     INCIDENT_NOT_MERGED = "incident_not_merged"
     # The Reko form (`/reko`, opened from a board link or from /feld)
     REKO_LINK_INVALID = "reko_link_invalid"

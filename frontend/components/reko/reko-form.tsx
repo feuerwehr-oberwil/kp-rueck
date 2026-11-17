@@ -1,7 +1,7 @@
 'use client'
 
 import { formatTime } from '@/lib/format-time'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
@@ -16,8 +16,13 @@ import { LinkInvalidCard } from '@/components/link-page/link-page'
 import {
   EMPTY_REKO_FORM,
   RekoReportForm,
+  toRekoFormData,
   type RekoFormData,
 } from '@/components/reko/reko-report-form'
+import {
+  applyDraft, changedFields, conflictsWithServer, draftFields, ReportDrafts,
+  type DraftChanges, type RecoverableDraft, type StoredRevision,
+} from './field-draft'
 import { telHref } from '@/lib/phone'
 import { getApiUrl } from '@/lib/env'
 import { RekoDummyGenerator } from '@/components/reko-dummy-generator'
@@ -31,19 +36,33 @@ import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
 const INITIAL_FORM_DATA: RekoFormData = EMPTY_REKO_FORM
 
 export default function RekoForm() {
-  const searchParams = useSearchParams()
+  const params = useSearchParams()
+  const incidentId = params.get('incident_id')
+  const token = params.get('token')
+  const personnelId = params.get('personnel_id')
+  return <FieldReport key={JSON.stringify([incidentId, token, personnelId])} incidentId={incidentId}
+    token={token} personnelId={personnelId} returnTo={params.get('return_to')} />
+}
+
+function FieldReport({ incidentId, token, personnelId, returnTo }: {
+  incidentId: string | null
+  token: string | null
+  personnelId: string | null
+  returnTo: string | null
+}) {
   const router = useRouter()
   const t = useTranslations('reko.form')
   const tLoading = useTranslations('common')
   const intlLocale = useIntlLocale()
 
-  const incidentId = searchParams.get('incident_id')
-  const token = searchParams.get('token')
-  const personnelId = searchParams.get('personnel_id')
-  const returnTo = searchParams.get('return_to')
-
   const [formData, setFormData] = useState<RekoFormData>(INITIAL_FORM_DATA)
-  const [localStorageLoaded, setLocalStorageLoaded] = useState(false)
+  const [syncedData, setSyncedData] = useState<RekoFormData | null>(null)
+  const [drafts, setDrafts] = useState<ReportDrafts | null>(null)
+  const [recovery, setRecovery] = useState<RecoverableDraft[]>([])
+  const restored = useRef<RecoverableDraft | null>(null)
+  const [attempts, setAttempts] = useState<DraftChanges[]>([])
+  const latestAttempts = useRef<DraftChanges[]>([])
+  const saving = useRef<Promise<RekoFormData> | null>(null)
   const [incidentTitle, setIncidentTitle] = useState<string>('')
   const [incidentDetails, setIncidentDetails] = useState<{
     location?: string
@@ -83,50 +102,6 @@ export default function RekoForm() {
   // Constant until the backend returns the event's training_flag on the Reko form
   // response (see the NOTE in the loader below); the dummy generator stays hidden.
   const isTraining = false
-
-  // LocalStorage key for this specific reko form
-  const localStorageKey = incidentId ? `reko-form-${incidentId}` : null
-
-  // Save form data to localStorage on every change
-  const saveToLocalStorage = useCallback((data: RekoFormData) => {
-    if (!localStorageKey) return
-    try {
-      localStorage.setItem(localStorageKey, JSON.stringify({
-        data,
-        timestamp: new Date().toISOString()
-      }))
-    } catch (error) {
-      console.error('Failed to save to localStorage:', error)
-    }
-  }, [localStorageKey])
-
-  // Load form data (and its save timestamp) from localStorage
-  const loadFromLocalStorage = useCallback((): { data: RekoFormData; timestamp: string | null } | null => {
-    if (!localStorageKey) return null
-    try {
-      const stored = localStorage.getItem(localStorageKey)
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        return {
-          data: parsed.data as RekoFormData,
-          timestamp: (parsed.timestamp as string | undefined) ?? null
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load from localStorage:', error)
-    }
-    return null
-  }, [localStorageKey])
-
-  // Clear localStorage after successful submission
-  const clearLocalStorage = useCallback(() => {
-    if (!localStorageKey) return
-    try {
-      localStorage.removeItem(localStorageKey)
-    } catch (error) {
-      console.error('Failed to clear localStorage:', error)
-    }
-  }, [localStorageKey])
 
   // Dummy data generation for training mode. The whole report is generated as one
   // coherent picture: a NOT-relevant incident reads like a false alarm (no people,
@@ -247,6 +222,7 @@ export default function RekoForm() {
   // helpers and `t` are read through an effect event, so nothing else can reload the form
   // under the crew's typing.
   const loadForm = useEffectEvent(() => {
+    let active = true
     async function init() {
       if (!incidentId || !token) {
         setLinkInvalid(true)
@@ -258,6 +234,7 @@ export default function RekoForm() {
         // Load incident details and existing draft/report
         const data = await apiClient.getRekoForm(incidentId, token, personnelId)
 
+        if (!active) return
         setIncidentTitle(data.incident_title || t('unknownIncident'))
         setIncidentDetails({
           location: data.incident_location || undefined,
@@ -279,38 +256,28 @@ export default function RekoForm() {
           setArrivedAt(new Date(data.arrived_at))
         }
 
-        // Load existing report/draft - prefer localStorage for offline resilience
-        const localData = loadFromLocalStorage()
-        const serverData = {
-          is_relevant: data.is_relevant,
-          dangers_json: data.dangers_json || INITIAL_FORM_DATA.dangers_json,
-          effort_json: data.effort_json || INITIAL_FORM_DATA.effort_json,
-          power_supply: data.power_supply || 'unknown',
-          photos_json: data.photos_json || [],
-          summary_text: data.summary_text || '',
-          additional_notes: data.additional_notes || ''
-        }
-
-        // Use localStorage data only if it has meaningful content AND is not
-        // older than the server report — a stale local draft must not overwrite
-        // a report that was edited or submitted more recently elsewhere.
-        // If the server has no meaningful report yet, local data wins as before
-        // (user was likely editing offline).
-        const localHasContent =
-          localData !== null && (localData.data.summary_text || localData.data.is_relevant !== null)
-        const serverHasContent = data.is_relevant !== null || !!data.summary_text
-        const localTimestamp = localData?.timestamp ? new Date(localData.timestamp).getTime() : 0
-        const serverTimestamp = data.updated_at ? new Date(data.updated_at).getTime() : 0
-        if (localHasContent && (!serverHasContent || localTimestamp > serverTimestamp)) {
-          setFormData(localData!.data)
-          toast.info(t('localRestored'), {
-            description: t('localRestoredDescription')
+        // A report belongs to one form link. The old incident-wide key cannot identify its author.
+        const store = new ReportDrafts(data.id)
+        const serverData = toRekoFormData(data)
+        setDrafts(store)
+        setSyncedData(serverData)
+        setFormData(serverData)
+        try {
+          const candidates = store.read().filter(version => {
+            const desired = applyDraft(serverData, version.draft.changes)
+            return Object.keys(changedFields(serverData, desired, version.draft.attempts?.at(-1))).length > 0
           })
-        } else {
-          setFormData(serverData)
+          if (candidates.length === 1 && !conflictsWithServer(serverData, candidates[0].draft)) {
+            restore(candidates[0], serverData)
+            toast.info(t('localRestored'), { description: t('localRestoredDescription') })
+          } else {
+            setRecovery(candidates)
+          }
+        } catch (error) {
+          console.error('Failed to load local Reko draft:', error)
         }
-        setLocalStorageLoaded(true)
       } catch (error) {
+        if (!active) return
         console.error('Failed to load form:', error)
         // 4xx = the server refused this link (expired, revoked, wrong incident);
         // anything else is the connection, which a new link would not fix.
@@ -320,60 +287,101 @@ export default function RekoForm() {
           setValidationError(t('loadError'))
         }
       } finally {
-        setIsLoading(false)
+        if (active) setIsLoading(false)
       }
     }
 
-    init()
+    void init()
+    return () => { active = false }
   })
   useEffect(() => loadForm(), [incidentId, token, personnelId])
 
-  // Save to localStorage on every form change for offline resilience
+  function restore(version: RecoverableDraft, server: RekoFormData) {
+    restored.current = version
+    rememberAttempts(version.draft.attempts ?? [])
+    setFormData(applyDraft(server, version.draft.changes))
+    setRecovery([])
+  }
+
+  function rememberAttempts(history: DraftChanges[]) {
+    latestAttempts.current = history
+    setAttempts(history)
+  }
+
+  const changes = syncedData && changedFields(syncedData, formData, attempts.at(-1))
+  const dirty = !!changes && Object.keys(changes).length > 0
+
+  function persist(store: ReportDrafts, base: RekoFormData, form: RekoFormData, unconfirmed: DraftChanges[]) {
+    try {
+      const fields = changedFields(base, form, unconfirmed.at(-1))
+      return store.write(Object.keys(fields).length ? {
+        changes: fields,
+        previous: changedFields(base, base, fields),
+        ...(unconfirmed.length > 0 && { attempts: unconfirmed }),
+      } : null)
+    } catch (error) {
+      console.error('Failed to store local Reko draft:', error)
+    }
+  }
+
   useEffect(() => {
-    // Don't save until we've loaded the initial data
-    if (!localStorageLoaded || isLoading) return
-    saveToLocalStorage(formData)
-  }, [formData, localStorageLoaded, isLoading, saveToLocalStorage])
+    if (drafts && syncedData && !recovery.length) persist(drafts, syncedData, formData, attempts)
+  }, [drafts, syncedData, recovery, formData, attempts])
 
-  const autosave = useEffectEvent(() => void saveDraft())
-  // Auto-save draft to server every 30 seconds (backup to server).
-  // Stops as soon as submission starts so no late draft-save races the submit.
-  useEffect(() => {
-    if (!incidentId || !token || isLoading || isSubmitting) return
+  function acknowledged(form: RekoFormData, sent: StoredRevision | null | undefined) {
+    // The request may finish after the component unmounts, when no effect can do this.
+    // Retire the exact revision sent; a later keystroke already has its own storage key.
+    if (sent) {
+      try { drafts?.acknowledge(sent) } catch (error) { console.error('Failed to retire sent Reko draft:', error) }
+    }
+    const version = restored.current
+    if (version && !Object.keys(changedFields(form, applyDraft(form, version.draft.changes))).length) {
+      // The chosen source revision reached the KP. A concurrent writer has its own
+      // immutable revision. A source we further edited stays available as another version.
+      try { drafts?.retire(version) } catch (error) { console.error('Failed to retire Reko draft:', error) }
+      restored.current = null
+    }
+    rememberAttempts([])
+    setSyncedData(form)
+    setUnsent(false)
+  }
 
-    const interval = setInterval(() => {
-      autosave()
-    }, 30000)
+  function sending(base: RekoFormData, fields: DraftChanges) {
+    // Each attempt includes all previously unconfirmed fields. Keep distinct snapshots:
+    // a commit followed by a lost response could have left any of them on the server.
+    const history = latestAttempts.current.filter(previous => JSON.stringify(previous) !== JSON.stringify(fields))
+    if (Object.keys(fields).length) history.push(fields)
+    rememberAttempts(history)
+    // Persist BEFORE dispatch: closing a tab while waiting for a response is just as
+    // ambiguous as losing the response. The stored intent always uses the latest values.
+    if (drafts) return persist(drafts, base, formData, history)
+  }
 
-    return () => clearInterval(interval)
-    // `formData` restarts the timer: a draft goes 30 s after the last change.
-  }, [formData, incidentId, token, isLoading, isSubmitting])
-
-  const saveDraft = useCallback(async () => {
-    // Check the ref (not isSubmitting state): stale interval closures would
-    // otherwise fire a draft-save mid-/post-submit and un-submit the report.
-    if (isSaving || isSubmittingRef.current || !incidentId || !token) return
-
+  async function saveDraft() {
+    if (!dirty || !changes || !syncedData || saving.current || isSubmittingRef.current || !incidentId || !token) return
+    const sent = sending(syncedData, changes)
+    const request = apiClient.saveRekoDraft(incidentId, token, changes).then(() => formData)
+    saving.current = request
     setIsSaving(true)
     try {
-      await apiClient.saveRekoDraft(incidentId, token, {
-        ...formData,
-        incident_id: incidentId,
-        token,
-        is_draft: true
-      })
+      await request
+      acknowledged(formData, sent)
       setLastSaved(new Date())
-      setUnsent(false)
     } catch (error) {
       console.error('Auto-save failed:', error)
-      // Still no toast — the crew is typing, not watching — but the footer is
-      // told, because a footer that keeps claiming «Gespeichert um 20:14» while
-      // six saves in a row fail is the one thing on this screen that lies.
       setUnsent(true)
     } finally {
+      saving.current = null
       setIsSaving(false)
     }
-  }, [formData, incidentId, token, isSaving])
+  }
+
+  const autosave = useEffectEvent(() => void saveDraft())
+  useEffect(() => {
+    if (!dirty || isSubmitting) return
+    const interval = setInterval(autosave, 30000)
+    return () => clearInterval(interval)
+  }, [dirty, formData, isSubmitting])
 
   // The network coming back is the usual end of an `unsent` stretch: the next
   // autosave carries everything. Watched so the footer can say "kein Netz"
@@ -392,22 +400,19 @@ export default function RekoForm() {
   // The "Einsatz relevant?" requirement lives in the shared field set, which
   // refuses to call this until it is answered — the same rule on both mounts.
   async function handleSubmit() {
-    if (!incidentId || !token) return
+    if (!incidentId || !token || !syncedData || isSubmittingRef.current) return
 
     // Set the ref synchronously so any in-flight auto-save closure bails out.
     isSubmittingRef.current = true
     setIsSubmitting(true)
 
     try {
-      await apiClient.submitRekoReport(incidentId, token, {
-        ...formData,
-        incident_id: incidentId,
-        token,
-        is_draft: false
-      })
-
-      // Clear localStorage after successful submission
-      clearLocalStorage()
+      // Serialize final submission after an earlier autosave, even when its response is delayed.
+      const baseline = (await saving.current?.catch(() => syncedData)) ?? syncedData
+      const fields = changedFields(baseline, formData, latestAttempts.current.at(-1))
+      const sent = sending(baseline, fields)
+      await apiClient.submitRekoReport(incidentId, token, fields)
+      acknowledged(formData, sent)
 
       // Redirect to success page with return URL for back button functionality.
       // Intentionally keep isSubmitting/isSubmittingRef true on success so the
@@ -448,6 +453,38 @@ export default function RekoForm() {
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>{validationError}</AlertDescription>
+      </Alert>
+    )
+  }
+
+  if (recovery.length && syncedData) {
+    return (
+      <Alert>
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          <p>{t(recovery.length > 1 ? 'draftVersions' : 'draftConflict')}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {recovery.map(version => recovery.length === 1 ? (
+              <Button key={version.revisions[0].key} onClick={() => restore(version, syncedData)}>
+                {t('restoreDevice')}
+              </Button>
+            ) : (
+              <button key={version.revisions[0].key} type="button"
+                className="w-full rounded-md border bg-background p-3 text-left focus-visible:ring-2"
+                onClick={() => restore(version, syncedData)}>
+                <span className="block font-semibold">{version.savedAt
+                  ? t('draftAt', { time: formatTime(new Date(version.savedAt), intlLocale) }) : t('restoreDevice')}</span>
+                <DraftSummary changes={version.draft.changes} />
+              </button>
+            ))}
+            <Button variant="outline" onClick={() => {
+              if (recovery.length === 1) {
+                try { drafts?.retire(recovery[0]) } catch (error) { console.error('Failed to retire Reko draft:', error) }
+              }
+              setRecovery([])
+            }}>{t('keepServer')}</Button>
+          </div>
+        </AlertDescription>
       </Alert>
     )
   }
@@ -540,16 +577,16 @@ export default function RekoForm() {
              that on every keystroke — it is whether the KP has it or whether it
              is still on this phone. «Jetzt zum KP senden» is the same button
              the Rapport form calls `sendChanges`; one pattern, two forms. */
-          !unsent ? (
+          !unsent || !dirty ? (
             <div className="space-y-1 text-center">
-              {lastSaved && (
+              {lastSaved && !dirty && (
                 <p className="text-sm">
                   {t('syncedAt', {
                     time: formatTime(lastSaved, intlLocale),
                   })}
                 </p>
               )}
-              <p className="text-xs text-muted-foreground">{lastSaved ? t('syncedHint') : t('autoSave')}</p>
+              <p className="text-xs text-muted-foreground">{lastSaved && !dirty ? t('syncedHint') : t('autoSave')}</p>
             </div>
           ) : online ? (
             <div className="space-y-2">
@@ -584,4 +621,22 @@ export default function RekoForm() {
       />
     </div>
   )
+}
+
+function DraftSummary({ changes }: { changes: DraftChanges }) {
+  const t = useTranslations('reko.form')
+  const report = useTranslations('reko.reportSection')
+  const labels: Record<string, string> = {
+    summary_text: t('summaryShort'), additional_notes: t('notes'), is_relevant: t('relevantQuestion'),
+    power_supply: t('powerSupply'), other_notes: t('otherDangers'), personnel_count: t('personnelCount'),
+    estimated_duration_hours: t('duration'), vehicles_needed: report('vehiclesLabel'), equipment_needed: report('equipmentLabel'),
+  }
+  return draftFields(changes).map(([key, value]) => {
+    const label = labels[key] ?? report(`dangerBadges.${key}`)
+    let content = value == null || value === '' ? '–' : String(value)
+    if (typeof value === 'boolean') content = t(value ? 'yes' : 'no')
+    if (Array.isArray(value)) content = value.join(', ') || '–'
+    if (key === 'power_supply' && t.has(`powerLabels.${value}`)) content = t(`powerLabels.${value}`)
+    return <span key={key} className="block break-words text-sm">{label}: {content}</span>
+  })
 }

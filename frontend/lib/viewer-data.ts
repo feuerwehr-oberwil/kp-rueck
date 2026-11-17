@@ -236,13 +236,13 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
 
   // A route's crew lives on the Auftrag, not on its stops: «steht auf einem Auftrag», the
   // same enrichment `useStatusData` does for the logged-in display.
-  const onAuftragPersonIds = new Set(
-    (payload.groups ?? []).flatMap((group) =>
-      liveGroupAssignments(group)
-        .filter((assignment) => assignment.resource_type === "personnel")
-        .map((assignment) => String(assignment.resource_id)),
-    ),
-  )
+  const onAuftragPersonIds = new Set<string>()
+  for (const group of payload.groups ?? []) {
+    for (const assignment of liveGroupAssignments(group)) {
+      if (assignment.resource_type === "personnel") onAuftragPersonIds.add(String(assignment.resource_id))
+      if (assignment.resource_type === "material") assignedMaterialIds.add(String(assignment.resource_id))
+    }
+  }
 
   const personnel: Person[] = payload.personnel.map((p) => ({
     id: String(p.id),

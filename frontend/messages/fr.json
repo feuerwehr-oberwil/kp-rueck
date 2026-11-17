@@ -328,6 +328,7 @@
       "yes": "Oui",
       "no": "Non",
       "personCount": "{count, plural, one {# personne} other {# personnes}}",
+      "retrying": "Connexion interrompue. Un nouvel essai aura lieu automatiquement.",
       "staleWarn": "Liaison perturbée – dernier état à {time}. L’actualisation continue.",
       "staleAlert": "Pas de liaison · état à {time}",
       "moreBelow": "+{count} de plus ↓"
@@ -655,6 +656,10 @@
       "incident_status_changed": "Statut modifié entre-temps – l’intervention a été rechargée.",
       "text_conflict": "Modifié ailleurs entre-temps – non enregistré.",
       "assignment_race": "Ressource déjà attribuée",
+      "incident_already_restored": "L’intervention est déjà restaurée.",
+      "incident_restore_merged": "Ce signalement a été fusionné. Il peut être séparé depuis l’intervention cible.",
+      "incident_restore_conflict": "L’intervention a changé. Réessayez la restauration.",
+      "incident_restore_resource_conflict": "« {name} » est indisponible. L’attribution actuelle est conservée.",
       "incident_not_merged": "Ce signalement n’est pas fusionné."
     }
   },
@@ -1350,7 +1355,7 @@
       "vehicleCount": "{count, plural, one {# véhicule} other {# véhicules}}",
       "transferring": "Transfert …",
       "transfer": "Transférer",
-      "confirmCounts": "Seront déplacés : {crew, plural, one {# personne} other {# personnes}}, {vehicles} véhicules, {materials} matériel."
+      "confirmCounts": "Seront déplacés : {crew, plural, one {# personne} other {# personnes}}, {vehicles, plural, one {# véhicule} other {# véhicules}}, {materials} matériel."
     },
     "driver": {
       "assignErrorTitle": "Échec de l’attribution du conducteur",
@@ -1554,6 +1559,9 @@
       "detailsToggle": "Compléter les détails"
     },
     "checkin": {
+      "retrying": "Connexion interrompue",
+      "willRetry": "La liste de présence sera rechargée automatiquement.",
+      "lastKnown": "Dernier état connu. La liste de présence sera rechargée automatiquement.",
       "invalidCode": "Code non valable ou échu. Scanne à nouveau le code QR.",
       "missingCode": "Code d’accès manquant. Scanne le code QR.",
       "checkoutBlocked": "Départ impossible",
@@ -3291,6 +3299,11 @@
       "invalidLink": "Ce lien de reconnaissance n’est plus valable. Demande un nouveau lien.",
       "invalidTitle": "Lien non valable ou expiré",
       "unknownIncident": "Inconnue",
+      "draftVersions": "Plusieurs brouillons de ce rapport sont enregistrés sur cet appareil. Choisis la version à reprendre. Les autres restent sur cet appareil.",
+      "draftAt": "Brouillon de {time}",
+      "draftConflict": "Un brouillon est enregistré sur cet appareil. Le PC a modifié les mêmes informations entre-temps. Quelle version veux-tu reprendre ?",
+      "restoreDevice": "Utiliser le brouillon de l’appareil",
+      "keepServer": "Garder la version du PC",
       "localRestored": "Modifications locales restaurées",
       "localRestoredDescription": "Les données que tu avais saisies ont été rechargées.",
       "loadError": "Le formulaire n’a pas pu être chargé. Vérifie la connexion et recharge la page.",
@@ -4580,6 +4593,7 @@
       "itemsMoved": "Repris de {other}",
       "itemsReturned": "Revenu de {other}"
     },
+    "restoreIncident": "Restaurer l’intervention",
     "refDeleted": "{ref} (supprimée)",
     "refMerged": "{ref} → {target}",
     "linkHint": "Lier une intervention – ou # dans le texte",
@@ -4631,6 +4645,8 @@
     "conflicts": {
       "label": "Conflits",
       "text": "Du travail de KP Rück hors ligne a été modifié autrement ici – veuillez décider",
+      "count": "{count, plural, one {# conflit} other {# conflits}}",
+      "viewerText": "Les personnes autorisées vérifient les modifications de KP Rück hors ligne.",
       "open": "{count, plural, one {# conflit} other {# conflits}} ›",
       "title": "Conflits",
       "intro": "La même chose a été modifiée ici et sur l’autre système. Tant que vous ne choisissez pas, la version de {leader} s’applique.",

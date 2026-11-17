@@ -33,7 +33,7 @@ function time(iso: string | null): string {
  *
  * On the system that leads, each conflict is decided with one choice – this version, the
  * other one, or for text «Beide zusammen», both one below the other in a field that can be
- * rewritten – and «Übernehmen». The other system, and a viewer, see the same list to read.
+ * rewritten – and «Übernehmen». Editors on the other system see the same list to read.
  * Decided ones fold away under «n erledigt». Mount it per Ereignis (`key`).
  */
 export function StandbyConflictsSheet({

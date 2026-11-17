@@ -11,7 +11,7 @@ import { translateOutsideReact } from '../../i18n-messages'
 import {
   markRestReachable,
   markRestUnreachable,
-  request as httpRequest,
+  linkRequest, request as httpRequest,
   REQUEST_TIMEOUT_MS,
 } from '../http'
 import { errorCodeOf } from '../error-codes'
@@ -237,7 +237,7 @@ export class FeldApi {
 
   /** Step 3: this device is that person from now on. */
   async claimFeldPerson(token: string, personnelId: string): Promise<ApiFeldClaimResponse> {
-    return httpRequest<ApiFeldClaimResponse>(`/api/feld/claim?token=${encodeURIComponent(token)}`, {
+    return linkRequest<ApiFeldClaimResponse>(`/api/feld/claim?token=${encodeURIComponent(token)}`, {
       method: 'POST',
       body: JSON.stringify({ personnel_id: personnelId }),
     })
@@ -259,7 +259,7 @@ export class FeldApi {
     const query = duplicateQuery(params)
     query.set('token', token)
     query.set('personnel_id', personnelId)
-    return httpRequest<ApiFeldDuplicateCandidatesResponse>(`/api/feld/duplicates?${query.toString()}`, {
+    return linkRequest<ApiFeldDuplicateCandidatesResponse>(`/api/feld/duplicates?${query.toString()}`, {
       skipToast: true,
       maxRetries: 0,
     })
@@ -270,7 +270,7 @@ export class FeldApi {
     token: string,
     payload: ApiFeldIncidentCreate,
   ): Promise<ApiFeldIncidentCreated> {
-    return httpRequest<ApiFeldIncidentCreated>(
+    return linkRequest<ApiFeldIncidentCreated>(
       `/api/feld/incidents?token=${encodeURIComponent(token)}&personnel_id=${personnelId}`,
       { method: 'POST', body: JSON.stringify(payload) },
     )
@@ -288,7 +288,7 @@ export class FeldApi {
     token: string,
     payload: ApiFeldIncidentUpdate,
   ): Promise<ApiFeldOwnReport> {
-    return httpRequest<ApiFeldOwnReport>(feldQuery(incidentId, 'report', personnelId, token), {
+    return linkRequest<ApiFeldOwnReport>(feldQuery(incidentId, 'report', personnelId, token), {
       method: 'PUT',
       body: JSON.stringify(payload),
     })
@@ -301,7 +301,7 @@ export class FeldApi {
    * tablet at the door. Same attendance row either way — one roll call.
    */
   async setFeldAttendance(personnelId: string, token: string, present: boolean): Promise<void> {
-    await httpRequest<unknown>(
+    await linkRequest<unknown>(
       `/api/feld/attendance/${personnelId}?token=${encodeURIComponent(token)}&present=${present}`,
       { method: 'POST' },
     )
@@ -313,14 +313,14 @@ export class FeldApi {
     personnelId: string,
     token: string
   ): Promise<{ incident_id: string; token: string; link: string }> {
-    return httpRequest<{ incident_id: string; token: string; link: string }>(
+    return linkRequest<{ incident_id: string; token: string; link: string }>(
       feldQuery(incidentId, 'reko-link', personnelId, token),
       { method: 'POST' }
     )
   }
 
   async getFeldAssignments(personnelId: string, token: string): Promise<ApiFeldAssignmentsResponse> {
-    return httpRequest<ApiFeldAssignmentsResponse>(
+    return linkRequest<ApiFeldAssignmentsResponse>(
       `/api/feld/assignments/${personnelId}?token=${encodeURIComponent(token)}`
     )
   }
@@ -334,21 +334,21 @@ export class FeldApi {
    * so it 403s for anybody else and the page never offers them the section.
    */
   async getFeldMaterial(personnelId: string, token: string): Promise<ApiFeldMaterialResponse> {
-    return httpRequest<ApiFeldMaterialResponse>(
+    return linkRequest<ApiFeldMaterialResponse>(
       `/api/feld/material?token=${encodeURIComponent(token)}&personnel_id=${personnelId}`
     )
   }
 
   /** "Angekommen". Idempotent – a second tap does not move the timestamp. */
   async feldReportArrived(incidentId: string, personnelId: string, token: string): Promise<ApiFieldReportState> {
-    return httpRequest<ApiFieldReportState>(feldQuery(incidentId, 'arrived', personnelId, token), {
+    return linkRequest<ApiFieldReportState>(feldQuery(incidentId, 'arrived', personnelId, token), {
       method: 'POST',
     })
   }
 
   /** "Einsatz beendet". Does NOT close the card – that stays the KP's call. */
   async feldReportComplete(incidentId: string, personnelId: string, token: string): Promise<ApiFieldReportState> {
-    return httpRequest<ApiFieldReportState>(feldQuery(incidentId, 'complete', personnelId, token), {
+    return linkRequest<ApiFieldReportState>(feldQuery(incidentId, 'complete', personnelId, token), {
       method: 'POST',
     })
   }
@@ -361,7 +361,7 @@ export class FeldApi {
     needed: boolean,
     note?: string | null
   ): Promise<ApiFieldReportState> {
-    return httpRequest<ApiFieldReportState>(feldQuery(incidentId, 'pickup', personnelId, token), {
+    return linkRequest<ApiFieldReportState>(feldQuery(incidentId, 'pickup', personnelId, token), {
       method: 'POST',
       body: JSON.stringify({ needed, note: note ?? null }),
     })
@@ -377,7 +377,7 @@ export class FeldApi {
     // A plain string is the chip / typed sentence every phone has always sent;
     // the object form is a structured «Material nötig» / «Verstärkung nötig» (R13).
     const body = typeof message === 'string' ? { message } : message
-    await httpRequest<void>(feldQuery(incidentId, 'message', personnelId, token), {
+    await linkRequest<void>(feldQuery(incidentId, 'message', personnelId, token), {
       method: 'POST',
       body: JSON.stringify(body),
     })

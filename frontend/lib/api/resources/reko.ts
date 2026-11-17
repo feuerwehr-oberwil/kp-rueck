@@ -5,10 +5,9 @@
  * the one client object). Methods go through the shared transport in `../http`.
  */
 
-import { request as httpRequest } from '../http'
+import { linkRequest, request as httpRequest } from '../http'
 import type {
   ApiAssignment,
-  ApiRekoReportCreate,
   ApiRekoReportUpdate,
   ApiRekoArrivedState,
   ApiRekoReportResponse,
@@ -45,18 +44,18 @@ export class RekoApi {
     }
 
     // No toast: the form says it itself, once (a dead link gets the /alarm card).
-    return httpRequest<ApiRekoFormResponse>(`/api/reko/form?${params.toString()}`, { skipToast: true })
+    return linkRequest<ApiRekoFormResponse>(`/api/reko/form?${params.toString()}`, { skipToast: true })
   }
 
-  async saveRekoDraft(incidentId: string, token: string, data: ApiRekoReportCreate): Promise<ApiRekoReportResponse> {
-    return httpRequest<ApiRekoReportResponse>(`/api/reko/?submit=false`, {
+  async saveRekoDraft(incidentId: string, token: string, data: ApiRekoReportUpdate): Promise<ApiRekoReportResponse> {
+    return linkRequest<ApiRekoReportResponse>(`/api/reko/?submit=false`, {
       method: 'POST',
       body: JSON.stringify({ ...data, incident_id: incidentId, token }),
     })
   }
 
-  async submitRekoReport(incidentId: string, token: string, data: ApiRekoReportCreate): Promise<ApiRekoReportResponse> {
-    return httpRequest<ApiRekoReportResponse>(`/api/reko/?submit=true`, {
+  async submitRekoReport(incidentId: string, token: string, data: ApiRekoReportUpdate): Promise<ApiRekoReportResponse> {
+    return linkRequest<ApiRekoReportResponse>(`/api/reko/?submit=true`, {
       method: 'POST',
       body: JSON.stringify({ ...data, incident_id: incidentId, token }),
     })
@@ -89,6 +88,7 @@ export class RekoApi {
       {
         method: 'PATCH',
         body: JSON.stringify(data),
+        auth: options?.token ? 'link' : 'session',
         headers: options?.token ? { 'X-Reko-Token': options.token } : undefined,
       },
     )
@@ -131,7 +131,7 @@ export class RekoApi {
   }
 
   async deleteRekoPhoto(incidentId: string, token: string, filename: string): Promise<void> {
-    await httpRequest(`/api/reko/${incidentId}/photos/${filename}`, {
+    await linkRequest(`/api/reko/${incidentId}/photos/${filename}`, {
       method: 'DELETE',
       headers: { 'X-Reko-Token': token },
     })

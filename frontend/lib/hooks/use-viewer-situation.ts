@@ -1,44 +1,43 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
-import { apiClient, type ApiViewerData } from '@/lib/api-client'
+import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { apiClient, ApiError, type ApiViewerData } from '@/lib/api-client'
 import { usePolling } from '@/lib/hooks/use-polling'
-import { buildSituationData, viewerGroupsToIncidentGroups, type SituationData } from '@/lib/viewer-data'
-import type { IncidentGroup } from '@/lib/types/groups'
+import { buildSituationData, viewerGroupsToIncidentGroups } from '@/lib/viewer-data'
 
-/**
- * A share link's picture of the Ereignis, polled every 5 s: the same view-model the logged-in
- * display reads from its contexts, built from the token payload.
- *
- * `data` is null until the first answer. A failed poll keeps the last picture; hand
- * `lastRefresh` to `DisplayStaleBanner`, which says when it has gone stale. Never paused on
- * visibility – a display runs unattended.
- *
- * Usage: `const { data, groups, lastRefresh } = useViewerSituation(token)`
- */
-export function useViewerSituation(token: string): {
-  data: SituationData | null
-  /** The payload's Aufträge – there is no groups context without a login. */
-  groups: IncidentGroup[]
-  lastRefresh: Date | null
-} {
-  const [payload, setPayload] = useState<ApiViewerData | null>(null)
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
-
+/** The layout keys its poll by token so changing links drops the old event immediately. */
+export function useViewerFeed(token: string | null) {
+  const [snapshot, setSnapshot] = useState<{ payload: ApiViewerData; received: Date } | null>(null)
+  const [status, setStatus] = useState<'loading' | 'ready' | 'retrying' | 'invalid'>('loading')
   const load = useCallback(async () => {
+    if (!token) return
     try {
-      const answer = await apiClient.getViewerData(token)
-      // A GET with no answer resolves to nothing: a failed poll, not an empty Ereignis.
-      if (!answer) return
-      setPayload(answer)
-      setLastRefresh(new Date())
-    } catch {
-      // Keep the last picture; the stale banner says so.
+      const payload = await apiClient.getViewerData(token)
+      if (payload) {
+        setSnapshot({ payload, received: new Date() })
+        setStatus('ready')
+        return
+      }
+    } catch (error) {
+      if (error instanceof ApiError && [401, 403, 404].includes(error.status)) {
+        setSnapshot(null)
+        setStatus('invalid')
+        return
+      }
     }
+    setStatus('retrying')
   }, [token])
-  usePolling(load, { intervalMs: 5000, pauseWhenHidden: false })
+  usePolling(load, { intervalMs: 5000, pauseWhenHidden: false, enabled: !!token && status !== 'invalid' })
+  return { snapshot, status }
+}
 
-  const data = useMemo(() => (payload ? buildSituationData(payload) : null), [payload])
-  const groups = useMemo(() => (payload ? viewerGroupsToIncidentGroups(payload) : []), [payload])
-  return { data, groups, lastRefresh }
+/** Only mounted below the layout's successful-load gate, including during a transient outage. */
+export const ViewerPayloadContext = createContext<ApiViewerData | null>(null)
+
+export function useViewerSituation() {
+  const payload = useContext(ViewerPayloadContext)
+  if (!payload) throw new Error('A shared display needs a viewer payload')
+  const data = useMemo(() => buildSituationData(payload), [payload])
+  const groups = useMemo(() => viewerGroupsToIncidentGroups(payload), [payload])
+  return { data, groups, payload }
 }

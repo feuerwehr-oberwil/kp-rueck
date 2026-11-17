@@ -15,7 +15,7 @@ function cancelled(target: EventTarget, type: string, touches = 0): boolean {
   return event.defaultPrevented
 }
 
-describe('zoom lock – app-wide, the map keeps its pinch', () => {
+describe('zoom lock – command surfaces and map gestures', () => {
   let page: HTMLElement
   let canvas: HTMLElement
   let unlock: () => void
@@ -38,6 +38,15 @@ describe('zoom lock – app-wide, the map keeps its pinch', () => {
     expect(cancelled(page, 'gesturestart')).toBe(true)
     expect(cancelled(page, 'gesturechange')).toBe(true)
     expect(cancelled(page, 'touchmove', 2)).toBe(true)
+  })
+
+  it('leaves a two-finger move and iOS pinch alone on a reading surface, including its portals', () => {
+    const marker = document.createElement('span')
+    marker.dataset.pageZoom = ''
+    document.body.append(marker)
+    expect(cancelled(page, 'gesturestart')).toBe(false)
+    expect(cancelled(page, 'touchmove', 2)).toBe(false)
+    expect(cancelled(canvas, 'touchmove', 2)).toBe(false)
   })
 
   it('leaves one-finger scrolling alone', () => {
@@ -64,7 +73,7 @@ describe('zoom lock – app-wide, the map keeps its pinch', () => {
 })
 
 describe('zoom lock – the declarative half', () => {
-  it('fixes the viewport at scale 1, in the root layout (every route)', () => {
+  it('fixes the viewport at scale 1, in the root layout', () => {
     expect(APP_VIEWPORT).toMatchObject({ initialScale: 1, maximumScale: 1, userScalable: false })
     // the root layout imports fonts jsdom cannot load, so this one stays a source check
     const layout = readFileSync(resolve(FRONTEND, 'app/layout.tsx'), 'utf8')
@@ -74,7 +83,7 @@ describe('zoom lock – the declarative half', () => {
 
   it('has the CSS half: pan-only touch on <html>, small text steps lifted to 16px on fields', () => {
     const css = readFileSync(resolve(FRONTEND, 'app/globals.css'), 'utf8')
-    expect(css).toMatch(/html \{\s*touch-action: pan-x pan-y;/)
+    expect(css).toContain('html:not(:has([data-page-zoom])) {')
     expect(css).toMatch(/--text-sm: 1rem;/)
   })
 })

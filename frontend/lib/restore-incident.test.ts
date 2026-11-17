@@ -1,22 +1,38 @@
-import { describe, expect, it } from "vitest";
-import { decideRestoreAction } from "./restore-incident";
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ApiError } from '@/lib/api/types'
+import { restoreDeletedIncident } from './restore-incident'
 
-describe("decideRestoreAction", () => {
-  it("refreshes and shows the success toast when the restore succeeds", () => {
-    expect(decideRestoreAction("ok")).toBe("refresh-success");
-  });
+const mocks = vi.hoisted(() => ({ restore: vi.fn(), success: vi.fn(), error: vi.fn() }))
+vi.mock('@/lib/api-client', async () => ({
+  ApiError: (await import('@/lib/api/types')).ApiError,
+  apiClient: { restoreIncident: mocks.restore },
+}))
+vi.mock('sonner', () => ({ toast: { success: mocks.success, error: mocks.error } }))
 
-  it("refreshes silently on 409 (already restored elsewhere)", () => {
-    // A double-click on the undo toast, or another client restoring first,
-    // 409s — treat it as success and reconcile the board without a toast.
-    expect(decideRestoreAction("conflict")).toBe("refresh-silent");
-  });
+beforeEach(() => vi.resetAllMocks())
 
-  it("shows an error toast on a network failure (undefined response)", () => {
-    expect(decideRestoreAction("network")).toBe("error");
-  });
+describe('incident recovery', () => {
+  it('refreshes silently after another board restored it', async () => {
+    mocks.restore.mockRejectedValue(new ApiError('Already restored', 409, true, 'incident_already_restored'))
+    const refresh = vi.fn()
+    expect(await restoreDeletedIncident('i1', refresh)).toBe(true)
+    expect(refresh).toHaveBeenCalledOnce()
+    expect(mocks.success).not.toHaveBeenCalled()
+  })
 
-  it("shows an error toast on any other failure", () => {
-    expect(decideRestoreAction("error")).toBe("error");
-  });
-});
+  it.each([
+    new ApiError('Pumpe ist nicht verfügbar', 409, true, 'incident_restore_resource_conflict'),
+    new ApiError('Conflict', 409, true),
+    new Error('Offline'),
+  ])('offers a fresh attempt on a real failure', async (error) => {
+    mocks.restore.mockRejectedValueOnce(error).mockResolvedValueOnce({ id: 'i1' })
+    const refresh = vi.fn()
+    expect(await restoreDeletedIncident('i1', refresh)).toBe(false)
+    expect(refresh).not.toHaveBeenCalled()
+    const options = mocks.error.mock.calls[0][1]
+    if (error instanceof ApiError) expect(options.description).toBe(error.message)
+    options.action.onClick()
+    await vi.waitFor(() => expect(mocks.success).toHaveBeenCalledOnce())
+    expect(refresh).toHaveBeenCalledOnce()
+  })
+})

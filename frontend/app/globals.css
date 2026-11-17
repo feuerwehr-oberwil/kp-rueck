@@ -1481,11 +1481,8 @@ body:has([data-slot='dialog-overlay'], [data-slot='alert-dialog-overlay']) foote
   }
 }
 
-/* No zoom, app-wide (KP Front's recipe; the JS half is lib/zoom-lock.ts): pan only – a pinch or
-   a double tap on the page does nothing. The map is not affected: maplibre-gl.css gives its
-   canvas `touch-action: none` and MapLibre zooms in JS. The 16px fields (no focus zoom) are in
-   @layer base above. */
-html {
+/* Board gestures belong to the board and map. The public forms and help can magnify. */
+html:not(:has([data-page-zoom])) {
   touch-action: pan-x pan-y;
 }
 

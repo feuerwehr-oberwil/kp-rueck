@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..models import Event, Incident, IncidentGroup, IncidentGroupAssignment, Material, Personnel, User, Vehicle
 from ..services.audit import log_action
-from .assignments import _reko_personnel_ids, ensure_assignable, leader_rank
+from .assignments import AssignmentReleasedError, _reko_personnel_ids, ensure_assignable, leader_rank
 from .locking import lock_groups, lock_resource
 
 
@@ -366,15 +366,26 @@ async def update_group_assignment(
     rather than replace the role. ``None`` when the assignment is not on
     ``group_id``: the write is scoped before anything changes.
     """
-    result = await db.execute(
-        select(IncidentGroupAssignment).where(
+    group = await db.scalar(
+        select(IncidentGroup)
+        .where(IncidentGroup.id == group_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if group is None or group.deleted_at is not None:
+        return None
+    assignment = await db.scalar(
+        select(IncidentGroupAssignment)
+        .where(
             IncidentGroupAssignment.id == assignment_id,
             IncidentGroupAssignment.incident_group_id == group_id,
         )
+        .execution_options(populate_existing=True)
     )
-    assignment = result.scalar_one_or_none()
-    if not assignment:
+    if assignment is None:
         return None
+    if assignment.unassigned_at is not None:
+        raise AssignmentReleasedError("Diese Zuweisung wurde bereits freigegeben.")
 
     update_data = update.model_dump(exclude_unset=True)
 
@@ -383,17 +394,11 @@ async def update_group_assignment(
         if assignment.resource_type != "personnel":
             raise ValueError("Nur Personal kann als Einsatzleiter markiert werden")
 
-        group = (
-            await db.execute(select(IncidentGroup).where(IncidentGroup.id == assignment.incident_group_id))
-        ).scalar_one_or_none()
-
         if not update_data["is_leader"]:
             # Explicit demote hands the choice back to the board.
-            if group is not None:
-                group.leader_manual = False
+            group.leader_manual = False
         else:
-            if group is not None:
-                group.leader_manual = True
+            group.leader_manual = True
             await db.execute(
                 sa_update(IncidentGroupAssignment)
                 .where(

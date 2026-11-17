@@ -184,6 +184,18 @@ async def get_reko_form(
         raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
 
 
+# Older field tabs send this complete initial snapshot after a failed load. The legacy
+# is_draft marker distinguishes it from an intentional field-level clear in the current app.
+_EMPTY_LEGACY_DRAFT = schemas.RekoReportUpdate(
+    is_relevant=None,
+    dangers_json=schemas.DangersAssessment(other_notes=""),
+    effort_json=schemas.EffortEstimation(),
+    power_supply="unknown",
+    summary_text="",
+    additional_notes="",
+)
+
+
 @router.post("/", response_model=schemas.RekoReportResponse)
 async def submit_reko_report(
     report_data: schemas.RekoReportCreate,
@@ -242,8 +254,18 @@ async def submit_reko_report(
         raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
 
     # Update with new data
-    update_data = schemas.RekoReportUpdate(**report_data.model_dump(exclude={"incident_id", "token"}))
-    updated = await crud.update_reko_report(db, report.id, update_data, submit=submit, user=user)
+    update_data = schemas.RekoReportUpdate(
+        **report_data.model_dump(exclude={"incident_id", "token"}, exclude_unset=True)
+    )
+    if (
+        field_token
+        and not submit
+        and update_data == _EMPTY_LEGACY_DRAFT
+        and (await request.json()).get("is_draft") is True
+    ):
+        updated = report
+    else:
+        updated = await crud.update_reko_report(db, report.id, update_data, submit=submit, user=user)
 
     # Fetch incident details — the LIVE card the report is on: status, bell and
     # release below must happen there, not on a card merged away (R2 review).

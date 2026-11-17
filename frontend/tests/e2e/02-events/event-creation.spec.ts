@@ -115,10 +115,11 @@ test.describe('Event Creation', () => {
     await expect(eventsPage.eventNameInput).toBeFocused();
   });
 
-  test('should cancel event creation', async () => {
+  test('should discard an unsaved event', async ({ authenticatedPage }) => {
     await eventsPage.clickNewEvent();
     await eventsPage.fillEventName('This should not be created');
     await eventsPage.cancelEventCreation();
+    await authenticatedPage.getByRole('alertdialog').getByRole('button', { name: 'Verwerfen', exact: true }).click();
 
     // Dialog should close
     await expect(eventsPage.createDialog).not.toBeVisible();

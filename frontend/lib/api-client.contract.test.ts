@@ -329,6 +329,13 @@ describe('apiClient — the transport rules every method inherits', () => {
     expect(toast.error).not.toHaveBeenCalled()
   })
 
+  it('a rejected share credential leaves the editor session alone', async () => {
+    const dispatch = vi.spyOn(window, 'dispatchEvent')
+    fetchMock.mockImplementation(async () => json({ detail: 'expired' }, { status: 401 }))
+    await expect(apiClient.getViewerData('expired')).rejects.toMatchObject({ status: 401 })
+    expect(dispatch.mock.calls.some(([event]) => event.type === 'kp:session-expired')).toBe(false)
+  })
+
   it('skipToast keeps a failure quiet', async () => {
     fetchMock.mockImplementation(async () => json({ detail: 'x' }, { status: 400 }))
     await expect(apiClient.rotateAlarmWebhookSecret()).rejects.toBeInstanceOf(ApiError)

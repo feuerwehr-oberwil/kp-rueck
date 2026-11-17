@@ -65,7 +65,7 @@ const splineSansMono = localFont({
  */
 const THEME_COLOR_BOOT = `try{var t=localStorage.getItem('theme');var d=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',d?'${THEME_COLOR.dark}':'${THEME_COLOR.light}')}catch(e){}`
 
-/** Scale fixed at 1 on every route – the app-wide zoom lock (lib/zoom-lock.ts). */
+/** Command surfaces stay at board scale. Reading and field routes override this viewport. */
 export const viewport: Viewport = APP_VIEWPORT
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -129,7 +129,7 @@ export default async function RootLayout({
         <TopLoadingBar />
         {/* --kb-inset / --vv-height on <html>: the on-screen keyboard, for the phone sheets. */}
         <ViewportInsets />
-        {/* No pinch or double-tap zoom outside a map (lib/zoom-lock.ts). */}
+        {/* Preserve board gestures while the public forms and help allow magnification. */}
         <ZoomLock />
         {/* Catches what escapes the React tree (rejected promises, listeners) and posts
             it to this station's OWN server log. Opt-in forwarding is a separate decision

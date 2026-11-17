@@ -209,7 +209,10 @@ async def update_reko_report(
     Raises:
         ValueError: If report not found
     """
-    result = await db.execute(select(RekoReport).where(RekoReport.id == report_id))
+    # Read the latest JSON under the row lock before merging disjoint hazard/effort edits.
+    result = await db.execute(
+        select(RekoReport).where(RekoReport.id == report_id).with_for_update().execution_options(populate_existing=True)
+    )
     report = result.scalar_one_or_none()
 
     if not report:
@@ -222,6 +225,8 @@ async def update_reko_report(
     update_fields = update_data.model_dump(exclude_unset=True)
     update_fields.pop("is_draft", None)
     for field, value in update_fields.items():
+        if field in {"dangers_json", "effort_json"} and isinstance(value, dict):
+            value = {**(getattr(report, field) or {}), **value}
         setattr(report, field, value)
 
     # Mark as submitted if requested

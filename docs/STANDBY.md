@@ -59,7 +59,8 @@ alarms keep writing to it. When the two meet again, per row and field:
 - the same field changed on both: the leader's value stands, the other goes to the **conflict
   list** – «n Konflikte ›» in the band. On the leading system each conflict is decided with one
   choice: this version, the other one, or for text **«Beide zusammen»**, both one below the
-  other in a field that can be rewritten. The other system shows the list to read;
+  other in a field that can be rewritten. Editors can read the details on either system and
+  decide on the leading system. Viewers see the number of open conflicts;
 - deleted on one side, changed on the other: the leader decides; the Einsatz stays when the
   leader changed it, and the deletion waits in the list («Löschen»), and vice versa
   («Wiederherstellen»);

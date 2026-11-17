@@ -1,21 +1,7 @@
 import type { Viewport } from 'next'
 
-/**
- * No zoom, app-wide – KP Front's recipe (its index.html + src/lib/lockZoom.ts). The board, the
- * Lagekarte, Settings and the «Links & QR» pages are laid out for the phone; a zoomed page only
- * ever left somebody stuck half off-screen. Three parts:
- *
- * - `APP_VIEWPORT` (the root layout's `viewport`): scale fixed at 1. `maximumScale: 1` is also
- *   what stops Android zooming into a focused field;
- * - CSS (app/globals.css): `touch-action: pan-x pan-y` on <html> (no pinch, no double tap) and
- *   every field at ≥ 16px on a phone or coarse pointer (iOS's focus zoom);
- * - `lockChromeZoom()` (mounted by components/zoom-lock.tsx): iOS ignores `userScalable: false`
- *   for a pinch since iOS 10 and still fires its `gesture*` events, so those are cancelled, and so
- *   is any two-finger move – except on a map, which zooms in its own JS.
- *
- * A plain module, not a client one: a layout's `viewport` export is read on the server, and a
- * value imported from a 'use client' file arrives there as a client reference, not an object.
- */
+/** The command board owns its touch gestures. Public forms and help override the viewport
+ * in their route layout and opt back into browser magnification via data-page-zoom. */
 export const APP_VIEWPORT: Viewport = {
   width: 'device-width',
   initialScale: 1,
@@ -36,7 +22,7 @@ const inZoomable = (target: EventTarget | null) => target instanceof Element && 
 export function lockChromeZoom(doc: Document = document): () => void {
   const listeners: [string, (event: Event) => void][] = []
   const cancelOutsideMap = (event: Event) => {
-    if (!inZoomable(event.target)) event.preventDefault()
+    if (!inZoomable(event.target) && !doc.querySelector('[data-page-zoom]')) event.preventDefault()
   }
   if (navigator.maxTouchPoints > 0) {
     for (const type of ['gesturestart', 'gesturechange', 'gestureend']) listeners.push([type, cancelOutsideMap])

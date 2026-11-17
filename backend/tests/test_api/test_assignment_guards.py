@@ -6,7 +6,7 @@
   Ereignis, and personnel/vehicles onto a closed Einsatz (material may still go there).
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
+    AuditLog,
     Event,
     Incident,
     IncidentAssignment,
@@ -395,3 +396,219 @@ class TestTransferUndo:
 
         assert undo.status_code == 409
         assert await self._active(db_session, source_id) == set()
+
+
+async def test_release_retry_and_stale_promotion_preserve_active_leader(
+    editor_client, db_session, test_incident, test_personnel, test_editor
+):
+    current = Personnel(id=uuid4(), name="Walter", role="Wachtmeister", status="available")
+    db_session.add(current)
+    await db_session.commit()
+    path = f"/api/incidents/{test_incident.id}"
+    ids = []
+    for person in (test_personnel, current):
+        reply = await editor_client.post(
+            f"{path}/assign", json={"resource_type": "personnel", "resource_id": str(person.id)}
+        )
+        assert reply.status_code == 200
+        ids.append(reply.json()["id"])
+    released_id, leader_id = ids
+    assert (await editor_client.post(f"{path}/unassign/{released_id}")).status_code == 204
+    released = await db_session.get(IncidentAssignment, released_id)
+    first = released.unassigned_at
+    assert (await editor_client.post(f"{path}/unassign/{released_id}")).status_code == 204
+    await db_session.refresh(released)
+    assert released.unassigned_at == first
+    logs = (
+        await db_session.scalars(
+            select(AuditLog).where(AuditLog.resource_id == released.id, AuditLog.action_type == "unassign")
+        )
+    ).all()
+    assert len(logs) == 1
+    assert (await editor_client.patch(f"{path}/assignments/{released_id}", json={"is_leader": True})).status_code == 409
+    assert (await db_session.get(IncidentAssignment, leader_id)).is_leader
+    await db_session.refresh(test_incident)
+    assert test_incident.leader_personnel_id == current.id
+    assert not test_incident.leader_manual
+
+
+async def test_released_route_member_cannot_be_promoted(editor_client, db_session, auftrag, test_personnel):
+    row = IncidentGroupAssignment(
+        incident_group_id=auftrag.id,
+        resource_id=test_personnel.id,
+        resource_type="personnel",
+        unassigned_at=datetime.now(UTC),
+    )
+    db_session.add(row)
+    await db_session.commit()
+    response = await editor_client.patch(
+        f"/api/incident-groups/{auftrag.id}/assignments/{row.id}", json={"is_leader": True}
+    )
+    assert response.status_code == 409
+    await db_session.refresh(auftrag)
+    assert not auftrag.leader_manual
+
+
+async def test_deleted_crew_can_check_out_and_restore_respects_their_departure(
+    editor_client, db_session, test_incident, test_personnel, test_event
+):
+    from app.crud import personnel_checkin
+    from app.services.journal import journal_rows
+
+    path = f"/api/incidents/{test_incident.id}"
+    await personnel_checkin.check_in_personnel(db_session, test_event.id, test_personnel.id)
+    await db_session.commit()
+    assert (
+        await editor_client.post(
+            f"{path}/assign", json={"resource_type": "personnel", "resource_id": str(test_personnel.id)}
+        )
+    ).status_code == 200
+    assert (await editor_client.delete(path)).status_code == 204
+    rows = await journal_rows(db_session, test_event.id)
+    assert any(row.data and row.data.get("action") == "deleted" for row in rows)
+    assert not next(
+        person.is_assigned
+        for person in await personnel_checkin.get_available_personnel(db_session, test_event.id)
+        if person.id == test_personnel.id
+    )
+    assert not (await personnel_checkin.check_out_personnel(db_session, test_event.id, test_personnel.id)).checked_in
+    await db_session.commit()
+    response = await editor_client.post(f"{path}/restore")
+    assert response.status_code == 409
+    assert response.json()["code"] == "incident_restore_resource_conflict"
+    assert response.json()["params"]["name"] == test_personnel.name
+    await personnel_checkin.check_in_personnel(db_session, test_event.id, test_personnel.id)
+    await db_session.commit()
+    assert (await editor_client.post(f"{path}/restore")).status_code == 200
+    assert (await editor_client.post(f"{path}/restore")).json()["code"] == "incident_already_restored"
+
+
+@pytest.mark.parametrize("preexisting,consumable", [(False, False), (True, False), (False, True)])
+async def test_restore_preserves_deployment_choices(
+    editor_client, db_session, test_incident, test_material, auftrag, preexisting, consumable
+):
+    path = f"/api/incidents/{test_incident.id}"
+    test_material.consumable = consumable
+    await db_session.commit()
+    payload = {"resource_type": "material", "resource_id": str(test_material.id)}
+    assert (await editor_client.post(f"{path}/assign", json=payload)).status_code == 200
+    assignment = IncidentGroupAssignment(
+        incident_group_id=auftrag.id, resource_type="material", resource_id=test_material.id
+    )
+    if preexisting:
+        db_session.add(assignment)
+        await db_session.commit()
+    assert (await editor_client.delete(path)).status_code == 204
+    if not preexisting:
+        db_session.add(assignment)
+        await db_session.commit()
+    response = await editor_client.post(f"{path}/restore")
+    if preexisting or consumable:
+        assert response.status_code == 200
+    else:
+        assert response.status_code == 409
+        assert response.json()["code"] == "incident_restore_resource_conflict"
+    await db_session.refresh(assignment)
+    assert assignment.unassigned_at is None
+
+
+async def test_missing_attendance_is_not_a_checkout(editor_client, test_incident, test_personnel):
+    path = f"/api/incidents/{test_incident.id}"
+    assert (
+        await editor_client.post(
+            f"{path}/assign", json={"resource_type": "personnel", "resource_id": str(test_personnel.id)}
+        )
+    ).status_code == 200
+    assert (await editor_client.delete(path)).status_code == 204
+    assert (await editor_client.post(f"{path}/restore")).status_code == 200
+
+
+async def _use_previous_snapshot_format(db_session):
+    """Previous builds recorded the other assignment IDs only."""
+    for audit in await db_session.scalars(select(AuditLog).where(AuditLog.action_type == "archive")):
+        audit.changes_json = {"shared_assignments": audit.changes_json["shared_assignments"]}
+    await db_session.commit()
+
+
+@pytest.mark.parametrize("legacy_snapshot", [False, True])
+@pytest.mark.parametrize("delete_order", [(0, 1), (1, 0)])
+@pytest.mark.parametrize("restore_order", [(0, 1), (1, 0)])
+async def test_two_shared_incidents_can_be_restored_in_either_order(
+    editor_client, db_session, test_event, test_editor, test_vehicle, delete_order, restore_order, legacy_snapshot
+):
+    paths = [f"/api/incidents/{(await _incident(db_session, test_event, test_editor)).id}" for _ in range(2)]
+    payload = {"resource_type": "vehicle", "resource_id": str(test_vehicle.id)}
+    for path in paths:
+        assert (await editor_client.post(f"{path}/assign", json=payload)).status_code == 200
+    for index in delete_order:
+        assert (await editor_client.delete(paths[index])).status_code == 204
+    if legacy_snapshot:
+        await _use_previous_snapshot_format(db_session)
+    for index in restore_order:
+        response = await editor_client.post(f"{paths[index]}/restore")
+        assert response.status_code == 200, response.text
+
+
+@pytest.mark.parametrize("legacy_snapshot", [False, True])
+async def test_a_new_assignment_of_the_same_vehicle_is_not_the_old_share(
+    editor_client, db_session, test_event, test_editor, test_vehicle, legacy_snapshot
+):
+    a = await _incident(db_session, test_event, test_editor)
+    b = await _incident(db_session, test_event, test_editor)
+    paths = [f"/api/incidents/{card.id}" for card in (a, b)]
+    payload = {"resource_type": "vehicle", "resource_id": str(test_vehicle.id)}
+    original = (await editor_client.post(f"{paths[0]}/assign", json=payload)).json()["id"]
+    assert (await editor_client.post(f"{paths[1]}/assign", json=payload)).status_code == 200
+    for path in paths:
+        assert (await editor_client.delete(path)).status_code == 204
+    if legacy_snapshot:
+        await _use_previous_snapshot_format(db_session)
+    assert (await editor_client.post(f"{paths[0]}/restore")).status_code == 200
+    assert (await editor_client.post(f"{paths[0]}/unassign/{original}")).status_code == 204
+    replacement = await editor_client.post(f"{paths[0]}/assign", json=payload)
+    assert replacement.status_code == 200 and replacement.json()["id"] != original
+    refused = await editor_client.post(f"{paths[1]}/restore")
+    assert refused.status_code == 409
+    assert refused.json()["code"] == "incident_restore_resource_conflict"
+
+
+@pytest.mark.parametrize("assigned_after", [False, True])
+async def test_delete_without_inventory_snapshot_uses_assignment_time(
+    editor_client, db_session, test_event, test_editor, test_material, assigned_after
+):
+    a = await _incident(db_session, test_event, test_editor)
+    b = await _incident(db_session, test_event, test_editor)
+    payload = {"resource_type": "material", "resource_id": str(test_material.id)}
+    assert (await editor_client.post(f"/api/incidents/{a.id}/assign", json=payload)).status_code == 200
+    assert (await editor_client.delete(f"/api/incidents/{a.id}")).status_code == 204
+    await db_session.refresh(a)
+    audit = await db_session.scalar(
+        select(AuditLog).where(AuditLog.resource_id == a.id, AuditLog.action_type == "archive")
+    )
+    audit.changes_json = None
+    assignment_time = a.deleted_at + timedelta(minutes=1 if assigned_after else -1)
+    db_session.add(
+        IncidentAssignment(
+            incident_id=b.id, resource_id=test_material.id, resource_type="material", assigned_at=assignment_time
+        )
+    )
+    await db_session.commit()
+    response = await editor_client.post(f"/api/incidents/{a.id}/restore")
+    assert response.status_code == (409 if assigned_after else 200)
+
+
+@pytest.mark.parametrize("restore_order", [(0, 1), (1, 0)])
+async def test_deleted_incidents_that_never_shared_cannot_acquire_each_others_vehicle(
+    editor_client, db_session, test_event, test_editor, test_vehicle, restore_order
+):
+    paths = [f"/api/incidents/{(await _incident(db_session, test_event, test_editor)).id}" for _ in range(2)]
+    payload = {"resource_type": "vehicle", "resource_id": str(test_vehicle.id)}
+    # The first card has *already disappeared* before the second picks up the vehicle.
+    for path in paths:
+        assert (await editor_client.post(f"{path}/assign", json=payload)).status_code == 200
+        assert (await editor_client.delete(path)).status_code == 204
+    first, second = restore_order
+    assert (await editor_client.post(f"{paths[first]}/restore")).status_code == 200
+    refused = await editor_client.post(f"{paths[second]}/restore")
+    assert refused.status_code == 409
+    assert refused.json()["code"] == "incident_restore_resource_conflict"

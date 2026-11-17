@@ -12,7 +12,7 @@ import type { Material } from "../materials-context"
 import { toast } from "sonner"
 import { undoToast } from "@/lib/toast-undo"
 import { translateOutsideReact } from "@/lib/i18n-messages"
-import { decideRestoreAction, type RestoreOutcome } from "@/lib/restore-incident"
+import { restoreDeletedIncident } from "@/lib/restore-incident"
 import { classifySaveFailure, fieldSaveUser, getFieldSaveScope, isFieldSaveWatched, isSavedTextField, noteFieldEdit, noteFieldQueued, noteFieldSend, noteFieldSettled, textConflictOf, type FieldSaveTicket } from "@/lib/field-save"
 import { apiCoordinatesToTuple, coordinatesToApiFields } from "@/lib/coordinate-parser"
 import { reportStatusConflict } from "@/lib/status-conflict"
@@ -489,35 +489,6 @@ export function createIncidentActions(board: BoardMutationContext) {
   }
 
 
-  // Undo a delete: restore the soft-deleted incident and reconcile the board.
-  // api-client's request() returns undefined on a network error (no throw) and
-  // throws an ApiError (409 → isConflictError) on HTTP failures, so we normalize
-  // both into a RestoreOutcome and let the pure decideRestoreAction map it.
-  const handleRestore = async (operationId: string): Promise<void> => {
-    let outcome: RestoreOutcome
-    try {
-      const restored = await apiClient.restoreIncident(operationId)
-      outcome = restored ? "ok" : "network"
-    } catch (err) {
-      outcome = ApiError.isConflictError(err) ? "conflict" : "error"
-    }
-
-    const action = decideRestoreAction(outcome)
-    if (action === "error") {
-      toast.error(translateOutsideReact('notifications.operations.restoreFailedTitle'), {
-        description: translateOutsideReact('notifications.operations.restoreFailedDescription'),
-      })
-      return
-    }
-
-    // A restore always re-includes the card on the next load, so there is no
-    // WS-resurrection suppression to bypass — refresh pulls the card back.
-    await refreshOperations()
-    if (action === "refresh-success") {
-      toast.success(translateOutsideReact('notifications.operations.restoredTitle'))
-    }
-  }
-
   // --- Duplicate reports (services/duplicates.py) ---
   //
   // Every merge is undoable: the report row survives on the server (hidden,
@@ -662,7 +633,7 @@ export function createIncidentActions(board: BoardMutationContext) {
             getIncidentRefLabel(operation),
             released.length ? translateOutsideReact('kanban.common.deleteIncidentReleases', { what: released.join(', ') }) : null,
           ].filter(Boolean).join(' · '),
-          onUndo: () => handleRestore(operationId),
+          onUndo: () => restoreDeletedIncident(operationId, refreshOperations),
         })
       }
     } catch (error) {

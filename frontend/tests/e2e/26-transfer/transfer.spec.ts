@@ -17,9 +17,8 @@ import {
 /**
  * «Ressourcen übertragen» — a whole crew and its vehicle move to another card.
  *
- * There is no undo, so the dialog picks the target and a second question names
- * both incidents and counts what moves before anything happens. Afterwards the
- * source carries nothing and the target carries all of it.
+ * The dialog names the destination and counts what will move. After transfer,
+ * the target holds the crew and vehicle. Undo returns both to the source.
  *
  * Pinned before the board page was split (2026-09-23): the page loads the
  * targets and runs the transfer.
@@ -62,7 +61,7 @@ test('moves every assignment to the chosen card, after saying what moves', async
   await expect(dialog.getByRole('button', { name: new RegExp(`${board.address} 1`) })).toHaveCount(0);
   await dialog.getByRole('button', { name: new RegExp(`${board.address} 2`) }).click();
   // What moves is said in the dialog itself once a target is chosen – no second question.
-  await expect(dialog).toContainText('Es werden verschoben: 1 Personal, 1 Fahrzeuge, 0 Material.');
+  await expect(dialog.getByRole('status')).toHaveText('Es werden verschoben: 1 Person, 1 Fahrzeug, 0 Material.');
   await dialog.getByRole('button', { name: 'Übertragen' }).click();
 
   const assignments = async () => {

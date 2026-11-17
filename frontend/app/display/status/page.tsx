@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useCallback, useRef, type ReactNode } from "react"
+import { useMemo, useState, useRef, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
 import { Binoculars, Package2, Ban, Infinity as InfinityIcon, Truck } from "lucide-react"
@@ -12,7 +12,6 @@ import { ageLevel, columns, STATUS_ACCENT, WALL_COLUMN_HEADER_CLASS, WALL_TEXT_W
 import { IncidentTime } from "@/components/ui/incident-time"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { CollapsibleSection } from "@/components/display/collapsible-section"
-import { DisplayStaleBanner } from "@/components/display/display-stale-banner"
 import { type Priority, PRIORITY_EDGE_CLASSES } from "@/lib/priority"
 import { WallPriorityGlyph } from "@/components/display/wall-priority-glyph"
 import {
@@ -27,15 +26,13 @@ import { type Person } from "@/lib/contexts/personnel-context"
 import { type Material } from "@/lib/contexts/materials-context"
 import { type IncidentGroup } from "@/lib/types/groups"
 import { useGroups } from "@/lib/contexts/groups-context"
-import { apiClient, type ApiViewerData } from "@/lib/api-client"
-import { usePolling } from "@/lib/hooks/use-polling"
-import { buildSituationData, viewerGroupsToIncidentGroups, type SituationData } from "@/lib/viewer-data"
+import { useViewerSituation } from "@/lib/hooks/use-viewer-situation"
+import { type SituationData } from "@/lib/viewer-data"
 import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
 import { useDisplaySearch } from "@/lib/contexts/display-search-context"
 import { filterIncidents } from "@/lib/incident-search"
 import { cn } from "@/lib/utils"
 import { WALL_STACK_BOARD, WALL_STACK_BODY, WALL_STACK_COLUMN } from "@/lib/wall-stack"
-import { LoadingStatus } from "@/components/ui/shell-loader"
 import { EventFiguresView } from "@/components/event-figures"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useEventFigures } from "@/lib/hooks/use-event-figures"
@@ -192,52 +189,8 @@ function AuthStatusView() {
 
 /** Token/read-only display: view-model polled from the share token payload. */
 function TokenStatusView({ token }: { token: string }) {
-  const tLoading = useTranslations('common')
-  const [payload, setPayload] = useState<ApiViewerData | null>(null)
-  // Age of the last SUCCESSFUL poll. Keeping the last-known payload on a failed fetch is
-  // right — during an outage it is the best picture in the room — but rendering it with no
-  // indication that it stopped updating is not: a backend 500ing since 02:10 produced a
-  // display that looked entirely normal at 04:00.
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
-
-  const load = useCallback(async () => {
-    try {
-      const d = await apiClient.getViewerData(token)
-      // A GET that got no answer resolves to nothing: that is a failed poll,
-      // not an empty Ereignis, and must not count as a fresh one either.
-      if (!d) return
-      setPayload(d)
-      setLastRefresh(new Date())
-    } catch {
-      // Keep the last-known payload — DisplayStaleBanner surfaces that it has gone stale.
-    }
-  }, [token])
-  // Unattended wall screen: never paused on visibility (see `usePolling`).
-  usePolling(load, { intervalMs: 5000, pauseWhenHidden: false })
-
-  const data = useMemo(() => (payload ? buildSituationData(payload) : null), [payload])
-  // Auftrag lookup for the detail dialog — the groups context is empty
-  // without a login, so hand the payload's groups to the modal instead.
-  const detailGroups = useMemo(
-    () => (payload ? viewerGroupsToIncidentGroups(payload) : []),
-    [payload],
-  )
-
-  if (!data) {
-    return (
-      <div className="flex h-full items-center justify-center bg-background">
-        <LoadingStatus size="surface" className="text-sm">{tLoading('loading')}</LoadingStatus>
-      </div>
-    )
-  }
-  return (
-    <div className="flex h-full flex-col">
-      <DisplayStaleBanner lastRefresh={lastRefresh} />
-      <div className="min-h-0 flex-1">
-        <SituationBoard {...data} detailGroups={detailGroups} viewerToken={token} figures={payload?.figures ?? null} />
-      </div>
-    </div>
-  )
+  const { data, groups, payload } = useViewerSituation()
+  return <SituationBoard {...data} detailGroups={groups} viewerToken={token} figures={payload.figures ?? null} />
 }
 
 function SituationBoard({

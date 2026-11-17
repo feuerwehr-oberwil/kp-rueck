@@ -19,7 +19,7 @@ from fastapi import APIRouter, BackgroundTasks, Body, Depends, Header, HTTPExcep
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth.dependencies import CurrentEditor, CurrentUser
+from ..auth.dependencies import CurrentEditor
 from ..config import settings
 from ..database import get_db
 from ..environment import ROLE_STANDBY, deployment_role
@@ -280,7 +280,7 @@ async def photo_from_box(
 
 @router.get("/events/{event_id}/conflicts", response_model=None)
 async def list_conflicts(
-    event_id: uuid.UUID, _user: CurrentUser, db: Annotated[AsyncSession, Depends(get_db)]
+    event_id: uuid.UUID, _user: CurrentEditor, db: Annotated[AsyncSession, Depends(get_db)]
 ) -> dict[str, Any]:
     """The conflicts of one Ereignis, open ones first, and whether they can be decided here."""
     conn = await _driver(db)
