@@ -751,7 +751,7 @@ qui modifie quelque chose agit uniquement sur la carte sélectionnée, jamais su
 | `0` | Basculer « à pied » |
 | `>` / `.` | Statut suivant |
 | `<` / `,` | Statut précédent |
-| `Delete` / `Backspace` | Supprimer (avec confirmation) |
+| `Delete` / `Backspace` | Supprimer – tout de suite, « Annuler » dans le toast rétablit l’intervention |
 
 `Shift+1-3`, `0` et `1-5` fonctionnent aussi dans la fenêtre de détail ouverte.
 

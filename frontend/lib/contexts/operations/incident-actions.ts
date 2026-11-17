@@ -646,10 +646,22 @@ export function createIncidentActions(board: BoardMutationContext) {
       setOperations((ops) => ops.filter((op) => op.id !== operationId))
 
       // Offer an undo. Only when the delete was persisted (isLoaded) — a purely
-      // local optimistic delete has no backend row to restore.
+      // local optimistic delete has no backend row to restore. There is no
+      // «wirklich löschen?» before this (owner, 17.11.2026): the toast is the
+      // safety net, so it also says what the card took off the board with it –
+      // a card that was never an incident usually had people and a vehicle on it.
+      // The server keeps those assignments on the soft-deleted row; the undo
+      // brings them back with the card.
       if (isLoaded) {
+        const released = [
+          operation.crew.length ? translateOutsideReact('kanban.common.personCount', { count: operation.crew.length }) : null,
+          operation.vehicles.length ? operation.vehicles.map((v) => v.name).join(', ') : null,
+        ].filter(Boolean)
         undoToast(translateOutsideReact('notifications.operations.deletedTitle'), {
-          description: getIncidentRefLabel(operation),
+          description: [
+            getIncidentRefLabel(operation),
+            released.length ? translateOutsideReact('kanban.common.deleteIncidentReleases', { what: released.join(', ') }) : null,
+          ].filter(Boolean).join(' · '),
           onUndo: () => handleRestore(operationId),
         })
       }

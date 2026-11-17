@@ -5,7 +5,6 @@ import { IncidentNumber } from "@/components/ui/incident-number"
 import { useState, useEffect, useCallback, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
-import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -295,7 +294,6 @@ export function OperationDetailContent({
     },
     [refreshGroups, t],
   )
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   // The text fields' save state (lib/field-save): what each one shows — the
   // operator's draft while one is held, so neither a reload nor a remote
@@ -369,7 +367,6 @@ export function OperationDetailContent({
   const currentRequestedTab = useEffectEvent(() => requestedTab)
 
   useEffect(() => {
-    setShowDeleteConfirm(false)
     setRekoDialogOpen(false)
     setRekoTransferDialogOpen(false)
     // A different incident brings its own remembered tab, Übersicht if it has
@@ -1967,20 +1964,11 @@ export function OperationDetailContent({
               dense
               variant="ghost"
               className="ml-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
-              onClick={() => setShowDeleteConfirm(true)}
+              // Deletes at once – the undo toast is the way back (no «wirklich?»).
+              onClick={() => onDelete(operation.id)}
             />
           )}
         </div>
-
-      {canEdit && onDelete && <DeleteConfirmDialog
-        open={showDeleteConfirm}
-        onOpenChange={setShowDeleteConfirm}
-        title={t('common.deleteIncidentTitle')}
-        description={t('common.deleteIncidentDescription', { name: formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType) })}
-        onConfirm={() => {
-          onDelete(operation.id)
-        }}
-      />}
 
       {/* Assign Reko Dialog */}
       <AssignRekoDialog

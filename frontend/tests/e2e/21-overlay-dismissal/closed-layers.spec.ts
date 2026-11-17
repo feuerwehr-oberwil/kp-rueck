@@ -80,10 +80,16 @@ test.describe('Dismissed modal layers', () => {
     const detail = page.locator('[data-slot="dialog-content"][data-state="open"]');
     await expect(detail).toBeVisible();
 
-    await detail.getByRole('button', { name: 'Löschen', exact: true }).first().click();
+    // The dispatch gate is the confirm a detail raises on its own: picking
+    // «Disponiert / Anfahrt» for a card with nobody on it asks first. (The
+    // delete confirm used to serve here; an Einsatz is deleted at once now.)
+    await detail.getByRole('combobox', { name: 'Status' }).click();
+    await page.getByRole('option', { name: 'Disponiert / Anfahrt' }).click();
     const confirm = page.locator('[role="alertdialog"]');
     await expect(confirm).toBeVisible();
-    await confirm.getByRole('button', { name: 'Abbrechen' }).click();
+    // Esc is the gate's «Abbrechen» (the card stays where it was) whatever the
+    // button row says.
+    await page.keyboard.press('Escape');
 
     // The AlertDialog overlay is `DialogPrimitive.Overlay` too, and it covered
     // the whole viewport — including the detail modal the operator is still in.

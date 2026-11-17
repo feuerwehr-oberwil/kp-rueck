@@ -740,7 +740,7 @@ bist. Was etwas ändert, wirkt nur auf die ausgewählte Karte, nie auf die unter
 | `0` | Zu Fuss umschalten |
 | `>` / `.` | Status vorwärts |
 | `<` / `,` | Status zurück |
-| `Delete` / `Backspace` | Löschen (mit Bestätigung) |
+| `Delete` / `Backspace` | Löschen – sofort, «Rückgängig» im Toast holt den Einsatz zurück |
 
 `Shift+1-3`, `0` und `1-5` funktionieren auch im geöffneten Detail-Dialog.
 

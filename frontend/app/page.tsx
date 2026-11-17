@@ -533,8 +533,6 @@ export default function FireStationDashboard() {
 
   const gPrefix = useGPrefixNavigation(router, '/')
   const cmdHint = useCommandPaletteHint()
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [operationToDelete, setOperationToDelete] = useState<Operation | null>(null)
   // What the cards show. Per device (localStorage), not a station setting: one
   // workstation must be able to run Kompakt while the second screen runs Alles,
   // without either operator's click repainting the other's board mid-Einsatz.
@@ -694,8 +692,7 @@ export default function FireStationDashboard() {
     release,
     expandColumnRef,
     vehicleTypes,
-    setDeleteDialogOpen,
-    setOperationToDelete,
+    deleteOperation,
     toggleDriverStay,
     triggerRekoFormCheck,
     triggerRekoCheck,
@@ -802,8 +799,7 @@ export default function FireStationDashboard() {
           activeFooterSheet !== 'print' &&
           activeFooterSheet !== 'links' &&
           activeFooterSheet !== 'rapporte' &&
-          activeFooterSheet !== 'journal') ||
-        deleteDialogOpen,
+          activeFooterSheet !== 'journal'),
       hoveredOperationId,
       selectedOperationId,
       operations,
@@ -1269,10 +1265,7 @@ export default function FireStationDashboard() {
     handleToggleNachbarhilfe,
     handleToggleAmWarten,
     handleToggleZuFuss,
-    deleteReleaseHint,
-    handleDeleteOperationConfirm,
   } = useBoardDialogActions({
-    deleteOperation,
     operations,
     updateOperation,
     refreshPersonnel,
@@ -1288,8 +1281,6 @@ export default function FireStationDashboard() {
     checkInUrl,
     setCopied,
     setAttendanceOpen,
-    setOperationToDelete,
-    operationToDelete,
     setRekoAssignDialogOpen,
     setRekoAssignOperationId,
   })
@@ -1770,18 +1761,14 @@ export default function FireStationDashboard() {
         closedStopGuard={closedStopGuard}
         createOperation={createOperation}
         mergeOperationInto={mergeOperationInto}
-        deleteDialogOpen={deleteDialogOpen}
-        deleteReleaseHint={deleteReleaseHint}
         detailModalOpen={detailModalOpen}
         dialogs={dialogs}
         diveraEnabled={diveraEnabled}
         diveraMessageText={diveraMessageText}
         filedRapports={filedRapports}
-        formatLocation={formatLocation}
         funkrufname={funkrufname}
         groups={groups}
         handleConfirmAddStops={handleConfirmAddStops}
-        handleDeleteOperationConfirm={handleDeleteOperationConfirm}
         handleOpenIncidentFromNotification={handleOpenIncidentFromNotification}
         journalCompose={journalCompose}
         handleOpenRapport={handleOpenRapport}
@@ -1799,7 +1786,6 @@ export default function FireStationDashboard() {
         openDetailOnTab={openDetailOnTab}
         openIncidentDetail={openIncidentDetail}
         openRapports={openRapports}
-        operationToDelete={operationToDelete}
         operations={operations}
         crewDutySheetOpen={crewDutySheetOpen}
         fatigueHours={fatigueHours}
@@ -1820,7 +1806,6 @@ export default function FireStationDashboard() {
         selectedOperation={selectedOperation}
         setActiveFooterSheet={setActiveFooterSheet}
         setAttendanceOpen={setAttendanceOpen}
-        setDeleteDialogOpen={setDeleteDialogOpen}
         setDetailModalOpen={setDetailModalOpen}
         setDiveraMessageText={setDiveraMessageText}
         setNewEmergencyGroupId={setNewEmergencyGroupId}

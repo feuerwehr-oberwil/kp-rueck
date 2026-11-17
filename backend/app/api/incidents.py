@@ -1149,7 +1149,7 @@ async def delete_incident(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
 ) -> None:
-    """Delete incident (hard delete for training, soft delete for live)."""
+    """Soft-delete an incident (every one, live or Übung); `POST /restore` is the undo."""
     success = await crud.delete_incident(
         db=db,
         incident_id=incident_id,
