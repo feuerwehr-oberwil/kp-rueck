@@ -185,7 +185,8 @@ function CheckInKiosk({ token }: { token: string | null }) {
         />
 
         {/* Quick Add Personnel Component */}
-        {isEditor && !retrying && !loading && <QuickAddPersonnel
+        {isEditor && !loading && <QuickAddPersonnel
+          submissionDisabled={retrying}
           onPersonAdded={async (newPerson) => {
             rosterRevision.current++
             // Optimistically add new person to list without full refresh

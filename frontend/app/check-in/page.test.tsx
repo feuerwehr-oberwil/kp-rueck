@@ -14,11 +14,12 @@ const api = vi.hoisted(() => ({
   getCheckInList: vi.fn(),
   checkInPersonnel: vi.fn(),
   checkOutPersonnel: vi.fn(),
+  createPersonnel: vi.fn(),
 }))
 vi.mock('@/lib/api-client', () => ({ apiClient: api }))
 vi.mock('@/lib/websocket-client', () => ({ wsClient: { getStatus: () => 'disconnected', connect: vi.fn(), disconnect: vi.fn(), on: () => () => {} } }))
-vi.mock('@/lib/contexts/auth-context', () => ({ useAuth: () => ({ isEditor: false }) }))
-vi.mock('@/components/quick-add-personnel', () => ({ QuickAddPersonnel: () => null }))
+const auth = vi.hoisted(() => ({ isEditor: false }))
+vi.mock('@/lib/contexts/auth-context', () => ({ useAuth: () => auth }))
 const toast = vi.hoisted(() => Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }))
 vi.mock('sonner', () => ({ toast }))
 
@@ -35,7 +36,32 @@ function roster() {
 }
 
 describe('/check-in', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    auth.isEditor = false
+  })
+
+  it('keeps an editor’s typed name through a failed poll and waits for a fresh roster before adding it', async () => {
+    auth.isEditor = true
+    roster()
+    const user = userEvent.setup()
+    renderWithIntl(<CheckInPage />)
+    await user.click(await screen.findByRole('button', { name: 'Neue Person hinzufügen' }))
+    const name = screen.getByPlaceholderText('Name eingeben …')
+    await user.type(name, 'Muster Lea')
+
+    api.getCheckInList.mockResolvedValueOnce(null)
+    window.dispatchEvent(new Event('online'))
+    await waitFor(() => expect(screen.getByRole('button', { name: /Acker Reto/ })).toBeDisabled())
+    expect(screen.getByRole('button', { name: 'Hinzufügen' })).toBeDisabled()
+    expect(name).toHaveValue('Muster Lea')
+    await user.type(name, '{Enter}')
+    expect(api.createPersonnel).not.toHaveBeenCalled()
+
+    window.dispatchEvent(new Event('online'))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Hinzufügen' })).toBeEnabled())
+    expect(screen.getByPlaceholderText('Name eingeben …')).toHaveValue('Muster Lea')
+  })
 
   it('refreshes a token-only kiosk when it becomes visible again', async () => {
     roster()

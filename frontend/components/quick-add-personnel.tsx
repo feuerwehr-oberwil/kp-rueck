@@ -23,6 +23,8 @@ interface QuickAddPersonnelProps {
   /** Optional guard: return true if a person with this name already exists.
    *  Prevents creating indistinguishable same-name duplicates at check-in. */
   isNameTaken?: (name: string) => boolean
+  /** Pause adding while the kiosk reconnects, preserving the name being entered. */
+  submissionDisabled?: boolean
   /** `false` drops the card frame around the open form – for a mount that already sits
    *  in its own framed footer (the phone Appell sheet), where a box inside the bar was
    *  one frame too many. Default `true` (the /check-in page). */
@@ -34,6 +36,7 @@ export function QuickAddPersonnel({
   checkInToken,
   checkInEventId,
   isNameTaken,
+  submissionDisabled = false,
   framed = true,
 }: QuickAddPersonnelProps) {
   const t = useTranslations('incidents.quickAdd')
@@ -53,7 +56,7 @@ export function QuickAddPersonnel({
 
   const addNewPerson = async () => {
     const trimmedName = newPersonName.trim()
-    if (addingRef.current) return
+    if (addingRef.current || submissionDisabled) return
     // Disallow indistinguishable same-name duplicates. The server's own 409 below
     // stays a toast: by then the form has been sent.
     const problem = !trimmedName
@@ -129,6 +132,7 @@ export function QuickAddPersonnel({
       {!showAddForm ? (
         <Button
           onClick={() => setShowAddForm(true)}
+          disabled={submissionDisabled}
           variant="outline"
           size="lg"
           className="w-full"
@@ -163,7 +167,7 @@ export function QuickAddPersonnel({
           <div className="flex gap-2">
             <Button
               onClick={addNewPerson}
-              disabled={addingPerson}
+              disabled={addingPerson || submissionDisabled}
               className="flex-1"
             >
               {addingPerson && <ShellLoader className="size-4" />}
