@@ -2,15 +2,7 @@
 
 import { useTranslations } from "next-intl"
 import { CheckCircle2 } from "lucide-react"
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { Button } from "@/components/ui/button"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import type { ClosedStopPrompt } from "@/lib/hooks/use-closed-stop-guard"
@@ -39,25 +31,18 @@ export function ClosedStopDialog({ prompt, onProceed, onCancel }: ClosedStopDial
   )
 
   return (
-    <AlertDialog open={!!prompt} onOpenChange={(open) => !open && onCancel()}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
-            {t(names.length === 1 ? "title" : "titleMany", { count: names.length })}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            {t(names.length === 1 ? "description" : "descriptionMany", {
-              name: names[0] ?? "",
-              names: names.join(", "),
-            })}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <Button variant="outline" onClick={onCancel}>{tCommon("cancel")}</Button>
-          <Button onClick={onProceed}>{t("confirm")}</Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmDialog
+      open={!!prompt}
+      onCancel={onCancel}
+      icon={<CheckCircle2 className="h-5 w-5 text-muted-foreground" />}
+      title={t(names.length === 1 ? "title" : "titleMany", { count: names.length })}
+      description={t(names.length === 1 ? "description" : "descriptionMany", {
+        name: names[0] ?? "",
+        names: names.join(", "),
+      })}
+      cancelText={tCommon("cancel")}
+      confirmText={t("confirm")}
+      onConfirm={onProceed}
+    />
   )
 }
