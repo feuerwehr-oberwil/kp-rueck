@@ -21,8 +21,8 @@ export interface KanbanShortcutsState {
   /** True when any modal/dialog/sheet is open — disables every shortcut. */
   modalOpen: boolean
   /**
-   * Currently-hovered operation. READING shortcuts target it — E and Enter open
-   * a detail, which costs nothing if the pointer was somewhere unintended.
+   * Currently-hovered operation. READING shortcuts target it — Enter and Space
+   * open a detail, which costs nothing if the pointer was somewhere unintended.
    */
   hoveredOperationId: string | null
   /**
@@ -90,8 +90,9 @@ export interface KanbanShortcutsActions {
   onToggleRapporte: () => void
   /** Opens/closes the Einsatztagebuch (idea R8). */
   onToggleJournal: () => void
-  /** ⇧J — a new journal line: the journal opens with the caret in it, linked to
-   *  the selected card when there is one. Editors only; absent for a viewer. */
+  /** `E` («Eintrag schreiben», KP Front's key) — a new journal line: the journal
+   *  opens with the caret in it, linked to the selected card when there is one.
+   *  Editors only; absent for a viewer. */
   onWriteJournal?: () => void
   /** Opens/closes the Kennzahlen dialog. */
   onToggleFigures: () => void
@@ -350,12 +351,14 @@ export function useKanbanShortcuts(
         return
       }
 
-      // ⇧J — write in the Einsatztagebuch: open it with the caret in the line.
-      // Before the plain `j` below, which Caps Lock also turns into «J» — so
-      // the Shift key, not the letter's case, is what tells the two apart.
-      if ((e.key === "j" || e.key === "J") && e.shiftKey && !e.metaKey && !e.ctrlKey && actions.onWriteJournal) {
-        e.preventDefault()
-        actions.onWriteJournal()
+      // `E` — «Eintrag schreiben»: the Einsatztagebuch opens with the caret in
+      // its line. The same key as in KP Front, so the habit carries over. It
+      // used to open the card detail, which Enter and Space do now.
+      if ((e.key === "e" || e.key === "E") && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (actions.onWriteJournal) {
+          e.preventDefault()
+          actions.onWriteJournal()
+        }
         return
       }
       // «Journal» — the Einsatztagebuch. `j` was free; letter-matched like `o`.
@@ -403,20 +406,16 @@ export function useKanbanShortcuts(
         return
       }
 
-      // Detail modal. `E` is a shortcut like any other; Enter is not — it is
-      // the activation key of whatever has focus. Taking it unconditionally
-      // killed every focused button and link on the board, because on a dense
-      // board the pointer rests over a card nearly all the time. Enter only
-      // opens the hovered card when nothing that Enter already means something
-      // to has focus.
-      if (
-        ((e.key === "e" || e.key === "E") && !e.metaKey && !e.ctrlKey) ||
-        (e.key === "Enter" && !isActivationTarget(e.target))
-      ) {
+      // Detail modal: Enter or Space. Both are the activation keys of whatever
+      // has focus — taking them unconditionally killed every focused button and
+      // link on the board, because on a dense board the pointer rests over a
+      // card nearly all the time. They only open the hovered card when nothing
+      // that they already mean something to has focus.
+      if ((e.key === "Enter" || e.key === " ") && !e.metaKey && !e.ctrlKey && !isActivationTarget(e.target)) {
         // Hover first — the pointer is the more specific intent when it is on a
         // card — then the selection, which is where a keyboard-only operator
         // is. (Enter on the focused card is handled by the card itself, which
-        // stops propagation; this is the `E` path and the no-hover fallback.)
+        // stops propagation; this is the no-hover fallback.)
         const targetId = hoveredOperationId ?? selectedOperationId
         if (targetId) {
           const operation = operations.find((op) => op.id === targetId)

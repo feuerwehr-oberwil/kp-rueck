@@ -14,6 +14,9 @@
  * neither surface uses it. Rem throughout, so the wall's live root size scales
  * it too.
  *
+ * `decorative` hides it from assistive tech where the word stands beside it
+ * (command palette rows, dispatch chips); otherwise it names the priority.
+ *
  * Usage: `<PriorityGlyph priority={p} size="card" />`
  */
 
@@ -39,10 +42,12 @@ const GEOMETRY = {
 export function PriorityGlyph({
   priority,
   size,
+  decorative = false,
   className,
 }: {
   priority: Priority
   size: keyof typeof GEOMETRY
+  decorative?: boolean
   className?: string
 }) {
   const t = useTranslations("kanban.card")
@@ -50,8 +55,9 @@ export function PriorityGlyph({
   return (
     <svg
       viewBox="0 0 16 16"
-      role="img"
-      aria-label={t(PRIORITY_ARIA[priority])}
+      {...(decorative
+        ? { "aria-hidden": true }
+        : { role: "img", "aria-label": t(PRIORITY_ARIA[priority]) })}
       className={cn("h-4 w-4 shrink-0", PRIORITY_ICON_CLASSES[priority], className)}
       fill="none"
       stroke="currentColor"

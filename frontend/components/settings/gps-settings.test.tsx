@@ -47,6 +47,7 @@ const renderCard = (settings: Record<string, string>) =>
       updateSetting={vi.fn()}
       isEditor
       saving={null}
+      savedAt={{}}
     />,
   );
 

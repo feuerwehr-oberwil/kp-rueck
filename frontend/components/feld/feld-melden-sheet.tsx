@@ -56,8 +56,9 @@ import { apiClient, type ApiFeldIncidentCreated, type ApiFeldOwnReport } from '@
 import { ApiError } from '@/lib/api/types'
 import { reverseGeocode } from '@/lib/geocoding'
 import { getDevicePosition } from '@/lib/device-position'
-import { PRIORITY_LABELS } from '@/lib/priority'
-import { asIncidentType, INCIDENT_TYPE_LABELS } from '@/lib/types/incidents'
+import { PRIORITIES, isPriority } from '@/lib/priority'
+import { asIncidentType, INCIDENT_TYPES } from '@/lib/types/incidents'
+import { getIncidentTypeLabel } from '@/lib/incident-types'
 import type { IncidentPriority, IncidentType } from '@/lib/types/incidents'
 import { CONTACT_PHONE_MAX, sanitizePhoneInput } from '@/lib/utils'
 import { ShellLoader } from '@/components/ui/shell-loader'
@@ -142,7 +143,7 @@ const DEFAULT_PRIORITY: IncidentPriority = 'low'
 /** Same narrowing as `asIncidentType`, for the priority union. Local because
  *  this is the only surface that reads a priority back off the wire. */
 function asPriority(value: string | undefined): IncidentPriority {
-  return value && value in PRIORITY_LABELS ? (value as IncidentPriority) : DEFAULT_PRIORITY
+  return value && isPriority(value) ? value : DEFAULT_PRIORITY
 }
 
 export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
@@ -150,6 +151,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
   const editing = props.editing ?? null
   const canTakeOver = props.editing ? false : (props.canTakeOver ?? true)
   const t = useTranslations('feld.melden')
+  const tPriority = useTranslations('incidents.priority')
   const tDuplicates = useTranslations('duplicates')
   // Prefilled from the Meldung in edit mode. The page keys this component by
   // incident id, so opening a different one remounts rather than carrying the
@@ -213,8 +215,8 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
    *  "Beschreibung" is a field somebody starts wondering whether they missed. */
   const reviewRows: { label: string; value: string; hint?: string }[] = [
     ...(isPhoneDesk ? [{ label: t('message'), value: title.trim() }] : []),
-    { label: t('what'), value: INCIDENT_TYPE_LABELS[type] },
-    ...(isPhoneDesk ? [{ label: t('priority'), value: PRIORITY_LABELS[priority] }] : []),
+    { label: t('what'), value: getIncidentTypeLabel(type) },
+    ...(isPhoneDesk ? [{ label: t('priority'), value: tPriority(priority) }] : []),
     {
       label: t('review.where'),
       value: address?.trim() || (lat !== null && lng !== null ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : ''),
@@ -347,7 +349,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
         // The card's heading is the ADDRESS — the same choice the board's own
         // «Neuer Einsatz» makes (`title: operation.location`), falling back to
         // what was reported when there is no street.
-        title: street || meldung || INCIDENT_TYPE_LABELS[type],
+        title: street || meldung || getIncidentTypeLabel(type),
         type,
         priority,
         location_address: street || null,
@@ -478,7 +480,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
                     trigger. */}
                 {(FIELD_TYPES.includes(type) ? FIELD_TYPES : [type, ...FIELD_TYPES]).map(option => (
                   <SelectItem key={option} value={option}>
-                    {INCIDENT_TYPE_LABELS[option]}
+                    {getIncidentTypeLabel(option)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -570,7 +572,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
                 {t('priority')} <span className="text-muted-foreground" aria-hidden="true">*</span>
               </Label>
               <div className="mt-2 grid grid-cols-3 gap-2">
-                {(Object.entries(PRIORITY_LABELS) as [IncidentPriority, string][]).map(([key, label]) => (
+                {PRIORITIES.map((key) => (
                   <Button
                     key={key}
                     type="button"
@@ -578,7 +580,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
                     aria-pressed={priority === key}
                     onClick={() => setPriority(key)}
                   >
-                    {label}
+                    {tPriority(key)}
                   </Button>
                 ))}
               </div>
@@ -598,9 +600,9 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.entries(INCIDENT_TYPE_LABELS) as [IncidentType, string][]).map(([key, label]) => (
+                  {INCIDENT_TYPES.map((key) => (
                     <SelectItem key={key} value={key}>
-                      {label}
+                      {getIncidentTypeLabel(key)}
                     </SelectItem>
                   ))}
                 </SelectContent>

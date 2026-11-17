@@ -21,7 +21,7 @@
 
 import { useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
-import { AlertTriangle, House, MapPin, Plus, Route as RouteIcon, Truck, X } from "lucide-react"
+import { AlertTriangle, Home, MapPin, Plus, Route as RouteIcon, Truck, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Input } from "@/components/ui/input"
@@ -46,6 +46,7 @@ import { RouteOptimizeButton, RouteOptimizeNote, useRouteOptimizeAction } from "
 import { ShellLoader } from "@/components/ui/shell-loader"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { AUFTRAG_SWATCHES, MAP_COLORS } from "@/lib/map-colors"
+import { FormMessage, formMessageId, useRequiredField } from "@/components/ui/form-message"
 
 // Optimize now persists immediately, so the shared list never shows a pending
 // "changed" preview state.
@@ -103,6 +104,8 @@ export function RoutenplanungPanel({
 
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState("")
+  const tForm = useTranslations("common.formMessage")
+  const newNameField = useRequiredField("planning-new-name", newName, tForm("nameRequired"))
   const [newColor, setNewColor] = useState<string>(AUFTRAG_SWATCHES[0])
 
   const stopIds = group?.stopIds ?? []
@@ -113,12 +116,13 @@ export function RoutenplanungPanel({
   const startCreate = () => {
     setNewName(t("defaultName", { n: groups.length + 1 }))
     setNewColor(AUFTRAG_SWATCHES[groups.length % AUFTRAG_SWATCHES.length])
+    newNameField.reset()
     setCreating(true)
   }
 
   const confirmCreate = async () => {
+    if (!newNameField.check()) return
     const name = newName.trim()
-    if (!name) return
     setCreating(false)
     await onCreateGroup(name, newColor)
   }
@@ -213,6 +217,7 @@ export function RoutenplanungPanel({
         {creating && (
           <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2.5">
             <Input
+              {...newNameField.controlProps}
               autoFocus
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
@@ -239,12 +244,15 @@ export function RoutenplanungPanel({
                 />
               ))}
             </div>
-            <Button size="sm" className="h-8" onClick={confirmCreate} disabled={!newName.trim()}>
+            <Button size="sm" className="h-8" onClick={confirmCreate}>
               {t("create")}
             </Button>
             <Button size="sm" variant="ghost" className="h-8" onClick={() => setCreating(false)}>
               {t("cancel")}
             </Button>
+            <FormMessage id={formMessageId("planning-new-name")} className="basis-full">
+              {newNameField.error}
+            </FormMessage>
           </div>
         )}
       </div>
@@ -348,7 +356,7 @@ function RouteStartItem({
     ? describeRouteStart(lastRun.start, tStart, Date.now(), locale)
     : describeStartOption("magazin", planning.anchors, tStart, Date.now(), locale)
   const mode = lastRun?.start.mode ?? "magazin"
-  const Icon = mode === "vehicle" ? Truck : mode === "first" ? MapPin : House
+  const Icon = mode === "vehicle" ? Truck : mode === "first" ? MapPin : Home
   return (
     <RouteTimelineItem>
       <div className={TIMELINE_ROW}>

@@ -16,6 +16,8 @@
  * its sidebar entry.
  */
 
+import { formatTime } from '@/lib/format-time'
+import { SearchEmptyState } from "@/components/ui/empty-state"
 import { useMemo, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/auth-context';
@@ -84,6 +86,7 @@ import { useAuditLog } from '@/components/settings/use-audit-log';
 import { useExcelImport } from '@/components/settings/use-excel-import';
 import { COORDINATE_DECIMALS, LATITUDE_RANGE, LONGITUDE_RANGE } from '@/components/settings/setting-validation';
 import {
+  SettingSaveLine,
   StationSettingsForm,
   useStationSettings,
   type SettingConfig,
@@ -107,8 +110,8 @@ import { IntegrationsSection } from './integrations-section';
 import { useTileAvailability } from '@/lib/hooks/use-tile-availability';
 import { BrandingSettings } from '@/components/settings/branding-settings';
 import { TelemetrySettings } from '@/components/settings/telemetry-settings';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useIsMobile } from '@/components/ui/use-mobile';
+import { LoadingStatus } from '@/components/ui/shell-loader';
 import { searchSettings } from '@/lib/settings-search';
 
 /**
@@ -301,6 +304,7 @@ const SETTING_CONFIGS: (SettingConfig & { group: GeneralGroup })[] = [
 
 export default function SettingsPage() {
   const t = useTranslations('settings');
+  const tLoading = useTranslations('common.loadingWhat');
   const intlLocale = useIntlLocale();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -342,7 +346,7 @@ export default function SettingsPage() {
   // The station's key/value settings, shared by every section that edits keys.
   // Called after the audit hook so the settings fetch keeps its place among the effects.
   const stationSettings = useStationSettings({ enabled: isAuthenticated, canEdit: isEditor });
-  const { settings, setSettings, serverSettings, loading, error, saving, updateSetting } = stationSettings;
+  const { settings, setSettings, serverSettings, loading, error, saving, savedAt, updateSetting } = stationSettings;
 
   // Navigate to section
   const navigateToSection = (sectionId: SectionId) => {
@@ -381,7 +385,7 @@ export default function SettingsPage() {
           {tiles.status === 'installed' && (
             <span className="text-xs text-muted-foreground">
               {[tiles.name, zoom, t('page.general.tiles.checkedAt', {
-                time: tiles.checkedAt.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' }),
+                time: formatTime(tiles.checkedAt, intlLocale),
               })]
                 .filter(Boolean)
                 .join(' · ')}
@@ -466,12 +470,7 @@ export default function SettingsPage() {
                 eine Reichweiten-Marke – der Abschnitt IST die Reichweite. */}
             <SettingCard>
               {loading ? (
-                <div className="space-y-4 pt-3">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
+                <LoadingStatus size="surface" className="flex w-full py-8 text-sm">{tLoading('settings')}</LoadingStatus>
               ) : error ? (
                 <div className="pt-3">
                   <p className="text-destructive">{error}</p>
@@ -577,6 +576,7 @@ export default function SettingsPage() {
                       }}
                       disabled={!isEditor || isCurrentlySaving}
                     />
+                    <SettingSaveLine saving={isCurrentlySaving} savedAt={savedAt[field.key]} />
                   </SettingBlock>
                 );
               })}
@@ -633,6 +633,7 @@ export default function SettingsPage() {
                       }}
                       disabled={!isEditor || isCurrentlySaving}
                     />
+                    <SettingSaveLine saving={isCurrentlySaving} savedAt={savedAt[key]} />
                   </SettingBlock>
                 </SettingCard>
               );
@@ -644,6 +645,7 @@ export default function SettingsPage() {
               updateSetting={updateSetting}
               isEditor={isEditor}
               saving={saving}
+              savedAt={savedAt}
             />
             </DemoLock>
           </div>
@@ -666,6 +668,7 @@ export default function SettingsPage() {
               updateSetting={updateSetting}
               isEditor={isEditor}
               saving={saving}
+              savedAt={savedAt}
             />
             {/* The credential the dispatch provider signs POST /api/alarms with –
                 admin-only, and next to the inbound filter above because that is the
@@ -720,6 +723,7 @@ export default function SettingsPage() {
                       }}
                       disabled={!isEditor || isCurrentlySaving}
                     />
+                    <SettingSaveLine saving={isCurrentlySaving} savedAt={savedAt[key]} />
                   </SettingBlock>
                 );
               })}
@@ -760,6 +764,7 @@ export default function SettingsPage() {
                 updateSetting={updateSetting}
                 isEditor={isEditor}
                 saving={saving}
+                savedAt={savedAt}
               />
             </DemoLock>
             <DemoLock active={demoMode}>
@@ -770,6 +775,7 @@ export default function SettingsPage() {
                 updateSetting={updateSetting}
                 isEditor={isEditor}
                 saving={saving}
+                savedAt={savedAt}
               />
             </DemoLock>
           </div>
@@ -885,9 +891,7 @@ export default function SettingsPage() {
               {searchHits !== null ? (
                 <nav aria-label={t('page.searchPlaceholder')}>
                   {searchHits.length === 0 ? (
-                    <p className="px-3 py-2 text-xs text-muted-foreground">
-                      {t('page.searchNoResults')}
-                    </p>
+                    <SearchEmptyState query={search} onClear={() => setSearch('')} />
                   ) : (
                     <>
                       {searchHits.map((hit, index) => {

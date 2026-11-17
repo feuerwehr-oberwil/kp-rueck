@@ -1,5 +1,7 @@
 'use client'
 
+import { SearchEmptyState } from "@/components/ui/empty-state"
+import { PersonName } from "@/components/person-name"
 import { LinkPageHeader } from '@/components/link-page/link-page'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -9,7 +11,7 @@ import { SearchInput } from '@/components/ui/search-input'
 import { LoadingStatus } from '@/components/ui/shell-loader'
 import { CheckCircle, Circle } from 'lucide-react'
 import { toast } from 'sonner'
-import { toastLifetime } from '@/lib/toast-lifetime'
+import { undoToast } from '@/lib/toast-undo'
 import { QuickAddPersonnel } from '@/components/quick-add-personnel'
 import { wsClient } from '@/lib/websocket-client'
 import { sortByName } from '@/lib/roster-order'
@@ -107,20 +109,9 @@ export default function CheckInPage() {
       if (checkingOut) {
         // Check-in stays one tap; checking out is what a thumb brushing the list
         // does by accident, so it can be taken back from the toast.
-        // A bare toast(), as the board's release undo: phones are a quiet surface where
-        // toast.success/info are muted (notification-toasts.tsx), and this one is not
-        // noise but the way back. So it carries its lifetime itself.
-        let used = false
-        toast(t('checkedOut', { name: person.name }), {
-          ...toastLifetime(6000),
-          action: {
-            label: t('undo'),
-            onClick: () => {
-              if (used) return
-              used = true
-              void setCheckedIn(person, true)
-            },
-          },
+        // undoToast stands on the phone too, where toast.success is muted.
+        undoToast(t('checkedOut', { name: person.name }), {
+          onUndo: () => setCheckedIn(person, true),
         })
       } else {
         // The next person at the door starts from the whole list, not from «Acker».
@@ -241,6 +232,8 @@ export default function CheckInPage() {
           <div className="flex justify-center py-8">
             <LoadingStatus>{t('loading')}</LoadingStatus>
           </div>
+        ) : filteredPersonnel.length === 0 && searchTerm.trim() ? (
+          <SearchEmptyState query={searchTerm} onClear={() => setSearchTerm('')} />
         ) : filteredPersonnel.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             {t('noneFound')}
@@ -277,7 +270,9 @@ export default function CheckInPage() {
                   Beside it on a 393px row the pill kept its width and «Bendik-Dimitrijević
                   Alexandra» broke over three lines (phone sweep 14.11.2026). */}
               <div className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <div className="min-w-0 break-words font-semibold text-lg">{person.name}</div>
+                <div className="min-w-0 break-words font-semibold text-lg">
+                  <PersonName name={person.name} personnelId={person.id} kennung={person.kennung} />
+                </div>
                 <div className="flex shrink-0 whitespace-nowrap">
                   {person.is_assigned ? (
                     <span className="bg-foreground/10 text-foreground px-3 py-1 rounded-full text-sm font-semibold">

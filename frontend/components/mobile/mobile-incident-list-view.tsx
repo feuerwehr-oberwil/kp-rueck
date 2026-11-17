@@ -6,7 +6,7 @@ import Link from "next/link"
 import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
+import { LoadingStatus } from "@/components/ui/shell-loader"
 import { Filter, Plus, Sparkles, X } from "lucide-react"
 import {
   DropdownMenu,
@@ -53,7 +53,7 @@ interface MobileIncidentListViewProps {
 // the union. They used to be four coarser groups with names of their own
 // («Aktiv», «Neu») — a third vocabulary beside the board's, and one that could
 // not say «show me only the Rückfahrten». The filter now speaks exactly the
-// words the columns do (incidents.status.*).
+// words the columns do (kanban.columns.*).
 const filterStatuses = [
   "incoming",
   "reko",
@@ -76,8 +76,9 @@ export function MobileIncidentListView({
 }: MobileIncidentListViewProps) {
   const t = useTranslations('incidents.mobileList')
   // The board's own words for a status — the single vocabulary.
-  const tStatus = useTranslations('incidents.status')
+  const tStatus = useTranslations('kanban.columns')
   const tEmpty = useTranslations('common.emptyState')
+  const tLoading = useTranslations('common.loadingWhat')
   const { selectedEvent } = useEvent()
   // Fetched ONCE for the list and passed into every card — the rich card rows
   // (image #21) name each vehicle's driver.
@@ -324,18 +325,14 @@ export function MobileIncidentListView({
         }}
       >
         {isLoading ? (
-          <div className="space-y-3 mt-4">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-24" />
-            ))}
-          </div>
+          <LoadingStatus size="surface" className="flex w-full py-8 text-sm">{tLoading("incidents")}</LoadingStatus>
         ) : filteredOperations.length === 0 ? (
           // Why it is empty, and the one way out (#3): the search found
           // nothing → «Suche leeren»; the status chip hides what it found →
           // «Alle zeigen»; there is nothing at all → one quiet line.
           searchQuery.trim() && !operations.some((op) => matchesSearch(op, searchQuery)) ? (
             <EmptyState
-              title={t('noHitsFor', { query: searchQuery.trim() })}
+              title={tEmpty('noHitsFor', { query: searchQuery.trim() })}
               description={t('searchScope')}
               action={{
                 label: tEmpty('clearSearch'),

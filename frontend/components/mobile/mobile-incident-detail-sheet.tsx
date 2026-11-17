@@ -9,6 +9,7 @@
  * What a phone may still write is intake: «Neuer Einsatz», Übungs-Einsätze, the Appell.
  */
 
+import { vehicleLabel } from "@/lib/vehicle-label"
 import Link from "next/link"
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
@@ -20,7 +21,7 @@ import {
   Truck,
   Users,
   Package,
-  FileCheck,
+  Binoculars,
   AlertTriangle,
   Map as MapIcon,
   Phone,
@@ -36,7 +37,7 @@ import { DetailGroupHeading } from "@/components/kanban/detail-field"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
-import { incidentTypeLabels } from "@/lib/incident-types"
+import { isIncidentType } from "@/lib/types/incidents"
 import { AddressText } from "@/components/kanban/address-text"
 import { useTranslations } from "next-intl"
 import { sortCrewByLeader } from "@/lib/crew-order"
@@ -61,6 +62,7 @@ export function MobileIncidentDetailSheet({
   formatLocation,
 }: MobileIncidentDetailSheetProps) {
   const t = useTranslations('incidents')
+  const tColumns = useTranslations('kanban.columns')
   // The resource chips reuse the board's own labels (Funkrufname, Zu Fuss …)
   // so the phone and the board name the same thing the same way.
   const tKanban = useTranslations('kanban')
@@ -68,7 +70,7 @@ export function MobileIncidentDetailSheet({
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
 
   // Byte-identical fallback to the raw type value for unknown types
-  const typeLabel = (type: string) => (type in incidentTypeLabels ? t(`types.${type}`) : type)
+  const typeLabel = (type: string) => (isIncidentType(type) ? t(`types.${type}`) : type)
 
   if (!operation) return null
 
@@ -134,7 +136,7 @@ export function MobileIncidentDetailSheet({
           {/* Status & Time Row */}
           <div className="flex items-center gap-3 flex-wrap">
             <Badge variant="secondary" className="text-sm max-w-full">
-              {t(`status.${operation.status}`)}
+              {tColumns(operation.status)}
             </Badge>
             {/* The Einsatzart is a fact beside the status, so it is plain
                 muted text (14/20 500), as on the phone card: boxed, it read as a
@@ -148,9 +150,11 @@ export function MobileIncidentDetailSheet({
               className="ml-auto gap-1.5 text-sm text-muted-foreground"
               chipClassName="text-sm"
             />
+            {/* Muted Binoculars = Reko filed, as on the board and the wall; the green
+                ticked paper is the Schadenplatz-Rapport's mark only. */}
             {operation.hasCompletedReko && (
-              <Badge variant="outline" className="gap-1 text-success border-success/30">
-                <FileCheck className="h-3 w-3" />
+              <Badge variant="outline" className="gap-1 text-muted-foreground">
+                <Binoculars className="h-3 w-3" />
                 {t('mobileDetail.rekoBadge')}
               </Badge>
             )}
@@ -216,7 +220,7 @@ export function MobileIncidentDetailSheet({
                     </RemovableChip>
                   )}
                   {operation.vehicles.map(({ vehicleId, name: vehicleName, callsign, driverStay }) => {
-                    const driverName = vehicleDrivers.get(vehicleId)
+                    const driver = vehicleDrivers.get(vehicleId)
                     return (
                       <div key={vehicleId} className="flex max-w-full flex-col items-start gap-1.5">
                         <RemovableChip
@@ -225,9 +229,11 @@ export function MobileIncidentDetailSheet({
                           title={callsign ? tKanban('common.funkrufname', { callsign }) : undefined}
                         >
                           <span>
-                            {vehicleName}{callsign ? ` · ${callsign}` : ''}
-                            {driverName && (
-                              <span className="text-muted-foreground"> ({driverName})</span>
+                            {vehicleLabel({ name: vehicleName, callsign })}
+                            {driver && (
+                              <span className="text-muted-foreground">
+                                {" "}(<PersonName name={driver.name} personnelId={driver.personnelId} />)
+                              </span>
                             )}
                           </span>
                         </RemovableChip>

@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useEvent } from '@/lib/contexts/event-context';
 import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
+import { ShellLoader } from '@/components/ui/shell-loader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -101,7 +102,7 @@ export function TrainingCheckinCard() {
             size="sm"
             className="col-span-2 min-h-10 md:min-h-0 md:flex-1"
           >
-            <Users className="size-3.5" />
+            {isCheckingIn ? <ShellLoader className="size-3.5" /> : <Users className="size-3.5" />}
             {isCheckingIn ? t('checkingIn') : t('checkin')}
           </Button>
         </div>

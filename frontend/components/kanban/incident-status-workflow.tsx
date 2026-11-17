@@ -1,5 +1,6 @@
 "use client"
 
+import { vehicleLabel } from "@/lib/vehicle-label"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import {
@@ -11,13 +12,14 @@ import {
   ClipboardCheck,
   Footprints,
   Package,
-  PenLine,
+  Pencil,
   Plus,
   Truck,
   Users,
   Waypoints,
 } from "lucide-react"
 import { toast } from "sonner"
+import { undoToast } from "@/lib/toast-undo"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -343,7 +345,7 @@ export function useIncidentStatusWorkflow({
     const release: CompletionRelease = {
       operationId: operation.id,
       crew: operation.crew.map(personInline),
-      vehicles: operation.vehicles.map(({ name, callsign }) => (callsign ? `${name} · ${callsign}` : name)),
+      vehicles: operation.vehicles.map(vehicleLabel),
     }
 
     // «Vor Ort oder ins Magazin?» has two answers, and mid-route both are
@@ -776,8 +778,6 @@ export function IncidentStatusWorkflowDialogs({
   const tCompletion = useTranslations("kanban.completion")
   const tCorrection = useTranslations("kanban.statusCorrection")
   const tColumns = useTranslations("kanban.columns")
-  // The board's one «Rückgängig» label — no second copy of the same word.
-  const tUndo = useTranslations("notifications.operations")
 
   // The completion gate's two subjects: what is released (null when the gate is
   // open for material alone) and how many units still need an answer.
@@ -830,27 +830,21 @@ export function IncidentStatusWorkflowDialogs({
     // says what actually happened: one stop off the route. On a standard
     // Auftrag there is no release either — crew and vehicles stayed with the
     // route — and the toast is then the stop line alone.
-    toast.success(
-      continuation
-        ? tCompletion("stopToastTitle", { location })
-        : tCompletion("toastTitle", { location }), {
-      description: [
-        release?.crew.length ? tCompletion("releasedCrew", { count: release.crew.length }) : null,
-        release?.vehicles.length ? tCompletion("releasedVehicles", { vehicles: release.vehicles.join(", ") }) : null,
-        ...materialParts,
-      ].filter(Boolean).join(" · ") || undefined,
-      duration: 10000,
-      // Only offered when we know where the card came from — an undo
-      // that has to guess a status is not an undo. It reopens the
-      // incident (crew and vehicles come back with the refetch);
-      // material already sent to the Magazin stays there.
-      action: completed && undoStatus
-        ? {
-            label: tUndo("undoLabel"),
-            onClick: () => controller.reopenCompleted(completed.id, undoStatus),
-          }
-        : undefined,
-    })
+    const title = continuation ? tCompletion("stopToastTitle", { location }) : tCompletion("toastTitle", { location })
+    const description = [
+      release?.crew.length ? tCompletion("releasedCrew", { count: release.crew.length }) : null,
+      release?.vehicles.length ? tCompletion("releasedVehicles", { vehicles: release.vehicles.join(", ") }) : null,
+      ...materialParts,
+    ].filter(Boolean).join(" · ") || undefined
+    // The undo is only offered when we know where the card came from — an undo
+    // that has to guess a status is not an undo. It reopens the incident (crew
+    // and vehicles come back with the refetch); material already sent to the
+    // Magazin stays there.
+    if (completed && undoStatus) {
+      undoToast(title, { description, onUndo: () => controller.reopenCompleted(completed.id, undoStatus) })
+    } else {
+      toast.success(title, { description })
+    }
   }
 
   // The open gate waits while its assignment dialog runs.
@@ -1207,7 +1201,7 @@ export function IncidentStatusWorkflowDialogs({
             <>
               <AlertDialogHeader>
                 <AlertDialogTitle className="flex items-center gap-2">
-                  <PenLine className="h-5 w-5 text-muted-foreground" />
+                  <Pencil className="h-5 w-5 text-muted-foreground" />
                   {tCorrection("title")}
                 </AlertDialogTitle>
                 <AlertDialogDescription>

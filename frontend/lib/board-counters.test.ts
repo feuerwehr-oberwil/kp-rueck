@@ -60,8 +60,8 @@ describe('French board counters', () => {
   it('inflects the same counts', () => {
     expect(fr_('card.moreCrewTitle', { count: 1 })).toContain('1 personne')
     expect(fr_('card.moreCrewTitle', { count: 24 })).toContain('24 personnes')
-    expect(fr_('card.moreMaterialTitle', { count: 1 })).toContain('1 engin')
-    expect(fr_('card.moreMaterialTitle', { count: 6 })).toContain('6 engins')
+    expect(fr_('card.moreMaterialTitle', { count: 1 })).toContain('1 pièce de matériel')
+    expect(fr_('card.moreMaterialTitle', { count: 6 })).toContain('6 pièces de matériel')
   })
 
   it('keeps the counter honest while loading', () => {

@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import { toast } from "sonner"
-import { toastLifetime } from "@/lib/toast-lifetime"
+import { undoToast } from "@/lib/toast-undo"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { translateOutsideReact } from "@/lib/i18n-messages"
@@ -136,22 +136,9 @@ export function useReleaseUndo() {
       const timer = setTimeout(() => {
         pending.current.delete(key)
         const values = { resource: released.name, target: released.targetLabel, count: items.length }
-        let used = false
-        toast(
+        undoToast(
           translateOutsideReact(items.length > 1 ? "notifications.release.releasedMany" : "notifications.release.released", values),
-          {
-            // a bare toast() bypasses the lifetime wrappers — carry the line itself
-            ...toastLifetime(8000),
-            action: {
-              label: translateOutsideReact("notifications.operations.undoLabel"),
-              onClick: () => {
-                // One shot: a second click on the same toast changes nothing.
-                if (used) return
-                used = true
-                void undo(items)
-              },
-            },
-          },
+          { onUndo: () => undo(items) },
         )
       }, BATCH_MS)
       pending.current.set(key, { items, timer })

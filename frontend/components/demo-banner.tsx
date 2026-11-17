@@ -144,7 +144,7 @@ export function DemoBanner() {
     <>
       <div
         data-demo-ribbon
-        className="pointer-events-none fixed top-[calc(15px+env(safe-area-inset-top))] -left-9 z-demo-ribbon w-[132px] -rotate-45 bg-amber-500 py-[3px] text-center text-2xs font-extrabold tracking-[2px] text-amber-950 shadow-[0_1px_5px_rgba(20,28,40,0.35)]"
+        className="pointer-events-none fixed top-[calc(15px+env(safe-area-inset-top))] -left-9 z-demo-ribbon w-[132px] -rotate-45 bg-warning py-[3px] text-center text-2xs font-extrabold tracking-[2px] text-warning-foreground shadow-[0_1px_5px_rgba(20,28,40,0.35)]"
         role="note"
         aria-label={t('ariaLabel')}
       >
@@ -160,7 +160,7 @@ export function DemoBanner() {
         >
           <DialogHeader className="pr-8">
             <div className="flex items-center gap-3">
-              <span className="rounded-full bg-amber-500 px-2.5 py-1 text-2xs font-extrabold tracking-[1.5px] text-amber-950">
+              <span className="rounded-full bg-warning px-2.5 py-1 text-2xs font-extrabold tracking-[1.5px] text-warning-foreground">
                 {t('ribbon')}
               </span>
               <DialogTitle>{t('welcome.title')}</DialogTitle>
@@ -170,8 +170,8 @@ export function DemoBanner() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4" role="note">
-            <Users className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+          <div className="flex gap-3 rounded-lg border border-warning/40 bg-warning/10 p-4" role="note">
+            <Users className="mt-0.5 h-5 w-5 shrink-0 text-warning-foreground" />
             <div className="space-y-1.5">
               <h3 className="text-sm font-semibold">{t('welcome.sharedTitle')}</h3>
               <p className="text-sm leading-relaxed text-muted-foreground">{t('welcome.sharedDescription')}</p>

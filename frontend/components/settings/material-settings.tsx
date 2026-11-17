@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { fieldMessageProps } from '@/components/ui/form-message';
+import { fieldMessageProps, useRequiredField } from '@/components/ui/form-message';
 import {
   Table,
   TableBody,
@@ -32,7 +32,7 @@ import { Form, FormField } from '@/components/ui/form';
 import { SettingCard } from '@/components/settings/setting-row';
 import { DetailField, DetailToggle } from '@/components/kanban/detail-field';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Edit, Trash2, ArrowRight, Infinity as InfinityIcon, PackageMinus } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2, ArrowRight, Infinity as InfinityIcon, PackageMinus } from 'lucide-react';
 import Link from 'next/link';
 import { apiClient, ApiMaterialResource, ApiMaterialGroup } from '@/lib/api-client';
 import { CategorySortOrder } from './category-sort-order';
@@ -566,6 +566,8 @@ function MaterialGroupSettings({
   const [isSaving, setIsSaving] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [groupToDelete, setGroupToDelete] = useState<ApiMaterialGroup | null>(null)
+  const tForm = useTranslations('common.formMessage')
+  const groupNameField = useRequiredField('group-name', groupName, tForm('nameRequired'))
 
   const existingLocations = useMemo(() => {
     const locs = new Set(materials.map(m => m.location || '').filter(Boolean))
@@ -577,6 +579,7 @@ function MaterialGroupSettings({
     setGroupName('')
     setGroupLocation('')
     setSelectedMaterialIds(new Set())
+    groupNameField.reset()
     setIsDialogOpen(true)
   }
 
@@ -585,10 +588,12 @@ function MaterialGroupSettings({
     setGroupName(group.name)
     setGroupLocation(group.location)
     setSelectedMaterialIds(new Set(group.materials.map(m => m.id)))
+    groupNameField.reset()
     setIsDialogOpen(true)
   }
 
   const handleSave = async () => {
+    if (!groupNameField.check()) return
     setIsSaving(true)
     try {
       const data = {
@@ -683,7 +688,7 @@ function MaterialGroupSettings({
                 </TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(group)}>
-                    <Edit className="size-3.5" />
+                    <Pencil className="size-3.5" />
                   </Button>
                   <Button
                     variant="ghost"
@@ -706,62 +711,71 @@ function MaterialGroupSettings({
           <DialogHeader>
             <DialogTitle>{editingGroup ? t('materials.groups.dialogEditTitle') : t('materials.groups.dialogCreateTitle')}</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 space-y-1 overflow-y-auto py-2">
-            <DetailField label={t('common.name')} htmlFor="group-name" required>
-              <Input
-                id="group-name"
-                value={groupName}
-                onChange={(e) => setGroupName(e.target.value)}
-                placeholder={t('materials.groups.namePlaceholder')}
-              />
-            </DetailField>
-            <DetailField label={t('common.location')} htmlFor="group-location">
-              <Select
-                value={groupLocation}
-                onValueChange={(value) => setGroupLocation(value)}
-              >
-                <SelectTrigger id="group-location" className="w-full">
-                  <SelectValue placeholder={t('materials.groups.locationPlaceholder')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {existingLocations.map(l => (
-                    <SelectItem key={l} value={l}>{l}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </DetailField>
-            {/* The pick list is a scrolling box, so the label sits at the top of the row. */}
-            <DetailField label={t('materials.groups.selectMaterials')} alignStart>
-              <div className="max-h-[250px] space-y-1 overflow-y-auto rounded-md border p-2">
-                {availableMaterials.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">{t('materials.groups.noAvailableMaterials')}</p>
-                ) : (
-                  availableMaterials.map((mat) => (
-                    <label
-                      key={mat.id}
-                      className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedMaterialIds.has(mat.id)}
-                        onChange={() => toggleMaterial(mat.id)}
-                        className="rounded"
-                      />
-                      <span className="text-sm">{mat.name}</span>
-                      <span className="text-xs text-muted-foreground ml-auto">{mat.location}</span>
-                    </label>
-                  ))
-                )}
-              </div>
-            </DetailField>
-          </div>
-          <DialogFooter className="pt-2">
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>{t('common.cancel')}</Button>
-            <Button onClick={handleSave} disabled={isSaving || !groupName.trim()}>
-              {isSaving && <ShellLoader className="size-4" />}
-              {editingGroup ? t('common.update') : t('common.create')}
-            </Button>
-          </DialogFooter>
+          {/* A <form>, so Enter in the name creates/updates. */}
+          <form
+            className="flex min-h-0 flex-1 flex-col"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void handleSave()
+            }}
+          >
+            <div className="flex-1 space-y-1 overflow-y-auto py-2">
+              <DetailField label={t('common.name')} htmlFor="group-name" required error={groupNameField.error}>
+                <Input
+                  {...groupNameField.controlProps}
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  placeholder={t('materials.groups.namePlaceholder')}
+                />
+              </DetailField>
+              <DetailField label={t('common.location')} htmlFor="group-location">
+                <Select
+                  value={groupLocation}
+                  onValueChange={(value) => setGroupLocation(value)}
+                >
+                  <SelectTrigger id="group-location" className="w-full">
+                    <SelectValue placeholder={t('materials.groups.locationPlaceholder')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {existingLocations.map(l => (
+                      <SelectItem key={l} value={l}>{l}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </DetailField>
+              {/* The pick list is a scrolling box, so the label sits at the top of the row. */}
+              <DetailField label={t('materials.groups.selectMaterials')} alignStart>
+                <div className="max-h-[250px] space-y-1 overflow-y-auto rounded-md border p-2">
+                  {availableMaterials.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">{t('materials.groups.noAvailableMaterials')}</p>
+                  ) : (
+                    availableMaterials.map((mat) => (
+                      <label
+                        key={mat.id}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedMaterialIds.has(mat.id)}
+                          onChange={() => toggleMaterial(mat.id)}
+                          className="rounded"
+                        />
+                        <span className="text-sm">{mat.name}</span>
+                        <span className="text-xs text-muted-foreground ml-auto">{mat.location}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </DetailField>
+            </div>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>{t('common.cancel')}</Button>
+              <Button type="submit" disabled={isSaving}>
+                {isSaving && <ShellLoader className="size-4" />}
+                {editingGroup ? t('common.update') : t('common.create')}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

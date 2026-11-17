@@ -8,6 +8,7 @@
  * and a fixed width keeps the wrapping predictable.
  */
 
+import { IncidentNumber } from "@/components/ui/incident-number"
 import type { CSSProperties } from "react"
 import { useTranslations } from "next-intl"
 import { IncidentTime } from "@/components/ui/incident-time"
@@ -18,6 +19,8 @@ import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { formatPickupSince } from "@/lib/pickup"
+import { vehicleLabel } from "@/lib/vehicle-label"
+import { usePersonNaming } from "@/components/person-name"
 
 const CARD: CSSProperties = {
   width: 220,
@@ -30,7 +33,6 @@ const META: CSSProperties = { margin: "2px 0 0", fontSize: 11, color: "var(--mut
 const ROW: CSSProperties = { margin: "2px 0 0", fontSize: 11 }
 const MUTED: CSSProperties = { color: "var(--muted-foreground)" }
 /** The Einsatz number before the address — the card's quiet mono, inline-styled like the rest of this card. */
-export const MAP_INCIDENT_NUMBER: CSSProperties = { fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 500, color: "var(--muted-foreground)", marginRight: 4 }
 const ROUTE_BLOCK: CSSProperties = {
   margin: "5px 0 0",
   paddingTop: 4,
@@ -38,9 +40,7 @@ const ROUTE_BLOCK: CSSProperties = {
 }
 const ROUTE_TITLE: CSSProperties = { margin: 0, fontSize: 11, fontWeight: 600 }
 /** PickupBadge's amber, as classes: the bubble is in the app's tree, so they reach it. */
-const PICKUP =
-  "mt-[3px] inline-block rounded-sm bg-amber-100 px-[5px] py-px text-2xs font-semibold text-amber-800 " +
-  "dark:bg-amber-900/40 dark:text-amber-300"
+const PICKUP = "mt-[3px] inline-block rounded-sm bg-warning/15 px-[5px] py-px text-2xs font-semibold text-warning-foreground"
 const NOTES: CSSProperties = {
   margin: "3px 0 0",
   fontSize: 11,
@@ -75,7 +75,11 @@ export function OperationHoverCard({
   // Never a blank between two commas: a name the roster lost reads as
   // «Unbekannt», same as every chip surface. Route resources arrive already
   // normalised by the groups context, so only the incident's own lists need it.
+  const naming = usePersonNaming()
   const label = (name: string) => name.trim() || tKanban("common.unknownResource")
+  // A person as every chip names them: the Kennung follows a namesake.
+  const personLabel = (person: { name: string; personnelId: string }) =>
+    person.name.trim() ? naming.inline(person) : tKanban("common.unknownResource")
   const address =
     (operation.locationDisplay ?? formatLocationForDisplay(operation.location, getGlobalHomeCity())) || operation.location
   // EL first (decision 23), and sorted BEFORE the slice: this card shows three
@@ -90,7 +94,7 @@ export function OperationHoverCard({
     <div style={CARD}>
       <p style={TITLE}>
         {seq !== undefined ? `${seq}. ` : ""}
-        {operation.number != null && <span style={MAP_INCIDENT_NUMBER}>{operation.number}</span>}
+        <IncidentNumber number={operation.number} className="mr-1 text-[11px]" />
         {address}
       </p>
       <p style={META}>
@@ -122,20 +126,20 @@ export function OperationHoverCard({
       </p>
       {operation.assignedReko && (
         <p style={ROW}>
-          <span style={MUTED}>Reko: </span>
-          {label(operation.assignedReko.name)}
+          <span style={MUTED}>{tKanban("common.reko")}: </span>
+          {personLabel({ name: operation.assignedReko.name, personnelId: operation.assignedReko.id })}
         </p>
       )}
       {operation.vehicles.length > 0 && (
         <p style={ROW}>
           <span style={MUTED}>{tKanban("resources.vehicles")}: </span>
-          {operation.vehicles.map((v) => label(v.name)).join(", ")}
+          {operation.vehicles.map((v) => label(vehicleLabel(v))).join(", ")}
         </p>
       )}
       {operation.crew.length > 0 && (
         <p style={ROW}>
           <span style={MUTED}>{tKanban("resources.crew")}: </span>
-          {crewShown.map((m) => label(m.name)).join(", ")}
+          {crewShown.map(personLabel).join(", ")}
           {operation.crew.length > crewShown.length && ` +${operation.crew.length - crewShown.length}`}
         </p>
       )}
@@ -153,13 +157,13 @@ export function OperationHoverCard({
           {routeVehicles.length > 0 && (
             <p style={ROW}>
               <span style={MUTED}>{tKanban("resources.vehicles")}: </span>
-              {routeVehicles.map((v) => v.name).join(", ")}
+              {routeVehicles.map(vehicleLabel).join(", ")}
             </p>
           )}
           {routeCrew.length > 0 && (
             <p style={ROW}>
               <span style={MUTED}>{tKanban("resources.crew")}: </span>
-              {routeCrewShown.map((p) => p.name).join(", ")}
+              {routeCrewShown.map((p) => personLabel({ name: p.name, personnelId: p.resourceId })).join(", ")}
               {routeCrew.length > routeCrewShown.length && ` +${routeCrew.length - routeCrewShown.length}`}
             </p>
           )}

@@ -93,10 +93,10 @@ with KP Front's and pinned like the roster files.
    `conflicting_identity` – also when that person was only found by name, so a namesake is never
    created a second time. Both are skipped and reported. **An existing identity link is never
    rewritten**, and an entry may not list an identity under the file's own `provider`.
-4. **Write**: create new people (`status = available`), rename, map the rank key to a role word
-   (`kdt`/`maj`/`hptm`/`oblt`/`lt` → Offizier, `fw`/`wm` → Wachtmeister, `kpl` → Korporal,
-   `gfr`/`fwm`/`sdt` → Mannschaft; any other key is reported and `role` left alone), attach
-   missing identity links.
+4. **Write**: create new people (`status = available`), rename, store the rank key's Grad as
+   `role` – the same word KP Front shows (`kdt` → Kommandant, `fw` → Feldweibel, `gfr` →
+   Gefreiter, … `sdt` → Soldat; `backend/app/services/ranks.py`; any other key is reported and
+   `role` left alone), attach missing identity links.
 5. **Deactivate** the people the file lists as inactive and – only for `complete: true` – the
    people carrying this provider's key whom the file no longer lists. Hand-entered people and
    people only Divera knows are never touched by absence. **Nobody is deleted.**

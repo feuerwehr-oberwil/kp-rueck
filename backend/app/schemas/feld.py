@@ -859,7 +859,11 @@ class RestlisteIncident(BaseModel):
 
     incident_id: UUID
     title: str
+    # The Einsatz number and the home-town-stripped address the board names it by
+    # («12 · Hauptstrasse 8»); `location_address` is the full one, for paper.
+    number: int | None = None
     location_address: str | None = None
+    location_display: str | None = None
     status: str
     # Only on the "ohne Rapport" list: 'none' and 'draft' read very differently
     # at 02:00 — nobody touched it, versus somebody started and walked away.
@@ -886,7 +890,10 @@ class RestlisteUnit(BaseModel):
 
     incident_id: UUID
     incident_title: str
+    # As on `RestlisteIncident`: what the screen names the Schadenplatz by.
+    number: int | None = None
     location_address: str | None = None
+    location_display: str | None = None
     # None on an untracked entry: there is no assignment and no catalogue unit
     # behind a name (decision 18).
     assignment_id: UUID | None = None

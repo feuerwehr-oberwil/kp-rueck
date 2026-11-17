@@ -1092,13 +1092,13 @@ describe("OperationDetailContent · the edge of an unsaved text field", () => {
       reason: "conflict",
       conflict: { field: "contact", conflict: { text: "Herr Meier", by: null, at: null } },
     })
-    expect(contact.className).toMatch(/border-amber-600/)
+    expect(contact.className).toMatch(/border-warning(?![\w/-])/)
     expect(contact.className).not.toMatch(/(^|\s)border-destructive(\s|$)/)
   })
 
   it("is red when the save failed", () => {
     const contact = mountWithFailedContact({ ok: false, reason: "network" })
     expect(contact.className).toMatch(/(^|\s)border-destructive(\s|$)/)
-    expect(contact.className).not.toMatch(/border-amber-600/)
+    expect(contact.className).not.toMatch(/border-warning(?![\w/-])/)
   })
 })

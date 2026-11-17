@@ -13,7 +13,7 @@
  * 02:00 the operationally decisive fact is *how long* they have been waiting.
  */
 
-import { getActiveLocale } from '@/lib/i18n-messages'
+import { formatTime } from '@/lib/format-time'
 import { splitDuration } from '@/lib/duration'
 
 /** Minutes since the pickup was requested, or null when it never was. */
@@ -28,7 +28,7 @@ export function pickupWaitingMinutes(since: Date | null | undefined, now: Date =
 /** The clock time the pickup was asked for: "23:14". Empty when unknown. */
 export function formatPickupSince(since: Date | null | undefined, locale?: string): string {
   if (!since || Number.isNaN(since.getTime())) return ''
-  return since.toLocaleTimeString(locale ?? getActiveLocale(), { hour: '2-digit', minute: '2-digit' })
+  return formatTime(since, locale)
 }
 
 /**

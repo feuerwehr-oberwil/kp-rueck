@@ -56,7 +56,7 @@ import { MobileIncidentDetailSheet } from "@/components/mobile/mobile-incident-d
 import { incidentDetailTarget } from "@/lib/incident-detail"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { IncidentDialogs, useIncidentDialogs } from "@/components/kanban/incident-dialogs"
-import { isIncidentStatus, INCIDENT_TYPE_LABELS, STATUS_TO_GROUP, type StatusGroup, type IncidentStatus } from "@/lib/types/incidents"
+import { isIncidentStatus, isIncidentType, STATUS_TO_GROUP, type StatusGroup, type IncidentStatus } from "@/lib/types/incidents"
 import { Kbd } from "@/components/ui/kbd"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { toast } from "sonner"
@@ -476,10 +476,9 @@ export default function MapPage() {
   }, [registerHandlers, clearHandlers, refreshIncidents, vehicleTypes, setColorByPersisted])
 
   // Use shared operation handlers hook
-  const { handleOperationUpdate, handleVehicleRemove, handleOperationDelete } = useOperationHandlers({
+  const { handleOperationUpdate, handleOperationDelete } = useOperationHandlers({
     selectedOperation,
     updateOperation,
-    removeVehicle: release.releaseVehicle,
     assignVehicleToOperation,
     deleteOperation,
   })
@@ -605,8 +604,8 @@ export default function MapPage() {
       return filtered.filter((inc) =>
         (inc.location_address && inc.location_address.toLowerCase().includes(lowerQuery)) ||
         (inc.title && inc.title.toLowerCase().includes(lowerQuery)) ||
-        (inc.type in INCIDENT_TYPE_LABELS && tIncidents(`types.${inc.type}`).toLowerCase().includes(lowerQuery)) ||
-        (isIncidentStatus(inc.status) && tKanban(`statusLabels.${inc.status}`).toLowerCase().includes(lowerQuery))
+        (isIncidentType(inc.type) && tIncidents(`types.${inc.type}`).toLowerCase().includes(lowerQuery)) ||
+        (isIncidentStatus(inc.status) && tKanban(`columns.${inc.status}`).toLowerCase().includes(lowerQuery))
       )
     },
     [incidents, searchQuery, statusFilters, deepLinkExceptionId, tIncidents, tKanban]
@@ -632,8 +631,8 @@ export default function MapPage() {
           return (
             (inc.location_address && inc.location_address.toLowerCase().includes(lowerQuery)) ||
             (inc.title && inc.title.toLowerCase().includes(lowerQuery)) ||
-            (inc.type in INCIDENT_TYPE_LABELS && tIncidents(`types.${inc.type}`).toLowerCase().includes(lowerQuery)) ||
-            (isIncidentStatus(inc.status) && tKanban(`statusLabels.${inc.status}`).toLowerCase().includes(lowerQuery))
+            (isIncidentType(inc.type) && tIncidents(`types.${inc.type}`).toLowerCase().includes(lowerQuery)) ||
+            (isIncidentStatus(inc.status) && tKanban(`columns.${inc.status}`).toLowerCase().includes(lowerQuery))
           )
         })
     const sections: Record<StatusGroup, typeof incidents> = { open: [], active: [], completed: [] }
@@ -708,12 +707,13 @@ export default function MapPage() {
         setResetZoomTrigger((prev) => prev + 1)
         setSelectedIncidentId(null)
       }
-      // 'e' or 'Enter' key to open details for selected incident. Enter is the
-      // activation key of whatever has focus, so it only means "open details"
-      // while focus is not on a button or link — same rule as the board.
+      // Enter or Space opens details for the selected incident. Both are the
+      // activation keys of whatever has focus, so they only mean "open details"
+      // while focus is not on a button or link — same keys and rule as the board
+      // (`E` is «Eintrag schreiben» there, so it does not open anything here).
       else if (
-        (((e.key === 'e' || e.key === 'E') && !e.metaKey && !e.ctrlKey) ||
-          (e.key === 'Enter' && !isActivationTarget(e.target))) &&
+        (e.key === 'Enter' || e.key === ' ') &&
+        !isActivationTarget(e.target) &&
         selectedIncidentId
       ) {
         e.preventDefault()
@@ -1293,7 +1293,7 @@ export default function MapPage() {
           onUpdate={handleOperationUpdate}
           onDelete={isEditor ? handleOperationDelete : undefined}
           materials={materials}
-          onRemoveVehicle={isEditor ? handleVehicleRemove : undefined}
+          onRemoveVehicle={isEditor ? release.releaseVehicle : undefined}
           onRemoveCrew={isEditor ? release.releaseCrew : undefined}
           onRemoveMaterial={isEditor ? release.releaseMaterial : undefined}
           canEdit={isEditor}

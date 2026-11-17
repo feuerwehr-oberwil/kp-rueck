@@ -17,7 +17,8 @@ import { getIncidentRefLabel } from "@/lib/incident-types"
 import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
 import { toast } from "sonner"
 import { Truck, Binoculars, Package2, Phone, MonitorCog, Check } from 'lucide-react'
-import { usePersonNaming } from "@/components/person-name"
+import { PersonName, usePersonNaming } from "@/components/person-name"
+import { driversFromSpecialFunctions, type VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 
 interface PersonContextMenuProps {
   children: React.ReactNode
@@ -40,7 +41,7 @@ export function PersonContextMenu({
     () => [...fleet].sort((a, b) => a.display_order - b.display_order).map((v) => ({ id: v.id, name: v.name })),
     [fleet],
   )
-  const [vehicleDrivers, setVehicleDrivers] = useState<Map<string, string>>(new Map())
+  const [vehicleDrivers, setVehicleDrivers] = useState<VehicleDrivers>(new Map())
   const [currentFunctions, setCurrentFunctions] = useState<ApiEventSpecialFunctionResponse[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -79,16 +80,7 @@ export function PersonContextMenu({
         apiClient.getPersonnelSpecialFunctions(selectedEvent.id, personnelId),
       ])
 
-      // Build driver map from all functions
-      const driverMap = new Map<string, string>()
-      allFunctions
-        .filter(f => f.function_type === 'driver' && f.vehicle_id)
-        .forEach(f => {
-          if (f.vehicle_id) {
-            driverMap.set(f.vehicle_id, f.personnel_name)
-          }
-        })
-      setVehicleDrivers(driverMap)
+      setVehicleDrivers(driversFromSpecialFunctions(allFunctions))
 
       // Set this person's functions
       setCurrentFunctions(personnelFunctions)
@@ -257,7 +249,9 @@ export function PersonContextMenu({
                   {vehicle.name}
                 </div>
                 {currentDriver && !isThisPersonDriver && (
-                  <span className="text-xs text-muted-foreground ml-2">({currentDriver})</span>
+                  <span className="text-xs text-muted-foreground ml-2">
+                    (<PersonName name={currentDriver.name} personnelId={currentDriver.personnelId} />)
+                  </span>
                 )}
               </ContextMenuItem>
             )
@@ -380,7 +374,6 @@ export function PersonContextMenu({
         }
         cancelText={t('common.cancel')}
         confirmText={t('personMenu.unassignConfirm')}
-        variant="destructive"
         onConfirm={() => unassignFunction(unassignDialog.functionType, unassignDialog.vehicleId)}
         // Removing the Reko role from someone who still holds incidents used to
         // just orphan them — the incidents kept a Reko that no longer existed,

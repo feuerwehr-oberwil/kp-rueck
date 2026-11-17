@@ -24,7 +24,9 @@ interface ConfirmDialogProps {
   onConfirm: () => Promise<void> | void
   confirmText?: string
   cancelText?: string
-  /** `destructive` tints the confirm button red (delete/deactivate). */
+  /** `destructive` tints the confirm button red – for what cannot be taken back: delete,
+   *  purge, revoke, rotate. A reversible answer (archive, release, deactivate, remove a
+   *  driver or a function) stays ink: red means danger, not «this changes something». */
   variant?: 'default' | 'destructive'
   /** Optional content between the description and the footer (e.g. a list of
    *  affected items). Keep it short — this is a confirmation, not a form. */
@@ -84,7 +86,9 @@ export function ConfirmDialog({
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    // While the confirm runs, Esc cannot take the question away either – Cancel is
+    // already disabled, and a one-way write in flight must stay in view.
+    <AlertDialog open={open} onOpenChange={(next) => !(isConfirming && !next) && onOpenChange(next)}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>

@@ -148,7 +148,7 @@ function StaleMark({ event }: { event: ApiIncidentTimelineEvent }) {
       <span className="min-w-0 break-words">
         {status === 'complete'
           ? t('timeline.staleComplete', { ago })
-          : t('timeline.stale', { statusLabel: isIncidentStatus(status) ? t(`statusLabels.${status}`) : status, ago })}
+          : t('timeline.stale', { statusLabel: isIncidentStatus(status) ? t(`columns.${status}`) : status, ago })}
       </span>
     </span>
   )
@@ -194,7 +194,7 @@ function EventLabel({ event }: { event: ApiIncidentTimelineEvent }) {
   // Translate known statuses; unknown values fall back to the raw status string.
   const statusLabel = (status: string | null | undefined): string => {
     if (!status) return "–"
-    return isIncidentStatus(status) ? t(`statusLabels.${status}`) : status
+    return isIncidentStatus(status) ? t(`columns.${status}`) : status
   }
   if (event.event_type === "status_change") {
     // A stale move reads as the operator made it – from what their board showed;

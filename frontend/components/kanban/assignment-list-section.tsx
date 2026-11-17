@@ -52,7 +52,7 @@ export function ElsewhereNote({ label }: { label: OccupancyLabel }) {
   return (
     <span
       title={label.full}
-      className="mt-0.5 flex max-w-full items-start gap-1 overflow-hidden text-amber-700 dark:text-amber-400"
+      className="mt-0.5 flex max-w-full items-start gap-1 overflow-hidden text-warning-foreground"
     >
       <WhereGlyph label={label} />
       <span className="min-w-0 flex-1">
@@ -83,7 +83,7 @@ export function PersonTileLine({ rank, where, roles }: { rank?: string; where: P
   if (where) {
     segments.push({
       key: "where",
-      className: "flex min-w-0 items-start gap-1 type-caption text-amber-700 dark:text-amber-400",
+      className: "flex min-w-0 items-start gap-1 type-caption text-warning-foreground",
       content: <><WhereGlyph label={where} Icon={where.Icon} /><span className="truncate">{where.head}</span></>,
     })
   }

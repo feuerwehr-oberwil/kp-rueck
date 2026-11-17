@@ -26,9 +26,9 @@ function renderSections(props: Partial<React.ComponentProps<typeof RouteResource
 describe("RouteResourceSections — driverless route vehicle", () => {
   it("reminds in amber and makes «Fahrer wählen» one tap", async () => {
     const onPickDriver = vi.fn()
-    renderSections({ vehicleDrivers: new Map([["v2", "Meier"]]), onPickDriver })
+    renderSections({ vehicleDrivers: new Map([["v2", { name: "Meier", personnelId: "p-meier" }]]), onPickDriver })
 
-    expect(screen.getByText("Pio (Meier)")).toBeInTheDocument()
+    expect(screen.getByText("(Meier)").parentElement).toHaveTextContent("Pio (Meier)")
     const pick = screen.getByRole("button", { name: "Kein Fahrer – Fahrer für TLF wählen" })
     expect(screen.getAllByText("Kein Fahrer")).toHaveLength(1)
     await userEvent.click(pick)

@@ -10,6 +10,7 @@
  * minute: only this span subscribes to the shared minute timer.
  */
 
+import { formatTime } from '@/lib/format-time'
 import { useTranslations } from "next-intl"
 import { useMinuteTick } from "@/components/ui/incident-time"
 import { formatDuration, formatDurationLong } from "@/lib/duration"
@@ -25,7 +26,7 @@ export function useOnDutyLabel(checkedInAt: string | null | undefined, fatigueHo
   const minutes = dutyMinutes(checkedInAt)
   if (minutes === null || !checkedInAt) return null
   const level = dutyLevel(minutes, fatigueHours)
-  const since = new Date(checkedInAt).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })
+  const since = formatTime(checkedInAt, locale)
   const long = formatDurationLong(minutes * 60_000, tDuration)
   const label =
     level === "normal"

@@ -24,7 +24,7 @@ const getAllPersonnel = vi.fn();
 const createPersonnel = vi.fn();
 const updatePersonnel = vi.fn();
 const deletePersonnel = vi.fn();
-/** Capability registry – decides whether the «Von Divera synchronisieren» button is live. */
+/** Capability registry – decides whether the «Mit Divera abgleichen» button is live. */
 const getIntegrations = vi.fn();
 
 vi.mock("@/lib/api-client", async (importOriginal) => ({
@@ -97,7 +97,7 @@ describe("PersonnelSettings", () => {
     getIntegrations.mockResolvedValue(integrationsWithPersonnel(false));
     renderWithIntl(<PersonnelSettings />);
 
-    const syncButton = await screen.findByRole("button", { name: /Von Divera synchronisieren/i });
+    const syncButton = await screen.findByRole("button", { name: /Mit Divera abgleichen/i });
     await waitFor(() => expect(syncButton).toBeDisabled());
     // Never disabled in silence: the reason sits next to the control.
     expect(screen.getByRole("note")).toBeInTheDocument();
@@ -115,7 +115,7 @@ describe("PersonnelSettings", () => {
     await user.click(screen.getByRole("button", { name: /Person erstellen/i }));
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Meier Alex");
-    await user.type(within(dialog).getByLabelText(/Rolle/i), "Offizier");
+    await user.type(within(dialog).getByLabelText(/Grad/i), "Offizier");
     await user.click(within(dialog).getByRole("button", { name: /Erstellen/i }));
 
     const kennung = within(dialog).getByLabelText(/^Kennung$/);
@@ -137,7 +137,7 @@ describe("PersonnelSettings", () => {
     await user.click(screen.getByRole("button", { name: /Person erstellen/i }));
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Müller Stefan");
-    await user.type(within(dialog).getByLabelText(/Rolle/i), "Offizier");
+    await user.type(within(dialog).getByLabelText(/Grad/i), "Offizier");
     await user.click(within(dialog).getByRole("button", { name: /Erstellen/i }));
 
     await waitFor(() => expect(createPersonnel).toHaveBeenCalledTimes(1));
@@ -173,7 +173,7 @@ describe("PersonnelSettings", () => {
     await user.click(screen.getByRole("button", { name: /Person erstellen/i }));
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Müller Stefan");
-    await user.type(within(dialog).getByLabelText(/Rolle/i), "Offizier");
+    await user.type(within(dialog).getByLabelText(/Grad/i), "Offizier");
 
     const tagInput = within(dialog).getByPlaceholderText(/Neuer Tag/i);
     await user.type(tagInput, "Atemschutz");
@@ -204,9 +204,9 @@ describe("PersonnelSettings on a phone", () => {
     expect(screen.getByText("Mannschaft · Atemschutz")).toBeInTheDocument();
     expect(screen.getByText("Offizier · Nicht verfügbar")).toBeInTheDocument();
     expect(screen.queryByRole("table")).toBeNull();
-    expect(screen.queryByRole("button", { name: /Person erstellen|Von Divera synchronisieren|Aktionen/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Person erstellen|Mit Divera abgleichen|Aktionen/ })).toBeNull();
 
-    await user.type(screen.getByPlaceholderText("Name, Rolle, Tag …"), "müller");
+    await user.type(screen.getByPlaceholderText("Person suchen …"), "müller");
     expect(screen.queryByText("Bendik-Dimitrijević Alexandra")).toBeNull();
     expect(screen.getByText("Müller Stefan")).toBeInTheDocument();
   });

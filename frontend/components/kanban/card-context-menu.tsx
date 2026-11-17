@@ -7,7 +7,7 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
 } from "@/components/ui/context-menu"
-import { Users, Package, Truck, Binoculars, PenLine, Map, Building2, Printer, Timer, CheckCircle2, ArrowRightLeft, Waypoints, Route, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
+import { Users, Package, Truck, Binoculars, Pencil, Map, Building2, Printer, Timer, CheckCircle2, ArrowRightLeft, Waypoints, Route, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
 import { type Operation } from "@/lib/contexts/operations-context"
 import type { MoveTo } from "@/lib/move-in-list"
 import { usePrintAssignmentSlip } from "@/lib/hooks/use-print-assignment-slip"
@@ -65,7 +65,7 @@ export function CardContextMenu({
     >
       {/* Bearbeiten */}
       <ContextMenuItem onClick={() => onEdit()}>
-        <PenLine className="mr-2 h-4 w-4" />
+        <Pencil className="mr-2 h-4 w-4" />
         {t('common.edit')}
       </ContextMenuItem>
 

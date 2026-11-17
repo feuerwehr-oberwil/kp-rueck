@@ -18,6 +18,7 @@ import { useEvent } from '@/lib/contexts/event-context';
 import { useTranslations } from 'next-intl';
 import { DemoLock } from '@/components/settings/demo-lock';
 import { SettingCard, SettingRow } from '@/components/settings/setting-row';
+import { SettingSaveLine, useSettingSaver } from '@/components/settings/station-settings-form';
 import { downloadLageblatt } from '@/lib/lageblatt';
 
 export function FallbackSettings({
@@ -37,7 +38,7 @@ export function FallbackSettings({
   // Schnappschuss nichts, egal was hier steht.
   const [printerConfigured, setPrinterConfigured] = useState(false);
   const [interval, setIntervalMin] = useState('15');
-  const [saving, setSaving] = useState<string | null>(null);
+  const { saving, savedAt, save: saveSetting } = useSettingSaver(t('fallback.saveFailed'));
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
@@ -53,19 +54,6 @@ export function FallbackSettings({
       .catch(() => toast.error(t('fallback.loadFailed')))
       .finally(() => setLoaded(true));
   }, [t]);
-
-  const saveSetting = async (key: string, value: string): Promise<boolean> => {
-    setSaving(key);
-    try {
-      await apiClient.updateSetting(key, value);
-      return true;
-    } catch {
-      toast.error(t('fallback.saveFailed'));
-      return false;
-    } finally {
-      setSaving(null);
-    }
-  };
 
   const handleAutoPrintToggle = async (on: boolean) => {
     setAutoPrint(on);
@@ -124,17 +112,23 @@ export function FallbackSettings({
             htmlFor="fallback-interval"
             hint={t('fallback.intervalHint')}
           >
-            <Input
-              id="fallback-interval"
-              type="number"
-              className="w-24"
-              min={5}
-              max={120}
-              value={interval}
-              onChange={(e) => setIntervalMin(e.target.value)}
-              onBlur={(e) => handleIntervalBlur(e.target.value)}
-              disabled={saving === 'fallback.auto_print_interval_min'}
-            />
+            <div>
+              <Input
+                id="fallback-interval"
+                type="number"
+                className="w-24"
+                min={5}
+                max={120}
+                value={interval}
+                onChange={(e) => setIntervalMin(e.target.value)}
+                onBlur={(e) => handleIntervalBlur(e.target.value)}
+                disabled={saving === 'fallback.auto_print_interval_min'}
+              />
+              <SettingSaveLine
+                saving={saving === 'fallback.auto_print_interval_min'}
+                savedAt={savedAt['fallback.auto_print_interval_min']}
+              />
+            </div>
           </SettingRow>
         )}
       </DemoLock>

@@ -8,6 +8,7 @@
  * assignments rather than the (never event-scoped) availability column.
  */
 
+import type { VehicleDriver } from "@/lib/hooks/use-vehicle-drivers"
 import { type ApiViewerData, type ApiViewerGroup, type ApiViewerIncident, type ApiViewerRekoSummary } from "@/lib/api-client"
 import { personResourceState } from "@/lib/resource-status"
 import { rekoDangerTypes, type Operation, type RekoSummary } from "@/lib/contexts/operations-context"
@@ -280,10 +281,10 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
     groupId: m.group_id,
   }))
 
-  const driverNameByVehicleId = new Map<string, string>()
+  const driverByVehicleId = new Map<string, VehicleDriver>()
   for (const person of personnel) {
     if (person.isDriver && person.driverVehicleId) {
-      driverNameByVehicleId.set(person.driverVehicleId, person.name)
+      driverByVehicleId.set(person.driverVehicleId, { name: person.name, personnelId: person.id })
     }
   }
 
@@ -304,7 +305,7 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
         displayOrder: v.display_order,
         assignedOperation,
         gps,
-        driverName: driverNameByVehicleId.get(String(v.id)) ?? null,
+        driver: driverByVehicleId.get(String(v.id)) ?? null,
       }
     })
     .sort((a, b) => a.displayOrder - b.displayOrder)

@@ -366,7 +366,7 @@ export function ExcelImportSection({
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t('common.name')}</TableHead>
-                    <TableHead>{t('common.role')}</TableHead>
+                    <TableHead>{t('common.rank')}</TableHead>
                     <TableHead>{t('common.status')}</TableHead>
                   </TableRow>
                 </TableHeader>

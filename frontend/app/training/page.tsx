@@ -14,6 +14,7 @@ import { AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { useTranslations } from "next-intl"
+import { LoadingStatus } from "@/components/ui/shell-loader"
 
 export default function TrainingPage() {
   const t = useTranslations("training")
@@ -30,7 +31,7 @@ export default function TrainingPage() {
   if (!selectedEvent) {
     return (
       <div className="flex h-full items-center justify-center bg-background text-foreground">
-        <div className="text-muted-foreground">{t("page.loading")}</div>
+        <LoadingStatus size="surface" className="text-sm">{t("page.loading")}</LoadingStatus>
       </div>
     )
   }

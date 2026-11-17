@@ -54,7 +54,7 @@ export interface UseBoardCommandHandlersInput {
   setOperationPriority: (operationId: string, priority: Operation["priority"]) => void
   toggleZuFuss: (operationId: string) => void
   handleRequestDelete: (operationId: string) => void
-  /** Journal open, caret in its line, linked to this card (⇧J). */
+  /** Journal open, caret in its line, linked to this card (E). */
   writeJournal: (incidentId: string | null) => void
 }
 

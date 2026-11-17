@@ -203,7 +203,7 @@ export function IncidentTime({
           // while the element still OCCUPIES the same box as the static chip on
           // the wall boards — the padding is paid back by the margin, so
           // nothing beside it moves.
-          className="inline-flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 -mx-1.5 -my-1 transition-colors hover:bg-muted/60"
+          className="inline-flex cursor-pointer items-center gap-1 rounded-sm px-1.5 py-1 -mx-1.5 -my-1 transition-colors hover:bg-muted/60"
           title={tooltip}
           aria-label={fullLabel}
         >

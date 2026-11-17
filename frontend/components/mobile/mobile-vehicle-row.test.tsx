@@ -12,7 +12,7 @@ import type { Material, Operation } from '@/lib/contexts/operations-context'
  *    zugewiesen» — not a missing detail but the opposite of the truth, on the
  *    one surface people read when they are not at the board.
  *
- *  * The driver-stay state, per vehicle: «bleibt vor Ort» / «fährt zurück».
+ *  * The driver-stay state, per vehicle: «bleibt vor Ort» / «kehrt zurück».
  *    Whether the driver is still with his vehicle decides whether it can be
  *    moved, and it changes without the incident changing. Written out in full
  *    here — this is a read-only surface, so it gets the sentence rather than
@@ -126,20 +126,20 @@ describe('the driver-stay state in the phone detail sheet', () => {
 
   it('marks a driver who takes the vehicle back', () => {
     renderWithIntl(sheet(WITH_TLF))
-    expect(screen.getByText('fährt zurück')).toBeInTheDocument()
+    expect(screen.getByText('kehrt zurück')).toBeInTheDocument()
   })
 
   it('says nothing when the assignment carries no answer', () => {
     renderWithIntl(sheet(operation({ vehicles: [assignedVehicle('TLF 1')] })))
     expect(screen.queryByText('bleibt vor Ort')).not.toBeInTheDocument()
-    expect(screen.queryByText('fährt zurück')).not.toBeInTheDocument()
+    expect(screen.queryByText('kehrt zurück')).not.toBeInTheDocument()
   })
 
   it('follows the toggle on an already-open sheet', () => {
     const { rerender } = renderWithIntl(sheet(WITH_TLF))
     rerender(sheet(operation({ ...WITH_TLF, vehicles: [assignedVehicle('TLF 1', { driverStay: true })] })))
     expect(screen.getByText('bleibt vor Ort')).toBeInTheDocument()
-    expect(screen.queryByText('fährt zurück')).not.toBeInTheDocument()
+    expect(screen.queryByText('kehrt zurück')).not.toBeInTheDocument()
   })
 
   it('is a state, never the board’s toggle button', () => {

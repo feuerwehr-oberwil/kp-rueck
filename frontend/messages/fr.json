@@ -158,6 +158,16 @@
       "loadingBoard": "Chargement des interventions …"
     },
     "loading": "Chargement …",
+    "loadingWhat": {
+      "settings": "Chargement des paramètres …",
+      "vehicles": "Chargement des véhicules …",
+      "incidents": "Chargement des interventions …",
+      "integrations": "Chargement des intégrations …",
+      "users": "Chargement des utilisateurs …",
+      "auditLog": "Chargement du journal …",
+      "checklist": "Chargement de la check-list …",
+      "templates": "Chargement des modèles …"
+    },
     "incidentTruncation": {
       "message": "{shown} interventions sur {total} sont affichées – la liste est incomplète."
     },
@@ -171,7 +181,7 @@
     },
     "emptyState": {
       "noHits": "Aucun résultat",
-      "noHitsFor": "Aucun résultat pour « {query} ».",
+      "noHitsFor": "Aucun résultat pour « {query} »",
       "clearSearch": "Effacer la recherche",
       "resetFilters": "Réinitialiser les filtres",
       "quoted": "« {name} »"
@@ -185,6 +195,9 @@
       "description": "Tu as fait des modifications qui n’ont pas été enregistrées. Si tu fermes, elles seront perdues.",
       "confirm": "Abandonner",
       "cancel": "Continuer à éditer"
+    },
+    "formMessage": {
+      "nameRequired": "Le nom manque."
     },
     "commandPalette": {
       "title": "Palette de commandes",
@@ -327,8 +340,7 @@
       "columnAlarmTitle": "{count} en retard : {titles}",
       "columnAlarmMore": "… et {count} autres",
       "columnAgedChip": "{count} ≥ {threshold}",
-      "priorityAria": "Priorité : {label}",
-      "materialCount": "{count, plural, one {# engin} other {# engins}}",
+      "materialCount": "{count, plural, one {# pièce de matériel} other {# pièces de matériel}}",
       "nachbarhilfe": "Entraide",
       "amWarten": "En attente",
       "zuFuss": "À pied",
@@ -340,7 +352,6 @@
       "crewHeading": "Effectif ({count})",
       "noCrew": "Aucun effectif attribué",
       "vehiclesHeading": "Véhicules ({count})",
-      "driver": "· conducteur : {name}",
       "driverStays": "reste sur place",
       "driverReturns": "rentre à la caserne",
       "noVehicles": "Aucun véhicule attribué",
@@ -393,7 +404,7 @@
       "noMaterial": "Aucun matériel saisi",
       "materialContinued": "Matériel · suite",
       "freeOfTotal": "{free}/{total} libres",
-      "auftragStops": "{count, plural, one {# arrêt} other {# arrêts}}",
+      "auftragStops": "{count, plural, one {# étape} other {# étapes}}",
       "onIncidents": "{count, plural, one {# intervention} other {# interventions}}",
       "availableDeployedNotReady": "{available} disponible(s) · {deployed} engagé(s) · {notReady} hors service",
       "figures": "Indicateurs"
@@ -440,7 +451,6 @@
       "loading": "Chargement …",
       "demoTitle": "Les alarmes entrantes ne sont pas disponibles en mode démo",
       "demoDescription": "Cette page affiche les alarmes entrantes – depuis <b>DIVERA 24/7</b> ou via l’interface webhook ouverte. En mode démo, aucune liaison d’alarme n’est configurée.",
-      "resetSearch": "Effacer la recherche",
       "trainingBadge": "EXERCICE",
       "assigned": "Attribuée",
       "archived": "Archivée",
@@ -477,24 +487,23 @@
       "earlierHint": "jours précédents et archivées",
       "attachAll": "Tout rattacher",
       "attachAllCount": "Rattacher les {count}",
-      "attachOneAria": "Rattacher «{title}»",
+      "attachOneAria": "Rattacher « {title} »",
       "becameIncident": "Intervention",
       "nothingNew": "Aucune nouvelle alarme.",
       "emptyTitle": "Pas encore d’alarme",
       "emptyDescription": "Une alarme du système d’alarme apparaît ici dès qu’elle arrive.",
-      "noMatches": "Aucun résultat pour «{query}».",
       "loadFailedTitle": "Alarmes non chargées",
       "loadFailedDescription": "Le serveur n’a pas répondu ou a signalé une erreur.",
       "reload": "Recharger"
     },
     "alarmSettings": {
       "cardTitle": "Alarmement",
-      "cardDescription": "Envoie, au moment de l’engagement, une convocation push aux personnes attribuées et liées. Le message est généré à partir de l’intervention (le genre comme mot-clé, les détails comme texte). Les personnes sont liées par la synchronisation des membres.",
+      "cardDescription": "Envoie, au moment de l’engagement, une convocation push aux personnes attribuées et liées. Le message est généré à partir de l’intervention (le genre comme mot-clé, les détails comme texte). Les personnes sont liées par la synchronisation du personnel.",
       "titleFieldLabel": "Mot-clé (titre)",
       "titleFieldHint": "Titre du push. Reste bref. Champs disponibles : '{type}, {location}, {priority}'.",
       "textFieldLabel": "Texte de l’alarme",
       "textFieldHint": "Texte du push. Champs disponibles : '{notes}, {contact}, {internal_notes}, {vehicles}, {crew}, {materials}'.",
-      "selectPersonError": "Choisis une personne",
+      "selectPersonError": "Choisis une personne – c’est elle qui reçoit l’alarme de test.",
       "testSent": "Alarme de test envoyée à {name}",
       "testFailed": "Échec de l’alarme de test",
       "templatesLabel": "Modèles",
@@ -510,7 +519,7 @@
       "notConfiguredHint": "Aucun fournisseur d’alarme enregistré. La clé d’accès est saisie par la personne qui s’occupe du serveur – ensuite seulement l’interrupteur peut être activé."
     },
     "sendDialog": {
-      "noRecipientsError": "Aucun destinataire lié sélectionné",
+      "noRecipientsError": "Personne n’est sélectionné – coche au moins une personne liée.",
       "sent": "Convocation envoyée à {count, plural, one {# personne} other {# personnes}}",
       "sentWithSkipped": "Convocation envoyée à {count, plural, one {# personne} other {# personnes}}, {skipped, plural, one {# ignorée} other {# ignorées}}",
       "simulatedTitle": "Exercice : convocation simulée",
@@ -543,7 +552,8 @@
       "noGroups": "Aucun groupe n’est défini dans Divera.",
       "titleLabel": "Titre",
       "textLabel": "Texte",
-      "noRecipientsError": "Aucun destinataire sélectionné",
+      "noRecipientsError": "Aucun groupe choisi – coches-en au moins un ou choisis « Tout le site ».",
+      "textRequired": "Le texte manque – un message vide ne peut pas être envoyé.",
       "sentToGroups": "Message envoyé à {groups}",
       "sentToAll": "Message envoyé à tout le site",
       "simulatedTitle": "Exercice : message simulé",
@@ -560,10 +570,10 @@
     "api": {
       "title": "Erreur d’API",
       "noErrorDetails": "Aucun détail d’erreur disponible",
-      "connectionTitle": "Serveur injoignable – affichage du dernier état connu.",
+      "connectionTitle": "Serveur injoignable – affichage du dernier état connu",
       "unknown": "Erreur inconnue",
       "photoUploadFailed": "Échec de l’envoi de la photo",
-      "uploadTimeout": "Délai d’envoi dépassé – réessaie"
+      "uploadTimeout": "Envoi trop long – rien n’a été envoyé"
     },
     "appError": {
       "title": "Une erreur est survenue",
@@ -643,9 +653,8 @@
     "page": {
       "title": "Événements",
       "newEvent": "Nouvel événement",
-      "searchPlaceholder": "Rechercher des événements …",
+      "searchPlaceholder": "Rechercher un événement …",
       "emptyNone": "Aucun événement. Crée un nouvel événement pour commencer.",
-      "emptySearch": "Aucun événement trouvé.",
       "incidentCountShort": "{count, plural, one {# intervention} other {# interventions}}",
       "lastActivityRelative": "dernière activité {rel}",
       "toBoard": "Vers le tableau",
@@ -686,7 +695,7 @@
       "note": "L’événement est masqué, mais toutes les données sont conservées. Tu pourras le supprimer définitivement plus tard.",
       "openIncidents": "{count, plural, one {# intervention non clôturée} other {# interventions non clôturées}}",
       "openPickups": "{count, plural, one {# récupération ouverte} other {# récupérations ouvertes}}",
-      "materialOnSite": "{count, plural, one {# unité encore sur le sinistre} other {# unités encore sur le sinistre}}",
+      "materialOnSite": "{count, plural, one {# pièce de matériel encore sur place} other {# pièces de matériel encore sur place}}",
       "attendeesPresent": "{count, plural, one {# personne encore annoncée} other {# personnes encore annoncées}}",
       "attendeesDetail": "jamais désannoncées – sinon elles comptent toujours comme présentes",
       "autoCheckout": "Désannoncer automatiquement toutes les personnes annoncées lors de l’archivage (heure de départ = fin de l’événement)",
@@ -698,9 +707,7 @@
     },
     "deleteDialog": {
       "title": "Supprimer définitivement l’événement ?",
-      "warning": "Cette opération est irréversible.",
-      "question": "Veux-tu vraiment supprimer définitivement l’événement « {name} » et toutes les interventions qui s’y rattachent ?",
-      "note": "Cela concerne {count, plural, one {# intervention} other {# interventions}} et toutes les données associées.",
+      "description": "L’événement « {name} » est supprimé avec {count, plural, =0 {toutes ses données} one {# intervention et toutes ses données} other {# interventions et toutes ses données}}. Cette opération est irréversible.",
       "cancel": "Annuler",
       "confirm": "Supprimer définitivement"
     },
@@ -721,7 +728,7 @@
     "restliste": {
       "missingRapport": "{count} sinistres sur {total} sans rapport",
       "stateDraft": "Brouillon",
-      "materialOnSite": "{count, plural, one {# engin encore sur place} other {# engins encore sur place}}",
+      "materialOnSite": "{count, plural, one {# pièce de matériel encore sur place} other {# pièces de matériel encore sur place}}",
       "untracked": "non saisi",
       "openPickups": "{count, plural, one {# groupe attend d’être récupéré} other {# groupes attendent d’être récupérés}}",
       "printAbholliste": "Imprimer la liste de récupération",
@@ -737,9 +744,9 @@
       "waitingByPriority": "{high} haute · {medium} moyenne · {low} basse",
       "inProgress": "En cours",
       "done": "Terminées",
-      "oldestHigh": "Plus ancienne annonce «haute» en attente",
+      "oldestHigh": "Plus ancienne annonce « haute » en attente",
       "waitingSince": "depuis la réception {age}",
-      "noWaitingHigh": "Aucune annonce «haute» en attente.",
+      "noWaitingHigh": "Aucune annonce « haute » en attente.",
       "openIncident": "Ouvrir l’intervention",
       "reactionTitle": "Temps de réaction depuis la réception",
       "reactionHint": "Médiane, P90 en dessous",
@@ -759,11 +766,11 @@
       "legendP90": "jusqu’au P90",
       "noneYet": "aucune encore",
       "definitions": "Temps depuis la réception jusqu’à la première atteinte de l’étape ; une carte qui a sauté une colonne compte quand même. Une annonce créée déjà engagée (terrain « Nous prenons en charge ») compte pour 0′ ; un déplacement annulé dans les 2 minutes ne compte pas. Clôture = dernière clôture : une annonce rouverte ne compte qu’une fois clôturée à nouveau. P90 = 9 interventions sur 10 ont été aussi rapides ou plus rapides. Les mêmes valeurs que dans le rapport d’intervention (PDF).",
-      "empty": "Aucune annonce dans cet événement pour l’instant.",
+      "empty": "Aucune annonce dans cet événement pour l’instant",
       "loading": "Chargement des indicateurs …",
       "loadFailed": "Impossible de charger les indicateurs.",
       "stale": "La dernière mise à jour a échoué – les valeurs peuvent être dépassées.",
-      "noEvent": "Aucun événement sélectionné.",
+      "noEvent": "Aucun événement sélectionné",
       "menuItem": "Indicateurs",
       "wallBadge": "{waiting} en attente · {high} haute",
       "definitionsButton": "Mode de calcul"
@@ -778,7 +785,7 @@
       "description": "Choisis-toi dans la liste – tu verras ensuite tes places sinistrées.",
       "searchPlaceholder": "Rechercher un nom …",
       "noneFound": "Aucune personne trouvée",
-      "empty": "Dans cet événement, personne n’est encore affecté à une place sinistrée.",
+      "empty": "Dans cet événement, personne n’est encore attribué à une place sinistrée.",
       "incidentCount": "{count, plural, one {# place sinistrée} other {# places sinistrées}}",
       "missingRapport": "{count} sans rapport"
     },
@@ -786,12 +793,12 @@
       "title": "Mes places sinistrées",
       "notMe": "Ce n’est pas moi",
       "notMeConfirm": "Se déconnecter",
-      "empty": "Aucune place sinistrée ne t’est attribuée pour le moment. Annonce-toi au PC – dès que tu es affecté, elle apparaîtra ici.",
-      "released": "Plus affecté",
+      "empty": "Aucune place sinistrée ne t’est attribuée pour le moment. Annonce-toi au PC – dès que tu es attribué, elle apparaîtra ici.",
+      "released": "Plus attribué",
       "past": "Précédemment",
       "notMeTitle": "Se déconnecter ?",
       "notMeDescription": "Cet appareil sera déconnecté. La prochaine personne aura besoin du code terrain.",
-      "auftrag": "{name} · {count, plural, one {# arrêt} other {# arrêts}}",
+      "auftrag": "{name} · {count, plural, one {# étape} other {# étapes}}",
       "navigate": "Lancer la navigation",
       "journey": {
         "approach": "Trajet aller",
@@ -846,7 +853,7 @@
       "failed": "Envoi impossible – le texte est conservé. Vérifie la liaison.",
       "sending": "Envoi de « {label} » …",
       "sent": "« {label} » est arrivée au PC.",
-      "failedTitle": "« {label} » n’a pas été transmise.",
+      "failedTitle": "« {label} » n’a pas été transmise",
       "retry": "Renvoyer",
       "send": "Envoyer l’annonce",
       "arrivedAction": "Annoncer l'arrivée",
@@ -886,7 +893,7 @@
     },
     "pickupPrompt": {
       "title": "Récupération organisée ?",
-      "assigned": "{vehicle} vient d’être affecté à {label} – une récupération y attend.",
+      "assigned": "{vehicle} vient d’être attribué à {label} – une récupération y attend.",
       "returned": "{vehicle} est de retour à la caserne. Une récupération attend encore à {label}.",
       "waiting": "Attend depuis {duration}.",
       "neverAutomatic": "Ne s’organise jamais automatiquement – seule cette confirmation supprime la récupération.",
@@ -938,20 +945,20 @@
         "kurzbericht": "Rapport succinct",
         "owner": "Données du propriétaire / détenteur",
         "photos": "Photos",
-        "personnel": "Personnel",
+        "personnel": "Effectif",
         "vehicles": "Véhicules"
       },
       "material": {
         "title": "Matériel",
         "empty": "Aucun matériel saisi.",
-        "noLongerAssigned": "Plus affecté",
+        "noLongerAssigned": "Plus attribué",
         "consumable": "Consommation",
         "used": "utilisé",
         "usedAria": "Utilisé : {name}",
         "leftOnSite": "resté sur place",
         "leftOnSiteAria": "Resté sur place : {name}",
         "extraLabel": "Autre matériel utilisé",
-        "extraSearchPlaceholder": "Rechercher du matériel",
+        "extraSearchPlaceholder": "Rechercher du matériel …",
         "extraRemove": "Retirer {name}",
         "extraLeftOnSiteHint": "Passe sur la liste de récupération. Pas dans « Matériel de retour – libérer » : ce sont des noms, pas du matériel saisi.",
         "add": "Ajouter du matériel",
@@ -961,8 +968,8 @@
         "present": "était là",
         "presentAria": "Était là : {name}",
         "empty": "Aucun véhicule engagé.",
-        "searchPlaceholder": "Rechercher un véhicule",
-        "dispatchedLabel": "Engagés sur ce lieu d’intervention",
+        "searchPlaceholder": "Rechercher un véhicule …",
+        "dispatchedLabel": "Engagés sur cette place sinistrée",
         "addLabel": "Également présents",
         "removeAria": "Retirer {name}",
         "add": "Ajouter un véhicule"
@@ -988,8 +995,8 @@
       "gaps": {
         "title": {
           "kurzbericht": "Le rapport succinct manque encore",
-          "personnel": "Le personnel manque encore",
-          "both": "Le rapport succinct et le personnel manquent encore"
+          "personnel": "L’effectif manque encore",
+          "both": "Le rapport succinct et l’effectif manquent encore"
         },
         "lead": {
           "kurzbericht": "Sans lui, le PC ne sait pas ce qui a été fait ici.",
@@ -998,8 +1005,8 @@
         },
         "confirm": {
           "kurzbericht": "Clôturer sans rapport succinct",
-          "personnel": "Clôturer sans personnel",
-          "both": "Clôturer sans rapport succinct ni personnel"
+          "personnel": "Clôturer sans effectif",
+          "both": "Clôturer sans rapport succinct ni effectif"
         },
         "optionalHeading": "Vide – seulement si nécessaire",
         "back": "Retour au rapport"
@@ -1015,10 +1022,10 @@
       "personnel": {
         "present": "était là",
         "presentAria": "Était là : {name}",
-        "empty": "Le tableau n’a affecté personne ici.",
-        "searchPlaceholder": "Rechercher une personne",
+        "empty": "Le tableau n’a attribué personne ici.",
+        "searchPlaceholder": "Rechercher une personne …",
         "removeAria": "Retirer {name}",
-        "dispatchedLabel": "Convoqués sur ce lieu d’intervention",
+        "dispatchedLabel": "Convoqués sur cette place sinistrée",
         "addLabel": "Également présents",
         "add": "Ajouter une personne",
         "addGuest": "Ajouter « {name} » comme invité",
@@ -1040,20 +1047,18 @@
       },
       "picker": {
         "done": "Terminé ({count})",
-        "noMatch": "Aucun résultat pour « {query} ».",
-        "clearSearch": "Effacer la recherche",
-        "nothingLeft": "Plus rien à ajouter."
+        "nothingLeft": "Plus rien à ajouter"
       }
     },
     "materialReturn": {
       "title": "Matériel de retour – libérer",
       "description": "Le groupe n’a pas marqué ce matériel comme « resté sur place ».",
       "notUsed": "pas utilisé",
-      "releaseAll": "{count, plural, one {Libérer # engin} other {Libérer # engins}}",
-      "released": "{count, plural, one {# engin libéré} other {# engins libérés}}",
+      "releaseAll": "{count, plural, one {Libérer # pièce de matériel} other {Libérer # pièces de matériel}}",
+      "released": "{count, plural, one {# pièce de matériel libérée} other {# pièces de matériel libérées}}",
       "releaseFailed": "Échec de la libération",
       "stillOnSiteTitle": "Restés sur place",
-      "stillOnSiteHint": "Reste affecté jusqu’à sa récupération – apparaît dans la liste des restes.",
+      "stillOnSiteHint": "Reste attribué jusqu’à sa récupération – apparaît dans la liste des restes.",
       "namedTitle": "Autre matériel sur place",
       "namedHint": "Nommé par le groupe, pas attribué depuis le tableau – il n’y a rien à libérer. Figure sur la liste des restes et sur la liste de récupération."
     },
@@ -1079,8 +1084,8 @@
     },
     "source": {
       "reko": "Mandat de reco",
-      "driver": "Comme chauffeur · {vehicle}",
-      "magazin": "Magasin",
+      "driver": "Comme conducteur · {vehicle}",
+      "magazin": "Caserne",
       "rekoReason": "Assigné en reconnaissance par le PC",
       "magazinReason": "Du matériel d'ici n'est pas encore rentré",
       "rekoAction": "Saisir la reco",
@@ -1097,7 +1102,7 @@
       "regenerateTitle": "Créer un nouveau code terrain ?",
       "regenerateDescription": "Les nouveaux appareils auront besoin du nouveau code. Les appareils déjà connectés continuent sans interruption – personne n'est déconnecté.",
       "revokeTitle": "Déconnecter tous les appareils ?",
-      "revokeDescription": "{count, plural, one {# appareil est connecté} other {# appareils sont connectés}}. Tous devront ressaisir le code – y compris les équipes en intervention. Un nouveau code seul ne déconnecte personne.",
+      "revokeDescription": "{count, plural, one {# appareil est connecté} other {# appareils sont connectés}}. Tous devront ressaisir le code – y compris les effectifs en intervention. Un nouveau code seul ne déconnecte personne.",
       "copyCode": "Copier le code",
       "codeCopied": "Code terrain copié"
     },
@@ -1162,7 +1167,7 @@
       "empty": "Aucun matériel enregistré.",
       "summary": "{out} sur {total} en intervention",
       "state": {
-        "in": "Magasin / inutilisé",
+        "in": "Caserne / inutilisé",
         "out": "En intervention",
         "left": "Encore sur place"
       }
@@ -1174,14 +1179,14 @@
       "kommandopostenBody": "Tu gères la situation sur le tableau. Ici, seul le terrain apparaît.",
       "driverTitle": "Tu conduis {vehicle}",
       "driverBody": "Dès que {vehicle} est engagé, l’intervention apparaît ici.",
-      "rekoTitle": "Tu es affecté à la reconnaissance",
+      "rekoTitle": "Tu es attribué à la reconnaissance",
       "rekoBody": "Dès que le PC te donne un mandat de reconnaissance, il apparaît ici."
     },
     "roles": {
       "driver": "Conducteur {vehicle}",
       "reko": "Reco",
       "telefondienst": "Service téléphonique",
-      "magazin": "Magasin",
+      "magazin": "Caserne",
       "kommandoposten": "Poste de commandement"
     },
     "reports": {
@@ -1243,7 +1248,7 @@
       "personnel": "Renfort nécessaire",
       "materialQuestion": "Quel matériel ?",
       "materialPlaceholder": "Choisir ou saisir le matériel",
-      "materialListLabel": "Matériel du dépôt",
+      "materialListLabel": "Matériel de la caserne",
       "personnelQuestion": "Combien de personnes ?",
       "personnelWhatPlaceholder": "Quel profil ? (facultatif, p. ex. protection respiratoire)",
       "quantity": "Nombre",
@@ -1265,8 +1270,7 @@
       "toc": "Sommaire",
       "loading": "Chargement …",
       "loadError": "# Erreur\n\nLe contenu de l’aide n’a pas pu être chargé.",
-      "searchPlaceholder": "Chercher dans l’aide",
-      "searchNoResults": "Aucun résultat"
+      "searchPlaceholder": "Chercher dans l’aide …"
     }
   },
   "incidents": {
@@ -1293,21 +1297,12 @@
       "medium": "Moyenne",
       "high": "Haute"
     },
-    "status": {
-      "incoming": "Reçu",
-      "reko": "Reconnaissance",
-      "reko_done": "Reconnaissance terminée",
-      "enroute": "Engagé / en route",
-      "active": "En intervention",
-      "returning": "Retour",
-      "complete": "Clôturé"
-    },
     "assignReko": {
       "title": "Attribuer le personnel de reconnaissance",
       "incidentLabel": "Intervention : {title}",
       "loadError": "Échec du chargement des personnes de reconnaissance",
       "assignErrorTitle": "Échec de l’attribution",
-      "assignErrorDescription": "La personne n’a pas pu être attribuée. Réessaie.",
+      "assignErrorDescription": "La personne n’est pas attribuée – la reconnaissance reste inchangée.",
       "loading": "Chargement …",
       "retry": "Réessayer",
       "emptyTitle": "Aucune personne de reconnaissance disponible",
@@ -1316,8 +1311,7 @@
       "markSearchPlaceholder": "Rechercher une personne …",
       "markAllReko": "Toutes les personnes annoncées sont déjà marquées comme reconnaissance.",
       "markNoCheckedIn": "Personne n’est annoncé. Enregistre d’abord l’arrivée du personnel.",
-      "markNoMatch": "Aucune personne trouvée.",
-      "markError": "La personne n’a pas pu être marquée comme reconnaissance. Réessaie.",
+      "markError": "La personne n’est pas marquée comme reconnaissance.",
       "back": "Retour",
       "assigned": "Attribuée",
       "keepAssigned": "Conserver l’attribution",
@@ -1340,14 +1334,12 @@
       "title": "Transférer les ressources",
       "description": "Transférer toutes les attributions de « {title} » vers une autre intervention",
       "searchPlaceholder": "Rechercher une intervention (titre, adresse, genre) …",
-      "noResults": "Aucune intervention trouvée",
-      "tryDifferentSearch": "Essaie un autre terme de recherche",
       "noOtherIncidents": "Aucune autre intervention disponible",
       "needTwoIncidents": "Il faut au moins deux interventions",
       "vehicleCount": "{count, plural, one {# véhicule} other {# véhicules}}",
       "transferring": "Transfert …",
       "transfer": "Transférer",
-      "confirmCounts": "Seront déplacés : {crew} personnel, {vehicles} véhicules, {materials} matériel."
+      "confirmCounts": "Seront déplacés : {crew, plural, one {# personne} other {# personnes}}, {vehicles} véhicules, {materials} matériel."
     },
     "driver": {
       "assignErrorTitle": "Échec de l’attribution du conducteur",
@@ -1362,13 +1354,11 @@
       "driversSection": "Conducteurs",
       "othersSection": "Autres",
       "inOperation": "En intervention",
-      "noPersonsFound": "Aucune personne trouvée",
       "noAvailablePersons": "Aucune personne disponible",
-      "tryDifferentSearch": "Essaie un autre terme de recherche",
-      "allAssignedHint": "Toutes les personnes sont déjà affectées comme conducteur ou ne sont pas annoncées",
+      "allAssignedHint": "Toutes les personnes sont déjà attribuées comme conducteur ou ne sont pas annoncées",
       "close": "Fermer",
       "conflictTitle": "La personne est attribuée à une intervention",
-      "conflictDescription": "<strong>{name}</strong> est actuellement {count, plural, one {attribuée à l’intervention « {location} »} other {attribuée à # interventions}}. Comme conducteur, la personne ne peut pas être affectée à une intervention en même temps.",
+      "conflictDescription": "<strong>{name}</strong> est actuellement {count, plural, one {attribuée à l’intervention « {location} »} other {attribuée à # interventions}}. Comme conducteur, la personne ne peut pas être attribuée à une intervention en même temps.",
       "conflictConfirm": "Libérer de l’intervention et attribuer",
       "drivesVehicle": "Conduit {vehicle}",
       "reassignTitle": "Changer de conducteur",
@@ -1398,7 +1388,7 @@
       "currentLabel": "Jusqu'ici",
       "newLabel": "Nouveau",
       "drives": "conduit {vehicle}",
-      "moveReleasesDriver": "« Déplacer ici » libère aussi le rôle de chauffeur pour {vehicle}."
+      "moveReleasesDriver": "« Déplacer ici » libère aussi le rôle de conducteur pour {vehicle}."
     },
     "vehicleStatus": {
       "bound": "Engagé",
@@ -1446,7 +1436,7 @@
       "duplicateTitle": "La personne existe déjà",
       "duplicateDescription": "Une personne portant ce nom existe déjà.",
       "addErrorTitle": "Échec de l’ajout",
-      "addErrorDescription": "La personne n’a pas pu être ajoutée. Réessaie.",
+      "addErrorDescription": "La personne n’a pas été ajoutée.",
       "addNewPerson": "Ajouter une nouvelle personne",
       "namePlaceholder": "Saisir un nom …",
       "adding": "Ajout en cours …",
@@ -1457,8 +1447,7 @@
       "meldung": "Annonce",
       "crew": "Effectif",
       "vehicles": "Véhicules",
-      "reko": "Reconnaissance",
-      "driver": "Conducteur : {name}"
+      "reko": "Reconnaissance"
     },
     "mobileDetail": {
       "rekoBadge": "Reco",
@@ -1481,9 +1470,8 @@
       "newIncident": "Nouvelle intervention",
       "searchPlaceholder": "Intervention …",
       "noActive": "Aucune intervention en cours",
-      "noHitsFor": "Aucune intervention pour « {query} ».",
-      "searchScope": "Recherche dans le lieu, l’annonce, le type, les véhicules, l’équipe et le matériel.",
-      "noneInFilter": "Aucune intervention au statut « {filter} ».",
+      "searchScope": "Recherche dans le lieu, l’annonce, le type, les véhicules, l’effectif et le matériel.",
+      "noneInFilter": "Aucune intervention au statut « {filter} »",
       "showAll": "Tout afficher",
       "filter": "Filtrer",
       "filterOn": "Filtrer – {filters}",
@@ -1516,7 +1504,7 @@
       "invalidTitle": "Lien non valable ou échu",
       "invalidDescription": "Ce lien d’alarme n’est plus valable. Demande un nouveau lien.",
       "another": "Saisir une autre alarme",
-      "submitError": "L’alarme n’a pas pu être transmise. Réessaie.",
+      "submitError": "L’alarme n’a pas été transmise – les données restent dans le formulaire.",
       "title": "Saisir une alarme",
       "trainingMode": "Mode exercice",
       "messageLabel": "Annonce",
@@ -1550,7 +1538,7 @@
       "correct": "Corriger l’annonce",
       "correctSubmit": "Envoyer la correction",
       "correctCancel": "Annuler",
-      "correctError": "La correction n’a pas pu être transmise. Réessaie.",
+      "correctError": "La correction n’a pas été transmise – les données restent dans le formulaire.",
       "receiptTitle": "L'alarme est au PC",
       "receiptMeta": "{eventName} · {time}",
       "hintsCorrectionHelp": "Les compléments s'ajoutent – ce qui est déjà au PC reste tel quel.",
@@ -1575,8 +1563,7 @@
       "badgeAssigned": "En intervention",
       "badgeCheckedIn": "Présent",
       "badgeNotCheckedIn": "Pas là",
-      "checkedOut": "{name} : départ enregistré.",
-      "undo": "Annuler"
+      "checkedOut": "{name} : départ enregistré."
     }
   },
   "kanban": {
@@ -1587,15 +1574,6 @@
       "navRight": "Colonnes hors de la vue à droite"
     },
     "columns": {
-      "incoming": "Reçu",
-      "reko": "Reconnaissance",
-      "reko_done": "Reconnaissance terminée",
-      "enroute": "Engagé / en route",
-      "active": "En intervention",
-      "returning": "Retour",
-      "complete": "Clôturé"
-    },
-    "statusLabels": {
       "incoming": "Reçu",
       "reko": "Reconnaissance",
       "reko_done": "Reconnaissance terminée",
@@ -1780,18 +1758,18 @@
       "personCount": "{count, plural, one {# personne} other {# personnes}}",
       "deleteIncidentReleases": "Sont libérés : {what}.",
       "notReady": "Pas prêt à l'engagement",
-      "notReadyOne": "Marquer un appareil comme pas prêt à l'engagement",
+      "notReadyOne": "Marquer une pièce de matériel comme pas prête à l'engagement",
       "aggregateCountTitle": "{free} sur {total} libres",
       "aggregateUnitCount": "{count} pièces",
       "notReadySince": "depuis le {date}",
       "driver": "Conducteur",
       "specialFunctionNoIncident": "Fonction spéciale · aucune intervention",
-      "bindingsCount": "{count, plural, one {# affectation} other {# affectations}}",
+      "bindingsCount": "{count, plural, one {# attribution} other {# attributions}}",
       "bindingsPick": "Sélectionner pour y accéder",
       "rosterFree": "{count} libres",
       "rosterOf": "sur {total}",
       "rosterBound": "{count} engagés",
-      "bindingsNone": "Aucune affectation – rien à atteindre.",
+      "bindingsNone": "Aucune attribution – rien à atteindre.",
       "transferredToast": "Ressources transférées vers « {target} »",
       "transferredToastCount": "{count, plural, one {# attribution} other {# attributions}} depuis « {source} »",
       "transferUndone": "Transfert annulé",
@@ -1829,7 +1807,7 @@
       "noPersonnelMatch": "Aucune personne ne correspond à <term>« {query} »</term>",
       "groupFree": "Libres · {count}",
       "groupBound": "Engagés · {count}",
-      "noMaterialMatch": "Aucun engin ne correspond à <term>« {query} »</term>",
+      "noMaterialMatch": "Aucun matériel ne correspond à <term>« {query} »</term>",
       "resetSearch": "Effacer la recherche",
       "noMaterialYet": "Aucun matériel enregistré",
       "createMaterialInSettings": "Créer dans les réglages",
@@ -1863,8 +1841,8 @@
         "emptyFiled": "Aucun rapport saisi pour l’instant."
       },
       "materialOnSite": {
-        "toggle": "{count, plural, one {# engin sur place} other {# engins sur place}}",
-        "toggleTitle": "{count, plural, one {# engin se trouve encore sur une place sinistrée} other {# engins se trouvent encore sur une place sinistrée}} – les plus anciens d’abord",
+        "toggle": "{count, plural, one {# pièce de matériel sur place} other {# pièces de matériel sur place}}",
+        "toggleTitle": "{count, plural, one {# pièce de matériel se trouve encore sur une place sinistrée} other {# pièces de matériel se trouvent encore sur une place sinistrée}} – les plus anciennes d’abord",
         "rowTitle": "{name} se trouve encore à {address}",
         "since": "depuis {duration}",
         "unknownAddress": "Sans adresse"
@@ -1878,7 +1856,7 @@
     },
     "missingResources": {
       "title": "Il manque des ressources",
-      "titleCrewOnly": "Il manque du personnel",
+      "titleCrewOnly": "Il manque l’effectif",
       "titleVehiclesOnly": "Il manque un véhicule",
       "titleMaterialsOnly": "Il manque du matériel",
       "readyTitle": "Tout est prêt",
@@ -1886,13 +1864,13 @@
       "readyIntro": "<hl>{location}</hl> est complètement équipée – prête à être engagée.",
       "addMore": "Ajouter",
       "personalSummary": "{count, plural, one {# personne} other {# personnes}}",
-      "mittelSummary": "{count, plural, one {# engin} other {# engins}}",
+      "mittelSummary": "{count, plural, one {# pièce de matériel} other {# pièces de matériel}}",
       "done": "Engager",
       "back": "Retour",
-      "dispatchWithoutCrew": "Oui, engager sans personnel",
+      "dispatchWithoutCrew": "Oui, engager sans effectif",
       "dispatchWithoutVehicle": "Oui, engager sans véhicule",
-      "dispatchWithoutBoth": "Oui, engager sans personnel ni véhicule",
-      "armedCrew": "Aucun personnel – vraiment partir ainsi ?",
+      "dispatchWithoutBoth": "Oui, engager sans effectif ni véhicule",
+      "armedCrew": "Aucun effectif – vraiment partir ainsi ?",
       "armedVehicles": "Aucun véhicule – vraiment partir ainsi ?",
       "armedHint": "Cliquer encore ou Entrée confirme · Échap revient en arrière"
     },
@@ -1903,9 +1881,9 @@
       "endAnyway": "Terminer quand même"
     },
     "nextStop": {
-      "title": "Démarrer le prochain arrêt ?",
-      "description": "<hl>{finished}</hl> est terminé et plus personne ne travaille sur la mission «{auftrag}». Prochain arrêt ouvert : <hl>{next}</hl>.",
-      "confirm": "Prochain arrêt en intervention"
+      "title": "Démarrer la prochaine étape ?",
+      "description": "<hl>{finished}</hl> est terminé et plus personne ne travaille sur la mission « {auftrag} ». Prochaine étape ouverte : <hl>{next}</hl>.",
+      "confirm": "Prochaine étape en intervention"
     },
     "rekoMissing": {
       "description": "<hl>{location}</hl> doit passer dans la colonne Reconnaissance, mais aucune personne de reconnaissance n’est encore attribuée. Sans attribution, personne ne reçoit le formulaire de reconnaissance. Veux-tu attribuer quelqu’un maintenant ou continuer quand même ?",
@@ -1922,9 +1900,9 @@
     },
     "materialDecision": {
       "title": "Matériel sur place ou à la caserne ?",
-      "description": "<hl>{location}</hl> a été clôturée. Décide pour chaque engin s’il est resté sur place ou s’il rentre à la caserne.",
-      "descriptionFromRapport": "<hl>{location}</hl> a été clôturée. L’effectif a déjà répondu sur place pour chaque engin – contrôle et confirme.",
-      "descriptionPartialRapport": "<hl>{location}</hl> a été clôturée. Les réponses de l’effectif sont reprises ; {count, plural, one {un engin reste} other {# engins restent}} en suspens.",
+      "description": "<hl>{location}</hl> a été clôturée. Décide pour chaque pièce de matériel si elle est restée sur place ou si elle rentre à la caserne.",
+      "descriptionFromRapport": "<hl>{location}</hl> a été clôturée. L’effectif a déjà répondu sur place pour chaque pièce de matériel – contrôle et confirme.",
+      "descriptionPartialRapport": "<hl>{location}</hl> a été clôturée. Les réponses de l’effectif sont reprises ; {count, plural, one {une pièce de matériel reste} other {# pièces de matériel restent}} en suspens.",
       "toMagazinShort": "Caserne",
       "onSiteShort": "Sur place",
       "toastToMagazin": "Rentre à la caserne",
@@ -1975,7 +1953,7 @@
       "rekoDoneTooltip": "Rapport de reconnaissance rempli",
       "showOnMap": "Afficher sur la carte",
       "onSiteSince": "sur place {time}",
-      "doubleBookedTooltip": "{name} est sur plusieurs interventions – double affectation",
+      "doubleBookedTooltip": "{name} est sur plusieurs interventions – double attribution",
       "persCount": "{count} pers.",
       "changeReko": "Changer la reconnaissance",
       "assignReko": "Attribuer la reconnaissance",
@@ -1987,12 +1965,12 @@
       "showOnMapMenu": "Montrer sur la carte",
       "printing": "Impression …",
       "auftragPersSummary": "{count} pers",
-      "auftragMatSummary": "{count, plural, one {# engin} other {# engins}}",
+      "auftragMatSummary": "{count, plural, one {# pièce de matériel} other {# pièces de matériel}}",
       "auftragStopLine": "Étape {pos} sur {total}",
       "auftragCrewAsStop": "Effectif comme à l’étape {pos}",
       "moreCount": "+{count} autres",
       "moreCrewTitle": "{count, plural, one {# personne de plus} other {# personnes de plus}} – ouvrir l’intervention",
-      "moreMaterialTitle": "{count, plural, one {# engin de plus} other {# engins de plus}} – ouvrir l’intervention",
+      "moreMaterialTitle": "{count, plural, one {# pièce de matériel de plus} other {# pièces de matériel de plus}} – ouvrir l’intervention",
       "deleteIncident": "Supprimer l'intervention",
       "realAlarmBadge": "Alarme réelle",
       "realAlarmTooltip": "Alarme réelle dans un exercice – l’alarme sortante est seulement simulée, les seuils de retard sont 50 % plus longs.",
@@ -2006,7 +1984,7 @@
       "empty": "Aucune intervention",
       "noMatches": "Aucun résultat.",
       "collapsedHint": "{title} – {count} – cliquer pour déplier",
-      "statusDistinctionHint": "Retour : travaux sur le lieu du sinistre achevés, les ressources sont encore sur le chemin du retour. Clôturé : intervention entièrement réglée, ressources libérées, retours ouverts vérifiés.",
+      "statusDistinctionHint": "Retour : travaux sur la place sinistrée achevés, les ressources sont encore sur le chemin du retour. Clôturé : intervention entièrement réglée, ressources libérées, retours ouverts vérifiés.",
       "overdueTitle": "{count} en retard : {titles}",
       "overdueMore": "… et {count} de plus"
     },
@@ -2117,12 +2095,12 @@
       "unassignFailed": "La fonction n’a pas pu être retirée",
       "driver": "Conducteur",
       "conflictTitle": "La personne est attribuée à une intervention",
-      "conflictDescription": "<strong>{name}</strong> est actuellement {assignment}. Comme {function}, la personne ne peut pas être affectée à une intervention en même temps.",
+      "conflictDescription": "<strong>{name}</strong> est actuellement {assignment}. Comme {function}, la personne ne peut pas être attribuée à une intervention en même temps.",
       "conflictAssignedOne": "attribuée à l’intervention « {location} »",
       "conflictAssignedMany": "attribuée à {count} interventions",
       "confirmAction": "Libérer de l’intervention et attribuer",
       "unassignTitle": "Retirer la fonction {function} ?",
-      "unassignRekoDescription": "<strong>{name}</strong> perd la fonction de reconnaissance et n’apparaîtra plus dans les vues de reconnaissance (tableau de reconnaissance, carte). Les affectations existantes aux interventions sont conservées. La personne redevient ensuite un intervenant ordinaire.",
+      "unassignRekoDescription": "<strong>{name}</strong> perd la fonction de reconnaissance et n’apparaîtra plus dans les vues de reconnaissance (tableau de reconnaissance, carte). Les attributions existantes aux interventions sont conservées. La personne redevient ensuite un intervenant ordinaire.",
       "unassignRekoTransfer": "{count, plural, one {Transférer # intervention} other {Transférer # interventions}}",
       "unassignDriverDescription": "<strong>{name}</strong> ne sera alors plus conducteur de <strong>{vehicle}</strong> et redeviendra un intervenant ordinaire.",
       "unassignMagazinDescription": "<strong>{name}</strong> perd la fonction de caserne et redevient ensuite un intervenant ordinaire.",
@@ -2147,13 +2125,13 @@
       "quickSelectByType": "Par genre :",
       "vehicleOnSceneHint": "{name} est déjà attribué à cette intervention",
       "driverBadge": "Conducteur",
-      "specialFnConfirmTitle": "Double affectation ?",
+      "specialFnConfirmTitle": "Double attribution ?",
       "specialFnConfirmBody": "{name} est déjà en intervention ({func}). L’attribuer quand même à l’effectif ?",
       "specialFnConfirmAction": "Attribuer quand même",
       "occupiedElsewhere": "En intervention",
       "sectionFree": "Disponibles · {count}",
       "sectionBusy": "Déjà en intervention · {count}",
-      "occupiedConfirmTitle": "Double affectation ?",
+      "occupiedConfirmTitle": "Double attribution ?",
       "occupiedConfirmBody": "{name} est déjà attribué : {label}. L’attribuer quand même ?",
       "occupiedConfirmAction": "Attribuer quand même",
       "all": "Tous",
@@ -2174,12 +2152,12 @@
       "filterHidesSearch": "{count, plural, one {Le filtre {filters} masque} other {Les filtres {filters} masquent}} les résultats pour « {query} ».",
       "onlyAssignedNoneIncident": "Le filtre « Attribués uniquement » masque tous les véhicules – aucun n’est encore attribué à cette intervention.",
       "onlyAssignedNoneRoute": "Le filtre « Attribués uniquement » masque tous les véhicules – aucun n’est encore attribué à cette mission.",
-      "noneCrewTitle": "Personne n’est encore enregistré.",
+      "noneCrewTitle": "Personne n’est encore enregistré",
       "noneCrewBody": "Les personnes enregistrées apparaissent ici. Le lien d’enregistrement se trouve sous « Liens & QR ».",
       "showCheckInLink": "Afficher le lien d’enregistrement",
-      "noneVehiclesTitle": "Aucun véhicule saisi.",
+      "noneVehiclesTitle": "Aucun véhicule saisi",
       "noneVehiclesBody": "Les véhicules se saisissent dans les paramètres.",
-      "noneMaterialsTitle": "Aucun matériel saisi.",
+      "noneMaterialsTitle": "Aucun matériel saisi",
       "noneMaterialsBody": "Le matériel se saisit dans les paramètres.",
       "allBusyCrew": "Personne n’est libre – toutes les personnes ci-dessous sont déjà engagées ou ont une fonction. Les prendre reste possible, avec confirmation.",
       "allBusyVehicles": "Aucun véhicule n’est libre – ceux ci-dessous sont engagés ou hors service.",
@@ -2199,13 +2177,13 @@
     },
     "transferReko": {
       "failed": "Échec du transfert",
-      "markAndTransferFailed": "La personne n’a pas pu servir de cible de reconnaissance. Réessaie.",
+      "markAndTransferFailed": "La personne n’a pas pu servir de cible de reconnaissance – rien n’a été transféré.",
       "title": "Transférer les reconnaissances",
       "description": "Transférer les missions de reconnaissance ouvertes de {name} à une autre personne.",
       "noOthers": "Aucune autre personne de reconnaissance disponible"
     },
     "person": {
-      "doubleBookedTooltip": "Sur {count} interventions – double affectation",
+      "doubleBookedTooltip": "Sur {count} interventions – double attribution",
       "driverFunction": "Chauffeur {vehicle}",
       "engagedTooltip": "En intervention : {label}"
     },
@@ -2240,7 +2218,7 @@
       "noStops": "Aucune étape pour l’instant. Fais glisser des cartes ici ou ajoute une étape.",
       "noSquad": "aucune équipe",
       "persLabel": "{count} pers",
-      "matLabel": "{count, plural, one {# engin} other {# engins}}",
+      "matLabel": "{count, plural, one {# pièce de matériel} other {# pièces de matériel}}",
       "progress": "{done}/{total} faites",
       "toggle": "Déplier/replier la mission",
       "rename": "Renommer",
@@ -2323,7 +2301,7 @@
       "legendOtherRoute": "coloré = déjà dans une autre mission (sera déplacée)",
       "legendUnassigned": "gris = dans aucune mission",
       "hiddenCount": "{count} masqué(s)",
-      "showCompleted": "Terminées"
+      "showCompleted": "Clôturées"
     },
     "auftragPicker": {
       "title": "Répartir sur une mission",
@@ -2347,14 +2325,14 @@
       "noneFound": "Aucune personne trouvée",
       "since": "depuis {time}",
       "unavailable": "indisponible",
-      "assignedChip": "affectée",
-      "assignedTo": "affectée : {where}",
-      "assignedTitle": "La personne est encore affectée",
-      "assignedDescription": "{name} est encore affecté à {where} – l’annoncer partant quand même ? L’affectation est conservée.",
+      "assignedChip": "attribuée",
+      "assignedTo": "attribuée : {where}",
+      "assignedTitle": "La personne est encore attribuée",
+      "assignedDescription": "{name} est encore attribué à {where} – l’annoncer partant quand même ? L’attribution est conservée.",
       "checkOutAnyway": "Annoncer partant quand même",
       "checkOutAll": "Annoncer tous partants",
       "checkOutAllTitle": "Annoncer tous partants ?",
-      "checkOutAllDescription": "{count, plural, one {# personne présente sera passée} other {# personnes présentes seront passées}} sur « partie ». Les affectations sont conservées.",
+      "checkOutAllDescription": "{count, plural, one {# personne présente sera passée} other {# personnes présentes seront passées}} sur « partie ». Les attributions sont conservées.",
       "quickAddHint": "Sera annoncé directement",
       "writeFailed": "La présence n’a pas pu être enregistrée",
       "openButton": "Appel"
@@ -2375,13 +2353,13 @@
     },
     "links": {
       "title": "Liens & QR",
-      "description": "Ce qu'ouvrent les équipes, la tablette à la porte et l'écran mural.",
+      "description": "Ce qu'ouvrent l'effectif, la tablette à la porte et l'écran mural.",
       "enlarge": "Agrandir le QR",
       "groupCheckin": "Check-in & présence",
       "groupFeld": "Terrain",
       "groupOther": "Autres liens",
       "feld": {
-        "title": "Terrain – équipes",
+        "title": "Terrain – effectif",
         "subtitle": "Pour toutes les équipes"
       },
       "checkin": {
@@ -2407,13 +2385,13 @@
       "toastTitle": "{location} clos",
       "releasedCrew": "{count, plural, one {# personne libérée} other {# personnes libérées}}",
       "releasedVehicles": "{vehicles} libéré(s)",
-      "stopTitle": "Terminer l'arrêt ?",
-      "stopDescription": "<hl>{location}</hl> est terminé, la mission «{auftrag}» se poursuit. Le matériel de la mission part vers le prochain arrêt – cet arrêt libère :",
-      "nextStop": "Prochain arrêt : {location}",
-      "stopConfirm": "Terminer l'arrêt",
+      "stopTitle": "Terminer l'étape ?",
+      "stopDescription": "<hl>{location}</hl> est terminé, la mission « {auftrag} » se poursuit. Le matériel de la mission part vers la prochaine étape – cette étape libère :",
+      "nextStop": "Prochaine étape : {location}",
+      "stopConfirm": "Terminer l'étape",
       "stopToastTitle": "Arrêt {location} terminé",
-      "stopConfirmAndNext": "Terminer & prochain arrêt en intervention",
-      "stopDescriptionNoRelease": "<hl>{location}</hl> est terminé, la mission «{auftrag}» se poursuit. Cet arrêt ne libère rien – les moyens appartiennent à la mission et suivent."
+      "stopConfirmAndNext": "Terminer & prochaine étape en intervention",
+      "stopDescriptionNoRelease": "<hl>{location}</hl> est terminé, la mission « {auftrag} » se poursuit. Cette étape ne libère rien – les moyens appartiennent à la mission et suivent."
     },
     "statusCorrection": {
       "title": "Corriger le statut ?",
@@ -2437,7 +2415,7 @@
         "server": "Le serveur a signalé une erreur",
         "unknown": "Erreur inconnue"
       },
-      "serverNow": "Sur le serveur entre-temps : «{text}»",
+      "serverNow": "Sur le serveur entre-temps : « {text} »",
       "serverNowEmpty": "Sur le serveur, le champ est entre-temps vide.",
       "conflict": {
         "title": "Non enregistré – modifié entre-temps.",
@@ -2495,14 +2473,15 @@
       "filterFree": "Libres",
       "filterBusy": "Engagés",
       "showAll": "Tout afficher",
-      "searchPlaceholder": "Nom ou lieu",
+      "searchPlaceholder": "Rechercher une personne …",
       "sortBy": "Trier par",
       "sortByColumn": "Trier par « {column} »",
       "sortedBy": "Trié par {column}",
       "sortAsc": "croissant",
       "sortDesc": "décroissant",
-      "emptyFilteredTitle": "Personne ne correspond à ce filtre.",
-      "resetFilter": "Réinitialiser le filtre"
+      "emptyFilteredTitle": "Personne ne correspond à ce filtre",
+      "resetFilter": "Réinitialiser le filtre",
+      "searchScope": "Recherche dans le nom et le lieu."
     }
   },
   "login": {
@@ -2581,7 +2560,7 @@
       "defaultName": "Mission {n}",
       "create": "Créer",
       "cancel": "Annuler",
-      "noGroupSelected": "Choisis ou crée une mission pour planifier des étapes.",
+      "noGroupSelected": "Choisis ou crée une mission pour planifier des étapes",
       "order": "Ordre",
       "addStopToggle": "Ajouter une étape",
       "addStopHint": "Un clic sur la carte place une nouvelle étape.",
@@ -2667,7 +2646,9 @@
       "locateDenied": "Pas d’accès à la position – autorise-la dans le navigateur ou saisis l’adresse.",
       "locateUnavailable": "Aucune position GPS disponible – saisis l’adresse ou choisis sur la carte.",
       "locateTimeout": "Aucune position GPS en 10 secondes – réessaie ou saisis l’adresse.",
-      "locateNoAddress": "Position reprise, mais aucune adresse trouvée – saisis l’adresse."
+      "locateNoAddress": "Position reprise, mais aucune adresse trouvée – saisis l’adresse.",
+      "outsideRegion": "Ces coordonnées se trouvent hors de la région {region}",
+      "outsideSwitzerland": "Ces coordonnées se trouvent hors de Suisse"
     },
     "mapPicker": {
       "title": "Choisir le lieu d’intervention sur la carte",
@@ -2727,10 +2708,9 @@
       "fallbackToFirst": "{requested} indisponible – depuis {stop}",
       "optimized": "Ordre proposé à vol d’oiseau",
       "startLine": "Départ : {start} · aide à la planification, pas d’itinéraire routier",
-      "needsCoordinates": "Pour optimiser, il faut au moins deux arrêts avec des coordonnées.",
+      "needsCoordinates": "Pour optimiser, il faut au moins deux étapes avec des coordonnées.",
       "unchanged": "L’ordre est déjà le plus court à vol d’oiseau.",
       "note": "Proposition à vol d’oiseau depuis {start} · aide à la planification",
-      "undo": "Annuler",
       "undone": "Ordre précédent rétabli",
       "undoConflict": "Annulation impossible – mission modifiée",
       "undoConflictDetail": "L’ordre ou les étapes ont été modifiés entre-temps ; la modification la plus récente est conservée.",
@@ -2877,7 +2857,7 @@
       "loadFailedDescription": "La liste du matériel est peut-être périmée.",
       "groupsLoadFailed": "Les groupes de matériel n’ont pas pu être chargés",
       "readinessFailedTitle": "L'état de disponibilité n'a pas pu être modifié",
-      "readinessFailedDescription": "L'état est revenu comme avant. Réessaie.",
+      "readinessFailedDescription": "L’état est revenu comme avant.",
       "outOfServiceBlockedTitle": "{name} n'est pas prêt à l'engagement",
       "outOfServiceBlockedDescription": "Marqué comme non prêt dans la gestion – le libérer là d'abord."
     },
@@ -2903,10 +2883,10 @@
       "dismissFailedCount": "{count, plural, one {# annonce n’a pas pu être masquée} other {# annonces n’ont pas pu être masquées}}",
       "dismissAllFailedTitle": "Les annonces n’ont pas pu être masquées",
       "settingsSaveFailedTitle": "Les réglages n’ont pas pu être enregistrés",
-      "retryDescription": "Réessaie."
+      "retryDescription": "Elle reste dans la liste."
     },
     "operations": {
-      "removeFailedTitle": "Échec de la libération",
+      "removeFailedTitle": "Non libéré",
       "removePersonFailedDescription": "La personne n’a pas pu être libérée.",
       "removeRekoFailedDescription": "La personne de reconnaissance n’a pas pu être libérée.",
       "removeMaterialFailedDescription": "Le matériel n’a pas pu être libéré.",
@@ -2917,28 +2897,28 @@
       "amWartenClearedDescription": "L’intervention est en cours – la marque d’attente a été retirée automatiquement.",
       "statusNotChangedTitle": "Statut non modifié",
       "statusNotChangedDescription": "L’intervention a été ramenée à son dernier état.",
-      "updateFailedTitle": "Échec de l’actualisation",
+      "updateFailedTitle": "Non enregistré",
       "updateFailedDescription": "L’intervention n’a pas pu être actualisée.",
       "reorderFailedTitle": "Ordre non enregistré",
       "reorderFailedDescription": "La vue a été ramenée à son dernier état.",
       "createFailedTitle": "L’intervention n’a pas pu être créée",
-      "createFailedDescription": "Réessaie. Si le problème persiste, vérifie la liaison.",
+      "createFailedDescription": "Vérifie la liaison – rien n’a été ajouté au tableau.",
       "recentRemovalWarningTitle": "{name} était encore sur « {incident} » il y a {seconds} s",
-      "recentRemovalWarningDescription": "Double affectation – à vérifier.",
-      "assignFailedTitle": "Échec de l’attribution",
-      "assignConflictDescription": "{name} vient d’être modifié par quelqu’un d’autre – réessaie.",
+      "recentRemovalWarningDescription": "Double attribution – à vérifier.",
+      "assignFailedTitle": "Non attribué",
+      "assignConflictDescription": "{name} vient d’être modifié par quelqu’un d’autre – rien n’a été attribué.",
       "assignFailedDescription": "{name} n’a pas pu être attribué.",
-      "assignFailedFollowupTitle": "Échec de l’attribution",
-      "assignRekoFailedTitle": "Échec de l’attribution à la reconnaissance",
+      "assignFailedFollowupTitle": "Non attribué",
+      "assignRekoFailedTitle": "Reconnaissance non attribuée",
       "assignRekoFailedDescription": "{name} n’a pas pu être attribué à la reconnaissance.",
       "errorTitle": "Erreur",
       "vehicleInvalidIdDescription": "Le véhicule « {name} » n’a pas d’ID valable. Recharge la page.",
-      "restoreFailedTitle": "Échec de la restauration",
+      "restoreFailedTitle": "Non restauré",
       "restoreFailedDescription": "L’intervention n’a pas pu être restaurée.",
       "restoredTitle": "Intervention restaurée",
       "deletedTitle": "Intervention supprimée",
       "undoLabel": "Annuler",
-      "deleteFailedTitle": "Échec de la suppression",
+      "deleteFailedTitle": "Non supprimé",
       "deleteFailedDescription": "L’intervention n’a pas pu être supprimée. Réessaie.",
       "dangerTypes": {
         "fire": "Feu",
@@ -2959,13 +2939,13 @@
       "syncNowLabel": "Synchroniser maintenant",
       "syncing": "Synchronisation vers Railway …",
       "syncSuccess": "Synchronisation vers Railway réussie",
-      "syncFailed": "Échec de la synchronisation vers Railway"
+      "syncFailed": "Non synchronisé avec Railway"
     },
     "rekoLinks": {
       "noRekoAssigned": "Aucune personne de reconnaissance attribuée",
       "directCopiedTitle": "Lien direct copié",
       "directCopiedDescription": "Lien du formulaire pour {name}",
-      "copyFailed": "Échec de la copie",
+      "copyFailed": "Non copié",
       "noEventSelected": "Aucun événement sélectionné",
       "dashboardCopiedTitle": "Lien du tableau copié",
       "dashboardCopiedDescription": "Le personnel de reconnaissance peut voir ses attributions"
@@ -2973,7 +2953,7 @@
     "whatsapp": {
       "copiedTitle": "Copié dans le presse-papiers",
       "copiedDescription": "L’annonce d’intervention a été copiée au format WhatsApp.",
-      "copyFailedTitle": "Échec de la copie",
+      "copyFailedTitle": "Non copié",
       "copyFailedDescription": "Le message n’a pas pu être copié dans le presse-papiers."
     },
     "gpsSim": {
@@ -2991,7 +2971,7 @@
       "rapport": "Rapport arrivé"
     },
     "settings": {
-      "saveFailed": "Échec de l’enregistrement du réglage",
+      "saveFailed": "Réglage non enregistré",
       "warningsTitle": "Avertissements",
       "warningsSubtitle": "Quels types d’avertissement doivent être affichés",
       "timeAlertsLabel": "Avertissements de temps",
@@ -3025,7 +3005,7 @@
       "materialThresholdsSubtitle": "Avertit lorsque le matériel disponible d’une catégorie passe sous le seuil. Décoche la case pour masquer les avertissements d’une catégorie.",
       "materialThresholdsManageLink": "Gérer le matériel",
       "materialThresholdsEmpty": "Aucun matériel n’est encore saisi – il n’y a donc rien à régler ici. Dès que des stocks existent sous Réglages → Matériel, une ligne apparaît par emplacement.",
-      "disabledForEveryone": "{what} n’apparaissent plus sur aucun écran – pas même sur l’écran mural du dépôt."
+      "disabledForEveryone": "{what} n’apparaissent plus sur aucun écran – pas même sur l’écran mural de la caserne."
     },
     "toasts": {
       "overflowTitle": "{count, plural, one {# autre annonce} other {# autres annonces}}",
@@ -3041,8 +3021,8 @@
         "alarm": "Exercice",
         "time": "Délai dépassé"
       },
-      "fieldReport": "Nouvelle place de sinistre",
-      "fieldReportDirect": "Nouvelle place de sinistre – le groupe s’y rend directement"
+      "fieldReport": "Nouvelle place sinistrée",
+      "fieldReportDirect": "Nouvelle place sinistrée – le groupe s’y rend directement"
     },
     "sidebar": {
       "title": "Notifications",
@@ -3077,8 +3057,8 @@
       "timeInStatus": "{duration} dans l’état « {status} »",
       "timeNotArchived": "Clôturé depuis {duration}, pas archivé",
       "noPersonnel": "Plus de personnel disponible – toutes les personnes enregistrées sont attribuées",
-      "materialsNone": "Plus aucune unité disponible à « {location} »",
-      "materialsLow": "Plus que {count, plural, one {# unité disponible} other {# unités disponibles}} à « {location} »",
+      "materialsNone": "Plus aucune pièce de matériel disponible à « {location} »",
+      "materialsLow": "Plus que {count, plural, one {# pièce de matériel disponible} other {# pièces de matériel disponibles}} à « {location} »",
       "missingLocation": "L’intervention « {title} » n’a pas de position géocodée",
       "storageDatabase": "Base de données : {used, number} Go occupés – limite de {limit, number} Go dépassée",
       "storagePhotos": "Stockage photos : {used, number} Go occupés – limite de {limit, number} Go dépassée",
@@ -3088,7 +3068,6 @@
       "rekoRelevant": "Reconnaissance terminée – intervention nécessaire",
       "rekoNotRelevant": "Reconnaissance terminée – pas d’intervention nécessaire",
       "rekoPersonnel": "{count} pers.",
-      "rekoDuration": "~{hours, number} h",
       "rekoDangers": "Dangers : {list}",
       "fieldArrived": "Arrivée",
       "fieldComplete": "Fin d’intervention annoncée",
@@ -3097,8 +3076,8 @@
       "pickupNeededNote": "Récupération nécessaire – {note}",
       "pickupDone": "Récupération effectuée",
       "rapportSubmitted": "Rapport saisi",
-      "fieldReport": "Nouvelle place de sinistre",
-      "fieldReportDirect": "Nouvelle place de sinistre – le groupe s’y rend directement",
+      "fieldReport": "Nouvelle place sinistrée",
+      "fieldReportDirect": "Nouvelle place sinistrée – le groupe s’y rend directement",
       "fieldReportMerged": "Complément du terrain",
       "actorField": "du terrain",
       "actorKp": "saisi au PC",
@@ -3112,12 +3091,12 @@
       "released": "{resource} libéré de {target}",
       "releasedMany": "{count} × {resource} libérés de {target}",
       "restored": "{resource} de retour sur {target}",
-      "restoreFailedTitle": "{resource} n’a pas pu être réaffecté",
+      "restoreFailedTitle": "{resource} n’a pas pu être réattribué",
       "reason": {
         "targetGone": "{target} n’est plus sur le tableau.",
         "targetClosed": "{target} est déjà terminé.",
         "alreadyBack": "{resource} est déjà de retour sur {target}.",
-        "elsewhere": "Entre-temps affecté à {where} – cette affectation plus récente est conservée.",
+        "elsewhere": "Entre-temps attribué à {where} – cette attribution plus récente est conservée.",
         "outOfService": "{resource} n’est pas opérationnel.",
         "resourceGone": "{resource} n’est plus dans l’inventaire ou s’est désinscrit.",
         "unavailable": "{resource} est signalé comme indisponible."
@@ -3156,7 +3135,7 @@
       "materialInventory": "Inventaire du matériel",
       "mapOverview": "Vue d’ensemble de la carte",
       "summaryIncidents": "{count} interventions",
-      "summaryPersonnel": "{count} personnes",
+      "summaryPersonnel": "{count, plural, one {# personne} other {# personnes}}",
       "summaryVehicles": "{count} véhicules",
       "summaryMaterials": "{count} matériels"
     },
@@ -3184,15 +3163,6 @@
       "printedLabel": "Imprimé",
       "mapOverview": "CARTE DES INTERVENTIONS",
       "mapLoading": "Chargement de la carte …",
-      "statusHeading": {
-        "incoming": "Reçu",
-        "reko": "Reconnaissance",
-        "reko_done": "Reconnaissance terminée",
-        "enroute": "Engagé / en route",
-        "active": "En intervention",
-        "returning": "Retour",
-        "complete": "Clôturé"
-      },
       "priority": {
         "high": "HAUTE",
         "medium": "MOYENNE",
@@ -3216,7 +3186,6 @@
       "telPrefix": "Tél.",
       "reko": "Reconnaissance",
       "persCount": "~{count} pers.",
-      "durationHours": "~{count} h",
       "onSiteSince": "sur place {time}",
       "lagebeurteilung": "Appréciation de la situation",
       "driverPrefix": "Conducteur",
@@ -3254,7 +3223,7 @@
       "seitCol": "Depuis",
       "vorOrt": "sur place",
       "unknownAddress": "Sans adresse",
-      "footer": "KP Rück - impression de secours",
+      "footer": "KP Rück – impression de secours",
       "fahrerCol": "Conducteur",
       "ortCol": "Lieu",
       "noDriver": "sans conducteur"
@@ -3282,7 +3251,7 @@
     },
     "dashboard": {
       "invalidCode": "Code non valable ou échu. Demande à nouveau le lien.",
-      "missingCode": "Code d’accès manquant. Demande le lien à l’éditeur.",
+      "missingCode": "Code d’accès manquant. Demande le lien au PC.",
       "accessRequired": "Accès requis",
       "title": "Reconnaissance",
       "noPersonnel": "Aucune personne de reconnaissance disponible",
@@ -3328,7 +3297,7 @@
       "localRestoredDescription": "Les données que tu avais saisies ont été rechargées.",
       "loadError": "Le formulaire n’a pas pu être chargé. Vérifie la connexion et recharge la page.",
       "relevantRequired": "Réponds à « Intervention pertinente ? »",
-      "submitError": "Échec de la transmission. Réessaie.",
+      "submitError": "Non transmis – le rapport reste dans le formulaire.",
       "contactLabel": "Contact / annonceur : ",
       "markingArrival": "Annonce de l’arrivée …",
       "arrivalReported": "Arrivée annoncée ({time})",
@@ -3420,7 +3389,6 @@
       "personnelLabel": "Effectif",
       "personnelValue": "{count, plural, one {# personne} other {# personnes}}",
       "durationLabel": "Durée",
-      "durationValue": "{hours, plural, one {# heure} other {# heures}}",
       "vehiclesLabel": "Véhicules",
       "equipmentLabel": "Équipement",
       "powerSupply": "Alimentation électrique",
@@ -3473,19 +3441,20 @@
       "delete": "Supprimer",
       "listCount": "{shown} sur {total}",
       "role": "Rôle",
+      "rank": "Grade",
       "type": "Genre",
       "radioCallSign": "Indicatif radio",
       "location": "Emplacement",
       "available": "Disponible",
       "unavailable": "Indisponible",
       "irreversible": "Cette action est irréversible.",
-      "loadError": "Échec du chargement",
-      "saveError": "Échec de l’enregistrement",
+      "loadError": "Non chargé",
+      "saveError": "Non enregistré",
       "loadSettingsError": "Échec du chargement des réglages",
       "checkInputRetry": "Vérifie la saisie et réessaie.",
       "reloadPage": "Recharge la page.",
       "entriesCount": "{count, plural, one {# entrée} other {# entrées}}",
-      "sortCategoriesTab": "Trier les catégories",
+      "sortCategoriesTab": "Trier les grades",
       "sortLocationsTab": "Trier les emplacements",
       "notConfiguredBadge": "Non configuré"
     },
@@ -3504,7 +3473,7 @@
         "alerting": "Alarmement sortant",
         "alarmIntake": "Alarmes entrantes",
         "checklist": "Checklist",
-        "auftragTemplates": "Ordres standard",
+        "auftragTemplates": "Missions standard",
         "gps": "GPS",
         "printer": "Imprimante",
         "fallback": "Résilience",
@@ -3523,6 +3492,7 @@
         "reportIntro": "Que s’est-il passé, et à quoi t’attendais-tu ? Une ou deux phrases suffisent – la description est la partie qu’aucun journal ne peut fournir.",
         "reportLabel": "Description",
         "reportPlaceholder": "p. ex. « véhicule glissé sur engagé, ensuite la carte était vide. »",
+        "messageRequired": "La description manque – que s’est-il passé ?",
         "reportWhat": "Rien d’autre – aucune donnée d’intervention, aucune adresse, aucun nom, aucune capture d’écran. De l’identifiant du navigateur ci-dessus, le fichier de diagnostic ne retient que le type d’appareil, p. ex. « iPad Safari ». Ton texte part tel que tu l’écris – n’y mets donc rien qui ne doive pas quitter la maison.",
         "techTitle": "Voici ce qui est envoyé",
         "techVersion": "Version : ",
@@ -3575,15 +3545,15 @@
       "toasts": {
         "editorsOnly": "Seuls les éditeurs peuvent modifier les réglages",
         "exportSuccess": "Export réussi",
-        "templateDownloadFailed": "Échec du téléchargement du modèle",
+        "templateDownloadFailed": "Modèle non téléchargé",
         "selectEvent": "Choisis un événement",
         "auditExportSuccess": "Export de l’audit réussi"
       },
       "errors": {
-        "previewFailed": "Échec de l’aperçu",
-        "importFailed": "Échec de l’import",
-        "exportFailed": "Échec de l’export",
-        "auditExportFailed": "Échec de l’export de l’audit"
+        "previewFailed": "Aperçu non créé",
+        "importFailed": "Non importé",
+        "exportFailed": "Non exporté",
+        "auditExportFailed": "Journal d’audit non exporté"
       },
       "general": {
         "appearance": "Apparence",
@@ -3611,7 +3581,7 @@
           },
           "kommandant_name": {
             "label": "Commandant",
-            "description": "Nom du commandant – préimprimé sur le rapport d’intervention à côté de la ligne de signature «Commandant». Vide = seulement le libellé."
+            "description": "Nom du commandant – préimprimé sur le rapport d’intervention à côté de la ligne de signature « Commandant ». Vide = seulement le libellé."
           },
           "map_mode": {
             "label": "Mode de carte",
@@ -3643,7 +3613,7 @@
           },
           "firestation_name": {
             "label": "Nom du corps de sapeurs-pompiers",
-            "description": "Légende du marqueur du dépôt sur la carte. Une installation neuve porte ici l'exemple « Feuerwehr Musterstadt » – à remplacer."
+            "description": "Légende du marqueur de la caserne sur la carte. Une installation neuve porte ici l'exemple « Feuerwehr Musterstadt » – à remplacer."
           },
           "firestation_latitude": {
             "label": "Dépôt – latitude",
@@ -3678,8 +3648,8 @@
           "checkedAt": "vérifié à {time}",
           "recheck": "Vérifier à nouveau",
           "optionUnavailable": "– aucune tuile installée",
-          "hint": "Sans tuiles, «Auto» reste en ligne et n’a aucun repli en cas de panne. Les tuiles sont téléchargées une seule fois, pour la propre région, par la personne qui s’occupe du serveur. Marche à suivre : Aide → Cartes hors ligne.",
-          "unreachableHint": "Le serveur de tuiles ne répond pas pour l’instant – impossible de dire d’ici si des tuiles hors ligne sont installées. «Hors ligne uniquement» reste sélectionnable, mais pourrait donner une carte vide."
+          "hint": "Sans tuiles, « Auto » reste en ligne et n’a aucun repli en cas de panne. Les tuiles sont téléchargées une seule fois, pour la propre région, par la personne qui s’occupe du serveur. Marche à suivre : Aide → Cartes hors ligne.",
+          "unreachableHint": "Le serveur de tuiles ne répond pas pour l’instant – impossible de dire d’ici si des tuiles hors ligne sont installées. « Hors ligne uniquement » reste sélectionnable, mais pourrait donner une carte vide."
         }
       },
       "checklist": {
@@ -3692,21 +3662,21 @@
         "saveFailed": "La modification n’a pas pu être enregistrée"
       },
       "auftragTemplates": {
-        "title": "Ordres standard",
-        "description": "Ce qui est activé est créé automatiquement à chaque nouvelle situation – avec sa couleur, sa note et ses ressources. Le reste attend en un clic dans la fenêtre des ordres.",
-        "empty": "Aucun ordre standard. Saisissez ci-dessous ce qui revient toujours chez vous.",
+        "title": "Missions standard",
+        "description": "Ce qui est activé est créé automatiquement à chaque nouvel événement – avec sa couleur, sa note et ses ressources. Le reste attend en un clic dans la fenêtre des missions.",
+        "empty": "Aucune mission standard. Saisissez ci-dessous ce qui revient toujours chez vous.",
         "newPlaceholder": "Nom du modèle",
         "add": "Modèle",
         "summary": "{count, plural, one {# modèle} other {# modèles}} · {auto, plural, =0 {aucun créé automatiquement} one {# créé automatiquement} other {# créés automatiquement}}",
-        "autoOn": "À chaque situation",
+        "autoOn": "À chaque événement",
         "autoOff": "Sur demande",
-        "autoLabel": "Créer «{name}» à chaque nouvelle situation",
+        "autoLabel": "Créer « {name} » à chaque nouvel événement",
         "resourceCount": "{count, plural, =0 {aucune ressource} one {# ressource} other {# ressources}}",
         "nameLabel": "Nom",
         "colorLabel": "Couleur sur le tableau et la carte",
         "colorSwatch": "Couleur {color}",
-        "notesLabel": "Note sur l'ordre",
-        "notesPlaceholder": "Ce qui vaut toujours pour cet ordre",
+        "notesLabel": "Note sur la mission",
+        "notesPlaceholder": "Ce qui vaut toujours pour cette mission",
         "resourcesLabel": "Ressources standard",
         "addResource": "Ressource",
         "removeResource": "Retirer la ressource",
@@ -3719,8 +3689,8 @@
         },
         "delete": "Supprimer le modèle",
         "deleteTitle": "Supprimer le modèle ?",
-        "deleteDescription": "«{name}» sera retiré des réglages. Les ordres déjà créés à partir de ce modèle restent sur leurs situations.",
-        "loadFailed": "Impossible de charger les ordres standard",
+        "deleteDescription": "« {name} » sera retiré des réglages. Les missions déjà créées à partir de ce modèle restent dans leurs événements.",
+        "loadFailed": "Impossible de charger les missions standard",
         "saveFailed": "Impossible d'enregistrer la modification",
         "deleteFailed": "Impossible de supprimer le modèle"
       },
@@ -3809,10 +3779,10 @@
         "modeChosen": "Choisi",
         "importReplaceAction": "Supprimer et remplacer l'inventaire",
         "switchToAppend": "Ajouter à la place",
-        "replaceBlockedTooltip": "{count} affectations actives sur des interventions en cours – « Remplacer » sera refusé.",
+        "replaceBlockedTooltip": "{count} attributions actives sur des interventions en cours – « Remplacer » sera refusé.",
         "sheetEmpty": "{resource} : aucune ligne dans le fichier.",
         "sheetEmptyAmbiguous": "{resource} : aucune ligne dans le fichier. Si la feuille existe avec sa ligne d'en-tête, la table sera vidée – si la feuille manque entièrement, l'import sera refusé.",
-        "replaceConfirmDeletions": "Seront supprimés <strong>{personnel}</strong> personnel, <strong>{vehicles}</strong> véhicules, <strong>{materials}</strong> matériel – et <strong>{assignments}</strong> affectations pointeront ensuite dans le vide.",
+        "replaceConfirmDeletions": "Seront supprimés <strong>{personnel}</strong> personnel, <strong>{vehicles}</strong> véhicules, <strong>{materials}</strong> matériel – et <strong>{assignments}</strong> attributions pointeront ensuite dans le vide.",
         "balance": {
           "title": "Bilan",
           "modeBadgeReplace": "Mode : Remplacer",
@@ -3831,17 +3801,17 @@
           "stockOutdatedNote": "Les chiffres affichés au choix du mode ci-dessus sont périmés – le tableau utilise ceux du serveur.",
           "afterEmpty": "vide",
           "totalRow": "Total des enregistrements",
-          "nothingDeletedTitle": "Rien n'est supprimé.",
-          "nothingDeletedHint": "Aucune affectation ne perd sa ressource, aucune intervention en cours n'est touchée.",
+          "nothingDeletedTitle": "Rien n'est supprimé",
+          "nothingDeletedHint": "Aucune attribution ne perd sa ressource, aucune intervention en cours n'est touchée.",
           "consequencesTitle": "Conséquences sur le tableau d'engagement",
-          "consequencesBlockedTitle": "Bloqué : affectations actives sur des interventions et des missions en cours",
+          "consequencesBlockedTitle": "Bloqué : attributions actives sur des interventions et des missions en cours",
           "repairableBadge": "Réparable ensuite",
-          "orphanedLabel": "Affectations pointant ensuite dans le vide",
+          "orphanedLabel": "Attributions pointant ensuite dans le vide",
           "orphanedActiveLabel": "dont actives sur des interventions en cours",
-          "groupOrphanedLabel": "Affectations de missions pointant ensuite dans le vide",
+          "groupOrphanedLabel": "Attributions de missions pointant ensuite dans le vide",
           "groupOrphanedActiveLabel": "dont actives sur des missions en cours",
-          "consequencesHint": "Les affectations renvoient à leur ressource sans clé étrangère : supprimer du personnel, des véhicules ou du matériel laisse l'affectation en place – sur une intervention qui continue.",
-          "consequencesBlockedHint": "Libérer les affectations, clore les interventions et les missions – ou importer en mode « Ajouter ». Les interventions closes ne bloquent pas.",
+          "consequencesHint": "Les attributions renvoient à leur ressource sans clé étrangère : supprimer du personnel, des véhicules ou du matériel laisse l'attribution en place – sur une intervention qui continue.",
+          "consequencesBlockedHint": "Libérer les attributions, clore les interventions et les missions – ou importer en mode « Ajouter ». Les interventions closes ne bloquent pas.",
           "cascadeTitle": "Supprimé en même temps, sans retour",
           "cascadeBadge": "Uniquement via sauvegarde",
           "cascadeAttendanceLabel": "Présences (arrivées)",
@@ -3876,12 +3846,11 @@
         "showDetails": "Afficher les détails"
       },
       "searchPlaceholder": "Réglage …",
-      "searchNoResults": "Aucun résultat.",
       "searchHitCount": "{count} résultats · ↵ ouvrir",
       "phoneReadOnly": "Lecture seule – les réglages se modifient sur l’ordinateur."
     },
     "categorySort": {
-      "noCategory": "(Aucun rôle)",
+      "noCategory": "(Non renseigné)",
       "saveErrorDescription": "L’ordre n’a pas pu être enregistré.",
       "empty": "Aucune catégorie. Ajoute d’abord des entrées.",
       "savingButton": "Enregistrement …",
@@ -3908,17 +3877,17 @@
       "manualHint": "Formulaire de conduite A4 (mise en page BL/BS) avec tous les détails d’intervention",
       "manualNoEvent": " – aucun événement sélectionné",
       "downloadButton": "Télécharger",
-      "autoDownloadMovedHint": "Se trouve sous «Cet appareil» – le téléchargement arrive dans le dossier de cet ordinateur, pas dans l’installation.",
+      "autoDownloadMovedHint": "Se trouve sous « Cet appareil » – le téléchargement arrive dans le dossier de cet ordinateur, pas dans l’installation.",
       "autoDownloadMovedAction": "Y aller"
     },
     "gps": {
       "title": "Automatisme de statut par GPS",
-      "intro": "Active deux règles fondées sur le GPS. <strong>Arrivée</strong> demande si une intervention engagée doit passer sur <em>Intervention</em> dès qu’un véhicule attribué se trouve sur le lieu d’intervention. <strong>Retour</strong> demande si un véhicule doit être libéré lorsqu’il rentre à la caserne – jamais automatiquement. Fonctionne aussi en exercice ; inactif en mode démo.",
+      "intro": "Active deux règles fondées sur le GPS. <strong>Arrivée</strong> demande si une intervention engagée doit passer sur <em>En intervention</em> dès qu’un véhicule attribué se trouve sur le lieu d’intervention. <strong>Retour</strong> demande si un véhicule doit être libéré lorsqu’il rentre à la caserne – jamais automatiquement. Fonctionne aussi en exercice ; inactif en mode démo.",
       "arrivalLabel": "Arrivée sur le lieu d’intervention",
-      "arrivalHint": "Demande si une intervention engagée doit passer sur « Intervention » dès qu’un véhicule attribué est confirmé sur le lieu d’intervention.",
+      "arrivalHint": "Demande si une intervention engagée doit passer sur « En intervention » dès qu’un véhicule attribué est confirmé sur le lieu d’intervention.",
       "silentLabel": "Automatiquement, sans demander",
-      "silentHint": "Passe l’intervention sur « Intervention » automatiquement, sans demander – à n’activer qu’avec une couverture GPS fiable.",
-      "silentWarning": "Les interventions passent sur « Intervention » <strong>sans demande</strong>, sur la base des données GPS. Le GPS peut être imprécis ou lacunaire. Chaque changement de statut automatique est noté « automatisme GPS » dans le journal et peut être annulé à tout moment, comme un déplacement manuel.",
+      "silentHint": "Passe l’intervention sur « En intervention » automatiquement, sans demander – à n’activer qu’avec une couverture GPS fiable.",
+      "silentWarning": "Les interventions passent sur « En intervention » <strong>sans demande</strong>, sur la base des données GPS. Le GPS peut être imprécis ou lacunaire. Chaque changement de statut automatique est noté « automatisme GPS » dans le journal et peut être annulé à tout moment, comme un déplacement manuel.",
       "returnLabel": "Caserne : proposer la libération",
       "returnHint": "Demande si un véhicule doit être libéré lorsqu’il rentre à la caserne. Ne clôture jamais l’intervention automatiquement.",
       "stationLabel": "Caserne (base d’attache)",
@@ -3951,7 +3920,7 @@
       },
       "editorsOnly": "Seuls les éditeurs peuvent modifier ces réglages.",
       "trackerUnavailable": "Aucun service de localisation n’est configuré pour cette caserne. L’automatisme suit le rythme des relevés Traccar – sans lui, aucune proposition n’arrive, quoi qu’il soit réglé ici. À configurer côté serveur (TRACCAR_URL) ; l’état est visible sous Réglages → Intégrations.",
-      "returnUnavailable": "Les coordonnées de la caserne manquent. Sans elles, le retour n’est pas détecté – les saisir plus bas sur cette carte, sous «Caserne (base d’attache)».",
+      "returnUnavailable": "Les coordonnées de la caserne manquent. Sans elles, le retour n’est pas détecté – les saisir plus bas sur cette carte, sous « Caserne (base d’attache) ».",
       "map": {
         "title": "Véhicules sur la carte",
         "staleLabel": "Afficher le dernier signal dès",
@@ -3961,9 +3930,9 @@
     },
     "materials": {
       "loadError": "Le matériel n’a pas pu être chargé",
-      "saveError": "Échec de l’enregistrement du matériel",
-      "deleteError": "Échec de la suppression du matériel",
-      "deleteErrorDescription": "Le matériel n’a pas pu être supprimé. Réessaie.",
+      "saveError": "Matériel non enregistré",
+      "deleteError": "Matériel non supprimé",
+      "deleteErrorDescription": "Le matériel est toujours là.",
       "tabList": "Liste du matériel",
       "thresholdsLink": "Définir les seuils d’alerte pour le stock de matériel",
       "addButton": "Ajouter du matériel",
@@ -3989,55 +3958,55 @@
         "locationPlaceholder": "Choisir un emplacement",
         "selectMaterials": "Choisir des matériels",
         "noAvailableMaterials": "Aucun matériel disponible",
-        "saveError": "Échec de l’enregistrement du groupe",
-        "deleteError": "Échec de la suppression du groupe",
-        "deleteTitle": "Supprimer le groupe",
-        "deleteDescription": "Es-tu sûr de vouloir supprimer le groupe « {name} » ? Les matériels ne sont pas supprimés, seul le regroupement est dissous."
+        "saveError": "Groupe non enregistré",
+        "deleteError": "Groupe non supprimé",
+        "deleteTitle": "Supprimer le groupe ?",
+        "deleteDescription": "Le groupe « {name} » est dissous. Les matériels sont conservés."
       },
       "deviceHead": "Matériel",
       "moduleHead": "Module",
       "tabModules": "Modules",
-      "archiveTitle": "Archiver « {name} »",
+      "archiveTitle": "Archiver « {name} » ?",
       "archiveDescription": "Le matériel disparaît du tableau, de la barre latérale et du dialogue d'attribution. Les interventions existantes et le journal le conservent.",
       "archiveHint": "La suppression définitive se fait ensuite dans l'archive – mais seulement pour du matériel jamais engagé sur une intervention réelle.",
-      "purgeTitle": "Supprimer définitivement « {name} »",
+      "purgeTitle": "Supprimer définitivement « {name} » ?",
       "purgeDescription": "L'enregistrement est retiré de la base de données. Cela ne peut pas être annulé – pas même via « Afficher les archivés ».",
       "purgeHint": "Possible parce que ce matériel n'a jamais été engagé sur une intervention réelle. S'il l'a été ne serait-ce qu'une fois, l'archive reste la seule voie – sinon il manquerait dans l'évaluation de cette intervention."
     },
     "personnel": {
       "loadError": "Le personnel n’a pas pu être chargé",
-      "deleteError": "Échec de la suppression",
-      "deleteErrorDescription": "La personne n’a pas pu être supprimée. Réessaie.",
+      "deleteError": "Personne non supprimée",
+      "deleteErrorDescription": "La personne est toujours là.",
       "syncPreviewError": "Échec du chargement de l’aperçu",
       "syncCreated": "{count} créées",
       "syncDeleted": "{count} supprimées",
       "syncUnchanged": "{count} inchangées",
       "syncComplete": "Synchronisation terminée : {parts}",
-      "syncError": "Échec de la synchronisation",
-      "syncErrorDescription": "La liaison avec Divera n’a pas pu être établie. Réessaie.",
+      "syncError": "Personnel non synchronisé",
+      "syncErrorDescription": "Divera était injoignable – le personnel est inchangé.",
       "tabList": "Liste du personnel",
-      "listSearchPlaceholder": "Nom, rôle, tag …",
-      "roleFilterAll": "Tous les rôles",
+      "listSearchPlaceholder": "Rechercher une personne …",
+      "roleFilterAll": "Tous les grades",
       "emptyFiltered": "Aucune entrée ne correspond au filtre.",
       "syncButton": "Synchroniser depuis Divera",
       "addButton": "Ajouter du personnel",
       "tags": "Étiquettes",
       "availability": "Disponibilité",
       "empty": "Aucun personnel.",
-      "sortTitle": "Tri des rôles",
-      "sortDescription": "Fais glisser les rôles pour changer leur ordre d’affichage. Le personnel est groupé selon ce tri.",
+      "sortTitle": "Tri des grades",
+      "sortDescription": "Fais glisser les grades pour changer leur ordre d’affichage. Le personnel est groupé selon ce tri.",
       "dialogEditTitle": "Modifier le personnel",
       "dialogCreateTitle": "Ajouter une nouvelle personne",
       "namePlaceholder": "Nom Prénom",
-      "roleLabel": "Rôle / grade",
-      "rolePlaceholder": "Choisir un rôle",
+      "roleLabel": "Grade",
+      "rolePlaceholder": "Choisir un grade",
       "roleCustomOption": "Autre …",
-      "roleCustomPlaceholder": "Saisir un nouveau rôle",
+      "roleCustomPlaceholder": "Saisir un nouveau grade",
       "roleExamplePlaceholder": "p. ex. officier, sergent",
       "newTagPlaceholder": "Nouvelle étiquette",
       "addTag": "Ajouter",
-      "deleteTitle": "Supprimer la personne",
-      "deleteDescription": "Es-tu sûr de vouloir supprimer « {name} » ? Cette action est irréversible.",
+      "deleteTitle": "Supprimer la personne ?",
+      "deleteDescription": "« {name} » est supprimé. Cette action est irréversible.",
       "syncDialogTitle": "Synchroniser le personnel Divera",
       "syncLoading": "Chargement de l’aperçu depuis Divera …",
       "syncSectionNew": "Nouvelles",
@@ -4052,7 +4021,8 @@
       "kennungLabel": "Identifiant",
       "kennungPlaceholder": "p. ex. année de naissance ou n° personnel",
       "kennungHelp": "Seulement nécessaire en cas de nom identique. N’apparaît alors que sur le tableau.",
-      "syncKeptAssigned": "{count} conservées (encore affectées)"
+      "syncKeptAssigned": "{count} conservées (encore attribuées)",
+      "listSearchScope": "Recherche dans le nom, le grade et les tags."
     },
     "printer": {
       "toasts": {
@@ -4060,7 +4030,7 @@
         "serviceOfflineBackend": "Le service d’impression (Raspberry Pi) est hors ligne – il ne se manifeste pas auprès du backend.",
         "lastJobFailed": "Échec du dernier travail d’impression : {error}",
         "serviceOnlineConfigured": "Service d’impression en ligne et imprimante configurée",
-        "connectionTestFailed": "Échec du test de liaison",
+        "connectionTestFailed": "Imprimante non atteinte",
         "testQueued": "Impression de test en file – en attente de l’imprimante …",
         "testSuccess": "Impression de test réussie – le système est prêt.",
         "printerError": "Erreur d’imprimante : {error}",
@@ -4096,14 +4066,14 @@
       "setupTitle": "Montage",
       "setupText": "Un agent d’impression (Raspberry Pi) dans le réseau du poste de commandement interroge régulièrement le backend pour de nouveaux travaux d’impression et les envoie à l’imprimante thermique.",
       "jobsTitle": "Travaux d’impression",
-      "jobEinsatzzettel": "<strong>Fiche d’intervention</strong> – imprimée automatiquement lorsqu’une intervention passe sur « Engagé » ou « Intervention », ou manuellement via le menu contextuel",
+      "jobEinsatzzettel": "<strong>Fiche d’intervention</strong> – imprimée automatiquement lorsqu’une intervention passe sur « Engagé / en route » ou « En intervention », ou manuellement via le menu contextuel",
       "jobBoardSnapshot": "<strong>Instantané du tableau</strong> – via le bouton « Thermique » dans la barre du bas, avec des options pour les interventions clôturées, les véhicules et le personnel",
       "pollingTitle": "Comportement d’interrogation",
       "pollingText": "Au repos, l’agent interroge toutes les 60 secondes. Après un travail d’impression, il passe à un intervalle de 5 secondes pendant 15 minutes, afin que les travaux suivants soient traités plus vite.",
       "networkTitle": "Réseau",
       "networkText": "Le Raspberry Pi a besoin d’un accès Internet (backend) et d’un accès LAN à l’imprimante. Uniquement des connexions sortantes – aucune ouverture de port nécessaire.",
       "unavailableDisabled": "L’imprimante n’est pas encore activée sur cette carte – tant qu’elle est désactivée, rien ne s’imprime.",
-      "unavailableNoIp": "Aucune adresse d’imprimante n’est enregistrée. Sans elle, le service d’impression ne trouve pas l’imprimante – remplir le champ «Adresse IP» sur cette carte.",
+      "unavailableNoIp": "Aucune adresse d’imprimante n’est enregistrée. Sans elle, le service d’impression ne trouve pas l’imprimante – remplir le champ « Adresse IP » sur cette carte.",
       "refreshStatus": "Actualiser l’état"
     },
     "users": {
@@ -4117,16 +4087,16 @@
         "passwordRequired": "Le mot de passe est obligatoire"
       },
       "toasts": {
-        "createError": "Échec de la création",
-        "updateError": "Échec de l’actualisation",
-        "resetError": "Échec de la réinitialisation",
-        "resetErrorDescription": "Le mot de passe n’a pas pu être réinitialisé. Réessaie.",
-        "deactivateError": "Échec de la désactivation",
-        "deactivateErrorDescription": "L’utilisateur n’a pas pu être désactivé. Réessaie.",
-        "reactivateError": "Échec de la réactivation",
-        "reactivateErrorDescription": "L’utilisateur n’a pas pu être réactivé. Réessaie.",
-        "deleteError": "Échec de la suppression",
-        "deleteErrorDescription": "L’utilisateur n’a pas pu être supprimé. Réessaie."
+        "createError": "Utilisateur non créé",
+        "updateError": "Utilisateur non enregistré",
+        "resetError": "Mot de passe non réinitialisé",
+        "resetErrorDescription": "L’ancien mot de passe reste valable.",
+        "deactivateError": "Utilisateur non désactivé",
+        "deactivateErrorDescription": "L’utilisateur reste actif.",
+        "reactivateError": "Utilisateur non réactivé",
+        "reactivateErrorDescription": "L’utilisateur reste désactivé.",
+        "deleteError": "Utilisateur non supprimé",
+        "deleteErrorDescription": "L’utilisateur est toujours là."
       },
       "never": "Jamais",
       "newUser": "Nouvel utilisateur",
@@ -4142,7 +4112,7 @@
       "displayNamePlaceholder": "Jean Dupont",
       "passwordLabel": "Mot de passe",
       "roleLabel": "Rôle",
-      "roleAdmin": "Administrateur",
+      "roleAdmin": "Admin",
       "creating": "Création …",
       "editDialogTitle": "Modifier l’utilisateur",
       "editDialogDescription": "Modifie les données de l’utilisateur.",
@@ -4172,9 +4142,9 @@
     },
     "vehicles": {
       "loadError": "Les véhicules n’ont pas pu être chargés",
-      "saveError": "Échec de l’enregistrement du véhicule",
-      "deleteError": "Échec de la suppression du véhicule",
-      "deleteErrorDescription": "Le véhicule n’a pas pu être supprimé. Réessaie.",
+      "saveError": "Véhicule non enregistré",
+      "deleteError": "Véhicule non supprimé",
+      "deleteErrorDescription": "Le véhicule est toujours là.",
       "addButton": "Ajouter un véhicule",
       "dialogEditTitle": "Modifier le véhicule",
       "dialogCreateTitle": "Ajouter un nouveau véhicule",
@@ -4183,16 +4153,16 @@
       "orderPlaceholder": "p. ex. 1, 2, 3",
       "radioPlaceholder": "p. ex. Omega 1, Omega 2",
       "empty": "Aucun véhicule.",
-      "archiveTitle": "Archiver « {name} »",
+      "archiveTitle": "Archiver « {name} » ?",
       "archiveDescription": "Le véhicule disparaît du tableau, de la liste des véhicules et du dialogue d'attribution. Les interventions existantes et le journal le conservent.",
       "archiveHint": "La suppression définitive se fait ensuite dans l'archive – mais seulement pour des véhicules jamais engagés sur une intervention réelle.",
-      "purgeTitle": "Supprimer définitivement « {name} »",
+      "purgeTitle": "Supprimer définitivement « {name} » ?",
       "purgeDescription": "L'enregistrement est retiré de la base de données. Cela ne peut pas être annulé – pas même via « Afficher les archivés ».",
       "purgeHint": "Possible parce que ce véhicule n'a jamais été engagé sur une intervention réelle. S'il l'a été ne serait-ce qu'une fois, l'archive reste la seule voie – sinon il manquerait dans l'évaluation de cette intervention."
     },
     "validation": {
       "nameRequired": "Le nom est obligatoire",
-      "roleRequired": "Le rôle est obligatoire",
+      "roleRequired": "Le grade est obligatoire",
       "callsignRequired": "L’indicatif radio est obligatoire",
       "max40": "40 caractères au maximum",
       "max80": "80 caractères au maximum",
@@ -4223,10 +4193,10 @@
       "archiveConsequenceRestore": "Récupérable à tout moment via « Afficher les archivés »",
       "purgeConsequenceLists": "Disparaît des listes, des exports et du journal",
       "purgeConsequenceNoReturn": "Aucun retour possible – l'archive sera vide pour cet objet",
-      "archiveError": "Échec de l'archivage",
+      "archiveError": "Non archivé",
       "archiveInUseDescription": "Encore engagé sur une intervention ouverte – le libérer d'abord, puis archiver.",
-      "restoreError": "Échec de la restauration",
-      "purgeError": "Échec de la suppression définitive"
+      "restoreError": "Non restauré",
+      "purgeError": "Non supprimé définitivement"
     },
     "integrations": {
       "title": "Intégrations",
@@ -4257,7 +4227,7 @@
         "manual-intake": "Lien d’alarme pour le téléphone",
         "operator": "Saisie manuelle sur le tableau"
       },
-      "builtinNote": "Un fournisseur manquant ne signifie donc jamais qu’aucune situation ne peut être ouverte.",
+      "builtinNote": "Un fournisseur manquant ne signifie donc jamais qu’aucun événement ne peut être ouvert.",
       "rosterSnapshot": {
         "title": "Fichier du personnel (snapshot) :",
         "neverRan": "Source configurée, aucune récupération pour l’instant.",
@@ -4270,7 +4240,7 @@
         "summary": "dernière synchronisation : {created} nouveaux · {updated} modifiés · {deactivated} désactivés.",
         "unmatched": "{n} non attribués : {names}",
         "postponed": "En attente de la fin de leur engagement : {names}",
-        "unknownRanks": "Grades inconnus (fonction inchangée) : {ranks}",
+        "unknownRanks": "Grades inconnus (grade inchangé) : {ranks}",
         "fileDate": "Date du fichier : {time}",
         "viaIndex": "Via l’index des données de la station du {time}.",
         "indexNoRoster": "L’index des données de la station du {time} ne contient pas d’effectif – ROSTER_SNAPSHOT_SOURCE a été lu.",
@@ -4311,16 +4281,16 @@
       "title": "Configurer la caserne",
       "progress": "{done} sur 3 terminé",
       "signedInAs": "Connecté en tant que <name></name>",
-      "location": "Emplacement du dépôt",
+      "location": "Emplacement de la caserne",
       "locationHint": "Encore la valeur par défaut « Musterstadt » – la carte et la recherche d’adresse s’y réfèrent.",
       "locationAction": "Chercher une adresse …",
       "inventory": "Personnel et véhicules",
       "inventoryHint": "Rien de saisi – sans eux, aucune intervention ne peut être dotée.",
       "inventoryAction": "Importer un fichier Excel …",
       "dismiss": "Masquer",
-      "dialogTitle": "Emplacement du dépôt",
+      "dialogTitle": "Emplacement de la caserne",
       "dialogDescription": "La carte s’ouvre ici, et la recherche d’adresse place en tête les résultats de votre secteur. Modifiable plus tard sous Réglages › Général.",
-      "addressLabel": "Adresse du dépôt",
+      "addressLabel": "Adresse de la caserne",
       "homeCityLabel": "Secteur d’intervention (localité)",
       "homeCityPlaceholder": "Oberwil, BL",
       "locationMissing": "Choisir une adresse ou la placer sur la carte – il faut des coordonnées.",
@@ -4412,7 +4382,7 @@
       "footer": "Les courses se font en ligne droite (facteur de détour compris), freinent avant la destination et s’arrêtent automatiquement après 30 minutes. La vitesse vaut pour tous les véhicules – la modifier en cours de route ajuste les courses en cours. Les retours partent du lieu d’intervention attribué.",
       "lockedDemo": "Indisponible en mode démo – les courses simulées y sont bloquées.",
       "speedChangeFailed": "La vitesse n’a pas pu être modifiée",
-      "arrivalHintTitle": "Remarque : l’annonce d’arrivée n’arrive qu’au statut « Engagé »",
+      "arrivalHintTitle": "Remarque : l’annonce d’arrivée n’arrive qu’au statut « Engagé / en route »",
       "arrivalHintDescription": "L’intervention n’est actuellement pas sur Engagé – la course se déroule, mais sans demande d’arrivée.",
       "startFailed": "La simulation n’a pas pu être démarrée",
       "returnFailed": "Le retour n’a pas pu être démarré",
@@ -4483,6 +4453,8 @@
       "fieldReportLabel": "Injecter une annonce du terrain",
       "fieldReportIncidentPlaceholder": "Choisir une intervention avec équipe …",
       "fieldReportPlaceholder": "Qu’annonce l’équipe ?",
+      "fieldReportIncidentRequired": "Choisis une intervention – c’est à elle que va le message.",
+      "fieldReportTextRequired": "Le message manque.",
       "fieldReportSend": "Annoncer",
       "fieldReportSending": "Annonce en cours …",
       "fieldReportSent": "Annonce du terrain reçue",
@@ -4490,7 +4462,7 @@
       "fieldReportExample2": "Odeur de gaz au sous-sol",
       "fieldReportExample3": "Encore un arbre sur la route",
       "fieldReportNoIncidents": "Aucune intervention ouverte avec une équipe assignée – une annonce du terrain nécessite une équipe sur le terrain.",
-      "fieldReportHint": "Le groupe annonce une nouvelle place de sinistre – arrive comme une vraie annonce."
+      "fieldReportHint": "Le groupe annonce une nouvelle place sinistrée – arrive comme une vraie annonce."
     }
   },
   "duplicates": {
@@ -4504,7 +4476,6 @@
     "sketchLabel": "Situation : nouveau message au centre, interventions existantes en points, cercle de 50 m",
     "mergedTitle": "Fusionné avec {label}",
     "mergedDescription": "Le message figure comme complément dans les notes.",
-    "undo": "Annuler",
     "unmergedTitle": "De nouveau une intervention à part",
     "noteKept": "Le complément a été modifié entre-temps et reste dans les notes.",
     "mergeFailed": "Échec de la fusion",
@@ -4516,7 +4487,7 @@
       "flagTooltip": "Reçu automatiquement, près d’une intervention ouverte. « Fusionner » y ajoute ce message comme complément.",
       "merge": "Fusionner",
       "dismiss": "Pas un doublon",
-      "workCrew": "Équipe",
+      "workCrew": "Effectif",
       "workVehicles": "Véhicules",
       "workMaterial": "Matériel",
       "workReko": "Rapport de reconnaissance",
@@ -4549,7 +4520,7 @@
       "resources": "Ressources"
     },
     "loading": "Chargement du journal …",
-    "loadFailed": "Le journal n'a pas pu être chargé.",
+    "loadFailed": "Le journal n'a pas pu être chargé",
     "retry": "Réessayer",
     "emptyTitle": "Aucune entrée pour l'instant",
     "emptyEditor": "Les changements de statut, attributions et messages apparaissent ici d'eux-mêmes. Ce qui n'appartient à aucune intervention se saisit ci-dessous.",
@@ -4558,7 +4529,7 @@
     "emptyFiltered": "Filtré : {filters}.",
     "corrected": "corrigé {time}",
     "correct": "Corriger l'entrée",
-    "correcting": "Correction de «{text}» – l'original reste visible.",
+    "correcting": "Correction de « {text} » – l'original reste visible.",
     "cancelCorrection": "Annuler la correction",
     "placeholder": "Entrée … (# lie une intervention)",
     "placeholderShort": "Entrée …",
@@ -4568,9 +4539,10 @@
     "submit": "Inscrire",
     "submitCorrect": "Corriger",
     "saveFailed": "Non enregistré – le texte est toujours là. Renvoyer.",
+    "textRequired": "L’entrée manque – écris d’abord, puis envoie.",
     "linkTitle": "Lier une intervention",
     "linkSearch": "Chercher une intervention par numéro ou lieu",
-    "linkSearchPlaceholder": "Numéro ou lieu",
+    "linkSearchPlaceholder": "Rechercher une intervention …",
     "linkNone": "Aucune intervention ne correspond.",
     "linkClosed": "terminée",
     "unlink": "Retirer le lien",
@@ -4587,9 +4559,9 @@
       "fromField": "{name} :",
       "toField": "{name} à l'équipe :",
       "unknown": "Inconnu",
-      "merge": "Signalement «{other}» fusionné",
-      "mergedInto": "Fusionné dans «{other}»",
-      "unmerge": "Fusion avec «{other}» annulée",
+      "merge": "Signalement « {other} » fusionné",
+      "mergedInto": "Fusionné dans « {other} »",
+      "unmerge": "Fusion avec « {other} » annulée",
       "sourceKp": "saisi au PC",
       "sourceGps": "GPS",
       "field": {
@@ -4613,7 +4585,8 @@
     },
     "refDeleted": "{ref} (supprimée)",
     "refMerged": "{ref} → {target}",
-    "linkHint": "Lier une intervention – ou # dans le texte"
+    "linkHint": "Lier une intervention – ou # dans le texte",
+    "linkSearchScope": "Recherche dans le numéro et le lieu."
   },
   "standby": {
     "mirror": {
@@ -4705,8 +4678,8 @@
       },
       "tables": {
         "reko_reports": "Reco",
-        "schadenplatz_reports": "Rapport de sinistre",
-        "incident_assignments": "Équipe",
+        "schadenplatz_reports": "Rapport de place sinistrée",
+        "incident_assignments": "Effectif",
         "incident_group_assignments": "Mission",
         "incident_groups": "Mission",
         "journal_entries": "Journal",

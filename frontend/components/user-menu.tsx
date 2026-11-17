@@ -10,8 +10,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
+import { ShortcutTooltip } from '@/components/ui/shortcut-tooltip';
 import Link from 'next/link';
-import { Settings, User, LogOut, Inbox, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Keyboard, Download, FileText, FileSpreadsheet, CircleHelp, ClipboardList, ChartColumn } from 'lucide-react';
+import { Settings, User, LogOut, Inbox, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Keyboard, Download, FileText, FileSpreadsheet, HelpCircle, ClipboardList, ChartColumn } from 'lucide-react';
 import { toast } from 'sonner';
 import { useEvent } from '@/lib/contexts/event-context';
 import { getApiUrl } from '@/lib/env';
@@ -272,11 +273,13 @@ export function UserMenu({
   return (
     <>
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={t('openMenu')}>
-          <User className="size-4" />
-        </Button>
-      </DropdownMenuTrigger>
+      <ShortcutTooltip label={t('openMenu')} side="bottom">
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" aria-label={t('openMenu')}>
+            <User className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+      </ShortcutTooltip>
       <DropdownMenuContent align="end" className="w-64">
           {/* Who is logged in — the same block as the phone's Mehr sheet. */}
           <DropdownMenuLabel className="font-normal">
@@ -450,7 +453,7 @@ export function UserMenu({
 
           <DropdownMenuItem asChild>
             <Link href="/help" className="cursor-pointer">
-              <CircleHelp className="mr-2 h-4 w-4" />
+              <HelpCircle className="mr-2 h-4 w-4" />
               <span>{t('help')}</span>
             </Link>
           </DropdownMenuItem>

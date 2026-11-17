@@ -22,13 +22,14 @@
  * Schadenplatz can be finished and still have three people standing in the rain.
  */
 
+import { formatTime } from '@/lib/format-time'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { useIntlLocale } from '@/lib/date-locale'
 import {
   CarTaxiFront,
   Check,
-  CircleAlert,
+  AlertCircle,
   FileText,
   Flag,
   MapPin,
@@ -36,7 +37,7 @@ import {
   Minus,
   Package,
   Plus,
-  RotateCcw,
+  RefreshCw,
   Send,
   Users,
 } from 'lucide-react'
@@ -128,7 +129,7 @@ export function FeldActions({
   // silently does nothing is the thing being fixed here, so every path ends in
   // a visible answer.
   const [delivery, dispatch] = useReducer(deliveryReducer, IDLE)
-  // What "Nochmals senden" repeats. Held in a ref rather than in state: it is a
+  // What "Erneut senden" repeats. Held in a ref rather than in state: it is a
   // closure over the request, not something the render reads.
   const retryRef = useRef<(() => void) | null>(null)
   const attemptRef = useRef(0)
@@ -141,7 +142,7 @@ export function FeldActions({
   const pickupNeeded = assignment.pickup_needed
   const pickupSince = toDate(assignment.pickup_requested_at)
   // The vehicles parked at (or travelling with) this Schadenplatz — everything
-  // whose driver did not «fährt zurück» (stays === false). If one is standing
+  // whose driver did not «kehrt zurück» (stays === false). If one is standing
   // outside, «Wir fahren selbst» is the answer the follow-up should lead with,
   // and an Abholung is almost certainly a mis-tap.
   const vehiclesOnSite = assignment.vehicles.filter(vehicle => vehicle.stays !== false).map(vehicle => vehicle.name)
@@ -208,7 +209,7 @@ export function FeldActions({
   const handleMessage = async (text: string) => {
     const trimmed = text.trim()
     if (!trimmed) return
-    // One id per send, built ONCE: «Nochmals senden» repeats this exact payload,
+    // One id per send, built ONCE: «Erneut senden» repeats this exact payload,
     // so the server recognises the repeat instead of opening a second request.
     const payload: ApiFieldRequestCreate = { message: trimmed, client_request_id: randomUuid() }
     const ok = await run('message', trimmed, async () => {
@@ -244,7 +245,7 @@ export function FeldActions({
       { kind, text: payload.message || null, item: payload.item ?? null, quantity: askQuantity, label: '' },
       tRequest,
     )
-    // Built once per tap; «Nochmals senden» repeats exactly this request.
+    // Built once per tap; «Erneut senden» repeats exactly this request.
     const ok = await run('message', label, async () => {
       await apiClient.feldSendMessage(assignment.incident_id, personnelId, token, payload)
     })
@@ -285,7 +286,7 @@ export function FeldActions({
   })
   const timeOf = (value: string | null): string | null => {
     const date = toDate(value)
-    return date ? date.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' }) : null
+    return date ? formatTime(date, intlLocale) : null
   }
   type JourneyStep = {
     key: 'arrived' | 'complete' | 'rapport'
@@ -530,7 +531,7 @@ export function FeldActions({
         {delivery.status === 'failed' && (
           <div className="space-y-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
             <p className="flex items-start gap-2">
-              <CircleAlert className="mt-0.5 size-4 shrink-0" />
+              <AlertCircle className="mt-0.5 size-4 shrink-0" />
               <span className="min-w-0 break-words">
                 {t('failedTitle', { label: delivery.label })}
                 <span className="block text-xs opacity-90">{t('failed')}</span>
@@ -542,7 +543,7 @@ export function FeldActions({
               className="w-full"
               onClick={() => retryRef.current?.()}
             >
-              <RotateCcw className="size-4" />
+              <RefreshCw className="size-4" />
               {t('retry')}
             </Button>
           </div>

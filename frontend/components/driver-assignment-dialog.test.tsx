@@ -125,6 +125,7 @@ describe("DriverAssignmentDialog layout", () => {
     await user.click(screen.getByRole("button", { name: "Person hinzufügen" }))
     expect(screen.getByText("Fahrer für TLF")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /Hinzufügen & als Fahrer/ })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Schliessen" })).toBeInTheDocument()
+    // The footer action and the corner ✕ («Schliessen» too).
+    expect(screen.getAllByRole("button", { name: "Schliessen" })).toHaveLength(2)
   })
 })

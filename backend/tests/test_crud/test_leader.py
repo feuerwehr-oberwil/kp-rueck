@@ -123,6 +123,12 @@ class TestAutomaticLeader:
         await _assign(db_session, incident, await _person(db_session, "Offi Olivia", "Offizier"), user)
         assert await _leaders(db_session, incident.id) == ["Offi Olivia"]
 
+    async def test_a_grad_from_the_roster_snapshot_ranks_by_its_tier(self, db_session, incident, user, mock_request):
+        # The snapshot stores the Grad itself («Feldweibel», «Hauptmann»), not a tier word.
+        await _assign(db_session, incident, await _person(db_session, "Feld Fritz", "Feldweibel"), user)
+        await _assign(db_session, incident, await _person(db_session, "Haupt Hanna", "Hauptmann"), user)
+        assert await _leaders(db_session, incident.id) == ["Haupt Hanna"]
+
     async def test_explicit_sort_order_beats_the_role_name_fallback(self, db_session, incident, user, mock_request):
         # A station that fills in role_sort_order must have it respected even
         # when the role name would say otherwise.

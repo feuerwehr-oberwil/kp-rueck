@@ -29,6 +29,7 @@
  * state and not a guess dressed up as a crew report.
  */
 
+import { formatTime } from '@/lib/format-time'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Binoculars, CarTaxiFront, Flag, MapPin, MessageSquare, Send } from 'lucide-react'
@@ -43,7 +44,6 @@ import { apiClient, type ApiIncidentTimelineEvent } from '@/lib/api-client'
 import type { ApiFieldReportUpdate } from '@/lib/api/types'
 import { useOperations, type Operation } from '@/lib/contexts/operations-context'
 import { usePersonnel } from '@/lib/contexts/personnel-context'
-import { getActiveLocale } from '@/lib/i18n-messages'
 import { applyTimeEdit, toTimeInput } from '@/lib/field-time'
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
 
@@ -158,7 +158,7 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
     },
     {
       key: 'pickup',
-      icon: <CarTaxiFront className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />,
+      icon: <CarTaxiFront className="h-3.5 w-3.5 shrink-0 text-warning-foreground" />,
       label: t('pickup'),
       at: operation.pickupRequestedAt,
       on: Boolean(operation.pickupNeeded),
@@ -538,7 +538,7 @@ export function FieldMessageThread({
 }
 
 function formatMessageTime(at: Date): string {
-  return at.toLocaleTimeString(getActiveLocale(), { hour: '2-digit', minute: '2-digit' })
+  return formatTime(at)
 }
 
 /**

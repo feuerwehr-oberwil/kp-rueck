@@ -1,5 +1,7 @@
 "use client"
 
+import { EmptyState, SearchEmptyState } from "@/components/ui/empty-state"
+import { PersonName } from "@/components/person-name"
 import { useState, useMemo, useEffect } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { SearchInput } from "@/components/ui/search-input"
@@ -10,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { User, CheckCircle, Circle, Trash2, AlertTriangle, UserPlus, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { FormMessage, fieldMessageProps, focusFirstBlockingField, formMessageId } from "@/components/ui/form-message"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
 import { type Person, type Operation, useOperations } from "@/lib/contexts/operations-context"
 import { personMatchesQuery } from "@/lib/resource-status"
@@ -33,6 +36,9 @@ interface DriverAssignmentDialogProps {
   removeCrew: (operationId: string, personnelId: string) => Promise<boolean>
 }
 
+/** The walk-in name field – its message and the submit's focus target. */
+const WALK_IN_NAME_ID = "walk-in-driver-name"
+
 export function DriverAssignmentDialog({
   open,
   onOpenChange,
@@ -49,6 +55,7 @@ export function DriverAssignmentDialog({
 }: DriverAssignmentDialogProps) {
   const t = useTranslations('incidents.driver')
   const tCommon = useTranslations('incidents.common')
+  const tForm = useTranslations('common.formMessage')
   const { refreshOperations } = useOperations()
   const [searchQuery, setSearchQuery] = useState("")
   const [isAssigning, setIsAssigning] = useState(false)
@@ -58,6 +65,7 @@ export function DriverAssignmentDialog({
   // and isn't in the checked-in roster yet).
   const [showAddForm, setShowAddForm] = useState(false)
   const [newPersonName, setNewPersonName] = useState("")
+  const [newPersonError, setNewPersonError] = useState<string | null>(null)
   const [isAddingPerson, setIsAddingPerson] = useState(false)
 
   // Track driver locally so we can update UI immediately
@@ -268,9 +276,16 @@ export function DriverAssignmentDialog({
   // Fahrer, and assign them as this vehicle's driver in one go.
   const addWalkInDriver = async () => {
     const name = newPersonName.trim()
-    if (!name || isAddingPerson) return
-    if (personnel.some(p => p.name.trim().toLowerCase() === name.toLowerCase())) {
-      toast.error(t('duplicateName'))
+    if (isAddingPerson) return
+    // Said under the name field, and the cursor stays there.
+    const problem = !name
+      ? tForm('nameRequired')
+      : personnel.some(p => p.name.trim().toLowerCase() === name.toLowerCase())
+        ? t('duplicateName')
+        : null
+    if (problem) {
+      setNewPersonError(problem)
+      focusFirstBlockingField([WALK_IN_NAME_ID])
       return
     }
     setIsAddingPerson(true)
@@ -467,20 +482,23 @@ export function DriverAssignmentDialog({
               <div className="shrink-0 space-y-2 rounded-lg border border-border bg-muted/30 p-3">
                 <p className="text-xs text-muted-foreground">{t('addPersonHint')}</p>
                 <Input
+                  id={WALK_IN_NAME_ID}
                   type="text"
                   autoFocus
                   placeholder={t('addNamePlaceholder')}
                   value={newPersonName}
-                  onChange={(e) => setNewPersonName(e.target.value)}
+                  onChange={(e) => { setNewPersonName(e.target.value); setNewPersonError(null) }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') { e.preventDefault(); addWalkInDriver() }
-                    if (e.key === 'Escape') { setShowAddForm(false); setNewPersonName("") }
+                    if (e.key === 'Escape') { setShowAddForm(false); setNewPersonName(""); setNewPersonError(null) }
                   }}
+                  {...fieldMessageProps(WALK_IN_NAME_ID, newPersonError ? 'error' : null)}
                 />
+                <FormMessage id={formMessageId(WALK_IN_NAME_ID)}>{newPersonError}</FormMessage>
                 <div className="flex gap-2">
                   <Button
                     onClick={addWalkInDriver}
-                    disabled={!newPersonName.trim() || isAddingPerson}
+                    disabled={isAddingPerson}
                     className="flex-1"
                     size="sm"
                   >
@@ -493,7 +511,7 @@ export function DriverAssignmentDialog({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => { setShowAddForm(false); setNewPersonName("") }}
+                    onClick={() => { setShowAddForm(false); setNewPersonName(""); setNewPersonError(null) }}
                     disabled={isAddingPerson}
                   >
                     {tCommon('cancel')}
@@ -542,7 +560,7 @@ export function DriverAssignmentDialog({
                               <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                             )}
                             <div>
-                              <p className="font-medium text-sm">{person.name}</p>
+                              <p className="font-medium text-sm"><PersonName name={person.name} personnelId={person.id} /></p>
                               {person.role && (
                                 <p className="text-xs text-muted-foreground">{person.role}</p>
                               )}
@@ -604,7 +622,7 @@ export function DriverAssignmentDialog({
                                 <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                               )}
                               <div>
-                                <p className="font-medium text-sm">{person.name}</p>
+                                <p className="font-medium text-sm"><PersonName name={person.name} personnelId={person.id} /></p>
                                 {person.role && (
                                   <p className="text-xs text-muted-foreground">{person.role}</p>
                                 )}
@@ -649,20 +667,11 @@ export function DriverAssignmentDialog({
                 )}
 
                 {/* Empty state */}
-                {filteredPersonnel.length === 0 && (
-                  <div className="text-center py-12">
-                    <User className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
-                    <p className="text-sm font-medium text-foreground mb-1">
-                      {searchQuery ? t('noPersonsFound') : t('noAvailablePersons')}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {searchQuery
-                        ? t('tryDifferentSearch')
-                        : t('allAssignedHint')
-                      }
-                    </p>
-                  </div>
-                )}
+                {filteredPersonnel.length === 0 && (searchQuery.trim() ? (
+                  <SearchEmptyState query={searchQuery} onClear={() => setSearchQuery("")} />
+                ) : (
+                  <EmptyState compact title={t('noAvailablePersons')} description={t('allAssignedHint')} />
+                ))}
               </div>
             </div>
 
@@ -720,7 +729,6 @@ export function DriverAssignmentDialog({
         })}
         cancelText={tCommon('cancel')}
         confirmText={t('removeConfirmAction')}
-        variant="destructive"
         onConfirm={handleRemoveDriver}
       />
     </>

@@ -1,5 +1,6 @@
 "use client"
 
+import type { VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { useCallback, useState } from "react"
 import { toast } from "sonner"
 
@@ -17,7 +18,7 @@ import { usePersonNaming } from "@/components/person-name"
 interface UseWhatsAppCopyParams {
   operation: Operation | null
   materials: Material[]
-  vehicleDrivers: Map<string, string>
+  vehicleDrivers: VehicleDrivers
 }
 
 export interface WhatsAppCopy {

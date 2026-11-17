@@ -191,7 +191,7 @@ describe('Einstellungen › Telefon — nur Ansicht, ausser «Dieses Gerät»', 
     openSection('personnel')
     expect(screen.getByRole('note')).toBeInTheDocument()
     expect(document.querySelector('fieldset:disabled')).toBeNull()
-    expect(await screen.findByPlaceholderText('Name, Rolle, Tag …')).toBeEnabled()
+    expect(await screen.findByPlaceholderText('Person suchen …')).toBeEnabled()
   })
 
   it('changes nothing on the desk', async () => {
@@ -334,7 +334,7 @@ describe('Einstellungen › Audit — Filter gehen an den Server, die Suche nich
     expect(await screen.findByText('1 Eintrag')).toBeInTheDocument()
     await user.clear(screen.getByPlaceholderText('Einträge suchen …'))
     await user.type(screen.getByPlaceholderText('Einträge suchen …'), 'nothing-matches')
-    expect(await screen.findByText('Keine Einträge gefunden.')).toBeInTheDocument()
+    expect(await screen.findByText('Keine Treffer für «nothing-matches»')).toBeInTheDocument()
     expect(api.getAuditLogs).toHaveBeenCalledTimes(calls)
   })
 })
@@ -352,7 +352,7 @@ describe('Einstellungen › Audit — ein fehlgeschlagener Export sagt es', () =
     await user.click(await screen.findByRole('option', { name: 'Sturm Ost' }))
     await user.click(screen.getByRole('button', { name: 'Audit exportieren' }))
 
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Audit-Export fehlgeschlagen', {
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Audit-Log nicht exportiert', {
       description: 'Audit export failed: Internal Server Error',
     }))
     expect(api.exportEventAudit).toHaveBeenCalledWith('evt-1')

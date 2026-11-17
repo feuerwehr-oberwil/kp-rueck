@@ -82,7 +82,7 @@ describe('notificationParts — /feld', () => {
     const plain = { type: 'field_report', params: { place: 'Hauptstrasse 41', by: 'Fabio Wyss', direct: false } }
     expect(parts(plain)).toEqual({ what: 'Neuer Schadenplatz', where: 'Hauptstrasse 41', who: 'Fabio Wyss', source: 'feld' })
     expect(parts({ ...plain, params: { ...plain.params, direct: true } }, fr).what).toBe(
-      'Nouvelle place de sinistre – le groupe s’y rend directement',
+      'Nouvelle place sinistrée – le groupe s’y rend directement',
     )
   })
 
@@ -145,10 +145,10 @@ describe('notificationParts — Reko, vehicles, time', () => {
       },
     }
     expect(parts(row)).toEqual({
-      what: 'Reko abgeschlossen – Einsatz relevant (3 Pers., ~2 h, Gefahren: Feuer, Gefahrstoffe)',
+      what: "Reko abgeschlossen – Einsatz relevant (3 Pers., 2h 0', Gefahren: Feuer, Gefahrstoffe)",
       where: 'Hauptstrasse 41', who: 'Lisa Hoffmann', source: 'reko',
     })
-    expect(parts(row, fr).what).toMatch(/^Reconnaissance terminée – intervention nécessaire \(3 pers\., ~2 h, Dangers : /)
+    expect(parts(row, fr).what).toMatch(/^Reconnaissance terminée – intervention nécessaire \(3 pers\., 2h 0', Dangers : /)
     expect(
       parts({ type: 'reko_submitted', params: { place: 'Hauptstrasse 41', by: null, relevant: false, dangers: [] } }).what,
     ).toBe('Reko abgeschlossen – Kein Einsatz nötig')
@@ -212,10 +212,10 @@ describe('notificationParts — system notifications stay one line', () => {
     expect(parts({ type: 'no_personnel', params: {} }, fr).what).toBe(
       'Plus de personnel disponible – toutes les personnes enregistrées sont attribuées',
     )
-    expect(parts({ type: 'no_materials', params: { location: 'Depot', available: 0 } }).what).toBe('Keine Einheiten von «Depot» mehr verfügbar')
-    expect(parts({ type: 'no_materials', params: { location: 'TLF', available: 1 } }).what).toBe('Nur noch 1 Einheit von «TLF» verfügbar')
+    expect(parts({ type: 'no_materials', params: { location: 'Depot', available: 0 } }).what).toBe('Keine Geräte von «Depot» mehr verfügbar')
+    expect(parts({ type: 'no_materials', params: { location: 'TLF', available: 1 } }).what).toBe('Nur noch 1 Gerät von «TLF» verfügbar')
     expect(parts({ type: 'no_materials', params: { location: 'TLF', available: 2 } }, fr).what).toBe(
-      'Plus que 2 unités disponibles à « TLF »',
+      'Plus que 2 pièces de matériel disponibles à « TLF »',
     )
     expect(parts({ type: 'missing_location', params: { title: 'Kellerbrand' } }, fr).what).toBe(
       'L’intervention « Kellerbrand » n’a pas de position géocodée',

@@ -491,7 +491,7 @@ export default function FireStationDashboard() {
   // `'print'` is the one print/export sheet: thermal slip, A4 status print and
   // per-event file export live in it together (`PrintHubSheet`).
   const [activeFooterSheet, setActiveFooterSheet] = useState<FooterSheet | null>(null)
-  // «Neuer Tagebuch-Eintrag» (⇧J): the journal opens with the caret in its line,
+  // «Neuer Tagebuch-Eintrag» (E): the journal opens with the caret in its line,
   // linked to the selected card. A fresh `at` per request.
   const [journalCompose, setJournalCompose] = useState<JournalComposeRequest | null>(null)
   const writeJournal = useCallback((incidentId: string | null) => {
@@ -1179,7 +1179,6 @@ export default function FireStationDashboard() {
   const {
     handleVehicleAssign,
     handleOperationDelete,
-    handleVehicleRemove,
     handleOperationUpdate,
     handleCardClick,
     handleCardSelect,
@@ -1790,7 +1789,6 @@ export default function FireStationDashboard() {
         handleOperationUpdate={handleOperationUpdate}
         handlePrintBoard={handlePrintBoard}
         handleVehicleAssign={handleVehicleAssign}
-        handleVehicleRemove={handleVehicleRemove}
         isEditor={isEditor}
         isPrintingBoard={isPrintingBoard}
         linksSheetOpen={linksSheetOpen}

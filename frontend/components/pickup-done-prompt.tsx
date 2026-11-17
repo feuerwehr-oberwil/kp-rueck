@@ -177,7 +177,7 @@ export function PickupDonePrompt() {
       onOpenChange={open => { if (!open) setPrompt(null) }}
       title={
         <span className="flex items-center gap-2">
-          <CarTaxiFront className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+          <CarTaxiFront className="h-5 w-5 text-warning-foreground" />
           {t("title")}
         </span>
       }

@@ -1,5 +1,6 @@
 "use client"
 
+import type { VehicleDriver } from "@/lib/hooks/use-vehicle-drivers"
 import { useMemo } from "react"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
@@ -22,7 +23,7 @@ export interface VehicleWithStatus {
   displayOrder: number
   assignedOperation: Operation | undefined
   gps: ApiVehiclePosition | undefined
-  driverName: string | null
+  driver: VehicleDriver | null
 }
 
 export interface StatusStats {
@@ -113,7 +114,7 @@ export function useStatusData() {
         )
         const driver = personnel.find((p) => p.isDriver && p.driverVehicleId === v.id)
 
-        return { ...v, assignedOperation: assignedOp, gps, driverName: driver?.name || null }
+        return { ...v, assignedOperation: assignedOp, gps, driver: driver ? { name: driver.name, personnelId: driver.id } : null }
       })
       .sort((a, b) => a.displayOrder - b.displayOrder)
   }, [vehicles, operations, vehiclePositions, personnel])

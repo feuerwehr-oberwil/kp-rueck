@@ -212,7 +212,11 @@ export function TokenBoard({ token }: { token: string }) {
     if (!payload) return resolved
     const nameById = new Map<string, string>()
     for (const person of payload.personnel) nameById.set(String(person.id), person.name)
-    for (const vehicle of payload.vehicles) nameById.set(String(vehicle.id), vehicle.name)
+    const callsignById = new Map<string, string>()
+    for (const vehicle of payload.vehicles) {
+      nameById.set(String(vehicle.id), vehicle.name)
+      if (vehicle.radio_call_sign) callsignById.set(String(vehicle.id), vehicle.radio_call_sign)
+    }
     for (const material of payload.materials) nameById.set(String(material.id), material.name)
     for (const group of payload.groups ?? []) {
       const resources: GroupResources = { vehicles: [], personnel: [], materials: [] }
@@ -222,7 +226,7 @@ export function TokenBoard({ token }: { token: string }) {
         const name = nameById.get(resourceId)
         if (!name) continue
         const item = { assignmentId: String(assignment.id), resourceId, name }
-        if (assignment.resource_type === 'vehicle') resources.vehicles.push({ ...item, driverStay: assignment.driver_stay })
+        if (assignment.resource_type === 'vehicle') resources.vehicles.push({ ...item, callsign: callsignById.get(resourceId) ?? null, driverStay: assignment.driver_stay })
         else if (assignment.resource_type === 'personnel') resources.personnel.push({ ...item, isLeader: assignment.is_leader })
         else resources.materials.push(item)
       }
@@ -309,7 +313,6 @@ export function TokenBoard({ token }: { token: string }) {
         operation={selectedOperation}
         open={!!selectedOperation}
         onOpenChange={(open) => { if (!open) setSelectedIncidentId(null) }}
-        personnelOverride={situation?.personnel ?? []}
         materialsOverride={situation?.materials ?? []}
         groupsOverride={detailGroups}
         groupResourcesOverride={groupResources}

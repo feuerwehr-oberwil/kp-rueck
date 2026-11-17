@@ -233,8 +233,8 @@ test.describe('Event Search & Filtering', () => {
   test('should show no results for non-matching search', async () => {
     await eventsPage.searchEvents('NonExistentEvent12345');
 
-    // Should show no events
-    await expect(eventsPage.page.locator('text=Keine Ereignisse gefunden')).toBeVisible();
+    await expect(eventsPage.page.getByText('Keine Treffer für «NonExistentEvent12345»')).toBeVisible();
+    await expect(eventsPage.page.getByText('Keine Treffer für «', { exact: false })).toBeVisible();
   });
 
   test('should clear search and show all events', async () => {

@@ -17,6 +17,7 @@ import { useTranslations } from 'next-intl'
 import { AlertTriangle, ArrowRight, Info, AlertCircle, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { ShortcutTooltip } from '@/components/ui/shortcut-tooltip'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { useOperations } from '@/lib/contexts/operations-context'
@@ -184,18 +185,20 @@ export function NotificationCard({
         </div>
 
         {!notification.dismissed && onDismiss && (
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            className="flex-shrink-0 hover:bg-background/80"
-            onClick={(event) => {
-              event.stopPropagation()
-              onDismiss(notification.id)
-            }}
-            aria-label={tSidebar('dismissAria')}
-          >
-            <X className="size-3.5" />
-          </Button>
+          <ShortcutTooltip label={tSidebar('dismissAria')}>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="flex-shrink-0 hover:bg-background/80"
+              onClick={(event) => {
+                event.stopPropagation()
+                onDismiss(notification.id)
+              }}
+              aria-label={tSidebar('dismissAria')}
+            >
+              <X className="size-3.5" />
+            </Button>
+          </ShortcutTooltip>
         )}
       </div>
     </div>

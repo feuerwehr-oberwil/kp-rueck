@@ -7,6 +7,7 @@ import { reorder } from '@atlaskit/pragmatic-drag-and-drop/reorder';
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge';
 import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box';
 import { Button } from '@/components/ui/button';
+import { ShellLoader } from '@/components/ui/shell-loader';
 import { SettingCard } from '@/components/settings/setting-row';
 import { GripVertical, Save } from 'lucide-react';
 import { ReorderMenu } from '@/components/ui/reorder-menu';
@@ -223,7 +224,7 @@ export function CategorySortOrder({ title, description, categories: initialCateg
             size="sm"
             className="gap-2"
           >
-            <Save className="size-3.5" />
+            {isSaving ? <ShellLoader className="size-3.5" /> : <Save className="size-3.5" />}
             {isSaving ? t('categorySort.savingButton') : t('common.save')}
           </Button>
         )

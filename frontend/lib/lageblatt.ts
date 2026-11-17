@@ -10,7 +10,7 @@
  *
  * Der Schalter liegt bewusst im **localStorage**, nicht in der `settings`-Tabelle:
  * er lädt eine Datei auf DIESEN Rechner herunter. Ihn stationsweit zu setzen hiesse,
- * jedem Wanddisplay im Magazin alle 15 Minuten ein PDF in den Download-Ordner zu legen.
+ * jeder Wandanzeige im Magazin alle 15 Minuten ein PDF in den Download-Ordner zu legen.
  */
 
 import { apiClient } from '@/lib/api-client'

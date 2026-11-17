@@ -6,7 +6,6 @@ import { useTranslations } from "next-intl"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { type Operation } from "@/lib/contexts/operations-context"
-import { usePersonnel, type Person } from "@/lib/contexts/personnel-context"
 import { useMaterials, type Material } from "@/lib/contexts/materials-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
@@ -21,12 +20,10 @@ import { telHref } from "@/lib/phone"
 import { rekoPhotoUrl } from "@/lib/reko-photos"
 import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
 import { sortCrewByLeader } from "@/lib/crew-order"
-import { PRIORITY_ICONS, PRIORITY_LABELS, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 import {
   Truck, Users, Siren, Package, AlertTriangle, FileText, Phone, Axe,
   MessageSquare, Building2, Timer, Footprints, FileCheck, Waypoints, Binoculars,
   ChevronDown, ChevronRight, ClipboardList, History,
-  Infinity as InfinityIcon,
 } from "lucide-react"
 import { type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -40,16 +37,9 @@ import { IncidentTimeline } from "@/components/kanban/incident-timeline"
 import { IncidentParticipants } from "@/components/kanban/incident-participants"
 import { Reveal } from "@/components/ui/reveal"
 import { PersonName } from "@/components/person-name"
-
-// Icons/labels/colors all sourced from the shared priority module.
-export const priorityVisuals: Record<
-  Operation["priority"],
-  { Icon: LucideIcon; label: string; iconColor: string }
-> = {
-  high: { Icon: PRIORITY_ICONS.high, label: PRIORITY_LABELS.high, iconColor: PRIORITY_TEXT_CLASSES.high },
-  medium: { Icon: PRIORITY_ICONS.medium, label: PRIORITY_LABELS.medium, iconColor: PRIORITY_TEXT_CLASSES.medium },
-  low: { Icon: PRIORITY_ICONS.low, label: PRIORITY_LABELS.low, iconColor: PRIORITY_TEXT_CLASSES.low },
-}
+import { PriorityGlyph } from "@/components/ui/priority-glyph"
+import { LeaderBadge } from "@/components/kanban/leader-badge"
+import { vehicleLabel } from "@/lib/vehicle-label"
 
 /**
  * Read-only incident detail dialog shared by all /display views (board, status,
@@ -88,7 +78,6 @@ export function IncidentDetailModal({
   operation,
   open,
   onOpenChange,
-  personnelOverride,
   materialsOverride,
   groupsOverride,
   groupResourcesOverride,
@@ -98,7 +87,6 @@ export function IncidentDetailModal({
   operation: Operation | null
   open: boolean
   onOpenChange: (open: boolean) => void
-  personnelOverride?: Person[]
   materialsOverride?: Material[]
   groupsOverride?: IncidentGroup[]
   /** groupId → route-owned resources, for token displays that have no groups context. */
@@ -115,11 +103,11 @@ export function IncidentDetailModal({
   const tk = useTranslations('kanban')
   const tr = useTranslations('reko.reportSection')
   const tf = useTranslations('feld.kp')
+  const tPriority = useTranslations('incidents.priority')
   // Only an editor may read the Schadenplatz-Rapport (citizen PII) — see the
   // component doc. False for a viewer and for a share-token display alike.
   const { isEditor } = useAuth()
   const { materials: contextMaterials } = useMaterials()
-  const { personnel: contextPersonnel } = usePersonnel()
   const { selectedEvent } = useEvent()
   const { groups: contextGroups, getGroupResources } = useGroups()
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id, open && !!operation)
@@ -130,7 +118,6 @@ export function IncidentDetailModal({
   const timeline = useIncidentTimeline(operation?.id ?? null, open && showReports && !!operation)
 
   const materials = materialsOverride ?? contextMaterials
-  const personnel = personnelOverride ?? contextPersonnel
   const groups = groupsOverride ?? contextGroups
 
   const auftrag = operation?.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
@@ -143,21 +130,14 @@ export function IncidentDetailModal({
 
   if (!operation) return null
 
-  const { Icon: PriorityIcon, label: priorityLabel, iconColor: priorityIconColor } =
-    priorityVisuals[operation.priority]
-
   const statusColumnId = columns.find((c) => c.status.includes(operation.status))?.id
 
-  // Carry `consumable` along: Verbrauchsmaterial is on this incident AND possibly
-  // others at the same time, so it gets the ∞ marker it wears everywhere else.
+  // A material chip names the device, as on the card and the detail: the ∞ of
+  // Verbrauchsmaterial belongs to the resource lists, not to an assigned chip.
   const assignedMaterials = operation.materials.map(id => {
     const mat = materials.find(m => m.id === id)
-    return { id, name: mat?.name ?? id, consumable: mat?.consumable ?? false }
+    return { id, name: mat?.name ?? id }
   })
-
-  const personnelRoleById = new Map<string, string | undefined>(
-    personnel.map(p => [p.id, p.role]),
-  )
 
   // What the Reko reported. It rides along on the event-wide Reko-Summaries the
   // board already loads — no request of its own. A share-token display gets the
@@ -177,10 +157,7 @@ export function IncidentDetailModal({
       <DialogContent className="max-w-2xl modal-h-tall overflow-y-auto" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <PriorityIcon
-              className={cn("h-5 w-5 flex-shrink-0", priorityIconColor)}
-              aria-label={t('board.priorityAria', { label: priorityLabel })}
-            />
+            <PriorityGlyph priority={operation.priority} size="wall" />
             <IncidentNumber number={operation.number} className="text-sm" />
             <span className="break-words">{getIncidentLocationLabel(operation)}</span>
           </DialogTitle>
@@ -193,7 +170,7 @@ export function IncidentDetailModal({
               <Siren className="h-4 w-4 text-muted-foreground" />
               <span>{getIncidentTypeLabel(operation.incidentType)}</span>
             </div>
-            <Badge variant="outline">{priorityLabel}</Badge>
+            <Badge variant="outline">{tPriority(operation.priority)}</Badge>
             {statusColumnId && <Badge variant="secondary">{tk(`columns.${statusColumnId}`)}</Badge>}
             {/* The board-wide time chip, read-only — this modal opens on the wall
                 display, where there is nobody to work a dropdown. Its durations are
@@ -211,13 +188,13 @@ export function IncidentDetailModal({
           {/* Flags */}
           <div className="flex flex-wrap gap-2">
             {operation.source === 'intake' && (
-              <Badge variant="outline" className="gap-1 border-sky-500/50 text-sky-700 dark:text-sky-400">
-                <Phone className="h-3 w-3" /> {t('board.intakeBadge')}
+              <Badge variant="outline" className="gap-1">
+                <Phone className="h-3 w-3 text-muted-foreground" /> {t('board.intakeBadge')}
               </Badge>
             )}
             {operation.source === 'feld' && (
-              <Badge variant="outline" className="gap-1 border-violet-500/50 text-violet-600 dark:text-violet-400">
-                <Axe className="h-3 w-3" /> {t('board.feldBadge')}
+              <Badge variant="outline" className="gap-1">
+                <Axe className="h-3 w-3 text-muted-foreground" /> {t('board.feldBadge')}
               </Badge>
             )}
             {operation.nachbarhilfe && (
@@ -226,7 +203,7 @@ export function IncidentDetailModal({
               </Badge>
             )}
             {operation.amWarten && (
-              <Badge variant="outline" className="gap-1 border-amber-500/50 text-amber-700 dark:text-amber-400">
+              <Badge variant="outline" className="gap-1 border-warning/50 text-warning-foreground">
                 <Timer className="h-3 w-3" /> {t('board.amWarten')}
               </Badge>
             )}
@@ -278,22 +255,19 @@ export function IncidentDetailModal({
                 <div className="flex flex-wrap gap-1.5">
                   {auftragResources.vehicles.map((v) => (
                     <Badge key={v.assignmentId} variant="default" className="text-xs gap-1">
-                      <Truck className="h-3 w-3" /> {v.name}
+                      <Truck className="h-3 w-3" /> {vehicleLabel(v)}
                     </Badge>
                   ))}
                   {/* EL first (decision 23) — the route's leader heads the route's crew. */}
                   {sortCrewByLeader(auftragResources.personnel, (p) => Boolean(p.isLeader)).map((p) => (
                     <Badge key={p.assignmentId} variant="secondary" className="text-xs gap-1">
-                      <Users className="h-3 w-3" /> {p.name}
+                      <LeaderBadge isLeader={Boolean(p.isLeader)} />
+                      <PersonName name={p.name} personnelId={p.resourceId} />
                     </Badge>
                   ))}
                   {auftragResources.materials.map((m) => (
                     <Badge key={m.assignmentId} variant="secondary" className="text-xs gap-1">
-                      {materials.find((mat) => mat.id === m.resourceId)?.consumable ? (
-                        <InfinityIcon className="h-3 w-3" aria-label={tk('material.consumableUnlimited')} />
-                      ) : (
-                        <Package className="h-3 w-3" />
-                      )}
+                      <Package className="h-3 w-3" />
                       {m.name}
                     </Badge>
                   ))}
@@ -378,7 +352,9 @@ export function IncidentDetailModal({
                   <Binoculars className="h-4 w-4" /> {t('board.rekoHeading')}
                 </div>
                 {operation.assignedReko && (
-                  <Badge variant="secondary" className="text-sm">{operation.assignedReko.name}</Badge>
+                  <Badge variant="secondary" className="text-sm">
+                    <PersonName name={operation.assignedReko.name} personnelId={operation.assignedReko.id} />
+                  </Badge>
                 )}
                 {operation.rekoArrivedAt && (
                   <span className="text-xs text-muted-foreground">
@@ -417,7 +393,7 @@ export function IncidentDetailModal({
                     </p>
                   )}
                   {rekoSummary.hasDangers && (
-                    <div className="flex items-start gap-1.5 text-sm text-amber-700 dark:text-amber-400">
+                    <div className="flex items-start gap-1.5 text-sm text-warning-foreground">
                       <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
                       <span>{t('board.dangers', { types: rekoSummary.dangerTypes.join(", ") })}</span>
                     </div>
@@ -490,15 +466,12 @@ export function IncidentDetailModal({
               <div className="flex flex-wrap gap-1.5">
                 {/* EL first (decision 23): read off a wall at distance, the first
                     badge is the one that gets read at all. */}
-                {sortCrewByLeader(operation.crew, operation.leaderId).map(({ personnelId, name }) => {
-                  const role = personnelRoleById.get(personnelId)
-                  return (
-                    <Badge key={personnelId} variant="secondary" className="text-sm">
-                      <PersonName name={name} personnelId={personnelId} />
-                      {role && <span className="ml-1 opacity-70">· {role}</span>}
-                    </Badge>
-                  )
-                })}
+                {sortCrewByLeader(operation.crew, operation.leaderId).map(({ personnelId, name }) => (
+                  <Badge key={personnelId} variant="secondary" className="text-sm gap-1">
+                    <LeaderBadge isLeader={operation.leaderId === personnelId} />
+                    <PersonName name={name} personnelId={personnelId} />
+                  </Badge>
+                ))}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground/60 italic">{t('board.noCrew')}</p>
@@ -513,12 +486,15 @@ export function IncidentDetailModal({
             {operation.vehicles.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
                 {operation.vehicles.map(({ vehicleId, name: vehicleName, callsign, driverStay }) => {
-                  const driverName = vehicleDrivers.get(vehicleId)
+                  const driver = vehicleDrivers.get(vehicleId)
                   return (
                     <Badge key={vehicleId} variant="default" className="text-sm gap-1">
-                      {vehicleName}
-                      {callsign && <span className="opacity-70">· {callsign}</span>}
-                      {driverName && <span className="opacity-70">{t('board.driver', { name: driverName })}</span>}
+                      {vehicleLabel({ name: vehicleName, callsign })}
+                      {driver && (
+                        <span className="opacity-70">
+                          (<PersonName name={driver.name} personnelId={driver.personnelId} />)
+                        </span>
+                      )}
                       {driverStay !== undefined && (
                         <span className="opacity-70 ml-0.5">
                           {driverStay ? t('board.driverStays') : t('board.driverReturns')}
@@ -542,9 +518,6 @@ export function IncidentDetailModal({
               <div className="flex flex-wrap gap-1.5">
                 {assignedMaterials.map((m, i) => (
                   <Badge key={`${m.id}-${i}`} variant="secondary" className="text-sm gap-1">
-                    {m.consumable && (
-                      <InfinityIcon className="h-3.5 w-3.5 shrink-0" aria-label={tk('material.consumableUnlimited')} />
-                    )}
                     {m.name}
                   </Badge>
                 ))}

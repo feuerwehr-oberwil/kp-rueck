@@ -20,6 +20,7 @@
 import { useTranslations } from 'next-intl';
 import { Textarea } from '@/components/ui/textarea';
 import { SettingBlock, SettingCard } from '@/components/settings/setting-row';
+import { SettingSaveLine } from '@/components/settings/station-settings-form';
 
 /** Settings keys; must match `DEFAULT_SETTINGS` in backend/app/services/settings.py. */
 export const ALARM_DESCRIPTION_FILTER_PREFIXES_KEY = 'alarm.description_filter_prefixes';
@@ -32,6 +33,8 @@ interface Props {
   updateSetting: (key: string, value: string) => void | Promise<void>;
   isEditor: boolean;
   saving: string | null;
+  /** When the server confirmed each key – the «Gespeichert – hh:mm» under a field. */
+  savedAt: Record<string, Date>;
 }
 
 export function AlarmDescriptionFilterSettings({
@@ -41,6 +44,7 @@ export function AlarmDescriptionFilterSettings({
   updateSetting,
   isEditor,
   saving,
+  savedAt,
 }: Props) {
   const t = useTranslations('settings.page.alarmIntake');
 
@@ -60,6 +64,7 @@ export function AlarmDescriptionFilterSettings({
         }}
         disabled={!isEditor || saving === key}
       />
+      <SettingSaveLine saving={saving === key} savedAt={savedAt[key]} />
     </SettingBlock>
   );
 

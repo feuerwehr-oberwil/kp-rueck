@@ -293,7 +293,7 @@ export default function PhotoUpload({
       }
       // Everything arrived: the grid below is now the better record, so the
       // list of rows goes. A batch with a failure in it stays on screen —
-      // that is where the «Nochmals senden» button lives.
+      // that is where the «Erneut senden» button lives.
       if (queueRef.current.every(item => item.state.status === 'done')) commitQueue([])
     } finally {
       sendingRef.current = false
@@ -398,7 +398,7 @@ export default function PhotoUpload({
     return () => document.removeEventListener('paste', onPaste)
   }, [dense, disabled])
 
-  /** «Nochmals senden» on the one photo that did not make it. */
+  /** «Erneut senden» on the one photo that did not make it. */
   const retryOne = (id: string) => {
     patchQueue(id, { status: 'waiting' })
     void pump()

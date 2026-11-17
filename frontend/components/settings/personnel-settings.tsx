@@ -1,5 +1,6 @@
 'use client';
 
+import { SearchEmptyState } from "@/components/ui/empty-state"
 import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,7 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Edit, Trash2, RefreshCw, ChevronDown, ChevronRight, MoreHorizontal, X } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2, RefreshCw, ChevronDown, ChevronRight, MoreHorizontal, X } from 'lucide-react';
 import { SearchInput } from '@/components/ui/search-input';
 import {
   DropdownMenu,
@@ -47,6 +48,7 @@ import { CategorySortOrder } from './category-sort-order';
 import { DemoLock } from './demo-lock';
 import { SettingUnavailableNote } from './setting-unavailable';
 import { SettingCard } from './setting-row';
+import { SettingSaveLine, useSettingSaver } from './station-settings-form';
 import { useIntegrationCapability } from '@/lib/hooks/use-integrations';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
@@ -313,6 +315,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
    * render, so an empty input is a visible «default», not a mystery.
    */
   const [roleAbbreviations, setRoleAbbreviations] = useState<Record<string, string>>({});
+  const abbreviationSaver = useSettingSaver(t('personnel.abbreviationsSaveError'));
   useEffect(() => {
     apiClient
       .getAllSettings()
@@ -346,14 +349,8 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
         .filter(([, abbreviation]) => abbreviation),
     );
     const json = Object.keys(clean).length > 0 ? JSON.stringify(clean) : '';
-    try {
-      await apiClient.updateSetting(RANK_ABBREVIATIONS_KEY, json);
-      // The board reads the module mirror — update it now, not on next load.
-      setGlobalRankAbbreviations(json);
-    } catch (error) {
-      console.error('Failed to save role abbreviations:', error);
-      toast.error(t('personnel.abbreviationsSaveError'));
-    }
+    // The board reads the module mirror — update it now, not on next load.
+    if (await abbreviationSaver.save(RANK_ABBREVIATIONS_KEY, json)) setGlobalRankAbbreviations(json);
   };
 
   const handleSaveRoleSortOrder = async (categories: Array<{ name: string; sort_order: number }>) => {
@@ -420,13 +417,16 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
       <div className="space-y-3">
         <SearchInput
           placeholder={t('personnel.listSearchPlaceholder')}
+          title={t('personnel.listSearchScope')}
           value={listQuery}
           onValueChange={setListQuery}
         />
         <p className="text-xs tabular-nums text-muted-foreground">
           {t('common.listCount', { shown: visibleRows.length, total: personnel.length })}
         </p>
-        {visibleRows.length === 0 ? (
+        {visibleRows.length === 0 && personnel.length > 0 && listQuery.trim() ? (
+          <SearchEmptyState query={listQuery} onClear={() => setListQuery('')} />
+        ) : visibleRows.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
             {personnel.length === 0 ? t('personnel.empty') : t('personnel.emptyFiltered')}
           </p>
@@ -500,6 +500,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
               size="sm"
               containerClassName="w-64"
               placeholder={t('personnel.listSearchPlaceholder')}
+              title={t('personnel.listSearchScope')}
               value={listQuery}
               onValueChange={setListQuery}
             />
@@ -510,7 +511,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
                   size="sm"
                   className="h-8 text-xs"
                 >
-                  {roleFilter ? `${t('common.role')}: ${roleFilter}` : t('common.role')}
+                  {roleFilter ? `${t('common.rank')}: ${roleFilter}` : t('common.rank')}
                   {roleFilter ? <X className="size-3" /> : <ChevronDown className="size-3 opacity-60" />}
                 </Button>
               </DropdownMenuTrigger>
@@ -537,7 +538,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
                   {t('common.name')}
                 </SortableHead>
                 <SortableHead sort={sort} column="role">
-                  {t('common.role')}
+                  {t('common.rank')}
                 </SortableHead>
                 <TableHead>{t('personnel.tags')}</TableHead>
                 <SortableHead sort={sort} column="status">
@@ -550,7 +551,9 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
               {visibleRows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                    {personnel.length === 0 ? t('personnel.empty') : t('personnel.emptyFiltered')}
+                    {personnel.length > 0 && listQuery.trim() ? (
+                      <SearchEmptyState query={listQuery} onClear={() => setListQuery('')} />
+                    ) : personnel.length === 0 ? t('personnel.empty') : t('personnel.emptyFiltered')}
                   </TableCell>
                 </TableRow>
               )}
@@ -592,7 +595,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => handleEdit(person)} className="cursor-pointer">
-                          <Edit className="mr-2 size-3.5" />
+                          <Pencil className="mr-2 size-3.5" />
                           {t('common.edit')}
                         </DropdownMenuItem>
                         <DropdownMenuItem
@@ -647,6 +650,11 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
                     />
                   </div>
                 ))}
+                {/* One setting holds all of them: one line under the list. */}
+                <SettingSaveLine
+                  saving={abbreviationSaver.saving === RANK_ABBREVIATIONS_KEY}
+                  savedAt={abbreviationSaver.savedAt[RANK_ABBREVIATIONS_KEY]}
+                />
               </div>
             </DemoLock>
           </SettingCard>

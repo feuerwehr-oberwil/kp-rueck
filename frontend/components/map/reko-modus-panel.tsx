@@ -10,6 +10,7 @@
  * work (instead of zigzag across town) is a matter of looking at the map.
  */
 
+import { PersonName } from "@/components/person-name"
 import { useState } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
@@ -143,7 +144,7 @@ export function RekoModusPanel({
                     style={swatch ? { backgroundColor: swatch } : undefined}
                   />
                   <div className="min-w-0">
-                    <p className="font-medium text-sm truncate">{person.name}</p>
+                    <p className="font-medium text-sm truncate"><PersonName name={person.name} personnelId={person.id} /></p>
                     {person.role && (
                       <p className="text-xs text-muted-foreground truncate">{person.role}</p>
                     )}

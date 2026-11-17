@@ -15,12 +15,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { SettingGroup } from '@/components/settings/setting-row';
 import { toast } from 'sonner';
+import { FormMessage, fieldMessageProps, focusFirstBlockingField, formMessageId } from '@/components/ui/form-message';
+import { ShellLoader } from '@/components/ui/shell-loader';
 import { getOperationStatusLabel } from '@/lib/status-labels';
 import Link from 'next/link';
 import {
   ClipboardCheck,
   Bot,
-  Bus,
+  CarTaxiFront,
   MapPin,
   MapPinCheck,
   Truck,
@@ -84,6 +86,8 @@ export function TrainingSimulationControls() {
   const [fieldReportIncidentId, setFieldReportIncidentId] = useState('');
   const [fieldReportText, setFieldReportText] = useState('');
   const [isSendingFieldReport, setIsSendingFieldReport] = useState(false);
+  // Set by a send with the Einsatz or the text missing: from then on the missing one says so.
+  const [fieldReportTried, setFieldReportTried] = useState(false);
 
   // GPS drive simulation: vehicles for name→id lookup, active drives for the
   // per-row progress state. The backend refuses simulations in demo mode, so
@@ -302,8 +306,16 @@ export function TrainingSimulationControls() {
   // a fresh emergency in free text. The backend routes it through the REAL
   // field creation path, so it arrives exactly like a crew's Meldung — bell,
   // Eingegangen column, provenance and all.
+  const fieldReportIncidentError = fieldReportTried && !fieldReportIncidentId ? t('fieldReportIncidentRequired') : undefined;
+  const fieldReportTextError = fieldReportTried && !fieldReportText.trim() ? t('fieldReportTextRequired') : undefined;
+
   const handleSendFieldReport = async () => {
-    if (!selectedEvent || !fieldReportIncidentId || !fieldReportText.trim()) return;
+    if (!selectedEvent || isSendingFieldReport) return;
+    if (!fieldReportIncidentId || !fieldReportText.trim()) {
+      setFieldReportTried(true);
+      focusFirstBlockingField([!fieldReportIncidentId && 'field-report-incident', !fieldReportText.trim() && 'field-report-text']);
+      return;
+    }
     setIsSendingFieldReport(true);
     try {
       const result = await apiClient.simulateFieldReport(
@@ -313,6 +325,7 @@ export function TrainingSimulationControls() {
       );
       toast.success(t('fieldReportSent'), { description: result.message });
       setFieldReportText('');
+      setFieldReportTried(false);
     } catch (error: unknown) {
       const detail = error instanceof Error ? error.message : t('injectFailed');
       toast.error(tCommon('error'), { description: detail });
@@ -453,7 +466,7 @@ export function TrainingSimulationControls() {
               className="text-muted-foreground"
               title={t('rapportHint')}
             >
-              <ClipboardCheck className="size-3.5" />
+              {isFilingRapports ? <ShellLoader className="size-3.5" /> : <ClipboardCheck className="size-3.5" />}
               {isFilingRapports ? t('rapportFiling') : t('rapportBulk')}
             </Button>
           }
@@ -568,7 +581,7 @@ export function TrainingSimulationControls() {
                             className="flex-shrink-0 px-2"
                             title={t('injectTitle')}
                           >
-                            <AlertTriangle className="size-3.5 text-amber-600" />
+                            <AlertTriangle className="size-3.5 text-warning-foreground" />
                           </Button>
                         </DropdownMenuTrigger>
                         {/* Every item carries a one-line description (testing
@@ -584,7 +597,7 @@ export function TrainingSimulationControls() {
                             </span>
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleInject(op, 'reinforcement')}>
-                            <Megaphone className="mr-2 h-4 w-4 flex-shrink-0 text-amber-600" />
+                            <Megaphone className="mr-2 h-4 w-4 flex-shrink-0 text-warning-foreground" />
                             <span className="min-w-0">
                               <span className="block">{t('injectReinforcement')}</span>
                               <span className="block text-xs text-muted-foreground">{t('injectReinforcementDesc')}</span>
@@ -634,7 +647,7 @@ export function TrainingSimulationControls() {
                               still have three people standing in the rain — and
                               the lift arriving is a report of its own. */}
                           <DropdownMenuItem onClick={() => handleInject(op, 'pickup')}>
-                            <Bus className="mr-2 h-4 w-4 flex-shrink-0 text-amber-600" />
+                            <CarTaxiFront className="mr-2 h-4 w-4 flex-shrink-0 text-warning-foreground" />
                             <span className="min-w-0">
                               <span className="block">
                                 {op.pickupNeeded ? t('injectPickupDone') : t('injectPickupNeeded')}
@@ -675,7 +688,11 @@ export function TrainingSimulationControls() {
             ) : (
               <>
                 <Select value={fieldReportIncidentId} onValueChange={setFieldReportIncidentId}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger
+                    id="field-report-incident"
+                    className="w-full"
+                    {...fieldMessageProps('field-report-incident', fieldReportIncidentError ? 'error' : null)}
+                  >
                     <SelectValue placeholder={t('fieldReportIncidentPlaceholder')} />
                   </SelectTrigger>
                   <SelectContent>
@@ -686,8 +703,12 @@ export function TrainingSimulationControls() {
                     ))}
                   </SelectContent>
                 </Select>
+                <FormMessage id={formMessageId('field-report-incident')}>{fieldReportIncidentError}</FormMessage>
                 <div className="flex items-center gap-2">
                   <Input
+                    id="field-report-text"
+                    {...fieldMessageProps('field-report-text', fieldReportTextError ? 'error' : null)}
+                    aria-label={t('fieldReportPlaceholder')}
                     value={fieldReportText}
                     onChange={(e) => setFieldReportText(e.target.value)}
                     onKeyDown={(e) => {
@@ -698,15 +719,16 @@ export function TrainingSimulationControls() {
                   />
                   <Button
                     onClick={handleSendFieldReport}
-                    disabled={isSendingFieldReport || !fieldReportIncidentId || !fieldReportText.trim()}
+                    disabled={isSendingFieldReport}
                     variant="outline"
                     size="sm"
                     className="flex-shrink-0"
                   >
-                    <MessageSquare className="size-3.5" />
+                    {isSendingFieldReport ? <ShellLoader className="size-3.5" /> : <MessageSquare className="size-3.5" />}
                     {isSendingFieldReport ? t('fieldReportSending') : t('fieldReportSend')}
                   </Button>
                 </div>
+                <FormMessage id={formMessageId('field-report-text')}>{fieldReportTextError}</FormMessage>
                 {/* Canned examples — quick-fills, not sends: the trainer can
                     still edit before the Meldung goes out. */}
                 <div className="flex flex-wrap gap-1.5">
@@ -769,7 +791,7 @@ export function TrainingSimulationControls() {
               variant="outline"
               onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt, true)}
             >
-              <AlertTriangle className="size-3.5 text-amber-600" />
+              <AlertTriangle className="size-3.5 text-warning-foreground" />
               {t('pickupRequired')}
             </Button>
             <Button onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt, false)}>

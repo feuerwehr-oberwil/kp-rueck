@@ -12,6 +12,7 @@ import { usePolling } from "@/lib/hooks/use-polling"
 import { isTypingTarget } from "@/lib/typing-target"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { WALL_TEXT_WRAP } from "@/lib/kanban-utils"
 import { SearchInput } from "@/components/ui/search-input"
 import { Kbd } from "@/components/ui/kbd"
 import { DisplaySearchProvider, useDisplaySearch } from "@/lib/contexts/display-search-context"
@@ -256,19 +257,19 @@ function DisplayChrome({
           {needsEventPick ? (
             <Link
               href="/display"
-              className="flex min-w-0 shrink-0 items-center gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-sm font-semibold tracking-tight text-warning-foreground transition-colors hover:bg-warning/20"
+              className="flex min-w-0 shrink-0 items-center gap-1.5 rounded-sm border border-warning/30 bg-warning/10 px-2 py-0.5 text-sm font-semibold tracking-tight text-warning-foreground transition-colors hover:bg-warning/20"
             >
               <CalendarRange className="h-3.5 w-3.5 shrink-0" />
               {t('layout.selectEvent')}
             </Link>
           ) : (
-            <h1 className="min-w-0 max-w-[42vw] sm:max-w-none text-sm sm:text-[18px] sm:leading-[24px] font-semibold tracking-tight text-foreground truncate" title={eventName}>{eventName}</h1>
+            <h1 className={cn("min-w-0 max-w-[42vw] sm:max-w-none text-sm sm:text-[18px] sm:leading-[24px] font-semibold tracking-tight text-foreground", WALL_TEXT_WRAP)}>{eventName}</h1>
           )}
           {isTraining && <TrainingBadge label={t('layout.training')} />}
           {/* Was a panel of its own on the share-link board, under a header that
               repeated the Ereignis name this one already carries. */}
           {token && (
-            <span className="hidden items-center gap-1.5 rounded border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-700 sm:inline-flex dark:text-blue-400 shrink-0">
+            <span className="hidden items-center gap-1.5 rounded-sm border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-700 sm:inline-flex dark:text-blue-400 shrink-0">
               <Eye className="h-3.5 w-3.5" />
               {t('layout.readOnly')}
             </span>
@@ -349,7 +350,7 @@ function DisplayChrome({
             </button>
           </div>
 
-          <div className="hidden sm:flex items-center gap-1.5 rounded-md bg-secondary/50 px-2.5 py-0.5">
+          <div className="hidden sm:flex items-center gap-1.5 rounded-sm bg-secondary/50 px-2.5 py-0.5">
             <Clock className="size-[16px] text-muted-foreground" />
             <span className="font-mono text-[20px] leading-[28px] font-semibold tabular-nums">
               {currentTime ? currentTime.toLocaleTimeString(intlLocale) : "--:--:--"}

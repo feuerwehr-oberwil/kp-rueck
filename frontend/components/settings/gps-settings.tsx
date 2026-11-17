@@ -11,6 +11,7 @@ import { SettingUnavailableNote } from "@/components/settings/setting-unavailabl
 import { COORDINATE_DECIMALS, normalizeDecimal, validateRangedSetting, type SettingRange, type SettingValidationError } from "@/components/settings/setting-validation"
 import { FormMessage, fieldMessageProps, formMessageId } from "@/components/ui/form-message"
 import { DEFAULT_STALE_MINUTES, GPS_STALE_SETTING } from "@/lib/map-vehicles"
+import { SettingSaveLine } from "@/components/settings/station-settings-form"
 import {
   SettingCard,
   SettingGroup,
@@ -37,6 +38,8 @@ interface Props {
   updateSetting: (key: string, value: string) => void | Promise<void>
   isEditor: boolean
   saving: string | null
+  /** When the server confirmed each key – the «Gespeichert – hh:mm» under a field. */
+  savedAt: Record<string, Date>
 }
 
 /**
@@ -58,6 +61,7 @@ export function GpsSettingsCard({
   updateSetting,
   isEditor,
   saving,
+  savedAt,
 }: Props) {
   const t = useTranslations("settings")
   const enabled = settings[MASTER_KEY] === "true"
@@ -131,18 +135,21 @@ export function GpsSettingsCard({
     const value = settings[key] !== undefined ? settings[key] : fallback
     const isCurrentlySaving = saving === key
     return (
-      <Input
-        type="number"
-        value={value}
-        className="w-32"
-        onChange={(e) => setSettings((prev) => ({ ...prev, [key]: e.target.value }))}
-        onBlur={(e) => {
-          if (e.target.value !== (serverSettings[key] ?? fallback)) {
-            updateSetting(key, e.target.value)
-          }
-        }}
-        disabled={!isEditor || isCurrentlySaving}
-      />
+      <div>
+        <Input
+          type="number"
+          value={value}
+          className="w-32"
+          onChange={(e) => setSettings((prev) => ({ ...prev, [key]: e.target.value }))}
+          onBlur={(e) => {
+            if (e.target.value !== (serverSettings[key] ?? fallback)) {
+              updateSetting(key, e.target.value)
+            }
+          }}
+          disabled={!isEditor || isCurrentlySaving}
+        />
+        <SettingSaveLine saving={isCurrentlySaving} savedAt={savedAt[key]} />
+      </div>
     )
   }
 
@@ -307,6 +314,7 @@ export function GpsMapSettingsCard({
   updateSetting,
   isEditor,
   saving,
+  savedAt,
 }: Props) {
   const t = useTranslations("settings")
   const [problem, setProblem] = useState<SettingValidationError | null>(null)
@@ -354,6 +362,7 @@ export function GpsMapSettingsCard({
           <FormMessage id={formMessageId(STALE_FIELD_ID)}>
             {problem && t(`page.general.validation.${problem}`, { ...STALE_RANGE })}
           </FormMessage>
+          <SettingSaveLine saving={saving === GPS_STALE_SETTING} savedAt={savedAt[GPS_STALE_SETTING]} className="" />
         </div>
       </SettingRow>
     </SettingCard>

@@ -9,6 +9,7 @@
  * only renders each section's content into token values. See message-template.ts.
  */
 
+import { vehicleLabel } from "@/lib/vehicle-label"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { sortCrewByLeader } from "@/lib/crew-order"
@@ -44,7 +45,7 @@ function buildVehicles(operation: Operation): string {
   // instead of leaving the section blank, so the crew knows they go on foot.
   if (operation.vehicles.length === 0) return operation.zuFuss ? "Zu Fuss" : ""
   const vehicleLines = operation.vehicles.map(({ name, callsign, driverStay }) => {
-    const displayName = callsign ? `${name} · ${callsign}` : name
+    const displayName = vehicleLabel({ name, callsign })
     if (driverStay === undefined) return displayName
     return `${displayName} (${driverStay ? "bleibt vor Ort" : "kehrt zurück"})`
   })

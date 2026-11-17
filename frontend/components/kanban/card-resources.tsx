@@ -1,5 +1,7 @@
 "use client"
 
+import { vehicleLabel } from "@/lib/vehicle-label"
+import type { VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { RemovableChip } from "@/components/ui/removable-chip"
 import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
 import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
@@ -46,7 +48,7 @@ interface CardResourcesProps {
   showVehicleRow: boolean
   showMaterialRow: boolean
   /** Vehicle id → driver, threaded in from the board (one roster call). */
-  vehicleDrivers?: ReadonlyMap<string, string>
+  vehicleDrivers?: VehicleDrivers
   /** Personnel ids assigned to >1 incident — drawn with conflict styling. */
   doubleBookedCrewIds?: Set<string>
   /** Editor gate: offers «Als Einsatzleiter markieren» in the crew chip menu. */
@@ -128,7 +130,7 @@ export function CardResources({
               removeIconClassName="h-2.5 w-2.5"
               // Touch: the tap that used to open the Reko tab is the
               // menu's first row now (see RemovableChip).
-              menuTitle={operation.assignedReko.name.trim() || t('common.unknownResource')}
+              menuTitle={operation.assignedReko.name.trim() ? naming.inline({ name: operation.assignedReko.name, personnelId: operation.assignedReko.id }) : t('common.unknownResource')}
               menuSubtitle={<PersonMenuSubtitle personnelId={operation.assignedReko.id} />}
               menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('reko') }]}
               removeLabel={t('chipMenu.removeFromIncident')}
@@ -136,7 +138,13 @@ export function CardResources({
             >
               {/* Never an empty chip: a name the roster lost renders as
                   «Unbekannt», not as a blank pill. */}
-              <span className="truncate">{operation.assignedReko.name.trim() || t('common.unknownResource')}</span>
+              <span className="truncate">
+                <PersonName
+                  name={operation.assignedReko.name}
+                  personnelId={operation.assignedReko.id}
+                  display={operation.assignedReko.name.trim() || t('common.unknownResource')}
+                />
+              </span>
             </RemovableChip>
             {/* Show arrival time if on site but report not yet submitted */}
             {operation.rekoArrivedAt && !operation.hasCompletedReko && (
@@ -246,7 +254,7 @@ export function CardResources({
               // «Name · Funkrufname (Fahrer)» line the detail shows. Who
               // sits behind the wheel is a radio question, and answering
               // it should not need the card opened.
-              const driverName = vehicleDrivers?.get(vehicleId)
+              const driver = vehicleDrivers?.get(vehicleId)
               return (
               <RemovableChip
                 key={vehicleId}
@@ -260,7 +268,7 @@ export function CardResources({
                 menuTitle={vehicleName}
                 menuSubtitle={[
                   callsign,
-                  driverName,
+                  driver && naming.inline(driver),
                   driverStay ? t('common.driverStaysFull') : t('common.driverReturnsFull'),
                 ].filter(Boolean).join(' · ')}
                 menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') }]}
@@ -281,15 +289,17 @@ export function CardResources({
                     does afterwards shared one click target. */}
                 <span className="flex min-w-0 flex-wrap items-center gap-1">
                   <span className="min-w-0 truncate">
-                    {vehicleName}{callsign ? ` · ${callsign}` : ''}
+                    {vehicleLabel({ name: vehicleName, callsign })}
                   </span>
                   <span className="flex min-w-0 flex-wrap items-center gap-1">
-                  {driverName && (
-                    <span className="min-w-0 truncate text-muted-foreground" title={driverName}>({driverName})</span>
+                  {driver && (
+                    <span className="min-w-0 truncate text-muted-foreground" title={naming.inline(driver)}>
+                      (<PersonName name={driver.name} personnelId={driver.personnelId} />)
+                    </span>
                   )}
                   {/* The only thing that toggles, and it says what
                       currently holds in full — «bleibt vor Ort» /
-                      «fährt zurück». The short forms were a two-word
+                      «kehrt zurück». The short forms were a two-word
                       hint that only made sense next to the tooltip;
                       now that the chip text is no longer the click
                       target, the pill has the room for the sentence

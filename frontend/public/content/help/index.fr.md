@@ -17,7 +17,7 @@ Vue principale au chargement de l’application. Affiche toutes les intervention
 
 **« Rapports » dans la barre du bas (`O`).** Compte les places sinistrées terminées pour lesquelles aucun rapport de place sinistrée n’a encore été saisi, et ouvre la liste – **Ouverts** (le plus ancien en haut, car à la fin plus personne ne s’en souvient) et **Saisis**. Un clic sur une ligne saute à l’intervention.
 
-**« Journal » dans la barre du bas (`J`).** Le journal d’intervention de l’événement, le plus récent en haut. Changements de statut, attributions et retraits, messages du terrain et vers l’équipe, rapports de reconnaissance, alarmes Divera, « sur place », « terminé » et récupérations s’y inscrivent d’eux-mêmes ; une intervention supprimée ou fusionnée garde ses lignes, marquées. En bas, une ligne pour tout ce qui n’appartient à aucune carte (« Syndic informé », « Courant coupé quartier nord ») – `#` suivi des premières lettres de l’adresse, ou le symbole de chaîne devant la ligne, lie une intervention ; elle s’affiche alors en tête de ligne, `⌫` dans la ligne vide la retire. **`⇧J`** ouvre le journal avec le curseur déjà dans la ligne, et si une carte est sélectionnée, elle est déjà liée (dans la palette de commandes : « Écrire dans le journal »). Chaque ligne porte la date et l’heure. Rien n’est effacé : une entrée erronée se corrige avec le crayon, la ligne indique alors « corrigé hh:mm » et, sur clic, l’ancien libellé. Filtres : Manuel, Terrain, Statut, Ressources. Le journal PDF imprime exactement ces entrées. Sur le téléphone sous « Plus ».
+**« Journal » dans la barre du bas (`J`).** Le journal d’intervention de l’événement, le plus récent en haut. Changements de statut, attributions et retraits, messages du terrain et vers l’équipe, rapports de reconnaissance, alarmes Divera, « sur place », « terminé » et récupérations s’y inscrivent d’eux-mêmes ; une intervention supprimée ou fusionnée garde ses lignes, marquées. En bas, une ligne pour tout ce qui n’appartient à aucune carte (« Syndic informé », « Courant coupé quartier nord ») – `#` suivi des premières lettres de l’adresse, ou le symbole de chaîne devant la ligne, lie une intervention ; elle s’affiche alors en tête de ligne, `⌫` dans la ligne vide la retire. **`E`** (« entrée », comme dans KP Front) ouvre le journal avec le curseur déjà dans la ligne, et si une carte est sélectionnée, elle est déjà liée (dans la palette de commandes : « Écrire dans le journal »). Chaque ligne porte la date et l’heure. Rien n’est effacé : une entrée erronée se corrige avec le crayon, la ligne indique alors « corrigé hh:mm » et, sur clic, l’ancien libellé. Filtres : Manuel, Terrain, Statut, Ressources. Le journal PDF imprime exactement ces entrées. Sur le téléphone sous « Plus ».
 
 **« Indicateurs » dans le menu utilisateur (`Z`).** En haut à droite, dans le menu de la personne, aussi via `Cmd/Ctrl+K` et, sur le téléphone, sous « Plus » – plus dans la barre du bas. Une fenêtre au-dessus de la page avec la situation en chiffres – annonces, en attente (par priorité), en cours, terminées – et les temps de réaction depuis la réception jusqu’à **Engagé**, **Sur place** et **Clôture**, en médiane et P90 par priorité, ainsi que la plus ancienne annonce « haute » encore en attente (un clic l’ouvre). Les mêmes valeurs que le tableau « Reaktionszeiten » du rapport d’intervention (PDF) ; le mode de calcul se trouve derrière le ⓘ. Pour un exercice, la vue s’appelle **Évaluation de l’exercice** ; pour un événement passé, elle se trouve sous **Événements → ⋯ → Indicateurs**, et au mur dans l’affichage d’état (`/display/status`), au-dessus des interventions.
 
@@ -97,7 +97,7 @@ Le mur ne suit **pas** la « Vue » de l’opérateur : *Compact* existe pour ca
 **Sur le téléphone** (les comptes lecteur arrivent ici), les colonnes sont empilées au lieu d’être côte à côte : les mêmes cartes, on fait défiler vers le bas, pas sur le côté. De même pour les quatre colonnes d’« État ».
 
 ### État (`/display/status`)
-Vue à quatre colonnes : véhicules, interventions (groupées par statut), personnel (groupé par rôle) et matériel (groupé par emplacement). Pour les ressources attribuées, le lieu d’intervention est indiqué. S’agrandit automatiquement sur les grands écrans. Au-dessus des interventions figurent, repliables, les [indicateurs](#tableau-board-g-b) – les quatre chiffres et le plus ancien message « haute » en attente ; les temps de réaction (tableau et diagramme) forment une section à part, repliée par défaut, pour laisser plus de place aux interventions.
+Vue à quatre colonnes : véhicules, interventions (groupées par statut), personnel (groupé par grade) et matériel (groupé par emplacement). Pour les ressources attribuées, le lieu d’intervention est indiqué. S’agrandit automatiquement sur les grands écrans. Au-dessus des interventions figurent, repliables, les [indicateurs](#tableau-board-g-b) – les quatre chiffres et le plus ancien message « haute » en attente ; les temps de réaction (tableau et diagramme) forment une section à part, repliée par défaut, pour laisser plus de place aux interventions.
 
 ### Piquet (`/display/bereitschaft`)
 Pour l’équipe qui attend une intervention au local – pensée pour une tablette partagée tenue en main, pas pour un mur. De haut en bas : où se trouvent les véhicules, ce qui est **prêt à partir** (reconnaissance terminée, avec l’effectif, la durée et les dangers du rapport de reconnaissance), ce qui est encore **en attente** et qui est **sur le terrain**. Chaque liste est triée par priorité, puis par la plus longue attente. Un appui ouvre le détail de l’intervention ; rien ne peut être modifié.
@@ -734,7 +734,8 @@ et les formulaires mobiles (terrain, reko, check-in), ils n’existent volontair
 | `R` / `F5` | Actualiser |
 | `F` | État des véhicules |
 | `J` | Ouvrir/fermer le journal d’intervention |
-| `⇧J` | Nouvelle entrée au journal (liée à la carte sélectionnée) |
+| `E` | Nouvelle entrée au journal (liée à la carte sélectionnée) |
+| `⌘Z` / `Ctrl Z` | « Annuler » de la notification la plus récente encore affichée (partout, sauf en tapant dans un champ) |
 | `Z` | Ouvrir/fermer les indicateurs (situation, temps de réaction) |
 
 ### Tableau kanban – intervention (carte sélectionnée)
@@ -744,7 +745,7 @@ qui modifie quelque chose agit uniquement sur la carte sélectionnée, jamais su
 | Raccourci | Action |
 |----------|--------|
 | `←` `↑` `↓` `→` | Déplacer la sélection vers la carte voisine (les colonnes repliées et vides sont sautées) |
-| `E` / `Enter` | Ouvrir les détails (la carte sous la souris, sinon la sélectionnée) |
+| `Entrée` / `Espace` | Ouvrir les détails (la carte sous la souris, sinon la sélectionnée) |
 | `1-5` | Attribuer/retirer un véhicule |
 | `Shift+1-3` | Priorité : basse / moyenne / haute |
 | `0` | Basculer « à pied » |
@@ -771,7 +772,7 @@ qui modifie quelque chose agit uniquement sur la carte sélectionnée, jamais su
 | `L` | Étiquettes (légendes des marqueurs) afficher/masquer |
 | `I` | Lignes d’attribution afficher/masquer |
 | `1-5` | Zoomer sur le véhicule correspondant |
-| `E` / `Enter` | Ouvrir les détails de l’intervention sélectionnée |
+| `Entrée` / `Espace` | Ouvrir les détails de l’intervention sélectionnée |
 | `Z` | Réinitialiser le zoom / annuler la sélection |
 | `R` / `F5` | Actualiser |
 | `S` / `/` | Mettre le focus sur la recherche |

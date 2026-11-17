@@ -19,7 +19,7 @@
  * Worst case is the German sentence as it always was — never a lost word, and
  * never a sentence guessed back out of prose.
  */
-import { formatDuration } from '@/lib/duration'
+import { formatDuration, formatDurationHours } from '@/lib/duration'
 import { fieldRequestLabel } from '@/lib/field-requests'
 import type { Notification, NotificationType } from '@/lib/types/notification'
 
@@ -184,7 +184,7 @@ function build(type: string, p: Params, t: NotificationTranslator): Built | unde
         details.push(t(`${M}.rekoPersonnel`, { count: p.personnel_count }))
       }
       if (typeof p.duration_hours === 'number' && p.duration_hours > 0) {
-        details.push(t(`${M}.rekoDuration`, { hours: p.duration_hours }))
+        details.push(formatDurationHours(p.duration_hours))
       }
       const dangers = Array.isArray(p.dangers) ? p.dangers.filter((d): d is string => typeof d === 'string') : []
       if (dangers.length > 0) {

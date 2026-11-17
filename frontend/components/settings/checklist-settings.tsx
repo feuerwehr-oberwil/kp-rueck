@@ -16,8 +16,9 @@ import { useTranslations } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingStatus } from '@/components/ui/shell-loader';
 import { SettingCard, SettingRow } from '@/components/settings/setting-row';
+import { SettingSaveLine, useSettingSaver } from '@/components/settings/station-settings-form';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import {
@@ -31,12 +32,15 @@ import { cn } from '@/lib/utils';
 
 export function ChecklistSettings({ readOnly = false }: { readOnly?: boolean }) {
   const t = useTranslations('settings.page.checklist');
+  const tLoading = useTranslations('common.loadingWhat');
   const tasks = listChecklistTasks();
 
   const [loaded, setLoaded] = useState(false);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState<string | null>(null);
+  const { saving, savedAt, save } = useSettingSaver(t('saveFailed'));
+  // All notes share one setting; the save line goes under the note that was written.
+  const [lastNoteTaskId, setLastNoteTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     apiClient
@@ -48,19 +52,6 @@ export function ChecklistSettings({ readOnly = false }: { readOnly?: boolean }) 
       .catch(() => toast.error(t('loadFailed')))
       .finally(() => setLoaded(true));
   }, [t]);
-
-  const save = async (key: string, value: string) => {
-    setSaving(key);
-    try {
-      await apiClient.updateSetting(key, value);
-      return true;
-    } catch {
-      toast.error(t('saveFailed'));
-      return false;
-    } finally {
-      setSaving(null);
-    }
-  };
 
   const toggleTask = async (id: string, show: boolean) => {
     const next = new Set(hidden);
@@ -82,14 +73,14 @@ export function ChecklistSettings({ readOnly = false }: { readOnly?: boolean }) 
     else next[id] = trimmed;
     if (JSON.stringify(next) === JSON.stringify(notes)) return;
     setNotes(next);
+    setLastNoteTaskId(id);
     if (!(await save(CHECKLIST_NOTES_KEY, JSON.stringify(next)))) setNotes(notes);
   };
 
   if (!loaded) {
     return (
-      <Card className="p-5 space-y-3">
-        <Skeleton className="h-5 w-48" />
-        <Skeleton className="h-24 w-full" />
+      <Card className="p-5">
+        <LoadingStatus size="surface" className="flex w-full py-8 text-sm">{tLoading('checklist')}</LoadingStatus>
       </Card>
     );
   }
@@ -111,14 +102,19 @@ export function ChecklistSettings({ readOnly = false }: { readOnly?: boolean }) 
             className={cn(!isShown && 'opacity-60')}
             footer={
               isShown && (
-                <Input
-                  defaultValue={noteValue}
-                  key={noteValue}
-                  placeholder={t('notePlaceholder')}
-                  className="mt-2 h-8 text-xs"
-                  disabled={readOnly || saving === CHECKLIST_NOTES_KEY}
-                  onBlur={(e) => void commitNote(task.id, e.target.value, task.defaultNote)}
-                />
+                <>
+                  <Input
+                    defaultValue={noteValue}
+                    key={noteValue}
+                    placeholder={t('notePlaceholder')}
+                    className="mt-2 h-8 text-xs"
+                    disabled={readOnly || saving === CHECKLIST_NOTES_KEY}
+                    onBlur={(e) => void commitNote(task.id, e.target.value, task.defaultNote)}
+                  />
+                  {lastNoteTaskId === task.id && (
+                    <SettingSaveLine saving={saving === CHECKLIST_NOTES_KEY} savedAt={savedAt[CHECKLIST_NOTES_KEY]} />
+                  )}
+                </>
               )
             }
           >

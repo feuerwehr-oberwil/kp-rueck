@@ -79,6 +79,8 @@ LABELS: dict[str, str] = {
         "schon disponiert angelegt = 0:00; innert 2 Minuten Zurückgenommenes zählt nicht), "
         "Abschluss = letzter Abschluss. In hh:mm."
     ),
+    # Reaction-time stages, not column names: the same words as the board's Kennzahlen
+    # (`events.figures.toDispatched` / `toOnScene` / `toClosed` in messages/de.json).
     "col_to_reko": "→ Reko",
     "col_to_disponiert": "→ Disponiert",
     "col_to_einsatz": "→ Vor Ort",
@@ -94,11 +96,10 @@ LABELS: dict[str, str] = {
     "journal_source_intake": "Telefon",
     "journal_source_divera": "Divera",
     "journal_status_change": "Status: {from_status} → {to_status}",
-    "journal_assigned": "{name} zugeteilt",
-    # The counterpart to "zugeteilt": it says what happened to this incident, without
-    # claiming anything about where the resource went. "Freigegeben" named the board
-    # operation, not the event on the ground.
-    "journal_unassigned": "{name} vom Einsatz abgezogen",
+    # The board's verbs (zuweisen / freigeben) and the board journal's sentences
+    # (`journal.rows.assigned` / `unassigned`), so paper and screen read alike.
+    "journal_assigned": "{name} zugewiesen",
+    "journal_unassigned": "{name} vom Einsatz freigegeben",
     "journal_reko_received": "Reko-Bericht eingegangen",
     "journal_divera_alarm": "Divera-Alarm ausgelöst ({count} Empfänger)",
     "journal_divera_alarm_plain": "Divera-Alarm ausgelöst",
@@ -118,10 +119,10 @@ LABELS: dict[str, str] = {
     # Resource overviews (field test 07.09.): who/what was where, first to
     # last, without opening every incident block. One row per assignment.
     "vehicle_overview_title": "Fahrzeug-Übersicht",
-    "vehicle_overview_hint": "Jede Zuteilung eines Fahrzeugs zu einem Einsatz, in zeitlicher Reihenfolge.",
+    "vehicle_overview_hint": "Jede Zuweisung eines Fahrzeugs zu einem Einsatz, in zeitlicher Reihenfolge.",
     "material_overview_title": "Material-Übersicht",
     "material_overview_hint": (
-        "Jede Zuteilung von Material zu einem Einsatz. "
+        "Jede Zuweisung von Material zu einem Einsatz. "
         "«Noch am Schadenplatz» = beim Abschluss nicht zurückgemeldet (siehe Abholung)."
     ),
     "overview_col_vehicle": "Fahrzeug",
@@ -230,15 +231,17 @@ LABELS: dict[str, str] = {
     "signature_commander": "Kommandant",
 }
 
-# Human-readable labels mirroring the frontend (frontend/lib/types/incidents.ts).
+#: The board's column names – exactly ``kanban.columns.*`` in frontend/messages/de.json,
+#: held there by ``tests/test_services/test_rapport_rows.py``. Every German text the server
+#: writes about a status (paper, notification sentence, 409 detail) reads this table.
 STATUS_LABELS: dict[str, str] = {
     "incoming": "Eingegangen",
     "reko": "Reko",
     "reko_done": "Reko abgeschlossen",
-    "enroute": "Disponiert",
-    "active": "Einsatz",
-    "returning": "Einsatz beendet",
-    "complete": "Abschluss",
+    "enroute": "Disponiert / Anfahrt",
+    "active": "Im Einsatz",
+    "returning": "Rückfahrt",
+    "complete": "Abgeschlossen",
 }
 
 TYPE_LABELS: dict[str, str] = {
@@ -577,7 +580,7 @@ def _personnel_display(data: EventReportData, personnel_id: uuid.UUID | None) ->
     if not personnel_id:
         return LABELS["rapport_unknown_person"]
     person = data.personnel_map.get(personnel_id)
-    return person.name if person else LABELS["rapport_unknown_person"]
+    return data.person_name(person) if person else LABELS["rapport_unknown_person"]
 
 
 def rapport_filing_lines(data: EventReportData, report: SchadenplatzReport) -> list[str]:

@@ -29,6 +29,9 @@ import { getMessageTemplates } from "@/lib/message-template"
 import { apiClient } from "@/lib/api-client"
 import { useDeploymentBlock } from "@/lib/hooks/use-deployment"
 import { toast } from "sonner"
+import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog"
+import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning"
+import { FormMessage, fieldMessageProps, focusFirstBlockingField, formMessageId } from "@/components/ui/form-message"
 import { ShellLoader } from "@/components/ui/shell-loader"
 import { PersonName, usePersonNaming } from "@/components/person-name"
 
@@ -86,9 +89,18 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
   const [text, setText] = useState("")
   const [priority, setPriority] = useState(false)
   const [isSending, setIsSending] = useState(false)
+  // Set by a send without a recipient: from then on the list says so.
+  const [tried, setTried] = useState(false)
   // True once the async template fetch has populated title/text. Guards against
   // sending while the editable fields are still empty (the fetch hadn't resolved).
   const [templatesReady, setTemplatesReady] = useState(false)
+  // What the templates prefilled – an edit beyond it is worth a question before it is thrown away.
+  const [prefilled, setPrefilled] = useState({ title: "", text: "" })
+  const guard = useUnsavedChangesWarning({
+    isDirty: open && templatesReady && !isSending && (title !== prefilled.title || text !== prefilled.text),
+    isOpen: open,
+    onClose: () => onOpenChange(false),
+  })
 
   // Re-prefill every time the dialog opens, so it reflects the current
   // assignments (changing the crew while closed and reopening shows the new set).
@@ -105,6 +117,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
       ),
     )
     setPriority(false)
+    setTried(false)
     setTemplatesReady(false)
     // Prefill title/text from the editable templates (fetched async). Until this
     // resolves, the fields stay empty and the send button is disabled, so we can
@@ -117,8 +130,13 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
       const body = formatAlarmMessage({ operation, materials, template: alarmText, personText })
       // In a training event no real alarm is sent (the backend simulates it). Make
       // that unmistakable in the message itself so nobody mistakes it for a callout.
-      setTitle((isTraining ? `ÜBUNG: ${baseTitle}` : baseTitle).slice(0, 50))
-      setText(isTraining ? `🔶 ÜBUNG – PROBEALARM, es wird NICHT real alarmiert.\n\n${body}` : body)
+      const initial = {
+        title: (isTraining ? `ÜBUNG: ${baseTitle}` : baseTitle).slice(0, 50),
+        text: isTraining ? `🔶 ÜBUNG – PROBEALARM, es wird NICHT real alarmiert.\n\n${body}` : body,
+      }
+      setTitle(initial.title)
+      setText(initial.text)
+      setPrefilled(initial)
       setTemplatesReady(true)
     })
     return () => {
@@ -144,13 +162,18 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
   const selectedLinkedCount = recipients.filter(
     (r) => selected.has(r.person.id) && r.person.diveraLinked,
   ).length
+  const recipientsError = tried && selectedLinkedCount === 0 ? t("noRecipientsError") : undefined
+  // The first tickable row – where the cursor goes when nobody is ticked.
+  const firstLinkedId = recipients.find((r) => r.person.diveraLinked)?.person.id
 
   const handleSend = async () => {
     const personnelIds = recipients
       .filter((r) => selected.has(r.person.id) && r.person.diveraLinked)
       .map((r) => r.person.id)
     if (personnelIds.length === 0) {
-      toast.error(t("noRecipientsError"))
+      // Said under the list, not as a toast; the button stays live.
+      setTried(true)
+      focusFirstBlockingField(["divera-recipients"])
       return
     }
     setIsSending(true)
@@ -186,131 +209,143 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Siren className="h-5 w-5 text-muted-foreground" />
-            {t("title")}
-          </DialogTitle>
-          <DialogDescription>
-            {t("description", { location: (operation.locationDisplay ?? formatLocationForDisplay(operation.location, getGlobalHomeCity())) || getIncidentTypeLabel(operation.incidentType) })}
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={guard.handleOpenChange}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Siren className="h-5 w-5 text-muted-foreground" />
+              {t("title")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("description", { location: (operation.locationDisplay ?? formatLocationForDisplay(operation.location, getGlobalHomeCity())) || getIncidentTypeLabel(operation.incidentType) })}
+            </DialogDescription>
+          </DialogHeader>
 
-        {/* `DetailField` rows, boxed controls — the grammar of the new-Einsatz modal:
-            the count rides on the label, the character budget on the row's action, and
-            the priority switch is a `DetailToggle` instead of a label pushed to one edge
-            of the dialog with its switch at the other. */}
-        <div className="space-y-1 py-2">
-          {blockedReason && (
-            <p
-              role="note"
-              className="mb-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm leading-relaxed"
-            >
-              {blockedReason}
-            </p>
-          )}
-
-          <DetailField label={t("recipients", { count: selectedLinkedCount })} alignStart>
-            {recipients.length === 0 ? (
-              <p className="py-1 text-sm text-muted-foreground">{t("noAssigned")}</p>
-            ) : (
-              <div className="max-h-48 overflow-y-auto rounded-lg border border-border">
-                {recipients.map((r) => {
-                  const linked = Boolean(r.person.diveraLinked)
-                  return (
-                    <label
-                      key={r.person.id}
-                      className={`flex items-center gap-2.5 px-3 py-2 text-sm ${
-                        linked ? "cursor-pointer hover:bg-muted/50" : "cursor-not-allowed opacity-60"
-                      }`}
-                    >
-                      <Checkbox
-                        checked={selected.has(r.person.id)}
-                        onCheckedChange={() => linked && toggle(r.person.id)}
-                        disabled={!linked}
-                      />
-                      <span className="flex-1 truncate"><PersonName name={r.person.name} kennung={r.person.kennung ?? null} /></span>
-                      {r.isDriverRow && (
-                        <Badge variant="outline" className="text-2xs text-muted-foreground">
-                          {t("driverBadge")}
-                        </Badge>
-                      )}
-                      {linked ? (
-                        <Badge variant="secondary" className="text-2xs">
-                          {t("linked")}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="gap-1 text-2xs text-muted-foreground">
-                          <Link2Off className="h-3 w-3" />
-                          {t("notLinked")}
-                        </Badge>
-                      )}
-                    </label>
-                  )
-                })}
-              </div>
-            )}
-          </DetailField>
-
-          <DetailField label={t("titleLabel")} htmlFor="divera-title">
-            <Input
-              id="divera-title"
-              value={title}
-              maxLength={50}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </DetailField>
-
-          <DetailField
-            label={t("textLabel")}
-            htmlFor="divera-text"
-            alignStart
-            action={
-              <span
-                className={`pt-1.5 text-2xs ${text.length > 1000 ? "text-destructive" : "text-muted-foreground"}`}
+          {/* `DetailField` rows, boxed controls — the grammar of the new-Einsatz modal:
+              the count rides on the label, the character budget on the row's action, and
+              the priority switch is a `DetailToggle` instead of a label pushed to one edge
+              of the dialog with its switch at the other. */}
+          <div className="space-y-1 py-2">
+            {blockedReason && (
+              <p
+                role="note"
+                className="mb-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm leading-relaxed"
               >
-                {text.length > 1000 ? t("charCountTruncated", { count: text.length }) : t("charCount", { count: text.length })}
-              </span>
-            }
-          >
-            <Textarea
-              id="divera-text"
-              value={text}
-              rows={8}
-              className="text-xs"
-              onChange={(e) => setText(e.target.value)}
-            />
-          </DetailField>
+                {blockedReason}
+              </p>
+            )}
 
-          <DetailToggle
-            label={t("priorityLabel")}
-            icon={<Siren className="h-3.5 w-3.5" />}
-            checked={priority}
-            onToggle={setPriority}
-          />
-
-          {/* Actions */}
-          <DialogFooter className="pt-3">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSending}>
-              {t("cancel")}
-            </Button>
-            <Button
-              onClick={handleSend}
-              title={blockedReason ?? undefined}
-              disabled={Boolean(blockedReason) || isSending || selectedLinkedCount === 0 || !templatesReady}
-            >
-              {isSending ? (
-                <ShellLoader className="size-4" />
+            <DetailField label={t("recipients", { count: selectedLinkedCount })} alignStart>
+              {recipients.length === 0 ? (
+                <p className="py-1 text-sm text-muted-foreground">{t("noAssigned")}</p>
               ) : (
-                <Siren className="size-4" />
+                <div className="max-h-48 overflow-y-auto rounded-lg border border-border">
+                  {recipients.map((r) => {
+                    const linked = Boolean(r.person.diveraLinked)
+                    return (
+                      <label
+                        key={r.person.id}
+                        className={`flex items-center gap-2.5 px-3 py-2 text-sm ${
+                          linked ? "cursor-pointer hover:bg-muted/50" : "cursor-not-allowed opacity-60"
+                        }`}
+                      >
+                        <Checkbox
+                          id={r.person.id === firstLinkedId ? "divera-recipients" : undefined}
+                          {...(r.person.id === firstLinkedId
+                            ? fieldMessageProps("divera-recipients", recipientsError ? "error" : null)
+                            : {})}
+                          checked={selected.has(r.person.id)}
+                          onCheckedChange={() => linked && toggle(r.person.id)}
+                          disabled={!linked}
+                        />
+                        <span className="flex-1 truncate"><PersonName name={r.person.name} kennung={r.person.kennung ?? null} /></span>
+                        {r.isDriverRow && (
+                          <Badge variant="outline" className="text-2xs text-muted-foreground">
+                            {t("driverBadge")}
+                          </Badge>
+                        )}
+                        {linked ? (
+                          <Badge variant="secondary" className="text-2xs">
+                            {t("linked")}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="gap-1 text-2xs text-muted-foreground">
+                            <Link2Off className="h-3 w-3" />
+                            {t("notLinked")}
+                          </Badge>
+                        )}
+                      </label>
+                    )
+                  })}
+                </div>
               )}
-              {t("send", { count: selectedLinkedCount })}
-            </Button>
-          </DialogFooter>
-        </div>
-      </DialogContent>
-    </Dialog>
+              {/* By hand, not DetailField's `error`: that needs `htmlFor`, and a label
+                  pointing at the first checkbox would tick it. */}
+              <FormMessage id={formMessageId("divera-recipients")} className="mt-1">
+                {recipientsError}
+              </FormMessage>
+            </DetailField>
+
+            <DetailField label={t("titleLabel")} htmlFor="divera-title">
+              <Input
+                id="divera-title"
+                value={title}
+                maxLength={50}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </DetailField>
+
+            <DetailField
+              label={t("textLabel")}
+              htmlFor="divera-text"
+              alignStart
+              action={
+                <span
+                  className={`pt-1.5 text-2xs ${text.length > 1000 ? "text-destructive" : "text-muted-foreground"}`}
+                >
+                  {text.length > 1000 ? t("charCountTruncated", { count: text.length }) : t("charCount", { count: text.length })}
+                </span>
+              }
+            >
+              <Textarea
+                id="divera-text"
+                value={text}
+                rows={8}
+                className="text-xs"
+                onChange={(e) => setText(e.target.value)}
+              />
+            </DetailField>
+
+            <DetailToggle
+              label={t("priorityLabel")}
+              icon={<Siren className="h-3.5 w-3.5" />}
+              checked={priority}
+              onToggle={setPriority}
+            />
+
+            {/* Actions */}
+            <DialogFooter className="pt-3">
+              <Button variant="outline" onClick={guard.requestClose} disabled={isSending}>
+                {t("cancel")}
+              </Button>
+              <Button
+                onClick={handleSend}
+                title={blockedReason ?? undefined}
+                disabled={Boolean(blockedReason) || isSending || !templatesReady}
+              >
+                {isSending ? (
+                  <ShellLoader className="size-4" />
+                ) : (
+                  <Siren className="size-4" />
+                )}
+                {t("send", { count: selectedLinkedCount })}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <UnsavedChangesDialog {...guard.dialogProps} />
+    </>
   )
 }

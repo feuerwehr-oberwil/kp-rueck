@@ -44,6 +44,7 @@ import { isLocated, type LocatedOperation } from "@/lib/utils/route-geo"
 import { DEFAULT_CENTER_LATLNG, fitTo, type LatLngPoint } from "@/lib/map-view"
 import { useDialogDragGuard } from "@/lib/hooks/use-dialog-drag-guard"
 import { RouteStopList } from "../map/route-stop-list"
+import { LoadingStatus } from "@/components/ui/shell-loader"
 
 // Stable empty set — optimize now persists immediately, so no stop is ever in a
 // pending "changed" preview state.
@@ -269,8 +270,8 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
   // The map. `mapKey` remounts it per open so it re-centres and re-fits; `center` is
   // therefore captured at that moment, while markers keep tracking live data.
   const mapNode = !displayGroup ? (
-    <div className="flex h-full items-center justify-center bg-muted text-sm text-muted-foreground">
-      {t("mapLoading")}
+    <div className="flex h-full items-center justify-center bg-muted">
+      <LoadingStatus size="surface" className="text-sm">{t("mapLoading")}</LoadingStatus>
     </div>
   ) : (
     <BaseMap

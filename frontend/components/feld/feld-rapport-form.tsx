@@ -32,10 +32,11 @@
  * un-submit anything, which is the bug `isSubmittingRef` exists for.
  */
 
+import { formatDateTime, formatTime } from '@/lib/format-time'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useTranslations } from 'next-intl'
-import { AlertTriangle, Check, Copy, Phone, RotateCcw, Send, UserRound } from 'lucide-react'
+import { AlertTriangle, Check, Copy, Phone, RefreshCw, Send, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -56,7 +57,6 @@ import type {
   ApiSchadenplatzRapport,
   ApiRapportUpdate,
 } from '@/lib/api/types'
-import { getActiveLocale } from '@/lib/i18n-messages'
 import { telHref } from '@/lib/phone'
 import { sanitizePhoneInput } from '@/lib/utils'
 import {
@@ -183,19 +183,6 @@ function RapportSection({
       {children}
     </FeldSection>
   )
-}
-
-function formatDateTime(value: string | null): string {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleString(getActiveLocale(), {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 export function FeldRapportForm({ incidentId, transport, mount = 'feld', disabled, onSaved, autoFocusKurzbericht, focusKurzberichtSignal }: FeldRapportFormProps) {
@@ -562,7 +549,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
       <div className="space-y-2">
         <p className="text-sm text-destructive">{t('loadError')}</p>
         <Button type="button" variant="outline" size="sm" onClick={() => load()}>
-          <RotateCcw className="size-3.5" />
+          <RefreshCw className="size-3.5" />
           {t('loadRetry')}
         </Button>
       </div>
@@ -902,7 +889,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
         ))}
         {lastSaved && (!submitted || isKp) && (
           <p className="text-xs text-muted-foreground">
-            {t('lastSaved', { at: lastSaved.toLocaleTimeString(getActiveLocale(), { hour: '2-digit', minute: '2-digit' }) })}
+            {t('lastSaved', { at: formatTime(lastSaved) })}
           </p>
         )}
 

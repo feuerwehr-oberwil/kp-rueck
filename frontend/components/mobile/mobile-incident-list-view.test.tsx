@@ -47,7 +47,7 @@ function renderList() {
 }
 
 describe('MobileIncidentListView — empty states', () => {
-  it('search without hits: «Keine Einsätze für «xyz».» and «Suche leeren» brings the list back', async () => {
+  it('search without hits: «Keine Treffer für «xyz»» and «Suche leeren» brings the list back', async () => {
     const user = userEvent.setup()
     renderList()
 
@@ -55,7 +55,7 @@ describe('MobileIncidentListView — empty states', () => {
     await user.type(field, 'xyz')
 
     const empty = screen.getByRole('status')
-    expect(within(empty).getByText('Keine Einsätze für «xyz».')).toBeDefined()
+    expect(within(empty).getByText('Keine Treffer für «xyz»')).toBeDefined()
     await user.click(within(empty).getByRole('button', { name: 'Suche leeren' }))
 
     expect(field).toHaveValue('')
@@ -71,7 +71,7 @@ describe('MobileIncidentListView — empty states', () => {
     await user.click(await screen.findByRole('menuitemcheckbox', { name: /^Im Einsatz/ }))
     await user.keyboard('{Escape}')
     const empty = screen.getByRole('status')
-    expect(empty.textContent).toContain('Keine Einsätze mit Status «Im Einsatz».')
+    expect(empty.textContent).toContain('Keine Einsätze mit Status «Im Einsatz»')
 
     await user.click(within(empty).getByRole('button', { name: 'Alle zeigen' }))
     expect(screen.getAllByTestId('card')).toHaveLength(2)

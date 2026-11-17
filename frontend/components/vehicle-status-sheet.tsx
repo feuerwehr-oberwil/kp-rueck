@@ -7,9 +7,8 @@ import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet
 import { FooterSheet } from "@/components/ui/footer-sheet"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ShellLoader } from "@/components/ui/shell-loader"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Truck, User, MapPin, Clock, Radio, RefreshCw, AlertTriangle, Plus, Route } from "lucide-react"
+import { LoadingStatus, ShellLoader } from "@/components/ui/shell-loader"
+import { Truck, User, MapPin, Clock, Radio, RefreshCw, AlertTriangle, Plus, Waypoints } from "lucide-react"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
 import { isIncidentStatus } from "@/lib/types/incidents"
 import { toast } from "sonner"
@@ -72,10 +71,10 @@ interface VehicleAuftrag {
 function AuftragChip({ auftrag, label }: { auftrag: VehicleAuftrag; label: string }) {
   return (
     <span
-      className="inline-flex min-w-0 items-center gap-1 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-sm font-medium text-foreground"
+      className="inline-flex min-w-0 items-center gap-1 rounded-sm border border-border bg-muted/60 px-1.5 py-0.5 text-sm font-medium text-foreground"
       title={label}
     >
-      <Route className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+      <Waypoints className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
       <span
         className="h-2 w-2 flex-shrink-0 rounded-full"
         style={{ backgroundColor: auftrag.color ?? "var(--muted-foreground)" }}
@@ -103,6 +102,8 @@ function getStatusBorderColor(status: string, hasIncident: boolean): string {
 
 export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatusSheetProps) {
   const t = useTranslations('incidents')
+  const tLoading = useTranslations('common.loadingWhat')
+  const tColumns = useTranslations('kanban.columns')
   const router = useRouter()
   const isMobile = useIsMobile()
   const { personnel, operations, removeCrew } = useOperations()
@@ -315,19 +316,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
 
         <div className="flex-1 overflow-y-auto mt-3 pb-10">
           {loading ? (
-            <div className="space-y-1.5">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="border rounded-lg px-3 py-2.5 bg-card">
-                  <div className="flex items-center gap-3">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-3 w-20" />
-                    <Skeleton className="h-3 w-28" />
-                    <Skeleton className="h-3 flex-1" />
-                    <Skeleton className="h-6 w-20" />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <LoadingStatus size="surface" className="flex w-full py-8 text-sm">{tLoading("vehicles")}</LoadingStatus>
           ) : displayedVehicles.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 text-center">
               <Truck className="h-12 w-12 text-muted-foreground/50 mb-2" />
@@ -403,7 +392,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                             )}
                             {vehicle.incident_id && vehicle.incident_status && (
                               <Badge variant="outline" className={cn("text-xs max-w-full", RESOURCE_STATE_BADGE_CLASSES.assigned)}>
-                                {isIncidentStatus(vehicle.incident_status) ? t(`status.${vehicle.incident_status}`) : vehicle.incident_status}
+                                {isIncidentStatus(vehicle.incident_status) ? tColumns(vehicle.incident_status) : vehicle.incident_status}
                               </Badge>
                             )}
                             {showDurationWarning && (
@@ -550,7 +539,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                           )}
                           {vehicle.incident_id && vehicle.incident_status && (
                             <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.assigned)}>
-                              {isIncidentStatus(vehicle.incident_status) ? t(`status.${vehicle.incident_status}`) : vehicle.incident_status}
+                              {isIncidentStatus(vehicle.incident_status) ? tColumns(vehicle.incident_status) : vehicle.incident_status}
                             </Badge>
                           )}
                           {showDurationWarning && (

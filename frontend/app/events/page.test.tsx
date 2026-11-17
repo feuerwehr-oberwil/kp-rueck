@@ -118,7 +118,7 @@ async function openDialog(name: 'Archivieren' | 'Löschen') {
     .find((c) => within(c).queryByText(rowName)) as HTMLElement
   await user.click(within(card).getByRole('button', { name: 'Aktionen' }))
   await user.click(await screen.findByRole('menuitem', { name }))
-  return { user, dialog: await screen.findByRole('dialog') }
+  return { user, dialog: await screen.findByRole('alertdialog') }
 }
 
 beforeEach(() => {
@@ -168,11 +168,11 @@ describe('Ereignisse — Archivieren/Löschen bestätigen', () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
   })
 
-  it('löscht einmal, auch bei einem Doppelklick auf «Dauerhaft löschen»', async () => {
+  it('löscht einmal, auch bei einem Doppelklick auf «Endgültig löschen»', async () => {
     deleteEvent.mockReturnValue(pending())
     const { user, dialog } = await openDialog('Löschen')
 
-    await user.dblClick(within(dialog).getByRole('button', { name: 'Dauerhaft löschen' }))
+    await user.dblClick(within(dialog).getByRole('button', { name: 'Endgültig löschen' }))
 
     expect(deleteEvent).toHaveBeenCalledTimes(1)
     expect(deleteEvent).toHaveBeenCalledWith('evt-archived')
@@ -193,14 +193,14 @@ describe('Ereignisse — Archivieren/Löschen bestätigen', () => {
     deleteEvent.mockReturnValue(pending())
     const { user, dialog } = await openDialog('Löschen')
 
-    const confirm = within(dialog).getByRole('button', { name: 'Dauerhaft löschen' })
+    const confirm = within(dialog).getByRole('button', { name: 'Endgültig löschen' })
     await user.click(confirm)
 
     expect(confirm).toBeDisabled()
     expect(within(dialog).getByRole('button', { name: 'Abbrechen' })).toBeDisabled()
     // Esc darf den laufenden Vorgang nicht aus dem Blickfeld nehmen.
     await user.keyboard('{Escape}')
-    expect(screen.getByRole('dialog')).toBeVisible()
+    expect(screen.getByRole('alertdialog')).toBeVisible()
   })
 
   it('bietet einem Editor auf einem archivierten Ereignis kein Löschen an (nur Admin)', async () => {
@@ -260,13 +260,13 @@ describe('Ereignisse — Fehlschläge sind sichtbar', () => {
     deleteEvent.mockRejectedValue(new Error('nicht erreichbar'))
     const { user, dialog } = await openDialog('Löschen')
 
-    await user.click(within(dialog).getByRole('button', { name: 'Dauerhaft löschen' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Endgültig löschen' }))
 
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith('Löschen fehlgeschlagen', {
         description: 'nicht erreichbar',
       })
     )
-    expect(screen.getByRole('dialog')).toBeVisible()
+    expect(screen.getByRole('alertdialog')).toBeVisible()
   })
 })

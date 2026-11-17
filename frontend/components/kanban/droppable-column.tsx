@@ -1,5 +1,6 @@
 "use client"
 
+import type { VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import type { MoveTo } from "@/lib/move-in-list"
 import { useEffect, useRef, useState, memo } from "react"
 import { useTranslations } from "next-intl"
@@ -14,6 +15,7 @@ import { getIncidentLocationLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
 import { areOperationListsEqual } from "@/lib/operation-equality"
 import { Button } from "@/components/ui/button"
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip"
 import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
 import { ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { SIDE_PANEL_MEDIA_QUERY } from "@/lib/layout-breakpoints"
@@ -78,7 +80,7 @@ interface DroppableColumnProps {
   printerEnabled?: boolean
   /** Vehicle id → driver, loaded ONCE on the board and threaded down. Per-card
    *  it would be one roster fetch per card. */
-  vehicleDrivers?: ReadonlyMap<string, string>
+  vehicleDrivers?: VehicleDrivers
   doubleBookedCrewIds?: Set<string>
   /** False for viewers: cards render without a drag source (read-only board). */
   canDrag?: boolean
@@ -385,17 +387,18 @@ export const DroppableColumn = memo(function DroppableColumn({
               ABGESCHLOSSEN» and «DISPONIERT / ANFAHRT» whole (r20); the chevron then
               stands over the cards' left edge. */}
           {onToggleCollapsed && (
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              className="-ml-2"
-              onClick={collapse}
-              aria-expanded
-              title={t('column.collapse')}
-              aria-label={`${columnTitle}: ${t('column.collapse')}`}
-            >
-              <ChevronLeft className="size-3.5" />
-            </Button>
+            <ShortcutTooltip label={t('column.collapse')}>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="-ml-2"
+                onClick={collapse}
+                aria-expanded
+                aria-label={`${columnTitle}: ${t('column.collapse')}`}
+              >
+                <ChevronLeft className="size-3.5" />
+              </Button>
+            </ShortcutTooltip>
           )}
           {/* min-w-0 + truncate: the title is the only part that may give way. A long
               column name must not push the sort/collapse controls off the header. */}
@@ -405,16 +408,17 @@ export const DroppableColumn = memo(function DroppableColumn({
           <div className="flex items-center gap-1">
             {onSort && (
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    title={tDash('sort.label')}
-                    aria-label={`${columnTitle}: ${tDash('sort.label')}`}
-                  >
-                    <ArrowUpDown className="size-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
+                <ShortcutTooltip label={tDash('sort.label')}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label={`${columnTitle}: ${tDash('sort.label')}`}
+                    >
+                      <ArrowUpDown className="size-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </ShortcutTooltip>
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>{tDash('sort.label')}</DropdownMenuLabel>
                   <DropdownMenuSeparator />

@@ -63,7 +63,7 @@ async def _resolve_event_and_actor(
 
     user = await get_current_user(request, access_token, authorization, db)
     if require_editor and user.role not in ("editor", "admin"):
-        raise HTTPException(status_code=403, detail="Editor-Berechtigung erforderlich")
+        raise HTTPException(status_code=403, detail="Bearbeiter-Berechtigung erforderlich")
     return event_id, user
 
 

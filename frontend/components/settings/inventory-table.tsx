@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
-import { Archive, ArchiveRestore, ArrowDown, ArrowUp, Ban, CircleSlash, Edit, Trash2 } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowDown, ArrowUp, Ban, CircleSlash, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -162,7 +162,7 @@ export function LifecycleCells<T extends ArchivableRow>({
         ) : (
           <>
             <Button variant="ghost" size="sm" onClick={() => onEdit(row)}>
-              <Edit className="size-3.5" />
+              <Pencil className="size-3.5" />
             </Button>
             <Button
               variant="ghost"

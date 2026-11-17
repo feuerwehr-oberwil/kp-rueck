@@ -114,7 +114,7 @@ async def _require_user_or_form_token(
         return None
     user = await get_current_user(request, access_token, authorization, db)
     if write and user.role not in ("editor", "admin"):
-        raise HTTPException(status_code=403, detail="Editor-Berechtigung erforderlich")
+        raise HTTPException(status_code=403, detail="Bearbeiter-Berechtigung erforderlich")
     return user
 
 
@@ -530,7 +530,7 @@ async def generate_reko_link(
     # its two-step, so this route is the board's alone again.
     user = await get_current_user(request, access_token, authorization, db)
     if user.role not in ("editor", "admin"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Editor-Berechtigung erforderlich")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bearbeiter-Berechtigung erforderlich")
 
     incident = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
     if incident is None:

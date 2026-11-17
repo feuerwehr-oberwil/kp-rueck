@@ -1,5 +1,8 @@
 "use client"
 
+import { formatDurationHours } from "@/lib/duration"
+import { vehicleLabel } from "@/lib/vehicle-label"
+import type { VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { forwardRef, useEffect } from "react"
 import { useTranslations } from "next-intl"
 import { getIntlLocale } from "@/lib/date-locale"
@@ -21,11 +24,16 @@ import {
   type MaterialOnSiteLocation,
 } from "@/components/kanban/material-on-site-panel"
 import dynamic from "next/dynamic"
+import { LoadingStatus } from "@/components/ui/shell-loader"
 
 // Dynamically import the map (no SSR – MapLibre GL needs a browser)
 const PrintableMapInner = dynamic(() => import("./printable-map"), {
   ssr: false,
-  loading: () => <div className="h-[300px] bg-gray-100 flex items-center justify-center text-gray-500">{translateOutsideReact("print.view.mapLoading")}</div>,
+  loading: () => (
+    <div className="h-[300px] bg-gray-100 flex items-center justify-center">
+      <LoadingStatus size="surface" className="text-sm text-gray-500">{translateOutsideReact("print.view.mapLoading")}</LoadingStatus>
+    </div>
+  ),
 })
 
 
@@ -64,7 +72,7 @@ interface PrintViewProps {
   vehicles: ApiVehicle[]
   materials: Material[]
   options: PrintOptions
-  vehicleDrivers?: ReadonlyMap<string, string> // vehicle id -> driver name
+  vehicleDrivers?: VehicleDrivers
   /** The event roll-call, which is the only source that knows who has GONE
    *  home; the board's personnel list only knows who is on it right now. */
   attendance?: ApiPersonnelListItem[]
@@ -182,6 +190,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
     // A namesake prints with its Kennung: «Meier Alex (1985)».
     const naming = usePersonNaming()
     const tAttendance = useTranslations("kanban.attendance")
+    const tColumns = useTranslations("kanban.columns")
 
     // Filter operations based on options
     const filteredOperations = options.includeCompleted
@@ -361,7 +370,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
               {/* Caps come from CSS, not the source string — the message block stays
                   title-case like every other status block (decision of 2026-07-21). */}
               <h2 className="font-bold border-b border-black mb-2 text-sm uppercase">
-                {STATUS_ORDER.includes(status) ? t(`statusHeading.${status}`) : status.toUpperCase()} ({statusOps.length})
+                {STATUS_ORDER.includes(status) ? tColumns(status) : status.toUpperCase()} ({statusOps.length})
               </h2>
 
               {/* Card-style layout for each incident */}
@@ -396,8 +405,11 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                 // «Wer war draussen, was hat er gesehen» on one line: the Reko's
                 // name (with the time it got there), then what it reported.
                 const arrival = op.rekoArrivedAt ? t("onSiteSince", { time: formatTime(op.rekoArrivedAt) }) : null
-                const rekoWho = op.assignedReko
-                  ? arrival ? `${op.assignedReko.name} (${arrival})` : op.assignedReko.name
+                const rekoName = op.assignedReko
+                  ? naming.text({ name: op.assignedReko.name, personnelId: op.assignedReko.id })
+                  : null
+                const rekoWho = rekoName
+                  ? arrival ? `${rekoName} (${arrival})` : rekoName
                   : arrival
                 const rekoBits = [
                   rekoWho,
@@ -410,7 +422,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                     ? t("persCount", { count: op.rekoSummary.personnelCount })
                     : null,
                   op.rekoSummary?.estimatedDuration
-                    ? t("durationHours", { count: op.rekoSummary.estimatedDuration })
+                    ? formatDurationHours(op.rekoSummary.estimatedDuration)
                     : null,
                 ].filter((bit): bit is string => Boolean(bit))
 
@@ -454,10 +466,10 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                         <div className="mb-1">
                           <span className="font-semibold">{t("fahrzeuge")}:</span>{" "}
                           {opVehicles.map(({ vehicleId, name: vName, callsign, driverStay: stays }) => {
-                            const driverName = vehicleDrivers?.get(vehicleId)
-                            const head = callsign ? `${vName} · ${callsign}` : vName
+                            const driver = vehicleDrivers?.get(vehicleId)
+                            const head = vehicleLabel({ name: vName, callsign })
                             const detail: string[] = []
-                            if (driverName) detail.push(`${t("driverPrefix")}: ${driverName}`)
+                            if (driver) detail.push(`${t("driverPrefix")}: ${naming.text(driver)}`)
                             // Printed for a crew without a board: a driverless
                             // vehicle says so instead of just lacking the line.
                             else if (vehicleDrivers) detail.push(t("noDriver"))
@@ -576,15 +588,18 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                 </tr>
               </thead>
               <tbody>
-                {sortedVehicles.map((vehicle) => (
-                  <tr key={vehicle.id} className="border-b border-gray-200">
-                    <td className="p-1">{vehicleStatusLabel(vehicle.status)}</td>
-                    <td className="p-1">{vehicle.name}</td>
-                    <td className="p-1">{vehicle.type}</td>
-                    <td className="p-1">{vehicleDrivers?.get(vehicle.id) || "-"}</td>
-                    <td className="p-1">{vehicle.radio_call_sign || "-"}</td>
-                  </tr>
-                ))}
+                {sortedVehicles.map((vehicle) => {
+                  const driver = vehicleDrivers?.get(vehicle.id)
+                  return (
+                    <tr key={vehicle.id} className="border-b border-gray-200">
+                      <td className="p-1">{vehicleStatusLabel(vehicle.status)}</td>
+                      <td className="p-1">{vehicle.name}</td>
+                      <td className="p-1">{vehicle.type}</td>
+                      <td className="p-1">{driver ? naming.text(driver) : "-"}</td>
+                      <td className="p-1">{vehicle.radio_call_sign || "-"}</td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

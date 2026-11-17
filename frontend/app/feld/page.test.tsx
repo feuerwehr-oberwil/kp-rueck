@@ -209,7 +209,7 @@ describe('/feld handing the phone to someone else', () => {
     logoutFeld.mockRejectedValue(new Error('offline'))
     renderWithIntl(<FeldPage />)
     await confirmLogout()
-    expect(toastError).toHaveBeenCalledWith('Hat nicht geklappt. Nochmals versuchen.')
+    expect(toastError).toHaveBeenCalledWith('Hat nicht geklappt. Erneut versuchen.')
     expect(document.cookie).toContain('feld-device-token=bound-token')
     expect(screen.getByText('Hauptstrasse 1')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Code eingeben' })).not.toBeInTheDocument()

@@ -618,7 +618,6 @@ function TokenDisplayMap({
         operation={detailOperation}
         open={!!detailOperation}
         onOpenChange={(open) => { if (!open) onCloseDetail() }}
-        personnelOverride={situation?.personnel ?? []}
         materialsOverride={situation?.materials ?? []}
         groupsOverride={groups}
         viewerToken={token}

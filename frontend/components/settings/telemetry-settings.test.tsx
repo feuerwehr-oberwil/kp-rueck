@@ -67,7 +67,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/** Fill in the description — «Weiter» stays disabled without one. */
+/** Fill in the description — «Weiter» hands nothing over without one. */
 async function describeTheProblem(user: ReturnType<typeof userEvent.setup>, text = "Karte leer") {
   await user.type(document.getElementById("telemetry-message") as HTMLTextAreaElement, text);
 }
@@ -146,10 +146,18 @@ describe("TelemetrySettings — handing a report over", () => {
     expect(hrefs[0]).toContain(encodeURIComponent("Board weiss"));
   });
 
-  it("will not hand over an empty report", () => {
+  it("will not hand over an empty report – it says so under the field instead", async () => {
+    const user = userEvent.setup();
     renderWithIntl(<TelemetrySettings isAdmin={false} />);
-    const next = screen.getByRole("button", { name: /weiter/i }) as HTMLButtonElement;
-    expect(next.disabled).toBe(true);
+    const next = screen.getByRole("button", { name: /weiter/i });
+    await waitFor(() => expect(next).toBeEnabled());
+
+    await user.click(next);
+
+    expect(openedUrls).toHaveLength(0);
+    const field = document.getElementById("telemetry-message");
+    expect(field).toHaveFocus();
+    expect(field).toHaveAccessibleDescription("Beschreibung fehlt – was ist passiert?");
   });
 
   it("says so plainly when there is nothing to attach", async () => {

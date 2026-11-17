@@ -189,8 +189,14 @@ function isValidCoordinate(lat: number, lon: number): boolean {
  * Check if coordinates are within Basel-Landschaft region (with buffer)
  * Returns warning if coordinates are far from expected region
  */
-export function checkRegion(lat: number, lon: number): { isNearBasel: boolean; warning?: string } {
-  // Basel-Landschaft approximate bounds with generous buffer
+/** The region the bounds below describe – named in the warning beside them. */
+export const EXPECTED_REGION = 'Basel-Landschaft'
+
+/** Which warning applies; the words are `map.locationInput.outside*` ({region}). */
+export type RegionWarning = 'outsideRegion' | 'outsideSwitzerland'
+
+export function checkRegion(lat: number, lon: number): { isNearBasel: boolean; warning?: RegionWarning } {
+  // EXPECTED_REGION's approximate bounds with generous buffer
   const minLat = 47.3
   const maxLat = 47.7
   const minLon = 7.4
@@ -205,12 +211,12 @@ export function checkRegion(lat: number, lon: number): { isNearBasel: boolean; w
     if (isInSwitzerland) {
       return {
         isNearBasel: false,
-        warning: 'Diese Koordinaten liegen ausserhalb der Region Basel-Landschaft',
+        warning: 'outsideRegion',
       }
     } else {
       return {
         isNearBasel: false,
-        warning: 'Diese Koordinaten liegen ausserhalb der Schweiz',
+        warning: 'outsideSwitzerland',
       }
     }
   }

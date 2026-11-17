@@ -12,6 +12,7 @@
  * resize, GL recovery — belongs to `<BaseMap>`; this file only contributes content.
  */
 
+import { IncidentNumber } from "@/components/ui/incident-number"
 import { Fragment, useState, useEffect, useMemo, useRef, useCallback, type CSSProperties, type ReactNode, type RefObject } from "react"
 import type { Map as MlMap } from "maplibre-gl"
 import { Marker, NavigationControl, type MapLayerMouseEvent } from "react-map-gl/maplibre"
@@ -959,7 +960,7 @@ function SpotListRow({
             strokeLinejoin="round"
           />
         </svg>
-        <span className="font-mono text-xs text-muted-foreground">{incident.number}</span>
+        <IncidentNumber number={incident.number} className="text-xs" />
         <span className="truncate" title={what}>{what}</span>
         <span className="text-xs text-muted-foreground">{tKanban(`columns.${incident.status}`)}</span>
       </button>

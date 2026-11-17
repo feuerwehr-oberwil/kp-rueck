@@ -43,7 +43,7 @@ import { Input } from "@/components/ui/input"
 import { SearchInput } from "@/components/ui/search-input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { EmptyState } from "@/components/ui/empty-state"
-import { FormMessage, fieldMessageProps, formMessageId } from "@/components/ui/form-message"
+import { FormMessage, fieldMessageProps, focusFirstBlockingField, formMessageId } from "@/components/ui/form-message"
 import { LoadingStatus, ShellLoader } from "@/components/ui/shell-loader"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useStandby } from "@/lib/contexts/standby-context"
@@ -87,7 +87,7 @@ export interface JournalSheetProps {
   isEditor: boolean
   /** Opens the Einsatz behind an incident chip. */
   onOpenIncident?: (incidentId: string) => void
-  /** «Neuer Eintrag» (⇧J): focus the line, linked to this Einsatz when one was
+  /** «Neuer Eintrag» (E): focus the line, linked to this Einsatz when one was
    *  selected. A new `at` is a new request. */
   composeRequest?: JournalComposeRequest | null
 }
@@ -137,7 +137,7 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
   const [correcting, setCorrecting] = useState<JournalLine | null>(null)
   // A correction under way ends when the box takes the Ereignis over: adding stays, correcting not.
   const activeCorrection = isEditor ? correcting : null
-  // ⇧J asks for a NEW line: a correction in progress gives way to it. The request is
+  // E asks for a NEW line: a correction in progress gives way to it. The request is
   // handed to the composer once and then consumed, so a later remount of the composer
   // (after the next correction, say) does not replay it.
   const [pendingCompose, setPendingCompose] = useState<JournalComposeRequest | null>(null)
@@ -421,7 +421,7 @@ export function JournalText({ entry, text }: { entry: ApiJournalEntry; text: str
   const tStatus = useTranslations("kanban")
   const data = (entry.data ?? {}) as Record<string, unknown>
   const str = (k: string) => (typeof data[k] === "string" ? (data[k] as string) : "")
-  const status = (s: string) => (isIncidentStatus(s) ? tStatus(`statusLabels.${s}`) : s)
+  const status = (s: string) => (isIncidentStatus(s) ? tStatus(`columns.${s}`) : s)
 
   switch (entry.kind) {
     case "incident": {
@@ -545,7 +545,7 @@ function JournalComposer({
       })),
     [operations],
   )
-  // ⇧J: into the line, linked to the selected card — or to nothing when none is
+  // E: into the line, linked to the selected card — or to nothing when none is
   // selected, so an earlier link never rides along onto the new line. Focus after the
   // sheet's own open focus, which would otherwise take the caret straight back; not
   // tied to this effect's cleanup, since consuming the request re-runs it at once.
@@ -583,7 +583,13 @@ function JournalComposer({
 
   const submit = async () => {
     const body = text.trim()
-    if (!body || sending) return
+    if (sending) return
+    // An empty send says so under the line instead of a grey button.
+    if (!body) {
+      setError(t("textRequired"))
+      focusFirstBlockingField([INPUT_ID])
+      return
+    }
     setSending(true)
     setError(null)
     try {
@@ -758,6 +764,7 @@ function JournalComposer({
                 onValueChange={(value) => { setPickerQuery(value); setHighlight(0) }}
                 aria-label={t("linkSearch")}
                 placeholder={t("linkSearchPlaceholder")}
+                title={t("linkSearchScope")}
                 onKeyDown={(event) => {
                   if (pickerSuggestions.length === 0) return
                   if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -820,14 +827,14 @@ function JournalComposer({
           <Button
             type="submit"
             size="icon"
-            disabled={!text.trim() || sending}
+            disabled={sending}
             className="size-(--field-h) min-h-0 min-w-0 shrink-0"
             aria-label={t(correcting ? "submitCorrect" : "submit")}
           >
             {sending ? <ShellLoader /> : <SendHorizontal className="size-4" aria-hidden="true" />}
           </Button>
         ) : (
-          <Button type="submit" size="sm" disabled={!text.trim() || sending} className="shrink-0 gap-1.5 min-h-[var(--field-h,36px)]">
+          <Button type="submit" size="sm" disabled={sending} className="shrink-0 gap-1.5 min-h-[var(--field-h,36px)]">
             {sending && <ShellLoader />}
             {t(correcting ? "submitCorrect" : "submit")}
           </Button>

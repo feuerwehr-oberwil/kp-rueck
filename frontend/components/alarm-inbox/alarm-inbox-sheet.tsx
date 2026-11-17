@@ -31,7 +31,7 @@ import { toastLifetime } from '@/lib/toast-lifetime'
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { EmptyState } from '@/components/ui/empty-state'
+import { EmptyState, SearchEmptyState } from "@/components/ui/empty-state"
 import { SearchInput } from '@/components/ui/search-input'
 import { LoadingStatus, ShellLoader } from '@/components/ui/shell-loader'
 import { useIsMobile } from '@/components/ui/use-mobile'
@@ -324,11 +324,7 @@ function AlarmInboxPanel({ isMobile }: { isMobile: boolean }) {
     )
   } else if (matches.length === 0) {
     body = (
-      <EmptyState
-        compact
-        title={t('noMatches', { query: query.trim() })}
-        action={{ label: tPool('resetSearch'), onClick: () => setQuery('') }}
-      />
+      <SearchEmptyState query={query} onClear={() => setQuery('')} />
     )
   } else {
     body = (

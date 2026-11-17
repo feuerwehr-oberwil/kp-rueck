@@ -458,7 +458,7 @@ describe('a chip on a touch screen', () => {
     mount({ onRemoveVehicle })
     await userEvent.click(screen.getByRole('button', { name: /^TLF Oberwil/ }))
     const menu = await screen.findByRole('menu', { name: 'TLF Oberwil' })
-    expect(menu).toHaveTextContent('fährt zurück')
+    expect(menu).toHaveTextContent('kehrt zurück')
     await userEvent.click(screen.getByRole('menuitem', { name: 'Fahrzeug freigeben' }))
     expect(onRemoveVehicle).toHaveBeenCalledWith('v-TLF Oberwil')
   })

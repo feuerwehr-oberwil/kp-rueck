@@ -30,7 +30,7 @@ import { CheckCircle, Circle, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { EmptyState } from '@/components/ui/empty-state'
+import { EmptyState, SearchEmptyState } from "@/components/ui/empty-state"
 import { SearchInput } from '@/components/ui/search-input'
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useIsMobile } from '@/components/ui/use-mobile'
@@ -184,11 +184,7 @@ export function FeldAddPicker({
       {groups.length === 0 &&
         !freeText &&
         (search.trim() ? (
-          <EmptyState
-            compact
-            title={t('noMatch', { query: search.trim() })}
-            action={{ label: t('clearSearch'), onClick: () => setSearch('') }}
-          />
+          <SearchEmptyState query={search} onClear={() => setSearch('')} />
         ) : (
           <EmptyState compact title={t('nothingLeft')} />
         ))}
