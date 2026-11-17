@@ -565,7 +565,7 @@ function AttendanceRow({
             <PersonName name={person.name} personnelId={person.id} kennung={person.kennung} display={name} />
           </span>
           {assigned && (
-            <span className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-2xs font-medium text-warning-foreground">
+            <span className="shrink-0 rounded-sm bg-warning/15 px-1.5 py-0.5 text-2xs font-medium text-warning-foreground">
               {factText(assigned)}
             </span>
           )}

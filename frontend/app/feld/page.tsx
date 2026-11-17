@@ -183,7 +183,7 @@ function SourceLabel({ assignment }: { assignment: ApiFeldAssignment }) {
         : 'bg-muted text-muted-foreground'
 
   return (
-    <span className={`inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-[11px] font-medium ${tone}`}>
+    <span className={`inline-flex shrink-0 items-center rounded-sm px-2 py-0.5 text-[11px] font-medium ${tone}`}>
       {label}
     </span>
   )

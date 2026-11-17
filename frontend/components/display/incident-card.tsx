@@ -319,24 +319,24 @@ export function DisplayIncidentCard({
               the head's 8px gap away from the title. */}
           <div className="flex items-center gap-1.5 flex-shrink-0 empty:hidden">
             {operation.source === "intake" && (
-              <div className="p-1.5 rounded-md bg-muted/60" title={t("card.intakeTooltip")}>
+              <div className="p-1.5 rounded-sm bg-muted/60" title={t("card.intakeTooltip")}>
                 <Phone className="h-4 w-4 text-muted-foreground/80" />
               </div>
             )}
             {operation.source === "feld" && (
-              <div className="p-1.5 rounded-md bg-muted/60" title={t("card.feldTooltip")}>
+              <div className="p-1.5 rounded-sm bg-muted/60" title={t("card.feldTooltip")}>
                 <Axe className="h-4 w-4 text-muted-foreground/80" />
               </div>
             )}
             {/* «Am Warten» is not in this glyph row: it is a labelled line
                 under the head, as on the desk card (see below). */}
             {operation.nachbarhilfe && (
-              <div className="p-1.5 rounded-md bg-muted/60" title={t("common.nachbarhilfe")}>
+              <div className="p-1.5 rounded-sm bg-muted/60" title={t("common.nachbarhilfe")}>
                 <Building2 className="h-4 w-4 text-muted-foreground/80" />
               </div>
             )}
             {operation.hasCompletedReko && (
-              <div className="p-1.5 rounded-md bg-muted/60" title={t("card.rekoDoneTooltip")}>
+              <div className="p-1.5 rounded-sm bg-muted/60" title={t("card.rekoDoneTooltip")}>
                 <Binoculars className="h-4 w-4 text-muted-foreground/80" />
               </div>
             )}
@@ -344,7 +344,7 @@ export function DisplayIncidentCard({
                 card and the backlog sheet — the wall must not keep reading a
                 filed rapport as the same grey paper as a missing one. */}
             {operation.hasSchadenplatzRapport ? (
-              <div className="p-1.5 rounded-md bg-success/10" title={tFeld("cardRapportTooltip")}>
+              <div className="p-1.5 rounded-sm bg-success/10" title={tFeld("cardRapportTooltip")}>
                 <FileCheck className="h-4 w-4 text-success" />
               </div>
             ) : operation.status === "complete" && rapportApplies({
@@ -354,7 +354,7 @@ export function DisplayIncidentCard({
                 // «Kein Einsatz nötig» + closed = no rapport is due (§P2.7).
                 rekoNotRelevant: operation.rekoSummary?.isRelevant === false,
               }) ? (
-              <div className="p-1.5 rounded-md bg-muted/40" title={tFeld("cardNoRapportTooltip")}>
+              <div className="p-1.5 rounded-sm bg-muted/40" title={tFeld("cardNoRapportTooltip")}>
                 <FileText className="h-4 w-4 text-muted-foreground/40" />
               </div>
             ) : null}

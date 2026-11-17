@@ -257,7 +257,7 @@ function DisplayChrome({
           {needsEventPick ? (
             <Link
               href="/display"
-              className="flex min-w-0 shrink-0 items-center gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-sm font-semibold tracking-tight text-warning-foreground transition-colors hover:bg-warning/20"
+              className="flex min-w-0 shrink-0 items-center gap-1.5 rounded-sm border border-warning/30 bg-warning/10 px-2 py-0.5 text-sm font-semibold tracking-tight text-warning-foreground transition-colors hover:bg-warning/20"
             >
               <CalendarRange className="h-3.5 w-3.5 shrink-0" />
               {t('layout.selectEvent')}
@@ -269,7 +269,7 @@ function DisplayChrome({
           {/* Was a panel of its own on the share-link board, under a header that
               repeated the Ereignis name this one already carries. */}
           {token && (
-            <span className="hidden items-center gap-1.5 rounded border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-700 sm:inline-flex dark:text-blue-400 shrink-0">
+            <span className="hidden items-center gap-1.5 rounded-sm border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-700 sm:inline-flex dark:text-blue-400 shrink-0">
               <Eye className="h-3.5 w-3.5" />
               {t('layout.readOnly')}
             </span>
@@ -350,7 +350,7 @@ function DisplayChrome({
             </button>
           </div>
 
-          <div className="hidden sm:flex items-center gap-1.5 rounded-md bg-secondary/50 px-2.5 py-0.5">
+          <div className="hidden sm:flex items-center gap-1.5 rounded-sm bg-secondary/50 px-2.5 py-0.5">
             <Clock className="size-[16px] text-muted-foreground" />
             <span className="font-mono text-[20px] leading-[28px] font-semibold tabular-nums">
               {currentTime ? currentTime.toLocaleTimeString(intlLocale) : "--:--:--"}

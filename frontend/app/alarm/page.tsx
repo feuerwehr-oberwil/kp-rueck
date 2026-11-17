@@ -64,7 +64,7 @@ function AlarmFrame({ title, eventName, children }: { title: string; eventName: 
 /** «Übung» under the header — the mode of the whole Ereignis, said on every screen that sends. */
 function TrainingNote({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded border border-warning/20 bg-warning/10 px-2 py-1 text-xs text-warning-foreground">
+    <span className="inline-flex items-center gap-2 rounded-sm border border-warning/20 bg-warning/10 px-2 py-1 text-xs text-warning-foreground">
       <AlertTriangle className="h-3.5 w-3.5" />
       {label}
     </span>

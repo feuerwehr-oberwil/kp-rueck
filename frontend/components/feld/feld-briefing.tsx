@@ -246,7 +246,7 @@ export function FeldBriefing({
                   {hasChips && (
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
                       {vehicle.via_auftrag && (
-                        <span className="type-caption inline-flex shrink-0 items-center gap-1 rounded-md bg-info/15 px-1.5 py-0.5 text-info">
+                        <span className="type-caption inline-flex shrink-0 items-center gap-1 rounded-sm bg-info/15 px-1.5 py-0.5 text-info">
                           <Waypoints className="h-3 w-3 shrink-0" />
                           {t('vehicleViaAuftrag')}
                         </span>

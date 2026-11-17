@@ -72,7 +72,7 @@ interface VehicleAuftrag {
 function AuftragChip({ auftrag, label }: { auftrag: VehicleAuftrag; label: string }) {
   return (
     <span
-      className="inline-flex min-w-0 items-center gap-1 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-sm font-medium text-foreground"
+      className="inline-flex min-w-0 items-center gap-1 rounded-sm border border-border bg-muted/60 px-1.5 py-0.5 text-sm font-medium text-foreground"
       title={label}
     >
       <Route className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
