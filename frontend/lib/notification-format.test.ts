@@ -82,7 +82,7 @@ describe('notificationParts — /feld', () => {
     const plain = { type: 'field_report', params: { place: 'Hauptstrasse 41', by: 'Fabio Wyss', direct: false } }
     expect(parts(plain)).toEqual({ what: 'Neuer Schadenplatz', where: 'Hauptstrasse 41', who: 'Fabio Wyss', source: 'feld' })
     expect(parts({ ...plain, params: { ...plain.params, direct: true } }, fr).what).toBe(
-      'Nouvelle place de sinistre – le groupe s’y rend directement',
+      'Nouvelle place sinistrée – le groupe s’y rend directement',
     )
   })
 

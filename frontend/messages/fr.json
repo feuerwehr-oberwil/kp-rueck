@@ -391,7 +391,7 @@
       "noMaterial": "Aucun matériel saisi",
       "materialContinued": "Matériel · suite",
       "freeOfTotal": "{free}/{total} libres",
-      "auftragStops": "{count, plural, one {# arrêt} other {# arrêts}}",
+      "auftragStops": "{count, plural, one {# étape} other {# étapes}}",
       "onIncidents": "{count, plural, one {# intervention} other {# interventions}}",
       "availableDeployedNotReady": "{available} disponible(s) · {deployed} engagé(s) · {notReady} hors service",
       "figures": "Indicateurs"
@@ -474,7 +474,7 @@
       "earlierHint": "jours précédents et archivées",
       "attachAll": "Tout rattacher",
       "attachAllCount": "Rattacher les {count}",
-      "attachOneAria": "Rattacher «{title}»",
+      "attachOneAria": "Rattacher « {title} »",
       "becameIncident": "Intervention",
       "nothingNew": "Aucune nouvelle alarme.",
       "emptyTitle": "Pas encore d’alarme",
@@ -732,9 +732,9 @@
       "waitingByPriority": "{high} haute · {medium} moyenne · {low} basse",
       "inProgress": "En cours",
       "done": "Terminées",
-      "oldestHigh": "Plus ancienne annonce «haute» en attente",
+      "oldestHigh": "Plus ancienne annonce « haute » en attente",
       "waitingSince": "depuis la réception {age}",
-      "noWaitingHigh": "Aucune annonce «haute» en attente.",
+      "noWaitingHigh": "Aucune annonce « haute » en attente.",
       "openIncident": "Ouvrir l’intervention",
       "reactionTitle": "Temps de réaction depuis la réception",
       "reactionHint": "Médiane, P90 en dessous",
@@ -773,7 +773,7 @@
       "description": "Choisis-toi dans la liste – tu verras ensuite tes places sinistrées.",
       "searchPlaceholder": "Rechercher un nom …",
       "noneFound": "Aucune personne trouvée",
-      "empty": "Dans cet événement, personne n’est encore affecté à une place sinistrée.",
+      "empty": "Dans cet événement, personne n’est encore attribué à une place sinistrée.",
       "incidentCount": "{count, plural, one {# place sinistrée} other {# places sinistrées}}",
       "missingRapport": "{count} sans rapport"
     },
@@ -781,12 +781,12 @@
       "title": "Mes places sinistrées",
       "notMe": "Ce n’est pas moi",
       "notMeConfirm": "Se déconnecter",
-      "empty": "Aucune place sinistrée ne t’est attribuée pour le moment. Annonce-toi au PC – dès que tu es affecté, elle apparaîtra ici.",
-      "released": "Plus affecté",
+      "empty": "Aucune place sinistrée ne t’est attribuée pour le moment. Annonce-toi au PC – dès que tu es attribué, elle apparaîtra ici.",
+      "released": "Plus attribué",
       "past": "Précédemment",
       "notMeTitle": "Se déconnecter ?",
       "notMeDescription": "Cet appareil sera déconnecté. La prochaine personne aura besoin du code terrain.",
-      "auftrag": "{name} · {count, plural, one {# arrêt} other {# arrêts}}",
+      "auftrag": "{name} · {count, plural, one {# étape} other {# étapes}}",
       "navigate": "Lancer la navigation",
       "journey": {
         "approach": "Trajet aller",
@@ -881,7 +881,7 @@
     },
     "pickupPrompt": {
       "title": "Récupération organisée ?",
-      "assigned": "{vehicle} vient d’être affecté à {label} – une récupération y attend.",
+      "assigned": "{vehicle} vient d’être attribué à {label} – une récupération y attend.",
       "returned": "{vehicle} est de retour à la caserne. Une récupération attend encore à {label}.",
       "waiting": "Attend depuis {duration}.",
       "neverAutomatic": "Ne s’organise jamais automatiquement – seule cette confirmation supprime la récupération.",
@@ -933,13 +933,13 @@
         "kurzbericht": "Rapport succinct",
         "owner": "Données du propriétaire / détenteur",
         "photos": "Photos",
-        "personnel": "Personnel",
+        "personnel": "Effectif",
         "vehicles": "Véhicules"
       },
       "material": {
         "title": "Matériel",
         "empty": "Aucun matériel saisi.",
-        "noLongerAssigned": "Plus affecté",
+        "noLongerAssigned": "Plus attribué",
         "consumable": "Consommation",
         "used": "utilisé",
         "usedAria": "Utilisé : {name}",
@@ -957,7 +957,7 @@
         "presentAria": "Était là : {name}",
         "empty": "Aucun véhicule engagé.",
         "searchPlaceholder": "Rechercher un véhicule",
-        "dispatchedLabel": "Engagés sur ce lieu d’intervention",
+        "dispatchedLabel": "Engagés sur cette place sinistrée",
         "addLabel": "Également présents",
         "removeAria": "Retirer {name}",
         "add": "Ajouter un véhicule"
@@ -983,8 +983,8 @@
       "gaps": {
         "title": {
           "kurzbericht": "Le rapport succinct manque encore",
-          "personnel": "Le personnel manque encore",
-          "both": "Le rapport succinct et le personnel manquent encore"
+          "personnel": "L’effectif manque encore",
+          "both": "Le rapport succinct et l’effectif manquent encore"
         },
         "lead": {
           "kurzbericht": "Sans lui, le PC ne sait pas ce qui a été fait ici.",
@@ -993,8 +993,8 @@
         },
         "confirm": {
           "kurzbericht": "Clôturer sans rapport succinct",
-          "personnel": "Clôturer sans personnel",
-          "both": "Clôturer sans rapport succinct ni personnel"
+          "personnel": "Clôturer sans effectif",
+          "both": "Clôturer sans rapport succinct ni effectif"
         },
         "optionalHeading": "Vide – seulement si nécessaire",
         "back": "Retour au rapport"
@@ -1010,10 +1010,10 @@
       "personnel": {
         "present": "était là",
         "presentAria": "Était là : {name}",
-        "empty": "Le tableau n’a affecté personne ici.",
+        "empty": "Le tableau n’a attribué personne ici.",
         "searchPlaceholder": "Rechercher une personne",
         "removeAria": "Retirer {name}",
-        "dispatchedLabel": "Convoqués sur ce lieu d’intervention",
+        "dispatchedLabel": "Convoqués sur cette place sinistrée",
         "addLabel": "Également présents",
         "add": "Ajouter une personne",
         "addGuest": "Ajouter « {name} » comme invité",
@@ -1046,7 +1046,7 @@
       "released": "{count, plural, one {# pièce de matériel libérée} other {# pièces de matériel libérées}}",
       "releaseFailed": "Échec de la libération",
       "stillOnSiteTitle": "Restés sur place",
-      "stillOnSiteHint": "Reste affecté jusqu’à sa récupération – apparaît dans la liste des restes.",
+      "stillOnSiteHint": "Reste attribué jusqu’à sa récupération – apparaît dans la liste des restes.",
       "namedTitle": "Autre matériel sur place",
       "namedHint": "Nommé par le groupe, pas attribué depuis le tableau – il n’y a rien à libérer. Figure sur la liste des restes et sur la liste de récupération."
     },
@@ -1072,8 +1072,8 @@
     },
     "source": {
       "reko": "Mandat de reco",
-      "driver": "Comme chauffeur · {vehicle}",
-      "magazin": "Magasin",
+      "driver": "Comme conducteur · {vehicle}",
+      "magazin": "Caserne",
       "rekoReason": "Assigné en reconnaissance par le PC",
       "magazinReason": "Du matériel d'ici n'est pas encore rentré",
       "rekoAction": "Saisir la reco",
@@ -1090,7 +1090,7 @@
       "regenerateTitle": "Créer un nouveau code terrain ?",
       "regenerateDescription": "Les nouveaux appareils auront besoin du nouveau code. Les appareils déjà connectés continuent sans interruption – personne n'est déconnecté.",
       "revokeTitle": "Déconnecter tous les appareils ?",
-      "revokeDescription": "{count, plural, one {# appareil est connecté} other {# appareils sont connectés}}. Tous devront ressaisir le code – y compris les équipes en intervention. Un nouveau code seul ne déconnecte personne.",
+      "revokeDescription": "{count, plural, one {# appareil est connecté} other {# appareils sont connectés}}. Tous devront ressaisir le code – y compris les effectifs en intervention. Un nouveau code seul ne déconnecte personne.",
       "copyCode": "Copier le code",
       "codeCopied": "Code terrain copié"
     },
@@ -1155,7 +1155,7 @@
       "empty": "Aucun matériel enregistré.",
       "summary": "{out} sur {total} en intervention",
       "state": {
-        "in": "Magasin / inutilisé",
+        "in": "Caserne / inutilisé",
         "out": "En intervention",
         "left": "Encore sur place"
       }
@@ -1167,14 +1167,14 @@
       "kommandopostenBody": "Tu gères la situation sur le tableau. Ici, seul le terrain apparaît.",
       "driverTitle": "Tu conduis {vehicle}",
       "driverBody": "Dès que {vehicle} est engagé, l’intervention apparaît ici.",
-      "rekoTitle": "Tu es affecté à la reconnaissance",
+      "rekoTitle": "Tu es attribué à la reconnaissance",
       "rekoBody": "Dès que le PC te donne un mandat de reconnaissance, il apparaît ici."
     },
     "roles": {
       "driver": "Conducteur {vehicle}",
       "reko": "Reco",
       "telefondienst": "Service téléphonique",
-      "magazin": "Magasin",
+      "magazin": "Caserne",
       "kommandoposten": "Poste de commandement"
     },
     "reports": {
@@ -1236,7 +1236,7 @@
       "personnel": "Renfort nécessaire",
       "materialQuestion": "Quel matériel ?",
       "materialPlaceholder": "Choisir ou saisir le matériel",
-      "materialListLabel": "Matériel du dépôt",
+      "materialListLabel": "Matériel de la caserne",
       "personnelQuestion": "Combien de personnes ?",
       "personnelWhatPlaceholder": "Quel profil ? (facultatif, p. ex. protection respiratoire)",
       "quantity": "Nombre",
@@ -1343,10 +1343,10 @@
       "othersSection": "Autres",
       "inOperation": "En intervention",
       "noAvailablePersons": "Aucune personne disponible",
-      "allAssignedHint": "Toutes les personnes sont déjà affectées comme conducteur ou ne sont pas annoncées",
+      "allAssignedHint": "Toutes les personnes sont déjà attribuées comme conducteur ou ne sont pas annoncées",
       "close": "Fermer",
       "conflictTitle": "La personne est attribuée à une intervention",
-      "conflictDescription": "<strong>{name}</strong> est actuellement {count, plural, one {attribuée à l’intervention « {location} »} other {attribuée à # interventions}}. Comme conducteur, la personne ne peut pas être affectée à une intervention en même temps.",
+      "conflictDescription": "<strong>{name}</strong> est actuellement {count, plural, one {attribuée à l’intervention « {location} »} other {attribuée à # interventions}}. Comme conducteur, la personne ne peut pas être attribuée à une intervention en même temps.",
       "conflictConfirm": "Libérer de l’intervention et attribuer",
       "drivesVehicle": "Conduit {vehicle}",
       "reassignTitle": "Changer de conducteur",
@@ -1376,7 +1376,7 @@
       "currentLabel": "Jusqu'ici",
       "newLabel": "Nouveau",
       "drives": "conduit {vehicle}",
-      "moveReleasesDriver": "« Déplacer ici » libère aussi le rôle de chauffeur pour {vehicle}."
+      "moveReleasesDriver": "« Déplacer ici » libère aussi le rôle de conducteur pour {vehicle}."
     },
     "vehicleStatus": {
       "bound": "Engagé",
@@ -1458,7 +1458,7 @@
       "newIncident": "Nouvelle intervention",
       "searchPlaceholder": "Intervention …",
       "noActive": "Aucune intervention en cours",
-      "searchScope": "Recherche dans le lieu, l’annonce, le type, les véhicules, l’équipe et le matériel.",
+      "searchScope": "Recherche dans le lieu, l’annonce, le type, les véhicules, l’effectif et le matériel.",
       "noneInFilter": "Aucune intervention au statut « {filter} »",
       "showAll": "Tout afficher",
       "filter": "Filtrer",
@@ -1753,12 +1753,12 @@
       "notReadySince": "depuis le {date}",
       "driver": "Conducteur",
       "specialFunctionNoIncident": "Fonction spéciale · aucune intervention",
-      "bindingsCount": "{count, plural, one {# affectation} other {# affectations}}",
+      "bindingsCount": "{count, plural, one {# attribution} other {# attributions}}",
       "bindingsPick": "Sélectionner pour y accéder",
       "rosterFree": "{count} libres",
       "rosterOf": "sur {total}",
       "rosterBound": "{count} engagés",
-      "bindingsNone": "Aucune affectation – rien à atteindre.",
+      "bindingsNone": "Aucune attribution – rien à atteindre.",
       "transferredToast": "Ressources transférées vers « {target} »",
       "transferredToastCount": "{count, plural, one {# attribution} other {# attributions}} depuis « {source} »",
       "transferUndone": "Transfert annulé",
@@ -1845,7 +1845,7 @@
     },
     "missingResources": {
       "title": "Il manque des ressources",
-      "titleCrewOnly": "Il manque du personnel",
+      "titleCrewOnly": "Il manque l’effectif",
       "titleVehiclesOnly": "Il manque un véhicule",
       "titleMaterialsOnly": "Il manque du matériel",
       "readyTitle": "Tout est prêt",
@@ -1856,10 +1856,10 @@
       "mittelSummary": "{count, plural, one {# pièce de matériel} other {# pièces de matériel}}",
       "done": "Engager",
       "back": "Retour",
-      "dispatchWithoutCrew": "Oui, engager sans personnel",
+      "dispatchWithoutCrew": "Oui, engager sans effectif",
       "dispatchWithoutVehicle": "Oui, engager sans véhicule",
-      "dispatchWithoutBoth": "Oui, engager sans personnel ni véhicule",
-      "armedCrew": "Aucun personnel – vraiment partir ainsi ?",
+      "dispatchWithoutBoth": "Oui, engager sans effectif ni véhicule",
+      "armedCrew": "Aucun effectif – vraiment partir ainsi ?",
       "armedVehicles": "Aucun véhicule – vraiment partir ainsi ?",
       "armedHint": "Cliquer encore ou Entrée confirme · Échap revient en arrière"
     },
@@ -1870,9 +1870,9 @@
       "endAnyway": "Terminer quand même"
     },
     "nextStop": {
-      "title": "Démarrer le prochain arrêt ?",
-      "description": "<hl>{finished}</hl> est terminé et plus personne ne travaille sur la mission «{auftrag}». Prochain arrêt ouvert : <hl>{next}</hl>.",
-      "confirm": "Prochain arrêt en intervention"
+      "title": "Démarrer la prochaine étape ?",
+      "description": "<hl>{finished}</hl> est terminé et plus personne ne travaille sur la mission « {auftrag} ». Prochaine étape ouverte : <hl>{next}</hl>.",
+      "confirm": "Prochaine étape en intervention"
     },
     "rekoMissing": {
       "description": "<hl>{location}</hl> doit passer dans la colonne Reconnaissance, mais aucune personne de reconnaissance n’est encore attribuée. Sans attribution, personne ne reçoit le formulaire de reconnaissance. Veux-tu attribuer quelqu’un maintenant ou continuer quand même ?",
@@ -1942,7 +1942,7 @@
       "rekoDoneTooltip": "Rapport de reconnaissance rempli",
       "showOnMap": "Afficher sur la carte",
       "onSiteSince": "sur place {time}",
-      "doubleBookedTooltip": "{name} est sur plusieurs interventions – double affectation",
+      "doubleBookedTooltip": "{name} est sur plusieurs interventions – double attribution",
       "persCount": "{count} pers.",
       "changeReko": "Changer la reconnaissance",
       "assignReko": "Attribuer la reconnaissance",
@@ -1973,7 +1973,7 @@
       "empty": "Aucune intervention",
       "noMatches": "Aucun résultat.",
       "collapsedHint": "{title} – {count} – cliquer pour déplier",
-      "statusDistinctionHint": "Retour : travaux sur le lieu du sinistre achevés, les ressources sont encore sur le chemin du retour. Clôturé : intervention entièrement réglée, ressources libérées, retours ouverts vérifiés.",
+      "statusDistinctionHint": "Retour : travaux sur la place sinistrée achevés, les ressources sont encore sur le chemin du retour. Clôturé : intervention entièrement réglée, ressources libérées, retours ouverts vérifiés.",
       "overdueTitle": "{count} en retard : {titles}",
       "overdueMore": "… et {count} de plus"
     },
@@ -2084,12 +2084,12 @@
       "unassignFailed": "La fonction n’a pas pu être retirée",
       "driver": "Conducteur",
       "conflictTitle": "La personne est attribuée à une intervention",
-      "conflictDescription": "<strong>{name}</strong> est actuellement {assignment}. Comme {function}, la personne ne peut pas être affectée à une intervention en même temps.",
+      "conflictDescription": "<strong>{name}</strong> est actuellement {assignment}. Comme {function}, la personne ne peut pas être attribuée à une intervention en même temps.",
       "conflictAssignedOne": "attribuée à l’intervention « {location} »",
       "conflictAssignedMany": "attribuée à {count} interventions",
       "confirmAction": "Libérer de l’intervention et attribuer",
       "unassignTitle": "Retirer la fonction {function} ?",
-      "unassignRekoDescription": "<strong>{name}</strong> perd la fonction de reconnaissance et n’apparaîtra plus dans les vues de reconnaissance (tableau de reconnaissance, carte). Les affectations existantes aux interventions sont conservées. La personne redevient ensuite un intervenant ordinaire.",
+      "unassignRekoDescription": "<strong>{name}</strong> perd la fonction de reconnaissance et n’apparaîtra plus dans les vues de reconnaissance (tableau de reconnaissance, carte). Les attributions existantes aux interventions sont conservées. La personne redevient ensuite un intervenant ordinaire.",
       "unassignRekoTransfer": "{count, plural, one {Transférer # intervention} other {Transférer # interventions}}",
       "unassignDriverDescription": "<strong>{name}</strong> ne sera alors plus conducteur de <strong>{vehicle}</strong> et redeviendra un intervenant ordinaire.",
       "unassignMagazinDescription": "<strong>{name}</strong> perd la fonction de caserne et redevient ensuite un intervenant ordinaire.",
@@ -2114,13 +2114,13 @@
       "quickSelectByType": "Par genre :",
       "vehicleOnSceneHint": "{name} est déjà attribué à cette intervention",
       "driverBadge": "Conducteur",
-      "specialFnConfirmTitle": "Double affectation ?",
+      "specialFnConfirmTitle": "Double attribution ?",
       "specialFnConfirmBody": "{name} est déjà en intervention ({func}). L’attribuer quand même à l’effectif ?",
       "specialFnConfirmAction": "Attribuer quand même",
       "occupiedElsewhere": "En intervention",
       "sectionFree": "Disponibles · {count}",
       "sectionBusy": "Déjà en intervention · {count}",
-      "occupiedConfirmTitle": "Double affectation ?",
+      "occupiedConfirmTitle": "Double attribution ?",
       "occupiedConfirmBody": "{name} est déjà attribué : {label}. L’attribuer quand même ?",
       "occupiedConfirmAction": "Attribuer quand même",
       "all": "Tous",
@@ -2172,7 +2172,7 @@
       "noOthers": "Aucune autre personne de reconnaissance disponible"
     },
     "person": {
-      "doubleBookedTooltip": "Sur {count} interventions – double affectation",
+      "doubleBookedTooltip": "Sur {count} interventions – double attribution",
       "driverFunction": "Chauffeur {vehicle}",
       "engagedTooltip": "En intervention : {label}"
     },
@@ -2290,7 +2290,7 @@
       "legendOtherRoute": "coloré = déjà dans une autre mission (sera déplacée)",
       "legendUnassigned": "gris = dans aucune mission",
       "hiddenCount": "{count} masqué(s)",
-      "showCompleted": "Terminées"
+      "showCompleted": "Clôturées"
     },
     "auftragPicker": {
       "title": "Répartir sur une mission",
@@ -2314,14 +2314,14 @@
       "noneFound": "Aucune personne trouvée",
       "since": "depuis {time}",
       "unavailable": "indisponible",
-      "assignedChip": "affectée",
-      "assignedTo": "affectée : {where}",
-      "assignedTitle": "La personne est encore affectée",
-      "assignedDescription": "{name} est encore affecté à {where} – l’annoncer partant quand même ? L’affectation est conservée.",
+      "assignedChip": "attribuée",
+      "assignedTo": "attribuée : {where}",
+      "assignedTitle": "La personne est encore attribuée",
+      "assignedDescription": "{name} est encore attribué à {where} – l’annoncer partant quand même ? L’attribution est conservée.",
       "checkOutAnyway": "Annoncer partant quand même",
       "checkOutAll": "Annoncer tous partants",
       "checkOutAllTitle": "Annoncer tous partants ?",
-      "checkOutAllDescription": "{count, plural, one {# personne présente sera passée} other {# personnes présentes seront passées}} sur « partie ». Les affectations sont conservées.",
+      "checkOutAllDescription": "{count, plural, one {# personne présente sera passée} other {# personnes présentes seront passées}} sur « partie ». Les attributions sont conservées.",
       "quickAddHint": "Sera annoncé directement",
       "writeFailed": "La présence n’a pas pu être enregistrée",
       "openButton": "Appel"
@@ -2342,13 +2342,13 @@
     },
     "links": {
       "title": "Liens & QR",
-      "description": "Ce qu'ouvrent les équipes, la tablette à la porte et l'écran mural.",
+      "description": "Ce qu'ouvrent l'effectif, la tablette à la porte et l'écran mural.",
       "enlarge": "Agrandir le QR",
       "groupCheckin": "Check-in & présence",
       "groupFeld": "Terrain",
       "groupOther": "Autres liens",
       "feld": {
-        "title": "Terrain – équipes",
+        "title": "Terrain – effectif",
         "subtitle": "Pour toutes les équipes"
       },
       "checkin": {
@@ -2374,13 +2374,13 @@
       "toastTitle": "{location} clos",
       "releasedCrew": "{count, plural, one {# personne libérée} other {# personnes libérées}}",
       "releasedVehicles": "{vehicles} libéré(s)",
-      "stopTitle": "Terminer l'arrêt ?",
-      "stopDescription": "<hl>{location}</hl> est terminé, la mission «{auftrag}» se poursuit. Le matériel de la mission part vers le prochain arrêt – cet arrêt libère :",
-      "nextStop": "Prochain arrêt : {location}",
-      "stopConfirm": "Terminer l'arrêt",
+      "stopTitle": "Terminer l'étape ?",
+      "stopDescription": "<hl>{location}</hl> est terminé, la mission « {auftrag} » se poursuit. Le matériel de la mission part vers la prochaine étape – cette étape libère :",
+      "nextStop": "Prochaine étape : {location}",
+      "stopConfirm": "Terminer l'étape",
       "stopToastTitle": "Arrêt {location} terminé",
-      "stopConfirmAndNext": "Terminer & prochain arrêt en intervention",
-      "stopDescriptionNoRelease": "<hl>{location}</hl> est terminé, la mission «{auftrag}» se poursuit. Cet arrêt ne libère rien – les moyens appartiennent à la mission et suivent."
+      "stopConfirmAndNext": "Terminer & prochaine étape en intervention",
+      "stopDescriptionNoRelease": "<hl>{location}</hl> est terminé, la mission « {auftrag} » se poursuit. Cette étape ne libère rien – les moyens appartiennent à la mission et suivent."
     },
     "statusCorrection": {
       "title": "Corriger le statut ?",
@@ -2404,7 +2404,7 @@
         "server": "Le serveur a signalé une erreur",
         "unknown": "Erreur inconnue"
       },
-      "serverNow": "Sur le serveur entre-temps : «{text}»",
+      "serverNow": "Sur le serveur entre-temps : « {text} »",
       "serverNowEmpty": "Sur le serveur, le champ est entre-temps vide.",
       "conflict": {
         "title": "Non enregistré – modifié entre-temps.",
@@ -2694,7 +2694,7 @@
       "fallbackToFirst": "{requested} indisponible – depuis {stop}",
       "optimized": "Ordre proposé à vol d’oiseau",
       "startLine": "Départ : {start} · aide à la planification, pas d’itinéraire routier",
-      "needsCoordinates": "Pour optimiser, il faut au moins deux arrêts avec des coordonnées.",
+      "needsCoordinates": "Pour optimiser, il faut au moins deux étapes avec des coordonnées.",
       "unchanged": "L’ordre est déjà le plus court à vol d’oiseau.",
       "note": "Proposition à vol d’oiseau depuis {start} · aide à la planification",
       "undo": "Annuler",
@@ -2891,7 +2891,7 @@
       "createFailedTitle": "L’intervention n’a pas pu être créée",
       "createFailedDescription": "Réessaie. Si le problème persiste, vérifie la liaison.",
       "recentRemovalWarningTitle": "{name} était encore sur « {incident} » il y a {seconds} s",
-      "recentRemovalWarningDescription": "Double affectation – à vérifier.",
+      "recentRemovalWarningDescription": "Double attribution – à vérifier.",
       "assignFailedTitle": "Échec de l’attribution",
       "assignConflictDescription": "{name} vient d’être modifié par quelqu’un d’autre – réessaie.",
       "assignFailedDescription": "{name} n’a pas pu être attribué.",
@@ -2992,7 +2992,7 @@
       "materialThresholdsSubtitle": "Avertit lorsque le matériel disponible d’une catégorie passe sous le seuil. Décoche la case pour masquer les avertissements d’une catégorie.",
       "materialThresholdsManageLink": "Gérer le matériel",
       "materialThresholdsEmpty": "Aucun matériel n’est encore saisi – il n’y a donc rien à régler ici. Dès que des stocks existent sous Réglages → Matériel, une ligne apparaît par emplacement.",
-      "disabledForEveryone": "{what} n’apparaissent plus sur aucun écran – pas même sur l’écran mural du dépôt."
+      "disabledForEveryone": "{what} n’apparaissent plus sur aucun écran – pas même sur l’écran mural de la caserne."
     },
     "toasts": {
       "overflowTitle": "{count, plural, one {# autre annonce} other {# autres annonces}}",
@@ -3008,8 +3008,8 @@
         "alarm": "Exercice",
         "time": "Délai dépassé"
       },
-      "fieldReport": "Nouvelle place de sinistre",
-      "fieldReportDirect": "Nouvelle place de sinistre – le groupe s’y rend directement"
+      "fieldReport": "Nouvelle place sinistrée",
+      "fieldReportDirect": "Nouvelle place sinistrée – le groupe s’y rend directement"
     },
     "sidebar": {
       "title": "Notifications",
@@ -3063,8 +3063,8 @@
       "pickupNeededNote": "Récupération nécessaire – {note}",
       "pickupDone": "Récupération effectuée",
       "rapportSubmitted": "Rapport saisi",
-      "fieldReport": "Nouvelle place de sinistre",
-      "fieldReportDirect": "Nouvelle place de sinistre – le groupe s’y rend directement",
+      "fieldReport": "Nouvelle place sinistrée",
+      "fieldReportDirect": "Nouvelle place sinistrée – le groupe s’y rend directement",
       "fieldReportMerged": "Complément du terrain",
       "actorField": "du terrain",
       "actorKp": "saisi au PC",
@@ -3078,12 +3078,12 @@
       "released": "{resource} libéré de {target}",
       "releasedMany": "{count} × {resource} libérés de {target}",
       "restored": "{resource} de retour sur {target}",
-      "restoreFailedTitle": "{resource} n’a pas pu être réaffecté",
+      "restoreFailedTitle": "{resource} n’a pas pu être réattribué",
       "reason": {
         "targetGone": "{target} n’est plus sur le tableau.",
         "targetClosed": "{target} est déjà terminé.",
         "alreadyBack": "{resource} est déjà de retour sur {target}.",
-        "elsewhere": "Entre-temps affecté à {where} – cette affectation plus récente est conservée.",
+        "elsewhere": "Entre-temps attribué à {where} – cette attribution plus récente est conservée.",
         "outOfService": "{resource} n’est pas opérationnel.",
         "resourceGone": "{resource} n’est plus dans l’inventaire ou s’est désinscrit.",
         "unavailable": "{resource} est signalé comme indisponible."
@@ -3566,7 +3566,7 @@
           },
           "kommandant_name": {
             "label": "Commandant",
-            "description": "Nom du commandant – préimprimé sur le rapport d’intervention à côté de la ligne de signature «Commandant». Vide = seulement le libellé."
+            "description": "Nom du commandant – préimprimé sur le rapport d’intervention à côté de la ligne de signature « Commandant ». Vide = seulement le libellé."
           },
           "map_mode": {
             "label": "Mode de carte",
@@ -3598,7 +3598,7 @@
           },
           "firestation_name": {
             "label": "Nom du corps de sapeurs-pompiers",
-            "description": "Légende du marqueur du dépôt sur la carte. Une installation neuve porte ici l'exemple « Feuerwehr Musterstadt » – à remplacer."
+            "description": "Légende du marqueur de la caserne sur la carte. Une installation neuve porte ici l'exemple « Feuerwehr Musterstadt » – à remplacer."
           },
           "firestation_latitude": {
             "label": "Dépôt – latitude",
@@ -3633,8 +3633,8 @@
           "checkedAt": "vérifié à {time}",
           "recheck": "Vérifier à nouveau",
           "optionUnavailable": "– aucune tuile installée",
-          "hint": "Sans tuiles, «Auto» reste en ligne et n’a aucun repli en cas de panne. Les tuiles sont téléchargées une seule fois, pour la propre région, par la personne qui s’occupe du serveur. Marche à suivre : Aide → Cartes hors ligne.",
-          "unreachableHint": "Le serveur de tuiles ne répond pas pour l’instant – impossible de dire d’ici si des tuiles hors ligne sont installées. «Hors ligne uniquement» reste sélectionnable, mais pourrait donner une carte vide."
+          "hint": "Sans tuiles, « Auto » reste en ligne et n’a aucun repli en cas de panne. Les tuiles sont téléchargées une seule fois, pour la propre région, par la personne qui s’occupe du serveur. Marche à suivre : Aide → Cartes hors ligne.",
+          "unreachableHint": "Le serveur de tuiles ne répond pas pour l’instant – impossible de dire d’ici si des tuiles hors ligne sont installées. « Hors ligne uniquement » reste sélectionnable, mais pourrait donner une carte vide."
         }
       },
       "checklist": {
@@ -3764,10 +3764,10 @@
         "modeChosen": "Choisi",
         "importReplaceAction": "Supprimer et remplacer l'inventaire",
         "switchToAppend": "Ajouter à la place",
-        "replaceBlockedTooltip": "{count} affectations actives sur des interventions en cours – « Remplacer » sera refusé.",
+        "replaceBlockedTooltip": "{count} attributions actives sur des interventions en cours – « Remplacer » sera refusé.",
         "sheetEmpty": "{resource} : aucune ligne dans le fichier.",
         "sheetEmptyAmbiguous": "{resource} : aucune ligne dans le fichier. Si la feuille existe avec sa ligne d'en-tête, la table sera vidée – si la feuille manque entièrement, l'import sera refusé.",
-        "replaceConfirmDeletions": "Seront supprimés <strong>{personnel}</strong> personnel, <strong>{vehicles}</strong> véhicules, <strong>{materials}</strong> matériel – et <strong>{assignments}</strong> affectations pointeront ensuite dans le vide.",
+        "replaceConfirmDeletions": "Seront supprimés <strong>{personnel}</strong> personnel, <strong>{vehicles}</strong> véhicules, <strong>{materials}</strong> matériel – et <strong>{assignments}</strong> attributions pointeront ensuite dans le vide.",
         "balance": {
           "title": "Bilan",
           "modeBadgeReplace": "Mode : Remplacer",
@@ -3787,16 +3787,16 @@
           "afterEmpty": "vide",
           "totalRow": "Total des enregistrements",
           "nothingDeletedTitle": "Rien n'est supprimé",
-          "nothingDeletedHint": "Aucune affectation ne perd sa ressource, aucune intervention en cours n'est touchée.",
+          "nothingDeletedHint": "Aucune attribution ne perd sa ressource, aucune intervention en cours n'est touchée.",
           "consequencesTitle": "Conséquences sur le tableau d'engagement",
-          "consequencesBlockedTitle": "Bloqué : affectations actives sur des interventions et des missions en cours",
+          "consequencesBlockedTitle": "Bloqué : attributions actives sur des interventions et des missions en cours",
           "repairableBadge": "Réparable ensuite",
-          "orphanedLabel": "Affectations pointant ensuite dans le vide",
+          "orphanedLabel": "Attributions pointant ensuite dans le vide",
           "orphanedActiveLabel": "dont actives sur des interventions en cours",
-          "groupOrphanedLabel": "Affectations de missions pointant ensuite dans le vide",
+          "groupOrphanedLabel": "Attributions de missions pointant ensuite dans le vide",
           "groupOrphanedActiveLabel": "dont actives sur des missions en cours",
-          "consequencesHint": "Les affectations renvoient à leur ressource sans clé étrangère : supprimer du personnel, des véhicules ou du matériel laisse l'affectation en place – sur une intervention qui continue.",
-          "consequencesBlockedHint": "Libérer les affectations, clore les interventions et les missions – ou importer en mode « Ajouter ». Les interventions closes ne bloquent pas.",
+          "consequencesHint": "Les attributions renvoient à leur ressource sans clé étrangère : supprimer du personnel, des véhicules ou du matériel laisse l'attribution en place – sur une intervention qui continue.",
+          "consequencesBlockedHint": "Libérer les attributions, clore les interventions et les missions – ou importer en mode « Ajouter ». Les interventions closes ne bloquent pas.",
           "cascadeTitle": "Supprimé en même temps, sans retour",
           "cascadeBadge": "Uniquement via sauvegarde",
           "cascadeAttendanceLabel": "Présences (arrivées)",
@@ -3862,7 +3862,7 @@
       "manualHint": "Formulaire de conduite A4 (mise en page BL/BS) avec tous les détails d’intervention",
       "manualNoEvent": " – aucun événement sélectionné",
       "downloadButton": "Télécharger",
-      "autoDownloadMovedHint": "Se trouve sous «Cet appareil» – le téléchargement arrive dans le dossier de cet ordinateur, pas dans l’installation.",
+      "autoDownloadMovedHint": "Se trouve sous « Cet appareil » – le téléchargement arrive dans le dossier de cet ordinateur, pas dans l’installation.",
       "autoDownloadMovedAction": "Y aller"
     },
     "gps": {
@@ -3905,7 +3905,7 @@
       },
       "editorsOnly": "Seuls les éditeurs peuvent modifier ces réglages.",
       "trackerUnavailable": "Aucun service de localisation n’est configuré pour cette caserne. L’automatisme suit le rythme des relevés Traccar – sans lui, aucune proposition n’arrive, quoi qu’il soit réglé ici. À configurer côté serveur (TRACCAR_URL) ; l’état est visible sous Réglages → Intégrations.",
-      "returnUnavailable": "Les coordonnées de la caserne manquent. Sans elles, le retour n’est pas détecté – les saisir plus bas sur cette carte, sous «Caserne (base d’attache)».",
+      "returnUnavailable": "Les coordonnées de la caserne manquent. Sans elles, le retour n’est pas détecté – les saisir plus bas sur cette carte, sous « Caserne (base d’attache) ».",
       "map": {
         "title": "Véhicules sur la carte",
         "staleLabel": "Afficher le dernier signal dès",
@@ -4006,7 +4006,7 @@
       "kennungLabel": "Identifiant",
       "kennungPlaceholder": "p. ex. année de naissance ou n° personnel",
       "kennungHelp": "Seulement nécessaire en cas de nom identique. N’apparaît alors que sur le tableau.",
-      "syncKeptAssigned": "{count} conservées (encore affectées)"
+      "syncKeptAssigned": "{count} conservées (encore attribuées)"
     },
     "printer": {
       "toasts": {
@@ -4057,7 +4057,7 @@
       "networkTitle": "Réseau",
       "networkText": "Le Raspberry Pi a besoin d’un accès Internet (backend) et d’un accès LAN à l’imprimante. Uniquement des connexions sortantes – aucune ouverture de port nécessaire.",
       "unavailableDisabled": "L’imprimante n’est pas encore activée sur cette carte – tant qu’elle est désactivée, rien ne s’imprime.",
-      "unavailableNoIp": "Aucune adresse d’imprimante n’est enregistrée. Sans elle, le service d’impression ne trouve pas l’imprimante – remplir le champ «Adresse IP» sur cette carte.",
+      "unavailableNoIp": "Aucune adresse d’imprimante n’est enregistrée. Sans elle, le service d’impression ne trouve pas l’imprimante – remplir le champ « Adresse IP » sur cette carte.",
       "refreshStatus": "Actualiser l’état"
     },
     "users": {
@@ -4265,16 +4265,16 @@
       "title": "Configurer la caserne",
       "progress": "{done} sur 3 terminé",
       "signedInAs": "Connecté en tant que <name></name>",
-      "location": "Emplacement du dépôt",
+      "location": "Emplacement de la caserne",
       "locationHint": "Encore la valeur par défaut « Musterstadt » – la carte et la recherche d’adresse s’y réfèrent.",
       "locationAction": "Chercher une adresse …",
       "inventory": "Personnel et véhicules",
       "inventoryHint": "Rien de saisi – sans eux, aucune intervention ne peut être dotée.",
       "inventoryAction": "Importer un fichier Excel …",
       "dismiss": "Masquer",
-      "dialogTitle": "Emplacement du dépôt",
+      "dialogTitle": "Emplacement de la caserne",
       "dialogDescription": "La carte s’ouvre ici, et la recherche d’adresse place en tête les résultats de votre secteur. Modifiable plus tard sous Réglages › Général.",
-      "addressLabel": "Adresse du dépôt",
+      "addressLabel": "Adresse de la caserne",
       "homeCityLabel": "Secteur d’intervention (localité)",
       "homeCityPlaceholder": "Oberwil, BL",
       "locationMissing": "Choisir une adresse ou la placer sur la carte – il faut des coordonnées.",
@@ -4444,7 +4444,7 @@
       "fieldReportExample2": "Odeur de gaz au sous-sol",
       "fieldReportExample3": "Encore un arbre sur la route",
       "fieldReportNoIncidents": "Aucune intervention ouverte avec une équipe assignée – une annonce du terrain nécessite une équipe sur le terrain.",
-      "fieldReportHint": "Le groupe annonce une nouvelle place de sinistre – arrive comme une vraie annonce."
+      "fieldReportHint": "Le groupe annonce une nouvelle place sinistrée – arrive comme une vraie annonce."
     }
   },
   "duplicates": {
@@ -4470,7 +4470,7 @@
       "flagTooltip": "Reçu automatiquement, près d’une intervention ouverte. « Fusionner » y ajoute ce message comme complément.",
       "merge": "Fusionner",
       "dismiss": "Pas un doublon",
-      "workCrew": "Équipe",
+      "workCrew": "Effectif",
       "workVehicles": "Véhicules",
       "workMaterial": "Matériel",
       "workReko": "Rapport de reconnaissance",
@@ -4512,7 +4512,7 @@
     "emptyFiltered": "Filtré : {filters}.",
     "corrected": "corrigé {time}",
     "correct": "Corriger l'entrée",
-    "correcting": "Correction de «{text}» – l'original reste visible.",
+    "correcting": "Correction de « {text} » – l'original reste visible.",
     "cancelCorrection": "Annuler la correction",
     "placeholder": "Entrée … (# lie une intervention)",
     "placeholderShort": "Entrée …",
@@ -4541,9 +4541,9 @@
       "fromField": "{name} :",
       "toField": "{name} à l'équipe :",
       "unknown": "Inconnu",
-      "merge": "Signalement «{other}» fusionné",
-      "mergedInto": "Fusionné dans «{other}»",
-      "unmerge": "Fusion avec «{other}» annulée",
+      "merge": "Signalement « {other} » fusionné",
+      "mergedInto": "Fusionné dans « {other} »",
+      "unmerge": "Fusion avec « {other} » annulée",
       "sourceKp": "saisi au PC",
       "sourceGps": "GPS",
       "field": {
@@ -4659,8 +4659,8 @@
       },
       "tables": {
         "reko_reports": "Reco",
-        "schadenplatz_reports": "Rapport de sinistre",
-        "incident_assignments": "Équipe",
+        "schadenplatz_reports": "Rapport de place sinistrée",
+        "incident_assignments": "Effectif",
         "incident_group_assignments": "Mission",
         "incident_groups": "Mission",
         "journal_entries": "Journal",
