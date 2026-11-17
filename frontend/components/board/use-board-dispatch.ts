@@ -297,10 +297,9 @@ export function useBoardDispatch(input: UseBoardDispatchInput) {
   }
 
   // Use shared operation handlers hook
-  const { handleOperationUpdate, handleVehicleRemove, handleVehicleAssign, handleOperationDelete } = useOperationHandlers({
+  const { handleOperationUpdate, handleVehicleAssign, handleOperationDelete } = useOperationHandlers({
     selectedOperation,
     updateOperation,
-    removeVehicle: release.releaseVehicle,
     assignVehicleToOperation,
     deleteOperation,
   })
@@ -325,7 +324,6 @@ export function useBoardDispatch(input: UseBoardDispatchInput) {
   return {
     handleVehicleAssign,
     handleOperationDelete,
-    handleVehicleRemove,
     handleOperationUpdate,
     handleCardClick,
     handleCardSelect,

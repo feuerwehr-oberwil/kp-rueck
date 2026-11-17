@@ -476,10 +476,9 @@ export default function MapPage() {
   }, [registerHandlers, clearHandlers, refreshIncidents, vehicleTypes, setColorByPersisted])
 
   // Use shared operation handlers hook
-  const { handleOperationUpdate, handleVehicleRemove, handleOperationDelete } = useOperationHandlers({
+  const { handleOperationUpdate, handleOperationDelete } = useOperationHandlers({
     selectedOperation,
     updateOperation,
-    removeVehicle: release.releaseVehicle,
     assignVehicleToOperation,
     deleteOperation,
   })
@@ -1293,7 +1292,7 @@ export default function MapPage() {
           onUpdate={handleOperationUpdate}
           onDelete={isEditor ? handleOperationDelete : undefined}
           materials={materials}
-          onRemoveVehicle={isEditor ? handleVehicleRemove : undefined}
+          onRemoveVehicle={isEditor ? release.releaseVehicle : undefined}
           onRemoveCrew={isEditor ? release.releaseCrew : undefined}
           onRemoveMaterial={isEditor ? release.releaseMaterial : undefined}
           canEdit={isEditor}

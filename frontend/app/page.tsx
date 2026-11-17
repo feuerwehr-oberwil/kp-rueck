@@ -1179,7 +1179,6 @@ export default function FireStationDashboard() {
   const {
     handleVehicleAssign,
     handleOperationDelete,
-    handleVehicleRemove,
     handleOperationUpdate,
     handleCardClick,
     handleCardSelect,
@@ -1790,7 +1789,6 @@ export default function FireStationDashboard() {
         handleOperationUpdate={handleOperationUpdate}
         handlePrintBoard={handlePrintBoard}
         handleVehicleAssign={handleVehicleAssign}
-        handleVehicleRemove={handleVehicleRemove}
         isEditor={isEditor}
         isPrintingBoard={isPrintingBoard}
         linksSheetOpen={linksSheetOpen}

@@ -5,7 +5,6 @@ import type { Operation } from '@/lib/contexts/operations-context'
 interface UseOperationHandlersProps {
   selectedOperation: Operation | null
   updateOperation: (id: string, updates: Partial<Operation>) => void
-  removeVehicle: (operationId: string, vehicleId: string) => void
   assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => void
   deleteOperation: (operationId: string) => Promise<void>
 }
@@ -20,7 +19,6 @@ interface UseOperationHandlersProps {
 export function useOperationHandlers({
   selectedOperation,
   updateOperation,
-  removeVehicle,
   assignVehicleToOperation,
   deleteOperation,
 }: UseOperationHandlersProps) {
@@ -29,12 +27,6 @@ export function useOperationHandlers({
     if (!selectedOperation) return
     // Update operation in context - derived selectedOperation will auto-update
     updateOperation(selectedOperation.id, updates)
-  }
-
-  const handleVehicleRemove = (operationId: string, vehicleId: string) => {
-    if (!selectedOperation) return
-    // Remove vehicle - derived selectedOperation will auto-update
-    removeVehicle(operationId, vehicleId)
   }
 
   const handleVehicleAssign = (vehicleId: string, vehicleName: string, operationId: string) => {
@@ -56,7 +48,6 @@ export function useOperationHandlers({
 
   return {
     handleOperationUpdate,
-    handleVehicleRemove,
     handleVehicleAssign,
     handleOperationDelete,
   }
