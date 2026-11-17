@@ -887,7 +887,7 @@
     },
     "transferReko": {
       "failed": "Übertragung fehlgeschlagen",
-      "markAndTransferFailed": "Die Person konnte nicht als Reko-Ziel verwendet werden. Versuche es erneut.",
+      "markAndTransferFailed": "Die Person konnte nicht als Reko-Ziel verwendet werden – nichts wurde übertragen.",
       "title": "Rekos übertragen",
       "description": "Offene Reko-Aufträge von {name} an eine andere Person übertragen.",
       "noOthers": "Keine anderen Reko-Personen verfügbar"
@@ -1223,7 +1223,7 @@
       "incidentLabel": "Einsatz: {title}",
       "loadError": "Reko-Personen konnten nicht geladen werden",
       "assignErrorTitle": "Zuweisen fehlgeschlagen",
-      "assignErrorDescription": "Die Person konnte nicht zugewiesen werden. Versuche es erneut.",
+      "assignErrorDescription": "Die Person ist nicht zugewiesen – die Reko bleibt, wie sie war.",
       "loading": "Wird geladen …",
       "retry": "Erneut versuchen",
       "emptyTitle": "Keine Reko-Personen verfügbar",
@@ -1232,7 +1232,7 @@
       "markSearchPlaceholder": "Person suchen …",
       "markAllReko": "Alle eingecheckten Personen sind bereits als Reko markiert.",
       "markNoCheckedIn": "Niemand ist eingecheckt. Checke zuerst Personal ein.",
-      "markError": "Die Person konnte nicht als Reko markiert werden. Versuche es erneut.",
+      "markError": "Die Person ist nicht als Reko markiert.",
       "back": "Zurück",
       "assigned": "Zugewiesen",
       "keepAssigned": "Zuweisung übernehmen",
@@ -1357,7 +1357,7 @@
       "duplicateTitle": "Person existiert bereits",
       "duplicateDescription": "Eine Person mit diesem Namen ist bereits vorhanden.",
       "addErrorTitle": "Hinzufügen fehlgeschlagen",
-      "addErrorDescription": "Die Person konnte nicht hinzugefügt werden. Bitte erneut versuchen.",
+      "addErrorDescription": "Die Person wurde nicht hinzugefügt.",
       "addNewPerson": "Neue Person hinzufügen",
       "namePlaceholder": "Name eingeben …",
       "adding": "Wird hinzugefügt …",
@@ -1690,8 +1690,8 @@
       "available": "Verfügbar",
       "unavailable": "Nicht verfügbar",
       "irreversible": "Diese Aktion kann nicht rückgängig gemacht werden.",
-      "loadError": "Laden fehlgeschlagen",
-      "saveError": "Speichern fehlgeschlagen",
+      "loadError": "Nicht geladen",
+      "saveError": "Nicht gespeichert",
       "loadSettingsError": "Einstellungen konnten nicht geladen werden",
       "checkInputRetry": "Überprüfe die Eingabe und versuche es erneut.",
       "reloadPage": "Bitte Seite neu laden.",
@@ -1786,15 +1786,15 @@
       "toasts": {
         "editorsOnly": "Nur Bearbeiter können Einstellungen ändern",
         "exportSuccess": "Export erfolgreich",
-        "templateDownloadFailed": "Template-Download fehlgeschlagen",
+        "templateDownloadFailed": "Vorlage nicht heruntergeladen",
         "selectEvent": "Bitte wähle ein Ereignis aus",
         "auditExportSuccess": "Audit-Export erfolgreich"
       },
       "errors": {
-        "previewFailed": "Vorschau fehlgeschlagen",
-        "importFailed": "Import fehlgeschlagen",
-        "exportFailed": "Export fehlgeschlagen",
-        "auditExportFailed": "Audit-Export fehlgeschlagen"
+        "previewFailed": "Keine Vorschau erstellt",
+        "importFailed": "Nicht importiert",
+        "exportFailed": "Nicht exportiert",
+        "auditExportFailed": "Audit-Log nicht exportiert"
       },
       "general": {
         "appearance": "Erscheinungsbild",
@@ -2171,9 +2171,9 @@
     },
     "materials": {
       "loadError": "Material konnte nicht geladen werden",
-      "saveError": "Material speichern fehlgeschlagen",
-      "deleteError": "Material löschen fehlgeschlagen",
-      "deleteErrorDescription": "Das Material konnte nicht gelöscht werden. Versuche es erneut.",
+      "saveError": "Material nicht gespeichert",
+      "deleteError": "Material nicht gelöscht",
+      "deleteErrorDescription": "Das Material ist noch da.",
       "tabList": "Materialliste",
       "thresholdsLink": "Warnschwellen für Materialbestand festlegen",
       "addButton": "Material erstellen",
@@ -2199,8 +2199,8 @@
         "locationPlaceholder": "Standort auswählen",
         "selectMaterials": "Materialien auswählen",
         "noAvailableMaterials": "Keine verfügbaren Materialien",
-        "saveError": "Gruppe speichern fehlgeschlagen",
-        "deleteError": "Gruppe löschen fehlgeschlagen",
+        "saveError": "Gruppe nicht gespeichert",
+        "deleteError": "Gruppe nicht gelöscht",
         "deleteTitle": "Gruppe löschen",
         "deleteDescription": "Bist du sicher, dass du die Gruppe «{name}» löschen möchtest? Die Materialien werden nicht gelöscht, nur die Gruppierung aufgelöst."
       },
@@ -2216,8 +2216,8 @@
     },
     "personnel": {
       "loadError": "Personal konnte nicht geladen werden",
-      "deleteError": "Löschen fehlgeschlagen",
-      "deleteErrorDescription": "Die Person konnte nicht gelöscht werden. Versuche es erneut.",
+      "deleteError": "Person nicht gelöscht",
+      "deleteErrorDescription": "Die Person ist noch da.",
       "syncPreviewError": "Vorschau konnte nicht geladen werden",
       "syncCreated": "{count} erstellt",
       "syncDeleted": "{count} gelöscht",
@@ -2271,7 +2271,7 @@
         "serviceOfflineBackend": "Print-Service (Raspberry Pi) ist offline – er meldet sich nicht beim Backend.",
         "lastJobFailed": "Letzter Druckauftrag fehlgeschlagen: {error}",
         "serviceOnlineConfigured": "Print-Service online und Drucker konfiguriert",
-        "connectionTestFailed": "Verbindungstest fehlgeschlagen",
+        "connectionTestFailed": "Drucker nicht erreicht",
         "testQueued": "Testdruck eingereiht – warte auf Drucker …",
         "testSuccess": "Testdruck erfolgreich gedruckt – das System ist bereit.",
         "printerError": "Drucker-Fehler: {error}",
@@ -2328,16 +2328,16 @@
         "passwordRequired": "Passwort ist erforderlich"
       },
       "toasts": {
-        "createError": "Erstellen fehlgeschlagen",
-        "updateError": "Aktualisieren fehlgeschlagen",
-        "resetError": "Zurücksetzen fehlgeschlagen",
-        "resetErrorDescription": "Das Passwort konnte nicht zurückgesetzt werden. Versuche es erneut.",
-        "deactivateError": "Deaktivieren fehlgeschlagen",
-        "deactivateErrorDescription": "Der Benutzer konnte nicht deaktiviert werden. Versuche es erneut.",
-        "reactivateError": "Reaktivieren fehlgeschlagen",
-        "reactivateErrorDescription": "Der Benutzer konnte nicht reaktiviert werden. Versuche es erneut.",
-        "deleteError": "Löschen fehlgeschlagen",
-        "deleteErrorDescription": "Der Benutzer konnte nicht gelöscht werden. Versuche es erneut."
+        "createError": "Benutzer nicht erstellt",
+        "updateError": "Benutzer nicht gespeichert",
+        "resetError": "Passwort nicht zurückgesetzt",
+        "resetErrorDescription": "Das bisherige Passwort gilt weiter.",
+        "deactivateError": "Benutzer nicht deaktiviert",
+        "deactivateErrorDescription": "Der Benutzer ist weiterhin aktiv.",
+        "reactivateError": "Benutzer nicht reaktiviert",
+        "reactivateErrorDescription": "Der Benutzer bleibt deaktiviert.",
+        "deleteError": "Benutzer nicht gelöscht",
+        "deleteErrorDescription": "Der Benutzer ist noch da."
       },
       "never": "Nie",
       "newUser": "Neuer Benutzer",
@@ -2383,9 +2383,9 @@
     },
     "vehicles": {
       "loadError": "Fahrzeuge konnten nicht geladen werden",
-      "saveError": "Fahrzeug speichern fehlgeschlagen",
-      "deleteError": "Fahrzeug löschen fehlgeschlagen",
-      "deleteErrorDescription": "Das Fahrzeug konnte nicht gelöscht werden. Versuche es erneut.",
+      "saveError": "Fahrzeug nicht gespeichert",
+      "deleteError": "Fahrzeug nicht gelöscht",
+      "deleteErrorDescription": "Das Fahrzeug ist noch da.",
       "addButton": "Fahrzeug erstellen",
       "dialogEditTitle": "Fahrzeug bearbeiten",
       "dialogCreateTitle": "Neues Fahrzeug erstellen",
@@ -2434,10 +2434,10 @@
       "archiveConsequenceRestore": "Jederzeit über «Archivierte anzeigen» zurückholen",
       "purgeConsequenceLists": "Verschwindet aus Listen, Exporten und dem Protokoll",
       "purgeConsequenceNoReturn": "Kein Zurückholen – das Archiv ist danach leer dafür",
-      "archiveError": "Archivieren fehlgeschlagen",
+      "archiveError": "Nicht archiviert",
       "archiveInUseDescription": "Steht noch auf einem offenen Einsatz – zuerst dort freigeben, dann archivieren.",
-      "restoreError": "Zurückholen fehlgeschlagen",
-      "purgeError": "Endgültiges Löschen fehlgeschlagen"
+      "restoreError": "Nicht zurückgeholt",
+      "purgeError": "Nicht endgültig gelöscht"
     },
     "integrations": {
       "title": "Integrationen",
@@ -2764,7 +2764,7 @@
       "localRestoredDescription": "Deine zuvor eingegebenen Daten wurden geladen.",
       "loadError": "Das Formular konnte nicht geladen werden. Verbindung prüfen und die Seite neu laden.",
       "relevantRequired": "Bitte «Einsatz relevant?» beantworten",
-      "submitError": "Übermitteln fehlgeschlagen. Bitte erneut versuchen.",
+      "submitError": "Nicht übermittelt – der Bericht bleibt im Formular.",
       "contactLabel": "Kontakt / Melder: ",
       "markingArrival": "Ankunft wird gemeldet …",
       "arrivalReported": "Ankunft gemeldet ({time})",
@@ -3194,10 +3194,10 @@
       "dismissFailedCount": "{count, plural, one {# Meldung konnte nicht ausgeblendet werden} other {# Meldungen konnten nicht ausgeblendet werden}}",
       "dismissAllFailedTitle": "Meldungen konnten nicht ausgeblendet werden",
       "settingsSaveFailedTitle": "Einstellungen konnten nicht gespeichert werden",
-      "retryDescription": "Bitte erneut versuchen."
+      "retryDescription": "Sie bleibt in der Liste."
     },
     "operations": {
-      "removeFailedTitle": "Freigeben fehlgeschlagen",
+      "removeFailedTitle": "Nicht freigegeben",
       "removePersonFailedDescription": "Die Person konnte nicht freigegeben werden.",
       "removeRekoFailedDescription": "Die Reko-Person konnte nicht freigegeben werden.",
       "removeMaterialFailedDescription": "Das Material konnte nicht freigegeben werden.",
@@ -3208,28 +3208,28 @@
       "amWartenClearedDescription": "Der Einsatz läuft jetzt – die Wartemarkierung wurde automatisch entfernt.",
       "statusNotChangedTitle": "Status nicht geändert",
       "statusNotChangedDescription": "Der Einsatz wurde auf den letzten Stand zurückgesetzt.",
-      "updateFailedTitle": "Aktualisieren fehlgeschlagen",
+      "updateFailedTitle": "Nicht gespeichert",
       "updateFailedDescription": "Der Einsatz konnte nicht aktualisiert werden.",
       "reorderFailedTitle": "Reihenfolge nicht gespeichert",
       "reorderFailedDescription": "Die Ansicht wurde auf den letzten Stand zurückgesetzt.",
       "createFailedTitle": "Einsatz konnte nicht erstellt werden",
-      "createFailedDescription": "Bitte erneut versuchen. Wenn das Problem bestehen bleibt, prüfe die Verbindung.",
+      "createFailedDescription": "Prüfe die Verbindung – auf dem Board ist nichts dazugekommen.",
       "recentRemovalWarningTitle": "{name} war vor {seconds}s noch auf «{incident}»",
       "recentRemovalWarningDescription": "Doppelbelegung – bitte prüfen.",
-      "assignFailedTitle": "Zuweisen fehlgeschlagen",
-      "assignConflictDescription": "{name} wurde gerade von jemand anderem geändert – bitte erneut versuchen.",
+      "assignFailedTitle": "Nicht zugewiesen",
+      "assignConflictDescription": "{name} wurde gerade von jemand anderem geändert – nichts zugewiesen.",
       "assignFailedDescription": "{name} konnte nicht zugewiesen werden.",
-      "assignFailedFollowupTitle": "Zuweisung fehlgeschlagen",
-      "assignRekoFailedTitle": "Reko-Zuweisung fehlgeschlagen",
+      "assignFailedFollowupTitle": "Nicht zugewiesen",
+      "assignRekoFailedTitle": "Reko nicht zugewiesen",
       "assignRekoFailedDescription": "{name} konnte nicht als Reko zugewiesen werden.",
       "errorTitle": "Fehler",
       "vehicleInvalidIdDescription": "Fahrzeug «{name}» hat keine gültige ID. Bitte lade die Seite neu.",
-      "restoreFailedTitle": "Wiederherstellen fehlgeschlagen",
+      "restoreFailedTitle": "Nicht wiederhergestellt",
       "restoreFailedDescription": "Der Einsatz konnte nicht wiederhergestellt werden.",
       "restoredTitle": "Einsatz wiederhergestellt",
       "deletedTitle": "Einsatz gelöscht",
       "undoLabel": "Rückgängig",
-      "deleteFailedTitle": "Löschen fehlgeschlagen",
+      "deleteFailedTitle": "Nicht gelöscht",
       "deleteFailedDescription": "Der Einsatz konnte nicht gelöscht werden. Bitte versuche es erneut.",
       "dangerTypes": {
         "fire": "Feuer",
@@ -3250,13 +3250,13 @@
       "syncNowLabel": "Jetzt synchronisieren",
       "syncing": "Wird zu Railway synchronisiert …",
       "syncSuccess": "Erfolgreich zu Railway synchronisiert",
-      "syncFailed": "Synchronisation zu Railway fehlgeschlagen"
+      "syncFailed": "Nicht zu Railway synchronisiert"
     },
     "rekoLinks": {
       "noRekoAssigned": "Keine Reko-Person zugewiesen",
       "directCopiedTitle": "Direkt-Link kopiert",
       "directCopiedDescription": "Formular-Link für {name}",
-      "copyFailed": "Kopieren fehlgeschlagen",
+      "copyFailed": "Nicht kopiert",
       "noEventSelected": "Kein Ereignis ausgewählt",
       "dashboardCopiedTitle": "Dashboard-Link kopiert",
       "dashboardCopiedDescription": "Reko-Personal kann ihre Zuweisungen sehen"
@@ -3264,7 +3264,7 @@
     "whatsapp": {
       "copiedTitle": "In Zwischenablage kopiert",
       "copiedDescription": "Die Einsatzmeldung wurde für WhatsApp formatiert kopiert.",
-      "copyFailedTitle": "Kopieren fehlgeschlagen",
+      "copyFailedTitle": "Nicht kopiert",
       "copyFailedDescription": "Die Nachricht konnte nicht in die Zwischenablage kopiert werden."
     },
     "gpsSim": {
@@ -3282,7 +3282,7 @@
       "rapport": "Rapport eingetroffen"
     },
     "settings": {
-      "saveFailed": "Einstellung speichern fehlgeschlagen",
+      "saveFailed": "Einstellung nicht gespeichert",
       "warningsTitle": "Warnungen",
       "warningsSubtitle": "Welche Warnungstypen angezeigt werden sollen",
       "timeAlertsLabel": "Zeit-Warnungen",
@@ -3430,7 +3430,7 @@
       "connectionTitle": "Server nicht erreichbar – angezeigt wird der letzte Stand",
       "unknown": "Unbekannter Fehler",
       "photoUploadFailed": "Foto-Upload fehlgeschlagen",
-      "uploadTimeout": "Upload-Zeitüberschreitung – bitte erneut versuchen"
+      "uploadTimeout": "Upload dauerte zu lange – nichts hochgeladen"
     },
     "appError": {
       "title": "Ein Fehler ist aufgetreten",
@@ -3900,7 +3900,7 @@
       "invalidTitle": "Link ungültig oder abgelaufen",
       "invalidDescription": "Dieser Alarm-Link ist nicht mehr gültig. Bitte fordere einen neuen Link an.",
       "another": "Weiteren Alarm erfassen",
-      "submitError": "Der Alarm konnte nicht übermittelt werden. Bitte erneut versuchen.",
+      "submitError": "Der Alarm wurde nicht übermittelt – die Angaben bleiben im Formular.",
       "title": "Alarm erfassen",
       "trainingMode": "Übungsmodus",
       "messageLabel": "Meldung",
@@ -3934,7 +3934,7 @@
       "correct": "Meldung korrigieren",
       "correctSubmit": "Korrektur senden",
       "correctCancel": "Abbrechen",
-      "correctError": "Die Korrektur konnte nicht übermittelt werden. Bitte erneut versuchen.",
+      "correctError": "Die Korrektur wurde nicht übermittelt – die Angaben bleiben im Formular.",
       "receiptTitle": "Alarm ist beim KP",
       "receiptMeta": "{eventName} · {time}",
       "hintsCorrectionHelp": "Ergänzungen werden hinzugefügt – was bereits beim KP steht, bleibt stehen.",

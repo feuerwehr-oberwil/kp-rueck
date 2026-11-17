@@ -559,7 +559,7 @@
       "connectionTitle": "Serveur injoignable – affichage du dernier état connu",
       "unknown": "Erreur inconnue",
       "photoUploadFailed": "Échec de l’envoi de la photo",
-      "uploadTimeout": "Délai d’envoi dépassé – réessaie"
+      "uploadTimeout": "Envoi trop long – rien n’a été envoyé"
     },
     "appError": {
       "title": "Une erreur est survenue",
@@ -1290,7 +1290,7 @@
       "incidentLabel": "Intervention : {title}",
       "loadError": "Échec du chargement des personnes de reconnaissance",
       "assignErrorTitle": "Échec de l’attribution",
-      "assignErrorDescription": "La personne n’a pas pu être attribuée. Réessaie.",
+      "assignErrorDescription": "La personne n’est pas attribuée – la reconnaissance reste inchangée.",
       "loading": "Chargement …",
       "retry": "Réessayer",
       "emptyTitle": "Aucune personne de reconnaissance disponible",
@@ -1299,7 +1299,7 @@
       "markSearchPlaceholder": "Rechercher une personne …",
       "markAllReko": "Toutes les personnes annoncées sont déjà marquées comme reconnaissance.",
       "markNoCheckedIn": "Personne n’est annoncé. Enregistre d’abord l’arrivée du personnel.",
-      "markError": "La personne n’a pas pu être marquée comme reconnaissance. Réessaie.",
+      "markError": "La personne n’est pas marquée comme reconnaissance.",
       "back": "Retour",
       "assigned": "Attribuée",
       "keepAssigned": "Conserver l’attribution",
@@ -1424,7 +1424,7 @@
       "duplicateTitle": "La personne existe déjà",
       "duplicateDescription": "Une personne portant ce nom existe déjà.",
       "addErrorTitle": "Échec de l’ajout",
-      "addErrorDescription": "La personne n’a pas pu être ajoutée. Réessaie.",
+      "addErrorDescription": "La personne n’a pas été ajoutée.",
       "addNewPerson": "Ajouter une nouvelle personne",
       "namePlaceholder": "Saisir un nom …",
       "adding": "Ajout en cours …",
@@ -1492,7 +1492,7 @@
       "invalidTitle": "Lien non valable ou échu",
       "invalidDescription": "Ce lien d’alarme n’est plus valable. Demande un nouveau lien.",
       "another": "Saisir une autre alarme",
-      "submitError": "L’alarme n’a pas pu être transmise. Réessaie.",
+      "submitError": "L’alarme n’a pas été transmise – les données restent dans le formulaire.",
       "title": "Saisir une alarme",
       "trainingMode": "Mode exercice",
       "messageLabel": "Annonce",
@@ -1526,7 +1526,7 @@
       "correct": "Corriger l’annonce",
       "correctSubmit": "Envoyer la correction",
       "correctCancel": "Annuler",
-      "correctError": "La correction n’a pas pu être transmise. Réessaie.",
+      "correctError": "La correction n’a pas été transmise – les données restent dans le formulaire.",
       "receiptTitle": "L'alarme est au PC",
       "receiptMeta": "{eventName} · {time}",
       "hintsCorrectionHelp": "Les compléments s'ajoutent – ce qui est déjà au PC reste tel quel.",
@@ -2166,7 +2166,7 @@
     },
     "transferReko": {
       "failed": "Échec du transfert",
-      "markAndTransferFailed": "La personne n’a pas pu servir de cible de reconnaissance. Réessaie.",
+      "markAndTransferFailed": "La personne n’a pas pu servir de cible de reconnaissance – rien n’a été transféré.",
       "title": "Transférer les reconnaissances",
       "description": "Transférer les missions de reconnaissance ouvertes de {name} à une autre personne.",
       "noOthers": "Aucune autre personne de reconnaissance disponible"
@@ -2873,10 +2873,10 @@
       "dismissFailedCount": "{count, plural, one {# annonce n’a pas pu être masquée} other {# annonces n’ont pas pu être masquées}}",
       "dismissAllFailedTitle": "Les annonces n’ont pas pu être masquées",
       "settingsSaveFailedTitle": "Les réglages n’ont pas pu être enregistrés",
-      "retryDescription": "Réessaie."
+      "retryDescription": "Elle reste dans la liste."
     },
     "operations": {
-      "removeFailedTitle": "Échec de la libération",
+      "removeFailedTitle": "Non libéré",
       "removePersonFailedDescription": "La personne n’a pas pu être libérée.",
       "removeRekoFailedDescription": "La personne de reconnaissance n’a pas pu être libérée.",
       "removeMaterialFailedDescription": "Le matériel n’a pas pu être libéré.",
@@ -2887,28 +2887,28 @@
       "amWartenClearedDescription": "L’intervention est en cours – la marque d’attente a été retirée automatiquement.",
       "statusNotChangedTitle": "Statut non modifié",
       "statusNotChangedDescription": "L’intervention a été ramenée à son dernier état.",
-      "updateFailedTitle": "Échec de l’actualisation",
+      "updateFailedTitle": "Non enregistré",
       "updateFailedDescription": "L’intervention n’a pas pu être actualisée.",
       "reorderFailedTitle": "Ordre non enregistré",
       "reorderFailedDescription": "La vue a été ramenée à son dernier état.",
       "createFailedTitle": "L’intervention n’a pas pu être créée",
-      "createFailedDescription": "Réessaie. Si le problème persiste, vérifie la liaison.",
+      "createFailedDescription": "Vérifie la liaison – rien n’a été ajouté au tableau.",
       "recentRemovalWarningTitle": "{name} était encore sur « {incident} » il y a {seconds} s",
       "recentRemovalWarningDescription": "Double attribution – à vérifier.",
-      "assignFailedTitle": "Échec de l’attribution",
-      "assignConflictDescription": "{name} vient d’être modifié par quelqu’un d’autre – réessaie.",
+      "assignFailedTitle": "Non attribué",
+      "assignConflictDescription": "{name} vient d’être modifié par quelqu’un d’autre – rien n’a été attribué.",
       "assignFailedDescription": "{name} n’a pas pu être attribué.",
-      "assignFailedFollowupTitle": "Échec de l’attribution",
-      "assignRekoFailedTitle": "Échec de l’attribution à la reconnaissance",
+      "assignFailedFollowupTitle": "Non attribué",
+      "assignRekoFailedTitle": "Reconnaissance non attribuée",
       "assignRekoFailedDescription": "{name} n’a pas pu être attribué à la reconnaissance.",
       "errorTitle": "Erreur",
       "vehicleInvalidIdDescription": "Le véhicule « {name} » n’a pas d’ID valable. Recharge la page.",
-      "restoreFailedTitle": "Échec de la restauration",
+      "restoreFailedTitle": "Non restauré",
       "restoreFailedDescription": "L’intervention n’a pas pu être restaurée.",
       "restoredTitle": "Intervention restaurée",
       "deletedTitle": "Intervention supprimée",
       "undoLabel": "Annuler",
-      "deleteFailedTitle": "Échec de la suppression",
+      "deleteFailedTitle": "Non supprimé",
       "deleteFailedDescription": "L’intervention n’a pas pu être supprimée. Réessaie.",
       "dangerTypes": {
         "fire": "Feu",
@@ -2929,13 +2929,13 @@
       "syncNowLabel": "Synchroniser maintenant",
       "syncing": "Synchronisation vers Railway …",
       "syncSuccess": "Synchronisation vers Railway réussie",
-      "syncFailed": "Échec de la synchronisation vers Railway"
+      "syncFailed": "Non synchronisé avec Railway"
     },
     "rekoLinks": {
       "noRekoAssigned": "Aucune personne de reconnaissance attribuée",
       "directCopiedTitle": "Lien direct copié",
       "directCopiedDescription": "Lien du formulaire pour {name}",
-      "copyFailed": "Échec de la copie",
+      "copyFailed": "Non copié",
       "noEventSelected": "Aucun événement sélectionné",
       "dashboardCopiedTitle": "Lien du tableau copié",
       "dashboardCopiedDescription": "Le personnel de reconnaissance peut voir ses attributions"
@@ -2943,7 +2943,7 @@
     "whatsapp": {
       "copiedTitle": "Copié dans le presse-papiers",
       "copiedDescription": "L’annonce d’intervention a été copiée au format WhatsApp.",
-      "copyFailedTitle": "Échec de la copie",
+      "copyFailedTitle": "Non copié",
       "copyFailedDescription": "Le message n’a pas pu être copié dans le presse-papiers."
     },
     "gpsSim": {
@@ -2961,7 +2961,7 @@
       "rapport": "Rapport arrivé"
     },
     "settings": {
-      "saveFailed": "Échec de l’enregistrement du réglage",
+      "saveFailed": "Réglage non enregistré",
       "warningsTitle": "Avertissements",
       "warningsSubtitle": "Quels types d’avertissement doivent être affichés",
       "timeAlertsLabel": "Avertissements de temps",
@@ -3287,7 +3287,7 @@
       "localRestoredDescription": "Les données que tu avais saisies ont été rechargées.",
       "loadError": "Le formulaire n’a pas pu être chargé. Vérifie la connexion et recharge la page.",
       "relevantRequired": "Réponds à « Intervention pertinente ? »",
-      "submitError": "Échec de la transmission. Réessaie.",
+      "submitError": "Non transmis – le rapport reste dans le formulaire.",
       "contactLabel": "Contact / annonceur : ",
       "markingArrival": "Annonce de l’arrivée …",
       "arrivalReported": "Arrivée annoncée ({time})",
@@ -3437,8 +3437,8 @@
       "available": "Disponible",
       "unavailable": "Indisponible",
       "irreversible": "Cette action est irréversible.",
-      "loadError": "Échec du chargement",
-      "saveError": "Échec de l’enregistrement",
+      "loadError": "Non chargé",
+      "saveError": "Non enregistré",
       "loadSettingsError": "Échec du chargement des réglages",
       "checkInputRetry": "Vérifie la saisie et réessaie.",
       "reloadPage": "Recharge la page.",
@@ -3533,15 +3533,15 @@
       "toasts": {
         "editorsOnly": "Seuls les éditeurs peuvent modifier les réglages",
         "exportSuccess": "Export réussi",
-        "templateDownloadFailed": "Échec du téléchargement du modèle",
+        "templateDownloadFailed": "Modèle non téléchargé",
         "selectEvent": "Choisis un événement",
         "auditExportSuccess": "Export de l’audit réussi"
       },
       "errors": {
-        "previewFailed": "Échec de l’aperçu",
-        "importFailed": "Échec de l’import",
-        "exportFailed": "Échec de l’export",
-        "auditExportFailed": "Échec de l’export de l’audit"
+        "previewFailed": "Aperçu non créé",
+        "importFailed": "Non importé",
+        "exportFailed": "Non exporté",
+        "auditExportFailed": "Journal d’audit non exporté"
       },
       "general": {
         "appearance": "Apparence",
@@ -3918,9 +3918,9 @@
     },
     "materials": {
       "loadError": "Le matériel n’a pas pu être chargé",
-      "saveError": "Échec de l’enregistrement du matériel",
-      "deleteError": "Échec de la suppression du matériel",
-      "deleteErrorDescription": "Le matériel n’a pas pu être supprimé. Réessaie.",
+      "saveError": "Matériel non enregistré",
+      "deleteError": "Matériel non supprimé",
+      "deleteErrorDescription": "Le matériel est toujours là.",
       "tabList": "Liste du matériel",
       "thresholdsLink": "Définir les seuils d’alerte pour le stock de matériel",
       "addButton": "Ajouter du matériel",
@@ -3946,8 +3946,8 @@
         "locationPlaceholder": "Choisir un emplacement",
         "selectMaterials": "Choisir des matériels",
         "noAvailableMaterials": "Aucun matériel disponible",
-        "saveError": "Échec de l’enregistrement du groupe",
-        "deleteError": "Échec de la suppression du groupe",
+        "saveError": "Groupe non enregistré",
+        "deleteError": "Groupe non supprimé",
         "deleteTitle": "Supprimer le groupe",
         "deleteDescription": "Es-tu sûr de vouloir supprimer le groupe « {name} » ? Les matériels ne sont pas supprimés, seul le regroupement est dissous."
       },
@@ -3963,8 +3963,8 @@
     },
     "personnel": {
       "loadError": "Le personnel n’a pas pu être chargé",
-      "deleteError": "Échec de la suppression",
-      "deleteErrorDescription": "La personne n’a pas pu être supprimée. Réessaie.",
+      "deleteError": "Personne non supprimée",
+      "deleteErrorDescription": "La personne est toujours là.",
       "syncPreviewError": "Échec du chargement de l’aperçu",
       "syncCreated": "{count} créées",
       "syncDeleted": "{count} supprimées",
@@ -4018,7 +4018,7 @@
         "serviceOfflineBackend": "Le service d’impression (Raspberry Pi) est hors ligne – il ne se manifeste pas auprès du backend.",
         "lastJobFailed": "Échec du dernier travail d’impression : {error}",
         "serviceOnlineConfigured": "Service d’impression en ligne et imprimante configurée",
-        "connectionTestFailed": "Échec du test de liaison",
+        "connectionTestFailed": "Imprimante non atteinte",
         "testQueued": "Impression de test en file – en attente de l’imprimante …",
         "testSuccess": "Impression de test réussie – le système est prêt.",
         "printerError": "Erreur d’imprimante : {error}",
@@ -4075,16 +4075,16 @@
         "passwordRequired": "Le mot de passe est obligatoire"
       },
       "toasts": {
-        "createError": "Échec de la création",
-        "updateError": "Échec de l’actualisation",
-        "resetError": "Échec de la réinitialisation",
-        "resetErrorDescription": "Le mot de passe n’a pas pu être réinitialisé. Réessaie.",
-        "deactivateError": "Échec de la désactivation",
-        "deactivateErrorDescription": "L’utilisateur n’a pas pu être désactivé. Réessaie.",
-        "reactivateError": "Échec de la réactivation",
-        "reactivateErrorDescription": "L’utilisateur n’a pas pu être réactivé. Réessaie.",
-        "deleteError": "Échec de la suppression",
-        "deleteErrorDescription": "L’utilisateur n’a pas pu être supprimé. Réessaie."
+        "createError": "Utilisateur non créé",
+        "updateError": "Utilisateur non enregistré",
+        "resetError": "Mot de passe non réinitialisé",
+        "resetErrorDescription": "L’ancien mot de passe reste valable.",
+        "deactivateError": "Utilisateur non désactivé",
+        "deactivateErrorDescription": "L’utilisateur reste actif.",
+        "reactivateError": "Utilisateur non réactivé",
+        "reactivateErrorDescription": "L’utilisateur reste désactivé.",
+        "deleteError": "Utilisateur non supprimé",
+        "deleteErrorDescription": "L’utilisateur est toujours là."
       },
       "never": "Jamais",
       "newUser": "Nouvel utilisateur",
@@ -4130,9 +4130,9 @@
     },
     "vehicles": {
       "loadError": "Les véhicules n’ont pas pu être chargés",
-      "saveError": "Échec de l’enregistrement du véhicule",
-      "deleteError": "Échec de la suppression du véhicule",
-      "deleteErrorDescription": "Le véhicule n’a pas pu être supprimé. Réessaie.",
+      "saveError": "Véhicule non enregistré",
+      "deleteError": "Véhicule non supprimé",
+      "deleteErrorDescription": "Le véhicule est toujours là.",
       "addButton": "Ajouter un véhicule",
       "dialogEditTitle": "Modifier le véhicule",
       "dialogCreateTitle": "Ajouter un nouveau véhicule",
@@ -4181,10 +4181,10 @@
       "archiveConsequenceRestore": "Récupérable à tout moment via « Afficher les archivés »",
       "purgeConsequenceLists": "Disparaît des listes, des exports et du journal",
       "purgeConsequenceNoReturn": "Aucun retour possible – l'archive sera vide pour cet objet",
-      "archiveError": "Échec de l'archivage",
+      "archiveError": "Non archivé",
       "archiveInUseDescription": "Encore engagé sur une intervention ouverte – le libérer d'abord, puis archiver.",
-      "restoreError": "Échec de la restauration",
-      "purgeError": "Échec de la suppression définitive"
+      "restoreError": "Non restauré",
+      "purgeError": "Non supprimé définitivement"
     },
     "integrations": {
       "title": "Intégrations",

@@ -135,7 +135,7 @@ describe("VehicleSettings", () => {
     await user.click(within(dialog).getByRole("button", { name: /Erstellen/i }));
 
     await waitFor(() => expect(toastError).toHaveBeenCalled());
-    expect(toastError.mock.calls[0]?.[0]).toMatch(/Fahrzeug speichern fehlgeschlagen/i);
+    expect(toastError.mock.calls[0]?.[0]).toMatch(/Fahrzeug nicht gespeichert/i);
     // Dialog should remain open after failure so the operator can retry
     expect(screen.queryByRole("dialog")).toBeInTheDocument();
   });

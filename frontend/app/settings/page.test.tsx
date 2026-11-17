@@ -352,7 +352,7 @@ describe('Einstellungen › Audit — ein fehlgeschlagener Export sagt es', () =
     await user.click(await screen.findByRole('option', { name: 'Sturm Ost' }))
     await user.click(screen.getByRole('button', { name: 'Audit exportieren' }))
 
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Audit-Export fehlgeschlagen', {
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Audit-Log nicht exportiert', {
       description: 'Audit export failed: Internal Server Error',
     }))
     expect(api.exportEventAudit).toHaveBeenCalledWith('evt-1')
