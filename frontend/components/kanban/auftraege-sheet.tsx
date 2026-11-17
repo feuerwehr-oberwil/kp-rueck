@@ -23,6 +23,7 @@ import {
   Map as MapIcon,
   Trash2,
   Route,
+  Waypoints,
   Palette,
   Pencil,
   Wand2,
@@ -390,7 +391,7 @@ export function AuftraegeSheet({
             {/* Inline create row */}
             {creating && (
               <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2.5">
-                <Route className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <Waypoints className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <Input
                   autoFocus
                   value={newName}
@@ -428,7 +429,7 @@ export function AuftraegeSheet({
 
             {isLoaded && groups.length === 0 && !creating && (
               <div className="flex flex-col items-center justify-center py-10 text-center">
-                <Route className="h-10 w-10 text-muted-foreground/40 mb-2" />
+                <Waypoints className="h-10 w-10 text-muted-foreground/40 mb-2" />
                 <p className="text-sm text-muted-foreground">{t("empty")}</p>
               </div>
             )}
@@ -873,7 +874,7 @@ function AuftragCard({
               mirrors the board columns. */}
           <div className="mt-4">
             <ResourceSectionHeader
-              icon={Route}
+              icon={Waypoints}
               label={t("stopsCount", { count: total })}
               action={
                 <div className="flex items-center gap-1">

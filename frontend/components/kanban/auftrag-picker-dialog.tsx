@@ -11,7 +11,7 @@
 
 import { useState } from "react"
 import { useTranslations } from "next-intl"
-import { Route as RouteIcon, Plus, Check, Unlink } from "lucide-react"
+import { Waypoints, Plus, Check, Unlink } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -101,7 +101,7 @@ export function AuftragPickerDialog({
         <div className="-mx-1 min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1">
           {groups.length === 0 && !creating && (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <RouteIcon className="mb-2 h-8 w-8 text-muted-foreground/40" />
+              <Waypoints className="mb-2 h-8 w-8 text-muted-foreground/40" />
               <p className="text-sm text-muted-foreground">{t("empty")}</p>
             </div>
           )}

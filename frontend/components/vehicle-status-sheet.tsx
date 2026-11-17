@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ShellLoader } from "@/components/ui/shell-loader"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Truck, User, MapPin, Clock, Radio, RefreshCw, AlertTriangle, Plus, Route } from "lucide-react"
+import { Truck, User, MapPin, Clock, Radio, RefreshCw, AlertTriangle, Plus, Waypoints } from "lucide-react"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
 import { isIncidentStatus } from "@/lib/types/incidents"
 import { toast } from "sonner"
@@ -75,7 +75,7 @@ function AuftragChip({ auftrag, label }: { auftrag: VehicleAuftrag; label: strin
       className="inline-flex min-w-0 items-center gap-1 rounded-sm border border-border bg-muted/60 px-1.5 py-0.5 text-sm font-medium text-foreground"
       title={label}
     >
-      <Route className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+      <Waypoints className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
       <span
         className="h-2 w-2 flex-shrink-0 rounded-full"
         style={{ backgroundColor: auftrag.color ?? "var(--muted-foreground)" }}

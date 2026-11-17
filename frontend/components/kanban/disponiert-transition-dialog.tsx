@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
-import { AlertTriangle, Copy, Check, Printer, X, Radio, Route, Siren } from "lucide-react"
+import { AlertTriangle, Copy, Check, Printer, X, Radio, Siren, Waypoints } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -290,7 +290,7 @@ export function DisponierTransitionDialog({
                 })}
               </p>
               <Button className="w-full justify-start gap-2" onClick={dispatchWholeAuftrag}>
-                <Route className="h-4 w-4" />
+                <Waypoints className="h-4 w-4" />
                 {t("disponiert.auftragBatchAction", { count: pendingStops.length })}
               </Button>
             </div>
