@@ -84,7 +84,9 @@ export function ConfirmDialog({
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    // While the confirm runs, Esc cannot take the question away either – Cancel is
+    // already disabled, and a one-way write in flight must stay in view.
+    <AlertDialog open={open} onOpenChange={(next) => !(isConfirming && !next) && onOpenChange(next)}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>

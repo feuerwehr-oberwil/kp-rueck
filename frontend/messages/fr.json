@@ -698,9 +698,7 @@
     },
     "deleteDialog": {
       "title": "Supprimer définitivement l’événement ?",
-      "warning": "Cette opération est irréversible.",
-      "question": "Veux-tu vraiment supprimer définitivement l’événement « {name} » et toutes les interventions qui s’y rattachent ?",
-      "note": "Cela concerne {count, plural, one {# intervention} other {# interventions}} et toutes les données associées.",
+      "description": "L’événement « {name} » est supprimé avec {count, plural, =0 {toutes ses données} one {# intervention et toutes ses données} other {# interventions et toutes ses données}}. Cette opération est irréversible.",
       "cancel": "Annuler",
       "confirm": "Supprimer définitivement"
     },

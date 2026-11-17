@@ -2641,7 +2641,7 @@
     "archiveDialog": {
       "title": "Ereignis archivieren?",
       "question": "Möchtest du das Ereignis «{name}» archivieren?",
-      "note": "Das Ereignis wird ausgeblendet, aber alle Daten bleiben erhalten. Du kannst es später dauerhaft löschen.",
+      "note": "Das Ereignis wird ausgeblendet, aber alle Daten bleiben erhalten. Du kannst es später endgültig löschen.",
       "openIncidents": "{count, plural, one {# Einsatz nicht abgeschlossen} other {# Einsätze nicht abgeschlossen}}",
       "openPickups": "{count, plural, one {# Abholung offen} other {# Abholungen offen}}",
       "materialOnSite": "{count, plural, one {# Einheit noch am Schadenplatz} other {# Einheiten noch am Schadenplatz}}",
@@ -2655,12 +2655,10 @@
       "confirm": "Archivieren"
     },
     "deleteDialog": {
-      "title": "Ereignis dauerhaft löschen?",
-      "warning": "Dieser Vorgang lässt sich nicht rückgängig machen.",
-      "question": "Möchtest du das Ereignis «{name}» und alle zugehörigen Einsätze wirklich dauerhaft löschen?",
-      "note": "Dies betrifft {count, plural, one {# Einsatz} other {# Einsätze}} und alle zugehörigen Daten.",
+      "title": "Ereignis endgültig löschen?",
+      "description": "Das Ereignis «{name}» wird mit {count, plural, =0 {allen Daten} one {# Einsatz und allen Daten} other {# Einsätzen und allen Daten}} gelöscht. Das lässt sich nicht rückgängig machen.",
       "cancel": "Abbrechen",
-      "confirm": "Dauerhaft löschen"
+      "confirm": "Endgültig löschen"
     },
     "emptyState": {
       "title": "Ereignis wählen",

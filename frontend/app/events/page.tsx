@@ -38,6 +38,8 @@ import { ProtectedRoute } from '@/components/protected-route'
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { ShellLoader } from '@/components/ui/shell-loader'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog'
 import { fieldMessageProps, focusFirstBlockingField } from '@/components/ui/form-message'
 import { slugifyEventName } from '@/components/print/event-export'
 
@@ -144,8 +146,6 @@ export default function EventsPage() {
   // delete takes every incident under the event with it — so both get the same
   // in-flight guard the create button already has (disabled + spinner), and the
   // confirmation cannot be dismissed while the request is out.
-  const [isArchiving, setIsArchiving] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   // The archive is auskunft, not workspace: collapsed by default, and only
   // forced open while a search actually matches something in it.
@@ -266,22 +266,21 @@ export default function EventsPage() {
     router.push(`/?highlight=${encodeURIComponent(incidentId)}`)
   }
 
+  // ConfirmDialog onConfirm: it shows the busy state and closes on success; a rethrow
+  // keeps the question open after the toast.
   const handleArchive = async () => {
-    if (!targetEvent || isArchiving) return
-    setIsArchiving(true)
+    if (!targetEvent) return
     try {
       await archiveEvent(targetEvent.id, {
         checkoutAttendees: archiveCheckout && (archiveRestliste?.attendees_present ?? 0) > 0,
       })
-      setShowArchiveDialog(false)
       setTargetEvent(null)
     } catch (error) {
       console.error('Failed to archive event:', error)
       toast.error(t('page.archiveFailed'), {
         description: error instanceof Error ? error.message : undefined,
       })
-    } finally {
-      setIsArchiving(false)
+      throw error
     }
   }
 
@@ -296,20 +295,18 @@ export default function EventsPage() {
     }
   }
 
+  // Same contract as handleArchive.
   const handleDelete = async () => {
-    if (!targetEvent || isDeleting) return
-    setIsDeleting(true)
+    if (!targetEvent) return
     try {
       await deleteEvent(targetEvent.id)
-      setShowDeleteDialog(false)
       setTargetEvent(null)
     } catch (error) {
       console.error('Failed to delete event:', error)
       toast.error(t('page.deleteFailed'), {
         description: error instanceof Error ? error.message : undefined,
       })
-    } finally {
-      setIsDeleting(false)
+      throw error
     }
   }
 
@@ -741,118 +738,113 @@ export default function EventsPage() {
           what would closing this Ereignis cut off — Einsätze short of
           Abschluss, open Abholungen, material still out, people never checked
           out — each with the way to resolve it, before «Trotzdem archivieren». */}
-      <Dialog open={showArchiveDialog} onOpenChange={(open) => { if (!open && isArchiving) return; setShowArchiveDialog(open) }}>
-        <DialogContent aria-describedby={undefined}>
-          <DialogHeader>
-            <DialogTitle>{t('archiveDialog.title')}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <p>{t('archiveDialog.question', { name: targetEvent?.name ?? '' })}</p>
-            {(() => {
-              if (!archiveRestliste) return null
-              const openIncidents = archiveRestliste.open_incidents
-              const openPickups = archiveRestliste.open_pickups
-              const materialOnSite = archiveRestliste.material_on_site
-              const attendees = archiveRestliste.attendees_present
-              const summarize = (names: string[]) =>
-                names.slice(0, 3).join(', ') +
-                (names.length > 3 ? ` ${t('archiveDialog.moreItems', { count: names.length - 3 })}` : '')
-              const rows: { key: string; label: string; detail: string; action?: { label: string; onClick: () => void } }[] = []
-              if (openIncidents.length > 0) {
-                rows.push({
-                  key: 'incidents',
-                  label: t('archiveDialog.openIncidents', { count: openIncidents.length }),
-                  detail: summarize(openIncidents.map((i) => i.title)),
-                  action: {
-                    label: t('archiveDialog.showOnBoard'),
-                    onClick: () => {
-                      if (!targetEvent) return
-                      setSelectedEvent(targetEvent)
-                      setShowArchiveDialog(false)
-                      router.push('/')
-                    },
+      <ConfirmDialog
+        open={showArchiveDialog}
+        onOpenChange={setShowArchiveDialog}
+        title={t('archiveDialog.title')}
+        description={t('archiveDialog.question', { name: targetEvent?.name ?? '' })}
+        cancelText={t('archiveDialog.cancel')}
+        confirmText={
+          archiveRestliste &&
+          (archiveRestliste.open_incidents.length > 0 ||
+            archiveRestliste.open_pickups.length > 0 ||
+            archiveRestliste.material_on_site.length > 0 ||
+            archiveRestliste.attendees_present > 0)
+            ? t('archiveDialog.confirmAnyway')
+            : t('archiveDialog.confirm')
+        }
+        onConfirm={handleArchive}
+      >
+        <div className="space-y-3">
+          {(() => {
+            if (!archiveRestliste) return null
+            const openIncidents = archiveRestliste.open_incidents
+            const openPickups = archiveRestliste.open_pickups
+            const materialOnSite = archiveRestliste.material_on_site
+            const attendees = archiveRestliste.attendees_present
+            const summarize = (names: string[]) =>
+              names.slice(0, 3).join(', ') +
+              (names.length > 3 ? ` ${t('archiveDialog.moreItems', { count: names.length - 3 })}` : '')
+            const rows: { key: string; label: string; detail: string; action?: { label: string; onClick: () => void } }[] = []
+            if (openIncidents.length > 0) {
+              rows.push({
+                key: 'incidents',
+                label: t('archiveDialog.openIncidents', { count: openIncidents.length }),
+                detail: summarize(openIncidents.map((i) => i.title)),
+                action: {
+                  label: t('archiveDialog.showOnBoard'),
+                  onClick: () => {
+                    if (!targetEvent) return
+                    setSelectedEvent(targetEvent)
+                    setShowArchiveDialog(false)
+                    router.push('/')
                   },
-                })
-              }
-              if (openPickups.length > 0) {
-                rows.push({
-                  key: 'pickups',
-                  label: t('archiveDialog.openPickups', { count: openPickups.length }),
-                  detail: summarize(openPickups.map((i) => i.title)),
-                })
-              }
-              if (materialOnSite.length > 0) {
-                rows.push({
-                  key: 'material',
-                  label: t('archiveDialog.materialOnSite', { count: materialOnSite.length }),
-                  detail: summarize(materialOnSite.map((u) => u.name)),
-                })
-              }
-              if (attendees > 0) {
-                rows.push({
-                  key: 'attendees',
-                  label: t('archiveDialog.attendeesPresent', { count: attendees }),
-                  detail: t('archiveDialog.attendeesDetail'),
-                })
-              }
-              if (rows.length === 0) return null
-              return (
-                <>
-                  <div className="divide-y overflow-hidden rounded-lg border">
-                    {rows.map((row) => (
-                      <div key={row.key} className="flex items-baseline gap-2.5 bg-muted/40 p-3 text-sm">
-                        <span className="size-2 shrink-0 self-center rounded-full bg-amber-500" aria-hidden />
-                        <span className="min-w-0 flex-1">
-                          <span className="font-semibold">{row.label}</span>
-                          <span className="block truncate text-xs text-muted-foreground">{row.detail}</span>
-                        </span>
-                        {row.action && (
-                          <button
-                            type="button"
-                            className="whitespace-nowrap text-xs underline underline-offset-2 hover:text-foreground/80"
-                            onClick={row.action.onClick}
-                          >
-                            {row.action.label}
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  {attendees > 0 && (
-                    <label className="flex items-start gap-2.5 rounded-lg bg-muted/40 p-3 text-sm">
-                      <input
-                        type="checkbox"
-                        className="mt-0.5 accent-sel"
-                        checked={archiveCheckout}
-                        onChange={(e) => setArchiveCheckout(e.target.checked)}
-                      />
-                      <span>{t('archiveDialog.autoCheckout')}</span>
-                    </label>
-                  )}
-                </>
-              )
-            })()}
-            <p className="text-sm text-muted-foreground">
-              {t('archiveDialog.note')}
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowArchiveDialog(false)} disabled={isArchiving}>
-              {t('archiveDialog.cancel')}
-            </Button>
-            <Button variant="destructive" onClick={handleArchive} disabled={isArchiving}>
-              {isArchiving && <ShellLoader className="size-4" />}
-              {archiveRestliste &&
-              (archiveRestliste.open_incidents.length > 0 ||
-                archiveRestliste.open_pickups.length > 0 ||
-                archiveRestliste.material_on_site.length > 0 ||
-                archiveRestliste.attendees_present > 0)
-                ? t('archiveDialog.confirmAnyway')
-                : t('archiveDialog.confirm')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                },
+              })
+            }
+            if (openPickups.length > 0) {
+              rows.push({
+                key: 'pickups',
+                label: t('archiveDialog.openPickups', { count: openPickups.length }),
+                detail: summarize(openPickups.map((i) => i.title)),
+              })
+            }
+            if (materialOnSite.length > 0) {
+              rows.push({
+                key: 'material',
+                label: t('archiveDialog.materialOnSite', { count: materialOnSite.length }),
+                detail: summarize(materialOnSite.map((u) => u.name)),
+              })
+            }
+            if (attendees > 0) {
+              rows.push({
+                key: 'attendees',
+                label: t('archiveDialog.attendeesPresent', { count: attendees }),
+                detail: t('archiveDialog.attendeesDetail'),
+              })
+            }
+            if (rows.length === 0) return null
+            return (
+              <>
+                <div className="divide-y overflow-hidden rounded-lg border">
+                  {rows.map((row) => (
+                    <div key={row.key} className="flex items-baseline gap-2.5 bg-muted/40 p-3 text-sm">
+                      <span className="size-2 shrink-0 self-center rounded-full bg-amber-500" aria-hidden />
+                      <span className="min-w-0 flex-1">
+                        <span className="font-semibold">{row.label}</span>
+                        <span className="block truncate text-xs text-muted-foreground">{row.detail}</span>
+                      </span>
+                      {row.action && (
+                        <button
+                          type="button"
+                          className="whitespace-nowrap text-xs underline underline-offset-2 hover:text-foreground/80"
+                          onClick={row.action.onClick}
+                        >
+                          {row.action.label}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {attendees > 0 && (
+                  <label className="flex items-start gap-2.5 rounded-lg bg-muted/40 p-3 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 accent-sel"
+                      checked={archiveCheckout}
+                      onChange={(e) => setArchiveCheckout(e.target.checked)}
+                    />
+                    <span>{t('archiveDialog.autoCheckout')}</span>
+                  </label>
+                )}
+              </>
+            )
+          })()}
+          <p className="text-sm text-muted-foreground">
+            {t('archiveDialog.note')}
+          </p>
+        </div>
+      </ConfirmDialog>
 
       {/* Kennzahlen / Übungsauswertung of one Ereignis */}
       <Dialog open={!!figuresEvent} onOpenChange={(open) => { if (!open) setFiguresEvent(null) }}>
@@ -867,32 +859,18 @@ export default function EventsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={showDeleteDialog} onOpenChange={(open) => { if (!open && isDeleting) return; setShowDeleteDialog(open) }}>
-        <DialogContent aria-describedby={undefined}>
-          <DialogHeader>
-            <DialogTitle>{t('deleteDialog.title')}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            <p className="font-semibold text-destructive">
-              {t('deleteDialog.warning')}
-            </p>
-            <p>{t('deleteDialog.question', { name: targetEvent?.name ?? '' })}</p>
-            <p className="text-sm text-muted-foreground">
-              {t('deleteDialog.note', { count: targetEvent?.incident_count || 0 })}
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)} disabled={isDeleting}>
-              {t('deleteDialog.cancel')}
-            </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
-              {isDeleting && <ShellLoader className="size-4" />}
-              {t('deleteDialog.confirm')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title={t('deleteDialog.title')}
+        description={t('deleteDialog.description', {
+          name: targetEvent?.name ?? '',
+          count: targetEvent?.incident_count || 0,
+        })}
+        cancelText={t('deleteDialog.cancel')}
+        confirmText={t('deleteDialog.confirm')}
+        onConfirm={handleDelete}
+      />
       </div>
 
       {/* Mobile Bottom Navigation */}
