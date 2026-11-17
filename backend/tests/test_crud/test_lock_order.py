@@ -285,3 +285,37 @@ async def test_personnel_delete_locks_the_incidents_it_nulls_before_the_person(b
     assert outcome == "deleted"
     async with board.sessions() as db:
         assert await db.scalar(select(Incident.leader_personnel_id).where(Incident.id == board.loose_id)) is None
+
+
+async def test_two_restores_serialize_and_recognize_their_shared_pump(board: Board):
+    ids = (board.stop_id, board.loose_id)
+    async with board.sessions() as setup:
+        user = await setup.get(User, board.user_id)
+        assert user is not None
+        for incident_id in ids:
+            await assignments_crud.assign_resource(setup, incident_id, "material", board.material_id, user, _request())
+        await setup.commit()
+        for incident_id in ids:
+            assert await incidents_crud.delete_incident(setup, incident_id, user, _request())
+            await setup.commit()
+
+    async with board.sessions() as first, board.sessions() as second:
+        user = await first.get(User, board.user_id)
+        second_user = await second.get(User, board.user_id)
+        assert user is not None and second_user is not None
+        assert await incidents_crud.restore_incident(first, ids[0], user, _request())
+        restoring = asyncio.create_task(incidents_crud.restore_incident(second, ids[1], second_user, _request()))
+        await _wait_until_blocked(board.sessions)
+        await first.commit()
+        assert await asyncio.wait_for(restoring, timeout=10)
+        await second.commit()
+        deployed_on = await first.scalars(
+            select(Incident.id)
+            .join(IncidentAssignment)
+            .where(
+                Incident.deleted_at.is_(None),
+                IncidentAssignment.unassigned_at.is_(None),
+                IncidentAssignment.resource_id == board.material_id,
+            )
+        )
+        assert set(deployed_on) == set(ids)

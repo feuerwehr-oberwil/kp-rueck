@@ -1086,14 +1086,14 @@ async def update_incident_status(
     return incident
 
 
-async def _incident_resource_rows(db: AsyncSession, incident_id: uuid.UUID) -> set[tuple[str, uuid.UUID]]:
+async def _incident_resource_rows(db: AsyncSession, incident_id: uuid.UUID) -> dict[tuple[str, uuid.UUID], uuid.UUID]:
     rows = await db.execute(
-        select(IncidentAssignment.resource_type, IncidentAssignment.resource_id).where(
+        select(IncidentAssignment.resource_type, IncidentAssignment.resource_id, IncidentAssignment.id).where(
             IncidentAssignment.incident_id == incident_id,
             IncidentAssignment.unassigned_at.is_(None),
         )
     )
-    return set(rows.tuples().all())
+    return {(kind, resource_id): assignment_id for kind, resource_id, assignment_id in rows}
 
 
 async def _other_deployments(
@@ -1107,6 +1107,46 @@ async def _other_deployments(
         deployments = await db.execute(select(deployed).where(deployed.c.resource_id.in_(ids)))
         rows.extend((kind, rid, assignment_id, assigned_at) for rid, assignment_id, assigned_at in deployments)
     return rows
+
+
+async def _unconfirmed_shares(
+    db: AsyncSession, pairs: dict[tuple[uuid.UUID, uuid.UUID], tuple[str, uuid.UUID]]
+) -> set[tuple[str, uuid.UUID]]:
+    """A snapshot on either card can attest a pair of assignment rows.
+
+    Deleting the first card hides its deployment from the second delete. Both
+    rows survive, so the first deletion still proves they were shared even after
+    several undo cycles. A release and new assignment has a different id.
+    """
+    if not pairs:
+        return set()
+    ids = {row_id for pair in pairs for row_id in pair}
+    snapshots = await db.execute(
+        select(IncidentAssignment.id, AuditLog.changes_json)
+        .join(AuditLog, AuditLog.resource_id == IncidentAssignment.incident_id)
+        .where(
+            IncidentAssignment.id.in_(ids),
+            AuditLog.resource_type == "incident",
+            AuditLog.action_type.in_(("archive", "delete")),
+            AuditLog.timestamp >= IncidentAssignment.assigned_at,
+            AuditLog.changes_json.has_key("shared_assignments"),
+        )
+    )
+    known: set[tuple[str, str]] = set()
+    for held_id, snapshot in snapshots:
+        held = str(held_id)
+        if not snapshot:
+            continue
+        # Older snapshots named only the other rows. For those, the join
+        # above requires this row to belong to the card already at its delete.
+        if "held_assignments" in snapshot and held not in snapshot["held_assignments"]:
+            continue
+        known.update((held, shared) for shared in snapshot["shared_assignments"])
+    return {
+        ref
+        for (ours, theirs), ref in pairs.items()
+        if (str(ours), str(theirs)) not in known and (str(theirs), str(ours)) not in known
+    }
 
 
 async def delete_incident(
@@ -1129,7 +1169,8 @@ async def delete_incident(
     # Soft delete (mark deleted). Use ONE `now` for both columns so a later
     # restore can tell whether `completed_at` was stamped as a side effect of
     # the delete (completed_at == deleted_at) versus a pre-existing completion.
-    refs = await _incident_resource_rows(db, incident_id)
+    own_rows = await _incident_resource_rows(db, incident_id)
+    refs = set(own_rows)
     await lock_resources(db, refs)
     now = datetime.now(UTC)
     incident.deleted_at = now
@@ -1143,7 +1184,10 @@ async def delete_incident(
         action_type="archive",
         resource_type="incident",
         resource_id=incident.id,
-        changes={"shared_assignments": shared_assignments},
+        changes={
+            "held_assignments": [str(row_id) for row_id in own_rows.values()],
+            "shared_assignments": shared_assignments,
+        },
         user=current_user,
         request=request,
     )
@@ -1197,7 +1241,8 @@ async def restore_incident(
 
     # The undo preserves the old assignment rows. Verify inventory under the same
     # locks as assignment and archival before making those rows visible again.
-    refs = await _incident_resource_rows(db, incident_id)
+    own_rows = await _incident_resource_rows(db, incident_id)
+    refs = set(own_rows)
     resources = await lock_resources(db, refs)
     if refs:
         audit = await db.scalar(
@@ -1213,14 +1258,16 @@ async def restore_incident(
         # Legacy deletes have no inventory snapshot. An assignment that already
         # existed at deletion was an explicit shared deployment and can resume.
         previous = (audit or {}).get("shared_assignments")
-        busy = set()
+        disputed = {}
         for kind, resource_id, assignment_id, assigned_at in await _other_deployments(db, refs):
             if previous is None:
                 newly_deployed = assigned_at >= incident.deleted_at
             else:
                 newly_deployed = str(assignment_id) not in previous
             if newly_deployed:
-                busy.add((kind, resource_id))
+                ref = (kind, resource_id)
+                disputed[own_rows[ref], assignment_id] = ref
+        busy = await _unconfirmed_shares(db, disputed)
         checked_out = set(
             await db.scalars(
                 select(EventAttendance.personnel_id).where(

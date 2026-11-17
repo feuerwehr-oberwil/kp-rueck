@@ -6,7 +6,7 @@
   Ereignis, and personnel/vehicles onto a closed Einsatz (material may still go there).
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
+    AuditLog,
     Event,
     Incident,
     IncidentAssignment,
@@ -400,8 +401,6 @@ class TestTransferUndo:
 async def test_release_retry_and_stale_promotion_preserve_active_leader(
     editor_client, db_session, test_incident, test_personnel, test_editor
 ):
-    from app.models import AuditLog
-
     current = Personnel(id=uuid4(), name="Walter", role="Wachtmeister", status="available")
     db_session.add(current)
     await db_session.commit()
@@ -522,3 +521,94 @@ async def test_missing_attendance_is_not_a_checkout(editor_client, test_incident
     ).status_code == 200
     assert (await editor_client.delete(path)).status_code == 204
     assert (await editor_client.post(f"{path}/restore")).status_code == 200
+
+
+async def _use_previous_snapshot_format(db_session):
+    """Previous builds recorded the other assignment IDs only."""
+    for audit in await db_session.scalars(select(AuditLog).where(AuditLog.action_type == "archive")):
+        audit.changes_json = {"shared_assignments": audit.changes_json["shared_assignments"]}
+    await db_session.commit()
+
+
+@pytest.mark.parametrize("legacy_snapshot", [False, True])
+@pytest.mark.parametrize("delete_order", [(0, 1), (1, 0)])
+@pytest.mark.parametrize("restore_order", [(0, 1), (1, 0)])
+async def test_two_shared_incidents_can_be_restored_in_either_order(
+    editor_client, db_session, test_event, test_editor, test_vehicle, delete_order, restore_order, legacy_snapshot
+):
+    paths = [f"/api/incidents/{(await _incident(db_session, test_event, test_editor)).id}" for _ in range(2)]
+    payload = {"resource_type": "vehicle", "resource_id": str(test_vehicle.id)}
+    for path in paths:
+        assert (await editor_client.post(f"{path}/assign", json=payload)).status_code == 200
+    for index in delete_order:
+        assert (await editor_client.delete(paths[index])).status_code == 204
+    if legacy_snapshot:
+        await _use_previous_snapshot_format(db_session)
+    for index in restore_order:
+        response = await editor_client.post(f"{paths[index]}/restore")
+        assert response.status_code == 200, response.text
+
+
+@pytest.mark.parametrize("legacy_snapshot", [False, True])
+async def test_a_new_assignment_of_the_same_vehicle_is_not_the_old_share(
+    editor_client, db_session, test_event, test_editor, test_vehicle, legacy_snapshot
+):
+    a = await _incident(db_session, test_event, test_editor)
+    b = await _incident(db_session, test_event, test_editor)
+    paths = [f"/api/incidents/{card.id}" for card in (a, b)]
+    payload = {"resource_type": "vehicle", "resource_id": str(test_vehicle.id)}
+    original = (await editor_client.post(f"{paths[0]}/assign", json=payload)).json()["id"]
+    assert (await editor_client.post(f"{paths[1]}/assign", json=payload)).status_code == 200
+    for path in paths:
+        assert (await editor_client.delete(path)).status_code == 204
+    if legacy_snapshot:
+        await _use_previous_snapshot_format(db_session)
+    assert (await editor_client.post(f"{paths[0]}/restore")).status_code == 200
+    assert (await editor_client.post(f"{paths[0]}/unassign/{original}")).status_code == 204
+    replacement = await editor_client.post(f"{paths[0]}/assign", json=payload)
+    assert replacement.status_code == 200 and replacement.json()["id"] != original
+    refused = await editor_client.post(f"{paths[1]}/restore")
+    assert refused.status_code == 409
+    assert refused.json()["code"] == "incident_restore_resource_conflict"
+
+
+@pytest.mark.parametrize("assigned_after", [False, True])
+async def test_delete_without_inventory_snapshot_uses_assignment_time(
+    editor_client, db_session, test_event, test_editor, test_material, assigned_after
+):
+    a = await _incident(db_session, test_event, test_editor)
+    b = await _incident(db_session, test_event, test_editor)
+    payload = {"resource_type": "material", "resource_id": str(test_material.id)}
+    assert (await editor_client.post(f"/api/incidents/{a.id}/assign", json=payload)).status_code == 200
+    assert (await editor_client.delete(f"/api/incidents/{a.id}")).status_code == 204
+    await db_session.refresh(a)
+    audit = await db_session.scalar(
+        select(AuditLog).where(AuditLog.resource_id == a.id, AuditLog.action_type == "archive")
+    )
+    audit.changes_json = None
+    assignment_time = a.deleted_at + timedelta(minutes=1 if assigned_after else -1)
+    db_session.add(
+        IncidentAssignment(
+            incident_id=b.id, resource_id=test_material.id, resource_type="material", assigned_at=assignment_time
+        )
+    )
+    await db_session.commit()
+    response = await editor_client.post(f"/api/incidents/{a.id}/restore")
+    assert response.status_code == (409 if assigned_after else 200)
+
+
+@pytest.mark.parametrize("restore_order", [(0, 1), (1, 0)])
+async def test_deleted_incidents_that_never_shared_cannot_acquire_each_others_vehicle(
+    editor_client, db_session, test_event, test_editor, test_vehicle, restore_order
+):
+    paths = [f"/api/incidents/{(await _incident(db_session, test_event, test_editor)).id}" for _ in range(2)]
+    payload = {"resource_type": "vehicle", "resource_id": str(test_vehicle.id)}
+    # The first card has *already disappeared* before the second picks up the vehicle.
+    for path in paths:
+        assert (await editor_client.post(f"{path}/assign", json=payload)).status_code == 200
+        assert (await editor_client.delete(path)).status_code == 204
+    first, second = restore_order
+    assert (await editor_client.post(f"{paths[first]}/restore")).status_code == 200
+    refused = await editor_client.post(f"{paths[second]}/restore")
+    assert refused.status_code == 409
+    assert refused.json()["code"] == "incident_restore_resource_conflict"
