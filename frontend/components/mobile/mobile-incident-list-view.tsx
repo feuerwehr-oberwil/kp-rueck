@@ -335,7 +335,7 @@ export function MobileIncidentListView({
           // «Alle zeigen»; there is nothing at all → one quiet line.
           searchQuery.trim() && !operations.some((op) => matchesSearch(op, searchQuery)) ? (
             <EmptyState
-              title={t('noHitsFor', { query: searchQuery.trim() })}
+              title={tEmpty('noHitsFor', { query: searchQuery.trim() })}
               description={t('searchScope')}
               action={{
                 label: tEmpty('clearSearch'),

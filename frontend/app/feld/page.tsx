@@ -14,6 +14,7 @@
  * field pages are the exception — this one is read on a phone in the rain.
  */
 
+import { SearchEmptyState } from "@/components/ui/empty-state"
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -1048,8 +1049,10 @@ function FeldSurface() {
           />
 
           <div className="space-y-3">
-            {loading ? null : filteredPersonnel.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground animate-in fade-in duration-300">
+            {loading ? null : filteredPersonnel.length === 0 && personnel.length > 0 && searchTerm.trim() ? (
+              <SearchEmptyState query={searchTerm} onClear={() => setSearchTerm('')} />
+            ) : filteredPersonnel.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
                 {personnel.length === 0 ? t('picker.empty') : t('picker.noneFound')}
               </div>
             ) : (

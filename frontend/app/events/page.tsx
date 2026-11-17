@@ -1,5 +1,6 @@
 'use client'
 
+import { SearchEmptyState } from "@/components/ui/empty-state"
 import { useState, useMemo, useEffect } from 'react'
 import { useFormatter, useNow, useTranslations } from 'next-intl'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -561,9 +562,17 @@ export default function EventsPage() {
                 is selected" idle case renders nothing extra. */}
             {rowEvents.length === 0 && filteredArchivedEvents.length === 0 &&
             (!bannerEvent || searchQuery.trim() !== '') ? (
-              <div className="rounded-lg border border-border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
-                {events.length === 0 ? t('page.emptyNone') : t('page.emptySearch')}
-              </div>
+              events.length > 0 && searchQuery.trim() ? (
+                <SearchEmptyState
+                  query={searchQuery}
+                  onClear={() => setSearchQuery('')}
+                  className="rounded-lg border border-border bg-card"
+                />
+              ) : (
+                <div className="rounded-lg border border-border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
+                  {t('page.emptyNone')}
+                </div>
+              )
             ) : (
               <div className="space-y-6">
                 {/* Every other event is a row: name, count, open-work chips,

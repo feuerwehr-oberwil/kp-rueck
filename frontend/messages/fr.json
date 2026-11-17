@@ -171,7 +171,7 @@
     },
     "emptyState": {
       "noHits": "Aucun résultat",
-      "noHitsFor": "Aucun résultat pour « {query} ».",
+      "noHitsFor": "Aucun résultat pour « {query} »",
       "clearSearch": "Effacer la recherche",
       "resetFilters": "Réinitialiser les filtres",
       "quoted": "« {name} »"
@@ -438,7 +438,6 @@
       "loading": "Chargement …",
       "demoTitle": "Les alarmes entrantes ne sont pas disponibles en mode démo",
       "demoDescription": "Cette page affiche les alarmes entrantes – depuis <b>DIVERA 24/7</b> ou via l’interface webhook ouverte. En mode démo, aucune liaison d’alarme n’est configurée.",
-      "resetSearch": "Effacer la recherche",
       "trainingBadge": "EXERCICE",
       "assigned": "Attribuée",
       "archived": "Archivée",
@@ -480,7 +479,6 @@
       "nothingNew": "Aucune nouvelle alarme.",
       "emptyTitle": "Pas encore d’alarme",
       "emptyDescription": "Une alarme du système d’alarme apparaît ici dès qu’elle arrive.",
-      "noMatches": "Aucun résultat pour «{query}».",
       "loadFailedTitle": "Alarmes non chargées",
       "loadFailedDescription": "Le serveur n’a pas répondu ou a signalé une erreur.",
       "reload": "Recharger"
@@ -643,7 +641,6 @@
       "newEvent": "Nouvel événement",
       "searchPlaceholder": "Rechercher des événements …",
       "emptyNone": "Aucun événement. Crée un nouvel événement pour commencer.",
-      "emptySearch": "Aucun événement trouvé.",
       "incidentCountShort": "{count, plural, one {# intervention} other {# interventions}}",
       "lastActivityRelative": "dernière activité {rel}",
       "toBoard": "Vers le tableau",
@@ -1038,8 +1035,6 @@
       },
       "picker": {
         "done": "Terminé ({count})",
-        "noMatch": "Aucun résultat pour « {query} ».",
-        "clearSearch": "Effacer la recherche",
         "nothingLeft": "Plus rien à ajouter."
       }
     },
@@ -1263,8 +1258,7 @@
       "toc": "Sommaire",
       "loading": "Chargement …",
       "loadError": "# Erreur\n\nLe contenu de l’aide n’a pas pu être chargé.",
-      "searchPlaceholder": "Chercher dans l’aide",
-      "searchNoResults": "Aucun résultat"
+      "searchPlaceholder": "Chercher dans l’aide"
     }
   },
   "incidents": {
@@ -1305,7 +1299,6 @@
       "markSearchPlaceholder": "Rechercher une personne …",
       "markAllReko": "Toutes les personnes annoncées sont déjà marquées comme reconnaissance.",
       "markNoCheckedIn": "Personne n’est annoncé. Enregistre d’abord l’arrivée du personnel.",
-      "markNoMatch": "Aucune personne trouvée.",
       "markError": "La personne n’a pas pu être marquée comme reconnaissance. Réessaie.",
       "back": "Retour",
       "assigned": "Attribuée",
@@ -1329,8 +1322,6 @@
       "title": "Transférer les ressources",
       "description": "Transférer toutes les attributions de « {title} » vers une autre intervention",
       "searchPlaceholder": "Rechercher une intervention (titre, adresse, genre) …",
-      "noResults": "Aucune intervention trouvée",
-      "tryDifferentSearch": "Essaie un autre terme de recherche",
       "noOtherIncidents": "Aucune autre intervention disponible",
       "needTwoIncidents": "Il faut au moins deux interventions",
       "vehicleCount": "{count, plural, one {# véhicule} other {# véhicules}}",
@@ -1351,9 +1342,7 @@
       "driversSection": "Conducteurs",
       "othersSection": "Autres",
       "inOperation": "En intervention",
-      "noPersonsFound": "Aucune personne trouvée",
       "noAvailablePersons": "Aucune personne disponible",
-      "tryDifferentSearch": "Essaie un autre terme de recherche",
       "allAssignedHint": "Toutes les personnes sont déjà affectées comme conducteur ou ne sont pas annoncées",
       "close": "Fermer",
       "conflictTitle": "La personne est attribuée à une intervention",
@@ -1469,7 +1458,6 @@
       "newIncident": "Nouvelle intervention",
       "searchPlaceholder": "Intervention …",
       "noActive": "Aucune intervention en cours",
-      "noHitsFor": "Aucune intervention pour « {query} ».",
       "searchScope": "Recherche dans le lieu, l’annonce, le type, les véhicules, l’équipe et le matériel.",
       "noneInFilter": "Aucune intervention au statut « {filter} ».",
       "showAll": "Tout afficher",
@@ -3846,7 +3834,6 @@
         "showDetails": "Afficher les détails"
       },
       "searchPlaceholder": "Réglage …",
-      "searchNoResults": "Aucun résultat.",
       "searchHitCount": "{count} résultats · ↵ ouvrir",
       "phoneReadOnly": "Lecture seule – les réglages se modifient sur l’ordinateur."
     },

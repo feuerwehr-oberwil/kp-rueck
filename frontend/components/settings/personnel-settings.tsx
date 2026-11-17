@@ -1,5 +1,6 @@
 'use client';
 
+import { SearchEmptyState } from "@/components/ui/empty-state"
 import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -426,7 +427,9 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
         <p className="text-xs tabular-nums text-muted-foreground">
           {t('common.listCount', { shown: visibleRows.length, total: personnel.length })}
         </p>
-        {visibleRows.length === 0 ? (
+        {visibleRows.length === 0 && personnel.length > 0 && listQuery.trim() ? (
+          <SearchEmptyState query={listQuery} onClear={() => setListQuery('')} />
+        ) : visibleRows.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
             {personnel.length === 0 ? t('personnel.empty') : t('personnel.emptyFiltered')}
           </p>
@@ -550,7 +553,9 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
               {visibleRows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                    {personnel.length === 0 ? t('personnel.empty') : t('personnel.emptyFiltered')}
+                    {personnel.length > 0 && listQuery.trim() ? (
+                      <SearchEmptyState query={listQuery} onClear={() => setListQuery('')} />
+                    ) : personnel.length === 0 ? t('personnel.empty') : t('personnel.emptyFiltered')}
                   </TableCell>
                 </TableRow>
               )}

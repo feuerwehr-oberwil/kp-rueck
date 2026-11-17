@@ -1,5 +1,6 @@
 "use client"
 
+import { EmptyState, SearchEmptyState } from "@/components/ui/empty-state"
 import { useState } from "react"
 import {
   Dialog,
@@ -12,7 +13,7 @@ import {
 import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, AlertCircle } from "lucide-react"
+import { MapPin } from "lucide-react"
 import type { Incident } from "@/lib/types/incidents"
 import { useTranslations } from "next-intl"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
@@ -167,21 +168,10 @@ export function TransferIncidentDialog({
         />
 
         <div className="flex-1 overflow-y-auto space-y-3 py-4">
-          {targetIncidents.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
-              <AlertCircle className="h-12 w-12 mb-3" />
-              {searchTerm.trim() ? (
-                <>
-                  <p>{t('transfer.noResults')}</p>
-                  <p className="text-sm">{t('transfer.tryDifferentSearch')}</p>
-                </>
-              ) : (
-                <>
-                  <p>{t('transfer.noOtherIncidents')}</p>
-                  <p className="text-sm">{t('transfer.needTwoIncidents')}</p>
-                </>
-              )}
-            </div>
+          {targetIncidents.length === 0 && searchTerm.trim() ? (
+            <SearchEmptyState query={searchTerm} onClear={() => setSearchTerm("")} />
+          ) : targetIncidents.length === 0 ? (
+            <EmptyState compact title={t('transfer.noOtherIncidents')} description={t('transfer.needTwoIncidents')} />
           ) : (
             <>
               {activeTargets.map(renderIncident)}

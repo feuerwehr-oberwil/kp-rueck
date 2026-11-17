@@ -119,7 +119,7 @@ describe("(a) a filter emptied the list", () => {
 })
 
 describe("(b) the search found nothing", () => {
-  it("says «Keine Treffer für «xyz».» and «Suche leeren» empties it and keeps the cursor", async () => {
+  it("says «Keine Treffer für «xyz»» and «Suche leeren» empties it and keeps the cursor", async () => {
     const user = userEvent.setup()
     renderDialog({ resourceType: "crew", personnel: [person("Frei Anna")] })
 
@@ -127,7 +127,7 @@ describe("(b) the search found nothing", () => {
     await user.type(field, "xyz")
 
     const empty = screen.getByRole("status")
-    expect(within(empty).getByText("Keine Treffer für «xyz».")).toBeDefined()
+    expect(within(empty).getByText("Keine Treffer für «xyz»")).toBeDefined()
     expect(empty.textContent).toContain("Gesucht wird in Name, Grad")
 
     await user.click(within(empty).getByRole("button", { name: "Suche leeren" }))
@@ -143,7 +143,7 @@ describe("(b) the search found nothing", () => {
     await user.click(screen.getByRole("button", { name: "MTW" }))
     await user.type(screen.getByPlaceholderText("Fahrzeug suchen …"), "xyz")
 
-    expect(screen.getByText("Keine Treffer für «xyz».")).toBeDefined()
+    expect(screen.getByText("Keine Treffer für «xyz»")).toBeDefined()
     expect(screen.queryByRole("button", { name: "Filter zurücksetzen" })).toBeNull()
   })
 })

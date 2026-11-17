@@ -62,7 +62,7 @@
     },
     "emptyState": {
       "noHits": "Keine Treffer",
-      "noHitsFor": "Keine Treffer für «{query}».",
+      "noHitsFor": "Keine Treffer für «{query}»",
       "clearSearch": "Suche leeren",
       "resetFilters": "Filter zurücksetzen",
       "quoted": "«{name}»"
@@ -1231,7 +1231,6 @@
       "markSearchPlaceholder": "Person suchen …",
       "markAllReko": "Alle eingecheckten Personen sind bereits als Reko markiert.",
       "markNoCheckedIn": "Niemand ist eingecheckt. Checke zuerst Personal ein.",
-      "markNoMatch": "Keine Person gefunden.",
       "markError": "Die Person konnte nicht als Reko markiert werden. Versuche es erneut.",
       "back": "Zurück",
       "assigned": "Zugewiesen",
@@ -1255,8 +1254,6 @@
       "title": "Ressourcen übertragen",
       "description": "Alle Zuweisungen von «{title}» zu einem anderen Einsatz übertragen",
       "searchPlaceholder": "Einsatz suchen (Titel, Adresse, Art) …",
-      "noResults": "Keine Einsätze gefunden",
-      "tryDifferentSearch": "Versuche einen anderen Suchbegriff",
       "noOtherIncidents": "Keine anderen Einsätze verfügbar",
       "needTwoIncidents": "Es müssen mindestens zwei Einsätze vorhanden sein",
       "vehicleCount": "{count, plural, one {# Fahrzeug} other {# Fahrzeuge}}",
@@ -1277,9 +1274,7 @@
       "driversSection": "Fahrer",
       "othersSection": "Andere",
       "inOperation": "Im Einsatz",
-      "noPersonsFound": "Keine Personen gefunden",
       "noAvailablePersons": "Keine verfügbaren Personen",
-      "tryDifferentSearch": "Versuche einen anderen Suchbegriff",
       "allAssignedHint": "Alle Personen sind bereits als Fahrer eingeteilt oder nicht eingecheckt",
       "close": "Schliessen",
       "conflictTitle": "Person ist einem Einsatz zugewiesen",
@@ -1395,7 +1390,6 @@
       "newIncident": "Neuer Einsatz",
       "searchPlaceholder": "Einsatz suchen …",
       "noActive": "Keine aktiven Einsätze",
-      "noHitsFor": "Keine Einsätze für «{query}».",
       "searchScope": "Gesucht wird in Ort, Meldung, Einsatzart, Fahrzeugen, Mannschaft und Material.",
       "noneInFilter": "Keine Einsätze mit Status «{filter}».",
       "showAll": "Alle zeigen",
@@ -2090,7 +2084,6 @@
         "showDetails": "Details anzeigen"
       },
       "searchPlaceholder": "Einstellung suchen …",
-      "searchNoResults": "Nichts gefunden.",
       "searchHitCount": "{count} Treffer · ↵ öffnen",
       "phoneReadOnly": "Nur Ansicht – Einstellungen werden am Desktop geändert."
     },
@@ -2584,7 +2577,6 @@
       "newEvent": "Neues Ereignis",
       "searchPlaceholder": "Ereignisse durchsuchen …",
       "emptyNone": "Keine Ereignisse vorhanden. Erstelle ein neues Ereignis, um zu beginnen.",
-      "emptySearch": "Keine Ereignisse gefunden.",
       "incidentCountShort": "{count, plural, one {# Einsatz} other {# Einsätze}}",
       "lastActivityRelative": "zuletzt {rel}",
       "toBoard": "Zum Board",
@@ -3050,7 +3042,6 @@
       "loading": "Wird geladen …",
       "demoTitle": "Alarmeingang ist im Demo-Modus nicht verfügbar",
       "demoDescription": "Diese Seite zeigt eingehende Alarme an – aus <b>DIVERA 24/7</b> oder über die offene Webhook-Schnittstelle. Im Demo-Modus ist keine Alarmierungs-Anbindung konfiguriert.",
-      "resetSearch": "Suche leeren",
       "trainingBadge": "ÜBUNG",
       "assigned": "Zugewiesen",
       "archived": "Archiviert",
@@ -3092,7 +3083,6 @@
       "nothingNew": "Keine neuen Alarme.",
       "emptyTitle": "Noch keine Alarme",
       "emptyDescription": "Ein Alarm aus der Alarmierung erscheint hier, sobald er eingeht.",
-      "noMatches": "Keine Treffer für «{query}».",
       "loadFailedTitle": "Alarme nicht geladen",
       "loadFailedDescription": "Der Server hat nicht geantwortet oder einen Fehler gemeldet.",
       "reload": "Erneut laden"
@@ -3429,8 +3419,7 @@
       "toc": "Inhalt",
       "loading": "Wird geladen …",
       "loadError": "# Fehler\n\nDer Hilfeinhalt konnte nicht geladen werden.",
-      "searchPlaceholder": "Hilfe durchsuchen",
-      "searchNoResults": "Keine Treffer"
+      "searchPlaceholder": "Hilfe durchsuchen"
     }
   },
   "errors": {
@@ -4244,8 +4233,6 @@
       },
       "picker": {
         "done": "Fertig ({count})",
-        "noMatch": "Keine Treffer für «{query}».",
-        "clearSearch": "Suche leeren",
         "nothingLeft": "Nichts mehr hinzuzufügen."
       }
     },

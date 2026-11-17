@@ -1,5 +1,6 @@
 "use client"
 
+import { EmptyState, SearchEmptyState } from "@/components/ui/empty-state"
 import { PersonName } from "@/components/person-name"
 import { useState, useMemo, useEffect } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -650,20 +651,11 @@ export function DriverAssignmentDialog({
                 )}
 
                 {/* Empty state */}
-                {filteredPersonnel.length === 0 && (
-                  <div className="text-center py-12">
-                    <User className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
-                    <p className="text-sm font-medium text-foreground mb-1">
-                      {searchQuery ? t('noPersonsFound') : t('noAvailablePersons')}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {searchQuery
-                        ? t('tryDifferentSearch')
-                        : t('allAssignedHint')
-                      }
-                    </p>
-                  </div>
-                )}
+                {filteredPersonnel.length === 0 && (searchQuery.trim() ? (
+                  <SearchEmptyState query={searchQuery} onClear={() => setSearchQuery("")} />
+                ) : (
+                  <EmptyState compact title={t('noAvailablePersons')} description={t('allAssignedHint')} />
+                ))}
               </div>
             </div>
 

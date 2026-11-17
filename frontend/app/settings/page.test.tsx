@@ -334,7 +334,7 @@ describe('Einstellungen › Audit — Filter gehen an den Server, die Suche nich
     expect(await screen.findByText('1 Eintrag')).toBeInTheDocument()
     await user.clear(screen.getByPlaceholderText('Einträge suchen …'))
     await user.type(screen.getByPlaceholderText('Einträge suchen …'), 'nothing-matches')
-    expect(await screen.findByText('Keine Einträge gefunden.')).toBeInTheDocument()
+    expect(await screen.findByText('Keine Treffer für «nothing-matches»')).toBeInTheDocument()
     expect(api.getAuditLogs).toHaveBeenCalledTimes(calls)
   })
 })

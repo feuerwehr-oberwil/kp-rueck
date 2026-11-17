@@ -16,6 +16,7 @@
  * its sidebar entry.
  */
 
+import { SearchEmptyState } from "@/components/ui/empty-state"
 import { useMemo, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/auth-context';
@@ -885,9 +886,7 @@ export default function SettingsPage() {
               {searchHits !== null ? (
                 <nav aria-label={t('page.searchPlaceholder')}>
                   {searchHits.length === 0 ? (
-                    <p className="px-3 py-2 text-xs text-muted-foreground">
-                      {t('page.searchNoResults')}
-                    </p>
+                    <SearchEmptyState query={search} onClear={() => setSearch('')} />
                   ) : (
                     <>
                       {searchHits.map((hit, index) => {

@@ -27,6 +27,7 @@
  *   offering the action would be a lie; hiding the name would make the operator hunt for it.
  */
 
+import { SearchEmptyState } from "@/components/ui/empty-state"
 import { PersonName } from "@/components/person-name"
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
@@ -329,6 +330,8 @@ export function AttendanceModal({
         <div className="flex justify-center py-6">
           <LoadingStatus className="text-sm">{t('loading')}</LoadingStatus>
         </div>
+      ) : visible.length === 0 && search.trim() ? (
+        <SearchEmptyState query={search} onClear={() => setSearch('')} />
       ) : visible.length === 0 ? (
         <p className="py-6 text-center text-sm text-muted-foreground">{t('noneFound')}</p>
       ) : (

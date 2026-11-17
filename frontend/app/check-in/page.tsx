@@ -1,5 +1,6 @@
 'use client'
 
+import { SearchEmptyState } from "@/components/ui/empty-state"
 import { PersonName } from "@/components/person-name"
 import { LinkPageHeader } from '@/components/link-page/link-page'
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -242,6 +243,8 @@ export default function CheckInPage() {
           <div className="flex justify-center py-8">
             <LoadingStatus>{t('loading')}</LoadingStatus>
           </div>
+        ) : filteredPersonnel.length === 0 && searchTerm.trim() ? (
+          <SearchEmptyState query={searchTerm} onClear={() => setSearchTerm('')} />
         ) : filteredPersonnel.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             {t('noneFound')}

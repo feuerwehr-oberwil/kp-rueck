@@ -1,5 +1,6 @@
 "use client"
 
+import { SearchEmptyState } from "@/components/ui/empty-state"
 import { PersonName } from "@/components/person-name"
 import { useState, useMemo } from "react"
 import { useTranslations } from "next-intl"
@@ -140,11 +141,11 @@ export function MobilePersonnelSheet({
             </div>
           ))}
 
-          {filteredPersonnel.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              {t("noResults")}
-            </div>
-          )}
+          {filteredPersonnel.length === 0 && (searchQuery.trim() ? (
+            <SearchEmptyState query={searchQuery} onClear={() => setSearchQuery("")} />
+          ) : (
+            <p className="py-8 text-center text-sm text-muted-foreground">{t("noResults")}</p>
+          ))}
         </div>
       </SheetContent>
     </Sheet>

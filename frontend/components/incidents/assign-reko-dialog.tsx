@@ -1,5 +1,6 @@
 "use client"
 
+import { SearchEmptyState } from "@/components/ui/empty-state"
 import { PersonName } from "@/components/person-name"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -58,13 +59,11 @@ export function MarkExistingRekoPersonnel({
         onValueChange={setSearch}
         placeholder={t('markSearchPlaceholder')}
       />
-      {candidates.length === 0 ? (
+      {candidates.length === 0 && search.trim() ? (
+        <SearchEmptyState query={search} onClear={() => setSearch("")} />
+      ) : candidates.length === 0 ? (
         <div className="flex flex-1 items-center justify-center px-4 text-center text-xs text-muted-foreground">
-          {search.trim()
-            ? t('markNoMatch')
-            : personnel.length === 0
-              ? t('markNoCheckedIn')
-              : t('markAllReko')}
+          {personnel.length === 0 ? t('markNoCheckedIn') : t('markAllReko')}
         </div>
       ) : (
         <ScrollArea className="flex-1 min-h-0 pr-2">
