@@ -103,7 +103,6 @@ export function VehicleDriverPrompt() {
       }
       confirmText={t('driverlessRemove')}
       cancelText={t('driverlessKeep')}
-      variant="destructive"
       onConfirm={async () => {
         if (driverless.groupId) {
           const assignment = route?.assignments.find(

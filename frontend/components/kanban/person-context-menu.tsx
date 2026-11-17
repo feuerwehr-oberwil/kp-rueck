@@ -380,7 +380,6 @@ export function PersonContextMenu({
         }
         cancelText={t('common.cancel')}
         confirmText={t('personMenu.unassignConfirm')}
-        variant="destructive"
         onConfirm={() => unassignFunction(unassignDialog.functionType, unassignDialog.vehicleId)}
         // Removing the Reko role from someone who still holds incidents used to
         // just orphan them — the incidents kept a Reko that no longer existed,

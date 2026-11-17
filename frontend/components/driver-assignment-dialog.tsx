@@ -736,7 +736,6 @@ export function DriverAssignmentDialog({
         })}
         cancelText={tCommon('cancel')}
         confirmText={t('removeConfirmAction')}
-        variant="destructive"
         onConfirm={handleRemoveDriver}
       />
     </>

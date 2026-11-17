@@ -664,7 +664,6 @@ export function UserSettings() {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        variant="destructive"
         title={t('users.deactivateTitle')}
         description={t('users.deactivateDescription', { name: selectedUser?.display_name || selectedUser?.username || '' })}
         cancelText={t('common.cancel')}
