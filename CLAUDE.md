@@ -304,6 +304,16 @@ runtime `API_URL`. Same reasoning for map tiles (`getTileBaseUrl` → `/tiles`).
   `focusFirstBlockingField`); amber `advice` is a polite status and never blocks. No toast for a
   field problem, and no submit button greyed out without a word. `DetailField` takes `error` /
   `advice` and renders it with the id `formMessageId(htmlFor)`.
+- **Questions = `ConfirmDialog`** (`components/ui/confirm-dialog.tsx`): Abbrechen + the main
+  answer in the footer row; a third «… stattdessen» answer (`extraAction`) is a full-width line
+  of its own ABOVE that row (`AlternativeAnswer`), never a ghost button beside Abbrechen. A gate
+  whose Abbrechen is an undo passes `onCancel` (the caller closes it) instead of `onOpenChange`,
+  so a confirm can never count as a cancel.
+- **Pick a person = `PersonPickTile`** (`components/kanban/assignment-list-section.tsx`) in a
+  `PickerDialog` (`components/ui/picker-dialog.tsx`: dialog on a desk, bottom sheet on a
+  phone): tick box, `PersonName`, the one rank · where · roles line; chosen = slate wash, the
+  current holder «aktuell». A tap ticks, «Übernehmen» applies; nothing ticked is said above
+  the list. Driver, Reko zuweisen/übertragen, Reko-Modus and the assignment dialog's crew.
 - **Empty lists** (`components/ui/empty-state.tsx`): say WHY and offer the one way out – search
   (`SearchEmptyState`: «Keine Treffer für «q»» + «Suche leeren», under every `SearchInput`),
   filter (name it + «Filter zurücksetzen», which keeps the search and every tick), truly nothing
