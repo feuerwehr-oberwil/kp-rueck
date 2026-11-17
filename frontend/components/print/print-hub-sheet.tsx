@@ -1,5 +1,6 @@
 "use client"
 
+import { driversFromSpecialFunctions, type VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 import {
   SheetHeader,
@@ -142,7 +143,7 @@ export function PrintHubSheet({
   })
 
   const [vehicles, setVehicles] = useState<ApiVehicle[]>([])
-  const [vehicleDrivers, setVehicleDrivers] = useState<Map<string, string>>(new Map())
+  const [vehicleDrivers, setVehicleDrivers] = useState<VehicleDrivers>(new Map())
   /** personnel id → «Fahrer TLF 1 · Reko», for the Personal list on the printout. */
   const [eventFunctions, setEventFunctions] = useState<Map<string, string>>(new Map())
   const [attendance, setAttendance] = useState<ApiPersonnelListItem[]>([])
@@ -194,12 +195,7 @@ export function PrintHubSheet({
         const vehicleIdToName = new Map<string, string>()
         vehiclesList.forEach((v) => vehicleIdToName.set(v.id, v.name))
 
-        // vehicle id → driver name
-        const driverMap = new Map<string, string>()
-        for (const f of specialFunctions) {
-          if (f.function_type === "driver" && f.vehicle_id) driverMap.set(f.vehicle_id, f.personnel_name)
-        }
-        setVehicleDrivers(driverMap)
+        setVehicleDrivers(driversFromSpecialFunctions(specialFunctions))
 
         // The same rows, read the other way round: what each PERSON holds here.
         // A driver's vehicle is named, because «Fahrer» without it is the one

@@ -1,5 +1,6 @@
 "use client"
 
+import type { VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import type { MoveTo } from "@/lib/move-in-list"
 import { IncidentNumber } from "@/components/ui/incident-number"
 import { useEffect, useRef, useState, memo } from "react"
@@ -107,7 +108,7 @@ interface DraggableOperationProps {
   printerEnabled?: boolean
   /** Vehicle id → driver, as the detail panel shows it. Threaded in from the
    *  board rather than fetched here: one roster call, not one per card. */
-  vehicleDrivers?: ReadonlyMap<string, string>
+  vehicleDrivers?: VehicleDrivers
   /** Personnel ids of crew members currently assigned to >1 incident — surface conflict styling. */
   doubleBookedCrewIds?: Set<string>
   /** False for viewers: don't register the drag source at all — a drag whose

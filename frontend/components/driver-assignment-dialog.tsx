@@ -1,5 +1,6 @@
 "use client"
 
+import { PersonName } from "@/components/person-name"
 import { useState, useMemo, useEffect } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { SearchInput } from "@/components/ui/search-input"
@@ -542,7 +543,7 @@ export function DriverAssignmentDialog({
                               <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                             )}
                             <div>
-                              <p className="font-medium text-sm">{person.name}</p>
+                              <p className="font-medium text-sm"><PersonName name={person.name} personnelId={person.id} /></p>
                               {person.role && (
                                 <p className="text-xs text-muted-foreground">{person.role}</p>
                               )}
@@ -604,7 +605,7 @@ export function DriverAssignmentDialog({
                                 <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                               )}
                               <div>
-                                <p className="font-medium text-sm">{person.name}</p>
+                                <p className="font-medium text-sm"><PersonName name={person.name} personnelId={person.id} /></p>
                                 {person.role && (
                                   <p className="text-xs text-muted-foreground">{person.role}</p>
                                 )}

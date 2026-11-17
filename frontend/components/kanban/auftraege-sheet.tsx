@@ -75,7 +75,7 @@ import { useIsMobile } from "@/components/ui/use-mobile"
 import { useFooterOffset } from "@/components/ui/footer-sheet"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
-import { useVehicleDriverState } from "@/lib/hooks/use-vehicle-drivers"
+import { useVehicleDriverState, type VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { useOperations, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
@@ -511,7 +511,7 @@ interface AuftragCardProps {
   operations: Operation[]
   resources: GroupResources
   /** vehicle id → driver name, for the Fahrzeuge chips. */
-  vehicleDrivers: ReadonlyMap<string, string>
+  vehicleDrivers: VehicleDrivers
   /** False until the driver map has answered — no «Kein Fahrer» before that. */
   vehicleDriversLoaded?: boolean
   expanded: boolean

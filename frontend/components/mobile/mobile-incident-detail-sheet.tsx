@@ -9,6 +9,7 @@
  * What a phone may still write is intake: «Neuer Einsatz», Übungs-Einsätze, the Appell.
  */
 
+import { vehicleLabel } from "@/lib/vehicle-label"
 import Link from "next/link"
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
@@ -218,7 +219,7 @@ export function MobileIncidentDetailSheet({
                     </RemovableChip>
                   )}
                   {operation.vehicles.map(({ vehicleId, name: vehicleName, callsign, driverStay }) => {
-                    const driverName = vehicleDrivers.get(vehicleId)
+                    const driver = vehicleDrivers.get(vehicleId)
                     return (
                       <div key={vehicleId} className="flex max-w-full flex-col items-start gap-1.5">
                         <RemovableChip
@@ -227,9 +228,11 @@ export function MobileIncidentDetailSheet({
                           title={callsign ? tKanban('common.funkrufname', { callsign }) : undefined}
                         >
                           <span>
-                            {vehicleName}{callsign ? ` · ${callsign}` : ''}
-                            {driverName && (
-                              <span className="text-muted-foreground"> ({driverName})</span>
+                            {vehicleLabel({ name: vehicleName, callsign })}
+                            {driver && (
+                              <span className="text-muted-foreground">
+                                {" "}(<PersonName name={driver.name} personnelId={driver.personnelId} />)
+                              </span>
                             )}
                           </span>
                         </RemovableChip>

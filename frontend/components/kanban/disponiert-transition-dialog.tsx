@@ -20,7 +20,7 @@ import { apiClient } from "@/lib/api-client"
 import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
-import { useVehicleDriverState } from "@/lib/hooks/use-vehicle-drivers"
+import { useVehicleDriverState, type VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { auftragRadio, routeDeployment, stopAddress } from "@/lib/auftrag-radio"
 import { deploymentSegments, incidentAnnouncement, stopSpecial } from "@/lib/radio-announcement"
 import { findAuftragForStop } from "@/lib/kanban-utils"
@@ -40,7 +40,7 @@ interface DisponiertTransitionDialogProps {
   operation: Operation | null
   materials: Material[]
   printerEnabled?: boolean
-  vehicleDrivers?: Map<string, string>
+  vehicleDrivers?: VehicleDrivers
   funkrufname?: string
   diveraEnabled?: boolean
   onSendDivera?: (operation: Operation) => void

@@ -327,7 +327,6 @@
       "columnAlarmTitle": "{count} en retard : {titles}",
       "columnAlarmMore": "… et {count} autres",
       "columnAgedChip": "{count} ≥ {threshold}",
-      "priorityAria": "Priorité : {label}",
       "materialCount": "{count, plural, one {# engin} other {# engins}}",
       "nachbarhilfe": "Entraide",
       "amWarten": "En attente",
@@ -340,7 +339,6 @@
       "crewHeading": "Effectif ({count})",
       "noCrew": "Aucun effectif attribué",
       "vehiclesHeading": "Véhicules ({count})",
-      "driver": "· conducteur : {name}",
       "driverStays": "reste sur place",
       "driverReturns": "rentre à la caserne",
       "noVehicles": "Aucun véhicule attribué",
@@ -1457,8 +1455,7 @@
       "meldung": "Annonce",
       "crew": "Effectif",
       "vehicles": "Véhicules",
-      "reko": "Reconnaissance",
-      "driver": "Conducteur : {name}"
+      "reko": "Reconnaissance"
     },
     "mobileDetail": {
       "rekoBadge": "Reco",

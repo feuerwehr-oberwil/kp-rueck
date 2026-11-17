@@ -736,6 +736,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
             assignmentId: a.id,
             resourceId: a.resourceId,
             name: v?.name?.trim() || unknown,
+            callsign: v?.radio_call_sign?.trim() || null,
             driverStay: a.driverStay,
           })
         } else if (a.resourceType === "personnel") {

@@ -23,6 +23,7 @@
  * palette («Dienstzeiten») and the phone's Personal sheet.
  */
 
+import { PersonName } from "@/components/person-name"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import { ArrowDown, ArrowUp, Clock, Filter } from "lucide-react"
@@ -423,7 +424,7 @@ function CrewDutyRow({
         .join(", ")}
     >
       <span className="flex min-w-0 items-baseline gap-1.5">
-        <span className="truncate font-medium" title={person.name}>{person.name}</span>
+        <span className="truncate font-medium" title={person.name}><PersonName name={person.name} personnelId={person.id} /></span>
         {person.role && (
           <span className="shrink-0 text-xs text-muted-foreground" title={person.role}>
             {abbreviateRank(person.role)}

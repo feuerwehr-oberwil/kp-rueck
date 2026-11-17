@@ -40,6 +40,8 @@
  * They belong in the detail dialog, where somebody is already looking.
  */
 
+import { vehicleLabel } from "@/lib/vehicle-label"
+import type { VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { IncidentNumber } from "@/components/ui/incident-number"
 import { useTranslations } from "next-intl"
 import {
@@ -177,7 +179,7 @@ export interface DisplayIncidentCardProps {
    *  `materialOnSite` map without copying it into a Set. */
   materialOnSite?: { has(materialId: string): boolean }
   /** Vehicle id → driver, loaded once per board rather than per card. */
-  vehicleDrivers?: ReadonlyMap<string, string>
+  vehicleDrivers?: VehicleDrivers
   /** Personnel ids assigned to more than one incident — the card's conflict styling. */
   doubleBookedCrewIds?: ReadonlySet<string>
   /** The Auftrag this stop belongs to, resolved by the caller (the token board
@@ -447,7 +449,13 @@ export function DisplayIncidentCard({
                     variant="secondary"
                     className={WALL_CHIP}
                   >
-                    <span className={CHIP_TEXT}>{operation.assignedReko.name.trim() || t("common.unknownResource")}</span>
+                    <span className={CHIP_TEXT}>
+                      <PersonName
+                        name={operation.assignedReko.name}
+                        personnelId={operation.assignedReko.id}
+                        display={operation.assignedReko.name.trim() || t("common.unknownResource")}
+                      />
+                    </span>
                   </RemovableChip>
                   {operation.rekoArrivedAt && !operation.hasCompletedReko && (
                     <span className="text-muted-foreground">
@@ -497,7 +505,7 @@ export function DisplayIncidentCard({
                     </RemovableChip>
                   )}
                   {operation.vehicles.map(({ vehicleId, name: vehicleName, callsign, driverStay }) => {
-                    const driverName = vehicleDrivers?.get(vehicleId)
+                    const driver = vehicleDrivers?.get(vehicleId)
                     return (
                       <RemovableChip
                         key={vehicleId}
@@ -512,10 +520,12 @@ export function DisplayIncidentCard({
                             «Müller H…» behind. 6px between them (`gap-x-1.5`):
                             at 4px «Omega 1(Müller Hans)» read as one word. */}
                         <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 py-px">
-                          <span className={CHIP_TEXT}>
-                            {vehicleName}{callsign ? ` · ${callsign}` : ""}
-                          </span>
-                          {driverName && <span className={cn(CHIP_TEXT, "text-muted-foreground")}>({driverName})</span>}
+                          <span className={CHIP_TEXT}>{vehicleLabel({ name: vehicleName, callsign })}</span>
+                          {driver && (
+                            <span className={cn(CHIP_TEXT, "text-muted-foreground")}>
+                              (<PersonName name={driver.name} personnelId={driver.personnelId} />)
+                            </span>
+                          )}
                           {/* The state, in full, on a screen that is only ever
                               read — and read from across the room. The click was
                               already gone; the two 12px glyphs that stood for it
@@ -644,7 +654,9 @@ export function DisplayIncidentCard({
                       className={WALL_CHIP}
                     >
                       <LeaderBadge isLeader={Boolean(p.isLeader)} />
-                      <span className={CHIP_TEXT}>{p.name.trim() || t("common.unknownResource")}</span>
+                      <span className={CHIP_TEXT}>
+                        <PersonName name={p.name} personnelId={p.resourceId} display={p.name.trim() || t("common.unknownResource")} />
+                      </span>
                     </RemovableChip>
                   ))}
                 </div>

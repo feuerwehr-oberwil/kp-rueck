@@ -19,10 +19,13 @@
  * `ResourceSourceBlock` below.
  */
 
+import type { VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { Fragment, type ComponentType, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { AlertTriangle, Users, Truck, Package, Plus, UserMinus } from "lucide-react"
 import { RemovableChip } from "@/components/ui/removable-chip"
+import { PersonName, usePersonNaming } from "@/components/person-name"
+import { vehicleLabel } from "@/lib/vehicle-label"
 import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
 import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
 import { sortCrewByLeader } from "@/lib/crew-order"
@@ -323,7 +326,7 @@ interface RouteResourceSectionsProps {
    *  wheel. Passed in rather than fetched here: this component stays
    *  presentational, and every caller already holds the live map from
    *  `useVehicleDrivers`. */
-  vehicleDrivers?: ReadonlyMap<string, string>
+  vehicleDrivers?: VehicleDrivers
   readOnly?: boolean
   /** Promote a route-owned person to Einsatzleiter. A stop owns no resources,
    *  so for a grouped incident this is where the leader is set — one squad on
@@ -339,6 +342,7 @@ interface RouteResourceSectionsProps {
 }
 
 export function RouteResourceSections({ resources, onAssign, onUnassign, vehicleDrivers, readOnly = false, onPromoteLeader, onPickDriver, driversKnown }: RouteResourceSectionsProps) {
+  const naming = usePersonNaming()
   const knowsDrivers = driversKnown ?? Boolean(vehicleDrivers)
   const t = useTranslations("kanban")
   // The leader slot only where it can hold something (see `CrewChipSlot`).
@@ -374,7 +378,7 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
               removeTitle={t("common.removeNamed", { name: p.name })}
               removeButtonClassName="ml-1"
               // Touch: the same two actions the mouse has (EL stub, ✕), as rows.
-              menuTitle={p.name}
+              menuTitle={naming.inline({ name: p.name, personnelId: p.resourceId })}
               menuSubtitle={<PersonMenuSubtitle personnelId={p.resourceId} isLeader={Boolean(p.isLeader)} />}
               menuActions={
                 !readOnly && onPromoteLeader && !p.isLeader
@@ -384,7 +388,7 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
               removeLabel={t("chipMenu.removeFromAuftrag")}
               removeIcon={UserMinus}
             >
-              {p.name}
+              <PersonName name={p.name} personnelId={p.resourceId} />
             </RemovableChip>
           </CrewChipSlot>
         ))}
@@ -400,14 +404,15 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
         emptyLabel={t("detail.resourceEmpty")}
       >
         {resources.vehicles.map((v) => {
-          // «TLF 1 (M. Muster)» — the same chip wording the incident detail
-          // uses for a standalone Einsatz, so a route reads the same way.
-          const driverName = vehicleDrivers?.get(v.resourceId)
+          // «TLF 1 · Omega 1 (Muster Hans)» — the same chip wording the
+          // incident detail uses for a standalone Einsatz, so a route reads the
+          // same way.
+          const driver = vehicleDrivers?.get(v.resourceId)
           // Nobody driving it: an amber reminder, not a block (a driver is
           // sometimes named a minute later) — and fixing it is one tap from
           // here. Only when the caller passed the driver map: without it «no
           // driver» and «not known» would look the same.
-          const driverless = knowsDrivers && !driverName
+          const driverless = knowsDrivers && !driver
           return (
             <Fragment key={v.assignmentId}>
             <RemovableChip
@@ -416,11 +421,17 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
               onRemove={!readOnly ? () => onUnassign(v.assignmentId) : undefined}
               removeTitle={t("common.removeNamed", { name: v.name })}
               removeButtonClassName="ml-1"
+              title={v.callsign ? t("common.funkrufname", { callsign: v.callsign }) : undefined}
               menuTitle={v.name}
-              menuSubtitle={driverName}
+              menuSubtitle={[v.callsign, driver && naming.inline(driver)].filter(Boolean).join(" · ") || undefined}
               removeLabel={t("chipMenu.removeFromAuftrag")}
             >
-              {v.name}{driverName ? ` (${driverName})` : ""}
+              {vehicleLabel(v)}
+              {driver && (
+                <span className="text-muted-foreground">
+                  {" "}(<PersonName name={driver.name} personnelId={driver.personnelId} />)
+                </span>
+              )}
             </RemovableChip>
             {driverless &&
               (!readOnly && onPickDriver ? (

@@ -1390,8 +1390,7 @@
       "meldung": "Meldung",
       "crew": "Mannschaft",
       "vehicles": "Fahrzeuge",
-      "reko": "Reko",
-      "driver": "Fahrer: {name}"
+      "reko": "Reko"
     },
     "mobileDetail": {
       "rekoBadge": "Reko",
@@ -3839,7 +3838,6 @@
       "columnAlarmTitle": "{count} überfällig: {titles}",
       "columnAlarmMore": "… und {count} weitere",
       "columnAgedChip": "{count} ≥ {threshold}",
-      "priorityAria": "Priorität: {label}",
       "materialCount": "{count, plural, one {# Gerät} other {# Geräte}}",
       "nachbarhilfe": "Nachbarhilfe",
       "amWarten": "Am Warten",
@@ -3852,7 +3850,6 @@
       "crewHeading": "Mannschaft ({count})",
       "noCrew": "Keine Mannschaft zugewiesen",
       "vehiclesHeading": "Fahrzeuge ({count})",
-      "driver": "· Fahrer: {name}",
       "driverStays": "bleibt vor Ort",
       "driverReturns": "fährt zurück",
       "noVehicles": "Keine Fahrzeuge zugewiesen",

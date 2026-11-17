@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import type { VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers";
 import { act, renderHook, waitFor } from "@testing-library/react";
 
 import type { Material, Operation } from "@/lib/contexts/operations-context";
@@ -66,7 +67,7 @@ const baseOp = (overrides: Partial<Operation> = {}): Operation =>
   }) as Operation;
 
 const materials: Material[] = [];
-const vehicleDrivers = new Map<string, string>();
+const vehicleDrivers: VehicleDrivers = new Map();
 
 beforeEach(() => {
   getIncidentRekoReports.mockReset();

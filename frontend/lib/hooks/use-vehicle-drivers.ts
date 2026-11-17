@@ -4,9 +4,31 @@ import { useCallback, useEffect, useState } from "react"
 import { apiClient } from "@/lib/api-client"
 import { wsClient } from "@/lib/websocket-client"
 import { useOperations } from "@/lib/contexts/operations-context"
+import type { ApiEventSpecialFunctionResponse } from "@/lib/api/types/events"
+
+/** A vehicle's driver. The id is there so `PersonName` / `usePersonNaming` can
+ *  add the namesake Kennung – a driver is named on the radio like anybody else. */
+export interface VehicleDriver {
+  name: string
+  personnelId: string
+}
+
+/** vehicle id → its driver, as every surface that names drivers receives it. */
+export type VehicleDrivers = ReadonlyMap<string, VehicleDriver>
+
+/** The event's special-function rows read as vehicle id → driver. */
+export function driversFromSpecialFunctions(rows: readonly ApiEventSpecialFunctionResponse[]): Map<string, VehicleDriver> {
+  const drivers = new Map<string, VehicleDriver>()
+  for (const f of rows) {
+    if (f.function_type === "driver" && f.vehicle_id) {
+      drivers.set(f.vehicle_id, { name: f.personnel_name, personnelId: f.personnel_id })
+    }
+  }
+  return drivers
+}
 
 /**
- * Returns a live map of vehicle id → driver name for the given event. Keyed by
+ * Returns a live map of vehicle id → driver (name + personnel id) for the given event. Keyed by
  * id, never by name: two vehicles may share a name.
  *
  * Subscribes to `special_function_update` WebSocket events (cross-tab) and the
@@ -29,18 +51,13 @@ export function useVehicleDriverState(eventId: string | null | undefined, enable
   // Whether the fleet has arrived with the board sync — «Kein Fahrer» on a
   // vehicle the board does not know yet would be a guess.
   const { isLoaded: fleetLoaded } = useOperations()
-  const [driversByVehicleId, setDriversByVehicleId] = useState<Map<string, string>>(new Map())
+  const [driversByVehicleId, setDriversByVehicleId] = useState<VehicleDrivers>(new Map())
   const [loadedFor, setLoadedFor] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!enabled || !eventId) return
     try {
-      const specialFunctions = await apiClient.getEventSpecialFunctions(eventId)
-      const next = new Map<string, string>()
-      for (const f of specialFunctions) {
-        if (f.function_type === "driver" && f.vehicle_id) next.set(f.vehicle_id, f.personnel_name)
-      }
-      setDriversByVehicleId(next)
+      setDriversByVehicleId(driversFromSpecialFunctions(await apiClient.getEventSpecialFunctions(eventId)))
       setLoadedFor(eventId)
     } catch (error) {
       console.error("Failed to load vehicle drivers:", error)

@@ -1,5 +1,6 @@
 "use client"
 
+import type { VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import type { MoveTo } from "@/lib/move-in-list"
 import { useEffect, useRef, useState, memo } from "react"
 import { useTranslations } from "next-intl"
@@ -78,7 +79,7 @@ interface DroppableColumnProps {
   printerEnabled?: boolean
   /** Vehicle id → driver, loaded ONCE on the board and threaded down. Per-card
    *  it would be one roster fetch per card. */
-  vehicleDrivers?: ReadonlyMap<string, string>
+  vehicleDrivers?: VehicleDrivers
   doubleBookedCrewIds?: Set<string>
   /** False for viewers: cards render without a drag source (read-only board). */
   canDrag?: boolean

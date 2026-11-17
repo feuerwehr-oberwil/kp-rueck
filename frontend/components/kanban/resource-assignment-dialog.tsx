@@ -1094,14 +1094,14 @@ export function ResourceAssignmentDialog({
                 "flex items-start gap-1 truncate",
                 driver ? "text-xs text-muted-foreground" : cn(TILE_META, "text-amber-700 dark:text-amber-400"),
               )}
-              title={driver ? t('assignmentDialog.vehicleDriver', { name: driver }) : undefined}
+              title={driver ? t('assignmentDialog.vehicleDriver', { name: naming.inline(driver) }) : undefined}
             >
               {/* Same amber triangle as the Auftrag's «Kein Fahrer» note — not
                   colour alone. Picking it anyway opens the driver prompt right
                   after (incident: performVehicleAssign, Auftrag: promptIfDriverless). */}
               {!driver && <AlertTriangle className={TILE_META_ICON} aria-hidden />}
               {driver
-                ? t('assignmentDialog.vehicleDriver', { name: driver })
+                ? t('assignmentDialog.vehicleDriver', { name: naming.inline(driver) })
                 : t('assignmentDialog.vehicleNoDriver')}
             </p>
           </div>

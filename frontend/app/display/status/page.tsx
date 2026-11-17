@@ -295,7 +295,7 @@ function SituationBoard({
       v.name.toLowerCase().includes(needle)
       || (v.type ?? "").toLowerCase().includes(needle)
       // A vehicle is often looked up by who is driving it.
-      || (v.driverName ?? "").toLowerCase().includes(needle))),
+      || (v.driver?.name ?? "").toLowerCase().includes(needle))),
     [allVehicles, needle],
   )
   // vehicle → the Auftrag it is out on, so the wall tells the same story as the
@@ -742,7 +742,6 @@ function SituationBoard({
         operation={selectedOperation}
         open={!!selectedOperation}
         onOpenChange={(open) => { if (!open) setSelectedOperationId(null) }}
-        personnelOverride={personnel}
         materialsOverride={materials}
         groupsOverride={detailGroups}
         viewerToken={viewerToken}
@@ -822,7 +821,11 @@ function VehicleRow({ vehicle: v, auftrag, onClick }: { vehicle: VehicleWithStat
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-baseline gap-x-2">
           <span className={cn(WALL_NAME, isOutOfService && "text-muted-foreground")}>{v.name}</span>
-          {v.driverName && <span className={cn("min-w-0 text-xs xl:text-sm text-muted-foreground", WALL_TEXT_WRAP)}>{v.driverName}</span>}
+          {v.driver && (
+            <span className={cn("min-w-0 text-xs xl:text-sm text-muted-foreground", WALL_TEXT_WRAP)}>
+              (<PersonName name={v.driver.name} personnelId={v.driver.personnelId} />)
+            </span>
+          )}
         </div>
         {/* Where it is. An Auftrag wins over the single stop's address — the same
             answer the Fahrzeugstatus-Sheet gives — and its dot carries the route's

@@ -1,5 +1,6 @@
 'use client'
 
+import { PersonName } from "@/components/person-name"
 import { LinkPageHeader } from '@/components/link-page/link-page'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -277,7 +278,9 @@ export default function CheckInPage() {
                   Beside it on a 393px row the pill kept its width and «Bendik-Dimitrijević
                   Alexandra» broke over three lines (phone sweep 14.11.2026). */}
               <div className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <div className="min-w-0 break-words font-semibold text-lg">{person.name}</div>
+                <div className="min-w-0 break-words font-semibold text-lg">
+                  <PersonName name={person.name} personnelId={person.id} kennung={person.kennung} />
+                </div>
                 <div className="flex shrink-0 whitespace-nowrap">
                   {person.is_assigned ? (
                     <span className="bg-foreground/10 text-foreground px-3 py-1 rounded-full text-sm font-semibold">

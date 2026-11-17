@@ -11,7 +11,10 @@
  * place for editing; this card answers the questions.
  */
 
-import { memo } from "react"
+import { vehicleLabel } from "@/lib/vehicle-label"
+import { PersonName } from "@/components/person-name"
+import type { VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
+import { Fragment, memo } from "react"
 import { useTranslations } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -37,7 +40,7 @@ interface MobileIncidentCardProps {
   formatLocation: (address: string) => string
   /** Live vehicle id → driver name map — the LIST fetches it once
    *  (`useVehicleDrivers`) rather than every card asking the API itself. */
-  vehicleDrivers?: Map<string, string>
+  vehicleDrivers?: VehicleDrivers
 }
 
 /** `label | value` line of the card's fact block — same reading the incident
@@ -127,7 +130,9 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
             <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
               <LeaderGlyph />
               <span className="sr-only">{tLeader("is")}:</span>
-              <span className="min-w-0 break-words">{operation.leaderName}</span>
+              <span className="min-w-0 break-words">
+                <PersonName name={operation.leaderName} personnelId={operation.leaderId ?? undefined} />
+              </span>
             </p>
           )}
 
@@ -226,20 +231,27 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
           )}
           {operation.crew.length > 0 && (
             <FactRow label={tMobile("crew")}>
-              <p className="line-clamp-2">{operation.crew.map((m) => m.name).join(", ")}</p>
+              <p className="line-clamp-2">
+                {operation.crew.map((m, i) => (
+                  <Fragment key={m.personnelId}>
+                    {i > 0 && ", "}
+                    <PersonName name={m.name} personnelId={m.personnelId} />
+                  </Fragment>
+                ))}
+              </p>
             </FactRow>
           )}
           {operation.vehicles.length > 0 && (
             <FactRow label={tMobile("vehicles")}>
               <div className="space-y-0.5">
-                {operation.vehicles.map(({ vehicleId, name: vehicleName, driverStay }) => {
+                {operation.vehicles.map(({ vehicleId, name: vehicleName, callsign, driverStay }) => {
                   const driver = vehicleDrivers?.get(vehicleId)
                   return (
                     <div key={vehicleId} className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                      <span className="font-medium">{vehicleName}</span>
+                      <span className="font-medium">{vehicleLabel({ name: vehicleName, callsign })}</span>
                       {driver && (
                         <span className="text-muted-foreground">
-                          · {tMobile("driver", { name: driver })}
+                          (<PersonName name={driver.name} personnelId={driver.personnelId} />)
                         </span>
                       )}
                       <DriverStayGlyph stays={driverStay} />

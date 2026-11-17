@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
+import type { VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
@@ -37,7 +38,7 @@ const op = (id: string, status: string, location: string, extra: Record<string, 
 const state = vi.hoisted(() => ({
   groups: [] as unknown[],
   operations: [] as unknown[],
-  vehicleDrivers: new Map<string, string>(),
+  vehicleDrivers: new Map() as VehicleDrivers,
 }))
 
 const createGroup = vi.hoisted(() => vi.fn())
@@ -245,7 +246,7 @@ describe("AuftraegeSheet — Ressourcen (route-owned)", () => {
 
   it("names the driver on a route's Fahrzeug chip", async () => {
     state.groups = [grp({ stopIds: [] })]
-    state.vehicleDrivers = new Map([["v1", "Muster Hans"]])
+    state.vehicleDrivers = new Map([["v1", { name: "Muster Hans", personnelId: "p-muster" }]])
     getGroupResources.mockReturnValue({
       vehicles: [{ assignmentId: "va", resourceId: "v1", name: "TLF 1", driverStay: false }],
       personnel: [],
@@ -256,7 +257,7 @@ describe("AuftraegeSheet — Ressourcen (route-owned)", () => {
 
     await user.click(screen.getByRole("button", { name: "Auftrag auf-/zuklappen" }))
 
-    expect(await screen.findByText("TLF 1 (Muster Hans)")).toBeInTheDocument()
+    expect((await screen.findByText("(Muster Hans)")).parentElement).toHaveTextContent("TLF 1 (Muster Hans)")
   })
 
   it("brings the whole card into view when it is opened, not just its header", async () => {

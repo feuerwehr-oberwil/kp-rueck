@@ -1,5 +1,6 @@
 "use client"
 
+import { vehicleLabel } from "@/lib/vehicle-label"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import {
@@ -343,7 +344,7 @@ export function useIncidentStatusWorkflow({
     const release: CompletionRelease = {
       operationId: operation.id,
       crew: operation.crew.map(personInline),
-      vehicles: operation.vehicles.map(({ name, callsign }) => (callsign ? `${name} · ${callsign}` : name)),
+      vehicles: operation.vehicles.map(vehicleLabel),
     }
 
     // «Vor Ort oder ins Magazin?» has two answers, and mid-route both are
