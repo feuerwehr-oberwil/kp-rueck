@@ -77,7 +77,7 @@ export interface ApiFeldVehicleLine {
   /** The board's driver-stay flag: does it park here, or drive back once the
    *  crew is dropped off? **null when nobody can answer** — a route-level
    *  vehicle has no toggle, so the column behind it is a copy no operator can
-   *  correct. Absent means absent, never «fährt zurück». */
+   *  correct. Absent means absent, never «kehrt zurück». */
   stays?: boolean | null
   /** True when the vehicle belongs to the **Auftrag** rather than to this one
    *  Schadenplatz — an Auftrag's resources are shared across all of its stops,
