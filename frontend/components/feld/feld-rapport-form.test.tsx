@@ -529,7 +529,7 @@ describe('the Abschluss question (UX-PHONE-05)', () => {
     const box = screen.getByPlaceholderText('Lage, Tätigkeit, Material')
     await vi.waitFor(() => expect(box).toHaveFocus())
     expect(box).toBeVisible()
-    expect(box.closest('section')).toHaveClass('feld-jump-ring')
+    expect(box.closest('section')).toHaveClass('this-one-ring')
     // Going there is not going ahead.
     expect(save).not.toHaveBeenCalled()
   })
@@ -545,7 +545,7 @@ describe('the Abschluss question (UX-PHONE-05)', () => {
 
     // Not «Material hinzufügen», the picker button inside the section.
     const header = screen.getByRole('button', { name: /^Material(?! hinzufügen)/ })
-    await vi.waitFor(() => expect(header.closest('section')).toHaveClass('feld-jump-ring'))
+    await vi.waitFor(() => expect(header.closest('section')).toHaveClass('this-one-ring'))
     expect(header).toHaveAttribute('aria-expanded', 'true')
     expect(header.closest('section')?.contains(document.activeElement)).toBe(false)
   })

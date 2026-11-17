@@ -126,7 +126,7 @@ function SearchHitEvidence({ text, matchStart, matchEnd }: { text: string; match
     <span className="block truncate pl-5 text-xs">
       {from > 0 ? '…' : ''}
       {text.slice(from, matchStart)}
-      <mark className="rounded-[2px] bg-warning/25 text-inherit">{text.slice(matchStart, matchEnd)}</mark>
+      <mark className="rounded-[2px] bg-sel-wash text-inherit">{text.slice(matchStart, matchEnd)}</mark>
       {text.slice(matchEnd)}
     </span>
   );
@@ -454,8 +454,10 @@ export default function SettingsPage() {
       if (!found) return;
       const row = (found.closest('[data-slot="setting-row"]') ?? found) as HTMLElement;
       row.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      row.classList.add('settings-search-flash');
-      window.setTimeout(() => row.classList.remove('settings-search-flash'), 2600);
+      // The shared «this one» ring (globals.css), inside the row: the settings scroller would
+      // clip a ring drawn outside it.
+      row.classList.add('this-one-ring', 'this-one-ring-inset');
+      window.setTimeout(() => row.classList.remove('this-one-ring', 'this-one-ring-inset'), 2600);
     }, 160);
   };
 
@@ -966,7 +968,7 @@ export default function SettingsPage() {
                         const isActive = activeSection === section.id;
                         const label = t(`page.sections.${section.id}`);
                         // One nav, one «where you are»: the current section is an
-                        // ink tint (location = ink, selection = slate — CLAUDE.md →
+                        // ink tint (location = ink, selection = blue — CLAUDE.md →
                         // Colour roles), hover a much fainter one. It used to be
                         // `bg-background` for current and `bg-background/50` for
                         // hover, which on the dark sidebar are the same dark pill —
