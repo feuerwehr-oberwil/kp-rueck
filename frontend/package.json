@@ -97,7 +97,9 @@
   "packageManager": "pnpm@9.15.4",
   "pnpm": {
     "// overrides": "Transitive advisories our direct deps still pin. Each target is bounded to the same major as the vulnerable version, so this closes the CVE without a breaking upgrade. Drop an entry once the parent ships a fixed range on its own.",
+    "// @parcel/watcher": "Only used by next-intl message extraction. Our catalogs are checked in and next.config.mjs supplies the request-config alias directly. Omit this unused dependency and its vulnerable picomatch (GHSA-fc5q-39xc-vjpf).",
     "overrides": {
+      "next-intl@4>@parcel/watcher": "-",
       "postcss@8": ">=8.5.18 <9",
       "brace-expansion@1": ">=1.1.21 <2",
       "brace-expansion@5": ">=5.0.12 <6",

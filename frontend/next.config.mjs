@@ -1,9 +1,10 @@
 import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
-import createNextIntlPlugin from 'next-intl/plugin'
-
-const withNextIntl = createNextIntlPlugin('./i18n/request.ts')
+// We use committed message catalogs. The request-config alias is the only part of
+// next-intl/plugin we need. Importing the plugin also loads its source extraction watcher.
+const requestConfig = './i18n/request.ts'
 
 /** @type {import('next').NextConfig} */
 // The version a problem report is filed against. Read from package.json rather than
@@ -102,7 +103,11 @@ const nextConfig = {
   },
 
   // Webpack config to improve CSS hot reload stability
+  turbopack: { resolveAlias: { 'next-intl/config': requestConfig } },
+
   webpack: (config, { dev }) => {
+    config.resolve.alias['next-intl/config'] = fileURLToPath(new URL(requestConfig, import.meta.url))
+
     // `import svg from '…svg?raw'` → the file's text (types/svg-raw.d.ts). Only the shared
     // loading snail uses it: it is the byte-identical copy of KP Front's mascot, and the
     // boot screen needs it inline. Next's own image loader also claims `.svg`, so it is
@@ -142,4 +147,4 @@ const nextConfig = {
   },
 }
 
-export default withNextIntl(nextConfig)
+export default nextConfig
