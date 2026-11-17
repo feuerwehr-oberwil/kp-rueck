@@ -220,7 +220,7 @@
       "printerLabel": "Drucker",
       "diveraLabel": "Divera",
       "display": "Anzeige",
-      "displayOverview": "Display-Übersicht",
+      "displayOverview": "Wandanzeigen",
       "management": "Verwaltung",
       "events": "Ereignisse",
       "settings": "Einstellungen",
@@ -948,7 +948,7 @@
       "repeatRadio": "Durchsage wiederholen",
       "repeatRadioTitle": "Funkdurchsage wiederholen",
       "repeatRadioTitlePreview": "Funkdurchsage",
-      "repeatRadioDescription": "Zuletzt durchgegeben um {time} Uhr – Wortlaut unverändert.",
+      "repeatRadioDescription": "Zuletzt durchgegeben um {time} – Wortlaut unverändert.",
       "repeatRadioPreview": "Noch nicht durchgegeben – so würde sie jetzt lauten.",
       "repeatRadioNoStop": "Dieser Auftrag hat noch keinen Stopp. Die Durchsage entsteht mit dem ersten.",
       "repeatRadioCopy": "Text kopieren",
@@ -1063,7 +1063,7 @@
     },
     "links": {
       "title": "Links & QR",
-      "description": "Was die Mannschaft, das Tablet an der Tür und der Wandbildschirm öffnen.",
+      "description": "Was die Mannschaft, das Tablet an der Tür und die Wandanzeige öffnen.",
       "enlarge": "QR vergrössern",
       "groupCheckin": "Check-in & Anwesenheit",
       "groupFeld": "Feld",
@@ -1844,7 +1844,7 @@
           },
           "incident_time_display": {
             "label": "Zeitanzeige auf Einsätzen",
-            "description": "Was die Zeitangabe auf Karten, Detailansicht und Wanddisplay zeigt. Pro Gerät änderbar über das Menü an der Zeitangabe selbst.",
+            "description": "Was die Zeitangabe auf Karten, Detailansicht und Wandanzeige zeigt. Pro Gerät änderbar über das Menü an der Zeitangabe selbst.",
             "options": {
               "start": "Startzeit (HH:MM)",
               "column": "Zeit in diesem Status",
@@ -1938,7 +1938,7 @@
         "whatsappTitle": "WhatsApp-Nachrichten",
         "whatsappDescription": "Vorlagen für die zwei WhatsApp-Nachrichten der Setup-Checkliste – dort hat jede ihre eigene Zeile. Beim Senden wird die Nachricht in die Zwischenablage kopiert.",
         "message1Label": "Nachricht 1 · Standby",
-        "message1Hint": "Erste Info: KP-Rück aktiv, Telefon mitnehmen, Ablauf.",
+        "message1Hint": "Erste Info: KP Rück aktiv, Telefon mitnehmen, Ablauf.",
         "message2Label": "Nachricht 2 · Einrücken",
         "message2Hint": "Direkter Aufruf: ins Magazin einrücken.",
         "incidentTemplateTitle": "WhatsApp-Einsatznachricht",
@@ -2259,7 +2259,7 @@
       "abbreviationsHint": "Kurzform, die die Seitenleiste des Boards anzeigt. Leer = eingebaute Abkürzung (im Feld angedeutet).",
       "abbreviationsSaveError": "Abkürzungen konnten nicht gespeichert werden",
       "kennungLabel": "Kennung",
-      "kennungPlaceholder": "z.B. Jahrgang oder Personal-Nr.",
+      "kennungPlaceholder": "z. B. Jahrgang oder Personal-Nr.",
       "kennungHelp": "Nur nötig bei gleichem Namen. Erscheint nur dann auf dem Board.",
       "syncKeptAssigned": "{count} behalten (noch zugewiesen)"
     },
@@ -3011,7 +3011,7 @@
       "seitCol": "Seit",
       "vorOrt": "vor Ort",
       "unknownAddress": "Ohne Adresse",
-      "footer": "KP Rück - Notfall-Ausdruck",
+      "footer": "KP Rück – Notfall-Ausdruck",
       "fahrerCol": "Fahrer",
       "ortCol": "Ort",
       "noDriver": "ohne Fahrer"
@@ -3314,7 +3314,7 @@
       "materialThresholdsSubtitle": "Warnung wenn das verfügbare Material einer Kategorie unter den Schwellenwert fällt. Deaktiviere die Checkbox, um Warnungen für eine Kategorie auszublenden.",
       "materialThresholdsManageLink": "Material verwalten",
       "materialThresholdsEmpty": "Es ist noch kein Material erfasst – darum gibt es hier nichts einzustellen. Sobald unter Einstellungen → Material Bestände angelegt sind, erscheint pro Standort eine Zeile.",
-      "disabledForEveryone": "{what} erscheinen jetzt auf keinem Bildschirm mehr – auch nicht auf dem Wanddisplay im Magazin."
+      "disabledForEveryone": "{what} erscheinen jetzt auf keinem Bildschirm mehr – auch nicht auf der Wandanzeige im Magazin."
     },
     "toasts": {
       "overflowTitle": "{count, plural, one {# weitere Meldung} other {# weitere Meldungen}}",
@@ -3428,7 +3428,7 @@
       "connectionTitle": "Server nicht erreichbar – angezeigt wird der letzte Stand",
       "unknown": "Unbekannter Fehler",
       "photoUploadFailed": "Foto-Upload fehlgeschlagen",
-      "uploadTimeout": "Upload-Zeitüberschreitung - bitte erneut versuchen"
+      "uploadTimeout": "Upload-Zeitüberschreitung – bitte erneut versuchen"
     },
     "appError": {
       "title": "Ein Fehler ist aufgetreten",
@@ -3463,7 +3463,7 @@
       "home": "Zum Board"
     },
     "notFound": {
-      "title": "404 - Seite nicht gefunden",
+      "title": "404 – Seite nicht gefunden",
       "description": "Die angeforderte Seite existiert nicht.",
       "home": "Zur Startseite"
     },
@@ -3670,7 +3670,7 @@
     "tasks": {
       "send-first-whatsapp": {
         "title": "Standby-WhatsApp senden",
-        "description": "Mannschaft informieren: KP-Rück aktiv, Telefon mitnehmen",
+        "description": "Mannschaft informieren: KP Rück aktiv, Telefon mitnehmen",
         "note": "An die Mannschafts-Gruppe · beim Aufstarten des KP"
       },
       "send-second-whatsapp": {
@@ -3780,8 +3780,8 @@
       "yes": "Ja",
       "no": "Nein",
       "personCount": "{count, plural, one {# Person} other {# Personen}}",
-      "staleWarn": "Verbindung gestört – letzter Stand {time} Uhr. Aktualisierung läuft weiter.",
-      "staleAlert": "Keine Verbindung · Stand {time} Uhr",
+      "staleWarn": "Verbindung gestört – Stand {time}. Aktualisierung läuft weiter.",
+      "staleAlert": "Keine Verbindung · Stand {time}",
       "moreBelow": "+{count} weiter ↓"
     },
     "board": {
@@ -3839,7 +3839,7 @@
       "connected": "Verbunden",
       "disconnected": "Verbindung unterbrochen",
       "backToEditor": "Zurück zum Editor",
-      "displayOverview": "Display-Übersicht",
+      "displayOverview": "Wandanzeigen",
       "training": "Übung",
       "exitFullscreen": "Vollbild beenden",
       "fullscreen": "Vollbild",
