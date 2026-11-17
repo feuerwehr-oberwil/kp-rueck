@@ -103,6 +103,7 @@ function getStatusBorderColor(status: string, hasIncident: boolean): string {
 
 export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatusSheetProps) {
   const t = useTranslations('incidents')
+  const tColumns = useTranslations('kanban.columns')
   const router = useRouter()
   const isMobile = useIsMobile()
   const { personnel, operations, removeCrew } = useOperations()
@@ -403,7 +404,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                             )}
                             {vehicle.incident_id && vehicle.incident_status && (
                               <Badge variant="outline" className={cn("text-xs max-w-full", RESOURCE_STATE_BADGE_CLASSES.assigned)}>
-                                {isIncidentStatus(vehicle.incident_status) ? t(`status.${vehicle.incident_status}`) : vehicle.incident_status}
+                                {isIncidentStatus(vehicle.incident_status) ? tColumns(vehicle.incident_status) : vehicle.incident_status}
                               </Badge>
                             )}
                             {showDurationWarning && (
@@ -550,7 +551,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                           )}
                           {vehicle.incident_id && vehicle.incident_status && (
                             <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.assigned)}>
-                              {isIncidentStatus(vehicle.incident_status) ? t(`status.${vehicle.incident_status}`) : vehicle.incident_status}
+                              {isIncidentStatus(vehicle.incident_status) ? tColumns(vehicle.incident_status) : vehicle.incident_status}
                             </Badge>
                           )}
                           {showDurationWarning && (

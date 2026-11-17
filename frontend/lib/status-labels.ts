@@ -7,7 +7,8 @@
  * OPERATION_STATUS_LABELS`. A table of display strings that is never displayed
  * is a second vocabulary waiting to drift, and it had: it still carried
  * «Beendet / Rückfahrt» after that stage was renamed to «Rückfahrt». Status
- * names live in messages/de.json (`incidents.status.*`) and nowhere else.
+ * names live in messages/de.json (`kanban.columns.*`, the board's column titles)
+ * and nowhere else.
  */
 
 import type { OperationStatus } from "@/lib/contexts/operations-context"
@@ -31,6 +32,6 @@ function isOperationStatus(value: string): value is OperationStatus {
 
 export function getOperationStatusLabel(status: string): string {
   return isOperationStatus(status)
-    ? translateOutsideReact(`incidents.status.${status}`)
+    ? translateOutsideReact(`kanban.columns.${status}`)
     : status
 }

@@ -12,6 +12,7 @@ import { usePolling } from "@/lib/hooks/use-polling"
 import { isTypingTarget } from "@/lib/typing-target"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { WALL_TEXT_WRAP } from "@/lib/kanban-utils"
 import { SearchInput } from "@/components/ui/search-input"
 import { Kbd } from "@/components/ui/kbd"
 import { DisplaySearchProvider, useDisplaySearch } from "@/lib/contexts/display-search-context"
@@ -262,7 +263,7 @@ function DisplayChrome({
               {t('layout.selectEvent')}
             </Link>
           ) : (
-            <h1 className="min-w-0 max-w-[42vw] sm:max-w-none text-sm sm:text-[18px] sm:leading-[24px] font-semibold tracking-tight text-foreground truncate" title={eventName}>{eventName}</h1>
+            <h1 className={cn("min-w-0 max-w-[42vw] sm:max-w-none text-sm sm:text-[18px] sm:leading-[24px] font-semibold tracking-tight text-foreground", WALL_TEXT_WRAP)}>{eventName}</h1>
           )}
           {isTraining && <TrainingBadge label={t('layout.training')} />}
           {/* Was a panel of its own on the share-link board, under a header that

@@ -77,7 +77,7 @@ describe("StatusConflictDialog", () => {
   })
 
   it("has a «Trotzdem …» label for every status, in German and French (the key is built from the status)", () => {
-    for (const status of Object.keys(de.incidents.status)) {
+    for (const status of Object.keys(de.kanban.columns)) {
       expect(de.kanban.statusConflict.force).toHaveProperty(status)
       expect(fr.kanban.statusConflict.force).toHaveProperty(status)
     }

@@ -184,6 +184,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
     // A namesake prints with its Kennung: «Meier Alex (1985)».
     const naming = usePersonNaming()
     const tAttendance = useTranslations("kanban.attendance")
+    const tColumns = useTranslations("kanban.columns")
 
     // Filter operations based on options
     const filteredOperations = options.includeCompleted
@@ -363,7 +364,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
               {/* Caps come from CSS, not the source string — the message block stays
                   title-case like every other status block (decision of 2026-07-21). */}
               <h2 className="font-bold border-b border-black mb-2 text-sm uppercase">
-                {STATUS_ORDER.includes(status) ? t(`statusHeading.${status}`) : status.toUpperCase()} ({statusOps.length})
+                {STATUS_ORDER.includes(status) ? tColumns(status) : status.toUpperCase()} ({statusOps.length})
               </h2>
 
               {/* Card-style layout for each incident */}

@@ -8,6 +8,7 @@
  * and a fixed width keeps the wrapping predictable.
  */
 
+import { IncidentNumber } from "@/components/ui/incident-number"
 import type { CSSProperties } from "react"
 import { useTranslations } from "next-intl"
 import { IncidentTime } from "@/components/ui/incident-time"
@@ -32,7 +33,6 @@ const META: CSSProperties = { margin: "2px 0 0", fontSize: 11, color: "var(--mut
 const ROW: CSSProperties = { margin: "2px 0 0", fontSize: 11 }
 const MUTED: CSSProperties = { color: "var(--muted-foreground)" }
 /** The Einsatz number before the address — the card's quiet mono, inline-styled like the rest of this card. */
-export const MAP_INCIDENT_NUMBER: CSSProperties = { fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 500, color: "var(--muted-foreground)", marginRight: 4 }
 const ROUTE_BLOCK: CSSProperties = {
   margin: "5px 0 0",
   paddingTop: 4,
@@ -96,7 +96,7 @@ export function OperationHoverCard({
     <div style={CARD}>
       <p style={TITLE}>
         {seq !== undefined ? `${seq}. ` : ""}
-        {operation.number != null && <span style={MAP_INCIDENT_NUMBER}>{operation.number}</span>}
+        <IncidentNumber number={operation.number} className="mr-1 text-[11px]" />
         {address}
       </p>
       <p style={META}>

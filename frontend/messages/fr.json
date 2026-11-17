@@ -1291,15 +1291,6 @@
       "medium": "Moyenne",
       "high": "Haute"
     },
-    "status": {
-      "incoming": "Reçu",
-      "reko": "Reconnaissance",
-      "reko_done": "Reconnaissance terminée",
-      "enroute": "Engagé / en route",
-      "active": "En intervention",
-      "returning": "Retour",
-      "complete": "Clôturé"
-    },
     "assignReko": {
       "title": "Attribuer le personnel de reconnaissance",
       "incidentLabel": "Intervention : {title}",
@@ -1584,15 +1575,6 @@
       "navRight": "Colonnes hors de la vue à droite"
     },
     "columns": {
-      "incoming": "Reçu",
-      "reko": "Reconnaissance",
-      "reko_done": "Reconnaissance terminée",
-      "enroute": "Engagé / en route",
-      "active": "En intervention",
-      "returning": "Retour",
-      "complete": "Clôturé"
-    },
-    "statusLabels": {
       "incoming": "Reçu",
       "reko": "Reconnaissance",
       "reko_done": "Reconnaissance terminée",
@@ -3181,15 +3163,6 @@
       "printedLabel": "Imprimé",
       "mapOverview": "CARTE DES INTERVENTIONS",
       "mapLoading": "Chargement de la carte …",
-      "statusHeading": {
-        "incoming": "Reçu",
-        "reko": "Reconnaissance",
-        "reko_done": "Reconnaissance terminée",
-        "enroute": "Engagé / en route",
-        "active": "En intervention",
-        "returning": "Retour",
-        "complete": "Clôturé"
-      },
       "priority": {
         "high": "HAUTE",
         "medium": "MOYENNE",

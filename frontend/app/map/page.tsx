@@ -606,7 +606,7 @@ export default function MapPage() {
         (inc.location_address && inc.location_address.toLowerCase().includes(lowerQuery)) ||
         (inc.title && inc.title.toLowerCase().includes(lowerQuery)) ||
         (inc.type in INCIDENT_TYPE_LABELS && tIncidents(`types.${inc.type}`).toLowerCase().includes(lowerQuery)) ||
-        (isIncidentStatus(inc.status) && tKanban(`statusLabels.${inc.status}`).toLowerCase().includes(lowerQuery))
+        (isIncidentStatus(inc.status) && tKanban(`columns.${inc.status}`).toLowerCase().includes(lowerQuery))
       )
     },
     [incidents, searchQuery, statusFilters, deepLinkExceptionId, tIncidents, tKanban]
@@ -633,7 +633,7 @@ export default function MapPage() {
             (inc.location_address && inc.location_address.toLowerCase().includes(lowerQuery)) ||
             (inc.title && inc.title.toLowerCase().includes(lowerQuery)) ||
             (inc.type in INCIDENT_TYPE_LABELS && tIncidents(`types.${inc.type}`).toLowerCase().includes(lowerQuery)) ||
-            (isIncidentStatus(inc.status) && tKanban(`statusLabels.${inc.status}`).toLowerCase().includes(lowerQuery))
+            (isIncidentStatus(inc.status) && tKanban(`columns.${inc.status}`).toLowerCase().includes(lowerQuery))
           )
         })
     const sections: Record<StatusGroup, typeof incidents> = { open: [], active: [], completed: [] }

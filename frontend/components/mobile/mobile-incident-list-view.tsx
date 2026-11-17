@@ -53,7 +53,7 @@ interface MobileIncidentListViewProps {
 // the union. They used to be four coarser groups with names of their own
 // («Aktiv», «Neu») — a third vocabulary beside the board's, and one that could
 // not say «show me only the Rückfahrten». The filter now speaks exactly the
-// words the columns do (incidents.status.*).
+// words the columns do (kanban.columns.*).
 const filterStatuses = [
   "incoming",
   "reko",
@@ -76,7 +76,7 @@ export function MobileIncidentListView({
 }: MobileIncidentListViewProps) {
   const t = useTranslations('incidents.mobileList')
   // The board's own words for a status — the single vocabulary.
-  const tStatus = useTranslations('incidents.status')
+  const tStatus = useTranslations('kanban.columns')
   const tEmpty = useTranslations('common.emptyState')
   const { selectedEvent } = useEvent()
   // Fetched ONCE for the list and passed into every card — the rich card rows

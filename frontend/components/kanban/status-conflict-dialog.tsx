@@ -32,7 +32,7 @@ export function StatusConflictDialog() {
   const conflict = useStatusConflict()
   const { operations, updateOperation } = useOperations()
   const t = useTranslations("kanban")
-  const tStatus = useTranslations("incidents.status")
+  const tStatus = useTranslations("kanban.columns")
   const keepRef = useRef<HTMLButtonElement>(null)
 
   if (!conflict) return null

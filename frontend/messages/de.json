@@ -292,15 +292,6 @@
       "returning": "Rückfahrt",
       "complete": "Abgeschlossen"
     },
-    "statusLabels": {
-      "incoming": "Eingegangen",
-      "reko": "Reko",
-      "reko_done": "Reko abgeschlossen",
-      "enroute": "Disponiert / Anfahrt",
-      "active": "Im Einsatz",
-      "returning": "Rückfahrt",
-      "complete": "Abgeschlossen"
-    },
     "resources": {
       "crew": "Mannschaft",
       "vehicles": "Fahrzeuge",
@@ -1225,15 +1216,6 @@
       "low": "Niedrig",
       "medium": "Mittel",
       "high": "Hoch"
-    },
-    "status": {
-      "incoming": "Eingegangen",
-      "reko": "Reko",
-      "reko_done": "Reko abgeschlossen",
-      "enroute": "Disponiert / Anfahrt",
-      "active": "Im Einsatz",
-      "returning": "Rückfahrt",
-      "complete": "Abgeschlossen"
     },
     "assignReko": {
       "title": "Reko-Personal zuweisen",
@@ -2976,19 +2958,10 @@
       "printedLabel": "Gedruckt",
       "mapOverview": "EINSATZÜBERSICHT KARTE",
       "mapLoading": "Karte wird geladen …",
-      "statusHeading": {
-        "incoming": "Eingegangen",
-        "reko": "Reko",
-        "reko_done": "Reko abgeschlossen",
-        "enroute": "Disponiert / Anfahrt",
-        "active": "Im Einsatz",
-        "returning": "Rückfahrt",
-        "complete": "Abgeschlossen"
-      },
       "priority": {
         "high": "HOCH",
         "medium": "MITTEL",
-        "low": "TIEF"
+        "low": "NIEDRIG"
       },
       "danger": {
         "fire": "Brand",

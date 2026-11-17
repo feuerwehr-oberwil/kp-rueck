@@ -62,6 +62,7 @@ export function MobileIncidentDetailSheet({
   formatLocation,
 }: MobileIncidentDetailSheetProps) {
   const t = useTranslations('incidents')
+  const tColumns = useTranslations('kanban.columns')
   // The resource chips reuse the board's own labels (Funkrufname, Zu Fuss …)
   // so the phone and the board name the same thing the same way.
   const tKanban = useTranslations('kanban')
@@ -135,7 +136,7 @@ export function MobileIncidentDetailSheet({
           {/* Status & Time Row */}
           <div className="flex items-center gap-3 flex-wrap">
             <Badge variant="secondary" className="text-sm max-w-full">
-              {t(`status.${operation.status}`)}
+              {tColumns(operation.status)}
             </Badge>
             {/* The Einsatzart is a fact beside the status, so it is plain
                 muted text (14/20 500), as on the phone card: boxed, it read as a

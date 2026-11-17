@@ -1,5 +1,6 @@
 "use client"
 
+import { IncidentNumber } from "@/components/ui/incident-number"
 import { usePersonNaming } from "@/components/person-name"
 import { useMemo, useState, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
@@ -247,9 +248,7 @@ function AddressHead({ operation, large }: { operation: Operation; large?: boole
   return (
     <>
       <WallPriorityGlyph priority={operation.priority} lineClassName={large ? "text-lg h-[1.25em]" : "text-base h-[1.25em]"} />
-      {operation.number != null && (
-        <span className="w-6 shrink-0 text-right font-mono text-xs leading-5 text-muted-foreground tabular-nums">{operation.number}</span>
-      )}
+      <IncidentNumber number={operation.number} className="w-6 shrink-0 text-right text-xs leading-5" />
     </>
   )
 }

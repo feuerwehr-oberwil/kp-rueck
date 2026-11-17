@@ -1,5 +1,6 @@
 "use client"
 
+import { IncidentNumber } from "@/components/ui/incident-number"
 import type { ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { ArrowLeft, ArrowRight, Package, Truck, User } from "lucide-react"
@@ -38,7 +39,7 @@ function IncidentChip({ incident }: { incident: DispatchIncident }) {
   const t = useTranslations("common.commandPalette.dispatch")
   return (
     <span className={cn(CHIP, "border-transparent bg-muted font-medium")} title={t("incidentTitle", { number: incident.number })}>
-      <span className="font-mono tabular-nums text-muted-foreground">{incident.number}</span>
+      <IncidentNumber number={incident.number} />
       <span className="truncate">{incident.label}</span>
     </span>
   )
@@ -257,9 +258,7 @@ export function DispatchChoice({ token, choice }: { token: DispatchToken; choice
       ) : choice.kind === "priority" ? (
         <PriorityGlyph priority={choice.priority} size="card" decorative />
       ) : choice.kind === "incident" ? (
-        <span className="min-w-4 shrink-0 text-center font-mono text-xs tabular-nums text-muted-foreground">
-          {choice.incident.number}
-        </span>
+        <IncidentNumber number={choice.incident.number} className="min-w-4 shrink-0 text-center text-xs" />
       ) : (
         <ResourceIcon kind={choice.kind} className="!size-4" />
       )}
