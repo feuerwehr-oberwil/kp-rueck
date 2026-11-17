@@ -78,6 +78,7 @@ export function QuickAddPersonnel({
 
       // Auto-check-in the new person, through whichever door this mount has.
       const willCheckIn = !!(checkInToken || checkInEventId)
+      let checkedIn = false
       if (willCheckIn && createdPerson.id) {
         try {
           if (checkInToken) {
@@ -85,6 +86,7 @@ export function QuickAddPersonnel({
           } else if (checkInEventId) {
             await apiClient.checkInPersonnelForEvent(createdPerson.id, checkInEventId)
           }
+          checkedIn = true
         } catch (checkInError) {
           console.error('Failed to auto-check-in new person:', checkInError)
           // Don't fail the whole operation if check-in fails
@@ -97,7 +99,7 @@ export function QuickAddPersonnel({
       await onPersonAdded({
         id: createdPerson.id,
         name: createdPerson.name,
-        checked_in: willCheckIn
+        checked_in: checkedIn
       })
     } catch (error) {
       console.error('Failed to add person:', error)

@@ -348,6 +348,8 @@ async def update_group_assignment(
 
     try:
         assignment = await ga_crud.update_group_assignment(db, group_id, assignment_id, update)
+    except ga_crud.AssignmentReleasedError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     except IntegrityError as e:

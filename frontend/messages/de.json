@@ -1273,7 +1273,7 @@
       "vehicleCount": "{count, plural, one {# Fahrzeug} other {# Fahrzeuge}}",
       "transferring": "Wird übertragen …",
       "transfer": "Übertragen",
-      "confirmCounts": "Es werden verschoben: {crew, plural, one {# Person} other {# Personen}}, {vehicles} Fahrzeuge, {materials} Material."
+      "confirmCounts": "Es werden verschoben: {crew, plural, one {# Person} other {# Personen}}, {vehicles, plural, one {# Fahrzeug} other {# Fahrzeuge}}, {materials} Material."
     },
     "driver": {
       "assignErrorTitle": "Fahrer zuweisen fehlgeschlagen",
@@ -2769,6 +2769,9 @@
       "invalidLink": "Dieser Reko-Link ist nicht mehr gültig. Bitte fordere einen neuen Link an.",
       "invalidTitle": "Link ungültig oder abgelaufen",
       "unknownIncident": "Unbekannt",
+      "draftConflict": "Dieser Entwurf ist auf diesem Gerät gespeichert. Der KP hat dieselben Angaben inzwischen geändert. Welche Fassung möchtest du weiterbearbeiten?",
+      "restoreDevice": "Entwurf vom Gerät verwenden",
+      "keepServer": "Fassung vom KP behalten",
       "localRestored": "Lokale Änderungen wiederhergestellt",
       "localRestoredDescription": "Deine zuvor eingegebenen Daten wurden geladen.",
       "loadError": "Das Formular konnte nicht geladen werden. Verbindung prüfen und die Seite neu laden.",
@@ -3511,6 +3514,10 @@
       "incident_status_changed": "Status inzwischen geändert – der Einsatz wurde neu geladen.",
       "text_conflict": "Inzwischen anderswo geändert – nicht gespeichert.",
       "assignment_race": "Ressource bereits zugewiesen",
+      "incident_already_restored": "Der Einsatz ist bereits wiederhergestellt.",
+      "incident_restore_merged": "Diese Meldung wurde zusammengeführt. Im Ziel-Einsatz kann sie getrennt werden.",
+      "incident_restore_conflict": "Der Einsatz wurde inzwischen geändert. Wiederherstellung erneut versuchen.",
+      "incident_restore_resource_conflict": "«{name}» ist nicht verfügbar. Die aktuelle Zuweisung bleibt bestehen.",
       "incident_not_merged": "Diese Meldung ist nicht zusammengeführt."
     }
   },
@@ -3792,6 +3799,7 @@
       "yes": "Ja",
       "no": "Nein",
       "personCount": "{count, plural, one {# Person} other {# Personen}}",
+      "retrying": "Verbindung unterbrochen. Die Anzeige versucht es automatisch erneut.",
       "staleWarn": "Verbindung gestört – Stand {time}. Aktualisierung läuft weiter.",
       "staleAlert": "Keine Verbindung · Stand {time}",
       "moreBelow": "+{count} weiter ↓"
@@ -3951,6 +3959,9 @@
       "detailsToggle": "Details ergänzen"
     },
     "checkin": {
+      "retrying": "Verbindung unterbrochen",
+      "willRetry": "Die Anwesenheitsliste wird automatisch erneut geladen.",
+      "lastKnown": "Letzter Stand. Die Anwesenheitsliste wird automatisch erneut geladen.",
       "invalidCode": "Ungültiger oder abgelaufener Code. Bitte QR-Code erneut scannen.",
       "missingCode": "Zugriffscode fehlt. Bitte QR-Code scannen.",
       "checkoutBlocked": "Auschecken nicht möglich",
@@ -4580,6 +4591,7 @@
       "itemsMoved": "Übernommen von {other}",
       "itemsReturned": "Zurück von {other}"
     },
+    "restoreIncident": "Einsatz wiederherstellen",
     "refDeleted": "{ref} (gelöscht)",
     "refMerged": "{ref} → {target}",
     "linkHint": "Einsatz verknüpfen – oder # im Text",
@@ -4631,6 +4643,8 @@
     "conflicts": {
       "label": "Konflikte",
       "text": "Arbeit von KP Rück Offline wurde hier anders geändert – bitte entscheiden",
+      "count": "{count, plural, one {# Konflikt} other {# Konflikte}}",
+      "viewerText": "Die Bearbeiter prüfen die Änderungen von KP Rück Offline.",
       "open": "{count, plural, one {# Konflikt} other {# Konflikte}} ›",
       "title": "Konflikte",
       "intro": "Hier und auf dem anderen System wurde dasselbe geändert. Bis ihr wählt, gilt die Fassung von {leader}.",

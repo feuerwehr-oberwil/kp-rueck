@@ -13,10 +13,12 @@ from .. import schemas
 from ..database import after_commit
 from ..models import (
     AuditLog,
+    EventAttendance,
     Incident,
     IncidentAssignment,
     IncidentGroup,
     IncidentGroupAssignment,
+    Material,
     Personnel,
     RekoReport,
     SchadenplatzReport,
@@ -29,7 +31,8 @@ from ..services.incident_dispatch import dispatched_incident_ids, is_dispatched
 from ..services.incident_leader import effective_leader_id
 from . import events as events_crud
 from . import feld as feld_crud
-from .locking import lock_incident_with_group
+from .active_resources import active_deployments
+from .locking import lock_incident_with_group, lock_resources
 
 
 class InvalidIncidentGroupError(ValueError):
@@ -1083,6 +1086,29 @@ async def update_incident_status(
     return incident
 
 
+async def _incident_resource_rows(db: AsyncSession, incident_id: uuid.UUID) -> set[tuple[str, uuid.UUID]]:
+    rows = await db.execute(
+        select(IncidentAssignment.resource_type, IncidentAssignment.resource_id).where(
+            IncidentAssignment.incident_id == incident_id,
+            IncidentAssignment.unassigned_at.is_(None),
+        )
+    )
+    return set(rows.tuples().all())
+
+
+async def _other_deployments(
+    db: AsyncSession, refs: set[tuple[str, uuid.UUID]]
+) -> list[tuple[str, uuid.UUID, uuid.UUID, datetime]]:
+    """The deleted card is hidden before this read. Include legitimate parallel deployments."""
+    rows = []
+    for kind in sorted({kind for kind, _ in refs}):
+        ids = {rid for resource_type, rid in refs if resource_type == kind}
+        deployed = active_deployments(kind)
+        deployments = await db.execute(select(deployed).where(deployed.c.resource_id.in_(ids)))
+        rows.extend((kind, rid, assignment_id, assigned_at) for rid, assignment_id, assigned_at in deployments)
+    return rows
+
+
 async def delete_incident(
     db: AsyncSession,
     incident_id: uuid.UUID,
@@ -1094,23 +1120,30 @@ async def delete_incident(
 
     All incidents are soft deleted by setting deleted_at timestamp.
     """
-    incident = await get_incident(db, incident_id)
-    if not incident:
+    incident = await lock_incident_with_group(db, incident_id)
+    if incident is None or incident.merged_into_id is not None:
         return False
+    if incident.deleted_at is not None:
+        return True
 
     # Soft delete (mark deleted). Use ONE `now` for both columns so a later
     # restore can tell whether `completed_at` was stamped as a side effect of
     # the delete (completed_at == deleted_at) versus a pre-existing completion.
+    refs = await _incident_resource_rows(db, incident_id)
+    await lock_resources(db, refs)
     now = datetime.now(UTC)
     incident.deleted_at = now
     if not incident.completed_at:
         incident.completed_at = now
 
+    await db.flush()
+    shared_assignments = [str(aid) for _, _, aid, _ in await _other_deployments(db, refs)]
     await log_action(
         db=db,
         action_type="archive",
         resource_type="incident",
         resource_id=incident.id,
+        changes={"shared_assignments": shared_assignments},
         user=current_user,
         request=request,
     )
@@ -1120,6 +1153,14 @@ async def delete_incident(
 
     await db.flush()
     return True
+
+
+class IncidentAlreadyRestoredError(ValueError):
+    """Another board already restored this card."""
+
+
+class RestoreResourceConflictError(ValueError):
+    """Restoring the old assignments would conflict with current deployment or inventory."""
 
 
 async def restore_incident(
@@ -1142,19 +1183,68 @@ async def restore_incident(
             makes a double-click on the undo toast harmless — the second call
             409s instead of mutating anything.
     """
-    result = await db.execute(select(Incident).where(Incident.id == incident_id))
-    incident = result.scalar_one_or_none()
-
+    incident = await lock_incident_with_group(db, incident_id)
     if incident is None:
         return None
 
     if incident.deleted_at is None:
-        raise ValueError("Incident is not deleted")
+        raise IncidentAlreadyRestoredError("Incident is not deleted")
     # A merged report comes back through «Trennen» (POST /unmerge), which also
     # takes its Nachtrag back out of the card it went into. A plain restore
     # would leave the same report on the board twice.
     if incident.merged_into_id is not None:
         raise ValueError("Incident was merged; unmerge it instead")
+
+    # The undo preserves the old assignment rows. Verify inventory under the same
+    # locks as assignment and archival before making those rows visible again.
+    refs = await _incident_resource_rows(db, incident_id)
+    resources = await lock_resources(db, refs)
+    if refs:
+        audit = await db.scalar(
+            select(AuditLog.changes_json)
+            .where(
+                AuditLog.resource_type == "incident",
+                AuditLog.resource_id == incident_id,
+                AuditLog.action_type.in_(("archive", "delete")),
+            )
+            .order_by(AuditLog.timestamp.desc())
+            .limit(1)
+        )
+        # Legacy deletes have no inventory snapshot. An assignment that already
+        # existed at deletion was an explicit shared deployment and can resume.
+        previous = (audit or {}).get("shared_assignments")
+        busy = set()
+        for kind, resource_id, assignment_id, assigned_at in await _other_deployments(db, refs):
+            if previous is None:
+                newly_deployed = assigned_at >= incident.deleted_at
+            else:
+                newly_deployed = str(assignment_id) not in previous
+            if newly_deployed:
+                busy.add((kind, resource_id))
+        checked_out = set(
+            await db.scalars(
+                select(EventAttendance.personnel_id).where(
+                    EventAttendance.event_id == incident.event_id,
+                    EventAttendance.checked_in.is_(False),
+                    EventAttendance.personnel_id.in_([rid for kind, rid in refs if kind == "personnel"]),
+                )
+            )
+        )
+        for ref in sorted(refs):
+            resource = resources.get(ref)
+            if (
+                resource is None
+                or (
+                    isinstance(resource, Vehicle | Material)
+                    and (resource.archived_at is not None or resource.out_of_service_since is not None)
+                )
+                or (
+                    isinstance(resource, Personnel) and (resource.id in checked_out or resource.status == "unavailable")
+                )
+            ):
+                raise RestoreResourceConflictError(resource.name if resource else str(ref[1]))
+            if ref in busy and not (isinstance(resource, Material) and resource.consumable):
+                raise RestoreResourceConflictError(resource.name)
 
     # If the delete stamped `completed_at` as a side effect (both timestamps set
     # to the same `now`), clear it so the restored incident isn't wrongly

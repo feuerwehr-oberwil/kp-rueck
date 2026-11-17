@@ -223,6 +223,7 @@ export class IncidentsApi {
   async restoreIncident(id: string): Promise<ApiIncident> {
     return httpRequest<ApiIncident>(`/api/incidents/${id}/restore`, {
       method: 'POST',
+      skipToast: true, // The restore flow offers a retry with the reason.
     })
   }
 

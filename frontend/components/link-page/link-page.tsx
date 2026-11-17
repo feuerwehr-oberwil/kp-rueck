@@ -6,8 +6,6 @@ import { cn } from '@/lib/utils'
  * The pages a phone opens from «Links & QR» — /feld, /check-in, /reko, /alarm — share one frame
  * so they feel like one app, installed or not (owner, 03.10.):
  *
- * - no pinch / double-tap / focus zoom — since 14.11.2026 the whole app's (lib/zoom-lock.ts),
- *   not only these routes';
  * - `LinkPageHeader`: ONE header — sticky, opaque (no frosted bar under the status bar), 56px,
  *   the column width of the page, a 44px leading control (back) and a title + context line.
  *   `FeldIdentityBar` is the same bar with the person in it.

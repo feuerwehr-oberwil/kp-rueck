@@ -5,7 +5,7 @@
  * the one client object). Methods go through the shared transport in `../http`.
  */
 
-import { request as httpRequest } from '../http'
+import { linkRequest, request as httpRequest } from '../http'
 import type {
   BulkCategorySortOrderUpdate,
   ApiPersonnel,
@@ -64,13 +64,14 @@ export class PersonnelApi {
   }
 
   async getCheckInList(token: string, checkedInOnly: boolean = false): Promise<{ personnel: ApiPersonnelListItem[]; event_id: string; event_name: string }> {
-    return httpRequest<{ personnel: ApiPersonnelListItem[]; event_id: string; event_name: string }>(
-      `/api/personnel/check-in/list?token=${encodeURIComponent(token)}&checked_in_only=${checkedInOnly}`
+    return linkRequest<{ personnel: ApiPersonnelListItem[]; event_id: string; event_name: string }>(
+      `/api/personnel/check-in/list?token=${encodeURIComponent(token)}&checked_in_only=${checkedInOnly}`,
+      { skipToast: true, maxRetries: 0 },
     )
   }
 
   async checkInPersonnel(personnelId: string, token: string): Promise<ApiPersonnel> {
-    return httpRequest<ApiPersonnel>(
+    return linkRequest<ApiPersonnel>(
       `/api/personnel/check-in/${personnelId}/in?token=${encodeURIComponent(token)}`,
       {
         method: 'POST',
@@ -79,7 +80,7 @@ export class PersonnelApi {
   }
 
   async checkOutPersonnel(personnelId: string, token: string): Promise<ApiPersonnel> {
-    return httpRequest<ApiPersonnel>(
+    return linkRequest<ApiPersonnel>(
       `/api/personnel/check-in/${personnelId}/out?token=${encodeURIComponent(token)}`,
       {
         method: 'POST',

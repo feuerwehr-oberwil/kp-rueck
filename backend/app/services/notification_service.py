@@ -8,10 +8,11 @@ from typing import Any
 from uuid import UUID
 
 # Helper subquery for assigned material IDs
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..crud.active_resources import active_resource_ids
 from ..database import after_commit
 from ..models import Event, Incident, IncidentAssignment, Material, Notification, Personnel, Vehicle
 from ..schemas import NotificationSettings
@@ -275,17 +276,8 @@ async def _check_resource_alerts(
 
     if checked_in_personnel_ids:
         # Check how many are available (not assigned)
-        assigned_result = await db.execute(
-            select(IncidentAssignment.resource_id)
-            .join(Incident)
-            .where(Incident.event_id == event_id)
-            .where(IncidentAssignment.resource_type == "personnel")
-            .where(IncidentAssignment.unassigned_at.is_(None))
-            .where(IncidentAssignment.resource_id.in_(checked_in_personnel_ids))
-            .distinct()
-        )
-        assigned_personnel_ids = {r[0] for r in assigned_result.all()}
-        available_count = len(checked_in_personnel_ids) - len(assigned_personnel_ids)
+        assigned_ids = set(await db.scalars(active_resource_ids("personnel", event_id=event_id)))
+        available_count = len(set(checked_in_personnel_ids) - assigned_ids)
 
         if available_count == 0:
             message, params = texts.no_personnel()
@@ -307,15 +299,7 @@ async def _check_resource_alerts(
 
     # OPTIMIZATION: Query assigned material IDs once, before the loop
     # instead of querying for each location (was N+1 query pattern)
-    assigned_material_ids_result = await db.execute(
-        select(IncidentAssignment.resource_id).where(
-            and_(
-                IncidentAssignment.resource_type == "material",
-                IncidentAssignment.unassigned_at.is_(None),  # Active assignment
-            )
-        )
-    )
-    assigned_material_ids = {row[0] for row in assigned_material_ids_result.all()}
+    assigned_material_ids = active_resource_ids("material")
 
     for material_location, threshold in settings.material_depletion_threshold.items():
         # Skip if notifications disabled for this location (threshold = -1)
@@ -329,10 +313,11 @@ async def _check_resource_alerts(
         query = (
             select(func.count(Material.id))
             .where(Material.location == material_location)
-            .where(Material.status == "available")
+            .where(
+                Material.status == "available", Material.archived_at.is_(None), Material.out_of_service_since.is_(None)
+            )
+            .where(or_(Material.consumable, Material.id.not_in(assigned_material_ids)))
         )
-        if assigned_material_ids:
-            query = query.where(Material.id.notin_(assigned_material_ids))
 
         count_result = await db.execute(query)
         available_count = count_result.scalar_one()

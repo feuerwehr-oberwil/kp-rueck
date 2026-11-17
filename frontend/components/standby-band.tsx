@@ -97,7 +97,7 @@ export function StandbyBand() {
         : t('ledElsewhere.silent', { since, time: clock(lead.contactAt, true), silence: formatDurationSince(lead.contactAt) })
   } else {
     label = t('conflicts.label')
-    text = t('conflicts.text')
+    text = t(standby.canTakeOver ? 'conflicts.text' : 'conflicts.viewerText')
   }
 
   const openConflicts = lead?.open_conflicts ?? 0
@@ -119,7 +119,7 @@ export function StandbyBand() {
       <span className={cn('min-w-0 flex-[1_1_16rem] break-words', amber ? 'font-semibold' : 'text-muted-foreground')}>
         {text}
       </span>
-      {selectedEvent && openConflicts > 0 && (
+      {selectedEvent && openConflicts > 0 && (standby.canTakeOver ? (
         <Button
           size="sm"
           variant="outline"
@@ -128,7 +128,9 @@ export function StandbyBand() {
         >
           {t('conflicts.open', { count: openConflicts })}
         </Button>
-      )}
+      ) : (
+        <span>{t('conflicts.count', { count: openConflicts })}</span>
+      ))}
       {canTake && (
         <Button size="sm" className="hidden md:inline-flex" onClick={() => setConfirming(true)}>
           {t(kind === 'mirror' ? 'takeover.button' : 'takeBack.button')}
@@ -184,7 +186,7 @@ export function StandbyBand() {
           {heardRecently(lead, WORKING_WITHIN_MS) && <FormMessage tone="advice">{t('takeBack.working')}</FormMessage>}
         </ConfirmDialog>
       )}
-      {selectedEvent && (
+      {selectedEvent && standby.canTakeOver && (
         // Keyed: another Ereignis never shows (or decides) the previous one's list while it loads.
         <StandbyConflictsSheet
           key={selectedEvent.id}

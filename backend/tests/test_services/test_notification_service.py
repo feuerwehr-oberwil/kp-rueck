@@ -1743,3 +1743,46 @@ class TestFatigueNotificationConcurrency:
                 await cleanup.execute(delete(Event).where(Event.id == event_id))
                 await cleanup.execute(delete(Personnel).where(Personnel.id == person_id))
                 await cleanup.commit()
+
+
+async def test_alerts_follow_route_and_inventory_availability(db_session, notif_event, notif_personnel, notif_material):
+    from app.models import IncidentGroup, IncidentGroupAssignment
+
+    group = IncidentGroup(event_id=notif_event.id, name="Depot")
+    db_session.add(group)
+    await db_session.flush()
+    db_session.add(EventAttendance(event_id=notif_event.id, personnel_id=notif_personnel.id, checked_in=True))
+    for kind, resource in [("personnel", notif_personnel), ("material", notif_material)]:
+        db_session.add(IncidentGroupAssignment(incident_group_id=group.id, resource_type=kind, resource_id=resource.id))
+    settings = NotificationSettings(material_depletion_threshold={"Depot": 0})
+
+    async def types():
+        await db_session.flush()
+        return {alert.type for alert in await _check_resource_alerts(db_session, notif_event.id, settings)}
+
+    assert await types() == {"no_personnel", "no_materials"}
+    notif_material.consumable = True
+    assert await types() == {"no_personnel"}
+    group.deleted_at = datetime.now(UTC)
+    assert await types() == set()
+    notif_material.archived_at = datetime.now(UTC)
+    assert await types() == {"no_materials"}
+    notif_material.archived_at = None
+    notif_material.out_of_service_since = datetime.now(UTC)
+    assert await types() == {"no_materials"}
+
+
+async def test_a_deleted_incident_does_not_raise_shortage_alerts(
+    db_session, notif_event, notif_incident, notif_personnel, notif_material
+):
+    db_session.add(EventAttendance(event_id=notif_event.id, personnel_id=notif_personnel.id, checked_in=True))
+    for kind, resource in [("personnel", notif_personnel), ("material", notif_material)]:
+        db_session.add(IncidentAssignment(incident_id=notif_incident.id, resource_type=kind, resource_id=resource.id))
+    notif_incident.deleted_at = datetime.now(UTC)
+    await db_session.flush()
+    assert (
+        await _check_resource_alerts(
+            db_session, notif_event.id, NotificationSettings(material_depletion_threshold={"Depot": 0})
+        )
+        == []
+    )

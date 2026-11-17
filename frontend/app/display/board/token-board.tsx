@@ -1,17 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useTranslations } from 'next-intl'
-import { apiClient, type ApiViewerData } from '@/lib/api-client'
-import { usePolling } from '@/lib/hooks/use-polling'
-import { Eye } from 'lucide-react'
-import { DisplayStaleBanner } from '@/components/display/display-stale-banner'
+import { useViewerSituation } from '@/lib/hooks/use-viewer-situation'
 import { columns, STATUS_ACCENT } from '@/lib/kanban-utils'
 import { useCollapsedSections } from '@/lib/hooks/use-collapsed-sections'
 import { useWallFit } from '@/lib/hooks/use-wall-fit'
 import { WALL_STACK_BOARD, WALL_STACK_BODY, WALL_STACK_COLUMN } from '@/lib/wall-stack'
 import { cn } from '@/lib/utils'
-import { buildSituationData, viewerGroupsToIncidentGroups } from '@/lib/viewer-data'
 import { DisplayIncidentCard, crewShownAtStop } from '@/components/display/incident-card'
 import { IncidentDetailModal } from '@/components/display/incident-detail-modal'
 import { WallColumnHead } from '@/components/display/wall-column-head'
@@ -23,7 +19,6 @@ import { filterIncidents } from '@/lib/incident-search'
 import { type Operation } from '@/lib/contexts/operations-context'
 import { type Material } from '@/lib/contexts/materials-context'
 import type { GroupResources, IncidentGroup } from '@/lib/types/groups'
-import { LoadingStatus } from '@/components/ui/shell-loader'
 import { PersonNamingProvider } from "@/components/person-name"
 
 // Read-only board rendered from a share token (no login). The SAME board and the
@@ -121,12 +116,7 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
 }
 
 export function TokenBoard({ token }: { token: string }) {
-  const t = useTranslations('display.tokenBoard')
-  const tLoading = useTranslations('common')
-
-  // No event state here on purpose: the display layout loads the token's
-  // Ereignis itself for the top bar, so this board only needs the payload.
-  const [payload, setPayload] = useState<ApiViewerData | null>(null)
+  const { payload, data: situation, groups: detailGroups } = useViewerSituation()
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
   // EVERY column folds, ABGESCHLOSSEN included and closed to start with —
   // the same one mechanism the logged-in display board uses, rather than the
@@ -135,45 +125,7 @@ export function TokenBoard({ token }: { token: string }) {
     TOKEN_BOARD_COLLAPSE_KEY,
     columns.filter((c) => c.collapsible).map((c) => c.id),
   )
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const { query } = useDisplaySearch()
-  // Always the whole card, never the «Ansicht» preset — even more clearly than
-  // on the session board: a share link opens on somebody else's machine, so the
-  // preset it would read is a stranger's, set for a board they do not have.
-  const hasDataRef = useRef(false)
-
-  const loadData = useCallback(async () => {
-    try {
-      const data = await apiClient.getViewerData(token)
-      if (!data) return
-      setPayload(data)
-      setError(null)
-      setLastRefresh(new Date())
-      hasDataRef.current = true
-    } catch (err) {
-      console.error('Failed to load display token data:', err)
-      if (!hasDataRef.current) setError(t('invalidLink'))
-    } finally {
-      setLoading(false)
-    }
-  }, [token, t])
-
-  // Unattended wall screen: never paused on visibility (see `usePolling`).
-  // An invalid link stops the loop — its first load already said so.
-  usePolling(loadData, { intervalMs: 5000, pauseWhenHidden: false, enabled: !error })
-
-  // Detail dialog: rebuild the operation view-model (crew, materials, vehicles
-  // from the payload's assignments) so tapping a card shows the full picture.
-  // The search reads it too — the same predicate as the command-post board, so
-  // a crew member's name finds the card here as well, not just an address.
-  const situation = useMemo(() => (payload ? buildSituationData(payload) : null), [payload])
-
-  // groupId → Auftrag name, so searching a route's name also matches its stops.
-  // The token payload carries the groups itself; there is no groups context on a
-  // share link.
-  const detailGroups = useMemo(() => (payload ? viewerGroupsToIncidentGroups(payload) : []), [payload])
 
   const groupNames = useMemo(
     () => new Map(detailGroups.map((group) => [group.id, group.name])),
@@ -181,7 +133,7 @@ export function TokenBoard({ token }: { token: string }) {
   )
 
   const matchingIds = useMemo(() => {
-    if (!query.trim() || !situation) return null
+    if (!query.trim()) return null
     return new Set(
       filterIncidents(situation.operations, query, situation.materials, groupNames).map((op) => op.id),
     )
@@ -192,7 +144,7 @@ export function TokenBoard({ token }: { token: string }) {
   const operationsByColumn = useMemo(() => {
     const grouped: Record<string, Operation[]> = {}
     columns.forEach((col) => { grouped[col.id] = [] })
-    ;(situation?.operations ?? [])
+    situation.operations
       .filter((op) => !matchingIds || matchingIds.has(op.id))
       .forEach((op) => {
         const column = columns.find((col) => col.status.includes(op.status))
@@ -209,7 +161,6 @@ export function TokenBoard({ token }: { token: string }) {
   // roster is checked-in-only, same rule the incident crew mapping follows.
   const groupResources = useMemo(() => {
     const resolved = new Map<string, GroupResources>()
-    if (!payload) return resolved
     const nameById = new Map<string, string>()
     for (const person of payload.personnel) nameById.set(String(person.id), person.name)
     const callsignById = new Map<string, string>()
@@ -250,36 +201,16 @@ export function TokenBoard({ token }: { token: string }) {
   // The root size: the largest at which every column fits (VISUAL-07 C). Only
   // once the board is drawn – before that this renders the loading state.
   const boardRef = useRef<HTMLDivElement>(null)
-  useWallFit(boardRef, !error && !loading)
+  useWallFit(boardRef)
 
   const selectedOperation = useMemo(
-    () => situation?.operations.find((op) => op.id === selectedIncidentId) ?? null,
+    () => situation.operations.find((op) => op.id === selectedIncidentId) ?? null,
     [situation, selectedIncidentId],
   )
 
-  if (error) {
-    return (
-      <div className="min-h-full bg-background flex items-center justify-center p-4">
-        <div className="max-w-md text-center">
-          <Eye className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <div className="text-muted-foreground">{error}</div>
-        </div>
-      </div>
-    )
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-full bg-background flex items-center justify-center">
-        <LoadingStatus size="surface" className="text-sm">{tLoading('loading')}</LoadingStatus>
-      </div>
-    )
-  }
-
   return (
-    <PersonNamingProvider roster={situation?.personnel ?? []}>
+    <PersonNamingProvider roster={situation.personnel}>
     <div className="flex h-full flex-col bg-background text-foreground">
-      <DisplayStaleBanner lastRefresh={lastRefresh} />
 
       {/* No header of its own: the display layout's bar already carries this
           Ereignis, the clock and the «Nur-Lesen» badge, and two bars stacked
@@ -297,7 +228,7 @@ export function TokenBoard({ token }: { token: string }) {
               operations={operationsByColumn[column.id] || []}
               groups={detailGroups}
               groupResources={groupResources}
-              materials={situation?.materials ?? []}
+              materials={situation.materials}
               collapsed={collapsedColumns.isCollapsed(column.id)}
               onToggle={() => {
                 keepInViewRef.current = column.id
@@ -313,7 +244,7 @@ export function TokenBoard({ token }: { token: string }) {
         operation={selectedOperation}
         open={!!selectedOperation}
         onOpenChange={(open) => { if (!open) setSelectedIncidentId(null) }}
-        materialsOverride={situation?.materials ?? []}
+        materialsOverride={situation.materials}
         groupsOverride={detailGroups}
         groupResourcesOverride={groupResources}
         // The Reko photos are the one thing in the dialog that is fetched rather

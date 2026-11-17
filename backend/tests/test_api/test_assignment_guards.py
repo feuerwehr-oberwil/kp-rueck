@@ -395,3 +395,130 @@ class TestTransferUndo:
 
         assert undo.status_code == 409
         assert await self._active(db_session, source_id) == set()
+
+
+async def test_release_retry_and_stale_promotion_preserve_active_leader(
+    editor_client, db_session, test_incident, test_personnel, test_editor
+):
+    from app.models import AuditLog
+
+    current = Personnel(id=uuid4(), name="Walter", role="Wachtmeister", status="available")
+    db_session.add(current)
+    await db_session.commit()
+    path = f"/api/incidents/{test_incident.id}"
+    ids = []
+    for person in (test_personnel, current):
+        reply = await editor_client.post(
+            f"{path}/assign", json={"resource_type": "personnel", "resource_id": str(person.id)}
+        )
+        assert reply.status_code == 200
+        ids.append(reply.json()["id"])
+    released_id, leader_id = ids
+    assert (await editor_client.post(f"{path}/unassign/{released_id}")).status_code == 204
+    released = await db_session.get(IncidentAssignment, released_id)
+    first = released.unassigned_at
+    assert (await editor_client.post(f"{path}/unassign/{released_id}")).status_code == 204
+    await db_session.refresh(released)
+    assert released.unassigned_at == first
+    logs = (
+        await db_session.scalars(
+            select(AuditLog).where(AuditLog.resource_id == released.id, AuditLog.action_type == "unassign")
+        )
+    ).all()
+    assert len(logs) == 1
+    assert (await editor_client.patch(f"{path}/assignments/{released_id}", json={"is_leader": True})).status_code == 409
+    assert (await db_session.get(IncidentAssignment, leader_id)).is_leader
+    await db_session.refresh(test_incident)
+    assert test_incident.leader_personnel_id == current.id
+    assert not test_incident.leader_manual
+
+
+async def test_released_route_member_cannot_be_promoted(editor_client, db_session, auftrag, test_personnel):
+    row = IncidentGroupAssignment(
+        incident_group_id=auftrag.id,
+        resource_id=test_personnel.id,
+        resource_type="personnel",
+        unassigned_at=datetime.now(UTC),
+    )
+    db_session.add(row)
+    await db_session.commit()
+    response = await editor_client.patch(
+        f"/api/incident-groups/{auftrag.id}/assignments/{row.id}", json={"is_leader": True}
+    )
+    assert response.status_code == 409
+    await db_session.refresh(auftrag)
+    assert not auftrag.leader_manual
+
+
+async def test_deleted_crew_can_check_out_and_restore_respects_their_departure(
+    editor_client, db_session, test_incident, test_personnel, test_event
+):
+    from app.crud import personnel_checkin
+    from app.services.journal import journal_rows
+
+    path = f"/api/incidents/{test_incident.id}"
+    await personnel_checkin.check_in_personnel(db_session, test_event.id, test_personnel.id)
+    await db_session.commit()
+    assert (
+        await editor_client.post(
+            f"{path}/assign", json={"resource_type": "personnel", "resource_id": str(test_personnel.id)}
+        )
+    ).status_code == 200
+    assert (await editor_client.delete(path)).status_code == 204
+    rows = await journal_rows(db_session, test_event.id)
+    assert any(row.data and row.data.get("action") == "deleted" for row in rows)
+    assert not next(
+        person.is_assigned
+        for person in await personnel_checkin.get_available_personnel(db_session, test_event.id)
+        if person.id == test_personnel.id
+    )
+    assert not (await personnel_checkin.check_out_personnel(db_session, test_event.id, test_personnel.id)).checked_in
+    await db_session.commit()
+    response = await editor_client.post(f"{path}/restore")
+    assert response.status_code == 409
+    assert response.json()["code"] == "incident_restore_resource_conflict"
+    assert response.json()["params"]["name"] == test_personnel.name
+    await personnel_checkin.check_in_personnel(db_session, test_event.id, test_personnel.id)
+    await db_session.commit()
+    assert (await editor_client.post(f"{path}/restore")).status_code == 200
+    assert (await editor_client.post(f"{path}/restore")).json()["code"] == "incident_already_restored"
+
+
+@pytest.mark.parametrize("preexisting,consumable", [(False, False), (True, False), (False, True)])
+async def test_restore_preserves_deployment_choices(
+    editor_client, db_session, test_incident, test_material, auftrag, preexisting, consumable
+):
+    path = f"/api/incidents/{test_incident.id}"
+    test_material.consumable = consumable
+    await db_session.commit()
+    payload = {"resource_type": "material", "resource_id": str(test_material.id)}
+    assert (await editor_client.post(f"{path}/assign", json=payload)).status_code == 200
+    assignment = IncidentGroupAssignment(
+        incident_group_id=auftrag.id, resource_type="material", resource_id=test_material.id
+    )
+    if preexisting:
+        db_session.add(assignment)
+        await db_session.commit()
+    assert (await editor_client.delete(path)).status_code == 204
+    if not preexisting:
+        db_session.add(assignment)
+        await db_session.commit()
+    response = await editor_client.post(f"{path}/restore")
+    if preexisting or consumable:
+        assert response.status_code == 200
+    else:
+        assert response.status_code == 409
+        assert response.json()["code"] == "incident_restore_resource_conflict"
+    await db_session.refresh(assignment)
+    assert assignment.unassigned_at is None
+
+
+async def test_missing_attendance_is_not_a_checkout(editor_client, test_incident, test_personnel):
+    path = f"/api/incidents/{test_incident.id}"
+    assert (
+        await editor_client.post(
+            f"{path}/assign", json={"resource_type": "personnel", "resource_id": str(test_personnel.id)}
+        )
+    ).status_code == 200
+    assert (await editor_client.delete(path)).status_code == 204
+    assert (await editor_client.post(f"{path}/restore")).status_code == 200

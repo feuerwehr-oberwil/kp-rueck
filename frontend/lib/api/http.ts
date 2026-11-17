@@ -115,7 +115,12 @@ export function markRestReachable() {
 }
 
 /** What `request()` accepts on top of `fetch`'s own options. */
-export type RequestOptions = RequestInit & { skipToast?: boolean; maxRetries?: number; onHeaders?: (headers: Headers) => void }
+export type RequestOptions = RequestInit & {
+  auth?: 'session' | 'link'
+  skipToast?: boolean
+  maxRetries?: number
+  onHeaders?: (headers: Headers) => void
+}
 
 /**
  * Sleep function for retry delays
@@ -234,11 +239,12 @@ export async function request<T>(endpoint: string, options?: RequestOptions): Pr
         const isConflict = response.status === 409
         const error = new ApiError(errorMessage, response.status, isConflict, errorCode, errorParams)
 
-        // A 401 means the session is gone (auth endpoints don't go through
+        // Cookie-authenticated requests can signal session expiry. Share tokens expire
+        // independently of the operator session (auth endpoints do not go through
         // this client). Tell the auth layer so it can clear the user and
         // show "Sitzung abgelaufen" – without this, every mutation after
         // token expiry fails silently and optimistic UI just reverts.
-        if (response.status === 401 && typeof window !== 'undefined') {
+        if (response.status === 401 && options?.auth !== 'link' && typeof window !== 'undefined') {
           window.dispatchEvent(new Event('kp:session-expired'))
         }
 
@@ -315,4 +321,9 @@ export async function request<T>(endpoint: string, options?: RequestOptions): Pr
     throw lastError
   }
   throw new Error(translateOutsideReact('errors.api.unknown'))
+}
+
+/** A rejected share credential expires the link independently of a signed-in operator. */
+export function linkRequest<T>(endpoint: string, options?: RequestOptions): Promise<T> {
+  return request<T>(endpoint, { ...options, auth: 'link' })
 }

@@ -36,6 +36,10 @@ class IncidentNotOnBoardError(Exception):
     """The incident was deleted or merged into another card — nothing goes onto it any more."""
 
 
+class AssignmentReleasedError(ValueError):
+    """A stale edit reached an assignment after its responder was released."""
+
+
 class ResourceNotAssignableError(ValueError):
     """The resource exists but may not be assigned right now. ``str()`` is the German 409 detail.
 
@@ -252,12 +256,27 @@ async def update_assignment(
     the caller did not name — the route-level twin already did this, and
     `is_leader` turns the omission into a cross-incident write.
     """
-    result = await db.execute(select(IncidentAssignment).where(IncidentAssignment.id == assignment_id))
-    assignment = result.scalar_one_or_none()
-    if not assignment:
+    if incident_id is None:
+        incident_id = await db.scalar(
+            select(IncidentAssignment.incident_id).where(IncidentAssignment.id == assignment_id)
+        )
+    if incident_id is None:
         return None
-    if incident_id is not None and assignment.incident_id != incident_id:
+    incident = await lock_incident_with_group(db, incident_id)
+    if incident is None or incident.deleted_at is not None:
         return None
+    assignment = await db.scalar(
+        select(IncidentAssignment)
+        .where(
+            IncidentAssignment.id == assignment_id,
+            IncidentAssignment.incident_id == incident_id,
+        )
+        .execution_options(populate_existing=True)
+    )
+    if assignment is None:
+        return None
+    if assignment.unassigned_at is not None:
+        raise AssignmentReleasedError("Diese Zuweisung wurde bereits freigegeben.")
 
     update_data = update.model_dump(exclude_unset=True)
 
@@ -271,19 +290,14 @@ async def update_assignment(
         if assignment.resource_type != "personnel":
             raise ValueError("Nur Personal kann als Einsatzleiter markiert werden")
 
-        incident = (
-            await db.execute(select(Incident).where(Incident.id == assignment.incident_id))
-        ).scalar_one_or_none()
-
         if update_data["is_leader"]:
             # A hand-picked leader pins the choice: automatic re-selection stops
             # for this incident until someone explicitly hands it back.
-            if incident is not None:
-                incident.leader_manual = True
-                # The most deliberate choose-site there is, so it stamps the
-                # leader of record directly — `sync_auto_leader` does not run on
-                # this branch (it would immediately undo the pin).
-                incident.leader_personnel_id = assignment.resource_id
+            incident.leader_manual = True
+            # The most deliberate choose-site there is, so it stamps the
+            # leader of record directly — `sync_auto_leader` does not run on
+            # this branch (it would immediately undo the pin).
+            incident.leader_personnel_id = assignment.resource_id
             # Single-holder, guarded by a partial unique index, so the old holder
             # has to be demoted in the SAME transaction — writing the new one
             # first would hit the index instead of replacing the role. Not
@@ -299,7 +313,7 @@ async def update_assignment(
                 )
                 .values(is_leader=False)
             )
-        elif incident is not None:
+        else:
             # Explicitly demoting hands the choice BACK to the board rather than
             # leaving the incident permanently leaderless — otherwise the pin is
             # a one-way door with no way out through the UI.
@@ -335,8 +349,7 @@ async def unassign_resource(
     assignment ``assignment_id`` belongs to ``incident_id`` – a stale or mismatched
     id must not release a row on another incident (audit 2026-10, F03); the route
     turns that into its 404. Releasing an already released row of the right
-    incident still succeeds and stamps ``unassigned_at`` again (behaviour kept as
-    it was; the board treats it as a no-op).
+    incident is a no-op: its original release time and audit record survive a retry.
 
     Locks the incident first, then writes the assignment – the order in
     ``crud/locking.py``, the same one completion takes.
@@ -352,14 +365,16 @@ async def unassign_resource(
     """
     await db.execute(select(Incident.id).where(Incident.id == incident_id).with_for_update())
     assignment = await db.scalar(
-        select(IncidentAssignment).where(
+        select(IncidentAssignment)
+        .where(
             IncidentAssignment.id == assignment_id,
             IncidentAssignment.incident_id == incident_id,
         )
+        .execution_options(populate_existing=True)
     )
 
-    if assignment is None:
-        return None
+    if assignment is None or assignment.unassigned_at is not None:
+        return assignment
 
     # Mark unassigned. The Einsatzleiter flag goes with it: the index only
     # counts active rows, so a released row keeping `is_leader` is legal — but

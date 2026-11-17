@@ -187,6 +187,14 @@ describe('StandbyBand', () => {
     expect(await screen.findByText(/KP Rück Offline seit 14' nicht gehört/)).toBeInTheDocument()
   })
 
+  it('shows viewers the conflict count without offering editor-only details', async () => {
+    mocks.getDeployment.mockResolvedValue(HOSTED)
+    mocks.getStandby.mockResolvedValue({ mirror: false, leads: [lead('hosted', { open_conflicts: 3 })] })
+    renderBoard('viewer')
+    expect(await screen.findByText('3 Konflikte')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Konflikte/ })).toBeNull()
+  })
+
   it('keeps a way to the conflicts on the hosted board once it leads again', async () => {
     mocks.getDeployment.mockResolvedValue(HOSTED)
     mocks.getStandby.mockResolvedValue({ mirror: false, leads: [lead('hosted', { open_conflicts: 3 })] })

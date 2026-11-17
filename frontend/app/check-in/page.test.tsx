@@ -16,7 +16,8 @@ const api = vi.hoisted(() => ({
   checkOutPersonnel: vi.fn(),
 }))
 vi.mock('@/lib/api-client', () => ({ apiClient: api }))
-vi.mock('@/lib/websocket-client', () => ({ wsClient: { connect: vi.fn(), disconnect: vi.fn(), on: () => () => {} } }))
+vi.mock('@/lib/websocket-client', () => ({ wsClient: { getStatus: () => 'disconnected', connect: vi.fn(), disconnect: vi.fn(), on: () => () => {} } }))
+vi.mock('@/lib/contexts/auth-context', () => ({ useAuth: () => ({ isEditor: false }) }))
 vi.mock('@/components/quick-add-personnel', () => ({ QuickAddPersonnel: () => null }))
 const toast = vi.hoisted(() => Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }))
 vi.mock('sonner', () => ({ toast }))
@@ -35,6 +36,18 @@ function roster() {
 
 describe('/check-in', () => {
   beforeEach(() => vi.clearAllMocks())
+
+  it('refreshes a token-only kiosk when it becomes visible again', async () => {
+    roster()
+    renderWithIntl(<CheckInPage />)
+    await screen.findByRole('button', { name: /Acker Reto/ })
+    api.getCheckInList.mockResolvedValue({
+      event_name: 'Unwetter',
+      personnel: [{ id: 'p1', name: 'Acker Reto', checked_in: true, is_assigned: false }],
+    })
+    document.dispatchEvent(new Event('visibilitychange'))
+    await waitFor(() => expect(screen.getByRole('button', { name: /Acker Reto/ })).toHaveTextContent('Anwesend'))
+  })
 
   it('a check-in clears the search for the next person at the door', async () => {
     roster()

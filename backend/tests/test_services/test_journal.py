@@ -562,3 +562,21 @@ async def test_a_reader_past_its_cursor_also_gets_the_last_two_minutes(
     # the recent ones come again (the client merges by id), the old one does not
     assert {r.id for r in again} == {r.id for r in rows if r.text != "vor langer Zeit"}
     assert again
+
+
+async def test_a_previous_boot_does_not_prevent_backfill_of_archive_deletions(db_session, test_event):
+    incident = _incident(test_event)
+    db_session.add(incident)
+    await db_session.commit()
+    assert await _run_backfill(db_session) == 0
+    db_session.info["journal_disabled"] = True
+    try:
+        incident.deleted_at = datetime.now(UTC)
+        db_session.add(AuditLog(resource_type="incident", resource_id=incident.id, action_type="archive"))
+        await db_session.commit()
+    finally:
+        db_session.info["journal_disabled"] = False
+    assert await _run_backfill(db_session) == 1
+    deleted = (await journal_rows(db_session, test_event.id))[-1]
+    assert deleted.incident_id == incident.id and deleted.incident_deleted and deleted.data["action"] == "deleted"
+    assert await _run_backfill(db_session) == 0

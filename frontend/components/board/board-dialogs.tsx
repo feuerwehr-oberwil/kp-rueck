@@ -317,6 +317,7 @@ export function BoardDialogs({
         eventId={selectedEvent?.id ?? null}
         operations={operations}
         isEditor={isEditor}
+        refreshBoard={refreshOperations}
         composeRequest={journalCompose}
         onOpenIncident={(id) => {
           setActiveFooterSheet(null)

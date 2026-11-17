@@ -6,7 +6,7 @@
  */
 
 import { getApiUrl } from '../../env'
-import { request as httpRequest } from '../http'
+import { linkRequest, request as httpRequest } from '../http'
 import type {
   ApiSchadenplatzRapport,
   ApiRapportUpdate,
@@ -23,7 +23,7 @@ export class RapportApi {
 
   /** The Rapport as the crew sees it. Prefilled when nothing has been filed yet. */
   async getFeldRapport(incidentId: string, personnelId: string, token: string): Promise<ApiSchadenplatzRapport> {
-    return httpRequest<ApiSchadenplatzRapport>(feldQuery(incidentId, 'rapport', personnelId, token))
+    return linkRequest<ApiSchadenplatzRapport>(feldQuery(incidentId, 'rapport', personnelId, token))
   }
 
   /** Autosave (`is_draft: true`) or file it (`false`). */
@@ -33,7 +33,7 @@ export class RapportApi {
     token: string,
     update: ApiRapportUpdate
   ): Promise<ApiSchadenplatzRapport> {
-    return httpRequest<ApiSchadenplatzRapport>(feldQuery(incidentId, 'rapport', personnelId, token), {
+    return linkRequest<ApiSchadenplatzRapport>(feldQuery(incidentId, 'rapport', personnelId, token), {
       method: 'PUT',
       body: JSON.stringify(update),
     })
@@ -76,7 +76,7 @@ export class RapportApi {
     token: string,
     filename: string
   ): Promise<ApiRapportPhotosResponse> {
-    return httpRequest<ApiRapportPhotosResponse>(
+    return linkRequest<ApiRapportPhotosResponse>(
       feldQuery(incidentId, `photos/${encodeURIComponent(filename)}`, personnelId, token),
       { method: 'DELETE' }
     )

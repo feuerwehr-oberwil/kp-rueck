@@ -43,7 +43,7 @@ interface PhoneQuickSheetsProps {
 export function PhoneQuickSheets({ open, onOpenChange }: PhoneQuickSheetsProps) {
   const { selectedEvent } = useEvent()
   const { isEditor } = useAuth()
-  const { operations } = useOperations()
+  const { operations, refreshOperations } = useOperations()
   // Auftrag crews folded in, as the board's sidebar draws them – the raw list calls them frei.
   const personnel = useAuftragRoster()
   const { refreshPersonnel } = usePersonnel()
@@ -102,6 +102,7 @@ export function PhoneQuickSheets({ open, onOpenChange }: PhoneQuickSheetsProps) 
         eventId={eventId}
         operations={operations}
         isEditor={isEditor}
+        refreshBoard={refreshOperations}
         onOpenIncident={(id) => {
           close()
           navigateToIncident(id)

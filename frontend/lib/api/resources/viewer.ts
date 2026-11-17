@@ -5,7 +5,7 @@
  * the one client object). Methods go through the shared transport in `../http`.
  */
 
-import { request as httpRequest } from '../http'
+import { linkRequest, request as httpRequest } from '../http'
 import type {
   ApiEvent,
   ApiEventSpecialFunctionResponse,
@@ -160,8 +160,9 @@ export class ViewerApi {
   }
 
   async getViewerData(token: string): Promise<ApiViewerData> {
-    return httpRequest<ApiViewerData>(
-      `/api/viewer/data?token=${encodeURIComponent(token)}`
+    return linkRequest<ApiViewerData>(
+      `/api/viewer/data?token=${encodeURIComponent(token)}`,
+      { skipToast: true, maxRetries: 0 },
     )
   }
 
@@ -176,7 +177,7 @@ export class ViewerApi {
   }
 
   async getIntakeContext(token: string): Promise<{ event: { id: string; name: string; training_flag: boolean } }> {
-    return httpRequest<{ event: { id: string; name: string; training_flag: boolean } }>(
+    return linkRequest<{ event: { id: string; name: string; training_flag: boolean } }>(
       `/api/intake/context?token=${encodeURIComponent(token)}`,
       { skipToast: true }
     )
@@ -196,7 +197,7 @@ export class ViewerApi {
     /** The board's «Notizen» — the further hints that came with the call. */
     internal_notes?: string | null
   }): Promise<{ id: string }> {
-    return httpRequest<{ id: string }>(
+    return linkRequest<{ id: string }>(
       `/api/intake/alarm?token=${encodeURIComponent(token)}`,
       {
         method: 'POST',

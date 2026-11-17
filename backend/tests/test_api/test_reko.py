@@ -299,6 +299,77 @@ async def test_submit_reko_report_updates_existing(
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_partial_reko_draft_preserves_the_other_field_updates(client: AsyncClient, test_reko_report: RekoReport):
+    credentials = {"incident_id": str(test_reko_report.incident_id), "token": test_reko_report.token}
+    response = await client.post("/api/reko/?submit=false", json={**credentials, "summary_text": "Crew update"})
+    assert response.status_code == 200
+    assert response.json()["summary_text"] == "Crew update"
+    assert response.json()["additional_notes"] == "Additional test notes"
+    assert response.json()["is_relevant"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_legacy_idle_snapshot_is_ignored_but_a_real_clear_is_saved(
+    client: AsyncClient, test_reko_report: RekoReport
+):
+    credentials = {"incident_id": str(test_reko_report.incident_id), "token": test_reko_report.token}
+    blank = {
+        "is_draft": True,
+        "is_relevant": None,
+        "dangers_json": {
+            "fire": False,
+            "fire_danger": False,
+            "explosion": False,
+            "collapse": False,
+            "chemical": False,
+            "electrical": False,
+            "other_notes": "",
+        },
+        "effort_json": {
+            "personnel_count": None,
+            "estimated_duration_hours": None,
+            "vehicles_needed": [],
+            "equipment_needed": [],
+        },
+        "power_supply": "unknown",
+        "summary_text": "",
+        "additional_notes": "",
+        "photos_json": [],
+    }
+    ignored = await client.post("/api/reko/?submit=false", json={**credentials, **blank})
+    assert ignored.status_code == 200
+    assert ignored.json()["summary_text"] == test_reko_report.summary_text
+    assert ignored.json()["is_relevant"] is True
+    clear = await client.post("/api/reko/?submit=false", json={**credentials, "summary_text": ""})
+    assert clear.status_code == 200
+    assert clear.json()["summary_text"] == ""
+    assert clear.json()["is_relevant"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_partial_hazard_and_effort_fields_merge_into_the_current_report(
+    client: AsyncClient, test_reko_report: RekoReport
+):
+    credentials = {"incident_id": str(test_reko_report.incident_id), "token": test_reko_report.token}
+    first = await client.post(
+        "/api/reko/?submit=false",
+        json={**credentials, "dangers_json": {"chemical": True}, "effort_json": {"personnel_count": 5}},
+    )
+    assert first.status_code == 200
+    second = await client.post(
+        "/api/reko/?submit=true",
+        json={**credentials, "dangers_json": {"electrical": True}, "effort_json": {"vehicles_needed": ["TLF"]}},
+    )
+    assert second.status_code == 200
+    assert second.json()["dangers_json"]["chemical"] and second.json()["dangers_json"]["electrical"]
+    assert second.json()["effort_json"]["personnel_count"] == 5
+    assert second.json()["effort_json"]["vehicles_needed"] == ["TLF"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_draft_save_cannot_unsubmit_report(client: AsyncClient, test_incident: Incident, valid_token: str):
     """Regression: a stray draft-save (auto-save with is_draft=true in the body)
     landing after submission must not flip a submitted report back to draft."""

@@ -23,12 +23,10 @@ import { standbyLists } from "@/lib/standby"
 import { type SituationData } from "@/lib/viewer-data"
 import { type IncidentGroup } from "@/lib/types/groups"
 import { cn } from "@/lib/utils"
-import { DisplayStaleBanner } from "@/components/display/display-stale-banner"
 import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
 import { WallPriorityGlyph } from "@/components/display/wall-priority-glyph"
 import { PersonNamingProvider } from "@/components/person-name"
 import { IncidentTime } from "@/components/ui/incident-time"
-import { LoadingStatus } from "@/components/ui/shell-loader"
 
 /**
  * Bereitschaft – the display page for a crew waiting at the station, on a shared tablet held
@@ -62,24 +60,8 @@ function SessionStandby() {
 
 /** Share link: the view-model polled from the token payload. */
 function TokenStandby({ token }: { token: string }) {
-  const tLoading = useTranslations("common")
-  const { data, groups, lastRefresh } = useViewerSituation(token)
-
-  if (!data) {
-    return (
-      <div className="flex h-full items-center justify-center bg-background">
-        <LoadingStatus size="surface" className="text-sm">{tLoading("loading")}</LoadingStatus>
-      </div>
-    )
-  }
-  return (
-    <div className="flex h-full flex-col">
-      <DisplayStaleBanner lastRefresh={lastRefresh} />
-      <div className="min-h-0 flex-1">
-        <StandbyBoard {...data} groups={groups} viewerToken={token} />
-      </div>
-    </div>
-  )
+  const { data, groups } = useViewerSituation()
+  return <StandbyBoard {...data} groups={groups} viewerToken={token} />
 }
 
 function StandbyBoard({

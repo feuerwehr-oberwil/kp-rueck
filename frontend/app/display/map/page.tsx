@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo } from "react"
+import { useViewerSituation } from "@/lib/hooks/use-viewer-situation"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
@@ -8,8 +9,7 @@ import dynamic from "next/dynamic"
 import { useIncidents, useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useAuth } from "@/lib/contexts/auth-context"
-import { apiClient, type ApiViewerIncident, type ApiViewerData } from "@/lib/api-client"
-import { usePolling } from "@/lib/hooks/use-polling"
+import { type ApiViewerIncident } from "@/lib/api-client"
 import type { Incident } from "@/lib/types/incidents"
 import type { AssignedVehicle, StatusGroup, IncidentStatus } from "@/lib/types/incidents"
 import { STATUS_TO_GROUP } from "@/lib/types/incidents"
@@ -18,9 +18,7 @@ import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { Check, Layers, ChevronDown } from "lucide-react"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
-import { buildSituationData, viewerGroupsToIncidentGroups } from "@/lib/viewer-data"
 import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
-import { DisplayStaleBanner } from "@/components/display/display-stale-banner"
 import { LoadingStatus } from "@/components/ui/shell-loader"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { readWeatherLayerPref, writeWeatherLayerPref } from "@/lib/weather"
@@ -511,71 +509,31 @@ function TokenDisplayMap({
   weatherAvailable,
   onWeatherAvailabilityChange,
 }: DisplayMapVariantProps & { token: string }) {
-  const tLoading = useTranslations('common')
-  const [data, setData] = useState<ApiViewerData | null>(null)
-  // Age of the last SUCCESSFUL poll. Holding the last-known data through a failed fetch is
-  // correct; rendering it as if it were current is not. Frozen vehicle positions on a map
-  // are read as fact by whoever glances at the wall.
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
-
-  const load = useCallback(async () => {
-    try {
-      const d = await apiClient.getViewerData(token)
-      // A GET that got no answer resolves to nothing: that is a failed poll,
-      // not an empty Ereignis, and must not count as a fresh one either.
-      if (!d) return
-      setData(d)
-      setLastRefresh(new Date())
-    } catch {
-      // Keep the last-known data — DisplayStaleBanner surfaces that it has gone stale.
-    }
-  }, [token])
-  // Unattended wall screen: never paused on visibility (see `usePolling`).
-  usePolling(load, { intervalMs: 5000, pauseWhenHidden: false })
+  const { payload: data, data: situation, groups } = useViewerSituation()
 
   const incidents = useMemo<Incident[]>(
-    () => (data?.incidents ?? []).map(apiIncidentToIncident),
+    () => data.incidents.map(apiIncidentToIncident),
     [data]
   )
   // Full operation view-model (crew/materials/reko from the payload's
   // assignments) — feeds the route overlay, "Färben nach" and the detail dialog.
-  const situation = useMemo(() => (data ? buildSituationData(data) : null), [data])
-  const operations = useMemo(() => situation?.operations ?? [], [situation])
+  const operations = situation.operations
   const operationsById = useMemo(
     () => new Map(operations.map((op) => [op.id, op] as const)),
     [operations],
   )
-  const groups = useMemo<IncidentGroup[]>(
-    () => (data ? viewerGroupsToIncidentGroups(data) : []),
-    [data],
-  )
-
   const { markerAccents, colorLegend } = useColorAccents(operations, options.colorBy, groups)
   const statusCounts = useMemo(
-    () => countByStatusGroup((data?.incidents ?? []).map((inc) => inc.status)),
+    () => countByStatusGroup(data.incidents.map((inc) => inc.status)),
     [data],
   )
   const detailOperation = detailIncidentId
     ? operations.find((op) => op.id === detailIncidentId) ?? null
     : null
 
-  if (!data) {
-    return (
-      <div className="flex h-full items-center justify-center bg-muted">
-        <LoadingStatus size="surface" className="text-sm">{tLoading('loading')}</LoadingStatus>
-      </div>
-    )
-  }
-
   return (
-    // Stacked, not overlaid. Overlaying the banner on the full-bleed map put it straight on
-    // top of the map's own top-centre chip ("N Einsätze ohne gültige Koordinaten") — two
-    // warnings rendering through each other, which is worse than either alone. In a flex
-    // column the map's absolutely-positioned controls are placed against the inner
-    // container, so they all move down with it and nothing collides.
-    <PersonNamingProvider roster={situation?.personnel ?? []}>
+    <PersonNamingProvider roster={situation.personnel}>
     <div className="flex w-full h-full flex-col">
-      <DisplayStaleBanner lastRefresh={lastRefresh} />
       <div className="relative min-h-0 flex-1">
       <MapView
         selectedIncidentId={selectedIncidentId}
@@ -618,7 +576,7 @@ function TokenDisplayMap({
         operation={detailOperation}
         open={!!detailOperation}
         onOpenChange={(open) => { if (!open) onCloseDetail() }}
-        materialsOverride={situation?.materials ?? []}
+        materialsOverride={situation.materials}
         groupsOverride={groups}
         viewerToken={token}
       />

@@ -4,49 +4,24 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import Request
-from sqlalchemy import and_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..models import (
     EventAttendance,
-    Incident,
-    IncidentAssignment,
-    IncidentGroup,
-    IncidentGroupAssignment,
     Personnel,
     User,
 )
 from ..services.audit import log_action
+from .active_resources import active_resource_ids
 
 
 async def _is_personnel_assigned(db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid.UUID) -> bool:
-    direct = await db.scalar(
-        select(IncidentAssignment.id)
-        .join(Incident, IncidentAssignment.incident_id == Incident.id)
-        .where(
-            Incident.event_id == event_id,
-            IncidentAssignment.resource_type == "personnel",
-            IncidentAssignment.resource_id == personnel_id,
-            IncidentAssignment.unassigned_at.is_(None),
-        )
-        .limit(1)
+    deployed = active_resource_ids("personnel", event_id=event_id).subquery()
+    return bool(
+        await db.scalar(select(select(deployed.c.resource_id).where(deployed.c.resource_id == personnel_id).exists()))
     )
-    if direct is not None:
-        return True
-    route = await db.scalar(
-        select(IncidentGroupAssignment.id)
-        .join(IncidentGroup, IncidentGroupAssignment.incident_group_id == IncidentGroup.id)
-        .where(
-            IncidentGroup.event_id == event_id,
-            IncidentGroup.deleted_at.is_(None),
-            IncidentGroupAssignment.resource_type == "personnel",
-            IncidentGroupAssignment.resource_id == personnel_id,
-            IncidentGroupAssignment.unassigned_at.is_(None),
-        )
-        .limit(1)
-    )
-    return route is not None
 
 
 async def get_available_personnel(
@@ -84,33 +59,7 @@ async def get_available_personnel(
     attendance_result = await db.execute(attendance_query)
     attendance_map = {att.personnel_id: att for att in attendance_result.scalars().all()}
 
-    # Get personnel assignment status for this event
-    # Check if personnel are assigned to any incident in this event
-    assignment_query = (
-        select(IncidentAssignment.resource_id)
-        .where(
-            and_(
-                IncidentAssignment.resource_type == "personnel",
-                IncidentAssignment.unassigned_at.is_(None),  # Only active assignments
-                IncidentAssignment.incident_id.in_(select(Incident.id).where(Incident.event_id == event_id)),
-            )
-        )
-        .distinct()
-    )
-    assignment_result = await db.execute(assignment_query)
-    assigned_personnel_ids = set(assignment_result.scalars().all())
-    group_assignment_result = await db.execute(
-        select(IncidentGroupAssignment.resource_id)
-        .join(IncidentGroup, IncidentGroupAssignment.incident_group_id == IncidentGroup.id)
-        .where(
-            IncidentGroup.event_id == event_id,
-            IncidentGroup.deleted_at.is_(None),
-            IncidentGroupAssignment.resource_type == "personnel",
-            IncidentGroupAssignment.unassigned_at.is_(None),
-        )
-        .distinct()
-    )
-    assigned_personnel_ids.update(group_assignment_result.scalars().all())
+    assigned_personnel_ids = set(await db.scalars(active_resource_ids("personnel", event_id=event_id)))
 
     # Build response with event-specific check-in status
     response_list = []
@@ -275,7 +224,7 @@ async def check_out_personnel(
         Updated personnel with event-specific check-in status, or None if not found
     """
     # Get personnel record
-    result = await db.execute(select(Personnel).where(Personnel.id == personnel_id))
+    result = await db.execute(select(Personnel).where(Personnel.id == personnel_id).with_for_update())
     person = result.scalar_one_or_none()
 
     if not person:

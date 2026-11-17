@@ -1186,14 +1186,30 @@ async def restore_incident(
             current_user=current_user,
             request=request,
         )
-    except ValueError:
-        raise HTTPException(status_code=409, detail=ErrorMessages.CONFLICT) from None
-    except IntegrityError:
-        # Defensive: restore_incident appends route stops at the end to avoid a
-        # group_position collision, but guard against any other unique-constraint
-        # race so the undo returns a clean 409 rather than a 500.
+    except crud.IncidentAlreadyRestoredError as e:
+        raise CodedHTTPException(
+            409, ErrorCode.INCIDENT_ALREADY_RESTORED, "Der Einsatz ist bereits wiederhergestellt."
+        ) from e
+    except crud.RestoreResourceConflictError as e:
+        raise CodedHTTPException(
+            409,
+            ErrorCode.INCIDENT_RESTORE_RESOURCE_CONFLICT,
+            f"«{e}» ist nicht verfügbar. Die aktuelle Zuweisung bleibt bestehen.",
+            params={"name": str(e)},
+        ) from e
+    except ValueError as e:
+        raise CodedHTTPException(
+            409,
+            ErrorCode.INCIDENT_RESTORE_MERGED,
+            "Diese Meldung wurde zusammengeführt. Im Ziel-Einsatz kann sie getrennt werden.",
+        ) from e
+    except IntegrityError as e:
         await db.rollback()
-        raise HTTPException(status_code=409, detail=ErrorMessages.CONFLICT) from None
+        raise CodedHTTPException(
+            409,
+            ErrorCode.INCIDENT_RESTORE_CONFLICT,
+            "Der Einsatz wurde inzwischen geändert. Wiederherstellung erneut versuchen.",
+        ) from e
 
     if not incident:
         raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)

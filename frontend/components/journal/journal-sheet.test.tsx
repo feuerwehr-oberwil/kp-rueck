@@ -13,6 +13,7 @@ vi.mock("@/components/ui/use-mobile", () => ({ useIsMobile: () => mobile.value }
 
 const api = vi.hoisted(() => ({
   getJournal: vi.fn(),
+  restoreIncident: vi.fn(),
   appendJournal: vi.fn(),
   correctJournal: vi.fn(),
 }))
@@ -60,7 +61,7 @@ const ROWS = [
 
 function renderSheet(isEditor = true, operations: Array<Operation & Pick<IncidentChoice, "number">> = [op]) {
   return renderWithIntl(
-    <JournalSheet open onOpenChange={onOpenChange} eventId="e1" operations={operations} isEditor={isEditor} onOpenIncident={() => {}} />,
+    <JournalSheet open onOpenChange={onOpenChange} eventId="e1" operations={operations} isEditor={isEditor} refreshBoard={vi.fn()} onOpenIncident={() => {}} />,
   )
 }
 
@@ -346,4 +347,20 @@ describe("JournalSheet", () => {
     await user.click(screen.getByRole("button", { name: "Eintragen" }))
     await waitFor(() => expect(api.appendJournal).toHaveBeenCalledOnce())
   })
+})
+
+it.each([true, false])("offers a deleted incident's latest recovery only to editors (%s)", async (isEditor) => {
+  const event = (id: string, action: string) => row({ kind: "incident", category: "status", incident_id: id, incident_title: id, incident_deleted: true, data: { action } })
+  const entries = [event("Keller", "deleted"), event("Keller", "restored"), event("Keller", "deleted"),
+    event("Gasse", "deleted"), event("Gasse", "merged_into"), event("Depot", "deleted"), event("Depot", "restored")]
+  api.getJournal.mockResolvedValue({ entries, latest_seq: entries.at(-1)!.seq })
+  api.restoreIncident.mockResolvedValue({ id: "Keller" })
+  renderSheet(isEditor)
+  await screen.findAllByTestId("journal-row")
+  const buttons = screen.queryAllByRole("button", { name: "Einsatz wiederherstellen" })
+  expect(buttons).toHaveLength(isEditor ? 1 : 0)
+  if (isEditor) {
+    await userEvent.click(buttons[0])
+    expect(api.restoreIncident).toHaveBeenCalledWith("Keller")
+  }
 })

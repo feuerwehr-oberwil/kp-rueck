@@ -397,6 +397,19 @@ async def _conflict(db_session, event: Event, incident: Incident, kind: str = "f
 
 
 @pytest.mark.asyncio
+async def test_a_viewer_cannot_read_open_or_resolved_conflict_details(
+    viewer_client: AsyncClient, db_session, two_events
+):
+    event, _, incident, _ = two_events
+    conflict = await _conflict(db_session, event, incident)
+    path = f"/api/standby/events/{event.id}/conflicts"
+    assert (await viewer_client.get(path)).status_code == 403
+    conn = await _driver(db_session)
+    await conn.execute("UPDATE event_conflicts SET resolved_at = now(), resolution = 'kept' WHERE id = $1", conflict)
+    assert (await viewer_client.get(path)).status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_a_conflict_is_decided_where_the_ereignis_is_led(editor_client: AsyncClient, db_session, two_events):
     a, _, ia, _ = two_events
     conflict = await _conflict(db_session, a, ia)

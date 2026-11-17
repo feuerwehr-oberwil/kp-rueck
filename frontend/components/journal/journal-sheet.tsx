@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
-import { Filter, Hash, Link2, Pencil, SendHorizontal, X } from "lucide-react"
+import { Filter, Hash, Link2, Pencil, SendHorizontal, Undo2, X } from "lucide-react"
 
 import { apiClient, type ApiJournalCategory, type ApiJournalEntry } from "@/lib/api-client"
 import type { Operation } from "@/lib/contexts/operations-context"
@@ -33,6 +33,7 @@ import {
   type IncidentChoice,
   type JournalLine,
 } from "@/lib/journal"
+import { restoreDeletedIncident } from "@/lib/restore-incident"
 import { useJournal } from "@/lib/hooks/use-journal"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { isIncidentStatus } from "@/lib/types/incidents"
@@ -86,6 +87,7 @@ export interface JournalSheetProps {
   /** The board's Einsätze — the `#` pick-list and the names on the incident chips. */
   operations: readonly Operation[]
   isEditor: boolean
+  refreshBoard?: () => Promise<void>
   /** Opens the Einsatz behind an incident chip. */
   onOpenIncident?: (incidentId: string) => void
   /** «Neuer Eintrag» (E): focus the line, linked to this Einsatz when one was
@@ -109,7 +111,7 @@ function operationLabel(op: NumberedOperation): string {
   return op.number != null ? `${op.number} · ${label}` : label
 }
 
-export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor, onOpenIncident, composeRequest }: JournalSheetProps) {
+export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor, refreshBoard, onOpenIncident, composeRequest }: JournalSheetProps) {
   const t = useTranslations("journal")
   const isMobile = useIsMobile()
   // While a standby box leads this Ereignis, the hosted board may still add lines – not correct them.
@@ -119,6 +121,20 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
   const [ticked, setTicked] = useState<Set<ApiJournalCategory>>(new Set())
 
   const lines = useMemo(() => foldJournal(entries), [entries])
+  // A card can have several delete/restore cycles. Only its latest lifecycle
+  // row offers recovery, even when a historical audit row was backfilled on boot.
+  const recoverable = useMemo(() => {
+    const seen = new Set<string>()
+    const rows = new Set<string>()
+    for (const { entry } of lines) {
+      if (!entry.incident_id || entry.kind !== "incident" || seen.has(entry.incident_id)) continue
+      const action = entry.data?.action
+      if (action !== "deleted" && action !== "restored" && action !== "merged_into" && action !== "unmerge") continue
+      seen.add(entry.incident_id)
+      if (entry.incident_deleted && action === "deleted") rows.add(entry.id)
+    }
+    return rows
+  }, [lines])
   const counts = useMemo(() => journalCounts(lines), [lines])
   const shown = useMemo(() => filterJournal(lines, ticked), [lines, ticked])
   const filtering = ticked.size > 0
@@ -274,6 +290,9 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
                     ? () => onOpenIncident(line.entry.incident_id!)
                     : undefined
                 }
+                onRestore={isEditor && refreshBoard && recoverable.has(line.entry.id) && !labels.has(line.entry.incident_id!)
+                  ? async () => { if (await restoreDeletedIncident(line.entry.incident_id!, refreshBoard)) reload() }
+                  : undefined}
                 onCorrect={isEditor && line.entry.kind === "manual" ? () => setCorrecting(line) : undefined}
               />
             ))}
@@ -307,6 +326,7 @@ function JournalRow({
   stacked = false,
   onOpenIncident,
   onCorrect,
+  onRestore,
 }: {
   line: JournalLine
   incidentLabel?: string
@@ -316,9 +336,11 @@ function JournalRow({
   stacked?: boolean
   onOpenIncident?: () => void
   onCorrect?: () => void
+  onRestore?: () => Promise<void>
 }) {
   const t = useTranslations("journal")
   const { entry } = line
+  const [restoring, setRestoring] = useState(false)
   const [showOriginal, setShowOriginal] = useState(false)
   const lastCorrection = line.corrections[line.corrections.length - 1]
   // An Einsatz that left the board keeps its lines (append-only) and says why it is gone.
@@ -373,6 +395,16 @@ function JournalRow({
             ))}
           <JournalText entry={entry} text={line.text} />
         </p>
+        {onRestore && (
+          <Button type="button" size="sm" variant="outline" className="mt-1" disabled={restoring}
+            onClick={async () => {
+              setRestoring(true)
+              try { await onRestore() } finally { setRestoring(false) }
+            }}>
+            {restoring ? <ShellLoader /> : <Undo2 aria-hidden="true" />}
+            {t("restoreIncident")}
+          </Button>
+        )}
         {(author || lastCorrection) && (
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
             {author && <span>{author}</span>}

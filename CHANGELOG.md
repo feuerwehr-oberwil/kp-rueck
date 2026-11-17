@@ -30,13 +30,17 @@ will keep holding.
 
 ### Added
 
+- Editors can restore a deleted Einsatz from its entry in the Ereignis **Verlauf**, even after
+  the undo message expires or the board reloads. A failed restore can be retried.
+
 - **`/feld` is quicker to fill in.** The header says who is signed in, the Ereignis and its day,
   with «Neuer Schadenplatz» as one «+» on the right; the card underneath is the Schadenplatz
   (address, Einsatzart, title, Meldung), and the «KP: {status}» line is gone. Mannschaft,
   Fahrzeuge and Material are added with one «Hinzufügen» button: a sheet with search where a tap
   ticks, «Fertig (n)» adds, and a name not on the list is added as a guest. The Notiz field for
   guests is gone. The Feld API's assignments carry `event_started_at` (additive).
-- **A standby box now syncs a taken-over Ereignis both ways** (`docs/STANDBY.md`). The box's work
+- **A standby box can mirror a hosted board and take over an Ereignis during an outage**
+  (`docs/STANDBY.md`). The box's work
   goes to the hosted board by itself whenever that answers – after an outage the moment the
   internet is back – and the hosted board shows it live under a band «Geführt auf KP Rück
   Offline», where new things (an Einsatz, Tagebuch lines, Feld reports, alarms) can still be
@@ -162,6 +166,19 @@ will keep holding.
 
 ### Fixed
 
+- **Reko reports** autosave only edits to a successfully loaded report. Unsent edits are scoped
+  to that report on a shared phone. Drafts saved by older versions under an incident-wide key
+  cannot safely be attributed to a crew member and are no longer applied automatically.
+- **Crew and equipment availability** includes Auftrag assignments and excludes deleted
+  Einsätze. A stale board cannot promote a released Einsatzleiter. Retrying a release preserves
+  the original departure time in the journal and PDF.
+- **Shared wall displays** take the event name, exercise marker, cards and availability counts
+  from the same snapshot. A temporary outage before the first load shows a retry message.
+  After a successful load the wall keeps the last picture and shows its age. Expired links
+  leave the operator's login intact.
+- **Check-in kiosks** refresh the event roster using their check-in link, including changes
+  made at other kiosks. Field forms support pinch zoom on phones.
+
 - **On Railway, every browser shared one rate-limit and Feld-Code bucket.** The frontend's
   proxy reaches the backend through its public domain, and that edge rewrites X-Forwarded-For to
   «frontend, edge node», so the address the backend took was the same for every browser. With
@@ -211,6 +228,11 @@ will keep holding.
 
 ### Security
 
+- Standby conflict values, including resolved conflicts, require an editor. A viewer can see
+  how many open conflicts remain.
+- Removed the unused translation source watcher from the frontend's production dependency
+  tree, eliminating its affected `picomatch` dependency (GHSA-fc5q-39xc-vjpf).
+
 - **Passwordless local login is refused on Railway.** It is a compose-stack feature: the
   loopback-only listener and the header strip that make it safe are Caddy's, and a Railway
   backend is its own public origin with neither. Setting `LOCAL_AUTOLOGIN_USER` /
@@ -228,8 +250,18 @@ will keep holding.
   `POST /api/admin/seed-training` (`python -m app.seed` seeds the training templates). A script
   that called one of them gets a 404 or 405.
 
+- **The Railway ↔ local sync** (Einstellungen › Synchronisation, `/api/sync/*`, the sync dot
+  in the user menu). It needed a write login to the hosted database on the local box, never
+  copied settings, and dropped Einsätze it could not place without saying so. A migration drops
+  its history table `sync_log` and its four settings (`railway_database_url`, `sync_*`,
+  `auto_sync_on_create`); a configured connection string is deleted with them. `DEPLOYMENT_ROLE=staging`
+  now blocks outbound alerting only.
+
 ### Upgrade notes
 
+- **Stations using Railway ↔ local sync on 0.9.0** should back up before upgrading. Follow
+  `docs/STANDBY.md` to configure the replacement. Downgrading recreates an empty sync history
+  and default settings. The pre-upgrade backup holds the old history and connection setting.
 - **Railway:** set `CLIENT_ADDRESS_SECRET` (`openssl rand -hex 32`) to the same value on the
   backend and the frontend service and restart both (docs/RAILWAY.md §5).
 - `FELD_CODE_MAX_FAILED_ATTEMPTS` and `FELD_CODE_FAILED_WINDOW_SECONDS` are no longer read;
@@ -244,15 +276,6 @@ will keep holding.
 
 ### Added
 
-- **A standby box for a hosted board** (`DEPLOYMENT_ROLE=standby`, compose profile `standby`,
-  `docs/STANDBY.md`): a compose stack in the Magazin mirrors the hosted database live and one way
-  (Postgres logical replication), photos included, so it can take over the moment the internet
-  drops. Its board is look-only under a band «Spiegel von KP Rück Online · Stand … · nur
-  ansehen»; an editor takes the running Ereignis offline there in one confirmation, and from
-  then on that Ereignis is worked on the box and never synchronised again, while every other
-  one keeps mirroring. `main-images.yml` publishes images for every `main` commit
-  (`main-<sha>`), and `scripts/standby-follow.sh` keeps the box on the commit the hosted board
-  runs. `python -m app.standby --reset` makes it a pure mirror again after an outage.
 - **«Kennung» for people who share a name** (Settings › Personal, Excel column `kennung`):
   a Jahrgang or Personal-Nr., shown on the board only where two people have the same name
   («Meier Alex · 1985»). A second person with the same name needs one; the Divera and roster
@@ -445,15 +468,6 @@ every new setting is optional with a working default.
 - **Dependency advisories**: certifi 2026.10.19 (GHSA-6q48-6c7w-9gw2, #216), Mako 1.4.3
   (GHSA-5639-2j2p-m4mx, #207). A print job's detail (it carries the Feld link and code) needs an
   editor (#217).
-
-### Removed
-
-- **The Railway ↔ local sync** (Einstellungen › Synchronisation, `/api/sync/*`, the sync dot
-  in the user menu). It needed a write login to the hosted database on the local box, never
-  copied settings, and dropped Einsätze it could not place without saying so. A migration drops
-  its history table `sync_log` and its four settings (`railway_database_url`, `sync_*`,
-  `auto_sync_on_create`); a configured connection string is deleted with them. `DEPLOYMENT_ROLE=staging`
-  now blocks outbound alerting only.
 
 ## [0.8.0] – 2026-10-10
 

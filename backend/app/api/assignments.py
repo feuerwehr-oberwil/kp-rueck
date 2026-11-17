@@ -127,6 +127,8 @@ async def update_assignment(
     """Update assignment properties (driver_stay flag, Einsatzleiter)."""
     try:
         assignment = await crud.update_assignment(db, assignment_id, update, incident_id=incident_id)
+    except crud.AssignmentReleasedError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     except ValueError as e:
         # Currently: marking a non-personnel assignment as Einsatzleiter.
         raise HTTPException(status_code=422, detail=str(e)) from e

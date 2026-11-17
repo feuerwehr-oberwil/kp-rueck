@@ -40,7 +40,10 @@ export interface ApiRekoReportCreate extends ApiRekoReportBase {
  * No token — the session is the identity (plan 26 §5.1) — and no `is_draft`,
  * which only the `submit` query param may change.
  */
-export type ApiRekoReportUpdate = Partial<Omit<ApiRekoReportBase, 'is_draft'>>
+export type ApiRekoReportUpdate = Partial<Omit<ApiRekoReportBase, 'is_draft' | 'dangers_json' | 'effort_json'>> & {
+  dangers_json?: Partial<ApiDangersAssessment> | null
+  effort_json?: Partial<ApiEffortEstimation> | null
+}
 
 export interface ApiRekoReportResponse extends ApiRekoReportBase {
   id: string

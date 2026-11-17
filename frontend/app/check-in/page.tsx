@@ -13,80 +13,64 @@ import { CheckCircle, Circle } from 'lucide-react'
 import { toast } from 'sonner'
 import { undoToast } from '@/lib/toast-undo'
 import { QuickAddPersonnel } from '@/components/quick-add-personnel'
-import { wsClient } from '@/lib/websocket-client'
+import { usePolling } from '@/lib/hooks/use-polling'
+import { ApiError } from '@/lib/api/types'
+import { useAuth } from '@/lib/contexts/auth-context'
 import { sortByName } from '@/lib/roster-order'
 
 export default function CheckInPage() {
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
+  return <CheckInKiosk key={token} token={token} />
+}
+
+function CheckInKiosk({ token }: { token: string | null }) {
   const t = useTranslations('intake.checkin')
+  const { isEditor } = useAuth()
 
   const [personnel, setPersonnel] = useState<ApiPersonnelListItem[]>([])
   const [eventName, setEventName] = useState<string>('')
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  // Track if we just made a local change to skip the next WebSocket refresh (use ref to avoid stale closures)
-  const skipNextRefreshRef = useRef(false)
+  const [invalid, setInvalid] = useState(false)
+  const [retrying, setRetrying] = useState(false)
+  // Requests launched before a more recent refresh or local mutation must not roll it back.
+  const rosterRevision = useRef(0)
   // Per-person guard against accidental double-taps: while a person's check-in
   // toggle is in flight (plus a short cooldown), further taps are ignored so a
   // fast double-press can't check in and immediately check out again.
   const togglingRef = useRef<Set<string>>(new Set())
 
-  // Load personnel list - isInitialLoad=true shows loading spinner, false for background refresh
-  const loadPersonnel = useCallback(async (isInitialLoad = false) => {
+  const loadPersonnel = useCallback(async () => {
     if (!token) return
-
-    if (isInitialLoad) {
-      setLoading(true)
-    }
-    setError(null)
+    const revision = ++rosterRevision.current
     try {
       const data = await apiClient.getCheckInList(token)
-      setPersonnel(data.personnel)
-      setEventName(data.event_name)
-    } catch (error) {
-      console.error('Failed to load personnel:', error)
-      if (isInitialLoad) {
-        setError(t('invalidCode'))
-      }
-    } finally {
-      if (isInitialLoad) {
+      if (revision !== rosterRevision.current) return
+      if (data) {
+        setPersonnel(data.personnel)
+        setEventName(data.event_name)
         setLoading(false)
-      }
-    }
-  }, [token, t])
-
-  useEffect(() => {
-    if (!token) {
-      setError(t('missingCode'))
-      setLoading(false)
-      return
-    }
-
-    // Load initial data with loading spinner
-    loadPersonnel(true)
-
-    // Connect to WebSocket for real-time updates
-    wsClient.connect()
-
-    // Listen for personnel updates
-    const unsubscribePersonnel = wsClient.on('personnel_update', () => {
-      // Skip refresh if we just made a local change (prevents scroll reset)
-      if (skipNextRefreshRef.current) {
-        skipNextRefreshRef.current = false
+        setRetrying(false)
         return
       }
-      // Refresh the personnel list in background (no loading spinner) when someone is added, checked in, or checked out
-      loadPersonnel(false)
-    })
-
-    // Cleanup on unmount
-    return () => {
-      unsubscribePersonnel()
-      wsClient.disconnect()
+    } catch (error) {
+      if (revision !== rosterRevision.current) return
+      if (error instanceof ApiError && [401, 403, 404].includes(error.status)) {
+        setInvalid(true)
+        return
+      }
     }
-  }, [token, loadPersonnel, t])
+    setRetrying(true)
+  }, [token])
+
+  // Kiosk links authorize attendance reads, while the operations socket requires a login.
+  usePolling(loadPersonnel, { intervalMs: 5000, enabled: !!token && !invalid })
+  useEffect(() => {
+    if (!token || invalid) return
+    window.addEventListener('online', loadPersonnel)
+    return () => window.removeEventListener('online', loadPersonnel)
+  }, [loadPersonnel, token, invalid])
 
   const toggleCheckIn = async (person: ApiPersonnelListItem) => {
     if (!token) return
@@ -126,14 +110,13 @@ export default function CheckInPage() {
   /** One check-in or check-out, applied locally once the server took it. False on failure. */
   const setCheckedIn = async (person: ApiPersonnelListItem, checkedIn: boolean): Promise<boolean> => {
     if (!token) return false
-    // Skip the next WebSocket refresh since we do an optimistic update
-    skipNextRefreshRef.current = true
     try {
       if (checkedIn) {
         await apiClient.checkInPersonnel(person.id, token)
       } else {
         await apiClient.checkOutPersonnel(person.id, token)
       }
+      rosterRevision.current++
       setPersonnel(prev => prev.map(p => (p.id === person.id ? { ...p, checked_in: checkedIn } : p)))
       return true
     } catch (error) {
@@ -141,9 +124,8 @@ export default function CheckInPage() {
       toast.error(t('statusError'), {
         description: t('statusErrorDescription')
       })
-      skipNextRefreshRef.current = false // Allow refresh on error to get correct state
       // Reload to get correct state (background refresh)
-      loadPersonnel(false)
+      void loadPersonnel()
       return false
     }
   }
@@ -163,14 +145,14 @@ export default function CheckInPage() {
     checkedIn: personnel.filter(p => p.checked_in).length,
   }
 
-  if (error) {
+  if (!token || invalid || (retrying && loading)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="max-w-md text-center">
           <div className="text-destructive text-xl font-semibold mb-2">
-            {t('accessRequired')}
+            {retrying && !invalid && token ? t('retrying') : t('accessRequired')}
           </div>
-          <div className="text-muted-foreground">{error}</div>
+          <div className="text-muted-foreground">{!token ? t('missingCode') : invalid ? t('invalidCode') : t('willRetry')}</div>
         </div>
       </div>
     )
@@ -181,6 +163,7 @@ export default function CheckInPage() {
       {/* The shared link-page header (the same bar as /feld and /reko), the Ereignis as its
           context line; the counts stay with the list they count. */}
       <LinkPageHeader title={t('title')} subtitle={eventName || undefined} />
+      {retrying && <p role="status" className="bg-warning/15 px-4 py-2 text-center text-warning-foreground">{t('lastKnown')}</p>}
       <div className="max-w-md mx-auto px-4 pt-4 mb-4">
         <div className="flex gap-4 text-sm text-muted-foreground">
           <span>{t('statsTotal', { count: stats.total })}</span>
@@ -202,13 +185,12 @@ export default function CheckInPage() {
         />
 
         {/* Quick Add Personnel Component */}
-        <QuickAddPersonnel
-          onPersonAdded={async (newPerson) => {
-            // Skip the next WebSocket refresh to prevent scroll reset
-            skipNextRefreshRef.current = true
+        {isEditor && !retrying && !loading && <QuickAddPersonnel
+          onPersonAdded={(newPerson) => {
+            rosterRevision.current++
             // Optimistically add new person to list without full refresh
             if (newPerson) {
-              setPersonnel(prev => [...prev, {
+              setPersonnel(prev => [...prev.filter(p => p.id !== newPerson.id), {
                 id: newPerson.id,
                 name: newPerson.name,
                 checked_in: newPerson.checked_in,
@@ -223,7 +205,7 @@ export default function CheckInPage() {
           isNameTaken={(name) =>
             personnel.some((p) => p.name.trim().toLowerCase() === name.trim().toLowerCase())
           }
-        />
+        />}
       </div>
 
       {/* Personnel List */}
@@ -245,7 +227,7 @@ export default function CheckInPage() {
             <button
               key={person.id}
               onClick={() => toggleCheckIn(person)}
-              disabled={isDisabled}
+              disabled={isDisabled || retrying}
               className={`
                 w-full flex items-center gap-4 p-4 rounded-lg border-2 transition-all
                 ${

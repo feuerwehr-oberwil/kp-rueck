@@ -97,6 +97,7 @@ REQUEST_STATES: frozenset[str] = frozenset({"open", "in_progress", "done"})
 #: writes costs nothing here, a missed one costs a line in the record.
 INCIDENT_AUDIT_ACTIONS: dict[str, str] = {
     "delete": "deleted",
+    "archive": "deleted",  # incident soft delete
     "restore": "restored",
     "merge": "merge",
     "merged_into": "merged_into",

@@ -192,7 +192,8 @@ SELECTS: tuple[str, ...] = (
     # Einsatz gelöscht / wiederhergestellt / zusammengeführt / getrennt
     f"""
     SELECT i.event_id, i.id, 'incident', NULL,
-           jsonb_build_object('action', CASE l.action_type WHEN 'delete' THEN 'deleted'
+           jsonb_build_object('action', CASE l.action_type WHEN 'archive' THEN 'deleted'
+                                                           WHEN 'delete' THEN 'deleted'
                                                            WHEN 'restore' THEN 'restored'
                                                            ELSE l.action_type END,
                               'title', i.title)
@@ -212,7 +213,7 @@ SELECTS: tuple[str, ...] = (
         END AS other_id) x
     LEFT JOIN incidents o ON o.id::text = x.other_id
     WHERE l.resource_type = 'incident'
-      AND l.action_type IN ('delete', 'restore', 'merge', 'merged_into', 'unmerge')
+      AND l.action_type IN ('archive', 'delete', 'restore', 'merge', 'merged_into', 'unmerge')
     """,
 )
 

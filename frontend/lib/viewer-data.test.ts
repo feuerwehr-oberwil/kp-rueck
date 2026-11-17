@@ -154,6 +154,17 @@ describe('the resources of a route on a shared display', () => {
     ])
   })
 
+  it('counts material held only on an Auftrag as assigned', () => {
+    const group = withRoute.groups![0]
+    const assignment = { ...group.assignments![0], resource_type: 'material' as const, resource_id: 'pump' }
+    const { materials } = buildSituationData({
+      ...withRoute,
+      materials: [{ id: 'pump', name: 'Pumpe' }] as ApiViewerData['materials'],
+      groups: [{ ...group, assignments: [assignment] }],
+    })
+    expect(materials[0].status).toBe('assigned')
+  })
+
   it('marks the crew of the route as on an Auftrag, not as free', () => {
     const { personnel } = buildSituationData(withRoute)
     expect(personnel.map((p) => [p.id, p.isOnAuftrag])).toEqual([
