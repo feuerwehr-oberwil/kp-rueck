@@ -17,7 +17,6 @@ import { topLoading } from "@/components/ui/top-loading-bar"
 import { LoadingStatus } from "@/components/ui/shell-loader"
 import { SearchInput } from "@/components/ui/search-input"
 import { EventClock } from "@/components/ui/event-clock"
-import { Badge } from "@/components/ui/badge"
 import { Plus, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, PanelRight } from 'lucide-react'
 import { materialResourceState, summarizeMaterials, summarizeRoster } from "@/lib/resource-status"
 import { Kbd } from "@/components/ui/kbd"
@@ -1382,7 +1381,7 @@ export default function FireStationDashboard() {
                     >
                       <span className="truncate">{event.name}</span>
                       {event.training_flag && (
-                        <Badge variant="secondary" className="ml-auto text-2xs">{tDash('training')}</Badge>
+                        <TrainingBadge label={tDash('training')} className="ml-auto" />
                       )}
                     </DropdownMenuItem>
                   ))}

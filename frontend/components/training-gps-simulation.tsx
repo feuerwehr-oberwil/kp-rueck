@@ -223,7 +223,7 @@ export function TrainingGpsSimulation() {
         <div className="flex items-start justify-between gap-2">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Satellite className="h-5 w-5 text-purple-600" />
+              <Satellite className="h-5 w-5 text-muted-foreground" />
               {t('title')}
             </CardTitle>
             <CardDescription>
@@ -284,7 +284,7 @@ export function TrainingGpsSimulation() {
               <div
                 key={vehicle.id}
                 className={`flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm ${
-                  drive ? 'border-purple-400/70 bg-purple-50/60 dark:bg-purple-950/30' : 'border-border'
+                  drive ? 'border-foreground/40' : 'border-border'
                 }`}
               >
                 <div className="min-w-0 w-24 flex-shrink-0 truncate font-medium">{vehicle.name}</div>

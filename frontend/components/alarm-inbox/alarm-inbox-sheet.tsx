@@ -56,6 +56,7 @@ import {
 import { groupAlarms } from './alarm-groups'
 import { AttachAlarmsDialog } from './attach-alarms-dialog'
 import { useDirectAttach } from './use-direct-attach'
+import { TrainingBadge } from '@/components/training-mode-chrome'
 
 /**
  * Where the desktop panel may stand: from the bottom of the page header (the one holding the
@@ -255,9 +256,7 @@ function AlarmInboxPanel({ isMobile }: { isMobile: boolean }) {
   const badges = (e: ApiDiveraEmergency) => (
     <>
       {e.is_training && (
-        <Badge variant="outline" className="border-warning/60 text-warning-foreground">
-          {tPool('trainingBadge')}
-        </Badge>
+        <TrainingBadge label={tPool('trainingBadge')} />
       )}
       {/* Alarms from the generic webhook show their sender slug */}
       {!e.is_training && e.source && e.source !== 'divera' && (

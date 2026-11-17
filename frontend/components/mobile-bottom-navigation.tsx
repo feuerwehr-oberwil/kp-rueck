@@ -40,6 +40,7 @@ import { AlarmInboxMenuCount } from '@/components/alarm-inbox/alarm-inbox-button
 import { toggleFigures } from '@/components/figures-dialog'
 import { PhoneQuickSheets, type PhoneQuickSheet } from '@/components/mobile/phone-quick-sheets'
 import { useIsMobile } from '@/components/ui/use-mobile'
+import { TrainingBadge } from '@/components/training-mode-chrome'
 
 interface MobileBottomNavigationProps {
   currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'help' | string
@@ -196,7 +197,7 @@ export function MobileBottomNavigation({
                       {selectedEvent ? selectedEvent.name : t('noEventSelected')}
                     </p>
                     {selectedEvent?.training_flag && (
-                      <span className="text-xs text-orange-700 dark:text-orange-400">{t('training')}</span>
+                      <TrainingBadge label={t('training')} className="mt-1" />
                     )}
                   </div>
                   {otherEvents.map((event) => (
@@ -271,7 +272,7 @@ export function MobileBottomNavigation({
                       className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
                     >
                       <Link href="/training" onClick={() => setSheetOpen(false)}>
-                        <Sparkles className="size-4 text-orange-500" />
+                        <Sparkles className="size-4 text-muted-foreground" />
                         <span>{t('trainingControl')}</span>
                       </Link>
                     </Button>
