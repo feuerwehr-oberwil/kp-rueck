@@ -113,7 +113,7 @@ describe("dispatch gate – press twice", () => {
     expect(screen.getByText("Kein Fahrzeug – wirklich so ausrücken?")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Zurück" })).toBeInTheDocument()
 
-    await user.click(screen.getByRole("button", { name: "Ja, ohne Fahrzeug disponieren" }))
+    await user.click(screen.getByRole("button", { name: "Ohne Fahrzeug disponieren" }))
     expect(ref.controller!.disponiertOperation?.id).toBe("incident-1")
   })
 
@@ -123,7 +123,7 @@ describe("dispatch gate – press twice", () => {
 
     expect(screen.getByRole("button", { name: "Disponieren" })).toHaveFocus()
     await user.keyboard("{Enter}")
-    expect(screen.getByRole("button", { name: "Ja, ohne Fahrzeug disponieren" })).toHaveFocus()
+    expect(screen.getByRole("button", { name: "Ohne Fahrzeug disponieren" })).toHaveFocus()
     await user.keyboard("{Enter}")
     expect(ref.controller!.disponiertOperation?.id).toBe("incident-1")
   })
@@ -159,7 +159,7 @@ describe("dispatch gate – press twice", () => {
     renderGate(operation({ crew: [] }))
 
     await user.click(screen.getByRole("button", { name: "Disponieren" }))
-    expect(screen.getByRole("button", { name: "Ja, ohne Mannschaft und Fahrzeug disponieren" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Ohne Mannschaft und Fahrzeug disponieren" })).toBeInTheDocument()
     expect(screen.getByText("Keine Mannschaft – wirklich so ausrücken?")).toBeInTheDocument()
   })
 

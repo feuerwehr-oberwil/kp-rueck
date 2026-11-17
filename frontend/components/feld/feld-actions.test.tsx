@@ -112,7 +112,7 @@ function request(overrides: Partial<ApiFieldRequest> = {}): ApiFieldRequest {
  */
 async function confirmArrived(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: /Angekommen/ }))
-  await user.click(screen.getByRole('button', { name: 'Ja, angekommen' }))
+  await user.click(screen.getByRole('button', { name: 'Angekommen melden' }))
 }
 
 async function confirmComplete(user: ReturnType<typeof userEvent.setup>) {
@@ -120,7 +120,7 @@ async function confirmComplete(user: ReturnType<typeof userEvent.setup>) {
   // turn offers the quiet inline «melden» link instead — never a trap.
   const primary = screen.queryByRole('button', { name: 'Einsatz beendet melden' })
   await user.click(primary ?? screen.getByRole('button', { name: 'melden' }))
-  await user.click(screen.getByRole('button', { name: 'Ja, beendet' }))
+  await user.click(screen.getByRole('button', { name: 'Beendet melden' }))
 }
 
 beforeEach(() => {

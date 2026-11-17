@@ -70,7 +70,7 @@ test('a disponierter card asks first; cancelling leaves it out', async ({ authen
   expect(await groupOf(page, incidentId)).toBeNull();
 
   await distribute(page, incidentId);
-  await page.getByRole('alertdialog', { name: 'In Auftrag aufnehmen?' }).getByRole('button', { name: 'Ja, aufnehmen' }).click();
+  await page.getByRole('alertdialog', { name: 'In Auftrag aufnehmen?' }).getByRole('button', { name: 'In Auftrag aufnehmen' }).click();
   await expect(page.getByText(`In Auftrag «${group.name}» verteilt`)).toBeVisible();
   await expect.poll(() => groupOf(page, incidentId)).toBe(group.id);
 });

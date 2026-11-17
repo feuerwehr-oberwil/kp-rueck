@@ -244,7 +244,8 @@ runtime `API_URL`. Same reasoning for map tiles (`getTileBaseUrl` → `/tiles`).
   need an entry in the label-coverage tests instead.
 - **Words**: **Mannschaft** = the crew of an Einsatz/Auftrag; **Personal** = the roster
   (sidebar, settings, check-in). The verb is **zuweisen** (never zuteilen); releasing a resource
-  is «freigeben».
+  is «freigeben». A confirm button names the consequence («Ohne Mannschaft disponieren»,
+  «Angekommen melden»), never «Ja, …» (KP Front WORD.7).
 - **Wall text (`/display/*`) wraps, it doesn't truncate** – nobody at a wall can hover a
   tooltip. Addresses, column heads and labels use `WALL_TEXT_WRAP` (`lib/kanban-utils.ts`:
   hyphenate, `break-words` only as last resort, never `break-all`); a fact that still must fit

@@ -1284,7 +1284,7 @@ export function IncidentStatusWorkflowDialogs({
  * PRESS TWICE (owner pick, UX-DESKTOP-09 B): «Disponieren» is always live and
  * always in the same place. With a blocking gap open (no crew, or no vehicle and
  * not «zu Fuss») the first press only ARMS it: the missing row turns amber and
- * asks «wirklich so ausrücken?», the button says what it will do («Ja, ohne
+ * asks «wirklich so ausrücken?», the button says what it will do («Ohne
  * Fahrzeug disponieren»), and «Abbrechen» becomes «Zurück». The second press —
  * or Enter, the button has the focus — dispatches; Zurück or Esc disarms. There
  * is no greyed-out button and no third «Trotzdem» button any more.
@@ -1367,7 +1367,7 @@ function DispatchGateDialog({
     <AlertDialog open={!!missingOperation} onOpenChange={(open) => !open && controller.cancelGate("missingResources")}>
       <AlertDialogContent
         // A little wider than the default: the armed button names both gaps
-        // («Ja, ohne Mannschaft und Fahrzeug disponieren») beside «Zurück».
+        // («Ohne Mannschaft und Fahrzeug disponieren») beside «Zurück».
         className="sm:max-w-xl"
         // The dispatch button takes the focus, so Enter is the first press and
         // Enter again the confirmation — the keyboard path of the mouse's two clicks.
