@@ -20,7 +20,6 @@ import { Input } from '@/components/ui/input';
 import { DetailField } from '@/components/kanban/detail-field';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -51,6 +50,9 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { useTranslations } from 'next-intl';
 import { useIntlLocale } from '@/lib/date-locale';
 import { ShellLoader } from '@/components/ui/shell-loader';
+import { fieldMessageProps, focusFirstBlockingField, useRequiredField } from '@/components/ui/form-message';
+import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
+import { useUnsavedChangesWarning } from '@/lib/hooks/use-unsaved-changes-warning';
 
 /** The three roles in the order the select offers them, with the label key each uses. */
 const ROLE_HINTS = [
@@ -111,6 +113,29 @@ export function UserSettings() {
   const [newPassword, setNewPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<{ username?: string; password?: string }>({});
+  const newPasswordField = useRequiredField('new_password', newPassword, t('users.errors.passwordRequired'));
+
+  // Typed input survives Esc, a click beside the dialog and «Abbrechen»: closing
+  // a dirty create/edit form asks first.
+  const createDirty =
+    createDialogOpen &&
+    (formData.username !== '' || formData.password !== '' || formData.display_name !== '' || formData.role !== 'editor');
+  const editDirty =
+    editDialogOpen &&
+    !!selectedUser &&
+    (formData.username !== selectedUser.username ||
+      formData.display_name !== selectedUser.display_name ||
+      formData.role !== selectedUser.role);
+  const createGuard = useUnsavedChangesWarning({
+    isDirty: createDirty,
+    isOpen: createDialogOpen,
+    onClose: () => setCreateDialogOpen(false),
+  });
+  const editGuard = useUnsavedChangesWarning({
+    isDirty: editDirty,
+    isOpen: editDialogOpen,
+    onClose: () => setEditDialogOpen(false),
+  });
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -139,6 +164,7 @@ export function UserSettings() {
     if (!formData.password) errors.password = t('users.errors.passwordRequired');
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
+      focusFirstBlockingField([errors.username && 'username', errors.password && 'password']);
       return;
     }
     setSubmitting(true);
@@ -180,7 +206,7 @@ export function UserSettings() {
   };
 
   const handleResetPassword = async () => {
-    if (!selectedUser || !newPassword) return;
+    if (!selectedUser || !newPasswordField.check()) return;
     setSubmitting(true);
     try {
       await apiClient.resetUserPassword(selectedUser.id, newPassword);
@@ -260,6 +286,7 @@ export function UserSettings() {
   const openPasswordDialog = (user: ApiUser) => {
     setSelectedUser(user);
     setNewPassword('');
+    newPasswordField.reset();
     setPasswordDialogOpen(true);
   };
 
@@ -431,7 +458,7 @@ export function UserSettings() {
       </SettingCard>
 
       {/* Create User Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+      <Dialog open={createDialogOpen} onOpenChange={createGuard.handleOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('users.newUser')}</DialogTitle>
@@ -439,88 +466,95 @@ export function UserSettings() {
               {t('users.createDialogDescription')}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-1 py-2">
-            <DetailField
-              label={t('users.usernameLabel')}
-              htmlFor="username"
-              required
-              error={formErrors.username}
-            >
-              {/* An admin creating an account for somebody else — never the
-                  browser's own saved KP login. Without the pair of hints the
-                  password manager fills this form with the admin's credentials. */}
-              <Input
-                id="username"
-                autoComplete="off"
-                value={formData.username}
-                onChange={(e) => {
-                  setFormData({ ...formData, username: e.target.value });
-                  if (formErrors.username) setFormErrors({ ...formErrors, username: undefined });
-                }}
-                placeholder={t('users.usernamePlaceholder')}
-                aria-invalid={!!formErrors.username}
-                className={cn(formErrors.username && 'border-destructive')}
-              />
-            </DetailField>
-            <DetailField label={t('users.displayNameLabel')} htmlFor="display_name">
-              <Input
-                id="display_name"
-                value={formData.display_name}
-                onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
-                placeholder={t('users.displayNamePlaceholder')}
-              />
-            </DetailField>
-            <DetailField
-              label={t('users.passwordLabel')}
-              htmlFor="password"
-              required
-              error={formErrors.password}
-            >
-              <Input
-                id="password"
-                type="password"
-                autoComplete="new-password"
-                value={formData.password}
-                onChange={(e) => {
-                  setFormData({ ...formData, password: e.target.value });
-                  if (formErrors.password) setFormErrors({ ...formErrors, password: undefined });
-                }}
-                aria-invalid={!!formErrors.password}
-                className={cn(formErrors.password && 'border-destructive')}
-              />
-            </DetailField>
-            {/* The role sentences hang off the row rather than sitting beside it: three
-                lines do not fit a row, and they belong to the select above them. */}
-            <DetailField label={t('users.roleLabel')} htmlFor="role" footer={<RoleHints />}>
-              <Select
-                value={formData.role}
-                onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'editor' | 'viewer' })}
+          {/* A <form>, so Enter in any field creates. */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleCreate();
+            }}
+          >
+            <div className="space-y-1 py-2">
+              <DetailField
+                label={t('users.usernameLabel')}
+                htmlFor="username"
+                required
+                error={formErrors.username}
               >
-                <SelectTrigger id="role" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="editor">{t('users.roles.editor')}</SelectItem>
-                  <SelectItem value="viewer">{t('users.roles.viewer')}</SelectItem>
-                  <SelectItem value="admin">{t('users.roleAdmin')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </DetailField>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-              {t('common.cancel')}
-            </Button>
-            <Button onClick={handleCreate} disabled={submitting}>
-              {submitting && <ShellLoader className="size-4" />}
-              {t('common.create')}
-            </Button>
-          </DialogFooter>
+                {/* An admin creating an account for somebody else — never the
+                    browser's own saved KP login. Without the pair of hints the
+                    password manager fills this form with the admin's credentials. */}
+                <Input
+                  id="username"
+                  autoComplete="off"
+                  value={formData.username}
+                  onChange={(e) => {
+                    setFormData({ ...formData, username: e.target.value });
+                    if (formErrors.username) setFormErrors({ ...formErrors, username: undefined });
+                  }}
+                  placeholder={t('users.usernamePlaceholder')}
+                  {...fieldMessageProps('username', formErrors.username ? 'error' : null)}
+                />
+              </DetailField>
+              <DetailField label={t('users.displayNameLabel')} htmlFor="display_name">
+                <Input
+                  id="display_name"
+                  value={formData.display_name}
+                  onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
+                  placeholder={t('users.displayNamePlaceholder')}
+                />
+              </DetailField>
+              <DetailField
+                label={t('users.passwordLabel')}
+                htmlFor="password"
+                required
+                error={formErrors.password}
+              >
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={formData.password}
+                  onChange={(e) => {
+                    setFormData({ ...formData, password: e.target.value });
+                    if (formErrors.password) setFormErrors({ ...formErrors, password: undefined });
+                  }}
+                  {...fieldMessageProps('password', formErrors.password ? 'error' : null)}
+                />
+              </DetailField>
+              {/* The role sentences hang off the row rather than sitting beside it: three
+                  lines do not fit a row, and they belong to the select above them. */}
+              <DetailField label={t('users.roleLabel')} htmlFor="role" footer={<RoleHints />}>
+                <Select
+                  value={formData.role}
+                  onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'editor' | 'viewer' })}
+                >
+                  <SelectTrigger id="role" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="editor">{t('users.roles.editor')}</SelectItem>
+                    <SelectItem value="viewer">{t('users.roles.viewer')}</SelectItem>
+                    <SelectItem value="admin">{t('users.roleAdmin')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </DetailField>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={createGuard.requestClose}>
+                {t('common.cancel')}
+              </Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting && <ShellLoader className="size-4" />}
+                {t('common.create')}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
+      <UnsavedChangesDialog {...createGuard.dialogProps} />
 
       {/* Edit User Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+      <Dialog open={editDialogOpen} onOpenChange={editGuard.handleOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('users.editDialogTitle')}</DialogTitle>
@@ -528,60 +562,68 @@ export function UserSettings() {
               {t('users.editDialogDescription')}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-1 py-2">
-            <DetailField label={t('users.usernameLabel')} htmlFor="edit_username">
-              <Input
-                id="edit_username"
-                autoComplete="off"
-                value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-              />
-            </DetailField>
-            <DetailField label={t('users.displayNameLabel')} htmlFor="edit_display_name">
-              <Input
-                id="edit_display_name"
-                value={formData.display_name}
-                onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
-              />
-            </DetailField>
-            <DetailField
-              label={t('users.roleLabel')}
-              htmlFor="edit_role"
-              footer={
-                selectedUser?.id === currentUser?.id ? (
-                  <p className="text-xs text-muted-foreground">{t('users.ownRoleHint')}</p>
-                ) : (
-                  <RoleHints />
-                )
-              }
-            >
-              <Select
-                value={formData.role}
-                onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'editor' | 'viewer' })}
-                disabled={selectedUser?.id === currentUser?.id}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleUpdate();
+            }}
+          >
+            <div className="space-y-1 py-2">
+              <DetailField label={t('users.usernameLabel')} htmlFor="edit_username">
+                <Input
+                  id="edit_username"
+                  autoComplete="off"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                />
+              </DetailField>
+              <DetailField label={t('users.displayNameLabel')} htmlFor="edit_display_name">
+                <Input
+                  id="edit_display_name"
+                  value={formData.display_name}
+                  onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
+                />
+              </DetailField>
+              <DetailField
+                label={t('users.roleLabel')}
+                htmlFor="edit_role"
+                footer={
+                  selectedUser?.id === currentUser?.id ? (
+                    <p className="text-xs text-muted-foreground">{t('users.ownRoleHint')}</p>
+                  ) : (
+                    <RoleHints />
+                  )
+                }
               >
-                <SelectTrigger id="edit_role" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="editor">{t('users.roles.editor')}</SelectItem>
-                  <SelectItem value="viewer">{t('users.roles.viewer')}</SelectItem>
-                  <SelectItem value="admin">{t('users.roleAdmin')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </DetailField>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-              {t('common.cancel')}
-            </Button>
-            <Button onClick={handleUpdate} disabled={submitting}>
-              {submitting && <ShellLoader className="size-4" />}
-              {t('common.save')}
-            </Button>
-          </DialogFooter>
+                <Select
+                  value={formData.role}
+                  onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'editor' | 'viewer' })}
+                  disabled={selectedUser?.id === currentUser?.id}
+                >
+                  <SelectTrigger id="edit_role" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="editor">{t('users.roles.editor')}</SelectItem>
+                    <SelectItem value="viewer">{t('users.roles.viewer')}</SelectItem>
+                    <SelectItem value="admin">{t('users.roleAdmin')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </DetailField>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={editGuard.requestClose}>
+                {t('common.cancel')}
+              </Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting && <ShellLoader className="size-4" />}
+                {t('common.save')}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
+      <UnsavedChangesDialog {...editGuard.dialogProps} />
 
       {/* Reset Password Dialog */}
       <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
@@ -592,27 +634,39 @@ export function UserSettings() {
               {t('users.resetPasswordDescription', { name: selectedUser?.display_name || selectedUser?.username || '' })}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-1 py-2">
-            <DetailField label={t('users.newPasswordLabel')} htmlFor="new_password">
-              <Input
-                id="new_password"
-                type="password"
-                autoComplete="new-password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder={t('users.newPasswordPlaceholder')}
-              />
-            </DetailField>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPasswordDialogOpen(false)}>
-              {t('common.cancel')}
-            </Button>
-            <Button onClick={handleResetPassword} disabled={submitting || !newPassword}>
-              {submitting && <ShellLoader className="size-4" />}
-              {t('users.setPassword')}
-            </Button>
-          </DialogFooter>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleResetPassword();
+            }}
+          >
+            <div className="space-y-1 py-2">
+              <DetailField
+                label={t('users.newPasswordLabel')}
+                htmlFor="new_password"
+                required
+                error={newPasswordField.error}
+              >
+                <Input
+                  {...newPasswordField.controlProps}
+                  type="password"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder={t('users.newPasswordPlaceholder')}
+                />
+              </DetailField>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setPasswordDialogOpen(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting && <ShellLoader className="size-4" />}
+                {t('users.setPassword')}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

@@ -32,6 +32,7 @@ import { LoadingStatus } from '@/components/ui/shell-loader'
 import { Button } from '@/components/ui/button'
 import { SettingBlock, SettingCard } from '@/components/settings/setting-row'
 import { Textarea } from '@/components/ui/textarea'
+import { FormMessage, formMessageId, useRequiredField } from '@/components/ui/form-message'
 import { cn } from '@/lib/utils'
 import { getApiUrl } from '@/lib/env'
 import {
@@ -164,6 +165,7 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
   const [busy, setBusy] = useState(false)
 
   const [message, setMessage] = useState('')
+  const messageField = useRequiredField('telemetry-message', message, t('messageRequired'))
   const [route, setRoute] = useState<FeedbackRoute>('github')
   const [bundle, setBundle] = useState<DiagnosticsBundle | null>(null)
   const [env, setEnv] = useState<ReportEnv | null>(null)
@@ -215,6 +217,7 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
    *  download started after a `location.href` to a `mailto:` has a good chance of never
    *  happening at all. */
   const go = () => {
+    if (!messageField.check()) return
     const draft = { message, tech: techBlock, version: env?.build ?? 'unknown' }
     if (bundle && errorCount > 0) {
       try {
@@ -291,13 +294,16 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
             }
           >
             <Textarea
-              id="telemetry-message"
+              {...messageField.controlProps}
               rows={4}
               value={message}
               maxLength={MAX_MESSAGE}
               placeholder={t('reportPlaceholder')}
               onChange={(e) => setMessage(e.target.value)}
             />
+            <FormMessage id={formMessageId('telemetry-message')} className="mt-1">
+              {messageField.error}
+            </FormMessage>
           </SettingBlock>
 
           {/* Collapsed, unlike before: the block used to sit open because it was the only
@@ -344,7 +350,7 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
             {t('privacy')}
           </p>
 
-          <Button onClick={go} disabled={message.trim().length === 0 || !env}>
+          <Button onClick={go} disabled={!env}>
             {t('next')}
             <ArrowRight className="size-4" />
           </Button>

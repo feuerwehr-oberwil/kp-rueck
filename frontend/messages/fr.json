@@ -1273,8 +1273,7 @@
   },
   "incidents": {
     "common": {
-      "cancel": "Annuler",
-      "nameRequired": "Le nom manque – sans nom, personne ne peut être ajouté."
+      "cancel": "Annuler"
     },
     "types": {
       "brandbekaempfung": "Lutte contre le feu",
@@ -3524,6 +3523,7 @@
         "reportIntro": "Que s’est-il passé, et à quoi t’attendais-tu ? Une ou deux phrases suffisent – la description est la partie qu’aucun journal ne peut fournir.",
         "reportLabel": "Description",
         "reportPlaceholder": "p. ex. « véhicule glissé sur engagé, ensuite la carte était vide. »",
+        "messageRequired": "La description manque – que s’est-il passé ?",
         "reportWhat": "Rien d’autre – aucune donnée d’intervention, aucune adresse, aucun nom, aucune capture d’écran. De l’identifiant du navigateur ci-dessus, le fichier de diagnostic ne retient que le type d’appareil, p. ex. « iPad Safari ». Ton texte part tel que tu l’écris – n’y mets donc rien qui ne doive pas quitter la maison.",
         "techTitle": "Voici ce qui est envoyé",
         "techVersion": "Version : ",
@@ -4484,6 +4484,8 @@
       "fieldReportLabel": "Injecter une annonce du terrain",
       "fieldReportIncidentPlaceholder": "Choisir une intervention avec équipe …",
       "fieldReportPlaceholder": "Qu’annonce l’équipe ?",
+      "fieldReportIncidentRequired": "Choisis une intervention – c’est à elle que va le message.",
+      "fieldReportTextRequired": "Le message manque.",
       "fieldReportSend": "Annoncer",
       "fieldReportSending": "Annonce en cours …",
       "fieldReportSent": "Annonce du terrain reçue",

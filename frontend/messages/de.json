@@ -1207,8 +1207,7 @@
   },
   "incidents": {
     "common": {
-      "cancel": "Abbrechen",
-      "nameRequired": "Name fehlt – ohne Namen lässt sich niemand hinzufügen."
+      "cancel": "Abbrechen"
     },
     "types": {
       "brandbekaempfung": "Brandbekämpfung",
@@ -1759,6 +1758,7 @@
         "reportIntro": "Was ist passiert, und was hättest du erwartet? Ein, zwei Sätze genügen – die Beschreibung ist der Teil, den kein Log liefern kann.",
         "reportLabel": "Beschreibung",
         "reportPlaceholder": "z. B. «Fahrzeug auf disponiert gezogen, danach war die Karte leer.»",
+        "messageRequired": "Beschreibung fehlt – was ist passiert?",
         "reportWhat": "Sonst nichts – keine Einsatzdaten, keine Adressen, keine Namen, kein Screenshot. Von der Browser-Kennung oben liest die Diagnose-Datei nur die Geräteart heraus, z. B. «iPad Safari». Dein Text geht so, wie du ihn schreibst – schreib also nichts hinein, was nicht aus dem Haus soll.",
         "techTitle": "Das wird mitgeschickt",
         "techVersion": "Version: ",
@@ -3698,6 +3698,8 @@
       "fieldReportLabel": "Meldung vom Feld einspielen",
       "fieldReportIncidentPlaceholder": "Einsatz mit Trupp wählen …",
       "fieldReportPlaceholder": "Was meldet der Trupp?",
+      "fieldReportIncidentRequired": "Einsatz wählen – an ihn geht die Meldung.",
+      "fieldReportTextRequired": "Meldung fehlt.",
       "fieldReportSend": "Melden",
       "fieldReportSending": "Wird gemeldet …",
       "fieldReportSent": "Meldung vom Feld eingegangen",

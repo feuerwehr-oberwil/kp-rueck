@@ -37,6 +37,8 @@ import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RemovableChip } from '@/components/ui/removable-chip';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
+import { FormMessage, formMessageId, useRequiredField } from '@/components/ui/form-message';
+import { ShellLoader } from '@/components/ui/shell-loader';
 import { SettingCard } from '@/components/settings/setting-row';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
@@ -78,6 +80,8 @@ export function AuftragTemplateSettings({ readOnly = false }: { readOnly?: boole
   const [savingId, setSavingId] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
+  const tForm = useTranslations('common.formMessage');
+  const newNameField = useRequiredField('auftrag-template-new-name', newName, tForm('nameRequired'));
   const [pendingDelete, setPendingDelete] = useState<ApiAuftragTemplate | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -135,8 +139,8 @@ export function AuftragTemplateSettings({ readOnly = false }: { readOnly?: boole
   );
 
   const createTemplate = useCallback(async () => {
+    if (!newNameField.check()) return;
     const name = newName.trim();
-    if (!name) return;
     setCreating(true);
     try {
       const created = await apiClient.createAuftragTemplate({ name, color: AUFTRAG_SWATCHES[0] });
@@ -148,7 +152,7 @@ export function AuftragTemplateSettings({ readOnly = false }: { readOnly?: boole
     } finally {
       setCreating(false);
     }
-  }, [newName, t]);
+  }, [newName, newNameField, t]);
 
   const confirmDelete = useCallback(async () => {
     if (!pendingDelete) return;
@@ -257,6 +261,8 @@ export function AuftragTemplateSettings({ readOnly = false }: { readOnly?: boole
         {/* wraps on a phone: field, button and count in one row left the field 66px */}
         <div className="flex flex-wrap items-center gap-2">
           <Input
+            {...newNameField.controlProps}
+            aria-label={t('newPlaceholder')}
             value={newName}
             onChange={(event) => setNewName(event.target.value)}
             onKeyDown={(event) => {
@@ -272,14 +278,17 @@ export function AuftragTemplateSettings({ readOnly = false }: { readOnly?: boole
           <Button
             size="sm"
             onClick={() => void createTemplate()}
-            disabled={readOnly || creating || !newName.trim()}
+            disabled={readOnly || creating}
           >
-            <Plus className="h-4 w-4" />
+            {creating ? <ShellLoader className="size-4" /> : <Plus className="h-4 w-4" />}
             {t('add')}
           </Button>
           <span className="ml-auto text-xs text-muted-foreground">
             {t('summary', { count: templates.length, auto: autoCount })}
           </span>
+          <FormMessage id={formMessageId('auftrag-template-new-name')} className="basis-full">
+            {newNameField.error}
+          </FormMessage>
         </div>
 
         <DeleteConfirmDialog

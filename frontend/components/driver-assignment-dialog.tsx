@@ -53,6 +53,7 @@ export function DriverAssignmentDialog({
 }: DriverAssignmentDialogProps) {
   const t = useTranslations('incidents.driver')
   const tCommon = useTranslations('incidents.common')
+  const tForm = useTranslations('common.formMessage')
   const { refreshOperations } = useOperations()
   const [searchQuery, setSearchQuery] = useState("")
   const [isAssigning, setIsAssigning] = useState(false)
@@ -276,7 +277,7 @@ export function DriverAssignmentDialog({
     if (isAddingPerson) return
     // Said under the name field, and the cursor stays there.
     const problem = !name
-      ? tCommon('nameRequired')
+      ? tForm('nameRequired')
       : personnel.some(p => p.name.trim().toLowerCase() === name.toLowerCase())
         ? t('duplicateName')
         : null

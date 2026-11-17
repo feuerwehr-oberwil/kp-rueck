@@ -40,6 +40,8 @@ import { useIsMobile } from '@/components/ui/use-mobile'
 import { ShellLoader } from '@/components/ui/shell-loader'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog'
+import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog'
+import { useUnsavedChangesWarning } from '@/lib/hooks/use-unsaved-changes-warning'
 import { fieldMessageProps, focusFirstBlockingField } from '@/components/ui/form-message'
 import { slugifyEventName } from '@/components/print/event-export'
 
@@ -434,16 +436,19 @@ export default function EventsPage() {
     )
   }
 
-  const handleCreateDialogChange = (open: boolean) => {
-    setShowCreateDialog(open)
-    // Reset form state when dialog is closed
-    if (!open) {
-      setNameMissing(false)
-      setNewEventName('')
-      setNewEventTraining(false)
-      setNewEventAutoAttachDivera(true)
-    }
+  const closeCreateDialog = () => {
+    setShowCreateDialog(false)
+    setNameMissing(false)
+    setNewEventName('')
+    setNewEventTraining(false)
+    setNewEventAutoAttachDivera(true)
   }
+  // A typed name survives Esc, a click beside the dialog and «Abbrechen»: closing asks first.
+  const createGuard = useUnsavedChangesWarning({
+    isDirty: showCreateDialog && !isCreating && newEventName.trim() !== '',
+    isOpen: showCreateDialog,
+    onClose: closeCreateDialog,
+  })
 
   // Esc leaves a field – the g-prefix shortcuts themselves are global
   // (GlobalShortcuts in the AppShell, see use-global-navigation).
@@ -657,7 +662,7 @@ export default function EventsPage() {
         </main>
 
         {/* Create Event Dialog */}
-        <Dialog open={showCreateDialog && manages} onOpenChange={handleCreateDialogChange}>
+        <Dialog open={showCreateDialog && manages} onOpenChange={createGuard.handleOpenChange}>
           <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
             <DialogHeader>
               <DialogTitle>{standby.mirror ? tStandby('newOffline.title') : t('createDialog.title')}</DialogTitle>
@@ -723,7 +728,7 @@ export default function EventsPage() {
               </DetailField>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => handleCreateDialogChange(false)}>
+              <Button variant="outline" onClick={createGuard.requestClose}>
                 {t('createDialog.cancel')}
               </Button>
               <Button onClick={handleCreateEvent} disabled={isCreating}>
@@ -733,6 +738,7 @@ export default function EventsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        <UnsavedChangesDialog {...createGuard.dialogProps} />
 
       {/* Archive confirmation with the open-items check (field test 07.09.):
           what would closing this Ereignis cut off — Einsätze short of

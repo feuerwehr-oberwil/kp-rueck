@@ -37,6 +37,7 @@ export function QuickAddPersonnel({
 }: QuickAddPersonnelProps) {
   const t = useTranslations('incidents.quickAdd')
   const tCommon = useTranslations('incidents.common')
+  const tForm = useTranslations('common.formMessage')
   const [showAddForm, setShowAddForm] = useState(false)
   const [newPersonName, setNewPersonName] = useState('')
   const [addingPerson, setAddingPerson] = useState(false)
@@ -55,7 +56,7 @@ export function QuickAddPersonnel({
     // Disallow indistinguishable same-name duplicates. The server's own 409 below
     // stays a toast: by then the form has been sent.
     const problem = !trimmedName
-      ? tCommon('nameRequired')
+      ? tForm('nameRequired')
       : isNameTaken?.(trimmedName)
         ? t('duplicateDescription')
         : null
