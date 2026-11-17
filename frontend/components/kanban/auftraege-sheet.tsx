@@ -59,16 +59,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { cn } from "@/lib/utils"
 import { useDialogDragGuard } from "@/lib/hooks/use-dialog-drag-guard"
 import { useIsMobile } from "@/components/ui/use-mobile"
@@ -483,25 +474,18 @@ export function AuftraegeSheet({
         funkrufname={funkrufname}
       />
 
-      <AlertDialog open={canEdit && !!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("deleteTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>{t("deleteDescription")}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (deleteId) deleteGroup(deleteId)
-                setDeleteId(null)
-              }}
-            >
-              {t("deleteConfirm")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmDialog
+        open={canEdit && !!deleteId}
+        onOpenChange={(o) => !o && setDeleteId(null)}
+        title={t("deleteTitle")}
+        description={t("deleteDescription")}
+        confirmText={t("deleteConfirm")}
+        cancelText={t("cancel")}
+        onConfirm={async () => {
+          // deleteGroup toasts its own failure; throwing keeps the question open for a retry.
+          if (deleteId && !(await deleteGroup(deleteId))) throw new Error("Auftrag not deleted")
+        }}
+      />
     </>
   )
 }
