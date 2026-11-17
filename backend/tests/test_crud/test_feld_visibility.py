@@ -644,7 +644,7 @@ class TestTheRouteOwnsItsCrew:
         leader = await _person(db_session, "Graf Thomas")
         mate = await _person(db_session, "Suter Elias")
         vehicle = await _vehicle(db_session, "MTW")
-        group = IncidentGroup(event_id=test_event.id, name="Auftrag Graf", position=0)
+        group = IncidentGroup(event_id=test_event.id, name="Auftrag Graf", color="#008299", position=0)
         db_session.add(group)
         await db_session.commit()
         stop.group_id, stop.group_position = group.id, 0
@@ -674,6 +674,8 @@ class TestTheRouteOwnsItsCrew:
         # And the row says which Auftrag it belongs to, so the list can group it.
         assert row["group_id"] == group.id
         assert row["group_name"] == "Auftrag Graf"
+        # …in the route's own colour, as the map draws it (COL-04).
+        assert row["group_color"] == "#008299"
         assert row["group_position"] == 0
 
     @pytest.mark.asyncio

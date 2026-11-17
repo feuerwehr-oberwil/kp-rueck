@@ -448,13 +448,14 @@ async def get_feld_assignments_for_personnel(
     leaders = await get_incident_leaders(db, mine_ids)
     # The Auftrag each stop belongs to. A route-assigned crew holds no row on
     # any stop, so without the name their Schadenplätze look like unrelated
-    # jobs — and the order is the whole point of grouping them.
+    # jobs — and the order is the whole point of grouping them. The colour is
+    # the route's own, so the phone draws the Auftrag in the colour the map does.
     group_rows = await db.execute(
-        select(IncidentGroup.id, IncidentGroup.name).where(
+        select(IncidentGroup.id, IncidentGroup.name, IncidentGroup.color).where(
             IncidentGroup.id.in_({incidents[i].group_id for i in mine_ids if incidents[i].group_id})
         )
     )
-    group_names = {row[0]: row[1] for row in group_rows.all()}
+    group_info = {row[0]: (row[1], row[2]) for row in group_rows.all()}
     briefings = await _briefings(db, event_id, mine_ids)
     rekos = await _reko_briefings(db, mine_ids)
     # The KP's side of the loop (sweep 27 §P3): what it did about an Abholung,
@@ -529,7 +530,8 @@ async def get_feld_assignments_for_personnel(
                 "leader_personnel_id": leader[0] if leader else None,
                 "leader_name": leader[1] if leader else None,
                 "group_id": incident.group_id,
-                "group_name": group_names.get(incident.group_id) if incident.group_id else None,
+                "group_name": group_info[incident.group_id][0] if incident.group_id in group_info else None,
+                "group_color": group_info[incident.group_id][1] if incident.group_id in group_info else None,
                 "group_position": incident.group_position if incident.group_id else None,
                 # Sort-only, stripped below. "Owes a rapport" rather than "has
                 # none": a Schadenplatz that was never disponiert owes nothing,
