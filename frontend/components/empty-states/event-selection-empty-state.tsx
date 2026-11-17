@@ -4,6 +4,7 @@ import { StationSetupStrip } from '@/components/station-setup-strip'
 import { useEffect, useMemo } from 'react'
 import { Calendar, ChevronRight, Plus } from 'lucide-react'
 import { useFormatter, useNow, useTranslations } from 'next-intl'
+import { formatAgoSince } from '@/lib/duration'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -31,6 +32,7 @@ export function EventSelectionEmptyState() {
   const tTraining = useTranslations('kanban')
   const format = useFormatter()
   const now = useNow({ updateInterval: 60_000 })
+  const tDuration = useTranslations('common.duration')
   const router = useRouter()
   const { events, isLoading, setSelectedEvent } = useEvent()
   const canCreate = !useIsMobile()
@@ -98,7 +100,7 @@ export function EventSelectionEmptyState() {
                       {' · '}
                       {opened(event)}
                       {' · '}
-                      {t('emptyState.lastActive', { rel: format.relativeTime(new Date(event.last_activity_at), now) })}
+                      {t('emptyState.lastActive', { rel: formatAgoSince(new Date(event.last_activity_at), tDuration, now.getTime()) })}
                     </p>
                   </div>
                   <Button
