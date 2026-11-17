@@ -183,7 +183,7 @@
       "toggleNachbarhilfe": "Nachbarhilfe umschalten"
     },
     "meta": {
-      "title": "KP Rück Dashboard",
+      "title": "KP Rück",
       "description": "Einsatzübersicht für die Mannschafts- und Materialdisposition der Feuerwehr."
     },
     "dismissAllToasts": "Alle schliessen",
@@ -207,6 +207,11 @@
       "moveDown": "Nach unten",
       "moveTop": "An den Anfang",
       "menuFor": "Reihenfolge von {name} ändern"
+    },
+    "personPick": {
+      "current": "aktuell",
+      "apply": "Übernehmen",
+      "noneChosen": "Keine Person gewählt."
     }
   },
   "nav": {
@@ -1244,8 +1249,6 @@
       "markNoCheckedIn": "Niemand ist anwesend. Checke zuerst Personal ein.",
       "markError": "Die Person ist nicht als Reko markiert.",
       "back": "Zurück",
-      "assigned": "Zugewiesen",
-      "keepAssigned": "Zuweisung übernehmen",
       "recommended": "Empfohlen",
       "openCount": "{count} offen",
       "noOpenWork": "frei",
@@ -1280,14 +1283,11 @@
       "title": "Fahrer für {vehicle}",
       "currentDriver": "Aktueller Fahrer: {driver}",
       "noDriverAssigned": "Kein Fahrer zugewiesen",
-      "currentDriverLabel": "Aktueller Fahrer",
       "searchPlaceholder": "Person suchen …",
       "driversSection": "Fahrer",
       "othersSection": "Andere",
-      "inOperation": "Im Einsatz",
       "noAvailablePersons": "Keine verfügbaren Personen",
       "allAssignedHint": "Alle Personen sind bereits als Fahrer zugewiesen oder nicht anwesend",
-      "close": "Schliessen",
       "conflictTitle": "Person ist einem Einsatz zugewiesen",
       "conflictDescription": "<strong>{name}</strong> ist aktuell {count, plural, one {dem Einsatz «{location}» zugewiesen} other {# Einsätzen zugewiesen}}. Als Fahrer kann die Person nicht gleichzeitig einem Einsatz zugewiesen sein.",
       "conflictConfirm": "Vom Einsatz freigeben & zuweisen",
@@ -1309,7 +1309,8 @@
       "duplicateName": "Es existiert bereits eine Person mit diesem Namen.",
       "markAsDriver": "Als Fahrer markieren",
       "markedAsDriver": "{name} als Fahrer markiert",
-      "markError": "Markierung fehlgeschlagen"
+      "markError": "Markierung fehlgeschlagen",
+      "withoutDriver": "Ohne Fahrer"
     },
     "resourceConflict": {
       "moveHere": "Hierher verschieben",
@@ -2507,7 +2508,6 @@
   },
   "login": {
     "page": {
-      "subtitle": "Einsatz-Dashboard",
       "demoBadge": "Demo-Modus",
       "loginFailed": "Anmeldung fehlgeschlagen. Bitte überprüfe Benutzername und Passwort.",
       "demoLoginFailed": "Demo-Anmeldung fehlgeschlagen.",
@@ -2611,7 +2611,8 @@
       "createFailed": "Ereignis erstellen fehlgeschlagen",
       "archiveFailed": "Archivieren fehlgeschlagen",
       "unarchiveFailed": "Wiederherstellen fehlgeschlagen",
-      "deleteFailed": "Löschen fehlgeschlagen"
+      "deleteFailed": "Löschen fehlgeschlagen",
+      "newShort": "Neu"
     },
     "createDialog": {
       "title": "Neues Ereignis erstellen",
@@ -3780,7 +3781,7 @@
     },
     "rekoPicker": {
       "title": "Reko-Offiziere wählen",
-      "description": "Anwesende Person antippen, um sie als Reko zu markieren. Adressen verteilt der Reko-Modus auf der Karte.",
+      "description": "Anwesende Person wählen und als Reko markieren – auch mehrere nacheinander. Adressen verteilt der Reko-Modus auf der Karte.",
       "marked": "{name} als Reko markiert",
       "failed": "Hat nicht geklappt. Erneut versuchen.",
       "done": "Fertig"
@@ -4056,7 +4057,8 @@
       "rapportNext": "danach: Rapport erfassen",
       "rapportDone": "Rapport erfasst",
       "reportNow": "melden",
-      "rapportAction": "Rapport erfassen"
+      "rapportAction": "Rapport erfassen",
+      "messageRequired": "Meldung fehlt."
     },
     "pickup": {
       "badge": "Abholung",
@@ -4128,7 +4130,8 @@
       "toField": "an den Trupp, {name}, {time}",
       "send": "An Trupp senden",
       "sendPlaceholder": "Meldung an den Trupp …",
-      "sendFailed": "Meldung konnte nicht gesendet werden"
+      "sendFailed": "Meldung konnte nicht gesendet werden",
+      "sendRequired": "Meldung fehlt."
     },
     "rapport": {
       "sectionTitle": "Schadenplatz-Rapport",
@@ -4456,7 +4459,8 @@
       "stateSeen": "Vom KP gesehen",
       "stateInProgress": "KP: in Arbeit",
       "stateDone": "erledigt · {time}",
-      "stateDoneBy": "erledigt · {time} · {name}"
+      "stateDoneBy": "erledigt · {time} · {name}",
+      "materialRequired": "Material oder Notiz fehlt."
     }
   },
   "duplicates": {

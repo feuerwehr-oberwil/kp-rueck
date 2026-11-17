@@ -102,7 +102,7 @@
     },
     "rekoPicker": {
       "title": "Choisir les officiers de reconnaissance",
-      "description": "Touche une personne présente pour la marquer comme reconnaissance. Les adresses s'attribuent via le mode reconnaissance sur la carte.",
+      "description": "Choisis une personne présente et marque-la comme reconnaissance – plusieurs à la suite si besoin. Les adresses s'attribuent via le mode reconnaissance sur la carte.",
       "marked": "{name} marqué comme reconnaissance",
       "failed": "Échec. Réessaie.",
       "done": "Terminé"
@@ -292,7 +292,7 @@
       "toggleNachbarhilfe": "Basculer « entraide »"
     },
     "meta": {
-      "title": "Tableau de bord KP Rück",
+      "title": "KP Rück",
       "description": "Vue d’ensemble des interventions pour l’engagement de l’effectif et du matériel des sapeurs-pompiers."
     },
     "dismissAllToasts": "Tout fermer",
@@ -316,6 +316,11 @@
       "moveDown": "Descendre",
       "moveTop": "Placer au début",
       "menuFor": "Modifier l’ordre de {name}"
+    },
+    "personPick": {
+      "current": "actuel",
+      "apply": "Valider",
+      "noneChosen": "Aucune personne choisie."
     }
   },
   "display": {
@@ -679,7 +684,8 @@
       "createFailed": "Échec de la création de l’événement",
       "archiveFailed": "Échec de l’archivage",
       "unarchiveFailed": "Échec de la restauration",
-      "deleteFailed": "Échec de la suppression"
+      "deleteFailed": "Échec de la suppression",
+      "newShort": "Nouveau"
     },
     "createDialog": {
       "title": "Créer un nouvel événement",
@@ -865,7 +871,8 @@
       "rapportNext": "ensuite : saisir le rapport",
       "rapportDone": "Rapport saisi",
       "reportNow": "annoncer",
-      "rapportAction": "Saisir le rapport"
+      "rapportAction": "Saisir le rapport",
+      "messageRequired": "Le message manque."
     },
     "pickup": {
       "badge": "Récupération",
@@ -937,7 +944,8 @@
       "toField": "à l’effectif, {name}, {time}",
       "send": "Envoyer à l’effectif",
       "sendPlaceholder": "Message à l’effectif …",
-      "sendFailed": "Le message n’a pas pu être envoyé"
+      "sendFailed": "Le message n’a pas pu être envoyé",
+      "sendRequired": "Le message manque."
     },
     "rapport": {
       "sectionTitle": "Rapport de place sinistrée",
@@ -1265,7 +1273,8 @@
       "stateSeen": "Vu par le PC",
       "stateInProgress": "PC : en cours",
       "stateDone": "réglé · {time}",
-      "stateDoneBy": "réglé · {time} · {name}"
+      "stateDoneBy": "réglé · {time} · {name}",
+      "materialRequired": "Le matériel ou la note manque."
     }
   },
   "help": {
@@ -1317,8 +1326,6 @@
       "markNoCheckedIn": "Personne n’est présent. Enregistre d’abord l’arrivée du personnel.",
       "markError": "La personne n’est pas marquée comme reconnaissance.",
       "back": "Retour",
-      "assigned": "Attribuée",
-      "keepAssigned": "Conserver l’attribution",
       "recommended": "Recommandée",
       "openCount": "{count} ouvertes",
       "noOpenWork": "libre",
@@ -1353,14 +1360,11 @@
       "title": "Conducteur de {vehicle}",
       "currentDriver": "Conducteur actuel : {driver}",
       "noDriverAssigned": "Aucun conducteur attribué",
-      "currentDriverLabel": "Conducteur actuel",
       "searchPlaceholder": "Rechercher une personne …",
       "driversSection": "Conducteurs",
       "othersSection": "Autres",
-      "inOperation": "En intervention",
       "noAvailablePersons": "Aucune personne disponible",
       "allAssignedHint": "Toutes les personnes sont déjà attribuées comme conducteur ou ne sont pas présentes",
-      "close": "Fermer",
       "conflictTitle": "La personne est attribuée à une intervention",
       "conflictDescription": "<strong>{name}</strong> est actuellement {count, plural, one {attribuée à l’intervention « {location} »} other {attribuée à # interventions}}. Comme conducteur, la personne ne peut pas être attribuée à une intervention en même temps.",
       "conflictConfirm": "Libérer de l’intervention et attribuer",
@@ -1382,7 +1386,8 @@
       "duplicateName": "Une personne portant ce nom existe déjà.",
       "markAsDriver": "Marquer comme conducteur",
       "markedAsDriver": "{name} marqué comme conducteur",
-      "markError": "Échec du marquage"
+      "markError": "Échec du marquage",
+      "withoutDriver": "Sans conducteur"
     },
     "resourceConflict": {
       "moveHere": "Déplacer ici",
@@ -2485,7 +2490,6 @@
   },
   "login": {
     "page": {
-      "subtitle": "Tableau d’intervention",
       "demoBadge": "Mode démo",
       "loginFailed": "Échec de la connexion. Vérifie le nom d’utilisateur et le mot de passe.",
       "demoLoginFailed": "Échec de la connexion à la démo.",

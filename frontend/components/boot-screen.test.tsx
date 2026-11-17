@@ -5,6 +5,8 @@ import { renderWithIntl } from '@/test-utils/render-with-intl'
 
 import { topLoading } from '@/components/ui/top-loading-bar'
 
+import { rememberStationName } from '@/lib/station-name'
+
 import { BOOT_STUCK_MS, BootScreen } from './boot-screen'
 
 const location = { reload: vi.fn(), assign: vi.fn() }
@@ -34,6 +36,17 @@ describe('BootScreen', () => {
     act(() => vi.advanceTimersByTime(5_000))
     expect(screen.queryByRole('progressbar')).toBeNull()
     expect(screen.queryByText(/\d\s*%/)).toBeNull()
+  })
+
+  // Which app AND which station (XAPP-15 B) – once this device has loaded a board.
+  it('names the station under the wordmark when this device knows it', () => {
+    rememberStationName('Feuerwehr Oberwil')
+    try {
+      renderWithIntl(<BootScreen phase="Anmeldung wird vorbereitet …" />)
+      expect(screen.getByRole('status')).toHaveTextContent(/KP Rück\s*Feuerwehr Oberwil/)
+    } finally {
+      rememberStationName('')
+    }
   })
 
   it('points the shell at the red primary, not shadcn\'s blue --accent', () => {

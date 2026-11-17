@@ -46,6 +46,7 @@ import { useOperations, type Operation } from '@/lib/contexts/operations-context
 import { usePersonnel } from '@/lib/contexts/personnel-context'
 import { applyTimeEdit, toTimeInput } from '@/lib/field-time'
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
+import { FormMessage, formMessageId, useRequiredField } from '@/components/ui/form-message'
 
 interface FieldReportsRowProps {
   operation: Operation
@@ -352,11 +353,14 @@ export function FieldMessageThread({
   const nameById = useMemo(() => new Map(personnel.map(p => [p.id, p.name])), [personnel])
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
+  // An empty send says so under the field (INT-07) – the button is never greyed out silently.
+  const draftField = useRequiredField(`kp-field-message-${operation.id}`, draft, t('sendRequired'))
+  const checkDraft = draftField.check
 
   /** Send one sentence to the squad — then reload the thread it lands in. */
   const send = useCallback(async () => {
     const text = draft.trim()
-    if (!text || sending) return
+    if (sending || !checkDraft()) return
     setSending(true)
     try {
       await apiClient.sendKpFieldMessage(operation.id, text)
@@ -369,7 +373,7 @@ export function FieldMessageThread({
     } finally {
       setSending(false)
     }
-  }, [draft, sending, operation.id, onRetry, t])
+  }, [draft, sending, checkDraft, operation.id, onRetry, t])
 
   const entries = useMemo<ThreadEntry[]>(() => {
     const rows: ThreadEntry[] = (events ?? [])
@@ -508,29 +512,33 @@ export function FieldMessageThread({
           /feld within one poll; there is deliberately no delivery receipt,
           because the radio never had one either. */}
       {canEdit && (
-        <div className="flex items-stretch gap-2 pt-1">
-          <Input
-            placeholder={t('sendPlaceholder')}
-            value={draft}
-            maxLength={500}
-            disabled={sending}
-            onChange={e => setDraft(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') void send()
-            }}
-            className="h-8 text-sm"
-          />
-          <Button
-            size="icon-xs"
-            variant="outline"
-            className="h-8 w-8 shrink-0"
-            aria-label={t('send')}
-            title={t('send')}
-            disabled={sending || !draft.trim()}
-            onClick={() => void send()}
-          >
-            {sending ? <ShellLoader className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
-          </Button>
+        <div className="space-y-1 pt-1">
+          <div className="flex items-stretch gap-2">
+            <Input
+              {...draftField.controlProps}
+              placeholder={t('sendPlaceholder')}
+              value={draft}
+              maxLength={500}
+              disabled={sending}
+              onChange={e => setDraft(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') void send()
+              }}
+              className="h-8 text-sm"
+            />
+            <Button
+              size="icon-xs"
+              variant="outline"
+              className="h-8 w-8 shrink-0"
+              aria-label={t('send')}
+              title={t('send')}
+              disabled={sending}
+              onClick={() => void send()}
+            >
+              {sending ? <ShellLoader className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
+            </Button>
+          </div>
+          <FormMessage id={formMessageId(`kp-field-message-${operation.id}`)}>{draftField.error}</FormMessage>
         </div>
       )}
     </div>

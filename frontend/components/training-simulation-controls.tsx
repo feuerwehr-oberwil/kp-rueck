@@ -11,6 +11,7 @@ import { formatEta, liveDrive } from '@/lib/gps-sim';
 import { nextActions, secondsInStep, isActionDue, stepStartedAt, type NextAction } from '@/lib/training-lifecycle';
 import { getTimeSince } from '@/lib/kanban-utils';
 import { Button } from '@/components/ui/button';
+import { AlternativeAnswer } from '@/components/ui/confirm-dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { SettingGroup } from '@/components/settings/setting-row';
@@ -764,29 +765,22 @@ export function TrainingSimulationControls() {
                 : ''}
             </DialogDescription>
           </DialogHeader>
-          {/* The app's footer shape (see ConfirmDialog): the "…but do this
-              instead" option sits left on `mr-auto`, the answers right, the
-              recommended one last and loudest. `flex-wrap` because three German
-              labels are wider than any max-width guess — the buttons carry
-              `shrink-0`, so without it the last one simply overflowed the
-              dialog's own padding, which is what made the row look unbalanced.
+          {/* The app's three-answer shape (ConfirmDialog's `AlternativeAnswer`): the
+              "…but do this instead" option on its own line, the answers in the row
+              under it, the recommended one last and loudest.
 
               Emphasis, deliberately moved: «Lage entscheidet» used to be the
               primary. It is not an answer to the question — it hands the
               decision to the backend's inference (zu Fuss / kein Fahrzeug), and
               as the loud default it made the pickup inject almost unreachable
               in a normal exercise, because a crew with a vehicle always infers
-              "fährt selbst". So it drops to a quiet aside. The primary is now
+              "fährt selbst". So it is the aside. The primary is
               «Fährt selbst»: the true answer in the large majority of cases and
               the only one of the three that costs the operator nothing. */}
-          <DialogFooter className="flex-wrap">
-            <Button
-              variant="ghost"
-              className="sm:mr-auto"
-              onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt)}
-            >
-              {t('pickupAuto')}
-            </Button>
+          <AlternativeAnswer onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt)}>
+            {t('pickupAuto')}
+          </AlternativeAnswer>
+          <DialogFooter>
             <Button
               variant="outline"
               onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt, true)}

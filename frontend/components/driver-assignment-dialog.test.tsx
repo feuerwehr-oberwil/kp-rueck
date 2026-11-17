@@ -44,7 +44,7 @@ const person = (id: string, name: string): Person => ({
   tags: ["F"],
 })
 
-const renderDialog = (personnel: Person[] = []) =>
+const renderDialog = (personnel: Person[] = [], current: Person | null = null) =>
   renderWithIntl(
     <DriverAssignmentDialog
       open
@@ -52,8 +52,8 @@ const renderDialog = (personnel: Person[] = []) =>
       vehicleId="vehicle-1"
       vehicleName="TLF"
       eventId="event-1"
-      currentDriverId={null}
-      currentDriverName={null}
+      currentDriverId={current?.id ?? null}
+      currentDriverName={current?.name ?? null}
       personnel={personnel}
       operations={[]}
       specialFunctions={[]}
@@ -125,7 +125,44 @@ describe("DriverAssignmentDialog layout", () => {
     await user.click(screen.getByRole("button", { name: "Person hinzufügen" }))
     expect(screen.getByText("Fahrer für TLF")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /Hinzufügen & als Fahrer/ })).toBeInTheDocument()
-    // The footer action and the corner ✕ («Schliessen» too).
-    expect(screen.getAllByRole("button", { name: "Schliessen" })).toHaveLength(2)
+    expect(screen.getByRole("button", { name: "Übernehmen" })).toBeInTheDocument()
+  })
+})
+
+describe("DriverAssignmentDialog choice", () => {
+  // A tap only ticks – a mistap must not already be the vehicle's driver.
+  it("assigns the ticked person on «Übernehmen», not on the tap", async () => {
+    const user = userEvent.setup()
+    renderDialog([person("p1", "Brunner Sara")])
+
+    await user.click(screen.getByRole("button", { name: /Brunner Sara/ }))
+    expect(assignSpecialFunction).not.toHaveBeenCalled()
+    await user.click(screen.getByRole("button", { name: "Übernehmen" }))
+
+    await waitFor(() => expect(assignSpecialFunction).toHaveBeenCalledWith("event-1", {
+      personnel_id: "p1",
+      function_type: "driver",
+      vehicle_id: "vehicle-1",
+    }))
+  })
+
+  it("unticking the current driver offers «Ohne Fahrer», which removes them after the confirm", async () => {
+    const user = userEvent.setup()
+    const meier = person("p2", "Meier Alex")
+    renderDialog([meier], meier)
+
+    const tile = screen.getByRole("button", { name: /Meier Alex/ })
+    expect(tile).toHaveAttribute("aria-pressed", "true")
+    expect(tile).toHaveTextContent("aktuell")
+    await user.click(tile)
+    await user.click(screen.getByRole("button", { name: "Ohne Fahrer" }))
+    await user.click(screen.getByRole("button", { name: "Fahrer entfernen" }))
+
+    await waitFor(() => expect(unassignSpecialFunction).toHaveBeenCalledWith("event-1", {
+      personnel_id: "p2",
+      function_type: "driver",
+      vehicle_id: "vehicle-1",
+    }))
+    expect(assignSpecialFunction).not.toHaveBeenCalled()
   })
 })

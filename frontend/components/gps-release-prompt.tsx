@@ -9,15 +9,7 @@ import { reportStatusConflict } from "@/lib/status-conflict"
 import type { IncidentStatus } from "@/lib/types/incidents"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useIsMobile } from "@/components/ui/use-mobile"
-import { Button } from "@/components/ui/button"
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { toast } from "sonner"
 import { useTranslations } from "next-intl"
 
@@ -51,7 +43,6 @@ export function GpsReleasePrompt() {
   const isPhone = useIsMobile()
   const pathname = usePathname()
   const [prompt, setPrompt] = useState<ReleasePrompt | null>(null)
-  const [releasing, setReleasing] = useState(false)
 
   // The board or the Lagekarte, on a desk – see the note above.
   const onOperatorPage = !isPhone && (pathname === "/" || pathname === "/map")
@@ -101,23 +92,21 @@ export function GpsReleasePrompt() {
 
   if (!isEditor || !onOperatorPage || !prompt) return null
 
+  // Both answers close the prompt themselves, and only on success: a failed write
+  // leaves the question standing (ConfirmDialog keeps every answer waiting meanwhile).
   const handleRelease = async () => {
-    setReleasing(true)
     try {
       await apiClient.unassignResource(prompt.incidentId, prompt.assignmentId)
       toast.success(t('released', { vehicle: prompt.vehicleName }))
       setPrompt(null)
     } catch {
       toast.error(t('releaseFailed'))
-    } finally {
-      setReleasing(false)
     }
   }
 
   // Archive the incident — the status change to abschluss auto-releases
   // personnel and vehicles server-side (materials stay, like on the board).
   const handleReleaseAndComplete = async () => {
-    setReleasing(true)
     let seen: IncidentStatus | null = null
     try {
       const incident = await apiClient.getIncident(prompt.incidentId)
@@ -134,48 +123,25 @@ export function GpsReleasePrompt() {
         return
       }
       toast.error(t('completeFailed'))
-    } finally {
-      setReleasing(false)
     }
   }
 
   return (
-    <AlertDialog open={true} onOpenChange={(open) => { if (!open) setPrompt(null) }}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-2">
-            <Truck className="h-5 w-5 text-muted-foreground" />
-            {t('title')}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            {t.rich('description', {
-              vehicle: prompt.vehicleName,
-              label: prompt.incidentLabel,
-              strong: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-            })}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        {/* The ConfirmDialog geometry: «nur freigeben» is the "…but do this
-            instead" answer, so it takes the far-left slot alone, and Abbrechen
-            stays next to the primary button where it is in every other
-            confirmation. */}
-        <AlertDialogFooter>
-          <Button
-            variant="outline"
-            onClick={handleRelease}
-            disabled={releasing}
-            className="sm:mr-auto"
-          >
-            {t('releaseOnly', { vehicle: prompt.vehicleName })}
-          </Button>
-          <Button variant="outline" onClick={() => setPrompt(null)} disabled={releasing}>
-            {t('decline')}
-          </Button>
-          <Button onClick={handleReleaseAndComplete} disabled={releasing}>
-            {t('completeIncident')}
-          </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmDialog
+      open
+      onCancel={() => setPrompt(null)}
+      icon={<Truck className="h-5 w-5 text-muted-foreground" />}
+      title={t('title')}
+      description={t.rich('description', {
+        vehicle: prompt.vehicleName,
+        label: prompt.incidentLabel,
+        strong: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+      })}
+      // «nur freigeben» is the "…but do this instead" answer.
+      extraAction={{ label: t('releaseOnly', { vehicle: prompt.vehicleName }), onSelect: handleRelease }}
+      cancelText={t('decline')}
+      confirmText={t('completeIncident')}
+      onConfirm={handleReleaseAndComplete}
+    />
   )
 }

@@ -10,19 +10,23 @@
  * work (instead of zigzag across town) is a matter of looking at the map.
  */
 
-import { PersonName } from "@/components/person-name"
 import { useState } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
-import { Binoculars, MousePointerClick, X, User, Plus, ArrowLeft } from "lucide-react"
+import { Binoculars, MousePointerClick, X, Plus, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { EmptyState } from "@/components/ui/empty-state"
+import { FormMessage } from "@/components/ui/form-message"
+import { ShellLoader } from "@/components/ui/shell-loader"
+import { PersonPickTile } from "@/components/kanban/assignment-list-section"
+import { RESOURCE_STATE_BADGE_CLASSES } from "@/lib/resource-status"
 import { cn } from "@/lib/utils"
-import { RESOURCE_FREE_TEXT_CLASS } from "@/lib/resource-status"
 import { apiClient } from "@/lib/api-client"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import type { Person } from "@/lib/contexts/personnel-context"
-import { MarkExistingRekoPersonnel } from "@/components/incidents/assign-reko-dialog"
+import { REKO_PICK_MESSAGE_ID, useRekoCandidatePicker } from "@/components/incidents/assign-reko-dialog"
 
 interface RekoModusPanelProps {
   people: Person[]
@@ -45,14 +49,29 @@ export function RekoModusPanel({
 }: RekoModusPanelProps) {
   const t = useTranslations("map.rekoMode")
   const tAssign = useTranslations("incidents.assignReko")
+  const tPick = useTranslations("common.personPick")
   const { selectedEvent } = useEvent()
   const { personnel, refreshOperations } = useOperations()
   const [markMode, setMarkMode] = useState(false)
+  const [marking, setMarking] = useState(false)
+  const [pickMessage, setPickMessage] = useState<string | null>(null)
+  const mark = useRekoCandidatePicker({ personnel, disabled: marking })
   const selectedPerson = people.find((p) => p.id === selectedPersonId) ?? null
 
-  // Mark a checked-in person as event Reko, then pre-select them for tapping.
-  const handleMarkPerson = async (person: Person) => {
+  const openMarkMode = (next: boolean) => {
+    setMarkMode(next)
+    setPickMessage(null)
+    mark.reset()
+  }
+
+  // Mark the ticked checked-in person as event Reko, then pre-select them for tapping.
+  const handleMarkPerson = async (person: Person | null) => {
+    if (!person) {
+      setPickMessage(tPick("noneChosen"))
+      return
+    }
     if (!selectedEvent) return
+    setMarking(true)
     try {
       await apiClient.assignSpecialFunction(selectedEvent.id, {
         personnel_id: person.id,
@@ -65,6 +84,8 @@ export function RekoModusPanel({
     } catch (err) {
       console.error("Failed to mark Reko personnel:", err)
       toast.error(tAssign("assignErrorTitle"), { description: tAssign("markError") })
+    } finally {
+      setMarking(false)
     }
   }
 
@@ -87,16 +108,20 @@ export function RekoModusPanel({
             variant="ghost"
             size="sm"
             className="self-start mb-2 -ml-2"
-            onClick={() => setMarkMode(false)}
+            onClick={() => openMarkMode(false)}
           >
             <ArrowLeft className="size-3.5" />
             {t("back")}
           </Button>
-          <MarkExistingRekoPersonnel
-            personnel={personnel}
-            onSelect={handleMarkPerson}
-            className="flex-1 min-h-0"
-          />
+          <div className="mb-3 space-y-2">
+            {mark.searchField}
+            <FormMessage id={REKO_PICK_MESSAGE_ID}>{pickMessage}</FormMessage>
+          </div>
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain">{mark.list}</div>
+          <Button className="mt-3" onClick={() => void handleMarkPerson(mark.chosen)} disabled={marking}>
+            {marking ? <ShellLoader className="size-4" /> : <Binoculars className="size-4" />}
+            {t("addPerson")}
+          </Button>
         </>
       ) : (
         <>
@@ -110,65 +135,49 @@ export function RekoModusPanel({
       </div>
 
       {people.length === 0 ? (
-        <div className="flex flex-col items-center justify-center flex-1 px-4 text-center">
-          <User className="h-10 w-10 text-muted-foreground/50 mb-2" />
-          <p className="text-sm font-medium mb-1">{t("empty")}</p>
-          <Button size="sm" className="my-3" onClick={() => setMarkMode(true)}>
-            <Plus className="size-3.5" />
-            {t("addPerson")}
-          </Button>
-          <p className="text-xs text-muted-foreground">{t("emptyHint")}</p>
-        </div>
+        <EmptyState
+          title={t("empty")}
+          description={t("emptyHint")}
+          action={{ label: t("addPerson"), icon: Plus, onClick: () => openMarkMode(true) }}
+        />
       ) : (
         <div className="space-y-2 overflow-y-auto overscroll-contain flex-1 min-h-0">
+          {/* The person the map taps assign – ONE ticked tile, the pickers' tile (ENT-10 A).
+              The dot is the person's colour on the map («Färben nach Reko»). */}
           {people.map((person) => {
             const openOps = openByPerson.get(person.id) ?? []
             const isSelected = person.id === selectedPersonId
             const swatch = legendColors.get(person.id)
             return (
-              <button
+              <PersonPickTile
                 key={person.id}
+                name={person.name}
+                personnelId={person.id}
+                rank={person.role}
+                checked={isSelected}
                 onClick={() => onSelectPerson(isSelected ? null : person.id)}
-                className={cn(
-                  "w-full flex items-center justify-between gap-2 p-3 rounded-lg border transition-all text-left",
-                  isSelected
-                    ? "border-sel-line bg-sel-wash"
-                    : "border-border hover:border-sel-edge hover:bg-secondary/30"
-                )}
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span
-                    className={cn(
-                      "h-3 w-3 rounded-full flex-shrink-0",
-                      !swatch && "bg-muted-foreground/30"
+                aside={
+                  <span className="flex items-center gap-2">
+                    {openOps.length > 0 ? (
+                      <span className="whitespace-nowrap font-medium text-muted-foreground">{t("openCount", { count: openOps.length })}</span>
+                    ) : (
+                      <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.available)}>{t("free")}</Badge>
                     )}
-                    style={swatch ? { backgroundColor: swatch } : undefined}
-                  />
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm truncate"><PersonName name={person.name} personnelId={person.id} /></p>
-                    {person.role && (
-                      <p className="text-xs text-muted-foreground truncate">{person.role}</p>
-                    )}
-                  </div>
-                </div>
-                <span
-                  className={cn(
-                    "text-xs font-medium whitespace-nowrap flex-shrink-0",
-                    openOps.length > 0
-                      ? "text-muted-foreground"
-                      : RESOURCE_FREE_TEXT_CLASS
-                  )}
-                >
-                  {openOps.length > 0 ? t("openCount", { count: openOps.length }) : t("free")}
-                </span>
-              </button>
+                    <span
+                      aria-hidden
+                      className={cn("size-3 shrink-0 rounded-full", !swatch && "bg-muted-foreground/30")}
+                      style={swatch ? { backgroundColor: swatch } : undefined}
+                    />
+                  </span>
+                }
+              />
             )
           })}
           <Button
             variant="ghost"
             size="sm"
             className="w-full justify-start text-muted-foreground"
-            onClick={() => setMarkMode(true)}
+            onClick={() => openMarkMode(true)}
           >
             <Plus className="size-3.5" />
             {t("addPerson")}

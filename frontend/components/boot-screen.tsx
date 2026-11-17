@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { SnailLoader } from '@/components/snail-loader'
 import { topLoading } from '@/components/ui/top-loading-bar'
+import { useStationName } from '@/lib/station-name'
 
 /** How long a start may run quietly before the screen admits something is wrong (KP
  *  Front's Splash uses the same 9 s). Past a few seconds «alive and starting» stops
@@ -15,7 +16,8 @@ import { topLoading } from '@/components/ui/top-loading-bar'
 export const BOOT_STUCK_MS = 9_000
 
 /**
- * The full-screen start: snail, «KP RÜCK», and the phase in words. No percentage — the
+ * The full-screen start: snail, «KP RÜCK», the station's name when this device knows it
+ * (owner pick XAPP-15 B – which app AND which station, at a glance), and the phase in words. No percentage — the
  * old bar crept up at random and stopped at 85 %, a number that measured nothing. The
  * snail and the phase say «alive and starting»; there is no artificial minimum wait.
  *
@@ -28,6 +30,7 @@ export const BOOT_STUCK_MS = 9_000
 export function BootScreen({ phase, restartHref }: { phase: string; restartHref?: string }) {
   const t = useTranslations('common.bootScreen')
   const [stuck, setStuck] = useState(false)
+  const stationName = useStationName()
 
   // The snail IS the loading signal here: the route bar at the top stays hidden while this
   // screen is up (the session probe and the board's first loads would otherwise run it
@@ -51,7 +54,12 @@ export function BootScreen({ phase, restartHref }: { phase: string; restartHref?
         <SnailLoader className="dark:drop-shadow-[0_0_5px_rgb(255_240_207/0.12)]" />
         {/* The wordmark and the phase are one live region: a changed phase is read out. */}
         <div role="status" className="flex flex-col items-center gap-[18px] text-center">
-          <div className="text-base font-bold uppercase tracking-[0.14em] text-foreground">KP Rück</div>
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="text-base font-bold uppercase tracking-[0.14em] text-foreground">KP Rück</div>
+            {/* Its height is kept while the name is unknown (the server and the hydrating
+                render know none): the snail must not jump when the name arrives. */}
+            <div className="min-h-[1.3em] text-[13px] text-foreground">{stationName}</div>
+          </div>
           <div className="min-h-[1.3em] text-[13px] text-muted-foreground">{phase}</div>
         </div>
         {stuck && (

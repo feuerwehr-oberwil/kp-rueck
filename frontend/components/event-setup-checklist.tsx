@@ -6,21 +6,16 @@ import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { LoadingStatus } from '@/components/ui/shell-loader'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { X, ClipboardCheck, Check, MessageCircle, Send, Binoculars } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
 import { FeldAccessCard } from '@/components/feld/feld-access-card'
 import { queueLinkQrPrint, type LinkKind } from '@/lib/link-qr-print'
-import { MarkExistingRekoPersonnel } from '@/components/incidents/assign-reko-dialog'
+import { REKO_PICK_MESSAGE_ID, useRekoCandidatePicker } from '@/components/incidents/assign-reko-dialog'
+import { PickerDialog } from '@/components/ui/picker-dialog'
+import { FormMessage } from '@/components/ui/form-message'
+import { ShellLoader } from '@/components/ui/shell-loader'
 import { useOperations } from '@/lib/contexts/operations-context'
-import type { Person } from '@/lib/contexts/personnel-context'
 import { usePrintJobToast } from '@/lib/hooks/use-print-job-toast'
 import { useChecklistFacts } from '@/lib/hooks/use-checklist-facts'
 import {
@@ -482,8 +477,9 @@ export function EventSetupChecklist({
  * Marks people via the SAME call every other surface uses
  * (`assignSpecialFunction(…, 'reko')` — the context menu, the map's Reko-Modus,
  * the assign dialog), so the checklist's auto-tick sees it on the next poll.
- * Stays open after each pick: a station usually names two or three Reko at
- * once, and a marked person drops out of the candidate list by itself.
+ * Stays open after each mark: a station usually names two or three Reko at
+ * once, and a marked person drops out of the candidate list by itself. The
+ * pickers' shape (ENT-10 A): tick a person tile, «Person als Reko markieren».
  */
 export function RekoPickerDialog({
   open,
@@ -495,10 +491,22 @@ export function RekoPickerDialog({
   eventId: string | null
 }) {
   const t = useTranslations('checklist.rekoPicker')
+  const tAssign = useTranslations('incidents.assignReko')
+  const tPick = useTranslations('common.personPick')
   const { personnel, refreshOperations } = useOperations()
+  const [marking, setMarking] = useState(false)
+  const [pickMessage, setPickMessage] = useState<string | null>(null)
+  const mark = useRekoCandidatePicker({ personnel, disabled: marking })
 
-  const handleSelect = async (person: Person) => {
+  const handleMark = async () => {
+    const person = mark.chosen
+    if (!person) {
+      setPickMessage(tPick('noneChosen'))
+      return
+    }
     if (!eventId) return
+    setPickMessage(null)
+    setMarking(true)
     try {
       await apiClient.assignSpecialFunction(eventId, {
         personnel_id: person.id,
@@ -507,29 +515,40 @@ export function RekoPickerDialog({
       })
       toast.success(t('marked', { name: person.name }))
       await refreshOperations()
+      mark.reset()
     } catch (error) {
       console.error('Failed to mark Reko personnel:', error)
       toast.error(t('failed'))
+    } finally {
+      setMarking(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Binoculars className="h-5 w-5" />
-            {t('title')}
-          </DialogTitle>
-          <DialogDescription>{t('description')}</DialogDescription>
-        </DialogHeader>
-        <MarkExistingRekoPersonnel personnel={personnel} onSelect={handleSelect} />
-        <div className="flex justify-end">
+    <PickerDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t('title')}
+      description={t('description')}
+      toolbar={
+        <>
+          {mark.searchField}
+          <FormMessage id={REKO_PICK_MESSAGE_ID}>{pickMessage}</FormMessage>
+        </>
+      }
+      footer={
+        <>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t('done')}
           </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+          <Button onClick={() => void handleMark()} disabled={marking}>
+            {marking ? <ShellLoader className="size-4" /> : <Binoculars className="size-4" />}
+            {tAssign('markExisting')}
+          </Button>
+        </>
+      }
+    >
+      {mark.list}
+    </PickerDialog>
   )
 }

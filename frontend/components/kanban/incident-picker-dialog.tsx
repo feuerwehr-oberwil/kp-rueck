@@ -519,11 +519,12 @@ export function IncidentPickerDialog({
         </div>
         )}
 
-        {/* The escape hatch goes left on its own (`sm:mr-auto`); Abbrechen stays
-            in the right-hand group beside the primary button. Same geometry as
-            `ConfirmDialog`'s `extraAction`, which is the app's one footer shape.
-            `justify-between` plus a `<span />` spacer did the same thing, but
-            only as long as something stood in the left slot. */}
+        {/* A picker's footer, not a question's: the escape hatch goes left on its
+            own (`sm:mr-auto`), Abbrechen stays in the right-hand group beside the
+            primary button. (A confirmation's third answer is a line of its own –
+            `ConfirmDialog`'s `extraAction`.) `justify-between` plus a `<span />`
+            spacer did the same thing, but only as long as something stood in the
+            left slot. */}
         <DialogFooter className="flex-shrink-0">
           {onCreateNew && (
             <Button

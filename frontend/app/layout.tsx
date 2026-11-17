@@ -85,7 +85,7 @@ export async function generateMetadata(): Promise<Metadata> {
       apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
     },
     // The installed-app tags exactly as KP Front ships them: capable + the home-screen label
-    // (the page title «KP Rück Dashboard» would be cut off), and NO status-bar-style — Next's
+    // (a longer page title would be cut off), and NO status-bar-style — Next's
     // `appleWebApp` always writes one (`default`), Front deliberately writes none (its
     // black-translucent attempt was ignored by iOS 26.1, and the bar takes the theme-color).
     other: {

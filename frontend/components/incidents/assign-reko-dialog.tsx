@@ -1,102 +1,103 @@
 "use client"
 
-import { SearchEmptyState } from "@/components/ui/empty-state"
-import { PersonName } from "@/components/person-name"
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { EmptyState, SearchEmptyState } from "@/components/ui/empty-state"
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react"
+import { PickerDialog } from "@/components/ui/picker-dialog"
 import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Search, User, Binoculars, ArrowLeft, MapPin } from "lucide-react"
+import { FormMessage } from "@/components/ui/form-message"
+import { useIsMobile } from "@/components/ui/use-mobile"
+import { Binoculars, ArrowLeft, MapPin } from "lucide-react"
+import { PersonPickTile } from "@/components/kanban/assignment-list-section"
 import { apiClient, type ApiAvailableRekoPersonnel } from "@/lib/api-client"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useOperations } from "@/lib/contexts/operations-context"
 import type { Person } from "@/lib/contexts/personnel-context"
+import { personMatchesQuery, RESOURCE_STATE_BADGE_CLASSES } from "@/lib/resource-status"
 import { cn } from "@/lib/utils"
-import { RESOURCE_FREE_TEXT_CLASS } from "@/lib/resource-status"
 import { toast } from "sonner"
 import { useTranslations } from "next-intl"
 import { ShellLoader, LoadingStatus } from "@/components/ui/shell-loader"
 
-interface MarkExistingRekoPersonnelProps {
+/** «Keine Person gewählt.» – said above the list of a Reko picker whose main answer has
+ *  nothing to take. */
+export const REKO_PICK_MESSAGE_ID = "reko-pick-message"
+
+/**
+ * «Person als Reko markieren» – the checked-in people who are not Reko yet, as the same
+ * person tiles as every picker (`PersonPickTile`), one to tick. Used by the three Reko
+ * surfaces (Reko zuweisen, Rekos übertragen, Reko-Modus); each host places `searchField`
+ * above its list and `list` in it, and its own main answer marks `chosen`.
+ */
+export function useRekoCandidatePicker({
+  personnel,
+  excludedPersonnelIds,
+  disabled,
+}: {
   personnel: Person[]
-  onSelect: (person: Person) => Promise<void>
   excludedPersonnelIds?: ReadonlySet<string>
-  /** Overrides the dialog-sized fixed height (e.g. `flex-1 min-h-0` when the
-   *  list fills a flex column like the map's Reko-Modus panel). */
-  className?: string
+  disabled?: boolean
+}): { chosen: Person | null; searchField: ReactNode; list: ReactNode; reset: () => void } {
+  const t = useTranslations("incidents.assignReko")
+  const isMobile = useIsMobile()
+  const [search, setSearch] = useState("")
+  const [chosenId, setChosenId] = useState<string | null>(null)
+  const eligible = personnel.filter((person) => !person.isReko && !excludedPersonnelIds?.has(person.id))
+  const candidates = search.trim() ? eligible.filter((person) => personMatchesQuery(person, search)) : eligible
+
+  const searchField = (
+    <SearchInput
+      // A phone sheet raises no keyboard by itself (ui/sheet.tsx).
+      autoFocus={!isMobile}
+      value={search}
+      onValueChange={setSearch}
+      placeholder={t("markSearchPlaceholder")}
+    />
+  )
+  const list =
+    candidates.length === 0 && search.trim() ? (
+      <SearchEmptyState query={search} onClear={() => setSearch("")} />
+    ) : candidates.length === 0 ? (
+      <p className="px-4 py-6 text-center text-xs text-muted-foreground">
+        {personnel.length === 0 ? t("markNoCheckedIn") : t("markAllReko")}
+      </p>
+    ) : (
+      candidates.map((person) => (
+        <PersonPickTile
+          key={person.id}
+          name={person.name}
+          personnelId={person.id}
+          rank={person.role}
+          checked={chosenId === person.id}
+          disabled={disabled}
+          onClick={() => setChosenId((current) => (current === person.id ? null : person.id))}
+        />
+      ))
+    )
+
+  // Stable, so a host may reset from an effect.
+  const reset = useCallback(() => {
+    setSearch("")
+    setChosenId(null)
+  }, [])
+
+  return { chosen: eligible.find((person) => person.id === chosenId) ?? null, searchField, list, reset }
 }
 
-export function MarkExistingRekoPersonnel({
-  personnel,
-  onSelect,
-  excludedPersonnelIds,
-  className,
-}: MarkExistingRekoPersonnelProps) {
-  const t = useTranslations('incidents.assignReko')
-  const [search, setSearch] = useState("")
-  const [marking, setMarking] = useState<string | null>(null)
-  const candidates = personnel
-    .filter((person) => !person.isReko)
-    .filter((person) => !excludedPersonnelIds?.has(person.id))
-    .filter((person) => !search.trim() || person.name.toLowerCase().includes(search.trim().toLowerCase()))
-
-  const handleSelect = async (person: Person) => {
-    setMarking(person.id)
-    try {
-      await onSelect(person)
-    } finally {
-      setMarking(null)
-    }
-  }
-
+/** The dashed «Person als Reko markieren» row above a Reko picker's list – the same
+ *  shape as the driver picker's «Person hinzufügen». */
+export function MarkRekoRow({ onClick }: { onClick: () => void }) {
+  const t = useTranslations("incidents.assignReko")
   return (
-    <div className={cn("flex flex-col", className ?? "h-[300px]")}>
-      <SearchInput
-        autoFocus
-        containerClassName="mb-3"
-        value={search}
-        onValueChange={setSearch}
-        placeholder={t('markSearchPlaceholder')}
-      />
-      {candidates.length === 0 && search.trim() ? (
-        <SearchEmptyState query={search} onClear={() => setSearch("")} />
-      ) : candidates.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center px-4 text-center text-xs text-muted-foreground">
-          {personnel.length === 0 ? t('markNoCheckedIn') : t('markAllReko')}
-        </div>
-      ) : (
-        <ScrollArea className="flex-1 min-h-0 pr-2">
-          <div className="space-y-2">
-            {candidates.map((person) => (
-              <button
-                key={person.id}
-                onClick={() => handleSelect(person)}
-                disabled={marking !== null}
-                className={cn(
-                  "w-full flex items-center justify-between p-3 rounded-lg border border-border transition-all text-left hover:border-sel-edge hover:bg-secondary/30",
-                  marking === person.id && "opacity-50 cursor-not-allowed"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <User className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium text-sm"><PersonName name={person.name} personnelId={person.id} /></p>
-                    {person.role && (
-                      <p className="text-xs text-muted-foreground">{person.role}</p>
-                    )}
-                  </div>
-                </div>
-                {marking === person.id
-                  ? <ShellLoader className="h-4 w-4" />
-                  : <Binoculars className="h-4 w-4 text-muted-foreground" />}
-              </button>
-            ))}
-          </div>
-        </ScrollArea>
-      )}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border/70 px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-sel-edge hover:text-foreground"
+    >
+      <Binoculars className="h-4 w-4" />
+      <span>{t("markExisting")}</span>
+    </button>
   )
 }
 
@@ -125,6 +126,14 @@ interface AssignRekoDialogProps {
   onAssigned?: () => void
 }
 
+/**
+ * «Reko-Personal zuweisen»: the Ereignis' Reko people as person tiles (ENT-10 A), the one
+ * already on this Einsatz ticked with «aktuell»; a tap ticks, «Übernehmen» assigns – or,
+ * on the current person, keeps it (the status gate's way forward when the answer is
+ * already on screen). Open Rekos are each tile's where-note; the right column says how
+ * busy and how far. «Person als Reko markieren» switches the list to the checked-in people
+ * who are not Reko yet. A bottom sheet on the phone (`PickerDialog`).
+ */
 export function AssignRekoDialog({
   open,
   onOpenChange,
@@ -134,15 +143,20 @@ export function AssignRekoDialog({
 }: AssignRekoDialogProps) {
   const t = useTranslations('incidents.assignReko')
   const tCommon = useTranslations('incidents.common')
+  const tPick = useTranslations('common.personPick')
   const { selectedEvent } = useEvent()
   const { personnel: allPersonnel, refreshOperations, formatLocation } = useOperations()
   const [personnel, setPersonnel] = useState<ApiAvailableRekoPersonnel[]>([])
   const [currentlyAssignedId, setCurrentlyAssignedId] = useState<string | null>(null)
+  const [chosenId, setChosenId] = useState<string | null>(null)
+  const [pickMessage, setPickMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [assigning, setAssigning] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [markMode, setMarkMode] = useState(false)
   const [uncertainPersonnelIds, setUncertainPersonnelIds] = useState<ReadonlySet<string>>(new Set())
+  const mark = useRekoCandidatePicker({ personnel: allPersonnel, excludedPersonnelIds: uncertainPersonnelIds, disabled: busy })
+  const resetMark = mark.reset
 
   // Backend sorts by (open work, distance, name). Mark the top candidate as
   // "Empfohlen" only when it is measurably better than the runner-up — a
@@ -166,6 +180,7 @@ export function AssignRekoDialog({
       const response = await apiClient.getAvailableRekoPersonnel(incidentId)
       setPersonnel(response.personnel)
       setCurrentlyAssignedId(response.currently_assigned_id)
+      setChosenId(response.currently_assigned_id)
     } catch (err) {
       console.error('Failed to load Reko personnel:', err)
       setError(t('loadError'))
@@ -179,8 +194,10 @@ export function AssignRekoDialog({
     if (open) {
       loadAvailablePersonnel()
       setMarkMode(false)
+      setPickMessage(null)
+      resetMark()
     }
-  }, [open, loadAvailablePersonnel])
+  }, [open, loadAvailablePersonnel, resetMark])
 
   // See `onAssigned`: the caller owns the close. The fallback is for a caller
   // that passes no handler at all — a dialog that stays open after a successful
@@ -225,217 +242,156 @@ export function AssignRekoDialog({
     }
   }
 
-  const handleAssign = async (person: ApiAvailableRekoPersonnel) => {
-    setAssigning(person.personnel_id)
+  const handleAssign = async (personnelId: string) => {
     try {
-      await apiClient.assignRekoPersonnel(incidentId, person.personnel_id)
+      await apiClient.assignRekoPersonnel(incidentId, personnelId)
       finishAssigned()
     } catch (err) {
       console.error('Failed to assign Reko personnel:', err)
       toast.error(t('assignErrorTitle'), { description: t('assignErrorDescription') })
-    } finally {
-      setAssigning(null)
     }
   }
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
-            {t('title')}
-          </DialogTitle>
-          <DialogDescription className="truncate" title={t('incidentLabel', { title: incidentTitle })}>
-            {t('incidentLabel', { title: incidentTitle })}
-          </DialogDescription>
-        </DialogHeader>
+  /** «Übernehmen»: mark + assign the ticked candidate, keep the current Reko, or assign
+   *  the ticked one. Nothing ticked is said above the list, never a greyed-out button. */
+  const applyChoice = async () => {
+    const candidate = mark.chosen
+    if (markMode ? !candidate : !chosenId) {
+      setPickMessage(tPick('noneChosen'))
+      return
+    }
+    setBusy(true)
+    try {
+      if (markMode && candidate) await handleMarkAndAssign(candidate)
+      else if (chosenId === currentlyAssignedId) finishAssigned()
+      else if (chosenId) await handleAssign(chosenId)
+    } finally {
+      setBusy(false)
+    }
+  }
 
-        <div className="space-y-4">
-          {/* Fixed height container to prevent layout shifts */}
-          <div className="min-h-[300px]">
-            {markMode ? (
-                <MarkExistingRekoPersonnel
-                  personnel={allPersonnel}
-                  onSelect={handleMarkAndAssign}
-                  excludedPersonnelIds={uncertainPersonnelIds}
-                />
-            ) : loading ? (
-              <div className="flex items-center justify-center h-[300px]">
-                <LoadingStatus size="surface" className="text-sm">{t('loading')}</LoadingStatus>
-              </div>
-            ) : error ? (
-              <div className="flex flex-col items-center justify-center h-[300px]">
-                <p className="text-destructive">{error}</p>
-                <Button variant="outline" onClick={loadAvailablePersonnel} className="mt-4">
-                  {t('retry')}
-                </Button>
-              </div>
-            ) : personnel.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-[300px]">
-                <User className="h-12 w-12 text-muted-foreground/50 mb-3" />
-                <p className="text-sm font-medium text-foreground mb-3">
-                  {t('emptyTitle')}
-                </p>
-                <Button onClick={() => setMarkMode(true)} className="mb-3">
-                  <Binoculars className="size-4" />
-                  {t('markExisting')}
-                </Button>
-                <p className="text-xs text-muted-foreground text-center max-w-xs">
-                  {t('emptyHint')}
-                </p>
-              </div>
+  const choose = (personnelId: string) => {
+    setChosenId((current) => (current === personnelId ? null : personnelId))
+    setPickMessage(null)
+  }
+
+  const switchMode = (next: boolean) => {
+    setMarkMode(next)
+    setPickMessage(null)
+  }
+
+  const toolbar = markMode ? (
+    <>
+      <Button variant="ghost" size="sm" className="-ml-2 self-start" onClick={() => switchMode(false)}>
+        <ArrowLeft className="size-3.5" />
+        {t('back')}
+      </Button>
+      {mark.searchField}
+      <FormMessage id={REKO_PICK_MESSAGE_ID}>{pickMessage}</FormMessage>
+    </>
+  ) : !loading && !error && personnel.length > 0 ? (
+    // Here, not only in the empty state: with exactly one Reko person on the Ereignis the
+    // list is never empty, so the only way to put a second one on the board was to close
+    // this dialog and right-click somebody in the sidebar.
+    <>
+      <MarkRekoRow onClick={() => switchMode(true)} />
+      <FormMessage id={REKO_PICK_MESSAGE_ID}>{pickMessage}</FormMessage>
+    </>
+  ) : undefined
+
+  const renderTile = (person: ApiAvailableRekoPersonnel) => {
+    const isCurrent = person.personnel_id === currentlyAssignedId
+    const openLabels = (person.open_assignments ?? []).map(
+      (assignment) => formatLocation(assignment.location_address ?? '') || assignment.incident_title,
+    )
+    return (
+      <PersonPickTile
+        key={person.personnel_id}
+        name={person.name}
+        personnelId={person.personnel_id}
+        rank={person.role}
+        // Its open Rekos are where the person is besides here – the where-note.
+        where={openLabels.length > 0 && !isCurrent ? {
+          head: openLabels.length > 1 ? `${openLabels[0]} +${openLabels.length - 1}` : openLabels[0],
+          full: openLabels.join(', '),
+          Icon: MapPin,
+        } : null}
+        checked={chosenId === person.personnel_id}
+        current={isCurrent}
+        disabled={busy}
+        onClick={() => choose(person.personnel_id)}
+        badge={person.personnel_id === recommendedId && (
+          <Badge variant="outline" className="shrink-0 px-1.5 py-0 text-2xs">{t('recommended')}</Badge>
+        )}
+        aside={!isCurrent && (
+          <>
+            {/* Open Rekos are a fact, not a warning: muted beside the green «frei» (VISUAL-03). */}
+            {person.open_count > 0 ? (
+              <span className="whitespace-nowrap font-medium text-muted-foreground">
+                {t('openCount', { count: person.open_count })}
+                {person.done_count > 0 && ` · ${t('doneCount', { count: person.done_count })}`}
+              </span>
             ) : (
-              <ScrollArea className="h-[300px] pr-2">
-                <div className="space-y-2">
-                  {personnel.map((person) => {
-                  const isCurrentlyAssigned = person.personnel_id === currentlyAssignedId
-                  const isRecommended = person.personnel_id === recommendedId
-                  const openChips = person.open_assignments ?? []
-                  return (
-                    <button
-                      key={person.personnel_id}
-                      onClick={() => handleAssign(person)}
-                      disabled={assigning !== null || isCurrentlyAssigned}
-                      className={cn(
-                        "w-full p-3 rounded-lg border transition-all text-left",
-                        isCurrentlyAssigned
-                          ? "border-success bg-success/10 cursor-default"
-                          : "border-border hover:border-sel-edge hover:bg-secondary/30",
-                        assigning === person.personnel_id && "opacity-50 cursor-not-allowed"
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <User className={cn(
-                            "h-5 w-5 flex-shrink-0",
-                            isCurrentlyAssigned ? "text-success" :
-                            "text-muted-foreground"
-                          )} />
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium text-sm truncate"><PersonName name={person.name} personnelId={person.personnel_id} /></p>
-                              {isRecommended && (
-                                <Badge variant="outline" className="text-2xs px-1.5 py-0 flex-shrink-0">
-                                  {t('recommended')}
-                                </Badge>
-                              )}
-                            </div>
-                            {person.role && (
-                              <p className="text-xs text-muted-foreground truncate">{person.role}</p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                          {isCurrentlyAssigned ? (
-                            <Badge variant="default" className="text-xs">
-                              {t('assigned')}
-                            </Badge>
-                          ) : (
-                            <>
-                              <p className="text-xs whitespace-nowrap">
-                                <span className={cn(
-                                  "font-medium",
-                                  // Open Rekos are a fact, not a warning: ink-muted
-                                  // beside the green «frei» (VISUAL-03).
-                                  person.open_count > 0
-                                    ? "text-muted-foreground"
-                                    : RESOURCE_FREE_TEXT_CLASS
-                                )}>
-                                  {person.open_count > 0
-                                    ? t('openCount', { count: person.open_count })
-                                    : t('noOpenWork')}
-                                </span>
-                                {person.done_count > 0 && (
-                                  <span className="text-muted-foreground">
-                                    {' · '}{t('doneCount', { count: person.done_count })}
-                                  </span>
-                                )}
-                              </p>
-                              {person.distance_m !== null && (
-                                <p
-                                  className="text-2xs text-muted-foreground whitespace-nowrap"
-                                  title={person.distance_source === 'last' ? t('distanceLastTooltip') : t('distanceOpenTooltip')}
-                                >
-                                  ≈ {formatDistance(person.distance_m)}
-                                  {person.distance_source === 'last' && ` ${t('distanceLastSuffix')}`}
-                                </p>
-                              )}
-                            </>
-                          )}
-                          {assigning === person.personnel_id && (
-                            <ShellLoader className="h-4 w-4" />
-                          )}
-                        </div>
-                      </div>
-                      {openChips.length > 0 && !isCurrentlyAssigned && (
-                        <div className="mt-1.5 flex flex-wrap items-center gap-1 pl-8">
-                          {openChips.slice(0, 3).map((assignment) => {
-                            const chipLabel = formatLocation(assignment.location_address ?? '') || assignment.incident_title
-                            return (
-                            <span
-                              key={assignment.incident_id}
-                              className="inline-flex items-center gap-1 max-w-[180px] rounded bg-secondary/60 px-1.5 py-0.5 text-2xs text-muted-foreground"
-                              title={chipLabel}
-                            >
-                              <MapPin className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">
-                                {chipLabel}
-                              </span>
-                            </span>
-                            )
-                          })}
-                          {openChips.length > 3 && (
-                            <span className="text-2xs text-muted-foreground">
-                              +{openChips.length - 3}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-              </ScrollArea>
+              <Badge variant="outline" className={cn('text-xs', RESOURCE_STATE_BADGE_CLASSES.available)}>
+                {t('noOpenWork')}
+              </Badge>
             )}
-          </div>
+            {person.distance_m !== null && (
+              <span
+                className="whitespace-nowrap text-2xs text-muted-foreground"
+                title={person.distance_source === 'last' ? t('distanceLastTooltip') : t('distanceOpenTooltip')}
+              >
+                ≈ {formatDistance(person.distance_m)}
+                {person.distance_source === 'last' && ` ${t('distanceLastSuffix')}`}
+              </span>
+            )}
+          </>
+        )}
+      />
+    )
+  }
 
-          {/* Footer.
-              «Person als Reko markieren» belongs here, not only in the empty
-              state: with exactly one Reko person on the Ereignis the list is
-              never empty, so the only way to put a second one on the board was
-              to close this dialog and right-click somebody in the sidebar.
-              And when the incident already HAS its Reko person, the dialog has
-              to offer a way forward — every row is disabled then, and Abbrechen
-              reverts the card to «Eingegangen», which is not what an operator
-              means when the answer to «wer macht die Reko» is already on screen. */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
-            {markMode ? (
-              <Button variant="ghost" onClick={() => setMarkMode(false)}>
-                <ArrowLeft className="size-4" />
-                {t('back')}
-              </Button>
-            ) : personnel.length > 0 ? (
-              // The empty state carries this action as its own primary button;
-              // two of them on screen at once would just be noise.
-              <Button variant="ghost" onClick={() => setMarkMode(true)}>
-                <Binoculars className="size-4" />
-                {t('markExisting')}
-              </Button>
-            ) : <span />}
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                {tCommon('cancel')}
-              </Button>
-              {!markMode && currentlyAssignedId && (
-                <Button onClick={finishAssigned}>
-                  {t('keepAssigned')}
-                </Button>
-              )}
-            </div>
-          </div>
+  return (
+    <PickerDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={markMode ? t('markExisting') : t('title')}
+      description={t('incidentLabel', { title: incidentTitle })}
+      toolbar={toolbar}
+      footer={
+        <>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {tCommon('cancel')}
+          </Button>
+          <Button onClick={() => void applyChoice()} disabled={busy}>
+            {busy && <ShellLoader className="size-4" />}
+            {tPick('apply')}
+          </Button>
+        </>
+      }
+    >
+      {markMode ? (
+        mark.list
+      ) : loading ? (
+        <div className="flex h-full min-h-40 items-center justify-center">
+          <LoadingStatus size="surface" className="text-sm">{t('loading')}</LoadingStatus>
         </div>
-      </DialogContent>
-    </Dialog>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center py-10">
+          <p className="text-destructive">{error}</p>
+          <Button variant="outline" onClick={loadAvailablePersonnel} className="mt-4">
+            {t('retry')}
+          </Button>
+        </div>
+      ) : personnel.length === 0 ? (
+        <EmptyState
+          title={t('emptyTitle')}
+          description={t('emptyHint')}
+          action={{ label: t('markExisting'), icon: Binoculars, onClick: () => switchMode(true) }}
+        />
+      ) : (
+        personnel.map(renderTile)
+      )}
+    </PickerDialog>
   )
 }

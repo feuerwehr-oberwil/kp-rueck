@@ -1,16 +1,15 @@
 "use client"
 
 import { EmptyState, SearchEmptyState } from "@/components/ui/empty-state"
-import { PersonName } from "@/components/person-name"
 import { useState, useMemo, useEffect } from "react"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { PickerDialog } from "@/components/ui/picker-dialog"
 import { SearchInput } from "@/components/ui/search-input"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { User, CheckCircle, Circle, Trash2, AlertTriangle, UserPlus, Plus } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Truck, UserPlus, Plus } from "lucide-react"
+import { useIsMobile } from "@/components/ui/use-mobile"
+import { PersonPickTile, type PersonWhere, type TileRole } from "@/components/kanban/assignment-list-section"
 import { toast } from "sonner"
 import { FormMessage, fieldMessageProps, focusFirstBlockingField, formMessageId } from "@/components/ui/form-message"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
@@ -38,7 +37,16 @@ interface DriverAssignmentDialogProps {
 
 /** The walk-in name field – its message and the submit's focus target. */
 const WALK_IN_NAME_ID = "walk-in-driver-name"
+/** «Keine Person gewählt.» – said above the list when «Übernehmen» has nothing to take. */
+const PICK_MESSAGE_ID = "driver-pick-message"
 
+/**
+ * «Fahrer für TLF»: pick the vehicle's ONE driver (ENT-10 A). The person tiles of the
+ * assignment dialog (`PersonPickTile`), the current driver ticked with «aktuell»; a tap
+ * ticks, «Übernehmen» applies – a mistap is not yet a write. Unticking the current driver
+ * turns the main answer into «Ohne Fahrer» (after a confirm). Moving somebody off an Einsatz
+ * or off another vehicle asks first. A bottom sheet on the phone (`PickerDialog`).
+ */
 export function DriverAssignmentDialog({
   open,
   onOpenChange,
@@ -56,6 +64,8 @@ export function DriverAssignmentDialog({
   const t = useTranslations('incidents.driver')
   const tCommon = useTranslations('incidents.common')
   const tForm = useTranslations('common.formMessage')
+  const tPick = useTranslations('common.personPick')
+  const isMobile = useIsMobile()
   const { refreshOperations } = useOperations()
   const [searchQuery, setSearchQuery] = useState("")
   const [isAssigning, setIsAssigning] = useState(false)
@@ -71,6 +81,9 @@ export function DriverAssignmentDialog({
   // Track driver locally so we can update UI immediately
   const [localDriverId, setLocalDriverId] = useState<string | null>(initialDriverId)
   const [localDriverName, setLocalDriverName] = useState<string | null>(initialDriverName)
+  // The ticked tile – the answer «Übernehmen» applies. Starts on the current driver.
+  const [chosenId, setChosenId] = useState<string | null>(initialDriverId)
+  const [pickMessage, setPickMessage] = useState<string | null>(null)
 
   // Conflict dialog state
   const [conflictDialog, setConflictDialog] = useState<{
@@ -96,6 +109,8 @@ export function DriverAssignmentDialog({
     if (open) {
       setLocalDriverId(initialDriverId)
       setLocalDriverName(initialDriverName)
+      setChosenId(initialDriverId)
+      setPickMessage(null)
     }
   }, [open, initialDriverId, initialDriverName])
 
@@ -133,6 +148,8 @@ export function DriverAssignmentDialog({
   // confirmation step.
   const availablePersonnel = useMemo(() => {
     return personnel.filter(p => {
+      // The current driver is a tile too – ticked, «aktuell».
+      if (p.id === localDriverId) return true
       // Already driving another vehicle → keep (confirm-to-move on click)
       if (otherVehicleByDriver.has(p.id)) return true
       // Must be available or assigned to an incident (not a driver/magazin)
@@ -141,7 +158,7 @@ export function DriverAssignmentDialog({
       if (p.status === 'assigned' && !p.isDriver && !p.isMagazin) return true
       return false
     })
-  }, [personnel, otherVehicleByDriver])
+  }, [personnel, otherVehicleByDriver, localDriverId])
 
   // Get operations where a person is assigned
   const getPersonConflicts = (person: Person) => {
@@ -150,9 +167,39 @@ export function DriverAssignmentDialog({
       .map(op => ({ id: op.id, location: getIncidentRefLabel(op, 40), personnelId: person.id }))
   }
 
-  // Check if person is assigned to any incident
-  const isAssignedToIncident = (person: Person) => {
-    return operations.some(op => op.crew.some(m => m.personnelId === person.id))
+  /** The tile's where-note: the Einsatz the person is on (amber – taking them releases them
+   *  there), else the other vehicle they drive; both at once = the vehicle as a role. */
+  const tileFacts = (person: Person): { where: PersonWhere | null; roles: TileRole[] } => {
+    const conflicts = getPersonConflicts(person)
+    const drivingOther = otherVehicleByDriver.get(person.id)
+    const driving = drivingOther ? { label: t('drivesVehicle', { vehicle: drivingOther.name }), Icon: Truck } : null
+    if (conflicts.length > 0) {
+      const head = conflicts.length > 1 ? `${conflicts[0].location} +${conflicts.length - 1}` : conflicts[0].location
+      return { where: { head, full: conflicts.map(c => c.location).join(", ") }, roles: driving ? [driving] : [] }
+    }
+    return { where: driving ? { head: driving.label, full: driving.label, Icon: driving.Icon } : null, roles: [] }
+  }
+
+  const toggleChosen = (personId: string) => {
+    setChosenId(current => (current === personId ? null : personId))
+    setPickMessage(null)
+  }
+
+  /** «Übernehmen»: nothing changed → close; the current driver unticked → «Ohne Fahrer»
+   *  (confirm first); somebody else ticked → assign, through the conflict confirms. */
+  const applyChoice = () => {
+    if (chosenId === localDriverId) {
+      if (chosenId) onOpenChange(false)
+      else setPickMessage(tPick('noneChosen'))
+      return
+    }
+    if (!chosenId) {
+      setRemoveDialogOpen(true)
+      return
+    }
+    const person = availablePersonnel.find(p => p.id === chosenId)
+    if (person) void handleAssignDriver(person)
+    else setPickMessage(tPick('noneChosen'))
   }
 
   // Filter by search query — shared matcher (name / rank / tags / special
@@ -397,12 +444,12 @@ export function DriverAssignmentDialog({
         vehicle_id: vehicleId,
       })
 
-      // Clear local state immediately
       setLocalDriverId(null)
       setLocalDriverName(null)
 
+      // «Ohne Fahrer» was the answer: the picker is done.
       onDriverAssigned()
-      // Keep modal open to allow selecting a new driver
+      onOpenChange(false)
     } catch (error) {
       console.error('Failed to remove driver:', error)
       toast.error(t('removeError'))
@@ -411,279 +458,149 @@ export function DriverAssignmentDialog({
     }
   }
 
+  const renderTile = (person: Person) => {
+    const { where, roles } = tileFacts(person)
+    return (
+      <PersonPickTile
+        name={person.name}
+        personnelId={person.id}
+        rank={person.role}
+        where={where}
+        roles={roles}
+        checked={chosenId === person.id}
+        current={person.id === localDriverId}
+        animate={justAssigned === person.id}
+        disabled={isAssigning}
+        onClick={() => toggleChosen(person.id)}
+      />
+    )
+  }
+
+  const toolbar = (
+    <>
+      <SearchInput
+        placeholder={t('searchPlaceholder')}
+        value={searchQuery}
+        onValueChange={setSearchQuery}
+        // A phone sheet raises no keyboard by itself (ui/sheet.tsx).
+        autoFocus={!isMobile}
+      />
+
+      {/* Add a not-yet-registered walk-in directly as driver */}
+      {!showAddForm ? (
+        <button
+          type="button"
+          onClick={() => setShowAddForm(true)}
+          className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border/70 px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-sel-edge hover:text-foreground"
+        >
+          <UserPlus className="h-4 w-4" />
+          <span>{t('addPersonButton')}</span>
+        </button>
+      ) : (
+        <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
+          <p className="text-xs text-muted-foreground">{t('addPersonHint')}</p>
+          <Input
+            id={WALK_IN_NAME_ID}
+            type="text"
+            autoFocus
+            placeholder={t('addNamePlaceholder')}
+            value={newPersonName}
+            onChange={(e) => { setNewPersonName(e.target.value); setNewPersonError(null) }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); addWalkInDriver() }
+              if (e.key === 'Escape') { setShowAddForm(false); setNewPersonName(""); setNewPersonError(null) }
+            }}
+            {...fieldMessageProps(WALK_IN_NAME_ID, newPersonError ? 'error' : null)}
+          />
+          <FormMessage id={formMessageId(WALK_IN_NAME_ID)}>{newPersonError}</FormMessage>
+          <div className="flex gap-2">
+            <Button
+              onClick={addWalkInDriver}
+              disabled={isAddingPerson}
+              className="flex-1"
+              size="sm"
+            >
+              {isAddingPerson ? (
+                <><ShellLoader className="size-3.5" />{t('adding')}</>
+              ) : (
+                <><Plus className="size-3.5" />{t('addAndAssign')}</>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { setShowAddForm(false); setNewPersonName(""); setNewPersonError(null) }}
+              disabled={isAddingPerson}
+            >
+              {tCommon('cancel')}
+            </Button>
+          </div>
+        </div>
+      )}
+      <FormMessage id={PICK_MESSAGE_ID}>{pickMessage}</FormMessage>
+    </>
+  )
+
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        {/* Bounded height, list scrolls inside — the repo's modal-h-tall + flex-col
-            convention (auftrag-picker-dialog, incident-picker-dialog). With only a width
-            constraint, opening "Person hinzufügen" grew the panel past the bottom of a
-            laptop screen and over the footer, taking "Hinzufügen & als Fahrer" with it. */}
-        <DialogContent className="flex modal-h-tall sm:max-w-md flex-col overflow-hidden">
-          <DialogHeader className="shrink-0">
-            <DialogTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              {t('title', { vehicle: vehicleName })}
-            </DialogTitle>
-            <DialogDescription>
-              {localDriverName
-                ? t('currentDriver', { driver: localDriverName })
-                : t('noDriverAssigned')
-              }
-            </DialogDescription>
-          </DialogHeader>
+      <PickerDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={t('title', { vehicle: vehicleName })}
+        description={localDriverName ? t('currentDriver', { driver: localDriverName }) : t('noDriverAssigned')}
+        toolbar={toolbar}
+        listTestId="driver-list"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              {tCommon('cancel')}
+            </Button>
+            <Button onClick={applyChoice} disabled={isAssigning} aria-describedby={pickMessage ? PICK_MESSAGE_ID : undefined}>
+              {isAssigning && <ShellLoader className="size-4" />}
+              {chosenId === null && localDriverId ? t('withoutDriver') : tPick('apply')}
+            </Button>
+          </>
+        }
+      >
+        {/* Fahrer (F-tagged) section */}
+        {driversGroup.length > 0 && othersGroup.length > 0 && (
+          <p className="px-1 pt-1 text-xs font-medium tracking-wide text-muted-foreground">{t('driversSection')}</p>
+        )}
+        {driversGroup.map((person) => (
+          <div key={person.id}>{renderTile(person)}</div>
+        ))}
 
-          <div className="flex min-h-0 flex-1 flex-col gap-4">
-            {/* Current driver with remove option */}
-            {localDriverId && localDriverName && (
-              <div className="flex shrink-0 items-center justify-between p-3 rounded-lg border border-sel-edge bg-sel-wash">
-                <div className="flex items-center gap-3">
-                  <CheckCircle className="h-5 w-5 text-sel-foreground flex-shrink-0" />
-                  <div>
-                    <p className="font-medium text-sm">{localDriverName}</p>
-                    <p className="text-xs text-muted-foreground">{t('currentDriverLabel')}</p>
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setRemoveDialogOpen(true)}
-                  disabled={isAssigning}
-                  className="cursor-pointer text-destructive hover:bg-destructive/10"
-                >
-                  {isAssigning ? (
-                    <ShellLoader className="size-3.5" />
-                  ) : (
-                    <Trash2 className="size-3.5" />
-                  )}
-                </Button>
-              </div>
-            )}
-
-            {/* Search */}
-            <SearchInput
-              containerClassName="shrink-0"
-              placeholder={t('searchPlaceholder')}
-              value={searchQuery}
-              onValueChange={setSearchQuery}
-              autoFocus
-            />
-
-            {/* Add a not-yet-registered walk-in directly as driver */}
-            {!showAddForm ? (
-              <button
-                type="button"
-                onClick={() => setShowAddForm(true)}
-                className="flex w-full shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border/70 px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-sel-edge hover:text-foreground"
+        {/* Andere (non-F-tagged) section */}
+        {othersGroup.length > 0 && driversGroup.length > 0 && (
+          <p className="px-1 pt-3 text-xs font-medium tracking-wide text-muted-foreground">{t('othersSection')}</p>
+        )}
+        {othersGroup.map((person) => (
+          <div key={person.id} className="flex items-start gap-1">
+            <div className="min-w-0 flex-1">{renderTile(person)}</div>
+            {/* One-tap: recognise this person as a Fahrer (adds F tag) */}
+            {person.id !== localDriverId && !otherVehicleByDriver.has(person.id) && (
+              <Button
+                variant="ghost"
+                size="icon"
+                title={t('markAsDriver')}
+                aria-label={t('markAsDriver')}
+                disabled={isAssigning}
+                onClick={() => markAsDriver(person)}
+                className="flex-shrink-0 text-muted-foreground hover:text-foreground"
               >
-                <UserPlus className="h-4 w-4" />
-                <span>{t('addPersonButton')}</span>
-              </button>
-            ) : (
-              <div className="shrink-0 space-y-2 rounded-lg border border-border bg-muted/30 p-3">
-                <p className="text-xs text-muted-foreground">{t('addPersonHint')}</p>
-                <Input
-                  id={WALK_IN_NAME_ID}
-                  type="text"
-                  autoFocus
-                  placeholder={t('addNamePlaceholder')}
-                  value={newPersonName}
-                  onChange={(e) => { setNewPersonName(e.target.value); setNewPersonError(null) }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); addWalkInDriver() }
-                    if (e.key === 'Escape') { setShowAddForm(false); setNewPersonName(""); setNewPersonError(null) }
-                  }}
-                  {...fieldMessageProps(WALK_IN_NAME_ID, newPersonError ? 'error' : null)}
-                />
-                <FormMessage id={formMessageId(WALK_IN_NAME_ID)}>{newPersonError}</FormMessage>
-                <div className="flex gap-2">
-                  <Button
-                    onClick={addWalkInDriver}
-                    disabled={isAddingPerson}
-                    className="flex-1"
-                    size="sm"
-                  >
-                    {isAddingPerson ? (
-                      <><ShellLoader className="size-3.5" />{t('adding')}</>
-                    ) : (
-                      <><Plus className="size-3.5" />{t('addAndAssign')}</>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => { setShowAddForm(false); setNewPersonName(""); setNewPersonError(null) }}
-                    disabled={isAddingPerson}
-                  >
-                    {tCommon('cancel')}
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Personnel List */}
-            {/* Plain overflow container, like the other modal-h-tall dialogs
-                (auftrag-picker, incident-picker). A Radix ScrollArea needs a definite
-                height — its viewport is `h-full` — which a max-height panel does not
-                give it, so the list spilled out over the footer instead of scrolling. */}
-            <div data-testid="driver-list" className="min-h-0 flex-1 overflow-y-auto pr-2">
-              <div className="space-y-2">
-                {/* Fahrer (F-tagged) section */}
-                {driversGroup.length > 0 && (
-                  <>
-                    {othersGroup.length > 0 && (
-                      <p className="text-xs font-medium text-muted-foreground tracking-wide px-1 pt-1">{t('driversSection')}</p>
-                    )}
-                    {driversGroup.map((person) => {
-                      const isCurrentDriver = person.id === localDriverId
-                      const wasJustAssigned = justAssigned === person.id
-                      const hasIncidentConflict = isAssignedToIncident(person)
-                      const drivingOtherVehicle = otherVehicleByDriver.get(person.id)
-
-                      return (
-                        <button
-                          key={person.id}
-                          onClick={() => !isCurrentDriver && handleAssignDriver(person)}
-                          disabled={isAssigning || isCurrentDriver}
-                          className={cn(
-                            "w-full flex items-center justify-between p-3 rounded-lg border border-border transition-all text-left",
-                            !isCurrentDriver && "cursor-pointer hover:border-sel-edge hover:bg-secondary/30",
-                            isCurrentDriver && "border-sel-edge bg-sel-wash cursor-default"
-                          )}
-                        >
-                          <div className="flex items-center gap-3">
-                            {isCurrentDriver ? (
-                              <CheckCircle className={cn(
-                                "h-5 w-5 text-sel-foreground flex-shrink-0",
-                                wasJustAssigned && "animate-check-appear"
-                              )} />
-                            ) : (
-                              <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                            )}
-                            <div>
-                              <p className="font-medium text-sm"><PersonName name={person.name} personnelId={person.id} /></p>
-                              {person.role && (
-                                <p className="text-xs text-muted-foreground">{person.role}</p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {drivingOtherVehicle && !isCurrentDriver && (
-                              <Badge variant="outline" className="text-xs gap-1 text-warning-foreground border-warning/30">
-                                <AlertTriangle className="h-3 w-3" />
-                                {t('drivesVehicle', { vehicle: drivingOtherVehicle.name })}
-                              </Badge>
-                            )}
-                            {hasIncidentConflict && (
-                              <Badge variant="outline" className="text-xs gap-1 text-warning-foreground border-warning/30">
-                                <AlertTriangle className="h-3 w-3" />
-                                {t('inOperation')}
-                              </Badge>
-                            )}
-                            {isCurrentDriver && (
-                              <Badge variant="secondary" className="text-xs">{t('drivesVehicle', { vehicle: vehicleName })}</Badge>
-                            )}
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </>
-                )}
-
-                {/* Andere (non-F-tagged) section */}
-                {othersGroup.length > 0 && (
-                  <>
-                    {driversGroup.length > 0 && (
-                      <p className="text-xs font-medium text-muted-foreground tracking-wide px-1 pt-3">{t('othersSection')}</p>
-                    )}
-                    {othersGroup.map((person) => {
-                      const isCurrentDriver = person.id === localDriverId
-                      const wasJustAssigned = justAssigned === person.id
-                      const hasIncidentConflict = isAssignedToIncident(person)
-                      const drivingOtherVehicle = otherVehicleByDriver.get(person.id)
-
-                      return (
-                        <div key={person.id} className="flex items-center gap-1">
-                          <button
-                            onClick={() => !isCurrentDriver && handleAssignDriver(person)}
-                            disabled={isAssigning || isCurrentDriver}
-                            className={cn(
-                              "flex-1 min-w-0 flex items-center justify-between p-3 rounded-lg border border-border transition-all text-left",
-                              !isCurrentDriver && "cursor-pointer hover:border-sel-edge hover:bg-secondary/30",
-                              isCurrentDriver && "border-sel-edge bg-sel-wash cursor-default"
-                            )}
-                          >
-                            <div className="flex items-center gap-3">
-                              {isCurrentDriver ? (
-                                <CheckCircle className={cn(
-                                  "h-5 w-5 text-sel-foreground flex-shrink-0",
-                                  wasJustAssigned && "animate-check-appear"
-                                )} />
-                              ) : (
-                                <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                              )}
-                              <div>
-                                <p className="font-medium text-sm"><PersonName name={person.name} personnelId={person.id} /></p>
-                                {person.role && (
-                                  <p className="text-xs text-muted-foreground">{person.role}</p>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {drivingOtherVehicle && !isCurrentDriver && (
-                                <Badge variant="outline" className="text-xs gap-1 text-warning-foreground border-warning/30">
-                                  <AlertTriangle className="h-3 w-3" />
-                                  {t('drivesVehicle', { vehicle: drivingOtherVehicle.name })}
-                                </Badge>
-                              )}
-                              {hasIncidentConflict && (
-                                <Badge variant="outline" className="text-xs gap-1 text-warning-foreground border-warning/30">
-                                  <AlertTriangle className="h-3 w-3" />
-                                  {t('inOperation')}
-                                </Badge>
-                              )}
-                              {isCurrentDriver && (
-                                <Badge variant="secondary" className="text-xs">{t('drivesVehicle', { vehicle: vehicleName })}</Badge>
-                              )}
-                            </div>
-                          </button>
-                          {/* One-tap: recognise this person as a Fahrer (adds F tag) */}
-                          {!isCurrentDriver && !drivingOtherVehicle && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              title={t('markAsDriver')}
-                              aria-label={t('markAsDriver')}
-                              disabled={isAssigning}
-                              onClick={() => markAsDriver(person)}
-                              className="flex-shrink-0 px-2 text-muted-foreground hover:text-foreground"
-                            >
-                              <UserPlus className="size-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </>
-                )}
-
-                {/* Empty state */}
-                {filteredPersonnel.length === 0 && (searchQuery.trim() ? (
-                  <SearchEmptyState query={searchQuery} onClear={() => setSearchQuery("")} />
-                ) : (
-                  <EmptyState compact title={t('noAvailablePersons')} description={t('allAssignedHint')} />
-                ))}
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex shrink-0 justify-end pt-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                {t('close')}
+                <UserPlus className="size-4" />
               </Button>
-            </div>
+            )}
           </div>
-        </DialogContent>
-      </Dialog>
+        ))}
+
+        {/* Empty state */}
+        {filteredPersonnel.length === 0 && (searchQuery.trim() ? (
+          <SearchEmptyState query={searchQuery} onClear={() => setSearchQuery("")} />
+        ) : (
+          <EmptyState compact title={t('noAvailablePersons')} description={t('allAssignedHint')} />
+        ))}
+      </PickerDialog>
 
       {/* Conflict confirmation dialog */}
       <ConfirmDialog

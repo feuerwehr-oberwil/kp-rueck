@@ -34,7 +34,7 @@ import { getIncidentLocationLabel, getIncidentRefLabel, getIncidentRefParts } fr
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { cn } from "@/lib/utils"
-import { ElsewhereNote, ListSection, type OccupancyLabel, PersonTileLine, TileCheck, type TileRole, TILE_GRID, TILE_HOVER, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
+import { ElsewhereNote, ListSection, type OccupancyLabel, PersonPickTile, TileCheck, type TileRole, TILE_GRID, TILE_HOVER, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
 import {
   MaterialAssignmentList,
   MaterialTypeChips,
@@ -43,7 +43,7 @@ import {
   materialTypeCounts,
   sortMaterialsForAssignment,
 } from "@/components/kanban/material-assignment-list"
-import { PersonName, usePersonNaming } from "@/components/person-name"
+import { usePersonNaming } from "@/components/person-name"
 
 interface ResourceAssignmentDialogProps {
   open: boolean
@@ -1001,31 +1001,22 @@ export function ResourceAssignmentDialog({
     const elsewhere = personElsewhereLabel(person)
     const placeRole = elsewhere ? undefined : special.find(fn => fn.place)
     return (
-      <button
+      // ONE line for every person tile, busy or free: rank · where · roles
+      // (`PersonTileLine` says why). «Im Einsatz» and the Ereignis roles are
+      // different facts and both stay: where somebody is now, and what taking
+      // them costs the Ereignis (the TLF 1's driver). A person on no Einsatz
+      // but in Reko/Magazin … is THERE – that role is the where-note.
+      <PersonPickTile
         key={person.id}
+        name={person.name}
+        kennung={person.kennung ?? null}
+        rank={person.role}
+        where={elsewhere ?? (placeRole ? { head: placeRole.label, full: placeRole.label, Icon: placeRole.Icon } : null)}
+        roles={special.filter(fn => fn !== placeRole)}
+        checked={isSelected}
+        animate={wasJustAssigned}
         onClick={() => handleTogglePersonSelection(person)}
-        className={cn(
-          "flex cursor-pointer items-start gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-colors text-left",
-          isSelected ? "border-sel-edge bg-sel-wash" : TILE_HOVER,
-        )}
-      >
-        <TileCheck checked={isSelected} animate={wasJustAssigned} />
-        <div className="min-w-0">
-          <p className="font-medium text-sm truncate" title={person.name}>
-            <PersonName name={person.name} kennung={person.kennung ?? null} />
-          </p>
-          {/* ONE line for every person tile, busy or free: rank · where · roles
-              (`PersonTileLine` says why). «Im Einsatz» and the Ereignis roles are
-              different facts and both stay: where somebody is now, and what taking
-              them costs the Ereignis (the TLF 1's driver). A person on no Einsatz
-              but in Reko/Magazin … is THERE – that role is the where-note. */}
-          <PersonTileLine
-            rank={person.role || undefined}
-            where={elsewhere ?? (placeRole ? { head: placeRole.label, full: placeRole.label, Icon: placeRole.Icon } : null)}
-            roles={special.filter(fn => fn !== placeRole)}
-          />
-        </div>
-      </button>
+      />
     )
   }
 
