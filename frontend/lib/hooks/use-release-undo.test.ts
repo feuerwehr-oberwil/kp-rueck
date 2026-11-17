@@ -103,7 +103,7 @@ describe("useReleaseUndo", () => {
     expect(toasts.calls.at(-1)).toMatchObject({
       kind: "error",
       message: "Meier konnte nicht zurückgeholt werden",
-      opts: { description: "Inzwischen bei Bahnhofstrasse 3 eingeteilt – diese neuere Zuweisung bleibt." },
+      opts: { description: "Inzwischen bei Bahnhofstrasse 3 zugewiesen – diese neuere Zuweisung bleibt." },
     })
   })
 

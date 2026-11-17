@@ -16,8 +16,8 @@ from app.services.storage_usage import BYTES_PER_GB
 CASES = [
     # (built, message, params)
     (
-        texts.time_in_status("Mühlemattstrasse 18", 56, "enroute", "Disponiert"),
-        "Mühlemattstrasse 18: 56m im Status «Disponiert»",
+        texts.time_in_status("Mühlemattstrasse 18", 56, "enroute", "Disponiert / Anfahrt"),
+        "Mühlemattstrasse 18: 56m im Status «Disponiert / Anfahrt»",
         {"variant": "status", "place": "Mühlemattstrasse 18", "minutes": 56, "status": "enroute"},
     ),
     (
@@ -32,12 +32,17 @@ CASES = [
     ),
     (
         texts.materials("Depot", 0),
-        "Keine Einheiten von 'Depot' mehr verfügbar",
+        "Keine Geräte von 'Depot' mehr verfügbar",
         {"location": "Depot", "available": 0},
     ),
     (
+        texts.materials("TLF", 1),
+        "Nur noch 1 Gerät von 'TLF' verfügbar",
+        {"location": "TLF", "available": 1},
+    ),
+    (
         texts.materials("TLF", 2),
-        "Nur noch 2 Einheiten von 'TLF' verfügbar",
+        "Nur noch 2 Geräte von 'TLF' verfügbar",
         {"location": "TLF", "available": 2},
     ),
     (
@@ -81,15 +86,15 @@ CASES = [
         {"place": "Mühlemattstrasse 18", "by": None},
     ),
     (
-        texts.reko_submitted("Hauptstrasse 41", "Lisa Hoffmann", True, 3, 2.0, ["fire", "chemical"]),
+        texts.reko_submitted("Hauptstrasse 41", "Lisa Hoffmann", True, 3, 2.5, ["fire", "chemical"]),
         "Reko abgeschlossen: Hauptstrasse 41 von Lisa Hoffmann – Einsatz relevant "
-        "(3 Pers., ~2.0h, Gefahren: Feuer, Gefahrstoffe)",
+        "(3 Pers., 2h 30m, Gefahren: Feuer, Gefahrstoffe)",
         {
             "place": "Hauptstrasse 41",
             "by": "Lisa Hoffmann",
             "relevant": True,
             "personnel_count": 3,
-            "duration_hours": 2.0,
+            "duration_hours": 2.5,
             "dangers": ["fire", "chemical"],
         },
     ),
@@ -107,7 +112,7 @@ CASES = [
     ),
     (
         texts.field_arrived("Mühlemattstrasse 18", "field", "Bendik Dimitri", "active"),
-        "Angekommen: Mühlemattstrasse 18 · Bendik Dimitri – Karte in «Einsatz» verschoben",
+        "Angekommen: Mühlemattstrasse 18 · Bendik Dimitri – Karte in «Im Einsatz» verschoben",
         {"place": "Mühlemattstrasse 18", "moved_to": "active", "actor_kind": "field", "actor_name": "Bendik Dimitri"},
     ),
     (

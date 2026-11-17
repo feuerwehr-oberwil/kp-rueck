@@ -14,7 +14,7 @@ through an outage.
 """
 
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
 from io import BytesIO
 from typing import Any
@@ -50,8 +50,10 @@ from ..models import (
 from .address_display import format_location_for_display
 from .audit_export_service import EventReportData
 from .incident_leader import effective_leader_ids
+from .notification_params import duration_hours_de
 from .pdf_report_service import logo_flowable, photo_grid
 from .photo_storage import ExportPhoto
+from .ranks import rank_abbr, rank_tier
 from .rapport_rows import (
     LOCAL_TZ,
     POWER_LABELS,
@@ -89,16 +91,8 @@ _PHOTO_MAX_H = 35 * mm
 _BORDER = colors.HexColor("#a1a1aa")
 _HEADER_BG = colors.HexColor("#f4f4f5")
 
-_PRIORITY_SHORT = {"high": "H", "medium": "M", "low": "T"}
-
-# Swiss fire service rank order (highest first) and compact display prefixes.
-# role_sort_order in the DB is not reliably populated, so rank by name.
-# «offizier» singular — the canonical spelling everywhere else in the app
-# (crud/assignments._RANK_FALLBACK, both seeds). The plural key here silently
-# ranked every Offizier LAST, so «Wer» named the Wachtmeister of a squad an
-# Offizier was leading (field test 07.09.).
-_ROLE_RANK = {"offizier": 0, "wachtmeister": 1, "korporal": 2, "mannschaft": 3}
-_ROLE_ABBR = {"offizier": "Of", "wachtmeister": "Wm", "korporal": "Kpl", "mannschaft": ""}
+#: «H» / «M» / «N» – the initials of the board's Hoch / Mittel / Niedrig.
+_PRIORITY_SHORT = {key: label[0] for key, label in PRIORITY_LABELS.items()}
 
 _CELL = ParagraphStyle(
     "lageblatt_cell",
@@ -254,8 +248,9 @@ def _leader_ids(data: EventReportData, inc: Incident) -> set[uuid.UUID]:
 
 
 def _rank_key(person: Personnel) -> tuple[int, int, str]:
-    role = (person.role or "").lower()
-    return (_ROLE_RANK.get(role, 98), person.role_sort_order, person.name)
+    """Grad tier first (``services.ranks``; role_sort_order is not reliably set), then the
+    station's own order, then the name."""
+    return (rank_tier(person.role) or 98, person.role_sort_order, person.name)
 
 
 def _mittel(inc: Incident, vehicles: list[Vehicle]) -> list[str]:
@@ -266,15 +261,16 @@ def _mittel(inc: Incident, vehicles: list[Vehicle]) -> list[str]:
     return names
 
 
-def _crew_compact(crew: list[Personnel]) -> str:
-    """Highest rank + count instead of everyone: 'Of Muster +4'."""
+def _crew_compact(crew: list[Personnel], name: Callable[[Personnel], str]) -> str:
+    """Highest rank + count instead of everyone: 'Of Muster +4'. ``name`` is
+    ``EventReportData.person_name`` (a namesake carries the Kennung)."""
     if not crew:
         return ""
     top = min(crew, key=_rank_key)
-    abbr = _ROLE_ABBR.get((top.role or "").lower())
+    abbr = rank_abbr(top.role)
     if abbr is None:
         abbr = _clip(top.role or "", 8)
-    label = f"{abbr} {top.name}".strip()
+    label = f"{abbr} {name(top)}".strip()
     extra = len(crew) - 1
     return f"{label} +{extra}" if extra else label
 
@@ -283,7 +279,7 @@ def _incident_row(data: EventReportData, inc: Incident, index: int, home_city: s
     reko = _first_reko(data, inc.id)
     reko_by = ""
     if reko and reko.submitted_by_personnel_id in data.personnel_map:
-        reko_by = data.personnel_map[reko.submitted_by_personnel_id].name
+        reko_by = data.person_name(data.personnel_map[reko.submitted_by_personnel_id])
     dispo = _first_transition_to(data, inc.id, {"enroute", "active"})
     done = inc.status in ("returning", "complete") or inc.completed_at is not None
     crew, vehicles, _materials = _active_resources(data, inc)
@@ -301,7 +297,7 @@ def _incident_row(data: EventReportData, inc: Incident, index: int, home_city: s
         # a novel-length summary eating the sheet — the detail pages carry it all.
         _p(_clip(reko.summary_text if reko else "", 220)),
         _p(_dt_cell(dispo.timestamp) if dispo else ""),
-        _p(_clip(_crew_compact(crew), 24)),
+        _p(_clip(_crew_compact(crew, data.person_name), 24)),
         _p(_clip(", ".join(_mittel(inc, vehicles)), 22)),
         _p("✓" if done else ""),
     ]
@@ -343,7 +339,7 @@ def _effort_text(payload: Any) -> str:
     if payload.get("equipment_needed"):
         parts.append(f"Gerät: {', '.join(str(e) for e in payload['equipment_needed'])}")
     if payload.get("estimated_duration_hours"):
-        parts.append(f"ca. {payload['estimated_duration_hours']} h")
+        parts.append(f"{duration_hours_de(float(payload['estimated_duration_hours']))} geschätzt")
     return ", ".join(parts)
 
 
@@ -399,7 +395,7 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
             # EL first (plan 25, decision 23), rank order underneath — the sort key
             # keeps the existing `_rank_key` ordering for everyone who is not the EL.
             ", ".join(
-                f"{p.name}" + (f" ({p.role})" if p.role else "")
+                data.person_name(p) + (f" ({p.role})" if p.role else "")
                 for p in sorted(crew, key=lambda p: (p.id not in leaders, _rank_key(p)))
             )
             or "–",

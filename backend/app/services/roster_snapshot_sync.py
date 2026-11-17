@@ -21,9 +21,10 @@ KP Rück's own is here:
   the status they had), and only a person carrying that mark counts as inactive to the
   reconciliation. Re-activation restores the status they had and clears the mark; a person an
   operator set unavailable is never «re-activated» by a feed.
-* **Rank → ``role``.** The board ranks by four role words. A snapshot carries Swiss rank keys
-  (``wm``, ``kpl``, …); :data:`RANK_ROLE` maps them, and a key outside it is reported as an
-  unknown rank and leaves ``role`` alone. The key last applied is kept on the identity row, so an
+* **Rank → ``role``.** A snapshot carries Swiss rank keys (``fw``, ``kpl``, …); ``role`` gets
+  the Grad itself («Feldweibel»), the word KP Front shows for the same key
+  (:data:`app.services.ranks.RANK_LABEL`). A key outside that list is reported as an unknown
+  rank and leaves ``role`` alone. The key last applied is kept on the identity row, so an
   operator's own edit of ``role`` survives until the FILE changes that person's rank.
 * **Never deleted.** Unlike the Divera sync's «remove stale», nothing here deletes a person.
 * The last report lives in the ``settings`` row ``roster_snapshot.status`` (JSON), served by
@@ -70,27 +71,11 @@ from ..roster_snapshot_ingest import (
 )
 from ..websocket_manager import broadcast_personnel_update
 from .audit import log_action
+from .ranks import RANK_LABEL
 
 logger = logging.getLogger(__name__)
 
 STATUS_KEY = "roster_snapshot.status"
-
-#: Snapshot rank key → KP Rück's role word. The keys are KP Front's Swiss default list
-#: (backend/app/ranks.py there), which is what a station's snapshot is most likely to carry; the
-#: four role words are the ones the board ranks by (crud/assignments._RANK_FALLBACK).
-RANK_ROLE: dict[str, str] = {
-    "kdt": "Offizier",
-    "maj": "Offizier",
-    "hptm": "Offizier",
-    "oblt": "Offizier",
-    "lt": "Offizier",
-    "fw": "Wachtmeister",
-    "wm": "Wachtmeister",
-    "kpl": "Korporal",
-    "gfr": "Mannschaft",
-    "fwm": "Mannschaft",
-    "sdt": "Mannschaft",
-}
 
 _MARK = "deactivated_by_snapshot"
 
@@ -182,7 +167,7 @@ async def apply(
         rank = write.fields.get("rank")
         person = Personnel(
             name=(write.fields.get("display_name") or write.display_name)[:100],
-            role=RANK_ROLE.get(rank) if rank else None,
+            role=RANK_LABEL.get(rank) if rank else None,
             status="available",
             tags=[],
         )
@@ -207,7 +192,7 @@ async def apply(
                 meta[key] = write.fields[key]
         rank = write.fields.get("rank")
         if rank:
-            person.role = RANK_ROLE.get(rank, person.role)
+            person.role = RANK_LABEL.get(rank, person.role)
         own.metadata_json = meta or None
         if write.reactivate:
             # The mark may sit on ANOTHER of the person's rows — the snapshot's provider key was
@@ -309,7 +294,7 @@ async def run(db: AsyncSession, *, trigger: str, force: bool = False, skip_uncha
         rec = reconcile(
             raw,
             people,
-            known_ranks=RANK_ROLE.keys(),
+            known_ranks=RANK_LABEL.keys(),
             max_deactivate_pct=settings.roster_snapshot_max_deactivate_pct,
             last_good=last_good,
             force=force,

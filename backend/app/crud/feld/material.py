@@ -22,6 +22,7 @@ from ...models import (
 )
 from ...schemas.feld import RapportMaterialDecision
 from ...services.incident_dispatch import dispatched_incident_ids, rapport_applies, reko_not_relevant_ids
+from ...services.incident_display import get_home_city, location_display
 from .rapport import _board_material_units, _names
 from .rapport_reconcile import (
     _is_answered,
@@ -106,6 +107,18 @@ async def event_restliste(db: AsyncSession, event_id: uuid.UUID) -> dict[str, An
         assignment.id: (assignment, material) for assignment, material in active_result.all()
     }
 
+    # How every row names its Schadenplatz on screen – number + short address, the
+    # board's «12 · Hauptstrasse 8» (`getIncidentRefLabel`). `location_address`
+    # stays the full one: the printed Abholliste is a driving list.
+    home_city = await get_home_city(db)
+
+    def ref(incident: Incident) -> dict[str, Any]:
+        return {
+            "number": incident.number,
+            "location_address": incident.location_address,
+            "location_display": location_display(incident.location_address, home_city),
+        }
+
     missing_rapport: list[dict[str, Any]] = []
     open_pickups: list[dict[str, Any]] = []
     material_on_site: list[dict[str, Any]] = []
@@ -117,7 +130,7 @@ async def event_restliste(db: AsyncSession, event_id: uuid.UUID) -> dict[str, An
                 {
                     "incident_id": incident.id,
                     "title": incident.title,
-                    "location_address": incident.location_address,
+                    **ref(incident),
                     "status": incident.status,
                     # 'draft' reads differently from 'none' at 02:00: somebody
                     # started and walked away, versus nobody has touched it.
@@ -130,7 +143,7 @@ async def event_restliste(db: AsyncSession, event_id: uuid.UUID) -> dict[str, An
                 {
                     "incident_id": incident.id,
                     "title": incident.title,
-                    "location_address": incident.location_address,
+                    **ref(incident),
                     "status": incident.status,
                     "pickup_note": incident.pickup_note,
                     "since": incident.pickup_requested_at,
@@ -153,7 +166,7 @@ async def event_restliste(db: AsyncSession, event_id: uuid.UUID) -> dict[str, An
                 {
                     "incident_id": incident.id,
                     "incident_title": incident.title,
-                    "location_address": incident.location_address,
+                    **ref(incident),
                     "assignment_id": None,
                     "material_id": None,
                     "name": name,
@@ -188,7 +201,7 @@ async def event_restliste(db: AsyncSession, event_id: uuid.UUID) -> dict[str, An
                 {
                     "incident_id": incident.id,
                     "incident_title": incident.title,
-                    "location_address": incident.location_address,
+                    **ref(incident),
                     "assignment_id": assignment.id,
                     "material_id": material.id,
                     "name": material.name,
@@ -207,7 +220,7 @@ async def event_restliste(db: AsyncSession, event_id: uuid.UUID) -> dict[str, An
         {
             "incident_id": incident.id,
             "title": incident.title,
-            "location_address": incident.location_address,
+            **ref(incident),
             "status": incident.status,
         }
         for incident in incidents

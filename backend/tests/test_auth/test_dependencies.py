@@ -200,7 +200,7 @@ async def test_get_current_editor_with_viewer_role():
         await get_current_editor(current_user=viewer)
 
     assert exc_info.value.status_code == 403
-    assert "Editor-Berechtigung erforderlich" in exc_info.value.detail
+    assert "Bearbeiter-Berechtigung erforderlich" in exc_info.value.detail
 
 
 @pytest.mark.asyncio

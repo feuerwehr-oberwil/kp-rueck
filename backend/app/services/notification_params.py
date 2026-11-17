@@ -22,6 +22,8 @@ message, a pickup note, a training inject's sentence) — it is content, not UI 
 
 from typing import Any
 
+from .rapport_rows import STATUS_LABELS
+
 Params = dict[str, Any]
 Built = tuple[str, Params]
 
@@ -30,6 +32,12 @@ def duration_de(minutes: int) -> str:
     """«56m», «1h 5m» — the notation these sentences have always used."""
     hours, rest = divmod(max(0, minutes), 60)
     return f"{hours}h {rest}m" if hours > 0 else f"{rest}m"
+
+
+def duration_hours_de(hours: float) -> str:
+    """A decimal-hours estimate (the Reko's 2.5) in ``duration_de``'s notation: «2h 30m», never
+    «2.5h». The one formatter for the Reko duration in the notification and the Lageblatt."""
+    return duration_de(round(hours * 60))
 
 
 # --- Zeit -------------------------------------------------------------------------------
@@ -61,9 +69,9 @@ def no_personnel() -> Built:
 def materials(location: str, available: int) -> Built:
     """``no_materials``: ``available`` 0 = none left (critical), else «only N left»."""
     if available == 0:
-        return (f"Keine Einheiten von '{location}' mehr verfügbar", {"location": location, "available": 0})
+        return (f"Keine Geräte von '{location}' mehr verfügbar", {"location": location, "available": 0})
     return (
-        f"Nur noch {available} Einheiten von '{location}' verfügbar",
+        f"Nur noch {available} {'Gerät' if available == 1 else 'Geräte'} von '{location}' verfügbar",
         {"location": location, "available": available},
     )
 
@@ -167,7 +175,7 @@ def reko_submitted(
     duration_hours: float | None,
     dangers: list[str],
 ) -> Built:
-    """«Reko abgeschlossen: Hauptstrasse 41 von Lisa Hoffmann – Einsatz relevant (3 Pers., ~2h)»"""
+    """«Reko abgeschlossen: Hauptstrasse 41 von Lisa Hoffmann – Einsatz relevant (3 Pers., 2h 30m)»"""
     parts = [f"Reko abgeschlossen: {place}"]
     if by:
         parts.append(f"von {by}")
@@ -176,7 +184,7 @@ def reko_submitted(
     if personnel_count:
         details.append(f"{personnel_count} Pers.")
     if duration_hours:
-        details.append(f"~{duration_hours}h")
+        details.append(duration_hours_de(duration_hours))
     if dangers:
         details.append(f"Gefahren: {', '.join(DANGER_LABELS_DE.get(d, d) for d in dangers)}")
     message = " ".join(parts)
@@ -214,21 +222,17 @@ def actor_suffix(kind: str, name: str | None) -> str:
     return f" · {name}" if kind == "field" and name else f" · {_ACTOR_DE[kind]}"
 
 
-#: The column titles the German sentence names (the client uses its own column labels).
-_MOVED_LABEL_DE = {"active": "Einsatz", "returning": "Beendet / Rückfahrt"}
-
-
 def field_arrived(place: str, kind: str, name: str | None, moved_to: str | None) -> Built:
     message = f"Angekommen: {place}{actor_suffix(kind, name)}"
     if moved_to:
-        message += f" – Karte in «{_MOVED_LABEL_DE[moved_to]}» verschoben"
+        message += f" – Karte in «{STATUS_LABELS[moved_to]}» verschoben"
     return (message, {"place": place, "moved_to": moved_to, **actor_params(kind, name)})
 
 
 def field_complete(place: str, kind: str, name: str | None, moved_to: str | None) -> Built:
     message = f"Einsatz beendet gemeldet: {place}{actor_suffix(kind, name)}"
     if moved_to:
-        message += f" – Karte in «{_MOVED_LABEL_DE[moved_to]}» verschoben"
+        message += f" – Karte in «{STATUS_LABELS[moved_to]}» verschoben"
     return (message, {"place": place, "moved_to": moved_to, **actor_params(kind, name)})
 
 

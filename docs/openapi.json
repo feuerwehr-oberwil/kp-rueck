@@ -31882,6 +31882,17 @@
             "type": "string",
             "title": "Title"
           },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
           "location_address": {
             "anyOf": [
               {
@@ -31892,6 +31903,17 @@
               }
             ],
             "title": "Location Address"
+          },
+          "location_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Display"
           },
           "status": {
             "type": "string",
@@ -31957,6 +31979,17 @@
             "type": "string",
             "title": "Incident Title"
           },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
           "location_address": {
             "anyOf": [
               {
@@ -31967,6 +32000,17 @@
               }
             ],
             "title": "Location Address"
+          },
+          "location_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Display"
           },
           "assignment_id": {
             "anyOf": [

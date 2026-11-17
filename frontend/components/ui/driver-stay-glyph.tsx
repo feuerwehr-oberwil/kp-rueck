@@ -12,7 +12,7 @@
  * **A word, not a pictogram.** This used to be a bare 12px MapPin against a
  * bare 12px Undo2 at 40 % opacity, and the two states were told apart by
  * whoever already knew to look. Reading a board is not a memory game: both
- * states are now written out in full — «bleibt vor Ort» / «fährt zurück» — and
+ * states are now written out in full — «bleibt vor Ort» / «kehrt zurück» — and
  * the word and the icon (pin / return arrow) carry the difference. Both are
  * neutral ink chips (the column-count treatment, `bg-foreground/10
  * text-foreground` – muted on its own tint was ≈3:1) since the «quieter

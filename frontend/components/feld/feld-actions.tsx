@@ -141,7 +141,7 @@ export function FeldActions({
   const pickupNeeded = assignment.pickup_needed
   const pickupSince = toDate(assignment.pickup_requested_at)
   // The vehicles parked at (or travelling with) this Schadenplatz — everything
-  // whose driver did not «fährt zurück» (stays === false). If one is standing
+  // whose driver did not «kehrt zurück» (stays === false). If one is standing
   // outside, «Wir fahren selbst» is the answer the follow-up should lead with,
   // and an Abholung is almost certainly a mis-tap.
   const vehiclesOnSite = assignment.vehicles.filter(vehicle => vehicle.stays !== false).map(vehicle => vehicle.name)

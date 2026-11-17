@@ -255,7 +255,7 @@ export function FeldBriefing({
                           full, pin / return arrow – a fact, not a «schau hin». Amber
                           on this page is for «kein Rapport». Nothing at all when the
                           answer is null: an Auftrag has no driver-stay toggle, so
-                          «fährt zurück» there would be the board answering for a
+                          «kehrt zurück» there would be the board answering for a
                           decision nobody made. */}
                       <DriverStayGlyph stays={vehicle.stays ?? undefined} size="caption" />
                     </div>

@@ -498,7 +498,7 @@ class TestCheckResourceAlerts:
         settings = NotificationSettings(material_depletion_threshold={"TLF": 1})
         notifications = await _check_resource_alerts(db_session, notif_event.id, settings)
         assert any(n.type == "no_materials" and n.severity == "critical" for n in notifications)
-        assert any("TLF" in n.message and "Keine Einheiten" in n.message for n in notifications)
+        assert any("TLF" in n.message and "Keine Geräte" in n.message for n in notifications)
 
     @pytest.mark.asyncio
     async def test_material_depletion_unassigned_materials_counted(
@@ -1192,7 +1192,7 @@ class TestDeduplicateAndSave:
         dismissed_buehne = Notification(
             type="no_materials",
             severity="critical",
-            message="Keine Einheiten von 'Bühne' mehr verfügbar",
+            message="Keine Geräte von 'Bühne' mehr verfügbar",
             incident_id=None,  # Event-level notification
             event_id=notif_event.id,
             dismissed=True,
@@ -1206,7 +1206,7 @@ class TestDeduplicateAndSave:
         new_depot_notification = Notification(
             type="no_materials",
             severity="warning",
-            message="Nur noch 1 Einheiten von 'Depot' verfügbar",
+            message="Nur noch 1 Gerät von 'Depot' verfügbar",
             incident_id=None,  # Event-level notification
             event_id=notif_event.id,
         )
@@ -1224,7 +1224,7 @@ class TestDeduplicateAndSave:
         dismissed_depot = Notification(
             type="no_materials",
             severity="warning",
-            message="Nur noch 1 Einheiten von 'Depot' verfügbar",
+            message="Nur noch 1 Gerät von 'Depot' verfügbar",
             incident_id=None,
             event_id=notif_event.id,
             dismissed=True,
@@ -1238,7 +1238,7 @@ class TestDeduplicateAndSave:
         new_depot_notification = Notification(
             type="no_materials",
             severity="warning",
-            message="Nur noch 1 Einheiten von 'Depot' verfügbar",
+            message="Nur noch 1 Gerät von 'Depot' verfügbar",
             incident_id=None,
             event_id=notif_event.id,
         )
@@ -1614,7 +1614,7 @@ class TestAutoResolution:
         depot_notification = Notification(
             type="no_materials",
             severity="warning",
-            message="Nur noch 1 Einheiten von 'Depot' verfügbar",
+            message="Nur noch 1 Gerät von 'Depot' verfügbar",
             incident_id=None,
             event_id=notif_event.id,
             dismissed=False,
@@ -1629,7 +1629,7 @@ class TestAutoResolution:
 
         # Re-check - should still generate notification (2 available <= 2 threshold)
         notifications = await _check_resource_alerts(db_session, notif_event.id, settings)
-        # Message changes to "2 Einheiten" but still triggers
+        # Message changes to "2 Geräte" but still triggers
         assert any("Depot" in n.message for n in notifications)
 
         # Unassign second material (3 available now, above threshold)

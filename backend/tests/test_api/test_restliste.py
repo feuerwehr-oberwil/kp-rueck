@@ -210,6 +210,8 @@ class TestRestliste:
         test_user: User,
     ):
         incidents = await _mixed_event(editor_client, db_session, test_event, test_user)
+        db_session.add(Setting(key="home_city", value="Oberwil"))
+        await db_session.commit()
 
         response = await editor_client.get(f"/api/events/{test_event.id}/restliste")
         assert response.status_code == 200
@@ -236,6 +238,10 @@ class TestRestliste:
         named, unit = body["material_on_site"]
         assert unit["incident_id"] == str(incidents["submitted"].id)
         assert unit["location_address"] == "Abgeschlossenstrasse 1, Oberwil"
+        # The screen names it like the board does: «12 · Abgeschlossenstrasse 1».
+        assert unit["location_display"] == "Abgeschlossenstrasse 1"
+        assert unit["number"] is not None
+        assert unit["number"] == incidents["submitted"].number
         assert unit["location"] == "Magazin A"
         assert unit["since"].startswith("2026-08-08T23:14")
         assert unit["tracked"] is True

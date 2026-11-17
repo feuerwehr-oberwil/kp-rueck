@@ -77,7 +77,7 @@ export interface ApiFeldVehicleLine {
   /** The board's driver-stay flag: does it park here, or drive back once the
    *  crew is dropped off? **null when nobody can answer** — a route-level
    *  vehicle has no toggle, so the column behind it is a copy no operator can
-   *  correct. Absent means absent, never «fährt zurück». */
+   *  correct. Absent means absent, never «kehrt zurück». */
   stays?: boolean | null
   /** True when the vehicle belongs to the **Auftrag** rather than to this one
    *  Schadenplatz — an Auftrag's resources are shared across all of its stops,
@@ -570,7 +570,11 @@ export interface ApiRapportUpdate {
 export interface ApiRestlisteIncident {
   incident_id: string
   title: string
+  /** Number + home-town-stripped address: what the screen names it by
+   *  (`getIncidentRefLabel`, «12 · Hauptstrasse 8»). `location_address` is the full one. */
+  number: number | null
   location_address: string | null
+  location_display: string | null
   status: string
   /** Only on the "ohne Rapport" list. 'none' and 'draft' read differently at 02:00. */
   rapport_state: 'none' | 'draft' | 'submitted' | null
@@ -588,7 +592,10 @@ export interface ApiRestlisteIncident {
 export interface ApiRestlisteUnit {
   incident_id: string
   incident_title: string
+  /** As on `ApiRestlisteIncident`. */
+  number: number | null
   location_address: string | null
+  location_display: string | null
   /** Null on an untracked entry — a name has no assignment (decision 18). */
   assignment_id: string | null
   material_id: string | null

@@ -23,7 +23,7 @@ interface ArrivalPrompt {
  * GPS Rule A (plan 10) — confirm-by-default arrival. When the backend GPS automation
  * detects an assigned vehicle at the incident location AND silent auto-advance is NOT
  * opted in, it broadcasts a `gps_arrival_prompt` WebSocket event. This globally-mounted
- * component shows a one-click confirm dialog: "Auf Einsatz setzen?". On confirm it moves
+ * component shows a one-click confirm dialog: "Auf «Im Einsatz» setzen?". On confirm it moves
  * the incident `disponiert → einsatz` via the existing status-transition endpoint the
  * board already uses. Declining leaves everything as it was.
  *

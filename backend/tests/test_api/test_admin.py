@@ -579,7 +579,7 @@ async def test_import_execute_replace_refuses_live_assignments(
 
     assert response.status_code == 409
     detail = response.json()["detail"]
-    assert "'append'" in detail
+    assert "«Anhängen»" in detail
 
     # The count alone was a dead end – it told the operator that two assignments
     # were in the way and nothing about where to find them.
@@ -790,7 +790,7 @@ async def test_import_execute_replace_refuses_missing_sheet(
     assert "'Vehicles'" in detail and "'Materials'" in detail
     assert "'Personnel'" not in detail, "the sheet that IS in the file must not be blamed"
     assert "1 Zeile)" in detail
-    assert "'append'" in detail
+    assert "«Anhängen»" in detail
 
     # Nothing was deleted, and nothing was inserted either.
     assert {v.name for v in (await db_session.execute(select(Vehicle))).scalars().all()} == {"TLF Test"}

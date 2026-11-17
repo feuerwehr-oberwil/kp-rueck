@@ -158,7 +158,7 @@ class TestGoldenContent:
         assert "Einsatzrapport" in text
         assert "Hochwasser" in text  # event name
         assert "Wohnungsbrand Hauptstrasse" in text  # incident title
-        assert "Einsatz beendet" in text  # status label
+        assert "Rückfahrt" in text  # status label
         assert "Seite 1 von" in text  # footer
         assert "Max Mustermann" in text  # assigned crew
         # «Erstellt von» left the cover (field test 07.09.) — the exporting user
@@ -680,14 +680,14 @@ class TestEinsatztagebuch:
         assert timestamps == sorted(timestamps)
         # created (9:15) first, vehicle release (10:50) last
         assert "Einsatz erstellt" in entries[0].text
-        assert "vom Einsatz abgezogen" in entries[-1].text
+        assert "vom Einsatz freigegeben" in entries[-1].text
 
     def test_german_sentences_per_kind(self, simple_event: Event, simple_incident: Incident):
         data = _journal_fixture_data(simple_event, simple_incident)
         texts = [e.text for e in build_journal_entries(data)]
-        assert "Status: Eingegangen → Disponiert" in texts
-        assert "TLF 1 (Florian-1) zugeteilt" in texts
-        assert "TLF 1 (Florian-1) vom Einsatz abgezogen" in texts
+        assert "Status: Eingegangen → Disponiert / Anfahrt" in texts
+        assert "TLF 1 (Florian-1) zugewiesen" in texts
+        assert "TLF 1 (Florian-1) vom Einsatz freigegeben" in texts
         assert any(t.startswith("Reko-Bericht eingegangen: Lage unter Kontrolle") for t in texts)
         assert "Divera-Alarm ausgelöst (3 Empfänger)" in texts
         assert "Meldung vom Feld (Max Mustermann): Wasser marsch" in texts
@@ -743,7 +743,7 @@ class TestEinsatztagebuch:
         assert "automatische und manuelle Einträge" in text
         assert "Divera-Alarm ausgelöst (3 Empfänger)" in text
         assert "Gemeindepräsident informiert" in text
-        assert "zugeteilt" in text
+        assert "zugewiesen" in text
 
     def test_multiday_event_uses_date_prefixed_times(self, simple_event: Event, simple_incident: Incident):
         rows = [

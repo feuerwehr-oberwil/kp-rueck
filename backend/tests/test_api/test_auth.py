@@ -157,7 +157,7 @@ async def test_viewer_cannot_create(viewer_client: AsyncClient):
         },
     )
     assert response.status_code == 403
-    assert "Editor-Berechtigung erforderlich" in response.json()["detail"]
+    assert "Bearbeiter-Berechtigung erforderlich" in response.json()["detail"]
 
 
 @pytest.mark.asyncio

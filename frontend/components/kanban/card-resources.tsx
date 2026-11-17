@@ -289,7 +289,7 @@ export function CardResources({
                   )}
                   {/* The only thing that toggles, and it says what
                       currently holds in full — «bleibt vor Ort» /
-                      «fährt zurück». The short forms were a two-word
+                      «kehrt zurück». The short forms were a two-word
                       hint that only made sense next to the tooltip;
                       now that the chip text is no longer the click
                       target, the pill has the room for the sentence

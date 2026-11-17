@@ -87,7 +87,7 @@ SELECTS: tuple[str, ...] = (
     LEFT JOIN users u ON u.id = t.user_id
     WHERE t.timestamp IS NOT NULL AND t.from_status <> t.to_status
     """,
-    # zugeteilt
+    # zugewiesen
     f"""
     SELECT i.event_id, i.id, 'assignment', NULL,
            jsonb_build_object('action', 'assigned', 'resource_type', a.resource_type,
@@ -97,7 +97,7 @@ SELECTS: tuple[str, ...] = (
     {_ASSIGNMENT_JOINS}
     WHERE a.assigned_at IS NOT NULL
     """,
-    # vom Einsatz abgezogen
+    # vom Einsatz freigegeben
     f"""
     SELECT i.event_id, i.id, 'assignment', NULL,
            jsonb_build_object('action', 'unassigned', 'resource_type', a.resource_type,
