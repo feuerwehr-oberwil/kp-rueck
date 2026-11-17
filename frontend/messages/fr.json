@@ -13,7 +13,7 @@
       },
       "personnel-checkin": {
         "title": "Enregistrer l’arrivée du personnel",
-        "details": "{count, plural, one {# personne annoncée} other {# personnes annoncées}}",
+        "details": "{count, plural, one {# personne présente} other {# personnes présentes}}",
         "description": "Au moins 3 personnes pour être opérationnel",
         "note": "Pour l’effectif · 1 exemplaire à la caserne"
       },
@@ -102,7 +102,7 @@
     },
     "rekoPicker": {
       "title": "Choisir les officiers de reconnaissance",
-      "description": "Touche une personne annoncée pour la marquer comme reconnaissance. Les adresses s'attribuent via le mode reconnaissance sur la carte.",
+      "description": "Touche une personne présente pour la marquer comme reconnaissance. Les adresses s'attribuent via le mode reconnaissance sur la carte.",
       "marked": "{name} marqué comme reconnaissance",
       "failed": "Échec. Réessaie.",
       "done": "Terminé"
@@ -696,9 +696,9 @@
       "openIncidents": "{count, plural, one {# intervention non clôturée} other {# interventions non clôturées}}",
       "openPickups": "{count, plural, one {# récupération ouverte} other {# récupérations ouvertes}}",
       "materialOnSite": "{count, plural, one {# pièce de matériel encore sur place} other {# pièces de matériel encore sur place}}",
-      "attendeesPresent": "{count, plural, one {# personne encore annoncée} other {# personnes encore annoncées}}",
-      "attendeesDetail": "jamais désannoncées – sinon elles comptent toujours comme présentes",
-      "autoCheckout": "Désannoncer automatiquement toutes les personnes annoncées lors de l’archivage (heure de départ = fin de l’événement)",
+      "attendeesPresent": "{count, plural, one {# personne encore présente} other {# personnes encore présentes}}",
+      "attendeesDetail": "départ jamais annoncé – sinon elles comptent toujours comme présentes",
+      "autoCheckout": "Annoncer partantes toutes les personnes présentes lors de l’archivage (heure de départ = fin de l’événement)",
       "showOnBoard": "Afficher sur le tableau",
       "moreItems": "+{count} autres",
       "confirmAnyway": "Archiver quand même",
@@ -1030,7 +1030,7 @@
         "add": "Ajouter une personne",
         "addGuest": "Ajouter « {name} » comme invité",
         "guest": "Invité",
-        "groupCheckedIn": "Annoncés aujourd’hui",
+        "groupCheckedIn": "Présents aujourd’hui",
         "groupAll": "Tous"
       },
       "summary": {
@@ -1156,10 +1156,10 @@
       "locationHintPhone": "Saisir l'adresse ou toucher la carte."
     },
     "attendance": {
-      "notHereTitle": "Tu n'es pas enregistré",
+      "notHereTitle": "Tu n'es pas présent",
       "checkIn": "S'enregistrer",
       "checkOut": "Je rentre",
-      "here": "Enregistré",
+      "here": "Présent",
       "hereNoJob": "Pas encore de mandat"
     },
     "material": {
@@ -1309,8 +1309,8 @@
       "emptyHint": "Ou : clic droit sur une personne dans la barre latérale → « Attribuer à la reconnaissance ».",
       "markExisting": "Marquer une personne comme reconnaissance",
       "markSearchPlaceholder": "Rechercher une personne …",
-      "markAllReko": "Toutes les personnes annoncées sont déjà marquées comme reconnaissance.",
-      "markNoCheckedIn": "Personne n’est annoncé. Enregistre d’abord l’arrivée du personnel.",
+      "markAllReko": "Toutes les personnes présentes sont déjà marquées comme reconnaissance.",
+      "markNoCheckedIn": "Personne n’est présent. Enregistre d’abord l’arrivée du personnel.",
       "markError": "La personne n’est pas marquée comme reconnaissance.",
       "back": "Retour",
       "assigned": "Attribuée",
@@ -1355,7 +1355,7 @@
       "othersSection": "Autres",
       "inOperation": "En intervention",
       "noAvailablePersons": "Aucune personne disponible",
-      "allAssignedHint": "Toutes les personnes sont déjà attribuées comme conducteur ou ne sont pas annoncées",
+      "allAssignedHint": "Toutes les personnes sont déjà attribuées comme conducteur ou ne sont pas présentes",
       "close": "Fermer",
       "conflictTitle": "La personne est attribuée à une intervention",
       "conflictDescription": "<strong>{name}</strong> est actuellement {count, plural, one {attribuée à l’intervention « {location} »} other {attribuée à # interventions}}. Comme conducteur, la personne ne peut pas être attribuée à une intervention en même temps.",
@@ -1368,13 +1368,13 @@
       "removeConfirmDescription": "<strong>{name}</strong> ne sera alors plus conducteur de <strong>{vehicle}</strong> et redeviendra un intervenant ordinaire.",
       "removeConfirmAction": "Retirer le conducteur",
       "addPersonButton": "Ajouter une personne",
-      "addPersonHint": "Saisir directement comme conducteur un renfort non annoncé (p. ex. un ancien conducteur)",
+      "addPersonHint": "Saisir directement comme conducteur un renfort non présent (p. ex. un ancien conducteur)",
       "addNamePlaceholder": "Nom de la personne",
       "addAndAssign": "Ajouter et désigner conducteur",
       "adding": "Ajout en cours …",
       "addError": "La personne n’a pas pu être ajoutée",
-      "checkInFailedTitle": "Échec de l’annonce",
-      "checkInFailedDescription": "{name} a été saisi, mais n’est pas annoncé présent et n’apparaît donc pas sur le tableau. Annonce la personne à l’appel, puis attribue-la comme conducteur.",
+      "checkInFailedTitle": "Échec de l’enregistrement",
+      "checkInFailedDescription": "{name} a été saisi, mais n’est pas annoncé présent et n’apparaît donc pas sur le tableau. Enregistre l’arrivée de la personne à l’appel, puis attribue-la comme conducteur.",
       "duplicateName": "Une personne portant ce nom existe déjà.",
       "markAsDriver": "Marquer comme conducteur",
       "markedAsDriver": "{name} marqué comme conducteur",
@@ -1562,7 +1562,7 @@
       "noneFound": "Aucune personne trouvée",
       "badgeAssigned": "En intervention",
       "badgeCheckedIn": "Présent",
-      "badgeNotCheckedIn": "Pas là",
+      "badgeNotCheckedIn": "Absent",
       "checkedOut": "{name} : départ enregistré."
     }
   },
@@ -1800,7 +1800,7 @@
         "auftrag": "Par mission",
         "type": "Par genre"
       },
-      "noPersonnelCheckedIn": "Personne n’est annoncé",
+      "noPersonnelCheckedIn": "Personne n’est présent",
       "personnelLoading": "Chargement du personnel …",
       "materialLoading": "Chargement du matériel …",
       "notLoaded": "Non chargé",
@@ -2152,7 +2152,7 @@
       "filterHidesSearch": "{count, plural, one {Le filtre {filters} masque} other {Les filtres {filters} masquent}} les résultats pour « {query} ».",
       "onlyAssignedNoneIncident": "Le filtre « Attribués uniquement » masque tous les véhicules – aucun n’est encore attribué à cette intervention.",
       "onlyAssignedNoneRoute": "Le filtre « Attribués uniquement » masque tous les véhicules – aucun n’est encore attribué à cette mission.",
-      "noneCrewTitle": "Personne n’est encore enregistré",
+      "noneCrewTitle": "Personne n’est encore présent",
       "noneCrewBody": "Les personnes enregistrées apparaissent ici. Le lien d’enregistrement se trouve sous « Liens & QR ».",
       "showCheckInLink": "Afficher le lien d’enregistrement",
       "noneVehiclesTitle": "Aucun véhicule saisi",
@@ -2319,7 +2319,7 @@
       "title": "Présence · {event}",
       "summary": "{present} présents · {left} partis · {total} effectif",
       "rowLabel": "Présence",
-      "rowCount": "{present} annoncés sur {total}",
+      "rowCount": "{present} présents sur {total}",
       "open": "Ouvrir l’appel",
       "loading": "Chargement …",
       "noneFound": "Aucune personne trouvée",
@@ -2333,7 +2333,7 @@
       "checkOutAll": "Annoncer tous partants",
       "checkOutAllTitle": "Annoncer tous partants ?",
       "checkOutAllDescription": "{count, plural, one {# personne présente sera passée} other {# personnes présentes seront passées}} sur « partie ». Les attributions sont conservées.",
-      "quickAddHint": "Sera annoncé directement",
+      "quickAddHint": "Sera présent tout de suite",
       "writeFailed": "La présence n’a pas pu être enregistrée",
       "openButton": "Appel"
     },
@@ -2343,13 +2343,13 @@
       "countComing": "{count, plural, one {# vient} other {# viennent}}",
       "countNotComing": "{count, plural, one {# ne vient pas} other {# ne viennent pas}}",
       "noAnswersYet": "Pas encore de réponse",
-      "allHere": "Toutes les personnes qui viennent sont annoncées",
+      "allHere": "Toutes les personnes qui viennent sont présentes",
       "notComingGroup": "Ne vient pas ({count})",
       "notComing": "ne vient pas",
       "unmapped": "{count, plural, one {# réponse} other {# réponses}} sans personne dans l’effectif",
       "checkIn": "présent",
       "checkInLabel": "Annoncer {name} présent",
-      "checkInFailed": "L’annonce a échoué"
+      "checkInFailed": "Échec de l’enregistrement"
     },
     "links": {
       "title": "Liens & QR",
@@ -2457,7 +2457,7 @@
       "count": "{count, plural, =0 {aucune intervention} one {# intervention} other {# interventions}}",
       "countTitle": "Interventions de cet événement, terminées et en cours",
       "countUnavailable": "Nombre d’interventions indisponible pour le moment",
-      "empty": "Personne n’est enregistré.",
+      "empty": "Personne n’est présent.",
       "openButton": "Temps de service",
       "openTitle": "Temps de service – qui est là depuis combien de temps",
       "onDutyTooltip": "En service depuis {time} – {duration}",
@@ -3056,7 +3056,7 @@
       "fatigueMore": "{names} et {count, plural, one {# autre} other {# autres}}",
       "timeInStatus": "{duration} dans l’état « {status} »",
       "timeNotArchived": "Clôturé depuis {duration}, pas archivé",
-      "noPersonnel": "Plus de personnel disponible – toutes les personnes enregistrées sont attribuées",
+      "noPersonnel": "Plus de personnel disponible – toutes les personnes présentes sont attribuées",
       "materialsNone": "Plus aucune pièce de matériel disponible à « {location} »",
       "materialsLow": "Plus que {count, plural, one {# pièce de matériel disponible} other {# pièces de matériel disponibles}} à « {location} »",
       "missingLocation": "L’intervention « {title} » n’a pas de position géocodée",
@@ -3098,7 +3098,7 @@
         "alreadyBack": "{resource} est déjà de retour sur {target}.",
         "elsewhere": "Entre-temps attribué à {where} – cette attribution plus récente est conservée.",
         "outOfService": "{resource} n’est pas opérationnel.",
-        "resourceGone": "{resource} n’est plus dans l’inventaire ou s’est désinscrit.",
+        "resourceGone": "{resource} n’est plus sur le tableau.",
         "unavailable": "{resource} est signalé comme indisponible."
       }
     }
@@ -3202,7 +3202,7 @@
       "since": "depuis {time}",
       "meldung": "Annonce",
       "interneNotizen": "Notes internes",
-      "personalHeading": "PERSONNEL ({count} annoncés)",
+      "personalHeading": "PERSONNEL ({count} présents)",
       "statusCol": "Statut",
       "nameCol": "Nom",
       "funktionCol": "Fonction",
@@ -4363,7 +4363,7 @@
       "scheduled": "{count, plural, one {# arrivée planifiée} other {# arrivées planifiées}}",
       "scheduledDescription": "Les personnes s’annonceront au cours des {minutes} prochaines minutes.",
       "noMorePersons": "Plus aucune personne disponible",
-      "noMorePersonsDescription": "Toutes les personnes disponibles sont déjà annoncées.",
+      "noMorePersonsDescription": "Toutes les personnes disponibles sont déjà présentes.",
       "failed": "Échec de la simulation des arrivées"
     },
     "gpsSim": {

@@ -166,7 +166,7 @@ export function MaterialSidebar({
           ) : materials.length === 0 ? (
             /* A fresh station: no Gerät has ever been recorded. The same
                shape the Personal sidebar has always had for «niemand
-               angemeldet», down to naming the next step — the material
+               anwesend», down to naming the next step — the material
                sidebar used to leave a bare box here. The link is for
                editors: the section it points at is editor-only. */
             <SidebarEmpty

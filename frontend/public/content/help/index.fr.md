@@ -13,7 +13,7 @@ Vue principale au chargement de l’application. Affiche toutes les intervention
 
 **« 3 engins sur place » en tête de la barre du matériel.** Le matériel qu’une équipe a laissé quelque part est autrement invisible sur le tableau – il n’est ni libre ni visiblement en service. La liste dépliante indique l’engin, l’adresse et depuis quand, le plus ancien en haut ; un clic ouvre l’intervention correspondante. Elle n’apparaît que s’il y a réellement quelque chose dehors.
 
-**« Temps de service » au pied de la barre latérale du personnel.** Qui est là, depuis quand et combien il a déjà fait – toutes les personnes annoncées, celle qui est là depuis le plus longtemps en haut. Colonnes : **Nom · Depuis · Présent · Engagé · Pause · Interventions · Actuellement**. *Présent* compte depuis l’arrivée (jaune à partir du réglage « Fatigue du personnel », 4 h par défaut, rouge à partir d’une fois et demie cette durée), *Engagé* le temps passé sur une intervention ou une mission, *Pause* le temps de présence sans intervention ni mission ; *Interventions* compte les interventions de cet événement (une mission une fois, un glisser annulé dans les deux minutes pas du tout). Un clic sur un en-tête de colonne trie selon celle-ci, un second clic inverse – « qui en a fait le plus, qui le moins » tient en un clic. **Tous · Libres · Engagés** et une recherche par nom ou lieu restreignent la liste. Aussi via `Cmd/Ctrl+K` et, sur le téléphone, dans la feuille Personnel (champ de recherche et un menu entonnoir qui contient aussi le tri). Une vue, pas un plan de service – personne n’est convoqué ni alarmé depuis ici.
+**« Temps de service » au pied de la barre latérale du personnel.** Qui est là, depuis quand et combien il a déjà fait – toutes les personnes présentes, celle qui est là depuis le plus longtemps en haut. Colonnes : **Nom · Depuis · Présent · Engagé · Pause · Interventions · Actuellement**. *Présent* compte depuis l’arrivée (jaune à partir du réglage « Fatigue du personnel », 4 h par défaut, rouge à partir d’une fois et demie cette durée), *Engagé* le temps passé sur une intervention ou une mission, *Pause* le temps de présence sans intervention ni mission ; *Interventions* compte les interventions de cet événement (une mission une fois, un glisser annulé dans les deux minutes pas du tout). Un clic sur un en-tête de colonne trie selon celle-ci, un second clic inverse – « qui en a fait le plus, qui le moins » tient en un clic. **Tous · Libres · Engagés** et une recherche par nom ou lieu restreignent la liste. Aussi via `Cmd/Ctrl+K` et, sur le téléphone, dans la feuille Personnel (champ de recherche et un menu entonnoir qui contient aussi le tri). Une vue, pas un plan de service – personne n’est convoqué ni alarmé depuis ici.
 
 **« Rapports » dans la barre du bas (`O`).** Compte les places sinistrées terminées pour lesquelles aucun rapport de place sinistrée n’a encore été saisi, et ouvre la liste – **Ouverts** (le plus ancien en haut, car à la fin plus personne ne s’en souvient) et **Saisis**. Un clic sur une ligne saute à l’intervention.
 
@@ -57,7 +57,7 @@ Gérer, changer, archiver et exporter les événements.
 
 **Sans événement choisi** (nouveau navigateur, après une déconnexion), le tableau montre les événements ouverts au cours des dernières 24 heures – le dernier actif en premier, « Ouvrir » ou `Entrée` y mène. On peut aussi y créer un nouvel événement, mais pas avec le bouton principal : à 3 h du matin, personne ne doit couper la soirée d’intempéries en cours en deux événements. Si aucun n’a été ouvert en 24 heures, la carte « Choisir un événement » reste, avec « Nouvel événement » et « Afficher les événements ».
 
-**L’archivage dit ce qui est encore ouvert.** La fenêtre liste ce que l’archivage couperait : les interventions non clôturées (avec « Afficher sur le tableau »), les récupérations ouvertes, le matériel encore sur une place sinistrée et les personnes encore annoncées. La case « désannoncer automatiquement », cochée par défaut, annonce le départ de tout le monde à l’archivage – heure de départ = fin de l’événement. Tant que quelque chose est ouvert, le bouton s’appelle « Archiver quand même ».
+**L’archivage dit ce qui est encore ouvert.** La fenêtre liste ce que l’archivage couperait : les interventions non clôturées (avec « Afficher sur le tableau »), les récupérations ouvertes, le matériel encore sur une place sinistrée et les personnes encore présentes. La case « annoncer partantes automatiquement », cochée par défaut, annonce le départ de tout le monde à l’archivage – heure de départ = fin de l’événement. Tant que quelque chose est ouvert, le bouton s’appelle « Archiver quand même ».
 
 ### Réglages (`G S`)
 Configuration du système : utilisateurs, imprimante, style de carte et plus encore. Les utilisateurs et le journal d’audit ne sont visibles que pour les admins. Les coordonnées de la caserne (Général) s’affichent et s’enregistrent avec 6 décimales (≈ 10 cm) ; au-delà, elles sont arrondies en quittant le champ.
@@ -232,7 +232,7 @@ dans les premières minutes : informer l’effectif, distribuer les liens d’ar
 de reconnaissance, d’alarme et de terrain, attribuer les conducteurs, vérifier
 l’imprimante, armer le repli papier.
 
-- **Les lignes chiffrées se cochent toutes seules** (personnes annoncées,
+- **Les lignes chiffrées se cochent toutes seules** (personnes présentes,
   conducteurs par véhicule, imprimante joignable). Chaque ligne peut en plus être
   cochée et décochée **à la main** – retenu par appareil.
 - **Sous les lignes de lien figure à qui il est destiné et combien d’exemplaires
@@ -398,11 +398,11 @@ ou ne peut pas scanner est annoncé depuis le PC dans l’**appel** – voir ci-
 **En route (Divera).** Si Divera est raccordé, l’appel et l’en-tête de la barre latérale
 du personnel montrent qui a répondu à l’alarme Divera : une ligne de chiffres
 (« 4 viennent · 2 ne viennent pas »), puis toutes les personnes qui viennent et ne sont
-pas encore annoncées, avec leur grade et un clic (« présent ») pour les annoncer.
+pas encore présentes, avec leur grade et un clic (« présent ») pour les annoncer.
 « Ne vient pas » figure en retrait dans un groupe à part, marqué ✕ – l’annonce reste
 possible, au cas où quelqu’un se serait trompé de bouton. Seulement oui ou non : ni
 heure de réponse, ni estimation d’arrivée. **Une réponse Divera n’annonce personne
-d’elle-même.** Seules les alarmes des 6 dernières heures comptent ; qui est déjà annoncé
+d’elle-même.** Seules les alarmes des 6 dernières heures comptent ; qui est déjà présent
 (ou déjà reparti) n’apparaît pas dans la liste, et les réponses de membres Divera sans
 personne liée sont seulement comptées. Visible pour les éditeurs et les admins, pas pour
 les observateurs. Sans Divera ou sans alarme Divera récente, rien ne change.

@@ -13,7 +13,7 @@ Hauptansicht beim Laden der App. Zeigt alle Einsätze in sieben Status-Spalten (
 
 **«3 Geräte vor Ort» am Kopf der Material-Leiste.** Material, das ein Trupp irgendwo stehen liess, ist auf dem Board sonst unsichtbar – es ist weder frei noch erkennbar im Gebrauch. Die Aufklappliste nennt Gerät, Adresse und seit wann, das Älteste zuoberst; ein Klick öffnet den zugehörigen Einsatz. Sie erscheint nur, wenn wirklich etwas draussen steht.
 
-**«Dienstzeiten» am Fuss der Personen-Leiste.** Wer da ist, seit wann und wie viel er schon gemacht hat – alle Eingecheckten, wer am längsten da ist zuoberst. Spalten: **Name · Seit · Anwesend · Eingesetzt · Pause · Einsätze · Jetzt**. *Anwesend* zählt ab dem Check-in (gelb ab der Einstellung «Personalermüdung», standardmässig 4 h, rot ab dem Anderthalbfachen), *Eingesetzt* die Zeit auf einem Einsatz oder Auftrag, *Pause* die Zeit anwesend, aber auf keinem Einsatz und keinem Auftrag; *Einsätze* zählt die Einsätze dieses Ereignisses (ein Auftrag einmal, ein innert zwei Minuten zurückgenommenes Ziehen gar nicht). Ein Klick auf einen Spaltenkopf sortiert danach, nochmals umgekehrt – «wer hat am meisten, wer am wenigsten» ist ein Klick. **Alle · Frei · Im Einsatz** und eine Suche nach Name oder Ort grenzen ein. Auch über `Cmd/Ctrl+K` und auf dem Handy im Personal-Sheet (dort Suchfeld und ein Trichter-Menü, das auch die Sortierung enthält). Eine Ansicht, kein Dienstplan – von hier aus wird niemand eingeteilt oder alarmiert.
+**«Dienstzeiten» am Fuss der Personen-Leiste.** Wer da ist, seit wann und wie viel er schon gemacht hat – alle Anwesenden, wer am längsten da ist zuoberst. Spalten: **Name · Seit · Anwesend · Eingesetzt · Pause · Einsätze · Jetzt**. *Anwesend* zählt ab dem Check-in (gelb ab der Einstellung «Personalermüdung», standardmässig 4 h, rot ab dem Anderthalbfachen), *Eingesetzt* die Zeit auf einem Einsatz oder Auftrag, *Pause* die Zeit anwesend, aber auf keinem Einsatz und keinem Auftrag; *Einsätze* zählt die Einsätze dieses Ereignisses (ein Auftrag einmal, ein innert zwei Minuten zurückgenommenes Ziehen gar nicht). Ein Klick auf einen Spaltenkopf sortiert danach, nochmals umgekehrt – «wer hat am meisten, wer am wenigsten» ist ein Klick. **Alle · Frei · Im Einsatz** und eine Suche nach Name oder Ort grenzen ein. Auch über `Cmd/Ctrl+K` und auf dem Handy im Personal-Sheet (dort Suchfeld und ein Trichter-Menü, das auch die Sortierung enthält). Eine Ansicht, kein Dienstplan – von hier aus wird niemand eingeteilt oder alarmiert.
 
 **«Rapporte» in der Fusszeile (`O`).** Zählt die abgeschlossenen Schadenplätze, zu denen noch kein Schadenplatz-Rapport erfasst ist, und öffnet die Liste – **Offen** (das Älteste zuoberst, denn daran erinnert sich am Ende niemand mehr) und **Erfasst**. Ein Klick auf eine Zeile springt zum Einsatz.
 
@@ -57,7 +57,7 @@ Ereignisse verwalten, wechseln, archivieren, exportieren.
 
 **Ohne gewähltes Ereignis** (neuer Browser, nach dem Abmelden) zeigt das Board die offenen Ereignisse der letzten 24 Stunden – das zuletzt aktive zuoberst, «Öffnen» oder `Enter` führt hinein. Ein neues Ereignis gibt es dort auch, aber nicht als Hauptknopf: um 3 Uhr nachts soll niemand den laufenden Unwetterabend in zwei Ereignisse teilen. Wurde in 24 Stunden keines eröffnet, bleibt die Karte «Ereignis wählen» mit «Neues Ereignis» und «Ereignisse anzeigen».
 
-**Archivieren sagt, was noch offen ist.** Der Dialog listet, was das Archivieren abschneiden würde: nicht abgeschlossene Einsätze (mit «Auf dem Board zeigen»), offene Abholungen, Material noch am Schadenplatz und Personen, die noch angemeldet sind. Das vorab angekreuzte «automatisch abmelden» meldet beim Archivieren alle ab – Abmeldezeit = Ereignisende. Solange etwas offen ist, heisst der Knopf «Trotzdem archivieren».
+**Archivieren sagt, was noch offen ist.** Der Dialog listet, was das Archivieren abschneiden würde: nicht abgeschlossene Einsätze (mit «Auf dem Board zeigen»), offene Abholungen, Material noch am Schadenplatz und Personen, die noch anwesend sind. Das vorab angekreuzte «automatisch auschecken» checkt beim Archivieren alle aus – gegangen = Ereignisende. Solange etwas offen ist, heisst der Knopf «Trotzdem archivieren».
 
 ### Einstellungen (`G S`)
 System-Konfiguration: Benutzer, Drucker, Kartenstil und mehr. Benutzer und das Audit-Protokoll sehen nur Admins. Die Koordinaten der Feuerwehr (Allgemein) stehen und speichern mit 6 Nachkommastellen (≈ 10 cm); mehr wird beim Verlassen des Felds gerundet.
@@ -228,11 +228,11 @@ Rechtsklick auf eine Einsatzkarte öffnet ein Menü mit folgenden Optionen:
 
 Öffnet sich von selbst, sobald ein Ereignis ausgewählt wird, und ist danach über
 **«Checkliste n/m»** in der Fussleiste erreichbar. Sie führt durch das, was in den
-ersten Minuten passieren muss: Mannschaft informieren, Check-In-, Reko-, Alarm-
+ersten Minuten passieren muss: Mannschaft informieren, Check-in-, Reko-, Alarm-
 und Feld-Link verteilen, Fahrer zuweisen, Drucker prüfen, Papier-Fallback
 scharfstellen.
 
-- **Zeilen mit Zahlen haken sich selbst ab** (eingecheckte Personen, Fahrer pro
+- **Zeilen mit Zahlen haken sich selbst ab** (anwesende Personen, Fahrer pro
   Fahrzeug, Drucker erreichbar). Jede Zeile lässt sich zusätzlich **von Hand**
   abhaken und wieder aufmachen – pro Gerät gemerkt.
 - **Unter den Link-Zeilen steht, für wen der Link ist und wie viele Ausdrucke es
@@ -388,26 +388,26 @@ Divera-App, weckt niemanden wie ein Aufgebot und steuert keinen Pager an.
 - **Hinweis Divera-FREE:** dort ist nur **eine Mitteilung alle fünf Minuten**
   möglich.
 
-### Personal Check-In
+### Personal-Check-in
 
 QR-Code scannen → Person als anwesend markieren. Wer kein Handy dabei hat oder
-nicht scannen kann, wird im **Appell** vom KP aus angemeldet – siehe unten.
+nicht scannen kann, wird im **Appell** vom KP aus eingecheckt – siehe unten.
 
 **Anrückend (Divera).** Ist Divera angebunden, zeigen der Appell und der Kopf der
 Personen-Leiste, wer auf den Divera-Alarm geantwortet hat: eine Zeile mit Zahlen
-(«4 kommen · 2 kommen nicht»), dann alle, die kommen und noch nicht eingecheckt sind,
-mit Grad und einem Klick («da») zum Anmelden. «Kommt nicht» steht gedämpft in einer
-eigenen Gruppe mit ✕ – anmelden geht trotzdem, falls sich jemand verklickt hat. Nur Ja
-oder Nein: keine Antwortzeiten, keine Ankunftsschätzung. **Eine Divera-Antwort meldet
-niemanden von selbst an.** Es zählen Alarme der letzten 6 Stunden; wer schon
-eingecheckt (oder schon wieder gegangen) ist, fehlt in der Liste, und Antworten von
+(«4 kommen · 2 kommen nicht»), dann alle, die kommen und noch nicht anwesend sind,
+mit Grad und einem Klick («da») zum Einchecken. «Kommt nicht» steht gedämpft in einer
+eigenen Gruppe mit ✕ – einchecken geht trotzdem, falls sich jemand verklickt hat. Nur Ja
+oder Nein: keine Antwortzeiten, keine Ankunftsschätzung. **Eine Divera-Antwort checkt
+niemanden von selbst ein.** Es zählen Alarme der letzten 6 Stunden; wer schon
+anwesend (oder schon wieder gegangen) ist, fehlt in der Liste, und Antworten von
 Divera-Mitgliedern ohne verknüpfte Person werden nur gezählt. Sichtbar für Editoren
 und Admins, nicht für Viewer. Ohne Divera oder ohne frischen Divera-Alarm ändert sich
 nichts.
 
 ### Alles vom KP aus erfassen (wenn die Telefone ausfallen)
 
-Jeder Link ohne Anmeldung – Check-In, Reko, Feld, Alarm – ist ein **Eingangskanal,
+Jeder Link ohne Anmeldung – Check-in, Reko, Feld, Alarm – ist ein **Eingangskanal,
 nicht der Ort, an dem die Daten wohnen**. Alles, was ein Trupp draussen eintippen
 kann, kann der KP am Board genauso erfassen. Das ist kein Komfort, sondern der
 Normalfall: kein Empfang im Keller, leerer Akku, Handschuhe, oder eine Mannschaft,
@@ -423,16 +423,16 @@ das einzige Eingabegerät, das das System noch hat.
 - «Gegangen» ist eine Aussage, keine Abwesenheit: wer um 20:40 heimgegangen ist,
   ist nicht dasselbe wie jemand, der nie da war. Der Ereignisbericht liest den
   Unterschied.
-- Kopfzeile: `{anwesend} anwesend · {gegangen} gegangen · {total} Mannschaft`.
-- **«Alle abmelden»** setzt am Ende des Ereignisses alle Anwesenden auf
+- Kopfzeile: `{anwesend} anwesend · {gegangen} gegangen · {total} Personal`.
+- **«Alle auschecken»** setzt am Ende des Ereignisses alle Anwesenden auf
   «gegangen». Zuweisungen bleiben bestehen, andere Ereignisse werden nicht berührt.
-- Wer noch einem Einsatz zugewiesen ist, bekommt beim Abmelden eine Rückfrage –
-  danach wird abgemeldet, die Zuweisung bleibt. Das Board ist die Stelle, die sie
-  auflösen kann; ein hartes Verbot würde zwingen, zum Abmelden die Ansicht zu wechseln.
+- Wer noch einem Einsatz zugewiesen ist, bekommt beim Auschecken eine Rückfrage –
+  danach wird ausgecheckt, die Zuweisung bleibt. Das Board ist die Stelle, die sie
+  auflösen kann; ein hartes Verbot würde zwingen, zum Auschecken die Ansicht zu wechseln.
 - Wer als *nicht verfügbar* geführt ist, erscheint ausgegraut mit Grund.
-- **«Person hinzufügen»** im Appell legt die Person an **und meldet sie direkt an**.
+- **«Person hinzufügen»** im Appell legt die Person an **und checkt sie direkt ein** – sie ist sofort anwesend.
 
-> **Nachbarhilfe und Zivilschutz können sich nicht selbst anmelden.** Der Check-In
+> **Nachbarhilfe und Zivilschutz können sich nicht selbst einchecken.** Der Check-in
 > zeigt nur den eigenen Bestand, und Sichtbarkeit kommt aus den Zuweisungen. Der
 > vorgesehene Weg ist: im Appell (oder in der Seitenleiste) über **«Person
 > hinzufügen»** erfassen und anschliessend dem Einsatz zuweisen. Das ist kein
@@ -461,17 +461,17 @@ dasselbe blaue [Telefon-Abzeichen](#telefon-laufkundschaft-abzeichen) wie eine M
 (Lageblatt, Ereignisbericht-PDF, Einsätze-Export, Thermo-Board-Snapshot) schreiben
 **«(Feld)»** neben eine Erfassung vom Feld und **«(Funkmeldung)»** neben eine im KP
 erfasste. Ein Bericht, den der Trupp eingereicht und der KP ergänzt hat, zeigt
-beide Zeilen. Beim Normalfall – jemand meldet sich selbst an – steht bewusst nichts.
+beide Zeilen. Beim Normalfall – jemand checkt sich selbst ein – steht bewusst nichts.
 
 **Grenzen, die man kennen sollte:**
 
-- Der Check-In-Link ist **anonym**: wer den QR-Code hat, kann jede Person anmelden,
+- Der Check-in-Link ist **anonym**: wer den QR-Code hat, kann jede Person einchecken,
   und diese Erfassung trägt keinen Namen. Nur eine Erfassung am Board ist einer
   Person zugeordnet.
 - **«Telefonisch gemeldet» ist eine Behauptung, kein Nachweis** – es heisst, dass
   eine Bedienperson es so gesagt hat. Für die Statistik ist das kein Herkunftsbeleg.
-- Das Board kennt **drei** Zustände, der Check-In auf dem Handy **zwei**: Wer dort
-  «gegangen» ist, erscheint einfach als nicht angemeldet und ist mit einem Tipp
+- Das Board kennt **drei** Zustände, der Check-in auf dem Handy **zwei**: Wer dort
+  «gegangen» ist, erscheint einfach als nicht anwesend und ist mit einem Tipp
   wieder da. «Ich bin gegangen» tippt niemand – deshalb wird das im KP festgehalten.
 - Der Reko-Block sagt nicht mehr, ob die Reko vor Ort ist; diese Information steht
   jetzt genau an einer Stelle, in den *Funkmeldungen*.
@@ -697,7 +697,7 @@ den gewohnten Befehlen («neu» ist weiterhin «Neuer Einsatz»). Es gelten dies
 Die globalen Kürzel (`G …` und `?`) gelten auf jeder Seite der Bedienoberfläche – Board,
 Karte, Ereignisse, Einstellungen, Hilfe, Übung. Sie ruhen,
 solange ein Dialog oder ein Menü offen ist, und auf den Wandanzeigen (`/display`) sowie den
-Handy-Formularen (Feld, Reko, Check-In) gibt es sie bewusst nicht.
+Handy-Formularen (Feld, Reko, Check-in) gibt es sie bewusst nicht.
 
 ### Global
 | Shortcut | Aktion |
@@ -796,7 +796,7 @@ Im öffentlichen Demo-Modus erhält jeder Editor-Login (`demo-editor`) eine **pe
 ## Online vs. Offline
 
 ### Online (Railway)
-- QR-Code Check-In und Reko funktionieren
+- QR-Code Check-in und Reko funktionieren
 - Automatische Synchronisation aller Geräte
 - Mobile Zugriffe von überall
 
@@ -825,7 +825,7 @@ Für Personen, die einen Alarm **erfassen** sollen, ohne Login und ohne Kenntnis
 - QR-Codes funktionieren nur im lokalen Netzwerk
 - Backup bei Internetausfall
 - Wenn möglich via mobilem Hotspot
-- Ansonsten Kommunikation nur via Funk und alles manuell in einem anderen Tab eintragen (Check-In, Reko)
+- Ansonsten Kommunikation nur via Funk und alles manuell in einem anderen Tab eintragen (Check-in, Reko)
 
 ### Verbindungsstatus (Benutzermenü)
 

@@ -155,7 +155,7 @@ describe("(c) there is truly nothing", () => {
     const { props } = renderDialog({ resourceType: "crew", personnel: [], onShowCheckIn })
 
     const empty = screen.getByRole("status")
-    expect(within(empty).getByText("Noch niemand eingecheckt")).toBeDefined()
+    expect(within(empty).getByText("Noch niemand anwesend")).toBeDefined()
     expect(empty.textContent).toContain("«Links & QR»")
 
     await user.click(within(empty).getByRole("button", { name: "Check-in-Link zeigen" }))

@@ -523,7 +523,7 @@
         "auftrag": "Nach Auftrag",
         "type": "Nach Typ"
       },
-      "noPersonnelCheckedIn": "Niemand angemeldet",
+      "noPersonnelCheckedIn": "Niemand anwesend",
       "personnelLoading": "Personal wird geladen …",
       "materialLoading": "Material wird geladen …",
       "notLoaded": "Nicht geladen",
@@ -875,7 +875,7 @@
       "filterHidesSearch": "{count, plural, one {Der Filter {filters} blendet} other {Die Filter {filters} blenden}} die Treffer für «{query}» aus.",
       "onlyAssignedNoneIncident": "Der Filter «Nur zugewiesene» blendet alle Fahrzeuge aus – diesem Einsatz ist noch keines zugewiesen.",
       "onlyAssignedNoneRoute": "Der Filter «Nur zugewiesene» blendet alle Fahrzeuge aus – diesem Auftrag ist noch keines zugewiesen.",
-      "noneCrewTitle": "Noch niemand eingecheckt",
+      "noneCrewTitle": "Noch niemand anwesend",
       "noneCrewBody": "Wer eincheckt, erscheint hier. Den Check-in-Link gibt es unter «Links & QR».",
       "showCheckInLink": "Check-in-Link zeigen",
       "noneVehiclesTitle": "Keine Fahrzeuge erfasst",
@@ -1042,7 +1042,7 @@
       "title": "Anwesenheit · {event}",
       "summary": "{present} anwesend · {left} gegangen · {total} Personal",
       "rowLabel": "Anwesenheit",
-      "rowCount": "{present} von {total} angemeldet",
+      "rowCount": "{present} von {total} anwesend",
       "open": "Appell öffnen",
       "loading": "Wird geladen …",
       "noneFound": "Keine Personen gefunden",
@@ -1051,12 +1051,12 @@
       "assignedChip": "zugewiesen",
       "assignedTo": "zugewiesen: {where}",
       "assignedTitle": "Person ist noch zugewiesen",
-      "assignedDescription": "{name} ist noch «{where}» zugewiesen – trotzdem abmelden? Die Zuweisung bleibt bestehen.",
-      "checkOutAnyway": "Trotzdem abmelden",
-      "checkOutAll": "Alle abmelden",
-      "checkOutAllTitle": "Alle abmelden?",
+      "assignedDescription": "{name} ist noch «{where}» zugewiesen – trotzdem auschecken? Die Zuweisung bleibt bestehen.",
+      "checkOutAnyway": "Trotzdem auschecken",
+      "checkOutAll": "Alle auschecken",
+      "checkOutAllTitle": "Alle auschecken?",
       "checkOutAllDescription": "{count, plural, one {# anwesende Person wird} other {# anwesende Personen werden}} auf «gegangen» gesetzt. Zuweisungen bleiben bestehen.",
-      "quickAddHint": "Wird direkt angemeldet",
+      "quickAddHint": "Ist danach gleich anwesend",
       "writeFailed": "Anwesenheit konnte nicht gespeichert werden",
       "openButton": "Appell"
     },
@@ -1066,13 +1066,13 @@
       "countComing": "{count, plural, one {# kommt} other {# kommen}}",
       "countNotComing": "{count, plural, one {# kommt nicht} other {# kommen nicht}}",
       "noAnswersYet": "Noch keine Rückmeldung",
-      "allHere": "Alle, die kommen, sind angemeldet",
+      "allHere": "Alle, die kommen, sind anwesend",
       "notComingGroup": "Kommt nicht ({count})",
       "notComing": "kommt nicht",
       "unmapped": "{count, plural, one {# Rückmeldung} other {# Rückmeldungen}} ohne Person im Bestand",
       "checkIn": "da",
       "checkInLabel": "{name} als anwesend melden",
-      "checkInFailed": "Anmeldung fehlgeschlagen"
+      "checkInFailed": "Check-in fehlgeschlagen"
     },
     "links": {
       "title": "Links & QR",
@@ -1180,7 +1180,7 @@
       "count": "{count, plural, =0 {noch kein Einsatz} one {# Einsatz} other {# Einsätze}}",
       "countTitle": "Einsätze in diesem Ereignis, abgeschlossene und laufende",
       "countUnavailable": "Anzahl Einsätze gerade nicht abrufbar",
-      "empty": "Niemand eingecheckt.",
+      "empty": "Niemand anwesend.",
       "openButton": "Dienstzeiten",
       "openTitle": "Dienstzeiten – wer ist wie lange da",
       "onDutyTooltip": "Seit {time} im Einsatz – {duration}",
@@ -1243,8 +1243,8 @@
       "emptyHint": "Oder: Rechtsklick auf eine Person in der Seitenleiste → «Als Reko zuweisen».",
       "markExisting": "Person als Reko markieren",
       "markSearchPlaceholder": "Person suchen …",
-      "markAllReko": "Alle eingecheckten Personen sind bereits als Reko markiert.",
-      "markNoCheckedIn": "Niemand ist eingecheckt. Checke zuerst Personal ein.",
+      "markAllReko": "Alle anwesenden Personen sind bereits als Reko markiert.",
+      "markNoCheckedIn": "Niemand ist anwesend. Checke zuerst Personal ein.",
       "markError": "Die Person ist nicht als Reko markiert.",
       "back": "Zurück",
       "assigned": "Zugewiesen",
@@ -1289,7 +1289,7 @@
       "othersSection": "Andere",
       "inOperation": "Im Einsatz",
       "noAvailablePersons": "Keine verfügbaren Personen",
-      "allAssignedHint": "Alle Personen sind bereits als Fahrer zugewiesen oder nicht eingecheckt",
+      "allAssignedHint": "Alle Personen sind bereits als Fahrer zugewiesen oder nicht anwesend",
       "close": "Schliessen",
       "conflictTitle": "Person ist einem Einsatz zugewiesen",
       "conflictDescription": "<strong>{name}</strong> ist aktuell {count, plural, one {dem Einsatz «{location}» zugewiesen} other {# Einsätzen zugewiesen}}. Als Fahrer kann die Person nicht gleichzeitig einem Einsatz zugewiesen sein.",
@@ -1302,13 +1302,13 @@
       "removeConfirmDescription": "<strong>{name}</strong> ist danach nicht mehr Fahrer von <strong>{vehicle}</strong> und gilt wieder als normale Einsatzkraft.",
       "removeConfirmAction": "Fahrer entfernen",
       "addPersonButton": "Person hinzufügen",
-      "addPersonHint": "Nicht eingecheckte Aushilfe (z. B. früherer Fahrer) direkt als Fahrer erfassen",
+      "addPersonHint": "Nicht anwesende Aushilfe (z. B. früherer Fahrer) direkt als Fahrer erfassen",
       "addNamePlaceholder": "Name der Person",
       "addAndAssign": "Hinzufügen & als Fahrer",
       "adding": "Wird hinzugefügt …",
       "addError": "Person konnte nicht hinzugefügt werden",
-      "checkInFailedTitle": "Anmeldung fehlgeschlagen",
-      "checkInFailedDescription": "{name} wurde erfasst, ist aber nicht als anwesend angemeldet und darum nicht auf dem Board sichtbar. Person im Appell anmelden und danach als Fahrer zuweisen.",
+      "checkInFailedTitle": "Check-in fehlgeschlagen",
+      "checkInFailedDescription": "{name} wurde erfasst, ist aber nicht als anwesend gemeldet und darum nicht auf dem Board sichtbar. Person im Appell einchecken und danach als Fahrer zuweisen.",
       "duplicateName": "Es existiert bereits eine Person mit diesem Namen.",
       "markAsDriver": "Als Fahrer markieren",
       "markedAsDriver": "{name} als Fahrer markiert",
@@ -2636,9 +2636,9 @@
       "openIncidents": "{count, plural, one {# Einsatz nicht abgeschlossen} other {# Einsätze nicht abgeschlossen}}",
       "openPickups": "{count, plural, one {# Abholung offen} other {# Abholungen offen}}",
       "materialOnSite": "{count, plural, one {# Gerät noch vor Ort} other {# Geräte noch vor Ort}}",
-      "attendeesPresent": "{count, plural, one {# Person noch angemeldet} other {# Personen noch angemeldet}}",
-      "attendeesDetail": "nie abgemeldet – zählen sonst weiter als anwesend",
-      "autoCheckout": "Alle Angemeldeten beim Archivieren automatisch abmelden (Abmeldezeit = Ereignisende)",
+      "attendeesPresent": "{count, plural, one {# Person noch anwesend} other {# Personen noch anwesend}}",
+      "attendeesDetail": "nie ausgecheckt – zählen sonst weiter als anwesend",
+      "autoCheckout": "Alle Anwesenden beim Archivieren automatisch auschecken (gegangen = Ereignisende)",
       "showOnBoard": "Auf dem Board zeigen",
       "moreItems": "+{count} weitere",
       "confirmAnyway": "Trotzdem archivieren",
@@ -3004,7 +3004,7 @@
       "since": "seit {time}",
       "meldung": "Meldung",
       "interneNotizen": "Interne Notizen",
-      "personalHeading": "PERSONAL ({count} eingecheckt)",
+      "personalHeading": "PERSONAL ({count} anwesend)",
       "statusCol": "Status",
       "nameCol": "Name",
       "funktionCol": "Funktion",
@@ -3380,7 +3380,7 @@
       "fatigueMore": "{names} und {count} weitere",
       "timeInStatus": "{duration} im Status «{status}»",
       "timeNotArchived": "Seit {duration} abgeschlossen, nicht archiviert",
-      "noPersonnel": "Kein Personal mehr verfügbar – alle eingecheckten Personen sind zugewiesen",
+      "noPersonnel": "Kein Personal mehr verfügbar – alle anwesenden Personen sind zugewiesen",
       "materialsNone": "Keine Geräte von «{location}» mehr verfügbar",
       "materialsLow": "Nur noch {count, plural, one {# Gerät} other {# Geräte}} von «{location}» verfügbar",
       "missingLocation": "Einsatz «{title}» hat keine geokodierte Position",
@@ -3422,7 +3422,7 @@
         "alreadyBack": "{resource} ist bereits wieder bei {target}.",
         "elsewhere": "Inzwischen bei {where} zugewiesen – diese neuere Zuweisung bleibt.",
         "outOfService": "{resource} ist nicht einsatzbereit.",
-        "resourceGone": "{resource} ist nicht mehr im Bestand oder abgemeldet.",
+        "resourceGone": "{resource} ist nicht mehr auf dem Board.",
         "unavailable": "{resource} ist als nicht verfügbar gemeldet."
       }
     }
@@ -3581,7 +3581,7 @@
       "scheduled": "{count, plural, one {# Check-in geplant} other {# Check-ins geplant}}",
       "scheduledDescription": "Die Personen checken über die nächsten {minutes} Minuten ein.",
       "noMorePersons": "Keine weiteren Personen verfügbar",
-      "noMorePersonsDescription": "Alle verfügbaren Personen sind bereits eingecheckt.",
+      "noMorePersonsDescription": "Alle verfügbaren Personen sind bereits anwesend.",
       "failed": "Check-ins simulieren fehlgeschlagen"
     },
     "gpsSim": {
@@ -3697,7 +3697,7 @@
       },
       "personnel-checkin": {
         "title": "Personal einchecken",
-        "details": "{count, plural, one {# Person} other {# Personen}} eingecheckt",
+        "details": "{count, plural, one {# Person} other {# Personen}} anwesend",
         "description": "Mindestens 3 Personen für Einsatzbereitschaft",
         "note": "Für die Mannschaft · 1 Ausdruck im Magazin"
       },
@@ -3786,7 +3786,7 @@
     },
     "rekoPicker": {
       "title": "Reko-Offiziere wählen",
-      "description": "Angemeldete Person antippen, um sie als Reko zu markieren. Adressen verteilt der Reko-Modus auf der Karte.",
+      "description": "Anwesende Person antippen, um sie als Reko zu markieren. Adressen verteilt der Reko-Modus auf der Karte.",
       "marked": "{name} als Reko markiert",
       "failed": "Hat nicht geklappt. Erneut versuchen.",
       "done": "Fertig"
@@ -3958,8 +3958,8 @@
     "checkin": {
       "invalidCode": "Ungültiger oder abgelaufener Code. Bitte QR-Code erneut scannen.",
       "missingCode": "Zugriffscode fehlt. Bitte QR-Code scannen.",
-      "checkoutBlocked": "Abmeldung nicht möglich",
-      "checkoutBlockedDescription": "Diese Person ist einem Einsatz zugewiesen und kann nicht abgemeldet werden.",
+      "checkoutBlocked": "Auschecken nicht möglich",
+      "checkoutBlockedDescription": "Diese Person ist einem Einsatz zugewiesen und kann nicht ausgecheckt werden.",
       "statusError": "Status ändern fehlgeschlagen",
       "statusErrorDescription": "Bitte versuche es erneut.",
       "accessRequired": "Zugriff erforderlich",
@@ -3973,7 +3973,7 @@
       "noneFound": "Keine Personen gefunden",
       "badgeAssigned": "Im Einsatz",
       "badgeCheckedIn": "Anwesend",
-      "badgeNotCheckedIn": "Nicht hier",
+      "badgeNotCheckedIn": "Nicht anwesend",
       "checkedOut": "{name} ausgecheckt."
     }
   },
@@ -4231,7 +4231,7 @@
         "add": "Person hinzufügen",
         "addGuest": "«{name}» als Gast hinzufügen",
         "guest": "Gast",
-        "groupCheckedIn": "Heute angemeldet",
+        "groupCheckedIn": "Heute anwesend",
         "groupAll": "Alle"
       },
       "summary": {
@@ -4357,10 +4357,10 @@
       "locationHintPhone": "Adresse eintippen oder auf der Karte tippen."
     },
     "attendance": {
-      "notHereTitle": "Du bist nicht eingecheckt",
+      "notHereTitle": "Du bist nicht anwesend",
       "checkIn": "Einchecken",
       "checkOut": "Ich rücke ab",
-      "here": "Eingecheckt",
+      "here": "Anwesend",
       "hereNoJob": "Noch kein Auftrag"
     },
     "material": {

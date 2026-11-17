@@ -140,7 +140,7 @@ describe('FeldPersonnelChecklist', () => {
     })
     await userEvent.click(screen.getByRole('button', { name: 'Person hinzufügen' }))
     const text = (await screen.findByRole('dialog')).textContent ?? ''
-    const order = ['Heute angemeldet', 'Berger Nina', 'Graf Thomas', 'Alle', 'Ammann Lea', 'Suter Elias'].map(word =>
+    const order = ['Heute anwesend', 'Berger Nina', 'Graf Thomas', 'Alle', 'Ammann Lea', 'Suter Elias'].map(word =>
       text.indexOf(word),
     )
     expect(order.every(index => index >= 0)).toBe(true)

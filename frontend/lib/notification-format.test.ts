@@ -210,7 +210,7 @@ describe('notificationParts — system notifications stay one line', () => {
 
   it('resources, data quality, storage, the door', () => {
     expect(parts({ type: 'no_personnel', params: {} }, fr).what).toBe(
-      'Plus de personnel disponible – toutes les personnes enregistrées sont attribuées',
+      'Plus de personnel disponible – toutes les personnes présentes sont attribuées',
     )
     expect(parts({ type: 'no_materials', params: { location: 'Depot', available: 0 } }).what).toBe('Keine Geräte von «Depot» mehr verfügbar')
     expect(parts({ type: 'no_materials', params: { location: 'TLF', available: 1 } }).what).toBe('Nur noch 1 Gerät von «TLF» verfügbar')

@@ -264,7 +264,7 @@ export function LinksQrSheet({
               {eventId && (
                 <div className="flex items-center gap-3 px-2.5 py-2">
                   <Users className="size-4 shrink-0 text-muted-foreground" />
-                  {/* On a phone the count goes under the label: beside it, «17 von 61 angemeldet»
+                  {/* On a phone the count goes under the label: beside it, «17 von 61 anwesend»
                       pushed «Appell öffnen» past the card's edge at 393px (phone sweep 14.11.). */}
                   <div className="flex min-w-0 flex-1 flex-col md:flex-row md:items-center md:gap-3">
                     <span className="text-sm font-medium">{tAttendance("rowLabel")}</span>

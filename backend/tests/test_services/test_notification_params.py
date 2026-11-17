@@ -27,7 +27,7 @@ CASES = [
     ),
     (
         texts.no_personnel(),
-        "Kein Personal mehr verfügbar - alle eingecheckten Personen sind zugewiesen",
+        "Kein Personal mehr verfügbar - alle anwesenden Personen sind zugewiesen",
         {},
     ),
     (

@@ -158,7 +158,7 @@ describe('CrewDutySheet', () => {
     renderWithIntl(
       <CrewDutySheet open onOpenChange={() => {}} eventId="e" personnel={[]} personEngagements={new Map()} fatigueHours={4} />,
     )
-    expect(screen.getByText('Niemand eingecheckt.')).toBeInTheDocument()
+    expect(screen.getByText('Niemand anwesend.')).toBeInTheDocument()
   })
 })
 

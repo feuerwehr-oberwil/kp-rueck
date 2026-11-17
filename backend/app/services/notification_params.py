@@ -63,7 +63,7 @@ def time_not_archived(place: str, minutes: int) -> Built:
 
 
 def no_personnel() -> Built:
-    return ("Kein Personal mehr verfügbar - alle eingecheckten Personen sind zugewiesen", {})
+    return ("Kein Personal mehr verfügbar - alle anwesenden Personen sind zugewiesen", {})
 
 
 def materials(location: str, available: int) -> Built:

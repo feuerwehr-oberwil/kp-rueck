@@ -260,8 +260,8 @@ Gesendetes Payload (Tercero, bestätigt 2026-08):
 Wer auf einen DIVERA-Alarm «Komme» oder «Komme nicht» (bzw. einen gleichbedeutenden Status)
 gedrückt hat, steht im Appell und oben in der Personen-Leiste unter **Anrückend** – nur ja/nein:
 die Zahlen («4 kommen · 2 kommen nicht») und die Namen, gruppiert nach «kommt» und «kommt
-nicht», mit Grad und einem Klick zum Anmelden. Keine Antwortzeit, keine geschätzte Ankunft,
-keine Status-Namen, keine Notizen. Wer an diesem Ereignis schon angemeldet war – auch wer wieder
+nicht», mit Grad und einem Klick zum Einchecken. Keine Antwortzeit, keine geschätzte Ankunft,
+keine Status-Namen, keine Notizen. Wer an diesem Ereignis schon anwesend war – auch wer wieder
 gegangen ist –, fällt heraus. Es zählen nur Alarme der letzten 6 Stunden (nach DIVERA-Alarmzeit);
 bei mehreren Alarmen gilt pro Person der neuere Alarm. «Kommt nicht» ist eine eigene, gedämpfte
 Gruppe mit ✕ und dem Wort (Anmelden bleibt angeboten – es kann ein Fehlklick sein). **Eine

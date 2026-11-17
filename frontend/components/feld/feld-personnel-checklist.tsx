@@ -112,7 +112,7 @@ export function FeldPersonnelChecklist({
     return { dispatched, added }
   }, [rows])
 
-  // What the picker offers: the Appell under «Heute angemeldet», the rest under
+  // What the picker offers: the Appell under «Heute anwesend», the rest under
   // «Alle», each by name like every roster list (`sortByName`) — the server
   // sends them in rank order, which nobody searching for a name can follow.
   // A row that is neither dispatched nor ticked is a removal in flight — the

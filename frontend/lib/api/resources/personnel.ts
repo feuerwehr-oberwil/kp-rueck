@@ -125,7 +125,7 @@ export class PersonnelApi {
     )
   }
 
-  /** "Alle abmelden" – everyone still present goes to `gegangen`. Board only. */
+  /** "Alle auschecken" – everyone still present goes to `gegangen`. Board only. */
   async checkOutAllPersonnel(eventId: string): Promise<ApiPersonnel[]> {
     return httpRequest<ApiPersonnel[]>(
       `/api/personnel/check-in/event/${encodeURIComponent(eventId)}/out-all`,
