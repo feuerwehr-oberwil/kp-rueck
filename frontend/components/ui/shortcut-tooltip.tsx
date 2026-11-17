@@ -8,7 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
  * A control's name in the app's ink tooltip, with its keyboard shortcut as key caps beside it –
  * how the desktop board teaches its keys at the moment of use (owner pick «A», 16.11.2026).
  *
- *   <ShortcutTooltip label="Tagebuch" keys={['J']}><Button … /></ShortcutTooltip>
+ *   <ShortcutTooltip label="Verlauf" keys={['J']}><Button … /></ShortcutTooltip>
  *   <ShortcutTooltip label="Board" keys={['G', 'B']}>…</ShortcutTooltip>   // a chord: G, then B
  *
  * It replaces the control's native `title` (don't set both: two tooltips). The child keeps its

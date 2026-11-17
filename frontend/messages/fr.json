@@ -286,7 +286,7 @@
         "toastMoved": "{name} libéré de {from}",
         "tabComplete": "⇥ complète en « {label} »"
       },
-      "journal": "Ouvrir le journal d'intervention",
+      "journal": "Ouvrir le journal",
       "journalEntry": "Écrire dans le journal",
       "toggleAmWarten": "Basculer « en attente »",
       "toggleNachbarhilfe": "Basculer « entraide »"
@@ -370,7 +370,7 @@
       "rekoPhotoOpen": "Ouvrir l’image en taille réelle",
       "rekoReportSection": "Rapport de reconnaissance",
       "rapportSection": "Rapport de place sinistrée",
-      "historySection": "Historique"
+      "historySection": "Chronologie"
     },
     "layout": {
       "pageMap": "Carte",
@@ -1992,9 +1992,9 @@
       "noVehicleKeyword": "sans véhicule"
     },
     "timeline": {
-      "loadFailed": "L’historique n’a pas pu être chargé.",
+      "loadFailed": "La chronologie n’a pas pu être chargée.",
       "retry": "Réessayer",
-      "title": "Historique",
+      "title": "Chronologie",
       "subtitle": "Changements de statut, attributions et annonces",
       "empty": "Aucune entrée pour l’instant.",
       "removed": "libéré",
@@ -2052,7 +2052,7 @@
         "rapport": "Terrain",
         "rapportFiled": "Rapport",
         "rapportDraft": "Brouillon",
-        "history": "Historique",
+        "history": "Chronologie",
         "switchHint": "Changer d’onglet"
       },
       "incidentsLoadFailedDescription": "Les interventions n’ont pas pu être chargées.",
@@ -2828,7 +2828,7 @@
       "support": "Support",
       "account": "Compte",
       "linksAndQr": "Liens & QR",
-      "journal": "Journal d'intervention",
+      "journal": "Journal",
       "figures": "Indicateurs"
     },
     "pageNav": {
@@ -3030,7 +3030,7 @@
       "bellUnread": "{count} non lues",
       "activeHeading": "Actives",
       "dismissAll": "Tout fermer",
-      "historyHeading": "Historique",
+      "historyHeading": "Fermées",
       "emptyTitle": "Aucune notification active",
       "emptySubtitle": "Tout est en ordre",
       "dismissAria": "Fermer la notification",
@@ -4494,7 +4494,7 @@
       "workRapport": "Rapport",
       "workRequests": "Demandes du terrain",
       "confirmTitle": "Fusionner avec {label} ?",
-      "confirmBody": "Avec cette intervention sont transférés : {items}. « Séparer » dans l’historique l’annule."
+      "confirmBody": "Avec cette intervention sont transférés : {items}. « Séparer » dans la chronologie l’annule."
     },
     "timeline": {
       "merged": "Message fusionné",
@@ -4505,7 +4505,7 @@
     "feldMerged": "Ajouté à l’intervention existante – le PC le voit comme complément."
   },
   "journal": {
-    "title": "Journal d'intervention",
+    "title": "Journal",
     "description": "Tout ce qui s'est passé dans l'événement – le plus récent d'abord.",
     "filter": "Filtrer",
     "filterOn": "Filtré : {filters}",
@@ -4514,7 +4514,7 @@
     "resetFilter": "Réinitialiser le filtre",
     "filters": {
       "all": "Tous",
-      "manual": "Manuel",
+      "manual": "Info",
       "field": "Terrain",
       "status": "Statut",
       "resources": "Ressources"

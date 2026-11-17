@@ -19,7 +19,7 @@ import { wsClient } from '@/lib/websocket-client'
  * - it re-provides the auth context with `isEditor`/`isAdmin` off while the open Ereignis is led
  *   on the OTHER system, so every control that already hides for a viewer hides here too. The
  *   real role stays in `canTakeOver`, and on the hosted board in `canAddNew`: there, new things
- *   (an Einsatz, a Tagebuch line) may still be added to an Ereignis the box leads.
+ *   (an Einsatz, a Verlauf line) may still be added to an Ereignis the box leads.
  *
  * On the box everything is look-only until it leads the open Ereignis. On the hosted board it
  * asks `/api/standby` now and then and changes nothing unless a box leads the open Ereignis.

@@ -326,7 +326,7 @@ export function BoardDialogs({
         onOpenRapport={handleOpenRapport}
       />
 
-      {/* Einsatztagebuch — `J`, the footer pill, the palette, the phone's «Mehr» */}
+      {/* Verlauf — `J`, the footer pill, the palette, the phone's «Mehr» */}
       <JournalSheet
         open={activeFooterSheet === 'journal'}
         onOpenChange={(open) => !open && activeFooterSheet === 'journal' && setActiveFooterSheet(null)}

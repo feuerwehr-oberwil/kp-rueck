@@ -29,7 +29,7 @@ vi.mock('@/components/mobile/phone-quick-sheets', () => ({
   PhoneQuickSheets: ({ open }: { open: string | null }) => <output data-testid="quick-sheet">{open ?? ''}</output>,
 }))
 
-const EDITOR_ENTRIES = ['Links & QR', 'Einsatztagebuch', 'Kennzahlen', 'Personal', 'Fahrzeuge', 'Drucken']
+const EDITOR_ENTRIES = ['Links & QR', 'Verlauf', 'Kennzahlen', 'Personal', 'Fahrzeuge', 'Drucken']
 
 async function openSheet() {
   await userEvent.click(screen.getByRole('button', { name: 'Mehr Optionen' }))
@@ -58,7 +58,7 @@ describe('MobileBottomNavigation «Schnellzugriff»', () => {
     auth.current = { isEditor: false, logout: vi.fn(), user: { role: 'viewer' } }
     renderWithIntl(<MobileBottomNavigation currentPage="map" />)
     await openSheet()
-    expect(screen.getByRole('button', { name: 'Einsatztagebuch' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Verlauf' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Kennzahlen' })).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Links & QR' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Personal' })).toBeNull()

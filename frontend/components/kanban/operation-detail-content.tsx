@@ -567,7 +567,7 @@ export function OperationDetailContent({
   // The panel's tab bar shares its row with the ← / → hints, so its triggers
   // take their own label plus a share of whatever is left (`flex-auto`) rather
   // than a fixed quarter each (`flex-1`, the default): «Rapport · erfasst» is
-  // wider than a quarter of 420px and would spill over «Verlauf».
+  // wider than a quarter of 420px and would spill over «Chronik».
   // Natural widths in the modal: the shared trigger is `flex-1` (basis 0), which splits the
   // list into equal quarters — narrower than «Übersicht» itself, which then ran out of its
   // tab (overflow sweep, 03.10.).

@@ -107,7 +107,7 @@ graph TB
 | **Middleware Stack** | CORS, audit logging, security headers, rate limiting |
 | **CRUD Layer** | Async database operations with eager loading (prevents N+1 queries) |
 | **WebSocket Manager** | Socket.IO server with two fixed rooms (`operations`, `admin`); every board broadcast goes to `operations` and clients filter by Ereignis |
-| **Services** | Business logic: alarm intake + inference (`divera_intake`), outbound alerting providers (`alerting/`), Divera/Traccar polling and Divera Rückmeldungen (`divera_responses`), the Einsatztagebuch (`journal`), duplicate detection and merge (`duplicates`, `merge_work`), Reaktionszeiten/Kennzahlen (`reaction_times`), the weather layer (`weather/`), roster snapshot + station index sync, training auto-generation, photo storage, PDF/Excel exports |
+| **Services** | Business logic: alarm intake + inference (`divera_intake`), outbound alerting providers (`alerting/`), Divera/Traccar polling and Divera Rückmeldungen (`divera_responses`), the Verlauf journal (`journal`), duplicate detection and merge (`duplicates`, `merge_work`), Reaktionszeiten/Kennzahlen (`reaction_times`), the weather layer (`weather/`), roster snapshot + station index sync, training auto-generation, photo storage, PDF/Excel exports |
 | **Auth / Tokens** | JWT generation, validation, blocklist, role-based access |
 
 ### Database (PostgreSQL 16)
@@ -495,7 +495,7 @@ stateDiagram-v2
 
 At each transition:
 - A `status_transition` record is created (audit trail)
-- The Einsatztagebuch gets its row (`journal_entries`), in the same transaction, whichever path
+- The Verlauf gets its row (`journal_entries`), in the same transaction, whichever path
   made the change
 - WebSocket broadcasts the change to all connected clients
 - Entering **`complete`** automatically releases all assigned personnel, vehicles, and materials

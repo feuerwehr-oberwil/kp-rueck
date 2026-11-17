@@ -88,7 +88,7 @@ export interface KanbanShortcutsActions {
   onToggleLinks: () => void
   /** Opens/closes the Schadenplatz-Rapporte backlog sheet. */
   onToggleRapporte: () => void
-  /** Opens/closes the Einsatztagebuch (idea R8). */
+  /** Opens/closes the Verlauf (idea R8). */
   onToggleJournal: () => void
   /** `E` («Eintrag schreiben», KP Front's key) — a new journal line: the journal
    *  opens with the caret in it, linked to the selected card when there is one.
@@ -351,7 +351,7 @@ export function useKanbanShortcuts(
         return
       }
 
-      // `E` — «Eintrag schreiben»: the Einsatztagebuch opens with the caret in
+      // `E` — «Eintrag schreiben»: the Verlauf opens with the caret in
       // its line. The same key as in KP Front, so the habit carries over. It
       // used to open the card detail, which Enter and Space do now.
       if ((e.key === "e" || e.key === "E") && !e.metaKey && !e.ctrlKey && !e.altKey) {
@@ -361,7 +361,7 @@ export function useKanbanShortcuts(
         }
         return
       }
-      // «Journal» — the Einsatztagebuch. `j` was free; letter-matched like `o`.
+      // «Journal» — the Verlauf. `j` was free; letter-matched like `o`.
       if ((e.key === "j" || e.key === "J") && !e.metaKey && !e.ctrlKey) {
         e.preventDefault()
         actions.onToggleJournal()

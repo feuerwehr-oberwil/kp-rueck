@@ -492,7 +492,7 @@ describe("useKanbanShortcuts", () => {
       expect(actions.onToggleAuftraege).toHaveBeenCalledTimes(1);
     });
 
-    it("'j' toggles the Einsatztagebuch, but never while typing", () => {
+    it("'j' toggles the Verlauf, but never while typing", () => {
       renderHook(() => useKanbanShortcuts(baseState(), actions));
       press("j");
       press("J");

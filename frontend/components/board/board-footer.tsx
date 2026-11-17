@@ -350,7 +350,7 @@ export function BoardFooter({
                   ),
                 }]
               : []),
-            /* The Einsatztagebuch (idea R8): the Ereignis' log — the board's own
+            /* The Verlauf (idea R8): the Ereignis' log — the board's own
                facts plus the lines that belong to no card. Always there: an
                empty log is still where the first line gets written. */
             {

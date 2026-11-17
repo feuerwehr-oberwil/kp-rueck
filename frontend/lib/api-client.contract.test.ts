@@ -157,7 +157,7 @@ const rows: Row[] = [
   ['getSyncVersion', () => apiClient.getSyncVersion('e 1'), 'GET', '/api/incidents/sync-version?event_id=e%201'],
   ['setRekoArrived(now)', () => apiClient.setRekoArrived('i1'), 'POST', '/api/incidents/i1/reko-arrived', {}],
   ['setRekoArrived(clear)', () => apiClient.setRekoArrived('i1', null), 'POST', '/api/incidents/i1/reko-arrived', { arrived_at: null }],
-  // Einsatztagebuch
+  // Verlauf
   ['getJournal', () => apiClient.getJournal('e1', 7), 'GET', '/api/events/e1/journal?since_seq=7'],
   ['appendJournal', () => apiClient.appendJournal('e1', { client_id: 'c1', text: 'x', incident_id: 'i1' }), 'POST', '/api/events/e1/journal', { client_id: 'c1', text: 'x', incident_id: 'i1' }],
   ['correctJournal', () => apiClient.correctJournal('e1', 'j1', { client_id: 'c2', text: 'y' }), 'POST', '/api/events/e1/journal/j1/corrections', { client_id: 'c2', text: 'y' }],

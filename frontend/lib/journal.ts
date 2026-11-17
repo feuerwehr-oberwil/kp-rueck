@@ -1,5 +1,5 @@
 /**
- * Einsatztagebuch — the pure half of the journal drawer (idea R8).
+ * Verlauf — the pure half of the journal drawer (idea R8).
  *
  * The server keeps one append-only log per Ereignis (`journal_entries`): the board's own
  * facts, written as they happen, and the operator's manual lines. A correction is a NEW
