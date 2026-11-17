@@ -178,6 +178,9 @@ will keep holding.
   from the same snapshot. A temporary outage before the first load shows a retry message.
   After a successful load the wall keeps the last picture and shows its age. Expired links
   leave the operator's login intact.
+- **The wall board fits its type to the open columns.** At 1440 px, «Talstrasse 11» and
+  «Im Einsatz» each fit on one line with six columns open. Folding columns can make room
+  for larger type.
 - **Check-in kiosks** refresh the event roster using their check-in link, including changes
   made at other kiosks. A connection loss preserves the guest name an editor is typing, and
   submission resumes when the roster is current. Field forms support pinch zoom on phones.

@@ -8,7 +8,7 @@ import { useEffect, type RefObject } from 'react'
  * A wall has no pointer to scroll a column with, so «everything visible» beats
  * «as large as possible» – but where everything fits, it should be as large as
  * it can be. Every size on the wall card is rem, so one number scales the whole
- * board: the largest root size at which no column body has to scroll.
+ * board: fit the height of the busiest column and the width of each open one.
  *
  * Bounds: never below 14px (the Meldung is 0.84rem ≈ 11.8px there, the address
  * 17.5px – the floor for reading from across a room; a column that still does
@@ -18,6 +18,11 @@ import { useEffect, type RefObject } from 'react'
 export const WALL_FIT_MIN_PX = 14
 export const WALL_FIT_MAX_PX = 20
 const STEP_PX = 0.25
+
+// At about 210px wide this gives a column 20px addresses: «Talstrasse 11» and
+// the «Im Einsatz» heading beside its overdue badge each fit on one line.
+// A 260px column has room for the full 25px addresses.
+const MIN_COLUMN_WIDTH_REM = 13
 
 /** The column bodies the fit must not let scroll carry this attribute. */
 const WALL_COLUMN_BODY_ATTR = 'data-wall-column-body'
@@ -69,7 +74,9 @@ export function useWallFit(boardRef: RefObject<HTMLElement | null>, enabled = tr
       // layout per probe, about five per fit.
       const fits = (px: number) => {
         root.style.fontSize = `${px}px`
-        return bodies.every((body) => body.scrollHeight <= body.clientHeight + 1)
+        return bodies.every((body) =>
+          body.clientWidth >= MIN_COLUMN_WIDTH_REM * px && body.scrollHeight <= body.clientHeight + 1,
+        )
       }
       root.style.fontSize = `${largestFitting(WALL_FIT_MIN_PX, WALL_FIT_MAX_PX, STEP_PX, fits)}px`
     }
