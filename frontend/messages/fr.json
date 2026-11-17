@@ -4570,6 +4570,7 @@
     "submit": "Inscrire",
     "submitCorrect": "Corriger",
     "saveFailed": "Non enregistré – le texte est toujours là. Renvoyer.",
+    "textRequired": "L’entrée manque – écris d’abord, puis envoie.",
     "linkTitle": "Lier une intervention",
     "linkSearch": "Chercher une intervention par numéro ou lieu",
     "linkSearchPlaceholder": "Numéro ou lieu",

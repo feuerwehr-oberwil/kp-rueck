@@ -43,7 +43,7 @@ import { Input } from "@/components/ui/input"
 import { SearchInput } from "@/components/ui/search-input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { EmptyState } from "@/components/ui/empty-state"
-import { FormMessage, fieldMessageProps, formMessageId } from "@/components/ui/form-message"
+import { FormMessage, fieldMessageProps, focusFirstBlockingField, formMessageId } from "@/components/ui/form-message"
 import { LoadingStatus, ShellLoader } from "@/components/ui/shell-loader"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useStandby } from "@/lib/contexts/standby-context"
@@ -583,7 +583,13 @@ function JournalComposer({
 
   const submit = async () => {
     const body = text.trim()
-    if (!body || sending) return
+    if (sending) return
+    // An empty send says so under the line instead of a grey button.
+    if (!body) {
+      setError(t("textRequired"))
+      focusFirstBlockingField([INPUT_ID])
+      return
+    }
     setSending(true)
     setError(null)
     try {
@@ -820,14 +826,14 @@ function JournalComposer({
           <Button
             type="submit"
             size="icon"
-            disabled={!text.trim() || sending}
+            disabled={sending}
             className="size-(--field-h) min-h-0 min-w-0 shrink-0"
             aria-label={t(correcting ? "submitCorrect" : "submit")}
           >
             {sending ? <ShellLoader /> : <SendHorizontal className="size-4" aria-hidden="true" />}
           </Button>
         ) : (
-          <Button type="submit" size="sm" disabled={!text.trim() || sending} className="shrink-0 gap-1.5 min-h-[var(--field-h,36px)]">
+          <Button type="submit" size="sm" disabled={sending} className="shrink-0 gap-1.5 min-h-[var(--field-h,36px)]">
             {sending && <ShellLoader />}
             {t(correcting ? "submitCorrect" : "submit")}
           </Button>

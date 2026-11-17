@@ -4570,6 +4570,7 @@
     "submit": "Eintragen",
     "submitCorrect": "Korrigieren",
     "saveFailed": "Nicht gespeichert – der Text ist noch da. Erneut senden.",
+    "textRequired": "Eintrag fehlt – erst schreiben, dann senden.",
     "linkTitle": "Einsatz verknüpfen",
     "linkSearch": "Einsatz nach Nummer oder Ort suchen",
     "linkSearchPlaceholder": "Nummer oder Ort",
