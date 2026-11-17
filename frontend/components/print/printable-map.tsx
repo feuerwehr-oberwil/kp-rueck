@@ -6,7 +6,7 @@ import type { Map as MlMap } from "maplibre-gl"
 import { Marker } from "react-map-gl/maplibre"
 import { BaseMap } from "@/components/map/base-map"
 import type { Operation } from "@/lib/contexts/operations-context"
-import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
+import { PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
 import { getIncidentLocationLabel } from "@/lib/incident-types"
 import { isLocated } from "@/lib/utils/route-geo"
 import { fitTo, type LatLngPoint } from "@/lib/map-view"
@@ -76,7 +76,7 @@ const PRINT_MAP_CSS = `
 /** Marker: priority colour, plus the number the incident carries in the list. */
 function markerStyle(priority: string): CSSProperties {
   const color =
-    PRIORITY_MARKER_COLORS[priority as keyof typeof PRIORITY_MARKER_COLORS] ?? MAP_COLORS.offline
+    PRIORITY_MARKER_COLORS[priority as keyof typeof PRIORITY_MARKER_COLORS] ?? PRIORITY_MARKER_COLORS.low
 
   return {
     width: MARKER_SIZE,
@@ -231,7 +231,7 @@ export default function PrintableMap({ operations, numbering, onReady, onError, 
 
   if (!hasMap) {
     return (
-      <div className="h-[250px] bg-gray-100 flex items-center justify-center text-gray-500 text-sm border border-gray-300">
+      <div className="h-[250px] bg-paper-panel flex items-center justify-center text-paper-dim text-sm border border-paper-rule">
         {t("noCoordinates")}
       </div>
     )
@@ -250,7 +250,7 @@ export default function PrintableMap({ operations, numbering, onReady, onError, 
     <div style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
       <style>{PRINT_MAP_CSS}</style>
       <div
-        className="print-map border border-gray-300"
+        className="print-map border border-paper-rule"
         style={{ height: MAP_HEIGHT, width: MAP_WIDTH }}
         data-testid="printable-map"
         data-map-ready={ready ? "true" : "false"}
