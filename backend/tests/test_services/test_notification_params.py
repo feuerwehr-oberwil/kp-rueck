@@ -16,8 +16,8 @@ from app.services.storage_usage import BYTES_PER_GB
 CASES = [
     # (built, message, params)
     (
-        texts.time_in_status("Mühlemattstrasse 18", 56, "enroute", "Disponiert"),
-        "Mühlemattstrasse 18: 56m im Status «Disponiert»",
+        texts.time_in_status("Mühlemattstrasse 18", 56, "enroute", "Disponiert / Anfahrt"),
+        "Mühlemattstrasse 18: 56m im Status «Disponiert / Anfahrt»",
         {"variant": "status", "place": "Mühlemattstrasse 18", "minutes": 56, "status": "enroute"},
     ),
     (
@@ -107,7 +107,7 @@ CASES = [
     ),
     (
         texts.field_arrived("Mühlemattstrasse 18", "field", "Bendik Dimitri", "active"),
-        "Angekommen: Mühlemattstrasse 18 · Bendik Dimitri – Karte in «Einsatz» verschoben",
+        "Angekommen: Mühlemattstrasse 18 · Bendik Dimitri – Karte in «Im Einsatz» verschoben",
         {"place": "Mühlemattstrasse 18", "moved_to": "active", "actor_kind": "field", "actor_name": "Bendik Dimitri"},
     ),
     (

@@ -602,7 +602,7 @@
     "nextStop": {
       "title": "Nächsten Stopp starten?",
       "description": "<hl>{finished}</hl> ist beendet und im Auftrag «{auftrag}» arbeitet gerade niemand mehr. Nächster offener Stopp: <hl>{next}</hl>.",
-      "confirm": "Nächsten Stopp auf Einsatz"
+      "confirm": "Nächsten Stopp auf «Im Einsatz»"
     },
     "rekoMissing": {
       "description": "<hl>{location}</hl> soll in die Reko-Spalte, es ist aber noch keine Reko-Person zugewiesen. Ohne Zuweisung erhält niemand das Reko-Formular. Möchtest du jetzt jemanden zuweisen oder trotzdem fortfahren?",
@@ -1109,7 +1109,7 @@
       "nextStop": "Weiter zu: {location}",
       "stopConfirm": "Stopp abschliessen",
       "stopToastTitle": "Stopp {location} abgeschlossen",
-      "stopConfirmAndNext": "Abschliessen & nächsten Stopp auf Einsatz",
+      "stopConfirmAndNext": "Abschliessen & nächsten Stopp auf «Im Einsatz»",
       "stopDescriptionNoRelease": "<hl>{location}</hl> ist erledigt, der Auftrag «{auftrag}» läuft weiter. Dieser Stopp gibt nichts frei – die Mittel gehören zum Auftrag und fahren mit."
     },
     "statusCorrection": {
@@ -1298,7 +1298,7 @@
       "noPersonsFound": "Keine Personen gefunden",
       "noAvailablePersons": "Keine verfügbaren Personen",
       "tryDifferentSearch": "Versuche einen anderen Suchbegriff",
-      "allAssignedHint": "Alle Personen sind bereits als Fahrer eingeteilt oder nicht eingecheckt",
+      "allAssignedHint": "Alle Personen sind bereits als Fahrer zugewiesen oder nicht eingecheckt",
       "close": "Schliessen",
       "conflictTitle": "Person ist einem Einsatz zugewiesen",
       "conflictDescription": "<strong>{name}</strong> ist aktuell {count, plural, one {dem Einsatz «{location}» zugewiesen} other {# Einsätzen zugewiesen}}. Als Fahrer kann die Person nicht gleichzeitig einem Einsatz zugewiesen sein.",
@@ -1353,12 +1353,12 @@
     "gpsArrival": {
       "fallbackVehicle": "Fahrzeug",
       "fallbackIncident": "Einsatz",
-      "movedToActive": "{label} auf Einsatz gesetzt",
+      "movedToActive": "{label} auf «Im Einsatz» gesetzt",
       "statusChangeFailed": "Statusänderung fehlgeschlagen",
       "title": "Fahrzeug am Einsatzort",
       "description": "<strong>{vehicle}</strong> ist beim Einsatz «{label}» angekommen. Auf Einsatz setzen?",
       "decline": "Nicht verschieben",
-      "confirm": "Auf Einsatz setzen"
+      "confirm": "Auf «Im Einsatz» setzen"
     },
     "gpsRelease": {
       "fallbackVehicle": "Fahrzeug",
@@ -2148,10 +2148,10 @@
       "title": "GPS-Statusautomatik",
       "intro": "Schaltet zwei GPS-gestützte Regeln frei. <strong>Ankunft</strong> fragt nach, ob ein disponierter Einsatz auf <em>Einsatz</em> gesetzt werden soll, sobald ein zugewiesenes Fahrzeug am Einsatzort steht. <strong>Rückkehr</strong> fragt nach, ob ein Fahrzeug freigegeben werden soll, wenn es ins Magazin zurückkehrt – nie automatisch. Funktioniert auch in Übungen; im Demo-Modus inaktiv.",
       "arrivalLabel": "Ankunft am Einsatzort",
-      "arrivalHint": "Fragt nach, ob ein disponierter Einsatz auf «Einsatz» gesetzt werden soll, sobald ein zugewiesenes Fahrzeug am Einsatzort bestätigt ist.",
+      "arrivalHint": "Fragt nach, ob ein disponierter Einsatz auf «Im Einsatz» gesetzt werden soll, sobald ein zugewiesenes Fahrzeug am Einsatzort bestätigt ist.",
       "silentLabel": "Automatisch ohne Rückfrage",
-      "silentHint": "Setzt den Einsatz ohne Rückfrage automatisch auf «Einsatz» – nur bei zuverlässiger GPS-Abdeckung aktivieren.",
-      "silentWarning": "Einsätze werden <strong>ohne Rückfrage</strong> anhand von GPS-Daten auf «Einsatz» gesetzt. GPS kann ungenau oder lückenhaft sein. Jede automatische Statusänderung ist im Protokoll als «GPS-Automatik» vermerkt und lässt sich wie ein manueller Zug jederzeit rückgängig machen.",
+      "silentHint": "Setzt den Einsatz ohne Rückfrage automatisch auf «Im Einsatz» – nur bei zuverlässiger GPS-Abdeckung aktivieren.",
+      "silentWarning": "Einsätze werden <strong>ohne Rückfrage</strong> anhand von GPS-Daten auf «Im Einsatz» gesetzt. GPS kann ungenau oder lückenhaft sein. Jede automatische Statusänderung ist im Protokoll als «GPS-Automatik» vermerkt und lässt sich wie ein manueller Zug jederzeit rückgängig machen.",
       "returnLabel": "Magazin: Freigabe vorschlagen",
       "returnHint": "Fragt nach, ob ein Fahrzeug freigegeben werden soll, wenn es ins Magazin zurückkehrt. Schliesst den Einsatz nie automatisch.",
       "stationLabel": "Magazin (Heimatbasis)",
@@ -2329,7 +2329,7 @@
       "setupTitle": "Aufbau",
       "setupText": "Ein Print-Agent (Raspberry Pi) im Kommandoposten-Netzwerk fragt das Backend regelmässig nach neuen Druckaufträgen ab und sendet diese an den Thermodrucker.",
       "jobsTitle": "Druckaufträge",
-      "jobEinsatzzettel": "<strong>Einsatzzettel</strong> – wird automatisch gedruckt wenn ein Einsatz auf «Disponiert» oder «Einsatz» gesetzt wird, oder manuell über das Kontextmenü",
+      "jobEinsatzzettel": "<strong>Einsatzzettel</strong> – wird automatisch gedruckt wenn ein Einsatz auf «Disponiert / Anfahrt» oder «Im Einsatz» gesetzt wird, oder manuell über das Kontextmenü",
       "jobBoardSnapshot": "<strong>Board-Snapshot</strong> – über den «Thermo»-Button in der Fussleiste, mit Optionen für abgeschlossene Einsätze, Fahrzeuge und Personal",
       "pollingTitle": "Polling-Verhalten",
       "pollingText": "Im Ruhezustand fragt der Agent alle 60 Sekunden ab. Nach einem Druckauftrag wechselt er für 15 Minuten auf 5-Sekunden-Intervalle, damit Folgeaufträge schneller verarbeitet werden.",
@@ -3444,7 +3444,7 @@
         "targetGone": "{target} ist nicht mehr auf dem Board.",
         "targetClosed": "{target} ist bereits abgeschlossen.",
         "alreadyBack": "{resource} ist bereits wieder bei {target}.",
-        "elsewhere": "Inzwischen bei {where} eingeteilt – diese neuere Zuweisung bleibt.",
+        "elsewhere": "Inzwischen bei {where} zugewiesen – diese neuere Zuweisung bleibt.",
         "outOfService": "{resource} ist nicht einsatzbereit.",
         "resourceGone": "{resource} ist nicht mehr im Bestand oder abgemeldet.",
         "unavailable": "{resource} ist als nicht verfügbar gemeldet."
@@ -3625,7 +3625,7 @@
       "footer": "Fahrten laufen in gerader Linie (inkl. Umwegfaktor), bremsen vor dem Ziel ab und stoppen automatisch nach 30 Minuten. Das Tempo gilt für alle Fahrzeuge – Ändern während der Fahrt passt laufende Fahrten an. Rückfahrten starten am zugewiesenen Einsatzort.",
       "lockedDemo": "Im Demo-Modus nicht verfügbar – simulierte Fahrten sind hier gesperrt.",
       "speedChangeFailed": "Tempo konnte nicht geändert werden",
-      "arrivalHintTitle": "Hinweis: Ankunftsmeldung kommt nur bei Status «Disponiert»",
+      "arrivalHintTitle": "Hinweis: Ankunftsmeldung kommt nur bei Status «Disponiert / Anfahrt»",
       "arrivalHintDescription": "Der Einsatz steht aktuell nicht auf Disponiert – die Fahrt läuft, aber ohne Ankunfts-Abfrage.",
       "startFailed": "Simulation konnte nicht gestartet werden",
       "returnFailed": "Rückfahrt konnte nicht gestartet werden",
@@ -4020,7 +4020,7 @@
       "title": "Meine Schadenplätze",
       "notMe": "Nicht ich",
       "notMeConfirm": "Abmelden",
-      "empty": "Dir ist im Moment kein Schadenplatz zugewiesen. Melde dich beim KP – sobald du eingeteilt bist, erscheint er hier.",
+      "empty": "Dir ist im Moment kein Schadenplatz zugewiesen. Melde dich beim KP – sobald du zugewiesen bist, erscheint er hier.",
       "released": "Nicht mehr zugewiesen",
       "past": "Früher",
       "notMeTitle": "Abmelden?",
@@ -4408,7 +4408,7 @@
       "kommandopostenBody": "Du führst die Lage auf dem Board. Hier steht nur, was im Feld passiert.",
       "driverTitle": "Du fährst {vehicle}",
       "driverBody": "Sobald {vehicle} disponiert wird, erscheint die Einsatzstelle hier.",
-      "rekoTitle": "Du bist für die Reko eingeteilt",
+      "rekoTitle": "Dir ist die Reko zugewiesen",
       "rekoBody": "Sobald dir der KP einen Erkundungsauftrag gibt, erscheint er hier."
     },
     "roles": {

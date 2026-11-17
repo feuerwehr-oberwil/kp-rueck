@@ -89,7 +89,8 @@ _PHOTO_MAX_H = 35 * mm
 _BORDER = colors.HexColor("#a1a1aa")
 _HEADER_BG = colors.HexColor("#f4f4f5")
 
-_PRIORITY_SHORT = {"high": "H", "medium": "M", "low": "T"}
+#: «H» / «M» / «N» – the initials of the board's Hoch / Mittel / Niedrig.
+_PRIORITY_SHORT = {key: label[0] for key, label in PRIORITY_LABELS.items()}
 
 # Swiss fire service rank order (highest first) and compact display prefixes.
 # role_sort_order in the DB is not reliably populated, so rank by name.

@@ -724,7 +724,7 @@ function FeldSurface() {
    * `/feld` had no live path at all: a crew watched a page that never changed
    * until it reloaded. Not a pickup the KP cleared, not a rapport a colleague
    * filed, not an arrival, and — worst — not a new Schadenplatz they had just
-   * been assigned to, while the empty state promises "sobald du eingeteilt
+   * been assigned to, while the empty state promises "sobald du zugewiesen
    * bist, erscheint sie hier".
    *
    * The socket was the other candidate and was rejected. It requires a JWT in

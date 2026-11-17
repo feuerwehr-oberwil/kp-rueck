@@ -22,6 +22,8 @@ message, a pickup note, a training inject's sentence) — it is content, not UI 
 
 from typing import Any
 
+from .rapport_rows import STATUS_LABELS
+
 Params = dict[str, Any]
 Built = tuple[str, Params]
 
@@ -214,21 +216,17 @@ def actor_suffix(kind: str, name: str | None) -> str:
     return f" · {name}" if kind == "field" and name else f" · {_ACTOR_DE[kind]}"
 
 
-#: The column titles the German sentence names (the client uses its own column labels).
-_MOVED_LABEL_DE = {"active": "Einsatz", "returning": "Beendet / Rückfahrt"}
-
-
 def field_arrived(place: str, kind: str, name: str | None, moved_to: str | None) -> Built:
     message = f"Angekommen: {place}{actor_suffix(kind, name)}"
     if moved_to:
-        message += f" – Karte in «{_MOVED_LABEL_DE[moved_to]}» verschoben"
+        message += f" – Karte in «{STATUS_LABELS[moved_to]}» verschoben"
     return (message, {"place": place, "moved_to": moved_to, **actor_params(kind, name)})
 
 
 def field_complete(place: str, kind: str, name: str | None, moved_to: str | None) -> Built:
     message = f"Einsatz beendet gemeldet: {place}{actor_suffix(kind, name)}"
     if moved_to:
-        message += f" – Karte in «{_MOVED_LABEL_DE[moved_to]}» verschoben"
+        message += f" – Karte in «{STATUS_LABELS[moved_to]}» verschoben"
     return (message, {"place": place, "moved_to": moved_to, **actor_params(kind, name)})
 
 
