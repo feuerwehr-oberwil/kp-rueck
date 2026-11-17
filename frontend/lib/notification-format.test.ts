@@ -212,10 +212,10 @@ describe('notificationParts — system notifications stay one line', () => {
     expect(parts({ type: 'no_personnel', params: {} }, fr).what).toBe(
       'Plus de personnel disponible – toutes les personnes enregistrées sont attribuées',
     )
-    expect(parts({ type: 'no_materials', params: { location: 'Depot', available: 0 } }).what).toBe('Keine Einheiten von «Depot» mehr verfügbar')
-    expect(parts({ type: 'no_materials', params: { location: 'TLF', available: 1 } }).what).toBe('Nur noch 1 Einheit von «TLF» verfügbar')
+    expect(parts({ type: 'no_materials', params: { location: 'Depot', available: 0 } }).what).toBe('Keine Geräte von «Depot» mehr verfügbar')
+    expect(parts({ type: 'no_materials', params: { location: 'TLF', available: 1 } }).what).toBe('Nur noch 1 Gerät von «TLF» verfügbar')
     expect(parts({ type: 'no_materials', params: { location: 'TLF', available: 2 } }, fr).what).toBe(
-      'Plus que 2 unités disponibles à « TLF »',
+      'Plus que 2 pièces de matériel disponibles à « TLF »',
     )
     expect(parts({ type: 'missing_location', params: { title: 'Kellerbrand' } }, fr).what).toBe(
       'L’intervention « Kellerbrand » n’a pas de position géocodée',
