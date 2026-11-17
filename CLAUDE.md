@@ -313,7 +313,7 @@ runtime `API_URL`. Same reasoning for map tiles (`getTileBaseUrl` → `/tiles`).
   so a confirm can never count as a cancel.
 - **Pick a person = `PersonPickTile`** (`components/kanban/assignment-list-section.tsx`) in a
   `PickerDialog` (`components/ui/picker-dialog.tsx`: dialog on a desk, bottom sheet on a
-  phone): tick box, `PersonName`, the one rank · where · roles line; chosen = slate wash, the
+  phone): tick box, `PersonName`, the one rank · where · roles line; chosen = sel wash, the
   current holder «aktuell». A tap ticks, «Übernehmen» applies; nothing ticked is said above
   the list. Driver, Reko zuweisen/übertragen, Reko-Modus and the assignment dialog's crew.
 - **Empty lists** (`components/ui/empty-state.tsx`): say WHY and offer the one way out – search

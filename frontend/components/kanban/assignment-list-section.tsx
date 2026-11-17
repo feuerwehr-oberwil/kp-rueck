@@ -159,7 +159,7 @@ export const TILE_HOVER = "hover:border-border hover:bg-muted/40"
  * single-choice pickers (Fahrer, Reko zuweisen / übertragen, Reko-Modus – ENT-10 A). Tick box,
  * name through `PersonName` (namesakes get their Kennung), the one `PersonTileLine` under it
  * (the rank abbreviated, like the sidebar's), and an optional `aside` on the right for a
- * picker's own fact (open Rekos, the map swatch). Chosen = slate wash + edge + ✓, never a tint
+ * picker's own fact (open Rekos, the map swatch). Chosen = sel wash + edge + ✓, never a tint
  * of its own. `current` adds «· aktuell» after the name: the person who holds the role now –
  * a fact that stays while the operator ticks somebody else.
  */
