@@ -292,7 +292,7 @@
       "toggleNachbarhilfe": "Basculer « entraide »"
     },
     "meta": {
-      "title": "Tableau de bord KP Rück",
+      "title": "KP Rück",
       "description": "Vue d’ensemble des interventions pour l’engagement de l’effectif et du matériel des sapeurs-pompiers."
     },
     "dismissAllToasts": "Tout fermer",
@@ -2488,7 +2488,6 @@
   },
   "login": {
     "page": {
-      "subtitle": "Tableau d’intervention",
       "demoBadge": "Mode démo",
       "loginFailed": "Échec de la connexion. Vérifie le nom d’utilisateur et le mot de passe.",
       "demoLoginFailed": "Échec de la connexion à la démo.",

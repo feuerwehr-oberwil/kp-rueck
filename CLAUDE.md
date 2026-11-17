@@ -251,7 +251,8 @@ runtime `API_URL`. Same reasoning for map tiles (`getTileBaseUrl` → `/tiles`).
   one line moves to its own line rather than ending in «…».
 - **Resource conflicts**: UI warns when assigning already-assigned personnel/vehicles/materials
 - **Loading states – one signal, always with words.** A full-screen start (auth probe, Microsoft
-  callback) is `components/boot-screen.tsx`: snail + «KP RÜCK» + the phase, no percentage, and
+  callback) is `components/boot-screen.tsx`: snail + «KP RÜCK» + the station's name once this device
+  has loaded a board (`lib/station-name.ts`; the login card shows it too) + the phase, no percentage, and
   «Neu starten» after 9 s. In the app it is the shell trail (`components/ui/shell-loader.tsx`):
   `LoadingStatus` for a stand-alone wait (words required, `role="status"`; `surface` = 48px
   stacked for an empty dialog/panel, `inline` = 20px beside the text), `ShellLoader` in the icon

@@ -183,7 +183,7 @@
       "toggleNachbarhilfe": "Nachbarhilfe umschalten"
     },
     "meta": {
-      "title": "KP Rück Dashboard",
+      "title": "KP Rück",
       "description": "Einsatzübersicht für die Mannschafts- und Materialdisposition der Feuerwehr."
     },
     "dismissAllToasts": "Alle schliessen",
@@ -2512,7 +2512,6 @@
   },
   "login": {
     "page": {
-      "subtitle": "Einsatz-Dashboard",
       "demoBadge": "Demo-Modus",
       "loginFailed": "Anmeldung fehlgeschlagen. Bitte überprüfe Benutzername und Passwort.",
       "demoLoginFailed": "Demo-Anmeldung fehlgeschlagen.",
