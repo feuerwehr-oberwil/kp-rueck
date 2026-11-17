@@ -24,7 +24,7 @@ const getAllPersonnel = vi.fn();
 const createPersonnel = vi.fn();
 const updatePersonnel = vi.fn();
 const deletePersonnel = vi.fn();
-/** Capability registry – decides whether the «Von Divera synchronisieren» button is live. */
+/** Capability registry – decides whether the «Mit Divera abgleichen» button is live. */
 const getIntegrations = vi.fn();
 
 vi.mock("@/lib/api-client", async (importOriginal) => ({
@@ -97,7 +97,7 @@ describe("PersonnelSettings", () => {
     getIntegrations.mockResolvedValue(integrationsWithPersonnel(false));
     renderWithIntl(<PersonnelSettings />);
 
-    const syncButton = await screen.findByRole("button", { name: /Von Divera synchronisieren/i });
+    const syncButton = await screen.findByRole("button", { name: /Mit Divera abgleichen/i });
     await waitFor(() => expect(syncButton).toBeDisabled());
     // Never disabled in silence: the reason sits next to the control.
     expect(screen.getByRole("note")).toBeInTheDocument();
@@ -204,7 +204,7 @@ describe("PersonnelSettings on a phone", () => {
     expect(screen.getByText("Mannschaft · Atemschutz")).toBeInTheDocument();
     expect(screen.getByText("Offizier · Nicht verfügbar")).toBeInTheDocument();
     expect(screen.queryByRole("table")).toBeNull();
-    expect(screen.queryByRole("button", { name: /Person erstellen|Von Divera synchronisieren|Aktionen/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Person erstellen|Mit Divera abgleichen|Aktionen/ })).toBeNull();
 
     await user.type(screen.getByPlaceholderText("Person suchen …"), "müller");
     expect(screen.queryByText("Bendik-Dimitrijević Alexandra")).toBeNull();
