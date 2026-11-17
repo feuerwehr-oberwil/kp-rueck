@@ -376,7 +376,7 @@ describe('apiClient — the transport rules every method inherits', () => {
     await vi.runAllTimersAsync()
     await outage
     expect(toast.error).toHaveBeenCalledTimes(1)
-    expect(toast.error.mock.calls[0][0]).toBe('Server nicht erreichbar – angezeigt wird der letzte Stand.')
+    expect(toast.error.mock.calls[0][0]).toBe('Server nicht erreichbar – angezeigt wird der letzte Stand')
 
     const release = claimOutageVoice()
     expect(toast.dismiss).toHaveBeenCalledWith('api-connection-lost')

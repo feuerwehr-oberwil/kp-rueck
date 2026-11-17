@@ -52,7 +52,7 @@ const restListeners = new Set<(reachable: boolean) => void>()
 // notification poll's) go through `showOutageToast`, which stays quiet while it
 // is claimed, and a claim takes down the ones already up. Where no banner shows
 // (a page that never loaded the board: login, /feld, /reko …) the toast is the
-// only voice and says «Server nicht erreichbar – angezeigt wird der letzte Stand.»
+// only voice and says «Server nicht erreichbar – angezeigt wird der letzte Stand»
 let outageVoiceClaims = 0
 const outageToastsUp = new Set<string>()
 

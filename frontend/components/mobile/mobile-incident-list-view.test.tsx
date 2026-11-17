@@ -71,7 +71,7 @@ describe('MobileIncidentListView — empty states', () => {
     await user.click(await screen.findByRole('menuitemcheckbox', { name: /^Im Einsatz/ }))
     await user.keyboard('{Escape}')
     const empty = screen.getByRole('status')
-    expect(empty.textContent).toContain('Keine Einsätze mit Status «Im Einsatz».')
+    expect(empty.textContent).toContain('Keine Einsätze mit Status «Im Einsatz»')
 
     await user.click(within(empty).getByRole('button', { name: 'Alle zeigen' }))
     expect(screen.getAllByTestId('card')).toHaveLength(2)

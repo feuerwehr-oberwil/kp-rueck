@@ -862,12 +862,12 @@
       "filterHidesSearch": "{count, plural, one {Der Filter {filters} blendet} other {Die Filter {filters} blenden}} die Treffer für «{query}» aus.",
       "onlyAssignedNoneIncident": "Der Filter «Nur zugewiesene» blendet alle Fahrzeuge aus – diesem Einsatz ist noch keines zugewiesen.",
       "onlyAssignedNoneRoute": "Der Filter «Nur zugewiesene» blendet alle Fahrzeuge aus – diesem Auftrag ist noch keines zugewiesen.",
-      "noneCrewTitle": "Noch niemand eingecheckt.",
+      "noneCrewTitle": "Noch niemand eingecheckt",
       "noneCrewBody": "Wer eincheckt, erscheint hier. Den Check-in-Link gibt es unter «Links & QR».",
       "showCheckInLink": "Check-in-Link zeigen",
-      "noneVehiclesTitle": "Keine Fahrzeuge erfasst.",
+      "noneVehiclesTitle": "Keine Fahrzeuge erfasst",
       "noneVehiclesBody": "Fahrzeuge werden in den Einstellungen erfasst.",
-      "noneMaterialsTitle": "Kein Material erfasst.",
+      "noneMaterialsTitle": "Kein Material erfasst",
       "noneMaterialsBody": "Material wird in den Einstellungen erfasst.",
       "allBusyCrew": "Niemand ist frei – alle unten sind schon im Einsatz oder haben eine Funktion. Nehmen geht, mit Rückfrage.",
       "allBusyVehicles": "Kein Fahrzeug ist frei – die unten sind im Einsatz oder nicht einsatzbereit.",
@@ -1189,7 +1189,7 @@
       "sortedBy": "Sortiert nach {column}",
       "sortAsc": "aufsteigend",
       "sortDesc": "absteigend",
-      "emptyFilteredTitle": "Niemand passt zu diesem Filter.",
+      "emptyFilteredTitle": "Niemand passt zu diesem Filter",
       "resetFilter": "Filter zurücksetzen"
     }
   },
@@ -1391,7 +1391,7 @@
       "searchPlaceholder": "Einsatz suchen …",
       "noActive": "Keine aktiven Einsätze",
       "searchScope": "Gesucht wird in Ort, Meldung, Einsatzart, Fahrzeugen, Mannschaft und Material.",
-      "noneInFilter": "Keine Einsätze mit Status «{filter}».",
+      "noneInFilter": "Keine Einsätze mit Status «{filter}»",
       "showAll": "Alle zeigen",
       "filter": "Filtern",
       "filterOn": "Filtern – {filters}",
@@ -1462,7 +1462,7 @@
       "defaultName": "Auftrag {n}",
       "create": "Erstellen",
       "cancel": "Abbrechen",
-      "noGroupSelected": "Wähle oder erstelle einen Auftrag, um Stopps zu planen.",
+      "noGroupSelected": "Wähle oder erstelle einen Auftrag, um Stopps zu planen",
       "order": "Reihenfolge",
       "addStopToggle": "Stopp hinzufügen",
       "addStopHint": "Klick auf die Karte platziert einen neuen Stopp.",
@@ -2039,7 +2039,7 @@
           "stockOutdatedNote": "Die Bestandszahlen bei der Moduswahl oben sind veraltet – die Tabelle zeigt die Zahlen vom Server.",
           "afterEmpty": "leer",
           "totalRow": "Total Datensätze",
-          "nothingDeletedTitle": "Es wird nichts gelöscht.",
+          "nothingDeletedTitle": "Es wird nichts gelöscht",
           "nothingDeletedHint": "Keine Zuweisung verliert ihre Ressource, kein laufender Einsatz ist betroffen.",
           "consequencesTitle": "Folgen auf dem Einsatzboard",
           "consequencesBlockedTitle": "Blockiert: aktive Zuweisungen auf laufenden Einsätzen und Aufträgen",
@@ -2690,11 +2690,11 @@
       "legendP90": "bis P90",
       "noneYet": "noch keine",
       "definitions": "Zeit ab Eingang bis zum ersten Erreichen der Stufe; eine Karte, die eine Spalte übersprungen hat, zählt trotzdem. Eine Meldung, die schon disponiert angelegt wurde (Feld «Wir übernehmen»), zählt mit 0′; eine Verschiebung, die innert 2 Minuten zurückgenommen wurde, zählt nicht. Abschluss = letzter Abschluss: eine wieder geöffnete Meldung zählt erst, wenn sie erneut abgeschlossen ist. P90 = 9 von 10 Einsätzen waren gleich schnell oder schneller. Dieselben Werte wie im Einsatzbericht (PDF).",
-      "empty": "Noch keine Meldungen in diesem Ereignis.",
+      "empty": "Noch keine Meldungen in diesem Ereignis",
       "loading": "Kennzahlen werden geladen …",
       "loadFailed": "Kennzahlen konnten nicht geladen werden.",
       "stale": "Letzte Aktualisierung fehlgeschlagen – die Werte können veraltet sein.",
-      "noEvent": "Kein Ereignis ausgewählt.",
+      "noEvent": "Kein Ereignis ausgewählt",
       "menuItem": "Kennzahlen",
       "wallBadge": "{waiting} offen · {high} hoch",
       "definitionsButton": "Wie wird gerechnet?"
@@ -3426,7 +3426,7 @@
     "api": {
       "title": "API Fehler",
       "noErrorDetails": "Keine Fehlerdetails verfügbar",
-      "connectionTitle": "Server nicht erreichbar – angezeigt wird der letzte Stand.",
+      "connectionTitle": "Server nicht erreichbar – angezeigt wird der letzte Stand",
       "unknown": "Unbekannter Fehler",
       "photoUploadFailed": "Foto-Upload fehlgeschlagen",
       "uploadTimeout": "Upload-Zeitüberschreitung - bitte erneut versuchen"
@@ -4039,7 +4039,7 @@
       "failed": "Konnte nicht gesendet werden – der Text bleibt erhalten. Verbindung prüfen.",
       "sending": "«{label}» wird gesendet …",
       "sent": "«{label}» ist beim KP angekommen.",
-      "failedTitle": "«{label}» wurde nicht übermittelt.",
+      "failedTitle": "«{label}» wurde nicht übermittelt",
       "retry": "Nochmals senden",
       "send": "Meldung senden",
       "arrivedAction": "Angekommen melden",
@@ -4233,7 +4233,7 @@
       },
       "picker": {
         "done": "Fertig ({count})",
-        "nothingLeft": "Nichts mehr hinzuzufügen."
+        "nothingLeft": "Nichts mehr hinzuzufügen"
       }
     },
     "materialReturn": {
@@ -4506,7 +4506,7 @@
       "resources": "Ressourcen"
     },
     "loading": "Einsatztagebuch wird geladen …",
-    "loadFailed": "Einsatztagebuch konnte nicht geladen werden.",
+    "loadFailed": "Einsatztagebuch konnte nicht geladen werden",
     "retry": "Erneut versuchen",
     "emptyTitle": "Noch keine Einträge",
     "emptyEditor": "Statuswechsel, Zuweisungen und Meldungen erscheinen hier von selbst. Was zu keinem Einsatz gehört, unten eintragen.",

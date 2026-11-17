@@ -556,7 +556,7 @@
     "api": {
       "title": "Erreur d’API",
       "noErrorDetails": "Aucun détail d’erreur disponible",
-      "connectionTitle": "Serveur injoignable – affichage du dernier état connu.",
+      "connectionTitle": "Serveur injoignable – affichage du dernier état connu",
       "unknown": "Erreur inconnue",
       "photoUploadFailed": "Échec de l’envoi de la photo",
       "uploadTimeout": "Délai d’envoi dépassé – réessaie"
@@ -754,11 +754,11 @@
       "legendP90": "jusqu’au P90",
       "noneYet": "aucune encore",
       "definitions": "Temps depuis la réception jusqu’à la première atteinte de l’étape ; une carte qui a sauté une colonne compte quand même. Une annonce créée déjà engagée (terrain « Nous prenons en charge ») compte pour 0′ ; un déplacement annulé dans les 2 minutes ne compte pas. Clôture = dernière clôture : une annonce rouverte ne compte qu’une fois clôturée à nouveau. P90 = 9 interventions sur 10 ont été aussi rapides ou plus rapides. Les mêmes valeurs que dans le rapport d’intervention (PDF).",
-      "empty": "Aucune annonce dans cet événement pour l’instant.",
+      "empty": "Aucune annonce dans cet événement pour l’instant",
       "loading": "Chargement des indicateurs …",
       "loadFailed": "Impossible de charger les indicateurs.",
       "stale": "La dernière mise à jour a échoué – les valeurs peuvent être dépassées.",
-      "noEvent": "Aucun événement sélectionné.",
+      "noEvent": "Aucun événement sélectionné",
       "menuItem": "Indicateurs",
       "wallBadge": "{waiting} en attente · {high} haute",
       "definitionsButton": "Mode de calcul"
@@ -841,7 +841,7 @@
       "failed": "Envoi impossible – le texte est conservé. Vérifie la liaison.",
       "sending": "Envoi de « {label} » …",
       "sent": "« {label} » est arrivée au PC.",
-      "failedTitle": "« {label} » n’a pas été transmise.",
+      "failedTitle": "« {label} » n’a pas été transmise",
       "retry": "Renvoyer",
       "send": "Envoyer l’annonce",
       "arrivedAction": "Annoncer l'arrivée",
@@ -1035,7 +1035,7 @@
       },
       "picker": {
         "done": "Terminé ({count})",
-        "nothingLeft": "Plus rien à ajouter."
+        "nothingLeft": "Plus rien à ajouter"
       }
     },
     "materialReturn": {
@@ -1459,7 +1459,7 @@
       "searchPlaceholder": "Intervention …",
       "noActive": "Aucune intervention en cours",
       "searchScope": "Recherche dans le lieu, l’annonce, le type, les véhicules, l’équipe et le matériel.",
-      "noneInFilter": "Aucune intervention au statut « {filter} ».",
+      "noneInFilter": "Aucune intervention au statut « {filter} »",
       "showAll": "Tout afficher",
       "filter": "Filtrer",
       "filterOn": "Filtrer – {filters}",
@@ -2141,12 +2141,12 @@
       "filterHidesSearch": "{count, plural, one {Le filtre {filters} masque} other {Les filtres {filters} masquent}} les résultats pour « {query} ».",
       "onlyAssignedNoneIncident": "Le filtre « Attribués uniquement » masque tous les véhicules – aucun n’est encore attribué à cette intervention.",
       "onlyAssignedNoneRoute": "Le filtre « Attribués uniquement » masque tous les véhicules – aucun n’est encore attribué à cette mission.",
-      "noneCrewTitle": "Personne n’est encore enregistré.",
+      "noneCrewTitle": "Personne n’est encore enregistré",
       "noneCrewBody": "Les personnes enregistrées apparaissent ici. Le lien d’enregistrement se trouve sous « Liens & QR ».",
       "showCheckInLink": "Afficher le lien d’enregistrement",
-      "noneVehiclesTitle": "Aucun véhicule saisi.",
+      "noneVehiclesTitle": "Aucun véhicule saisi",
       "noneVehiclesBody": "Les véhicules se saisissent dans les paramètres.",
-      "noneMaterialsTitle": "Aucun matériel saisi.",
+      "noneMaterialsTitle": "Aucun matériel saisi",
       "noneMaterialsBody": "Le matériel se saisit dans les paramètres.",
       "allBusyCrew": "Personne n’est libre – toutes les personnes ci-dessous sont déjà engagées ou ont une fonction. Les prendre reste possible, avec confirmation.",
       "allBusyVehicles": "Aucun véhicule n’est libre – ceux ci-dessous sont engagés ou hors service.",
@@ -2468,7 +2468,7 @@
       "sortedBy": "Trié par {column}",
       "sortAsc": "croissant",
       "sortDesc": "décroissant",
-      "emptyFilteredTitle": "Personne ne correspond à ce filtre.",
+      "emptyFilteredTitle": "Personne ne correspond à ce filtre",
       "resetFilter": "Réinitialiser le filtre"
     }
   },
@@ -2548,7 +2548,7 @@
       "defaultName": "Mission {n}",
       "create": "Créer",
       "cancel": "Annuler",
-      "noGroupSelected": "Choisis ou crée une mission pour planifier des étapes.",
+      "noGroupSelected": "Choisis ou crée une mission pour planifier des étapes",
       "order": "Ordre",
       "addStopToggle": "Ajouter une étape",
       "addStopHint": "Un clic sur la carte place une nouvelle étape.",
@@ -3789,7 +3789,7 @@
           "stockOutdatedNote": "Les chiffres affichés au choix du mode ci-dessus sont périmés – le tableau utilise ceux du serveur.",
           "afterEmpty": "vide",
           "totalRow": "Total des enregistrements",
-          "nothingDeletedTitle": "Rien n'est supprimé.",
+          "nothingDeletedTitle": "Rien n'est supprimé",
           "nothingDeletedHint": "Aucune affectation ne perd sa ressource, aucune intervention en cours n'est touchée.",
           "consequencesTitle": "Conséquences sur le tableau d'engagement",
           "consequencesBlockedTitle": "Bloqué : affectations actives sur des interventions et des missions en cours",
@@ -4506,7 +4506,7 @@
       "resources": "Ressources"
     },
     "loading": "Chargement du journal …",
-    "loadFailed": "Le journal n'a pas pu être chargé.",
+    "loadFailed": "Le journal n'a pas pu être chargé",
     "retry": "Réessayer",
     "emptyTitle": "Aucune entrée pour l'instant",
     "emptyEditor": "Les changements de statut, attributions et messages apparaissent ici d'eux-mêmes. Ce qui n'appartient à aucune intervention se saisit ci-dessous.",

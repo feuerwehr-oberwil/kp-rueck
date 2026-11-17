@@ -155,7 +155,7 @@ describe("(c) there is truly nothing", () => {
     const { props } = renderDialog({ resourceType: "crew", personnel: [], onShowCheckIn })
 
     const empty = screen.getByRole("status")
-    expect(within(empty).getByText("Noch niemand eingecheckt.")).toBeDefined()
+    expect(within(empty).getByText("Noch niemand eingecheckt")).toBeDefined()
     expect(empty.textContent).toContain("«Links & QR»")
 
     await user.click(within(empty).getByRole("button", { name: "Check-in-Link zeigen" }))
@@ -171,7 +171,7 @@ describe("(c) there is truly nothing", () => {
 
   it("no fleet at all keeps «Zu Fuss» — walking is still a choice", () => {
     renderDialog({ vehicles: [], onToggleZuFuss: vi.fn() })
-    expect(screen.getByText("Keine Fahrzeuge erfasst.")).toBeDefined()
+    expect(screen.getByText("Keine Fahrzeuge erfasst")).toBeDefined()
     expect(screen.getByText("Zu Fuss")).toBeDefined()
   })
 })
