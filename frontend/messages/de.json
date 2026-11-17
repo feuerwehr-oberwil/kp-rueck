@@ -2769,6 +2769,8 @@
       "invalidLink": "Dieser Reko-Link ist nicht mehr gültig. Bitte fordere einen neuen Link an.",
       "invalidTitle": "Link ungültig oder abgelaufen",
       "unknownIncident": "Unbekannt",
+      "draftVersions": "Mehrere Entwürfe für diesen Bericht sind auf dem Gerät gespeichert. Wähle eine Fassung zum Weiterbearbeiten. Die anderen bleiben auf diesem Gerät.",
+      "draftAt": "Entwurf von {time}",
       "draftConflict": "Dieser Entwurf ist auf diesem Gerät gespeichert. Der KP hat dieselben Angaben inzwischen geändert. Welche Fassung möchtest du weiterbearbeiten?",
       "restoreDevice": "Entwurf vom Gerät verwenden",
       "keepServer": "Fassung vom KP behalten",

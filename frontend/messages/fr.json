@@ -3299,6 +3299,8 @@
       "invalidLink": "Ce lien de reconnaissance n’est plus valable. Demande un nouveau lien.",
       "invalidTitle": "Lien non valable ou expiré",
       "unknownIncident": "Inconnue",
+      "draftVersions": "Plusieurs brouillons de ce rapport sont enregistrés sur cet appareil. Choisis la version à reprendre. Les autres restent sur cet appareil.",
+      "draftAt": "Brouillon de {time}",
       "draftConflict": "Un brouillon est enregistré sur cet appareil. Le PC a modifié les mêmes informations entre-temps. Quelle version veux-tu reprendre ?",
       "restoreDevice": "Utiliser le brouillon de l’appareil",
       "keepServer": "Garder la version du PC",

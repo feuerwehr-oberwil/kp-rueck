@@ -19,6 +19,10 @@ import {
   toRekoFormData,
   type RekoFormData,
 } from '@/components/reko/reko-report-form'
+import {
+  applyDraft, changedFields, conflictsWithServer, draftFields, ReportDrafts,
+  type DraftChanges, type RecoverableDraft, type StoredRevision,
+} from './field-draft'
 import { telHref } from '@/lib/phone'
 import { getApiUrl } from '@/lib/env'
 import { RekoDummyGenerator } from '@/components/reko-dummy-generator'
@@ -30,35 +34,6 @@ import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
 // and two mounts, because a second form drifts and the KP path is then the one
 // that quietly loses a field (plan 26 §5.1).
 const INITIAL_FORM_DATA: RekoFormData = EMPTY_REKO_FORM
-
-// Photos have their own upload/delete transactions. Only send report fields the crew changed.
-const SCALAR_FIELDS = ['is_relevant', 'power_supply', 'summary_text', 'additional_notes'] as const
-type DraftChanges = Partial<Pick<RekoFormData, typeof SCALAR_FIELDS[number]>> & {
-  dangers_json?: Partial<ApiDangersAssessment>
-  effort_json?: Partial<ApiEffortEstimation>
-}
-
-function changedKeys<T extends object>(base: T, form: T, keys: (keyof T)[]): Partial<T> {
-  return Object.fromEntries(keys.filter(key => JSON.stringify(base[key]) !== JSON.stringify(form[key]))
-    .map(key => [key, form[key]])) as Partial<T>
-}
-
-function changedFields(base: RekoFormData, form: RekoFormData): DraftChanges {
-  const dangers = changedKeys(base.dangers_json, form.dangers_json, Object.keys(EMPTY_REKO_FORM.dangers_json) as (keyof ApiDangersAssessment)[])
-  const effort = changedKeys(base.effort_json, form.effort_json, Object.keys(EMPTY_REKO_FORM.effort_json) as (keyof ApiEffortEstimation)[])
-  return {
-    ...changedKeys(base, form, [...SCALAR_FIELDS]),
-    ...(Object.keys(dangers).length && { dangers_json: dangers }),
-    ...(Object.keys(effort).length && { effort_json: effort }),
-  }
-}
-
-function applyDraft(server: RekoFormData, changes: DraftChanges): RekoFormData {
-  return { ...server, ...changes,
-    dangers_json: { ...server.dangers_json, ...changes.dangers_json },
-    effort_json: { ...server.effort_json, ...changes.effort_json },
-  }
-}
 
 export default function RekoForm() {
   const params = useSearchParams()
@@ -82,8 +57,11 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
 
   const [formData, setFormData] = useState<RekoFormData>(INITIAL_FORM_DATA)
   const [syncedData, setSyncedData] = useState<RekoFormData | null>(null)
-  const [storageKey, setStorageKey] = useState<string | null>(null)
-  const [recovery, setRecovery] = useState<RekoFormData | null>(null)
+  const [drafts, setDrafts] = useState<ReportDrafts | null>(null)
+  const [recovery, setRecovery] = useState<RecoverableDraft[]>([])
+  const restored = useRef<RecoverableDraft | null>(null)
+  const [attempts, setAttempts] = useState<DraftChanges[]>([])
+  const latestAttempts = useRef<DraftChanges[]>([])
   const saving = useRef<Promise<RekoFormData> | null>(null)
   const [incidentTitle, setIncidentTitle] = useState<string>('')
   const [incidentDetails, setIncidentDetails] = useState<{
@@ -279,27 +257,21 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
         }
 
         // A report belongs to one form link. The old incident-wide key cannot identify its author.
-        const key = `reko-report-draft-${data.id}`
+        const store = new ReportDrafts(data.id)
         const serverData = toRekoFormData(data)
-        setStorageKey(key)
+        setDrafts(store)
         setSyncedData(serverData)
         setFormData(serverData)
         try {
-          const raw = localStorage.getItem(key)
-          const draft = raw ? JSON.parse(raw) : null
-          if (draft?.changes && draft.previous) {
-            const recovered = applyDraft(serverData, draft.changes)
-            if (Object.keys(changedFields(serverData, recovered)).length) {
-              // A lost response can leave an already-written draft on the phone. If the server
-              // still has our old values, replay; divergent values need an explicit choice.
-              const previous = applyDraft(serverData, draft.previous)
-              if (Object.keys(changedFields(previous, serverData)).length) {
-                setRecovery(recovered)
-              } else {
-                setFormData(recovered)
-                toast.info(t('localRestored'), { description: t('localRestoredDescription') })
-              }
-            }
+          const candidates = store.read().filter(version => {
+            const desired = applyDraft(serverData, version.draft.changes)
+            return Object.keys(changedFields(serverData, desired, version.draft.attempts?.at(-1))).length > 0
+          })
+          if (candidates.length === 1 && !conflictsWithServer(serverData, candidates[0].draft)) {
+            restore(candidates[0], serverData)
+            toast.info(t('localRestored'), { description: t('localRestoredDescription') })
+          } else {
+            setRecovery(candidates)
           }
         } catch (error) {
           console.error('Failed to load local Reko draft:', error)
@@ -324,32 +296,77 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
   })
   useEffect(() => loadForm(), [incidentId, token, personnelId])
 
-  const changes = syncedData && changedFields(syncedData, formData)
+  function restore(version: RecoverableDraft, server: RekoFormData) {
+    restored.current = version
+    rememberAttempts(version.draft.attempts ?? [])
+    setFormData(applyDraft(server, version.draft.changes))
+    setRecovery([])
+  }
+
+  function rememberAttempts(history: DraftChanges[]) {
+    latestAttempts.current = history
+    setAttempts(history)
+  }
+
+  const changes = syncedData && changedFields(syncedData, formData, attempts.at(-1))
   const dirty = !!changes && Object.keys(changes).length > 0
-  useEffect(() => {
-    if (!storageKey || !syncedData || recovery) return
+
+  function persist(store: ReportDrafts, base: RekoFormData, form: RekoFormData, unconfirmed: DraftChanges[]) {
     try {
-      const fields = changedFields(syncedData, formData)
-      if (Object.keys(fields).length > 0) {
-        localStorage.setItem(storageKey, JSON.stringify({ changes: fields, previous: changedFields(formData, syncedData) }))
-      } else {
-        localStorage.removeItem(storageKey)
-      }
+      const fields = changedFields(base, form, unconfirmed.at(-1))
+      return store.write(Object.keys(fields).length ? {
+        changes: fields,
+        previous: changedFields(base, base, fields),
+        ...(unconfirmed.length > 0 && { attempts: unconfirmed }),
+      } : null)
     } catch (error) {
       console.error('Failed to store local Reko draft:', error)
     }
-  }, [storageKey, syncedData, formData, recovery])
+  }
+
+  useEffect(() => {
+    if (drafts && syncedData && !recovery.length) persist(drafts, syncedData, formData, attempts)
+  }, [drafts, syncedData, recovery, formData, attempts])
+
+  function acknowledged(form: RekoFormData, sent: StoredRevision | null | undefined) {
+    // The request may finish after the component unmounts, when no effect can do this.
+    // Retire the exact revision sent; a later keystroke already has its own storage key.
+    if (sent) {
+      try { drafts?.acknowledge(sent) } catch (error) { console.error('Failed to retire sent Reko draft:', error) }
+    }
+    const version = restored.current
+    if (version && !Object.keys(changedFields(form, applyDraft(form, version.draft.changes))).length) {
+      // The chosen source revision reached the KP. A concurrent writer has its own
+      // immutable revision. A source we further edited stays available as another version.
+      try { drafts?.retire(version) } catch (error) { console.error('Failed to retire Reko draft:', error) }
+      restored.current = null
+    }
+    rememberAttempts([])
+    setSyncedData(form)
+    setUnsent(false)
+  }
+
+  function sending(base: RekoFormData, fields: DraftChanges) {
+    // Each attempt includes all previously unconfirmed fields. Keep distinct snapshots:
+    // a commit followed by a lost response could have left any of them on the server.
+    const history = latestAttempts.current.filter(previous => JSON.stringify(previous) !== JSON.stringify(fields))
+    if (Object.keys(fields).length) history.push(fields)
+    rememberAttempts(history)
+    // Persist BEFORE dispatch: closing a tab while waiting for a response is just as
+    // ambiguous as losing the response. The stored intent always uses the latest values.
+    if (drafts) return persist(drafts, base, formData, history)
+  }
 
   async function saveDraft() {
-    if (!dirty || !changes || saving.current || isSubmittingRef.current || !incidentId || !token) return
+    if (!dirty || !changes || !syncedData || saving.current || isSubmittingRef.current || !incidentId || !token) return
+    const sent = sending(syncedData, changes)
     const request = apiClient.saveRekoDraft(incidentId, token, changes).then(() => formData)
     saving.current = request
     setIsSaving(true)
     try {
       await request
-      setSyncedData(formData)
+      acknowledged(formData, sent)
       setLastSaved(new Date())
-      setUnsent(false)
     } catch (error) {
       console.error('Auto-save failed:', error)
       setUnsent(true)
@@ -392,9 +409,10 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
     try {
       // Serialize final submission after an earlier autosave, even when its response is delayed.
       const baseline = (await saving.current?.catch(() => syncedData)) ?? syncedData
-      await apiClient.submitRekoReport(incidentId, token, changedFields(baseline, formData))
-      setSyncedData(formData)
-      setUnsent(false)
+      const fields = changedFields(baseline, formData, latestAttempts.current.at(-1))
+      const sent = sending(baseline, fields)
+      await apiClient.submitRekoReport(incidentId, token, fields)
+      acknowledged(formData, sent)
 
       // Redirect to success page with return URL for back button functionality.
       // Intentionally keep isSubmitting/isSubmittingRef true on success so the
@@ -439,15 +457,32 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
     )
   }
 
-  if (recovery) {
+  if (recovery.length && syncedData) {
     return (
       <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          <p>{t('draftConflict')}</p>
+          <p>{t(recovery.length > 1 ? 'draftVersions' : 'draftConflict')}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button onClick={() => { setFormData(recovery); setRecovery(null) }}>{t('restoreDevice')}</Button>
-            <Button variant="outline" onClick={() => setRecovery(null)}>{t('keepServer')}</Button>
+            {recovery.map(version => recovery.length === 1 ? (
+              <Button key={version.revisions[0].key} onClick={() => restore(version, syncedData)}>
+                {t('restoreDevice')}
+              </Button>
+            ) : (
+              <button key={version.revisions[0].key} type="button"
+                className="w-full rounded-md border bg-background p-3 text-left focus-visible:ring-2"
+                onClick={() => restore(version, syncedData)}>
+                <span className="block font-semibold">{version.savedAt
+                  ? t('draftAt', { time: formatTime(new Date(version.savedAt), intlLocale) }) : t('restoreDevice')}</span>
+                <DraftSummary changes={version.draft.changes} />
+              </button>
+            ))}
+            <Button variant="outline" onClick={() => {
+              if (recovery.length === 1) {
+                try { drafts?.retire(recovery[0]) } catch (error) { console.error('Failed to retire Reko draft:', error) }
+              }
+              setRecovery([])
+            }}>{t('keepServer')}</Button>
           </div>
         </AlertDescription>
       </Alert>
@@ -586,4 +621,22 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
       />
     </div>
   )
+}
+
+function DraftSummary({ changes }: { changes: DraftChanges }) {
+  const t = useTranslations('reko.form')
+  const report = useTranslations('reko.reportSection')
+  const labels: Record<string, string> = {
+    summary_text: t('summaryShort'), additional_notes: t('notes'), is_relevant: t('relevantQuestion'),
+    power_supply: t('powerSupply'), other_notes: t('otherDangers'), personnel_count: t('personnelCount'),
+    estimated_duration_hours: t('duration'), vehicles_needed: report('vehiclesLabel'), equipment_needed: report('equipmentLabel'),
+  }
+  return draftFields(changes).map(([key, value]) => {
+    const label = labels[key] ?? report(`dangerBadges.${key}`)
+    let content = value == null || value === '' ? '–' : String(value)
+    if (typeof value === 'boolean') content = t(value ? 'yes' : 'no')
+    if (Array.isArray(value)) content = value.join(', ') || '–'
+    if (key === 'power_supply' && t.has(`powerLabels.${value}`)) content = t(`powerLabels.${value}`)
+    return <span key={key} className="block break-words text-sm">{label}: {content}</span>
+  })
 }

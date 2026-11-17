@@ -31,7 +31,8 @@ will keep holding.
 ### Added
 
 - Editors can restore a deleted Einsatz from its entry in the Ereignis **Verlauf**, even after
-  the undo message expires or the board reloads. A failed restore can be retried.
+  the undo message expires or the board reloads. Recovery preserves earlier shared assignments
+  in either restore order and names any resource that has since been reassigned.
 
 - **`/feld` is quicker to fill in.** The header says who is signed in, the Ereignis and its day,
   with «Neuer Schadenplatz» as one «+» on the right; the card underneath is the Schadenplatz
@@ -166,9 +167,10 @@ will keep holding.
 
 ### Fixed
 
-- **Reko reports** autosave only edits to a successfully loaded report. Unsent edits are scoped
-  to that report on a shared phone. Drafts saved by older versions under an incident-wide key
-  cannot safely be attributed to a crew member and are no longer applied automatically.
+- **Reko reports** autosave only edits to a successfully loaded report. If two tabs leave
+  drafts for the same report, the phone offers each version with its time and changes.
+  After a lost response, the next save carries the crew's latest edits. Older incident-wide
+  drafts stay on the device and require manual attribution to a crew member.
 - **Crew and equipment availability** includes Auftrag assignments and excludes deleted
   Einsätze. A stale board cannot promote a released Einsatzleiter. Retrying a release preserves
   the original departure time in the journal and PDF.
@@ -177,7 +179,8 @@ will keep holding.
   After a successful load the wall keeps the last picture and shows its age. Expired links
   leave the operator's login intact.
 - **Check-in kiosks** refresh the event roster using their check-in link, including changes
-  made at other kiosks. Field forms support pinch zoom on phones.
+  made at other kiosks. A connection loss preserves the guest name an editor is typing, and
+  submission resumes when the roster is current. Field forms support pinch zoom on phones.
 
 - **On Railway, every browser shared one rate-limit and Feld-Code bucket.** The frontend's
   proxy reaches the backend through its public domain, and that edge rewrites X-Forwarded-For to
