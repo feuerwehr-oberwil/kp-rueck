@@ -49,6 +49,16 @@
       "loadingBoard": "Einsätze werden geladen …"
     },
     "loading": "Wird geladen …",
+    "loadingWhat": {
+      "settings": "Einstellungen werden geladen …",
+      "vehicles": "Fahrzeuge werden geladen …",
+      "incidents": "Einsätze werden geladen …",
+      "integrations": "Anbindungen werden geladen …",
+      "users": "Benutzer werden geladen …",
+      "auditLog": "Protokoll wird geladen …",
+      "checklist": "Checkliste wird geladen …",
+      "templates": "Vorlagen werden geladen …"
+    },
     "incidentTruncation": {
       "message": "Es werden {shown} von {total} Einsätzen angezeigt – die Liste ist unvollständig."
     },
@@ -76,6 +86,9 @@
       "description": "Du hast Änderungen vorgenommen, die nicht gespeichert wurden. Wenn du schliesst, gehen diese Änderungen verloren.",
       "confirm": "Verwerfen",
       "cancel": "Weiter bearbeiten"
+    },
+    "formMessage": {
+      "nameRequired": "Name fehlt."
     },
     "commandPalette": {
       "title": "Befehlspalette",
@@ -1572,7 +1585,7 @@
       "fromGps": "aus GPS · ±{meters} m",
       "locateDenied": "Kein Zugriff auf den Standort – im Browser erlauben oder Adresse eintippen.",
       "locateUnavailable": "Kein GPS-Standort verfügbar – Adresse eintippen oder auf der Karte wählen.",
-      "locateTimeout": "Kein GPS-Standort innert 10 Sekunden – nochmals versuchen oder Adresse eintippen.",
+      "locateTimeout": "Kein GPS-Standort innert 10 Sekunden – erneut versuchen oder Adresse eintippen.",
       "locateNoAddress": "Standort übernommen, aber keine Adresse dazu gefunden – bitte Adresse eintippen."
     },
     "mapPicker": {
@@ -1636,7 +1649,6 @@
       "needsCoordinates": "Zum Optimieren braucht es mindestens zwei Stopps mit Koordinaten.",
       "unchanged": "Die Reihenfolge ist nach Luftlinie bereits die kürzeste.",
       "note": "Vorschlag nach Luftlinie ab {start} · Planungshilfe",
-      "undo": "Rückgängig",
       "undone": "Vorherige Reihenfolge wiederhergestellt",
       "undoConflict": "Nicht mehr rückgängig machbar – Auftrag geändert",
       "undoConflictDetail": "Reihenfolge oder Stopps wurden inzwischen geändert; die neuere Änderung bleibt.",
@@ -1757,6 +1769,7 @@
         "reportIntro": "Was ist passiert, und was hättest du erwartet? Ein, zwei Sätze genügen – die Beschreibung ist der Teil, den kein Log liefern kann.",
         "reportLabel": "Beschreibung",
         "reportPlaceholder": "z. B. «Fahrzeug auf disponiert gezogen, danach war die Karte leer.»",
+        "messageRequired": "Beschreibung fehlt – was ist passiert?",
         "reportWhat": "Sonst nichts – keine Einsatzdaten, keine Adressen, keine Namen, kein Screenshot. Von der Browser-Kennung oben liest die Diagnose-Datei nur die Geräteart heraus, z. B. «iPad Safari». Dein Text geht so, wie du ihn schreibst – schreib also nichts hinein, was nicht aus dem Haus soll.",
         "techTitle": "Das wird mitgeschickt",
         "techVersion": "Version: ",
@@ -2225,16 +2238,16 @@
         "noAvailableMaterials": "Keine verfügbaren Materialien",
         "saveError": "Gruppe speichern fehlgeschlagen",
         "deleteError": "Gruppe löschen fehlgeschlagen",
-        "deleteTitle": "Gruppe löschen",
-        "deleteDescription": "Bist du sicher, dass du die Gruppe «{name}» löschen möchtest? Die Materialien werden nicht gelöscht, nur die Gruppierung aufgelöst."
+        "deleteTitle": "Gruppe löschen?",
+        "deleteDescription": "Die Gruppe «{name}» wird aufgelöst. Die Materialien bleiben erhalten."
       },
       "deviceHead": "Gerät",
       "moduleHead": "Modul",
       "tabModules": "Module",
-      "archiveTitle": "«{name}» archivieren",
+      "archiveTitle": "«{name}» archivieren?",
       "archiveDescription": "Das Gerät verschwindet aus dem Board, aus der Seitenleiste und aus dem Zuweisungsdialog. Bestehende Einsätze und das Protokoll behalten es.",
       "archiveHint": "Endgültig löschen geht danach im Archiv – aber nur für Geräte, die nie auf einem echten Einsatz standen.",
-      "purgeTitle": "«{name}» endgültig löschen",
+      "purgeTitle": "«{name}» endgültig löschen?",
       "purgeDescription": "Der Datensatz wird aus der Datenbank entfernt. Das lässt sich nicht rückgängig machen – auch nicht über «Archivierte anzeigen».",
       "purgeHint": "Möglich, weil dieses Gerät nie auf einem echten Einsatz stand. Stand es auch nur einmal auf einem, bleibt das Archiv der einzige Weg – sonst fehlt es in der Auswertung genau dieses Einsatzes."
     },
@@ -2270,8 +2283,8 @@
       "roleExamplePlaceholder": "z. B. Offizier, Wachtmeister",
       "newTagPlaceholder": "Neuer Tag",
       "addTag": "Hinzufügen",
-      "deleteTitle": "Person löschen",
-      "deleteDescription": "Bist du sicher, dass du «{name}» löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "deleteTitle": "Person löschen?",
+      "deleteDescription": "«{name}» wird gelöscht. Das lässt sich nicht rückgängig machen.",
       "syncDialogTitle": "Divera Personal synchronisieren",
       "syncLoading": "Vorschau von Divera wird geladen …",
       "syncSectionNew": "Neu",
@@ -2417,10 +2430,10 @@
       "orderPlaceholder": "z. B. 1, 2, 3",
       "radioPlaceholder": "z. B. Omega 1, Omega 2",
       "empty": "Keine Fahrzeuge konfiguriert.",
-      "archiveTitle": "«{name}» archivieren",
+      "archiveTitle": "«{name}» archivieren?",
       "archiveDescription": "Das Fahrzeug verschwindet aus dem Board, aus der Fahrzeugliste und aus dem Zuweisungsdialog. Bestehende Einsätze und das Protokoll behalten es.",
       "archiveHint": "Endgültig löschen geht danach im Archiv – aber nur für Fahrzeuge, die nie auf einem echten Einsatz standen.",
-      "purgeTitle": "«{name}» endgültig löschen",
+      "purgeTitle": "«{name}» endgültig löschen?",
       "purgeDescription": "Der Datensatz wird aus der Datenbank entfernt. Das lässt sich nicht rückgängig machen – auch nicht über «Archivierte anzeigen».",
       "purgeHint": "Möglich, weil dieses Fahrzeug nie auf einem echten Einsatz stand. Stand es auch nur einmal auf einem, bleibt das Archiv der einzige Weg – sonst fehlt es in der Auswertung genau dieses Einsatzes."
     },
@@ -2642,7 +2655,7 @@
     "archiveDialog": {
       "title": "Ereignis archivieren?",
       "question": "Möchtest du das Ereignis «{name}» archivieren?",
-      "note": "Das Ereignis wird ausgeblendet, aber alle Daten bleiben erhalten. Du kannst es später dauerhaft löschen.",
+      "note": "Das Ereignis wird ausgeblendet, aber alle Daten bleiben erhalten. Du kannst es später endgültig löschen.",
       "openIncidents": "{count, plural, one {# Einsatz nicht abgeschlossen} other {# Einsätze nicht abgeschlossen}}",
       "openPickups": "{count, plural, one {# Abholung offen} other {# Abholungen offen}}",
       "materialOnSite": "{count, plural, one {# Einheit noch am Schadenplatz} other {# Einheiten noch am Schadenplatz}}",
@@ -2656,12 +2669,10 @@
       "confirm": "Archivieren"
     },
     "deleteDialog": {
-      "title": "Ereignis dauerhaft löschen?",
-      "warning": "Dieser Vorgang lässt sich nicht rückgängig machen.",
-      "question": "Möchtest du das Ereignis «{name}» und alle zugehörigen Einsätze wirklich dauerhaft löschen?",
-      "note": "Dies betrifft {count, plural, one {# Einsatz} other {# Einsätze}} und alle zugehörigen Daten.",
+      "title": "Ereignis endgültig löschen?",
+      "description": "Das Ereignis «{name}» wird mit {count, plural, =0 {allen Daten} one {# Einsatz und allen Daten} other {# Einsätzen und allen Daten}} gelöscht. Das lässt sich nicht rückgängig machen.",
       "cancel": "Abbrechen",
-      "confirm": "Dauerhaft löschen"
+      "confirm": "Endgültig löschen"
     },
     "emptyState": {
       "title": "Ereignis wählen",
@@ -2768,7 +2779,7 @@
       "rowRetrying": "{percent} % · Versuch {attempt} von {total}",
       "rowSent": "Gesendet",
       "rowFailed": "{count, plural, one {Abgebrochen nach # Versuch} other {Abgebrochen nach # Versuchen}}",
-      "rowRetry": "Nochmals senden",
+      "rowRetry": "Erneut senden",
       "rowDiscard": "Verwerfen",
       "queueProgress": "{done} von {total} beim KP · läuft weiter, auch wenn du weiterschreibst",
       "offlineTitle": "{count, plural, one {# Foto wartet auf Verbindung} other {# Fotos warten auf Verbindung}}",
@@ -3133,7 +3144,7 @@
       "titleFieldHint": "Push-Titel. Kurz halten. Platzhalter: «{type}, {location}, {priority}».",
       "textFieldLabel": "Alarmtext",
       "textFieldHint": "Push-Text. Platzhalter: «{notes}, {contact}, {internal_notes}, {vehicles}, {crew}, {materials}».",
-      "selectPersonError": "Bitte eine Person auswählen",
+      "selectPersonError": "Person wählen – an sie geht der Testalarm.",
       "testSent": "Testalarm gesendet an {name}",
       "testFailed": "Testalarm fehlgeschlagen",
       "templatesLabel": "Vorlagen",
@@ -3149,7 +3160,7 @@
       "notConfiguredHint": "Kein Alarmierungs-Anbieter hinterlegt. Den Zugangsschlüssel trägt die Person ein, die den Server betreut – danach lässt sich der Schalter umlegen."
     },
     "sendDialog": {
-      "noRecipientsError": "Keine verknüpften Empfänger ausgewählt",
+      "noRecipientsError": "Niemand ausgewählt – mindestens eine verknüpfte Person ankreuzen.",
       "sent": "Aufgebot gesendet an {count, plural, one {# Person} other {# Personen}}",
       "sentWithSkipped": "Aufgebot gesendet an {count, plural, one {# Person} other {# Personen}}, {skipped} übersprungen",
       "simulatedTitle": "Übung: Aufgebot simuliert",
@@ -3182,7 +3193,8 @@
       "noGroups": "In Divera sind keine Gruppen angelegt.",
       "titleLabel": "Titel",
       "textLabel": "Text",
-      "noRecipientsError": "Keine Empfänger ausgewählt",
+      "noRecipientsError": "Keine Gruppe gewählt – mindestens eine ankreuzen oder «Alle im Standort» wählen.",
+      "textRequired": "Text fehlt – eine leere Mitteilung lässt sich nicht senden.",
       "sentToGroups": "Mitteilung gesendet an {groups}",
       "sentToAll": "Mitteilung an alle im Standort gesendet",
       "simulatedTitle": "Übung: Mitteilung simuliert",
@@ -3205,7 +3217,7 @@
       "loadFailedDescription": "Die Materialliste ist möglicherweise veraltet.",
       "groupsLoadFailed": "Materialgruppen konnten nicht geladen werden",
       "readinessFailedTitle": "Einsatzbereitschaft konnte nicht geändert werden",
-      "readinessFailedDescription": "Der Zustand steht wieder wie vorher. Nochmals versuchen.",
+      "readinessFailedDescription": "Der Zustand steht wieder wie vorher.",
       "outOfServiceBlockedTitle": "{name} ist nicht einsatzbereit",
       "outOfServiceBlockedDescription": "In der Verwaltung als nicht einsatzbereit geführt – zuerst dort freigeben."
     },
@@ -3697,6 +3709,8 @@
       "fieldReportLabel": "Meldung vom Feld einspielen",
       "fieldReportIncidentPlaceholder": "Einsatz mit Trupp wählen …",
       "fieldReportPlaceholder": "Was meldet der Trupp?",
+      "fieldReportIncidentRequired": "Einsatz wählen – an ihn geht die Meldung.",
+      "fieldReportTextRequired": "Meldung fehlt.",
       "fieldReportSend": "Melden",
       "fieldReportSending": "Wird gemeldet …",
       "fieldReportSent": "Meldung vom Feld eingegangen",
@@ -3812,7 +3826,7 @@
       "title": "Reko-Offiziere wählen",
       "description": "Angemeldete Person antippen, um sie als Reko zu markieren. Adressen verteilt der Reko-Modus auf der Karte.",
       "marked": "{name} als Reko markiert",
-      "failed": "Hat nicht geklappt. Nochmals versuchen.",
+      "failed": "Hat nicht geklappt. Erneut versuchen.",
       "done": "Fertig"
     }
   },
@@ -4000,8 +4014,7 @@
       "badgeAssigned": "Im Einsatz",
       "badgeCheckedIn": "Anwesend",
       "badgeNotCheckedIn": "Nicht hier",
-      "checkedOut": "{name} ausgecheckt.",
-      "undo": "Rückgängig"
+      "checkedOut": "{name} ausgecheckt."
     }
   },
   "feld": {
@@ -4082,7 +4095,7 @@
       "sending": "«{label}» wird gesendet …",
       "sent": "«{label}» ist beim KP angekommen.",
       "failedTitle": "«{label}» wurde nicht übermittelt.",
-      "retry": "Nochmals senden",
+      "retry": "Erneut senden",
       "send": "Meldung senden",
       "arrivedAction": "Angekommen melden",
       "completeAction": "Einsatz beendet melden",
@@ -4242,7 +4255,7 @@
       "autosaveHint": "Wird laufend gespeichert – kein Abschliessen nötig.",
       "submitted": "Rapport erfasst.",
       "submittedBadge": "Abgeschlossen {at}",
-      "submitError": "Rapport konnte nicht abgeschlossen werden. Nochmals versuchen.",
+      "submitError": "Rapport konnte nicht abgeschlossen werden. Erneut versuchen.",
       "unsentChanges": "Änderungen noch nicht übermittelt",
       "sendChanges": "Änderungen senden",
       "loadError": "Rapport konnte nicht geladen werden.",
@@ -4308,7 +4321,7 @@
       "reopenBody": "Bitte den QR-Code auf dem Plakat erneut scannen.",
       "offlineTitle": "Keine Verbindung zum KP",
       "offlineBody": "Der Code wurde nicht geprüft – er ist wahrscheinlich richtig.",
-      "offlineHint": "Ein paar Schritte ins Freie und nochmals versuchen.",
+      "offlineHint": "Ein paar Schritte ins Freie, dann erneut versuchen.",
       "retry": "Erneut versuchen",
       "training": "Übung"
     },
@@ -4328,7 +4341,7 @@
       "revoke": "Abmelden",
       "regenerated": "Neuer Feld-Code erstellt",
       "revoked": "Alle Geräte abgemeldet",
-      "failed": "Hat nicht geklappt. Nochmals versuchen.",
+      "failed": "Hat nicht geklappt. Erneut versuchen.",
       "regenerateTitle": "Neuen Feld-Code erstellen?",
       "regenerateDescription": "Neue Geräte brauchen ab sofort den neuen Code. Wer bereits angemeldet ist, arbeitet ungestört weiter – es wird niemand abgemeldet.",
       "revokeTitle": "Alle Geräte abmelden?",
@@ -4433,7 +4446,7 @@
       "from": "KP · {name} · {time}"
     },
     "claim": {
-      "offline": "Keine Verbindung zum KP. Der Name wurde nicht übernommen – nochmals versuchen."
+      "offline": "Keine Verbindung zum KP. Der Name wurde nicht übernommen – erneut versuchen."
     },
     "requests": {
       "material": "Material: {what}",
@@ -4505,7 +4518,6 @@
     "sketchLabel": "Lage: neue Meldung in der Mitte, bestehende Einsätze als Punkte, Kreis 50 m",
     "mergedTitle": "Zusammengeführt mit {label}",
     "mergedDescription": "Die Meldung steht als Nachtrag in den Notizen.",
-    "undo": "Rückgängig",
     "unmergedTitle": "Wieder ein eigener Einsatz",
     "noteKept": "Der Nachtrag wurde seither bearbeitet und bleibt in den Notizen.",
     "mergeFailed": "Zusammenführen fehlgeschlagen",
@@ -4569,6 +4581,7 @@
     "submit": "Eintragen",
     "submitCorrect": "Korrigieren",
     "saveFailed": "Nicht gespeichert – der Text ist noch da. Erneut senden.",
+    "textRequired": "Eintrag fehlt – erst schreiben, dann senden.",
     "linkTitle": "Einsatz verknüpfen",
     "linkSearch": "Einsatz nach Nummer oder Ort suchen",
     "linkSearchPlaceholder": "Nummer oder Ort",

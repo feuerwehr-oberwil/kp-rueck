@@ -263,9 +263,11 @@ runtime `API_URL`. Same reasoning for map tiles (`getTileBaseUrl` → `/tiles`).
   its injected CSS is unlayered and beats every Tailwind utility, so tone classes on a call site do
   nothing). Same neutral card for every type, tone only in the glyph; `toast.error` is the only
   tinted card, so use it for failures and nothing else. Don't pass `duration` unless you mean it:
-  the lifetime comes from the text length (`lib/toast-lifetime.ts`, Front's curve; errors and
-  toasts with a button get at least 6 s; scaled by the
-  «Anzeigedauer» setting). A bare `toast()` bypasses that and must spread `toastLifetime(ms)`.
+  the lifetime comes from the text length (`lib/toast-lifetime.ts`: Front's curve plus two Rück
+  additions – a failure gets the 6 s button floor too, and everything is scaled by the
+  «Anzeigedauer» setting). A bare `toast()` bypasses that: use `unmutedToast` (also shown on the
+  quiet phone, `/feld` and `/display` surfaces). Every «Rückgängig» is `undoToast`
+  (`lib/toast-undo.ts`: unmuted, one shot, and the target of ⌘Z / Ctrl+Z).
   Phone placement reads `--nav-reserve` / `--sheet-top` / `--kb-inset` on `<html>`.
 - **Notification text**: toasts and the bell show a notification as line 1 = what is asked,
   line 2 = where · who, source as glyph (`lib/notification-format.ts`). The backend sends

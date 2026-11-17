@@ -1,5 +1,5 @@
 /**
- * A toast lives as long as it takes to read it (KP Front's curve), with the
+ * A toast lives as long as it takes to read it (KP Front's curve plus Rück's failure floor), with the
  * «Anzeigedauer» setting scaling that curve instead of replacing it.
  */
 import { createElement } from 'react'

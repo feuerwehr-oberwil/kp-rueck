@@ -158,6 +158,16 @@
       "loadingBoard": "Chargement des interventions …"
     },
     "loading": "Chargement …",
+    "loadingWhat": {
+      "settings": "Chargement des paramètres …",
+      "vehicles": "Chargement des véhicules …",
+      "incidents": "Chargement des interventions …",
+      "integrations": "Chargement des intégrations …",
+      "users": "Chargement des utilisateurs …",
+      "auditLog": "Chargement du journal …",
+      "checklist": "Chargement de la check-list …",
+      "templates": "Chargement des modèles …"
+    },
     "incidentTruncation": {
       "message": "{shown} interventions sur {total} sont affichées – la liste est incomplète."
     },
@@ -185,6 +195,9 @@
       "description": "Tu as fait des modifications qui n’ont pas été enregistrées. Si tu fermes, elles seront perdues.",
       "confirm": "Abandonner",
       "cancel": "Continuer à éditer"
+    },
+    "formMessage": {
+      "nameRequired": "Le nom manque."
     },
     "commandPalette": {
       "title": "Palette de commandes",
@@ -494,7 +507,7 @@
       "titleFieldHint": "Titre du push. Reste bref. Champs disponibles : '{type}, {location}, {priority}'.",
       "textFieldLabel": "Texte de l’alarme",
       "textFieldHint": "Texte du push. Champs disponibles : '{notes}, {contact}, {internal_notes}, {vehicles}, {crew}, {materials}'.",
-      "selectPersonError": "Choisis une personne",
+      "selectPersonError": "Choisis une personne – c’est elle qui reçoit l’alarme de test.",
       "testSent": "Alarme de test envoyée à {name}",
       "testFailed": "Échec de l’alarme de test",
       "templatesLabel": "Modèles",
@@ -510,7 +523,7 @@
       "notConfiguredHint": "Aucun fournisseur d’alarme enregistré. La clé d’accès est saisie par la personne qui s’occupe du serveur – ensuite seulement l’interrupteur peut être activé."
     },
     "sendDialog": {
-      "noRecipientsError": "Aucun destinataire lié sélectionné",
+      "noRecipientsError": "Personne n’est sélectionné – coche au moins une personne liée.",
       "sent": "Convocation envoyée à {count, plural, one {# personne} other {# personnes}}",
       "sentWithSkipped": "Convocation envoyée à {count, plural, one {# personne} other {# personnes}}, {skipped, plural, one {# ignorée} other {# ignorées}}",
       "simulatedTitle": "Exercice : convocation simulée",
@@ -543,7 +556,8 @@
       "noGroups": "Aucun groupe n’est défini dans Divera.",
       "titleLabel": "Titre",
       "textLabel": "Texte",
-      "noRecipientsError": "Aucun destinataire sélectionné",
+      "noRecipientsError": "Aucun groupe choisi – coches-en au moins un ou choisis « Tout le site ».",
+      "textRequired": "Le texte manque – un message vide ne peut pas être envoyé.",
       "sentToGroups": "Message envoyé à {groups}",
       "sentToAll": "Message envoyé à tout le site",
       "simulatedTitle": "Exercice : message simulé",
@@ -698,9 +712,7 @@
     },
     "deleteDialog": {
       "title": "Supprimer définitivement l’événement ?",
-      "warning": "Cette opération est irréversible.",
-      "question": "Veux-tu vraiment supprimer définitivement l’événement « {name} » et toutes les interventions qui s’y rattachent ?",
-      "note": "Cela concerne {count, plural, one {# intervention} other {# interventions}} et toutes les données associées.",
+      "description": "L’événement « {name} » est supprimé avec {count, plural, =0 {toutes ses données} one {# intervention et toutes ses données} other {# interventions et toutes ses données}}. Cette opération est irréversible.",
       "cancel": "Annuler",
       "confirm": "Supprimer définitivement"
     },
@@ -1575,8 +1587,7 @@
       "badgeAssigned": "En intervention",
       "badgeCheckedIn": "Présent",
       "badgeNotCheckedIn": "Pas là",
-      "checkedOut": "{name} : départ enregistré.",
-      "undo": "Annuler"
+      "checkedOut": "{name} : départ enregistré."
     }
   },
   "kanban": {
@@ -2730,7 +2741,6 @@
       "needsCoordinates": "Pour optimiser, il faut au moins deux arrêts avec des coordonnées.",
       "unchanged": "L’ordre est déjà le plus court à vol d’oiseau.",
       "note": "Proposition à vol d’oiseau depuis {start} · aide à la planification",
-      "undo": "Annuler",
       "undone": "Ordre précédent rétabli",
       "undoConflict": "Annulation impossible – mission modifiée",
       "undoConflictDetail": "L’ordre ou les étapes ont été modifiés entre-temps ; la modification la plus récente est conservée.",
@@ -2877,7 +2887,7 @@
       "loadFailedDescription": "La liste du matériel est peut-être périmée.",
       "groupsLoadFailed": "Les groupes de matériel n’ont pas pu être chargés",
       "readinessFailedTitle": "L'état de disponibilité n'a pas pu être modifié",
-      "readinessFailedDescription": "L'état est revenu comme avant. Réessaie.",
+      "readinessFailedDescription": "L’état est revenu comme avant.",
       "outOfServiceBlockedTitle": "{name} n'est pas prêt à l'engagement",
       "outOfServiceBlockedDescription": "Marqué comme non prêt dans la gestion – le libérer là d'abord."
     },
@@ -3524,6 +3534,7 @@
         "reportIntro": "Que s’est-il passé, et à quoi t’attendais-tu ? Une ou deux phrases suffisent – la description est la partie qu’aucun journal ne peut fournir.",
         "reportLabel": "Description",
         "reportPlaceholder": "p. ex. « véhicule glissé sur engagé, ensuite la carte était vide. »",
+        "messageRequired": "La description manque – que s’est-il passé ?",
         "reportWhat": "Rien d’autre – aucune donnée d’intervention, aucune adresse, aucun nom, aucune capture d’écran. De l’identifiant du navigateur ci-dessus, le fichier de diagnostic ne retient que le type d’appareil, p. ex. « iPad Safari ». Ton texte part tel que tu l’écris – n’y mets donc rien qui ne doive pas quitter la maison.",
         "techTitle": "Voici ce qui est envoyé",
         "techVersion": "Version : ",
@@ -3992,16 +4003,16 @@
         "noAvailableMaterials": "Aucun matériel disponible",
         "saveError": "Échec de l’enregistrement du groupe",
         "deleteError": "Échec de la suppression du groupe",
-        "deleteTitle": "Supprimer le groupe",
-        "deleteDescription": "Es-tu sûr de vouloir supprimer le groupe « {name} » ? Les matériels ne sont pas supprimés, seul le regroupement est dissous."
+        "deleteTitle": "Supprimer le groupe ?",
+        "deleteDescription": "Le groupe « {name} » est dissous. Les matériels sont conservés."
       },
       "deviceHead": "Matériel",
       "moduleHead": "Module",
       "tabModules": "Modules",
-      "archiveTitle": "Archiver « {name} »",
+      "archiveTitle": "Archiver « {name} » ?",
       "archiveDescription": "Le matériel disparaît du tableau, de la barre latérale et du dialogue d'attribution. Les interventions existantes et le journal le conservent.",
       "archiveHint": "La suppression définitive se fait ensuite dans l'archive – mais seulement pour du matériel jamais engagé sur une intervention réelle.",
-      "purgeTitle": "Supprimer définitivement « {name} »",
+      "purgeTitle": "Supprimer définitivement « {name} » ?",
       "purgeDescription": "L'enregistrement est retiré de la base de données. Cela ne peut pas être annulé – pas même via « Afficher les archivés ».",
       "purgeHint": "Possible parce que ce matériel n'a jamais été engagé sur une intervention réelle. S'il l'a été ne serait-ce qu'une fois, l'archive reste la seule voie – sinon il manquerait dans l'évaluation de cette intervention."
     },
@@ -4037,8 +4048,8 @@
       "roleExamplePlaceholder": "p. ex. officier, sergent",
       "newTagPlaceholder": "Nouvelle étiquette",
       "addTag": "Ajouter",
-      "deleteTitle": "Supprimer la personne",
-      "deleteDescription": "Es-tu sûr de vouloir supprimer « {name} » ? Cette action est irréversible.",
+      "deleteTitle": "Supprimer la personne ?",
+      "deleteDescription": "« {name} » est supprimé. Cette action est irréversible.",
       "syncDialogTitle": "Synchroniser le personnel Divera",
       "syncLoading": "Chargement de l’aperçu depuis Divera …",
       "syncSectionNew": "Nouvelles",
@@ -4184,10 +4195,10 @@
       "orderPlaceholder": "p. ex. 1, 2, 3",
       "radioPlaceholder": "p. ex. Omega 1, Omega 2",
       "empty": "Aucun véhicule.",
-      "archiveTitle": "Archiver « {name} »",
+      "archiveTitle": "Archiver « {name} » ?",
       "archiveDescription": "Le véhicule disparaît du tableau, de la liste des véhicules et du dialogue d'attribution. Les interventions existantes et le journal le conservent.",
       "archiveHint": "La suppression définitive se fait ensuite dans l'archive – mais seulement pour des véhicules jamais engagés sur une intervention réelle.",
-      "purgeTitle": "Supprimer définitivement « {name} »",
+      "purgeTitle": "Supprimer définitivement « {name} » ?",
       "purgeDescription": "L'enregistrement est retiré de la base de données. Cela ne peut pas être annulé – pas même via « Afficher les archivés ».",
       "purgeHint": "Possible parce que ce véhicule n'a jamais été engagé sur une intervention réelle. S'il l'a été ne serait-ce qu'une fois, l'archive reste la seule voie – sinon il manquerait dans l'évaluation de cette intervention."
     },
@@ -4484,6 +4495,8 @@
       "fieldReportLabel": "Injecter une annonce du terrain",
       "fieldReportIncidentPlaceholder": "Choisir une intervention avec équipe …",
       "fieldReportPlaceholder": "Qu’annonce l’équipe ?",
+      "fieldReportIncidentRequired": "Choisis une intervention – c’est à elle que va le message.",
+      "fieldReportTextRequired": "Le message manque.",
       "fieldReportSend": "Annoncer",
       "fieldReportSending": "Annonce en cours …",
       "fieldReportSent": "Annonce du terrain reçue",
@@ -4505,7 +4518,6 @@
     "sketchLabel": "Situation : nouveau message au centre, interventions existantes en points, cercle de 50 m",
     "mergedTitle": "Fusionné avec {label}",
     "mergedDescription": "Le message figure comme complément dans les notes.",
-    "undo": "Annuler",
     "unmergedTitle": "De nouveau une intervention à part",
     "noteKept": "Le complément a été modifié entre-temps et reste dans les notes.",
     "mergeFailed": "Échec de la fusion",
@@ -4569,6 +4581,7 @@
     "submit": "Inscrire",
     "submitCorrect": "Corriger",
     "saveFailed": "Non enregistré – le texte est toujours là. Renvoyer.",
+    "textRequired": "L’entrée manque – écris d’abord, puis envoie.",
     "linkTitle": "Lier une intervention",
     "linkSearch": "Chercher une intervention par numéro ou lieu",
     "linkSearchPlaceholder": "Numéro ou lieu",

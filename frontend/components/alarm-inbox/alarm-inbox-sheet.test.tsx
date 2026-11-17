@@ -13,9 +13,10 @@ import de from '@/messages/de.json'
 import type { ApiDiveraEmergency } from '@/lib/api-client'
 
 const toastSuccess = vi.hoisted(() => vi.fn())
+const toastBare = vi.hoisted(() => vi.fn())
 vi.mock('sonner', async (importOriginal) => {
   const actual = await importOriginal<typeof import('sonner')>()
-  return { ...actual, toast: Object.assign(vi.fn(), { ...actual.toast, success: toastSuccess, error: vi.fn() }) }
+  return { ...actual, toast: Object.assign(toastBare, { ...actual.toast, success: toastSuccess, error: vi.fn() }) }
 })
 
 const auth = vi.hoisted(() => ({
@@ -112,6 +113,7 @@ beforeEach(() => {
   pool.attached = []
   pool.detach.mockClear()
   toastSuccess.mockClear()
+  toastBare.mockClear()
   pool.emergencies = [
     alarm('a1', 'Wasser im Keller', { address: 'Allschwilerstrasse 30, 4104 Oberwil' }),
     alarm('a2', 'Baum auf Strasse'),
@@ -200,12 +202,14 @@ describe('AlarmInboxSheet', () => {
     await waitFor(() => expect(pool.attached).toEqual(['a1']))
     expect(screen.queryByRole('dialog', { name: 'An Ereignis anhängen' })).toBeNull()
     await act(async () => pool.finishAttach?.())
-    expect(toastSuccess).toHaveBeenCalledWith(
+    // undoToast: a bare toast, so it also stands on a phone.
+    expect(toastBare).toHaveBeenCalledWith(
       'Alarm an «Unwetter Oberwil» angehängt',
       expect.objectContaining({ description: 'Einsatz 20', action: expect.objectContaining({ label: 'Rückgängig' }) }),
     )
     // «Rückgängig» names the card the attach made – the server refuses if it moved on.
-    await act(async () => toastSuccess.mock.calls[0][1].action.onClick())
+    const attachToast = toastBare.mock.calls.find(([message]) => message === 'Alarm an «Unwetter Oberwil» angehängt')
+    await act(async () => attachToast?.[1].action.onClick())
     expect(pool.detach).toHaveBeenCalledWith('a1', 'inc-new')
   })
 

@@ -158,6 +158,32 @@ export function useStationSettings({
 }
 
 /**
+ * The save path of a settings card that keeps its own few settings instead of the whole
+ * `useStationSettings` store: which key is in flight, when the server confirmed each key
+ * (for `SettingSaveLine`), and `failedMessage` as a toast when it refused. `save` answers
+ * whether it went through, so the caller can roll its optimistic state back.
+ */
+export function useSettingSaver(failedMessage: string) {
+  const [saving, setSaving] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<Record<string, Date>>({});
+  const save = async (key: string, value: string): Promise<boolean> => {
+    setSaving(key);
+    try {
+      await apiClient.updateSetting(key, value);
+      setSavedAt((prev) => ({ ...prev, [key]: new Date() }));
+      return true;
+    } catch (err) {
+      console.error(`Failed to update setting ${key}:`, err);
+      toast.error(failedMessage);
+      return false;
+    } finally {
+      setSaving(null);
+    }
+  };
+  return { saving, savedAt, save };
+}
+
+/**
  * The quiet line under a setting's control: «Wird gespeichert …» while the PATCH is
  * out, then «Gespeichert – hh:mm» once the server confirmed – the same words and the
  * same few seconds as under a text field of the Einsatz detail (`FieldSaveStatus`).

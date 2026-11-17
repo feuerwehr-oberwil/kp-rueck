@@ -3,12 +3,15 @@
  *
  * Every toast used to stand for the same 8 s (the notification setting doubled as
  * sonner's default): «Gespeichert» sat on the board as long as a three-line field
- * message, and the field message vanished as fast as «Gespeichert». The rule is
+ * message, and the field message vanished as fast as «Gespeichert». The base curve is
  * KP Front's (`lib/ui.tsx · defaultToastDuration`): 1800 ms plus 45 ms per
  * character, at least 2.8 s — or 6 s when there is a button to press («Rückgängig»,
  * «Erneut versuchen»: nobody reaches for a button in under six seconds) — and at
- * most 10 s. A failure (`toast.error`) gets the 6 s floor too, button or not: a
- * «konnte nicht …» that is gone in 3.4 s is a failure nobody saw.
+ * most 10 s.
+ *
+ * Rück adds two things Front does not have. A failure (`toast.error`) gets the 6 s
+ * floor too, button or not: a «konnte nicht …» that is gone in 3.4 s is a failure
+ * nobody saw (Front gives it 2.8 s). And the «Anzeigedauer» setting, below.
  *
  * Rück's «Anzeigedauer» setting stays and keeps meaning «longer» or «shorter»: it
  * SCALES that curve, with its default of 8 s as 1×. 16 s gives every toast twice
@@ -88,6 +91,18 @@ function withLifetime(kind: string, message: unknown, data?: ExternalToast): Ext
   return { ...data, ...toastLifetime(ms, data) }
 }
 
+/**
+ * A bare `toast()` with the same length-based lifetime as the wrapped kinds.
+ *
+ * For a message that must also show on the quiet surfaces (phone, `/feld`,
+ * `/display`), where NotificationToasts mutes `toast.success/info/…`: the way
+ * back from a mistake, or the receipt of that way back. Everything else uses the
+ * typed kinds.
+ */
+export function unmutedToast(message: ReactNode, data?: ExternalToast) {
+  return toast(message, withLifetime('message', message, data))
+}
+
 type ToastFn = (message: ReactNode | (() => ReactNode), data?: ExternalToast) => string | number
 const INSTALLED = Symbol.for('kp-rueck.toast-lifetime')
 const TIMED_KINDS = ['success', 'info', 'warning', 'error', 'message'] as const
@@ -101,7 +116,7 @@ const TIMED_KINDS = ['success', 'info', 'warning', 'error', 'message'] as const
  * quiet-surface muting in NotificationToasts already uses — and it composes with
  * it: that effect saves and restores whatever is installed, i.e. these wrappers.
  * Bare `toast()` cannot be wrapped (sonner binds it internally); its callers
- * pass `toastLifetime(…)` themselves. Idempotent across HMR.
+ * use `unmutedToast` or pass `toastLifetime(…)` themselves. Idempotent across HMR.
  */
 export function installToastLifetime() {
   const target = toast as unknown as Record<string | symbol, unknown>

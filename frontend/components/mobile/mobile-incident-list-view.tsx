@@ -6,7 +6,7 @@ import Link from "next/link"
 import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
+import { LoadingStatus } from "@/components/ui/shell-loader"
 import { Filter, Plus, Sparkles, X } from "lucide-react"
 import {
   DropdownMenu,
@@ -78,6 +78,7 @@ export function MobileIncidentListView({
   // The board's own words for a status — the single vocabulary.
   const tStatus = useTranslations('incidents.status')
   const tEmpty = useTranslations('common.emptyState')
+  const tLoading = useTranslations('common.loadingWhat')
   const { selectedEvent } = useEvent()
   // Fetched ONCE for the list and passed into every card — the rich card rows
   // (image #21) name each vehicle's driver.
@@ -324,11 +325,7 @@ export function MobileIncidentListView({
         }}
       >
         {isLoading ? (
-          <div className="space-y-3 mt-4">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-24" />
-            ))}
-          </div>
+          <LoadingStatus size="surface" className="flex w-full py-8 text-sm">{tLoading("incidents")}</LoadingStatus>
         ) : filteredOperations.length === 0 ? (
           // Why it is empty, and the one way out (#3): the search found
           // nothing → «Suche leeren»; the status chip hides what it found →

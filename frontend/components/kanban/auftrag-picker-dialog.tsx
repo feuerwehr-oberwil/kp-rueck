@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import type { IncidentGroup } from "@/lib/contexts/groups-context"
+import { FormMessage, formMessageId, useRequiredField } from "@/components/ui/form-message"
 
 interface AuftragPickerDialogProps {
   open: boolean
@@ -51,11 +52,14 @@ export function AuftragPickerDialog({
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState("")
   const [busy, setBusy] = useState(false)
+  const tForm = useTranslations("common.formMessage")
+  const newNameField = useRequiredField("auftrag-picker-new-name", newName, tForm("nameRequired"))
 
   const handleOpenChange = (next: boolean) => {
     if (!next) {
       setCreating(false)
       setNewName("")
+      newNameField.reset()
     }
     onOpenChange(next)
   }
@@ -72,8 +76,8 @@ export function AuftragPickerDialog({
   }
 
   const confirmCreate = async () => {
+    if (busy || !newNameField.check()) return
     const name = newName.trim()
-    if (!name || busy) return
     setBusy(true)
     try {
       const created = await onCreate(name)
@@ -134,24 +138,30 @@ export function AuftragPickerDialog({
         </div>
 
         {creating ? (
-          <div className="flex items-center gap-2">
-            <Input
-              autoFocus
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") confirmCreate()
-                if (e.key === "Escape") setCreating(false)
-              }}
-              placeholder={t("namePlaceholder")}
-              className="h-9 flex-1"
-            />
-            <Button size="sm" onClick={confirmCreate} disabled={!newName.trim() || busy}>
-              {t("createConfirm")}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setCreating(false)}>
-              {t("cancel")}
-            </Button>
+          <div>
+            <div className="flex items-center gap-2">
+              <Input
+                {...newNameField.controlProps}
+                autoFocus
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") confirmCreate()
+                  if (e.key === "Escape") setCreating(false)
+                }}
+                placeholder={t("namePlaceholder")}
+                className="h-9 flex-1"
+              />
+              <Button size="sm" onClick={confirmCreate} disabled={busy}>
+                {t("createConfirm")}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setCreating(false)}>
+                {t("cancel")}
+              </Button>
+            </div>
+            <FormMessage id={formMessageId("auftrag-picker-new-name")} className="mt-1.5">
+              {newNameField.error}
+            </FormMessage>
           </div>
         ) : (
           <div className="space-y-2">

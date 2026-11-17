@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl"
 import { materialResourceState } from "@/lib/resource-status"
 import { toast } from "sonner"
+import { undoToast } from "@/lib/toast-undo"
 import { type Person, type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
 import { type GroupResourceType } from "@/lib/api-client"
 import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
@@ -116,8 +117,6 @@ export function useBoardDispatch(input: UseBoardDispatchInput) {
   const tCommon = useTranslations('kanban.common')
   // Column titles, for the toasts a keyboard mutation raises.
   const tColumns = useTranslations('kanban.columns')
-  // The board's one «Rückgängig» label — reused rather than copied.
-  const tNotifications = useTranslations('notifications.operations')
   // ⌘K type-to-dispatch receipts.
   const tPalette = useTranslations('common.commandPalette')
 
@@ -233,19 +232,14 @@ export function useBoardDispatch(input: UseBoardDispatchInput) {
       if (outcome.priority) {
         parts.push(tPalette('dispatch.toastPriority', { priority: tCommon(PRIORITY_LABEL_KEYS[outcome.priority.to]) }))
       }
-      toast.success(
+      undoToast(
         tPalette('dispatch.toastTitle', {
           number: outcome.operation.number ?? "",
           name: getIncidentLocationLabel(outcome.operation),
         }),
         {
           description: parts.join(" · "),
-          action: {
-            label: tNotifications('undoLabel'),
-            onClick: () => {
-              void undo().then(() => toast.success(tPalette('dispatch.toastUndone')))
-            },
-          },
+          onUndo: () => undo().then(() => toast.success(tPalette('dispatch.toastUndone'))),
         },
       )
     },
@@ -297,10 +291,9 @@ export function useBoardDispatch(input: UseBoardDispatchInput) {
   }
 
   // Use shared operation handlers hook
-  const { handleOperationUpdate, handleVehicleRemove, handleVehicleAssign, handleOperationDelete } = useOperationHandlers({
+  const { handleOperationUpdate, handleVehicleAssign, handleOperationDelete } = useOperationHandlers({
     selectedOperation,
     updateOperation,
-    removeVehicle: release.releaseVehicle,
     assignVehicleToOperation,
     deleteOperation,
   })
@@ -325,7 +318,6 @@ export function useBoardDispatch(input: UseBoardDispatchInput) {
   return {
     handleVehicleAssign,
     handleOperationDelete,
-    handleVehicleRemove,
     handleOperationUpdate,
     handleCardClick,
     handleCardSelect,

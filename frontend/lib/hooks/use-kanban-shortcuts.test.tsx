@@ -184,8 +184,8 @@ describe("useKanbanShortcuts", () => {
     });
   });
 
-  // `E` used to follow the pointer only, so a keyboard-only operator could
-  // select a card and still have no way to open it.
+  // The detail key used to follow the pointer only, so a keyboard-only operator
+  // could select a card and still have no way to open it.
   describe("opening the detail without a pointer", () => {
     it("falls back from hover to the selection", () => {
       const operations = [{ id: "op-1" }] as KanbanShortcutsState["operations"];
@@ -195,7 +195,7 @@ describe("useKanbanShortcuts", () => {
           actions,
         ),
       );
-      press("e");
+      press("Enter");
       expect(actions.onOpenDetail).toHaveBeenCalledWith(operations[0]);
     });
 
@@ -207,7 +207,7 @@ describe("useKanbanShortcuts", () => {
           actions,
         ),
       );
-      press("e");
+      press("Enter");
       expect(actions.onOpenDetail).toHaveBeenCalledWith(operations[1]);
     });
   });
@@ -400,7 +400,7 @@ describe("useKanbanShortcuts", () => {
       expect(actions.onMoveLeft).toHaveBeenCalledWith("op-1");
     });
 
-    it("'e' opens the detail modal for the hovered op", () => {
+    it("Space opens the detail modal for the hovered op", () => {
       const op = baseOp();
       renderHook(() =>
         useKanbanShortcuts(
@@ -408,8 +408,22 @@ describe("useKanbanShortcuts", () => {
           actions,
         ),
       );
-      press("e");
+      press(" ");
       expect(actions.onOpenDetail).toHaveBeenCalledWith(op);
+    });
+
+    it("'e' writes a journal entry (KP Front's key) and opens no detail", () => {
+      const op = baseOp();
+      const onWriteJournal = vi.fn();
+      renderHook(() =>
+        useKanbanShortcuts(
+          baseState({ hoveredOperationId: op.id, operations: [op] }),
+          { ...actions, onWriteJournal },
+        ),
+      );
+      press("e");
+      expect(onWriteJournal).toHaveBeenCalledTimes(1);
+      expect(actions.onOpenDetail).not.toHaveBeenCalled();
     });
 
     it("Enter opens the hovered op only when nothing activatable has focus", () => {

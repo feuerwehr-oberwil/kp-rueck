@@ -79,7 +79,8 @@ test.describe('Undo incident deletion', () => {
   });
 
   test('letting the toast expire keeps the incident deleted after reload', async ({ authenticatedPage: page }) => {
-    // The undo toast lives 8 s (at most 10 s by «Anzeigedauer»): a fake clock jumps past it
+    // The undo toast lives 6–10 s at the default «Anzeigedauer» (undoToast: the text-length
+    // curve with the button floor): a fake clock jumps past it
     // instead of the test sleeping through it. Installed before the board loads, so the
     // toast's timer is one the clock owns. `fastForward`, not `runFor`: a jump fires each due
     // timer once instead of replaying every animation frame and poll of those seconds.

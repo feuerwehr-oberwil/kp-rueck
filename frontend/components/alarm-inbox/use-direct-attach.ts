@@ -3,6 +3,8 @@
 import { useCallback, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
+import { unmutedToast } from '@/lib/toast-lifetime'
+import { undoToast } from '@/lib/toast-undo'
 import { apiClient, ApiError, type ApiDiveraEmergency } from '@/lib/api-client'
 import { useEvent } from '@/lib/contexts/event-context'
 
@@ -27,7 +29,6 @@ export function useDirectAttach({
   onChanged: () => void
 }) {
   const t = useTranslations('divera.pool')
-  const tUndo = useTranslations('notifications.operations')
   const { selectedEvent } = useEvent()
   const [busyId, setBusyId] = useState<string | null>(null)
 
@@ -35,7 +36,7 @@ export function useDirectAttach({
     async (alarmId: string, incidentId: string) => {
       try {
         await apiClient.detachEmergency(alarmId, incidentId)
-        toast(t('detached'))
+        unmutedToast(t('detached'))
       } catch (error) {
         // A refusal carries the server's sentence («inzwischen bearbeitet»).
         toast.error(t('detachRefused'), {
@@ -79,9 +80,9 @@ export function useDirectAttach({
       setBusyId(alarm.id)
       try {
         const incident = await apiClient.attachEmergencyToEvent(alarm.id, event.id)
-        toast.success(t('attachedTo', { event: event.name }), {
+        undoToast(t('attachedTo', { event: event.name }), {
           description: incident.number != null ? t('attachedToNumber', { number: incident.number }) : undefined,
-          action: { label: tUndo('undoLabel'), onClick: () => void undo(alarm.id, incident.id) },
+          onUndo: () => undo(alarm.id, incident.id),
         })
         onChanged()
       } catch (error) {
@@ -91,7 +92,7 @@ export function useDirectAttach({
         setBusyId(null)
       }
     },
-    [selectedEvent, busyId, openDialog, onChanged, t, tUndo, undo],
+    [selectedEvent, busyId, openDialog, onChanged, t, undo],
   )
 
   return { attach, busyId }

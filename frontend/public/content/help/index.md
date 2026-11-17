@@ -17,7 +17,7 @@ Hauptansicht beim Laden der App. Zeigt alle Einsätze in sieben Status-Spalten (
 
 **«Rapporte» in der Fusszeile (`O`).** Zählt die abgeschlossenen Schadenplätze, zu denen noch kein Schadenplatz-Rapport erfasst ist, und öffnet die Liste – **Offen** (das Älteste zuoberst, denn daran erinnert sich am Ende niemand mehr) und **Erfasst**. Ein Klick auf eine Zeile springt zum Einsatz.
 
-**«Tagebuch» in der Fusszeile (`J`).** Das Einsatztagebuch des Ereignisses, das Neueste zuoberst. Statuswechsel, Zuweisungen und Abzüge, Meldungen vom Feld und an den Trupp, Reko-Berichte, Divera-Alarme, «vor Ort», «beendet» und Abholungen stehen von selbst darin; ein gelöschter oder zusammengeführter Einsatz bleibt mit seinen Zeilen stehen und ist so markiert. Unten eine Zeile für alles, was zu keiner Karte gehört («Gemeindepräsident informiert», «Strom Quartier Nord aus») – mit `#` und den ersten Buchstaben der Adresse oder mit dem Kettensymbol vor der Zeile wird ein Einsatz verknüpft; er steht dann vorne in der Zeile, `⌫` in der leeren Zeile nimmt ihn wieder weg. **`⇧J`** öffnet das Tagebuch gleich mit dem Cursor in der Zeile, und ist eine Karte ausgewählt, ist sie schon verknüpft (in der Befehlspalette: «Tagebuch-Eintrag schreiben»). Jede Zeile trägt Datum und Uhrzeit. Gelöscht wird nichts: ein falscher Eintrag wird mit dem Stift korrigiert, die Zeile zeigt dann «korrigiert hh:mm» und auf Klick den alten Wortlaut. Filter: Manuell, Feld, Status, Ressourcen. Das PDF-Einsatztagebuch druckt genau diese Einträge. Auf dem Handy unter «Mehr».
+**«Tagebuch» in der Fusszeile (`J`).** Das Einsatztagebuch des Ereignisses, das Neueste zuoberst. Statuswechsel, Zuweisungen und Abzüge, Meldungen vom Feld und an den Trupp, Reko-Berichte, Divera-Alarme, «vor Ort», «beendet» und Abholungen stehen von selbst darin; ein gelöschter oder zusammengeführter Einsatz bleibt mit seinen Zeilen stehen und ist so markiert. Unten eine Zeile für alles, was zu keiner Karte gehört («Gemeindepräsident informiert», «Strom Quartier Nord aus») – mit `#` und den ersten Buchstaben der Adresse oder mit dem Kettensymbol vor der Zeile wird ein Einsatz verknüpft; er steht dann vorne in der Zeile, `⌫` in der leeren Zeile nimmt ihn wieder weg. **`E`** («Eintrag», wie in KP Front) öffnet das Tagebuch gleich mit dem Cursor in der Zeile, und ist eine Karte ausgewählt, ist sie schon verknüpft (in der Befehlspalette: «Tagebuch-Eintrag schreiben»). Jede Zeile trägt Datum und Uhrzeit. Gelöscht wird nichts: ein falscher Eintrag wird mit dem Stift korrigiert, die Zeile zeigt dann «korrigiert hh:mm» und auf Klick den alten Wortlaut. Filter: Manuell, Feld, Status, Ressourcen. Das PDF-Einsatztagebuch druckt genau diese Einträge. Auf dem Handy unter «Mehr».
 
 **«Kennzahlen» im Benutzermenü (`Z`).** Oben rechts im Personen-Menü, auch über `Cmd/Ctrl+K` und auf dem Handy unter «Mehr» – nicht mehr in der Fusszeile. Ein Fenster über der Seite mit der Lage in Zahlen – Meldungen, offen (je Priorität), in Arbeit, erledigt – und die Reaktionszeiten ab Eingang bis **Disponiert**, **Vor Ort** und **Abschluss**, als Median und P90 je Priorität, dazu die älteste noch wartende «Hoch»-Meldung (ein Klick öffnet sie). Dieselben Werte wie die Tabelle «Reaktionszeiten» im Einsatzbericht (PDF); wie gerechnet wird, steht hinter dem ⓘ. Bei einer Übung heisst die Ansicht **Übungsauswertung**; für ein vergangenes Ereignis steht sie unter **Ereignisse → ⋯ → Kennzahlen**, und an der Wand im Status-Display (`/display/status`) über den Einsätzen.
 
@@ -723,7 +723,8 @@ Handy-Formularen (Feld, Reko, Check-In) gibt es sie bewusst nicht.
 | `R` / `F5` | Aktualisieren |
 | `F` | Fahrzeugstatus |
 | `J` | Einsatztagebuch öffnen/schliessen |
-| `⇧J` | Neuer Tagebuch-Eintrag (mit der ausgewählten Karte verknüpft) |
+| `E` | Neuer Tagebuch-Eintrag (mit der ausgewählten Karte verknüpft) |
+| `⌘Z` / `Ctrl Z` | «Rückgängig» der neuesten Meldung, die noch steht (überall, ausser beim Tippen in einem Feld) |
 | `Z` | Kennzahlen (Lage, Reaktionszeiten) öffnen/schliessen |
 
 ### Kanban-Board – Einsatz (ausgewählte Karte)
@@ -733,7 +734,7 @@ bist. Was etwas ändert, wirkt nur auf die ausgewählte Karte, nie auf die unter
 | Shortcut | Aktion |
 |----------|--------|
 | `←` `↑` `↓` `→` | Auswahl zur Nachbarkarte bewegen (eingeklappte und leere Spalten werden übersprungen) |
-| `E` / `Enter` | Details öffnen (die Karte unter der Maus, sonst die ausgewählte) |
+| `Enter` / `Leertaste` | Details öffnen (die Karte unter der Maus, sonst die ausgewählte) |
 | `1-5` | Fahrzeug zuweisen/entfernen |
 | `Shift+1-3` | Priorität: Niedrig / Mittel / Hoch |
 | `0` | Zu Fuss umschalten |
@@ -760,7 +761,7 @@ bist. Was etwas ändert, wirkt nur auf die ausgewählte Karte, nie auf die unter
 | `L` | Labels (Marker-Beschriftungen) ein/aus |
 | `I` | Zuweisungslinien ein/aus |
 | `1-5` | Auf das entsprechende Fahrzeug zoomen |
-| `E` / `Enter` | Details des ausgewählten Einsatzes öffnen |
+| `Enter` / `Leertaste` | Details des ausgewählten Einsatzes öffnen |
 | `Z` | Zoom zurücksetzen / Auswahl aufheben |
 | `R` / `F5` | Aktualisieren |
 | `S` / `/` | Suche fokussieren |

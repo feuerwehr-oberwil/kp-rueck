@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { SearchInput } from '@/components/ui/search-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { LoadingStatus, ShellLoader } from '@/components/ui/shell-loader';
 import { SettingCard } from '@/components/settings/setting-row';
 import { AUDIT_ACTION_TYPES, AUDIT_RESOURCE_TYPES, type AuditLog } from '@/components/settings/use-audit-log';
 import type { useEvent } from '@/lib/contexts/event-context';
@@ -30,6 +30,7 @@ export function AuditLogSection({
   eventsLoading: boolean;
 }) {
   const t = useTranslations('settings');
+  const tLoading = useTranslations('common.loadingWhat');
   const {
     auditExportEventId,
     setAuditExportEventId,
@@ -104,7 +105,7 @@ export function AuditLogSection({
               disabled={!auditExportEventId || auditExportLoading || eventsLoading}
               className="w-full sm:w-auto"
             >
-              <Download className="size-4" />
+              {auditExportLoading ? <ShellLoader className="size-4" /> : <Download className="size-4" />}
               {auditExportLoading ? t('page.audit.exporting') : t('page.audit.exportButton')}
             </Button>
           </div>
@@ -165,15 +166,7 @@ export function AuditLogSection({
       {/* Content */}
       <div className="mt-4">
       {auditLoading ? (
-        <div className="space-y-3">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="flex gap-3">
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-4 w-16" />
-              <Skeleton className="h-4 w-20" />
-            </div>
-          ))}
-        </div>
+        <LoadingStatus size="surface" className="flex w-full py-8 text-sm">{tLoading('auditLog')}</LoadingStatus>
       ) : auditError ? (
         <>
           <p className="text-destructive">{auditError}</p>

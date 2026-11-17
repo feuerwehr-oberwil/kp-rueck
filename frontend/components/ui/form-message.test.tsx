@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 
-import { FormMessage, fieldMessageProps, focusFirstBlockingField, formMessageId } from '@/components/ui/form-message'
+import {
+  FormMessage,
+  fieldMessageProps,
+  focusFirstBlockingField,
+  formMessageId,
+  useRequiredField,
+} from '@/components/ui/form-message'
 import { Input } from '@/components/ui/input'
 
 /**
@@ -67,5 +75,42 @@ describe('FormMessage', () => {
     )
     focusFirstBlockingField([null, 'missing', 'b', 'a'])
     expect(screen.getByLabelText('b')).toHaveFocus()
+  })
+})
+
+/** A submit that stays live: an empty name is said under the field, not by a grey button. */
+function NameForm({ onSubmit }: { onSubmit: (name: string) => void }) {
+  const [name, setName] = useState('')
+  const field = useRequiredField('group-name', name, 'Name fehlt.')
+  return (
+    <>
+      <label htmlFor="group-name">Name</label>
+      <input {...field.controlProps} value={name} onChange={(e) => setName(e.target.value)} />
+      <FormMessage id={formMessageId('group-name')}>{field.error}</FormMessage>
+      <button type="button" onClick={() => field.check() && onSubmit(name)}>
+        Speichern
+      </button>
+    </>
+  )
+}
+
+describe('useRequiredField', () => {
+  it('says what is missing under the field, puts the cursor there, and clears once typed', async () => {
+    const user = userEvent.setup()
+    const submitted: string[] = []
+    render(<NameForm onSubmit={(name) => submitted.push(name)} />)
+    const field = screen.getByLabelText('Name')
+    expect(screen.queryByRole('alert')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Speichern' }))
+    expect(submitted).toEqual([])
+    expect(field).toHaveFocus()
+    expect(field).toHaveAttribute('aria-invalid', 'true')
+    expect(field).toHaveAccessibleDescription('Name fehlt.')
+
+    await user.type(field, 'Pumpen')
+    expect(screen.queryByRole('alert')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Speichern' }))
+    expect(submitted).toEqual(['Pumpen'])
   })
 })

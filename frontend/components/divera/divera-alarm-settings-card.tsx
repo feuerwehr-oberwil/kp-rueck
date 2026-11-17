@@ -31,6 +31,8 @@ import {
   DEFAULT_ALARM_TEXT_TEMPLATE,
 } from "@/lib/message-template"
 import { toast } from "sonner"
+import { SettingSaveLine } from "@/components/settings/station-settings-form"
+import { FormMessage, fieldMessageProps, focusFirstBlockingField, formMessageId } from "@/components/ui/form-message"
 import { ShellLoader } from "@/components/ui/shell-loader"
 
 const ENABLED_KEY = "alerting.enabled"
@@ -42,6 +44,8 @@ interface Props {
   updateSetting: (key: string, value: string) => void | Promise<void>
   isEditor: boolean
   saving: string | null
+  /** When the server confirmed each key – the «Gespeichert – hh:mm» under a field. */
+  savedAt: Record<string, Date>
 }
 
 export function DiveraAlarmSettingsCard({
@@ -51,6 +55,7 @@ export function DiveraAlarmSettingsCard({
   updateSetting,
   isEditor,
   saving,
+  savedAt,
 }: Props) {
   const t = useTranslations("divera.alarmSettings")
   const tBlocked = useTranslations("common.deploymentBlocked")
@@ -84,6 +89,8 @@ export function DiveraAlarmSettingsCard({
   const [membersError, setMembersError] = useState(false)
   const [testId, setTestId] = useState<string>("")
   const [isTesting, setIsTesting] = useState(false)
+  // Set by «Testalarm senden» without a person: the picker then says so.
+  const [testPersonMissing, setTestPersonMissing] = useState(false)
   // The alerting domain from the capability registry: provider name for the badge, and
   // `configured` – the flag that decides whether this switch may be flipped at all.
   // Null while the answer is outstanding.
@@ -115,7 +122,8 @@ export function DiveraAlarmSettingsCard({
   const handleTest = async () => {
     const member = members.find((m) => String(m.divera_id) === testId)
     if (!member) {
-      toast.error(t("selectPersonError"))
+      setTestPersonMissing(true)
+      focusFirstBlockingField(["divera-test-person"])
       return
     }
     setIsTesting(true)
@@ -218,6 +226,7 @@ export function DiveraAlarmSettingsCard({
                   }}
                   disabled={!isEditor || isCurrentlySaving}
                 />
+                <SettingSaveLine saving={isCurrentlySaving} savedAt={savedAt[field.key]} />
               </SettingBlock>
             )
           })}
@@ -230,8 +239,19 @@ export function DiveraAlarmSettingsCard({
             <p className="text-sm text-destructive">{t("membersError")}</p>
           ) : (
             <div className="flex items-center gap-2">
-              <Select value={testId} onValueChange={setTestId} disabled={!isEditor}>
-                <SelectTrigger className="flex-1">
+              <Select
+                value={testId}
+                onValueChange={(id) => {
+                  setTestId(id)
+                  setTestPersonMissing(false)
+                }}
+                disabled={!isEditor}
+              >
+                <SelectTrigger
+                  id="divera-test-person"
+                  className="flex-1"
+                  {...fieldMessageProps("divera-test-person", testPersonMissing ? "error" : null)}
+                >
                   <SelectValue
                     placeholder={members.length ? t("selectPerson") : t("loadingMembers")}
                   />
@@ -247,13 +267,16 @@ export function DiveraAlarmSettingsCard({
               <Button
                 onClick={handleTest}
                 title={blockedReason ?? undefined}
-                disabled={Boolean(blockedReason) || !isEditor || isTesting || !testId}
+                disabled={Boolean(blockedReason) || !isEditor || isTesting}
               >
                 {isTesting ? <ShellLoader className="size-4" /> : <Siren className="size-4" />}
                 {t("sendTest")}
               </Button>
             </div>
           )}
+          <FormMessage id={formMessageId("divera-test-person")} className="mt-1">
+            {testPersonMissing ? t("selectPersonError") : null}
+          </FormMessage>
         </SettingBlock>
       )}
     </SettingCard>

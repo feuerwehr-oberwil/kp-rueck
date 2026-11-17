@@ -21,6 +21,7 @@
 import { useCallback, useState } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
+import { undoToast } from "@/lib/toast-undo"
 import { AlertTriangle } from "lucide-react"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useIntlLocale } from "@/lib/date-locale"
@@ -98,18 +99,7 @@ export function useRouteOptimizeAction(planning: Planning) {
       setLastRun({ groupId: group.id, ids, start })
       // Bound to THIS group and THIS result: switching the panel to another
       // Auftrag before clicking must not restore anything there.
-      let used = false
-      toast.success(t("optimized"), {
-        description: startLine,
-        action: {
-          label: t("undo"),
-          onClick: () => {
-            if (used) return
-            used = true
-            void undo(group.id, previous, ids)
-          },
-        },
-      })
+      undoToast(t("optimized"), { description: startLine, onUndo: () => undo(group.id, previous, ids) })
     },
     [planning, t, locale, undo],
   )

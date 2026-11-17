@@ -35,6 +35,7 @@ import { apiClient, type ApiAuftragTemplate } from "@/lib/api-client"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Button } from "@/components/ui/button"
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip"
 import { Input } from "@/components/ui/input"
 import {
   DropdownMenu,
@@ -59,16 +60,8 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
+import { FormMessage, formMessageId, useRequiredField } from "@/components/ui/form-message"
 import { cn } from "@/lib/utils"
 import { useDialogDragGuard } from "@/lib/hooks/use-dialog-drag-guard"
 import { useIsMobile } from "@/components/ui/use-mobile"
@@ -189,6 +182,8 @@ export function AuftraegeSheet({
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState("")
+  const tForm = useTranslations("common.formMessage")
+  const newNameField = useRequiredField("auftraege-new-name", newName, tForm("nameRequired"))
   const [newColor, setNewColor] = useState<string>(AUFTRAG_SWATCHES[0])
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState("")
@@ -298,12 +293,13 @@ export function AuftraegeSheet({
   const startCreate = () => {
     setNewName(t("defaultName", { n: groups.length + 1 }))
     setNewColor(AUFTRAG_SWATCHES[groups.length % AUFTRAG_SWATCHES.length])
+    newNameField.reset()
     setCreating(true)
   }
 
   const confirmCreate = async () => {
+    if (!newNameField.check()) return
     const name = newName.trim()
-    if (!name) return
     setCreating(false)
     const created = await createGroup({ name, color: newColor })
     // Collapse every existing Auftrag and expand only the new one, so the
@@ -389,40 +385,46 @@ export function AuftraegeSheet({
           <div className="flex-1 overflow-y-auto mt-3 pb-10 space-y-3">
             {/* Inline create row */}
             {creating && (
-              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2.5">
-                <Route className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <Input
-                  autoFocus
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") confirmCreate()
-                    if (e.key === "Escape") setCreating(false)
-                  }}
-                  className="h-8 flex-1"
-                  placeholder={t("namePlaceholder")}
-                />
-                <div className="flex items-center gap-1">
-                  {AUFTRAG_SWATCHES.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      aria-label={c}
-                      onClick={() => setNewColor(c)}
-                      className={cn(
-                        "h-5 w-5 rounded-full border transition-transform",
-                        newColor === c ? "ring-2 ring-offset-1 ring-offset-background ring-foreground/40 scale-110" : "",
-                      )}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
+              <div className="rounded-lg border border-border bg-muted/40 px-3 py-2.5">
+                <div className="flex items-center gap-2">
+                  <Route className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <Input
+                    {...newNameField.controlProps}
+                    autoFocus
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") confirmCreate()
+                      if (e.key === "Escape") setCreating(false)
+                    }}
+                    className="h-8 flex-1"
+                    placeholder={t("namePlaceholder")}
+                  />
+                  <div className="flex items-center gap-1">
+                    {AUFTRAG_SWATCHES.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        aria-label={c}
+                        onClick={() => setNewColor(c)}
+                        className={cn(
+                          "h-5 w-5 rounded-full border transition-transform",
+                          newColor === c ? "ring-2 ring-offset-1 ring-offset-background ring-foreground/40 scale-110" : "",
+                        )}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
+                  <Button size="sm" className="h-8" onClick={confirmCreate}>
+                    {t("create")}
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-8" onClick={() => setCreating(false)}>
+                    {t("cancel")}
+                  </Button>
                 </div>
-                <Button size="sm" className="h-8" onClick={confirmCreate} disabled={!newName.trim()}>
-                  {t("create")}
-                </Button>
-                <Button size="sm" variant="ghost" className="h-8" onClick={() => setCreating(false)}>
-                  {t("cancel")}
-                </Button>
+                <FormMessage id={formMessageId("auftraege-new-name")} className="mt-1.5 pl-6">
+                  {newNameField.error}
+                </FormMessage>
               </div>
             )}
 
@@ -483,25 +485,18 @@ export function AuftraegeSheet({
         funkrufname={funkrufname}
       />
 
-      <AlertDialog open={canEdit && !!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("deleteTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>{t("deleteDescription")}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (deleteId) deleteGroup(deleteId)
-                setDeleteId(null)
-              }}
-            >
-              {t("deleteConfirm")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmDialog
+        open={canEdit && !!deleteId}
+        onOpenChange={(o) => !o && setDeleteId(null)}
+        title={t("deleteTitle")}
+        description={t("deleteDescription")}
+        confirmText={t("deleteConfirm")}
+        cancelText={t("cancel")}
+        onConfirm={async () => {
+          // deleteGroup toasts its own failure; throwing keeps the question open for a retry.
+          if (deleteId && !(await deleteGroup(deleteId))) throw new Error("Auftrag not deleted")
+        }}
+      />
     </>
   )
 }
@@ -727,11 +722,13 @@ function AuftragCard({
 
             {canEdit && <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon-xs" aria-label={t("moreOptions")}>
-                    <MoreHorizontal className="size-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
+                <ShortcutTooltip label={t("moreOptions")}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon-xs" aria-label={t("moreOptions")}>
+                      <MoreHorizontal className="size-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </ShortcutTooltip>
                 <DropdownMenuContent
                   align="end"
                   // The menu's exit-animation focus-restore lands AFTER the popover
@@ -1074,27 +1071,30 @@ function StopRow({ groupId, incidentId, index, count, onMove, op, onRemove, onSe
           </div>
         )}
         {/* Karte — opens the Routen-Editor centred on this stop. */}
-        <Button
-          size="icon-xs"
-          variant="ghost"
-          className="flex-shrink-0"
-          onClick={() => onOpenMap(incidentId)}
-          title={t("map")}
-          aria-label={t("map")}
-        >
-          <MapIcon className="size-3.5" />
-        </Button>
+        <ShortcutTooltip label={t("map")}>
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            className="flex-shrink-0"
+            onClick={() => onOpenMap(incidentId)}
+            aria-label={t("map")}
+          >
+            <MapIcon className="size-3.5" />
+          </Button>
+        </ShortcutTooltip>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              className="flex-shrink-0"
-              aria-label={t("stopActions", { name: op?.location ? formatLocation(op.location) : String(index + 1) })}
-            >
-              <MoreHorizontal className="size-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
+          <ShortcutTooltip label={t("moreOptions")}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="flex-shrink-0"
+                aria-label={t("stopActions", { name: op?.location ? formatLocation(op.location) : String(index + 1) })}
+              >
+                <MoreHorizontal className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+          </ShortcutTooltip>
           <DropdownMenuContent align="end" collisionPadding={{ top: 8, bottom: 80, left: 8, right: 8 }}>
             {!readOnly && <MoveMenuItems Item={DropdownMenuItem} index={index} count={count} onMove={onMove} />}
             {!readOnly && <DropdownMenuSeparator />}

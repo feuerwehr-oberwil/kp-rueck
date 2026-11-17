@@ -15,6 +15,7 @@ import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import { ArrowRight, ArrowUpRight, Ban, Check, CircleCheck, Package2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip"
 import { ContextMenu, ContextMenuCheckboxItem, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { DraggableMaterial } from "@/components/kanban/draggable-material"
@@ -106,20 +107,21 @@ export function AvailableOnlyToggle({
   label: string
 }) {
   return (
-    <Button
-      size="icon-xs"
-      variant={active ? "selected" : "ghost"}
-      onClick={onToggle}
-      aria-pressed={active}
-      title={label}
-      aria-label={label}
-      className={cn(
-        "flex-shrink-0 border",
-        !active && "border-transparent text-muted-foreground hover:text-foreground",
-      )}
-    >
-      <CircleCheck className="size-4" />
-    </Button>
+    <ShortcutTooltip label={label}>
+      <Button
+        size="icon-xs"
+        variant={active ? "selected" : "ghost"}
+        onClick={onToggle}
+        aria-pressed={active}
+        aria-label={label}
+        className={cn(
+          "flex-shrink-0 border",
+          !active && "border-transparent text-muted-foreground hover:text-foreground",
+        )}
+      >
+        <CircleCheck className="size-4" />
+      </Button>
+    </ShortcutTooltip>
   )
 }
 

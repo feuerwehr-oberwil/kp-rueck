@@ -10,6 +10,8 @@ vi.mock("next/navigation", () => ({
 }))
 const openCommandPalette = vi.hoisted(() => vi.fn())
 vi.mock("@/components/ui/command-palette", () => ({ openCommandPalette }))
+const undoNewest = vi.hoisted(() => vi.fn(() => true))
+vi.mock("@/lib/toast-undo", () => ({ undoNewest }))
 
 import { GlobalShortcuts, globalShortcutsEnabled } from "./use-global-navigation"
 import { G_PREFIX_SHORTCUTS, gPrefixHint } from "./use-g-prefix-navigation"
@@ -24,6 +26,7 @@ beforeEach(() => {
   nav.pathname = "/resources"
   nav.push.mockClear()
   openCommandPalette.mockClear()
+  undoNewest.mockClear()
 })
 afterEach(() => {
   document.body.innerHTML = ""
@@ -123,5 +126,25 @@ describe("the chords are documented as they work", () => {
     const palette = fs.readFileSync(path.join(root, "components/ui/command-palette.tsx"), "utf8")
     expect(palette).not.toMatch(/>G [A-Z]</)
     for (const shortcut of G_PREFIX_SHORTCUTS) expect(palette).toContain(`gPrefixHint("${shortcut.path}")`)
+  })
+})
+
+describe("⌘Z / Ctrl+Z", () => {
+  it("presses the newest standing «Rückgängig» on any page – the board too", () => {
+    nav.pathname = "/"
+    render(<GlobalShortcuts />)
+    press("z", document.body, { metaKey: true })
+    press("z", document.body, { ctrlKey: true })
+    expect(undoNewest).toHaveBeenCalledTimes(2)
+  })
+
+  it("leaves a field its own text undo, and ignores ⇧⌘Z and a bare Z", () => {
+    render(<GlobalShortcuts />)
+    const input = document.createElement("input")
+    document.body.appendChild(input)
+    press("z", input, { metaKey: true })
+    press("z", document.body, { metaKey: true, shiftKey: true })
+    press("z")
+    expect(undoNewest).not.toHaveBeenCalled()
   })
 })

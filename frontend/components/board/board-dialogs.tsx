@@ -100,7 +100,6 @@ export interface BoardDialogsProps {
   handleOperationUpdate: OperationHandlers["handleOperationUpdate"]
   handlePrintBoard: (options?: ThermoPrintOptions) => Promise<void>
   handleVehicleAssign: OperationHandlers["handleVehicleAssign"]
-  handleVehicleRemove: OperationHandlers["handleVehicleRemove"]
   isEditor: boolean
   isPrintingBoard: boolean
   linksSheetOpen: boolean
@@ -177,7 +176,6 @@ export function BoardDialogs({
   handleOperationUpdate,
   handlePrintBoard,
   handleVehicleAssign,
-  handleVehicleRemove,
   isEditor,
   isPrintingBoard,
   linksSheetOpen,
@@ -235,7 +233,7 @@ export function BoardDialogs({
         onDelete={isEditor ? handleOperationDelete : undefined}
         materials={materials}
         onAssignVehicle={isEditor ? handleVehicleAssign : undefined}
-        onRemoveVehicle={isEditor ? handleVehicleRemove : undefined}
+        onRemoveVehicle={isEditor ? release.releaseVehicle : undefined}
         onRemoveCrew={isEditor ? release.releaseCrew : undefined}
         onRemoveMaterial={isEditor ? release.releaseMaterial : undefined}
         canEdit={isEditor}

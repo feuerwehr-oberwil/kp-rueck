@@ -51,12 +51,12 @@ export class EventsPage extends BasePage {
     this.cancelButton = this.createDialog.getByRole('button', { name: 'Abbrechen' });
 
     // Archive dialog
-    this.archiveDialog = page.locator('div[role="dialog"]', { hasText: 'Ereignis archivieren?' });
+    this.archiveDialog = page.getByRole('alertdialog', { name: 'Ereignis archivieren?' });
     this.archiveConfirmButton = this.archiveDialog.getByRole('button', { name: 'Archivieren' });
 
     // Delete dialog
-    this.deleteDialog = page.locator('div[role="dialog"]', { hasText: 'Ereignis dauerhaft löschen?' });
-    this.deleteConfirmButton = this.deleteDialog.getByRole('button', { name: 'Dauerhaft löschen' });
+    this.deleteDialog = page.getByRole('alertdialog', { name: 'Ereignis endgültig löschen?' });
+    this.deleteConfirmButton = this.deleteDialog.getByRole('button', { name: 'Endgültig löschen' });
 
     // Page sections. Active events are simply the row list now; the archive is
     // a collapsed disclosure ("Archiv (N)") at the foot of it.

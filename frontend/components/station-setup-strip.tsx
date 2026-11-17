@@ -22,11 +22,13 @@ import { useAuth } from "@/lib/contexts/auth-context"
 import { stationSetupState, PLACEHOLDER_STATION, type StationSetupState } from "@/lib/station-setup"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { FormMessage, formMessageId, fieldMessageProps } from "@/components/ui/form-message"
+import { FormMessage, formMessageId, fieldMessageProps, focusFirstBlockingField } from "@/components/ui/form-message"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { LocationInput } from "@/components/location/location-input"
 import { ShellLoader } from "@/components/ui/shell-loader"
+import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog"
+import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning"
 import { cn } from "@/lib/utils"
 
 /** Per device: an admin who knows and wants the room back. */
@@ -184,10 +186,20 @@ function StationLocationDialog({
 
   const locationMissing = tried && !coords
   const cityMissing = tried && !homeCity.trim()
+  // A picked Magazin or an edited Einsatzgebiet survives Esc and a click beside the dialog.
+  const guard = useUnsavedChangesWarning({
+    isDirty: !saving && (coords !== null || homeCity !== initialHomeCity),
+    isOpen: true,
+    onClose,
+  })
 
   const save = async () => {
     setTried(true)
-    if (!coords || !homeCity.trim()) return
+    if (!coords || !homeCity.trim()) {
+      // The address search has no plain id to focus; the Einsatzgebiet field does.
+      if (coords) focusFirstBlockingField(["station-home-city"])
+      return
+    }
     setSaving(true)
     try {
       await apiClient.updateSetting("firestation_latitude", coords.lat.toFixed(6))
@@ -202,53 +214,64 @@ function StationLocationDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && !saving && onClose()}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{t("dialogTitle")}</DialogTitle>
-          <DialogDescription>{t("dialogDescription")}</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div>
-            <LocationInput
-              label={t("addressLabel")}
-              address={address}
-              latitude={coords?.lat ?? null}
-              longitude={coords?.lng ?? null}
-              onAddressChange={setAddress}
-              onCoordinatesChange={(lat, lng) => setCoords(lat !== null && lng !== null ? { lat, lng } : null)}
-              disabled={saving}
-              error={locationMissing}
-              describedBy={locationMissing ? formMessageId("station-location") : undefined}
-            />
-            {locationMissing && <FormMessage id={formMessageId("station-location")}>{t("locationMissing")}</FormMessage>}
+    <>
+      <Dialog open onOpenChange={(open) => !open && !saving && guard.handleOpenChange(open)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t("dialogTitle")}</DialogTitle>
+            <DialogDescription>{t("dialogDescription")}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <LocationInput
+                label={t("addressLabel")}
+                address={address}
+                latitude={coords?.lat ?? null}
+                longitude={coords?.lng ?? null}
+                onAddressChange={setAddress}
+                onCoordinatesChange={(lat, lng) => setCoords(lat !== null && lng !== null ? { lat, lng } : null)}
+                disabled={saving}
+                error={locationMissing}
+                describedBy={locationMissing ? formMessageId("station-location") : undefined}
+              />
+              {locationMissing && <FormMessage id={formMessageId("station-location")}>{t("locationMissing")}</FormMessage>}
+            </div>
+            <div>
+              <Label htmlFor="station-home-city" className="mb-1.5">
+                {t("homeCityLabel")}
+              </Label>
+              <Input
+                id="station-home-city"
+                value={homeCity}
+                placeholder={t("homeCityPlaceholder")}
+                autoComplete="off"
+                onChange={(e) => setHomeCity(e.target.value)}
+                onKeyDown={(e) => {
+                  // Enter saves, like every other dialog form. Not a <form>: Enter in the
+                  // address search above picks a hit, it must not submit.
+                  if (e.key === "Enter" && !saving) {
+                    e.preventDefault()
+                    void save()
+                  }
+                }}
+                disabled={saving}
+                {...(cityMissing ? fieldMessageProps("station-home-city", "error") : {})}
+              />
+              {cityMissing && <FormMessage id={formMessageId("station-home-city")}>{t("homeCityMissing")}</FormMessage>}
+            </div>
           </div>
-          <div>
-            <Label htmlFor="station-home-city" className="mb-1.5">
-              {t("homeCityLabel")}
-            </Label>
-            <Input
-              id="station-home-city"
-              value={homeCity}
-              placeholder={t("homeCityPlaceholder")}
-              autoComplete="off"
-              onChange={(e) => setHomeCity(e.target.value)}
-              disabled={saving}
-              {...(cityMissing ? fieldMessageProps("station-home-city", "error") : {})}
-            />
-            {cityMissing && <FormMessage id={formMessageId("station-home-city")}>{t("homeCityMissing")}</FormMessage>}
-          </div>
-        </div>
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={onClose} disabled={saving}>
-            {cancelLabel}
-          </Button>
-          <Button onClick={() => void save()} disabled={saving}>
-            {saving && <ShellLoader className="size-4" />}
-            {t("save")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={guard.requestClose} disabled={saving}>
+              {cancelLabel}
+            </Button>
+            <Button onClick={() => void save()} disabled={saving}>
+              {saving && <ShellLoader className="size-4" />}
+              {t("save")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <UnsavedChangesDialog {...guard.dialogProps} />
+    </>
   )
 }

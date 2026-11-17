@@ -35,7 +35,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useTranslations } from 'next-intl'
-import { AlertTriangle, Check, Copy, Phone, RotateCcw, Send, UserRound } from 'lucide-react'
+import { AlertTriangle, Check, Copy, Phone, RefreshCw, Send, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -562,7 +562,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
       <div className="space-y-2">
         <p className="text-sm text-destructive">{t('loadError')}</p>
         <Button type="button" variant="outline" size="sm" onClick={() => load()}>
-          <RotateCcw className="size-3.5" />
+          <RefreshCw className="size-3.5" />
           {t('loadRetry')}
         </Button>
       </div>

@@ -532,7 +532,7 @@ export function CommandPalette() {
                 <CommandItem onSelect={() => runCommand(onWriteJournal)}>
                   <NotebookPen className="mr-2 h-4 w-4" />
                   <span>{t('journalEntry')}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">⇧J</span>
+                  <span className="ml-auto text-xs text-muted-foreground">E</span>
                 </CommandItem>
               )}
               {onToggleFigures && (
@@ -744,7 +744,7 @@ export function CommandPalette() {
               >
                 <Edit className="mr-2 h-4 w-4" />
                 <span>{t('openDetails')}</span>
-                <span className="ml-auto text-xs text-muted-foreground">E</span>
+                <span className="ml-auto text-xs text-muted-foreground">↵</span>
               </CommandItem>
               <CommandItem
                 disabled={!hasSelectedIncident}

@@ -23,7 +23,10 @@ import { useDeploymentBlock } from "@/lib/hooks/use-deployment"
 import { cn } from "@/lib/utils"
 import { useEvent } from "@/lib/contexts/event-context"
 import { toast } from "sonner"
+import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog"
+import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning"
 import { ShellLoader, LoadingStatus } from "@/components/ui/shell-loader"
+import { FormMessage, fieldMessageProps, focusFirstBlockingField, formMessageId } from "@/components/ui/form-message"
 
 interface DiveraMessageDialogProps {
   open: boolean
@@ -63,6 +66,15 @@ export function DiveraMessageDialog({
   const [title, setTitle] = useState("")
   const [text, setText] = useState("")
   const [isSending, setIsSending] = useState(false)
+  // Set by a send that found something missing: from then on the missing field says so.
+  const [tried, setTried] = useState(false)
+  // What the open prefilled – an edit beyond it is worth a question before it is thrown away.
+  const [prefilled, setPrefilled] = useState({ title: "", text: "" })
+  const guard = useUnsavedChangesWarning({
+    isDirty: open && !isSending && (title !== prefilled.title || text !== prefilled.text),
+    isOpen: open,
+    onClose: () => onOpenChange(false),
+  })
 
   // Re-prefill on every open, so an edited template (or a changed event) is
   // picked up instead of a stale first render being sent. The event is read as it is at
@@ -71,10 +83,16 @@ export function DiveraMessageDialog({
   useEffect(() => {
     if (!open) return
     const isTraining = isTrainingNow()
-    setTitle((isTraining ? `ÜBUNG: ${defaultTitle || "KP-Rück"}` : defaultTitle || "KP-Rück").slice(0, 50))
-    setText(isTraining ? `🔶 ÜBUNG – dies ist eine Übung.\n\n${defaultText}` : defaultText)
+    const initial = {
+      title: (isTraining ? `ÜBUNG: ${defaultTitle || "KP-Rück"}` : defaultTitle || "KP-Rück").slice(0, 50),
+      text: isTraining ? `🔶 ÜBUNG – dies ist eine Übung.\n\n${defaultText}` : defaultText,
+    }
+    setTitle(initial.title)
+    setText(initial.text)
+    setPrefilled(initial)
     setTarget("groups")
     setSelectedGroups(new Set())
+    setTried(false)
 
     let cancelled = false
     setIsLoadingGroups(true)
@@ -105,10 +123,15 @@ export function DiveraMessageDialog({
   }
 
   const recipientsChosen = target === "all" || selectedGroups.size > 0
+  const recipientsError = tried && !recipientsChosen ? t("noRecipientsError") : undefined
+  const textError = tried && !text.trim() ? t("textRequired") : undefined
 
   const handleSend = async () => {
-    if (!recipientsChosen) {
-      toast.error(t("noRecipientsError"))
+    // What is missing is said under its field and the cursor goes there – the
+    // button stays live instead of greying out without a word.
+    if (!recipientsChosen || !text.trim()) {
+      setTried(true)
+      focusFirstBlockingField([!recipientsChosen && "divera-message-recipients", !text.trim() && "divera-message-text"])
       return
     }
     setIsSending(true)
@@ -136,125 +159,136 @@ export function DiveraMessageDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <MessageCircle className="h-5 w-5 text-muted-foreground" />
-            {t("title")}
-          </DialogTitle>
-          <DialogDescription>{t("description")}</DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={guard.handleOpenChange}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-muted-foreground" />
+              {t("title")}
+            </DialogTitle>
+            <DialogDescription>{t("description")}</DialogDescription>
+          </DialogHeader>
 
-        {/* `DetailField` rows, boxed controls — the grammar of the new-Einsatz modal. */}
-        <div className="space-y-1 py-2">
-          {blockedReason && (
-            <p
-              role="note"
-              className="mb-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm leading-relaxed"
-            >
-              {blockedReason}
-            </p>
-          )}
-
-          {/* Recipients — groups first, «alle» as the deliberate exception. No rules
-              between the two choices: the tinted selection and the indent under
-              «Gruppen» already say which is which. */}
-          <DetailField label={t("recipients")} alignStart>
-            <div className="rounded-lg border border-border">
-              <button
-                type="button"
-                onClick={() => setTarget("groups")}
-                className={cn(
-                  "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
-                  target === "groups" ? "sel-choice" : "hover:bg-muted",
-                )}
+          {/* `DetailField` rows, boxed controls — the grammar of the new-Einsatz modal. */}
+          <div className="space-y-1 py-2">
+            {blockedReason && (
+              <p
+                role="note"
+                className="mb-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm leading-relaxed"
               >
-                <Users className="size-4 shrink-0" />
-                <span className="flex-1">{t("targetGroups")}</span>
-                {target === "groups" && <Check className="size-4 shrink-0" />}
-              </button>
+                {blockedReason}
+              </p>
+            )}
 
-              {target === "groups" && (
-                <div className="max-h-48 overflow-y-auto">
-                  {isLoadingGroups ? (
-                    <LoadingStatus className="px-3 py-2 text-sm">{t("loadingGroups")}</LoadingStatus>
-                  ) : groupsError ? (
-                    <p className="px-3 py-2 text-sm text-muted-foreground">{t("groupsError")}</p>
-                  ) : groups.length === 0 ? (
-                    <p className="px-3 py-2 text-sm text-muted-foreground">{t("noGroups")}</p>
-                  ) : (
-                    groups.map((group) => (
-                      <label
-                        key={group.divera_id}
-                        className="flex cursor-pointer items-center gap-2.5 py-1.5 pl-8 pr-3 text-sm"
-                      >
-                        <Checkbox
-                          checked={selectedGroups.has(group.divera_id)}
-                          onCheckedChange={() => toggleGroup(group.divera_id)}
-                        />
-                        <span className="flex-1 truncate">{group.name}</span>
-                      </label>
-                    ))
+            {/* Recipients — groups first, «alle» as the deliberate exception. No rules
+                between the two choices: the tinted selection and the indent under
+                «Gruppen» already say which is which. */}
+            <DetailField label={t("recipients")} alignStart>
+              <div className="rounded-lg border border-border">
+                <button
+                  id="divera-message-recipients"
+                  type="button"
+                  {...fieldMessageProps("divera-message-recipients", recipientsError ? "error" : null)}
+                  onClick={() => setTarget("groups")}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
+                    target === "groups" ? "sel-choice" : "hover:bg-muted",
                   )}
-                </div>
-              )}
+                >
+                  <Users className="size-4 shrink-0" />
+                  <span className="flex-1">{t("targetGroups")}</span>
+                  {target === "groups" && <Check className="size-4 shrink-0" />}
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setTarget("all")}
-                className={cn(
-                  "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
-                  target === "all" ? "sel-choice" : "hover:bg-muted",
+                {target === "groups" && (
+                  <div className="max-h-48 overflow-y-auto">
+                    {isLoadingGroups ? (
+                      <LoadingStatus className="px-3 py-2 text-sm">{t("loadingGroups")}</LoadingStatus>
+                    ) : groupsError ? (
+                      <p className="px-3 py-2 text-sm text-muted-foreground">{t("groupsError")}</p>
+                    ) : groups.length === 0 ? (
+                      <p className="px-3 py-2 text-sm text-muted-foreground">{t("noGroups")}</p>
+                    ) : (
+                      groups.map((group) => (
+                        <label
+                          key={group.divera_id}
+                          className="flex cursor-pointer items-center gap-2.5 py-1.5 pl-8 pr-3 text-sm"
+                        >
+                          <Checkbox
+                            checked={selectedGroups.has(group.divera_id)}
+                            onCheckedChange={() => toggleGroup(group.divera_id)}
+                          />
+                          <span className="flex-1 truncate">{group.name}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
                 )}
+
+                <button
+                  type="button"
+                  onClick={() => setTarget("all")}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
+                    target === "all" ? "sel-choice" : "hover:bg-muted",
+                  )}
+                >
+                  <Megaphone className="size-4 shrink-0" />
+                  <span className="flex-1">{t("targetAll")}</span>
+                  {target === "all" && <Check className="size-4 shrink-0" />}
+                </button>
+                {target === "all" && (
+                  <p className="flex items-start gap-2 px-3 py-2 text-xs text-amber-700 dark:text-amber-500">
+                    <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                    {t("allWarning")}
+                  </p>
+                )}
+              </div>
+              {/* By hand, not DetailField's `error`: that needs `htmlFor`, and a label
+                  pointing at the «Gruppen» button would press it. */}
+              <FormMessage id={formMessageId("divera-message-recipients")} className="mt-1">
+                {recipientsError}
+              </FormMessage>
+            </DetailField>
+
+            <DetailField label={t("titleLabel")} htmlFor="divera-message-title">
+              <Input
+                id="divera-message-title"
+                value={title}
+                maxLength={50}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </DetailField>
+
+            <DetailField label={t("textLabel")} htmlFor="divera-message-text" alignStart error={textError}>
+              <Textarea
+                id="divera-message-text"
+                {...fieldMessageProps("divera-message-text", textError ? "error" : null)}
+                value={text}
+                rows={7}
+                className="text-xs"
+                onChange={(e) => setText(e.target.value)}
+              />
+            </DetailField>
+
+            <DialogFooter className="pt-3">
+              <Button variant="outline" onClick={guard.requestClose} disabled={isSending}>
+                {t("cancel")}
+              </Button>
+              <Button
+                onClick={handleSend}
+                title={blockedReason ?? undefined}
+                disabled={Boolean(blockedReason) || isSending}
               >
-                <Megaphone className="size-4 shrink-0" />
-                <span className="flex-1">{t("targetAll")}</span>
-                {target === "all" && <Check className="size-4 shrink-0" />}
-              </button>
-              {target === "all" && (
-                <p className="flex items-start gap-2 px-3 py-2 text-xs text-amber-700 dark:text-amber-500">
-                  <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-                  {t("allWarning")}
-                </p>
-              )}
-            </div>
-          </DetailField>
-
-          <DetailField label={t("titleLabel")} htmlFor="divera-message-title">
-            <Input
-              id="divera-message-title"
-              value={title}
-              maxLength={50}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </DetailField>
-
-          <DetailField label={t("textLabel")} htmlFor="divera-message-text" alignStart>
-            <Textarea
-              id="divera-message-text"
-              value={text}
-              rows={7}
-              className="text-xs"
-              onChange={(e) => setText(e.target.value)}
-            />
-          </DetailField>
-
-          <DialogFooter className="pt-3">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSending}>
-              {t("cancel")}
-            </Button>
-            <Button
-              onClick={handleSend}
-              title={blockedReason ?? undefined}
-              disabled={Boolean(blockedReason) || isSending || !recipientsChosen || !text.trim()}
-            >
-              {isSending ? <ShellLoader className="size-4" /> : <MessageCircle className="size-4" />}
-              {target === "all" ? t("sendAll") : t("send", { count: selectedGroups.size })}
-            </Button>
-          </DialogFooter>
-        </div>
-      </DialogContent>
-    </Dialog>
+                {isSending ? <ShellLoader className="size-4" /> : <MessageCircle className="size-4" />}
+                {target === "all" ? t("sendAll") : t("send", { count: selectedGroups.size })}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <UnsavedChangesDialog {...guard.dialogProps} />
+    </>
   )
 }
