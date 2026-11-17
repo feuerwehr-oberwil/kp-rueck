@@ -867,7 +867,8 @@
       "rapportNext": "ensuite : saisir le rapport",
       "rapportDone": "Rapport saisi",
       "reportNow": "annoncer",
-      "rapportAction": "Saisir le rapport"
+      "rapportAction": "Saisir le rapport",
+      "messageRequired": "Le message manque."
     },
     "pickup": {
       "badge": "Récupération",
@@ -939,7 +940,8 @@
       "toField": "à l’effectif, {name}, {time}",
       "send": "Envoyer à l’effectif",
       "sendPlaceholder": "Message à l’effectif …",
-      "sendFailed": "Le message n’a pas pu être envoyé"
+      "sendFailed": "Le message n’a pas pu être envoyé",
+      "sendRequired": "Le message manque."
     },
     "rapport": {
       "sectionTitle": "Rapport de place sinistrée",
@@ -1267,7 +1269,8 @@
       "stateSeen": "Vu par le PC",
       "stateInProgress": "PC : en cours",
       "stateDone": "réglé · {time}",
-      "stateDoneBy": "réglé · {time} · {name}"
+      "stateDoneBy": "réglé · {time} · {name}",
+      "materialRequired": "Le matériel ou la note manque."
     }
   },
   "help": {

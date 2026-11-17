@@ -4063,7 +4063,8 @@
       "rapportNext": "danach: Rapport erfassen",
       "rapportDone": "Rapport erfasst",
       "reportNow": "melden",
-      "rapportAction": "Rapport erfassen"
+      "rapportAction": "Rapport erfassen",
+      "messageRequired": "Meldung fehlt."
     },
     "pickup": {
       "badge": "Abholung",
@@ -4135,7 +4136,8 @@
       "toField": "an den Trupp, {name}, {time}",
       "send": "An Trupp senden",
       "sendPlaceholder": "Meldung an den Trupp …",
-      "sendFailed": "Meldung konnte nicht gesendet werden"
+      "sendFailed": "Meldung konnte nicht gesendet werden",
+      "sendRequired": "Meldung fehlt."
     },
     "rapport": {
       "sectionTitle": "Schadenplatz-Rapport",
@@ -4463,7 +4465,8 @@
       "stateSeen": "Vom KP gesehen",
       "stateInProgress": "KP: in Arbeit",
       "stateDone": "erledigt · {time}",
-      "stateDoneBy": "erledigt · {time} · {name}"
+      "stateDoneBy": "erledigt · {time} · {name}",
+      "materialRequired": "Material oder Notiz fehlt."
     }
   },
   "duplicates": {
