@@ -580,7 +580,7 @@ def _personnel_display(data: EventReportData, personnel_id: uuid.UUID | None) ->
     if not personnel_id:
         return LABELS["rapport_unknown_person"]
     person = data.personnel_map.get(personnel_id)
-    return person.name if person else LABELS["rapport_unknown_person"]
+    return data.person_name(person) if person else LABELS["rapport_unknown_person"]
 
 
 def rapport_filing_lines(data: EventReportData, report: SchadenplatzReport) -> list[str]:

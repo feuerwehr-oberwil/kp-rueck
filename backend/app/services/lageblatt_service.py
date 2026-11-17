@@ -14,7 +14,7 @@ through an outage.
 """
 
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
 from io import BytesIO
 from typing import Any
@@ -50,8 +50,8 @@ from ..models import (
 from .address_display import format_location_for_display
 from .audit_export_service import EventReportData
 from .incident_leader import effective_leader_ids
-from .pdf_report_service import logo_flowable, photo_grid
 from .notification_params import duration_hours_de
+from .pdf_report_service import logo_flowable, photo_grid
 from .photo_storage import ExportPhoto
 from .ranks import rank_abbr, rank_tier
 from .rapport_rows import (
@@ -261,15 +261,16 @@ def _mittel(inc: Incident, vehicles: list[Vehicle]) -> list[str]:
     return names
 
 
-def _crew_compact(crew: list[Personnel]) -> str:
-    """Highest rank + count instead of everyone: 'Of Muster +4'."""
+def _crew_compact(crew: list[Personnel], name: Callable[[Personnel], str]) -> str:
+    """Highest rank + count instead of everyone: 'Of Muster +4'. ``name`` is
+    ``EventReportData.person_name`` (a namesake carries the Kennung)."""
     if not crew:
         return ""
     top = min(crew, key=_rank_key)
     abbr = rank_abbr(top.role)
     if abbr is None:
         abbr = _clip(top.role or "", 8)
-    label = f"{abbr} {top.name}".strip()
+    label = f"{abbr} {name(top)}".strip()
     extra = len(crew) - 1
     return f"{label} +{extra}" if extra else label
 
@@ -278,7 +279,7 @@ def _incident_row(data: EventReportData, inc: Incident, index: int, home_city: s
     reko = _first_reko(data, inc.id)
     reko_by = ""
     if reko and reko.submitted_by_personnel_id in data.personnel_map:
-        reko_by = data.personnel_map[reko.submitted_by_personnel_id].name
+        reko_by = data.person_name(data.personnel_map[reko.submitted_by_personnel_id])
     dispo = _first_transition_to(data, inc.id, {"enroute", "active"})
     done = inc.status in ("returning", "complete") or inc.completed_at is not None
     crew, vehicles, _materials = _active_resources(data, inc)
@@ -296,7 +297,7 @@ def _incident_row(data: EventReportData, inc: Incident, index: int, home_city: s
         # a novel-length summary eating the sheet — the detail pages carry it all.
         _p(_clip(reko.summary_text if reko else "", 220)),
         _p(_dt_cell(dispo.timestamp) if dispo else ""),
-        _p(_clip(_crew_compact(crew), 24)),
+        _p(_clip(_crew_compact(crew, data.person_name), 24)),
         _p(_clip(", ".join(_mittel(inc, vehicles)), 22)),
         _p("✓" if done else ""),
     ]
@@ -394,7 +395,7 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
             # EL first (plan 25, decision 23), rank order underneath — the sort key
             # keeps the existing `_rank_key` ordering for everyone who is not the EL.
             ", ".join(
-                f"{p.name}" + (f" ({p.role})" if p.role else "")
+                data.person_name(p) + (f" ({p.role})" if p.role else "")
                 for p in sorted(crew, key=lambda p: (p.id not in leaders, _rank_key(p)))
             )
             or "–",

@@ -18,5 +18,5 @@ DE_JSON = Path(__file__).resolve().parents[3] / "frontend" / "messages" / "de.js
 @pytest.mark.skipif(not DE_JSON.exists(), reason="frontend sources not present")
 def test_status_and_priority_labels_are_the_board_words():
     incidents = json.loads(DE_JSON.read_text())["incidents"]
-    assert STATUS_LABELS == incidents["status"]
-    assert PRIORITY_LABELS == incidents["priority"]
+    assert incidents["status"] == STATUS_LABELS
+    assert incidents["priority"] == PRIORITY_LABELS

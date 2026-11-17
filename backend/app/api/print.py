@@ -34,6 +34,7 @@ from ..database import execute_dml, get_db
 from ..models import Event, EventAttendance, EventSpecialFunction, Incident, Material, Personnel, PrintJob, Vehicle
 from ..services import print_signal
 from ..services import settings as settings_service
+from ..services.person_label import person_text, roster_namesakes
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_print_job_update
 
@@ -191,6 +192,9 @@ async def _build_board_payload(
     )
     reko_personnel_ids = {row[0] for row in reko_result.all()}
 
+    # A namesake is printed with their Kennung, as the board shows them (services.person_label).
+    shared = await roster_namesakes(db)
+
     # Find all drivers for this event
     driver_map: dict[uuid.UUID, str] = {}  # vehicle_id -> driver name
     driver_result = await db.execute(
@@ -205,7 +209,7 @@ async def _build_board_payload(
     )
     for sf, person in driver_result.all():
         if sf.vehicle_id:
-            driver_map[sf.vehicle_id] = person.name
+            driver_map[sf.vehicle_id] = person_text(person.name, person.kennung, shared)
 
     # Build incidents list with full details
     incidents_data: list[dict[str, Any]] = []
@@ -243,7 +247,13 @@ async def _build_board_payload(
             pers_result = await db.execute(select(Personnel).where(Personnel.id.in_(personnel_ids)))
             for p in pers_result.scalars().all():
                 if p.id not in reko_personnel_ids:
-                    crew.append({"name": p.name, "role": p.role, "is_leader": p.id in leader_ids})
+                    crew.append(
+                        {
+                            "name": person_text(p.name, p.kennung, shared),
+                            "role": p.role,
+                            "is_leader": p.id in leader_ids,
+                        }
+                    )
 
         # Get material details
         materials_list: list[dict[str, Any]] = []
@@ -344,7 +354,7 @@ async def _build_board_payload(
 
             personnel_list.append(
                 {
-                    "name": p.name,
+                    "name": person_text(p.name, p.kennung, shared),
                     "role": p.role,
                     "assigned": is_assigned,
                     # "kp" when an operator checked this person in, otherwise absent.

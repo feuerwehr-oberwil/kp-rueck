@@ -24,6 +24,7 @@ from ..models import (
     RekoReport,
     Vehicle,
 )
+from ..services.person_label import person_text, roster_namesakes
 from ..services.tokens import generate_feld_token
 
 logger = logging.getLogger(__name__)
@@ -331,6 +332,9 @@ async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict
         )
         reko_personnel_ids = {row[0] for row in result.all()}
 
+    # A namesake is printed with their Kennung, as the board shows them (services.person_label).
+    shared = await roster_namesakes(db)
+
     # Drivers per vehicle for this event
     driver_map: dict[uuid.UUID, str] = {}
     if vehicle_ids and incident.event_id:
@@ -347,7 +351,7 @@ async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict
         )
         for sf, person in result.all():
             if sf.vehicle_id:
-                driver_map[sf.vehicle_id] = person.name
+                driver_map[sf.vehicle_id] = person_text(person.name, person.kennung, shared)
 
     # Fetch personnel (excluding Reko-tagged personnel from crew list). The
     # Einsatzleiter rides along on the slip: the crew that reads it off the
@@ -366,7 +370,9 @@ async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict
         )
         for p in personnel_result.scalars().all():
             if p.id not in reko_personnel_ids:
-                crew.append({"name": p.name, "role": p.role, "is_leader": p.id in leader_ids})
+                crew.append(
+                    {"name": person_text(p.name, p.kennung, shared), "role": p.role, "is_leader": p.id in leader_ids}
+                )
         # EL first (plan 25, decision 23) — incident-scoped, so this reorders only
         # this slip. Stable: everyone else keeps the order they came back in.
         crew.sort(key=lambda member: not member["is_leader"])

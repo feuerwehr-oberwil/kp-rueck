@@ -32,6 +32,7 @@ from ..models import (
 from ..schemas.journal import JournalEntryOut
 from .journal import journal_rows
 from .merge_links import merged_cards_of_event
+from .person_label import person_text, roster_namesakes
 from .workbook_output import workbook_bytes
 
 
@@ -82,6 +83,13 @@ class EventReportData:
     vehicle_map: dict[uuid.UUID, Vehicle] = field(default_factory=dict)
     material_map: dict[uuid.UUID, Material] = field(default_factory=dict)
     user_map: dict[uuid.UUID, User] = field(default_factory=dict)
+    # The roster's shared names (`services.person_label`): paper names a namesake with
+    # their Kennung, as the board does.
+    namesakes: frozenset[str] = field(default_factory=frozenset)
+
+    def person_name(self, person: Personnel) -> str:
+        """How the PDF and the Lageblatt name a person: «Meier Alex (1985)» for a namesake."""
+        return person_text(person.name, person.kennung, self.namesakes)
 
 
 def format_timestamp(dt: datetime | None) -> str:
@@ -307,6 +315,7 @@ async def collect_event_report_data(db: AsyncSession, event_id: uuid.UUID) -> Ev
         vehicle_map=vehicle_map,
         material_map=material_map,
         user_map=user_map,
+        namesakes=await roster_namesakes(db),
     )
 
 

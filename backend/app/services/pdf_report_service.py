@@ -564,7 +564,7 @@ def _resource_name(data: EventReportData, assignment: IncidentAssignment) -> str
     rid = assignment.resource_id
     if assignment.resource_type == "personnel":
         p = data.personnel_map.get(rid)
-        return p.name if p else str(rid)
+        return data.person_name(p) if p else str(rid)
     if assignment.resource_type == "vehicle":
         v = data.vehicle_map.get(rid)
         if not v:
@@ -711,7 +711,7 @@ def _attendance_table(data: EventReportData, styles: dict[str, ParagraphStyle]) 
         )
         rows.append(
             [
-                _p(person.name if person else str(record.personnel_id), styles["cell"]),
+                _p(data.person_name(person) if person else str(record.personnel_id), styles["cell"]),
                 _p(_text(person.role) if person else "", styles["cell"]),
                 _p(_fmt_dt(arrived), styles["cell"]),
                 _p(_fmt_dt(left) if left is not None else LABELS["attendance_open"], styles["cell"]),

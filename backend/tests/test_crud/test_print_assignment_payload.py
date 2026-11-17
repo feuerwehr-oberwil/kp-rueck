@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.crud.print_jobs import build_assignment_payload
-from app.models import Event, Incident
+from app.models import Event, Incident, IncidentAssignment, Personnel
 
 
 async def _incident(db: AsyncSession, *, training: bool) -> Incident:
@@ -108,3 +108,27 @@ async def test_payload_keeps_the_fields_the_formatter_reads(db_session: AsyncSes
         "internal_notes",
     ):
         assert key in payload, f"the print agent reads {key!r} and it is not in the payload"
+
+
+@pytest.mark.asyncio
+async def test_a_namesake_is_printed_with_the_kennung(db_session: AsyncSession):
+    """Two «Meier Alex» on the roster: the slip says which one, as the board does."""
+    incident = await _incident(db_session, training=False)
+    meier = Personnel(name="Meier Alex", kennung="1985", status="available", tags=[])
+    namesake = Personnel(name="Meier  alex", kennung="1990", status="available", tags=[])
+    huber = Personnel(name="Huber Max", kennung="1970", status="available", tags=[])
+    db_session.add_all([meier, namesake, huber])
+    await db_session.flush()
+    for person in (meier, huber):
+        db_session.add(IncidentAssignment(incident_id=incident.id, resource_type="personnel", resource_id=person.id))
+    await db_session.commit()
+    loaded = await db_session.execute(
+        select(Incident)
+        .options(selectinload(Incident.assignments))
+        .where(Incident.id == incident.id)
+        .execution_options(populate_existing=True)
+    )
+
+    payload = await build_assignment_payload(db_session, loaded.scalar_one())
+
+    assert sorted(member["name"] for member in payload["crew"]) == ["Huber Max", "Meier Alex (1985)"]
