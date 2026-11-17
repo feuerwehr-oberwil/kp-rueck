@@ -490,8 +490,11 @@ export default function EventsPage() {
                   <Plus className="size-3.5" />
                   {newEventLabel}
                 </Button>
-                <Button onClick={() => setShowCreateDialog(true)} size="icon" className="sm:hidden" aria-label={newEventLabel}>
+                {/* Phone (owner pick ENT-14 C): the header button keeps a WORD – «+ Neu», 44px –
+                    instead of a bare «+»; the full label is its accessible name. */}
+                <Button onClick={() => setShowCreateDialog(true)} className="sm:hidden" aria-label={newEventLabel}>
                   <Plus className="size-4" />
+                  {t('page.newShort')}
                 </Button>
               </>
             )}

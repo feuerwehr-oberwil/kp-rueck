@@ -2616,7 +2616,8 @@
       "createFailed": "Ereignis erstellen fehlgeschlagen",
       "archiveFailed": "Archivieren fehlgeschlagen",
       "unarchiveFailed": "Wiederherstellen fehlgeschlagen",
-      "deleteFailed": "Löschen fehlgeschlagen"
+      "deleteFailed": "Löschen fehlgeschlagen",
+      "newShort": "Neu"
     },
     "createDialog": {
       "title": "Neues Ereignis erstellen",

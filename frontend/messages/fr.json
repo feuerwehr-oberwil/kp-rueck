@@ -680,7 +680,8 @@
       "createFailed": "Échec de la création de l’événement",
       "archiveFailed": "Échec de l’archivage",
       "unarchiveFailed": "Échec de la restauration",
-      "deleteFailed": "Échec de la suppression"
+      "deleteFailed": "Échec de la suppression",
+      "newShort": "Nouveau"
     },
     "createDialog": {
       "title": "Créer un nouvel événement",
