@@ -24,6 +24,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
+import { unmutedToast } from "@/lib/toast-lifetime"
+import { undoToast } from "@/lib/toast-undo"
 import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
 import { DiveraSendDialog } from "@/components/divera/divera-send-dialog"
 import { AuftragPickerDialog } from "@/components/kanban/auftrag-picker-dialog"
@@ -97,8 +99,6 @@ async function loadTransferTargets(eventId: string): Promise<Incident[]> {
  */
 export function useIncidentDialogs() {
   const t = useTranslations("kanban")
-  // The board's one «Rückgängig» label — reused rather than copied.
-  const tNotifications = useTranslations("notifications.operations")
   const { operations, materials, formatLocation, changeStatusToTop, removeMaterial, refreshOperations } = useOperations()
   const { groups, getGroupResources, unassignResource } = useGroups()
   const { selectedEvent } = useEvent()
@@ -184,26 +184,23 @@ export function useIncidentDialogs() {
       const moved = await apiClient.transferAssignments(sourceId, targetIncidentId)
       await refreshOperations()
       setTransfer(null)
-      toast.success(
+      undoToast(
         t("common.transferredToast", { target: target?.location_display ?? label(target?.location_address, target?.title) }),
         {
           description: t("common.transferredToastCount", {
             count: moved.transferred_count,
             source: label(source?.location, source ? getIncidentTypeLabel(source.incidentType) : ""),
           }),
-          action: {
-            label: tNotifications("undoLabel"),
-            onClick: () =>
-              void apiClient
-                .transferAssignments(targetIncidentId, sourceId, moved.assignment_ids)
-                .then(() => toast(t("common.transferUndone")))
-                .catch((error: unknown) =>
-                  toast.error(t("common.transferUndoFailed"), {
-                    description: (error instanceof Error && error.message) || t("common.transferUndoFailedDescription"),
-                  }),
-                )
-                .finally(() => void refreshOperations()),
-          },
+          onUndo: () =>
+            apiClient
+              .transferAssignments(targetIncidentId, sourceId, moved.assignment_ids)
+              .then(() => unmutedToast(t("common.transferUndone")))
+              .catch((error: unknown) =>
+                toast.error(t("common.transferUndoFailed"), {
+                  description: (error instanceof Error && error.message) || t("common.transferUndoFailedDescription"),
+                }),
+              )
+              .finally(() => void refreshOperations()),
         },
       )
     } catch (error) {
@@ -213,7 +210,7 @@ export function useIncidentDialogs() {
     } finally {
       setIsTransferring(false)
     }
-  }, [refreshOperations, t, tNotifications, transfer, operations, formatLocation])
+  }, [refreshOperations, t, transfer, operations, formatLocation])
 
   /** What the Einsatz detail (modal or side panel) needs from this layer –
    *  spread onto it. Editor-only, like everything the layer opens. */

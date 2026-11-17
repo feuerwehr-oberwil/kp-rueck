@@ -9,7 +9,7 @@ import { SearchInput } from '@/components/ui/search-input'
 import { LoadingStatus } from '@/components/ui/shell-loader'
 import { CheckCircle, Circle } from 'lucide-react'
 import { toast } from 'sonner'
-import { toastLifetime } from '@/lib/toast-lifetime'
+import { undoToast } from '@/lib/toast-undo'
 import { QuickAddPersonnel } from '@/components/quick-add-personnel'
 import { wsClient } from '@/lib/websocket-client'
 import { sortByName } from '@/lib/roster-order'
@@ -107,20 +107,9 @@ export default function CheckInPage() {
       if (checkingOut) {
         // Check-in stays one tap; checking out is what a thumb brushing the list
         // does by accident, so it can be taken back from the toast.
-        // A bare toast(), as the board's release undo: phones are a quiet surface where
-        // toast.success/info are muted (notification-toasts.tsx), and this one is not
-        // noise but the way back. So it carries its lifetime itself.
-        let used = false
-        toast(t('checkedOut', { name: person.name }), {
-          ...toastLifetime(6000),
-          action: {
-            label: t('undo'),
-            onClick: () => {
-              if (used) return
-              used = true
-              void setCheckedIn(person, true)
-            },
-          },
+        // undoToast stands on the phone too, where toast.success is muted.
+        undoToast(t('checkedOut', { name: person.name }), {
+          onUndo: () => setCheckedIn(person, true),
         })
       } else {
         // The next person at the door starts from the whole list, not from «Acker».

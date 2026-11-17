@@ -88,6 +88,18 @@ function withLifetime(kind: string, message: unknown, data?: ExternalToast): Ext
   return { ...data, ...toastLifetime(ms, data) }
 }
 
+/**
+ * A bare `toast()` with the same length-based lifetime as the wrapped kinds.
+ *
+ * For a message that must also show on the quiet surfaces (phone, `/feld`,
+ * `/display`), where NotificationToasts mutes `toast.success/info/…`: the way
+ * back from a mistake, or the receipt of that way back. Everything else uses the
+ * typed kinds.
+ */
+export function unmutedToast(message: ReactNode, data?: ExternalToast) {
+  return toast(message, withLifetime('message', message, data))
+}
+
 type ToastFn = (message: ReactNode | (() => ReactNode), data?: ExternalToast) => string | number
 const INSTALLED = Symbol.for('kp-rueck.toast-lifetime')
 const TIMED_KINDS = ['success', 'info', 'warning', 'error', 'message'] as const
@@ -101,7 +113,7 @@ const TIMED_KINDS = ['success', 'info', 'warning', 'error', 'message'] as const
  * quiet-surface muting in NotificationToasts already uses — and it composes with
  * it: that effect saves and restores whatever is installed, i.e. these wrappers.
  * Bare `toast()` cannot be wrapped (sonner binds it internally); its callers
- * pass `toastLifetime(…)` themselves. Idempotent across HMR.
+ * use `unmutedToast` or pass `toastLifetime(…)` themselves. Idempotent across HMR.
  */
 export function installToastLifetime() {
   const target = toast as unknown as Record<string | symbol, unknown>

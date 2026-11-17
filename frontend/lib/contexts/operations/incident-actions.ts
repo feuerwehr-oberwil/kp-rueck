@@ -10,7 +10,7 @@ import { isValidUUID } from "@/lib/utils/validation"
 import type { PersonStatus } from "../personnel-context"
 import type { Material } from "../materials-context"
 import { toast } from "sonner"
-import { toastLifetime } from "@/lib/toast-lifetime"
+import { undoToast } from "@/lib/toast-undo"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { decideRestoreAction, type RestoreOutcome } from "@/lib/restore-incident"
 import { classifySaveFailure, fieldSaveUser, getFieldSaveScope, isFieldSaveWatched, isSavedTextField, noteFieldEdit, noteFieldQueued, noteFieldSend, noteFieldSettled, textConflictOf, type FieldSaveTicket } from "@/lib/field-save"
@@ -550,16 +550,9 @@ export function createIncidentActions(board: BoardMutationContext) {
   }
 
   const announceMerge = (targetLabel: string, mergedIncidentId: string) => {
-    toast(translateOutsideReact('duplicates.mergedTitle', { label: targetLabel }), {
+    undoToast(translateOutsideReact('duplicates.mergedTitle', { label: targetLabel }), {
       description: translateOutsideReact('duplicates.mergedDescription'),
-      // a bare toast() bypasses the lifetime wrappers — carry the line itself
-      ...toastLifetime(8000),
-      action: {
-        label: translateOutsideReact('duplicates.undo'),
-        onClick: () => {
-          void undoMerge(mergedIncidentId)
-        },
-      },
+      onUndo: () => undoMerge(mergedIncidentId),
     })
   }
 
@@ -655,16 +648,9 @@ export function createIncidentActions(board: BoardMutationContext) {
       // Offer an undo. Only when the delete was persisted (isLoaded) — a purely
       // local optimistic delete has no backend row to restore.
       if (isLoaded) {
-        toast(translateOutsideReact('notifications.operations.deletedTitle'), {
+        undoToast(translateOutsideReact('notifications.operations.deletedTitle'), {
           description: getIncidentRefLabel(operation),
-          // a bare toast() bypasses the lifetime wrappers — carry the line itself
-          ...toastLifetime(8000),
-          action: {
-            label: translateOutsideReact('notifications.operations.undoLabel'),
-            onClick: () => {
-              void handleRestore(operationId)
-            },
-          },
+          onUndo: () => handleRestore(operationId),
         })
       }
     } catch (error) {

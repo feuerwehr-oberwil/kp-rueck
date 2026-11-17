@@ -1636,7 +1636,6 @@
       "needsCoordinates": "Zum Optimieren braucht es mindestens zwei Stopps mit Koordinaten.",
       "unchanged": "Die Reihenfolge ist nach Luftlinie bereits die kürzeste.",
       "note": "Vorschlag nach Luftlinie ab {start} · Planungshilfe",
-      "undo": "Rückgängig",
       "undone": "Vorherige Reihenfolge wiederhergestellt",
       "undoConflict": "Nicht mehr rückgängig machbar – Auftrag geändert",
       "undoConflictDetail": "Reihenfolge oder Stopps wurden inzwischen geändert; die neuere Änderung bleibt.",
@@ -3997,8 +3996,7 @@
       "badgeAssigned": "Im Einsatz",
       "badgeCheckedIn": "Anwesend",
       "badgeNotCheckedIn": "Nicht hier",
-      "checkedOut": "{name} ausgecheckt.",
-      "undo": "Rückgängig"
+      "checkedOut": "{name} ausgecheckt."
     }
   },
   "feld": {
@@ -4502,7 +4500,6 @@
     "sketchLabel": "Lage: neue Meldung in der Mitte, bestehende Einsätze als Punkte, Kreis 50 m",
     "mergedTitle": "Zusammengeführt mit {label}",
     "mergedDescription": "Die Meldung steht als Nachtrag in den Notizen.",
-    "undo": "Rückgängig",
     "unmergedTitle": "Wieder ein eigener Einsatz",
     "noteKept": "Der Nachtrag wurde seither bearbeitet und bleibt in den Notizen.",
     "mergeFailed": "Zusammenführen fehlgeschlagen",

@@ -3,6 +3,7 @@
 import { useCallback } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
+import { undoToast } from "@/lib/toast-undo"
 import { type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { toMirrorStatus } from "@/components/map/route-stop-list"
 import type { GroupResourceType } from "@/lib/api-client"
@@ -84,8 +85,6 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
   const tCommon = useTranslations('kanban.common')
   // Column titles, for the toasts a keyboard mutation raises.
   const tColumns = useTranslations('kanban.columns')
-  // The board's one «Rückgängig» label — reused rather than copied.
-  const tNotifications = useTranslations('notifications.operations')
 
   const setRouteStopStatus = useCallback((operationId: string, newStatus: OperationStatus) => {
     const operation = operations.find((op) => op.id === operationId)
@@ -254,19 +253,13 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
     if (!operation) return
     const previous = operation.priority
     updateOperation(operationId, { priority })
-    toast.success(
-      tCommon('priorityChangedToast', {
-        name: getIncidentLocationLabel(operation),
-        priority: tCommon(PRIORITY_LABEL_KEYS[priority]),
-      }),
-      previous === priority ? undefined : {
-        action: {
-          label: tNotifications('undoLabel'),
-          onClick: () => updateOperation(operationId, { priority: previous }),
-        },
-      },
-    )
-  }, [operations, updateOperation, tCommon, tNotifications])
+    const message = tCommon('priorityChangedToast', {
+      name: getIncidentLocationLabel(operation),
+      priority: tCommon(PRIORITY_LABEL_KEYS[priority]),
+    })
+    if (previous === priority) toast.success(message)
+    else undoToast(message, { onUndo: () => updateOperation(operationId, { priority: previous }) })
+  }, [operations, updateOperation, tCommon])
 
   /** «Zu Fuss» by keystroke — a vehicle-less dispatch is a radio-relevant fact. */
   const toggleZuFuss = useCallback((operationId: string) => {
@@ -274,16 +267,10 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
     if (!operation) return
     const next = !operation.zuFuss
     updateOperation(operationId, { zuFuss: next })
-    toast.success(
-      tCommon(next ? 'zuFussOnToast' : 'zuFussOffToast', { name: getIncidentLocationLabel(operation) }),
-      {
-        action: {
-          label: tNotifications('undoLabel'),
-          onClick: () => updateOperation(operationId, { zuFuss: !next }),
-        },
-      },
-    )
-  }, [operations, updateOperation, tCommon, tNotifications])
+    undoToast(tCommon(next ? 'zuFussOnToast' : 'zuFussOffToast', { name: getIncidentLocationLabel(operation) }), {
+      onUndo: () => updateOperation(operationId, { zuFuss: !next }),
+    })
+  }, [operations, updateOperation, tCommon])
 
   /** The driver decision is read out on the radio and printed on the slip, so
    *  the pill's click gets the same receipt as every other card mutation. The
@@ -293,17 +280,11 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
     if (!vehicle) return
     const next = !(vehicle.driverStay ?? false)
     toggleDriverStay(operationId, vehicleId)
-    toast.success(
-      tCommon(next ? 'driverStaysToast' : 'driverReturnsToast', { vehicle: vehicle.name }),
-      {
-        description: tCommon('driverStayToastHint'),
-        action: {
-          label: tNotifications('undoLabel'),
-          onClick: () => toggleDriverStay(operationId, vehicleId),
-        },
-      },
-    )
-  }, [operations, toggleDriverStay, tCommon, tNotifications])
+    undoToast(tCommon(next ? 'driverStaysToast' : 'driverReturnsToast', { vehicle: vehicle.name }), {
+      description: tCommon('driverStayToastHint'),
+      onUndo: () => toggleDriverStay(operationId, vehicleId),
+    })
+  }, [operations, toggleDriverStay, tCommon])
 
   /** Stage an incident for the delete confirmation — the context menu's
    *  destructive row and the Delete key share this one path. */

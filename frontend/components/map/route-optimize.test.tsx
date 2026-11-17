@@ -16,7 +16,7 @@ type ToastOpts = { description?: string; action?: { label: string; onClick: () =
 const toasts = vi.hoisted(() => ({ calls: [] as { kind: string; message: string; opts?: ToastOpts }[] }))
 vi.mock("sonner", () => {
   const record = (kind: string) => (message: string, opts?: ToastOpts) => toasts.calls.push({ kind, message, opts })
-  return { toast: { success: record("success"), error: record("error"), info: record("info") } }
+  return { toast: Object.assign(record("bare"), { success: record("success"), error: record("error"), info: record("info") }) }
 })
 
 import { useRouteOptimizeAction } from "./route-optimize"

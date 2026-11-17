@@ -1573,8 +1573,7 @@
       "badgeAssigned": "En intervention",
       "badgeCheckedIn": "Présent",
       "badgeNotCheckedIn": "Pas là",
-      "checkedOut": "{name} : départ enregistré.",
-      "undo": "Annuler"
+      "checkedOut": "{name} : départ enregistré."
     }
   },
   "kanban": {
@@ -2728,7 +2727,6 @@
       "needsCoordinates": "Pour optimiser, il faut au moins deux arrêts avec des coordonnées.",
       "unchanged": "L’ordre est déjà le plus court à vol d’oiseau.",
       "note": "Proposition à vol d’oiseau depuis {start} · aide à la planification",
-      "undo": "Annuler",
       "undone": "Ordre précédent rétabli",
       "undoConflict": "Annulation impossible – mission modifiée",
       "undoConflictDetail": "L’ordre ou les étapes ont été modifiés entre-temps ; la modification la plus récente est conservée.",
@@ -4502,7 +4500,6 @@
     "sketchLabel": "Situation : nouveau message au centre, interventions existantes en points, cercle de 50 m",
     "mergedTitle": "Fusionné avec {label}",
     "mergedDescription": "Le message figure comme complément dans les notes.",
-    "undo": "Annuler",
     "unmergedTitle": "De nouveau une intervention à part",
     "noteKept": "Le complément a été modifié entre-temps et reste dans les notes.",
     "mergeFailed": "Échec de la fusion",
