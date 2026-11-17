@@ -40,15 +40,15 @@ will keep holding.
   ticks, «Fertig (n)» adds, and a name not on the list is added as a guest. The Notiz field for
   guests is gone. The Feld API's assignments carry `event_started_at` (additive).
 - **A standby box can mirror a hosted board and take over an Ereignis during an outage**
-  (`docs/STANDBY.md`). The box's work
-  goes to the hosted board by itself whenever that answers – after an outage the moment the
+  (`docs/STANDBY.md`). The box sends its work to the hosted board whenever it answers – the moment the
   internet is back – and the hosted board shows it live under a band «Geführt auf KP Rück
   Offline», where new things (an Einsatz, Tagebuch lines, Feld reports, alarms) can still be
   added. Whoever carries on takes the lead: «Hier übernehmen» on the hosted board, «Dieses
   Ereignis offline übernehmen» on the box, as often as needed. What both changed while apart is
   merged field by field; where both changed the same field the leader's version stands and the
   other waits in a conflict list – keep it, take the other, or for text join both. Needs
-  `STANDBY_SYNC_TOKEN` on the hosted backend and on the box; without it nothing changes.
+  `STANDBY_SYNC_TOKEN` on the hosted backend and on the box. The `standby` compose profile uses
+  `DEPLOYMENT_ROLE=standby`; `scripts/standby-follow.sh` keeps it on the hosted commit.
 
 - **The print agent serves KP Front again.** KP Front brought its station print relay back (A4
   PDFs through CUPS, kp-front #524), so the KP Front half that 0.8.0 removed is back: the
@@ -155,8 +155,8 @@ will keep holding.
   asks and «Abholung disponiert?» do not open. «Neuer Einsatz» (Übung included) and the Appell
   stay usable. The desktop is unchanged.
 - **The phone feels like KP Front**: a tapped button, row, chip or card gets an instant ink wash
-  (nothing moves), the app no longer zooms – not by pinch, not into a field (every field stays at
-  16px on a phone) – while the map keeps its own pinch, and the selected tab in the bottom nav has
+  (nothing moves), the board keeps its scale and fields stay at 16px on a phone. Public forms and
+  help allow pinch zoom, and the map keeps its own gestures. The selected tab in the bottom nav has
   more air. «Mehr» → «Kennzahlen» opens again on the phone, as a bottom sheet.
 - **«Sortieren» in the Einsätze funnel on the phone**: Status (default), Neueste zuerst or Längste
   Wartezeit, remembered per device.

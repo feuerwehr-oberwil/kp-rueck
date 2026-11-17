@@ -1100,7 +1100,7 @@ async def _other_deployments(
     db: AsyncSession, refs: set[tuple[str, uuid.UUID]]
 ) -> list[tuple[str, uuid.UUID, uuid.UUID, datetime]]:
     """The deleted card is hidden before this read. Include legitimate parallel deployments."""
-    rows = []
+    rows: list[tuple[str, uuid.UUID, uuid.UUID, datetime]] = []
     for kind in sorted({kind for kind, _ in refs}):
         ids = {rid for resource_type, rid in refs if resource_type == kind}
         deployed = active_deployments(kind)
