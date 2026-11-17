@@ -243,7 +243,7 @@ Gesendetes Payload (Tercero, bestätigt 2026-08):
   wie ein DIVERA-Alarm – automatisch ans aktive Ereignis an. Die Adresse wird aus
   `street` + `city` zusammengesetzt.
 - **`action: "end"`** → wird **nur vermerkt**, nicht ausgeführt: es entsteht eine Zeile im
-  `audit_log` (`firehub_operation_end`, ohne Benutzer) – **nicht** im Einsatztagebuch –, verknüpft mit dem Einsatz, falls der Alarm aufs Brett
+  `audit_log` (`firehub_operation_end`, ohne Benutzer) – **nicht** im Verlauf –, verknüpft mit dem Einsatz, falls der Alarm aufs Brett
   übernommen wurde. Der Kartenstatus wird **nicht** geändert – das Schliessen einer
   Schadenplatz-Karte (samt Freigabe von Personal/Fahrzeugen) bleibt die Entscheidung der
   operierenden Person. Eine Wehr, die den Vermerk nicht will, verdrahtet den
