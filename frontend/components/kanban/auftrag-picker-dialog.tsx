@@ -174,7 +174,7 @@ export function AuftragPickerDialog({
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full text-destructive hover:text-destructive"
+                className="w-full"
                 onClick={removeFromCurrent}
               >
                 <Unlink className="size-3.5" />

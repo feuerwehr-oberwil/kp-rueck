@@ -35,7 +35,7 @@ export interface CommandPaletteHandlers {
   onToggleLinks?: () => void
   /** Opens the Schadenplatz-Rapporte backlog sheet — key «O» (offene Rapporte). */
   onToggleRapporte?: () => void
-  /** Opens the Einsatztagebuch — key «J». */
+  /** Opens the Verlauf — key «J». */
   onToggleJournal?: () => void
   /** A new journal line: the journal opens with the caret in it (E). */
   onWriteJournal?: () => void

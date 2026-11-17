@@ -168,7 +168,7 @@ export async function dismissOverlays(page: Page) {
     }
     // Twice, half a second apart. Once is not enough: the checklist mounts a tick
     // after the board does, so a single reading of 0 can simply be early — which is
-    // how "0 Personen eingecheckt" ended up intercepting card clicks in the suites
+    // how "0 Personen anwesend" ended up intercepting card clicks in the suites
     // that arrange over REST and therefore reach the board sooner than a UI setup did.
     expect(await poppers.count()).toBe(0);
     await page.waitForTimeout(500);

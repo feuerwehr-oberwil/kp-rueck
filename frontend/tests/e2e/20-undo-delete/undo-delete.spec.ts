@@ -30,12 +30,9 @@ async function deleteViaCard(
   // `exact`, because the detail modal also carries a disabled "Standort löschen"
   // and a substring match picked that one — invisible for as long as this suite
   // was skipped.
+  // No «wirklich löschen?» any more: the click deletes, the toast is the way back.
   await detail.getByRole('button', { name: 'Löschen', exact: true }).first().click();
-
-  // Confirm in the delete-confirm dialog.
-  const confirm = page.locator('[role="alertdialog"]');
-  await expect(confirm).toBeVisible();
-  await confirm.getByRole('button', { name: 'Löschen' }).click();
+  await expect(page.locator('[role="alertdialog"]')).toHaveCount(0);
 }
 
 // Was skipped because setup needed a created incident and the board's "Neuer

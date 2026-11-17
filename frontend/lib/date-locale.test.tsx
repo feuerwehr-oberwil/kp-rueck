@@ -2,9 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
-import { fr } from 'date-fns/locale'
 
-import { getDateFnsLocale, getIntlLocale, intlLocaleFor, useDateFnsLocale, useIntlLocale } from './date-locale'
+import { getIntlLocale, intlLocaleFor, useIntlLocale } from './date-locale'
 
 function setCookieLocale(locale: string | null) {
   document.cookie = locale === null ? 'NEXT_LOCALE=; max-age=0; path=/' : `NEXT_LOCALE=${locale}; path=/`
@@ -28,7 +27,6 @@ describe('the formatting locale follows the interface language', () => {
     expect(getIntlLocale()).toBe('de-CH')
     setCookieLocale('fr')
     expect(getIntlLocale()).toBe('fr-CH')
-    expect(getDateFnsLocale()).toBe(fr)
   })
 
   it('reads next-intl inside React, so server and client render agree', () => {
@@ -38,7 +36,6 @@ describe('the formatting locale follows the interface language', () => {
       </NextIntlClientProvider>
     )
     expect(renderHook(() => useIntlLocale(), { wrapper }).result.current).toBe('fr-CH')
-    expect(renderHook(() => useDateFnsLocale(), { wrapper }).result.current).toBe(fr)
   })
 
   it('keeps the board clock in 24-hour Swiss shape in French too', () => {

@@ -1,8 +1,9 @@
 "use client"
 
 /**
- * The Einsatztagebuch drawer (idea R8, 08.10.2026) — `J` on the board, «Tagebuch» in the
- * footer, «Einsatztagebuch» in the palette and in the phone's «Mehr».
+ * The Verlauf drawer (idea R8, 08.10.2026) — `J` on the board, «Verlauf» in the
+ * footer, the palette and the phone's «Mehr». One word for the Ereignis' journal in
+ * both apps (XAPP-03); the per-Einsatz history in the detail is the «Chronik».
  *
  * KP Front's Verlauf, simpler: one list, newest first, four filters, one line to write in.
  * No playback, no voice, no replay. The log itself is the server's (`journal_entries`):

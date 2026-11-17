@@ -2,7 +2,8 @@
 
 import { SearchEmptyState } from "@/components/ui/empty-state"
 import { useState, useMemo, useEffect } from 'react'
-import { useFormatter, useNow, useTranslations } from 'next-intl'
+import { useNow, useTranslations } from 'next-intl'
+import { formatAgoSince } from '@/lib/duration'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 import { toast } from 'sonner'
@@ -105,14 +106,10 @@ function downloadBlob(blob: Blob, filename: string) {
 
 export default function EventsPage() {
   const t = useTranslations('events')
-  // Dates were hardcoded to `de-CH`, which is wrong on a board running in
-  // French — and `fr` ships. `useFormatter` follows the active locale, and gives
-  // the three date lines one format instead of two (one had a time, two did not).
-  const format = useFormatter()
-  // Anchor for the relative ages ("vor 3 Tagen"), refreshed each minute so an
-  // open tab does not quietly age — and required: `relativeTime` without an
-  // explicit now logs an ENVIRONMENT_FALLBACK error per row in dev.
+  // Anchor for the relative ages («vor 3d 4h», the board notation of
+  // `formatAgo`), refreshed each minute so an open tab does not quietly age.
   const now = useNow({ updateInterval: 60_000 })
+  const tDuration = useTranslations('common.duration')
   // The board's own «Übung» wording, so one drill is not called two things.
   const tTraining = useTranslations('kanban')
   const router = useRouter()
@@ -536,7 +533,7 @@ export default function EventsPage() {
                     <p className="mt-0.5 text-sm text-muted-foreground">
                       {t('page.incidentCountShort', { count: bannerEvent.incident_count })}
                       {' · '}
-                      {t('page.lastActivityRelative', { rel: format.relativeTime(new Date(bannerEvent.last_activity_at), now) })}
+                      {t('page.lastActivityRelative', { rel: formatAgoSince(new Date(bannerEvent.last_activity_at), tDuration, now.getTime()) })}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
@@ -599,7 +596,7 @@ export default function EventsPage() {
                           {t('page.incidentCountShort', { count: event.incident_count })}
                         </span>
                         <span className="hidden w-28 shrink-0 text-right text-sm tabular-nums text-muted-foreground md:block">
-                          {format.relativeTime(new Date(event.last_activity_at), now)}
+                          {formatAgoSince(new Date(event.last_activity_at), tDuration, now.getTime())}
                         </span>
                         <button
                           type="button"
@@ -647,7 +644,7 @@ export default function EventsPage() {
                               {t('page.incidentCountShort', { count: event.incident_count })}
                             </span>
                             <span className="hidden w-28 shrink-0 text-right text-sm tabular-nums text-muted-foreground md:block">
-                              {format.relativeTime(new Date(event.archived_at!), now)}
+                              {formatAgoSince(new Date(event.archived_at!), tDuration, now.getTime())}
                             </span>
                             {manages && (
                               <button

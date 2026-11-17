@@ -172,8 +172,8 @@ describe("KeyedSerialQueue", () => {
     expect(applied).toEqual(["older", "newer"])
   })
 
-  // «Erneut speichern» stands on this: the failed PATCH reaches its caller (so the field
-  // can say «Nicht gespeichert»), and the retry for the same incident leaves at once
+  // «Erneut synchronisieren» stands on this: the failed PATCH reaches its caller (so the field
+  // can say «Nicht synchronisiert»), and the retry for the same incident leaves at once
   // instead of waiting behind a rejected tail forever.
   it("frees the key after a rejected task: the caller sees the error, the retry runs", async () => {
     const queue = new KeyedSerialQueue()

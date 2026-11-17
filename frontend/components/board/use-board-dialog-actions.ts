@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useCallback, useRef, useMemo } from "react"
+import { useEffect, useCallback, useRef } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { type Person, type Operation } from "@/lib/contexts/operations-context"
@@ -14,7 +14,6 @@ import type { ClosedStopPrompt } from "@/lib/hooks/use-closed-stop-guard"
 import type { FieldRequestAssignHandler } from "@/lib/contexts/notification-context"
 
 export interface UseBoardDialogActionsInput {
-  deleteOperation: (operationId: string) => Promise<void>
   operations: Operation[]
   updateOperation: (operationId: string, updates: Partial<Operation>) => void
   refreshPersonnel: (options?: { skipStateUpdate?: boolean; }) => Promise<Person[]>
@@ -32,21 +31,18 @@ export interface UseBoardDialogActionsInput {
   checkInUrl: string | null
   setCopied: Dispatch<SetStateAction<boolean>>
   setAttendanceOpen: Dispatch<SetStateAction<boolean>>
-  setOperationToDelete: Dispatch<SetStateAction<Operation | null>>
-  operationToDelete: Operation | null
   setRekoAssignDialogOpen: Dispatch<SetStateAction<boolean>>
   setRekoAssignOperationId: Dispatch<SetStateAction<string | null>>
 }
 
 /**
  * The board's dialog and sheet actions: open a Rapport, the attendance dialog,
- * «+ Stop», the card toggles and the delete confirmation. Moved verbatim out of
+ * «+ Stop» and the card toggles. Moved verbatim out of
  * app/page.tsx; the assignment dialog and «An Auftrag verteilen» are the shared
  * incident-dialogs.tsx now.
  */
 export function useBoardDialogActions(input: UseBoardDialogActionsInput) {
   const {
-    deleteOperation,
     operations,
     updateOperation,
     refreshPersonnel,
@@ -62,8 +58,6 @@ export function useBoardDialogActions(input: UseBoardDialogActionsInput) {
     checkInUrl,
     setCopied,
     setAttendanceOpen,
-    setOperationToDelete,
-    operationToDelete,
     setRekoAssignDialogOpen,
     setRekoAssignOperationId,
   } = input
@@ -182,28 +176,6 @@ export function useBoardDialogActions(input: UseBoardDialogActionsInput) {
 
   /** «Freigegeben werden: 2 Personen, MTW» — what a delete hands back, named in
    *  the confirmation. Null when the card carries nothing. */
-  const deleteReleaseHint = useMemo(() => {
-    if (!operationToDelete) return null
-    const parts = [
-      operationToDelete.crew.length ? tCommon('personCount', { count: operationToDelete.crew.length }) : null,
-      operationToDelete.vehicles.length ? operationToDelete.vehicles.map((v) => v.name).join(', ') : null,
-    ].filter(Boolean)
-    return parts.length ? tCommon('deleteIncidentReleases', { what: parts.join(', ') }) : null
-  }, [operationToDelete, tCommon])
-
-  // Handle operation deletion from keyboard shortcut
-  const handleDeleteOperationConfirm = async () => {
-    if (!operationToDelete) return
-    try {
-      await deleteOperation(operationToDelete.id)
-    } catch (error) {
-      console.error('Failed to delete operation:', error)
-      toast.error(tCommon('deleteFailed'))
-    } finally {
-      setOperationToDelete(null)
-    }
-  }
-
   return {
     handleOpenRapport,
     openAttendance,
@@ -215,7 +187,5 @@ export function useBoardDialogActions(input: UseBoardDialogActionsInput) {
     handleToggleNachbarhilfe,
     handleToggleAmWarten,
     handleToggleZuFuss,
-    deleteReleaseHint,
-    handleDeleteOperationConfirm,
   }
 }

@@ -222,7 +222,7 @@ export interface OperationsContextType {
    * The board has never arrived: a load failed and no load has ever got
    * through (`loadError` set, `lastSyncAt` null). `isLoaded` is true then too,
    * so without this an unreachable server painted empty columns, «0» counts and
-   * «Niemand angemeldet» — an empty Ereignis. Empty states must check this
+   * «Niemand anwesend» — an empty Ereignis. Empty states must check this
    * before they say «nothing».
    *
    * Derived here rather than read off `useBoardSyncStatus()` on purpose: it

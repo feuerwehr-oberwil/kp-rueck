@@ -251,7 +251,7 @@ describe("OperationDetailContent", () => {
     const transfer = screen.getByRole("button", { name: "Alle offenen Rekos übertragen" })
     expect(transfer).toHaveAttribute(
       "title",
-      "Überträgt alle offenen Reko-Aufträge dieser Person im gesamten Ereignis, nicht nur diesen Einsatz.",
+      "Überträgt alle offenen Rekos dieser Person im gesamten Ereignis, nicht nur diesen Einsatz.",
     )
     await user.click(transfer)
     expect(screen.getByText("Event-Rekos von Reko Eins")).toBeInTheDocument()
@@ -369,7 +369,7 @@ describe("OperationDetailContent", () => {
     expect(screen.getByText("Meldungen vom Feld")).toBeVisible()
     expect(screen.queryByText("Mannschaft · 0")).not.toBeInTheDocument()
 
-    await user.click(tab("Verlauf"))
+    await user.click(tab("Chronik"))
     // Both lists, expanded, with no toggle to reveal them.
     expect(await screen.findByText("Bisher im Einsatz")).toBeInTheDocument()
     expect(screen.getByText("Statusänderungen, Zuweisungen und Meldungen")).toBeInTheDocument()
@@ -423,7 +423,7 @@ describe("OperationDetailContent", () => {
     )
 
     // A sentence with its action, not a chip on the meta line.
-    expect(screen.getByText(/Abholung – wartet seit 45 Min/)).toBeInTheDocument()
+    expect(screen.getByText(/Abholung – wartet seit 45'/)).toBeInTheDocument()
     // The modal has a second column for it: it sits inside Übersicht, above
     // «Kräfte».
     expect(
@@ -478,16 +478,16 @@ describe("OperationDetailContent", () => {
       { key: "3", shiftKey: true },
       { key: "2" },
     ]) {
-      await user.click(tab("Verlauf"))
-      expect(tab("Verlauf")).toHaveAttribute("aria-selected", "true")
+      await user.click(tab("Chronik"))
+      expect(tab("Chronik")).toHaveAttribute("aria-selected", "true")
       fireEvent.keyDown(window, key)
       await waitFor(() => expect(tab("Übersicht")).toHaveAttribute("aria-selected", "true"))
     }
 
     // A key that addresses a vehicle the station does not have is not ours.
-    await user.click(tab("Verlauf"))
+    await user.click(tab("Chronik"))
     fireEvent.keyDown(window, { key: "5" })
-    expect(tab("Verlauf")).toHaveAttribute("aria-selected", "true")
+    expect(tab("Chronik")).toHaveAttribute("aria-selected", "true")
   }, 20_000)
 
   it("walks the tabs with the arrow keys from anywhere in the detail", async () => {
@@ -510,11 +510,11 @@ describe("OperationDetailContent", () => {
     await waitFor(() => expect(tab(/^Feld/)).toHaveAttribute("aria-selected", "true"))
 
     fireEvent.keyDown(whatsapp, { key: "ArrowRight" })
-    await waitFor(() => expect(tab("Verlauf")).toHaveAttribute("aria-selected", "true"))
+    await waitFor(() => expect(tab("Chronik")).toHaveAttribute("aria-selected", "true"))
 
     // No wrap-around: the last tab is the last tab.
     fireEvent.keyDown(whatsapp, { key: "ArrowRight" })
-    expect(tab("Verlauf")).toHaveAttribute("aria-selected", "true")
+    expect(tab("Chronik")).toHaveAttribute("aria-selected", "true")
 
     fireEvent.keyDown(whatsapp, { key: "ArrowLeft" })
     await waitFor(() => expect(tab(/^Feld/)).toHaveAttribute("aria-selected", "true"))
@@ -558,10 +558,10 @@ describe("OperationDetailContent", () => {
     fireEvent.keyDown(root, { key: "ArrowRight" })
     await waitFor(() => expect(tab(/^Feld/)).toHaveAttribute("aria-selected", "true"))
     fireEvent.keyDown(root, { key: "ArrowRight" })
-    await waitFor(() => expect(tab("Verlauf")).toHaveAttribute("aria-selected", "true"))
+    await waitFor(() => expect(tab("Chronik")).toHaveAttribute("aria-selected", "true"))
     // Same no-wrap rule as the modal.
     fireEvent.keyDown(root, { key: "ArrowRight" })
-    expect(tab("Verlauf")).toHaveAttribute("aria-selected", "true")
+    expect(tab("Chronik")).toHaveAttribute("aria-selected", "true")
     fireEvent.keyDown(root, { key: "ArrowLeft" })
     await waitFor(() => expect(tab(/^Feld/)).toHaveAttribute("aria-selected", "true"))
 
@@ -647,14 +647,14 @@ describe("OperationDetailContent", () => {
       )
 
     const first = render()
-    await user.click(tab("Verlauf"))
-    expect(tab("Verlauf")).toHaveAttribute("aria-selected", "true")
+    await user.click(tab("Chronik"))
+    expect(tab("Chronik")).toHaveAttribute("aria-selected", "true")
     first.unmount()
 
     // Same incident, reopened: an operator working through the rapports of a
     // storm night must not be sent back to Übersicht on every visit.
     const second = render()
-    expect(tab("Verlauf")).toHaveAttribute("aria-selected", "true")
+    expect(tab("Chronik")).toHaveAttribute("aria-selected", "true")
     second.unmount()
 
     // A different Schadenplatz has its own answer, and has never been opened.
@@ -672,7 +672,7 @@ describe("OperationDetailContent", () => {
 
     // ...and neither has forgotten the other.
     render()
-    expect(tab("Verlauf")).toHaveAttribute("aria-selected", "true")
+    expect(tab("Chronik")).toHaveAttribute("aria-selected", "true")
   }, 20_000)
 
   it("opens on the tab a notification is about, without repointing the card for good", async () => {
@@ -699,7 +699,7 @@ describe("OperationDetailContent", () => {
     const byHand = renderWithIntl(
       <OperationDetailContent operation={operation} layout="modal" materials={[]} onUpdate={vi.fn()} />,
     )
-    expect(tab("Verlauf")).toHaveAttribute("aria-selected", "true")
+    expect(tab("Chronik")).toHaveAttribute("aria-selected", "true")
     // …and a tab the operator picks themselves IS remembered, as before.
     await user.click(tab("Übersicht"))
     byHand.unmount()
@@ -726,8 +726,8 @@ describe("OperationDetailContent", () => {
 
     // The operator wanders off to Verlauf; the panel stays mounted because the
     // incident has not changed.
-    await user.click(tab("Verlauf"))
-    expect(tab("Verlauf")).toHaveAttribute("aria-selected", "true")
+    await user.click(tab("Chronik"))
+    expect(tab("Chronik")).toHaveAttribute("aria-selected", "true")
 
     rerender(
       <OperationDetailContent
@@ -841,7 +841,7 @@ describe("OperationDetailContent", () => {
     expect(screen.getAllByText(/vom Feld, Muster Hans/)).toHaveLength(2)
 
     // The same two messages sit in the Verlauf, among the status changes.
-    await user.click(tab("Verlauf"))
+    await user.click(tab("Chronik"))
     const verlauf = within(await screen.findByTestId("incident-timeline"))
     expect(verlauf.getByText("Pumpe läuft")).toBeInTheDocument()
     expect(verlauf.getByText("Wasser steigt weiter")).toBeInTheDocument()

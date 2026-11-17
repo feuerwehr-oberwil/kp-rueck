@@ -1,14 +1,13 @@
 import type { ApiGpsSimDrive } from '@/lib/api-client'
+import { formatDuration } from '@/lib/duration'
 import { translateOutsideReact } from '@/lib/i18n-messages'
 
 /** Human ETA for a simulated drive; <=5s counts as arrived (poll granularity). */
 export const formatEta = (secs: number) => {
   if (secs <= 5) return translateOutsideReact('notifications.gpsSim.arrived')
-  const m = Math.floor(secs / 60)
-  const s = Math.round(secs % 60)
-  return m > 0
-    ? translateOutsideReact('notifications.gpsSim.etaMinutes', { minutes: m, seconds: s })
-    : translateOutsideReact('notifications.gpsSim.etaSeconds', { seconds: s })
+  return secs >= 60
+    ? translateOutsideReact('notifications.gpsSim.etaMinutes', { duration: formatDuration(secs * 1000) })
+    : translateOutsideReact('notifications.gpsSim.etaSeconds', { seconds: Math.round(secs) })
 }
 
 /**

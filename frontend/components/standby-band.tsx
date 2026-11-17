@@ -11,7 +11,7 @@ import { FormMessage } from '@/components/ui/form-message'
 import { useEvent } from '@/lib/contexts/event-context'
 import { type StandbyLead, useStandby } from '@/lib/contexts/standby-context'
 import { getIntlLocale } from '@/lib/date-locale'
-import { formatDurationLong } from '@/lib/duration'
+import { formatAgoSince, formatDurationSince } from '@/lib/duration'
 import { cn } from '@/lib/utils'
 
 function clock(date: Date, seconds: boolean): string {
@@ -69,7 +69,6 @@ export function StandbyBand() {
         : null
   if (!kind) return null
 
-  const ago = (date: Date) => formatDurationLong(Date.now() - date.getTime(), tDuration)
   const name = selectedEvent?.name ?? ''
   let label: string
   let text: string
@@ -95,7 +94,7 @@ export function StandbyBand() {
       ? t('ledElsewhere.never', { since })
       : heardRecently(lead)
         ? t('ledElsewhere.current', { since, time: clock(lead.contactAt, true) })
-        : t('ledElsewhere.silent', { since, time: clock(lead.contactAt, true), ago: ago(lead.contactAt) })
+        : t('ledElsewhere.silent', { since, time: clock(lead.contactAt, true), silence: formatDurationSince(lead.contactAt) })
   } else {
     label = t('conflicts.label')
     text = t('conflicts.text')
@@ -176,9 +175,7 @@ export function StandbyBand() {
             <dd className="text-right tabular-nums">
               {!lead?.contactAt
                 ? t('takeBack.heardNever')
-                : Date.now() - lead.contactAt.getTime() < 60_000
-                  ? t('takeBack.heardJustNow', { time: clock(lead.contactAt, true) })
-                  : t('takeBack.heardAt', { time: clock(lead.contactAt, true), ago: ago(lead.contactAt) })}
+                : t('takeBack.heardAt', { time: clock(lead.contactAt, true), ago: formatAgoSince(lead.contactAt, tDuration) })}
             </dd>
             <dt className="text-muted-foreground">{t('takeBack.pending')}</dt>
             <dd className="text-right tabular-nums">{t('takeBack.pendingCount', { count: lead?.pending ?? 0 })}</dd>

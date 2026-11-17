@@ -32,7 +32,7 @@ export interface JournalState {
 }
 
 /**
- * The Ereignis' Einsatztagebuch while the drawer is open.
+ * The Ereignis' Verlauf while the drawer is open.
  *
  * One full read on open, then what is new (`since_seq` — the server adds the last two
  * minutes again, so a row a long transaction committed late is not lost behind the

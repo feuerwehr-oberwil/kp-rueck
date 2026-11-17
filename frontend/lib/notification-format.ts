@@ -208,7 +208,7 @@ function build(type: string, p: Params, t: NotificationTranslator): Built | unde
       return undefined
 
     case 'time_overdue': {
-      const duration = formatDuration(num(p, 'minutes') * 60_000, 'clock')
+      const duration = formatDuration(num(p, 'minutes') * 60_000)
       if (p.variant === 'status') {
         return {
           what: t(`${M}.timeInStatus`, { duration, status: label(t, `kanban.columns.${str(p, 'status')}`, str(p, 'status')) }),

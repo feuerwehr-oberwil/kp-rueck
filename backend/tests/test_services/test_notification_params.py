@@ -17,17 +17,17 @@ CASES = [
     # (built, message, params)
     (
         texts.time_in_status("Mühlemattstrasse 18", 56, "enroute", "Disponiert / Anfahrt"),
-        "Mühlemattstrasse 18: 56m im Status «Disponiert / Anfahrt»",
+        "Mühlemattstrasse 18: 56' im Status «Disponiert / Anfahrt»",
         {"variant": "status", "place": "Mühlemattstrasse 18", "minutes": 56, "status": "enroute"},
     ),
     (
         texts.time_not_archived("Hauptstrasse 41", 65),
-        "Hauptstrasse 41: seit 1h 5m abgeschlossen, nicht archiviert",
+        "Hauptstrasse 41: seit 1h 5' abgeschlossen, nicht archiviert",
         {"variant": "not_archived", "place": "Hauptstrasse 41", "minutes": 65},
     ),
     (
         texts.no_personnel(),
-        "Kein Personal mehr verfügbar - alle eingecheckten Personen sind zugewiesen",
+        "Kein Personal mehr verfügbar - alle anwesenden Personen sind zugewiesen",
         {},
     ),
     (
@@ -47,7 +47,7 @@ CASES = [
     ),
     (
         texts.fatigue([(f"P{i}", 300) for i in range(7)], 4),
-        "7 Personen seit über 4 h im Einsatz: P0 (5 h), P1 (5 h), P2 (5 h), P3 (5 h), P4 (5 h) und 2 weitere",
+        "7 Personen seit über 4h im Einsatz: P0 (5h), P1 (5h), P2 (5h), P3 (5h), P4 (5h) und 2 weitere",
         {"hours": 4, "count": 7, "people": [{"name": f"P{i}", "hours": 5} for i in range(5)], "more": 2},
     ),
     (
@@ -88,7 +88,7 @@ CASES = [
     (
         texts.reko_submitted("Hauptstrasse 41", "Lisa Hoffmann", True, 3, 2.5, ["fire", "chemical"]),
         "Reko abgeschlossen: Hauptstrasse 41 von Lisa Hoffmann – Einsatz relevant "
-        "(3 Pers., 2h 30m, Gefahren: Feuer, Gefahrstoffe)",
+        "(3 Pers., 2h 30', Gefahren: Feuer, Gefahrstoffe)",
         {
             "place": "Hauptstrasse 41",
             "by": "Lisa Hoffmann",
@@ -266,14 +266,15 @@ def test_sentence_and_params(built, message, params):
     assert json.loads(json.dumps(built[1])) == params
 
 
-def test_duration_reads_like_it_always_did():
-    assert texts.duration_de(0) == "0m"
-    assert texts.duration_de(59) == "59m"
-    assert texts.duration_de(60) == "1h 0m"
-    assert texts.duration_de(-3) == "0m"
+def test_duration_reads_like_the_board():
+    assert texts.duration_de(0) == "0'"
+    assert texts.duration_de(59) == "59'"
+    assert texts.duration_de(60) == "1h 0'"
+    assert texts.duration_de(24 * 60 + 10 * 60 + 12) == "1d 10h"
+    assert texts.duration_de(-3) == "0'"
 
 
 def test_fatigue_message_stays_the_service_entry_point():
     from app.services.notification_service import fatigue_message
 
-    assert fatigue_message([("Müller Hans", 5 * 60 + 10)], 4) == "Seit über 4 h im Einsatz: Müller Hans (5 h)"
+    assert fatigue_message([("Müller Hans", 5 * 60 + 10)], 4) == "Seit über 4h im Einsatz: Müller Hans (5h)"

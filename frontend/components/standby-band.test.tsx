@@ -184,7 +184,7 @@ describe('StandbyBand', () => {
     mocks.getStandby.mockResolvedValue({ mirror: false, leads: [lead('standby', { contact_at: silent })] })
     renderBoard()
 
-    expect(await screen.findByText(/KP Rück Offline seit 14 Minuten nicht gehört/)).toBeInTheDocument()
+    expect(await screen.findByText(/KP Rück Offline seit 14' nicht gehört/)).toBeInTheDocument()
   })
 
   it('keeps a way to the conflicts on the hosted board once it leads again', async () => {

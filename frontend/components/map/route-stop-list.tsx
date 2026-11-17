@@ -33,7 +33,7 @@ import {
   type Edge,
 } from "@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge"
 import { DropIndicator } from "@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box"
-import { AlertTriangle, GripVertical, Check, CircleDashed, ChevronDown, Navigation, Flame, Trash2, Wand2 } from "lucide-react"
+import { AlertTriangle, GripVertical, Check, CircleDashed, ChevronDown, Navigation, Flame, Unlink, Wand2 } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -494,8 +494,8 @@ function StopRowMenu({
         {onMove && <MoveMenuItems Item={ContextMenuItem} index={index} count={count} onMove={onMove} />}
         {(onSetStatus || onMove) && onRemove && <ContextMenuSeparator />}
         {onRemove && (
-          <ContextMenuItem onClick={() => onRemove(incidentId)} className="text-destructive focus:text-destructive">
-            <Trash2 className="mr-2 h-4 w-4" />
+          <ContextMenuItem onClick={() => onRemove(incidentId)}>
+            <Unlink className="mr-2 h-4 w-4" />
             {t("removeStop")}
           </ContextMenuItem>
         )}
@@ -506,7 +506,7 @@ function StopRowMenu({
 
 /**
  * The ⋮ at the end of a stop row: «Nach oben / Nach unten / An den Anfang» and
- * «Stopp entfernen». Nothing at all on a read-only row.
+ * «Aus Auftrag entfernen». Nothing at all on a read-only row.
  */
 function StopRowActions({
   label,
@@ -527,8 +527,8 @@ function StopRowActions({
   return (
     <ReorderMenu label={t("stopActions", { name: label })} index={index} count={count} onMove={onMove} className="flex-shrink-0">
       {onRemove && (
-        <DropdownMenuItem variant="destructive" onClick={onRemove}>
-          <Trash2 className="mr-2 h-4 w-4" />
+        <DropdownMenuItem onClick={onRemove}>
+          <Unlink className="mr-2 h-4 w-4" />
           {t("removeStop")}
         </DropdownMenuItem>
       )}

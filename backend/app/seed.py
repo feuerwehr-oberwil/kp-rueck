@@ -18,6 +18,7 @@ from app.environment import is_production_environment
 from . import models
 from .database import async_session_maker
 from .seed_training import seed_training_data
+from .services.ranks import RANKS
 
 
 def get_admin_password() -> str:
@@ -540,17 +541,17 @@ async def _seed_sample_resources(db) -> tuple[list, list, list]:
 
     # Generic personnel (common Swiss surnames)
     personnel_data = [
-        # Offiziere (Officers)
-        {"name": "Müller Hans", "role": "Offizier", "status": "available", "tags": ["F"]},
-        {"name": "Schneider Peter", "role": "Offizier", "status": "available", "tags": ["F", "Hö"]},
-        {"name": "Weber Martin", "role": "Offizier", "status": "available", "tags": ["F", "Fw"]},
-        {"name": "Fischer Thomas", "role": "Offizier", "status": "available", "tags": []},
-        {"name": "Meyer Stefan", "role": "Offizier", "status": "available", "tags": ["F"]},
-        {"name": "Wagner Klaus", "role": "Offizier", "status": "available", "tags": ["F", "Hö"]},
-        {"name": "Becker Andreas", "role": "Offizier", "status": "available", "tags": ["F", "Fw"]},
-        # Wachtmeister (Sergeants)
-        {"name": "Hoffmann Lisa", "role": "Wachtmeister", "status": "available", "tags": ["F"]},
-        {"name": "Schmidt Daniel", "role": "Wachtmeister", "status": "available", "tags": ["F"]},
+        # Offiziere
+        {"name": "Müller Hans", "role": "Hauptmann", "status": "available", "tags": ["F"]},
+        {"name": "Schneider Peter", "role": "Oberleutnant", "status": "available", "tags": ["F", "Hö"]},
+        {"name": "Weber Martin", "role": "Oberleutnant", "status": "available", "tags": ["F", "Fw"]},
+        {"name": "Fischer Thomas", "role": "Leutnant", "status": "available", "tags": []},
+        {"name": "Meyer Stefan", "role": "Leutnant", "status": "available", "tags": ["F"]},
+        {"name": "Wagner Klaus", "role": "Leutnant", "status": "available", "tags": ["F", "Hö"]},
+        {"name": "Becker Andreas", "role": "Leutnant", "status": "available", "tags": ["F", "Fw"]},
+        # Höhere Unteroffiziere
+        {"name": "Hoffmann Lisa", "role": "Feldweibel", "status": "available", "tags": ["F"]},
+        {"name": "Schmidt Daniel", "role": "Feldweibel", "status": "available", "tags": ["F"]},
         {"name": "Koch René", "role": "Wachtmeister", "status": "available", "tags": ["F"]},
         {"name": "Baumann Michael", "role": "Wachtmeister", "status": "available", "tags": ["F", "Fw"]},
         {"name": "Keller Marco", "role": "Wachtmeister", "status": "available", "tags": ["F"]},
@@ -559,7 +560,7 @@ async def _seed_sample_resources(db) -> tuple[list, list, list]:
         {"name": "Frei Dominik", "role": "Wachtmeister", "status": "available", "tags": []},
         {"name": "Huber Stefan", "role": "Wachtmeister", "status": "available", "tags": ["F"]},
         {"name": "Schmid Tizian", "role": "Wachtmeister", "status": "available", "tags": []},
-        # Korporal (Corporals)
+        # Korporale
         {"name": "Steiner Lukas", "role": "Korporal", "status": "available", "tags": []},
         {"name": "Meier Andrea", "role": "Korporal", "status": "available", "tags": ["F"]},
         {"name": "Graf Sven", "role": "Korporal", "status": "available", "tags": ["Hö"]},
@@ -571,43 +572,45 @@ async def _seed_sample_resources(db) -> tuple[list, list, list]:
         {"name": "Widmer Nico", "role": "Korporal", "status": "available", "tags": []},
         {"name": "Vogel Simon", "role": "Korporal", "status": "available", "tags": []},
         {"name": "Egger Olivier", "role": "Korporal", "status": "available", "tags": ["F"]},
-        # Mannschaft (Firefighters)
-        {"name": "Zimmermann Fabian", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Wyss Fabio", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Künzli Klara", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Studer Samuel", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Schwarz Jan", "role": "Mannschaft", "status": "available", "tags": ["Fw"]},
-        {"name": "Hartmann Mischa", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Christen Sandro", "role": "Mannschaft", "status": "available", "tags": ["Fw"]},
-        {"name": "Leuenberger Luca", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Suter Raoul", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Kunz Gabor", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Ammann Manuel", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Burri Alessandro", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Wenger Luzia", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Bühler Rico", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Aebischer Yannick", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Arnold Samuel", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Aebi Lionel", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Bachmann Simon", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Bühlmann Carina", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Buri Marysol", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Gasser Julia", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Hofer Max", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Hess Silvan", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Imhof Sebastiaan", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Iten Alexandre", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Jost Melissa", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Kaiser Sandra", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Käser Koray", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Kessler Paolo", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "König Sina", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Lehmann Bastian", "role": "Mannschaft", "status": "available", "tags": []},
+        # Mannschaftsgrade
+        {"name": "Zimmermann Fabian", "role": "Gefreiter", "status": "available", "tags": []},
+        {"name": "Wyss Fabio", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Künzli Klara", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Studer Samuel", "role": "Gefreiter", "status": "available", "tags": []},
+        {"name": "Schwarz Jan", "role": "Soldat", "status": "available", "tags": ["Fw"]},
+        {"name": "Hartmann Mischa", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Christen Sandro", "role": "Gefreiter", "status": "available", "tags": ["Fw"]},
+        {"name": "Leuenberger Luca", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Suter Raoul", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Kunz Gabor", "role": "Gefreiter", "status": "available", "tags": []},
+        {"name": "Ammann Manuel", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Burri Alessandro", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Wenger Luzia", "role": "Gefreiter", "status": "available", "tags": []},
+        {"name": "Bühler Rico", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Aebischer Yannick", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Arnold Samuel", "role": "Gefreiter", "status": "available", "tags": []},
+        {"name": "Aebi Lionel", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Bachmann Simon", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Bühlmann Carina", "role": "Gefreiter", "status": "available", "tags": []},
+        {"name": "Buri Marysol", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Gasser Julia", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Hofer Max", "role": "Gefreiter", "status": "available", "tags": []},
+        {"name": "Hess Silvan", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Imhof Sebastiaan", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Iten Alexandre", "role": "Gefreiter", "status": "available", "tags": []},
+        {"name": "Jost Melissa", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Kaiser Sandra", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Käser Koray", "role": "Gefreiter", "status": "available", "tags": []},
+        {"name": "Kessler Paolo", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "König Sina", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Lehmann Bastian", "role": "Gefreiter", "status": "available", "tags": []},
     ]
 
+    # Most senior first, like the demo roster (``ranks.RANKS`` order).
+    role_order = {rank.label: position for position, rank in enumerate(RANKS, start=1)}
     personnel = []
     for person_data in personnel_data:
-        person = models.Personnel(id=uuid4(), **person_data)
+        person = models.Personnel(id=uuid4(), role_sort_order=role_order.get(person_data["role"], 99), **person_data)
         db.add(person)
         personnel.append(person)
 

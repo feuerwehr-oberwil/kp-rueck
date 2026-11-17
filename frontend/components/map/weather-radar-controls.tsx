@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Pause, Play } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { formatAgo } from "@/lib/duration"
 import { Slider } from "@/components/ui/slider"
 import { useIntlLocale } from "@/lib/date-locale"
 import { formatWeatherTime, frameAgeMinutes, latestFrameIndex, type WeatherRadar } from "@/lib/weather"
@@ -112,6 +113,7 @@ export function WeatherRadarControls({
   now: number
 }) {
   const t = useTranslations("map.weather")
+  const tDuration = useTranslations("common.duration")
   const intlLocale = useIntlLocale()
   const frames = radar?.frames ?? []
   const frame = frames[frameIndex]
@@ -164,7 +166,7 @@ export function WeatherRadarControls({
       )}
       {frames.length > 0 && (
         <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-          <span className="tabular-nums">{age > 0 ? t("frameAgo", { minutes: age }) : t("latest")}</span>
+          <span className="tabular-nums">{age > 0 ? formatAgo(age * 60_000, tDuration) : t("latest")}</span>
           {/* Phone: the map is 45vh and only looked at – opacity and the colour key stay
               desktop tools so the panel does not cover the town. */}
           <label className="flex min-w-0 items-center gap-1.5 max-sm:hidden">

@@ -13,11 +13,11 @@ Hauptansicht beim Laden der App. Zeigt alle Einsätze in sieben Status-Spalten (
 
 **«3 Geräte vor Ort» am Kopf der Material-Leiste.** Material, das ein Trupp irgendwo stehen liess, ist auf dem Board sonst unsichtbar – es ist weder frei noch erkennbar im Gebrauch. Die Aufklappliste nennt Gerät, Adresse und seit wann, das Älteste zuoberst; ein Klick öffnet den zugehörigen Einsatz. Sie erscheint nur, wenn wirklich etwas draussen steht.
 
-**«Dienstzeiten» am Fuss der Personen-Leiste.** Wer da ist, seit wann und wie viel er schon gemacht hat – alle Eingecheckten, wer am längsten da ist zuoberst. Spalten: **Name · Seit · Anwesend · Eingesetzt · Pause · Einsätze · Jetzt**. *Anwesend* zählt ab dem Check-in (gelb ab der Einstellung «Personalermüdung», standardmässig 4 h, rot ab dem Anderthalbfachen), *Eingesetzt* die Zeit auf einem Einsatz oder Auftrag, *Pause* die Zeit anwesend, aber auf keinem Einsatz und keinem Auftrag; *Einsätze* zählt die Einsätze dieses Ereignisses (ein Auftrag einmal, ein innert zwei Minuten zurückgenommenes Ziehen gar nicht). Ein Klick auf einen Spaltenkopf sortiert danach, nochmals umgekehrt – «wer hat am meisten, wer am wenigsten» ist ein Klick. **Alle · Frei · Im Einsatz** und eine Suche nach Name oder Ort grenzen ein. Auch über `Cmd/Ctrl+K` und auf dem Handy im Personal-Sheet (dort Suchfeld und ein Trichter-Menü, das auch die Sortierung enthält). Eine Ansicht, kein Dienstplan – von hier aus wird niemand eingeteilt oder alarmiert.
+**«Dienstzeiten» am Fuss der Personen-Leiste.** Wer da ist, seit wann und wie viel er schon gemacht hat – alle Anwesenden, wer am längsten da ist zuoberst. Spalten: **Name · Seit · Anwesend · Eingesetzt · Pause · Einsätze · Jetzt**. *Anwesend* zählt ab dem Check-in (gelb ab der Einstellung «Personalermüdung», standardmässig 4 h, rot ab dem Anderthalbfachen), *Eingesetzt* die Zeit auf einem Einsatz oder Auftrag, *Pause* die Zeit anwesend, aber auf keinem Einsatz und keinem Auftrag; *Einsätze* zählt die Einsätze dieses Ereignisses (ein Auftrag einmal, ein innert zwei Minuten zurückgenommenes Ziehen gar nicht). Ein Klick auf einen Spaltenkopf sortiert danach, nochmals umgekehrt – «wer hat am meisten, wer am wenigsten» ist ein Klick. **Alle · Frei · Im Einsatz** und eine Suche nach Name oder Ort grenzen ein. Auch über `Cmd/Ctrl+K` und auf dem Handy im Personal-Sheet (dort Suchfeld und ein Trichter-Menü, das auch die Sortierung enthält). Eine Ansicht, kein Dienstplan – von hier aus wird niemand eingeteilt oder alarmiert.
 
 **«Rapporte» in der Fusszeile (`O`).** Zählt die abgeschlossenen Schadenplätze, zu denen noch kein Schadenplatz-Rapport erfasst ist, und öffnet die Liste – **Offen** (das Älteste zuoberst, denn daran erinnert sich am Ende niemand mehr) und **Erfasst**. Ein Klick auf eine Zeile springt zum Einsatz.
 
-**«Tagebuch» in der Fusszeile (`J`).** Das Einsatztagebuch des Ereignisses, das Neueste zuoberst. Statuswechsel, Zuweisungen und Abzüge, Meldungen vom Feld und an den Trupp, Reko-Berichte, Divera-Alarme, «vor Ort», «beendet» und Abholungen stehen von selbst darin; ein gelöschter oder zusammengeführter Einsatz bleibt mit seinen Zeilen stehen und ist so markiert. Unten eine Zeile für alles, was zu keiner Karte gehört («Gemeindepräsident informiert», «Strom Quartier Nord aus») – mit `#` und den ersten Buchstaben der Adresse oder mit dem Kettensymbol vor der Zeile wird ein Einsatz verknüpft; er steht dann vorne in der Zeile, `⌫` in der leeren Zeile nimmt ihn wieder weg. **`E`** («Eintrag», wie in KP Front) öffnet das Tagebuch gleich mit dem Cursor in der Zeile, und ist eine Karte ausgewählt, ist sie schon verknüpft (in der Befehlspalette: «Tagebuch-Eintrag schreiben»). Jede Zeile trägt Datum und Uhrzeit. Gelöscht wird nichts: ein falscher Eintrag wird mit dem Stift korrigiert, die Zeile zeigt dann «korrigiert hh:mm» und auf Klick den alten Wortlaut. Filter: Manuell, Feld, Status, Ressourcen. Das PDF-Einsatztagebuch druckt genau diese Einträge. Auf dem Handy unter «Mehr».
+**«Verlauf» in der Fusszeile (`J`).** Das Journal des Ereignisses, wie in KP Front «Verlauf» genannt, das Neueste zuoberst. Statuswechsel, Zuweisungen und Abzüge, Meldungen vom Feld und an den Trupp, Reko-Berichte, Divera-Alarme, «vor Ort», «beendet» und Abholungen stehen von selbst darin; ein gelöschter oder zusammengeführter Einsatz bleibt mit seinen Zeilen stehen und ist so markiert. Unten eine Zeile für alles, was zu keiner Karte gehört («Gemeindepräsident informiert», «Strom Quartier Nord aus») – mit `#` und den ersten Buchstaben der Adresse oder mit dem Kettensymbol vor der Zeile wird ein Einsatz verknüpft; er steht dann vorne in der Zeile, `⌫` in der leeren Zeile nimmt ihn wieder weg. **`E`** («Eintrag», wie in KP Front) öffnet den Verlauf gleich mit dem Cursor in der Zeile, und ist eine Karte ausgewählt, ist sie schon verknüpft (in der Befehlspalette: «Eintrag in den Verlauf schreiben»). Jede Zeile trägt Datum und Uhrzeit. Gelöscht wird nichts: ein falscher Eintrag wird mit dem Stift korrigiert, die Zeile zeigt dann «korrigiert hh:mm» und auf Klick den alten Wortlaut. Filter: Info (von Hand geschrieben), Feld, Status, Ressourcen. Das PDF-Einsatztagebuch druckt genau diese Einträge. Was mit einem einzelnen Einsatz geschah, zeigt sein Detail im Reiter **Chronik**. Auf dem Handy unter «Mehr».
 
 **«Kennzahlen» im Benutzermenü (`Z`).** Oben rechts im Personen-Menü, auch über `Cmd/Ctrl+K` und auf dem Handy unter «Mehr» – nicht mehr in der Fusszeile. Ein Fenster über der Seite mit der Lage in Zahlen – Meldungen, offen (je Priorität), in Arbeit, erledigt – und die Reaktionszeiten ab Eingang bis **Disponiert**, **Vor Ort** und **Abschluss**, als Median und P90 je Priorität, dazu die älteste noch wartende «Hoch»-Meldung (ein Klick öffnet sie). Dieselben Werte wie die Tabelle «Reaktionszeiten» im Einsatzbericht (PDF); wie gerechnet wird, steht hinter dem ⓘ. Bei einer Übung heisst die Ansicht **Übungsauswertung**; für ein vergangenes Ereignis steht sie unter **Ereignisse → ⋯ → Kennzahlen**, und an der Wand im Status-Display (`/display/status`) über den Einsätzen.
 
@@ -31,7 +31,7 @@ Geografische Übersicht aller Einsatzorte. Die Marker zeigen die Priorität (Gra
 **Kartenlegende:**
 - **Priorität (Füllung):** Grau=Niedrig, Gelb=Mittel, Rot=Hoch
 - **Status (Rahmen):** Gestrichelt=Offen, Durchgezogen=Aktiv, Gepunktet+Verblasst=Rückfahrt & Abgeschlossen
-- **Fahrzeuge (GPS):** eine Pille pro Standort. Blau gefüllt = online, hohl und grau gestrichelt = offline. Mehrere am selben Ort teilen eine Pille («6 Fahrzeuge | 4 offline»). Die Uhrzeit der letzten Meldung steht auf der Pille erst, wenn sie älter ist als unter Einstellungen → GPS eingestellt (Standard 10 Min.); Darüberfahren oder Antippen zeigt die Liste mit jedem Fahrzeug. Liegt eine Pille auf einem Einsatz-Marker, weicht sie aus – eine dünne Linie führt zum Punkt, wo das Fahrzeug wirklich steht. Zuweisungslinien gehen nur von Fahrzeugen aus, die online sind.
+- **Fahrzeuge (GPS):** eine Pille pro Standort. Blau gefüllt = online, hohl und grau gestrichelt = offline. Mehrere am selben Ort teilen eine Pille («6 Fahrzeuge | 4 offline»). Die Uhrzeit der letzten Meldung steht auf der Pille erst, wenn sie älter ist als unter Einstellungen → GPS eingestellt (Standard 10'); Darüberfahren oder Antippen zeigt die Liste mit jedem Fahrzeug. Liegt eine Pille auf einem Einsatz-Marker, weicht sie aus – eine dünne Linie führt zum Punkt, wo das Fahrzeug wirklich steht. Zuweisungslinien gehen nur von Fahrzeugen aus, die online sind.
 - **Marker mit Zahl:** mehrere Einsätze an derselben Adresse – ein Marker im Aussehen des dringendsten, eine Beschriftung mit allen Nummern («6 · 7 · 9 Bahnhofstrasse 1»). Darüberfahren oder Klick zeigt die Liste; ein Klick auf eine Zeile wählt diesen Einsatz, ein Doppelklick öffnet ihn.
 - **Blase mit Zahl:** mehrere Einsätze, deren Marker sich überdecken; Marke und Rahmen des dringendsten (höchste Priorität). Klick oder Antippen zoomt auf die Gruppe. Ab Strassen-Zoom stehen die Marker wieder einzeln.
 
@@ -41,7 +41,7 @@ Geografische Übersicht aller Einsatzorte. Die Marker zeigen die Priorität (Gra
 
 **Tastatur:** `L` Labels, `I` Linien, `1-5` Fahrzeug anzeigen – siehe [Tastaturkürzel](#tastaturkürzel).
 
-**Wetter.** Der Schalter «Wetter» im Menü «Ansicht» (auf `/map` und auf der Wandkarte `/display/map`) legt das Niederschlagsradar von MeteoSchweiz unter alle Marker und Routen. Das Feld unten links spielt mit ▶ die letzte Stunde in 5-Minuten-Schritten ab; der Regler wählt ein Bild und sagt, wie alt es ist («vor 40 min»), dazu Deckkraft und Farbskala. Amtliche Warnungen für den Standort der Feuerwehr – von MeteoSchweiz und von Alertswiss, z. B. ein kantonales Feuerverbot – stehen als Chip oben rechts auf der Karte, auch wenn das Radar aus ist; ein Tipp darauf zeigt den Originaltext mit Gebiet, Gültigkeit und Quelle. Daten, die nicht mehr nachkommen, erscheinen grau mit ihrer Zeit («Veraltet – Stand 17:05»), statt als aktuell durchzugehen. Grundlage sind die Koordinaten unter Einstellungen → Allgemein; der Server braucht dafür Internet.
+**Wetter.** Der Schalter «Wetter» im Menü «Ansicht» (auf `/map` und auf der Wandkarte `/display/map`) legt das Niederschlagsradar von MeteoSchweiz unter alle Marker und Routen. Das Feld unten links spielt mit ▶ die letzte Stunde in 5-Minuten-Schritten ab; der Regler wählt ein Bild und sagt, wie alt es ist («vor 40'»), dazu Deckkraft und Farbskala. Amtliche Warnungen für den Standort der Feuerwehr – von MeteoSchweiz und von Alertswiss, z. B. ein kantonales Feuerverbot – stehen als Chip oben rechts auf der Karte, auch wenn das Radar aus ist; ein Tipp darauf zeigt den Originaltext mit Gebiet, Gültigkeit und Quelle. Daten, die nicht mehr nachkommen, erscheinen grau mit ihrer Zeit («Veraltet – Stand 17:05»), statt als aktuell durchzugehen. Grundlage sind die Koordinaten unter Einstellungen → Allgemein; der Server braucht dafür Internet.
 
 ### Seitenpanel (Kanban)
 Auf breiten Bildschirmen (>1280px) erscheint rechts ein Seitenpanel mit den **Details** des ausgewählten Einsatzes (Einsatzbearbeitung). Mit `I` bzw. `\` ein- und ausklappen. Eine Mini-Karte im Panel gibt es nicht mehr – die Karte ist eine eigene Seite (`G M`), und `K` öffnet den ausgewählten Einsatz dort.
@@ -57,7 +57,7 @@ Ereignisse verwalten, wechseln, archivieren, exportieren.
 
 **Ohne gewähltes Ereignis** (neuer Browser, nach dem Abmelden) zeigt das Board die offenen Ereignisse der letzten 24 Stunden – das zuletzt aktive zuoberst, «Öffnen» oder `Enter` führt hinein. Ein neues Ereignis gibt es dort auch, aber nicht als Hauptknopf: um 3 Uhr nachts soll niemand den laufenden Unwetterabend in zwei Ereignisse teilen. Wurde in 24 Stunden keines eröffnet, bleibt die Karte «Ereignis wählen» mit «Neues Ereignis» und «Ereignisse anzeigen».
 
-**Archivieren sagt, was noch offen ist.** Der Dialog listet, was das Archivieren abschneiden würde: nicht abgeschlossene Einsätze (mit «Auf dem Board zeigen»), offene Abholungen, Material noch am Schadenplatz und Personen, die noch angemeldet sind. Das vorab angekreuzte «automatisch abmelden» meldet beim Archivieren alle ab – Abmeldezeit = Ereignisende. Solange etwas offen ist, heisst der Knopf «Trotzdem archivieren».
+**Archivieren sagt, was noch offen ist.** Der Dialog listet, was das Archivieren abschneiden würde: nicht abgeschlossene Einsätze (mit «Auf dem Board zeigen»), offene Abholungen, Material noch am Schadenplatz und Personen, die noch anwesend sind. Das vorab angekreuzte «automatisch auschecken» checkt beim Archivieren alle aus – gegangen = Ereignisende. Solange etwas offen ist, heisst der Knopf «Trotzdem archivieren».
 
 ### Einstellungen (`G S`)
 System-Konfiguration: Benutzer, Drucker, Kartenstil und mehr. Benutzer und das Audit-Protokoll sehen nur Admins. Die Koordinaten der Feuerwehr (Allgemein) stehen und speichern mit 6 Nachkommastellen (≈ 10 cm); mehr wird beim Verlassen des Felds gerundet.
@@ -228,11 +228,11 @@ Rechtsklick auf eine Einsatzkarte öffnet ein Menü mit folgenden Optionen:
 
 Öffnet sich von selbst, sobald ein Ereignis ausgewählt wird, und ist danach über
 **«Checkliste n/m»** in der Fussleiste erreichbar. Sie führt durch das, was in den
-ersten Minuten passieren muss: Mannschaft informieren, Check-In-, Reko-, Alarm-
+ersten Minuten passieren muss: Mannschaft informieren, Check-in-, Reko-, Alarm-
 und Feld-Link verteilen, Fahrer zuweisen, Drucker prüfen, Papier-Fallback
 scharfstellen.
 
-- **Zeilen mit Zahlen haken sich selbst ab** (eingecheckte Personen, Fahrer pro
+- **Zeilen mit Zahlen haken sich selbst ab** (anwesende Personen, Fahrer pro
   Fahrzeug, Drucker erreichbar). Jede Zeile lässt sich zusätzlich **von Hand**
   abhaken und wieder aufmachen – pro Gerät gemerkt.
 - **Unter den Link-Zeilen steht, für wen der Link ist und wie viele Ausdrucke es
@@ -388,26 +388,26 @@ Divera-App, weckt niemanden wie ein Aufgebot und steuert keinen Pager an.
 - **Hinweis Divera-FREE:** dort ist nur **eine Mitteilung alle fünf Minuten**
   möglich.
 
-### Personal Check-In
+### Personal-Check-in
 
 QR-Code scannen → Person als anwesend markieren. Wer kein Handy dabei hat oder
-nicht scannen kann, wird im **Appell** vom KP aus angemeldet – siehe unten.
+nicht scannen kann, wird im **Appell** vom KP aus eingecheckt – siehe unten.
 
 **Anrückend (Divera).** Ist Divera angebunden, zeigen der Appell und der Kopf der
 Personen-Leiste, wer auf den Divera-Alarm geantwortet hat: eine Zeile mit Zahlen
-(«4 kommen · 2 kommen nicht»), dann alle, die kommen und noch nicht eingecheckt sind,
-mit Grad und einem Klick («da») zum Anmelden. «Kommt nicht» steht gedämpft in einer
-eigenen Gruppe mit ✕ – anmelden geht trotzdem, falls sich jemand verklickt hat. Nur Ja
-oder Nein: keine Antwortzeiten, keine Ankunftsschätzung. **Eine Divera-Antwort meldet
-niemanden von selbst an.** Es zählen Alarme der letzten 6 Stunden; wer schon
-eingecheckt (oder schon wieder gegangen) ist, fehlt in der Liste, und Antworten von
+(«4 kommen · 2 kommen nicht»), dann alle, die kommen und noch nicht anwesend sind,
+mit Grad und einem Klick («da») zum Einchecken. «Kommt nicht» steht gedämpft in einer
+eigenen Gruppe mit ✕ – einchecken geht trotzdem, falls sich jemand verklickt hat. Nur Ja
+oder Nein: keine Antwortzeiten, keine Ankunftsschätzung. **Eine Divera-Antwort checkt
+niemanden von selbst ein.** Es zählen Alarme der letzten 6 Stunden; wer schon
+anwesend (oder schon wieder gegangen) ist, fehlt in der Liste, und Antworten von
 Divera-Mitgliedern ohne verknüpfte Person werden nur gezählt. Sichtbar für Editoren
 und Admins, nicht für Viewer. Ohne Divera oder ohne frischen Divera-Alarm ändert sich
 nichts.
 
 ### Alles vom KP aus erfassen (wenn die Telefone ausfallen)
 
-Jeder Link ohne Anmeldung – Check-In, Reko, Feld, Alarm – ist ein **Eingangskanal,
+Jeder Link ohne Anmeldung – Check-in, Reko, Feld, Alarm – ist ein **Eingangskanal,
 nicht der Ort, an dem die Daten wohnen**. Alles, was ein Trupp draussen eintippen
 kann, kann der KP am Board genauso erfassen. Das ist kein Komfort, sondern der
 Normalfall: kein Empfang im Keller, leerer Akku, Handschuhe, oder eine Mannschaft,
@@ -423,16 +423,16 @@ das einzige Eingabegerät, das das System noch hat.
 - «Gegangen» ist eine Aussage, keine Abwesenheit: wer um 20:40 heimgegangen ist,
   ist nicht dasselbe wie jemand, der nie da war. Der Ereignisbericht liest den
   Unterschied.
-- Kopfzeile: `{anwesend} anwesend · {gegangen} gegangen · {total} Mannschaft`.
-- **«Alle abmelden»** setzt am Ende des Ereignisses alle Anwesenden auf
+- Kopfzeile: `{anwesend} anwesend · {gegangen} gegangen · {total} Personal`.
+- **«Alle auschecken»** setzt am Ende des Ereignisses alle Anwesenden auf
   «gegangen». Zuweisungen bleiben bestehen, andere Ereignisse werden nicht berührt.
-- Wer noch einem Einsatz zugewiesen ist, bekommt beim Abmelden eine Rückfrage –
-  danach wird abgemeldet, die Zuweisung bleibt. Das Board ist die Stelle, die sie
-  auflösen kann; ein hartes Verbot würde zwingen, zum Abmelden die Ansicht zu wechseln.
+- Wer noch einem Einsatz zugewiesen ist, bekommt beim Auschecken eine Rückfrage –
+  danach wird ausgecheckt, die Zuweisung bleibt. Das Board ist die Stelle, die sie
+  auflösen kann; ein hartes Verbot würde zwingen, zum Auschecken die Ansicht zu wechseln.
 - Wer als *nicht verfügbar* geführt ist, erscheint ausgegraut mit Grund.
-- **«Person hinzufügen»** im Appell legt die Person an **und meldet sie direkt an**.
+- **«Person hinzufügen»** im Appell legt die Person an **und checkt sie direkt ein** – sie ist sofort anwesend.
 
-> **Nachbarhilfe und Zivilschutz können sich nicht selbst anmelden.** Der Check-In
+> **Nachbarhilfe und Zivilschutz können sich nicht selbst einchecken.** Der Check-in
 > zeigt nur den eigenen Bestand, und Sichtbarkeit kommt aus den Zuweisungen. Der
 > vorgesehene Weg ist: im Appell (oder in der Seitenleiste) über **«Person
 > hinzufügen»** erfassen und anschliessend dem Einsatz zuweisen. Das ist kein
@@ -461,17 +461,17 @@ dasselbe blaue [Telefon-Abzeichen](#telefon-laufkundschaft-abzeichen) wie eine M
 (Lageblatt, Ereignisbericht-PDF, Einsätze-Export, Thermo-Board-Snapshot) schreiben
 **«(Feld)»** neben eine Erfassung vom Feld und **«(Funkmeldung)»** neben eine im KP
 erfasste. Ein Bericht, den der Trupp eingereicht und der KP ergänzt hat, zeigt
-beide Zeilen. Beim Normalfall – jemand meldet sich selbst an – steht bewusst nichts.
+beide Zeilen. Beim Normalfall – jemand checkt sich selbst ein – steht bewusst nichts.
 
 **Grenzen, die man kennen sollte:**
 
-- Der Check-In-Link ist **anonym**: wer den QR-Code hat, kann jede Person anmelden,
+- Der Check-in-Link ist **anonym**: wer den QR-Code hat, kann jede Person einchecken,
   und diese Erfassung trägt keinen Namen. Nur eine Erfassung am Board ist einer
   Person zugeordnet.
 - **«Telefonisch gemeldet» ist eine Behauptung, kein Nachweis** – es heisst, dass
   eine Bedienperson es so gesagt hat. Für die Statistik ist das kein Herkunftsbeleg.
-- Das Board kennt **drei** Zustände, der Check-In auf dem Handy **zwei**: Wer dort
-  «gegangen» ist, erscheint einfach als nicht angemeldet und ist mit einem Tipp
+- Das Board kennt **drei** Zustände, der Check-in auf dem Handy **zwei**: Wer dort
+  «gegangen» ist, erscheint einfach als nicht anwesend und ist mit einem Tipp
   wieder da. «Ich bin gegangen» tippt niemand – deshalb wird das im KP festgehalten.
 - Der Reko-Block sagt nicht mehr, ob die Reko vor Ort ist; diese Information steht
   jetzt genau an einer Stelle, in den *Funkmeldungen*.
@@ -540,7 +540,7 @@ Ein «Archiv» für einzelne Einsätze gibt es nicht – archiviert wird das **E
 
 **Spalten überspringen:** Erlaubt. Nicht jeder Einsatz braucht Reko.
 
-**«Gerade geändert» – zwei Boards gleichzeitig:** Hat jemand anderes die Karte verschoben, kurz bevor dein Verschieben ankommt, ändert sich nichts. Die Karte steht wieder dort, wo der Server sie hat, und ein kleiner Dialog sagt, wer sie wann wohin gesetzt hat («Jetzt» gegenüber «Du wolltest»). Der hervorgehobene Knopf (oder `Esc`) lässt sie so. «Trotzdem …» führt dein Verschieben doch aus und sagt vorher, was es bewirkt – etwa dass ein abgeschlossener Einsatz wieder geöffnet und die freigegebene Mannschaft erneut zugewiesen wird. Im Verlauf des Einsatzes stehen beide Schritte; deiner ist markiert mit «war schon abgeschlossen (vor 4 s)».
+**«Gerade geändert» – zwei Boards gleichzeitig:** Hat jemand anderes die Karte verschoben, kurz bevor dein Verschieben ankommt, ändert sich nichts. Die Karte steht wieder dort, wo der Server sie hat, und ein kleiner Dialog sagt, wer sie wann wohin gesetzt hat («Jetzt» gegenüber «Du wolltest»). Der hervorgehobene Knopf (oder `Esc`) lässt sie so. «Trotzdem …» führt dein Verschieben doch aus und sagt vorher, was es bewirkt – etwa dass ein abgeschlossener Einsatz wieder geöffnet und die freigegebene Mannschaft erneut zugewiesen wird. In der Chronik des Einsatzes stehen beide Schritte; deiner ist markiert mit «war schon abgeschlossen (gerade eben)».
 
 **Meldung vom Feld «Einsatz beendet»:** Der Hinweis auf der Karte bzw. im Detail schiebt den Einsatz mit einem Klick nach **Rückfahrt** – und hört dort auf. Er startet **nicht** den Abschluss (Materialabfrage, Rückfragen): der Trupp fährt gerade heim, das ist genau diese Spalte. Abgeschlossen wird nachher, wie sonst auch. Braucht der Trupp eine Mitfahrgelegenheit, meldet er eine **Abholung** – die erscheint als eigenes Band im Einsatz-Detail, gleich neben der Feld-Meldung.
 
@@ -647,7 +647,7 @@ Damit in hektischen Momenten kein Schritt vergessen geht, blendet das System bei
 | **Fahrzeug ohne Fahrer zuweisen** | Direkt beim Zuweisen erscheint die Fahrer-Auswahl – auch bei einem Auftrag. «Schliessen» lässt das Fahrzeug bewusst ohne Fahrer; der Auftrag zeigt dann «Kein Fahrer · Fahrer wählen», und Disponiert-Text, WhatsApp-Text und A4-Druck sagen «ohne Fahrer». |
 | **Fahrzeug bereits im Einsatz** (Doppelbuchung) | Ein Fahrzeug ist nur einmal physisch vorhanden – beim erneuten Zuweisen: **Hierher verschieben** (von den anderen Einsätzen entfernen) oder **Mehrfach zuweisen** (Doppelbuchung bewusst behalten). |
 | **In die Reko-Spalte ohne Reko-Person** | Wird ein Einsatz nach «Reko» verschoben, ohne dass eine Reko-Person zugewiesen ist, erscheint «Keine Reko-Person zugewiesen»: **Reko-Person zuweisen** (sie erhält dann das Reko-Formular) oder «Trotzdem fortfahren». |
-| **Disponieren ohne Ressourcen** | Fehlen beim Verschieben nach «Disponiert» **Personal, Fahrzeuge oder Material** (Fahrzeuge entfallen bei «zu Fuss»), erscheint «Ressourcen fehlen». Empfohlen ist **Zuweisen** – das öffnet die Zuweisung und führt danach direkt zum Funk-/Alarm-Dialog weiter. Ohne Fahrzeug bietet die Zeile auch **Zu Fuss** an: das markiert den Einsatz «zu Fuss» und gilt als Antwort. Fehlt Mannschaft oder Fahrzeug weiterhin, fragt der erste Klick auf **Disponieren** nach («Kein Fahrzeug – wirklich so ausrücken?», die Zeile wird gelb) und der Knopf heisst «Ja, ohne Fahrzeug disponieren»; erst der zweite Klick (oder `Enter`) disponiert unterbestückt. **Zurück** oder `Esc` nimmt die Rückfrage zurück. |
+| **Disponieren ohne Ressourcen** | Fehlen beim Verschieben nach «Disponiert» **Personal, Fahrzeuge oder Material** (Fahrzeuge entfallen bei «zu Fuss»), erscheint «Ressourcen fehlen». Empfohlen ist **Zuweisen** – das öffnet die Zuweisung und führt danach direkt zum Funk-/Alarm-Dialog weiter. Ohne Fahrzeug bietet die Zeile auch **Zu Fuss** an: das markiert den Einsatz «zu Fuss» und gilt als Antwort. Fehlt Mannschaft oder Fahrzeug weiterhin, fragt der erste Klick auf **Disponieren** nach («Kein Fahrzeug – wirklich so ausrücken?», die Zeile wird gelb) und der Knopf heisst «Ohne Fahrzeug disponieren»; erst der zweite Klick (oder `Enter`) disponiert unterbestückt. **Zurück** oder `Esc` nimmt die Rückfrage zurück. |
 | **Abgeschlossenen Einsatz als Stopp hinzufügen** | Wird ein bereits abgeschlossener Einsatz an einen Auftrag gehängt – per Stopp-Auswahl, «An Auftrag verteilen» oder Drag & Drop –, fragt das System nach. Es ist **erlaubt** (Wiederaufnahme, zweiter Besuch derselben Adresse), soll aber nicht unbemerkt passieren. |
 | **Abschliessen mit zugewiesenem Material** | Wird ein Einsatz abgeschlossen, während noch Material zugewiesen ist, fragt das System: **Material zurück** (freigeben) oder «Vor Ort gelassen» (zugewiesen lassen, z. B. wenn es vor Ort bleibt). |
 
@@ -697,7 +697,7 @@ den gewohnten Befehlen («neu» ist weiterhin «Neuer Einsatz»). Es gelten dies
 Die globalen Kürzel (`G …` und `?`) gelten auf jeder Seite der Bedienoberfläche – Board,
 Karte, Ereignisse, Einstellungen, Hilfe, Übung. Sie ruhen,
 solange ein Dialog oder ein Menü offen ist, und auf den Wandanzeigen (`/display`) sowie den
-Handy-Formularen (Feld, Reko, Check-In) gibt es sie bewusst nicht.
+Handy-Formularen (Feld, Reko, Check-in) gibt es sie bewusst nicht.
 
 ### Global
 | Shortcut | Aktion |
@@ -740,7 +740,7 @@ bist. Was etwas ändert, wirkt nur auf die ausgewählte Karte, nie auf die unter
 | `0` | Zu Fuss umschalten |
 | `>` / `.` | Status vorwärts |
 | `<` / `,` | Status zurück |
-| `Delete` / `Backspace` | Löschen (mit Bestätigung) |
+| `Delete` / `Backspace` | Löschen – sofort, «Rückgängig» im Toast holt den Einsatz zurück |
 
 `Shift+1-3`, `0` und `1-5` funktionieren auch im geöffneten Detail-Dialog.
 
@@ -796,7 +796,7 @@ Im öffentlichen Demo-Modus erhält jeder Editor-Login (`demo-editor`) eine **pe
 ## Online vs. Offline
 
 ### Online (Railway)
-- QR-Code Check-In und Reko funktionieren
+- QR-Code Check-in und Reko funktionieren
 - Automatische Synchronisation aller Geräte
 - Mobile Zugriffe von überall
 
@@ -825,7 +825,7 @@ Für Personen, die einen Alarm **erfassen** sollen, ohne Login und ohne Kenntnis
 - QR-Codes funktionieren nur im lokalen Netzwerk
 - Backup bei Internetausfall
 - Wenn möglich via mobilem Hotspot
-- Ansonsten Kommunikation nur via Funk und alles manuell in einem anderen Tab eintragen (Check-In, Reko)
+- Ansonsten Kommunikation nur via Funk und alles manuell in einem anderen Tab eintragen (Check-in, Reko)
 
 ### Verbindungsstatus (Benutzermenü)
 

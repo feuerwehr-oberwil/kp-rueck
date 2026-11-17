@@ -379,7 +379,7 @@ export function AttendanceModal({
         // footer above the keys. It opens without focusing the search (no keyboard until a
         // tap) and swipes down to close. The centred dialog it replaces cut every name that
         // had a «zugewiesen» chip and a time beside it («Birrer Abd…»), so a row here is two
-        // lines: the full name, then the facts. «Alle abmelden» is desktop-only: a list
+        // lines: the full name, then the facts. «Alle auschecken» is desktop-only: a list
         // screen on the phone has one action, and sending everybody home is the end of the
         // Ereignis, done at the board.
         <Sheet open={open} onOpenChange={onOpenChange}>

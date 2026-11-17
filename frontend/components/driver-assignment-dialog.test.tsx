@@ -106,7 +106,7 @@ describe("DriverAssignmentDialog walk-in", () => {
     await addWalkIn("Aushilfe Anna")
 
     await waitFor(() => expect(toastError).toHaveBeenCalledTimes(1))
-    expect(toastError.mock.calls[0][0]).toBe("Anmeldung fehlgeschlagen")
+    expect(toastError.mock.calls[0][0]).toBe("Check-in fehlgeschlagen")
     expect(toastError.mock.calls[0][1].description).toContain("Aushilfe Anna")
     // The Personal list IS the checked-in roster: a person who is not checked in
     // must not quietly become the driver of a vehicle.

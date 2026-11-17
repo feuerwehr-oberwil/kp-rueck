@@ -39,8 +39,7 @@ export interface UseBoardCardActionsInput {
   release: { releaseCrew: (operationId: string, personnelId: string) => Promise<boolean>; releaseMaterial: (operationId: string, materialId: string) => Promise<boolean>; releaseVehicle: (operationId: string, vehicleId: string) => Promise<boolean>; releaseStop: (groupId: string, incidentId: string) => Promise<boolean>; releaseRouteResource: (groupId: string, assignmentId: string) => Promise<boolean>; restore: (item: Released) => Promise<void>; }
   expandColumnRef: RefObject<(id: string) => void>
   vehicleTypes: { key: string; name: string; id: string; type: string; status: string; }[]
-  setDeleteDialogOpen: Dispatch<SetStateAction<boolean>>
-  setOperationToDelete: Dispatch<SetStateAction<Operation | null>>
+  deleteOperation: (operationId: string) => Promise<void>
   toggleDriverStay: (operationId: string, vehicleId: string) => void
   triggerRekoFormCheck: (operationId: string, previousStatus?: OperationStatus) => void
   triggerRekoCheck: (operationId: string, previousStatus?: OperationStatus) => void
@@ -53,7 +52,7 @@ export interface UseBoardCardActionsInput {
 /**
  * What the board does to a card: Auftrag stop status, column sort, transfer,
  * status moves left/right, vehicle toggle with the Doppelbelegung check,
- * priority, zu Fuss, driver stay, delete request — plus the assignment-conflict
+ * priority, zu Fuss, driver stay, delete — plus the assignment-conflict
  * helpers they share. Moved verbatim out of app/page.tsx.
  */
 export function useBoardCardActions(input: UseBoardCardActionsInput) {
@@ -72,8 +71,7 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
     release,
     expandColumnRef,
     vehicleTypes,
-    setDeleteDialogOpen,
-    setOperationToDelete,
+    deleteOperation,
     toggleDriverStay,
     triggerRekoFormCheck,
     triggerRekoCheck,
@@ -286,14 +284,16 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
     })
   }, [operations, toggleDriverStay, tCommon])
 
-  /** Stage an incident for the delete confirmation — the context menu's
-   *  destructive row and the Delete key share this one path. */
-  const handleRequestDelete = useCallback((operationId: string) => {
-    const operation = operations.find((op) => op.id === operationId)
-    if (!operation) return
-    setOperationToDelete(operation)
-    setDeleteDialogOpen(true)
-  }, [operations, setDeleteDialogOpen, setOperationToDelete])
+  /** Delete an incident at once — the context menu's destructive row and the
+   *  Delete key share this one path. No «wirklich löschen?»: the undo toast that
+   *  `deleteOperation` raises takes it back (owner, 17.11.2026). */
+  const handleRequestDelete = useCallback(async (operationId: string) => {
+    try {
+      await deleteOperation(operationId)
+    } catch {
+      toast.error(tCommon('deleteFailed'))
+    }
+  }, [deleteOperation, tCommon])
 
   // Doppelbelegung across Aufträge and Einsätze — see use-assignment-conflicts.
   const {

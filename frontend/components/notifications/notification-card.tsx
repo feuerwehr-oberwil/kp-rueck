@@ -14,6 +14,7 @@
  */
 
 import { useTranslations } from 'next-intl'
+import { formatAgoSince } from '@/lib/duration'
 import { AlertTriangle, ArrowRight, Info, AlertCircle, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -22,7 +23,6 @@ import { useAuth } from '@/lib/contexts/auth-context'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { useOperations } from '@/lib/contexts/operations-context'
 import { fieldNudgeForNotification } from '@/lib/notification-field-action'
-import { formatNotificationTime } from '@/lib/notification-time'
 import { detailTabForNotification } from '@/lib/notification-detail-tab'
 import { notificationDetail, notificationParts, type NotificationTranslator } from '@/lib/notification-format'
 import { NOTIFICATION_SOURCE_ICON } from './notification-source-icon'
@@ -93,6 +93,7 @@ export function NotificationCard({
 }: NotificationCardProps) {
   const t = useTranslations('notifications.card')
   const tSidebar = useTranslations('notifications.sidebar')
+  const tDuration = useTranslations('common.duration')
   const tAll = useTranslations()
   const compact = variant === 'compact'
   const styles = severityStyles(notification.severity, compact)
@@ -159,7 +160,7 @@ export function NotificationCard({
               {severityLabel}
             </span>
             <span className="text-xs font-medium text-muted-foreground">
-              {formatNotificationTime(notification.created_at, t)}
+              {formatAgoSince(notification.created_at, tDuration)}
             </span>
           </div>
 

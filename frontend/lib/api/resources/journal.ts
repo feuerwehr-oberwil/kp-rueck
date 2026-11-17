@@ -1,5 +1,5 @@
 /**
- * Einsatztagebuch, KP→Trupp field messages and field requests.
+ * Verlauf, KP→Trupp field messages and field requests.
  *
  * One slice of `apiClient` (`lib/api-client.ts` mixes every resource class into
  * the one client object). Methods go through the shared transport in `../http`.
@@ -15,12 +15,12 @@ import type {
 } from '../types'
 
 export class JournalApi {
-  /** The Ereignis' Einsatztagebuch; `sinceSeq` = the `latest_seq` last seen (0 = all). */
+  /** The Ereignis' Verlauf; `sinceSeq` = the `latest_seq` last seen (0 = all). */
   async getJournal(eventId: string, sinceSeq = 0): Promise<ApiJournalPage> {
     return httpRequest<ApiJournalPage>(`/api/events/${eventId}/journal?since_seq=${sinceSeq}`)
   }
 
-  /** A manual Einsatztagebuch line. `clientId` makes a retry after a lost answer harmless. */
+  /** A manual Verlauf line. `clientId` makes a retry after a lost answer harmless. */
   async appendJournal(
     eventId: string,
     body: { client_id: string; text: string; incident_id?: string | null },

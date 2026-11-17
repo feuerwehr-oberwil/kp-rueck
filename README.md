@@ -77,8 +77,8 @@ event, one operator at the board**, not scaled down from a dispatch center.
   **Dienstzeiten** overview shows everybody checked in – time on duty, time on an Einsatz vs.
   «Pause», Einsätze worked – sortable by every column. With Divera, **«Anrückend»** lists who
   answered the alarm with «kommt», one click from check-in.
-- **Einsatztagebuch:** one append-only journal per Ereignis (`J`, «Tagebuch» in the footer; `⇧J`
-  writes a line). The board writes its own rows as things happen – status changes, resources,
+- **Verlauf:** one append-only journal per Ereignis, KP Front's word for it (`J`, «Verlauf» in the
+  footer; `E` writes a line). The per-Einsatz history in the detail is the «Chronik». The board writes its own rows as things happen – status changes, resources,
   Meldungen, Reko, alarms, merges, field facts – and operators add what belongs to no card. A
   wrong line is corrected by a new one, never edited; the PDF prints the same log.
 - **Kennzahlen:** the Lage and the Reaktionszeiten (Eingang → Disponiert, Vor Ort, Abschluss;

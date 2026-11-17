@@ -13,13 +13,12 @@
  * (`components/kanban/status-conflict-dialog.tsx`, mounted once in the root layout).
  * The ink answer keeps the server's state; «Trotzdem …» resends the move through
  * `updateOperation` with `override_status`, which the server records with the stale
- * mark the Verlauf shows («war schon abgeschlossen (vor 4 s)»).
+ * mark the Chronik shows («war schon abgeschlossen (gerade eben)»).
  */
 
 import { useSyncExternalStore } from 'react'
 
 import { ApiError } from '@/lib/api/types/common'
-import { formatDuration } from '@/lib/duration'
 import { isIncidentStatus, type IncidentStatus } from '@/lib/types/incidents'
 
 export const STATUS_CHANGED_CODE = 'incident_status_changed'
@@ -110,13 +109,4 @@ function subscribe(listener: () => void) {
 /** The open conflict, or null. */
 export function useStatusConflict(): StatusConflict | null {
   return useSyncExternalStore(subscribe, () => open, () => null)
-}
-
-type KanbanT = (key: string, values?: Record<string, string | number>) => string
-
-/** «vor 4 s» / «vor 3'» / «soeben» – how long ago, said through the `kanban` messages. */
-export function formatStaleAgo(seconds: number | null | undefined, t: KanbanT): string {
-  if (seconds == null) return t('statusConflict.agoNow')
-  if (seconds < 60) return t('statusConflict.agoSeconds', { seconds })
-  return t('statusConflict.agoDuration', { duration: formatDuration(seconds * 1000) })
 }

@@ -8,7 +8,6 @@
  */
 
 import type { ApiDuplicateCandidate, ApiFeldDuplicateCandidate } from '@/lib/api-client'
-import { formatDuration } from '@/lib/duration'
 
 /** What the hint needs: `/feld`'s minimal candidate, plus the pin when the board's
  *  lookup carries one (only then is there anything to sketch). */
@@ -29,11 +28,6 @@ export function candidateLabel(candidate: Pick<ApiDuplicateCandidate, 'location_
 /** «40 m» / null for an address-only match (the hint then says «gleiche Adresse»). */
 export function candidateDistance(candidate: Pick<ApiDuplicateCandidate, 'distance_m' | 'match'>): number | null {
   return candidate.match === 'address' ? null : candidate.distance_m
-}
-
-/** «6'» — how long the existing card has been on the board, board notation. */
-export function candidateAge(createdAt: string, now: number = Date.now()): string {
-  return formatDuration(Math.max(0, now - new Date(createdAt).getTime()))
 }
 
 /**

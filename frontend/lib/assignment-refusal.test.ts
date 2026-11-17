@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { ApiError } from "@/lib/api-client"
-import { assignFailureDescription, refusalReason } from "./assignment-refusal"
+import { ASSIGNMENT_RACE_CODE, assignFailureDescription, refusalReason } from "./assignment-refusal"
 
 describe("assignment refusals (409)", () => {
   it("says the server's reason for a refusal", () => {
@@ -9,9 +9,12 @@ describe("assignment refusals (409)", () => {
     expect(assignFailureDescription(archived, "TLF")).toBe("Dieses Fahrzeug ist archiviert.")
   })
 
-  it("keeps the race wording for the generic conflict and a 409 without a detail", () => {
-    for (const message of ["Ressource bereits zugewiesen", "Konflikt bei der Verarbeitung", "409 Conflict"]) {
-      const race = new ApiError(message, 409, true)
+  it("keeps the race wording for the race code – whatever its sentence – and a 409 without a detail", () => {
+    for (const race of [
+      new ApiError("Ressource bereits zugewiesen", 409, true, ASSIGNMENT_RACE_CODE),
+      new ApiError("Irgendein neuer Wortlaut", 409, true, ASSIGNMENT_RACE_CODE),
+      new ApiError("409 Conflict", 409, true),
+    ]) {
       expect(refusalReason(race)).toBeNull()
       expect(assignFailureDescription(race, "TLF")).toBe("TLF wurde gerade von jemand anderem geändert – nichts zugewiesen.")
     }

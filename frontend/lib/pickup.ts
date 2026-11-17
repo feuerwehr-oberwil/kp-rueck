@@ -14,14 +14,14 @@
  */
 
 import { formatTime } from '@/lib/format-time'
-import { splitDuration } from '@/lib/duration'
+import { formatDuration } from '@/lib/duration'
 
 /** Minutes since the pickup was requested, or null when it never was. */
 export function pickupWaitingMinutes(since: Date | null | undefined, now: Date = new Date()): number | null {
   if (!since) return null
   const ms = now.getTime() - since.getTime()
   if (Number.isNaN(ms)) return null
-  // A clock skew between the server and this device must not render "-3 Min".
+  // A clock skew between the server and this device must not render «-3'».
   return Math.max(0, Math.floor(ms / 60000))
 }
 
@@ -32,21 +32,12 @@ export function formatPickupSince(since: Date | null | undefined, locale?: strin
 }
 
 /**
- * How long they have been waiting: "42 Min", "1 h 20", "3 h", "1 d 4 h".
- *
- * Switches to hours at 60 minutes because a three-digit minute count is the
- * kind of thing an operator has to stop and divide, which is exactly what a
- * glanceable chip must not ask for — and to days at 24 hours for the same
- * reason (shared split: `lib/duration.ts`).
+ * How long they have been waiting, in the board notation: «42'», «1h 20'»,
+ * «1d 4h» (`formatDuration` – a pickup chip is an age chip like any other).
  */
 export function formatPickupWaiting(since: Date | null | undefined, now: Date = new Date()): string {
   const minutes = pickupWaitingMinutes(since, now)
-  if (minutes === null) return ''
-  if (minutes < 60) return `${minutes} Min`
-  const { days, hours: dayHours, minutes: rest } = splitDuration(minutes * 60_000)
-  if (days > 0) return dayHours === 0 ? `${days} d` : `${days} d ${dayHours} h`
-  const hours = Math.floor(minutes / 60)
-  return rest === 0 ? `${hours} h` : `${hours} h ${String(rest).padStart(2, '0')}`
+  return minutes === null ? '' : formatDuration(minutes * 60_000)
 }
 
 /**

@@ -39,10 +39,10 @@ afterEach(() => {
 
 describe("StatusConflictDialog", () => {
   it("says who closed it, what is now, what you wanted, and what «Trotzdem» does", () => {
-    open({ status: "complete", changed_by: "Fischer Thomas", seconds_ago: 4, released: "Suter Beat" })
+    open({ status: "complete", changed_by: "Fischer Thomas", seconds_ago: 190, released: "Suter Beat" })
 
     const dialog = screen.getByTestId("status-conflict-dialog")
-    expect(dialog).toHaveTextContent("Fischer Thomas hat Rebbergstrasse 5 vor 4 s abgeschlossen.")
+    expect(dialog).toHaveTextContent("Fischer Thomas hat Rebbergstrasse 5 vor 3' abgeschlossen.")
     expect(dialog).toHaveTextContent("JetztAbgeschlossen · Suter Beat freigegeben")
     expect(dialog).toHaveTextContent("Du wolltestReko abgeschlossen → Disponiert / Anfahrt")
     expect(dialog).toHaveTextContent("«Trotzdem disponieren» öffnet den Einsatz wieder und weist Suter Beat erneut zu.")
