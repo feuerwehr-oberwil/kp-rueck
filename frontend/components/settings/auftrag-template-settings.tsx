@@ -34,11 +34,10 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Skeleton } from '@/components/ui/skeleton';
 import { RemovableChip } from '@/components/ui/removable-chip';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { FormMessage, formMessageId, useRequiredField } from '@/components/ui/form-message';
-import { ShellLoader } from '@/components/ui/shell-loader';
+import { LoadingStatus, ShellLoader } from '@/components/ui/shell-loader';
 import { SettingCard } from '@/components/settings/setting-row';
 import { SettingSaveLine } from '@/components/settings/station-settings-form';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -86,6 +85,7 @@ export function AuftragTemplateSettings({ readOnly = false }: { readOnly?: boole
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
   const tForm = useTranslations('common.formMessage');
+  const tLoading = useTranslations('common.loadingWhat');
   const newNameField = useRequiredField('auftrag-template-new-name', newName, tForm('nameRequired'));
   const [pendingDelete, setPendingDelete] = useState<ApiAuftragTemplate | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -218,9 +218,8 @@ export function AuftragTemplateSettings({ readOnly = false }: { readOnly?: boole
 
   if (!loaded) {
     return (
-      <Card className="p-5 space-y-3">
-        <Skeleton className="h-5 w-48" />
-        <Skeleton className="h-24 w-full" />
+      <Card className="p-5">
+        <LoadingStatus size="surface" className="flex w-full py-8 text-sm">{tLoading('templates')}</LoadingStatus>
       </Card>
     );
   }

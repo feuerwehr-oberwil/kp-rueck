@@ -108,8 +108,8 @@ import { IntegrationsSection } from './integrations-section';
 import { useTileAvailability } from '@/lib/hooks/use-tile-availability';
 import { BrandingSettings } from '@/components/settings/branding-settings';
 import { TelemetrySettings } from '@/components/settings/telemetry-settings';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useIsMobile } from '@/components/ui/use-mobile';
+import { LoadingStatus } from '@/components/ui/shell-loader';
 import { searchSettings } from '@/lib/settings-search';
 
 /**
@@ -302,6 +302,7 @@ const SETTING_CONFIGS: (SettingConfig & { group: GeneralGroup })[] = [
 
 export default function SettingsPage() {
   const t = useTranslations('settings');
+  const tLoading = useTranslations('common.loadingWhat');
   const intlLocale = useIntlLocale();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -467,12 +468,7 @@ export default function SettingsPage() {
                 eine Reichweiten-Marke – der Abschnitt IST die Reichweite. */}
             <SettingCard>
               {loading ? (
-                <div className="space-y-4 pt-3">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
+                <LoadingStatus size="surface" className="flex w-full py-8 text-sm">{tLoading('settings')}</LoadingStatus>
               ) : error ? (
                 <div className="pt-3">
                   <p className="text-destructive">{error}</p>

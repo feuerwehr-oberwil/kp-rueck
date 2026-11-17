@@ -11,7 +11,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingStatus, ShellLoader } from '@/components/ui/shell-loader';
 import {
   Printer,
   CheckCircle,
@@ -23,7 +23,6 @@ import { Progress } from '@/components/ui/progress';
 import { SettingCard, SettingRow, SettingActions } from '@/components/settings/setting-row';
 import { SettingSaveLine, useStationSettings } from '@/components/settings/station-settings-form';
 import { toast } from 'sonner';
-import { ShellLoader } from '@/components/ui/shell-loader';
 
 // The Pi print-agent polls ~5s while "active" (within ACTIVE window of its last
 // job) and ~60s when idle. We estimate the pickup window the same way so the
@@ -38,6 +37,7 @@ type TestDruckPhase = 'queued' | 'printing' | 'done' | null;
 export function PrinterSettings() {
   const t = useTranslations('settings.printer');
   const tCommon = useTranslations('settings.common');
+  const tLoading = useTranslations('common.loadingWhat');
   // The same store and save path as the settings page. No editor check of its own
   // (`canEdit: true`): the section is editor-only and the page sits behind
   // `ProtectedRoute`, so a viewer never gets here – and the PATCH is refused
@@ -227,11 +227,7 @@ export function PrinterSettings() {
   if (loading) {
     return (
       <Card className="p-5">
-        <div className="space-y-4">
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
+        <LoadingStatus size="surface" className="flex w-full py-8 text-sm">{tLoading('settings')}</LoadingStatus>
       </Card>
     );
   }

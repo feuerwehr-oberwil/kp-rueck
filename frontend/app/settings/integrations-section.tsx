@@ -17,7 +17,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
+import { LoadingStatus } from '@/components/ui/shell-loader'
 import { SettingCard } from '@/components/settings/setting-row'
 import {
   Table,
@@ -49,6 +49,7 @@ const DOMAIN_ENV: Record<Domain, string> = {
 
 export function IntegrationsSection() {
   const t = useTranslations('settings.integrations')
+  const tLoading = useTranslations('common.loadingWhat')
   const [integrations, setIntegrations] = useState<ApiIntegrations | null>(null)
   const [failed, setFailed] = useState(false)
 
@@ -98,11 +99,7 @@ export function IntegrationsSection() {
           {failed ? (
             <p className="text-sm text-destructive">{t('loadFailed')}</p>
           ) : !integrations ? (
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-8 w-full" />
-              <Skeleton className="h-8 w-full" />
-            </div>
+            <LoadingStatus size="surface" className="flex w-full py-8 text-sm">{tLoading('integrations')}</LoadingStatus>
           ) : (
             <>
               <Table>

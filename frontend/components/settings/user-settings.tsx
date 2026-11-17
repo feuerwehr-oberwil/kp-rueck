@@ -19,7 +19,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DetailField } from '@/components/kanban/detail-field';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
   SelectContent,
@@ -49,7 +48,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useTranslations } from 'next-intl';
 import { useIntlLocale } from '@/lib/date-locale';
-import { ShellLoader } from '@/components/ui/shell-loader';
+import { LoadingStatus, ShellLoader } from '@/components/ui/shell-loader';
 import { fieldMessageProps, focusFirstBlockingField, useRequiredField } from '@/components/ui/form-message';
 import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
 import { useUnsavedChangesWarning } from '@/lib/hooks/use-unsaved-changes-warning';
@@ -85,6 +84,7 @@ function RoleHints() {
 
 export function UserSettings() {
   const t = useTranslations('settings');
+  const tLoading = useTranslations('common.loadingWhat');
   const intlLocale = useIntlLocale();
   const { user: currentUser } = useAuth();
   const roleLabel = (role: string) =>
@@ -314,17 +314,7 @@ export function UserSettings() {
   if (loading) {
     return (
       <SettingCard>
-        <div className="space-y-4">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="flex items-center gap-4">
-              <Skeleton className="h-10 w-10 rounded-full" />
-              <div className="flex-1 space-y-2">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-3 w-48" />
-              </div>
-            </div>
-          ))}
-        </div>
+        <LoadingStatus size="surface" className="flex w-full py-8 text-sm">{tLoading('users')}</LoadingStatus>
       </SettingCard>
     );
   }

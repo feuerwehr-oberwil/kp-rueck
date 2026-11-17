@@ -158,6 +158,16 @@
       "loadingBoard": "Chargement des interventions …"
     },
     "loading": "Chargement …",
+    "loadingWhat": {
+      "settings": "Chargement des paramètres …",
+      "vehicles": "Chargement des véhicules …",
+      "incidents": "Chargement des interventions …",
+      "integrations": "Chargement des intégrations …",
+      "users": "Chargement des utilisateurs …",
+      "auditLog": "Chargement du journal …",
+      "checklist": "Chargement de la check-list …",
+      "templates": "Chargement des modèles …"
+    },
     "incidentTruncation": {
       "message": "{shown} interventions sur {total} sont affichées – la liste est incomplète."
     },

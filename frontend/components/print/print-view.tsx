@@ -21,11 +21,16 @@ import {
   type MaterialOnSiteLocation,
 } from "@/components/kanban/material-on-site-panel"
 import dynamic from "next/dynamic"
+import { LoadingStatus } from "@/components/ui/shell-loader"
 
 // Dynamically import the map (no SSR – MapLibre GL needs a browser)
 const PrintableMapInner = dynamic(() => import("./printable-map"), {
   ssr: false,
-  loading: () => <div className="h-[300px] bg-gray-100 flex items-center justify-center text-gray-500">{translateOutsideReact("print.view.mapLoading")}</div>,
+  loading: () => (
+    <div className="h-[300px] bg-gray-100 flex items-center justify-center">
+      <LoadingStatus size="surface" className="text-sm text-gray-500">{translateOutsideReact("print.view.mapLoading")}</LoadingStatus>
+    </div>
+  ),
 })
 
 

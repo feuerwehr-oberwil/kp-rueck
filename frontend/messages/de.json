@@ -49,6 +49,16 @@
       "loadingBoard": "Einsätze werden geladen …"
     },
     "loading": "Wird geladen …",
+    "loadingWhat": {
+      "settings": "Einstellungen werden geladen …",
+      "vehicles": "Fahrzeuge werden geladen …",
+      "incidents": "Einsätze werden geladen …",
+      "integrations": "Anbindungen werden geladen …",
+      "users": "Benutzer werden geladen …",
+      "auditLog": "Protokoll wird geladen …",
+      "checklist": "Checkliste wird geladen …",
+      "templates": "Vorlagen werden geladen …"
+    },
     "incidentTruncation": {
       "message": "Es werden {shown} von {total} Einsätzen angezeigt – die Liste ist unvollständig."
     },

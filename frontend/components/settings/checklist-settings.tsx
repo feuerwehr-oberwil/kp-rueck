@@ -16,7 +16,7 @@ import { useTranslations } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingStatus } from '@/components/ui/shell-loader';
 import { SettingCard, SettingRow } from '@/components/settings/setting-row';
 import { SettingSaveLine, useSettingSaver } from '@/components/settings/station-settings-form';
 import { toast } from 'sonner';
@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils';
 
 export function ChecklistSettings({ readOnly = false }: { readOnly?: boolean }) {
   const t = useTranslations('settings.page.checklist');
+  const tLoading = useTranslations('common.loadingWhat');
   const tasks = listChecklistTasks();
 
   const [loaded, setLoaded] = useState(false);
@@ -78,9 +79,8 @@ export function ChecklistSettings({ readOnly = false }: { readOnly?: boolean }) 
 
   if (!loaded) {
     return (
-      <Card className="p-5 space-y-3">
-        <Skeleton className="h-5 w-48" />
-        <Skeleton className="h-24 w-full" />
+      <Card className="p-5">
+        <LoadingStatus size="surface" className="flex w-full py-8 text-sm">{tLoading('checklist')}</LoadingStatus>
       </Card>
     );
   }

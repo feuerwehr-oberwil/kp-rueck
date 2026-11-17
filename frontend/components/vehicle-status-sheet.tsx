@@ -7,8 +7,7 @@ import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet
 import { FooterSheet } from "@/components/ui/footer-sheet"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ShellLoader } from "@/components/ui/shell-loader"
-import { Skeleton } from "@/components/ui/skeleton"
+import { LoadingStatus, ShellLoader } from "@/components/ui/shell-loader"
 import { Truck, User, MapPin, Clock, Radio, RefreshCw, AlertTriangle, Plus, Route } from "lucide-react"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
 import { isIncidentStatus } from "@/lib/types/incidents"
@@ -103,6 +102,7 @@ function getStatusBorderColor(status: string, hasIncident: boolean): string {
 
 export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatusSheetProps) {
   const t = useTranslations('incidents')
+  const tLoading = useTranslations('common.loadingWhat')
   const router = useRouter()
   const isMobile = useIsMobile()
   const { personnel, operations, removeCrew } = useOperations()
@@ -315,19 +315,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
 
         <div className="flex-1 overflow-y-auto mt-3 pb-10">
           {loading ? (
-            <div className="space-y-1.5">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="border rounded-lg px-3 py-2.5 bg-card">
-                  <div className="flex items-center gap-3">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-3 w-20" />
-                    <Skeleton className="h-3 w-28" />
-                    <Skeleton className="h-3 flex-1" />
-                    <Skeleton className="h-6 w-20" />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <LoadingStatus size="surface" className="flex w-full py-8 text-sm">{tLoading("vehicles")}</LoadingStatus>
           ) : displayedVehicles.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 text-center">
               <Truck className="h-12 w-12 text-muted-foreground/50 mb-2" />
