@@ -23,6 +23,7 @@ from .crud.group_assignments import sync_auto_group_leader
 from .database import async_session_maker
 from .seed_training import seed_training_data
 from .services.branding import LOGO_SETTING_KEY
+from .services.ranks import RANKS
 from .services.settings import DISPOSABLE_MARKER_KEY, DISPOSABLE_MARKER_VALUE
 
 # The «Feuerwehr Musterdorf» crest (same one the KP-Front demo uses), so demo
@@ -55,14 +56,14 @@ async def seed_demo_shared_resources(db: AsyncSession) -> None:
 
     personnel_data = [
         # Offiziere
-        {"name": "Müller Hans", "role": "Offizier", "status": "available", "tags": ["F"]},
-        {"name": "Schneider Peter", "role": "Offizier", "status": "available", "tags": ["F", "Hö"]},
-        {"name": "Weber Martin", "role": "Offizier", "status": "available", "tags": ["F", "Fw"]},
-        {"name": "Fischer Thomas", "role": "Offizier", "status": "available", "tags": []},
-        {"name": "Ackermann Reto", "role": "Offizier", "status": "available", "tags": ["F"]},
-        # Wachtmeister
-        {"name": "Hoffmann Lisa", "role": "Wachtmeister", "status": "available", "tags": ["F"]},
-        {"name": "Schmidt Daniel", "role": "Wachtmeister", "status": "available", "tags": ["F"]},
+        {"name": "Müller Hans", "role": "Hauptmann", "status": "available", "tags": ["F"]},
+        {"name": "Schneider Peter", "role": "Oberleutnant", "status": "available", "tags": ["F", "Hö"]},
+        {"name": "Weber Martin", "role": "Oberleutnant", "status": "available", "tags": ["F", "Fw"]},
+        {"name": "Fischer Thomas", "role": "Leutnant", "status": "available", "tags": []},
+        {"name": "Ackermann Reto", "role": "Major", "status": "available", "tags": ["F"]},
+        # Höhere Unteroffiziere
+        {"name": "Hoffmann Lisa", "role": "Feldweibel", "status": "available", "tags": ["F"]},
+        {"name": "Schmidt Daniel", "role": "Feldweibel", "status": "available", "tags": ["F"]},
         {"name": "Koch René", "role": "Wachtmeister", "status": "available", "tags": ["F"]},
         {"name": "Baumann Michael", "role": "Wachtmeister", "status": "available", "tags": ["F", "Fw"]},
         {"name": "Keller Marco", "role": "Wachtmeister", "status": "available", "tags": ["F"]},
@@ -81,23 +82,23 @@ async def seed_demo_shared_resources(db: AsyncSession) -> None:
         {"name": "Kaufmann Nico", "role": "Korporal", "status": "available", "tags": ["Fw"]},
         {"name": "Moser Lea", "role": "Korporal", "status": "available", "tags": ["F"]},
         {"name": "Wenger Tim", "role": "Korporal", "status": "available", "tags": []},
-        # Mannschaft
-        {"name": "Zimmermann Fabian", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Wyss Fabio", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Künzli Klara", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Studer Samuel", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Schwarz Jan", "role": "Mannschaft", "status": "available", "tags": ["Fw"]},
-        {"name": "Hartmann Mischa", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Berger Yves", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Christen Mia", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Vogel Timo", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Egli Sarah", "role": "Mannschaft", "status": "available", "tags": []},
-        {"name": "Bianchi Luca", "role": "Mannschaft", "status": "available", "tags": ["Fw"]},
-        {"name": "Portmann Jonas", "role": "Mannschaft", "status": "available", "tags": []},
+        # Mannschaftsgrade
+        {"name": "Zimmermann Fabian", "role": "Gefreiter", "status": "available", "tags": []},
+        {"name": "Wyss Fabio", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Künzli Klara", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Studer Samuel", "role": "Gefreiter", "status": "available", "tags": []},
+        {"name": "Schwarz Jan", "role": "Soldat", "status": "available", "tags": ["Fw"]},
+        {"name": "Hartmann Mischa", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Berger Yves", "role": "Gefreiter", "status": "available", "tags": []},
+        {"name": "Christen Mia", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Vogel Timo", "role": "Soldat", "status": "available", "tags": []},
+        {"name": "Egli Sarah", "role": "Gefreiter", "status": "available", "tags": []},
+        {"name": "Bianchi Luca", "role": "Soldat", "status": "available", "tags": ["Fw"]},
+        {"name": "Portmann Jonas", "role": "Soldat", "status": "available", "tags": []},
     ]
-    # Rank order so the roster sorts Offizier → Wachtmeister → Korporal → Mannschaft
-    # instead of alphabetically by role.
-    role_order = {"Offizier": 1, "Wachtmeister": 2, "Korporal": 3, "Mannschaft": 4}
+    # Real Grade (owner, 17.11.2026), sorted most senior first – the order of
+    # ``ranks.RANKS`` – instead of alphabetically by Grad.
+    role_order = {rank.label: position for position, rank in enumerate(RANKS, start=1)}
     for p in personnel_data:
         db.add(models.Personnel(id=uuid4(), role_sort_order=role_order.get(p["role"], 99), **p))
 
@@ -1074,7 +1075,7 @@ async def seed_demo_database() -> None:
 
             demo_settings = [
                 ("firestation_name", "Feuerwehr Oberwil"),
-                # An Offizier from the demo roster, so the rapport's signature
+                # The demo roster's Major, so the rapport's signature
                 # section shows the pre-printed Kommandant line in action.
                 ("kommandant_name", "Ackermann Reto"),
                 ("firestation_latitude", "47.51637699933488"),
