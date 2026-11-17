@@ -81,15 +81,15 @@ CASES = [
         {"place": "Mühlemattstrasse 18", "by": None},
     ),
     (
-        texts.reko_submitted("Hauptstrasse 41", "Lisa Hoffmann", True, 3, 2.0, ["fire", "chemical"]),
+        texts.reko_submitted("Hauptstrasse 41", "Lisa Hoffmann", True, 3, 2.5, ["fire", "chemical"]),
         "Reko abgeschlossen: Hauptstrasse 41 von Lisa Hoffmann – Einsatz relevant "
-        "(3 Pers., ~2.0h, Gefahren: Feuer, Gefahrstoffe)",
+        "(3 Pers., 2h 30m, Gefahren: Feuer, Gefahrstoffe)",
         {
             "place": "Hauptstrasse 41",
             "by": "Lisa Hoffmann",
             "relevant": True,
             "personnel_count": 3,
-            "duration_hours": 2.0,
+            "duration_hours": 2.5,
             "dangers": ["fire", "chemical"],
         },
     ),

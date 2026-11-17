@@ -34,6 +34,12 @@ def duration_de(minutes: int) -> str:
     return f"{hours}h {rest}m" if hours > 0 else f"{rest}m"
 
 
+def duration_hours_de(hours: float) -> str:
+    """A decimal-hours estimate (the Reko's 2.5) in ``duration_de``'s notation: «2h 30m», never
+    «2.5h». The one formatter for the Reko duration in the notification and the Lageblatt."""
+    return duration_de(round(hours * 60))
+
+
 # --- Zeit -------------------------------------------------------------------------------
 
 
@@ -169,7 +175,7 @@ def reko_submitted(
     duration_hours: float | None,
     dangers: list[str],
 ) -> Built:
-    """«Reko abgeschlossen: Hauptstrasse 41 von Lisa Hoffmann – Einsatz relevant (3 Pers., ~2h)»"""
+    """«Reko abgeschlossen: Hauptstrasse 41 von Lisa Hoffmann – Einsatz relevant (3 Pers., 2h 30m)»"""
     parts = [f"Reko abgeschlossen: {place}"]
     if by:
         parts.append(f"von {by}")
@@ -178,7 +184,7 @@ def reko_submitted(
     if personnel_count:
         details.append(f"{personnel_count} Pers.")
     if duration_hours:
-        details.append(f"~{duration_hours}h")
+        details.append(duration_hours_de(duration_hours))
     if dangers:
         details.append(f"Gefahren: {', '.join(DANGER_LABELS_DE.get(d, d) for d in dangers)}")
     message = " ".join(parts)

@@ -51,6 +51,7 @@ from .address_display import format_location_for_display
 from .audit_export_service import EventReportData
 from .incident_leader import effective_leader_ids
 from .pdf_report_service import logo_flowable, photo_grid
+from .notification_params import duration_hours_de
 from .photo_storage import ExportPhoto
 from .rapport_rows import (
     LOCAL_TZ,
@@ -344,7 +345,7 @@ def _effort_text(payload: Any) -> str:
     if payload.get("equipment_needed"):
         parts.append(f"Gerät: {', '.join(str(e) for e in payload['equipment_needed'])}")
     if payload.get("estimated_duration_hours"):
-        parts.append(f"ca. {payload['estimated_duration_hours']} h")
+        parts.append(f"{duration_hours_de(float(payload['estimated_duration_hours']))} geschätzt")
     return ", ".join(parts)
 
 
