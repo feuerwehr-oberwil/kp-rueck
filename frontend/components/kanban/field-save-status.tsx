@@ -49,7 +49,7 @@ export const FIELD_UNSAVED_CLASS =
 
 /** The amber edge while the field waits for a choice after a conflict – nothing broke. */
 const FIELD_CONFLICT_CLASS =
-  "border-amber-600 ring-[3px] ring-amber-500/20 hover:border-amber-600 focus-visible:border-amber-600 focus-visible:ring-amber-500/30 dark:border-amber-400 dark:ring-amber-400/30"
+  "border-warning ring-[3px] ring-warning/20 hover:border-warning focus-visible:border-warning focus-visible:ring-warning/30"
 
 /** The edge for a field's control: amber while a conflict asks, red while a save failed. */
 export function fieldSaveEdgeClass(view: FieldSaveView): string | undefined {
@@ -176,7 +176,7 @@ export function FieldSaveStatus({
           <ShellLoader className="size-3.5" />
         ) : failed ? (
           <AlertCircle
-            className={cn("size-3.5", entry.conflict ? "text-amber-700 dark:text-amber-400" : "text-destructive")}
+            className={cn("size-3.5", entry.conflict ? "text-warning-foreground" : "text-destructive")}
             aria-hidden="true"
           />
         ) : (
@@ -226,7 +226,7 @@ export function FieldSaveStatus({
     }
     return (
       <div className={cn("space-y-2", className)}>
-        <p role="alert" className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+        <p role="alert" className="flex items-start gap-1.5 text-xs text-warning-foreground">
           <AlertCircle className="mt-px size-3.5 shrink-0" aria-hidden="true" />
           <span>
             <span className="font-semibold">{t("conflict.title")}</span> {who}

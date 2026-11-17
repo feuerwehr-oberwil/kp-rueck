@@ -6,11 +6,13 @@
  * renders each section's *content* into token values. See message-template.ts.
  */
 
+import type { VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { type ApiRekoReportResponse } from "@/lib/api-client"
 import { type GroupResources } from "@/lib/types/groups"
 import { sortCrewByLeader } from "@/lib/crew-order"
+import { vehicleLabel } from "@/lib/vehicle-label"
 import { plainName, type PersonText } from "@/lib/person-label"
 import {
   renderMessageTemplate,
@@ -21,7 +23,7 @@ interface FormatWhatsAppMessageOptions {
   operation: Operation
   materials: Material[]
   rekoReport?: ApiRekoReportResponse | null
-  vehicleDrivers?: ReadonlyMap<string, string> // vehicle id -> driver name
+  vehicleDrivers?: VehicleDrivers
   /** Resources owned by the incident's Auftrag (route). A grouped incident
    *  carries none itself — the route does — so merge these in or the crew /
    *  vehicle / material lines come out blank. */
@@ -46,16 +48,16 @@ interface MessageVehicle {
 function buildVehicles(
   vehicles: readonly MessageVehicle[],
   zuFuss: boolean,
-  vehicleDrivers?: ReadonlyMap<string, string>,
+  vehicleDrivers: VehicleDrivers | undefined,
+  personText: PersonText,
 ): string {
   // A "zu Fuss" incident has no vehicle on purpose — surface that explicitly
   // instead of leaving the section blank, so the crew knows they go on foot.
   if (vehicles.length === 0) return zuFuss ? "🚶 Zu Fuss" : ""
   const vehicleLines = vehicles.map(({ vehicleId, name: vehicleName, callsign, driverStay }) => {
-    const driverName = vehicleDrivers?.get(vehicleId)
-    const displayName = callsign ? `${vehicleName} · ${callsign}` : vehicleName
-    const parts = [displayName]
-    if (driverName) parts.push(`Fahrer: ${driverName}`)
+    const driver = vehicleDrivers?.get(vehicleId)
+    const parts = [vehicleLabel({ name: vehicleName, callsign })]
+    if (driver) parts.push(`Fahrer: ${personText(driver)}`)
     // With a driver map in hand, a vehicle nobody drives says so — the crew
     // reading this must not assume somebody is behind the wheel. Without a map
     // nothing is known and nothing is claimed.
@@ -174,7 +176,7 @@ export function formatWhatsAppMessage({
   ]
   const vehicles: MessageVehicle[] = [
     ...operation.vehicles,
-    ...(groupResources?.vehicles ?? []).map((v) => ({ vehicleId: v.resourceId, name: v.name, driverStay: v.driverStay })),
+    ...(groupResources?.vehicles ?? []).map((v) => ({ vehicleId: v.resourceId, name: v.name, callsign: v.callsign, driverStay: v.driverStay })),
   ]
   const materialIds = [...operation.materials, ...(groupResources?.materials ?? []).map((m) => m.resourceId)]
 
@@ -189,7 +191,7 @@ export function formatWhatsAppMessage({
     notes: operation.notes?.trim() || "",
     contact: operation.contact?.trim() || "",
     internal_notes: operation.internalNotes?.trim() || "",
-    vehicles: buildVehicles(vehicles, operation.zuFuss, vehicleDrivers),
+    vehicles: buildVehicles(vehicles, operation.zuFuss, vehicleDrivers, personText),
     crew: formatCrew(crew, leaderId, personText),
     materials: buildMaterials(materialIds, materials),
     reko: buildReko(rekoReport),

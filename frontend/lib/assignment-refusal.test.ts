@@ -13,7 +13,7 @@ describe("assignment refusals (409)", () => {
     for (const message of ["Ressource bereits zugewiesen", "Konflikt bei der Verarbeitung", "409 Conflict"]) {
       const race = new ApiError(message, 409, true)
       expect(refusalReason(race)).toBeNull()
-      expect(assignFailureDescription(race, "TLF")).toBe("TLF wurde gerade von jemand anderem geändert – bitte erneut versuchen.")
+      expect(assignFailureDescription(race, "TLF")).toBe("TLF wurde gerade von jemand anderem geändert – nichts zugewiesen.")
     }
   })
 

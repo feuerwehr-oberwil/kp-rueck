@@ -1,5 +1,7 @@
 "use client"
 
+import { SearchEmptyState } from "@/components/ui/empty-state"
+import { PersonName } from "@/components/person-name"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { SearchInput } from "@/components/ui/search-input"
@@ -57,13 +59,11 @@ export function MarkExistingRekoPersonnel({
         onValueChange={setSearch}
         placeholder={t('markSearchPlaceholder')}
       />
-      {candidates.length === 0 ? (
+      {candidates.length === 0 && search.trim() ? (
+        <SearchEmptyState query={search} onClear={() => setSearch("")} />
+      ) : candidates.length === 0 ? (
         <div className="flex flex-1 items-center justify-center px-4 text-center text-xs text-muted-foreground">
-          {search.trim()
-            ? t('markNoMatch')
-            : personnel.length === 0
-              ? t('markNoCheckedIn')
-              : t('markAllReko')}
+          {personnel.length === 0 ? t('markNoCheckedIn') : t('markAllReko')}
         </div>
       ) : (
         <ScrollArea className="flex-1 min-h-0 pr-2">
@@ -81,7 +81,7 @@ export function MarkExistingRekoPersonnel({
                 <div className="flex items-center gap-3">
                   <User className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
                   <div>
-                    <p className="font-medium text-sm">{person.name}</p>
+                    <p className="font-medium text-sm"><PersonName name={person.name} personnelId={person.id} /></p>
                     {person.role && (
                       <p className="text-xs text-muted-foreground">{person.role}</p>
                     )}
@@ -313,7 +313,7 @@ export function AssignRekoDialog({
                           )} />
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <p className="font-medium text-sm truncate">{person.name}</p>
+                              <p className="font-medium text-sm truncate"><PersonName name={person.name} personnelId={person.personnel_id} /></p>
                               {isRecommended && (
                                 <Badge variant="outline" className="text-2xs px-1.5 py-0 flex-shrink-0">
                                   {t('recommended')}

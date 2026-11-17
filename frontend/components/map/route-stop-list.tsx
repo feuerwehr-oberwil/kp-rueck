@@ -597,7 +597,7 @@ export function StopListRow({
           stopStatusBorderClass(mirror),
           selected && "bg-sel-wash ring-1 ring-sel-edge",
           isDropOver && "bg-sel-wash ring-2 ring-sel-line",
-          changed && "ring-1 ring-amber-500/70",
+          changed && "ring-1 ring-warning/70",
         )}
       >
         <button

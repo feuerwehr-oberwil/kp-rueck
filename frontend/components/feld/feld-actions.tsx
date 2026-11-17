@@ -22,13 +22,14 @@
  * Schadenplatz can be finished and still have three people standing in the rain.
  */
 
+import { formatTime } from '@/lib/format-time'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { useIntlLocale } from '@/lib/date-locale'
 import {
   CarTaxiFront,
   Check,
-  CircleAlert,
+  AlertCircle,
   FileText,
   Flag,
   MapPin,
@@ -285,7 +286,7 @@ export function FeldActions({
   })
   const timeOf = (value: string | null): string | null => {
     const date = toDate(value)
-    return date ? date.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' }) : null
+    return date ? formatTime(date, intlLocale) : null
   }
   type JourneyStep = {
     key: 'arrived' | 'complete' | 'rapport'
@@ -530,7 +531,7 @@ export function FeldActions({
         {delivery.status === 'failed' && (
           <div className="space-y-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
             <p className="flex items-start gap-2">
-              <CircleAlert className="mt-0.5 size-4 shrink-0" />
+              <AlertCircle className="mt-0.5 size-4 shrink-0" />
               <span className="min-w-0 break-words">
                 {t('failedTitle', { label: delivery.label })}
                 <span className="block text-xs opacity-90">{t('failed')}</span>

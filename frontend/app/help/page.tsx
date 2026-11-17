@@ -1,5 +1,6 @@
 'use client';
 
+import { SearchEmptyState } from "@/components/ui/empty-state"
 import { VersionLabel } from '@/components/version-label';
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
@@ -389,9 +390,9 @@ export default function HelpPage() {
                 <p className="text-xs font-semibold text-muted-foreground tracking-wider mb-3">
                   {t('toc')}
                 </p>
-                {filteredToc.length === 0 ? (
-                  <p className="text-sm text-muted-foreground px-2 py-1">{t('searchNoResults')}</p>
-                ) : (
+                {filteredToc.length === 0 && searchQuery.trim() ? (
+                  <SearchEmptyState query={searchQuery} onClear={() => setSearchQuery('')} />
+                ) : filteredToc.length === 0 ? null : (
                   <ul className="space-y-1">
                     {filteredToc.map(({ id, text }) => (
                       <li key={id}>

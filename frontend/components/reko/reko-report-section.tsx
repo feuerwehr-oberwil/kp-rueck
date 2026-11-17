@@ -35,6 +35,8 @@
  * longer says whether Reko is on site.
  */
 
+import { formatTime } from '@/lib/format-time'
+import { formatDurationHours } from "@/lib/duration"
 import { useState, useEffect, useCallback, useMemo, useRef, Fragment, type ReactNode } from 'react'
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import Image from 'next/image'
@@ -446,7 +448,7 @@ interface RekoReportCardProps {
  */
 function formatStamp(iso: string): string {
   const date = new Date(iso)
-  const time = date.toLocaleTimeString(getIntlLocale(), { hour: '2-digit', minute: '2-digit' })
+  const time = formatTime(date)
   const now = new Date()
   const isToday =
     date.getFullYear() === now.getFullYear() &&
@@ -524,7 +526,7 @@ function useReportFacts(
   if (report.effort_json?.estimated_duration_hours) {
     facts.push({
       label: t('durationLabel'),
-      value: t('durationValue', { hours: report.effort_json.estimated_duration_hours }),
+      value: formatDurationHours(report.effort_json.estimated_duration_hours),
     })
   }
   if (report.effort_json?.vehicles_needed?.length) {

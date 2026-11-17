@@ -1,5 +1,6 @@
 "use client"
 
+import { PersonName } from "@/components/person-name"
 import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
 import { ArrowLeft, ArrowRightLeft, Binoculars } from "lucide-react"
@@ -142,7 +143,7 @@ export function TransferRekoDialog({
                   disabled={isTransferring}
                 >
                   <ArrowRightLeft className="h-4 w-4" />
-                  {person.name}
+                  <PersonName name={person.name} personnelId={person.id} />
                 </Button>
               ))
             )}

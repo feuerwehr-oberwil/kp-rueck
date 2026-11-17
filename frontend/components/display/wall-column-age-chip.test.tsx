@@ -38,7 +38,7 @@ describe('WallColumnAgeChip', () => {
     renderWithIntl(<WallColumnAgeChip operations={[op('a', 70), op('b', 90), op('c', 10)]} />)
     const chip = screen.getByLabelText(/2 überfällig: Strasse a, Strasse b/)
     expect(chip).toHaveTextContent("2 ≥ 60'")
-    expect(chip.className).toMatch(/amber/)
+    expect(chip.className).toMatch(/warning/)
     expect(chip.className).not.toMatch(/red/)
   })
 

@@ -1,5 +1,7 @@
 "use client"
 
+import { IncidentNumber } from "@/components/ui/incident-number"
+import { usePersonNaming } from "@/components/person-name"
 import { useMemo, useState, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
@@ -204,7 +206,6 @@ function StandbyBoard({
           operation={selected}
           open={!!selected}
           onOpenChange={(open) => { if (!open) setSelectedId(null) }}
-          personnelOverride={personnel}
           materialsOverride={materials}
           groupsOverride={viewerToken ? groups : undefined}
           viewerToken={viewerToken}
@@ -247,9 +248,7 @@ function AddressHead({ operation, large }: { operation: Operation; large?: boole
   return (
     <>
       <WallPriorityGlyph priority={operation.priority} lineClassName={large ? "text-lg h-[1.25em]" : "text-base h-[1.25em]"} />
-      {operation.number != null && (
-        <span className="w-6 shrink-0 text-right font-mono text-xs leading-5 text-muted-foreground tabular-nums">{operation.number}</span>
-      )}
+      <IncidentNumber number={operation.number} className="w-6 shrink-0 text-right text-xs leading-5" />
     </>
   )
 }
@@ -350,10 +349,11 @@ function IncidentRow({
   const t = useTranslations("display.standby")
   const tk = useTranslations("kanban")
   const tv = useTranslations("incidents.vehicleStatus")
+  const naming = usePersonNaming()
   const statusId = columns.find((column) => column.status.includes(operation.status))?.id ?? "incoming"
   const statusLabel =
     operation.status === "reko" && operation.assignedReko
-      ? t("rekoBy", { name: operation.assignedReko.name })
+      ? t("rekoBy", { name: naming.inline({ name: operation.assignedReko.name, personnelId: operation.assignedReko.id }) })
       : tk(`columns.${statusId}`)
   const vehicles = auftrag
     ? auftragVehicles ?? []
@@ -361,7 +361,7 @@ function IncidentRow({
   // The Einsatzleiter first, marked; the rest in the order the Einsatz lists them.
   const isLeader = (member: Operation["crew"][number]) => member.personnelId === operation.leaderId
   const crew = [...operation.crew.filter(isLeader), ...operation.crew.filter((member) => !isLeader(member))].map((member) =>
-    isLeader(member) ? t("leader", { name: member.name }) : member.name,
+    isLeader(member) ? t("leader", { name: naming.inline(member) }) : naming.inline(member),
   )
   return (
     <li>

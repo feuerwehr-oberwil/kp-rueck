@@ -218,11 +218,11 @@ describe("special functions in the crew list", () => {
 
     const heading = screen.getByText(/Bereits im Einsatz · 1/).closest("h3") as HTMLElement
     expect(heading.className).toContain("text-muted-foreground")
-    expect(heading.innerHTML).not.toMatch(/amber/)
+    expect(heading.innerHTML).not.toMatch(/warning/)
 
     const tile = screen.getByRole("button", { name: /Egger Olivier/ })
-    expect(tile.className).not.toMatch(/amber/)
-    expect(tile.querySelector('[class*="text-amber-700"]')).not.toBeNull()
+    expect(tile.className).not.toMatch(/warning/)
+    expect(tile.querySelector('[class*="text-warning-foreground"]')).not.toBeNull()
   })
 
   it("says every person on ONE line: rank · where (the only amber) · vehicle", () => {
@@ -254,7 +254,7 @@ describe("special functions in the crew list", () => {
     expect(lines).toHaveLength(2)
     expect(lines[1].textContent).toBe("Korporal·Im Einsatz·TLF")
     expect(lines[1].getAttribute("title")).toBe("Korporal · Im Einsatz · TLF")
-    const amber = tile.querySelectorAll('[class*="text-amber-700"]')
+    const amber = tile.querySelectorAll('[class*="text-warning-foreground"]')
     expect(amber).toHaveLength(1)
     expect(amber[0].textContent).toBe("Im Einsatz")
   })
@@ -263,7 +263,7 @@ describe("special functions in the crew list", () => {
     renderCrew([person({ name: "Müller Hans", role: "Offizier", isReko: true, isDriver: true, driverVehicleName: "TLF" })])
     const tile = screen.getByRole("button", { name: /Müller Hans/ })
     expect(tile.querySelectorAll("p")[1].textContent).toBe("Offizier·Reko·TLF")
-    expect(tile.querySelector('[class*="text-amber-700"]')?.textContent).toBe("Reko")
+    expect(tile.querySelector('[class*="text-warning-foreground"]')?.textContent).toBe("Reko")
   })
 
   it("keeps the crew of THIS incident under «Verfügbar», ticked", () => {

@@ -22,7 +22,7 @@ import Link from 'next/link';
 import {
   ClipboardCheck,
   Bot,
-  Bus,
+  CarTaxiFront,
   MapPin,
   MapPinCheck,
   Truck,
@@ -581,7 +581,7 @@ export function TrainingSimulationControls() {
                             className="flex-shrink-0 px-2"
                             title={t('injectTitle')}
                           >
-                            <AlertTriangle className="size-3.5 text-amber-600" />
+                            <AlertTriangle className="size-3.5 text-warning-foreground" />
                           </Button>
                         </DropdownMenuTrigger>
                         {/* Every item carries a one-line description (testing
@@ -597,7 +597,7 @@ export function TrainingSimulationControls() {
                             </span>
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleInject(op, 'reinforcement')}>
-                            <Megaphone className="mr-2 h-4 w-4 flex-shrink-0 text-amber-600" />
+                            <Megaphone className="mr-2 h-4 w-4 flex-shrink-0 text-warning-foreground" />
                             <span className="min-w-0">
                               <span className="block">{t('injectReinforcement')}</span>
                               <span className="block text-xs text-muted-foreground">{t('injectReinforcementDesc')}</span>
@@ -647,7 +647,7 @@ export function TrainingSimulationControls() {
                               still have three people standing in the rain — and
                               the lift arriving is a report of its own. */}
                           <DropdownMenuItem onClick={() => handleInject(op, 'pickup')}>
-                            <Bus className="mr-2 h-4 w-4 flex-shrink-0 text-amber-600" />
+                            <CarTaxiFront className="mr-2 h-4 w-4 flex-shrink-0 text-warning-foreground" />
                             <span className="min-w-0">
                               <span className="block">
                                 {op.pickupNeeded ? t('injectPickupDone') : t('injectPickupNeeded')}
@@ -791,7 +791,7 @@ export function TrainingSimulationControls() {
               variant="outline"
               onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt, true)}
             >
-              <AlertTriangle className="size-3.5 text-amber-600" />
+              <AlertTriangle className="size-3.5 text-warning-foreground" />
               {t('pickupRequired')}
             </Button>
             <Button onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt, false)}>

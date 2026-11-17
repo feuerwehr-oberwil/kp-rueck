@@ -45,7 +45,7 @@ import {
   Package,
   ArrowRight,
   ArrowLeft,
-  Edit,
+  Pencil,
   Trash2,
   Truck,
   Bell,
@@ -78,7 +78,7 @@ import {
 import { useCommandPaletteHandlers, type IncidentCommand } from "@/lib/contexts/command-palette-context"
 import { openAlarmInbox } from "@/components/alarm-inbox/alarm-inbox-store"
 import { useGroups } from "@/lib/contexts/groups-context"
-import { PRIORITY_ICONS, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
+import { PriorityGlyph } from "@/components/ui/priority-glyph"
 // Hints come from the one chord table — they said «G K» for weeks after the
 // chord had moved to G B.
 import { gPrefixHint } from "@/lib/hooks/use-g-prefix-navigation"
@@ -633,7 +633,7 @@ export function CommandPalette() {
                   command any more — it lives here and nowhere else. */}
               {onSidePanelDetail && (
                 <CommandItem onSelect={() => runCommand(onSidePanelDetail)}>
-                  <Edit className="mr-2 h-4 w-4" />
+                  <Pencil className="mr-2 h-4 w-4" />
                   <span>{t('sidePanelDetail')}</span>
                 </CommandItem>
               )}
@@ -742,7 +742,7 @@ export function CommandPalette() {
                 disabled={!hasSelectedIncident}
                 onSelect={() => runCommand(() => incidentOnly(onEditIncident)?.())}
               >
-                <Edit className="mr-2 h-4 w-4" />
+                <Pencil className="mr-2 h-4 w-4" />
                 <span>{t('openDetails')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">↵</span>
               </CommandItem>
@@ -768,7 +768,7 @@ export function CommandPalette() {
                   runCommand(() => (hasSelectedIncident ? onSetPriority?.('low') : undefined))
                 }
               >
-                <PRIORITY_ICONS.low className={`mr-2 h-4 w-4 ${PRIORITY_TEXT_CLASSES.low}`} />
+                <PriorityGlyph priority="low" size="card" decorative className="mr-2" />
                 <span>{t('priorityLow')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">⇧1</span>
               </CommandItem>
@@ -778,7 +778,7 @@ export function CommandPalette() {
                   runCommand(() => (hasSelectedIncident ? onSetPriority?.('medium') : undefined))
                 }
               >
-                <PRIORITY_ICONS.medium className={`mr-2 h-4 w-4 ${PRIORITY_TEXT_CLASSES.medium}`} />
+                <PriorityGlyph priority="medium" size="card" decorative className="mr-2" />
                 <span>{t('priorityMedium')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">⇧2</span>
               </CommandItem>
@@ -788,7 +788,7 @@ export function CommandPalette() {
                   runCommand(() => (hasSelectedIncident ? onSetPriority?.('high') : undefined))
                 }
               >
-                <PRIORITY_ICONS.high className={`mr-2 h-4 w-4 ${PRIORITY_TEXT_CLASSES.high}`} />
+                <PriorityGlyph priority="high" size="card" decorative className="mr-2" />
                 <span>{t('priorityHigh')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">⇧3</span>
               </CommandItem>

@@ -12,7 +12,7 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { ShortcutTooltip } from '@/components/ui/shortcut-tooltip';
 import Link from 'next/link';
-import { Settings, User, LogOut, Inbox, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Keyboard, Download, FileText, FileSpreadsheet, CircleHelp, ClipboardList, ChartColumn } from 'lucide-react';
+import { Settings, User, LogOut, Inbox, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Keyboard, Download, FileText, FileSpreadsheet, HelpCircle, ClipboardList, ChartColumn } from 'lucide-react';
 import { toast } from 'sonner';
 import { useEvent } from '@/lib/contexts/event-context';
 import { getApiUrl } from '@/lib/env';
@@ -453,7 +453,7 @@ export function UserMenu({
 
           <DropdownMenuItem asChild>
             <Link href="/help" className="cursor-pointer">
-              <CircleHelp className="mr-2 h-4 w-4" />
+              <HelpCircle className="mr-2 h-4 w-4" />
               <span>{t('help')}</span>
             </Link>
           </DropdownMenuItem>

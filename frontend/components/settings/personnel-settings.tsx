@@ -1,5 +1,6 @@
 'use client';
 
+import { SearchEmptyState } from "@/components/ui/empty-state"
 import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,7 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Edit, Trash2, RefreshCw, ChevronDown, ChevronRight, MoreHorizontal, X } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2, RefreshCw, ChevronDown, ChevronRight, MoreHorizontal, X } from 'lucide-react';
 import { SearchInput } from '@/components/ui/search-input';
 import {
   DropdownMenu,
@@ -416,13 +417,16 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
       <div className="space-y-3">
         <SearchInput
           placeholder={t('personnel.listSearchPlaceholder')}
+          title={t('personnel.listSearchScope')}
           value={listQuery}
           onValueChange={setListQuery}
         />
         <p className="text-xs tabular-nums text-muted-foreground">
           {t('common.listCount', { shown: visibleRows.length, total: personnel.length })}
         </p>
-        {visibleRows.length === 0 ? (
+        {visibleRows.length === 0 && personnel.length > 0 && listQuery.trim() ? (
+          <SearchEmptyState query={listQuery} onClear={() => setListQuery('')} />
+        ) : visibleRows.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
             {personnel.length === 0 ? t('personnel.empty') : t('personnel.emptyFiltered')}
           </p>
@@ -496,6 +500,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
               size="sm"
               containerClassName="w-64"
               placeholder={t('personnel.listSearchPlaceholder')}
+              title={t('personnel.listSearchScope')}
               value={listQuery}
               onValueChange={setListQuery}
             />
@@ -546,7 +551,9 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
               {visibleRows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                    {personnel.length === 0 ? t('personnel.empty') : t('personnel.emptyFiltered')}
+                    {personnel.length > 0 && listQuery.trim() ? (
+                      <SearchEmptyState query={listQuery} onClear={() => setListQuery('')} />
+                    ) : personnel.length === 0 ? t('personnel.empty') : t('personnel.emptyFiltered')}
                   </TableCell>
                 </TableRow>
               )}
@@ -588,7 +595,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => handleEdit(person)} className="cursor-pointer">
-                          <Edit className="mr-2 size-3.5" />
+                          <Pencil className="mr-2 size-3.5" />
                           {t('common.edit')}
                         </DropdownMenuItem>
                         <DropdownMenuItem

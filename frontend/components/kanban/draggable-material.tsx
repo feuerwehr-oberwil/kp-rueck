@@ -1,5 +1,6 @@
 "use client"
 
+import { formatTime } from '@/lib/format-time'
 import { useEffect, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
@@ -121,5 +122,5 @@ function formatSince(value: string | null): string {
   if (!value) return '–'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '–'
-  return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+  return formatTime(date)
 }

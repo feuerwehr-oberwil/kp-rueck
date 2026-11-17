@@ -20,6 +20,7 @@
  * "0 von 0" on every fresh Ereignis is noise on a page that is mostly a list.
  */
 
+import { formatDateTime } from '@/lib/format-time'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { CarTaxiFront, ChevronDown, ChevronRight, FileWarning, Package, Printer } from 'lucide-react'
@@ -29,7 +30,6 @@ import { Button } from '@/components/ui/button'
 import { PickupBadge } from '@/components/kanban/pickup-badge'
 import { apiClient, type ApiEventRestliste, type ApiRestlisteIncident, type ApiRestlisteUnit } from '@/lib/api-client'
 import { usePrintJobToast } from '@/lib/hooks/use-print-job-toast'
-import { getActiveLocale } from '@/lib/i18n-messages'
 import { getIncidentRefLabel } from '@/lib/incident-types'
 import { ShellLoader } from '@/components/ui/shell-loader'
 import { Reveal } from '@/components/ui/reveal'
@@ -45,18 +45,6 @@ interface EventRestlisteProps {
    *  the same rule the board's other print buttons already follow. Fetched once
    *  on the page rather than per event card. */
   printerEnabled?: boolean
-}
-
-function formatSince(value: string | null): string {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleString(getActiveLocale(), {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 /** A row's Schadenplatz the way the board names it, «12 · Hauptstrasse 8»; the
@@ -152,7 +140,7 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
       <span className="truncate font-medium text-foreground">{row.name}</span>
       {!row.tracked && <span className="shrink-0 text-muted-foreground">{t('untracked')}</span>}
       <span className="truncate text-muted-foreground">{restlisteRef(row, row.incident_title)}</span>
-      {row.since && <span className="ml-auto shrink-0 text-muted-foreground">{formatSince(row.since)}</span>}
+      {row.since && <span className="ml-auto shrink-0 text-muted-foreground">{formatDateTime(row.since)}</span>}
     </button>
   )
 
@@ -222,7 +210,7 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
             className="flex w-full items-center gap-2 rounded px-1 py-1 text-left text-xs hover:bg-muted/60"
           >
             {open === 'pickup' ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-            <CarTaxiFront className="size-3.5 text-amber-600 dark:text-amber-400" />
+            <CarTaxiFront className="size-3.5 text-warning-foreground" />
             <span>{t('openPickups', { count: pickups.length })}</span>
           </button>
           <Reveal open={open === 'pickup'}>
@@ -233,7 +221,7 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
                   without opening each card. */}
               {pickups.map(row => (
                 <div key={row.incident_id} className="flex items-center gap-1">
-                  <div className="min-w-0 flex-1">{incidentRow(row, formatSince(row.since))}</div>
+                  <div className="min-w-0 flex-1">{incidentRow(row, formatDateTime(row.since))}</div>
                   <PickupBadge
                     requestedAt={row.since ? new Date(row.since) : null}
                     variant="compact"

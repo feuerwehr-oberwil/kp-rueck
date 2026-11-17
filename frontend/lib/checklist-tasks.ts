@@ -39,14 +39,14 @@ export interface ChecklistTaskState extends ChecklistTask {
 export const WHATSAPP_MESSAGE_1_KEY = 'whatsapp_message_1'
 export const WHATSAPP_MESSAGE_2_KEY = 'whatsapp_message_2'
 
-export const DEFAULT_WHATSAPP_MESSAGE_1 = `KP-Rück ist aktiv. Bitte im Einsatzfall Telefon mitnehmen.
+export const DEFAULT_WHATSAPP_MESSAGE_1 = `KP Rück ist aktiv. Bitte im Einsatzfall Telefon mitnehmen.
 
 1. Bei *jeder* Pager Meldung (ausser Brand) ins Magazin einrücken
 2. Wenn vor Ort, in Atemschutzraum besammeln
 3. Auf weitere Anweisungen warten
 4. Bei Unklarheiten auf diese Nummer antworten`
 
-export const DEFAULT_WHATSAPP_MESSAGE_2 = `KP-Rück ist aktiv. Bitte Telefon mitnehmen.
+export const DEFAULT_WHATSAPP_MESSAGE_2 = `KP Rück ist aktiv. Bitte Telefon mitnehmen.
 1. Ins Magazin einrücken!
 2. In Atemschutzraum besammeln
 3. Auf weitere Anweisungen warten

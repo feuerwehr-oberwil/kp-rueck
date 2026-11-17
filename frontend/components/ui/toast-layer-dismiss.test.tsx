@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { screen, within } from "@testing-library/react"
+import { renderWithIntl } from "@/test-utils/render-with-intl"
 import userEvent from "@testing-library/user-event"
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
@@ -94,16 +95,16 @@ describe("dismissing a toast never dismisses the panel behind it", () => {
   it("keeps a dialog open when a toast is closed", async () => {
     const user = userEvent.setup()
     const onOpenChange = vi.fn()
-    render(<OpenDialog onOpenChange={onOpenChange} />)
+    renderWithIntl(<OpenDialog onOpenChange={onOpenChange} />)
 
-    await user.click(screen.getByRole("button", { name: "Schliessen" }))
+    await user.click(within(screen.getByRole("list")).getByRole("button", { name: "Schliessen" }))
     expect(onOpenChange).not.toHaveBeenCalled()
   })
 
   it("keeps a dialog open when the dismiss-all pill is used", async () => {
     const user = userEvent.setup()
     const onOpenChange = vi.fn()
-    render(<OpenDialog onOpenChange={onOpenChange} />)
+    renderWithIntl(<OpenDialog onOpenChange={onOpenChange} />)
 
     await user.click(screen.getByRole("button", { name: "Alle ausblenden" }))
     expect(onOpenChange).not.toHaveBeenCalled()
@@ -113,9 +114,9 @@ describe("dismissing a toast never dismisses the panel behind it", () => {
     const user = userEvent.setup()
     const onOpenChange = vi.fn()
     const onInteractOutside = vi.fn()
-    render(<OpenSheet onOpenChange={onOpenChange} onInteractOutside={onInteractOutside} />)
+    renderWithIntl(<OpenSheet onOpenChange={onOpenChange} onInteractOutside={onInteractOutside} />)
 
-    await user.click(screen.getByRole("button", { name: "Schliessen" }))
+    await user.click(within(screen.getByRole("list")).getByRole("button", { name: "Schliessen" }))
     expect(onOpenChange).not.toHaveBeenCalled()
     // The caller's guard is for real outside clicks — a toast never reaches it.
     expect(onInteractOutside).not.toHaveBeenCalled()
@@ -129,9 +130,9 @@ describe("dismissing a toast never dismisses the panel behind it", () => {
   it("keeps a popover open when a toast is closed", async () => {
     const user = userEvent.setup()
     const onOpenChange = vi.fn()
-    render(<OpenPopover onOpenChange={onOpenChange} />)
+    renderWithIntl(<OpenPopover onOpenChange={onOpenChange} />)
 
-    await user.click(screen.getByRole("button", { name: "Schliessen" }))
+    await user.click(within(screen.getByRole("list")).getByRole("button", { name: "Schliessen" }))
     expect(onOpenChange).not.toHaveBeenCalled()
 
     await user.click(screen.getByRole("button", { name: "Irgendwo daneben" }))
@@ -141,9 +142,9 @@ describe("dismissing a toast never dismisses the panel behind it", () => {
   it("keeps a dropdown menu open when a toast is closed", async () => {
     const user = userEvent.setup()
     const onOpenChange = vi.fn()
-    render(<OpenDropdown onOpenChange={onOpenChange} />)
+    renderWithIntl(<OpenDropdown onOpenChange={onOpenChange} />)
 
-    await user.click(screen.getByRole("button", { name: "Schliessen" }))
+    await user.click(within(screen.getByRole("list")).getByRole("button", { name: "Schliessen" }))
     expect(onOpenChange).not.toHaveBeenCalled()
 
     await user.click(screen.getByRole("button", { name: "Irgendwo daneben" }))

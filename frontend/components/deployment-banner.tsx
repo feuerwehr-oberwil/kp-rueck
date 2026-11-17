@@ -27,7 +27,7 @@ export function DeploymentBanner() {
       data-deployment-band
       role="note"
       aria-label={t('ariaLabel', { label: deployment.label })}
-      className="flex shrink-0 items-center justify-center gap-2 border-b border-amber-500/50 bg-amber-500 px-4 py-1 text-center text-xs font-extrabold tracking-[2px] text-amber-950 uppercase"
+      className="flex shrink-0 items-center justify-center gap-2 border-b border-warning/50 bg-warning px-4 py-1 text-center text-xs font-extrabold tracking-[2px] text-warning-foreground uppercase"
     >
       <FlaskConical className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       <span>{deployment.label}</span>

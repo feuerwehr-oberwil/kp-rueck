@@ -1,5 +1,6 @@
 "use client"
 
+import { vehicleLabel } from "@/lib/vehicle-label"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import {
@@ -11,7 +12,7 @@ import {
   ClipboardCheck,
   Footprints,
   Package,
-  PenLine,
+  Pencil,
   Plus,
   Truck,
   Users,
@@ -344,7 +345,7 @@ export function useIncidentStatusWorkflow({
     const release: CompletionRelease = {
       operationId: operation.id,
       crew: operation.crew.map(personInline),
-      vehicles: operation.vehicles.map(({ name, callsign }) => (callsign ? `${name} · ${callsign}` : name)),
+      vehicles: operation.vehicles.map(vehicleLabel),
     }
 
     // «Vor Ort oder ins Magazin?» has two answers, and mid-route both are
@@ -1200,7 +1201,7 @@ export function IncidentStatusWorkflowDialogs({
             <>
               <AlertDialogHeader>
                 <AlertDialogTitle className="flex items-center gap-2">
-                  <PenLine className="h-5 w-5 text-muted-foreground" />
+                  <Pencil className="h-5 w-5 text-muted-foreground" />
                   {tCorrection("title")}
                 </AlertDialogTitle>
                 <AlertDialogDescription>

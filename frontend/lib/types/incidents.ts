@@ -74,22 +74,30 @@ export interface Incident {
 }
 
 /**
- * Human-readable labels for incident types
+ * Every incident type, in the order a picker lists them: Elementarereignis (the
+ * storm-night default) first, the rest alphabetical by the German label. The
+ * words live in the catalogue (`incidents.types.*`, `getIncidentTypeLabel`) –
+ * never in a map here, or a French device reads German types on the phone.
  */
-export const INCIDENT_TYPE_LABELS: Record<IncidentType, string> = {
-  brandbekaempfung: 'Brandbekämpfung',
-  elementarereignis: 'Elementarereignis',
-  strassenrettung: 'Strassenrettung',
-  technische_hilfeleistung: 'Technische Hilfeleistung',
-  oelwehr: 'Ölwehr',
-  chemiewehr: 'Chemiewehr',
-  strahlenwehr: 'Strahlenwehr',
-  einsatz_bahnanlagen: 'Einsatz Bahnanlagen',
-  bma_unechte_alarme: 'BMA / Unechte Alarme',
-  dienstleistungen: 'Dienstleistungen',
-  diverse_einsaetze: 'Diverse Einsätze',
-  gerettete_menschen: 'Gerettete Menschen',
-  gerettete_tiere: 'Gerettete Tiere',
+export const INCIDENT_TYPES = [
+  'elementarereignis',
+  'bma_unechte_alarme',
+  'brandbekaempfung',
+  'chemiewehr',
+  'dienstleistungen',
+  'diverse_einsaetze',
+  'einsatz_bahnanlagen',
+  'gerettete_menschen',
+  'gerettete_tiere',
+  'oelwehr',
+  'strahlenwehr',
+  'strassenrettung',
+  'technische_hilfeleistung',
+] as const satisfies readonly IncidentType[]
+
+/** Whether an API string is one of the known types. */
+export function isIncidentType(value: string): value is IncidentType {
+  return (INCIDENT_TYPES as readonly string[]).includes(value)
 }
 
 /**
@@ -100,7 +108,7 @@ export const INCIDENT_TYPE_LABELS: Record<IncidentType, string> = {
  * label instead of `undefined` on a phone at 02:00.
  */
 export function asIncidentType(value: string | undefined): IncidentType {
-  return value && value in INCIDENT_TYPE_LABELS ? (value as IncidentType) : 'elementarereignis'
+  return value && isIncidentType(value) ? value : 'elementarereignis'
 }
 
 

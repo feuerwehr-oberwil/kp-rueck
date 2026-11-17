@@ -1,5 +1,6 @@
 'use client'
 
+import { formatTime } from '@/lib/format-time'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -13,7 +14,6 @@ import { apiClient } from '@/lib/api-client'
 import type { ApiStandbyConflict, ApiStandbyConflicts } from '@/lib/api/types'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { useStandby } from '@/lib/contexts/standby-context'
-import { getIntlLocale } from '@/lib/date-locale'
 import { getOperationStatusLabel } from '@/lib/status-labels'
 import { cn } from '@/lib/utils'
 
@@ -24,7 +24,7 @@ type Side = ApiStandbyConflict['kept_on']
 const BOOKKEEPING = new Set(['updated_at', 'last_activity_at'])
 
 function time(iso: string | null): string {
-  return iso ? new Date(iso).toLocaleTimeString(getIntlLocale(), { hour: '2-digit', minute: '2-digit' }) : ''
+  return formatTime(iso)
 }
 
 /**
@@ -207,7 +207,7 @@ function ConflictCard({
   return (
     <section
       aria-label={title}
-      className="rounded-lg border border-amber-500/40 bg-amber-50/60 p-3 dark:border-amber-400/30 dark:bg-amber-950/20"
+      className="rounded-lg border border-warning/40 bg-warning/15 p-3"
     >
       <h3 className="mb-2 break-words text-sm font-semibold">{title}</h3>
       {conflict.kind !== 'field' && conflict.row && <SavedRow row={conflict.row} />}

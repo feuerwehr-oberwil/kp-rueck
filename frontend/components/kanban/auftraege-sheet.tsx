@@ -23,6 +23,7 @@ import {
   Map as MapIcon,
   Trash2,
   Route,
+  Waypoints,
   Palette,
   Pencil,
   Wand2,
@@ -68,7 +69,7 @@ import { useIsMobile } from "@/components/ui/use-mobile"
 import { useFooterOffset } from "@/components/ui/footer-sheet"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
-import { useVehicleDriverState } from "@/lib/hooks/use-vehicle-drivers"
+import { useVehicleDriverState, type VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { useOperations, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
@@ -387,7 +388,7 @@ export function AuftraegeSheet({
             {creating && (
               <div className="rounded-lg border border-border bg-muted/40 px-3 py-2.5">
                 <div className="flex items-center gap-2">
-                  <Route className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <Waypoints className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   <Input
                     {...newNameField.controlProps}
                     autoFocus
@@ -430,7 +431,7 @@ export function AuftraegeSheet({
 
             {isLoaded && groups.length === 0 && !creating && (
               <div className="flex flex-col items-center justify-center py-10 text-center">
-                <Route className="h-10 w-10 text-muted-foreground/40 mb-2" />
+                <Waypoints className="h-10 w-10 text-muted-foreground/40 mb-2" />
                 <p className="text-sm text-muted-foreground">{t("empty")}</p>
               </div>
             )}
@@ -506,7 +507,7 @@ interface AuftragCardProps {
   operations: Operation[]
   resources: GroupResources
   /** vehicle id → driver name, for the Fahrzeuge chips. */
-  vehicleDrivers: ReadonlyMap<string, string>
+  vehicleDrivers: VehicleDrivers
   /** False until the driver map has answered — no «Kein Fahrer» before that. */
   vehicleDriversLoaded?: boolean
   expanded: boolean
@@ -870,7 +871,7 @@ function AuftragCard({
               mirrors the board columns. */}
           <div className="mt-4">
             <ResourceSectionHeader
-              icon={Route}
+              icon={Waypoints}
               label={t("stopsCount", { count: total })}
               action={
                 <div className="flex items-center gap-1">

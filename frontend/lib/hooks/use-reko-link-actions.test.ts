@@ -114,7 +114,7 @@ describe("useRekoLinkActions", () => {
       await result.current.copyDirectLink();
     });
 
-    expect(toastError).toHaveBeenCalledWith("Kopieren fehlgeschlagen");
+    expect(toastError).toHaveBeenCalledWith("Nicht kopiert");
     await waitFor(() => expect(result.current.isCopying).toBe(false));
   });
 });

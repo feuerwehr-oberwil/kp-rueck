@@ -53,7 +53,7 @@ interface MobileIncidentListViewProps {
 // the union. They used to be four coarser groups with names of their own
 // («Aktiv», «Neu») — a third vocabulary beside the board's, and one that could
 // not say «show me only the Rückfahrten». The filter now speaks exactly the
-// words the columns do (incidents.status.*).
+// words the columns do (kanban.columns.*).
 const filterStatuses = [
   "incoming",
   "reko",
@@ -76,7 +76,7 @@ export function MobileIncidentListView({
 }: MobileIncidentListViewProps) {
   const t = useTranslations('incidents.mobileList')
   // The board's own words for a status — the single vocabulary.
-  const tStatus = useTranslations('incidents.status')
+  const tStatus = useTranslations('kanban.columns')
   const tEmpty = useTranslations('common.emptyState')
   const tLoading = useTranslations('common.loadingWhat')
   const { selectedEvent } = useEvent()
@@ -332,7 +332,7 @@ export function MobileIncidentListView({
           // «Alle zeigen»; there is nothing at all → one quiet line.
           searchQuery.trim() && !operations.some((op) => matchesSearch(op, searchQuery)) ? (
             <EmptyState
-              title={t('noHitsFor', { query: searchQuery.trim() })}
+              title={tEmpty('noHitsFor', { query: searchQuery.trim() })}
               description={t('searchScope')}
               action={{
                 label: tEmpty('clearSearch'),

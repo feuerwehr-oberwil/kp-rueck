@@ -84,7 +84,7 @@ export function DiveraMessageDialog({
     if (!open) return
     const isTraining = isTrainingNow()
     const initial = {
-      title: (isTraining ? `ÜBUNG: ${defaultTitle || "KP-Rück"}` : defaultTitle || "KP-Rück").slice(0, 50),
+      title: (isTraining ? `ÜBUNG: ${defaultTitle || "KP Rück"}` : defaultTitle || "KP Rück").slice(0, 50),
       text: isTraining ? `🔶 ÜBUNG – dies ist eine Übung.\n\n${defaultText}` : defaultText,
     }
     setTitle(initial.title)
@@ -175,7 +175,7 @@ export function DiveraMessageDialog({
             {blockedReason && (
               <p
                 role="note"
-                className="mb-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm leading-relaxed"
+                className="mb-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm leading-relaxed"
               >
                 {blockedReason}
               </p>
@@ -239,7 +239,7 @@ export function DiveraMessageDialog({
                   {target === "all" && <Check className="size-4 shrink-0" />}
                 </button>
                 {target === "all" && (
-                  <p className="flex items-start gap-2 px-3 py-2 text-xs text-amber-700 dark:text-amber-500">
+                  <p className="flex items-start gap-2 px-3 py-2 text-xs text-warning-foreground">
                     <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
                     {t("allWarning")}
                   </p>

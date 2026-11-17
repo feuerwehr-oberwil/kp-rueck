@@ -21,6 +21,8 @@
  * Pure: no React, no i18n runtime — the caller passes a translator.
  */
 
+import { formatTime } from "@/lib/format-time"
+import { getIntlLocale } from "@/lib/date-locale"
 import { formatDuration } from "@/lib/duration"
 
 export type RouteStartMode = "magazin" | "vehicle" | "first"
@@ -114,7 +116,7 @@ export interface RouteStartText {
 }
 
 function clockTime(date: Date, locale: string): string {
-  return date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })
+  return formatTime(date, locale)
 }
 
 function vehicleDetail(
@@ -144,7 +146,7 @@ export function describeStartOption(
   anchors: RouteStartAnchors,
   t: RouteStartTranslator,
   now: number = Date.now(),
-  locale = "de-CH",
+  locale = getIntlLocale(),
 ): RouteStartText & { available: boolean } {
   if (mode === "magazin") {
     if (!anchors.magazin) return { label: t("magazin"), detail: t("magazinLoading"), caution: false, available: false }
@@ -164,7 +166,7 @@ export function describeRouteStart(
   start: RouteStart,
   t: RouteStartTranslator,
   now: number = Date.now(),
-  locale = "de-CH",
+  locale = getIntlLocale(),
 ): RouteStartText {
   if (start.mode === "magazin") return { label: t("magazin"), ...magazinDetail(start.source, t) }
   if (start.mode === "vehicle") {

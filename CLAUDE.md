@@ -233,6 +233,11 @@ runtime `API_URL`. Same reasoning for map tiles (`getTileBaseUrl` → `/tiles`).
   except notifications (`type` + `params`, see «Notification text») and the `/feld` errors,
   which carry a stable `code` the client says per locale (`errors.codes.*`,
   `backend/app/utils/error_codes.py`; raise `CodedHTTPException`, keep the German `detail`).
+  Message text the frontend builds for the CREW – WhatsApp (`lib/whatsapp-formatter.ts`), Divera
+  (`lib/divera-formatter.ts`, the Divera send/message dialogs) – is German by design, whatever the
+  device's language: it lands in the crew's group. Everything the operator reads on screen goes
+  through the catalogue, incident types and priorities included (`getIncidentTypeLabel`,
+  `incidents.priority.*` – there is no German label map in code).
   **Renaming a key means renaming every call site**: next-intl renders a missing key as its
   path instead of throwing. `lib/i18n-keys-used.test.ts` resolves every literal `t('…')` to its
   `useTranslations` namespace and fails on keys absent from `de.json`; dynamic `${…}` keys
@@ -299,10 +304,12 @@ runtime `API_URL`. Same reasoning for map tiles (`getTileBaseUrl` → `/tiles`).
   field problem, and no submit button greyed out without a word. `DetailField` takes `error` /
   `advice` and renders it with the id `formMessageId(htmlFor)`.
 - **Empty lists** (`components/ui/empty-state.tsx`): say WHY and offer the one way out – search
-  («Keine Treffer für «q».» + «Suche leeren»), filter (name it + «Filter zurücksetzen», which
-  keeps the search and every tick), truly nothing (what would fill it), everything taken (a line
-  above the spoken-for block, not a replacement). Title + one line + at most one action, no big
-  icons; the repeated board columns keep their single grey sentence.
+  (`SearchEmptyState`: «Keine Treffer für «q»» + «Suche leeren», under every `SearchInput`),
+  filter (name it + «Filter zurücksetzen», which keeps the search and every tick), truly nothing
+  (what would fill it), everything taken (a line above the spoken-for block, not a replacement).
+  Title + one line + at most one action, no big icons; the repeated board columns keep their
+  single grey sentence. **A title takes no period** – an `EmptyState` title, a toast's first
+  line, any `*Title` key; the line under it is a sentence and does.
 - **Maps never rise above overlays.** Every map goes through `components/map/base-map.tsx`, whose
   wrapper is `isolate`: markers (z up to 1000) and controls (z 2000) only compete inside the map.
   Map chrome laid over a map from outside (chips, legend, fit-all) sits in a wrapper that is

@@ -56,7 +56,7 @@ import { MobileIncidentDetailSheet } from "@/components/mobile/mobile-incident-d
 import { incidentDetailTarget } from "@/lib/incident-detail"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { IncidentDialogs, useIncidentDialogs } from "@/components/kanban/incident-dialogs"
-import { isIncidentStatus, INCIDENT_TYPE_LABELS, STATUS_TO_GROUP, type StatusGroup, type IncidentStatus } from "@/lib/types/incidents"
+import { isIncidentStatus, isIncidentType, STATUS_TO_GROUP, type StatusGroup, type IncidentStatus } from "@/lib/types/incidents"
 import { Kbd } from "@/components/ui/kbd"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { toast } from "sonner"
@@ -604,8 +604,8 @@ export default function MapPage() {
       return filtered.filter((inc) =>
         (inc.location_address && inc.location_address.toLowerCase().includes(lowerQuery)) ||
         (inc.title && inc.title.toLowerCase().includes(lowerQuery)) ||
-        (inc.type in INCIDENT_TYPE_LABELS && tIncidents(`types.${inc.type}`).toLowerCase().includes(lowerQuery)) ||
-        (isIncidentStatus(inc.status) && tKanban(`statusLabels.${inc.status}`).toLowerCase().includes(lowerQuery))
+        (isIncidentType(inc.type) && tIncidents(`types.${inc.type}`).toLowerCase().includes(lowerQuery)) ||
+        (isIncidentStatus(inc.status) && tKanban(`columns.${inc.status}`).toLowerCase().includes(lowerQuery))
       )
     },
     [incidents, searchQuery, statusFilters, deepLinkExceptionId, tIncidents, tKanban]
@@ -631,8 +631,8 @@ export default function MapPage() {
           return (
             (inc.location_address && inc.location_address.toLowerCase().includes(lowerQuery)) ||
             (inc.title && inc.title.toLowerCase().includes(lowerQuery)) ||
-            (inc.type in INCIDENT_TYPE_LABELS && tIncidents(`types.${inc.type}`).toLowerCase().includes(lowerQuery)) ||
-            (isIncidentStatus(inc.status) && tKanban(`statusLabels.${inc.status}`).toLowerCase().includes(lowerQuery))
+            (isIncidentType(inc.type) && tIncidents(`types.${inc.type}`).toLowerCase().includes(lowerQuery)) ||
+            (isIncidentStatus(inc.status) && tKanban(`columns.${inc.status}`).toLowerCase().includes(lowerQuery))
           )
         })
     const sections: Record<StatusGroup, typeof incidents> = { open: [], active: [], completed: [] }

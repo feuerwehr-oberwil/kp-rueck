@@ -14,6 +14,7 @@
  * field pages are the exception — this one is read on a phone in the rain.
  */
 
+import { SearchEmptyState } from "@/components/ui/empty-state"
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -66,7 +67,7 @@ import {
 import { sortByName } from '@/lib/roster-order'
 import { navigationUrl } from '@/lib/navigation'
 import { ApiError } from '@/lib/api/types/common'
-import { asIncidentType, INCIDENT_TYPE_LABELS } from '@/lib/types/incidents'
+import { asIncidentType } from '@/lib/types/incidents'
 import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
 import { Reveal } from '@/components/ui/reveal'
 import { PersonName, PersonNamingProvider } from "@/components/person-name"
@@ -183,7 +184,7 @@ function SourceLabel({ assignment }: { assignment: ApiFeldAssignment }) {
         : 'bg-muted text-muted-foreground'
 
   return (
-    <span className={`inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-[11px] font-medium ${tone}`}>
+    <span className={`inline-flex shrink-0 items-center rounded-sm px-2 py-0.5 text-[11px] font-medium ${tone}`}>
       {label}
     </span>
   )
@@ -1048,8 +1049,10 @@ function FeldSurface() {
           />
 
           <div className="space-y-3">
-            {loading ? null : filteredPersonnel.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground animate-in fade-in duration-300">
+            {loading ? null : filteredPersonnel.length === 0 && personnel.length > 0 && searchTerm.trim() ? (
+              <SearchEmptyState query={searchTerm} onClear={() => setSearchTerm('')} />
+            ) : filteredPersonnel.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
                 {personnel.length === 0 ? t('picker.empty') : t('picker.noneFound')}
               </div>
             ) : (
@@ -1595,7 +1598,7 @@ function FeldSurface() {
                   {/* An open Abholung is the one thing on this list that is
                       about the crew rather than the Schadenplatz. */}
                   {assignment.pickup_needed && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning-foreground">
                       <CarTaxiFront className="h-3 w-3" />
                       {tPickup('badge')}
                     </span>
@@ -1659,7 +1662,7 @@ function FeldSurface() {
                 >
                   <h3 className="font-medium leading-tight">{address || report.title}</h3>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {[formatTime(report.created_at), INCIDENT_TYPE_LABELS[asIncidentType(report.type)], report.description]
+                    {[formatTime(report.created_at), getIncidentTypeLabel(asIncidentType(report.type)), report.description]
                       .filter(Boolean)
                       .join(' · ')}
                   </p>

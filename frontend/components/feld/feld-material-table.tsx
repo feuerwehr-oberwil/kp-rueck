@@ -108,13 +108,13 @@ export function FeldMaterialTable({ materials }: { materials: ApiFeldMaterialIte
               key={state}
               className={
                 state === 'left'
-                  ? 'rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2'
+                  ? 'rounded-lg border border-warning/40 bg-warning/5 px-3 py-2'
                   : undefined
               }
             >
               <h3
                 className={`mb-1 type-label ${
-                  state === 'left' ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'
+                  state === 'left' ? 'text-warning-foreground' : 'text-muted-foreground'
                 }`}
               >
                 {t(`state.${state}`)} · {byState[state].length}

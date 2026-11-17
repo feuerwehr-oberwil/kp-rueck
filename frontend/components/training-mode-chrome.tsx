@@ -41,7 +41,7 @@ export function TrainingBadge({ label, className }: { label: string; className?:
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-1 rounded border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-xs font-medium text-warning-foreground",
+        "inline-flex shrink-0 items-center gap-1 rounded-sm border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-xs font-medium text-warning-foreground",
         className,
       )}
     >

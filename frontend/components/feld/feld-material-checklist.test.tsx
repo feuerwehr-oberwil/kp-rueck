@@ -207,7 +207,7 @@ describe('FeldMaterialChecklist — Weiteres Material', () => {
     // A crew that borrowed the neighbouring brigade's pump has to be able to
     // write it — the catalogue is a naming aid, not the vocabulary.
     const sheet = await openPicker()
-    await userEvent.type(within(sheet).getByPlaceholderText('Material suchen'), 'Pumpe vom Nachbarzug')
+    await userEvent.type(within(sheet).getByPlaceholderText('Material suchen …'), 'Pumpe vom Nachbarzug')
     await userEvent.click(within(sheet).getByRole('button', { name: '«Pumpe vom Nachbarzug» hinzufügen' }))
     await userEvent.click(within(sheet).getByRole('button', { name: 'Fertig (1)' }))
     expect(onExtraMaterialsChange).toHaveBeenCalledWith([

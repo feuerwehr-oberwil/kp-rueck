@@ -113,7 +113,7 @@ export default function DisplayIndexPage() {
                           <span className="min-w-0 grow basis-auto break-words text-sm font-medium">{event.name}</span>
                           <span className="ml-auto flex shrink-0 items-center gap-2">
                             {event.training_flag && (
-                              <span className="rounded border border-warning/20 bg-warning/10 px-1.5 py-0.5 text-xs font-medium text-warning-foreground">
+                              <span className="rounded-sm border border-warning/20 bg-warning/10 px-1.5 py-0.5 text-xs font-medium text-warning-foreground">
                                 {t('training')}
                               </span>
                             )}

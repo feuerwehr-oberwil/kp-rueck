@@ -79,3 +79,27 @@ describe('amber is not a fact', () => {
     expect(offenders).toEqual([])
   })
 })
+
+// --- amber has one implementation ---------------------------------------------------------
+//
+// «Schau hin» is the `warning` token pair (`text-warning-foreground`, `bg-warning/*`,
+// `border-warning/*`), which carries its own dark value. Raw `amber-*` steps had grown four
+// text shades beside it (700/400, 600/400, 700/500, 800/300 – consistency sweep 17.11.,
+// ENT-17). Only the priority MARK tables keep a palette step, like their red and slate.
+
+const RAW_AMBER = /(?<![\w-])(?:[a-z-]+:)*(?:bg|text|border|ring|fill|stroke)-amber-\d/
+const AMBER_ALLOWED: ReadonlySet<string> = new Set(['lib/priority.ts'])
+
+describe('amber is the warning token', () => {
+  it('paints no raw amber outside the priority tables', () => {
+    const offenders = SOURCE_DIRS.flatMap((dir) => sourceFiles(join(ROOT, dir)))
+      .map((path) => relative(ROOT, path))
+      .filter((file) => !AMBER_ALLOWED.has(file))
+      .flatMap((file) =>
+        readFileSync(join(ROOT, file), 'utf8')
+          .split('\n')
+          .flatMap((line, i) => (RAW_AMBER.test(line) ? [`${file}:${i + 1}`] : [])),
+      )
+    expect(offenders).toEqual([])
+  })
+})

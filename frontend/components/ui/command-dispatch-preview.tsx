@@ -1,12 +1,13 @@
 "use client"
 
+import { IncidentNumber } from "@/components/ui/incident-number"
 import type { ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { ArrowLeft, ArrowRight, Package, Truck, User } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { statusBadgeClass } from "@/lib/kanban-utils"
-import { PRIORITY_ICONS, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
+import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import type {
   DispatchCompletion,
   DispatchIncident,
@@ -38,7 +39,7 @@ function IncidentChip({ incident }: { incident: DispatchIncident }) {
   const t = useTranslations("common.commandPalette.dispatch")
   return (
     <span className={cn(CHIP, "border-transparent bg-muted font-medium")} title={t("incidentTitle", { number: incident.number })}>
-      <span className="font-mono tabular-nums text-muted-foreground">{incident.number}</span>
+      <IncidentNumber number={incident.number} />
       <span className="truncate">{incident.label}</span>
     </span>
   )
@@ -74,10 +75,9 @@ function TargetChip({ target }: { target: DispatchTarget }) {
     )
   }
   if (target.kind === "priority") {
-    const Icon = PRIORITY_ICONS[target.priority]
     return (
       <span className={cn(CHIP, "border-border bg-background")} data-dispatch-chip="priority">
-        <Icon aria-hidden className={cn("!size-3.5", PRIORITY_TEXT_CLASSES[target.priority])} />
+        <PriorityGlyph priority={target.priority} size="card" decorative className="!size-3.5" />
         {tPriority(target.priority)}
       </span>
     )
@@ -256,14 +256,9 @@ export function DispatchChoice({ token, choice }: { token: DispatchToken; choice
       {choice.kind === "status" ? (
         <ArrowRight aria-hidden className="!size-4 shrink-0" />
       ) : choice.kind === "priority" ? (
-        (() => {
-          const Icon = PRIORITY_ICONS[choice.priority]
-          return <Icon aria-hidden className={cn("!size-4 shrink-0", PRIORITY_TEXT_CLASSES[choice.priority])} />
-        })()
+        <PriorityGlyph priority={choice.priority} size="card" decorative />
       ) : choice.kind === "incident" ? (
-        <span className="min-w-4 shrink-0 text-center font-mono text-xs tabular-nums text-muted-foreground">
-          {choice.incident.number}
-        </span>
+        <IncidentNumber number={choice.incident.number} className="min-w-4 shrink-0 text-center text-xs" />
       ) : (
         <ResourceIcon kind={choice.kind} className="!size-4" />
       )}

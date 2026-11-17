@@ -33,7 +33,7 @@ import { getDevicePosition, type PositionFailure } from "@/lib/device-position"
 import { useMediaQuery } from "@/lib/hooks/use-media-query"
 import { FormMessage } from "@/components/ui/form-message"
 import { ShellLoader } from "@/components/ui/shell-loader"
-import { parseCoordinates, checkRegion } from "@/lib/coordinate-parser"
+import { parseCoordinates, checkRegion, EXPECTED_REGION, type RegionWarning } from "@/lib/coordinate-parser"
 import type { SearchResult } from "@/lib/geocoding"
 import { apiClient } from "@/lib/api-client"
 
@@ -123,7 +123,7 @@ export function LocationInput({
 
   const [coordinateInput, setCoordinateInput] = useState("")
   const [coordinateError, setCoordinateError] = useState<string | null>(null)
-  const [coordinateWarning, setCoordinateWarning] = useState<string | null>(null)
+  const [coordinateWarning, setCoordinateWarning] = useState<RegionWarning | null>(null)
   const [parseSuccess, setParseSuccess] = useState<string | null>(null)
   const [stationCenter, setStationCenter] = useState<[number, number] | null>(null)
   const [countryCodes, setCountryCodes] = useState<string | null>(null)
@@ -865,7 +865,11 @@ export function LocationInput({
             {coordinateWarning && !coordinateError && (
               <div className="flex items-start gap-2 text-sm text-warning-foreground">
                 <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                <span>{coordinateWarning}</span>
+                <span>
+                  {coordinateWarning === 'outsideRegion'
+                    ? t('locationInput.outsideRegion', { region: EXPECTED_REGION })
+                    : t('locationInput.outsideSwitzerland')}
+                </span>
               </div>
             )}
 

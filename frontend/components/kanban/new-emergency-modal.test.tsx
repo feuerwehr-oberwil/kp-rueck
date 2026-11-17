@@ -225,7 +225,7 @@ describe('NewEmergencyModal — Handy', () => {
       const onOpenChange = vi.fn()
       renderWithIntl(<NewEmergencyModal open onOpenChange={onOpenChange} onCreateOperation={vi.fn()} />)
       await user.type(screen.getByLabelText('Meldung'), 'Keller unter Wasser')
-      await user.click(screen.getByRole('button', { name: 'Close' }))
+      await user.click(screen.getByRole('button', { name: 'Schliessen' }))
 
       expect(onOpenChange).not.toHaveBeenCalled()
       await user.click(screen.getByRole('button', { name: 'Verwerfen' }))
@@ -242,7 +242,7 @@ describe('NewEmergencyModal — Handy', () => {
       const user = userEvent.setup()
       const onOpenChange = vi.fn()
       renderWithIntl(<NewEmergencyModal open onOpenChange={onOpenChange} onCreateOperation={vi.fn()} />)
-      await user.click(screen.getByRole('button', { name: 'Close' }))
+      await user.click(screen.getByRole('button', { name: 'Schliessen' }))
       expect(onOpenChange).toHaveBeenCalledWith(false)
       expect(screen.queryByRole('alertdialog')).toBeNull()
     } finally {

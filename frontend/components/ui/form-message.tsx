@@ -19,7 +19,7 @@
  */
 
 import * as React from 'react'
-import { CircleAlert, TriangleAlert } from 'lucide-react'
+import { AlertCircle, AlertTriangle } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -52,7 +52,7 @@ export function fieldMessageProps(
  * it says so with an amber edge instead.
  */
 export const FIELD_ADVICE_CLASS =
-  'border-amber-500/80 focus-visible:border-amber-500 focus-visible:ring-amber-500/25 dark:border-amber-400/70'
+  'border-warning/80 focus-visible:border-warning focus-visible:ring-warning/25'
 
 export interface FormMessageProps extends Omit<React.ComponentProps<'p'>, 'role'> {
   tone?: FormMessageTone
@@ -60,7 +60,7 @@ export interface FormMessageProps extends Omit<React.ComponentProps<'p'>, 'role'
 
 export function FormMessage({ tone = 'error', className, children, ...props }: FormMessageProps) {
   if (children == null || children === false || children === '') return null
-  const Icon = tone === 'error' ? CircleAlert : TriangleAlert
+  const Icon = tone === 'error' ? AlertCircle : AlertTriangle
   return (
     <p
       data-slot="form-message"
@@ -78,7 +78,7 @@ export function FormMessage({ tone = 'error', className, children, ...props }: F
         aria-hidden="true"
         className={cn(
           'mt-px size-3.5 shrink-0',
-          tone === 'advice' && 'text-amber-700 dark:text-amber-400',
+          tone === 'advice' && 'text-warning-foreground',
         )}
       />
       <span className="min-w-0">{children}</span>

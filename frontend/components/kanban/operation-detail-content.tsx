@@ -1,5 +1,6 @@
 "use client"
 
+import { vehicleLabel } from "@/lib/vehicle-label"
 import { IncidentNumber } from "@/components/ui/incident-number"
 import { useState, useEffect, useCallback, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
@@ -775,7 +776,7 @@ export function OperationDetailContent({
             </RemovableChip>
           )}
           {operation.vehicles.map(({ vehicleId, name: vehicleName, callsign, driverStay, assignmentId }) => {
-              const driverName = vehicleDrivers.get(vehicleId)
+              const driver = vehicleDrivers.get(vehicleId)
               return (
                 <RemovableChip
                   key={vehicleId}
@@ -790,7 +791,7 @@ export function OperationDetailContent({
                   menuTitle={vehicleName}
                   menuSubtitle={[
                     callsign,
-                    driverName,
+                    driver && naming.inline(driver),
                     driverStay ? t('common.driverStaysFull') : t('common.driverReturnsFull'),
                   ].filter(Boolean).join(' · ')}
                 >
@@ -801,12 +802,14 @@ export function OperationDetailContent({
                       truncate (full name in `title`). */}
                   <span className="flex min-w-0 flex-wrap items-center gap-x-1">
                   <span className="min-w-0 truncate">
-                    {vehicleName}{callsign ? ` · ${callsign}` : ''}
+                    {vehicleLabel({ name: vehicleName, callsign })}
                   </span>
-                  {(driverName || (canEdit && assignmentId)) && (
+                  {(driver || (canEdit && assignmentId)) && (
                   <span className="flex min-w-0 items-center">
-                  {driverName && (
-                    <span className="min-w-0 truncate" title={driverName}>({driverName})</span>
+                  {driver && (
+                    <span className="min-w-0 truncate" title={naming.inline(driver)}>
+                      (<PersonName name={driver.name} personnelId={driver.personnelId} />)
+                    </span>
                   )}
                   {canEdit && assignmentId && (
                     <button
@@ -821,7 +824,7 @@ export function OperationDetailContent({
                       className={cn(
                         // `hit-area`: the 20px pill is a 26px target (globals.css).
                         "relative hit-area shrink-0 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors",
-                        driverName && "ml-1",
+                        driver && "ml-1",
                         driverStay
                           ? "bg-foreground/10 text-foreground hover:bg-foreground/15"
                           : "text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
@@ -1547,7 +1550,7 @@ export function OperationDetailContent({
               </span>
               {assignedRekoPersonnel ? (
                 <span className="min-w-0 flex-1 truncate text-sm">
-                  {assignedRekoPersonnel.name}
+                  <PersonName name={assignedRekoPersonnel.name} personnelId={assignedRekoPersonnel.id} />
                   {operation.rekoArrivedAt && (
                     <span className="text-muted-foreground">
                       {' · '}
@@ -1701,7 +1704,7 @@ export function OperationDetailContent({
                     ) : undefined}
                   >
                     {assignedRekoPersonnel ? (
-                      <span className="text-sm">{assignedRekoPersonnel.name}</span>
+                      <span className="text-sm"><PersonName name={assignedRekoPersonnel.name} personnelId={assignedRekoPersonnel.id} /></span>
                     ) : (
                       <span className="text-sm text-muted-foreground/60 italic">{t('common.noRekoAssigned')}</span>
                     )}

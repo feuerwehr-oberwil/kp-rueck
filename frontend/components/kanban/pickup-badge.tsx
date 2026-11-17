@@ -126,7 +126,7 @@ export function PickupBadge({
     // nowrap: in a narrow card header the chip broke «seit 15:43» onto its own
     // line inside the pill — the chip wraps as a whole or not at all.
     'inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-xs font-medium',
-    'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+    'bg-warning/15 text-warning-foreground',
     className,
   )
 
@@ -164,13 +164,13 @@ export function PickupBadge({
         <div
           className={cn(
             'flex flex-wrap items-center gap-x-2 gap-y-2 rounded-lg p-3 text-xs',
-            'border border-amber-500/30 bg-amber-500/5',
+            'border border-warning/30 bg-warning/5',
             className,
           )}
         >
           <div className="flex min-w-[11rem] flex-1 items-start gap-2">
             <CarTaxiFront
-              className="mt-px h-3.5 w-3.5 flex-shrink-0 text-amber-700 dark:text-amber-400"
+              className="mt-px h-3.5 w-3.5 flex-shrink-0 text-warning-foreground"
               aria-hidden
             />
             <span className="min-w-0 text-foreground">
@@ -227,8 +227,8 @@ export function PickupBadge({
         className={cn(
           chrome,
           'group/pickup cursor-pointer transition-colors',
-          'hover:bg-amber-200 dark:hover:bg-amber-900/70',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1',
+          'hover:bg-warning/25',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning focus-visible:ring-offset-1',
         )}
       >
         {body}

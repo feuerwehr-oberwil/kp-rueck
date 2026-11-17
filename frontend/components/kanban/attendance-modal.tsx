@@ -27,6 +27,8 @@
  *   offering the action would be a lie; hiding the name would make the operator hunt for it.
  */
 
+import { SearchEmptyState } from "@/components/ui/empty-state"
+import { PersonName } from "@/components/person-name"
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -328,6 +330,8 @@ export function AttendanceModal({
         <div className="flex justify-center py-6">
           <LoadingStatus className="text-sm">{t('loading')}</LoadingStatus>
         </div>
+      ) : visible.length === 0 && search.trim() ? (
+        <SearchEmptyState query={search} onClear={() => setSearch('')} />
       ) : visible.length === 0 ? (
         <p className="py-6 text-center text-sm text-muted-foreground">{t('noneFound')}</p>
       ) : (
@@ -536,7 +540,9 @@ function AttendanceRow({
           {/* 2px down: the glyph sits on the name's line, not between the two lines. */}
           <span className="mt-0.5 flex shrink-0">{glyph}</span>
           <span className="min-w-0 flex-1">
-            <span className="block text-base break-words">{name}</span>
+            <span className="block text-base break-words">
+              <PersonName name={person.name} personnelId={person.id} kennung={person.kennung} display={name} />
+            </span>
             {facts.length > 0 && (
               // Each fact an inline-block: a wrap falls between «seit 17:22» and
               // «zugewiesen: 14 · Talstrasse 25», not inside the Einsatz, unless one alone
@@ -559,10 +565,10 @@ function AttendanceRow({
         <>
           {glyph}
           <span className="min-w-0 flex-1 truncate" title={name}>
-            {name}
+            <PersonName name={person.name} personnelId={person.id} kennung={person.kennung} display={name} />
           </span>
           {assigned && (
-            <span className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-2xs font-medium text-warning-foreground">
+            <span className="shrink-0 rounded-sm bg-warning/15 px-1.5 py-0.5 text-2xs font-medium text-warning-foreground">
               {factText(assigned)}
             </span>
           )}

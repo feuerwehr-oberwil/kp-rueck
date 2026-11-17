@@ -109,9 +109,9 @@ describe('FeldVehicleChecklist', () => {
     render({ candidates: [candidate()] })
     await userEvent.click(screen.getByRole('button', { name: 'Fahrzeug hinzufügen' }))
     const sheet = await screen.findByRole('dialog')
-    await userEvent.type(within(sheet).getByPlaceholderText('Fahrzeug suchen'), 'Pikett-Auto')
+    await userEvent.type(within(sheet).getByPlaceholderText('Fahrzeug suchen …'), 'Pikett-Auto')
     expect(within(sheet).queryByRole('button', { name: /hinzufügen/ })).not.toBeInTheDocument()
-    expect(within(sheet).getByText('Keine Treffer für «Pikett-Auto».')).toBeInTheDocument()
+    expect(within(sheet).getByText('Keine Treffer für «Pikett-Auto»')).toBeInTheDocument()
   })
 
   it('has no button when the whole fleet is already on the list', () => {

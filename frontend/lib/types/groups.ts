@@ -39,6 +39,8 @@ export interface GroupResourceItem {
   name: string
   /** Vehicles only: whether the driver stays on site. */
   driverStay?: boolean
+  /** Vehicles only: the Funkrufname, named beside the vehicle (`vehicleLabel`). */
+  callsign?: string | null
   /** Personnel only: Einsatzleiter for the route. */
   isLeader?: boolean
   /** Materials only: the depot the device lies in («Standort»). Resolved here

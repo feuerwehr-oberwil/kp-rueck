@@ -324,7 +324,7 @@ function FeldCodeScreen({
             {doorContext?.event_name ?? t('code.title')}
           </h1>
           {doorContext?.training_flag && (
-            <span className="mt-2 inline-flex items-center rounded border border-warning/40 bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-foreground">
+            <span className="mt-2 inline-flex items-center rounded-sm border border-warning/40 bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-foreground">
               {t('code.training')}
             </span>
           )}

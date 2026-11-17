@@ -21,6 +21,7 @@
  * the plain wall clock and hides the menu.
  */
 
+import { formatTime } from '@/lib/format-time'
 import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Clock, Hourglass, Flag, Check, ChevronDown } from 'lucide-react'
@@ -86,7 +87,7 @@ export function EventClock({ className }: { className?: string }) {
   const valueFor = (m: EventClockMode): string => {
     if (m === 'time') return wallClock
     if (!startedAt || !isMounted || !currentTime) return '--:--'
-    if (m === 'start') return startedAt.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' })
+    if (m === 'start') return formatTime(startedAt, intlLocale)
     // "12m" / "1h 04m" / "1d 10h" — the clock style of the shared formatter.
     return formatDuration(currentTime.getTime() - startedAt.getTime(), 'clock')
   }

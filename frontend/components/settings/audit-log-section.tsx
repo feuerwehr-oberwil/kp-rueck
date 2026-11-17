@@ -1,5 +1,6 @@
 "use client";
 
+import { SearchEmptyState } from "@/components/ui/empty-state"
 import { useTranslations } from 'next-intl';
 import { Download, User, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -172,6 +173,8 @@ export function AuditLogSection({
           <p className="text-destructive">{auditError}</p>
           <Button onClick={fetchAuditLogs} className="mt-4">{t('common.retry')}</Button>
         </>
+      ) : filteredAuditEntries.length === 0 && auditSearchQuery.trim() ? (
+        <SearchEmptyState query={auditSearchQuery} onClear={() => setAuditSearchQuery('')} />
       ) : filteredAuditEntries.length === 0 ? (
         <p className="py-4 text-center text-muted-foreground">
           {hasActiveAuditFilters ? t('page.audit.noEntriesFiltered') : t('page.audit.noEntries')}

@@ -16,6 +16,8 @@
  * its sidebar entry.
  */
 
+import { formatTime } from '@/lib/format-time'
+import { SearchEmptyState } from "@/components/ui/empty-state"
 import { useMemo, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/auth-context';
@@ -383,7 +385,7 @@ export default function SettingsPage() {
           {tiles.status === 'installed' && (
             <span className="text-xs text-muted-foreground">
               {[tiles.name, zoom, t('page.general.tiles.checkedAt', {
-                time: tiles.checkedAt.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' }),
+                time: formatTime(tiles.checkedAt, intlLocale),
               })]
                 .filter(Boolean)
                 .join(' · ')}
@@ -889,9 +891,7 @@ export default function SettingsPage() {
               {searchHits !== null ? (
                 <nav aria-label={t('page.searchPlaceholder')}>
                   {searchHits.length === 0 ? (
-                    <p className="px-3 py-2 text-xs text-muted-foreground">
-                      {t('page.searchNoResults')}
-                    </p>
+                    <SearchEmptyState query={search} onClear={() => setSearch('')} />
                   ) : (
                     <>
                       {searchHits.map((hit, index) => {

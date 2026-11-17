@@ -20,7 +20,7 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Combine, TriangleAlert } from 'lucide-react'
+import { Combine, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -104,7 +104,7 @@ export function DuplicateFlag({ operationId, targetId, canEdit = true, className
       onMouseDown={canEdit ? stop : undefined}
     >
       <p className="flex items-start gap-1.5 leading-snug" title={t('card.flagTooltip')}>
-        <TriangleAlert aria-hidden className="mt-px size-3.5 shrink-0 text-warning-foreground" />
+        <AlertTriangle aria-hidden className="mt-px size-3.5 shrink-0 text-warning-foreground" />
         <span className="min-w-0 break-words text-foreground">{text}</span>
       </p>
       {canEdit && (

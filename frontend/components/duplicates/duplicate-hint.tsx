@@ -22,7 +22,7 @@
  */
 
 import { useTranslations } from 'next-intl'
-import { Combine, TriangleAlert } from 'lucide-react'
+import { Combine, AlertTriangle } from 'lucide-react'
 
 import {
   DUPLICATE_RADIUS_M,
@@ -121,7 +121,7 @@ export function DuplicateHint<C extends DuplicateHintCandidate>({
             return (
               <li key={candidate.id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                 <p className="flex min-w-0 flex-1 basis-56 items-start gap-1.5 leading-snug">
-                  <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-foreground" />
+                  <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-foreground" />
                   <span className="min-w-0 break-words">
                     <span className="text-warning-foreground">{t('lead')} </span>
                     <span className="font-semibold text-foreground">{candidateLabel(candidate)}</span>

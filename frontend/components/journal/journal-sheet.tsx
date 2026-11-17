@@ -421,7 +421,7 @@ export function JournalText({ entry, text }: { entry: ApiJournalEntry; text: str
   const tStatus = useTranslations("kanban")
   const data = (entry.data ?? {}) as Record<string, unknown>
   const str = (k: string) => (typeof data[k] === "string" ? (data[k] as string) : "")
-  const status = (s: string) => (isIncidentStatus(s) ? tStatus(`statusLabels.${s}`) : s)
+  const status = (s: string) => (isIncidentStatus(s) ? tStatus(`columns.${s}`) : s)
 
   switch (entry.kind) {
     case "incident": {
@@ -764,6 +764,7 @@ function JournalComposer({
                 onValueChange={(value) => { setPickerQuery(value); setHighlight(0) }}
                 aria-label={t("linkSearch")}
                 placeholder={t("linkSearchPlaceholder")}
+                title={t("linkSearchScope")}
                 onKeyDown={(event) => {
                   if (pickerSuggestions.length === 0) return
                   if (event.key === "ArrowDown" || event.key === "ArrowUp") {

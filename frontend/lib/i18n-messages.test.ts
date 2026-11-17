@@ -127,18 +127,17 @@ describe('label coverage', () => {
   // resolve at runtime, so neither tsc nor a render test notices when a key and a status
   // drift apart — the board just prints the raw key. Enumerated here so they cannot.
   const STATUS_KEYED_BLOCKS = [
-    'kanban.statusLabels', // t(`statusLabels.${status}`) — map search, timeline popover
-    'kanban.columns', // t(`columns.${column.id}`) — board, display board/status, hover card
+    // The ONE status vocabulary: board, display, map search, timeline, print, phone
+    // filter, status conflict and translateOutsideReact (`lib/status-labels.ts`).
+    'kanban.columns',
     'display.board.railLabel', // t(`railLabel.${columnId}`) — the wall's folded column rail
-    'incidents.status', // t(`status.${…}`) + translateOutsideReact(`incidents.status.${…}`)
-    'print.view.statusHeading', // t(`statusHeading.${status}`) — print view
     // NOT listed: `incidents.columns`. It held an ALL-CAPS copy of these labels and was
     // documented here as "the variant for /display/*" — but /display/* reads
     // `kanban.columns` and uppercases it in CSS (`app/display/board/page.tsx`). Nothing
     // ever read `incidents.columns`; this list was the only thing keeping it alive, which
     // is why the orphan sweep could not see it. Deleted 2026-07-30.
   ]
-  // Mirrors incidentTypeLabels in lib/incident-types.ts
+  // Mirrors INCIDENT_TYPES in lib/types/incidents.ts
   const INCIDENT_TYPES = [
     'brandbekaempfung', 'elementarereignis', 'strassenrettung', 'technische_hilfeleistung',
     'oelwehr', 'chemiewehr', 'strahlenwehr', 'einsatz_bahnanlagen', 'bma_unechte_alarme',

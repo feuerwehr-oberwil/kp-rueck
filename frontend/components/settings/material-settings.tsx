@@ -32,7 +32,7 @@ import { Form, FormField } from '@/components/ui/form';
 import { SettingCard } from '@/components/settings/setting-row';
 import { DetailField, DetailToggle } from '@/components/kanban/detail-field';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Edit, Trash2, ArrowRight, Infinity as InfinityIcon, PackageMinus } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2, ArrowRight, Infinity as InfinityIcon, PackageMinus } from 'lucide-react';
 import Link from 'next/link';
 import { apiClient, ApiMaterialResource, ApiMaterialGroup } from '@/lib/api-client';
 import { CategorySortOrder } from './category-sort-order';
@@ -688,7 +688,7 @@ function MaterialGroupSettings({
                 </TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(group)}>
-                    <Edit className="size-3.5" />
+                    <Pencil className="size-3.5" />
                   </Button>
                   <Button
                     variant="ghost"
