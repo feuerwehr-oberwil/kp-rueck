@@ -208,7 +208,7 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
             className="flex w-full items-center gap-2 rounded px-1 py-1 text-left text-xs hover:bg-muted/60"
           >
             {open === 'pickup' ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-            <CarTaxiFront className="size-3.5 text-amber-600 dark:text-amber-400" />
+            <CarTaxiFront className="size-3.5 text-warning-foreground" />
             <span>{t('openPickups', { count: pickups.length })}</span>
           </button>
           <Reveal open={open === 'pickup'}>

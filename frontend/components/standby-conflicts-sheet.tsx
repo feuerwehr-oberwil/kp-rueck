@@ -207,7 +207,7 @@ function ConflictCard({
   return (
     <section
       aria-label={title}
-      className="rounded-lg border border-amber-500/40 bg-amber-50/60 p-3 dark:border-amber-400/30 dark:bg-amber-950/20"
+      className="rounded-lg border border-warning/40 bg-warning/15 p-3"
     >
       <h3 className="mb-2 break-words text-sm font-semibold">{title}</h3>
       {conflict.kind !== 'field' && conflict.row && <SavedRow row={conflict.row} />}

@@ -500,7 +500,7 @@ export function ageChipClass(date: Date): string {
     case "alarm":
       return "text-red-600 dark:text-red-400 font-medium"
     case "warn":
-      return "text-amber-700 dark:text-amber-500 font-medium"
+      return "text-warning-foreground font-medium"
     default:
       return "text-muted-foreground"
   }

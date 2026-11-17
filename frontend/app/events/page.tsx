@@ -801,7 +801,7 @@ export default function EventsPage() {
                   <div className="divide-y overflow-hidden rounded-lg border">
                     {rows.map((row) => (
                       <div key={row.key} className="flex items-baseline gap-2.5 bg-muted/40 p-3 text-sm">
-                        <span className="size-2 shrink-0 self-center rounded-full bg-amber-500" aria-hidden />
+                        <span className="size-2 shrink-0 self-center rounded-full bg-warning" aria-hidden />
                         <span className="min-w-0 flex-1">
                           <span className="font-semibold">{row.label}</span>
                           <span className="block truncate text-xs text-muted-foreground">{row.detail}</span>

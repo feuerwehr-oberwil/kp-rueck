@@ -111,7 +111,7 @@ export function StandbyBand() {
       role="note"
       className={cn(
         'flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-1.5 text-sm',
-        amber ? 'border-amber-500/50 bg-amber-500 text-amber-950' : 'border-border bg-muted text-foreground',
+        amber ? 'border-warning/50 bg-warning text-warning-foreground' : 'border-border bg-muted text-foreground',
       )}
     >
       <span className="shrink-0 text-xs font-extrabold uppercase tracking-[2px]">{label}</span>
@@ -124,7 +124,7 @@ export function StandbyBand() {
         <Button
           size="sm"
           variant="outline"
-          className={cn(amber && 'border-amber-900/40 bg-amber-50 text-amber-950 hover:bg-amber-100')}
+          className={cn(amber && 'border-warning/60 bg-warning/10 text-warning-foreground hover:bg-warning/20')}
           onClick={() => setConflictsOpen(true)}
         >
           {t('conflicts.open', { count: openConflicts })}

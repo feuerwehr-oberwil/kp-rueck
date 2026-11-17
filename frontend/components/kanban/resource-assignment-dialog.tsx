@@ -1092,7 +1092,7 @@ export function ResourceAssignmentDialog({
             <p
               className={cn(
                 "flex items-start gap-1 truncate",
-                driver ? "text-xs text-muted-foreground" : cn(TILE_META, "text-amber-700 dark:text-amber-400"),
+                driver ? "text-xs text-muted-foreground" : cn(TILE_META, "text-warning-foreground"),
               )}
               title={driver ? t('assignmentDialog.vehicleDriver', { name: naming.inline(driver) }) : undefined}
             >

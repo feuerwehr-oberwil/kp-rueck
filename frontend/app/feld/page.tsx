@@ -1595,7 +1595,7 @@ function FeldSurface() {
                   {/* An open Abholung is the one thing on this list that is
                       about the crew rather than the Schadenplatz. */}
                   {assignment.pickup_needed && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning-foreground">
                       <CarTaxiFront className="h-3 w-3" />
                       {tPickup('badge')}
                     </span>

@@ -258,10 +258,10 @@ export function DisponierTransitionDialog({
           </div>
 
           {driverlessVehicles.length > 0 && (
-            <div className="space-y-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
+            <div className="space-y-1.5 rounded-lg border border-warning/40 bg-warning/10 p-3">
               {driverlessVehicles.map((vehicle) => (
                 <div key={vehicle.id} className="flex items-center justify-between gap-2">
-                  <p className="flex min-w-0 items-center gap-1.5 text-sm text-amber-800 dark:text-amber-300">
+                  <p className="flex min-w-0 items-center gap-1.5 text-sm text-warning-foreground">
                     <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
                     <span className="truncate">{t("driverNote.missingNamed", { vehicle: vehicle.name })}</span>
                   </p>

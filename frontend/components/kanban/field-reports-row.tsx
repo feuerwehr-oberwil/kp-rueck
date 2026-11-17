@@ -158,7 +158,7 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
     },
     {
       key: 'pickup',
-      icon: <CarTaxiFront className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />,
+      icon: <CarTaxiFront className="h-3.5 w-3.5 shrink-0 text-warning-foreground" />,
       label: t('pickup'),
       at: operation.pickupRequestedAt,
       on: Boolean(operation.pickupNeeded),

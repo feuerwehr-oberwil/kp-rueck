@@ -438,7 +438,7 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
                 <button
                   type="button"
                   onClick={() => onPickDriver({ resourceId: v.resourceId, name: v.name })}
-                  className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-500/10 dark:text-amber-400"
+                  className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium text-warning-foreground transition-colors hover:bg-warning/10"
                   aria-label={t("driverNote.pickFor", { vehicle: v.name })}
                 >
                   <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden />
@@ -447,7 +447,7 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
                   <span className="underline underline-offset-2">{t("driverNote.pick")}</span>
                 </button>
               ) : (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-warning-foreground">
                   <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden />
                   {t("driverNote.missing")}
                 </span>

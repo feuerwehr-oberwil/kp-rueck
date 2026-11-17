@@ -76,7 +76,7 @@ export function ResourceConflictPrompt() {
         <div className="rounded-lg border bg-muted/30 p-2 text-sm">
           {conflicts.map((conflict) => (
             <div key={conflict.operationId} className="flex items-start gap-2.5 px-1 py-1.5">
-              <ArrowRight className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+              <ArrowRight className="mt-0.5 size-4 shrink-0 text-warning-foreground" aria-hidden="true" />
               <span className="min-w-0">
                 <span className="text-muted-foreground">{t('currentLabel')}: </span>
                 <span className="font-medium text-foreground">{conflict.operationLabel}</span>

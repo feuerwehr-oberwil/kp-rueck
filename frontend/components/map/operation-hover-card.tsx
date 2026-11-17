@@ -40,9 +40,7 @@ const ROUTE_BLOCK: CSSProperties = {
 }
 const ROUTE_TITLE: CSSProperties = { margin: 0, fontSize: 11, fontWeight: 600 }
 /** PickupBadge's amber, as classes: the bubble is in the app's tree, so they reach it. */
-const PICKUP =
-  "mt-[3px] inline-block rounded-sm bg-amber-100 px-[5px] py-px text-2xs font-semibold text-amber-800 " +
-  "dark:bg-amber-900/40 dark:text-amber-300"
+const PICKUP = "mt-[3px] inline-block rounded-sm bg-warning/15 px-[5px] py-px text-2xs font-semibold text-warning-foreground"
 const NOTES: CSSProperties = {
   margin: "3px 0 0",
   fontSize: 11,

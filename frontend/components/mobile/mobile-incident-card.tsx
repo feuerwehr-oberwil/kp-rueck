@@ -210,7 +210,7 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
         )}
         {operation.rekoSummary?.hasDangers && (
           <span className="shrink-0" title={tDetail("dangers")}>
-            <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+            <AlertTriangle className="h-3.5 w-3.5 text-warning-foreground" />
           </span>
         )}
         {/* The one debt that survives completion (image #21): a quiet word, not a pill. */}

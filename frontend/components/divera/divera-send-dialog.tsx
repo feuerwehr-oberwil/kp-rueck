@@ -206,7 +206,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
           {blockedReason && (
             <p
               role="note"
-              className="mb-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm leading-relaxed"
+              className="mb-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm leading-relaxed"
             >
               {blockedReason}
             </p>
