@@ -245,6 +245,8 @@ export interface ApiFeldAssignment {
    *  `group_position` is 0-based; the list numbers the stops from it. */
   group_id: string | null
   group_name: string | null
+  /** The Auftrag's stored colour; drawn through `darkenForWhiteText` like every route. */
+  group_color?: string | null
   group_position: number | null
 }
 

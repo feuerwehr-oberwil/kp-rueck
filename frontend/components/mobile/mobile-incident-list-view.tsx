@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl"
 import Link from "next/link"
 import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { LoadingStatus } from "@/components/ui/shell-loader"
 import { Filter, Plus, Sparkles, X } from "lucide-react"
 import {
@@ -34,6 +33,7 @@ import {
 } from "@/lib/mobile-incident-sort"
 import { MobileIncidentCard } from "./mobile-incident-card"
 import { MobileIncidentDetailSheet } from "./mobile-incident-detail-sheet"
+import { TrainingBadge } from "@/components/training-mode-chrome"
 
 interface MobileIncidentListViewProps {
   operations: Operation[]
@@ -202,7 +202,7 @@ export function MobileIncidentListView({
           <div className="flex items-center gap-2 mb-3 min-w-0">
             <h1 className="text-lg font-bold tracking-tight truncate">{selectedEvent.name}</h1>
             {selectedEvent.training_flag && (
-              <Badge variant="secondary" className="flex-shrink-0">{t('trainingBadge')}</Badge>
+              <TrainingBadge label={t('trainingBadge')} />
             )}
           </div>
         )}
@@ -224,7 +224,7 @@ export function MobileIncidentListView({
 
         {/* Search + ONE funnel (owner, 02.10.2026 — like KP Front's Verlauf): the chip row it
             replaces ran off the right edge at 390px. The funnel is a square that never changes
-            width; an active filter is the slate choice state, and WHAT is ticked is in its name
+            width; an active filter is the selection choice state, and WHAT is ticked is in its name
             and in the line below — never printed on the button. */}
         <div className="flex items-center gap-2">
           <SearchInput

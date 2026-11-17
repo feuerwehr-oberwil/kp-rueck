@@ -11,7 +11,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
-  AlertTriangle,
   Pencil,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -33,6 +32,7 @@ import { Reveal } from '@/components/ui/reveal'
 import { FormMessage, focusFirstBlockingField, formMessageId } from '@/components/ui/form-message'
 import { LinkInvalidCard, LinkPageHeader } from '@/components/link-page/link-page'
 import { usePointerFine } from '@/lib/hooks/use-pointer-fine'
+import { TrainingBadge } from '@/components/training-mode-chrome'
 
 export default function AlarmPage() {
   return (
@@ -63,15 +63,6 @@ function AlarmFrame({ title, eventName, children }: { title: string; eventName: 
   )
 }
 
-/** «Übung» under the header — the mode of the whole Ereignis, said on every screen that sends. */
-function TrainingNote({ label }: { label: string }) {
-  return (
-    <span className="inline-flex items-center gap-2 rounded-sm border border-warning/20 bg-warning/10 px-2 py-1 text-xs text-warning-foreground">
-      <AlertTriangle className="h-3.5 w-3.5" />
-      {label}
-    </span>
-  )
-}
 
 /** The fields «Weiter» can be refused on, in form order — the ids it focuses. */
 const LOCATION_FIELD_ID = 'location_address'
@@ -439,9 +430,9 @@ function ReceiptScreen({
   return (
     <AlarmFrame title={t('title')} eventName={eventName}>
     <div className="space-y-4">
-      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4 text-center">
-        <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/15">
-          <Check className="h-6 w-6 text-emerald-500" />
+      <div className="rounded-lg border border-success/30 bg-success/5 p-4 text-center">
+        <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-success/15">
+          <Check className="h-6 w-6 text-success" />
         </div>
         <h1 className="text-lg font-semibold">{t('receiptTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -683,7 +674,7 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
             <ChevronRight className="size-3" />
             <span className="font-medium text-foreground">{t('review.stepCheck')}</span>
           </p>
-          {trainingFlag && <TrainingNote label={t('trainingMode')} />}
+          {trainingFlag && <TrainingBadge label={t('trainingMode')} />}
         </div>
 
         <div className="overflow-hidden rounded-xl border border-border">
@@ -750,7 +741,7 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
       }}
       className="space-y-6"
     >
-      {trainingFlag && <TrainingNote label={t('trainingMode')} />}
+      {trainingFlag && <TrainingBadge label={t('trainingMode')} />}
 
       {/* Location — first, so the address isn't repeated in the message */}
       <LocationInput

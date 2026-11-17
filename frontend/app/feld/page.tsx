@@ -15,11 +15,12 @@
  */
 
 import { SearchEmptyState } from "@/components/ui/empty-state"
-import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { Suspense, useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react'
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, Binoculars, CarTaxiFront, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, MessageSquare, MonitorCog, Navigation, Phone, Plus, Truck, User, Waypoints } from 'lucide-react'
+import { auftragColor } from '@/lib/kanban-utils'
 
 import {
   apiClient,
@@ -176,15 +177,10 @@ function SourceLabel({ assignment }: { assignment: ApiFeldAssignment }) {
       ? t('driver', { vehicle: assignment.source_vehicle ?? '' })
       : t(assignment.source)
 
-  const tone =
-    assignment.source === 'driver'
-      ? 'bg-info/15 text-info'
-      : assignment.source === 'reko'
-        ? 'bg-warning/15 text-warning'
-        : 'bg-muted text-muted-foreground'
-
+  // Every source is a FACT, so every tag is the same muted chip (COL-08): blue is an
+  // Auftrag's colour and amber «schau hin» – on this page that is «kein Rapport».
   return (
-    <span className={`inline-flex shrink-0 items-center rounded-sm px-2 py-0.5 text-[11px] font-medium ${tone}`}>
+    <span className="inline-flex shrink-0 items-center rounded-sm bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
       {label}
     </span>
   )
@@ -224,7 +220,7 @@ function RapportStateChip({ state }: { state: ApiFeldAssignment['rapport_state']
   const t = useTranslations('feld.rapportState')
   const styles: Record<ApiFeldAssignment['rapport_state'], string> = {
     none: 'bg-warning/20 text-warning-foreground',
-    draft: 'border border-warning/50 text-warning',
+    draft: 'border border-warning/50 text-warning-foreground',
     submitted: 'bg-success/15 text-success',
   }
   return (
@@ -1473,6 +1469,7 @@ function FeldSurface() {
             const isCurrentStop = auftragCount > 1 && currentStopId === assignment.incident_id
             const isLaterStop = auftragCount > 1 && live && currentStopId !== undefined && !isCurrentStop
             const rowNavigateUrl = navigationUrl(assignment)
+            const stopColor = assignment.group_id ? auftragColor(assignment.group_id, assignment.group_color) : undefined
             const kpMessages = assignment.kp_messages ?? []
             const lastKpMessage = kpMessages.length > 0 ? kpMessages[kpMessages.length - 1] : null
             return (
@@ -1484,7 +1481,7 @@ function FeldSurface() {
               )}
               {startsAuftrag && (
                 <div className="mb-2 mt-4 flex items-center gap-2">
-                  <Waypoints className="h-3.5 w-3.5 shrink-0 text-info" />
+                  <Waypoints className="h-3.5 w-3.5 shrink-0" style={{ color: stopColor }} />
                   <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     {t('assignments.auftrag', {
                       name: assignment.group_name ?? '',
@@ -1502,8 +1499,10 @@ function FeldSurface() {
                     ? 'bg-secondary/50 hover:bg-secondary'
                     : 'bg-muted/30 hover:bg-muted/50'
                 } ${settled ? 'opacity-60 hover:opacity-100' : ''} ${
-                  isCurrentStop ? 'ring-1 ring-info/40' : ''
+                  isCurrentStop ? 'ring-2' : ''
                 } ${isLaterStop ? 'opacity-60 hover:opacity-100' : ''}`}
+                // The route's own colour (COL-04): a crew on the teal Auftrag sees teal, as on the map.
+                style={isCurrentStop && stopColor ? ({ '--tw-ring-color': stopColor } as CSSProperties) : undefined}
               >
                 {/* Address first, Meldung underneath — the same order the detail
                     view and the board's own cards use. A crew standing on a
@@ -1518,9 +1517,8 @@ function FeldSurface() {
                         a coincidence — it says what to drive to next. */}
                     {startsAuftrag || (auftragCount > 1 && assignment.group_position !== null) ? (
                       <span
-                        className={`mt-0.5 inline-grid size-5 shrink-0 place-items-center rounded-full text-[11px] font-bold ${
-                          isLaterStop ? 'bg-info/25 text-info' : 'bg-info text-white'
-                        }`}
+                        className="mt-0.5 inline-grid size-5 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white"
+                        style={{ backgroundColor: stopColor }}
                       >
                         {(assignment.group_position ?? 0) + 1}
                       </span>

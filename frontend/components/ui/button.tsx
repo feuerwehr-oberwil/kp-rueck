@@ -28,7 +28,7 @@ const buttonVariants = cva(
           'hover:bg-muted hover:text-foreground',
         link: 'text-foreground underline underline-offset-4 hover:decoration-2',
         // The CHOSEN option of a choice — filter pill, segmented toggle, the
-        // current status. Tonal slate («A2»), never a fill: a filled button
+        // current status. Tonal («A2», KP Front's blue since XAPP-06 B), never a fill: a filled button
         // reads as an action, and red means priority/danger on this board.
         // Pair it with `outline` for the unchosen options (same 1px border, so
         // nothing shifts) and set `aria-pressed` / `aria-current` alongside.

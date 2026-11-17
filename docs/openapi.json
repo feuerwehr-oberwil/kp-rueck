@@ -23887,6 +23887,17 @@
             ],
             "title": "Group Name"
           },
+          "group_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Color"
+          },
           "group_position": {
             "anyOf": [
               {

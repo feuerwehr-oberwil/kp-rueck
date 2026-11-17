@@ -21,7 +21,7 @@ import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { DraggableMaterial } from "@/components/kanban/draggable-material"
 import { isNavigableBinding, shortDate, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
 import type { Material } from "@/lib/contexts/operations-context"
-import { materialResourceState, RESOURCE_STATE_DOT_CLASSES, type ResourceSummary } from "@/lib/resource-status"
+import { materialResourceState, RESOURCE_FREE_TEXT_CLASS, RESOURCE_STATE_DOT_CLASSES, type ResourceSummary } from "@/lib/resource-status"
 import { cn } from "@/lib/utils"
 import { LoadingStatus } from "@/components/ui/shell-loader"
 
@@ -92,7 +92,7 @@ export function SidebarEmpty({
  * check glyph is the same one the resource cards use for "verfügbar", so the
  * button reads as "keep the available ones" rather than as a generic funnel.
  *
- * ON is the slate «selected» state every other filter uses, not green: a
+ * ON is the tonal «selected» state every other filter uses, not green: a
  * toggled filter is a choice, and selection looks the same everywhere. Green
  * stays with the availability dots and badges themselves (CLAUDE.md → Colour
  * roles).
@@ -137,7 +137,7 @@ export function SidebarCounter({ summary }: { summary: ResourceSummary }) {
   return (
     <div className="flex items-center justify-center gap-2 text-xs">
       <span className="inline-flex items-center gap-1">
-        <span className="inline-flex items-center gap-1 type-caption text-emerald-700 dark:text-emerald-400">
+        <span className={cn("inline-flex items-center gap-1 type-caption", RESOURCE_FREE_TEXT_CLASS)}>
           <Check className="size-3.5" />
           {t("rosterFree", { count: summary.free })}
         </span>

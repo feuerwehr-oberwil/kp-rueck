@@ -9,8 +9,11 @@ import { STATUS_GROUP_BORDER_STYLE, type StatusGroup } from "./types/incidents"
  * scatter raw hex values across half a dozen files, we keep them here and
  * reference by name.
  *
- * `info` / `offline` are DEVICE state, not incident state — "is this vehicle
- * reporting?"; `station` is the ink of the two fixed places (firestation, Magazin).
+ * `live` / `offline` are DEVICE state, not incident state — "is this vehicle
+ * reporting?"; `ink` is every mark that is a THING rather than a state: the two
+ * fixed places (firestation, Magazin), a reporting vehicle's label, its GPS trail,
+ * the vehicle → Einsatz line, the priority glyph and the status frame. Blue is
+ * an Auftrag's colour and nothing else on the map (sweep 17.11., COL-04 A).
  * Status and priority marker fills come from `PRIORITY_MARKER_COLORS` below
  * and `INCIDENT_TYPE_MARKER_COLORS` further down; the table used to also
  * carry `destructive` / `warning` / `success` mirrors of the semantic tokens,
@@ -18,16 +21,22 @@ import { STATUS_GROUP_BORDER_STYLE, type StatusGroup } from "./types/incidents"
  * incident-type hues they duplicated.
  */
 
+/** THE map ink (slate-800): a thing, not a state, so no hue (hill climb r18, COL-09). It
+ *  holds white text (14:1) and reads on the light basemap and the dimmed night one alike. */
+export const MAP_INK = "#1e293b"
+
+/** THE «nothing here» grey: an incident with no value in the «Färben nach» dimension, a pin
+ *  in no Auftrag in the pickers. One grey for one meaning (COL-09) – lighter than `offline`. */
+export const MAP_NONE = "#9ca3af"
+
 export const MAP_COLORS = {
-  /** Same hue as `--info`. Used for selected/highlighted markers + GPS-online dots, and as
-   *  the fill under the white vehicle labels – hence blue-600, not 500 (3.7:1 under white;
-   *  600 holds 5.2:1). */
-  info: "#2563eb",
-  /** Tailwind gray-500 — used as the "offline / no signal" marker fill. */
+  /** The «sendet» dot on a reporting vehicle's ink label (emerald-500 = `--free`): a live
+   *  device, told by its SHAPE – a dot on the label – not by a hue on the whole pill. */
+  live: "#10b981",
+  /** Tailwind gray-500 — the "offline / no signal" frame of a vehicle pill. */
   offline: "#6b7280",
-  /** Slate-800 ink under the white ⌂ of the firestation and the Magazin: a PLACE, not a state,
-   *  so no hue – blue means an Auftrag (and a reporting vehicle), red priority (hill climb r18). */
-  station: "#1e293b",
+  /** Under the white ⌂ of the firestation and the Magazin: a PLACE, not a state. */
+  station: MAP_INK,
 } as const
 
 /**
@@ -48,12 +57,12 @@ export const MAP_COLORS = {
  * `fillR = r - fillInset` is the fill circle; its white `halo` stroke is centred on that edge, so
  * the visible core is `2·fillR - halo` and the gap is `halo` wide when `fillInset = width + halo/2`.
  *
- * `color` is for frames ON the basemap (light by day, the dimmed mid grey at night – gray-700
- * reads on both). The legend sits on the card instead, where gray-700 vanished in dark mode
+ * `color` is for frames ON the basemap (light by day, the dimmed mid grey at night – the map
+ * ink reads on both). The legend sits on the card instead, where gray-700 vanished in dark mode
  * (hill climb r2): it strokes its samples with the `--muted-foreground` token.
  */
 export const STATUS_RING = {
-  color: "#374151",
+  color: MAP_INK,
   width: 2,
   desktop: { size: 32, highlightedSize: 36, width: 2, fillInset: 3, halo: 2 },
   phone: { size: 32, highlightedSize: 36, width: 3, fillInset: 4, halo: 2, dashes: 8, dots: 12 },
@@ -101,7 +110,7 @@ export function incidentPinRings(size: number, compact: boolean, group: StatusGr
  * Map from incident priority → marker fill color. Re-exported from
  * `lib/priority.ts` rather than restated, so the board, the display wall, the
  * print view and the map cannot drift: high = red, medium = amber, low =
- * emerald. Mutually exclusive with `INCIDENT_TYPE_MARKER_COLORS` — a marker
+ * light slate. Mutually exclusive with `INCIDENT_TYPE_MARKER_COLORS` — a marker
  * is filled by priority or by Einsatzart, never by both, and the legend says
  * which is active.
  */
@@ -119,6 +128,12 @@ export const PRIORITY_MARKER_COLORS: Record<"high" | "medium" | "low", string> =
  *   · Strassenrettung green, Dienstleistungen violet.
  *
  * Only used when «Färben nach → Einsatzart» is chosen; priority stays the default colouring.
+ *
+ * THE ONE EXCEPTION to the colour roles (owner, 17.11.2026, COL-11 A): these hues follow the
+ * hazard and were agreed with the Kommandant before the roles, so Brand is red like Hoch,
+ * Strassenrettung green like frei, Dienstleistungen violet like Reko, Strahlenwehr fuchsia like
+ * Im Einsatz. Allowed because it is map-only, opt-in and always drawn with its legend
+ * (docs/DESIGN.md → Colour roles).
  */
 export const INCIDENT_TYPE_MARKER_COLORS: Record<string, string> = {
   brandbekaempfung: "#ef4444",        // red-500
@@ -144,16 +159,27 @@ export const INCIDENT_TYPE_MARKER_COLORS: Record<string, string> = {
  *
  * Hues the board does not already speak: not red (Hoch), amber (Mittel), green
  * (frei), violet (Reko) or fuchsia (Im Einsatz) – a green route read as «frei»
- * on the wall (sweep 2026-10, VISUAL-13). Blue, cyan, lime, indigo, brown, teal.
+ * on the wall (sweep 2026-10, VISUAL-13). Petrol, cyan, lime, indigo, brown, teal.
+ * Not the saturated blue either: since XAPP-06 B that is «ausgewählt» (`--sel`),
+ * so the first swatch moved from #2c72e5 to petrol for NEW Aufträge (17.11.2026).
+ * Stored colours are left alone – an old blue route keeps its blue.
  *
  * Dark enough for the white stop numbers on the route pins and the Routenplanung
  * timeline (≥ 4.5:1, owner 08.11.2026 «Darker route colours»): each is
- * `darkenForWhiteText` of the lighter swatch it replaced (blue-500, cyan-500,
- * lime-500, indigo-500, yellow-700, teal-500). A route keeps the colour it was
- * stored with, and those older ones are drawn through the same function – so an
- * old blue route looks exactly like a new one.
+ * `darkenForWhiteText` of the lighter swatch it replaced (cyan-500, lime-500,
+ * indigo-500, yellow-700, teal-500). A route keeps the colour it was stored with,
+ * and those older ones are drawn through the same function.
  */
-export const AUFTRAG_SWATCHES = ["#2c72e5", "#008299", "#528400", "#6365f0", "#a16207", "#008578"] as const
+export const AUFTRAG_SWATCHES = ["#0e6680", "#008299", "#528400", "#6365f0", "#a16207", "#008578"] as const
+
+/**
+ * «Färben nach Reko / Fahrzeug» (and a route stored without a colour): a hashed hue from the
+ * Auftrag family widened to ten (owner, 17.11.2026, ENT-05 B) – the six swatches, the first
+ * swatch's old blue, and three more tones that speak no role: steel blue, olive, sand brown.
+ * A storm evening rarely has more than ten Reko people or vehicles; every tone holds white text.
+ * The table it replaced hashed into red, green, violet and pink – a Reko person came out «Hoch».
+ */
+export const GROUP_PALETTE = [...AUFTRAG_SWATCHES, "#2c72e5", "#4b6a88", "#6b6b1f", "#7c5a3a"] as const
 
 // --- Darker for white text ------------------------------------------------
 

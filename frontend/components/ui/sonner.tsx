@@ -18,7 +18,7 @@ installToastLifetime()
 /**
  * ONE message surface (KP Front's rule, 25.09.2026): every toast is the same
  * neutral card; the tone lives only in the glyph it leads with (success green,
- * info slate, warning amber, error red). The single exception is a failure,
+ * info muted, warning amber, error red). The single exception is a failure,
  * which keeps a light red trace in the card itself so it never reads like «done».
  *
  * `unstyled`, not more classes on top: sonner injects its stylesheet as plain
@@ -50,7 +50,7 @@ const TOAST_CLASSNAMES: NonNullable<ToasterProps['toastOptions']>['classNames'] 
     // tap target edge to edge (NotificationToasts), and its buttons sit above that
     'relative z-raised ml-auto inline-flex shrink-0 items-center rounded-md bg-muted px-3 h-9 max-md:h-11',
     'max-w-[min(240px,60vw)] whitespace-normal text-left text-sm font-semibold text-foreground',
-    'cursor-pointer hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring',
+    'cursor-pointer hover:bg-foreground/[0.12] outline-none focus-visible:ring-2 focus-visible:ring-ring',
   ),
   cancelButton: cn(
     'relative z-raised ml-auto inline-flex shrink-0 items-center rounded-md px-3 h-9 max-md:h-11',
@@ -72,7 +72,7 @@ const TOAST_CLASSNAMES: NonNullable<ToasterProps['toastOptions']>['classNames'] 
   loading: 'bg-popover',
   success: 'bg-popover [&_[data-icon]]:text-success',
   info: 'bg-popover [&_[data-icon]]:text-muted-foreground',
-  warning: 'bg-popover [&_[data-icon]]:text-warning dark:[&_[data-icon]]:text-warning-foreground',
+  warning: 'bg-popover [&_[data-icon]]:text-warning',
   // … except a failure, the one card with a trace of red in it
   error: cn(
     '[&_[data-icon]]:text-destructive border-destructive/30',

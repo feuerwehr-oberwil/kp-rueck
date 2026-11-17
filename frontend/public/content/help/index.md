@@ -31,7 +31,7 @@ Geografische Übersicht aller Einsatzorte. Die Marker zeigen die Priorität (Gra
 **Kartenlegende:**
 - **Priorität (Füllung):** Grau=Niedrig, Gelb=Mittel, Rot=Hoch
 - **Status (Rahmen):** Gestrichelt=Offen, Durchgezogen=Aktiv, Gepunktet+Verblasst=Rückfahrt & Abgeschlossen
-- **Fahrzeuge (GPS):** eine Pille pro Standort. Blau gefüllt = online, hohl und grau gestrichelt = offline. Mehrere am selben Ort teilen eine Pille («6 Fahrzeuge | 4 offline»). Die Uhrzeit der letzten Meldung steht auf der Pille erst, wenn sie älter ist als unter Einstellungen → GPS eingestellt (Standard 10'); Darüberfahren oder Antippen zeigt die Liste mit jedem Fahrzeug. Liegt eine Pille auf einem Einsatz-Marker, weicht sie aus – eine dünne Linie führt zum Punkt, wo das Fahrzeug wirklich steht. Zuweisungslinien gehen nur von Fahrzeugen aus, die online sind.
+- **Fahrzeuge (GPS):** eine Pille pro Standort. Dunkel mit grünem Punkt = online (sendet), hohl und grau gestrichelt = offline. Mehrere am selben Ort teilen eine Pille («6 Fahrzeuge | 4 offline»). Die Uhrzeit der letzten Meldung steht auf der Pille erst, wenn sie älter ist als unter Einstellungen → GPS eingestellt (Standard 10'); Darüberfahren oder Antippen zeigt die Liste mit jedem Fahrzeug. Liegt eine Pille auf einem Einsatz-Marker, weicht sie aus – eine dünne Linie führt zum Punkt, wo das Fahrzeug wirklich steht. Zuweisungslinien gehen nur von Fahrzeugen aus, die online sind.
 - **Marker mit Zahl:** mehrere Einsätze an derselben Adresse – ein Marker im Aussehen des dringendsten, eine Beschriftung mit allen Nummern («6 · 7 · 9 Bahnhofstrasse 1»). Darüberfahren oder Klick zeigt die Liste; ein Klick auf eine Zeile wählt diesen Einsatz, ein Doppelklick öffnet ihn.
 - **Blase mit Zahl:** mehrere Einsätze, deren Marker sich überdecken; Marke und Rahmen des dringendsten (höchste Priorität). Klick oder Antippen zoomt auf die Gruppe. Ab Strassen-Zoom stehen die Marker wieder einzeln.
 
@@ -172,7 +172,7 @@ Jede Karte zeigt: Nummer (klein vor der Adresse), Adresse, Typ, zugewiesene Ress
 | Stufe | Badge (Karte) | Marker (Karte) | Shortcut |
 |-------|---------------|----------------|----------|
 | Niedrig | Grau | Grau | `Shift+1` |
-| Mittel | Orange | Gelb | `Shift+2` |
+| Mittel | Orange | Orange | `Shift+2` |
 | Hoch | Rot | Rot | `Shift+3` |
 
 ### Alters-Indikatoren
@@ -189,7 +189,7 @@ Bei Einsätzen mit Unterstützung einer Nachbarfeuerwehr kann «Nachbarhilfe» a
 
 ### Telefon / Laufkundschaft-Abzeichen
 
-Alarme, die über den [Alarm-Link](#alarm-link-telefon-laufkundschaft) erfasst wurden, zeigen oben rechts ein blaues **Telefon-Symbol** (in einer Reihe mit den übrigen Status-Symbolen). Es markiert Meldungen aus ungeprüfter Quelle, die von der Einsatzleitung verifiziert werden sollten.
+Alarme, die über den [Alarm-Link](#alarm-link-telefon-laufkundschaft) erfasst wurden, zeigen oben rechts ein **Telefon-Symbol** (in einer Reihe mit den übrigen Status-Symbolen). Es markiert Meldungen aus ungeprüfter Quelle, die von der Einsatzleitung verifiziert werden sollten.
 
 ### Ansicht – was auf den Karten steht
 
@@ -454,7 +454,7 @@ korrigiert, nicht ergänzt).
 **«Telefonisch gemeldet».** Im Dialog *Neuer Einsatz* in der Zeile **Merkmale** ganz unten (nach
 Kontakt/Melder und Telefonnummer) – und nachträglich im Einsatz-Detail, in derselben Zeile, korrigierbar, weil die realistische Reihenfolge
 «erst eintippen, dann merken, dass es ein Anruf war» ist. Der Einsatz bekommt
-dasselbe blaue [Telefon-Abzeichen](#telefon-laufkundschaft-abzeichen) wie eine Meldung
+dasselbe [Telefon-Abzeichen](#telefon-laufkundschaft-abzeichen) wie eine Meldung
 über den Alarm-Link.
 
 **Woran man sieht, welcher Weg es war.** Gedruckte und exportierte Unterlagen
@@ -816,7 +816,7 @@ Für Personen, die einen Alarm **erfassen** sollen, ohne Login und ohne Kenntnis
 
 **Benutzen:** Wer den Link öffnet, sieht ein schlankes, mobil-optimiertes Formular und kann damit beliebig viele Alarme erfassen – kein Login nötig. Reihenfolge der Felder: zuerst der **Standort** (mit Adresssuche), dann die **Meldung** (was gemeldet wurde – die Adresse steht ja schon oben, also nicht doppelt eingeben), die **Priorität** als drei Schnellauswahl-Tasten (Niedrig / Mittel / Hoch), Einsatzart, weitere Hinweise und Melder/Anrufer.
 
-**Auf dem Board:** So erfasste Alarme landen in der Spalte «Eingegangen» und tragen ein blaues **«Telefon»-Abzeichen** – damit die Einsatzleitung erkennt, dass die Meldung von einer ungeprüften Quelle stammt, und sie prüfen kann. Adresse und Standort werden direkt mitgeschickt.
+**Auf dem Board:** So erfasste Alarme landen in der Spalte «Eingegangen» und tragen ein **«Telefon»-Abzeichen** – damit die Einsatzleitung erkennt, dass die Meldung von einer ungeprüften Quelle stammt, und sie prüfen kann. Adresse und Standort werden direkt mitgeschickt.
 
 > Der Link erlaubt nur das **Anlegen** von Alarmen (kein Lesen/Bearbeiten) und ist durch ein striktes Anfragelimit geschützt. Da er 30 Tage gültig ist: nur an vertrauenswürdige Stellen weitergeben.
 

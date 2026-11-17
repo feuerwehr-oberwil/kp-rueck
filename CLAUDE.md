@@ -359,13 +359,21 @@ Users, brand, aesthetic, the full colour roles and the reasoning behind every ru
 - **Desktop with mouse and keyboard is the brief.** Dense targets, power-user shortcuts; a phone
   views (an editor may spawn training incidents), tablets are KP Front's. Sizes follow the button
   scale in `frontend/components/ui/button.tsx`.
-- **Colour roles – one colour, one meaning** (tokens in `frontend/app/globals.css`):
-  - selection = slate, tonal, never a fill (`<Button variant="selected">`, `sel-choice`, `--sel*`);
+- **Colour roles – one colour, one meaning** (tokens in `frontend/app/globals.css`; the full map
+  in DESIGN.md «Colour roles», held by `lib/colour-roles.test.ts`):
+  - selection = KP Front's blue hue, tonal, never a fill (`<Button variant="selected">`,
+    `sel-choice`, `--sel*`); focus = the same blue (`--ring`), never red;
+  - «this one» (Spotlight, wall highlight, map highlight, a jump) = the `this-one-ring` ink ring;
   - red = priority and danger only, never an action (`destructive` is a red outline);
-  - green = frei / verfügbar on availability dots and badges only (Niedrig is grey);
-  - focus = slate (`--ring`), never red;
+  - priority = `--prio-high/-medium/-low` (+ the test-pinned `PRIORITY_COLORS` hex mirror);
+  - green = frei (`--free`, only via `RESOURCE_STATE_*`) and ✓ bestätigt (`success`, always with
+    ✓ or a word); Niedrig is grey;
+  - blue as a colour = an Auftrag, drawn in its own swatch (`auftragColor`); no «info» blue; map
+    things are `MAP_INK`;
+  - Übung = the hatched ink `TrainingBadge` / `TrainingBand`, no hue;
   - status colour only where crews are out: Reko violet, Im Einsatz fuchsia, every other status
-    grey (`STATUS_ACCENT`); column header lines are the status key, cards don't repeat it.
+    grey (`STATUS_ACCENT`); column header lines are the status key, cards don't repeat it;
+  - no raw palette class or colour literal outside the allowed tables, no `hsl(var(--…))`.
 - **Main button = ink** (`<Button>` default), one per surface.
 - **Type**: Sora (`font-sans`) and Spline Sans Mono (`font-mono`) only.
 - **Corners**: `rounded-md`/`-lg`/`-xl` are all 12px; controls under 32px tall use `rounded-sm`

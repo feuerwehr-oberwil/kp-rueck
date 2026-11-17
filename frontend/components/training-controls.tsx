@@ -300,7 +300,7 @@ export function TrainingControls() {
       <CardHeader>
         <div>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-orange-600" />
+            <Sparkles className="h-5 w-5 text-muted-foreground" />
             {t('common.title')}
           </CardTitle>
           <CardDescription>
@@ -328,7 +328,7 @@ export function TrainingControls() {
               variant="outline"
               className="w-full min-w-0 text-xs sm:text-sm"
             >
-              <Droplet className="size-3.5 text-blue-600 sm:size-4" />
+              <Droplet className="size-3.5 text-muted-foreground sm:size-4" />
               <span className="truncate">{t('controls.normal')}</span>
             </Button>
             <Button
@@ -337,7 +337,7 @@ export function TrainingControls() {
               variant="outline"
               className="w-full min-w-0 text-xs sm:text-sm"
             >
-              <Flame className="size-3.5 text-red-600 sm:size-4" />
+              <Flame className="size-3.5 text-destructive sm:size-4" />
               <span className="truncate">{t('controls.critical')}</span>
             </Button>
             <Button
@@ -346,7 +346,7 @@ export function TrainingControls() {
               variant="outline"
               className="w-full min-w-0 text-xs sm:text-sm"
             >
-              <Phone className="size-3.5 text-sky-600 sm:size-4" />
+              <Phone className="size-3.5 text-muted-foreground sm:size-4" />
               <span className="truncate">{t('controls.phoneAlarm')}</span>
             </Button>
           </div>
@@ -366,9 +366,9 @@ export function TrainingControls() {
                   <SelectItem key={t.id} value={t.id}>
                     <span className="flex items-center gap-2">
                       {t.category === 'critical' ? (
-                        <Flame className="h-3.5 w-3.5 text-red-600" />
+                        <Flame className="h-3.5 w-3.5 text-destructive" />
                       ) : (
-                        <Droplet className="h-3.5 w-3.5 text-blue-600" />
+                        <Droplet className="h-3.5 w-3.5 text-muted-foreground" />
                       )}
                       {t.title_pattern}
                     </span>
@@ -458,7 +458,7 @@ export function TrainingControls() {
         <SettingGroup
           title={
             <span className="flex items-center gap-2">
-              <Timer className="h-4 w-4 text-emerald-600" />
+              <Timer className="h-4 w-4 text-muted-foreground" />
               {t('autogen.title')}
             </span>
           }

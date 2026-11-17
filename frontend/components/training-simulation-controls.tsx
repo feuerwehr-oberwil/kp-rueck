@@ -435,7 +435,7 @@ export function TrainingSimulationControls() {
       <CardHeader>
         <div>
           <CardTitle className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-purple-600" />
+            <Bot className="h-5 w-5 text-muted-foreground" />
             {t('title')}
           </CardTitle>
           <CardDescription>
@@ -508,7 +508,7 @@ export function TrainingSimulationControls() {
                         due
                           ? 'border-warning/70 bg-warning/10'
                           : anyRolling
-                            ? 'border-purple-400/70 bg-purple-50/60 dark:bg-purple-950/30'
+                            ? 'border-foreground/40'
                             : 'border-border'
                       }`}
                     >
@@ -522,7 +522,7 @@ export function TrainingSimulationControls() {
                           {/* The "beendet" report lives ONLY here — the board is
                               informed in the exercise itself (e.g. via radio). */}
                           {op.fieldCompleteReportedAt && op.status === 'active' && (
-                            <span className="text-emerald-700 dark:text-emerald-400"> · {t('fieldComplete')}</span>
+                            <span className="text-success"> · {t('fieldComplete')}</span>
                           )}
                         </div>
                       </div>
@@ -537,9 +537,9 @@ export function TrainingSimulationControls() {
                           return (
                             <div key={action.key} className="flex-shrink-0 text-xs text-muted-foreground">
                               {slowest.kind === 'magazin' ? (
-                                <Home className="mr-1 inline h-3.5 w-3.5 text-purple-600" />
+                                <Home className="mr-1 inline h-3.5 w-3.5" />
                               ) : (
-                                <Truck className="mr-1 inline h-3.5 w-3.5 text-purple-600" />
+                                <Truck className="mr-1 inline h-3.5 w-3.5" />
                               )}
                               {Math.round(live.progress * 100)}% · {formatEta(live.eta)}
                             </div>
@@ -590,14 +590,14 @@ export function TrainingSimulationControls() {
                           <DropdownMenuLabel>{t('inject')}</DropdownMenuLabel>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => handleInject(op, 'escalate')}>
-                            <AlertTriangle className="mr-2 h-4 w-4 flex-shrink-0 text-red-600" />
+                            <AlertTriangle className="mr-2 h-4 w-4 flex-shrink-0 text-destructive" />
                             <span className="min-w-0">
                               <span className="block">{t('injectEscalate')}</span>
                               <span className="block text-xs text-muted-foreground">{t('injectEscalateDesc')}</span>
                             </span>
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleInject(op, 'reinforcement')}>
-                            <Megaphone className="mr-2 h-4 w-4 flex-shrink-0 text-warning-foreground" />
+                            <Megaphone className="mr-2 h-4 w-4 flex-shrink-0" />
                             <span className="min-w-0">
                               <span className="block">{t('injectReinforcement')}</span>
                               <span className="block text-xs text-muted-foreground">{t('injectReinforcementDesc')}</span>
@@ -623,21 +623,21 @@ export function TrainingSimulationControls() {
                             onClick={() => handleInject(op, 'arrived')}
                             disabled={op.fieldArrivedAt != null}
                           >
-                            <MapPinCheck className="mr-2 h-4 w-4 flex-shrink-0 text-emerald-600" />
+                            <MapPinCheck className="mr-2 h-4 w-4 flex-shrink-0" />
                             <span className="min-w-0">
                               <span className="block">{t('injectArrived')}</span>
                               <span className="block text-xs text-muted-foreground">{t('injectArrivedDesc')}</span>
                             </span>
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleInject(op, 'rapport')}>
-                            <ClipboardCheck className="mr-2 h-4 w-4 flex-shrink-0 text-emerald-600" />
+                            <ClipboardCheck className="mr-2 h-4 w-4 flex-shrink-0" />
                             <span className="min-w-0">
                               <span className="block">{t('injectRapport')}</span>
                               <span className="block text-xs text-muted-foreground">{t('injectRapportDesc')}</span>
                             </span>
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleInject(op, 'fieldMessage')}>
-                            <MessageSquare className="mr-2 h-4 w-4 flex-shrink-0 text-blue-600" />
+                            <MessageSquare className="mr-2 h-4 w-4 flex-shrink-0" />
                             <span className="min-w-0">
                               <span className="block">{t('injectFieldMessage')}</span>
                               <span className="block text-xs text-muted-foreground">{t('injectFieldMessageDesc')}</span>
@@ -647,7 +647,7 @@ export function TrainingSimulationControls() {
                               still have three people standing in the rain — and
                               the lift arriving is a report of its own. */}
                           <DropdownMenuItem onClick={() => handleInject(op, 'pickup')}>
-                            <CarTaxiFront className="mr-2 h-4 w-4 flex-shrink-0 text-warning-foreground" />
+                            <CarTaxiFront className="mr-2 h-4 w-4 flex-shrink-0" />
                             <span className="min-w-0">
                               <span className="block">
                                 {op.pickupNeeded ? t('injectPickupDone') : t('injectPickupNeeded')}

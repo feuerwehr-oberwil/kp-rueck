@@ -44,6 +44,7 @@ from reportlab.platypus import (
 
 from ..models import Incident, IncidentAssignment, SchadenplatzReport
 from ..schemas.journal import JournalEntryOut
+from . import paper_palette as paper
 from .address_display import format_location_for_display
 from .audit_export_service import EventReportData
 from .incident_leader import effective_leader_ids
@@ -88,18 +89,17 @@ _PAGE_MARGIN = 18 * mm
 _FRAME_PADDING = 6
 _CONTENT_W = A4[0] - 2 * _PAGE_MARGIN - 2 * _FRAME_PADDING
 
-# Palette, shared with the KP-Front Einsatzrapport (`backend/app/report_pdf.py`) so the
-# two documents a station files for one night look like they come from one house. The
-# saturated red that used to fill every table head is gone: on a page that is mostly
+# Palette: the one paper palette (`paper_palette`), shared with the KP-Front Einsatzrapport.
+# The saturated red that used to fill every table head is gone: on a page that is mostly
 # tables it was three alarm-coloured bands per sheet, which is decoration where the
 # document needs hierarchy. The one warm accent left is the ÜBUNG marker, which is the
 # only thing on the paper that genuinely has to shout.
-_INK = colors.HexColor("#1b2330")  # headings and body text
-_DIM = colors.HexColor("#5b6573")  # secondary text, column heads, filing lines
-_PANEL = colors.HexColor("#eef2f7")  # table heads and label columns
-_GRID = colors.HexColor("#d7dde5")  # hairlines
-_ZEBRA = colors.HexColor("#f7f9fb")  # alternating rows – our tables run for pages
-_EXERCISE = colors.HexColor("#b4690a")  # ÜBUNG marker
+_INK = paper.INK
+_DIM = paper.DIM
+_PANEL = paper.PANEL
+_GRID = paper.GRID
+_ZEBRA = paper.ZEBRA
+_EXERCISE = paper.EXERCISE
 
 #: Width of the label column every label/value line aligns on.
 #:
@@ -171,7 +171,7 @@ class NumberedCanvas:
         width = A4[0]
         y = 10 * mm
         self._canvas.setFont("Helvetica", 8)
-        self._canvas.setFillColor(colors.HexColor("#71717a"))
+        self._canvas.setFillColor(_DIM)
         # Left: event name + generation date
         left = self._footer_left
         if self._footer_date:

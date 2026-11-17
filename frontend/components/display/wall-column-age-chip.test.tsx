@@ -39,11 +39,11 @@ describe('WallColumnAgeChip', () => {
     const chip = screen.getByLabelText(/2 überfällig: Strasse a, Strasse b/)
     expect(chip).toHaveTextContent("2 ≥ 60'")
     expect(chip.className).toMatch(/warning/)
-    expect(chip.className).not.toMatch(/red/)
+    expect(chip.className).not.toMatch(/destructive/)
   })
 
   it('turns red only once one of them is past 120\'', () => {
     renderWithIntl(<WallColumnAgeChip operations={[op('a', 70), op('b', 125)]} />)
-    expect(screen.getByLabelText(/überfällig/).className).toMatch(/red/)
+    expect(screen.getByLabelText(/überfällig/).className).toMatch(/text-destructive/)
   })
 })

@@ -23,7 +23,7 @@ import type {
  *
  * `#14 Bachweg 3 ← TLF · Muster Peter · → Im Einsatz` for a dispatch; the one
  * chip for a jump or an open; and every typed word that did not count, greyed.
- * Neutral chips — slate/red keep their meanings (CLAUDE.md → Colour roles); only
+ * Neutral chips — selection blue/red keep their meanings (CLAUDE.md → Colour roles); only
  * the status chip carries its column's tint, the same chip the dialogs use, and
  * the priority its own icon colour.
  */

@@ -6,7 +6,8 @@
  * as orange on the display board but amber in the mobile sheets, and every
  * view hand-rolled its own emerald/amber/orange class strings. One table now,
  * read everywhere: available = green filled dot, assigned (gebunden) = hollow ink
- * ring, out = faint grey.
+ * ring, out = faint grey. The green is the `--free` token (app/globals.css) and this
+ * module is the only place that reads it.
  *
  * Gebunden is a FACT, not a «schau hin»: amber is kept for Mittel, Am Warten,
  * ≥60′, conflicts and the stale banner (VISUAL-03, owner pick A, 2026-10-24). On a
@@ -217,7 +218,7 @@ export function summarizeMaterials(
  *  A 1.5px ring at 6px read as punctuation beside the qualification pills (hill
  *  climb r7). A mark, not a fill; never use these as a badge background. */
 export const RESOURCE_STATE_DOT_CLASSES: Record<ResourceState, string> = {
-  available: "bg-emerald-500",
+  available: "bg-free",
   assigned: "bg-transparent inset-ring-2 inset-ring-foreground/80",
   unavailable: "bg-muted-foreground/40",
   maintenance: "bg-muted-foreground/40",
@@ -226,8 +227,12 @@ export const RESOURCE_STATE_DOT_CLASSES: Record<ResourceState, string> = {
 /** Outline-badge tint (text + border) for the same states. Assigned is ink: a
  *  fact, stated plainly. */
 export const RESOURCE_STATE_BADGE_CLASSES: Record<ResourceState, string> = {
-  available: "text-emerald-700 border-emerald-200 dark:text-emerald-400 dark:border-emerald-800/50",
+  available: "text-free border-free/40",
   assigned: "text-foreground border-foreground/30",
   unavailable: "text-muted-foreground border-border",
   maintenance: "text-muted-foreground border-border",
 }
+
+/** «n frei» written out beside a list or a count (the sidebar foot, a material group, the
+ *  Reko pickers): the frei green as TEXT (`--free-text`), never a hand-rolled emerald step. */
+export const RESOURCE_FREE_TEXT_CLASS = "text-free"

@@ -90,7 +90,7 @@ export function ResourceConflictPrompt() {
             <>
               <div className="my-1.5 h-px bg-border" />
               <div className="flex items-start gap-2.5 px-1 py-1.5">
-                <Plus className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                <Plus className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <span className="min-w-0">
                   <span className="text-muted-foreground">{t('newLabel')}: </span>
                   <span className="font-medium text-foreground">{targetOperationLabel}</span>

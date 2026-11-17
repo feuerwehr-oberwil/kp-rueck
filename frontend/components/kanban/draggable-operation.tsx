@@ -458,25 +458,23 @@ function DraggableOperationBase({
               // either — a high-priority card that loses its red edge, wash and
               // pulse the moment the pointer crosses it is hiding the one thing
               // the operator is scanning for.
-              !isHighlighted && PRIORITY_CARD_CLASSES[priority],
+              PRIORITY_CARD_CLASSES[priority],
               // The card a dragged person/Gerät would land on. A ring OUTSIDE
               // the card (`ring-offset`) rather than a fill, so it reads as
               // "this whole card takes it" and stays visible on every priority
               // tint — the old `bg-muted/20` was invisible on all of them. Same
               // treatment the side panel's Ressourcen block uses.
               isOver && 'ring-2 ring-sel-line ring-offset-2 ring-offset-background bg-sel-wash',
-              // "Hier steht sie" — the answer to a click in the sidebar. The old
-              // treatment was bg-muted/30 plus a border tint, which was quieter
-              // than the selected card right next to it and got lost on a board
-              // full of cards. Now the card keeps its brightness while the rest of
-              // the board steps back for a moment (Spotlight, see globals.css) and
-              // carries an accent ring while it does. Priority still reads from the
-              // chevron, so borrowing the left border for ~4s costs no information.
-              isHighlighted && 'is-highlighted border-l-accent bg-muted/30 ring-[1.5px] ring-accent shadow-lg shadow-accent/25',
-              // Selection («A2»): a 2px slate outline plus the slate selection
-              // wash — slate is the board's «chosen» colour (CLAUDE.md → Colour
-              // roles) and sits far enough from red that it never competes with
-              // the priority a high card already carries. Choices:
+              // "Hier steht sie" — the answer to a click in the sidebar. The card keeps
+              // its brightness while the rest of the board steps back for a moment
+              // (Spotlight, see globals.css) and rings twice in ink – the one «this
+              // one» signal (COL-05 A). The priority edge, wash and pulse stay: the
+              // ring is an outline, which the Hoch pulse's box-shadow cannot eat.
+              isHighlighted && 'is-highlighted this-one-ring',
+              // Selection («A2»): a 2px selection-blue outline plus the selection
+              // wash — the board's «chosen» colour (CLAUDE.md → Colour roles),
+              // far enough from red that it never competes with the priority a
+              // high card already carries. Choices:
               //
               // 1. OUTLINE, not ring/shadow. `priority-high-pulse` animates
               //    `box-shadow` outright (globals.css), which wipes out every

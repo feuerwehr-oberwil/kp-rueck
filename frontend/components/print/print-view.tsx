@@ -30,8 +30,8 @@ import { LoadingStatus } from "@/components/ui/shell-loader"
 const PrintableMapInner = dynamic(() => import("./printable-map"), {
   ssr: false,
   loading: () => (
-    <div className="h-[300px] bg-gray-100 flex items-center justify-center">
-      <LoadingStatus size="surface" className="text-sm text-gray-500">{translateOutsideReact("print.view.mapLoading")}</LoadingStatus>
+    <div className="h-[300px] bg-paper-panel flex items-center justify-center">
+      <LoadingStatus size="surface" className="text-sm text-paper-dim">{translateOutsideReact("print.view.mapLoading")}</LoadingStatus>
     </div>
   ),
 })
@@ -427,9 +427,9 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                 ].filter((bit): bit is string => Boolean(bit))
 
                 return (
-                <div key={op.id} className="border border-gray-400 mb-2 p-2 page-break-inside-avoid">
+                <div key={op.id} className="border border-paper-rule mb-2 p-2 page-break-inside-avoid">
                   {/* Header row */}
-                  <div className="flex justify-between items-start border-b border-gray-300 pb-1 mb-1">
+                  <div className="flex justify-between items-start border-b border-paper-rule pb-1 mb-1">
                     <div className="font-bold text-sm">
                       {numbering.get(op.id)}. {getIncidentLocationLabel(op)}
                     </div>
@@ -514,12 +514,12 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
 
                   {/* Full width fields */}
                   {op.notes && (
-                    <div className="mt-1 pt-1 border-t border-gray-200">
+                    <div className="mt-1 pt-1 border-t border-paper-grid">
                       <span className="font-semibold">{t("meldung")}:</span> {op.notes}
                     </div>
                   )}
                   {op.internalNotes && (
-                    <div className="mt-1 text-gray-600">
+                    <div className="mt-1 text-paper-dim">
                       <span className="font-semibold">{t("interneNotizen")}:</span> {op.internalNotes}
                     </div>
                   )}
@@ -543,7 +543,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
             )}
             <table className="w-full text-xs border-collapse">
               <thead>
-                <tr className="border-b border-gray-400">
+                <tr className="border-b border-paper-rule">
                   <th className="text-left p-1">{t("statusCol")}</th>
                   <th className="text-left p-1">{t("nameCol")}</th>
                   <th className="text-left p-1">{t("funktionCol")}</th>
@@ -551,7 +551,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
               </thead>
               <tbody>
                 {rosterRows.map((row) => (
-                  <tr key={row.id} className="border-b border-gray-200">
+                  <tr key={row.id} className="border-b border-paper-grid">
                     <td className="p-1">
                       {row.state === "assigned" ? t("inUse") : row.state === "left" ? t("gegangen") : t("available")}
                     </td>
@@ -575,7 +575,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
             </h2>
             <table className="w-full text-xs border-collapse">
               <thead>
-                <tr className="border-b border-gray-400">
+                <tr className="border-b border-paper-rule">
                   <th className="text-left p-1">{t("statusCol")}</th>
                   <th className="text-left p-1">{t("fahrzeugCol")}</th>
                   <th className="text-left p-1">{t("typCol")}</th>
@@ -591,7 +591,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                 {sortedVehicles.map((vehicle) => {
                   const driver = vehicleDrivers?.get(vehicle.id)
                   return (
-                    <tr key={vehicle.id} className="border-b border-gray-200">
+                    <tr key={vehicle.id} className="border-b border-paper-grid">
                       <td className="p-1">{vehicleStatusLabel(vehicle.status)}</td>
                       <td className="p-1">{vehicle.name}</td>
                       <td className="p-1">{vehicle.type}</td>
@@ -615,7 +615,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
             </h2>
             <table className="w-full text-xs border-collapse">
               <thead>
-                <tr className="border-b border-gray-400">
+                <tr className="border-b border-paper-rule">
                   <th className="text-left p-1">{t("materialCol")}</th>
                   <th className="text-left p-1">{t("schadenplatzCol")}</th>
                   <th className="text-left p-1">{t("seitCol")}</th>
@@ -623,7 +623,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
               </thead>
               <tbody>
                 {onSiteEntries.map((entry) => (
-                  <tr key={entry.materialId} className="border-b border-gray-200">
+                  <tr key={entry.materialId} className="border-b border-paper-grid">
                     <td className="p-1">{entry.name}</td>
                     <td className="p-1">{entry.address ?? t("unknownAddress")}</td>
                     <td className="p-1">{entry.since ? formatTime(entry.since) : "-"}</td>
@@ -642,7 +642,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
             </h2>
             <table className="w-full text-xs border-collapse">
               <thead>
-                <tr className="border-b border-gray-400">
+                <tr className="border-b border-paper-rule">
                   <th className="text-left p-1">{t("statusCol")}</th>
                   <th className="text-left p-1">{t("materialCol")}</th>
                   {/* Where the unit actually is: the Schadenplatz it is standing
@@ -654,7 +654,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
               </thead>
               <tbody>
                 {filteredMaterials.map((material) => (
-                  <tr key={material.id} className="border-b border-gray-200">
+                  <tr key={material.id} className="border-b border-paper-grid">
                     <td className="p-1">
                       {materialOnSite?.has(material.id)
                         ? t("vorOrt")
@@ -673,7 +673,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
         )}
 
         {/* Footer */}
-        <div className="border-t border-black pt-2 mt-4 text-[10px] text-gray-500">
+        <div className="border-t border-black pt-2 mt-4 text-[10px] text-paper-dim">
           {t("footer")} | {formatDateTime(new Date())}
         </div>
       </div>

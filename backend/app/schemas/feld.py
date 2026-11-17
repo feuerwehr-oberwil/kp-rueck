@@ -331,6 +331,9 @@ class FeldAssignment(BaseModel):
     # stops from it so the crew drives them in the order the KP set.
     group_id: UUID | None = None
     group_name: str | None = None
+    #: The Auftrag's stored colour (`IncidentGroup.color`), so the phone draws
+    #: the Auftrag in its route colour rather than a generic blue (COL-04).
+    group_color: str | None = None
     group_position: int | None = None
 
 

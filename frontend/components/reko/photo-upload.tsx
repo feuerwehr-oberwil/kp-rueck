@@ -5,6 +5,7 @@ import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
 import { Camera, Check, Plus, Upload, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { translateOutsideReact } from '@/lib/i18n-messages'
@@ -458,7 +459,7 @@ export default function PhotoUpload({
     <div
       className={cn(
         dense ? "space-y-1.5 rounded-md" : "space-y-4",
-        dense && dragging && "outline-2 outline-offset-2 outline-dashed outline-info",
+        dense && dragging && "outline-2 outline-offset-2 outline-dashed outline-sel-line",
       )}
       onDragOver={dense && !disabled ? (event) => {
         event.preventDefault()
@@ -532,7 +533,7 @@ export default function PhotoUpload({
           sentence is the last one — the picture is on the phone, so nobody has
           to walk back and take it again. */}
       {!online && queuedCount > 0 && (
-        <div className="rounded-lg border border-info/40 bg-info/10 p-3 text-sm">
+        <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
           <p className="font-medium">{t('offlineTitle', { count: queuedCount })}</p>
           <p className="mt-0.5">{t('offlineBody')}</p>
           <p className="mt-1 text-xs text-muted-foreground">{t('offlineHint')}</p>
@@ -568,12 +569,7 @@ export default function PhotoUpload({
                           })
                         : t('rowUploading', { percent: Math.round(item.state.progress * 100) })}
                     </p>
-                    <div className="mt-1 h-1 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full bg-info transition-[width]"
-                        style={{ width: `${Math.max(2, Math.round(item.state.progress * 100))}%` }}
-                      />
-                    </div>
+                    <Progress value={Math.max(2, Math.round(item.state.progress * 100))} className="mt-1 h-1" />
                   </>
                 ) : item.state.status === 'waiting' ? (
                   <p className="text-xs text-muted-foreground">{t('rowWaiting')}</p>
@@ -674,7 +670,7 @@ export default function PhotoUpload({
                     onClick={() => handleRemovePhoto(filename)}
                     disabled={disabled}
                     aria-label={t('removePhoto', { number: index + 1 })}
-                    className="absolute top-1 right-1 cursor-pointer p-1 bg-background/90 text-destructive ring-1 ring-destructive/50 rounded-full hover:bg-background transition-colors shadow-md disabled:hidden dark:text-red-400"
+                    className="absolute top-1 right-1 cursor-pointer p-1 bg-background/90 text-destructive ring-1 ring-destructive/50 rounded-full hover:bg-background transition-colors shadow-md disabled:hidden"
                   >
                     <X className="h-4 w-4" />
                   </button>

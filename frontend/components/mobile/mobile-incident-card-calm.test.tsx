@@ -59,14 +59,14 @@ function cardOf(op: Operation) {
 describe('the phone Einsatz card', () => {
   it('draws Hoch with the board card red edge and pulse, without a dot or a 2px frame', () => {
     const card = cardOf(operation({ priority: 'high' }))
-    expect(card).toHaveClass('border-l-4', 'border-l-destructive', 'priority-high-pulse')
+    expect(card).toHaveClass('border-l-4', 'border-l-prio-high', 'priority-high-pulse')
     expect(card).not.toHaveClass('border-2')
     expect(card.querySelector('.rounded-full')).toBeNull()
   })
 
   it('draws Mittel as a neutral card with an amber edge and no status tint or dot', () => {
     const card = cardOf(operation({ priority: 'medium' }))
-    expect(card).toHaveClass('bg-card', 'border-l-4', 'border-l-warning')
+    expect(card).toHaveClass('bg-card', 'border-l-4', 'border-l-prio-medium')
     expect(card.className).not.toMatch(/bg-(orange|blue|emerald|teal|sky|slate|gray)-/)
     expect(card.querySelector('.rounded-full.bg-amber-500')).toBeNull()
   })

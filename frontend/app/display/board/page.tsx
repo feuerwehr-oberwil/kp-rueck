@@ -200,18 +200,6 @@ function BoardDisplay() {
     // bottom instead and this box scrolls down: the same wall cards, nothing
     // sideways. `WALL_STACK_*` (lib/wall-stack) – the token board does the same.
     <div ref={boardRef} className={cn("flex h-full gap-2 p-3 overflow-x-auto", WALL_STACK_BOARD)}>
-      {/* The status-change flash, defined once for the board instead of once per
-          card — the old copy shipped an identical <style> block inside every
-          rendered card. */}
-      <style>{`
-        @keyframes display-card-flash {
-          0%, 100% { box-shadow: none; }
-          25% { box-shadow: 0 0 0 3px hsl(var(--primary) / 0.4); }
-          50% { box-shadow: none; }
-          75% { box-shadow: 0 0 0 3px hsl(var(--primary) / 0.4); }
-        }
-        .display-card-flash { animation: display-card-flash 1.5s ease-out; }
-      `}</style>
       {columns.map((column) => {
         const ops = operationsByColumn[column.id] || []
         const isCollapsed = collapsedColumns.isCollapsed(column.id)

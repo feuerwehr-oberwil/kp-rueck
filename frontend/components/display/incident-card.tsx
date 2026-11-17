@@ -282,9 +282,10 @@ export function DisplayIncidentCard({
         "operation-card border border-border border-l-4 bg-card/80 backdrop-blur-sm px-3 py-2 transition-all",
         PRIORITY_CARD_CLASSES[priority],
         onClick && "cursor-pointer hover:bg-muted/20",
-        // The other window said "this one" — same accent frame the board uses.
-        isHighlighted && "is-highlighted border-l-accent bg-muted/30 ring-[1.5px] ring-accent shadow-lg shadow-accent/25",
-        isFlashing && "display-card-flash",
+        // The other window said "this one", or the status just changed: the one
+        // «this one» ring the board uses (globals.css, COL-05 A).
+        (isHighlighted || isFlashing) && "this-one-ring",
+        isHighlighted && "is-highlighted",
       )}
       onClick={onClick}
     >

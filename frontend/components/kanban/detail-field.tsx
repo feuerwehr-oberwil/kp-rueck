@@ -385,7 +385,7 @@ export interface DetailFlag {
  * «the toggles at the bottom, out of sight, because we don't use them unless
  * explicitly»). Four switch rows took twice the height and read as four fields.
  *
- * A chip is a pressed/unpressed button (`aria-pressed`); on = the slate selected
+ * A chip is a pressed/unpressed button (`aria-pressed`); on = the tonal selected
  * state (`variant="selected"`), like every other «chosen» control. A flag with a
  * note gets the note as its own labelled row under the chips while it is on —
  * «Nachbarhilfe │ Feuerwehr, Kontakt …» — so two notes never stand unnamed.

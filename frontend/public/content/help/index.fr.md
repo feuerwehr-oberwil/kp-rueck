@@ -31,7 +31,7 @@ Vue d’ensemble géographique de tous les lieux d’intervention. Les marqueurs
 **Légende de la carte :**
 - **Priorité (remplissage) :** gris = basse, jaune = moyenne, rouge = haute
 - **Statut (cadre) :** tirets = ouverte, trait plein = en cours, pointillés + estompé = retour et clôturées
-- **Véhicules (GPS) :** une pastille par emplacement. Bleu plein = en ligne, creux à tirets gris = hors ligne. Plusieurs au même endroit partagent une pastille (« 6 véhicules | 4 hors ligne »). L’heure du dernier signal n’apparaît sur la pastille que lorsqu’il date de plus que le seuil réglé sous Réglages → GPS (10' par défaut) ; le survol ou un toucher affiche la liste de chaque véhicule. Une pastille posée sur un marqueur d’intervention s’écarte – un trait fin mène au point où le véhicule se trouve vraiment. Les lignes d’attribution partent seulement des véhicules en ligne.
+- **Véhicules (GPS) :** une pastille par emplacement. Foncée avec un point vert = en ligne (émet), creuse à tirets gris = hors ligne. Plusieurs au même endroit partagent une pastille (« 6 véhicules | 4 hors ligne »). L’heure du dernier signal n’apparaît sur la pastille que lorsqu’il date de plus que le seuil réglé sous Réglages → GPS (10' par défaut) ; le survol ou un toucher affiche la liste de chaque véhicule. Une pastille posée sur un marqueur d’intervention s’écarte – un trait fin mène au point où le véhicule se trouve vraiment. Les lignes d’attribution partent seulement des véhicules en ligne.
 - **Marqueur avec nombre :** plusieurs interventions à la même adresse – un marqueur à l’aspect de la plus urgente, une étiquette avec tous les numéros (« 6 · 7 · 9 Bahnhofstrasse 1 »). Le survol ou un clic affiche la liste ; un clic sur une ligne sélectionne cette intervention, un double-clic l’ouvre.
 - **Bulle avec nombre :** plusieurs interventions dont les marqueurs se recouvrent ; marque et cadre de la plus urgente (priorité la plus haute). Un clic ou un toucher zoome sur le groupe. Dès le zoom de rue, les marqueurs se séparent à nouveau.
 
@@ -172,7 +172,7 @@ Chaque carte montre : numéro (en petit devant l’adresse), adresse, genre, res
 | Niveau | Badge (carte) | Marqueur (carte) | Raccourci |
 |-------|---------------|----------------|----------|
 | Basse | Gris | Gris | `Shift+1` |
-| Moyenne | Orange | Jaune | `Shift+2` |
+| Moyenne | Orange | Orange | `Shift+2` |
 | Haute | Rouge | Rouge | `Shift+3` |
 
 ### Indicateurs d’ancienneté
@@ -189,7 +189,7 @@ Pour les interventions avec l’appui d’un corps voisin, « Entraide » peut �
 
 ### Badge téléphone / guichet
 
-Les alarmes saisies via le [lien d’alarme](#lien-dalarme-téléphone-guichet) affichent en haut à droite un **symbole de téléphone** bleu (aligné avec les autres symboles de statut). Il signale les annonces provenant d’une source non vérifiée, que la conduite de l’intervention devrait contrôler.
+Les alarmes saisies via le [lien d’alarme](#lien-dalarme-téléphone-guichet) affichent en haut à droite un **symbole de téléphone** (aligné avec les autres symboles de statut). Il signale les annonces provenant d’une source non vérifiée, que la conduite de l’intervention devrait contrôler.
 
 ### Vue – ce qui figure sur les cartes
 
@@ -459,7 +459,7 @@ compris se corrige, il ne se complète pas).
 **Caractéristiques** tout en bas (après contact/annonceur et téléphone) – et corrigeable après coup
 dans le détail, dans la même ligne, parce que l’ordre réaliste
 est « d’abord taper, puis se rendre compte que c’était un appel ». L’intervention reçoit
-le même [badge téléphone](#badge-téléphone-guichet) bleu qu’une annonce arrivée par le
+le même [badge téléphone](#badge-téléphone-guichet) qu’une annonce arrivée par le
 lien d’alarme.
 
 **Comment on voit par quel chemin c’est passé.** Les documents imprimés et exportés
@@ -827,7 +827,7 @@ Pour les personnes qui doivent **saisir** une alarme, sans connexion et sans con
 
 **Utiliser :** qui ouvre le lien voit un formulaire épuré, optimisé pour le mobile, et peut saisir autant d’alarmes qu’il veut – aucune connexion nécessaire. Ordre des champs : d’abord le **lieu** (avec recherche d’adresse), puis l’**annonce** (ce qui a été annoncé – l’adresse figure déjà en haut, donc pas de double saisie), la **priorité** sous forme de trois touches de sélection rapide (basse / moyenne / haute), le genre d’intervention, d’autres indications et l’annonceur/appelant.
 
-**Sur le tableau :** les alarmes ainsi saisies atterrissent dans la colonne « Reçu » et portent un **badge « téléphone »** bleu – afin que la conduite de l’intervention voie que l’annonce provient d’une source non vérifiée et puisse la contrôler. L’adresse et le lieu sont transmis directement.
+**Sur le tableau :** les alarmes ainsi saisies atterrissent dans la colonne « Reçu » et portent un **badge « téléphone »** – afin que la conduite de l’intervention voie que l’annonce provient d’une source non vérifiée et puisse la contrôler. L’adresse et le lieu sont transmis directement.
 
 > Le lien ne permet que la **création** d’alarmes (pas de lecture ni de modification) et est protégé par une limite de requêtes stricte. Comme il est valable 30 jours : ne le transmettre qu’à des endroits de confiance.
 

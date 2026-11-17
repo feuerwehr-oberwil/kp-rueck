@@ -228,7 +228,7 @@ export function PickupBadge({
           chrome,
           'group/pickup cursor-pointer transition-colors',
           'hover:bg-warning/25',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning focus-visible:ring-offset-1',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
         )}
       >
         {body}

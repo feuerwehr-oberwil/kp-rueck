@@ -27,6 +27,12 @@
  *
  * Both readings are always accompanied by a shape or a word (the chevron on a
  * card, the label in a picker), so neither relies on colour alone.
+ *
+ * Every table reads ONE colour per priority: the `--prio-high` / `--prio-medium` /
+ * `--prio-low` tokens in app/globals.css (`border-l-prio-*`, `text-prio-*`,
+ * `bg-prio-*`; the text utilities read the token's darker/lighter text tone). Until
+ * 17.11.2026 Hoch came in three reds and Mittel in four ambers across these tables
+ * (sweep COL-03).
  */
 
 export type Priority = "high" | "medium" | "low"
@@ -40,11 +46,13 @@ export function isPriority(value: string): value is Priority {
   return (PRIORITIES as readonly string[]).includes(value)
 }
 
-/** Semantic hex colours — used for map markers and colour-by accents. */
+/** The hex mirror of the light `--prio-*` tokens, for what cannot read a CSS
+ *  variable: MapLibre paint, the inline SVG markers, the print map and «Färben
+ *  nach». `priority.test.ts` holds it to the tokens in app/globals.css. */
 export const PRIORITY_COLORS: Record<Priority, string> = {
-  high: "#ef4444", // red — destructive
-  medium: "#f59e0b", // amber — warning
-  low: "#94a3b8", // slate-400 — no signal
+  high: "#c20000", // --prio-high = --destructive
+  medium: "#d97706", // --prio-medium
+  low: "#94a3b8", // --prio-low, slate – no signal
 }
 
 /**
@@ -54,16 +62,16 @@ export const PRIORITY_COLORS: Record<Priority, string> = {
  * orange/yellow/amber and low between green/emerald across views.
  */
 export const PRIORITY_DOT_CLASSES: Record<Priority, string> = {
-  high: "bg-red-500",
-  medium: "bg-amber-500",
-  low: "bg-slate-400",
+  high: "bg-prio-high",
+  medium: "bg-prio-medium",
+  low: "bg-prio-low",
 }
 
 /** Matching text/icon tint (e.g. the up/down/flat priority chevron). */
 export const PRIORITY_TEXT_CLASSES: Record<Priority, string> = {
-  high: "text-red-600 dark:text-red-400",
-  medium: "text-amber-700 dark:text-amber-400",
-  low: "text-slate-500 dark:text-slate-400",
+  high: "text-prio-high",
+  medium: "text-prio-medium",
+  low: "text-prio-low",
 }
 
 /**
@@ -72,17 +80,16 @@ export const PRIORITY_TEXT_CLASSES: Record<Priority, string> = {
  * means PRIORITY and nothing else. Status is carried by the column the card
  * sits in and by the section it is grouped under.
  *
- * The classes are semantic tokens rather than a palette step because the edge
- * is the same statement as the priority chevron next to it, which has always
- * used `destructive`/`warning`.
+ * The classes are the priority tokens because the edge is the same statement as
+ * the priority chevron next to it, which draws in the same colour.
  *
  * `low` closes the border instead of colouring it: the 4px edge is always
  * present to keep the box from shifting, so making it transparent would punch
  * a light gap into the card's outline where the other three sides carry one.
  */
 export const PRIORITY_EDGE_CLASSES: Record<Priority, string> = {
-  high: "border-l-destructive",
-  medium: "border-l-warning",
+  high: "border-l-prio-high",
+  medium: "border-l-prio-medium",
   low: "border-l-border",
 }
 
@@ -106,13 +113,9 @@ export const PRIORITY_CARD_CLASSES: Record<Priority, string> = {
 
 /**
  * Tint for the up/flat/down priority mark on a card (`components/ui/priority-glyph.tsx`
- * on the desk board and both walls; the phone card's chevron). Hoch and Mittel match the edge; Niedrig
- * is a MARK, not an edge – the same light slate as every other Niedrig mark
- * (`PRIORITY_TEXT_CLASSES.low`, the picker's), at full strength. It was
- * `muted-foreground/50`, which read as a neutral fold chevron (hill climb r17).
+ * on the desk board and both walls; the phone card's chevron) – the same as every
+ * other priority mark since COL-03. Niedrig is a MARK, not an edge: the light slate
+ * at full strength. It was `muted-foreground/50`, which read as a neutral fold
+ * chevron (hill climb r17).
  */
-export const PRIORITY_ICON_CLASSES: Record<Priority, string> = {
-  high: "text-destructive",
-  medium: "text-warning-foreground",
-  low: PRIORITY_TEXT_CLASSES.low,
-}
+export const PRIORITY_ICON_CLASSES: Record<Priority, string> = PRIORITY_TEXT_CLASSES

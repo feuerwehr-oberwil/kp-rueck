@@ -39,6 +39,7 @@ import { RouteOptimizeButton, RouteOptimizeNote, useRouteOptimizeAction } from "
 import { useGroups } from "@/lib/contexts/groups-context"
 import type { IncidentGroup } from "@/lib/types/groups"
 import { colorAccent } from "@/lib/kanban-utils"
+import { MAP_NONE } from "@/lib/map-colors"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { isLocated, type LocatedOperation } from "@/lib/utils/route-geo"
 import { DEFAULT_CENTER_LATLNG, fitTo, type LatLngPoint } from "@/lib/map-view"
@@ -290,7 +291,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
           <ContextPin
             key={op.id}
             op={op}
-            fill={otherRoute ? colorAccent(otherRoute.id, "auftrag", groups) : "#64748b"}
+            fill={otherRoute ? colorAccent(otherRoute.id, "auftrag", groups) : MAP_NONE}
             dashed={!!otherRoute}
             dimmed={!!otherRoute}
             clickable={clickable}
