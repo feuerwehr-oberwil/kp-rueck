@@ -13,7 +13,7 @@
       "Gestione di veicoli e materiale con assegnazione agli interventi e avviso in caso di doppie assegnazioni",
       "Stampante termica nella rete locale per schede d’intervento, panoramica della situazione e lista di ritiro – automaticamente o a mano",
       "Gestire più interventi contemporaneamente – in caso di maltempo ed eventi estesi",
-      "Ripresa degli allarmi tramite un’interfaccia aperta e da Divera e FireHub, allertamento della squadra tramite Divera",
+      "Ripresa degli allarmi tramite un’interfaccia aperta e da Divera e FireHub, allertamento del personale tramite Divera",
       "Carta della situazione con tutti gli interventi e le posizioni GPS dei veicoli",
       "Rapporto d’intervento in PDF con diario d’intervento e tempi di reazione",
       "Gestito in proprio in rimessa o nel proprio cloud – i dati restano sotto il proprio controllo"
@@ -107,7 +107,7 @@
       {
         "n": "Livello 3",
         "h3": "Comanda la carta",
-        "p": "Lo stato del tavolo va alla stampante termica ogni pochi minuti, il foglio della situazione a comando. Se tutto si ferma, l’ultimo foglio diventa il tavolo. Alla ripartenza <strong>una</strong> sola persona riporta nell’app quanto è stato fatto a mano."
+        "p": "Lo stato del tavolo viene stampato ogni pochi minuti sulla stampante termica e il foglio della situazione con la semplice pressione di un pulsante. Se tutto si ferma, l’ultimo foglio diventa il tavolo. Alla ripartenza <strong>una</strong> sola persona riporta nell’app quanto è stato fatto a mano."
       }
     ]
   },
@@ -125,7 +125,7 @@
       {
         "time": "21:19",
         "tag": "Assegnazione",
-        "h3": "Squadra e veicoli sono assegnati.",
+        "h3": "Personale e veicoli sono assegnati.",
         "p": "Personale, veicoli e materiale sull’intervento con il trascinamento – o digitando «14 tlf meier» nella palette dei comandi. KP Rück riconosce doppie assegnazioni e risorse mancanti. La condotta decide: riassegnare, integrare o assegnare comunque in modo consapevole. Chi arriva si annuncia da sé con un codice QR."
       },
       {
@@ -179,7 +179,7 @@
       {
         "alt": "Vista mappa: interventi per priorità, posizioni dei veicoli e assegnazioni",
         "title": "Mappa",
-        "sub": "Tutti gli interventi per priorità, con le posizioni dei veicoli e le assegnazioni fra i due"
+        "sub": "Tutti gli interventi per priorità, con le posizioni dei veicoli e le linee che mostrano le assegnazioni tra veicoli e interventi"
       },
       {
         "alt": "Stato dei veicoli: veicoli con nominativo radio, conducente, destinazione e stato",
@@ -197,14 +197,14 @@
         "sub": "Sul telefono della ricognizione: annunciarsi sul posto, spuntare i pericoli, allegare foto"
       },
       {
-        "alt": "Vista campo: il proprio luogo d’intervento con le segnalazioni al posto di comando, la situazione e la squadra",
+        "alt": "Vista campo: il proprio luogo d’intervento con le segnalazioni al posto di comando, la situazione e il personale",
         "title": "Campo",
         "sub": "Ogni squadra vede solo i propri luoghi d’intervento – arrivati, da recuperare, intervento concluso, senza radio"
       },
       {
         "alt": "Incarichi: più interventi raggruppati in un unico itinerario",
         "title": "Incarichi",
-        "sub": "Raggruppare più interventi in un incarico: squadra e mezzi restano legati all’incarico e procedono di tappa in tappa nell’ordine stabilito o ottimizzato"
+        "sub": "Raggruppare più interventi in un incarico: personale e mezzi restano legati all’incarico e procedono di tappa in tappa nell’ordine stabilito o ottimizzato"
       },
       {
         "alt": "Comandi esercitazione: generare interventi singoli o mirati, automatismo e simulazione sul campo",
@@ -253,7 +253,7 @@
         "with": "Un modulo di segnalazione agganciato all’intervento"
       },
       {
-        "today": "Elenco Excel per squadra e veicoli",
+        "today": "Elenco Excel per personale e veicoli",
         "with": "Una panoramica dal vivo che si aggiorna da sé"
       },
       {
@@ -298,8 +298,8 @@
           "Può riprendere gli allarmi da Divera o FireHub <span class=\"opt\">facoltativo</span>",
           "Modulo di segnalazione via link o QR per il telefono e per chi si presenta di persona",
           "Le segnalazioni in entrata confluiscono in un elenco e vengono prese in carico con un clic",
-          "Le segnalazioni doppie per lo stesso luogo d’intervento vengono riconosciute; due interventi si possono unire – con squadra, ricognizione e rapporto – e separare di nuovo",
-          "Allertamento della squadra direttamente dal tavolo <span class=\"opt\">facoltativo</span>",
+          "Le segnalazioni doppie per lo stesso luogo d’intervento vengono riconosciute; due interventi si possono unire – con personale, ricognizione e rapporto – e separare di nuovo",
+          "Allertamento del personale direttamente dal tavolo <span class=\"opt\">facoltativo</span>",
           "In arrivo: chi ha risposto sì all’allarme Divera compare nell’appello – check-in con un clic <span class=\"opt\">facoltativo</span>",
           "Segnalazioni di ricognizione con foto, direttamente dal telefono della ricognizione",
           "Vista sul campo per le squadre: visualizzare i propri luoghi d’intervento, segnalare l’arrivo e la fine dell’intervento, richiedere il recupero e trasmettere al posto di comando segnalazioni e rapporti con foto",
@@ -323,8 +323,8 @@
           "<strong>Rapporto d’intervento in PDF</strong> con diario d’intervento e tempi di reazione – si forma durante l’intervento ed è già in gran parte preparato al rientro in caserma",
           "Diario d’intervento sul tavolo: registra da sé cambi di stato, assegnazioni e segnalazioni, le proprie voci con ⇧J – integrato, mai sovrascritto",
           "Indicatori già durante l’evento: segnalazioni aperte per priorità e tempi di reazione – nelle esercitazioni come valutazione dell’esercitazione",
-          "Elenco delle attività aperte: rapporti mancanti, recuperi in sospeso e materiale ancora presente sul luogo d’intervento restano visibili fino alla chiusura",
-          "<strong>Area amministrativa propria</strong> per ogni corpo: squadra, parco veicoli, elenchi del materiale, tipi d’intervento e priorità",
+          "Elenco delle attività aperte: rapporti ancora aperti, recuperi in sospeso e materiale ancora presente sul luogo d’intervento restano visibili fino alla chiusura",
+          "<strong>Area amministrativa propria</strong> per ogni corpo: personale, parco veicoli, elenchi del materiale, tipi d’intervento e priorità",
           "Importazione ed esportazione in Excel",
           "Stampa termica in rimessa tramite un agente di stampa proprio <span class=\"opt\">facoltativo</span>",
           "Ruoli: modificare oppure solo leggere, interfaccia scura per il posto di comando in penombra",
@@ -380,7 +380,7 @@
       },
       {
         "q": "Dove si trovano i dati e quali interfacce ci sono?",
-        "a": "Come KP Front, KP Rück è gestito interamente dall’organizzazione stessa – su un computer in rimessa oppure nel proprio cloud. Interventi, personale, veicoli e materiale stanno nella propria banca dati; non ci sono né controlli di licenza né statistiche d’uso. I servizi esterni come le mappe online o la ricerca di indirizzi ricevono solo ciò che serve alla funzione utilizzata e si possono disattivare. Si possono collegare sistemi d’allertamento (qualsiasi sistema di disposizione tramite l’interfaccia aperta, Divera e FireHub direttamente – con Divera anche l’allertamento della squadra), una stampante termica nella rete locale e le posizioni GPS dei veicoli. Tutti i collegamenti sono facoltativi."
+        "a": "Come KP Front, KP Rück è gestito interamente dall’organizzazione stessa – su un computer in rimessa oppure nel proprio cloud. Interventi, personale, veicoli e materiale stanno nella propria banca dati; non ci sono né controlli di licenza né statistiche d’uso. I servizi esterni come le mappe online o la ricerca di indirizzi ricevono solo ciò che serve alla funzione utilizzata e si possono disattivare. Si possono collegare sistemi d’allertamento (qualsiasi sistema di disposizione tramite l’interfaccia aperta, Divera e FireHub direttamente – con Divera anche l’allertamento del personale), una stampante termica nella rete locale e le posizioni GPS dei veicoli. Tutti i collegamenti sono facoltativi."
       },
       {
         "q": "Quanto costa?",
@@ -400,7 +400,7 @@
       },
       {
         "q": "KP Rück ha per forza bisogno di KP Front?",
-        "a": "No. KP Rück funziona in modo del tutto autonomo – con banca dati, login e aggiornamenti propri. Dà il meglio di sé insieme a <a href=\"https://kp-front.ch/it/\">KP Front</a>, l’applicazione per il fronte sul luogo d’intervento: entrambe ricevono gli stessi allarmi dal sistema di disposizione, leggono lo stesso elenco del personale e classificano gli allarmi secondo la stessa lista di parole chiave, a scelta con lo stesso accesso Divera. Così fronte e retrovie lavorano con gli stessi dati di partenza, senza dover gestire due volte il collegamento d’allarme e la squadra."
+        "a": "No. KP Rück funziona in modo del tutto autonomo – con banca dati, login e aggiornamenti propri. Dà il meglio di sé insieme a <a href=\"https://kp-front.ch/it/\">KP Front</a>, l’applicazione per il fronte sul luogo d’intervento: entrambe ricevono gli stessi allarmi dal sistema di disposizione, leggono lo stesso elenco del personale e classificano gli allarmi secondo la stessa lista di parole chiave, a scelta con lo stesso accesso Divera. Così fronte e retrovie lavorano con gli stessi dati di partenza, senza dover gestire due volte il collegamento d’allarme e il personale."
       },
       {
         "q": "A che cosa serve la stampante locale della caserma in KP Rück?",
@@ -408,7 +408,7 @@
       },
       {
         "q": "Possiamo adattarlo ai nostri processi?",
-        "a": "Sì. Ogni corpo ha la propria area amministrativa: tipi d’intervento, priorità, squadra, parco veicoli ed elenchi del materiale si impostano liberamente lì, e importazione ed esportazione passano da Excel. E poiché tutto il codice è su <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>, tutto il resto si può costruire – da voi o su mandato."
+        "a": "Sì. Ogni corpo ha la propria area amministrativa: tipi d’intervento, priorità, personale, parco veicoli ed elenchi del materiale si impostano liberamente lì, e importazione ed esportazione passano da Excel. E poiché tutto il codice è su <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>, tutto il resto si può costruire – da voi o su mandato."
       },
       {
         "q": "In quali lingue è disponibile KP Rück?",
@@ -460,7 +460,7 @@
     "zoom": "Ingrandisci"
   },
   "footer": {
-    "origin": "Nato nell’attività operativa dei <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pompieri di Oberwil BL</a> – perché in intervento vedevamo sempre le stesse fonti d’errore: doppie assegnazioni, informazioni sparse ed errori di trascrizione a mano. Ogni corpo pompieri gestisce il proprio KP Rück, con la propria squadra, i propri veicoli e i propri dati.",
+    "origin": "Nato nell’attività operativa dei <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pompieri di Oberwil BL</a> – perché in intervento vedevamo sempre le stesse fonti d’errore: doppie assegnazioni, informazioni sparse ed errori di trascrizione a mano. Ogni corpo pompieri gestisce il proprio KP Rück, con il proprio personale, i propri veicoli e i propri dati.",
     "demo": "Demo",
     "contact": "Contatto",
     "org": "Feuerwehr Oberwil su GitHub",
