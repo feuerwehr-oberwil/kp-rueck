@@ -1,7 +1,7 @@
 """event_attendance: planned «kommt um» / «geht um», and the bell 15' before
 
 Revision ID: d5a1c7e3b9f2
-Revises: f2be867876f4
+Revises: a7d3c9e1f5b2
 Create Date: 2026-11-19 00:00:00.000000
 
 In a long Ereignis people come later and leave earlier (feedback 19.11.2026, #3). The
@@ -20,7 +20,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "d5a1c7e3b9f2"
-down_revision: str | Sequence[str] | None = "f2be867876f4"
+down_revision: str | Sequence[str] | None = "a7d3c9e1f5b2"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
