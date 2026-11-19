@@ -508,329 +508,256 @@ async def vehicle_with_incident_assignment(
     return test_vehicle
 
 
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_get_vehicle_status_requires_auth(client: AsyncClient, test_vehicle: Vehicle):
-    """Test that vehicle status endpoint requires authentication."""
-    response = await client.get(f"/api/vehicles/{test_vehicle.id}/status?event_id={uuid4()}")
-    assert response.status_code == 401
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_get_vehicle_status_requires_event_id(editor_client: AsyncClient, test_vehicle: Vehicle):
-    """Test that vehicle status endpoint requires event_id parameter."""
-    response = await editor_client.get(f"/api/vehicles/{test_vehicle.id}/status")
-    assert response.status_code == 422
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_get_vehicle_status_not_found(editor_client: AsyncClient, test_event: "Event"):
-    """Test getting status for non-existent vehicle."""
-    response = await editor_client.get(f"/api/vehicles/{uuid4()}/status?event_id={test_event.id}")
-    assert response.status_code == 404
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_get_vehicle_status_no_assignments(
-    editor_client: AsyncClient, test_vehicle: Vehicle, test_event: "Event"
-):
-    """Test getting status for vehicle with no driver or incident assignment."""
-    response = await editor_client.get(f"/api/vehicles/{test_vehicle.id}/status?event_id={test_event.id}")
+async def _statuses(client: AsyncClient, event_id) -> dict[str, dict]:
+    """GET /api/vehicles/status for one event, keyed by vehicle id."""
+    response = await client.get(f"/api/vehicles/status?event_id={event_id}")
     assert response.status_code == 200
-    data = response.json()
-
-    # Basic vehicle info should be present
-    assert data["id"] == str(test_vehicle.id)
-    assert data["name"] == test_vehicle.name
-    assert data["type"] == test_vehicle.type
-    assert data["status"] == test_vehicle.status
-    assert data["radio_call_sign"] == test_vehicle.radio_call_sign
-
-    # No driver assignment
-    assert data["driver_id"] is None
-    assert data["driver_name"] is None
-    assert data["driver_assigned_at"] is None
-
-    # No incident assignment
-    assert data["incident_id"] is None
-    assert data["incident_title"] is None
-    assert data["assignment_duration_minutes"] is None
+    return {row["id"]: row for row in response.json()}
 
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_get_vehicle_status_with_driver(
+async def test_vehicle_statuses_require_auth(client: AsyncClient):
+    assert (await client.get(f"/api/vehicles/status?event_id={uuid4()}")).status_code == 401
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_vehicle_statuses_require_event(editor_client: AsyncClient):
+    assert (await editor_client.get("/api/vehicles/status")).status_code == 422
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_vehicle_statuses_idle_vehicle(viewer_client: AsyncClient, test_vehicle: Vehicle, test_event: "Event"):
+    """Viewers read it too; an idle vehicle has no driver and no deployments."""
+    row = (await _statuses(viewer_client, test_event.id))[str(test_vehicle.id)]
+    assert row["name"] == test_vehicle.name
+    assert row["radio_call_sign"] == test_vehicle.radio_call_sign
+    assert row["driver_id"] is None
+    assert row["deployments"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_vehicle_statuses_leave_out_archived(
+    editor_client: AsyncClient, db_session: AsyncSession, test_vehicle: Vehicle, test_event: "Event"
+):
+    from datetime import UTC, datetime
+
+    test_vehicle.archived_at = datetime.now(UTC)
+    await db_session.commit()
+    assert str(test_vehicle.id) not in await _statuses(editor_client, test_event.id)
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_vehicle_statuses_driver_only_in_its_event(
     editor_client: AsyncClient,
+    db_session: AsyncSession,
     vehicle_with_driver: Vehicle,
     test_event: "Event",
     test_personnel_driver: "Personnel",
 ):
-    """Test getting status for vehicle with driver assigned."""
-    response = await editor_client.get(f"/api/vehicles/{vehicle_with_driver.id}/status?event_id={test_event.id}")
-    assert response.status_code == 200
-    data = response.json()
+    from app.models import Event
 
-    # Driver should be present
-    assert data["driver_id"] == str(test_personnel_driver.id)
-    assert data["driver_name"] == test_personnel_driver.name
-    assert data["driver_assigned_at"] is not None
+    other = Event(id=uuid4(), name="Other", training_flag=False)
+    db_session.add(other)
+    await db_session.commit()
+
+    row = (await _statuses(editor_client, test_event.id))[str(vehicle_with_driver.id)]
+    assert row["driver_id"] == str(test_personnel_driver.id)
+    assert row["driver_name"] == test_personnel_driver.name
+    assert (await _statuses(editor_client, other.id))[str(vehicle_with_driver.id)]["driver_id"] is None
 
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_get_vehicle_status_with_incident(
+async def test_vehicle_statuses_deployment(
     editor_client: AsyncClient,
     vehicle_with_incident_assignment: Vehicle,
     test_event: "Event",
     test_incident_for_vehicle: "Incident",
 ):
-    """Test getting status for vehicle with incident assignment."""
-    response = await editor_client.get(
-        f"/api/vehicles/{vehicle_with_incident_assignment.id}/status?event_id={test_event.id}"
-    )
-    assert response.status_code == 200
-    data = response.json()
-
-    # Incident assignment should be present
-    assert data["incident_id"] == str(test_incident_for_vehicle.id)
-    assert data["incident_title"] == test_incident_for_vehicle.title
-    assert data["incident_location_address"] == test_incident_for_vehicle.location_address
-    assert data["incident_status"] == test_incident_for_vehicle.status
-    assert data["incident_assigned_at"] is not None
-    # Duration should be approximately 30 minutes
-    assert data["assignment_duration_minutes"] is not None
-    assert 29 <= data["assignment_duration_minutes"] <= 31
+    [deployment] = (await _statuses(editor_client, test_event.id))[str(vehicle_with_incident_assignment.id)][
+        "deployments"
+    ]
+    assert deployment["incident_id"] == str(test_incident_for_vehicle.id)
+    assert deployment["title"] == test_incident_for_vehicle.title
+    assert deployment["status"] == test_incident_for_vehicle.status
+    assert 29 <= deployment["duration_minutes"] <= 31
 
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_get_vehicle_status_location_display_strips_home_city(
+async def test_vehicle_statuses_list_every_einsatz_oldest_first(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_vehicle: Vehicle,
+    test_event: "Event",
+    test_editor: User,
+):
+    """A vehicle serving two Einsätze shows both – not one picked at random.
+
+    Closed and deleted assignments, and other events, stay out.
+    """
+    from datetime import UTC, datetime, timedelta
+
+    from app.models import Event, Incident, IncidentAssignment
+
+    other_event = Event(id=uuid4(), name="Other", training_flag=False)
+    db_session.add(other_event)
+    now = datetime.now(UTC)
+
+    def incident(title: str, event_id=test_event.id, **extra) -> Incident:
+        row = Incident(
+            id=uuid4(),
+            event_id=event_id,
+            title=title,
+            type="brandbekaempfung",
+            priority="medium",
+            status="active",
+            created_by=test_editor.id,
+            **extra,
+        )
+        db_session.add(row)
+        return row
+
+    newer = incident("Blumenweg 21")
+    older = incident("Hauptstrasse 1")
+    closed = incident("Closed")
+    deleted = incident("Deleted", deleted_at=now)
+    elsewhere = incident("Elsewhere", event_id=other_event.id)
+    await db_session.flush()
+
+    def assign(target: Incident, minutes_ago: int, **extra) -> None:
+        db_session.add(
+            IncidentAssignment(
+                id=uuid4(),
+                incident_id=target.id,
+                resource_type="vehicle",
+                resource_id=test_vehicle.id,
+                assigned_at=now - timedelta(minutes=minutes_ago),
+                **extra,
+            )
+        )
+
+    assign(newer, 5)
+    assign(older, 40)
+    assign(closed, 60, unassigned_at=now - timedelta(minutes=50))
+    assign(deleted, 30)
+    assign(elsewhere, 20)
+    await db_session.commit()
+
+    deployments = (await _statuses(editor_client, test_event.id))[str(test_vehicle.id)]["deployments"]
+    assert [d["title"] for d in deployments] == ["Hauptstrasse 1", "Blumenweg 21"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_vehicle_statuses_list_its_auftraege_before_its_einsaetze(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_vehicle: Vehicle,
+    test_event: "Event",
+    test_editor: User,
+):
+    """A vehicle that only drives an Auftrag is deployed too (Sol review S4).
+
+    The Auftrag comes first and opens its first stop with work ahead; a direct
+    assignment on a stop of that Auftrag is listed too (pass 2, S4).
+    """
+    from datetime import UTC, datetime, timedelta
+
+    from app.models import Incident, IncidentAssignment, IncidentGroup, IncidentGroupAssignment
+
+    now = datetime.now(UTC)
+    route = IncidentGroup(id=uuid4(), event_id=test_event.id, name="Nord", color="#336699")
+    db_session.add(route)
+    await db_session.flush()
+
+    def incident(title: str, status: str = "active", **extra) -> Incident:
+        row = Incident(
+            id=uuid4(),
+            event_id=test_event.id,
+            title=title,
+            type="brandbekaempfung",
+            priority="medium",
+            status=status,
+            created_by=test_editor.id,
+            **extra,
+        )
+        db_session.add(row)
+        return row
+
+    incident("Stopp 1", status="complete", group_id=route.id, group_position=0)
+    ahead = incident("Stopp 2", status="enroute", group_id=route.id, group_position=1)
+    lone = incident("Blumenweg 21")
+    await db_session.flush()
+    db_session.add_all(
+        [
+            IncidentGroupAssignment(
+                id=uuid4(),
+                incident_group_id=route.id,
+                resource_type="vehicle",
+                resource_id=test_vehicle.id,
+                assigned_at=now - timedelta(minutes=10),
+            ),
+            # An Einsatz-level row on its own route's stop, older than the route row.
+            IncidentAssignment(
+                id=uuid4(),
+                incident_id=ahead.id,
+                resource_type="vehicle",
+                resource_id=test_vehicle.id,
+                assigned_at=now - timedelta(minutes=50),
+            ),
+            IncidentAssignment(
+                id=uuid4(),
+                incident_id=lone.id,
+                resource_type="vehicle",
+                resource_id=test_vehicle.id,
+                assigned_at=now - timedelta(minutes=30),
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    deployments = (await _statuses(editor_client, test_event.id))[str(test_vehicle.id)]["deployments"]
+    assert [(d["kind"], d.get("name") or d["title"]) for d in deployments] == [
+        ("auftrag", "Nord"),
+        ("einsatz", "Stopp 2"),
+        ("einsatz", "Blumenweg 21"),
+    ]
+    assert deployments[0]["group_id"] == str(route.id)
+    assert deployments[0]["color"] == "#336699"
+    assert deployments[0]["incident_id"] == str(ahead.id)
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_vehicle_statuses_location_display(
     editor_client: AsyncClient,
     db_session: AsyncSession,
     vehicle_with_incident_assignment: Vehicle,
     test_event: "Event",
     test_incident_for_vehicle: "Incident",
 ):
-    """The deployment label comes computed from the server.
-
-    The Fahrzeug sheet used to strip the home city itself, which meant the raw
-    address on first paint and the short one once the settings request landed.
-    """
+    """The deployment label comes computed: home city stripped, the title when there is no address."""
     from app.models import Setting
 
     db_session.add(Setting(key="home_city", value="Oberwil, BL"))
     test_incident_for_vehicle.location_address = "Hauptstrasse 123, 4104 Oberwil"
     await db_session.commit()
+    [deployment] = (await _statuses(editor_client, test_event.id))[str(vehicle_with_incident_assignment.id)][
+        "deployments"
+    ]
+    assert deployment["location_address"] == "Hauptstrasse 123, 4104 Oberwil"
+    assert deployment["location_display"] == "Hauptstrasse 123"
 
-    response = await editor_client.get(
-        f"/api/vehicles/{vehicle_with_incident_assignment.id}/status?event_id={test_event.id}"
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["incident_location_address"] == "Hauptstrasse 123, 4104 Oberwil"
-    assert data["incident_location_display"] == "Hauptstrasse 123"
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_get_vehicle_status_location_display_falls_back_to_title(
-    editor_client: AsyncClient,
-    db_session: AsyncSession,
-    vehicle_with_incident_assignment: Vehicle,
-    test_event: "Event",
-    test_incident_for_vehicle: "Incident",
-):
-    """No address on the incident: the title stands in, formatted the same way.
-
-    The sheet has always fallen back to the title (which usually IS the raw
-    address) — doing that here too is what keeps the client from having to
-    format anything.
-    """
-    from app.models import Setting
-
-    db_session.add(Setting(key="home_city", value="Oberwil"))
     test_incident_for_vehicle.location_address = None
     test_incident_for_vehicle.title = "Muehlemattstrasse 4, Oberwil"
     await db_session.commit()
-
-    response = await editor_client.get(
-        f"/api/vehicles/{vehicle_with_incident_assignment.id}/status?event_id={test_event.id}"
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["incident_location_address"] is None
-    assert data["incident_location_display"] == "Muehlemattstrasse 4"
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_get_vehicle_status_with_both_driver_and_incident(
-    editor_client: AsyncClient,
-    db_session: AsyncSession,
-    test_vehicle: Vehicle,
-    test_event: "Event",
-    test_personnel_driver: "Personnel",
-    test_incident_for_vehicle: "Incident",
-):
-    """Test getting status for vehicle with both driver and incident assignment."""
-    from datetime import UTC, datetime
-
-    from app.models import EventSpecialFunction, IncidentAssignment
-
-    # Create driver assignment
-    driver_assignment = EventSpecialFunction(
-        id=uuid4(),
-        event_id=test_event.id,
-        vehicle_id=test_vehicle.id,
-        personnel_id=test_personnel_driver.id,
-        function_type="driver",
-        assigned_at=datetime.now(UTC),
-    )
-    db_session.add(driver_assignment)
-
-    # Create incident assignment
-    incident_assignment = IncidentAssignment(
-        id=uuid4(),
-        incident_id=test_incident_for_vehicle.id,
-        resource_type="vehicle",
-        resource_id=test_vehicle.id,
-        assigned_at=datetime.now(UTC),
-    )
-    db_session.add(incident_assignment)
-    await db_session.commit()
-
-    response = await editor_client.get(f"/api/vehicles/{test_vehicle.id}/status?event_id={test_event.id}")
-    assert response.status_code == 200
-    data = response.json()
-
-    # Both should be present
-    assert data["driver_id"] == str(test_personnel_driver.id)
-    assert data["incident_id"] == str(test_incident_for_vehicle.id)
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_get_vehicle_status_ignores_other_event(
-    editor_client: AsyncClient,
-    db_session: AsyncSession,
-    test_vehicle: Vehicle,
-    test_personnel_driver: "Personnel",
-):
-    """Test that vehicle status only shows assignments for the specified event."""
-    from datetime import UTC, datetime
-
-    from app.models import Event, EventSpecialFunction
-
-    # Create two events
-    event1 = Event(id=uuid4(), name="Event 1", training_flag=False)
-    event2 = Event(id=uuid4(), name="Event 2", training_flag=False)
-    db_session.add(event1)
-    db_session.add(event2)
-    await db_session.commit()
-
-    # Assign driver to event1 only
-    driver_assignment = EventSpecialFunction(
-        id=uuid4(),
-        event_id=event1.id,
-        vehicle_id=test_vehicle.id,
-        personnel_id=test_personnel_driver.id,
-        function_type="driver",
-        assigned_at=datetime.now(UTC),
-    )
-    db_session.add(driver_assignment)
-    await db_session.commit()
-
-    # Query for event2 - should not see the driver
-    response = await editor_client.get(f"/api/vehicles/{test_vehicle.id}/status?event_id={event2.id}")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["driver_id"] is None
-
-    # Query for event1 - should see the driver
-    response = await editor_client.get(f"/api/vehicles/{test_vehicle.id}/status?event_id={event1.id}")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["driver_id"] == str(test_personnel_driver.id)
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_get_vehicle_status_ignores_unassigned(
-    editor_client: AsyncClient,
-    db_session: AsyncSession,
-    test_vehicle: Vehicle,
-    test_event: "Event",
-    test_incident_for_vehicle: "Incident",
-):
-    """Test that vehicle status ignores unassigned (completed) incident assignments."""
-    from datetime import UTC, datetime, timedelta
-
-    from app.models import IncidentAssignment
-
-    # Create completed assignment (has unassigned_at)
-    assignment = IncidentAssignment(
-        id=uuid4(),
-        incident_id=test_incident_for_vehicle.id,
-        resource_type="vehicle",
-        resource_id=test_vehicle.id,
-        assigned_at=datetime.now(UTC) - timedelta(hours=1),
-        unassigned_at=datetime.now(UTC) - timedelta(minutes=30),
-    )
-    db_session.add(assignment)
-    await db_session.commit()
-
-    response = await editor_client.get(f"/api/vehicles/{test_vehicle.id}/status?event_id={test_event.id}")
-    assert response.status_code == 200
-    data = response.json()
-
-    # Should not see the completed assignment
-    assert data["incident_id"] is None
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_get_vehicle_status_viewer_can_access(
-    viewer_client: AsyncClient, test_vehicle: Vehicle, test_event: "Event"
-):
-    """Test that viewers can access vehicle status."""
-    response = await viewer_client.get(f"/api/vehicles/{test_vehicle.id}/status?event_id={test_event.id}")
-    assert response.status_code == 200
-
-
-# ============================================
-# Vehicle Status Response Structure Tests
-# ============================================
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_vehicle_status_response_structure(
-    editor_client: AsyncClient, test_vehicle: Vehicle, test_event: "Event"
-):
-    """Test that vehicle status response contains all expected fields."""
-    response = await editor_client.get(f"/api/vehicles/{test_vehicle.id}/status?event_id={test_event.id}")
-    assert response.status_code == 200
-    data = response.json()
-
-    expected_fields = [
-        "id",
-        "name",
-        "type",
-        "status",
-        "radio_call_sign",
-        "driver_id",
-        "driver_name",
-        "driver_assigned_at",
-        "incident_id",
-        "incident_title",
-        "incident_location_address",
-        "incident_location_display",
-        "incident_status",
-        "incident_assigned_at",
-        "assignment_duration_minutes",
+    [deployment] = (await _statuses(editor_client, test_event.id))[str(vehicle_with_incident_assignment.id)][
+        "deployments"
     ]
-    for field in expected_fields:
-        assert field in data, f"Missing field: {field}"
+    assert deployment["location_display"] == "Muehlemattstrasse 4"

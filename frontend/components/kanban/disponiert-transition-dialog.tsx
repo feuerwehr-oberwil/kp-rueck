@@ -38,6 +38,9 @@ interface DisponiertTransitionDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   operation: Operation | null
+  /** «Funkdurchsage wiederholen»: the Einsatz is already out. Same text, own title, and
+   *  nothing that dispatches (the batch offer for the other stops stays away). */
+  repeat?: boolean
   materials: Material[]
   printerEnabled?: boolean
   vehicleDrivers?: VehicleDrivers
@@ -50,6 +53,7 @@ export function DisponierTransitionDialog({
   open,
   onOpenChange,
   operation,
+  repeat = false,
   materials,
   printerEnabled,
   vehicleDrivers,
@@ -147,7 +151,7 @@ export function DisponierTransitionDialog({
           op.id !== operation.id && auftrag.stopIds.includes(op.id) && !PRE_DISPATCH_STATUSES.has(op.status),
       )
     : false
-  const offerBatch = pendingStops.length > 0 && !siblingsAlreadyOut
+  const offerBatch = !repeat && pendingStops.length > 0 && !siblingsAlreadyOut
 
   const dispatchWholeAuftrag = () => {
     for (const stop of pendingStops) changeStatusToTop(stop.id, "enroute")
@@ -229,11 +233,11 @@ export function DisponierTransitionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t('disponiert.title')}</DialogTitle>
+          <DialogTitle>{t(repeat ? 'disponiert.repeatTitle' : 'disponiert.title')}</DialogTitle>
           <DialogDescription>
-            {t('disponiert.description', { location })}
+            {repeat ? location : t('disponiert.description', { location })}
           </DialogDescription>
         </DialogHeader>
 

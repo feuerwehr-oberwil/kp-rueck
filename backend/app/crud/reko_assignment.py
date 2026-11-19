@@ -16,6 +16,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import EventSpecialFunction, Incident, IncidentAssignment, Personnel, RekoReport
+from .locking import lock_resource
+from .manual_order import OrderChangedError, plan_manual_order
 
 
 def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> int:
@@ -275,21 +277,24 @@ async def get_reko_assignments_for_personnel(
                     "assigned_at": assignment.assigned_at if assignment else None,
                     "has_completed_reko": incident_id in completed_reko_incidents,
                     "is_active_assignment": is_active,
-                    # Kanban order the operator arranged on the board (Incident.position).
-                    # Kept off the response schema, used only for sorting below.
+                    # The order the operator gave this person's Rekos (Reko-Modus), then
+                    # the kanban order (Incident.position). Kept off the response schema,
+                    # used only for sorting below.
+                    "_reko_position": assignment.reko_position if assignment else None,
                     "_position": incident.position,
                     "_created_at": incident.created_at,
                 }
             )
 
-    # Sort so the reko person sees the SAME priority order the operator arranged
-    # on the kanban board: active first, incomplete-reko first, then by the
-    # operator's manual kanban order (Incident.position), then created_at as a
-    # stable tiebreaker.
+    # Sort so the reko person sees the SAME priority order the operator arranged:
+    # active first, incomplete-reko first, then this person's Reko order, then the
+    # kanban order (Incident.position), then created_at as a stable tiebreaker.
     result.sort(
         key=lambda x: (
             not x["is_active_assignment"],  # Active first
             x["has_completed_reko"],  # Incomplete first within each group
+            x["_reko_position"] is None,  # Ordered Rekos before unordered rows
+            x["_reko_position"] or 0,  # The Reko-Modus order
             x["_position"],  # Operator's kanban priority order
             x["_created_at"],  # Stable tiebreaker
         )
@@ -297,6 +302,7 @@ async def get_reko_assignments_for_personnel(
 
     # Strip the internal sort-only keys so they don't leak into the API response.
     for row in result:
+        row.pop("_reko_position", None)
         row.pop("_position", None)
         row.pop("_created_at", None)
 
@@ -440,3 +446,111 @@ async def get_available_reko_personnel_for_incident(
     )
 
     return all_reko, currently_assigned_id
+
+
+# ============================================
+# A Reko person's order
+# ============================================
+#
+# Their open Rekos are driven in an order the KP sets in the Reko-Modus, exactly like the
+# stops of an Auftrag (`groups.reorder_group_stops`, same `plan_manual_order`) – shown as
+# numbered pins on the map and as the order of their /feld list. The order lives on the
+# assignment rows (`IncidentAssignment.reko_position`), not on an Auftrag: a Reko person is
+# a person, not a route.
+#
+# Lock: the person's row (step 3 of `crud/locking.py`). Every writer of a Reko row for a
+# person – assign-reko, the handover, this reorder – holds it while it reads and writes
+# their positions, so a new Reko always takes the next free number and a reorder never
+# races one. The rows themselves are leaves under that lock.
+
+
+async def person_reko_rows(
+    db: AsyncSession,
+    event_id: uuid.UUID,
+    personnel_id: uuid.UUID,
+) -> list[IncidentAssignment]:
+    """The person's active personnel rows in this Ereignis, in their Reko order, one per Einsatz.
+
+    The same set the board reads as «this person's Rekos» (an active row of a Reko person on
+    a live Einsatz, done or not) – the reorder's ``expected_ids`` is compared against it.
+    """
+    result = await db.execute(
+        select(IncidentAssignment)
+        .join(Incident, Incident.id == IncidentAssignment.incident_id)
+        .where(
+            Incident.event_id == event_id,
+            Incident.deleted_at.is_(None),
+            IncidentAssignment.resource_type == "personnel",
+            IncidentAssignment.resource_id == personnel_id,
+            IncidentAssignment.unassigned_at.is_(None),
+        )
+        .order_by(
+            IncidentAssignment.reko_position.asc().nulls_last(),
+            IncidentAssignment.assigned_at.asc(),
+            IncidentAssignment.id.asc(),
+        )
+    )
+    rows: list[IncidentAssignment] = []
+    seen: set[uuid.UUID] = set()
+    for row in result.scalars():
+        if row.incident_id not in seen:
+            seen.add(row.incident_id)
+            rows.append(row)
+    return rows
+
+
+async def next_reko_position(db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid.UUID) -> int:
+    """The number a NEW Reko of this person takes: after all of theirs. Call under their row lock.
+
+    Numbers the person's current rows 0..n-1 on the way (``person_reko_rows`` order), so a row
+    that never had a number – written before the order existed, or as a crew row of somebody
+    who became a Reko later – keeps its place before the new one instead of sorting after it.
+    """
+    rows = await person_reko_rows(db, event_id, personnel_id)
+    for index, row in enumerate(rows):
+        if row.reko_position != index:
+            row.reko_position = index
+    return len(rows)
+
+
+async def reorder_reko_assignments(
+    db: AsyncSession,
+    event_id: uuid.UUID,
+    personnel_id: uuid.UUID,
+    ordered_ids: list[uuid.UUID],
+    expected_ids: list[uuid.UUID] | None = None,
+) -> int:
+    """Put a Reko person's Rekos (Einsatz ids) in ``ordered_ids`` order. Flushes only.
+
+    ``expected_ids`` = the Rekos the client last saw (``person_reko_rows``); when that SET has
+    changed since – a Reko added, taken over or released elsewhere – ``OrderChangedError`` and
+    nothing is written. A set, not the order: rows that never had a position (a Reko person's
+    crew rows) tie on the server by ``assigned_at``, which the board does not hold, and two
+    drags of the same list are both the operator's fresh decision (as for a manual stop drag).
+    Returns how many of ``ordered_ids`` were this person's Rekos.
+
+    Raises:
+        LookupError: the person does not exist or holds no Reko function in this Ereignis.
+        OrderChangedError: the list is not ``expected_ids`` any more.
+    """
+    if await lock_resource(db, "personnel", personnel_id) is None:
+        raise LookupError(f"personnel {personnel_id} does not exist")
+    is_reko = await db.scalar(
+        select(EventSpecialFunction.id).where(
+            EventSpecialFunction.event_id == event_id,
+            EventSpecialFunction.personnel_id == personnel_id,
+            EventSpecialFunction.function_type == "reko",
+        )
+    )
+    if is_reko is None:
+        raise LookupError(f"personnel {personnel_id} is no Reko in event {event_id}")
+
+    rows = await person_reko_rows(db, event_id, personnel_id)
+    by_incident = {row.incident_id: row for row in rows}
+    if expected_ids is not None and (len(expected_ids) != len(by_incident) or set(expected_ids) != set(by_incident)):
+        raise OrderChangedError("the person's Rekos changed since the order was read")
+    order = plan_manual_order(list(by_incident), ordered_ids)
+    for index, incident_id in enumerate(order):
+        by_incident[incident_id].reko_position = index
+    await db.flush()
+    return len(set(ordered_ids) & set(by_incident))

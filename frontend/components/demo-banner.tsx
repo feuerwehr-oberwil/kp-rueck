@@ -155,7 +155,7 @@ export function DemoBanner() {
         {/* The one dialog that leaves the overlay rung: it explains the ribbon above, so it
             has to cover it. Content AND overlay, or the ribbon shows through the scrim. */}
         <DialogContent
-          className="z-demo-dialog modal-h-tall overflow-y-auto sm:max-w-md"
+          className="z-demo-dialog modal-h-tall overflow-y-auto"
           overlayClassName="z-demo-dialog"
         >
           <DialogHeader className="pr-8">

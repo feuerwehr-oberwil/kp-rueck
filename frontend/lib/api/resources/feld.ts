@@ -21,6 +21,7 @@ import {
   type ApiFeldDuplicateCandidatesResponse,
   type ApiFieldRequestCreate,
   type ApiFeldAssignmentsResponse,
+  type ApiAttendancePlan,
   type ApiFeldAccessState,
   type ApiFeldContextResponse,
   type ApiFeldUnlockResponse,
@@ -304,6 +305,14 @@ export class FeldApi {
     await linkRequest<unknown>(
       `/api/feld/attendance/${personnelId}?token=${encodeURIComponent(token)}&present=${present}`,
       { method: 'POST' },
+    )
+  }
+
+  /** «Ich komme um …» / «Ich bin da bis …» – the person's own plan (`ApiAttendancePlan`). */
+  async setFeldAttendancePlan(personnelId: string, token: string, plan: ApiAttendancePlan): Promise<void> {
+    await linkRequest<unknown>(
+      `/api/feld/attendance/${personnelId}/plan?token=${encodeURIComponent(token)}`,
+      { method: 'PUT', body: JSON.stringify(plan) },
     )
   }
 

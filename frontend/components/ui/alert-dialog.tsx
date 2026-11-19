@@ -6,6 +6,7 @@ import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog'
 import { cn } from '@/lib/utils'
 import { buttonVariants } from '@/components/ui/button'
 import { OVERLAY_CLASS } from '@/components/ui/overlay'
+import { dialogFrameClass, type DialogSize } from '@/components/ui/dialog-frame'
 
 function AlertDialog({
   ...props
@@ -53,21 +54,26 @@ function AlertDialogOverlay({
   )
 }
 
+/** A question window. `size` as in dialog.tsx (dialog-frame.ts) – S unless the question
+ *  carries a form-sized body. Never a width or position through `className`. */
 function AlertDialogContent({
   className,
+  size = 'sm',
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Content>) {
+}: React.ComponentProps<typeof AlertDialogPrimitive.Content> & { size?: DialogSize }) {
   return (
     <AlertDialogPortal>
       <AlertDialogOverlay />
       <AlertDialogPrimitive.Content
         data-slot="alert-dialog-content"
+        data-size={size}
         className={cn(
           // Content leaves with the overlay, for the same two reasons as in
           // dialog.tsx: it is a click sink of its own, and a backdrop that
           // disappears while the panel is still fading reads as a bug.
           // The `minmax(0,1fr)` column keeps long lines inside – see dialog.tsx.
-          'bg-background data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-overlay grid grid-cols-[minmax(0,1fr)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg',
+          'bg-background data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 z-overlay grid grid-cols-[minmax(0,1fr)] gap-4 rounded-lg border p-6 shadow-lg duration-200',
+          dialogFrameClass(size),
           className,
         )}
         {...props}

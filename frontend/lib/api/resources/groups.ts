@@ -109,11 +109,13 @@ export class GroupsApi {
     })
   }
 
-  /** Attach existing incidents to an Auftrag as stops (appended to the end). */
-  async addStopsToGroup(groupId: string, incidentIds: string[]): Promise<ApiIncidentGroup> {
+  /** Attach existing incidents to an Auftrag as stops (appended to the end). With
+   *  `viaVehicleId` (#23) only while each is lone and live and the vehicle still on the
+   *  Auftrag – 409 otherwise. */
+  async addStopsToGroup(groupId: string, incidentIds: string[], viaVehicleId?: string): Promise<ApiIncidentGroup> {
     return httpRequest<ApiIncidentGroup>(`/api/incident-groups/${groupId}/stops`, {
       method: 'POST',
-      body: JSON.stringify({ incident_ids: incidentIds }),
+      body: JSON.stringify(viaVehicleId ? { incident_ids: incidentIds, via_vehicle_id: viaVehicleId } : { incident_ids: incidentIds }),
     })
   }
 
@@ -150,11 +152,12 @@ export class GroupsApi {
     })
   }
 
-  /** Promote a route-owned assignment to Einsatzleiter (demotes the previous one). */
+  /** Update a route-owned assignment: promote to Einsatzleiter (demotes the previous one) or
+   *  set a vehicle's driver stay. */
   async updateGroupAssignment(
     groupId: string,
     assignmentId: string,
-    data: { is_leader?: boolean }
+    data: { is_leader?: boolean; driver_stay?: boolean }
   ): Promise<ApiGroupAssignment> {
     return httpRequest<ApiGroupAssignment>(
       `/api/incident-groups/${groupId}/assignments/${assignmentId}`,

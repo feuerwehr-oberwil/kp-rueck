@@ -1,10 +1,10 @@
 """Vehicle schemas + per-event status response."""
 
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
 
 from .fields import RequiredText50, RequiredText100, SortOrder, reject_null
 
@@ -102,11 +102,47 @@ class Vehicle(VehicleBase):
     can_delete: bool | None = None
 
 
-class VehicleStatusResponse(BaseModel):
-    """Vehicle status with driver and incident information.
+class VehicleEinsatzDeployment(BaseModel):
+    """An Einsatz a vehicle is on right now (an active incident assignment)."""
 
-    Answers all three states for one vehicle in one call: `out_of_service` wins,
-    then `incident_id` (Im Einsatz), else Verfügbar.
+    kind: Literal["einsatz"] = "einsatz"
+    incident_id: UUID
+    title: str
+    location_address: str | None = None
+    # Server-computed short label (home city stripped, falls back to the title),
+    # so the Fahrzeug sheet shows the final deployment line on first paint.
+    location_display: str | None = None
+    status: str
+    assigned_at: datetime
+    duration_minutes: int
+
+
+class VehicleAuftragDeployment(BaseModel):
+    """An Auftrag (route) a vehicle drives right now (an active route assignment)."""
+
+    kind: Literal["auftrag"] = "auftrag"
+    group_id: UUID
+    name: str
+    # The route's own colour – the board and the map identify it by it.
+    color: str | None = None
+    # The stop a click opens: the first one with work ahead, else the first; None
+    # for a route without stops.
+    incident_id: UUID | None = None
+    assigned_at: datetime
+    duration_minutes: int
+
+
+VehicleDeployment = Annotated[VehicleAuftragDeployment | VehicleEinsatzDeployment, Field(discriminator="kind")]
+
+
+class VehicleStatusResponse(BaseModel):
+    """Vehicle status with driver and every Auftrag and Einsatz it serves, for one event.
+
+    Answers all three states for one vehicle: `out_of_service` wins, then a
+    non-empty `deployments` (Im Einsatz), else Verfügbar. A vehicle can serve
+    several Aufträge and Einsätze at once. `deployments`: its Aufträge first, then
+    every Einsatz it is assigned to directly – a stop of its own Auftrag included, a
+    direct assignment is a fact of its own – each oldest assignment first.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -123,12 +159,4 @@ class VehicleStatusResponse(BaseModel):
     driver_name: str | None = None
     driver_assigned_at: datetime | None = None
 
-    incident_id: UUID | None = None
-    incident_title: str | None = None
-    incident_location_address: str | None = None
-    # Server-computed short label for the address above (home city stripped),
-    # so the Fahrzeug sheet shows the final deployment line on first paint.
-    incident_location_display: str | None = None
-    incident_status: str | None = None
-    incident_assigned_at: datetime | None = None
-    assignment_duration_minutes: int | None = None
+    deployments: list[VehicleDeployment] = []

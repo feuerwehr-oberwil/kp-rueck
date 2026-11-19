@@ -680,13 +680,14 @@ _AssignmentTable = type[IncidentAssignment] | type[IncidentGroupAssignment]
 def _assignments_to_live_resources(table: _AssignmentTable = IncidentAssignment) -> ColumnElement[bool]:
     """Assignment rows whose `resource_id` still resolves to an existing resource.
 
-    A `replace` deletes every personnel, vehicle and material row, so every
-    assignment matching this is an assignment that would be orphaned.
+    A `replace` deletes every roster, vehicle and material row (an Ereignis's guests are
+    not on the sheet and stay), so every assignment matching this is an assignment that
+    would be orphaned.
     """
     return or_(
         and_(
             table.resource_type == "personnel",
-            table.resource_id.in_(select(Personnel.id)),
+            table.resource_id.in_(select(Personnel.id).where(Personnel.in_scope(None))),
         ),
         and_(
             table.resource_type == "vehicle",
@@ -738,7 +739,7 @@ async def count_deletion_impact(db: AsyncSession, mode: Literal["replace", "appe
     affected = _assignments_to_live_resources()
     affected_groups = _assignments_to_live_resources(IncidentGroupAssignment)
     return {
-        "personnel": await _count_all(Personnel),
+        "personnel": await _count(select(func.count()).select_from(Personnel).where(Personnel.in_scope(None))),
         "vehicles": await _count_all(Vehicle),
         "materials": await _count_all(Material),
         "incident_assignments": await _count(select(func.count()).select_from(IncidentAssignment).where(affected)),
@@ -931,7 +932,8 @@ async def import_data(
         # than silently leaving a table behind (see `admin.execute_excel_import`);
         # this branch is the second lock on the same door.
         if parsed_data.personnel.present:
-            await db.execute(delete(Personnel))
+            # The roster; an Ereignis's guests are not on the sheet (`Personnel.in_scope`).
+            await db.execute(delete(Personnel).where(Personnel.in_scope(None)))
         # Active rows only: the archive is not on the round-trip sheets, so it is
         # not in this workbook, and "replace" means "replace what the export
         # shows" — not "destroy the inventory record the export deliberately
@@ -978,7 +980,7 @@ async def _refuse_roster_duplicates(db: AsyncSession, sheet: ParsedSheet) -> Non
 
     Pairs already on the roster are not this import's business (the API leaves them too).
     """
-    rows = await db.execute(select(Personnel.name, Personnel.kennung))
+    rows = await db.execute(select(Personnel.name, Personnel.kennung).where(Personnel.in_scope(None)))
     taken = {name_key(name, kennung) for name, kennung in rows.all()}
     for index, person in enumerate(sheet.rows):
         if name_key(person["name"], person.get("kennung")) in taken:
@@ -1014,7 +1016,8 @@ async def export_data_to_excel(db: AsyncSession) -> BytesIO:
     # recipient re-sorts in their spreadsheet, and `test_personnel_sorted_by_name`
     # pins that contract. The RANK order belongs on the surfaces somebody reads
     # top-to-bottom (the board, the printed roster), not here.
-    personnel_result = await db.execute(select(Personnel).order_by(Personnel.name))
+    # The roster – an Ereignis's guests are not station members.
+    personnel_result = await db.execute(select(Personnel).where(Personnel.in_scope(None)).order_by(Personnel.name))
     personnel = personnel_result.scalars().all()
     vehicle_result = await db.execute(
         select(Vehicle).where(Vehicle.archived_at.is_(None)).order_by(Vehicle.display_order)

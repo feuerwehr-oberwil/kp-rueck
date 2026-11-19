@@ -7,9 +7,10 @@ import { SearchInput } from "@/components/ui/search-input"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Truck, UserPlus, Plus } from "lucide-react"
+import { UserPlus, Plus } from "lucide-react"
 import { useIsMobile } from "@/components/ui/use-mobile"
-import { PersonPickTile, type PersonWhere, type TileRole } from "@/components/kanban/assignment-list-section"
+import { PersonPickTile } from "@/components/kanban/assignment-list-section"
+import { einsatzWhere, usePersonTileFacts } from "@/components/kanban/person-tile-facts"
 import { toast } from "sonner"
 import { FormMessage, fieldMessageProps, focusFirstBlockingField, formMessageId } from "@/components/ui/form-message"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
@@ -42,8 +43,8 @@ const PICK_MESSAGE_ID = "driver-pick-message"
 
 /**
  * «Fahrer für TLF»: pick the vehicle's ONE driver (ENT-10 A). The person tiles of the
- * assignment dialog (`PersonPickTile`), the current driver ticked with «aktuell»; a tap
- * ticks, «Übernehmen» applies – a mistap is not yet a write. Unticking the current driver
+ * assignment dialog (`PersonPickTile`, one to choose: radio dot), the current driver chosen
+ * with «aktuell»; a tap chooses, «Übernehmen» applies – a mistap is not yet a write. Unticking the current driver
  * turns the main answer into «Ohne Fahrer» (after a confirm). Moving somebody off an Einsatz
  * or off another vehicle asks first. A bottom sheet on the phone (`PickerDialog`).
  */
@@ -167,18 +168,9 @@ export function DriverAssignmentDialog({
       .map(op => ({ id: op.id, location: getIncidentRefLabel(op, 40), personnelId: person.id }))
   }
 
-  /** The tile's where-note: the Einsatz the person is on (amber – taking them releases them
-   *  there), else the other vehicle they drive; both at once = the vehicle as a role. */
-  const tileFacts = (person: Person): { where: PersonWhere | null; roles: TileRole[] } => {
-    const conflicts = getPersonConflicts(person)
-    const drivingOther = otherVehicleByDriver.get(person.id)
-    const driving = drivingOther ? { label: t('drivesVehicle', { vehicle: drivingOther.name }), Icon: Truck } : null
-    if (conflicts.length > 0) {
-      const head = conflicts.length > 1 ? `${conflicts[0].location} +${conflicts.length - 1}` : conflicts[0].location
-      return { where: { head, full: conflicts.map(c => c.location).join(", ") }, roles: driving ? [driving] : [] }
-    }
-    return { where: driving ? { head: driving.label, full: driving.label, Icon: driving.Icon } : null, roles: [] }
-  }
+  // The tile's where · roles line: the Einsatz the person is on (amber – taking them releases
+  // them there), else the other vehicle they drive, plus every other Ereignis role.
+  const factsOf = usePersonTileFacts()
 
   const toggleChosen = (personId: string) => {
     setChosenId(current => (current === personId ? null : personId))
@@ -319,8 +311,9 @@ export function DriverAssignmentDialog({
     }
   }
 
-  // Create a not-yet-registered person, check them in for this Ereignis, tag them as
-  // Fahrer, and assign them as this vehicle's driver in one go.
+  // Create a not-yet-registered person as a GUEST of this Ereignis (not the roster – they
+  // turned up tonight), check them in, tag them as Fahrer, and assign them as this
+  // vehicle's driver in one go.
   const addWalkInDriver = async () => {
     const name = newPersonName.trim()
     if (isAddingPerson) return
@@ -337,7 +330,7 @@ export function DriverAssignmentDialog({
     }
     setIsAddingPerson(true)
     try {
-      const created = await apiClient.createPersonnel({ name, status: 'available', tags: ['F'] })
+      const created = await apiClient.createPersonnel({ name, status: 'available', tags: ['F'], guest_event_id: eventId })
       try {
         // The board's own door to the check-in endpoint. This used to mint a public
         // share token and consume it one line later, which handed a login-less link
@@ -368,20 +361,6 @@ export function DriverAssignmentDialog({
       toast.error(t('addError'))
     } finally {
       setIsAddingPerson(false)
-    }
-  }
-
-  // One-tap: tag an already-present "Andere" person as Fahrer (F) so they're
-  // recognised as a driver going forward.
-  const markAsDriver = async (person: Person) => {
-    const tags = Array.from(new Set([...(person.tags ?? []), 'F']))
-    try {
-      await apiClient.updatePersonnel(person.id, { tags })
-      await refreshOperations()
-      toast.success(t('markedAsDriver', { name: person.name }))
-    } catch (error) {
-      console.error('Failed to mark as driver:', error)
-      toast.error(t('markError'))
     }
   }
 
@@ -459,14 +438,17 @@ export function DriverAssignmentDialog({
   }
 
   const renderTile = (person: Person) => {
-    const { where, roles } = tileFacts(person)
+    const { where, roles, plan } = factsOf(person, { elsewhere: einsatzWhere(person.id, operations), driverFor: vehicleId })
     return (
       <PersonPickTile
         name={person.name}
         personnelId={person.id}
+        kennung={person.kennung ?? null}
         rank={person.role}
         where={where}
         roles={roles}
+        plan={plan}
+        single
         checked={chosenId === person.id}
         current={person.id === localDriverId}
         animate={justAssigned === person.id}
@@ -550,6 +532,7 @@ export function DriverAssignmentDialog({
         description={localDriverName ? t('currentDriver', { driver: localDriverName }) : t('noDriverAssigned')}
         toolbar={toolbar}
         listTestId="driver-list"
+        radioGroupLabel={t('title', { vehicle: vehicleName })}
         footer={
           <>
             <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -575,23 +558,7 @@ export function DriverAssignmentDialog({
           <p className="px-1 pt-3 text-xs font-medium tracking-wide text-muted-foreground">{t('othersSection')}</p>
         )}
         {othersGroup.map((person) => (
-          <div key={person.id} className="flex items-start gap-1">
-            <div className="min-w-0 flex-1">{renderTile(person)}</div>
-            {/* One-tap: recognise this person as a Fahrer (adds F tag) */}
-            {person.id !== localDriverId && !otherVehicleByDriver.has(person.id) && (
-              <Button
-                variant="ghost"
-                size="icon"
-                title={t('markAsDriver')}
-                aria-label={t('markAsDriver')}
-                disabled={isAssigning}
-                onClick={() => markAsDriver(person)}
-                className="flex-shrink-0 text-muted-foreground hover:text-foreground"
-              >
-                <UserPlus className="size-4" />
-              </Button>
-            )}
-          </div>
+          <div key={person.id}>{renderTile(person)}</div>
         ))}
 
         {/* Empty state */}

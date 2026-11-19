@@ -74,8 +74,10 @@ function RoleHints() {
     <ul>
       {ROLE_HINTS.map(({ role, nameKey }) => (
         <li key={role} className="flex gap-2 py-1 text-xs text-muted-foreground">
-          <span className="w-24 flex-shrink-0 font-semibold text-foreground">{t(nameKey)}</span>
-          <span>{t(`users.roleHints.${role}`)}</span>
+          {/* At S (512) the sentences wrap (owner pick «Kurze Formulare = S», 19.11.): the
+              text column may shrink and break, the name column keeps its width. */}
+          <span className="w-24 flex-shrink-0 break-words font-semibold text-foreground">{t(nameKey)}</span>
+          <span className="min-w-0 break-words">{t(`users.roleHints.${role}`)}</span>
         </li>
       ))}
     </ul>

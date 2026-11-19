@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { AUFTRAG_SWATCHES, GROUP_PALETTE, darkenForWhiteText, whiteTextContrast } from './map-colors'
+import { AUFTRAG_SWATCHES, GROUP_PALETTE, REKO_PALETTE, darkenForWhiteText, oklabDistance, whiteTextContrast } from './map-colors'
 
 // The swatches before 08.11.2026 – still stored on routes and templates in real databases.
 const OLD_SWATCHES = ['#3b82f6', '#06b6d4', '#84cc16', '#6366f1', '#a16207', '#14b8a6']
 
 describe('darkenForWhiteText', () => {
   it('every swatch and group tone holds white stop numbers at 4.5:1 as it is', () => {
-    for (const swatch of GROUP_PALETTE) {
+    for (const swatch of [...GROUP_PALETTE, ...REKO_PALETTE]) {
       expect(whiteTextContrast(swatch)).toBeGreaterThanOrEqual(4.5)
       expect(darkenForWhiteText(swatch)).toBe(swatch)
     }
@@ -35,5 +35,13 @@ describe('darkenForWhiteText', () => {
     expect(darkenForWhiteText('#1e293b')).toBe('#1e293b')
     expect(darkenForWhiteText('#a16207')).toBe('#a16207')
     expect(darkenForWhiteText('var(--primary)')).toBe('var(--primary)')
+  })
+})
+
+describe('REKO_PALETTE', () => {
+  // Sign-off 19.11.2026: amber-brown and brown (0.08 apart) read as one person on the map.
+  it('keeps every two Reko tones at least 0.1 apart in OKLab', () => {
+    const pairs = REKO_PALETTE.flatMap((a, i) => REKO_PALETTE.slice(i + 1).map((b) => [a, b, oklabDistance(a, b)] as const))
+    expect(pairs.filter(([, , distance]) => distance < 0.1)).toEqual([])
   })
 })

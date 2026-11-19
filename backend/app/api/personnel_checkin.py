@@ -269,6 +269,66 @@ async def check_out(
     return person
 
 
+@router.put("/{personnel_id}/plan", response_model=schemas.PersonnelCheckInResponse)
+async def set_plan(
+    personnel_id: uuid.UUID,
+    plan: schemas.AttendancePlanUpdate,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    token: str | None = Query(default=None, description="Access token from the check-in link"),
+    event_id: uuid.UUID | None = Query(default=None, description="Event ID (board, requires an editor session)"),
+    access_token: Annotated[str | None, Cookie()] = None,
+    authorization: Annotated[str | None, Header()] = None,
+    db: AsyncSession = Depends(get_db),
+) -> schemas.PersonnelCheckInResponse:
+    """«kommt um» / «geht um» – the Appell's time chip, or the person on the check-in link.
+
+    Two doors like check-in: the link's token (somebody giving their own «bis 22:00» at the
+    door) or an editor session with `event_id` (the KP, from a radio message). Only the
+    fields sent change; null clears one. Broadcasts the same `personnel_update` as a tick,
+    so the Appell and the pickers show the new time without a reload.
+    """
+    event_id, current_user = await _resolve_event_and_actor(
+        request=request,
+        token=token,
+        event_id=event_id,
+        access_token=access_token,
+        authorization=authorization,
+        db=db,
+    )
+
+    try:
+        person = await crud.set_attendance_plan(
+            db=db,
+            event_id=event_id,
+            personnel_id=personnel_id,
+            plan=plan,
+            current_user=current_user,
+            request=request,
+        )
+    except ValueError as e:
+        logger.warning("Attendance plan refused: %s", e)
+        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
+
+    if not person:
+        raise HTTPException(status_code=404, detail=ErrorMessages.PERSONNEL_NOT_FOUND)
+
+    background_tasks.add_task(
+        broadcast_personnel_update,
+        {
+            "id": str(person.id),
+            "name": person.name,
+            "role": person.role,
+            "status": person.status,
+            "checked_in": person.checked_in,
+            "event_id": str(event_id),
+        },
+        "update",
+    )
+
+    return person
+
+
 @router.delete("/{personnel_id}", response_model=schemas.PersonnelCheckInResponse)
 async def clear_attendance(
     personnel_id: uuid.UUID,

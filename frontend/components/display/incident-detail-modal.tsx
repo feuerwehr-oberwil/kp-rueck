@@ -154,7 +154,7 @@ export function IncidentDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl modal-h-tall overflow-y-auto" aria-describedby={undefined}>
+      <DialogContent size="md" className="modal-h-tall overflow-y-auto" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <PriorityGlyph priority={operation.priority} size="wall" />
@@ -373,7 +373,9 @@ export function IncidentDetailModal({
                     className="ml-auto gap-1 text-sm"
                   >
                     <FileCheck className="h-3.5 w-3.5" />
-                    {rekoSummary.isRelevant ? tr('relevant') : tr('notNeeded')}
+                    {rekoSummary.isRelevant === true
+                      ? tr('relevant')
+                      : rekoSummary.isRelevant === false ? tr('notNeeded') : tr('relevanceOpen')}
                   </Badge>
                 )}
               </div>

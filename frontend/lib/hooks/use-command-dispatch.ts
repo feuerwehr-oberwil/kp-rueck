@@ -63,7 +63,8 @@ export interface CommandDispatchDeps {
   assign: (resource: DispatchResource, operationId: string) => unknown
   setPriority: (operationId: string, priority: DispatchPriority) => void
   /** A status move with the side effects a drag across columns has. */
-  moveStatus: (operationId: string, status: DispatchStatus, previous: DispatchStatus) => void
+  /** False when the move waits for a question (the Reko form) – then it is not reported. */
+  moveStatus: (operationId: string, status: DispatchStatus, previous: DispatchStatus) => boolean
   /** Raw writes for the undo. */
   revertPriority: (operationId: string, priority: DispatchPriority) => void
   revertStatus: (operationId: string, status: DispatchStatus) => void
@@ -175,8 +176,7 @@ export async function runDispatch(command: DispatchCommand, deps: CommandDispatc
   // Last: «→ Disponiert» asks its own questions (the Disponiert dialog), and
   // those are about the crew that was just put on.
   const current = deps.getOperation(operationId) ?? before
-  if (command.status && command.status !== current.status) {
-    deps.moveStatus(operationId, command.status, current.status)
+  if (command.status && command.status !== current.status && deps.moveStatus(operationId, command.status, current.status)) {
     status = { from: current.status, to: command.status }
   }
 

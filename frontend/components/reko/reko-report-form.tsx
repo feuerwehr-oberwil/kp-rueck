@@ -11,7 +11,9 @@
  *
  * What stays outside, in each mount's own shell: the field page's incident
  * header, its "Ich bin vor Ort" button, its localStorage draft and its 30 s
- * autosave; the board's collapse, its create-vs-amend choice and its transport.
+ * autosave; the board's collapse, its create-vs-amend choice, its transport and
+ * its save-as-you-go (`use-reko-autosave.ts` – the board's mount has no submit
+ * button, owner pick 19.11.2026).
  * What lives in here is everything an operator dictating a Reko report has to be
  * able to enter — including the "Einsatz relevant?" requirement, which is a
  * property of the report and not of the phone it was typed on.
@@ -95,6 +97,24 @@ export function toRekoFormData(report: Partial<ApiRekoReportResponse> | null | u
   }
 }
 
+/** Whether a form holds any answer – an untouched one is not a draft. */
+export function hasRekoContent(form: RekoFormData): boolean {
+  const { dangers_json: dangers, effort_json: effort } = form
+  return (
+    form.is_relevant !== null ||
+    !!form.summary_text.trim() ||
+    !!form.additional_notes.trim() ||
+    form.photos_json.length > 0 ||
+    form.power_supply !== 'unknown' ||
+    (['fire', 'fire_danger', 'explosion', 'collapse', 'chemical', 'electrical'] as const).some(key => dangers[key]) ||
+    !!dangers.other_notes?.trim() ||
+    effort.personnel_count !== null ||
+    effort.estimated_duration_hours !== null ||
+    effort.vehicles_needed.length > 0 ||
+    effort.equipment_needed.length > 0
+  )
+}
+
 interface RekoReportFormProps {
   incidentId: string
   value: RekoFormData
@@ -102,7 +122,9 @@ interface RekoReportFormProps {
   onChange: Dispatch<SetStateAction<RekoFormData>>
   /** The mount's photo door, if it has one. */
   photos?: PhotoTransport
-  onSubmit: () => void | Promise<void>
+  /** The field mount's «Bericht senden». The board's mount saves as it goes and has
+   *  no submit: it passes none, and draws its sync line in its own header. */
+  onSubmit?: () => void | Promise<void>
   /** Copy only — never behaviour (the same rule the Rapport form follows). */
   mount?: 'feld' | 'kp'
   isSubmitting?: boolean
@@ -111,7 +133,8 @@ interface RekoReportFormProps {
    *  says "wird übermittelt" about a background draft save. */
   busy?: boolean
   disabled?: boolean
-  /** The mount's own note under the button (autosave state, last save, …). */
+  /** The field mount's note under the button (autosave state, last save, …). The board
+   *  mount has no button and draws none. */
   footer?: React.ReactNode
 }
 
@@ -142,6 +165,8 @@ export function RekoReportForm({
   // board and start reading like the tab next door.
   const dense = isKp
   const [relevantMissing, setRelevantMissing] = useState(false)
+  // The board's mount has no submit to refuse, so the open question is said as long as it is open.
+  const relevantOpen = dense ? value.is_relevant === null : relevantMissing
   // Ids, not a constant: the form can be mounted twice on one page.
   const relevantId = `reko-relevant-${useId()}`
 
@@ -185,6 +210,8 @@ export function RekoReportForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    // Enter in a field of the board's mount: there is nothing to submit, it saves itself.
+    if (!onSubmit) return
     // The one required answer, on both mounts: a Reko report that does not say
     // whether the incident is relevant has not answered the question it was
     // sent to answer.
@@ -202,47 +229,47 @@ export function RekoReportForm({
   //
   // Reading and writing share one grid now — a value and the control that
   // edits it stand at the same x, so amending over the radio does not move the
-  // page under the operator. The submit is a normal `xs` action at the bottom
-  // right instead of a full-width 44px bar, which was the last piece of
-  // telephone vocabulary standing in the middle of the tab.
+  // page under the operator. No submit: every answer is saved as it is given,
+  // and the report counts as filed when the card reaches «Reko abgeschlossen»
+  // (owner pick 19.11.2026). The one required answer is said as amber advice
+  // while it is open – it blocks nothing.
   // ─────────────────────────────────────────────────────────────────────────
   if (dense) {
     return (
       <form onSubmit={handleSubmit}>
         <DetailField label={t('relevantQuestion')}>
           <div className="flex flex-wrap items-center gap-2">
-            {/* One two-way switch, not two actions. The pair used to be two
-                separate buttons, which is what a phone form does when it has
-                the width for it. */}
-            <div className="inline-flex overflow-hidden rounded-md border border-border">
+            {/* The phone's pair at the board's size: two `selected`/outline
+                buttons. The one-box segmented switch it replaces clipped the
+                chosen half's inset ring at its rounded `overflow-hidden` edge
+                (#27, 19.11.2026). */}
+            <div className="flex gap-1">
               {([true, false] as const).map((answer, index) => {
                 const selected = value.is_relevant === answer
                 return (
-                  <button
+                  <Button
                     key={String(answer)}
                     id={index === 0 ? relevantId : undefined}
                     type="button"
+                    size="xs"
+                    variant={selected ? 'selected' : 'outline'}
                     disabled={disabled}
                     aria-pressed={selected}
-                    aria-describedby={relevantMissing ? formMessageId(relevantId) : undefined}
+                    aria-describedby={relevantOpen ? formMessageId(relevantId) : undefined}
                     onClick={() => update('is_relevant', answer)}
-                    className={cn(
-                      "cursor-pointer px-3 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-                      index > 0 && "border-l border-border",
-                      selected
-                        ? "sel-choice font-semibold"
-                        : "text-muted-foreground hover:bg-input/50",
-                    )}
+                    className="min-w-10"
                   >
                     {answer ? t('yes') : t('no')}
-                  </button>
+                  </Button>
                 )
               })}
             </div>
             <span className="text-xs text-muted-foreground" aria-hidden="true">*</span>
-            {/* The required error sits ON the row it is about — a row list has
-                no second line under a field to put it on. */}
-            {relevantMissing && <FormMessage id={formMessageId(relevantId)}>{t('relevantRequired')}</FormMessage>}
+            {/* Said ON the row it is about — a row list has no second line under
+                a field to put it on. Amber while unanswered: nothing is blocked. */}
+            {relevantOpen && (
+              <FormMessage id={formMessageId(relevantId)} tone="advice">{t('relevantRequired')}</FormMessage>
+            )}
           </div>
         </DetailField>
 
@@ -388,22 +415,6 @@ export function RekoReportForm({
           </DetailField>
         )}
 
-        <div className="flex items-center justify-end gap-2 pt-2">
-          {footer}
-          <Button type="submit" size="xs" disabled={disabled || isSubmitting || busy}>
-            {isSubmitting ? (
-              <>
-                <ShellLoader className="size-3.5" />
-                {t('submittingKp')}
-              </>
-            ) : (
-              <>
-                <Send className="size-3.5" />
-                {t('submitKp')}
-              </>
-            )}
-          </Button>
-        </div>
       </form>
     )
   }

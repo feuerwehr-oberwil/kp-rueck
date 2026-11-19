@@ -36,6 +36,7 @@ const TAB_BY_TYPE: Record<string, OperationDetailTab> = {
   no_materials: "overview",
   fatigue_warning: "overview",
   personnel_fatigue: "overview",
+  personnel_leaving: "overview",
   missing_location: "overview",
   vehicle_arrived: "overview",
   vehicle_returned: "overview",

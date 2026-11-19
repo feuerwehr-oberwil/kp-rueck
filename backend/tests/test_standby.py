@@ -91,6 +91,52 @@ async def test_a_detached_event_ignores_the_hosted_board_and_the_rest_keeps_mirr
 
 
 @pytest.mark.asyncio
+async def test_a_guest_follows_its_ereignis_and_the_roster_keeps_mirroring(db_session, two_events):
+    """#5 (19.11.2026): a walk-in is a guest of its Ereignis – held with it once detached."""
+    a, _, _, _ = two_events
+    conn = await _driver(db_session)
+    await take_over(conn, a.id, "editor")
+    insert = (
+        "INSERT INTO personnel (id, name, role_sort_order, status, guest_event_id) VALUES ($1, $2, 0, 'available', $3)"
+    )
+
+    await _as_replication(conn, insert, uuid4(), "Muster Hans", None)
+    await _as_replication(conn, insert, uuid4(), "Techniker", a.id)
+
+    assert {r["name"] for r in await conn.fetch("SELECT name FROM personnel")} == {"Muster Hans"}
+
+
+@pytest.mark.asyncio
+async def test_downgrading_the_guest_column_leaves_the_roster_mirroring(db_session, two_events):
+    """Sol review S11: the guard read `guest_event_id`; after the downgrade it must be gone."""
+    import importlib.util
+
+    from alembic.operations import Operations
+    from alembic.runtime.migration import MigrationContext
+
+    path = BACKEND / "alembic" / "versions" / "f2be867876f4_personnel_guest_event.py"
+    spec = importlib.util.spec_from_file_location("guest_event_migration", path)
+    assert spec is not None and spec.loader is not None
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+
+    def downgrade(sync_conn) -> None:
+        with Operations.context(MigrationContext.configure(sync_conn)):
+            migration.downgrade()
+
+    # DDL inside the test's transaction: rolled back with it.
+    await (await db_session.connection()).run_sync(downgrade)
+    conn = await _driver(db_session)
+    await _as_replication(
+        conn,
+        "INSERT INTO personnel (id, name, role_sort_order, status) VALUES ($1, 'Muster Hans', 0, 'available')",
+        uuid4(),
+    )
+
+    assert [r["name"] for r in await conn.fetch("SELECT name FROM personnel")] == ["Muster Hans"]
+
+
+@pytest.mark.asyncio
 async def test_rows_reached_through_an_einsatz_follow_its_ereignis(db_session, two_events, test_editor):
     a, _, ia, ib = two_events
     conn = await _driver(db_session)
@@ -189,7 +235,10 @@ async def test_event_links_follow_the_schema(db_session):
     assert "public.incidents" in links["incident_assignments"]
     assert "public.incident_groups" in links["incident_group_assignments"]
     assert links["journal_entries"] == "{row}.event_id"
-    assert "personnel" not in links and "settings" not in links
+    # A walk-in is a guest of its Ereignis and travels with it; the roster (NULL) belongs to
+    # none, so its rows mirror whatever is detached.
+    assert links["personnel"] == "{row}.guest_event_id"
+    assert "settings" not in links
 
 
 def test_only_an_explicit_sslmode_counts_as_an_encrypted_replication_link():

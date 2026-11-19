@@ -8,6 +8,8 @@ export type NotificationType =
   // What the backend actually sends for time on duty: ONE event-level row for
   // everybody past the threshold, rewritten in place (lib/crew-duty.ts).
   | 'personnel_fatigue'
+  // 15' before a checked-in person's planned «geht um» (lib/planned-times.ts).
+  | 'personnel_leaving'
   | 'missing_location'
   | 'event_size_limit'
   | 'vehicle_arrived'

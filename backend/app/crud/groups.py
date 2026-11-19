@@ -19,6 +19,7 @@ from ..services.audit import log_action
 from . import events as events_crud
 from . import group_assignments as group_assignments_crud
 from .locking import lock_groups, lock_incidents_with_groups
+from .manual_order import plan_manual_order
 
 # Stops in these statuses count as "erledigt" for the derived progress roll-up.
 _DONE_STATUSES = ("returning", "complete")
@@ -290,10 +291,6 @@ async def reorder_groups(
     return updated
 
 
-class StopOrderConflictError(Exception):
-    """The Auftrag's stop order is no longer what the caller expected (→ 409)."""
-
-
 async def reorder_group_stops(
     db: AsyncSession,
     group_id: uuid.UUID,
@@ -302,15 +299,15 @@ async def reorder_group_stops(
 ) -> int:
     """Persist a manual order for the stops within one Auftrag.
 
-    Same pattern as ``reorder_groups`` but on ``Incident.group_position``, scoped
-    to ``group_id``. Unknown/stale ids are ignored. Returns the number reordered.
+    The order itself is ``plan_manual_order`` (shared with a Reko person's Rekos,
+    ``reko_assignment.reorder_reko_assignments``), written to ``Incident.group_position``
+    and scoped to ``group_id``. Unknown/stale ids are ignored. Returns the number of
+    ``ordered_ids`` that were stops.
 
     With ``expected_ids`` the write is conditional: the current stop order is read
     AFTER taking the Auftrag's row lock — the same lock every stop add/remove/
     reorder takes — and must equal ``expected_ids`` exactly, else
-    ``StopOrderConflictError`` and nothing changes. Checking and writing in one
-    locked transaction is the point: a check in the browser alone leaves a gap in
-    which another device can reorder, add or remove a stop.
+    ``OrderChangedError`` and nothing changes.
     """
     if not ordered_ids:
         return 0
@@ -326,36 +323,26 @@ async def reorder_group_stops(
         .order_by(Incident.group_position.asc(), Incident.created_at.asc())
     )
     incidents_by_id = {incident.id: incident for incident in result.scalars().all()}
+    order = plan_manual_order(list(incidents_by_id), ordered_ids, expected_ids)
+    updated = len(set(ordered_ids) & set(incidents_by_id))
+    if not updated:
+        return 0
 
-    if expected_ids is not None and list(incidents_by_id) != list(expected_ids):
-        raise StopOrderConflictError("Auftrag changed since the order was read")
-
-    temporary_base = -(len(ordered_ids) + 1)
+    # `uq_incidents_group_position_active`: park every stop on a negative position
+    # first, so no intermediate write collides with a stop not yet moved.
+    temporary_base = -(len(order) + 1)
     for offset, incident in enumerate(incidents_by_id.values()):
         incident.group_position = temporary_base - offset
     await db.flush()
-
-    updated = 0
-    positioned_ids: set[uuid.UUID] = set()
-    for index, incident_id in enumerate(ordered_ids):
-        ordered_incident = incidents_by_id.get(incident_id)
-        if ordered_incident is None:
-            continue
-        positioned_ids.add(incident_id)
-        if ordered_incident.group_position != index:
-            ordered_incident.group_position = index
-        updated += 1
-
-    next_position = len(ordered_ids)
-    for incident in incidents_by_id.values():
-        if incident.id not in positioned_ids:
-            incident.group_position = next_position
-            next_position += 1
-
-    if updated:
-        await db.flush()
+    for index, incident_id in enumerate(order):
+        incidents_by_id[incident_id].group_position = index
+    await db.flush()
 
     return updated
+
+
+class StopsChangedError(Exception):
+    """A guarded stop add found the Einsatz or the vehicle's Auftrag changed (→ 409)."""
 
 
 async def add_stops_to_group(
@@ -364,17 +351,25 @@ async def add_stops_to_group(
     incident_ids: list[uuid.UUID],
     current_user: User,
     request: Request,
+    via_vehicle_id: uuid.UUID | None = None,
 ) -> list[uuid.UUID] | None:
     """Attach existing incidents to an Auftrag, appended at the end of the route.
 
     Returns the list of newly-attached incident ids, or ``None`` if the group
     does not exist. Unknown ids are skipped; already-member ids are skipped.
 
+    ``via_vehicle_id`` is the #23 answer «In Auftrag aufnehmen» (the vehicle drives
+    this Auftrag and was put on a lone Einsatz): then every incident must still be live
+    and open and in no Auftrag, and the vehicle still on this one – a stop another board moved
+    meanwhile is never pulled out of its Auftrag, a deleted one never reported as added.
+
     Locks this Auftrag and every Auftrag a stop is taken from, then the stops
     (``crud/locking.py``): moving a stop off another route changes that route too.
+    The guard reads under those locks (a route's assignments are its leaves).
 
     Raises:
         ValueError: if any provided incident belongs to a different event.
+        StopsChangedError: the ``via_vehicle_id`` guard failed; nothing was written.
     """
     locked = await lock_incidents_with_groups(db, incident_ids, extra_group_ids=[group_id])
     group = await db.scalar(
@@ -389,6 +384,24 @@ async def add_stops_to_group(
         return []
 
     incidents_by_id = {incident_id: incident for incident_id, incident in locked.items() if incident.deleted_at is None}
+
+    if via_vehicle_id is not None:
+        vehicle_on_route = await db.scalar(
+            select(IncidentGroupAssignment.id).where(
+                IncidentGroupAssignment.incident_group_id == group_id,
+                IncidentGroupAssignment.resource_type == "vehicle",
+                IncidentGroupAssignment.resource_id == via_vehicle_id,
+                IncidentGroupAssignment.unassigned_at.is_(None),
+            )
+        )
+        lone = all(
+            (incident := incidents_by_id.get(incident_id)) is not None
+            and incident.group_id is None
+            and incident.status != "complete"
+            for incident_id in incident_ids
+        )
+        if vehicle_on_route is None or not lone:
+            raise StopsChangedError
 
     # Verify same event: reject cross-event incidents outright.
     for incident_id in incident_ids:

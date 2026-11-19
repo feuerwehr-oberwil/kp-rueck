@@ -21,6 +21,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    or_,
 )
 from sqlalchemy import event as sa_event
 from sqlalchemy import text as sa_text
@@ -28,6 +29,7 @@ from sqlalchemy.dialects.postgresql import INET, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.sql.elements import ColumnElement
 
 from .database import Base
 
@@ -212,6 +214,15 @@ class Personnel(Base):
     role_sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     tags: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True, default=list)
+    # Set = a GUEST of that Ereignis («Person hinzufügen» in the Appell, on the check-in link,
+    # in the Fahrer picker), not a roster member: listed for that Ereignis only, never in the
+    # roster or another Ereignis (`crud.personnel.in_scope`). The row stays for the rapport
+    # and history and goes with its Ereignis. NULL = the station's roster.
+    guest_event_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("events.id", ondelete="CASCADE", name="fk_personnel_guest_event_id_events"),
+        nullable=True,
+    )
 
     # Provider identity (e.g. the Divera user id) lives in
     # PersonnelExternalIdentity, never as a vendor column here. The deprecated
@@ -236,7 +247,20 @@ class Personnel(Base):
         ),
         Index("idx_personnel_status", "status"),
         Index("idx_personnel_role_sort_order", "role_sort_order"),
+        Index("idx_personnel_guest_event_id", "guest_event_id"),
     )
+
+    @classmethod
+    def in_scope(cls, event_id: UUID | None) -> ColumnElement[bool]:
+        """The people a list shows: the roster, plus the guests of ``event_id`` when one is named.
+
+        Every list of people goes through this – the roster (Settings, sync, export) passes
+        ``None`` and never sees a guest; an Ereignis's lists see its own guests and nobody
+        else's. Lookups by id need no scope: a guest's name still resolves everywhere.
+        """
+        if event_id is None:
+            return cls.guest_event_id.is_(None)
+        return or_(cls.guest_event_id.is_(None), cls.guest_event_id == event_id)
 
 
 class PersonnelExternalIdentity(Base):
@@ -412,6 +436,13 @@ class EventAttendance(Base):
     checked_out_by_user_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    # The PLAN, beside the record: «kommt um 20:00» / «geht um 22:00» (feedback 19.11.2026, #3 –
+    # KP Front's Schicht, one block per person). Written by the Appell and by the person
+    # themselves (check-in link, /feld) through `crud.personnel_checkin.set_attendance_plan`;
+    # never by check-in/out, which record what DID happen. A row may exist for the plan alone
+    # (checked_in False, both stamps NULL) – that reads «nicht anwesend», like no row.
+    planned_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    planned_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -1046,6 +1077,11 @@ class IncidentAssignment(Base):
     # Meaningless for vehicles and material, which are never "reko"; they keep
     # the default rather than carrying a NULL nobody would know how to read.
     purpose: Mapped[str] = mapped_column(String(20), nullable=False, default="crew", server_default="crew")
+    # Where this Reko stands in its Reko person's order for the Ereignis (0 = first) – the
+    # number in the map pin and the order of their /feld list. Set on Reko rows only, the
+    # next free number when one is assigned (``reko_assignment.next_reko_position``);
+    # rearranged by ``reorder_reko_assignments``. NULL everywhere else, and it sorts last.
+    reko_position: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Relationships
     incident: Mapped["Incident"] = relationship("Incident", back_populates="assignments")
@@ -1870,7 +1906,9 @@ class Notification(Base):
             # The Feld-Code was rotated automatically after too many wrong
             # guesses across all addresses (crud/feld/access.py). Event-level,
             # no incident: it concerns the door, not a Schadenplatz.
-            "'feld_code_rotated'"
+            "'feld_code_rotated', "
+            # 15' before a checked-in person's planned «geht um» (`planned_until`).
+            "'personnel_leaving'"
             ")",
             name="valid_notification_type",
         ),

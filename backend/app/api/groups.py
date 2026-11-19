@@ -19,6 +19,7 @@ from ..crud import assignments as assignments_crud
 from ..crud import events as events_crud
 from ..crud import group_assignments as ga_crud
 from ..crud import groups as crud
+from ..crud.manual_order import OrderChangedError
 from ..database import get_db
 from ..models import IncidentGroup, IncidentGroupAssignment
 from ..utils.errors import ErrorMessages
@@ -161,7 +162,7 @@ async def reorder_stops(
 
     try:
         updated = await crud.reorder_group_stops(db, group_id, reorder.ordered_ids, reorder.expected_ids)
-    except crud.StopOrderConflictError:
+    except OrderChangedError:
         # Nothing was written (the check precedes the first write); get_db rolls
         # back and releases the Auftrag lock. German like every API detail; the
         # board shows its own localized text.
@@ -193,12 +194,25 @@ async def add_stops(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
 ) -> schemas.IncidentGroupResponse:
-    """Attach existing incidents to an Auftrag as stops (editor only)."""
+    """Attach existing incidents to an Auftrag as stops (editor only).
+
+    With ``via_vehicle_id`` the add is conditional (409 when an Einsatz is gone, closed or in
+    an Auftrag meanwhile, or the vehicle left this one) – the #23 question's answer.
+    """
     try:
-        attached = await crud.add_stops_to_group(db, group_id, body.incident_ids, current_user, request)
+        attached = await crud.add_stops_to_group(
+            db, group_id, body.incident_ids, current_user, request, via_vehicle_id=body.via_vehicle_id
+        )
     except ValueError as e:
         logger.warning("Add stops rejected for Auftrag %s: %s", group_id, e)
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except crud.StopsChangedError:
+        # Nothing was written; get_db rolls back. German like every API detail; the
+        # board says it in its own words.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Einsatz oder Auftrag wurde inzwischen geändert",
+        ) from None
 
     if attached is None:
         raise HTTPException(status_code=404, detail=ErrorMessages.AUFTRAG_NOT_FOUND)
@@ -336,7 +350,7 @@ async def update_group_assignment(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
 ) -> schemas.GroupAssignmentResponse:
-    """Update a route-level assignment — currently only the Einsatzleiter flag.
+    """Update a route-level assignment – the Einsatzleiter flag or a vehicle's driver stay.
 
     A route's stops own no resources, so a stop that belongs to an Auftrag takes
     its leader from here: one squad working a route has one leader, not one per

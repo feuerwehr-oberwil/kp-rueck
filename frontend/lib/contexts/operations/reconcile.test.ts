@@ -145,7 +145,8 @@ describe("buildEventState", () => {
     )
     expect(ops[1].hasCompletedReko).toBe(true)
     expect(ops[1].rekoSummary).toEqual({
-      isRelevant: false,
+      // Unanswered stays unanswered – «Kein Einsatz nötig» only from an explicit «Nein».
+      isRelevant: null,
       hasDangers: true,
       dangerTypes: ["Gefahrstoffe"],
       personnelCount: null,

@@ -6,10 +6,11 @@ import { useTranslations } from "next-intl"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { useIsMobile } from "@/components/ui/use-mobile"
+import { SurfaceStep, SurfaceStepEscHint, useOpeningSurface } from "@/components/ui/surface-step"
 import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { AlertTriangle, Truck, Footprints, Binoculars, Package2, Phone, MonitorCog, MapPin, Undo2, Ban, SlidersHorizontal, X } from "lucide-react"
+import { AlertTriangle, Truck, Footprints, MapPin, Undo2, Ban, SlidersHorizontal, X } from "lucide-react"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { EmptyState, type EmptyStateAction } from "@/components/ui/empty-state"
 import {
@@ -34,7 +35,8 @@ import { getIncidentLocationLabel, getIncidentRefLabel, getIncidentRefParts } fr
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { cn } from "@/lib/utils"
-import { ElsewhereNote, ListSection, type OccupancyLabel, PersonPickTile, TileCheck, type TileRole, TILE_GRID, TILE_HOVER, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
+import { usePersonTileFacts } from "@/components/kanban/person-tile-facts"
+import { ElsewhereNote, ListSection, type OccupancyLabel, PersonPickTile, type PersonWhere, TileCheck, TILE_GRID, TILE_HOVER, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
 import {
   MaterialAssignmentList,
   MaterialTypeChips,
@@ -155,6 +157,8 @@ export function ResourceAssignmentDialog({
   const compactFilters = useCompactFilters()
   // Below 768px the dialog is a bottom sheet (see PHONE below).
   const isMobile = useIsMobile()
+  // The Einsatz-Detail (an L window) this dialog was opened from, if any – then it is a step there.
+  const stepHost = useOpeningSurface(open, { wideOnly: true })
   const searchRef = useRef<HTMLInputElement>(null)
   const { materialGroups } = useMaterials()
   const { operations, requestResourceConflict, removeCrew, removeMaterial, outOfServiceVehicleIds } = useOperations()
@@ -248,21 +252,14 @@ export function ResourceAssignmentDialog({
    * «Reko», and somebody on a Schadenplatz read as «Im Einsatz» with no hint
    * that taking them also takes the fleet's only driver. The driver's label
    * names the VEHICLE, because «Fahrer» alone raises the question it answers.
-   *
-   *
-   * `place` marks a role that says where the person IS (Reko, Magazin, …): the
-   * first one is the tile's amber where-note when the person is on no
-   * Einsatz/Auftrag. The driven vehicle is not a place; it comes last, muted
-   * (`PersonTileLine`).
+   * The rule itself is shared with the single pickers (`usePersonTileFacts`).
    */
-  const specialFunctionsOf = (p: Person): (TileRole & { place: boolean })[] => {
-    const functions: (TileRole & { place: boolean })[] = []
-    if (p.isReko || rekoPersonnelIds.includes(p.id)) functions.push({ label: t('common.reko'), Icon: Binoculars, place: true })
-    if (p.isMagazin) functions.push({ label: t('common.magazin'), Icon: Package2, place: true })
-    if (p.isTelefondienst) functions.push({ label: t('common.telefondienst'), Icon: Phone, place: true })
-    if (p.isKommandoposten) functions.push({ label: t('common.kommandoposten'), Icon: MonitorCog, place: true })
-    if (p.isDriver) functions.push({ label: p.driverVehicleName || t('assignmentDialog.driverBadge'), Icon: Truck, place: false })
-    return functions
+  const factsOf = usePersonTileFacts()
+  const tileFactsOf = (p: Person, elsewhere: PersonWhere | null) =>
+    factsOf(p, { elsewhere, isReko: rekoPersonnelIds.includes(p.id) })
+  const specialFunctionLabels = (p: Person): string[] => {
+    const { where, roles } = tileFactsOf(p, null)
+    return [...(where ? [where.full] : []), ...roles.map((role) => role.label)]
   }
 
   const availableVehicles = useMemo(() => {
@@ -598,7 +595,7 @@ export function ResourceAssignmentDialog({
     }
     // Selecting someone already busy in a special function → confirm first, so a
     // driver/reko/magazin isn't double-booked by a stray tap.
-    if (specialFunctionsOf(person).length > 0) {
+    if (specialFunctionLabels(person).length > 0) {
       setConfirmPerson(person)
       return
     }
@@ -994,12 +991,10 @@ export function ResourceAssignmentDialog({
   const renderPersonTile = (person: Person) => {
     const isSelected = isPersonSelected(person.id)
     const wasJustAssigned = justAssigned === person.id
-    const special = specialFunctionsOf(person)
     // Already on another incident/Auftrag → the amber where-note names it; else a
     // place-like role (Reko, Magazin, …; never the driven vehicle) does. The tile
     // itself stays neutral: the note says where, no tinted block.
-    const elsewhere = personElsewhereLabel(person)
-    const placeRole = elsewhere ? undefined : special.find(fn => fn.place)
+    const { where, roles, plan } = tileFactsOf(person, personElsewhereLabel(person))
     return (
       // ONE line for every person tile, busy or free: rank · where · roles
       // (`PersonTileLine` says why). «Im Einsatz» and the Ereignis roles are
@@ -1011,8 +1006,9 @@ export function ResourceAssignmentDialog({
         name={person.name}
         kennung={person.kennung ?? null}
         rank={person.role}
-        where={elsewhere ?? (placeRole ? { head: placeRole.label, full: placeRole.label, Icon: placeRole.Icon } : null)}
-        roles={special.filter(fn => fn !== placeRole)}
+        where={where}
+        roles={roles}
+        plan={plan}
         checked={isSelected}
         animate={wasJustAssigned}
         onClick={() => handleTogglePersonSelection(person)}
@@ -1510,13 +1506,13 @@ export function ResourceAssignmentDialog({
 
   const dialog = (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* Fixed (definite) height: gives flex-1 a real basis so the list scrolls
+      {/* Fixed (definite) height (size L): gives flex-1 a real basis so the list scrolls
           internally instead of overflowing, and keeps the dialog the same size as
           you switch quick filters so the top doesn't jump. overflow-hidden clips.
           The phone has its own sheet (above); this is the tablet-to-desktop dialog. */}
-      {/* sm:max-w-6xl is required — the DialogContent base sets sm:max-w-lg (512px),
-          a responsive variant that an unprefixed max-w-* does NOT override. */}
-      <DialogContent className="max-w-6xl sm:max-w-6xl w-[calc(100vw-2rem)] h-[80dvh] overflow-hidden flex flex-col">
+      {/* L: a work surface – fixed height and place (dialog-frame.ts). A Fahrer picker
+          for a vehicle assigned here opens inside it as a step (`surface`, owner pick 5A). */}
+      <DialogContent size="lg" surface={getDialogTitle()} className="overflow-hidden flex flex-col">
         {/* ONE header on every size: title (18/600, 22px line) · the destination (14/500, up to
             two lines) · the counts (12, muted), 6px then 4px apart – left-aligned with the search
             field, no icon before the title (the words say what is assigned). `ps-0!` cancels the
@@ -1551,9 +1547,35 @@ export function ResourceAssignmentDialog({
     </Dialog>
   )
 
+  // Opened from the Einsatz-Detail (an L window): a step of that window – the place first in
+  // the breadcrumb, «← Zurück», Esc back – not a second L window on top (owner pick «Schritt
+  // im Detail», 19.11.2026). It is a surface itself, so the Fahrer picker of a vehicle assigned
+  // here becomes the next step. From the board it is its own L window (`dialog`).
+  const step = stepHost && open && (
+    <SurfaceStep
+      host={stepHost}
+      title={getDialogTitle()}
+      description={getDialogDescription()}
+      onBack={() => onOpenChange(false)}
+      surface={getDialogTitle()}
+      testId="assignment-step"
+    >
+      <div className="flex min-h-0 flex-1 flex-col gap-4 px-5 pb-4">
+        {filterControls}
+        <ScrollArea className="flex-1 min-h-0 pr-2" fadeEnd>
+          {resourceList}
+        </ScrollArea>
+        <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+          <SurfaceStepEscHint host={stepHost} />
+          {footerButtons}
+        </div>
+      </div>
+    </SurfaceStep>
+  )
+
   return (
     <>
-    {isMobile ? sheet : dialog}
+    {isMobile ? sheet : stepHost ? step : dialog}
 
     {/* Double-booking guard: assigning a driver/reko/magazin to crew asks first. */}
     <ConfirmDialog
@@ -1565,7 +1587,7 @@ export function ResourceAssignmentDialog({
           ? t('assignmentDialog.specialFnConfirmBody', {
               name: naming.inline(confirmPerson),
               // Every role, so the confirm names what is actually being taken.
-              func: specialFunctionsOf(confirmPerson).map((f) => f.label).join(' · '),
+              func: specialFunctionLabels(confirmPerson).join(' · '),
             })
           : ''
       }

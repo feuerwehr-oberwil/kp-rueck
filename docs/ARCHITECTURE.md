@@ -117,6 +117,7 @@ erDiagram
     events ||--o{ incidents : contains
     events ||--o{ event_special_functions : has
     events ||--o{ event_attendance : "check-in"
+    events ||--o{ personnel : "guests (walk-ins)"
     events ||--o{ journal_entries : logs
     incidents ||--o{ field_requests : has
     incidents ||--o{ incident_assignments : has
@@ -155,6 +156,7 @@ erDiagram
         string role
         string status
         string tags
+        uuid guest_event_id FK "set = a guest of that Ereignis, not the roster"
     }
     vehicles {
         uuid id PK
@@ -193,7 +195,7 @@ erDiagram
     }
 ```
 
-Every incident gets its `number` from a database trigger – counted per Ereignis, never reused – which is what the board, the prints and the ⌘K line (`14 tlf meier`) name it by. `journal_entries` is append-only: a correction is a new row pointing at the old one (`corrects_id`). Check-in lives in `event_attendance`, per Ereignis, not on the person.
+Every incident gets its `number` from a database trigger – counted per Ereignis, never reused – which is what the board, the prints and the ⌘K line (`14 tlf meier`) name it by. `journal_entries` is append-only: a correction is a new row pointing at the old one (`corrects_id`). Check-in lives in `event_attendance`, per Ereignis, not on the person; beside the record it holds the plan («kommt um» / «geht um», `planned_from` / `planned_until`), which check-in and check-out never write.
 
 **Additional tables** (not shown): `users`, `settings`, `audit_log`, `divera_emergencies` (the alarm pool, including Divera Rückmeldungen), `revoked_tokens` (the persisted JWT blocklist), `special_function_types`, `reko_reports`, `schadenplatz_reports`, `status_transitions`, `incident_field_messages`, `incident_groups` / `incident_group_assignments` (Aufträge), `auftrag_templates` / `auftrag_template_resources` (Standard-Aufträge), `material_groups`, `personnel_external_identities`, `feld_device_claims` / `feld_unlock_claims`, `print_jobs`, `notifications`, `geocoding_dispatch`, `emergency_templates`, `training_locations`, `microsoft_login_transactions`, `telemetry_outbox`
 
@@ -500,6 +502,10 @@ At each transition:
 - WebSocket broadcasts the change to all connected clients
 - Entering **`complete`** automatically releases all assigned personnel, vehicles, and materials
   (`crud/assignments.auto_release_incident_resources`); moving back out restores them
+- A status move files no Reko report. The board's own Reko form saves as it goes and has no
+  submit: the save that answers «Einsatz relevant?» files it, exactly like the crew's submit
+  (`api/reko._kp_draft_files_now` → `crud/reko.process_reko_submission`: `reko` → `reko_done`,
+  priority bump, the bell)
 
 ### Duplicates and merge
 

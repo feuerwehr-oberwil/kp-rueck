@@ -237,7 +237,9 @@ function scanPage() {
     }
     if (!scroller || escaped.has(scroller)) continue
     const cb = ab.offsetParent
-    if (cb && (cb === scroller || scroller.contains(cb))) continue
+    // No offsetParent on an absolute box = it or an ancestor is display:none (an empty step
+    // slot, surface-step.tsx): no box, nothing to escape.
+    if (!cb || cb === scroller || scroller.contains(cb)) continue
     escaped.add(scroller)
     found.push({ kind: 'escape', sel: selOf(scroller), text: txt(ab).slice(0, 40), what: `absolute ${ab.classList.contains('sr-only') ? 'sr-only ' : ''}box escapes this scroller (no positioned ancestor inside it) — give the scroller \`relative\`` })
   }
@@ -337,6 +339,8 @@ function visits(links) {
     { id: 'print', path: '/', act: async (p, w) => { if (phone(w)) await openMehr(p); await click(p, /Drucken/) } },
     { id: 'figures', path: '/', desktopOnly: true, act: async (p) => { await p.keyboard.press('z'); await p.waitForTimeout(1500) } },
     { id: 'map', path: '/map' },
+    // The Reko-Modus with a person picked: the dropdown, the hint and the order timeline.
+    { id: 'map-reko', path: '/map?mode=reko', act: async (p) => { await p.getByRole('combobox', { name: 'Reko-Person' }).click({ timeout: 20000 }); await p.getByRole('option').first().click(); await p.waitForTimeout(1200) } },
     { id: 'events', path: '/events' },
     { id: 'events-create', path: '/events?action=create' },
     { id: 'events-figures', path: '/events', act: async (p) => { await click(p, /^Aktionen$/); await click(p, /Kennzahlen|Übungsauswertung/, { role: 'menuitem', wait: 1500 }) } },

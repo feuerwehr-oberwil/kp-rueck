@@ -45,6 +45,51 @@ export interface ApiVehicleUpdate {
   out_of_service?: boolean
 }
 
+/** An Einsatz a vehicle serves right now (`GET /api/vehicles/status`). */
+export interface ApiVehicleEinsatzDeployment {
+  kind: 'einsatz'
+  incident_id: string
+  title: string
+  location_address: string | null
+  /** Server-computed short label (home city stripped, falls back to the title). */
+  location_display: string | null
+  status: string
+  assigned_at: string
+  duration_minutes: number
+}
+
+/** An Auftrag (route) a vehicle drives right now (`GET /api/vehicles/status`). */
+export interface ApiVehicleAuftragDeployment {
+  kind: 'auftrag'
+  group_id: string
+  name: string
+  /** The route's own colour, as the board and the map draw it. */
+  color: string | null
+  /** The stop a click opens: the first with work ahead, else the first; null without stops. */
+  incident_id: string | null
+  assigned_at: string
+  duration_minutes: number
+}
+
+export type ApiVehicleDeployment = ApiVehicleAuftragDeployment | ApiVehicleEinsatzDeployment
+
+/** A fleet vehicle with its driver and every Auftrag and Einsatz it serves in one event. */
+export interface ApiVehicleStatus {
+  id: string
+  name: string
+  type: string
+  status: string
+  out_of_service: boolean
+  out_of_service_since: string | null
+  radio_call_sign: string
+  driver_id: string | null
+  driver_name: string | null
+  driver_assigned_at: string | null
+  /** Its Aufträge, then every Einsatz it is assigned to directly (a stop of its own Auftrag
+   *  included), each oldest assignment first. Empty when the vehicle serves nothing. */
+  deployments: ApiVehicleDeployment[]
+}
+
 export interface ApiAssignedVehicle {
   assignment_id: string // UUID
   vehicle_id: string

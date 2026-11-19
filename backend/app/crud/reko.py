@@ -12,6 +12,7 @@ from .. import schemas
 from ..models import Incident, RekoReport, StatusTransition, User
 from ..services.merge_links import live_incident_id
 from ..services.tokens import generate_form_token, validate_form_token
+from .locking import lock_incident_with_group
 
 
 async def get_or_create_reko_report(
@@ -140,9 +141,15 @@ async def get_or_create_kp_reko_report(
     in the field, and the outputs have to be able to say so.
 
     An operator's own unfinished draft is reused rather than stacked, so a form
-    saved twice is one report; a crew's report is never taken over here — that is
-    an amendment and goes through ``update_reko_report`` with the user, which
-    keeps ``submitted_by_personnel_id`` and adds ``updated_by_user_id``.
+    saved twice is one report. Without one, the newest report the board already
+    FILED on this Einsatz is reused: the first save that answers «Einsatz relevant?»
+    files at once, so a second first save (another board, another mount, a retry after
+    a lost response) must amend that row, not file a second report with a second bell
+    (Sol review pass 2, S2). The board never POSTs to start
+    a further report – it amends the latest one by PATCH. A crew's report is never
+    taken over here — that is an amendment and goes through ``update_reko_report``
+    with the user, which keeps ``submitted_by_personnel_id`` and adds
+    ``updated_by_user_id``.
 
     The row still gets a real form token: ``token`` is NOT NULL, it is what the
     field path keys on, and minting one keeps a KP report indistinguishable from
@@ -153,8 +160,9 @@ async def get_or_create_kp_reko_report(
         ValueError: If the incident does not exist
     """
     incident_id = await live_incident_id(db, incident_id)
-    incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
-    if not incident_result.scalar_one_or_none():
+    # Under the card lock (`crud/locking.py`), so two first saves of the form find one
+    # draft instead of each creating its own, and the status move's filing waits.
+    if await lock_incident_with_group(db, incident_id) is None:
         raise ValueError("Incident not found")
 
     existing = await db.execute(
@@ -170,6 +178,19 @@ async def get_or_create_kp_reko_report(
     draft = existing.scalar_one_or_none()
     if draft:
         return draft
+    filed = await db.scalar(
+        select(RekoReport)
+        .where(
+            RekoReport.incident_id == incident_id,
+            RekoReport.is_draft == False,  # noqa: E712
+            RekoReport.created_by_user_id.is_not(None),
+            RekoReport.submitted_by_personnel_id.is_(None),
+        )
+        .order_by(RekoReport.submitted_at.desc())
+        .limit(1)
+    )
+    if filed:
+        return filed
 
     report = RekoReport(
         incident_id=incident_id,
@@ -229,14 +250,19 @@ async def update_reko_report(
             value = {**(getattr(report, field) or {}), **value}
         setattr(report, field, value)
 
-    # Mark as submitted if requested
-    if submit:
+    now = datetime.now(UTC)
+    # Mark as submitted if requested. The draft → filed step is the report's submission time:
+    # the row was created when the form opened, and a report filed after another must sort
+    # after it – the card, the list and «ergänzen» take the newest (Sol review pass 5, S2).
+    # An amendment of a filed report keeps it.
+    if submit and report.is_draft:
         report.is_draft = False
+        report.submitted_at = now
 
     if user is not None:
         report.updated_by_user_id = user.id
 
-    report.updated_at = datetime.now(UTC)
+    report.updated_at = now
 
     await db.flush()
     await db.refresh(report)
@@ -531,6 +557,26 @@ async def get_reko_summaries_by_event(db: AsyncSession, event_id: uuid.UUID) -> 
     return summaries
 
 
+async def escalate_for_dangers(db: AsyncSession, incident: Incident, report: RekoReport) -> bool:
+    """Priority low → medium when a filed report names a danger. Returns whether it changed.
+
+    Part of every filing (`process_reko_submission`), and of a board amendment of a filed
+    report: «Ja» synced first and a danger ticked afterwards must escalate just the same (Sol
+    review pass 5, S4). The status step and the bell stay with the filing. Never lowers.
+    """
+    dangers = report.dangers_json or {}
+    has_danger = any(
+        dangers.get(key) for key in ("fire", "explosion", "collapse", "chemical", "electrical", "fire_danger")
+    )
+    if not has_danger or incident.priority != "low":
+        return False
+    incident.priority = "medium"
+    await db.flush()
+    await db.refresh(incident)
+    await db.refresh(report)
+    return True
+
+
 async def process_reko_submission(
     db: AsyncSession,
     incident: Incident,
@@ -571,24 +617,7 @@ async def process_reko_submission(
         # merge loads the card with its reports); reload it before reading on.
         await db.refresh(report)
 
-    # Auto-bump priority from low → medium if any danger flags are set
-    if report.dangers_json:
-        dangers = report.dangers_json
-        has_danger = any(
-            [
-                dangers.get("fire"),
-                dangers.get("explosion"),
-                dangers.get("collapse"),
-                dangers.get("chemical"),
-                dangers.get("electrical"),
-                dangers.get("fire_danger"),
-            ]
-        )
-        if has_danger and incident.priority == "low":
-            incident.priority = "medium"
-            await db.flush()
-            await db.refresh(incident)
-            await db.refresh(report)
+    await escalate_for_dangers(db, incident, report)
 
     # Create notification
     if incident.event_id:
@@ -623,3 +652,8 @@ async def process_reko_submission(
             personnel_count=personnel_count,
             estimated_duration=estimated_duration,
         )
+
+
+def is_kp_draft(report: RekoReport) -> bool:
+    """A draft the board wrote (an operator, no crew member behind it)."""
+    return report.is_draft and report.created_by_user_id is not None and report.submitted_by_personnel_id is None

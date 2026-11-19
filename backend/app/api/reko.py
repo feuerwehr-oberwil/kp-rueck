@@ -32,7 +32,8 @@ from ..crud import assignments as assignments_crud
 from ..crud import incidents as incidents_crud
 from ..crud import reko as crud
 from ..crud import reko_assignment as reko_assign_crud
-from ..crud.locking import lock_incidents_with_groups, lock_resource
+from ..crud.locking import lock_incident_with_group, lock_incidents_with_groups, lock_resource
+from ..crud.manual_order import OrderChangedError
 from ..database import get_db
 from ..logging_config import get_logger
 from ..middleware.rate_limit import RateLimits, limiter
@@ -133,6 +134,20 @@ async def _token_door_id(db: AsyncSession, token: str | None, incident_id: uuid.
         if validate_form_token(token, str(merged_id)):
             return merged_id
     return incident_id
+
+
+def _kp_draft_files_now(report: RekoReport, update: schemas.RekoReportUpdate) -> bool:
+    """Whether this board save files the operator's KP draft (owner pick 19.11.2026, #30).
+
+    One rule: the moment «Einsatz relevant?» is answered (Ja or Nein) – in this save or an
+    earlier one – wherever the card is. Filing is then exactly the crew's submit
+    (`crud.process_reko_submission`: «Reko» → «Reko abgeschlossen», priority bump, bell). A
+    status move files nothing. The caller holds the card lock.
+    """
+    if not crud.is_kp_draft(report):
+        return False
+    relevant = update.is_relevant if "is_relevant" in update.model_fields_set else report.is_relevant
+    return relevant is not None
 
 
 @router.get("/form", response_model=schemas.RekoReportResponse)
@@ -257,6 +272,14 @@ async def submit_reko_report(
     update_data = schemas.RekoReportUpdate(
         **report_data.model_dump(exclude={"incident_id", "token"}, exclude_unset=True)
     )
+    # The board's report is a draft until it is filed (`_kp_draft_files_now`).
+    if user is not None and not submit and _kp_draft_files_now(report, update_data):
+        submit = True
+    # A board save that resolved to the report it filed before (`get_or_create_kp_reko_report`)
+    # amends it: no second filing, no second bell.
+    amends_filed = user is not None and not report.is_draft
+    if amends_filed:
+        submit = False
     if (
         field_token
         and not submit
@@ -296,6 +319,14 @@ async def submit_reko_report(
             {"incident_id": str(incident.id)},
             "submit",
         )
+    elif amends_filed:
+        # Other boards show filed reports only; an amendment changes one – and a danger it adds
+        # escalates as one in the filing would (pass 5, S4).
+        background_tasks.add_task(broadcast_reko_update, {"incident_id": str(updated.incident_id)}, "update")
+        if incident and await crud.escalate_for_dangers(db, incident, updated):
+            background_tasks.add_task(
+                broadcast_incident_update, {"id": str(incident.id), "priority": incident.priority}, "update"
+            )
 
     return response_data
 
@@ -354,12 +385,46 @@ async def update_report(
         ):
             raise CodedHTTPException(403, ErrorCode.REKO_REPORT_NO_ACCESS, "Kein Zugriff auf diesen Bericht.")
 
+    if user is not None:
+        # The card (with its Auftrag) before the report row (`crud/locking.py`): the status
+        # move files drafts under the same card lock, so whether this save files the draft
+        # is decided on the row as it is once that move is done (Sol review S2).
+        await lock_incident_with_group(db, existing.incident_id)
+        existing = await db.scalar(
+            select(RekoReport)
+            .where(RekoReport.id == report_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if existing is None:
+            raise CodedHTTPException(404, ErrorCode.REKO_REPORT_NOT_FOUND, ErrorMessages.REPORT_NOT_FOUND)
+
+    # The board's draft may be filed by this save (`_kp_draft_files_now`), with the side
+    # effects a filing has – only on the actual draft → filed step, read under the lock.
+    files_kp_draft = user is not None and crud.is_kp_draft(existing)
+    if files_kp_draft and not submit:
+        submit = _kp_draft_files_now(existing, update_data)
+
     try:
         updated = await crud.update_reko_report(db, report_id, update_data, submit=submit, user=user)
 
         # Fetch incident title
         incident_result = await db.execute(select(Incident).where(Incident.id == updated.incident_id))
         incident = incident_result.scalar_one_or_none()
+        filed_now = incident is not None and files_kp_draft and not updated.is_draft
+        if filed_now and incident is not None:
+            # The crew's submit, step for step (`submit_reko_report`).
+            await crud.process_reko_submission(db, incident, updated)
+            background_tasks.add_task(
+                broadcast_incident_update, {"id": str(incident.id), "has_completed_reko": True}, "update"
+            )
+        elif user is not None and incident is not None and not updated.is_draft:
+            # A board amendment of a filed report (under the card lock): a danger added now
+            # escalates as one in the filing would (pass 5, S4).
+            if await crud.escalate_for_dangers(db, incident, updated):
+                background_tasks.add_task(
+                    broadcast_incident_update, {"id": str(incident.id), "priority": incident.priority}, "update"
+                )
 
         # Convert to response schema with incident details
         response_data = schemas.RekoReportResponse.model_validate(updated)
@@ -370,12 +435,13 @@ async def update_report(
             response_data.incident_description = incident.description
             response_data.incident_contact = incident.contact
 
-        # Broadcast reko update
-        if submit:
+        # Broadcast reko update – also for an amendment of a filed report (the board's
+        # Reko form saves every field at once): other boards show filed reports only.
+        if submit or not updated.is_draft:
             background_tasks.add_task(
                 broadcast_reko_update,
                 {"incident_id": str(updated.incident_id)},
-                "update",
+                "submit" if filed_now else "update",
             )
 
         return response_data
@@ -1020,7 +1086,9 @@ async def assign_reko_personnel(
     a closed Einsatz); a missing Einsatz or person is a 404.
     """
     try:
-        await assignments_crud.lock_for_new_assignment(db, incident_id, "personnel", assignment.personnel_id)
+        locked_incident = await assignments_crud.lock_for_new_assignment(
+            db, incident_id, "personnel", assignment.personnel_id
+        )
     except LookupError as e:
         raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND) from e
     except assignments_crud.IncidentNotOnBoardError as e:
@@ -1052,12 +1120,15 @@ async def assign_reko_personnel(
     # and a crew row are otherwise identical, and `/feld` would then ask a trupp
     # that only drove out to look for a Schadenplatz-Rapport. Set here, at the
     # path the assignment came in through — never inferred afterwards.
+    # Last in the person's Reko order (the Reko-Modus numbers); the person's row lock taken
+    # above keeps two assigns from drawing the same number.
     db_assignment = IncidentAssignment(
         incident_id=incident_id,
         resource_type="personnel",
         resource_id=assignment.personnel_id,
         assigned_by=current_user.id,
         purpose="reko",
+        reko_position=await reko_assign_crud.next_reko_position(db, locked_incident.event_id, assignment.personnel_id),
     )
     db.add(db_assignment)
     await db.flush()
@@ -1168,8 +1239,10 @@ async def transfer_reko_assignments(
     if to_person is None or event is None:
         raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND)
 
-    # Filter to only open assignments (incidents in reko status, not reko_done or later)
+    # Filter to only open assignments (incidents in reko status, not reko_done or later).
+    # They join the new person's order at its end, in the order the old person had them.
     transferred: list[str] = []
+    next_position = await reko_assign_crud.next_reko_position(db, event_id, to_personnel_id)
     for assignment in assignments:
         incident = locked.get(assignment["incident_id"])
         if incident and incident.status in ("incoming", "reko"):
@@ -1190,7 +1263,9 @@ async def transfer_reko_assignments(
                 resource_id=to_personnel_id,
                 assigned_by=current_user.id if current_user else None,
                 purpose="reko",
+                reko_position=next_position,
             )
+            next_position += 1
             db.add(db_assignment)
             transferred.append(str(assignment["incident_id"]))
 
@@ -1208,3 +1283,39 @@ async def transfer_reko_assignments(
             )
 
     return {"transferred_count": len(transferred), "incident_ids": transferred}
+
+
+@router.post(
+    "/personnel/{personnel_id}/order",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def reorder_reko_assignments(
+    personnel_id: uuid.UUID,
+    body: schemas.RekoOrderRequest,
+    background_tasks: BackgroundTasks,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Put a Reko person's Rekos in order (editor only) – the Reko-Modus drag on the map.
+
+    The same contract as ``POST /incident-groups/{id}/stops/reorder``: ``ordered_ids`` are
+    Einsatz ids; with ``expected_ids`` the write happens only while the person still holds
+    exactly those Rekos (409 otherwise). The order shows as numbered pins and as the order of the
+    person's /feld list.
+    """
+    try:
+        updated = await reko_assign_crud.reorder_reko_assignments(
+            db, body.event_id, personnel_id, body.ordered_ids, body.expected_ids
+        )
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=ErrorMessages.PERSONNEL_NOT_FOUND) from e
+    except OrderChangedError:
+        # Nothing was written; get_db rolls back and releases the person's lock.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Reko-Reihenfolge wurde inzwischen geändert",
+        ) from None
+
+    if updated:
+        # The order lives on the assignment rows: boards and phones re-read them.
+        background_tasks.add_task(broadcast_incident_update, {"event_id": str(body.event_id)}, "refresh")

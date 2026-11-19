@@ -4,10 +4,20 @@ import { useCallback, useEffect, useRef } from 'react'
 import { apiClient } from '@/lib/api-client'
 import { useEvent } from '@/lib/contexts/event-context'
 import { useNotifications } from '@/lib/contexts/notification-context'
-import type { RekoSummary } from '@/lib/contexts/operations-context'
+import type { Operation, RekoSummary } from '@/lib/contexts/operations-context'
 import { rekoDangerTypes } from '@/lib/contexts/operations/mapping'
 import { wsClient } from '@/lib/websocket-client'
 import { usePolling } from '@/lib/hooks/use-polling'
+
+/**
+ * The card with its Reko summary – nothing else. The card's status is the server's: a filing
+ * moves «Reko» → «Reko abgeschlossen» there and the incident update brings it here. Moving it
+ * on this side too put a card into «Reko abgeschlossen» on this board only, when a report filed
+ * while the card stood elsewhere was amended after it went back to «Reko» (Sol review pass 5, S1).
+ */
+export function withRekoSummary(operations: Operation[], incidentId: string, rekoSummary: RekoSummary): Operation[] {
+  return operations.map(op => (op.id === incidentId ? { ...op, hasCompletedReko: true, rekoSummary } : op))
+}
 
 /**
  * Hook to track new Reko reports across all incidents and update operation state.
@@ -20,6 +30,10 @@ import { usePolling } from '@/lib/hooks/use-polling'
  * about 9 % of all prod traffic in June 2026. It now reads the same bulk summaries the board
  * loads (latest submitted report per incident), and runs only on mount, on `reko_update`
  * and on the fallback poll (`usePolling`, only while the socket is down).
+ *
+ * A NEW filing (its `submitted_at` moved) updates the card and refetches the bell; a changed
+ * summary of the same filing – the board's Reko form auto-saves amendments and each one
+ * emits `reko_update` – updates the card only (Sol review pass 4, S6).
  */
 export function useRekoNotifications(
   onOpenIncidentModal?: (incidentId: string) => void,
@@ -27,9 +41,9 @@ export function useRekoNotifications(
 ) {
   const { selectedEvent } = useEvent()
   const { refetchNotifications } = useNotifications()
-  // `incident_id@submitted_at` of the latest submitted report per incident: a newer report on
-  // the same incident moves its submitted_at, so it reads as new too
-  const seenRef = useRef<{ eventId: string; keys: Set<string> } | null>(null)
+  // Per incident, the latest submitted report as last applied: its `submitted_at` (a newer
+  // report moves it, so it reads as a new filing) and the summary the card was given.
+  const seenRef = useRef<{ eventId: string; reports: Map<string, { submittedAt: string; summary: string }> } | null>(null)
   // the callbacks change identity with their parents' renders; reading them through refs keeps
   // the effect below from re-running (and re-fetching) every time they do
   const onUpdateRef = useRef(onUpdateOperationReko)
@@ -41,39 +55,51 @@ export function useRekoNotifications(
   // switches must not mark the new one's reports seen or touch its cards.
   const activeEventRef = useRef(eventId)
   activeEventRef.current = eventId
+  // Consecutive auto-saves each emit `reko_update`, and their reads overlap: only the newest
+  // read's answer is applied, so an older one answering last cannot restore stale facts
+  // (Sol review pass 5, S6).
+  const readRef = useRef(0)
 
   const checkForNewRekos = useCallback(async () => {
     if (!eventId) return
+    const read = ++readRef.current
     try {
       const { summaries } = await apiClient.getEventRekoSummaries(eventId)
-      if (activeEventRef.current !== eventId) return
+      if (activeEventRef.current !== eventId || read !== readRef.current) return
       const submitted = Object.values(summaries).filter((s) => s.has_completed_reko && s.submitted_at)
-      const keys = new Set(submitted.map((s) => `${s.incident_id}@${s.submitted_at}`))
-
-      // On the first answer for this Ereignis, just mark all as seen without notifications
-      const seen = seenRef.current?.eventId === eventId ? seenRef.current.keys : null
-      seenRef.current = { eventId, keys }
-      if (!seen) return
-
-      const newReports = submitted.filter((s) => !seen.has(`${s.incident_id}@${s.submitted_at}`))
-      if (newReports.length === 0) return
-
-      // Update operation with REKO summary immediately
-      for (const report of newReports) {
+      const current = new Map(submitted.map((report) => {
         const dangerTypes = rekoDangerTypes(report.dangers_json)
-        onUpdateRef.current?.(report.incident_id, {
-          isRelevant: report.is_relevant ?? false,
+        const rekoSummary: RekoSummary = {
+          isRelevant: report.is_relevant ?? null,
           hasDangers: dangerTypes.length > 0,
           dangerTypes,
           personnelCount: report.effort_json?.personnel_count ?? null,
           estimatedDuration: report.effort_json?.estimated_duration_hours ?? null,
           summaryText: report.summary_text ?? null,
           photos: report.photos_json ?? [],
-        })
+        }
+        return [report.incident_id, { submittedAt: report.submitted_at ?? '', rekoSummary }] as const
+      }))
+
+      // On the first answer for this Ereignis, just mark all as seen without notifications
+      const seen = seenRef.current?.eventId === eventId ? seenRef.current.reports : null
+      seenRef.current = {
+        eventId,
+        reports: new Map([...current].map(([id, { submittedAt, rekoSummary }]) => [id, { submittedAt, summary: JSON.stringify(rekoSummary) }])),
+      }
+      if (!seen) return
+
+      let filed = false
+      for (const [incidentId, { submittedAt, rekoSummary }] of current) {
+        const before = seen.get(incidentId)
+        const isNewFiling = before?.submittedAt !== submittedAt
+        if (!isNewFiling && before?.summary === JSON.stringify(rekoSummary)) continue
+        filed ||= isNewFiling
+        onUpdateRef.current?.(incidentId, rekoSummary)
       }
 
-      // Trigger notification refetch to show new reko notifications in sidebar
-      refetchRef.current()
+      // A new filing rings the backend's bell: show it in the sidebar.
+      if (filed) refetchRef.current()
     } catch (error) {
       console.error('Failed to check for new rekos:', error)
     }

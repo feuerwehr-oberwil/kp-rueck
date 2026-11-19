@@ -26,7 +26,8 @@ vi.mock("@/lib/websocket-client", () => ({
   },
 }));
 
-import { useRekoNotifications } from "./use-reko-notifications";
+import { useRekoNotifications, withRekoSummary } from "./use-reko-notifications";
+import type { Operation, RekoSummary } from "@/lib/contexts/operations-context";
 
 const summary = (incident_id: string, submitted_at: string, extra: Partial<ApiRekoSummary> = {}): ApiRekoSummary => ({
   incident_id, has_completed_reko: true, arrived_at: null, is_relevant: true,
@@ -77,7 +78,10 @@ describe("useRekoNotifications", () => {
     expect(refetchNotifications).toHaveBeenCalledTimes(1);
 
     // the same answer again is nothing new
-    getEventRekoSummaries.mockResolvedValueOnce(respond(summary("a", "2026-10-06T09:00:00Z"), summary("b", "2026-10-06T09:05:00Z")));
+    getEventRekoSummaries.mockResolvedValueOnce(respond(
+      summary("a", "2026-10-06T09:00:00Z", { dangers_json: { fire: true } as ApiRekoSummary["dangers_json"] }),
+      summary("b", "2026-10-06T09:05:00Z"),
+    ));
     await act(async () => { wsHandlers.get("reko_update")?.(); });
     await waitFor(() => expect(getEventRekoSummaries).toHaveBeenCalledTimes(3));
     expect(onUpdate).toHaveBeenCalledTimes(2);
@@ -93,4 +97,63 @@ describe("useRekoNotifications", () => {
     await waitFor(() => expect(getEventRekoSummaries).toHaveBeenCalledTimes(2));
     expect(onUpdate).not.toHaveBeenCalled();
   });
+
+  it("applies an auto-saved amendment of the same filing to the card, without the bell (pass 4, S6)", async () => {
+    getEventRekoSummaries.mockResolvedValueOnce(respond(summary("a", "2026-10-06T08:00:00Z")));
+    const onUpdate = vi.fn();
+    renderHook(() => useRekoNotifications(undefined, onUpdate));
+    await waitFor(() => expect(getEventRekoSummaries).toHaveBeenCalledTimes(1));
+
+    getEventRekoSummaries.mockResolvedValueOnce(respond(summary("a", "2026-10-06T08:00:00Z", { summary_text: "Keller 20 cm" })));
+    await act(async () => { wsHandlers.get("reko_update")?.(); });
+
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledWith("a", expect.objectContaining({ summaryText: "Keller 20 cm" })));
+    expect(refetchNotifications).not.toHaveBeenCalled();
+  });
 });
+
+describe("useRekoNotifications – the verdict", () => {
+  it("keeps an unanswered «Einsatz relevant?» unanswered on the card (pass 5, S5)", async () => {
+    getEventRekoSummaries.mockResolvedValueOnce(respond());
+    const onUpdate = vi.fn();
+    renderHook(() => useRekoNotifications(undefined, onUpdate));
+    await waitFor(() => expect(getEventRekoSummaries).toHaveBeenCalledTimes(1));
+
+    getEventRekoSummaries.mockResolvedValueOnce(respond(summary("a", "2026-10-06T09:00:00Z", { is_relevant: null })));
+    await act(async () => { wsHandlers.get("reko_update")?.(); });
+
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledWith("a", expect.objectContaining({ isRelevant: null })));
+  });
+});
+
+describe("useRekoNotifications – overlapping reads", () => {
+  it("drops an older read that answers after a newer one (pass 5, S6)", async () => {
+    getEventRekoSummaries.mockResolvedValueOnce(respond(summary("a", "2026-10-06T08:00:00Z")));
+    const onUpdate = vi.fn();
+    renderHook(() => useRekoNotifications(undefined, onUpdate));
+    await waitFor(() => expect(getEventRekoSummaries).toHaveBeenCalledTimes(1));
+
+    // Two auto-saves, two reads: the first one answers last, with the older text.
+    let answerOld: (value: unknown) => void = () => {};
+    getEventRekoSummaries.mockReturnValueOnce(new Promise((resolve) => { answerOld = resolve; }));
+    getEventRekoSummaries.mockResolvedValueOnce(respond(summary("a", "2026-10-06T08:00:00Z", { summary_text: "Keller 20 cm" })));
+    await act(async () => { wsHandlers.get("reko_update")?.(); wsHandlers.get("reko_update")?.(); });
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledWith("a", expect.objectContaining({ summaryText: "Keller 20 cm" })));
+    await act(async () => { answerOld(respond(summary("a", "2026-10-06T08:00:00Z", { summary_text: "Keller" }))); });
+
+    expect(onUpdate).toHaveBeenLastCalledWith("a", expect.objectContaining({ summaryText: "Keller 20 cm" }));
+  });
+});
+
+describe("withRekoSummary", () => {
+  it("sets the summary only – the card's status stays the server's (pass 5, S1)", () => {
+    const card = { id: "a", status: "reko", hasCompletedReko: true } as unknown as Operation;
+    const rekoSummary = { isRelevant: true, summaryText: "Keller 20 cm" } as unknown as RekoSummary;
+
+    const [after] = withRekoSummary([card], "a", rekoSummary);
+
+    expect(after.status).toBe("reko");
+    expect(after.rekoSummary).toBe(rekoSummary);
+  });
+});
+

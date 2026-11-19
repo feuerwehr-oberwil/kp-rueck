@@ -31,6 +31,8 @@ const apiPersonToPerson = (apiPerson: ApiPersonnel): Person => ({
   roleSortOrder: apiPerson.role_sort_order,
   diveraLinked: apiPerson.divera_linked ?? false,
   checkedInAt: apiPerson.checked_in_at ?? null,
+  plannedFrom: apiPerson.planned_from ?? null,
+  plannedUntil: apiPerson.planned_until ?? null,
 })
 
 // `status` is seeded from the legacy mirror and then OVERWRITTEN per Ereignis by

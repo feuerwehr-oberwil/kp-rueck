@@ -108,6 +108,9 @@ class GroupAssignmentResponse(BaseModel):
 class GroupAssignmentUpdate(BaseModel):
     """Schema for updating a route-level assignment (mirrors ``AssignmentUpdate``)."""
 
+    # Vehicles only: the driver stays at the Schadenplatz («bleibt vor Ort») or
+    # takes the vehicle back («kehrt zurück») – set in the dispatch gate.
+    driver_stay: bool | None = None
     # Promote this person to Einsatzleiter for the whole route. Setting it
     # demotes whoever held the role.
     is_leader: bool | None = None
@@ -163,9 +166,15 @@ class GroupStopsReorder(BaseModel):
 
 
 class AddStopsRequest(BaseModel):
-    """Attach existing incidents to an Auftrag as stops (appended to the end)."""
+    """Attach existing incidents to an Auftrag as stops (appended to the end).
+
+    ``via_vehicle_id``: the vehicle that drives this Auftrag and was put on these lone
+    Einsätze («In Auftrag aufnehmen», #23). Makes the add conditional – 409 unless every
+    Einsatz is still live, open and in no Auftrag and the vehicle still on this one.
+    """
 
     incident_ids: list[UUID]
+    via_vehicle_id: UUID | None = None
 
 
 class GroupAnnouncementRequest(BaseModel):

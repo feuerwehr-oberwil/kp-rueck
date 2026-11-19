@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useRouter } from "next/navigation"
 import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
@@ -9,36 +9,29 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { LoadingStatus, ShellLoader } from "@/components/ui/shell-loader"
 import { Truck, User, MapPin, Clock, Radio, RefreshCw, AlertTriangle, Plus, Waypoints } from "lucide-react"
-import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
+import { apiClient, type ApiEventSpecialFunctionResponse, type ApiVehicleStatus } from "@/lib/api-client"
 import { isIncidentStatus } from "@/lib/types/incidents"
 import { toast } from "sonner"
 import { useTranslations } from "next-intl"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { useOperations } from "@/lib/contexts/operations-context"
-import { useGroups } from "@/lib/contexts/groups-context"
 import { RESOURCE_STATE_BADGE_CLASSES } from "@/lib/resource-status"
 import { formatDuration } from "@/lib/duration"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { DriverAssignmentDialog } from "./driver-assignment-dialog"
 
-interface VehicleStatus {
-  id: string
-  name: string
-  type: string
-  status: string
-  radio_call_sign: string
-  driver_id: string | null
-  driver_name: string | null
-  driver_assigned_at: string | null
-  incident_id: string | null
-  incident_title: string | null
-  incident_location_address: string | null
-  /** Server-computed deployment label (home city stripped). Null when idle. */
-  incident_location_display?: string | null
-  incident_status: string | null
-  incident_assigned_at: string | null
-  assignment_duration_minutes: number | null
+/** What the sheet shows for one Ereignis: the fleet and the event's special functions
+ *  (the driver dialog needs those). */
+interface FleetSnapshot {
+  eventId: string
+  vehicles: ApiVehicleStatus[]
+  specialFunctions: ApiEventSpecialFunctionResponse[]
 }
+
+/** The last snapshot per Ereignis, kept across openings AND remounts of the sheet: it
+ *  opens on what it showed last and refreshes underneath. The loading line is only for
+ *  the very first load of an Ereignis on this page. */
+const lastSnapshot = new Map<string, FleetSnapshot>()
 
 interface VehicleStatusSheetProps {
   open: boolean
@@ -58,17 +51,41 @@ function getDurationColor(minutes: number | null): string {
   return "text-muted-foreground font-medium" // >= 2 hours
 }
 
-/** The Auftrag (route) a vehicle is out on — name plus the route's OWN colour,
- *  the same colour the board and the map identify that route by. */
-interface VehicleAuftrag {
-  name: string
-  color: string | null
+/** One place a vehicle serves, as a link in its row: an Auftrag or an Einsatz. */
+type DeploymentTarget =
+  | { kind: "auftrag"; key: string; incidentId: string | null; label: string; color: string | null }
+  | { kind: "einsatz"; key: string; incidentId: string; label: string; status: string }
+
+/**
+ * Everything a vehicle serves, in the server's order (`GET /api/vehicles/status`: its
+ * Aufträge, then every Einsatz it is assigned to directly, each oldest first).
+ */
+function deploymentTargets(
+  vehicle: ApiVehicleStatus,
+  auftragLabel: (name: string) => string,
+): DeploymentTarget[] {
+  const homeCity = getGlobalHomeCity()
+  return vehicle.deployments.map((deployment): DeploymentTarget =>
+    deployment.kind === "auftrag"
+      ? {
+          kind: "auftrag", key: deployment.group_id, incidentId: deployment.incident_id,
+          label: auftragLabel(deployment.name), color: deployment.color,
+        }
+      : {
+          kind: "einsatz", key: deployment.incident_id, incidentId: deployment.incident_id, status: deployment.status,
+          // The server ships the label computed (`location_display`), so it is final on
+          // first paint; the client formatter is only the fallback.
+          label: deployment.location_display
+            ?? (formatLocationForDisplay(deployment.location_address || '', homeCity)
+              || formatLocationForDisplay(deployment.title, homeCity)),
+        },
+  )
 }
 
 /** «Auftrag «Sturm West»» with the route's colour as a dot — so a vehicle's
  *  route is identifiable at a glance. Neutral text, as on the board card: a
  *  route colour painted as text fell to 2.3:1 in light (sweep 2026-10). */
-function AuftragChip({ auftrag, label }: { auftrag: VehicleAuftrag; label: string }) {
+function AuftragChip({ color, label }: { color: string | null; label: string }) {
   return (
     <span
       className="inline-flex min-w-0 items-center gap-1 rounded-sm border border-border bg-muted/60 px-1.5 py-0.5 text-sm font-medium text-foreground"
@@ -77,9 +94,61 @@ function AuftragChip({ auftrag, label }: { auftrag: VehicleAuftrag; label: strin
       <Waypoints className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
       <span
         className="h-2 w-2 flex-shrink-0 rounded-full"
-        style={{ backgroundColor: auftrag.color ?? "var(--muted-foreground)" }}
+        style={{ backgroundColor: color ?? "var(--muted-foreground)" }}
       />
       <span className="truncate">{label}</span>
+    </span>
+  )
+}
+
+/**
+ * The places a vehicle serves, each its own link that opens it on the board; one
+ * line with the idle word when it serves none. They wrap rather than truncate
+ * one another away – a vehicle on two Einsätze shows both.
+ */
+function DeploymentLinks({ targets, idleLabel, statusLabel, onOpen }: {
+  targets: readonly DeploymentTarget[]
+  idleLabel: string
+  statusLabel: (status: string) => string
+  onOpen: (incidentId: string) => void
+}) {
+  if (targets.length === 0) {
+    return (
+      <span className="flex min-w-0 items-center gap-1.5 text-sm">
+        <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+        <span className="truncate">{idleLabel}</span>
+      </span>
+    )
+  }
+  return (
+    <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+      {targets.map((target) => {
+        const title = target.kind === "einsatz" ? `${target.label} · ${statusLabel(target.status)}` : target.label
+        const incidentId = target.incidentId
+        return (
+          <button
+            key={target.key}
+            type="button"
+            disabled={!incidentId}
+            title={title}
+            aria-label={title}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (incidentId) onOpen(incidentId)
+            }}
+            className="flex min-w-0 max-w-full items-center gap-1.5 rounded-sm text-left text-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:no-underline"
+          >
+            {target.kind === "auftrag" ? (
+              <AuftragChip color={target.color} label={target.label} />
+            ) : (
+              <>
+                <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                <span className="truncate">{target.label}</span>
+              </>
+            )}
+          </button>
+        )
+      })}
     </span>
   )
 }
@@ -107,36 +176,29 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
   const router = useRouter()
   const isMobile = useIsMobile()
   const { personnel, operations, removeCrew } = useOperations()
-  const { groups } = useGroups()
-  // A vehicle can be deployed to a whole Auftrag (route) rather than a single
-  // incident. Resolve vehicle-id → its Auftrag from the route assignments so the
-  // deployment reads as the route name instead of one stop's address. The colour
-  // travels with the name: it is what the board tints the route's cards with.
-  const auftragByVehicleId = useMemo(() => {
-    const map = new Map<string, VehicleAuftrag>()
-    for (const g of groups) {
-      for (const a of g.assignments) {
-        if (a.resourceType === "vehicle") map.set(a.resourceId, { name: g.name, color: g.color })
-      }
-    }
-    return map
-  }, [groups])
-  const [vehicles, setVehicles] = useState<VehicleStatus[]>([])
-  const [loading, setLoading] = useState(false)
+  const [snapshot, setSnapshot] = useState<FleetSnapshot | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
   const [selectedVehicleIndex, setSelectedVehicleIndex] = useState<number>(-1)
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  // This Ereignis's data: what this sheet loaded, else what an earlier mount did.
+  const shown = snapshot?.eventId === eventId ? snapshot : (eventId ? lastSnapshot.get(eventId) ?? null : null)
+  // Sorted by the server (display order, then name) – the order used everywhere else.
+  const vehicles = shown?.vehicles ?? []
+  const specialFunctions = shown?.specialFunctions ?? []
 
   // Driver assignment state
   const [driverDialogOpen, setDriverDialogOpen] = useState(false)
-  const [selectedVehicleForDriver, setSelectedVehicleForDriver] = useState<VehicleStatus | null>(null)
-  const [specialFunctions, setSpecialFunctions] = useState<ApiEventSpecialFunctionResponse[]>([])
+  const [selectedVehicleForDriver, setSelectedVehicleForDriver] = useState<ApiVehicleStatus | null>(null)
 
-  // Auto-refresh every 10 seconds while sheet is open. `loadVehicleStatuses` is a plain
-  // function re-created every render, reached through an effect event.
+  // Closed: load once in the background, so even the first opening rises at its final
+  // height instead of growing from the loading line (#14). Open: load – quietly when
+  // this Ereignis has been shown before – then every 10 seconds. `loadVehicleStatuses`
+  // is a plain function re-created every render, reached through an effect event.
   const loadStatuses = useEffectEvent((silent: boolean) => void loadVehicleStatuses(silent))
   useEffect(() => {
+    if (!open && eventId && !lastSnapshot.has(eventId)) loadStatuses(true)
     if (open && eventId) {
-      loadStatuses(false)
+      loadStatuses(lastSnapshot.has(eventId))
 
       // Set up auto-refresh
       refreshIntervalRef.current = setInterval(() => {
@@ -152,58 +214,24 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
     }
   }, [open, eventId])
 
+  /** One request for the fleet (plus the special functions). `silent` = no loading
+   *  line and no error toast: there is data on screen already. */
   const loadVehicleStatuses = async (silent = false) => {
     if (!eventId) return
+    const forEvent = eventId
 
     if (!silent) {
-      setLoading(true)
+      setRefreshing(true)
     }
 
     try {
-      // Load vehicles and special functions in parallel
-      const [allVehicles, functions] = await Promise.all([
-        apiClient.getVehicles(),
-        apiClient.getEventSpecialFunctions(eventId),
+      const [statuses, functions] = await Promise.all([
+        apiClient.getVehicleStatuses(forEvent),
+        apiClient.getEventSpecialFunctions(forEvent),
       ])
-
-      setSpecialFunctions(functions)
-
-      // Then get status for each vehicle
-      const statusPromises = allVehicles.map(async (vehicle) => {
-        try {
-          return await apiClient.getVehicleStatus(vehicle.id, eventId)
-        } catch (error) {
-          console.error(`Error loading status for vehicle ${vehicle.name}:`, error)
-          // Return basic vehicle info if status fetch fails
-          return {
-            id: vehicle.id,
-            name: vehicle.name,
-            type: vehicle.type,
-            status: vehicle.status,
-            radio_call_sign: vehicle.radio_call_sign,
-            driver_id: null,
-            driver_name: null,
-            driver_assigned_at: null,
-            incident_id: null,
-            incident_title: null,
-            incident_location_address: null,
-            incident_location_display: null,
-            incident_status: null,
-            incident_assigned_at: null,
-            assignment_duration_minutes: null,
-          }
-        }
-      })
-
-      const statuses = await Promise.all(statusPromises)
-      // Sort by display order (same as they appear elsewhere)
-      const sortedStatuses = statuses.sort((a, b) => {
-        const vehicleA = allVehicles.find(v => v.id === a.id)
-        const vehicleB = allVehicles.find(v => v.id === b.id)
-        return (vehicleA?.display_order || 0) - (vehicleB?.display_order || 0)
-      })
-
-      setVehicles(sortedStatuses)
+      const next: FleetSnapshot = { eventId: forEvent, vehicles: statuses, specialFunctions: functions }
+      lastSnapshot.set(forEvent, next)
+      setSnapshot(next)
     } catch (error) {
       console.error("Error loading vehicle statuses:", error)
       if (!silent) {
@@ -211,12 +239,12 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
       }
     } finally {
       if (!silent) {
-        setLoading(false)
+        setRefreshing(false)
       }
     }
   }
 
-  const handleOpenDriverDialog = (vehicle: VehicleStatus, e: React.MouseEvent) => {
+  const handleOpenDriverDialog = (vehicle: ApiVehicleStatus, e: React.MouseEvent) => {
     e.stopPropagation()
     setSelectedVehicleForDriver(vehicle)
     setDriverDialogOpen(true)
@@ -229,11 +257,15 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
     window.dispatchEvent(new Event('driver-assignment-changed'))
   }
 
-  // Vehicles are already sorted by display_order in loadVehicleStatuses
   const displayedVehicles = vehicles
+  const targetsOf = (vehicle: ApiVehicleStatus) => deploymentTargets(
+    vehicle,
+    (name) => t('vehicleStatus.auftragLabel', { name }),
+  )
 
   // Handle keyboard navigation. An effect event: one listener for the mount, and a key
   // always sees the current list, selection and handlers.
+  const fleetListRef = useRef<HTMLDivElement>(null)
   const onKeyDown = useEffectEvent((e: KeyboardEvent) => {
     if (!open) return
 
@@ -241,23 +273,32 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
       return
     }
+    // The row keys belong to this sheet: not while a dialog in front of it (the driver
+    // picker) has the focus. A focused control anywhere in the sheet – a deployment link,
+    // the driver button, «Aktualisieren», the phone's ✕ – answers its own Enter, and so does
+    // a row that opens its one place itself (its handler prevents the default). The arrows
+    // move the focus onto the row they pick, so Enter after them lands there (Sol S12).
+    const target = e.target instanceof Element ? e.target : null
+    const sheet = fleetListRef.current?.closest('[role="dialog"]')
+    if (target && target !== document.body && sheet && !sheet.contains(target)) return
+    if (e.key === "Enter" && (e.defaultPrevented || target?.closest('button, a[href], [role="button"]'))) return
 
-    if (e.key === "ArrowDown") {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault()
-      setSelectedVehicleIndex(prev =>
-        prev < displayedVehicles.length - 1 ? prev + 1 : 0
-      )
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault()
-      setSelectedVehicleIndex(prev =>
-        prev > 0 ? prev - 1 : displayedVehicles.length - 1
-      )
+      const count = displayedVehicles.length
+      if (count === 0) return
+      const next = e.key === "ArrowDown"
+        ? (selectedVehicleIndex < count - 1 ? selectedVehicleIndex + 1 : 0)
+        : (selectedVehicleIndex > 0 ? selectedVehicleIndex - 1 : count - 1)
+      setSelectedVehicleIndex(next)
+      fleetListRef.current?.querySelector<HTMLElement>(`[data-fleet-row="${next}"]`)?.focus()
     } else if (e.key === "Enter" && selectedVehicleIndex >= 0) {
       e.preventDefault()
       const vehicle = displayedVehicles[selectedVehicleIndex]
-      if (vehicle?.incident_id) {
-        handleVehicleClick(vehicle)
-      }
+      // Several places: Enter opens the first one that has a card to open (an Auftrag
+      // without stops has none); the others are their own links.
+      const first = vehicle ? targetsOf(vehicle).find((target) => target.incidentId) : undefined
+      if (first?.incidentId) openIncident(first.incidentId)
     }
   })
   useEffect(() => {
@@ -266,13 +307,11 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [])
 
-  const handleVehicleClick = (vehicle: VehicleStatus) => {
-    if (vehicle.incident_id) {
-      // Navigate to Kanban with highlighted incident – on a phone also opened (its Einsatz
-      // sheet, `&detail=1`): a ring on a list card is not what «Tippen öffnet den Einsatz» says.
-      router.push(`/?highlight=${vehicle.incident_id}${isMobile ? '&detail=1' : ''}`)
-      onOpenChange(false)
-    }
+  const openIncident = (incidentId: string) => {
+    // Navigate to Kanban with highlighted incident – on a phone also opened (its Einsatz
+    // sheet, `&detail=1`): a ring on a list card is not what «Tippen öffnet den Einsatz» says.
+    router.push(`/?highlight=${encodeURIComponent(incidentId)}${isMobile ? '&detail=1' : ''}`)
+    onOpenChange(false)
   }
 
   const handleManualRefresh = () => {
@@ -293,6 +332,8 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
       // both roles: a Radix AlertDialog is role="alertdialog", and the vehicle-conflict prompt
       // that can appear from here is one — see the note in auftraege-sheet.tsx
       shouldPreventClose={(target) => !!target.closest('[role="dialog"], [role="alertdialog"]') || driverDialogOpen}
+      // The Fahrer picker of a row opens inside the sheet as a step (owner pick 5A).
+      surface={t('vehicleStatus.title')}
     >
         <SheetHeader className="p-0">
           <div className="flex items-center justify-between gap-4">
@@ -306,8 +347,8 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
             </div>
 
             {!isMobile && (
-              <Button variant="outline" size="sm" onClick={handleManualRefresh} disabled={loading} className="flex-shrink-0">
-                {loading ? <ShellLoader className="size-3.5" /> : <RefreshCw className="size-3.5" />}
+              <Button variant="outline" size="sm" onClick={handleManualRefresh} disabled={refreshing} className="flex-shrink-0">
+                {refreshing ? <ShellLoader className="size-3.5" /> : <RefreshCw className="size-3.5" />}
                 {t('vehicleStatus.refresh')}
               </Button>
             )}
@@ -315,7 +356,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto mt-3 pb-10">
-          {loading ? (
+          {!shown && refreshing ? (
             <LoadingStatus size="surface" className="flex w-full py-8 text-sm">{tLoading("vehicles")}</LoadingStatus>
           ) : displayedVehicles.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 text-center">
@@ -323,43 +364,79 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
               <p className="text-muted-foreground">{t('vehicleStatus.noVehicles')}</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div ref={fleetListRef} className="space-y-2">
               {displayedVehicles.map((vehicle, index) => {
                 const isSelected = index === selectedVehicleIndex
-                const isClickable = !!vehicle.incident_id
-                const auftrag = auftragByVehicleId.get(vehicle.id)
-                const auftragName = auftrag?.name
+                const targets = targetsOf(vehicle)
+                const einsaetze = targets.filter((target) => target.kind === "einsatz")
+                // One place: the whole row opens it. Several: each is its own link.
+                const rowTarget = targets.length === 1 ? targets[0].incidentId : null
+                const isClickable = !!rowTarget
                 // Out on an Einsatz OR on an Auftrag: either way not «Verfügbar».
-                const isBound = !!vehicle.incident_id || !!auftrag
-                const showDurationWarning = vehicle.assignment_duration_minutes && vehicle.assignment_duration_minutes >= 120
-                // Where the vehicle is: Auftrag name, else home-town-free incident
-                // address. The server ships that label already computed
-                // (`incident_location_display`, address or title) so it is final
-                // on first paint; the client formatter is only the fallback.
-                const deploymentLabel = auftragName
-                  ? t('vehicleStatus.auftragLabel', { name: auftragName })
-                  : (vehicle.incident_location_display
-                    ?? (formatLocationForDisplay(vehicle.incident_location_address || '', getGlobalHomeCity())
-                      || formatLocationForDisplay(vehicle.incident_title || '', getGlobalHomeCity())))
-                    || (vehicle.status === "unavailable" ? t('vehicleStatus.unavailable') : t('vehicleStatus.readyForOperation'))
+                const isBound = targets.length > 0
+                // The clock and «Lange» follow the oldest Einsatz.
+                const durationMinutes = vehicle.deployments.find((deployment) => deployment.kind === "einsatz")?.duration_minutes ?? null
+                const showDurationWarning = durationMinutes !== null && durationMinutes >= 120
+                // A single Einsatz names its column; anything more is «Gebunden».
+                const singleStatus = targets.length === 1 && einsaetze.length === 1 ? einsaetze[0].status : null
+                const idleLabel = vehicle.status === "unavailable" ? t('vehicleStatus.unavailable') : t('vehicleStatus.readyForOperation')
+                const deploymentLinks = (
+                  <DeploymentLinks
+                    targets={targets}
+                    idleLabel={idleLabel}
+                    statusLabel={(status) => isIncidentStatus(status) ? tColumns(status) : status}
+                    onOpen={openIncident}
+                  />
+                )
+                const statusBadges = (
+                  <>
+                    {!isBound && vehicle.status === "available" && (
+                      <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.available)}>
+                        {t('vehicleStatus.available')}
+                      </Badge>
+                    )}
+                    {vehicle.status === "unavailable" && (
+                      <Badge className="text-xs bg-muted text-muted-foreground border-border">
+                        {t('vehicleStatus.unavailable')}
+                      </Badge>
+                    )}
+                    {isBound && !singleStatus && vehicle.status !== "unavailable" && (
+                      <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.assigned)}>
+                        {t('vehicleStatus.bound')}
+                      </Badge>
+                    )}
+                    {singleStatus && (
+                      <Badge variant="outline" className={cn("text-xs max-w-full", RESOURCE_STATE_BADGE_CLASSES.assigned)}>
+                        {isIncidentStatus(singleStatus) ? tColumns(singleStatus) : singleStatus}
+                      </Badge>
+                    )}
+                    {showDurationWarning && (
+                      <Badge className="text-xs bg-warning/10 text-warning-foreground border-warning/30">
+                        <AlertTriangle className="h-3 w-3 mr-1" />
+                        {t('vehicleStatus.longDuration')}
+                      </Badge>
+                    )}
+                  </>
+                )
 
                 return (
                   <div
                     key={vehicle.id}
-                    onClick={() => isClickable && handleVehicleClick(vehicle)}
+                    data-fleet-row={index}
+                    onClick={() => rowTarget && openIncident(rowTarget)}
                     className={cn(
                       "border rounded-lg px-3 py-2.5 bg-card transition-all",
                       "border-l-4",
-                      getStatusBorderColor(vehicle.status, !!vehicle.incident_id || !!auftragName),
+                      getStatusBorderColor(vehicle.status, isBound),
                       isClickable && "cursor-pointer hover:bg-muted/50 hover:border-border",
                       isSelected && "ring-2 ring-sel-line ring-offset-2 ring-offset-background",
-                      !isClickable && "opacity-75"
+                      !isBound && "opacity-75"
                     )}
                     tabIndex={isClickable ? 0 : -1}
                     onKeyDown={(e) => {
-                      if (isClickable && (e.key === "Enter" || e.key === " ")) {
+                      if (rowTarget && e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
                         e.preventDefault()
-                        handleVehicleClick(vehicle)
+                        openIncident(rowTarget)
                       }
                     }}
                   >
@@ -375,32 +452,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                             <span className="min-w-0 break-words font-bold text-sm">{vehicle.name}</span>
                           </div>
                           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                            {!isBound && vehicle.status === "available" && (
-                              <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.available)}>
-                                {t('vehicleStatus.available')}
-                              </Badge>
-                            )}
-                            {vehicle.status === "unavailable" && (
-                              <Badge className="text-xs bg-muted text-muted-foreground border-border">
-                                {t('vehicleStatus.unavailable')}
-                              </Badge>
-                            )}
-                            {auftrag && !vehicle.incident_id && vehicle.status !== "unavailable" && (
-                              <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.assigned)}>
-                                {t('vehicleStatus.bound')}
-                              </Badge>
-                            )}
-                            {vehicle.incident_id && vehicle.incident_status && (
-                              <Badge variant="outline" className={cn("text-xs max-w-full", RESOURCE_STATE_BADGE_CLASSES.assigned)}>
-                                {isIncidentStatus(vehicle.incident_status) ? tColumns(vehicle.incident_status) : vehicle.incident_status}
-                              </Badge>
-                            )}
-                            {showDurationWarning && (
-                              <Badge className="text-xs bg-warning/10 text-warning-foreground border-warning/30">
-                                <AlertTriangle className="h-3 w-3 mr-1" />
-                                {t('vehicleStatus.longDuration')}
-                              </Badge>
-                            )}
+                            {statusBadges}
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-1.5 text-sm">
@@ -414,23 +466,14 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                               {vehicle.driver_name || t('vehicleStatus.noDriver')}
                             </span>
                           </div>
-                          <div className="flex min-w-0 items-center gap-1.5 col-span-2">
-                            {auftrag ? (
-                              <AuftragChip auftrag={auftrag} label={deploymentLabel} />
-                            ) : (
-                              <>
-                                <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                                <span className="truncate" title={deploymentLabel}>
-                                  {deploymentLabel}
-                                </span>
-                              </>
-                            )}
+                          <div className="min-w-0 col-span-2">
+                            {deploymentLinks}
                           </div>
-                          {vehicle.assignment_duration_minutes !== null && (
+                          {durationMinutes !== null && (
                             <div className="flex items-center gap-1.5">
                               <Clock className="h-3 w-3 flex-shrink-0" />
-                              <span className={cn("text-xs font-medium", getDurationColor(vehicle.assignment_duration_minutes))}>
-                                {formatMinutes(vehicle.assignment_duration_minutes)}
+                              <span className={cn("text-xs font-medium", getDurationColor(durationMinutes))}>
+                                {formatMinutes(durationMinutes)}
                               </span>
                             </div>
                           )}
@@ -449,8 +492,11 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                          AND two badges kept pulling its Einsatz cell left of the
                          four rows below it. Fixed px up to the Einsatz column
                          pins every left edge; only that column stretches, and the
-                         badges stay flush right because the rows are equal width. */
-                      <div className="grid grid-cols-[140px_104px_168px_minmax(0,1fr)_74px_auto] items-center gap-3">
+                         badges stay flush right because the rows are equal width.
+                         Rows align at the TOP, every cell one badge-line tall: a
+                         vehicle on two Einsätze lists both, and its name, driver and
+                         badges stay on the first line (sign-off 19.11.). */
+                      <div className="grid grid-cols-[140px_104px_168px_minmax(0,1fr)_74px_auto] items-start gap-3 [&>*]:min-h-[22px]">
                         {/* Vehicle Icon and Name */}
                         <div className="flex items-center gap-2 min-w-0">
                           <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -486,21 +532,10 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                           )}
                         </button>
 
-                        {/* Current deployment — the Auftrag (route) in the route's own
-                            colour when the vehicle is route-assigned, else the incident
-                            location. Twice the driver's share of the free width: an
-                            address is the longer of the two. */}
-                        <div className="flex min-w-0 items-center gap-2">
-                          {auftrag ? (
-                            <AuftragChip auftrag={auftrag} label={deploymentLabel} />
-                          ) : (
-                            <>
-                              <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                              <span className="text-sm truncate" title={deploymentLabel}>
-                                {deploymentLabel}
-                              </span>
-                            </>
-                          )}
+                        {/* Every Auftrag (in the route's own colour) and Einsatz the
+                            vehicle serves – the one flexible track, so they wrap here. */}
+                        <div className="min-w-0">
+                          {deploymentLinks}
                         </div>
 
                         {/* Duration. The cell is always rendered, empty when a
@@ -508,11 +543,11 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                             collapse its track and pull the badges of that one row
                             left, which is the misalignment this grid exists for. */}
                         <div className="flex min-w-0 items-center gap-1.5">
-                          {vehicle.assignment_duration_minutes !== null && (
+                          {durationMinutes !== null && (
                             <>
                               <Clock className="h-3 w-3 flex-shrink-0" />
-                              <span className={cn("text-xs font-medium", getDurationColor(vehicle.assignment_duration_minutes))}>
-                                {formatMinutes(vehicle.assignment_duration_minutes)}
+                              <span className={cn("text-xs font-medium", getDurationColor(durationMinutes))}>
+                                {formatMinutes(durationMinutes)}
                               </span>
                             </>
                           )}
@@ -522,32 +557,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                             «Verfügbar» sits under «Verfügbar» however many badges
                             the row above carries. */}
                         <div className="flex items-center justify-self-end gap-1.5">
-                          {!isBound && vehicle.status === "available" && (
-                            <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.available)}>
-                              {t('vehicleStatus.available')}
-                            </Badge>
-                          )}
-                          {vehicle.status === "unavailable" && (
-                            <Badge className="text-xs bg-muted text-muted-foreground border-border">
-                              {t('vehicleStatus.unavailable')}
-                            </Badge>
-                          )}
-                          {auftrag && !vehicle.incident_id && vehicle.status !== "unavailable" && (
-                            <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.assigned)}>
-                              {t('vehicleStatus.bound')}
-                            </Badge>
-                          )}
-                          {vehicle.incident_id && vehicle.incident_status && (
-                            <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.assigned)}>
-                              {isIncidentStatus(vehicle.incident_status) ? tColumns(vehicle.incident_status) : vehicle.incident_status}
-                            </Badge>
-                          )}
-                          {showDurationWarning && (
-                            <Badge className="text-xs bg-warning/10 text-warning-foreground border-warning/30">
-                              <AlertTriangle className="h-3 w-3 mr-1" />
-                              {t('vehicleStatus.longDuration')}
-                            </Badge>
-                          )}
+                          {statusBadges}
                         </div>
                       </div>
                     )}
@@ -560,7 +570,8 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
 
     </FooterSheet>
 
-    {/* Driver Assignment Dialog - Outside Sheet to prevent closing issues */}
+    {/* Driver Assignment Dialog – outside the sheet's tree (closing issues), but on a desk it
+        opens INSIDE the sheet as a step: the sheet is the open surface (surface-step.tsx). */}
     {selectedVehicleForDriver && eventId && (
       <DriverAssignmentDialog
         open={driverDialogOpen}

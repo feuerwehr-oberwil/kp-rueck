@@ -26,7 +26,7 @@ import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { FileText, Check, Milestone, Binoculars, Layers, ChevronDown } from "lucide-react"
 import { WallClock } from "@/components/ui/event-clock"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
+import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, rekoColorOrder, rekoPersonColor, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { incidentTimeSource } from "@/lib/incident-time"
 import { useIncidentTimeMode } from "@/lib/hooks/use-incident-time-mode"
@@ -35,7 +35,7 @@ import { type Priority } from "@/lib/priority"
 import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import { statusGroupCaption } from "@/components/map-legend"
 import { getIncidentRefLabel } from "@/lib/incident-types"
-import { useIncidents, useOperations, type Operation } from "@/lib/contexts/operations-context"
+import { useIncidents, useOperations } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
 import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
@@ -43,6 +43,8 @@ import { RoutenplanungPanel } from "@/components/map/routenplanung-panel"
 import { ResizeGrip } from "@/components/ui/resize-grip"
 import { useResizableWidth } from "@/lib/hooks/use-resizable-width"
 import { RekoModusPanel } from "@/components/map/reko-modus-panel"
+import type { RekoRoute } from "@/components/map/reko-route"
+import { openRekosByPerson } from "@/lib/reko-order"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
@@ -121,6 +123,7 @@ export default function MapPage() {
     removeReko,
     deleteOperation,
     isLoaded: operationsLoaded,
+    specialFunctions,
   } = useOperations()
   const { selectedEvent, isEventLoaded } = useEvent()
   // A launch onto the Lagekarte stays behind the snail until the incidents are in AND the map
@@ -527,23 +530,21 @@ export default function MapPage() {
   }, [incidents])
 
   // Reko-Modus data: reko-marked people and their open (reko not yet done)
-  // incidents. The selected person's open incidents get enlarged markers so
-  // proximity between their work and unassigned incidents reads off the map.
+  // incidents, each list in the person's order (`lib/reko-order.ts`). The selected
+  // person's Rekos become enlarged, numbered pins on a dotted line in their colour,
+  // so proximity between their work and unassigned incidents reads off the map.
   const rekoPeople = useMemo(() => personnel.filter((p) => p.isReko), [personnel])
-  const rekoOpenByPerson = useMemo(() => {
-    const byPerson = new Map<string, Operation[]>()
-    for (const op of operations) {
-      if (!op.assignedReko || op.hasCompletedReko || op.status === 'complete') continue
-      const list = byPerson.get(op.assignedReko.id)
-      if (list) list.push(op)
-      else byPerson.set(op.assignedReko.id, [op])
-    }
-    return byPerson
-  }, [operations])
-  const rekoHighlightIds = useMemo(() => {
-    if (!rekoModeActive || !rekoPersonId) return undefined
-    return new Set((rekoOpenByPerson.get(rekoPersonId) ?? []).map((op) => op.id))
-  }, [rekoModeActive, rekoPersonId, rekoOpenByPerson])
+  const rekoOpenByPerson = useMemo(() => openRekosByPerson(operations), [operations])
+  const rekoOrder = useMemo(() => rekoColorOrder(specialFunctions), [specialFunctions])
+  const rekoColors = useMemo(
+    () => new Map(rekoPeople.map((p) => [p.id, rekoPersonColor(p.id, rekoOrder)])),
+    [rekoPeople, rekoOrder],
+  )
+  const rekoRoute = useMemo<RekoRoute | null>(() => {
+    if (!rekoModeActive || !rekoPersonId) return null
+    const open = rekoOpenByPerson.get(rekoPersonId) ?? []
+    return { color: rekoPersonColor(rekoPersonId, rekoOrder), incidentIds: open.map((op) => op.id) }
+  }, [rekoModeActive, rekoPersonId, rekoOpenByPerson, rekoOrder])
 
   // "Färben nach": map each incident id → accent colour, plus a legend. Uses the
   // full operations (which carry reko/vehicle/type) rather than the lighter
@@ -553,11 +554,11 @@ export default function MapPage() {
     if (colorBy === 'priority') return undefined
     const m = new Map<string, string>()
     for (const op of operations) {
-      const g = colorGroupFor(op, colorBy, groups)
+      const g = colorGroupFor(op, colorBy, groups, rekoOrder)
       m.set(op.id, g ? g.color : COLOR_NONE) // grey when nothing assigned yet
     }
     return m
-  }, [operations, colorBy, groups])
+  }, [operations, colorBy, groups, rekoOrder])
 
   const colorLegend = useMemo<ColorGroup[]>(() => {
     // Priority falls back to the static legend section in MapLegend.
@@ -565,7 +566,7 @@ export default function MapPage() {
     const map = new Map<string, ColorGroup>()
     let hasNone = false
     for (const op of operations) {
-      const g = colorGroupFor(op, colorBy, groups)
+      const g = colorGroupFor(op, colorBy, groups, rekoOrder)
       if (g) { if (!map.has(g.key)) map.set(g.key, g) }
       else hasNone = true
     }
@@ -576,7 +577,7 @@ export default function MapPage() {
       arr.push({ key: '__none__', label: noneLabel, color: COLOR_NONE })
     }
     return arr
-  }, [operations, colorBy, groups, t])
+  }, [operations, colorBy, groups, rekoOrder, t])
 
   // «Auf der Karte öffnen» on an abgeschlossener Einsatz: the deep-linked
   // incident must show even when its status group (Beendet, hidden by default)
@@ -971,7 +972,7 @@ export default function MapPage() {
               focusVehicleName={focusVehicleName}
               focusVehicleTrigger={focusVehicleTrigger}
               markerAccents={markerAccents}
-              highlightIncidentIds={rekoHighlightIds}
+              rekoRoute={rekoRoute}
               colorBy={colorBy}
               colorGroups={colorLegend}
               showGroupRoutes={showGroupRoutes || planningActive}
@@ -1040,7 +1041,7 @@ export default function MapPage() {
                 <RekoModusPanel
                   people={rekoPeople}
                   openByPerson={rekoOpenByPerson}
-                  legendColors={new Map(colorLegend.map((g) => [g.key, g.color]))}
+                  colors={rekoColors}
                   selectedPersonId={rekoPersonId}
                   onSelectPerson={setRekoPersonId}
                   onExit={exitRekoMode}
@@ -1330,6 +1331,8 @@ export default function MapPage() {
                 })
           }
           confirmText={tKanban('dashboard.distributeConfirmAction')}
+          // No undo after it: Enter keeps to Abbrechen.
+          initialFocus="cancel"
           onConfirm={() => {
             if (planningAddConfirm && planningGroupId) {
               void addStops(planningGroupId, [planningAddConfirm.incidentId]).then((ok) => {

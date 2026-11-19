@@ -8,6 +8,8 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { ignoreToastLayer } from '@/lib/toast-layer'
 import { OVERLAY_CLASS } from '@/components/ui/overlay'
+import { dialogFrameClass, type DialogSize } from '@/components/ui/dialog-frame'
+import { useSurfaceStepHost } from '@/components/ui/surface-step'
 
 function Dialog({
   ...props
@@ -73,24 +75,45 @@ export function CloseLabel() {
   return <span className="sr-only">{t('close')}</span>
 }
 
+/**
+ * A window. `size` is one of the three (S question/picker – the default, M form, L work
+ * surface; dialog-frame.ts) and also decides WHERE it opens: S/M hang from a fixed line and
+ * grow down, L fills the board. Never give it a width or a position through `className`.
+ * `surface` names a work surface: a picker opened while it is on top opens inside it as a
+ * step (surface-step.tsx), and Esc then goes back instead of closing.
+ */
 function DialogContent({
   className,
   children,
   showCloseButton = true,
   overlayClassName,
   onInteractOutside,
+  onEscapeKeyDown,
+  size = 'sm',
+  surface,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
   overlayClassName?: string
+  size?: DialogSize
+  surface?: string
 }) {
+  const step = useSurfaceStepHost(surface, { wide: size === 'lg' })
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         data-slot="dialog-content"
-        // Dismissing a toast must never dismiss the dialog behind it.
-        onInteractOutside={ignoreToastLayer(onInteractOutside)}
+        data-size={size}
+        // Dismissing a toast must never dismiss the dialog behind it, nor a click beside it
+        // the surface under an open step.
+        onInteractOutside={ignoreToastLayer((event) => {
+          if (step.stepOpen()) event.preventDefault()
+          else onInteractOutside?.(event)
+        })}
+        onEscapeKeyDown={(event) => {
+          if (!step.onEscapeKeyDown(event)) onEscapeKeyDown?.(event)
+        }}
         className={cn(
           // The Content loses its exit animation too, for both reasons: it is a
           // click sink in its own right (a closed modal still owned the centre of
@@ -100,7 +123,8 @@ function DialogContent({
           // `grid-cols-[minmax(0,1fr)]`: the implicit `auto` column grew to the widest nowrap
           // line inside (a `truncate` detail), so the body ran past the dialog's right edge
           // («Ereignis archivieren?», 08.11.). Same in alert-dialog.tsx.
-          'bg-background data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-overlay grid grid-cols-[minmax(0,1fr)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-2xl ring-1 ring-white/10 duration-200 sm:max-w-lg',
+          'bg-background data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 z-overlay grid grid-cols-[minmax(0,1fr)] gap-4 rounded-lg border p-6 shadow-2xl ring-1 ring-white/10 duration-200',
+          dialogFrameClass(size),
           className,
         )}
         {...props}
@@ -112,6 +136,7 @@ function DialogContent({
             <CloseLabel />
           </DialogPrimitive.Close>
         )}
+        {step.slot}
       </DialogPrimitive.Content>
     </DialogPortal>
   )

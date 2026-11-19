@@ -26,7 +26,7 @@ import { TrainingBand, TrainingBadge } from "@/components/training-mode-chrome"
 import { PageNavigation } from "@/components/page-navigation"
 import { toast } from "sonner"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { useOperations, type Operation, type Material, type OperationStatus, type RekoSummary } from "@/lib/contexts/operations-context"
+import { useOperations, type Material, type OperationStatus, type RekoSummary } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
 import { selectFiledRapports, selectOpenRapports } from "@/components/kanban/rapport-backlog-sheet"
@@ -36,7 +36,7 @@ import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient, type GroupResourceType } from "@/lib/api-client"
 import { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
-import { useRekoNotifications } from "@/lib/hooks/use-reko-notifications"
+import { useRekoNotifications, withRekoSummary } from "@/lib/hooks/use-reko-notifications"
 import { useStationCapabilities } from "@/lib/hooks/use-station-capabilities"
 import { useVehicleShortcuts } from "@/lib/contexts/operations/use-vehicle-shortcuts"
 import { useNotifications } from "@/lib/contexts/notification-context"
@@ -352,18 +352,9 @@ export default function FireStationDashboard() {
     }, 100)
   }, [])
 
-  // Update operation REKO summary when new report arrives
+  // A new or amended Reko summary – the summary only (`withRekoSummary`).
   const handleUpdateOperationReko = useCallback((incidentId: string, rekoSummary: RekoSummary) => {
-    setOperations(prev => prev.map(op => {
-      if (op.id !== incidentId) return op
-      const updates: Partial<Operation> = { hasCompletedReko: true, rekoSummary }
-      // Auto-transition reko → reko_done when reko form is submitted
-      if (op.status === "reko") {
-        updates.status = "reko_done"
-        updates.statusChangedAt = new Date()
-      }
-      return { ...op, ...updates }
-    }))
+    setOperations(prev => withRekoSummary(prev, incidentId, rekoSummary))
   }, [setOperations])
 
   // The header clock ticks inside <EventClock/> now; this is only the mount flag
@@ -552,7 +543,7 @@ export default function FireStationDashboard() {
     triggerDisponiertDialog,
     triggerReturningVehicleCheck,
     triggerRekoCheck,
-    triggerRekoFormCheck,
+    holdStatusMove,
     promptMaterialDecision,
   } = statusWorkflow
 
@@ -693,7 +684,7 @@ export default function FireStationDashboard() {
     vehicleTypes,
     deleteOperation,
     toggleDriverStay,
-    triggerRekoFormCheck,
+    holdStatusMove,
     triggerRekoCheck,
     promptMaterialDecision,
     triggerReturningVehicleCheck,
@@ -919,7 +910,7 @@ export default function FireStationDashboard() {
 
   const boardAssignGroupResource = (groupId: string, resourceType: GroupResourceType, resourceId: string) => {
     if (resourceType === "vehicle") {
-      assignVehicleToGroupWithConflict(groupId, resourceId)
+      void assignVehicleToGroupWithConflict(groupId, resourceId)
       return
     }
     // Onto ANOTHER Auftrag: same question again, «bisher» being the route that
@@ -962,11 +953,11 @@ export default function FireStationDashboard() {
   }
 
   // What a card arriving in a column asks — after a drag across, and after a
-  // typed «14 einsatz» (⌘K), which is the same move.
+  // typed «14 einsatz» (⌘K), which is the same move. «Reko abgeschlossen» without
+  // a report asks BEFORE the move instead (`holdStatusMove`).
   const afterStatusMove = (operationId: string, newStatus: OperationStatus, previousStatus: OperationStatus) => {
     if (newStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
     if (newStatus === "reko") triggerRekoCheck(operationId, previousStatus)
-    if (newStatus === "reko_done") triggerRekoFormCheck(operationId, previousStatus)
     if (newStatus === "returning") triggerReturningVehicleCheck(operationId, previousStatus)
     // Drag-to-ABGESCHLOSSEN already ran updateOperation(complete) inside the hook
     // (which keeps materials). Just prompt the material decision here.
@@ -991,6 +982,7 @@ export default function FireStationDashboard() {
       setHoveredOperationId(operationId)
     },
     onStatusChange: afterStatusMove,
+    holdStatusChange: holdStatusMove,
     // Aufträge (route) drop targets — see auftraege-sheet.tsx for the registered
     // drop-target data contract (`group-row` / `group-stop`).
     groups,
@@ -1215,6 +1207,7 @@ export default function FireStationDashboard() {
     boardAssignMaterial,
     boardAssignGroupResource,
     afterStatusMove,
+    holdStatusMove,
     collectPersonBindings,
     collectMaterialBindings,
     followBinding,
@@ -1562,6 +1555,7 @@ export default function FireStationDashboard() {
                       onMoveInColumn={isEditor ? moveInColumn : undefined}
                       onTransfer={isEditor ? dialogs.openTransfer : undefined}
                       onDistributeToAuftrag={isEditor ? dialogs.openAuftragPicker : undefined}
+                      onRepeatRadio={isEditor ? dialogs.statusWorkflow.repeatDisponiert : undefined}
                       cardView={cardView}
                       dominantIncidentType={dominantIncidentType}
                       printerEnabled={printerEnabled}

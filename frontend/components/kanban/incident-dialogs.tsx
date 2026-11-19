@@ -42,6 +42,7 @@ import { useAssignmentConflicts } from "@/lib/hooks/use-assignment-conflicts"
 import { useAuftragRoster } from "@/lib/hooks/use-auftrag-roster"
 import { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
+import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
 import { getIncidentRefLabel, getIncidentTypeLabel } from "@/lib/incident-types"
@@ -302,6 +303,7 @@ export function IncidentDialogs({
     addStops,
     assignResource: assignGroupResource,
     unassignResource: unassignGroupResource,
+    setRouteDriverStay,
     getGroupResources,
     occupiedResourceIds,
   } = useGroups()
@@ -323,6 +325,8 @@ export function IncidentDialogs({
     assignVehicleToOperation,
   })
   const { view, statusWorkflow } = dialogs
+  // Who drives what, for the dispatch gate's vehicle chips – loaded while that gate is open.
+  const gateDrivers = useVehicleDrivers(selectedEvent?.id, !!statusWorkflow.missingResourcesOperation)
 
   // ── Assignment dialog ────────────────────────────────────────────────────
   const assignment = view.assignment
@@ -506,6 +510,8 @@ export function IncidentDialogs({
             : tDash("distributeConfirmDispatched", { incident: distributeConfirm?.incidentLabel ?? "" })
         }
         confirmText={tDash("distributeConfirmAction")}
+        // No undo after it: Enter keeps to Abbrechen.
+        initialFocus="cancel"
         onConfirm={() => {
           if (distributeConfirm) performDistribute(distributeConfirm.groupId, distributeConfirm.incidentId)
           view.setDistributeConfirm(null)
@@ -527,6 +533,12 @@ export function IncidentDialogs({
         onOpenAssignment={dialogs.openAssignment}
         onToggleZuFuss={(operation) => updateOperation(operation.id, { zuFuss: !operation.zuFuss })}
         onOpenDetail={onOpenDetail}
+        vehicleDrivers={gateDrivers}
+        onSetDriverStay={(target, driverStay) => {
+          // The gate only writes the half that is not set yet, so on an Einsatz the toggle is that write.
+          if (target.kind === "incident") toggleDriverStay(target.operationId, target.vehicleId)
+          else void setRouteDriverStay(target.groupId, target.assignmentId, driverStay)
+        }}
         onSendDivera={dialogs.openDivera}
         onRefresh={refreshOperations}
       />

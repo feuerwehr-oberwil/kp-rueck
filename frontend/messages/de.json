@@ -145,7 +145,7 @@
         "placeholder": "Befehl suchen oder zuweisen …",
         "placeholderShort": "Suchen oder zuweisen …",
         "hint": "Einsatz, dann Fahrzeug / Person – z. B.",
-        "hintExample": "7 tlf keller",
+        "hintExample": "7 tlf müller",
         "hintTab": "ergänzt",
         "hintTabKey": "Tabulator",
         "group": "Ausführen",
@@ -211,7 +211,42 @@
     "personPick": {
       "current": "aktuell",
       "apply": "Übernehmen",
-      "noneChosen": "Keine Person gewählt."
+      "noneChosen": "Keine Person gewählt.",
+      "planUntil": "bis {time}",
+      "planFrom": "ab {time}",
+      "leavesSoon": "Geht um {time} – in {duration}. Zuweisen geht trotzdem.",
+      "leftAlready": "Wollte um {time} gehen. Zuweisen geht trotzdem."
+    },
+    "surfaceStep": {
+      "back": "Zurück",
+      "escBack": "zurück zu «{surface}»"
+    },
+    "attendancePlan": {
+      "chipUntil": "geht {time}",
+      "chipUntilSoon": "geht {time} · in {duration}",
+      "chipUntilPast": "geht {time} · fällig",
+      "chipFrom": "kommt {time}",
+      "addUntil": "bis",
+      "addFrom": "kommt um",
+      "ariaUntil": "Geht um setzen",
+      "ariaUntilSet": "Geht um {time} – ändern",
+      "ariaFrom": "Kommt um setzen",
+      "ariaFromSet": "Kommt um {time} – ändern",
+      "titleUntil": "Geht um · {name}",
+      "titleFrom": "Kommt um · {name}",
+      "fieldUntil": "Geht um",
+      "fieldFrom": "Kommt um",
+      "selfUntil": "Ich bin da bis",
+      "selfFrom": "Ich komme um",
+      "selfUntilSet": "Da bis {time}",
+      "selfFromSet": "Komme um {time}",
+      "plusHours": "+{hours} h",
+      "clear": "Zeit löschen",
+      "save": "Übernehmen",
+      "required": "Bitte eine Uhrzeit wählen.",
+      "hintKp": "Die Auswahllisten zeigen «bis …». 15 Minuten vorher kommt eine Meldung in die Glocke.",
+      "hintSelf": "Der KP sieht, bis wann du da bist. Eine Uhrzeit, kein Versprechen.",
+      "saveFailed": "Zeit nicht gespeichert"
     }
   },
   "nav": {
@@ -591,8 +626,6 @@
       "checklistIntro": "<hl>{location}</hl> wird disponiert. Weise zu, was fehlt – oder disponiere ohne.",
       "readyIntro": "<hl>{location}</hl> ist vollständig ausgerüstet – bereit zum Disponieren.",
       "addMore": "Hinzufügen",
-      "personalSummary": "{count, plural, one {# Person} other {# Personen}}",
-      "mittelSummary": "{count, plural, one {# Gerät} other {# Geräte}}",
       "done": "Disponieren",
       "back": "Zurück",
       "dispatchWithoutCrew": "Ohne Mannschaft disponieren",
@@ -613,11 +646,19 @@
       "description": "<hl>{finished}</hl> ist beendet und im Auftrag «{auftrag}» arbeitet gerade niemand mehr. Nächster offener Stopp: <hl>{next}</hl>.",
       "confirm": "Nächsten Stopp auf «Im Einsatz»"
     },
-    "rekoMissing": {
-      "description": "<hl>{location}</hl> soll in die Reko-Spalte, es ist aber noch keine Reko-Person zugewiesen. Ohne Zuweisung erhält niemand das Reko-Formular. Möchtest du jetzt jemanden zuweisen oder trotzdem fortfahren?",
-      "proceedAnyway": "Trotzdem fortfahren",
-      "dontMove": "Nicht verschieben",
-      "assignReko": "Reko-Person zuweisen"
+    "rekoGate": {
+      "pickerTitle": "Reko-Person für {location}",
+      "pickerLine": "Die Karte wandert mit der Zuweisung nach «Reko».",
+      "moveWithout": "Ohne Reko-Person verschieben",
+      "reportTitle": "Reko-Bericht · {location}",
+      "reportLine": "Reko: <hl>{name}</hl> · noch nichts übermittelt. Jedes Feld wird sofort gespeichert; die Antwort auf «Einsatz relevant?» reicht den Bericht ein.",
+      "reportLineNoPerson": "Keine Reko-Person zugewiesen. Jedes Feld wird sofort gespeichert; die Antwort auf «Einsatz relevant?» reicht den Bericht ein.",
+      "finish": "Reko abschliessen",
+      "finishWithout": "Ohne Bericht abschliessen",
+      "finishWaits": "Eingereicht wird mit der Antwort auf «Einsatz relevant?» – erst dann geht «Reko abschliessen».",
+      "draftStays": "«Ohne Bericht abschliessen» lässt das Erfasste als Entwurf.",
+      "loadError": "Der Reko-Bericht konnte nicht geladen werden.",
+      "retry": "Erneut versuchen"
     },
     "driverPrompt": {
       "driverlessTitle": "Fahrzeug ohne Fahrer?",
@@ -647,6 +688,7 @@
     "disponiert": {
       "whatsappCopied": "WhatsApp-Nachricht kopiert",
       "title": "Einsatz disponiert",
+      "repeatTitle": "Funkdurchsage wiederholen",
       "description": "{location} → Disponiert",
       "addressPlaceholder": "[Adresse]",
       "staysOnSite": "bleibt vor Ort",
@@ -691,6 +733,7 @@
       "markAmWarten": "Als Am Warten markieren",
       "completeIncident": "Einsatz abschliessen",
       "showOnMapMenu": "Auf Karte zeigen",
+      "repeatRadio": "Funkdurchsage wiederholen",
       "printing": "Wird gedruckt …",
       "auftragPersSummary": "{count} Pers",
       "auftragMatSummary": "{count, plural, one {# Gerät} other {# Geräte}}",
@@ -922,12 +965,6 @@
       "refreshing": "Wird aktualisiert …",
       "refreshed": "Aktualisiert",
       "refreshFailed": "Aktualisierung fehlgeschlagen"
-    },
-    "rekoFormMissing": {
-      "title": "Reko-Formular nicht ausgefüllt",
-      "description": "<hl>{location}</hl> wird als «Reko abgeschlossen» markiert, es wurde aber noch kein Reko-Formular ausgefüllt. Möchtest du die Reko-Details öffnen oder trotzdem abschliessen?",
-      "proceedAnyway": "Trotzdem abschliessen",
-      "openReko": "Reko-Details öffnen"
     },
     "auftraege": {
       "title": "Aufträge",
@@ -1255,7 +1292,9 @@
       "doneCount": "{count} erledigt",
       "distanceOpenTooltip": "Luftlinie zur nächstgelegenen offenen Reko",
       "distanceLastTooltip": "Luftlinie zum zuletzt zugewiesenen Einsatz",
-      "distanceLastSuffix": "(zuletzt)"
+      "distanceLastSuffix": "(zuletzt)",
+      "sectionReko": "Reko-Personen",
+      "sectionOthers": "Andere Anwesende"
     },
     "card": {
       "rekoCompleted": "Reko-Bericht ausgefüllt",
@@ -1307,9 +1346,6 @@
       "checkInFailedTitle": "Check-in fehlgeschlagen",
       "checkInFailedDescription": "{name} wurde erfasst, ist aber nicht als anwesend gemeldet und darum nicht auf dem Board sichtbar. Person im Appell einchecken und danach als Fahrer zuweisen.",
       "duplicateName": "Es existiert bereits eine Person mit diesem Namen.",
-      "markAsDriver": "Als Fahrer markieren",
-      "markedAsDriver": "{name} als Fahrer markiert",
-      "markError": "Markierung fehlgeschlagen",
       "withoutDriver": "Ohne Fahrer"
     },
     "resourceConflict": {
@@ -1321,6 +1357,15 @@
       "newLabel": "Neu",
       "drives": "fährt {vehicle}",
       "moveReleasesDriver": "«Hierher verschieben» gibt auch die Fahrer-Rolle für {vehicle} frei."
+    },
+    "auftragStop": {
+      "title": "{incident} als Stopp in Auftrag {auftrag} aufnehmen?",
+      "description": "{vehicle} fährt schon den Auftrag «{auftrag}». Der Einsatz wird dort als letzter Stopp aufgenommen.",
+      "addAsStop": "In Auftrag aufnehmen",
+      "assignOnly": "Nur zusätzlich zuweisen",
+      "added": "{incident} ist jetzt Stopp im Auftrag «{auftrag}»",
+      "changedTitle": "{incident} nicht aufgenommen",
+      "changedDescription": "Der Einsatz oder der Auftrag «{auftrag}» wurde inzwischen geändert oder gelöscht. Auf dem Board prüfen."
     },
     "vehicleStatus": {
       "bound": "Gebunden",
@@ -1591,16 +1636,29 @@
       "title": "Reko-Modus",
       "exit": "Fertig",
       "hintSelect": "Reko-Person wählen, dann Einsätze auf der Karte antippen.",
-      "hintAssign": "Einsatz antippen: {name} zuweisen. Bereits zugewiesenen Einsatz antippen: Zuweisung entfernen.",
+      "hintAssign": "Einsatz antippen: {name} zuweisen, als nächste Nummer. Bereits zugewiesenen Einsatz antippen: Zuweisung entfernen.",
+      "hintOrder": "Ziehen: Reihenfolge ändern – so sieht {name} sie auch auf dem Handy.",
       "openCount": "{count} offen",
       "free": "frei",
-      "empty": "Noch keine Reko-Personen in diesem Ereignis.",
+      "empty": "Noch keine Reko-Personen in diesem Ereignis",
       "emptyHint": "Markiere zuerst eine Person als Reko: Rechtsklick auf eine Person in der Seitenleiste des Boards.",
       "addPerson": "Person als Reko markieren",
       "back": "Zurück",
       "overwriteTitle": "Reko-Person ersetzen?",
       "overwriteDescription": "{current} ist diesem Einsatz bereits als Reko zugewiesen. Durch {next} ersetzen?",
-      "overwriteConfirm": "Ersetzen"
+      "overwriteConfirm": "Ersetzen",
+      "personLabel": "Reko-Person",
+      "selectPlaceholder": "Reko-Person wählen",
+      "order": "Reihenfolge",
+      "rekoCount": "{count, plural, one {# Reko} other {# Rekos}}",
+      "addReko": "Einsatz hinzufügen",
+      "addRekoHint": "Auf der Karte antippen",
+      "dragReko": "Reko verschieben",
+      "noCoords": "Dieser Einsatz hat keine Koordinaten und liegt nicht auf der Linie.",
+      "orderChangedTitle": "Reihenfolge nicht gespeichert",
+      "orderChangedDescription": "Die Rekos dieser Person haben sich inzwischen geändert. Die Karte zeigt jetzt den aktuellen Stand.",
+      "orderFailedTitle": "Reihenfolge nicht gespeichert",
+      "orderFailedDescription": "Die Verbindung zum Server ist fehlgeschlagen. Die Karte zeigt wieder den gespeicherten Stand."
     },
     "fitAll": "Alle Einsätze einpassen",
     "routeOptimize": {
@@ -2837,8 +2895,6 @@
           "Erhebliche Gefährdung vor Ort. Umfangreiches Aufgebot erforderlich."
         ]
       },
-      "submitKp": "Reko-Bericht speichern",
-      "submittingKp": "Wird gespeichert …",
       "syncedAt": "Beim KP angekommen – {time}",
       "syncedHint": "Alles Neue geht automatisch zum KP.",
       "unsentTitle": "Der KP sieht das noch nicht",
@@ -2882,15 +2938,17 @@
       "additionalNotes": "Zusätzliche Notizen",
       "relevantShort": "Relevant",
       "notRelevantShort": "Nicht relevant",
+      "relevanceOpen": "Relevanz nicht beantwortet",
+      "relevanceOpenShort": "Relevanz offen",
       "photoCount": "{count, plural, one {# Foto} other {# Fotos}}",
       "create": "Reko-Bericht erfassen",
       "createTitle": "Reko-Bericht erfassen",
       "amend": "Reko-Bericht ergänzen",
       "amendTitle": "Reko-Bericht ergänzen",
-      "cancel": "Abbrechen",
+      "close": "Schliessen",
       "radioHint": "Was der Trupp über Funk meldet, hier erfassen. Wird als KP-Erfassung vermerkt.",
-      "saved": "Reko-Bericht gespeichert",
-      "saveFailed": "Speichern fehlgeschlagen",
+      "draftHint": "Wird laufend synchronisiert. Wird eingereicht, sobald «Einsatz relevant?» beantwortet ist – wie ein Bericht des Trupps, der Einsatz kommt dann auf «Reko abgeschlossen».",
+      "amendHint": "Jede Änderung wird sofort synchronisiert.",
       "submittedShort": "Übermittelt {time}",
       "updatedShort": "aktualisiert {time}",
       "findingLabel": "Befund",
@@ -2898,6 +2956,9 @@
       "reportLabel": "Reko-Bericht",
       "noReportShort": "noch keiner",
       "createShort": "erfassen",
+      "draftShort": "Entwurf – noch nicht eingereicht",
+      "continueShort": "weiter erfassen",
+      "ownDraftLabel": "Eigener Entwurf",
       "expand": "öffnen",
       "collapse": "schliessen"
     },
@@ -3376,6 +3437,7 @@
       "fatigueMany": "{count} Personen seit über {hours}h im Einsatz",
       "fatiguePerson": "{name} ({hours}h)",
       "fatigueMore": "{names} und {count} weitere",
+      "leavingAt": "Geht um {time}",
       "timeInStatus": "{duration} im Status «{status}»",
       "timeNotArchived": "Seit {duration} abgeschlossen, nicht archiviert",
       "noPersonnel": "Kein Personal mehr verfügbar – alle anwesenden Personen sind zugewiesen",
@@ -3471,7 +3533,7 @@
     },
     "mapError": {
       "title": "Kartenfehler",
-      "description": "Die Karte konnte nicht geladen werden. Dies kann an einem Netzwerkproblem oder fehlenden Kartendaten liegen.",
+      "description": "Beim Aufbauen der Karte ist ein Fehler aufgetreten. «Erneut versuchen» baut sie neu auf.",
       "retry": "Erneut versuchen",
       "home": "Zum Board"
     },
@@ -3509,6 +3571,7 @@
       "photo_too_many_pixels": "Bild zu gross (Pixelmasse).",
       "photo_limit": "Höchstens {max} Fotos pro Bericht.",
       "feld_token_other_person": "Der Zugriffscode gehört zu einer anderen Person.",
+      "feld_plan_invalid": "Diese Zeit geht nicht. Bitte neu wählen.",
       "incident_not_found": "Einsatz nicht gefunden",
       "reko_link_invalid": "Dieser Reko-Link ist ungültig oder abgelaufen.",
       "reko_report_not_found": "Bericht nicht gefunden",
@@ -3690,12 +3753,12 @@
   "checklist": {
     "tasks": {
       "send-first-whatsapp": {
-        "title": "Standby-WhatsApp senden",
+        "title": "Standby-Nachricht senden",
         "description": "Mannschaft informieren: KP Rück aktiv, Telefon mitnehmen",
         "note": "An die Mannschafts-Gruppe · beim Aufstarten des KP"
       },
       "send-second-whatsapp": {
-        "title": "Einrück-WhatsApp senden",
+        "title": "Einrück-Nachricht senden",
         "description": "Direkter Aufruf: ins Magazin einrücken",
         "note": "An die Mannschafts-Gruppe · erst wenn wirklich aufgeboten wird"
       },

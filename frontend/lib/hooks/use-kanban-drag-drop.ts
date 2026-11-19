@@ -28,6 +28,9 @@ interface UseKanbanDragDropProps {
   assignVehicleToOperation?: (vehicleId: string, vehicleName: string, operationId: string) => void
   onOperationDrop?: (operationId: string) => void
   onStatusChange?: (operationId: string, newStatus: OperationStatus, previousStatus: OperationStatus) => void
+  /** Asked before a card changes column: true = the move waits for a question and is made
+   *  by whoever asked it (`holdStatusMove` – the Reko form), so the drop changes nothing. */
+  holdStatusChange?: (operationId: string, newStatus: OperationStatus) => boolean
   /** Aufträge (incident groups) — present so views without the Aufträge feature
    *  keep working unchanged. */
   groups?: IncidentGroup[]
@@ -232,6 +235,7 @@ type OperationDropDeps = Pick<
   | 'reorderColumn'
   | 'onOperationDrop'
   | 'onStatusChange'
+  | 'holdStatusChange'
 >
 
 /**
@@ -252,6 +256,7 @@ export function applyOperationDrop(
     reorderColumn,
     onOperationDrop,
     onStatusChange,
+    holdStatusChange,
   }: OperationDropDeps,
 ): void {
   if (sourceData.type !== "operation") return
@@ -314,6 +319,7 @@ export function applyOperationDrop(
       // instead of snapping the card back to its created_at slot.
       reorderColumn(reordered.map(op => op.id))
     } else {
+      if (holdStatusChange?.(draggedOp.id, targetOp.status as OperationStatus)) return
       // Different column - move to new column with position
       const updatedOp = { ...draggedOp, status: targetOp.status }
 
@@ -358,6 +364,7 @@ export function applyOperationDrop(
 
     if (targetColumn && draggedOp.status !== targetColumn.status[0]) {
       const newStatus = targetColumn.status[0] as OperationStatus
+      if (holdStatusChange?.(draggedOp.id, newStatus)) return
       updateOperation(draggedOp.id, { status: newStatus })
 
       // Auto-select the dropped card
@@ -385,6 +392,7 @@ export function useKanbanDragDrop({
   assignVehicleToOperation,
   onOperationDrop,
   onStatusChange,
+  holdStatusChange,
   groups,
   addStopsToGroup,
   assignGroupResource,
@@ -429,8 +437,9 @@ export function useKanbanDragDrop({
           reorderColumn,
           onOperationDrop,
           onStatusChange,
+          holdStatusChange,
         })
       },
     })
-  }, [isMounted, canEdit, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, assignVehicleToOperation, setOperations, updateOperation, reorderColumn, onOperationDrop, onStatusChange, groups, addStopsToGroup, assignGroupResource])
+  }, [isMounted, canEdit, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, assignVehicleToOperation, setOperations, updateOperation, reorderColumn, onOperationDrop, onStatusChange, holdStatusChange, groups, addStopsToGroup, assignGroupResource])
 }

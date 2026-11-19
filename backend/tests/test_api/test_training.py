@@ -29,7 +29,7 @@ def isolate_photo_storage(tmp_path, monkeypatch):
     """Keep simulated photos out of the repo's data directory.
 
     Both photo-carrying injects (Reko report and Schadenplatz-Rapport) push real
-    pool JPEGs through ``PhotoStorageService``; without this every test run
+    bundled images through ``PhotoStorageService``; without this every test run
     leaves a directory of them behind in ``backend/data/photos``. Tests that
     need to *read* the files back point the pool at the same ``tmp_path``.
     """
@@ -826,27 +826,54 @@ def stub_photo_pool(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_simulate_reko_attaches_pool_photos(
+@pytest.mark.parametrize("is_relevant", [True, False])
+async def test_simulate_reko_attaches_the_wording_image_alone(
     editor_client: AsyncClient,
     db_session: AsyncSession,
     training_event: Event,
     reko_incident: Incident,
     stub_photo_pool,
+    tmp_path,
+    monkeypatch,
+    is_relevant: bool,
 ):
-    """Simulated reko reports carry pool photos shaped exactly like real uploads."""
+    """Only relevant Reko reports get a photo: the exact wording image, alone – the type pool
+    (red fixture photos here) is only the fallback for a text without one (pass 5, S7)."""
+    import json
     import re
+
+    from PIL import Image
+
+    from app.services import training_photos, training_simulation_data
+
+    summary, other_summary = training_simulation_data._SUMMARIES["brand_dachstock"][:2]
+    image_dir = tmp_path / "summary-images"
+    image_dir.mkdir()
+    manifest = {}
+    for text, colour in [(summary, "blue"), (other_summary, "green")]:
+        key = training_photos.summary_image_key(text)
+        filename = f"{key}.webp"
+        Image.new("RGB", (64, 48), colour).save(image_dir / filename)
+        manifest[key] = {"file": filename, "prompt": text}
+    (image_dir / "manifest.json").write_text(json.dumps(manifest))
+    monkeypatch.setattr(training_photos, "SUMMARY_IMAGE_DIR", image_dir)
+    monkeypatch.setattr(training_simulation_data, "generate_summary", lambda *_: summary)
+    monkeypatch.setattr(training_simulation_data.random, "random", lambda: 0.99 if is_relevant else 0.01)
 
     response = await editor_client.post(f"/api/training/events/{training_event.id}/simulate/reko/{reko_incident.id}")
     assert response.status_code == 200
     data = response.json()
 
     photos = data["photos_json"]
-    assert len(photos) == 2
-    for filename in photos:
-        # photos_json entries are plain UUID.jpg strings, same as real uploads
+    assert data["is_relevant"] is is_relevant
+    if is_relevant:
+        assert data["summary_text"] == summary
+        [filename] = photos
         assert re.match(r"^[0-9a-f-]{36}\.jpg$", filename)
-        # and the files exist in the incident's photo directory on disk
-        assert (stub_photo_pool / str(reko_incident.id) / filename).exists()
+        with Image.open(stub_photo_pool / str(reko_incident.id) / filename) as image:
+            assert image.getpixel((0, 0))[2] > 240  # the blue wording illustration, no red type photo
+    else:
+        assert photos == []
 
     # The stored report matches the response
     from sqlalchemy import select
@@ -859,7 +886,7 @@ async def test_simulate_reko_attaches_pool_photos(
         .first()
     )
     assert report is not None
-    assert report.photos_json == photos
+    assert (report.photos_json or []) == photos
 
 
 @pytest.mark.asyncio
@@ -871,11 +898,13 @@ async def test_simulate_reko_without_pool_still_succeeds(
     tmp_path,
     monkeypatch,
 ):
-    """A brigade that stripped the bundled pool gets reports without photos."""
-    from app.services import training_photos
+    """A brigade that stripped both asset sets gets reports without photos."""
+    from app.services import training_photos, training_simulation_data
     from app.services.photo_storage import photo_storage
 
     monkeypatch.setattr(training_photos, "POOL_DIR", tmp_path / "missing-pool")
+    monkeypatch.setattr(training_photos, "SUMMARY_IMAGE_DIR", tmp_path / "missing-summary-images")
+    monkeypatch.setattr(training_simulation_data.random, "random", lambda: 0.99)
     monkeypatch.setattr(photo_storage, "photos_dir", tmp_path / "photos")
 
     response = await editor_client.post(f"/api/training/events/{training_event.id}/simulate/reko/{reko_incident.id}")

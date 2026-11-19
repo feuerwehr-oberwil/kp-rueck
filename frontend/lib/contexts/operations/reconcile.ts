@@ -88,6 +88,7 @@ export function buildEventState({
         if (person) {
           if (rekoPersonnelIds.has(person.id)) {
             operation.assignedReko = { id: person.id, name: person.name }
+            operation.rekoPosition = assignment.reko_position ?? null
             continue
           }
           operation.crew.push({ personnelId: person.id, assignmentId: assignment.id, name: person.name })
@@ -130,7 +131,7 @@ export function buildEventState({
       const dangerTypes = rekoDangerTypes(summary.dangers_json)
       op.hasCompletedReko = true
       op.rekoSummary = {
-        isRelevant: summary.is_relevant ?? false,
+        isRelevant: summary.is_relevant ?? null,
         hasDangers: dangerTypes.length > 0,
         dangerTypes,
         personnelCount: summary.effort_json?.personnel_count ?? null,

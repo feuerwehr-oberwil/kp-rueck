@@ -80,7 +80,7 @@ export function WeatherWarningChip({
           aria-label={t("chipAria", { count: warnings.length, summary })}
           title={summary}
           className={cn(
-            "flex h-8 max-w-[min(20rem,calc(100vw-6rem))] items-center gap-1.5 rounded-full border border-border bg-card/95 pl-2.5 pr-3 text-xs font-medium text-foreground shadow-md backdrop-blur-sm hover:bg-card pointer-coarse:h-9",
+            "flex h-8 max-w-(--map-chrome-w) items-center gap-1.5 rounded-full border border-border bg-card/95 pl-2.5 pr-3 text-xs font-medium text-foreground shadow-md backdrop-blur-sm hover:bg-card pointer-coarse:h-9",
             anyStale && "text-muted-foreground",
           )}
         >

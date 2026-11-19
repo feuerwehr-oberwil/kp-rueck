@@ -64,6 +64,7 @@ function operation(overrides: Partial<Operation> = {}): Operation {
 
 function renderGate(initial: Operation) {
   const onOpenAssignment = vi.fn()
+  const onSetDriverStay = vi.fn()
   const changeStatusToTop = vi.fn()
   const ref: { controller: IncidentStatusWorkflowController | null } = { controller: null }
 
@@ -87,16 +88,17 @@ function renderGate(initial: Operation) {
         diveraEnabled={false}
         onOpenAssignment={onOpenAssignment}
         onToggleZuFuss={(op) => setCurrent({ ...op, zuFuss: !op.zuFuss })}
-        onOpenDetail={vi.fn()}
         onSendDivera={vi.fn()}
         onRefresh={vi.fn()}
+        vehicleDrivers={new Map([["v-TLF", { name: "Baumann Michael", personnelId: "p-baumann" }]])}
+        onSetDriverStay={onSetDriverStay}
       />
     )
   }
 
   renderWithIntl(<Harness />)
   act(() => ref.controller!.triggerDisponiertDialog(initial.id, "incoming"))
-  return { ref, onOpenAssignment, changeStatusToTop }
+  return { ref, onOpenAssignment, changeStatusToTop, onSetDriverStay }
 }
 
 describe("dispatch gate – press twice", () => {
@@ -191,5 +193,29 @@ describe("dispatch gate – press twice", () => {
 
     await user.click(screen.getByRole("button", { name: "Disponieren" }))
     expect(ref.controller!.disponiertOperation?.id).toBe("incident-1")
+  })
+
+  it("names what is there: crew EL first, «TLF · Fahrer» with its stay toggle, Geräte by name", async () => {
+    const user = userEvent.setup()
+    const { onSetDriverStay } = renderGate(operation({
+      crew: [crewMember("Ackermann Reto"), crewMember("Meier Andrea")],
+      leaderId: "p-Meier Andrea",
+      vehicles: [assignedVehicle("TLF", { driverStay: false })],
+      materials: [],
+    }))
+
+    const crew = screen.getByRole("group", { name: "Mannschaft" })
+    expect(crew).toHaveTextContent("Mannschaft · 2")
+    expect(crew.textContent!.indexOf("Meier Andrea")).toBeLessThan(crew.textContent!.indexOf("Ackermann Reto"))
+    expect(screen.getByLabelText("Einsatzleiter")).toBeInTheDocument()
+
+    const vehicles = screen.getByRole("group", { name: "Fahrzeuge" })
+    expect(vehicles).toHaveTextContent("TLF · Baumann Michael")
+    expect(screen.getByRole("button", { name: "kehrt zurück" })).toHaveAttribute("aria-pressed", "true")
+    await user.click(screen.getByRole("button", { name: "bleibt vor Ort" }))
+    expect(onSetDriverStay).toHaveBeenCalledWith({ kind: "incident", operationId: "incident-1", vehicleId: "v-TLF" }, true)
+    // The half already set writes nothing.
+    await user.click(screen.getByRole("button", { name: "kehrt zurück" }))
+    expect(onSetDriverStay).toHaveBeenCalledTimes(1)
   })
 })

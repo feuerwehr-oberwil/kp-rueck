@@ -20,6 +20,9 @@ interface QuickAddPersonnelProps {
    *  adding them and leaving them absent is the wrong default in exactly that moment.
    *  Also the documented route for Nachbarhilfe and Zivilschutz. */
   checkInEventId?: string
+  /** The Ereignis the person is added to. They become its GUEST, not a roster member:
+   *  listed there only, never in Settings ≫ Personal or another Ereignis (#5, 19.11.2026). */
+  guestEventId: string
   /** Optional guard: return true if a person with this name already exists.
    *  Prevents creating indistinguishable same-name duplicates at check-in. */
   isNameTaken?: (name: string) => boolean
@@ -35,6 +38,7 @@ export function QuickAddPersonnel({
   onPersonAdded,
   checkInToken,
   checkInEventId,
+  guestEventId,
   isNameTaken,
   submissionDisabled = false,
   framed = true,
@@ -76,6 +80,7 @@ export function QuickAddPersonnel({
       const newPerson: ApiPersonnelCreate = {
         name: newPersonName.trim(),
         status: 'available',
+        guest_event_id: guestEventId,
       }
       const createdPerson = await apiClient.createPersonnel(newPerson)
 

@@ -60,7 +60,6 @@ export function StatusConflictDialog() {
   return (
     <AlertDialog open onOpenChange={(open) => { if (!open) dismissStatusConflict() }}>
       <AlertDialogContent
-        className="sm:max-w-md"
         onOpenAutoFocus={(event) => {
           event.preventDefault()
           keepRef.current?.focus()

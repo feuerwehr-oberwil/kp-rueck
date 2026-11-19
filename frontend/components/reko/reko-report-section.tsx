@@ -28,6 +28,13 @@
  * (`PATCH`) instead of filing a second, so a crew's authorship survives and the
  * row carries both provenance lines.
  *
+ * **No save button** (owner pick 19.11.2026, #30): every answer is saved as it is
+ * given (`useRekoAutosave`, «Synchronisiert – hh:mm» under the form). A new report
+ * is the operator's KP draft until «Einsatz relevant?» is answered – the server files
+ * it then like the crew's submit (bell, Reko done, the card to «Reko abgeschlossen»).
+ * An amendment edits the filed report directly. The operator's own draft is picked
+ * up again on the next open.
+ *
  * The "vor Ort seit …" line this section used to render is **gone** (decision
  * 15), not moved and not linked. `arrived_at` is displayed and written in
  * exactly one place now, the Feldmeldungen row — a fact shown twice is a fact
@@ -41,14 +48,16 @@ import { useState, useEffect, useCallback, useMemo, useRef, Fragment, type React
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
-import { toast } from 'sonner'
 import { DETAIL_CONTROL_INDENT, DetailField } from '@/components/kanban/detail-field'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { CheckCircle2, XCircle, AlertTriangle, Binoculars, FileText, ChevronDown, History, CheckCheck, Pencil, Plus, X } from 'lucide-react'
+import { CheckCircle2, XCircle, CircleHelp, AlertTriangle, Binoculars, FileText, ChevronDown, History, CheckCheck, Pencil, Plus, X } from 'lucide-react'
 import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
-import { RekoReportForm, EMPTY_REKO_FORM, toRekoFormData, type RekoFormData } from '@/components/reko/reko-report-form'
+import { RekoReportForm, EMPTY_REKO_FORM, hasRekoContent, toRekoFormData, type RekoFormData } from '@/components/reko/reko-report-form'
+import { useRekoAutosave } from '@/components/reko/use-reko-autosave'
+import { SyncStatusLine } from '@/components/kanban/field-save-status'
+import { useAuth } from '@/lib/contexts/auth-context'
 import { getApiUrl } from '@/lib/env'
 import { cn } from '@/lib/utils'
 import { wsClient } from '@/lib/websocket-client'
@@ -129,20 +138,29 @@ export default function RekoReportSection({
   /** Which earlier report is unfolded, board mount only — one at a time. */
   const [openHistoryId, setOpenHistoryId] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
   const [formData, setFormData] = useState<RekoFormData>(EMPTY_REKO_FORM)
-
+  /** The operator's own unfilled KP report (`is_draft`, written by this user, no crew). */
+  const [ownDraft, setOwnDraft] = useState<ApiRekoReportResponse | null>(null)
+  const { user } = useAuth()
+  const userId = user?.id ?? null
+  // Reloads overlap (a save settling, `reko_update`, the poll): only the newest read's answer
+  // is applied – an older one answering last would bring back a stale list (Sol pass 5, S6).
+  const readRef = useRef(0)
   const loadReports = useCallback(async () => {
+    const read = ++readRef.current
     try {
       const data = await apiClient.getIncidentRekoReports(incidentId)
-      // Filter out drafts, only show submitted reports (newest first)
+      if (read !== readRef.current) return
+      // Only submitted reports are shown (newest first); the one draft kept is the
+      // operator's own, to pick up again.
       setReports(data.filter(r => !r.is_draft))
+      setOwnDraft(data.find(r => r.is_draft && !!userId && r.created_by_user_id === userId && !r.submitted_by_personnel_id) ?? null)
     } catch (error) {
       console.error('Failed to load Reko reports:', error)
     } finally {
       setIsLoading(false)
     }
-  }, [incidentId])
+  }, [incidentId, userId])
 
   // WebSocket for instant updates, a poll only while the socket is down.
   //
@@ -162,9 +180,21 @@ export default function RekoReportSection({
     })
   }, [loadReports, incidentId])
   usePolling(loadReports, { intervalMs: POLL_INTERVAL_MS, skipWhileWsConnected: true })
+  // A draft save emits no `reko_update`, so the section reloads once a save settled.
+  /** The form as it was opened, or as a save answered it – not an edit, so not saved. */
+  const openedForm = useRef<RekoFormData | null>(null)
+  /** A save answered: show the report as the server has it (another board's answers too),
+   *  with this operator's edits made meanwhile on top – without saving that as an edit. */
+  const adoptForm = useCallback((form: RekoFormData) => {
+    openedForm.current = form
+    setFormData(form)
+  }, [])
+  const autosave = useRekoAutosave({ incidentId, userId, onSettled: loadReports, onAdopt: adoptForm })
 
   const latestReport: ApiRekoReportResponse | undefined = reports[0]
   const previousReports = reports.slice(1)
+  // A KP row that says nothing is no draft – «Reko vor Ort» over the radio creates one.
+  const draftWithContent = ownDraft && hasRekoContent(toRekoFormData(ownDraft)) ? ownDraft : null
 
   /**
    * The board's photo door (§6.1, same case the Schadenplatz-Rapport already
@@ -173,20 +203,59 @@ export default function RekoReportSection({
    * transcribing. No token — the session is the credential, and the default
    * read path (`GET /api/photos/…`) is the session-authenticated one.
    */
+  // The row the form writes into – the draft once the first save created it.
+  const autosaveReportId = autosave.reportId
   const photoTransport = useMemo(
     () => ({
       upload: async (file: File) =>
-        (await apiClient.uploadRekoPhotoAsEditor(incidentId, file, latestReport?.id)).filename,
+        (await apiClient.uploadRekoPhotoAsEditor(incidentId, file, autosaveReportId() ?? undefined)).filename,
       remove: (filename: string) =>
-        apiClient.deleteRekoPhotoAsEditor(incidentId, filename, latestReport?.id),
+        apiClient.deleteRekoPhotoAsEditor(incidentId, filename, autosaveReportId() ?? undefined),
     }),
-    [incidentId, latestReport?.id],
+    [incidentId, autosaveReportId],
   )
 
-  /** Open the form: amending starts from what is already there. */
-  function startEditing() {
-    setFormData(toRekoFormData(latestReport))
+
+  /** Whether the open form is the operator's own draft (not yet filed) rather than an
+   *  amendment of a filed report – its title and hint say which. */
+  const [editingDraft, setEditingDraft] = useState(false)
+
+  /** Open the form on `source` – or on this mount's own newer edits, which the list may not
+   *  show yet (`useRekoAutosave.resume`). */
+  function openForm(source: ApiRekoReportResponse | null) {
+    const opened = autosave.resume(source)
+    openedForm.current = opened
+    setEditingDraft(!source || source.is_draft)
+    setFormData(opened)
     setIsEditing(true)
+  }
+
+  /** Amending starts from what is already there, a new report from the operator's own draft
+   *  when there is one. */
+  function startEditing() {
+    openForm(latestReport ?? ownDraft ?? null)
+  }
+
+  /** The operator's own draft beside a filed report – a crew filed meanwhile (Sol pass 3,
+   *  S16). Without this the draft could no longer be reached: «ergänzen» opens the filed one. */
+  function continueOwnDraft() {
+    openForm(draftWithContent)
+  }
+
+  // Every change saves (debounced). `formData` changes only through the form while
+  // it is open, and the value it was opened with is not an edit.
+  const scheduleSave = autosave.schedule
+  useEffect(() => {
+    if (!isEditing || formData === openedForm.current) return
+    scheduleSave(formData)
+  }, [formData, isEditing, scheduleSave])
+
+  /** Close the form: a save still waiting goes out now (the reload follows once it
+   *  settled), the draft stays on the server. */
+  function stopEditing() {
+    const saving = autosave.flush()
+    setIsEditing(false)
+    if (!saving) void loadReports()
   }
 
   // Deep-linked straight into the entry form. Waits for `isLoading`, because
@@ -203,39 +272,6 @@ export default function RekoReportSection({
     openedForNonce.current = openEditorNonce
     startEditingFromLink()
   }, [openEditorNonce, canEdit, isLoading])
-
-  async function handleSave() {
-    setIsSaving(true)
-    try {
-      // The report's own fields; no token, the session is the identity. Photos
-      // travel too: the upload already attached them server-side, and sending
-      // the list keeps a photo removed in the open form removed on save.
-      const payload = {
-        is_relevant: formData.is_relevant,
-        dangers_json: formData.dangers_json,
-        effort_json: formData.effort_json,
-        power_supply: formData.power_supply,
-        photos_json: formData.photos_json,
-        summary_text: formData.summary_text,
-        additional_notes: formData.additional_notes,
-      }
-      if (latestReport) {
-        // An amendment, not a second report: the crew keeps its authorship and
-        // the operator is added next to it (§5.3).
-        await apiClient.updateRekoReport(latestReport.id, payload)
-      } else {
-        await apiClient.createRekoReportAsEditor(incidentId, payload)
-      }
-      await loadReports()
-      setIsEditing(false)
-      toast.success(t('saved'))
-    } catch (error) {
-      console.error('Failed to save Reko report:', error)
-      toast.error(t('saveFailed'))
-    } finally {
-      setIsSaving(false)
-    }
-  }
 
   if (isLoading) {
     return (
@@ -283,14 +319,8 @@ export default function RekoReportSection({
                   }
                 >
                   <div className="flex min-w-0 items-center gap-1.5 text-sm">
-                    {report.is_relevant ? (
-                      <CheckCircle2 className="size-3.5 shrink-0 text-success" />
-                    ) : (
-                      <XCircle className="size-3.5 shrink-0 text-muted-foreground" />
-                    )}
-                    <span className="shrink-0">
-                      {report.is_relevant ? t('relevantShort') : t('notRelevantShort')}
-                    </span>
+                    <VerdictIcon value={report.is_relevant} className="size-3.5 shrink-0" />
+                    <span className="shrink-0">{t(verdictKey(report.is_relevant, 'short'))}</span>
                     {report.summary_text && (
                       <span className="truncate text-muted-foreground">· {report.summary_text}</span>
                     )}
@@ -305,6 +335,24 @@ export default function RekoReportSection({
               </Fragment>
             )
           })}
+
+          {/* The operator's own draft beside a report the crew filed meanwhile – the way
+              back into it, and what will file it (the same rule the form's hint says). */}
+          {canEdit && draftWithContent && !isEditing && (
+            <DetailField
+              label={t('ownDraftLabel')}
+              action={
+                <button type="button" className={ROW_ACTION} onClick={continueOwnDraft}>
+                  {t('continueShort')}
+                </button>
+              }
+            >
+              <div className="min-w-0 text-sm">
+                <span className="italic text-muted-foreground/60">{t('draftShort')}</span>
+                <p className="text-xs text-muted-foreground">{t('draftHint')}</p>
+              </div>
+            </DetailField>
+          )}
         </>
       ) : (
         // The empty state is the row that would carry the report, saying it has
@@ -315,11 +363,13 @@ export default function RekoReportSection({
             label={t('reportLabel')}
             action={canEdit ? (
               <button type="button" className={ROW_ACTION} onClick={startEditing}>
-                {t('createShort')}
+                {draftWithContent ? t('continueShort') : t('createShort')}
               </button>
             ) : undefined}
           >
-            <span className="text-sm italic text-muted-foreground/60">{t('noReportShort')}</span>
+            <span className="text-sm italic text-muted-foreground/60">
+              {draftWithContent ? t('draftShort') : t('noReportShort')}
+            </span>
           </DetailField>
         )
       )}
@@ -382,34 +432,37 @@ export default function RekoReportSection({
           // column IS the frame, and a border inside a border inside the modal
           // is two frames around one form.
           <div className={cn(dense ? "space-y-1" : "space-y-3", !split && !dense && "rounded-lg border border-border p-4")}>
-            <div className={cn("flex items-center gap-2", dense && "pb-1.5")}>
+            {/* The form's one sync line sits in this row, left of «Schliessen»: at the foot
+                of the form it was under the column's fade and needed a scroll to read. */}
+            <div className={cn("flex flex-wrap items-center gap-x-2 gap-y-1", dense && "pb-1.5")}>
               <h3 className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                 <Binoculars className="h-3.5 w-3.5 shrink-0" />
-                {latestReport ? t('amendTitle') : t('createTitle')}
+                {editingDraft ? t('createTitle') : t('amendTitle')}
               </h3>
+              <div className="ml-auto flex min-w-0 items-center">
+                <SyncStatusLine state={autosave.state} onRetry={() => void autosave.retry()} />
+              </div>
               <Button
                 type="button"
                 size="xs"
                 variant="ghost"
-                className="ml-auto"
-                disabled={isSaving}
-                onClick={() => setIsEditing(false)}
+                onClick={stopEditing}
               >
                 <X className="size-3.5" />
-                {t('cancel')}
+                {t('close')}
               </Button>
             </div>
             {/* Says out loud which channel this is, so nothing about the
-                resulting report reads as a crew report. */}
-            <p className="text-xs text-muted-foreground">{t('radioHint')}</p>
+                resulting report reads as a crew report – and when it counts. */}
+            <p className="text-xs text-muted-foreground">
+              {t('radioHint')} {editingDraft ? t('draftHint') : t('amendHint')}
+            </p>
             <RekoReportForm
               incidentId={incidentId}
               value={formData}
               onChange={setFormData}
               photos={photoTransport}
               mount="kp"
-              isSubmitting={isSaving}
-              onSubmit={handleSave}
             />
           </div>
         ) : (
@@ -429,6 +482,23 @@ export default function RekoReportSection({
       </div>
     </div>
   )
+}
+
+/**
+ * «Einsatz relevant?» as a filed report answers it: Ja, Nein – or not at all, which old
+ * reports and crew data can be (a board report is filed only by the answer). An open answer
+ * is never read as «Nein»: no «Kein Einsatz nötig», no «Einsatz abschliessen» for it.
+ */
+function verdictKey(value: boolean | null, size: 'long' | 'short') {
+  if (value === true) return size === 'long' ? 'relevant' : 'relevantShort'
+  if (value === false) return size === 'long' ? 'notNeeded' : 'notRelevantShort'
+  return size === 'long' ? 'relevanceOpen' : 'relevanceOpenShort'
+}
+
+function VerdictIcon({ value, className }: { value: boolean | null; className: string }) {
+  if (value === true) return <CheckCircle2 className={cn(className, 'text-success')} />
+  if (value === false) return <XCircle className={cn(className, 'text-muted-foreground')} />
+  return <CircleHelp className={cn(className, 'text-muted-foreground')} />
 }
 
 interface RekoReportCardProps {
@@ -712,14 +782,8 @@ function RekoReportCard({ report, incidentId, onRequestComplete, dense = false }
             whitespace separates it from the rows below, like everywhere else
             in the detail. */}
         <div className={cn('flex flex-wrap items-center gap-x-2 gap-y-1', hasBody && 'pb-1.5')}>
-          {report.is_relevant ? (
-            <CheckCircle2 className="size-4 shrink-0 text-success" />
-          ) : (
-            <XCircle className="size-4 shrink-0 text-muted-foreground" />
-          )}
-          <span className="text-sm font-semibold leading-tight">
-            {report.is_relevant ? t('relevant') : t('notNeeded')}
-          </span>
+          <VerdictIcon value={report.is_relevant} className="size-4 shrink-0" />
+          <span className="text-sm font-semibold leading-tight">{t(verdictKey(report.is_relevant, 'long'))}</span>
           <span className="flex min-w-0 items-center gap-1.5 text-xs leading-tight text-muted-foreground">
             {report.submitted_by_personnel_name && (
               <span className="flex items-center gap-1">
@@ -733,7 +797,7 @@ function RekoReportCard({ report, incidentId, onRequestComplete, dense = false }
           </span>
           {/* Reko reported the incident not relevant — let the operator close it
               straight from the Reko-Meldung. */}
-          {!report.is_relevant && onRequestComplete && (
+          {report.is_relevant === false && onRequestComplete && (
             <Button size="xs" variant="secondary" className="ml-auto" onClick={onRequestComplete}>
               <CheckCheck className="size-3.5" />
               {t('completeIncident')}
@@ -756,14 +820,8 @@ function RekoReportCard({ report, incidentId, onRequestComplete, dense = false }
             a chip or a value. The verdict used to reserve a 24px line box for a
             16px word and pushed its own rule down with it. */}
         <div className={cn('flex flex-wrap items-center gap-x-2 gap-y-1', hasBody && 'border-b pb-2 mb-3')}>
-          {report.is_relevant ? (
-            <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
-          ) : (
-            <XCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          )}
-          <span className="font-medium leading-tight">
-            {report.is_relevant ? t('relevant') : t('notNeeded')}
-          </span>
+          <VerdictIcon value={report.is_relevant} className="h-4 w-4 flex-shrink-0" />
+          <span className="font-medium leading-tight">{t(verdictKey(report.is_relevant, 'long'))}</span>
           {/* Provenance rides on the verdict line, small and muted — the heavy
               three-part footer it replaces was a full row of chrome saying one
               line's worth of facts. «aktualisiert» only appears once it differs
@@ -781,7 +839,7 @@ function RekoReportCard({ report, incidentId, onRequestComplete, dense = false }
             )}
             {/* Reko reported the incident not relevant — let the operator close it
                 straight from the Reko-Meldung card. */}
-            {!report.is_relevant && onRequestComplete && (
+            {report.is_relevant === false && onRequestComplete && (
               <Button
                 size="xs"
                 variant="secondary"
@@ -823,15 +881,11 @@ function RekoReportCardCompact({ report }: RekoReportCardProps) {
   return (
     <div className="rounded-lg border border-dashed bg-muted/30 p-3 text-sm">
       <div className="flex items-start gap-2">
-        {report.is_relevant ? (
-          <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0 mt-0.5" />
-        ) : (
-          <XCircle className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-        )}
+        <VerdictIcon value={report.is_relevant} className="h-4 w-4 flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex items-center justify-between gap-2">
             <span className="font-medium text-xs">
-              {report.is_relevant ? t('relevantShort') : t('notRelevantShort')}
+              {t(verdictKey(report.is_relevant, 'short'))}
             </span>
             {/* Same rule as the current card's provenance: today's reports say
                 only the clock, older ones bring the date back. */}

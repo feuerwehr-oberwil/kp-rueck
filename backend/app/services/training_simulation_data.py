@@ -120,6 +120,13 @@ _EFFORT_PROFILES: dict[str, tuple[int, int, float, float]] = {
     "gerettete_tiere": (2, 4, 0.5, 1.5),
 }
 
+_WATER_PUMP_SUMMARY = "Keller ca. 25cm Wasser. Heizung und Elektrik betroffen. Pumpeinsatz nötig."
+_WATER_RISING_SUMMARY = "Wasser fliesst weiter nach, steigt langsam. Tauchpumpe nötig."
+_WATER_LAUNDRY_SUMMARY = "5cm Wasser in der Waschküche, Zulauf gestoppt. Mit Nasssauger aufnehmen."
+_WATER_WASHING_MACHINE_SUMMARY = (
+    "Waschmaschine ausgelaufen, ca. 3cm Wasser in der Waschküche. Zulauf abgestellt, Nasssauger genügt."
+)
+
 # Summaries grouped by incident type category.
 # Many types carry sub-pools (e.g. brand_wohnung, oel_keller) so the Reko
 # summary actually matches the dispatch instead of randomly picking a
@@ -215,8 +222,8 @@ _SUMMARIES: dict[str, list[str]] = {
         "BMA-Auslösung durch Dampf aus Dusche. Melder zu nah am Bad montiert.",
     ],
     "elementarereignis": [
-        "Keller ca. 25cm Wasser. Heizung und Elektrik betroffen. Pumpeinsatz nötig.",
-        "Wasser fliesst weiter nach, steigt langsam. Tauchpumpe nötig.",
+        _WATER_PUMP_SUMMARY,
+        _WATER_RISING_SUMMARY,
         "Situation stabil, Wasserstand gleichbleibend. Eine Pumpe reicht, kein Mehraufwand.",
         "Mehrere Kellerräume betroffen. Abpumpen nur in Reihenfolge möglich, Zugang eng.",
         "Baum auf Strasse, Fahrbahn komplett blockiert. Ca. 40cm Stammdurchmesser.",
@@ -225,25 +232,25 @@ _SUMMARIES: dict[str, list[str]] = {
         "Sturmschaden: Fassadenteile hängen lose über Gehweg. Bereich bereits abgesperrt.",
         "Kanalrückstau, Wasser drückt in Keller. Abwasser, entsprechende Schutzausrüstung nötig.",
         "Keller trocken bei Ankunft. Bewohner hat selbst gepumpt. Kontrolle genügt.",
-        "5cm Wasser in der Waschküche, Zulauf gestoppt. Mit Nasssauger aufnehmen.",
+        _WATER_LAUNDRY_SUMMARY,
         "Baum auf Gartenzaun gefallen, keine Personen gefährdet. Mit Motorsäge zerlegen und räumen.",
         "Dachrinne verstopft mit Laub. Wasser läuft über Fassade. Leiter und Eimer reichen.",
         "Keller riecht modrig, aber kein stehendes Wasser. Vermutlich alter Wasserschaden. Entwarnung.",
         "Trampolin vom Nachbargarten auf Strasse geweht, Verkehr behindert. Wegräumen und sichern.",
         "Mehrere Keller im Quartier betroffen, Grundwasser drückt nach. Pumpen bringt wenig, Gemeinde ist informiert.",
-        "Waschmaschine ausgelaufen, ca. 3cm Wasser in der Waschküche. Zulauf abgestellt, Nasssauger genügt.",
+        _WATER_WASHING_MACHINE_SUMMARY,
     ],
     "elementar_water": [
-        "Keller ca. 25cm Wasser. Heizung und Elektrik betroffen. Pumpeinsatz nötig.",
-        "Wasser fliesst weiter nach, steigt langsam. Tauchpumpe nötig.",
+        _WATER_PUMP_SUMMARY,
+        _WATER_RISING_SUMMARY,
         "Situation stabil, Wasserstand gleichbleibend. Eine Pumpe reicht, kein Mehraufwand.",
         "Mehrere Kellerräume betroffen. Abpumpen nur in Reihenfolge möglich, Zugang eng.",
         "Zufahrt frei. Einsatzstelle gut zugänglich. Standard-Pumpeinsatz genügt.",
         "Kanalrückstau, Wasser drückt in Keller. Abwasser, entsprechende Schutzausrüstung nötig.",
         "Keller trocken bei Ankunft. Bewohner hat selbst gepumpt. Kontrolle genügt.",
-        "5cm Wasser in der Waschküche, Zulauf gestoppt. Mit Nasssauger aufnehmen.",
+        _WATER_LAUNDRY_SUMMARY,
         "Mehrere Keller im Quartier betroffen, Grundwasser drückt nach. Pumpen bringt wenig, Gemeinde ist informiert.",
-        "Waschmaschine ausgelaufen, ca. 3cm Wasser in der Waschküche. Zulauf abgestellt, Nasssauger genügt.",
+        _WATER_WASHING_MACHINE_SUMMARY,
         "Keller riecht modrig, aber kein stehendes Wasser. Vermutlich alter Wasserschaden. Entwarnung.",
         "Dachrinne verstopft mit Laub. Wasser läuft über Fassade. Leiter und Eimer reichen.",
     ],
@@ -845,6 +852,63 @@ def _dispatch_linked_summary(resolved_type: str | None, description: str | None)
     return None
 
 
+def _dispatch_linked_photo_summary(summary: str, resolved_type: str | None) -> str:
+    """Find the closest illustrated pool text for a dispatch-linked summary."""
+    if resolved_type == "elementar_water":
+        # The final quantity is the crew's estimate when it corrects dispatch.
+        cm = int(re.findall(r"(\d+)cm", summary)[-1])
+        if cm > 30:
+            # A rising-water scene fits the multiple-pump response.
+            return _WATER_RISING_SUMMARY
+        if cm > 5:
+            return _WATER_PUMP_SUMMARY
+        return _WATER_WASHING_MACHINE_SUMMARY if cm <= 4 else _WATER_LAUNDRY_SUMMARY
+
+    liters = int(re.findall(r"(\d+) Liter", summary)[-1])
+    quantified = [
+        (text, quantity) for text in _SUMMARIES["oel_keller"] if (quantity := _extract_qty(text, "Liter")) is not None
+    ]
+    closest, _ = min(quantified, key=lambda entry: abs(liters - entry[1]))
+    return closest
+
+
+# A «nicht relevant» report says so and nothing else – the same pool the field form's
+# dummy fill picks from (`reko.form.summaries.notRelevant`, `components/reko/reko-form.tsx`).
+_NOT_RELEVANT_SUMMARIES = [
+    "Fehlalarm. Vor Ort keine Gefahr und kein Handlungsbedarf festgestellt.",
+    "Lage bereits durch Anwohner geklärt. Kein Einsatz der Feuerwehr nötig.",
+    "Vermeintlicher Rauch war Wasserdampf. Keine weiteren Massnahmen erforderlich.",
+    "Bei Eintreffen nichts vorgefunden. Einsatz kann abgeschlossen werden.",
+    "Meldung hat sich nicht bestätigt. Keine Einsatzkräfte erforderlich.",
+]
+
+
+def _not_relevant_report() -> dict[str, Any]:
+    """«Einsatz relevant? Nein»: no dangers, 0 people, 0 h, a not-relevant summary."""
+    return {
+        "is_relevant": False,
+        "dangers_json": {
+            "fire": False,
+            "fire_danger": False,
+            "explosion": False,
+            "collapse": False,
+            "chemical": False,
+            "electrical": False,
+            "other_notes": None,
+        },
+        "effort_json": {
+            "personnel_count": 0,
+            "vehicles_needed": [],
+            "equipment_needed": [],
+            "estimated_duration_hours": 0,
+        },
+        "power_supply": "unknown",
+        "summary_text": random.choice(_NOT_RELEVANT_SUMMARIES),
+        "additional_notes": None,
+        "is_draft": False,
+    }
+
+
 def generate_reko_report_data(
     incident_type: str | None = None,
     title: str | None = None,
@@ -855,7 +919,8 @@ def generate_reko_report_data(
     Beyond picking type-matched values, this keeps the report internally
     coherent: the summary prose and the danger/effort badges are reconciled so
     they never contradict, and quantifiable scenes get a summary that confirms
-    or corrects the figure the dispatch actually reported.
+    or corrects the figure the dispatch actually reported. A not-relevant report
+    is the empty one (`_not_relevant_report`).
     """
     # BMA false alarms have a high chance of being non-relevant; diverse
     # einsaetze (wespen, türöffnungen, etc.) also lean "no FW action needed".
@@ -865,6 +930,9 @@ def generate_reko_report_data(
         is_relevant = random.random() > 0.4  # 60% relevant
     else:
         is_relevant = random.random() > 0.1  # 90% relevant
+    if not is_relevant:
+        # A scene that needs nobody must not ask for six people and two hours.
+        return _not_relevant_report()
 
     # For elementarereignis, resolve the subcategory (water/tree/storm) so danger,
     # effort and power-supply profiles all match the actual scene. Non-elementar
@@ -875,20 +943,20 @@ def generate_reko_report_data(
 
     # Prefer a dispatch-linked summary (confirms/corrects the reported figure);
     # otherwise fall back to the contextual pool.
-    summary = _dispatch_linked_summary(resolved_type, description) or generate_summary(
-        incident_type, title, description
-    )
+    linked_summary = _dispatch_linked_summary(resolved_type, description)
+    summary = linked_summary or generate_summary(incident_type, title, description)
 
     dangers = generate_dangers(resolved_type)
     effort = generate_effort(resolved_type)
     dangers, effort = _reconcile_with_summary(summary, resolved_type, dangers, effort)
 
     return {
-        "is_relevant": is_relevant,
+        "is_relevant": True,
         "dangers_json": dangers,
         "effort_json": effort,
         "power_supply": generate_power_supply(resolved_type),
         "summary_text": summary,
+        "photo_summary": _dispatch_linked_photo_summary(linked_summary, resolved_type) if linked_summary else summary,
         "additional_notes": None,
         "is_draft": False,
     }

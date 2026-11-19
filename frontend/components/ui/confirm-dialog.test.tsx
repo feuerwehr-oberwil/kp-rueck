@@ -55,3 +55,20 @@ describe('ConfirmDialog', () => {
     expect(extra.compareDocumentPosition(footer as Element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })
+
+describe('ConfirmDialog initial focus', () => {
+  const base = { open: true, onOpenChange: vi.fn(), title: 'Frage', description: 'Text', onConfirm: vi.fn(), confirmText: 'Ausführen' }
+
+  it('focuses the main answer, so Enter gives it', () => {
+    renderWithIntl(<ConfirmDialog {...base} />)
+    expect(screen.getByRole('button', { name: 'Ausführen' })).toHaveFocus()
+  })
+
+  it('focuses Abbrechen on a destructive ask, or when the caller asks for it', () => {
+    const { unmount } = renderWithIntl(<ConfirmDialog {...base} variant="destructive" />)
+    expect(screen.getByRole('button', { name: 'Abbrechen' })).toHaveFocus()
+    unmount()
+    renderWithIntl(<ConfirmDialog {...base} initialFocus="cancel" />)
+    expect(screen.getByRole('button', { name: 'Abbrechen' })).toHaveFocus()
+  })
+})

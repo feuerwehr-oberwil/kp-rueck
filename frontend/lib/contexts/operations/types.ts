@@ -39,7 +39,9 @@ export interface DriverStayPayload {
 }
 
 export interface RekoSummary {
-  isRelevant: boolean
+  /** «Einsatz relevant?» as filed – null when it was not answered (old or crew data): never
+   *  read as «Nein», «Kein Einsatz nötig» comes only from an explicit false (pass 5, S5). */
+  isRelevant: boolean | null
   hasDangers: boolean
   dangerTypes: string[]
   personnelCount: number | null
@@ -163,6 +165,9 @@ export interface Operation {
   hasBeenDispatched?: boolean
   rekoSummary: RekoSummary | null
   assignedReko: { id: string; name: string } | null
+  /** Where this Reko stands in its Reko person's order (0 = first; `lib/reko-order.ts`).
+   *  null/absent for a Reko not numbered yet – it sorts last. */
+  rekoPosition?: number | null
   /** Personnel id of the Einsatzleiter for THIS incident, or null. Seeded
    *  from the backend's `effective_leader_id` (the live `is_leader` assignment,
    *  or the leader of record), overwritten by the live assignment when one

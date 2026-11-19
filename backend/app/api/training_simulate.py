@@ -146,7 +146,9 @@ async def simulate_checkin(
 
     # Get available personnel
     all_personnel = await db.execute(
-        select(Personnel).where(Personnel.status != "unavailable").order_by(Personnel.name.asc())
+        select(Personnel)
+        .where(Personnel.status != "unavailable", Personnel.in_scope(event_id))
+        .order_by(Personnel.name.asc())
     )
     personnel_list = list(all_personnel.scalars().all())
 
@@ -348,14 +350,17 @@ async def simulate_reko(
         title=incident.title,
         description=incident.description,
     )
+    # A not-relevant report carries no illustration (`_not_relevant_report`).
+    photo_summary = reko_data.pop("photo_summary", None)
     update_data = RekoReportUpdate(**reko_data)
     updated = await reko_crud.update_reko_report(db, report.id, update_data, submit=True)
 
-    # Attach 0-2 curated scene photos from the bundled offline pool, matched to
-    # the incident type. They go through the same PhotoStorageService path real
-    # uploads use, so serving/cleanup/deletion behave identically. A missing or
-    # stripped pool simply yields a report without photos.
-    photo_filenames = await attach_training_photos(incident_id, incident.type, current_photos=updated.photos_json)
+    # The wording illustration alone, or a type photo when the text has none.
+    photo_filenames = []
+    if updated.is_relevant:
+        photo_filenames = await attach_training_photos(
+            incident_id, incident.type, current_photos=updated.photos_json, summary_text=photo_summary
+        )
     if photo_filenames:
         updated.photos_json = (updated.photos_json or []) + photo_filenames
         await db.flush()

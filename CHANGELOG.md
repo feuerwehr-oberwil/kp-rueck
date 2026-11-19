@@ -30,6 +30,13 @@ will keep holding.
 
 ### Added
 
+- **Planned «kommt um» / «geht um» in the Appell.** Each row has a time chip («geht 22:00»,
+  dashed «+ bis» while nothing is planned, amber within the hour); a person can give their own
+  «bis …» on the check-in link and «Ich komme um …» / «Ich bin da bis …» on `/feld`. Every person
+  picker shows «bis 22:00», a ticked person who leaves within 60 minutes gets an amber advice
+  (never a block), and the bell rings 15 minutes before somebody's «geht um». Automatic
+  migration (`event_attendance.planned_from` / `planned_until`).
+
 - Editors can restore a deleted Einsatz from its entry in the Ereignis **Verlauf**, even after
   the undo message expires or the board reloads. Recovery preserves earlier shared assignments
   in either restore order and names any resource that has since been reassigned.
@@ -87,8 +94,33 @@ will keep holding.
   takes one GPS fix and fills the Einsatzort with the address and the pin («aus GPS · ±12 m»); a
   refusal or no fix is said under the field.
 - **The phone Lagekarte brings the selected Einsatz into view with its card**, not only its pin.
+- **A Reko person's Rekos have an order.** The map's Reko-Modus picks one Reko person from a
+  dropdown and lists their open Rekos as a draggable order; the pins carry the number, a dotted
+  line in the person's colour joins them, and `/feld` lists them in that order. Automatic
+  migration (`incident_assignments.reko_position`, existing Rekos numbered by assignment time).
+- **A person added on the spot belongs to that Ereignis only** (Appell, check-in link, Fahrer
+  picker): they no longer land in the roster or in other Ereignisse; rapports still name them.
+  On a standby box such a person travels back with their Ereignis. Automatic migration
+  (`personnel.guest_event_id`).
+- **«Funkdurchsage wiederholen»** in an Einsatz's context menu, from Disponiert on.
+- Simulated Übung Reko reports carry an illustration that matches their wording (180 bundled
+  images); a «Nein» report says 0 people and 0 hours.
 
 ### Changed
+
+- **The board's questions take the next step instead of asking.** Moving a card into «Reko»
+  without a Reko person opens the Reko picker (the Reko people, then everybody else checked in);
+  into «Reko abgeschlossen» without a report opens the Reko form. «Ressourcen fehlen» lists the
+  assigned people (EL first), vehicles with «bleibt vor Ort | kehrt zurück», and material. Enter
+  gives the main answer in every question; a question that cannot be undone keeps Abbrechen.
+- **The board's Reko form saves every field at once** («Synchronisiert – hh:mm») and is filed
+  the moment «Einsatz relevant?» is answered, wherever the card is – like a crew's report. A
+  status move files nothing. There is no save button any more.
+- **Three window sizes, one place.** Questions, pickers and short forms are 512 px, forms
+  672 px, work surfaces fill the board; questions and forms open at the same height and grow
+  downwards. A picker opened from a work surface is a step of it («← Zurück», Esc back).
+- A vehicle already on another Einsatz: «Auf beiden führen» is the main answer; a vehicle that
+  drives an Auftrag asks whether the Einsatz becomes a stop of it.
 
 - **Wrong Feld-Codes are counted per phone and per address, and never change the code.** Five
   tries, then 1, 5, then 15 minutes of waiting, said on the phone; the count lives in the
@@ -247,6 +279,10 @@ will keep holding.
   Nothing changes for the compose stack, and nothing was ever enabled on Railway.
 
 ### Removed
+
+- **`GET /api/vehicles/{id}/status`.** `GET /api/vehicles/status?event_id=` returns the whole
+  fleet in one call, each vehicle with every Auftrag and Einsatz it serves (`deployments`,
+  `kind` `auftrag` | `einsatz`). A script that called the old route gets a 404.
 
 - **Six API endpoints nothing called**: `GET /api/events/{id}/stats` (the Kennzahlen are
   `/figures`, the Dienstzeiten `/personnel-activity`), `GET /api/events/{id}/special-functions/types`,

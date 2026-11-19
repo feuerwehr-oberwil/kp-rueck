@@ -4,6 +4,8 @@ import { Fragment, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { Check, Minus, Siren, type LucideIcon } from "lucide-react"
 import { PersonName } from "@/components/person-name"
+import { FormMessage } from "@/components/ui/form-message"
+import type { TilePlan } from "@/components/kanban/person-tile-facts"
 import { abbreviateRank } from "@/lib/roster-order"
 import { cn } from "@/lib/utils"
 
@@ -74,21 +76,26 @@ export type PersonWhere = OccupancyLabel & { Icon?: LucideIcon }
  * The ONE line under every person tile's name (hill climb r23 – the final rule; r13/r19/r20/r22
  * moved these lines around): rank (muted) · where (amber, its glyph) · roles (muted, their
  * glyph – the driven vehicle last). One 12/16 line, a fixed 16px tall even when empty, so every
- * person tile is the same height and the grid has no ragged rows. The where part ellipsizes
- * first, the roles never shrink; the full text – the Meldung included, which no longer gets a
+ * person tile is the same height and the grid has no ragged rows. Only the where part
+ * ellipsizes; the rank and the roles never shrink; the full text – the Meldung included, which no longer gets a
  * line of its own – is in `title`. Amber marks only the where part: it is ANOTHER commitment,
  * «schau hin»; rank and roles are facts.
  */
-export function PersonTileLine({ rank, rankFull, where, roles }: {
+export function PersonTileLine({ rank, rankFull, where, roles, plan }: {
   rank?: string
   /** The unabbreviated rank for the `title`, when `rank` is the short form. */
   rankFull?: string
   where: PersonWhere | null
   roles: readonly TileRole[]
+  /** «bis 22:00» last, in mono; amber when the person leaves soon (`TilePlan`). */
+  plan?: TilePlan | null
 }) {
-  const title = [rankFull ?? rank, where?.full, ...roles.map(role => role.label)].filter(Boolean).join(" · ")
+  const title = [rankFull ?? rank, where?.full, ...roles.map(role => role.label), plan?.label].filter(Boolean).join(" · ")
   const segments: { key: string; className: string; content: React.ReactNode }[] = []
-  if (rank) segments.push({ key: "rank", className: "min-w-[3ch] truncate", content: rank })
+  // The rank never shrinks: as a shrinkable flex item it took its share of a long where
+  // part's overflow and came out «H…» (sign-off 19.11.). It is always the short form
+  // (`abbreviateRank`, a station's own abbreviation included); the where part gives way.
+  if (rank) segments.push({ key: "rank", className: "shrink-0", content: rank })
   if (where) {
     segments.push({
       key: "where",
@@ -101,6 +108,13 @@ export function PersonTileLine({ rank, rankFull, where, roles }: {
       key: role.label,
       className: "flex shrink-0 items-start gap-1",
       content: <><role.Icon className={TILE_META_ICON} aria-hidden />{role.label}</>,
+    })
+  }
+  if (plan) {
+    segments.push({
+      key: "plan",
+      className: cn("shrink-0 font-mono", plan.soon && "text-warning-foreground"),
+      content: plan.label,
     })
   }
   return (
@@ -148,6 +162,27 @@ export function TileCheck({ checked, animate }: { checked: boolean | "partial"; 
   )
 }
 
+/**
+ * `TileCheck`'s single-choice twin: a 16px ring, 1.5px edge, the same muted-ink empty edge;
+ * chosen = `--sel` edge with an 8px `--sel` dot. For a picker that takes ONE person (Fahrer,
+ * Reko zuweisen / übertragen) – the round shape says «one of these», the square «any of
+ * these» (owner pick 19.11.2026).
+ */
+export function TileRadio({ checked, animate }: { checked: boolean; animate?: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px]",
+        checked ? "border-sel" : "border-muted-foreground/70",
+        animate && "animate-check-appear",
+      )}
+    >
+      {checked && <span className="size-2 rounded-full bg-sel" />}
+    </span>
+  )
+}
+
 /** An UNCHECKED tile under the pointer: the neutral edge and a quiet wash – no lift, no
  *  shadow, no selection tint, so a hover never competes with the checked tiles' selection wash + edge + ✓
  *  (hill climb r5). Only on unchecked tiles: a `hover:` edge on a checked one would take its
@@ -156,8 +191,10 @@ export const TILE_HOVER = "hover:border-border hover:bg-muted/40"
 
 /**
  * THE person tile of every «pick a person» surface: the assignment dialog's crew grid, and the
- * single-choice pickers (Fahrer, Reko zuweisen / übertragen, Reko-Modus – ENT-10 A). Tick box,
- * name through `PersonName` (namesakes get their Kennung), the one `PersonTileLine` under it
+ * single-choice pickers (Fahrer, Reko zuweisen / übertragen, Reko-Modus – ENT-10 A). Tick box
+ * where several may be chosen; `single` = a radio dot and radio semantics (`role="radio"`,
+ * `aria-checked` – the host's list is the `radiogroup`, `PickerDialog`'s `radioGroupLabel`).
+ * The where · roles line comes from `usePersonTileFacts`. Name through `PersonName` (namesakes get their Kennung), the one `PersonTileLine` under it
  * (the rank abbreviated, like the sidebar's), and an optional `aside` on the right for a
  * picker's own fact (open Rekos, the map swatch). Chosen = sel wash + edge + ✓, never a tint
  * of its own. `current` adds «· aktuell» after the name: the person who holds the role now –
@@ -171,8 +208,10 @@ export function PersonPickTile({
   where = null,
   roles = [],
   checked,
+  single,
   current,
   animate,
+  plan = null,
   badge,
   aside,
   onClick,
@@ -185,7 +224,11 @@ export function PersonPickTile({
   rank?: string | null
   where?: PersonWhere | null
   roles?: readonly TileRole[]
+  /** «bis 22:00» on the line; its advice (leaves soon) under it while the tile is ticked. */
+  plan?: TilePlan | null
   checked: boolean
+  /** One person of the list, not several: radio dot + radio semantics. */
+  single?: boolean
   current?: boolean
   animate?: boolean
   /** Beside the name («Empfohlen»). */
@@ -201,14 +244,14 @@ export function PersonPickTile({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-pressed={checked}
+      {...(single ? { role: "radio", "aria-checked": checked } : { "aria-pressed": checked })}
       className={cn(
         "flex w-full cursor-pointer items-start gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-colors text-left disabled:cursor-not-allowed disabled:opacity-60",
         checked ? "border-sel-edge bg-sel-wash" : TILE_HOVER,
         className,
       )}
     >
-      <TileCheck checked={checked} animate={animate} />
+      {single ? <TileRadio checked={checked} animate={animate} /> : <TileCheck checked={checked} animate={animate} />}
       <div className="min-w-0 flex-1">
         <p className="flex min-w-0 items-center gap-1.5 text-sm font-medium" title={name}>
           <span className="min-w-0 truncate">
@@ -217,7 +260,9 @@ export function PersonPickTile({
           {current && <span className="shrink-0 text-xs font-medium text-sel-foreground">· {t("current")}</span>}
           {badge}
         </p>
-        <PersonTileLine rank={rank ? abbreviateRank(rank) : undefined} rankFull={rank ?? undefined} where={where} roles={roles} />
+        <PersonTileLine rank={rank ? abbreviateRank(rank) : undefined} rankFull={rank ?? undefined} where={where} roles={roles} plan={plan} />
+        {/* Amber, never blocking (mock 7A): said once the person is chosen, not on every tile. */}
+        {checked && plan?.advice && <FormMessage tone="advice" className="mt-1.5">{plan.advice}</FormMessage>}
       </div>
       {aside && <div className="flex shrink-0 flex-col items-end gap-0.5 text-xs">{aside}</div>}
     </button>

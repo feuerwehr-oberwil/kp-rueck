@@ -42,6 +42,9 @@ export interface AnnouncementInput {
 }
 
 export type StopRestoreResult = "restored" | "conflict" | "failed"
+/** `changed`: the guarded add found the Einsatz or the vehicle's Auftrag changed (409) or
+ *  the Auftrag gone (404, or no longer on this board). */
+export type VehicleStopAddResult = "added" | "changed" | "failed"
 
 const EMPTY_RESOURCES: GroupResources = { vehicles: [], personnel: [], materials: [] }
 
@@ -66,11 +69,19 @@ interface GroupsContextType {
    */
   restoreGroupStops: (groupId: string, orderedIds: string[], expectedIds: string[]) => Promise<StopRestoreResult>
   addStops: (groupId: string, incidentIds: string[]) => Promise<boolean>
+  /**
+   * #23 «In Auftrag aufnehmen»: the lone Einsatz becomes the Auftrag's last stop – only if it
+   * is still live and in no Auftrag and the vehicle still drives this one, checked under the
+   * server's locks. "changed" is not toasted here: the caller says it.
+   */
+  addStopForVehicle: (groupId: string, incidentId: string, vehicleId: string) => Promise<VehicleStopAddResult>
   removeStop: (groupId: string, incidentId: string) => Promise<boolean>
   /** Attach a vehicle / personnel / material to the ROUTE (not a single stop). */
   assignResource: (groupId: string, resourceType: GroupResourceType, resourceId: string) => Promise<boolean>
   /** Release a route-owned resource by its group-assignment id. */
   unassignResource: (groupId: string, assignmentId: string) => Promise<boolean>
+  /** «bleibt vor Ort» / «kehrt zurück» for a route vehicle – optimistic, reverts with a toast. */
+  setRouteDriverStay: (groupId: string, assignmentId: string, driverStay: boolean) => Promise<boolean>
   /** Resolve a route's owned resources to display names, split by kind. */
   getGroupResources: (groupId: string) => GroupResources
   /** Resolve the route resources for an incident's Auftrag (empty when ungrouped). */
@@ -197,21 +208,21 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     }
   }, [selectedEvent])
 
-  // Load the roster once (name resolution for route assignments). Not
-  // event-scoped: an id that is on a route is on it whatever the person's duty
-  // status is.
+  const authReady = !authLoading && isAuthenticated
+  const scopeEventId = selectedEvent && isValidUUID(selectedEvent.id) ? selectedEvent.id : null
+
+  // Load the roster (name resolution for route assignments) – with the Ereignis's own
+  // guests, who are on its routes too but in no roster list. Not checked-in-only: an id
+  // that is on a route is on it whatever the person's duty status is.
   useEffect(() => {
-    if (authLoading || !isAuthenticated) return
+    if (!authReady) return
     apiClient
-      .getAllPersonnel()
+      .getAllPersonnel(scopeEventId ? { event_id: scopeEventId } : undefined)
       .then((list) => setRoster(list))
       .catch(() => {
         // Silent: names fall back to the placeholder until the list loads.
       })
-  }, [authLoading, isAuthenticated])
-
-  const authReady = !authLoading && isAuthenticated
-  const scopeEventId = selectedEvent && isValidUUID(selectedEvent.id) ? selectedEvent.id : null
+  }, [authReady, scopeEventId])
 
   // A new scope (sign-in, Ereignis switch): forget the old one before the
   // first load of the new one lands.
@@ -529,11 +540,17 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     [refreshGroups],
   )
 
-  const addStops = useCallback(async (groupId: string, incidentIds: string[]): Promise<boolean> => {
+  const postStops = useCallback(async (
+    groupId: string,
+    incidentIds: string[],
+    viaVehicleId?: string,
+  ): Promise<VehicleStopAddResult> => {
     mutationEpochRef.current++
 
     const previous = groups.find((g) => g.id === groupId)
-    if (!previous || incidentIds.length === 0) return false
+    // The #23 question outlived its Auftrag (deleted meanwhile): out of date, not a failure.
+    if (!previous) return viaVehicleId ? "changed" : "failed"
+    if (incidentIds.length === 0) return "failed"
 
     // Optimistically append the new stops (dedup) and bump the progress total.
     const appended = incidentIds.filter((id) => !previous.stopIds.includes(id))
@@ -550,16 +567,30 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     )
 
     try {
-      const updated = apiGroupToGroup(await apiClient.addStopsToGroup(groupId, incidentIds))
+      const updated = apiGroupToGroup(await apiClient.addStopsToGroup(groupId, incidentIds, viaVehicleId))
       setGroups((gs) => gs.map((g) => (g.id === groupId ? updated : g)))
-      return true
+      return "added"
     } catch (error) {
-      console.error("Failed to add stops:", error)
       setGroups((gs) => gs.map((g) => (g.id === groupId ? previous : g)))
+      // 409: the Einsatz or the vehicle's Auftrag changed; 404: the Auftrag is gone.
+      if (viaVehicleId && error instanceof ApiError && (error.status === 409 || error.status === 404)) {
+        void refreshGroups()
+        return "changed"
+      }
+      console.error("Failed to add stops:", error)
       toast.error(translateOutsideReact("notifications.groups.addStopsFailed"))
-      return false
+      return "failed"
     }
-  }, [groups])
+  }, [groups, refreshGroups])
+
+  const addStops = useCallback(
+    async (groupId: string, incidentIds: string[]) => (await postStops(groupId, incidentIds)) === "added",
+    [postStops],
+  )
+  const addStopForVehicle = useCallback(
+    (groupId: string, incidentId: string, vehicleId: string) => postStops(groupId, [incidentId], vehicleId),
+    [postStops],
+  )
 
   const removeStop = useCallback(async (groupId: string, incidentId: string): Promise<boolean> => {
     mutationEpochRef.current++
@@ -703,6 +734,31 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     [groups, refreshGroups],
   )
 
+  const setRouteDriverStay = useCallback(
+    async (groupId: string, assignmentId: string, driverStay: boolean): Promise<boolean> => {
+      const applyStay = (stay: boolean) =>
+        setGroups((gs) =>
+          gs.map((g) =>
+            g.id === groupId
+              ? { ...g, assignments: g.assignments.map((a) => (a.id === assignmentId ? { ...a, driverStay: stay } : a)) }
+              : g,
+          ),
+        )
+      mutationEpochRef.current++
+      applyStay(driverStay)
+      try {
+        await apiClient.updateGroupAssignment(groupId, assignmentId, { driver_stay: driverStay })
+        return true
+      } catch (error) {
+        console.error("Failed to set the route vehicle's driver stay:", error)
+        applyStay(!driverStay)
+        toast.error(translateOutsideReact("kanban.common.updateFailed"))
+        return false
+      }
+    },
+    [],
+  )
+
   /**
    * id → name for everybody who could be on a route.
    *
@@ -797,9 +853,11 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
       reorderGroupStops,
       restoreGroupStops,
       addStops,
+      addStopForVehicle,
       removeStop,
       assignResource,
       unassignResource,
+      setRouteDriverStay,
       getGroupResources,
       groupResourcesFor,
       occupiedResourceIds,
@@ -816,9 +874,11 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
       reorderGroupStops,
       restoreGroupStops,
       addStops,
+      addStopForVehicle,
       removeStop,
       assignResource,
       unassignResource,
+      setRouteDriverStay,
       getGroupResources,
       groupResourcesFor,
       occupiedResourceIds,

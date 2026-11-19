@@ -220,7 +220,7 @@ function renderList(props: Partial<React.ComponentProps<typeof RouteStopList>> =
   render(
     <NextIntlClientProvider locale="de" messages={de} timeZone="Europe/Zurich">
       <RouteStopList
-        groupId="g1"
+        listId="g1"
         stopIds={stopIds}
         displayOrder={props.displayOrder ?? stopIds}
         operationsById={operationsById}

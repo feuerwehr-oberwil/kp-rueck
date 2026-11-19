@@ -320,6 +320,8 @@ export function AuftraegeSheet({
           // sidebar's edge instead of centering against the covered viewport.
           rightInset={isMobile ? undefined : "var(--notification-sidebar-width, 0px)"}
           nonModal={!isMobile}
+          // «+ Stopp» opens the incident picker inside the sheet as a step (owner pick 5A).
+          surface={isMobile ? undefined : t("title")}
           // phone: a modal sheet over the nav — only the safe area at its foot
           className={cn("flex flex-col max-w-4xl mx-auto px-6 py-4 modal-h-tall [--close-edge:1.5rem]", isMobile && "pb-sheet-safe")}
           onPointerDownOutside={(e) => {

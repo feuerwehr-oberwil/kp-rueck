@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
-import { findAuftragForStop, remainingRouteStops, startableNextStop } from "./kanban-utils"
-import type { OperationStatus } from "./contexts/operations-context"
+import { colorGroupFor, findAuftragForStop, rekoColorOrder, remainingRouteStops, startableNextStop } from "./kanban-utils"
+import type { Operation, OperationStatus } from "./contexts/operations-context"
+import { REKO_PALETTE } from "./map-colors"
 
 const auftrag = (id: string, stopIds: string[]) => ({ id, stopIds })
 
@@ -80,5 +81,26 @@ describe("startableNextStop", () => {
     // — the closing stop is excluded by id, so both see the same next stop.
     const operations = [stop("i1", "complete"), stop("i2", "incoming"), stop("i3", "incoming")]
     expect(startableNextStop(route, operations, "i1")?.id).toBe("i2")
+  })
+})
+
+describe("«Färben nach Reko»", () => {
+  const rekoOp = (personId: string) => ({ assignedReko: { id: personId, name: personId } }) as Operation
+  const reko = (personnel_id: string) => ({ personnel_id, function_type: "reko" })
+
+  it("gives the Ereignis's Reko people the palette in turn – no repeat until it is used up", () => {
+    const people = Array.from({ length: REKO_PALETTE.length + 1 }, (_, i) => `p${i}`)
+    // A driver in between takes no turn.
+    const order = rekoColorOrder([reko("p0"), { personnel_id: "d1", function_type: "driver" }, ...people.slice(1).map(reko)])
+    const colors = people.map((id) => colorGroupFor(rekoOp(id), "reko", undefined, order)?.color)
+
+    expect(new Set(colors.slice(0, REKO_PALETTE.length)).size).toBe(REKO_PALETTE.length)
+    expect(colors[REKO_PALETTE.length]).toBe(colors[0])
+  })
+
+  it("follows the order of the special functions, not the ids", () => {
+    const order = rekoColorOrder([reko("zz"), reko("aa")])
+    expect(colorGroupFor(rekoOp("zz"), "reko", undefined, order)?.color).toBe(REKO_PALETTE[0])
+    expect(colorGroupFor(rekoOp("aa"), "reko", undefined, order)?.color).toBe(REKO_PALETTE[1])
   })
 })

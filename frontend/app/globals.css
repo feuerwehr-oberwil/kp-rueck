@@ -59,6 +59,10 @@
      `PANEL_MOTION_MS` in components/ui/slide-rail.tsx mirrors the duration. */
   --motion-panel: 110ms;
   --ease-panel: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* ONE width for the map's text chrome on the right (feedback 19.11.2026): the weather
+     warning pill grows up to it, the open legend is it – so the legend is never narrower
+     than the pill above it. */
+  --map-chrome-w: min(20rem, calc(100vw - 6rem));
 
   /* Semantic feedback colours. Each has a FILL tone (`bg-*`, `border-*`, edges,
      washes) and a TEXT tone (`text-*`, wired through `--text-color-*` in @theme
@@ -1385,6 +1389,31 @@ html[data-snail='standing'] .firefighter-snail * {
 [data-slot='sheet-content'][data-edge-clip][data-state='closed'] {
   pointer-events: none !important;
 }
+/* Their backdrop (a plain div, `NonModalBackdrop` in components/ui/sheet.tsx) fades with the
+   panel instead of popping in at full dim, and takes no clicks while it leaves. One that
+   arrives by a SWITCH (another backdrop still up) does not fade: the board is dimmed already. */
+@keyframes backdrop-in {
+  from { opacity: 0; }
+}
+@keyframes backdrop-out {
+  to { opacity: 0; }
+}
+[data-slot='sheet-overlay'][data-nonmodal][data-state='open']:not([data-arrival='switch']) {
+  animation: backdrop-in var(--motion-panel) var(--ease-panel);
+}
+[data-slot='sheet-overlay'][data-nonmodal][data-state='closed'] {
+  animation: backdrop-out var(--motion-panel) var(--ease-panel) forwards;
+  pointer-events: none;
+}
+/* A switch (footer pill to footer pill): the sheet that is closing while another one is open
+   is not seen leaving, backdrop included – one panel rising, not one sinking under another.
+   Hidden, NOT `animation: none`: the new sheet portals in a pass later, so Radix has begun
+   waiting for the exit's animationend by then, and a cancelled animation never sends it –
+   the closed sheet stayed on screen. The exit runs out unseen and unmounts on time. */
+body:has([data-slot='sheet-content'][data-edge-clip][data-state='open'])
+  :is([data-slot='sheet-content'][data-edge-clip], [data-slot='sheet-overlay'][data-nonmodal])[data-state='closed'] {
+  visibility: hidden;
+}
 @media (prefers-reduced-motion: reduce) {
   [data-slot='slide-rail'] {
     transition: none !important;
@@ -1484,6 +1513,26 @@ body:has([data-slot='dialog-overlay'], [data-slot='alert-dialog-overlay']) foote
 /* Board gestures belong to the board and map. The public forms and help can magnify. */
 html:not(:has([data-page-zoom])) {
   touch-action: pan-x pan-y;
+}
+
+/* A work surface showing a step (components/ui/surface-step.tsx, owner pick 5A): the step lies
+   over the surface's own children, which stay mounted and keep their size, scroll and state –
+   only unseen. `inert` (set by the step) keeps them from a Tab and a screen reader; opacity,
+   not `visibility`, because a row with `transition-all` animated `visibility` back for a frame
+   and the focus could not return to it. The empty slot takes no room in the surface's grid.
+   Unlayered, so it beats the children's own utilities. */
+[data-surface-step]:empty {
+  display: none;
+}
+:is([data-slot='dialog-content'], [data-slot='sheet-content'], [data-surface-frame]):has(> [data-surface-step]:not(:empty))
+  > :not([data-surface-step]) {
+  opacity: 0;
+}
+/* A short surface (a footer sheet with three rows, a short form) grows to fit a picker: an M
+   window downwards from its fixed top line, a footer sheet upwards from the toolbar. L is
+   taller already. */
+:is([data-slot='dialog-content'], [data-slot='sheet-content']):has(> [data-surface-step]:not(:empty)) {
+  min-height: min(32rem, 70dvh);
 }
 
 /* The ✕ of a dialog or sheet sits absolute in the top-right corner, over whatever the header

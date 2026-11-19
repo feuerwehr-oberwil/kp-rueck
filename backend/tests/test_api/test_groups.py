@@ -322,6 +322,55 @@ async def test_add_stops(editor_client: AsyncClient, test_event: Event, test_inc
 
 @pytest.mark.asyncio
 @pytest.mark.api
+@pytest.mark.parametrize("changed", [None, "moved", "deleted", "closed", "vehicle_left"])
+async def test_add_stop_for_a_vehicle_needs_a_lone_einsatz_and_the_vehicle_on_the_auftrag(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_event: Event,
+    test_incident: Incident,
+    test_vehicle: Vehicle,
+    changed: str | None,
+):
+    """#23 «In Auftrag aufnehmen» (Sol review S8): another board's change in between is a 409."""
+    from datetime import UTC, datetime
+
+    nord = await _create_group(editor_client, test_event, name="Nord")
+    assigned = await editor_client.post(
+        f"/api/incident-groups/{nord['id']}/assign",
+        json={"resource_type": "vehicle", "resource_id": str(test_vehicle.id)},
+    )
+    assert assigned.status_code == 200, assigned.text
+    if changed == "moved":
+        sued = await _create_group(editor_client, test_event, name="Süd")
+        await editor_client.post(
+            f"/api/incident-groups/{sued['id']}/stops", json={"incident_ids": [str(test_incident.id)]}
+        )
+    elif changed == "deleted":
+        test_incident.deleted_at = datetime.now(UTC)
+        await db_session.commit()
+    elif changed == "closed":
+        test_incident.status = "complete"
+        await db_session.commit()
+    elif changed == "vehicle_left":
+        released = await editor_client.post(f"/api/incident-groups/{nord['id']}/unassign/{assigned.json()['id']}")
+        assert released.status_code == 204, released.text
+
+    response = await editor_client.post(
+        f"/api/incident-groups/{nord['id']}/stops",
+        json={"incident_ids": [str(test_incident.id)], "via_vehicle_id": str(test_vehicle.id)},
+    )
+
+    if changed is None:
+        assert response.status_code == 200, response.text
+        assert response.json()["stop_ids"] == [str(test_incident.id)]
+        return
+    assert response.status_code == 409
+    group_id = await db_session.scalar(select(Incident.group_id).where(Incident.id == test_incident.id))
+    assert str(group_id or "") != nord["id"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_add_stops_cross_event_rejected(
     editor_client: AsyncClient, test_event: Event, second_event: Event, test_editor: User, db_session: AsyncSession
 ):
@@ -426,6 +475,40 @@ async def test_pinning_the_routes_einsatzleiter_returns_the_group(
 
     listing = await editor_client.get(f"/api/incident-groups/{group['id']}/assignments")
     assert [a["is_leader"] for a in listing.json()] == [True]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_route_vehicle_driver_stay_is_settable_and_vehicle_only(
+    editor_client: AsyncClient, test_event: Event, test_vehicle: Vehicle, test_personnel: Personnel
+):
+    """The dispatch gate sets «bleibt vor Ort» on an Auftrag's vehicle too; a person has no driver."""
+    group = await _create_group(editor_client, test_event)
+    vehicle = await editor_client.post(
+        f"/api/incident-groups/{group['id']}/assign",
+        json={"resource_type": "vehicle", "resource_id": str(test_vehicle.id)},
+    )
+    person = await editor_client.post(
+        f"/api/incident-groups/{group['id']}/assign",
+        json={"resource_type": "personnel", "resource_id": str(test_personnel.id)},
+    )
+
+    with patch("app.api.groups.broadcast_group_update", new=AsyncMock()) as broadcast:
+        stay = await editor_client.patch(
+            f"/api/incident-groups/{group['id']}/assignments/{vehicle.json()['id']}",
+            json={"driver_stay": True},
+        )
+    assert stay.status_code == 200, stay.text
+    assert stay.json()["driver_stay"] is True
+    broadcast.assert_awaited_once()
+    groups = await editor_client.get(f"/api/incident-groups/?event_id={test_event.id}")
+    assert [a["driver_stay"] for a in groups.json()[0]["assignments"] if a["resource_type"] == "vehicle"] == [True]
+
+    refused = await editor_client.patch(
+        f"/api/incident-groups/{group['id']}/assignments/{person.json()['id']}",
+        json={"driver_stay": True},
+    )
+    assert refused.status_code == 422
 
 
 @pytest.mark.asyncio

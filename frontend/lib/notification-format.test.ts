@@ -208,6 +208,13 @@ describe('notificationParts — system notifications stay one line', () => {
     expect(parts(sixth, fr).who).toBe('Müller Hans (6h), Meier Anna (5h) et 1 autre')
   })
 
+  it('personnel_leaving (#3): the planned clock is what is asked, the person is who – a time, never «in 15\'»', () => {
+    const row = { type: 'personnel_leaving', params: { name: 'Baumann Michael', until: new Date(2026, 10, 19, 22, 0).toISOString() } }
+    expect(parts(row)).toEqual({ what: 'Geht um 22:00', who: 'Baumann Michael', source: 'time' })
+    expect(parts(row, fr)).toMatchObject({ what: 'Part à 22:00', who: 'Baumann Michael' })
+    expect(parts({ type: 'personnel_leaving', params: { name: 'X', until: 'nonsense' }, message: 'Geht um 22:00: X' }).what).toBe('Geht um 22:00: X')
+  })
+
   it('resources, data quality, storage, the door', () => {
     expect(parts({ type: 'no_personnel', params: {} }, fr).what).toBe(
       'Plus de personnel disponible – toutes les personnes présentes sont attribuées',

@@ -64,6 +64,7 @@ def ensure_assignable(resource: AssignableResource, *, event: Event, incident: I
     * archived inventory,
     * a vehicle or material marked «Nicht einsatzbereit» (``out_of_service_since``),
     * anything onto an archived Ereignis,
+    * a guest of another Ereignis (``Personnel.guest_event_id``) – nobody this one lists,
     * personnel or a vehicle onto a closed Einsatz. Material may still go onto one:
       equipment is left on site after the crew drives off and tracked until it is back.
 
@@ -80,6 +81,8 @@ def ensure_assignable(resource: AssignableResource, *, event: Event, incident: I
             raise ResourceNotAssignableError(f"{label} ist nicht einsatzbereit und kann nicht zugewiesen werden.")
     if event.archived_at is not None:
         raise ResourceNotAssignableError("Das Ereignis ist archiviert – es kann nichts mehr zugewiesen werden.")
+    if isinstance(resource, Personnel) and resource.guest_event_id not in (None, event.id):
+        raise ResourceNotAssignableError(f"«{resource.name}» ist Gast eines anderen Ereignisses.")
     if incident is not None and incident.status == "complete" and not isinstance(resource, Material):
         raise ResourceNotAssignableError(
             "Der Einsatz ist abgeschlossen – Personal und Fahrzeuge können nicht mehr zugewiesen werden."

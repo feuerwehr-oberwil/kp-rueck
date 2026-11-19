@@ -334,7 +334,7 @@ export function EventSetupChecklist({
                 }}
                 aria-pressed={isCompleted}
                 // Wraps: where title and buttons do not fit side by side (a narrow window,
-                // «Standby-WhatsApp senden» beside two buttons) the buttons go under the
+                // «Standby-Nachricht senden» beside two buttons) the buttons go under the
                 // title instead of the title ending in «sen…».
                 className={cn(
                   'flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors',
@@ -493,10 +493,10 @@ export function RekoPickerDialog({
   const t = useTranslations('checklist.rekoPicker')
   const tAssign = useTranslations('incidents.assignReko')
   const tPick = useTranslations('common.personPick')
-  const { personnel, refreshOperations } = useOperations()
+  const { personnel, operations, refreshOperations } = useOperations()
   const [marking, setMarking] = useState(false)
   const [pickMessage, setPickMessage] = useState<string | null>(null)
-  const mark = useRekoCandidatePicker({ personnel, disabled: marking })
+  const mark = useRekoCandidatePicker({ personnel, operations, disabled: marking })
 
   const handleMark = async () => {
     const person = mark.chosen
@@ -530,6 +530,7 @@ export function RekoPickerDialog({
       onOpenChange={onOpenChange}
       title={t('title')}
       description={t('description')}
+      radioGroupLabel={t('title')}
       toolbar={
         <>
           {mark.searchField}

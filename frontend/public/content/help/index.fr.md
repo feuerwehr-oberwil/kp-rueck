@@ -434,6 +434,10 @@ appareil de saisie qu’il reste au système.
   vue pour annoncer un départ.
 - Celui qui est enregistré comme *indisponible* apparaît grisé, avec le motif.
 - **« Ajouter une personne »** dans l’appel crée la personne **et l’annonce directement**.
+  Elle appartient **à cet événement seulement** (invitée) : elle n’apparaît ni dans
+  *Réglages → Personnel* ni dans d’autres événements. De même pour « Ajouter une
+  personne » dans la fenêtre du conducteur et sur le lien d’annonce. Qui fait partie de
+  l’effectif se saisit dans les réglages.
 
 > **L’entraide et la protection civile ne peuvent pas s’annoncer elles-mêmes.** L’arrivée
 > ne montre que l’effectif propre, et la visibilité vient des affectations. La marche à
@@ -447,7 +451,12 @@ intervention où personne n’est jamais allé dehors. C’est le même formulai
 lien de reconnaissance, seul l’expéditeur change. Un rapport déjà remis par le groupe est
 mis à jour avec **« Compléter le rapport de reconnaissance »** dans le même enregistrement,
 et non comme un second rapport à côté. Il n’y a délibérément pas de photos ici : un
-message radio n’en apporte aucune.
+message radio n’en apporte aucune. Il n’y a pas de bouton d’enregistrement : chaque
+réponse est synchronisée aussitôt (« Synchronisé – hh:mm » sous le formulaire). Un
+nouveau rapport reste un brouillon jusqu’à ce que **« Intervention pertinente ? »** ait
+une réponse (oui ou non) – il est alors transmis comme un rapport de l’équipe : cloche,
+reconnaissance faite, l’intervention passe à « Reconnaissance terminée ». Un changement
+de statut ne transmet rien.
 
 **« Reconnaissance sur place » par radio.** Dans le détail de l’intervention, bloc
 *Annonces radio* – la même ligne où figurent aussi « Arrivé », « Intervention terminée »
@@ -654,8 +663,9 @@ Pour qu’aucune étape ne soit oubliée dans les moments agités, le système a
 |-----------|---------|
 | **Attribuer un véhicule sans conducteur** | Le choix du conducteur apparaît directement à l’attribution – aussi pour une mission. Toucher une personne la coche, « Valider » en fait le conducteur ; le conducteur actuel porte « actuel », et le décocher propose « Sans conducteur ». « Annuler » laisse sciemment le véhicule sans conducteur ; la mission affiche alors « Pas de conducteur · Choisir un conducteur », et le texte d’engagement, le texte WhatsApp et l’impression A4 indiquent « sans conducteur ». |
 | **Véhicule déjà en intervention** (double affectation) | Un véhicule n’existe physiquement qu’une fois – lors d’une nouvelle attribution : **Déplacer ici** (le retirer des autres interventions) ou **Attribuer plusieurs fois** (conserver sciemment la double affectation). |
-| **Vers la colonne Reconnaissance sans personne de reconnaissance** | Si une intervention est déplacée vers « Reconnaissance » sans qu’une personne de reconnaissance soit attribuée, « Aucune personne de reconnaissance attribuée » apparaît : **Attribuer une personne de reconnaissance** (elle reçoit alors le formulaire) ou « Continuer quand même ». |
-| **Engager sans ressources** | S’il manque du **personnel, des véhicules ou des moyens** lors du passage à « Engagé » (les véhicules ne comptent pas en mode « à pied »), « Il manque des ressources » apparaît. Le choix recommandé est **Attribuer** – cela ouvre l’attribution puis mène directement à la fenêtre radio/alarme. Sans véhicule, la ligne propose aussi **À pied** : l’intervention est marquée « à pied », ce qui compte comme réponse. S’il manque encore du personnel ou un véhicule, le premier clic sur **Engager** demande confirmation (« Aucun véhicule – vraiment partir ainsi ? », la ligne passe au jaune) et le bouton devient « Engager sans véhicule » ; seul le deuxième clic (ou `Entrée`) engage sous-doté. **Retour** ou `Échap` annule la question. |
+| **Vers la colonne Reconnaissance sans personne de reconnaissance** | Si une intervention est déplacée vers « Reconnaissance » sans qu’une personne de reconnaissance soit attribuée, le choix « Personne de reconnaissance pour … » s’ouvre aussitôt : choisir une personne et **Attribuer** – la carte reste en « Reconnaissance », la personne reçoit le formulaire. La ligne en pointillés « Déplacer sans personne de reconnaissance » laisse la carte sans attribution ; « Annuler » ou `Échap` la remet en place. |
+| **Vers « Reconnaissance terminée » sans rapport** | La carte attend et le formulaire « Rapport de reconnaissance · … » s’ouvre ; chaque champ est enregistré aussitôt. Le rapport est transmis avec la réponse à « Intervention pertinente ? » – c’est seulement ensuite que **Terminer la reconnaissance** déplace la carte en « Reconnaissance terminée ». Tant que la question est ouverte, « Terminer sans rapport » la déplace sans rapport ; ce qui a été saisi reste un brouillon. « Annuler » ou `Échap` laisse la carte où elle était. |
+| **Engager sans ressources** | S’il manque du **personnel, des véhicules ou des moyens** lors du passage à « Engagé » (les véhicules ne comptent pas en mode « à pied »), « Il manque des ressources » apparaît. Chaque ligne nomme ce qui est déjà là : l’équipe avec le CI en premier, chaque véhicule avec son conducteur et « reste sur place | rentre à la caserne » à basculer, le matériel par son nom ; « Ajouter » ouvre l’attribution. Là où il manque quelque chose, le choix recommandé est **Attribuer** – cela ouvre l’attribution puis mène directement à la fenêtre radio/alarme. Sans véhicule, la ligne propose aussi **À pied** : l’intervention est marquée « à pied », ce qui compte comme réponse. S’il manque encore du personnel ou un véhicule, le premier clic sur **Engager** demande confirmation (« Aucun véhicule – vraiment partir ainsi ? », la ligne passe au jaune) et le bouton devient « Engager sans véhicule » ; seul le deuxième clic (ou `Entrée`) engage sous-doté. **Retour** ou `Échap` annule la question. |
 | **Ajouter une intervention clôturée comme étape** | Si une intervention déjà clôturée est rattachée à une mission – par la sélection d’étapes, « Répartir sur une mission » ou glisser-déposer –, le système demande confirmation. C’est **autorisé** (reprise, deuxième visite à la même adresse), mais cela ne doit pas passer inaperçu. |
 | **Clôturer avec du matériel attribué** | Si une intervention est clôturée alors que du matériel est encore attribué, le système demande : **Matériel de retour** (libérer) ou « Laissé sur place » (le laisser attribué, p. ex. s’il reste sur le lieu). |
 

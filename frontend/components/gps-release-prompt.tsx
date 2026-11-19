@@ -8,6 +8,8 @@ import { apiClient } from "@/lib/api-client"
 import { reportStatusConflict } from "@/lib/status-conflict"
 import type { IncidentStatus } from "@/lib/types/incidents"
 import { useAuth } from "@/lib/contexts/auth-context"
+import { useOperations, type Operation } from "@/lib/contexts/operations-context"
+import { useGroups } from "@/lib/contexts/groups-context"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { toast } from "sonner"
@@ -16,6 +18,8 @@ import { useTranslations } from "next-intl"
 interface ReleasePrompt {
   assignmentId: string
   incidentId: string
+  /** Absent from a backend that predates it – then nothing counts as «the last one». */
+  vehicleId: string | null
   vehicleName: string
   incidentLabel: string
 }
@@ -36,10 +40,42 @@ interface ReleasePrompt {
  *
  * Never on a phone: the phone board is read-only (owner, 14.11.2026), and this dialog exists only
  * to ask for a write. The bell notification tells the phone what happened.
+ *
+ * The main answer (ink, Enter) is «Nur {vehicle} freigeben» – a vehicle back home says nothing
+ * about the crew still working on site, whether its driver came back with it or stayed. Only
+ * when it is the Einsatz's last resource (`isLastResource`) does «Einsatz abschliessen» take
+ * the ink and «Nur freigeben» the line above Abbrechen (owner pick #21, 19.11.2026).
  */
+/**
+ * Whether releasing the prompted assignment leaves the Einsatz with nothing on it: that exact
+ * assignment is still live, no other vehicle, no material, no crew – except the person who
+ * drives this vehicle when the driver «kehrt zurück» (they travel with it). A driver who
+ * «bleibt vor Ort» is still out, so then never – whether the list knows the driver or not.
+ * On an Auftrag stop the route's own resources count too (`route`: its assignments; undefined
+ * while this board does not know the Auftrag – then never): completing the stop with the
+ * route still out would, on its last stop, release the route.
+ */
+export function isLastResource(
+  operation: Pick<Operation, "vehicles" | "crew" | "materials" | "groupId">,
+  prompted: { vehicleId: string; assignmentId: string },
+  personnel: readonly { id: string; isDriver?: boolean; driverVehicleId?: string }[],
+  route: { assignments: readonly unknown[] } | undefined,
+): boolean {
+  if (operation.groupId && (!route || route.assignments.length > 0)) return false
+  const { vehicleId, assignmentId } = prompted
+  const assigned = operation.vehicles.find((v) => v.vehicleId === vehicleId && v.assignmentId === assignmentId)
+  if (!assigned || assigned.driverStay) return false
+  if (operation.vehicles.some((v) => v.vehicleId !== vehicleId)) return false
+  if (operation.materials.length > 0) return false
+  const driverId = personnel.find((p) => p.isDriver && p.driverVehicleId === vehicleId)?.id
+  return operation.crew.every((member) => member.personnelId === driverId)
+}
+
 export function GpsReleasePrompt() {
   const t = useTranslations('incidents.gpsRelease')
   const { isEditor } = useAuth()
+  const { operations, personnel } = useOperations()
+  const { groups } = useGroups()
   const isPhone = useIsMobile()
   const pathname = usePathname()
   const [prompt, setPrompt] = useState<ReleasePrompt | null>(null)
@@ -70,6 +106,7 @@ export function GpsReleasePrompt() {
       setPrompt({
         assignmentId: payload.assignment_id,
         incidentId: payload.incident_id,
+        vehicleId: payload.vehicle_id || null,
         vehicleName: payload.vehicle_name || t('fallbackVehicle'),
         incidentLabel: payload.incident_label || t('fallbackIncident'),
       })
@@ -126,6 +163,15 @@ export function GpsReleasePrompt() {
     }
   }
 
+  // Read from the board as it stands now, so a crew released meanwhile turns the answer.
+  const operation = operations.find((op) => op.id === prompt.incidentId)
+  const route = operation?.groupId ? groups.find((group) => group.id === operation.groupId) : undefined
+  const completeIsMain = !!operation && !!prompt.vehicleId
+    && isLastResource(operation, { vehicleId: prompt.vehicleId, assignmentId: prompt.assignmentId }, personnel, route)
+  const releaseOnly = { label: t('releaseOnly', { vehicle: prompt.vehicleName }), run: handleRelease }
+  const complete = { label: t('completeIncident'), run: handleReleaseAndComplete }
+  const [main, other] = completeIsMain ? [complete, releaseOnly] : [releaseOnly, complete]
+
   return (
     <ConfirmDialog
       open
@@ -137,11 +183,10 @@ export function GpsReleasePrompt() {
         label: prompt.incidentLabel,
         strong: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
       })}
-      // «nur freigeben» is the "…but do this instead" answer.
-      extraAction={{ label: t('releaseOnly', { vehicle: prompt.vehicleName }), onSelect: handleRelease }}
+      extraAction={{ label: other.label, onSelect: other.run }}
       cancelText={t('decline')}
-      confirmText={t('completeIncident')}
-      onConfirm={handleReleaseAndComplete}
+      confirmText={main.label}
+      onConfirm={main.run}
     />
   )
 }

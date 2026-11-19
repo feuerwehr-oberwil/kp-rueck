@@ -25,6 +25,11 @@
  *   it has no way to release anything.
  * - **Unavailable people are shown, disabled.** The backend refuses to check them in, so
  *   offering the action would be a lie; hiding the name would make the operator hunt for it.
+ * - **The plan is a chip beside the row, not a fourth state** (feedback 19.11.2026, #3, mock
+ *   6A). «geht 22:00» for somebody here, «kommt 20:00» for somebody not yet; dashed «+ bis» /
+ *   «+ kommt um» while nothing is planned; amber when the person leaves within the hour. Its
+ *   own button (Tab, Enter), so a click on it never cycles the row. `PlannedTimePicker` writes
+ *   it – the record (the tick) and the plan stay separate facts.
  */
 
 import { SearchEmptyState } from "@/components/ui/empty-state"
@@ -43,6 +48,7 @@ import { SearchInput } from '@/components/ui/search-input'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { QuickAddPersonnel } from '@/components/quick-add-personnel'
 import { DiveraIncomingBlock } from '@/components/kanban/divera-incoming-block'
+import { PlannedTimeChip, PlannedTimePicker, type PlanKind } from '@/components/attendance/planned-time'
 import { wsClient } from '@/lib/websocket-client'
 import { formatTime } from '@/lib/format-time'
 import { sortByName } from '@/lib/roster-order'
@@ -226,13 +232,21 @@ export function AttendanceModal({
   const clearAttendance = async (person: ApiPersonnelListItem) => {
     try {
       await apiClient.clearPersonnelAttendance(person.id, eventId)
-      applyLocally(person.id, { checked_in: false, checked_in_at: null, checked_out_at: null })
+      applyLocally(person.id, { checked_in: false, checked_in_at: null, checked_out_at: null, planned_from: null, planned_until: null })
       onAttendanceChange?.()
     } catch (error) {
       console.error('Clearing attendance failed:', error)
       toast.error(t('writeFailed'))
       load()
     }
+  }
+
+  /** «kommt um» / «geht um» from the row's chip. Rejects, so the picker can say it failed. */
+  const setPlan = async (person: ApiPersonnelListItem, kind: PlanKind, iso: string | null) => {
+    const key = kind === 'until' ? 'planned_until' : 'planned_from'
+    const updated = await apiClient.setAttendancePlan(person.id, { eventId }, { [key]: iso })
+    applyLocally(person.id, { planned_from: updated.planned_from ?? null, planned_until: updated.planned_until ?? null })
+    onAttendanceChange?.()
   }
 
   /**
@@ -348,6 +362,7 @@ export function AttendanceModal({
               assignedAt={person.checked_in ? (assignmentLabelFor?.(person) ?? null) : null}
               twoLines={isMobile}
               onClick={() => cycle(person)}
+              onPlan={canCheckIn ? (kind, iso) => setPlan(person, kind, iso) : undefined}
             />
           ))}
         </div>
@@ -362,6 +377,7 @@ export function AttendanceModal({
           await load()
         }}
         checkInEventId={eventId}
+        guestEventId={eventId}
         isNameTaken={isNameTaken}
         // The sheet footer is already the frame on the phone; the desktop dialog keeps
         // today's boxed form.
@@ -413,7 +429,7 @@ export function AttendanceModal({
               `sm:max-w-3xl` needs its prefix: DialogContent's own `sm:max-w-lg`
               is variant-scoped, so the bare `max-w-3xl` this used to carry never
               won at desktop widths and the roll-call ran in a 512px column. */}
-          <DialogContent className="flex modal-h-tall sm:max-w-3xl flex-col">
+          <DialogContent size="md" className="flex modal-h-tall flex-col">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Users className="size-4" />
@@ -462,6 +478,8 @@ export function AttendanceModal({
         title={t('checkOutAllTitle')}
         description={t('checkOutAllDescription', { count: stats.present })}
         confirmText={t('checkOutAll')}
+        // One Enter would check out the whole crew.
+        initialFocus="cancel"
         onConfirm={checkOutAll}
       />
     </>
@@ -469,8 +487,8 @@ export function AttendanceModal({
 }
 
 /**
- * One person, one target: a click cycles the state (see `cycle`). The glyph on the left
- * says the state. `twoLines` is the phone: line 1 the full name (wraps, never truncates),
+ * One person, one target: a click cycles the state (see `cycle`); the plan chip on the right
+ * is a second, separate button (`PlannedTimeChip`). The glyph on the left says the state. `twoLines` is the phone: line 1 the full name (wraps, never truncates),
  * line 2 the facts in mono. The desktop row keeps everything on one line – it has the
  * width – with «zugewiesen» as a chip and the time on the right.
  */
@@ -479,14 +497,18 @@ function AttendanceRow({
   assignedAt,
   twoLines,
   onClick,
+  onPlan,
 }: {
   person: ApiPersonnelListItem
   assignedAt: string | null
   twoLines: boolean
   onClick: () => void
+  /** Editors: the plan chip writes through this. Without it the chip is not offered. */
+  onPlan?: (kind: PlanKind, iso: string | null) => Promise<void>
 }) {
   const t = useTranslations('kanban.attendance')
   const tCommon = useTranslations('kanban.common')
+  const tPlan = useTranslations('common.attendancePlan')
   const state = attendanceState(person)
   const unavailable = person.status === 'unavailable'
   const facts = attendanceFacts(person, assignedAt)
@@ -517,64 +539,95 @@ function AttendanceRow({
   const assigned = facts.find((fact) => fact.kind === 'assigned')
   const time = facts.find((fact) => fact.kind !== 'assigned')
 
+  // The plan chip: «geht um» for somebody here, «kommt um» for somebody not yet; nothing for
+  // somebody who went home or is not available tonight.
+  const planKind: PlanKind | null =
+    unavailable || state === 'left' ? null : state === 'present' ? 'until' : 'from'
+  const planValue = planKind === 'until' ? person.planned_until : person.planned_from
+  const planChip =
+    planKind && onPlan ? (
+      <PlannedTimePicker
+        kind={planKind}
+        value={planValue}
+        other={planKind === 'until' ? person.planned_from : person.planned_until}
+        title={tPlan(planKind === 'until' ? 'titleUntil' : 'titleFrom', { name })}
+        hint={tPlan('hintKp')}
+        fieldLabel={tPlan(planKind === 'until' ? 'fieldUntil' : 'fieldFrom')}
+        onSave={(iso) => onPlan(planKind, iso)}
+        trigger={<PlannedTimeChip kind={planKind} at={planValue} className={twoLines ? 'mt-1.5 mr-2' : 'mr-2'} />}
+      />
+    ) : planKind && planValue ? (
+      // A viewer reads the plan; only an editor writes it.
+      <PlannedTimeChip kind={planKind} at={planValue} disabled className="mr-2 disabled:opacity-100" />
+    ) : null
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={unavailable}
-      aria-pressed={state === 'present'}
+    <div
       className={cn(
-        'flex w-full gap-2.5 rounded-md border px-3 text-left text-sm transition-colors',
-        twoLines ? 'min-h-11 items-start py-2' : 'items-center py-2',
-        // ring-inset: the focus ring must not grow the row's footprint — an outset ring made
-        // the focused row sit 2px proud of its neighbours (field test 08.09.)
-        'hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+        'flex w-full rounded-md border text-sm transition-colors',
+        twoLines ? 'items-start' : 'items-center',
         state === 'present' && 'border-success/40 bg-success/5',
         state === 'left' && 'border-dashed text-muted-foreground',
         state === 'absent' && 'border-border',
-        unavailable && 'cursor-not-allowed opacity-50 hover:bg-transparent'
+        unavailable && 'opacity-50'
       )}
     >
-      {twoLines ? (
-        <>
-          {/* 2px down: the glyph sits on the name's line, not between the two lines. */}
-          <span className="mt-0.5 flex shrink-0">{glyph}</span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-base break-words">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={unavailable}
+        aria-pressed={state === 'present'}
+        className={cn(
+          'flex min-w-0 flex-1 gap-2.5 self-stretch rounded-md px-3 text-left transition-colors',
+          twoLines ? 'min-h-11 items-start py-2' : 'items-center py-2',
+          // ring-inset: the focus ring must not grow the row's footprint — an outset ring made
+          // the focused row sit 2px proud of its neighbours (field test 08.09.)
+          'hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+          unavailable && 'cursor-not-allowed hover:bg-transparent'
+        )}
+      >
+        {twoLines ? (
+          <>
+            {/* 2px down: the glyph sits on the name's line, not between the two lines. */}
+            <span className="mt-0.5 flex shrink-0">{glyph}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-base break-words">
+                <PersonName name={person.name} personnelId={person.id} kennung={person.kennung} display={name} />
+              </span>
+              {facts.length > 0 && (
+                // Each fact an inline-block: a wrap falls between «seit 17:22» and
+                // «zugewiesen: 14 · Talstrasse 25», not inside the Einsatz, unless one alone
+                // is wider than the row.
+                <span className="mt-0.5 block font-mono text-xs break-words text-muted-foreground">
+                  {facts.map((fact, i) => (
+                    <Fragment key={fact.kind}>
+                      {i > 0 && ' '}
+                      <span className="inline-block max-w-full">
+                        {factText(fact)}
+                        {i < facts.length - 1 && '\u00a0·'}
+                      </span>
+                    </Fragment>
+                  ))}
+                </span>
+              )}
+            </span>
+          </>
+        ) : (
+          <>
+            {glyph}
+            <span className="min-w-0 flex-1 truncate" title={name}>
               <PersonName name={person.name} personnelId={person.id} kennung={person.kennung} display={name} />
             </span>
-            {facts.length > 0 && (
-              // Each fact an inline-block: a wrap falls between «seit 17:22» and
-              // «zugewiesen: 14 · Talstrasse 25», not inside the Einsatz, unless one alone
-              // is wider than the row.
-              <span className="mt-0.5 block font-mono text-xs break-words text-muted-foreground">
-                {facts.map((fact, i) => (
-                  <Fragment key={fact.kind}>
-                    {i > 0 && ' '}
-                    <span className="inline-block max-w-full">
-                      {factText(fact)}
-                      {i < facts.length - 1 && '\u00a0·'}
-                    </span>
-                  </Fragment>
-                ))}
+            {assigned && (
+              <span className="shrink-0 rounded-sm bg-warning/15 px-1.5 py-0.5 text-2xs font-medium text-warning-foreground">
+                {factText(assigned)}
               </span>
             )}
-          </span>
-        </>
-      ) : (
-        <>
-          {glyph}
-          <span className="min-w-0 flex-1 truncate" title={name}>
-            <PersonName name={person.name} personnelId={person.id} kennung={person.kennung} display={name} />
-          </span>
-          {assigned && (
-            <span className="shrink-0 rounded-sm bg-warning/15 px-1.5 py-0.5 text-2xs font-medium text-warning-foreground">
-              {factText(assigned)}
-            </span>
-          )}
-          <span className="shrink-0 font-mono text-xs text-muted-foreground">{time ? factText(time) : ''}</span>
-        </>
-      )}
-    </button>
+            <span className="shrink-0 font-mono text-xs text-muted-foreground">{time ? factText(time) : ''}</span>
+          </>
+        )}
+      </button>
+      {planChip}
+    </div>
   )
 }

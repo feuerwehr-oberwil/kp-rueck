@@ -8,11 +8,12 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { FormMessage } from "@/components/ui/form-message"
 import { useIsMobile } from "@/components/ui/use-mobile"
-import { Binoculars, ArrowLeft, MapPin } from "lucide-react"
-import { PersonPickTile } from "@/components/kanban/assignment-list-section"
+import { Binoculars, ArrowLeft, ArrowRight, MapPin } from "lucide-react"
+import { ListSection, PersonPickTile } from "@/components/kanban/assignment-list-section"
+import { einsatzWhere, tilePlan, usePersonTileFacts } from "@/components/kanban/person-tile-facts"
 import { apiClient, type ApiAvailableRekoPersonnel } from "@/lib/api-client"
 import { useEvent } from "@/lib/contexts/event-context"
-import { useOperations } from "@/lib/contexts/operations-context"
+import { type Operation, useOperations } from "@/lib/contexts/operations-context"
 import type { Person } from "@/lib/contexts/personnel-context"
 import { personMatchesQuery, RESOURCE_STATE_BADGE_CLASSES } from "@/lib/resource-status"
 import { cn } from "@/lib/utils"
@@ -26,23 +27,44 @@ export const REKO_PICK_MESSAGE_ID = "reko-pick-message"
 
 /**
  * «Person als Reko markieren» – the checked-in people who are not Reko yet, as the same
- * person tiles as every picker (`PersonPickTile`), one to tick. Used by the three Reko
- * surfaces (Reko zuweisen, Rekos übertragen, Reko-Modus); each host places `searchField`
- * above its list and `list` in it, and its own main answer marks `chosen`.
+ * person tiles as every picker (`PersonPickTile`), one to choose (radio dot), each with the
+ * Fahrer picker's «where · roles» line (`usePersonTileFacts`: the Einsatz they are on, their
+ * other roles) – facts only, nobody is refused. Used by the four Reko surfaces (Reko zuweisen,
+ * Rekos übertragen, the checklist, Reko-Modus); each host places `searchField` above its list
+ * and `list` in a `radiogroup`, and its own main answer marks `chosen`.
+ *
+ * A host that shows these people as ONE section of a longer list (the status gate's «Andere
+ * Anwesende») takes `tiles` (no empty messages), filters its own rows by `query`, and keeps a
+ * single choice across both: `onChoose` fires when a tile here is ticked, `clearChoice()` unticks.
  */
 export function useRekoCandidatePicker({
   personnel,
+  operations,
   excludedPersonnelIds,
   disabled,
+  onChoose,
 }: {
   personnel: Person[]
+  /** The board's Einsätze – where a candidate is now. */
+  operations: readonly Operation[]
   excludedPersonnelIds?: ReadonlySet<string>
   disabled?: boolean
-}): { chosen: Person | null; searchField: ReactNode; list: ReactNode; reset: () => void } {
+  onChoose?: () => void
+}): {
+  chosen: Person | null
+  searchField: ReactNode
+  list: ReactNode
+  tiles: ReactNode[]
+  query: string
+  clearSearch: () => void
+  clearChoice: () => void
+  reset: () => void
+} {
   const t = useTranslations("incidents.assignReko")
   const isMobile = useIsMobile()
   const [search, setSearch] = useState("")
   const [chosenId, setChosenId] = useState<string | null>(null)
+  const factsOf = usePersonTileFacts()
   const eligible = personnel.filter((person) => !person.isReko && !excludedPersonnelIds?.has(person.id))
   const candidates = search.trim() ? eligible.filter((person) => personMatchesQuery(person, search)) : eligible
 
@@ -55,6 +77,28 @@ export function useRekoCandidatePicker({
       placeholder={t("markSearchPlaceholder")}
     />
   )
+  const tiles = candidates.map((person) => {
+    const { where, roles, plan } = factsOf(person, { elsewhere: einsatzWhere(person.id, operations) })
+    return (
+      <PersonPickTile
+        key={person.id}
+        name={person.name}
+        personnelId={person.id}
+        kennung={person.kennung ?? null}
+        rank={person.role}
+        where={where}
+        roles={roles}
+        plan={plan}
+        single
+        checked={chosenId === person.id}
+        disabled={disabled}
+        onClick={() => {
+          setChosenId((current) => (current === person.id ? null : person.id))
+          onChoose?.()
+        }}
+      />
+    )
+  })
   const list =
     candidates.length === 0 && search.trim() ? (
       <SearchEmptyState query={search} onClear={() => setSearch("")} />
@@ -63,17 +107,7 @@ export function useRekoCandidatePicker({
         {personnel.length === 0 ? t("markNoCheckedIn") : t("markAllReko")}
       </p>
     ) : (
-      candidates.map((person) => (
-        <PersonPickTile
-          key={person.id}
-          name={person.name}
-          personnelId={person.id}
-          rank={person.role}
-          checked={chosenId === person.id}
-          disabled={disabled}
-          onClick={() => setChosenId((current) => (current === person.id ? null : person.id))}
-        />
-      ))
+      tiles
     )
 
   // Stable, so a host may reset from an effect.
@@ -82,7 +116,19 @@ export function useRekoCandidatePicker({
     setChosenId(null)
   }, [])
 
-  return { chosen: eligible.find((person) => person.id === chosenId) ?? null, searchField, list, reset }
+  const clearSearch = useCallback(() => setSearch(""), [])
+  const clearChoice = useCallback(() => setChosenId(null), [])
+
+  return {
+    chosen: eligible.find((person) => person.id === chosenId) ?? null,
+    searchField,
+    list,
+    tiles,
+    query: search,
+    clearSearch,
+    clearChoice,
+    reset,
+  }
 }
 
 /** The dashed «Person als Reko markieren» row above a Reko picker's list – the same
@@ -124,6 +170,21 @@ interface AssignRekoDialogProps {
    * the card jumped back to «Eingegangen» right after a successful assignment.
    */
   onAssigned?: () => void
+  /**
+   * The status gate's frame (#4 A, 19.11.2026): the card was moved into «Reko» without a Reko
+   * person and the picker opens in place of a question. Its own title and line, one search, a
+   * quiet dashed «Ohne Reko-Person verschieben» row (`onWithout` – the caller closes), then
+   * «Reko-Personen» and «Andere Anwesende» as one radio list – picking somebody from the second
+   * marks them Reko for the Ereignis and assigns them in the same «Zuweisen» (`confirmLabel`).
+   * Closing (Abbrechen, Esc, ✕) stays `onOpenChange(false)`.
+   */
+  gate?: {
+    title: string
+    description: string
+    confirmLabel: string
+    withoutLabel: string
+    onWithout: () => void
+  }
 }
 
 /**
@@ -140,12 +201,13 @@ export function AssignRekoDialog({
   incidentId,
   incidentTitle,
   onAssigned,
+  gate,
 }: AssignRekoDialogProps) {
   const t = useTranslations('incidents.assignReko')
   const tCommon = useTranslations('incidents.common')
   const tPick = useTranslations('common.personPick')
   const { selectedEvent } = useEvent()
-  const { personnel: allPersonnel, refreshOperations, formatLocation } = useOperations()
+  const { personnel: allPersonnel, operations, refreshOperations, formatLocation } = useOperations()
   const [personnel, setPersonnel] = useState<ApiAvailableRekoPersonnel[]>([])
   const [currentlyAssignedId, setCurrentlyAssignedId] = useState<string | null>(null)
   const [chosenId, setChosenId] = useState<string | null>(null)
@@ -155,7 +217,18 @@ export function AssignRekoDialog({
   const [error, setError] = useState<string | null>(null)
   const [markMode, setMarkMode] = useState(false)
   const [uncertainPersonnelIds, setUncertainPersonnelIds] = useState<ReadonlySet<string>>(new Set())
-  const mark = useRekoCandidatePicker({ personnel: allPersonnel, excludedPersonnelIds: uncertainPersonnelIds, disabled: busy })
+  const mark = useRekoCandidatePicker({
+    personnel: allPersonnel,
+    operations,
+    excludedPersonnelIds: uncertainPersonnelIds,
+    disabled: busy,
+    // The gate's one choice spans both sections: ticking somebody under «Andere Anwesende»
+    // unticks the Reko person.
+    onChoose: () => {
+      setChosenId(null)
+      setPickMessage(null)
+    },
+  })
   const resetMark = mark.reset
 
   // Backend sorts by (open work, distance, name). Mark the top candidate as
@@ -253,16 +326,17 @@ export function AssignRekoDialog({
   }
 
   /** «Übernehmen»: mark + assign the ticked candidate, keep the current Reko, or assign
-   *  the ticked one. Nothing ticked is said above the list, never a greyed-out button. */
+   *  the ticked one. In the gate a candidate under «Andere Anwesende» is marked + assigned in
+   *  the same click. Nothing ticked is said above the list, never a greyed-out button. */
   const applyChoice = async () => {
-    const candidate = mark.chosen
-    if (markMode ? !candidate : !chosenId) {
+    const candidate = (markMode || gate) ? mark.chosen : null
+    if (markMode ? !candidate : !candidate && !chosenId) {
       setPickMessage(tPick('noneChosen'))
       return
     }
     setBusy(true)
     try {
-      if (markMode && candidate) await handleMarkAndAssign(candidate)
+      if (candidate) await handleMarkAndAssign(candidate)
       else if (chosenId === currentlyAssignedId) finishAssigned()
       else if (chosenId) await handleAssign(chosenId)
     } finally {
@@ -272,6 +346,7 @@ export function AssignRekoDialog({
 
   const choose = (personnelId: string) => {
     setChosenId((current) => (current === personnelId ? null : personnelId))
+    mark.clearChoice()
     setPickMessage(null)
   }
 
@@ -280,7 +355,33 @@ export function AssignRekoDialog({
     setPickMessage(null)
   }
 
-  const toolbar = markMode ? (
+  // The gate's way on without anybody – quiet, at the top, never the main answer.
+  const withoutRow = gate && !markMode && (
+    <button
+      type="button"
+      onClick={gate.onWithout}
+      className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border/70 px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-sel-edge hover:text-foreground"
+    >
+      <Binoculars className="h-4 w-4" />
+      <span className="min-w-0 flex-1 text-left">{gate.withoutLabel}</span>
+      <ArrowRight className="h-4 w-4" />
+    </button>
+  )
+
+  // The gate shows both lists at once (mock 1a A): the Ereignis' Reko people, then the other
+  // checked-in people, one search over both – so no «Person als Reko markieren» detour.
+  const gateQuery = mark.query.trim()
+  const rekoHits = gate && gateQuery
+    ? personnel.filter((person) => personMatchesQuery({ name: person.name, role: person.role, isReko: true }, gateQuery))
+    : personnel
+
+  const toolbar = gate && !markMode ? (
+    <>
+      {!loading && !error && mark.searchField}
+      {withoutRow}
+      <FormMessage id={REKO_PICK_MESSAGE_ID}>{pickMessage}</FormMessage>
+    </>
+  ) : markMode ? (
     <>
       <Button variant="ghost" size="sm" className="-ml-2 self-start" onClick={() => switchMode(false)}>
         <ArrowLeft className="size-3.5" />
@@ -294,28 +395,33 @@ export function AssignRekoDialog({
     // list is never empty, so the only way to put a second one on the board was to close
     // this dialog and right-click somebody in the sidebar.
     <>
+      {withoutRow}
       <MarkRekoRow onClick={() => switchMode(true)} />
       <FormMessage id={REKO_PICK_MESSAGE_ID}>{pickMessage}</FormMessage>
     </>
-  ) : undefined
+  ) : withoutRow || undefined
 
   const renderTile = (person: ApiAvailableRekoPersonnel) => {
     const isCurrent = person.personnel_id === currentlyAssignedId
     const openLabels = (person.open_assignments ?? []).map(
       (assignment) => formatLocation(assignment.location_address ?? '') || assignment.incident_title,
     )
+    // The plan lives on the board's roster row, not on the Reko list's.
+    const boardPerson = allPersonnel.find((p) => p.id === person.personnel_id)
     return (
       <PersonPickTile
         key={person.personnel_id}
         name={person.name}
         personnelId={person.personnel_id}
         rank={person.role}
+        plan={boardPerson ? tilePlan(boardPerson, Date.now(), tPick) : null}
         // Its open Rekos are where the person is besides here – the where-note.
         where={openLabels.length > 0 && !isCurrent ? {
           head: openLabels.length > 1 ? `${openLabels[0]} +${openLabels.length - 1}` : openLabels[0],
           full: openLabels.join(', '),
           Icon: MapPin,
         } : null}
+        single
         checked={chosenId === person.personnel_id}
         current={isCurrent}
         disabled={busy}
@@ -355,8 +461,9 @@ export function AssignRekoDialog({
     <PickerDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={markMode ? t('markExisting') : t('title')}
-      description={t('incidentLabel', { title: incidentTitle })}
+      title={markMode ? t('markExisting') : gate?.title ?? t('title')}
+      description={gate?.description ?? t('incidentLabel', { title: incidentTitle })}
+      radioGroupLabel={markMode ? t('markExisting') : t('title')}
       toolbar={toolbar}
       footer={
         <>
@@ -365,7 +472,7 @@ export function AssignRekoDialog({
           </Button>
           <Button onClick={() => void applyChoice()} disabled={busy}>
             {busy && <ShellLoader className="size-4" />}
-            {tPick('apply')}
+            {gate?.confirmLabel ?? tPick('apply')}
           </Button>
         </>
       }
@@ -383,6 +490,27 @@ export function AssignRekoDialog({
             {t('retry')}
           </Button>
         </div>
+      ) : gate ? (
+        rekoHits.length === 0 && mark.tiles.length === 0 ? (
+          gateQuery ? (
+            <SearchEmptyState query={mark.query} onClear={mark.clearSearch} />
+          ) : (
+            <EmptyState title={t('emptyTitle')} description={t('markNoCheckedIn')} />
+          )
+        ) : (
+          <div className="space-y-4">
+            {rekoHits.length > 0 && (
+              <ListSection label={t('sectionReko')} tone="free">
+                <div className="space-y-2">{rekoHits.map(renderTile)}</div>
+              </ListSection>
+            )}
+            {mark.tiles.length > 0 && (
+              <ListSection label={t('sectionOthers')} tone="free">
+                <div className="space-y-2">{mark.tiles}</div>
+              </ListSection>
+            )}
+          </div>
+        )
       ) : personnel.length === 0 ? (
         <EmptyState
           title={t('emptyTitle')}

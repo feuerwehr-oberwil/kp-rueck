@@ -7735,7 +7735,7 @@
           "incident-groups"
         ],
         "summary": "Add Stops",
-        "description": "Attach existing incidents to an Auftrag as stops (editor only).",
+        "description": "Attach existing incidents to an Auftrag as stops (editor only).\n\nWith ``via_vehicle_id`` the add is conditional (409 when an Einsatz is gone, closed or in\nan Auftrag meanwhile, or the vehicle left this one) – the #23 question's answer.",
         "operationId": "add_stops_api_incident_groups__group_id__stops_post",
         "parameters": [
           {
@@ -8145,7 +8145,7 @@
           "incident-groups"
         ],
         "summary": "Update Group Assignment",
-        "description": "Update a route-level assignment — currently only the Einsatzleiter flag.\n\nA route's stops own no resources, so a stop that belongs to an Auftrag takes\nits leader from here: one squad working a route has one leader, not one per\nstop on it.",
+        "description": "Update a route-level assignment – the Einsatzleiter flag or a vehicle's driver stay.\n\nA route's stops own no resources, so a stop that belongs to an Auftrag takes\nits leader from here: one squad working a route has one leader, not one per\nstop on it.",
         "operationId": "update_group_assignment_api_incident_groups__group_id__assignments__assignment_id__patch",
         "parameters": [
           {
@@ -8970,7 +8970,7 @@
           "personnel"
         ],
         "summary": "Create Personnel",
-        "description": "Create new personnel (editor only) – 409 when name + Kennung is already on the roster.",
+        "description": "Create new personnel (editor only) – 409 when name + Kennung is already on the roster.\n\nWith `guest_event_id` the person is a guest of that Ereignis: listed there only, never in\nthe roster (the walk-in «Person hinzufügen»). 404 when that Ereignis does not exist.",
         "operationId": "create_personnel_api_personnel__post",
         "parameters": [
           {
@@ -9750,6 +9750,129 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonnelCheckInResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/personnel/check-in/{personnel_id}/plan": {
+      "put": {
+        "tags": [
+          "personnel-checkin"
+        ],
+        "summary": "Set Plan",
+        "description": "«kommt um» / «geht um» – the Appell's time chip, or the person on the check-in link.\n\nTwo doors like check-in: the link's token (somebody giving their own «bis 22:00» at the\ndoor) or an editor session with `event_id` (the KP, from a radio message). Only the\nfields sent change; null clears one. Broadcasts the same `personnel_update` as a tick,\nso the Appell and the pickers show the new time without a reload.",
+        "operationId": "set_plan_api_personnel_check_in__personnel_id__plan_put",
+        "parameters": [
+          {
+            "name": "personnel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Personnel Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Access token from the check-in link",
+              "title": "Token"
+            },
+            "description": "Access token from the check-in link"
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Event ID (board, requires an editor session)",
+              "title": "Event Id"
+            },
+            "description": "Event ID (board, requires an editor session)"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendancePlanUpdate"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -11016,6 +11139,88 @@
         }
       }
     },
+    "/api/vehicles/status": {
+      "get": {
+        "tags": [
+          "vehicles"
+        ],
+        "summary": "List Vehicle Statuses",
+        "description": "Every fleet vehicle with its driver, Aufträge and Einsätze in one event.\n\nThe footer «Fahrzeuge» sheet reads this and nothing else – one request for the\nwhole fleet, five queries whatever its size. Archived vehicles are left out, as\non the board. Order: `display_order`, then name; each vehicle's `deployments`\nare its Aufträge, then every Einsatz it is assigned to directly, each oldest\nassignment first (`VehicleStatusResponse`).",
+        "operationId": "list_vehicle_statuses_api_vehicles_status_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Event whose drivers and Einsätze are read",
+              "title": "Event Id"
+            },
+            "description": "Event whose drivers and Einsätze are read"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VehicleStatusResponse"
+                  },
+                  "title": "Response List Vehicle Statuses Api Vehicles Status Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/vehicles/{vehicle_id}": {
       "get": {
         "tags": [
@@ -11390,94 +11595,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Vehicle"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/vehicles/{vehicle_id}/status": {
-      "get": {
-        "tags": [
-          "vehicles"
-        ],
-        "summary": "Get Vehicle Status",
-        "description": "Get vehicle status including driver assignment and current incident.\n\nReturns detailed status for a vehicle within the context of an event:\n- Basic vehicle info (name, type, status)\n- Driver assignment (if any) for this event\n- Current incident assignment (if any)\n- Duration of assignment",
-        "operationId": "get_vehicle_status_api_vehicles__vehicle_id__status_get",
-        "parameters": [
-          {
-            "name": "vehicle_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Vehicle Id"
-            }
-          },
-          {
-            "name": "event_id",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "description": "Event ID to check driver and incident assignment",
-              "title": "Event Id"
-            },
-            "description": "Event ID to check driver and incident assignment"
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/VehicleStatusResponse"
                 }
               }
             }
@@ -13661,6 +13778,85 @@
         }
       }
     },
+    "/api/reko/personnel/{personnel_id}/order": {
+      "post": {
+        "tags": [
+          "reko"
+        ],
+        "summary": "Reorder Reko Assignments",
+        "description": "Put a Reko person's Rekos in order (editor only) – the Reko-Modus drag on the map.\n\nThe same contract as ``POST /incident-groups/{id}/stops/reorder``: ``ordered_ids`` are\nEinsatz ids; with ``expected_ids`` the write happens only while the person still holds\nexactly those Rekos (409 otherwise). The order shows as numbered pins and as the order of the\nperson's /feld list.",
+        "operationId": "reorder_reko_assignments_api_reko_personnel__personnel_id__order_post",
+        "parameters": [
+          {
+            "name": "personnel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Personnel Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RekoOrderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/feld/generate-link": {
       "post": {
         "tags": [
@@ -14611,6 +14807,71 @@
             "description": "Access token from the generated /feld link"
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonnelCheckInResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/attendance/{personnel_id}/plan": {
+      "put": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Set Own Attendance Plan",
+        "description": "«Ich komme um …» / «Ich bin da bis …» – the person's own plan (feedback 19.11., #3).\n\nThe same CRUD as the Appell's time chip (one plan per person, however it was written),\nbound like `set_own_attendance`: a device only ever plans ITSELF, before any assignment.",
+        "operationId": "set_own_attendance_plan_api_feld_attendance__personnel_id__plan_put",
+        "parameters": [
+          {
+            "name": "personnel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Personnel Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendancePlanUpdate"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -20417,6 +20678,18 @@
             },
             "type": "array",
             "title": "Incident Ids"
+          },
+          "via_vehicle_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Via Vehicle Id"
           }
         },
         "type": "object",
@@ -20424,7 +20697,7 @@
           "incident_ids"
         ],
         "title": "AddStopsRequest",
-        "description": "Attach existing incidents to an Auftrag as stops (appended to the end)."
+        "description": "Attach existing incidents to an Auftrag as stops (appended to the end).\n\n``via_vehicle_id``: the vehicle that drives this Auftrag and was put on these lone\nEinsätze («In Auftrag aufnehmen», #23). Makes the add conditional – 409 unless every\nEinsatz is still live, open and in no Auftrag and the vehicle still on this one."
       },
       "AddressSuggestion": {
         "properties": {
@@ -20807,6 +21080,17 @@
             "type": "boolean",
             "title": "Is Leader",
             "default": false
+          },
+          "reko_position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reko Position"
           }
         },
         "type": "object",
@@ -20875,6 +21159,37 @@
         ],
         "title": "AttachEmergencyRequest",
         "description": "Request to attach a Divera emergency to an Event.\n\n``merge_into_incident_id``: the operator answered «Zusammenführen» to the\nduplicate hint — the alarm becomes a Nachtrag on that open card instead of\na card of its own (services/duplicates.py; undoable with «Trennen»)."
+      },
+      "AttendancePlanUpdate": {
+        "properties": {
+          "planned_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned From"
+          },
+          "planned_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Until"
+          }
+        },
+        "type": "object",
+        "title": "AttendancePlanUpdate",
+        "description": "«kommt um» / «geht um» for one person at one Ereignis (`crud.set_attendance_plan`).\n\nA PATCH: only the fields sent change, and an explicit null clears one. The client\nresolves the typed «22:00» to an instant (it knows the station's clock and which day is\nmeant, `lib/planned-times.ts`), so the server stores what it is given – tz-aware only."
       },
       "AuditLogEntry": {
         "properties": {
@@ -23948,6 +24263,30 @@
             "title": "Checked In",
             "default": false
           },
+          "planned_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned From"
+          },
+          "planned_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Until"
+          },
           "functions": {
             "items": {
               "type": "string"
@@ -25134,7 +25473,7 @@
           "name"
         ],
         "title": "FeldVehicleLine",
-        "description": "One vehicle on the briefing: who drives it, whether it stays, whose it is.\n\nThe driver is a property of the Ereignis, not of the Schadenplatz — but\n«TLF 1» on its own left a crew standing at an address unable to answer who\nis sitting in it, and the driver is exactly the person they need when the\nvehicle has to be moved. `driver` is None when the KP has not named one.\n\nThe other two answer the question a crew actually asks about a vehicle on\ntheir slip — *kommt das mit?*:\n\n* ``stays`` is the board's driver-stay flag: False means the driver takes it\n  back to the Magazin once the crew is dropped off, True that it is parked\n  at the address for the duration.\n\n  **None when nobody can answer.** A route-level vehicle has no toggle —\n  ``GroupAssignmentUpdate`` carries ``is_leader`` and nothing else, so its\n  ``driver_stay`` column is whatever ``_mirror`` copied or the DB default,\n  and no operator can change it. Sending `False` there would print «fährt\n  zurück» on a phone as if somebody had decided it. An absent flag is not\n  the same statement as \"he is coming back\" — the same rule the board's own\n  `DriverStayGlyph` follows, where `undefined` draws nothing.\n* ``via_auftrag`` says the vehicle belongs to the **Auftrag**, so it is\n  shared across every stop of the route and comes along to the next one.\n  A vehicle booked on this Schadenplatz alone does not. `/feld` rendered\n  both identically, which is why a route's TLF read as if it belonged to\n  the one address the crew happened to be standing at."
+        "description": "One vehicle on the briefing: who drives it, whether it stays, whose it is.\n\nThe driver is a property of the Ereignis, not of the Schadenplatz — but\n«TLF 1» on its own left a crew standing at an address unable to answer who\nis sitting in it, and the driver is exactly the person they need when the\nvehicle has to be moved. `driver` is None when the KP has not named one.\n\nThe other two answer the question a crew actually asks about a vehicle on\ntheir slip — *kommt das mit?*:\n\n* ``stays`` is the board's driver-stay flag: False means the driver takes it\n  back to the Magazin once the crew is dropped off, True that it is parked\n  at the address for the duration.\n\n  **None when nobody can answer.** A route-level vehicle's ``driver_stay``\n  can be set in the dispatch gate since 19.11.2026, but a row nobody touched\n  there is whatever ``_mirror`` copied or the DB default, and nothing tells\n  the two apart. Sending `False` there would print «fährt zurück» on a phone\n  as if somebody had decided it. An absent flag is not\n  the same statement as \"he is coming back\" — the same rule the board's own\n  `DriverStayGlyph` follows, where `undefined` draws nothing.\n* ``via_auftrag`` says the vehicle belongs to the **Auftrag**, so it is\n  shared across every stop of the route and comes along to the next one.\n  A vehicle booked on this Schadenplatz alone does not. `/feld` rendered\n  both identically, which is why a route's TLF read as if it belonged to\n  the one address the crew happened to be standing at."
       },
       "FieldReportState": {
         "properties": {
@@ -25983,6 +26322,17 @@
       },
       "GroupAssignmentUpdate": {
         "properties": {
+          "driver_stay": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver Stay"
+          },
           "is_leader": {
             "anyOf": [
               {
@@ -29340,7 +29690,8 @@
           "field_message",
           "field_pickup",
           "field_report",
-          "feld_code_rotated"
+          "feld_code_rotated",
+          "personnel_leaving"
         ],
         "title": "NotificationType",
         "description": "Notification types.\n\nMust stay in sync with the ``valid_notification_type`` CHECK constraint on\n``models.Notification`` — this enum is the response model, so a type the DB\nhappily stores but this enum does not know is not a missing bell entry: it\nis a ``ResponseValidationError`` that fails the WHOLE ``GET /notifications``\nresponse and blanks the operator's bell. That is exactly how the five\n``/feld`` types (plan 25) went missing."
@@ -29466,6 +29817,30 @@
               }
             ],
             "title": "Checked Out At"
+          },
+          "planned_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned From"
+          },
+          "planned_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Until"
           },
           "created_at": {
             "type": "string",
@@ -29642,6 +30017,30 @@
             ],
             "title": "Checked Out At"
           },
+          "planned_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned From"
+          },
+          "planned_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Until"
+          },
           "is_assigned": {
             "type": "boolean",
             "title": "Is Assigned",
@@ -29715,6 +30114,18 @@
               }
             ],
             "title": "Tags"
+          },
+          "guest_event_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guest Event Id"
           }
         },
         "type": "object",
@@ -29723,7 +30134,7 @@
           "status"
         ],
         "title": "PersonnelCreate",
-        "description": "Schema for creating personnel."
+        "description": "Schema for creating personnel.\n\n``guest_event_id`` makes the person a guest of that Ereignis instead of a roster member\n(the walk-in «Person hinzufügen»; `models.Personnel.guest_event_id`). Set once, here."
       },
       "PersonnelListItem": {
         "properties": {
@@ -29804,6 +30215,30 @@
               }
             ],
             "title": "Checked Out At"
+          },
+          "planned_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned From"
+          },
+          "planned_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Until"
           },
           "is_assigned": {
             "type": "boolean",
@@ -31347,6 +31782,46 @@
         ],
         "title": "RekoOpenAssignmentInfo",
         "description": "Where a Reko person's open work is (for the assign dialog)."
+      },
+      "RekoOrderRequest": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "ordered_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Ordered Ids"
+          },
+          "expected_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Ids",
+            "description": "Apply only if the person still holds exactly these Rekos (as a set); else 409."
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "ordered_ids"
+        ],
+        "title": "RekoOrderRequest",
+        "description": "Reorder a Reko person's Rekos (Einsatz ids) in one Ereignis.\n\n``expected_ids`` makes the write conditional, like ``GroupStopsReorder``: applied only\nwhile the person still holds exactly these Rekos (as a set), else 409. The Reko-Modus\nsends the list it showed, so a drag can never re-insert a Reko somebody released or\nhanded over meanwhile, nor order one it never saw."
       },
       "RekoReportCreate": {
         "properties": {
@@ -33352,6 +33827,66 @@
         "title": "Vehicle",
         "description": "Full vehicle schema with database fields.\n\nThree independent axes, so the board never has to guess a state:\n`out_of_service` (readiness), `archived_at` (lifecycle), and deployment —\nwhich lives in incident_assignments and is per-event, so it stays with the\ncaller that knows which Ereignis is on screen. Precedence for rendering:\nout_of_service beats assigned beats available."
       },
+      "VehicleAuftragDeployment": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "auftrag",
+            "title": "Kind",
+            "default": "auftrag"
+          },
+          "group_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Group Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incident Id"
+          },
+          "assigned_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Assigned At"
+          },
+          "duration_minutes": {
+            "type": "integer",
+            "title": "Duration Minutes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "group_id",
+          "name",
+          "assigned_at",
+          "duration_minutes"
+        ],
+        "title": "VehicleAuftragDeployment",
+        "description": "An Auftrag (route) a vehicle drives right now (an active route assignment)."
+      },
       "VehicleCreate": {
         "properties": {
           "name": {
@@ -33398,6 +33933,70 @@
         ],
         "title": "VehicleCreate",
         "description": "Schema for creating vehicle."
+      },
+      "VehicleEinsatzDeployment": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "einsatz",
+            "title": "Kind",
+            "default": "einsatz"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "location_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Display"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "assigned_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Assigned At"
+          },
+          "duration_minutes": {
+            "type": "integer",
+            "title": "Duration Minutes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "title",
+          "status",
+          "assigned_at",
+          "duration_minutes"
+        ],
+        "title": "VehicleEinsatzDeployment",
+        "description": "An Einsatz a vehicle is on right now (an active incident assignment)."
       },
       "VehiclePositionResponse": {
         "properties": {
@@ -33552,84 +34151,27 @@
             ],
             "title": "Driver Assigned At"
           },
-          "incident_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
+          "deployments": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/VehicleAuftragDeployment"
+                },
+                {
+                  "$ref": "#/components/schemas/VehicleEinsatzDeployment"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "kind",
+                "mapping": {
+                  "auftrag": "#/components/schemas/VehicleAuftragDeployment",
+                  "einsatz": "#/components/schemas/VehicleEinsatzDeployment"
+                }
               }
-            ],
-            "title": "Incident Id"
-          },
-          "incident_title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Incident Title"
-          },
-          "incident_location_address": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Incident Location Address"
-          },
-          "incident_location_display": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Incident Location Display"
-          },
-          "incident_status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Incident Status"
-          },
-          "incident_assigned_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Incident Assigned At"
-          },
-          "assignment_duration_minutes": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Assignment Duration Minutes"
+            },
+            "type": "array",
+            "title": "Deployments",
+            "default": []
           }
         },
         "type": "object",
@@ -33641,7 +34183,7 @@
           "radio_call_sign"
         ],
         "title": "VehicleStatusResponse",
-        "description": "Vehicle status with driver and incident information.\n\nAnswers all three states for one vehicle in one call: `out_of_service` wins,\nthen `incident_id` (Im Einsatz), else Verfügbar."
+        "description": "Vehicle status with driver and every Auftrag and Einsatz it serves, for one event.\n\nAnswers all three states for one vehicle: `out_of_service` wins, then a\nnon-empty `deployments` (Im Einsatz), else Verfügbar. A vehicle can serve\nseveral Aufträge and Einsätze at once. `deployments`: its Aufträge first, then\nevery Einsatz it is assigned to directly – a stop of its own Auftrag included, a\ndirect assignment is a fact of its own – each oldest assignment first."
       },
       "VehicleTrailResponse": {
         "properties": {

@@ -41,7 +41,8 @@ export interface UseBoardCardActionsInput {
   vehicleTypes: { key: string; name: string; id: string; type: string; status: string; }[]
   deleteOperation: (operationId: string) => Promise<void>
   toggleDriverStay: (operationId: string, vehicleId: string) => void
-  triggerRekoFormCheck: (operationId: string, previousStatus?: OperationStatus) => void
+  /** Asked before a key moves a card – see `holdStatusMove` in incident-status-workflow. */
+  holdStatusMove: (operationId: string, targetStatus: OperationStatus) => boolean
   triggerRekoCheck: (operationId: string, previousStatus?: OperationStatus) => void
   promptMaterialDecision: (operationId: string, previousStatus?: OperationStatus) => void
   triggerReturningVehicleCheck: (operationId: string, previousStatus?: OperationStatus) => void
@@ -73,7 +74,7 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
     vehicleTypes,
     deleteOperation,
     toggleDriverStay,
-    triggerRekoFormCheck,
+    holdStatusMove,
     triggerRekoCheck,
     promptMaterialDecision,
     triggerReturningVehicleCheck,
@@ -179,15 +180,15 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
       const nextColumn = columns[currentColumnIndex + 1]
       const newStatus = nextColumn.status[0] as OperationStatus
       const previousStatus = operation.status
+      if (holdStatusMove(operationId, newStatus)) return
       updateOperation(operationId, { status: newStatus })
       notifyStatusMove(operation, newStatus)
       if (newStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
       if (newStatus === "reko") triggerRekoCheck(operationId, previousStatus)
-      if (newStatus === "reko_done") triggerRekoFormCheck(operationId, previousStatus)
       if (newStatus === "returning") triggerReturningVehicleCheck(operationId, previousStatus)
       if (newStatus === "complete") promptMaterialDecision(operationId, previousStatus)
     }
-  }, [operations, updateOperation, notifyStatusMove, triggerDisponiertDialog, triggerRekoCheck, triggerRekoFormCheck, triggerReturningVehicleCheck, promptMaterialDecision])
+  }, [operations, updateOperation, notifyStatusMove, holdStatusMove, triggerDisponiertDialog, triggerRekoCheck, triggerReturningVehicleCheck, promptMaterialDecision])
 
   const moveOperationLeft = useCallback((operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
@@ -205,6 +206,24 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
       if (newStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
     }
   }, [operations, updateOperation, notifyStatusMove, triggerDisponiertDialog])
+
+  // Doppelbelegung across Aufträge and Einsätze — see use-assignment-conflicts.
+  const {
+    assignVehicleToGroupWithConflict,
+    groupsHolding,
+    releaseFromGroups,
+    askRouteConflict,
+    assignVehicleToIncidentWithConflict,
+  } = useAssignmentConflicts({
+    vehicleTypes,
+    groups,
+    operations,
+    requestResourceConflict,
+    assignGroupResource,
+    unassignGroupResource,
+    removeVehicle,
+    assignVehicleToOperation,
+  })
 
   // Quick-assign (number keys / command palette) toggle of a vehicle onto an
   // incident. For a GROUPED incident the route owns resources, so route the
@@ -229,19 +248,26 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
         if (existing) {
           void release.releaseRouteResource(op.groupId, existing.assignmentId)
         } else {
-          assignGroupResource(op.groupId, "vehicle", vehicle.id)
-          notify(true)
+          // Held elsewhere → the Doppelbelegung question (#22); the toast only for an assign
+          // that went through.
+          void assignVehicleToGroupWithConflict(op.groupId, vehicle.id).then((assigned) => {
+            if (assigned) notify(true)
+          })
         }
         return
       }
       if (op.vehicles.some((v) => v.vehicleId === vehicle.id)) {
         void release.releaseVehicle(op.id, vehicle.id)
-      } else {
-        assignVehicleToOperation(vehicle.id, vehicle.name, op.id)
-        notify(true)
+        return
       }
+      // The same question as the picker and a drop: an Auftrag holding the vehicle asks
+      // «als Stopp aufnehmen?», another Einsatz holding it asks «auf beiden führen?».
+      // A question is its own receipt – the toast is for an assign that just happened.
+      const heldByEinsatz = operations.some((other) => other.id !== op.id && other.vehicles.some((v) => v.vehicleId === vehicle.id))
+      const asked = assignVehicleToIncidentWithConflict(vehicle.id, vehicle.name, op.id)
+      if (!asked && !heldByEinsatz) notify(true)
     },
-    [getGroupResources, release, assignGroupResource, assignVehicleToOperation, tCommon],
+    [getGroupResources, release, assignVehicleToGroupWithConflict, assignVehicleToIncidentWithConflict, operations, tCommon],
   )
 
   /** Priority by keystroke — the card only shows it as a small chevron, so the
@@ -266,6 +292,8 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
     const next = !operation.zuFuss
     updateOperation(operationId, { zuFuss: next })
     undoToast(tCommon(next ? 'zuFussOnToast' : 'zuFussOffToast', { name: getIncidentLocationLabel(operation) }), {
+      // One toast per Einsatz: pressing 0 again replaces it rather than stacking.
+      key: `zu-fuss:${operationId}`,
       onUndo: () => updateOperation(operationId, { zuFuss: !next }),
     })
   }, [operations, updateOperation, tCommon])
@@ -279,6 +307,8 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
     const next = !(vehicle.driverStay ?? false)
     toggleDriverStay(operationId, vehicleId)
     undoToast(tCommon(next ? 'driverStaysToast' : 'driverReturnsToast', { vehicle: vehicle.name }), {
+      // One toast per vehicle assignment: clicking the pill again replaces it rather than stacking.
+      key: `driver-stay:${operationId}:${vehicleId}`,
       description: tCommon('driverStayToastHint'),
       onUndo: () => toggleDriverStay(operationId, vehicleId),
     })
@@ -294,24 +324,6 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
       toast.error(tCommon('deleteFailed'))
     }
   }, [deleteOperation, tCommon])
-
-  // Doppelbelegung across Aufträge and Einsätze — see use-assignment-conflicts.
-  const {
-    assignVehicleToGroupWithConflict,
-    groupsHolding,
-    releaseFromGroups,
-    askRouteConflict,
-    assignVehicleToIncidentWithConflict,
-  } = useAssignmentConflicts({
-    vehicleTypes,
-    groups,
-    operations,
-    requestResourceConflict,
-    assignGroupResource,
-    unassignGroupResource,
-    removeVehicle,
-    assignVehicleToOperation,
-  })
 
   return {
     setRouteStopStatus,

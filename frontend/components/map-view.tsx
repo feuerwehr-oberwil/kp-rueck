@@ -23,6 +23,7 @@ import { BaseMap } from "./map/base-map"
 import { MapTooltip } from "./map/map-tooltip"
 import { VehicleSpotMarker, pillTexts } from "./map/vehicle-marker"
 import { GroupRoutes } from "./map/group-routes"
+import { RekoRouteLine, type RekoRoute } from "./map/reko-route"
 import { STATUS_TO_GROUP, STATUS_GROUP_BORDER_STYLE } from "@/lib/types/incidents"
 import type { ApiVehiclePosition, ApiVehicle } from "@/lib/api-client"
 import { MapLegend } from "./map-legend"
@@ -40,7 +41,7 @@ import { PinCountBadge, pinBadgeCircle } from "./map/pin-count-badge"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { VehicleTrails } from "./map/vehicle-trails"
-import { ChevronDown, Maximize, AlertTriangle, Truck, Users, X } from "lucide-react"
+import { ChevronDown, Maximize, AlertTriangle, Truck, Users, Warehouse, X } from "lucide-react"
 import { usePathname } from "next/navigation"
 import {
   GPS_STALE_SETTING,
@@ -104,12 +105,16 @@ function IncidentPin({
   highlighted,
   compact,
   accentColor,
+  sequence,
   ariaLabel,
   expanded,
   onActivate,
 }: {
   incident: Incident
   highlighted: boolean
+  /** Its place in the selected Reko person's order (Reko-Modus): the number replaces the
+   *  priority glyph, as the Auftrag pins carry theirs (mock 2a, 19.11.2026). */
+  sequence?: number
   /** Phone geometry (`STATUS_RING.phone`): 3px frame, spaced dashes / round dots. */
   compact: boolean
   accentColor?: string | null
@@ -178,15 +183,30 @@ function IncidentPin({
         filter={`url(#${shadowId})`}
       />
 
-      {/* Priority glyph: ▲ Hoch, – Mittel, ▼ Niedrig, as on the board's cards. */}
-      <path
-        d={priorityGlyphPath(incident.priority, rings.r, rings.r, size / 24)}
-        fill="none"
-        stroke={markerGlyphInk(fillColor)}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      {/* Priority glyph: ▲ Hoch, – Mittel, ▼ Niedrig, as on the board's cards – or, in the
+          Reko-Modus, the pin's number in its person's order. */}
+      {sequence !== undefined ? (
+        <text
+          x={rings.r}
+          y={rings.r}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill={markerGlyphInk(fillColor)}
+          fontSize={size * 0.42}
+          fontWeight={700}
+        >
+          {sequence}
+        </text>
+      ) : (
+        <path
+          d={priorityGlyphPath(incident.priority, rings.r, rings.r, size / 24)}
+          fill="none"
+          stroke={markerGlyphInk(fillColor)}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
 
       {/* Status border ring (outer) */}
       <circle
@@ -238,6 +258,7 @@ function IncidentMarker({
   highlighted,
   compact,
   accentColor,
+  sequence,
   count = 1,
   ariaLabel,
   expanded,
@@ -252,6 +273,8 @@ function IncidentMarker({
   /** Phone geometry – see IncidentPin. */
   compact: boolean
   accentColor?: string | null
+  /** Reko-Modus order number – see IncidentPin. */
+  sequence?: number
   /** Incidents at this spot: from 2 on the pin wears the count badge. */
   count?: number
   ariaLabel?: string
@@ -288,6 +311,7 @@ function IncidentMarker({
           highlighted={highlighted}
           compact={compact}
           accentColor={accentColor}
+          sequence={sequence}
           ariaLabel={ariaLabel}
           expanded={expanded}
           onActivate={onSelect}
@@ -320,16 +344,19 @@ function pillStyle(background: string, width: number | string): CSSProperties {
   }
 }
 
-/** A round marker carrying a single glyph — the firestation and the Magazin/GPS homebase. */
+/** A marker carrying a single glyph — the firestation (⌂) and the Magazin/GPS homebase
+ *  (lucide `Warehouse`, owner pick 19.11.2026, #17 A). */
 function GlyphMarker({
   coordinates,
   label,
   style,
   gap,
+  glyph,
 }: {
   coordinates: LatLngPoint
   label: string
   style: CSSProperties
+  glyph: ReactNode
   /** Anchor → tooltip edge. Half the glyph's height plus Leaflet's arrow margin. */
   gap: number
 }) {
@@ -346,7 +373,7 @@ function GlyphMarker({
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <div style={style}>⌂</div>
+        <div style={style}>{glyph}</div>
         {hovered && (
           <MapTooltip side="top" gap={gap}>
             <span>{label}</span>
@@ -371,11 +398,12 @@ const FIRESTATION_STYLE: CSSProperties = {
   fontSize: 14,
 }
 
-// Magazin (GPS-Heimatbasis) — a little home icon shaped like the vehicle pills so it reads as
-// "where the vehicles live", in the station ink rather than their blue: blue is the Auftrag's
-// (and a reporting vehicle's), and a blue ⌂ read as part of a route (hill climb r18). Only
-// rendered when gps.station_lat/lng are set (Settings → GPS).
-const MAGAZIN_STYLE: CSSProperties = { ...pillStyle(MAP_COLORS.station, 24), fontSize: 14 }
+// Magazin (GPS-Heimatbasis) — a hall with a door (lucide Warehouse, #17 A) on a pill shaped like
+// the vehicle pills so it reads as "where the vehicles live", in the station ink rather than their
+// blue: blue is the Auftrag's (and a reporting vehicle's), and a blue glyph read as part of a
+// route (hill climb r18). Only rendered when gps.station_lat/lng are set (Settings → GPS).
+// No side padding: the pill is 24 px wide, and 8 px a side left the 14 px icon 4 px to shrink into.
+const MAGAZIN_STYLE: CSSProperties = { ...pillStyle(MAP_COLORS.station, 24), fontSize: 14, padding: 0 }
 
 // --- Permanent labels -------------------------------------------------------
 
@@ -1089,8 +1117,12 @@ function usePanToSelected(
     const clamped = Math.min(Math.max(map.getZoom(), MIN_FOCUS_ZOOM), MAX_FOCUS_ZOOM)
     const center: [number, number] = [incident.location_lng, incident.location_lat]
     // Measured before the flight, at the current zoom: the card is screen-sized, so its box
-    // around the pin is the same at the zoom the flight ends on.
-    map.flyTo({ center, zoom: clamped, offset: focusOffsetFor(center), duration: 800 })
+    // around the pin is the same at the zoom the flight ends on. Left OUT when there is none:
+    // MapLibre spreads the options over its `offset: [0, 0]`, so an explicit `undefined` wins
+    // and `Point.convert(undefined)` throws – the «Kartenfehler» on every desktop hop from a
+    // selected card to the map (19.11.2026).
+    const offset = focusOffsetFor(center)
+    map.flyTo({ center, zoom: clamped, ...(offset ? { offset } : {}), duration: 800 })
   }, [map, selectedIncidentId, trigger])
 }
 
@@ -1259,7 +1291,9 @@ interface MapViewProps {
   focusVehicleName?: string | null // Vehicle name to zoom to (keys 1-5)
   focusVehicleTrigger?: number // Counter to re-trigger zoom to the same vehicle
   markerAccents?: Map<string, string> // incidentId -> fill colour ("Färben nach")
-  highlightIncidentIds?: Set<string> // extra enlarged/pulsing markers (Reko-Modus)
+  /** Reko-Modus: the selected person's open Rekos in their order – enlarged pins with their
+   *  number inside, joined by a dotted line in the person's colour (`map/reko-route.tsx`). */
+  rekoRoute?: RekoRoute | null
   colorBy?: ColorByDimension // active "Färben nach" dimension (for the legend)
   colorGroups?: ColorGroup[] // legend entries for the active dimension
   // Aufträge (incident group) routes — read-only polyline display + Routenplanung.
@@ -1316,7 +1350,7 @@ export default function MapView({
   focusVehicleName = null,
   focusVehicleTrigger = 0,
   markerAccents,
-  highlightIncidentIds,
+  rekoRoute = null,
   colorBy = "priority",
   colorGroups = [],
   showGroupRoutes = false,
@@ -1351,8 +1385,10 @@ export default function MapView({
   const stationSettings = tokenMode ? NO_SETTINGS : boardSettings
   const firestationName = stationSettings.firestation_name || t('view.firestationFallback')
   const firestationCoords = useMemo<LatLngPoint>(() => {
-    const { firestation_latitude: lat, firestation_longitude: lng } = stationSettings
-    return lat && lng ? [parseFloat(lat), parseFloat(lng)] : DEFAULT_CENTER_LATLNG
+    // Finite or the default: a NaN here reaches the station <Marker>, whose render throws.
+    const lat = parseFloat(stationSettings.firestation_latitude ?? "")
+    const lng = parseFloat(stationSettings.firestation_longitude ?? "")
+    return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : DEFAULT_CENTER_LATLNG
   }, [stationSettings])
   const firestationSettingsReady = boardLoaded
   // Magazin/homebase — null until configured. Same merge as the backend's
@@ -1525,13 +1561,25 @@ export default function MapView({
   // (`lib/map-spots.ts`); the pin's list picks one of them.
   const spots = useMemo(() => groupSpots(mappableIncidents), [mappableIncidents])
   const compactMap = useCompactMap()
+  // The Reko-Modus order: incident id → its number (1-based), and the dotted line's points.
+  const rekoSequence = useMemo(
+    () => new Map((rekoRoute?.incidentIds ?? []).map((id, index) => [id, index + 1])),
+    [rekoRoute],
+  )
+  const rekoRoutePoints = useMemo(() => {
+    const byId = new Map(mappableIncidents.map((inc) => [inc.id, inc]))
+    return (rekoRoute?.incidentIds ?? []).flatMap((id): [number, number][] => {
+      const inc = byId.get(id)
+      return inc ? [[inc.location_lat!, inc.location_lng!]] : []
+    })
+  }, [rekoRoute, mappableIncidents])
   // Below street level overlapping pins merge into count bubbles, phone and desktop. The selected
   // and the Reko-highlighted incidents stay pins – they are what the operator is looking for.
   const keepApart = useMemo(() => {
-    const ids = new Set(highlightIncidentIds ?? [])
+    const ids = new Set(rekoSequence.keys())
     if (selectedIncidentId) ids.add(selectedIncidentId)
     return ids
-  }, [highlightIncidentIds, selectedIncidentId])
+  }, [rekoSequence, selectedIncidentId])
   const clusters = usePinClusters(map, spots, keepApart, compactMap)
   const clusteredKeys = useMemo(() => new Set(clusters.flatMap((cluster) => cluster.spotKeys)), [clusters])
   // Every label hangs on its own pin. A label whose right side is taken flips to the left of its
@@ -1765,6 +1813,9 @@ export default function MapView({
           groupResourcesFor={groupResourcesFor}
         />
 
+        {/* The Reko-Modus order: a dotted line through the selected person's Rekos. */}
+        <RekoRouteLine color={rekoRoute?.color ?? null} points={rekoRoutePoints} />
+
         {/* Vehicle breadcrumb trails */}
         <VehicleTrails enabled={traccarConfigured} pauseWhenHidden={!unattended} />
 
@@ -1774,6 +1825,7 @@ export default function MapView({
           label={firestationName}
           style={FIRESTATION_STYLE}
           gap={TOOLTIP_ARROW + 12}
+          glyph="⌂"
         />
 
         {/* Magazin (GPS-Heimatbasis) marker */}
@@ -1783,6 +1835,7 @@ export default function MapView({
             label={t('view.magazin')}
             style={MAGAZIN_STYLE}
             gap={TOOLTIP_ARROW + PILL_HEIGHT / 2}
+            glyph={<Warehouse aria-hidden className="size-3.5 shrink-0" strokeWidth={2.25} />}
           />
         )}
 
@@ -1816,8 +1869,12 @@ export default function MapView({
           const incident = spot.lead
           const shared = spot.incidents.length > 1
           const selectedHere = spot.incidents.some((member) => member.id === selectedIncidentId)
-          const isHighlighted =
-            selectedHere || spot.incidents.some((member) => highlightIncidentIds?.has(member.id) ?? false)
+          const isHighlighted = selectedHere || spot.incidents.some((member) => rekoSequence.has(member.id))
+          // A shared pin shows the first number among its Einsätze.
+          const sequence = spot.incidents.reduce<number | undefined>((first, member) => {
+            const n = rekoSequence.get(member.id)
+            return n !== undefined && (first === undefined || n < first) ? n : first
+          }, undefined)
           const pointedAt = hoveredSpotKey === spot.key
           const shortAddress = shortAddressOf(incident)
           // A permanent label by the surface's rule — or this pin's own, because it is the
@@ -1851,6 +1908,7 @@ export default function MapView({
                   highlighted={isHighlighted}
                   compact={compactMap}
                   accentColor={accentColor}
+                  sequence={sequence}
                   count={spot.incidents.length}
                   ariaLabel={ariaLabel}
                   expanded={open}
@@ -1923,6 +1981,7 @@ export default function MapView({
                 highlighted={isHighlighted}
                 compact={compactMap}
                 accentColor={accentColor}
+                sequence={sequence}
                 // Two markers a few metres apart overlap; the one being pointed at (or
                 // selected) belongs on top, the rest by priority – not by DOM order – and
                 // above every resting label (see Z in lib/map-view.ts).

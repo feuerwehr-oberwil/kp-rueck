@@ -317,7 +317,7 @@ async def _build_board_payload(
     )
     checked_in_count = checked_in_result.scalar() or 0
 
-    total_personnel_result = await db.execute(select(func.count(Personnel.id)))
+    total_personnel_result = await db.execute(select(func.count(Personnel.id)).where(Personnel.in_scope(event_id)))
     total_personnel = total_personnel_result.scalar() or 0
 
     # Get individual checked-in personnel for detailed listing

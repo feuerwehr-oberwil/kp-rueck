@@ -1,7 +1,7 @@
 import { type Operation, type OperationStatus } from "./contexts/operations-context"
 import { getIncidentTypeLabel } from "./incident-types"
 import { PRIORITY_COLORS, isPriority } from "./priority"
-import { GROUP_PALETTE, INCIDENT_TYPE_MARKER_COLORS, MAP_NONE, darkenForWhiteText } from "./map-colors"
+import { GROUP_PALETTE, INCIDENT_TYPE_MARKER_COLORS, MAP_NONE, REKO_PALETTE, darkenForWhiteText } from "./map-colors"
 import { formatDurationSince } from "./duration"
 import { translateOutsideReact } from "./i18n-messages"
 
@@ -258,14 +258,38 @@ export function auftragColor(groupId: string, stored?: string | null): string {
   return darkenForWhiteText(stored || ACCENT_PALETTE[hashString(groupId) % ACCENT_PALETTE.length])
 }
 
+/**
+ * Each Reko person's turn in `REKO_PALETTE`: their place among the Ereignis's Reko
+ * functions, in the order the server lists them (first assigned first). Pass the event's
+ * special functions (board: `useOperations().specialFunctions`, wall: the share payload's).
+ */
+export function rekoColorOrder(
+  functions: readonly { personnel_id: string; function_type: string }[],
+): ReadonlyMap<string, number> {
+  const order = new Map<string, number>()
+  for (const fn of functions) {
+    if (fn.function_type === "reko" && !order.has(fn.personnel_id)) order.set(fn.personnel_id, order.size)
+  }
+  return order
+}
+
+/** A Reko person's map colour: their turn in `rekoColorOrder` (without it: a hashed tone).
+ *  The pins, the Reko-Modus dropdown and the dotted order line all take it from here. */
+export function rekoPersonColor(personId: string, rekoOrder?: ReadonlyMap<string, number>): string {
+  const turn = rekoOrder?.get(personId) ?? hashString(personId)
+  return REKO_PALETTE[turn % REKO_PALETTE.length]
+}
+
 /** The colour group an operation belongs to for the chosen dimension, or null
  *  when it has no value there (e.g. no Reko / no Auftrag assigned). For the
  *  "auftrag" dimension pass the event's groups so the label/colour resolve to
- *  the route's name + colour. */
+ *  the route's name + colour; for "reko" the `rekoColorOrder`, so no two Reko
+ *  people share a colour while the palette lasts (without it: a hashed tone). */
 export function colorGroupFor(
   operation: Operation,
   dimension: ColorByDimension,
   groups?: ColorGroupSource[],
+  rekoOrder?: ReadonlyMap<string, number>,
 ): ColorGroup | null {
   let key: string | undefined
   let label: string | undefined
@@ -298,6 +322,7 @@ export function colorGroupFor(
       return null
   }
   if (!key) return null
+  if (dimension === "reko") return { key, label: label ?? key, color: rekoPersonColor(key, rekoOrder) }
   return { key, label: label ?? key, color: colorAccent(hueKey ?? key, dimension, groups) }
 }
 

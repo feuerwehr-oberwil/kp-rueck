@@ -21,7 +21,7 @@
 
 import { useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
-import { AlertTriangle, Home, MapPin, Plus, Route as RouteIcon, Truck, X } from "lucide-react"
+import { AlertTriangle, MapPin, Plus, Route as RouteIcon, Truck, Warehouse, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Input } from "@/components/ui/input"
@@ -281,7 +281,7 @@ export function RoutenplanungPanel({
             <ol className="@container">
               {displayOrder.length > 0 && <RouteStartItem planning={planning} lastRun={optimizeAction.lastRun} />}
               <RouteStopList
-                groupId={group.id}
+                listId={group.id}
                 stopIds={stopIds}
                 displayOrder={displayOrder}
                 operationsById={operationsById}
@@ -356,7 +356,7 @@ function RouteStartItem({
     ? describeRouteStart(lastRun.start, tStart, Date.now(), locale)
     : describeStartOption("magazin", planning.anchors, tStart, Date.now(), locale)
   const mode = lastRun?.start.mode ?? "magazin"
-  const Icon = mode === "vehicle" ? Truck : mode === "first" ? MapPin : Home
+  const Icon = mode === "vehicle" ? Truck : mode === "first" ? MapPin : Warehouse
   return (
     <RouteTimelineItem>
       <div className={TIMELINE_ROW}>
