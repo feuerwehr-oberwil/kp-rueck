@@ -28,6 +28,8 @@ vi.mock('@/lib/api-client', () => ({
   },
 }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+const board = vi.hoisted(() => ({ operations: [] as unknown[], personnel: [] as unknown[] }))
+vi.mock('@/lib/contexts/operations-context', () => ({ useOperations: () => board }))
 
 import { GpsArrivalPrompt } from '@/components/gps-arrival-prompt'
 import { GpsReleasePrompt } from '@/components/gps-release-prompt'
@@ -36,6 +38,7 @@ afterEach(() => {
   cleanup()
   handlers.clear()
   phone.current = false
+  board.operations = []
 })
 
 const PROMPTS = [
@@ -62,5 +65,29 @@ describe.each(PROMPTS)('%s', (_name, Prompt, event) => {
     expect(handlers.has(event)).toBe(false)
     await broadcast()
     expect(screen.queryByRole('alertdialog')).toBeNull()
+  })
+})
+
+// Owner pick #21: «Nur TLF freigeben» is the main answer unless TLF is all that is left.
+describe('GpsReleasePrompt main answer', () => {
+  const broadcast = async () => {
+    await act(async () => {
+      await handlers.get('gps_release_prompt')?.({ assignment_id: 'a1', incident_id: 'i1', vehicle_id: 'v-tlf', vehicle_name: 'TLF' })
+    })
+  }
+  const tlf = { vehicleId: 'v-tlf', assignmentId: 'a1', name: 'TLF', callsign: null }
+
+  it('is «Nur TLF freigeben» while a crew is still on the Einsatz', async () => {
+    board.operations = [{ id: 'i1', vehicles: [tlf], crew: [{ personnelId: 'p-1', assignmentId: 'c1', name: 'Meier' }], materials: [] }]
+    renderWithIntl(<GpsReleasePrompt />)
+    await broadcast()
+    expect(screen.getByRole('button', { name: 'Nur TLF freigeben' })).toHaveFocus()
+  })
+
+  it('is «Einsatz abschliessen» when TLF is the last resource', async () => {
+    board.operations = [{ id: 'i1', vehicles: [tlf], crew: [], materials: [] }]
+    renderWithIntl(<GpsReleasePrompt />)
+    await broadcast()
+    expect(screen.getByRole('button', { name: 'Einsatz abschliessen' })).toHaveFocus()
   })
 })
