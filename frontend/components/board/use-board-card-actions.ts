@@ -288,6 +288,8 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
     const next = !operation.zuFuss
     updateOperation(operationId, { zuFuss: next })
     undoToast(tCommon(next ? 'zuFussOnToast' : 'zuFussOffToast', { name: getIncidentLocationLabel(operation) }), {
+      // One toast per Einsatz: pressing 0 again replaces it rather than stacking.
+      key: `zu-fuss:${operationId}`,
       onUndo: () => updateOperation(operationId, { zuFuss: !next }),
     })
   }, [operations, updateOperation, tCommon])
@@ -301,6 +303,8 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
     const next = !(vehicle.driverStay ?? false)
     toggleDriverStay(operationId, vehicleId)
     undoToast(tCommon(next ? 'driverStaysToast' : 'driverReturnsToast', { vehicle: vehicle.name }), {
+      // One toast per vehicle assignment: clicking the pill again replaces it rather than stacking.
+      key: `driver-stay:${operationId}:${vehicleId}`,
       description: tCommon('driverStayToastHint'),
       onUndo: () => toggleDriverStay(operationId, vehicleId),
     })
