@@ -117,6 +117,7 @@ erDiagram
     events ||--o{ incidents : contains
     events ||--o{ event_special_functions : has
     events ||--o{ event_attendance : "check-in"
+    events ||--o{ personnel : "guests (walk-ins)"
     events ||--o{ journal_entries : logs
     incidents ||--o{ field_requests : has
     incidents ||--o{ incident_assignments : has
@@ -155,6 +156,7 @@ erDiagram
         string role
         string status
         string tags
+        uuid guest_event_id FK "set = a guest of that Ereignis, not the roster"
     }
     vehicles {
         uuid id PK
@@ -500,6 +502,9 @@ At each transition:
 - WebSocket broadcasts the change to all connected clients
 - Entering **`complete`** automatically releases all assigned personnel, vehicles, and materials
   (`crud/assignments.auto_release_incident_resources`); moving back out restores them
+- Entering **`reko_done`** (or skipping past it) files the board's own Reko draft – the KP
+  Reko form saves as it goes and has no submit (`crud/reko.submit_kp_reko_drafts`). On a card
+  already there, the save that answers «Einsatz relevant?» files it (`api/reko._kp_draft_files_now`)
 
 ### Duplicates and merge
 

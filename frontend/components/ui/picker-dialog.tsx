@@ -18,6 +18,9 @@ import { useIsMobile } from '@/components/ui/use-mobile'
  * Appell sheets: a sheet sized to its list shrinks with every letter searched and the search
  * field slides away under the thumb. The sheet opens without focusing a field
  * (`ui/sheet.tsx`), so a picker must not `autoFocus` its search on the phone either.
+ *
+ * `radioGroupLabel` makes the list the `radiogroup` of single-choice tiles
+ * (`PersonPickTile single`); it names the group for a screen reader.
  */
 export function PickerDialog({
   open,
@@ -28,6 +31,7 @@ export function PickerDialog({
   children,
   footer,
   listTestId,
+  radioGroupLabel,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -37,9 +41,11 @@ export function PickerDialog({
   children: ReactNode
   footer: ReactNode
   listTestId?: string
+  radioGroupLabel?: string
 }) {
   const isMobile = useIsMobile()
   const fullDescription = typeof description === 'string' ? description : undefined
+  const listRole = radioGroupLabel ? { role: 'radiogroup', 'aria-label': radioGroupLabel } : {}
 
   if (isMobile) {
     return (
@@ -53,7 +59,7 @@ export function PickerDialog({
             <SheetDescription className="truncate text-xs" title={fullDescription}>{description}</SheetDescription>
           </SheetHeader>
           {toolbar && <div className="flex shrink-0 flex-col gap-3 px-4 pb-3">{toolbar}</div>}
-          <SheetBody data-testid={listTestId} className="space-y-2 px-4 pb-4">
+          <SheetBody data-testid={listTestId} {...listRole} className="space-y-2 px-4 pb-4">
             {children}
           </SheetBody>
           <SheetFooter className="mt-0 flex-row gap-2 border-t px-4 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">
@@ -72,7 +78,7 @@ export function PickerDialog({
           <DialogDescription className="truncate" title={fullDescription}>{description}</DialogDescription>
         </DialogHeader>
         {toolbar && <div className="flex shrink-0 flex-col gap-3 px-5 pb-3">{toolbar}</div>}
-        <div data-testid={listTestId} className="relative min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-5 pb-3">
+        <div data-testid={listTestId} {...listRole} className="relative min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-5 pb-3">
           {children}
         </div>
         <DialogFooter className="border-t px-5 py-3">{footer}</DialogFooter>

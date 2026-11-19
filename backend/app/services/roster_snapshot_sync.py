@@ -121,7 +121,14 @@ async def load_people(
     db: AsyncSession,
 ) -> tuple[list[LocalPerson], dict[str, Personnel], dict[tuple[str, str], PersonnelExternalIdentity]]:
     """Every person, oldest first, as the reconciliation sees them — plus the rows to write to."""
-    rows = list((await db.execute(select(Personnel).order_by(Personnel.created_at, Personnel.id))).scalars())
+    # The roster only: a guest of an Ereignis is nobody the published file speaks for.
+    rows = list(
+        (
+            await db.execute(
+                select(Personnel).where(Personnel.in_scope(None)).order_by(Personnel.created_at, Personnel.id)
+            )
+        ).scalars()
+    )
     by_person: dict[UUID, list[PersonnelExternalIdentity]] = {}
     ident_rows: dict[tuple[str, str], PersonnelExternalIdentity] = {}
     for ident in (await db.execute(select(PersonnelExternalIdentity))).scalars():

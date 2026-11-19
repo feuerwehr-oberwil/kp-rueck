@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { FormMessage } from "@/components/ui/form-message"
 import { ShellLoader } from "@/components/ui/shell-loader"
 import { PersonPickTile } from "@/components/kanban/assignment-list-section"
+import { einsatzWhere, usePersonTileFacts } from "@/components/kanban/person-tile-facts"
 import { type Person } from "@/lib/contexts/personnel-context"
 import { apiClient } from "@/lib/api-client"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -26,7 +27,8 @@ interface TransferRekoDialogProps {
 
 /**
  * «Rekos übertragen»: hand all open Reko-Aufträge of `fromPerson` to another person – the
- * other Reko people as person tiles (ENT-10 A), one to tick, «Übernehmen» transfers.
+ * other Reko people as person tiles (ENT-10 A) with their «where · roles» line, one to
+ * choose (radio dot), «Übernehmen» transfers.
  * «Person als Reko markieren» lists the checked-in people who are not Reko yet; the ticked
  * one is marked first, then gets the Rekos. A bottom sheet on the phone (`PickerDialog`).
  */
@@ -41,13 +43,14 @@ export function TransferRekoDialog({
   const tAssign = useTranslations('incidents.assignReko')
   const tPick = useTranslations('common.personPick')
   const { selectedEvent } = useEvent()
-  const { personnel, refreshOperations } = useOperations()
+  const { personnel, operations, refreshOperations } = useOperations()
+  const factsOf = usePersonTileFacts()
   const [isTransferring, setIsTransferring] = useState(false)
   const [markMode, setMarkMode] = useState(false)
   const [chosenId, setChosenId] = useState<string | null>(null)
   const [pickMessage, setPickMessage] = useState<string | null>(null)
   const [uncertainPersonnelIds, setUncertainPersonnelIds] = useState<ReadonlySet<string>>(new Set())
-  const mark = useRekoCandidatePicker({ personnel, excludedPersonnelIds: uncertainPersonnelIds, disabled: isTransferring })
+  const mark = useRekoCandidatePicker({ personnel, operations, excludedPersonnelIds: uncertainPersonnelIds, disabled: isTransferring })
   const resetMark = mark.reset
 
   useEffect(() => {
@@ -140,6 +143,7 @@ export function TransferRekoDialog({
       onOpenChange={onOpenChange}
       title={markMode ? tAssign('markExisting') : t('transferReko.title')}
       description={t('transferReko.description', { name: fromPerson.name })}
+      radioGroupLabel={markMode ? tAssign('markExisting') : t('transferReko.title')}
       toolbar={
         <>
           {markMode ? (
@@ -173,20 +177,28 @@ export function TransferRekoDialog({
       ) : targetOptions.length === 0 ? (
         <EmptyState compact title={t('transferReko.noOthers')} />
       ) : (
-        targetOptions.map((person) => (
-          <PersonPickTile
-            key={person.id}
-            name={person.name}
-            personnelId={person.id}
-            rank={person.role}
-            checked={chosenId === person.id}
-            disabled={isTransferring}
-            onClick={() => {
-              setChosenId((current) => (current === person.id ? null : person.id))
-              setPickMessage(null)
-            }}
-          />
-        ))
+        targetOptions.map((person) => {
+          // Every target is Reko – «Reko» on each tile would say nothing.
+          const { where, roles } = factsOf(person, { elsewhere: einsatzWhere(person.id, operations), omitReko: true })
+          return (
+            <PersonPickTile
+              key={person.id}
+              name={person.name}
+              personnelId={person.id}
+              kennung={person.kennung ?? null}
+              rank={person.role}
+              where={where}
+              roles={roles}
+              single
+              checked={chosenId === person.id}
+              disabled={isTransferring}
+              onClick={() => {
+                setChosenId((current) => (current === person.id ? null : person.id))
+                setPickMessage(null)
+              }}
+            />
+          )
+        })
       )}
     </PickerDialog>
   )

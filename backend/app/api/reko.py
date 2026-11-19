@@ -135,6 +135,22 @@ async def _token_door_id(db: AsyncSession, token: str | None, incident_id: uuid.
     return incident_id
 
 
+async def _kp_draft_files_now(db: AsyncSession, report: RekoReport, update: schemas.RekoReportUpdate) -> bool:
+    """Whether this board save files the operator's KP draft (owner picks 19.11.2026).
+
+    Before «Reko abgeschlossen» the card's move files it (`crud.submit_kp_reko_drafts`). On a
+    card already there or past it, the moment «Einsatz relevant?» is answered (Ja or Nein) –
+    in this save or an earlier one – not on the first save of any other field.
+    """
+    if not crud.is_kp_draft(report):
+        return False
+    relevant = update.is_relevant if "is_relevant" in update.model_fields_set else report.is_relevant
+    if relevant is None:
+        return False
+    status = await db.scalar(select(Incident.status).where(Incident.id == report.incident_id))
+    return status in crud.REKO_DONE_STATUSES
+
+
 @router.get("/form", response_model=schemas.RekoReportResponse)
 async def get_reko_form(
     incident_id: uuid.UUID = Query(...),
@@ -257,6 +273,9 @@ async def submit_reko_report(
     update_data = schemas.RekoReportUpdate(
         **report_data.model_dump(exclude={"incident_id", "token"}, exclude_unset=True)
     )
+    # The board's report is a draft until it is filed (`_kp_draft_files_now`).
+    if user is not None and not submit and await _kp_draft_files_now(db, report, update_data):
+        submit = True
     if (
         field_token
         and not submit
@@ -354,12 +373,20 @@ async def update_report(
         ):
             raise CodedHTTPException(403, ErrorCode.REKO_REPORT_NO_ACCESS, "Kein Zugriff auf diesen Bericht.")
 
+    # The board's draft may be filed by this save (`_kp_draft_files_now`), with the side
+    # effects a filing has.
+    files_kp_draft = user is not None and crud.is_kp_draft(existing)
+    if files_kp_draft and not submit:
+        submit = await _kp_draft_files_now(db, existing, update_data)
+
     try:
         updated = await crud.update_reko_report(db, report_id, update_data, submit=submit, user=user)
 
         # Fetch incident title
         incident_result = await db.execute(select(Incident).where(Incident.id == updated.incident_id))
         incident = incident_result.scalar_one_or_none()
+        if incident and files_kp_draft and not updated.is_draft:
+            await crud.process_reko_submission(db, incident, updated)
 
         # Convert to response schema with incident details
         response_data = schemas.RekoReportResponse.model_validate(updated)
@@ -370,8 +397,9 @@ async def update_report(
             response_data.incident_description = incident.description
             response_data.incident_contact = incident.contact
 
-        # Broadcast reko update
-        if submit:
+        # Broadcast reko update – also for an amendment of a filed report (the board's
+        # Reko form saves every field at once): other boards show filed reports only.
+        if submit or not updated.is_draft:
             background_tasks.add_task(
                 broadcast_reko_update,
                 {"incident_id": str(updated.incident_id)},

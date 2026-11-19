@@ -9,7 +9,7 @@ import { useIsMobile } from "@/components/ui/use-mobile"
 import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { AlertTriangle, Truck, Footprints, Binoculars, Package2, Phone, MonitorCog, MapPin, Undo2, Ban, SlidersHorizontal, X } from "lucide-react"
+import { AlertTriangle, Truck, Footprints, MapPin, Undo2, Ban, SlidersHorizontal, X } from "lucide-react"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { EmptyState, type EmptyStateAction } from "@/components/ui/empty-state"
 import {
@@ -34,7 +34,8 @@ import { getIncidentLocationLabel, getIncidentRefLabel, getIncidentRefParts } fr
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { cn } from "@/lib/utils"
-import { ElsewhereNote, ListSection, type OccupancyLabel, PersonPickTile, TileCheck, type TileRole, TILE_GRID, TILE_HOVER, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
+import { usePersonTileFacts } from "@/components/kanban/person-tile-facts"
+import { ElsewhereNote, ListSection, type OccupancyLabel, PersonPickTile, type PersonWhere, TileCheck, TILE_GRID, TILE_HOVER, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
 import {
   MaterialAssignmentList,
   MaterialTypeChips,
@@ -248,21 +249,14 @@ export function ResourceAssignmentDialog({
    * «Reko», and somebody on a Schadenplatz read as «Im Einsatz» with no hint
    * that taking them also takes the fleet's only driver. The driver's label
    * names the VEHICLE, because «Fahrer» alone raises the question it answers.
-   *
-   *
-   * `place` marks a role that says where the person IS (Reko, Magazin, …): the
-   * first one is the tile's amber where-note when the person is on no
-   * Einsatz/Auftrag. The driven vehicle is not a place; it comes last, muted
-   * (`PersonTileLine`).
+   * The rule itself is shared with the single pickers (`usePersonTileFacts`).
    */
-  const specialFunctionsOf = (p: Person): (TileRole & { place: boolean })[] => {
-    const functions: (TileRole & { place: boolean })[] = []
-    if (p.isReko || rekoPersonnelIds.includes(p.id)) functions.push({ label: t('common.reko'), Icon: Binoculars, place: true })
-    if (p.isMagazin) functions.push({ label: t('common.magazin'), Icon: Package2, place: true })
-    if (p.isTelefondienst) functions.push({ label: t('common.telefondienst'), Icon: Phone, place: true })
-    if (p.isKommandoposten) functions.push({ label: t('common.kommandoposten'), Icon: MonitorCog, place: true })
-    if (p.isDriver) functions.push({ label: p.driverVehicleName || t('assignmentDialog.driverBadge'), Icon: Truck, place: false })
-    return functions
+  const factsOf = usePersonTileFacts()
+  const tileFactsOf = (p: Person, elsewhere: PersonWhere | null) =>
+    factsOf(p, { elsewhere, isReko: rekoPersonnelIds.includes(p.id) })
+  const specialFunctionLabels = (p: Person): string[] => {
+    const { where, roles } = tileFactsOf(p, null)
+    return [...(where ? [where.full] : []), ...roles.map((role) => role.label)]
   }
 
   const availableVehicles = useMemo(() => {
@@ -598,7 +592,7 @@ export function ResourceAssignmentDialog({
     }
     // Selecting someone already busy in a special function → confirm first, so a
     // driver/reko/magazin isn't double-booked by a stray tap.
-    if (specialFunctionsOf(person).length > 0) {
+    if (specialFunctionLabels(person).length > 0) {
       setConfirmPerson(person)
       return
     }
@@ -994,12 +988,10 @@ export function ResourceAssignmentDialog({
   const renderPersonTile = (person: Person) => {
     const isSelected = isPersonSelected(person.id)
     const wasJustAssigned = justAssigned === person.id
-    const special = specialFunctionsOf(person)
     // Already on another incident/Auftrag → the amber where-note names it; else a
     // place-like role (Reko, Magazin, …; never the driven vehicle) does. The tile
     // itself stays neutral: the note says where, no tinted block.
-    const elsewhere = personElsewhereLabel(person)
-    const placeRole = elsewhere ? undefined : special.find(fn => fn.place)
+    const { where, roles } = tileFactsOf(person, personElsewhereLabel(person))
     return (
       // ONE line for every person tile, busy or free: rank · where · roles
       // (`PersonTileLine` says why). «Im Einsatz» and the Ereignis roles are
@@ -1011,8 +1003,8 @@ export function ResourceAssignmentDialog({
         name={person.name}
         kennung={person.kennung ?? null}
         rank={person.role}
-        where={elsewhere ?? (placeRole ? { head: placeRole.label, full: placeRole.label, Icon: placeRole.Icon } : null)}
-        roles={special.filter(fn => fn !== placeRole)}
+        where={where}
+        roles={roles}
         checked={isSelected}
         animate={wasJustAssigned}
         onClick={() => handleTogglePersonSelection(person)}
@@ -1565,7 +1557,7 @@ export function ResourceAssignmentDialog({
           ? t('assignmentDialog.specialFnConfirmBody', {
               name: naming.inline(confirmPerson),
               // Every role, so the confirm names what is actually being taken.
-              func: specialFunctionsOf(confirmPerson).map((f) => f.label).join(' · '),
+              func: specialFunctionLabels(confirmPerson).join(' · '),
             })
           : ''
       }

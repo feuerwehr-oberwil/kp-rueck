@@ -30,6 +30,8 @@ function CheckInKiosk({ token }: { token: string | null }) {
 
   const [personnel, setPersonnel] = useState<ApiPersonnelListItem[]>([])
   const [eventName, setEventName] = useState<string>('')
+  // The Ereignis the token opens – a person added here becomes its guest.
+  const [eventId, setEventId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
   const [invalid, setInvalid] = useState(false)
@@ -50,6 +52,7 @@ function CheckInKiosk({ token }: { token: string | null }) {
       if (data) {
         setPersonnel(data.personnel)
         setEventName(data.event_name)
+        setEventId(data.event_id)
         setLoading(false)
         setRetrying(false)
         return
@@ -185,7 +188,7 @@ function CheckInKiosk({ token }: { token: string | null }) {
         />
 
         {/* Quick Add Personnel Component */}
-        {isEditor && !loading && <QuickAddPersonnel
+        {isEditor && !loading && eventId && <QuickAddPersonnel
           submissionDisabled={retrying}
           onPersonAdded={async (newPerson) => {
             rosterRevision.current++
@@ -203,6 +206,7 @@ function CheckInKiosk({ token }: { token: string | null }) {
             setSearchTerm('')
           }}
           checkInToken={token || undefined}
+          guestEventId={eventId}
           isNameTaken={(name) =>
             personnel.some((p) => p.name.trim().toLowerCase() === name.trim().toLowerCase())
           }

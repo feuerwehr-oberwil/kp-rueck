@@ -146,7 +146,9 @@ async def simulate_checkin(
 
     # Get available personnel
     all_personnel = await db.execute(
-        select(Personnel).where(Personnel.status != "unavailable").order_by(Personnel.name.asc())
+        select(Personnel)
+        .where(Personnel.status != "unavailable", Personnel.in_scope(event_id))
+        .order_by(Personnel.name.asc())
     )
     personnel_list = list(all_personnel.scalars().all())
 
@@ -348,7 +350,8 @@ async def simulate_reko(
         title=incident.title,
         description=incident.description,
     )
-    photo_summary = reko_data.pop("photo_summary")
+    # A not-relevant report carries no illustration (`_not_relevant_report`).
+    photo_summary = reko_data.pop("photo_summary", None)
     update_data = RekoReportUpdate(**reko_data)
     updated = await reko_crud.update_reko_report(db, report.id, update_data, submit=True)
 

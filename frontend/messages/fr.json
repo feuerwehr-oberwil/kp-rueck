@@ -1389,9 +1389,6 @@
       "checkInFailedTitle": "Échec de l’enregistrement",
       "checkInFailedDescription": "{name} a été saisi, mais n’est pas annoncé présent et n’apparaît donc pas sur le tableau. Enregistre l’arrivée de la personne à l’appel, puis attribue-la comme conducteur.",
       "duplicateName": "Une personne portant ce nom existe déjà.",
-      "markAsDriver": "Marquer comme conducteur",
-      "markedAsDriver": "{name} marqué comme conducteur",
-      "markError": "Échec du marquage",
       "withoutDriver": "Sans conducteur"
     },
     "resourceConflict": {
@@ -3376,8 +3373,6 @@
           "Mise en danger importante sur place. Effectif important nécessaire."
         ]
       },
-      "submitKp": "Enregistrer le rapport de reconnaissance",
-      "submittingKp": "Enregistrement …",
       "syncedAt": "Arrivé au PC – {time}",
       "syncedHint": "Tout ce qui est nouveau part automatiquement au PC.",
       "unsentTitle": "Le PC ne voit pas encore cela",
@@ -3426,10 +3421,10 @@
       "createTitle": "Saisir le rapport de reconnaissance",
       "amend": "Compléter le rapport de reconnaissance",
       "amendTitle": "Compléter le rapport de reconnaissance",
-      "cancel": "Annuler",
+      "close": "Fermer",
       "radioHint": "Saisis ici ce que le groupe annonce par radio. Sera noté comme saisie du PC.",
-      "saved": "Rapport de reconnaissance enregistré",
-      "saveFailed": "Échec de l’enregistrement",
+      "draftHint": "Synchronisé au fur et à mesure. Compte comme transmis dès que l’intervention passe à « Reconnaissance terminée » – si elle y est déjà, dès que « Intervention pertinente ? » a une réponse.",
+      "amendHint": "Chaque modification est synchronisée immédiatement.",
       "submittedShort": "Transmis {time}",
       "updatedShort": "mis à jour {time}",
       "findingLabel": "Constat",
@@ -3437,6 +3432,8 @@
       "reportLabel": "Rapport de reco",
       "noReportShort": "aucun pour l’instant",
       "createShort": "saisir",
+      "draftShort": "Brouillon – pas encore transmis",
+      "continueShort": "continuer la saisie",
       "expand": "ouvrir",
       "collapse": "fermer"
     },

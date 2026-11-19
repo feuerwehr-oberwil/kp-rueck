@@ -1309,9 +1309,6 @@
       "checkInFailedTitle": "Check-in fehlgeschlagen",
       "checkInFailedDescription": "{name} wurde erfasst, ist aber nicht als anwesend gemeldet und darum nicht auf dem Board sichtbar. Person im Appell einchecken und danach als Fahrer zuweisen.",
       "duplicateName": "Es existiert bereits eine Person mit diesem Namen.",
-      "markAsDriver": "Als Fahrer markieren",
-      "markedAsDriver": "{name} als Fahrer markiert",
-      "markError": "Markierung fehlgeschlagen",
       "withoutDriver": "Ohne Fahrer"
     },
     "resourceConflict": {
@@ -2846,8 +2843,6 @@
           "Erhebliche Gefährdung vor Ort. Umfangreiches Aufgebot erforderlich."
         ]
       },
-      "submitKp": "Reko-Bericht speichern",
-      "submittingKp": "Wird gespeichert …",
       "syncedAt": "Beim KP angekommen – {time}",
       "syncedHint": "Alles Neue geht automatisch zum KP.",
       "unsentTitle": "Der KP sieht das noch nicht",
@@ -2896,10 +2891,10 @@
       "createTitle": "Reko-Bericht erfassen",
       "amend": "Reko-Bericht ergänzen",
       "amendTitle": "Reko-Bericht ergänzen",
-      "cancel": "Abbrechen",
+      "close": "Schliessen",
       "radioHint": "Was der Trupp über Funk meldet, hier erfassen. Wird als KP-Erfassung vermerkt.",
-      "saved": "Reko-Bericht gespeichert",
-      "saveFailed": "Speichern fehlgeschlagen",
+      "draftHint": "Wird laufend synchronisiert. Zählt als eingereicht, sobald der Einsatz auf «Reko abgeschlossen» steht – steht er schon dort, sobald «Einsatz relevant?» beantwortet ist.",
+      "amendHint": "Jede Änderung wird sofort synchronisiert.",
       "submittedShort": "Übermittelt {time}",
       "updatedShort": "aktualisiert {time}",
       "findingLabel": "Befund",
@@ -2907,6 +2902,8 @@
       "reportLabel": "Reko-Bericht",
       "noReportShort": "noch keiner",
       "createShort": "erfassen",
+      "draftShort": "Entwurf – noch nicht eingereicht",
+      "continueShort": "weiter erfassen",
       "expand": "öffnen",
       "collapse": "schliessen"
     },

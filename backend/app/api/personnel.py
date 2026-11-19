@@ -12,7 +12,7 @@ from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import external_identities as identities_crud
 from ..crud import personnel as crud
 from ..database import get_db
-from ..models import Personnel
+from ..models import Event, Personnel
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_personnel_update
 
@@ -58,7 +58,13 @@ async def create_personnel(
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ) -> schemas.Personnel:
-    """Create new personnel (editor only) – 409 when name + Kennung is already on the roster."""
+    """Create new personnel (editor only) – 409 when name + Kennung is already on the roster.
+
+    With `guest_event_id` the person is a guest of that Ereignis: listed there only, never in
+    the roster (the walk-in «Person hinzufügen»). 404 when that Ereignis does not exist.
+    """
+    if personnel.guest_event_id is not None and await db.get(Event, personnel.guest_event_id) is None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.EVENT_NOT_FOUND)
     try:
         new_personnel = await crud.create_personnel(db, personnel, current_user, request)
     except crud.PersonnelNameTakenError as exc:

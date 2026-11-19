@@ -431,6 +431,10 @@ das einzige Eingabegerät, das das System noch hat.
   auflösen kann; ein hartes Verbot würde zwingen, zum Auschecken die Ansicht zu wechseln.
 - Wer als *nicht verfügbar* geführt ist, erscheint ausgegraut mit Grund.
 - **«Person hinzufügen»** im Appell legt die Person an **und checkt sie direkt ein** – sie ist sofort anwesend.
+  Sie gehört **nur zu diesem Ereignis** (Gast): in *Einstellungen → Personal* und in
+  anderen Ereignissen erscheint sie nicht. Dasselbe gilt für «Person hinzufügen» im
+  Fahrer-Dialog und auf dem Check-in-Link. In den Bestand gehört, wer in den
+  Einstellungen erfasst wird.
 
 > **Nachbarhilfe und Zivilschutz können sich nicht selbst einchecken.** Der Check-in
 > zeigt nur den eigenen Bestand, und Sichtbarkeit kommt aus den Zuweisungen. Der
@@ -444,6 +448,11 @@ draussen war. Es ist dasselbe Formular wie auf dem Reko-Link, nur mit anderem
 Absender. Ein bereits vom Trupp eingereichter Bericht wird mit
 **«Reko-Bericht ergänzen»** im selben Datensatz nachgeführt, nicht als zweiter
 Bericht daneben. Fotos gibt es hier bewusst nicht: ein Funkspruch bringt keine mit.
+Einen Speichern-Knopf gibt es nicht: jede Angabe wird sofort synchronisiert
+(«Synchronisiert – hh:mm» unter dem Formular). Ein neuer Bericht bleibt ein Entwurf,
+bis der Einsatz auf **«Reko abgeschlossen»** steht – dann gilt er als eingereicht
+(Glocke, Reko erledigt). Steht der Einsatz schon dort, gilt er als eingereicht, sobald
+«Einsatz relevant?» beantwortet ist.
 
 **«Reko vor Ort» über Funk.** Im Einsatz-Detail, Block *Funkmeldungen* – dieselbe
 Zeile, in der auch «Angekommen», «Einsatz beendet» und «Abholung nötig» stehen.

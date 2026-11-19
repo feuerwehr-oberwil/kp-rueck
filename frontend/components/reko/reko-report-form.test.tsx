@@ -63,7 +63,7 @@ describe('the Reko field set (plan 26 §5.1)', () => {
     feld.unmount()
 
     const kp = renderWithIntl(
-      <RekoReportForm incidentId="i-1" value={EMPTY_REKO_FORM} onChange={vi.fn()} mount="kp" onSubmit={vi.fn()} />,
+      <RekoReportForm incidentId="i-1" value={EMPTY_REKO_FORM} onChange={vi.fn()} mount="kp" />,
     )
     const kpFields = writableFieldsOf(kp.container)
 
@@ -78,7 +78,7 @@ describe('the Reko field set (plan 26 §5.1)', () => {
 
   it('asks every question on the board that it asks on the phone', () => {
     renderWithIntl(
-      <RekoReportForm incidentId="i-1" value={EMPTY_REKO_FORM} onChange={vi.fn()} mount="kp" onSubmit={vi.fn()} />,
+      <RekoReportForm incidentId="i-1" value={EMPTY_REKO_FORM} onChange={vi.fn()} mount="kp" />,
     )
 
     for (const label of FIELDS) {
@@ -90,35 +90,31 @@ describe('the Reko field set (plan 26 §5.1)', () => {
     }
   })
 
-  it('refuses to submit until "Einsatz relevant?" is answered — on both mounts', async () => {
+  it('refuses to submit until "Einsatz relevant?" is answered on the phone', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn()
     renderWithIntl(
-      <RekoReportForm incidentId="i-1" value={EMPTY_REKO_FORM} onChange={vi.fn()} mount="kp" onSubmit={onSubmit} />,
+      <RekoReportForm incidentId="i-1" value={EMPTY_REKO_FORM} onChange={vi.fn()} mount="feld" onSubmit={onSubmit} />,
     )
 
-    await user.click(screen.getByRole('button', { name: /Bericht speichern/ }))
+    await user.click(screen.getByRole('button', { name: /Bericht übermitteln/ }))
     expect(onSubmit).not.toHaveBeenCalled()
+    expect(screen.getByText('Bitte «Einsatz relevant?» beantworten')).toBeInTheDocument()
+  })
 
-    // Answered — the same field set, now submittable.
-    renderWithIntl(
-      <RekoReportForm
-        incidentId="i-1"
-        value={{ ...EMPTY_REKO_FORM, is_relevant: true }}
-        onChange={vi.fn()}
-        mount="kp"
-        onSubmit={onSubmit}
-      />,
-    )
-    await user.click(screen.getAllByRole('button', { name: /Bericht speichern/ })[1])
-    expect(onSubmit).toHaveBeenCalledTimes(1)
+  it('has no submit on the board, and says the open answer as advice (#30)', () => {
+    renderWithIntl(<RekoReportForm incidentId="i-1" value={EMPTY_REKO_FORM} onChange={vi.fn()} mount="kp" />)
+
+    expect(screen.queryByRole('button', { name: /Bericht/ })).not.toBeInTheDocument()
+    const advice = screen.getByText('Bitte «Einsatz relevant?» beantworten').closest('[data-tone]')
+    expect(advice).toHaveAttribute('data-tone', 'advice')
   })
 
   it('omits the photo block where the mount has no door for it', () => {
     // The board has no session-authed Reko photo endpoint yet, and an upload
     // control that answers 400 is worse than one that is not offered.
     const kp = renderWithIntl(
-      <RekoReportForm incidentId="i-1" value={EMPTY_REKO_FORM} onChange={vi.fn()} mount="kp" onSubmit={vi.fn()} />,
+      <RekoReportForm incidentId="i-1" value={EMPTY_REKO_FORM} onChange={vi.fn()} mount="kp" />,
     )
     expect(kp.container.textContent).not.toContain('Fotos')
   })

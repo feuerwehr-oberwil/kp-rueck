@@ -27,6 +27,7 @@ import CheckInPage from '@/app/check-in/page'
 
 function roster() {
   api.getCheckInList.mockResolvedValue({
+    event_id: 'e-1',
     event_name: 'Unwetter',
     personnel: [
       { id: 'p1', name: 'Acker Reto', checked_in: false, is_assigned: false },
@@ -61,6 +62,21 @@ describe('/check-in', () => {
     window.dispatchEvent(new Event('online'))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Hinzufügen' })).toBeEnabled())
     expect(screen.getByPlaceholderText('Name eingeben …')).toHaveValue('Muster Lea')
+  })
+
+  // #5 (19.11.2026): somebody added at the door belongs to tonight's Ereignis, not the roster.
+  it('adds a person at the door as a guest of the Ereignis the link opens', async () => {
+    auth.isEditor = true
+    roster()
+    api.createPersonnel.mockResolvedValue({ id: 'p9', name: 'Muster Lea' })
+    api.checkInPersonnel.mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    renderWithIntl(<CheckInPage />)
+    await user.click(await screen.findByRole('button', { name: 'Neue Person hinzufügen' }))
+    await user.type(screen.getByPlaceholderText('Name eingeben …'), 'Muster Lea{Enter}')
+
+    await waitFor(() => expect(api.createPersonnel).toHaveBeenCalledWith(expect.objectContaining({ name: 'Muster Lea', guest_event_id: 'e-1' })))
+    expect(api.checkInPersonnel).toHaveBeenCalledWith('p9', 'tok')
   })
 
   it('refreshes a token-only kiosk when it becomes visible again', async () => {

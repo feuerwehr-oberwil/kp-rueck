@@ -35,6 +35,7 @@ import {
   unsavedFieldDrafts,
   watchFieldSave,
   type FieldSaveEntry,
+  type FieldSaveFailure,
   type SavedTextField,
 } from "@/lib/field-save"
 import { formatClockTime } from "@/lib/incident-time"
@@ -190,22 +191,12 @@ export function FieldSaveStatus({
   if (part === "failure" && entry.status !== "failed") return null
 
   if (entry.status === "pending" || entry.status === "saving") {
-    return (
-      <p role="status" aria-live="polite" className={cn("flex items-center gap-1.5 text-xs text-muted-foreground", className)}>
-        <ShellLoader className="size-4" />
-        {t("saving")}
-      </p>
-    )
+    return <SyncStatusLine state={{ status: "saving" }} className={className} />
   }
 
   if (entry.status === "saved") {
-    if (!entry.savedAt || expiredSavedAt === entry.savedAt) return null
-    return (
-      <p role="status" aria-live="polite" className={cn("flex items-center gap-1.5 text-xs text-muted-foreground", className)}>
-        <Check className="size-3 shrink-0 text-success" aria-hidden="true" />
-        {t("savedAt", { time: formatClockTime(entry.savedAt) })}
-      </p>
-    )
+    if (!entry.savedAt) return null
+    return <SyncStatusLine state={{ status: "saved", savedAt: entry.savedAt }} className={className} />
   }
 
   if (entry.conflict) {
@@ -285,6 +276,76 @@ export function FieldSaveStatus({
       </div>
     </div>
   )
+}
+
+/** Where a surface that saves as a whole stands (`SyncStatusLine`). */
+export type SyncState =
+  | { status: "idle" }
+  | { status: "saving" }
+  | { status: "saved"; savedAt: Date }
+  | { status: "failed"; reason: FieldSaveFailure }
+
+/**
+ * The same quiet line for a surface that saves as a WHOLE rather than per text field –
+ * the board's Reko form (owner pick 19.11.2026, «Auto-save»): «Wird synchronisiert …»,
+ * «Synchronisiert – hh:mm» for `SAVED_LINE_MS`, then quiet; «Nicht synchronisiert.» with
+ * the reason and «Erneut synchronisieren» (`onRetry`) while a save failed. No automatic
+ * resend – same rule as `lib/field-save`. `FieldSaveStatus` draws its saving and saved
+ * states through it.
+ */
+export function SyncStatusLine({ state, onRetry, className }: {
+  state: SyncState
+  /** «Erneut synchronisieren» after a failure. */
+  onRetry?: () => void
+  className?: string
+}) {
+  const t = useTranslations("kanban.fieldSave")
+  const savedAt = state.status === "saved" ? state.savedAt : null
+  const [expiredSavedAt, setExpiredSavedAt] = useState<Date | null>(null)
+  useEffect(() => {
+    if (!savedAt) return
+    const left = Math.max(0, SAVED_LINE_MS - (Date.now() - savedAt.getTime()))
+    const id = window.setTimeout(() => setExpiredSavedAt(savedAt), left)
+    return () => window.clearTimeout(id)
+  }, [savedAt])
+
+  if (state.status === "saving") {
+    return (
+      <p role="status" aria-live="polite" className={cn("flex items-center gap-1.5 text-xs text-muted-foreground", className)}>
+        <ShellLoader className="size-4" />
+        {t("saving")}
+      </p>
+    )
+  }
+  if (state.status === "saved") {
+    if (expiredSavedAt === state.savedAt) return null
+    return (
+      <p role="status" aria-live="polite" className={cn("flex items-center gap-1.5 text-xs text-muted-foreground", className)}>
+        <Check className="size-3 shrink-0 text-success" aria-hidden="true" />
+        {t("savedAt", { time: formatClockTime(state.savedAt) })}
+      </p>
+    )
+  }
+  if (state.status === "failed") {
+    return (
+      <div className={cn("flex flex-wrap items-center gap-2", className)}>
+        <p role="alert" className="flex items-start gap-1.5 text-xs text-destructive">
+          <AlertCircle className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+          <span>
+            <span className="font-semibold">{t("failed")}</span>{" "}
+            {t("failedBody", { reason: t(`reason.${state.reason}`) })}
+          </span>
+        </p>
+        {onRetry && (
+          <Button type="button" variant="outline" size="xs" onClick={onRetry}>
+            <RefreshCw className="size-3.5" aria-hidden="true" />
+            {t("retry")}
+          </Button>
+        )}
+      </div>
+    )
+  }
+  return null
 }
 
 /** The field names `unsavedFieldDrafts` reports, in the detail's own words. */

@@ -51,11 +51,11 @@ export function RekoModusPanel({
   const tAssign = useTranslations("incidents.assignReko")
   const tPick = useTranslations("common.personPick")
   const { selectedEvent } = useEvent()
-  const { personnel, refreshOperations } = useOperations()
+  const { personnel, operations, refreshOperations } = useOperations()
   const [markMode, setMarkMode] = useState(false)
   const [marking, setMarking] = useState(false)
   const [pickMessage, setPickMessage] = useState<string | null>(null)
-  const mark = useRekoCandidatePicker({ personnel, disabled: marking })
+  const mark = useRekoCandidatePicker({ personnel, operations, disabled: marking })
   const selectedPerson = people.find((p) => p.id === selectedPersonId) ?? null
 
   const openMarkMode = (next: boolean) => {
@@ -117,7 +117,7 @@ export function RekoModusPanel({
             {mark.searchField}
             <FormMessage id={REKO_PICK_MESSAGE_ID}>{pickMessage}</FormMessage>
           </div>
-          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain">{mark.list}</div>
+          <div role="radiogroup" aria-label={t("addPerson")} className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain">{mark.list}</div>
           <Button className="mt-3" onClick={() => void handleMarkPerson(mark.chosen)} disabled={marking}>
             {marking ? <ShellLoader className="size-4" /> : <Binoculars className="size-4" />}
             {t("addPerson")}

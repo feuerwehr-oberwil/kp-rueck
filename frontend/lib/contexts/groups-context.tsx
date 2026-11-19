@@ -197,21 +197,21 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     }
   }, [selectedEvent])
 
-  // Load the roster once (name resolution for route assignments). Not
-  // event-scoped: an id that is on a route is on it whatever the person's duty
-  // status is.
+  const authReady = !authLoading && isAuthenticated
+  const scopeEventId = selectedEvent && isValidUUID(selectedEvent.id) ? selectedEvent.id : null
+
+  // Load the roster (name resolution for route assignments) – with the Ereignis's own
+  // guests, who are on its routes too but in no roster list. Not checked-in-only: an id
+  // that is on a route is on it whatever the person's duty status is.
   useEffect(() => {
-    if (authLoading || !isAuthenticated) return
+    if (!authReady) return
     apiClient
-      .getAllPersonnel()
+      .getAllPersonnel(scopeEventId ? { event_id: scopeEventId } : undefined)
       .then((list) => setRoster(list))
       .catch(() => {
         // Silent: names fall back to the placeholder until the list loads.
       })
-  }, [authLoading, isAuthenticated])
-
-  const authReady = !authLoading && isAuthenticated
-  const scopeEventId = selectedEvent && isValidUUID(selectedEvent.id) ? selectedEvent.id : null
+  }, [authReady, scopeEventId])
 
   // A new scope (sign-in, Ereignis switch): forget the old one before the
   // first load of the new one lands.

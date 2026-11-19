@@ -60,6 +60,9 @@ export interface ApiPersonnelCreate {
   role_sort_order?: number
   status: string
   tags?: string[] | null
+  /** A guest of this Ereignis, not a roster member – the walk-in «Person hinzufügen».
+   *  Listed for that Ereignis only (backend `Personnel.in_scope`). */
+  guest_event_id?: string | null
 }
 
 export interface ApiPersonnelUpdate {

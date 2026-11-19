@@ -434,6 +434,10 @@ appareil de saisie qu’il reste au système.
   vue pour annoncer un départ.
 - Celui qui est enregistré comme *indisponible* apparaît grisé, avec le motif.
 - **« Ajouter une personne »** dans l’appel crée la personne **et l’annonce directement**.
+  Elle appartient **à cet événement seulement** (invitée) : elle n’apparaît ni dans
+  *Réglages → Personnel* ni dans d’autres événements. De même pour « Ajouter une
+  personne » dans la fenêtre du conducteur et sur le lien d’annonce. Qui fait partie de
+  l’effectif se saisit dans les réglages.
 
 > **L’entraide et la protection civile ne peuvent pas s’annoncer elles-mêmes.** L’arrivée
 > ne montre que l’effectif propre, et la visibilité vient des affectations. La marche à
@@ -447,7 +451,12 @@ intervention où personne n’est jamais allé dehors. C’est le même formulai
 lien de reconnaissance, seul l’expéditeur change. Un rapport déjà remis par le groupe est
 mis à jour avec **« Compléter le rapport de reconnaissance »** dans le même enregistrement,
 et non comme un second rapport à côté. Il n’y a délibérément pas de photos ici : un
-message radio n’en apporte aucune.
+message radio n’en apporte aucune. Il n’y a pas de bouton d’enregistrement : chaque
+réponse est synchronisée aussitôt (« Synchronisé – hh:mm » sous le formulaire). Un
+nouveau rapport reste un brouillon jusqu’à ce que l’intervention passe à
+**« Reconnaissance terminée »** – il compte alors comme transmis (cloche, reconnaissance
+faite). Si l’intervention y est déjà, il compte dès que « Intervention pertinente ? » a
+une réponse.
 
 **« Reconnaissance sur place » par radio.** Dans le détail de l’intervention, bloc
 *Annonces radio* – la même ligne où figurent aussi « Arrivé », « Intervention terminée »

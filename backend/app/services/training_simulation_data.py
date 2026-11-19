@@ -872,6 +872,43 @@ def _dispatch_linked_photo_summary(summary: str, resolved_type: str | None) -> s
     return closest
 
 
+# A «nicht relevant» report says so and nothing else – the same pool the field form's
+# dummy fill picks from (`reko.form.summaries.notRelevant`, `components/reko/reko-form.tsx`).
+_NOT_RELEVANT_SUMMARIES = [
+    "Fehlalarm. Vor Ort keine Gefahr und kein Handlungsbedarf festgestellt.",
+    "Lage bereits durch Anwohner geklärt. Kein Einsatz der Feuerwehr nötig.",
+    "Vermeintlicher Rauch war Wasserdampf. Keine weiteren Massnahmen erforderlich.",
+    "Bei Eintreffen nichts vorgefunden. Einsatz kann abgeschlossen werden.",
+    "Meldung hat sich nicht bestätigt. Keine Einsatzkräfte erforderlich.",
+]
+
+
+def _not_relevant_report() -> dict[str, Any]:
+    """«Einsatz relevant? Nein»: no dangers, 0 people, 0 h, a not-relevant summary."""
+    return {
+        "is_relevant": False,
+        "dangers_json": {
+            "fire": False,
+            "fire_danger": False,
+            "explosion": False,
+            "collapse": False,
+            "chemical": False,
+            "electrical": False,
+            "other_notes": None,
+        },
+        "effort_json": {
+            "personnel_count": 0,
+            "vehicles_needed": [],
+            "equipment_needed": [],
+            "estimated_duration_hours": 0,
+        },
+        "power_supply": "unknown",
+        "summary_text": random.choice(_NOT_RELEVANT_SUMMARIES),
+        "additional_notes": None,
+        "is_draft": False,
+    }
+
+
 def generate_reko_report_data(
     incident_type: str | None = None,
     title: str | None = None,
@@ -882,7 +919,8 @@ def generate_reko_report_data(
     Beyond picking type-matched values, this keeps the report internally
     coherent: the summary prose and the danger/effort badges are reconciled so
     they never contradict, and quantifiable scenes get a summary that confirms
-    or corrects the figure the dispatch actually reported.
+    or corrects the figure the dispatch actually reported. A not-relevant report
+    is the empty one (`_not_relevant_report`).
     """
     # BMA false alarms have a high chance of being non-relevant; diverse
     # einsaetze (wespen, türöffnungen, etc.) also lean "no FW action needed".
@@ -892,6 +930,9 @@ def generate_reko_report_data(
         is_relevant = random.random() > 0.4  # 60% relevant
     else:
         is_relevant = random.random() > 0.1  # 90% relevant
+    if not is_relevant:
+        # A scene that needs nobody must not ask for six people and two hours.
+        return _not_relevant_report()
 
     # For elementarereignis, resolve the subcategory (water/tree/storm) so danger,
     # effort and power-supply profiles all match the actual scene. Non-elementar
@@ -910,7 +951,7 @@ def generate_reko_report_data(
     dangers, effort = _reconcile_with_summary(summary, resolved_type, dangers, effort)
 
     return {
-        "is_relevant": is_relevant,
+        "is_relevant": True,
         "dangers_json": dangers,
         "effort_json": effort,
         "power_supply": generate_power_supply(resolved_type),

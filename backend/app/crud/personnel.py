@@ -53,13 +53,17 @@ def to_personnel_schema(
 async def get_all_personnel(db: AsyncSession) -> list[Personnel]:
     """Every roster row as an ORM object, for callers that work on the rows themselves.
 
+    The roster only – an Ereignis's guests are not station members (`Personnel.in_scope`).
+
     Deliberately knows nothing about events or attendance: an ORM ``Personnel`` carries
     no answer to "is this person here?", and a getter that accepted an ``event_id``
     while returning rows that cannot express one is how this went wrong. Anything that
     serialises personnel for a client wants ``list_personnel_with_attendance``.
     """
     result = await db.execute(
-        select(Personnel).order_by(Personnel.role_sort_order.asc(), Personnel.role.asc(), Personnel.name.asc())
+        select(Personnel)
+        .where(Personnel.in_scope(None))
+        .order_by(Personnel.role_sort_order.asc(), Personnel.role.asc(), Personnel.name.asc())
     )
     return list(result.scalars().all())
 
@@ -93,7 +97,8 @@ async def list_personnel_with_attendance(
         EventAttendance.personnel_id == Personnel.id,
         EventAttendance.event_id == event_id,
     )
-    query = select(Personnel, EventAttendance)
+    # The roster and this Ereignis's own guests, nobody else's.
+    query = select(Personnel, EventAttendance).where(Personnel.in_scope(event_id))
     if checked_in_only:
         query = query.join(EventAttendance, and_(join_on, EventAttendance.checked_in))
     else:
@@ -138,9 +143,17 @@ class PersonnelNameTakenError(Exception):
 
 
 async def find_name_clash(
-    db: AsyncSession, name: str, kennung: str | None, *, exclude_id: uuid.UUID | None = None
+    db: AsyncSession,
+    name: str,
+    kennung: str | None,
+    *,
+    exclude_id: uuid.UUID | None = None,
+    guest_event_id: uuid.UUID | None = None,
 ) -> bool:
     """True when somebody else on the roster has the same ``name_key``.
+
+    A guest (``guest_event_id``) is compared with the roster and its own Ereignis's guests –
+    the lists it appears in; a roster row with the roster.
 
     Every roster row counts – personnel has no archive; somebody a roster sync marked as
     gone still stands on the board. Compared in Python over (id, name, kennung) rather than
@@ -150,7 +163,9 @@ async def find_name_clash(
     syncs may produce on purpose (``allow_duplicate_name``), fixed by setting a Kennung.
     """
     key = name_key(name, kennung)
-    rows = await db.execute(select(Personnel.id, Personnel.name, Personnel.kennung))
+    rows = await db.execute(
+        select(Personnel.id, Personnel.name, Personnel.kennung).where(Personnel.in_scope(guest_event_id))
+    )
     return any(pid != exclude_id and name_key(n, k) == key for pid, n, k in rows.all())
 
 
@@ -174,7 +189,9 @@ async def create_personnel(
     that may itself hold two people of one name and carry no Kennung. Refusing would break
     the sync; the board instead shows such a pair flagged until someone sets a Kennung.
     """
-    if not allow_duplicate_name and await find_name_clash(db, personnel_data.name, personnel_data.kennung):
+    if not allow_duplicate_name and await find_name_clash(
+        db, personnel_data.name, personnel_data.kennung, guest_event_id=personnel_data.guest_event_id
+    ):
         raise PersonnelNameTakenError(personnel_data.name, personnel_data.kennung)
     personnel = Personnel(
         name=personnel_data.name,
@@ -183,6 +200,7 @@ async def create_personnel(
         role_sort_order=personnel_data.role_sort_order,
         status=personnel_data.status or "available",
         tags=personnel_data.tags,
+        guest_event_id=personnel_data.guest_event_id,
     )
     db.add(personnel)
     await db.flush()
@@ -200,6 +218,11 @@ async def create_personnel(
             "role": personnel_data.role,
             "status": personnel_data.status,
             "tags": personnel_data.tags,
+            **(
+                {"guest_event_id": str(personnel_data.guest_event_id)}
+                if personnel_data.guest_event_id is not None
+                else {}
+            ),
         },
         request=request,
     )
@@ -239,7 +262,7 @@ async def update_personnel(
     new_name = update_data.get("name", personnel.name)
     new_kennung = update_data.get("kennung", personnel.kennung)
     if name_key(new_name, new_kennung) != name_key(personnel.name, personnel.kennung) and await find_name_clash(
-        db, new_name, new_kennung, exclude_id=personnel.id
+        db, new_name, new_kennung, exclude_id=personnel.id, guest_event_id=personnel.guest_event_id
     ):
         raise PersonnelNameTakenError(new_name, new_kennung)
 
