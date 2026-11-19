@@ -239,6 +239,16 @@ export function useRekoAutosave({ incidentId, userId, onSettled, onAdopt }: {
   }, [session, onAdopt])
 
   const resume = useCallback((source: ApiRekoReportResponse | null): RekoFormData => {
+    // The list can show the row a first save created before that save's answer arrived. A
+    // board first save resolves to the own draft or the newest board-filed report, so opening
+    // such a row while a first save of this operator is still pending opens THAT session –
+    // one writer per row, its queued edits in order (Sol review pass 5, S3).
+    const pendingFirst = sessions.get(sessionKey(base, null))
+    const boardRow = !!source?.created_by_user_id && !source.submitted_by_personnel_id
+    if (source && boardRow && pendingFirst && !pendingFirst.target && !sessions.has(sessionKey(base, source.id))
+      && (pendingFirst.inFlight || !!pendingFirst.timer || pendingFirst.confirmed.version !== pendingFirst.version)) {
+      sessions.set(sessionKey(base, source.id), pendingFirst)
+    }
     const opening = sessionFor(base, source?.id ?? null)
     setReportId(source?.id ?? null)
     const local = opening.latest

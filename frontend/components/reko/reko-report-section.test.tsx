@@ -376,6 +376,37 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     expect(screen.queryByText('Keller')).not.toBeInTheDocument()
   })
 
+  it('opens the pending first save when the list shows its row before the POST answered (pass 5, S3)', async () => {
+    let answerPost: (value: unknown) => void = () => {}
+    createRekoReportAsEditor.mockReturnValueOnce(new Promise(resolve => { answerPost = resolve }))
+    const created = report({ id: 'r-new', is_draft: true, created_by_user_id: 'u-1', summary_text: 'Keller' })
+    updateRekoReport.mockImplementation((id: string, payload: object) => Promise.resolve({ ...created, ...payload, id }))
+    const user = userEvent.setup()
+    renderWithIntl(<RekoReportSection incidentId="i-first" canEdit dense />)
+
+    await user.click(await screen.findByRole('button', { name: 'erfassen' }))
+    const summary = document.querySelector<HTMLTextAreaElement>('#summary')!
+    await user.type(summary, 'Keller')
+    await waitFor(() => expect(createRekoReportAsEditor).toHaveBeenCalled())
+    // Typed while the first save is on its way: queued behind it.
+    await user.type(summary, ' 20')
+    await user.click(screen.getByRole('button', { name: /Schliessen/ }))
+    // The POST committed; a reload shows its row before the POST's answer is here.
+    getIncidentRekoReports.mockResolvedValue([created])
+    await act(async () => { wsHandlers.get('reko_update')?.({ data: { incident_id: 'i-first' } }) })
+    await user.click(await screen.findByRole('button', { name: 'weiter erfassen' }))
+
+    // The pending save's form, not the row the list read.
+    const reopened = document.querySelector<HTMLTextAreaElement>('#summary')!
+    expect(reopened.value).toBe('Keller 20')
+    await user.type(reopened, ' cm')
+    answerPost(created)
+
+    // One writer for the row: the edits go out after the first save, in order, ending on the newest.
+    await waitFor(() => expect(screen.getByText(/^Synchronisiert – /)).toBeInTheDocument())
+    expect(updateRekoReport).toHaveBeenLastCalledWith('r-new', { summary_text: 'Keller 20 cm' })
+  })
+
   it('counts a draft whose only answer is the power supply as a draft', async () => {
     getIncidentRekoReports.mockResolvedValue([
       report({ id: 'r-draft', is_draft: true, created_by_user_id: 'u-1', is_relevant: null, power_supply: 'unavailable' }),
