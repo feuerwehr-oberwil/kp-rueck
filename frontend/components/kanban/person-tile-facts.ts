@@ -2,7 +2,7 @@
 
 import { useCallback } from "react"
 import { useTranslations } from "next-intl"
-import { Binoculars, MonitorCog, Package2, Phone, Truck } from "lucide-react"
+import { Binoculars, MonitorCog, Phone, Truck, Warehouse } from "lucide-react"
 import type { PersonWhere, TileRole } from "@/components/kanban/assignment-list-section"
 import type { Operation } from "@/lib/contexts/operations-context"
 import type { Person } from "@/lib/contexts/personnel-context"
@@ -39,7 +39,7 @@ export function usePersonTileFacts(): (person: Person, options: FactsOptions) =>
   return useCallback((person, { elsewhere, isReko, omitReko, driverFor }) => {
     const held: (TileRole & { place: boolean })[] = []
     if (!omitReko && (person.isReko || isReko)) held.push({ label: t("common.reko"), Icon: Binoculars, place: true })
-    if (person.isMagazin) held.push({ label: t("common.magazin"), Icon: Package2, place: true })
+    if (person.isMagazin) held.push({ label: t("common.magazin"), Icon: Warehouse, place: true })
     if (person.isTelefondienst) held.push({ label: t("common.telefondienst"), Icon: Phone, place: true })
     if (person.isKommandoposten) held.push({ label: t("common.kommandoposten"), Icon: MonitorCog, place: true })
     if (person.isDriver && !(driverFor && person.driverVehicleId === driverFor)) {

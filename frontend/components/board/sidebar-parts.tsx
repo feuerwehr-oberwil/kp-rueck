@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useTranslations } from "next-intl"
 import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
-import { ArrowRight, ArrowUpRight, Ban, Check, CircleCheck, Package2 } from "lucide-react"
+import { ArrowRight, ArrowUpRight, Ban, Check, CircleCheck, Package2, Warehouse } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip"
@@ -211,6 +211,8 @@ export function BindingsPopoverBody({
             >
               {reachable ? (
                 <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
+              ) : binding.key === "fn-magazin" ? (
+                <Warehouse className="size-3.5 shrink-0 text-muted-foreground" />
               ) : (
                 <Package2 className="size-3.5 shrink-0 text-muted-foreground" />
               )}

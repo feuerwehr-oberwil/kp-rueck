@@ -54,7 +54,7 @@ import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { CheckCircle2, XCircle, CircleHelp, AlertTriangle, Binoculars, FileText, ChevronDown, History, CheckCheck, Pencil, Plus, X } from 'lucide-react'
 import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
-import { RekoReportForm, EMPTY_REKO_FORM, toRekoFormData, type RekoFormData } from '@/components/reko/reko-report-form'
+import { RekoReportForm, EMPTY_REKO_FORM, hasRekoContent, toRekoFormData, type RekoFormData } from '@/components/reko/reko-report-form'
 import { useRekoAutosave } from '@/components/reko/use-reko-autosave'
 import { SyncStatusLine } from '@/components/kanban/field-save-status'
 import { useAuth } from '@/lib/contexts/auth-context'
@@ -194,7 +194,7 @@ export default function RekoReportSection({
   const latestReport: ApiRekoReportResponse | undefined = reports[0]
   const previousReports = reports.slice(1)
   // A KP row that says nothing is no draft – «Reko vor Ort» over the radio creates one.
-  const draftWithContent = ownDraft && hasContent(toRekoFormData(ownDraft)) ? ownDraft : null
+  const draftWithContent = ownDraft && hasRekoContent(toRekoFormData(ownDraft)) ? ownDraft : null
 
   /**
    * The board's photo door (§6.1, same case the Schadenplatz-Rapport already
@@ -478,24 +478,6 @@ export default function RekoReportSection({
       )}
       </div>
     </div>
-  )
-}
-
-/** Whether a form holds any answer – an untouched one is not a draft. */
-function hasContent(form: RekoFormData): boolean {
-  const { dangers_json: dangers, effort_json: effort } = form
-  return (
-    form.is_relevant !== null ||
-    !!form.summary_text.trim() ||
-    !!form.additional_notes.trim() ||
-    form.photos_json.length > 0 ||
-    form.power_supply !== 'unknown' ||
-    (['fire', 'fire_danger', 'explosion', 'collapse', 'chemical', 'electrical'] as const).some(key => dangers[key]) ||
-    !!dangers.other_notes?.trim() ||
-    effort.personnel_count !== null ||
-    effort.estimated_duration_hours !== null ||
-    effort.vehicles_needed.length > 0 ||
-    effort.equipment_needed.length > 0
   )
 }
 

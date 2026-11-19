@@ -185,7 +185,7 @@ export function formatReportTime(t: MapT, lastUpdate: string, now: number): stri
 /**
  * The words a pill shows for its face (`pillFace`): label, stale time, offline part. `short` (the
  * phone map, owner pick r28f 1B) abbreviates a group – «6 Fz. | 4 off» instead of «6 Fahrzeuge |
- * 4 offline» – so a depot's pill finds room beside its ⌂; its accessible name and its list keep
+ * 4 offline» – so a depot's pill finds room beside its Magazin glyph; its accessible name and its list keep
  * the full words.
  */
 export function pillTexts(
@@ -316,7 +316,7 @@ export function VehicleSpotMarker({
     >
       {/* Zero-sized: its origin IS the fix. */}
       <div style={{ position: "relative", width: 0, height: 0 }} onPointerEnter={enter} onPointerLeave={leave}>
-        {/* At the Magazin its ⌂ already marks the spot – a dot there would only cover it. */}
+        {/* At the Magazin its Warehouse glyph already marks the spot – a dot there would only cover it. */}
         {(dx !== 0 || dy !== 0) && <Leader dx={dx} dy={dy} dot={!atMagazin} />}
         <button
           type="button"

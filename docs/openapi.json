@@ -8145,7 +8145,7 @@
           "incident-groups"
         ],
         "summary": "Update Group Assignment",
-        "description": "Update a route-level assignment — currently only the Einsatzleiter flag.\n\nA route's stops own no resources, so a stop that belongs to an Auftrag takes\nits leader from here: one squad working a route has one leader, not one per\nstop on it.",
+        "description": "Update a route-level assignment – the Einsatzleiter flag or a vehicle's driver stay.\n\nA route's stops own no resources, so a stop that belongs to an Auftrag takes\nits leader from here: one squad working a route has one leader, not one per\nstop on it.",
         "operationId": "update_group_assignment_api_incident_groups__group_id__assignments__assignment_id__patch",
         "parameters": [
           {
@@ -25140,7 +25140,7 @@
           "name"
         ],
         "title": "FeldVehicleLine",
-        "description": "One vehicle on the briefing: who drives it, whether it stays, whose it is.\n\nThe driver is a property of the Ereignis, not of the Schadenplatz — but\n«TLF 1» on its own left a crew standing at an address unable to answer who\nis sitting in it, and the driver is exactly the person they need when the\nvehicle has to be moved. `driver` is None when the KP has not named one.\n\nThe other two answer the question a crew actually asks about a vehicle on\ntheir slip — *kommt das mit?*:\n\n* ``stays`` is the board's driver-stay flag: False means the driver takes it\n  back to the Magazin once the crew is dropped off, True that it is parked\n  at the address for the duration.\n\n  **None when nobody can answer.** A route-level vehicle has no toggle —\n  ``GroupAssignmentUpdate`` carries ``is_leader`` and nothing else, so its\n  ``driver_stay`` column is whatever ``_mirror`` copied or the DB default,\n  and no operator can change it. Sending `False` there would print «fährt\n  zurück» on a phone as if somebody had decided it. An absent flag is not\n  the same statement as \"he is coming back\" — the same rule the board's own\n  `DriverStayGlyph` follows, where `undefined` draws nothing.\n* ``via_auftrag`` says the vehicle belongs to the **Auftrag**, so it is\n  shared across every stop of the route and comes along to the next one.\n  A vehicle booked on this Schadenplatz alone does not. `/feld` rendered\n  both identically, which is why a route's TLF read as if it belonged to\n  the one address the crew happened to be standing at."
+        "description": "One vehicle on the briefing: who drives it, whether it stays, whose it is.\n\nThe driver is a property of the Ereignis, not of the Schadenplatz — but\n«TLF 1» on its own left a crew standing at an address unable to answer who\nis sitting in it, and the driver is exactly the person they need when the\nvehicle has to be moved. `driver` is None when the KP has not named one.\n\nThe other two answer the question a crew actually asks about a vehicle on\ntheir slip — *kommt das mit?*:\n\n* ``stays`` is the board's driver-stay flag: False means the driver takes it\n  back to the Magazin once the crew is dropped off, True that it is parked\n  at the address for the duration.\n\n  **None when nobody can answer.** A route-level vehicle's ``driver_stay``\n  can be set in the dispatch gate since 19.11.2026, but a row nobody touched\n  there is whatever ``_mirror`` copied or the DB default, and nothing tells\n  the two apart. Sending `False` there would print «fährt zurück» on a phone\n  as if somebody had decided it. An absent flag is not\n  the same statement as \"he is coming back\" — the same rule the board's own\n  `DriverStayGlyph` follows, where `undefined` draws nothing.\n* ``via_auftrag`` says the vehicle belongs to the **Auftrag**, so it is\n  shared across every stop of the route and comes along to the next one.\n  A vehicle booked on this Schadenplatz alone does not. `/feld` rendered\n  both identically, which is why a route's TLF read as if it belonged to\n  the one address the crew happened to be standing at."
       },
       "FieldReportState": {
         "properties": {
@@ -25989,6 +25989,17 @@
       },
       "GroupAssignmentUpdate": {
         "properties": {
+          "driver_stay": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver Stay"
+          },
           "is_leader": {
             "anyOf": [
               {

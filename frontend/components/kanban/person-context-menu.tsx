@@ -16,7 +16,7 @@ import { useOperations } from "@/lib/contexts/operations-context"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
 import { toast } from "sonner"
-import { Truck, Binoculars, Package2, Phone, MonitorCog, Check } from 'lucide-react'
+import { Truck, Binoculars, Warehouse, Phone, MonitorCog, Check } from 'lucide-react'
 import { PersonName, usePersonNaming } from "@/components/person-name"
 import { driversFromSpecialFunctions, type VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 
@@ -283,7 +283,7 @@ export function PersonContextMenu({
             }}
           >
             {hasFunction('magazin') && <Check className="mr-2 h-4 w-4" />}
-            <Package2 className={`mr-2 h-4 w-4 ${!hasFunction('magazin') ? 'ml-6' : ''}`} />
+            <Warehouse className={`mr-2 h-4 w-4 ${!hasFunction('magazin') ? 'ml-6' : ''}`} />
             {t('common.magazin')}
           </ContextMenuItem>
 

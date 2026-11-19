@@ -591,8 +591,6 @@
       "checklistIntro": "<hl>{location}</hl> wird disponiert. Weise zu, was fehlt – oder disponiere ohne.",
       "readyIntro": "<hl>{location}</hl> ist vollständig ausgerüstet – bereit zum Disponieren.",
       "addMore": "Hinzufügen",
-      "personalSummary": "{count, plural, one {# Person} other {# Personen}}",
-      "mittelSummary": "{count, plural, one {# Gerät} other {# Geräte}}",
       "done": "Disponieren",
       "back": "Zurück",
       "dispatchWithoutCrew": "Ohne Mannschaft disponieren",
@@ -613,11 +611,19 @@
       "description": "<hl>{finished}</hl> ist beendet und im Auftrag «{auftrag}» arbeitet gerade niemand mehr. Nächster offener Stopp: <hl>{next}</hl>.",
       "confirm": "Nächsten Stopp auf «Im Einsatz»"
     },
-    "rekoMissing": {
-      "description": "<hl>{location}</hl> soll in die Reko-Spalte, es ist aber noch keine Reko-Person zugewiesen. Ohne Zuweisung erhält niemand das Reko-Formular. Möchtest du jetzt jemanden zuweisen oder trotzdem fortfahren?",
-      "proceedAnyway": "Trotzdem fortfahren",
-      "dontMove": "Nicht verschieben",
-      "assignReko": "Reko-Person zuweisen"
+    "rekoGate": {
+      "pickerTitle": "Reko-Person für {location}",
+      "pickerLine": "Die Karte wandert mit der Zuweisung nach «Reko».",
+      "moveWithout": "Ohne Reko-Person verschieben",
+      "reportTitle": "Reko-Bericht · {location}",
+      "reportLine": "Reko: <hl>{name}</hl> · noch nichts übermittelt. Jedes Feld wird sofort gespeichert; die Antwort auf «Einsatz relevant?» reicht den Bericht ein.",
+      "reportLineNoPerson": "Keine Reko-Person zugewiesen. Jedes Feld wird sofort gespeichert; die Antwort auf «Einsatz relevant?» reicht den Bericht ein.",
+      "finish": "Reko abschliessen",
+      "finishWithout": "Ohne Bericht abschliessen",
+      "finishWaits": "Eingereicht wird mit der Antwort auf «Einsatz relevant?» – erst dann geht «Reko abschliessen».",
+      "draftStays": "«Ohne Bericht abschliessen» lässt das Erfasste als Entwurf.",
+      "loadError": "Der Reko-Bericht konnte nicht geladen werden.",
+      "retry": "Erneut versuchen"
     },
     "driverPrompt": {
       "driverlessTitle": "Fahrzeug ohne Fahrer?",
@@ -924,12 +930,6 @@
       "refreshing": "Wird aktualisiert …",
       "refreshed": "Aktualisiert",
       "refreshFailed": "Aktualisierung fehlgeschlagen"
-    },
-    "rekoFormMissing": {
-      "title": "Reko-Formular nicht ausgefüllt",
-      "description": "<hl>{location}</hl> wird als «Reko abgeschlossen» markiert, es wurde aber noch kein Reko-Formular ausgefüllt. Möchtest du die Reko-Details öffnen oder trotzdem abschliessen?",
-      "proceedAnyway": "Trotzdem abschliessen",
-      "openReko": "Reko-Details öffnen"
     },
     "auftraege": {
       "title": "Aufträge",
@@ -1257,7 +1257,9 @@
       "doneCount": "{count} erledigt",
       "distanceOpenTooltip": "Luftlinie zur nächstgelegenen offenen Reko",
       "distanceLastTooltip": "Luftlinie zum zuletzt zugewiesenen Einsatz",
-      "distanceLastSuffix": "(zuletzt)"
+      "distanceLastSuffix": "(zuletzt)",
+      "sectionReko": "Reko-Personen",
+      "sectionOthers": "Andere Anwesende"
     },
     "card": {
       "rekoCompleted": "Reko-Bericht ausgefüllt",

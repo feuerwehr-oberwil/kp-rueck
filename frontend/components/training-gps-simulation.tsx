@@ -18,7 +18,7 @@ import {
 import { Slider } from '@/components/ui/slider';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { Satellite, Play, Square, Home, Gauge, Lock, AlertTriangle } from 'lucide-react';
+import { Satellite, Play, Square, Warehouse, Gauge, Lock, AlertTriangle } from 'lucide-react';
 import { useGpsSimSpeed, GPS_SIM_SPEED_MIN, GPS_SIM_SPEED_MAX } from '@/lib/hooks/use-gps-sim-speed';
 import { formatEta, liveDrive } from '@/lib/gps-sim';
 import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils';
@@ -309,7 +309,7 @@ export function TrainingGpsSimulation() {
                         className="flex-shrink-0"
                         title={magazinConfigured ? t('returnTitle') : t('magazinMissing')}
                       >
-                        <Home className="size-3.5" />
+                        <Warehouse className="size-3.5" />
                         {t('returnButton')}
                       </Button>
                     )}
@@ -342,7 +342,7 @@ export function TrainingGpsSimulation() {
                         ))}
                         <SelectItem value={MAGAZIN_TARGET} disabled={!magazinConfigured}>
                           <span className="flex items-center gap-1.5">
-                            <Home className="h-3.5 w-3.5" />
+                            <Warehouse className="h-3.5 w-3.5" />
                             {t('magazinTarget')}
                           </span>
                         </SelectItem>

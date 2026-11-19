@@ -349,7 +349,7 @@ async def update_group_assignment(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
 ) -> schemas.GroupAssignmentResponse:
-    """Update a route-level assignment — currently only the Einsatzleiter flag.
+    """Update a route-level assignment – the Einsatzleiter flag or a vehicle's driver stay.
 
     A route's stops own no resources, so a stop that belongs to an Auftrag takes
     its leader from here: one squad working a route has one leader, not one per

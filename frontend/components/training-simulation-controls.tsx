@@ -28,11 +28,11 @@ import {
   MapPinCheck,
   Truck,
   Flag,
-  Home,
   ChevronRight,
   AlertTriangle,
   Megaphone,
   MessageSquare,
+  Warehouse,
   Wrench,
 } from 'lucide-react';
 import {
@@ -66,7 +66,7 @@ const ACTION_ICONS: Record<string, typeof MapPin> = {
   drive_to_incident: Truck,
   vehicle_on_scene: Truck,
   field_complete: Flag,
-  drive_to_magazin: Home,
+  drive_to_magazin: Warehouse,
   rapport: ClipboardCheck,
 };
 
@@ -538,7 +538,7 @@ export function TrainingSimulationControls() {
                           return (
                             <div key={action.key} className="flex-shrink-0 text-xs text-muted-foreground">
                               {slowest.kind === 'magazin' ? (
-                                <Home className="mr-1 inline h-3.5 w-3.5" />
+                                <Warehouse className="mr-1 inline h-3.5 w-3.5" />
                               ) : (
                                 <Truck className="mr-1 inline h-3.5 w-3.5" />
                               )}

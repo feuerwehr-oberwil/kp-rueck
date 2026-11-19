@@ -358,7 +358,7 @@ async def update_group_assignment(
     assignment_id: uuid.UUID,
     update: schemas.GroupAssignmentUpdate,
 ) -> schemas.GroupAssignmentResponse | None:
-    """Update a route-level assignment (currently: the Einsatzleiter flag).
+    """Update a route-level assignment: the Einsatzleiter flag or a vehicle's driver stay.
 
     Mirrors ``crud.assignments.update_assignment``. The role is single-holder and
     guarded by a partial unique index, so the previous holder is demoted in the
@@ -388,6 +388,9 @@ async def update_group_assignment(
         raise AssignmentReleasedError("Diese Zuweisung wurde bereits freigegeben.")
 
     update_data = update.model_dump(exclude_unset=True)
+
+    if "driver_stay" in update_data and assignment.resource_type != "vehicle":
+        raise ValueError("Nur ein Fahrzeug hat einen Fahrer, der vor Ort bleibt")
 
     if "is_leader" in update_data:
         # Only a person can lead a route — see `crud.assignments.update_assignment`.

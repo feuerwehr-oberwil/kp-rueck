@@ -35,7 +35,7 @@ export const MAP_COLORS = {
   live: "#10b981",
   /** Tailwind gray-500 — the "offline / no signal" frame of a vehicle pill. */
   offline: "#6b7280",
-  /** Under the white ⌂ of the firestation and the Magazin: a PLACE, not a state. */
+  /** Under the white glyph of the firestation (⌂) and the Magazin (Warehouse): a PLACE, not a state. */
   station: MAP_INK,
 } as const
 

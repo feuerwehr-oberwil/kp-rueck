@@ -543,7 +543,7 @@ export default function FireStationDashboard() {
     triggerDisponiertDialog,
     triggerReturningVehicleCheck,
     triggerRekoCheck,
-    triggerRekoFormCheck,
+    holdStatusMove,
     promptMaterialDecision,
   } = statusWorkflow
 
@@ -684,7 +684,7 @@ export default function FireStationDashboard() {
     vehicleTypes,
     deleteOperation,
     toggleDriverStay,
-    triggerRekoFormCheck,
+    holdStatusMove,
     triggerRekoCheck,
     promptMaterialDecision,
     triggerReturningVehicleCheck,
@@ -953,11 +953,11 @@ export default function FireStationDashboard() {
   }
 
   // What a card arriving in a column asks — after a drag across, and after a
-  // typed «14 einsatz» (⌘K), which is the same move.
+  // typed «14 einsatz» (⌘K), which is the same move. «Reko abgeschlossen» without
+  // a report asks BEFORE the move instead (`holdStatusMove`).
   const afterStatusMove = (operationId: string, newStatus: OperationStatus, previousStatus: OperationStatus) => {
     if (newStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
     if (newStatus === "reko") triggerRekoCheck(operationId, previousStatus)
-    if (newStatus === "reko_done") triggerRekoFormCheck(operationId, previousStatus)
     if (newStatus === "returning") triggerReturningVehicleCheck(operationId, previousStatus)
     // Drag-to-ABGESCHLOSSEN already ran updateOperation(complete) inside the hook
     // (which keeps materials). Just prompt the material decision here.
@@ -982,6 +982,7 @@ export default function FireStationDashboard() {
       setHoveredOperationId(operationId)
     },
     onStatusChange: afterStatusMove,
+    holdStatusChange: holdStatusMove,
     // Aufträge (route) drop targets — see auftraege-sheet.tsx for the registered
     // drop-target data contract (`group-row` / `group-stop`).
     groups,
@@ -1206,6 +1207,7 @@ export default function FireStationDashboard() {
     boardAssignMaterial,
     boardAssignGroupResource,
     afterStatusMove,
+    holdStatusMove,
     collectPersonBindings,
     collectMaterialBindings,
     followBinding,

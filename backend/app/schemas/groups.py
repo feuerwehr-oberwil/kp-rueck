@@ -108,6 +108,9 @@ class GroupAssignmentResponse(BaseModel):
 class GroupAssignmentUpdate(BaseModel):
     """Schema for updating a route-level assignment (mirrors ``AssignmentUpdate``)."""
 
+    # Vehicles only: the driver stays at the Schadenplatz («bleibt vor Ort») or
+    # takes the vehicle back («kehrt zurück») – set in the dispatch gate.
+    driver_stay: bool | None = None
     # Promote this person to Einsatzleiter for the whole route. Setting it
     # demotes whoever held the role.
     is_leader: bool | None = None

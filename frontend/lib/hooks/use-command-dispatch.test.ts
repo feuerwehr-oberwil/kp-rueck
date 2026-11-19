@@ -112,6 +112,7 @@ function board(
     moveStatus: (_id, status) => {
       order.push(`status:${status}`)
       current = { ...current, status }
+      return true
     },
     revertPriority: (_id, priority) => {
       current = { ...current, priority }
