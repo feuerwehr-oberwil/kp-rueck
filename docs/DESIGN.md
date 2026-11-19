@@ -146,8 +146,9 @@ the fill. At night the fill tones measured ~2:1 as words.
   fuchsia and – since the selection took KP Front's blue – the saturated blue: the first swatch
   is petrol for new Aufträge; stored colours stay. «Färben nach Fahrzeug» hashes into the
   same family widened to ten (`GROUP_PALETTE`, ENT-05 B); «Färben nach Reko» gives the Reko
-  people that family in turn, in the order they became Reko, without petrol's two near-twins
-  (`REKO_PALETTE`, `rekoColorOrder`) – no two alike until eight are out. There is no generic «info» blue: an
+  people one tone per hue family in turn (petrol, amber-brown, indigo, lime, azure), in the order
+  they became Reko (`REKO_PALETTE`, `rekoColorOrder`) – no two alike until five are out, every
+  pair ≥ 0.1 apart in OKLab. There is no generic «info» blue: an
   inbound message is a muted glyph, an offline notice amber, a ✓ green, upload progress the
   neutral `Progress`.
 - **On the map, things are ink** (`MAP_INK`): the firestation and Magazin marks, a reporting

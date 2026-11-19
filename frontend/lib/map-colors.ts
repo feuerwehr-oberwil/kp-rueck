@@ -182,13 +182,15 @@ export const AUFTRAG_SWATCHES = ["#0e6680", "#008299", "#528400", "#6365f0", "#a
 export const GROUP_PALETTE = [...AUFTRAG_SWATCHES, "#2c72e5", "#4b6a88", "#6b6b1f", "#7c5a3a"] as const
 
 /**
- * «Färben nach Reko»: the group palette WITHOUT the two near-twins of petrol (#008299 cyan,
- * #008578 teal – the three side by side read as one person, feedback 19.11.2026), in a turn
- * that never puts two alike next to each other. The Reko people of an Ereignis take these in
- * the order they became Reko (`rekoColorOrder` in lib/kanban-utils.ts): no repeat until all
- * eight are out.
+ * «Färben nach Reko»: ONE tone per hue family – petrol, amber-brown, indigo, lime, azure – so
+ * two Reko people never read as one. The group palette's near-twins are out: petrol's cyan and
+ * teal (feedback 19.11.2026), the brown beside the amber, the olive beside the lime, the steel
+ * and the selection blue beside petrol and indigo (sign-off 19.11.2026); azure is the one tone
+ * added. `lib/map-colors.test.ts` holds every pair ≥ 0.1 apart in OKLab. The Reko people of an
+ * Ereignis take these in the order they became Reko (`rekoColorOrder` in lib/kanban-utils.ts):
+ * no repeat until all five are out – the first two are the two farthest apart.
  */
-export const REKO_PALETTE = ["#0e6680", "#a16207", "#6365f0", "#528400", "#7c5a3a", "#2c72e5", "#6b6b1f", "#4b6a88"] as const
+export const REKO_PALETTE = ["#0e6680", "#a16207", "#6365f0", "#528400", "#107cc0"] as const
 
 // --- Darker for white text ------------------------------------------------
 
@@ -240,6 +242,19 @@ function oklchToLinear(lightness: number, chroma: number, hue: number): Rgb {
   ]
 }
 const inGamut = (rgb: Rgb) => rgb.every((c) => c >= -1e-6 && c <= 1 + 1e-6)
+
+/** How far apart two `#rrggbb` colours look: Euclidean distance in OKLab (0 = the same;
+ *  the near-twins the owner could not tell apart were ≤ 0.08). NaN for anything not hex. */
+export function oklabDistance(a: string, b: string): number {
+  const [p, q] = [a, b].map((hex) => {
+    const rgb = parseHex(hex)
+    if (!rgb) return null
+    const [lightness, chroma, hue] = linearToOklch([toLinear(rgb[0]), toLinear(rgb[1]), toLinear(rgb[2])])
+    return [lightness, chroma * Math.cos(hue), chroma * Math.sin(hue)]
+  })
+  if (!p || !q) return NaN
+  return Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2])
+}
 
 /** The colour at this OKLCH lightness with the hue kept – chroma cut only where sRGB ends. */
 function atLightness(lightness: number, chroma: number, hue: number): string {

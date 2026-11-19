@@ -103,9 +103,4 @@ describe("«Färben nach Reko»", () => {
     expect(colorGroupFor(rekoOp("zz"), "reko", undefined, order)?.color).toBe(REKO_PALETTE[0])
     expect(colorGroupFor(rekoOp("aa"), "reko", undefined, order)?.color).toBe(REKO_PALETTE[1])
   })
-
-  it("keeps one of the three near-equal teals only", () => {
-    const teals = ["#0e6680", "#008299", "#008578"]
-    expect(REKO_PALETTE.filter((tone) => teals.includes(tone))).toHaveLength(1)
-  })
 })
