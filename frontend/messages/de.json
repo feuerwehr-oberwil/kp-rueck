@@ -2888,6 +2888,8 @@
       "additionalNotes": "Zusätzliche Notizen",
       "relevantShort": "Relevant",
       "notRelevantShort": "Nicht relevant",
+      "relevanceOpen": "Relevanz nicht beantwortet",
+      "relevanceOpenShort": "Relevanz offen",
       "photoCount": "{count, plural, one {# Foto} other {# Fotos}}",
       "create": "Reko-Bericht erfassen",
       "createTitle": "Reko-Bericht erfassen",

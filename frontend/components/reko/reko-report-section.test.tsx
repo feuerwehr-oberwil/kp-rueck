@@ -257,6 +257,23 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     await waitFor(() => expect(updateRekoReport).toHaveBeenLastCalledWith('r-own', { is_relevant: false }))
   })
 
+  it.each([[true], [false]])('says an unanswered «Einsatz relevant?» as open and offers no completion (pass 4, S2) – dense %s', async (dense) => {
+    getIncidentRekoReports.mockResolvedValue([report({ id: 'r-open', is_relevant: null, summary_text: 'Keller' })])
+    renderWithIntl(<RekoReportSection incidentId="i-open" canEdit dense={dense} onRequestComplete={() => {}} />)
+
+    expect(await screen.findByText('Relevanz nicht beantwortet')).toBeInTheDocument()
+    expect(screen.queryByText('Kein Einsatz nötig')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Einsatz abschliessen/ })).not.toBeInTheDocument()
+  })
+
+  it('offers «Einsatz abschliessen» for a «Nein»', async () => {
+    getIncidentRekoReports.mockResolvedValue([report({ id: 'r-no', is_relevant: false })])
+    renderWithIntl(<RekoReportSection incidentId="i-no" canEdit dense onRequestComplete={() => {}} />)
+
+    expect(await screen.findByText('Kein Einsatz nötig')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Einsatz abschliessen/ })).toBeInTheDocument()
+  })
+
   it('counts a draft whose only answer is the power supply as a draft', async () => {
     getIncidentRekoReports.mockResolvedValue([
       report({ id: 'r-draft', is_draft: true, created_by_user_id: 'u-1', is_relevant: null, power_supply: 'unavailable' }),

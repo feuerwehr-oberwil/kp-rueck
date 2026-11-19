@@ -52,7 +52,7 @@ import { DETAIL_CONTROL_INDENT, DetailField } from '@/components/kanban/detail-f
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { CheckCircle2, XCircle, AlertTriangle, Binoculars, FileText, ChevronDown, History, CheckCheck, Pencil, Plus, X } from 'lucide-react'
+import { CheckCircle2, XCircle, CircleHelp, AlertTriangle, Binoculars, FileText, ChevronDown, History, CheckCheck, Pencil, Plus, X } from 'lucide-react'
 import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
 import { RekoReportForm, EMPTY_REKO_FORM, toRekoFormData, type RekoFormData } from '@/components/reko/reko-report-form'
 import { useRekoAutosave } from '@/components/reko/use-reko-autosave'
@@ -308,14 +308,8 @@ export default function RekoReportSection({
                   }
                 >
                   <div className="flex min-w-0 items-center gap-1.5 text-sm">
-                    {report.is_relevant ? (
-                      <CheckCircle2 className="size-3.5 shrink-0 text-success" />
-                    ) : (
-                      <XCircle className="size-3.5 shrink-0 text-muted-foreground" />
-                    )}
-                    <span className="shrink-0">
-                      {report.is_relevant ? t('relevantShort') : t('notRelevantShort')}
-                    </span>
+                    <VerdictIcon value={report.is_relevant} className="size-3.5 shrink-0" />
+                    <span className="shrink-0">{t(verdictKey(report.is_relevant, 'short'))}</span>
                     {report.summary_text && (
                       <span className="truncate text-muted-foreground">· {report.summary_text}</span>
                     )}
@@ -492,6 +486,23 @@ function hasContent(form: RekoFormData): boolean {
     effort.vehicles_needed.length > 0 ||
     effort.equipment_needed.length > 0
   )
+}
+
+/**
+ * «Einsatz relevant?» as a filed report answers it: Ja, Nein – or not at all, which old
+ * reports and crew data can be (a board report is filed only by the answer). An open answer
+ * is never read as «Nein»: no «Kein Einsatz nötig», no «Einsatz abschliessen» for it.
+ */
+function verdictKey(value: boolean | null, size: 'long' | 'short') {
+  if (value === true) return size === 'long' ? 'relevant' : 'relevantShort'
+  if (value === false) return size === 'long' ? 'notNeeded' : 'notRelevantShort'
+  return size === 'long' ? 'relevanceOpen' : 'relevanceOpenShort'
+}
+
+function VerdictIcon({ value, className }: { value: boolean | null; className: string }) {
+  if (value === true) return <CheckCircle2 className={cn(className, 'text-success')} />
+  if (value === false) return <XCircle className={cn(className, 'text-muted-foreground')} />
+  return <CircleHelp className={cn(className, 'text-muted-foreground')} />
 }
 
 interface RekoReportCardProps {
@@ -775,14 +786,8 @@ function RekoReportCard({ report, incidentId, onRequestComplete, dense = false }
             whitespace separates it from the rows below, like everywhere else
             in the detail. */}
         <div className={cn('flex flex-wrap items-center gap-x-2 gap-y-1', hasBody && 'pb-1.5')}>
-          {report.is_relevant ? (
-            <CheckCircle2 className="size-4 shrink-0 text-success" />
-          ) : (
-            <XCircle className="size-4 shrink-0 text-muted-foreground" />
-          )}
-          <span className="text-sm font-semibold leading-tight">
-            {report.is_relevant ? t('relevant') : t('notNeeded')}
-          </span>
+          <VerdictIcon value={report.is_relevant} className="size-4 shrink-0" />
+          <span className="text-sm font-semibold leading-tight">{t(verdictKey(report.is_relevant, 'long'))}</span>
           <span className="flex min-w-0 items-center gap-1.5 text-xs leading-tight text-muted-foreground">
             {report.submitted_by_personnel_name && (
               <span className="flex items-center gap-1">
@@ -796,7 +801,7 @@ function RekoReportCard({ report, incidentId, onRequestComplete, dense = false }
           </span>
           {/* Reko reported the incident not relevant — let the operator close it
               straight from the Reko-Meldung. */}
-          {!report.is_relevant && onRequestComplete && (
+          {report.is_relevant === false && onRequestComplete && (
             <Button size="xs" variant="secondary" className="ml-auto" onClick={onRequestComplete}>
               <CheckCheck className="size-3.5" />
               {t('completeIncident')}
@@ -819,14 +824,8 @@ function RekoReportCard({ report, incidentId, onRequestComplete, dense = false }
             a chip or a value. The verdict used to reserve a 24px line box for a
             16px word and pushed its own rule down with it. */}
         <div className={cn('flex flex-wrap items-center gap-x-2 gap-y-1', hasBody && 'border-b pb-2 mb-3')}>
-          {report.is_relevant ? (
-            <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
-          ) : (
-            <XCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          )}
-          <span className="font-medium leading-tight">
-            {report.is_relevant ? t('relevant') : t('notNeeded')}
-          </span>
+          <VerdictIcon value={report.is_relevant} className="h-4 w-4 flex-shrink-0" />
+          <span className="font-medium leading-tight">{t(verdictKey(report.is_relevant, 'long'))}</span>
           {/* Provenance rides on the verdict line, small and muted — the heavy
               three-part footer it replaces was a full row of chrome saying one
               line's worth of facts. «aktualisiert» only appears once it differs
@@ -844,7 +843,7 @@ function RekoReportCard({ report, incidentId, onRequestComplete, dense = false }
             )}
             {/* Reko reported the incident not relevant — let the operator close it
                 straight from the Reko-Meldung card. */}
-            {!report.is_relevant && onRequestComplete && (
+            {report.is_relevant === false && onRequestComplete && (
               <Button
                 size="xs"
                 variant="secondary"
@@ -886,15 +885,11 @@ function RekoReportCardCompact({ report }: RekoReportCardProps) {
   return (
     <div className="rounded-lg border border-dashed bg-muted/30 p-3 text-sm">
       <div className="flex items-start gap-2">
-        {report.is_relevant ? (
-          <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0 mt-0.5" />
-        ) : (
-          <XCircle className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-        )}
+        <VerdictIcon value={report.is_relevant} className="h-4 w-4 flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex items-center justify-between gap-2">
             <span className="font-medium text-xs">
-              {report.is_relevant ? t('relevantShort') : t('notRelevantShort')}
+              {t(verdictKey(report.is_relevant, 'short'))}
             </span>
             {/* Same rule as the current card's provenance: today's reports say
                 only the clock, older ones bring the date back. */}

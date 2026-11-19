@@ -3418,6 +3418,8 @@
       "additionalNotes": "Notes complémentaires",
       "relevantShort": "Pertinente",
       "notRelevantShort": "Non pertinente",
+      "relevanceOpen": "Pertinence sans réponse",
+      "relevanceOpenShort": "Pertinence ouverte",
       "photoCount": "{count, plural, one {# photo} other {# photos}}",
       "create": "Saisir le rapport de reconnaissance",
       "createTitle": "Saisir le rapport de reconnaissance",
