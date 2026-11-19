@@ -47,7 +47,8 @@ async def get_available_personnel(
         List of personnel with event-specific check-in status
     """
     # Get all available personnel
-    query = select(Personnel).order_by(Personnel.name.asc())
+    # The roster and this Ereignis's own guests (`Personnel.in_scope`).
+    query = select(Personnel).where(Personnel.in_scope(event_id)).order_by(Personnel.name.asc())
     if not include_unavailable:
         query = query.where(Personnel.status != "unavailable")
 
@@ -108,7 +109,8 @@ async def check_in_personnel(
         request: Optional request object (for audit log)
 
     Returns:
-        Updated personnel with event-specific check-in status, or None if not found
+        Updated personnel with event-specific check-in status, or None if not found (a
+        guest of another Ereignis counts as not found)
 
     Raises:
         ValueError: If personnel is unavailable
@@ -117,7 +119,8 @@ async def check_in_personnel(
     result = await db.execute(select(Personnel).where(Personnel.id == personnel_id))
     person = result.scalar_one_or_none()
 
-    if not person:
+    # A guest of another Ereignis is nobody this one lists (`Personnel.in_scope`).
+    if not person or person.guest_event_id not in (None, event_id):
         return None
 
     # Can't check in if unavailable
@@ -221,7 +224,8 @@ async def check_out_personnel(
                       Either way the assignment is left intact — never released silently.
 
     Returns:
-        Updated personnel with event-specific check-in status, or None if not found
+        Updated personnel with event-specific check-in status, or None if not found (a
+        guest of another Ereignis counts as not found)
     """
     # Get personnel record
     result = await db.execute(select(Personnel).where(Personnel.id == personnel_id).with_for_update())

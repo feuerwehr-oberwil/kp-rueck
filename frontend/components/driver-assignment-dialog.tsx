@@ -311,8 +311,9 @@ export function DriverAssignmentDialog({
     }
   }
 
-  // Create a not-yet-registered person, check them in for this Ereignis, tag them as
-  // Fahrer, and assign them as this vehicle's driver in one go.
+  // Create a not-yet-registered person as a GUEST of this Ereignis (not the roster – they
+  // turned up tonight), check them in, tag them as Fahrer, and assign them as this
+  // vehicle's driver in one go.
   const addWalkInDriver = async () => {
     const name = newPersonName.trim()
     if (isAddingPerson) return
@@ -329,7 +330,7 @@ export function DriverAssignmentDialog({
     }
     setIsAddingPerson(true)
     try {
-      const created = await apiClient.createPersonnel({ name, status: 'available', tags: ['F'] })
+      const created = await apiClient.createPersonnel({ name, status: 'available', tags: ['F'], guest_event_id: eventId })
       try {
         // The board's own door to the check-in endpoint. This used to mint a public
         // share token and consume it one line later, which handed a login-less link

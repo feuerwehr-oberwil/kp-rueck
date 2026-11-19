@@ -431,6 +431,10 @@ das einzige Eingabegerät, das das System noch hat.
   auflösen kann; ein hartes Verbot würde zwingen, zum Auschecken die Ansicht zu wechseln.
 - Wer als *nicht verfügbar* geführt ist, erscheint ausgegraut mit Grund.
 - **«Person hinzufügen»** im Appell legt die Person an **und checkt sie direkt ein** – sie ist sofort anwesend.
+  Sie gehört **nur zu diesem Ereignis** (Gast): in *Einstellungen → Personal* und in
+  anderen Ereignissen erscheint sie nicht. Dasselbe gilt für «Person hinzufügen» im
+  Fahrer-Dialog und auf dem Check-in-Link. In den Bestand gehört, wer in den
+  Einstellungen erfasst wird.
 
 > **Nachbarhilfe und Zivilschutz können sich nicht selbst einchecken.** Der Check-in
 > zeigt nur den eigenen Bestand, und Sichtbarkeit kommt aus den Zuweisungen. Der

@@ -546,7 +546,7 @@ async def get_feld_personnel_for_event(
     # attendance moved in: a person the Ereignis holds nothing for now gets
     # "eingecheckt · noch kein Auftrag", which answers the most common question
     # in the field — do they even know I am here — instead of nothing at all.
-    personnel_result = await db.execute(select(Personnel))
+    personnel_result = await db.execute(select(Personnel).where(Personnel.in_scope(event_id)))
     personnel = list(personnel_result.scalars().all())
 
     attendance_result = await db.execute(

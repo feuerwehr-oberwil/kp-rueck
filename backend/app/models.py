@@ -21,6 +21,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    or_,
 )
 from sqlalchemy import event as sa_event
 from sqlalchemy import text as sa_text
@@ -28,6 +29,7 @@ from sqlalchemy.dialects.postgresql import INET, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.sql.elements import ColumnElement
 
 from .database import Base
 
@@ -212,6 +214,15 @@ class Personnel(Base):
     role_sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     tags: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True, default=list)
+    # Set = a GUEST of that Ereignis («Person hinzufügen» in the Appell, on the check-in link,
+    # in the Fahrer picker), not a roster member: listed for that Ereignis only, never in the
+    # roster or another Ereignis (`crud.personnel.in_scope`). The row stays for the rapport
+    # and history and goes with its Ereignis. NULL = the station's roster.
+    guest_event_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("events.id", ondelete="CASCADE", name="fk_personnel_guest_event_id_events"),
+        nullable=True,
+    )
 
     # Provider identity (e.g. the Divera user id) lives in
     # PersonnelExternalIdentity, never as a vendor column here. The deprecated
@@ -236,7 +247,20 @@ class Personnel(Base):
         ),
         Index("idx_personnel_status", "status"),
         Index("idx_personnel_role_sort_order", "role_sort_order"),
+        Index("idx_personnel_guest_event_id", "guest_event_id"),
     )
+
+    @classmethod
+    def in_scope(cls, event_id: UUID | None) -> ColumnElement[bool]:
+        """The people a list shows: the roster, plus the guests of ``event_id`` when one is named.
+
+        Every list of people goes through this – the roster (Settings, sync, export) passes
+        ``None`` and never sees a guest; an Ereignis's lists see its own guests and nobody
+        else's. Lookups by id need no scope: a guest's name still resolves everywhere.
+        """
+        if event_id is None:
+            return cls.guest_event_id.is_(None)
+        return or_(cls.guest_event_id.is_(None), cls.guest_event_id == event_id)
 
 
 class PersonnelExternalIdentity(Base):

@@ -8970,7 +8970,7 @@
           "personnel"
         ],
         "summary": "Create Personnel",
-        "description": "Create new personnel (editor only) – 409 when name + Kennung is already on the roster.",
+        "description": "Create new personnel (editor only) – 409 when name + Kennung is already on the roster.\n\nWith `guest_event_id` the person is a guest of that Ereignis: listed there only, never in\nthe roster (the walk-in «Person hinzufügen»). 404 when that Ereignis does not exist.",
         "operationId": "create_personnel_api_personnel__post",
         "parameters": [
           {
@@ -29715,6 +29715,18 @@
               }
             ],
             "title": "Tags"
+          },
+          "guest_event_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guest Event Id"
           }
         },
         "type": "object",
@@ -29723,7 +29735,7 @@
           "status"
         ],
         "title": "PersonnelCreate",
-        "description": "Schema for creating personnel."
+        "description": "Schema for creating personnel.\n\n``guest_event_id`` makes the person a guest of that Ereignis instead of a roster member\n(the walk-in «Person hinzufügen»; `models.Personnel.guest_event_id`). Set once, here."
       },
       "PersonnelListItem": {
         "properties": {

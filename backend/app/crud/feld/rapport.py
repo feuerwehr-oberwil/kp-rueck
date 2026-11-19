@@ -246,7 +246,9 @@ async def _event_personnel(db: AsyncSession, incident: Incident) -> _PersonnelOf
     # catalogue: there is no five-figure case to cap against, and capping would
     # mean a name the crew cannot find.
     roster_result = await db.execute(
-        select(Personnel).order_by(Personnel.role_sort_order, Personnel.role, Personnel.name)
+        select(Personnel)
+        .where(Personnel.in_scope(incident.event_id))
+        .order_by(Personnel.role_sort_order, Personnel.role, Personnel.name)
     )
     roster = [
         {"personnel_id": person.id, "name": person.name, "kennung": person.kennung}

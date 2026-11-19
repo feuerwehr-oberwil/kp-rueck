@@ -362,6 +362,7 @@ export function AttendanceModal({
           await load()
         }}
         checkInEventId={eventId}
+        guestEventId={eventId}
         isNameTaken={isNameTaken}
         // The sheet footer is already the frame on the phone; the desktop dialog keeps
         // today's boxed form.

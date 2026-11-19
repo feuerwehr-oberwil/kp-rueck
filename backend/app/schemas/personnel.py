@@ -52,7 +52,13 @@ class PersonnelBase(BaseModel):
 
 
 class PersonnelCreate(PersonnelBase):
-    """Schema for creating personnel."""
+    """Schema for creating personnel.
+
+    ``guest_event_id`` makes the person a guest of that Ereignis instead of a roster member
+    (the walk-in «Person hinzufügen»; `models.Personnel.guest_event_id`). Set once, here.
+    """
+
+    guest_event_id: UUID | None = None
 
 
 class PersonnelUpdate(BaseModel):
