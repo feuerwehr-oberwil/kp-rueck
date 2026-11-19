@@ -217,7 +217,10 @@ describe("dispatch gate – press twice", () => {
     const crew = screen.getByRole("group", { name: "Mannschaft" })
     expect(crew).toHaveTextContent("Mannschaft · 2")
     expect(crew.textContent!.indexOf("Meier Andrea")).toBeLessThan(crew.textContent!.indexOf("Ackermann Reto"))
-    expect(screen.getByRole("button", { name: "Einsatzleiter" })).toHaveAttribute("aria-pressed", "true")
+    // The current EL is a read-only mark, not a button: a tap on it must not fall through to
+    // the box's picker on a touch screen.
+    expect(screen.getByLabelText("Einsatzleiter")).toHaveTextContent("EL")
+    expect(screen.queryByRole("button", { name: "Einsatzleiter" })).not.toBeInTheDocument()
 
     const vehicles = screen.getByRole("group", { name: "Fahrzeuge" })
     expect(vehicles).toHaveTextContent("TLF · Baumann Michael")

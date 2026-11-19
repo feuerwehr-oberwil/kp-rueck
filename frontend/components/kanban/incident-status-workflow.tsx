@@ -1440,7 +1440,9 @@ function DispatchGateDialog({
                           crewHasLeaderSlot && (
                             <LeaderBadge
                               isLeader={member.isLeader}
-                              onPromote={target ? () => promote(target) : undefined}
+                              // The current EL is a read-only mark: the button form lets a touch
+                              // fall through (`pointer-events-none`) – here onto the box's picker.
+                              onPromote={target && !member.isLeader ? () => promote(target) : undefined}
                               // ≤768px the global touch rule squares every button to 44px; the
                               // 16px mark keeps its size, its `hit-area` pad is the 46px target.
                               className={cn("max-md:min-h-0 max-md:min-w-0", GATE_ABOVE_OPEN)}

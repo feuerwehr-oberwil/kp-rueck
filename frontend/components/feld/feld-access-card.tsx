@@ -30,6 +30,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { apiClient } from '@/lib/api-client'
+import { useAuth } from '@/lib/contexts/auth-context'
 import { copyToClipboard } from '@/lib/utils'
 import type { ApiFeldAccessState } from '@/lib/api/types'
 import { ShellLoader } from '@/components/ui/shell-loader'
@@ -41,8 +42,13 @@ interface FeldAccessCardProps {
   bare?: boolean
 }
 
-/** The last access state seen per Ereignis, for the next mount (the sheets unmount when closed). */
+/**
+ * The last access state seen per user + Ereignis, for the next mount (the sheets unmount when
+ * closed). Per user: the code is editor-only, and a logout does not reload the page, so a
+ * viewer signing in on the same tab must not be handed the editor's code.
+ */
 const lastAccess = new Map<string, ApiFeldAccessState>()
+const cacheKey = (userId: string, eventId: string) => `${userId}:${eventId}`
 
 /**
  * Loads the Feld-Code while the Links & QR sheet is still closed, so even its first opening
@@ -50,10 +56,11 @@ const lastAccess = new Map<string, ApiFeldAccessState>()
  * 19.11.2026, as #14 did for the Fahrzeuge sheet). Quiet: on a failure the card loads it again
  * when it mounts.
  */
-export async function prefetchFeldAccess(eventId: string): Promise<void> {
-  if (lastAccess.has(eventId)) return
+export async function prefetchFeldAccess(userId: string, eventId: string): Promise<void> {
+  const key = cacheKey(userId, eventId)
+  if (lastAccess.has(key)) return
   try {
-    lastAccess.set(eventId, await apiClient.getFeldAccess(eventId))
+    lastAccess.set(key, await apiClient.getFeldAccess(eventId))
   } catch {
     // the card tries again on opening
   }
@@ -61,15 +68,18 @@ export async function prefetchFeldAccess(eventId: string): Promise<void> {
 
 export function FeldAccessCard({ eventId, bare = false }: FeldAccessCardProps) {
   const t = useTranslations('feld.access')
-  const [loaded, setLoaded] = useState<{ eventId: string; state: ApiFeldAccessState } | null>(null)
-  // This Ereignis's state: what this card loaded, else what an earlier mount (or the prefetch) did.
-  const state = loaded?.eventId === eventId ? loaded.state : (lastAccess.get(eventId) ?? null)
+  const userId = useAuth().user?.id
+  const key = userId ? cacheKey(userId, eventId) : null
+  const [loaded, setLoaded] = useState<{ key: string | null; state: ApiFeldAccessState } | null>(null)
+  // This user's state for this Ereignis: what this card loaded, else what an earlier mount (or
+  // the prefetch) did.
+  const state = loaded && loaded.key === key ? loaded.state : (key ? lastAccess.get(key) ?? null : null)
   const setState = useCallback(
     (next: ApiFeldAccessState) => {
-      lastAccess.set(eventId, next)
-      setLoaded({ eventId, state: next })
+      if (key) lastAccess.set(key, next)
+      setLoaded({ key, state: next })
     },
-    [eventId],
+    [key],
   )
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)

@@ -132,10 +132,11 @@ export function LinksQrSheet({
 
   // Closed: fetch the Feld-Code once in the background, so the sheet opens with it (the code
   // is editor-only on the server).
-  const { isEditor } = useAuth()
+  const { isEditor, user } = useAuth()
+  const userId = user?.id
   useEffect(() => {
-    if (!open && eventId && isEditor) void prefetchFeldAccess(eventId)
-  }, [open, eventId, isEditor])
+    if (!open && eventId && isEditor && userId) void prefetchFeldAccess(userId, eventId)
+  }, [open, eventId, isEditor, userId])
 
   // The Appell row's count, fetched only while the sheet showing it is open.
   useEffect(() => {
