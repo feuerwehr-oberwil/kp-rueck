@@ -143,9 +143,14 @@ export default function RekoReportSection({
   const [ownDraft, setOwnDraft] = useState<ApiRekoReportResponse | null>(null)
   const { user } = useAuth()
   const userId = user?.id ?? null
+  // Reloads overlap (a save settling, `reko_update`, the poll): only the newest read's answer
+  // is applied – an older one answering last would bring back a stale list (Sol pass 5, S6).
+  const readRef = useRef(0)
   const loadReports = useCallback(async () => {
+    const read = ++readRef.current
     try {
       const data = await apiClient.getIncidentRekoReports(incidentId)
+      if (read !== readRef.current) return
       // Only submitted reports are shown (newest first); the one draft kept is the
       // operator's own, to pick up again.
       setReports(data.filter(r => !r.is_draft))

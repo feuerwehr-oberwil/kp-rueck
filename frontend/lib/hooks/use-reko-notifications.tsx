@@ -55,12 +55,17 @@ export function useRekoNotifications(
   // switches must not mark the new one's reports seen or touch its cards.
   const activeEventRef = useRef(eventId)
   activeEventRef.current = eventId
+  // Consecutive auto-saves each emit `reko_update`, and their reads overlap: only the newest
+  // read's answer is applied, so an older one answering last cannot restore stale facts
+  // (Sol review pass 5, S6).
+  const readRef = useRef(0)
 
   const checkForNewRekos = useCallback(async () => {
     if (!eventId) return
+    const read = ++readRef.current
     try {
       const { summaries } = await apiClient.getEventRekoSummaries(eventId)
-      if (activeEventRef.current !== eventId) return
+      if (activeEventRef.current !== eventId || read !== readRef.current) return
       const submitted = Object.values(summaries).filter((s) => s.has_completed_reko && s.submitted_at)
       const current = new Map(submitted.map((report) => {
         const dangerTypes = rekoDangerTypes(report.dangers_json)

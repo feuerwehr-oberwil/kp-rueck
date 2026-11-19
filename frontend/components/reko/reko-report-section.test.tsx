@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 
@@ -22,8 +22,16 @@ vi.mock('@/lib/api-client', async () => ({
     },
   },
 }))
+const wsHandlers = vi.hoisted(() => new Map<string, (payload: unknown) => void>())
 vi.mock('@/lib/websocket-client', () => ({
-  wsClient: { on: () => () => {}, getStatus: () => 'connected', onStatusChange: () => () => {} },
+  wsClient: {
+    on: (event: string, handler: (payload: unknown) => void) => {
+      wsHandlers.set(event, handler)
+      return () => wsHandlers.delete(event)
+    },
+    getStatus: () => 'connected',
+    onStatusChange: () => () => {},
+  },
 }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock('@/lib/contexts/auth-context', () => ({ useAuth: () => ({ user: { id: 'u-1' } }) }))
@@ -347,6 +355,25 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
 
     await user.click(screen.getByRole('button', { name: 'weiter erfassen' }))
     expect(screen.getByDisplayValue('Zufahrt über Hof')).toBeInTheDocument()
+  })
+
+  it('drops an older list read that answers after a newer one (pass 5, S6)', async () => {
+    getIncidentRekoReports.mockResolvedValueOnce([report({ id: 'r-1', summary_text: 'Keller' })])
+    renderWithIntl(<RekoReportSection incidentId="i-reads" canEdit dense />)
+    expect(await screen.findByText('Keller')).toBeInTheDocument()
+
+    let answerOld: (value: unknown) => void = () => {}
+    getIncidentRekoReports.mockReturnValueOnce(new Promise(resolve => { answerOld = resolve }))
+    getIncidentRekoReports.mockResolvedValueOnce([report({ id: 'r-1', summary_text: 'Keller 20 cm' })])
+    await act(async () => {
+      wsHandlers.get('reko_update')?.({ data: { incident_id: 'i-reads' } })
+      wsHandlers.get('reko_update')?.({ data: { incident_id: 'i-reads' } })
+    })
+    expect(await screen.findByText('Keller 20 cm')).toBeInTheDocument()
+    await act(async () => { answerOld([report({ id: 'r-1', summary_text: 'Keller' })]) })
+
+    expect(screen.getByText('Keller 20 cm')).toBeInTheDocument()
+    expect(screen.queryByText('Keller')).not.toBeInTheDocument()
   })
 
   it('counts a draft whose only answer is the power supply as a draft', async () => {

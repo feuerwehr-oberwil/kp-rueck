@@ -126,6 +126,25 @@ describe("useRekoNotifications – the verdict", () => {
   });
 });
 
+describe("useRekoNotifications – overlapping reads", () => {
+  it("drops an older read that answers after a newer one (pass 5, S6)", async () => {
+    getEventRekoSummaries.mockResolvedValueOnce(respond(summary("a", "2026-10-06T08:00:00Z")));
+    const onUpdate = vi.fn();
+    renderHook(() => useRekoNotifications(undefined, onUpdate));
+    await waitFor(() => expect(getEventRekoSummaries).toHaveBeenCalledTimes(1));
+
+    // Two auto-saves, two reads: the first one answers last, with the older text.
+    let answerOld: (value: unknown) => void = () => {};
+    getEventRekoSummaries.mockReturnValueOnce(new Promise((resolve) => { answerOld = resolve; }));
+    getEventRekoSummaries.mockResolvedValueOnce(respond(summary("a", "2026-10-06T08:00:00Z", { summary_text: "Keller 20 cm" })));
+    await act(async () => { wsHandlers.get("reko_update")?.(); wsHandlers.get("reko_update")?.(); });
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledWith("a", expect.objectContaining({ summaryText: "Keller 20 cm" })));
+    await act(async () => { answerOld(respond(summary("a", "2026-10-06T08:00:00Z", { summary_text: "Keller" }))); });
+
+    expect(onUpdate).toHaveBeenLastCalledWith("a", expect.objectContaining({ summaryText: "Keller 20 cm" }));
+  });
+});
+
 describe("withRekoSummary", () => {
   it("sets the summary only – the card's status stays the server's (pass 5, S1)", () => {
     const card = { id: "a", status: "reko", hasCompletedReko: true } as unknown as Operation;
