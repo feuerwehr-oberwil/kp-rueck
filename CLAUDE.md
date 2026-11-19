@@ -287,8 +287,8 @@ to the runtime `API_URL`. The same reasoning applies to map tiles (`getTileBaseU
   drag-and-drop.
 - **The snail is shared with KP Front and edited there.** `frontend/public/firefighter-snail-loader.svg`
   is a byte-identical copy of kp-front's `public/firefighter-snail-loader.svg`, and
-  `SHELL_TRAIL_PATH` is its `fs-shell-trail` path. Never edit either here. Colour it from the
-  outside (`--accent` is pointed at `--primary`). The SVG is in `shared/MANIFEST.json`;
+  `SHELL_TRAIL_PATH` is its `fs-shell-trail` path. Never edit either here. Set the wrapper’s
+  `--accent` to KP Front’s default red for the active theme. The SVG is in `shared/MANIFEST.json`;
   `shell-loader.test.tsx` holds `SHELL_TRAIL_PATH` to it.
 - **Toasts – one message surface**: one lane, `components/ui/sonner.tsx`. Sonner runs
   `unstyled`. Its injected CSS is unlayered and beats every Tailwind utility, so tone classes on a

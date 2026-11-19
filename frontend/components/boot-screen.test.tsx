@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { act, fireEvent, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -49,10 +51,19 @@ describe('BootScreen', () => {
     }
   })
 
-  it('points the shell at the red primary, not shadcn\'s blue --accent', () => {
-    const { container } = renderWithIntl(<BootScreen phase="…" />)
-    const loader = container.querySelector<HTMLElement>('.snail-loader')!
-    expect(loader.style.getPropertyValue('--accent')).toBe('var(--primary)')
+  it('uses KP Front’s default shell colour in each theme', () => {
+    const style = document.createElement('style')
+    style.textContent = readFileSync(resolve(__dirname, '../app/globals.css'), 'utf8')
+    document.head.append(style)
+    try {
+      const { container } = renderWithIntl(<BootScreen phase="…" />)
+      const loader = container.querySelector<HTMLElement>('.snail-loader')!
+      expect(getComputedStyle(loader).getPropertyValue('--accent').trim()).toBe('#e8392b')
+      container.classList.add('dark')
+      expect(getComputedStyle(loader).getPropertyValue('--accent').trim()).toBe('#ff5a4d')
+    } finally {
+      style.remove()
+    }
   })
 
   it('offers «Neu starten» only once the start has taken 9 s, and reloads', () => {

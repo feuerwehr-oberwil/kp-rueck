@@ -1239,6 +1239,15 @@
   }
 }
 
+/* KP Front's default mascot colours (kp-front/src/styles/01-tokens.css). */
+.snail-loader {
+  --accent: #e8392b;
+}
+
+.dark .snail-loader {
+  --accent: #ff5a4d;
+}
+
 /* The boot snail handed over by the Microsoft callback (lib/snail-clock.ts): it continues
    the previous document's snail, which already arrived, so from the first paint it stands
    instead of starting a second arrival. All of its animations off = the drawing at rest,
