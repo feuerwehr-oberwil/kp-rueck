@@ -3,7 +3,7 @@
 import { useCallback, useRef } from "react"
 import type { useGroups } from "@/lib/contexts/groups-context"
 import type { Operation, useOperations } from "@/lib/contexts/operations-context"
-import { getIncidentRefLabel } from "@/lib/incident-types"
+import { getIncidentLocationLabel, getIncidentRefLabel } from "@/lib/incident-types"
 import { askAuftragStop } from "@/lib/auftrag-stop-question"
 
 type Ops = ReturnType<typeof useOperations>
@@ -221,7 +221,7 @@ export function useAssignmentConflicts({
         groupId: group.id,
         groupName: group.name,
         incidentId: target.id,
-        incidentLabel: getIncidentRefLabel(target),
+        incidentLabel: getIncidentLocationLabel(target),
         vehicleId,
         vehicleName,
         assignOnly: () => assignVehicleToOperation(vehicleId, vehicleName, operationId),

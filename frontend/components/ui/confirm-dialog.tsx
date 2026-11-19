@@ -161,7 +161,8 @@ export function ConfirmDialog({
       >
         <AlertDialogHeader>
           <AlertDialogTitle className={icon ? 'flex items-center gap-2' : undefined}>
-            {icon}
+            {/* shrink-0: a title that wraps must not squeeze the glyph to a sliver. */}
+            {icon && <span className="flex shrink-0">{icon}</span>}
             {title}
           </AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>

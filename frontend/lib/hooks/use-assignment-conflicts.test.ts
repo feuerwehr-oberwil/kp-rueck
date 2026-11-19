@@ -94,13 +94,14 @@ describe("useAssignmentConflicts — a vehicle onto an incident", () => {
     vi.mocked(askAuftragStop).mockClear()
     const { inputs, hook, asked } = setup({
       groups: [group("g-2", "Süd", [{ id: "ga-1", resourceType: "vehicle", resourceId: "v-tlf" }])],
-      operations: [op("op-1", "Blumenweg 21")],
+      operations: [op("op-1", "Blumenweg 21", { number: 2, incidentType: "elementarereignis", notes: "Wasser im Keller" })],
     })
     expect(hook.assignVehicleToIncidentWithConflict("v-tlf", "TLF", "op-1")).toBe(true)
     expect(asked()).toEqual([])
     expect(inputs.assignVehicleToOperation).not.toHaveBeenCalled()
     const [[question]] = vi.mocked(askAuftragStop).mock.calls as [[AuftragStopQuestion]]
-    expect(question).toMatchObject({ groupId: "g-2", groupName: "Süd", incidentId: "op-1", vehicleName: "TLF" })
+    // The short place label: no number, no type, no Meldung – the title stays one line (sign-off 19.11.).
+    expect(question).toMatchObject({ groupId: "g-2", groupName: "Süd", incidentId: "op-1", incidentLabel: "Blumenweg 21", vehicleName: "TLF" })
     await question.assignOnly()
     expect(inputs.assignVehicleToOperation).toHaveBeenCalledWith("v-tlf", "TLF", "op-1")
   })

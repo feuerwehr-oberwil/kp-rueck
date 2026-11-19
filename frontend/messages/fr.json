@@ -1441,7 +1441,7 @@
     },
     "auftragStop": {
       "title": "Ajouter {incident} comme étape à la mission {auftrag} ?",
-      "description": "{vehicle} roule déjà pour la mission « {auftrag} ». {incident} y sera ajoutée comme dernière étape.",
+      "description": "{vehicle} roule déjà pour la mission « {auftrag} ». L’intervention y sera ajoutée comme dernière étape.",
       "addAsStop": "Ajouter à la mission",
       "assignOnly": "Attribuer seulement en plus",
       "added": "{incident} est maintenant une étape de la mission « {auftrag} »",

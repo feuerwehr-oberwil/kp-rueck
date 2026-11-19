@@ -15,6 +15,7 @@ export interface AuftragStopQuestion {
   groupId: string
   groupName: string
   incidentId: string
+  /** The short place label (`getIncidentLocationLabel`) – the title says it, the body does not repeat it. */
   incidentLabel: string
   /** The vehicle that drives the Auftrag – the server checks it still does. */
   vehicleId: string

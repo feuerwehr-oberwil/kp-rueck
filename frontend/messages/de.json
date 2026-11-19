@@ -1360,7 +1360,7 @@
     },
     "auftragStop": {
       "title": "{incident} als Stopp in Auftrag {auftrag} aufnehmen?",
-      "description": "{vehicle} fährt schon den Auftrag «{auftrag}». {incident} wird dort als letzter Stopp aufgenommen.",
+      "description": "{vehicle} fährt schon den Auftrag «{auftrag}». Der Einsatz wird dort als letzter Stopp aufgenommen.",
       "addAsStop": "In Auftrag aufnehmen",
       "assignOnly": "Nur zusätzlich zuweisen",
       "added": "{incident} ist jetzt Stopp im Auftrag «{auftrag}»",

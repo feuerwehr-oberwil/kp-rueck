@@ -25,6 +25,8 @@ describe('AuftragStopPrompt', () => {
     addStopForVehicle.mockResolvedValue('added')
     ask()
     expect(screen.getByText('Blumenweg 21 als Stopp in Auftrag Nord aufnehmen?')).toBeInTheDocument()
+    // The body names the vehicle and the Auftrag; the place is in the title already.
+    expect(screen.getByText('TLF fährt schon den Auftrag «Nord». Der Einsatz wird dort als letzter Stopp aufgenommen.')).toBeInTheDocument()
     // No undo after it (pass 2, S9).
     expect(screen.getByRole('button', { name: 'Abbrechen' })).toHaveFocus()
     await userEvent.click(screen.getByRole('button', { name: 'In Auftrag aufnehmen' }))
