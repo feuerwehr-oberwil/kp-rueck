@@ -1,19 +1,14 @@
-"""Offline photo pool for simulated training Reko reports.
+"""Bundled illustrations and curated scene photos for offline training reports."""
 
-A curated set of CC-licensed scene photos (curated once at dev time via
-``scripts/download-training-photos.py``, attribution in
-``app/assets/training_photos/ATTRIBUTION.md``) ships inside the backend
-package. When the training simulation submits a Reko report, 0-2 pool photos
-matching the incident type are pushed through the exact same
-``PhotoStorageService`` path real uploads use, so serving, cleanup and
-deletion behave identically to real photos. No network access at runtime.
-"""
-
+import hashlib
+import json
 import logging
 import random
 import uuid
+from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
+from typing import NotRequired, TypedDict
 
 from fastapi import UploadFile
 
@@ -23,6 +18,39 @@ logger = logging.getLogger(__name__)
 
 # Pool shipped inside the app package: backend/app/assets/training_photos/<type>/NN.jpg
 POOL_DIR = Path(__file__).resolve().parent.parent / "assets" / "training_photos"
+SUMMARY_IMAGE_DIR = POOL_DIR.with_name("training_reko_images")
+
+
+class SummaryImage(TypedDict):
+    file: str
+    prompt: str
+    scene: NotRequired[str]
+
+
+def summary_image_key(summary: str) -> str:
+    """Key the illustration by the exact UTF-8 summary wording."""
+    return hashlib.sha256(summary.encode("utf-8")).hexdigest()
+
+
+@lru_cache(maxsize=1)
+def load_summary_image_manifest(image_dir: Path) -> dict[str, SummaryImage]:
+    try:
+        return json.loads((image_dir / "manifest.json").read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {}
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        logger.warning("Skipping training Reko illustration manifest: %s", exc)
+        return {}
+
+
+def pick_summary_image(summary: str) -> Path | None:
+    entry = load_summary_image_manifest(SUMMARY_IMAGE_DIR).get(summary_image_key(summary))
+    if entry:
+        path = SUMMARY_IMAGE_DIR / entry["file"]
+        if path.is_file():
+            return path
+    return None
+
 
 # Fallback when a type has no (or an emptied) pool of its own: borrow a
 # sibling's — mirrors the summary pool fallbacks in training_simulation_data
@@ -35,8 +63,8 @@ _POOL_ALIASES = {
     "dienstleistungen": "technische_hilfeleistung",
 }
 
-# Weighted photo count per report: ~55% of simulated Reko reports carry at
-# least one photo — matches how often a real crew bothers to attach pictures.
+# Weighted legacy photo count: ~55% of simulated reports supplement their
+# report with a type photo. Rapport can use both picks; Reko takes at most one.
 _PHOTO_COUNTS = (0, 1, 2)
 _PHOTO_COUNT_WEIGHTS = (45, 35, 20)
 
@@ -77,8 +105,10 @@ async def attach_training_photos(
     incident_type: str | None,
     current_photos: list[str] | None = None,
     pool_dir: Path | None = None,
+    *,
+    summary_text: str | None = None,
 ) -> list[str]:
-    """Copy 0-2 pool photos into the incident's photo directory.
+    """Copy the wording illustration first, followed by at most one type photo.
 
     Each photo goes through ``PhotoStorageService.save_photo`` — the same code
     path the real upload endpoint uses — so the stored files (UUID.jpg in the
@@ -91,7 +121,10 @@ async def attach_training_photos(
     """
     filenames: list[str] = []
     existing = list(current_photos or [])
-    for path in pick_pool_photos(incident_type, pool_dir=pool_dir):
+    matched = pick_summary_image(summary_text) if summary_text else None
+    type_photos = pick_pool_photos(incident_type, pool_dir=pool_dir)[:1]
+    paths = [matched, *type_photos] if matched else type_photos
+    for path in paths:
         try:
             upload = UploadFile(file=BytesIO(path.read_bytes()), filename=path.name)
             filename = await photo_storage.save_photo(

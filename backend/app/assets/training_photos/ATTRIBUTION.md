@@ -6,6 +6,39 @@ Scene photos for simulated training Reko reports, curated from
 CC BY-SA licensed; they were resized (longest edge 1280 px),
 re-encoded (JPEG q80) and stripped of EXIF metadata.
 
+## AI-generated Reko illustrations
+
+The WebP files in [training_reko_images](../training_reko_images) are fictional
+Swiss fire-service training scenes generated with Codex ImageGen. The
+manifest records the exact prompt and file under the SHA-256 of the exact
+summary text. Identical texts share a file across pools. These illustrations
+are separate from the Wikimedia Commons photos attributed below.
+
+All illustrations have a 640 px long edge and depict the scene as found,
+before fire-service intervention. Pumps, hoses, absorbent, barriers, sandbags,
+ladders and fire-service gear or vehicles stay out of the scene, even if
+the report calls for them. Ordinary civilian equipment or materials can appear
+if the report explicitly says residents or other civilians already used them.
+The manifest marks reviewed scenes with `"scene": "as_found"`. Kept images
+retain the exact prompt used to generate them.
+
+Relevant simulated Reko reports select the exact summary illustration
+followed by an optional type photo. Dispatch-linked summaries use the crew's
+final estimate, including when it differs from dispatch. For water, the
+selection follows the reported intervention. Wet-vacuum reports use the
+nearest 3 or 5 cm laundry scene, single-pump reports use the 25 cm basement,
+and depths above 30 cm use the rising-water scene. For oil, the selection
+uses the nearest quantified basement spill (5, 50 or 80 litres, with ties
+broken in pool order). Not-relevant reports receive no generated photos.
+
+From `backend/`, run `uv run python scripts/generate_reko_images.py jobs > /tmp/reko-image-jobs.jsonl`
+to export missing jobs. Generate each job's prompt with ImageGen and save the
+selected PNG under its `out` name in a source directory. Run
+`uv run python scripts/generate_reko_images.py import /tmp/reko-image-jobs.jsonl /tmp/reko-image-sources`
+to install approved PNGs from that directory and record their prompts.
+Use `jobs --pool elementar_water` for a single pool. Use `jobs --all` to
+prepare regeneration jobs, reusing recorded as-found prompts where available.
+
 ## brandbekaempfung
 
 | File | Author | License | Source |

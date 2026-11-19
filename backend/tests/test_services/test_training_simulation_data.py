@@ -10,13 +10,16 @@ import re
 from uuid import uuid4
 
 import pytest
+from PIL import Image
 
 from app.seed_training import EMERGENCY_TEMPLATES
+from app.services.training_photos import SUMMARY_IMAGE_DIR, load_summary_image_manifest, summary_image_key
 from app.services.training_simulation_data import (
     _NICE_CM,
     _NICE_LITER,
     _NICE_M,
     _SUMMARIES,
+    _dispatch_linked_photo_summary,
     _dispatch_linked_summary,
     _get_elementar_subcategory,
     _oil_action,
@@ -30,6 +33,54 @@ from app.services.training_simulation_data import (
     generate_summary,
     vary_dispatch_numbers,
 )
+
+
+def test_all_reko_summaries_have_bundled_illustrations():
+    summaries = {summary for pool in _SUMMARIES.values() for summary in pool}
+    manifest = load_summary_image_manifest(SUMMARY_IMAGE_DIR)
+    missing = set()
+    for summary in summaries:
+        entry = manifest.get(summary_image_key(summary))
+        if not entry or not entry["prompt"] or not (SUMMARY_IMAGE_DIR / entry["file"]).is_file():
+            missing.add(summary)
+    assert not missing, (
+        f"{len(missing)}/{len(summaries)} Reko illustrations are missing. "
+        "Run `uv run python scripts/generate_reko_images.py jobs` from backend/ to export the missing jobs."
+    )
+    for summary in summaries:
+        entry = manifest[summary_image_key(summary)]
+        path = SUMMARY_IMAGE_DIR / entry["file"]
+        assert entry.get("scene") == "as_found", summary
+        assert path.stat().st_size <= 30_000, summary
+        with Image.open(path) as image:
+            assert image.format == "WEBP" and max(image.size) == 640, summary
+            image.verify()
+
+
+@pytest.mark.parametrize(
+    ("resolved_type", "linked_summary", "pool", "expected_phrase"),
+    [
+        ("elementar_water", "Gemeldet 50cm, vor Ort nur ~5cm. Nasssauger genügt.", "elementar_water", "5cm"),
+        ("elementar_water", "Lage wie gemeldet, rund 20cm. Eine Tauchpumpe genügt.", "elementar_water", "25cm"),
+        (
+            "elementar_water",
+            "Gemeldet 20cm, tatsächlich mehr – ~40cm. Mehrere Pumpen nötig, Wasser läuft nach.",
+            "elementar_water",
+            "steigt langsam",
+        ),
+        (
+            "oelwehr",
+            "Gemeldet 80 Liter, vor Ort nur ~10 Liter. Kleinmenge, Bindemittel genügt.",
+            "oel_keller",
+            "5 Liter",
+        ),
+    ],
+)
+def test_dispatch_linked_photo_matches_the_crew_estimate(resolved_type, linked_summary, pool, expected_phrase):
+    summary = _dispatch_linked_photo_summary(linked_summary, resolved_type)
+    assert summary in _SUMMARIES[pool]
+    assert expected_phrase in summary
+
 
 # (incident_type, title, description, pool): one row per keyword the pool vocabulary
 # must catch, plus the fallbacks. Adding a keyword is adding a row.
