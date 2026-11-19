@@ -70,7 +70,7 @@ export function FeldAccessCard({ eventId, bare = false }: FeldAccessCardProps) {
   const t = useTranslations('feld.access')
   const userId = useAuth().user?.id
   const key = userId ? cacheKey(userId, eventId) : null
-  const [loaded, setLoaded] = useState<{ key: string | null; state: ApiFeldAccessState } | null>(null)
+  const [loaded, setLoaded] = useState<{ key: string | null; state: ApiFeldAccessState | null } | null>(null)
   // This user's state for this Ereignis: what this card loaded, else what an earlier mount (or
   // the prefetch) did.
   const state = loaded && loaded.key === key ? loaded.state : (key ? lastAccess.get(key) ?? null : null)
@@ -86,14 +86,18 @@ export function FeldAccessCard({ eventId, bare = false }: FeldAccessCardProps) {
   const [confirmRegenerate, setConfirmRegenerate] = useState(false)
   const [confirmRevoke, setConfirmRevoke] = useState(false)
 
-  // Every mount refreshes: the device count moves while the sheet is closed.
+  // Every mount refreshes: the device count moves, and another KP device may have made a new
+  // code, while the sheet is closed. A refresh that fails drops the remembered code – the card
+  // falls back to its placeholder rather than offer a code nobody confirmed.
   const load = useCallback(async () => {
     try {
       setState(await apiClient.getFeldAccess(eventId))
     } catch (error) {
       console.error('Failed to load feld access state:', error)
+      if (key) lastAccess.delete(key)
+      setLoaded({ key, state: null })
     }
-  }, [eventId, setState])
+  }, [eventId, key, setState])
 
   useEffect(() => {
     load()

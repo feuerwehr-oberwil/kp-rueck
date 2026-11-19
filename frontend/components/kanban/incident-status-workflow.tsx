@@ -268,7 +268,9 @@ export function useIncidentStatusWorkflow({
       ...operation.crew.map((member) => ({
         personnelId: member.personnelId,
         name: member.name,
-        isLeader: member.personnelId === operation.leaderId,
+        // Under an Auftrag the route's leader leads, as in the board detail: a stop may keep
+        // the EL it had before it joined, and two «EL» marks would say two different things.
+        isLeader: !auftrag && member.personnelId === operation.leaderId,
         leaderTarget: auftrag
           ? null
           : { kind: "incident" as const, operationId: operation.id, personnelId: member.personnelId },
@@ -1280,8 +1282,8 @@ export function IncidentStatusWorkflowDialogs({
  *  the button is not), so a click anywhere on the box is this button's click. */
 const GATE_OPEN_STRETCH = "after:absolute after:inset-0 after:rounded-md after:content-['']"
 
-/** Lifted above `GATE_OPEN_STRETCH`: a chip, the «EL» stub or a toggle keeps its own click
- *  (or none) instead of opening the picker under it. */
+/** Lifted above `GATE_OPEN_STRETCH`: a crew chip, the «EL» stub or a toggle keeps its own
+ *  click instead of opening the picker under it. Read-only names stay under it. */
 const GATE_ABOVE_OPEN = "relative z-10"
 
 /**
@@ -1419,7 +1421,11 @@ function DispatchGateDialog({
           const coverage = controller.getResourceCoverage(missingOperation)
           // An edge of their own (the mock's chips): on the hovered box the chip fill and the box tint are
           // nearly one tone.
-          const chip = cn("max-w-full min-w-0 gap-1 border-border font-normal", GATE_ABOVE_OPEN)
+          // Vehicle and material names are read-only: they stay UNDER the opener, so a click on
+          // one opens the box's picker like the rest of the box (owner: «the entire row/box»).
+          const chip = "max-w-full min-w-0 gap-1 border-border font-normal"
+          // A crew chip has its own menu (remove, «Als Einsatzleiter»): lifted above the opener.
+          const crewChip = cn(chip, GATE_ABOVE_OPEN)
           // The EL slot before every crew chip (`CrewChipSlot`, as in the board detail):
           // only where it can hold something – a promotable person, or somebody leading.
           const crewHasLeaderSlot = (Boolean(onPromoteLeader) && coverage.crew.some((member) => member.leaderTarget))
@@ -1452,7 +1458,7 @@ function DispatchGateDialog({
                       >
                         <RemovableChip
                           variant="secondary"
-                          className={chip}
+                          className={crewChip}
                           // Touch: no hover, so no stub – the chip's menu offers the promotion.
                           menuTitle={naming.inline({ name: member.name, personnelId: member.personnelId })}
                           menuSubtitle={<PersonMenuSubtitle personnelId={member.personnelId} isLeader={member.isLeader} />}

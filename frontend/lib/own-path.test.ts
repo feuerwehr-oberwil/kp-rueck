@@ -7,7 +7,7 @@ describe('ownPath', () => {
     expect(ownPath('/feld?token=abc')).toBe('/feld?token=abc')
   })
 
-  it.each(['https://example.com', '//example.com', '/\\example.com', '/\t/example.com', '/\n/example.com', 'feld', '', null])(
+  it.each(['https://example.com', '//example.com', '/\\example.com', '/\t/example.com', '/\n/example.com', '/a/..//example.com', 'feld', '', null])(
     'refuses %s',
     (raw) => {
       expect(ownPath(raw)).toBeNull()

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { act, screen } from "@testing-library/react"
+import { act, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import {
@@ -267,5 +267,18 @@ describe("dispatch gate – press twice", () => {
     expect(openers[0]).toHaveAccessibleName("Hinzufügen")
     expect(openers[0].className).toMatch(/after:absolute after:inset-0/)
     expect(screen.getByRole("group", { name: "TLF" }).className).toMatch(/relative z-10/)
+    // A read-only name stays under the opener: a click on it opens the picker.
+    expect(within(vehicles).getByText("TLF").closest("[data-slot=badge]")!.className).not.toMatch(/z-10/)
+  })
+
+  it("under an Auftrag only the route's leader is marked, not the stop's earlier EL", () => {
+    renderGate(operation({ groupId: "g1", leaderId: "p-Meier Andrea", crew: [crewMember("Meier Andrea")] }), {
+      groups: [auftrag("g1", ["incident-1"])],
+      route: { ...noRoute, personnel: [{ resourceId: "p-weber", assignmentId: "ga-1", name: "Weber Martin", isLeader: true }] },
+    })
+
+    expect(screen.getAllByLabelText("Einsatzleiter")).toHaveLength(1)
+    const crew = screen.getByRole("group", { name: "Mannschaft" })
+    expect(crew.textContent!.indexOf("Weber Martin")).toBeLessThan(crew.textContent!.indexOf("Meier Andrea"))
   })
 })

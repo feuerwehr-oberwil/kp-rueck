@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 
@@ -29,6 +29,16 @@ describe('FeldAccessCard', () => {
     renderWithIntl(<FeldAccessCard eventId="event-1" />)
     expect(screen.queryByText('0634')).not.toBeInTheDocument()
     auth.user = { id: 'editor-1' }
+  })
+
+  it('drops a remembered code when the refresh fails', async () => {
+    getFeldAccess.mockResolvedValue({ code: '0634', device_count: 1 })
+    await prefetchFeldAccess('editor-1', 'event-3')
+
+    getFeldAccess.mockRejectedValue(new Error('offline'))
+    renderWithIntl(<FeldAccessCard eventId="event-3" />)
+    expect(screen.getByText('0634')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('0634')).not.toBeInTheDocument())
   })
 
   it('does not show another Ereignis\'s code', () => {
