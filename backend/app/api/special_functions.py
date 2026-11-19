@@ -94,6 +94,8 @@ async def assign_special_function(
     """Assign a special function to personnel for an event (editor only)."""
     try:
         db_assignment = await crud.create_special_function(db, event_id, assignment, current_user, request)
+    except crud.PersonnelNotInEventError as e:
+        raise HTTPException(status_code=404, detail=ErrorMessages.PERSONNEL_NOT_FOUND) from e
     except ValueError as e:
         logger.warning("Special function assignment failed for event %s: %s", event_id, e)
         raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e

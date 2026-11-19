@@ -74,3 +74,42 @@ async def test_guest_names_clash_only_within_the_lists_they_share(
     assert (await editor_client.post("/api/personnel/", json=guest("Muster Hans", test_event.id))).status_code == 409
     # An Ereignis that does not exist.
     assert (await editor_client.post("/api/personnel/", json=guest("Neu", uuid4()))).status_code == 404
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_another_ereignis_cannot_assign_or_check_out_a_guest(
+    editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user
+):
+    """Sol review S7: the scope holds on writes too – Einsatz, Auftrag, function, check-out."""
+    from app.models import Incident
+
+    other = await _other_event(db_session)
+    other_id = other.id
+    incident = Incident(
+        id=uuid4(),
+        event_id=other_id,
+        title="Keller",
+        type="elementarereignis",
+        priority="medium",
+        status="incoming",
+        created_by=test_user.id,
+    )
+    db_session.add(incident)
+    await db_session.commit()
+    guest = await editor_client.post(
+        "/api/personnel/", json={"name": "Techniker", "status": "available", "guest_event_id": str(test_event.id)}
+    )
+    guest_id = guest.json()["id"]
+    route = await editor_client.post("/api/incident-groups/", json={"name": "Nord", "event_id": str(other_id)})
+    person = {"resource_type": "personnel", "resource_id": guest_id}
+
+    assert (await editor_client.post(f"/api/incidents/{incident.id}/assign", json=person)).status_code == 409
+    assert (
+        await editor_client.post(f"/api/incident-groups/{route.json()['id']}/assign", json=person)
+    ).status_code == 409
+    reko = {"personnel_id": guest_id, "function_type": "reko"}
+    assert (await editor_client.post(f"/api/events/{other_id}/special-functions/", json=reko)).status_code == 404
+    assert (await editor_client.post(f"/api/personnel/check-in/{guest_id}/out?event_id={other_id}")).status_code == 404
+    # Its own Ereignis may.
+    assert (await editor_client.post(f"/api/events/{test_event.id}/special-functions/", json=reko)).status_code == 201

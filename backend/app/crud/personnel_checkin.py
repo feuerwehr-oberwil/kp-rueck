@@ -231,7 +231,8 @@ async def check_out_personnel(
     result = await db.execute(select(Personnel).where(Personnel.id == personnel_id).with_for_update())
     person = result.scalar_one_or_none()
 
-    if not person:
+    # A guest of another Ereignis is nobody this one lists (`Personnel.in_scope`).
+    if not person or person.guest_event_id not in (None, event_id):
         return None
 
     is_assigned = await _is_personnel_assigned(db, event_id, personnel_id)
