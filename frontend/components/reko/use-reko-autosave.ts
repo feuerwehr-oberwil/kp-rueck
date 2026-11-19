@@ -1,9 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import type { SyncState } from '@/components/kanban/field-save-status'
 import { toRekoFormData, type RekoFormData } from '@/components/reko/reko-report-form'
-import { apiClient, type ApiRekoReportResponse, type ApiRekoReportUpdate } from '@/lib/api-client'
+import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
 import { classifySaveFailure } from '@/lib/field-save'
 
 /** How long the form waits after the last edit before it saves – one request per pause,
@@ -11,19 +11,23 @@ import { classifySaveFailure } from '@/lib/field-save'
 export const REKO_SAVE_DELAY_MS = 600
 
 /**
- * One operator's auto-save of one Einsatz's Reko form. It lives at module level, keyed by
- * user + Einsatz, not in the component: closing the incident detail or switching tabs
- * unmounts the form while a save may still be waiting or in flight, and the next mount must
- * see that save – its row, its newest form – or it opens from a list read that raced the save
- * and writes the old text back with the next field (Sol review pass 2, S1).
+ * One operator's auto-save of ONE report of an Einsatz – the own draft and an amendment of a
+ * filed report are two sessions, so a save in flight for one never lands on the other (Sol
+ * review pass 4, S3). It lives at module level, not in the component: closing the incident
+ * detail or switching tabs unmounts the form while a save may still be waiting or in flight,
+ * and the next mount must see that save – its row, its newest form – or it opens from a list
+ * read that raced the save and writes the old text back with the next field (pass 2, S1).
  */
 interface AutosaveSession {
+  /** `user:incident` – what the reloads after a save are keyed by. */
+  base: string
   /** The row the edits go to; null until the first save created the draft. */
   target: string | null
-  /** The newest form this operator gave; null until the first edit. */
+  /** The newest form: the server's row as last acknowledged, with this operator's edits
+   *  that are not acknowledged yet on top. Null until the first edit. */
   latest: RekoFormData | null
-  /** The form as the server last had it from this session's view: what it was opened with,
-   *  then what each save sent. A save sends only what differs from it (`changedFields`). */
+  /** The form as the server has it: what it was opened with, then each save's answer. A save
+   *  sends only what differs from it (`changedFields`). */
   baseline: RekoFormData
   version: number
   /** The version the server confirmed last, and the `updated_at` it answered with. */
@@ -31,26 +35,40 @@ interface AutosaveSession {
   inFlight: boolean
   timer: ReturnType<typeof setTimeout> | null
   state: SyncState
-  /** Mounted forms: their state subscriptions and `onSettled` reloads. */
+  /** Mounted forms: their state subscriptions, and the open forms that take a save's
+   *  answer (another board's answers) into what they show. */
   listeners: Set<() => void>
-  settled: Set<() => void>
+  adopters: Set<(form: RekoFormData) => void>
   mounts: number
 }
 
+/** Sessions by `user:incident#report` – a new draft's session is found under `#new` and,
+ *  once its first save answered, under the draft's id as well. */
 const sessions = new Map<string, AutosaveSession>()
+/** The sections' list reloads, per `user:incident`: any of its sessions settling reloads. */
+const reloads = new Map<string, Set<() => void>>()
 
-function sessionFor(key: string): AutosaveSession {
+const sessionKey = (base: string, reportId: string | null) => `${base}#${reportId ?? 'new'}`
+
+function sessionFor(base: string, reportId: string | null): AutosaveSession {
+  const key = sessionKey(base, reportId)
   let session = sessions.get(key)
   if (!session) {
     session = {
-      target: null, latest: null, baseline: toRekoFormData(null), version: 0,
+      base, target: reportId, latest: null, baseline: toRekoFormData(null), version: 0,
       confirmed: { version: 0, updatedAt: null },
       inFlight: false, timer: null, state: { status: 'idle' },
-      listeners: new Set(), settled: new Set(), mounts: 0,
+      listeners: new Set(), adopters: new Set(), mounts: 0,
     }
     sessions.set(key, session)
   }
   return session
+}
+
+/** What the form changed: top-level answers, and within dangers and effort the single keys. */
+type RekoFormChanges = Partial<Omit<RekoFormData, 'photos_json' | 'dangers_json' | 'effort_json'>> & {
+  dangers_json?: Partial<RekoFormData['dangers_json']>
+  effort_json?: Partial<RekoFormData['effort_json']>
 }
 
 /**
@@ -59,8 +77,8 @@ function sessionFor(key: string): AutosaveSession {
  * merges), so a form opened blank never sends the blanks it did not touch over somebody
  * else's report (Sol review pass 3, S2). No photo list: upload and delete own it (S5).
  */
-export function changedFields(base: RekoFormData, next: RekoFormData): ApiRekoReportUpdate {
-  const changes: ApiRekoReportUpdate = {}
+export function changedFields(base: RekoFormData, next: RekoFormData): RekoFormChanges {
+  const changes: RekoFormChanges = {}
   if (next.is_relevant !== base.is_relevant) changes.is_relevant = next.is_relevant
   if (next.power_supply !== base.power_supply) changes.power_supply = next.power_supply
   if (next.summary_text !== base.summary_text) changes.summary_text = next.summary_text
@@ -76,6 +94,17 @@ export function changedFields(base: RekoFormData, next: RekoFormData): ApiRekoRe
   return changes
 }
 
+/** `form` with `changes` laid over it – how edits made during a save survive its answer. */
+function withChanges(form: RekoFormData, changes: RekoFormChanges): RekoFormData {
+  const { dangers_json: dangers, effort_json: effort, ...answers } = changes
+  return {
+    ...form,
+    ...answers,
+    dangers_json: { ...form.dangers_json, ...dangers },
+    effort_json: { ...form.effort_json, ...effort },
+  }
+}
+
 function setState(session: AutosaveSession, state: SyncState) {
   session.state = state
   for (const listener of session.listeners) listener()
@@ -84,10 +113,53 @@ function setState(session: AutosaveSession, state: SyncState) {
 /** Forget a session nobody shows and nothing is left in: no mount, no waiting or running
  *  save, no failed edit kept for «Erneut synchronisieren». A later mount reads the list after
  *  the last save committed, so it opens from the server's row. */
-function releaseIfDone(key: string, session: AutosaveSession) {
+function releaseIfDone(session: AutosaveSession) {
   const done = session.mounts === 0 && !session.timer && !session.inFlight
     && session.state.status !== 'failed' && session.confirmed.version === session.version
-  if (done && sessions.get(key) === session) sessions.delete(key)
+  if (!done) return
+  for (const [key, held] of sessions) if (held === session) sessions.delete(key)
+}
+
+/**
+ * One save of `session`'s newest form – to `session`'s own row, whatever the open form shows
+ * meanwhile. One at a time per session, the newest form always last. Its answer becomes the
+ * baseline and, with the edits made while it was on its way laid over it, the newest form –
+ * so another board's answers reach the open form and the next save (pass 4, S4).
+ */
+async function sendSession(session: AutosaveSession, incidentId: string): Promise<void> {
+  if (session.timer) {
+    clearTimeout(session.timer)
+    session.timer = null
+  }
+  const data = session.latest
+  if (session.inFlight || !data) return
+  const sent = session.version
+  session.inFlight = true
+  setState(session, { status: 'saving' })
+  try {
+    // Only what this form changed; no token, the session is the identity.
+    const payload = changedFields(session.baseline, data)
+    const report = session.target
+      ? await apiClient.updateRekoReport(session.target, payload)
+      : await apiClient.createRekoReportAsEditor(incidentId, payload, false)
+    if (!session.target) sessions.set(sessionKey(session.base, report.id), session)
+    session.target = report.id
+    const server = toRekoFormData(report)
+    const pending = session.latest ? changedFields(data, session.latest) : {}
+    session.baseline = server
+    session.latest = withChanges(server, pending)
+    session.confirmed = { version: sent, updatedAt: report.updated_at ?? null }
+    session.inFlight = false
+    for (const adopt of session.adopters) adopt(session.latest)
+    if (session.version === sent) {
+      setState(session, { status: 'saved', savedAt: new Date() })
+      for (const reload of reloads.get(session.base) ?? []) reload()
+      releaseIfDone(session)
+    } else await sendSession(session, incidentId)
+  } catch (error) {
+    session.inFlight = false
+    setState(session, { status: 'failed', reason: classifySaveFailure(error) })
+  }
 }
 
 /**
@@ -101,26 +173,29 @@ function releaseIfDone(key: string, session: AutosaveSession) {
  *
  * `schedule(data)` after every change; one request at a time, the newest form always last,
  * so the server sees the edits in order. «Synchronisiert» only once the save carrying the
- * NEWEST form answered; then every mounted form's `onSettled` runs (the section reloads – a
+ * NEWEST form answered; then every mounted section of the Einsatz reloads (`onSettled` – a
  * read issued before that could still return the old row). A failure waits for `retry()` or
  * the next edit – no automatic resend (`lib/field-save`). `flush()` sends a waiting save now.
- *
- * Each save sends only the answers changed since the form was opened or last saved
- * (`changedFields`), so two boards on one report never undo each other's untouched answers.
+ * Each save sends only the answers changed since its baseline (`changedFields`), so two
+ * boards on one report never undo each other's untouched answers, and `onAdopt` gets the form
+ * as the server answered it, with the edits made meanwhile on top.
  *
  * The newest form outlives closing the form AND the form's mount (`AutosaveSession`):
  * `resume(source)` hands it back while it is not confirmed yet (waiting, in flight, failed),
- * or while the server's copy is not newer than what the last save got back – the list may not
- * have caught up. Otherwise it adopts `source` and returns the form opened from it.
+ * or while the list is older than the last save's answer. A row as new as that answer or
+ * newer is taken as it is – it is the server's word, other boards' answers included.
  */
-export function useRekoAutosave({ incidentId, userId, onSettled }: {
+export function useRekoAutosave({ incidentId, userId, onSettled, onAdopt }: {
   incidentId: string
   userId: string | null
-  /** Runs once a save settled – the section reloads its list. */
+  /** Runs once a save of this Einsatz settled – the section reloads its list. */
   onSettled?: () => void
+  /** The open form takes a save's answer (another board's answers, own edits on top). */
+  onAdopt?: (form: RekoFormData) => void
 }) {
-  const key = `${userId ?? ''}:${incidentId}`
-  const session = useMemo(() => sessionFor(key), [key])
+  const base = `${userId ?? ''}:${incidentId}`
+  const [reportId, setReportId] = useState<string | null>(null)
+  const session = useMemo(() => sessionFor(base, reportId), [base, reportId])
 
   const subscribe = useCallback((listener: () => void) => {
     session.listeners.add(listener)
@@ -130,83 +205,66 @@ export function useRekoAutosave({ incidentId, userId, onSettled }: {
   }, [session])
   const state = useSyncExternalStore(subscribe, () => session.state, () => session.state)
 
-  const send = useCallback(async (): Promise<void> => {
-    if (session.timer) {
-      clearTimeout(session.timer)
-      session.timer = null
-    }
-    const data = session.latest
-    if (session.inFlight || !data) return
-    const sent = session.version
-    session.inFlight = true
-    setState(session, { status: 'saving' })
-    try {
-      // Only what this form changed; no token, the session is the identity.
-      const payload = changedFields(session.baseline, data)
-      const report = session.target
-        ? await apiClient.updateRekoReport(session.target, payload)
-        : await apiClient.createRekoReportAsEditor(incidentId, payload, false)
-      session.target = report.id
-      session.baseline = data
-      session.inFlight = false
-      session.confirmed = { version: sent, updatedAt: report.updated_at ?? null }
-      if (session.version === sent) {
-        setState(session, { status: 'saved', savedAt: new Date() })
-        for (const reload of session.settled) reload()
-        releaseIfDone(key, session)
-      } else await send()
-    } catch (error) {
-      session.inFlight = false
-      setState(session, { status: 'failed', reason: classifySaveFailure(error) })
-    }
-  }, [incidentId, key, session])
+  const send = useCallback(() => sendSession(session, incidentId), [session, incidentId])
 
-  // This mount counts, and its reload runs when a save settles – also one a previous mount
-  // started.
+  // This mount counts for the session it shows.
   useEffect(() => {
     session.mounts += 1
     return () => {
       session.mounts -= 1
-      // A form unmounted with a save still waiting sends it now rather than in 600 ms.
-      if (session.timer) void send()
+      // A form unmounted (or switched to another report) with a save still waiting sends it
+      // now rather than in 600 ms – to its own row.
+      if (session.timer) void sendSession(session, incidentId)
       // After the current commit: Strict Mode runs setup – cleanup – setup, and the second
       // setup must find the session still there, not an evicted one (Sol pass 3, S1).
-      queueMicrotask(() => releaseIfDone(key, session))
+      queueMicrotask(() => releaseIfDone(session))
     }
-  }, [key, session, send])
+  }, [session, incidentId])
   useEffect(() => {
     if (!onSettled) return
-    session.settled.add(onSettled)
+    const set = reloads.get(base) ?? new Set<() => void>()
+    reloads.set(base, set)
+    set.add(onSettled)
     return () => {
-      session.settled.delete(onSettled)
+      set.delete(onSettled)
+      if (set.size === 0) reloads.delete(base)
     }
-  }, [session, onSettled])
+  }, [base, onSettled])
+  useEffect(() => {
+    if (!onAdopt) return
+    session.adopters.add(onAdopt)
+    return () => {
+      session.adopters.delete(onAdopt)
+    }
+  }, [session, onAdopt])
 
   const resume = useCallback((source: ApiRekoReportResponse | null): RekoFormData => {
-    const local = session.latest
+    const opening = sessionFor(base, source?.id ?? null)
+    setReportId(source?.id ?? null)
+    const local = opening.latest
     if (local) {
-      const unconfirmed = session.confirmed.version !== session.version
-      const serverNotNewer =
-        !source ||
-        (source.id === session.target && !!session.confirmed.updatedAt && source.updated_at <= session.confirmed.updatedAt)
-      if (unconfirmed || serverNotNewer) return local
+      const unconfirmed = opening.confirmed.version !== opening.version
+      const ackAt = opening.confirmed.updatedAt ? Date.parse(opening.confirmed.updatedAt) : null
+      // The list read raced the last save: older than its answer, or without the new draft.
+      const listBehind = !source || (ackAt !== null && Date.parse(source.updated_at) < ackAt)
+      if (unconfirmed || listBehind) return local
     }
     const opened = toRekoFormData(source)
-    session.target = source?.id ?? null
-    session.latest = null
-    session.baseline = opened
-    session.confirmed = { version: session.version, updatedAt: null }
-    setState(session, { status: 'idle' })
+    opening.target = source?.id ?? null
+    opening.latest = null
+    opening.baseline = opened
+    opening.confirmed = { version: opening.version, updatedAt: null }
+    setState(opening, { status: 'idle' })
     return opened
-  }, [session])
+  }, [base])
 
   const schedule = useCallback((data: RekoFormData) => {
     session.latest = data
     session.version += 1
     setState(session, { status: 'saving' })
     if (session.timer) clearTimeout(session.timer)
-    session.timer = setTimeout(() => void send(), REKO_SAVE_DELAY_MS)
-  }, [session, send])
+    session.timer = setTimeout(() => void sendSession(session, incidentId), REKO_SAVE_DELAY_MS)
+  }, [session, incidentId])
 
   /** Send a waiting save now. Whether a save is still on its way (it settles later). */
   const flush = useCallback((): boolean => {

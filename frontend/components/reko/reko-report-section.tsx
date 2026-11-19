@@ -176,7 +176,15 @@ export default function RekoReportSection({
   }, [loadReports, incidentId])
   usePolling(loadReports, { intervalMs: POLL_INTERVAL_MS, skipWhileWsConnected: true })
   // A draft save emits no `reko_update`, so the section reloads once a save settled.
-  const autosave = useRekoAutosave({ incidentId, userId, onSettled: loadReports })
+  /** The form as it was opened, or as a save answered it – not an edit, so not saved. */
+  const openedForm = useRef<RekoFormData | null>(null)
+  /** A save answered: show the report as the server has it (another board's answers too),
+   *  with this operator's edits made meanwhile on top – without saving that as an edit. */
+  const adoptForm = useCallback((form: RekoFormData) => {
+    openedForm.current = form
+    setFormData(form)
+  }, [])
+  const autosave = useRekoAutosave({ incidentId, userId, onSettled: loadReports, onAdopt: adoptForm })
 
   const latestReport: ApiRekoReportResponse | undefined = reports[0]
   const previousReports = reports.slice(1)
@@ -202,8 +210,6 @@ export default function RekoReportSection({
     [incidentId, autosaveReportId],
   )
 
-  /** The form as it was opened – not an edit, so not saved. */
-  const openedForm = useRef<RekoFormData | null>(null)
 
   /** Whether the open form is the operator's own draft (not yet filed) rather than an
    *  amendment of a filed report – its title and hint say which. */
