@@ -216,7 +216,7 @@ function StationLocationDialog({
   return (
     <>
       <Dialog open onOpenChange={(open) => !open && !saving && guard.handleOpenChange(open)}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent size="md" surface={t("dialogTitle")}>
           <DialogHeader>
             <DialogTitle>{t("dialogTitle")}</DialogTitle>
             <DialogDescription>{t("dialogDescription")}</DialogDescription>

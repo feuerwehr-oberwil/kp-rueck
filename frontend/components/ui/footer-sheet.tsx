@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { useIsMobile } from "@/components/ui/use-mobile"
+import { surfaceShowsStep } from "@/components/ui/surface-step"
 
 /**
  * Live height of the page's footer toolbar, as a CSS length for
@@ -85,6 +86,9 @@ interface FooterSheetProps {
    * footer toolbar is always guarded — this is for additional cases.
    */
   shouldPreventClose?: (target: HTMLElement) => boolean
+  /** The sheet's name as a work surface: a picker opened from it (the Fahrer of a vehicle, the
+   *  enlarged QR) replaces its content as a step instead of opening a dialog over it. Desk only. */
+  surface?: string
 }
 
 /**
@@ -98,7 +102,7 @@ interface FooterSheetProps {
  * it; on mobile it's a plain modal sheet. Pass `shouldPreventClose` for the
  * one-off "a nested dialog is open" cases.
  */
-export function FooterSheet({ open, onOpenChange, children, className, style, shouldPreventClose }: FooterSheetProps) {
+export function FooterSheet({ open, onOpenChange, children, className, style, shouldPreventClose, surface }: FooterSheetProps) {
   const isMobile = useIsMobile()
   const footerOffset = useFooterOffset(open && !isMobile)
 
@@ -130,6 +134,9 @@ export function FooterSheet({ open, onOpenChange, children, className, style, sh
       if (!isOpen || onPhone || !target) return false
       if (isOwnLayer(target) || isAboveModalLayer()) return false
       if (prevent?.(target)) return false
+      // A picker open as a step inside the sheet is answered with its own buttons.
+      const content = document.querySelector('[data-slot="sheet-content"][data-docked]')
+      if (content && surfaceShowsStep(content)) return false
       return true
     }
 
@@ -178,6 +185,7 @@ export function FooterSheet({ open, onOpenChange, children, className, style, sh
         // the sidebar is neither dimmed nor covered — side by side, sane z.
         rightInset={isMobile ? undefined : "var(--notification-sidebar-width, 0px)"}
         nonModal={!isMobile}
+        surface={isMobile ? undefined : surface}
         className={className}
         style={style}
         onInteractOutside={

@@ -232,7 +232,7 @@ export function FeldAddPicker({
           {/* The board's detail is desktop: a centred dialog with the list scrolling
               between the search and «Fertig», not a strip along the screen's foot. */}
           <DialogContent
-            className="flex modal-h-tall flex-col gap-0 overflow-hidden p-0 sm:max-w-md"
+            className="flex modal-h-tall flex-col gap-0 overflow-hidden p-0"
             aria-describedby={undefined}
           >
             <DialogHeader className="gap-3 px-5 pt-5 pb-3 pr-12">

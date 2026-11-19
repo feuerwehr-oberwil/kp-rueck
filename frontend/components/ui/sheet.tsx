@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { ignoreToastLayer } from '@/lib/toast-layer'
 import { OVERLAY_CLASS } from '@/components/ui/overlay'
 import { CloseLabel, CORNER_CLOSE_CLASS } from '@/components/ui/dialog'
+import { useSurfaceStepHost } from '@/components/ui/surface-step'
 import { registerBottomSheet, scheduleSheetTop } from '@/lib/viewport-insets'
 import {
   HANDLE_SELECTOR,
@@ -304,10 +305,15 @@ function SheetContent({
   swipeToClose = true,
   onInteractOutside,
   onOpenAutoFocus,
+  onEscapeKeyDown,
+  surface,
   style,
   ref,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
+  /** Names a work surface (a footer sheet): a picker opened while it is on top opens inside
+   *  it as a step, and Esc then goes back instead of closing (surface-step.tsx). */
+  surface?: string
   side?: 'top' | 'right' | 'bottom' | 'left'
   hideCloseButton?: boolean
   overlayOffset?: string
@@ -353,6 +359,7 @@ function SheetContent({
     [onOpenAutoFocus, phoneSheet],
   )
   const closeRef = React.useRef<HTMLButtonElement | null>(null)
+  const step = useSurfaceStepHost(surface)
 
   // One callback ref does the per-mount work: Radix mounts the Content only while open, so
   // this is exactly «while the sheet is on screen».
@@ -394,7 +401,13 @@ function SheetContent({
         data-edge-clip={edgeClip ? '' : undefined}
         // Dismissing a toast must never dismiss the slide-up behind it; any
         // other outside interaction still reaches the caller's own guard.
-        onInteractOutside={ignoreToastLayer(onInteractOutside)}
+        onInteractOutside={ignoreToastLayer((event) => {
+          if (step.stepOpen()) event.preventDefault()
+          else onInteractOutside?.(event)
+        })}
+        onEscapeKeyDown={(event) => {
+          if (!step.onEscapeKeyDown(event)) onEscapeKeyDown?.(event)
+        }}
         onOpenAutoFocus={handleOpenAutoFocus}
         className={cn(
           // One duration and curve for every panel (`--motion-panel`). A modal sheet slides in
@@ -451,6 +464,7 @@ function SheetContent({
             <CloseLabel />
           </SheetPrimitive.Close>
         )}
+        {step.slot}
       </SheetPrimitive.Content>
     </SheetPortal>
   )

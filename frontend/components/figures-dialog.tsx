@@ -77,7 +77,7 @@ export function FiguresDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-2xl max-h-[90dvh] overflow-y-auto" aria-describedby={undefined}>
+      <DialogContent size="md" className="modal-h-tall overflow-y-auto" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>
             {title}

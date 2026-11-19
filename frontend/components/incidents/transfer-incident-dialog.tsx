@@ -152,7 +152,7 @@ export function TransferIncidentDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       {/* No overlay override: every modal shares the one restrained-blur
           treatment (components/ui/overlay.ts). */}
-      <DialogContent className="max-w-2xl modal-h-tall flex flex-col">
+      <DialogContent className="modal-h-tall flex flex-col">
         <DialogHeader>
           <DialogTitle>{t('transfer.title')}</DialogTitle>
           <DialogDescription>

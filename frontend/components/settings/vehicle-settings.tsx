@@ -141,7 +141,7 @@ export function VehicleSettings() {
         }
       >
         <Dialog open={dialog.isOpen} onOpenChange={guard.handleOpenChange}>
-          <DialogContent aria-describedby={undefined}>
+          <DialogContent size="md" aria-describedby={undefined}>
             <DialogHeader>
               <DialogTitle>
                 {dialog.editing ? t('vehicles.dialogEditTitle') : t('vehicles.dialogCreateTitle')}

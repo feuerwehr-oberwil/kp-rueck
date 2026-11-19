@@ -142,7 +142,7 @@ export function FeldRapportGapsDialog({ open, onOpenChange, gaps, onJump, onConf
           landing section takes the focus, and Radix restoring it to the button
           would scroll the page back down under the crew's thumb. */}
       <AlertDialogContent
-        className="gap-3 sm:max-w-md"
+        className="gap-3"
         onCloseAutoFocus={e => {
           if (!jumpedRef.current) return
           jumpedRef.current = false

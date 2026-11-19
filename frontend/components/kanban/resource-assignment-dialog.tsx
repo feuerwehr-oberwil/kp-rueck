@@ -1502,13 +1502,13 @@ export function ResourceAssignmentDialog({
 
   const dialog = (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* Fixed (definite) height: gives flex-1 a real basis so the list scrolls
+      {/* Fixed (definite) height (size L): gives flex-1 a real basis so the list scrolls
           internally instead of overflowing, and keeps the dialog the same size as
           you switch quick filters so the top doesn't jump. overflow-hidden clips.
           The phone has its own sheet (above); this is the tablet-to-desktop dialog. */}
-      {/* sm:max-w-6xl is required — the DialogContent base sets sm:max-w-lg (512px),
-          a responsive variant that an unprefixed max-w-* does NOT override. */}
-      <DialogContent className="max-w-6xl sm:max-w-6xl w-[calc(100vw-2rem)] h-[80dvh] overflow-hidden flex flex-col">
+      {/* L: a work surface – fixed height and place (dialog-frame.ts). A Fahrer picker
+          for a vehicle assigned here opens inside it as a step (`surface`, owner pick 5A). */}
+      <DialogContent size="lg" surface={getDialogTitle()} className="overflow-hidden flex flex-col">
         {/* ONE header on every size: title (18/600, 22px line) · the destination (14/500, up to
             two lines) · the counts (12, muted), 6px then 4px apart – left-aligned with the search
             field, no icon before the title (the words say what is assigned). `ps-0!` cancels the

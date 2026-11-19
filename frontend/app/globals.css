@@ -1515,6 +1515,24 @@ html:not(:has([data-page-zoom])) {
   touch-action: pan-x pan-y;
 }
 
+/* A work surface showing a step (components/ui/surface-step.tsx, owner pick 5A): the step lies
+   over the surface's own children, which stay mounted and keep their size, scroll and state –
+   only hidden, so nothing behind the step takes a Tab or a screen reader. The empty slot takes
+   no room in the surface's grid. Unlayered, so it beats the children's own utilities. */
+[data-surface-step]:empty {
+  display: none;
+}
+:is([data-slot='dialog-content'], [data-slot='sheet-content']):has(> [data-surface-step]:not(:empty))
+  > :not([data-surface-step]) {
+  visibility: hidden;
+}
+/* A short surface (a footer sheet with three rows, a short form) grows to fit a picker: an M
+   window downwards from its fixed top line, a footer sheet upwards from the toolbar. L is
+   taller already. */
+:is([data-slot='dialog-content'], [data-slot='sheet-content']):has(> [data-surface-step]:not(:empty)) {
+  min-height: min(32rem, 70dvh);
+}
+
 /* The ✕ of a dialog or sheet sits absolute in the top-right corner, over whatever the header
    puts there: «Anwesenheit · <Ereignis>», «Neues Ereignis erstellen», a sheet's description or
    its «Aktualisieren» button ran under it on a phone (overflow sweep, 03.10.2026). The header

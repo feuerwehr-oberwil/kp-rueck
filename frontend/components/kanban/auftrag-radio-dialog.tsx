@@ -91,7 +91,7 @@ export function AuftragRadioDialog({ open, onOpenChange, group, funkrufname }: A
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>
             {announced ? tAuftraege("repeatRadioTitle") : tAuftraege("repeatRadioTitlePreview")}

@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useIsMobile } from '@/components/ui/use-mobile'
+import { SurfaceStep, SurfaceStepEscHint, useOpenSurface } from '@/components/ui/surface-step'
 
 /**
  * The frame of a «pick one person» window (Fahrer, Reko zuweisen, Rekos übertragen): a
@@ -21,6 +22,12 @@ import { useIsMobile } from '@/components/ui/use-mobile'
  *
  * `radioGroupLabel` makes the list the `radiogroup` of single-choice tiles
  * (`PersonPickTile single`); it names the group for a screen reader.
+ *
+ * On a desk it is an S window (512, dialog-frame.ts) – unless a work surface is open
+ * (Fahrzeuge zuweisen, Einsatz-Detail, the Fahrzeuge sheet): then it opens INSIDE that
+ * surface as a step (surface-step.tsx, owner pick 5A) with «← Zurück», Esc back to the
+ * surface, and the list in two columns across the surface's width. Zurück and Esc are
+ * `onOpenChange(false)`, like Abbrechen.
  */
 export function PickerDialog({
   open,
@@ -44,6 +51,7 @@ export function PickerDialog({
   radioGroupLabel?: string
 }) {
   const isMobile = useIsMobile()
+  const surface = useOpenSurface()
   const fullDescription = typeof description === 'string' ? description : undefined
   const listRole = radioGroupLabel ? { role: 'radiogroup', 'aria-label': radioGroupLabel } : {}
 
@@ -70,9 +78,31 @@ export function PickerDialog({
     )
   }
 
+  if (surface) {
+    if (!open) return null
+    return (
+      <SurfaceStep host={surface} title={title} description={description} onBack={() => onOpenChange(false)}>
+        {toolbar && <div className="flex shrink-0 flex-col gap-3 px-5 pb-3">{toolbar}</div>}
+        <div
+          data-testid={listTestId}
+          {...listRole}
+          // The surface's width is the step's: two columns of tiles (mock 5A); a section
+          // caption (a `p` among the tiles) spans both.
+          className="relative grid min-h-0 flex-1 auto-rows-min content-start gap-x-4 gap-y-2 overflow-y-auto overscroll-contain px-5 pb-3 lg:grid-cols-2 [&>p]:col-span-full [&>[data-slot=empty-state]]:col-span-full"
+        >
+          {children}
+        </div>
+        <DialogFooter className="shrink-0 border-t px-5 py-3">
+          <SurfaceStepEscHint host={surface} />
+          {footer}
+        </DialogFooter>
+      </SurfaceStep>
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex modal-h-tall flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
+      <DialogContent className="flex modal-h-tall flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="gap-1 px-5 pt-5 pb-3 pr-12">
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription className="truncate" title={fullDescription}>{description}</DialogDescription>

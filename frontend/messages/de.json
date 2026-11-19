@@ -212,6 +212,10 @@
       "current": "aktuell",
       "apply": "Übernehmen",
       "noneChosen": "Keine Person gewählt."
+    },
+    "surfaceStep": {
+      "back": "Zurück",
+      "escBack": "zurück zu «{surface}»"
     }
   },
   "nav": {

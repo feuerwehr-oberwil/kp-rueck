@@ -321,6 +321,10 @@
       "current": "actuel",
       "apply": "Valider",
       "noneChosen": "Aucune personne choisie."
+    },
+    "surfaceStep": {
+      "back": "Retour",
+      "escBack": "retour à «{surface}»"
     }
   },
   "display": {

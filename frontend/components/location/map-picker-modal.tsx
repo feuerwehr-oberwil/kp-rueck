@@ -28,6 +28,8 @@ import { reverseGeocode } from "@/lib/geocoding"
 import { BaseMap } from "@/components/map/base-map"
 import { DEFAULT_CENTER_LATLNG, type LatLngPoint } from "@/lib/map-view"
 import { MAP_INK } from "@/lib/map-colors"
+import { SurfaceStep, SurfaceStepEscHint, useOpenSurface } from "@/components/ui/surface-step"
+import { cn } from "@/lib/utils"
 
 /** `[lat, lon]`, the order every caller of this picker speaks. MapLibre wants them the other way. */
 type LatLon = LatLngPoint
@@ -69,6 +71,7 @@ export function MapPickerModal({
   onLocationSelect,
 }: MapPickerModalProps) {
   const t = useTranslations('map')
+  const surface = useOpenSurface()
   const [selectedLat, setSelectedLat] = useState<number | null>(initialLat ?? null)
   const [selectedLon, setSelectedLon] = useState<number | null>(initialLon ?? null)
   const [isGeocoding, setIsGeocoding] = useState(false)
@@ -186,9 +189,76 @@ export function MapPickerModal({
     }
   }
 
+  const content = (
+    <>
+    <div className={cn("space-y-4 overflow-y-auto flex-1 min-h-0", surface && "flex flex-col [&>*:first-child]:flex-1 px-5 pb-3")}>
+      {/* Map. Both importers load this modal through `dynamic(ssr: false)`, so there is no
+          server render to guard against — the canvas always has a browser under it. */}
+      <div className={cn("rounded-lg overflow-hidden border", surface ? "min-h-[280px]" : "h-[400px]")}>
+        <BaseMap initialViewState={initialViewState} onClick={handleMapClick}>
+          {/* Leaflet's zoom buttons, kept – the picker is the one map that always had them.
+              No compass: the base map disables rotation, so it would be a dead control. */}
+          <NavigationControl position="top-left" showCompass={false} />
+          {validPin && (
+            <Marker longitude={validPin[1]} latitude={validPin[0]} color={PIN_COLOR} />
+          )}
+        </BaseMap>
+      </div>
+
+      {/* Selected location info */}
+      {validPin && (
+        <div className="flex items-start gap-2 p-3 bg-muted rounded-lg">
+          <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            {isGeocoding ? (
+              <div className="text-sm text-muted-foreground">{t('mapPicker.searchingAddress')}</div>
+            ) : resolvedAddress ? (
+              <div className="text-sm">{resolvedAddress}</div>
+            ) : (
+              <div className="text-sm text-muted-foreground">{t('mapPicker.noAddress')}</div>
+            )}
+            <div className="text-xs text-muted-foreground font-mono mt-1">
+              {validPin[0].toFixed(8)}, {validPin[1].toFixed(8)}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+
+    {/* `DialogFooter`, not a hand-built row: this dialog put its actions on
+        the LEFT and its confirm FIRST, so the one button an operator aims at
+        sat where every other dialog in the app puts «Abbrechen». Cancel
+        left, confirm right, right-aligned — the primitive's order. */}
+    <DialogFooter className={cn("flex-shrink-0 border-t", surface ? "px-5 py-3" : "pt-4")}>
+      {surface && <SurfaceStepEscHint host={surface} />}
+      <Button variant="outline" onClick={() => onOpenChange(false)}>
+        {t('mapPicker.cancel')}
+      </Button>
+      <Button
+        onClick={handleConfirm}
+        disabled={selectedLat === null || selectedLon === null}
+      >
+        <Check className="size-4" />
+        {t('mapPicker.confirm')}
+      </Button>
+    </DialogFooter>
+    </>
+  )
+
+  // Opened from a work surface (Neuer Einsatz, Einsatz-Detail): a step inside it, the map
+  // filling the surface (owner pick 5A). Elsewhere an M window – a map needs the width.
+  if (surface) {
+    if (!open) return null
+    return (
+      <SurfaceStep host={surface} title={t('mapPicker.title')} description={t('mapPicker.description')} onBack={() => onOpenChange(false)}>
+        {content}
+      </SurfaceStep>
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl modal-h-tall flex flex-col">
+      <DialogContent size="md" className="modal-h-tall flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5" />
@@ -198,57 +268,7 @@ export function MapPickerModal({
             {t('mapPicker.description')}
           </DialogDescription>
         </DialogHeader>
-
-        <div className="space-y-4 overflow-y-auto flex-1 min-h-0">
-          {/* Map. Both importers load this modal through `dynamic(ssr: false)`, so there is no
-              server render to guard against — the canvas always has a browser under it. */}
-          <div className="h-[400px] rounded-lg overflow-hidden border">
-            <BaseMap initialViewState={initialViewState} onClick={handleMapClick}>
-              {/* Leaflet's zoom buttons, kept – the picker is the one map that always had them.
-                  No compass: the base map disables rotation, so it would be a dead control. */}
-              <NavigationControl position="top-left" showCompass={false} />
-              {validPin && (
-                <Marker longitude={validPin[1]} latitude={validPin[0]} color={PIN_COLOR} />
-              )}
-            </BaseMap>
-          </div>
-
-          {/* Selected location info */}
-          {validPin && (
-            <div className="flex items-start gap-2 p-3 bg-muted rounded-lg">
-              <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-              <div className="flex-1 min-w-0">
-                {isGeocoding ? (
-                  <div className="text-sm text-muted-foreground">{t('mapPicker.searchingAddress')}</div>
-                ) : resolvedAddress ? (
-                  <div className="text-sm">{resolvedAddress}</div>
-                ) : (
-                  <div className="text-sm text-muted-foreground">{t('mapPicker.noAddress')}</div>
-                )}
-                <div className="text-xs text-muted-foreground font-mono mt-1">
-                  {validPin[0].toFixed(8)}, {validPin[1].toFixed(8)}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* `DialogFooter`, not a hand-built row: this dialog put its actions on
-            the LEFT and its confirm FIRST, so the one button an operator aims at
-            sat where every other dialog in the app puts «Abbrechen». Cancel
-            left, confirm right, right-aligned — the primitive's order. */}
-        <DialogFooter className="flex-shrink-0 border-t pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {t('mapPicker.cancel')}
-          </Button>
-          <Button
-            onClick={handleConfirm}
-            disabled={selectedLat === null || selectedLon === null}
-          >
-            <Check className="size-4" />
-            {t('mapPicker.confirm')}
-          </Button>
-        </DialogFooter>
+        {content}
       </DialogContent>
     </Dialog>
   )

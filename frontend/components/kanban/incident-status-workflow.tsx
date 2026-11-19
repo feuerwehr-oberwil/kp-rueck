@@ -1295,9 +1295,9 @@ function DispatchGateDialog({
     // button is armed, Escape first only disarms it (the same as «Zurück»).
     <AlertDialog open={!!missingOperation} onOpenChange={(open) => !open && controller.cancelGate("missingResources")}>
       <AlertDialogContent
-        // A little wider than the default: the armed button names both gaps
-        // («Ohne Mannschaft und Fahrzeug disponieren») beside «Zurück».
-        className="sm:max-w-xl"
+        // M, not S: the armed button names both gaps («Ohne Mannschaft und Fahrzeug
+        // disponieren») beside «Zurück», and the rows list names (dialog-frame.ts).
+        size="md"
         // The dispatch button takes the focus, so Enter is the first press and
         // Enter again the confirmation — the keyboard path of the mouse's two clicks.
         onOpenAutoFocus={(event) => {

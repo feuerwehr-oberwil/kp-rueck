@@ -314,7 +314,9 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex modal-h-tall w-full flex-col gap-4 overflow-hidden sm:max-w-6xl"
+        size="lg"
+        surface={t("title")}
+        className="flex flex-col gap-4 overflow-hidden"
         {...dragGuardProps}
       >
         <DialogHeader className="flex-shrink-0">
@@ -329,13 +331,12 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
         {/* Body — a flex row (robust vs. a fragile minmax grid): the ordered list
             keeps a fixed, always-usable width while the map fills the remaining
             width as a wide landscape rectangle. Both columns stretch to the same
-            height so the list scrolls inside the map's height. */}
-        <div className="flex h-[520px] modal-h-compact gap-5 overflow-hidden">
+            height – the L window's, which is fixed – so the list scrolls inside it. */}
+        <div className="flex min-h-0 flex-1 gap-5 overflow-hidden">
           {/* Map column — FIXED width. A flexible (flex-1) map track kept collapsing
               to near-zero, so the map is the fixed column now and the
               list flexes/truncates instead. The map can never be squeezed. The
-              parent DialogContent uses sm:max-w-[1080px] (overriding the base
-              sm:max-w-lg) so this 600px map + the list always fit inside. */}
+              parent is an L window (1152) so this 600px map + the list always fit inside. */}
           <div className="flex w-[600px] shrink-0 flex-col">
             <div className="mb-2 flex h-8 items-center">
               <span className="text-sm font-semibold">{t("mapHeading")}</span>

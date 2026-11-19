@@ -154,7 +154,7 @@ export function IncidentDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl modal-h-tall overflow-y-auto" aria-describedby={undefined}>
+      <DialogContent size="md" className="modal-h-tall overflow-y-auto" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <PriorityGlyph priority={operation.priority} size="wall" />

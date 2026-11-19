@@ -449,7 +449,7 @@ export function UserSettings() {
 
       {/* Create User Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={createGuard.handleOpenChange}>
-        <DialogContent>
+        <DialogContent size="md">
           <DialogHeader>
             <DialogTitle>{t('users.newUser')}</DialogTitle>
             <DialogDescription>
@@ -545,7 +545,7 @@ export function UserSettings() {
 
       {/* Edit User Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={editGuard.handleOpenChange}>
-        <DialogContent>
+        <DialogContent size="md">
           <DialogHeader>
             <DialogTitle>{t('users.editDialogTitle')}</DialogTitle>
             <DialogDescription>
@@ -617,7 +617,7 @@ export function UserSettings() {
 
       {/* Reset Password Dialog */}
       <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
-        <DialogContent>
+        <DialogContent size="md">
           <DialogHeader>
             <DialogTitle>{t('users.resetPasswordTitle')}</DialogTitle>
             <DialogDescription>

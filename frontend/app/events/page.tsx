@@ -672,7 +672,7 @@ export default function EventsPage() {
 
         {/* Create Event Dialog */}
         <Dialog open={showCreateDialog && manages} onOpenChange={createGuard.handleOpenChange}>
-          <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
+          <DialogContent size="md" aria-describedby={undefined}>
             <DialogHeader>
               <DialogTitle>{standby.mirror ? tStandby('newOffline.title') : t('createDialog.title')}</DialogTitle>
             </DialogHeader>
@@ -863,7 +863,7 @@ export default function EventsPage() {
 
       {/* Kennzahlen / Übungsauswertung of one Ereignis */}
       <Dialog open={!!figuresEvent} onOpenChange={(open) => { if (!open) setFiguresEvent(null) }}>
-        <DialogContent className="sm:max-w-2xl max-h-[90dvh] overflow-y-auto" aria-describedby={undefined}>
+        <DialogContent size="md" className="modal-h-tall overflow-y-auto" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>
               {t(figuresEvent?.training_flag ? 'figures.titleTraining' : 'figures.title')}
