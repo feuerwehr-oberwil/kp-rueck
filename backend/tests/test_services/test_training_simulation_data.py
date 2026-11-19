@@ -20,8 +20,9 @@ from app.services.training_simulation_data import (
     _NICE_M,
     _NOT_RELEVANT_SUMMARIES,
     _SUMMARIES,
+    _TEMPLATE_SUMMARIES,
+    _dispatch_figure,
     _dispatch_linked_photo_summary,
-    _dispatch_linked_summary,
     _get_elementar_subcategory,
     _oil_action,
     _reconcile_with_summary,
@@ -32,12 +33,13 @@ from app.services.training_simulation_data import (
     generate_rapport_data,
     generate_reko_report_data,
     generate_summary,
+    illustrated_summaries,
     vary_dispatch_numbers,
 )
 
 
 def test_all_reko_summaries_have_bundled_illustrations():
-    summaries = {summary for pool in _SUMMARIES.values() for summary in pool}
+    summaries = illustrated_summaries()
     manifest = load_summary_image_manifest(SUMMARY_IMAGE_DIR)
     missing = set()
     for summary in summaries:
@@ -117,7 +119,11 @@ SUMMARY_POOL_CASES = [
     ("diverse_einsaetze", "Wespennest am Schulhaus", "Wespennest beim Eingang Schule.", "div_wespen"),
     ("diverse_einsaetze", "Türöffnung Sanität", "Polizei bittet um Türöffnung", "diverse_einsaetze"),  # no longer elementar water
     ("totally_unknown_type", "egal", None, "elementarereignis"),
-    ("strahlenwehr", "Strahlenunfall", "Quelle gefunden", "chemiewehr"),
+    ("strahlenwehr", "Strahlenunfall", "Quelle gefunden", "strahlenwehr"),
+    ("einsatz_bahnanlagen", "Auto auf Gleis", None, "einsatz_bahnanlagen"),
+    ("gerettete_menschen", "Person gestürzt", None, "gerettete_menschen"),
+    ("dienstleistungen", "Tragehilfe", None, "dienstleistungen"),
+    ("bma_unechte_alarme", "BMA Hallenbad", "BMA, Hallenbad. Melder Technikraum.", "bma_oeffentlich"),  # not «halle» → gewerbe
 ]
 # fmt: on
 
@@ -170,7 +176,7 @@ class TestGenerateSummary:
 
     def test_oel_keller_never_yields_strasse_summary(self):
         for _ in range(50):
-            result = generate_summary("oelwehr", "Heizöl im Keller", "Heizöltank leckt im Keller.")
+            result = generate_summary("oelwehr", "Heizöl Tankraum", "Heizöltank leckt im Keller.")
             assert result in _SUMMARIES["oel_keller"], f"unexpected: {result!r}"
 
 
@@ -273,14 +279,50 @@ class TestScenarioAssociation:
                 title="Dach abgedeckt",
                 description="Sturm hat Dachfläche abgedeckt, Ziegel auf Strasse. Regen dringt ein.",
             )
-            assert data["summary_text"] in _SUMMARIES["elementar_storm"], data["summary_text"]
+            assert data["summary_text"] in _TEMPLATE_SUMMARIES["Dach abgedeckt"], data["summary_text"]
 
     def test_tree_incident_yields_tree_reko(self):
         for _ in range(60):
             data = _relevant_report(
                 "elementarereignis", title="Baum auf Strasse", description="Baum blockiert Fahrbahn."
             )
-            assert data["summary_text"] in _SUMMARIES["elementar_tree"], data["summary_text"]
+            assert data["summary_text"] in _TEMPLATE_SUMMARIES["Baum auf Strasse"], data["summary_text"]
+
+
+class TestTemplateSummaries:
+    """A template's dispatch and its Reko answer live together (owner pick 19.11.2026:
+    «Pool übergelaufen» used to read «Heizung und Elektrik betroffen»)."""
+
+    def test_every_template_has_its_own_reko_texts(self):
+        for t in EMERGENCY_TEMPLATES:
+            assert t["reko_summaries"], t["title_pattern"]
+
+    def test_water_scenes_leave_figure_and_massnahme_to_the_dispatch(self):
+        # The figure and the Massnahme come from `_dispatch_figure`; a scene that named
+        # its own depth would contradict the corrected one.
+        for t in EMERGENCY_TEMPLATES:
+            if _get_elementar_subcategory(t["title_pattern"]) != "elementar_water":
+                continue
+            for text in t["reko_summaries"]:
+                assert not re.search(r"\d+\s?cm", text), text
+                assert not any(word in text for word in ("Nasssauger genügt", "Tauchpumpe", "Pumpeinsatz")), text
+
+    def test_a_title_variation_draws_only_its_templates_texts(self):
+        pool = next(t for t in EMERGENCY_TEMPLATES if t["title_pattern"] == "Pool übergelaufen")
+        for title in (pool["title_pattern"], *pool.get("title_variations", [])):
+            for _ in range(20):
+                assert generate_summary("elementarereignis", title, pool["message_pattern"]) in pool["reko_summaries"]
+
+    def test_a_water_template_puts_its_scene_between_figure_and_massnahme(self):
+        scenes = _TEMPLATE_SUMMARIES["Überflutung Tiefgarage"]
+        for _ in range(30):
+            data = _relevant_report(
+                "elementarereignis", title="Überflutung Tiefgarage", description="Tiefgarage, ca. 40cm Wasser."
+            )
+            assert data["photo_summary"] in scenes
+            figure, rest = data["summary_text"].split(" ", 1)[0], data["summary_text"]
+            assert rest.startswith(("Lage wie gemeldet", "Gemeldet")), rest
+            assert data["photo_summary"] in rest and not rest.endswith(data["photo_summary"]), (figure, rest)
 
 
 class TestVaryDispatchNumbers:
@@ -581,8 +623,9 @@ class TestDispatchLinkedSummaryActions:
         Massnahme — never a mere control — and a corrected figure keeps the
         Massnahme consistent with the corrected depth."""
         for _ in range(300):
-            text = _dispatch_linked_summary("elementar_water", "Keller unter Wasser, ca. 50cm.")
-            assert text is not None
+            figure = _dispatch_figure("elementar_water", "Keller unter Wasser, ca. 50cm.")
+            assert figure is not None
+            text = " ".join(figure)
             assert "Kontrolle genügt" not in text
             assert any(word in text.lower() for word in ("pumpe", "pumpen", "nasssauger"))
             match = re.search(r"~(\d+)cm", text)
@@ -590,4 +633,4 @@ class TestDispatchLinkedSummaryActions:
                 assert "Mehrere Pumpen" in text
 
     def test_no_figure_in_dispatch_falls_back_to_pool(self):
-        assert _dispatch_linked_summary("elementar_water", "Keller unter Wasser.") is None
+        assert _dispatch_figure("elementar_water", "Keller unter Wasser.") is None

@@ -8,7 +8,7 @@ from pathlib import Path
 from PIL import Image, ImageOps
 
 from app.services.training_photos import SUMMARY_IMAGE_DIR, load_summary_image_manifest, summary_image_key
-from app.services.training_simulation_data import _SUMMARIES
+from app.services.training_simulation_data import _SUMMARIES, illustrated_summaries
 
 AS_FOUND_INTENT = "Show the scene AS FOUND"
 AS_FOUND_RULE = (
@@ -34,9 +34,7 @@ MAX_BYTES = 30_000
 
 def export_jobs(include_existing: bool, pool: str | None) -> None:
     manifest = load_summary_image_manifest(SUMMARY_IMAGE_DIR)
-    summaries = sorted(
-        set(_SUMMARIES[pool]) if pool else {summary for texts in _SUMMARIES.values() for summary in texts}
-    )
+    summaries = sorted(set(_SUMMARIES[pool]) if pool else illustrated_summaries())
     for summary in summaries:
         key = summary_image_key(summary)
         entry = manifest.get(key)
@@ -60,7 +58,7 @@ def encode_webp(source: Path) -> bytes:
 
 def import_images(jobs: Path, source_dir: Path) -> None:
     manifest = load_summary_image_manifest(SUMMARY_IMAGE_DIR).copy()
-    current_keys = {summary_image_key(summary) for pool in _SUMMARIES.values() for summary in pool}
+    current_keys = {summary_image_key(summary) for summary in illustrated_summaries()}
     SUMMARY_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
     for line in jobs.read_text(encoding="utf-8").splitlines():
         job = json.loads(line)
