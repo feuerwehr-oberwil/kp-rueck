@@ -4,10 +4,20 @@ import { useCallback, useEffect, useRef } from 'react'
 import { apiClient } from '@/lib/api-client'
 import { useEvent } from '@/lib/contexts/event-context'
 import { useNotifications } from '@/lib/contexts/notification-context'
-import type { RekoSummary } from '@/lib/contexts/operations-context'
+import type { Operation, RekoSummary } from '@/lib/contexts/operations-context'
 import { rekoDangerTypes } from '@/lib/contexts/operations/mapping'
 import { wsClient } from '@/lib/websocket-client'
 import { usePolling } from '@/lib/hooks/use-polling'
+
+/**
+ * The card with its Reko summary – nothing else. The card's status is the server's: a filing
+ * moves «Reko» → «Reko abgeschlossen» there and the incident update brings it here. Moving it
+ * on this side too put a card into «Reko abgeschlossen» on this board only, when a report filed
+ * while the card stood elsewhere was amended after it went back to «Reko» (Sol review pass 5, S1).
+ */
+export function withRekoSummary(operations: Operation[], incidentId: string, rekoSummary: RekoSummary): Operation[] {
+  return operations.map(op => (op.id === incidentId ? { ...op, hasCompletedReko: true, rekoSummary } : op))
+}
 
 /**
  * Hook to track new Reko reports across all incidents and update operation state.

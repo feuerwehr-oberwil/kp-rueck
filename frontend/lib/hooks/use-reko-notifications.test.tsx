@@ -26,7 +26,8 @@ vi.mock("@/lib/websocket-client", () => ({
   },
 }));
 
-import { useRekoNotifications } from "./use-reko-notifications";
+import { useRekoNotifications, withRekoSummary } from "./use-reko-notifications";
+import type { Operation, RekoSummary } from "@/lib/contexts/operations-context";
 
 const summary = (incident_id: string, submitted_at: string, extra: Partial<ApiRekoSummary> = {}): ApiRekoSummary => ({
   incident_id, has_completed_reko: true, arrived_at: null, is_relevant: true,
@@ -110,3 +111,16 @@ describe("useRekoNotifications", () => {
     expect(refetchNotifications).not.toHaveBeenCalled();
   });
 });
+
+describe("withRekoSummary", () => {
+  it("sets the summary only – the card's status stays the server's (pass 5, S1)", () => {
+    const card = { id: "a", status: "reko", hasCompletedReko: true } as unknown as Operation;
+    const rekoSummary = { isRelevant: true, summaryText: "Keller 20 cm" } as unknown as RekoSummary;
+
+    const [after] = withRekoSummary([card], "a", rekoSummary);
+
+    expect(after.status).toBe("reko");
+    expect(after.rekoSummary).toBe(rekoSummary);
+  });
+});
+
