@@ -281,7 +281,7 @@ export function RoutenplanungPanel({
             <ol className="@container">
               {displayOrder.length > 0 && <RouteStartItem planning={planning} lastRun={optimizeAction.lastRun} />}
               <RouteStopList
-                groupId={group.id}
+                listId={group.id}
                 stopIds={stopIds}
                 displayOrder={displayOrder}
                 operationsById={operationsById}

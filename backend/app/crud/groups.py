@@ -19,6 +19,7 @@ from ..services.audit import log_action
 from . import events as events_crud
 from . import group_assignments as group_assignments_crud
 from .locking import lock_groups, lock_incidents_with_groups
+from .manual_order import plan_manual_order
 
 # Stops in these statuses count as "erledigt" for the derived progress roll-up.
 _DONE_STATUSES = ("returning", "complete")
@@ -290,10 +291,6 @@ async def reorder_groups(
     return updated
 
 
-class StopOrderConflictError(Exception):
-    """The Auftrag's stop order is no longer what the caller expected (→ 409)."""
-
-
 async def reorder_group_stops(
     db: AsyncSession,
     group_id: uuid.UUID,
@@ -302,15 +299,15 @@ async def reorder_group_stops(
 ) -> int:
     """Persist a manual order for the stops within one Auftrag.
 
-    Same pattern as ``reorder_groups`` but on ``Incident.group_position``, scoped
-    to ``group_id``. Unknown/stale ids are ignored. Returns the number reordered.
+    The order itself is ``plan_manual_order`` (shared with a Reko person's Rekos,
+    ``reko_assignment.reorder_reko_assignments``), written to ``Incident.group_position``
+    and scoped to ``group_id``. Unknown/stale ids are ignored. Returns the number of
+    ``ordered_ids`` that were stops.
 
     With ``expected_ids`` the write is conditional: the current stop order is read
     AFTER taking the Auftrag's row lock — the same lock every stop add/remove/
     reorder takes — and must equal ``expected_ids`` exactly, else
-    ``StopOrderConflictError`` and nothing changes. Checking and writing in one
-    locked transaction is the point: a check in the browser alone leaves a gap in
-    which another device can reorder, add or remove a stop.
+    ``OrderChangedError`` and nothing changes.
     """
     if not ordered_ids:
         return 0
@@ -326,34 +323,20 @@ async def reorder_group_stops(
         .order_by(Incident.group_position.asc(), Incident.created_at.asc())
     )
     incidents_by_id = {incident.id: incident for incident in result.scalars().all()}
+    order = plan_manual_order(list(incidents_by_id), ordered_ids, expected_ids)
+    updated = len(set(ordered_ids) & set(incidents_by_id))
+    if not updated:
+        return 0
 
-    if expected_ids is not None and list(incidents_by_id) != list(expected_ids):
-        raise StopOrderConflictError("Auftrag changed since the order was read")
-
-    temporary_base = -(len(ordered_ids) + 1)
+    # `uq_incidents_group_position_active`: park every stop on a negative position
+    # first, so no intermediate write collides with a stop not yet moved.
+    temporary_base = -(len(order) + 1)
     for offset, incident in enumerate(incidents_by_id.values()):
         incident.group_position = temporary_base - offset
     await db.flush()
-
-    updated = 0
-    positioned_ids: set[uuid.UUID] = set()
-    for index, incident_id in enumerate(ordered_ids):
-        ordered_incident = incidents_by_id.get(incident_id)
-        if ordered_incident is None:
-            continue
-        positioned_ids.add(incident_id)
-        if ordered_incident.group_position != index:
-            ordered_incident.group_position = index
-        updated += 1
-
-    next_position = len(ordered_ids)
-    for incident in incidents_by_id.values():
-        if incident.id not in positioned_ids:
-            incident.group_position = next_position
-            next_position += 1
-
-    if updated:
-        await db.flush()
+    for index, incident_id in enumerate(order):
+        incidents_by_id[incident_id].group_position = index
+    await db.flush()
 
     return updated
 

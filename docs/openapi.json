@@ -13655,6 +13655,85 @@
         }
       }
     },
+    "/api/reko/personnel/{personnel_id}/order": {
+      "post": {
+        "tags": [
+          "reko"
+        ],
+        "summary": "Reorder Reko Assignments",
+        "description": "Put a Reko person's Rekos in order (editor only) – the Reko-Modus drag on the map.\n\nThe same contract as ``POST /incident-groups/{id}/stops/reorder``: ``ordered_ids`` are\nEinsatz ids; with ``expected_ids`` the write happens only while the person still holds\nexactly those Rekos (409 otherwise). The order shows as numbered pins and as the order of the\nperson's /feld list.",
+        "operationId": "reorder_reko_assignments_api_reko_personnel__personnel_id__order_post",
+        "parameters": [
+          {
+            "name": "personnel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Personnel Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RekoOrderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/feld/generate-link": {
       "post": {
         "tags": [
@@ -20813,6 +20892,17 @@
             "type": "boolean",
             "title": "Is Leader",
             "default": false
+          },
+          "reko_position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reko Position"
           }
         },
         "type": "object",
@@ -31376,6 +31466,46 @@
         ],
         "title": "RekoOpenAssignmentInfo",
         "description": "Where a Reko person's open work is (for the assign dialog)."
+      },
+      "RekoOrderRequest": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "ordered_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Ordered Ids"
+          },
+          "expected_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Ids",
+            "description": "Apply only if the person still holds exactly these Rekos (as a set); else 409."
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "ordered_ids"
+        ],
+        "title": "RekoOrderRequest",
+        "description": "Reorder a Reko person's Rekos (Einsatz ids) in one Ereignis.\n\n``expected_ids`` makes the write conditional, like ``GroupStopsReorder``: applied only\nwhile the person still holds exactly these Rekos (as a set), else 409. The Reko-Modus\nsends the list it showed, so a drag can never re-insert a Reko somebody released or\nhanded over meanwhile, nor order one it never saw."
       },
       "RekoReportCreate": {
         "properties": {

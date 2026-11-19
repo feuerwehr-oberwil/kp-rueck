@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app import schemas
 from app.crud import groups as groups_crud
+from app.crud.manual_order import OrderChangedError
 from app.models import AuditLog, Event, Incident, IncidentGroup, User
 
 
@@ -92,7 +93,7 @@ class TestGuardedRestore:
         newer = [b.id, c.id, a.id]
         await groups_crud.reorder_group_stops(db_session, group.id, newer)
 
-        with pytest.raises(groups_crud.StopOrderConflictError):
+        with pytest.raises(OrderChangedError):
             await groups_crud.reorder_group_stops(db_session, group.id, [a.id, b.id, c.id], expected_ids=optimised)
 
         assert await _stop_order(db_session, group.id) == newer
@@ -103,7 +104,7 @@ class TestGuardedRestore:
         await groups_crud.reorder_group_stops(db_session, group.id, optimised)
         await groups_crud.remove_stop_from_group(db_session, group.id, a.id, user, _request())
 
-        with pytest.raises(groups_crud.StopOrderConflictError):
+        with pytest.raises(OrderChangedError):
             await groups_crud.reorder_group_stops(db_session, group.id, [a.id, b.id, c.id], expected_ids=optimised)
 
         # A stays off the route: the undo did not re-insert it.
@@ -127,7 +128,7 @@ class TestGuardedRestore:
         await db_session.commit()
         await groups_crud.add_stops_to_group(db_session, group.id, [extra.id], user, _request())
 
-        with pytest.raises(groups_crud.StopOrderConflictError):
+        with pytest.raises(OrderChangedError):
             await groups_crud.reorder_group_stops(db_session, group.id, [a.id, b.id, c.id], expected_ids=optimised)
 
         assert await _stop_order(db_session, group.id) == [*optimised, extra.id]
@@ -140,7 +141,7 @@ class TestGuardedRestore:
         await groups_crud.reorder_group_stops(db_session, group.id, optimised)
 
         await groups_crud.reorder_group_stops(db_session, group.id, before, expected_ids=optimised)
-        with pytest.raises(groups_crud.StopOrderConflictError):
+        with pytest.raises(OrderChangedError):
             await groups_crud.reorder_group_stops(db_session, group.id, before, expected_ids=optimised)
 
         assert await _stop_order(db_session, group.id) == before
@@ -215,7 +216,7 @@ class TestOverlap:
             assert not restore.done(), "the guarded restore must wait for the Auftrag lock"
 
             await other.commit()
-            with pytest.raises(groups_crud.StopOrderConflictError):
+            with pytest.raises(OrderChangedError):
                 await asyncio.wait_for(restore, timeout=10)
             await undo.rollback()
 

@@ -1070,6 +1070,11 @@ class IncidentAssignment(Base):
     # Meaningless for vehicles and material, which are never "reko"; they keep
     # the default rather than carrying a NULL nobody would know how to read.
     purpose: Mapped[str] = mapped_column(String(20), nullable=False, default="crew", server_default="crew")
+    # Where this Reko stands in its Reko person's order for the Ereignis (0 = first) – the
+    # number in the map pin and the order of their /feld list. Set on Reko rows only, the
+    # next free number when one is assigned (``reko_assignment.next_reko_position``);
+    # rearranged by ``reorder_reko_assignments``. NULL everywhere else, and it sorts last.
+    reko_position: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Relationships
     incident: Mapped["Incident"] = relationship("Incident", back_populates="assignments")

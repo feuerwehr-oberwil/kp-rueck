@@ -33,6 +33,7 @@ from ..crud import incidents as incidents_crud
 from ..crud import reko as crud
 from ..crud import reko_assignment as reko_assign_crud
 from ..crud.locking import lock_incident_with_group, lock_incidents_with_groups, lock_resource
+from ..crud.manual_order import OrderChangedError
 from ..database import get_db
 from ..logging_config import get_logger
 from ..middleware.rate_limit import RateLimits, limiter
@@ -1085,7 +1086,9 @@ async def assign_reko_personnel(
     a closed Einsatz); a missing Einsatz or person is a 404.
     """
     try:
-        await assignments_crud.lock_for_new_assignment(db, incident_id, "personnel", assignment.personnel_id)
+        locked_incident = await assignments_crud.lock_for_new_assignment(
+            db, incident_id, "personnel", assignment.personnel_id
+        )
     except LookupError as e:
         raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND) from e
     except assignments_crud.IncidentNotOnBoardError as e:
@@ -1117,12 +1120,15 @@ async def assign_reko_personnel(
     # and a crew row are otherwise identical, and `/feld` would then ask a trupp
     # that only drove out to look for a Schadenplatz-Rapport. Set here, at the
     # path the assignment came in through — never inferred afterwards.
+    # Last in the person's Reko order (the Reko-Modus numbers); the person's row lock taken
+    # above keeps two assigns from drawing the same number.
     db_assignment = IncidentAssignment(
         incident_id=incident_id,
         resource_type="personnel",
         resource_id=assignment.personnel_id,
         assigned_by=current_user.id,
         purpose="reko",
+        reko_position=await reko_assign_crud.next_reko_position(db, locked_incident.event_id, assignment.personnel_id),
     )
     db.add(db_assignment)
     await db.flush()
@@ -1233,8 +1239,10 @@ async def transfer_reko_assignments(
     if to_person is None or event is None:
         raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND)
 
-    # Filter to only open assignments (incidents in reko status, not reko_done or later)
+    # Filter to only open assignments (incidents in reko status, not reko_done or later).
+    # They join the new person's order at its end, in the order the old person had them.
     transferred: list[str] = []
+    next_position = await reko_assign_crud.next_reko_position(db, event_id, to_personnel_id)
     for assignment in assignments:
         incident = locked.get(assignment["incident_id"])
         if incident and incident.status in ("incoming", "reko"):
@@ -1255,7 +1263,9 @@ async def transfer_reko_assignments(
                 resource_id=to_personnel_id,
                 assigned_by=current_user.id if current_user else None,
                 purpose="reko",
+                reko_position=next_position,
             )
+            next_position += 1
             db.add(db_assignment)
             transferred.append(str(assignment["incident_id"]))
 
@@ -1273,3 +1283,39 @@ async def transfer_reko_assignments(
             )
 
     return {"transferred_count": len(transferred), "incident_ids": transferred}
+
+
+@router.post(
+    "/personnel/{personnel_id}/order",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def reorder_reko_assignments(
+    personnel_id: uuid.UUID,
+    body: schemas.RekoOrderRequest,
+    background_tasks: BackgroundTasks,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Put a Reko person's Rekos in order (editor only) – the Reko-Modus drag on the map.
+
+    The same contract as ``POST /incident-groups/{id}/stops/reorder``: ``ordered_ids`` are
+    Einsatz ids; with ``expected_ids`` the write happens only while the person still holds
+    exactly those Rekos (409 otherwise). The order shows as numbered pins and as the order of the
+    person's /feld list.
+    """
+    try:
+        updated = await reko_assign_crud.reorder_reko_assignments(
+            db, body.event_id, personnel_id, body.ordered_ids, body.expected_ids
+        )
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=ErrorMessages.PERSONNEL_NOT_FOUND) from e
+    except OrderChangedError:
+        # Nothing was written; get_db rolls back and releases the person's lock.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Reko-Reihenfolge wurde inzwischen geändert",
+        ) from None
+
+    if updated:
+        # The order lives on the assignment rows: boards and phones re-read them.
+        background_tasks.add_task(broadcast_incident_update, {"event_id": str(body.event_id)}, "refresh")

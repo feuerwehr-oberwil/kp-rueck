@@ -337,6 +337,8 @@ function visits(links) {
     { id: 'print', path: '/', act: async (p, w) => { if (phone(w)) await openMehr(p); await click(p, /Drucken/) } },
     { id: 'figures', path: '/', desktopOnly: true, act: async (p) => { await p.keyboard.press('z'); await p.waitForTimeout(1500) } },
     { id: 'map', path: '/map' },
+    // The Reko-Modus with a person picked: the dropdown, the hint and the order timeline.
+    { id: 'map-reko', path: '/map?mode=reko', act: async (p) => { await p.getByRole('combobox', { name: 'Reko-Person' }).click({ timeout: 20000 }); await p.getByRole('option').first().click(); await p.waitForTimeout(1200) } },
     { id: 'events', path: '/events' },
     { id: 'events-create', path: '/events?action=create' },
     { id: 'events-figures', path: '/events', act: async (p) => { await click(p, /^Aktionen$/); await click(p, /Kennzahlen|Übungsauswertung/, { role: 'menuitem', wait: 1500 }) } },

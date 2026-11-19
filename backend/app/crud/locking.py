@@ -28,7 +28,10 @@ assignment (``assign_resource``, ``assign_group_resource``, ``transfer_assignmen
 the resource lifecycle (archive / purge / personnel delete, which first locks the
 incidents its ``ON DELETE SET NULL`` will write), and the board's Reko draft (its
 first save ``reko.get_or_create_kp_reko_report`` and its PATCH take the card before
-the report). A merge locks only incidents, in id order (``services/duplicates.lock_pair``).
+the report). A Reko person's order (``reko_assignment.reorder_reko_assignments``) takes
+only step 3, the person's row – the lock every writer of their Reko rows already holds –
+and writes the leaf rows under it. A merge locks only incidents, in id order
+(``services/duplicates.lock_pair``).
 """
 
 import uuid

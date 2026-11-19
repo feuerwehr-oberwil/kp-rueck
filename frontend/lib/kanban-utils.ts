@@ -273,6 +273,13 @@ export function rekoColorOrder(
   return order
 }
 
+/** A Reko person's map colour: their turn in `rekoColorOrder` (without it: a hashed tone).
+ *  The pins, the Reko-Modus dropdown and the dotted order line all take it from here. */
+export function rekoPersonColor(personId: string, rekoOrder?: ReadonlyMap<string, number>): string {
+  const turn = rekoOrder?.get(personId) ?? hashString(personId)
+  return REKO_PALETTE[turn % REKO_PALETTE.length]
+}
+
 /** The colour group an operation belongs to for the chosen dimension, or null
  *  when it has no value there (e.g. no Reko / no Auftrag assigned). For the
  *  "auftrag" dimension pass the event's groups so the label/colour resolve to
@@ -315,10 +322,7 @@ export function colorGroupFor(
       return null
   }
   if (!key) return null
-  if (dimension === "reko") {
-    const turn = rekoOrder?.get(key) ?? hashString(key)
-    return { key, label: label ?? key, color: REKO_PALETTE[turn % REKO_PALETTE.length] }
-  }
+  if (dimension === "reko") return { key, label: label ?? key, color: rekoPersonColor(key, rekoOrder) }
   return { key, label: label ?? key, color: colorAccent(hueKey ?? key, dimension, groups) }
 }
 

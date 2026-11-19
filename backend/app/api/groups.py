@@ -19,6 +19,7 @@ from ..crud import assignments as assignments_crud
 from ..crud import events as events_crud
 from ..crud import group_assignments as ga_crud
 from ..crud import groups as crud
+from ..crud.manual_order import OrderChangedError
 from ..database import get_db
 from ..models import IncidentGroup, IncidentGroupAssignment
 from ..utils.errors import ErrorMessages
@@ -161,7 +162,7 @@ async def reorder_stops(
 
     try:
         updated = await crud.reorder_group_stops(db, group_id, reorder.ordered_ids, reorder.expected_ids)
-    except crud.StopOrderConflictError:
+    except OrderChangedError:
         # Nothing was written (the check precedes the first write); get_db rolls
         # back and releases the Auftrag lock. German like every API detail; the
         # board shows its own localized text.

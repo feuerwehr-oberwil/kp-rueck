@@ -299,13 +299,13 @@ class TestReorder:
 
         stale = uuid4()
         count = await groups_crud.reorder_group_stops(db_session, group.id, [i3.id, stale, i1.id, i2.id])
-        # stale ignored; the three real stops re-index 0,2,3 by enumerate position.
+        # stale ignored; the three real stops take 0, 1, 2 in that order.
         assert count == 3
         for inc in (i1, i2, i3):
             await db_session.refresh(inc)
         assert i3.group_position == 0
-        assert i1.group_position == 2
-        assert i2.group_position == 3
+        assert i1.group_position == 1
+        assert i2.group_position == 2
 
 
 # ============================================

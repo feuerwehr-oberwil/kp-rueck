@@ -27,6 +27,7 @@ from ...models import (
     Vehicle,
 )
 from ...services.incident_dispatch import dispatched_incident_ids, rapport_applies
+from ..reko_assignment import person_reko_rows
 from .reports import is_automation_user
 from .requests import requests_for_incidents
 from .visibility import (
@@ -468,6 +469,10 @@ async def get_feld_assignments_for_personnel(
     # What the field asked for and where it stands (R13). The Abholung has its
     # own standing box on the phone, so its work item is not repeated here.
     field_requests = await requests_for_incidents(db, mine_ids, include_pickup=False)
+    # A Reko person's open Rekos in the order the KP gave them (Reko-Modus on the map).
+    reko_order = {
+        row.incident_id: index for index, row in enumerate(await person_reko_rows(db, event_id, personnel_id))
+    }
 
     rows: list[dict[str, Any]] = []
     for incident_id, is_active in mine.items():
@@ -546,6 +551,7 @@ async def get_feld_assignments_for_personnel(
                     reko_not_relevant=bool((reko := rekos.get(incident_id)) and reko.get("is_relevant") is False),
                     status=incident.status,
                 ),
+                "_reko_order": reko_order.get(incident_id) if source.kind == "reko" and is_active else None,
                 "_position": incident.position,
                 "_created_at": incident.created_at,
             }
@@ -558,27 +564,42 @@ async def get_feld_assignments_for_personnel(
     # column, and has nothing to do with the order they are to be driven in.
     # A crew read «Stopp 2» above «Stopp 1» and the numbers were the only thing
     # saying otherwise. The route order IS the reason the KP grouped them.
+    #
+    # A Reko person's open Rekos are one such block too, in the order the KP gave them
+    # (feedback 19.11.2026, #19) – the same order as the numbered pins on the map.
     group_rank: dict[uuid.UUID, int] = {}
+    reko_rank: int | None = None
     for row in rows:
+        if row["_reko_order"] is not None:
+            reko_rank = row["_position"] if reko_rank is None else min(reko_rank, row["_position"])
+            continue
         group_id = row["group_id"]
         if group_id is None:
             continue
         group_rank[group_id] = min(group_rank.get(group_id, row["_position"]), row["_position"])
 
+    def block(row: dict[str, Any]) -> tuple[int, int]:
+        """Where the row's block sits, and the row's place inside it."""
+        if row["_reko_order"] is not None and reko_rank is not None:
+            return reko_rank, row["_reko_order"]
+        if row["group_id"] in group_rank:
+            return group_rank[row["group_id"]], row["group_position"]
+        return row["_position"], 0
+
     # Same priority order the operator arranged on the board: still-assigned
     # first, then the ones still missing a rapport, then the kanban order — with
-    # a whole Auftrag travelling as one block, internally in route order.
+    # a whole Auftrag (or the Rekos) travelling as one block, internally in order.
     rows.sort(
         key=lambda row: (
             not row["is_active_assignment"],
             not row["_owes_rapport"],
-            group_rank[row["group_id"]] if row["group_id"] in group_rank else row["_position"],
-            row["group_position"] if row["group_id"] else 0,
+            *block(row),
             row["_position"],
             row["_created_at"],
         )
     )
     for row in rows:
+        row.pop("_reko_order", None)
         row.pop("_owes_rapport", None)
         row.pop("_position", None)
         row.pop("_created_at", None)
