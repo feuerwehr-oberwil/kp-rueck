@@ -6,6 +6,7 @@ import { snailClockFor } from '@/lib/snail-clock'
 import { cn } from '@/lib/utils'
 
 import snailSvg from '../public/firefighter-snail-loader.svg?raw'
+import './snail-loader.css'
 
 /**
  * The firefighter snail, inline. `public/firefighter-snail-loader.svg` is KP Front's

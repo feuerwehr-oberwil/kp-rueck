@@ -53,7 +53,7 @@ describe('BootScreen', () => {
 
   it('uses KP Front’s default shell colour in each theme', () => {
     const style = document.createElement('style')
-    style.textContent = readFileSync(resolve(__dirname, '../app/globals.css'), 'utf8')
+    style.textContent = readFileSync(resolve(__dirname, './snail-loader.css'), 'utf8')
     document.head.append(style)
     try {
       const { container } = renderWithIntl(<BootScreen phase="…" />)
