@@ -52,6 +52,7 @@ import { topLoading } from '@/components/ui/top-loading-bar'
 import { useBootGate } from '@/lib/boot-cover'
 import { clearCookie, readCookie, writeCookie } from '@/lib/cookie'
 import { useIntlLocale } from '@/lib/date-locale'
+import { withReturnTo } from '@/lib/own-path'
 import { formatTime } from '@/lib/format-time'
 import { getIncidentTypeLabel } from '@/lib/incident-types'
 import {
@@ -639,16 +640,22 @@ function FeldSurface() {
    * Unless the window has closed (`rekoWindowClosed`): a Schadenplatz the KP
    * disponierte without waiting for the Reko opens as a plain read-only detail
    * — offering the form there would collect a briefing nobody reads.
+   *
+   * The form gets `return_to` = this door without a Schadenplatz: once the report is
+   * sent it comes straight back to the list with a receipt toast (owner, 19.11.2026),
+   * instead of a «Du kannst dieses Fenster jetzt schliessen» page. The remembered
+   * detail is forgotten for the same reason – the way back is the list.
    */
   const openAssignment = useCallback(async (assignment: ApiFeldAssignment) => {
-    if (assignment.source === 'reko' && !rekoWindowClosed(assignment) && token && selectedPerson) {
+    if (assignment.source === 'reko' && !rekoWindowClosed(assignment) && token && selectedPerson && linkToken) {
       try {
         const { link } = await apiClient.mintFeldRekoLink(
           assignment.incident_id,
           selectedPerson.personnel_id,
           token,
         )
-        router.push(link)
+        clearCookie(INCIDENT_COOKIE, FELD_COOKIE_SCOPE)
+        router.push(withReturnTo(link, `/feld?token=${encodeURIComponent(linkToken)}`))
       } catch (err) {
         console.error('Failed to open the reko form:', err)
       }
@@ -657,7 +664,7 @@ function FeldSurface() {
     setSelectedIncidentId(assignment.incident_id)
     setViewMode('detail')
     writeCookie(INCIDENT_COOKIE, assignment.incident_id, FELD_COOKIE_SCOPE)
-  }, [token, selectedPerson, router])
+  }, [token, selectedPerson, linkToken, router])
 
   /** Leaving via «Zurück» is the crew saying they are done with this one, so it
    *  is also what forgets it — otherwise the back button would be undone by the

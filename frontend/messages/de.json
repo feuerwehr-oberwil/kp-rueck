@@ -2780,8 +2780,7 @@
       "title": "Reko-Bericht übermittelt",
       "description": "Dein Reko-Bericht ist bei der Einsatzleitung.",
       "descriptionAt": "{address} – an die Einsatzleitung übermittelt.",
-      "closeHint": "Du kannst dieses Fenster jetzt schliessen.",
-      "back": "Zurück"
+      "closeHint": "Du kannst dieses Fenster jetzt schliessen."
     },
     "dashboard": {
       "invalidCode": "Ungültiger oder abgelaufener Code. Bitte Link erneut anfordern.",

@@ -3312,8 +3312,7 @@
       "title": "Rapport de reconnaissance transmis",
       "description": "Ton rapport de reconnaissance est arrivé à la conduite de l’intervention.",
       "descriptionAt": "{address} – transmis à la conduite de l’intervention.",
-      "closeHint": "Tu peux maintenant fermer cette fenêtre.",
-      "back": "Retour"
+      "closeHint": "Tu peux maintenant fermer cette fenêtre."
     },
     "dashboard": {
       "invalidCode": "Code non valable ou échu. Demande à nouveau le lien.",

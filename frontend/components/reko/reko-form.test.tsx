@@ -10,9 +10,10 @@ import { ApiError } from '@/lib/api/types'
  */
 
 const params = vi.hoisted(() => ({ value: new URLSearchParams() }))
+const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }))
 vi.mock('next/navigation', () => ({
   useSearchParams: () => params.value,
-  useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
+  useRouter: () => router,
 }))
 const getRekoForm = vi.hoisted(() => vi.fn())
 const saveRekoDraft = vi.hoisted(() => vi.fn())
@@ -20,6 +21,11 @@ const submitRekoReport = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/api-client', () => ({ apiClient: { getRekoForm, saveRekoDraft, submitRekoReport } }))
 const toast = vi.hoisted(() => ({ error: vi.fn(), info: vi.fn(), success: vi.fn() }))
 vi.mock('sonner', () => ({ toast }))
+const unmutedToast = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/toast-lifetime', async (original) => ({
+  ...(await original<typeof import('@/lib/toast-lifetime')>()),
+  unmutedToast,
+}))
 
 import RekoForm from '@/components/reko/reko-form'
 
@@ -231,5 +237,45 @@ describe('field report autosave', () => {
     expect(saveRekoDraft).toHaveBeenCalledWith('same-incident', 'link-a', { summary_text: 'Erster Trupp' })
     await tick()
     expect(saveRekoDraft).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('after the report is sent', () => {
+  afterEach(() => {
+    submitRekoReport.mockReset()
+    router.push.mockReset()
+    router.replace.mockReset()
+    unmutedToast.mockReset()
+    localStorage.clear()
+    vi.useRealTimers()
+  })
+
+  async function submitFrom(returnTo: string | null) {
+    params.value = new URLSearchParams({ incident_id: 'inc-1', token: 'link-a', ...(returnTo ? { return_to: returnTo } : {}) })
+    getRekoForm.mockResolvedValueOnce({
+      id: 'report-a', summary_text: 'Keller unter Wasser', is_relevant: true,
+      incident_location: 'Bahnhofstrasse 22', updated_at: '2025-01-01T00:00:00Z',
+    })
+    submitRekoReport.mockResolvedValue({})
+    renderWithIntl(<RekoForm />)
+    await act(async () => {})
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Reko-Bericht übermitteln' })) })
+  }
+
+  // Owner, 19.11.2026: from /feld straight back to the list, the receipt as a toast.
+  it('goes straight back to /feld with a receipt toast when opened from there', async () => {
+    await submitFrom('/feld?token=door')
+    expect(unmutedToast).toHaveBeenCalledWith('Reko-Bericht übermittelt', expect.objectContaining({ description: 'Bahnhofstrasse 22' }))
+    expect(router.replace).toHaveBeenCalledWith('/feld?token=door')
+    expect(router.push).not.toHaveBeenCalled()
+  })
+
+  it.each([null, 'https://example.com', '//example.com'])('keeps the success page for a link without a way home (%s)', async (returnTo) => {
+    vi.useFakeTimers()
+    await submitFrom(returnTo)
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
+    expect(router.push).toHaveBeenCalledWith('/reko/success?ort=Bahnhofstrasse+22')
+    expect(router.replace).not.toHaveBeenCalled()
+    expect(unmutedToast).not.toHaveBeenCalled()
   })
 })

@@ -630,8 +630,11 @@ describe('/feld opens a Reko auftrag straight into the form', () => {
 
     await user.click(await screen.findByText('Hauptstrasse 1'))
 
+    // With the way home: once sent, the form comes back to this list (owner, 19.11.2026).
     await waitFor(() =>
-      expect(routerPush).toHaveBeenCalledWith('/reko?incident_id=inc-1&token=form-token&personnel_id=p-1'),
+      expect(routerPush).toHaveBeenCalledWith(
+        `/reko?incident_id=inc-1&token=form-token&personnel_id=p-1&return_to=${encodeURIComponent('/feld?token=feld-token')}`,
+      ),
     )
     // No Aktionen, no Rapport — the two things a Reko trupp has no business with.
     expect(screen.queryByTestId('feld-actions')).not.toBeInTheDocument()
