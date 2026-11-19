@@ -274,26 +274,24 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
       return
     }
     // The row keys belong to this sheet: not while a dialog in front of it (the driver
-    // picker) has the focus. And a focused control in the list – a deployment link, a
-    // row, the driver button – answers its own Enter (Sol review S12). The header's
-    // «Aktualisieren» is not one: the sheet focuses it on opening, and arrows + Enter
-    // must still open the picked row.
+    // picker) has the focus. A focused control anywhere in the sheet – a deployment link,
+    // the driver button, «Aktualisieren», the phone's ✕ – answers its own Enter, and so does
+    // a row that opens its one place itself (its handler prevents the default). The arrows
+    // move the focus onto the row they pick, so Enter after them lands there (Sol S12).
     const target = e.target instanceof Element ? e.target : null
     const sheet = fleetListRef.current?.closest('[role="dialog"]')
     if (target && target !== document.body && sheet && !sheet.contains(target)) return
-    const control = target?.closest('button, a[href], [role="button"], [tabindex]:not([tabindex="-1"])')
-    if (e.key === "Enter" && control && fleetListRef.current?.contains(control)) return
+    if (e.key === "Enter" && (e.defaultPrevented || target?.closest('button, a[href], [role="button"]'))) return
 
-    if (e.key === "ArrowDown") {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault()
-      setSelectedVehicleIndex(prev =>
-        prev < displayedVehicles.length - 1 ? prev + 1 : 0
-      )
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault()
-      setSelectedVehicleIndex(prev =>
-        prev > 0 ? prev - 1 : displayedVehicles.length - 1
-      )
+      const count = displayedVehicles.length
+      if (count === 0) return
+      const next = e.key === "ArrowDown"
+        ? (selectedVehicleIndex < count - 1 ? selectedVehicleIndex + 1 : 0)
+        : (selectedVehicleIndex > 0 ? selectedVehicleIndex - 1 : count - 1)
+      setSelectedVehicleIndex(next)
+      fleetListRef.current?.querySelector<HTMLElement>(`[data-fleet-row="${next}"]`)?.focus()
     } else if (e.key === "Enter" && selectedVehicleIndex >= 0) {
       e.preventDefault()
       const vehicle = displayedVehicles[selectedVehicleIndex]
@@ -421,6 +419,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                 return (
                   <div
                     key={vehicle.id}
+                    data-fleet-row={index}
                     onClick={() => rowTarget && openIncident(rowTarget)}
                     className={cn(
                       "border rounded-lg px-3 py-2.5 bg-card transition-all",
