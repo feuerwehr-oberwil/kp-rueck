@@ -968,7 +968,6 @@
     },
     "auftraege": {
       "title": "Aufträge",
-      "leaderFailed": "Einsatzleiter konnte nicht gesetzt werden.",
       "description": "Mehrere Einsätze zu einer geordneten Route bündeln und einem Trupp übergeben.",
       "newAuftrag": "Neuer Auftrag",
       "templatesLabel": "Vorlagen:",

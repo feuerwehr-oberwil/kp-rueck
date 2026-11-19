@@ -2264,7 +2264,6 @@
     },
     "auftraege": {
       "title": "Missions",
-      "leaderFailed": "Le chef d’intervention n’a pas pu être défini.",
       "description": "Regrouper plusieurs interventions en un itinéraire ordonné et le confier à une équipe.",
       "newAuftrag": "Nouvelle mission",
       "templatesLabel": "Modèles :",

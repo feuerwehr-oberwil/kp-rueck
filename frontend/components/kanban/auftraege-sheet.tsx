@@ -32,7 +32,6 @@ import {
   Unlink,
   Radio,
 } from "lucide-react"
-import { toast } from "sonner"
 import { apiClient, type ApiAuftragTemplate } from "@/lib/api-client"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -83,6 +82,7 @@ import { RouteResourceSections, ResourceSectionHeader } from "@/components/kanba
 import { AuftragRadioDialog } from "@/components/kanban/auftrag-radio-dialog"
 import { stopStatusBorderClass } from "@/lib/kanban-utils"
 import { isToastLayer } from "@/lib/toast-layer"
+import { usePromoteRouteLeader } from "@/lib/hooks/use-promote-to-leader"
 import type { GroupResources } from "@/lib/types/groups"
 import { Reveal } from "@/components/ui/reveal"
 import { AUFTRAG_SWATCHES, darkenForWhiteText } from "@/lib/map-colors"
@@ -155,7 +155,6 @@ export function AuftraegeSheet({
     reorderGroupStops,
     assignResource,
     getGroupResources,
-    refreshGroups,
   } = useGroups()
   // Releasing a stop or a route resource offers «Rückgängig» (lib/release-undo.ts).
   const release = useReleaseUndo()
@@ -169,17 +168,7 @@ export function AuftraegeSheet({
   // The route owns the people, so this is where a route's Einsatzleiter is set.
   // The backend demotes the previous holder in the same transaction — one call,
   // whether the role is being given out for the first time or handed over.
-  const promoteLeader = useCallback(
-    async (groupId: string, assignmentId: string) => {
-      try {
-        await apiClient.updateGroupAssignment(groupId, assignmentId, { is_leader: true })
-        await refreshGroups()
-      } catch {
-        toast.error(t("leaderFailed"))
-      }
-    },
-    [refreshGroups, t],
-  )
+  const promoteLeader = usePromoteRouteLeader()
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [creating, setCreating] = useState(false)

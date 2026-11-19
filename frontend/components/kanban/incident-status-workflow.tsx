@@ -8,12 +8,12 @@ import {
   ArrowRight,
   Check,
   CheckCircle2,
+  ChevronRight,
   ClipboardCheck,
   Footprints,
   MapPin,
   Package,
   Pencil,
-  Plus,
   Truck,
   Undo2,
   Users,
@@ -44,7 +44,10 @@ import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { PersonName, usePersonNaming } from "@/components/person-name"
-import { LeaderBadge } from "@/components/kanban/leader-badge"
+import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
+import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
+import { CrewChipSlot } from "@/components/kanban/route-resource-sections"
+import { RemovableChip } from "@/components/ui/removable-chip"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import type { VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 
@@ -133,10 +136,17 @@ export type DriverStayTarget =
   | { kind: "incident"; operationId: string; vehicleId: string }
   | { kind: "route"; groupId: string; assignmentId: string }
 
+/** Who the dispatch gate's «EL» stub makes Einsatzleiter: one of the Einsatz's own crew
+ *  (`usePromoteToLeader`) or one of its Auftrag's (`usePromoteRouteLeader`). */
+export type LeaderTarget =
+  | { kind: "incident"; operationId: string; personnelId: string }
+  | { kind: "route"; groupId: string; assignmentId: string }
+
 /** The Einsatz's and its Auftrag's resources, as the dispatch gate names them. */
 export interface ResourceCoverage {
-  /** EL first (`sortCrewByLeader`). */
-  crew: { personnelId: string; name: string; isLeader: boolean }[]
+  /** EL first (`sortCrewByLeader`). `leaderTarget` null = nobody can make this person EL here:
+   *  the own crew of a stop inside an Auftrag – the route leads (as in the board detail). */
+  crew: { personnelId: string; name: string; isLeader: boolean; leaderTarget: LeaderTarget | null }[]
   /** `driverStay` is absent while the assign POST has not answered – then no toggle. */
   vehicles: { vehicleId: string; name: string; driverStay: boolean | undefined; target: DriverStayTarget }[]
   materials: { id: string; name: string | null }[]
@@ -259,12 +269,16 @@ export function useIncidentStatusWorkflow({
         personnelId: member.personnelId,
         name: member.name,
         isLeader: member.personnelId === operation.leaderId,
+        leaderTarget: auftrag
+          ? null
+          : { kind: "incident" as const, operationId: operation.id, personnelId: member.personnelId },
       })),
-      ...(route?.personnel ?? []).map((person) => ({
+      ...(auftrag && route ? route.personnel.map((person) => ({
         personnelId: person.resourceId,
         name: person.name,
         isLeader: Boolean(person.isLeader),
-      })),
+        leaderTarget: { kind: "route" as const, groupId: auftrag.id, assignmentId: person.assignmentId },
+      })) : []),
     ]
     return {
       crew: sortCrewByLeader(crew, (member) => member.isLeader),
@@ -842,6 +856,8 @@ interface IncidentStatusWorkflowDialogsProps {
   vehicleDrivers?: VehicleDrivers
   /** «bleibt vor Ort | kehrt zurück» in the dispatch gate; without it the rows show no toggle. */
   onSetDriverStay?: (target: DriverStayTarget, driverStay: boolean) => void
+  /** The dispatch gate's «EL» stub; without it the crew shows who leads, read-only. */
+  onPromoteLeader?: (target: LeaderTarget) => void
 }
 
 export function IncidentStatusWorkflowDialogs({
@@ -855,6 +871,7 @@ export function IncidentStatusWorkflowDialogs({
   onRefresh,
   vehicleDrivers,
   onSetDriverStay,
+  onPromoteLeader,
 }: IncidentStatusWorkflowDialogsProps) {
   const tCommon = useTranslations("kanban.common")
   const tDash = useTranslations("kanban.dashboard")
@@ -948,6 +965,7 @@ export function IncidentStatusWorkflowDialogs({
         onToggleZuFuss={onToggleZuFuss}
         vehicleDrivers={vehicleDrivers}
         onSetDriverStay={onSetDriverStay}
+        onPromoteLeader={onPromoteLeader}
       />
 
       <ConfirmDialog
@@ -1258,6 +1276,14 @@ export function IncidentStatusWorkflowDialogs({
   )
 }
 
+/** The dispatch gate's box action: its `::after` covers the whole box (the box is `relative`,
+ *  the button is not), so a click anywhere on the box is this button's click. */
+const GATE_OPEN_STRETCH = "after:absolute after:inset-0 after:rounded-md after:content-['']"
+
+/** Lifted above `GATE_OPEN_STRETCH`: a chip, the «EL» stub or a toggle keeps its own click
+ *  (or none) instead of opening the picker under it. */
+const GATE_ABOVE_OPEN = "relative z-10"
+
 /**
  * «Ressourcen fehlen» — the gate in front of the Funkdurchsage (the board's
  * `missingResources` gate). Rendered once by `IncidentStatusWorkflowDialogs`.
@@ -1278,7 +1304,16 @@ export function IncidentStatusWorkflowDialogs({
  * NAMES, NOT COUNTS (owner pick 19.11.2026, #8/9 A): each row lists what is already there as
  * name chips – the Mannschaft EL first with its «EL» mark, each vehicle as «TLF · Fahrer» with
  * its own «bleibt vor Ort | kehrt zurück» (an Auftrag's vehicles too), the Geräte by name.
- * «Hinzufügen» per row opens the assignment; a row with nothing keeps «Zuweisen».
+ * «Hinzufügen ›» per row opens the assignment; a row with nothing keeps «Zuweisen ›».
+ *
+ * ONE BOX, ONE TARGET (owner pick 19.11.2026b, 1A): every box is the same grid – status |
+ * type icon | content | action – so the titles, chips and toggles of all three hang on the
+ * same columns, and a click anywhere on a box opens that resource's picker. The action
+ * button stays the real control (keyboard, screen reader); its `::after` is stretched over
+ * the box (`GATE_OPEN_STRETCH`). Chips, the «EL» stub and the toggles sit above that layer
+ * (`GATE_ABOVE_OPEN`), so a click on them is theirs alone. The «EL» stub is the board
+ * detail's: hover a crew chip, click the dashed «EL», and that person leads (a chip menu
+ * row without a mouse).
  *
  * The armed state belongs to one opening of the gate and one set of gaps: it is
  * dropped when the gate closes (also for an assignment round-trip) and whenever
@@ -1290,16 +1325,20 @@ function DispatchGateDialog({
   onToggleZuFuss,
   vehicleDrivers,
   onSetDriverStay,
+  onPromoteLeader,
 }: {
   controller: IncidentStatusWorkflowController
   onOpenAssignment: (resourceType: ResourceType, operationId: string) => void
   onToggleZuFuss: (operation: Operation) => void
   vehicleDrivers?: VehicleDrivers
   onSetDriverStay?: (target: DriverStayTarget, driverStay: boolean) => void
+  onPromoteLeader?: (target: LeaderTarget) => void
 }) {
   const tCommon = useTranslations("kanban.common")
   const tRes = useTranslations("kanban.resources")
   const tMissing = useTranslations("kanban.missingResources")
+  const tLeader = useTranslations("kanban.leader")
+  const naming = usePersonNaming()
   const primaryRef = useRef<HTMLButtonElement>(null)
 
   const missingOperation = controller.missingResourcesOperation
@@ -1349,6 +1388,11 @@ function DispatchGateDialog({
     setArmedFor(null)
     onOpenAssignment(resourceType, operationId)
   }
+  // The focus goes back to «Disponieren», so Enter still dispatches after an EL change.
+  const promote = (target: LeaderTarget) => {
+    onPromoteLeader?.(target)
+    primaryRef.current?.focus()
+  }
 
   return (
     // Escape and the overlay are Abbrechen, never the dispatch: these gates open
@@ -1373,22 +1417,56 @@ function DispatchGateDialog({
       >
         {missingOperation && (() => {
           const coverage = controller.getResourceCoverage(missingOperation)
-          const chip = "max-w-full min-w-0 gap-1 font-normal"
+          // An edge of their own (the mock's chips): on the hovered box the chip fill and the box tint are
+          // nearly one tone.
+          const chip = cn("max-w-full min-w-0 gap-1 border-border font-normal", GATE_ABOVE_OPEN)
+          // The EL slot before every crew chip (`CrewChipSlot`, as in the board detail):
+          // only where it can hold something – a promotable person, or somebody leading.
+          const crewHasLeaderSlot = (Boolean(onPromoteLeader) && coverage.crew.some((member) => member.leaderTarget))
+            || coverage.crew.some((member) => member.isLeader)
           const rows = [
             {
               key: "crew" as const,
               icon: Users,
               count: coverage.crew.length,
               names: coverage.crew.length > 0 && (
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {coverage.crew.map((member) => (
-                    <Badge key={member.personnelId} variant="secondary" className={chip}>
-                      <span className="min-w-0 truncate">
-                        <PersonName name={member.name} personnelId={member.personnelId} />
-                      </span>
-                      <LeaderBadge isLeader={member.isLeader} />
-                    </Badge>
-                  ))}
+                <div className="flex flex-wrap gap-1.5">
+                  {coverage.crew.map((member) => {
+                    const target = onPromoteLeader ? member.leaderTarget : null
+                    return (
+                      <CrewChipSlot
+                        key={member.personnelId}
+                        leader={
+                          crewHasLeaderSlot && (
+                            <LeaderBadge
+                              isLeader={member.isLeader}
+                              onPromote={target ? () => promote(target) : undefined}
+                              // ≤768px the global touch rule squares every button to 44px; the
+                              // 16px mark keeps its size, its `hit-area` pad is the 46px target.
+                              className={cn("max-md:min-h-0 max-md:min-w-0", GATE_ABOVE_OPEN)}
+                            />
+                          )
+                        }
+                      >
+                        <RemovableChip
+                          variant="secondary"
+                          className={chip}
+                          // Touch: no hover, so no stub – the chip's menu offers the promotion.
+                          menuTitle={naming.inline({ name: member.name, personnelId: member.personnelId })}
+                          menuSubtitle={<PersonMenuSubtitle personnelId={member.personnelId} isLeader={member.isLeader} />}
+                          menuActions={
+                            target && !member.isLeader
+                              ? [{ label: tLeader("promote"), icon: <LeaderGlyph />, onSelect: () => promote(target) }]
+                              : undefined
+                          }
+                        >
+                          <span className="min-w-0 truncate">
+                            <PersonName name={member.name} personnelId={member.personnelId} />
+                          </span>
+                        </RemovableChip>
+                      </CrewChipSlot>
+                    )
+                  })}
                 </div>
               ),
             },
@@ -1397,7 +1475,7 @@ function DispatchGateDialog({
               icon: Truck,
               count: coverage.vehicles.length,
               names: missingOperation.zuFuss && coverage.vehicles.length === 0 ? null : coverage.vehicles.length > 0 && (
-                <div className="mt-1 space-y-1">
+                <div className="space-y-1">
                   {coverage.vehicles.map((vehicle) => {
                     const driver = vehicleDrivers?.get(vehicle.vehicleId)
                     const stay = vehicle.driverStay
@@ -1409,9 +1487,10 @@ function DispatchGateDialog({
                             {driver && <> · <PersonName name={driver.name} personnelId={driver.personnelId} /></>}
                           </span>
                         </Badge>
-                        {/* Unsaid while the assign POST has not answered (`driverStay` absent). */}
+                        {/* Unsaid while the assign POST has not answered (`driverStay` absent).
+                            `ml-auto`: right-aligned with the action above it. */}
                         {onSetDriverStay && stay !== undefined && (
-                          <div role="group" aria-label={vehicle.name} className="ml-auto flex flex-shrink-0">
+                          <div role="group" aria-label={vehicle.name} className={cn("ml-auto flex flex-shrink-0", GATE_ABOVE_OPEN)}>
                             <Button
                               variant={stay ? "selected" : "outline"}
                               size="xs"
@@ -1445,7 +1524,7 @@ function DispatchGateDialog({
               icon: Package,
               count: coverage.materials.length,
               names: coverage.materials.length > 0 && (
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1.5">
                   {coverage.materials.map((material) => (
                     <Badge key={material.id} variant="secondary" className={chip}>
                       <span className="min-w-0 truncate">{material.name ?? tCommon("unknownResource")}</span>
@@ -1475,6 +1554,7 @@ function DispatchGateDialog({
                 {rows.map(({ key, icon: Icon, count, names }) => {
                   const filled = !missing.includes(key)
                   const asking = armed && blockingGaps.includes(key)
+                  const open = () => assign(key, missingOperation.id)
                   // No vehicle of its own or on the route: the row answers with
                   // «Zuweisen | Zu Fuss» instead of a plain «Zuweisen».
                   const footOption = key === "vehicles" && coverage.vehicles.length === 0
@@ -1483,15 +1563,16 @@ function DispatchGateDialog({
                       <Button
                         variant="outline"
                         size="xs"
-                        className="rounded-r-none"
-                        onClick={() => assign(key, missingOperation.id)}
+                        className={cn("rounded-r-none", GATE_OPEN_STRETCH)}
+                        data-gate-open=""
+                        onClick={open}
                       >
                         {tCommon("assign")}
                       </Button>
                       <Button
                         variant={missingOperation.zuFuss ? "selected" : "outline"}
                         size="xs"
-                        className="-ml-px rounded-l-none"
+                        className={cn("-ml-px rounded-l-none", GATE_ABOVE_OPEN)}
                         aria-pressed={missingOperation.zuFuss}
                         onClick={() => onToggleZuFuss(missingOperation)}
                       >
@@ -1503,17 +1584,30 @@ function DispatchGateDialog({
                     <Button
                       variant="ghost"
                       size="xs"
-                      className="flex-shrink-0 text-muted-foreground"
-                      onClick={() => assign(key, missingOperation.id)}
+                      // No fill and no side padding: the whole box is what lights up, and «›» ends on the
+                      // toggles' right edge below it.
+                      className={cn("flex-shrink-0 gap-0.5 px-0 text-muted-foreground hover:bg-transparent has-[>svg]:px-0", GATE_OPEN_STRETCH)}
+                      data-gate-open=""
+                      onClick={open}
                     >
-                      <Plus className="h-3.5 w-3.5" />
                       {tMissing("addMore")}
+                      <ChevronRight className="h-3.5 w-3.5" />
                     </Button>
                   ) : (
-                    <Button variant="secondary" size="xs" className="flex-shrink-0" onClick={() => assign(key, missingOperation.id)}>
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      className={cn("flex-shrink-0 gap-0.5", GATE_OPEN_STRETCH)}
+                      data-gate-open=""
+                      onClick={open}
+                    >
                       {tCommon("assign")}
+                      <ChevronRight className="h-3.5 w-3.5" />
                     </Button>
                   )
+                  const body = asking
+                    ? <div className="text-xs text-muted-foreground">{tMissing(key === "crew" ? "armedCrew" : "armedVehicles")}</div>
+                    : names
                   return (
                     <div
                       key={key}
@@ -1521,29 +1615,29 @@ function DispatchGateDialog({
                       aria-label={tRes(key)}
                       data-gate-row={key}
                       className={cn(
-                        "flex w-full items-start gap-3 rounded-md border px-3 py-2 transition-colors",
-                        asking && "border-warning/60 bg-warning/10",
+                        // status | type icon | content | action — the same columns in every box.
+                        "relative grid w-full cursor-pointer grid-cols-[1rem_1rem_minmax(0,1fr)_auto] items-center gap-x-3",
+                        "rounded-md border px-3 py-2 transition-colors",
+                        // Hover = the whole box, but only where a click opens the picker:
+                        // over a chip or a toggle the box stays as it is.
+                        asking
+                          ? "border-warning/60 bg-warning/10 has-[[data-gate-open]:hover]:bg-warning/15"
+                          : "has-[[data-gate-open]:hover]:border-foreground/20 has-[[data-gate-open]:hover]:bg-muted",
                       )}
                     >
                       {filled
-                        ? <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-success" />
-                        : <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-warning-foreground" />}
-                      <Icon className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start gap-2">
-                          <div className="min-w-0 flex-1 pt-px text-sm font-medium">
-                            {tRes(key)}
-                            {count > 0 && <span className="text-xs font-normal text-muted-foreground"> · {count}</span>}
-                            {key === "vehicles" && missingOperation.zuFuss && count === 0 && (
-                              <span className="text-xs font-normal text-muted-foreground"> · {tCommon("zuFuss")}</span>
-                            )}
-                          </div>
-                          {action}
-                        </div>
-                        {asking
-                          ? <div className="text-xs text-muted-foreground">{tMissing(key === "crew" ? "armedCrew" : "armedVehicles")}</div>
-                          : names}
+                        ? <CheckCircle2 className="h-4 w-4 text-success" />
+                        : <AlertCircle className="h-4 w-4 text-warning-foreground" />}
+                      <Icon className="h-4 w-4 text-muted-foreground" />
+                      <div className="min-w-0 text-sm font-medium">
+                        {tRes(key)}
+                        {count > 0 && <span className="text-xs font-normal text-muted-foreground"> · {count}</span>}
+                        {key === "vehicles" && missingOperation.zuFuss && count === 0 && (
+                          <span className="text-xs font-normal text-muted-foreground"> · {tCommon("zuFuss")}</span>
+                        )}
                       </div>
+                      {action}
+                      {body && <div className="col-span-2 col-start-3 mt-1">{body}</div>}
                     </div>
                   )
                 })}

@@ -41,7 +41,6 @@ import { formatClockTime } from "@/lib/incident-time"
 import { telHref } from "@/lib/phone"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { AddressText } from "@/components/kanban/address-text"
-import { apiClient } from "@/lib/api-client"
 import { useVehicleDriverState } from "@/lib/hooks/use-vehicle-drivers"
 import { useVehicleShortcuts } from "@/lib/contexts/operations/use-vehicle-shortcuts"
 import { useRekoLinkActions } from "@/lib/hooks/use-reko-link-actions"
@@ -53,14 +52,13 @@ import { DetailField, DetailFlags, DetailGroupHeading, DENSE_CONTROL } from "@/c
 import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
 import { FieldSaveStatus, fieldSaveEdgeClass, useFieldSave } from "@/components/kanban/field-save-status"
 import { LocationInput } from "@/components/location/location-input"
-import { toast } from "sonner"
 import { cn, CONTACT_PHONE_MAX, sanitizePhoneInput } from "@/lib/utils"
 import { useEvent } from "@/lib/contexts/event-context"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { IncidentTimeline } from "@/components/kanban/incident-timeline"
 import { IncidentParticipants } from "@/components/kanban/incident-participants"
 import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
-import { usePromoteToLeader } from "@/lib/hooks/use-promote-to-leader"
+import { usePromoteRouteLeader, usePromoteToLeader } from "@/lib/hooks/use-promote-to-leader"
 import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
 import { PersonName, usePersonNaming } from "@/components/person-name"
 import { FieldReportsRow, FieldMessageThread } from "@/components/kanban/field-reports-row"
@@ -258,7 +256,7 @@ export function OperationDetailContent({
   const { selectedEvent } = useEvent()
   const { personnel } = usePersonnel()
   const { materialGroups } = useMaterials()
-  const { groups, getGroupResources, refreshGroups } = useGroups()
+  const { groups, getGroupResources } = useGroups()
   // Releasing a route resource here offers «Rückgängig» (lib/release-undo.ts).
   const release = useReleaseUndo()
   // The «·» separator has to vanish with the chip, or a closed incident keeps an
@@ -278,22 +276,12 @@ export function OperationDetailContent({
   const auftragResources = auftrag ? getGroupResources(auftrag.id) : null
 
   // Promote a crew member to Einsatzleiter — shared with the card's chip menu.
-  const promoteToLeader = usePromoteToLeader(operation)
+  const promoteToLeader = usePromoteToLeader()
   const naming = usePersonNaming()
 
   /** Same promotion, one level up: the route owns the people, so a grouped
    *  incident's leader is set on the Auftrag. */
-  const promoteRouteLeader = useCallback(
-    async (groupId: string, assignmentId: string) => {
-      try {
-        await apiClient.updateGroupAssignment(groupId, assignmentId, { is_leader: true })
-        await refreshGroups()
-      } catch {
-        toast.error(t('detail.leaderFailed'))
-      }
-    },
-    [refreshGroups, t],
-  )
+  const promoteRouteLeader = usePromoteRouteLeader()
 
   // The text fields' save state (lib/field-save): what each one shows — the
   // operator's draft while one is held, so neither a reload nor a remote
@@ -708,7 +696,7 @@ export function OperationDetailContent({
                     ownCrewHasLeaderSlot && (
                       <LeaderBadge
                         isLeader={isLeader}
-                        onPromote={canEdit ? () => void promoteToLeader(personnelId) : undefined}
+                        onPromote={canEdit ? () => void promoteToLeader(operation, personnelId) : undefined}
                       />
                     )
                   }
@@ -729,7 +717,7 @@ export function OperationDetailContent({
                     menuSubtitle={<PersonMenuSubtitle personnelId={personnelId} isLeader={!auftrag && isLeader} />}
                     menuActions={
                       !auftrag && canEdit && !isLeader
-                        ? [{ label: t('leader.promote'), icon: <LeaderGlyph />, onSelect: () => void promoteToLeader(personnelId) }]
+                        ? [{ label: t('leader.promote'), icon: <LeaderGlyph />, onSelect: () => void promoteToLeader(operation, personnelId) }]
                         : undefined
                     }
                     removeLabel={t('chipMenu.removeFromIncident')}

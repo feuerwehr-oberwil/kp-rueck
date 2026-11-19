@@ -42,6 +42,7 @@ import { useAssignmentConflicts } from "@/lib/hooks/use-assignment-conflicts"
 import { useAuftragRoster } from "@/lib/hooks/use-auftrag-roster"
 import { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
+import { usePromoteRouteLeader, usePromoteToLeader } from "@/lib/hooks/use-promote-to-leader"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
@@ -311,6 +312,9 @@ export function IncidentDialogs({
   const personnel = useAuftragRoster()
   const release = useReleaseUndo()
   const toggleDriverStay = useToggleDriverStay()
+  // The dispatch gate's «EL» stub: the same promotion as the board detail's.
+  const promoteToLeader = usePromoteToLeader()
+  const promoteRouteLeader = usePromoteRouteLeader()
   // Attaching an already-closed incident as a stop is allowed, but never silent.
   const closedStopGuard = useClosedStopGuard(operations)
   // Doppelbelegung across Aufträge and Einsätze – see use-assignment-conflicts.
@@ -538,6 +542,14 @@ export function IncidentDialogs({
           // The gate only writes the half that is not set yet, so on an Einsatz the toggle is that write.
           if (target.kind === "incident") toggleDriverStay(target.operationId, target.vehicleId)
           else void setRouteDriverStay(target.groupId, target.assignmentId, driverStay)
+        }}
+        onPromoteLeader={(target) => {
+          if (target.kind === "route") {
+            void promoteRouteLeader(target.groupId, target.assignmentId)
+            return
+          }
+          const operation = operations.find(({ id }) => id === target.operationId)
+          if (operation) void promoteToLeader(operation, target.personnelId)
         }}
         onSendDivera={dialogs.openDivera}
         onRefresh={refreshOperations}

@@ -8,7 +8,7 @@ import {
   type IncidentStatusWorkflowController,
 } from "@/components/kanban/incident-status-workflow"
 import type { Operation } from "@/lib/contexts/operations-context"
-import type { GroupResources } from "@/lib/types/groups"
+import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
 import { crewMember, assignedVehicle } from "@/test-utils/operation-fixtures"
 
@@ -62,9 +62,18 @@ function operation(overrides: Partial<Operation> = {}): Operation {
   }
 }
 
-function renderGate(initial: Operation) {
+function auftrag(id: string, stopIds: string[]): IncidentGroup {
+  const at = new Date("2026-10-24T18:00:00Z")
+  return {
+    id, eventId: "e1", name: "Auftrag 1", color: null, notes: null, position: 0, createdAt: at, updatedAt: at,
+    createdBy: null, stopIds, assignments: [], progress: { total: stopIds.length, done: 0 }, lastAnnounced: null,
+  }
+}
+
+function renderGate(initial: Operation, { groups = [], route = noRoute }: { groups?: IncidentGroup[]; route?: GroupResources } = {}) {
   const onOpenAssignment = vi.fn()
   const onSetDriverStay = vi.fn()
+  const onPromoteLeader = vi.fn()
   const changeStatusToTop = vi.fn()
   const ref: { controller: IncidentStatusWorkflowController | null } = { controller: null }
 
@@ -73,9 +82,9 @@ function renderGate(initial: Operation) {
     const controller = useIncidentStatusWorkflow({
       operations: [current],
       materials: [],
-      groups: [],
+      groups,
       changeStatusToTop,
-      getGroupResources: () => noRoute,
+      getGroupResources: () => route,
       removeMaterial: vi.fn(),
       unassignGroupResource: vi.fn(),
     })
@@ -92,13 +101,14 @@ function renderGate(initial: Operation) {
         onRefresh={vi.fn()}
         vehicleDrivers={new Map([["v-TLF", { name: "Baumann Michael", personnelId: "p-baumann" }]])}
         onSetDriverStay={onSetDriverStay}
+        onPromoteLeader={onPromoteLeader}
       />
     )
   }
 
   renderWithIntl(<Harness />)
   act(() => ref.controller!.triggerDisponiertDialog(initial.id, "incoming"))
-  return { ref, onOpenAssignment, changeStatusToTop, onSetDriverStay }
+  return { ref, onOpenAssignment, changeStatusToTop, onSetDriverStay, onPromoteLeader }
 }
 
 describe("dispatch gate – press twice", () => {
@@ -207,7 +217,7 @@ describe("dispatch gate – press twice", () => {
     const crew = screen.getByRole("group", { name: "Mannschaft" })
     expect(crew).toHaveTextContent("Mannschaft · 2")
     expect(crew.textContent!.indexOf("Meier Andrea")).toBeLessThan(crew.textContent!.indexOf("Ackermann Reto"))
-    expect(screen.getByLabelText("Einsatzleiter")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Einsatzleiter" })).toHaveAttribute("aria-pressed", "true")
 
     const vehicles = screen.getByRole("group", { name: "Fahrzeuge" })
     expect(vehicles).toHaveTextContent("TLF · Baumann Michael")
@@ -217,5 +227,42 @@ describe("dispatch gate – press twice", () => {
     // The half already set writes nothing.
     await user.click(screen.getByRole("button", { name: "kehrt zurück" }))
     expect(onSetDriverStay).toHaveBeenCalledTimes(1)
+  })
+
+  it("the «EL» stub makes that person EL – without opening the picker – and hands Enter back to «Disponieren»", async () => {
+    const user = userEvent.setup()
+    const { onPromoteLeader, onOpenAssignment } = renderGate(operation({
+      crew: [crewMember("Ackermann Reto"), crewMember("Meier Andrea")],
+      leaderId: "p-Meier Andrea",
+    }))
+
+    await user.click(screen.getByRole("button", { name: "Als Einsatzleiter markieren" }))
+    expect(onPromoteLeader).toHaveBeenCalledWith({ kind: "incident", operationId: "incident-1", personnelId: "p-Ackermann Reto" })
+    expect(onOpenAssignment).not.toHaveBeenCalled()
+    expect(screen.getByRole("button", { name: "Disponieren" })).toHaveFocus()
+  })
+
+  it("a stop's own crew offers no stub – the Auftrag leads; its route crew does", async () => {
+    const user = userEvent.setup()
+    const { onPromoteLeader } = renderGate(operation({ groupId: "g1" }), {
+      groups: [auftrag("g1", ["incident-1"])],
+      route: { ...noRoute, personnel: [{ resourceId: "p-weber", assignmentId: "ga-1", name: "Weber Martin", isLeader: false }] },
+    })
+
+    const stubs = screen.getAllByRole("button", { name: "Als Einsatzleiter markieren" })
+    expect(stubs).toHaveLength(1)
+    await user.click(stubs[0])
+    expect(onPromoteLeader).toHaveBeenCalledWith({ kind: "route", groupId: "g1", assignmentId: "ga-1" })
+  })
+
+  it("the box's action is its one opener: stretched over the box, with chips and toggles lifted above it", () => {
+    renderGate(operation({ vehicles: [assignedVehicle("TLF", { driverStay: false })], materials: [] }))
+
+    const vehicles = screen.getByRole("group", { name: "Fahrzeuge" })
+    const openers = vehicles.querySelectorAll("[data-gate-open]")
+    expect(openers).toHaveLength(1)
+    expect(openers[0]).toHaveAccessibleName("Hinzufügen")
+    expect(openers[0].className).toMatch(/after:absolute after:inset-0/)
+    expect(screen.getByRole("group", { name: "TLF" }).className).toMatch(/relative z-10/)
   })
 })
