@@ -22,14 +22,22 @@ export const REKO_SAVE_DELAY_MS = 600
  *
  * `schedule(data)` after every change; one request at a time, the newest form always last,
  * so the server sees the edits in order. «Synchronisiert» only once the save carrying the
- * NEWEST form answered. A failure waits for `retry()` or the next edit – no automatic resend
- * (`lib/field-save`). `flush()` sends a waiting save now (closing the form).
+ * NEWEST form answered; then `onSettled` runs (the section reloads – a read issued before
+ * that could still return the old row). A failure waits for `retry()` or the next edit – no
+ * automatic resend (`lib/field-save`). `flush()` sends a waiting save now (closing the form).
+ *
+ * The newest form outlives closing the form (Sol review S1): `resume(source)` on reopen hands
+ * it back while it is not confirmed yet (waiting, in flight, failed), or while the server's
+ * copy is not newer than what this hook's last save got back – the list may not have caught
+ * up. Otherwise it adopts `source` and returns null: open from the server's row.
  */
-export function useRekoAutosave(incidentId: string) {
+export function useRekoAutosave(incidentId: string, onSettled?: () => void) {
   const [state, setState] = useState<SyncState>({ status: 'idle' })
   const target = useRef<string | null>(null)
   const latest = useRef<RekoFormData | null>(null)
   const version = useRef(0)
+  /** The version the server confirmed last, and the `updated_at` it answered with. */
+  const confirmed = useRef<{ version: number; updatedAt: string | null }>({ version: 0, updatedAt: null })
   const inFlight = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -60,18 +68,31 @@ export function useRekoAutosave(incidentId: string) {
         : await apiClient.createRekoReportAsEditor(incidentId, payload, false)
       target.current = report.id
       inFlight.current = false
-      if (version.current === sent) setState({ status: 'saved', savedAt: new Date() })
-      else await send()
+      confirmed.current = { version: sent, updatedAt: report.updated_at ?? null }
+      if (version.current === sent) {
+        setState({ status: 'saved', savedAt: new Date() })
+        onSettled?.()
+      } else await send()
     } catch (error) {
       inFlight.current = false
       setState({ status: 'failed', reason: classifySaveFailure(error) })
     }
-  }, [incidentId])
+  }, [incidentId, onSettled])
 
-  const start = useCallback((reportId: string | null) => {
-    target.current = reportId
+  const resume = useCallback((source: { id: string; updated_at: string } | null): RekoFormData | null => {
+    const local = latest.current
+    if (local) {
+      const unconfirmed = confirmed.current.version !== version.current
+      const serverNotNewer =
+        !source ||
+        (source.id === target.current && !!confirmed.current.updatedAt && source.updated_at <= confirmed.current.updatedAt)
+      if (unconfirmed || serverNotNewer) return local
+    }
+    target.current = source?.id ?? null
     latest.current = null
+    confirmed.current = { version: version.current, updatedAt: null }
     setState({ status: 'idle' })
+    return null
   }, [])
 
   const schedule = useCallback((data: RekoFormData) => {
@@ -82,8 +103,10 @@ export function useRekoAutosave(incidentId: string) {
     timer.current = setTimeout(() => void send(), REKO_SAVE_DELAY_MS)
   }, [send])
 
-  const flush = useCallback(() => {
+  /** Send a waiting save now. Whether a save is still on its way (it settles later). */
+  const flush = useCallback((): boolean => {
     if (timer.current) void send()
+    return inFlight.current
   }, [send])
 
   // A form unmounted with a save still waiting sends it rather than dropping it.
@@ -93,7 +116,7 @@ export function useRekoAutosave(incidentId: string) {
 
   return {
     state,
-    start,
+    resume,
     schedule,
     flush,
     retry: send,

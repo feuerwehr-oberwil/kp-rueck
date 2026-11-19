@@ -156,6 +156,44 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     expect(createRekoReportAsEditor).not.toHaveBeenCalled()
   })
 
+  it('keeps the newest edits through close and reopen while the list still has the old draft (S1)', async () => {
+    const oldDraft = report({
+      id: 'r-draft', is_draft: true, created_by_user_id: 'u-1', summary_text: 'Keller halb voll',
+      updated_at: '2026-08-10T18:00:00Z',
+    })
+    // Every read returns the draft as it was before this edit – a read that raced the save.
+    getIncidentRekoReports.mockResolvedValue([oldDraft])
+    let answer: (value: unknown) => void = () => {}
+    updateRekoReport.mockReturnValueOnce(new Promise(resolve => { answer = resolve }))
+    const user = userEvent.setup()
+    renderWithIntl(<RekoReportSection incidentId="i-1" canEdit dense />)
+
+    await user.click(await screen.findByRole('button', { name: 'weiter erfassen' }))
+    const summary = screen.getByDisplayValue('Keller halb voll')
+    await user.clear(summary)
+    await user.type(summary, 'Keller voll')
+    await user.click(screen.getByRole('button', { name: /Schliessen/ }))
+    expect(updateRekoReport).toHaveBeenCalledWith('r-draft', expect.objectContaining({ summary_text: 'Keller voll' }))
+
+    // Reopened while the save is still on its way: the edit, not the old row.
+    await user.click(screen.getByRole('button', { name: 'weiter erfassen' }))
+    expect(screen.getByDisplayValue('Keller voll')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Schliessen/ }))
+
+    answer({ ...oldDraft, summary_text: 'Keller voll', updated_at: '2026-08-10T18:05:00Z' })
+    const loadsBefore = getIncidentRekoReports.mock.calls.length
+    await waitFor(() => expect(getIncidentRekoReports.mock.calls.length).toBeGreaterThan(loadsBefore))
+
+    // Settled, and the reload still answered the old row: the server's copy is not newer
+    // than what the save got back, so another field does not write the old text again.
+    await user.click(screen.getByRole('button', { name: 'weiter erfassen' }))
+    expect(screen.getByDisplayValue('Keller voll')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Nein' }))
+    await waitFor(() => expect(updateRekoReport).toHaveBeenLastCalledWith(
+      'r-draft', expect.objectContaining({ is_relevant: false, summary_text: 'Keller voll' }),
+    ))
+  })
+
   it('counts a draft whose only answer is the power supply as a draft', async () => {
     getIncidentRekoReports.mockResolvedValue([
       report({ id: 'r-draft', is_draft: true, created_by_user_id: 'u-1', is_relevant: null, power_supply: 'unavailable' }),

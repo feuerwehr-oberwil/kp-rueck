@@ -143,8 +143,6 @@ export default function RekoReportSection({
   const [ownDraft, setOwnDraft] = useState<ApiRekoReportResponse | null>(null)
   const { user } = useAuth()
   const userId = user?.id ?? null
-  const autosave = useRekoAutosave(incidentId)
-
   const loadReports = useCallback(async () => {
     try {
       const data = await apiClient.getIncidentRekoReports(incidentId)
@@ -177,6 +175,8 @@ export default function RekoReportSection({
     })
   }, [loadReports, incidentId])
   usePolling(loadReports, { intervalMs: POLL_INTERVAL_MS, skipWhileWsConnected: true })
+  // A draft save emits no `reko_update`, so the section reloads once a save settled.
+  const autosave = useRekoAutosave(incidentId, loadReports)
 
   const latestReport: ApiRekoReportResponse | undefined = reports[0]
   const previousReports = reports.slice(1)
@@ -206,12 +206,12 @@ export default function RekoReportSection({
   const openedForm = useRef<RekoFormData | null>(null)
 
   /** Open the form: amending starts from what is already there, a new report from the
-   *  operator's own draft when there is one. */
+   *  operator's own draft when there is one – or from this mount's own newer edits, which
+   *  the list may not show yet (`useRekoAutosave.resume`). */
   function startEditing() {
-    const source = latestReport ?? ownDraft ?? undefined
-    const opened = toRekoFormData(source)
+    const source = latestReport ?? ownDraft ?? null
+    const opened = autosave.resume(source) ?? toRekoFormData(source ?? undefined)
     openedForm.current = opened
-    autosave.start(source?.id ?? null)
     setFormData(opened)
     setIsEditing(true)
   }
@@ -224,11 +224,12 @@ export default function RekoReportSection({
     scheduleSave(formData)
   }, [formData, isEditing, scheduleSave])
 
-  /** Close the form: a save still waiting goes out now, the draft stays on the server. */
+  /** Close the form: a save still waiting goes out now (the reload follows once it
+   *  settled), the draft stays on the server. */
   function stopEditing() {
-    autosave.flush()
+    const saving = autosave.flush()
     setIsEditing(false)
-    void loadReports()
+    if (!saving) void loadReports()
   }
 
   // Deep-linked straight into the entry form. Waits for `isLoading`, because
