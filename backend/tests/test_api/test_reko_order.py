@@ -97,6 +97,28 @@ async def test_new_rekos_join_the_end_and_a_drag_reorders_them(
     assert await _order(db_session, test_event.id, reko_person.id) == [bahnhof, allschwiler, haupt]
 
 
+async def test_an_unnumbered_reko_keeps_its_place_before_a_new_one(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_event: Event,
+    test_user: User,
+    reko_person: Personnel,
+):
+    # A row from before the order existed (or a crew row of somebody made Reko later).
+    old, new = _incident(test_event, test_user, "Alt", 0), _incident(test_event, test_user, "Neu", 1)
+    db_session.add_all([old, new])
+    await db_session.flush()
+    db_session.add(IncidentAssignment(incident_id=old.id, resource_type="personnel", resource_id=reko_person.id))
+    await db_session.commit()
+
+    response = await editor_client.post(
+        f"/api/reko/incidents/{new.id}/assign-reko", json={"personnel_id": str(reko_person.id)}
+    )
+
+    assert response.status_code == 201
+    assert await _order(db_session, test_event.id, reko_person.id) == [old.id, new.id]
+
+
 async def test_a_list_that_changed_meanwhile_is_409_and_keeps_its_order(
     editor_client: AsyncClient,
     db_session: AsyncSession,

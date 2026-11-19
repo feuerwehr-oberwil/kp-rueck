@@ -12,7 +12,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import EventSpecialFunction, Incident, IncidentAssignment, Personnel, RekoReport
@@ -500,18 +500,17 @@ async def person_reko_rows(
 
 
 async def next_reko_position(db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid.UUID) -> int:
-    """The number a NEW Reko of this person takes: after all of theirs (call under their row lock)."""
-    highest = await db.scalar(
-        select(func.max(IncidentAssignment.reko_position))
-        .join(Incident, Incident.id == IncidentAssignment.incident_id)
-        .where(
-            Incident.event_id == event_id,
-            IncidentAssignment.resource_type == "personnel",
-            IncidentAssignment.resource_id == personnel_id,
-            IncidentAssignment.unassigned_at.is_(None),
-        )
-    )
-    return 0 if highest is None else highest + 1
+    """The number a NEW Reko of this person takes: after all of theirs. Call under their row lock.
+
+    Numbers the person's current rows 0..n-1 on the way (``person_reko_rows`` order), so a row
+    that never had a number – written before the order existed, or as a crew row of somebody
+    who became a Reko later – keeps its place before the new one instead of sorting after it.
+    """
+    rows = await person_reko_rows(db, event_id, personnel_id)
+    for index, row in enumerate(rows):
+        if row.reko_position != index:
+            row.reko_position = index
+    return len(rows)
 
 
 async def reorder_reko_assignments(
