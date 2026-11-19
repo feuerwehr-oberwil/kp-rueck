@@ -121,7 +121,7 @@ export function RekoReportGateDialog({
   useEffect(() => {
     if (!finishing) return
     if (syncStatus === 'saved' || syncStatus === 'idle') onFinish()
-    // A failed save keeps the dialog open – «Nicht synchronisiert» under the form says why,
+    // A failed save keeps the dialog open – «Nicht synchronisiert» in the header says why,
     // and the next press tries again.
     else if (syncStatus === 'failed') setFinishing(false)
   }, [finishing, syncStatus, onFinish])
@@ -138,6 +138,13 @@ export function RekoReportGateDialog({
   const description = rekoName
     ? t.rich('reportLine', { name: rekoName, hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span> })
     : t('reportLineNoPerson')
+  // In the fixed header, not at the foot of the scrolling form: always in view. Its row is
+  // reserved so the form does not jump when «Synchronisiert – hh:mm» goes quiet.
+  const syncLine = phase === 'ready' && (
+    <div className="min-h-5">
+      <SyncStatusLine state={autosave.state} onRetry={() => void autosave.retry()} />
+    </div>
+  )
 
   const body: ReactNode =
     phase === 'loading' ? (
@@ -159,7 +166,6 @@ export function RekoReportGateDialog({
           onChange={setForm}
           photos={photos}
           mount="kp"
-          footer={<SyncStatusLine state={autosave.state} onRetry={() => void autosave.retry()} />}
         />
         {/* Why the main answer waits, and what the quiet one does with what is entered. */}
         {!answered && (
@@ -202,6 +208,7 @@ export function RekoReportGateDialog({
           <SheetHeader className="gap-1 px-4 pt-5 pb-3 pr-12 text-left">
             <SheetTitle className="text-lg leading-[1.375rem] font-semibold">{title}</SheetTitle>
             <SheetDescription className="text-xs">{description}</SheetDescription>
+            {syncLine}
           </SheetHeader>
           <SheetBody className="px-4 pb-4">{body}</SheetBody>
           <SheetFooter className="mt-0 flex-row flex-wrap gap-2 border-t px-4 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">
@@ -218,6 +225,7 @@ export function RekoReportGateDialog({
         <DialogHeader className="gap-1 px-6 pt-6 pb-3 pr-12">
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
+          {syncLine}
         </DialogHeader>
         <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-4">{body}</div>
         <DialogFooter className="border-t px-6 py-3">{footer}</DialogFooter>

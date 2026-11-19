@@ -127,7 +127,9 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     expect(createRekoReportAsEditor.mock.calls[0][1]).not.toHaveProperty('token')
     // Nor the photo list: upload and delete own it, a stale copy would undo another's photo.
     expect(createRekoReportAsEditor.mock.calls[0][1]).not.toHaveProperty('photos_json')
-    expect(await screen.findByText(/^Synchronisiert – /)).toBeInTheDocument()
+    const synced = await screen.findByText(/^Synchronisiert – /)
+    // In the header row beside «Schliessen», not at the form's foot under the fade (sign-off 19.11.).
+    expect(synced.parentElement?.parentElement).toContainElement(screen.getByRole('button', { name: 'Schliessen' }))
 
     // The next answer goes to the same draft, not a second one.
     await user.click(screen.getByRole('button', { name: 'Nein' }))

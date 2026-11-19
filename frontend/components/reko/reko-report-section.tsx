@@ -432,16 +432,20 @@ export default function RekoReportSection({
           // column IS the frame, and a border inside a border inside the modal
           // is two frames around one form.
           <div className={cn(dense ? "space-y-1" : "space-y-3", !split && !dense && "rounded-lg border border-border p-4")}>
-            <div className={cn("flex items-center gap-2", dense && "pb-1.5")}>
+            {/* The form's one sync line sits in this row, left of «Schliessen»: at the foot
+                of the form it was under the column's fade and needed a scroll to read. */}
+            <div className={cn("flex flex-wrap items-center gap-x-2 gap-y-1", dense && "pb-1.5")}>
               <h3 className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                 <Binoculars className="h-3.5 w-3.5 shrink-0" />
                 {editingDraft ? t('createTitle') : t('amendTitle')}
               </h3>
+              <div className="ml-auto flex min-w-0 items-center">
+                <SyncStatusLine state={autosave.state} onRetry={() => void autosave.retry()} />
+              </div>
               <Button
                 type="button"
                 size="xs"
                 variant="ghost"
-                className="ml-auto"
                 onClick={stopEditing}
               >
                 <X className="size-3.5" />
@@ -459,7 +463,6 @@ export default function RekoReportSection({
               onChange={setFormData}
               photos={photoTransport}
               mount="kp"
-              footer={<SyncStatusLine state={autosave.state} onRetry={() => void autosave.retry()} />}
             />
           </div>
         ) : (

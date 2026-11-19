@@ -123,7 +123,7 @@ interface RekoReportFormProps {
   /** The mount's photo door, if it has one. */
   photos?: PhotoTransport
   /** The field mount's «Bericht senden». The board's mount saves as it goes and has
-   *  no submit: it passes none, and its `footer` carries the sync line. */
+   *  no submit: it passes none, and draws its sync line in its own header. */
   onSubmit?: () => void | Promise<void>
   /** Copy only — never behaviour (the same rule the Rapport form follows). */
   mount?: 'feld' | 'kp'
@@ -133,7 +133,8 @@ interface RekoReportFormProps {
    *  says "wird übermittelt" about a background draft save. */
   busy?: boolean
   disabled?: boolean
-  /** The mount's own note beside or under the button (autosave state, last save, …). */
+  /** The field mount's note under the button (autosave state, last save, …). The board
+   *  mount has no button and draws none. */
   footer?: React.ReactNode
 }
 
@@ -414,7 +415,6 @@ export function RekoReportForm({
           </DetailField>
         )}
 
-        {footer && <div className="flex min-h-8 items-center justify-end gap-2 pt-2">{footer}</div>}
       </form>
     )
   }
