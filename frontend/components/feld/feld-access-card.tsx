@@ -41,21 +41,49 @@ interface FeldAccessCardProps {
   bare?: boolean
 }
 
+/** The last access state seen per Ereignis, for the next mount (the sheets unmount when closed). */
+const lastAccess = new Map<string, ApiFeldAccessState>()
+
+/**
+ * Loads the Feld-Code while the Links & QR sheet is still closed, so even its first opening
+ * rises at its final height with the code in it instead of a skeleton that jumps (feedback
+ * 19.11.2026, as #14 did for the Fahrzeuge sheet). Quiet: on a failure the card loads it again
+ * when it mounts.
+ */
+export async function prefetchFeldAccess(eventId: string): Promise<void> {
+  if (lastAccess.has(eventId)) return
+  try {
+    lastAccess.set(eventId, await apiClient.getFeldAccess(eventId))
+  } catch {
+    // the card tries again on opening
+  }
+}
+
 export function FeldAccessCard({ eventId, bare = false }: FeldAccessCardProps) {
   const t = useTranslations('feld.access')
-  const [state, setState] = useState<ApiFeldAccessState | null>(null)
+  const [loaded, setLoaded] = useState<{ eventId: string; state: ApiFeldAccessState } | null>(null)
+  // This Ereignis's state: what this card loaded, else what an earlier mount (or the prefetch) did.
+  const state = loaded?.eventId === eventId ? loaded.state : (lastAccess.get(eventId) ?? null)
+  const setState = useCallback(
+    (next: ApiFeldAccessState) => {
+      lastAccess.set(eventId, next)
+      setLoaded({ eventId, state: next })
+    },
+    [eventId],
+  )
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
   const [confirmRegenerate, setConfirmRegenerate] = useState(false)
   const [confirmRevoke, setConfirmRevoke] = useState(false)
 
+  // Every mount refreshes: the device count moves while the sheet is closed.
   const load = useCallback(async () => {
     try {
       setState(await apiClient.getFeldAccess(eventId))
     } catch (error) {
       console.error('Failed to load feld access state:', error)
     }
-  }, [eventId])
+  }, [eventId, setState])
 
   useEffect(() => {
     load()
@@ -92,6 +120,7 @@ export function FeldAccessCard({ eventId, bare = false }: FeldAccessCardProps) {
   // A skeleton of the SAME height rather than nothing: returning null until the
   // fetch lands made the card pop in and shove the link rows down a line, which
   // on a footer sheet means the row under the cursor moves as you reach for it.
+  // Only seen when neither the prefetch nor an earlier mount got through.
   if (!state) {
     return (
       <div className={bare ? 'px-3 py-2.5' : 'rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5'} aria-hidden>

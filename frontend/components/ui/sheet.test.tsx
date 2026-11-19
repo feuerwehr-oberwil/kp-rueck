@@ -254,3 +254,29 @@ describe('non-modal backdrop', () => {
     expect(arrivals()).toEqual([['open', 'fade']])
   })
 })
+
+describe('docked footer sheet clip', () => {
+  // The clip must not move with the sheet: an animated clip-path fell a frame behind the
+  // compositor's translate and drew the sheet's head over the toolbar (19.11.2026).
+  it('rises inside a static frame that ends at the toolbar and the sidebar', () => {
+    renderWithIntl(
+      <Sheet modal={false} open onOpenChange={() => {}}>
+        <SheetContent side="bottom" nonModal overlayOffset="42px" rightInset="320px" aria-describedby={undefined}>
+          <SheetTitle>Links und QR</SheetTitle>
+        </SheetContent>
+      </Sheet>,
+    )
+    const frame = content()?.parentElement
+    expect(frame?.dataset.slot).toBe('sheet-edge-frame')
+    expect(frame?.style.bottom).toBe('42px')
+    expect(frame?.style.right).toBe('320px')
+    // the sheet stands on the frame's edge, not on its own offset
+    expect(content()?.style.bottom).toBe('')
+    expect(content()?.style.right).toBe('')
+  })
+
+  it('leaves a modal bottom sheet unframed', () => {
+    renderWithIntl(<BottomSheet onOpenChange={() => {}} />)
+    expect(document.querySelector('[data-slot="sheet-edge-frame"]')).toBeNull()
+  })
+})

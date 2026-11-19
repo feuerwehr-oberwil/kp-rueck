@@ -75,6 +75,44 @@ function NonModalBackdrop({ className, style, ref }: {
   )
 }
 
+/**
+ * The clip a docked bottom sheet (a desktop footer sheet, the Aufträge sheet) rises inside: a
+ * fixed box from the top of the screen down to the sheet's resting edge (the top of the footer
+ * toolbar), left of the notification sidebar. `contain: paint` makes it the sheet's containing
+ * block and clips everything past that edge, so the sheet moves only by `translate`
+ * (globals.css «Panel motion») and the clip itself never moves.
+ *
+ * The clip used to be an animated `clip-path` on the sheet, next to the animated `translate`.
+ * The browser runs the translate on the compositor and the clip-path on the main thread, so
+ * while the main thread was busy (the board re-rendering on open/close) the sheet already stood
+ * at its end position with the clip of an earlier frame: for one frame its head («Links & QR»)
+ * was drawn over the toolbar (recording, 19.11.2026). A static box clip cannot fall behind.
+ *
+ * Radix's Portal watches THIS node for the exit (it is the Portal's child): `data-state=closed`
+ * runs a hold animation of the panel's length (globals.css), so the sheet inside can sink before
+ * both unmount. Takes no pointer events itself; the sheet inside takes them.
+ */
+function EdgeFrame({ bottom, right, elevated, children, ref }: {
+  bottom?: string
+  right?: string
+  elevated: boolean
+  children: React.ReactNode
+  ref?: React.Ref<HTMLDivElement>
+}) {
+  const open = React.useContext(SheetOpenContext)
+  return (
+    <div
+      ref={ref}
+      data-slot="sheet-edge-frame"
+      data-state={open ? 'open' : 'closed'}
+      className={cn('pointer-events-none fixed inset-0 [contain:paint]', elevated ? 'z-elevated' : 'z-overlay')}
+      style={{ bottom, right }}
+    >
+      {children}
+    </div>
+  )
+}
+
 function SheetTrigger({
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Trigger>) {
@@ -389,83 +427,99 @@ function SheetContent({
     [attach, ref],
   )
 
+  // An edge-clipped bottom sheet stands in an EdgeFrame that does the clip and the offsets;
+  // inside it the sheet sits on the frame's bottom edge.
+  const framed = edgeClip && isBottom
+  const content = (
+    <SheetPrimitive.Content
+      ref={mergedRef}
+      data-slot="sheet-content"
+      data-side={side}
+      data-docked={docked ? '' : undefined}
+      data-swipe={swipe ? '' : undefined}
+      data-edge-clip={edgeClip ? '' : undefined}
+      // Dismissing a toast must never dismiss the slide-up behind it; any
+      // other outside interaction still reaches the caller's own guard.
+      onInteractOutside={ignoreToastLayer((event) => {
+        if (step.stepOpen()) event.preventDefault()
+        else onInteractOutside?.(event)
+      })}
+      onEscapeKeyDown={(event) => {
+        if (!step.onEscapeKeyDown(event)) onEscapeKeyDown?.(event)
+      }}
+      onOpenAutoFocus={handleOpenAutoFocus}
+      className={cn(
+        // One duration and curve for every panel (`--motion-panel`). A modal sheet slides in
+        // and has no slide-out: the closed Content was measured lingering over 375x587 with
+        // `pointer-events: auto` for the full exit, and the panel has to leave with its
+        // backdrop, or the board shows through under a still-sliding sheet. The edge-clipped
+        // non-modal sheets animate both ways from globals.css instead of these classes. No
+        // `transition` on top: the motion is the keyframes alone, nothing eases besides them.
+        // In an EdgeFrame `fixed` places it in the frame (its containing block), and the frame
+        // passes the pointer through, so the sheet takes it back.
+        'bg-background fixed flex flex-col gap-4 shadow-lg',
+        framed && 'pointer-events-auto',
+        !edgeClip &&
+          'data-[state=open]:animate-in data-[state=open]:duration-(--motion-panel) data-[state=open]:ease-(--ease-panel)',
+        elevated ? 'z-elevated' : 'z-overlay',
+        side === 'right' &&
+          cn(!edgeClip && 'data-[state=open]:slide-in-from-right', 'inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm'),
+        side === 'left' &&
+          'data-[state=open]:slide-in-from-left inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm',
+        side === 'top' &&
+          'data-[state=open]:slide-in-from-top inset-x-0 top-0 h-auto border-b',
+        side === 'bottom' &&
+          cn(!edgeClip && 'data-[state=open]:slide-in-from-bottom', 'inset-x-0 bottom-0 h-auto border-t rounded-t-lg outline-none'),
+        className,
+      )}
+      // Merge instead of letting a caller-provided `style` (even undefined,
+      // spread via props) clobber the computed footer offset — that exact
+      // clobbering made bottom sheets render flush to the viewport and clip
+      // behind the footer toolbar.
+      style={{
+        ...(side === 'bottom' && overlayOffset && !framed ? { bottom: overlayOffset } : undefined),
+        // An undocked bottom sheet sits on `bottom-0`; while a keyboard is up globals.css
+        // moves it into the visible band (`top: --vv-top; height: --vv-height`), footer on
+        // the keys. Not inline: an inline `bottom` would beat that rule. lib/viewport-insets.ts.
+        ...(side === 'bottom' && rightInset && !framed ? { right: rightInset } : undefined),
+        ...style,
+      }}
+      {...props}
+    >
+      {swipe && (
+        <div
+          data-slot="sheet-grip"
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 z-raised flex h-5 touch-none items-start justify-center pt-2"
+        >
+          <span className="bg-muted-foreground/30 h-1 w-10 rounded-full" />
+        </div>
+      )}
+      {children}
+      {swipe && (
+        // What the swipe presses: the close goes through Radix → the caller's onOpenChange.
+        <SheetPrimitive.Close ref={closeRef} hidden tabIndex={-1} aria-hidden="true" data-slot="sheet-swipe-close" />
+      )}
+      {!hideCloseButton && (
+        <SheetPrimitive.Close data-slot="sheet-close" className={CORNER_CLOSE_CLASS}>
+          <X />
+          <CloseLabel />
+        </SheetPrimitive.Close>
+      )}
+      {step.slot}
+    </SheetPrimitive.Content>
+  )
+
   return (
     <SheetPortal>
       <SheetOverlay overlayOffset={overlayOffset} rightInset={rightInset} elevated={elevated} nonModal={nonModal} />
-      <SheetPrimitive.Content
-        ref={mergedRef}
-        data-slot="sheet-content"
-        data-side={side}
-        data-docked={docked ? '' : undefined}
-        data-swipe={swipe ? '' : undefined}
-        data-edge-clip={edgeClip ? '' : undefined}
-        // Dismissing a toast must never dismiss the slide-up behind it; any
-        // other outside interaction still reaches the caller's own guard.
-        onInteractOutside={ignoreToastLayer((event) => {
-          if (step.stepOpen()) event.preventDefault()
-          else onInteractOutside?.(event)
-        })}
-        onEscapeKeyDown={(event) => {
-          if (!step.onEscapeKeyDown(event)) onEscapeKeyDown?.(event)
-        }}
-        onOpenAutoFocus={handleOpenAutoFocus}
-        className={cn(
-          // One duration and curve for every panel (`--motion-panel`). A modal sheet slides in
-          // and has no slide-out: the closed Content was measured lingering over 375x587 with
-          // `pointer-events: auto` for the full exit, and the panel has to leave with its
-          // backdrop, or the board shows through under a still-sliding sheet. The edge-clipped
-          // non-modal sheets animate both ways from globals.css instead of these classes. No
-          // `transition` on top: the motion is the keyframes alone, nothing eases besides them.
-          'bg-background fixed flex flex-col gap-4 shadow-lg',
-          !edgeClip &&
-            'data-[state=open]:animate-in data-[state=open]:duration-(--motion-panel) data-[state=open]:ease-(--ease-panel)',
-          elevated ? 'z-elevated' : 'z-overlay',
-          side === 'right' &&
-            cn(!edgeClip && 'data-[state=open]:slide-in-from-right', 'inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm'),
-          side === 'left' &&
-            'data-[state=open]:slide-in-from-left inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm',
-          side === 'top' &&
-            'data-[state=open]:slide-in-from-top inset-x-0 top-0 h-auto border-b',
-          side === 'bottom' &&
-            cn(!edgeClip && 'data-[state=open]:slide-in-from-bottom', 'inset-x-0 bottom-0 h-auto border-t rounded-t-lg outline-none'),
-          className,
-        )}
-        // Merge instead of letting a caller-provided `style` (even undefined,
-        // spread via props) clobber the computed footer offset — that exact
-        // clobbering made bottom sheets render flush to the viewport and clip
-        // behind the footer toolbar.
-        style={{
-          ...(side === 'bottom' && overlayOffset ? { bottom: overlayOffset } : undefined),
-          // An undocked bottom sheet sits on `bottom-0`; while a keyboard is up globals.css
-          // moves it into the visible band (`top: --vv-top; height: --vv-height`), footer on
-          // the keys. Not inline: an inline `bottom` would beat that rule. lib/viewport-insets.ts.
-          ...(side === 'bottom' && rightInset ? { right: rightInset } : undefined),
-          ...style,
-        }}
-        {...props}
-      >
-        {swipe && (
-          <div
-            data-slot="sheet-grip"
-            aria-hidden="true"
-            className="absolute inset-x-0 top-0 z-raised flex h-5 touch-none items-start justify-center pt-2"
-          >
-            <span className="bg-muted-foreground/30 h-1 w-10 rounded-full" />
-          </div>
-        )}
-        {children}
-        {swipe && (
-          // What the swipe presses: the close goes through Radix → the caller's onOpenChange.
-          <SheetPrimitive.Close ref={closeRef} hidden tabIndex={-1} aria-hidden="true" data-slot="sheet-swipe-close" />
-        )}
-        {!hideCloseButton && (
-          <SheetPrimitive.Close data-slot="sheet-close" className={CORNER_CLOSE_CLASS}>
-            <X />
-            <CloseLabel />
-          </SheetPrimitive.Close>
-        )}
-        {step.slot}
-      </SheetPrimitive.Content>
+      {framed ? (
+        <EdgeFrame bottom={overlayOffset} right={rightInset} elevated={elevated}>
+          {content}
+        </EdgeFrame>
+      ) : (
+        content
+      )}
     </SheetPortal>
   )
 }
