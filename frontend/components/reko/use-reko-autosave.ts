@@ -177,7 +177,9 @@ export function useRekoAutosave({ incidentId, userId, cardStatus, onSettled }: {
       session.mounts -= 1
       // A form unmounted with a save still waiting sends it now rather than in 600 ms.
       if (session.timer) void send()
-      releaseIfDone(key, session)
+      // After the current commit: Strict Mode runs setup – cleanup – setup, and the second
+      // setup must find the session still there, not an evicted one (Sol pass 3, S1).
+      queueMicrotask(() => releaseIfDone(key, session))
     }
   }, [key, session, send])
   useEffect(() => {
