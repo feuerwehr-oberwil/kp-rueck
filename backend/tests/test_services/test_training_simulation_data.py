@@ -10,6 +10,7 @@ import re
 from uuid import uuid4
 
 import pytest
+from PIL import Image
 
 from app.seed_training import EMERGENCY_TEMPLATES
 from app.services.training_photos import SUMMARY_IMAGE_DIR, load_summary_image_manifest, summary_image_key
@@ -46,6 +47,14 @@ def test_all_reko_summaries_have_bundled_illustrations():
         f"{len(missing)}/{len(summaries)} Reko illustrations are missing. "
         "Run `uv run python scripts/generate_reko_images.py jobs` from backend/ to export the missing jobs."
     )
+    for summary in summaries:
+        entry = manifest[summary_image_key(summary)]
+        path = SUMMARY_IMAGE_DIR / entry["file"]
+        assert entry.get("scene") == "as_found", summary
+        assert path.stat().st_size <= 30_000, summary
+        with Image.open(path) as image:
+            assert image.format == "WEBP" and max(image.size) == 640, summary
+            image.verify()
 
 
 @pytest.mark.parametrize(

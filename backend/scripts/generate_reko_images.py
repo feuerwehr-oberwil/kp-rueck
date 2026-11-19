@@ -10,25 +10,38 @@ from PIL import Image, ImageOps
 from app.services.training_photos import SUMMARY_IMAGE_DIR, load_summary_image_manifest, summary_image_key
 from app.services.training_simulation_data import _SUMMARIES
 
+AS_FOUND_RULE = (
+    "Show the scene AS FOUND, before the fire service takes any action. "
+    "Use the report for the setting and visible conditions only. "
+    "Any action described as needed, possible or planned is still pending and must not appear in the image. "
+    "Exclude pumps, hoses, absorbent, barriers, sandbags, ladders and all fire-service crews, equipment and vehicles. "
+    "Only show ordinary civilian equipment or materials if the report explicitly says residents or other civilians "
+    "already used them themselves, such as a household submersible pump after a resident pumped out a cellar. "
+    "Existing fixtures and vehicles directly involved in the incident may be visible. "
+)
 PROMPT = (
     "Plain realistic-looking illustrative scene photograph for a fictional Swiss fire-service training report. "
     "Natural subdued light and colours, straightforward eye-level framing. "
-    "Depict the observable scene in this report: «{summary}» "
-    "No text, logos, real fire-brigade branding, faces in focus, or graphic injury."
+    f"{AS_FOUND_RULE}"
+    "Keep the scene unbranded, with no readable text, logos, or graphic injury. "
+    "If people are essential to the scene, show them from behind or crop all faces out of frame. "
+    "Report context (do not render as text): «{summary}»"
 )
-MAX_EDGE = 800
-MAX_BYTES = 60_000
+MAX_EDGE = 640
+MAX_BYTES = 30_000
 
 
-def export_jobs(include_existing: bool) -> None:
+def export_jobs(include_existing: bool, pool: str | None) -> None:
     manifest = load_summary_image_manifest(SUMMARY_IMAGE_DIR)
-    summaries = sorted({summary for pool in _SUMMARIES.values() for summary in pool})
+    summaries = sorted(
+        set(_SUMMARIES[pool]) if pool else {summary for texts in _SUMMARIES.values() for summary in texts}
+    )
     for summary in summaries:
         key = summary_image_key(summary)
         entry = manifest.get(key)
         if not include_existing and entry and (SUMMARY_IMAGE_DIR / entry["file"]).is_file():
             continue
-        prompt = entry["prompt"] if entry else PROMPT.format(summary=summary)
+        prompt = entry["prompt"] if entry and AS_FOUND_RULE in entry["prompt"] else PROMPT.format(summary=summary)
         print(json.dumps({"out": f"{key}.png", "prompt": prompt}, ensure_ascii=False))
 
 
@@ -57,7 +70,7 @@ def import_images(jobs: Path, source_dir: Path) -> None:
         if source.is_file():
             filename = f"{key}.webp"
             (SUMMARY_IMAGE_DIR / filename).write_bytes(encode_webp(source))
-            manifest[key] = {"file": filename, "prompt": job["prompt"]}
+            manifest[key] = {"file": filename, "prompt": job["prompt"], "scene": "as_found"}
 
     (SUMMARY_IMAGE_DIR / "manifest.json").write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
@@ -70,13 +83,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     export = commands.add_parser("jobs", help="Write missing image jobs as JSONL to stdout")
-    export.add_argument("--all", action="store_true", help="Include existing images with their recorded prompts")
+    export.add_argument("--all", action="store_true", help="Include existing images as regeneration jobs")
+    export.add_argument("--pool", choices=_SUMMARIES, help="Limit jobs to this summary pool")
     ingest = commands.add_parser("import", help="Install images generated from a JSONL job file")
     ingest.add_argument("jobs", type=Path)
     ingest.add_argument("source_dir", type=Path)
     args = parser.parse_args()
     if args.command == "jobs":
-        export_jobs(args.all)
+        export_jobs(args.all, args.pool)
     else:
         import_images(args.jobs, args.source_dir)
 

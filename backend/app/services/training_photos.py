@@ -8,7 +8,7 @@ import uuid
 from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from fastapi import UploadFile
 
@@ -24,6 +24,7 @@ SUMMARY_IMAGE_DIR = POOL_DIR.with_name("training_reko_images")
 class SummaryImage(TypedDict):
     file: str
     prompt: str
+    scene: NotRequired[str]
 
 
 def summary_image_key(summary: str) -> str:

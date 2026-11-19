@@ -14,6 +14,14 @@ manifest records the exact prompt and file under the SHA-256 of the exact
 summary text. Identical texts share a file across pools. These illustrations
 are separate from the Wikimedia Commons photos attributed below.
 
+All illustrations have a 640 px long edge and depict the scene as found,
+before fire-service intervention. Pumps, hoses, absorbent, barriers, sandbags,
+ladders and fire-service gear or vehicles stay out of the scene, even if
+the report calls for them. Ordinary civilian equipment or materials can appear
+if the report explicitly says residents or other civilians already used them.
+The manifest marks reviewed scenes with `"scene": "as_found"`. Kept images
+retain the exact prompt used to generate them.
+
 Relevant simulated Reko reports select the exact summary illustration
 followed by an optional type photo. Dispatch-linked summaries use the crew's
 final estimate, including when it differs from dispatch. For water, the
@@ -28,7 +36,8 @@ to export missing jobs. Generate each job's prompt with ImageGen and save the
 selected PNG under its `out` name in a source directory. Run
 `uv run python scripts/generate_reko_images.py import /tmp/reko-image-jobs.jsonl /tmp/reko-image-sources`
 to install approved PNGs from that directory and record their prompts.
-Use `jobs --all` to regenerate the full set with the recorded prompts.
+Use `jobs --pool elementar_water` for a single pool. Use `jobs --all` to
+prepare regeneration jobs, reusing recorded as-found prompts where available.
 
 ## brandbekaempfung
 
