@@ -1,6 +1,6 @@
 'use client'
 
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Binoculars } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,7 @@ import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHea
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { LoadingStatus, ShellLoader } from '@/components/ui/shell-loader'
 import { SyncStatusLine } from '@/components/kanban/field-save-status'
-import { RekoReportForm, EMPTY_REKO_FORM, hasRekoContent, toRekoFormData, type RekoFormData } from '@/components/reko/reko-report-form'
+import { RekoReportForm, EMPTY_REKO_FORM, hasRekoContent, type RekoFormData } from '@/components/reko/reko-report-form'
 import { useRekoAutosave } from '@/components/reko/use-reko-autosave'
 import { apiClient } from '@/lib/api-client'
 import { useAuth } from '@/lib/contexts/auth-context'
@@ -21,15 +21,23 @@ import type { Operation } from '@/lib/contexts/operations-context'
  * as the incident detail (`RekoReportForm mount="kp"`, every field saved as it is given by
  * `useRekoAutosave` – the operator's KP draft).
  *
- * The card has NOT moved yet (`holdStatusMove`): «Reko abschliessen» waits for the last save,
- * then `onFinish` moves it – the server files the draft on that move. «Ohne Bericht
- * abschliessen» moves it as it is; it is offered only while the form says nothing, because a
- * draft with content is filed by the move anyway. Abbrechen, Esc and ✕ are `onCancel`: the
- * card stays, the draft stays a draft (a waiting save still goes out on close).
+ * One rule files the report (owner re-pick 19.11.2026, #30): the save that answers «Einsatz
+ * relevant?» – like the crew's submit, wherever the card is; the server then moves a card in
+ * «Reko» to «Reko abgeschlossen». A status move files nothing.
+ *
+ * The card has NOT moved yet (`holdStatusMove`). «Reko abschliessen» is live once «Einsatz
+ * relevant?» is answered: it sends a waiting save, waits until the saves have settled, then
+ * `onFinish` moves the card – harmless after the filing's own move, and the only move for a
+ * card the filing does not move (from «Eingegangen»). While the answer is open it says why it
+ * waits, and «Ohne Bericht abschliessen» moves the card without filing – a draft with content
+ * stays a draft. Abbrechen, Esc and ✕ are `onCancel`: the card stays where it is (a waiting
+ * save still goes out on close).
  *
  * The form starts from the newest filed report (amended in place) or the operator's own draft,
  * as the detail's Reko block does. A dialog on a desk, a bottom sheet on a phone.
  */
+const WAIT_HINT_ID = 'reko-gate-wait-hint'
+
 export function RekoReportGateDialog({
   operation,
   location,
@@ -49,14 +57,20 @@ export function RekoReportGateDialog({
   const { user } = useAuth()
   const userId = user?.id ?? null
   const incidentId = operation.id
-  const autosave = useRekoAutosave(incidentId)
-  const startAutosave = autosave.start
+  /** The form as it was opened, or as a save answered it – not an edit, so not saved. */
+  const opened = useRef<RekoFormData | null>(null)
   const [form, setForm] = useState<RekoFormData>(EMPTY_REKO_FORM)
+  /** A save answered: show the report as the server has it, edits made meanwhile on top. */
+  const adoptForm = useCallback((next: RekoFormData) => {
+    opened.current = next
+    setForm(next)
+  }, [])
+  const autosave = useRekoAutosave({ incidentId, userId, onAdopt: adoptForm })
+  const resumeAutosave = autosave.resume
   const [phase, setPhase] = useState<'loading' | 'ready' | 'failed'>('loading')
+  /** «Reko abschliessen» was pressed: the move waits for the saves to settle. */
   const [finishing, setFinishing] = useState(false)
   const [attempt, setAttempt] = useState(0)
-  /** The form as it was opened – not an edit, so not saved. */
-  const opened = useRef<RekoFormData | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -67,8 +81,7 @@ export function RekoReportGateDialog({
         const source =
           reports.find((report) => !report.is_draft) ??
           reports.find((report) => report.is_draft && !!userId && report.created_by_user_id === userId && !report.submitted_by_personnel_id)
-        const start = toRekoFormData(source)
-        startAutosave(source?.id ?? null)
+        const start = resumeAutosave(source ?? null)
         opened.current = start
         setForm(start)
         setPhase('ready')
@@ -80,7 +93,7 @@ export function RekoReportGateDialog({
     return () => {
       cancelled = true
     }
-  }, [incidentId, userId, startAutosave, attempt])
+  }, [incidentId, userId, resumeAutosave, attempt])
 
   // Every change saves (debounced); the value the form was opened with is not an edit.
   const scheduleSave = autosave.schedule
@@ -98,14 +111,22 @@ export function RekoReportGateDialog({
     [incidentId, reportId],
   )
 
-  /** The main answer: the newest form on the server first, then the move. A failed save keeps
-   *  the dialog open – «Nicht synchronisiert» under the form says why. */
-  const finish = async () => {
+  /** The main answer: the newest form on the server first (`flush` sends a waiting save),
+   *  then the move – below, once the sync line says the saves settled. */
+  const finish = () => {
+    autosave.flush()
     setFinishing(true)
-    const saved = await autosave.flush()
-    setFinishing(false)
-    if (saved) onFinish()
   }
+  const syncStatus = autosave.state.status
+  useEffect(() => {
+    if (!finishing) return
+    if (syncStatus === 'saved' || syncStatus === 'idle') onFinish()
+    // A failed save keeps the dialog open – «Nicht synchronisiert» under the form says why,
+    // and the next press tries again.
+    else if (syncStatus === 'failed') setFinishing(false)
+  }, [finishing, syncStatus, onFinish])
+
+  const answered = form.is_relevant !== null
 
   const rekoName = operation.assignedReko?.name
   const title = (
@@ -131,26 +152,39 @@ export function RekoReportGateDialog({
         </Button>
       </div>
     ) : (
-      <RekoReportForm
-        incidentId={incidentId}
-        value={form}
-        onChange={setForm}
-        photos={photos}
-        mount="kp"
-        footer={<SyncStatusLine state={autosave.state} onRetry={() => void autosave.retry()} />}
-      />
+      <>
+        <RekoReportForm
+          incidentId={incidentId}
+          value={form}
+          onChange={setForm}
+          photos={photos}
+          mount="kp"
+          footer={<SyncStatusLine state={autosave.state} onRetry={() => void autosave.retry()} />}
+        />
+        {/* Why the main answer waits, and what the quiet one does with what is entered. */}
+        {!answered && (
+          <p id={WAIT_HINT_ID} role="status" className="mt-3 text-xs text-muted-foreground">
+            {t('finishWaits')}
+            {hasRekoContent(form) && <> {t('draftStays')}</>}
+          </p>
+        )}
+      </>
     )
 
-  // «Ohne Bericht» only while there is no report to speak of – see the comment above.
+  // «Ohne Bericht» while «Einsatz relevant?» is open: the move files nothing.
   const footer = (
     <>
-      {phase !== 'loading' && !hasRekoContent(form) && (
+      {phase !== 'loading' && !answered && (
         <Button variant="ghost" size="sm" className="text-muted-foreground max-sm:basis-full sm:mr-auto" onClick={onFinish}>
           {t('finishWithout')}
         </Button>
       )}
       <Button variant="outline" onClick={onCancel}>{tCommon('cancel')}</Button>
-      <Button onClick={() => void finish()} disabled={finishing || phase !== 'ready'}>
+      <Button
+        onClick={finish}
+        disabled={finishing || phase !== 'ready' || !answered}
+        aria-describedby={!answered && phase === 'ready' ? WAIT_HINT_ID : undefined}
+      >
         {finishing && <ShellLoader className="size-4" />}
         {t('finish')}
       </Button>

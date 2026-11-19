@@ -354,10 +354,10 @@ export function useIncidentStatusWorkflow({
    * opens the Reko form (`rekoReport`); the card moves with «Reko abschliessen» /
    * «Ohne Bericht abschliessen» (`finishRekoReport`).
    *
-   * Why the move waits instead of opening after it like the other gates: the server files the
-   * operator's KP draft when the card reaches «Reko abgeschlossen», and on a card already there
-   * at the first answer to «Einsatz relevant?» (`api/reko._kp_draft_files_now`). A form opened
-   * after the move would file the report mid-typing, and Abbrechen could not leave it a draft.
+   * Why the move waits instead of opening after it like the other gates: Abbrechen then has
+   * nothing to undo and the card is where the operator left it. The move itself files nothing –
+   * the save that answers «Einsatz relevant?» does (`api/reko._kp_draft_files_now`, owner
+   * re-pick 19.11.2026, #30), and the server moves a card in «Reko» on to «Reko abgeschlossen».
    */
   const holdStatusMove = useCallback((operationId: string, targetStatus: OperationStatus) => {
     if (targetStatus !== "reko_done") return false
@@ -812,8 +812,8 @@ export function useIncidentStatusWorkflow({
     rekoAssignmentOperation: gateOperation("rekoAssignment"),
     /** The card whose move into «Reko abgeschlossen» waits for the Reko form (`holdStatusMove`). */
     rekoReportOperation: gateOperation("rekoReport"),
-    /** «Reko abschliessen» / «Ohne Bericht abschliessen»: make the held move. The server files
-     *  the KP draft on it (`crud.reko.submit_kp_reko_drafts`). */
+    /** «Reko abschliessen» / «Ohne Bericht abschliessen»: make the held move. It files nothing;
+     *  after «Reko abschliessen» the relevance answer already did (same status – harmless). */
     finishRekoReport: () => {
       if (gate?.kind !== "rekoReport") return
       setGate(null)
@@ -1245,7 +1245,7 @@ export function IncidentStatusWorkflowDialogs({
       )}
 
       {/* Into «Reko abgeschlossen» without a report: the Reko form, and the card waits for
-          it (`holdStatusMove`) – so Abbrechen has nothing to undo and the draft stays a draft. */}
+          it (`holdStatusMove`) – so Abbrechen has nothing to undo. The relevance answer files. */}
       {controller.rekoReportOperation && (
         <RekoReportGateDialog
           operation={controller.rekoReportOperation}

@@ -218,29 +218,47 @@ describe("Reko gate – into «Reko abgeschlossen» without a report", () => {
     expect(changeStatusToTop).not.toHaveBeenCalled()
   })
 
-  it("«Ohne Bericht abschliessen» moves the card with an untouched form", async () => {
+  it("waits for «Einsatz relevant?»: «Ohne Bericht abschliessen» moves without filing, the draft stays", async () => {
     const user = userEvent.setup()
     const { ref, changeStatusToTop } = renderBoard(operation({ status: "reko" }))
 
     act(() => ref.controller!.requestStatusChange("incident-1", "reko_done"))
-    await user.click(await screen.findByRole("button", { name: "Ohne Bericht abschliessen" }))
+    const finish = await screen.findByRole("button", { name: "Reko abschliessen" })
+    expect(finish).toBeDisabled()
+    expect(finish).toHaveAccessibleDescription(/Eingereicht wird mit der Antwort auf «Einsatz relevant\?»/)
+
+    // Content without the answer is a draft – the quiet way out stays, and says so.
+    await user.type(screen.getByRole("textbox", { name: "Zusammenfassung" }), "Keller nass")
+    expect(screen.getByText(/lässt das Erfasste als Entwurf/)).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Ohne Bericht abschliessen" }))
 
     expect(changeStatusToTop).toHaveBeenCalledWith("incident-1", "reko_done")
-    expect(createRekoReportAsEditor).not.toHaveBeenCalled()
+    // The waiting save still goes out on close – as a draft: no relevance answer, no filing.
+    await waitFor(() => expect(createRekoReportAsEditor).toHaveBeenCalled())
+    for (const [, payload] of createRekoReportAsEditor.mock.calls) expect(payload).not.toHaveProperty("is_relevant")
   })
 
-  it("«Reko abschliessen» saves the draft first, then moves the card", async () => {
+  it("«Reko abschliessen» waits until the save carrying the answer settled, then moves", async () => {
     const user = userEvent.setup()
+    let answer: (report: unknown) => void = () => {}
+    createRekoReportAsEditor.mockImplementation((_id: string, payload: object) =>
+      new Promise((resolve) => {
+        answer = () => resolve({ id: "draft-1", updated_at: "2026-11-19T18:31:00Z", ...payload })
+      }))
     const { ref, changeStatusToTop } = renderBoard(operation({ status: "reko" }))
 
     act(() => ref.controller!.requestStatusChange("incident-1", "reko_done"))
     await user.click(await screen.findByRole("button", { name: "Ja" }))
-    // An answer makes it a report: the quiet way out without one is gone.
+    // Answered: no way out without a report any more.
     expect(screen.queryByRole("button", { name: "Ohne Bericht abschliessen" })).toBeNull()
 
     await user.click(screen.getByRole("button", { name: "Reko abschliessen" }))
+    // The save that files is on its way; the card waits for it.
+    expect(createRekoReportAsEditor).toHaveBeenCalledWith("incident-1", { is_relevant: true }, false)
+    expect(changeStatusToTop).not.toHaveBeenCalled()
+
+    await act(async () => answer(null))
     await waitFor(() => expect(changeStatusToTop).toHaveBeenCalledWith("incident-1", "reko_done"))
-    expect(createRekoReportAsEditor).toHaveBeenCalledWith("incident-1", expect.objectContaining({ is_relevant: true }), false)
-    expect(createRekoReportAsEditor.mock.invocationCallOrder[0]).toBeLessThan(changeStatusToTop.mock.invocationCallOrder[0])
+    expect(ref.controller!.rekoReportOperation).toBeNull()
   })
 })
