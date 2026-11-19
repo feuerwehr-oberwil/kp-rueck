@@ -13,6 +13,7 @@ from ..database import after_commit
 from ..models import Incident, RekoReport, StatusTransition, User
 from ..services.merge_links import live_incident_id
 from ..services.tokens import generate_form_token, validate_form_token
+from .locking import lock_incident_with_group
 
 
 async def get_or_create_reko_report(
@@ -154,8 +155,9 @@ async def get_or_create_kp_reko_report(
         ValueError: If the incident does not exist
     """
     incident_id = await live_incident_id(db, incident_id)
-    incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
-    if not incident_result.scalar_one_or_none():
+    # Under the card lock (`crud/locking.py`), so two first saves of the form find one
+    # draft instead of each creating its own, and the status move's filing waits.
+    if await lock_incident_with_group(db, incident_id) is None:
         raise ValueError("Incident not found")
 
     existing = await db.execute(
@@ -687,6 +689,7 @@ async def submit_kp_reko_drafts(db: AsyncSession, incident: Incident) -> bool:
         )
         .order_by(RekoReport.submitted_at)
         .with_for_update()
+        .execution_options(populate_existing=True)
     )
     drafts = [report for report in result.scalars().all() if has_report_content(report)]
     for draft in drafts:

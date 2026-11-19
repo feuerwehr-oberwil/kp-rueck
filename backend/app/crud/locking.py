@@ -26,8 +26,9 @@ detach and reorder and Auftrag delete (``groups``), release
 assignment (``assign_resource``, ``assign_group_resource``, ``transfer_assignments``,
 ``auftrag_templates.instantiate_auto_templates``, ``feld/melden._take_over``) and
 the resource lifecycle (archive / purge / personnel delete, which first locks the
-incidents its ``ON DELETE SET NULL`` will write). A merge locks only incidents,
-in id order (``services/duplicates.lock_pair``).
+incidents its ``ON DELETE SET NULL`` will write), and the board's Reko draft (its
+first save ``reko.get_or_create_kp_reko_report`` and its PATCH take the card before
+the report). A merge locks only incidents, in id order (``services/duplicates.lock_pair``).
 """
 
 import uuid

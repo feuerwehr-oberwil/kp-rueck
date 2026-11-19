@@ -32,7 +32,7 @@ from ..crud import assignments as assignments_crud
 from ..crud import incidents as incidents_crud
 from ..crud import reko as crud
 from ..crud import reko_assignment as reko_assign_crud
-from ..crud.locking import lock_incidents_with_groups, lock_resource
+from ..crud.locking import lock_incident_with_group, lock_incidents_with_groups, lock_resource
 from ..database import get_db
 from ..logging_config import get_logger
 from ..middleware.rate_limit import RateLimits, limiter
@@ -373,8 +373,22 @@ async def update_report(
         ):
             raise CodedHTTPException(403, ErrorCode.REKO_REPORT_NO_ACCESS, "Kein Zugriff auf diesen Bericht.")
 
+    if user is not None:
+        # The card (with its Auftrag) before the report row (`crud/locking.py`): the status
+        # move files drafts under the same card lock, so whether this save files the draft
+        # is decided on the row as it is once that move is done (Sol review S2).
+        await lock_incident_with_group(db, existing.incident_id)
+        existing = await db.scalar(
+            select(RekoReport)
+            .where(RekoReport.id == report_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if existing is None:
+            raise CodedHTTPException(404, ErrorCode.REKO_REPORT_NOT_FOUND, ErrorMessages.REPORT_NOT_FOUND)
+
     # The board's draft may be filed by this save (`_kp_draft_files_now`), with the side
-    # effects a filing has.
+    # effects a filing has – only on the actual draft → filed step, read under the lock.
     files_kp_draft = user is not None and crud.is_kp_draft(existing)
     if files_kp_draft and not submit:
         submit = await _kp_draft_files_now(db, existing, update_data)
