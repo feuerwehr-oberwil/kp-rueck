@@ -402,7 +402,8 @@ const FIRESTATION_STYLE: CSSProperties = {
 // the vehicle pills so it reads as "where the vehicles live", in the station ink rather than their
 // blue: blue is the Auftrag's (and a reporting vehicle's), and a blue glyph read as part of a
 // route (hill climb r18). Only rendered when gps.station_lat/lng are set (Settings → GPS).
-const MAGAZIN_STYLE: CSSProperties = { ...pillStyle(MAP_COLORS.station, 24), fontSize: 14 }
+// No side padding: the pill is 24 px wide, and 8 px a side left the 14 px icon 4 px to shrink into.
+const MAGAZIN_STYLE: CSSProperties = { ...pillStyle(MAP_COLORS.station, 24), fontSize: 14, padding: 0 }
 
 // --- Permanent labels -------------------------------------------------------
 
@@ -1834,7 +1835,7 @@ export default function MapView({
             label={t('view.magazin')}
             style={MAGAZIN_STYLE}
             gap={TOOLTIP_ARROW + PILL_HEIGHT / 2}
-            glyph={<Warehouse aria-hidden className="size-3.5" strokeWidth={2.25} />}
+            glyph={<Warehouse aria-hidden className="size-3.5 shrink-0" strokeWidth={2.25} />}
           />
         )}
 
