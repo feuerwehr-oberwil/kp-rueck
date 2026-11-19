@@ -237,7 +237,9 @@ function scanPage() {
     }
     if (!scroller || escaped.has(scroller)) continue
     const cb = ab.offsetParent
-    if (cb && (cb === scroller || scroller.contains(cb))) continue
+    // No offsetParent on an absolute box = it or an ancestor is display:none (an empty step
+    // slot, surface-step.tsx): no box, nothing to escape.
+    if (!cb || cb === scroller || scroller.contains(cb)) continue
     escaped.add(scroller)
     found.push({ kind: 'escape', sel: selOf(scroller), text: txt(ab).slice(0, 40), what: `absolute ${ab.classList.contains('sr-only') ? 'sr-only ' : ''}box escapes this scroller (no positioned ancestor inside it) — give the scroller \`relative\`` })
   }

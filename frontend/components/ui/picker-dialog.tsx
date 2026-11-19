@@ -88,7 +88,7 @@ export function PickerDialog({
           {...listRole}
           // The surface's width is the step's: two columns of tiles (mock 5A); a section
           // caption (a `p` among the tiles) spans both.
-          className="relative grid min-h-0 flex-1 auto-rows-min content-start gap-x-4 gap-y-2 overflow-y-auto overscroll-contain px-5 pb-3 lg:grid-cols-2 [&>p]:col-span-full [&>[data-slot=empty-state]]:col-span-full"
+          className="relative grid min-h-0 flex-1 auto-rows-min content-start gap-x-4 gap-y-2 overflow-y-auto overscroll-contain px-5 pb-3 lg:grid-cols-2 [&>p]:col-span-full [&>[data-slot=empty-state]]:col-span-full [&>*:only-child]:col-span-full"
         >
           {children}
         </div>
