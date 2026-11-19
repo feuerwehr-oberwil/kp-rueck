@@ -45,15 +45,19 @@ export function useAssignmentConflicts({
   removeVehicle,
   assignVehicleToOperation,
 }: AssignmentConflictInputs) {
-  const assignVehicleToGroupWithConflict = useCallback((groupId: string, vehicleId: string) => {
+  /**
+   * A vehicle onto an Auftrag from every entry point (number keys, picker, drag-drop): held by
+   * another Auftrag or an Einsatz → the move/keep question, else the assign. Resolves true only
+   * once it assigned straight away – a question is its own receipt, a failure toasts itself.
+   */
+  const assignVehicleToGroupWithConflict = useCallback(async (groupId: string, vehicleId: string): Promise<boolean> => {
     const vehicle = vehicleTypes.find((item) => item.id === vehicleId)
-    if (!vehicle) return
+    if (!vehicle) return false
     const groupConflicts = groups
       .filter((group) => group.id !== groupId && group.assignments.some((a) => a.resourceType === "vehicle" && a.resourceId === vehicleId))
     const incidentConflicts = operations.filter((op) => op.vehicles.some((v) => v.vehicleId === vehicleId))
     if (groupConflicts.length === 0 && incidentConflicts.length === 0) {
-      void assignGroupResource(groupId, "vehicle", vehicleId)
-      return
+      return assignGroupResource(groupId, "vehicle", vehicleId)
     }
     requestResourceConflict({
       resourceType: "vehicle",
@@ -76,6 +80,7 @@ export function useAssignmentConflicts({
         await assignGroupResource(groupId, "vehicle", vehicleId)
       },
     })
+    return false
   }, [vehicleTypes, groups, operations, requestResourceConflict, assignGroupResource, unassignGroupResource, removeVehicle])
 
   /**
