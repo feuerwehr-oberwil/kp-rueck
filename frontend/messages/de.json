@@ -145,7 +145,7 @@
         "placeholder": "Befehl suchen oder zuweisen …",
         "placeholderShort": "Suchen oder zuweisen …",
         "hint": "Einsatz, dann Fahrzeug / Person – z. B.",
-        "hintExample": "7 tlf keller",
+        "hintExample": "7 tlf müller",
         "hintTab": "ergänzt",
         "hintTabKey": "Tabulator",
         "group": "Ausführen",
@@ -3690,12 +3690,12 @@
   "checklist": {
     "tasks": {
       "send-first-whatsapp": {
-        "title": "Standby-WhatsApp senden",
+        "title": "Standby-Nachricht senden",
         "description": "Mannschaft informieren: KP Rück aktiv, Telefon mitnehmen",
         "note": "An die Mannschafts-Gruppe · beim Aufstarten des KP"
       },
       "send-second-whatsapp": {
-        "title": "Einrück-WhatsApp senden",
+        "title": "Einrück-Nachricht senden",
         "description": "Direkter Aufruf: ins Magazin einrücken",
         "note": "An die Mannschafts-Gruppe · erst wenn wirklich aufgeboten wird"
       },
