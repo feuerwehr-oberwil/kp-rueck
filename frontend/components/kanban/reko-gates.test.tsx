@@ -16,13 +16,20 @@ const getAvailableRekoPersonnel = vi.hoisted(() => vi.fn())
 const assignRekoPersonnel = vi.hoisted(() => vi.fn())
 const getIncidentRekoReports = vi.hoisted(() => vi.fn())
 const createRekoReportAsEditor = vi.hoisted(() => vi.fn())
+const assignSpecialFunction = vi.hoisted(() => vi.fn())
+// The Ereignis' checked-in people: one Reko person, two others.
+const checkedIn = vi.hoisted(() => [
+  { id: "p1", name: "Brunner Sarah", role: "Wm", status: "available", roleSortOrder: 0, isReko: true },
+  { id: "p2", name: "Moser Lea", role: "Kpl", status: "available", roleSortOrder: 0, isReko: false },
+  { id: "p3", name: "Steiner Lukas", role: "Kpl", status: "available", roleSortOrder: 0, isReko: false },
+])
 
 vi.mock("@/lib/api-client", () => ({
-  apiClient: { getAvailableRekoPersonnel, assignRekoPersonnel, getIncidentRekoReports, createRekoReportAsEditor },
+  apiClient: { getAvailableRekoPersonnel, assignRekoPersonnel, getIncidentRekoReports, createRekoReportAsEditor, assignSpecialFunction },
 }))
 vi.mock("@/lib/contexts/event-context", () => ({ useEvent: () => ({ selectedEvent: { id: "event-1" } }) }))
 vi.mock("@/lib/contexts/operations-context", () => ({
-  useOperations: () => ({ personnel: [], operations: [], refreshOperations: vi.fn(), formatLocation: (a: string) => a }),
+  useOperations: () => ({ personnel: checkedIn, operations: [], refreshOperations: vi.fn(), formatLocation: (a: string) => a }),
 }))
 vi.mock("@/lib/contexts/auth-context", () => ({ useAuth: () => ({ user: { id: "user-1" } }) }))
 vi.mock("@/components/kanban/disponiert-transition-dialog", () => ({ DisponierTransitionDialog: () => null }))
@@ -114,6 +121,7 @@ beforeEach(() => {
   assignRekoPersonnel.mockReset().mockResolvedValue(undefined)
   getIncidentRekoReports.mockReset().mockResolvedValue([])
   createRekoReportAsEditor.mockReset().mockResolvedValue({ id: "draft-1" })
+  assignSpecialFunction.mockReset().mockResolvedValue({})
 })
 
 describe("Reko gate – into «Reko» without a Reko person", () => {
@@ -141,6 +149,46 @@ describe("Reko gate – into «Reko» without a Reko person", () => {
     await waitFor(() => expect(ref.controller!.rekoAssignmentOperation).toBeNull())
     expect(assignRekoPersonnel).toHaveBeenCalledWith("incident-1", "p1")
     expect(changeStatusToTop).toHaveBeenCalledTimes(1)
+  })
+
+  it("lists «Andere Anwesende» below the Reko people; one «Zuweisen» makes the pick Reko and assigns", async () => {
+    const user = userEvent.setup()
+    const { ref, changeStatusToTop } = renderBoard(operation())
+
+    act(() => ref.controller!.requestStatusChange("incident-1", "reko"))
+    expect(await screen.findByRole("heading", { name: "Reko-Personen" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Andere Anwesende" })).toBeInTheDocument()
+    expect(screen.getAllByRole("radio").map((radio) => radio.textContent)).toEqual([
+      expect.stringContaining("Brunner Sarah"),
+      expect.stringContaining("Moser Lea"),
+      expect.stringContaining("Steiner Lukas"),
+    ])
+
+    // One choice across both sections.
+    await user.click(screen.getByRole("radio", { name: /Brunner Sarah/ }))
+    await user.click(screen.getByRole("radio", { name: /Moser Lea/ }))
+    expect(screen.getByRole("radio", { name: /Brunner Sarah/ })).toHaveAttribute("aria-checked", "false")
+
+    await user.click(screen.getByRole("button", { name: "Zuweisen" }))
+    await waitFor(() => expect(ref.controller!.rekoAssignmentOperation).toBeNull())
+    expect(assignSpecialFunction).toHaveBeenCalledWith("event-1", { personnel_id: "p2", function_type: "reko", vehicle_id: null })
+    expect(assignRekoPersonnel).toHaveBeenCalledWith("incident-1", "p2")
+    expect(changeStatusToTop).toHaveBeenCalledTimes(1)
+  })
+
+  it("the search filters both sections", async () => {
+    const user = userEvent.setup()
+    const { ref } = renderBoard(operation())
+
+    act(() => ref.controller!.requestStatusChange("incident-1", "reko"))
+    await user.type(await screen.findByPlaceholderText("Person suchen …"), "steiner")
+
+    expect(screen.getAllByRole("radio").map((radio) => radio.textContent)).toEqual([expect.stringContaining("Steiner Lukas")])
+    expect(screen.queryByRole("heading", { name: "Reko-Personen" })).toBeNull()
+
+    await user.clear(screen.getByPlaceholderText("Person suchen …"))
+    await user.type(screen.getByPlaceholderText("Person suchen …"), "niemand")
+    expect(screen.getByText(/Keine Treffer/)).toBeInTheDocument()
   })
 
   it("«Ohne Reko-Person verschieben» keeps the move without anybody", async () => {

@@ -1255,7 +1255,9 @@
       "doneCount": "{count} erledigt",
       "distanceOpenTooltip": "Luftlinie zur nächstgelegenen offenen Reko",
       "distanceLastTooltip": "Luftlinie zum zuletzt zugewiesenen Einsatz",
-      "distanceLastSuffix": "(zuletzt)"
+      "distanceLastSuffix": "(zuletzt)",
+      "sectionReko": "Reko-Personen",
+      "sectionOthers": "Andere Anwesende"
     },
     "card": {
       "rekoCompleted": "Reko-Bericht ausgefüllt",

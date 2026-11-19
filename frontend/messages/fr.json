@@ -1337,7 +1337,9 @@
       "doneCount": "{count} faites",
       "distanceOpenTooltip": "Distance à vol d’oiseau jusqu’à la reco ouverte la plus proche",
       "distanceLastTooltip": "Distance à vol d’oiseau jusqu’à la dernière intervention attribuée",
-      "distanceLastSuffix": "(dernière)"
+      "distanceLastSuffix": "(dernière)",
+      "sectionReko": "Personnes de reconnaissance",
+      "sectionOthers": "Autres présents"
     },
     "card": {
       "rekoCompleted": "Rapport de reconnaissance rempli",
