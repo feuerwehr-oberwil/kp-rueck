@@ -1941,6 +1941,7 @@
     "disponiert": {
       "whatsappCopied": "Message WhatsApp copié",
       "title": "Intervention engagée",
+      "repeatTitle": "Répéter le message radio",
       "description": "{location} → Engagé",
       "addressPlaceholder": "[Adresse]",
       "staysOnSite": "reste sur place",
@@ -1985,6 +1986,7 @@
       "markAmWarten": "Marquer « en attente »",
       "completeIncident": "Clôturer l’intervention",
       "showOnMapMenu": "Montrer sur la carte",
+      "repeatRadio": "Répéter le message radio",
       "printing": "Impression …",
       "auftragPersSummary": "{count} pers",
       "auftragMatSummary": "{count, plural, one {# pièce de matériel} other {# pièces de matériel}}",

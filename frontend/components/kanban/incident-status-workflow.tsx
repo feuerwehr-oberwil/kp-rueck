@@ -145,6 +145,9 @@ export function useIncidentStatusWorkflow({
   // The Funkdurchsage dialog. Not a gate: it opens AFTER the decision to
   // dispatch, and closing it reverts nothing.
   const [disponiertOperationId, setDisponiertOperationId] = useState<string | null>(null)
+  // «Funkdurchsage wiederholen» (card menu): the same dialog for an Einsatz already out –
+  // the same text, nothing about the status (no batch dispatch of the other stops).
+  const [disponiertRepeat, setDisponiertRepeat] = useState(false)
   const { inline: personInline } = usePersonNaming()
   // The one gate that is open, or null. A union rather than a pair of states per
   // gate, so «only one gate is ever open» is what the state says, not a comment.
@@ -243,6 +246,7 @@ export function useIncidentStatusWorkflow({
     if (getMissingResources(operation).length > 0) {
       setGate({ ...base, kind: "missingResources" })
     } else {
+      setDisponiertRepeat(false)
       setDisponiertOperationId(operation.id)
     }
   }, [getMissingResources, operationById])
@@ -655,9 +659,19 @@ export function useIncidentStatusWorkflow({
      *  assigned) — the move stands. */
     closeGate,
     disponiertOperation: operationById(disponiertOperationId),
-    closeDisponiert: () => setDisponiertOperationId(null),
+    disponiertRepeat,
+    closeDisponiert: () => {
+      setDisponiertOperationId(null)
+      setDisponiertRepeat(false)
+    },
     openDisponiert: (operationId: string) => {
       if (gate?.kind === "missingResources") setGate(null)
+      setDisponiertRepeat(false)
+      setDisponiertOperationId(operationId)
+    },
+    /** The Funkdurchsage again for an Einsatz already out – no gate, no status change. */
+    repeatDisponiert: (operationId: string) => {
+      setDisponiertRepeat(true)
       setDisponiertOperationId(operationId)
     },
     // Every way out of this gate is either the (second) «Disponieren» press
@@ -1165,6 +1179,7 @@ export function IncidentStatusWorkflowDialogs({
         open={!!controller.disponiertOperation}
         onOpenChange={(open) => !open && controller.closeDisponiert()}
         operation={controller.disponiertOperation}
+        repeat={controller.disponiertRepeat}
         materials={controller.materials}
         printerEnabled={printerEnabled}
         funkrufname={funkrufname}

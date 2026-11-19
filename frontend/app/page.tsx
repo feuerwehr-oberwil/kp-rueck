@@ -1562,6 +1562,7 @@ export default function FireStationDashboard() {
                       onMoveInColumn={isEditor ? moveInColumn : undefined}
                       onTransfer={isEditor ? dialogs.openTransfer : undefined}
                       onDistributeToAuftrag={isEditor ? dialogs.openAuftragPicker : undefined}
+                      onRepeatRadio={isEditor ? dialogs.statusWorkflow.repeatDisponiert : undefined}
                       cardView={cardView}
                       dominantIncidentType={dominantIncidentType}
                       printerEnabled={printerEnabled}

@@ -647,6 +647,7 @@
     "disponiert": {
       "whatsappCopied": "WhatsApp-Nachricht kopiert",
       "title": "Einsatz disponiert",
+      "repeatTitle": "Funkdurchsage wiederholen",
       "description": "{location} → Disponiert",
       "addressPlaceholder": "[Adresse]",
       "staysOnSite": "bleibt vor Ort",
@@ -691,6 +692,7 @@
       "markAmWarten": "Als Am Warten markieren",
       "completeIncident": "Einsatz abschliessen",
       "showOnMapMenu": "Auf Karte zeigen",
+      "repeatRadio": "Funkdurchsage wiederholen",
       "printing": "Wird gedruckt …",
       "auftragPersSummary": "{count} Pers",
       "auftragMatSummary": "{count, plural, one {# Gerät} other {# Geräte}}",

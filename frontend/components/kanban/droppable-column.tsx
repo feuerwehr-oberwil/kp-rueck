@@ -72,6 +72,8 @@ interface DroppableColumnProps {
   onTransfer?: (operationId: string) => void
   /** Editor-only: open the Auftrag picker to distribute an incident into a route. */
   onDistributeToAuftrag?: (operationId: string) => void
+  /** Editor-only: «Funkdurchsage wiederholen» for an incident already out. */
+  onRepeatRadio?: (operationId: string) => void
   /** Which card blocks this device shows — plumbing only, see lib/card-view.ts. */
   cardView?: CardViewSettings
   /** The event's majority Einsatzart; cards whose type matches suppress their
@@ -186,6 +188,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   onMoveInColumn,
   onTransfer,
   onDistributeToAuftrag,
+  onRepeatRadio,
   cardView,
   dominantIncidentType,
   printerEnabled,
@@ -517,6 +520,7 @@ export const DroppableColumn = memo(function DroppableColumn({
                 onMoveInColumn={onMoveInColumn ? (to) => onMoveInColumn(operation.id, to) : undefined}
                 onTransfer={onTransfer ? () => onTransfer(operation.id) : undefined}
                 onDistributeToAuftrag={onDistributeToAuftrag ? () => onDistributeToAuftrag(operation.id) : undefined}
+                onRepeatRadio={onRepeatRadio ? () => onRepeatRadio(operation.id) : undefined}
                 cardView={cardView}
                 dominantIncidentType={dominantIncidentType}
                 printerEnabled={printerEnabled}

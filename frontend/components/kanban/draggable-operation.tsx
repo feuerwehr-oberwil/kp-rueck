@@ -95,6 +95,8 @@ interface DraggableOperationProps {
   onTransfer?: () => void
   /** Editor-only: open the Auftrag picker to distribute this incident into a route. */
   onDistributeToAuftrag?: () => void
+  /** Editor-only: «Funkdurchsage wiederholen» from the card menu. */
+  onRepeatRadio?: () => void
   /** Which detail blocks this device shows. See lib/card-view.ts — the address,
    *  the priority marker and every warning/status chip are deliberately NOT in
    *  here. Pass a stable object: the memo comparator reads it field by field,
@@ -204,6 +206,7 @@ function DraggableOperationBase({
   onMoveInColumn,
   onTransfer,
   onDistributeToAuftrag,
+  onRepeatRadio,
   cardView = DEFAULT_CARD_VIEW,
   dominantIncidentType,
   printerEnabled,
@@ -992,6 +995,7 @@ function DraggableOperationBase({
         onRequestComplete={onRequestComplete}
         onRequestDelete={onRequestDelete}
         onMoveInColumn={onMoveInColumn}
+        onRepeatRadio={onRepeatRadio}
         printerEnabled={printerEnabled}
       />
     </ContextMenu>
