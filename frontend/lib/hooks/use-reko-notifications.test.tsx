@@ -77,7 +77,10 @@ describe("useRekoNotifications", () => {
     expect(refetchNotifications).toHaveBeenCalledTimes(1);
 
     // the same answer again is nothing new
-    getEventRekoSummaries.mockResolvedValueOnce(respond(summary("a", "2026-10-06T09:00:00Z"), summary("b", "2026-10-06T09:05:00Z")));
+    getEventRekoSummaries.mockResolvedValueOnce(respond(
+      summary("a", "2026-10-06T09:00:00Z", { dangers_json: { fire: true } as ApiRekoSummary["dangers_json"] }),
+      summary("b", "2026-10-06T09:05:00Z"),
+    ));
     await act(async () => { wsHandlers.get("reko_update")?.(); });
     await waitFor(() => expect(getEventRekoSummaries).toHaveBeenCalledTimes(3));
     expect(onUpdate).toHaveBeenCalledTimes(2);
@@ -92,5 +95,18 @@ describe("useRekoNotifications", () => {
     await act(async () => { wsHandlers.get("reko_update")?.(); });
     await waitFor(() => expect(getEventRekoSummaries).toHaveBeenCalledTimes(2));
     expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it("applies an auto-saved amendment of the same filing to the card, without the bell (pass 4, S6)", async () => {
+    getEventRekoSummaries.mockResolvedValueOnce(respond(summary("a", "2026-10-06T08:00:00Z")));
+    const onUpdate = vi.fn();
+    renderHook(() => useRekoNotifications(undefined, onUpdate));
+    await waitFor(() => expect(getEventRekoSummaries).toHaveBeenCalledTimes(1));
+
+    getEventRekoSummaries.mockResolvedValueOnce(respond(summary("a", "2026-10-06T08:00:00Z", { summary_text: "Keller 20 cm" })));
+    await act(async () => { wsHandlers.get("reko_update")?.(); });
+
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledWith("a", expect.objectContaining({ summaryText: "Keller 20 cm" })));
+    expect(refetchNotifications).not.toHaveBeenCalled();
   });
 });

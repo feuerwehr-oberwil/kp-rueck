@@ -9,6 +9,7 @@ import { reportStatusConflict } from "@/lib/status-conflict"
 import type { IncidentStatus } from "@/lib/types/incidents"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
+import { useGroups } from "@/lib/contexts/groups-context"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { toast } from "sonner"
@@ -46,20 +47,27 @@ interface ReleasePrompt {
  * the ink and «Nur freigeben» the line above Abbrechen (owner pick #21, 19.11.2026).
  */
 /**
- * Whether releasing `vehicleId` leaves the Einsatz with nothing on it: no other vehicle, no
- * material, no crew – except the person who drives this vehicle when the driver «kehrt
- * zurück» (they travel with it). A driver who «bleibt vor Ort» is still out, crew or not.
+ * Whether releasing the prompted assignment leaves the Einsatz with nothing on it: that exact
+ * assignment is still live, no other vehicle, no material, no crew – except the person who
+ * drives this vehicle when the driver «kehrt zurück» (they travel with it). A driver who
+ * «bleibt vor Ort» is still out, so then never – whether the list knows the driver or not.
+ * On an Auftrag stop the route's own resources count too (`route`: its assignments; undefined
+ * while this board does not know the Auftrag – then never): completing the stop with the
+ * route still out would, on its last stop, release the route.
  */
 export function isLastResource(
-  operation: Pick<Operation, "vehicles" | "crew" | "materials">,
-  vehicleId: string,
+  operation: Pick<Operation, "vehicles" | "crew" | "materials" | "groupId">,
+  prompted: { vehicleId: string; assignmentId: string },
   personnel: readonly { id: string; isDriver?: boolean; driverVehicleId?: string }[],
+  route: { assignments: readonly unknown[] } | undefined,
 ): boolean {
+  if (operation.groupId && (!route || route.assignments.length > 0)) return false
+  const { vehicleId, assignmentId } = prompted
+  const assigned = operation.vehicles.find((v) => v.vehicleId === vehicleId && v.assignmentId === assignmentId)
+  if (!assigned || assigned.driverStay) return false
   if (operation.vehicles.some((v) => v.vehicleId !== vehicleId)) return false
   if (operation.materials.length > 0) return false
   const driverId = personnel.find((p) => p.isDriver && p.driverVehicleId === vehicleId)?.id
-  const driverStays = operation.vehicles.find((v) => v.vehicleId === vehicleId)?.driverStay ?? false
-  if (driverStays) return !driverId && operation.crew.length === 0
   return operation.crew.every((member) => member.personnelId === driverId)
 }
 
@@ -67,6 +75,7 @@ export function GpsReleasePrompt() {
   const t = useTranslations('incidents.gpsRelease')
   const { isEditor } = useAuth()
   const { operations, personnel } = useOperations()
+  const { groups } = useGroups()
   const isPhone = useIsMobile()
   const pathname = usePathname()
   const [prompt, setPrompt] = useState<ReleasePrompt | null>(null)
@@ -156,7 +165,9 @@ export function GpsReleasePrompt() {
 
   // Read from the board as it stands now, so a crew released meanwhile turns the answer.
   const operation = operations.find((op) => op.id === prompt.incidentId)
-  const completeIsMain = !!operation && !!prompt.vehicleId && isLastResource(operation, prompt.vehicleId, personnel)
+  const route = operation?.groupId ? groups.find((group) => group.id === operation.groupId) : undefined
+  const completeIsMain = !!operation && !!prompt.vehicleId
+    && isLastResource(operation, { vehicleId: prompt.vehicleId, assignmentId: prompt.assignmentId }, personnel, route)
   const releaseOnly = { label: t('releaseOnly', { vehicle: prompt.vehicleName }), run: handleRelease }
   const complete = { label: t('completeIncident'), run: handleReleaseAndComplete }
   const [main, other] = completeIsMain ? [complete, releaseOnly] : [releaseOnly, complete]

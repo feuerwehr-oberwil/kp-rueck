@@ -46,8 +46,9 @@ type ConfirmDialogProps = ConfirmDialogClosing & {
   /** Which answer holds the focus when the dialog opens – so Enter gives that answer.
    *  Default: the main answer (the operator came here to do it, KP Front's ConfirmCard);
    *  `destructive` defaults to Abbrechen, so an Enter pressed to «get it away» never
-   *  confirms what cannot be taken back. `'cancel'` is for a reversible ask whose «yes»
-   *  still must not happen by reflex (a mass write, handing a board to another place). */
+   *  confirms what cannot be taken back. `'cancel'` is for any other ask whose «yes» must
+   *  not happen by reflex: a mass write, handing a board to another place, a move with no
+   *  undo that is no deletion (a stop into an Auftrag). */
   initialFocus?: 'confirm' | 'cancel'
   /** Optional content between the description and the answers (e.g. a list of
    *  affected items). Keep it short — this is a confirmation, not a form. */

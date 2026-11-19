@@ -1326,7 +1326,9 @@
       "description": "{vehicle} fährt schon den Auftrag «{auftrag}». {incident} wird dort als letzter Stopp aufgenommen.",
       "addAsStop": "In Auftrag aufnehmen",
       "assignOnly": "Nur zusätzlich zuweisen",
-      "added": "{incident} ist jetzt Stopp im Auftrag «{auftrag}»"
+      "added": "{incident} ist jetzt Stopp im Auftrag «{auftrag}»",
+      "changedTitle": "{incident} nicht aufgenommen",
+      "changedDescription": "Der Einsatz oder der Auftrag «{auftrag}» wurde inzwischen geändert oder gelöscht. Auf dem Board prüfen."
     },
     "vehicleStatus": {
       "bound": "Gebunden",
@@ -2886,6 +2888,8 @@
       "additionalNotes": "Zusätzliche Notizen",
       "relevantShort": "Relevant",
       "notRelevantShort": "Nicht relevant",
+      "relevanceOpen": "Relevanz nicht beantwortet",
+      "relevanceOpenShort": "Relevanz offen",
       "photoCount": "{count, plural, one {# Foto} other {# Fotos}}",
       "create": "Reko-Bericht erfassen",
       "createTitle": "Reko-Bericht erfassen",
@@ -2893,7 +2897,7 @@
       "amendTitle": "Reko-Bericht ergänzen",
       "close": "Schliessen",
       "radioHint": "Was der Trupp über Funk meldet, hier erfassen. Wird als KP-Erfassung vermerkt.",
-      "draftHint": "Wird laufend synchronisiert. Zählt als eingereicht, sobald der Einsatz auf «Reko abgeschlossen» steht – steht er schon dort, sobald «Einsatz relevant?» beantwortet ist.",
+      "draftHint": "Wird laufend synchronisiert. Wird eingereicht, sobald «Einsatz relevant?» beantwortet ist – wie ein Bericht des Trupps, der Einsatz kommt dann auf «Reko abgeschlossen».",
       "amendHint": "Jede Änderung wird sofort synchronisiert.",
       "submittedShort": "Übermittelt {time}",
       "updatedShort": "aktualisiert {time}",
@@ -2904,6 +2908,7 @@
       "createShort": "erfassen",
       "draftShort": "Entwurf – noch nicht eingereicht",
       "continueShort": "weiter erfassen",
+      "ownDraftLabel": "Eigener Entwurf",
       "expand": "öffnen",
       "collapse": "schliessen"
     },

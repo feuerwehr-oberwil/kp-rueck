@@ -450,9 +450,9 @@ Absender. Ein bereits vom Trupp eingereichter Bericht wird mit
 Bericht daneben. Fotos gibt es hier bewusst nicht: ein Funkspruch bringt keine mit.
 Einen Speichern-Knopf gibt es nicht: jede Angabe wird sofort synchronisiert
 («Synchronisiert – hh:mm» unter dem Formular). Ein neuer Bericht bleibt ein Entwurf,
-bis der Einsatz auf **«Reko abgeschlossen»** steht – dann gilt er als eingereicht
-(Glocke, Reko erledigt). Steht der Einsatz schon dort, gilt er als eingereicht, sobald
-«Einsatz relevant?» beantwortet ist.
+bis **«Einsatz relevant?»** beantwortet ist (Ja oder Nein) – dann ist er eingereicht wie
+ein Bericht des Trupps: Glocke, Reko erledigt, der Einsatz kommt auf «Reko abgeschlossen».
+Ein Statuswechsel reicht nichts ein.
 
 **«Reko vor Ort» über Funk.** Im Einsatz-Detail, Block *Funkmeldungen* – dieselbe
 Zeile, in der auch «Angekommen», «Einsatz beendet» und «Abholung nötig» stehen.

@@ -39,5 +39,11 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # A standby box guards the roster by this column (`app.standby.event_links`). Its replica
+    # trigger reads `guest_event_id` and plpgsql binds late, so it would outlive the column and
+    # stop the mirror at the first replicated roster row; without the column `install_guards`
+    # leaves personnel unguarded, so nothing puts it back. No-ops on a box without a mirror.
+    op.execute("DROP TRIGGER IF EXISTS standby_guard ON public.personnel")
+    op.execute("DROP FUNCTION IF EXISTS standby.guard_personnel()")
     op.drop_index("idx_personnel_guest_event_id", table_name="personnel")
     op.drop_column("personnel", "guest_event_id")

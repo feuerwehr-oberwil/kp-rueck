@@ -231,7 +231,8 @@ async def check_out_personnel(
     result = await db.execute(select(Personnel).where(Personnel.id == personnel_id).with_for_update())
     person = result.scalar_one_or_none()
 
-    if not person:
+    # A guest of another Ereignis is nobody this one lists (`Personnel.in_scope`).
+    if not person or person.guest_event_id not in (None, event_id):
         return None
 
     is_assigned = await _is_personnel_assigned(db, event_id, personnel_id)
@@ -334,10 +335,14 @@ async def clear_personnel_attendance(
     Unlike check-out this does not consult the assignment: an assignment is a
     reason to warn before sending somebody home, not a reason to refuse undoing a
     typo. The caller (the board) already warns on the way *out*.
+
+    None if not found – a guest of another Ereignis counts as not found, as in
+    check-in and check-out.
     """
     result = await db.execute(select(Personnel).where(Personnel.id == personnel_id))
     person = result.scalar_one_or_none()
-    if not person:
+    # A guest of another Ereignis is nobody this one lists (`Personnel.in_scope`).
+    if not person or person.guest_event_id not in (None, event_id):
         return None
 
     attendance_result = await db.execute(

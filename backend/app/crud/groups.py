@@ -358,23 +358,35 @@ async def reorder_group_stops(
     return updated
 
 
+class StopsChangedError(Exception):
+    """A guarded stop add found the Einsatz or the vehicle's Auftrag changed (→ 409)."""
+
+
 async def add_stops_to_group(
     db: AsyncSession,
     group_id: uuid.UUID,
     incident_ids: list[uuid.UUID],
     current_user: User,
     request: Request,
+    via_vehicle_id: uuid.UUID | None = None,
 ) -> list[uuid.UUID] | None:
     """Attach existing incidents to an Auftrag, appended at the end of the route.
 
     Returns the list of newly-attached incident ids, or ``None`` if the group
     does not exist. Unknown ids are skipped; already-member ids are skipped.
 
+    ``via_vehicle_id`` is the #23 answer «In Auftrag aufnehmen» (the vehicle drives
+    this Auftrag and was put on a lone Einsatz): then every incident must still be live
+    and open and in no Auftrag, and the vehicle still on this one – a stop another board moved
+    meanwhile is never pulled out of its Auftrag, a deleted one never reported as added.
+
     Locks this Auftrag and every Auftrag a stop is taken from, then the stops
     (``crud/locking.py``): moving a stop off another route changes that route too.
+    The guard reads under those locks (a route's assignments are its leaves).
 
     Raises:
         ValueError: if any provided incident belongs to a different event.
+        StopsChangedError: the ``via_vehicle_id`` guard failed; nothing was written.
     """
     locked = await lock_incidents_with_groups(db, incident_ids, extra_group_ids=[group_id])
     group = await db.scalar(
@@ -389,6 +401,24 @@ async def add_stops_to_group(
         return []
 
     incidents_by_id = {incident_id: incident for incident_id, incident in locked.items() if incident.deleted_at is None}
+
+    if via_vehicle_id is not None:
+        vehicle_on_route = await db.scalar(
+            select(IncidentGroupAssignment.id).where(
+                IncidentGroupAssignment.incident_group_id == group_id,
+                IncidentGroupAssignment.resource_type == "vehicle",
+                IncidentGroupAssignment.resource_id == via_vehicle_id,
+                IncidentGroupAssignment.unassigned_at.is_(None),
+            )
+        )
+        lone = all(
+            (incident := incidents_by_id.get(incident_id)) is not None
+            and incident.group_id is None
+            and incident.status != "complete"
+            for incident_id in incident_ids
+        )
+        if vehicle_on_route is None or not lone:
+            raise StopsChangedError
 
     # Verify same event: reject cross-event incidents outright.
     for incident_id in incident_ids:

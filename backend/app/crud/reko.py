@@ -9,10 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from .. import schemas
-from ..database import after_commit
 from ..models import Incident, RekoReport, StatusTransition, User
 from ..services.merge_links import live_incident_id
 from ..services.tokens import generate_form_token, validate_form_token
+from .locking import lock_incident_with_group
 
 
 async def get_or_create_reko_report(
@@ -141,9 +141,15 @@ async def get_or_create_kp_reko_report(
     in the field, and the outputs have to be able to say so.
 
     An operator's own unfinished draft is reused rather than stacked, so a form
-    saved twice is one report; a crew's report is never taken over here — that is
-    an amendment and goes through ``update_reko_report`` with the user, which
-    keeps ``submitted_by_personnel_id`` and adds ``updated_by_user_id``.
+    saved twice is one report. Without one, the newest report the board already
+    FILED on this Einsatz is reused: the first save that answers «Einsatz relevant?»
+    files at once, so a second first save (another board, another mount, a retry after
+    a lost response) must amend that row, not file a second report with a second bell
+    (Sol review pass 2, S2). The board never POSTs to start
+    a further report – it amends the latest one by PATCH. A crew's report is never
+    taken over here — that is an amendment and goes through ``update_reko_report``
+    with the user, which keeps ``submitted_by_personnel_id`` and adds
+    ``updated_by_user_id``.
 
     The row still gets a real form token: ``token`` is NOT NULL, it is what the
     field path keys on, and minting one keeps a KP report indistinguishable from
@@ -154,8 +160,9 @@ async def get_or_create_kp_reko_report(
         ValueError: If the incident does not exist
     """
     incident_id = await live_incident_id(db, incident_id)
-    incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
-    if not incident_result.scalar_one_or_none():
+    # Under the card lock (`crud/locking.py`), so two first saves of the form find one
+    # draft instead of each creating its own, and the status move's filing waits.
+    if await lock_incident_with_group(db, incident_id) is None:
         raise ValueError("Incident not found")
 
     existing = await db.execute(
@@ -171,6 +178,19 @@ async def get_or_create_kp_reko_report(
     draft = existing.scalar_one_or_none()
     if draft:
         return draft
+    filed = await db.scalar(
+        select(RekoReport)
+        .where(
+            RekoReport.incident_id == incident_id,
+            RekoReport.is_draft == False,  # noqa: E712
+            RekoReport.created_by_user_id.is_not(None),
+            RekoReport.submitted_by_personnel_id.is_(None),
+        )
+        .order_by(RekoReport.submitted_at.desc())
+        .limit(1)
+    )
+    if filed:
+        return filed
 
     report = RekoReport(
         incident_id=incident_id,
@@ -626,74 +646,6 @@ async def process_reko_submission(
         )
 
 
-# The statuses from «Reko abgeschlossen» on. A board-filed (KP) Reko report is filed by the
-# card's move into them; on a card already there, once «Einsatz relevant?» is answered
-# (owner picks 19.11.2026, `api/reko._kp_draft_files_now`).
-REKO_DONE_STATUSES = frozenset({"reko_done", "enroute", "active", "returning", "complete"})
-
-
 def is_kp_draft(report: RekoReport) -> bool:
     """A draft the board wrote (an operator, no crew member behind it)."""
     return report.is_draft and report.created_by_user_id is not None and report.submitted_by_personnel_id is None
-
-
-def has_report_content(report: RekoReport) -> bool:
-    """Whether a report says anything at all.
-
-    ``set_reko_arrived_by_user`` creates a KP row for «Reko vor Ort» alone; that
-    row is not a report, and submitting it would ring a «Reko-Bericht» bell with
-    nothing in it.
-    """
-    dangers = report.dangers_json or {}
-    effort = report.effort_json or {}
-    return (
-        report.is_relevant is not None
-        or bool((report.summary_text or "").strip())
-        or bool((report.additional_notes or "").strip())
-        or bool(report.photos_json)
-        or any(value for key, value in dangers.items() if key != "other_notes")
-        or bool((dangers.get("other_notes") or "").strip())
-        or effort.get("personnel_count") is not None
-        or effort.get("estimated_duration_hours") is not None
-        or bool(effort.get("vehicles_needed"))
-        or bool(effort.get("equipment_needed"))
-    )
-
-
-async def submit_kp_reko_drafts(db: AsyncSession, incident: Incident) -> bool:
-    """«Reko abgeschlossen» submits the board's Reko report (owner pick 19.11.2026).
-
-    The board's Reko form saves every field at once as a KP draft and has no save
-    button; the report counts as filed when the card moves to «Reko abgeschlossen».
-    Both status paths of ``crud/incidents.py`` call this on that move. Each KP draft
-    with content becomes submitted and runs the usual side effects
-    (``process_reko_submission``: priority bump, the bell); the status step there is
-    a no-op, the card is already past ``reko``. Crew drafts are left alone – the
-    crew submits its own form.
-
-    The caller holds the incident row lock; the report rows come after it
-    (`crud/locking.py`). Returns whether anything was submitted; the
-    ``reko_update`` broadcast goes out after the commit.
-    """
-    from ..websocket_manager import broadcast_reko_update
-
-    result = await db.execute(
-        select(RekoReport)
-        .where(
-            RekoReport.incident_id == incident.id,
-            RekoReport.is_draft == True,  # noqa: E712
-            RekoReport.created_by_user_id.is_not(None),
-            RekoReport.submitted_by_personnel_id.is_(None),
-        )
-        .order_by(RekoReport.submitted_at)
-        .with_for_update()
-    )
-    drafts = [report for report in result.scalars().all() if has_report_content(report)]
-    for draft in drafts:
-        draft.is_draft = False
-        draft.updated_at = datetime.now(UTC)
-        await db.flush()
-        await process_reko_submission(db, incident, draft)
-    if drafts:
-        after_commit(db, broadcast_reko_update, {"incident_id": str(incident.id)}, "submit")
-    return bool(drafts)

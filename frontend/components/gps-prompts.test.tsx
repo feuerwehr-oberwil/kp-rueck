@@ -30,6 +30,7 @@ vi.mock('@/lib/api-client', () => ({
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 const board = vi.hoisted(() => ({ operations: [] as unknown[], personnel: [] as unknown[] }))
 vi.mock('@/lib/contexts/operations-context', () => ({ useOperations: () => board }))
+vi.mock('@/lib/contexts/groups-context', () => ({ useGroups: () => ({ groups: [] }) }))
 
 import { GpsArrivalPrompt } from '@/components/gps-arrival-prompt'
 import { GpsReleasePrompt } from '@/components/gps-release-prompt'

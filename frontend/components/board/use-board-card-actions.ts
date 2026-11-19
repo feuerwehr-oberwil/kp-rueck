@@ -248,8 +248,11 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
         if (existing) {
           void release.releaseRouteResource(op.groupId, existing.assignmentId)
         } else {
-          assignGroupResource(op.groupId, "vehicle", vehicle.id)
-          notify(true)
+          // Held elsewhere → the Doppelbelegung question (#22); the toast only for an assign
+          // that went through.
+          void assignVehicleToGroupWithConflict(op.groupId, vehicle.id).then((assigned) => {
+            if (assigned) notify(true)
+          })
         }
         return
       }
@@ -264,7 +267,7 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
       const asked = assignVehicleToIncidentWithConflict(vehicle.id, vehicle.name, op.id)
       if (!asked && !heldByEinsatz) notify(true)
     },
-    [getGroupResources, release, assignGroupResource, assignVehicleToIncidentWithConflict, operations, tCommon],
+    [getGroupResources, release, assignVehicleToGroupWithConflict, assignVehicleToIncidentWithConflict, operations, tCommon],
   )
 
   /** Priority by keystroke — the card only shows it as a small chevron, so the

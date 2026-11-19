@@ -7735,7 +7735,7 @@
           "incident-groups"
         ],
         "summary": "Add Stops",
-        "description": "Attach existing incidents to an Auftrag as stops (editor only).",
+        "description": "Attach existing incidents to an Auftrag as stops (editor only).\n\nWith ``via_vehicle_id`` the add is conditional (409 when an Einsatz is gone, closed or in\nan Auftrag meanwhile, or the vehicle left this one) – the #23 question's answer.",
         "operationId": "add_stops_api_incident_groups__group_id__stops_post",
         "parameters": [
           {
@@ -11022,7 +11022,7 @@
           "vehicles"
         ],
         "summary": "List Vehicle Statuses",
-        "description": "Every fleet vehicle with its driver and active Einsätze in one event.\n\nThe footer «Fahrzeuge» sheet reads this – one request for the whole fleet,\nthree queries whatever its size. Archived vehicles are left out, as on the\nboard. Order: `display_order`, then name; each vehicle's `deployments` are\noldest assignment first.",
+        "description": "Every fleet vehicle with its driver, Aufträge and Einsätze in one event.\n\nThe footer «Fahrzeuge» sheet reads this and nothing else – one request for the\nwhole fleet, five queries whatever its size. Archived vehicles are left out, as\non the board. Order: `display_order`, then name; each vehicle's `deployments`\nare its Aufträge, then every Einsatz it is assigned to directly, each oldest\nassignment first (`VehicleStatusResponse`).",
         "operationId": "list_vehicle_statuses_api_vehicles_status_get",
         "parameters": [
           {
@@ -20411,6 +20411,18 @@
             },
             "type": "array",
             "title": "Incident Ids"
+          },
+          "via_vehicle_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Via Vehicle Id"
           }
         },
         "type": "object",
@@ -20418,7 +20430,7 @@
           "incident_ids"
         ],
         "title": "AddStopsRequest",
-        "description": "Attach existing incidents to an Auftrag as stops (appended to the end)."
+        "description": "Attach existing incidents to an Auftrag as stops (appended to the end).\n\n``via_vehicle_id``: the vehicle that drives this Auftrag and was put on these lone\nEinsätze («In Auftrag aufnehmen», #23). Makes the add conditional – 409 unless every\nEinsatz is still live, open and in no Auftrag and the vehicle still on this one."
       },
       "AddressSuggestion": {
         "properties": {
@@ -33369,6 +33381,66 @@
         "title": "Vehicle",
         "description": "Full vehicle schema with database fields.\n\nThree independent axes, so the board never has to guess a state:\n`out_of_service` (readiness), `archived_at` (lifecycle), and deployment —\nwhich lives in incident_assignments and is per-event, so it stays with the\ncaller that knows which Ereignis is on screen. Precedence for rendering:\nout_of_service beats assigned beats available."
       },
+      "VehicleAuftragDeployment": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "auftrag",
+            "title": "Kind",
+            "default": "auftrag"
+          },
+          "group_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Group Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incident Id"
+          },
+          "assigned_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Assigned At"
+          },
+          "duration_minutes": {
+            "type": "integer",
+            "title": "Duration Minutes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "group_id",
+          "name",
+          "assigned_at",
+          "duration_minutes"
+        ],
+        "title": "VehicleAuftragDeployment",
+        "description": "An Auftrag (route) a vehicle drives right now (an active route assignment)."
+      },
       "VehicleCreate": {
         "properties": {
           "name": {
@@ -33416,8 +33488,14 @@
         "title": "VehicleCreate",
         "description": "Schema for creating vehicle."
       },
-      "VehicleDeployment": {
+      "VehicleEinsatzDeployment": {
         "properties": {
+          "kind": {
+            "type": "string",
+            "const": "einsatz",
+            "title": "Kind",
+            "default": "einsatz"
+          },
           "incident_id": {
             "type": "string",
             "format": "uuid",
@@ -33471,8 +33549,8 @@
           "assigned_at",
           "duration_minutes"
         ],
-        "title": "VehicleDeployment",
-        "description": "One Einsatz a vehicle is on right now (an active incident assignment)."
+        "title": "VehicleEinsatzDeployment",
+        "description": "An Einsatz a vehicle is on right now (an active incident assignment)."
       },
       "VehiclePositionResponse": {
         "properties": {
@@ -33629,7 +33707,21 @@
           },
           "deployments": {
             "items": {
-              "$ref": "#/components/schemas/VehicleDeployment"
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/VehicleAuftragDeployment"
+                },
+                {
+                  "$ref": "#/components/schemas/VehicleEinsatzDeployment"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "kind",
+                "mapping": {
+                  "auftrag": "#/components/schemas/VehicleAuftragDeployment",
+                  "einsatz": "#/components/schemas/VehicleEinsatzDeployment"
+                }
+              }
             },
             "type": "array",
             "title": "Deployments",
@@ -33645,7 +33737,7 @@
           "radio_call_sign"
         ],
         "title": "VehicleStatusResponse",
-        "description": "Vehicle status with driver and every Einsatz it serves, for one event.\n\nAnswers all three states for one vehicle: `out_of_service` wins, then a\nnon-empty `deployments` (Im Einsatz), else Verfügbar. A vehicle can serve\nseveral Einsätze at once; `deployments` is oldest assignment first. Its\nAufträge are not here – the board reads them from the groups it already has."
+        "description": "Vehicle status with driver and every Auftrag and Einsatz it serves, for one event.\n\nAnswers all three states for one vehicle: `out_of_service` wins, then a\nnon-empty `deployments` (Im Einsatz), else Verfügbar. A vehicle can serve\nseveral Aufträge and Einsätze at once. `deployments`: its Aufträge first, then\nevery Einsatz it is assigned to directly – a stop of its own Auftrag included, a\ndirect assignment is a fact of its own – each oldest assignment first."
       },
       "VehicleTrailResponse": {
         "properties": {

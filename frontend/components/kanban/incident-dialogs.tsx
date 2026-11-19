@@ -510,6 +510,8 @@ export function IncidentDialogs({
             : tDash("distributeConfirmDispatched", { incident: distributeConfirm?.incidentLabel ?? "" })
         }
         confirmText={tDash("distributeConfirmAction")}
+        // No undo after it: Enter keeps to Abbrechen.
+        initialFocus="cancel"
         onConfirm={() => {
           if (distributeConfirm) performDistribute(distributeConfirm.groupId, distributeConfirm.incidentId)
           view.setDistributeConfirm(null)

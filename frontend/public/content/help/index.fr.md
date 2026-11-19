@@ -453,10 +453,10 @@ mis à jour avec **« Compléter le rapport de reconnaissance »** dans le même
 et non comme un second rapport à côté. Il n’y a délibérément pas de photos ici : un
 message radio n’en apporte aucune. Il n’y a pas de bouton d’enregistrement : chaque
 réponse est synchronisée aussitôt (« Synchronisé – hh:mm » sous le formulaire). Un
-nouveau rapport reste un brouillon jusqu’à ce que l’intervention passe à
-**« Reconnaissance terminée »** – il compte alors comme transmis (cloche, reconnaissance
-faite). Si l’intervention y est déjà, il compte dès que « Intervention pertinente ? » a
-une réponse.
+nouveau rapport reste un brouillon jusqu’à ce que **« Intervention pertinente ? »** ait
+une réponse (oui ou non) – il est alors transmis comme un rapport de l’équipe : cloche,
+reconnaissance faite, l’intervention passe à « Reconnaissance terminée ». Un changement
+de statut ne transmet rien.
 
 **« Reconnaissance sur place » par radio.** Dans le détail de l’intervention, bloc
 *Annonces radio* – la même ligne où figurent aussi « Arrivé », « Intervention terminée »

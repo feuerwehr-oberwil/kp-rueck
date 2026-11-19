@@ -919,7 +919,7 @@ export default function FireStationDashboard() {
 
   const boardAssignGroupResource = (groupId: string, resourceType: GroupResourceType, resourceId: string) => {
     if (resourceType === "vehicle") {
-      assignVehicleToGroupWithConflict(groupId, resourceId)
+      void assignVehicleToGroupWithConflict(groupId, resourceId)
       return
     }
     // Onto ANOTHER Auftrag: same question again, «bisher» being the route that

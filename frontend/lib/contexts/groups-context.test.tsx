@@ -343,6 +343,36 @@ describe("GroupsProvider — guarded stop restore (route undo)", () => {
   })
 })
 
+describe("GroupsProvider — #23 stop add for a vehicle (pass 2, S8)", () => {
+  it("calls an Auftrag the server no longer has «changed», quietly, and re-reads", async () => {
+    const { ApiError } = await vi.importActual<typeof import("@/lib/api/types/common")>("@/lib/api/types/common")
+    getIncidentGroups.mockResolvedValue([apiGroup()])
+    const { result } = await renderLoaded()
+    await waitFor(() => expect(result.current.groups).toHaveLength(1))
+    addStopsToGroup.mockRejectedValueOnce(new ApiError("Auftrag nicht gefunden", 404))
+
+    let outcome!: string
+    await act(async () => {
+      outcome = await result.current.addStopForVehicle(GROUP_ID, "op-1", "v1")
+    })
+
+    expect(outcome).toBe("changed")
+    expect(toastError).not.toHaveBeenCalled()
+  })
+
+  it("calls an Auftrag this board already dropped «changed» without a request", async () => {
+    const { result } = await renderLoaded()
+
+    let outcome!: string
+    await act(async () => {
+      outcome = await result.current.addStopForVehicle(GROUP_ID, "op-1", "v1")
+    })
+
+    expect(outcome).toBe("changed")
+    expect(addStopsToGroup).not.toHaveBeenCalled()
+  })
+})
+
 describe("GroupsProvider — event scope", () => {
   it("clears the old scope and ignores an out-of-order event load", async () => {
     let resolveFirst!: (groups: ApiIncidentGroup[]) => void

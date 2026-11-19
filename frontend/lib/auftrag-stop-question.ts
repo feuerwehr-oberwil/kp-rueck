@@ -16,6 +16,8 @@ export interface AuftragStopQuestion {
   groupName: string
   incidentId: string
   incidentLabel: string
+  /** The vehicle that drives the Auftrag – the server checks it still does. */
+  vehicleId: string
   vehicleName: string
   /** «Nur zusätzlich zuweisen»: the vehicle onto the Einsatz as well, the Auftrag untouched. */
   assignOnly: () => Promise<unknown> | unknown

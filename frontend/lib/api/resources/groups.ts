@@ -109,11 +109,13 @@ export class GroupsApi {
     })
   }
 
-  /** Attach existing incidents to an Auftrag as stops (appended to the end). */
-  async addStopsToGroup(groupId: string, incidentIds: string[]): Promise<ApiIncidentGroup> {
+  /** Attach existing incidents to an Auftrag as stops (appended to the end). With
+   *  `viaVehicleId` (#23) only while each is lone and live and the vehicle still on the
+   *  Auftrag – 409 otherwise. */
+  async addStopsToGroup(groupId: string, incidentIds: string[], viaVehicleId?: string): Promise<ApiIncidentGroup> {
     return httpRequest<ApiIncidentGroup>(`/api/incident-groups/${groupId}/stops`, {
       method: 'POST',
-      body: JSON.stringify({ incident_ids: incidentIds }),
+      body: JSON.stringify(viaVehicleId ? { incident_ids: incidentIds, via_vehicle_id: viaVehicleId } : { incident_ids: incidentIds }),
     })
   }
 
