@@ -663,7 +663,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
 
       {/* Edit / Create Personnel Dialog */}
       <Dialog open={dialog.isOpen} onOpenChange={guard.handleOpenChange}>
-        <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
+        <DialogContent size="md" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>
               {dialog.editing ? t('personnel.dialogEditTitle') : t('personnel.dialogCreateTitle')}
@@ -919,7 +919,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
 
       {/* Divera Sync Dialog */}
       <Dialog open={isSyncDialogOpen} onOpenChange={setIsSyncDialogOpen}>
-        <DialogContent className="max-w-2xl modal-h-tall flex flex-col overflow-hidden" aria-describedby={undefined}>
+        <DialogContent size="md" className="modal-h-tall flex flex-col overflow-hidden" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{t('personnel.syncDialogTitle')}</DialogTitle>
           </DialogHeader>

@@ -37,6 +37,7 @@ import { Check, Copy, ExternalLink, Printer, Users } from "lucide-react"
 import { toast } from "sonner"
 
 import { FooterSheet } from "@/components/ui/footer-sheet"
+import { SurfaceStep, useOpenSurface } from "@/components/ui/surface-step"
 import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -72,6 +73,7 @@ export function LinksQrSheet({
   const [urls, setUrls] = useState<Partial<Record<LinkKey, string>>>({})
   const [copied, setCopied] = useState<LinkKey | null>(null)
   const [enlarged, setEnlarged] = useState<LinkKey | null>(null)
+  const surface = useOpenSurface()
   /**
    * The day the Feld link dies, from its mint. The print puts it on the Feld
    * slip together with the Feld-Code (`queueLinkQrPrint` reads that fresh), so
@@ -232,6 +234,19 @@ export function LinksQrSheet({
     )
   }
 
+  const enlargedQr = enlarged && urls[enlarged] && (
+    <>
+      <div className="rounded-lg bg-white p-3">
+        <QRCodeSVG value={urls[enlarged]!} size={240} level="M" includeMargin={false} />
+      </div>
+      {/* The Feld QR is useless on its own now — whoever scans it is
+          asked for the code next, so it belongs on the same surface. */}
+      {enlarged === "feld" && eventId && (
+        <FeldAccessCard eventId={eventId} />
+      )}
+    </>
+  )
+
   return (
     <>
       <FooterSheet
@@ -241,6 +256,7 @@ export function LinksQrSheet({
         // outside-click guard reads that as "the operator clicked away" and
         // closes the sheet underneath, so dismissing the QR lands on the board.
         shouldPreventClose={() => enlarged !== null}
+        surface={t("title")}
         className="max-w-3xl mx-auto px-6 py-4"
       >
         <SheetHeader className="p-0 mb-3">
@@ -307,25 +323,24 @@ export function LinksQrSheet({
         </div>
       </FooterSheet>
 
-      <Dialog open={enlarged !== null} onOpenChange={openState => !openState && setEnlarged(null)}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{enlarged ? t(`${enlarged}.title`) : ""}</DialogTitle>
-          </DialogHeader>
-          {enlarged && urls[enlarged] && (
-            <div className="flex flex-col items-center gap-4 pb-2">
-              <div className="rounded-lg bg-white p-3">
-                <QRCodeSVG value={urls[enlarged]!} size={240} level="M" includeMargin={false} />
-              </div>
-              {/* The Feld QR is useless on its own now — whoever scans it is
-                  asked for the code next, so it belongs on the same surface. */}
-              {enlarged === "feld" && eventId && (
-                <FeldAccessCard eventId={eventId} />
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* On a desk the enlarged QR is a step inside this sheet (owner pick 5A: no window on a
+          window); on the phone an S dialog over the sheet. */}
+      {surface && enlarged ? (
+        <SurfaceStep host={surface} title={t(`${enlarged}.title`)} onBack={() => setEnlarged(null)}>
+          <div className="flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto px-5 pb-5">
+            {enlargedQr}
+          </div>
+        </SurfaceStep>
+      ) : (
+        <Dialog open={enlarged !== null} onOpenChange={openState => !openState && setEnlarged(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{enlarged ? t(`${enlarged}.title`) : ""}</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-4 pb-2">{enlargedQr}</div>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   )
 }

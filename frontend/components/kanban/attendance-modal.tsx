@@ -414,7 +414,7 @@ export function AttendanceModal({
               `sm:max-w-3xl` needs its prefix: DialogContent's own `sm:max-w-lg`
               is variant-scoped, so the bare `max-w-3xl` this used to carry never
               won at desktop widths and the roll-call ran in a 512px column. */}
-          <DialogContent className="flex modal-h-tall sm:max-w-3xl flex-col">
+          <DialogContent size="md" className="flex modal-h-tall flex-col">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Users className="size-4" />

@@ -332,6 +332,8 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
       // both roles: a Radix AlertDialog is role="alertdialog", and the vehicle-conflict prompt
       // that can appear from here is one — see the note in auftraege-sheet.tsx
       shouldPreventClose={(target) => !!target.closest('[role="dialog"], [role="alertdialog"]') || driverDialogOpen}
+      // The Fahrer picker of a row opens inside the sheet as a step (owner pick 5A).
+      surface={t('vehicleStatus.title')}
     >
         <SheetHeader className="p-0">
           <div className="flex items-center justify-between gap-4">
@@ -565,7 +567,8 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
 
     </FooterSheet>
 
-    {/* Driver Assignment Dialog - Outside Sheet to prevent closing issues */}
+    {/* Driver Assignment Dialog – outside the sheet's tree (closing issues), but on a desk it
+        opens INSIDE the sheet as a step: the sheet is the open surface (surface-step.tsx). */}
     {selectedVehicleForDriver && eventId && (
       <DriverAssignmentDialog
         open={driverDialogOpen}

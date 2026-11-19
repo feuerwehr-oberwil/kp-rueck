@@ -233,7 +233,7 @@ export function DisponierTransitionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{t(repeat ? 'disponiert.repeatTitle' : 'disponiert.title')}</DialogTitle>
           <DialogDescription>

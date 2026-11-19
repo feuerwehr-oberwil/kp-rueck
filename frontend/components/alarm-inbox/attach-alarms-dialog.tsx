@@ -286,7 +286,7 @@ export function AttachAlarmsDialog({ alarms, onClose, onAttached }: AttachAlarms
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* Wider while the duplicate hint is up: its sketch needs the room. */}
-      <DialogContent className={shownDuplicates.length > 0 ? 'sm:max-w-xl' : 'sm:max-w-md'}>
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>{t('attachDialogTitle')}</DialogTitle>
           <DialogDescription>{t('attachDialogDescription', { count: selected.length })}</DialogDescription>

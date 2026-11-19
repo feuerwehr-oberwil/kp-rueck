@@ -707,7 +707,7 @@ function MaterialGroupSettings({
       </SettingCard>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-lg modal-h-tall flex flex-col" aria-describedby={undefined}>
+        <DialogContent className="modal-h-tall flex flex-col" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{editingGroup ? t('materials.groups.dialogEditTitle') : t('materials.groups.dialogCreateTitle')}</DialogTitle>
           </DialogHeader>

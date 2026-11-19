@@ -25,6 +25,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { SearchInput } from "@/components/ui/search-input"
+import { SurfaceStep, useOpenSurface } from "@/components/ui/surface-step"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
@@ -157,6 +158,7 @@ export function IncidentPickerDialog({
   onCreateNew,
 }: IncidentPickerDialogProps) {
   const t = useTranslations("kanban.incidentPicker")
+  const surface = useOpenSurface()
   const tColumn = useTranslations("kanban.columns")
   const [query, setQuery] = useState("")
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -352,201 +354,217 @@ export function IncidentPickerDialog({
     </BaseMap>
   )
 
+  // In a step the body fills the surface; in its own window both views share one fixed
+  // height, so toggling Liste ⇄ Karte never resizes it.
+  const bodyHeight = surface ? "min-h-0 flex-1" : "h-[440px]"
+  const content = (
+    <>
+    <div className="flex items-center gap-2">
+      <SearchInput
+        autoFocus
+        size="sm"
+        containerClassName="flex-1"
+        value={query}
+        onValueChange={setQuery}
+        placeholder={t("searchPlaceholder")}
+        className="h-9"
+      />
+      {/* List ⇄ Karte view toggle */}
+      <div className="flex flex-shrink-0 rounded-md border p-0.5">
+        <button
+          type="button"
+          onClick={() => setView("list")}
+          aria-pressed={view === "list"}
+          title={t("viewList")}
+          className={cn(
+            "flex h-7 items-center gap-1 rounded-sm px-2 text-xs font-medium transition-colors",
+            view === "list" ? "sel-choice" : "text-muted-foreground hover:bg-muted",
+          )}
+        >
+          <List className="h-3.5 w-3.5" />
+          {t("viewList")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setView("map")}
+          aria-pressed={view === "map"}
+          title={t("viewMap")}
+          className={cn(
+            "flex h-7 items-center gap-1 rounded-sm px-2 text-xs font-medium transition-colors",
+            view === "map" ? "sel-choice" : "text-muted-foreground hover:bg-muted",
+          )}
+        >
+          <MapPin className="h-3.5 w-3.5" />
+          {t("viewMap")}
+        </button>
+      </div>
+    </div>
+
+    {/* What the list is not showing (completed only), and the way to see it.
+        Nothing is dropped silently: the count is the point of the row. */}
+    {(hiddenCount > 0 || showCompleted) && (
+      <div className="-mt-1 flex flex-wrap items-center gap-2 text-xs">
+        {hiddenCount > 0 && (
+          <span className="text-muted-foreground">{t("hiddenCount", { count: hiddenCount })}</span>
+        )}
+        <button
+          type="button"
+          onClick={() => setShowCompleted((v) => !v)}
+          aria-pressed={showCompleted}
+          className={cn(
+            "rounded-full border px-2.5 py-0.5 font-medium transition-colors",
+            showCompleted
+              ? "border-sel-edge bg-sel-wash text-sel-foreground"
+              : "border-border text-muted-foreground hover:bg-muted",
+          )}
+        >
+          {t("showCompleted")}
+        </button>
+      </div>
+    )}
+
+    {view === "map" ? (
+      // Same 440px body as the list view, split between map and legend, so
+      // toggling Liste ⇄ Karte still never resizes the dialog. The map keeps
+      // a definite height (flex-1 inside a fixed-height parent), which is
+      // what the map canvas needs to lay out at all.
+      <div className={cn("flex flex-col gap-2", bodyHeight)}>
+        <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border">
+          {locatedCandidates.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+              <MapPin className="h-8 w-8 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">{t("mapEmpty")}</p>
+            </div>
+          ) : (
+            mapNode
+          )}
+        </div>
+        {/* What the pin colours mean. Without it the map is a guessing game:
+            red and a route colour both say "belongs somewhere", grey says
+            "belongs nowhere", and nothing on screen said which was which. */}
+        {locatedCandidates.length > 0 && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-0.5 text-2xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full ring-2 ring-sel-line" />
+              {t("legendSelected")}
+            </span>
+            {/* The swatches the map really draws: the other routes' own colours. */}
+            {otherRouteColors.length > 0 && (
+              <span className="flex items-center gap-1.5">
+                <span className="flex items-center gap-0.5">
+                  {otherRouteColors.map((color) => (
+                    <span key={color} className="h-2.5 w-2.5 rounded-full border border-dashed border-white" style={{ backgroundColor: color }} />
+                  ))}
+                </span>
+                {t("legendOtherRoute")}
+              </span>
+            )}
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full border border-white" style={{ backgroundColor: MAP_NONE }} />
+              {t("legendUnassigned")}
+            </span>
+          </div>
+        )}
+      </div>
+    ) : (
+    <div className={cn("-mx-1 space-y-0.5 overflow-y-auto px-1", bodyHeight)}>
+      {candidates.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-10 text-center">
+          <RouteIcon className="mb-2 h-8 w-8 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">{t("empty")}</p>
+        </div>
+      ) : (
+        candidates.map((op) => {
+          const otherGroup = op.groupId && op.groupId !== targetGroupId ? groupById.get(op.groupId) : undefined
+          const isChecked = selected.has(op.id)
+          const label = (op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())) || getIncidentTypeLabel(op.incidentType)
+          return (
+            <label
+              key={op.id}
+              className={cn(
+                "flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-muted/50",
+                isChecked && "bg-sel-wash",
+              )}
+            >
+              <Checkbox checked={isChecked} onCheckedChange={() => toggle(op.id)} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-sm font-medium" title={label}>
+                    {label}
+                  </span>
+                  {otherGroup && (
+                    <span
+                      className="inline-flex flex-shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-2xs font-medium text-muted-foreground"
+                      title={t("inRoute", { name: otherGroup.name })}
+                    >
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: otherGroup.color ?? "var(--muted-foreground)" }}
+                      />
+                      {otherGroup.name}
+                    </span>
+                  )}
+                </div>
+                <p className="truncate text-xs text-muted-foreground">
+                  {getIncidentTypeLabel(op.incidentType)} · {tColumn(op.status)}
+                </p>
+              </div>
+            </label>
+          )
+        })
+      )}
+    </div>
+    )}
+
+    {/* A picker's footer, not a question's: the escape hatch goes left on its
+        own (`sm:mr-auto`), Abbrechen stays in the right-hand group beside the
+        primary button. (A confirmation's third answer is a line of its own –
+        `ConfirmDialog`'s `extraAction`.) `justify-between` plus a `<span />`
+        spacer did the same thing, but only as long as something stood in the
+        left slot. */}
+    <DialogFooter className={cn("flex-shrink-0", surface && "border-t px-5 py-3")}>
+      {onCreateNew && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="sm:mr-auto"
+          onClick={() => {
+            handleOpenChange(false)
+            onCreateNew()
+          }}
+        >
+          <Plus className="size-3.5" />
+          {t("createNew")}
+        </Button>
+      )}
+      <Button variant="outline" size="sm" onClick={() => handleOpenChange(false)}>
+        {t("cancel")}
+      </Button>
+      <Button size="sm" onClick={confirm} disabled={changeCount === 0}>
+        {t("apply")}
+      </Button>
+    </DialogFooter>
+    </>
+  )
+
+  // Opened from the Aufträge sheet («+ Stopp»): a step inside it (owner pick 5A).
+  if (surface) {
+    if (!open) return null
+    return (
+      <SurfaceStep host={surface} title={t("title")} description={t("description")} onBack={() => handleOpenChange(false)}>
+        <div className="flex min-h-0 flex-1 flex-col gap-4 px-5 pt-1">{content}</div>
+      </SurfaceStep>
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      {/* Top-anchored + fixed-height body so toggling Liste ⇄ Karte never moves
-          or resizes the dialog (both modes share the same h-[440px] body). */}
-      <DialogContent className="top-[8vh] flex modal-h-tall max-w-xl translate-y-0 flex-col gap-4">
+      <DialogContent className="flex modal-h-tall flex-col gap-4">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
-
-        <div className="flex items-center gap-2">
-          <SearchInput
-            autoFocus
-            size="sm"
-            containerClassName="flex-1"
-            value={query}
-            onValueChange={setQuery}
-            placeholder={t("searchPlaceholder")}
-            className="h-9"
-          />
-          {/* List ⇄ Karte view toggle */}
-          <div className="flex flex-shrink-0 rounded-md border p-0.5">
-            <button
-              type="button"
-              onClick={() => setView("list")}
-              aria-pressed={view === "list"}
-              title={t("viewList")}
-              className={cn(
-                "flex h-7 items-center gap-1 rounded-sm px-2 text-xs font-medium transition-colors",
-                view === "list" ? "sel-choice" : "text-muted-foreground hover:bg-muted",
-              )}
-            >
-              <List className="h-3.5 w-3.5" />
-              {t("viewList")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("map")}
-              aria-pressed={view === "map"}
-              title={t("viewMap")}
-              className={cn(
-                "flex h-7 items-center gap-1 rounded-sm px-2 text-xs font-medium transition-colors",
-                view === "map" ? "sel-choice" : "text-muted-foreground hover:bg-muted",
-              )}
-            >
-              <MapPin className="h-3.5 w-3.5" />
-              {t("viewMap")}
-            </button>
-          </div>
-        </div>
-
-        {/* What the list is not showing (completed only), and the way to see it.
-            Nothing is dropped silently: the count is the point of the row. */}
-        {(hiddenCount > 0 || showCompleted) && (
-          <div className="-mt-1 flex flex-wrap items-center gap-2 text-xs">
-            {hiddenCount > 0 && (
-              <span className="text-muted-foreground">{t("hiddenCount", { count: hiddenCount })}</span>
-            )}
-            <button
-              type="button"
-              onClick={() => setShowCompleted((v) => !v)}
-              aria-pressed={showCompleted}
-              className={cn(
-                "rounded-full border px-2.5 py-0.5 font-medium transition-colors",
-                showCompleted
-                  ? "border-sel-edge bg-sel-wash text-sel-foreground"
-                  : "border-border text-muted-foreground hover:bg-muted",
-              )}
-            >
-              {t("showCompleted")}
-            </button>
-          </div>
-        )}
-
-        {view === "map" ? (
-          // Same 440px body as the list view, split between map and legend, so
-          // toggling Liste ⇄ Karte still never resizes the dialog. The map keeps
-          // a definite height (flex-1 inside a fixed-height parent), which is
-          // what the map canvas needs to lay out at all.
-          <div className="flex h-[440px] flex-col gap-2">
-            <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border">
-              {locatedCandidates.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-                  <MapPin className="h-8 w-8 text-muted-foreground/40" />
-                  <p className="text-sm text-muted-foreground">{t("mapEmpty")}</p>
-                </div>
-              ) : (
-                mapNode
-              )}
-            </div>
-            {/* What the pin colours mean. Without it the map is a guessing game:
-                red and a route colour both say "belongs somewhere", grey says
-                "belongs nowhere", and nothing on screen said which was which. */}
-            {locatedCandidates.length > 0 && (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-0.5 text-2xs text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full ring-2 ring-sel-line" />
-                  {t("legendSelected")}
-                </span>
-                {/* The swatches the map really draws: the other routes' own colours. */}
-                {otherRouteColors.length > 0 && (
-                  <span className="flex items-center gap-1.5">
-                    <span className="flex items-center gap-0.5">
-                      {otherRouteColors.map((color) => (
-                        <span key={color} className="h-2.5 w-2.5 rounded-full border border-dashed border-white" style={{ backgroundColor: color }} />
-                      ))}
-                    </span>
-                    {t("legendOtherRoute")}
-                  </span>
-                )}
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full border border-white" style={{ backgroundColor: MAP_NONE }} />
-                  {t("legendUnassigned")}
-                </span>
-              </div>
-            )}
-          </div>
-        ) : (
-        <div className="-mx-1 h-[440px] space-y-0.5 overflow-y-auto px-1">
-          {candidates.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 text-center">
-              <RouteIcon className="mb-2 h-8 w-8 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">{t("empty")}</p>
-            </div>
-          ) : (
-            candidates.map((op) => {
-              const otherGroup = op.groupId && op.groupId !== targetGroupId ? groupById.get(op.groupId) : undefined
-              const isChecked = selected.has(op.id)
-              const label = (op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())) || getIncidentTypeLabel(op.incidentType)
-              return (
-                <label
-                  key={op.id}
-                  className={cn(
-                    "flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-muted/50",
-                    isChecked && "bg-sel-wash",
-                  )}
-                >
-                  <Checkbox checked={isChecked} onCheckedChange={() => toggle(op.id)} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-medium" title={label}>
-                        {label}
-                      </span>
-                      {otherGroup && (
-                        <span
-                          className="inline-flex flex-shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-2xs font-medium text-muted-foreground"
-                          title={t("inRoute", { name: otherGroup.name })}
-                        >
-                          <span
-                            className="h-2 w-2 rounded-full"
-                            style={{ backgroundColor: otherGroup.color ?? "var(--muted-foreground)" }}
-                          />
-                          {otherGroup.name}
-                        </span>
-                      )}
-                    </div>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {getIncidentTypeLabel(op.incidentType)} · {tColumn(op.status)}
-                    </p>
-                  </div>
-                </label>
-              )
-            })
-          )}
-        </div>
-        )}
-
-        {/* A picker's footer, not a question's: the escape hatch goes left on its
-            own (`sm:mr-auto`), Abbrechen stays in the right-hand group beside the
-            primary button. (A confirmation's third answer is a line of its own –
-            `ConfirmDialog`'s `extraAction`.) `justify-between` plus a `<span />`
-            spacer did the same thing, but only as long as something stood in the
-            left slot. */}
-        <DialogFooter className="flex-shrink-0">
-          {onCreateNew && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="sm:mr-auto"
-              onClick={() => {
-                handleOpenChange(false)
-                onCreateNew()
-              }}
-            >
-              <Plus className="size-3.5" />
-              {t("createNew")}
-            </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={() => handleOpenChange(false)}>
-            {t("cancel")}
-          </Button>
-          <Button size="sm" onClick={confirm} disabled={changeCount === 0}>
-            {t("apply")}
-          </Button>
-        </DialogFooter>
+        {content}
       </DialogContent>
     </Dialog>
   )

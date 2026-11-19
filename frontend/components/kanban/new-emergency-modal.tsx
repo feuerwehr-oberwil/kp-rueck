@@ -548,10 +548,9 @@ export function NewEmergencyModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* `sm:`-scoped on purpose: the primitive's own `sm:max-w-lg` is variant-scoped,
-          so a bare `max-w-*` loses to it at desktop widths and the form gets
-          crushed into ~440px — clipped selects, icon-only Einsatzort. */}
-      <DialogContent className="sm:max-w-xl" onKeyDown={onKeyDown}>
+      {/* M: a form (dialog-frame.ts). The map picker of the Einsatzort opens inside it as
+          a step (`surface`, owner pick 5A) instead of a wider dialog on top. */}
+      <DialogContent size="md" surface={t('common.newIncident')} onKeyDown={onKeyDown}>
         {/* The plain title (see HEADER above); the grid's gap-4 is the 16px to the first field. */}
         <DialogHeader>
           <DialogTitle>{t('common.newIncident')}</DialogTitle>
