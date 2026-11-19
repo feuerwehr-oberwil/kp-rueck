@@ -214,7 +214,7 @@ export function RekoReportGateDialog({
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent className="flex modal-h-tall flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+      <DialogContent size="md" className="flex modal-h-tall flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="gap-1 px-6 pt-6 pb-3 pr-12">
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
