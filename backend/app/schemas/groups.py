@@ -167,7 +167,7 @@ class AddStopsRequest(BaseModel):
 
     ``via_vehicle_id``: the vehicle that drives this Auftrag and was put on these lone
     Einsätze («In Auftrag aufnehmen», #23). Makes the add conditional – 409 unless every
-    Einsatz is still live and in no Auftrag and the vehicle still on this one.
+    Einsatz is still live, open and in no Auftrag and the vehicle still on this one.
     """
 
     incident_ids: list[UUID]

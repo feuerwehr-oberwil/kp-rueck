@@ -195,7 +195,7 @@ async def add_stops(
 ) -> schemas.IncidentGroupResponse:
     """Attach existing incidents to an Auftrag as stops (editor only).
 
-    With ``via_vehicle_id`` the add is conditional (409 when an Einsatz is gone or in
+    With ``via_vehicle_id`` the add is conditional (409 when an Einsatz is gone, closed or in
     an Auftrag meanwhile, or the vehicle left this one) – the #23 question's answer.
     """
     try:

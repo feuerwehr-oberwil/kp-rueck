@@ -377,7 +377,7 @@ async def add_stops_to_group(
 
     ``via_vehicle_id`` is the #23 answer «In Auftrag aufnehmen» (the vehicle drives
     this Auftrag and was put on a lone Einsatz): then every incident must still be live
-    and in no Auftrag, and the vehicle still on this one – a stop another board moved
+    and open and in no Auftrag, and the vehicle still on this one – a stop another board moved
     meanwhile is never pulled out of its Auftrag, a deleted one never reported as added.
 
     Locks this Auftrag and every Auftrag a stop is taken from, then the stops
@@ -412,7 +412,9 @@ async def add_stops_to_group(
             )
         )
         lone = all(
-            (incident := incidents_by_id.get(incident_id)) is not None and incident.group_id is None
+            (incident := incidents_by_id.get(incident_id)) is not None
+            and incident.group_id is None
+            and incident.status != "complete"
             for incident_id in incident_ids
         )
         if vehicle_on_route is None or not lone:

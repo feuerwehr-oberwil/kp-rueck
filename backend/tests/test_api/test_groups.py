@@ -322,7 +322,7 @@ async def test_add_stops(editor_client: AsyncClient, test_event: Event, test_inc
 
 @pytest.mark.asyncio
 @pytest.mark.api
-@pytest.mark.parametrize("changed", [None, "moved", "deleted", "vehicle_left"])
+@pytest.mark.parametrize("changed", [None, "moved", "deleted", "closed", "vehicle_left"])
 async def test_add_stop_for_a_vehicle_needs_a_lone_einsatz_and_the_vehicle_on_the_auftrag(
     editor_client: AsyncClient,
     db_session: AsyncSession,
@@ -347,6 +347,9 @@ async def test_add_stop_for_a_vehicle_needs_a_lone_einsatz_and_the_vehicle_on_th
         )
     elif changed == "deleted":
         test_incident.deleted_at = datetime.now(UTC)
+        await db_session.commit()
+    elif changed == "closed":
+        test_incident.status = "complete"
         await db_session.commit()
     elif changed == "vehicle_left":
         released = await editor_client.post(f"/api/incident-groups/{nord['id']}/unassign/{assigned.json()['id']}")
