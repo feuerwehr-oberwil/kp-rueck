@@ -71,6 +71,8 @@ interface GroupsContextType {
   assignResource: (groupId: string, resourceType: GroupResourceType, resourceId: string) => Promise<boolean>
   /** Release a route-owned resource by its group-assignment id. */
   unassignResource: (groupId: string, assignmentId: string) => Promise<boolean>
+  /** «bleibt vor Ort» / «kehrt zurück» for a route vehicle – optimistic, reverts with a toast. */
+  setRouteDriverStay: (groupId: string, assignmentId: string, driverStay: boolean) => Promise<boolean>
   /** Resolve a route's owned resources to display names, split by kind. */
   getGroupResources: (groupId: string) => GroupResources
   /** Resolve the route resources for an incident's Auftrag (empty when ungrouped). */
@@ -703,6 +705,31 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     [groups, refreshGroups],
   )
 
+  const setRouteDriverStay = useCallback(
+    async (groupId: string, assignmentId: string, driverStay: boolean): Promise<boolean> => {
+      const applyStay = (stay: boolean) =>
+        setGroups((gs) =>
+          gs.map((g) =>
+            g.id === groupId
+              ? { ...g, assignments: g.assignments.map((a) => (a.id === assignmentId ? { ...a, driverStay: stay } : a)) }
+              : g,
+          ),
+        )
+      mutationEpochRef.current++
+      applyStay(driverStay)
+      try {
+        await apiClient.updateGroupAssignment(groupId, assignmentId, { driver_stay: driverStay })
+        return true
+      } catch (error) {
+        console.error("Failed to set the route vehicle's driver stay:", error)
+        applyStay(!driverStay)
+        toast.error(translateOutsideReact("kanban.common.updateFailed"))
+        return false
+      }
+    },
+    [],
+  )
+
   /**
    * id → name for everybody who could be on a route.
    *
@@ -800,6 +827,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
       removeStop,
       assignResource,
       unassignResource,
+      setRouteDriverStay,
       getGroupResources,
       groupResourcesFor,
       occupiedResourceIds,
@@ -819,6 +847,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
       removeStop,
       assignResource,
       unassignResource,
+      setRouteDriverStay,
       getGroupResources,
       groupResourcesFor,
       occupiedResourceIds,

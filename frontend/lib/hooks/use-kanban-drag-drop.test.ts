@@ -178,4 +178,17 @@ describe("applyOperationDrop", () => {
     expect(reorderColumn).toHaveBeenCalledWith(["a", "d"])
     expect(onStatusChange).toHaveBeenCalledWith("a", "enroute", "incoming")
   })
+
+  it("changes nothing when the move is held for a question (the Reko form)", () => {
+    const holdStatusChange = vi.fn(() => true)
+    applyOperationDrop(
+      { type: "operation", operation: operations[0], index: 0 },
+      { type: "operation-drop", operationId: "d", index: 0 },
+      { operations, setOperations, updateOperation, reorderColumn, onOperationDrop, onStatusChange, holdStatusChange },
+    )
+    expect(holdStatusChange).toHaveBeenCalledWith("a", "enroute")
+    expect(updateOperation).not.toHaveBeenCalled()
+    expect(setOperations).not.toHaveBeenCalled()
+    expect(onStatusChange).not.toHaveBeenCalled()
+  })
 })

@@ -150,11 +150,12 @@ export class GroupsApi {
     })
   }
 
-  /** Promote a route-owned assignment to Einsatzleiter (demotes the previous one). */
+  /** Update a route-owned assignment: promote to Einsatzleiter (demotes the previous one) or
+   *  set a vehicle's driver stay. */
   async updateGroupAssignment(
     groupId: string,
     assignmentId: string,
-    data: { is_leader?: boolean }
+    data: { is_leader?: boolean; driver_stay?: boolean }
   ): Promise<ApiGroupAssignment> {
     return httpRequest<ApiGroupAssignment>(
       `/api/incident-groups/${groupId}/assignments/${assignmentId}`,

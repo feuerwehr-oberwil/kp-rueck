@@ -6,15 +6,16 @@ import { useTranslations } from "next-intl"
 import {
   AlertCircle,
   ArrowRight,
-  Binoculars,
   Check,
   CheckCircle2,
   ClipboardCheck,
   Footprints,
+  MapPin,
   Package,
   Pencil,
   Plus,
   Truck,
+  Undo2,
   Users,
   Waypoints,
 } from "lucide-react"
@@ -32,6 +33,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
+import { RekoReportGateDialog } from "@/components/reko/reko-report-gate-dialog"
 import { DisponierTransitionDialog } from "@/components/kanban/disponiert-transition-dialog"
 import { apiClient } from "@/lib/api-client"
 import { onStatusConflict } from "@/lib/status-conflict"
@@ -41,7 +43,10 @@ import { findAuftragForStop, isBackwardTransition, remainingRouteStops, startabl
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
-import { usePersonNaming } from "@/components/person-name"
+import { PersonName, usePersonNaming } from "@/components/person-name"
+import { LeaderBadge } from "@/components/kanban/leader-badge"
+import { sortCrewByLeader } from "@/lib/crew-order"
+import type { VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 
 // Home-town-free label for dialog texts; falls back to the incident type when
 // the address was only the home town (formatted location is then empty).
@@ -88,17 +93,18 @@ interface GateBase {
  *
  * - `missingResources`: «es fehlt noch etwas» before a dispatch
  * - `returningVehicle`: «Beendet / Rückfahrt» without a vehicle
- * - `rekoMissing` / `rekoFormMissing`: into Reko without a Reko person / report
- * - `rekoAssignment`: the Reko picker opened from `rekoMissing`; it inherits
- *   that gate's undo, so backing out of the picker lands where backing out of
- *   the gate would have
+ * - `rekoAssignment`: into Reko without a Reko person – the Reko picker opens
+ *   at once (owner pick 19.11.2026, #4 A); backing out of it undoes the move
+ * - `rekoReport`: into «Reko abgeschlossen» without a report – the Reko form
+ *   opens and the move WAITS for it (`holdStatusMove`), so `returnStatus` is
+ *   always null: there is nothing to undo, the card never left
  * - `statusCorrection`: a BACKWARD move into «Disponiert / Anfahrt»; always
  *   knows where the card came from
  * - `materialDecision`: the completion gate, with what the completion releases
  *   (snapshotted before the store emptied the card — see CompletionRelease)
  */
 type OpenGate =
-  | (GateBase & { kind: "missingResources" | "returningVehicle" | "rekoMissing" | "rekoFormMissing" | "rekoAssignment" })
+  | (GateBase & { kind: "missingResources" | "returningVehicle" | "rekoAssignment" | "rekoReport" })
   | (GateBase & { kind: "statusCorrection"; returnStatus: OperationStatus })
   | (GateBase & { kind: "materialDecision"; release: CompletionRelease | null })
 
@@ -119,6 +125,21 @@ export interface CompletionRelease {
   crew: string[]
   /** «TLF 1 · Omega 21» — name plus Funkrufname where there is one. */
   vehicles: string[]
+}
+
+/** Which assignment a «bleibt vor Ort | kehrt zurück» toggle writes: the Einsatz's own vehicle
+ *  (`useToggleDriverStay`) or its Auftrag's (`setRouteDriverStay`). */
+export type DriverStayTarget =
+  | { kind: "incident"; operationId: string; vehicleId: string }
+  | { kind: "route"; groupId: string; assignmentId: string }
+
+/** The Einsatz's and its Auftrag's resources, as the dispatch gate names them. */
+export interface ResourceCoverage {
+  /** EL first (`sortCrewByLeader`). */
+  crew: { personnelId: string; name: string; isLeader: boolean }[]
+  /** `driverStay` is absent while the assign POST has not answered – then no toggle. */
+  vehicles: { vehicleId: string; name: string; driverStay: boolean | undefined; target: DriverStayTarget }[]
+  materials: { id: string; name: string | null }[]
 }
 
 interface UseIncidentStatusWorkflowOptions {
@@ -228,15 +249,45 @@ export function useIncidentStatusWorkflow({
     return missing
   }, [getGroupResources, groups])
 
-  const getResourceCoverage = useCallback((operation: Operation) => {
+  /** What the «Ressourcen fehlen» rows name: the Einsatz's own resources plus its Auftrag's,
+   *  crew EL first. A material the store cannot name has `name: null`. */
+  const getResourceCoverage = useCallback((operation: Operation): ResourceCoverage => {
     const auftrag = findAuftragForStop(groups, operation)
     const route = auftrag ? getGroupResources(auftrag.id) : null
+    const crew = [
+      ...operation.crew.map((member) => ({
+        personnelId: member.personnelId,
+        name: member.name,
+        isLeader: member.personnelId === operation.leaderId,
+      })),
+      ...(route?.personnel ?? []).map((person) => ({
+        personnelId: person.resourceId,
+        name: person.name,
+        isLeader: Boolean(person.isLeader),
+      })),
+    ]
     return {
-      crewCount: operation.crew.length + (route?.personnel.length ?? 0),
-      vehicleNames: [...operation.vehicles, ...(route?.vehicles ?? [])].map((vehicle) => vehicle.name),
-      materialCount: operation.materials.length + (route?.materials.length ?? 0),
+      crew: sortCrewByLeader(crew, (member) => member.isLeader),
+      vehicles: [
+        ...operation.vehicles.map((vehicle) => ({
+          vehicleId: vehicle.vehicleId,
+          name: vehicle.name,
+          driverStay: vehicle.driverStay,
+          target: { kind: "incident" as const, operationId: operation.id, vehicleId: vehicle.vehicleId },
+        })),
+        ...(auftrag && route ? route.vehicles.map((vehicle) => ({
+          vehicleId: vehicle.resourceId,
+          name: vehicle.name,
+          driverStay: vehicle.driverStay,
+          target: { kind: "route" as const, groupId: auftrag.id, assignmentId: vehicle.assignmentId },
+        })) : []),
+      ],
+      materials: [
+        ...operation.materials.map((id) => ({ id, name: materials.find((material) => material.id === id)?.name ?? null })),
+        ...(route?.materials ?? []).map((material) => ({ id: material.resourceId, name: material.name })),
+      ],
     }
-  }, [getGroupResources, groups])
+  }, [getGroupResources, groups, materials])
 
   /** The real dispatch path: the resource gate, then the Funkdurchsage dialog
    *  (which is also what RECORDS the Aufgebot on an Auftrag stop). */
@@ -287,19 +338,34 @@ export function useIncidentStatusWorkflow({
     }
   }, [gateFor, lacksReturningVehicle, operationById])
 
+  /** Into «Reko» without a Reko person: the picker opens at once, no question first
+   *  (owner pick 19.11.2026, #4 A). Backing out of it puts the card back. */
   const triggerRekoCheck = useCallback((operationId: string, previousStatus?: OperationStatus) => {
     const operation = operationById(operationId)
     if (operation && !operation.assignedReko) {
-      setGate({ kind: "rekoMissing", ...gateFor(operationId, previousStatus ?? null) })
+      setGate({ kind: "rekoAssignment", ...gateFor(operationId, previousStatus ?? null) })
     }
   }, [gateFor, operationById])
 
-  const triggerRekoFormCheck = useCallback((operationId: string, previousStatus?: OperationStatus) => {
+  /**
+   * Asked by EVERY way a card moves (drag, keys, ⌘K, the status menu) BEFORE it moves: true
+   * when the workflow takes the move over and makes it itself once answered – the caller then
+   * does nothing. One case today: into «Reko abgeschlossen» without a filed Reko report, which
+   * opens the Reko form (`rekoReport`); the card moves with «Reko abschliessen» /
+   * «Ohne Bericht abschliessen» (`finishRekoReport`).
+   *
+   * Why the move waits instead of opening after it like the other gates: the server files the
+   * operator's KP draft when the card reaches «Reko abgeschlossen», and on a card already there
+   * at the first answer to «Einsatz relevant?» (`api/reko._kp_draft_files_now`). A form opened
+   * after the move would file the report mid-typing, and Abbrechen could not leave it a draft.
+   */
+  const holdStatusMove = useCallback((operationId: string, targetStatus: OperationStatus) => {
+    if (targetStatus !== "reko_done") return false
     const operation = operationById(operationId)
-    if (operation && !operation.hasCompletedReko) {
-      setGate({ kind: "rekoFormMissing", ...gateFor(operationId, previousStatus ?? null) })
-    }
-  }, [gateFor, operationById])
+    if (!operation || operation.status === targetStatus || operation.hasCompletedReko) return false
+    setGate({ kind: "rekoReport", operationId, returnStatus: null, restoreAmWarten: false })
+    return true
+  }, [operationById])
 
   /**
    * The stop the squad drives to next once `operation` is closed — null when
@@ -389,11 +455,11 @@ export function useIncidentStatusWorkflow({
     const operation = operationById(operationId)
     if (!operation || operation.status === targetStatus) return
 
+    if (holdStatusMove(operationId, targetStatus)) return
     const previousStatus = operation.status
     changeStatusToTop(operationId, targetStatus)
     if (targetStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
     if (targetStatus === "reko") triggerRekoCheck(operationId, previousStatus)
-    if (targetStatus === "reko_done") triggerRekoFormCheck(operationId, previousStatus)
     if (targetStatus === "returning") {
       triggerReturningVehicleCheck(operationId, previousStatus)
       // A squad that finished a stop is a squad with nothing to do — and the
@@ -404,7 +470,7 @@ export function useIncidentStatusWorkflow({
       setNextStopAfterId(operationId)
     }
     if (targetStatus === "complete") promptMaterialDecision(operationId, previousStatus)
-  }, [changeStatusToTop, operationById, promptMaterialDecision, triggerDisponiertDialog, triggerRekoCheck, triggerRekoFormCheck, triggerReturningVehicleCheck])
+  }, [changeStatusToTop, holdStatusMove, operationById, promptMaterialDecision, triggerDisponiertDialog, triggerRekoCheck, triggerReturningVehicleCheck])
 
   /**
    * The stop the board is about to offer, or null when there is nothing to ask
@@ -647,7 +713,7 @@ export function useIncidentStatusWorkflow({
     triggerDisponiertDialog,
     triggerReturningVehicleCheck,
     triggerRekoCheck,
-    triggerRekoFormCheck,
+    holdStatusMove,
     promptMaterialDecision,
     getMissingResources,
     getResourceCoverage,
@@ -656,7 +722,7 @@ export function useIncidentStatusWorkflow({
     /** Abbrechen on a gate — see `cancelGate`. */
     cancelGate,
     /** Proceed past a gate («Trotzdem …», «Status korrigieren», a Reko
-     *  assigned) — the move stands. */
+     *  assigned, «Ohne Reko-Person verschieben») — the move stands. */
     closeGate,
     disponiertOperation: operationById(disponiertOperationId),
     disponiertRepeat,
@@ -692,8 +758,6 @@ export function useIncidentStatusWorkflow({
       setNextStopAfterId(null)
       requestStatusChange(stopId, "active")
     },
-    rekoMissingOperation: gateOperation("rekoMissing"),
-    rekoFormMissingOperation: gateOperation("rekoFormMissing"),
     /** The «Status korrigieren?» confirm, or null. Carries the operation so the
      *  dialog can name it, and the column it came from so it can be undone. */
     statusCorrectionPrompt: gate?.kind === "statusCorrection"
@@ -746,12 +810,14 @@ export function useIncidentStatusWorkflow({
     },
     resolveMaterialDecision,
     rekoAssignmentOperation: gateOperation("rekoAssignment"),
-    /** «Reko zuweisen» in the Reko gate: open the picker in its place. The
-     *  picker inherits the gate's undo — choosing to pick is not yet a decision
-     *  to proceed, and backing out of the picker has to land where backing out
-     *  of the gate would have. */
-    openRekoAssignment: () => {
-      if (gate?.kind === "rekoMissing") setGate({ ...gate, kind: "rekoAssignment" })
+    /** The card whose move into «Reko abgeschlossen» waits for the Reko form (`holdStatusMove`). */
+    rekoReportOperation: gateOperation("rekoReport"),
+    /** «Reko abschliessen» / «Ohne Bericht abschliessen»: make the held move. The server files
+     *  the KP draft on it (`crud.reko.submit_kp_reko_drafts`). */
+    finishRekoReport: () => {
+      if (gate?.kind !== "rekoReport") return
+      setGate(null)
+      changeStatusToTop(gate.operationId, "reko_done")
     },
     materials,
   }
@@ -767,9 +833,15 @@ interface IncidentStatusWorkflowDialogsProps {
   onOpenAssignment: (resourceType: ResourceType, operationId: string) => void
   /** «Zu Fuss» in the dispatch gate: flip the card's own `zuFuss` flag. */
   onToggleZuFuss: (operation: Operation) => void
-  onOpenDetail: (operationId: string, tab?: OperationDetailTab, section?: OperationDetailSection) => void
+  /** No gate opens the detail since the Reko form opens in its own dialog (#4, 19.11.2026);
+   *  kept while the pages still pass it (the map's detail modal hangs off it). */
+  onOpenDetail?: (operationId: string, tab?: OperationDetailTab, section?: OperationDetailSection) => void
   onSendDivera: (operation: Operation) => void
   onRefresh: () => void | Promise<void>
+  /** Who drives which vehicle – named in the dispatch gate's vehicle chips. */
+  vehicleDrivers?: VehicleDrivers
+  /** «bleibt vor Ort | kehrt zurück» in the dispatch gate; without it the rows show no toggle. */
+  onSetDriverStay?: (target: DriverStayTarget, driverStay: boolean) => void
 }
 
 export function IncidentStatusWorkflowDialogs({
@@ -779,15 +851,15 @@ export function IncidentStatusWorkflowDialogs({
   diveraEnabled,
   onOpenAssignment,
   onToggleZuFuss,
-  onOpenDetail,
   onSendDivera,
   onRefresh,
+  vehicleDrivers,
+  onSetDriverStay,
 }: IncidentStatusWorkflowDialogsProps) {
   const tCommon = useTranslations("kanban.common")
   const tDash = useTranslations("kanban.dashboard")
   const tReturning = useTranslations("kanban.returningVehicle")
-  const tReko = useTranslations("kanban.rekoMissing")
-  const tRekoForm = useTranslations("kanban.rekoFormMissing")
+  const tRekoGate = useTranslations("kanban.rekoGate")
   const tMat = useTranslations("kanban.materialDecision")
   const tNext = useTranslations("kanban.nextStop")
   const tCompletion = useTranslations("kanban.completion")
@@ -874,6 +946,8 @@ export function IncidentStatusWorkflowDialogs({
         controller={controller}
         onOpenAssignment={openAssignment}
         onToggleZuFuss={onToggleZuFuss}
+        vehicleDrivers={vehicleDrivers}
+        onSetDriverStay={onSetDriverStay}
       />
 
       <ConfirmDialog
@@ -914,49 +988,6 @@ export function IncidentStatusWorkflowDialogs({
         onConfirm={() => {
           const next = controller.nextStopPrompt?.next
           if (next) controller.startNextStop(next.id)
-        }}
-      />
-
-      {/* «Nicht verschieben», not «Abbrechen»: the card goes back where it came from
-          (Esc too), and the text says the move has NOT happened yet. */}
-      <ConfirmDialog
-        open={!!controller.rekoMissingOperation}
-        onCancel={() => controller.cancelGate("rekoMissing")}
-        icon={<Binoculars className="h-5 w-5 text-muted-foreground" />}
-        title={tCommon("noRekoAssigned")}
-        description={controller.rekoMissingOperation && tReko.rich("description", {
-          location: operationLabel(controller.rekoMissingOperation),
-          hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-        })}
-        extraAction={{ label: tReko("proceedAnyway"), onSelect: () => controller.closeGate("rekoMissing") }}
-        cancelText={tReko("dontMove")}
-        confirmText={tReko("assignReko")}
-        onConfirm={controller.openRekoAssignment}
-      />
-
-      <ConfirmDialog
-        open={!!controller.rekoFormMissingOperation}
-        onCancel={() => controller.cancelGate("rekoFormMissing")}
-        icon={<ClipboardCheck className="h-5 w-5 text-muted-foreground" />}
-        title={tRekoForm("title")}
-        description={controller.rekoFormMissingOperation && tRekoForm.rich("description", {
-          location: operationLabel(controller.rekoFormMissingOperation),
-          hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-        })}
-        extraAction={{ label: tRekoForm("proceedAnyway"), onSelect: () => controller.closeGate("rekoFormMissing") }}
-        cancelText={tCommon("cancel")}
-        confirmText={tRekoForm("openReko")}
-        onConfirm={() => {
-          const operation = controller.rekoFormMissingOperation
-          // closeGate also drops the revert status — opening
-          // the Reko details is a "proceed", not a cancel.
-          controller.closeGate("rekoFormMissing")
-          // …on the REKO tab, with the entry form already open. The
-          // dialog's whole subject is that no Reko report was filled in,
-          // and it used to land the operator on Übersicht — the one tab
-          // that says nothing about it — with the «erstellen» button two
-          // clicks away.
-          if (operation) onOpenDetail(operation.id, 'reko', 'newReport')
         }}
       />
 
@@ -1190,16 +1221,37 @@ export function IncidentStatusWorkflowDialogs({
         }}
       />
 
+      {/* Into «Reko» without a Reko person: the picker IS the gate (#4 A). Abbrechen, Esc
+          and ✕ put the card back; «Zuweisen» assigns and the move stays; the quiet dashed
+          row moves it without anybody. */}
       {controller.rekoAssignmentOperation && (
         <AssignRekoDialog
           open
           onOpenChange={(open) => !open && controller.cancelGate("rekoAssignment")}
           incidentId={controller.rekoAssignmentOperation.id}
           incidentTitle={operationLabel(controller.rekoAssignmentOperation)}
+          gate={{
+            title: tRekoGate("pickerTitle", { location: operationLabel(controller.rekoAssignmentOperation) }),
+            description: tRekoGate("pickerLine"),
+            confirmLabel: tCommon("assign"),
+            withoutLabel: tRekoGate("moveWithout"),
+            onWithout: () => controller.closeGate("rekoAssignment"),
+          }}
           onAssigned={() => {
             void onRefresh()
             controller.closeGate("rekoAssignment")
           }}
+        />
+      )}
+
+      {/* Into «Reko abgeschlossen» without a report: the Reko form, and the card waits for
+          it (`holdStatusMove`) – so Abbrechen has nothing to undo and the draft stays a draft. */}
+      {controller.rekoReportOperation && (
+        <RekoReportGateDialog
+          operation={controller.rekoReportOperation}
+          location={operationLabel(controller.rekoReportOperation)}
+          onCancel={() => controller.cancelGate("rekoReport")}
+          onFinish={controller.finishRekoReport}
         />
       )}
     </>
@@ -1223,6 +1275,11 @@ export function IncidentStatusWorkflowDialogs({
  * `getMissingResources` already honours — so it answers the gap and the button
  * goes back to a plain «Disponieren».
  *
+ * NAMES, NOT COUNTS (owner pick 19.11.2026, #8/9 A): each row lists what is already there as
+ * name chips – the Mannschaft EL first with its «EL» mark, each vehicle as «TLF · Fahrer» with
+ * its own «bleibt vor Ort | kehrt zurück» (an Auftrag's vehicles too), the Geräte by name.
+ * «Hinzufügen» per row opens the assignment; a row with nothing keeps «Zuweisen».
+ *
  * The armed state belongs to one opening of the gate and one set of gaps: it is
  * dropped when the gate closes (also for an assignment round-trip) and whenever
  * what is missing changes, so a press can never confirm a question it did not see.
@@ -1231,10 +1288,14 @@ function DispatchGateDialog({
   controller,
   onOpenAssignment,
   onToggleZuFuss,
+  vehicleDrivers,
+  onSetDriverStay,
 }: {
   controller: IncidentStatusWorkflowController
   onOpenAssignment: (resourceType: ResourceType, operationId: string) => void
   onToggleZuFuss: (operation: Operation) => void
+  vehicleDrivers?: VehicleDrivers
+  onSetDriverStay?: (target: DriverStayTarget, driverStay: boolean) => void
 }) {
   const tCommon = useTranslations("kanban.common")
   const tRes = useTranslations("kanban.resources")
@@ -1312,24 +1373,86 @@ function DispatchGateDialog({
       >
         {missingOperation && (() => {
           const coverage = controller.getResourceCoverage(missingOperation)
+          const chip = "max-w-full min-w-0 gap-1 font-normal"
           const rows = [
             {
               key: "crew" as const,
               icon: Users,
-              filled: !missing.includes("crew"),
-              summary: tMissing("personalSummary", { count: coverage.crewCount }),
+              count: coverage.crew.length,
+              names: coverage.crew.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {coverage.crew.map((member) => (
+                    <Badge key={member.personnelId} variant="secondary" className={chip}>
+                      <span className="min-w-0 truncate">
+                        <PersonName name={member.name} personnelId={member.personnelId} />
+                      </span>
+                      <LeaderBadge isLeader={member.isLeader} />
+                    </Badge>
+                  ))}
+                </div>
+              ),
             },
             {
               key: "vehicles" as const,
               icon: Truck,
-              filled: !missing.includes("vehicles"),
-              summary: missingOperation.zuFuss ? tCommon("zuFuss") : coverage.vehicleNames.join(", "),
+              count: coverage.vehicles.length,
+              names: missingOperation.zuFuss && coverage.vehicles.length === 0 ? null : coverage.vehicles.length > 0 && (
+                <div className="mt-1 space-y-1">
+                  {coverage.vehicles.map((vehicle) => {
+                    const driver = vehicleDrivers?.get(vehicle.vehicleId)
+                    const stay = vehicle.driverStay
+                    return (
+                      <div key={vehicle.vehicleId} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <Badge variant="secondary" className={chip}>
+                          <span className="min-w-0 truncate">
+                            <span className="font-semibold">{vehicle.name}</span>
+                            {driver && <> · <PersonName name={driver.name} personnelId={driver.personnelId} /></>}
+                          </span>
+                        </Badge>
+                        {/* Unsaid while the assign POST has not answered (`driverStay` absent). */}
+                        {onSetDriverStay && stay !== undefined && (
+                          <div role="group" aria-label={vehicle.name} className="ml-auto flex flex-shrink-0">
+                            <Button
+                              variant={stay ? "selected" : "outline"}
+                              size="xs"
+                              className="rounded-r-none"
+                              aria-pressed={stay}
+                              onClick={() => !stay && onSetDriverStay(vehicle.target, true)}
+                            >
+                              <MapPin className="h-3.5 w-3.5" />
+                              {tCommon("driverStaysFull")}
+                            </Button>
+                            <Button
+                              variant={stay ? "outline" : "selected"}
+                              size="xs"
+                              className="-ml-px rounded-l-none"
+                              aria-pressed={!stay}
+                              onClick={() => stay && onSetDriverStay(vehicle.target, false)}
+                            >
+                              <Undo2 className="h-3.5 w-3.5" />
+                              {tCommon("driverReturnsFull")}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ),
             },
             {
               key: "materials" as const,
               icon: Package,
-              filled: !missing.includes("materials"),
-              summary: tMissing("mittelSummary", { count: coverage.materialCount }),
+              count: coverage.materials.length,
+              names: coverage.materials.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {coverage.materials.map((material) => (
+                    <Badge key={material.id} variant="secondary" className={chip}>
+                      <span className="min-w-0 truncate">{material.name ?? tCommon("unknownResource")}</span>
+                    </Badge>
+                  ))}
+                </div>
+              ),
             },
           ]
           return (
@@ -1349,75 +1472,79 @@ function DispatchGateDialog({
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <div className="space-y-1.5 py-1">
-                {rows.map(({ key, icon: Icon, filled, summary }) => {
+                {rows.map(({ key, icon: Icon, count, names }) => {
+                  const filled = !missing.includes(key)
                   const asking = armed && blockingGaps.includes(key)
                   // No vehicle of its own or on the route: the row answers with
-                  // «Zuweisen | Zu Fuss» instead of being one big «Zuweisen».
-                  const footOption = key === "vehicles" && coverage.vehicleNames.length === 0
-                  const body = (
-                    <>
+                  // «Zuweisen | Zu Fuss» instead of a plain «Zuweisen».
+                  const footOption = key === "vehicles" && coverage.vehicles.length === 0
+                  const action = footOption ? (
+                    <div role="group" aria-label={tRes(key)} className="flex flex-shrink-0">
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        className="rounded-r-none"
+                        onClick={() => assign(key, missingOperation.id)}
+                      >
+                        {tCommon("assign")}
+                      </Button>
+                      <Button
+                        variant={missingOperation.zuFuss ? "selected" : "outline"}
+                        size="xs"
+                        className="-ml-px rounded-l-none"
+                        aria-pressed={missingOperation.zuFuss}
+                        onClick={() => onToggleZuFuss(missingOperation)}
+                      >
+                        <Footprints className="h-3.5 w-3.5" />
+                        {tCommon("zuFuss")}
+                      </Button>
+                    </div>
+                  ) : filled ? (
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      className="flex-shrink-0 text-muted-foreground"
+                      onClick={() => assign(key, missingOperation.id)}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      {tMissing("addMore")}
+                    </Button>
+                  ) : (
+                    <Button variant="secondary" size="xs" className="flex-shrink-0" onClick={() => assign(key, missingOperation.id)}>
+                      {tCommon("assign")}
+                    </Button>
+                  )
+                  return (
+                    <div
+                      key={key}
+                      role="group"
+                      aria-label={tRes(key)}
+                      data-gate-row={key}
+                      className={cn(
+                        "flex w-full items-start gap-3 rounded-md border px-3 py-2 transition-colors",
+                        asking && "border-warning/60 bg-warning/10",
+                      )}
+                    >
                       {filled
-                        ? <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-success" />
-                        : <AlertCircle className="h-4 w-4 flex-shrink-0 text-warning-foreground" />}
-                      <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                        ? <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-success" />
+                        : <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-warning-foreground" />}
+                      <Icon className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium">{tRes(key)}</div>
+                        <div className="flex items-start gap-2">
+                          <div className="min-w-0 flex-1 pt-px text-sm font-medium">
+                            {tRes(key)}
+                            {count > 0 && <span className="text-xs font-normal text-muted-foreground"> · {count}</span>}
+                            {key === "vehicles" && missingOperation.zuFuss && count === 0 && (
+                              <span className="text-xs font-normal text-muted-foreground"> · {tCommon("zuFuss")}</span>
+                            )}
+                          </div>
+                          {action}
+                        </div>
                         {asking
                           ? <div className="text-xs text-muted-foreground">{tMissing(key === "crew" ? "armedCrew" : "armedVehicles")}</div>
-                          : filled && summary && <div className="truncate text-xs text-muted-foreground" title={summary}>{summary}</div>}
+                          : names}
                       </div>
-                    </>
-                  )
-                  const rowClass = cn(
-                    "flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors",
-                    asking && "border-warning/60 bg-warning/10",
-                  )
-                  if (footOption) {
-                    return (
-                      <div key={key} data-gate-row={key} className={rowClass}>
-                        {body}
-                        <div role="group" aria-label={tRes(key)} className="flex flex-shrink-0">
-                          <Button
-                            variant="outline"
-                            size="xs"
-                            className="rounded-r-none"
-                            onClick={() => assign(key, missingOperation.id)}
-                          >
-                            {tCommon("assign")}
-                          </Button>
-                          <Button
-                            variant={missingOperation.zuFuss ? "selected" : "outline"}
-                            size="xs"
-                            className="-ml-px rounded-l-none"
-                            aria-pressed={missingOperation.zuFuss}
-                            onClick={() => onToggleZuFuss(missingOperation)}
-                          >
-                            <Footprints className="h-3.5 w-3.5" />
-                            {tCommon("zuFuss")}
-                          </Button>
-                        </div>
-                      </div>
-                    )
-                  }
-                  return (
-                    <button
-                      key={key}
-                      data-gate-row={key}
-                      onClick={() => assign(key, missingOperation.id)}
-                      className={cn(rowClass, "cursor-pointer hover:border-sel-edge hover:bg-secondary/40")}
-                    >
-                      {body}
-                      {filled ? (
-                        <span className="flex flex-shrink-0 items-center gap-1 text-xs text-muted-foreground">
-                          <Plus className="h-3.5 w-3.5" />
-                          {tMissing("addMore")}
-                        </span>
-                      ) : (
-                        <span className="flex-shrink-0 rounded-md bg-secondary px-2 py-1 text-xs font-medium">
-                          {tCommon("assign")}
-                        </span>
-                      )}
-                    </button>
+                    </div>
                   )
                 })}
               </div>

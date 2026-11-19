@@ -129,16 +129,31 @@ describe("shared incident detail status workflow", () => {
     expect(seeing.result.current.getMissingResources(stop)).toEqual([])
   })
 
-  it("names the Einsatz's and the Auftrag's vehicles in the resource coverage", () => {
+  it("names the Einsatz's and the Auftrag's resources in the coverage, EL first", () => {
     // The «Ressourcen fehlen» Fahrzeuge row once read «[object Object], TLF».
-    const stop = operation({ id: "incident-1", vehicles: [assignedVehicle("Pio")] })
+    const stop = operation({
+      id: "incident-1",
+      crew: [crewMember("Roth Til"), crewMember("Meier Andrea")],
+      leaderId: "p-Meier Andrea",
+      vehicles: [assignedVehicle("Pio", { driverStay: true })],
+    })
     const route: GroupResources = {
       ...emptyGroupResources,
-      vehicles: [{ assignmentId: "a2", resourceId: "v1", name: "TLF" }],
+      personnel: [{ assignmentId: "a1", resourceId: "p9", name: "Gerber Elias", isLeader: false }],
+      vehicles: [{ assignmentId: "a2", resourceId: "v1", name: "TLF", driverStay: false }],
     }
     const { result } = renderWorkflow(stop, route, [{ id: "g1", stopIds: ["incident-1"] }])
+    const coverage = result.current.getResourceCoverage(stop)
 
-    expect(result.current.getResourceCoverage(stop).vehicleNames).toEqual(["Pio", "TLF"])
+    expect(coverage.crew.map((member) => [member.name, member.isLeader])).toEqual([
+      ["Meier Andrea", true],
+      ["Roth Til", false],
+      ["Gerber Elias", false],
+    ])
+    expect(coverage.vehicles.map((vehicle) => [vehicle.name, vehicle.driverStay, vehicle.target])).toEqual([
+      ["Pio", true, { kind: "incident", operationId: "incident-1", vehicleId: "v-Pio" }],
+      ["TLF", false, { kind: "route", groupId: "g1", assignmentId: "a2" }],
+    ])
   })
 
   it("gates enroute requests on missing resources before opening Disponiert", () => {
@@ -167,11 +182,11 @@ describe("shared incident detail status workflow", () => {
   it("gates Reko, Reko completion, return, and incident completion requests", () => {
     const reko = renderWorkflow(operation())
     act(() => reko.result.current.requestStatusChange("incident-1", "reko"))
-    expect(reko.result.current.rekoMissingOperation?.id).toBe("incident-1")
+    expect(reko.result.current.rekoAssignmentOperation?.id).toBe("incident-1")
 
     const rekoDone = renderWorkflow(operation())
     act(() => rekoDone.result.current.requestStatusChange("incident-1", "reko_done"))
-    expect(rekoDone.result.current.rekoFormMissingOperation?.id).toBe("incident-1")
+    expect(rekoDone.result.current.rekoReportOperation?.id).toBe("incident-1")
 
     const returning = renderWorkflow(operation())
     act(() => returning.result.current.requestStatusChange("incident-1", "returning"))
@@ -246,18 +261,41 @@ describe("shared incident detail status workflow", () => {
     expect(result.current.returningVehicleOperation).toBeNull()
   })
 
-  it("reverts on cancel in the Reko gates", () => {
-    const reko = renderWorkflow(operation({ status: "enroute" }))
-    act(() => reko.result.current.requestStatusChange("incident-1", "reko"))
-    act(() => reko.result.current.cancelGate("rekoMissing"))
-    expect(reko.changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "enroute")
-    expect(reko.result.current.rekoMissingOperation).toBeNull()
+  it("Reko picker gate: cancel puts the card back, assigning or «ohne» keeps the move", () => {
+    const cancelled = renderWorkflow(operation({ status: "enroute" }))
+    act(() => cancelled.result.current.requestStatusChange("incident-1", "reko"))
+    expect(cancelled.changeStatusToTop).toHaveBeenCalledWith("incident-1", "reko")
+    act(() => cancelled.result.current.cancelGate("rekoAssignment"))
+    expect(cancelled.changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "enroute")
+    expect(cancelled.result.current.rekoAssignmentOperation).toBeNull()
 
-    const rekoForm = renderWorkflow(operation({ status: "reko" }))
-    act(() => rekoForm.result.current.requestStatusChange("incident-1", "reko_done"))
-    act(() => rekoForm.result.current.cancelGate("rekoFormMissing"))
-    expect(rekoForm.changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "reko")
-    expect(rekoForm.result.current.rekoFormMissingOperation).toBeNull()
+    // «Zuweisen» (onAssigned) and «Ohne Reko-Person verschieben» both close the gate as a proceed.
+    const kept = renderWorkflow(operation({ status: "enroute" }))
+    act(() => kept.result.current.requestStatusChange("incident-1", "reko"))
+    act(() => kept.result.current.closeGate("rekoAssignment"))
+    expect(kept.changeStatusToTop).toHaveBeenCalledTimes(1)
+    expect(kept.result.current.rekoAssignmentOperation).toBeNull()
+  })
+
+  it("Reko report gate holds the move until the form is finished", () => {
+    const cancelled = renderWorkflow(operation({ status: "reko" }))
+    act(() => cancelled.result.current.requestStatusChange("incident-1", "reko_done"))
+    expect(cancelled.result.current.rekoReportOperation?.id).toBe("incident-1")
+    // The card has not moved: the server would file the draft in «Reko abgeschlossen».
+    expect(cancelled.changeStatusToTop).not.toHaveBeenCalled()
+    act(() => cancelled.result.current.cancelGate("rekoReport"))
+    expect(cancelled.changeStatusToTop).not.toHaveBeenCalled()
+    expect(cancelled.result.current.rekoReportOperation).toBeNull()
+
+    const finished = renderWorkflow(operation({ status: "reko" }))
+    act(() => finished.result.current.requestStatusChange("incident-1", "reko_done"))
+    act(() => finished.result.current.finishRekoReport())
+    expect(finished.changeStatusToTop).toHaveBeenCalledWith("incident-1", "reko_done")
+    expect(finished.result.current.rekoReportOperation).toBeNull()
+
+    // With a filed report there is nothing to ask: the move happens at once.
+    const filed = renderWorkflow(operation({ status: "reko", hasCompletedReko: true }))
+    expect(filed.result.current.holdStatusMove("incident-1", "reko_done")).toBe(false)
   })
 
   it("reverts the status and discards local decisions when the material decision is cancelled", () => {
@@ -311,23 +349,6 @@ describe("shared incident detail status workflow", () => {
     act(() => result.current.cancelGate("returningVehicle"))
 
     expect(changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "reko_done", { amWarten: true })
-  })
-
-  it("hands the Reko gate's undo on to the Reko picker", () => {
-    const { result, changeStatusToTop } = renderWorkflow(operation({ status: "enroute" }))
-
-    act(() => result.current.requestStatusChange("incident-1", "reko"))
-    act(() => result.current.openRekoAssignment())
-    expect(result.current.rekoMissingOperation).toBeNull()
-    expect(result.current.rekoAssignmentOperation?.id).toBe("incident-1")
-
-    // A late close of the gate's own dialog must not cancel the picker.
-    act(() => result.current.cancelGate("rekoMissing"))
-    expect(result.current.rekoAssignmentOperation?.id).toBe("incident-1")
-
-    act(() => result.current.cancelGate("rekoAssignment"))
-    expect(changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "enroute")
-    expect(result.current.rekoAssignmentOperation).toBeNull()
   })
 
   it("returns to the missing-resource gate after its assignment dialog closes", () => {

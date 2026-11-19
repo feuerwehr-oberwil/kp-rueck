@@ -1882,8 +1882,6 @@
       "checklistIntro": "<hl>{location}</hl> va être engagée. Attribue ce qui manque – ou engage sans.",
       "readyIntro": "<hl>{location}</hl> est complètement équipée – prête à être engagée.",
       "addMore": "Ajouter",
-      "personalSummary": "{count, plural, one {# personne} other {# personnes}}",
-      "mittelSummary": "{count, plural, one {# pièce de matériel} other {# pièces de matériel}}",
       "done": "Engager",
       "back": "Retour",
       "dispatchWithoutCrew": "Engager sans effectif",
@@ -1904,11 +1902,17 @@
       "description": "<hl>{finished}</hl> est terminé et plus personne ne travaille sur la mission « {auftrag} ». Prochaine étape ouverte : <hl>{next}</hl>.",
       "confirm": "Prochaine étape en intervention"
     },
-    "rekoMissing": {
-      "description": "<hl>{location}</hl> doit passer dans la colonne Reconnaissance, mais aucune personne de reconnaissance n’est encore attribuée. Sans attribution, personne ne reçoit le formulaire de reconnaissance. Veux-tu attribuer quelqu’un maintenant ou continuer quand même ?",
-      "proceedAnyway": "Continuer quand même",
-      "dontMove": "Ne pas déplacer",
-      "assignReko": "Attribuer une personne de reconnaissance"
+    "rekoGate": {
+      "pickerTitle": "Personne de reconnaissance pour {location}",
+      "pickerLine": "La carte passe en « Reconnaissance » avec l’attribution.",
+      "moveWithout": "Déplacer sans personne de reconnaissance",
+      "reportTitle": "Rapport de reconnaissance · {location}",
+      "reportLine": "Reconnaissance : <hl>{name}</hl> · rien de transmis pour l’instant. Chaque champ est enregistré aussitôt.",
+      "reportLineNoPerson": "Aucune personne de reconnaissance attribuée. Chaque champ est enregistré aussitôt.",
+      "finish": "Terminer la reconnaissance",
+      "finishWithout": "Terminer sans rapport",
+      "loadError": "Le rapport de reconnaissance n’a pas pu être chargé.",
+      "retry": "Réessayer"
     },
     "driverPrompt": {
       "driverlessTitle": "Véhicule sans conducteur ?",
@@ -2215,12 +2219,6 @@
       "refreshing": "Actualisation …",
       "refreshed": "Actualisé",
       "refreshFailed": "Échec de l’actualisation"
-    },
-    "rekoFormMissing": {
-      "title": "Formulaire de reconnaissance non rempli",
-      "description": "<hl>{location}</hl> va être marquée « Reconnaissance terminée », mais aucun formulaire de reconnaissance n’a encore été rempli. Veux-tu ouvrir les détails de la reconnaissance ou terminer quand même ?",
-      "proceedAnyway": "Terminer quand même",
-      "openReko": "Ouvrir les détails de la reconnaissance"
     },
     "auftraege": {
       "title": "Missions",

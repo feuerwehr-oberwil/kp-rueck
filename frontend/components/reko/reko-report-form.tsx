@@ -97,6 +97,23 @@ export function toRekoFormData(report: Partial<ApiRekoReportResponse> | null | u
   }
 }
 
+/** Whether a form holds any answer – an untouched one is not a draft. */
+export function hasRekoContent(form: RekoFormData): boolean {
+  const { dangers_json: dangers, effort_json: effort } = form
+  return (
+    form.is_relevant !== null ||
+    !!form.summary_text.trim() ||
+    !!form.additional_notes.trim() ||
+    form.photos_json.length > 0 ||
+    (['fire', 'fire_danger', 'explosion', 'collapse', 'chemical', 'electrical'] as const).some(key => dangers[key]) ||
+    !!dangers.other_notes?.trim() ||
+    effort.personnel_count !== null ||
+    effort.estimated_duration_hours !== null ||
+    effort.vehicles_needed.length > 0 ||
+    effort.equipment_needed.length > 0
+  )
+}
+
 interface RekoReportFormProps {
   incidentId: string
   value: RekoFormData

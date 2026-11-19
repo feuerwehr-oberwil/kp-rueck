@@ -23,7 +23,8 @@ export const REKO_SAVE_DELAY_MS = 600
  * `schedule(data)` after every change; one request at a time, the newest form always last,
  * so the server sees the edits in order. «Synchronisiert» only once the save carrying the
  * NEWEST form answered. A failure waits for `retry()` or the next edit – no automatic resend
- * (`lib/field-save`). `flush()` sends a waiting save now (closing the form).
+ * (`lib/field-save`). `flush()` sends a waiting save now and resolves once the newest form is
+ * on the server (true) or a save failed (false) – the Reko gate moves the card only after it.
  */
 export function useRekoAutosave(incidentId: string) {
   const [state, setState] = useState<SyncState>({ status: 'idle' })
@@ -31,46 +32,61 @@ export function useRekoAutosave(incidentId: string) {
   const latest = useRef<RekoFormData | null>(null)
   const version = useRef(0)
   const inFlight = useRef(false)
+  const failed = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // The save on the wire. It resolves only once the NEWEST form is saved (it sends again
+  // itself when an edit came in meanwhile), so awaiting it is awaiting «Synchronisiert».
+  const running = useRef<Promise<boolean>>(Promise.resolve(true))
 
-  const send = useCallback(async (): Promise<void> => {
+  const send = useCallback((): Promise<boolean> => {
     if (timer.current) {
       clearTimeout(timer.current)
       timer.current = null
     }
+    if (inFlight.current) return running.current
     const data = latest.current
-    if (inFlight.current || !data) return
+    if (!data) return Promise.resolve(true)
     const sent = version.current
     inFlight.current = true
     setState({ status: 'saving' })
-    try {
-      // The report's own fields; no token, the session is the identity. Photos travel
-      // too: an upload attached them server-side, and the list keeps a removal removed.
-      const payload = {
-        is_relevant: data.is_relevant,
-        dangers_json: data.dangers_json,
-        effort_json: data.effort_json,
-        power_supply: data.power_supply,
-        photos_json: data.photos_json,
-        summary_text: data.summary_text,
-        additional_notes: data.additional_notes,
+    running.current = (async () => {
+      try {
+        // The report's own fields; no token, the session is the identity. Photos travel
+        // too: an upload attached them server-side, and the list keeps a removal removed.
+        const payload = {
+          is_relevant: data.is_relevant,
+          dangers_json: data.dangers_json,
+          effort_json: data.effort_json,
+          power_supply: data.power_supply,
+          photos_json: data.photos_json,
+          summary_text: data.summary_text,
+          additional_notes: data.additional_notes,
+        }
+        const report = target.current
+          ? await apiClient.updateRekoReport(target.current, payload)
+          : await apiClient.createRekoReportAsEditor(incidentId, payload, false)
+        target.current = report.id
+        inFlight.current = false
+        failed.current = false
+        if (version.current === sent) {
+          setState({ status: 'saved', savedAt: new Date() })
+          return true
+        }
+        return await send()
+      } catch (error) {
+        inFlight.current = false
+        failed.current = true
+        setState({ status: 'failed', reason: classifySaveFailure(error) })
+        return false
       }
-      const report = target.current
-        ? await apiClient.updateRekoReport(target.current, payload)
-        : await apiClient.createRekoReportAsEditor(incidentId, payload, false)
-      target.current = report.id
-      inFlight.current = false
-      if (version.current === sent) setState({ status: 'saved', savedAt: new Date() })
-      else await send()
-    } catch (error) {
-      inFlight.current = false
-      setState({ status: 'failed', reason: classifySaveFailure(error) })
-    }
+    })()
+    return running.current
   }, [incidentId])
 
   const start = useCallback((reportId: string | null) => {
     target.current = reportId
     latest.current = null
+    failed.current = false
     setState({ status: 'idle' })
   }, [])
 
@@ -82,8 +98,9 @@ export function useRekoAutosave(incidentId: string) {
     timer.current = setTimeout(() => void send(), REKO_SAVE_DELAY_MS)
   }, [send])
 
-  const flush = useCallback(() => {
-    if (timer.current) void send()
+  const flush = useCallback((): Promise<boolean> => {
+    if (timer.current || inFlight.current) return send()
+    return Promise.resolve(!failed.current)
   }, [send])
 
   // A form unmounted with a save still waiting sends it rather than dropping it.

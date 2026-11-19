@@ -60,6 +60,8 @@ export interface UseBoardDispatchInput {
   boardAssignMaterial: (materialId: string, operationId: string) => void
   boardAssignGroupResource: (groupId: string, resourceType: GroupResourceType, resourceId: string) => void
   afterStatusMove: (operationId: string, newStatus: OperationStatus, previousStatus: OperationStatus) => void
+  /** Asked before ⌘K moves a card – see `holdStatusMove` in incident-status-workflow. */
+  holdStatusMove: (operationId: string, targetStatus: OperationStatus) => boolean
   collectPersonBindings: (person: Person) => ResourceBinding[]
   collectMaterialBindings: (material: Material) => ResourceBinding[]
   followBinding: (binding: ResourceBinding) => void
@@ -110,6 +112,7 @@ export function useBoardDispatch(input: UseBoardDispatchInput) {
     boardAssignMaterial,
     boardAssignGroupResource,
     afterStatusMove,
+    holdStatusMove,
     collectPersonBindings,
     collectMaterialBindings,
     followBinding,
@@ -208,8 +211,10 @@ export function useBoardDispatch(input: UseBoardDispatchInput) {
     assign: assignFromPalette,
     setPriority: (operationId, priority) => updateOperation(operationId, { priority }),
     moveStatus: (operationId, status, previous) => {
+      if (holdStatusMove(operationId, status)) return false
       updateOperation(operationId, { status })
       afterStatusMove(operationId, status, previous)
+      return true
     },
     revertPriority: (operationId, priority) => updateOperation(operationId, { priority }),
     revertStatus: (operationId, status) => updateOperation(operationId, { status }),

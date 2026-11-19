@@ -41,7 +41,8 @@ export interface UseBoardCardActionsInput {
   vehicleTypes: { key: string; name: string; id: string; type: string; status: string; }[]
   deleteOperation: (operationId: string) => Promise<void>
   toggleDriverStay: (operationId: string, vehicleId: string) => void
-  triggerRekoFormCheck: (operationId: string, previousStatus?: OperationStatus) => void
+  /** Asked before a key moves a card – see `holdStatusMove` in incident-status-workflow. */
+  holdStatusMove: (operationId: string, targetStatus: OperationStatus) => boolean
   triggerRekoCheck: (operationId: string, previousStatus?: OperationStatus) => void
   promptMaterialDecision: (operationId: string, previousStatus?: OperationStatus) => void
   triggerReturningVehicleCheck: (operationId: string, previousStatus?: OperationStatus) => void
@@ -73,7 +74,7 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
     vehicleTypes,
     deleteOperation,
     toggleDriverStay,
-    triggerRekoFormCheck,
+    holdStatusMove,
     triggerRekoCheck,
     promptMaterialDecision,
     triggerReturningVehicleCheck,
@@ -179,15 +180,15 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
       const nextColumn = columns[currentColumnIndex + 1]
       const newStatus = nextColumn.status[0] as OperationStatus
       const previousStatus = operation.status
+      if (holdStatusMove(operationId, newStatus)) return
       updateOperation(operationId, { status: newStatus })
       notifyStatusMove(operation, newStatus)
       if (newStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
       if (newStatus === "reko") triggerRekoCheck(operationId, previousStatus)
-      if (newStatus === "reko_done") triggerRekoFormCheck(operationId, previousStatus)
       if (newStatus === "returning") triggerReturningVehicleCheck(operationId, previousStatus)
       if (newStatus === "complete") promptMaterialDecision(operationId, previousStatus)
     }
-  }, [operations, updateOperation, notifyStatusMove, triggerDisponiertDialog, triggerRekoCheck, triggerRekoFormCheck, triggerReturningVehicleCheck, promptMaterialDecision])
+  }, [operations, updateOperation, notifyStatusMove, holdStatusMove, triggerDisponiertDialog, triggerRekoCheck, triggerReturningVehicleCheck, promptMaterialDecision])
 
   const moveOperationLeft = useCallback((operationId: string) => {
     const operation = operations.find(op => op.id === operationId)

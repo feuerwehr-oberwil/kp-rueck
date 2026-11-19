@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { FormMessage } from "@/components/ui/form-message"
 import { useIsMobile } from "@/components/ui/use-mobile"
-import { Binoculars, ArrowLeft, MapPin } from "lucide-react"
+import { Binoculars, ArrowLeft, ArrowRight, MapPin } from "lucide-react"
 import { PersonPickTile } from "@/components/kanban/assignment-list-section"
 import { einsatzWhere, usePersonTileFacts } from "@/components/kanban/person-tile-facts"
 import { apiClient, type ApiAvailableRekoPersonnel } from "@/lib/api-client"
@@ -138,6 +138,19 @@ interface AssignRekoDialogProps {
    * the card jumped back to «Eingegangen» right after a successful assignment.
    */
   onAssigned?: () => void
+  /**
+   * The status gate's frame (#4 A, 19.11.2026): the card was moved into «Reko» without a Reko
+   * person and the picker opens in place of a question. Its own title and line, a quiet dashed
+   * «Ohne Reko-Person verschieben» row at the top (`onWithout` – the caller closes), and the main
+   * answer named `confirmLabel`. Closing (Abbrechen, Esc, ✕) stays `onOpenChange(false)`.
+   */
+  gate?: {
+    title: string
+    description: string
+    confirmLabel: string
+    withoutLabel: string
+    onWithout: () => void
+  }
 }
 
 /**
@@ -154,6 +167,7 @@ export function AssignRekoDialog({
   incidentId,
   incidentTitle,
   onAssigned,
+  gate,
 }: AssignRekoDialogProps) {
   const t = useTranslations('incidents.assignReko')
   const tCommon = useTranslations('incidents.common')
@@ -294,6 +308,19 @@ export function AssignRekoDialog({
     setPickMessage(null)
   }
 
+  // The gate's way on without anybody – quiet, at the top, never the main answer.
+  const withoutRow = gate && !markMode && (
+    <button
+      type="button"
+      onClick={gate.onWithout}
+      className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border/70 px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-sel-edge hover:text-foreground"
+    >
+      <Binoculars className="h-4 w-4" />
+      <span className="min-w-0 flex-1 text-left">{gate.withoutLabel}</span>
+      <ArrowRight className="h-4 w-4" />
+    </button>
+  )
+
   const toolbar = markMode ? (
     <>
       <Button variant="ghost" size="sm" className="-ml-2 self-start" onClick={() => switchMode(false)}>
@@ -308,10 +335,11 @@ export function AssignRekoDialog({
     // list is never empty, so the only way to put a second one on the board was to close
     // this dialog and right-click somebody in the sidebar.
     <>
+      {withoutRow}
       <MarkRekoRow onClick={() => switchMode(true)} />
       <FormMessage id={REKO_PICK_MESSAGE_ID}>{pickMessage}</FormMessage>
     </>
-  ) : undefined
+  ) : withoutRow || undefined
 
   const renderTile = (person: ApiAvailableRekoPersonnel) => {
     const isCurrent = person.personnel_id === currentlyAssignedId
@@ -370,8 +398,8 @@ export function AssignRekoDialog({
     <PickerDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={markMode ? t('markExisting') : t('title')}
-      description={t('incidentLabel', { title: incidentTitle })}
+      title={markMode ? t('markExisting') : gate?.title ?? t('title')}
+      description={gate?.description ?? t('incidentLabel', { title: incidentTitle })}
       radioGroupLabel={markMode ? t('markExisting') : t('title')}
       toolbar={toolbar}
       footer={
@@ -381,7 +409,7 @@ export function AssignRekoDialog({
           </Button>
           <Button onClick={() => void applyChoice()} disabled={busy}>
             {busy && <ShellLoader className="size-4" />}
-            {tPick('apply')}
+            {gate?.confirmLabel ?? tPick('apply')}
           </Button>
         </>
       }
