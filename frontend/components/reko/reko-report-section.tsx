@@ -210,15 +210,30 @@ export default function RekoReportSection({
   /** The form as it was opened – not an edit, so not saved. */
   const openedForm = useRef<RekoFormData | null>(null)
 
-  /** Open the form: amending starts from what is already there, a new report from the
-   *  operator's own draft when there is one – or from this mount's own newer edits, which
-   *  the list may not show yet (`useRekoAutosave.resume`). */
-  function startEditing() {
-    const source = latestReport ?? ownDraft ?? null
+  /** Whether the open form is the operator's own draft (not yet filed) rather than an
+   *  amendment of a filed report – its title and hint say which. */
+  const [editingDraft, setEditingDraft] = useState(false)
+
+  /** Open the form on `source` – or on this mount's own newer edits, which the list may not
+   *  show yet (`useRekoAutosave.resume`). */
+  function openForm(source: ApiRekoReportResponse | null) {
     const opened = autosave.resume(source)
     openedForm.current = opened
+    setEditingDraft(!source || source.is_draft)
     setFormData(opened)
     setIsEditing(true)
+  }
+
+  /** Amending starts from what is already there, a new report from the operator's own draft
+   *  when there is one. */
+  function startEditing() {
+    openForm(latestReport ?? ownDraft ?? null)
+  }
+
+  /** The operator's own draft beside a filed report – a crew filed meanwhile (Sol pass 3,
+   *  S16). Without this the draft could no longer be reached: «ergänzen» opens the filed one. */
+  function continueOwnDraft() {
+    openForm(draftWithContent)
   }
 
   // Every change saves (debounced). `formData` changes only through the form while
@@ -320,6 +335,24 @@ export default function RekoReportSection({
               </Fragment>
             )
           })}
+
+          {/* The operator's own draft beside a report the crew filed meanwhile – the way
+              back into it, and what will file it (the same rule the form's hint says). */}
+          {canEdit && draftWithContent && !isEditing && (
+            <DetailField
+              label={t('ownDraftLabel')}
+              action={
+                <button type="button" className={ROW_ACTION} onClick={continueOwnDraft}>
+                  {t('continueShort')}
+                </button>
+              }
+            >
+              <div className="min-w-0 text-sm">
+                <span className="italic text-muted-foreground/60">{t('draftShort')}</span>
+                <p className="text-xs text-muted-foreground">{t('draftHint')}</p>
+              </div>
+            </DetailField>
+          )}
         </>
       ) : (
         // The empty state is the row that would carry the report, saying it has
@@ -402,7 +435,7 @@ export default function RekoReportSection({
             <div className={cn("flex items-center gap-2", dense && "pb-1.5")}>
               <h3 className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                 <Binoculars className="h-3.5 w-3.5 shrink-0" />
-                {latestReport ? t('amendTitle') : t('createTitle')}
+                {editingDraft ? t('createTitle') : t('amendTitle')}
               </h3>
               <Button
                 type="button"
@@ -418,7 +451,7 @@ export default function RekoReportSection({
             {/* Says out loud which channel this is, so nothing about the
                 resulting report reads as a crew report – and when it counts. */}
             <p className="text-xs text-muted-foreground">
-              {t('radioHint')} {latestReport ? t('amendHint') : t('draftHint')}
+              {t('radioHint')} {editingDraft ? t('draftHint') : t('amendHint')}
             </p>
             <RekoReportForm
               incidentId={incidentId}

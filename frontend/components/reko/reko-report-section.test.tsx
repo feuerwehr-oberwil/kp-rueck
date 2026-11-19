@@ -252,6 +252,24 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     expect(createRekoReportAsEditor).toHaveBeenLastCalledWith('i-move', { additional_notes: 'Keller 20 cm' }, false, 'reko')
   })
 
+  it("offers the operator's own draft beside a report the crew filed meanwhile (pass 3, S16)", async () => {
+    getIncidentRekoReports.mockResolvedValue([
+      report({ id: 'r-crew', summary_text: 'Wasser im Keller', submitted_by_personnel_id: 'p-1' }),
+      report({ id: 'r-own', is_draft: true, created_by_user_id: 'u-1', summary_text: 'Zufahrt über Hof' }),
+    ])
+    const user = userEvent.setup()
+    renderWithIntl(<RekoReportSection incidentId="i-crew" canEdit dense />)
+
+    expect(await screen.findByText('Eigener Entwurf')).toBeInTheDocument()
+    expect(screen.getByText(/sobald «Einsatz relevant\?» beantwortet ist/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'weiter erfassen' }))
+
+    expect(screen.getByDisplayValue('Zufahrt über Hof')).toBeInTheDocument()
+    expect(screen.getByText('Reko-Bericht erfassen')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Nein' }))
+    await waitFor(() => expect(updateRekoReport).toHaveBeenLastCalledWith('r-own', { is_relevant: false }, { seenStatus: undefined }))
+  })
+
   it('counts a draft whose only answer is the power supply as a draft', async () => {
     getIncidentRekoReports.mockResolvedValue([
       report({ id: 'r-draft', is_draft: true, created_by_user_id: 'u-1', is_relevant: null, power_supply: 'unavailable' }),

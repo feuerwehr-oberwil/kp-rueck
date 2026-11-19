@@ -3436,6 +3436,7 @@
       "createShort": "saisir",
       "draftShort": "Brouillon – pas encore transmis",
       "continueShort": "continuer la saisie",
+      "ownDraftLabel": "Mon brouillon",
       "expand": "ouvrir",
       "collapse": "fermer"
     },

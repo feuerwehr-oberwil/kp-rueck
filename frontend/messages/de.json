@@ -2906,6 +2906,7 @@
       "createShort": "erfassen",
       "draftShort": "Entwurf – noch nicht eingereicht",
       "continueShort": "weiter erfassen",
+      "ownDraftLabel": "Eigener Entwurf",
       "expand": "öffnen",
       "collapse": "schliessen"
     },
