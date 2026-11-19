@@ -31,6 +31,7 @@ from ..services.incident_dispatch import dispatched_incident_ids, is_dispatched
 from ..services.incident_leader import effective_leader_id
 from . import events as events_crud
 from . import feld as feld_crud
+from . import reko as reko_crud
 from .active_resources import active_deployments
 from .locking import lock_incident_with_group, lock_resources
 
@@ -742,6 +743,17 @@ async def _undo_completion_release(
     await db.flush()
 
 
+async def _submit_kp_reko_on_done(db: AsyncSession, incident: Incident, old_status: str) -> None:
+    """A move into «Reko abgeschlossen» or past it files the board's Reko draft.
+
+    Both status paths (``update_incident``, ``update_incident_status``) end here, so a
+    drag, a status menu and a form save submit the same way. After the audit row: a
+    priority bump from the report is the report's, not the operator's edit.
+    """
+    if incident.status in reko_crud.REKO_DONE_STATUSES and old_status not in reko_crud.REKO_DONE_STATUSES:
+        await reko_crud.submit_kp_reko_drafts(db, incident)
+
+
 async def update_incident(
     db: AsyncSession,
     incident_id: uuid.UUID,
@@ -916,6 +928,8 @@ async def update_incident(
             request=request,
         )
 
+    await _submit_kp_reko_on_done(db, incident, old_status)
+
     # Update event activity timestamp
     await events_crud.update_event_activity(db, incident.event_id)
 
@@ -1053,6 +1067,8 @@ async def update_incident_status(
         },
         request=request,
     )
+
+    await _submit_kp_reko_on_done(db, incident, old_status)
 
     # Update event activity timestamp
     await events_crud.update_event_activity(db, incident.event_id)

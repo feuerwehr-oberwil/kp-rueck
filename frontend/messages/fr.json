@@ -3364,8 +3364,6 @@
           "Mise en danger importante sur place. Effectif important nécessaire."
         ]
       },
-      "submitKp": "Enregistrer le rapport de reconnaissance",
-      "submittingKp": "Enregistrement …",
       "syncedAt": "Arrivé au PC – {time}",
       "syncedHint": "Tout ce qui est nouveau part automatiquement au PC.",
       "unsentTitle": "Le PC ne voit pas encore cela",
@@ -3414,10 +3412,10 @@
       "createTitle": "Saisir le rapport de reconnaissance",
       "amend": "Compléter le rapport de reconnaissance",
       "amendTitle": "Compléter le rapport de reconnaissance",
-      "cancel": "Annuler",
+      "close": "Fermer",
       "radioHint": "Saisis ici ce que le groupe annonce par radio. Sera noté comme saisie du PC.",
-      "saved": "Rapport de reconnaissance enregistré",
-      "saveFailed": "Échec de l’enregistrement",
+      "draftHint": "Synchronisé au fur et à mesure ; compte comme transmis dès que l’intervention passe à « Reconnaissance terminée ».",
+      "amendHint": "Chaque modification est synchronisée immédiatement.",
       "submittedShort": "Transmis {time}",
       "updatedShort": "mis à jour {time}",
       "findingLabel": "Constat",
@@ -3425,6 +3423,8 @@
       "reportLabel": "Rapport de reco",
       "noReportShort": "aucun pour l’instant",
       "createShort": "saisir",
+      "draftShort": "Brouillon – compte dès « Reconnaissance terminée »",
+      "continueShort": "continuer la saisie",
       "expand": "ouvrir",
       "collapse": "fermer"
     },

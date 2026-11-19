@@ -28,6 +28,12 @@
  * (`PATCH`) instead of filing a second, so a crew's authorship survives and the
  * row carries both provenance lines.
  *
+ * **No save button** (owner pick 19.11.2026, #30): every answer is saved as it is
+ * given (`useRekoAutosave`, «Synchronisiert – hh:mm» under the form). A new report
+ * is the operator's KP draft until the card reaches «Reko abgeschlossen» – the
+ * server files it then (bell, Reko done). An amendment edits the filed report
+ * directly. The operator's own draft is picked up again on the next open.
+ *
  * The "vor Ort seit …" line this section used to render is **gone** (decision
  * 15), not moved and not linked. `arrived_at` is displayed and written in
  * exactly one place now, the Feldmeldungen row — a fact shown twice is a fact
@@ -41,7 +47,6 @@ import { useState, useEffect, useCallback, useMemo, useRef, Fragment, type React
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
-import { toast } from 'sonner'
 import { DETAIL_CONTROL_INDENT, DetailField } from '@/components/kanban/detail-field'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -49,6 +54,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { CheckCircle2, XCircle, AlertTriangle, Binoculars, FileText, ChevronDown, History, CheckCheck, Pencil, Plus, X } from 'lucide-react'
 import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
 import { RekoReportForm, EMPTY_REKO_FORM, toRekoFormData, type RekoFormData } from '@/components/reko/reko-report-form'
+import { useRekoAutosave } from '@/components/reko/use-reko-autosave'
+import { SyncStatusLine } from '@/components/kanban/field-save-status'
+import { useAuth } from '@/lib/contexts/auth-context'
 import { getApiUrl } from '@/lib/env'
 import { cn } from '@/lib/utils'
 import { wsClient } from '@/lib/websocket-client'
@@ -129,20 +137,26 @@ export default function RekoReportSection({
   /** Which earlier report is unfolded, board mount only — one at a time. */
   const [openHistoryId, setOpenHistoryId] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
   const [formData, setFormData] = useState<RekoFormData>(EMPTY_REKO_FORM)
+  /** The operator's own unfilled KP report (`is_draft`, written by this user, no crew). */
+  const [ownDraft, setOwnDraft] = useState<ApiRekoReportResponse | null>(null)
+  const { user } = useAuth()
+  const userId = user?.id ?? null
+  const autosave = useRekoAutosave(incidentId)
 
   const loadReports = useCallback(async () => {
     try {
       const data = await apiClient.getIncidentRekoReports(incidentId)
-      // Filter out drafts, only show submitted reports (newest first)
+      // Only submitted reports are shown (newest first); the one draft kept is the
+      // operator's own, to pick up again.
       setReports(data.filter(r => !r.is_draft))
+      setOwnDraft(data.find(r => r.is_draft && !!userId && r.created_by_user_id === userId && !r.submitted_by_personnel_id) ?? null)
     } catch (error) {
       console.error('Failed to load Reko reports:', error)
     } finally {
       setIsLoading(false)
     }
-  }, [incidentId])
+  }, [incidentId, userId])
 
   // WebSocket for instant updates, a poll only while the socket is down.
   //
@@ -165,6 +179,8 @@ export default function RekoReportSection({
 
   const latestReport: ApiRekoReportResponse | undefined = reports[0]
   const previousReports = reports.slice(1)
+  // A KP row that says nothing is no draft – «Reko vor Ort» over the radio creates one.
+  const draftWithContent = ownDraft && hasContent(toRekoFormData(ownDraft)) ? ownDraft : null
 
   /**
    * The board's photo door (§6.1, same case the Schadenplatz-Rapport already
@@ -173,20 +189,45 @@ export default function RekoReportSection({
    * transcribing. No token — the session is the credential, and the default
    * read path (`GET /api/photos/…`) is the session-authenticated one.
    */
+  // The row the form writes into – the draft once the first save created it.
+  const autosaveReportId = autosave.reportId
   const photoTransport = useMemo(
     () => ({
       upload: async (file: File) =>
-        (await apiClient.uploadRekoPhotoAsEditor(incidentId, file, latestReport?.id)).filename,
+        (await apiClient.uploadRekoPhotoAsEditor(incidentId, file, autosaveReportId() ?? undefined)).filename,
       remove: (filename: string) =>
-        apiClient.deleteRekoPhotoAsEditor(incidentId, filename, latestReport?.id),
+        apiClient.deleteRekoPhotoAsEditor(incidentId, filename, autosaveReportId() ?? undefined),
     }),
-    [incidentId, latestReport?.id],
+    [incidentId, autosaveReportId],
   )
 
-  /** Open the form: amending starts from what is already there. */
+  /** The form as it was opened – not an edit, so not saved. */
+  const openedForm = useRef<RekoFormData | null>(null)
+
+  /** Open the form: amending starts from what is already there, a new report from the
+   *  operator's own draft when there is one. */
   function startEditing() {
-    setFormData(toRekoFormData(latestReport))
+    const source = latestReport ?? ownDraft ?? undefined
+    const opened = toRekoFormData(source)
+    openedForm.current = opened
+    autosave.start(source?.id ?? null)
+    setFormData(opened)
     setIsEditing(true)
+  }
+
+  // Every change saves (debounced). `formData` changes only through the form while
+  // it is open, and the value it was opened with is not an edit.
+  const scheduleSave = autosave.schedule
+  useEffect(() => {
+    if (!isEditing || formData === openedForm.current) return
+    scheduleSave(formData)
+  }, [formData, isEditing, scheduleSave])
+
+  /** Close the form: a save still waiting goes out now, the draft stays on the server. */
+  function stopEditing() {
+    autosave.flush()
+    setIsEditing(false)
+    void loadReports()
   }
 
   // Deep-linked straight into the entry form. Waits for `isLoading`, because
@@ -203,39 +244,6 @@ export default function RekoReportSection({
     openedForNonce.current = openEditorNonce
     startEditingFromLink()
   }, [openEditorNonce, canEdit, isLoading])
-
-  async function handleSave() {
-    setIsSaving(true)
-    try {
-      // The report's own fields; no token, the session is the identity. Photos
-      // travel too: the upload already attached them server-side, and sending
-      // the list keeps a photo removed in the open form removed on save.
-      const payload = {
-        is_relevant: formData.is_relevant,
-        dangers_json: formData.dangers_json,
-        effort_json: formData.effort_json,
-        power_supply: formData.power_supply,
-        photos_json: formData.photos_json,
-        summary_text: formData.summary_text,
-        additional_notes: formData.additional_notes,
-      }
-      if (latestReport) {
-        // An amendment, not a second report: the crew keeps its authorship and
-        // the operator is added next to it (§5.3).
-        await apiClient.updateRekoReport(latestReport.id, payload)
-      } else {
-        await apiClient.createRekoReportAsEditor(incidentId, payload)
-      }
-      await loadReports()
-      setIsEditing(false)
-      toast.success(t('saved'))
-    } catch (error) {
-      console.error('Failed to save Reko report:', error)
-      toast.error(t('saveFailed'))
-    } finally {
-      setIsSaving(false)
-    }
-  }
 
   if (isLoading) {
     return (
@@ -315,11 +323,13 @@ export default function RekoReportSection({
             label={t('reportLabel')}
             action={canEdit ? (
               <button type="button" className={ROW_ACTION} onClick={startEditing}>
-                {t('createShort')}
+                {draftWithContent ? t('continueShort') : t('createShort')}
               </button>
             ) : undefined}
           >
-            <span className="text-sm italic text-muted-foreground/60">{t('noReportShort')}</span>
+            <span className="text-sm italic text-muted-foreground/60">
+              {draftWithContent ? t('draftShort') : t('noReportShort')}
+            </span>
           </DetailField>
         )
       )}
@@ -392,24 +402,24 @@ export default function RekoReportSection({
                 size="xs"
                 variant="ghost"
                 className="ml-auto"
-                disabled={isSaving}
-                onClick={() => setIsEditing(false)}
+                onClick={stopEditing}
               >
                 <X className="size-3.5" />
-                {t('cancel')}
+                {t('close')}
               </Button>
             </div>
             {/* Says out loud which channel this is, so nothing about the
-                resulting report reads as a crew report. */}
-            <p className="text-xs text-muted-foreground">{t('radioHint')}</p>
+                resulting report reads as a crew report – and when it counts. */}
+            <p className="text-xs text-muted-foreground">
+              {t('radioHint')} {latestReport ? t('amendHint') : t('draftHint')}
+            </p>
             <RekoReportForm
               incidentId={incidentId}
               value={formData}
               onChange={setFormData}
               photos={photoTransport}
               mount="kp"
-              isSubmitting={isSaving}
-              onSubmit={handleSave}
+              footer={<SyncStatusLine state={autosave.state} onRetry={() => void autosave.retry()} />}
             />
           </div>
         ) : (
@@ -428,6 +438,23 @@ export default function RekoReportSection({
       )}
       </div>
     </div>
+  )
+}
+
+/** Whether a form holds any answer – an untouched one is not a draft. */
+function hasContent(form: RekoFormData): boolean {
+  const { dangers_json: dangers, effort_json: effort } = form
+  return (
+    form.is_relevant !== null ||
+    !!form.summary_text.trim() ||
+    !!form.additional_notes.trim() ||
+    form.photos_json.length > 0 ||
+    (['fire', 'fire_danger', 'explosion', 'collapse', 'chemical', 'electrical'] as const).some(key => dangers[key]) ||
+    !!dangers.other_notes?.trim() ||
+    effort.personnel_count !== null ||
+    effort.estimated_duration_hours !== null ||
+    effort.vehicles_needed.length > 0 ||
+    effort.equipment_needed.length > 0
   )
 }
 

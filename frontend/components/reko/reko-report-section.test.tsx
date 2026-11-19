@@ -7,7 +7,9 @@ const getIncidentRekoReports = vi.fn()
 const createRekoReportAsEditor = vi.fn()
 const updateRekoReport = vi.fn()
 
-vi.mock('@/lib/api-client', () => ({
+vi.mock('@/lib/api-client', async () => ({
+  // The real error classes: the sync line names the failure by them (`classifySaveFailure`).
+  ...(await vi.importActual<typeof import('@/lib/api/types/common')>('@/lib/api/types/common')),
   apiClient: {
     get getIncidentRekoReports() {
       return getIncidentRekoReports
@@ -24,6 +26,7 @@ vi.mock('@/lib/websocket-client', () => ({
   wsClient: { on: () => () => {}, getStatus: () => 'connected', onStatusChange: () => () => {} },
 }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+vi.mock('@/lib/contexts/auth-context', () => ({ useAuth: () => ({ user: { id: 'u-1' } }) }))
 
 import RekoReportSection from '@/components/reko/reko-report-section'
 
@@ -58,7 +61,8 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     getIncidentRekoReports.mockResolvedValue([])
-    createRekoReportAsEditor.mockResolvedValue({ id: 'r-1', is_draft: false })
+    createRekoReportAsEditor.mockResolvedValue({ id: 'r-1', is_draft: true })
+    updateRekoReport.mockResolvedValue({ id: 'r-1', is_draft: true })
   })
 
   it('offers "Reko-Bericht erfassen" on an incident with no report and no field contact', async () => {
@@ -98,20 +102,58 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('files the dictated report through the board door', async () => {
+  it('saves every answer as a KP draft through the board door – no save button (#30)', async () => {
+    const user = userEvent.setup()
+    renderWithIntl(<RekoReportSection incidentId="i-1" canEdit dense />)
+
+    await waitFor(() => expect(getIncidentRekoReports).toHaveBeenCalled())
+    await user.click(screen.getAllByRole('button')[0])
+    expect(screen.queryByRole('button', { name: /speichern/i })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Ja' }))
+
+    await waitFor(() => expect(createRekoReportAsEditor).toHaveBeenCalledTimes(1))
+    // A draft: the card's move to «Reko abgeschlossen» files it, on the server.
+    expect(createRekoReportAsEditor.mock.calls[0]).toEqual(['i-1', expect.objectContaining({ is_relevant: true }), false])
+    // No token travels: the session is the identity, and the report carries no
+    // guessed personnel row (decision 6).
+    expect(createRekoReportAsEditor.mock.calls[0][1]).not.toHaveProperty('token')
+    expect(await screen.findByText(/^Synchronisiert – /)).toBeInTheDocument()
+
+    // The next answer goes to the same draft, not a second one.
+    await user.click(screen.getByRole('button', { name: 'Nein' }))
+    await waitFor(() => expect(updateRekoReport).toHaveBeenCalledWith('r-1', expect.objectContaining({ is_relevant: false })))
+    expect(createRekoReportAsEditor).toHaveBeenCalledTimes(1)
+  })
+
+  it('says «Nicht synchronisiert» and resends only on «Erneut synchronisieren»', async () => {
+    createRekoReportAsEditor.mockRejectedValueOnce(new Error('offline'))
     const user = userEvent.setup()
     renderWithIntl(<RekoReportSection incidentId="i-1" canEdit dense />)
 
     await waitFor(() => expect(getIncidentRekoReports).toHaveBeenCalled())
     await user.click(screen.getAllByRole('button')[0])
     await user.click(screen.getByRole('button', { name: 'Ja' }))
-    await user.click(screen.getByRole('button', { name: /Bericht speichern/ }))
 
-    await waitFor(() => expect(createRekoReportAsEditor).toHaveBeenCalledTimes(1))
-    expect(createRekoReportAsEditor.mock.calls[0][0]).toBe('i-1')
-    // No token travels: the session is the identity, and the report carries no
-    // guessed personnel row (decision 6).
-    expect(createRekoReportAsEditor.mock.calls[0][1]).not.toHaveProperty('token')
+    expect(await screen.findByText('Nicht synchronisiert.')).toBeInTheDocument()
+    expect(createRekoReportAsEditor).toHaveBeenCalledTimes(1)
+    await user.click(screen.getByRole('button', { name: 'Erneut synchronisieren' }))
+    await waitFor(() => expect(createRekoReportAsEditor).toHaveBeenCalledTimes(2))
+  })
+
+  it("picks the operator's own draft up again instead of starting a second one", async () => {
+    getIncidentRekoReports.mockResolvedValue([
+      report({ id: 'r-draft', is_draft: true, created_by_user_id: 'u-1', summary_text: 'Keller halb voll' }),
+    ])
+    const user = userEvent.setup()
+    renderWithIntl(<RekoReportSection incidentId="i-1" canEdit dense />)
+
+    expect(await screen.findByText('Entwurf – zählt ab «Reko abgeschlossen»')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'weiter erfassen' }))
+    expect(screen.getByDisplayValue('Keller halb voll')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Nein' }))
+
+    await waitFor(() => expect(updateRekoReport).toHaveBeenCalledWith('r-draft', expect.objectContaining({ is_relevant: false })))
+    expect(createRekoReportAsEditor).not.toHaveBeenCalled()
   })
 
   it('amends an existing report instead of filing a second one', async () => {
@@ -137,7 +179,7 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     renderWithIntl(<RekoReportSection incidentId="i-1" canEdit />)
 
     await user.click(await screen.findByRole('button', { name: /Reko-Bericht ergänzen/ }))
-    await user.click(screen.getByRole('button', { name: /Bericht speichern/ }))
+    await user.click(screen.getByRole('button', { name: 'Nein' }))
 
     await waitFor(() => expect(updateRekoReport).toHaveBeenCalledTimes(1))
     expect(updateRekoReport.mock.calls[0][0]).toBe('r-existing')

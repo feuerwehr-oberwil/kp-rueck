@@ -444,6 +444,10 @@ draussen war. Es ist dasselbe Formular wie auf dem Reko-Link, nur mit anderem
 Absender. Ein bereits vom Trupp eingereichter Bericht wird mit
 **«Reko-Bericht ergänzen»** im selben Datensatz nachgeführt, nicht als zweiter
 Bericht daneben. Fotos gibt es hier bewusst nicht: ein Funkspruch bringt keine mit.
+Einen Speichern-Knopf gibt es nicht: jede Angabe wird sofort synchronisiert
+(«Synchronisiert – hh:mm» unter dem Formular). Ein neuer Bericht bleibt ein Entwurf,
+bis der Einsatz auf **«Reko abgeschlossen»** steht – dann gilt er als eingereicht
+(Glocke, Reko erledigt). Steht der Einsatz schon dort, gilt er sofort.
 
 **«Reko vor Ort» über Funk.** Im Einsatz-Detail, Block *Funkmeldungen* – dieselbe
 Zeile, in der auch «Angekommen», «Einsatz beendet» und «Abholung nötig» stehen.
