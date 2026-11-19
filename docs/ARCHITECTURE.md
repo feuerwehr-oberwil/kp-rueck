@@ -502,9 +502,10 @@ At each transition:
 - WebSocket broadcasts the change to all connected clients
 - Entering **`complete`** automatically releases all assigned personnel, vehicles, and materials
   (`crud/assignments.auto_release_incident_resources`); moving back out restores them
-- Entering **`reko_done`** (or skipping past it) files the board's own Reko draft – the KP
-  Reko form saves as it goes and has no submit (`crud/reko.submit_kp_reko_drafts`). On a card
-  already there, the save that answers «Einsatz relevant?» files it (`api/reko._kp_draft_files_now`)
+- A status move files no Reko report. The board's own Reko form saves as it goes and has no
+  submit: the save that answers «Einsatz relevant?» files it, exactly like the crew's submit
+  (`api/reko._kp_draft_files_now` → `crud/reko.process_reko_submission`: `reko` → `reko_done`,
+  priority bump, the bell)
 
 ### Duplicates and merge
 

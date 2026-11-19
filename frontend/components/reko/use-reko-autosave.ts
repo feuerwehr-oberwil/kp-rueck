@@ -30,10 +30,6 @@ interface AutosaveSession {
   confirmed: { version: number; updatedAt: string | null }
   inFlight: boolean
   timer: ReturnType<typeof setTimeout> | null
-  /** The card status the board shows now, and the one it showed at the newest edit – sent
-   *  as `seen_status`, so a save the card's move went past is still filed (pass 3, S14). */
-  cardStatus: string | undefined
-  seenAtEdit: string | undefined
   state: SyncState
   /** Mounted forms: their state subscriptions and `onSettled` reloads. */
   listeners: Set<() => void>
@@ -49,7 +45,7 @@ function sessionFor(key: string): AutosaveSession {
     session = {
       target: null, latest: null, baseline: toRekoFormData(null), version: 0,
       confirmed: { version: 0, updatedAt: null },
-      inFlight: false, timer: null, cardStatus: undefined, seenAtEdit: undefined, state: { status: 'idle' },
+      inFlight: false, timer: null, state: { status: 'idle' },
       listeners: new Set(), settled: new Set(), mounts: 0,
     }
     sessions.set(key, session)
@@ -100,9 +96,8 @@ function releaseIfDone(key: string, session: AutosaveSession) {
  * `resume(source)` on opening names the row the edits go to: the filed report being amended,
  * the operator's own KP draft, or null – then the first save creates the draft
  * (`POST /api/reko/?submit=false`) and every later one PATCHes it (`submit=false`). The draft
- * is filed on the server, not here: by the card's move to «Reko abgeschlossen»
- * (`crud.reko.submit_kp_reko_drafts`), or – on a card already there – by the save that
- * answers «Einsatz relevant?» (`api/reko._kp_draft_files_now`).
+ * is filed on the server, not here: by the save that answers «Einsatz relevant?», like the
+ * crew's submit (`api/reko._kp_draft_files_now`, owner pick #30). A status move files nothing.
  *
  * `schedule(data)` after every change; one request at a time, the newest form always last,
  * so the server sees the edits in order. «Synchronisiert» only once the save carrying the
@@ -118,11 +113,9 @@ function releaseIfDone(key: string, session: AutosaveSession) {
  * or while the server's copy is not newer than what the last save got back – the list may not
  * have caught up. Otherwise it adopts `source` and returns the form opened from it.
  */
-export function useRekoAutosave({ incidentId, userId, cardStatus, onSettled }: {
+export function useRekoAutosave({ incidentId, userId, onSettled }: {
   incidentId: string
   userId: string | null
-  /** The card status this board shows; each edit records it (`seen_status`). */
-  cardStatus?: string
   /** Runs once a save settled – the section reloads its list. */
   onSettled?: () => void
 }) {
@@ -150,10 +143,9 @@ export function useRekoAutosave({ incidentId, userId, cardStatus, onSettled }: {
     try {
       // Only what this form changed; no token, the session is the identity.
       const payload = changedFields(session.baseline, data)
-      const seenStatus = session.seenAtEdit
       const report = session.target
-        ? await apiClient.updateRekoReport(session.target, payload, { seenStatus })
-        : await apiClient.createRekoReportAsEditor(incidentId, payload, false, seenStatus)
+        ? await apiClient.updateRekoReport(session.target, payload)
+        : await apiClient.createRekoReportAsEditor(incidentId, payload, false)
       session.target = report.id
       session.baseline = data
       session.inFlight = false
@@ -183,9 +175,6 @@ export function useRekoAutosave({ incidentId, userId, cardStatus, onSettled }: {
     }
   }, [key, session, send])
   useEffect(() => {
-    session.cardStatus = cardStatus
-  }, [session, cardStatus])
-  useEffect(() => {
     if (!onSettled) return
     session.settled.add(onSettled)
     return () => {
@@ -213,7 +202,6 @@ export function useRekoAutosave({ incidentId, userId, cardStatus, onSettled }: {
 
   const schedule = useCallback((data: RekoFormData) => {
     session.latest = data
-    session.seenAtEdit = session.cardStatus
     session.version += 1
     setState(session, { status: 'saving' })
     if (session.timer) clearTimeout(session.timer)

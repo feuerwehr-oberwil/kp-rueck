@@ -3425,7 +3425,7 @@
       "amendTitle": "Compléter le rapport de reconnaissance",
       "close": "Fermer",
       "radioHint": "Saisis ici ce que le groupe annonce par radio. Sera noté comme saisie du PC.",
-      "draftHint": "Synchronisé au fur et à mesure. Compte comme transmis dès que l’intervention passe à « Reconnaissance terminée » – si elle y est déjà, dès que « Intervention pertinente ? » a une réponse.",
+      "draftHint": "Synchronisé au fur et à mesure. Transmis dès que « Intervention pertinente ? » a une réponse – comme un rapport de l’équipe, l’intervention passe alors à « Reconnaissance terminée ».",
       "amendHint": "Chaque modification est synchronisée immédiatement.",
       "submittedShort": "Transmis {time}",
       "updatedShort": "mis à jour {time}",

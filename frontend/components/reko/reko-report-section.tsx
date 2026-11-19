@@ -30,10 +30,10 @@
  *
  * **No save button** (owner pick 19.11.2026, #30): every answer is saved as it is
  * given (`useRekoAutosave`, «Synchronisiert – hh:mm» under the form). A new report
- * is the operator's KP draft until the card reaches «Reko abgeschlossen» – the
- * server files it then (bell, Reko done); on a card already there, once «Einsatz
- * relevant?» is answered. An amendment edits the filed report
- * directly. The operator's own draft is picked up again on the next open.
+ * is the operator's KP draft until «Einsatz relevant?» is answered – the server files
+ * it then like the crew's submit (bell, Reko done, the card to «Reko abgeschlossen»).
+ * An amendment edits the filed report directly. The operator's own draft is picked
+ * up again on the next open.
  *
  * The "vor Ort seit …" line this section used to render is **gone** (decision
  * 15), not moved and not linked. `arrived_at` is displayed and written in
@@ -109,10 +109,6 @@ interface RekoReportSectionProps {
    * card below, which is why it has not been deleted.
    */
   dense?: boolean
-  /** The board mount: the card's status as this board shows it. Each save says it to the
-   *  server, so a «Reko abgeschlossen» move that overtook a waiting save still files the
-   *  draft (`api/reko._file_after_move`). */
-  cardStatus?: string
 }
 
 const POLL_INTERVAL_MS = 5000 // Fallback poll while the socket is down
@@ -132,7 +128,6 @@ export default function RekoReportSection({
   dataSlot,
   openEditorNonce,
   dense = false,
-  cardStatus,
 }: RekoReportSectionProps) {
   const split = layout === 'split'
   const t = useTranslations('reko.reportSection')
@@ -181,7 +176,7 @@ export default function RekoReportSection({
   }, [loadReports, incidentId])
   usePolling(loadReports, { intervalMs: POLL_INTERVAL_MS, skipWhileWsConnected: true })
   // A draft save emits no `reko_update`, so the section reloads once a save settled.
-  const autosave = useRekoAutosave({ incidentId, userId, cardStatus, onSettled: loadReports })
+  const autosave = useRekoAutosave({ incidentId, userId, onSettled: loadReports })
 
   const latestReport: ApiRekoReportResponse | undefined = reports[0]
   const previousReports = reports.slice(1)
