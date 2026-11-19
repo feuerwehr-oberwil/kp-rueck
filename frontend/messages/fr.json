@@ -611,7 +611,7 @@
     },
     "mapError": {
       "title": "Erreur de carte",
-      "description": "La carte n’a pas pu être chargée. Cela peut venir d’un problème de réseau ou de données cartographiques manquantes.",
+      "description": "Une erreur s’est produite en construisant la carte. « Réessayer » la reconstruit.",
       "retry": "Réessayer",
       "home": "Vers le tableau"
     },

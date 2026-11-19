@@ -3471,7 +3471,7 @@
     },
     "mapError": {
       "title": "Kartenfehler",
-      "description": "Die Karte konnte nicht geladen werden. Dies kann an einem Netzwerkproblem oder fehlenden Kartendaten liegen.",
+      "description": "Beim Aufbauen der Karte ist ein Fehler aufgetreten. «Erneut versuchen» baut sie neu auf.",
       "retry": "Erneut versuchen",
       "home": "Zum Board"
     },
