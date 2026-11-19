@@ -3,8 +3,9 @@
 Owner pick 19.11.2026 (#30): the KP Reko form has no save button. Every field goes
 out at once as a KP draft (`POST /api/reko/?submit=false`, then `PATCH …?submit=false`);
 the report counts as filed – bell, priority bump, `has_completed_reko` – when the card
-moves to «Reko abgeschlossen» or past it (`crud.reko.submit_kp_reko_drafts`). A card
-already there files the draft on its first save. Crew drafts are the crew's business.
+moves to «Reko abgeschlossen» or past it (`crud.reko.submit_kp_reko_drafts`). On a card
+already there, the draft is filed the moment «Einsatz relevant?» is answered
+(`api.reko._kp_draft_files_now`). Crew drafts are the crew's business.
 """
 
 from uuid import UUID, uuid4
@@ -83,18 +84,61 @@ async def test_kp_draft_is_filed_when_the_card_reaches_reko_done(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_kp_save_on_a_card_past_reko_files_at_once(
+async def test_on_a_card_past_reko_the_answer_to_relevant_files_the_draft(
     editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
 ):
-    """A report transcribed after the card moved on would otherwise stay a draft for ever."""
+    """No move is coming any more; the one required answer is the moment (owner pick 19.11.2026)."""
     incident_id = await _incident(db_session, test_event, test_user, status="reko_done")
 
+    # Another field first: still a draft, no bell.
     created = await editor_client.post(
-        "/api/reko/?submit=false", json={"incident_id": str(incident_id), "is_relevant": False}
+        "/api/reko/?submit=false", json={"incident_id": str(incident_id), "summary_text": "Keller trocken"}
+    )
+    assert created.json()["is_draft"] is True
+    report_id = created.json()["id"]
+    assert await _reko_bells(db_session, incident_id) == 0
+
+    # «Nein» files it – bell once.
+    answered = await editor_client.patch(f"/api/reko/{report_id}?submit=false", json={"is_relevant": False})
+    assert answered.json()["is_draft"] is False
+    assert await _reko_bells(db_session, incident_id) == 1
+
+    # A later edit updates the filed report; no second bell.
+    later = await editor_client.patch(f"/api/reko/{report_id}?submit=false", json={"additional_notes": "Nachtrag"})
+    assert later.json()["is_draft"] is False
+    assert later.json()["additional_notes"] == "Nachtrag"
+    assert await _reko_bells(db_session, incident_id) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_a_first_save_with_the_answer_files_at_once_past_reko(
+    editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+):
+    incident_id = await _incident(db_session, test_event, test_user, status="enroute")
+
+    created = await editor_client.post(
+        "/api/reko/?submit=false", json={"incident_id": str(incident_id), "is_relevant": True}
     )
 
     assert created.json()["is_draft"] is False
     assert await _reko_bells(db_session, incident_id) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_before_reko_done_the_answer_alone_files_nothing(
+    editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+):
+    """Cards before «Reko abgeschlossen» keep the move as the moment."""
+    incident_id = await _incident(db_session, test_event, test_user, status="reko")
+
+    created = await editor_client.post(
+        "/api/reko/?submit=false", json={"incident_id": str(incident_id), "is_relevant": True}
+    )
+
+    assert created.json()["is_draft"] is True
+    assert await _reko_bells(db_session, incident_id) == 0
 
 
 @pytest.mark.asyncio

@@ -147,7 +147,7 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     const user = userEvent.setup()
     renderWithIntl(<RekoReportSection incidentId="i-1" canEdit dense />)
 
-    expect(await screen.findByText('Entwurf – zählt ab «Reko abgeschlossen»')).toBeInTheDocument()
+    expect(await screen.findByText('Entwurf – noch nicht eingereicht')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'weiter erfassen' }))
     expect(screen.getByDisplayValue('Keller halb voll')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Nein' }))

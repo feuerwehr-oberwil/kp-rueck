@@ -503,7 +503,8 @@ At each transition:
 - Entering **`complete`** automatically releases all assigned personnel, vehicles, and materials
   (`crud/assignments.auto_release_incident_resources`); moving back out restores them
 - Entering **`reko_done`** (or skipping past it) files the board's own Reko draft – the KP
-  Reko form saves as it goes and has no submit (`crud/reko.submit_kp_reko_drafts`)
+  Reko form saves as it goes and has no submit (`crud/reko.submit_kp_reko_drafts`). On a card
+  already there, the save that answers «Einsatz relevant?» files it (`api/reko._kp_draft_files_now`)
 
 ### Duplicates and merge
 

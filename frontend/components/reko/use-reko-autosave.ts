@@ -16,8 +16,9 @@ export const REKO_SAVE_DELAY_MS = 600
  * `start(reportId)` names the row the edits go to: the filed report being amended, the
  * operator's own KP draft, or null – then the first save creates the draft
  * (`POST /api/reko/?submit=false`) and every later one PATCHes it (`submit=false`). The draft
- * is filed by the card's move to «Reko abgeschlossen» on the server
- * (`crud.reko.submit_kp_reko_drafts`), not here.
+ * is filed on the server, not here: by the card's move to «Reko abgeschlossen»
+ * (`crud.reko.submit_kp_reko_drafts`), or – on a card already there – by the save that
+ * answers «Einsatz relevant?» (`api/reko._kp_draft_files_now`).
  *
  * `schedule(data)` after every change; one request at a time, the newest form always last,
  * so the server sees the edits in order. «Synchronisiert» only once the save carrying the

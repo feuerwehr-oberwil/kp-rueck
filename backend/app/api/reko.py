@@ -135,9 +135,19 @@ async def _token_door_id(db: AsyncSession, token: str | None, incident_id: uuid.
     return incident_id
 
 
-async def _card_is_reko_done(db: AsyncSession, incident_id: uuid.UUID) -> bool:
-    """Whether the card stands at «Reko abgeschlossen» or past it."""
-    status = await db.scalar(select(Incident.status).where(Incident.id == incident_id))
+async def _kp_draft_files_now(db: AsyncSession, report: RekoReport, update: schemas.RekoReportUpdate) -> bool:
+    """Whether this board save files the operator's KP draft (owner picks 19.11.2026).
+
+    Before «Reko abgeschlossen» the card's move files it (`crud.submit_kp_reko_drafts`). On a
+    card already there or past it, the moment «Einsatz relevant?» is answered (Ja or Nein) –
+    in this save or an earlier one – not on the first save of any other field.
+    """
+    if not crud.is_kp_draft(report):
+        return False
+    relevant = update.is_relevant if "is_relevant" in update.model_fields_set else report.is_relevant
+    if relevant is None:
+        return False
+    status = await db.scalar(select(Incident.status).where(Incident.id == report.incident_id))
     return status in crud.REKO_DONE_STATUSES
 
 
@@ -259,15 +269,13 @@ async def submit_reko_report(
         logger.warning("Reko report creation failed: %s", e)
         raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
 
-    # The board's report is a draft only until its card reaches «Reko abgeschlossen»
-    # (`crud.submit_kp_reko_drafts`); written into a card already there, it is filed at once.
-    if user is not None and not submit and await _card_is_reko_done(db, report.incident_id):
-        submit = True
-
     # Update with new data
     update_data = schemas.RekoReportUpdate(
         **report_data.model_dump(exclude={"incident_id", "token"}, exclude_unset=True)
     )
+    # The board's report is a draft until it is filed (`_kp_draft_files_now`).
+    if user is not None and not submit and await _kp_draft_files_now(db, report, update_data):
+        submit = True
     if (
         field_token
         and not submit
@@ -365,11 +373,11 @@ async def update_report(
         ):
             raise CodedHTTPException(403, ErrorCode.REKO_REPORT_NO_ACCESS, "Kein Zugriff auf diesen Bericht.")
 
-    # The board's draft on a card already at «Reko abgeschlossen» is filed by this save
-    # (see `submit_reko_report`), with the side effects a filing has.
+    # The board's draft may be filed by this save (`_kp_draft_files_now`), with the side
+    # effects a filing has.
     files_kp_draft = user is not None and crud.is_kp_draft(existing)
     if files_kp_draft and not submit:
-        submit = await _card_is_reko_done(db, existing.incident_id)
+        submit = await _kp_draft_files_now(db, existing, update_data)
 
     try:
         updated = await crud.update_reko_report(db, report_id, update_data, submit=submit, user=user)

@@ -626,8 +626,9 @@ async def process_reko_submission(
         )
 
 
-# The statuses from «Reko abgeschlossen» on. A board-filed (KP) Reko report is a
-# draft only while its card is still before them (owner pick 19.11.2026).
+# The statuses from «Reko abgeschlossen» on. A board-filed (KP) Reko report is filed by the
+# card's move into them; on a card already there, once «Einsatz relevant?» is answered
+# (owner picks 19.11.2026, `api/reko._kp_draft_files_now`).
 REKO_DONE_STATUSES = frozenset({"reko_done", "enroute", "active", "returning", "complete"})
 
 

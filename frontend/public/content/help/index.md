@@ -451,7 +451,8 @@ Bericht daneben. Fotos gibt es hier bewusst nicht: ein Funkspruch bringt keine m
 Einen Speichern-Knopf gibt es nicht: jede Angabe wird sofort synchronisiert
 («Synchronisiert – hh:mm» unter dem Formular). Ein neuer Bericht bleibt ein Entwurf,
 bis der Einsatz auf **«Reko abgeschlossen»** steht – dann gilt er als eingereicht
-(Glocke, Reko erledigt). Steht der Einsatz schon dort, gilt er sofort.
+(Glocke, Reko erledigt). Steht der Einsatz schon dort, gilt er als eingereicht, sobald
+«Einsatz relevant?» beantwortet ist.
 
 **«Reko vor Ort» über Funk.** Im Einsatz-Detail, Block *Funkmeldungen* – dieselbe
 Zeile, in der auch «Angekommen», «Einsatz beendet» und «Abholung nötig» stehen.

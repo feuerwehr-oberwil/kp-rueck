@@ -31,7 +31,8 @@
  * **No save button** (owner pick 19.11.2026, #30): every answer is saved as it is
  * given (`useRekoAutosave`, «Synchronisiert – hh:mm» under the form). A new report
  * is the operator's KP draft until the card reaches «Reko abgeschlossen» – the
- * server files it then (bell, Reko done). An amendment edits the filed report
+ * server files it then (bell, Reko done); on a card already there, once «Einsatz
+ * relevant?» is answered. An amendment edits the filed report
  * directly. The operator's own draft is picked up again on the next open.
  *
  * The "vor Ort seit …" line this section used to render is **gone** (decision
