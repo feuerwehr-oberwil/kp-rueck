@@ -11,8 +11,9 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
  * A person, a vehicle and a Tauchpumpe are all single physical things — each can
  * only be in one place at a time. When an operator assigns one that is still on
  * another incident (see operations-context `resourceConflict`), this asks the
- * three questions that actually exist: *keep* the double booking (the main
- * answer), *move* it here (release it there), or leave it alone.
+ * three questions that actually exist: *move* it here (release it there), *keep*
+ * the double booking, or leave it alone. Which of the first two is the main
+ * answer depends on the resource (`keepIsMain`).
  *
  * It is THE dialog for that question, from every entry point. There used to be a
  * second one inside the assignment dialog with the same title and only two of
@@ -32,6 +33,15 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
  *
  * Mounted once in the root layout.
  */
+/**
+ * A VEHICLE asks «Auf beiden führen» first (owner pick #22, 19.11.2026): a number key
+ * pressed on a second card means «this one too», and one TLF can serve two nearby
+ * Einsätze. A person or a Tauchpumpe cannot be in two places, so there *move* stays main.
+ */
+export function keepIsMain(resourceType: "personnel" | "vehicle" | "material"): boolean {
+  return resourceType === "vehicle"
+}
+
 export function ResourceConflictPrompt() {
   const t = useTranslations('incidents.resourceConflict')
   const tCommon = useTranslations('incidents.common')
@@ -40,6 +50,7 @@ export function ResourceConflictPrompt() {
   if (!resourceConflict) return null
 
   const { resourceType, resourceName, targetOperationLabel } = resourceConflict
+  const [main, other] = keepIsMain(resourceType) ? (['keepBoth', 'moveHere'] as const) : (['moveHere', 'keepBoth'] as const)
   const Icon = resourceType === "vehicle" ? Truck : resourceType === "material" ? Package : User
   const driving = resourceType === "personnel"
     ? drivenElsewhere(personnel.find((p) => p.id === resourceConflict.resourceId), operations, resourceConflict.targetOperationId)
@@ -51,20 +62,19 @@ export function ResourceConflictPrompt() {
       : resourceConflict.conflicts
 
   return (
-    // The answers: *keep* it on both is the main one, ink and Enter (owner pick #22,
-    // 19.11.2026) – a number key pressed on a second card means «this one too», and
-    // keeping takes nothing away from anybody. *Move* it here is the "…but do this
-    // instead" line above Abbrechen. Every answer clears the conflict itself.
+    // The main answer (ink, Enter) is *keep* for a vehicle and *move* for a person
+    // or material (`keepIsMain`); the other one is the "…but do this instead" line
+    // above Abbrechen. Every answer clears the conflict itself.
     <ConfirmDialog
       open
       onCancel={cancelResourceConflict}
       icon={<Icon className="h-5 w-5 text-muted-foreground" />}
       title={t('titleNamed', { name: resourceName })}
       description={t('prompt')}
-      extraAction={{ label: t('moveHere'), onSelect: () => resolveResourceConflict("move") }}
+      extraAction={{ label: t(other), onSelect: () => resolveResourceConflict(other === 'keepBoth' ? "keep" : "move") }}
       cancelText={tCommon('cancel')}
-      confirmText={t('keepBoth')}
-      onConfirm={() => resolveResourceConflict("keep")}
+      confirmText={t(main)}
+      onConfirm={() => resolveResourceConflict(main === 'keepBoth' ? "keep" : "move")}
     >
       {/* Bisher → Neu. Each row carries a word and a glyph, never a colour on
           its own: an arrow for a binding that exists, a plus for the one being
