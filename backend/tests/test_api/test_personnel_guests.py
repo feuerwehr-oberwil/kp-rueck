@@ -111,5 +111,7 @@ async def test_another_ereignis_cannot_assign_or_check_out_a_guest(
     reko = {"personnel_id": guest_id, "function_type": "reko"}
     assert (await editor_client.post(f"/api/events/{other_id}/special-functions/", json=reko)).status_code == 404
     assert (await editor_client.post(f"/api/personnel/check-in/{guest_id}/out?event_id={other_id}")).status_code == 404
+    clear = await editor_client.delete(f"/api/personnel/check-in/{guest_id}?event_id={other_id}")
+    assert clear.status_code == 404
     # Its own Ereignis may.
     assert (await editor_client.post(f"/api/events/{test_event.id}/special-functions/", json=reko)).status_code == 201
