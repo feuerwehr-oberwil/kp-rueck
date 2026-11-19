@@ -38,5 +38,7 @@ describe("map hover card", () => {
     const [einsatz, route] = screen.getAllByText("Fahrzeuge:", { exact: false, selector: "p > span" })
     expect(einsatz.parentElement?.textContent).toBe("Fahrzeuge: TLF · Omega 1 · bleibt vor Ort, Pio · kehrt zurück, MTW")
     expect(route.parentElement?.textContent).toBe("Fahrzeuge: Mowa · bleibt vor Ort")
+    // One box per vehicle: «Pio · kehrt zurück» breaks as a whole, never before «zurück» (sign-off 19.11.).
+    expect(screen.getByText("Pio").closest("span[style*='inline-block']")?.textContent).toBe("Pio · kehrt zurück")
   })
 })
