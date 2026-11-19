@@ -16,6 +16,7 @@ from app.services.training_simulation_data import (
     _NICE_CM,
     _NICE_LITER,
     _NICE_M,
+    _NOT_RELEVANT_SUMMARIES,
     _SUMMARIES,
     _dispatch_linked_summary,
     _get_elementar_subcategory,
@@ -122,14 +123,33 @@ class TestGenerateSummary:
             assert result in _SUMMARIES["oel_keller"], f"unexpected: {result!r}"
 
 
+def _relevant_report(*args, **kwargs):
+    """A relevant report – a not-relevant one is the empty report (tested on its own)."""
+    while True:
+        data = generate_reko_report_data(*args, **kwargs)
+        if data["is_relevant"]:
+            return data
+
+
 class TestGenerateRekoReportData:
     """End-to-end: generate_reko_report_data threads description through."""
+
+    def test_not_relevant_report_needs_nobody(self):
+        # #28 (19.11.2026): «Nein» used to come with six people and two hours.
+        reports = [generate_reko_report_data("bma_unechte_alarme", title="BMA") for _ in range(100)]
+        not_relevant = [data for data in reports if not data["is_relevant"]]
+        assert not_relevant, "the BMA profile is 40 % relevant – 100 draws without a «Nein» is not luck"
+        for data in not_relevant:
+            assert data["effort_json"]["personnel_count"] == 0
+            assert data["effort_json"]["estimated_duration_hours"] == 0
+            assert not any(value for key, value in data["dangers_json"].items() if key != "other_notes")
+            assert data["summary_text"] in _NOT_RELEVANT_SUMMARIES
 
     def test_description_routes_to_correct_pool(self):
         # Without description, "Brand" alone has no subcategory hit
         # → falls back to base pool. With description, it should hit küche.
         for _ in range(20):
-            data = generate_reko_report_data(
+            data = _relevant_report(
                 "brandbekaempfung",
                 title="Brand",
                 description="Brand klein, Küche Fettbrand. Bewohner draussen.",
@@ -142,12 +162,10 @@ class TestGenerateRekoReportData:
         # floor ("Kontrolle genügt") or ceiling ("Verstärkung"), but never out
         # of the profile range.
         for _ in range(100):
-            water = generate_reko_report_data(
-                "elementarereignis", title="Wasser im Keller", description="Hochwasser MFH."
-            )
+            water = _relevant_report("elementarereignis", title="Wasser im Keller", description="Hochwasser MFH.")
             assert 2 <= water["effort_json"]["personnel_count"] <= 5
 
-            tree = generate_reko_report_data(
+            tree = _relevant_report(
                 "elementarereignis", title="Baum auf Strasse", description="Ast blockiert Fahrbahn."
             )
             assert 2 <= tree["effort_json"]["personnel_count"] <= 4
@@ -199,7 +217,7 @@ class TestScenarioAssociation:
 
     def test_roof_incident_never_yields_water_reko(self):
         for _ in range(60):
-            data = generate_reko_report_data(
+            data = _relevant_report(
                 "elementarereignis",
                 title="Dach abgedeckt",
                 description="Sturm hat Dachfläche abgedeckt, Ziegel auf Strasse. Regen dringt ein.",
@@ -208,7 +226,7 @@ class TestScenarioAssociation:
 
     def test_tree_incident_yields_tree_reko(self):
         for _ in range(60):
-            data = generate_reko_report_data(
+            data = _relevant_report(
                 "elementarereignis", title="Baum auf Strasse", description="Baum blockiert Fahrbahn."
             )
             assert data["summary_text"] in _SUMMARIES["elementar_tree"], data["summary_text"]
@@ -318,7 +336,7 @@ class TestDispatchLinkedSummary:
     def test_water_reko_references_dispatch_and_rounds(self):
         seen_confirm = seen_correction = False
         for _ in range(80):
-            data = generate_reko_report_data(
+            data = _relevant_report(
                 "elementarereignis", title="Wasser im Keller", description="Ca. 30cm Wasser, Heizung betroffen."
             )
             summary = data["summary_text"]
