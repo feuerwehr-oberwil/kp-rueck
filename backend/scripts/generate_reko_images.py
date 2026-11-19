@@ -10,8 +10,9 @@ from PIL import Image, ImageOps
 from app.services.training_photos import SUMMARY_IMAGE_DIR, load_summary_image_manifest, summary_image_key
 from app.services.training_simulation_data import _SUMMARIES
 
+AS_FOUND_INTENT = "Show the scene AS FOUND"
 AS_FOUND_RULE = (
-    "Show the scene AS FOUND, before the fire service takes any action. "
+    f"{AS_FOUND_INTENT}, before the fire service takes any action. "
     "Use the report for the setting and visible conditions only. "
     "Any action described as needed, possible or planned is still pending and must not appear in the image. "
     "Exclude pumps, hoses, absorbent, barriers, sandbags, ladders and all fire-service crews, equipment and vehicles. "
@@ -41,7 +42,7 @@ def export_jobs(include_existing: bool, pool: str | None) -> None:
         entry = manifest.get(key)
         if not include_existing and entry and (SUMMARY_IMAGE_DIR / entry["file"]).is_file():
             continue
-        prompt = entry["prompt"] if entry and AS_FOUND_RULE in entry["prompt"] else PROMPT.format(summary=summary)
+        prompt = entry["prompt"] if entry and AS_FOUND_INTENT in entry["prompt"] else PROMPT.format(summary=summary)
         print(json.dumps({"out": f"{key}.png", "prompt": prompt}, ensure_ascii=False))
 
 
