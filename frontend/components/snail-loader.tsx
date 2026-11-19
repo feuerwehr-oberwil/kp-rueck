@@ -1,18 +1,18 @@
 'use client'
 
-import { useId, useLayoutEffect, useMemo, useRef, type CSSProperties } from 'react'
+import { useId, useLayoutEffect, useMemo, useRef } from 'react'
 
 import { snailClockFor } from '@/lib/snail-clock'
 import { cn } from '@/lib/utils'
 
 import snailSvg from '../public/firefighter-snail-loader.svg?raw'
+import './snail-loader.css'
 
 /**
  * The firefighter snail, inline. `public/firefighter-snail-loader.svg` is KP Front's
  * mascot, copied byte-identical (it is edited in kp-front; it is in `shared/MANIFEST.json` and CI's
  * «Shared files match KP Front» compares the two). The SVG owns its motion — a 630 ms arrival, then a standing idle —
- * and its own reduced-motion rule; it reads the shell colour from `--accent`, which in
- * Rück is shadcn's (blue) accent token, so the wrapper points it at the red `--primary`.
+ * and its own reduced-motion rule; the wrapper supplies KP Front's day and night accent colours.
  *
  * Every instance renames the SVG's `fs-` ids, classes and keyframes, so two snails on one
  * page keep their own gradients. The markup is trusted, bundled artwork; the snail is
@@ -43,7 +43,6 @@ export function SnailLoader({ className }: { className?: string }) {
       ref={ref}
       aria-hidden="true"
       className={cn('snail-loader', className)}
-      style={{ '--accent': 'var(--primary)' } as CSSProperties}
       dangerouslySetInnerHTML={html}
     />
   )
