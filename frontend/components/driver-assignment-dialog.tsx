@@ -438,7 +438,7 @@ export function DriverAssignmentDialog({
   }
 
   const renderTile = (person: Person) => {
-    const { where, roles } = factsOf(person, { elsewhere: einsatzWhere(person.id, operations), driverFor: vehicleId })
+    const { where, roles, plan } = factsOf(person, { elsewhere: einsatzWhere(person.id, operations), driverFor: vehicleId })
     return (
       <PersonPickTile
         name={person.name}
@@ -447,6 +447,7 @@ export function DriverAssignmentDialog({
         rank={person.role}
         where={where}
         roles={roles}
+        plan={plan}
         single
         checked={chosenId === person.id}
         current={person.id === localDriverId}

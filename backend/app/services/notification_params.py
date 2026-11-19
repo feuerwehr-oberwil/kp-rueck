@@ -20,9 +20,10 @@ Free text stays as the person typed or the scenario generator wrote it (a /feld
 message, a pickup note, a training inject's sentence) — it is content, not UI copy.
 """
 
+from datetime import datetime
 from typing import Any
 
-from .rapport_rows import STATUS_LABELS
+from .rapport_rows import LOCAL_TZ, STATUS_LABELS
 
 Params = dict[str, Any]
 Built = tuple[str, Params]
@@ -113,6 +114,18 @@ def fatigue(over: list[tuple[str, int]], fatigue_hours: int) -> Built:
             "more": more,
         },
     )
+
+
+def personnel_leaving(name: str, until: datetime) -> Built:
+    """``personnel_leaving``: a checked-in person's planned «geht um» is 15' away (or past).
+
+    The time, never «in 15'»: the row stands until they check out, and the bell must not
+    rewrite it every minute. ``until`` goes out as ISO so the client says the clock in its
+    own locale; the German sentence names it on the station's clock.
+    «Geht um 22:00: Baumann Michael»
+    """
+    clock = until.astimezone(LOCAL_TZ).strftime("%H:%M")
+    return (f"Geht um {clock}: {name}", {"name": name, "until": until.isoformat()})
 
 
 # --- Datenqualität / Speicher -----------------------------------------------------------

@@ -18,6 +18,9 @@ export interface ApiPersonnel {
   checked_in: boolean
   checked_in_at: string | null
   checked_out_at: string | null
+  /** The plan at the asked Ereignis – «ab 20:00» / «bis 22:00» (`ApiAttendancePlan`). */
+  planned_from?: string | null
+  planned_until?: string | null
   created_at: string
   updated_at: string
 }
@@ -38,9 +41,19 @@ export interface ApiPersonnelListItem {
   /** Set when they left. Together with `checked_in` this is what separates the board's
    *  "gegangen" from "nicht anwesend"; the phone stays two-state and ignores both. */
   checked_out_at?: string | null
+  /** The plan: «kommt um» (somebody not here yet) / «geht um» (somebody present). */
+  planned_from?: string | null
+  planned_until?: string | null
   /** Whether assigned to any incident in this event */
   is_assigned?: boolean
 }
+
+/**
+ * «kommt um» / «geht um» for one person at one Ereignis (`PUT …/check-in/{id}/plan`,
+ * `PUT /api/feld/attendance/{id}/plan`). A PATCH: a key left out stays, `null` clears it.
+ * Instants, resolved from the typed «22:00» by `lib/planned-times.ts`.
+ */
+export type ApiAttendancePlan = { planned_from?: string | null; planned_until?: string | null }
 
 export interface ApiCheckInStats {
   /** Everybody the roll-call offers — the Mannschaft. */

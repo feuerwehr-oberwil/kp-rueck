@@ -211,11 +211,42 @@
     "personPick": {
       "current": "aktuell",
       "apply": "Übernehmen",
-      "noneChosen": "Keine Person gewählt."
+      "noneChosen": "Keine Person gewählt.",
+      "planUntil": "bis {time}",
+      "planFrom": "ab {time}",
+      "leavesSoon": "Geht um {time} – in {duration}. Zuweisen geht trotzdem.",
+      "leftAlready": "Wollte um {time} gehen. Zuweisen geht trotzdem."
     },
     "surfaceStep": {
       "back": "Zurück",
       "escBack": "zurück zu «{surface}»"
+    },
+    "attendancePlan": {
+      "chipUntil": "geht {time}",
+      "chipUntilSoon": "geht {time} · in {duration}",
+      "chipUntilPast": "geht {time} · fällig",
+      "chipFrom": "kommt {time}",
+      "addUntil": "bis",
+      "addFrom": "kommt um",
+      "ariaUntil": "Geht um setzen",
+      "ariaUntilSet": "Geht um {time} – ändern",
+      "ariaFrom": "Kommt um setzen",
+      "ariaFromSet": "Kommt um {time} – ändern",
+      "titleUntil": "Geht um · {name}",
+      "titleFrom": "Kommt um · {name}",
+      "fieldUntil": "Geht um",
+      "fieldFrom": "Kommt um",
+      "selfUntil": "Ich bin da bis",
+      "selfFrom": "Ich komme um",
+      "selfUntilSet": "Da bis {time}",
+      "selfFromSet": "Komme um {time}",
+      "plusHours": "+{hours} h",
+      "clear": "Zeit löschen",
+      "save": "Übernehmen",
+      "required": "Bitte eine Uhrzeit wählen.",
+      "hintKp": "Die Auswahllisten zeigen «bis …». 15 Minuten vorher kommt eine Meldung in die Glocke.",
+      "hintSelf": "Der KP sieht, bis wann du da bist. Eine Uhrzeit, kein Versprechen.",
+      "saveFailed": "Zeit nicht gespeichert"
     }
   },
   "nav": {
@@ -3406,6 +3437,7 @@
       "fatigueMany": "{count} Personen seit über {hours}h im Einsatz",
       "fatiguePerson": "{name} ({hours}h)",
       "fatigueMore": "{names} und {count} weitere",
+      "leavingAt": "Geht um {time}",
       "timeInStatus": "{duration} im Status «{status}»",
       "timeNotArchived": "Seit {duration} abgeschlossen, nicht archiviert",
       "noPersonnel": "Kein Personal mehr verfügbar – alle anwesenden Personen sind zugewiesen",
@@ -3539,6 +3571,7 @@
       "photo_too_many_pixels": "Bild zu gross (Pixelmasse).",
       "photo_limit": "Höchstens {max} Fotos pro Bericht.",
       "feld_token_other_person": "Der Zugriffscode gehört zu einer anderen Person.",
+      "feld_plan_invalid": "Diese Zeit geht nicht. Bitte neu wählen.",
       "incident_not_found": "Einsatz nicht gefunden",
       "reko_link_invalid": "Dieser Reko-Link ist ungültig oder abgelaufen.",
       "reko_report_not_found": "Bericht nicht gefunden",

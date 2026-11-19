@@ -27,6 +27,7 @@ const claimFeldPerson = vi.hoisted(() => vi.fn())
 const mintFeldRekoLink = vi.hoisted(() => vi.fn())
 const getFeldMaterial = vi.hoisted(() => vi.fn())
 const logoutFeld = vi.hoisted(() => vi.fn())
+const setFeldAttendancePlan = vi.hoisted(() => vi.fn())
 const toastError = vi.hoisted(() => vi.fn())
 
 vi.mock('sonner', () => ({ toast: { error: toastError } }))
@@ -57,6 +58,7 @@ vi.mock('@/lib/api-client', () => ({
     mintFeldRekoLink,
     getFeldMaterial,
     logoutFeld,
+    setFeldAttendancePlan,
     // The door's proof-of-place fetch; null = render without the proof.
     getFeldContext: vi.fn().mockResolvedValue(null),
   },
@@ -1027,3 +1029,41 @@ describe('/feld on a phone that is logged in to Rück', () => {
   })
 })
 
+/** #3: the person's own plan – «Ich komme um …» before they are in, «Ich bin da bis …» after. */
+describe('/feld · the own plan', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    forgetDevice()
+    seedDevice()
+    setParams({ token: 'feld-token' })
+  })
+
+  const answer = (overrides: Record<string, unknown>) =>
+    getFeldAssignments.mockResolvedValue({
+      personnel_id: 'p-1', personnel_name: 'Muster Hans', personnel_role: 'Offizier',
+      event_id: 'e-1', event_name: 'Sturm', assignments: [], message_chips: [], ...overrides,
+    })
+
+  it('not in yet: «Ich komme um …» under «Einchecken», written through the device’s own door', async () => {
+    answer({ checked_in: false })
+    setFeldAttendancePlan.mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    renderWithIntl(<FeldPage />)
+
+    await user.click(await screen.findByRole('button', { name: 'Ich komme um …' }))
+    await user.type(await screen.findByLabelText('Ich komme um', { selector: 'input' }), '20:00')
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }))
+
+    await waitFor(() => expect(setFeldAttendancePlan).toHaveBeenCalledTimes(1))
+    const [id, token, plan] = setFeldAttendancePlan.mock.calls[0]
+    expect([id, token, Object.keys(plan)]).toEqual(['p-1', 'bound-token', ['planned_from']])
+    expect(await screen.findByRole('button', { name: /^Komme um 20:00$/ })).toBeInTheDocument()
+  })
+
+  it('in: says until when they are here', async () => {
+    answer({ checked_in: true, planned_until: new Date(2026, 10, 19, 22, 0).toISOString() })
+    renderWithIntl(<FeldPage />)
+    expect(await screen.findByRole('button', { name: 'Da bis 22:00' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Ich komme um/ })).not.toBeInTheDocument()
+  })
+})

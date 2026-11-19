@@ -280,6 +280,9 @@ export interface ApiFeldAssignmentsResponse {
   personnel_role: string | null
   /** Present at this Ereignis — drives "Einchecken" vs "Ich rücke ab". */
   checked_in?: boolean
+  /** Their own plan here: «Ich komme um …» / «Ich bin da bis …». */
+  planned_from?: string | null
+  planned_until?: string | null
   /** The roles this person holds here (plan 26, decision 5). The roles are
    *  data; which sections they unlock stays code. */
   functions?: string[]

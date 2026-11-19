@@ -30,6 +30,13 @@ will keep holding.
 
 ### Added
 
+- **Planned «kommt um» / «geht um» in the Appell.** Each row has a time chip («geht 22:00»,
+  dashed «+ bis» while nothing is planned, amber within the hour); a person can give their own
+  «bis …» on the check-in link and «Ich komme um …» / «Ich bin da bis …» on `/feld`. Every person
+  picker shows «bis 22:00», a ticked person who leaves within 60 minutes gets an amber advice
+  (never a block), and the bell rings 15 minutes before somebody's «geht um». Automatic
+  migration (`event_attendance.planned_from` / `planned_until`).
+
 - Editors can restore a deleted Einsatz from its entry in the Ereignis **Verlauf**, even after
   the undo message expires or the board reloads. Recovery preserves earlier shared assignments
   in either restore order and names any resource that has since been reassigned.

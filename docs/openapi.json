@@ -9774,6 +9774,129 @@
         }
       }
     },
+    "/api/personnel/check-in/{personnel_id}/plan": {
+      "put": {
+        "tags": [
+          "personnel-checkin"
+        ],
+        "summary": "Set Plan",
+        "description": "«kommt um» / «geht um» – the Appell's time chip, or the person on the check-in link.\n\nTwo doors like check-in: the link's token (somebody giving their own «bis 22:00» at the\ndoor) or an editor session with `event_id` (the KP, from a radio message). Only the\nfields sent change; null clears one. Broadcasts the same `personnel_update` as a tick,\nso the Appell and the pickers show the new time without a reload.",
+        "operationId": "set_plan_api_personnel_check_in__personnel_id__plan_put",
+        "parameters": [
+          {
+            "name": "personnel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Personnel Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Access token from the check-in link",
+              "title": "Token"
+            },
+            "description": "Access token from the check-in link"
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Event ID (board, requires an editor session)",
+              "title": "Event Id"
+            },
+            "description": "Event ID (board, requires an editor session)"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendancePlanUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonnelCheckInResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/personnel/check-in/{personnel_id}": {
       "delete": {
         "tags": [
@@ -14684,6 +14807,71 @@
             "description": "Access token from the generated /feld link"
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonnelCheckInResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/attendance/{personnel_id}/plan": {
+      "put": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Set Own Attendance Plan",
+        "description": "«Ich komme um …» / «Ich bin da bis …» – the person's own plan (feedback 19.11., #3).\n\nThe same CRUD as the Appell's time chip (one plan per person, however it was written),\nbound like `set_own_attendance`: a device only ever plans ITSELF, before any assignment.",
+        "operationId": "set_own_attendance_plan_api_feld_attendance__personnel_id__plan_put",
+        "parameters": [
+          {
+            "name": "personnel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Personnel Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendancePlanUpdate"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -20972,6 +21160,37 @@
         "title": "AttachEmergencyRequest",
         "description": "Request to attach a Divera emergency to an Event.\n\n``merge_into_incident_id``: the operator answered «Zusammenführen» to the\nduplicate hint — the alarm becomes a Nachtrag on that open card instead of\na card of its own (services/duplicates.py; undoable with «Trennen»)."
       },
+      "AttendancePlanUpdate": {
+        "properties": {
+          "planned_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned From"
+          },
+          "planned_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Until"
+          }
+        },
+        "type": "object",
+        "title": "AttendancePlanUpdate",
+        "description": "«kommt um» / «geht um» for one person at one Ereignis (`crud.set_attendance_plan`).\n\nA PATCH: only the fields sent change, and an explicit null clears one. The client\nresolves the typed «22:00» to an instant (it knows the station's clock and which day is\nmeant, `lib/planned-times.ts`), so the server stores what it is given – tz-aware only."
+      },
       "AuditLogEntry": {
         "properties": {
           "id": {
@@ -24043,6 +24262,30 @@
             "type": "boolean",
             "title": "Checked In",
             "default": false
+          },
+          "planned_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned From"
+          },
+          "planned_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Until"
           },
           "functions": {
             "items": {
@@ -29447,7 +29690,8 @@
           "field_message",
           "field_pickup",
           "field_report",
-          "feld_code_rotated"
+          "feld_code_rotated",
+          "personnel_leaving"
         ],
         "title": "NotificationType",
         "description": "Notification types.\n\nMust stay in sync with the ``valid_notification_type`` CHECK constraint on\n``models.Notification`` — this enum is the response model, so a type the DB\nhappily stores but this enum does not know is not a missing bell entry: it\nis a ``ResponseValidationError`` that fails the WHOLE ``GET /notifications``\nresponse and blanks the operator's bell. That is exactly how the five\n``/feld`` types (plan 25) went missing."
@@ -29573,6 +29817,30 @@
               }
             ],
             "title": "Checked Out At"
+          },
+          "planned_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned From"
+          },
+          "planned_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Until"
           },
           "created_at": {
             "type": "string",
@@ -29749,6 +30017,30 @@
             ],
             "title": "Checked Out At"
           },
+          "planned_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned From"
+          },
+          "planned_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Until"
+          },
           "is_assigned": {
             "type": "boolean",
             "title": "Is Assigned",
@@ -29923,6 +30215,30 @@
               }
             ],
             "title": "Checked Out At"
+          },
+          "planned_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned From"
+          },
+          "planned_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Until"
           },
           "is_assigned": {
             "type": "boolean",

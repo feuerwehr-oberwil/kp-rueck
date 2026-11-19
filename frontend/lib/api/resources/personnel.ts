@@ -13,6 +13,7 @@ import type {
   ApiCheckInStats,
   ApiPersonnelCreate,
   ApiPersonnelUpdate,
+  ApiAttendancePlan,
 } from '../types'
 
 export class PersonnelApi {
@@ -124,6 +125,19 @@ export class PersonnelApi {
       `/api/personnel/check-in/${personnelId}?event_id=${encodeURIComponent(eventId)}`,
       { method: 'DELETE' }
     )
+  }
+
+  /** «kommt um» / «geht um»: the Appell (editor session + `eventId`) or the check-in link (`token`). */
+  async setAttendancePlan(
+    personnelId: string,
+    door: { eventId: string } | { token: string },
+    plan: ApiAttendancePlan,
+  ): Promise<ApiPersonnelListItem> {
+    const path = `/api/personnel/check-in/${personnelId}/plan`
+    const body = { method: 'PUT', body: JSON.stringify(plan) }
+    return 'token' in door
+      ? linkRequest<ApiPersonnelListItem>(`${path}?token=${encodeURIComponent(door.token)}`, body)
+      : httpRequest<ApiPersonnelListItem>(`${path}?event_id=${encodeURIComponent(door.eventId)}`, body)
   }
 
   /** "Alle auschecken" – everyone still present goes to `gegangen`. Board only. */

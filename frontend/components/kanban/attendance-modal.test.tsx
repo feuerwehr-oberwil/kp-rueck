@@ -9,6 +9,7 @@ const checkInPersonnelForEvent = vi.fn().mockResolvedValue({})
 const checkOutPersonnelForEvent = vi.fn().mockResolvedValue({})
 const notConfigured = { available: false, reason: 'not_configured', counts: { coming: 0, not_coming: 0 } }
 const getEventDiveraResponses = vi.fn().mockResolvedValue(notConfigured)
+const setAttendancePlan = vi.fn()
 
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
@@ -18,6 +19,7 @@ vi.mock('@/lib/api-client', () => ({
     checkOutAllPersonnel: vi.fn().mockResolvedValue([]),
     createPersonnel: vi.fn(),
     getEventDiveraResponses: (...args: unknown[]) => getEventDiveraResponses(...args),
+    setAttendancePlan: (...args: unknown[]) => setAttendancePlan(...args),
   },
 }))
 vi.mock('@/lib/websocket-client', () => ({
@@ -241,6 +243,52 @@ describe('AttendanceModal', () => {
     await waitFor(() =>
       expect(checkOutPersonnelForEvent).toHaveBeenCalledWith('Bürgin Anton', 'ev-1')
     )
+  })
+})
+
+describe('AttendanceModal · the plan chip (#3, mock 6A)', () => {
+  beforeEach(() => {
+    checkInPersonnelForEvent.mockClear()
+    setAttendancePlan.mockReset()
+  })
+
+  it('«geht 22:00» for somebody here, dashed «kommt um» for somebody not yet, nothing for somebody gone', async () => {
+    const until = new Date(Date.now() + 3 * 3_600_000)
+    until.setMinutes(0, 0, 0)
+    const clock = `${String(until.getHours()).padStart(2, '0')}:00`
+    getEventCheckInList.mockResolvedValue({
+      personnel: [{ ...present, planned_until: until.toISOString() }, absent, left],
+      event_id: 'ev-1',
+      event_name: 'Unwetter 08.08.',
+    })
+    renderWithIntl(<AttendanceModal open onOpenChange={() => {}} eventId="ev-1" eventName="Unwetter 08.08." canCheckIn />)
+
+    expect(await screen.findByRole('button', { name: `Geht um ${clock} – ändern` })).toHaveTextContent(`geht ${clock}`)
+    expect(screen.getByRole('button', { name: 'Kommt um setzen' })).toHaveClass('border-dashed')
+    expect(screen.getAllByRole('button', { name: /setzen|ändern/ })).toHaveLength(2)
+  })
+
+  it('a click on the chip never cycles the row; Enter in the field writes «kommt um» for that Ereignis', async () => {
+    setAttendancePlan.mockResolvedValue({ planned_from: '2026-11-19T19:00:00.000Z', planned_until: null })
+    getEventCheckInList.mockResolvedValue({ personnel: [absent], event_id: 'ev-1', event_name: 'Unwetter 08.08.' })
+    renderWithIntl(<AttendanceModal open onOpenChange={() => {}} eventId="ev-1" eventName="Unwetter 08.08." canCheckIn />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Kommt um setzen' }))
+    const field = await screen.findByLabelText('Kommt um')
+    await userEvent.type(field, '20:00{Enter}')
+
+    await waitFor(() => expect(setAttendancePlan).toHaveBeenCalledTimes(1))
+    const [id, door, plan] = setAttendancePlan.mock.calls[0]
+    expect([id, door]).toEqual(['Frey Marc', { eventId: 'ev-1' }])
+    expect(new Date(plan.planned_from).getHours()).toBe(20)
+    expect(checkInPersonnelForEvent).not.toHaveBeenCalled()
+  })
+
+  it('a viewer reads the plan but gets no chip to set one', async () => {
+    getEventCheckInList.mockResolvedValue({ personnel: [present, absent], event_id: 'ev-1', event_name: 'Unwetter 08.08.' })
+    renderWithIntl(<AttendanceModal open onOpenChange={() => {}} eventId="ev-1" eventName="Unwetter 08.08." />)
+    await screen.findByRole('button', { name: /Frey Marc/ })
+    expect(screen.queryByRole('button', { name: /setzen/ })).not.toBeInTheDocument()
   })
 })
 

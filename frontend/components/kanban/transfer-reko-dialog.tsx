@@ -179,7 +179,7 @@ export function TransferRekoDialog({
       ) : (
         targetOptions.map((person) => {
           // Every target is Reko – «Reko» on each tile would say nothing.
-          const { where, roles } = factsOf(person, { elsewhere: einsatzWhere(person.id, operations), omitReko: true })
+          const { where, roles, plan } = factsOf(person, { elsewhere: einsatzWhere(person.id, operations), omitReko: true })
           return (
             <PersonPickTile
               key={person.id}
@@ -189,6 +189,7 @@ export function TransferRekoDialog({
               rank={person.role}
               where={where}
               roles={roles}
+              plan={plan}
               single
               checked={chosenId === person.id}
               disabled={isTransferring}

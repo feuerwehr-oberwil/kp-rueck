@@ -320,11 +320,42 @@
     "personPick": {
       "current": "actuel",
       "apply": "Valider",
-      "noneChosen": "Aucune personne choisie."
+      "noneChosen": "Aucune personne choisie.",
+      "planUntil": "jusqu’à {time}",
+      "planFrom": "dès {time}",
+      "leavesSoon": "Part à {time} – dans {duration}. L’attribution reste possible.",
+      "leftAlready": "Voulait partir à {time}. L’attribution reste possible."
     },
     "surfaceStep": {
       "back": "Retour",
       "escBack": "retour à «{surface}»"
+    },
+    "attendancePlan": {
+      "chipUntil": "part {time}",
+      "chipUntilSoon": "part {time} · dans {duration}",
+      "chipUntilPast": "part {time} · échu",
+      "chipFrom": "arrive {time}",
+      "addUntil": "jusqu’à",
+      "addFrom": "arrive à",
+      "ariaUntil": "Définir l’heure de départ",
+      "ariaUntilSet": "Part à {time} – modifier",
+      "ariaFrom": "Définir l’heure d’arrivée",
+      "ariaFromSet": "Arrive à {time} – modifier",
+      "titleUntil": "Part à · {name}",
+      "titleFrom": "Arrive à · {name}",
+      "fieldUntil": "Part à",
+      "fieldFrom": "Arrive à",
+      "selfUntil": "Je suis là jusqu’à",
+      "selfFrom": "J’arrive à",
+      "selfUntilSet": "Là jusqu’à {time}",
+      "selfFromSet": "J’arrive à {time}",
+      "plusHours": "+{hours} h",
+      "clear": "Effacer l’heure",
+      "save": "Valider",
+      "required": "Choisis une heure.",
+      "hintKp": "Les listes de sélection affichent « jusqu’à … ». 15 minutes avant, une notification arrive dans la cloche.",
+      "hintSelf": "Le PC voit jusqu’à quand tu es là. Une heure, pas une promesse.",
+      "saveFailed": "Heure non enregistrée"
     }
   },
   "display": {
@@ -653,6 +684,7 @@
       "photo_too_many_pixels": "Image trop grande (dimensions en pixels).",
       "photo_limit": "{max} photos au maximum par rapport.",
       "feld_token_other_person": "Ce code d’accès appartient à une autre personne.",
+      "feld_plan_invalid": "Cette heure ne va pas. Choisis-en une autre.",
       "incident_not_found": "Intervention introuvable",
       "reko_link_invalid": "Ce lien de reconnaissance n’est pas valable ou a expiré.",
       "reko_report_not_found": "Rapport introuvable",
@@ -3087,6 +3119,7 @@
       "fatigueMany": "{count} personnes en service depuis plus de {hours}h",
       "fatiguePerson": "{name} ({hours}h)",
       "fatigueMore": "{names} et {count, plural, one {# autre} other {# autres}}",
+      "leavingAt": "Part à {time}",
       "timeInStatus": "{duration} dans l’état « {status} »",
       "timeNotArchived": "Clôturé depuis {duration}, pas archivé",
       "noPersonnel": "Plus de personnel disponible – toutes les personnes présentes sont attribuées",

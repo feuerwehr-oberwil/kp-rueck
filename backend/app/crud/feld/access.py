@@ -25,7 +25,7 @@ from sqlalchemy import func as sa_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...database import execute_dml
-from ...models import Event, FeldCodeAttempt, FeldDeviceClaim, FeldUnlockClaim
+from ...models import Event, EventAttendance, FeldCodeAttempt, FeldDeviceClaim, FeldUnlockClaim
 
 FELD_UNLOCK_MINUTES = 5
 
@@ -277,6 +277,18 @@ async def revoke_claim(db: AsyncSession, claim_id: uuid.UUID, event_id: uuid.UUI
         .values(revoked_at=datetime.now(UTC))
     )
     await db.flush()
+
+
+async def own_attendance(db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid.UUID) -> EventAttendance | None:
+    """This person's attendance row at this Ereignis (or None) – `/feld` reads its plan
+    («Ich bin da bis …») from it besides `checked_in`."""
+    result = await db.execute(
+        select(EventAttendance).where(
+            EventAttendance.event_id == event_id,
+            EventAttendance.personnel_id == personnel_id,
+        )
+    )
+    return result.scalar_one_or_none()
 
 
 async def is_checked_in(db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid.UUID) -> bool:

@@ -615,11 +615,15 @@ async def _roster_for(db: AsyncSession, personnel_ids: Iterable[UUID]) -> dict[U
 
 
 async def _attended_on(db: AsyncSession, event_id: UUID | None) -> set[UUID]:
-    """Personnel with ANY attendance record on the Ereignis – in now, or in and out again."""
+    """Personnel with ANY attendance record on the Ereignis – in now, or in and out again.
+    A row that only holds a plan («kommt um 20:00») is not an attendance: they have not come."""
     if event_id is None:
         return set()
     result = await db.execute(
-        select(models.EventAttendance.personnel_id).where(models.EventAttendance.event_id == event_id)
+        select(models.EventAttendance.personnel_id).where(
+            models.EventAttendance.event_id == event_id,
+            or_(models.EventAttendance.checked_in_at.isnot(None), models.EventAttendance.checked_out_at.isnot(None)),
+        )
     )
     return set(result.scalars().all())
 

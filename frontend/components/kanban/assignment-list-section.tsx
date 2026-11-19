@@ -4,6 +4,8 @@ import { Fragment, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { Check, Minus, Siren, type LucideIcon } from "lucide-react"
 import { PersonName } from "@/components/person-name"
+import { FormMessage } from "@/components/ui/form-message"
+import type { TilePlan } from "@/components/kanban/person-tile-facts"
 import { abbreviateRank } from "@/lib/roster-order"
 import { cn } from "@/lib/utils"
 
@@ -79,14 +81,16 @@ export type PersonWhere = OccupancyLabel & { Icon?: LucideIcon }
  * line of its own – is in `title`. Amber marks only the where part: it is ANOTHER commitment,
  * «schau hin»; rank and roles are facts.
  */
-export function PersonTileLine({ rank, rankFull, where, roles }: {
+export function PersonTileLine({ rank, rankFull, where, roles, plan }: {
   rank?: string
   /** The unabbreviated rank for the `title`, when `rank` is the short form. */
   rankFull?: string
   where: PersonWhere | null
   roles: readonly TileRole[]
+  /** «bis 22:00» last, in mono; amber when the person leaves soon (`TilePlan`). */
+  plan?: TilePlan | null
 }) {
-  const title = [rankFull ?? rank, where?.full, ...roles.map(role => role.label)].filter(Boolean).join(" · ")
+  const title = [rankFull ?? rank, where?.full, ...roles.map(role => role.label), plan?.label].filter(Boolean).join(" · ")
   const segments: { key: string; className: string; content: React.ReactNode }[] = []
   if (rank) segments.push({ key: "rank", className: "min-w-[3ch] truncate", content: rank })
   if (where) {
@@ -101,6 +105,13 @@ export function PersonTileLine({ rank, rankFull, where, roles }: {
       key: role.label,
       className: "flex shrink-0 items-start gap-1",
       content: <><role.Icon className={TILE_META_ICON} aria-hidden />{role.label}</>,
+    })
+  }
+  if (plan) {
+    segments.push({
+      key: "plan",
+      className: cn("shrink-0 font-mono", plan.soon && "text-warning-foreground"),
+      content: plan.label,
     })
   }
   return (
@@ -197,6 +208,7 @@ export function PersonPickTile({
   single,
   current,
   animate,
+  plan = null,
   badge,
   aside,
   onClick,
@@ -209,6 +221,8 @@ export function PersonPickTile({
   rank?: string | null
   where?: PersonWhere | null
   roles?: readonly TileRole[]
+  /** «bis 22:00» on the line; its advice (leaves soon) under it while the tile is ticked. */
+  plan?: TilePlan | null
   checked: boolean
   /** One person of the list, not several: radio dot + radio semantics. */
   single?: boolean
@@ -243,7 +257,9 @@ export function PersonPickTile({
           {current && <span className="shrink-0 text-xs font-medium text-sel-foreground">· {t("current")}</span>}
           {badge}
         </p>
-        <PersonTileLine rank={rank ? abbreviateRank(rank) : undefined} rankFull={rank ?? undefined} where={where} roles={roles} />
+        <PersonTileLine rank={rank ? abbreviateRank(rank) : undefined} rankFull={rank ?? undefined} where={where} roles={roles} plan={plan} />
+        {/* Amber, never blocking (mock 7A): said once the person is chosen, not on every tile. */}
+        {checked && plan?.advice && <FormMessage tone="advice" className="mt-1.5">{plan.advice}</FormMessage>}
       </div>
       {aside && <div className="flex shrink-0 flex-col items-end gap-0.5 text-xs">{aside}</div>}
     </button>

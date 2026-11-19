@@ -93,6 +93,10 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
     # so switching those off resolves it like the others.
     await _sync_fatigue_notification(db, event_id, settings, enabled=settings.enabled_resource_alerts)
 
+    # Somebody's planned «geht um» is near – a resource alert like time on duty.
+    if settings.enabled_resource_alerts:
+        notifications.extend(await _check_leaving_alerts(db, event_id))
+
     # Data quality alerts
     if settings.enabled_data_quality_alerts:
         data_quality_notifications = await _check_data_quality_alerts(db, event_id)
@@ -334,6 +338,40 @@ async def _check_resource_alerts(
                 )
             )
 
+    return notifications
+
+
+#: How long before somebody's planned «geht um» the bell rings (feedback 19.11.2026, #3).
+LEAVING_LEAD_MINUTES = 15
+
+
+async def _check_leaving_alerts(db: AsyncSession, event_id: UUID) -> list[Notification]:
+    """One ``personnel_leaving`` per checked-in person whose «geht um» is at most 15' away.
+
+    Event-level, so `_deduplicate_and_save` matches it on the message («Geht um 22:00:
+    Baumann Michael»): one row per person and planned time, never re-rung once dismissed.
+    It stays in the current set while the person is still in after that time – the KP has
+    not let them go yet – and resolves itself when they check out or the plan moves
+    (`_auto_resolve_stale_notifications`).
+    """
+    from ..models import EventAttendance
+
+    soon = datetime.now(UTC) + timedelta(minutes=LEAVING_LEAD_MINUTES)
+    rows = await db.execute(
+        select(Personnel.name, EventAttendance.planned_until)
+        .join(Personnel, EventAttendance.personnel_id == Personnel.id)
+        .where(EventAttendance.event_id == event_id)
+        .where(EventAttendance.checked_in)
+        .where(EventAttendance.planned_until.isnot(None))
+        .where(EventAttendance.planned_until <= soon)
+        .order_by(EventAttendance.planned_until.asc(), Personnel.name.asc())
+    )
+    notifications: list[Notification] = []
+    for name, until in rows.all():
+        message, params = texts.personnel_leaving(name, until)
+        notifications.append(
+            Notification(type="personnel_leaving", severity="info", message=message, params=params, event_id=event_id)
+        )
     return notifications
 
 
@@ -808,7 +846,10 @@ async def _auto_resolve_stale_notifications(
         # `personnel_fatigue` is resolved by `_sync_fatigue_notification`: its message is
         # rewritten in place as people cross the threshold, so «not in the current set» says
         # nothing about it.
-        if notification.type in ("no_materials", "no_personnel") and notification.message not in current_messages:
+        if (
+            notification.type in ("no_materials", "no_personnel", "personnel_leaving")
+            and notification.message not in current_messages
+        ):
             notifications_to_resolve.append(notification)
 
     # Auto-dismiss resolved notifications
