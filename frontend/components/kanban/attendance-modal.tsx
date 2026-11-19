@@ -462,6 +462,8 @@ export function AttendanceModal({
         title={t('checkOutAllTitle')}
         description={t('checkOutAllDescription', { count: stats.present })}
         confirmText={t('checkOutAll')}
+        // One Enter would check out the whole crew.
+        initialFocus="cancel"
         onConfirm={checkOutAll}
       />
     </>

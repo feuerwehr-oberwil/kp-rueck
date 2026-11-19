@@ -1404,6 +1404,13 @@
       "drives": "conduit {vehicle}",
       "moveReleasesDriver": "« Déplacer ici » libère aussi le rôle de conducteur pour {vehicle}."
     },
+    "auftragStop": {
+      "title": "Ajouter {incident} comme étape à la mission {auftrag} ?",
+      "description": "{vehicle} roule déjà pour la mission « {auftrag} ». {incident} y sera ajoutée comme dernière étape.",
+      "addAsStop": "Ajouter à la mission",
+      "assignOnly": "Attribuer seulement en plus",
+      "added": "{incident} est maintenant une étape de la mission « {auftrag} »"
+    },
     "vehicleStatus": {
       "bound": "Engagé",
       "available": "Disponible",
@@ -1934,6 +1941,7 @@
     "disponiert": {
       "whatsappCopied": "Message WhatsApp copié",
       "title": "Intervention engagée",
+      "repeatTitle": "Répéter le message radio",
       "description": "{location} → Engagé",
       "addressPlaceholder": "[Adresse]",
       "staysOnSite": "reste sur place",
@@ -1978,6 +1986,7 @@
       "markAmWarten": "Marquer « en attente »",
       "completeIncident": "Clôturer l’intervention",
       "showOnMapMenu": "Montrer sur la carte",
+      "repeatRadio": "Répéter le message radio",
       "printing": "Impression …",
       "auftragPersSummary": "{count} pers",
       "auftragMatSummary": "{count, plural, one {# pièce de matériel} other {# pièces de matériel}}",

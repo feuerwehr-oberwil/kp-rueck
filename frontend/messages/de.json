@@ -647,6 +647,7 @@
     "disponiert": {
       "whatsappCopied": "WhatsApp-Nachricht kopiert",
       "title": "Einsatz disponiert",
+      "repeatTitle": "Funkdurchsage wiederholen",
       "description": "{location} → Disponiert",
       "addressPlaceholder": "[Adresse]",
       "staysOnSite": "bleibt vor Ort",
@@ -691,6 +692,7 @@
       "markAmWarten": "Als Am Warten markieren",
       "completeIncident": "Einsatz abschliessen",
       "showOnMapMenu": "Auf Karte zeigen",
+      "repeatRadio": "Funkdurchsage wiederholen",
       "printing": "Wird gedruckt …",
       "auftragPersSummary": "{count} Pers",
       "auftragMatSummary": "{count, plural, one {# Gerät} other {# Geräte}}",
@@ -1321,6 +1323,13 @@
       "newLabel": "Neu",
       "drives": "fährt {vehicle}",
       "moveReleasesDriver": "«Hierher verschieben» gibt auch die Fahrer-Rolle für {vehicle} frei."
+    },
+    "auftragStop": {
+      "title": "{incident} als Stopp in Auftrag {auftrag} aufnehmen?",
+      "description": "{vehicle} fährt schon den Auftrag «{auftrag}». {incident} wird dort als letzter Stopp aufgenommen.",
+      "addAsStop": "In Auftrag aufnehmen",
+      "assignOnly": "Nur zusätzlich zuweisen",
+      "added": "{incident} ist jetzt Stopp im Auftrag «{auftrag}»"
     },
     "vehicleStatus": {
       "bound": "Gebunden",

@@ -7,7 +7,7 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
 } from "@/components/ui/context-menu"
-import { Users, Package, Truck, Binoculars, Pencil, Map, Building2, Printer, Timer, CheckCircle2, ArrowRightLeft, Waypoints, Route, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
+import { Users, Package, Truck, Binoculars, Pencil, Map, Building2, Printer, Timer, CheckCircle2, ArrowRightLeft, Waypoints, Route, Trash2, ArrowUp, ArrowDown, Radio } from 'lucide-react'
 import { type Operation } from "@/lib/contexts/operations-context"
 import type { MoveTo } from "@/lib/move-in-list"
 import { usePrintAssignmentSlip } from "@/lib/hooks/use-print-assignment-slip"
@@ -27,8 +27,13 @@ interface CardContextMenuProps {
   onRequestComplete?: () => void
   onRequestDelete?: () => void
   onMoveInColumn?: (to: MoveTo) => void
+  /** «Funkdurchsage wiederholen»: the Disponiert dialog again, for an Einsatz already out. */
+  onRepeatRadio?: () => void
   printerEnabled?: boolean
 }
+
+/** From «Disponiert» on, until it is closed, an Einsatz has a Funkdurchsage to repeat. */
+const RADIO_REPEATABLE: ReadonlySet<Operation["status"]> = new Set(["enroute", "active", "returning"])
 
 /**
  * The right-click menu of an Einsatz card. Rendered by `DraggableOperation` as
@@ -51,6 +56,7 @@ export function CardContextMenu({
   onRequestComplete,
   onRequestDelete,
   onMoveInColumn,
+  onRepeatRadio,
   printerEnabled,
 }: CardContextMenuProps) {
   const t = useTranslations('kanban')
@@ -191,6 +197,12 @@ export function CardContextMenu({
           {t('card.showOnMapMenu')}
         </Link>
       </ContextMenuItem>
+      {onRepeatRadio && RADIO_REPEATABLE.has(operation.status) && (
+        <ContextMenuItem onClick={() => onRepeatRadio()}>
+          <Radio className="mr-2 h-4 w-4" />
+          {t('card.repeatRadio')}
+        </ContextMenuItem>
+      )}
       {printerEnabled && (
         <ContextMenuItem onClick={handlePrint} disabled={isPrinting}>
           <Printer className="mr-2 h-4 w-4" />

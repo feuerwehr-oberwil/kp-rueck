@@ -4,6 +4,7 @@ import { useCallback, useRef } from "react"
 import type { useGroups } from "@/lib/contexts/groups-context"
 import type { Operation, useOperations } from "@/lib/contexts/operations-context"
 import { getIncidentRefLabel } from "@/lib/incident-types"
+import { askAuftragStop } from "@/lib/auftrag-stop-question"
 
 type Ops = ReturnType<typeof useOperations>
 type Groups = ReturnType<typeof useGroups>
@@ -26,6 +27,8 @@ export interface AssignmentConflictInputs {
  * ask, because it never sees the routes (`GroupsProvider` sits inside it).
  *
  * - vehicles onto a route or an incident, when a route or incident already has it;
+ *   a vehicle that drives an Auftrag, put on a lone Einsatz, asks whether that
+ *   Einsatz joins the Auftrag as its last stop (lib/auftrag-stop-question.ts);
  * - people and material held by a route, batched per drop into one question.
  *
  * Moved out of `app/page.tsx` verbatim (2026-09-23): same callbacks, same
@@ -191,13 +194,33 @@ export function useAssignmentConflicts({
     [requestResourceConflict],
   )
 
-  const assignVehicleToIncidentWithConflict = useCallback((vehicleId: string, vehicleName: string, operationId: string) => {
+  /**
+   * A vehicle onto an Einsatz from every entry point (number keys, picker, drag-drop).
+   * Held by no Auftrag → the plain assign (which asks its own Einsatz-Doppelbelegung).
+   * Held by an Auftrag and the Einsatz is in none → «als Stopp aufnehmen?». A grouped
+   * target keeps the move/keep question naming the Auftrag. Returns true when it asked.
+   */
+  const assignVehicleToIncidentWithConflict = useCallback((vehicleId: string, vehicleName: string, operationId: string): boolean => {
     const groupConflicts = groups.filter((group) =>
       group.assignments.some((a) => a.resourceType === "vehicle" && a.resourceId === vehicleId),
     )
     if (groupConflicts.length === 0) {
       assignVehicleToOperation(vehicleId, vehicleName, operationId)
-      return
+      return false
+    }
+    const target = operations.find((op) => op.id === operationId)
+    if (target && !target.groupId) {
+      // Several Aufträge holding one vehicle is itself a double booking; the first is asked about.
+      const [group] = groupConflicts
+      askAuftragStop({
+        groupId: group.id,
+        groupName: group.name,
+        incidentId: target.id,
+        incidentLabel: getIncidentRefLabel(target),
+        vehicleName,
+        assignOnly: () => assignVehicleToOperation(vehicleId, vehicleName, operationId),
+      })
+      return true
     }
     requestResourceConflict({
       resourceType: "vehicle",
@@ -216,7 +239,8 @@ export function useAssignmentConflicts({
         assignVehicleToOperation(vehicleId, vehicleName, operationId)
       },
     })
-  }, [groups, requestResourceConflict, unassignGroupResource, assignVehicleToOperation])
+    return true
+  }, [groups, operations, requestResourceConflict, unassignGroupResource, assignVehicleToOperation])
 
   return {
     assignVehicleToGroupWithConflict,
