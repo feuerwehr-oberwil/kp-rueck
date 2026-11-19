@@ -85,6 +85,8 @@ describe("DriverAssignmentDialog walk-in", () => {
     await addWalkIn("Aushilfe Anna")
 
     await waitFor(() => expect(assignSpecialFunction).toHaveBeenCalledTimes(1))
+    // A guest of this Ereignis, not a roster row for ever (#5, 19.11.2026).
+    expect(createPersonnel).toHaveBeenCalledWith(expect.objectContaining({ guest_event_id: "event-1" }))
     expect(checkInPersonnelForEvent).toHaveBeenCalledWith("walk-in", "event-1")
     // Minting a login-less link for the whole Ereignis to register one person is
     // not the price of adding a driver.
