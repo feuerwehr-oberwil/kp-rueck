@@ -11,8 +11,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
  * A person, a vehicle and a Tauchpumpe are all single physical things — each can
  * only be in one place at a time. When an operator assigns one that is still on
  * another incident (see operations-context `resourceConflict`), this asks the
- * three questions that actually exist: *move* it here (release it there), *keep*
- * the double booking, or leave it alone.
+ * three questions that actually exist: *keep* the double booking (the main
+ * answer), *move* it here (release it there), or leave it alone.
  *
  * It is THE dialog for that question, from every entry point. There used to be a
  * second one inside the assignment dialog with the same title and only two of
@@ -51,19 +51,20 @@ export function ResourceConflictPrompt() {
       : resourceConflict.conflicts
 
   return (
-    // The answers: *move* it here is the main one – what the operator almost always
-    // means; keeping the double booking is the "…but do this instead" line above
-    // Abbrechen. Every answer clears the conflict itself.
+    // The answers: *keep* it on both is the main one, ink and Enter (owner pick #22,
+    // 19.11.2026) – a number key pressed on a second card means «this one too», and
+    // keeping takes nothing away from anybody. *Move* it here is the "…but do this
+    // instead" line above Abbrechen. Every answer clears the conflict itself.
     <ConfirmDialog
       open
       onCancel={cancelResourceConflict}
       icon={<Icon className="h-5 w-5 text-muted-foreground" />}
       title={t('titleNamed', { name: resourceName })}
       description={t('prompt')}
-      extraAction={{ label: t('keepBoth'), onSelect: () => resolveResourceConflict("keep") }}
+      extraAction={{ label: t('moveHere'), onSelect: () => resolveResourceConflict("move") }}
       cancelText={tCommon('cancel')}
-      confirmText={t('moveHere')}
-      onConfirm={() => resolveResourceConflict("move")}
+      confirmText={t('keepBoth')}
+      onConfirm={() => resolveResourceConflict("keep")}
     >
       {/* Bisher → Neu. Each row carries a word and a glyph, never a colour on
           its own: an arrow for a binding that exists, a plus for the one being
