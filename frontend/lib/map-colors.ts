@@ -181,6 +181,15 @@ export const AUFTRAG_SWATCHES = ["#0e6680", "#008299", "#528400", "#6365f0", "#a
  */
 export const GROUP_PALETTE = [...AUFTRAG_SWATCHES, "#2c72e5", "#4b6a88", "#6b6b1f", "#7c5a3a"] as const
 
+/**
+ * «Färben nach Reko»: the group palette WITHOUT the two near-twins of petrol (#008299 cyan,
+ * #008578 teal – the three side by side read as one person, feedback 19.11.2026), in a turn
+ * that never puts two alike next to each other. The Reko people of an Ereignis take these in
+ * the order they became Reko (`rekoColorOrder` in lib/kanban-utils.ts): no repeat until all
+ * eight are out.
+ */
+export const REKO_PALETTE = ["#0e6680", "#a16207", "#6365f0", "#528400", "#7c5a3a", "#2c72e5", "#6b6b1f", "#4b6a88"] as const
+
 // --- Darker for white text ------------------------------------------------
 
 /** WCAG AA for normal text: the stop numbers are 12–14px bold. */

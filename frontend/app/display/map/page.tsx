@@ -17,7 +17,7 @@ import type { IncidentGroup } from "@/lib/types/groups"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { Check, Layers, ChevronDown } from "lucide-react"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
+import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, rekoColorOrder, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
 import { LoadingStatus } from "@/components/ui/shell-loader"
 import { translateOutsideReact } from "@/lib/i18n-messages"
@@ -326,27 +326,34 @@ function DisplayMapControls({
   )
 }
 
-/** incidentId → accent colour + legend for the active "Färben nach" dimension. */
-function useColorAccents(operations: Operation[], colorBy: ColorByDimension, groups: IncidentGroup[]) {
+/** incidentId → accent colour + legend for the active "Färben nach" dimension. The special
+ *  functions give each Reko person their colour turn (`rekoColorOrder`). */
+function useColorAccents(
+  operations: Operation[],
+  colorBy: ColorByDimension,
+  groups: IncidentGroup[],
+  specialFunctions: readonly { personnel_id: string; function_type: string }[],
+) {
   const tMap = useTranslations('map')
+  const rekoOrder = useMemo(() => rekoColorOrder(specialFunctions), [specialFunctions])
 
   const markerAccents = useMemo(() => {
     // Priority uses the markers' built-in priority fill — no override.
     if (colorBy === 'priority') return undefined
     const m = new Map<string, string>()
     for (const op of operations) {
-      const g = colorGroupFor(op, colorBy, groups)
+      const g = colorGroupFor(op, colorBy, groups, rekoOrder)
       m.set(op.id, g ? g.color : COLOR_NONE)
     }
     return m
-  }, [operations, colorBy, groups])
+  }, [operations, colorBy, groups, rekoOrder])
 
   const colorLegend = useMemo<ColorGroup[]>(() => {
     if (colorBy === 'priority') return []
     const map = new Map<string, ColorGroup>()
     let hasNone = false
     for (const op of operations) {
-      const g = colorGroupFor(op, colorBy, groups)
+      const g = colorGroupFor(op, colorBy, groups, rekoOrder)
       if (g) { if (!map.has(g.key)) map.set(g.key, g) }
       else hasNone = true
     }
@@ -356,10 +363,13 @@ function useColorAccents(operations: Operation[], colorBy: ColorByDimension, gro
       arr.push({ key: '__none__', label: noneLabel, color: COLOR_NONE })
     }
     return arr
-  }, [operations, colorBy, groups, tMap])
+  }, [operations, colorBy, groups, rekoOrder, tMap])
 
   return { markerAccents, colorLegend }
 }
+
+/** The share payload without special functions (older backends). */
+const NO_FUNCTIONS: readonly { personnel_id: string; function_type: string }[] = []
 
 function countByStatusGroup(statuses: string[]): Record<StatusGroup, number> {
   const counts: Record<StatusGroup, number> = { open: 0, active: 0, completed: 0 }
@@ -386,7 +396,7 @@ function AuthenticatedDisplayMap({
   onWeatherAvailabilityChange,
 }: DisplayMapVariantProps) {
   const { incidents, refreshIncidents } = useIncidents()
-  const { operations } = useOperations()
+  const { operations, specialFunctions } = useOperations()
   const { groups } = useGroups()
 
   // One refresh when the display map mounts. `refreshIncidents` is the
@@ -404,7 +414,7 @@ function AuthenticatedDisplayMap({
     [operations],
   )
 
-  const { markerAccents, colorLegend } = useColorAccents(operations, options.colorBy, groups)
+  const { markerAccents, colorLegend } = useColorAccents(operations, options.colorBy, groups, specialFunctions)
   const statusCounts = useMemo(
     () => countByStatusGroup(incidents.map((inc) => inc.status)),
     [incidents],
@@ -522,7 +532,7 @@ function TokenDisplayMap({
     () => new Map(operations.map((op) => [op.id, op] as const)),
     [operations],
   )
-  const { markerAccents, colorLegend } = useColorAccents(operations, options.colorBy, groups)
+  const { markerAccents, colorLegend } = useColorAccents(operations, options.colorBy, groups, data.special_functions ?? NO_FUNCTIONS)
   const statusCounts = useMemo(
     () => countByStatusGroup(data.incidents.map((inc) => inc.status)),
     [data],

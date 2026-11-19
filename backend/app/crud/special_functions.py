@@ -12,8 +12,16 @@ from ..services.audit import log_action
 
 
 async def get_event_special_functions(db: AsyncSession, event_id: uuid.UUID) -> list[EventSpecialFunction]:
-    """Get all special function assignments for an event."""
-    result = await db.execute(select(EventSpecialFunction).where(EventSpecialFunction.event_id == event_id))
+    """Get all special function assignments for an event, first assigned first.
+
+    The order is load-bearing: «Färben nach Reko» gives each Reko person the next colour
+    in this order (frontend `rekoColorOrder`), on the board and on the shared wall alike.
+    """
+    result = await db.execute(
+        select(EventSpecialFunction)
+        .where(EventSpecialFunction.event_id == event_id)
+        .order_by(EventSpecialFunction.assigned_at.asc(), EventSpecialFunction.id.asc())
+    )
     return list(result.scalars().all())
 
 

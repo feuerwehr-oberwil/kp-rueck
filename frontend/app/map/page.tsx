@@ -26,7 +26,7 @@ import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { FileText, Check, Milestone, Binoculars, Layers, ChevronDown } from "lucide-react"
 import { WallClock } from "@/components/ui/event-clock"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
+import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, rekoColorOrder, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { incidentTimeSource } from "@/lib/incident-time"
 import { useIncidentTimeMode } from "@/lib/hooks/use-incident-time-mode"
@@ -121,6 +121,7 @@ export default function MapPage() {
     removeReko,
     deleteOperation,
     isLoaded: operationsLoaded,
+    specialFunctions,
   } = useOperations()
   const { selectedEvent, isEventLoaded } = useEvent()
   // A launch onto the Lagekarte stays behind the snail until the incidents are in AND the map
@@ -548,16 +549,17 @@ export default function MapPage() {
   // "Färben nach": map each incident id → accent colour, plus a legend. Uses the
   // full operations (which carry reko/vehicle/type) rather than the lighter
   // incident markers.
+  const rekoOrder = useMemo(() => rekoColorOrder(specialFunctions), [specialFunctions])
   const markerAccents = useMemo(() => {
     // Priority uses the markers' built-in priority fill — no override.
     if (colorBy === 'priority') return undefined
     const m = new Map<string, string>()
     for (const op of operations) {
-      const g = colorGroupFor(op, colorBy, groups)
+      const g = colorGroupFor(op, colorBy, groups, rekoOrder)
       m.set(op.id, g ? g.color : COLOR_NONE) // grey when nothing assigned yet
     }
     return m
-  }, [operations, colorBy, groups])
+  }, [operations, colorBy, groups, rekoOrder])
 
   const colorLegend = useMemo<ColorGroup[]>(() => {
     // Priority falls back to the static legend section in MapLegend.
@@ -565,7 +567,7 @@ export default function MapPage() {
     const map = new Map<string, ColorGroup>()
     let hasNone = false
     for (const op of operations) {
-      const g = colorGroupFor(op, colorBy, groups)
+      const g = colorGroupFor(op, colorBy, groups, rekoOrder)
       if (g) { if (!map.has(g.key)) map.set(g.key, g) }
       else hasNone = true
     }
@@ -576,7 +578,7 @@ export default function MapPage() {
       arr.push({ key: '__none__', label: noneLabel, color: COLOR_NONE })
     }
     return arr
-  }, [operations, colorBy, groups, t])
+  }, [operations, colorBy, groups, rekoOrder, t])
 
   // «Auf der Karte öffnen» on an abgeschlossener Einsatz: the deep-linked
   // incident must show even when its status group (Beendet, hidden by default)
