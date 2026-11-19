@@ -205,6 +205,33 @@ async def test_a_note_from_a_blank_form_keeps_the_verdict_another_board_filed(te
     assert bells == 1
 
 
+@pytest.mark.parametrize(("seen", "filed"), [("reko", True), ("reko_done", False)])
+async def test_a_move_that_overtakes_a_waiting_first_save_still_files_it(test_engine, monkeypatch, seen, filed):
+    """Pass 3 S14: «Reko abgeschlossen» runs first and finds nothing to file; the board's save
+    with findings (no relevance answer) arrives after it. Edited while the board still showed
+    the card at Reko → filed, as the move would have. Edited on a card the board already
+    showed there → the owner rule: a draft until «Einsatz relevant?» is answered."""
+
+    async def seed(db: AsyncSession, incident_id: UUID, event_id: UUID, user_id: UUID) -> None:
+        db.add(_incident(incident_id, event_id, user_id, "reko"))
+        await db.commit()
+
+    def move(client: AsyncClient, incident_id: UUID) -> Awaitable[Response]:
+        return client.post(
+            f"/api/incidents/{incident_id}/status", json={"from_status": "reko", "to_status": "reko_done"}
+        )
+
+    def save(client: AsyncClient, incident_id: UUID) -> Awaitable[Response]:
+        body = {"incident_id": str(incident_id), "summary_text": "Keller 20 cm"}
+        return client.post(f"/api/reko/?submit=false&seen_status={seen}", json=body)
+
+    reports, bells = await _race(test_engine, monkeypatch, seed, move, save)
+
+    [report] = reports
+    assert report.is_draft is (not filed)
+    assert bells == (1 if filed else 0)
+
+
 async def test_a_save_racing_the_status_move_does_not_ring_the_bell_twice(test_engine, monkeypatch):
     report_id = uuid4()
 

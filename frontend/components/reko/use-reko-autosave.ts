@@ -30,6 +30,10 @@ interface AutosaveSession {
   confirmed: { version: number; updatedAt: string | null }
   inFlight: boolean
   timer: ReturnType<typeof setTimeout> | null
+  /** The card status the board shows now, and the one it showed at the newest edit – sent
+   *  as `seen_status`, so a save the card's move went past is still filed (pass 3, S14). */
+  cardStatus: string | undefined
+  seenAtEdit: string | undefined
   state: SyncState
   /** Mounted forms: their state subscriptions and `onSettled` reloads. */
   listeners: Set<() => void>
@@ -45,7 +49,7 @@ function sessionFor(key: string): AutosaveSession {
     session = {
       target: null, latest: null, baseline: toRekoFormData(null), version: 0,
       confirmed: { version: 0, updatedAt: null },
-      inFlight: false, timer: null, state: { status: 'idle' },
+      inFlight: false, timer: null, cardStatus: undefined, seenAtEdit: undefined, state: { status: 'idle' },
       listeners: new Set(), settled: new Set(), mounts: 0,
     }
     sessions.set(key, session)
@@ -114,7 +118,14 @@ function releaseIfDone(key: string, session: AutosaveSession) {
  * or while the server's copy is not newer than what the last save got back – the list may not
  * have caught up. Otherwise it adopts `source` and returns the form opened from it.
  */
-export function useRekoAutosave(incidentId: string, userId: string | null, onSettled?: () => void) {
+export function useRekoAutosave({ incidentId, userId, cardStatus, onSettled }: {
+  incidentId: string
+  userId: string | null
+  /** The card status this board shows; each edit records it (`seen_status`). */
+  cardStatus?: string
+  /** Runs once a save settled – the section reloads its list. */
+  onSettled?: () => void
+}) {
   const key = `${userId ?? ''}:${incidentId}`
   const session = useMemo(() => sessionFor(key), [key])
 
@@ -139,9 +150,10 @@ export function useRekoAutosave(incidentId: string, userId: string | null, onSet
     try {
       // Only what this form changed; no token, the session is the identity.
       const payload = changedFields(session.baseline, data)
+      const seenStatus = session.seenAtEdit
       const report = session.target
-        ? await apiClient.updateRekoReport(session.target, payload)
-        : await apiClient.createRekoReportAsEditor(incidentId, payload, false)
+        ? await apiClient.updateRekoReport(session.target, payload, { seenStatus })
+        : await apiClient.createRekoReportAsEditor(incidentId, payload, false, seenStatus)
       session.target = report.id
       session.baseline = data
       session.inFlight = false
@@ -168,6 +180,9 @@ export function useRekoAutosave(incidentId: string, userId: string | null, onSet
       releaseIfDone(key, session)
     }
   }, [key, session, send])
+  useEffect(() => {
+    session.cardStatus = cardStatus
+  }, [session, cardStatus])
   useEffect(() => {
     if (!onSettled) return
     session.settled.add(onSettled)
@@ -196,6 +211,7 @@ export function useRekoAutosave(incidentId: string, userId: string | null, onSet
 
   const schedule = useCallback((data: RekoFormData) => {
     session.latest = data
+    session.seenAtEdit = session.cardStatus
     session.version += 1
     setState(session, { status: 'saving' })
     if (session.timer) clearTimeout(session.timer)

@@ -7,6 +7,7 @@ rewriting other incidents' recon reports.
 """
 
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import (
@@ -151,6 +152,37 @@ async def _kp_draft_files_now(db: AsyncSession, report: RekoReport, update: sche
     return status in crud.REKO_DONE_STATUSES
 
 
+async def _file_after_move(db: AsyncSession, report: RekoReport, seen_status: str | None) -> bool:
+    """File a board draft the card's move went past (Sol review pass 3, S14). Under the card lock.
+
+    The board said it last showed the card BEFORE «Reko abgeschlossen» (``seen_status``),
+    but the card is there or past it now: the move ran while this save was still on its
+    way, found nothing to file, and would have filed this draft had it arrived first. So it
+    is filed now if it has content – as the move files one. A board that already showed the
+    card there keeps the owner rule (`_kp_draft_files_now`: the answer to «Einsatz relevant?»).
+    Returns whether it filed; the caller runs the filing's side effects.
+    """
+    if seen_status is None or seen_status in crud.REKO_DONE_STATUSES:
+        return False
+    if not crud.is_kp_draft(report) or not crud.has_report_content(report):
+        return False
+    status = await db.scalar(select(Incident.status).where(Incident.id == report.incident_id))
+    if status not in crud.REKO_DONE_STATUSES:
+        return False
+    report.is_draft = False
+    report.updated_at = datetime.now(UTC)
+    await db.flush()
+    await db.refresh(report)
+    return True
+
+
+_SEEN_STATUS = Query(
+    default=None,
+    description="Board saves: the card status the board showed. Before «Reko abgeschlossen» while the "
+    "card is there now = the move went past this save, which then files a draft with content.",
+)
+
+
 @router.get("/form", response_model=schemas.RekoReportResponse)
 async def get_reko_form(
     incident_id: uuid.UUID = Query(...),
@@ -218,6 +250,7 @@ async def submit_reko_report(
     background_tasks: BackgroundTasks,
     request: Request,
     submit: bool = Query(default=True, description="Mark as submitted (not draft)"),
+    seen_status: str | None = _SEEN_STATUS,
     access_token: str | None = Cookie(None),
     authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
@@ -290,6 +323,8 @@ async def submit_reko_report(
         updated = report
     else:
         updated = await crud.update_reko_report(db, report.id, update_data, submit=submit, user=user)
+    if user is not None and not submit and await _file_after_move(db, updated, seen_status):
+        submit = True
 
     # Fetch incident details — the LIVE card the report is on: status, bell and
     # release below must happen there, not on a card merged away (R2 review).
@@ -334,6 +369,7 @@ async def update_report(
     background_tasks: BackgroundTasks,
     request: Request,
     submit: bool = Query(default=False),
+    seen_status: str | None = _SEEN_STATUS,
     x_reko_token: str | None = Header(None),
     access_token: str | None = Cookie(None),
     authorization: str | None = Header(None),
@@ -403,6 +439,8 @@ async def update_report(
 
     try:
         updated = await crud.update_reko_report(db, report_id, update_data, submit=submit, user=user)
+        if files_kp_draft and updated.is_draft and await _file_after_move(db, updated, seen_status):
+            submit = True
 
         # Fetch incident title
         incident_result = await db.execute(select(Incident).where(Incident.id == updated.incident_id))

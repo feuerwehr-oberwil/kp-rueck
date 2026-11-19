@@ -12499,6 +12499,24 @@
             "description": "Mark as submitted (not draft)"
           },
           {
+            "name": "seen_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Board saves: the card status the board showed. Before «Reko abgeschlossen» while the card is there now = the move went past this save, which then files a draft with content.",
+              "title": "Seen Status"
+            },
+            "description": "Board saves: the card status the board showed. Before «Reko abgeschlossen» while the card is there now = the move went past this save, which then files a draft with content."
+          },
+          {
             "name": "authorization",
             "in": "header",
             "required": false,
@@ -12593,6 +12611,24 @@
               "default": false,
               "title": "Submit"
             }
+          },
+          {
+            "name": "seen_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Board saves: the card status the board showed. Before «Reko abgeschlossen» while the card is there now = the move went past this save, which then files a draft with content.",
+              "title": "Seen Status"
+            },
+            "description": "Board saves: the card status the board showed. Before «Reko abgeschlossen» while the card is there now = the move went past this save, which then files a draft with content."
           },
           {
             "name": "x-reko-token",

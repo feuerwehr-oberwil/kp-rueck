@@ -113,7 +113,7 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
 
     await waitFor(() => expect(createRekoReportAsEditor).toHaveBeenCalledTimes(1))
     // A draft: the card's move to «Reko abgeschlossen» files it, on the server.
-    expect(createRekoReportAsEditor.mock.calls[0]).toEqual(['i-1', expect.objectContaining({ is_relevant: true }), false])
+    expect(createRekoReportAsEditor.mock.calls[0]).toEqual(['i-1', expect.objectContaining({ is_relevant: true }), false, undefined])
     // No token travels: the session is the identity, and the report carries no
     // guessed personnel row (decision 6).
     expect(createRekoReportAsEditor.mock.calls[0][1]).not.toHaveProperty('token')
@@ -123,7 +123,7 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
 
     // The next answer goes to the same draft, not a second one.
     await user.click(screen.getByRole('button', { name: 'Nein' }))
-    await waitFor(() => expect(updateRekoReport).toHaveBeenCalledWith('r-1', expect.objectContaining({ is_relevant: false })))
+    await waitFor(() => expect(updateRekoReport).toHaveBeenCalledWith('r-1', expect.objectContaining({ is_relevant: false }), { seenStatus: undefined }))
     expect(createRekoReportAsEditor).toHaveBeenCalledTimes(1)
   })
 
@@ -154,7 +154,7 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     expect(screen.getByDisplayValue('Keller halb voll')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Nein' }))
 
-    await waitFor(() => expect(updateRekoReport).toHaveBeenCalledWith('r-draft', expect.objectContaining({ is_relevant: false })))
+    await waitFor(() => expect(updateRekoReport).toHaveBeenCalledWith('r-draft', expect.objectContaining({ is_relevant: false }), { seenStatus: undefined }))
     expect(createRekoReportAsEditor).not.toHaveBeenCalled()
   })
 
@@ -175,7 +175,7 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     await user.clear(summary)
     await user.type(summary, 'Keller voll')
     await user.click(screen.getByRole('button', { name: /Schliessen/ }))
-    expect(updateRekoReport).toHaveBeenCalledWith('r-draft', expect.objectContaining({ summary_text: 'Keller voll' }))
+    expect(updateRekoReport).toHaveBeenCalledWith('r-draft', expect.objectContaining({ summary_text: 'Keller voll' }), { seenStatus: undefined })
 
     // Reopened while the save is still on its way: the edit, not the old row.
     await user.click(screen.getByRole('button', { name: 'weiter erfassen' }))
@@ -192,7 +192,7 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     expect(screen.getByDisplayValue('Keller voll')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Nein' }))
     // Only the new answer goes out – never the old text (pass 3, S2: changed fields only).
-    await waitFor(() => expect(updateRekoReport).toHaveBeenLastCalledWith('r-draft', { is_relevant: false }))
+    await waitFor(() => expect(updateRekoReport).toHaveBeenLastCalledWith('r-draft', { is_relevant: false }, { seenStatus: undefined }))
   })
 
   it('keeps a save in flight across a tab switch: the new mount opens the edit, not the old row (pass 2, S1)', async () => {
@@ -212,7 +212,7 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     await user.type(summary, 'Keller voll')
     // Off the Reko tab: the form unmounts, its save goes out and has not answered yet.
     first.unmount()
-    expect(updateRekoReport).toHaveBeenCalledWith('r-draft', expect.objectContaining({ summary_text: 'Keller voll' }))
+    expect(updateRekoReport).toHaveBeenCalledWith('r-draft', expect.objectContaining({ summary_text: 'Keller voll' }), { seenStatus: undefined })
 
     // Back on the tab: a new mount, and the list still reads the old row.
     renderWithIntl(<RekoReportSection incidentId="i-tab" canEdit dense />)
@@ -222,7 +222,7 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     answer({ ...oldDraft, summary_text: 'Keller voll', updated_at: '2026-08-10T18:05:00Z' })
 
     // Only the new answer goes out – never the old text (pass 3, S2: changed fields only).
-    await waitFor(() => expect(updateRekoReport).toHaveBeenLastCalledWith('r-draft', { is_relevant: false }))
+    await waitFor(() => expect(updateRekoReport).toHaveBeenLastCalledWith('r-draft', { is_relevant: false }, { seenStatus: undefined }))
     expect(await screen.findByText(/^Synchronisiert – /)).toBeInTheDocument()
   })
 
@@ -236,7 +236,20 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     await user.type(document.querySelector<HTMLTextAreaElement>('#notes')!, 'Zufahrt über Hof')
 
     await waitFor(() => expect(createRekoReportAsEditor).toHaveBeenCalled())
-    expect(createRekoReportAsEditor).toHaveBeenLastCalledWith('i-blank', { additional_notes: 'Zufahrt über Hof' }, false)
+    expect(createRekoReportAsEditor).toHaveBeenLastCalledWith('i-blank', { additional_notes: 'Zufahrt über Hof' }, false, undefined)
+  })
+
+  it('says the card status of the edit, even when this board moves the card before the save goes out (pass 3, S14)', async () => {
+    const user = userEvent.setup()
+    const view = renderWithIntl(<RekoReportSection incidentId="i-move" canEdit dense cardStatus="reko" />)
+
+    await user.click(await screen.findByRole('button', { name: /erfassen/ }))
+    await user.type(document.querySelector<HTMLTextAreaElement>('#notes')!, 'Keller 20 cm')
+    // «Reko abgeschlossen» on this board while the save still waits for its pause.
+    view.rerender(<RekoReportSection incidentId="i-move" canEdit dense cardStatus="reko_done" />)
+
+    await waitFor(() => expect(createRekoReportAsEditor).toHaveBeenCalled())
+    expect(createRekoReportAsEditor).toHaveBeenLastCalledWith('i-move', { additional_notes: 'Keller 20 cm' }, false, 'reko')
   })
 
   it('counts a draft whose only answer is the power supply as a draft', async () => {

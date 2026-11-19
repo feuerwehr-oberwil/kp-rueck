@@ -109,6 +109,10 @@ interface RekoReportSectionProps {
    * card below, which is why it has not been deleted.
    */
   dense?: boolean
+  /** The board mount: the card's status as this board shows it. Each save says it to the
+   *  server, so a «Reko abgeschlossen» move that overtook a waiting save still files the
+   *  draft (`api/reko._file_after_move`). */
+  cardStatus?: string
 }
 
 const POLL_INTERVAL_MS = 5000 // Fallback poll while the socket is down
@@ -128,6 +132,7 @@ export default function RekoReportSection({
   dataSlot,
   openEditorNonce,
   dense = false,
+  cardStatus,
 }: RekoReportSectionProps) {
   const split = layout === 'split'
   const t = useTranslations('reko.reportSection')
@@ -176,7 +181,7 @@ export default function RekoReportSection({
   }, [loadReports, incidentId])
   usePolling(loadReports, { intervalMs: POLL_INTERVAL_MS, skipWhileWsConnected: true })
   // A draft save emits no `reko_update`, so the section reloads once a save settled.
-  const autosave = useRekoAutosave(incidentId, userId, loadReports)
+  const autosave = useRekoAutosave({ incidentId, userId, cardStatus, onSettled: loadReports })
 
   const latestReport: ApiRekoReportResponse | undefined = reports[0]
   const previousReports = reports.slice(1)

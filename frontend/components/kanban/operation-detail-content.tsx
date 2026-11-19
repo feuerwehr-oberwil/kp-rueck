@@ -1641,6 +1641,7 @@ export function OperationDetailContent({
               <RekoReportSection
                 incidentId={operation.id}
                 canEdit={canEdit}
+                cardStatus={operation.status}
                 // The board mount: the report reads as `DetailField` rows, the
                 // same ones the Auftrag column beside it and Übersicht next door
                 // use. Modal and 420px panel alike — a row list is the one

@@ -68,8 +68,11 @@ export class RekoApi {
     incidentId: string,
     data: ApiRekoReportUpdate,
     submit = true,
+    /** The card status the board showed (`seen_status`, see `updateRekoReport`). */
+    seenStatus?: string,
   ): Promise<ApiRekoReportResponse> {
-    return httpRequest<ApiRekoReportResponse>(`/api/reko/?submit=${submit ? 'true' : 'false'}`, {
+    const seen = seenStatus ? `&seen_status=${encodeURIComponent(seenStatus)}` : ''
+    return httpRequest<ApiRekoReportResponse>(`/api/reko/?submit=${submit ? 'true' : 'false'}${seen}`, {
       method: 'POST',
       body: JSON.stringify({ ...data, incident_id: incidentId }),
     })
@@ -81,10 +84,14 @@ export class RekoApi {
   async updateRekoReport(
     reportId: string,
     data: ApiRekoReportUpdate,
-    options?: { submit?: boolean; token?: string },
+    /** `seenStatus`: the card status the board showed at the edit. Shown before «Reko
+     *  abgeschlossen» while the card is there now, the server files a KP draft with content –
+     *  the move went past this save (`api/reko._file_after_move`). */
+    options?: { submit?: boolean; token?: string; seenStatus?: string },
   ): Promise<ApiRekoReportResponse> {
+    const seen = options?.seenStatus ? `&seen_status=${encodeURIComponent(options.seenStatus)}` : ''
     return httpRequest<ApiRekoReportResponse>(
-      `/api/reko/${reportId}?submit=${options?.submit ? 'true' : 'false'}`,
+      `/api/reko/${reportId}?submit=${options?.submit ? 'true' : 'false'}${seen}`,
       {
         method: 'PATCH',
         body: JSON.stringify(data),
