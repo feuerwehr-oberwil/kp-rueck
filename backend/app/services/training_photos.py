@@ -108,7 +108,11 @@ async def attach_training_photos(
     *,
     summary_text: str | None = None,
 ) -> list[str]:
-    """Copy the wording illustration first, followed by at most one type photo.
+    """Copy the wording illustration ALONE, or – when the text has none – at most one type photo.
+
+    A random type photo beside the illustration of what the crew reported would show a
+    different scene of the same Einsatz (lead call, Sol review pass 5, S7); the type pool is
+    only the fallback.
 
     Each photo goes through ``PhotoStorageService.save_photo`` — the same code
     path the real upload endpoint uses — so the stored files (UUID.jpg in the
@@ -122,8 +126,7 @@ async def attach_training_photos(
     filenames: list[str] = []
     existing = list(current_photos or [])
     matched = pick_summary_image(summary_text) if summary_text else None
-    type_photos = pick_pool_photos(incident_type, pool_dir=pool_dir)[:1]
-    paths = [matched, *type_photos] if matched else type_photos
+    paths = [matched] if matched else pick_pool_photos(incident_type, pool_dir=pool_dir)[:1]
     for path in paths:
         try:
             upload = UploadFile(file=BytesIO(path.read_bytes()), filename=path.name)
