@@ -28,6 +28,7 @@ OWN_DOOR: dict[str, list[str]] = {
         "POST /api/feld/logout",
         "POST /api/feld/incidents",
         "POST /api/feld/attendance/{personnel_id}",
+        "PUT /api/feld/attendance/{personnel_id}/plan",
         "POST /api/feld/incidents/{incident_id}/arrived",
         "POST /api/feld/incidents/{incident_id}/complete",
         "POST /api/feld/incidents/{incident_id}/message",
@@ -49,6 +50,7 @@ OWN_DOOR: dict[str, list[str]] = {
     "check-in and the public Meldeformular: their link tokens (test_field_surface_registry.py)": [
         "POST /api/personnel/check-in/{personnel_id}/in",
         "POST /api/personnel/check-in/{personnel_id}/out",
+        "PUT /api/personnel/check-in/{personnel_id}/plan",
         "POST /api/intake/alarm",
         "PUT /api/intake/alarm/{incident_id}",
     ],

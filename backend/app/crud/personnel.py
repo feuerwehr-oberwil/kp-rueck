@@ -45,6 +45,8 @@ def to_personnel_schema(
         checked_in=bool(attendance is not None and attendance.checked_in),
         checked_in_at=attendance.checked_in_at if attendance else None,
         checked_out_at=attendance.checked_out_at if attendance else None,
+        planned_from=attendance.planned_from if attendance else None,
+        planned_until=attendance.planned_until if attendance else None,
         created_at=person.created_at,
         updated_at=person.updated_at,
     )

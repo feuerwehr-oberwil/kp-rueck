@@ -7,6 +7,7 @@ because they are the contract with ``frontend/lib/notification-format.ts``.
 """
 
 import json
+from datetime import UTC, datetime
 
 import pytest
 
@@ -49,6 +50,12 @@ CASES = [
         texts.fatigue([(f"P{i}", 300) for i in range(7)], 4),
         "7 Personen seit über 4h im Einsatz: P0 (5h), P1 (5h), P2 (5h), P3 (5h), P4 (5h) und 2 weitere",
         {"hours": 4, "count": 7, "people": [{"name": f"P{i}", "hours": 5} for i in range(5)], "more": 2},
+    ),
+    (
+        # Winter time: 21:00 UTC is 22:00 on the station's clock.
+        texts.personnel_leaving("Baumann Michael", datetime(2026, 11, 19, 21, 0, tzinfo=UTC)),
+        "Geht um 22:00: Baumann Michael",
+        {"name": "Baumann Michael", "until": "2026-11-19T21:00:00+00:00"},
     ),
     (
         texts.missing_location("Kellerbrand"),

@@ -436,6 +436,13 @@ class EventAttendance(Base):
     checked_out_by_user_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    # The PLAN, beside the record: «kommt um 20:00» / «geht um 22:00» (feedback 19.11.2026, #3 –
+    # KP Front's Schicht, one block per person). Written by the Appell and by the person
+    # themselves (check-in link, /feld) through `crud.personnel_checkin.set_attendance_plan`;
+    # never by check-in/out, which record what DID happen. A row may exist for the plan alone
+    # (checked_in False, both stamps NULL) – that reads «nicht anwesend», like no row.
+    planned_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    planned_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -1894,7 +1901,9 @@ class Notification(Base):
             # The Feld-Code was rotated automatically after too many wrong
             # guesses across all addresses (crud/feld/access.py). Event-level,
             # no incident: it concerns the door, not a Schadenplatz.
-            "'feld_code_rotated'"
+            "'feld_code_rotated', "
+            # 15' before a checked-in person's planned «geht um» (`planned_until`).
+            "'personnel_leaving'"
             ")",
             name="valid_notification_type",
         ),

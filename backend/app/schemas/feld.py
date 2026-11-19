@@ -381,6 +381,10 @@ class FeldAssignmentsResponse(BaseModel):
     # Present at this Ereignis (decision 10). The field surface carries the
     # individual half of the roll call; `/check-in` stays the door tablet.
     checked_in: bool = False
+    # Their own plan at this Ereignis – «Ich komme um …» / «Ich bin da bis …»
+    # (`EventAttendance.planned_*`, set through `PUT /feld/attendance/{id}/plan`).
+    planned_from: datetime | None = None
+    planned_until: datetime | None = None
     # The roles this person holds in this Ereignis (plan 26, decision 5). The
     # page shows a section per role; the roles themselves are data, the sections
     # are code. Names only — this grants nothing, every permission still goes

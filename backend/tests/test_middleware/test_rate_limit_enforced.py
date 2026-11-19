@@ -41,7 +41,8 @@ SECRET = "test_secret"  # a test fixture value, not a credential (S105 is off fo
 #     A per-minute cap keyed on IP would throttle the one printer at the station.
 #   * personnel check-in in/out — forty people arriving inside two minutes, all behind the
 #     command post's single NAT address. This is the LOGIN lesson again (see RateLimits.LOGIN):
-#     an IP-keyed limit punishes the crew, not the attacker.
+#     an IP-keyed limit punishes the crew, not the attacker. The plan («bis 22:00», added
+#     19.11.2026) is the same door and the same crowd: it is said right after the check-in tap.
 #   * reko submit/update/arrived/photos — token-gated, and the surface autosaves.
 #   * auth/logout — cheap, and refusing a logout is worse than serving it.
 #
@@ -51,6 +52,7 @@ KNOWN_UNLIMITED = {
     "app.api.auth.logout",
     "app.api.personnel_checkin.check_in",
     "app.api.personnel_checkin.check_out",
+    "app.api.personnel_checkin.set_plan",
     "app.api.print.claim_print_job",
     "app.api.print.complete_print_job",
     "app.api.reko.submit_reko_report",

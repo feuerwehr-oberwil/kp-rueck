@@ -17,6 +17,26 @@ from ..services.audit import log_action
 from .active_resources import active_resource_ids
 
 
+def _response(
+    person: Personnel, attendance: EventAttendance | None, *, is_assigned: bool
+) -> schemas.PersonnelCheckInResponse:
+    """One person's attendance at one Ereignis, as every route here answers it."""
+    return schemas.PersonnelCheckInResponse(
+        id=person.id,
+        name=person.name,
+        kennung=person.kennung,
+        role=person.role,
+        status=person.status,
+        tags=person.tags,
+        checked_in=bool(attendance is not None and attendance.checked_in),
+        checked_in_at=attendance.checked_in_at if attendance else None,
+        checked_out_at=attendance.checked_out_at if attendance else None,
+        planned_from=attendance.planned_from if attendance else None,
+        planned_until=attendance.planned_until if attendance else None,
+        is_assigned=is_assigned,
+    )
+
+
 async def _is_personnel_assigned(db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid.UUID) -> bool:
     deployed = active_resource_ids("personnel", event_id=event_id).subquery()
     return bool(
@@ -73,20 +93,7 @@ async def get_available_personnel(
         if not include_checked_out and not checked_in:
             continue
 
-        response_list.append(
-            schemas.PersonnelCheckInResponse(
-                id=person.id,
-                name=person.name,
-                kennung=person.kennung,
-                role=person.role,
-                status=person.status,
-                tags=person.tags,
-                checked_in=checked_in,
-                checked_in_at=attendance.checked_in_at if attendance else None,
-                checked_out_at=attendance.checked_out_at if attendance else None,
-                is_assigned=is_assigned,
-            )
-        )
+        response_list.append(_response(person, attendance, is_assigned=is_assigned))
 
     return response_list
 
@@ -142,18 +149,13 @@ async def check_in_personnel(
     if attendance:
         # Already checked in for this event
         if attendance.checked_in:
-            return schemas.PersonnelCheckInResponse(
-                id=person.id,
-                name=person.name,
-                kennung=person.kennung,
-                role=person.role,
-                status=person.status,
-                tags=person.tags,
-                checked_in=True,
-                checked_in_at=attendance.checked_in_at,
-                checked_out_at=attendance.checked_out_at,
-                is_assigned=is_assigned,
-            )
+            return _response(person, attendance, is_assigned=is_assigned)
+        # Coming BACK after a departure starts a new stint: the old «kommt um» / «geht um»
+        # were about the one that ended, and a spent «geht um» would ring the bell again.
+        # A first arrival keeps both – «geht um» is often said before somebody is in.
+        if attendance.checked_out_at is not None:
+            attendance.planned_from = None
+            attendance.planned_until = None
         # Update existing record
         attendance.checked_in = True
         attendance.checked_in_at = now
@@ -185,18 +187,7 @@ async def check_in_personnel(
     await db.flush()
     await db.refresh(attendance)
 
-    return schemas.PersonnelCheckInResponse(
-        id=person.id,
-        name=person.name,
-        kennung=person.kennung,
-        role=person.role,
-        status=person.status,
-        tags=person.tags,
-        checked_in=attendance.checked_in,
-        checked_in_at=attendance.checked_in_at,
-        checked_out_at=attendance.checked_out_at,
-        is_assigned=is_assigned,
-    )
+    return _response(person, attendance, is_assigned=is_assigned)
 
 
 async def check_out_personnel(
@@ -252,19 +243,8 @@ async def check_out_personnel(
 
     if attendance:
         # Already checked out for this event
-        if not attendance.checked_in:
-            return schemas.PersonnelCheckInResponse(
-                id=person.id,
-                name=person.name,
-                kennung=person.kennung,
-                role=person.role,
-                status=person.status,
-                tags=person.tags,
-                checked_in=False,
-                checked_in_at=attendance.checked_in_at,
-                checked_out_at=attendance.checked_out_at,
-                is_assigned=is_assigned,
-            )
+        if not attendance.checked_in and attendance.checked_out_at is not None:
+            return _response(person, attendance, is_assigned=is_assigned)
         # Update existing record
         attendance.checked_in = False
         attendance.checked_out_at = now
@@ -297,18 +277,7 @@ async def check_out_personnel(
     await db.flush()
     await db.refresh(attendance)
 
-    return schemas.PersonnelCheckInResponse(
-        id=person.id,
-        name=person.name,
-        kennung=person.kennung,
-        role=person.role,
-        status=person.status,
-        tags=person.tags,
-        checked_in=attendance.checked_in,
-        checked_in_at=attendance.checked_in_at,
-        checked_out_at=attendance.checked_out_at,
-        is_assigned=is_assigned,
-    )
+    return _response(person, attendance, is_assigned=is_assigned)
 
 
 async def clear_personnel_attendance(
@@ -328,8 +297,8 @@ async def clear_personnel_attendance(
     without this there was no way back out of one.
 
     Deletes the attendance row rather than blanking its timestamps: "nicht
-    anwesend" is the absence of a record, and a row with both stamps NULL is a
-    third state nothing else in the codebase knows how to read.
+    anwesend" is the absence of a record. A plan («kommt um», `set_attendance_plan`)
+    goes with it – the correction is "this person is not part of tonight".
 
     Unlike check-out this does not consult the assignment: an assignment is a
     reason to warn before sending somebody home, not a reason to refuse undoing a
@@ -361,18 +330,71 @@ async def clear_personnel_attendance(
             )
         await db.flush()
 
-    return schemas.PersonnelCheckInResponse(
-        id=person.id,
-        name=person.name,
-        kennung=person.kennung,
-        role=person.role,
-        status=person.status,
-        tags=person.tags,
-        checked_in=False,
-        checked_in_at=None,
-        checked_out_at=None,
-        is_assigned=await _is_personnel_assigned(db, event_id, personnel_id),
+    return _response(person, None, is_assigned=await _is_personnel_assigned(db, event_id, personnel_id))
+
+
+async def set_attendance_plan(
+    db: AsyncSession,
+    event_id: uuid.UUID,
+    personnel_id: uuid.UUID,
+    plan: schemas.AttendancePlanUpdate,
+    current_user: User | None = None,
+    request: Request | None = None,
+) -> schemas.PersonnelCheckInResponse | None:
+    """Set or clear «kommt um» / «geht um» for one person at one Ereignis.
+
+    Only the fields the client sent change (`plan.model_fields_set`); an explicit null
+    clears one. Somebody who has no row yet gets one for the plan alone – checked_in
+    False and both stamps NULL, which reads «nicht anwesend» everywhere. The plan never
+    touches the record: arriving and leaving stay the check-in/-out (KP Front's rule:
+    the plan says what should happen, the attendance what did).
+
+    Returns None when the person is not listed at this Ereignis (unknown, or a guest of
+    another one). Raises ValueError for an unavailable person, like check-in, and when
+    the result would end before it starts.
+    """
+    person = await db.scalar(select(Personnel).where(Personnel.id == personnel_id))
+    if not person or person.guest_event_id not in (None, event_id):
+        return None
+    if person.status == "unavailable":
+        raise ValueError("Cannot plan unavailable personnel")
+
+    attendance = await db.scalar(
+        select(EventAttendance).where(
+            EventAttendance.event_id == event_id, EventAttendance.personnel_id == personnel_id
+        )
     )
+    if attendance is None:
+        attendance = EventAttendance(event_id=event_id, personnel_id=personnel_id, checked_in=False)
+        db.add(attendance)
+
+    sent = plan.model_fields_set
+    planned_from = plan.planned_from if "planned_from" in sent else attendance.planned_from
+    planned_until = plan.planned_until if "planned_until" in sent else attendance.planned_until
+    if planned_from and planned_until and planned_until <= planned_from:
+        raise ValueError("planned_until must be after planned_from")
+    attendance.planned_from = planned_from
+    attendance.planned_until = planned_until
+
+    if current_user and request:
+        await log_action(
+            db=db,
+            action_type="attendance_plan",
+            resource_type="personnel",
+            resource_id=person.id,
+            user=current_user,
+            changes={
+                "name": person.name,
+                "event_id": str(event_id),
+                "planned_from": planned_from.isoformat() if planned_from else None,
+                "planned_until": planned_until.isoformat() if planned_until else None,
+            },
+            request=request,
+        )
+
+    await db.flush()
+    await db.refresh(attendance)
+    return _response(person, attendance, is_assigned=await _is_personnel_assigned(db, event_id, personnel_id))
 
 
 async def check_out_all_personnel(
@@ -438,18 +460,7 @@ async def check_out_all_personnel(
             )
 
         checked_out.append(
-            schemas.PersonnelCheckInResponse(
-                id=person.id,
-                name=person.name,
-                kennung=person.kennung,
-                role=person.role,
-                status=person.status,
-                tags=person.tags,
-                checked_in=False,
-                checked_in_at=attendance.checked_in_at,
-                checked_out_at=now,
-                is_assigned=await _is_personnel_assigned(db, event_id, person.id),
-            )
+            _response(person, attendance, is_assigned=await _is_personnel_assigned(db, event_id, person.id))
         )
 
     await db.flush()

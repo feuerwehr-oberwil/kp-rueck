@@ -195,7 +195,7 @@ erDiagram
     }
 ```
 
-Every incident gets its `number` from a database trigger – counted per Ereignis, never reused – which is what the board, the prints and the ⌘K line (`14 tlf meier`) name it by. `journal_entries` is append-only: a correction is a new row pointing at the old one (`corrects_id`). Check-in lives in `event_attendance`, per Ereignis, not on the person.
+Every incident gets its `number` from a database trigger – counted per Ereignis, never reused – which is what the board, the prints and the ⌘K line (`14 tlf meier`) name it by. `journal_entries` is append-only: a correction is a new row pointing at the old one (`corrects_id`). Check-in lives in `event_attendance`, per Ereignis, not on the person; beside the record it holds the plan («kommt um» / «geht um», `planned_from` / `planned_until`), which check-in and check-out never write.
 
 **Additional tables** (not shown): `users`, `settings`, `audit_log`, `divera_emergencies` (the alarm pool, including Divera Rückmeldungen), `revoked_tokens` (the persisted JWT blocklist), `special_function_types`, `reko_reports`, `schadenplatz_reports`, `status_transitions`, `incident_field_messages`, `incident_groups` / `incident_group_assignments` (Aufträge), `auftrag_templates` / `auftrag_template_resources` (Standard-Aufträge), `material_groups`, `personnel_external_identities`, `feld_device_claims` / `feld_unlock_claims`, `print_jobs`, `notifications`, `geocoding_dispatch`, `emergency_templates`, `training_locations`, `microsoft_login_transactions`, `telemetry_outbox`
 

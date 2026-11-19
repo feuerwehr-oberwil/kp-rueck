@@ -70,6 +70,8 @@ FIELD_SURFACES: dict[str, dict[str, str]] = {
         "POST /generate-link": "session",
         "POST /{personnel_id}/in": "both",
         "POST /{personnel_id}/out": "both",
+        # «kommt um» / «geht um» (#3): the Appell's chip, or the person at the door tablet.
+        "PUT /{personnel_id}/plan": "both",
         "POST /event/{event_id}/out-all": "session",
         # The roll-call cycle's third click, built after §4.2 was answered on
         # 2026-08-10 — and it landed as "session", exactly as predicted there. A
@@ -105,6 +107,7 @@ FIELD_SURFACES: dict[str, dict[str, str]] = {
         "POST /access/regenerate": "session",
         "POST /access/revoke-devices": "session",
         "POST /attendance/{personnel_id}": "token",
+        "PUT /attendance/{personnel_id}/plan": "token",
         "POST /incidents": "token",
         "POST /incidents/{incident_id}/reko-link": "token",
         "POST /incidents/{incident_id}/arrived": "token",
@@ -148,6 +151,10 @@ EXTERNAL_TWINS: dict[str, str] = {
         "written through the same CRUD. The board twin is the door tablet's own route, "
         "which is `both` (token or editor session); this one is the individual saying "
         "it from the vehicle instead of queueing at the tablet."
+    ),
+    "PUT /api/feld/attendance/{personnel_id}/plan": (
+        "PUT /api/personnel/check-in/{personnel_id}/plan — the same plan columns through the "
+        "same CRUD (`set_attendance_plan`); the board twin is the Appell's time chip."
     ),
     "POST /api/feld/incidents": (
         "POST /api/incidents/ — the board's own create. Same table, same columns; only "
@@ -422,6 +429,11 @@ class TestBothDoorsReallyOpen:
                 "POST",
                 f"/api/personnel/check-in/{test_personnel.id}/out",
                 {"params": event_query},
+            ),
+            "PUT /api/personnel/check-in/{personnel_id}/plan": (
+                "PUT",
+                f"/api/personnel/check-in/{test_personnel.id}/plan",
+                {"params": event_query, "json": {"planned_until": None}},
             ),
             "POST /api/reko/": ("POST", "/api/reko/", {"json": {"incident_id": str(test_incident.id)}}),
             "PATCH /api/reko/{report_id}": (

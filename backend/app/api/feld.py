@@ -79,7 +79,7 @@ from ..services.tokens import (
     validate_feld_token,
 )
 from ..utils.error_codes import CodedHTTPException, ErrorCode
-from ..websocket_manager import broadcast_incident_update
+from ..websocket_manager import broadcast_incident_update, broadcast_personnel_update
 from .incidents import board_response, lock_incident
 
 logger = logging.getLogger(__name__)
@@ -526,7 +526,7 @@ async def get_feld_assignments(
         parse_message_chips(await get_setting_value(db, FELD_DRIVER_MESSAGE_CHIPS_KEY))
     )
     request_materials = await crud.request_material_names(db)
-    checked_in = await crud.is_checked_in(db, event.id, personnel_id)
+    attendance = await crud.own_attendance(db, event.id, personnel_id)
     functions = await crud.functions_for_personnel(db, event.id, personnel_id)
     # Only for somebody who actually drives — one extra query for a role most
     # people at an Ereignis do not hold.
@@ -540,7 +540,9 @@ async def get_feld_assignments(
         personnel_id=person.id,
         personnel_name=person.name,
         personnel_role=person.role,
-        checked_in=checked_in,
+        checked_in=bool(attendance and attendance.checked_in),
+        planned_from=attendance.planned_from if attendance else None,
+        planned_until=attendance.planned_until if attendance else None,
         functions=functions,
         driver_vehicles=driver_vehicles,
         event_id=event.id,
@@ -782,6 +784,37 @@ async def set_own_attendance(
     )
     if result is None:
         raise CodedHTTPException(404, ErrorCode.FELD_PERSON_NOT_FOUND, "Person nicht gefunden")
+    return result
+
+
+@router.put("/attendance/{personnel_id}/plan", response_model=schemas.PersonnelCheckInResponse)
+@limiter.limit(RateLimits.FELD)
+async def set_own_attendance_plan(
+    request: Request,
+    personnel_id: uuid.UUID,
+    plan: schemas.AttendancePlanUpdate,
+    claims: FeldClaims,
+    db: AsyncSession = Depends(get_db),
+) -> schemas.PersonnelCheckInResponse:
+    """«Ich komme um …» / «Ich bin da bis …» – the person's own plan (feedback 19.11., #3).
+
+    The same CRUD as the Appell's time chip (one plan per person, however it was written),
+    bound like `set_own_attendance`: a device only ever plans ITSELF, before any assignment.
+    """
+    person = await require_feld_person(db, claims, personnel_id, require_access=False)
+    event = await _load_event(db, claims.event_id)
+    try:
+        result = await personnel_checkin_crud.set_attendance_plan(db, event.id, person.id, plan, None, request)
+    except ValueError as e:
+        raise CodedHTTPException(400, ErrorCode.FELD_PLAN_INVALID, "Diese Zeit geht nicht. Bitte neu wählen.") from e
+    if result is None:
+        raise CodedHTTPException(404, ErrorCode.FELD_PERSON_NOT_FOUND, "Person nicht gefunden")
+    after_commit(
+        db,
+        broadcast_personnel_update,
+        {"id": str(result.id), "name": result.name, "checked_in": result.checked_in, "event_id": str(event.id)},
+        "update",
+    )
     return result
 
 

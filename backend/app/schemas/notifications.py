@@ -46,6 +46,8 @@ class NotificationType(str, Enum):
     FIELD_REPORT = "field_report"
     # The door itself: the Feld-Code was rotated after too many wrong guesses.
     FELD_CODE_ROTATED = "feld_code_rotated"
+    # 15' before a checked-in person's planned «geht um» (`EventAttendance.planned_until`).
+    PERSONNEL_LEAVING = "personnel_leaving"
 
 
 class NotificationResponse(BaseModel):

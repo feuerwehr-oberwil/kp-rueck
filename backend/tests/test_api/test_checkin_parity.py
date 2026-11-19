@@ -526,10 +526,14 @@ async def test_viewer_is_forbidden_on_every_board_door(
     check_in = await parity_viewer_client.post(f"/api/personnel/check-in/{person.id}/in?event_id={parity_event.id}")
     check_out = await parity_viewer_client.post(f"/api/personnel/check-in/{person.id}/out?event_id={parity_event.id}")
     out_all = await parity_viewer_client.post(f"/api/personnel/check-in/event/{parity_event.id}/out-all")
+    plan = await parity_viewer_client.put(
+        f"/api/personnel/check-in/{person.id}/plan?event_id={parity_event.id}", json={"planned_until": None}
+    )
 
     assert check_in.status_code == 403
     assert check_out.status_code == 403
     assert out_all.status_code == 403
+    assert plan.status_code == 403
 
 
 @pytest.mark.asyncio

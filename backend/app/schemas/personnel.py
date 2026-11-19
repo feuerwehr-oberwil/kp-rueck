@@ -4,7 +4,16 @@ from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, StringConstraints, field_validator
+from pydantic import (
+    AfterValidator,
+    AwareDatetime,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from .fields import OptionalText50, PersonName, SortOrder, reject_null
 
@@ -97,6 +106,9 @@ class Personnel(PersonnelBase):
     checked_in: bool = False
     checked_in_at: datetime | None = None
     checked_out_at: datetime | None = None
+    # The plan at the same Ereignis: «kommt um» / «geht um» (`EventAttendance.planned_*`).
+    planned_from: datetime | None = None
+    planned_until: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -116,7 +128,27 @@ class PersonnelCheckInResponse(BaseModel):
     checked_in: bool
     checked_in_at: datetime | None = None
     checked_out_at: datetime | None = None
+    planned_from: datetime | None = None
+    planned_until: datetime | None = None
     is_assigned: bool = False  # Whether assigned to any incident in this event
+
+
+class AttendancePlanUpdate(BaseModel):
+    """«kommt um» / «geht um» for one person at one Ereignis (`crud.set_attendance_plan`).
+
+    A PATCH: only the fields sent change, and an explicit null clears one. The client
+    resolves the typed «22:00» to an instant (it knows the station's clock and which day is
+    meant, `lib/planned-times.ts`), so the server stores what it is given – tz-aware only.
+    """
+
+    planned_from: AwareDatetime | None = None
+    planned_until: AwareDatetime | None = None
+
+    @model_validator(mode="after")
+    def _from_before_until(self) -> "AttendancePlanUpdate":
+        if self.planned_from and self.planned_until and self.planned_until <= self.planned_from:
+            raise ValueError("planned_until must be after planned_from")
+        return self
 
 
 class PersonnelListItem(BaseModel):
@@ -135,6 +167,9 @@ class PersonnelListItem(BaseModel):
     # both stamps; the phone ignores them and stays two-state on purpose.
     checked_in_at: datetime | None = None
     checked_out_at: datetime | None = None
+    # The Appell's time chips and the phone's «bis …» line.
+    planned_from: datetime | None = None
+    planned_until: datetime | None = None
     is_assigned: bool = False  # Whether assigned to any incident in this event
 
 
