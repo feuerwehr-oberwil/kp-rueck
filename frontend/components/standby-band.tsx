@@ -143,6 +143,8 @@ export function StandbyBand() {
           title={t('takeover.title', { name })}
           description={t('takeover.description')}
           confirmText={t('takeover.confirm')}
+          // The lead moves to another place for every device – not an Enter by reflex.
+          initialFocus="cancel"
           onConfirm={async () => {
             try {
               await standby.takeOver(selectedEvent.id)
@@ -163,6 +165,7 @@ export function StandbyBand() {
           title={t('takeBack.title', { name })}
           description={t('takeBack.description')}
           confirmText={t('takeBack.confirm')}
+          initialFocus="cancel"
           onConfirm={async () => {
             try {
               await standby.takeOver(selectedEvent.id)

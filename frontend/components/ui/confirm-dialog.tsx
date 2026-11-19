@@ -1,6 +1,6 @@
 'use client'
 
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { ArrowRight } from 'lucide-react'
 import {
@@ -43,6 +43,12 @@ type ConfirmDialogProps = ConfirmDialogClosing & {
    *  purge, revoke, rotate. A reversible answer (archive, release, deactivate, remove a
    *  driver or a function) stays ink: red means danger, not «this changes something». */
   variant?: 'default' | 'destructive'
+  /** Which answer holds the focus when the dialog opens – so Enter gives that answer.
+   *  Default: the main answer (the operator came here to do it, KP Front's ConfirmCard);
+   *  `destructive` defaults to Abbrechen, so an Enter pressed to «get it away» never
+   *  confirms what cannot be taken back. `'cancel'` is for a reversible ask whose «yes»
+   *  still must not happen by reflex (a mass write, handing a board to another place). */
+  initialFocus?: 'confirm' | 'cancel'
   /** Optional content between the description and the answers (e.g. a list of
    *  affected items). Keep it short — this is a confirmation, not a form. */
   children?: ReactNode
@@ -89,7 +95,8 @@ export function AlternativeAnswer({
 /**
  * The single confirmation modal for the app. Encapsulates the AlertDialog
  * footer order (Cancel then Action), the spinner-plus-disabled loading state,
- * destructive tinting and the third answer's line — the pattern that was
+ * destructive tinting, the answer Enter gives (`initialFocus`) and the third answer's
+ * line — the pattern that was
  * re-hand-rolled in the board's status gates, the conflict and GPS prompts and
  * half a dozen inline AlertDialogs. `DeleteConfirmDialog` is this with
  * `variant="destructive"`.
@@ -105,11 +112,13 @@ export function ConfirmDialog({
   confirmText,
   cancelText,
   variant = 'default',
+  initialFocus = variant === 'destructive' ? 'cancel' : 'confirm',
   children,
   extraAction,
 }: ConfirmDialogProps) {
   const t = useTranslations('common.deleteConfirmDialog')
   const [busy, setBusy] = useState<'confirm' | 'extra' | null>(null)
+  const confirmRef = useRef<HTMLButtonElement>(null)
 
   /**
    * Runs one answer. With `onOpenChange`, a confirm closes only once the handler
@@ -141,7 +150,14 @@ export function ConfirmDialog({
     // While an answer runs, Esc cannot take the question away either – Cancel is
     // already disabled, and a one-way write in flight must stay in view.
     <AlertDialog open={open} onOpenChange={(next) => !next && !busy && dismiss()}>
-      <AlertDialogContent>
+      <AlertDialogContent
+        // Radix focuses Abbrechen unless this handler prevents it.
+        onOpenAutoFocus={(e) => {
+          if (initialFocus !== 'confirm') return
+          e.preventDefault()
+          confirmRef.current?.focus({ preventScroll: true })
+        }}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle className={icon ? 'flex items-center gap-2' : undefined}>
             {icon}
@@ -162,6 +178,7 @@ export function ConfirmDialog({
         <AlertDialogFooter>
           <AlertDialogCancel disabled={busy !== null}>{cancelText ?? t('cancel')}</AlertDialogCancel>
           <AlertDialogAction
+            ref={confirmRef}
             onClick={(e) => {
               e.preventDefault()
               void answer('confirm', onConfirm)
