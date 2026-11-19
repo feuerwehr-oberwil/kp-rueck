@@ -276,6 +276,11 @@ async def submit_reko_report(
     # The board's report is a draft until it is filed (`_kp_draft_files_now`).
     if user is not None and not submit and await _kp_draft_files_now(db, report, update_data):
         submit = True
+    # A board save that resolved to the report it filed before (`get_or_create_kp_reko_report`)
+    # amends it: no second filing, no second bell.
+    amends_filed = user is not None and not report.is_draft
+    if amends_filed:
+        submit = False
     if (
         field_token
         and not submit
@@ -315,6 +320,9 @@ async def submit_reko_report(
             {"incident_id": str(incident.id)},
             "submit",
         )
+    elif amends_filed:
+        # Other boards show filed reports only; an amendment changes one.
+        background_tasks.add_task(broadcast_reko_update, {"incident_id": str(updated.incident_id)}, "update")
 
     return response_data
 

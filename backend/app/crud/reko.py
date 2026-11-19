@@ -142,9 +142,15 @@ async def get_or_create_kp_reko_report(
     in the field, and the outputs have to be able to say so.
 
     An operator's own unfinished draft is reused rather than stacked, so a form
-    saved twice is one report; a crew's report is never taken over here — that is
-    an amendment and goes through ``update_reko_report`` with the user, which
-    keeps ``submitted_by_personnel_id`` and adds ``updated_by_user_id``.
+    saved twice is one report. Without one, the newest report the board already
+    FILED on this Einsatz is reused: on a card at «Reko abgeschlossen» the first save
+    that answers «Einsatz relevant?» files at once, so a second first save (another
+    mount, a retry after a lost response) must amend that row, not file a second
+    report with a second bell (Sol review pass 2, S2). The board never POSTs to start
+    a further report – it amends the latest one by PATCH. A crew's report is never
+    taken over here — that is an amendment and goes through ``update_reko_report``
+    with the user, which keeps ``submitted_by_personnel_id`` and adds
+    ``updated_by_user_id``.
 
     The row still gets a real form token: ``token`` is NOT NULL, it is what the
     field path keys on, and minting one keeps a KP report indistinguishable from
@@ -173,6 +179,19 @@ async def get_or_create_kp_reko_report(
     draft = existing.scalar_one_or_none()
     if draft:
         return draft
+    filed = await db.scalar(
+        select(RekoReport)
+        .where(
+            RekoReport.incident_id == incident_id,
+            RekoReport.is_draft == False,  # noqa: E712
+            RekoReport.created_by_user_id.is_not(None),
+            RekoReport.submitted_by_personnel_id.is_(None),
+        )
+        .order_by(RekoReport.submitted_at.desc())
+        .limit(1)
+    )
+    if filed:
+        return filed
 
     report = RekoReport(
         incident_id=incident_id,

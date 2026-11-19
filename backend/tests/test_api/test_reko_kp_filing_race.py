@@ -152,6 +152,29 @@ async def test_two_first_saves_of_the_board_form_make_one_draft(test_engine, mon
     assert (draft.summary_text, draft.additional_notes) == ("Wasser im Keller", "Wasser im Keller")
 
 
+async def test_two_first_saves_on_a_card_past_reko_file_one_report(test_engine, monkeypatch):
+    """Pass 2 S2: on «Reko abgeschlossen» the first answer files at once; the second first
+    save (another mount, a retry after a lost response) amends that report."""
+
+    async def seed(db: AsyncSession, incident_id: UUID, event_id: UUID, user_id: UUID) -> None:
+        db.add(_incident(incident_id, event_id, user_id, "reko_done"))
+        await db.commit()
+
+    def first_save(summary: str) -> Call:
+        def call(client: AsyncClient, incident_id: UUID) -> Awaitable[Response]:
+            body = {"incident_id": str(incident_id), "is_relevant": True, "summary_text": summary}
+            return client.post("/api/reko/?submit=false", json=body)
+
+        return call
+
+    reports, bells = await _race(test_engine, monkeypatch, seed, first_save("Keller"), first_save("Keller 20 cm"))
+
+    [report] = reports
+    assert report.is_draft is False
+    assert report.summary_text == "Keller 20 cm"
+    assert bells == 1
+
+
 async def test_a_save_racing_the_status_move_does_not_ring_the_bell_twice(test_engine, monkeypatch):
     report_id = uuid4()
 
