@@ -143,4 +143,23 @@ describe("VehicleStatusSheet", () => {
 
     expect(push).not.toHaveBeenCalled()
   })
+
+  it("opens the first place with a card on Enter, past an Auftrag without stops", async () => {
+    api.getVehicleStatuses.mockResolvedValue([vehicle({
+      deployments: [
+        {
+          kind: "auftrag", group_id: "g1", name: "Nord", color: null, incident_id: null,
+          assigned_at: "2026-11-19T09:00:00Z", duration_minutes: 5,
+        },
+        deployment("i-old", "Hauptstrasse 1", 40),
+      ],
+    })])
+    const user = userEvent.setup()
+    renderWithIntl(<VehicleStatusSheet open onOpenChange={() => {}} eventId="e-keys-empty-route" />)
+
+    await screen.findByRole("button", { name: /Hauptstrasse 1/ })
+    await user.keyboard("{ArrowDown}{Enter}")
+
+    expect(push).toHaveBeenCalledWith("/?highlight=i-old")
+  })
 })

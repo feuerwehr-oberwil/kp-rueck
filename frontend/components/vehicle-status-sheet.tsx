@@ -295,8 +295,9 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
     } else if (e.key === "Enter" && selectedVehicleIndex >= 0) {
       e.preventDefault()
       const vehicle = displayedVehicles[selectedVehicleIndex]
-      // Several places: Enter opens the first one; the others are their own links.
-      const first = vehicle ? targetsOf(vehicle)[0] : undefined
+      // Several places: Enter opens the first one that has a card to open (an Auftrag
+      // without stops has none); the others are their own links.
+      const first = vehicle ? targetsOf(vehicle).find((target) => target.incidentId) : undefined
       if (first?.incidentId) openIncident(first.incidentId)
     }
   })
