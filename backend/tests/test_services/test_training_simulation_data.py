@@ -56,7 +56,7 @@ def test_all_reko_summaries_have_bundled_illustrations():
         for entry in entries:
             path = SUMMARY_IMAGE_DIR / entry["file"]
             assert entry["prompt"] and entry["scene"] == "as_found", summary
-            assert path.stat().st_size <= 30_000, summary
+            assert path.stat().st_size <= 60_000, summary
             with Image.open(path) as image:
                 assert image.format == "WEBP" and max(image.size) == 640, summary
                 image.verify()

@@ -31,6 +31,7 @@ AS_FOUND_RULE = (
     "Only show ordinary civilian equipment or materials if the report explicitly says residents or other civilians "
     "already used them themselves, such as a household submersible pump after a resident pumped out a cellar. "
     "Existing fixtures and vehicles directly involved in the incident may be visible. "
+    "A cordon by police or residents may be visible only when the report says the area is already cordoned off. "
 )
 SAFE_RULE = (
     "Keep the scene unbranded, with no readable text, logos, badges or number plates, and no graphic injury. "
@@ -43,15 +44,23 @@ PHONE_PROMPT = (
     "available light for the situation (overcast day, dusk, rain, street lights or a dim cellar lamp), ordinary "
     "phone-camera look, no cinematic grading. Setting: a suburb in Basel-Landschaft, Switzerland – Swiss houses, "
     "streets, kerbs, road markings and cars as they look there. The photographer and their gear stay out of frame. "
+    "Show the very place the report names – inside the room when it names one – so its main fact is visible. "
     f"{AS_FOUND_RULE}{SAFE_RULE}"
     "{depth}Report context (do not render as text): «{summary}»"
 )
 DEPTH_HINTS = {
-    "shallow": f"The standing water is shallow – a few centimetres, at most {SHALLOW_MAX_CM} cm. ",
-    "deep": "The standing water is deep – roughly 30 to 50 cm, well above the ankles. ",
+    "shallow": (
+        f"The standing water is shallow – a thin layer on the floor, a few centimetres, at most {SHALLOW_MAX_CM} cm, "
+        "visibly below shoe height against walls, doors or objects. "
+    ),
+    "deep": (
+        "The standing water is deep – a clear waterline at roughly knee height (30 to 50 cm) against walls, "
+        "doors, steps or objects in the room. "
+    ),
 }
 MAX_EDGE = 640
-MAX_BYTES = 30_000
+# Phone shots (rain, grain, dusk) compress worse than the round-1 plain pictures.
+MAX_BYTES = 60_000
 
 Depth = Literal["shallow", "deep"]
 
@@ -82,7 +91,7 @@ def encode_webp(source: Path) -> bytes:
     with Image.open(source) as raw:
         image = ImageOps.exif_transpose(raw).convert("RGB")
     image.thumbnail((MAX_EDGE, MAX_EDGE), Image.Resampling.LANCZOS)
-    for quality in range(85, 9, -5):
+    for quality in range(60, 9, -5):
         buffer = BytesIO()
         image.save(buffer, "WEBP", quality=quality, method=6)
         if buffer.tell() <= MAX_BYTES:
