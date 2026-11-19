@@ -24,7 +24,7 @@ import { useIsMobile } from '@/components/ui/use-mobile'
  *   its own dialog. That is how a picker mounted somewhere else entirely – the driver prompt in
  *   the root layout – still lands inside «Fahrzeuge zuweisen».
  *
- * While the slot has content, globals.css hides the surface's own children (`visibility`, so
+ * While the slot has content the surface's own children are `inert` and unseen (globals.css –
  * their state, scroll position and size stay) and the step lies over them. A real yes/no
  * question (ConfirmDialog) may still open on top – it is S, never wider than what is under it.
  *
@@ -125,18 +125,24 @@ export function SurfaceStep({
   const backRef = useRef<HTMLButtonElement>(null)
   const onBackRef = useRef(onBack)
   onBackRef.current = onBack
+  // The surface's control that opened the step, read on the first render: by the layout
+  // effect an `autoFocus` field inside the step has already taken the focus.
+  const [returnTo] = useState(() => (document.activeElement instanceof HTMLElement ? document.activeElement : null))
 
   useLayoutEffect(() => {
     const { slot } = host
     stepBacks.set(slot, () => onBackRef.current())
-    // Still the surface's control that opened the step – CSS has not hidden it yet.
-    const returnTo = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    // The surface's own children leave the Tab order and the accessibility tree meanwhile.
+    const under = [...(slot.parentElement?.children ?? [])].filter(
+      (el): el is HTMLElement => el !== slot && el instanceof HTMLElement && !el.inert,
+    )
+    under.forEach((el) => (el.inert = true))
     if (!frameRef.current?.contains(document.activeElement)) backRef.current?.focus({ preventScroll: true })
     return () => {
       stepBacks.delete(slot)
-      // After the commit: until the step's nodes are gone the surface is still hidden, and
-      // a hidden element does not take focus. Only if focus fell to nowhere (the step's own
-      // nodes went) – a question the step opened keeps its focus.
+      under.forEach((el) => (el.inert = false))
+      // After the commit, once the step's nodes are gone. Only if focus fell to nowhere –
+      // a question the step opened keeps its focus.
       queueMicrotask(() => {
         const active = document.activeElement
         // Radix parks a lost focus on the surface's content element itself.
@@ -144,7 +150,7 @@ export function SurfaceStep({
         if (lost && returnTo?.isConnected) returnTo.focus({ preventScroll: true })
       })
     }
-  }, [host])
+  }, [host, returnTo])
 
   const fullDescription = typeof description === 'string' ? description : undefined
 

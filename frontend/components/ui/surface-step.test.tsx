@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
@@ -25,6 +25,7 @@ function Board({ onSurfaceChange }: { onSurfaceChange: (open: boolean) => void }
         onOpenChange={setPickerOpen}
         title="Fahrer für Trawa"
         description="Kein Fahrer zugewiesen"
+        toolbar={<input aria-label="Person suchen" autoFocus />}
         footer={<Button onClick={() => setPickerOpen(false)}>Abbrechen</Button>}
       >
         <p>Muster Hans</p>
@@ -55,9 +56,12 @@ describe('a picker opened from a work surface (owner pick 5A)', () => {
     renderWithIntl(<Board onSurfaceChange={onSurfaceChange} />)
 
     await user.click(screen.getByRole('button', { name: 'Fahrer wählen' }))
+    expect(screen.getByRole('textbox', { name: 'Person suchen' })).toHaveFocus()
     await user.keyboard('{Escape}')
     expect(screen.queryByText('Muster Hans')).not.toBeInTheDocument()
     expect(screen.getByRole('dialog')).toBeInTheDocument()
+    // Back where the operator was: the control that opened the step.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Fahrer wählen' })).toHaveFocus())
 
     await user.click(screen.getByRole('button', { name: 'Fahrer wählen' }))
     await user.click(screen.getByRole('button', { name: 'Zurück' }))
