@@ -20,6 +20,7 @@ import { DismissAllToasts } from '@/components/ui/sonner'
 import { AppShell } from '@/components/app-shell'
 import { VehicleDriverPrompt } from '@/components/vehicle-driver-prompt'
 import { ResourceConflictPrompt } from '@/components/resource-conflict-prompt'
+import { AuftragStopPrompt } from '@/components/auftrag-stop-prompt'
 import { GpsReleasePrompt } from '@/components/gps-release-prompt'
 import { GpsArrivalPrompt } from '@/components/gps-arrival-prompt'
 import { StatusConflictDialog } from '@/components/kanban/status-conflict-dialog'
@@ -159,6 +160,7 @@ export default async function RootLayout({
                       <DismissAllToasts />
                       <VehicleDriverPrompt />
                       <ResourceConflictPrompt />
+                      <AuftragStopPrompt />
                       <GpsReleasePrompt />
                       <GpsArrivalPrompt />
                       <StatusConflictDialog />

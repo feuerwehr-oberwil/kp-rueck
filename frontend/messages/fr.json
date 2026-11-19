@@ -1404,6 +1404,13 @@
       "drives": "conduit {vehicle}",
       "moveReleasesDriver": "« Déplacer ici » libère aussi le rôle de conducteur pour {vehicle}."
     },
+    "auftragStop": {
+      "title": "Ajouter {incident} comme étape à la mission {auftrag} ?",
+      "description": "{vehicle} roule déjà pour la mission « {auftrag} ». Ajoutée, {incident} y devient la dernière étape.",
+      "addAsStop": "Ajouter à la mission",
+      "assignOnly": "Attribuer seulement en plus",
+      "added": "{incident} est maintenant une étape de la mission « {auftrag} »"
+    },
     "vehicleStatus": {
       "bound": "Engagé",
       "available": "Disponible",

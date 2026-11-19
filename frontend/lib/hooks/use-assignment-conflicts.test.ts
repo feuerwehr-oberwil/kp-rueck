@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest"
 import { renderHook } from "@testing-library/react"
 import { useAssignmentConflicts, type AssignmentConflictInputs } from "./use-assignment-conflicts"
+import { askAuftragStop, type AuftragStopQuestion } from "@/lib/auftrag-stop-question"
+
+vi.mock("@/lib/auftrag-stop-question", () => ({ askAuftragStop: vi.fn() }))
 
 type Conflict = Parameters<AssignmentConflictInputs["requestResourceConflict"]>[0]
 
@@ -86,9 +89,26 @@ describe("useAssignmentConflicts — a vehicle onto an incident", () => {
     expect(asked()).toEqual([])
   })
 
-  it("asks when a route holds it; «move» detaches it from the route first", async () => {
+  // Owner pick #23: the vehicle drives Auftrag «Süd» – the lone Einsatz may belong on that route.
+  it("asks to take a lone Einsatz into the Auftrag that holds the vehicle", async () => {
+    vi.mocked(askAuftragStop).mockClear()
     const { inputs, hook, asked } = setup({
       groups: [group("g-2", "Süd", [{ id: "ga-1", resourceType: "vehicle", resourceId: "v-tlf" }])],
+      operations: [op("op-1", "Blumenweg 21")],
+    })
+    expect(hook.assignVehicleToIncidentWithConflict("v-tlf", "TLF", "op-1")).toBe(true)
+    expect(asked()).toEqual([])
+    expect(inputs.assignVehicleToOperation).not.toHaveBeenCalled()
+    const [[question]] = vi.mocked(askAuftragStop).mock.calls as [[AuftragStopQuestion]]
+    expect(question).toMatchObject({ groupId: "g-2", groupName: "Süd", incidentId: "op-1", vehicleName: "TLF" })
+    await question.assignOnly()
+    expect(inputs.assignVehicleToOperation).toHaveBeenCalledWith("v-tlf", "TLF", "op-1")
+  })
+
+  it("asks move/keep when a route holds it and the Einsatz is on another Auftrag; «move» detaches it first", async () => {
+    const { inputs, hook, asked } = setup({
+      groups: [group("g-2", "Süd", [{ id: "ga-1", resourceType: "vehicle", resourceId: "v-tlf" }])],
+      operations: [op("op-1", "Rebgasse 8", { groupId: "g-9" })],
     })
     hook.assignVehicleToIncidentWithConflict("v-tlf", "TLF", "op-1")
     const [conflict] = asked()

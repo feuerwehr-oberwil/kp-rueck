@@ -206,6 +206,24 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
     }
   }, [operations, updateOperation, notifyStatusMove, triggerDisponiertDialog])
 
+  // Doppelbelegung across Aufträge and Einsätze — see use-assignment-conflicts.
+  const {
+    assignVehicleToGroupWithConflict,
+    groupsHolding,
+    releaseFromGroups,
+    askRouteConflict,
+    assignVehicleToIncidentWithConflict,
+  } = useAssignmentConflicts({
+    vehicleTypes,
+    groups,
+    operations,
+    requestResourceConflict,
+    assignGroupResource,
+    unassignGroupResource,
+    removeVehicle,
+    assignVehicleToOperation,
+  })
+
   // Quick-assign (number keys / command palette) toggle of a vehicle onto an
   // incident. For a GROUPED incident the route owns resources, so route the
   // assign/unassign to the Auftrag — otherwise a per-incident row would be
@@ -236,12 +254,16 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
       }
       if (op.vehicles.some((v) => v.vehicleId === vehicle.id)) {
         void release.releaseVehicle(op.id, vehicle.id)
-      } else {
-        assignVehicleToOperation(vehicle.id, vehicle.name, op.id)
-        notify(true)
+        return
       }
+      // The same question as the picker and a drop: an Auftrag holding the vehicle asks
+      // «als Stopp aufnehmen?», another Einsatz holding it asks «auf beiden führen?».
+      // A question is its own receipt – the toast is for an assign that just happened.
+      const heldByEinsatz = operations.some((other) => other.id !== op.id && other.vehicles.some((v) => v.vehicleId === vehicle.id))
+      const asked = assignVehicleToIncidentWithConflict(vehicle.id, vehicle.name, op.id)
+      if (!asked && !heldByEinsatz) notify(true)
     },
-    [getGroupResources, release, assignGroupResource, assignVehicleToOperation, tCommon],
+    [getGroupResources, release, assignGroupResource, assignVehicleToIncidentWithConflict, operations, tCommon],
   )
 
   /** Priority by keystroke — the card only shows it as a small chevron, so the
@@ -294,24 +316,6 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
       toast.error(tCommon('deleteFailed'))
     }
   }, [deleteOperation, tCommon])
-
-  // Doppelbelegung across Aufträge and Einsätze — see use-assignment-conflicts.
-  const {
-    assignVehicleToGroupWithConflict,
-    groupsHolding,
-    releaseFromGroups,
-    askRouteConflict,
-    assignVehicleToIncidentWithConflict,
-  } = useAssignmentConflicts({
-    vehicleTypes,
-    groups,
-    operations,
-    requestResourceConflict,
-    assignGroupResource,
-    unassignGroupResource,
-    removeVehicle,
-    assignVehicleToOperation,
-  })
 
   return {
     setRouteStopStatus,
