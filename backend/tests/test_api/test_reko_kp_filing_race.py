@@ -7,11 +7,14 @@ yet – a second draft, or a second «Reko-Bericht» bell for one report.
 """
 
 import asyncio
+import io
 from collections.abc import Awaitable, Callable
 from uuid import UUID, uuid4
 
+import pytest
 from fastapi import Request
 from httpx import ASGITransport, AsyncClient, Response
+from PIL import Image
 from sqlalchemy import delete, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -19,6 +22,7 @@ from app.auth.security import create_login_tokens
 from app.database import get_db
 from app.main import app
 from app.models import AuditLog, Event, Incident, Notification, RekoReport, StatusTransition, User
+from app.services.photo_storage import photo_storage
 from app.services.tokens import generate_form_token
 
 Call = Callable[[AsyncClient, UUID], Awaitable[Response]]
@@ -207,3 +211,34 @@ async def test_a_save_racing_the_status_move_does_not_ring_the_bell_twice(test_e
     assert report.is_draft is False
     assert report.summary_text == "Keller 20 cm"
     assert bells == 1
+
+
+@pytest.mark.parametrize("first", ["save", "photo"])
+async def test_a_photo_during_the_first_save_lands_on_the_same_draft(test_engine, monkeypatch, tmp_path, first):
+    """Pass 2 S5 (evidence): a photo upload without a report id resolves its row through
+    `get_or_create_kp_reko_report` under the same card lock as the first save, so in either
+    order both end on one draft – no second draft from the board."""
+    monkeypatch.setattr(photo_storage, "photos_dir", tmp_path)
+    image = io.BytesIO()
+    Image.new("RGB", (8, 8), "red").save(image, format="JPEG")
+
+    async def seed(db: AsyncSession, incident_id: UUID, event_id: UUID, user_id: UUID) -> None:
+        db.add(_incident(incident_id, event_id, user_id, "reko"))
+        await db.commit()
+
+    def save(client: AsyncClient, incident_id: UUID) -> Awaitable[Response]:
+        body = {"incident_id": str(incident_id), "summary_text": "Wasser im Keller"}
+        return client.post("/api/reko/?submit=false", json=body)
+
+    def photo(client: AsyncClient, incident_id: UUID) -> Awaitable[Response]:
+        return client.post(
+            f"/api/reko/{incident_id}/photos", files={"file": ("photo.jpg", image.getvalue(), "image/jpeg")}
+        )
+
+    winner, loser = (save, photo) if first == "save" else (photo, save)
+    reports, _ = await _race(test_engine, monkeypatch, seed, winner, loser)
+
+    [draft] = reports
+    assert draft.is_draft is True
+    assert draft.summary_text == "Wasser im Keller"
+    assert len(draft.photos_json or []) == 1
