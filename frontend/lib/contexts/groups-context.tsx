@@ -42,7 +42,8 @@ export interface AnnouncementInput {
 }
 
 export type StopRestoreResult = "restored" | "conflict" | "failed"
-/** `changed`: the guarded add found the Einsatz or the vehicle's Auftrag changed (409). */
+/** `changed`: the guarded add found the Einsatz or the vehicle's Auftrag changed (409) or
+ *  the Auftrag gone (404, or no longer on this board). */
 export type VehicleStopAddResult = "added" | "changed" | "failed"
 
 const EMPTY_RESOURCES: GroupResources = { vehicles: [], personnel: [], materials: [] }
@@ -545,7 +546,9 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     mutationEpochRef.current++
 
     const previous = groups.find((g) => g.id === groupId)
-    if (!previous || incidentIds.length === 0) return "failed"
+    // The #23 question outlived its Auftrag (deleted meanwhile): out of date, not a failure.
+    if (!previous) return viaVehicleId ? "changed" : "failed"
+    if (incidentIds.length === 0) return "failed"
 
     // Optimistically append the new stops (dedup) and bump the progress total.
     const appended = incidentIds.filter((id) => !previous.stopIds.includes(id))
@@ -567,7 +570,8 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
       return "added"
     } catch (error) {
       setGroups((gs) => gs.map((g) => (g.id === groupId ? previous : g)))
-      if (viaVehicleId && ApiError.isConflictError(error)) {
+      // 409: the Einsatz or the vehicle's Auftrag changed; 404: the Auftrag is gone.
+      if (viaVehicleId && error instanceof ApiError && (error.status === 409 || error.status === 404)) {
         void refreshGroups()
         return "changed"
       }

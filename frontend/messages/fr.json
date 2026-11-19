@@ -1408,7 +1408,7 @@
       "assignOnly": "Attribuer seulement en plus",
       "added": "{incident} est maintenant une étape de la mission « {auftrag} »",
       "changedTitle": "{incident} non ajoutée",
-      "changedDescription": "L’intervention ou la mission « {auftrag} » a été modifiée entre-temps. Vérifiez sur le tableau."
+      "changedDescription": "L’intervention ou la mission « {auftrag} » a été modifiée ou supprimée entre-temps. Vérifiez sur le tableau."
     },
     "vehicleStatus": {
       "bound": "Engagé",

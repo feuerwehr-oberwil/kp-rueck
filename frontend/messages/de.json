@@ -1328,7 +1328,7 @@
       "assignOnly": "Nur zusätzlich zuweisen",
       "added": "{incident} ist jetzt Stopp im Auftrag «{auftrag}»",
       "changedTitle": "{incident} nicht aufgenommen",
-      "changedDescription": "Der Einsatz oder der Auftrag «{auftrag}» wurde inzwischen geändert. Auf dem Board prüfen."
+      "changedDescription": "Der Einsatz oder der Auftrag «{auftrag}» wurde inzwischen geändert oder gelöscht. Auf dem Board prüfen."
     },
     "vehicleStatus": {
       "bound": "Gebunden",
