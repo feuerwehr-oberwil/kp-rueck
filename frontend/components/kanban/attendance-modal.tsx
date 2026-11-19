@@ -25,16 +25,21 @@
  *   it has no way to release anything.
  * - **Unavailable people are shown, disabled.** The backend refuses to check them in, so
  *   offering the action would be a lie; hiding the name would make the operator hunt for it.
- * - **The plan is a chip beside the row, not a fourth state** (feedback 19.11.2026, #3, mock
- *   6A). «geht 22:00» for somebody here, «kommt 20:00» for somebody not yet; dashed «+ bis» /
- *   «+ kommt um» while nothing is planned; amber when the person leaves within the hour. Its
- *   own button (Tab, Enter), so a click on it never cycles the row. `PlannedTimePicker` writes
- *   it – the record (the tick) and the plan stay separate facts.
+ * - **The plan is part of the row's one time line, not a fourth state** (feedback 19.11.2026,
+ *   #3; owner pick 2C the same evening). One mono fact on the right: «18:47 – 22:00» for
+ *   somebody here with a plan, «seit 18:52» without, «ab 20:00» for somebody not here yet,
+ *   «gegangen 19:20» for somebody who went home; amber on the until part («20:00 · in 29'»)
+ *   when the person leaves within the hour. A quiet clock button at the row's end sets it
+ *   (`PlannedTimeClock` → `PlannedTimePicker`) – pale without a plan, ink with one, a blank of
+ *   the same width on a «gegangen» row so the times line up. It is the row button's SIBLING,
+ *   not inside it: Tab reaches both, a click on the clock never cycles the row, and the hover
+ *   is the row's container, so row and clock light up as one. The record (the tick) and the
+ *   plan stay separate facts.
  */
 
 import { SearchEmptyState } from "@/components/ui/empty-state"
 import { PersonName } from "@/components/person-name"
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { CheckCircle2, Circle, LogOut, Users } from 'lucide-react'
@@ -48,9 +53,12 @@ import { SearchInput } from '@/components/ui/search-input'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { QuickAddPersonnel } from '@/components/quick-add-personnel'
 import { DiveraIncomingBlock } from '@/components/kanban/divera-incoming-block'
-import { PlannedTimeChip, PlannedTimePicker, type PlanKind } from '@/components/attendance/planned-time'
+import { PlannedTimeClock, PlannedTimePicker, type PlanKind } from '@/components/attendance/planned-time'
+import { useMinuteTick } from '@/components/ui/incident-time'
 import { wsClient } from '@/lib/websocket-client'
+import { formatDuration } from '@/lib/duration'
 import { formatTime } from '@/lib/format-time'
+import { leavesSoon, minutesUntil } from '@/lib/planned-times'
 import { sortByName } from '@/lib/roster-order'
 import { cn } from '@/lib/utils'
 
@@ -98,31 +106,43 @@ export function sortAttendance(people: ApiPersonnelListItem[]): ApiPersonnelList
   return sortByName(people)
 }
 
-/** One fact a row states besides the name. Times are already «17:22» clock strings. */
+/** One fact a row states besides the name. Times are already «17:22» clock strings.
+ *  `stay` = here, with a plan: «18:47 – 22:00» (in since – planned until). */
 export type AttendanceFact =
   | { kind: 'unavailable' }
   | { kind: 'since'; time: string }
-  | { kind: 'span'; from: string | null; until: string }
+  | { kind: 'stay'; from: string | null; until: string }
+  | { kind: 'from'; time: string }
+  | { kind: 'left'; time: string }
   | { kind: 'assigned'; where: string }
 
 /**
  * What a row says about a person, in reading order – the phone's second line
  * («seit 17:22 · zugewiesen: 14 · Talstrasse 25») and the desktop row's chip + time.
- * Empty for somebody who never came: the open circle already says it. `assignedAt`
- * counts only while the person is in – somebody who went home is not «zugewiesen» here.
+ * Present: `stay` with a plan, else `since`; not here yet: `from` with a plan, else nothing
+ * (the open circle already says it); went home: `left`. `assignedAt` counts only while the
+ * person is in – somebody who went home is not «zugewiesen» here.
  */
 export function attendanceFacts(person: ApiPersonnelListItem, assignedAt: string | null): AttendanceFact[] {
   if (person.status === 'unavailable') return [{ kind: 'unavailable' }]
-  const since = formatTime(person.checked_in_at) || null
   const state = attendanceState(person)
   if (state === 'present') {
-    const facts: AttendanceFact[] = since ? [{ kind: 'since', time: since }] : []
+    const since = formatTime(person.checked_in_at) || null
+    const until = formatTime(person.planned_until) || null
+    const facts: AttendanceFact[] = until
+      ? [{ kind: 'stay', from: since, until }]
+      : since
+        ? [{ kind: 'since', time: since }]
+        : []
     if (assignedAt) facts.push({ kind: 'assigned', where: assignedAt })
     return facts
   }
-  const until = formatTime(person.checked_out_at) || null
-  if (state === 'left' && until) return [{ kind: 'span', from: since, until }]
-  return []
+  if (state === 'left') {
+    const time = formatTime(person.checked_out_at)
+    return time ? [{ kind: 'left', time }] : []
+  }
+  const from = formatTime(person.planned_from)
+  return from ? [{ kind: 'from', time: from }] : []
 }
 
 
@@ -487,10 +507,13 @@ export function AttendanceModal({
 }
 
 /**
- * One person, one target: a click cycles the state (see `cycle`); the plan chip on the right
- * is a second, separate button (`PlannedTimeChip`). The glyph on the left says the state. `twoLines` is the phone: line 1 the full name (wraps, never truncates),
- * line 2 the facts in mono. The desktop row keeps everything on one line – it has the
- * width – with «zugewiesen» as a chip and the time on the right.
+ * One person, one target: a click on the row cycles the state (see `cycle`). The glyph on the
+ * left says the state, the mono time line on the right what the times are (`attendanceFacts`),
+ * and an editor gets the plan's clock button at the very end – a sibling of the row button, so
+ * it is its own Tab stop and never cycles the row; the container carries the border and the
+ * ONE hover for both. `twoLines` is the phone: line 1 the full name (wraps, never truncates),
+ * line 2 the facts in mono. The desktop row keeps everything on one line – it has the width –
+ * with «zugewiesen» as a chip before the time.
  */
 function AttendanceRow({
   person,
@@ -503,29 +526,52 @@ function AttendanceRow({
   assignedAt: string | null
   twoLines: boolean
   onClick: () => void
-  /** Editors: the plan chip writes through this. Without it the chip is not offered. */
+  /** Editors: the clock button writes the plan through this. Without it there is no clock. */
   onPlan?: (kind: PlanKind, iso: string | null) => Promise<void>
 }) {
   const t = useTranslations('kanban.attendance')
   const tCommon = useTranslations('kanban.common')
   const tPlan = useTranslations('common.attendancePlan')
+  // «in 29'» counts down on the shared minute timer, like the crew's time on duty.
+  useMinuteTick()
+  const now = Date.now()
   const state = attendanceState(person)
   const unavailable = person.status === 'unavailable'
   const facts = attendanceFacts(person, assignedAt)
   const name = person.name.trim() || tCommon('unknownResource')
 
-  const factText = (fact: AttendanceFact): string => {
+  const factText = (fact: AttendanceFact): ReactNode => {
     switch (fact.kind) {
       case 'unavailable':
         return t('unavailable')
       case 'since':
         return t('since', { time: fact.time })
-      case 'span':
-        return `${fact.from ?? '–'} – ${fact.until}`
+      case 'from':
+        return tPlan('rowFrom', { time: fact.time })
+      case 'left':
+        return t('leftAt', { time: fact.time })
       case 'assigned':
         return twoLines ? t('assignedTo', { where: fact.where }) : t('assignedChip')
+      case 'stay': {
+        // Leaving within the hour (`leavesSoon`): amber on the until part, with the time left.
+        if (!leavesSoon(person.planned_until, now)) {
+          return fact.from ? `${fact.from} – ${fact.until}` : tPlan('rowUntil', { time: fact.until })
+        }
+        const left = minutesUntil(person.planned_until, now) ?? 0
+        const soon = (
+          <span className="rounded-sm bg-warning/15 px-1 text-warning-foreground">
+            {left > 0
+              ? tPlan('rowSoon', { time: fact.until, duration: formatDuration(left * 60_000) })
+              : tPlan('rowPast', { time: fact.until })}
+          </span>
+        )
+        return fact.from ? <>{fact.from} – {soon}</> : soon
+      }
     }
   }
+  // A plan is a fact the operator set: ink. Everything else the line says is a record: muted.
+  const factTone = (fact: AttendanceFact) =>
+    fact.kind === 'stay' || fact.kind === 'from' ? 'text-foreground' : 'text-muted-foreground'
 
   const glyph =
     state === 'present' ? (
@@ -539,37 +585,36 @@ function AttendanceRow({
   const assigned = facts.find((fact) => fact.kind === 'assigned')
   const time = facts.find((fact) => fact.kind !== 'assigned')
 
-  // The plan chip: «geht um» for somebody here, «kommt um» for somebody not yet; nothing for
-  // somebody who went home or is not available tonight.
+  // The clock: «geht um» for somebody here, «kommt um» for somebody not yet. Somebody who went
+  // home or is not available tonight gets a blank of the same width, so the times line up.
   const planKind: PlanKind | null =
     unavailable || state === 'left' ? null : state === 'present' ? 'until' : 'from'
   const planValue = planKind === 'until' ? person.planned_until : person.planned_from
-  const planChip =
-    planKind && onPlan ? (
-      <PlannedTimePicker
-        kind={planKind}
-        value={planValue}
-        other={planKind === 'until' ? person.planned_from : person.planned_until}
-        title={tPlan(planKind === 'until' ? 'titleUntil' : 'titleFrom', { name })}
-        hint={tPlan('hintKp')}
-        fieldLabel={tPlan(planKind === 'until' ? 'fieldUntil' : 'fieldFrom')}
-        onSave={(iso) => onPlan(planKind, iso)}
-        trigger={<PlannedTimeChip kind={planKind} at={planValue} className={twoLines ? 'mt-1.5 mr-2' : 'mr-2'} />}
-      />
-    ) : planKind && planValue ? (
-      // A viewer reads the plan; only an editor writes it.
-      <PlannedTimeChip kind={planKind} at={planValue} disabled className="mr-2 disabled:opacity-100" />
-    ) : null
+  const planCell = !onPlan ? null : planKind ? (
+    <PlannedTimePicker
+      kind={planKind}
+      value={planValue}
+      other={planKind === 'until' ? person.planned_from : person.planned_until}
+      title={tPlan(planKind === 'until' ? 'titleUntil' : 'titleFrom', { name })}
+      hint={tPlan('hintKp')}
+      fieldLabel={tPlan(planKind === 'until' ? 'fieldUntil' : 'fieldFrom')}
+      onSave={(iso) => onPlan(planKind, iso)}
+      trigger={<PlannedTimeClock kind={planKind} at={planValue} className="mr-2 self-center" />}
+    />
+  ) : (
+    <span aria-hidden className="mr-2 size-7 shrink-0 max-md:size-11 pointer-coarse:size-11" />
+  )
 
   return (
     <div
       className={cn(
-        'flex w-full rounded-md border text-sm transition-colors',
+        // `group`: the clock's edge shows on the row's hover (`PlannedTimeClock`).
+        'group flex w-full rounded-md border text-sm transition-colors',
         twoLines ? 'items-start' : 'items-center',
         state === 'present' && 'border-success/40 bg-success/5',
         state === 'left' && 'border-dashed text-muted-foreground',
         state === 'absent' && 'border-border',
-        unavailable && 'opacity-50'
+        unavailable ? 'opacity-50' : state === 'present' ? 'hover:bg-success/10' : 'hover:bg-muted'
       )}
     >
       <button
@@ -578,12 +623,12 @@ function AttendanceRow({
         disabled={unavailable}
         aria-pressed={state === 'present'}
         className={cn(
-          'flex min-w-0 flex-1 gap-2.5 self-stretch rounded-md px-3 text-left transition-colors',
+          'flex min-w-0 flex-1 gap-2.5 self-stretch rounded-md px-3 text-left',
           twoLines ? 'min-h-11 items-start py-2' : 'items-center py-2',
           // ring-inset: the focus ring must not grow the row's footprint — an outset ring made
           // the focused row sit 2px proud of its neighbours (field test 08.09.)
-          'hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
-          unavailable && 'cursor-not-allowed hover:bg-transparent'
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+          unavailable && 'cursor-not-allowed'
         )}
       >
         {twoLines ? (
@@ -602,9 +647,9 @@ function AttendanceRow({
                   {facts.map((fact, i) => (
                     <Fragment key={fact.kind}>
                       {i > 0 && ' '}
-                      <span className="inline-block max-w-full">
+                      <span className={cn('inline-block max-w-full', factTone(fact))}>
                         {factText(fact)}
-                        {i < facts.length - 1 && '\u00a0·'}
+                        {i < facts.length - 1 && ' ·'}
                       </span>
                     </Fragment>
                   ))}
@@ -623,11 +668,11 @@ function AttendanceRow({
                 {factText(assigned)}
               </span>
             )}
-            <span className="shrink-0 font-mono text-xs text-muted-foreground">{time ? factText(time) : ''}</span>
+            {time && <span className={cn('shrink-0 font-mono text-xs', factTone(time))}>{factText(time)}</span>}
           </>
         )}
       </button>
-      {planChip}
+      {planCell}
     </div>
   )
 }

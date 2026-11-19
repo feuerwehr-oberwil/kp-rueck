@@ -300,7 +300,7 @@ function CheckInKiosk({ token }: { token: string | null }) {
                       hint={tPlan('hintSelf')}
                       fieldLabel={tPlan('selfUntil')}
                       onSave={(iso) => setUntil(person, iso)}
-                      trigger={<PlannedTimeChip kind="until" at={person.planned_until} disabled={retrying} />}
+                      trigger={<PlannedTimeChip at={person.planned_until} disabled={retrying} />}
                     />
                   </div>
                 )}
