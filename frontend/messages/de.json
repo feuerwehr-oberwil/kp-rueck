@@ -1326,7 +1326,9 @@
       "description": "{vehicle} fährt schon den Auftrag «{auftrag}». {incident} wird dort als letzter Stopp aufgenommen.",
       "addAsStop": "In Auftrag aufnehmen",
       "assignOnly": "Nur zusätzlich zuweisen",
-      "added": "{incident} ist jetzt Stopp im Auftrag «{auftrag}»"
+      "added": "{incident} ist jetzt Stopp im Auftrag «{auftrag}»",
+      "changedTitle": "{incident} nicht aufgenommen",
+      "changedDescription": "Der Einsatz oder der Auftrag «{auftrag}» wurde inzwischen geändert. Auf dem Board prüfen."
     },
     "vehicleStatus": {
       "bound": "Gebunden",

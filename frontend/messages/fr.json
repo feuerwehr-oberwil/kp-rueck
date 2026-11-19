@@ -1406,7 +1406,9 @@
       "description": "{vehicle} roule déjà pour la mission « {auftrag} ». {incident} y sera ajoutée comme dernière étape.",
       "addAsStop": "Ajouter à la mission",
       "assignOnly": "Attribuer seulement en plus",
-      "added": "{incident} est maintenant une étape de la mission « {auftrag} »"
+      "added": "{incident} est maintenant une étape de la mission « {auftrag} »",
+      "changedTitle": "{incident} non ajoutée",
+      "changedDescription": "L’intervention ou la mission « {auftrag} » a été modifiée entre-temps. Vérifiez sur le tableau."
     },
     "vehicleStatus": {
       "bound": "Engagé",

@@ -42,6 +42,8 @@ export interface AnnouncementInput {
 }
 
 export type StopRestoreResult = "restored" | "conflict" | "failed"
+/** `changed`: the guarded add found the Einsatz or the vehicle's Auftrag changed (409). */
+export type VehicleStopAddResult = "added" | "changed" | "failed"
 
 const EMPTY_RESOURCES: GroupResources = { vehicles: [], personnel: [], materials: [] }
 
@@ -66,6 +68,12 @@ interface GroupsContextType {
    */
   restoreGroupStops: (groupId: string, orderedIds: string[], expectedIds: string[]) => Promise<StopRestoreResult>
   addStops: (groupId: string, incidentIds: string[]) => Promise<boolean>
+  /**
+   * #23 «In Auftrag aufnehmen»: the lone Einsatz becomes the Auftrag's last stop – only if it
+   * is still live and in no Auftrag and the vehicle still drives this one, checked under the
+   * server's locks. "changed" is not toasted here: the caller says it.
+   */
+  addStopForVehicle: (groupId: string, incidentId: string, vehicleId: string) => Promise<VehicleStopAddResult>
   removeStop: (groupId: string, incidentId: string) => Promise<boolean>
   /** Attach a vehicle / personnel / material to the ROUTE (not a single stop). */
   assignResource: (groupId: string, resourceType: GroupResourceType, resourceId: string) => Promise<boolean>
@@ -529,11 +537,15 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     [refreshGroups],
   )
 
-  const addStops = useCallback(async (groupId: string, incidentIds: string[]): Promise<boolean> => {
+  const postStops = useCallback(async (
+    groupId: string,
+    incidentIds: string[],
+    viaVehicleId?: string,
+  ): Promise<VehicleStopAddResult> => {
     mutationEpochRef.current++
 
     const previous = groups.find((g) => g.id === groupId)
-    if (!previous || incidentIds.length === 0) return false
+    if (!previous || incidentIds.length === 0) return "failed"
 
     // Optimistically append the new stops (dedup) and bump the progress total.
     const appended = incidentIds.filter((id) => !previous.stopIds.includes(id))
@@ -550,16 +562,29 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     )
 
     try {
-      const updated = apiGroupToGroup(await apiClient.addStopsToGroup(groupId, incidentIds))
+      const updated = apiGroupToGroup(await apiClient.addStopsToGroup(groupId, incidentIds, viaVehicleId))
       setGroups((gs) => gs.map((g) => (g.id === groupId ? updated : g)))
-      return true
+      return "added"
     } catch (error) {
-      console.error("Failed to add stops:", error)
       setGroups((gs) => gs.map((g) => (g.id === groupId ? previous : g)))
+      if (viaVehicleId && ApiError.isConflictError(error)) {
+        void refreshGroups()
+        return "changed"
+      }
+      console.error("Failed to add stops:", error)
       toast.error(translateOutsideReact("notifications.groups.addStopsFailed"))
-      return false
+      return "failed"
     }
-  }, [groups])
+  }, [groups, refreshGroups])
+
+  const addStops = useCallback(
+    async (groupId: string, incidentIds: string[]) => (await postStops(groupId, incidentIds)) === "added",
+    [postStops],
+  )
+  const addStopForVehicle = useCallback(
+    (groupId: string, incidentId: string, vehicleId: string) => postStops(groupId, [incidentId], vehicleId),
+    [postStops],
+  )
 
   const removeStop = useCallback(async (groupId: string, incidentId: string): Promise<boolean> => {
     mutationEpochRef.current++
@@ -797,6 +822,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
       reorderGroupStops,
       restoreGroupStops,
       addStops,
+      addStopForVehicle,
       removeStop,
       assignResource,
       unassignResource,
@@ -816,6 +842,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
       reorderGroupStops,
       restoreGroupStops,
       addStops,
+      addStopForVehicle,
       removeStop,
       assignResource,
       unassignResource,

@@ -222,6 +222,7 @@ export function useAssignmentConflicts({
         groupName: group.name,
         incidentId: target.id,
         incidentLabel: getIncidentRefLabel(target),
+        vehicleId,
         vehicleName,
         assignOnly: () => assignVehicleToOperation(vehicleId, vehicleName, operationId),
       })
