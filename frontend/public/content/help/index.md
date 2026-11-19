@@ -765,6 +765,15 @@ bist. Was etwas ändert, wirkt nur auf die ausgewählte Karte, nie auf die unter
 | `P` | Personal suchen |
 | `M` | Material suchen |
 
+### Auswählen (Mannschaft, Fahrzeuge, Material zuweisen, Fahrer, Reko)
+| Shortcut | Aktion |
+|----------|--------|
+| `↓` | Aus der Suche in die Liste |
+| `↑` `↓` `←` `→` | Zur nächsten Kachel (`↑` auf der ersten: zurück in die Suche) |
+| `Leertaste` | Kachel an- oder abwählen (in der Suche: ein Leerzeichen) |
+| `Enter` | Auswahl abschliessen – «Übernehmen» bzw. «Fertig», auch aus der Suche |
+| `1-9` | Im Zuweisen-Dialog: die n-te Kachel an- oder abwählen |
+
 ### Kartenansicht (Lagekarte)
 | Shortcut | Aktion |
 |----------|--------|

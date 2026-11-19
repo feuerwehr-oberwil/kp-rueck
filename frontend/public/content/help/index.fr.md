@@ -776,6 +776,15 @@ qui modifie quelque chose agit uniquement sur la carte sélectionnée, jamais su
 | `P` | Rechercher du personnel |
 | `M` | Rechercher du matériel |
 
+### Choisir (attribuer équipe, véhicules, matériel, chauffeur, reco)
+| Raccourci | Action |
+|----------|--------|
+| `↓` | De la recherche à la liste |
+| `↑` `↓` `←` `→` | Vers la tuile suivante (`↑` sur la première : retour à la recherche) |
+| `Espace` | Cocher ou décocher la tuile (dans la recherche : une espace) |
+| `Entrée` | Terminer le choix – «Valider» ou «Terminé», aussi depuis la recherche |
+| `1-9` | Dans la fenêtre d’attribution : cocher ou décocher la n-ième tuile |
+
 ### Vue carte (carte de situation)
 | Raccourci | Action |
 |----------|--------|

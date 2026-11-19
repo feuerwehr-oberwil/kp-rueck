@@ -8,6 +8,7 @@ import { FormMessage } from "@/components/ui/form-message"
 import type { TilePlan } from "@/components/kanban/person-tile-facts"
 import { abbreviateRank } from "@/lib/roster-order"
 import { cn } from "@/lib/utils"
+import { PICK_TILE } from "@/components/ui/picker-keys"
 
 /** The tile grid of every block: three columns from `sm`, ONE below it, so a phone shows a
  *  name in full («Hoffmann Lisa», not «Hoffmann L…») and the where-note gets the width. */
@@ -242,6 +243,7 @@ export function PersonPickTile({
   return (
     <button
       type="button"
+      {...PICK_TILE}
       onClick={onClick}
       disabled={disabled}
       {...(single ? { role: "radio", "aria-checked": checked } : { "aria-pressed": checked })}

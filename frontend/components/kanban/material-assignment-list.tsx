@@ -9,6 +9,7 @@ import { type Material } from "@/lib/contexts/operations-context"
 import { materialResourceState } from "@/lib/resource-status"
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { cn } from "@/lib/utils"
+import { PICK_TILE } from "@/components/ui/picker-keys"
 
 /*
  * The material half of `ResourceAssignmentDialog`: the list (module groups with
@@ -195,6 +196,7 @@ const renderMaterialTile = (material: Material) => {
   return (
     <button
       key={material.id}
+      {...PICK_TILE}
       onClick={() => onToggleMaterial(material)}
       disabled={isOutOfService}
       className={cn(
@@ -266,6 +268,7 @@ const renderMaterialTile = (material: Material) => {
               </button>
               {/* Select all toggle */}
               <button
+                {...PICK_TILE}
                 onClick={() => onToggleGroup(freeGroupMatIds)}
                 className="flex-1 flex cursor-pointer items-center justify-between py-3 pr-3 text-left"
               >
