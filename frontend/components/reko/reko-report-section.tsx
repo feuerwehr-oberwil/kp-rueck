@@ -176,7 +176,7 @@ export default function RekoReportSection({
   }, [loadReports, incidentId])
   usePolling(loadReports, { intervalMs: POLL_INTERVAL_MS, skipWhileWsConnected: true })
   // A draft save emits no `reko_update`, so the section reloads once a save settled.
-  const autosave = useRekoAutosave(incidentId, loadReports)
+  const autosave = useRekoAutosave(incidentId, userId, loadReports)
 
   const latestReport: ApiRekoReportResponse | undefined = reports[0]
   const previousReports = reports.slice(1)

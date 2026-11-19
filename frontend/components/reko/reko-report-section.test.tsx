@@ -196,6 +196,38 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     ))
   })
 
+  it('keeps a save in flight across a tab switch: the new mount opens the edit, not the old row (pass 2, S1)', async () => {
+    const oldDraft = report({
+      id: 'r-draft', is_draft: true, created_by_user_id: 'u-1', summary_text: 'Keller halb voll',
+      updated_at: '2026-08-10T18:00:00Z',
+    })
+    getIncidentRekoReports.mockResolvedValue([oldDraft])
+    let answer: (value: unknown) => void = () => {}
+    updateRekoReport.mockReturnValueOnce(new Promise(resolve => { answer = resolve }))
+    const user = userEvent.setup()
+    const first = renderWithIntl(<RekoReportSection incidentId="i-tab" canEdit dense />)
+
+    await user.click(await screen.findByRole('button', { name: 'weiter erfassen' }))
+    const summary = screen.getByDisplayValue('Keller halb voll')
+    await user.clear(summary)
+    await user.type(summary, 'Keller voll')
+    // Off the Reko tab: the form unmounts, its save goes out and has not answered yet.
+    first.unmount()
+    expect(updateRekoReport).toHaveBeenCalledWith('r-draft', expect.objectContaining({ summary_text: 'Keller voll' }))
+
+    // Back on the tab: a new mount, and the list still reads the old row.
+    renderWithIntl(<RekoReportSection incidentId="i-tab" canEdit dense />)
+    await user.click(await screen.findByRole('button', { name: 'weiter erfassen' }))
+    expect(screen.getByDisplayValue('Keller voll')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Nein' }))
+    answer({ ...oldDraft, summary_text: 'Keller voll', updated_at: '2026-08-10T18:05:00Z' })
+
+    await waitFor(() => expect(updateRekoReport).toHaveBeenLastCalledWith(
+      'r-draft', expect.objectContaining({ is_relevant: false, summary_text: 'Keller voll' }),
+    ))
+    expect(await screen.findByText(/^Synchronisiert – /)).toBeInTheDocument()
+  })
+
   it('counts a draft whose only answer is the power supply as a draft', async () => {
     getIncidentRekoReports.mockResolvedValue([
       report({ id: 'r-draft', is_draft: true, created_by_user_id: 'u-1', is_relevant: null, power_supply: 'unavailable' }),
