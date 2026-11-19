@@ -840,7 +840,7 @@ class TestDispatchSpecific:
 
 
 # ============================================
-# Training Photo Pool (simulated Reko photos)
+# Curated training photo pool
 # ============================================
 #
 # Uses a stubbed pool directory (tmp_path) — these tests must not depend on
@@ -941,11 +941,13 @@ class TestAttachTrainingPhotos:
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_stores_photos_in_incident_dir(self, pool_dir: Path, photos_dir: Path, always_two_photos):
+    async def test_stores_at_most_one_type_photo_in_incident_dir(
+        self, pool_dir: Path, photos_dir: Path, always_two_photos
+    ):
         incident_id = uuid.uuid4()
         filenames = await attach_training_photos(incident_id, "brandbekaempfung", pool_dir=pool_dir)
 
-        assert len(filenames) == 2
+        assert len(filenames) == 1
         for filename in filenames:
             # Same photos_json entry shape as the real upload endpoint: a
             # plain UUID.jpg filename string.
