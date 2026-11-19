@@ -103,7 +103,8 @@ async def list_vehicle_statuses(
     )
     for special_function, person in driver_rows.tuples():
         # Newest first: should a vehicle ever carry two driver rows, the latest one counts.
-        drivers.setdefault(special_function.vehicle_id, (special_function, person))
+        if special_function.vehicle_id is not None:  # the query filters on it; for the type
+            drivers.setdefault(special_function.vehicle_id, (special_function, person))
 
     assignment_rows = (
         (
@@ -150,21 +151,22 @@ async def list_vehicle_statuses(
             .order_by(Incident.group_position.asc(), Incident.created_at.asc())
         )
         for stop_id, group_id, stop_status in stop_rows.tuples():
-            stops.setdefault(group_id, []).append((stop_id, stop_status))
+            if group_id is not None:  # the query filters on it; for the type
+                stops.setdefault(group_id, []).append((stop_id, stop_status))
 
     now = datetime.now(UTC)
     deployments: dict[uuid.UUID, list[schemas.VehicleDeployment]] = {}
-    for assignment, group in route_rows:
+    for route_assignment, group in route_rows:
         route = stops.get(group.id, [])
         ahead = next((stop_id for stop_id, stop_status in route if stop_status not in _FINISHED_STOP_STATUSES), None)
-        deployments.setdefault(assignment.resource_id, []).append(
+        deployments.setdefault(route_assignment.resource_id, []).append(
             schemas.VehicleAuftragDeployment(
                 group_id=group.id,
                 name=group.name,
                 color=group.color,
                 incident_id=ahead or (route[0][0] if route else None),
-                assigned_at=assignment.assigned_at,
-                duration_minutes=int((now - assignment.assigned_at).total_seconds() // 60),
+                assigned_at=route_assignment.assigned_at,
+                duration_minutes=int((now - route_assignment.assigned_at).total_seconds() // 60),
             )
         )
 

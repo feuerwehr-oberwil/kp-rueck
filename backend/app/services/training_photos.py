@@ -35,12 +35,13 @@ def summary_image_key(summary: str) -> str:
 @lru_cache(maxsize=1)
 def load_summary_image_manifest(image_dir: Path) -> dict[str, SummaryImage]:
     try:
-        return json.loads((image_dir / "manifest.json").read_text(encoding="utf-8"))
+        manifest: dict[str, SummaryImage] = json.loads((image_dir / "manifest.json").read_text(encoding="utf-8"))
     except FileNotFoundError:
         return {}
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         logger.warning("Skipping training Reko illustration manifest: %s", exc)
         return {}
+    return manifest
 
 
 def pick_summary_image(summary: str) -> Path | None:
