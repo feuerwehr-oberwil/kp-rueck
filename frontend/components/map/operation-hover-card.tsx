@@ -9,7 +9,7 @@
  */
 
 import { IncidentNumber } from "@/components/ui/incident-number"
-import type { CSSProperties } from "react"
+import { Fragment, type CSSProperties } from "react"
 import { useTranslations } from "next-intl"
 import { IncidentTime } from "@/components/ui/incident-time"
 import { useIncidentTimeMode } from "@/lib/hooks/use-incident-time-mode"
@@ -89,6 +89,21 @@ export function OperationHoverCard({
   const routeCrew = sortCrewByLeader(routeResources?.personnel ?? [], (p) => Boolean(p.isLeader))
   const routeVehicles = routeResources?.vehicles ?? []
   const routeCrewShown = routeCrew.slice(0, 4)
+  // Each vehicle with what its driver does: «TLF · Omega 1 · bleibt vor Ort, Pio · kehrt zurück».
+  // Unsaid while the assign POST has not answered (`driverStay` absent).
+  const vehicleList = (vehicles: readonly { name: string; callsign?: string | null; driverStay?: boolean }[]) =>
+    vehicles.map((vehicle, index) => (
+      <Fragment key={index}>
+        {index > 0 && ", "}
+        {label(vehicleLabel(vehicle))}
+        {vehicle.driverStay !== undefined && (
+          <span style={MUTED}>
+            {" · "}
+            {tKanban(vehicle.driverStay ? "common.driverStaysFull" : "common.driverReturnsFull")}
+          </span>
+        )}
+      </Fragment>
+    ))
 
   return (
     <div style={CARD}>
@@ -133,7 +148,7 @@ export function OperationHoverCard({
       {operation.vehicles.length > 0 && (
         <p style={ROW}>
           <span style={MUTED}>{tKanban("resources.vehicles")}: </span>
-          {operation.vehicles.map((v) => label(vehicleLabel(v))).join(", ")}
+          {vehicleList(operation.vehicles)}
         </p>
       )}
       {operation.crew.length > 0 && (
@@ -157,7 +172,7 @@ export function OperationHoverCard({
           {routeVehicles.length > 0 && (
             <p style={ROW}>
               <span style={MUTED}>{tKanban("resources.vehicles")}: </span>
-              {routeVehicles.map(vehicleLabel).join(", ")}
+              {vehicleList(routeVehicles)}
             </p>
           )}
           {routeCrew.length > 0 && (
