@@ -36,12 +36,11 @@ describe("map hover card", () => {
 
     // The Einsatz's own vehicles, then the Auftrag's under its name.
     const [einsatz, route] = screen.getAllByText("Fahrzeuge:", { exact: false, selector: "p > span" })
-    const text = (el: HTMLElement) => el.parentElement?.textContent?.replace(/\u00a0/g, " ")
-    expect(text(einsatz)).toBe("Fahrzeuge: TLF · Omega 1 · bleibt vor Ort, Pio · kehrt zurück, MTW")
-    expect(text(route)).toBe("Fahrzeuge: Mowa · bleibt vor Ort")
-    // The driver note never breaks inside – «zurück» never stands alone (sign-off 19.11.) – and
-    // the list flows as text, so «Fahrzeuge:» keeps its first vehicle on its line.
-    expect(einsatz.parentElement?.textContent).toContain("kehrt\u00a0zurück")
-    expect(einsatz.parentElement?.querySelector("span[style*='inline-block']")).toBeNull()
+    // The driver note is a symbol; its words are for screen readers (sign-off 19.11.).
+    // (textContent runs the screen-reader words straight on: no visible text sits between them.)
+    expect(einsatz.parentElement?.textContent).toBe("Fahrzeuge: TLF · Omega 1bleibt vor Ort, Piokehrt zurück, MTW")
+    expect(route.parentElement?.textContent).toBe("Fahrzeuge: Mowableibt vor Ort")
+    expect(screen.getByTitle("kehrt zurück").querySelector(".sr-only")?.textContent).toBe("kehrt zurück")
+    expect(screen.getAllByTitle("bleibt vor Ort")).toHaveLength(2)
   })
 })

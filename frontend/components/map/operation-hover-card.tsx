@@ -10,6 +10,7 @@
 
 import { IncidentNumber } from "@/components/ui/incident-number"
 import { Fragment, type CSSProperties } from "react"
+import { MapPin, Undo2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { IncidentTime } from "@/components/ui/incident-time"
 import { useIncidentTimeMode } from "@/lib/hooks/use-incident-time-mode"
@@ -32,9 +33,19 @@ const TITLE: CSSProperties = { margin: 0, fontSize: 12, fontWeight: 600 }
 const META: CSSProperties = { margin: "2px 0 0", fontSize: 11, color: "var(--muted-foreground)" }
 const ROW: CSSProperties = { margin: "2px 0 0", fontSize: 11 }
 const MUTED: CSSProperties = { color: "var(--muted-foreground)" }
-/** A driver note («kehrt zurück», «bleibt vor Ort») never breaks inside: its spaces are
- *  non-breaking. The list itself flows as text, so «Fahrzeuge:» keeps its first vehicle. */
-const keepTogether = (text: string) => text.replace(/ /g, "\u00a0")
+/** The driver note as the board card's symbol (MapPin = bleibt vor Ort, Undo2 = kehrt
+ *  zurück); the words stay for screen readers and the tooltip (sign-off 19.11.). */
+const DRIVER_ICON = "ml-1 inline-block size-3 align-[-2px] text-muted-foreground"
+
+function DriverNote({ stays, label }: { stays: boolean; label: string }) {
+  const Icon = stays ? MapPin : Undo2
+  return (
+    <span title={label}>
+      <Icon aria-hidden className={DRIVER_ICON} />
+      <span className="sr-only">{label}</span>
+    </span>
+  )
+}
 /** The Einsatz number before the address — the card's quiet mono, inline-styled like the rest of this card. */
 const ROUTE_BLOCK: CSSProperties = {
   margin: "5px 0 0",
@@ -94,7 +105,7 @@ export function OperationHoverCard({
   const routeCrewShown = routeCrew.slice(0, 4)
   // Each vehicle with what its driver does: «TLF · Omega 1 · bleibt vor Ort, Pio · kehrt zurück».
   // Unsaid while the assign POST has not answered (`driverStay` absent). The driver note is
-  // `keepTogether`: a line may break around it, never before «zurück».
+  // a symbol (`DRIVER_ICON`), so it never wraps onto a line of its own.
   const vehicleList = (vehicles: readonly { name: string; callsign?: string | null; driverStay?: boolean }[]) =>
     vehicles.map((vehicle, index) => (
       <Fragment key={index}>
@@ -102,10 +113,7 @@ export function OperationHoverCard({
         <span>
           {label(vehicleLabel(vehicle))}
           {vehicle.driverStay !== undefined && (
-            <span style={MUTED}>
-              {" · "}
-              {keepTogether(tKanban(vehicle.driverStay ? "common.driverStaysFull" : "common.driverReturnsFull"))}
-            </span>
+            <DriverNote stays={vehicle.driverStay} label={tKanban(vehicle.driverStay ? "common.driverStaysFull" : "common.driverReturnsFull")} />
           )}
         </span>
       </Fragment>

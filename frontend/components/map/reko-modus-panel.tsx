@@ -194,15 +194,6 @@ export function RekoModusPanel({
             </Tooltip>
           </div>
 
-          <div className="flex items-start gap-2 rounded-lg border border-border bg-secondary/30 p-2.5 mb-3 text-xs text-muted-foreground">
-            <MousePointerClick className="h-4 w-4 flex-shrink-0 mt-0.5" />
-            <p>
-              {selectedPerson ? t("hintAssign", { name: selectedPerson.name }) : t("hintSelect")}
-              {/* Only where the order can be dragged. */}
-              {selectedPerson && !isPhone && <> {t("hintOrder", { name: selectedPerson.name })}</>}
-            </p>
-          </div>
-
           {selectedPerson && (
             <>
               <div className="mb-2 flex items-center gap-2">
@@ -245,6 +236,16 @@ export function RekoModusPanel({
               </div>
             </>
           )}
+
+          {/* How the mode works – below the list, there when needed, not in the way (sign-off 19.11.). */}
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-secondary/30 p-2.5 text-xs text-muted-foreground">
+            <MousePointerClick className="h-4 w-4 flex-shrink-0 mt-0.5" />
+            <p>
+              {selectedPerson ? t("hintAssign", { name: selectedPerson.name }) : t("hintSelect")}
+              {/* Only where the order can be dragged. */}
+              {selectedPerson && !isPhone && <> {t("hintOrder", { name: selectedPerson.name })}</>}
+            </p>
+          </div>
         </>
       )}
     </div>

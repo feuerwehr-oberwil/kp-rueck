@@ -492,8 +492,11 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                          AND two badges kept pulling its Einsatz cell left of the
                          four rows below it. Fixed px up to the Einsatz column
                          pins every left edge; only that column stretches, and the
-                         badges stay flush right because the rows are equal width. */
-                      <div className="grid grid-cols-[140px_104px_168px_minmax(0,1fr)_74px_auto] items-center gap-3">
+                         badges stay flush right because the rows are equal width.
+                         Rows align at the TOP, every cell one badge-line tall: a
+                         vehicle on two Einsätze lists both, and its name, driver and
+                         badges stay on the first line (sign-off 19.11.). */
+                      <div className="grid grid-cols-[140px_104px_168px_minmax(0,1fr)_74px_auto] items-start gap-3 [&>*]:min-h-[22px]">
                         {/* Vehicle Icon and Name */}
                         <div className="flex items-center gap-2 min-w-0">
                           <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
