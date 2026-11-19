@@ -47,7 +47,8 @@ interface ReleasePrompt {
  */
 /**
  * Whether releasing `vehicleId` leaves the Einsatz with nothing on it: no other vehicle, no
- * material, no crew except the person who drives this vehicle (they travel with it).
+ * material, no crew – except the person who drives this vehicle when the driver «kehrt
+ * zurück» (they travel with it). A driver who «bleibt vor Ort» is still out, crew or not.
  */
 export function isLastResource(
   operation: Pick<Operation, "vehicles" | "crew" | "materials">,
@@ -57,6 +58,8 @@ export function isLastResource(
   if (operation.vehicles.some((v) => v.vehicleId !== vehicleId)) return false
   if (operation.materials.length > 0) return false
   const driverId = personnel.find((p) => p.isDriver && p.driverVehicleId === vehicleId)?.id
+  const driverStays = operation.vehicles.find((v) => v.vehicleId === vehicleId)?.driverStay ?? false
+  if (driverStays) return !driverId && operation.crew.length === 0
   return operation.crew.every((member) => member.personnelId === driverId)
 }
 

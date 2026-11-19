@@ -7,9 +7,15 @@ const driver = { id: 'p-fahrer', isDriver: true, driverVehicleId: 'v-mowa' }
 
 // Owner pick #21: «Einsatz abschliessen» is the main answer only when the Mowa is all that is left.
 describe('isLastResource', () => {
-  it('is the last one when only the vehicle and its own driver are on the Einsatz', () => {
-    const op = { vehicles: [vehicle('v-mowa')], crew: [member('p-fahrer')], materials: [] }
+  it('is the last one when only the vehicle and its returning driver are on the Einsatz', () => {
+    const op = { vehicles: [{ ...vehicle('v-mowa'), driverStay: false }], crew: [member('p-fahrer')], materials: [] }
     expect(isLastResource(op, 'v-mowa', [driver])).toBe(true)
+  })
+
+  it('is not when the driver «bleibt vor Ort» – on the crew list or only as Fahrer', () => {
+    const staying = { ...vehicle('v-mowa'), driverStay: true }
+    expect(isLastResource({ vehicles: [staying], crew: [member('p-fahrer')], materials: [] }, 'v-mowa', [driver])).toBe(false)
+    expect(isLastResource({ vehicles: [staying], crew: [], materials: [] }, 'v-mowa', [driver])).toBe(false)
   })
 
   it('is not when another vehicle, other crew or material is still assigned', () => {
