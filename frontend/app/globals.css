@@ -779,13 +779,15 @@
   /* Modal height scale. Two steps, not the eight ad-hoc vh values this
      replaced: `compact` for confirming something, `tall` for picking from a
      list or working on a map. dvh, not vh — with vh the mobile address bar
-     pushes the footer buttons out of reach. */
+     pushes the footer buttons out of reach. A window that hangs from a fixed
+     top line sets `--modal-room` (components/ui/dialog-frame.ts), so neither
+     step reaches closer to the bottom edge than the top line is to the top. */
   .modal-h-compact {
-    max-height: 70dvh;
+    max-height: min(70dvh, var(--modal-room, 100dvh));
   }
 
   .modal-h-tall {
-    max-height: 88dvh;
+    max-height: min(88dvh, var(--modal-room, 100dvh));
   }
 
   /* Drag-and-Drop Visual Affordances */
