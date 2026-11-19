@@ -15,6 +15,8 @@ export interface ApiAssignment {
   driver_stay: boolean
   /** Einsatzleiter for this incident. At most one active assignment carries it. */
   is_leader: boolean
+  /** A Reko row's place in its person's order (Reko-Modus); null on every other row. */
+  reko_position?: number | null
 }
 
 export interface ApiAssignmentCreate {

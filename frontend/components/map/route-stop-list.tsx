@@ -1,7 +1,9 @@
 "use client"
 
 /**
- * RouteStopList — shared ordered, drag-reorderable stop list for one Auftrag.
+ * RouteStopList — shared ordered, drag-reorderable stop list for one Auftrag – or, with
+ * `kind="reko"`, for one Reko person's Rekos (the `/map` Reko-Modus): the two behave the
+ * same and only say different things (owner, 19.11.2026).
  *
  * Extracted from the Routen-Editor modal so both the modal (Phase 2) and the
  * `/map` Routenplanung panel (Phase 3) render an identical list without
@@ -254,8 +256,31 @@ export function StopStatusControl({
   )
 }
 
+/** Whose list it is: an Auftrag's stops, or a Reko person's Rekos. */
+export type StopListKind = "auftrag" | "reko"
+
+// The drag contract per kind. An Auftrag's rows are also the `group-stop` drop target the
+// board's useKanbanDragDrop monitor assigns resources by; a Reko list has its own types, so
+// a resource dropped on a Reko row is nobody's business and a Reko drag never lands on a route.
+const DND: Record<StopListKind, { source: string; target: string }> = {
+  auftrag: { source: "route-stop-drag", target: "group-stop" },
+  reko: { source: "reko-stop-drag", target: "reko-stop" },
+}
+
+/** The row words that differ: «Stopp verschieben» on a route, «Reko verschieben» in a Reko list. */
+function useRowText(kind: StopListKind): { drag: string; noCoords: string } {
+  const tStop = useTranslations("kanban.routenEditorModal")
+  const tReko = useTranslations("map.rekoMode")
+  return kind === "reko"
+    ? { drag: tReko("dragReko"), noCoords: tReko("noCoords") }
+    : { drag: tStop("dragStop"), noCoords: tStop("noCoords") }
+}
+
 interface RouteStopListProps {
-  groupId: string
+  /** The list's id: the Auftrag's, or (`kind="reko"`) the Reko person's. */
+  listId: string
+  /** Default "auftrag". */
+  kind?: StopListKind
   /** Authoritative stop order — the reorder base (ignores any preview). */
   stopIds: string[]
   /** Order to render (a pending optimize preview overrides `stopIds`). */
@@ -289,7 +314,8 @@ interface RouteStopListProps {
 }
 
 export function RouteStopList({
-  groupId,
+  listId,
+  kind = "auftrag",
   stopIds,
   displayOrder,
   operationsById,
@@ -306,18 +332,18 @@ export function RouteStopList({
   readOnly = false,
   timelineColor,
 }: RouteStopListProps) {
-  // Reorder monitor: source `route-stop-drag` reordered onto a `group-stop`
-  // target computes the new order off the authoritative `stopIds`.
+  // Reorder monitor: a row of this list (`route-stop-drag` / `reko-stop-drag`) dropped onto
+  // another of its rows computes the new order off the authoritative `stopIds`.
   useEffect(() => {
-    if (!enabled || !groupId || readOnly) return
+    if (!enabled || !listId || readOnly) return
     return monitorForElements({
       onDrop({ source, location }) {
         const dest = location.current.dropTargets[0]
         if (!dest) return
         const s = source.data
         const d = dest.data
-        if (s.type !== "route-stop-drag" || d.type !== "group-stop") return
-        if (s.groupId !== groupId || d.groupId !== groupId) return
+        if (s.type !== DND[kind].source || d.type !== DND[kind].target) return
+        if (s.groupId !== listId || d.groupId !== listId) return
 
         const fromId = s.incidentId as string
         const toId = d.incidentId as string
@@ -332,7 +358,7 @@ export function RouteStopList({
         onReorder(next)
       },
     })
-  }, [enabled, groupId, stopIds, onReorder, readOnly])
+  }, [enabled, listId, kind, stopIds, onReorder, readOnly])
 
   // The menu way to reorder («Nach oben / Nach unten»): the same write as a drop,
   // off the authoritative order. Off while dragging is off (preview, read-only).
@@ -348,7 +374,8 @@ export function RouteStopList({
         timelineColor ? (
           <TimelineStopRow
             key={incidentId}
-            groupId={groupId}
+            listId={listId}
+            kind={kind}
             incidentId={incidentId}
             index={index}
             count={displayOrder.length}
@@ -365,7 +392,8 @@ export function RouteStopList({
         ) : (
           <StopListRow
             key={incidentId}
-            groupId={groupId}
+            listId={listId}
+            kind={kind}
             incidentId={incidentId}
             index={index}
             count={displayOrder.length}
@@ -390,9 +418,10 @@ export function RouteStopList({
  * Drag source (by its handle) + drop target for one stop row — shared by the dense
  * row and the timeline row. `ref` goes on the row, `handleRef` on its grip button.
  * The `group-stop` drop contract is the one the page-level useKanbanDragDrop monitor
- * assigns resources by; the list's own monitor reorders `route-stop-drag` sources.
+ * assigns resources by; the list's own monitor reorders its `DND[kind].source` drags.
+ * The data carries the list's id as `groupId` – the key that monitor reads.
  */
-function useStopRowDnd(groupId: string, incidentId: string, index: number, reorderDisabled: boolean) {
+function useStopRowDnd(listId: string, kind: StopListKind, incidentId: string, index: number, reorderDisabled: boolean) {
   const ref = useRef<HTMLDivElement>(null)
   const handleRef = useRef<HTMLButtonElement>(null)
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null)
@@ -407,21 +436,21 @@ function useStopRowDnd(groupId: string, incidentId: string, index: number, reord
         element: el,
         dragHandle: handle,
         canDrag: () => !reorderDisabled,
-        getInitialData: () => ({ type: "route-stop-drag", groupId, incidentId, index }),
+        getInitialData: () => ({ type: DND[kind].source, groupId: listId, incidentId, index }),
       }),
       dropTargetForElements({
         element: el,
         getData: ({ input }) =>
           attachClosestEdge(
-            { type: "group-stop", groupId, incidentId, index },
+            { type: DND[kind].target, groupId: listId, incidentId, index },
             { element: el, input, allowedEdges: ["top", "bottom"] },
           ),
         onDragEnter: ({ self, source }) => {
-          if (source.data.type === "route-stop-drag") setClosestEdge(extractClosestEdge(self.data))
+          if (source.data.type === DND[kind].source) setClosestEdge(extractClosestEdge(self.data))
           else setIsDropOver(true)
         },
         onDrag: ({ self, source }) => {
-          if (source.data.type === "route-stop-drag") setClosestEdge(extractClosestEdge(self.data))
+          if (source.data.type === DND[kind].source) setClosestEdge(extractClosestEdge(self.data))
         },
         onDragLeave: () => {
           setClosestEdge(null)
@@ -433,7 +462,7 @@ function useStopRowDnd(groupId: string, incidentId: string, index: number, reord
         },
       }),
     )
-  }, [groupId, incidentId, index, reorderDisabled])
+  }, [listId, kind, incidentId, index, reorderDisabled])
 
   return { ref, handleRef, closestEdge, isDropOver }
 }
@@ -537,7 +566,8 @@ function StopRowActions({
 }
 
 interface StopListRowProps {
-  groupId: string
+  listId: string
+  kind: StopListKind
   incidentId: string
   index: number
   /** Stops in the list – with `onMove`, what the ⋮ menu's move entries need. */
@@ -556,7 +586,8 @@ interface StopListRowProps {
 }
 
 export function StopListRow({
-  groupId,
+  listId,
+  kind,
   incidentId,
   index,
   count,
@@ -572,7 +603,8 @@ export function StopListRow({
   allowComplete = true,
 }: StopListRowProps) {
   const t = useTranslations("kanban.routenEditorModal")
-  const { ref, handleRef, closestEdge, isDropOver } = useStopRowDnd(groupId, incidentId, index, reorderDisabled)
+  const rowText = useRowText(kind)
+  const { ref, handleRef, closestEdge, isDropOver } = useStopRowDnd(listId, kind, incidentId, index, reorderDisabled)
 
   const { formatLocation } = useOperations()
   const mirror = toMirrorStatus(op)
@@ -605,7 +637,7 @@ export function StopListRow({
           onClick={(e) => e.stopPropagation()}
           className="flex-shrink-0 cursor-grab text-muted-foreground/50 hover:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-40"
           disabled={reorderDisabled}
-          aria-label={t("dragStop")}
+          aria-label={rowText.drag}
         >
           <GripVertical className="h-3.5 w-3.5" />
         </button>
@@ -632,7 +664,7 @@ export function StopListRow({
           </div>
         )}
         {!isLocated(op) && (
-          <span className="flex-shrink-0 text-xs text-muted-foreground/70" title={t("noCoords")}>
+          <span className="flex-shrink-0 text-xs text-muted-foreground/70" title={rowText.noCoords}>
             {t("noCoordsBadge")}
           </span>
         )}
@@ -705,7 +737,8 @@ const NODE_FRAME: Record<MirrorStatus, string> = {
 }
 
 interface TimelineStopRowProps {
-  groupId: string
+  listId: string
+  kind: StopListKind
   incidentId: string
   index: number
   /** Stops in the list – with `onMove`, what the ⋮ menu's move entries need. */
@@ -729,7 +762,8 @@ interface TimelineStopRowProps {
  * on the right; right-click offers the same as the dense row.
  */
 function TimelineStopRow({
-  groupId,
+  listId,
+  kind,
   incidentId,
   index,
   count,
@@ -745,7 +779,8 @@ function TimelineStopRow({
 }: TimelineStopRowProps) {
   const t = useTranslations("kanban.routenEditorModal")
   const tStatus = useTranslations("kanban.stopStatus")
-  const { ref, handleRef, closestEdge, isDropOver } = useStopRowDnd(groupId, incidentId, index, reorderDisabled)
+  const rowText = useRowText(kind)
+  const { ref, handleRef, closestEdge, isDropOver } = useStopRowDnd(listId, kind, incidentId, index, reorderDisabled)
   const { formatLocation } = useOperations()
   const mirror = toMirrorStatus(op)
   const type = op ? getIncidentTypeLabel(op.incidentType) : incidentId
@@ -754,7 +789,7 @@ function TimelineStopRow({
   const located = isLocated(op)
   const number = op?.number ?? null
   // The full second line for the hover title (the Meldung hides in a narrow list).
-  const metaTitle = [number, address ? type : null, located ? null : t("noCoords"), op?.notes || null]
+  const metaTitle = [number, address ? type : null, located ? null : rowText.noCoords, op?.notes || null]
     .filter((part) => part !== null)
     .join(" · ")
 
@@ -779,7 +814,8 @@ function TimelineStopRow({
             <div className="line-clamp-2 text-sm font-medium break-words hyphens-auto" title={address ?? type}>
               {address ?? type}
             </div>
-            <div className="mt-0.5 truncate text-xs text-muted-foreground" title={metaTitle || undefined}>
+            {/* `relative`: the sr-only status word is laid out inside this clipping line. */}
+            <div className="relative mt-0.5 truncate text-xs text-muted-foreground" title={metaTitle || undefined}>
               <span className="sr-only">{tStatus(MIRROR_CONFIG[mirror].labelKey)} · </span>
               {number !== null && <span className="font-mono tabular-nums">{number}</span>}
               {number !== null && address && " · "}
@@ -802,8 +838,8 @@ function TimelineStopRow({
               // Read-only: no handle at all rather than a dead one.
               className="inline-flex size-6 cursor-grab items-center justify-center rounded-sm text-muted-foreground/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:hidden"
               disabled={reorderDisabled}
-              aria-label={t("dragStop")}
-              title={t("dragStop")}
+              aria-label={rowText.drag}
+              title={rowText.drag}
             >
               <GripVertical className="size-3.5" />
             </button>

@@ -380,7 +380,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
                   </div>
                 ) : (
                   <RouteStopList
-                    groupId={group?.id ?? ""}
+                    listId={group?.id ?? ""}
                     stopIds={group?.stopIds ?? []}
                     displayOrder={displayOrder}
                     operationsById={operationsById}

@@ -88,6 +88,7 @@ export function buildEventState({
         if (person) {
           if (rekoPersonnelIds.has(person.id)) {
             operation.assignedReko = { id: person.id, name: person.name }
+            operation.rekoPosition = assignment.reko_position ?? null
             continue
           }
           operation.crew.push({ personnelId: person.id, assignmentId: assignment.id, name: person.name })

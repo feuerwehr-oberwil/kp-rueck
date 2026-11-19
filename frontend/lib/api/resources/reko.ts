@@ -180,6 +180,18 @@ export class RekoApi {
     )
   }
 
+  /**
+   * Put a Reko person's Rekos (Einsatz ids, all they hold) in order. With `expectedIds` the
+   * server applies it only while the person still holds exactly those Rekos, else 409
+   * (`ApiError.isConflict`) and nothing changes.
+   */
+  async reorderRekoAssignments(personnelId: string, eventId: string, orderedIds: string[], expectedIds?: string[]): Promise<void> {
+    await httpRequest<void>(`/api/reko/personnel/${personnelId}/order`, {
+      method: 'POST',
+      body: JSON.stringify({ event_id: eventId, ordered_ids: orderedIds, expected_ids: expectedIds ?? null }),
+    })
+  }
+
   async unassignRekoPersonnel(incidentId: string, personnelId: string): Promise<void> {
     return httpRequest<void>(
       `/api/reko/incidents/${incidentId}/unassign-reko/${personnelId}`,

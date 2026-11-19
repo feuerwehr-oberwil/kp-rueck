@@ -230,7 +230,7 @@ const ASSIGNMENTS = {
     assignment("a-crew", "personnel", "p-crew"),
     assignment("a-lead", "personnel", "p-lead", { is_leader: true }),
     // The Reko officer's row makes them the card's Reko, not crew.
-    assignment("a-reko", "personnel", "p-reko"),
+    assignment("a-reko", "personnel", "p-reko", { reko_position: 2 }),
     // Assigned out of display order: the card must show TLF before MTW.
     assignment("a-mtw", "vehicle", "v-mtw"),
     assignment("a-tlf", "vehicle", "v-tlf", { driver_stay: true }),
@@ -364,6 +364,7 @@ describe("OperationsProvider — the board snapshot (golden)", () => {
         photos: ["a.jpg"],
       },
       assignedReko: { id: "p-reko", name: "Claudia Reko" },
+      rekoPosition: 2,
       // The live `is_leader` row beats the leader of record.
       leaderId: "p-lead",
       leaderName: "Beat Leader",
