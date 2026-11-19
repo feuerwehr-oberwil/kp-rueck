@@ -45,8 +45,9 @@ export interface ApiVehicleUpdate {
   out_of_service?: boolean
 }
 
-/** One Einsatz a vehicle serves right now (`GET /api/vehicles/status`). */
-export interface ApiVehicleDeployment {
+/** An Einsatz a vehicle serves right now (`GET /api/vehicles/status`). */
+export interface ApiVehicleEinsatzDeployment {
+  kind: 'einsatz'
   incident_id: string
   title: string
   location_address: string | null
@@ -57,8 +58,22 @@ export interface ApiVehicleDeployment {
   duration_minutes: number
 }
 
-/** A fleet vehicle with its driver and every active Einsatz in one event.
- *  Its Aufträge are not in here – the board reads them from the groups. */
+/** An Auftrag (route) a vehicle drives right now (`GET /api/vehicles/status`). */
+export interface ApiVehicleAuftragDeployment {
+  kind: 'auftrag'
+  group_id: string
+  name: string
+  /** The route's own colour, as the board and the map draw it. */
+  color: string | null
+  /** The stop a click opens: the first with work ahead, else the first; null without stops. */
+  incident_id: string | null
+  assigned_at: string
+  duration_minutes: number
+}
+
+export type ApiVehicleDeployment = ApiVehicleAuftragDeployment | ApiVehicleEinsatzDeployment
+
+/** A fleet vehicle with its driver and every Auftrag and Einsatz it serves in one event. */
 export interface ApiVehicleStatus {
   id: string
   name: string
@@ -70,7 +85,8 @@ export interface ApiVehicleStatus {
   driver_id: string | null
   driver_name: string | null
   driver_assigned_at: string | null
-  /** Oldest assignment first; empty when the vehicle is on no Einsatz. */
+  /** Its Aufträge, then its Einsätze, each oldest assignment first; a stop of its own
+   *  Auftrag is not listed again. Empty when the vehicle serves nothing. */
   deployments: ApiVehicleDeployment[]
 }
 

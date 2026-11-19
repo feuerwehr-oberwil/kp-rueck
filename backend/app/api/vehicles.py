@@ -13,7 +13,15 @@ from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import materials as materials_crud
 from ..crud import vehicles as crud
 from ..database import get_db
-from ..models import EventSpecialFunction, Incident, IncidentAssignment, Personnel, Vehicle
+from ..models import (
+    EventSpecialFunction,
+    Incident,
+    IncidentAssignment,
+    IncidentGroup,
+    IncidentGroupAssignment,
+    Personnel,
+    Vehicle,
+)
 from ..services import incident_display
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_vehicle_update
@@ -60,6 +68,10 @@ async def list_vehicles(
     return await _with_usage(db, await crud.get_all_vehicles(db, include_archived=include_archived))
 
 
+# A route stop with no work ahead (the board's `FINISHED_STOP_STATUSES`, lib/kanban-utils.ts).
+_FINISHED_STOP_STATUSES = frozenset({"returning", "complete"})
+
+
 # Declared before `/{vehicle_id}`: otherwise «status» is read as a vehicle id (422).
 @router.get("/status", response_model=list[schemas.VehicleStatusResponse])
 async def list_vehicle_statuses(
@@ -67,12 +79,13 @@ async def list_vehicle_statuses(
     db: AsyncSession = Depends(get_db),
     event_id: uuid.UUID = Query(..., description="Event whose drivers and Einsätze are read"),
 ) -> list[schemas.VehicleStatusResponse]:
-    """Every fleet vehicle with its driver and active Einsätze in one event.
+    """Every fleet vehicle with its driver, Aufträge and Einsätze in one event.
 
-    The footer «Fahrzeuge» sheet reads this – one request for the whole fleet,
-    three queries whatever its size. Archived vehicles are left out, as on the
-    board. Order: `display_order`, then name; each vehicle's `deployments` are
-    oldest assignment first.
+    The footer «Fahrzeuge» sheet reads this and nothing else – one request for the
+    whole fleet, five queries whatever its size. Archived vehicles are left out, as
+    on the board. Order: `display_order`, then name; each vehicle's `deployments`
+    are its Aufträge, then its Einsätze, each oldest assignment first – an Einsatz
+    that is a stop of the vehicle's own Auftrag is left out (`VehicleStatusResponse`).
     """
     vehicles = sorted(await crud.get_all_vehicles(db), key=lambda v: (v.display_order, v.name))
     vehicle_ids = [v.id for v in vehicles]
@@ -110,13 +123,61 @@ async def list_vehicle_statuses(
         .tuples()
         .all()
     )
-    # Read only when something is deployed: an idle fleet costs no settings query.
-    home_city = await incident_display.get_home_city(db) if assignment_rows else ""
+    route_rows = (
+        (
+            await db.execute(
+                select(IncidentGroupAssignment, IncidentGroup)
+                .join(IncidentGroup, IncidentGroup.id == IncidentGroupAssignment.incident_group_id)
+                .where(
+                    IncidentGroupAssignment.resource_type == "vehicle",
+                    IncidentGroupAssignment.resource_id.in_(vehicle_ids),
+                    IncidentGroupAssignment.unassigned_at.is_(None),
+                    IncidentGroup.event_id == event_id,
+                    IncidentGroup.deleted_at.is_(None),
+                )
+                .order_by(IncidentGroupAssignment.assigned_at.asc(), IncidentGroup.id.asc())
+            )
+        )
+        .tuples()
+        .all()
+    )
+    # The routes' stops in route order (as `crud.groups` lists them), for the click
+    # target and to leave a vehicle's own stops out of its Einsätze.
+    stops: dict[uuid.UUID, list[tuple[uuid.UUID, str]]] = {}
+    if route_rows:
+        stop_rows = await db.execute(
+            select(Incident.id, Incident.group_id, Incident.status)
+            .where(Incident.group_id.in_({group.id for _, group in route_rows}), Incident.deleted_at.is_(None))
+            .order_by(Incident.group_position.asc(), Incident.created_at.asc())
+        )
+        for stop_id, group_id, stop_status in stop_rows.tuples():
+            stops.setdefault(group_id, []).append((stop_id, stop_status))
+
     now = datetime.now(UTC)
     deployments: dict[uuid.UUID, list[schemas.VehicleDeployment]] = {}
-    for assignment, incident in assignment_rows:
+    own_stops: dict[uuid.UUID, set[uuid.UUID]] = {}
+    for assignment, group in route_rows:
+        route = stops.get(group.id, [])
+        ahead = next((stop_id for stop_id, stop_status in route if stop_status not in _FINISHED_STOP_STATUSES), None)
+        own_stops.setdefault(assignment.resource_id, set()).update(stop_id for stop_id, _ in route)
         deployments.setdefault(assignment.resource_id, []).append(
-            schemas.VehicleDeployment(
+            schemas.VehicleAuftragDeployment(
+                group_id=group.id,
+                name=group.name,
+                color=group.color,
+                incident_id=ahead or (route[0][0] if route else None),
+                assigned_at=assignment.assigned_at,
+                duration_minutes=int((now - assignment.assigned_at).total_seconds() // 60),
+            )
+        )
+
+    # Read only when something is deployed: an idle fleet costs no settings query.
+    home_city = await incident_display.get_home_city(db) if assignment_rows else ""
+    for assignment, incident in assignment_rows:
+        if incident.id in own_stops.get(assignment.resource_id, set()):
+            continue
+        deployments.setdefault(assignment.resource_id, []).append(
+            schemas.VehicleEinsatzDeployment(
                 incident_id=incident.id,
                 title=incident.title,
                 location_address=incident.location_address,

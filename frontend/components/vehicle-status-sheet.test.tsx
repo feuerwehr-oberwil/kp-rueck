@@ -13,15 +13,11 @@ const api = vi.hoisted(() => ({
   getEventSpecialFunctions: vi.fn(async () => []),
 }))
 const push = vi.hoisted(() => vi.fn())
-const routes = vi.hoisted(() => ({
-  groups: [] as { id: string; name: string; color: string | null; stopIds: string[]; assignments: { resourceType: string; resourceId: string }[] }[],
-}))
 vi.mock("@/lib/api-client", () => ({ apiClient: api }))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }))
 vi.mock("@/lib/contexts/operations-context", () => ({
   useOperations: () => ({ personnel: [], operations: [], removeCrew: vi.fn() }),
 }))
-vi.mock("@/lib/contexts/groups-context", () => ({ useGroups: () => routes }))
 vi.mock("@/components/ui/use-mobile", () => ({ useIsMobile: () => false }))
 vi.mock("./driver-assignment-dialog", () => ({ DriverAssignmentDialog: () => null }))
 
@@ -37,7 +33,7 @@ function vehicle(overrides: Partial<ApiVehicleStatus> = {}): ApiVehicleStatus {
 
 function deployment(incidentId: string, label: string, minutes: number) {
   return {
-    incident_id: incidentId, title: label, location_address: label, location_display: label,
+    kind: "einsatz" as const, incident_id: incidentId, title: label, location_address: label, location_display: label,
     status: "active", assigned_at: "2026-11-19T09:00:00Z", duration_minutes: minutes,
   }
 }
@@ -45,7 +41,6 @@ function deployment(incidentId: string, label: string, minutes: number) {
 beforeEach(() => {
   api.getVehicleStatuses.mockReset()
   push.mockReset()
-  routes.groups = []
 })
 
 describe("VehicleStatusSheet", () => {
@@ -66,22 +61,21 @@ describe("VehicleStatusSheet", () => {
     await waitFor(() => expect(api.getVehicleStatuses).toHaveBeenCalledTimes(2))
   })
 
-  it("lists every Auftrag and Einsatz a vehicle serves, each opening its own card", async () => {
-    routes.groups = [{
-      id: "g1", name: "Nord", color: null, stopIds: ["stop-1"],
-      assignments: [{ resourceType: "vehicle", resourceId: "v1" }],
-    }]
+  it("lists every Auftrag and Einsatz the server names for a vehicle, each opening its own card", async () => {
+    // The endpoint is the one source (Sol review S4): Auftrag first, its own stops left out.
     api.getVehicleStatuses.mockResolvedValue([vehicle({
       deployments: [
+        {
+          kind: "auftrag", group_id: "g1", name: "Nord", color: null, incident_id: "stop-1",
+          assigned_at: "2026-11-19T09:00:00Z", duration_minutes: 90,
+        },
         deployment("i-old", "Hauptstrasse 1", 40),
         deployment("i-new", "Blumenweg 21", 5),
-        // A stop of its own Auftrag: «Auftrag «Nord»» already stands for it.
-        deployment("stop-1", "Stoppweg 3", 20),
       ],
     })])
     renderWithIntl(<VehicleStatusSheet open onOpenChange={() => {}} eventId="e-multi" />)
 
-    const links = await screen.findAllByRole("button", { name: /Auftrag «Nord»|Hauptstrasse 1|Blumenweg 21|Stoppweg 3/ })
+    const links = await screen.findAllByRole("button", { name: /Auftrag «Nord»|Hauptstrasse 1|Blumenweg 21/ })
     expect(links.map((link) => link.textContent)).toEqual(["Auftrag «Nord»", "Hauptstrasse 1", "Blumenweg 21"])
     // The clock follows the oldest Einsatz.
     expect(screen.getByText("40'")).toBeInTheDocument()
@@ -90,5 +84,18 @@ describe("VehicleStatusSheet", () => {
     expect(push).toHaveBeenCalledWith("/?highlight=i-new")
     await userEvent.click(screen.getByRole("button", { name: "Auftrag «Nord»" }))
     expect(push).toHaveBeenLastCalledWith("/?highlight=stop-1")
+  })
+
+  it("shows a vehicle that only drives an Auftrag as bound, not «Verfügbar»", async () => {
+    api.getVehicleStatuses.mockResolvedValue([vehicle({
+      deployments: [{
+        kind: "auftrag", group_id: "g1", name: "Nord", color: "#336699", incident_id: null,
+        assigned_at: "2026-11-19T09:00:00Z", duration_minutes: 5,
+      }],
+    })])
+    renderWithIntl(<VehicleStatusSheet open onOpenChange={() => {}} eventId="e-route-only" />)
+
+    expect(await screen.findByRole("button", { name: "Auftrag «Nord»" })).toBeDisabled()
+    expect(screen.queryByText("Verfügbar")).not.toBeInTheDocument()
   })
 })
