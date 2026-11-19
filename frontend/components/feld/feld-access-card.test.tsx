@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 
 const getFeldAccess = vi.hoisted(() => vi.fn())
-vi.mock('@/lib/api-client', () => ({ apiClient: { getFeldAccess } }))
+const regenerateFeldCode = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/api-client', () => ({ apiClient: { getFeldAccess, regenerateFeldCode } }))
 const auth = vi.hoisted(() => ({ user: { id: 'editor-1' } as { id: string } | null }))
 vi.mock('@/lib/contexts/auth-context', () => ({ useAuth: () => auth }))
 
@@ -39,6 +41,25 @@ describe('FeldAccessCard', () => {
     renderWithIntl(<FeldAccessCard eventId="event-3" />)
     expect(screen.getByText('0634')).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByText('0634')).not.toBeInTheDocument())
+  })
+
+  // A refresh that was already on its way must not undo a «Neu» that answered first.
+  it('keeps a just-made code when an older refresh fails after it', async () => {
+    const user = userEvent.setup()
+    getFeldAccess.mockResolvedValue({ code: '0634', device_count: 1 })
+    await prefetchFeldAccess('editor-1', 'event-4')
+
+    let failRefresh: (error: Error) => void = () => {}
+    getFeldAccess.mockReturnValue(new Promise((_, reject) => { failRefresh = reject }))
+    regenerateFeldCode.mockResolvedValue({ code: '9999', device_count: 1 })
+    renderWithIntl(<FeldAccessCard eventId="event-4" />)
+
+    await user.click(screen.getByRole('button', { name: /Neu/ }))
+    const question = await screen.findByRole('alertdialog')
+    await user.click(within(question).getByRole('button', { name: 'Neu' }))
+    await screen.findByText('9999')
+    await act(async () => failRefresh(new Error('late')))
+    expect(screen.getByText('9999')).toBeInTheDocument()
   })
 
   it('does not show another Ereignis\'s code', () => {

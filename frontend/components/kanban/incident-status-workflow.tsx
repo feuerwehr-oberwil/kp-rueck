@@ -48,6 +48,7 @@ import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
 import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
 import { CrewChipSlot } from "@/components/kanban/route-resource-sections"
 import { RemovableChip } from "@/components/ui/removable-chip"
+import { usePointerFine } from "@/lib/hooks/use-pointer-fine"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import type { VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 
@@ -1355,6 +1356,9 @@ function DispatchGateDialog({
   const openId = missingOperation?.id ?? null
   const [seenOpenId, setSeenOpenId] = useState(openId)
   const [armedFor, setArmedFor] = useState<string | null>(null)
+  // A mouse: a crew chip has no menu, so a click on the name opens the Mannschaft picker like
+  // the rest of the box. Touch keeps the chip's menu (remove, «Als Einsatzleiter»).
+  const pointerFine = usePointerFine()
   if (seenOpenId !== openId) {
     setSeenOpenId(openId)
     setArmedFor(null)
@@ -1456,9 +1460,14 @@ function DispatchGateDialog({
                           )
                         }
                       >
+                        {/* Not a button of its own: the box's «Hinzufügen ›» is the keyboard way in. */}
+                        <span
+                          className={cn("inline-flex min-w-0 max-w-full", pointerFine && "cursor-pointer")}
+                          onClick={pointerFine ? () => assign("crew", missingOperation.id) : undefined}
+                        >
                         <RemovableChip
                           variant="secondary"
-                          className={crewChip}
+                          className={cn(crewChip, pointerFine && "hover:border-foreground/20")}
                           // Touch: no hover, so no stub – the chip's menu offers the promotion.
                           menuTitle={naming.inline({ name: member.name, personnelId: member.personnelId })}
                           menuSubtitle={<PersonMenuSubtitle personnelId={member.personnelId} isLeader={member.isLeader} />}
@@ -1472,6 +1481,7 @@ function DispatchGateDialog({
                             <PersonName name={member.name} personnelId={member.personnelId} />
                           </span>
                         </RemovableChip>
+                        </span>
                       </CrewChipSlot>
                     )
                   })}

@@ -22,7 +22,7 @@
  * that confusion is exactly how the brake gets pulled at 02:00 by mistake.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Check, Copy, KeyRound, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
@@ -74,8 +74,12 @@ export function FeldAccessCard({ eventId, bare = false }: FeldAccessCardProps) {
   // This user's state for this Ereignis: what this card loaded, else what an earlier mount (or
   // the prefetch) did.
   const state = loaded && loaded.key === key ? loaded.state : (key ? lastAccess.get(key) ?? null : null)
+  // Counts the states this card has set; a refresh answers only if nothing newer (a «Neu» or
+  // «Abmelden» of this card) landed while it was on its way.
+  const updates = useRef(0)
   const setState = useCallback(
     (next: ApiFeldAccessState) => {
+      updates.current += 1
       if (key) lastAccess.set(key, next)
       setLoaded({ key, state: next })
     },
@@ -90,10 +94,13 @@ export function FeldAccessCard({ eventId, bare = false }: FeldAccessCardProps) {
   // code, while the sheet is closed. A refresh that fails drops the remembered code – the card
   // falls back to its placeholder rather than offer a code nobody confirmed.
   const load = useCallback(async () => {
+    const asked = updates.current
     try {
-      setState(await apiClient.getFeldAccess(eventId))
+      const fresh = await apiClient.getFeldAccess(eventId)
+      if (updates.current === asked) setState(fresh)
     } catch (error) {
       console.error('Failed to load feld access state:', error)
+      if (updates.current !== asked) return
       if (key) lastAccess.delete(key)
       setLoaded({ key, state: null })
     }

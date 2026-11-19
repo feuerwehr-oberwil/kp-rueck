@@ -271,6 +271,14 @@ describe("dispatch gate – press twice", () => {
     expect(within(vehicles).getByText("TLF").closest("[data-slot=badge]")!.className).not.toMatch(/z-10/)
   })
 
+  it("with a mouse a click on a crew name opens the Mannschaft picker", async () => {
+    const user = userEvent.setup()
+    const { onOpenAssignment } = renderGate(operation())
+
+    await user.click(screen.getByText("Ackermann Reto"))
+    expect(onOpenAssignment).toHaveBeenCalledWith("crew", "incident-1")
+  })
+
   it("under an Auftrag only the route's leader is marked, not the stop's earlier EL", () => {
     renderGate(operation({ groupId: "g1", leaderId: "p-Meier Andrea", crew: [crewMember("Meier Andrea")] }), {
       groups: [auftrag("g1", ["incident-1"])],
