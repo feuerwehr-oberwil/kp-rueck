@@ -11022,7 +11022,7 @@
           "vehicles"
         ],
         "summary": "List Vehicle Statuses",
-        "description": "Every fleet vehicle with its driver, Aufträge and Einsätze in one event.\n\nThe footer «Fahrzeuge» sheet reads this and nothing else – one request for the\nwhole fleet, five queries whatever its size. Archived vehicles are left out, as\non the board. Order: `display_order`, then name; each vehicle's `deployments`\nare its Aufträge, then its Einsätze, each oldest assignment first – an Einsatz\nthat is a stop of the vehicle's own Auftrag is left out (`VehicleStatusResponse`).",
+        "description": "Every fleet vehicle with its driver, Aufträge and Einsätze in one event.\n\nThe footer «Fahrzeuge» sheet reads this and nothing else – one request for the\nwhole fleet, five queries whatever its size. Archived vehicles are left out, as\non the board. Order: `display_order`, then name; each vehicle's `deployments`\nare its Aufträge, then every Einsatz it is assigned to directly, each oldest\nassignment first (`VehicleStatusResponse`).",
         "operationId": "list_vehicle_statuses_api_vehicles_status_get",
         "parameters": [
           {
@@ -33726,7 +33726,7 @@
           "radio_call_sign"
         ],
         "title": "VehicleStatusResponse",
-        "description": "Vehicle status with driver and every Einsatz it serves, for one event.\n\nAnswers all three states for one vehicle: `out_of_service` wins, then a\nnon-empty `deployments` (Im Einsatz), else Verfügbar. A vehicle can serve\nseveral Aufträge and Einsätze at once. `deployments`: its Aufträge first, then\nits Einsätze, each oldest assignment first; an Einsatz that is a stop of one of\nthe vehicle's own Aufträge is left out – the Auftrag stands for it."
+        "description": "Vehicle status with driver and every Auftrag and Einsatz it serves, for one event.\n\nAnswers all three states for one vehicle: `out_of_service` wins, then a\nnon-empty `deployments` (Im Einsatz), else Verfügbar. A vehicle can serve\nseveral Aufträge and Einsätze at once. `deployments`: its Aufträge first, then\nevery Einsatz it is assigned to directly – a stop of its own Auftrag included, a\ndirect assignment is a fact of its own – each oldest assignment first."
       },
       "VehicleTrailResponse": {
         "properties": {

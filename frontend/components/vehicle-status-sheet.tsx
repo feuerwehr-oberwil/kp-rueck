@@ -58,7 +58,7 @@ type DeploymentTarget =
 
 /**
  * Everything a vehicle serves, in the server's order (`GET /api/vehicles/status`: its
- * Aufträge, then its Einsätze, each oldest first; its own stops already left out).
+ * Aufträge, then every Einsatz it is assigned to directly, each oldest first).
  */
 function deploymentTargets(
   vehicle: ApiVehicleStatus,

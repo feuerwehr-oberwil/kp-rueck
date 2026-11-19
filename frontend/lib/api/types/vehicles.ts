@@ -85,8 +85,8 @@ export interface ApiVehicleStatus {
   driver_id: string | null
   driver_name: string | null
   driver_assigned_at: string | null
-  /** Its Aufträge, then its Einsätze, each oldest assignment first; a stop of its own
-   *  Auftrag is not listed again. Empty when the vehicle serves nothing. */
+  /** Its Aufträge, then every Einsatz it is assigned to directly (a stop of its own Auftrag
+   *  included), each oldest assignment first. Empty when the vehicle serves nothing. */
   deployments: ApiVehicleDeployment[]
 }
 

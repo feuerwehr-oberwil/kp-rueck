@@ -664,8 +664,8 @@ async def test_vehicle_statuses_list_its_auftraege_before_its_einsaetze(
 ):
     """A vehicle that only drives an Auftrag is deployed too (Sol review S4).
 
-    The Auftrag comes first and opens its first stop with work ahead; a stop of the
-    vehicle's own Auftrag is not listed again as an Einsatz.
+    The Auftrag comes first and opens its first stop with work ahead; a direct
+    assignment on a stop of that Auftrag is listed too (pass 2, S4).
     """
     from datetime import UTC, datetime, timedelta
 
@@ -725,6 +725,7 @@ async def test_vehicle_statuses_list_its_auftraege_before_its_einsaetze(
     deployments = (await _statuses(editor_client, test_event.id))[str(test_vehicle.id)]["deployments"]
     assert [(d["kind"], d.get("name") or d["title"]) for d in deployments] == [
         ("auftrag", "Nord"),
+        ("einsatz", "Stopp 2"),
         ("einsatz", "Blumenweg 21"),
     ]
     assert deployments[0]["group_id"] == str(route.id)

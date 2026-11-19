@@ -136,13 +136,13 @@ VehicleDeployment = Annotated[VehicleAuftragDeployment | VehicleEinsatzDeploymen
 
 
 class VehicleStatusResponse(BaseModel):
-    """Vehicle status with driver and every Einsatz it serves, for one event.
+    """Vehicle status with driver and every Auftrag and Einsatz it serves, for one event.
 
     Answers all three states for one vehicle: `out_of_service` wins, then a
     non-empty `deployments` (Im Einsatz), else Verfügbar. A vehicle can serve
     several Aufträge and Einsätze at once. `deployments`: its Aufträge first, then
-    its Einsätze, each oldest assignment first; an Einsatz that is a stop of one of
-    the vehicle's own Aufträge is left out – the Auftrag stands for it.
+    every Einsatz it is assigned to directly – a stop of its own Auftrag included, a
+    direct assignment is a fact of its own – each oldest assignment first.
     """
 
     model_config = ConfigDict(from_attributes=True)

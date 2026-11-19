@@ -62,7 +62,7 @@ describe("VehicleStatusSheet", () => {
   })
 
   it("lists every Auftrag and Einsatz the server names for a vehicle, each opening its own card", async () => {
-    // The endpoint is the one source (Sol review S4): Auftrag first, its own stops left out.
+    // The endpoint is the one source (Sol review S4): Aufträge first, then the Einsätze.
     api.getVehicleStatuses.mockResolvedValue([vehicle({
       deployments: [
         {

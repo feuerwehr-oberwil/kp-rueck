@@ -84,8 +84,8 @@ async def list_vehicle_statuses(
     The footer «Fahrzeuge» sheet reads this and nothing else – one request for the
     whole fleet, five queries whatever its size. Archived vehicles are left out, as
     on the board. Order: `display_order`, then name; each vehicle's `deployments`
-    are its Aufträge, then its Einsätze, each oldest assignment first – an Einsatz
-    that is a stop of the vehicle's own Auftrag is left out (`VehicleStatusResponse`).
+    are its Aufträge, then every Einsatz it is assigned to directly, each oldest
+    assignment first (`VehicleStatusResponse`).
     """
     vehicles = sorted(await crud.get_all_vehicles(db), key=lambda v: (v.display_order, v.name))
     vehicle_ids = [v.id for v in vehicles]
@@ -141,8 +141,7 @@ async def list_vehicle_statuses(
         .tuples()
         .all()
     )
-    # The routes' stops in route order (as `crud.groups` lists them), for the click
-    # target and to leave a vehicle's own stops out of its Einsätze.
+    # The routes' stops in route order (as `crud.groups` lists them), for the click target.
     stops: dict[uuid.UUID, list[tuple[uuid.UUID, str]]] = {}
     if route_rows:
         stop_rows = await db.execute(
@@ -155,11 +154,9 @@ async def list_vehicle_statuses(
 
     now = datetime.now(UTC)
     deployments: dict[uuid.UUID, list[schemas.VehicleDeployment]] = {}
-    own_stops: dict[uuid.UUID, set[uuid.UUID]] = {}
     for assignment, group in route_rows:
         route = stops.get(group.id, [])
         ahead = next((stop_id for stop_id, stop_status in route if stop_status not in _FINISHED_STOP_STATUSES), None)
-        own_stops.setdefault(assignment.resource_id, set()).update(stop_id for stop_id, _ in route)
         deployments.setdefault(assignment.resource_id, []).append(
             schemas.VehicleAuftragDeployment(
                 group_id=group.id,
@@ -174,8 +171,6 @@ async def list_vehicle_statuses(
     # Read only when something is deployed: an idle fleet costs no settings query.
     home_city = await incident_display.get_home_city(db) if assignment_rows else ""
     for assignment, incident in assignment_rows:
-        if incident.id in own_stops.get(assignment.resource_id, set()):
-            continue
         deployments.setdefault(assignment.resource_id, []).append(
             schemas.VehicleEinsatzDeployment(
                 incident_id=incident.id,
