@@ -1307,9 +1307,6 @@
       "checkInFailedTitle": "Check-in fehlgeschlagen",
       "checkInFailedDescription": "{name} wurde erfasst, ist aber nicht als anwesend gemeldet und darum nicht auf dem Board sichtbar. Person im Appell einchecken und danach als Fahrer zuweisen.",
       "duplicateName": "Es existiert bereits eine Person mit diesem Namen.",
-      "markAsDriver": "Als Fahrer markieren",
-      "markedAsDriver": "{name} als Fahrer markiert",
-      "markError": "Markierung fehlgeschlagen",
       "withoutDriver": "Ohne Fahrer"
     },
     "resourceConflict": {

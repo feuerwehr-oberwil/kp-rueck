@@ -10,9 +10,10 @@ import { FormMessage } from "@/components/ui/form-message"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { Binoculars, ArrowLeft, MapPin } from "lucide-react"
 import { PersonPickTile } from "@/components/kanban/assignment-list-section"
+import { einsatzWhere, usePersonTileFacts } from "@/components/kanban/person-tile-facts"
 import { apiClient, type ApiAvailableRekoPersonnel } from "@/lib/api-client"
 import { useEvent } from "@/lib/contexts/event-context"
-import { useOperations } from "@/lib/contexts/operations-context"
+import { type Operation, useOperations } from "@/lib/contexts/operations-context"
 import type { Person } from "@/lib/contexts/personnel-context"
 import { personMatchesQuery, RESOURCE_STATE_BADGE_CLASSES } from "@/lib/resource-status"
 import { cn } from "@/lib/utils"
@@ -26,16 +27,21 @@ export const REKO_PICK_MESSAGE_ID = "reko-pick-message"
 
 /**
  * «Person als Reko markieren» – the checked-in people who are not Reko yet, as the same
- * person tiles as every picker (`PersonPickTile`), one to tick. Used by the three Reko
- * surfaces (Reko zuweisen, Rekos übertragen, Reko-Modus); each host places `searchField`
- * above its list and `list` in it, and its own main answer marks `chosen`.
+ * person tiles as every picker (`PersonPickTile`), one to choose (radio dot), each with the
+ * Fahrer picker's «where · roles» line (`usePersonTileFacts`: the Einsatz they are on, their
+ * other roles) – facts only, nobody is refused. Used by the four Reko surfaces (Reko zuweisen,
+ * Rekos übertragen, the checklist, Reko-Modus); each host places `searchField` above its list
+ * and `list` in a `radiogroup`, and its own main answer marks `chosen`.
  */
 export function useRekoCandidatePicker({
   personnel,
+  operations,
   excludedPersonnelIds,
   disabled,
 }: {
   personnel: Person[]
+  /** The board's Einsätze – where a candidate is now. */
+  operations: readonly Operation[]
   excludedPersonnelIds?: ReadonlySet<string>
   disabled?: boolean
 }): { chosen: Person | null; searchField: ReactNode; list: ReactNode; reset: () => void } {
@@ -43,6 +49,7 @@ export function useRekoCandidatePicker({
   const isMobile = useIsMobile()
   const [search, setSearch] = useState("")
   const [chosenId, setChosenId] = useState<string | null>(null)
+  const factsOf = usePersonTileFacts()
   const eligible = personnel.filter((person) => !person.isReko && !excludedPersonnelIds?.has(person.id))
   const candidates = search.trim() ? eligible.filter((person) => personMatchesQuery(person, search)) : eligible
 
@@ -63,17 +70,24 @@ export function useRekoCandidatePicker({
         {personnel.length === 0 ? t("markNoCheckedIn") : t("markAllReko")}
       </p>
     ) : (
-      candidates.map((person) => (
-        <PersonPickTile
-          key={person.id}
-          name={person.name}
-          personnelId={person.id}
-          rank={person.role}
-          checked={chosenId === person.id}
-          disabled={disabled}
-          onClick={() => setChosenId((current) => (current === person.id ? null : person.id))}
-        />
-      ))
+      candidates.map((person) => {
+        const { where, roles } = factsOf(person, { elsewhere: einsatzWhere(person.id, operations) })
+        return (
+          <PersonPickTile
+            key={person.id}
+            name={person.name}
+            personnelId={person.id}
+            kennung={person.kennung ?? null}
+            rank={person.role}
+            where={where}
+            roles={roles}
+            single
+            checked={chosenId === person.id}
+            disabled={disabled}
+            onClick={() => setChosenId((current) => (current === person.id ? null : person.id))}
+          />
+        )
+      })
     )
 
   // Stable, so a host may reset from an effect.
@@ -145,7 +159,7 @@ export function AssignRekoDialog({
   const tCommon = useTranslations('incidents.common')
   const tPick = useTranslations('common.personPick')
   const { selectedEvent } = useEvent()
-  const { personnel: allPersonnel, refreshOperations, formatLocation } = useOperations()
+  const { personnel: allPersonnel, operations, refreshOperations, formatLocation } = useOperations()
   const [personnel, setPersonnel] = useState<ApiAvailableRekoPersonnel[]>([])
   const [currentlyAssignedId, setCurrentlyAssignedId] = useState<string | null>(null)
   const [chosenId, setChosenId] = useState<string | null>(null)
@@ -155,7 +169,7 @@ export function AssignRekoDialog({
   const [error, setError] = useState<string | null>(null)
   const [markMode, setMarkMode] = useState(false)
   const [uncertainPersonnelIds, setUncertainPersonnelIds] = useState<ReadonlySet<string>>(new Set())
-  const mark = useRekoCandidatePicker({ personnel: allPersonnel, excludedPersonnelIds: uncertainPersonnelIds, disabled: busy })
+  const mark = useRekoCandidatePicker({ personnel: allPersonnel, operations, excludedPersonnelIds: uncertainPersonnelIds, disabled: busy })
   const resetMark = mark.reset
 
   // Backend sorts by (open work, distance, name). Mark the top candidate as
@@ -316,6 +330,7 @@ export function AssignRekoDialog({
           full: openLabels.join(', '),
           Icon: MapPin,
         } : null}
+        single
         checked={chosenId === person.personnel_id}
         current={isCurrent}
         disabled={busy}
@@ -357,6 +372,7 @@ export function AssignRekoDialog({
       onOpenChange={onOpenChange}
       title={markMode ? t('markExisting') : t('title')}
       description={t('incidentLabel', { title: incidentTitle })}
+      radioGroupLabel={markMode ? t('markExisting') : t('title')}
       toolbar={toolbar}
       footer={
         <>

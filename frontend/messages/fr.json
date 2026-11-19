@@ -1389,9 +1389,6 @@
       "checkInFailedTitle": "Échec de l’enregistrement",
       "checkInFailedDescription": "{name} a été saisi, mais n’est pas annoncé présent et n’apparaît donc pas sur le tableau. Enregistre l’arrivée de la personne à l’appel, puis attribue-la comme conducteur.",
       "duplicateName": "Une personne portant ce nom existe déjà.",
-      "markAsDriver": "Marquer comme conducteur",
-      "markedAsDriver": "{name} marqué comme conducteur",
-      "markError": "Échec du marquage",
       "withoutDriver": "Sans conducteur"
     },
     "resourceConflict": {

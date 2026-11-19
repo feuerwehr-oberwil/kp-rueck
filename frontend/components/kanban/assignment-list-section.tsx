@@ -148,6 +148,27 @@ export function TileCheck({ checked, animate }: { checked: boolean | "partial"; 
   )
 }
 
+/**
+ * `TileCheck`'s single-choice twin: a 16px ring, 1.5px edge, the same muted-ink empty edge;
+ * chosen = `--sel` edge with an 8px `--sel` dot. For a picker that takes ONE person (Fahrer,
+ * Reko zuweisen / übertragen) – the round shape says «one of these», the square «any of
+ * these» (owner pick 19.11.2026).
+ */
+export function TileRadio({ checked, animate }: { checked: boolean; animate?: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px]",
+        checked ? "border-sel" : "border-muted-foreground/70",
+        animate && "animate-check-appear",
+      )}
+    >
+      {checked && <span className="size-2 rounded-full bg-sel" />}
+    </span>
+  )
+}
+
 /** An UNCHECKED tile under the pointer: the neutral edge and a quiet wash – no lift, no
  *  shadow, no selection tint, so a hover never competes with the checked tiles' selection wash + edge + ✓
  *  (hill climb r5). Only on unchecked tiles: a `hover:` edge on a checked one would take its
@@ -156,8 +177,10 @@ export const TILE_HOVER = "hover:border-border hover:bg-muted/40"
 
 /**
  * THE person tile of every «pick a person» surface: the assignment dialog's crew grid, and the
- * single-choice pickers (Fahrer, Reko zuweisen / übertragen, Reko-Modus – ENT-10 A). Tick box,
- * name through `PersonName` (namesakes get their Kennung), the one `PersonTileLine` under it
+ * single-choice pickers (Fahrer, Reko zuweisen / übertragen, Reko-Modus – ENT-10 A). Tick box
+ * where several may be chosen; `single` = a radio dot and radio semantics (`role="radio"`,
+ * `aria-checked` – the host's list is the `radiogroup`, `PickerDialog`'s `radioGroupLabel`).
+ * The where · roles line comes from `usePersonTileFacts`. Name through `PersonName` (namesakes get their Kennung), the one `PersonTileLine` under it
  * (the rank abbreviated, like the sidebar's), and an optional `aside` on the right for a
  * picker's own fact (open Rekos, the map swatch). Chosen = sel wash + edge + ✓, never a tint
  * of its own. `current` adds «· aktuell» after the name: the person who holds the role now –
@@ -171,6 +194,7 @@ export function PersonPickTile({
   where = null,
   roles = [],
   checked,
+  single,
   current,
   animate,
   badge,
@@ -186,6 +210,8 @@ export function PersonPickTile({
   where?: PersonWhere | null
   roles?: readonly TileRole[]
   checked: boolean
+  /** One person of the list, not several: radio dot + radio semantics. */
+  single?: boolean
   current?: boolean
   animate?: boolean
   /** Beside the name («Empfohlen»). */
@@ -201,14 +227,14 @@ export function PersonPickTile({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-pressed={checked}
+      {...(single ? { role: "radio", "aria-checked": checked } : { "aria-pressed": checked })}
       className={cn(
         "flex w-full cursor-pointer items-start gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-colors text-left disabled:cursor-not-allowed disabled:opacity-60",
         checked ? "border-sel-edge bg-sel-wash" : TILE_HOVER,
         className,
       )}
     >
-      <TileCheck checked={checked} animate={animate} />
+      {single ? <TileRadio checked={checked} animate={animate} /> : <TileCheck checked={checked} animate={animate} />}
       <div className="min-w-0 flex-1">
         <p className="flex min-w-0 items-center gap-1.5 text-sm font-medium" title={name}>
           <span className="min-w-0 truncate">

@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
 import type { Person } from "@/lib/contexts/personnel-context"
 
-const state = vi.hoisted(() => ({ personnel: [] as Person[] }))
+const state = vi.hoisted(() => ({ personnel: [] as Person[], operations: [] as unknown[] }))
 const assignSpecialFunction = vi.hoisted(() => vi.fn())
 const unassignSpecialFunction = vi.hoisted(() => vi.fn())
 const getAvailableRekoPersonnel = vi.hoisted(() => vi.fn())
@@ -17,7 +17,7 @@ vi.mock("@/lib/contexts/event-context", () => ({
 }))
 
 vi.mock("@/lib/contexts/operations-context", () => ({
-  useOperations: () => ({ personnel: state.personnel, refreshOperations, formatLocation: (address: string) => address }),
+  useOperations: () => ({ personnel: state.personnel, operations: state.operations, refreshOperations, formatLocation: (address: string) => address }),
 }))
 
 vi.mock("@/lib/api-client", () => ({
@@ -50,6 +50,7 @@ const checkedInCandidate = person("candidate", "Neue Reko", false)
 
 beforeEach(() => {
   state.personnel = [source, checkedInCandidate]
+  state.operations = []
   assignSpecialFunction.mockReset().mockResolvedValue({})
   unassignSpecialFunction.mockReset().mockResolvedValue(undefined)
   getAvailableRekoPersonnel.mockReset().mockResolvedValue({ personnel: [], currently_assigned_id: null })
@@ -76,7 +77,7 @@ describe("TransferRekoDialog", () => {
 
     expect(screen.getByText("Keine anderen Reko-Personen verfügbar")).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Person als Reko markieren" }))
-    await user.click(screen.getByRole("button", { name: /Neue Reko/ }))
+    await user.click(screen.getByRole("radio", { name: /Neue Reko/ }))
     await user.click(screen.getByRole("button", { name: "Übernehmen" }))
 
     await waitFor(() => expect(transferRekoAssignments).toHaveBeenCalledTimes(1))
@@ -104,8 +105,27 @@ describe("TransferRekoDialog", () => {
       />,
     )
 
-    expect(screen.getByRole("button", { name: /Reko Ziel/ })).toBeInTheDocument()
+    expect(screen.getByRole("radio", { name: /Reko Ziel/ })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Person als Reko markieren" })).toBeInTheDocument()
+  })
+
+  // #6 (19.11.2026): a candidate's tile says where they are and what else they hold, like the
+  // Fahrer picker – and stays choosable.
+  it("shows a candidate's Einsatz and roles on the one tile line, as a single choice", async () => {
+    const user = userEvent.setup()
+    state.personnel = [source, { ...checkedInCandidate, isMagazin: true }]
+    state.operations = [{ id: "op-1", number: 7, location: "Hauptstrasse 5", locationDisplay: "Hauptstrasse 5", crew: [{ personnelId: "candidate" }] }]
+    renderWithIntl(
+      <TransferRekoDialog open onOpenChange={vi.fn()} fromPerson={source} rekoPersonnel={[source]} onTransferred={vi.fn()} />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Person als Reko markieren" }))
+    const tile = screen.getByRole("radio", { name: /Neue Reko/ })
+    expect(tile).toHaveTextContent("7 · Hauptstrasse 5")
+    expect(tile).toHaveTextContent("Magazin")
+    expect(screen.getByRole("radiogroup", { name: "Person als Reko markieren" })).toContainElement(tile)
+    await user.click(tile)
+    expect(tile).toHaveAttribute("aria-checked", "true")
   })
 
   it("preserves direct transfer to an existing Reko target", async () => {
@@ -121,7 +141,7 @@ describe("TransferRekoDialog", () => {
       />,
     )
 
-    await user.click(screen.getByRole("button", { name: /Reko Ziel/ }))
+    await user.click(screen.getByRole("radio", { name: /Reko Ziel/ }))
     await user.click(screen.getByRole("button", { name: "Übernehmen" }))
 
     await waitFor(() => expect(transferRekoAssignments).toHaveBeenCalledWith("source", "target", "event-1"))
@@ -143,7 +163,7 @@ describe("TransferRekoDialog", () => {
     )
 
     await user.click(screen.getByRole("button", { name: "Person als Reko markieren" }))
-    await user.click(screen.getByRole("button", { name: /Neue Reko/ }))
+    await user.click(screen.getByRole("radio", { name: /Neue Reko/ }))
     await user.click(screen.getByRole("button", { name: "Übernehmen" }))
 
     await waitFor(() => expect(unassignSpecialFunction).toHaveBeenCalledWith("event-1", {
@@ -171,7 +191,7 @@ describe("TransferRekoDialog", () => {
     )
 
     await user.click(screen.getByRole("button", { name: "Person als Reko markieren" }))
-    await user.click(screen.getByRole("button", { name: /Neue Reko/ }))
+    await user.click(screen.getByRole("radio", { name: /Neue Reko/ }))
     await user.click(screen.getByRole("button", { name: "Übernehmen" }))
 
     await waitFor(() => expect(unassignSpecialFunction).toHaveBeenCalledOnce())
@@ -209,14 +229,14 @@ describe("AssignRekoDialog", () => {
       <AssignRekoDialog open onOpenChange={vi.fn()} incidentId="incident-1" incidentTitle="Hauptstrasse 1" onAssigned={onAssigned} />,
     )
 
-    const current = await screen.findByRole("button", { name: /Reko Jetzt/ })
-    expect(current).toHaveAttribute("aria-pressed", "true")
+    const current = await screen.findByRole("radio", { name: /Reko Jetzt/ })
+    expect(current).toHaveAttribute("aria-checked", "true")
     expect(current).toHaveTextContent("aktuell")
     await user.click(screen.getByRole("button", { name: "Übernehmen" }))
     expect(onAssigned).toHaveBeenCalledOnce()
     expect(assignRekoPersonnel).not.toHaveBeenCalled()
 
-    await user.click(screen.getByRole("button", { name: /Reko Anders/ }))
+    await user.click(screen.getByRole("radio", { name: /Reko Anders/ }))
     await user.click(screen.getByRole("button", { name: "Übernehmen" }))
     await waitFor(() => expect(assignRekoPersonnel).toHaveBeenCalledWith("incident-1", "other"))
   })
@@ -235,7 +255,7 @@ describe("AssignRekoDialog", () => {
     )
 
     await user.click(await screen.findByRole("button", { name: "Person als Reko markieren" }))
-    await user.click(screen.getByRole("button", { name: /Neue Reko/ }))
+    await user.click(screen.getByRole("radio", { name: /Neue Reko/ }))
     await user.click(screen.getByRole("button", { name: "Übernehmen" }))
 
     await waitFor(() => expect(unassignSpecialFunction).toHaveBeenCalledWith("event-1", {
@@ -263,7 +283,7 @@ describe("AssignRekoDialog", () => {
     )
 
     await user.click(await screen.findByRole("button", { name: "Person als Reko markieren" }))
-    await user.click(screen.getByRole("button", { name: /Neue Reko/ }))
+    await user.click(screen.getByRole("radio", { name: /Neue Reko/ }))
     await user.click(screen.getByRole("button", { name: "Übernehmen" }))
 
     await waitFor(() => expect(unassignSpecialFunction).toHaveBeenCalledOnce())

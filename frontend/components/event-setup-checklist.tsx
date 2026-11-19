@@ -493,10 +493,10 @@ export function RekoPickerDialog({
   const t = useTranslations('checklist.rekoPicker')
   const tAssign = useTranslations('incidents.assignReko')
   const tPick = useTranslations('common.personPick')
-  const { personnel, refreshOperations } = useOperations()
+  const { personnel, operations, refreshOperations } = useOperations()
   const [marking, setMarking] = useState(false)
   const [pickMessage, setPickMessage] = useState<string | null>(null)
-  const mark = useRekoCandidatePicker({ personnel, disabled: marking })
+  const mark = useRekoCandidatePicker({ personnel, operations, disabled: marking })
 
   const handleMark = async () => {
     const person = mark.chosen
@@ -530,6 +530,7 @@ export function RekoPickerDialog({
       onOpenChange={onOpenChange}
       title={t('title')}
       description={t('description')}
+      radioGroupLabel={t('title')}
       toolbar={
         <>
           {mark.searchField}

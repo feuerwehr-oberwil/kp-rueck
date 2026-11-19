@@ -10,7 +10,6 @@ const checkInPersonnel = vi.hoisted(() => vi.fn())
 const generateCheckInLink = vi.hoisted(() => vi.fn())
 const assignSpecialFunction = vi.hoisted(() => vi.fn())
 const unassignSpecialFunction = vi.hoisted(() => vi.fn())
-const updatePersonnel = vi.hoisted(() => vi.fn())
 const refreshOperations = vi.hoisted(() => vi.fn())
 const toastError = vi.hoisted(() => vi.fn())
 const toastSuccess = vi.hoisted(() => vi.fn())
@@ -27,7 +26,6 @@ vi.mock("@/lib/api-client", () => ({
     generateCheckInLink,
     assignSpecialFunction,
     unassignSpecialFunction,
-    updatePersonnel,
   },
 }))
 
@@ -76,7 +74,6 @@ beforeEach(() => {
   generateCheckInLink.mockReset().mockResolvedValue({ token: "tok" })
   assignSpecialFunction.mockReset().mockResolvedValue({})
   unassignSpecialFunction.mockReset().mockResolvedValue(undefined)
-  updatePersonnel.mockReset().mockResolvedValue({})
   refreshOperations.mockReset().mockResolvedValue(undefined)
   toastError.mockReset()
   toastSuccess.mockReset()
@@ -135,7 +132,7 @@ describe("DriverAssignmentDialog choice", () => {
     const user = userEvent.setup()
     renderDialog([person("p1", "Brunner Sara")])
 
-    await user.click(screen.getByRole("button", { name: /Brunner Sara/ }))
+    await user.click(screen.getByRole("radio", { name: /Brunner Sara/ }))
     expect(assignSpecialFunction).not.toHaveBeenCalled()
     await user.click(screen.getByRole("button", { name: "Übernehmen" }))
 
@@ -151,8 +148,8 @@ describe("DriverAssignmentDialog choice", () => {
     const meier = person("p2", "Meier Alex")
     renderDialog([meier], meier)
 
-    const tile = screen.getByRole("button", { name: /Meier Alex/ })
-    expect(tile).toHaveAttribute("aria-pressed", "true")
+    const tile = screen.getByRole("radio", { name: /Meier Alex/ })
+    expect(tile).toHaveAttribute("aria-checked", "true")
     expect(tile).toHaveTextContent("aktuell")
     await user.click(tile)
     await user.click(screen.getByRole("button", { name: "Ohne Fahrer" }))
