@@ -632,5 +632,14 @@ class TestDispatchLinkedSummaryActions:
             if match and int(match.group(1)) > 30:
                 assert "Mehrere Pumpen" in text
 
+    def test_a_correction_always_names_a_different_figure(self):
+        # «Gemeldet 3cm, vor Ort nur ~3cm» – the bottom (and top) of the ladder confirms instead.
+        for depth in ("3cm", "100cm"):
+            for _ in range(100):
+                figure = _dispatch_figure("elementar_water", f"Wasser im Keller, ca. {depth}.")
+                assert figure is not None
+                reported, *found = re.findall(r"(\d+)cm", figure[0])
+                assert all(value != reported for value in found), figure[0]
+
     def test_no_figure_in_dispatch_falls_back_to_pool(self):
         assert _dispatch_figure("elementar_water", "Keller unter Wasser.") is None

@@ -856,17 +856,20 @@ def _linked_figure(reported: int, unit: str, ladder: list[int], action_for: Call
     the Massnahme follows the figure the crew actually finds: 30cm of water in
     a Keller means pumping even when the caller said 50. Returns (figure, Massnahme)."""
     outcome = random.choices(["confirm", "less", "more"], weights=[50, 32, 18], k=1)[0]
-    if outcome == "confirm":
-        return f"Lage wie gemeldet, rund {reported}{unit}.", action_for(reported)
     if outcome == "less":
         actual = _nice_near(round(reported * 0.35), ladder)
         if actual >= reported:
             actual = next((v for v in reversed(ladder) if v < reported), reported)
-        return f"Gemeldet {reported}{unit}, vor Ort nur ~{actual}{unit}.", action_for(actual)
-    actual = _nice_near(round(reported * 1.7), ladder)
-    if actual <= reported:
-        actual = next((v for v in ladder if v > reported), reported)
-    return f"Gemeldet {reported}{unit}, tatsächlich mehr – ~{actual}{unit}.", action_for(actual)
+        # At the bottom of the ladder there is nothing smaller to find: it confirms.
+        if actual < reported:
+            return f"Gemeldet {reported}{unit}, vor Ort nur ~{actual}{unit}.", action_for(actual)
+    elif outcome == "more":
+        actual = _nice_near(round(reported * 1.7), ladder)
+        if actual <= reported:
+            actual = next((v for v in ladder if v > reported), reported)
+        if actual > reported:
+            return f"Gemeldet {reported}{unit}, tatsächlich mehr – ~{actual}{unit}.", action_for(actual)
+    return f"Lage wie gemeldet, rund {reported}{unit}.", action_for(reported)
 
 
 def _dispatch_figure(resolved_type: str | None, description: str | None) -> tuple[str, str] | None:
