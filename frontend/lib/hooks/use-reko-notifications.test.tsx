@@ -112,6 +112,20 @@ describe("useRekoNotifications", () => {
   });
 });
 
+describe("useRekoNotifications – the verdict", () => {
+  it("keeps an unanswered «Einsatz relevant?» unanswered on the card (pass 5, S5)", async () => {
+    getEventRekoSummaries.mockResolvedValueOnce(respond());
+    const onUpdate = vi.fn();
+    renderHook(() => useRekoNotifications(undefined, onUpdate));
+    await waitFor(() => expect(getEventRekoSummaries).toHaveBeenCalledTimes(1));
+
+    getEventRekoSummaries.mockResolvedValueOnce(respond(summary("a", "2026-10-06T09:00:00Z", { is_relevant: null })));
+    await act(async () => { wsHandlers.get("reko_update")?.(); });
+
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledWith("a", expect.objectContaining({ isRelevant: null })));
+  });
+});
+
 describe("withRekoSummary", () => {
   it("sets the summary only – the card's status stays the server's (pass 5, S1)", () => {
     const card = { id: "a", status: "reko", hasCompletedReko: true } as unknown as Operation;

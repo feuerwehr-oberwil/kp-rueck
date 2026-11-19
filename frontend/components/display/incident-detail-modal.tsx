@@ -373,7 +373,9 @@ export function IncidentDetailModal({
                     className="ml-auto gap-1 text-sm"
                   >
                     <FileCheck className="h-3.5 w-3.5" />
-                    {rekoSummary.isRelevant ? tr('relevant') : tr('notNeeded')}
+                    {rekoSummary.isRelevant === true
+                      ? tr('relevant')
+                      : rekoSummary.isRelevant === false ? tr('notNeeded') : tr('relevanceOpen')}
                   </Badge>
                 )}
               </div>

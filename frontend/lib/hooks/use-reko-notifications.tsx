@@ -65,7 +65,7 @@ export function useRekoNotifications(
       const current = new Map(submitted.map((report) => {
         const dangerTypes = rekoDangerTypes(report.dangers_json)
         const rekoSummary: RekoSummary = {
-          isRelevant: report.is_relevant ?? false,
+          isRelevant: report.is_relevant ?? null,
           hasDangers: dangerTypes.length > 0,
           dangerTypes,
           personnelCount: report.effort_json?.personnel_count ?? null,

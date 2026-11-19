@@ -44,7 +44,7 @@ export interface SituationData {
 function viewerRekoSummary(summary: ApiViewerRekoSummary): RekoSummary {
   const dangerTypes = rekoDangerTypes(summary.dangers_json)
   return {
-    isRelevant: summary.is_relevant ?? false,
+    isRelevant: summary.is_relevant ?? null,
     hasDangers: dangerTypes.length > 0,
     dangerTypes,
     personnelCount: summary.personnel_count ?? null,
