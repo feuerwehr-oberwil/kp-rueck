@@ -1,0 +1,8 @@
+/* KP Front's default mascot colours (kp-front/src/styles/01-tokens.css). */
+.snail-loader {
+  --accent: #e8392b;
+}
+
+.dark .snail-loader {
+  --accent: #ff5a4d;
+}
