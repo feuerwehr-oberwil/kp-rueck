@@ -557,6 +557,26 @@ async def get_reko_summaries_by_event(db: AsyncSession, event_id: uuid.UUID) -> 
     return summaries
 
 
+async def escalate_for_dangers(db: AsyncSession, incident: Incident, report: RekoReport) -> bool:
+    """Priority low → medium when a filed report names a danger. Returns whether it changed.
+
+    Part of every filing (`process_reko_submission`), and of a board amendment of a filed
+    report: «Ja» synced first and a danger ticked afterwards must escalate just the same (Sol
+    review pass 5, S4). The status step and the bell stay with the filing. Never lowers.
+    """
+    dangers = report.dangers_json or {}
+    has_danger = any(
+        dangers.get(key) for key in ("fire", "explosion", "collapse", "chemical", "electrical", "fire_danger")
+    )
+    if not has_danger or incident.priority != "low":
+        return False
+    incident.priority = "medium"
+    await db.flush()
+    await db.refresh(incident)
+    await db.refresh(report)
+    return True
+
+
 async def process_reko_submission(
     db: AsyncSession,
     incident: Incident,
@@ -597,24 +617,7 @@ async def process_reko_submission(
         # merge loads the card with its reports); reload it before reading on.
         await db.refresh(report)
 
-    # Auto-bump priority from low → medium if any danger flags are set
-    if report.dangers_json:
-        dangers = report.dangers_json
-        has_danger = any(
-            [
-                dangers.get("fire"),
-                dangers.get("explosion"),
-                dangers.get("collapse"),
-                dangers.get("chemical"),
-                dangers.get("electrical"),
-                dangers.get("fire_danger"),
-            ]
-        )
-        if has_danger and incident.priority == "low":
-            incident.priority = "medium"
-            await db.flush()
-            await db.refresh(incident)
-            await db.refresh(report)
+    await escalate_for_dangers(db, incident, report)
 
     # Create notification
     if incident.event_id:

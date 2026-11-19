@@ -166,3 +166,25 @@ async def test_filing_stamps_the_submission_time_so_the_newer_report_leads(
     assert summaries[str(incident_id)]["summary_text"] == "KP: Keller 20 cm"
     # An amendment keeps the submission time.
     assert amended.json()["submitted_at"] == filed.json()["submitted_at"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_a_danger_added_after_filing_escalates_without_a_second_bell(
+    editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+):
+    """Pass 5 S4: «Ja» synced first (filed, priority stays low), a danger ticked afterwards."""
+    incident_id = await _incident(db_session, test_event, test_user)
+    created = await editor_client.post(
+        "/api/reko/?submit=false", json={"incident_id": str(incident_id), "is_relevant": True}
+    )
+    report_id = created.json()["id"]
+    db_session.expire_all()
+    assert (await db_session.get(Incident, incident_id)).priority == "low"
+
+    await editor_client.patch(f"/api/reko/{report_id}?submit=false", json={"dangers_json": {"electrical": True}})
+
+    db_session.expire_all()
+    incident = await db_session.get(Incident, incident_id)
+    assert incident is not None and incident.priority == "medium"
+    assert await _reko_bells(db_session, incident_id) == 1

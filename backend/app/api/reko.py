@@ -319,8 +319,13 @@ async def submit_reko_report(
             "submit",
         )
     elif amends_filed:
-        # Other boards show filed reports only; an amendment changes one.
+        # Other boards show filed reports only; an amendment changes one – and a danger it adds
+        # escalates as one in the filing would (pass 5, S4).
         background_tasks.add_task(broadcast_reko_update, {"incident_id": str(updated.incident_id)}, "update")
+        if incident and await crud.escalate_for_dangers(db, incident, updated):
+            background_tasks.add_task(
+                broadcast_incident_update, {"id": str(incident.id), "priority": incident.priority}, "update"
+            )
 
     return response_data
 
@@ -412,6 +417,13 @@ async def update_report(
             background_tasks.add_task(
                 broadcast_incident_update, {"id": str(incident.id), "has_completed_reko": True}, "update"
             )
+        elif user is not None and incident is not None and not updated.is_draft:
+            # A board amendment of a filed report (under the card lock): a danger added now
+            # escalates as one in the filing would (pass 5, S4).
+            if await crud.escalate_for_dangers(db, incident, updated):
+                background_tasks.add_task(
+                    broadcast_incident_update, {"id": str(incident.id), "priority": incident.priority}, "update"
+                )
 
         # Convert to response schema with incident details
         response_data = schemas.RekoReportResponse.model_validate(updated)
