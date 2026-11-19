@@ -86,6 +86,8 @@ FIELD_SURFACES: dict[str, dict[str, str]] = {
         "POST /incidents/{incident_id}/assign-reko": "session",
         "DELETE /incidents/{incident_id}/unassign-reko/{personnel_id}": "session",
         "POST /transfer-rekos": "session",
+        # The Reko-Modus order (feedback 19.11.2026, #19) – the board arranges it.
+        "POST /personnel/{personnel_id}/order": "session",
         "PATCH /{report_id}": "both",
         "POST /generate-link": "both",
         "POST /{incident_id}/arrived": "token",

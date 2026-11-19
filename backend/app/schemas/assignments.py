@@ -39,6 +39,8 @@ class AssignmentResponse(BaseModel):
     assigned_by: UUID | None = None
     driver_stay: bool = False
     is_leader: bool = False
+    # A Reko row's place in its person's order (Reko-Modus); null on every other row.
+    reko_position: int | None = None
 
 
 # Transfer

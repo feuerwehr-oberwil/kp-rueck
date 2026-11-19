@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class DangersAssessment(BaseModel):
@@ -206,6 +206,23 @@ class AssignRekoPersonnelRequest(BaseModel):
     """Request to assign Reko personnel to an incident."""
 
     personnel_id: UUID
+
+
+class RekoOrderRequest(BaseModel):
+    """Reorder a Reko person's Rekos (Einsatz ids) in one Ereignis.
+
+    ``expected_ids`` makes the write conditional, like ``GroupStopsReorder``: applied only
+    while the person still holds exactly these Rekos (as a set), else 409. The Reko-Modus
+    sends the list it showed, so a drag can never re-insert a Reko somebody released or
+    handed over meanwhile, nor order one it never saw.
+    """
+
+    event_id: UUID
+    ordered_ids: list[UUID]
+    expected_ids: list[UUID] | None = Field(
+        default=None,
+        description="Apply only if the person still holds exactly these Rekos (as a set); else 409.",
+    )
 
 
 class RekoOpenAssignmentInfo(BaseModel):
