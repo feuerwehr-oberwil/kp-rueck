@@ -226,11 +226,13 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
   const [driverDialogOpen, setDriverDialogOpen] = useState(false)
   const [selectedVehicleForDriver, setSelectedVehicleForDriver] = useState<ApiVehicleStatus | null>(null)
 
-  // Load on open – quietly when this Ereignis has been shown before – then every
-  // 10 seconds while the sheet is open. `loadVehicleStatuses` is a plain function
-  // re-created every render, reached through an effect event.
+  // Closed: load once in the background, so even the first opening rises at its final
+  // height instead of growing from the loading line (#14). Open: load – quietly when
+  // this Ereignis has been shown before – then every 10 seconds. `loadVehicleStatuses`
+  // is a plain function re-created every render, reached through an effect event.
   const loadStatuses = useEffectEvent((silent: boolean) => void loadVehicleStatuses(silent))
   useEffect(() => {
+    if (!open && eventId && !lastSnapshot.has(eventId)) loadStatuses(true)
     if (open && eventId) {
       loadStatuses(lastSnapshot.has(eventId))
 

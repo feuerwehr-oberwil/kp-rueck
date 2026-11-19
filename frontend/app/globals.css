@@ -1385,6 +1385,31 @@ html[data-snail='standing'] .firefighter-snail * {
 [data-slot='sheet-content'][data-edge-clip][data-state='closed'] {
   pointer-events: none !important;
 }
+/* Their backdrop (a plain div, `NonModalBackdrop` in components/ui/sheet.tsx) fades with the
+   panel instead of popping in at full dim, and takes no clicks while it leaves. One that
+   arrives by a SWITCH (another backdrop still up) does not fade: the board is dimmed already. */
+@keyframes backdrop-in {
+  from { opacity: 0; }
+}
+@keyframes backdrop-out {
+  to { opacity: 0; }
+}
+[data-slot='sheet-overlay'][data-nonmodal][data-state='open']:not([data-arrival='switch']) {
+  animation: backdrop-in var(--motion-panel) var(--ease-panel);
+}
+[data-slot='sheet-overlay'][data-nonmodal][data-state='closed'] {
+  animation: backdrop-out var(--motion-panel) var(--ease-panel) forwards;
+  pointer-events: none;
+}
+/* A switch (footer pill to footer pill): the sheet that is closing while another one is open
+   is not seen leaving, backdrop included – one panel rising, not one sinking under another.
+   Hidden, NOT `animation: none`: the new sheet portals in a pass later, so Radix has begun
+   waiting for the exit's animationend by then, and a cancelled animation never sends it –
+   the closed sheet stayed on screen. The exit runs out unseen and unmounts on time. */
+body:has([data-slot='sheet-content'][data-edge-clip][data-state='open'])
+  :is([data-slot='sheet-content'][data-edge-clip], [data-slot='sheet-overlay'][data-nonmodal])[data-state='closed'] {
+  visibility: hidden;
+}
 @media (prefers-reduced-motion: reduce) {
   [data-slot='slide-rail'] {
     transition: none !important;
