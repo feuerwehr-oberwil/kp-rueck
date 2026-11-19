@@ -76,8 +76,8 @@ export type PersonWhere = OccupancyLabel & { Icon?: LucideIcon }
  * The ONE line under every person tile's name (hill climb r23 – the final rule; r13/r19/r20/r22
  * moved these lines around): rank (muted) · where (amber, its glyph) · roles (muted, their
  * glyph – the driven vehicle last). One 12/16 line, a fixed 16px tall even when empty, so every
- * person tile is the same height and the grid has no ragged rows. The where part ellipsizes
- * first, the roles never shrink; the full text – the Meldung included, which no longer gets a
+ * person tile is the same height and the grid has no ragged rows. Only the where part
+ * ellipsizes; the rank and the roles never shrink; the full text – the Meldung included, which no longer gets a
  * line of its own – is in `title`. Amber marks only the where part: it is ANOTHER commitment,
  * «schau hin»; rank and roles are facts.
  */
@@ -92,7 +92,10 @@ export function PersonTileLine({ rank, rankFull, where, roles, plan }: {
 }) {
   const title = [rankFull ?? rank, where?.full, ...roles.map(role => role.label), plan?.label].filter(Boolean).join(" · ")
   const segments: { key: string; className: string; content: React.ReactNode }[] = []
-  if (rank) segments.push({ key: "rank", className: "min-w-[3ch] truncate", content: rank })
+  // The rank never shrinks: as a shrinkable flex item it took its share of a long where
+  // part's overflow and came out «H…» (sign-off 19.11.). It is always the short form
+  // (`abbreviateRank`, a station's own abbreviation included); the where part gives way.
+  if (rank) segments.push({ key: "rank", className: "shrink-0", content: rank })
   if (where) {
     segments.push({
       key: "where",
