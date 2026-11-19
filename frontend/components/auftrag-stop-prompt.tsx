@@ -51,6 +51,9 @@ export function AuftragStopPrompt() {
       extraAction={{ label: t("assignOnly"), onSelect: assignOnly }}
       cancelText={tCommon("cancel")}
       confirmText={t("addAsStop")}
+      // Taking an Einsatz into an Auftrag has no undo (the «An Auftrag verteilen» confirm
+      // says so): Enter keeps to Abbrechen.
+      initialFocus="cancel"
       onConfirm={addAsStop}
     />
   )

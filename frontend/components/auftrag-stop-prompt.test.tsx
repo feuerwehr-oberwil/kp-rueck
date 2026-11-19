@@ -21,12 +21,13 @@ function ask(assignOnly = vi.fn()) {
 
 // Owner pick #23: TLF drives Auftrag «Nord», the operator puts it on the lone Blumenweg 21.
 describe('AuftragStopPrompt', () => {
-  it('takes the Einsatz into the Auftrag on Enter', async () => {
+  it('keeps Enter on Abbrechen and takes the Einsatz into the Auftrag on its button', async () => {
     addStopForVehicle.mockResolvedValue('added')
     ask()
     expect(screen.getByText('Blumenweg 21 als Stopp in Auftrag Nord aufnehmen?')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'In Auftrag aufnehmen' })).toHaveFocus()
-    await userEvent.keyboard('{Enter}')
+    // No undo after it (pass 2, S9).
+    expect(screen.getByRole('button', { name: 'Abbrechen' })).toHaveFocus()
+    await userEvent.click(screen.getByRole('button', { name: 'In Auftrag aufnehmen' }))
     expect(addStopForVehicle).toHaveBeenCalledWith('g-nord', 'op-1', 'v-tlf')
     expect(screen.queryByRole('alertdialog')).toBeNull()
   })
