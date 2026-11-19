@@ -39,7 +39,9 @@ export interface DriverStayPayload {
 }
 
 export interface RekoSummary {
-  isRelevant: boolean
+  /** «Einsatz relevant?» as filed – null when it was not answered (old or crew data): never
+   *  read as «Nein», «Kein Einsatz nötig» comes only from an explicit false (pass 5, S5). */
+  isRelevant: boolean | null
   hasDangers: boolean
   dangerTypes: string[]
   personnelCount: number | null

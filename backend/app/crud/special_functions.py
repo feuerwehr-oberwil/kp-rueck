@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..models import EventSpecialFunction, SpecialFunctionType, User
+from ..models import EventSpecialFunction, Personnel, SpecialFunctionType, User
 from ..services.audit import log_action
 
 
@@ -52,6 +52,10 @@ async def check_vehicle_driver_exists(
     return result.scalar_one_or_none()
 
 
+class PersonnelNotInEventError(LookupError):
+    """The person does not exist, or is a guest of another Ereignis (→ 404)."""
+
+
 async def create_special_function(
     db: AsyncSession,
     event_id: uuid.UUID,
@@ -59,7 +63,16 @@ async def create_special_function(
     current_user: User,
     request: Request,
 ) -> EventSpecialFunction:
-    """Assign a special function to personnel for an event."""
+    """Assign a special function to personnel for an event.
+
+    Raises:
+        PersonnelNotInEventError: unknown person, or a guest of another Ereignis
+            (``Personnel.in_scope``) – nobody this Ereignis lists.
+        ValueError: unknown function, a driver without a vehicle, a vehicle with a driver.
+    """
+    person = (await db.execute(select(Personnel.guest_event_id).where(Personnel.id == assignment.personnel_id))).first()
+    if person is None or person.guest_event_id not in (None, event_id):
+        raise PersonnelNotInEventError(assignment.personnel_id)
     # The lookup table is the authority since plan 26 (decision 5) — a role the
     # station added is as valid as one that shipped. The FK would refuse an
     # unknown key anyway; asking first turns a 500 into a 400 that says which

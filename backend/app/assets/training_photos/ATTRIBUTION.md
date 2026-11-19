@@ -22,8 +22,8 @@ if the report explicitly says residents or other civilians already used them.
 The manifest marks reviewed scenes with `"scene": "as_found"`. Kept images
 retain the exact prompt used to generate them.
 
-Relevant simulated Reko reports select the exact summary illustration
-followed by an optional type photo. Dispatch-linked summaries use the crew's
+Relevant simulated Reko reports select the exact summary illustration on its
+own; a type photo is used only when the summary has no illustration. Dispatch-linked summaries use the crew's
 final estimate, including when it differs from dispatch. For water, the
 selection follows the reported intervention. Wet-vacuum reports use the
 nearest 3 or 5 cm laundry scene, single-pump reports use the 25 cm basement,

@@ -130,7 +130,7 @@ export function buildEventState({
       const dangerTypes = rekoDangerTypes(summary.dangers_json)
       op.hasCompletedReko = true
       op.rekoSummary = {
-        isRelevant: summary.is_relevant ?? false,
+        isRelevant: summary.is_relevant ?? null,
         hasDangers: dangerTypes.length > 0,
         dangerTypes,
         personnelCount: summary.effort_json?.personnel_count ?? null,

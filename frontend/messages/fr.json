@@ -1406,7 +1406,9 @@
       "description": "{vehicle} roule déjà pour la mission « {auftrag} ». {incident} y sera ajoutée comme dernière étape.",
       "addAsStop": "Ajouter à la mission",
       "assignOnly": "Attribuer seulement en plus",
-      "added": "{incident} est maintenant une étape de la mission « {auftrag} »"
+      "added": "{incident} est maintenant une étape de la mission « {auftrag} »",
+      "changedTitle": "{incident} non ajoutée",
+      "changedDescription": "L’intervention ou la mission « {auftrag} » a été modifiée ou supprimée entre-temps. Vérifiez sur le tableau."
     },
     "vehicleStatus": {
       "bound": "Engagé",
@@ -3416,6 +3418,8 @@
       "additionalNotes": "Notes complémentaires",
       "relevantShort": "Pertinente",
       "notRelevantShort": "Non pertinente",
+      "relevanceOpen": "Pertinence sans réponse",
+      "relevanceOpenShort": "Pertinence ouverte",
       "photoCount": "{count, plural, one {# photo} other {# photos}}",
       "create": "Saisir le rapport de reconnaissance",
       "createTitle": "Saisir le rapport de reconnaissance",
@@ -3423,7 +3427,7 @@
       "amendTitle": "Compléter le rapport de reconnaissance",
       "close": "Fermer",
       "radioHint": "Saisis ici ce que le groupe annonce par radio. Sera noté comme saisie du PC.",
-      "draftHint": "Synchronisé au fur et à mesure. Compte comme transmis dès que l’intervention passe à « Reconnaissance terminée » – si elle y est déjà, dès que « Intervention pertinente ? » a une réponse.",
+      "draftHint": "Synchronisé au fur et à mesure. Transmis dès que « Intervention pertinente ? » a une réponse – comme un rapport de l’équipe, l’intervention passe alors à « Reconnaissance terminée ».",
       "amendHint": "Chaque modification est synchronisée immédiatement.",
       "submittedShort": "Transmis {time}",
       "updatedShort": "mis à jour {time}",
@@ -3434,6 +3438,7 @@
       "createShort": "saisir",
       "draftShort": "Brouillon – pas encore transmis",
       "continueShort": "continuer la saisie",
+      "ownDraftLabel": "Mon brouillon",
       "expand": "ouvrir",
       "collapse": "fermer"
     },

@@ -827,7 +827,7 @@ def stub_photo_pool(tmp_path, monkeypatch):
 @pytest.mark.asyncio
 @pytest.mark.api
 @pytest.mark.parametrize("is_relevant", [True, False])
-async def test_simulate_reko_attaches_wording_image_before_type_photo(
+async def test_simulate_reko_attaches_the_wording_image_alone(
     editor_client: AsyncClient,
     db_session: AsyncSession,
     training_event: Event,
@@ -837,7 +837,8 @@ async def test_simulate_reko_attaches_wording_image_before_type_photo(
     monkeypatch,
     is_relevant: bool,
 ):
-    """Only relevant Reko reports get an exact wording image and optional type photo."""
+    """Only relevant Reko reports get a photo: the exact wording image, alone – the type pool
+    (red fixture photos here) is only the fallback for a text without one (pass 5, S7)."""
     import json
     import re
 
@@ -867,14 +868,10 @@ async def test_simulate_reko_attaches_wording_image_before_type_photo(
     assert data["is_relevant"] is is_relevant
     if is_relevant:
         assert data["summary_text"] == summary
-        assert len(photos) == 2
-        pixels = []
-        for filename in photos:
-            assert re.match(r"^[0-9a-f-]{36}\.jpg$", filename)
-            with Image.open(stub_photo_pool / str(reko_incident.id) / filename) as image:
-                pixels.append(image.getpixel((0, 0)))
-        assert pixels[0][2] > 240  # blue wording illustration
-        assert pixels[1][0] > 190  # red fixture type photo
+        [filename] = photos
+        assert re.match(r"^[0-9a-f-]{36}\.jpg$", filename)
+        with Image.open(stub_photo_pool / str(reko_incident.id) / filename) as image:
+            assert image.getpixel((0, 0))[2] > 240  # the blue wording illustration, no red type photo
     else:
         assert photos == []
 

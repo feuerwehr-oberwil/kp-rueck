@@ -655,6 +655,86 @@ async def test_vehicle_statuses_list_every_einsatz_oldest_first(
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_vehicle_statuses_list_its_auftraege_before_its_einsaetze(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_vehicle: Vehicle,
+    test_event: "Event",
+    test_editor: User,
+):
+    """A vehicle that only drives an Auftrag is deployed too (Sol review S4).
+
+    The Auftrag comes first and opens its first stop with work ahead; a direct
+    assignment on a stop of that Auftrag is listed too (pass 2, S4).
+    """
+    from datetime import UTC, datetime, timedelta
+
+    from app.models import Incident, IncidentAssignment, IncidentGroup, IncidentGroupAssignment
+
+    now = datetime.now(UTC)
+    route = IncidentGroup(id=uuid4(), event_id=test_event.id, name="Nord", color="#336699")
+    db_session.add(route)
+    await db_session.flush()
+
+    def incident(title: str, status: str = "active", **extra) -> Incident:
+        row = Incident(
+            id=uuid4(),
+            event_id=test_event.id,
+            title=title,
+            type="brandbekaempfung",
+            priority="medium",
+            status=status,
+            created_by=test_editor.id,
+            **extra,
+        )
+        db_session.add(row)
+        return row
+
+    incident("Stopp 1", status="complete", group_id=route.id, group_position=0)
+    ahead = incident("Stopp 2", status="enroute", group_id=route.id, group_position=1)
+    lone = incident("Blumenweg 21")
+    await db_session.flush()
+    db_session.add_all(
+        [
+            IncidentGroupAssignment(
+                id=uuid4(),
+                incident_group_id=route.id,
+                resource_type="vehicle",
+                resource_id=test_vehicle.id,
+                assigned_at=now - timedelta(minutes=10),
+            ),
+            # An Einsatz-level row on its own route's stop, older than the route row.
+            IncidentAssignment(
+                id=uuid4(),
+                incident_id=ahead.id,
+                resource_type="vehicle",
+                resource_id=test_vehicle.id,
+                assigned_at=now - timedelta(minutes=50),
+            ),
+            IncidentAssignment(
+                id=uuid4(),
+                incident_id=lone.id,
+                resource_type="vehicle",
+                resource_id=test_vehicle.id,
+                assigned_at=now - timedelta(minutes=30),
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    deployments = (await _statuses(editor_client, test_event.id))[str(test_vehicle.id)]["deployments"]
+    assert [(d["kind"], d.get("name") or d["title"]) for d in deployments] == [
+        ("auftrag", "Nord"),
+        ("einsatz", "Stopp 2"),
+        ("einsatz", "Blumenweg 21"),
+    ]
+    assert deployments[0]["group_id"] == str(route.id)
+    assert deployments[0]["color"] == "#336699"
+    assert deployments[0]["incident_id"] == str(ahead.id)
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_vehicle_statuses_location_display(
     editor_client: AsyncClient,
     db_session: AsyncSession,

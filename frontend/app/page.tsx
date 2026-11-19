@@ -26,7 +26,7 @@ import { TrainingBand, TrainingBadge } from "@/components/training-mode-chrome"
 import { PageNavigation } from "@/components/page-navigation"
 import { toast } from "sonner"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { useOperations, type Operation, type Material, type OperationStatus, type RekoSummary } from "@/lib/contexts/operations-context"
+import { useOperations, type Material, type OperationStatus, type RekoSummary } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
 import { selectFiledRapports, selectOpenRapports } from "@/components/kanban/rapport-backlog-sheet"
@@ -36,7 +36,7 @@ import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient, type GroupResourceType } from "@/lib/api-client"
 import { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
-import { useRekoNotifications } from "@/lib/hooks/use-reko-notifications"
+import { useRekoNotifications, withRekoSummary } from "@/lib/hooks/use-reko-notifications"
 import { useStationCapabilities } from "@/lib/hooks/use-station-capabilities"
 import { useVehicleShortcuts } from "@/lib/contexts/operations/use-vehicle-shortcuts"
 import { useNotifications } from "@/lib/contexts/notification-context"
@@ -352,18 +352,9 @@ export default function FireStationDashboard() {
     }, 100)
   }, [])
 
-  // Update operation REKO summary when new report arrives
+  // A new or amended Reko summary – the summary only (`withRekoSummary`).
   const handleUpdateOperationReko = useCallback((incidentId: string, rekoSummary: RekoSummary) => {
-    setOperations(prev => prev.map(op => {
-      if (op.id !== incidentId) return op
-      const updates: Partial<Operation> = { hasCompletedReko: true, rekoSummary }
-      // Auto-transition reko → reko_done when reko form is submitted
-      if (op.status === "reko") {
-        updates.status = "reko_done"
-        updates.statusChangedAt = new Date()
-      }
-      return { ...op, ...updates }
-    }))
+    setOperations(prev => withRekoSummary(prev, incidentId, rekoSummary))
   }, [setOperations])
 
   // The header clock ticks inside <EventClock/> now; this is only the mount flag
@@ -919,7 +910,7 @@ export default function FireStationDashboard() {
 
   const boardAssignGroupResource = (groupId: string, resourceType: GroupResourceType, resourceId: string) => {
     if (resourceType === "vehicle") {
-      assignVehicleToGroupWithConflict(groupId, resourceId)
+      void assignVehicleToGroupWithConflict(groupId, resourceId)
       return
     }
     // Onto ANOTHER Auftrag: same question again, «bisher» being the route that

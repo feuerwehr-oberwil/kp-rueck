@@ -355,7 +355,7 @@ async def simulate_reko(
     update_data = RekoReportUpdate(**reko_data)
     updated = await reko_crud.update_reko_report(db, report.id, update_data, submit=True)
 
-    # Keep the wording illustration ahead of the optional type photo.
+    # The wording illustration alone, or a type photo when the text has none.
     photo_filenames = []
     if updated.is_relevant:
         photo_filenames = await attach_training_photos(

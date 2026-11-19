@@ -193,12 +193,25 @@ async def add_stops(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
 ) -> schemas.IncidentGroupResponse:
-    """Attach existing incidents to an Auftrag as stops (editor only)."""
+    """Attach existing incidents to an Auftrag as stops (editor only).
+
+    With ``via_vehicle_id`` the add is conditional (409 when an Einsatz is gone, closed or in
+    an Auftrag meanwhile, or the vehicle left this one) – the #23 question's answer.
+    """
     try:
-        attached = await crud.add_stops_to_group(db, group_id, body.incident_ids, current_user, request)
+        attached = await crud.add_stops_to_group(
+            db, group_id, body.incident_ids, current_user, request, via_vehicle_id=body.via_vehicle_id
+        )
     except ValueError as e:
         logger.warning("Add stops rejected for Auftrag %s: %s", group_id, e)
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except crud.StopsChangedError:
+        # Nothing was written; get_db rolls back. German like every API detail; the
+        # board says it in its own words.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Einsatz oder Auftrag wurde inzwischen geändert",
+        ) from None
 
     if attached is None:
         raise HTTPException(status_code=404, detail=ErrorMessages.AUFTRAG_NOT_FOUND)

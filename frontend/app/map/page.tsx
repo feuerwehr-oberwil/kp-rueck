@@ -1332,6 +1332,8 @@ export default function MapPage() {
                 })
           }
           confirmText={tKanban('dashboard.distributeConfirmAction')}
+          // No undo after it: Enter keeps to Abbrechen.
+          initialFocus="cancel"
           onConfirm={() => {
             if (planningAddConfirm && planningGroupId) {
               void addStops(planningGroupId, [planningAddConfirm.incidentId]).then((ok) => {

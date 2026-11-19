@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useRouter } from "next/navigation"
 import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
@@ -15,8 +15,6 @@ import { toast } from "sonner"
 import { useTranslations } from "next-intl"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { useOperations } from "@/lib/contexts/operations-context"
-import { useGroups } from "@/lib/contexts/groups-context"
-import { remainingRouteStops } from "@/lib/kanban-utils"
 import { RESOURCE_STATE_BADGE_CLASSES } from "@/lib/resource-status"
 import { formatDuration } from "@/lib/duration"
 import { useIsMobile } from "@/components/ui/use-mobile"
@@ -53,56 +51,41 @@ function getDurationColor(minutes: number | null): string {
   return "text-muted-foreground font-medium" // >= 2 hours
 }
 
-/** An Auftrag (route) a vehicle is out on — name plus the route's OWN colour,
- *  the same colour the board and the map identify that route by. `targetId` is
- *  the stop a click opens: the next one with work ahead, else the first. */
-interface VehicleAuftrag {
-  id: string
-  name: string
-  color: string | null
-  stopIds: readonly string[]
-  targetId: string | null
-}
-
 /** One place a vehicle serves, as a link in its row: an Auftrag or an Einsatz. */
 type DeploymentTarget =
-  | { kind: "auftrag"; key: string; incidentId: string | null; label: string; auftrag: VehicleAuftrag }
+  | { kind: "auftrag"; key: string; incidentId: string | null; label: string; color: string | null }
   | { kind: "einsatz"; key: string; incidentId: string; label: string; status: string }
 
 /**
- * Everything a vehicle serves, Aufträge first (board order), then its Einsätze
- * oldest first. An Einsatz that is a stop of one of the vehicle's own Aufträge is
- * left out – the Auftrag already stands for it.
+ * Everything a vehicle serves, in the server's order (`GET /api/vehicles/status`: its
+ * Aufträge, then every Einsatz it is assigned to directly, each oldest first).
  */
 function deploymentTargets(
   vehicle: ApiVehicleStatus,
-  auftraege: readonly VehicleAuftrag[],
   auftragLabel: (name: string) => string,
 ): DeploymentTarget[] {
   const homeCity = getGlobalHomeCity()
-  const routeStops = new Set(auftraege.flatMap((auftrag) => auftrag.stopIds))
-  return [
-    ...auftraege.map((auftrag): DeploymentTarget => ({
-      kind: "auftrag", key: auftrag.id, incidentId: auftrag.targetId,
-      label: auftragLabel(auftrag.name), auftrag,
-    })),
-    ...vehicle.deployments
-      .filter((deployment) => !routeStops.has(deployment.incident_id))
-      .map((deployment): DeploymentTarget => ({
-        kind: "einsatz", key: deployment.incident_id, incidentId: deployment.incident_id, status: deployment.status,
-        // The server ships the label computed (`location_display`), so it is final on
-        // first paint; the client formatter is only the fallback.
-        label: deployment.location_display
-          ?? (formatLocationForDisplay(deployment.location_address || '', homeCity)
-            || formatLocationForDisplay(deployment.title, homeCity)),
-      })),
-  ]
+  return vehicle.deployments.map((deployment): DeploymentTarget =>
+    deployment.kind === "auftrag"
+      ? {
+          kind: "auftrag", key: deployment.group_id, incidentId: deployment.incident_id,
+          label: auftragLabel(deployment.name), color: deployment.color,
+        }
+      : {
+          kind: "einsatz", key: deployment.incident_id, incidentId: deployment.incident_id, status: deployment.status,
+          // The server ships the label computed (`location_display`), so it is final on
+          // first paint; the client formatter is only the fallback.
+          label: deployment.location_display
+            ?? (formatLocationForDisplay(deployment.location_address || '', homeCity)
+              || formatLocationForDisplay(deployment.title, homeCity)),
+        },
+  )
 }
 
 /** «Auftrag «Sturm West»» with the route's colour as a dot — so a vehicle's
  *  route is identifiable at a glance. Neutral text, as on the board card: a
  *  route colour painted as text fell to 2.3:1 in light (sweep 2026-10). */
-function AuftragChip({ auftrag, label }: { auftrag: VehicleAuftrag; label: string }) {
+function AuftragChip({ color, label }: { color: string | null; label: string }) {
   return (
     <span
       className="inline-flex min-w-0 items-center gap-1 rounded-sm border border-border bg-muted/60 px-1.5 py-0.5 text-sm font-medium text-foreground"
@@ -111,7 +94,7 @@ function AuftragChip({ auftrag, label }: { auftrag: VehicleAuftrag; label: strin
       <Waypoints className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
       <span
         className="h-2 w-2 flex-shrink-0 rounded-full"
-        style={{ backgroundColor: auftrag.color ?? "var(--muted-foreground)" }}
+        style={{ backgroundColor: color ?? "var(--muted-foreground)" }}
       />
       <span className="truncate">{label}</span>
     </span>
@@ -156,7 +139,7 @@ function DeploymentLinks({ targets, idleLabel, statusLabel, onOpen }: {
             className="flex min-w-0 max-w-full items-center gap-1.5 rounded-sm text-left text-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:no-underline"
           >
             {target.kind === "auftrag" ? (
-              <AuftragChip auftrag={target.auftrag} label={target.label} />
+              <AuftragChip color={target.color} label={target.label} />
             ) : (
               <>
                 <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
@@ -193,25 +176,6 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
   const router = useRouter()
   const isMobile = useIsMobile()
   const { personnel, operations, removeCrew } = useOperations()
-  const { groups } = useGroups()
-  // A vehicle can be deployed to a whole Auftrag (route) rather than a single
-  // incident. Resolve vehicle-id → its Auftrag from the route assignments so the
-  // deployment reads as the route name instead of one stop's address. The colour
-  // travels with the name: it is what the board tints the route's cards with.
-  // A vehicle can serve several Aufträge at once, so this is a list per vehicle.
-  const auftraegeByVehicleId = useMemo(() => {
-    const map = new Map<string, VehicleAuftrag[]>()
-    for (const g of groups) {
-      const targetId = remainingRouteStops(g, operations, "")[0]?.id ?? g.stopIds[0] ?? null
-      for (const a of g.assignments) {
-        if (a.resourceType !== "vehicle") continue
-        const list = map.get(a.resourceId) ?? []
-        list.push({ id: g.id, name: g.name, color: g.color, stopIds: g.stopIds, targetId })
-        map.set(a.resourceId, list)
-      }
-    }
-    return map
-  }, [groups, operations])
   const [snapshot, setSnapshot] = useState<FleetSnapshot | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [selectedVehicleIndex, setSelectedVehicleIndex] = useState<number>(-1)
@@ -296,12 +260,12 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
   const displayedVehicles = vehicles
   const targetsOf = (vehicle: ApiVehicleStatus) => deploymentTargets(
     vehicle,
-    auftraegeByVehicleId.get(vehicle.id) ?? [],
     (name) => t('vehicleStatus.auftragLabel', { name }),
   )
 
   // Handle keyboard navigation. An effect event: one listener for the mount, and a key
   // always sees the current list, selection and handlers.
+  const fleetListRef = useRef<HTMLDivElement>(null)
   const onKeyDown = useEffectEvent((e: KeyboardEvent) => {
     if (!open) return
 
@@ -309,22 +273,31 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
       return
     }
+    // The row keys belong to this sheet: not while a dialog in front of it (the driver
+    // picker) has the focus. A focused control anywhere in the sheet – a deployment link,
+    // the driver button, «Aktualisieren», the phone's ✕ – answers its own Enter, and so does
+    // a row that opens its one place itself (its handler prevents the default). The arrows
+    // move the focus onto the row they pick, so Enter after them lands there (Sol S12).
+    const target = e.target instanceof Element ? e.target : null
+    const sheet = fleetListRef.current?.closest('[role="dialog"]')
+    if (target && target !== document.body && sheet && !sheet.contains(target)) return
+    if (e.key === "Enter" && (e.defaultPrevented || target?.closest('button, a[href], [role="button"]'))) return
 
-    if (e.key === "ArrowDown") {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault()
-      setSelectedVehicleIndex(prev =>
-        prev < displayedVehicles.length - 1 ? prev + 1 : 0
-      )
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault()
-      setSelectedVehicleIndex(prev =>
-        prev > 0 ? prev - 1 : displayedVehicles.length - 1
-      )
+      const count = displayedVehicles.length
+      if (count === 0) return
+      const next = e.key === "ArrowDown"
+        ? (selectedVehicleIndex < count - 1 ? selectedVehicleIndex + 1 : 0)
+        : (selectedVehicleIndex > 0 ? selectedVehicleIndex - 1 : count - 1)
+      setSelectedVehicleIndex(next)
+      fleetListRef.current?.querySelector<HTMLElement>(`[data-fleet-row="${next}"]`)?.focus()
     } else if (e.key === "Enter" && selectedVehicleIndex >= 0) {
       e.preventDefault()
       const vehicle = displayedVehicles[selectedVehicleIndex]
-      // Several places: Enter opens the first one; the others are their own links.
-      const first = vehicle ? targetsOf(vehicle)[0] : undefined
+      // Several places: Enter opens the first one that has a card to open (an Auftrag
+      // without stops has none); the others are their own links.
+      const first = vehicle ? targetsOf(vehicle).find((target) => target.incidentId) : undefined
       if (first?.incidentId) openIncident(first.incidentId)
     }
   })
@@ -389,7 +362,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
               <p className="text-muted-foreground">{t('vehicleStatus.noVehicles')}</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div ref={fleetListRef} className="space-y-2">
               {displayedVehicles.map((vehicle, index) => {
                 const isSelected = index === selectedVehicleIndex
                 const targets = targetsOf(vehicle)
@@ -400,7 +373,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                 // Out on an Einsatz OR on an Auftrag: either way not «Verfügbar».
                 const isBound = targets.length > 0
                 // The clock and «Lange» follow the oldest Einsatz.
-                const durationMinutes = vehicle.deployments[0]?.duration_minutes ?? null
+                const durationMinutes = vehicle.deployments.find((deployment) => deployment.kind === "einsatz")?.duration_minutes ?? null
                 const showDurationWarning = durationMinutes !== null && durationMinutes >= 120
                 // A single Einsatz names its column; anything more is «Gebunden».
                 const singleStatus = targets.length === 1 && einsaetze.length === 1 ? einsaetze[0].status : null
@@ -447,6 +420,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                 return (
                   <div
                     key={vehicle.id}
+                    data-fleet-row={index}
                     onClick={() => rowTarget && openIncident(rowTarget)}
                     className={cn(
                       "border rounded-lg px-3 py-2.5 bg-card transition-all",
