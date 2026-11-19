@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { useIsMobile } from "@/components/ui/use-mobile"
+import { SurfaceStep, SurfaceStepEscHint, useOpeningSurface } from "@/components/ui/surface-step"
 import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -156,6 +157,8 @@ export function ResourceAssignmentDialog({
   const compactFilters = useCompactFilters()
   // Below 768px the dialog is a bottom sheet (see PHONE below).
   const isMobile = useIsMobile()
+  // The Einsatz-Detail (an L window) this dialog was opened from, if any – then it is a step there.
+  const stepHost = useOpeningSurface(open, { wideOnly: true })
   const searchRef = useRef<HTMLInputElement>(null)
   const { materialGroups } = useMaterials()
   const { operations, requestResourceConflict, removeCrew, removeMaterial, outOfServiceVehicleIds } = useOperations()
@@ -1543,9 +1546,35 @@ export function ResourceAssignmentDialog({
     </Dialog>
   )
 
+  // Opened from the Einsatz-Detail (an L window): a step of that window – the place first in
+  // the breadcrumb, «← Zurück», Esc back – not a second L window on top (owner pick «Schritt
+  // im Detail», 19.11.2026). It is a surface itself, so the Fahrer picker of a vehicle assigned
+  // here becomes the next step. From the board it is its own L window (`dialog`).
+  const step = stepHost && open && (
+    <SurfaceStep
+      host={stepHost}
+      title={getDialogTitle()}
+      description={getDialogDescription()}
+      onBack={() => onOpenChange(false)}
+      surface={getDialogTitle()}
+      testId="assignment-step"
+    >
+      <div className="flex min-h-0 flex-1 flex-col gap-4 px-5 pb-4">
+        {filterControls}
+        <ScrollArea className="flex-1 min-h-0 pr-2" fadeEnd>
+          {resourceList}
+        </ScrollArea>
+        <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+          <SurfaceStepEscHint host={stepHost} />
+          {footerButtons}
+        </div>
+      </div>
+    </SurfaceStep>
+  )
+
   return (
     <>
-    {isMobile ? sheet : dialog}
+    {isMobile ? sheet : stepHost ? step : dialog}
 
     {/* Double-booking guard: assigning a driver/reko/magazin to crew asks first. */}
     <ConfirmDialog

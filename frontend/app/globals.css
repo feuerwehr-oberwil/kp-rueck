@@ -1524,7 +1524,7 @@ html:not(:has([data-page-zoom])) {
 [data-surface-step]:empty {
   display: none;
 }
-:is([data-slot='dialog-content'], [data-slot='sheet-content']):has(> [data-surface-step]:not(:empty))
+:is([data-slot='dialog-content'], [data-slot='sheet-content'], [data-surface-frame]):has(> [data-surface-step]:not(:empty))
   > :not([data-surface-step]) {
   opacity: 0;
 }

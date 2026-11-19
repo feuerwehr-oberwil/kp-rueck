@@ -98,7 +98,7 @@ function DialogContent({
   size?: DialogSize
   surface?: string
 }) {
-  const step = useSurfaceStepHost(surface)
+  const step = useSurfaceStepHost(surface, { wide: size === 'lg' })
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay className={overlayClassName} />

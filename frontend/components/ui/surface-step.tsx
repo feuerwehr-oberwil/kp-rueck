@@ -1,6 +1,6 @@
 'use client'
 
-import { useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { Fragment, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, ChevronRight } from 'lucide-react'
@@ -32,8 +32,14 @@ import { useIsMobile } from '@/components/ui/use-mobile'
  */
 export interface SurfaceHost {
   readonly slot: HTMLElement
-  /** The surface's name – the first crumb of the breadcrumb. */
+  /** The surface's name – what «Esc zurück zu …» names. */
   readonly name: string
+  /** The breadcrumb up to and including this surface: the window's name, then the name of
+   *  every step that is a surface itself («Bottmingerstrasse 75 › Fahrzeuge zuweisen»). */
+  readonly trail: readonly string[]
+  /** An L window (or a step inside one): only there does a work surface of its own – the
+   *  assignment dialog – open as a step instead of its own L window. */
+  readonly wide: boolean
 }
 
 let hosts: readonly SurfaceHost[] = []
@@ -54,26 +60,37 @@ const setHosts = (next: readonly SurfaceHost[]) => {
 /**
  * The host half, for the `DialogContent` / `SheetContent` primitives: the slot to render as the
  * content's LAST child, and the Esc / outside-click guards to compose into the content's own.
- * `name` undefined = not a surface (no slot, guards pass through).
+ * `name` undefined = not a surface (no slot, guards pass through). `parent` = the surface this
+ * one is a step of (a step that is a surface itself, `SurfaceStep surface`); `wide` = an L window.
  */
-export function useSurfaceStepHost(name: string | undefined) {
+export function useSurfaceStepHost(name: string | undefined, { parent, wide = false }: { parent?: SurfaceHost; wide?: boolean } = {}) {
   const [slot, setSlot] = useState<HTMLElement | null>(null)
-
   useLayoutEffect(() => {
     if (!slot || !name) return
-    const host: SurfaceHost = { slot, name }
+    const host: SurfaceHost = {
+      slot,
+      name,
+      trail: parent ? [...parent.trail, name] : [name],
+      wide: parent ? parent.wide : wide,
+    }
     setHosts([...hosts, host])
     return () => setHosts(hosts.filter((h) => h !== host))
-  }, [slot, name])
+  }, [slot, name, parent, wide])
+
+  /** Ends the step open in this surface, if there is one. */
+  const back = () => {
+    const end = slot ? stepBacks.get(slot) : undefined
+    end?.()
+    return Boolean(end)
+  }
 
   return {
     slot: name ? <div ref={setSlot} data-surface-step="" className={SLOT_CLASS} /> : null,
+    back,
     /** Esc while a step is open goes back to the surface instead of closing it. */
     onEscapeKeyDown: (event: KeyboardEvent) => {
-      const back = slot ? stepBacks.get(slot) : undefined
-      if (!back) return false
+      if (!back()) return false
       event.preventDefault()
-      back()
       return true
     },
     /** A click beside the window while a step is open closes nothing: the step is answered
@@ -91,11 +108,31 @@ export function surfaceShowsStep(content: Element): boolean {
 // Lies over the surface's (hidden) children; the empty slot is `display: none` (globals.css).
 const SLOT_CLASS = 'absolute inset-0 z-raised flex flex-col overflow-hidden rounded-[inherit] bg-background'
 
-/** The surface a step-capable window opens into right now, or null (no surface, or a phone). */
-export function useOpenSurface(): SurfaceHost | null {
+/** The surface a step-capable window opens into right now, or null (no surface, or a phone).
+ *  `wideOnly`: only an L window counts – for a work surface that would be cramped in a sheet. */
+export function useOpenSurface({ wideOnly = false }: { wideOnly?: boolean } = {}): SurfaceHost | null {
   const isMobile = useIsMobile()
   const host = useSyncExternalStore(subscribe, topHost, () => null)
-  return isMobile ? null : host
+  if (isMobile || (wideOnly && !host?.wide)) return null
+  return host
+}
+
+const NO_HOSTS: readonly SurfaceHost[] = []
+
+/**
+ * `useOpenSurface` for a window that is a surface ITSELF (the assignment dialog): the surface it
+ * opened into is read on the render that opens it and held while it stays open – once its own
+ * L window is up, that window would otherwise be «the open surface». Null again if that surface
+ * closes meanwhile, so the window falls back to being its own.
+ */
+export function useOpeningSurface(open: boolean, options?: { wideOnly?: boolean }): SurfaceHost | null {
+  const current = useOpenSurface(options)
+  const registered = useSyncExternalStore(subscribe, () => hosts, () => NO_HOSTS)
+  const [latch, setLatch] = useState<{ open: boolean; host: SurfaceHost | null }>({ open: false, host: null })
+  const opening = latch.open !== open
+  if (opening) setLatch({ open, host: open ? current : null })
+  const host = opening ? (open ? current : null) : latch.host
+  return host && registered.includes(host) ? host : null
 }
 
 /**
@@ -104,6 +141,10 @@ export function useOpenSurface(): SurfaceHost | null {
  * fills the surface). `onBack` is Zurück and Esc; the caller's Abbrechen calls the same.
  * Focus moves into the step (an `autoFocus` field inside wins, else Zurück) and back to where
  * it was on the surface when the step ends.
+ *
+ * `surface` makes the step a surface itself (the assignment step inside the Einsatz-Detail): a
+ * picker opened from it becomes its step in turn, with the whole trail in the breadcrumb, and
+ * Esc ends the innermost step first.
  */
 export function SurfaceStep({
   host,
@@ -112,6 +153,7 @@ export function SurfaceStep({
   onBack,
   children,
   testId,
+  surface,
 }: {
   host: SurfaceHost
   title: ReactNode
@@ -119,6 +161,7 @@ export function SurfaceStep({
   onBack: () => void
   children: ReactNode
   testId?: string
+  surface?: string
 }) {
   const t = useTranslations('common.surfaceStep')
   const frameRef = useRef<HTMLDivElement>(null)
@@ -128,10 +171,16 @@ export function SurfaceStep({
   // The surface's control that opened the step, read on the first render: by the layout
   // effect an `autoFocus` field inside the step has already taken the focus.
   const [returnTo] = useState(() => (document.activeElement instanceof HTMLElement ? document.activeElement : null))
+  const inner = useSurfaceStepHost(surface, { parent: host })
+  const innerBackRef = useRef(inner.back)
+  innerBackRef.current = inner.back
 
   useLayoutEffect(() => {
     const { slot } = host
-    stepBacks.set(slot, () => onBackRef.current())
+    // The innermost step goes first: Esc on the window walks the trail back one crumb.
+    stepBacks.set(slot, () => {
+      if (!innerBackRef.current()) onBackRef.current()
+    })
     // The surface's own children leave the Tab order and the accessibility tree meanwhile.
     const under = [...(slot.parentElement?.children ?? [])].filter(
       (el): el is HTMLElement => el !== slot && el instanceof HTMLElement && !el.inert,
@@ -155,12 +204,22 @@ export function SurfaceStep({
   const fullDescription = typeof description === 'string' ? description : undefined
 
   return createPortal(
-    <section ref={frameRef} data-testid={testId} aria-label={typeof title === 'string' ? title : undefined} className="flex min-h-0 flex-1 flex-col">
+    <section
+      ref={frameRef}
+      data-testid={testId}
+      data-surface-frame=""
+      aria-label={typeof title === 'string' ? title : undefined}
+      className="relative flex min-h-0 flex-1 flex-col"
+    >
       <header className="shrink-0 px-5 pt-4 pb-3">
         <p className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-          <span className="truncate" title={host.name}>{host.name}</span>
-          <ChevronRight className="size-3.5 shrink-0" aria-hidden />
-          <span className="truncate text-foreground">{title}</span>
+          {host.trail.map((crumb, i) => (
+            <Fragment key={i}>
+              <span className="min-w-0 truncate" title={crumb}>{crumb}</span>
+              <ChevronRight className="size-3.5 shrink-0" aria-hidden />
+            </Fragment>
+          ))}
+          <span className="min-w-0 truncate text-foreground">{title}</span>
         </p>
         <div className="mt-2 flex min-w-0 items-center gap-2">
           <Button ref={backRef} type="button" variant="outline" size="sm" onClick={() => onBackRef.current()} aria-keyshortcuts="Escape">
@@ -174,6 +233,7 @@ export function SurfaceStep({
         )}
       </header>
       {children}
+      {inner.slot}
     </section>,
     host.slot,
   )
