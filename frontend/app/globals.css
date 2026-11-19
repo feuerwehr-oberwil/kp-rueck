@@ -59,6 +59,10 @@
      `PANEL_MOTION_MS` in components/ui/slide-rail.tsx mirrors the duration. */
   --motion-panel: 110ms;
   --ease-panel: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* ONE width for the map's text chrome on the right (feedback 19.11.2026): the weather
+     warning pill grows up to it, the open legend is it – so the legend is never narrower
+     than the pill above it. */
+  --map-chrome-w: min(20rem, calc(100vw - 6rem));
 
   /* Semantic feedback colours. Each has a FILL tone (`bg-*`, `border-*`, edges,
      washes) and a TEXT tone (`text-*`, wired through `--text-color-*` in @theme
