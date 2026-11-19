@@ -15,7 +15,8 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Event, Incident, Notification, RekoReport, User
+from app.models import Event, Incident, Notification, Personnel, RekoReport, User
+from app.services.tokens import generate_form_token
 
 
 async def _incident(db: AsyncSession, event: Event, user: User, status: str = "reko") -> UUID:
@@ -119,3 +120,49 @@ async def test_without_the_answer_a_draft_stays_a_draft_whatever_the_status(
     [report] = await _reports(db_session, incident_id)
     assert report.is_draft is True
     assert await _reko_bells(db_session, incident_id) == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_filing_stamps_the_submission_time_so_the_newer_report_leads(
+    editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_editor: User
+):
+    """Pass 5 S2: a KP draft opened before the crew filed, answered after – it is the newest."""
+    from datetime import UTC, datetime, timedelta
+
+    incident_id = await _incident(db_session, test_event, test_editor)
+    now = datetime.now(UTC)
+    person = Personnel(id=uuid4(), name="Muster Hans", role="Feuerwehrmann", status="available")
+    kp_draft = RekoReport(
+        id=uuid4(),
+        incident_id=incident_id,
+        token=generate_form_token(str(incident_id), "reko"),
+        is_draft=True,
+        created_by_user_id=test_editor.id,
+        summary_text="KP: Keller 20 cm",
+        submitted_at=now - timedelta(minutes=10),
+    )
+    crew = RekoReport(
+        incident_id=incident_id,
+        token=generate_form_token(str(incident_id), "reko"),
+        is_draft=False,
+        submitted_by_personnel_id=person.id,
+        is_relevant=False,
+        summary_text="Trupp: nichts",
+        submitted_at=now - timedelta(minutes=5),
+    )
+    db_session.add(person)
+    await db_session.flush()
+    db_session.add_all([kp_draft, crew])
+    await db_session.commit()
+
+    filed = await editor_client.patch(f"/api/reko/{kp_draft.id}?submit=false", json={"is_relevant": True})
+    assert filed.json()["is_draft"] is False
+    amended = await editor_client.patch(f"/api/reko/{kp_draft.id}?submit=false", json={"additional_notes": "Nachtrag"})
+
+    listed = (await editor_client.get(f"/api/reko/incident/{incident_id}/reports")).json()
+    assert next(r["summary_text"] for r in listed if not r["is_draft"]) == "KP: Keller 20 cm"
+    summaries = (await editor_client.get(f"/api/reko/event/{test_event.id}/summaries")).json()["summaries"]
+    assert summaries[str(incident_id)]["summary_text"] == "KP: Keller 20 cm"
+    # An amendment keeps the submission time.
+    assert amended.json()["submitted_at"] == filed.json()["submitted_at"]

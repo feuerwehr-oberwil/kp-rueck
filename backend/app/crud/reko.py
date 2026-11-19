@@ -250,14 +250,19 @@ async def update_reko_report(
             value = {**(getattr(report, field) or {}), **value}
         setattr(report, field, value)
 
-    # Mark as submitted if requested
-    if submit:
+    now = datetime.now(UTC)
+    # Mark as submitted if requested. The draft → filed step is the report's submission time:
+    # the row was created when the form opened, and a report filed after another must sort
+    # after it – the card, the list and «ergänzen» take the newest (Sol review pass 5, S2).
+    # An amendment of a filed report keeps it.
+    if submit and report.is_draft:
         report.is_draft = False
+        report.submitted_at = now
 
     if user is not None:
         report.updated_by_user_id = user.id
 
-    report.updated_at = datetime.now(UTC)
+    report.updated_at = now
 
     await db.flush()
     await db.refresh(report)
