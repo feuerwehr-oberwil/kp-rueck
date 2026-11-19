@@ -233,7 +233,7 @@ export function useIncidentStatusWorkflow({
     const route = auftrag ? getGroupResources(auftrag.id) : null
     return {
       crewCount: operation.crew.length + (route?.personnel.length ?? 0),
-      vehicleNames: [...operation.vehicles, ...(route?.vehicles.map((vehicle) => vehicle.name) ?? [])],
+      vehicleNames: [...operation.vehicles, ...(route?.vehicles ?? [])].map((vehicle) => vehicle.name),
       materialCount: operation.materials.length + (route?.materials.length ?? 0),
     }
   }, [getGroupResources, groups])

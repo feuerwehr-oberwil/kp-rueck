@@ -45,6 +45,35 @@ export interface ApiVehicleUpdate {
   out_of_service?: boolean
 }
 
+/** One Einsatz a vehicle serves right now (`GET /api/vehicles/status`). */
+export interface ApiVehicleDeployment {
+  incident_id: string
+  title: string
+  location_address: string | null
+  /** Server-computed short label (home city stripped, falls back to the title). */
+  location_display: string | null
+  status: string
+  assigned_at: string
+  duration_minutes: number
+}
+
+/** A fleet vehicle with its driver and every active Einsatz in one event.
+ *  Its Aufträge are not in here – the board reads them from the groups. */
+export interface ApiVehicleStatus {
+  id: string
+  name: string
+  type: string
+  status: string
+  out_of_service: boolean
+  out_of_service_since: string | null
+  radio_call_sign: string
+  driver_id: string | null
+  driver_name: string | null
+  driver_assigned_at: string | null
+  /** Oldest assignment first; empty when the vehicle is on no Einsatz. */
+  deployments: ApiVehicleDeployment[]
+}
+
 export interface ApiAssignedVehicle {
   assignment_id: string // UUID
   vehicle_id: string

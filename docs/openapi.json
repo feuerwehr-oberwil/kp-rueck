@@ -11016,6 +11016,88 @@
         }
       }
     },
+    "/api/vehicles/status": {
+      "get": {
+        "tags": [
+          "vehicles"
+        ],
+        "summary": "List Vehicle Statuses",
+        "description": "Every fleet vehicle with its driver and active Einsätze in one event.\n\nThe footer «Fahrzeuge» sheet reads this – one request for the whole fleet,\nthree queries whatever its size. Archived vehicles are left out, as on the\nboard. Order: `display_order`, then name; each vehicle's `deployments` are\noldest assignment first.",
+        "operationId": "list_vehicle_statuses_api_vehicles_status_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Event whose drivers and Einsätze are read",
+              "title": "Event Id"
+            },
+            "description": "Event whose drivers and Einsätze are read"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VehicleStatusResponse"
+                  },
+                  "title": "Response List Vehicle Statuses Api Vehicles Status Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/vehicles/{vehicle_id}": {
       "get": {
         "tags": [
@@ -11390,94 +11472,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Vehicle"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/vehicles/{vehicle_id}/status": {
-      "get": {
-        "tags": [
-          "vehicles"
-        ],
-        "summary": "Get Vehicle Status",
-        "description": "Get vehicle status including driver assignment and current incident.\n\nReturns detailed status for a vehicle within the context of an event:\n- Basic vehicle info (name, type, status)\n- Driver assignment (if any) for this event\n- Current incident assignment (if any)\n- Duration of assignment",
-        "operationId": "get_vehicle_status_api_vehicles__vehicle_id__status_get",
-        "parameters": [
-          {
-            "name": "vehicle_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Vehicle Id"
-            }
-          },
-          {
-            "name": "event_id",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "description": "Event ID to check driver and incident assignment",
-              "title": "Event Id"
-            },
-            "description": "Event ID to check driver and incident assignment"
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/VehicleStatusResponse"
                 }
               }
             }
@@ -33399,6 +33393,64 @@
         "title": "VehicleCreate",
         "description": "Schema for creating vehicle."
       },
+      "VehicleDeployment": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "location_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Display"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "assigned_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Assigned At"
+          },
+          "duration_minutes": {
+            "type": "integer",
+            "title": "Duration Minutes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "title",
+          "status",
+          "assigned_at",
+          "duration_minutes"
+        ],
+        "title": "VehicleDeployment",
+        "description": "One Einsatz a vehicle is on right now (an active incident assignment)."
+      },
       "VehiclePositionResponse": {
         "properties": {
           "device_id": {
@@ -33552,84 +33604,13 @@
             ],
             "title": "Driver Assigned At"
           },
-          "incident_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Incident Id"
-          },
-          "incident_title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Incident Title"
-          },
-          "incident_location_address": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Incident Location Address"
-          },
-          "incident_location_display": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Incident Location Display"
-          },
-          "incident_status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Incident Status"
-          },
-          "incident_assigned_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Incident Assigned At"
-          },
-          "assignment_duration_minutes": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Assignment Duration Minutes"
+          "deployments": {
+            "items": {
+              "$ref": "#/components/schemas/VehicleDeployment"
+            },
+            "type": "array",
+            "title": "Deployments",
+            "default": []
           }
         },
         "type": "object",
@@ -33641,7 +33622,7 @@
           "radio_call_sign"
         ],
         "title": "VehicleStatusResponse",
-        "description": "Vehicle status with driver and incident information.\n\nAnswers all three states for one vehicle in one call: `out_of_service` wins,\nthen `incident_id` (Im Einsatz), else Verfügbar."
+        "description": "Vehicle status with driver and every Einsatz it serves, for one event.\n\nAnswers all three states for one vehicle: `out_of_service` wins, then a\nnon-empty `deployments` (Im Einsatz), else Verfügbar. A vehicle can serve\nseveral Einsätze at once; `deployments` is oldest assignment first. Its\nAufträge are not here – the board reads them from the groups it already has."
       },
       "VehicleTrailResponse": {
         "properties": {

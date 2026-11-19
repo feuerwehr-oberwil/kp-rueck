@@ -334,7 +334,7 @@ export function EventSetupChecklist({
                 }}
                 aria-pressed={isCompleted}
                 // Wraps: where title and buttons do not fit side by side (a narrow window,
-                // «Standby-WhatsApp senden» beside two buttons) the buttons go under the
+                // «Standby-Nachricht senden» beside two buttons) the buttons go under the
                 // title instead of the title ending in «sen…».
                 className={cn(
                   'flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors',

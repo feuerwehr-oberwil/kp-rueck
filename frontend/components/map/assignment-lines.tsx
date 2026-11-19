@@ -45,9 +45,9 @@ const LINE_WIDTH_PX = 2.5
 
 // `line-dasharray` counts in LINE WIDTHS, not pixels – Leaflet's `dashArray: "8, 12"` on a
 // 2.5px stroke is this. Change the width and both have to be recomputed.
-const ANT_DASH = 8 / LINE_WIDTH_PX
-const ANT_GAP = 12 / LINE_WIDTH_PX
-const ANT_PERIOD = ANT_DASH + ANT_GAP
+export const ANT_DASH = 8 / LINE_WIDTH_PX
+export const ANT_GAP = 12 / LINE_WIDTH_PX
+export const ANT_PERIOD = ANT_DASH + ANT_GAP
 
 // Leaflet marched the pattern exactly one period per second (`stroke-dashoffset: -20` on a
 // 20px period). MapLibre cannot interpolate a dash phase, so it is stepped – ten stops per
@@ -56,15 +56,18 @@ const ANT_STEPS = 10
 const ANT_CYCLE_MS = 1000
 
 /**
- * The dash pattern of `[ANT_DASH, ANT_GAP]` shifted `phase` units along the line.
+ * The dash pattern of `[ANT_DASH, ANT_GAP]` shifted `phase` units FORWARD along the line – from
+ * its first coordinate (the vehicle) towards its last (where it drives), so a growing phase
+ * marches the ants vehicle → target. (It used to shift backwards: they walked to the vehicle.)
  *
- * Four entries, always summing to one period, so the pattern's scale never changes as it walks:
- * inside a dash the remainder is split off to the front and the consumed part trails with a
- * zero-length gap; inside a gap the array opens with a zero-length dash instead.
+ * Four entries, always summing to one period, so the pattern's scale never changes as it walks.
+ * Built as the backward shift by `period - phase`: inside a dash the remainder is split off to
+ * the front and the consumed part trails with a zero-length gap; inside a gap the array opens
+ * with a zero-length dash instead.
  */
-function dashAtPhase(phase: number): number[] {
-  const p = phase % ANT_PERIOD
-  return p < ANT_DASH ? [ANT_DASH - p, ANT_GAP, p, 0] : [0, ANT_PERIOD - p, ANT_DASH, p - ANT_DASH]
+export function dashAtPhase(phase: number): number[] {
+  const back = (ANT_PERIOD - (phase % ANT_PERIOD)) % ANT_PERIOD
+  return back < ANT_DASH ? [ANT_DASH - back, ANT_GAP, back, 0] : [0, ANT_PERIOD - back, ANT_DASH, back - ANT_DASH]
 }
 
 // Static on purpose: react-map-gl skips the whole paint diff while the object identity holds, so

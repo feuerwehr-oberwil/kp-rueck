@@ -129,6 +129,18 @@ describe("shared incident detail status workflow", () => {
     expect(seeing.result.current.getMissingResources(stop)).toEqual([])
   })
 
+  it("names the Einsatz's and the Auftrag's vehicles in the resource coverage", () => {
+    // The «Ressourcen fehlen» Fahrzeuge row once read «[object Object], TLF».
+    const stop = operation({ id: "incident-1", vehicles: [assignedVehicle("Pio")] })
+    const route: GroupResources = {
+      ...emptyGroupResources,
+      vehicles: [{ assignmentId: "a2", resourceId: "v1", name: "TLF" }],
+    }
+    const { result } = renderWorkflow(stop, route, [{ id: "g1", stopIds: ["incident-1"] }])
+
+    expect(result.current.getResourceCoverage(stop).vehicleNames).toEqual(["Pio", "TLF"])
+  })
+
   it("gates enroute requests on missing resources before opening Disponiert", () => {
     const { result, changeStatusToTop } = renderWorkflow(operation())
 

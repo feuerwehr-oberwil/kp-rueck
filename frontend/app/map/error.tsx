@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { reportClientError } from '@/lib/report-error'
 
+/** The Lagekarte's route error boundary: says what broke, reports it, offers a retry. */
 export default function MapError({
   error,
   reset,
@@ -38,12 +39,13 @@ export default function MapError({
           </p>
         </div>
 
-        {process.env.NODE_ENV === 'development' && (
-          <div className="rounded-lg bg-muted p-4 text-left">
-            <p className="text-sm font-mono text-muted-foreground break-all">
-              {error.message}
-            </p>
-          </div>
+        {/* The reason, in production too: a screenshot of this screen is what reaches us,
+            and without the message the next one is not diagnosable. */}
+        {(error.message || error.digest) && (
+          <p className="font-mono text-xs text-muted-foreground break-words">
+            {error.message}
+            {error.digest ? ` · ${error.digest}` : ''}
+          </p>
         )}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">

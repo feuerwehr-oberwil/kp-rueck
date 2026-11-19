@@ -22,12 +22,55 @@ import {
 
 /** Whether the open Sheet is modal – SheetContent picks its motion by it (see there). */
 const SheetModalContext = React.createContext(true)
+/** The Sheet's `open` prop – the non-modal backdrop fades by it (an uncontrolled Sheet: open). */
+const SheetOpenContext = React.createContext(true)
 
 function Sheet({ modal = true, ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return (
     <SheetModalContext.Provider value={modal}>
-      <SheetPrimitive.Root data-slot="sheet" modal={modal} {...props} />
+      <SheetOpenContext.Provider value={props.open ?? true}>
+        <SheetPrimitive.Root data-slot="sheet" modal={modal} {...props} />
+      </SheetOpenContext.Provider>
     </SheetModalContext.Provider>
+  )
+}
+
+/** Non-modal backdrops on screen right now (closing ones included). */
+let mountedNonModalBackdrops = 0
+
+/**
+ * The backdrop of a non-modal sheet (a plain div – Radix draws no overlay for those).
+ *
+ * It fades with the panel (globals.css «Panel motion»), except when it arrives while another
+ * one is still up: a SWITCH, footer pill to footer pill. The board is dimmed already, so a
+ * fade from clear would blink it; the closing sheet and its backdrop leave at once instead
+ * (globals.css), and the new panel rises over a backdrop that never moved.
+ */
+function NonModalBackdrop({ className, style, ref }: {
+  className: string
+  style?: React.CSSProperties
+  /** Radix's Presence watches this node's animation to know when the exit fade is over. */
+  ref?: React.Ref<HTMLDivElement>
+}) {
+  const open = React.useContext(SheetOpenContext)
+  // Read once per open: this div mounts with every opening (Radix's Portal) and leaves after it.
+  const [bySwitch] = React.useState(() => mountedNonModalBackdrops > 0)
+  React.useLayoutEffect(() => {
+    mountedNonModalBackdrops++
+    return () => {
+      mountedNonModalBackdrops--
+    }
+  }, [])
+  return (
+    <div
+      ref={ref}
+      data-slot="sheet-overlay"
+      data-nonmodal=""
+      data-state={open ? 'open' : 'closed'}
+      data-arrival={bySwitch ? 'switch' : undefined}
+      className={className}
+      style={style}
+    />
   )
 }
 
@@ -73,8 +116,8 @@ function SheetOverlay({
   // hover states and handed clicks through to cards nobody was aiming at.
   if (nonModal) {
     return (
-      <div
-        data-slot="sheet-overlay"
+      <NonModalBackdrop
+        ref={props.ref}
         className={cn(
           'fixed inset-0',
           OVERLAY_CLASS,
@@ -358,8 +401,9 @@ function SheetContent({
           // and has no slide-out: the closed Content was measured lingering over 375x587 with
           // `pointer-events: auto` for the full exit, and the panel has to leave with its
           // backdrop, or the board shows through under a still-sliding sheet. The edge-clipped
-          // non-modal sheets animate both ways from globals.css instead of these classes.
-          'bg-background fixed flex flex-col gap-4 shadow-lg transition ease-in-out',
+          // non-modal sheets animate both ways from globals.css instead of these classes. No
+          // `transition` on top: the motion is the keyframes alone, nothing eases besides them.
+          'bg-background fixed flex flex-col gap-4 shadow-lg',
           !edgeClip &&
             'data-[state=open]:animate-in data-[state=open]:duration-(--motion-panel) data-[state=open]:ease-(--ease-panel)',
           elevated ? 'z-elevated' : 'z-overlay',

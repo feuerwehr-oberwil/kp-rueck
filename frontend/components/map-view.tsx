@@ -1089,8 +1089,12 @@ function usePanToSelected(
     const clamped = Math.min(Math.max(map.getZoom(), MIN_FOCUS_ZOOM), MAX_FOCUS_ZOOM)
     const center: [number, number] = [incident.location_lng, incident.location_lat]
     // Measured before the flight, at the current zoom: the card is screen-sized, so its box
-    // around the pin is the same at the zoom the flight ends on.
-    map.flyTo({ center, zoom: clamped, offset: focusOffsetFor(center), duration: 800 })
+    // around the pin is the same at the zoom the flight ends on. Left OUT when there is none:
+    // MapLibre spreads the options over its `offset: [0, 0]`, so an explicit `undefined` wins
+    // and `Point.convert(undefined)` throws – the «Kartenfehler» on every desktop hop from a
+    // selected card to the map (19.11.2026).
+    const offset = focusOffsetFor(center)
+    map.flyTo({ center, zoom: clamped, ...(offset ? { offset } : {}), duration: 800 })
   }, [map, selectedIncidentId, trigger])
 }
 
@@ -1351,8 +1355,10 @@ export default function MapView({
   const stationSettings = tokenMode ? NO_SETTINGS : boardSettings
   const firestationName = stationSettings.firestation_name || t('view.firestationFallback')
   const firestationCoords = useMemo<LatLngPoint>(() => {
-    const { firestation_latitude: lat, firestation_longitude: lng } = stationSettings
-    return lat && lng ? [parseFloat(lat), parseFloat(lng)] : DEFAULT_CENTER_LATLNG
+    // Finite or the default: a NaN here reaches the station <Marker>, whose render throws.
+    const lat = parseFloat(stationSettings.firestation_latitude ?? "")
+    const lng = parseFloat(stationSettings.firestation_longitude ?? "")
+    return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : DEFAULT_CENTER_LATLNG
   }, [stationSettings])
   const firestationSettingsReady = boardLoaded
   // Magazin/homebase — null until configured. Same merge as the backend's

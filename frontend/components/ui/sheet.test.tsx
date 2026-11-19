@@ -217,3 +217,40 @@ describe('bottom Sheet Escape', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 })
+
+describe('non-modal backdrop', () => {
+  /** Footer-style sheets; `open` lists the ones open right now. */
+  function Sheets({ open }: { open: readonly ('a' | 'b')[] }) {
+    return (
+      <>
+        {(['a', 'b'] as const).map((key) => (
+          <Sheet key={key} modal={false} open={open.includes(key)} onOpenChange={() => {}}>
+            <SheetContent side="bottom" nonModal overlayOffset="42px" aria-describedby={undefined}>
+              <SheetTitle>Sheet {key}</SheetTitle>
+            </SheetContent>
+          </Sheet>
+        ))}
+      </>
+    )
+  }
+  const arrivals = () =>
+    [...document.querySelectorAll<HTMLElement>('[data-slot="sheet-overlay"][data-nonmodal]')].map((el) => [
+      el.dataset.state,
+      el.dataset.arrival ?? 'fade',
+    ])
+
+  it('fades in on an opening, but not while another backdrop is still up (a pill switch)', () => {
+    // In a browser the switched-away sheet's backdrop is still up while it leaves; jsdom has
+    // no exit animation, so «still up» is arranged here as still open.
+    const view = renderWithIntl(<Sheets open={['a']} />)
+    expect(arrivals()).toEqual([['open', 'fade']])
+
+    view.rerender(<Sheets open={['a', 'b']} />)
+    expect(arrivals()).toEqual([['open', 'fade'], ['open', 'switch']])
+
+    // Everything closed, then one opened on its own: a fresh fade again.
+    view.rerender(<Sheets open={[]} />)
+    view.rerender(<Sheets open={['b']} />)
+    expect(arrivals()).toEqual([['open', 'fade']])
+  })
+})

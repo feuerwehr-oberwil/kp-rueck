@@ -6,7 +6,7 @@
  */
 
 import { request as httpRequest } from '../http'
-import type { ApiVehicle, ApiVehicleCreate, ApiVehicleUpdate } from '../types'
+import type { ApiVehicle, ApiVehicleCreate, ApiVehicleStatus, ApiVehicleUpdate } from '../types'
 
 export class VehiclesApi {
   // Resource Management - Vehicles
@@ -59,25 +59,8 @@ export class VehiclesApi {
     })
   }
 
-  async getVehicleStatus(vehicleId: string, eventId: string): Promise<{
-    id: string
-    name: string
-    type: string
-    status: string
-    radio_call_sign: string
-    driver_id: string | null
-    driver_name: string | null
-    driver_assigned_at: string | null
-    incident_id: string | null
-    incident_title: string | null
-    incident_location_address: string | null
-    /** Server-computed short label for the deployment (home city stripped,
-     *  falls back to the incident title). Null when the vehicle is idle. */
-    incident_location_display?: string | null
-    incident_status: string | null
-    incident_assigned_at: string | null
-    assignment_duration_minutes: number | null
-  }> {
-    return httpRequest(`/api/vehicles/${vehicleId}/status?event_id=${encodeURIComponent(eventId)}`)
+  /** The whole fleet's driver + Einsätze in one event, in display order – one request. */
+  async getVehicleStatuses(eventId: string): Promise<ApiVehicleStatus[]> {
+    return httpRequest<ApiVehicleStatus[]>(`/api/vehicles/status?event_id=${encodeURIComponent(eventId)}`)
   }
 }

@@ -2,12 +2,12 @@
   "checklist": {
     "tasks": {
       "send-first-whatsapp": {
-        "title": "Envoyer le WhatsApp de mise en attente",
+        "title": "Envoyer le message de mise en attente",
         "description": "Informer l’effectif : le PC arrière est actif, prendre son téléphone",
         "note": "Au groupe de l’effectif · au démarrage du PC arrière"
       },
       "send-second-whatsapp": {
-        "title": "Envoyer le WhatsApp de rappel",
+        "title": "Envoyer le message de rappel",
         "description": "Appel direct : rejoindre la caserne",
         "note": "Au groupe de l’effectif · seulement en cas de mobilisation réelle"
       },
@@ -254,7 +254,7 @@
         "placeholder": "Chercher ou attribuer …",
         "placeholderShort": "Chercher ou attribuer …",
         "hint": "Intervention, puis véhicule / personne – p. ex.",
-        "hintExample": "7 tlf keller",
+        "hintExample": "7 tlf müller",
         "hintTab": "complète",
         "hintTabKey": "Tabulation",
         "group": "Exécuter",
@@ -611,7 +611,7 @@
     },
     "mapError": {
       "title": "Erreur de carte",
-      "description": "La carte n’a pas pu être chargée. Cela peut venir d’un problème de réseau ou de données cartographiques manquantes.",
+      "description": "Une erreur s’est produite en construisant la carte. « Réessayer » la reconstruit.",
       "retry": "Réessayer",
       "home": "Vers le tableau"
     },

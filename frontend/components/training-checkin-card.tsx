@@ -73,7 +73,8 @@ export function TrainingCheckinCard() {
       </CardHeader>
       <CardContent className="space-y-2">
         {/* Phone: Anzahl + Tempo on one line, the button full width under them — in one
-            row at 390px «Einchecken» ran out of its box. From md up, one row as before. */}
+            row at 390px «Einchecken» ran out of its box. From md up, one row as before.
+            The button is as tall as the fields beside it (`--field-h`) on every width. */}
         <div className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-2 md:flex">
           <Input
             type="number"
@@ -100,7 +101,7 @@ export function TrainingCheckinCard() {
             disabled={isCheckingIn}
             variant="outline"
             size="sm"
-            className="col-span-2 min-h-10 md:min-h-0 md:flex-1"
+            className="col-span-2 min-h-(--field-h) md:flex-1"
           >
             {isCheckingIn ? <ShellLoader className="size-3.5" /> : <Users className="size-3.5" />}
             {isCheckingIn ? t('checkingIn') : t('checkin')}

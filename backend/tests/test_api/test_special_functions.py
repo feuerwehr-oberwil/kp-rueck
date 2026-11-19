@@ -145,6 +145,36 @@ async def test_list_special_functions_with_assignments(
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_list_special_functions_first_assigned_first(
+    editor_client: AsyncClient, db_session: AsyncSession, test_event: Event
+):
+    """The board colours Reko people in this order («Färben nach Reko»), so it must be stable."""
+    from datetime import timedelta
+
+    now = datetime.now(UTC)
+    names = ["Second", "First", "Third"]
+    offsets = [10, 20, 0]  # minutes ago
+    for name, minutes in zip(names, offsets, strict=True):
+        person = Personnel(id=uuid4(), name=name, role="atemschutz", status="available")
+        db_session.add(person)
+        await db_session.flush()
+        db_session.add(
+            EventSpecialFunction(
+                id=uuid4(),
+                event_id=test_event.id,
+                personnel_id=person.id,
+                function_type="reko",
+                assigned_at=now - timedelta(minutes=minutes),
+            )
+        )
+    await db_session.commit()
+
+    response = await editor_client.get(f"/api/events/{test_event.id}/special-functions/")
+    assert [row["personnel_name"] for row in response.json()] == ["First", "Second", "Third"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_list_special_functions_includes_vehicle_name(
     db_session: AsyncSession,
     editor_client: AsyncClient,

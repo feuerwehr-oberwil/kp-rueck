@@ -102,11 +102,27 @@ class Vehicle(VehicleBase):
     can_delete: bool | None = None
 
 
-class VehicleStatusResponse(BaseModel):
-    """Vehicle status with driver and incident information.
+class VehicleDeployment(BaseModel):
+    """One Einsatz a vehicle is on right now (an active incident assignment)."""
 
-    Answers all three states for one vehicle in one call: `out_of_service` wins,
-    then `incident_id` (Im Einsatz), else Verfügbar.
+    incident_id: UUID
+    title: str
+    location_address: str | None = None
+    # Server-computed short label (home city stripped, falls back to the title),
+    # so the Fahrzeug sheet shows the final deployment line on first paint.
+    location_display: str | None = None
+    status: str
+    assigned_at: datetime
+    duration_minutes: int
+
+
+class VehicleStatusResponse(BaseModel):
+    """Vehicle status with driver and every Einsatz it serves, for one event.
+
+    Answers all three states for one vehicle: `out_of_service` wins, then a
+    non-empty `deployments` (Im Einsatz), else Verfügbar. A vehicle can serve
+    several Einsätze at once; `deployments` is oldest assignment first. Its
+    Aufträge are not here – the board reads them from the groups it already has.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -123,12 +139,4 @@ class VehicleStatusResponse(BaseModel):
     driver_name: str | None = None
     driver_assigned_at: datetime | None = None
 
-    incident_id: UUID | None = None
-    incident_title: str | None = None
-    incident_location_address: str | None = None
-    # Server-computed short label for the address above (home city stripped),
-    # so the Fahrzeug sheet shows the final deployment line on first paint.
-    incident_location_display: str | None = None
-    incident_status: str | None = None
-    incident_assigned_at: datetime | None = None
-    assignment_duration_minutes: int | None = None
+    deployments: list[VehicleDeployment] = []
