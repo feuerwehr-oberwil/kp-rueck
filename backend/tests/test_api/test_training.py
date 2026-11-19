@@ -854,7 +854,7 @@ async def test_simulate_reko_attaches_the_wording_image_alone(
         key = training_photos.summary_image_key(text)
         filename = f"{key}.webp"
         Image.new("RGB", (64, 48), colour).save(image_dir / filename)
-        manifest[key] = {"file": filename, "prompt": text}
+        manifest[key] = [{"file": filename, "prompt": text, "scene": "as_found", "style": "phone"}]
     (image_dir / "manifest.json").write_text(json.dumps(manifest))
     monkeypatch.setattr(training_photos, "SUMMARY_IMAGE_DIR", image_dir)
     monkeypatch.setattr(training_simulation_data, "generate_summary", lambda *_: summary)

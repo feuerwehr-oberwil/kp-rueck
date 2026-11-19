@@ -445,6 +445,30 @@ def illustrated_summaries() -> set[str]:
     return {text for texts in (*_SUMMARIES.values(), *_TEMPLATE_SUMMARIES.values()) for text in texts}
 
 
+def water_scenes() -> set[str]:
+    """Template texts of water templates: drawn once shallow and once deep, because the
+    figure the Reko reports around them varies (`pick_summary_image`)."""
+    return {
+        text
+        for template in EMERGENCY_TEMPLATES
+        if template["incident_type"] == "elementarereignis"
+        and _get_elementar_subcategory(template["title_pattern"]) == "elementar_water"
+        for text in template["reko_summaries"]
+    }
+
+
+# The four pools added with the per-template texts (owner pick 19.11.2026).
+NEW_TYPE_POOLS = ("einsatz_bahnanlagen", "strahlenwehr", "gerettete_menschen", "dienstleistungen")
+
+
+def phone_style_summaries() -> set[str]:
+    """Texts drawn as the Reko's phone shot: every template text and the new type pools.
+    The remaining pool texts keep their round-1 picture."""
+    return {text for texts in _TEMPLATE_SUMMARIES.values() for text in texts} | {
+        text for pool in NEW_TYPE_POOLS for text in _SUMMARIES[pool]
+    }
+
+
 # Power supply likelihood per type
 _POWER_SUPPLY_WEIGHTS: dict[str, dict[str, float]] = {
     "brandbekaempfung": {"unavailable": 0.4, "emergency_needed": 0.3, "available": 0.2, "unknown": 0.1},
@@ -985,6 +1009,8 @@ def generate_reko_report_data(
     else:
         photo_summary = generate_summary(incident_type, title, description)
         summary = f"{figure[0]} {photo_summary} {figure[1]}" if figure else photo_summary
+    # The crew's final water figure picks the shallow or deep picture of the scene.
+    depth_cm = int(re.findall(r"(\d+)cm", figure[0])[-1]) if figure and resolved_type == "elementar_water" else None
 
     dangers = generate_dangers(resolved_type)
     effort = generate_effort(resolved_type)
@@ -997,6 +1023,7 @@ def generate_reko_report_data(
         "power_supply": generate_power_supply(resolved_type),
         "summary_text": summary,
         "photo_summary": photo_summary,
+        "photo_depth_cm": depth_cm,
         "additional_notes": None,
         "is_draft": False,
     }

@@ -5,6 +5,7 @@ draws from. These tests lock the contract that a dispatch about, say,
 a kitchen fire never produces a Reko summary about a dachstock fire.
 """
 
+import json
 import random
 import re
 from uuid import uuid4
@@ -34,30 +35,54 @@ from app.services.training_simulation_data import (
     generate_reko_report_data,
     generate_summary,
     illustrated_summaries,
+    phone_style_summaries,
     vary_dispatch_numbers,
+    water_scenes,
 )
 
 
 def test_all_reko_summaries_have_bundled_illustrations():
-    summaries = illustrated_summaries()
     manifest = load_summary_image_manifest(SUMMARY_IMAGE_DIR)
+    phone, water = phone_style_summaries(), water_scenes()
     missing = set()
-    for summary in summaries:
-        entry = manifest.get(summary_image_key(summary))
-        if not entry or not entry["prompt"] or not (SUMMARY_IMAGE_DIR / entry["file"]).is_file():
+    for summary in illustrated_summaries():
+        entries = [e for e in manifest.get(summary_image_key(summary), []) if (SUMMARY_IMAGE_DIR / e["file"]).is_file()]
+        if summary in phone:
+            # Owner pick 19.11.2026: template texts are the Reko's phone shot.
+            entries = [e for e in entries if e["style"] == "phone"]
+        depths = {e.get("depth") for e in entries}
+        if not entries or (summary in water and not {"shallow", "deep"} <= depths):
             missing.add(summary)
+        for entry in entries:
+            path = SUMMARY_IMAGE_DIR / entry["file"]
+            assert entry["prompt"] and entry["scene"] == "as_found", summary
+            assert path.stat().st_size <= 30_000, summary
+            with Image.open(path) as image:
+                assert image.format == "WEBP" and max(image.size) == 640, summary
+                image.verify()
     assert not missing, (
-        f"{len(missing)}/{len(summaries)} Reko illustrations are missing. "
+        f"{len(missing)} Reko texts lack their illustrations. "
         "Run `uv run python scripts/generate_reko_images.py jobs` from backend/ to export the missing jobs."
     )
-    for summary in summaries:
-        entry = manifest[summary_image_key(summary)]
-        path = SUMMARY_IMAGE_DIR / entry["file"]
-        assert entry.get("scene") == "as_found", summary
-        assert path.stat().st_size <= 30_000, summary
-        with Image.open(path) as image:
-            assert image.format == "WEBP" and max(image.size) == 640, summary
-            image.verify()
+
+
+def test_a_water_figure_picks_the_picture_of_its_depth(tmp_path, monkeypatch):
+    from app.services import training_photos
+
+    manifest = {
+        summary_image_key("Szene"): [
+            {"file": f"{depth}.webp", "prompt": "p", "scene": "as_found", "style": "phone", "depth": depth}
+            for depth in ("shallow", "deep")
+        ]
+    }
+    for depth in ("shallow", "deep"):
+        Image.new("RGB", (8, 8)).save(tmp_path / f"{depth}.webp")
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest))
+    monkeypatch.setattr(training_photos, "SUMMARY_IMAGE_DIR", tmp_path)  # the manifest cache is keyed by dir
+    pick = training_photos.pick_summary_image
+    assert pick("Szene", 10).name == "shallow.webp"  # SHALLOW_MAX_CM
+    assert pick("Szene", 15).name == "deep.webp"
+    assert {pick("Szene").name for _ in range(40)} == {"shallow.webp", "deep.webp"}
 
 
 @pytest.mark.parametrize(
@@ -320,6 +345,7 @@ class TestTemplateSummaries:
                 "elementarereignis", title="Überflutung Tiefgarage", description="Tiefgarage, ca. 40cm Wasser."
             )
             assert data["photo_summary"] in scenes
+            assert data["photo_depth_cm"] == int(re.findall(r"(\d+)cm", data["summary_text"])[-1])
             figure, rest = data["summary_text"].split(" ", 1)[0], data["summary_text"]
             assert rest.startswith(("Lage wie gemeldet", "Gemeldet")), rest
             assert data["photo_summary"] in rest and not rest.endswith(data["photo_summary"]), (figure, rest)

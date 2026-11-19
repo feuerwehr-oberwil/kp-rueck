@@ -8,7 +8,7 @@ import uuid
 from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
-from typing import NotRequired, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 from fastapi import UploadFile
 
@@ -22,9 +22,19 @@ SUMMARY_IMAGE_DIR = POOL_DIR.with_name("training_reko_images")
 
 
 class SummaryImage(TypedDict):
+    """One illustration of a Reko text. `style` is the prompt family («plain» = round 1,
+    «phone» = the Reko's own phone shot, owner pick 19.11.2026). `depth` marks a water
+    scene drawn shallow (≤ SHALLOW_MAX_CM) or deep."""
+
     file: str
     prompt: str
-    scene: NotRequired[str]
+    scene: str
+    style: str
+    depth: NotRequired[Literal["shallow", "deep"]]
+
+
+# The deepest figure a «shallow» water picture still fits.
+SHALLOW_MAX_CM = 10
 
 
 def summary_image_key(summary: str) -> str:
@@ -33,9 +43,10 @@ def summary_image_key(summary: str) -> str:
 
 
 @lru_cache(maxsize=1)
-def load_summary_image_manifest(image_dir: Path) -> dict[str, SummaryImage]:
+def load_summary_image_manifest(image_dir: Path) -> dict[str, list[SummaryImage]]:
+    """Every illustration per summary key (`summary_image_key`)."""
     try:
-        manifest: dict[str, SummaryImage] = json.loads((image_dir / "manifest.json").read_text(encoding="utf-8"))
+        manifest: dict[str, list[SummaryImage]] = json.loads((image_dir / "manifest.json").read_text(encoding="utf-8"))
     except FileNotFoundError:
         return {}
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
@@ -44,13 +55,15 @@ def load_summary_image_manifest(image_dir: Path) -> dict[str, SummaryImage]:
     return manifest
 
 
-def pick_summary_image(summary: str) -> Path | None:
-    entry = load_summary_image_manifest(SUMMARY_IMAGE_DIR).get(summary_image_key(summary))
-    if entry:
-        path = SUMMARY_IMAGE_DIR / entry["file"]
-        if path.is_file():
-            return path
-    return None
+def pick_summary_image(summary: str, depth_cm: int | None = None) -> Path | None:
+    """A random illustration of this exact text. With a water figure, only the pictures
+    of its depth band (or without a band) qualify."""
+    entries = load_summary_image_manifest(SUMMARY_IMAGE_DIR).get(summary_image_key(summary), [])
+    if depth_cm is not None:
+        band = "shallow" if depth_cm <= SHALLOW_MAX_CM else "deep"
+        entries = [entry for entry in entries if entry.get("depth", band) == band] or entries
+    paths = [path for entry in entries if (path := SUMMARY_IMAGE_DIR / entry["file"]).is_file()]
+    return random.choice(paths) if paths else None
 
 
 # Fallback when a type has no (or an emptied) pool of its own: borrow a
@@ -108,6 +121,7 @@ async def attach_training_photos(
     pool_dir: Path | None = None,
     *,
     summary_text: str | None = None,
+    depth_cm: int | None = None,
 ) -> list[str]:
     """Copy the wording illustration ALONE, or – when the text has none – at most one type photo.
 
@@ -126,7 +140,7 @@ async def attach_training_photos(
     """
     filenames: list[str] = []
     existing = list(current_photos or [])
-    matched = pick_summary_image(summary_text) if summary_text else None
+    matched = pick_summary_image(summary_text, depth_cm) if summary_text else None
     paths = [matched] if matched else pick_pool_photos(incident_type, pool_dir=pool_dir)[:1]
     for path in paths:
         try:

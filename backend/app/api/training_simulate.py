@@ -352,6 +352,7 @@ async def simulate_reko(
     )
     # A not-relevant report carries no illustration (`_not_relevant_report`).
     photo_summary = reko_data.pop("photo_summary", None)
+    photo_depth_cm = reko_data.pop("photo_depth_cm", None)
     update_data = RekoReportUpdate(**reko_data)
     updated = await reko_crud.update_reko_report(db, report.id, update_data, submit=True)
 
@@ -359,7 +360,11 @@ async def simulate_reko(
     photo_filenames = []
     if updated.is_relevant:
         photo_filenames = await attach_training_photos(
-            incident_id, incident.type, current_photos=updated.photos_json, summary_text=photo_summary
+            incident_id,
+            incident.type,
+            current_photos=updated.photos_json,
+            summary_text=photo_summary,
+            depth_cm=photo_depth_cm,
         )
     if photo_filenames:
         updated.photos_json = (updated.photos_json or []) + photo_filenames
