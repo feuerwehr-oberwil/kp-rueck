@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react'
 import type { SyncState } from '@/components/kanban/field-save-status'
-import type { RekoFormData } from '@/components/reko/reko-report-form'
-import { apiClient } from '@/lib/api-client'
+import { toRekoFormData, type RekoFormData } from '@/components/reko/reko-report-form'
+import { apiClient, type ApiRekoReportResponse, type ApiRekoReportUpdate } from '@/lib/api-client'
 import { classifySaveFailure } from '@/lib/field-save'
 
 /** How long the form waits after the last edit before it saves – one request per pause,
@@ -22,6 +22,9 @@ interface AutosaveSession {
   target: string | null
   /** The newest form this operator gave; null until the first edit. */
   latest: RekoFormData | null
+  /** The form as the server last had it from this session's view: what it was opened with,
+   *  then what each save sent. A save sends only what differs from it (`changedFields`). */
+  baseline: RekoFormData
   version: number
   /** The version the server confirmed last, and the `updated_at` it answered with. */
   confirmed: { version: number; updatedAt: string | null }
@@ -40,13 +43,37 @@ function sessionFor(key: string): AutosaveSession {
   let session = sessions.get(key)
   if (!session) {
     session = {
-      target: null, latest: null, version: 0, confirmed: { version: 0, updatedAt: null },
+      target: null, latest: null, baseline: toRekoFormData(null), version: 0,
+      confirmed: { version: 0, updatedAt: null },
       inFlight: false, timer: null, state: { status: 'idle' },
       listeners: new Set(), settled: new Set(), mounts: 0,
     }
     sessions.set(key, session)
   }
   return session
+}
+
+/**
+ * The answers `next` changed against `base` – top-level fields, and within dangers and
+ * effort the single keys. Absent means untouched on the server (`update_reko_report`
+ * merges), so a form opened blank never sends the blanks it did not touch over somebody
+ * else's report (Sol review pass 3, S2). No photo list: upload and delete own it (S5).
+ */
+export function changedFields(base: RekoFormData, next: RekoFormData): ApiRekoReportUpdate {
+  const changes: ApiRekoReportUpdate = {}
+  if (next.is_relevant !== base.is_relevant) changes.is_relevant = next.is_relevant
+  if (next.power_supply !== base.power_supply) changes.power_supply = next.power_supply
+  if (next.summary_text !== base.summary_text) changes.summary_text = next.summary_text
+  if (next.additional_notes !== base.additional_notes) changes.additional_notes = next.additional_notes
+  const changedKeys = <T extends object>(from: T, to: T): Partial<T> | null => {
+    const keys = (Object.keys(to) as (keyof T)[]).filter(key => JSON.stringify(to[key]) !== JSON.stringify(from[key]))
+    return keys.length ? Object.fromEntries(keys.map(key => [key, to[key]])) as Partial<T> : null
+  }
+  const dangers = changedKeys(base.dangers_json, next.dangers_json)
+  if (dangers) changes.dangers_json = dangers
+  const effort = changedKeys(base.effort_json, next.effort_json)
+  if (effort) changes.effort_json = effort
+  return changes
 }
 
 function setState(session: AutosaveSession, state: SyncState) {
@@ -79,10 +106,13 @@ function releaseIfDone(key: string, session: AutosaveSession) {
  * read issued before that could still return the old row). A failure waits for `retry()` or
  * the next edit – no automatic resend (`lib/field-save`). `flush()` sends a waiting save now.
  *
+ * Each save sends only the answers changed since the form was opened or last saved
+ * (`changedFields`), so two boards on one report never undo each other's untouched answers.
+ *
  * The newest form outlives closing the form AND the form's mount (`AutosaveSession`):
  * `resume(source)` hands it back while it is not confirmed yet (waiting, in flight, failed),
  * or while the server's copy is not newer than what the last save got back – the list may not
- * have caught up. Otherwise it adopts `source` and returns null: open from the server's row.
+ * have caught up. Otherwise it adopts `source` and returns the form opened from it.
  */
 export function useRekoAutosave(incidentId: string, userId: string | null, onSettled?: () => void) {
   const key = `${userId ?? ''}:${incidentId}`
@@ -107,21 +137,13 @@ export function useRekoAutosave(incidentId: string, userId: string | null, onSet
     session.inFlight = true
     setState(session, { status: 'saving' })
     try {
-      // The report's own fields; no token, the session is the identity. No photo list:
-      // upload and delete own the membership server-side, and this form's copy may miss a
-      // photo another operator just added (Sol review S5).
-      const payload = {
-        is_relevant: data.is_relevant,
-        dangers_json: data.dangers_json,
-        effort_json: data.effort_json,
-        power_supply: data.power_supply,
-        summary_text: data.summary_text,
-        additional_notes: data.additional_notes,
-      }
+      // Only what this form changed; no token, the session is the identity.
+      const payload = changedFields(session.baseline, data)
       const report = session.target
         ? await apiClient.updateRekoReport(session.target, payload)
         : await apiClient.createRekoReportAsEditor(incidentId, payload, false)
       session.target = report.id
+      session.baseline = data
       session.inFlight = false
       session.confirmed = { version: sent, updatedAt: report.updated_at ?? null }
       if (session.version === sent) {
@@ -154,7 +176,7 @@ export function useRekoAutosave(incidentId: string, userId: string | null, onSet
     }
   }, [session, onSettled])
 
-  const resume = useCallback((source: { id: string; updated_at: string } | null): RekoFormData | null => {
+  const resume = useCallback((source: ApiRekoReportResponse | null): RekoFormData => {
     const local = session.latest
     if (local) {
       const unconfirmed = session.confirmed.version !== session.version
@@ -163,11 +185,13 @@ export function useRekoAutosave(incidentId: string, userId: string | null, onSet
         (source.id === session.target && !!session.confirmed.updatedAt && source.updated_at <= session.confirmed.updatedAt)
       if (unconfirmed || serverNotNewer) return local
     }
+    const opened = toRekoFormData(source)
     session.target = source?.id ?? null
     session.latest = null
+    session.baseline = opened
     session.confirmed = { version: session.version, updatedAt: null }
     setState(session, { status: 'idle' })
-    return null
+    return opened
   }, [session])
 
   const schedule = useCallback((data: RekoFormData) => {

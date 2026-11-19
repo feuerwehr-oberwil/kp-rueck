@@ -179,6 +179,32 @@ async def test_two_first_saves_on_a_card_past_reko_file_one_report(test_engine, 
     assert bells == 1
 
 
+async def test_a_note_from_a_blank_form_keeps_the_verdict_another_board_filed(test_engine, monkeypatch):
+    """Pass 3 S2, with the board's real payloads (changed fields only): A answers «Ja» on a
+    card at «Reko abgeschlossen» and files; B opened the form blank and types a note."""
+
+    async def seed(db: AsyncSession, incident_id: UUID, event_id: UUID, user_id: UUID) -> None:
+        db.add(_incident(incident_id, event_id, user_id, "reko_done"))
+        await db.commit()
+
+    def first_save(body: dict[str, object]) -> Call:
+        def call(client: AsyncClient, incident_id: UUID) -> Awaitable[Response]:
+            return client.post("/api/reko/?submit=false", json={"incident_id": str(incident_id), **body})
+
+        return call
+
+    verdict = first_save({"is_relevant": True, "summary_text": "Keller 20 cm", "dangers_json": {"electrical": True}})
+    note = first_save({"additional_notes": "Zufahrt über Hof"})
+    reports, bells = await _race(test_engine, monkeypatch, seed, verdict, note)
+
+    [report] = reports
+    assert report.is_draft is False
+    assert (report.is_relevant, report.summary_text) == (True, "Keller 20 cm")
+    assert report.dangers_json["electrical"] is True
+    assert report.additional_notes == "Zufahrt über Hof"
+    assert bells == 1
+
+
 async def test_a_save_racing_the_status_move_does_not_ring_the_bell_twice(test_engine, monkeypatch):
     report_id = uuid4()
 

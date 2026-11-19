@@ -191,9 +191,8 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     await user.click(screen.getByRole('button', { name: 'weiter erfassen' }))
     expect(screen.getByDisplayValue('Keller voll')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Nein' }))
-    await waitFor(() => expect(updateRekoReport).toHaveBeenLastCalledWith(
-      'r-draft', expect.objectContaining({ is_relevant: false, summary_text: 'Keller voll' }),
-    ))
+    // Only the new answer goes out – never the old text (pass 3, S2: changed fields only).
+    await waitFor(() => expect(updateRekoReport).toHaveBeenLastCalledWith('r-draft', { is_relevant: false }))
   })
 
   it('keeps a save in flight across a tab switch: the new mount opens the edit, not the old row (pass 2, S1)', async () => {
@@ -222,10 +221,22 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     await user.click(screen.getByRole('button', { name: 'Nein' }))
     answer({ ...oldDraft, summary_text: 'Keller voll', updated_at: '2026-08-10T18:05:00Z' })
 
-    await waitFor(() => expect(updateRekoReport).toHaveBeenLastCalledWith(
-      'r-draft', expect.objectContaining({ is_relevant: false, summary_text: 'Keller voll' }),
-    ))
+    // Only the new answer goes out – never the old text (pass 3, S2: changed fields only).
+    await waitFor(() => expect(updateRekoReport).toHaveBeenLastCalledWith('r-draft', { is_relevant: false }))
     expect(await screen.findByText(/^Synchronisiert – /)).toBeInTheDocument()
+  })
+
+  it('sends only what this form changed, so a blank form never blanks the report it lands on (pass 3, S2)', async () => {
+    // Opened blank (nothing filed yet as far as this board knows); the server resolves the
+    // first save onto the report another board filed meanwhile – it must keep its answers.
+    const user = userEvent.setup()
+    renderWithIntl(<RekoReportSection incidentId="i-blank" canEdit dense />)
+
+    await user.click(await screen.findByRole('button', { name: /erfassen/ }))
+    await user.type(document.querySelector<HTMLTextAreaElement>('#notes')!, 'Zufahrt über Hof')
+
+    await waitFor(() => expect(createRekoReportAsEditor).toHaveBeenCalled())
+    expect(createRekoReportAsEditor).toHaveBeenLastCalledWith('i-blank', { additional_notes: 'Zufahrt über Hof' }, false)
   })
 
   it('counts a draft whose only answer is the power supply as a draft', async () => {

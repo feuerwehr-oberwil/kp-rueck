@@ -210,7 +210,7 @@ export default function RekoReportSection({
    *  the list may not show yet (`useRekoAutosave.resume`). */
   function startEditing() {
     const source = latestReport ?? ownDraft ?? null
-    const opened = autosave.resume(source) ?? toRekoFormData(source ?? undefined)
+    const opened = autosave.resume(source)
     openedForm.current = opened
     setFormData(opened)
     setIsEditing(true)
