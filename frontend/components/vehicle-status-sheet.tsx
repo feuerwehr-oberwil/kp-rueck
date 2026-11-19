@@ -265,6 +265,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
 
   // Handle keyboard navigation. An effect event: one listener for the mount, and a key
   // always sees the current list, selection and handlers.
+  const fleetListRef = useRef<HTMLDivElement>(null)
   const onKeyDown = useEffectEvent((e: KeyboardEvent) => {
     if (!open) return
 
@@ -272,6 +273,16 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
       return
     }
+    // The row keys belong to this sheet: not while a dialog in front of it (the driver
+    // picker) has the focus. And a focused control in the list – a deployment link, a
+    // row, the driver button – answers its own Enter (Sol review S12). The header's
+    // «Aktualisieren» is not one: the sheet focuses it on opening, and arrows + Enter
+    // must still open the picked row.
+    const target = e.target instanceof Element ? e.target : null
+    const sheet = fleetListRef.current?.closest('[role="dialog"]')
+    if (target && target !== document.body && sheet && !sheet.contains(target)) return
+    const control = target?.closest('button, a[href], [role="button"], [tabindex]:not([tabindex="-1"])')
+    if (e.key === "Enter" && control && fleetListRef.current?.contains(control)) return
 
     if (e.key === "ArrowDown") {
       e.preventDefault()
@@ -352,7 +363,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
               <p className="text-muted-foreground">{t('vehicleStatus.noVehicles')}</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div ref={fleetListRef} className="space-y-2">
               {displayedVehicles.map((vehicle, index) => {
                 const isSelected = index === selectedVehicleIndex
                 const targets = targetsOf(vehicle)

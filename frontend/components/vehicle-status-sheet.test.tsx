@@ -98,4 +98,34 @@ describe("VehicleStatusSheet", () => {
     expect(await screen.findByRole("button", { name: "Auftrag «Nord»" })).toBeDisabled()
     expect(screen.queryByText("Verfügbar")).not.toBeInTheDocument()
   })
+
+  it("lets a focused deployment link answer Enter after the arrows picked its row", async () => {
+    api.getVehicleStatuses.mockResolvedValue([vehicle({
+      deployments: [deployment("i-old", "Hauptstrasse 1", 40), deployment("i-new", "Blumenweg 21", 5)],
+    })])
+    const user = userEvent.setup()
+    renderWithIntl(<VehicleStatusSheet open onOpenChange={() => {}} eventId="e-keys" />)
+
+    const second = await screen.findByRole("button", { name: /Blumenweg 21/ })
+    await user.keyboard("{ArrowDown}")
+    second.focus()
+    await user.keyboard("{Enter}")
+
+    expect(push).toHaveBeenCalledTimes(1)
+    expect(push).toHaveBeenCalledWith("/?highlight=i-new")
+  })
+
+  it("still opens the picked row's first place on Enter from the auto-focused header", async () => {
+    api.getVehicleStatuses.mockResolvedValue([vehicle({
+      deployments: [deployment("i-old", "Hauptstrasse 1", 40), deployment("i-new", "Blumenweg 21", 5)],
+    })])
+    const user = userEvent.setup()
+    renderWithIntl(<VehicleStatusSheet open onOpenChange={() => {}} eventId="e-keys-header" />)
+
+    await screen.findByRole("button", { name: /Blumenweg 21/ })
+    screen.getByRole("button", { name: /Aktualisieren/ }).focus()
+    await user.keyboard("{ArrowDown}{Enter}")
+
+    expect(push).toHaveBeenCalledWith("/?highlight=i-old")
+  })
 })
