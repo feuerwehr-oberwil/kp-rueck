@@ -991,7 +991,7 @@ export function ResourceAssignmentDialog({
     // Already on another incident/Auftrag → the amber where-note names it; else a
     // place-like role (Reko, Magazin, …; never the driven vehicle) does. The tile
     // itself stays neutral: the note says where, no tinted block.
-    const { where, roles } = tileFactsOf(person, personElsewhereLabel(person))
+    const { where, roles, plan } = tileFactsOf(person, personElsewhereLabel(person))
     return (
       // ONE line for every person tile, busy or free: rank · where · roles
       // (`PersonTileLine` says why). «Im Einsatz» and the Ereignis roles are
@@ -1005,6 +1005,7 @@ export function ResourceAssignmentDialog({
         rank={person.role}
         where={where}
         roles={roles}
+        plan={plan}
         checked={isSelected}
         animate={wasJustAssigned}
         onClick={() => handleTogglePersonSelection(person)}

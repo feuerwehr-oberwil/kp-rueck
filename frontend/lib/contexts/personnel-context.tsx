@@ -50,6 +50,10 @@ export interface Person {
    * never from the current assignment, which a move resets (lib/crew-duty.ts).
    */
   checkedInAt?: string | null
+  /** The plan at this Ereignis – «ab» / «bis» (ISO, `lib/planned-times.ts`). The pickers
+   *  say «bis 22:00» and advise when a ticked person leaves soon. */
+  plannedFrom?: string | null
+  plannedUntil?: string | null
 }
 
 /**

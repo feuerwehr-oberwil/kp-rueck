@@ -44,6 +44,7 @@ import { FeldMaterialTable } from '@/components/feld/feld-material-table'
 import { FeldMeldenSheet } from '@/components/feld/feld-melden-sheet'
 import { FeldRapportForm } from '@/components/feld/feld-rapport-form'
 import { Button } from '@/components/ui/button'
+import { PlannedTimePicker, type PlanKind } from '@/components/attendance/planned-time'
 import { IncidentNumber } from '@/components/ui/incident-number'
 import { PriorityGlyph } from '@/components/ui/priority-glyph'
 import { SearchInput } from '@/components/ui/search-input'
@@ -253,6 +254,7 @@ function FeldSurface() {
   // and this only skips the "meine Einsatzstellen" tap afterwards.
   const preselectIncidentId = searchParams.get('incident_id')
   const t = useTranslations('feld')
+  const tPlan = useTranslations('common.attendancePlan')
   const tCommon = useTranslations('reko.common')
   const tPickup = useTranslations('feld.pickup')
   const tRapport = useTranslations('feld.rapport')
@@ -378,6 +380,8 @@ function FeldSurface() {
   // vehicle, and — the part that was missing entirely — "ich rücke ab".
   const [checkedIn, setCheckedIn] = useState(false)
   const [attendanceBusy, setAttendanceBusy] = useState(false)
+  // Their own plan (#3): «Ich komme um …» before they are in, «Ich bin da bis …» after.
+  const [plan, setPlan] = useState<{ from: string | null; until: string | null }>({ from: null, until: null })
   const restoredFromCookie = useRef(false)
   const restoredIncident = useRef(false)
   const preselectApplied = useRef(false)
@@ -462,6 +466,7 @@ function FeldSurface() {
       setEventName(data.event_name)
       setEventStartedAt(data.event_started_at ?? null)
       setCheckedIn(Boolean(data.checked_in))
+      setPlan({ from: data.planned_from ?? null, until: data.planned_until ?? null })
       const roles = data.functions ?? []
       setFunctions(roles)
       setDriverVehicles(data.driver_vehicles ?? [])
@@ -764,6 +769,42 @@ function FeldSurface() {
       setAttendanceBusy(false)
     }
   }, [token, selectedPerson, attendanceBusy])
+
+  /** Writes one end of the own plan; rejects, so the picker says it failed. */
+  const savePlan = useCallback(async (kind: PlanKind, iso: string | null) => {
+    if (!token || !selectedPerson) return
+    await apiClient.setFeldAttendancePlan(
+      selectedPerson.personnel_id,
+      token,
+      kind === 'until' ? { planned_until: iso } : { planned_from: iso },
+    )
+    setPlan(previous => (kind === 'until' ? { ...previous, until: iso } : { ...previous, from: iso }))
+  }, [token, selectedPerson])
+
+  /** «Ich komme um …» / «Ich bin da bis …»: one quiet button, the bottom sheet behind it. */
+  const planButton = (kind: PlanKind) => {
+    const value = kind === 'until' ? plan.until : plan.from
+    const time = formatTime(value)
+    return (
+      <PlannedTimePicker
+        kind={kind}
+        value={value}
+        other={kind === 'until' ? plan.from : plan.until}
+        title={tPlan(kind === 'until' ? 'selfUntil' : 'selfFrom')}
+        hint={tPlan('hintSelf')}
+        fieldLabel={tPlan(kind === 'until' ? 'selfUntil' : 'selfFrom')}
+        onSave={iso => savePlan(kind, iso)}
+        trigger={
+          <Button type="button" variant="outline" className="w-full">
+            <Clock className="size-4" />
+            {time
+              ? tPlan(kind === 'until' ? 'selfUntilSet' : 'selfFromSet', { time })
+              : `${tPlan(kind === 'until' ? 'selfUntil' : 'selfFrom')} …`}
+          </Button>
+        }
+      />
+    )
+  }
 
   const filteredPersonnel = useMemo(() => {
     // The board's Anwesenheit and the /check-in tablet order the same roster with
@@ -1402,8 +1443,10 @@ function FeldSurface() {
             <Button size="lg" className="w-full" onClick={toggleAttendance} disabled={attendanceBusy}>
               {t('attendance.checkIn')}
             </Button>
+            <div className="mt-2">{planButton('from')}</div>
           </section>
         )}
+        {checkedIn && planButton('until')}
 
         {/* The Magazin's inventory, when the Materialwart has nothing else on:
             then it IS their page, and it opens the screen. Somebody who is also

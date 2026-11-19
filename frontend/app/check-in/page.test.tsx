@@ -15,6 +15,7 @@ const api = vi.hoisted(() => ({
   checkInPersonnel: vi.fn(),
   checkOutPersonnel: vi.fn(),
   createPersonnel: vi.fn(),
+  setAttendancePlan: vi.fn(),
 }))
 vi.mock('@/lib/api-client', () => ({ apiClient: api }))
 vi.mock('@/lib/websocket-client', () => ({ wsClient: { getStatus: () => 'disconnected', connect: vi.fn(), disconnect: vi.fn(), on: () => () => {} } }))
@@ -123,5 +124,23 @@ describe('/check-in', () => {
     options.action.onClick()
     await waitFor(() => expect(api.checkInPersonnel).toHaveBeenCalledWith('p2', 'tok'))
     await waitFor(() => expect(screen.getByRole('button', { name: /Bühler Nadja/ })).toHaveTextContent('Anwesend'))
+  })
+
+  it('somebody checked in gives «bis …» through the link; somebody not in yet gets no chip', async () => {
+    roster()
+    api.setAttendancePlan.mockImplementation(async (_id, _door, plan) => ({ planned_until: plan.planned_until }))
+    const user = userEvent.setup()
+    renderWithIntl(<CheckInPage />)
+
+    await user.click(await screen.findByRole('button', { name: 'Geht um setzen' }))
+    expect(screen.getAllByRole('button', { name: 'Geht um setzen' })).toHaveLength(1)
+    await user.type(await screen.findByLabelText('Ich bin da bis'), '23:30{Enter}')
+
+    await waitFor(() => expect(api.setAttendancePlan).toHaveBeenCalledTimes(1))
+    const [id, door, plan] = api.setAttendancePlan.mock.calls[0]
+    expect([id, door]).toEqual(['p2', { token: 'tok' }])
+    expect(new Date(plan.planned_until).getMinutes()).toBe(30)
+    expect(await screen.findByRole('button', { name: 'Geht um 23:30 – ändern' })).toBeInTheDocument()
+    expect(api.checkOutPersonnel).not.toHaveBeenCalled()
   })
 })

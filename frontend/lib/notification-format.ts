@@ -21,6 +21,7 @@
  */
 import { formatDuration, formatDurationHours } from '@/lib/duration'
 import { fieldRequestLabel } from '@/lib/field-requests'
+import { formatTime } from '@/lib/format-time'
 import type { Notification, NotificationType } from '@/lib/types/notification'
 
 /** Who or what the notification comes from — drawn as the leading glyph. */
@@ -56,6 +57,7 @@ const SOURCE_BY_TYPE: Partial<Record<NotificationType, NotificationSource>> = {
   vehicle_arrived: 'vehicle',
   vehicle_returned: 'vehicle',
   time_overdue: 'time',
+  personnel_leaving: 'time',
   training_emergency: 'alarm',
 }
 
@@ -253,6 +255,13 @@ function build(type: string, p: Params, t: NotificationTranslator): Built | unde
         what: count === 1 ? t(`${M}.fatigueOne`, { hours }) : t(`${M}.fatigueMany`, { count, hours }),
         who: more > 0 ? t(`${M}.fatigueMore`, { names, count: more }) : names || undefined,
       }
+    }
+
+    // A planned «geht um» is 15' away: the clock is what is asked, the person is «who».
+    case 'personnel_leaving': {
+      const time = formatTime(str(p, 'until'))
+      if (!time) throw new MissingParam('until')
+      return { what: t(`${M}.leavingAt`, { time }), who: str(p, 'name') }
     }
 
     // The rest is one sentence about no Schadenplatz — it stays one line.

@@ -10,7 +10,7 @@ import { FormMessage } from "@/components/ui/form-message"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { Binoculars, ArrowLeft, MapPin } from "lucide-react"
 import { PersonPickTile } from "@/components/kanban/assignment-list-section"
-import { einsatzWhere, usePersonTileFacts } from "@/components/kanban/person-tile-facts"
+import { einsatzWhere, tilePlan, usePersonTileFacts } from "@/components/kanban/person-tile-facts"
 import { apiClient, type ApiAvailableRekoPersonnel } from "@/lib/api-client"
 import { useEvent } from "@/lib/contexts/event-context"
 import { type Operation, useOperations } from "@/lib/contexts/operations-context"
@@ -71,7 +71,7 @@ export function useRekoCandidatePicker({
       </p>
     ) : (
       candidates.map((person) => {
-        const { where, roles } = factsOf(person, { elsewhere: einsatzWhere(person.id, operations) })
+        const { where, roles, plan } = factsOf(person, { elsewhere: einsatzWhere(person.id, operations) })
         return (
           <PersonPickTile
             key={person.id}
@@ -81,6 +81,7 @@ export function useRekoCandidatePicker({
             rank={person.role}
             where={where}
             roles={roles}
+            plan={plan}
             single
             checked={chosenId === person.id}
             disabled={disabled}
@@ -318,12 +319,15 @@ export function AssignRekoDialog({
     const openLabels = (person.open_assignments ?? []).map(
       (assignment) => formatLocation(assignment.location_address ?? '') || assignment.incident_title,
     )
+    // The plan lives on the board's roster row, not on the Reko list's.
+    const boardPerson = allPersonnel.find((p) => p.id === person.personnel_id)
     return (
       <PersonPickTile
         key={person.personnel_id}
         name={person.name}
         personnelId={person.personnel_id}
         rank={person.role}
+        plan={boardPerson ? tilePlan(boardPerson, Date.now(), tPick) : null}
         // Its open Rekos are where the person is besides here – the where-note.
         where={openLabels.length > 0 && !isCurrent ? {
           head: openLabels.length > 1 ? `${openLabels[0]} +${openLabels.length - 1}` : openLabels[0],
