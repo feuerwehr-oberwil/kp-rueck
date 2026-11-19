@@ -3,7 +3,7 @@
 import { useMemo, useState, useRef, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
-import { Binoculars, Package2, Ban, Infinity as InfinityIcon, Truck } from "lucide-react"
+import { Binoculars, Warehouse, Ban, Infinity as InfinityIcon, Truck } from "lucide-react"
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { useAuth } from "@/lib/contexts/auth-context"
@@ -937,7 +937,7 @@ function PersonRow({ person: p, assignedTo, auftrag, onOpenIncident }: { person:
           )}
           {p.isMagazin && (
             <span className={cn(PERSON_FUNCTION, WALL_DESTINATION)}>
-              <Package2 className={PERSON_FUNCTION_ICON} /> {tk('common.magazin')}
+              <Warehouse className={PERSON_FUNCTION_ICON} /> {tk('common.magazin')}
             </span>
           )}
           {p.isDriver && p.driverVehicleName && (

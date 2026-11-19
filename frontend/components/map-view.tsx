@@ -40,7 +40,7 @@ import { PinCountBadge, pinBadgeCircle } from "./map/pin-count-badge"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { VehicleTrails } from "./map/vehicle-trails"
-import { ChevronDown, Maximize, AlertTriangle, Truck, Users, X } from "lucide-react"
+import { ChevronDown, Maximize, AlertTriangle, Truck, Users, Warehouse, X } from "lucide-react"
 import { usePathname } from "next/navigation"
 import {
   GPS_STALE_SETTING,
@@ -320,16 +320,19 @@ function pillStyle(background: string, width: number | string): CSSProperties {
   }
 }
 
-/** A round marker carrying a single glyph — the firestation and the Magazin/GPS homebase. */
+/** A marker carrying a single glyph — the firestation (⌂) and the Magazin/GPS homebase
+ *  (lucide `Warehouse`, owner pick 19.11.2026, #17 A). */
 function GlyphMarker({
   coordinates,
   label,
   style,
   gap,
+  glyph,
 }: {
   coordinates: LatLngPoint
   label: string
   style: CSSProperties
+  glyph: ReactNode
   /** Anchor → tooltip edge. Half the glyph's height plus Leaflet's arrow margin. */
   gap: number
 }) {
@@ -346,7 +349,7 @@ function GlyphMarker({
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <div style={style}>⌂</div>
+        <div style={style}>{glyph}</div>
         {hovered && (
           <MapTooltip side="top" gap={gap}>
             <span>{label}</span>
@@ -371,10 +374,10 @@ const FIRESTATION_STYLE: CSSProperties = {
   fontSize: 14,
 }
 
-// Magazin (GPS-Heimatbasis) — a little home icon shaped like the vehicle pills so it reads as
-// "where the vehicles live", in the station ink rather than their blue: blue is the Auftrag's
-// (and a reporting vehicle's), and a blue ⌂ read as part of a route (hill climb r18). Only
-// rendered when gps.station_lat/lng are set (Settings → GPS).
+// Magazin (GPS-Heimatbasis) — a hall with a door (lucide Warehouse, #17 A) on a pill shaped like
+// the vehicle pills so it reads as "where the vehicles live", in the station ink rather than their
+// blue: blue is the Auftrag's (and a reporting vehicle's), and a blue glyph read as part of a
+// route (hill climb r18). Only rendered when gps.station_lat/lng are set (Settings → GPS).
 const MAGAZIN_STYLE: CSSProperties = { ...pillStyle(MAP_COLORS.station, 24), fontSize: 14 }
 
 // --- Permanent labels -------------------------------------------------------
@@ -1780,6 +1783,7 @@ export default function MapView({
           label={firestationName}
           style={FIRESTATION_STYLE}
           gap={TOOLTIP_ARROW + 12}
+          glyph="⌂"
         />
 
         {/* Magazin (GPS-Heimatbasis) marker */}
@@ -1789,6 +1793,7 @@ export default function MapView({
             label={t('view.magazin')}
             style={MAGAZIN_STYLE}
             gap={TOOLTIP_ARROW + PILL_HEIGHT / 2}
+            glyph={<Warehouse aria-hidden className="size-3.5" strokeWidth={2.25} />}
           />
         )}
 
