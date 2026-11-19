@@ -143,6 +143,24 @@ async def test_before_reko_done_the_answer_alone_files_nothing(
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_a_draft_whose_only_answer_is_power_is_filed(
+    editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+):
+    incident_id = await _incident(db_session, test_event, test_user)
+    created = await editor_client.post(
+        "/api/reko/?submit=false", json={"incident_id": str(incident_id), "power_supply": "unavailable"}
+    )
+    assert created.status_code == 200
+
+    await _move(editor_client, incident_id, "reko", "reko_done")
+
+    [report] = await _reports(db_session, incident_id)
+    assert report.is_draft is False
+    assert await _reko_bells(db_session, incident_id) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_the_move_leaves_arrival_rows_and_crew_drafts_alone(
     editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
 ):

@@ -653,6 +653,7 @@ def has_report_content(report: RekoReport) -> bool:
         or bool((report.summary_text or "").strip())
         or bool((report.additional_notes or "").strip())
         or bool(report.photos_json)
+        or report.power_supply not in (None, "unknown")
         or any(value for key, value in dangers.items() if key != "other_notes")
         or bool((dangers.get("other_notes") or "").strip())
         or effort.get("personnel_count") is not None

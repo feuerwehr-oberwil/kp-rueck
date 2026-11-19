@@ -450,6 +450,7 @@ function hasContent(form: RekoFormData): boolean {
     !!form.summary_text.trim() ||
     !!form.additional_notes.trim() ||
     form.photos_json.length > 0 ||
+    form.power_supply !== 'unknown' ||
     (['fire', 'fire_danger', 'explosion', 'collapse', 'chemical', 'electrical'] as const).some(key => dangers[key]) ||
     !!dangers.other_notes?.trim() ||
     effort.personnel_count !== null ||

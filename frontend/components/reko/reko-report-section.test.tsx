@@ -156,6 +156,15 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     expect(createRekoReportAsEditor).not.toHaveBeenCalled()
   })
 
+  it('counts a draft whose only answer is the power supply as a draft', async () => {
+    getIncidentRekoReports.mockResolvedValue([
+      report({ id: 'r-draft', is_draft: true, created_by_user_id: 'u-1', is_relevant: null, power_supply: 'unavailable' }),
+    ])
+    renderWithIntl(<RekoReportSection incidentId="i-1" canEdit dense />)
+
+    expect(await screen.findByText('Entwurf – noch nicht eingereicht')).toBeInTheDocument()
+  })
+
   it('amends an existing report instead of filing a second one', async () => {
     getIncidentRekoReports.mockResolvedValue([
       {
