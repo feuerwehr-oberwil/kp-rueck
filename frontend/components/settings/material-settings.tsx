@@ -263,7 +263,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
           >
           <DemoLock active={demoMode} className="space-y-4">
             <Dialog open={dialog.isOpen} onOpenChange={guard.handleOpenChange}>
-              <DialogContent size="md" aria-describedby={undefined}>
+              <DialogContent aria-describedby={undefined}>
                 <DialogHeader>
                   <DialogTitle>
                     {dialog.editing ? t('materials.dialogEditTitle') : t('materials.dialogCreateTitle')}
@@ -707,7 +707,7 @@ function MaterialGroupSettings({
       </SettingCard>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent size="md" className="modal-h-tall flex flex-col" aria-describedby={undefined}>
+        <DialogContent className="modal-h-tall flex flex-col" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{editingGroup ? t('materials.groups.dialogEditTitle') : t('materials.groups.dialogCreateTitle')}</DialogTitle>
           </DialogHeader>

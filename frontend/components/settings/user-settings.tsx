@@ -74,8 +74,10 @@ function RoleHints() {
     <ul>
       {ROLE_HINTS.map(({ role, nameKey }) => (
         <li key={role} className="flex gap-2 py-1 text-xs text-muted-foreground">
-          <span className="w-24 flex-shrink-0 font-semibold text-foreground">{t(nameKey)}</span>
-          <span>{t(`users.roleHints.${role}`)}</span>
+          {/* At S (512) the sentences wrap (owner pick «Kurze Formulare = S», 19.11.): the
+              text column may shrink and break, the name column keeps its width. */}
+          <span className="w-24 flex-shrink-0 break-words font-semibold text-foreground">{t(nameKey)}</span>
+          <span className="min-w-0 break-words">{t(`users.roleHints.${role}`)}</span>
         </li>
       ))}
     </ul>
@@ -449,7 +451,7 @@ export function UserSettings() {
 
       {/* Create User Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={createGuard.handleOpenChange}>
-        <DialogContent size="md">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('users.newUser')}</DialogTitle>
             <DialogDescription>
@@ -545,7 +547,7 @@ export function UserSettings() {
 
       {/* Edit User Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={editGuard.handleOpenChange}>
-        <DialogContent size="md">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('users.editDialogTitle')}</DialogTitle>
             <DialogDescription>
@@ -617,7 +619,7 @@ export function UserSettings() {
 
       {/* Reset Password Dialog */}
       <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
-        <DialogContent size="md">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('users.resetPasswordTitle')}</DialogTitle>
             <DialogDescription>

@@ -8,7 +8,11 @@
  *
  * - **S 512** – questions and pickers (ConfirmDialog, Fahrer, Reko zuweisen, Auftrag wählen,
  *   Divera). A picker and the question over it are equally wide.
- * - **M 672** – forms (Neuer Einsatz, Reko-Bericht, Ressourcen fehlen, Appell, Kennzahlen).
+ *   A SHORT form – up to about three fields (Benutzer anlegen, Passwort zurücksetzen, Fahrzeug,
+ *   Material, Standort and the like in Settings) – is S too: a role sentence may wrap there,
+ *   which was shown and accepted (owner pick «Kurze Formulare = S», 19.11.2026).
+ * - **M 672** – real forms (Neuer Einsatz, Person, Ereignis, Reko-Bericht, Ressourcen fehlen,
+ *   Appell, Kennzahlen).
  * - **L 1152** – work surfaces (Fahrzeuge / Mannschaft / Material zuweisen, Routen-Editor,
  *   Einsatz-Detail), at most the board area less 2rem on every side.
  *
