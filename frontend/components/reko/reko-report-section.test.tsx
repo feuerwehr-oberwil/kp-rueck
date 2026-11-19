@@ -117,6 +117,8 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     // No token travels: the session is the identity, and the report carries no
     // guessed personnel row (decision 6).
     expect(createRekoReportAsEditor.mock.calls[0][1]).not.toHaveProperty('token')
+    // Nor the photo list: upload and delete own it, a stale copy would undo another's photo.
+    expect(createRekoReportAsEditor.mock.calls[0][1]).not.toHaveProperty('photos_json')
     expect(await screen.findByText(/^Synchronisiert – /)).toBeInTheDocument()
 
     // The next answer goes to the same draft, not a second one.

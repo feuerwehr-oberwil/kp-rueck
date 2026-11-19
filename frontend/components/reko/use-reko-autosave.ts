@@ -52,14 +52,14 @@ export function useRekoAutosave(incidentId: string, onSettled?: () => void) {
     inFlight.current = true
     setState({ status: 'saving' })
     try {
-      // The report's own fields; no token, the session is the identity. Photos travel
-      // too: an upload attached them server-side, and the list keeps a removal removed.
+      // The report's own fields; no token, the session is the identity. No photo list:
+      // upload and delete own the membership server-side, and this form's copy may miss a
+      // photo another operator just added (Sol review S5).
       const payload = {
         is_relevant: data.is_relevant,
         dangers_json: data.dangers_json,
         effort_json: data.effort_json,
         power_supply: data.power_supply,
-        photos_json: data.photos_json,
         summary_text: data.summary_text,
         additional_notes: data.additional_notes,
       }
