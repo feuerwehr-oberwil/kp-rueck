@@ -430,6 +430,40 @@ async def test_pinning_the_routes_einsatzleiter_returns_the_group(
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_route_vehicle_driver_stay_is_settable_and_vehicle_only(
+    editor_client: AsyncClient, test_event: Event, test_vehicle: Vehicle, test_personnel: Personnel
+):
+    """The dispatch gate sets «bleibt vor Ort» on an Auftrag's vehicle too; a person has no driver."""
+    group = await _create_group(editor_client, test_event)
+    vehicle = await editor_client.post(
+        f"/api/incident-groups/{group['id']}/assign",
+        json={"resource_type": "vehicle", "resource_id": str(test_vehicle.id)},
+    )
+    person = await editor_client.post(
+        f"/api/incident-groups/{group['id']}/assign",
+        json={"resource_type": "personnel", "resource_id": str(test_personnel.id)},
+    )
+
+    with patch("app.api.groups.broadcast_group_update", new=AsyncMock()) as broadcast:
+        stay = await editor_client.patch(
+            f"/api/incident-groups/{group['id']}/assignments/{vehicle.json()['id']}",
+            json={"driver_stay": True},
+        )
+    assert stay.status_code == 200, stay.text
+    assert stay.json()["driver_stay"] is True
+    broadcast.assert_awaited_once()
+    groups = await editor_client.get(f"/api/incident-groups/?event_id={test_event.id}")
+    assert [a["driver_stay"] for a in groups.json()[0]["assignments"] if a["resource_type"] == "vehicle"] == [True]
+
+    refused = await editor_client.patch(
+        f"/api/incident-groups/{group['id']}/assignments/{person.json()['id']}",
+        json={"driver_stay": True},
+    )
+    assert refused.status_code == 422
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_assign_group_resource_works_with_zero_stops(
     editor_client: AsyncClient, test_event: Event, test_vehicle: Vehicle
 ):

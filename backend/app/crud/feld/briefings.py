@@ -176,9 +176,9 @@ async def _briefings(
                 # `via_auftrag` is what makes "kommt das mit?" answerable: this
                 # row belongs to the ROUTE and is therefore on every stop of it.
                 #
-                # `stays` stays None: an Auftrag has no driver-stay toggle
-                # (`GroupAssignmentUpdate` is `is_leader` and nothing else), so
-                # the column here is a copy nobody can correct. Saying «fährt
+                # `stays` stays None: an Auftrag vehicle's flag is settable in the
+                # dispatch gate, but an untouched row is a copy (`_mirror`) or the
+                # default, indistinguishable from a decision. Saying «fährt
                 # zurück» on that basis would be the board answering a question
                 # it was never asked — see `FeldVehicleLine`.
                 {

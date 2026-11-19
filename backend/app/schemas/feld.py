@@ -145,11 +145,11 @@ class FeldVehicleLine(BaseModel):
       back to the Magazin once the crew is dropped off, True that it is parked
       at the address for the duration.
 
-      **None when nobody can answer.** A route-level vehicle has no toggle —
-      ``GroupAssignmentUpdate`` carries ``is_leader`` and nothing else, so its
-      ``driver_stay`` column is whatever ``_mirror`` copied or the DB default,
-      and no operator can change it. Sending `False` there would print «fährt
-      zurück» on a phone as if somebody had decided it. An absent flag is not
+      **None when nobody can answer.** A route-level vehicle's ``driver_stay``
+      can be set in the dispatch gate since 19.11.2026, but a row nobody touched
+      there is whatever ``_mirror`` copied or the DB default, and nothing tells
+      the two apart. Sending `False` there would print «fährt zurück» on a phone
+      as if somebody had decided it. An absent flag is not
       the same statement as "he is coming back" — the same rule the board's own
       `DriverStayGlyph` follows, where `undefined` draws nothing.
     * ``via_auftrag`` says the vehicle belongs to the **Auftrag**, so it is
