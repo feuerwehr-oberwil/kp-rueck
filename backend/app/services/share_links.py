@@ -7,14 +7,15 @@ generation number per kind of link:
 
 - `issue` signs a token that carries the current generation;
 - `event_of` opens the Ereignis only for a token of the current generation;
-- `revoke` adds one. Every link of that kind issued before is dead, at once.
+- `revoke` moves the number on. Every link of that kind issued before is dead, at once.
 
 Every route that accepts one of these links asks `event_of`, never `tokens.link_claims` alone.
 """
 
+from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
@@ -47,10 +48,28 @@ async def event_of(db: AsyncSession, kind: LinkKind, token: str) -> UUID | None:
     return claims.event_id if current == claims.generation else None
 
 
+# Generations count seconds from here, so the number fits the Integer column for decades.
+_GENERATION_EPOCH = datetime(2026, 1, 1, tzinfo=UTC)
+
+
+def _generation_now() -> int:
+    return int((datetime.now(UTC) - _GENERATION_EPOCH).total_seconds())
+
+
 async def revoke(db: AsyncSession, kind: LinkKind, event_id: UUID) -> bool:
-    """End every link of this kind issued so far for this Ereignis. False: no such Ereignis."""
+    """End every link of this kind issued so far for this Ereignis. False: no such Ereignis.
+
+    The new generation is taken from the clock (and is at least one more than before), not
+    counted up by one. A standby box and the hosted board can both revoke while they are
+    apart: counted, both would land on the same number, and the link one of them issued after
+    its revoke would survive the other's. From the clock the two numbers differ, the sync
+    keeps the higher (standby_sync `ONLY_GROWS`), and the links of both are dead.
+    """
     column = _GENERATION[kind]
     revoked = await db.scalar(
-        update(Event).where(Event.id == event_id).values({column: column + 1}).returning(Event.id)
+        update(Event)
+        .where(Event.id == event_id)
+        .values({column: func.greatest(column + 1, _generation_now())})
+        .returning(Event.id)
     )
     return revoked is not None
