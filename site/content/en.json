@@ -32,7 +32,8 @@
     "demo": "Demo",
     "githubAria": "KP Rück on GitHub",
     "languageAria": "Language",
-    "options": "Language and appearance"
+    "options": "Language and appearance",
+    "skip": "Skip to content"
   },
   "theme": {
     "label": "Dark appearance"
@@ -469,6 +470,7 @@
       "notes": "Release notes",
       "dateFormat": "DD/MM/YYYY"
     },
-    "security": "Security"
+    "security": "Security",
+    "privacy": "Privacy"
   }
 }
