@@ -6,6 +6,8 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from app.seed_training import EMERGENCY_TEMPLATES
+
 # Danger profiles per incident type: which dangers are likely and their probability
 _DANGER_PROFILES: dict[str, dict[str, float]] = {
     "brandbekaempfung": {
@@ -407,7 +409,84 @@ _SUMMARIES: dict[str, list[str]] = {
         "Schwan auf Strasse, will nicht weichen. Verkehr stockt. Wird eingefangen und zum Weiher gebracht.",
         "Igel im Kellerschacht, unverletzt. Wird herausgehoben und im Garten freigelassen.",
     ],
+    # The four types no template uses – a hand-made training incident of one of
+    # them used to borrow a sibling's scene (a rail incident read «Hand in
+    # Briefkasten eingeklemmt»).
+    "einsatz_bahnanlagen": [
+        "Auto auf dem Bahnübergang liegen geblieben, Schranke zu. SBB informiert, Zug angehalten.",
+        "Baum auf dem Gleis, Fahrleitung beschädigt. SBB hat die Strecke gesperrt.",
+        "Böschungsbrand neben dem Gleis, ca. 20m². Zugverkehr läuft langsam.",
+    ],
+    "strahlenwehr": [
+        "Paket mit Strahlenwarnzeichen im Lager gefunden, Behälter unbeschädigt. Bereich geräumt.",
+        "Messgerät beim Abfallcontainer zeigt erhöhten Wert. Kantonslabor informiert.",
+    ],
+    "gerettete_menschen": [
+        "Person in Wohnung gestürzt, kommt nicht zur Tür. Ruft durch die Tür, ansprechbar.",
+        "Wanderer an Böschung abgerutscht, hält sich an einem Baum. Unverletzt.",
+    ],
+    "dienstleistungen": [
+        "Bewohnerin hat sich ausgesperrt, Herd läuft noch. Fenster im 1. OG gekippt.",
+        "Tragehilfe für Sanität: Patient im 4. OG, Treppenhaus eng, kein Lift.",
+    ],
 }
+
+# A template's own Reko texts, under each of its titles. They win over the pools,
+# which stay as the fallback for incidents a template did not write.
+_TEMPLATE_SUMMARIES: dict[str, list[str]] = {
+    title: template["reko_summaries"]
+    for template in EMERGENCY_TEMPLATES
+    for title in (template["title_pattern"], *template.get("title_variations", []))
+}
+# The template's own type, under each of its titles: the scene a report describes.
+_TEMPLATE_TYPES: dict[str, str] = {
+    title: template["incident_type"]
+    for template in EMERGENCY_TEMPLATES
+    for title in (template["title_pattern"], *template.get("title_variations", []))
+}
+
+
+def scene_type(incident_type: str | None, title: str | None) -> str | None:
+    """The type a simulated report (and its fallback photo) describes. A title from a
+    template is that template's scene, whatever type the incident got: a simulated Divera
+    alarm is typed by the title matcher, which reads «Wasser in Tiefgarage» as
+    diverse_einsaetze and would drop the water figure and depth."""
+    return _TEMPLATE_TYPES.get(title or "", incident_type)
+
+
+def illustrated_summaries() -> set[str]:
+    """Every Reko text a simulated report can show beside its illustration."""
+    return {text for texts in (*_SUMMARIES.values(), *_TEMPLATE_SUMMARIES.values()) for text in texts}
+
+
+def water_scenes() -> set[str]:
+    """Template texts of water templates whose dispatch names a depth: drawn once shallow
+    and once deep, because the figure the Reko reports around them varies – a 50cm call
+    can turn out ~5cm (`pick_summary_image`). So the text itself must not state a depth."""
+    return {
+        text
+        for template in EMERGENCY_TEMPLATES
+        if template["incident_type"] == "elementarereignis"
+        and _get_elementar_subcategory(template["title_pattern"]) == "elementar_water"
+        and any(
+            _extract_qty(message, "cm")
+            for message in (template["message_pattern"], *template.get("message_variations", []))
+        )
+        for text in template["reko_summaries"]
+    }
+
+
+# The four pools added with the per-template texts (owner pick 19.11.2026).
+NEW_TYPE_POOLS = ("einsatz_bahnanlagen", "strahlenwehr", "gerettete_menschen", "dienstleistungen")
+
+
+def phone_style_summaries() -> set[str]:
+    """Texts drawn as the Reko's phone shot: every template text and the new type pools.
+    The remaining pool texts keep their round-1 picture."""
+    return {text for texts in _TEMPLATE_SUMMARIES.values() for text in texts} | {
+        text for pool in NEW_TYPE_POOLS for text in _SUMMARIES[pool]
+    }
+
 
 # Power supply likelihood per type
 _POWER_SUPPLY_WEIGHTS: dict[str, dict[str, float]] = {
@@ -518,8 +597,9 @@ _TYPE_SUBCATEGORY_KEYWORDS: dict[str, list[tuple[str, list[str]]]] = {
     "bma_unechte_alarme": [
         ("bma_schule", ["schul", "schulhaus", "kindergarten", "klassen"]),
         ("bma_pflegeheim", ["pflege", "alters", "altersheim", "wohnheim", "spital", "spitex"]),
-        ("bma_gewerbe", ["industrie", "gewerbe", "produktions", "fabrik", "halle"]),
+        # öffentlich before gewerbe: gewerbe's «halle» also matches «Hallenbad»
         ("bma_oeffentlich", ["einkaufszentrum", "hallenbad", "restaurant", "food", "shopping"]),
+        ("bma_gewerbe", ["industrie", "gewerbe", "produktions", "fabrik", "halle"]),
     ],
     "strassenrettung": [
         ("personenrettung_lift", ["lift", "aufzug"]),
@@ -572,14 +652,6 @@ def _resolve_summary_pool(
     and to elementarereignis if the type itself has no pool at all.
     """
     type_key = (incident_type or "elementarereignis").lower()
-
-    # Types without their own pool fall back to a sibling type
-    if type_key == "einsatz_bahnanlagen":
-        type_key = "strassenrettung"
-    elif type_key == "strahlenwehr":
-        type_key = "chemiewehr"
-    elif type_key in ("dienstleistungen", "gerettete_menschen"):
-        type_key = "elementarereignis"
 
     # elementarereignis has its own (richer) subcategory resolver
     if type_key == "elementarereignis":
@@ -658,9 +730,11 @@ def generate_summary(
     title: str | None = None,
     description: str | None = None,
 ) -> str:
-    """Generate a contextual German summary based on type + title + dispatch description."""
-    pool_key = _resolve_summary_pool(incident_type, title, description)
-    summaries = _SUMMARIES.get(pool_key, _SUMMARIES["elementarereignis"])
+    """One Reko text for this dispatch: the template's own (by title), else the matching pool's."""
+    summaries = _TEMPLATE_SUMMARIES.get(title or "")
+    if summaries is None:
+        pool_key = _resolve_summary_pool(incident_type, title, description)
+        summaries = _SUMMARIES.get(pool_key, _SUMMARIES["elementarereignis"])
     return random.choice(summaries)
 
 
@@ -721,7 +795,8 @@ _DANGER_ASSERT_KW: dict[str, list[str]] = {
     ],
     "explosion": ["explos", "gasflasche", "spraydose", "gasleitung", "gasriecher"],
     "chemical": ["chlor", "chemi", "reizgas", "ätzend", "aetzend", "gefahrgut", "säure", "reiniger", "gefahrstoff"],
-    "electrical": ["strom", "elektr", "trafo", "steckdose", "leitung"],
+    # «leitung» alone also matches Wasser-, Gas-, Tank- and Telefonleitung.
+    "electrical": ["strom", "elektr", "trafo", "steckdose", "fahrleitung", "freileitung", "oberleitung"],
     "fire_danger": ["vollbrand", "flammen", "glutnest", "brennt", "in flammen"],
 }
 # Summary keywords that mean "nothing going on" — force all dangers off.
@@ -806,7 +881,7 @@ def _water_action(cm: int) -> str:
         return "Nasssauger genügt."
     if cm <= 30:
         return "Eine Tauchpumpe genügt."
-    return "Mehrere Pumpen nötig, Wasser läuft nach."
+    return "Mehrere Pumpen nötig."
 
 
 def _oil_action(liters: int) -> str:
@@ -818,42 +893,59 @@ def _oil_action(liters: int) -> str:
     return "Grössere Menge, Fachberater Chemie und Entsorgung nötig."
 
 
-def _linked_summary(reported: int, unit: str, ladder: list[int], action_for: Callable[[int], str]) -> str:
+def _linked_figure(reported: int, unit: str, ladder: list[int], action_for: Callable[[int], str]) -> tuple[str, str]:
     """A reko that confirms or corrects the figure the dispatch reported — the
     single most realistic reko behaviour (citizens over- and under-report). The
     corrected figure snaps to a round estimate value, same as the dispatch, and
     the Massnahme follows the figure the crew actually finds: 30cm of water in
-    a Keller means pumping even when the caller said 50."""
+    a Keller means pumping even when the caller said 50. Returns (figure, Massnahme)."""
     outcome = random.choices(["confirm", "less", "more"], weights=[50, 32, 18], k=1)[0]
-    if outcome == "confirm":
-        return f"Lage wie gemeldet, rund {reported}{unit}. {action_for(reported)}"
     if outcome == "less":
         actual = _nice_near(round(reported * 0.35), ladder)
         if actual >= reported:
             actual = next((v for v in reversed(ladder) if v < reported), reported)
-        return f"Gemeldet {reported}{unit}, vor Ort nur ~{actual}{unit}. {action_for(actual)}"
-    actual = _nice_near(round(reported * 1.7), ladder)
-    if actual <= reported:
-        actual = next((v for v in ladder if v > reported), reported)
-    return f"Gemeldet {reported}{unit}, tatsächlich mehr – ~{actual}{unit}. {action_for(actual)}"
+        # At the bottom of the ladder there is nothing smaller to find: it confirms.
+        if actual < reported:
+            return f"Gemeldet {reported}{unit}, vor Ort nur ~{actual}{unit}.", action_for(actual)
+    elif outcome == "more":
+        actual = _nice_near(round(reported * 1.7), ladder)
+        if actual <= reported:
+            actual = next((v for v in ladder if v > reported), reported)
+        if actual > reported:
+            return f"Gemeldet {reported}{unit}, tatsächlich mehr – ~{actual}{unit}.", action_for(actual)
+    return f"Lage wie gemeldet, rund {reported}{unit}.", action_for(reported)
 
 
-def _dispatch_linked_summary(resolved_type: str | None, description: str | None) -> str | None:
-    """A dispatch-referencing summary for quantifiable scenes (water depth, oil
-    volume), or None to fall back to the pooled summaries."""
+def _dispatch_figure(resolved_type: str | None, description: str | None) -> tuple[str, str] | None:
+    """(figure, Massnahme) for a quantifiable scene (water depth, oil volume) that
+    confirms or corrects the dispatched figure, or None when there is none."""
     if resolved_type == "elementar_water":
         cm = _extract_qty(description, "cm")
         if cm:
-            return _linked_summary(cm, "cm", _NICE_CM, _water_action)
+            return _linked_figure(cm, "cm", _NICE_CM, _water_action)
     if resolved_type in ("oelwehr", "oel_keller"):
         liters = _extract_qty(description, "Liter")
         if liters:
-            return _linked_summary(liters, " Liter", _NICE_LITER, _oil_action)
+            return _linked_figure(liters, " Liter", _NICE_LITER, _oil_action)
+    return None
+
+
+def _estimated_water_figure(title: str | None) -> tuple[str, str] | None:
+    """(figure, Massnahme) when a water template's dispatch names no depth: the Reko
+    estimates one near the depths its other dispatches name. None for a template
+    whose dispatches never name one (Kanaldeckel)."""
+    for template in EMERGENCY_TEMPLATES:
+        if title in (template["title_pattern"], *template.get("title_variations", [])):
+            messages = (template["message_pattern"], *template.get("message_variations", []))
+            depths = [cm for message in messages if (cm := _extract_qty(message, "cm"))]
+            if depths:
+                cm = _nice_near(random.choice(depths), _NICE_CM)
+                return f"Vor Ort ~{cm}cm.", _water_action(cm)
     return None
 
 
 def _dispatch_linked_photo_summary(summary: str, resolved_type: str | None) -> str:
-    """Find the closest illustrated pool text for a dispatch-linked summary."""
+    """Find the closest illustrated pool text for a dispatch-linked summary without a template."""
     if resolved_type == "elementar_water":
         # The final quantity is the crew's estimate when it corrects dispatch.
         cm = int(re.findall(r"(\d+)cm", summary)[-1])
@@ -922,6 +1014,7 @@ def generate_reko_report_data(
     or corrects the figure the dispatch actually reported. A not-relevant report
     is the empty one (`_not_relevant_report`).
     """
+    incident_type = scene_type(incident_type, title)
     # BMA false alarms have a high chance of being non-relevant; diverse
     # einsaetze (wespen, türöffnungen, etc.) also lean "no FW action needed".
     if incident_type == "bma_unechte_alarme":
@@ -941,10 +1034,20 @@ def generate_reko_report_data(
     if incident_type == "elementarereignis":
         resolved_type = _get_elementar_subcategory(title, description)
 
-    # Prefer a dispatch-linked summary (confirms/corrects the reported figure);
-    # otherwise fall back to the contextual pool.
-    linked_summary = _dispatch_linked_summary(resolved_type, description)
-    summary = linked_summary or generate_summary(incident_type, title, description)
+    # A quantifiable dispatch gets its figure confirmed or corrected. A template's
+    # scene sits between the figure and the Massnahme and is the illustration; with
+    # no template, the closest illustrated pool scene stands in for the picture.
+    figure = _dispatch_figure(resolved_type, description)
+    if figure is None and resolved_type == "elementar_water":
+        figure = _estimated_water_figure(title)
+    if figure and (title or "") not in _TEMPLATE_SUMMARIES:
+        summary = " ".join(figure)
+        photo_summary = _dispatch_linked_photo_summary(summary, resolved_type)
+    else:
+        photo_summary = generate_summary(incident_type, title, description)
+        summary = f"{figure[0]} {photo_summary} {figure[1]}" if figure else photo_summary
+    # The crew's final water figure picks the shallow or deep picture of the scene.
+    depth_cm = int(re.findall(r"(\d+)cm", figure[0])[-1]) if figure and resolved_type == "elementar_water" else None
 
     dangers = generate_dangers(resolved_type)
     effort = generate_effort(resolved_type)
@@ -956,7 +1059,8 @@ def generate_reko_report_data(
         "effort_json": effort,
         "power_supply": generate_power_supply(resolved_type),
         "summary_text": summary,
-        "photo_summary": _dispatch_linked_photo_summary(linked_summary, resolved_type) if linked_summary else summary,
+        "photo_summary": photo_summary,
+        "photo_depth_cm": depth_cm,
         "additional_notes": None,
         "is_draft": False,
     }

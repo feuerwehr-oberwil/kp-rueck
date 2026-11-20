@@ -1,13 +1,33 @@
 """Seed training emergency templates and locations."""
 
 import asyncio
+from typing import NotRequired, TypedDict
 from uuid import uuid4
 
 from app.database import async_session_maker
 from app.models import EmergencyTemplate, TrainingLocation
 
+
+class EmergencyTemplateSeed(TypedDict):
+    """One dispatch scenario. Everything but `reko_summaries` is synced into
+    `emergency_templates`; `reko_summaries` stays in code and is what a simulated
+    Reko reports for an incident with one of this template's titles
+    (`training_simulation_data.generate_summary`). Each text has one bundled
+    as-found illustration (`scripts/generate_reko_images.py`). A water scene names
+    no depth and no Massnahme: the simulated Reko adds the dispatch figure and the
+    Massnahme around it."""
+
+    title_pattern: str
+    incident_type: str
+    category: str
+    message_pattern: str
+    reko_summaries: list[str]
+    title_variations: NotRequired[list[str]]
+    message_variations: NotRequired[list[str]]
+
+
 # Emergency Templates - Storm and water-focused scenarios
-EMERGENCY_TEMPLATES = [
+EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
     # ========================================
     # NORMAL - Wasserschaden / Keller auspumpen
     # ========================================
@@ -15,6 +35,10 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Wasser im Keller Einfamilienhaus",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Wasser steht im ganzen Keller, Heizung und Elektrik betroffen.",
+            "Heizraum betroffen, Brenner ausgeschaltet. Öltank steht dicht, kein Ölfilm sichtbar.",
+        ],
         "message_pattern": "Wasserschaden, Keller. Ca. 25cm Wasser, Heizung betroffen.",
         "title_variations": ["Keller unter Wasser", "Wasserschaden EFH"],
         "message_variations": [
@@ -26,6 +50,10 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Überflutung Tiefgarage",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Unterstes Parkdeck geflutet, mehrere Autos stehen im Wasser. Wasser kommt über die Rampe.",
+            "Tiefgarage unter Wasser, Rinne an der Rampe verstopft. Halter wollen ihre Autos holen.",
+        ],
         "message_pattern": "Hochwasser, Tiefgarage. Ca. 40cm, mehrere Fahrzeuge drin.",
         "title_variations": ["Tiefgarage geflutet", "Wasser in Tiefgarage"],
         "message_variations": [
@@ -37,6 +65,10 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Wasserschaden Mehrfamilienhaus",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Wasser kam durchs Kellerfenster, Lichtschacht voll Laub. Waschküche und zwei Abteile betroffen.",
+            "Mehrere Kellerräume betroffen. Abpumpen nur in Reihenfolge möglich, Zugang eng.",
+        ],
         "message_pattern": "Wasserschaden, MFH. Wasser durch Kellerfenster, Waschküche betroffen.",
         "title_variations": ["Wasser im Keller MFH", "Kellerüberflutung Mehrfamilienhaus"],
         "message_variations": [
@@ -48,6 +80,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Keller auspumpen Gewerbebetrieb",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Lagerkeller unter Wasser, Paletten am Boden durchnässt. Betriebsleiter räumt Ware hoch.",
+        ],
         "message_pattern": "Wasser im Keller, Gewerbebetrieb. Ca. 35cm, Lagerware gefährdet.",
         "title_variations": ["Keller Gewerbe geflutet", "Wasser im Firmenkeller"],
         "message_variations": [
@@ -59,6 +94,10 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Wassereinbruch nach Rohrbruch",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Kaltwasserleitung im Keller geplatzt, Haupthahn zu. Wasser läuft nicht mehr nach.",
+            "Leitung an der Kellerdecke geplatzt, Decke tropft noch. Strom im UG vorsorglich aus.",
+        ],
         "message_pattern": "Rohrbruch, Keller. Haupthahn abgestellt, Wasser steht noch.",
         "title_variations": ["Rohrbruch im Keller", "Wasserleitung geplatzt"],
         "message_variations": [
@@ -70,6 +109,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Keller geflutet Reihenhaussiedlung",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Mehrere Reihenhauskeller betroffen, Wasser kam über die Strasse in die Lichtschächte. Bewohner tragen Sachen raus.",
+        ],
         "message_pattern": "Hochwasser, Reihenhaussiedlung. Mehrere Keller, ca. 20-30cm.",
         "title_variations": ["Keller Reihenhäuser geflutet", "Hochwasser Siedlung"],
         "message_variations": [
@@ -81,6 +123,10 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Wasserschaden Schule",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Turnhalle UG unter Wasser, Matten und Boden nass. Hauswart hat die Halle gesperrt.",
+            "Geräteraum unter Wasser, Wasser kommt aus dem Bodenablauf. Unterricht verlegt.",
+        ],
         "message_pattern": "Wasserschaden, Turnhalle UG. Sportgeräte im Wasser.",
         "title_variations": ["Wasser in Turnhalle", "Keller Schulhaus geflutet"],
         "message_variations": [
@@ -92,6 +138,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Wasser in Liftschacht",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Wasser in der Liftschachtgrube, Lift steht im EG. Liftfirma informiert, Strom zum Lift aus.",
+        ],
         "message_pattern": "Wasser im Liftschacht, MFH. Lift ausser Betrieb.",
         "title_variations": ["Liftschacht überflutet", "Wasser in Aufzugschacht"],
         "message_variations": [
@@ -103,6 +152,10 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Überfluteter Parkplatz",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Parkplatz-Senke unter Wasser, Einlaufschacht mit Laub zugedeckt. Drei Autos stehen im Wasser.",
+            "Parkplatz unter Wasser, Zufahrt gesperrt. Wasser fliesst langsam ab, kein Gebäude betroffen.",
+        ],
         "message_pattern": "Hochwasser, Parkplatz. Abfluss verstopft, Fahrzeuge stehen im Wasser.",
         "title_variations": ["Parkplatz geflutet", "Wasser auf Parkplatz"],
         "message_variations": [
@@ -114,6 +167,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Wasserschaden Arztpraxis",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Lager der Arztpraxis unter Wasser, Kartons mit Material unten nass. Geräte stehen auf Regalen.",
+        ],
         "message_pattern": "Wasserschaden, Keller Arztpraxis. Medizinische Geräte im Lager.",
         "title_variations": ["Wasser Keller Arztpraxis", "Praxiskeller geflutet"],
         "message_variations": [
@@ -125,6 +181,10 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Rückstau Kanalisation",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Kanalrückstau, Wasser drückt in Keller. Abwasser, entsprechende Schutzausrüstung nötig.",
+            "Abwasser aus dem Bodenablauf der Waschküche, starker Geruch. Keine Rückstauklappe eingebaut.",
+        ],
         "message_pattern": "Kanalrückstau, Abwasser im Keller. Geruchsbelästigung.",
         "title_variations": ["Abwasser im Keller", "Kanalrückstau UG"],
         "message_variations": [
@@ -136,6 +196,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Wasser im Keller",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Wasser in einem Kellerraum nach Regen, kommt durch einen Mauerriss.",
+        ],
         "message_pattern": "Wasser im Keller nach Regen. Ca. 5cm, ein Raum.",
         "title_variations": ["Wasser im Keller nach Regen", "Leichter Wassereintritt Keller"],
         "message_variations": [
@@ -147,6 +210,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Keller feucht",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Nur ein Kellerabteil betroffen, Rest trocken. Sachen stehen auf Holzrost, kaum Schaden.",
+        ],
         "message_pattern": "Wasserschaden, Keller. Ca. 10cm, nur ein Abteil.",
         "title_variations": ["Feuchter Keller", "Wasser in Kellerabteil"],
         "message_variations": [
@@ -158,6 +224,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Wasser in Waschküche",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Waschküche betroffen, Maschine steht im Wasser. Zulauf gestoppt.",
+        ],
         "message_pattern": "Wasser in Waschküche. Ca. 3cm, Maschine steht im Wasser.",
         "title_variations": ["Waschküche unter Wasser", "Wasser in der Waschküche"],
         "message_variations": [
@@ -169,6 +238,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Keller vollgelaufen",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Ganzer Keller unter Wasser, Kühltruhe und Kartons stehen im Wasser. Mehrere Räume betroffen.",
+        ],
         "message_pattern": "Keller komplett unter Wasser. Ca. 50cm, mehrere Räume.",
         "title_variations": ["Keller komplett geflutet", "Ganzer Keller unter Wasser"],
         "message_variations": [
@@ -180,10 +252,13 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Wasserschaden Hobbyraum",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Hobbyraum unter Wasser, Modelleisenbahn steht auf Tischen und ist trocken. Bewohner räumt Kisten weg.",
+        ],
         "message_pattern": "Wasserschaden, Hobbyraum UG. Ca. 15cm. Bewohner sehr aufgelöst wegen Modelleisenbahn.",
         "title_variations": ["Wasser im Hobbyraum", "Hobbyraum geflutet"],
         "message_variations": [
-            "Bewohner meldet ca. 15cm Wasser im Hobbyraum. Modelleisenbahn im Wasser, Melder sehr aufgeregt.",
+            "Bewohner meldet ca. 15cm Wasser im Hobbyraum. Angst um die Modelleisenbahn, Melder sehr aufgeregt.",
             "Wasser im Bastelkeller, ca. 12cm. Anrufer bittet dringend, seine Modellanlage zu retten.",
         ],
     },
@@ -191,10 +266,13 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Wasser im Veloraum",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Veloraum unter Wasser, Velos und E-Bikes stehen drin. Akkus noch nicht im Wasser.",
+        ],
         "message_pattern": "Wasser im Veloraum. Ca. 8cm, 12 E-Bikes im Wasser.",
         "title_variations": ["Veloraum unter Wasser", "Wasser im Veloraum MFH"],
         "message_variations": [
-            "Hauswart meldet ca. 8cm Wasser im Veloraum. Rund 10 E-Bikes betroffen, Akkus im Wasser.",
+            "Hauswart meldet ca. 8cm Wasser im Veloraum. Rund 10 E-Bikes betroffen, Sorge um die Akkus.",
             "Wasser im Fahrradkeller, ca. 10cm. Mehrere E-Bikes stehen im Wasser.",
         ],
     },
@@ -202,6 +280,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Pfütze im Keller",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Wasser am Kellerboden beim Boiler, Herkunft noch unklar.",
+        ],
         "message_pattern": "Wasser im Keller, kleine Pfütze. Ca. 2cm, Ursache unklar.",
         "title_variations": ["Kleine Pfütze im Keller", "Wasseraustritt Keller"],
         "message_variations": [
@@ -213,6 +294,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Keller halb voll",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Heizraum unter Wasser, Heizung abgestellt. Wasser steht, steigt nicht.",
+        ],
         "message_pattern": "Wasserschaden, Keller. Ca. 30cm, Heizraum betroffen.",
         "title_variations": ["Keller halb voll", "Wasser im Heizraum"],
         "message_variations": [
@@ -224,6 +308,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Garage unter Wasser",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Einzelgarage unter Wasser, Auto steht drin. Wasser läuft von der Einfahrt nach.",
+        ],
         "message_pattern": "Wasser in Garage. Ca. 12cm, Auto steht drin.",
         "title_variations": ["Garage geflutet", "Wasser in Einzelgarage"],
         "message_variations": [
@@ -235,6 +322,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Wasser im Lagerraum",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Lagerraum betroffen, Kartons unten aufgeweicht. Wasser kommt unter der Tür durch.",
+        ],
         "message_pattern": "Wasser im Keller, Lagerraum. Ca. 6cm, Kartons betroffen.",
         "title_variations": ["Wasser im Lagerraum", "Lagerraum feucht"],
         "message_variations": [
@@ -246,6 +336,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Wasser im Keller Restaurant",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Kühllager des Restaurants unter Wasser, Getränkeharasse im Wasser. Wirt hat den Strom im Lager aus.",
+        ],
         "message_pattern": "Wasserschaden, Restaurant-Lager. Ca. 25cm, Lebensmittel gefährdet.",
         "title_variations": ["Wasser Restaurantkeller", "Restaurant-Lager geflutet"],
         "message_variations": [
@@ -257,6 +350,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Überschwemmung Garageneinfahrt",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Wasser fliesst die Tiefgarageneinfahrt runter, Rinne am Fuss verstopft. Unten steigt es.",
+        ],
         "message_pattern": "Hochwasser, Tiefgarageneinfahrt. Wasser läuft rein, Ablauf verstopft.",
         "title_variations": ["Wasser Garageneinfahrt", "Tiefgarageneinfahrt überflutet"],
         "message_variations": [
@@ -268,6 +364,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Wasserschaden Kindergarten",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Keller Kindergarten betroffen, Kisten mit Bastelmaterial nass. Keine Kinder im Gebäude.",
+        ],
         "message_pattern": "Wasserschaden, Keller Kindergarten. Spielsachen und Material betroffen.",
         "title_variations": ["Wasser Kindergartenkeller", "Kindergarten UG geflutet"],
         "message_variations": [
@@ -279,6 +378,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Waschmaschine ausgelaufen",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Waschmaschine ausgelaufen, Zulauf abgestellt. Wasser nur in der Waschküche.",
+        ],
         "message_pattern": "Wasserschaden, Waschmaschine defekt. Ca. 3cm im Keller. Melder etwas aufgeregt.",
         "title_variations": ["Waschmaschine defekt", "Wasser aus Waschmaschine"],
         "message_variations": [
@@ -290,6 +392,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Pool übergelaufen",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Gartenpool läuft über, Wasser fliesst übers Gras in Nachbars Lichtschacht. Nachbarkeller nass.",
+        ],
         "message_pattern": "Gartenpool läuft über, Wasser in Nachbars Keller. Nachbarschaftsstreit.",
         "title_variations": ["Pool übergelaufen", "Wasser aus Gartenpool"],
         "message_variations": [
@@ -301,6 +406,10 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Dachentwässerung verstopft",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Dachrinne verstopft mit Laub. Wasser läuft über Fassade. Leiter und Eimer reichen.",
+            "Fallrohr verstopft, Wasser schiesst oben aus der Rinne. Fassade nass, Keller trocken.",
+        ],
         "message_pattern": "Dachrinne verstopft, Wasser läuft an Fassade runter.",
         "title_variations": ["Dachrinne verstopft", "Verstopfte Dachentwässerung"],
         "message_variations": [
@@ -315,6 +424,11 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Dachziegel gelöst",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Dachziegel lose, einzelne bereits auf Gehweg gefallen. Absturzgefahr.",
+            "Mehrere Dachziegel lose, bei jeder Böe fällt einer. Trottoir darunter gefährdet.",
+            "Ziegel lose, 3 Stück bereits auf Gehweg gefallen. Bereich darunter abgesperrt.",
+        ],
         "message_pattern": "Sturmschaden, Dachziegel lose. Absturzgefahr auf Gehweg.",
         "title_variations": ["Lose Dachziegel", "Dachziegel droht zu fallen"],
         "message_variations": [
@@ -326,6 +440,10 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Fassadenteile lose",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Sturmschaden: Fassadenteile hängen lose über Gehweg. Bereich bereits abgesperrt.",
+            "Fassadenelement löst sich vom Bürohaus, ca. 2m über Gehweg. Bereich gesperrt.",
+        ],
         "message_pattern": "Sturmschaden, Fassadenteile lose. Über Gehweg.",
         "title_variations": ["Lose Fassadenteile", "Fassade droht zu fallen"],
         "message_variations": [
@@ -337,6 +455,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Fenster eingeschlagen",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Fenster im 1. OG durch Ast eingeschlagen, Regen dringt ins Zimmer. Glassplitter am Boden.",
+        ],
         "message_pattern": "Sturmschaden, Fenster eingeschlagen. Wasser dringt ein.",
         "title_variations": ["Fenster eingeschlagen", "Sturm hat Fenster zerstört"],
         "message_variations": [
@@ -348,6 +469,10 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Gerüst beschädigt",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Baugerüst wackelt stark im Wind. Passanten gefährdet. Sofort sichern.",
+            "Gerüstnetz losgerissen, Gerüst steht schief. Bereich davor leer.",
+        ],
         "message_pattern": "Sturmschaden, Baugerüst instabil. Einsturzgefahr.",
         "title_variations": ["Gerüst instabil", "Baugerüst droht einzustürzen"],
         "message_variations": [
@@ -359,6 +484,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Werbetafel gefährdet",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Werbetafel droht herabzufallen. Bereich bereits weiträumig abgesperrt.",
+        ],
         "message_pattern": "Sturmschaden, grosse Werbetafel droht zu fallen.",
         "title_variations": ["Werbetafel droht zu fallen", "Lose Reklametafel"],
         "message_variations": [
@@ -370,6 +498,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Dach abgedeckt",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Dach teilweise abgedeckt. Ca. 4m² offen. Blachen liegen auf dem Dachboden bereit.",
+        ],
         "message_pattern": "Sturmschaden, Dach teilweise abgedeckt. Regen dringt ein.",
         "title_variations": ["Dach abgedeckt", "Sturm hat Dach abgedeckt"],
         "message_variations": [
@@ -381,6 +512,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Trampolin auf Strasse",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Trampolin vom Nachbargarten auf Strasse geweht, Verkehr behindert. Wegräumen und sichern.",
+        ],
         "message_pattern": "Sturmschaden, Trampolin auf Fahrbahn. Blockiert eine Spur.",
         "title_variations": ["Trampolin auf Strasse", "Gartentrampolin auf Fahrbahn"],
         "message_variations": [
@@ -392,6 +526,11 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Sonnenstoren lose",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Storen hängt lose an Fassade, schlägt im Wind gegen Fenster. Glas noch ganz.",
+            "Sonnenstoren abgerissen, hängt an Kabel über Gehweg. Bereich absperren.",
+            "Storenkasten teilweise gelöst, Store hängt über Balkon. Absturzgefahr auf Sitzplatz.",
+        ],
         "message_pattern": "Sturmschaden, Storen hängt lose. Schlägt gegen Fenster.",
         "title_variations": ["Storen lose", "Sonnenstore hängt lose"],
         "message_variations": [
@@ -406,6 +545,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Baum auf Strasse",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Baum auf Strasse, Fahrbahn komplett blockiert. Ca. 40cm Stammdurchmesser.",
+        ],
         "message_pattern": "Baum auf Strasse, blockiert Fahrbahn komplett.",
         "title_variations": ["Baum quer auf Fahrbahn", "Umgestürzter Baum blockiert Strasse"],
         "message_variations": [
@@ -417,6 +559,10 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Ast auf parkiertes Auto",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Baum auf parkiertes Auto gefallen, keine Personen betroffen. Anheben und zerlegen, Polizei für den Rapport aufgeboten.",
+            "Grosser Ast auf der Motorhaube, Windschutzscheibe gesprungen. Niemand im Auto.",
+        ],
         "message_pattern": "Grosser Ast auf parkiertes Auto. Keine Verletzten.",
         "title_variations": ["Ast auf Auto", "Ast auf parkiertes Fahrzeug"],
         "message_variations": [
@@ -428,6 +574,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Baum droht zu fallen",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Fichte neigt sich Richtung Wohnhaus, Wurzelteller hebt sich. Ca. 5m bis zum Dach.",
+        ],
         "message_pattern": "Baum instabil nach Sturm. Kippt Richtung Gebäude.",
         "title_variations": ["Baum droht zu fallen", "Instabiler Baum am Haus"],
         "message_variations": [
@@ -439,6 +588,10 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Äste auf Oberleitung",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Baum lehnt an der Stromleitung, Leitung hängt durch. EW schaltet ab.",
+            "Baum auf Telefonleitung gestürzt. Swisscom ist informiert. Leitung hängt tief.",
+        ],
         "message_pattern": "Baum auf Stromleitung. EW informiert.",
         "title_variations": ["Ast auf Stromleitung", "Baum in Oberleitung"],
         "message_variations": [
@@ -450,6 +603,10 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Baum blockiert Gehweg",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Grosser Ast auf Gehweg, Fussgänger weichen auf die Strasse aus. Absperren, zerkleinern und räumen.",
+            "Baum liegt quer über dem Schulweg, Stamm ca. 30cm. Kinder klettern drüber.",
+        ],
         "message_pattern": "Baum auf Fussgängerweg, Schulweg betroffen.",
         "title_variations": ["Baum auf Gehweg", "Umgestürzter Baum Schulweg"],
         "message_variations": [
@@ -461,6 +618,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Wurzelwerk gelockert",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Alte Eiche, Erde um den Stamm aufgerissen, Wurzeln sichtbar. Baum schwankt bei Böen.",
+        ],
         "message_pattern": "Grosse Eiche instabil, Wurzeln aus Boden. Umsturzgefahr.",
         "title_variations": ["Wurzeln gelockert", "Eiche droht umzustürzen"],
         "message_variations": [
@@ -472,6 +632,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Ast auf Spielplatz",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Ast auf der Rutschbahn, Spielplatz leer. Bruchstelle hoch in der Krone.",
+        ],
         "message_pattern": "Ast auf Spielplatz gefallen. Spielplatz gesperrt.",
         "title_variations": ["Ast auf Spielplatz", "Astbruch Spielplatz"],
         "message_variations": [
@@ -486,6 +649,10 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Heizöl im Keller",
         "incident_type": "oelwehr",
         "category": "normal",
+        "reko_summaries": [
+            "Heizöltank im Keller undicht, Lache unter dem Tank. Geruch im ganzen Haus.",
+            "Leck an der Tankleitung, Öl in der Auffangwanne und daneben am Boden.",
+        ],
         "message_pattern": "Ölwehr, Heizöltank leckt. Ca. 50 Liter im Keller.",
         "title_variations": ["Heizöl im Keller", "Öltank leckt"],
         "message_variations": [
@@ -497,6 +664,10 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Ölspur Hauptstrasse",
         "incident_type": "oelwehr",
         "category": "normal",
+        "reko_summaries": [
+            "Ölspur ca. 100m Länge auf Hauptstrasse. Kein Gewässer in der Nähe.",
+            "Diesel-Lache am Strassenrand nach Tankunfall. Ca. 5m², Werkstattbetrieb informiert.",
+        ],
         "message_pattern": "Ölspur auf Fahrbahn. Ca. 100m lang.",
         "title_variations": ["Ölspur Strasse", "Ölspur auf Hauptstrasse"],
         "message_variations": [
@@ -508,6 +679,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Ölspur Kreisel",
         "incident_type": "oelwehr",
         "category": "normal",
+        "reko_summaries": [
+            "Ölspur im Kreisel nach LKW-Manöver, ca. 30m. Rutschgefahr, Verkehr läuft langsam.",
+        ],
         "message_pattern": "Ölspur im Kreisel, LKW verliert Hydrauliköl. Ca. 30m.",
         "title_variations": ["Ölspur Kreisel", "Hydrauliköl im Kreisel"],
         "message_variations": [
@@ -519,6 +693,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Lichtmast beschädigt",
         "incident_type": "technische_hilfeleistung",
         "category": "normal",
+        "reko_summaries": [
+            "Strassenlaterne steht schräg, Fundament gelockert. Kabel noch dran, Leuchte brennt.",
+        ],
         "message_pattern": "Strassenlaterne schief nach Sturm. Droht umzufallen.",
         "title_variations": ["Lichtmast schief", "Strassenlaterne droht zu fallen"],
         "message_variations": [
@@ -530,6 +707,10 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Überfluteter Parkplatz",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Parkplatz-Senke unter Wasser, Einlaufschacht mit Laub zugedeckt. Drei Autos stehen im Wasser.",
+            "Parkplatz unter Wasser, Zufahrt gesperrt. Wasser fliesst langsam ab, kein Gebäude betroffen.",
+        ],
         "message_pattern": "Hochwasser, Parkplatz unter Wasser. Zufahrt gesperrt.",
         "title_variations": ["Parkplatz überflutet", "Hochwasser Parkplatz"],
         "message_variations": [
@@ -541,10 +722,14 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Kanaldeckel hochgedrückt",
         "incident_type": "elementarereignis",
         "category": "normal",
+        "reko_summaries": [
+            "Kanaldeckel liegt neben dem Schacht, Wasser sprudelt raus. Loch offen auf der Fahrbahn.",
+            "Kanaldeckel fehlt auf Quartierstrasse, Loch offen. Werkdienst aufgeboten.",
+        ],
         "message_pattern": "Kanaldeckel angehoben durch Wasserdruck. Stolpergefahr.",
         "title_variations": ["Kanaldeckel hoch", "Angehobener Schachtdeckel"],
         "message_variations": [
-            "Passant meldet angehobenen Kanaldeckel, durch Wasserdruck hochgedrückt. Stolpergefahr auf Gehweg.",
+            "Passant meldet angehobenen Kanaldeckel, durch Wasserdruck hochgedrückt. Stolpergefahr.",
             "Schachtdeckel steht schräg, Wasser drückt hoch. Sturzgefahr, Stelle sichern.",
         ],
     },
@@ -552,6 +737,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Tiefgaragentor klemmt",
         "incident_type": "technische_hilfeleistung",
         "category": "normal",
+        "reko_summaries": [
+            "Tiefgaragentor klemmt, mehrere Fahrzeuge eingeschlossen. Motor reagiert nicht.",
+        ],
         "message_pattern": "Tiefgaragentor blockiert, 6 Fahrzeuge eingeschlossen.",
         "title_variations": ["TG-Tor klemmt", "Garagentor blockiert"],
         "message_variations": [
@@ -563,6 +751,10 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Bagger reisst Wasserleitung",
         "incident_type": "technische_hilfeleistung",
         "category": "normal",
+        "reko_summaries": [
+            "Baustelle: Bagger hat Wasserleitung getroffen. Wasser spritzt. Haupthahn unbekannt.",
+            "Wasserrohrbruch unter Strasse, Strassenbelag wölbt sich. Werkdienst ist unterwegs.",
+        ],
         "message_pattern": "Baustelle, Bagger hat Wasserleitung erwischt. Wasser spritzt.",
         "title_variations": ["Wasserleitung angebaggert", "Leitungsschaden Baustelle"],
         "message_variations": [
@@ -574,6 +766,10 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Wespennest am Schulhaus",
         "incident_type": "diverse_einsaetze",
         "category": "normal",
+        "reko_summaries": [
+            "Wespennest am Eingang, Schwarm aktiv. Bereich abgesperrt, Imker informiert.",
+            "Wespennest im Rollladenkasten beim Schulhauseingang. Viele Wespen am Eingang, Pause verlegt.",
+        ],
         "message_pattern": "Wespennest beim Eingang Schule. Schädlingsbekämpfer erst morgen verfügbar.",
         "title_variations": ["Wespennest Schule", "Wespen beim Schuleingang"],
         "message_variations": [
@@ -585,6 +781,10 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Katze auf Baum",
         "incident_type": "gerettete_tiere",
         "category": "normal",
+        "reko_summaries": [
+            "Katze auf Baum seit 2 Tagen. Kommt nicht runter. Ca. 8m Höhe.",
+            "Katze auf Baum, sitzt seit gestern in ca. 6m Höhe. Rettung über Steckleiter möglich.",
+        ],
         "message_pattern": "Katze auf Baum, seit 2 Tagen. Besitzerin am Verzweifeln.",
         "title_variations": ["Katze auf Baum", "Katze im Baum gefangen"],
         "message_variations": [
@@ -596,6 +796,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Ente in Lichtschacht",
         "incident_type": "gerettete_tiere",
         "category": "normal",
+        "reko_summaries": [
+            "Ente mit Küken in Lichtschacht. Einfacher Einsatz, alle wohlauf.",
+        ],
         "message_pattern": "Ente mit 6 Küken im Lichtschacht. Kommen nicht raus.",
         "title_variations": ["Enten im Lichtschacht", "Entenfamilie im Schacht"],
         "message_variations": [
@@ -607,6 +810,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Igel im Kellerschacht",
         "incident_type": "gerettete_tiere",
         "category": "normal",
+        "reko_summaries": [
+            "Igel im Kellerschacht, unverletzt. Wird herausgehoben und im Garten freigelassen.",
+        ],
         "message_pattern": "Igel in Kellerschacht. Bewohner füttert ihn seit einer Woche, will ihn jetzt raus haben.",
         "title_variations": ["Igel im Schacht", "Igel im Kellerschacht"],
         "message_variations": [
@@ -618,6 +824,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Schwan auf Strasse",
         "incident_type": "gerettete_tiere",
         "category": "normal",
+        "reko_summaries": [
+            "Schwan auf Strasse, will nicht weichen. Verkehr stockt. Wird eingefangen und zum Weiher gebracht.",
+        ],
         "message_pattern": "Schwan blockiert Kreuzung. Polizei hat aufgegeben.",
         "title_variations": ["Schwan auf Strasse", "Schwan blockiert Kreuzung"],
         "message_variations": [
@@ -632,10 +841,16 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Wohnungsbrand",
         "incident_type": "brandbekaempfung",
         "category": "critical",
-        "message_pattern": "Brand, Wohnung 2. OG. Starker Rauch, Personen evtl. noch drin.",
+        "reko_summaries": [
+            "Starke Rauchentwicklung. Brandabschnitt im 2. OG identifiziert. Treppenhaus noch begehbar.",
+            "Feuer auf ein Zimmer begrenzt. Tür geschlossen. Zugang über Treppenhaus möglich.",
+            "Flammen sichtbar am Fenster 3. OG. Treppenhaus begehbar. Innenangriff möglich.",
+            "Wohnung komplett verraucht, kein offenes Feuer sichtbar. Vermutlich Schwelbrand in der Wand.",
+        ],
+        "message_pattern": "Brand, Wohnung im MFH. Starker Rauch, Personen evtl. noch drin.",
         "title_variations": ["Brand in Wohnung", "Rauch aus Wohnung"],
         "message_variations": [
-            "Brand in MFH, Wohnung 3. OG. Starke Rauchentwicklung, Treppenhaus verraucht.",
+            "Brand in MFH, Wohnung im Obergeschoss. Starke Rauchentwicklung, Treppenhaus verraucht.",
             "Nachbarn melden Rauch aus Wohnung. Bewohner nicht erreichbar.",
             "Brand in Wohnung gemeldet. Bewohnerin draussen, Hund noch drin.",
         ],
@@ -644,6 +859,11 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Fahrzeugbrand",
         "incident_type": "brandbekaempfung",
         "category": "critical",
+        "reko_summaries": [
+            "PKW in Vollbrand auf Parkplatz. Reifen platzen bereits. Nachbarfahrzeuge gefährdet.",
+            "Motorbrand, Flammen aus Motorraum. Bewohner versuchte zu löschen, Pulverlöscher leer.",
+            "Fahrzeugbrand bereits gelöscht durch Passanten. Restglut, leichte Rauchentwicklung.",
+        ],
         "message_pattern": "Fahrzeugbrand auf Parkplatz. Flammen sichtbar.",
         "title_variations": ["PKW in Brand", "Auto brennt"],
         "message_variations": [
@@ -656,6 +876,11 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Brand Gartenhaus",
         "incident_type": "brandbekaempfung",
         "category": "critical",
+        "reko_summaries": [
+            "Gartenhütte komplett in Flammen, 2 Gasflaschen drin. Sicherheitsabstand eingehalten.",
+            "Gartenhaus brennt, Flammen greifen auf die Hecke über. Nachbarhaus ca. 8m entfernt.",
+            "Geräteschuppen verraucht, Benzinkanister vom Rasenmäher drin. Feuer noch klein.",
+        ],
         "message_pattern": "Brand, Gartenhütte in Vollbrand. Gasflaschen drin.",
         "title_variations": ["Gartenhütte in Brand", "Vollbrand Gartenhaus"],
         "message_variations": [
@@ -667,18 +892,26 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Küchenbrand",
         "incident_type": "brandbekaempfung",
         "category": "critical",
+        "reko_summaries": [
+            "Brand in Küche, Bewohner bereits evakuiert. Fettbrand mit starker Russbildung. Herd aus.",
+            "Angebranntes Essen auf Herd, Pfanne in Vollbrand. Bewohnerin hat versucht zu löschen mit Wasser. Russ überall.",
+        ],
         "message_pattern": "Brand klein, Küche Fettbrand. Starker Rauch, Bewohner draussen.",
         "title_variations": ["Fettbrand Küche", "Brand in Küche"],
         "message_variations": [
             "Fettbrand auf Herd, Bewohnerin hat Wasser draufgeschüttet. Stichflamme bis Decke.",
             "Pfannenbrand, Küche stark verqualmt. Bewohner versucht zu löschen.",
-            "Backofen brennt, Bewohner haben Wohnung verlassen. Rauch aus geöffnetem Fenster.",
         ],
     },
     {
         "title_pattern": "Brand Dachstock",
         "incident_type": "brandbekaempfung",
         "category": "critical",
+        "reko_summaries": [
+            "Dachstuhl in Vollbrand, Sparren teilweise durchgebrannt. Einsturzgefahr, Aussenangriff über DLK.",
+            "Dachstock betroffen, Feuer breitet sich Richtung Nachbargebäude aus. DLK-Aufstellung möglich.",
+            "Brand weitgehend unter Kontrolle, aber Glutnester im Dachstock noch vorhanden.",
+        ],
         "message_pattern": "Brand, Dachstock MFH. Flammen durch Dach sichtbar.",
         "title_variations": ["Dachstockbrand", "Brand Dachstuhl"],
         "message_variations": [
@@ -690,6 +923,10 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Brand Tiefgarage",
         "incident_type": "brandbekaempfung",
         "category": "critical",
+        "reko_summaries": [
+            "Auto in Tiefgarage raucht stark. Belüftung läuft. Personen aus Gebäude evakuiert.",
+            "Tiefgarage dicht verraucht, Sicht unter 2m. Brennendes Fahrzeug hinten vermutet.",
+        ],
         "message_pattern": "Rauch aus Tiefgarage, vermutlich Fahrzeugbrand. Starke Verrauchung.",
         "title_variations": ["Rauch aus Tiefgarage", "Fahrzeugbrand Tiefgarage"],
         "message_variations": [
@@ -701,6 +938,11 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Brand Abfallcontainer",
         "incident_type": "brandbekaempfung",
         "category": "critical",
+        "reko_summaries": [
+            "Abfallcontainer unter Vordach. Flammen schlagen hoch, Vordach bereits angerusst.",
+            "Mülltonne brennt, Wind treibt Funken Richtung Hecke. Container vom Gebäude weggezogen.",
+            "Sperrgut neben Container in Brand, vermutlich Brandstiftung. Personenrettung nicht nötig.",
+        ],
         "message_pattern": "Brand klein, Abfallcontainer unter Vordach. Flammen schlagen hoch.",
         "title_variations": ["Container brennt", "Mülltonne in Brand"],
         "message_variations": [
@@ -712,17 +954,24 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Brand Werkstatt",
         "incident_type": "brandbekaempfung",
         "category": "critical",
+        "reko_summaries": [
+            "Schreinerei stark verqualmt, Sägespäne brennen am Boden. Niemand mehr im Gebäude.",
+            "Holzlager neben der Schreinerei in Vollbrand. Halle selbst noch rauchfrei.",
+        ],
         "message_pattern": "Brand, Schreinerei. Starke Flammen, viel Holz. Keine Personen.",
         "title_variations": ["Werkstattbrand", "Brand Industriebetrieb"],
         "message_variations": [
-            "Brand in Schreinerei, Sägespäne brennen, Sprinkler hat ausgelöst.",
-            "Industriehalle, Brand an Lackierstation. Lösungsmittel im Lager.",
+            "Brand bei Schreinerei, Holz brennt. Anwohner sehen hohe Flammen.",
         ],
     },
     {
         "title_pattern": "E-Bike Brand Keller",
         "incident_type": "brandbekaempfung",
         "category": "critical",
+        "reko_summaries": [
+            "E-Bike-Akku zischt und raucht im Veloraum. Treppenhaus stark verraucht.",
+            "Akkubrand im Keller. Hohe Temperaturen, Akku noch nicht vollständig durchgebrannt.",
+        ],
         "message_pattern": "Brand, E-Bike-Akku im Veloraum. Rauch im Treppenhaus.",
         "title_variations": ["Akkubrand Veloraum", "Brand E-Bike"],
         "message_variations": [
@@ -737,6 +986,11 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "BMA Schulhaus",
         "incident_type": "bma_unechte_alarme",
         "category": "critical",
+        "reko_summaries": [
+            "Schüler haben Deo im WC versprüht. Melder hat ausgelöst, Lehrer hat Klasse bereits evakuiert.",
+            "Auslösung durch Werklehrer-Demo: Lötzinn-Rauch. Anlage wieder scharfgestellt.",
+            "Schulhausmeister bestätigt: Reinigungspersonal hat Trockner ohne Filter laufen lassen.",
+        ],
         "message_pattern": "BMA, Schulhaus. Evakuation läuft.",
         "title_variations": ["BMA Schule", "Brandmeldeanlage Schulhaus"],
         "message_variations": [
@@ -748,32 +1002,46 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "BMA Altersheim",
         "incident_type": "bma_unechte_alarme",
         "category": "critical",
+        "reko_summaries": [
+            "Bewohnerin hat im Bad geraucht, Melder hat ausgelöst. Pflegepersonal hat sie beruhigt, keine Gefahr.",
+            "Pflegeheim Ost: Toast verbrannt in Stationsküche. Melder zurückgesetzt, Bewohner blieben in Zimmern.",
+            "Falscher Alarm durch defekten Melder. Anlage isoliert den Sektor, Servicetechniker aufgeboten.",
+        ],
         "message_pattern": "BMA, Pflegeheim. Melder 2. Stock Ost.",
         "title_variations": ["BMA Pflegeheim", "Brandmeldeanlage Pflegeheim"],
         "message_variations": [
-            "BMA Pflegeheim, Melder Demenzstation. Personal evakuiert bewegliche Bewohner.",
-            "BMA-Auslösung Altersheim, Melder Stationsküche. Kein sichtbarer Rauch.",
+            "BMA Pflegeheim, Melder Trakt Ost. Personal kontrolliert die Zimmer.",
+            "BMA-Auslösung Altersheim, Melder 2. Stock Ost. Kein sichtbarer Rauch.",
         ],
     },
     {
         "title_pattern": "BMA Gewerbe",
         "incident_type": "bma_unechte_alarme",
         "category": "critical",
+        "reko_summaries": [
+            "Auslösung durch Schweissarbeiten in Produktionshalle. Schweisser hatte keine Freigabe vom Sicherheitsbeauftragten.",
+            "Industriebetrieb: Staub aus Absauganlage hat Optikmelder ausgelöst. Filter ist verstopft.",
+            "Dampf aus Reinigungsanlage hat Melder ausgelöst. Betrieb läuft, kein Brand.",
+        ],
         "message_pattern": "BMA, Industriebetrieb. Melder Produktionshalle.",
         "title_variations": ["BMA Industriebetrieb", "Brandmeldeanlage Gewerbe"],
         "message_variations": [
-            "BMA Industriebetrieb, Sektor Lager. Sicherheitsbeauftragter vor Ort.",
-            "BMA-Auslösung Produktionshalle, Schweissarbeiten gemeldet.",
+            "BMA Industriebetrieb, Sektor 4. Sicherheitsbeauftragter vor Ort.",
+            "BMA-Auslösung Produktionshalle. Betrieb läuft.",
         ],
     },
     {
         "title_pattern": "BMA Einkaufszentrum",
         "incident_type": "bma_unechte_alarme",
         "category": "critical",
-        "message_pattern": "BMA, Einkaufszentrum. Melder Küche Food Court.",
+        "reko_summaries": [
+            "Auslösung durch Kochdampf Food Court. Restaurantleiter hat Anlage falsch konfiguriert.",
+            "Einkaufszentrum: Defekter Melder im Lager Möbelabteilung. Bauverein wurde informiert.",
+        ],
+        "message_pattern": "BMA, Einkaufszentrum. Melder Sektor 2.",
         "title_variations": ["BMA Shopping", "Brandmeldeanlage Einkaufszentrum"],
         "message_variations": [
-            "BMA Einkaufszentrum, Melder Lager Möbelabteilung. Center-Manager unterwegs.",
+            "BMA Einkaufszentrum, Melder Sektor 5. Center-Manager unterwegs.",
             "BMA Mall, Sektor 3 ausgelöst. Personal evakuiert Kunden.",
         ],
     },
@@ -781,10 +1049,14 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "BMA Hallenbad",
         "incident_type": "bma_unechte_alarme",
         "category": "critical",
+        "reko_summaries": [
+            "Hallenbad: Chlordosieranlage hat zu hoch dosiert. Bademeister hat Becken bereits geschlossen.",
+            "Melder im Technikraum, Luftfeuchte von der Filteranlage. Bademeister vor Ort, kein Rauch.",
+        ],
         "message_pattern": "BMA, Hallenbad. Melder Technikraum, Chloranlage in der Nähe.",
         "title_variations": ["BMA Hallenbad", "Brandmeldeanlage Hallenbad"],
         "message_variations": [
-            "BMA Hallenbad, Melder Saunabereich. Badegäste werden evakuiert.",
+            "BMA Hallenbad, Melder Technikraum. Badegäste werden evakuiert.",
             "BMA-Auslösung Hallenbad Technikraum, Chlordosieranlage in der Nähe.",
         ],
     },
@@ -792,11 +1064,15 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "BMA Wohnheim",
         "incident_type": "bma_unechte_alarme",
         "category": "critical",
-        "message_pattern": "BMA, Studentenwohnheim. Melder 3. OG Küche.",
+        "reko_summaries": [
+            "Pizza im Ofen vergessen, Etagenküche verraucht. Bewohner stehen draussen.",
+            "Verbranntes Essen im Zimmer, Melder ausgelöst. Kein Feuer, bereits gelüftet.",
+        ],
+        "message_pattern": "BMA, Studentenwohnheim. Melder 3. OG.",
         "title_variations": ["BMA Studentenwohnheim", "Brandmeldeanlage Wohnheim"],
         "message_variations": [
-            "BMA Studentenwohnheim, Etagenküche 3. OG. Studierende strömen ins Freie.",
-            "BMA-Auslösung Wohnheim, Melder Gemeinschaftsküche.",
+            "BMA Studentenwohnheim, Melder 3. OG. Studierende strömen ins Freie.",
+            "BMA-Auslösung Wohnheim, Melder 2. OG.",
         ],
     },
     # ========================================
@@ -806,17 +1082,25 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Person in Lift",
         "incident_type": "strassenrettung",
         "category": "critical",
+        "reko_summaries": [
+            "Person in Lift eingeschlossen. Spricht über Gegensprechanlage. Ruhig, keine Panik.",
+            "Lift zwischen 3. und 4. OG stehen geblieben. Person mit Kinderwagen drin. Ungeduldig.",
+        ],
         "message_pattern": "Person in Lift eingeschlossen, 4. OG. Steht zwischen Stockwerken.",
         "title_variations": ["Lift blockiert mit Person", "Person im Aufzug eingeschlossen"],
         "message_variations": [
             "Lift steht zwischen 3. und 4. OG, Person mit Kinderwagen drin. Spricht ruhig.",
-            "Personen in Lift eingeschlossen, Stromausfall. Liftnotruf hat ausgelöst.",
+            "Person in Lift eingeschlossen, Stromausfall. Liftnotruf hat ausgelöst.",
         ],
     },
     {
         "title_pattern": "Verkehrsunfall eingeklemmt",
         "incident_type": "strassenrettung",
         "category": "critical",
+        "reko_summaries": [
+            "Person eingeklemmt, Fahrerseite deformiert. Hydraulische Rettung erforderlich.",
+            "Frontalkollision Landstrasse. Eine Person eingeklemmt, eine ansprechbar im Strassengraben.",
+        ],
         "message_pattern": "VU, 2 PKW. Eine Person eingeklemmt. Sanität vor Ort.",
         "title_variations": ["VU mit Eingeklemmtem", "Frontalkollision mit Eingeklemmtem"],
         "message_variations": [
@@ -828,17 +1112,22 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Absturz Baugerüst",
         "incident_type": "strassenrettung",
         "category": "critical",
+        "reko_summaries": [
+            "Maler vom Gerüst gestürzt, ca. 4m. Person bewusstlos, Sanität reanimiert.",
+        ],
         "message_pattern": "Person ab Gerüst gestürzt, ca. 3m. Bewusstlos.",
         "title_variations": ["Absturz vom Gerüst", "Sturz Baustelle"],
         "message_variations": [
             "Maler vom Gerüst gestürzt, ca. 4m, Sanität reanimiert.",
-            "Bauarbeiter abgestürzt, hängt im Geschirr in 6m Höhe.",
         ],
     },
     {
         "title_pattern": "Kind in Schacht",
         "incident_type": "strassenrettung",
         "category": "critical",
+        "reko_summaries": [
+            "Kind in Kanalschacht gefallen, ansprechbar. Schachtweite eng, Schleifkorbtrage nötig.",
+        ],
         "message_pattern": "Kind in Kanalschacht gefallen. Ansprechbar.",
         "title_variations": ["Kind in Kanalschacht", "Kindrettung Schacht"],
         "message_variations": [
@@ -850,11 +1139,15 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Auffahrunfall Kreuzung",
         "incident_type": "strassenrettung",
         "category": "critical",
+        "reko_summaries": [
+            "Auffahrunfall, Blechschaden. Keine Verletzten. Kühlflüssigkeit läuft aus.",
+            "Drei Autos ineinander, Kühlwasser und Öl auf der Kreuzung. Alle Personen ausgestiegen.",
+        ],
         "message_pattern": "VU, Auffahrunfall 3 Fahrzeuge. Betriebsstoffe laufen aus.",
         "title_variations": ["VU Auffahrunfall", "Mehrere Fahrzeuge Auffahrunfall"],
         "message_variations": [
             "Auffahrunfall an Ampel, 3 PKW, Kühlflüssigkeit auf Fahrbahn, keine Eingeklemmten.",
-            "Massenkarambolage Kreuzung, Sanität vor Ort, Strasse muss gesperrt werden.",
+            "Auffahrunfall Kreuzung, mehrere Fahrzeuge. Strasse muss gesperrt werden.",
         ],
     },
     # ========================================
@@ -864,6 +1157,10 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Gasgeruch",
         "incident_type": "chemiewehr",
         "category": "critical",
+        "reko_summaries": [
+            "Gasgeruch im Treppenhaus, stärker im Keller. Bewohner draussen, Gasversorger aufgeboten.",
+            "Gasgeruch in Wohnung 1. OG, Herd aus, Fenster offen. Geruch nur schwach.",
+        ],
         "message_pattern": "Gasgeruch in MFH. Quelle unbekannt, Bewohner draussen.",
         "title_variations": ["Gasgeruch MFH", "Gasalarm Wohnung"],
         "message_variations": [
@@ -875,6 +1172,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Chemikalienunfall Labor",
         "incident_type": "chemiewehr",
         "category": "critical",
+        "reko_summaries": [
+            "Chemiesaal: Flasche Salzsäure am Boden zerbrochen, stechender Geruch. Klasse draussen, Lehrer vor Ort.",
+        ],
         "message_pattern": "Chemie ausgelaufen, Schule Chemiesaal. Dämpfe, Gebäude wird geräumt.",
         "title_variations": ["Chemieunfall Schule", "Laborchemie ausgelaufen"],
         "message_variations": [
@@ -886,6 +1186,9 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Chlorgeruch Hallenbad",
         "incident_type": "chemiewehr",
         "category": "critical",
+        "reko_summaries": [
+            "Chlorgeruch im Hallenbad. Dosieranlage defekt. Badegäste bereits draussen.",
+        ],
         "message_pattern": "Chlorgeruch Hallenbad. Dosieranlage vermutlich defekt.",
         "title_variations": ["Chlorgas Hallenbad", "Chloralarm Hallenbad"],
         "message_variations": [
@@ -894,8 +1197,6 @@ EMERGENCY_TEMPLATES = [
         ],
     },
 ]
-
-print(f"Defined {len(EMERGENCY_TEMPLATES)} emergency templates")
 
 
 # Everything from here to FALLBACK_TRAINING_LOCATIONS is a DEV AND DEMO FIXTURE for
@@ -985,7 +1286,17 @@ async def seed_training_data(skip_geocoding: bool = False, seed_locations: bool 
         for template_data in EMERGENCY_TEMPLATES:
             existing_template = existing.get(template_data["title_pattern"])
             if existing_template is None:
-                session.add(EmergencyTemplate(id=uuid4(), **template_data))
+                session.add(
+                    EmergencyTemplate(
+                        id=uuid4(),
+                        title_pattern=template_data["title_pattern"],
+                        incident_type=template_data["incident_type"],
+                        category=template_data["category"],
+                        message_pattern=template_data["message_pattern"],
+                        title_variations=template_data.get("title_variations"),
+                        message_variations=template_data.get("message_variations"),
+                    )
+                )
                 inserted += 1
             else:
                 existing_template.incident_type = template_data["incident_type"]

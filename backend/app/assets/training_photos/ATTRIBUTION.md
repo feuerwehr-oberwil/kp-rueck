@@ -14,6 +14,13 @@ manifest records the exact prompt and file under the SHA-256 of the exact
 summary text. Identical texts share a file across pools. These illustrations
 are separate from the Wikimedia Commons photos attributed below.
 
+Template texts and the type pools for Bahnanlagen, Strahlenwehr, Gerettete
+Menschen and Dienstleistungen are drawn as the Reko's own phone shot (manifest
+`"style": "phone"`, up to 60 KB); the other pool texts keep the round-1
+`"plain"` pictures. A water scene has a shallow (≤10 cm) and a deep picture
+(`"depth"`), and the crew's final figure picks one. A text may list several
+pictures; the report picks one at random.
+
 All illustrations have a 640 px long edge and depict the scene as found,
 before fire-service intervention. Pumps, hoses, absorbent, barriers, sandbags,
 ladders and fire-service gear or vehicles stay out of the scene, even if
@@ -23,13 +30,17 @@ The manifest marks reviewed scenes with `"scene": "as_found"`. Kept images
 retain the exact prompt used to generate them.
 
 Relevant simulated Reko reports select the exact summary illustration on its
-own; a type photo is used only when the summary has no illustration. Dispatch-linked summaries use the crew's
-final estimate, including when it differs from dispatch. For water, the
-selection follows the reported intervention. Wet-vacuum reports use the
-nearest 3 or 5 cm laundry scene, single-pump reports use the 25 cm basement,
-and depths above 30 cm use the rising-water scene. For oil, the selection
-uses the nearest quantified basement spill (5, 50 or 80 litres, with ties
-broken in pool order). Not-relevant reports receive no generated photos.
+own; a type photo is used only when the summary has no illustration. An
+incident with a template's title reports one of that template's own texts
+(`reko_summaries` in `app/seed_training.py`) and shows its illustration. A
+water scene there names no depth: the report adds the crew's final estimate
+and the Massnahme around it, and the picture is the scene. Incidents without
+a template draw from the type pools; for water and oil there, the selection
+follows the reported intervention. Wet-vacuum reports use the nearest 3 or
+5 cm laundry scene, single-pump reports use the 25 cm basement, and depths
+above 30 cm use the rising-water scene. For oil, the selection uses the
+nearest quantified basement spill (5, 50 or 80 litres, with ties broken in
+pool order). Not-relevant reports receive no generated photos.
 
 From `backend/`, run `uv run python scripts/generate_reko_images.py jobs > /tmp/reko-image-jobs.jsonl`
 to export missing jobs. Generate each job's prompt with ImageGen and save the
