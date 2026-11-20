@@ -1,0 +1,83 @@
+# Turns on GitHub auto-merge for small Dependabot pull requests: any GitHub Actions update, and
+# minor or patch updates of the frontend (npm) and the backend / print agent (uv, pip). Majors
+# and base-image updates (docker, for example Python 3.14 -> 3.15) wait for a person.
+#
+# This workflow only ASKS for auto-merge. GitHub merges the pull request later, when every
+# required check on main has passed. It uses the GraphQL mutation, never `gh pr merge --auto`:
+# gh merges at once when no required check is open. Without the repository setting «Allow
+# auto-merge» the mutation fails and nothing merges.
+#
+# `pull_request_target`: GitHub runs THIS file from main, never the copy in the pull request,
+# so a pull request cannot change the rule that decides about it (an update of
+# dependabot/fetch-metadata included). The job checks out nothing and runs no code from the
+# pull request; it reads the event and Dependabot's commit message.
+#
+# The decision is made new for every head commit and every event: first auto-merge is turned
+# OFF (GitHub keeps it on across pushes), then it is asked for again only when Dependabot made
+# the event and the head is one small Dependabot commit. So a push or a reopen by a person, a
+# re-run by a person, and a new Dependabot head that is no longer small all end with «off».
+# `automerge` must be a REQUIRED check on main: then no head can merge before its decision ran.
+#
+# What a merge does here: Railway follows main through its own GitHub integration (subject to
+# its own settings), so an auto-merged update goes to production like any other merge. GitHub
+# starts NO workflow run for a merge made with this workflow's token, so «CI» and «Main images»
+# do not run on that commit: its `main-<sha>` images do not exist, and a standby box stays on
+# its last commit until main reaches a commit whose images exist (scripts/standby-follow.sh).
+name: Dependabot auto-merge
+
+on: pull_request_target
+
+permissions:
+  contents: write # the two scopes GitHub documents for turning auto-merge on
+  pull-requests: write
+
+# One decision at a time per pull request, in order. Nothing is cancelled: a run that was cut
+# off before its «off» step would leave auto-merge as it was.
+concurrency:
+  group: dependabot-automerge-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  PR_ID: ${{ github.event.pull_request.node_id }}
+
+jobs:
+  # On pull requests that are not Dependabot's the job is skipped, which counts as passed.
+  automerge:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Turn auto-merge off
+        run: |
+          # shellcheck disable=SC2016 # $pr is a GraphQL variable, not shell
+          gh api graphql -f pr="$PR_ID" -f query='
+            mutation($pr: ID!) {
+              disablePullRequestAutoMerge(input: { pullRequestId: $pr }) { clientMutationId }
+            }'
+
+      # Only when Dependabot made this event (not a person's push, reopen or re-run) and the
+      # pull request is ONE commit: the action verifies the first commit only, and that it is
+      # Dependabot's. It reads the update from that commit's message. For a grouped pull
+      # request `update-type` is the largest step in the group.
+      - id: metadata
+        if: github.triggering_actor == 'dependabot[bot]' && github.event.pull_request.commits == 1
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+
+      - name: Ask for auto-merge
+        if: >-
+          steps.metadata.outcome == 'success' && (
+          steps.metadata.outputs.package-ecosystem == 'github_actions' ||
+          (contains(fromJSON('["npm_and_yarn", "uv", "pip"]'), steps.metadata.outputs.package-ecosystem) &&
+          (steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-patch')))
+        # `expectedHeadOid`: the request is for exactly the commit this run looked at.
+        run: |
+          # shellcheck disable=SC2016 # $pr and $head are GraphQL variables, not shell
+          gh api graphql -f pr="$PR_ID" -f head="$HEAD_SHA" -f query='
+            mutation($pr: ID!, $head: GitObjectID!) {
+              enablePullRequestAutoMerge(
+                input: { pullRequestId: $pr, expectedHeadOid: $head, mergeMethod: SQUASH }
+              ) { clientMutationId }
+            }'
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
