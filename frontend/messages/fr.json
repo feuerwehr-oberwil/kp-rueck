@@ -2423,16 +2423,29 @@
       },
       "checkin": {
         "title": "Arrivée",
-        "subtitle": "Check-in à l'entrée"
+        "subtitle": "Check-in à l'entrée",
+        "regenerateTitle": "Recréer le lien d'arrivée ?",
+        "regenerateDescription": "Le nouveau lien et son code QR sont disponibles ici tout de suite. L'ancien lien pour «{event}» ne fonctionne plus ensuite – y compris sur la tablette à la porte.",
+        "regenerated": "Lien d'arrivée recréé"
       },
       "display": {
         "title": "Écran mural",
-        "subtitle": "Lecture seule"
+        "subtitle": "Lecture seule",
+        "regenerateTitle": "Recréer le lien de l'écran mural ?",
+        "regenerateDescription": "Le nouveau lien et son code QR sont disponibles ici tout de suite. L'ancien lien pour «{event}» ne fonctionne plus ensuite – y compris sur un écran mural en service.",
+        "regenerated": "Lien de l'écran mural recréé"
       },
       "alarm": {
         "title": "Saisir une alarme",
-        "subtitle": "Téléphone et passage"
-      }
+        "subtitle": "Téléphone et passage",
+        "regenerateTitle": "Recréer le lien d'alarme ?",
+        "regenerateDescription": "Le nouveau lien et son code QR sont disponibles ici tout de suite. L'ancien lien pour «{event}» ne fonctionne plus ensuite – y compris sur les appareils où des alarmes sont saisies en ce moment.",
+        "regenerated": "Lien d'alarme recréé"
+      },
+      "regenerate": "Recréer le lien",
+      "regenerateConfirm": "Recréer",
+      "regeneratedNote": "L'ancien lien n'est plus valable.",
+      "regenerateFailed": "Lien non recréé"
     },
     "completion": {
       "title": "Clore l'intervention ?",

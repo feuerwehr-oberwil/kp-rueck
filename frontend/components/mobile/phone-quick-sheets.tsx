@@ -82,6 +82,7 @@ export function PhoneQuickSheets({ open, onOpenChange }: PhoneQuickSheetsProps) 
         open={open === 'links'}
         onOpenChange={closes('links')}
         eventId={eventId}
+        eventName={selectedEvent?.name ?? null}
         printerEnabled={printerEnabled}
         onOpenAttendance={() => onOpenChange('attendance')}
       />

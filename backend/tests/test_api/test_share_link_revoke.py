@@ -1,4 +1,4 @@
-"""«Link widerrufen»: a check-in, viewer or alarm link can be taken back (services/share_links.py)."""
+"""«Link neu erzeugen»: a check-in, viewer or alarm link can be taken back (services/share_links.py)."""
 
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4

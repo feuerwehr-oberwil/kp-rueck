@@ -148,6 +148,9 @@ export interface ApiViewerData {
   gps_stale_minutes?: number
 }
 
+/** The kinds of share link an Ereignis hands out and can end (backend `LinkKind`). */
+export type ShareLinkKind = 'checkin' | 'viewer' | 'alarm'
+
 export class ViewerApi {
   // Viewer (read-only access)
   async generateViewerLink(eventId: string): Promise<{ token: string; link: string; full_url: string; qr_code_data: string }> {
@@ -157,6 +160,18 @@ export class ViewerApi {
         method: 'POST',
       }
     )
+  }
+
+  /**
+   * Ends every link of one kind issued so far for this Ereignis. «Link neu erzeugen» calls
+   * this and then generates the new link. Quiet: the caller says what failed, with the
+   * server's own sentence (a standby box answers 409 for an Ereignis it does not lead).
+   */
+  async revokeShareLinks(eventId: string, kind: ShareLinkKind): Promise<void> {
+    await httpRequest<void>(`/api/events/${encodeURIComponent(eventId)}/share-links/${kind}/revoke`, {
+      method: 'POST',
+      skipToast: true,
+    })
   }
 
   async getViewerData(token: string): Promise<ApiViewerData> {
