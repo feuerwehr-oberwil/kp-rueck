@@ -398,6 +398,13 @@ class Event(Base):
     # (decision 30). Throwing people out is the separate, deliberate act of
     # revoking the claims below.
     feld_code: Mapped[str] = mapped_column(String(4), nullable=False, default=lambda: f"{secrets.randbelow(10000):04d}")
+    # The generation of each share link (services/share_links.py). A link carries the number
+    # it was issued with and opens the Ereignis only while the two are equal. «Link widerrufen»
+    # adds one: every link of that kind issued before stops working, and the next one issued
+    # carries the new number. A link from before these columns carries none and counts as 0.
+    checkin_link_generation: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    viewer_link_generation: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    alarm_link_generation: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

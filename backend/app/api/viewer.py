@@ -19,11 +19,10 @@ from ..crud import reko as reko_crud
 from ..crud import special_functions as special_functions_crud
 from ..crud import vehicles as vehicles_crud
 from ..database import get_db
-from ..services import incident_display
+from ..services import incident_display, share_links
 from ..services.gps_simulation import gps_simulation
 from ..services.reaction_times import load_event_figures
 from ..services.settings import get_setting_value
-from ..services.tokens import generate_viewer_token, validate_viewer_token
 from ..traccar import traccar_client
 from ..utils.errors import ErrorMessages
 from .special_functions import _enrich_assignments
@@ -78,6 +77,7 @@ async def generate_viewer_link(
     request: Request,
     current_user: CurrentEditor,  # Editor only
     event_id: uuid.UUID = Query(..., description="Event ID for viewer access"),
+    db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     """
     Generate viewer link (editor only).
@@ -88,7 +88,9 @@ async def generate_viewer_link(
     The link opens the `/display` overview, which forwards the token to the
     display pages (board, map, status, Bereitschaft) — there is no `/viewer` page.
     """
-    token = generate_viewer_token(event_id)
+    token = await share_links.issue(db, "viewer", event_id)
+    if token is None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.EVENT_NOT_FOUND)
     link = f"/display?token={token}"
 
     # Get base URL from request
@@ -117,7 +119,7 @@ async def get_viewer_data(
     address, Meldung, status, who and what is on it — and never the Melder's name
     or phone number, the internal notes, or the operator/user ids behind them.
     """
-    event_id = validate_viewer_token(token)
+    event_id = await share_links.event_of(db, "viewer", token)
     if not event_id:
         raise HTTPException(status_code=401, detail=ErrorMessages.LINK_INVALID)
 

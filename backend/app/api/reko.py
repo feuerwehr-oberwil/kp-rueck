@@ -47,6 +47,7 @@ from ..websocket_manager import (
 )
 
 logger = get_logger(__name__)
+from ..services import share_links
 from ..services.audit import log_action
 from ..services.merge_links import live_incident_id, merged_into_ids
 from ..services.photo_storage import enforce_demo_photo_limits, photo_storage
@@ -55,7 +56,6 @@ from ..services.tokens import (
     generate_feld_token,
     generate_form_token,
     validate_form_token,
-    validate_viewer_token,
 )
 
 router = APIRouter(prefix="/reko", tags=["reko"])
@@ -981,7 +981,7 @@ async def serve_photo(
         if await db.scalar(report_query) is None:
             raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, ErrorMessages.PHOTO_NOT_FOUND)
     else:
-        viewer_event_id = validate_viewer_token(token) if token else None
+        viewer_event_id = await share_links.event_of(db, "viewer", token) if token else None
         if viewer_event_id is None:
             current_user = await get_current_user(request, access_token, authorization, db)
 

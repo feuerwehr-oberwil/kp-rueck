@@ -9,7 +9,6 @@ Tests cover:
 """
 
 from datetime import UTC, datetime
-from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -18,6 +17,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Event, EventAttendance, IncidentGroup, IncidentGroupAssignment, Personnel
+from app.services.tokens import generate_checkin_token, generate_link_token
 
 # ============================================
 # Fixtures
@@ -411,10 +411,10 @@ async def test_stats_counts_correct(
 @pytest.mark.api
 async def test_expired_token(client: AsyncClient, test_personnel):
     """Test that expired tokens are rejected."""
-    with patch("app.services.tokens.validate_checkin_token", return_value=None):
-        person = test_personnel[0]
-        response = await client.post(f"/api/personnel/check-in/{person.id}/in?token=expired_token")
-        assert response.status_code == 401
+    expired = generate_link_token("checkin", uuid4(), expires_hours=-1)
+    person = test_personnel[0]
+    response = await client.post(f"/api/personnel/check-in/{person.id}/in?token={expired}")
+    assert response.status_code == 401
 
 
 # ============================================
@@ -427,10 +427,9 @@ async def test_expired_token(client: AsyncClient, test_personnel):
 async def test_list_personnel_event_not_found(client: AsyncClient):
     """Test listing personnel for non-existent event."""
     # Generate a token for a non-existent event
-    fake_event_id = uuid4()
-    with patch("app.api.personnel_checkin.validate_checkin_token", return_value=fake_event_id):
-        response = await client.get("/api/personnel/check-in/list?token=fake_token")
-        assert response.status_code == 404
+    token = generate_checkin_token(uuid4())
+    response = await client.get(f"/api/personnel/check-in/list?token={token}")
+    assert response.status_code == 404
 
 
 # ============================================

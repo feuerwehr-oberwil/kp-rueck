@@ -15,10 +15,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_optional_user
+from app.database import get_db
 from app.models import User
-from app.services.tokens import validate_viewer_token
+from app.services import share_links
 from app.services.weather.service import weather_enabled, weather_service
 
 router = APIRouter(prefix="/weather", tags=["weather"])
@@ -96,11 +98,12 @@ class WeatherOut(BaseModel):
 
 async def require_board_or_viewer_token(
     user: Annotated[User | None, Depends(get_optional_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     token: Annotated[str | None, Query(description="Viewer token (wall display)")] = None,
 ) -> None:
     if user is not None:
         return
-    if token and validate_viewer_token(token) is not None:
+    if token and await share_links.event_of(db, "viewer", token) is not None:
         return
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Nicht angemeldet")
 
