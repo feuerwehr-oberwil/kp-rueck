@@ -12,6 +12,11 @@ from .telemetry.dsn import UPSTREAM_DSN
 logger = logging.getLogger(__name__)
 
 
+# Machine credentials that stop a production boot when they are set and shorter than 32
+# characters (`Settings.check_token_length`).
+REFUSED_WHEN_SHORT = frozenset({"STANDBY_SYNC_TOKEN", "PRINT_AGENT_TOKEN", "ALARM_WEBHOOK_SECRET"})
+
+
 class Settings(BaseSettings):
     """Application settings."""
 
@@ -350,12 +355,15 @@ class Settings(BaseSettings):
         return self
 
     @model_validator(mode="after")
-    def warn_about_short_tokens(self) -> "Settings":
-        """Say so at boot when a machine credential is short enough to guess.
+    def check_token_length(self) -> "Settings":
+        """Stop a machine credential that is short enough to guess: under 32 characters.
 
-        A warning, not a refusal: these were accepted at any length before, and a station
-        must not fail to start after an update because of a token it chose a year ago.
+        In production the three in `REFUSED_WHEN_SHORT` stop the boot, the same rule as
+        SECRET_KEY: each of them alone lets a caller write (sync a whole Ereignis, read the
+        print queue, raise an alarm). Everywhere else, and for the rest, it is a warning.
         """
+        from app.environment import is_production_environment
+
         for name, value in (
             ("MASTER_TOKEN", self.master_token),
             ("STANDBY_SYNC_TOKEN", self.standby_sync_token),
@@ -363,6 +371,11 @@ class Settings(BaseSettings):
             ("ALARM_WEBHOOK_SECRET", self.alarm_webhook_secret),
         ):
             if value and len(value.strip()) < 32:
+                if name in REFUSED_WHEN_SHORT and is_production_environment():
+                    raise ValueError(
+                        f"{name} must be at least 32 characters long in production (current: "
+                        f"{len(value.strip())}). Generate one with: openssl rand -hex 32"
+                    )
                 logger.warning(
                     "%s is only %d characters long. Replace it with a long random value: openssl rand -hex 32",
                     name,
