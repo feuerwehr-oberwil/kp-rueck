@@ -352,6 +352,13 @@ class TestTemplateSummaries:
             assert rest.startswith(("Lage wie gemeldet", "Gemeldet")), rest
             assert data["photo_summary"] in rest and not rest.endswith(data["photo_summary"]), (figure, rest)
 
+    def test_a_water_dispatch_without_depth_gets_the_rekos_estimate(self):
+        pool = next(t for t in EMERGENCY_TEMPLATES if t["title_pattern"] == "Pool übergelaufen")
+        for _ in range(20):
+            data = _relevant_report("elementarereignis", title="Pool übergelaufen", description=pool["message_pattern"])
+            assert data["summary_text"].startswith("Vor Ort ~"), data["summary_text"]
+            assert data["photo_depth_cm"] == int(re.findall(r"(\d+)cm", data["summary_text"])[0])
+
     def test_a_simulated_divera_alarm_keeps_its_templates_water_figure(self):
         # The title matcher types «Wasser in Tiefgarage» as diverse_einsaetze.
         for _ in range(30):

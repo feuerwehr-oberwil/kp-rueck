@@ -930,6 +930,20 @@ def _dispatch_figure(resolved_type: str | None, description: str | None) -> tupl
     return None
 
 
+def _estimated_water_figure(title: str | None) -> tuple[str, str] | None:
+    """(figure, Massnahme) when a water template's dispatch names no depth: the Reko
+    estimates one near the depths its other dispatches name. None for a template
+    whose dispatches never name one (Kanaldeckel)."""
+    for template in EMERGENCY_TEMPLATES:
+        if title in (template["title_pattern"], *template.get("title_variations", [])):
+            messages = (template["message_pattern"], *template.get("message_variations", []))
+            depths = [cm for message in messages if (cm := _extract_qty(message, "cm"))]
+            if depths:
+                cm = _nice_near(random.choice(depths), _NICE_CM)
+                return f"Vor Ort ~{cm}cm.", _water_action(cm)
+    return None
+
+
 def _dispatch_linked_photo_summary(summary: str, resolved_type: str | None) -> str:
     """Find the closest illustrated pool text for a dispatch-linked summary without a template."""
     if resolved_type == "elementar_water":
@@ -1024,6 +1038,8 @@ def generate_reko_report_data(
     # scene sits between the figure and the Massnahme and is the illustration; with
     # no template, the closest illustrated pool scene stands in for the picture.
     figure = _dispatch_figure(resolved_type, description)
+    if figure is None and resolved_type == "elementar_water":
+        figure = _estimated_water_figure(title)
     if figure and (title or "") not in _TEMPLATE_SUMMARIES:
         summary = " ".join(figure)
         photo_summary = _dispatch_linked_photo_summary(summary, resolved_type)
