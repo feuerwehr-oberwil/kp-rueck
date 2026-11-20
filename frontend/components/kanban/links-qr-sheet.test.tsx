@@ -122,4 +122,19 @@ describe('LinksQrSheet – «Link neu erzeugen»', () => {
     expect(rowLinks().some(href => href?.includes('checkin-1'))).toBe(false)
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
   })
+
+  it('waits until the opening\'s links have come, so none of them lands after a new one', async () => {
+    let finishAlarm: (value: { link: string }) => void = () => {}
+    api.generateAlarmLink.mockReturnValueOnce(new Promise(resolve => { finishAlarm = resolve }))
+    openSheet()
+    await waitFor(() => expect(screen.getAllByRole('button', { name: REGENERATE })[0]).toBeInTheDocument())
+    expect(screen.getAllByRole('button', { name: REGENERATE }).every(button => button.hasAttribute('disabled'))).toBe(true)
+
+    finishAlarm({ link: '/alarm?token=alarm-1' })
+
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: REGENERATE }).some(button => button.hasAttribute('disabled'))).toBe(false),
+    )
+  })
 })
+

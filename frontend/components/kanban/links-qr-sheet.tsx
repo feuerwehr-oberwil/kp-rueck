@@ -93,6 +93,9 @@ export function LinksQrSheet({
   const [enlarged, setEnlarged] = useState<LinkKey | null>(null)
   /** The row whose «Link neu erzeugen» question is open. */
   const [regenerating, setRegenerating] = useState<RegenerableKey | null>(null)
+  /** While the opening's links are still coming, «Link neu erzeugen» waits: a link of that
+   *  batch landing after the new one would put the ended link back into the row. */
+  const [linksLoading, setLinksLoading] = useState(false)
   const surface = useOpenSurface()
   /**
    * The day the Feld link dies, from its mint. The print puts it on the Feld
@@ -131,6 +134,7 @@ export function LinksQrSheet({
   useEffect(() => {
     if (!open || !eventId) return
     let cancelled = false
+    setLinksLoading(true)
     Promise.all(
       LINK_KEYS.map(async key => {
         try {
@@ -143,6 +147,7 @@ export function LinksQrSheet({
     ).then(pairs => {
       if (cancelled) return
       setUrls(Object.fromEntries(pairs.filter(([, url]) => url)) as Partial<Record<LinkKey, string>>)
+      setLinksLoading(false)
     })
     return () => {
       cancelled = true
@@ -294,7 +299,7 @@ export function LinksQrSheet({
               variant="outline"
               size="sm"
               onClick={() => setRegenerating(key)}
-              disabled={!url}
+              disabled={!url || linksLoading}
               title={t("regenerate")}
               aria-label={t("regenerate")}
             >
@@ -331,7 +336,7 @@ export function LinksQrSheet({
         surface={t("title")}
         // Capped at the screen, the groups scroll: on a short phone the rows wrap to two lines
         // and the sheet would otherwise rise past the top, out of reach.
-        className="max-w-3xl mx-auto px-6 py-4 modal-h-tall flex flex-col gap-0"
+        className="max-w-3xl mx-auto px-6 py-4 pb-sheet-safe sm:pb-4 modal-h-tall flex flex-col gap-0"
       >
         <SheetHeader className="p-0 mb-3 shrink-0">
           <SheetTitle>{t("title")}</SheetTitle>
