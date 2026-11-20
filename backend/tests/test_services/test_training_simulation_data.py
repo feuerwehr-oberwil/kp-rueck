@@ -92,7 +92,7 @@ def test_a_water_figure_picks_the_picture_of_its_depth(tmp_path, monkeypatch):
         ("elementar_water", "Lage wie gemeldet, rund 20cm. Eine Tauchpumpe genügt.", "elementar_water", "25cm"),
         (
             "elementar_water",
-            "Gemeldet 20cm, tatsächlich mehr – ~40cm. Mehrere Pumpen nötig, Wasser läuft nach.",
+            "Gemeldet 20cm, tatsächlich mehr – ~40cm. Mehrere Pumpen nötig.",
             "elementar_water",
             "steigt langsam",
         ),
@@ -351,6 +351,13 @@ class TestTemplateSummaries:
             figure, rest = data["summary_text"].split(" ", 1)[0], data["summary_text"]
             assert rest.startswith(("Lage wie gemeldet", "Gemeldet")), rest
             assert data["photo_summary"] in rest and not rest.endswith(data["photo_summary"]), (figure, rest)
+
+    def test_a_simulated_divera_alarm_keeps_its_templates_water_figure(self):
+        # The title matcher types «Wasser in Tiefgarage» as diverse_einsaetze.
+        for _ in range(30):
+            data = _relevant_report("diverse_einsaetze", title="Wasser in Tiefgarage", description="ca. 40cm Wasser.")
+            assert data["photo_summary"] in _TEMPLATE_SUMMARIES["Wasser in Tiefgarage"]
+            assert data["photo_depth_cm"] is not None, data["summary_text"]
 
 
 class TestVaryDispatchNumbers:

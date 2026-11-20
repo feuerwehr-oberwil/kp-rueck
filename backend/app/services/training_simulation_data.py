@@ -438,6 +438,12 @@ _TEMPLATE_SUMMARIES: dict[str, list[str]] = {
     for template in EMERGENCY_TEMPLATES
     for title in (template["title_pattern"], *template.get("title_variations", []))
 }
+# The template's own type, under each of its titles: the scene a report describes.
+_TEMPLATE_TYPES: dict[str, str] = {
+    title: template["incident_type"]
+    for template in EMERGENCY_TEMPLATES
+    for title in (template["title_pattern"], *template.get("title_variations", []))
+}
 
 
 def illustrated_summaries() -> set[str]:
@@ -866,7 +872,7 @@ def _water_action(cm: int) -> str:
         return "Nasssauger genügt."
     if cm <= 30:
         return "Eine Tauchpumpe genügt."
-    return "Mehrere Pumpen nötig, Wasser läuft nach."
+    return "Mehrere Pumpen nötig."
 
 
 def _oil_action(liters: int) -> str:
@@ -985,6 +991,10 @@ def generate_reko_report_data(
     or corrects the figure the dispatch actually reported. A not-relevant report
     is the empty one (`_not_relevant_report`).
     """
+    # A title from a template is that template's scene, whatever type the incident got:
+    # a simulated Divera alarm is typed by the title matcher, which reads «Wasser in
+    # Tiefgarage» as diverse_einsaetze and would drop the water figure and depth.
+    incident_type = _TEMPLATE_TYPES.get(title or "", incident_type)
     # BMA false alarms have a high chance of being non-relevant; diverse
     # einsaetze (wespen, türöffnungen, etc.) also lean "no FW action needed".
     if incident_type == "bma_unechte_alarme":

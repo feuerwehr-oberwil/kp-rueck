@@ -71,14 +71,6 @@
       "style": "plain"
     }
   ],
-  "03b298704b0d85c01ae6132b9e84443916203e17d0b2d577a8bb960c5ea512e5": [
-    {
-      "file": "03b298704b0d85c01ae6132b9e84443916203e17d0b2d577a8bb960c5ea512e5.webp",
-      "prompt": "Realistic handheld smartphone photo, taken by the first fire-service scout (Reko) the moment they arrive, for a fictional Swiss fire-service training report. Standing height, slightly imperfect framing, real available light for the situation (overcast day, dusk, rain, street lights or a dim cellar lamp), ordinary phone-camera look, no cinematic grading. Setting: a suburb in Basel-Landschaft, Switzerland – Swiss houses, streets, kerbs, road markings and cars as they look there. The photographer and their gear stay out of frame. Show the scene AS FOUND, before the fire service takes any action. Use the report for the setting and visible conditions only. Any action described as needed, possible or planned is still pending and must not appear in the image. Exclude pumps, hoses, absorbent, barriers, sandbags, ladders and all fire-service crews, equipment and vehicles. Only show ordinary civilian equipment or materials if the report explicitly says residents or other civilians already used them themselves, such as a household submersible pump after a resident pumped out a cellar. Existing fixtures and vehicles directly involved in the incident may be visible. Keep the scene unbranded, with no readable text, logos, badges or number plates, and no graphic injury. If people are essential to the scene, show them from behind or crop all faces out of frame. Report context (do not render as text): «Schaufenster gesprungen, Scheibe hält noch. Gehweg darunter frei.»",
-      "scene": "as_found",
-      "style": "phone"
-    }
-  ],
   "03b9c47908dc9d1926732020e24e8d1d1bf3958fd62b5a565bd5a78836b13124": [
     {
       "file": "03b9c47908dc9d1926732020e24e8d1d1bf3958fd62b5a565bd5a78836b13124.webp",
@@ -2071,14 +2063,6 @@
       "style": "plain"
     }
   ],
-  "f3da180baa8f82c2755c2f8b2b41cc76017cf3920999f7513a468a76a5e2a3d1": [
-    {
-      "file": "f3da180baa8f82c2755c2f8b2b41cc76017cf3920999f7513a468a76a5e2a3d1.webp",
-      "prompt": "Realistic handheld smartphone photo, taken by the first fire-service scout (Reko) the moment they arrive, for a fictional Swiss fire-service training report. Standing height, slightly imperfect framing, real available light for the situation (overcast day, dusk, rain, street lights or a dim cellar lamp), ordinary phone-camera look, no cinematic grading. Setting: a suburb in Basel-Landschaft, Switzerland – Swiss houses, streets, kerbs, road markings and cars as they look there. The photographer and their gear stay out of frame. Show the scene AS FOUND, before the fire service takes any action. Use the report for the setting and visible conditions only. Any action described as needed, possible or planned is still pending and must not appear in the image. Exclude pumps, hoses, absorbent, barriers, sandbags, ladders and all fire-service crews, equipment and vehicles. Only show ordinary civilian equipment or materials if the report explicitly says residents or other civilians already used them themselves, such as a household submersible pump after a resident pumped out a cellar. Existing fixtures and vehicles directly involved in the incident may be visible. Keep the scene unbranded, with no readable text, logos, badges or number plates, and no graphic injury. If people are essential to the scene, show them from behind or crop all faces out of frame. Report context (do not render as text): «Kandelaber angefahren, lehnt gegen die Hauswand. Lieferwagen steht noch da.»",
-      "scene": "as_found",
-      "style": "phone"
-    }
-  ],
   "f41c9d56e5a61fc7e46d97c5fb11cc2ffe57459bc8b98e9dd511387c40430e4f": [
     {
       "file": "f41c9d56e5a61fc7e46d97c5fb11cc2ffe57459bc8b98e9dd511387c40430e4f.webp",
@@ -2155,6 +2139,14 @@
       "depth": "deep",
       "file": "f866cf35ff26abde25aac2bdd21a3cd1ed5eb397999c5e9d99219a8f82d4aa18-deep.webp",
       "prompt": "Realistic handheld smartphone photo, taken by the first fire-service scout (Reko) the moment they arrive, for a fictional Swiss fire-service training report. Standing height, slightly imperfect framing, real available light for the situation (overcast day, dusk, rain, street lights or a dim cellar lamp), ordinary phone-camera look, no cinematic grading. Setting: a suburb in Basel-Landschaft, Switzerland – Swiss houses, streets, kerbs, road markings and cars as they look there. The photographer and their gear stay out of frame. Show the scene AS FOUND, before the fire service takes any action. Use the report for the setting and visible conditions only. Any action described as needed, possible or planned is still pending and must not appear in the image. Exclude pumps, hoses, absorbent, barriers, sandbags, ladders and all fire-service crews, equipment and vehicles. Only show ordinary civilian equipment or materials if the report explicitly says residents or other civilians already used them themselves, such as a household submersible pump after a resident pumped out a cellar. Existing fixtures and vehicles directly involved in the incident may be visible. Keep the scene unbranded, with no readable text, logos, badges or number plates, and no graphic injury. If people are essential to the scene, show them from behind or crop all faces out of frame. The standing water is deep – roughly 30 to 50 cm, well above the ankles. Report context (do not render as text): «Lager der Arztpraxis unter Wasser, Kartons mit Material unten nass. Geräte stehen auf Regalen.»",
+      "scene": "as_found",
+      "style": "phone"
+    }
+  ],
+  "f86a8fd6edfd90a9d2c092c24d22f53f7855758febb6f8b87d3ec867e7308900": [
+    {
+      "file": "f86a8fd6edfd90a9d2c092c24d22f53f7855758febb6f8b87d3ec867e7308900.webp",
+      "prompt": "Realistic handheld smartphone photo, taken by the first fire-service scout (Reko) the moment they arrive, for a fictional Swiss fire-service training report. Standing height, slightly imperfect framing, real available light for the situation (overcast day, dusk, rain, street lights or a dim cellar lamp), ordinary phone-camera look, no cinematic grading. Setting: a suburb in Basel-Landschaft, Switzerland – Swiss houses, streets, kerbs, road markings and cars as they look there. The photographer and their gear stay out of frame. Show the scene AS FOUND, before the fire service takes any action. Use the report for the setting and visible conditions only. Any action described as needed, possible or planned is still pending and must not appear in the image. Exclude pumps, hoses, absorbent, barriers, sandbags, ladders and all fire-service crews, equipment and vehicles. Only show ordinary civilian equipment or materials if the report explicitly says residents or other civilians already used them themselves, such as a household submersible pump after a resident pumped out a cellar. Existing fixtures and vehicles directly involved in the incident may be visible. Keep the scene unbranded, with no readable text, logos, badges or number plates, and no graphic injury. If people are essential to the scene, show them from behind or crop all faces out of frame. Report context (do not render as text): «Tiefgaragentor klemmt, mehrere Fahrzeuge eingeschlossen. Motor reagiert nicht.»",
       "scene": "as_found",
       "style": "phone"
     }

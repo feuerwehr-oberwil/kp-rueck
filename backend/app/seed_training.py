@@ -258,7 +258,7 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "message_pattern": "Wasserschaden, Hobbyraum UG. Ca. 15cm. Bewohner sehr aufgelöst wegen Modelleisenbahn.",
         "title_variations": ["Wasser im Hobbyraum", "Hobbyraum geflutet"],
         "message_variations": [
-            "Bewohner meldet ca. 15cm Wasser im Hobbyraum. Modelleisenbahn im Wasser, Melder sehr aufgeregt.",
+            "Bewohner meldet ca. 15cm Wasser im Hobbyraum. Angst um die Modelleisenbahn, Melder sehr aufgeregt.",
             "Wasser im Bastelkeller, ca. 12cm. Anrufer bittet dringend, seine Modellanlage zu retten.",
         ],
     },
@@ -272,7 +272,7 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "message_pattern": "Wasser im Veloraum. Ca. 8cm, 12 E-Bikes im Wasser.",
         "title_variations": ["Veloraum unter Wasser", "Wasser im Veloraum MFH"],
         "message_variations": [
-            "Hauswart meldet ca. 8cm Wasser im Veloraum. Rund 10 E-Bikes betroffen, Akkus im Wasser.",
+            "Hauswart meldet ca. 8cm Wasser im Veloraum. Rund 10 E-Bikes betroffen, Sorge um die Akkus.",
             "Wasser im Fahrradkeller, ca. 10cm. Mehrere E-Bikes stehen im Wasser.",
         ],
     },
@@ -457,7 +457,6 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "category": "normal",
         "reko_summaries": [
             "Fenster im 1. OG durch Ast eingeschlagen, Regen dringt ins Zimmer. Glassplitter am Boden.",
-            "Schaufenster gesprungen, Scheibe hält noch. Gehweg darunter frei.",
         ],
         "message_pattern": "Sturmschaden, Fenster eingeschlagen. Wasser dringt ein.",
         "title_variations": ["Fenster eingeschlagen", "Sturm hat Fenster zerstört"],
@@ -502,7 +501,6 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "category": "normal",
         "reko_summaries": [
             "Dach teilweise abgedeckt. Ca. 4m² offen. Blachen liegen auf dem Dachboden bereit.",
-            "Blechverkleidung am Flachdach hochgebogen, klappert laut. Droht sich zu lösen.",
         ],
         "message_pattern": "Sturmschaden, Dach teilweise abgedeckt. Regen dringt ein.",
         "title_variations": ["Dach abgedeckt", "Sturm hat Dach abgedeckt"],
@@ -517,7 +515,6 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "category": "normal",
         "reko_summaries": [
             "Trampolin vom Nachbargarten auf Strasse geweht, Verkehr behindert. Wegräumen und sichern.",
-            "Gartentrampolin gegen Hausfassade gedrückt, blockiert Hauseingang. Keine Verletzten.",
         ],
         "message_pattern": "Sturmschaden, Trampolin auf Fahrbahn. Blockiert eine Spur.",
         "title_variations": ["Trampolin auf Strasse", "Gartentrampolin auf Fahrbahn"],
@@ -637,7 +634,6 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "incident_type": "elementarereignis",
         "category": "normal",
         "reko_summaries": [
-            "Ast hängt lose in Baumkrone über Spielplatz. Muss gesichert werden.",
             "Ast auf der Rutschbahn, Spielplatz leer. Bruchstelle hoch in der Krone.",
         ],
         "message_pattern": "Ast auf Spielplatz gefallen. Spielplatz gesperrt.",
@@ -686,7 +682,6 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "category": "normal",
         "reko_summaries": [
             "Ölspur im Kreisel nach LKW-Manöver, ca. 30m. Rutschgefahr, Verkehr läuft langsam.",
-            "LKW verliert Hydrauliköl auf Kreuzung. Ca. 20m Spur. Rutschgefahr bei Regen.",
         ],
         "message_pattern": "Ölspur im Kreisel, LKW verliert Hydrauliköl. Ca. 30m.",
         "title_variations": ["Ölspur Kreisel", "Hydrauliköl im Kreisel"],
@@ -701,7 +696,6 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "category": "normal",
         "reko_summaries": [
             "Strassenlaterne steht schräg, Fundament gelockert. Kabel noch dran, Leuchte brennt.",
-            "Kandelaber angefahren, lehnt gegen die Hauswand. Lieferwagen steht noch da.",
         ],
         "message_pattern": "Strassenlaterne schief nach Sturm. Droht umzufallen.",
         "title_variations": ["Lichtmast schief", "Strassenlaterne droht zu fallen"],
@@ -745,8 +739,7 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "incident_type": "technische_hilfeleistung",
         "category": "normal",
         "reko_summaries": [
-            "Tiefgaragentor klemmt, 4 Fahrzeuge eingeschlossen. Motor reagiert nicht.",
-            "Rolltor Anlieferung klemmt halboffen, Betrieb blockiert. Motor stromlos.",
+            "Tiefgaragentor klemmt, mehrere Fahrzeuge eingeschlossen. Motor reagiert nicht.",
         ],
         "message_pattern": "Tiefgaragentor blockiert, 6 Fahrzeuge eingeschlossen.",
         "title_variations": ["TG-Tor klemmt", "Garagentor blockiert"],
@@ -855,10 +848,10 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
             "Flammen sichtbar am Fenster 3. OG. Treppenhaus begehbar. Innenangriff möglich.",
             "Wohnung komplett verraucht, kein offenes Feuer sichtbar. Vermutlich Schwelbrand in der Wand.",
         ],
-        "message_pattern": "Brand, Wohnung 2. OG. Starker Rauch, Personen evtl. noch drin.",
+        "message_pattern": "Brand, Wohnung im MFH. Starker Rauch, Personen evtl. noch drin.",
         "title_variations": ["Brand in Wohnung", "Rauch aus Wohnung"],
         "message_variations": [
-            "Brand in MFH, Wohnung 3. OG. Starke Rauchentwicklung, Treppenhaus verraucht.",
+            "Brand in MFH, Wohnung im Obergeschoss. Starke Rauchentwicklung, Treppenhaus verraucht.",
             "Nachbarn melden Rauch aus Wohnung. Bewohner nicht erreichbar.",
             "Brand in Wohnung gemeldet. Bewohnerin draussen, Hund noch drin.",
         ],
@@ -903,14 +896,12 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "reko_summaries": [
             "Brand in Küche, Bewohner bereits evakuiert. Fettbrand mit starker Russbildung. Herd aus.",
             "Angebranntes Essen auf Herd, Pfanne in Vollbrand. Bewohnerin hat versucht zu löschen mit Wasser. Russ überall.",
-            "Backofen-Pyrolyse vergessen, Küche stark verqualmt. Kein offenes Feuer, Lüftung läuft.",
         ],
         "message_pattern": "Brand klein, Küche Fettbrand. Starker Rauch, Bewohner draussen.",
         "title_variations": ["Fettbrand Küche", "Brand in Küche"],
         "message_variations": [
             "Fettbrand auf Herd, Bewohnerin hat Wasser draufgeschüttet. Stichflamme bis Decke.",
             "Pfannenbrand, Küche stark verqualmt. Bewohner versucht zu löschen.",
-            "Backofen brennt, Bewohner haben Wohnung verlassen. Rauch aus geöffnetem Fenster.",
         ],
     },
     {
@@ -971,8 +962,7 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "message_pattern": "Brand, Schreinerei. Starke Flammen, viel Holz. Keine Personen.",
         "title_variations": ["Werkstattbrand", "Brand Industriebetrieb"],
         "message_variations": [
-            "Brand in Schreinerei, Sägespäne brennen, Sprinkler hat ausgelöst.",
-            "Industriehalle, Brand an Lackierstation. Lösungsmittel im Lager.",
+            "Brand bei Schreinerei, Holz brennt. Anwohner sehen hohe Flammen.",
         ],
     },
     {
@@ -1021,8 +1011,8 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "message_pattern": "BMA, Pflegeheim. Melder 2. Stock Ost.",
         "title_variations": ["BMA Pflegeheim", "Brandmeldeanlage Pflegeheim"],
         "message_variations": [
-            "BMA Pflegeheim, Melder Demenzstation. Personal evakuiert bewegliche Bewohner.",
-            "BMA-Auslösung Altersheim, Melder Stationsküche. Kein sichtbarer Rauch.",
+            "BMA Pflegeheim, Melder Trakt Ost. Personal kontrolliert die Zimmer.",
+            "BMA-Auslösung Altersheim, Melder 2. Stock Ost. Kein sichtbarer Rauch.",
         ],
     },
     {
@@ -1049,10 +1039,10 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
             "Auslösung durch Kochdampf Food Court. Restaurantleiter hat Anlage falsch konfiguriert.",
             "Einkaufszentrum: Defekter Melder im Lager Möbelabteilung. Bauverein wurde informiert.",
         ],
-        "message_pattern": "BMA, Einkaufszentrum. Melder Küche Food Court.",
+        "message_pattern": "BMA, Einkaufszentrum. Melder Sektor 2.",
         "title_variations": ["BMA Shopping", "Brandmeldeanlage Einkaufszentrum"],
         "message_variations": [
-            "BMA Einkaufszentrum, Melder Lager Möbelabteilung. Center-Manager unterwegs.",
+            "BMA Einkaufszentrum, Melder Sektor 5. Center-Manager unterwegs.",
             "BMA Mall, Sektor 3 ausgelöst. Personal evakuiert Kunden.",
         ],
     },
@@ -1067,7 +1057,7 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "message_pattern": "BMA, Hallenbad. Melder Technikraum, Chloranlage in der Nähe.",
         "title_variations": ["BMA Hallenbad", "Brandmeldeanlage Hallenbad"],
         "message_variations": [
-            "BMA Hallenbad, Melder Saunabereich. Badegäste werden evakuiert.",
+            "BMA Hallenbad, Melder Technikraum. Badegäste werden evakuiert.",
             "BMA-Auslösung Hallenbad Technikraum, Chlordosieranlage in der Nähe.",
         ],
     },
@@ -1079,11 +1069,11 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
             "Pizza im Ofen vergessen, Etagenküche verraucht. Bewohner stehen draussen.",
             "Verbranntes Essen im Zimmer, Melder ausgelöst. Kein Feuer, bereits gelüftet.",
         ],
-        "message_pattern": "BMA, Studentenwohnheim. Melder 3. OG Küche.",
+        "message_pattern": "BMA, Studentenwohnheim. Melder 3. OG.",
         "title_variations": ["BMA Studentenwohnheim", "Brandmeldeanlage Wohnheim"],
         "message_variations": [
-            "BMA Studentenwohnheim, Etagenküche 3. OG. Studierende strömen ins Freie.",
-            "BMA-Auslösung Wohnheim, Melder Gemeinschaftsküche.",
+            "BMA Studentenwohnheim, Melder 3. OG. Studierende strömen ins Freie.",
+            "BMA-Auslösung Wohnheim, Melder 2. OG.",
         ],
     },
     # ========================================
@@ -1125,13 +1115,11 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "category": "critical",
         "reko_summaries": [
             "Maler vom Gerüst gestürzt, ca. 4m. Person bewusstlos, Sanität reanimiert.",
-            "Absturz aus geringer Höhe. Person bei Bewusstsein. Sanität unterwegs.",
         ],
         "message_pattern": "Person ab Gerüst gestürzt, ca. 3m. Bewusstlos.",
         "title_variations": ["Absturz vom Gerüst", "Sturz Baustelle"],
         "message_variations": [
             "Maler vom Gerüst gestürzt, ca. 4m, Sanität reanimiert.",
-            "Bauarbeiter abgestürzt, hängt im Geschirr in 6m Höhe.",
         ],
     },
     {
@@ -1160,7 +1148,7 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "title_variations": ["VU Auffahrunfall", "Mehrere Fahrzeuge Auffahrunfall"],
         "message_variations": [
             "Auffahrunfall an Ampel, 3 PKW, Kühlflüssigkeit auf Fahrbahn, keine Eingeklemmten.",
-            "Massenkarambolage Kreuzung, Sanität vor Ort, Strasse muss gesperrt werden.",
+            "Auffahrunfall Kreuzung, mehrere Fahrzeuge. Strasse muss gesperrt werden.",
         ],
     },
     # ========================================
