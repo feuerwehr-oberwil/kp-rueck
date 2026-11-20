@@ -8,17 +8,18 @@ import pytest
 from fastapi import Request
 from httpx import ASGITransport, AsyncClient
 from PIL import Image
-from sqlalchemy import delete, select, text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.auth.security import create_login_tokens
 from app.database import get_db
 from app.main import app
-from app.models import AuditLog, Event, Incident, RekoReport, User
+from app.models import Event, Incident, RekoReport, User
 from app.services.photo_storage import photo_storage
 from app.services.tokens import generate_form_token
 
 
+@pytest.mark.usefixtures("real_commits")
 @pytest.mark.parametrize("operation", ["draft", "upload"])
 @pytest.mark.parametrize("first", ["other", "unlink"])
 async def test_photo_copy_and_unlink_serialize(test_engine, tmp_path, monkeypatch, first, operation):
@@ -158,11 +159,4 @@ async def test_photo_copy_and_unlink_serialize(test_engine, tmp_path, monkeypatc
             if not task.done():
                 task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
-        # These sessions commit for real; remove only this test's own rows.
-        async with sessions() as db:
-            await db.execute(delete(RekoReport).where(RekoReport.incident_id.in_([incident_id, unrelated_id])))
-            await db.execute(delete(Incident).where(Incident.id.in_([incident_id, unrelated_id])))
-            await db.execute(delete(Event).where(Event.id == event_id))
-            await db.execute(delete(AuditLog).where(AuditLog.user_id == user_id))
-            await db.execute(delete(User).where(User.id == user_id))
-            await db.commit()
+        # The committed rows are `real_commits`' to remove.

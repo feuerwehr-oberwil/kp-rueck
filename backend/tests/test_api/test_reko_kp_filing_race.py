@@ -15,15 +15,17 @@ import pytest
 from fastapi import Request
 from httpx import ASGITransport, AsyncClient, Response
 from PIL import Image
-from sqlalchemy import delete, func, select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.auth.security import create_login_tokens
 from app.database import get_db
 from app.main import app
-from app.models import AuditLog, Event, Incident, Notification, RekoReport, StatusTransition, User
+from app.models import Event, Incident, Notification, RekoReport, User
 from app.services.photo_storage import photo_storage
 from app.services.tokens import generate_form_token
+
+pytestmark = pytest.mark.usefixtures("real_commits")
 
 Call = Callable[[AsyncClient, UUID], Awaitable[Response]]
 
@@ -37,7 +39,8 @@ async def _race(
 ):
     """Run ``winner`` up to its commit, start ``loser``, prove it waits on a lock, finish both.
 
-    Returns the session factory and the incident id for the assertions; cleans up after.
+    Returns the reports and the count of Reko bells for the assertions. The committed rows
+    are `real_commits`' to remove.
     """
     sessions = async_sessionmaker(test_engine, expire_on_commit=False)
     incident_id, event_id, user_id = uuid4(), uuid4(), uuid4()
@@ -113,16 +116,6 @@ async def _race(
             if not task.done():
                 task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
-        async with sessions() as db:
-            await db.execute(delete(Notification).where(Notification.incident_id == incident_id))
-            await db.execute(delete(StatusTransition).where(StatusTransition.incident_id == incident_id))
-            await db.execute(delete(RekoReport).where(RekoReport.incident_id == incident_id))
-            await db.execute(delete(Incident).where(Incident.id == incident_id))
-            await db.execute(delete(Notification).where(Notification.event_id == event_id))
-            await db.execute(delete(Event).where(Event.id == event_id))
-            await db.execute(delete(AuditLog).where(AuditLog.user_id == user_id))
-            await db.execute(delete(User).where(User.id == user_id))
-            await db.commit()
 
 
 def _incident(incident_id: UUID, event_id: UUID, user_id: UUID, status: str) -> Incident:
