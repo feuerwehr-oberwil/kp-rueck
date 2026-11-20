@@ -457,7 +457,8 @@
     "close": "Chiudi",
     "prev": "Immagine precedente",
     "next": "Immagine successiva",
-    "zoom": "Ingrandisci"
+    "zoom": "Ingrandisci",
+    "hint": "Scorri per spostare l’immagine"
   },
   "footer": {
     "origin": "Nato nell’attività operativa dei <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pompieri di Oberwil BL</a> – perché in intervento vedevamo sempre le stesse fonti d’errore: doppie assegnazioni, informazioni sparse ed errori di trascrizione a mano. Ogni corpo pompieri gestisce il proprio KP Rück, con il proprio personale, i propri veicoli e i propri dati.",

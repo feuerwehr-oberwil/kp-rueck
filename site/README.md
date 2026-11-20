@@ -82,6 +82,10 @@ Bewusst entschieden und nicht aus Versehen so:
 - **Eine Übersetzung, die keine Feuerwehr-Person dieser Sprache gelesen hat, sagt das oben auf
   der Seite** (`notice` in `fr.json`, `it.json` und `rm.json`). Diese Zeile verschwindet, wenn
   jemand gegengelesen hat – sie ist kein Dekor. Es ist dieselbe Freigabe-Person, die Plan 06 braucht.
+- **Die französischen Satzzeichen-Abstände setzt der Build.** In `fr.json` steht vor `: ; ? !`
+  und innerhalb von `« »` ein gewöhnliches Leerzeichen; `build.mjs` (`TYPOGRAPHY`) macht daraus
+  auf der Seite ein schmales geschütztes Leerzeichen (U+202F), damit das Zeichen nie am
+  Zeilenanfang steht. Die strukturierten Daten behalten das gewöhnliche Leerzeichen.
 
 ## Theme assets and shared runtime
 
@@ -91,6 +95,12 @@ menu, closed by Escape or a tap outside. Language choices remain real links. The
 choice is a local preference (`kp-landing-theme`), shared across language pages on the same
 origin. Keep `theme.js`, `build.mjs` and `landing.css` byte-identical in both repositories.
 The builder embeds the runtime in the page head, including the single-file hand-out.
+
+The lightbox is shared in the same way: a picture inside a `.shot-zoom` button opens enlarged,
+the styles are in `landing.css`, and the script is the last block of `index.template.html` –
+the same block in both repositories, so change it in both. It reads the caption from the
+figure (`.cap-t`, `.cap-s`) or, without one, from the heading of the picture's section. The
+texts are `lightbox.*` in `content/*.json`.
 
 Capture both real app palettes: the existing `shots/<name>.webp` is light, and
 `shots/dark/<name>.webp` is its night counterpart, with matching names and dimensions.

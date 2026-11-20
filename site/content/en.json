@@ -456,7 +456,8 @@
     "close": "Close",
     "prev": "Previous image",
     "next": "Next image",
-    "zoom": "Enlarge"
+    "zoom": "Enlarge",
+    "hint": "Swipe to move the image"
   },
   "footer": {
     "origin": "Born out of the operational work of <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a> – because on incidents we kept seeing the same sources of error: double bookings, scattered information and transcription mistakes made by hand. Every fire brigade runs its own KP Rück, with its own crew, its own vehicles and its own data.",
