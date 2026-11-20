@@ -2445,7 +2445,9 @@
       "regenerate": "Recréer le lien",
       "regenerateConfirm": "Recréer",
       "regeneratedNote": "L'ancien lien n'est plus valable.",
-      "regenerateFailed": "Lien non recréé"
+      "regenerateFailed": "Lien non recréé",
+      "regenerateHalf": "Nouveau lien non créé",
+      "regenerateHalfNote": "L'ancien lien n'est plus valable. Fermez et rouvrez Liens & QR, le nouveau sera alors disponible."
     },
     "completion": {
       "title": "Clore l'intervention ?",

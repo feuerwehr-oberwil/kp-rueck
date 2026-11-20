@@ -43,7 +43,7 @@ import { toast } from "sonner"
 
 import { FooterSheet } from "@/components/ui/footer-sheet"
 import { SurfaceStep, useOpenSurface } from "@/components/ui/surface-step"
-import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
+import { SheetBody, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
@@ -191,15 +191,25 @@ export function LinksQrSheet({
    */
   const regenerate = async (key: RegenerableKey) => {
     if (!eventId) return
+    // Revoke first: a link generated before the revoke would carry the old generation and
+    // end with it.
     try {
       await apiClient.revokeShareLinks(eventId, REGENERABLE[key])
+    } catch (error) {
+      console.error(`Failed to end the ${key} links:`, error)
+      toast.error(t("regenerateFailed"), { description: error instanceof Error ? error.message : undefined })
+      throw error
+    }
+    try {
       const url = await generate(key, eventId)
       setUrls(current => ({ ...current, [key]: url }))
       toast.success(t(`${key}.regenerated`), { description: t("regeneratedNote") })
     } catch (error) {
-      console.error(`Failed to regenerate the ${key} link:`, error)
-      toast.error(t("regenerateFailed"), { description: error instanceof Error ? error.message : undefined })
-      throw error
+      // The old link has ended, the new one did not come: the row must not offer the dead one.
+      // Reopening the sheet generates the new link.
+      console.error(`Failed to generate the new ${key} link:`, error)
+      setUrls(current => ({ ...current, [key]: undefined }))
+      toast.error(t("regenerateHalf"), { description: t("regenerateHalfNote") })
     }
   }
 
@@ -319,9 +329,11 @@ export function LinksQrSheet({
         // closes the sheet underneath, so dismissing the QR lands on the board.
         shouldPreventClose={() => enlarged !== null || regenerating !== null}
         surface={t("title")}
-        className="max-w-3xl mx-auto px-6 py-4"
+        // Capped at the screen, the groups scroll: on a short phone the rows wrap to two lines
+        // and the sheet would otherwise rise past the top, out of reach.
+        className="max-w-3xl mx-auto px-6 py-4 modal-h-tall flex flex-col gap-0"
       >
-        <SheetHeader className="p-0 mb-3">
+        <SheetHeader className="p-0 mb-3 shrink-0">
           <SheetTitle>{t("title")}</SheetTitle>
           <SheetDescription>{t("description")}</SheetDescription>
         </SheetHeader>
@@ -331,7 +343,7 @@ export function LinksQrSheet({
             desk / wall display come last. Three labelled groups instead of a
             flat row list — the Anwesenheit row and the Feld-Code used to sit
             wedged between QR rows they had nothing to do with. */}
-        <div className="space-y-3">
+        <SheetBody className="space-y-3">
           {/* Check-In and the Appell it feeds — the two halves of one job. */}
           <section>
             <p className="mb-1 px-0.5 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -382,7 +394,7 @@ export function LinksQrSheet({
               {linkRow("display", true)}
             </div>
           </section>
-        </div>
+        </SheetBody>
       </FooterSheet>
 
       {regenerating && (

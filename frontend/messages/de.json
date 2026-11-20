@@ -1149,7 +1149,9 @@
       "regenerate": "Link neu erzeugen",
       "regenerateConfirm": "Neu erzeugen",
       "regeneratedNote": "Der bisherige Link gilt nicht mehr.",
-      "regenerateFailed": "Link nicht neu erzeugt"
+      "regenerateFailed": "Link nicht neu erzeugt",
+      "regenerateHalf": "Neuer Link nicht erzeugt",
+      "regenerateHalfNote": "Der bisherige Link gilt nicht mehr. Links & QR schliessen und wieder öffnen, dann steht der neue bereit."
     },
     "completion": {
       "title": "Einsatz abschliessen?",
