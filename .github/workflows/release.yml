@@ -38,7 +38,7 @@ jobs:
       contents: write   # create the GitHub Release
       packages: write   # push to GHCR
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0   # the newest-tag comparison needs the full tag list
 
@@ -84,13 +84,13 @@ jobs:
       # All four images build for arm64, so an ARM host (Hetzner CAX, Oracle Ampere, a Pi)
       # can run the whole stack, not just the print agent next to the printer.
       - name: Set up QEMU (arm64 emulation)
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
         with:
           # tonistiigi/binfmt from Google's Docker Hub cache (same digest), not Hub itself.
           image: mirror.gcr.io/tonistiigi/binfmt:latest
 
       - name: Set up Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
           # The Dockerfiles name their bases on Docker Hub (so Dependabot can read them), and Hub
           # answers anonymous pulls past its rate limit with 429 — even the manifest HEAD
@@ -104,7 +104,7 @@ jobs:
           driver-opts: image=mirror.gcr.io/moby/buildkit:buildx-stable-1
 
       - name: Log in to GHCR
-        uses: docker/login-action@v4.7.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -135,7 +135,7 @@ jobs:
 
       - name: Push backend image
         id: backend
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: ./backend
           platforms: linux/amd64,linux/arm64
@@ -154,7 +154,7 @@ jobs:
       # forwards to API_URL, which is set at RUNTIME by docker-compose.
       - name: Push frontend image
         id: frontend
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: ./frontend
           target: runner
@@ -177,7 +177,7 @@ jobs:
 
       - name: Push tileserver image
         id: tileserver
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: ./tileserver/Dockerfile
@@ -197,7 +197,7 @@ jobs:
       # lives here but is not a "kp-rueck" component — see tools/print-agent/README.md.
       - name: Push print-agent image
         id: print_agent
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: ./tools/print-agent
           platforms: linux/amd64,linux/arm64
