@@ -84,8 +84,8 @@ the latest tagged release and update promptly – see [`docs/DEPLOYMENT.md`](doc
   sends when another identity provider authenticated the user, and by the optional `acct`
   claim (`1` = guest). Add `acct` to the app registration's ID token (`docs/SETUP.md`): without
   it, a guest account that was created inside your own tenant looks like a member. With the
-  claim in place, `SSO_REQUIRE_ACCT_CLAIM=true` refuses every token that does not carry it,
-  which closes that gap.
+  claim in place, `SSO_REQUIRE_ACCT_CLAIM=true` refuses every token that does not carry it
+  (unless its object ID is allow-listed), which closes that gap.
 - **Field credentials** have separate poster, five-minute single-use person-picker and
   person-bound device stages. Device logout revokes newly issued Reko child credentials too.
   The upgrade migration revokes existing device and person-picker claims once. Printed

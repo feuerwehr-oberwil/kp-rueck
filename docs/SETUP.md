@@ -563,8 +563,8 @@ are live, and the UI adapts rather than hard-coding vendors.
   guest account created inside your own tenant passes as a member.
 
   When the claim is in place and one member has signed in with it, set
-  `SSO_REQUIRE_ACCT_CLAIM=true`: from then on a token without `acct` is refused, so such a
-  guest cannot pass either. Do not set it earlier – without the claim nobody could sign in
+  `SSO_REQUIRE_ACCT_CLAIM=true`: from then on a token without `acct` is refused (unless its
+  object ID is in `SSO_GUEST_ALLOWLIST`), so such a guest cannot pass either. Do not set it earlier – without the claim nobody could sign in
   with Microsoft.
 
   An account is tied to its Entra object ID on the first Microsoft login. If a person's Entra
