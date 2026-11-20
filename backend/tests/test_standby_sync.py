@@ -101,6 +101,25 @@ def test_the_same_field_on_both_keeps_the_leaders_value_and_records_the_other():
     assert [op.table for op in plan.to_follower].count(CONFLICTS) == 1
 
 
+@pytest.mark.parametrize(
+    ("base", "lead", "other", "stands"),
+    [
+        pytest.param(0, 1, 2, 2, id="both revoked while apart, the follower twice"),
+        pytest.param(1, 0, 1, 1, id="the leader just got the column (0) against an agreed 1"),
+        pytest.param(0, 0, 1, 1, id="only the follower revoked"),
+    ],
+)
+def test_a_share_link_generation_never_goes_down(base: int, lead: int, other: int, stands: int):
+    """A revoked link stays revoked: the higher generation stands, whoever leads, without a conflict."""
+    key = ("events", EVENT)
+    event = lambda generation: {key: {"id": EVENT, "name": "Sturm Musterdorf", "viewer_link_generation": generation}}
+
+    plan = merge(event(base), event(lead), event(other), event_id=EVENT, leader=STANDBY, takeover=TAKEOVER, now=NOW)
+
+    assert plan.merged[key]["viewer_link_generation"] == stands
+    assert not _conflicts(plan)
+
+
 def test_new_rows_from_either_side_are_added_to_the_other():
     mine, theirs = _incident(id=str(uuid.uuid4()), number=21), _incident(id=str(uuid.uuid4()), number=22)
 

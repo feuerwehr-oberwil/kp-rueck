@@ -2,7 +2,8 @@
 
 A share link is a signed token with an expiry. Without more, a leaked link works until it
 expires (the alarm link: 30 days), and the only way to stop it was a new SECRET_KEY, which
-ends every session. So each Ereignis keeps one generation number per kind of link:
+ends every link, Reko form and Feld device of every Ereignis. So each Ereignis keeps one
+generation number per kind of link:
 
 - `issue` signs a token that carries the current generation;
 - `event_of` opens the Ereignis only for a token of the current generation;
@@ -36,18 +37,14 @@ async def issue(db: AsyncSession, kind: LinkKind, event_id: UUID) -> str | None:
 
 
 async def event_of(db: AsyncSession, kind: LinkKind, token: str) -> UUID | None:
-    """The Ereignis this link opens. None when it is forged, expired, of another kind or revoked.
-
-    A token of an Ereignis that no longer exists still names it: the caller answers «not found»
-    as before.
-    """
+    """The Ereignis this link opens. None when it is forged, expired, of another kind or
+    revoked, and when its Ereignis no longer exists (a deleted Ereignis has no generation left
+    to compare, so its links open nothing)."""
     claims = link_claims(token, kind)
     if claims is None:
         return None
     current = await db.scalar(select(_GENERATION[kind]).where(Event.id == claims.event_id))
-    if current is not None and current != claims.generation:
-        return None
-    return claims.event_id
+    return claims.event_id if current == claims.generation else None
 
 
 async def revoke(db: AsyncSession, kind: LinkKind, event_id: UUID) -> bool:

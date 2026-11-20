@@ -259,7 +259,19 @@ async def revoke_share_links(
     or a wall display that holds it gets «Link ungültig» on its next request. Generate a new
     link afterwards for the people who should keep their access. The other two kinds, the
     Feld poster and the Reko forms are untouched.
+
+    With a standby box (docs/STANDBY.md): revoke on the system that leads the Ereignis. The
+    other system follows with the next sync, and the higher generation always stands.
     """
+    if deployment_role() == ROLE_STANDBY:
+        # A mirrored Ereignis is not synced back from the box: a revoke here would answer 204
+        # and never reach the hosted board, which is where its links are honoured.
+        holder = await db.scalar(select(EventLead.holder).where(EventLead.event_id == event_id))
+        if holder != "standby":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Dieses Ereignis wird auf KP Rück Online geführt. Links dort widerrufen.",
+            )
     if not await share_links.revoke(db, kind, event_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
     await log_action(

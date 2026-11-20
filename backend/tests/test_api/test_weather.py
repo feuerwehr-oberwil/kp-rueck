@@ -23,10 +23,12 @@ def one_frame():
     weather_service.reset()
 
 
-async def test_weather_needs_a_session_or_a_viewer_token(client: AsyncClient, one_frame):
+async def test_weather_needs_a_session_or_a_viewer_token(client: AsyncClient, one_frame, test_event):
     assert (await client.get("/api/weather/")).status_code == 401
     assert (await client.get("/api/weather/?token=forged")).status_code == 401
-    token = generate_viewer_token(uuid4())
+    # A viewer link of an Ereignis that does not exist opens nothing.
+    assert (await client.get(f"/api/weather/?token={generate_viewer_token(uuid4())}")).status_code == 401
+    token = generate_viewer_token(test_event.id)
     response = await client.get(f"/api/weather/?token={token}")
     assert response.status_code == 200
     body = response.json()
