@@ -446,6 +446,14 @@ _TEMPLATE_TYPES: dict[str, str] = {
 }
 
 
+def scene_type(incident_type: str | None, title: str | None) -> str | None:
+    """The type a simulated report (and its fallback photo) describes. A title from a
+    template is that template's scene, whatever type the incident got: a simulated Divera
+    alarm is typed by the title matcher, which reads «Wasser in Tiefgarage» as
+    diverse_einsaetze and would drop the water figure and depth."""
+    return _TEMPLATE_TYPES.get(title or "", incident_type)
+
+
 def illustrated_summaries() -> set[str]:
     """Every Reko text a simulated report can show beside its illustration."""
     return {text for texts in (*_SUMMARIES.values(), *_TEMPLATE_SUMMARIES.values()) for text in texts}
@@ -787,7 +795,8 @@ _DANGER_ASSERT_KW: dict[str, list[str]] = {
     ],
     "explosion": ["explos", "gasflasche", "spraydose", "gasleitung", "gasriecher"],
     "chemical": ["chlor", "chemi", "reizgas", "ätzend", "aetzend", "gefahrgut", "säure", "reiniger", "gefahrstoff"],
-    "electrical": ["strom", "elektr", "trafo", "steckdose", "leitung"],
+    # «leitung» alone also matches Wasser-, Gas-, Tank- and Telefonleitung.
+    "electrical": ["strom", "elektr", "trafo", "steckdose", "fahrleitung", "freileitung", "oberleitung"],
     "fire_danger": ["vollbrand", "flammen", "glutnest", "brennt", "in flammen"],
 }
 # Summary keywords that mean "nothing going on" — force all dangers off.
@@ -991,10 +1000,7 @@ def generate_reko_report_data(
     or corrects the figure the dispatch actually reported. A not-relevant report
     is the empty one (`_not_relevant_report`).
     """
-    # A title from a template is that template's scene, whatever type the incident got:
-    # a simulated Divera alarm is typed by the title matcher, which reads «Wasser in
-    # Tiefgarage» as diverse_einsaetze and would drop the water figure and depth.
-    incident_type = _TEMPLATE_TYPES.get(title or "", incident_type)
+    incident_type = scene_type(incident_type, title)
     # BMA false alarms have a high chance of being non-relevant; diverse
     # einsaetze (wespen, türöffnungen, etc.) also lean "no FW action needed".
     if incident_type == "bma_unechte_alarme":

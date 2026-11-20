@@ -418,6 +418,18 @@ class TestRekoConsistency:
         assert dangers["collapse"] is True
         assert dangers["fire_danger"] is True
 
+    @pytest.mark.parametrize(
+        ("summary", "electrical"),
+        [
+            ("Baum auf Telefonleitung gestürzt. Swisscom ist informiert. Leitung hängt tief.", False),
+            ("Kaltwasserleitung im Keller geplatzt, Haupthahn zu. Wasser läuft nicht mehr nach.", False),
+            ("Baum auf dem Gleis, Fahrleitung beschädigt. SBB hat die Strecke gesperrt.", True),
+        ],
+    )
+    def test_only_a_power_line_asserts_electrical_danger(self, summary, electrical):
+        dangers, _ = _reconcile_with_summary(summary, "elementar_tree", self._dangers(False), self._effort(2, 1))
+        assert dangers["electrical"] is electrical
+
     def test_fire_danger_only_asserted_for_brand_types(self):
         # A false-alarm summary mentioning 'Flammen' shouldn't light fire_danger
         # on a non-brand type.

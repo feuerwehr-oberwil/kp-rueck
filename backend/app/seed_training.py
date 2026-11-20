@@ -486,7 +486,6 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "category": "normal",
         "reko_summaries": [
             "Werbetafel droht herabzufallen. Bereich bereits weiträumig abgesperrt.",
-            "Werbebanner halb abgerissen, weht auf Trottoir. Absturzgefahr für Passanten.",
         ],
         "message_pattern": "Sturmschaden, grosse Werbetafel droht zu fallen.",
         "title_variations": ["Werbetafel droht zu fallen", "Lose Reklametafel"],
@@ -730,7 +729,7 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "message_pattern": "Kanaldeckel angehoben durch Wasserdruck. Stolpergefahr.",
         "title_variations": ["Kanaldeckel hoch", "Angehobener Schachtdeckel"],
         "message_variations": [
-            "Passant meldet angehobenen Kanaldeckel, durch Wasserdruck hochgedrückt. Stolpergefahr auf Gehweg.",
+            "Passant meldet angehobenen Kanaldeckel, durch Wasserdruck hochgedrückt. Stolpergefahr.",
             "Schachtdeckel steht schräg, Wasser drückt hoch. Sturzgefahr, Stelle sichern.",
         ],
     },
@@ -1027,8 +1026,8 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "message_pattern": "BMA, Industriebetrieb. Melder Produktionshalle.",
         "title_variations": ["BMA Industriebetrieb", "Brandmeldeanlage Gewerbe"],
         "message_variations": [
-            "BMA Industriebetrieb, Sektor Lager. Sicherheitsbeauftragter vor Ort.",
-            "BMA-Auslösung Produktionshalle, Schweissarbeiten gemeldet.",
+            "BMA Industriebetrieb, Sektor 4. Sicherheitsbeauftragter vor Ort.",
+            "BMA-Auslösung Produktionshalle. Betrieb läuft.",
         ],
     },
     {
@@ -1091,7 +1090,7 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "title_variations": ["Lift blockiert mit Person", "Person im Aufzug eingeschlossen"],
         "message_variations": [
             "Lift steht zwischen 3. und 4. OG, Person mit Kinderwagen drin. Spricht ruhig.",
-            "Personen in Lift eingeschlossen, Stromausfall. Liftnotruf hat ausgelöst.",
+            "Person in Lift eingeschlossen, Stromausfall. Liftnotruf hat ausgelöst.",
         ],
     },
     {

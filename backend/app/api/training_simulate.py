@@ -70,6 +70,7 @@ from ..services.training_simulation_data import (
     generate_field_message,
     generate_reinforcement_request,
     generate_reko_report_data,
+    scene_type,
 )
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import (
@@ -361,7 +362,7 @@ async def simulate_reko(
     if updated.is_relevant:
         photo_filenames = await attach_training_photos(
             incident_id,
-            incident.type,
+            scene_type(incident.type, incident.title),
             current_photos=updated.photos_json,
             summary_text=photo_summary,
             depth_cm=photo_depth_cm,
