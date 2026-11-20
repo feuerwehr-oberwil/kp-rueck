@@ -336,7 +336,7 @@ export function LinksQrSheet({
         surface={t("title")}
         // Capped at the screen, the groups scroll: on a short phone the rows wrap to two lines
         // and the sheet would otherwise rise past the top, out of reach.
-        className="max-w-3xl mx-auto px-6 py-4 pb-sheet-safe sm:pb-4 modal-h-tall flex flex-col gap-0"
+        className="max-w-3xl mx-auto px-6 py-4 pb-sheet-safe md:pb-4 modal-h-tall flex flex-col gap-0"
       >
         <SheetHeader className="p-0 mb-3 shrink-0">
           <SheetTitle>{t("title")}</SheetTitle>
