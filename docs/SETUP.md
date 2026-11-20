@@ -566,7 +566,10 @@ are live, and the UI adapts rather than hard-coding vendors.
   account is deleted and created again, the new one has a new object ID, and the login
   answers «muss durch einen Administrator verknüpft werden». Clear the old link in the database
   (`UPDATE users SET microsoft_tid = NULL, microsoft_oid = NULL WHERE username = '…';`) and
-  let the person sign in again: the e-mail links the account once more.
+  let the person sign in again: the e-mail links the account once more. Before you clear the
+  link, check in Entra that the new account is that person's, and that its sign-in address is
+  the e-mail of exactly this KP Rück account – otherwise the login makes a separate viewer
+  account.
 
   ```bash
   SSO_EDITOR_ALLOWLIST=hans.muster@example.ch,anna.beispiel@example.ch

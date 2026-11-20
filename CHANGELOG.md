@@ -270,8 +270,10 @@ will keep holding.
   guests.** The login used to find the account by e-mail, a value that can change, and it gave
   every account in the tenant a viewer login – B2B guests and invited personal accounts too. Now
   the immutable `tid` + `oid` pair is stored on the account at its first Microsoft login. An
-  account from before is linked once by its e-mail; an e-mail that belongs to an account of
-  another Microsoft identity is refused. A guest or external account gets a 403 unless its
+  account from before is linked once by its e-mail (compared without regard to case); for that
+  one-time link, an e-mail that belongs to an account of another Microsoft identity is refused.
+  A new member whose e-mail prefix is already a username gets a numbered username instead of a
+  refusal. A guest or external account gets a 403 unless its
   object ID is in the new `SSO_GUEST_ALLOWLIST`. Members of the tenant sign in as before and
   still get a viewer account automatically. Automatic migration (`users.microsoft_tid`,
   `users.microsoft_oid`).

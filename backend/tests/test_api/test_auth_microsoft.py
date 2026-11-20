@@ -213,14 +213,18 @@ class TestMicrosoftProvisioning:
         microsoft_auth_configured,
         existing_email,
     ):
+        """The e-mail prefix «admin» is no claim on the account «admin»: the Microsoft
+        account gets its own viewer account with a numbered name."""
         admin = User(username="admin", email=existing_email, password_hash=None, role="admin", is_active=True)
         db_session.add(admin)
         await db_session.commit()
+
         response = await _login(client, "admin@another.example")
-        assert response.status_code == 409
-        assert "access_token" not in response.cookies
+
+        assert response.status_code == 200
+        assert (response.json()["username"], response.json()["role"]) == ("admin-2", "viewer")
         await db_session.refresh(admin)
-        assert admin.email == existing_email and admin.role == "admin"
+        assert (admin.email, admin.role, admin.microsoft_oid) == (existing_email, "admin", None)
 
     async def test_new_user_defaults_to_viewer(
         self, client: AsyncClient, db_session: AsyncSession, microsoft_auth_configured, monkeypatch

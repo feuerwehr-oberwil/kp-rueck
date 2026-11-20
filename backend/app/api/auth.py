@@ -468,6 +468,22 @@ async def get_microsoft_auth_config() -> schemas.MicrosoftAuthConfig:
     )
 
 
+async def _free_username(db: AsyncSession, wanted: str) -> str:
+    """A username for a NEW account: `wanted`, or `wanted-2`, `wanted-3` … when it is taken.
+
+    A matching e-mail prefix proves no relationship to an existing account, so the new
+    Microsoft account never takes that account over. It gets its own, numbered name instead:
+    a member's first login must work without an administrator. `users.username` holds 50
+    characters; an Entra name can be longer.
+    """
+    candidate, number = wanted[:50], 1
+    while (await db.execute(select(User.id).where(User.username == candidate))).first() is not None:
+        number += 1
+        suffix = f"-{number}"
+        candidate = wanted[: 50 - len(suffix)] + suffix
+    return candidate
+
+
 def _is_on_editor_allowlist(email: str) -> bool:
     """Whether this email gets editor rights on SSO auto-provision.
 
@@ -633,11 +649,7 @@ async def microsoft_login(
         )
 
     if user is None:
-        username = identity.email.split("@")[0]
-        # A matching email prefix proves no relationship to a local account.
-        # Refuse collisions until an administrator establishes the identity.
-        if (await db.execute(select(User.id).where(User.username == username))).first() is not None:
-            raise link_by_admin
+        username = await _free_username(db, identity.email.split("@")[0])
         # Create new user from Microsoft login. Any tenant member can reach
         # this, so default to read-only; editor rights are an explicit grant
         # via SSO_EDITOR_ALLOWLIST. Existing users keep their role on

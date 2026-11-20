@@ -71,8 +71,10 @@ the latest tagged release and update promptly – see [`docs/DEPLOYMENT.md`](doc
   account. An account that existed before is linked once, by an exact e-mail match, on its
   next Microsoft login; after that the e-mail is only a label. Until that login the e-mail is
   still what ties the account to a person, so have privileged accounts sign in soon after the
-  update. An e-mail that sits on an account of another Microsoft identity is refused, never
-  merged, and a username prefix never links anything. Administrators control the local e-mail address and the configured Entra
+  update. The one-time link compares the address without regard to case; when the address
+  sits on an account of another Microsoft identity, or on several accounts, the login is
+  refused and nothing is merged. A username prefix never links anything: a new account whose
+  e-mail prefix is taken gets a numbered username. Administrators control the local e-mail address and the configured Entra
   tenant's account lifecycle.
 - **Members get a viewer account automatically, guests get nothing.** Any member of the
   configured tenant who signs in is provisioned as a viewer (editor only via
