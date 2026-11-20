@@ -237,8 +237,14 @@ def _is_guest(claims: dict[str, Any]) -> bool:
       Needs no configuration.
     - `acct`: `1` for userType Guest, `0` for Member. Only present when the app registration
       adds it as an optional ID-token claim. It also catches a guest created inside the tenant.
+
+    Without `acct`, a guest account created inside the tenant looks like a member. With
+    SSO_REQUIRE_ACCT_CLAIM the claim is required: a token without `acct = 0` is treated as a
+    guest (and refused unless its object ID is allow-listed).
     """
-    if str(claims.get("acct", "")) == "1":
+    acct = str(claims.get("acct", ""))
+    # SSO_REQUIRE_ACCT_CLAIM: only a token that says «member» (acct = 0) is one.
+    if acct == "1" or (settings.sso_require_acct_claim and acct != "0"):
         return True
     idp = claims.get("idp")
     return isinstance(idp, str) and settings.microsoft_tenant_id.lower() not in idp.lower()

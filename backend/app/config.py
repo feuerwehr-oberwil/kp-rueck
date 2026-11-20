@@ -205,6 +205,12 @@ class Settings(BaseSettings):
     # tenant because somebody shared a file or a team with them, not because they belong to
     # the station. The object ID, not the e-mail: a guest's e-mail is set by their home tenant.
     sso_guest_allowlist: str = ""
+    # Refuse a Microsoft token that does not say whether its user is a member or a guest (the
+    # optional ID-token claim `acct`). Off by default: until the app registration sends `acct`,
+    # no token has it, and «on» would lock every member out. Switch it on AFTER you added the
+    # claim in Entra and a member has signed in: then a guest account that was created inside
+    # your own tenant, which no other claim gives away, cannot pass as a member.
+    sso_require_acct_claim: bool = False
 
     # Alarm intake
     # Shared secret for POST /api/alarms and the Divera webhook. Set here it WINS over the

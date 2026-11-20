@@ -316,7 +316,8 @@ will keep holding.
 - **Microsoft sign-in:** add the optional claim `acct` to the ID token of your Entra app
   registration (Token configuration › Add optional claim › ID › `acct`, `docs/SETUP.md`). Without
   it KP Rück still refuses guests that sign in through another tenant or a personal account,
-  but not a guest account created inside your own tenant. If a guest must keep its login, put
+  but not a guest account created inside your own tenant; once the claim arrives, set
+  `SSO_REQUIRE_ACCT_CLAIM=true` to refuse every token without it. If a guest must keep its login, put
   its object ID into `SSO_GUEST_ALLOWLIST` before you update. An existing account is tied to
   its Entra identity at its next Microsoft login, by its e-mail address, once: have every admin
   and editor sign in with Microsoft soon after the update.

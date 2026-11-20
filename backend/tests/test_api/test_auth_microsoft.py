@@ -325,6 +325,24 @@ class TestGuestDetection:
         assert identity.is_guest is is_guest
         assert identity.email == "x@fwo.li"
 
+    @pytest.mark.parametrize(
+        ("claims", "is_guest"),
+        [
+            pytest.param({"acct": 0}, False, id="acct 0 = member"),
+            pytest.param({}, True, id="no acct: not proven a member"),
+            pytest.param({"acct": 1}, True, id="acct 1 = guest"),
+        ],
+    )
+    def test_with_the_acct_claim_required_only_acct_0_is_a_member(
+        self, microsoft_auth_configured, monkeypatch, claims, is_guest
+    ):
+        """SSO_REQUIRE_ACCT_CLAIM closes the gap for a guest account created inside the tenant."""
+        monkeypatch.setattr(settings, "sso_require_acct_claim", True)
+        identity = identity_from_claims(
+            {"tid": TENANT, "oid": _oid("x@fwo.li"), "preferred_username": "x@fwo.li"} | claims
+        )
+        assert identity.is_guest is is_guest
+
     @pytest.mark.parametrize("missing", ["tid", "oid"])
     def test_a_token_without_tid_or_oid_is_no_identity(self, microsoft_auth_configured, missing):
         claims = {"tid": TENANT, "oid": _oid("x@fwo.li"), "preferred_username": "x@fwo.li"}

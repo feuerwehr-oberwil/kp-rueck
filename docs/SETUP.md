@@ -562,14 +562,19 @@ are live, and the UI adapts rather than hard-coding vendors.
   another tenant or a personal account are still refused (the `idp` claim says so), but a
   guest account created inside your own tenant passes as a member.
 
+  When the claim is in place and one member has signed in with it, set
+  `SSO_REQUIRE_ACCT_CLAIM=true`: from then on a token without `acct` is refused, so such a
+  guest cannot pass either. Do not set it earlier – without the claim nobody could sign in
+  with Microsoft.
+
   An account is tied to its Entra object ID on the first Microsoft login. If a person's Entra
   account is deleted and created again, the new one has a new object ID, and the login
   answers «muss durch einen Administrator verknüpft werden». Clear the old link in the database
   (`UPDATE users SET microsoft_tid = NULL, microsoft_oid = NULL WHERE username = '…';`) and
   let the person sign in again: the e-mail links the account once more. Before you clear the
-  link, check in Entra that the new account is that person's, and that its sign-in address is
-  the e-mail of exactly this KP Rück account – otherwise the login makes a separate viewer
-  account.
+  link, check in Entra that the new account is that person's, and that its sign-in address
+  is the e-mail of exactly one KP Rück account, the intended one (upper and lower case do not
+  matter).
 
   ```bash
   SSO_EDITOR_ALLOWLIST=hans.muster@example.ch,anna.beispiel@example.ch
