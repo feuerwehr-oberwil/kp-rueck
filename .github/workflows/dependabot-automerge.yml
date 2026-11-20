@@ -31,10 +31,11 @@ permissions:
   contents: write # the two scopes GitHub documents for turning auto-merge on
   pull-requests: write
 
-# A newer event on the same pull request replaces an older, slower decision.
+# One decision at a time per pull request, in order. Nothing is cancelled: a run that was cut
+# off before its «off» step would leave auto-merge as it was.
 concurrency:
   group: dependabot-automerge-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   GH_TOKEN: ${{ github.token }}
