@@ -402,6 +402,7 @@ class Event(Base):
     # it was issued with and opens the Ereignis only while the two are equal. «Link widerrufen»
     # moves it on: every link of that kind issued before stops working, and the next one issued
     # carries the new number. A link from before these columns carries none and counts as 0.
+    # The number is two counters, hosted board and standby box (standby_sync `LINK_REVOKE_STEP`).
     checkin_link_generation: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     viewer_link_generation: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     alarm_link_generation: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
