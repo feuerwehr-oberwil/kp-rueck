@@ -16,6 +16,8 @@ site/
   landing.css           ← das gemeinsame Design von KP Rück und KP Front
   theme.js              ← hell/dunkel, wird in jede Seite eingebettet
   fonts/                ← Sora + Spline Sans Mono (variable, gehostet, kein CDN)
+  favicon.svg           ← das Tab-Icon, als Datei, die ein Crawler abrufen kann
+  apple-touch-icon.png  ← dieselbe Marke randlos in 180 px (iOS-Home-Bildschirm, Lesezeichen)
   shots/                ← Screenshots aus einer echten Instanz (generiert, WebP; shots/dark/ nachts)
   capture.mjs           ← nimmt shots/ neu auf
   build.mjs             ← baut aus Vorlage + Texten die Seiten
@@ -117,6 +119,21 @@ node site/capture.mjs --theme dark --site-only # night variants only
 
 The offline builder preserves and embeds both picture sources; changing the theme must
 never make the hand-out request an image from a server.
+
+## Icons
+
+`favicon.svg` and `apple-touch-icon.png` are static files, linked from both templates (the 404
+page with absolute paths). A crawler or a link preview can fetch a file; it cannot use a `data:`
+icon. Both are byte-for-byte copies of the app's icons, which `scripts/build-icons.mjs` draws:
+
+```bash
+cp frontend/app/icon.svg site/favicon.svg
+cp frontend/public/icons/apple-touch-icon.png site/apple-touch-icon.png
+```
+
+Copy them again after the artwork changes. The header mark stays inline in
+`index.template.html`, between the `icon:mark` lines that `build-icons.mjs` writes. The
+single-file hand-out in `dist/` carries no tab icon.
 
 ## Screenshots aktualisieren
 
