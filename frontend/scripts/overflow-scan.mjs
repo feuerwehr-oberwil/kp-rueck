@@ -328,6 +328,7 @@ function visits(links) {
     { id: 'shortcuts', path: '/', act: async (p) => { await p.keyboard.press('Shift+?'); await p.waitForTimeout(900) } },
     { id: 'mehr', path: '/', phoneOnly: true, act: openMehr },
     { id: 'links-qr', path: '/', act: async (p, w) => { if (phone(w)) await openMehr(p); await click(p, /Links/) } },
+    { id: 'links-qr-regenerate', path: '/', act: async (p, w) => { if (phone(w)) await openMehr(p); await click(p, /Links/); await click(p, /^Link neu erzeugen$/, { wait: 800 }) } },
     { id: 'appell', path: '/', act: async (p, w) => { if (phone(w)) await openMehr(p); await click(p, /Links/); await click(p, /Appell öffnen/, { wait: 1500 }) } },
     { id: 'auftraege', path: '/', desktopOnly: true, act: (p) => click(p, /Aufträge/) },
     // An Auftrag opened: its stop rows with the status menu button (as wide as the longest status) and the ⋮.

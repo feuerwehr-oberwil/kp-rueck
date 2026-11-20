@@ -477,6 +477,9 @@ beide Zeilen. Beim Normalfall – jemand checkt sich selbst ein – steht bewuss
 - Der Check-in-Link ist **anonym**: wer den QR-Code hat, kann jede Person einchecken,
   und diese Erfassung trägt keinen Namen. Nur eine Erfassung am Board ist einer
   Person zugeordnet.
+- Ist ein Link an die falschen Leute gelangt: Fusszeile → *Links & QR* → der
+  **Kreispfeil** in der Zeile (Check-in, Alarm erfassen, Wandanzeige) → «Neu erzeugen».
+  Der neue Link und sein QR-Code stehen sofort in der Zeile; der bisherige gilt nicht mehr.
 - **«Telefonisch gemeldet» ist eine Behauptung, kein Nachweis** – es heisst, dass
   eine Bedienperson es so gesagt hat. Für die Statistik ist das kein Herkunftsbeleg.
 - Das Board kennt **drei** Zustände, der Check-in auf dem Handy **zwei**: Wer dort

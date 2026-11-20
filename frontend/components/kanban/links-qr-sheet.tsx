@@ -221,7 +221,11 @@ export function LinksQrSheet({
   }
 
   /** One link row. `bare` drops the row's own border so it can stack inside a
-   *  grouped container (divide-y draws the seams there instead). */
+   *  grouped container (divide-y draws the seams there instead).
+   *
+   *  The row wraps: the name never gets narrower than its longest word (`min-w-min`), and
+   *  when the buttons no longer fit beside it – a phone, with print and «neu erzeugen» – they
+   *  go to a second line, right-aligned. Before, «Wandanzeige» ran under the icons at 360px. */
   const linkRow = (key: LinkKey, bare = false) => {
     const url = urls[key]
     return (
@@ -229,8 +233,8 @@ export function LinksQrSheet({
         key={key}
         className={
           bare
-            ? "flex items-center gap-3 p-2.5"
-            : "flex items-center gap-3 rounded-lg border border-border/60 p-2.5"
+            ? "flex flex-wrap items-center gap-x-3 gap-y-1.5 p-2.5"
+            : "flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-border/60 p-2.5"
         }
       >
         {/* Clickable: the KP holds the screen up and somebody scans it. */}
@@ -248,14 +252,14 @@ export function LinksQrSheet({
           )}
         </button>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-min flex-1">
           {/* The name does the explaining. A second line spelling out
               who it is for ("Tablet an der Tür – Anwesenheit") was the
               same fact twice, and the longer half was the vaguer one. */}
           <div className="text-sm font-medium">{t(`${key}.title`)}</div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
           <Button variant="ghost" size="sm" asChild disabled={!url} title={tCommon("openInNewTab")}>
             <a href={url ?? "#"} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="size-3.5" />

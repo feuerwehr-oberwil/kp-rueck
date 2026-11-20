@@ -483,6 +483,9 @@ s’annonce lui-même – rien n’est écrit, délibérément.
 - Le lien d’arrivée est **anonyme** : quiconque a le code QR peut annoncer n’importe
   quelle personne, et cette saisie ne porte aucun nom. Seule une saisie au tableau est
   attribuée à une personne.
+- Un lien est arrivé chez les mauvaises personnes : pied de page → *Liens & QR* → la
+  **flèche circulaire** de la ligne (Arrivée, Saisir une alarme, Écran mural) → « Recréer ».
+  Le nouveau lien et son code QR sont tout de suite dans la ligne ; l’ancien n’est plus valable.
 - **« Annoncé par téléphone » est une affirmation, pas une preuve** – cela signifie
   qu’une personne aux commandes l’a dit ainsi. Pour la statistique, ce n’est pas un
   justificatif de provenance.
