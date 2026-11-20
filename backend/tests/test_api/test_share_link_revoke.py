@@ -76,18 +76,23 @@ async def test_revoke_answers_for_what_is_not_there(editor_client: AsyncClient, 
     assert await _revoke(editor_client, "feld", test_event.id) == 422
 
 
-async def test_two_systems_that_revoke_apart_do_not_land_on_the_same_generation(db_session, test_event, monkeypatch):
-    """A standby box and the hosted board start from the same number. Counted up, both revokes
-    would give «1», and a link issued after the one would survive the other. The clock gives
-    each its own number; the standby sync keeps the higher."""
+async def test_a_box_and_the_hosted_board_count_their_revokes_apart(db_session, test_event, monkeypatch):
+    """Both start from the same number and revoke while apart. Counted in one counter, both
+    would land on «1», and a link issued after the one revoke would survive the other. Each
+    system has its own half of the number; the standby sync takes the higher of each half."""
     from sqlalchemy import select
 
     from app.services import share_links
+    from app.standby_sync import merge_link_generations
 
-    async def revoked_at(clock: int) -> int:
+    async def revoked_on(role: str) -> int:
         await db_session.execute(Event.__table__.update().values(viewer_link_generation=0))
-        monkeypatch.setattr(share_links, "_generation_now", lambda: clock)
+        monkeypatch.setenv("DEPLOYMENT_ROLE", role)
         assert await share_links.revoke(db_session, "viewer", test_event.id)
         return await db_session.scalar(select(Event.viewer_link_generation).where(Event.id == test_event.id))
 
-    assert await revoked_at(27_000_000) != await revoked_at(27_000_900)
+    box, hosted = await revoked_on("standby"), await revoked_on("production")
+
+    assert box != hosted
+    # After the sync neither side's number is the current one: links of both are dead.
+    assert merge_link_generations(box, hosted) not in (box, hosted)
