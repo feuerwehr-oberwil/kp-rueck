@@ -333,6 +333,11 @@ scp -r tools/print-agent/ <user>@<raspberry-ip>:~/print-agent/
 ssh <user>@<raspberry-ip> "sudo systemctl restart kp-print-agent"
 ```
 
+The thermal output needs Python 3.11 or later since Pillow 13. A unit from an older install
+still starts the agent with `uv run --extra escpos …`: change its `ExecStart` to the line above
+(`uv run --python '>=3.11' --extra escpos python agent.py`), then
+`sudo systemctl daemon-reload && sudo systemctl restart kp-print-agent`.
+
 ## Files
 
 ```
