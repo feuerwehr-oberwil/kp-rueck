@@ -91,6 +91,9 @@ Bewusst entschieden und nicht aus Versehen so:
 - **Lange Wörter in `hero.h1` tragen ein `&shy;`** («Einsatz&shy;board», «Kommando&shy;posten»).
   Auf einem Telefon passt das Wort nicht auf eine Zeile; das `&shy;` sagt, wo es getrennt wird.
   Ab 521 px trennt die Überschrift nur noch dort (`hyphens: manual` in `landing.css`).
+  Ein neues `&shy;` in jeder Breite von 320 bis 1440 px prüfen, in Chromium und WebKit: Safari
+  trennt dort, sobald die erste Worthälfte die Zeile füllt, auch am Desktop. Darum hat das
+  französische «commandement» keines.
 
 ## Theme assets and shared runtime
 
