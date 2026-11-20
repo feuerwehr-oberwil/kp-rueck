@@ -272,7 +272,8 @@ will keep holding.
   note.
 - A test now reads every registered API route and fails for one that has neither a logged-in
   user nor an entry on an explicit list of open routes with its gate (71 today: signed links,
-  tokens, webhook secret, public by design). A refused boot no longer prints setting values.
+  tokens, webhook secret, public by design). A boot refused over a setting's length or
+  strength no longer prints the value beside the message.
 
 - Standby conflict values, including resolved conflicts, require an editor. A viewer can see
   how many open conflicts remain.

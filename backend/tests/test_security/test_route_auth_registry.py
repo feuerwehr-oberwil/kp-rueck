@@ -40,9 +40,7 @@ FELD_UNLOCK = Gate(
     "Feld poster token plus the Feld-Code, or an editor/admin session in place of the code", require_feld_claims
 )
 FELD_PICKER = Gate("unlocked Feld token not yet bound to a person: the five-minute picker grant", require_feld_claims)
-FELD_DEVICE = Gate(
-    "Feld token bound to one person, with a live device claim (`require_feld_person`)", require_feld_claims
-)
+FELD_DEVICE = Gate("Feld token bound to one person, with a live device claim", require_feld_claims)
 PRINT_AGENT = Gate("X-Agent-Token = PRINT_AGENT_TOKEN, 403 while the token is unset", require_print_agent)
 GEOCODING = Gate("session, or a live person-bound Feld claim", require_geocoding_access)
 BOARD_OR_VIEWER = Gate("session, or a viewer link token", require_board_or_viewer_token)
@@ -62,13 +60,15 @@ VIEWER = Gate("viewer link token (`validate_viewer_token`)")
 
 OPEN_ROUTES: dict[tuple[str, str], Gate] = {
     # --- Sign-in --------------------------------------------------------------------------
-    ("POST", "/api/auth/login"): Gate("username and password; failures are counted per username"),
+    ("POST", "/api/auth/login"): Gate("username and password; failures are counted per client address and username"),
     ("POST", "/api/auth/refresh"): Gate("a valid refresh cookie"),
     ("POST", "/api/auth/microsoft-login"): Gate(
         "the browser-bound login transaction (state + cookie, one use) and Microsoft's authorization code"
     ),
     ("POST", "/api/auth/logout"): Gate("public by design: ends the session of the cookies it is sent"),
-    ("GET", "/api/auth/microsoft-config"): Gate("public by design: whether Microsoft sign-in is configured"),
+    ("GET", "/api/auth/microsoft-config"): Gate(
+        "public by design: whether Microsoft sign-in is configured, with the client ID, tenant ID and redirect URI"
+    ),
     ("POST", "/api/auth/microsoft-start"): Gate("public by design: starts a login transaction, rate-limited"),
     ("POST", "/api/auth/local-login"): Gate("X-Local-Autologin secret from Caddy's loopback listener, 404 while off"),
     ("GET", "/api/setup/status"): Gate(
@@ -106,12 +106,13 @@ OPEN_ROUTES: dict[tuple[str, str], Gate] = {
     ("POST", "/api/reko/{incident_id}/photos"): REKO_WRITE,
     ("DELETE", "/api/reko/{incident_id}/photos/{filename}"): REKO_WRITE,
     ("GET", "/api/photos/{incident_id}/{filename}"): Gate(
-        "Reko form token (its own report's photos), viewer link token, or a session (`serve_photo`)"
+        "Reko form token (its own report's photos), viewer link token (photos listed on a submitted "
+        "Reko report of the token's Ereignis), or a session (`serve_photo`)"
     ),
     ("POST", "/api/reko/generate-link"): Gate("editor session, checked in the handler (`get_current_user`)"),
     # --- The field surface ----------------------------------------------------------------
     ("GET", "/api/feld/context"): FELD_ANY,
-    ("POST", "/api/feld/logout"): FELD_ANY,
+    ("POST", "/api/feld/logout"): FELD_DEVICE,
     ("POST", "/api/feld/unlock"): FELD_UNLOCK,
     ("POST", "/api/feld/claim"): FELD_PICKER,
     ("GET", "/api/feld/personnel"): FELD_PICKER,
