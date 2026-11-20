@@ -294,7 +294,7 @@ WorkingDirectory=/home/<user>/print-agent
 Environment=BACKEND_URL=https://your-backend.example.com
 Environment=AGENT_TOKEN=<PRINT_AGENT_TOKEN>
 Environment=PATH=/home/<user>/.local/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/home/<user>/.local/bin/uv run --extra escpos python agent.py
+ExecStart=/home/<user>/.local/bin/uv run --python '>=3.11' --extra escpos python agent.py
 Restart=always
 RestartSec=5
 

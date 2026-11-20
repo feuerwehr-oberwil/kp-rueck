@@ -42,8 +42,7 @@ updates:
         update-types: [minor, patch]
 
   # GitHub Actions — ONE pull request a week for all of them, majors included: an action
-  # bump changes no code we ship, and the workflows pin every action by commit, so each bump
-  # is a reviewed SHA change either way.
+  # bump changes no code we ship.
   - package-ecosystem: github-actions
     directory: "/"
     schedule:

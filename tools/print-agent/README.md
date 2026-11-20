@@ -29,7 +29,7 @@ imported *inside* the print call, so an agent without them runs fine for CUPS ba
 reports a clear, actionable error if a thermal job ever reaches it.
 
 ```bash
-uv sync --extra escpos     # only needed for the thermal printer; installs what uv.lock pins
+uv sync --python '>=3.11' --extra escpos   # only for the thermal printer; installs what uv.lock pins
 ```
 
 ## Configuration
