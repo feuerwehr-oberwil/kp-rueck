@@ -276,6 +276,18 @@ def standby_role(monkeypatch, db_session):
 
 
 @pytest.mark.asyncio
+async def test_the_box_revokes_share_links_only_for_an_ereignis_it_leads(
+    editor_client: AsyncClient, two_events, standby_role
+):
+    """A mirrored Ereignis is not synced back: a revoke on the box would be lost on the hosted board."""
+    led, mirrored, *_ = two_events
+    assert (await editor_client.post(f"/api/standby/events/{led.id}/takeover")).status_code == 200
+
+    assert (await editor_client.post(f"/api/events/{led.id}/share-links/viewer/revoke")).status_code == 204
+    assert (await editor_client.post(f"/api/events/{mirrored.id}/share-links/viewer/revoke")).status_code == 409
+
+
+@pytest.mark.asyncio
 async def test_a_hosted_board_is_no_mirror_and_has_nothing_to_take_over(editor_client: AsyncClient, two_events):
     a, *_ = two_events
     assert (await editor_client.get("/api/standby")).json() == {"mirror": False, "leads": []}

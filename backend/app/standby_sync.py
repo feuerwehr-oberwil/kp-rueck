@@ -48,6 +48,9 @@ CONFLICTS = "event_conflicts"
 
 # Both systems stamp these on every write; the later one is right, and it is never a clash.
 BOOKKEEPING = frozenset({"updated_at", "last_activity_at"})
+# Counters that only grow: the share-link generations on `events` (services/share_links.py).
+# The higher number stands, whoever leads: a merge must never bring a revoked link back.
+ONLY_GROWS = frozenset({"checkin_link_generation", "viewer_link_generation", "alarm_link_generation"})
 
 # Unique indexes that say «this is the same thing twice»: the same person checked in or driving
 # the same function, the same resource on the same Einsatz or Auftrag, the same phone request or
@@ -280,6 +283,8 @@ def _merge_row(base: Row, lead: Row, other: Row) -> tuple[Row, dict[str, dict[st
             merged[col] = m
         elif col in BOOKKEEPING:
             merged[col] = m if t is None or (m is not None and _later(m, t)) else t
+        elif col in ONLY_GROWS:
+            merged[col] = max(m, t)
         elif m == b:
             merged[col] = t
         elif t == b:

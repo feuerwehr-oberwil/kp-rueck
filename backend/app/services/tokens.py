@@ -49,12 +49,13 @@ def link_claims(token: str, kind: LinkKind) -> LinkClaims | None:
     Routes ask `services/share_links.event_of`, which compares the generation.
     """
     try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
-        if payload.get("type") != kind or not payload.get("event_id"):
-            return None
+        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"], options={"require": ["exp"]})
         # A link issued before generations existed carries none: it is generation 0.
-        return LinkClaims(event_id=UUID(payload["event_id"]), generation=int(payload.get("gen", 0)))
-    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, ValueError, TypeError):
+        generation = payload.get("gen", 0)
+        if payload.get("type") != kind or type(generation) is not int or generation < 0:
+            return None
+        return LinkClaims(event_id=UUID(payload["event_id"]), generation=generation)
+    except (jwt.InvalidTokenError, KeyError, ValueError, TypeError, AttributeError):
         return None
 
 

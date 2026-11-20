@@ -99,9 +99,10 @@ class TestContext:
     @pytest.mark.asyncio
     @pytest.mark.api
     async def test_unknown_event(self, client: AsyncClient):
+        """A link of an Ereignis that no longer exists opens nothing."""
         token = generate_alarm_token(uuid4())
         response = await client.get(f"/api/intake/context?token={token}")
-        assert response.status_code == 404
+        assert response.status_code == 401
 
 
 class TestCreateAlarm:

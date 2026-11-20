@@ -429,7 +429,7 @@ async def test_list_personnel_event_not_found(client: AsyncClient):
     # Generate a token for a non-existent event
     token = generate_checkin_token(uuid4())
     response = await client.get(f"/api/personnel/check-in/list?token={token}")
-    assert response.status_code == 404
+    assert response.status_code == 401
 
 
 # ============================================

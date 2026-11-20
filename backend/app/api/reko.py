@@ -1007,12 +1007,13 @@ async def serve_photo(
         request=request,
     )
 
-    # Field credentials are revocable; their photos must be reauthorized on reload.
+    # Field credentials and viewer links are revocable; their photos must be reauthorized on reload.
+    by_link = reko_token is not None or viewer_event_id is not None
     return FileResponse(
         file_path,
         media_type="image/jpeg",
         headers={
-            "Cache-Control": "private, no-store" if reko_token is not None else "private, max-age=3600",
+            "Cache-Control": "private, no-store" if by_link else "private, max-age=3600",
             "Referrer-Policy": "no-referrer",
         },
     )
