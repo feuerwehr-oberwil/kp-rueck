@@ -904,7 +904,7 @@
           "authentication"
         ],
         "summary": "Microsoft Login",
-        "description": "Login with Microsoft Entra ID authorization code.\n\nFlow:\n    1. Exchange auth code for tokens via Microsoft\n    2. Validate & decode ID token\n    3. Extract email and display name\n    4. Find or create user\n    5. Issue app JWT tokens as httpOnly cookies",
+        "description": "Login with Microsoft Entra ID authorization code.\n\nFlow:\n    1. Exchange auth code for tokens via Microsoft\n    2. Validate & decode ID token\n    3. Extract the identity (tenant id + object id); refuse a guest that is not allow-listed\n    4. Find the user by that identity; else link an existing account by e-mail once;\n       else create a viewer (editor when on SSO_EDITOR_ALLOWLIST)\n    5. Issue app JWT tokens as httpOnly cookies",
         "operationId": "microsoft_login_api_auth_microsoft_login_post",
         "requestBody": {
           "content": {
