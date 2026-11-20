@@ -3,7 +3,7 @@
 Handles the authorization code flow:
 1. Exchange auth code for tokens
 2. Validate ID token against Microsoft's JWKS
-3. Extract user identity (email, display name)
+3. Extract user identity (tenant id + object id, guest or member, email, display name)
 
 This module is only used when MICROSOFT_CLIENT_ID etc. are configured.
 """
@@ -191,3 +191,60 @@ def validate_and_decode_id_token(id_token: str, nonce: str) -> dict[str, Any]:
         raise pyjwt.InvalidTokenError("Invalid login nonce")
 
     return claims
+
+
+@dataclass(frozen=True)
+class MicrosoftIdentity:
+    """Who a validated ID token is about. Built by `identity_from_claims`.
+
+    `tid` + `oid` are the identity: immutable, and what an account is linked by. `email`
+    (`preferred_username`, lower-cased, may be empty) is mutable – use it for display, for the
+    one-time link of an account that existed before, and for a new account's name. Nothing else.
+    """
+
+    tid: str
+    oid: str
+    email: str
+    display_name: str
+    is_guest: bool
+
+
+def identity_from_claims(claims: dict[str, Any]) -> MicrosoftIdentity:
+    """Read the identity out of validated ID-token claims. ValueError without `oid` or `tid`.
+
+    `oid` comes with the `profile` scope, which `start_login` asks for.
+    """
+    tid, oid = claims.get("tid"), claims.get("oid")
+    if not isinstance(tid, str) or not isinstance(oid, str) or not tid or not oid:
+        raise ValueError("ID token carries no tid/oid")
+    return MicrosoftIdentity(
+        tid=tid.lower(),
+        oid=oid.lower(),
+        email=str(claims.get("preferred_username") or "").lower().strip(),
+        display_name=str(claims.get("name") or ""),
+        is_guest=_is_guest(claims),
+    )
+
+
+def _is_guest(claims: dict[str, Any]) -> bool:
+    """Whether the token is about a guest or an account from outside the configured tenant.
+
+    Two claims say so, and either is enough:
+
+    - `idp`: Entra adds it when another identity provider authenticated the user – another
+      tenant (`https://sts.windows.net/<their tenant>/`), a personal account (`live.com`),
+      a one-time passcode. A home account has no `idp`, or one that names this tenant.
+      Needs no configuration.
+    - `acct`: `1` for userType Guest, `0` for Member. Only present when the app registration
+      adds it as an optional ID-token claim. It also catches a guest created inside the tenant.
+    """
+    if str(claims.get("acct", "")) == "1":
+        return True
+    idp = claims.get("idp")
+    return isinstance(idp, str) and settings.microsoft_tenant_id.lower() not in idp.lower()
+
+
+def is_on_guest_allowlist(oid: str) -> bool:
+    """Whether SSO_GUEST_ALLOWLIST (comma-separated Entra object IDs) names this guest."""
+    allowlist = {entry.strip().lower() for entry in settings.sso_guest_allowlist.split(",") if entry.strip()}
+    return oid.lower() in allowlist

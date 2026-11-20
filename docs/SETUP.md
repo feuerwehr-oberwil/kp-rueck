@@ -554,6 +554,20 @@ are live, and the UI adapts rather than hard-coding vendors.
   grant rather than something membership confers: comma-separated e-mail addresses get
   `role=editor` on first login, everyone else is provisioned as a viewer.
 
+  **Guests are refused.** A B2B guest or a personal Microsoft account in your tenant cannot
+  sign in unless its Entra object ID is in `SSO_GUEST_ALLOWLIST`. KP Rück recognises a guest
+  from the ID token. For the full check, add one optional claim to the app registration:
+  Entra admin centre › App registrations › your app › **Token configuration** › *Add optional
+  claim* › token type **ID** › tick **`acct`**. Without it, guests that sign in through
+  another tenant or a personal account are still refused (the `idp` claim says so), but a
+  guest account created inside your own tenant passes as a member.
+
+  An account is tied to its Entra object ID on the first Microsoft login. If a person's Entra
+  account is deleted and created again, the new one has a new object ID, and the login
+  answers «muss durch einen Administrator verknüpft werden». Clear the old link in the database
+  (`UPDATE users SET microsoft_tid = NULL, microsoft_oid = NULL WHERE username = '…';`) and
+  let the person sign in again: the e-mail links the account once more.
+
   ```bash
   SSO_EDITOR_ALLOWLIST=hans.muster@example.ch,anna.beispiel@example.ch
   ```

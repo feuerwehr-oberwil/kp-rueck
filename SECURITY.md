@@ -65,10 +65,22 @@ the latest tagged release and update promptly – see [`docs/DEPLOYMENT.md`](doc
   and revocation. Keep `WS_REQUIRE_AUTH=true`; disabling it permits anonymous live updates.
   If a socket cannot connect, the browser falls back to polling.
 - **Microsoft login transactions** are bound to a short-lived browser cookie, consumed once,
-  and protected with PKCE and an ID-token nonce. Username prefixes never link an external
-  identity to an existing account. An exact email match links to the existing local account;
-  unmatched accounts receive the role described above. Administrators control the local email
-  address and the configured Entra tenant's account lifecycle.
+  and protected with PKCE and an ID-token nonce.
+- **A Microsoft account is identified by its tenant ID and object ID** (`tid` + `oid`), which
+  never change – not by its e-mail address, which can. The first login stores the pair on the
+  account. An account that existed before is linked once, by an exact e-mail match, on its
+  next Microsoft login; after that the e-mail is only a label. An e-mail that sits on an
+  account of another Microsoft identity is refused, never merged, and a username prefix never
+  links anything. Administrators control the local e-mail address and the configured Entra
+  tenant's account lifecycle.
+- **Members get a viewer account automatically, guests get nothing.** Any member of the
+  configured tenant who signs in is provisioned as a viewer (editor only via
+  `SSO_EDITOR_ALLOWLIST`), and a viewer reads the whole board. A guest or external account
+  (B2B guest, personal Microsoft account, one-time passcode) is refused unless its Entra object
+  ID is listed in `SSO_GUEST_ALLOWLIST`. A guest is recognised by the `idp` claim, which Entra
+  sends when another identity provider authenticated the user, and by the optional `acct`
+  claim (`1` = guest). Add `acct` to the app registration's ID token (`docs/SETUP.md`): without
+  it, a guest account that was created inside your own tenant looks like a member.
 - **Field credentials** have separate poster, five-minute single-use person-picker and
   person-bound device stages. Device logout revokes newly issued Reko child credentials too.
   The upgrade migration revokes existing device and person-picker claims once. Printed

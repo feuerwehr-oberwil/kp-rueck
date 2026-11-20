@@ -200,6 +200,11 @@ class Settings(BaseSettings):
     # Microsoft login. Everyone else is provisioned as viewer – any tenant
     # member can reach the login, so write access must be an explicit grant.
     sso_editor_allowlist: str = ""
+    # Comma-separated Entra object IDs (the user's «Object ID» in the Entra portal) of guest
+    # or external accounts that may sign in. Every other guest is refused: a guest is in the
+    # tenant because somebody shared a file or a team with them, not because they belong to
+    # the station. The object ID, not the e-mail: a guest's e-mail is set by their home tenant.
+    sso_guest_allowlist: str = ""
 
     # Alarm intake
     # Shared secret for POST /api/alarms and the Divera webhook. Set here it WINS over the

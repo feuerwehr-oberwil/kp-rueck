@@ -521,8 +521,9 @@ async def microsoft_login(
     Flow:
         1. Exchange auth code for tokens via Microsoft
         2. Validate & decode ID token
-        3. Extract email and display name
-        4. Find or create user
+        3. Extract the identity (tenant id + object id); refuse a guest that is not allow-listed
+        4. Find the user by that identity; else link an existing account by e-mail once;
+           else create a viewer (editor when on SSO_EDITOR_ALLOWLIST)
         5. Issue app JWT tokens as httpOnly cookies
     """
     if not settings.microsoft_auth_enabled:
@@ -535,6 +536,8 @@ async def microsoft_login(
         LOGIN_COOKIE,
         consume_login,
         exchange_code_for_tokens,
+        identity_from_claims,
+        is_on_guest_allowlist,
         validate_and_decode_id_token,
     )
 
@@ -574,50 +577,77 @@ async def microsoft_login(
             detail="Microsoft-Token ungültig",
         ) from e
 
-    # 3. Extract identity
-    email = claims.get("preferred_username", "").lower().strip()
-    display_name = claims.get("name", "")
-
-    if not email:
+    # 3. Extract identity. tid + oid are the account's identity; the e-mail is not.
+    try:
+        identity = identity_from_claims(claims)
+    except ValueError as e:
+        logger.warning("Microsoft ID token without identity: %s", e)
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Keine E-Mail-Adresse im Microsoft-Konto gefunden",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Microsoft-Token ungültig",
+        ) from e
+
+    # A guest is in the tenant because somebody shared something with them. That is not a
+    # reason to read the board: guests are refused unless SSO_GUEST_ALLOWLIST names them.
+    if identity.is_guest and not is_on_guest_allowlist(identity.oid):
+        logger.warning("Refused Microsoft guest login (object ID %s, not on SSO_GUEST_ALLOWLIST)", identity.oid)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Dieses Microsoft-Konto ist ein Gastkonto und muss durch einen Administrator freigegeben werden.",
         )
 
-    username = email.split("@")[0]
+    # 4. Find, link or create the user
+    user = (
+        await db.execute(select(User).where(User.microsoft_tid == identity.tid, User.microsoft_oid == identity.oid))
+    ).scalar_one_or_none()
 
-    # 4. Find or create user
-    # First try: lookup by email
-    result = await db.execute(select(User).where(func.lower(User.email) == email))
-    user = result.scalar_one_or_none()
-
-    if not user:
-        # A matching email prefix proves no relationship to a local account.
-        # Refuse collisions until an administrator establishes the identity.
-        result = await db.execute(select(User).where(User.username == username))
-        if result.scalar_one_or_none() is not None:
+    if user is not None:
+        # Linked already: the e-mail is only a label now. Follow a change when the address is free.
+        if identity.email and (user.email or "").lower() != identity.email:
+            taken = await db.execute(select(User.id).where(func.lower(User.email) == identity.email))
+            if taken.first() is None:
+                user.email = identity.email
+    else:
+        if not identity.email:
             raise HTTPException(
-                status_code=409, detail="Dieses Microsoft-Konto muss durch einen Administrator verknüpft werden."
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Keine E-Mail-Adresse im Microsoft-Konto gefunden",
             )
-
-    if not user:
-        # Create new user from Microsoft login. Any tenant member can reach
-        # this, so default to read-only; editor rights are an explicit grant
-        # via SSO_EDITOR_ALLOWLIST. Existing users keep their role on
-        # re-login — allowlist changes never downgrade, and promotion of an
-        # already-provisioned user stays a manual admin action.
-        role = "editor" if _is_on_editor_allowlist(email) else "viewer"
-        user = User(
-            username=username,
-            email=email,
-            password_hash=None,
-            role=role,
-            display_name=display_name or username,
-            is_active=True,
+        link_by_admin = HTTPException(
+            status_code=409, detail="Dieses Microsoft-Konto muss durch einen Administrator verknüpft werden."
         )
-        db.add(user)
-        await db.flush()  # Get the ID
-        logger.info("Created new user %s from Microsoft login (role: %s)", username, role)
+        # An account from before the identity columns: the e-mail links it ONCE, on this login.
+        user = (await db.execute(select(User).where(func.lower(User.email) == identity.email))).scalar_one_or_none()
+        if user is not None:
+            if user.microsoft_oid is not None:
+                # The address belongs to an account of another Microsoft identity. Never merge.
+                raise link_by_admin
+            user.microsoft_tid, user.microsoft_oid = identity.tid, identity.oid
+        else:
+            username = identity.email.split("@")[0]
+            # A matching email prefix proves no relationship to a local account.
+            # Refuse collisions until an administrator establishes the identity.
+            if (await db.execute(select(User.id).where(User.username == username))).first() is not None:
+                raise link_by_admin
+            # Create new user from Microsoft login. Any tenant member can reach
+            # this, so default to read-only; editor rights are an explicit grant
+            # via SSO_EDITOR_ALLOWLIST. Existing users keep their role on
+            # re-login — allowlist changes never downgrade, and promotion of an
+            # already-provisioned user stays a manual admin action.
+            role = "editor" if _is_on_editor_allowlist(identity.email) else "viewer"
+            user = User(
+                username=username,
+                email=identity.email,
+                password_hash=None,
+                role=role,
+                display_name=identity.display_name or username,
+                is_active=True,
+                microsoft_tid=identity.tid,
+                microsoft_oid=identity.oid,
+            )
+            db.add(user)
+            await db.flush()  # Get the ID
+            logger.info("Created new user %s from Microsoft login (role: %s)", username, role)
 
     # Check if user is active
     if not user.is_active:
@@ -629,8 +659,8 @@ async def microsoft_login(
         )
 
     # Update display name if changed in Microsoft
-    if display_name and user.display_name != display_name:
-        user.display_name = display_name
+    if identity.display_name and user.display_name != identity.display_name:
+        user.display_name = identity.display_name
 
     # 5. Issue app JWT tokens
     access_token, refresh_token = create_login_tokens(
