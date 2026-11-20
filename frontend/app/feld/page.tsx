@@ -44,7 +44,7 @@ import { FeldMaterialTable } from '@/components/feld/feld-material-table'
 import { FeldMeldenSheet } from '@/components/feld/feld-melden-sheet'
 import { FeldRapportForm } from '@/components/feld/feld-rapport-form'
 import { Button } from '@/components/ui/button'
-import { PlannedTimePicker, type PlanKind } from '@/components/attendance/planned-time'
+import { PlannedTimePicker } from '@/components/attendance/planned-time'
 import { IncidentNumber } from '@/components/ui/incident-number'
 import { PriorityGlyph } from '@/components/ui/priority-glyph'
 import { SearchInput } from '@/components/ui/search-input'
@@ -777,41 +777,34 @@ function FeldSurface() {
     }
   }, [token, selectedPerson, attendanceBusy])
 
-  /** Writes one end of the own plan; rejects, so the picker says it failed. */
-  const savePlan = useCallback(async (kind: PlanKind, iso: string | null) => {
+  /** Writes «Ich komme um»; rejects, so the picker says it failed. */
+  const saveFrom = useCallback(async (iso: string | null) => {
     if (!token || !selectedPerson) return
-    await apiClient.setFeldAttendancePlan(
-      selectedPerson.personnel_id,
-      token,
-      kind === 'until' ? { planned_until: iso } : { planned_from: iso },
-    )
-    setPlan(previous => (kind === 'until' ? { ...previous, until: iso } : { ...previous, from: iso }))
+    await apiClient.setFeldAttendancePlan(selectedPerson.personnel_id, token, { planned_from: iso })
+    setPlan(previous => ({ ...previous, from: iso }))
   }, [token, selectedPerson])
 
-  /** «Ich komme um …» / «Ich bin da bis …»: one quiet button, the bottom sheet behind it. */
-  const planButton = (kind: PlanKind) => {
-    const value = kind === 'until' ? plan.until : plan.from
-    const time = formatTime(value)
-    return (
-      <PlannedTimePicker
-        kind={kind}
-        value={value}
-        other={kind === 'until' ? plan.from : plan.until}
-        title={tPlan(kind === 'until' ? 'selfUntil' : 'selfFrom')}
-        hint={tPlan('hintSelf')}
-        fieldLabel={tPlan(kind === 'until' ? 'selfUntil' : 'selfFrom')}
-        onSave={iso => savePlan(kind, iso)}
-        trigger={
-          <Button type="button" variant="outline" className="w-full">
-            <Clock className="size-4" />
-            {time
-              ? tPlan(kind === 'until' ? 'selfUntilSet' : 'selfFromSet', { time })
-              : `${tPlan(kind === 'until' ? 'selfUntil' : 'selfFrom')} …`}
-          </Button>
-        }
-      />
-    )
-  }
+  /** «Ich komme um …»: one quiet button, the bottom sheet behind it. No «Ich bin da bis …» here
+   *  (owner, 20.11.2026): somebody on /feld usually stays to the end, and the button only made
+   *  them wonder whether they must answer it. The KP still sets «bis» in the Appell. */
+  const fromTime = formatTime(plan.from)
+  const fromButton = (
+    <PlannedTimePicker
+      kind="from"
+      value={plan.from}
+      other={plan.until}
+      title={tPlan('selfFrom')}
+      hint={tPlan('hintSelf')}
+      fieldLabel={tPlan('selfFrom')}
+      onSave={saveFrom}
+      trigger={
+        <Button type="button" variant="outline" className="w-full">
+          <Clock className="size-4" />
+          {fromTime ? tPlan('selfFromSet', { time: fromTime }) : `${tPlan('selfFrom')} …`}
+        </Button>
+      }
+    />
+  )
 
   const filteredPersonnel = useMemo(() => {
     // The board's Anwesenheit and the /check-in tablet order the same roster with
@@ -1450,10 +1443,9 @@ function FeldSurface() {
             <Button size="lg" className="w-full" onClick={toggleAttendance} disabled={attendanceBusy}>
               {t('attendance.checkIn')}
             </Button>
-            <div className="mt-2">{planButton('from')}</div>
+            <div className="mt-2">{fromButton}</div>
           </section>
         )}
-        {checkedIn && planButton('until')}
 
         {/* The Magazin's inventory, when the Materialwart has nothing else on:
             then it IS their page, and it opens the screen. Somebody who is also

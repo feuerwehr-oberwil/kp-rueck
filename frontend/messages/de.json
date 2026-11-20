@@ -240,7 +240,6 @@
       "fieldFrom": "Kommt um",
       "selfUntil": "Ich bin da bis",
       "selfFrom": "Ich komme um",
-      "selfUntilSet": "Da bis {time}",
       "selfFromSet": "Komme um {time}",
       "plusHours": "+{hours} h",
       "clear": "Zeit löschen",

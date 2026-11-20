@@ -349,7 +349,6 @@
       "fieldFrom": "Arrive à",
       "selfUntil": "Je suis là jusqu’à",
       "selfFrom": "J’arrive à",
-      "selfUntilSet": "Là jusqu’à {time}",
       "selfFromSet": "J’arrive à {time}",
       "plusHours": "+{hours} h",
       "clear": "Effacer l’heure",

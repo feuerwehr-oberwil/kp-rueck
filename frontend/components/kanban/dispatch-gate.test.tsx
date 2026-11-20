@@ -197,6 +197,16 @@ describe("dispatch gate – press twice", () => {
     expect(onOpenAssignment).toHaveBeenCalledWith("vehicles", "incident-1")
   })
 
+  it("an empty Material box says «Hinzufügen» like a filled one and opens the material picker", async () => {
+    const user = userEvent.setup()
+    const { onOpenAssignment } = renderGate(operation({ vehicles: [assignedVehicle("TLF")], materials: [] }))
+
+    const box = screen.getByRole("group", { name: "Material" })
+    expect(within(box).queryByRole("button", { name: /Zuweisen/ })).not.toBeInTheDocument()
+    await user.click(within(box).getByRole("button", { name: "Hinzufügen" }))
+    expect(onOpenAssignment).toHaveBeenCalledWith("materials", "incident-1")
+  })
+
   it("material alone does not arm: one press dispatches", async () => {
     const user = userEvent.setup()
     const { ref } = renderGate(operation({ vehicles: [assignedVehicle("TLF")], materials: [] }))

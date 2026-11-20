@@ -1307,7 +1307,8 @@ const GATE_ABOVE_OPEN = "relative z-10"
  * NAMES, NOT COUNTS (owner pick 19.11.2026, #8/9 A): each row lists what is already there as
  * name chips – the Mannschaft EL first with its «EL» mark, each vehicle as «TLF · Fahrer» with
  * its own «bleibt vor Ort | kehrt zurück» (an Auftrag's vehicles too), the Geräte by name.
- * «Hinzufügen ›» per row opens the assignment; a row with nothing keeps «Zuweisen ›».
+ * «Hinzufügen ›» per row opens the assignment, also on an empty row (20.11.2026). Only a row
+ * without any vehicle keeps the pair «Zuweisen | Zu Fuss»: there they are two answers.
  *
  * ONE BOX, ONE TARGET (owner pick 19.11.2026b, 1A): every box is the same grid – status |
  * type icon | content | action – so the titles, chips and toggles of all three hang on the
@@ -1598,28 +1599,18 @@ function DispatchGateDialog({
                         {tCommon("zuFuss")}
                       </Button>
                     </div>
-                  ) : filled ? (
+                  ) : (
+                    // Empty or not, the same quiet «Hinzufügen ›» (owner, 20.11.2026): the whole box is
+                    // the target, so no outlined button inside it. No fill and no side padding: the box
+                    // is what lights up, and «›» ends on the toggles' right edge below it.
                     <Button
                       variant="ghost"
                       size="xs"
-                      // No fill and no side padding: the whole box is what lights up, and «›» ends on the
-                      // toggles' right edge below it.
                       className={cn("flex-shrink-0 gap-0.5 px-0 text-muted-foreground hover:bg-transparent has-[>svg]:px-0", GATE_OPEN_STRETCH)}
                       data-gate-open=""
                       onClick={open}
                     >
                       {tMissing("addMore")}
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="xs"
-                      className={cn("flex-shrink-0 gap-0.5", GATE_OPEN_STRETCH)}
-                      data-gate-open=""
-                      onClick={open}
-                    >
-                      {tCommon("assign")}
                       <ChevronRight className="h-3.5 w-3.5" />
                     </Button>
                   )

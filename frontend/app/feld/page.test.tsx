@@ -1032,7 +1032,7 @@ describe('/feld on a phone that is logged in to Rück', () => {
   })
 })
 
-/** #3: the person's own plan – «Ich komme um …» before they are in, «Ich bin da bis …» after. */
+/** #3: the person's own plan – «Ich komme um …» before they are in; no «bis» on /feld (20.11.2026). */
 describe('/feld · the own plan', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -1063,10 +1063,10 @@ describe('/feld · the own plan', () => {
     expect(await screen.findByRole('button', { name: /^Komme um 20:00$/ })).toBeInTheDocument()
   })
 
-  it('in: says until when they are here', async () => {
+  it('in: offers no «Ich bin da bis …» – people on /feld stay to the end', async () => {
     answer({ checked_in: true, planned_until: new Date(2026, 10, 19, 22, 0).toISOString() })
     renderWithIntl(<FeldPage />)
-    expect(await screen.findByRole('button', { name: 'Da bis 22:00' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Ich komme um/ })).not.toBeInTheDocument()
+    expect(await screen.findByText('Muster Hans')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Ich bin da bis|Da bis|Ich komme um/ })).not.toBeInTheDocument()
   })
 })
