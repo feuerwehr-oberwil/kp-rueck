@@ -48,13 +48,13 @@
     "demo": "Ouvrir la démo"
   },
   "hero": {
-    "eyebrow": "Open source&nbsp;· Suisse",
+    "eyebrow": "Open source&nbsp;· gratuit&nbsp;· Suisse",
     "h1": "Le tableau d’intervention du poste de commandement.",
     "lede": "KP Rück reproduit sous forme numérique le tableau magnétique du PC arrière :\n      <strong>interventions, personnel, véhicules et matériel</strong> sur un seul tableau –\n      en direct sur chaque appareil.",
     "cta": "Ouvrir la démo",
     "cta2": "L’exploiter soi-même",
     "ctaNote": "Sans compte – choisir un rôle et commencer, aussi en français",
-    "frameAddr": "BOARD · UNWETTER · 17 EINSÄTZE AKTIV",
+    "frameAddr": "TABLEAU · INTEMPÉRIES · 17 INTERVENTIONS ACTIVES",
     "frameAlt": "Tableau d’intervention : colonnes de Reçu à Terminé, les cartes d’intervention entre les deux, le personnel à gauche, le matériel à droite"
   },
   "fit": {
