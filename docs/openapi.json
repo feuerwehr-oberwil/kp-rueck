@@ -3132,6 +3132,89 @@
         }
       }
     },
+    "/api/events/{event_id}/share-links/{kind}/revoke": {
+      "post": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Revoke Share Links",
+        "description": "«Link widerrufen»: end every link of one kind issued so far for this Ereignis.\n\n`kind` is `checkin`, `viewer` or `alarm`. Every such link stops working at once – a phone\nor a wall display that holds it gets «Link ungültig» on its next request. Generate a new\nlink afterwards for the people who should keep their access. The other two kinds, the\nFeld poster and the Reko forms are untouched.",
+        "operationId": "revoke_share_links_api_events__event_id__share_links__kind__revoke_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "checkin",
+                "viewer",
+                "alarm"
+              ],
+              "type": "string",
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/events/{event_id}/journal": {
       "get": {
         "tags": [

@@ -87,6 +87,12 @@ the latest tagged release and update promptly – see [`docs/DEPLOYMENT.md`](doc
   it, a guest account that was created inside your own tenant looks like a member. With the
   claim in place, `SSO_REQUIRE_ACCT_CLAIM=true` refuses every token that does not carry it
   (unless its object ID is allow-listed), which closes that gap.
+- **A leaked share link can be taken back.** The check-in link (24 h), the viewer link (24 h:
+  the board with crew and vehicle positions) and the alarm link (30 days: creates alarms) are
+  signed tokens. An editor can revoke all links of one kind for one Ereignis
+  (`POST /api/events/{id}/share-links/{kind}/revoke`); they stop at once, and no session or
+  other link is touched. Links issued before this existed keep working until they expire or
+  are revoked.
 - **Field credentials** have separate poster, five-minute single-use person-picker and
   person-bound device stages. Device logout revokes newly issued Reko child credentials too.
   The upgrade migration revokes existing device and person-picker claims once. Printed

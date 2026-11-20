@@ -23,7 +23,7 @@ from ..auth.dependencies import CurrentEditor, get_current_user
 from ..crud import personnel_checkin as crud
 from ..database import get_db
 from ..models import User
-from ..services.tokens import generate_checkin_token, validate_checkin_token
+from ..services import share_links
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_personnel_update
 
@@ -55,7 +55,7 @@ async def _resolve_event_and_actor(
     if token is not None or event_id is None:
         # `event_id is None` is unreachable — the XOR above already refused it — but it is
         # what narrows `event_id` for the type checker on the way out.
-        resolved = validate_checkin_token(token or "")
+        resolved = await share_links.event_of(db, "checkin", token or "")
         if not resolved:
             raise HTTPException(status_code=401, detail=ErrorMessages.LINK_INVALID)
         return resolved, None
@@ -71,6 +71,7 @@ async def generate_checkin_link(
     request: Request,
     current_user: CurrentEditor,  # Editor only
     event_id: uuid.UUID = Query(..., description="Event ID for check-in"),
+    db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     """
     Generate check-in link with QR code (editor only).
@@ -78,7 +79,9 @@ async def generate_checkin_link(
     Returns shareable link and QR code data scoped to a specific event.
     Place this button next to "Neuer Einsatz" in the UI.
     """
-    token = generate_checkin_token(event_id)
+    token = await share_links.issue(db, "checkin", event_id)
+    if token is None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.EVENT_NOT_FOUND)
     link = f"/check-in?token={token}"
 
     # Get base URL from request
