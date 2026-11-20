@@ -13,6 +13,7 @@ that the handler checks itself is documentation: read the handler before you cop
 
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
+from typing import Any
 
 from fastapi.dependencies.models import Dependant
 from fastapi.routing import APIRoute
@@ -167,17 +168,35 @@ def _dependencies(dependant: Dependant) -> Iterator[Callable[..., object]]:
         yield from _dependencies(dependency)
 
 
+def _served_routes() -> list[Any]:
+    """Every route the app serves, with its full path.
+
+    FastAPI 0.163 keeps an included router as ONE entry in `app.routes` and resolves its routes
+    on demand; `iter_route_contexts` is its own walk. Older versions list every route there.
+    """
+    try:
+        from fastapi.routing import iter_route_contexts
+    except ImportError:
+        return list(app.routes)
+    return list(iter_route_contexts(app.routes))
+
+
+def _is_api_route(route: Any) -> bool:
+    return isinstance(getattr(route, "original_route", route), APIRoute)
+
+
 def _api_routes() -> dict[tuple[str, str], set[Callable[..., object]]]:
     """Each (method, path) registered on the app when the test runs, with its dependency callables."""
     registered = [
         ((method, route.path), set(_dependencies(route.dependant)))
-        for route in app.routes
-        if isinstance(route, APIRoute)
+        for route in _served_routes()
+        if _is_api_route(route)
         for method in route.methods
     ]
     # Two registrations of one method and path: the router serves the first, a dict keeps the last.
     keys = [key for key, _ in registered]
     assert len(keys) == len(set(keys)), sorted(key for key in set(keys) if keys.count(key) > 1)
+    assert len(keys) > 100, "the route walk found no API"
     return dict(registered)
 
 
@@ -206,5 +225,5 @@ def test_a_listed_gate_is_really_on_its_route() -> None:
 
 
 def test_nothing_else_is_mounted() -> None:
-    other = sorted(getattr(route, "path", repr(route)) for route in app.routes if not isinstance(route, APIRoute))
+    other = sorted(getattr(route, "path", repr(route)) for route in _served_routes() if not _is_api_route(route))
     assert other == sorted(NOT_API_ROUTES)
