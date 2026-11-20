@@ -108,4 +108,18 @@ describe('LinksQrSheet – «Link neu erzeugen»', () => {
     expect(rowLinks()).toEqual(before)
     expect(toast.success).not.toHaveBeenCalled()
   })
+
+  it('when the old link has ended but the new one did not come, the row offers no dead link', async () => {
+    const user = userEvent.setup()
+    openSheet()
+    await waitFor(() => expect(rowLinks()).toHaveLength(4))
+    api.generateCheckInLink.mockRejectedValueOnce(new Error('offline'))
+
+    await user.click(screen.getAllByRole('button', { name: REGENERATE })[0])
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Neu erzeugen' }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Neuer Link nicht erzeugt', expect.anything()))
+    expect(rowLinks().some(href => href?.includes('checkin-1'))).toBe(false)
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+  })
 })
