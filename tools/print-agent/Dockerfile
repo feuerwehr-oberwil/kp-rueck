@@ -5,7 +5,7 @@
 # image. cups-client provides `lp`/`lpstat` so a single container can serve both backends.
 FROM python:3.14-slim
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /usr/local/bin/uv
 
 # hadolint ignore=DL3008
 RUN apt-get update \
@@ -14,8 +14,11 @@ RUN apt-get update \
 
 WORKDIR /app
 
-COPY pyproject.toml ./
-RUN uv pip install --system --no-cache ".[escpos]"
+# Exactly the versions in uv.lock, into the image's own Python (no venv). `--locked` stops the
+# build when pyproject.toml and uv.lock disagree, so the lockfile cannot go stale unnoticed.
+ENV UV_PROJECT_ENVIRONMENT=/usr/local
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked --extra escpos --no-dev --no-cache
 
 COPY . .
 

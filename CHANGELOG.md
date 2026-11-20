@@ -266,6 +266,12 @@ will keep holding.
 
 ### Security
 
+- **Dependency updates.** `next` 15.5.29 (GHSA-7qx7-33qx-rqx2, GHSA-f3mh-rxg3-f5g2 and one more
+  advisory against ≤ 15.5.28). The print agent's ESC/POS extra needs **Pillow ≥ 13.0** (the open
+  advisories against Pillow 12 are fixed only there) and Python 3.11+, and its image now installs
+  exactly what the committed `tools/print-agent/uv.lock` pins. Backend: FastAPI 0.163, pydantic
+  2.14, asyncpg 0.32, alembic 1.20 and patch updates.
+
 - Standby conflict values, including resolved conflicts, require an editor. A viewer can see
   how many open conflicts remain.
 - Removed the unused translation source watcher from the frontend's production dependency

@@ -344,7 +344,8 @@ tools/print-agent/
 ├── formatters.py        # ESC/POS slip layouts per job_type
 ├── test_agent.py, test_formatters.py
 ├── Dockerfile
-└── pyproject.toml       # dependencies = [] – python-escpos + pillow only as the `escpos` extra
+├── pyproject.toml       # dependencies = [] – python-escpos + pillow only as the `escpos` extra
+└── uv.lock              # the pinned versions the image installs (`uv sync --locked`)
 
 backend/app/
 ├── api/print.py              # Print API endpoints

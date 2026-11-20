@@ -29,9 +29,10 @@ updates:
       minor-and-patch:
         update-types: [minor, patch]
 
-  # Print agent — its own lockfile, and it decodes images, so it drifts on the same
-  # advisories as the backend rather than tracking it automatically.
-  - package-ecosystem: pip
+  # Print agent — its own lockfile (tools/print-agent/uv.lock, what the image installs), and it
+  # decodes images, so it drifts on the same advisories as the backend rather than tracking it
+  # automatically. `uv`, not `pip`: only `uv` updates the lockfile together with pyproject.toml.
+  - package-ecosystem: uv
     directory: "/tools/print-agent"
     schedule:
       interval: weekly
@@ -40,11 +41,16 @@ updates:
       minor-and-patch:
         update-types: [minor, patch]
 
-  # GitHub Actions
+  # GitHub Actions — ONE pull request a week for all of them, majors included: an action
+  # bump changes no code we ship, and the workflows pin every action by commit, so each bump
+  # is a reviewed SHA change either way.
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
 
   # Base images. Added after Node 20 sat three months past its 2026-04-30 end-of-life in
   # frontend/Dockerfile without anything proposing the bump: npm, pip and actions were all
