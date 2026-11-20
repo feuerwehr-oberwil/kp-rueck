@@ -331,6 +331,8 @@ class TestTemplateSummaries:
             for text in t["reko_summaries"]:
                 assert not re.search(r"\d+\s?cm", text), text
                 assert not any(word in text for word in ("Nasssauger genügt", "Tauchpumpe", "Pumpeinsatz")), text
+                # Depth words: «Kühltruhe schwimmt» beside «vor Ort nur ~5cm».
+                assert not any(word in text for word in ("Pfütze", "schwimmt", "knietief", "knöcheltief")), text
 
     def test_a_title_variation_draws_only_its_templates_texts(self):
         pool = next(t for t in EMERGENCY_TEMPLATES if t["title_pattern"] == "Pool übergelaufen")

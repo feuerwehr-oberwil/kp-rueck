@@ -14,6 +14,13 @@ manifest records the exact prompt and file under the SHA-256 of the exact
 summary text. Identical texts share a file across pools. These illustrations
 are separate from the Wikimedia Commons photos attributed below.
 
+Template texts and the type pools for Bahnanlagen, Strahlenwehr, Gerettete
+Menschen and Dienstleistungen are drawn as the Reko's own phone shot (manifest
+`"style": "phone"`, up to 60 KB); the other pool texts keep the round-1
+`"plain"` pictures. A water scene has a shallow (≤10 cm) and a deep picture
+(`"depth"`), and the crew's final figure picks one. A text may list several
+pictures; the report picks one at random.
+
 All illustrations have a 640 px long edge and depict the scene as found,
 before fire-service intervention. Pumps, hoses, absorbent, barriers, sandbags,
 ladders and fire-service gear or vehicles stay out of the scene, even if

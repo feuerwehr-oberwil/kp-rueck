@@ -446,13 +446,18 @@ def illustrated_summaries() -> set[str]:
 
 
 def water_scenes() -> set[str]:
-    """Template texts of water templates: drawn once shallow and once deep, because the
-    figure the Reko reports around them varies (`pick_summary_image`)."""
+    """Template texts of water templates whose dispatch names a depth: drawn once shallow
+    and once deep, because the figure the Reko reports around them varies – a 50cm call
+    can turn out ~5cm (`pick_summary_image`). So the text itself must not state a depth."""
     return {
         text
         for template in EMERGENCY_TEMPLATES
         if template["incident_type"] == "elementarereignis"
         and _get_elementar_subcategory(template["title_pattern"]) == "elementar_water"
+        and any(
+            _extract_qty(message, "cm")
+            for message in (template["message_pattern"], *template.get("message_variations", []))
+        )
         for text in template["reko_summaries"]
     }
 

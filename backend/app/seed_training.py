@@ -239,7 +239,7 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "incident_type": "elementarereignis",
         "category": "normal",
         "reko_summaries": [
-            "Ganzer Keller unter Wasser, Kühltruhe schwimmt. Mehrere Räume betroffen.",
+            "Ganzer Keller unter Wasser, Kühltruhe und Kartons stehen im Wasser. Mehrere Räume betroffen.",
         ],
         "message_pattern": "Keller komplett unter Wasser. Ca. 50cm, mehrere Räume.",
         "title_variations": ["Keller komplett geflutet", "Ganzer Keller unter Wasser"],
@@ -281,7 +281,7 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "incident_type": "elementarereignis",
         "category": "normal",
         "reko_summaries": [
-            "Nur eine Pfütze im Keller, vermutlich Kondenswasser vom Boiler.",
+            "Wasser am Kellerboden beim Boiler, Herkunft noch unklar.",
         ],
         "message_pattern": "Wasser im Keller, kleine Pfütze. Ca. 2cm, Ursache unklar.",
         "title_variations": ["Kleine Pfütze im Keller", "Wasseraustritt Keller"],

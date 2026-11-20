@@ -2,11 +2,13 @@
 
 `jobs` prints one JSON line per missing picture: every illustrated text needs one; a
 phone-style text (`phone_style_summaries`) needs a phone-style one; a water scene
-(`water_scenes`) needs a shallow and a deep one. `import` installs the PNGs a model made
+(`water_scenes`) needs a shallow and a deep one. Each job names a season, spread by its file
+name, so the pictures do not all look like autumn. `import` installs the PNGs a model made
 from those lines. A phone-style picture replaces the text's round-1 «plain» pictures.
 """
 
 import argparse
+import hashlib
 import json
 from io import BytesIO
 from pathlib import Path
@@ -41,8 +43,9 @@ SAFE_RULE = (
 PHONE_PROMPT = (
     "Realistic handheld smartphone photo, taken by the first fire-service scout (Reko) the moment they arrive, "
     "for a fictional Swiss fire-service training report. Standing height, slightly imperfect framing, real "
-    "available light for the situation (overcast day, dusk, rain, street lights or a dim cellar lamp), ordinary "
-    "phone-camera look, no cinematic grading. Setting: a suburb in Basel-Landschaft, Switzerland – Swiss houses, "
+    "available light for the situation and the season, ordinary phone-camera look, no cinematic grading. "
+    "Season: {season} – weather, light and vegetation as they are then (a summer thunderstorm, spring snowmelt, "
+    "a dry winter evening); when that season cannot fit the incident (wasps, a garden pool), use summer. Setting: a suburb in Basel-Landschaft, Switzerland – Swiss houses, "
     "streets, kerbs, road markings and cars as they look there. The photographer and their gear stay out of frame. "
     "Show the very place the report names – inside the room when it names one – so its main fact is visible. "
     f"{AS_FOUND_RULE}{SAFE_RULE}"
@@ -58,6 +61,8 @@ DEPTH_HINTS = {
         "doors, steps or objects in the room. "
     ),
 }
+# Owner note 20.11.2026: storms come in every season, not only in autumn.
+SEASONS = ("spring", "summer", "autumn", "winter")
 MAX_EDGE = 640
 # Phone shots (rain, grain, dusk) compress worse than the round-1 plain pictures.
 MAX_BYTES = 60_000
@@ -73,6 +78,15 @@ def _has(entries: list[SummaryImage], depth: Depth | None, phone: bool) -> bool:
     return any(entry.get("depth") == depth and (not phone or entry["style"] == "phone") for entry in entries)
 
 
+def season_for(out: str) -> str:
+    """A season that stays the same for this file and spreads across all of them."""
+    return SEASONS[int(hashlib.sha256(out.encode()).hexdigest(), 16) % len(SEASONS)]
+
+
+def phone_prompt(summary: str, depth: Depth | None, season: str) -> str:
+    return PHONE_PROMPT.format(summary=summary, depth=DEPTH_HINTS[depth] if depth else "", season=season)
+
+
 def export_jobs() -> None:
     manifest = load_summary_image_manifest(SUMMARY_IMAGE_DIR)
     phone = phone_style_summaries()
@@ -82,8 +96,8 @@ def export_jobs() -> None:
         for depth in _wanted(summary):
             if _has(entries, depth, summary in phone):
                 continue
-            prompt = PHONE_PROMPT.format(summary=summary, depth=DEPTH_HINTS[depth] if depth else "")
             out = f"{key}-{depth}.png" if depth else f"{key}.png"
+            prompt = phone_prompt(summary, depth, season_for(out))
             print(json.dumps({"out": out, "key": key, "depth": depth, "prompt": prompt}, ensure_ascii=False))
 
 
