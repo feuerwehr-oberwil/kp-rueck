@@ -16,6 +16,9 @@ from ..crud import personnel_checkin as checkin_crud
 from ..database import get_db
 from ..environment import ROLE_STANDBY, deployment_role
 from ..models import EventLead
+from ..services import share_links
+from ..services.audit import log_action
+from ..services.tokens import LinkKind
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_personnel_update
 
@@ -240,6 +243,46 @@ async def unarchive_event(
     }
 
     return schemas.EventResponse.model_validate(event_dict)
+
+
+@router.post("/{event_id}/share-links/{kind}/revoke", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_share_links(
+    event_id: uuid.UUID,
+    kind: LinkKind,
+    request: Request,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """«Link widerrufen»: end every link of one kind issued so far for this Ereignis.
+
+    `kind` is `checkin`, `viewer` or `alarm`. Every such link stops working at once – a phone
+    or a wall display that holds it gets «Link ungültig» on its next request. Generate a new
+    link afterwards for the people who should keep their access. The other two kinds, the
+    Feld poster and the Reko forms are untouched.
+
+    With a standby box (docs/STANDBY.md): revoke on the system that leads the Ereignis. The
+    other system follows with the next sync, and the higher generation always stands.
+    """
+    if deployment_role() == ROLE_STANDBY:
+        # A mirrored Ereignis is not synced back from the box: a revoke here would answer 204
+        # and never reach the hosted board, which is where its links are honoured.
+        holder = await db.scalar(select(EventLead.holder).where(EventLead.event_id == event_id))
+        if holder != "standby":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Dieses Ereignis wird auf KP Rück Online geführt. Links dort widerrufen.",
+            )
+    if not await share_links.revoke(db, kind, event_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
+    await log_action(
+        db=db,
+        action_type="update",
+        resource_type="event",
+        resource_id=event_id,
+        user=current_user,
+        changes={"share_links_revoked": kind},
+        request=request,
+    )
 
 
 @router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)

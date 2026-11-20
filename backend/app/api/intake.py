@@ -37,12 +37,10 @@ from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..schemas.fields import OptionalText50
 from ..schemas.incidents import IncidentFields, IncidentPriority, IncidentType, check_free_text
-from ..services import duplicates, incident_display
+from ..services import duplicates, incident_display, share_links
 from ..services.audit import log_action
 from ..services.tokens import (
-    generate_alarm_token,
     generate_form_token,
-    validate_alarm_token,
     validate_form_token,
 )
 from ..utils.errors import ErrorMessages
@@ -70,6 +68,7 @@ async def generate_alarm_link(
     request: Request,
     current_user: CurrentEditor,  # Editor only
     event_id: uuid.UUID = Query(..., description="Event ID for alarm intake"),
+    db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     """
     Generate a public alarm-intake link with QR code (editor only).
@@ -77,7 +76,9 @@ async def generate_alarm_link(
     Returns a shareable link scoped to a specific event. Anyone with the link can
     create alarms without logging in. Long-lived (30 days) for the phone desk.
     """
-    token = generate_alarm_token(event_id)
+    token = await share_links.issue(db, "alarm", event_id)
+    if token is None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.EVENT_NOT_FOUND)
     link = f"/alarm?token={token}"
 
     base_url = str(request.base_url).rstrip("/")
@@ -101,7 +102,7 @@ async def get_intake_context(
     No authentication required — uses token validation. Lets the page show
     "Alarm erfassen — {event name}" and gate on load.
     """
-    event_id = validate_alarm_token(token)
+    event_id = await share_links.event_of(db, "alarm", token)
     if not event_id:
         raise HTTPException(status_code=401, detail=ErrorMessages.LINK_INVALID)
 
@@ -133,7 +134,7 @@ async def create_intake_alarm(
     Validates the token, enforces the demo cap, creates the incident flagged as
     intake, then broadcasts and syncs exactly like the authenticated create path.
     """
-    event_id = validate_alarm_token(token)
+    event_id = await share_links.event_of(db, "alarm", token)
     if not event_id:
         raise HTTPException(status_code=401, detail=ErrorMessages.LINK_INVALID)
 
@@ -308,7 +309,7 @@ async def _authorized_intake_report(
     was created some other way. A public token must not become a way to probe
     the board.
     """
-    event_id = validate_alarm_token(token)
+    event_id = await share_links.event_of(db, "alarm", token)
     if not event_id:
         raise HTTPException(status_code=401, detail=ErrorMessages.LINK_INVALID)
 

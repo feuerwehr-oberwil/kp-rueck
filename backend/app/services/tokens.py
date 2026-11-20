@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 from uuid import UUID
 
 import jwt
@@ -11,53 +12,56 @@ from ..config import get_settings
 settings = get_settings()
 
 
-def generate_checkin_token(event_id: UUID) -> str:
-    """
-    Generate a JWT token for check-in session scoped to an event.
+# The three share links of an Ereignis. The value is the token's `type` claim.
+LinkKind = Literal["checkin", "viewer", "alarm"]
 
-    Args:
-        event_id: UUID of the event this check-in is for
 
-    Returns:
-        JWT token string containing event_id and expiration
-    """
-    # Token expires in 24 hours
-    expiration = datetime.now(UTC) + timedelta(hours=24)
+@dataclass(frozen=True, slots=True)
+class LinkClaims:
+    """What a valid share-link token says: its Ereignis and the generation it was issued with."""
 
+    event_id: UUID
+    generation: int
+
+
+# How long a link of each kind lives. The alarm link is long-lived (30 days) so a phone desk
+# can post or bookmark it for the duration of an Ereignis; it grants write access (it creates
+# Einsätze), so its routes are strictly rate-limited and flag what comes in.
+LINK_VALID_HOURS: dict[LinkKind, int] = {"checkin": 24, "viewer": 24, "alarm": 720}
+
+
+def generate_link_token(kind: LinkKind, event_id: UUID, generation: int = 0, expires_hours: int | None = None) -> str:
+    """Sign a share-link token. Routes issue links through `services/share_links.issue`,
+    which passes the Ereignis's current generation."""
     payload = {
         "event_id": str(event_id),
-        "exp": expiration,
-        "type": "checkin",
+        "exp": datetime.now(UTC) + timedelta(hours=LINK_VALID_HOURS[kind] if expires_hours is None else expires_hours),
+        "type": kind,
+        "gen": generation,
     }
-
-    token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
-    return token
+    return jwt.encode(payload, settings.secret_key, algorithm="HS256")
 
 
-def validate_checkin_token(token: str) -> UUID | None:
-    """
-    Validate check-in token and extract event_id.
+def link_claims(token: str, kind: LinkKind) -> LinkClaims | None:
+    """Read a share-link token: signature, expiry and kind. None when any of them is wrong.
 
-    Args:
-        token: The JWT token string to validate
-
-    Returns:
-        UUID of the event if token is valid, None otherwise
+    This does NOT say that the link still opens its Ereignis: it may have been revoked.
+    Routes ask `services/share_links.event_of`, which compares the generation.
     """
     try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
-
-        # Check token type
-        if payload.get("type") != "checkin":
+        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"], options={"require": ["exp"]})
+        # A link issued before generations existed carries none: it is generation 0.
+        generation = payload.get("gen", 0)
+        if payload.get("type") != kind or type(generation) is not int or generation < 0:
             return None
-
-        event_id_str = payload.get("event_id")
-        if not event_id_str:
-            return None
-
-        return UUID(event_id_str)
-    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, ValueError):
+        return LinkClaims(event_id=UUID(payload["event_id"]), generation=generation)
+    except (jwt.InvalidTokenError, KeyError, ValueError, TypeError, AttributeError):
         return None
+
+
+def generate_checkin_token(event_id: UUID) -> str:
+    """A check-in link token of generation 0 (what a new Ereignis has), valid 24 hours."""
+    return generate_link_token("checkin", event_id)
 
 
 # ============================================
@@ -193,52 +197,8 @@ def validate_form_token(token: str, incident_id: str, form_type: str = "reko") -
 
 
 def generate_viewer_token(event_id: UUID, expires_hours: int = 24) -> str:
-    """
-    Generate a JWT token for read-only viewer access to an event.
-
-    Args:
-        event_id: UUID of the event to view
-        expires_hours: Token expiration time in hours (default: 24)
-
-    Returns:
-        JWT token string containing event_id and expiration
-    """
-    expiration = datetime.now(UTC) + timedelta(hours=expires_hours)
-
-    payload = {
-        "event_id": str(event_id),
-        "exp": expiration,
-        "type": "viewer",
-    }
-
-    token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
-    return token
-
-
-def validate_viewer_token(token: str) -> UUID | None:
-    """
-    Validate viewer token and extract event_id.
-
-    Args:
-        token: The JWT token string to validate
-
-    Returns:
-        UUID of the event if token is valid, None otherwise
-    """
-    try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
-
-        # Check token type
-        if payload.get("type") != "viewer":
-            return None
-
-        event_id_str = payload.get("event_id")
-        if not event_id_str:
-            return None
-
-        return UUID(event_id_str)
-    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, ValueError):
-        return None
+    """A read-only viewer link token of generation 0, valid 24 hours by default."""
+    return generate_link_token("viewer", event_id, expires_hours=expires_hours)
 
 
 # ============================================
@@ -247,56 +207,8 @@ def validate_viewer_token(token: str) -> UUID | None:
 
 
 def generate_alarm_token(event_id: UUID, expires_hours: int = 720) -> str:
-    """
-    Generate a JWT token for public alarm intake scoped to an event.
-
-    Long-lived by default (30 days) so a phone desk can post/bookmark the link
-    for the duration of an event. Grants write access (create incidents), so it
-    is paired with strict rate limiting and intake flagging on the endpoint side.
-
-    Args:
-        event_id: UUID of the event new alarms are created in
-        expires_hours: Token expiration time in hours (default: 720 = 30 days)
-
-    Returns:
-        JWT token string containing event_id and expiration
-    """
-    expiration = datetime.now(UTC) + timedelta(hours=expires_hours)
-
-    payload = {
-        "event_id": str(event_id),
-        "exp": expiration,
-        "type": "alarm",
-    }
-
-    token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
-    return token
-
-
-def validate_alarm_token(token: str) -> UUID | None:
-    """
-    Validate alarm intake token and extract event_id.
-
-    Args:
-        token: The JWT token string to validate
-
-    Returns:
-        UUID of the event if token is valid, None otherwise
-    """
-    try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
-
-        # Check token type
-        if payload.get("type") != "alarm":
-            return None
-
-        event_id_str = payload.get("event_id")
-        if not event_id_str:
-            return None
-
-        return UUID(event_id_str)
-    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, ValueError):
-        return None
+    """A public alarm-intake link token of generation 0, valid 30 days by default."""
+    return generate_link_token("alarm", event_id, expires_hours=expires_hours)
 
 
 # ============================================
