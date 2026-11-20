@@ -28,12 +28,17 @@
  * * **Clicking a QR enlarges it**, for the recurring case of somebody standing
  *   in the KP without the poster: click, hold up the screen, done. The enlarged
  *   Feld QR shows the code underneath it for the same reason.
+ *
+ * **«Link neu erzeugen»** (editors, the circular arrow on Check-in, Alarm erfassen and
+ * Wandanzeige): for a link that reached the wrong people. It asks once, ends every link
+ * of that kind issued so far for the Ereignis, and puts the new link and QR in the row.
+ * The Feld link has no arrow: its door is the Feld-Code, with «Neu» and «Abmelden» below it.
  */
 
 import { useCallback, useEffect, useState } from "react"
 import { QRCodeSVG } from "qrcode.react"
 import { useTranslations } from "next-intl"
-import { Check, Copy, ExternalLink, Printer, Users } from "lucide-react"
+import { Check, Copy, ExternalLink, Printer, RefreshCw, Users } from "lucide-react"
 import { toast } from "sonner"
 
 import { FooterSheet } from "@/components/ui/footer-sheet"
@@ -41,8 +46,10 @@ import { SurfaceStep, useOpenSurface } from "@/components/ui/surface-step"
 import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { FeldAccessCard, prefetchFeldAccess } from "@/components/feld/feld-access-card"
 import { apiClient } from "@/lib/api-client"
+import type { ShareLinkKind } from "@/lib/api/resources/viewer"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { queueLinkQrPrint, type LinkKind } from "@/lib/link-qr-print"
 import { copyToClipboard } from "@/lib/utils"
@@ -51,10 +58,19 @@ import { copyToClipboard } from "@/lib/utils"
 const LINK_KEYS = ["checkin", "feld", "alarm", "display"] as const satisfies readonly LinkKind[]
 type LinkKey = (typeof LINK_KEYS)[number]
 
+/** The rows whose link can be made new, and the backend's name for each kind. */
+const REGENERABLE = { checkin: "checkin", alarm: "alarm", display: "viewer" } as const satisfies Partial<
+  Record<LinkKey, ShareLinkKind>
+>
+type RegenerableKey = keyof typeof REGENERABLE
+const isRegenerable = (key: LinkKey): key is RegenerableKey => key in REGENERABLE
+
 interface LinksQrSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   eventId: string | null
+  /** Named in the «Link neu erzeugen» question, so the operator sees which Ereignis it is. */
+  eventName?: string | null
   /** Whether the thermal agent is reachable — no print button without one. */
   printerEnabled?: boolean
   /** Opens the Appell — the page closes this sheet first (two layers is one too many). */
@@ -65,6 +81,7 @@ export function LinksQrSheet({
   open,
   onOpenChange,
   eventId,
+  eventName,
   printerEnabled,
   onOpenAttendance,
 }: LinksQrSheetProps) {
@@ -74,6 +91,8 @@ export function LinksQrSheet({
   const [urls, setUrls] = useState<Partial<Record<LinkKey, string>>>({})
   const [copied, setCopied] = useState<LinkKey | null>(null)
   const [enlarged, setEnlarged] = useState<LinkKey | null>(null)
+  /** The row whose «Link neu erzeugen» question is open. */
+  const [regenerating, setRegenerating] = useState<RegenerableKey | null>(null)
   const surface = useOpenSurface()
   /**
    * The day the Feld link dies, from its mint. The print puts it on the Feld
@@ -166,6 +185,24 @@ export function LinksQrSheet({
     }
   }
 
+  /**
+   * The old links of this kind end, then the new one is generated and shown. A failure is
+   * said with the server's sentence and thrown on, so the question stays open for a retry.
+   */
+  const regenerate = async (key: RegenerableKey) => {
+    if (!eventId) return
+    try {
+      await apiClient.revokeShareLinks(eventId, REGENERABLE[key])
+      const url = await generate(key, eventId)
+      setUrls(current => ({ ...current, [key]: url }))
+      toast.success(t(`${key}.regenerated`), { description: t("regeneratedNote") })
+    } catch (error) {
+      console.error(`Failed to regenerate the ${key} link:`, error)
+      toast.error(t("regenerateFailed"), { description: error instanceof Error ? error.message : undefined })
+      throw error
+    }
+  }
+
   const handlePrint = async (key: LinkKey) => {
     const url = urls[key]
     if (!url || !eventId) return
@@ -238,6 +275,18 @@ export function LinksQrSheet({
               <Printer className="size-3.5" />
             </Button>
           )}
+          {isEditor && isRegenerable(key) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRegenerating(key)}
+              disabled={!url}
+              title={t("regenerate")}
+              aria-label={t("regenerate")}
+            >
+              <RefreshCw className="size-3.5" />
+            </Button>
+          )}
         </div>
       </div>
     )
@@ -264,7 +313,7 @@ export function LinksQrSheet({
         // Enlarging a QR opens a dialog on top of this sheet; without this the
         // outside-click guard reads that as "the operator clicked away" and
         // closes the sheet underneath, so dismissing the QR lands on the board.
-        shouldPreventClose={() => enlarged !== null}
+        shouldPreventClose={() => enlarged !== null || regenerating !== null}
         surface={t("title")}
         className="max-w-3xl mx-auto px-6 py-4"
       >
@@ -331,6 +380,18 @@ export function LinksQrSheet({
           </section>
         </div>
       </FooterSheet>
+
+      {regenerating && (
+        <ConfirmDialog
+          open
+          onOpenChange={openState => !openState && setRegenerating(null)}
+          title={t(`${regenerating}.regenerateTitle`)}
+          description={t(`${regenerating}.regenerateDescription`, { event: eventName ?? "" })}
+          confirmText={t("regenerateConfirm")}
+          confirmIcon={<RefreshCw />}
+          onConfirm={() => regenerate(regenerating)}
+        />
+      )}
 
       {/* On a desk the enlarged QR is a step inside this sheet (owner pick 5A: no window on a
           window); on the phone an S dialog over the sheet. */}

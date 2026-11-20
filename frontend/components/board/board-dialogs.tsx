@@ -243,6 +243,7 @@ export function BoardDialogs({
         open={linksSheetOpen}
         onOpenChange={(open) => !open && activeFooterSheet === 'links' && setActiveFooterSheet(null)}
         eventId={selectedEvent?.id ?? null}
+        eventName={selectedEvent?.name ?? null}
         printerEnabled={printerEnabled}
         onOpenAttendance={openAttendance}
       />

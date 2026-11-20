@@ -38,6 +38,9 @@ type ConfirmDialogProps = ConfirmDialogClosing & {
   description: ReactNode
   onConfirm: () => Promise<void> | void
   confirmText?: string
+  /** A glyph before the main answer's label (16px), when the button that asked carries the
+   *  same one. The shell trail takes its place while the answer runs. */
+  confirmIcon?: ReactNode
   cancelText?: string
   /** `destructive` tints the confirm button red – for what cannot be taken back: delete,
    *  purge, revoke, rotate. A reversible answer (archive, release, deactivate, remove a
@@ -111,6 +114,7 @@ export function ConfirmDialog({
   description,
   onConfirm,
   confirmText,
+  confirmIcon,
   cancelText,
   variant = 'default',
   initialFocus = variant === 'destructive' ? 'cancel' : 'confirm',
@@ -188,7 +192,11 @@ export function ConfirmDialog({
             disabled={busy !== null}
             className={cn(buttonVariants({ variant }))}
           >
-            {busy === 'confirm' && <ShellLoader className="mr-2 h-4 w-4" />}
+            {busy === 'confirm' ? (
+              <ShellLoader className="mr-2 h-4 w-4" />
+            ) : (
+              confirmIcon && <span className="mr-2 flex shrink-0 [&_svg]:size-4">{confirmIcon}</span>
+            )}
             {confirmText ?? t('confirm')}
           </AlertDialogAction>
         </AlertDialogFooter>

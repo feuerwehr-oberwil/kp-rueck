@@ -3826,7 +3826,7 @@
           "events"
         ],
         "summary": "Revoke Share Links",
-        "description": "«Link widerrufen»: end every link of one kind issued so far for this Ereignis.\n\n`kind` is `checkin`, `viewer` or `alarm`. Every such link stops working at once – a phone\nor a wall display that holds it gets «Link ungültig» on its next request. Generate a new\nlink afterwards for the people who should keep their access. The other two kinds, the\nFeld poster and the Reko forms are untouched.\n\nWith a standby box (docs/STANDBY.md): revoke on the system that leads the Ereignis. The\nother system follows with the next sync, and the higher generation always stands.",
+        "description": "First half of «Link neu erzeugen»: end every link of one kind issued so far for this Ereignis.\n\n`kind` is `checkin`, `viewer` or `alarm`. Every such link stops working at once – a phone\nor a wall display that holds it gets «Link ungültig» on its next request. Generate a new\nlink afterwards for the people who should keep their access. The other two kinds, the\nFeld poster and the Reko forms are untouched.\n\nWith a standby box (docs/STANDBY.md): revoke on the system that leads the Ereignis. The\nother system follows with the next sync, and the higher generation always stands.",
         "operationId": "revoke_share_links_api_events__event_id__share_links__kind__revoke_post",
         "parameters": [
           {
