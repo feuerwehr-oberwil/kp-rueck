@@ -22,6 +22,7 @@ from app.database import get_db
 from app.models import User
 from app.services import share_links
 from app.services.weather.service import weather_enabled, weather_service
+from app.utils.errors import ErrorMessages
 
 router = APIRouter(prefix="/weather", tags=["weather"])
 
@@ -105,7 +106,9 @@ async def require_board_or_viewer_token(
         return
     if token and await share_links.event_of(db, "viewer", token) is not None:
         return
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Nicht angemeldet")
+    # A wall display that holds a revoked or expired link is told so, like on its other reads.
+    detail = ErrorMessages.LINK_INVALID if token else "Nicht angemeldet"
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
 
 
 @router.get("/", response_model=WeatherOut, dependencies=[Depends(require_board_or_viewer_token)])
