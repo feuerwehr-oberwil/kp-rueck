@@ -282,8 +282,8 @@ will keep holding.
 
 - **`MASTER_TOKEN`, the static bearer token with full admin rights.** It belonged to no user, so
   the audit trail could not say who made a write with it, and nothing in the project used it.
-  The variable is no longer read. A request with `Authorization: Bearer …` gets a 401. A script
-  signs in with an editor or admin account instead (`POST /api/auth/login`, example in
+  The variable is no longer read and the token no longer authenticates a request. A script that
+  used it signs in with an editor or admin account instead (`POST /api/auth/login`, example in
   `docs/PRINT_AGENT.md` «Remote Configuration»).
 
 - **`GET /api/vehicles/{id}/status`.** `GET /api/vehicles/status?event_id=` returns the whole

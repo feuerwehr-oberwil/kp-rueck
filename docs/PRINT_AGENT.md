@@ -383,8 +383,9 @@ then names that account for the change:
 BASE="https://your-backend.example.com"
 JAR="$(mktemp)"
 read -rsp "Password: " PASSWORD
-curl -sS -c "$JAR" "$BASE/api/auth/login" \
-  --data-urlencode "username=<your-admin>" --data-urlencode "password=$PASSWORD"
+# The password goes in on stdin, so it never shows in the process list.
+printf '%s' "$PASSWORD" | curl -sS -c "$JAR" "$BASE/api/auth/login" \
+  --data-urlencode "username=<your-admin>" --data-urlencode "password@-"
 curl -sS -b "$JAR" -X PATCH "$BASE/api/settings/printer.enabled" \
   -H "Content-Type: application/json" \
   -d '{"value": "true"}'
