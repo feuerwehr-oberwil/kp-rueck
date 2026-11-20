@@ -596,67 +596,76 @@ async def microsoft_login(
             detail="Dieses Microsoft-Konto ist ein Gastkonto und muss durch einen Administrator freigegeben werden.",
         )
 
-    # 4. Find, link or create the user
+    # 4. Find the user: by its Microsoft identity, else an account from before by its e-mail
     user = (
         await db.execute(select(User).where(User.microsoft_tid == identity.tid, User.microsoft_oid == identity.oid))
     ).scalar_one_or_none()
+    linked = user is not None
 
-    if user is not None:
-        # Linked already: the e-mail is only a label now. Follow a change when the address is free.
-        if identity.email and (user.email or "").lower() != identity.email:
-            taken = await db.execute(select(User.id).where(func.lower(User.email) == identity.email))
-            if taken.first() is None:
-                user.email = identity.email
-    else:
+    link_by_admin = HTTPException(
+        status_code=409, detail="Dieses Microsoft-Konto muss durch einen Administrator verknüpft werden."
+    )
+    if user is None:
         if not identity.email:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Keine E-Mail-Adresse im Microsoft-Konto gefunden",
             )
-        link_by_admin = HTTPException(
-            status_code=409, detail="Dieses Microsoft-Konto muss durch einen Administrator verknüpft werden."
+        # Row lock: two first logins with one address must not both link the same account.
+        matches = (
+            (await db.execute(select(User).where(func.lower(User.email) == identity.email).with_for_update()))
+            .scalars()
+            .all()
         )
-        # An account from before the identity columns: the e-mail links it ONCE, on this login.
-        user = (await db.execute(select(User).where(func.lower(User.email) == identity.email))).scalar_one_or_none()
-        if user is not None:
-            if user.microsoft_oid is not None:
-                # The address belongs to an account of another Microsoft identity. Never merge.
-                raise link_by_admin
-            user.microsoft_tid, user.microsoft_oid = identity.tid, identity.oid
-        else:
-            username = identity.email.split("@")[0]
-            # A matching email prefix proves no relationship to a local account.
-            # Refuse collisions until an administrator establishes the identity.
-            if (await db.execute(select(User.id).where(User.username == username))).first() is not None:
-                raise link_by_admin
-            # Create new user from Microsoft login. Any tenant member can reach
-            # this, so default to read-only; editor rights are an explicit grant
-            # via SSO_EDITOR_ALLOWLIST. Existing users keep their role on
-            # re-login — allowlist changes never downgrade, and promotion of an
-            # already-provisioned user stays a manual admin action.
-            role = "editor" if _is_on_editor_allowlist(identity.email) else "viewer"
-            user = User(
-                username=username,
-                email=identity.email,
-                password_hash=None,
-                role=role,
-                display_name=identity.display_name or username,
-                is_active=True,
-                microsoft_tid=identity.tid,
-                microsoft_oid=identity.oid,
-            )
-            db.add(user)
-            await db.flush()  # Get the ID
-            logger.info("Created new user %s from Microsoft login (role: %s)", username, role)
+        # Never merge: the address belongs to an account of another Microsoft identity, or to
+        # several accounts (addresses that differ only in case).
+        if len(matches) > 1 or (matches and matches[0].microsoft_oid is not None):
+            raise link_by_admin
+        user = matches[0] if matches else None
 
-    # Check if user is active
-    if not user.is_active:
+    # A deactivated account is refused before anything about it is changed.
+    if user is not None and not user.is_active:
         await log_login(db=db, user=user, request=request, success=False)
         await db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Benutzerkonto ist deaktiviert",
         )
+
+    if user is None:
+        username = identity.email.split("@")[0]
+        # A matching email prefix proves no relationship to a local account.
+        # Refuse collisions until an administrator establishes the identity.
+        if (await db.execute(select(User.id).where(User.username == username))).first() is not None:
+            raise link_by_admin
+        # Create new user from Microsoft login. Any tenant member can reach
+        # this, so default to read-only; editor rights are an explicit grant
+        # via SSO_EDITOR_ALLOWLIST. Existing users keep their role on
+        # re-login — allowlist changes never downgrade, and promotion of an
+        # already-provisioned user stays a manual admin action.
+        role = "editor" if _is_on_editor_allowlist(identity.email) else "viewer"
+        user = User(
+            username=username,
+            email=identity.email,
+            password_hash=None,
+            role=role,
+            display_name=identity.display_name or username,
+            is_active=True,
+            microsoft_tid=identity.tid,
+            microsoft_oid=identity.oid,
+        )
+        db.add(user)
+        await db.flush()  # Get the ID
+        logger.info("Created new user %s from Microsoft login (role: %s)", username, role)
+    elif not linked:
+        # An account from before the identity columns: the e-mail links it ONCE, on this login.
+        user.microsoft_tid, user.microsoft_oid = identity.tid, identity.oid
+    elif identity.email and (user.email or "").lower() != identity.email:
+        # Linked already: the e-mail is only a label now. Follow a change when the address is
+        # free. When it is not, the login still stands: the object ID is the identity.
+        taken = await db.execute(select(User.id).where(func.lower(User.email) == identity.email))
+        if taken.first() is None:
+            user.email = identity.email
 
     # Update display name if changed in Microsoft
     if identity.display_name and user.display_name != identity.display_name:

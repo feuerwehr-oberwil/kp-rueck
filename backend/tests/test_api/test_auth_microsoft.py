@@ -379,6 +379,28 @@ class TestMicrosoftIdentity:
         user = (await db_session.execute(select(User))).scalars().one()
         assert user.microsoft_oid == _oid("kommando@fwo.li")
 
+    async def test_addresses_that_differ_only_in_case_link_nothing(self, client, db_session, microsoft_auth_configured):
+        for username, email in (("one", "Shared@fwo.li"), ("two", "shared@fwo.li")):
+            db_session.add(User(username=username, email=email, password_hash=None, role="editor", is_active=True))
+        await db_session.commit()
+
+        response = await _login(client, "shared@fwo.li")
+
+        assert response.status_code == 409
+        users = (await db_session.execute(select(User))).scalars().all()
+        assert [user.microsoft_oid for user in users] == [None, None]
+
+    async def test_a_deactivated_account_is_refused_and_not_linked(self, client, db_session, microsoft_auth_configured):
+        gone = User(username="gone", email="gone@fwo.li", password_hash=None, role="editor", is_active=False)
+        db_session.add(gone)
+        await db_session.commit()
+
+        response = await _login(client, "gone@fwo.li")
+
+        assert response.status_code == 401
+        await db_session.refresh(gone)
+        assert gone.microsoft_oid is None
+
     @pytest.mark.parametrize(
         "guest_claims",
         [{"idp": f"https://sts.windows.net/{OTHER_TENANT}/"}, {"acct": 1}],

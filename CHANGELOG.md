@@ -315,7 +315,9 @@ will keep holding.
   registration (Token configuration › Add optional claim › ID › `acct`, `docs/SETUP.md`). Without
   it KP Rück still refuses guests that sign in through another tenant or a personal account,
   but not a guest account created inside your own tenant. If a guest must keep its login, put
-  its object ID into `SSO_GUEST_ALLOWLIST` before you update.
+  its object ID into `SSO_GUEST_ALLOWLIST` before you update. An existing account is tied to
+  its Entra identity at its next Microsoft login, by its e-mail address, once: have every admin
+  and editor sign in with Microsoft soon after the update.
 - **Stations using Railway ↔ local sync on 0.9.0** should back up before upgrading. Follow
   `docs/STANDBY.md` to configure the replacement. Downgrading recreates an empty sync history
   and default settings. The pre-upgrade backup holds the old history and connection setting.
