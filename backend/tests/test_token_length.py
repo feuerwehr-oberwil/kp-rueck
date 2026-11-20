@@ -15,12 +15,14 @@ def production(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.parametrize("name", sorted(REFUSED_WHEN_SHORT))
 def test_production_refuses_a_short_token(production: None, monkeypatch: pytest.MonkeyPatch, name: str) -> None:
     monkeypatch.setenv(name, "x" * 31)
-    with pytest.raises(ValidationError, match=f"{name} must be at least 32 characters"):
+    with pytest.raises(ValidationError, match=f"{name} must be at least 32 characters") as refused:
         Settings(_env_file=None)
+    # The boot log shows this text: it names the setting and shows no value, not SECRET_KEY's either.
+    assert "xxx" not in str(refused.value) and "kkk" not in str(refused.value)
 
 
 @pytest.mark.parametrize("name", sorted(REFUSED_WHEN_SHORT))
-@pytest.mark.parametrize("value", ["", "x" * 32], ids=["unset", "32 characters"])
+@pytest.mark.parametrize("value", ["", "x" * 32, " " + "x" * 31], ids=["unset", "32 characters", "32 with a space"])
 def test_production_accepts_an_unset_or_long_token(
     production: None, monkeypatch: pytest.MonkeyPatch, name: str, value: str
 ) -> None:

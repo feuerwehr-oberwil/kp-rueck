@@ -270,9 +270,9 @@ will keep holding.
   `ALARM_WEBHOOK_SECRET` must be at least 32 characters when they are set (`openssl rand -hex 32`),
   the same rule as `SECRET_KEY`. Until now a short value only logged a warning. See the upgrade
   note.
-- A test now reads every API route and fails for one that has neither a logged-in user nor an
-  entry on an explicit list of open routes with its gate (71 today: signed links, tokens,
-  webhook secret, public by design).
+- A test now reads every registered API route and fails for one that has neither a logged-in
+  user nor an entry on an explicit list of open routes with its gate (71 today: signed links,
+  tokens, webhook secret, public by design). A refused boot no longer prints setting values.
 
 - Standby conflict values, including resolved conflicts, require an editor. A viewer can see
   how many open conflicts remain.

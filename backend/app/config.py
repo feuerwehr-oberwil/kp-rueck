@@ -25,6 +25,9 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        # A refused boot prints the validation error. Without this, pydantic prints the input
+        # beside it: the short token itself, and the start of SECRET_KEY.
+        hide_input_in_errors=True,
     )
 
     # Database
@@ -370,12 +373,13 @@ class Settings(BaseSettings):
             ("PRINT_AGENT_TOKEN", self.print_agent_token),
             ("ALARM_WEBHOOK_SECRET", self.alarm_webhook_secret),
         ):
+            # The whole value counts, as for SECRET_KEY: the callers compare it untrimmed.
+            if value and len(value) < 32 and name in REFUSED_WHEN_SHORT and is_production_environment():
+                raise ValueError(
+                    f"{name} must be at least 32 characters long in production (current: "
+                    f"{len(value)}). Generate one with: openssl rand -hex 32"
+                )
             if value and len(value.strip()) < 32:
-                if name in REFUSED_WHEN_SHORT and is_production_environment():
-                    raise ValueError(
-                        f"{name} must be at least 32 characters long in production (current: "
-                        f"{len(value.strip())}). Generate one with: openssl rand -hex 32"
-                    )
                 logger.warning(
                     "%s is only %d characters long. Replace it with a long random value: openssl rand -hex 32",
                     name,

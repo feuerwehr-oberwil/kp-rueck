@@ -101,9 +101,9 @@ the latest tagged release and update promptly – see [`docs/DEPLOYMENT.md`](doc
   and `ALARM_WEBHOOK_SECRET` must be at least 32 characters when they are set, the same rule
   as `SECRET_KEY`. Outside production a short value logs a warning.
 - **Every API route needs a logged-in user, or it is on one list with its gate.** A test
-  (`backend/tests/test_security/test_route_auth_registry.py`) reads every route of the app and
-  fails for a route that has no user dependency and no entry on that list: signed link, token,
-  webhook secret, or public by design.
+  (`backend/tests/test_security/test_route_auth_registry.py`) reads every route registered on
+  the app and fails for a route that has no user dependency and no entry on that list: signed
+  link, token, webhook secret, or public by design.
 - **The audit trail is kept, not expired.** `AUDIT_RETENTION_DAYS` defaults to `0` – keep
   everything. Before 0.2 it defaulted to 90 days and swept silently, so a deployment older than
   three months had already lost the trail for its earliest operations.
