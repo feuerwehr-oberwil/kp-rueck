@@ -61,6 +61,12 @@ class User(Base):
     session_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # The Microsoft Entra identity this account belongs to: tenant id + object id, both
+    # immutable. The Microsoft login finds the account by this pair and stores it on the first
+    # login (api/auth.py `microsoft_login`). NULL = a local account, or one that has not signed
+    # in with Microsoft since the columns exist.
+    microsoft_tid: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    microsoft_oid: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
     # Relationships
     created_incidents: Mapped[list["Incident"]] = relationship(
@@ -71,7 +77,10 @@ class User(Base):
     audit_logs: Mapped[list["AuditLog"]] = relationship("AuditLog", back_populates="user")
     setting_updates: Mapped[list["Setting"]] = relationship("Setting", back_populates="updater")
 
-    __table_args__ = (CheckConstraint("role IN ('admin', 'editor', 'viewer')", name="valid_user_role"),)
+    __table_args__ = (
+        CheckConstraint("role IN ('admin', 'editor', 'viewer')", name="valid_user_role"),
+        UniqueConstraint("microsoft_tid", "microsoft_oid", name="uq_users_microsoft_identity"),
+    )
 
 
 class MicrosoftLoginTransaction(Base):
@@ -389,6 +398,14 @@ class Event(Base):
     # (decision 30). Throwing people out is the separate, deliberate act of
     # revoking the claims below.
     feld_code: Mapped[str] = mapped_column(String(4), nullable=False, default=lambda: f"{secrets.randbelow(10000):04d}")
+    # The generation of each share link (services/share_links.py). A link carries the number
+    # it was issued with and opens the Ereignis only while the two are equal. «Link neu erzeugen»
+    # moves it on: every link of that kind issued before stops working, and the next one issued
+    # carries the new number. A link from before these columns carries none and counts as 0.
+    # The number is two counters, hosted board and standby box (standby_sync `LINK_REVOKE_STEP`).
+    checkin_link_generation: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    viewer_link_generation: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    alarm_link_generation: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

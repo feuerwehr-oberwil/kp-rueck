@@ -113,7 +113,7 @@ describe('apiClient — the method names callers (and their mocks) rely on', () 
     'queueQRCodePrint', 'queueTestPrint', 'recordGroupAnnouncement', 'regenerateFeldCode',
     'removeStopFromGroup', 'reorderAuftragTemplates', 'reorderGroupStops',
     'reorderIncidentGroups', 'reorderIncidents', 'reorderRekoAssignments', 'resetUserPassword', 'resolveStandbyConflict', 'restoreIncident',
-    'restoreMaterialResource', 'restoreVehicle', 'revokeFeldDevices', 'rotateAlarmWebhookSecret',
+    'restoreMaterialResource', 'restoreVehicle', 'revokeFeldDevices', 'revokeShareLinks', 'rotateAlarmWebhookSecret',
     'saveFeldRapport', 'saveIncidentRapport', 'saveRekoDraft', 'sendDiveraMessage', 'sendDiveraTestAlarm',
     'sendIncidentDiveraAlarm', 'sendKpFieldMessage', 'setAttendancePlan', 'setFeldAttendance', 'setFeldAttendancePlan',
     'setFieldRequestStatus', 'setGpsSimulationSpeed',

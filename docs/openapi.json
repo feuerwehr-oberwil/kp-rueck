@@ -904,7 +904,7 @@
           "authentication"
         ],
         "summary": "Microsoft Login",
-        "description": "Login with Microsoft Entra ID authorization code.\n\nFlow:\n    1. Exchange auth code for tokens via Microsoft\n    2. Validate & decode ID token\n    3. Extract email and display name\n    4. Find or create user\n    5. Issue app JWT tokens as httpOnly cookies",
+        "description": "Login with Microsoft Entra ID authorization code.\n\nFlow:\n    1. Exchange auth code for tokens via Microsoft\n    2. Validate & decode ID token\n    3. Extract the identity (tenant id + object id); refuse a guest that is not allow-listed\n    4. Find the user by that identity; else link an existing account by e-mail once;\n       else create a viewer (editor when on SSO_EDITOR_ALLOWLIST)\n    5. Issue app JWT tokens as httpOnly cookies",
         "operationId": "microsoft_login_api_auth_microsoft_login_post",
         "requestBody": {
           "content": {
@@ -3806,6 +3806,89 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{event_id}/share-links/{kind}/revoke": {
+      "post": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Revoke Share Links",
+        "description": "First half of «Link neu erzeugen»: end every link of one kind issued so far for this Ereignis.\n\n`kind` is `checkin`, `viewer` or `alarm`. Every such link stops working at once – a phone\nor a wall display that holds it gets «Link ungültig» on its next request. Generate a new\nlink afterwards for the people who should keep their access. The other two kinds, the\nFeld poster and the Reko forms are untouched.\n\nWith a standby box (docs/STANDBY.md): revoke on the system that leads the Ereignis. The\nother system follows with the next sync, and the higher generation always stands.",
+        "operationId": "revoke_share_links_api_events__event_id__share_links__kind__revoke_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "checkin",
+                "viewer",
+                "alarm"
+              ],
+              "type": "string",
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",

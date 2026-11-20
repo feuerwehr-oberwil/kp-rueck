@@ -579,6 +579,12 @@ incident) and carries a hard expiry. The lifetimes below are the defaults in
 `backend/app/services/tokens.py` and `backend/app/auth/config.py`; nothing in the UI extends
 them, so **a link that has to keep working past its expiry has to be re-generated**.
 
+The viewer, check-in and alarm links can be **taken back** before they expire: each Ereignis
+keeps one generation number per kind, a link carries the number it was issued with, and
+`POST /api/events/{id}/share-links/{checkin|viewer|alarm}/revoke` (editor) adds one
+(`backend/app/services/share_links.py`). Every link of that kind issued before stops at once;
+the next one generated works.
+
 | Token Type | How Obtained | Expiry | Access |
 |------------|-------------|--------|--------|
 | JWT (access) | Login form, or the loopback local login | **8 hours** (`ACCESS_TOKEN_EXPIRE_MINUTES=480`) | Full editor or admin |

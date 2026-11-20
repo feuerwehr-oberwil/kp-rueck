@@ -22,11 +22,9 @@ from app.services.tokens import (
     generate_feld_token,
     generate_form_token,
     generate_viewer_token,
-    validate_alarm_token,
-    validate_checkin_token,
+    link_claims,
     validate_feld_token,
     validate_form_token,
-    validate_viewer_token,
 )
 
 OTHER_GENERATORS = {
@@ -35,18 +33,18 @@ OTHER_GENERATORS = {
     "alarm": generate_alarm_token,
 }
 
-OTHER_VALIDATORS = {
-    "checkin": validate_checkin_token,
-    "viewer": validate_viewer_token,
-    "alarm": validate_alarm_token,
-}
+
+def _event_of(kind, token):
+    """The Ereignis a share-link token names, or None (signature, expiry, kind)."""
+    claims = link_claims(token, kind)
+    return claims.event_id if claims else None
 
 
 @pytest.mark.parametrize("kind", ["checkin", "viewer", "alarm"])
 def test_event_token_roundtrip_preserves_scope(kind):
     event_id = uuid4()
     token = OTHER_GENERATORS[kind](event_id)
-    assert OTHER_VALIDATORS[kind](token) == event_id
+    assert _event_of(kind, token) == event_id
 
 
 @pytest.mark.parametrize("kind,hours", [("checkin", 24), ("viewer", 24), ("alarm", 720)])
@@ -91,12 +89,12 @@ def test_event_token_rejects_invalid_credentials(kind, bad_claim):
         claims["type"] = "access"
     else:
         key = "a-different-test-signing-key-at-least-32-bytes"
-    assert OTHER_VALIDATORS[kind](jwt.encode(claims, key, algorithm="HS256")) is None
+    assert _event_of(kind, jwt.encode(claims, key, algorithm="HS256")) is None
 
 
 @pytest.mark.parametrize("kind", ["checkin", "viewer", "alarm"])
 def test_event_token_rejects_unreadable_jwt(kind):
-    assert OTHER_VALIDATORS[kind]("not.a.jwt") is None
+    assert _event_of(kind, "not.a.jwt") is None
 
 
 @pytest.mark.parametrize("version", [None, 0, 2, "1", True])
@@ -274,7 +272,7 @@ class TestFeldToken:
         token = OTHER_GENERATORS[token_type](uuid4())
         assert validate_feld_token(token) is None
 
-    @pytest.mark.parametrize("token_type", sorted(OTHER_VALIDATORS))
+    @pytest.mark.parametrize("token_type", sorted(OTHER_GENERATORS))
     def test_feld_token_does_not_validate_as_anything_else(self, token_type: str):
         token = generate_feld_token(uuid4())
-        assert OTHER_VALIDATORS[token_type](token) is None
+        assert _event_of(token_type, token) is None
