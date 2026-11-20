@@ -574,7 +574,9 @@ are live, and the UI adapts rather than hard-coding vendors.
   let the person sign in again: the e-mail links the account once more. Before you clear the
   link, check in Entra that the new account is that person's, and that its sign-in address
   is the e-mail of exactly one KP Rück account, the intended one (upper and lower case do not
-  matter).
+  matter). If the new account has another address, write that address into the same statement
+  (`…, email = '<new address>' WHERE username = '…'`): with an address that no account has,
+  the login would make a new viewer account and leave the old one, with its role, behind.
 
   ```bash
   SSO_EDITOR_ALLOWLIST=hans.muster@example.ch,anna.beispiel@example.ch
