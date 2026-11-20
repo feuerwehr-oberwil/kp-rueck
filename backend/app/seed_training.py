@@ -1154,7 +1154,6 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
         "category": "critical",
         "reko_summaries": [
             "Auffahrunfall, Blechschaden. Keine Verletzten. Kühlflüssigkeit läuft aus.",
-            "Zwei Fahrzeuge beteiligt, keine Einklemmung. Betriebsstoffe laufen aus.",
             "Drei Autos ineinander, Kühlwasser und Öl auf der Kreuzung. Alle Personen ausgestiegen.",
         ],
         "message_pattern": "VU, Auffahrunfall 3 Fahrzeuge. Betriebsstoffe laufen aus.",
