@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { act, screen } from "@testing-library/react"
+import { act, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import {
@@ -8,7 +8,7 @@ import {
   type IncidentStatusWorkflowController,
 } from "@/components/kanban/incident-status-workflow"
 import type { Operation } from "@/lib/contexts/operations-context"
-import type { GroupResources } from "@/lib/types/groups"
+import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
 import { crewMember, assignedVehicle } from "@/test-utils/operation-fixtures"
 
@@ -62,9 +62,18 @@ function operation(overrides: Partial<Operation> = {}): Operation {
   }
 }
 
-function renderGate(initial: Operation) {
+function auftrag(id: string, stopIds: string[]): IncidentGroup {
+  const at = new Date("2026-10-24T18:00:00Z")
+  return {
+    id, eventId: "e1", name: "Auftrag 1", color: null, notes: null, position: 0, createdAt: at, updatedAt: at,
+    createdBy: null, stopIds, assignments: [], progress: { total: stopIds.length, done: 0 }, lastAnnounced: null,
+  }
+}
+
+function renderGate(initial: Operation, { groups = [], route = noRoute }: { groups?: IncidentGroup[]; route?: GroupResources } = {}) {
   const onOpenAssignment = vi.fn()
   const onSetDriverStay = vi.fn()
+  const onPromoteLeader = vi.fn()
   const changeStatusToTop = vi.fn()
   const ref: { controller: IncidentStatusWorkflowController | null } = { controller: null }
 
@@ -73,9 +82,9 @@ function renderGate(initial: Operation) {
     const controller = useIncidentStatusWorkflow({
       operations: [current],
       materials: [],
-      groups: [],
+      groups,
       changeStatusToTop,
-      getGroupResources: () => noRoute,
+      getGroupResources: () => route,
       removeMaterial: vi.fn(),
       unassignGroupResource: vi.fn(),
     })
@@ -92,13 +101,14 @@ function renderGate(initial: Operation) {
         onRefresh={vi.fn()}
         vehicleDrivers={new Map([["v-TLF", { name: "Baumann Michael", personnelId: "p-baumann" }]])}
         onSetDriverStay={onSetDriverStay}
+        onPromoteLeader={onPromoteLeader}
       />
     )
   }
 
   renderWithIntl(<Harness />)
   act(() => ref.controller!.triggerDisponiertDialog(initial.id, "incoming"))
-  return { ref, onOpenAssignment, changeStatusToTop, onSetDriverStay }
+  return { ref, onOpenAssignment, changeStatusToTop, onSetDriverStay, onPromoteLeader }
 }
 
 describe("dispatch gate – press twice", () => {
@@ -187,6 +197,16 @@ describe("dispatch gate – press twice", () => {
     expect(onOpenAssignment).toHaveBeenCalledWith("vehicles", "incident-1")
   })
 
+  it("an empty Material box says «Hinzufügen» like a filled one and opens the material picker", async () => {
+    const user = userEvent.setup()
+    const { onOpenAssignment } = renderGate(operation({ vehicles: [assignedVehicle("TLF")], materials: [] }))
+
+    const box = screen.getByRole("group", { name: "Material" })
+    expect(within(box).queryByRole("button", { name: /Zuweisen/ })).not.toBeInTheDocument()
+    await user.click(within(box).getByRole("button", { name: "Hinzufügen" }))
+    expect(onOpenAssignment).toHaveBeenCalledWith("materials", "incident-1")
+  })
+
   it("material alone does not arm: one press dispatches", async () => {
     const user = userEvent.setup()
     const { ref } = renderGate(operation({ vehicles: [assignedVehicle("TLF")], materials: [] }))
@@ -207,7 +227,10 @@ describe("dispatch gate – press twice", () => {
     const crew = screen.getByRole("group", { name: "Mannschaft" })
     expect(crew).toHaveTextContent("Mannschaft · 2")
     expect(crew.textContent!.indexOf("Meier Andrea")).toBeLessThan(crew.textContent!.indexOf("Ackermann Reto"))
-    expect(screen.getByLabelText("Einsatzleiter")).toBeInTheDocument()
+    // The current EL is a read-only mark, not a button: a tap on it must not fall through to
+    // the box's picker on a touch screen.
+    expect(screen.getByLabelText("Einsatzleiter")).toHaveTextContent("EL")
+    expect(screen.queryByRole("button", { name: "Einsatzleiter" })).not.toBeInTheDocument()
 
     const vehicles = screen.getByRole("group", { name: "Fahrzeuge" })
     expect(vehicles).toHaveTextContent("TLF · Baumann Michael")
@@ -217,5 +240,63 @@ describe("dispatch gate – press twice", () => {
     // The half already set writes nothing.
     await user.click(screen.getByRole("button", { name: "kehrt zurück" }))
     expect(onSetDriverStay).toHaveBeenCalledTimes(1)
+  })
+
+  it("the «EL» stub makes that person EL – without opening the picker – and hands Enter back to «Disponieren»", async () => {
+    const user = userEvent.setup()
+    const { onPromoteLeader, onOpenAssignment } = renderGate(operation({
+      crew: [crewMember("Ackermann Reto"), crewMember("Meier Andrea")],
+      leaderId: "p-Meier Andrea",
+    }))
+
+    await user.click(screen.getByRole("button", { name: "Als Einsatzleiter markieren" }))
+    expect(onPromoteLeader).toHaveBeenCalledWith({ kind: "incident", operationId: "incident-1", personnelId: "p-Ackermann Reto" })
+    expect(onOpenAssignment).not.toHaveBeenCalled()
+    expect(screen.getByRole("button", { name: "Disponieren" })).toHaveFocus()
+  })
+
+  it("a stop's own crew offers no stub – the Auftrag leads; its route crew does", async () => {
+    const user = userEvent.setup()
+    const { onPromoteLeader } = renderGate(operation({ groupId: "g1" }), {
+      groups: [auftrag("g1", ["incident-1"])],
+      route: { ...noRoute, personnel: [{ resourceId: "p-weber", assignmentId: "ga-1", name: "Weber Martin", isLeader: false }] },
+    })
+
+    const stubs = screen.getAllByRole("button", { name: "Als Einsatzleiter markieren" })
+    expect(stubs).toHaveLength(1)
+    await user.click(stubs[0])
+    expect(onPromoteLeader).toHaveBeenCalledWith({ kind: "route", groupId: "g1", assignmentId: "ga-1" })
+  })
+
+  it("the box's action is its one opener: stretched over the box, with chips and toggles lifted above it", () => {
+    renderGate(operation({ vehicles: [assignedVehicle("TLF", { driverStay: false })], materials: [] }))
+
+    const vehicles = screen.getByRole("group", { name: "Fahrzeuge" })
+    const openers = vehicles.querySelectorAll("[data-gate-open]")
+    expect(openers).toHaveLength(1)
+    expect(openers[0]).toHaveAccessibleName("Hinzufügen")
+    expect(openers[0].className).toMatch(/after:absolute after:inset-0/)
+    expect(screen.getByRole("group", { name: "TLF" }).className).toMatch(/relative z-10/)
+    // A read-only name stays under the opener: a click on it opens the picker.
+    expect(within(vehicles).getByText("TLF").closest("[data-slot=badge]")!.className).not.toMatch(/z-10/)
+  })
+
+  it("with a mouse a click on a crew name opens the Mannschaft picker", async () => {
+    const user = userEvent.setup()
+    const { onOpenAssignment } = renderGate(operation())
+
+    await user.click(screen.getByText("Ackermann Reto"))
+    expect(onOpenAssignment).toHaveBeenCalledWith("crew", "incident-1")
+  })
+
+  it("under an Auftrag only the route's leader is marked, not the stop's earlier EL", () => {
+    renderGate(operation({ groupId: "g1", leaderId: "p-Meier Andrea", crew: [crewMember("Meier Andrea")] }), {
+      groups: [auftrag("g1", ["incident-1"])],
+      route: { ...noRoute, personnel: [{ resourceId: "p-weber", assignmentId: "ga-1", name: "Weber Martin", isLeader: true }] },
+    })
+
+    expect(screen.getAllByLabelText("Einsatzleiter")).toHaveLength(1)
+    const crew = screen.getByRole("group", { name: "Mannschaft" })
+    expect(crew.textContent!.indexOf("Weber Martin")).toBeLessThan(crew.textContent!.indexOf("Meier Andrea"))
   })
 })

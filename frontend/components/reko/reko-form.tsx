@@ -8,7 +8,7 @@ import { useTranslations } from 'next-intl'
 import { useIntlLocale } from '@/lib/date-locale'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, Binoculars, MapPin, Check } from 'lucide-react'
+import { AlertCircle, Binoculars, MapPin, Check, CircleCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient, type ApiDangersAssessment, type ApiEffortEstimation } from '@/lib/api-client'
 import { ApiError } from '@/lib/api/types'
@@ -24,6 +24,8 @@ import {
   type DraftChanges, type RecoverableDraft, type StoredRevision,
 } from './field-draft'
 import { telHref } from '@/lib/phone'
+import { ownPath } from '@/lib/own-path'
+import { unmutedToast } from '@/lib/toast-lifetime'
 import { getApiUrl } from '@/lib/env'
 import { RekoDummyGenerator } from '@/components/reko-dummy-generator'
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
@@ -52,6 +54,7 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
 }) {
   const router = useRouter()
   const t = useTranslations('reko.form')
+  const tSuccess = useTranslations('reko.success')
   const tLoading = useTranslations('common')
   const intlLocale = useIntlLocale()
 
@@ -414,17 +417,26 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
       await apiClient.submitRekoReport(incidentId, token, fields)
       acknowledged(formData, sent)
 
-      // Redirect to success page with return URL for back button functionality.
       // Intentionally keep isSubmitting/isSubmittingRef true on success so the
       // button stays disabled and no auto-save can fire until the redirect.
+      // The address, so the receipt says WHICH Einsatz went to the KP.
+      const where = incidentDetails.location || incidentTitle
+      const back = ownPath(returnTo)
+      if (back) {
+        // Opened from /feld: straight back to the list, the receipt as a toast (owner,
+        // 19.11.2026). Unmuted: the phone and /feld are quiet surfaces, where
+        // `toast.success` says nothing. `replace`: «back» must not reopen a sent form.
+        unmutedToast(tSuccess('title'), {
+          description: where || undefined,
+          icon: <CircleCheck className="text-success" aria-hidden />,
+        })
+        router.replace(back)
+        return
+      }
+      // A link from an alarm or a QR code has nowhere to go back to: the success page.
       setTimeout(() => {
-        // The address, so the success page can say WHICH Einsatz went to the KP.
         const params = new URLSearchParams()
-        const where = incidentDetails.location || incidentTitle
         if (where) params.set('ort', where)
-        if (returnTo) {
-          params.set('return_to', returnTo)
-        }
         router.push(`/reko/success?${params.toString()}`)
       }, 1000)
     } catch (error) {

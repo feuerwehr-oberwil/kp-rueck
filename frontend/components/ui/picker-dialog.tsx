@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { SurfaceStep, SurfaceStepEscHint, useOpenSurface } from '@/components/ui/surface-step'
+import { onPickerKeyDown, PICKER_FOOTER } from '@/components/ui/picker-keys'
 
 /**
  * The frame of a «pick one person» window (Fahrer, Reko zuweisen, Rekos übertragen): a
@@ -28,6 +29,10 @@ import { SurfaceStep, SurfaceStepEscHint, useOpenSurface } from '@/components/ui
  * surface as a step (surface-step.tsx, owner pick 5A) with «← Zurück», Esc back to the
  * surface, and the list in two columns across the surface's width. Zurück and Esc are
  * `onOpenChange(false)`, like Abbrechen.
+ *
+ * Keys (`picker-keys.ts`): Space ticks the focused tile, Enter is the footer's LAST button – so
+ * the main answer goes last in `footer` (it does on every caller: Abbrechen, then the answer) –
+ * and ↓ / ↑ walk from the search into the tiles and back.
  */
 export function PickerDialog({
   open,
@@ -61,6 +66,7 @@ export function PickerDialog({
         <SheetContent
           side="bottom"
           className="h-[88dvh] modal-h-tall gap-0 rounded-t-2xl [--close-centre:31px]"
+          onKeyDown={onPickerKeyDown}
         >
           <SheetHeader className="gap-1 px-4 pt-5 pb-3 pr-12 text-left">
             <SheetTitle className="text-lg leading-[1.375rem] font-semibold">{title}</SheetTitle>
@@ -70,7 +76,7 @@ export function PickerDialog({
           <SheetBody data-testid={listTestId} {...listRole} className="space-y-2 px-4 pb-4">
             {children}
           </SheetBody>
-          <SheetFooter className="mt-0 flex-row gap-2 border-t px-4 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">
+          <SheetFooter {...PICKER_FOOTER} className="mt-0 flex-row gap-2 border-t px-4 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">
             {footer}
           </SheetFooter>
         </SheetContent>
@@ -82,6 +88,8 @@ export function PickerDialog({
     if (!open) return null
     return (
       <SurfaceStep host={surface} title={title} description={description} onBack={() => onOpenChange(false)}>
+        {/* `contents`: the keys' container without a box of its own – the step lays out its rows. */}
+        <div className="contents" onKeyDown={onPickerKeyDown}>
         {toolbar && <div className="flex shrink-0 flex-col gap-3 px-5 pb-3">{toolbar}</div>}
         <div
           data-testid={listTestId}
@@ -92,17 +100,18 @@ export function PickerDialog({
         >
           {children}
         </div>
-        <DialogFooter className="shrink-0 border-t px-5 py-3">
+        <DialogFooter {...PICKER_FOOTER} className="shrink-0 border-t px-5 py-3">
           <SurfaceStepEscHint host={surface} />
           {footer}
         </DialogFooter>
+        </div>
       </SurfaceStep>
     )
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex modal-h-tall flex-col gap-0 overflow-hidden p-0">
+      <DialogContent className="flex modal-h-tall flex-col gap-0 overflow-hidden p-0" onKeyDown={onPickerKeyDown}>
         <DialogHeader className="gap-1 px-5 pt-5 pb-3 pr-12">
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription className="truncate" title={fullDescription}>{description}</DialogDescription>
@@ -111,7 +120,7 @@ export function PickerDialog({
         <div data-testid={listTestId} {...listRole} className="relative min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-5 pb-3">
           {children}
         </div>
-        <DialogFooter className="border-t px-5 py-3">{footer}</DialogFooter>
+        <DialogFooter {...PICKER_FOOTER} className="border-t px-5 py-3">{footer}</DialogFooter>
       </DialogContent>
     </Dialog>
   )

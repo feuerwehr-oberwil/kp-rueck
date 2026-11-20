@@ -630,8 +630,11 @@ describe('/feld opens a Reko auftrag straight into the form', () => {
 
     await user.click(await screen.findByText('Hauptstrasse 1'))
 
+    // With the way home: once sent, the form comes back to this list (owner, 19.11.2026).
     await waitFor(() =>
-      expect(routerPush).toHaveBeenCalledWith('/reko?incident_id=inc-1&token=form-token&personnel_id=p-1'),
+      expect(routerPush).toHaveBeenCalledWith(
+        `/reko?incident_id=inc-1&token=form-token&personnel_id=p-1&return_to=${encodeURIComponent('/feld?token=feld-token')}`,
+      ),
     )
     // No Aktionen, no Rapport — the two things a Reko trupp has no business with.
     expect(screen.queryByTestId('feld-actions')).not.toBeInTheDocument()
@@ -1029,7 +1032,7 @@ describe('/feld on a phone that is logged in to Rück', () => {
   })
 })
 
-/** #3: the person's own plan – «Ich komme um …» before they are in, «Ich bin da bis …» after. */
+/** #3: the person's own plan – «Ich komme um …» before they are in; no «bis» on /feld (20.11.2026). */
 describe('/feld · the own plan', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -1060,10 +1063,10 @@ describe('/feld · the own plan', () => {
     expect(await screen.findByRole('button', { name: /^Komme um 20:00$/ })).toBeInTheDocument()
   })
 
-  it('in: says until when they are here', async () => {
+  it('in: offers no «Ich bin da bis …» – people on /feld stay to the end', async () => {
     answer({ checked_in: true, planned_until: new Date(2026, 10, 19, 22, 0).toISOString() })
     renderWithIntl(<FeldPage />)
-    expect(await screen.findByRole('button', { name: 'Da bis 22:00' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Ich komme um/ })).not.toBeInTheDocument()
+    expect(await screen.findByText('Muster Hans')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Ich bin da bis|Da bis|Ich komme um/ })).not.toBeInTheDocument()
   })
 })

@@ -22,7 +22,7 @@
  * that confusion is exactly how the brake gets pulled at 02:00 by mistake.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Check, Copy, KeyRound, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
@@ -30,6 +30,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { apiClient } from '@/lib/api-client'
+import { useAuth } from '@/lib/contexts/auth-context'
 import { copyToClipboard } from '@/lib/utils'
 import type { ApiFeldAccessState } from '@/lib/api/types'
 import { ShellLoader } from '@/components/ui/shell-loader'
@@ -41,21 +42,69 @@ interface FeldAccessCardProps {
   bare?: boolean
 }
 
+/**
+ * The last access state seen per user + Ereignis, for the next mount (the sheets unmount when
+ * closed). Per user: the code is editor-only, and a logout does not reload the page, so a
+ * viewer signing in on the same tab must not be handed the editor's code.
+ */
+const lastAccess = new Map<string, ApiFeldAccessState>()
+const cacheKey = (userId: string, eventId: string) => `${userId}:${eventId}`
+
+/**
+ * Loads the Feld-Code while the Links & QR sheet is still closed, so even its first opening
+ * rises at its final height with the code in it instead of a skeleton that jumps (feedback
+ * 19.11.2026, as #14 did for the Fahrzeuge sheet). Quiet: on a failure the card loads it again
+ * when it mounts.
+ */
+export async function prefetchFeldAccess(userId: string, eventId: string): Promise<void> {
+  const key = cacheKey(userId, eventId)
+  if (lastAccess.has(key)) return
+  try {
+    lastAccess.set(key, await apiClient.getFeldAccess(eventId))
+  } catch {
+    // the card tries again on opening
+  }
+}
+
 export function FeldAccessCard({ eventId, bare = false }: FeldAccessCardProps) {
   const t = useTranslations('feld.access')
-  const [state, setState] = useState<ApiFeldAccessState | null>(null)
+  const userId = useAuth().user?.id
+  const key = userId ? cacheKey(userId, eventId) : null
+  const [loaded, setLoaded] = useState<{ key: string | null; state: ApiFeldAccessState | null } | null>(null)
+  // This user's state for this Ereignis: what this card loaded, else what an earlier mount (or
+  // the prefetch) did.
+  const state = loaded && loaded.key === key ? loaded.state : (key ? lastAccess.get(key) ?? null : null)
+  // Counts the states this card has set; a refresh answers only if nothing newer (a «Neu» or
+  // «Abmelden» of this card) landed while it was on its way.
+  const updates = useRef(0)
+  const setState = useCallback(
+    (next: ApiFeldAccessState) => {
+      updates.current += 1
+      if (key) lastAccess.set(key, next)
+      setLoaded({ key, state: next })
+    },
+    [key],
+  )
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
   const [confirmRegenerate, setConfirmRegenerate] = useState(false)
   const [confirmRevoke, setConfirmRevoke] = useState(false)
 
+  // Every mount refreshes: the device count moves, and another KP device may have made a new
+  // code, while the sheet is closed. A refresh that fails drops the remembered code – the card
+  // falls back to its placeholder rather than offer a code nobody confirmed.
   const load = useCallback(async () => {
+    const asked = updates.current
     try {
-      setState(await apiClient.getFeldAccess(eventId))
+      const fresh = await apiClient.getFeldAccess(eventId)
+      if (updates.current === asked) setState(fresh)
     } catch (error) {
       console.error('Failed to load feld access state:', error)
+      if (updates.current !== asked) return
+      if (key) lastAccess.delete(key)
+      setLoaded({ key, state: null })
     }
-  }, [eventId])
+  }, [eventId, key, setState])
 
   useEffect(() => {
     load()
@@ -92,6 +141,7 @@ export function FeldAccessCard({ eventId, bare = false }: FeldAccessCardProps) {
   // A skeleton of the SAME height rather than nothing: returning null until the
   // fetch lands made the card pop in and shove the link rows down a line, which
   // on a footer sheet means the row under the cursor moves as you reach for it.
+  // Only seen when neither the prefetch nor an earlier mount got through.
   if (!state) {
     return (
       <div className={bare ? 'px-3 py-2.5' : 'rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5'} aria-hidden>

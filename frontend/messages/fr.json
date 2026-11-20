@@ -334,9 +334,11 @@
       "chipUntil": "part {time}",
       "chipUntilSoon": "part {time} · dans {duration}",
       "chipUntilPast": "part {time} · échu",
-      "chipFrom": "arrive {time}",
+      "rowFrom": "dès {time}",
+      "rowUntil": "jusqu’à {time}",
+      "rowSoon": "{time} · dans {duration}",
+      "rowPast": "{time} · échu",
       "addUntil": "jusqu’à",
-      "addFrom": "arrive à",
       "ariaUntil": "Définir l’heure de départ",
       "ariaUntilSet": "Part à {time} – modifier",
       "ariaFrom": "Définir l’heure d’arrivée",
@@ -347,7 +349,6 @@
       "fieldFrom": "Arrive à",
       "selfUntil": "Je suis là jusqu’à",
       "selfFrom": "J’arrive à",
-      "selfUntilSet": "Là jusqu’à {time}",
       "selfFromSet": "J’arrive à {time}",
       "plusHours": "+{hours} h",
       "clear": "Effacer l’heure",
@@ -2264,7 +2265,6 @@
     },
     "auftraege": {
       "title": "Missions",
-      "leaderFailed": "Le chef d’intervention n’a pas pu être défini.",
       "description": "Regrouper plusieurs interventions en un itinéraire ordonné et le confier à une équipe.",
       "newAuftrag": "Nouvelle mission",
       "templatesLabel": "Modèles :",
@@ -2383,6 +2383,7 @@
       "noneFound": "Aucune personne trouvée",
       "since": "depuis {time}",
       "unavailable": "indisponible",
+      "leftAt": "départ {time}",
       "assignedChip": "attribuée",
       "assignedTo": "attribuée : {where}",
       "assignedTitle": "La personne est encore attribuée",
@@ -3312,8 +3313,7 @@
       "title": "Rapport de reconnaissance transmis",
       "description": "Ton rapport de reconnaissance est arrivé à la conduite de l’intervention.",
       "descriptionAt": "{address} – transmis à la conduite de l’intervention.",
-      "closeHint": "Tu peux maintenant fermer cette fenêtre.",
-      "back": "Retour"
+      "closeHint": "Tu peux maintenant fermer cette fenêtre."
     },
     "dashboard": {
       "invalidCode": "Code non valable ou échu. Demande à nouveau le lien.",

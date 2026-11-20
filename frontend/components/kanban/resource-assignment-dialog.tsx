@@ -46,6 +46,7 @@ import {
   sortMaterialsForAssignment,
 } from "@/components/kanban/material-assignment-list"
 import { usePersonNaming } from "@/components/person-name"
+import { onPickerKeyDown, PICK_TILE, PICKER_FOOTER } from "@/components/ui/picker-keys"
 
 interface ResourceAssignmentDialogProps {
   open: boolean
@@ -1047,6 +1048,7 @@ export function ResourceAssignmentDialog({
         )}
       >
         <button
+          {...PICK_TILE}
           onClick={() => handleToggleVehicle(vehicle)}
           disabled={isOutOfService}
           className={cn(
@@ -1376,6 +1378,7 @@ export function ResourceAssignmentDialog({
                     so it leads the free block. */}
                 {onToggleZuFuss && (
                   <button
+                    {...PICK_TILE}
                     onClick={onToggleZuFuss}
                     className={cn(
                       "flex cursor-pointer items-start gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-colors text-left",
@@ -1489,7 +1492,7 @@ export function ResourceAssignmentDialog({
   // 22px line = 31px.
   const sheet = (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[88dvh] modal-h-tall gap-0 rounded-t-2xl [--close-centre:31px]">
+      <SheetContent side="bottom" className="h-[88dvh] modal-h-tall gap-0 rounded-t-2xl [--close-centre:31px]" onKeyDown={onPickerKeyDown}>
         <SheetHeader className="gap-1 px-4 pt-5 pb-3 pr-12 text-left">
           <SheetTitle className="text-lg leading-[1.375rem] font-semibold">{getDialogTitle()}</SheetTitle>
           {destinationLine}
@@ -1497,7 +1500,7 @@ export function ResourceAssignmentDialog({
         </SheetHeader>
         <div className="flex flex-col gap-4 px-4 pb-4">{filterControls}</div>
         <SheetBody className="px-4 pb-4">{resourceList}</SheetBody>
-        <SheetFooter className="mt-0 flex-row gap-2 border-t px-4 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">
+        <SheetFooter {...PICKER_FOOTER} className="mt-0 flex-row gap-2 border-t px-4 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">
           {footerButtons}
         </SheetFooter>
       </SheetContent>
@@ -1512,7 +1515,7 @@ export function ResourceAssignmentDialog({
           The phone has its own sheet (above); this is the tablet-to-desktop dialog. */}
       {/* L: a work surface – fixed height and place (dialog-frame.ts). A Fahrer picker
           for a vehicle assigned here opens inside it as a step (`surface`, owner pick 5A). */}
-      <DialogContent size="lg" surface={getDialogTitle()} className="overflow-hidden flex flex-col">
+      <DialogContent size="lg" surface={getDialogTitle()} className="overflow-hidden flex flex-col" onKeyDown={onPickerKeyDown}>
         {/* ONE header on every size: title (18/600, 22px line) · the destination (14/500, up to
             two lines) · the counts (12, muted), 6px then 4px apart – left-aligned with the search
             field, no icon before the title (the words say what is assigned). `ps-0!` cancels the
@@ -1539,7 +1542,7 @@ export function ResourceAssignmentDialog({
 
           {/* Footer — a rule and 16px above the buttons, so the last tiles and section heads
               end at an edge instead of running into the footer's surface. */}
-          <div className="flex justify-end gap-2 border-t border-border pt-4">
+          <div {...PICKER_FOOTER} className="flex justify-end gap-2 border-t border-border pt-4">
             {footerButtons}
           </div>
         </div>
@@ -1560,12 +1563,12 @@ export function ResourceAssignmentDialog({
       surface={getDialogTitle()}
       testId="assignment-step"
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-4 px-5 pb-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 px-5 pb-4" onKeyDown={onPickerKeyDown}>
         {filterControls}
         <ScrollArea className="flex-1 min-h-0 pr-2" fadeEnd>
           {resourceList}
         </ScrollArea>
-        <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+        <div {...PICKER_FOOTER} className="flex items-center justify-end gap-2 border-t border-border pt-4">
           <SurfaceStepEscHint host={stepHost} />
           {footerButtons}
         </div>

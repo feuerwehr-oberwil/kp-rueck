@@ -225,9 +225,11 @@
       "chipUntil": "geht {time}",
       "chipUntilSoon": "geht {time} · in {duration}",
       "chipUntilPast": "geht {time} · fällig",
-      "chipFrom": "kommt {time}",
+      "rowFrom": "ab {time}",
+      "rowUntil": "bis {time}",
+      "rowSoon": "{time} · in {duration}",
+      "rowPast": "{time} · fällig",
       "addUntil": "bis",
-      "addFrom": "kommt um",
       "ariaUntil": "Geht um setzen",
       "ariaUntilSet": "Geht um {time} – ändern",
       "ariaFrom": "Kommt um setzen",
@@ -238,7 +240,6 @@
       "fieldFrom": "Kommt um",
       "selfUntil": "Ich bin da bis",
       "selfFrom": "Ich komme um",
-      "selfUntilSet": "Da bis {time}",
       "selfFromSet": "Komme um {time}",
       "plusHours": "+{hours} h",
       "clear": "Zeit löschen",
@@ -968,7 +969,6 @@
     },
     "auftraege": {
       "title": "Aufträge",
-      "leaderFailed": "Einsatzleiter konnte nicht gesetzt werden.",
       "description": "Mehrere Einsätze zu einer geordneten Route bündeln und einem Trupp übergeben.",
       "newAuftrag": "Neuer Auftrag",
       "templatesLabel": "Vorlagen:",
@@ -1087,6 +1087,7 @@
       "noneFound": "Keine Personen gefunden",
       "since": "seit {time}",
       "unavailable": "nicht verfügbar",
+      "leftAt": "gegangen {time}",
       "assignedChip": "zugewiesen",
       "assignedTo": "zugewiesen: {where}",
       "assignedTitle": "Person ist noch zugewiesen",
@@ -2780,8 +2781,7 @@
       "title": "Reko-Bericht übermittelt",
       "description": "Dein Reko-Bericht ist bei der Einsatzleitung.",
       "descriptionAt": "{address} – an die Einsatzleitung übermittelt.",
-      "closeHint": "Du kannst dieses Fenster jetzt schliessen.",
-      "back": "Zurück"
+      "closeHint": "Du kannst dieses Fenster jetzt schliessen."
     },
     "dashboard": {
       "invalidCode": "Ungültiger oder abgelaufener Code. Bitte Link erneut anfordern.",

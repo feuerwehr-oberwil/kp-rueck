@@ -779,13 +779,15 @@
   /* Modal height scale. Two steps, not the eight ad-hoc vh values this
      replaced: `compact` for confirming something, `tall` for picking from a
      list or working on a map. dvh, not vh — with vh the mobile address bar
-     pushes the footer buttons out of reach. */
+     pushes the footer buttons out of reach. A window that hangs from a fixed
+     top line sets `--modal-room` (components/ui/dialog-frame.ts), so neither
+     step reaches closer to the bottom edge than the top line is to the top. */
   .modal-h-compact {
-    max-height: 70dvh;
+    max-height: min(70dvh, var(--modal-room, 100dvh));
   }
 
   .modal-h-tall {
-    max-height: 88dvh;
+    max-height: min(88dvh, var(--modal-room, 100dvh));
   }
 
   /* Drag-and-Drop Visual Affordances */
@@ -1351,20 +1353,29 @@ html[data-snail='standing'] .firefighter-snail * {
 }
 
 /* Sheets that are not modal (the desktop footer sheets, the Aufträge sheet, the Alarmeingang)
-   come out from BEHIND the edge they stand on and go back behind it: the translate and a clip
-   at the sheet's resting edge run together, so no pixel of it is ever drawn past that edge –
-   not over the footer toolbar, not over the notification sidebar. (The app shell is a fixed
-   box, i.e. its own stacking context, so the toolbar's `z-footer` cannot cover a portalled
-   sheet; the clip is what keeps the sheet off it.) The negative insets leave the shadow.
-   A closed sheet takes no clicks while it leaves (`pointer-events` important: Radix writes
-   its own inline value). */
+   come out from BEHIND the edge they stand on and go back behind it, clipped at the sheet's
+   resting edge, so no pixel of it is ever drawn past that edge – not over the footer toolbar,
+   not over the notification sidebar. (The app shell is a fixed box, i.e. its own stacking
+   context, so the toolbar's `z-footer` cannot cover a portalled sheet; the clip is what keeps
+   the sheet off it.) A closed sheet takes no clicks while it leaves (`pointer-events`
+   important: Radix writes its own inline value).
+   BOTTOM sheets move by `translate` alone inside a static clip, the EdgeFrame
+   (components/ui/sheet.tsx): an animated clip-path runs on the main thread while the translate
+   runs on the compositor, and the two fell apart for a frame – the sheet's head stood over
+   the toolbar on open and close (19.11.2026). The frame holds for the panel's length while it
+   closes, because Radix's Portal waits for ITS animation before it unmounts frame and sheet.
+   The right-side sheets keep the paired clip-path (the negative insets leave the shadow). */
 @keyframes sheet-rise {
-  from { translate: 0 100%; clip-path: inset(-3rem -3rem 100% -3rem); }
-  to { translate: 0 0; clip-path: inset(-3rem -3rem 0 -3rem); }
+  from { translate: 0 100%; }
 }
 @keyframes sheet-sink {
-  from { translate: 0 0; clip-path: inset(-3rem -3rem 0 -3rem); }
-  to { translate: 0 100%; clip-path: inset(-3rem -3rem 100% -3rem); }
+  to { translate: 0 100%; }
+}
+@keyframes sheet-frame-hold {
+  to { opacity: 1; }
+}
+[data-slot='sheet-edge-frame'][data-state='closed'] {
+  animation: sheet-frame-hold var(--motion-panel) linear forwards;
 }
 @keyframes sheet-in-right {
   from { translate: 100% 0; clip-path: inset(-3rem 100% -3rem -3rem); }
@@ -1419,7 +1430,8 @@ body:has([data-slot='sheet-content'][data-edge-clip][data-state='open'])
     transition: none !important;
   }
   /* `none` lets Radix unmount a closing sheet at once. */
-  [data-slot='sheet-content'][data-edge-clip] {
+  [data-slot='sheet-content'][data-edge-clip],
+  [data-slot='sheet-edge-frame'] {
     animation: none !important;
   }
 }

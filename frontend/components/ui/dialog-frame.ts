@@ -22,7 +22,9 @@
  * notification sidebar (`--notification-sidebar-width`, 0 while it is closed) – whatever opened
  * them: a card, a pin, a footer pill, a row in a sheet. Only menus and small popovers sit at
  * their trigger. Heights inside S/M stay the existing scale (`modal-h-compact`,
- * `modal-h-tall`).
+ * `modal-h-tall`), capped by `--modal-room`: the room under the top line less the same gap at
+ * the bottom, so the tallest window (the Appell) ends 10vh above the screen's edge, not 2vh
+ * (feedback 19.11.2026). The cap lives here, once; globals.css reads it in the height scale.
  *
  * Phones (<768 px) keep what they had: centred on the screen, the screen less 1rem a side. A
  * phone form or picker is a bottom sheet anyway (CLAUDE.md «Phone geometry»).
@@ -33,9 +35,12 @@ const FRAME =
   'fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] w-full max-w-[calc(100%-2rem)] ' +
   'md:translate-y-0 md:left-[calc((100%_-_var(--notification-sidebar-width,0px))/2)]'
 
+/** S and M on a desk: the top line, and as much room below it as leaves the same gap below. */
+const HANG = 'md:top-[10vh] md:[--modal-room:calc(100dvh_-_20vh)]'
+
 const SIZE: Record<DialogSize, string> = {
-  sm: 'sm:max-w-lg md:top-[10vh]',
-  md: 'sm:max-w-[min(42rem,calc(100%_-_2rem))] md:top-[10vh]',
+  sm: `sm:max-w-lg ${HANG}`,
+  md: `sm:max-w-[min(42rem,calc(100%_-_2rem))] ${HANG}`,
   lg:
     'h-[88dvh] sm:max-w-[min(72rem,calc(100%_-_2rem))] md:top-8 md:h-[calc(100dvh_-_4rem)] ' +
     'md:max-w-[min(72rem,calc(100%_-_var(--notification-sidebar-width,0px)_-_4rem))]',

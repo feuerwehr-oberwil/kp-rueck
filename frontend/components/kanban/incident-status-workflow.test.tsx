@@ -139,16 +139,17 @@ describe("shared incident detail status workflow", () => {
     })
     const route: GroupResources = {
       ...emptyGroupResources,
-      personnel: [{ assignmentId: "a1", resourceId: "p9", name: "Gerber Elias", isLeader: false }],
+      personnel: [{ assignmentId: "a1", resourceId: "p9", name: "Gerber Elias", isLeader: true }],
       vehicles: [{ assignmentId: "a2", resourceId: "v1", name: "TLF", driverStay: false }],
     }
     const { result } = renderWorkflow(stop, route, [{ id: "g1", stopIds: ["incident-1"] }])
     const coverage = result.current.getResourceCoverage(stop)
 
+    // Under an Auftrag the route's leader leads; the stop's earlier EL is not marked a second time.
     expect(coverage.crew.map((member) => [member.name, member.isLeader])).toEqual([
-      ["Meier Andrea", true],
+      ["Gerber Elias", true],
       ["Roth Til", false],
-      ["Gerber Elias", false],
+      ["Meier Andrea", false],
     ])
     expect(coverage.vehicles.map((vehicle) => [vehicle.name, vehicle.driverStay, vehicle.target])).toEqual([
       ["Pio", true, { kind: "incident", operationId: "incident-1", vehicleId: "v-Pio" }],

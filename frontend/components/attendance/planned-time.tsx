@@ -2,7 +2,8 @@
 
 /**
  * «kommt um» / «geht um» – the one editor for a person's planned time (feedback 19.11.2026, #3),
- * used by the Appell's time chip (mock 6A), the check-in link and /feld.
+ * used by the Appell row's clock button (`PlannedTimeClock`, pick 2C), the check-in link's chip
+ * (`PlannedTimeChip`) and /feld.
  *
  * `PlannedTimePicker` wraps any trigger: a popover at the trigger on a desk, a bottom sheet on a
  * phone (CLAUDE.md phone forms: label above the field, footer on the keys, no keyboard until a
@@ -13,7 +14,7 @@
 
 import { cloneElement, forwardRef, useId, useState, type ComponentProps, type ReactElement } from 'react'
 import { useTranslations } from 'next-intl'
-import { LogIn, LogOut, Plus } from 'lucide-react'
+import { Clock, LogOut, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { FormMessage, fieldMessageProps, formMessageId } from '@/components/ui/form-message'
@@ -219,41 +220,42 @@ function PlannedTimeForm({
   )
 }
 
+/** The plan button's name: «Geht um setzen» / «Geht um 22:00 – ändern» (and «Kommt um …»). */
+function planButtonLabel(t: ReturnType<typeof useTranslations<'common.attendancePlan'>>, kind: PlanKind, time: string) {
+  if (kind === 'until') return time ? t('ariaUntilSet', { time }) : t('ariaUntil')
+  return time ? t('ariaFromSet', { time }) : t('ariaFrom')
+}
+
 /**
- * The Appell row's chip (mock 6A): «geht 22:00» / «kommt 20:00», dashed «+ bis» / «+ kommt um»
- * while nothing is planned; amber with the time left («· in 29'») when the person leaves within
- * the hour. A button (forwardRef) so it can be a popover trigger and takes Tab + Enter.
- * Spread props last: the popover trigger hands its `onClick` / aria state through them.
+ * The check-in link's «geht um» chip: «geht 22:00», dashed «+ bis» while nothing is planned;
+ * amber with the time left («· in 29'») when the person leaves within the hour. A button
+ * (forwardRef) so it can be a popover trigger and takes Tab + Enter. Spread props last: the
+ * popover trigger hands its `onClick` / aria state through them.
  */
 export const PlannedTimeChip = forwardRef<
   HTMLButtonElement,
-  { kind: PlanKind; at: string | null | undefined } & Omit<ComponentProps<'button'>, 'value'>
->(function PlannedTimeChip({ kind, at, className, ...props }, ref) {
+  { at: string | null | undefined } & Omit<ComponentProps<'button'>, 'value'>
+>(function PlannedTimeChip({ at, className, ...props }, ref) {
   const t = useTranslations('common.attendancePlan')
   // «in 29'» counts down on the shared minute timer, like the crew's time on duty.
   useMinuteTick()
   const now = Date.now()
   const time = formatTime(at, useIntlLocale())
-  const Icon = !time ? Plus : kind === 'until' ? LogOut : LogIn
-  const soon = kind === 'until' && !!time && leavesSoon(at, now)
+  const Icon = time ? LogOut : Plus
+  const soon = !!time && leavesSoon(at, now)
   const left = minutesUntil(at, now) ?? 0
   const label = !time
-    ? t(kind === 'until' ? 'addUntil' : 'addFrom')
-    : kind === 'from'
-      ? t('chipFrom', { time })
-      : !soon
-        ? t('chipUntil', { time })
-        : left > 0
-          ? t('chipUntilSoon', { time, duration: formatDuration(left * 60_000) })
-          : t('chipUntilPast', { time })
-  const aria = time
-    ? t(kind === 'until' ? 'ariaUntilSet' : 'ariaFromSet', { time })
-    : t(kind === 'until' ? 'ariaUntil' : 'ariaFrom')
+    ? t('addUntil')
+    : !soon
+      ? t('chipUntil', { time })
+      : left > 0
+        ? t('chipUntilSoon', { time, duration: formatDuration(left * 60_000) })
+        : t('chipUntilPast', { time })
   return (
     <button
       ref={ref}
       type="button"
-      aria-label={aria}
+      aria-label={planButtonLabel(t, 'until', time)}
       className={cn(
         'inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded-sm border px-2 text-xs transition-colors',
         'hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
@@ -268,6 +270,40 @@ export const PlannedTimeChip = forwardRef<
     >
       <Icon className="size-3.5" aria-hidden />
       {label}
+    </button>
+  )
+})
+
+/**
+ * The Appell row's plan button (owner pick 2C, 19.11.2026): a quiet square clock at the row's
+ * end – pale while nothing is planned, ink once a time is set. The time itself is the row's
+ * fact line; this only opens `PlannedTimePicker`. The row is the `group`: hovering it gives the
+ * clock its edge, so row and clock light up as one. forwardRef + props spread last, as the chip.
+ */
+export const PlannedTimeClock = forwardRef<
+  HTMLButtonElement,
+  { kind: PlanKind; at: string | null | undefined } & Omit<ComponentProps<'button'>, 'value'>
+>(function PlannedTimeClock({ kind, at, className, ...props }, ref) {
+  const t = useTranslations('common.attendancePlan')
+  const time = formatTime(at, useIntlLocale())
+  const label = planButtonLabel(t, kind, time)
+  return (
+    <button
+      ref={ref}
+      type="button"
+      aria-label={label}
+      title={label}
+      className={cn(
+        'inline-flex size-7 shrink-0 items-center justify-center rounded-sm border border-transparent transition-colors',
+        'group-hover:border-border group-hover:bg-background hover:text-foreground',
+        // ≥44px on a phone or coarse pointer – its own target beside the row's.
+        'max-md:size-11 pointer-coarse:size-11',
+        time ? 'text-foreground' : 'text-muted-foreground/50',
+        className,
+      )}
+      {...props}
+    >
+      <Clock className="size-3.5" aria-hidden />
     </button>
   )
 })

@@ -44,7 +44,7 @@ import { FeldMaterialTable } from '@/components/feld/feld-material-table'
 import { FeldMeldenSheet } from '@/components/feld/feld-melden-sheet'
 import { FeldRapportForm } from '@/components/feld/feld-rapport-form'
 import { Button } from '@/components/ui/button'
-import { PlannedTimePicker, type PlanKind } from '@/components/attendance/planned-time'
+import { PlannedTimePicker } from '@/components/attendance/planned-time'
 import { IncidentNumber } from '@/components/ui/incident-number'
 import { PriorityGlyph } from '@/components/ui/priority-glyph'
 import { SearchInput } from '@/components/ui/search-input'
@@ -52,6 +52,7 @@ import { topLoading } from '@/components/ui/top-loading-bar'
 import { useBootGate } from '@/lib/boot-cover'
 import { clearCookie, readCookie, writeCookie } from '@/lib/cookie'
 import { useIntlLocale } from '@/lib/date-locale'
+import { withReturnTo } from '@/lib/own-path'
 import { formatTime } from '@/lib/format-time'
 import { getIncidentTypeLabel } from '@/lib/incident-types'
 import {
@@ -639,16 +640,22 @@ function FeldSurface() {
    * Unless the window has closed (`rekoWindowClosed`): a Schadenplatz the KP
    * disponierte without waiting for the Reko opens as a plain read-only detail
    * — offering the form there would collect a briefing nobody reads.
+   *
+   * The form gets `return_to` = this door without a Schadenplatz: once the report is
+   * sent it comes straight back to the list with a receipt toast (owner, 19.11.2026),
+   * instead of a «Du kannst dieses Fenster jetzt schliessen» page. The remembered
+   * detail is forgotten for the same reason – the way back is the list.
    */
   const openAssignment = useCallback(async (assignment: ApiFeldAssignment) => {
-    if (assignment.source === 'reko' && !rekoWindowClosed(assignment) && token && selectedPerson) {
+    if (assignment.source === 'reko' && !rekoWindowClosed(assignment) && token && selectedPerson && linkToken) {
       try {
         const { link } = await apiClient.mintFeldRekoLink(
           assignment.incident_id,
           selectedPerson.personnel_id,
           token,
         )
-        router.push(link)
+        clearCookie(INCIDENT_COOKIE, FELD_COOKIE_SCOPE)
+        router.push(withReturnTo(link, `/feld?token=${encodeURIComponent(linkToken)}`))
       } catch (err) {
         console.error('Failed to open the reko form:', err)
       }
@@ -657,7 +664,7 @@ function FeldSurface() {
     setSelectedIncidentId(assignment.incident_id)
     setViewMode('detail')
     writeCookie(INCIDENT_COOKIE, assignment.incident_id, FELD_COOKIE_SCOPE)
-  }, [token, selectedPerson, router])
+  }, [token, selectedPerson, linkToken, router])
 
   /** Leaving via «Zurück» is the crew saying they are done with this one, so it
    *  is also what forgets it — otherwise the back button would be undone by the
@@ -770,41 +777,34 @@ function FeldSurface() {
     }
   }, [token, selectedPerson, attendanceBusy])
 
-  /** Writes one end of the own plan; rejects, so the picker says it failed. */
-  const savePlan = useCallback(async (kind: PlanKind, iso: string | null) => {
+  /** Writes «Ich komme um»; rejects, so the picker says it failed. */
+  const saveFrom = useCallback(async (iso: string | null) => {
     if (!token || !selectedPerson) return
-    await apiClient.setFeldAttendancePlan(
-      selectedPerson.personnel_id,
-      token,
-      kind === 'until' ? { planned_until: iso } : { planned_from: iso },
-    )
-    setPlan(previous => (kind === 'until' ? { ...previous, until: iso } : { ...previous, from: iso }))
+    await apiClient.setFeldAttendancePlan(selectedPerson.personnel_id, token, { planned_from: iso })
+    setPlan(previous => ({ ...previous, from: iso }))
   }, [token, selectedPerson])
 
-  /** «Ich komme um …» / «Ich bin da bis …»: one quiet button, the bottom sheet behind it. */
-  const planButton = (kind: PlanKind) => {
-    const value = kind === 'until' ? plan.until : plan.from
-    const time = formatTime(value)
-    return (
-      <PlannedTimePicker
-        kind={kind}
-        value={value}
-        other={kind === 'until' ? plan.from : plan.until}
-        title={tPlan(kind === 'until' ? 'selfUntil' : 'selfFrom')}
-        hint={tPlan('hintSelf')}
-        fieldLabel={tPlan(kind === 'until' ? 'selfUntil' : 'selfFrom')}
-        onSave={iso => savePlan(kind, iso)}
-        trigger={
-          <Button type="button" variant="outline" className="w-full">
-            <Clock className="size-4" />
-            {time
-              ? tPlan(kind === 'until' ? 'selfUntilSet' : 'selfFromSet', { time })
-              : `${tPlan(kind === 'until' ? 'selfUntil' : 'selfFrom')} …`}
-          </Button>
-        }
-      />
-    )
-  }
+  /** «Ich komme um …»: one quiet button, the bottom sheet behind it. No «Ich bin da bis …» here
+   *  (owner, 20.11.2026): somebody on /feld usually stays to the end, and the button only made
+   *  them wonder whether they must answer it. The KP still sets «bis» in the Appell. */
+  const fromTime = formatTime(plan.from)
+  const fromButton = (
+    <PlannedTimePicker
+      kind="from"
+      value={plan.from}
+      other={plan.until}
+      title={tPlan('selfFrom')}
+      hint={tPlan('hintSelf')}
+      fieldLabel={tPlan('selfFrom')}
+      onSave={saveFrom}
+      trigger={
+        <Button type="button" variant="outline" className="w-full">
+          <Clock className="size-4" />
+          {fromTime ? tPlan('selfFromSet', { time: fromTime }) : `${tPlan('selfFrom')} …`}
+        </Button>
+      }
+    />
+  )
 
   const filteredPersonnel = useMemo(() => {
     // The board's Anwesenheit and the /check-in tablet order the same roster with
@@ -1443,10 +1443,9 @@ function FeldSurface() {
             <Button size="lg" className="w-full" onClick={toggleAttendance} disabled={attendanceBusy}>
               {t('attendance.checkIn')}
             </Button>
-            <div className="mt-2">{planButton('from')}</div>
+            <div className="mt-2">{fromButton}</div>
           </section>
         )}
-        {checkedIn && planButton('until')}
 
         {/* The Magazin's inventory, when the Materialwart has nothing else on:
             then it IS their page, and it opens the screen. Somebody who is also

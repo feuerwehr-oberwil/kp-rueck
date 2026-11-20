@@ -97,7 +97,7 @@ export function CardResources({
   const t = useTranslations('kanban')
   const { materialGroups } = useMaterials()
   const { materialOnSite } = useOperations()
-  const promoteToLeader = usePromoteToLeader(operation)
+  const promoteToLeader = usePromoteToLeader()
   const naming = usePersonNaming()
   // How much of the crew row the counter is standing in for. Derived, not
   // props — `crew`/`materials` are already in the card's memo comparator.
@@ -191,7 +191,7 @@ export function CardResources({
                   menuActions={[
                     { label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') },
                     ...(canPromote
-                      ? [{ label: t('leader.promote'), icon: <LeaderGlyph />, onSelect: () => void promoteToLeader(personnelId) }]
+                      ? [{ label: t('leader.promote'), icon: <LeaderGlyph />, onSelect: () => void promoteToLeader(operation, personnelId) }]
                       : []),
                   ]}
                   removeLabel={t('chipMenu.removeFromIncident')}

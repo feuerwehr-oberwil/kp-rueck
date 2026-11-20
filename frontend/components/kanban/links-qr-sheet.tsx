@@ -41,8 +41,9 @@ import { SurfaceStep, useOpenSurface } from "@/components/ui/surface-step"
 import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { FeldAccessCard } from "@/components/feld/feld-access-card"
+import { FeldAccessCard, prefetchFeldAccess } from "@/components/feld/feld-access-card"
 import { apiClient } from "@/lib/api-client"
+import { useAuth } from "@/lib/contexts/auth-context"
 import { queueLinkQrPrint, type LinkKind } from "@/lib/link-qr-print"
 import { copyToClipboard } from "@/lib/utils"
 
@@ -128,6 +129,14 @@ export function LinksQrSheet({
       cancelled = true
     }
   }, [open, eventId, generate])
+
+  // Closed: fetch the Feld-Code once in the background, so the sheet opens with it (the code
+  // is editor-only on the server).
+  const { isEditor, user } = useAuth()
+  const userId = user?.id
+  useEffect(() => {
+    if (!open && eventId && isEditor && userId) void prefetchFeldAccess(userId, eventId)
+  }, [open, eventId, isEditor, userId])
 
   // The Appell row's count, fetched only while the sheet showing it is open.
   useEffect(() => {
