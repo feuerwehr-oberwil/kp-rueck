@@ -376,12 +376,18 @@ When clicking the "Thermo" button, a confirmation sheet opens with toggleable op
 
 ### Remote Configuration (Railway)
 
-Settings can also be configured via API using a master token (set `MASTER_TOKEN` env var on Railway):
+Settings can also be configured via API. Sign in as an editor or admin first; the audit trail
+then names that account for the change:
 
 ```bash
-TOKEN="<your-master-token>"
-curl -X PATCH https://your-backend.example.com/api/settings/printer.enabled \
-  -H "Authorization: Bearer $TOKEN" \
+BASE="https://your-backend.example.com"
+JAR="$(mktemp)"
+read -rsp "Password: " PASSWORD
+# The password goes in on stdin, so it never shows in the process list.
+printf '%s' "$PASSWORD" | curl -sS -c "$JAR" "$BASE/api/auth/login" \
+  --data-urlencode "username=<your-admin>" --data-urlencode "password@-"
+curl -sS -b "$JAR" -X PATCH "$BASE/api/settings/printer.enabled" \
   -H "Content-Type: application/json" \
   -d '{"value": "true"}'
+rm -f "$JAR"
 ```

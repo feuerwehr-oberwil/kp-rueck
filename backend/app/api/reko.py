@@ -96,7 +96,6 @@ async def _require_user_or_form_token(
     incident_id: uuid.UUID,
     reko_token: str | None,
     access_token: str | None,
-    authorization: str | None,
     db: AsyncSession,
     *,
     write: bool = False,
@@ -113,7 +112,7 @@ async def _require_user_or_form_token(
     if reko_token and validate_form_token(reko_token, str(incident_id)):
         await _require_form_token(db, reko_token, incident_id)
         return None
-    user = await get_current_user(request, access_token, authorization, db)
+    user = await get_current_user(request, access_token, db)
     if write and user.role not in ("editor", "admin"):
         raise HTTPException(status_code=403, detail="Bearbeiter-Berechtigung erforderlich")
     return user
@@ -218,7 +217,6 @@ async def submit_reko_report(
     request: Request,
     submit: bool = Query(default=True, description="Mark as submitted (not draft)"),
     access_token: str | None = Cookie(None),
-    authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
 ) -> schemas.RekoReportResponse:
     """
@@ -246,7 +244,6 @@ async def submit_reko_report(
         report_data.incident_id,
         field_token,
         access_token,
-        authorization,
         db,
         write=True,
     )
@@ -340,7 +337,6 @@ async def update_report(
     submit: bool = Query(default=False),
     x_reko_token: str | None = Header(None),
     access_token: str | None = Cookie(None),
-    authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
 ) -> schemas.RekoReportResponse:
     """Update existing Reko report (e.g., add more photos after submission).
@@ -366,7 +362,6 @@ async def update_report(
         door_id,
         x_reko_token,
         access_token,
-        authorization,
         db,
         write=True,
     )
@@ -456,7 +451,6 @@ async def get_report(
     request: Request,
     token: str | None = Query(None),
     access_token: str | None = Cookie(None),
-    authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
 ) -> schemas.RekoReportResponse:
     """Get Reko report by ID (for viewing on incident card).
@@ -470,7 +464,7 @@ async def get_report(
         raise CodedHTTPException(404, ErrorCode.REKO_REPORT_NOT_FOUND, ErrorMessages.REPORT_NOT_FOUND)
 
     door_id = await _token_door_id(db, token, report.incident_id)
-    await _require_user_or_form_token(request, door_id, token, access_token, authorization, db)
+    await _require_user_or_form_token(request, door_id, token, access_token, db)
 
     # Fetch incident title
     incident_result = await db.execute(select(Incident).where(Incident.id == report.incident_id))
@@ -591,7 +585,6 @@ async def generate_reko_link(
     form_type: str = Query("reko"),
     personnel_id: uuid.UUID | None = Query(None),
     access_token: str | None = Cookie(None),
-    authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """
@@ -616,7 +609,7 @@ async def generate_reko_link(
     # The `/reko-dashboard` door is gone with the page (plan 26, decision 24).
     # The field surface mints its own form token through `/feld` after running
     # its two-step, so this route is the board's alone again.
-    user = await get_current_user(request, access_token, authorization, db)
+    user = await get_current_user(request, access_token, db)
     if user.role not in ("editor", "admin"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bearbeiter-Berechtigung erforderlich")
 
@@ -745,7 +738,6 @@ async def upload_photo(
         description="Session door only: attach to this existing report instead of the operator's draft.",
     ),
     access_token: str | None = Cookie(None),
-    authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     """
@@ -774,9 +766,7 @@ async def upload_photo(
     if x_reko_token is not None and not validate_form_token(x_reko_token, str(incident_id)):
         raise CodedHTTPException(400, ErrorCode.REKO_LINK_INVALID, "Ungültiger Reko-Link")
 
-    user = await _require_user_or_form_token(
-        request, incident_id, x_reko_token, access_token, authorization, db, write=True
-    )
+    user = await _require_user_or_form_token(request, incident_id, x_reko_token, access_token, db, write=True)
 
     await enforce_demo_photo_limits(db, file, RekoReport.photos_json)
 
@@ -814,7 +804,6 @@ async def delete_photo(
         description="Session door only: the report the photo hangs on, when amending an existing one.",
     ),
     access_token: str | None = Cookie(None),
-    authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, bool]:
     """
@@ -835,9 +824,7 @@ async def delete_photo(
     if x_reko_token is not None and not validate_form_token(x_reko_token, str(incident_id)):
         raise CodedHTTPException(400, ErrorCode.REKO_LINK_INVALID, "Ungültiger Reko-Link")
 
-    user = await _require_user_or_form_token(
-        request, incident_id, x_reko_token, access_token, authorization, db, write=True
-    )
+    user = await _require_user_or_form_token(request, incident_id, x_reko_token, access_token, db, write=True)
 
     try:
         report = await _photo_report(db, incident_id, user, x_reko_token, report_id)
@@ -923,7 +910,6 @@ async def serve_photo(
     token: str | None = Query(None, description="Viewer share token, when there is no session"),
     reko_token: str | None = Query(None, description="Reko form token, restricted to its report's photos"),
     access_token: str | None = Cookie(None),
-    authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
 ) -> FileResponse:
     """
@@ -983,7 +969,7 @@ async def serve_photo(
     else:
         viewer_event_id = validate_viewer_token(token) if token else None
         if viewer_event_id is None:
-            current_user = await get_current_user(request, access_token, authorization, db)
+            current_user = await get_current_user(request, access_token, db)
 
     # Verify incident exists
     incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))

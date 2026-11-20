@@ -531,7 +531,6 @@ Reaktionszeiten count the place from its first report – the merge is not a dis
 graph LR
     subgraph auth["Authentication Methods"]
         jwt["JWT Token<br/><small>Login form → 8h access + 7d refresh</small>"]
-        master["Master Token<br/><small>ENV var for remote config</small>"]
         public_token["Public Tokens<br/><small>Check-In / Viewer / Reko / Alarm / Feld</small>"]
     end
 
@@ -546,7 +545,6 @@ graph LR
 
     jwt --> admin
     jwt --> editor
-    master --> admin
     public_token --> viewer
     public_token --> checkin
     public_token --> intake
@@ -583,7 +581,6 @@ them, so **a link that has to keep working past its expiry has to be re-generate
 |------------|-------------|--------|--------|
 | JWT (access) | Login form, or the loopback local login | **8 hours** (`ACCESS_TOKEN_EXPIRE_MINUTES=480`) | Full editor or admin |
 | JWT (refresh) | Login form | **7 days** (`REFRESH_TOKEN_EXPIRE_DAYS`) | Mints a new access token |
-| Master Token | Environment variable | Never | Admin-level API access – authenticates as `role="admin"` (`auth/dependencies.py`) |
 | Viewer Token | Generated in UI (QR code) | **24 hours** | Read-only board for one Ereignis – incl. the Reko result and its photos |
 | Check-In Token | Generated in UI (QR code) | **24 hours** | Personnel check-in form for one Ereignis |
 | Reko Form Token | Generated per incident (link/QR) | **24 hours** | One Reko form, for one incident |

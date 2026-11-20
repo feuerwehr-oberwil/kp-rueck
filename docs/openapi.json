@@ -96,22 +96,6 @@
         "operationId": "create_demo_sandbox_api_demo_sandbox_post",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -156,25 +140,9 @@
           "health"
         ],
         "summary": "Demo Reset",
-        "description": "Manually trigger a demo reset. Only available in demo mode, admin only.\n\nRequires admin auth: every demo visitor shares the demo-editor account, so\neditor access would let any visitor wipe and reseed every table for\neveryone. Ops access remains possible via the master token.",
+        "description": "Manually trigger a demo reset. Only available in demo mode, admin only.\n\nRequires admin auth: every demo visitor shares the demo-editor account, so\neditor access would let any visitor wipe and reseed every table for\neveryone.",
         "operationId": "demo_reset_api_demo_reset_post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -224,22 +192,6 @@
         "operationId": "download_import_template_api_admin_import_template_get",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -287,22 +239,6 @@
         "description": "Preview Excel import without committing to database.\n\nReturns first 10 rows of each sheet plus, for the given mode, how much\nexisting data the import would delete – including the assignments on running\nincidents that would be left pointing at deleted resources.",
         "operationId": "preview_excel_import_api_admin_import_preview_post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -368,22 +304,6 @@
         "operationId": "execute_excel_import_api_admin_import_execute_post",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -447,22 +367,6 @@
         "description": "Export all personnel, vehicles, and materials to Excel.",
         "operationId": "export_all_data_api_admin_export_data_get",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -732,22 +636,6 @@
         "operationId": "get_current_user_info_api_auth_me_get",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -797,22 +685,6 @@
         "description": "A short-lived token for the Socket.IO connect (sweep 27 §P3.4).\n\nThe socket's own auth reads the `access_token` cookie, which never reaches\nthe backend on split-origin deployments (Railway staging, kp.fwo.li →\nkp-api.fwo.li) — every connect was rejected under `ws_require_auth` and\nclients silently fell back to 5s polling. The frontend fetches this token\nsame-origin through its proxy (the cookie rides along HERE), then passes it\nin the Socket.IO `auth` payload; the connect handler accepts either.\n\nNot rate-limited beyond the client's own behaviour: it is fetched once per\nconnection attempt, requires a valid session, and grants nothing but a\n60-second connect.",
         "operationId": "get_ws_token_api_auth_ws_token_get",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -1071,22 +943,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -1141,22 +997,6 @@
         "operationId": "list_templates_api_auftrag_templates__get",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -1208,22 +1048,6 @@
         "description": "Create a Standard-Auftrag (editor only).",
         "operationId": "create_template_api_auftrag_templates__post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -1285,22 +1109,6 @@
         "operationId": "reorder_templates_api_auftrag_templates_reorder_post",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -1361,22 +1169,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Template Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -1445,22 +1237,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Template Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -1542,22 +1318,6 @@
         "operationId": "export_diagnostics_api_diag_export_get",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -1610,22 +1370,6 @@
         "operationId": "telemetry_status_api_diag_telemetry_get",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -1677,22 +1421,6 @@
         "description": "Turn the background channel on or off. Off also discards whatever is still queued.",
         "operationId": "update_consent_api_diag_telemetry_consent_put",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -1756,22 +1484,6 @@
         "operationId": "rotate_install_id_api_diag_telemetry_install_id_post",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -1823,22 +1535,6 @@
         "description": "Which address the backend takes for the caller, and where it read it – admin only.\n\nFor checking a deployment's proxy chain: open it once through the app\n(`/backend-api/api/diag/client-address`) and once on the backend's own domain, and both\n`address` values should be your own public address. The same address on every device\nmeans every caller shares one rate-limit and Feld-Code bucket (docs/RAILWAY.md).",
         "operationId": "client_address_api_diag_client_address_get",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -2004,22 +1700,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -2077,22 +1757,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Emergency Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -2154,22 +1818,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -2220,22 +1868,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Emergency Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -2309,22 +1941,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -2377,22 +1993,6 @@
         "description": "Attach multiple Divera emergencies to an Event.\n\nCreates an Incident for each emergency and links them to the Event.\nMax 100 emergencies per request.\n\nReturns list of created Incidents.",
         "operationId": "bulk_attach_emergencies_api_divera_emergencies_bulk_attach_post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -2454,22 +2054,6 @@
         "operationId": "get_personnel_sync_preview_api_divera_personnel_sync_preview_get",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -2519,22 +2103,6 @@
         "description": "Execute personnel sync from Divera.\n\nFetches current members from Divera, compares with DB, and applies changes.\nOptionally removes personnel not found in Divera.\n\nEditor role required; `remove_stale` (deleting personnel) requires admin. Divera access key\nmust be configured.",
         "operationId": "execute_personnel_sync_api_divera_personnel_sync_execute_post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -2606,22 +2174,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -2682,22 +2234,6 @@
         "operationId": "list_divera_members_api_divera_members_get",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -2752,22 +2288,6 @@
         "operationId": "list_divera_groups_api_divera_groups_get",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -2821,22 +2341,6 @@
         "description": "Post an informational Mitteilung (not an alarm) to the unit.\n\nThis is the setup checklist's standby message — \"KP-Rück ist aktiv, Telefon\nmitnehmen\" — which used to be a WhatsApp text pasted by hand. It is\ndeliberately NOT an alarm: everybody should read it, nobody should be woken\nby a siren, and no pager is touched.\n\nSame gating as an alarm (provider configured, ``alerting.enabled``, not\ndemo, editor role), because it still lands on every addressed phone. Who\nreceives it is explicit: named groups, or a deliberate «alle» — the request\nschema has no default.",
         "operationId": "send_divera_message_api_divera_message_post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -2897,22 +2401,6 @@
         "description": "Send a setup test alarm (push only) to a single Divera member.\n\nUsed from Settings to verify the Divera connection. Same gating as a real\nalarm minus the incident/training checks. Targets the chosen Divera user\ndirectly, so it works before any local personnel are linked.\n\nGoes through the AlarmProvider seam rather than calling the Divera client\ndirectly, so the one place that can refuse to alert (deployment role) covers\nthe test button too — a test alarm is a real push to a real phone.",
         "operationId": "send_test_alarm_api_divera_test_alarm_post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -2984,22 +2472,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -3060,22 +2532,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -3125,22 +2581,6 @@
         "description": "Get Divera polling status.\n\nReturns information about the polling fallback mechanism:\n- Whether polling is configured (access key set)\n- Whether polling is currently active (users connected)\n- Last poll time\n- Poll and error counts",
         "operationId": "get_polling_status_api_divera_polling_status_get",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -3223,22 +2663,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -3286,22 +2710,6 @@
         "description": "Create a new event (editor only), including the automatic Standard-Aufträge.",
         "operationId": "create_event_api_events__post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -3373,22 +2781,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -3444,22 +2836,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Event Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -3531,22 +2907,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -3597,22 +2957,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Event Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -3688,22 +3032,6 @@
             "description": "Also check out everyone still present; Abmeldezeit = archived_at (Ereignisende)."
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -3761,22 +3089,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Event Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -3850,22 +3162,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -3921,22 +3217,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Event Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -4017,22 +3297,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Entry Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -4305,22 +3569,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -4376,22 +3624,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Event Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -4453,22 +3685,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -4524,22 +3740,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Event Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -4640,22 +3840,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -4707,22 +3891,6 @@
         "description": "Create new incident (editor only).\n\nVerifies that the event exists before creating the incident.\nTriggers immediate sync (event-based) after creation.",
         "operationId": "create_incident_api_incidents__post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -4790,22 +3958,6 @@
             "schema": {
               "type": "string",
               "title": "Event Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -4949,22 +4101,6 @@
             "description": "The card being checked, when it already exists"
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -5014,22 +4150,6 @@
         "description": "«Zusammenführen» from «Neuer Einsatz»: the report becomes a Nachtrag on `target_id`.\n\nNo new card. The report is still written as its own row (soft-deleted,\n`merged_into_id` set) because it carries the Melder and the provenance, and\nbecause that row is what «Trennen» brings back. Audited on both rows and in\nthe target's Verlauf.",
         "operationId": "merge_new_report_api_incidents_merge_report_post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -5101,22 +4221,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -5172,22 +4276,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -5259,22 +4347,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -5317,22 +4389,6 @@
         "description": "Persist the manual top-to-bottom card order for a status column (editor only).\n\n`ordered_ids` lists the column's cards in their new order; each card's\nposition is set to its index. Broadcasts so other boards pick up the order.",
         "operationId": "reorder_incidents_api_incidents_reorder_post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -5394,22 +4450,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -5483,22 +4523,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -5554,22 +4578,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -5643,22 +4651,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -5718,22 +4710,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -5807,22 +4783,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -5882,22 +4842,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -5981,22 +4925,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -6064,22 +4992,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -6153,22 +5065,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -6224,22 +5120,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -6310,22 +5190,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -6408,22 +5272,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -6496,22 +5344,6 @@
             "description": "Also answer from a rapport that is still a draft. For the completion gate's prefill only."
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -6567,22 +5399,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -6656,22 +5472,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -6729,22 +5529,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -6808,22 +5592,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -6881,22 +5649,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -6970,22 +5722,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -7046,22 +5782,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -7119,22 +5839,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -7208,22 +5912,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -7275,22 +5963,6 @@
         "description": "Create a new Auftrag (editor only). Verifies the event exists.",
         "operationId": "create_group_api_incident_groups__post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -7352,22 +6024,6 @@
         "operationId": "reorder_groups_api_incident_groups_reorder_post",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -7428,22 +6084,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Group Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -7515,22 +6155,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -7581,22 +6205,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Group Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -7670,22 +6278,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -7746,22 +6338,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Group Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -7845,22 +6421,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -7911,22 +6471,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Group Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -8010,22 +6554,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -8076,22 +6604,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Group Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -8169,22 +6681,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -8245,22 +6741,6 @@
         "operationId": "get_integrations_api_integrations_get",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -8310,22 +6790,6 @@
         "description": "The last roster-snapshot run: outcome report, held/stale flags, the last good file.\n\n``configured`` is false and ``status`` null on a station that never set a source.",
         "operationId": "get_roster_snapshot_status_api_integrations_roster_snapshot_get",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -8378,22 +6842,6 @@
         "description": "Read the roster snapshot now. A refused or held run is a 200 carrying the reason — the\nreport is the answer; only «no source configured» is an error.",
         "operationId": "sync_roster_snapshot_api_integrations_roster_snapshot_sync_post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -8471,22 +6919,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -8570,22 +7002,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -8636,22 +7052,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -8729,22 +7129,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -8812,22 +7196,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Event Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -8906,22 +7274,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -8973,22 +7325,6 @@
         "description": "Create new personnel (editor only) – 409 when name + Kennung is already on the roster.\n\nWith `guest_event_id` the person is a guest of that Ereignis: listed there only, never in\nthe roster (the walk-in «Person hinzufügen»). 404 when that Ereignis does not exist.",
         "operationId": "create_personnel_api_personnel__post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -9060,22 +7396,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -9131,22 +7451,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Personnel Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -9218,22 +7522,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -9276,22 +7564,6 @@
         "description": "Update sort orders for personnel role categories (editor only).\n\nThis endpoint allows reordering how personnel are grouped by role.\nAll personnel with the same role will get the same sort_order value.",
         "operationId": "update_role_sort_orders_api_personnel_categories_sort_order_post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -9361,22 +7633,6 @@
               "title": "Event Id"
             },
             "description": "Event ID for check-in"
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
           },
           {
             "name": "access_token",
@@ -9492,22 +7748,6 @@
             "description": "List unavailable personnel too (board roll-call shows them disabled)"
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -9603,22 +7843,6 @@
               "title": "Event Id"
             },
             "description": "Event ID (board, requires an editor session)"
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
           },
           {
             "name": "access_token",
@@ -9718,22 +7942,6 @@
             "description": "Event ID (board, requires an editor session)"
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -9831,22 +8039,6 @@
             "description": "Event ID (board, requires an editor session)"
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -9929,22 +8121,6 @@
             "description": "Event whose attendance row is removed"
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -10002,22 +8178,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Event Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -10110,22 +8270,6 @@
               "title": "Event Id"
             },
             "description": "Event ID (board, requires a session)"
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
           },
           {
             "name": "access_token",
@@ -10224,22 +8368,6 @@
         "operationId": "get_printer_status_api_print_status__get",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -10300,22 +8428,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -10365,22 +8477,6 @@
         "description": "Queue a board snapshot for printing.",
         "operationId": "queue_board_print_api_print_board__post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -10452,22 +8548,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -10518,22 +8598,6 @@
         "operationId": "queue_test_print_api_print_test__post",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -10583,22 +8647,6 @@
         "description": "Queue a QR-code slip (shareable link as QR + text) for printing.\n\n``code`` / ``valid_until`` ride along untouched when the caller sends them\n(the Feld slip does, nothing else). They are the only reason a scanned Feld\nposter does not strand its reader at a code prompt — see\n``PrintQRCodeRequest`` and ``format_qr_code_slip`` in the agent, which prints\nboth under the QR and skips them when absent.",
         "operationId": "queue_qr_code_print_api_print_qr_code__post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -10742,22 +8790,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -10813,22 +8845,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Job Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -11005,22 +9021,6 @@
             "description": "Include archived vehicles. Off for the board, on for «Archivierte anzeigen»."
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -11072,22 +9072,6 @@
         "description": "Create new vehicle (editor only).",
         "operationId": "create_vehicle_api_vehicles__post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -11161,22 +9145,6 @@
             "description": "Event whose drivers and Einsätze are read"
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -11241,22 +9209,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -11312,22 +9264,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Vehicle Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -11411,22 +9347,6 @@
             "description": "Delete the row for good instead of archiving it. Only from the archive, and only for vehicles that never stood on a live Einsatz."
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -11477,22 +9397,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Vehicle Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -11553,22 +9457,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Vehicle Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -11634,22 +9522,6 @@
             "description": "Include archived materials. Off for the board, on for «Archivierte anzeigen»."
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -11701,22 +9573,6 @@
         "description": "Create new material (editor only).",
         "operationId": "create_material_api_materials__post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -11788,22 +9644,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -11859,22 +9699,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Material Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -11958,22 +9782,6 @@
             "description": "Delete the row for good instead of archiving it. Only from the archive, and only for material that never stood on a live Einsatz."
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -12024,22 +9832,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Material Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -12103,22 +9895,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -12168,22 +9944,6 @@
         "description": "Update sort orders for material location categories (editor only).\n\nThis endpoint allows reordering how materials are grouped by location.\nAll materials with the same location will get the same sort_order value.",
         "operationId": "update_location_sort_orders_api_materials_categories_sort_order_post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -12243,22 +10003,6 @@
         "operationId": "list_material_groups_api_material_groups__get",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -12310,22 +10054,6 @@
         "description": "Create a material group and optionally assign materials to it.",
         "operationId": "create_material_group_api_material_groups__post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -12397,22 +10125,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -12478,22 +10190,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Group Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -12622,22 +10318,6 @@
             "description": "Mark as submitted (not draft)"
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -12734,22 +10414,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -12834,22 +10498,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -12907,22 +10555,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -13070,22 +10702,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -13141,22 +10757,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Event Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -13252,22 +10852,6 @@
                 }
               ],
               "title": "X-Reko-Token"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -13383,22 +10967,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -13454,22 +11022,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -13530,22 +11082,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -13629,22 +11165,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -13724,22 +11244,6 @@
             "description": "Event ID"
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -13795,22 +11299,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Personnel Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -13879,22 +11367,6 @@
             "description": "Event ID for the field surface"
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -13959,22 +11431,6 @@
             "description": "Event ID"
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -14037,22 +11493,6 @@
             "description": "Event ID"
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -14113,22 +11553,6 @@
               "title": "Event Id"
             },
             "description": "Event ID"
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
           },
           {
             "name": "access_token",
@@ -14235,22 +11659,6 @@
               "title": "Token"
             },
             "description": "Access token from the generated /feld link"
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
           },
           {
             "name": "access_token",
@@ -15723,22 +13131,6 @@
             "description": "Reko form token, restricted to its report's photos"
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -15799,22 +13191,6 @@
         "operationId": "get_all_settings_api_settings__get",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -15869,22 +13245,6 @@
         "operationId": "get_report_logo_api_settings_branding_logo_get",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -15930,22 +13290,6 @@
         "description": "Upload/replace the station logo (editor only). Returns the stored size in bytes.",
         "operationId": "upload_report_logo_api_settings_branding_logo_put",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -16009,22 +13353,6 @@
         "operationId": "delete_report_logo_api_settings_branding_logo_delete",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -16067,22 +13395,6 @@
         "description": "Show the current webhook secret to an admin, and say where it comes from.",
         "operationId": "reveal_alarm_webhook_secret_api_settings_alarm_webhook_secret_get",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -16133,22 +13445,6 @@
         "description": "Generate a new webhook secret. Refuses when the environment pins one.",
         "operationId": "rotate_alarm_webhook_secret_api_settings_alarm_webhook_secret_rotate_post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -16209,22 +13505,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -16279,22 +13559,6 @@
             "schema": {
               "type": "string",
               "title": "Key"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -16432,22 +13696,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -16507,22 +13755,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Event Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -16591,22 +13823,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Event Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -16680,22 +13896,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Personnel Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -16783,22 +13983,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -16854,22 +14038,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Event Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -16931,22 +14099,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -17002,22 +14154,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Conflict Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -17089,22 +14225,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -17165,22 +14285,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -17235,22 +14339,6 @@
         "operationId": "get_traccar_status_api_traccar_status_get",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -17300,22 +14388,6 @@
         "description": "Get current GPS positions of all tracked vehicles.",
         "operationId": "get_vehicle_positions_api_traccar_positions_get",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -17385,22 +14457,6 @@
             "description": "Trail duration in minutes"
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -17467,22 +14523,6 @@
             "description": "Event ID to get notifications for"
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -17547,22 +14587,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -17605,22 +14629,6 @@
         "description": "Get current notification threshold settings.\n\nAvailable to all authenticated users.",
         "operationId": "get_notification_settings_api_notifications_settings__get",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -17669,22 +14677,6 @@
         "description": "Update notification thresholds (Editor only).\n\nOnly editors can modify notification settings.",
         "operationId": "update_notification_settings_api_notifications_settings__patch",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -17753,22 +14745,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Event Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -17843,22 +14819,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Event Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -17938,22 +14898,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -18007,22 +14951,6 @@
         "description": "List all training locations.",
         "operationId": "list_locations_api_training_locations__get",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -18085,22 +15013,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Event Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -18181,22 +15093,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -18287,22 +15183,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -18373,22 +15253,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -18446,22 +15310,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Event Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -18545,22 +15393,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -18628,22 +15460,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -18717,22 +15533,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -18790,22 +15590,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Event Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -18879,22 +15663,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -18962,22 +15730,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -19061,22 +15813,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -19144,22 +15880,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Incident Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -19250,22 +15970,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -19315,22 +16019,6 @@
         "description": "List active simulated drives.",
         "operationId": "list_gps_simulations_api_training_gps_sim__get",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -19385,22 +16073,6 @@
         "description": "Start a simulated GPS drive for a vehicle (training use).\n\nThe simulated positions feed the exact same pipeline as real Traccar data,\nso trainees get the real deal: map movement, distance labels, geofence\nnotification and the arrival/return prompts.",
         "operationId": "start_gps_simulation_api_training_gps_sim_start_post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -19462,22 +16134,6 @@
         "operationId": "set_gps_simulation_speed_api_training_gps_sim_speed_post",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -19538,22 +16194,6 @@
         "operationId": "stop_gps_simulation_api_training_gps_sim_stop_post",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -19612,22 +16252,6 @@
         "operationId": "list_users_api_users__get",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -19679,22 +16303,6 @@
         "description": "Create a new user (admin only).\n\nArgs:\n    user_data: User creation data including username, password, role, display_name",
         "operationId": "create_user_api_users__post",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -19766,22 +16374,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -19837,22 +16429,6 @@
               "type": "string",
               "format": "uuid",
               "title": "User Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -19934,22 +16510,6 @@
             }
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -20000,22 +16560,6 @@
               "type": "string",
               "format": "uuid",
               "title": "User Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           },
           {
@@ -20082,22 +16626,6 @@
               "title": "Event Id"
             },
             "description": "Event ID for viewer access"
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
           },
           {
             "name": "access_token",
@@ -20217,22 +16745,6 @@
             "description": "Viewer token (wall display)"
           },
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -20335,22 +16847,6 @@
               "title": "Event Id"
             },
             "description": "Event ID for alarm intake"
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
           },
           {
             "name": "access_token",
