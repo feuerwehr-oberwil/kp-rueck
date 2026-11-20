@@ -373,7 +373,7 @@ class Settings(BaseSettings):
             ("PRINT_AGENT_TOKEN", self.print_agent_token),
             ("ALARM_WEBHOOK_SECRET", self.alarm_webhook_secret),
         ):
-            # The whole value counts, as for SECRET_KEY: the callers compare it untrimmed.
+            # The value counts as it is stored, like SECRET_KEY. Set it without spaces around it.
             if value and len(value) < 32 and name in REFUSED_WHEN_SHORT and is_production_environment():
                 raise ValueError(
                     f"{name} must be at least 32 characters long in production (current: "
