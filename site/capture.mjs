@@ -1,47 +1,56 @@
 #!/usr/bin/env node
 /**
- * Capture real light/dark screenshots for the landing page.
- * Night variants live in shots/dark/; the day hero remains the link preview.
- * --theme light|dark limits capture to one theme; --site-only skips README images.
+ * Capture the screenshots for the landing page and the README.
  *
- *   node site/capture.mjs                       # gegen die öffentliche Demo
- *   node site/capture.mjs --scale 2 --only board,karte   # README-Bilder in 2x nachziehen
+ *   node site/capture.mjs                          # against the public demo
  *   node site/capture.mjs --base http://localhost:3000
- *   node site/capture.mjs --only board,karte    # nur einzelne Shots
+ *   node site/capture.mjs --only board,feld        # only these names (both devices)
+ *   node site/capture.mjs --device phone           # only one device
+ *   node site/capture.mjs --scale 2 --docs-only    # the README PNGs in 2x
  *
- * Drives a real instance with Playwright as a demo editor and hides transient demo
- * chrome. Image names match shots.items in content/de.json; translations inherit them.
+ * Drives a real instance with Playwright as the demo editor and hides the demo chrome. Every
+ * shot exists per device, in both themes:
  *
- * Gegen eine nicht-öffentliche Instanz: KP_RUECK_USER / KP_RUECK_PASS setzen.
+ *   desktop – 1500×937, the board as the KP sees it → shots/desktop/<name>.webp
+ *   phone   – 390×844 at 3x, scaled to 780 wide    → shots/phone/<name>.webp
+ *
+ * Night twins go to shots/dark/<device>/. The board also writes the hero's small version
+ * (desktop/board-992.webp) and the link preview (shots/board.jpg). The image names are the
+ * contract with `hero.img` and `chapters.items[].img` in site/content/de.json – rename one
+ * here, rename it there.
+ *
+ * Against a non-public instance: set KP_RUECK_USER / KP_RUECK_PASS.
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
-// Playwright liegt im Frontend-Workspace; im Repo-Root gibt es keine node_modules.
+// Playwright lives in the frontend workspace; the repo root has no node_modules.
 const { chromium } = await import('@playwright/test')
   .catch(() => import('../frontend/node_modules/@playwright/test/index.mjs'))
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SHOTS = join(HERE, 'shots')
-// Die README-Bilder entstehen aus denselben Seitenzuständen wie die Landingpage-Shots.
-// Vorher wurden sie von Hand geschossen und waren dadurch ein halbes Jahr alt, während
-// site/shots/ aktuell blieb — ein Shot mit `docs:` schreibt jetzt beides in einem Durchgang.
+// The README images come out of the same page states – a shot with `docs:` writes both in one
+// pass, so they cannot drift apart.
 const DOCS_IMAGES = join(HERE, '..', 'docs', 'images')
 
 const DEFAULT_BASE = 'https://demo.kp-rueck.ch'
-const VIEWPORT = { width: 1500, height: 937 } // 1.6:1 – dieselbe Kachelform wie bei KP Front
-// Die öffentlichen Formulare sind für das Handy gebaut; enger Ausschnitt, gleiches Verhältnis.
-const FORM_VIEWPORT = { width: 900, height: 562 }
-// Die Landingpage liefert WebP: dieselbe Aufnahme wiegt rund halb so viel wie das JPEG von
-// früher. Encodiert wird im Chromium, den Playwright ohnehin mitbringt – keine zweite
-// Abhängigkeit, nichts, was auf dem Rechner installiert sein müsste.
-const WEBP_QUALITY = 0.8
-// Breiter als das wird das Hero-Bild nie gezeigt (.wrap = 1040 px minus 2×24 px Innenabstand).
-// Diese zweite, kleine Fassung ist die, die Telefone und 1x-Bildschirme laden.
+// KP Rück sets no `viewport-fit=cover`: on a phone the app starts below the status bar and ends
+// above the home indicator. The picture adds those gaps back (`pad`, in points – KP Front keeps
+// the same 19/14 of its safe area), filled with the page's own colours, so the screen's rounded
+// corner never cuts into the app's first line. (Playwright's `devices['iPhone 14']` is the Safari
+// viewport, 390×664 – too short for an installed app.)
+const DEVICES = {
+  desktop: { viewport: { width: 1500, height: 937 }, mobile: false, width: 1500 },
+  phone: { viewport: { width: 390, height: 844 }, mobile: true, scale: 3, width: 780, pad: { top: 19, bottom: 14 } },
+}
+// The hero's desktop picture is never shown wider than 992 px (.wrap = 1040 px minus 2×24 px).
+// This second, small version is the one phones and 1x screens load.
 const HERO_W = 992
-// Das einzige verbliebene JPEG: die Linkvorschau (og:image). WhatsApp, Facebook und Co.
-// zeigen kein WebP.
+// The encoding happens inside the Chromium Playwright ships anyway – no second dependency.
+const WEBP_QUALITY = 0.8
+// The one JPEG: link previews (og:image). WhatsApp, Facebook and friends show no WebP.
 const OG_QUALITY = 0.82
 
 const argv = process.argv.slice(2)
@@ -51,158 +60,28 @@ const arg = (name) => {
 }
 const base = (arg('base') || DEFAULT_BASE).replace(/\/$/, '')
 const only = arg('only')?.split(',').map((s) => s.trim()).filter(Boolean)
-// Nur die README-Bilder neu schreiben und die Landingpage-JPEGs in Ruhe lassen. Nötig,
-// weil beide Ausgaben aus derselben Aufnahme stammen, aber nicht dieselbe Auflösung
-// wollen: die Landingpage bindet inline ein (1x), die README-Bilder werden auf GitHub
-// vergrössert (2x). Also: erst der normale Lauf, dann `--scale 2 --docs-only`.
+// The README PNGs are viewed enlarged on GitHub and want 2x: the normal run first, then
+// `--scale 2 --docs-only`.
 const docsOnly = argv.includes('--docs-only')
 const siteOnly = argv.includes('--site-only')
 const requestedTheme = arg('theme')
 if (requestedTheme && !['light', 'dark'].includes(requestedTheme)) throw new Error('--theme must be light or dark')
 const themes = requestedTheme ? [requestedTheme] : docsOnly ? ['light'] : ['light', 'dark']
 if (docsOnly && (siteOnly || requestedTheme === 'dark')) throw new Error('--docs-only requires light theme and cannot be combined with --site-only')
-// Auflösung der Aufnahme. 1 reicht für die Landingpage (sie bindet die Bilder inline ein,
-// Seitengewicht zählt dort). Die README-Bilder werden auf GitHub auf Retina-Displays
-// betrachtet und wurden früher von Hand mit 2x geschossen — darum `--scale 2` für den
-// docs-Durchgang. Die width/height-Angaben in content/de.json bleiben davon unberührt.
+// Desktop capture resolution: 1 for the page, 2 for the README images (see above).
 const scale = Number(arg('scale') || 1)
+if (arg('device') && !['desktop', 'phone'].includes(arg('device'))) throw new Error('--device must be desktop or phone')
 
-/** Ein Shot = eine Route, optional eine Vorbereitung (Dialog öffnen o. ä.).
- *  `hero` markiert das eine Bild, das die Landingpage zuoberst zeigt – es bekommt zusätzlich
- *  die kleine Fassung fürs Telefon und das JPEG für die Linkvorschau. */
-const shots = [
-  { name: 'board', path: '/', settle: 2500, note: 'Hero: Einsatzboard', docs: 'dashboard', hero: true },
-  {
-    name: 'karte',
-    path: '/map',
-    settle: 4000,
-    note: 'Karte mit Einsätzen und Fahrzeugen',
-    docs: 'map-view',
-    // Die Karte startet auf der ganzen Region; für das Bild auf das Einsatzgebiet
-    // hineinzoomen (Leaflet-Scrollzoom auf den Cluster).
-    prep: async (page) => {
-      await page.mouse.move(560, 505)
-      let i = 0
-      while (i < 2) {
-        await page.mouse.wheel(0, -400)
-        await page.waitForTimeout(700)
-        i++
-      }
-      // Der Zeiger stand zum Zoomen über der Karte – dort öffnet er sonst die Hover-Karte des
-      // Einsatzes darunter.
-      await page.mouse.move(1, 1)
-      await page.waitForTimeout(2500)
-    },
-  },
-  {
-    name: 'disposition',
-    path: '/',
-    settle: 1500,
-    prep: async (page) => {
-      await page.getByRole('button', { name: /^Fahrzeuge$/ }).click()
-      await page.waitForTimeout(1200)
-    },
-  },
-  {
-    name: 'auftraege',
-    path: '/',
-    settle: 1500,
-    note: 'Auftrag aufgeklappt: die Einsätze der Route mit den nächsten Schritten',
-    prep: async (page) => {
-      await page.getByRole('button', { name: /^Aufträge$/ }).click()
-      await page.waitForTimeout(1500)
-      // Den bestehenden Auftrag aufklappen, damit die Route und die nächsten
-      // Schritte sichtbar werden (nicht «Neuer Auftrag» erwischen).
-      await page.getByText(/erledigt$/).first().click()
-      await page.waitForTimeout(2000)
-    },
-  },
-  {
-    name: 'meldung',
-    path: '/',
-    settle: 1500,
-    viewport: FORM_VIEWPORT,
-    note: 'Das öffentliche Meldeformular (Telefon/Laufkundschaft), über den Teilen-Link',
-    prep: async (page) => {
-      const { link } = await mintLink(page, '/api/intake/generate-link')
-      await page.goto(base + link, { waitUntil: 'domcontentloaded', timeout: 60000 })
-      await page.waitForTimeout(3500)
-      // Beispielmeldung eintippen (nicht abschicken) — ein leeres Formular mit rot
-      // markiertem Pflichtfeld sieht nach Fehler aus, nicht nach Werkzeug. Die
-      // Adresse gehört seit dem Einsatzort-Zwang dazu; Enter übernimmt den
-      // Freitext (ein Blur mit offenem Geocoder-Dropdown tut es nicht).
-      await page.getByPlaceholder(/Adresse (suchen|eingeben)/i).fill('Mühlemattstrasse 15, Oberwil')
-      await page.getByPlaceholder(/Adresse (suchen|eingeben)/i).press('Enter')
-      await page.getByPlaceholder(/Brennt im Keller/i).fill('Wasser läuft über die Lichtschächte in den Heizungsraum')
-      await page.getByPlaceholder(/Name der meldenden Person/i).fill('Marina Kaufmann')
-      await page.getByPlaceholder(/079/).fill('079 123 45 67')
-      // Das Tippen scrollt mit — für das Bild zurück an den Anfang des Formulars
-      await page.evaluate(() => window.scrollTo(0, 0))
-      await page.waitForTimeout(600)
-    },
-  },
-  {
-    name: 'reko',
-    path: '/',
-    settle: 1500,
-    viewport: FORM_VIEWPORT,
-    note: 'Das Reko-Formular auf dem Handy des Trupps, über den Teilen-Link',
-    prep: async (page) => {
-      // Der Reko-Link ist weg — /feld hat die Fläche übernommen. Der Weg zum
-      // Formular ist die Feld-Tür, als die Reko-Person, die die Sandbox säät
-      // (Brunner Sarah auf «Wasser in Tiefgarage»).
-      await enterFeldDoor(page, base)
-      await page.getByPlaceholder(/^Name suchen( …|\.\.\.)$/).fill('Brunner')
-      await page.locator('button').filter({ hasText: /Brunner Sarah/ }).first().click()
-      await page.waitForTimeout(2500)
-      await page.locator('button').filter({ hasText: /Reko erfassen/ }).first().click()
-      await page.waitForTimeout(3000)
-    },
-  },
-  {
-    name: 'feld',
-    path: '/',
-    settle: 1500,
-    viewport: FORM_VIEWPORT,
-    note: 'Die eigenen Schadenplätze auf dem Handy des Trupps, über den Feld-Link',
-    // Überspringt sich, solange die Instanz den Feld-Knopf nicht hat. Die Demo
-    // hinkt dem Board naturgemäss hinterher — sie wird aus `main` deployt, und
-    // ein Shot kann erst entstehen, wenn das Feature dort angekommen ist. Ohne
-    // diesen Ausstieg risse ein voller `node site/capture.mjs`-Lauf ab und man
-    // verlöre auch die acht Bilder, die sich sehr wohl aufnehmen liessen.
-    skipIf: async (page) =>
-      // Kein Feld-Link auf dieser Instanz = die Ansicht gibt es dort nicht.
-      !(await mintLink(page, '/api/feld/access', 'GET').then(() => true, () => false)),
-    prep: async (page) => {
-      await enterFeldDoor(page, base)
-      // Die Personenauswahl zuerst: ein Trupp MIT Zuteilung, sonst bliebe
-      // «Meine Schadenplätze» leer. Die Sandbox gibt Schneider Peter den
-      // laufenden Einsatz mit Trawa und Pumpen — die vollste Kachel.
-      // Die Liste ist ein Stationsbestand — erst suchen, dann klicken.
-      await page.getByPlaceholder(/^Name suchen( …|\.\.\.)$/).fill('Schneider')
-      await page.locator('button').filter({ hasText: /Schneider Peter/ }).first().click()
-      await page.waitForTimeout(2500)
-      // Dann in den Schadenplatz hinein. Die Liste allein füllt das Bild nicht
-      // — drinnen steht, worum es geht: Meldung, Mannschaft, und was der Trupp
-      // von hier aus melden kann.
-      const firstPlatz = page.locator('button').filter({ hasText: /strasse|gasse|weg|platz/i }).first()
-      if (await firstPlatz.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await firstPlatz.click()
-        await page.waitForTimeout(3000)
-      }
-    },
-  },
-  { name: 'display', path: '/display/board', settle: 4000, note: 'Beamer-Ansicht im KP' },
-  { name: 'status', path: '/display/status', settle: 4000, note: 'Beamer-Ansicht: Gesamtübersicht' },
-  { name: 'training', path: '/training', settle: 2500 },
-]
+/** Demo and runtime chrome that has no business in a marketing picture. */
+const HIDE_CSS = `
+  [data-demo-ribbon],
+  [data-sonner-toaster] { display: none !important; }
+`
 
-/** Holt einen tokenisierten Teilen-Link über die API der eingeloggten Sitzung.
- *  Früher wurde er aus dem Teilen-Sheet gelesen; seit die Footer-Buttons in
- *  einem «Links & QR»-Sheet aufgehen, ist der API-Weg der robuste — dieselben
- *  Endpunkte, die das Sheet selbst aufruft. */
-const mintLink = async (page, path, method = 'POST') => {
-  const data = await page.evaluate(
+/** Fetches a tokenised share link through the signed-in session's API – the same endpoints the
+ *  «Links & QR» sheet calls. */
+const mintLink = async (page, path, method = 'POST') =>
+  page.evaluate(
     async ([p, m]) => {
       const eventId = localStorage.getItem('kp-rueck-selected-event')
       const res = await fetch(`/backend-api${p}?event_id=${encodeURIComponent(eventId ?? '')}`, {
@@ -214,162 +93,240 @@ const mintLink = async (page, path, method = 'POST') => {
     },
     [path, method],
   )
-  return data
-}
 
-/** Die Feld-Tür: Link öffnen, den vierstelligen Code tippen (die vierte Ziffer
- *  schickt selbst ab), auf die Personenliste warten. */
-const enterFeldDoor = async (page, base) => {
+/** The Feld door: open the link, type the four-digit code (the fourth digit submits), then pick
+ *  the person. The demo sandbox gives Schneider Peter the running Einsatz with Trawa and pumps –
+ *  the fullest Schadenplatz. */
+const enterFeldAs = async (page, name) => {
   const { link } = await mintLink(page, '/api/feld/generate-link')
   const { code } = await mintLink(page, '/api/feld/access', 'GET')
-  // /feld remembers who you are in a cookie on its own path – the second Feld shot of
-  // a run would skip the person picker and find no «Name suchen» field.
+  // /feld remembers who you are in a cookie on its own path – the second Feld shot of a run
+  // would skip the person picker.
   await page.context().clearCookies({ path: '/feld' })
   await page.goto(base + link, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.waitForTimeout(2500)
   await page.keyboard.type(String(code), { delay: 120 })
   await page.waitForTimeout(3000)
+  await page.getByPlaceholder(/^Name suchen( …|\.\.\.)$/).fill(name)
+  await page.locator('button').filter({ hasText: new RegExp(name) }).first().click()
+  await page.waitForTimeout(2500)
 }
 
-/** Demo- und Laufzeit-Chrome, die im Marketing-Bild nichts zu suchen hat. */
-// Der Attribut-Selektor auf die Tailwind-Klassen fängt Instanzen ab, die noch vor
-// dem data-demo-ribbon-Hook deployt wurden.
-const HIDE_CSS = `
-  [data-demo-ribbon],
-  [class~="-rotate-45"][class~="bg-amber-500"],
-  [data-sonner-toaster] { display: none !important; }
-`
+/** The map starts on the whole region: zoom two notches onto the cluster, then park the pointer
+ *  where it opens no hover card. */
+const zoomMap = async (page, { x, y }) => {
+  await page.mouse.move(x, y)
+  for (let i = 0; i < 2; i++) {
+    await page.mouse.wheel(0, -400)
+    await page.waitForTimeout(700)
+  }
+  await page.mouse.move(1, 1)
+  await page.waitForTimeout(2500)
+}
+
+/** One shot = a route, the devices it is taken on, optionally a `prep` per device.
+ *  `hero` marks the picture the page shows first (desktop): it also gets the small version and
+ *  the link-preview JPEG. */
+const shots = [
+  { name: 'board', path: '/', settle: 2500, devices: ['desktop', 'phone'], docs: 'dashboard', hero: true },
+  {
+    name: 'karte',
+    path: '/map',
+    settle: 4000,
+    devices: ['desktop', 'phone'],
+    docs: 'map-view',
+    // The desk opens with the legend laid over the map: fold it, then zoom. The phone's map is a
+    // band above the list and frames the cluster well as it opens.
+    prep: {
+      desktop: async (page) => {
+        await page.getByRole('button', { name: 'Legende ausblenden' }).click().catch(() => {})
+        await zoomMap(page, { x: 560, y: 505 })
+      },
+    },
+  },
+  {
+    name: 'verlauf',
+    path: '/',
+    settle: 2500,
+    devices: ['desktop', 'phone'],
+    prep: {
+      desktop: async (page) => {
+        await page.getByRole('button', { name: /^Verlauf$/ }).first().click()
+        await page.waitForTimeout(2000)
+      },
+      phone: async (page) => {
+        await page.getByRole('button', { name: 'Mehr Optionen' }).click()
+        await page.waitForTimeout(1200)
+        await page.getByRole('button', { name: /^Verlauf$/ }).first().click()
+        await page.waitForTimeout(2000)
+      },
+    },
+  },
+  {
+    name: 'meldung',
+    path: '/',
+    settle: 1500,
+    devices: ['phone'],
+    // The public intake form (phone calls, walk-ins) through its share link, with a sample report
+    // typed in but not sent – an empty form with a red mandatory field reads as an error.
+    prep: {
+      phone: async (page) => {
+        const { link } = await mintLink(page, '/api/intake/generate-link')
+        await page.goto(base + link, { waitUntil: 'domcontentloaded', timeout: 60000 })
+        await page.waitForTimeout(3500)
+        const address = page.getByPlaceholder(/Adresse (suchen|eingeben)/i)
+        await address.fill('Mühlemattstrasse 15, Oberwil')
+        // Enter takes the free text; a blur with the geocoder list open does not.
+        await address.press('Enter')
+        await page.getByPlaceholder(/Brennt im Keller/i).fill('Wasser läuft über die Lichtschächte in den Heizungsraum')
+        await page.getByPlaceholder(/Name der meldenden Person/i).fill('Marina Kaufmann')
+        await page.getByPlaceholder(/079/).fill('079 123 45 67')
+        // No focus ring on the last field, and back to the top of the form.
+        await page.evaluate(() => {
+          document.activeElement?.blur()
+          window.scrollTo(0, 0)
+        })
+        await page.waitForTimeout(600)
+      },
+    },
+  },
+  {
+    name: 'feld',
+    path: '/',
+    settle: 1500,
+    devices: ['phone'],
+    // Inside the Schadenplatz, not the list: Meldung, Mannschaft, and what the Trupp can report.
+    prep: {
+      phone: async (page) => {
+        await enterFeldAs(page, 'Schneider Peter')
+        await page.locator('button').filter({ hasText: /strasse|gasse|weg|platz/i }).first().click()
+        await page.waitForTimeout(3000)
+      },
+    },
+  },
+]
 
 const login = async (page) => {
-  // «Anmelden als Bearbeiter» since the login copy round; the old wording for older instances.
-  const demoEditor = page.getByRole('button', { name: /Anmelden als Bearbeiter|Als Editor einloggen/i })
+  const demoEditor = page.getByRole('button', { name: /Anmelden als Bearbeiter/i })
   const isDemo = await demoEditor.waitFor({ state: 'visible', timeout: 20000 }).then(() => true, () => false)
-  if (isDemo) {
-    await demoEditor.click()
-    return
-  }
+  if (isDemo) return demoEditor.click()
   const user = process.env.KP_RUECK_USER
   const pass = process.env.KP_RUECK_PASS
-  if (!user || !pass) throw new Error('Kein Demo-Login gefunden – KP_RUECK_USER / KP_RUECK_PASS setzen')
+  if (!user || !pass) throw new Error('No demo login found – set KP_RUECK_USER / KP_RUECK_PASS')
   await page.fill('#username', user)
   await page.fill('#password', pass)
   await page.click('button[type=submit]')
 }
 
-/**
- * Rechnet eine Aufnahme (verlustfreies PNG) auf `width` herunter und encodiert sie – WebP für
- * die Seite, JPEG für die Linkvorschau. `page` ist ein leerer zweiter Tab: die Instanz selbst
- * hat damit nichts zu tun.
- */
-const encode = async (page, png, { width, type, quality }) => {
-  const b64 = await page.evaluate(async ([src, width, type, quality]) => {
+/** Scales a lossless capture to `width` and encodes it. `pad` adds gaps above and below (in
+ *  points of a `points`-wide screen): the top one in `top` colour, the bottom one in the colour
+ *  of the capture's last row. `page` is a blank tab – the app has nothing to do with it. */
+const encode = async (page, png, { width, type, quality, pad, points }) => {
+  const b64 = await page.evaluate(async ([src, width, type, quality, pad, points]) => {
     const img = new Image()
     img.src = src
     await img.decode()
+    const k = width / img.naturalWidth
+    const unit = pad ? width / points : 0
+    const top = Math.round((pad?.top ?? 0) * unit)
+    const bottom = Math.round((pad?.bottom ?? 0) * unit)
+    const h = Math.round(img.naturalHeight * k)
     const canvas = document.createElement('canvas')
     canvas.width = width
-    canvas.height = Math.round(img.naturalHeight * (width / img.naturalWidth))
+    canvas.height = top + h + bottom
     const ctx = canvas.getContext('2d')
     ctx.imageSmoothingQuality = 'high'
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+    ctx.drawImage(img, 0, top, width, h)
+    if (pad) {
+      ctx.fillStyle = pad.color
+      ctx.fillRect(0, 0, width, top)
+      const [r, g, b] = ctx.getImageData(4, top + h - 1, 1, 1).data
+      ctx.fillStyle = `rgb(${r}, ${g}, ${b})`
+      ctx.fillRect(0, top + h, width, bottom)
+    }
     return canvas.toDataURL(type, quality).split(',')[1]
-  }, [`data:image/png;base64,${png.toString('base64')}`, width, type, quality])
+  }, [`data:image/png;base64,${png.toString('base64')}`, width, type, quality, pad ?? null, points ?? null])
   return Buffer.from(b64, 'base64')
 }
 
-const captureTheme = async (browser, theme) => {
-  const output = theme === 'dark' ? join(SHOTS, 'dark') : SHOTS
-  mkdirSync(output, { recursive: true })
+const capture = async (browser, device, theme) => {
+  const d = DEVICES[device]
+  const mine = shots.filter((s) => s.devices.includes(device) && (!only || only.includes(s.name)))
+    .filter((s) => !docsOnly || (device === 'desktop' && s.docs))
+  if (!mine.length) return
+  const dir = theme === 'dark' ? join(SHOTS, 'dark') : SHOTS
+  mkdirSync(join(dir, device), { recursive: true })
   const ctx = await browser.newContext({
-    viewport: VIEWPORT,
-    deviceScaleFactor: scale,
+    viewport: d.viewport,
+    deviceScaleFactor: d.scale ?? scale,
+    isMobile: d.mobile,
+    hasTouch: d.mobile,
     locale: 'de-CH',
     timezoneId: 'Europe/Zurich',
     colorScheme: theme,
     reducedMotion: 'reduce',
   })
-
-  // Set the app palette and skip the welcome dialog before React starts.
+  // The app palette and the welcome dialog, before React starts.
   await ctx.addInitScript((theme) => {
     try {
       localStorage.setItem('kp-rueck.demo-welcome.v1', '1')
       localStorage.setItem('theme', theme)
     } catch { /* private mode */ }
   }, theme)
-
   const page = await ctx.newPage()
-  // Der leere Tab, auf dem die Bilder encodiert werden (siehe `encode`).
   const encoder = await ctx.newPage()
   page.on('pageerror', (e) => console.warn('  ! page error:', String(e).slice(0, 120)))
 
-  console.log(`→ ${base} (${theme})`)
+  console.log(`→ ${base} (${device}, ${theme})`)
   await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await login(page)
   await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 45000 })
-  await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {})
 
-  const wanted = shots.filter((s) => !only || only.includes(s.name))
-  if (!wanted.length) throw new Error(`--only passt auf keinen Shot (${shots.map((s) => s.name).join(', ')})`)
-
-  for (const shot of wanted) {
-    // next-themes reads storage at mount, so set the palette before navigating.
-    await page.evaluate((t) => {
-      try { localStorage.setItem('theme', t) } catch { /* private mode */ }
-    }, theme)
-    await page.emulateMedia({ colorScheme: theme })
-    await page.setViewportSize(shot.viewport ?? VIEWPORT)
+  for (const shot of mine) {
     await page.goto(base + shot.path, { waitUntil: 'domcontentloaded', timeout: 60000 })
     await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {})
     await page.waitForTimeout(shot.settle)
-    // Ein Shot darf sich abmelden, wenn die Instanz das Feature noch nicht hat.
-    // Nur das: kein Ersatzbild, keine Notlösung — ein fehlendes Bild ist ein
-    // ehrlicheres Ergebnis als eines, das etwas anderes zeigt als es behauptet.
-    if (shot.skipIf && (await shot.skipIf(page))) {
-      console.log(`  – ${shot.name} übersprungen (Instanz kennt die Ansicht noch nicht)`)
-      continue
-    }
-    if (shot.prep) await shot.prep(page)
-    // Erst hier ausblenden: prep() navigiert teils weg, ein früheres addStyleTag
-    // wäre dann wieder verloren.
+    await shot.prep?.[device]?.(page)
+    // Only now: a prep may navigate away, and the style tag would go with the old page.
     await page.addStyleTag({ content: HIDE_CSS })
     await page.waitForTimeout(250)
+    // Always from the lossless PNG: scaling and the one lossy step happen together.
+    const png = await page.screenshot({ type: 'png' })
+    // The status-bar gap takes the page's background, not whatever band the app draws first.
+    const pad = d.pad && { ...d.pad, color: await page.evaluate(() => getComputedStyle(document.body).backgroundColor) }
     if (!docsOnly) {
-      // Immer aus dem verlustfreien PNG heraus: Verkleinerung und die einzige verlustbehaftete
-      // Stufe passieren so in einem Schritt – und `--scale 2` liefert dadurch ein schärferes
-      // Bild statt eines doppelt so breiten.
-      const png = await page.screenshot({ type: 'png' })
-      const width = (shot.viewport ?? VIEWPORT).width
       const write = async (file, opts) => {
-        writeFileSync(join(output, file), await encode(encoder, png, opts))
-        console.log(`  ✓ ${file}  (${shot.path})`)
+        writeFileSync(join(dir, file), await encode(encoder, png, opts))
+        console.log(`  ✓ ${file}`)
       }
-      await write(`${shot.name}.webp`, { width, type: 'image/webp', quality: WEBP_QUALITY })
-      if (shot.hero) {
-        await write(`${shot.name}-${HERO_W}.webp`, { width: HERO_W, type: 'image/webp', quality: WEBP_QUALITY })
-        if (theme === 'light') await write(`${shot.name}.jpg`, { width, type: 'image/jpeg', quality: OG_QUALITY })
+      await write(join(device, `${shot.name}.webp`), { width: d.width, type: 'image/webp', quality: WEBP_QUALITY, pad, points: d.viewport.width })
+      if (shot.hero && device === 'desktop') {
+        await write(join(device, `${shot.name}-${HERO_W}.webp`), { width: HERO_W, type: 'image/webp', quality: WEBP_QUALITY })
+        if (theme === 'light') await write(`${shot.name}.jpg`, { width: d.width, type: 'image/jpeg', quality: OG_QUALITY })
       }
     }
-    // Derselbe Seitenzustand, zweite Ausgabe: das README-Bild. PNG, weil README-Bilder
-    // auf GitHub oft vergrössert betrachtet werden und Text dort verlustfrei bleiben soll.
-    if (shot.docs && theme === 'light' && !siteOnly) {
-      const docsPath = join(DOCS_IMAGES, `${shot.docs}.png`)
-      await page.screenshot({ path: docsPath, type: 'png' })
+    if (shot.docs && device === 'desktop' && theme === 'light' && !siteOnly) {
+      writeFileSync(join(DOCS_IMAGES, `${shot.docs}.png`), png)
       console.log(`  ✓ docs/images/${shot.docs}.png`)
     }
   }
-
   await ctx.close()
 }
 
 const run = async () => {
+  if (only) {
+    const names = shots.map((s) => s.name)
+    const unknown = only.filter((n) => !names.includes(n))
+    if (unknown.length) throw new Error(`--only: unknown ${unknown.join(', ')} (known: ${names.join(', ')})`)
+  }
   const browser = await chromium.launch()
   try {
-    for (const theme of themes) await captureTheme(browser, theme)
+    const devices = arg('device') ? [arg('device')] : Object.keys(DEVICES)
+    for (const theme of themes) for (const device of devices) await capture(browser, device, theme)
   } finally {
     await browser.close()
   }
   console.log('Screenshots captured. Rebuild with: node site/build.mjs')
-  if (!siteOnly && themes.includes('light')) console.log('README-Bilder (docs/images/) wurden mitgeschrieben, wo ein Shot `docs:` trägt.')
 }
 
 run().catch((err) => {

@@ -246,7 +246,7 @@
         "height": 937
       },
       "inLanguage": "de-CH",
-      "dateModified": "2026-11-20",
+      "dateModified": "2026-11-21",
       "isPartOf": {
         "@id": "https://kp-rueck.ch/#website"
       },
@@ -269,18 +269,10 @@
         },
         {
           "@type": "Question",
-          "name": "Eignet sich KP Rück nur für Milizfeuerwehren?",
+          "name": "Für welche Feuerwehren und Einsätze ist KP Rück gedacht?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Nein. KP Rück wurde zwar aus der Praxis einer Schweizer Milizfeuerwehr entwickelt, eignet sich aber ebenso für Berufsfeuerwehren, Betriebswehren und andere Rettungsorganisationen. Überall dort, wo im Hintergrund Ressourcen, Fahrzeuge, Material und Personal bei Grosslagen oder Unwetter-Paralleleinsätzen koordiniert werden müssen, spielt KP Rück seine Stärken aus."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Kann KP Rück auch ausserhalb der Feuerwehr eingesetzt werden?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Ja. KP Rück wurde für die rückwärtige Führung bei Feuerwehren entwickelt. Als Open-Source-Anwendung kann die Lösung auch an vergleichbare Führungs- und Koordinationsaufgaben von Zivilschutzorganisationen, Führungsstäben und weiteren Blaulichtorganisationen angepasst werden."
+            "text": "Für Miliz-, Orts-, Stützpunkt- und Berufsfeuerwehren – bei Alltagseinsätzen, Unwetterlagen und mehreren Ereignissen gleichzeitig. Überall dort, wo im Hintergrund Personal, Fahrzeuge und Material koordiniert werden müssen, spielt KP Rück seine Stärken aus. Als Open-Source-Anwendung lässt es sich auch an Zivilschutzorganisationen, Führungsstäbe und weitere Blaulichtorganisationen anpassen."
           }
         },
         {
@@ -451,7 +443,7 @@
 </header>
 
 <main id="main">
-  <section class="hero wrap">
+  <section class="hero hero-center wrap">
     <p class="eyebrow">Open Source&nbsp;· kostenlos&nbsp;· Schweiz</p>
     <h1>Das Einsatz&shy;board für den Kommando&shy;posten.</h1>
     <p class="lede">KP Rück bildet die Magnettafel im rückwärtigen KP digital ab:
@@ -460,299 +452,32 @@
     <div class="cta-row">
       <a class="btn btn-primary" href="https://demo.kp-rueck.ch" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-play"/></svg>Demo öffnen</a>
       <a class="btn btn-ghost" href="#betrieb">Selbst betreiben</a>
-      <span class="cta-note">Ohne Konto – Rolle wählen und loslegen</span>
     </div>
-    <figure class="frame">
-      <div class="frame-bar" aria-hidden="true">
-        <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
-        <span class="addr">BOARD · UNWETTER · 17 EINSÄTZE AKTIV</span>
+    <p class="cta-note">Ohne Konto – Rolle wählen und loslegen</p>
+    <div class="duo">
+      <div class="dev dev-desk">
+        <picture>
+          <source data-theme-dark media="(prefers-color-scheme: dark)"
+                  srcset="shots/dark/desktop/board-992.webp 992w, shots/dark/desktop/board.webp 1500w"
+                  sizes="(min-width: 1040px) 883px, (max-width: 700px) 70vw, 85vw">
+          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+          <img src="shots/desktop/board.webp"
+               srcset="shots/desktop/board-992.webp 992w, shots/desktop/board.webp 1500w"
+               sizes="(min-width: 1040px) 883px, (max-width: 700px) 70vw, 85vw"
+               alt="Einsatzboard: Spalten von Eingegangen bis Reko abgeschlossen, links das Personal, rechts das Material" width="1500" height="937" fetchpriority="high">
+        </picture>
       </div>
-      <picture>
-        <source data-theme-dark media="(prefers-color-scheme: dark)"
-                srcset="shots/dark/board-992.webp 992w, shots/dark/board.webp 1500w"
-                sizes="(min-width: 1040px) 992px, calc(100vw - 48px)">
-        <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
-        <img src="shots/board.webp"
-           srcset="shots/board-992.webp 992w, shots/board.webp 1500w"
-           sizes="(min-width: 1040px) 992px, calc(100vw - 48px)"
-           alt="Einsatzboard: Spalten von Eingegangen bis Beendet, dazwischen Einsatzkarten, links das Personal, rechts das Material" width="1500" height="937" fetchpriority="high">
-      </picture>
-    </figure>
-  </section>
-
-  <section class="fit">
-    <div class="wrap fit-split">
-      <div>
-        <div class="fit-row">
-          <p class="fit-k">Für wen</p>
-          <ul class="fit-v">
-            <li>Milizfeuerwehren</li>
-            <li>Ortsfeuerwehren</li>
-            <li>Stützpunktfeuerwehren</li>
-            <li>Berufsfeuerwehren</li>
-          </ul>
-        </div>
-        <div class="fit-row">
-          <p class="fit-k">Anpassbar</p>
-          <ul class="fit-v">
-            <li>Zivilschutzorganisationen</li>
-            <li>Führungsstäbe</li>
-            <li>Weitere Blaulichtorganisationen</li>
-          </ul>
-        </div>
-        <div class="fit-row">
-          <p class="fit-k">Wofür</p>
-          <ul class="fit-v">
-            <li>Alltagseinsätze</li>
-            <li>Unwetterlagen</li>
-            <li>Mehrere Ereignisse gleichzeitig</li>
-          </ul>
-        </div>
-        <p class="fit-note">Entwickelt aus dem realen Einsatzbetrieb der
+      <div class="dev dev-ph">
+        <picture>
+          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="shots/dark/phone/feld.webp">
+          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+          <img src="shots/phone/feld.webp" alt="Feld-Ansicht auf dem Handy eines Trupps: der eigene Schadenplatz mit Meldung, Mannschaft und Status an den KP" width="780" height="1754">
+        </picture>
+      </div>
+    </div>
+    <p class="fit-note">Entwickelt aus dem realen Einsatzbetrieb der
         <a href="https://www.feuerwehr-oberwil.ch" target="_blank" rel="noopener">Feuerwehr Oberwil BL</a>
         – dort erprobt und laufend weiterentwickelt.</p>
-      </div>
-      <div class="fit-panel">
-        <h2>Eure Daten bleiben bei euch.</h2>
-        <p>KP Rück ist Open Source und läuft im eigenen Magazin oder in eurer eigenen Cloud. Einsätze, Personal, Fahrzeuge und Material bleiben unter eurer Kontrolle.</p>
-        <ul>
-          <li>Keine Lizenzkosten</li>
-          <li>Keine Herstellerbindung</li>
-          <li>Selbst betreiben, selbst weiterentwickeln</li>
-        </ul>
-      </div>
-    </div>
-  </section>
-
-  <section class="wrap" id="einsatz">
-    <div class="sec-head">
-      <p class="eyebrow">Vom Alarm bis zum Rapport</p>
-      <h2>Ein Ereignis, ein Board.</h2>
-      <p>So sieht eine Unwetternacht im KP aus – was am Board passiert, steht nachher im
-        Einsatzrapport.</p>
-    </div>
-    <div class="verlauf-list">
-      <article class="entry">
-        <div class="time">21:14</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Alarmeingang</p>
-          <h3>Die Meldungen kommen rein.</h3>
-          <p>Über das Meldeformular, per Telefon oder über die offene Schnittstelle aus dem
-            Alarmierungssystem (z.&nbsp;B. Divera oder FireHub). Der AdFU übernimmt mit einem Klick –
-            aus der Meldung wird ein Einsatz auf dem Board.
-            Meldet jemand denselben Schadenplatz ein zweites Mal, fragt das Board nach, statt eine
-            zweite Karte anzulegen.</p>
-        </div>
-      </article>
-      <article class="entry">
-        <div class="time">21:19</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Disposition</p>
-          <h3>Mannschaft und Fahrzeuge sind zugeteilt.</h3>
-          <p>Personal, Fahrzeuge und Material per Drag-and-Drop auf den Einsatz – oder getippt:
-            «14 tlf meier» in der Befehlspalette. KP Rück erkennt
-            Doppelbelegungen und fehlende Ressourcen. Die Einsatzleitung entscheidet: umteilen,
-            ergänzen oder bewusst trotzdem disponieren. Wer eintrifft, meldet sich per QR-Code
-            selbst an.</p>
-        </div>
-      </article>
-      <article class="entry">
-        <div class="time">21:26</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Karte</p>
-          <h3>Wer ist wo.</h3>
-          <p>Alle Einsätze auf einer Karte, dazu die Fahrzeuge optional mit GPS-Position. Trifft ein
-            Fahrzeug am Einsatzort ein, schlägt das Board den Statuswechsel gleich selbst vor.</p>
-        </div>
-      </article>
-      <article class="entry">
-        <div class="time">21:48</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Reko</p>
-          <h3>Die Reko meldet zurück.</h3>
-          <p>Die Reko füllt das Formular am eigenen Handy aus – inkl. Fotos. Die Meldung hängt
-            am richtigen Einsatz, statt im Gruppenchat unterzugehen.</p>
-        </div>
-      </article>
-      <article class="entry">
-        <div class="time">22:10</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Aufträge</p>
-          <h3>Die Aufträge gehen raus.</h3>
-          <p>KP Rück berechnet zweckmässige Routen für mehrere Schadenplätze und unterstützt die Bearbeitung der
-            Aufträge über ein eigenes Modul der Web-App. Einsatzkräfte können unter anderem Ankunft, Rekognoszierung,
-            Fotos, Materialbedarf und den Abschluss eines Auftrags zurückmelden. Alternativ bleibt die Kommunikation
-            über Funk möglich.</p>
-        </div>
-      </article>
-      <article class="entry">
-        <div class="time">23:30</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Board</p>
-          <h3>Alle sehen dasselbe Board.</h3>
-          <p>Der Beamer im KP, das Tablet am Tisch und das Handy des Fouriers zeigen denselben
-            Stand – ohne dass jemand «aktualisieren» drückt.</p>
-        </div>
-      </article>
-      <article class="entry">
-        <div class="time">06:40</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Bericht</p>
-          <h3>Der Einsatzrapport schreibt sich mit.</h3>
-          <p>Einsatztagebuch und Reaktionszeiten entstehen nebenbei und werden zum PDF.
-            Korrigiert wird mit neuen Einträgen, nicht mit dem Radiergummi – so bleibt die
-            Nacht belegbar.</p>
-        </div>
-      </article>
-    </div>
-  </section>
-
-  <section class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">Aus der Demo</p>
-      <h2>So sieht das aus.</h2>
-      <p>Alle Bilder sind aus der öffentlichen Demo aufgenommen. Klickt auf
-        «Demo öffnen», und ihr steht an demselben Board.</p>
-    </div>
-    <div class="shots-grid">
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Vergrössern: Beamer-Ansicht">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="shots/dark/display.webp">
-            <img src="shots/display.webp" alt="Beamer-Ansicht: alle Einsatzphasen nebeneinander auf einem Bildschirm" width="1500" height="937" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Beamer-Ansicht</div>
-          <div class="cap-s">Für die Wand im abgedunkelten KP: alle Phasen nebeneinander, ohne Bedienelemente</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Vergrössern: Status">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="shots/dark/status.webp">
-            <img src="shots/status.webp" alt="Status-Ansicht: Fahrzeuge, Einsätze, Personal und Material nebeneinander, je mit Verfügbarkeit und Zuteilung" width="1500" height="937" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Status</div>
-          <div class="cap-s">Fahrzeuge, Einsätze, Personal und Material nebeneinander – wer ist frei, wer ist gebunden, wer ist wo</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Vergrössern: Karte">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="shots/dark/karte.webp">
-            <img src="shots/karte.webp" alt="Kartenansicht: Einsätze nach Priorität, Fahrzeugpositionen und Zuweisungen" width="1500" height="937" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Karte</div>
-          <div class="cap-s">Alle Einsätze nach Priorität, dazu die Fahrzeugpositionen und die Zuweisungen dazwischen</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Vergrössern: Fahrzeuge">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="shots/dark/disposition.webp">
-            <img src="shots/disposition.webp" alt="Fahrzeugstatus: Fahrzeuge mit Funkrufname, Fahrer, Ziel und Status" width="1500" height="937" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Fahrzeuge</div>
-          <div class="cap-s">Funkrufname, Fahrer, Ziel und Status jedes Fahrzeugs auf einen Blick</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Vergrössern: Meldeformular">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="shots/dark/meldung.webp">
-            <img src="shots/meldung.webp" alt="Meldeformular: Adresse, Meldung, Priorität, Einsatzart und Angaben zum Melder" width="900" height="562" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Meldeformular</div>
-          <div class="cap-s">Telefonmeldungen und Laufkundschaft strukturiert erfassen – per Link oder QR-Code, ohne Konto</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Vergrössern: Reko-Formular">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="shots/dark/reko.webp">
-            <img src="shots/reko.webp" alt="Reko-Formular: Einsatz, «Ich bin vor Ort» und Gefahren zum Ankreuzen" width="900" height="562" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Reko-Formular</div>
-          <div class="cap-s">Auf dem Handy der Reko: vor Ort melden, Gefahren ankreuzen, Fotos anhängen</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Vergrössern: Feld">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="shots/dark/feld.webp">
-            <img src="shots/feld.webp" alt="Feld-Ansicht: der eigene Schadenplatz mit den Meldungen an den KP, der Lage und der Mannschaft" width="900" height="562" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Feld</div>
-          <div class="cap-s">Jeder Trupp sieht nur seine eigenen Schadenplätze – angekommen, Abholung, Einsatz beendet, ohne Funk</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Vergrössern: Aufträge">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="shots/dark/auftraege.webp">
-            <img src="shots/auftraege.webp" alt="Aufträge: mehrere Einsätze zu einer Route gebündelt" width="1500" height="937" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Aufträge</div>
-          <div class="cap-s">Mehrere Einsätze als Auftrag bündeln: Mannschaft und Mittel bleiben beim Auftrag und fahren in der festgelegten oder optimierten Reihenfolge von Stopp zu Stopp</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Vergrössern: Übung">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="shots/dark/training.webp">
-            <img src="shots/training.webp" alt="Übungs-Steuerung: einzelne oder gezielte Einsätze generieren, Automatik und Feld-Simulation" width="1500" height="937" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Übung</div>
-          <div class="cap-s">Übungslagen einspeisen, statt sie zu erfinden – sauber vom Ernstfall getrennt</div>
-        </figcaption>
-      </figure>
-    </div>
-  </section>
-
-  <section class="wrap" id="betrieb">
-    <div class="sec-head">
-      <p class="eyebrow">Betrieb</p>
-      <h2>Drei Wege zum eigenen Board.</h2>
-      <p>Erst die Demo, dann eine Übung – und wenn es passt, läuft KP Rück bei euch. Quelloffen und kostenlos; Daten und Betrieb bleiben bei der Feuerwehr.</p>
-    </div>
-    <div class="ways">
-      <div class="way">
-        <p class="way-tag">Zum Ausprobieren</p>
-        <h3>Doppelklick</h3>
-        <p>Docker Desktop installieren, eine Datei doppelklicken: Das Board läuft auf dem Rechner im Magazin. Der schnellste Weg zu den eigenen Daten.</p>
-        <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md#der-schnellste-weg-double-click" target="_blank" rel="noopener">Zur Anleitung<svg class="ico" aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg></a>
-      </div>
-      <div class="way">
-        <p class="way-tag">Läuft auch ohne Internet</p>
-        <h3>Mini-PC im Magazin</h3>
-        <p>Docker Compose auf einem kleinen Server im eigenen Netz, mit eigenem Kartenserver und dem Drucker im LAN.</p>
-        <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/DEPLOYMENT.md" target="_blank" rel="noopener">Zur Anleitung<svg class="ico" aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg></a>
-      </div>
-      <div class="way">
-        <p class="way-tag">Niemand betreut eine Kiste</p>
-        <h3>Gehostet</h3>
-        <p>Bei einem Hosting-Anbieter eurer Wahl. Eine Standby-Box im Magazin kann den Ausfall des Netzes abfangen.</p>
-        <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RAILWAY.md" target="_blank" rel="noopener">Zur Anleitung<svg class="ico" aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg></a>
-      </div>
-    </div>
-    <p class="sec-note ways-note">Unterstützung bei Installation und Betrieb gibt es nach Absprache – <a href="#kontakt">Kontakt</a>.</p>
   </section>
 
   <section class="tenet">
@@ -786,274 +511,395 @@
     </div>
   </section>
 
-  <section class="wrap" id="aenderung">
+  <div id="einsatz">
+    <section class="wrap chap">
+      <div class="chap-txt">
+        <p class="chap-was">Magnettafel an der Wand</p>
+        <h2>Ein Board auf jedem Gerät.</h2>
+        <p>Spalten sind Einsatzphasen: Karten wandern per Drag-and-Drop von links nach rechts. Der Beamer im KP, das Tablet am Tisch und das Handy des Fouriers zeigen denselben Stand – ohne dass jemand «aktualisieren» drückt.</p>
+        <ul class="checks">
+          <li>Personal, Fahrzeuge und Material zuweisen – KP Rück warnt bei Doppelbelegungen</li>
+          <li>Wer eintrifft, meldet sich per QR-Code selbst an; Dienstzeiten und Pausen laufen mit</li>
+          <li>Zuweisen per Tastatur: «14 tlf meier» in der Befehlspalette</li>
+        </ul>
+      </div>
+      <div class="chap-img">
+        <div class="dev dev-desk wide-only">
+          <button class="shot-zoom" type="button" aria-label="Vergrössern: Das Einsatzboard: Einsätze mit Priorität, Laufzeit, Mannschaft und Fahrzeugen">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="shots/dark/desktop/board.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="shots/desktop/board.webp" alt="Das Einsatzboard: Einsätze mit Priorität, Laufzeit, Mannschaft und Fahrzeugen" width="1500" height="937" loading="lazy" decoding="async">
+            </picture>
+          </button>
+        </div>
+        <div class="dev dev-ph narrow-only">
+          <button class="shot-zoom" type="button" aria-label="Vergrössern: Das Einsatzboard: Einsätze mit Priorität, Laufzeit, Mannschaft und Fahrzeugen">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="shots/dark/phone/board.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="shots/phone/board.webp" alt="Das Einsatzboard: Einsätze mit Priorität, Laufzeit, Mannschaft und Fahrzeugen" width="780" height="1754" loading="lazy" decoding="async">
+            </picture>
+          </button>
+        </div>
+      </div>
+    </section>
+    <section class="wrap chap">
+      <div class="chap-txt">
+        <p class="chap-was">Telefonnotizen auf Zetteln</p>
+        <h2>Meldungen, die am Einsatz hängen.</h2>
+        <p>Über das Meldeformular, per Telefon oder über die offene Schnittstelle aus dem Alarmierungssystem (z.&nbsp;B. Divera oder FireHub). Der AdFU übernimmt mit einem Klick – aus der Meldung wird ein Einsatz auf dem Board.</p>
+        <ul class="checks">
+          <li>Meldeformular per Link oder QR für Telefon und Laufkundschaft, ohne Konto</li>
+          <li>Meldet jemand denselben Schadenplatz ein zweites Mal, fragt das Board nach</li>
+          <li>Offene Schnittstelle – jedes Dispositionssystem kann Einsätze eröffnen</li>
+        </ul>
+      </div>
+      <div class="chap-img">
+        <div class="dev dev-ph">
+          <button class="shot-zoom" type="button" aria-label="Vergrössern: Meldeformular auf dem Handy: Einsatzort, Meldung und Angaben zum Melder">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="shots/dark/phone/meldung.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="shots/phone/meldung.webp" alt="Meldeformular auf dem Handy: Einsatzort, Meldung und Angaben zum Melder" width="780" height="1754" loading="lazy" decoding="async">
+            </picture>
+          </button>
+        </div>
+      </div>
+    </section>
+    <section class="wrap chap">
+      <div class="chap-txt">
+        <p class="chap-was">Stecknadeln auf dem Ortsplan</p>
+        <h2>Wer ist wo.</h2>
+        <p>Alle Einsätze auf einer Karte, dazu die Fahrzeuge optional mit GPS-Position. Trifft ein
+            Fahrzeug am Einsatzort ein, schlägt das Board den Statuswechsel gleich selbst vor.</p>
+        <ul class="checks">
+          <li>Alle Einsätze nach Priorität und Status auf einer Karte</li>
+          <li>Zuweisungen als Linie – welches Fahrzeug gehört zu welchem Einsatz</li>
+          <li>Niederschlagsradar und amtliche Warnungen (MeteoSchweiz, Alertswiss)</li>
+        </ul>
+      </div>
+      <div class="chap-img">
+        <div class="dev dev-desk wide-only">
+          <button class="shot-zoom" type="button" aria-label="Vergrössern: Lagekarte: Einsätze nach Priorität, dazu die Fahrzeuge und ihre Zuweisungen">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="shots/dark/desktop/karte.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="shots/desktop/karte.webp" alt="Lagekarte: Einsätze nach Priorität, dazu die Fahrzeuge und ihre Zuweisungen" width="1500" height="937" loading="lazy" decoding="async">
+            </picture>
+          </button>
+        </div>
+        <div class="dev dev-ph narrow-only">
+          <button class="shot-zoom" type="button" aria-label="Vergrössern: Lagekarte: Einsätze nach Priorität, dazu die Fahrzeuge und ihre Zuweisungen">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="shots/dark/phone/karte.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="shots/phone/karte.webp" alt="Lagekarte: Einsätze nach Priorität, dazu die Fahrzeuge und ihre Zuweisungen" width="780" height="1754" loading="lazy" decoding="async">
+            </picture>
+          </button>
+        </div>
+      </div>
+    </section>
+    <section class="wrap chap">
+      <div class="chap-txt">
+        <p class="chap-was">WhatsApp-Gruppe und Funkspruch</p>
+        <h2>Der Trupp meldet vom Handy.</h2>
+        <p>Jeder Trupp sieht seine eigenen Schadenplätze: angekommen, Abholung, Einsatz beendet – ohne Funk. Die Reko füllt ihr Formular mit Fotos am eigenen Handy aus; die Meldung hängt am richtigen Einsatz, statt im Gruppenchat unterzugehen.</p>
+        <ul class="checks">
+          <li>Feld-Ansicht ohne Konto, per Link und Code</li>
+          <li>Anfragen – Material, Verstärkung, Abholung – bleiben offen, bis der KP sie erledigt hat</li>
+          <li>Aufträge: mehrere Schadenplätze als eine Route, Reihenfolge nach Distanz optimiert</li>
+        </ul>
+      </div>
+      <div class="chap-img">
+        <div class="dev dev-ph">
+          <button class="shot-zoom" type="button" aria-label="Vergrössern: Feld-Ansicht: der eigene Schadenplatz mit Meldung, Mannschaft und «Angekommen melden»">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="shots/dark/phone/feld.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="shots/phone/feld.webp" alt="Feld-Ansicht: der eigene Schadenplatz mit Meldung, Mannschaft und «Angekommen melden»" width="780" height="1754" loading="lazy" decoding="async">
+            </picture>
+          </button>
+        </div>
+      </div>
+    </section>
+    <section class="wrap chap">
+      <div class="chap-txt">
+        <p class="chap-was">Bericht am Wochenende danach</p>
+        <h2>Der Einsatzrapport schreibt sich mit.</h2>
+        <p>Einsatztagebuch und Reaktionszeiten entstehen nebenbei und werden zum PDF.
+            Korrigiert wird mit neuen Einträgen, nicht mit dem Radiergummi – so bleibt die
+            Nacht belegbar.</p>
+        <ul class="checks">
+          <li>Der Verlauf schreibt Statuswechsel, Zuweisungen und Meldungen selbst mit</li>
+          <li>Einsatzrapport als PDF mit Reaktionszeiten</li>
+          <li>Restliste: offene Rapporte, Abholungen und Material am Schadenplatz</li>
+        </ul>
+      </div>
+      <div class="chap-img">
+        <div class="dev dev-desk wide-only">
+          <button class="shot-zoom" type="button" aria-label="Vergrössern: Verlauf: Statuswechsel, Zuweisungen und Einträge mit Uhrzeit">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="shots/dark/desktop/verlauf.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="shots/desktop/verlauf.webp" alt="Verlauf: Statuswechsel, Zuweisungen und Einträge mit Uhrzeit" width="1500" height="937" loading="lazy" decoding="async">
+            </picture>
+          </button>
+        </div>
+        <div class="dev dev-ph narrow-only">
+          <button class="shot-zoom" type="button" aria-label="Vergrössern: Verlauf: Statuswechsel, Zuweisungen und Einträge mit Uhrzeit">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="shots/dark/phone/verlauf.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="shots/phone/verlauf.webp" alt="Verlauf: Statuswechsel, Zuweisungen und Einträge mit Uhrzeit" width="780" height="1754" loading="lazy" decoding="async">
+            </picture>
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="wrap" id="betrieb">
     <div class="sec-head">
-      <p class="eyebrow">Umstieg</p>
-      <h2 id="change-comparison-title">Was sich ändert.</h2>
-      <p>Nichts davon ist heute kaputt – die Magnettafel funktioniert seit Jahrzehnten.
-        KP Rück tritt an dieselben Stellen, nur ohne Abschreiben.</p>
+      <p class="eyebrow">Betrieb</p>
+      <h2>Eure Daten bleiben bei euch.</h2>
+      <p>KP Rück ist Open Source und läuft im eigenen Magazin oder in eurer eigenen Cloud. Einsätze, Personal, Fahrzeuge und Material bleiben unter eurer Kontrolle. Keine Lizenzkosten, keine Herstellerbindung.</p>
     </div>
-    <div class="change-wrap">
-      <table class="change" aria-labelledby="change-comparison-title">
-        <thead>
-          <tr><th scope="col">Heute</th><th scope="col">Mit KP Rück</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>Magnettafel an der Wand</td><td>Digitales Board auf jedem Gerät</td></tr>
-          <tr><td>Telefonnotizen auf Zetteln</td><td>Meldeformular, das am Einsatz hängt</td></tr>
-          <tr><td>Excel-Liste für Mannschaft und Fahrzeuge</td><td>Live-Übersicht, die sich selbst nachführt</td></tr>
-          <tr><td>WhatsApp-Gruppe für Rückmeldungen</td><td>Strukturierte Meldungen mit Fotos</td></tr>
-          <tr><td>Funkspruch für jeden Statuswechsel</td><td>Status und Meldungen direkt vom Trupp – der Funkkanal bleibt frei</td></tr>
-          <tr><td>Bericht nach dem Einsatz</td><td>Bericht entsteht währenddessen</td></tr>
-        </tbody>
-      </table>
+    <div class="own own-3">
+      <div class="own-card">
+        <p class="way-tag">Zum Ausprobieren</p>
+        <h3>Doppelklick</h3>
+        <p>Docker Desktop installieren, eine Datei doppelklicken: Das Board läuft auf dem Rechner im Magazin. Der schnellste Weg zu den eigenen Daten.</p>
+        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md#der-schnellste-weg-double-click" target="_blank" rel="noopener">Zur Anleitung →</a></p>
+      </div>
+      <div class="own-card">
+        <p class="way-tag">Läuft auch ohne Internet</p>
+        <h3>Mini-PC im Magazin</h3>
+        <p>Docker Compose auf einem kleinen Server im eigenen Netz, mit eigenem Kartenserver und dem Drucker im LAN.</p>
+        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/DEPLOYMENT.md" target="_blank" rel="noopener">Zur Anleitung →</a></p>
+      </div>
+      <div class="own-card">
+        <p class="way-tag">Niemand betreut eine Kiste</p>
+        <h3>Gehostet</h3>
+        <p>Bei einem Hosting-Anbieter eurer Wahl. Eine Standby-Box im Magazin kann den Ausfall des Netzes abfangen.</p>
+        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RAILWAY.md" target="_blank" rel="noopener">Zur Anleitung →</a></p>
+      </div>
     </div>
+    <p class="sec-note ways-note">Unterstützung bei Installation und Betrieb gibt es nach Absprache – <a href="#kontakt">Kontakt</a>.</p>
   </section>
 
   <section class="wrap" id="funktionen">
-    <div class="sec-head">
-      <p class="eyebrow">Funktionsumfang</p>
-      <h2>Was alles drin ist.</h2>
-      <p>Gewachsen an echten Ereignissen und Übungen, nicht an einer Featureliste. Alles, was von
+    <div class="split">
+      <div class="sec-head">
+        <p class="eyebrow">Funktionsumfang</p>
+        <h2>Was alles drin ist.</h2>
+        <p>Gewachsen an echten Ereignissen und Übungen, nicht an einer Featureliste. Alles, was von
         aussen dazukommt – Alarmierung, GPS, Drucker – ist <strong>optional</strong>: KP Rück
         läuft auch vollständig ohne diese Anbindungen.</p>
-    </div>
-    <div class="feature-cols">
-      <div class="fgroup">
-        <h3>Board &amp; Disposition</h3>
-        <ul class="flist">
-          <li><strong>Spalten sind Einsatzphasen</strong> – Karten wandern per Drag-and-Drop von links nach rechts</li>
-          <li>Personal, Fahrzeuge und Material zuteilen – KP Rück warnt bei Doppelbelegungen und macht Ressourcenkonflikte sichtbar</li>
-          <li>Material am Einsatzort: welches Mittel welchem Einsatz zugeteilt ist und seit wann</li>
-          <li>Prioritäten, Laufzeiten und Fristen pro Einsatz sichtbar</li>
-          <li>Aufträge: mehrere Einsätze als eine Route an einen Trupp, Reihenfolge auf Knopfdruck nach Distanz optimiert</li>
-          <li>Wiederkehrende Aufträge wie Absperren oder Sturmholz können vorbereitet und bei einem Ereignis direkt bereitgestellt werden</li>
-          <li>QR-Check-in – wer eintrifft, meldet sich selbst an</li>
-          <li>Dienstzeiten: wer seit wann da ist, wie lange davon im Einsatz und wer gerade Pause hat – wer zu lange dabei ist, fällt auf</li>
-          <li>Einsatzzettel mit QR-Code für Trupps und Fahrer, direkt am KP ausgegeben</li>
-          <li>Beamer-Ansicht für die Wand im KP – dieselben Einsatzkarten wie am Board, nur ohne Bedienelemente</li>
-          <li>Zuteilen per Tastatur: «14 tlf meier» in der Befehlspalette setzt TLF und Meier auf Einsatz 14 – dazu Tastaturkürzel für die schnelle Hand</li>
-        </ul>
       </div>
-      <div class="fgroup">
-        <h3>Alarm &amp; Meldungen</h3>
-        <ul class="flist">
-          <li><strong>Offene Schnittstelle</strong> – jedes Dispositionssystem kann Einsätze eröffnen</li>
-          <li>Kann Alarme aus Divera oder FireHub übernehmen <span class="opt">optional</span></li>
-          <li>Meldeformular per Link oder QR für Telefon und Laufkundschaft</li>
-          <li>Eingang im Pool, Übernahme mit einem Klick</li>
-          <li>Doppelte Meldungen zum selben Schadenplatz werden erkannt; zwei Einsätze lassen sich zusammenführen – samt Mannschaft, Reko und Rapport – und wieder trennen</li>
-          <li>Ausalarmierung der Mannschaft aus dem Board heraus <span class="opt">optional</span></li>
-          <li>Anrückend: wer auf den Divera-Alarm zugesagt hat, steht im Appell – Einchecken mit einem Klick <span class="opt">optional</span></li>
-          <li>Reko-Meldungen mit Fotos, direkt vom Handy der Reko</li>
-          <li>Feldansicht für Trupps: eigene Schadenplätze sehen, Ankunft und Einsatzende melden, Abholung anfordern sowie Rückmeldungen und Rapporte mit Fotos an den KP übermitteln</li>
-          <li>Anfragen aus dem Feld – Material, Verstärkung, Abholung – bleiben am Einsatz offen, bis der KP sie erledigt hat; der Trupp sieht den Stand auf dem Handy</li>
-        </ul>
-      </div>
-      <div class="fgroup">
-        <h3>Karte &amp; Fahrzeuge</h3>
-        <ul class="flist">
-          <li>Alle Einsätze nach Priorität und Status auf einer Karte</li>
-          <li>Fahrzeugpositionen per GPS <span class="opt">optional</span></li>
-          <li>Statusvorschlag, sobald ein Fahrzeug am Einsatzort eintrifft</li>
-          <li>Zuweisungen als Linie – welches Fahrzeug gehört zu welchem Einsatz</li>
-          <li>Niederschlagsradar der letzten Stunde und amtliche Warnungen (MeteoSchweiz, Alertswiss) auf der Karte <span class="opt">optional</span></li>
-          <li>Kartenkacheln auch aus dem eigenen Server im Magazin</li>
-        </ul>
-      </div>
-      <div class="fgroup">
-        <h3>Nachher &amp; Betrieb</h3>
-        <ul class="flist">
-          <li><strong>Einsatzrapport als PDF</strong> mit Einsatztagebuch und Reaktionszeiten – entsteht während des Einsatzes und ist beim Einrücken bereits weitgehend vorbereitet</li>
-          <li>Einsatztagebuch am Board: schreibt Statuswechsel, Zuteilungen und Meldungen selbst mit, eigene Einträge per ⇧J – ergänzt, nie überschrieben</li>
-          <li>Kennzahlen schon während des Ereignisses: offene Meldungen je Priorität und die Reaktionszeiten – bei Übungen als Übungsauswertung</li>
-          <li>Restliste: Offene Rapporte, ausstehende Abholungen und Material, das noch am Schadenplatz liegt, bleiben bis zum Abschluss sichtbar</li>
-          <li><strong>Eigener Verwaltungsbereich</strong> pro Feuerwehr: Mannschaft, Fuhrpark, Materiallisten, Einsatzarten und Prioritäten</li>
-          <li>Import und Export als Excel</li>
-          <li>Thermodruck im Magazin über einen eigenen Druck-Agenten <span class="opt">optional</span></li>
-          <li>Rollen: bearbeiten oder nur mitlesen, dunkle Oberfläche fürs abgedunkelte KP</li>
-          <li>Übungsmodus mit Generator und simulierten Fahrten, sauber vom Ernstfall getrennt</li>
-        </ul>
-      </div>
-    </div>
-  </section>
-
-  <section class="sibling">
-    <div class="wrap">
-      <div class="sibling-grid">
-        <div class="sibling-txt">
-          <p class="eyebrow">Verwandtes Projekt</p>
-          <h2>KP Front schafft taktische Tiefe am Schadenplatz. KP Rück schafft operative Breite in der Gesamtlage.</h2>
-          <p><strong>KP Front</strong> bildet am Einsatzort die Lagekarte und den Führungstisch
-          digital ab: taktische Zeichen, Objektpläne und Atemschutzüberwachung, auch ohne Netz. Eigene App,
-          gleiche Handschrift – beide erhalten denselben Alarm vom Dispositionssystem
-          und brauchen einander nicht. Beide Anwendungen können bei derselben Lage parallel und unabhängig voneinander eingesetzt werden.</p>
-          <a class="btn btn-ghost" href="https://kp-front.ch/">KP Front ansehen<svg class="ico" style="width:14px;height:14px" aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg></a>
-        </div>
-
-        <div class="setup-card">
-          <h3>Beide betreiben – ohne alles doppelt einzurichten</h3>
-          <dl>
-            <div class="setup-row">
-              <dt>Alarmierung</dt>
-              <dd>Dieselbe Nutzlast für beide. Die Anbindung eures Dispositionssystems entsteht einmal; jede App bekommt nur ihre eigene Adresse.</dd>
-            </div>
-            <div class="setup-row">
-              <dt>Divera-Zugang</dt>
-              <dd>Ein Schlüssel für beide – dieselben Alarme, dieselbe Mannschaft. <span class="opt">optional</span></dd>
-            </div>
-            <div class="setup-row">
-              <dt>Mannschaftsliste</dt>
-              <dd>Dieselbe Quelle im selben Dateiformat – dieselbe Person auf beiden Seiten.</dd>
-            </div>
-            <div class="setup-row">
-              <dt>Stichwörter</dt>
-              <dd>Dieselbe Alarm-Stichwortliste, also dieselbe Einstufung in beiden Apps.</dd>
-            </div>
-          </dl>
-          <p class="setup-foot"><strong>Getrennt bleiben Datenbank, Updates und Login.</strong> Keine der beiden braucht die andere, um zu laufen.
-            <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md" target="_blank" rel="noopener">Anleitung für beide auf einem Server →</a></p>
-        </div>
+      <div class="acc">
+        <details>
+          <summary><span>Board &amp; Disposition<span class="peek">Einsatzphasen · Zuweisen · Doppelbelegungen · QR-Check-in · Dienstzeiten · Beamer</span></span></summary>
+          <ul class="flist">
+            <li><strong>Spalten sind Einsatzphasen</strong> – Karten wandern per Drag-and-Drop von links nach rechts</li>
+            <li>Personal, Fahrzeuge und Material zuteilen – KP Rück warnt bei Doppelbelegungen und macht Ressourcenkonflikte sichtbar</li>
+            <li>Material am Einsatzort: welches Mittel welchem Einsatz zugeteilt ist und seit wann</li>
+            <li>Prioritäten, Laufzeiten und Fristen pro Einsatz sichtbar</li>
+            <li>Aufträge: mehrere Einsätze als eine Route an einen Trupp, Reihenfolge auf Knopfdruck nach Distanz optimiert</li>
+            <li>Wiederkehrende Aufträge wie Absperren oder Sturmholz können vorbereitet und bei einem Ereignis direkt bereitgestellt werden</li>
+            <li>QR-Check-in – wer eintrifft, meldet sich selbst an</li>
+            <li>Dienstzeiten: wer seit wann da ist, wie lange davon im Einsatz und wer gerade Pause hat – wer zu lange dabei ist, fällt auf</li>
+            <li>Einsatzzettel mit QR-Code für Trupps und Fahrer, direkt am KP ausgegeben</li>
+            <li>Beamer-Ansicht für die Wand im KP – dieselben Einsatzkarten wie am Board, nur ohne Bedienelemente</li>
+            <li>Zuteilen per Tastatur: «14 tlf meier» in der Befehlspalette setzt TLF und Meier auf Einsatz 14 – dazu Tastaturkürzel für die schnelle Hand</li>
+          </ul>
+        </details>
+        <details>
+          <summary><span>Alarm &amp; Meldungen<span class="peek">Offene Schnittstelle · Divera · FireHub · Meldeformular · Reko · Feld</span></span></summary>
+          <ul class="flist">
+            <li><strong>Offene Schnittstelle</strong> – jedes Dispositionssystem kann Einsätze eröffnen</li>
+            <li>Kann Alarme aus Divera oder FireHub übernehmen <span class="opt">optional</span></li>
+            <li>Meldeformular per Link oder QR für Telefon und Laufkundschaft</li>
+            <li>Eingang im Pool, Übernahme mit einem Klick</li>
+            <li>Doppelte Meldungen zum selben Schadenplatz werden erkannt; zwei Einsätze lassen sich zusammenführen – samt Mannschaft, Reko und Rapport – und wieder trennen</li>
+            <li>Ausalarmierung der Mannschaft aus dem Board heraus <span class="opt">optional</span></li>
+            <li>Anrückend: wer auf den Divera-Alarm zugesagt hat, steht im Appell – Einchecken mit einem Klick <span class="opt">optional</span></li>
+            <li>Reko-Meldungen mit Fotos, direkt vom Handy der Reko</li>
+            <li>Feldansicht für Trupps: eigene Schadenplätze sehen, Ankunft und Einsatzende melden, Abholung anfordern sowie Rückmeldungen und Rapporte mit Fotos an den KP übermitteln</li>
+            <li>Anfragen aus dem Feld – Material, Verstärkung, Abholung – bleiben am Einsatz offen, bis der KP sie erledigt hat; der Trupp sieht den Stand auf dem Handy</li>
+          </ul>
+        </details>
+        <details>
+          <summary><span>Karte &amp; Fahrzeuge<span class="peek">Prioritäten · GPS · Zuweisungen · Radar und Warnungen · eigene Kacheln</span></span></summary>
+          <ul class="flist">
+            <li>Alle Einsätze nach Priorität und Status auf einer Karte</li>
+            <li>Fahrzeugpositionen per GPS <span class="opt">optional</span></li>
+            <li>Statusvorschlag, sobald ein Fahrzeug am Einsatzort eintrifft</li>
+            <li>Zuweisungen als Linie – welches Fahrzeug gehört zu welchem Einsatz</li>
+            <li>Niederschlagsradar der letzten Stunde und amtliche Warnungen (MeteoSchweiz, Alertswiss) auf der Karte <span class="opt">optional</span></li>
+            <li>Kartenkacheln auch aus dem eigenen Server im Magazin</li>
+          </ul>
+        </details>
+        <details>
+          <summary><span>Nachher &amp; Betrieb<span class="peek">Rapport als PDF · Verlauf · Kennzahlen · Verwaltung · Thermodruck · Übung</span></span></summary>
+          <ul class="flist">
+            <li><strong>Einsatzrapport als PDF</strong> mit Einsatztagebuch und Reaktionszeiten – entsteht während des Einsatzes und ist beim Einrücken bereits weitgehend vorbereitet</li>
+            <li>Einsatztagebuch am Board: schreibt Statuswechsel, Zuteilungen und Meldungen selbst mit, eigene Einträge per ⇧J – ergänzt, nie überschrieben</li>
+            <li>Kennzahlen schon während des Ereignisses: offene Meldungen je Priorität und die Reaktionszeiten – bei Übungen als Übungsauswertung</li>
+            <li>Restliste: Offene Rapporte, ausstehende Abholungen und Material, das noch am Schadenplatz liegt, bleiben bis zum Abschluss sichtbar</li>
+            <li><strong>Eigener Verwaltungsbereich</strong> pro Feuerwehr: Mannschaft, Fuhrpark, Materiallisten, Einsatzarten und Prioritäten</li>
+            <li>Import und Export als Excel</li>
+            <li>Thermodruck im Magazin über einen eigenen Druck-Agenten <span class="opt">optional</span></li>
+            <li>Rollen: bearbeiten oder nur mitlesen, dunkle Oberfläche fürs abgedunkelte KP</li>
+            <li>Übungsmodus mit Generator und simulierten Fahrten, sauber vom Ernstfall getrennt</li>
+          </ul>
+        </details>
       </div>
     </div>
   </section>
 
   <section class="wrap" id="fragen">
-    <div class="sec-head">
-      <p class="eyebrow">Fragen &amp; Antworten</p>
-      <h2>Die häufigsten Fragen.</h2>
-    </div>
-    <div class="faq-list">
-      <div class="faq-item">
-        <h3>Warum umsteigen?</h3>
-        <p>Keine Doppelbelegungen mehr. Keine Meldung, die im Gruppenchat untergeht. Weniger
+    <div class="split">
+      <div class="sec-head">
+        <p class="eyebrow">Fragen &amp; Antworten</p>
+        <h2>Die häufigsten Fragen.</h2>
+      </div>
+      <div class="acc">
+        <details>
+          <summary><span>Warum umsteigen?</span></summary>
+          <p>Keine Doppelbelegungen mehr. Keine Meldung, die im Gruppenchat untergeht. Weniger
           Funkverkehr für Fragen, die ohnehin auf dem Board stehen. Alle sehen gleichzeitig
           dasselbe Lagebild – und der Einsatzrapport ist beim Einrücken schon da statt am
           Wochenende danach.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Eignet sich KP Rück nur für Milizfeuerwehren?</h3>
-        <p>Nein. KP Rück wurde zwar aus der Praxis einer Schweizer Milizfeuerwehr entwickelt, eignet sich aber ebenso für Berufsfeuerwehren, Betriebswehren und andere Rettungsorganisationen. Überall dort, wo im Hintergrund Ressourcen, Fahrzeuge, Material und Personal bei Grosslagen oder Unwetter-Paralleleinsätzen koordiniert werden müssen, spielt KP Rück seine Stärken aus.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Kann KP Rück auch ausserhalb der Feuerwehr eingesetzt werden?</h3>
-        <p>Ja. KP Rück wurde für die rückwärtige Führung bei Feuerwehren entwickelt. Als Open-Source-Anwendung kann die Lösung auch an vergleichbare Führungs- und Koordinationsaufgaben von Zivilschutzorganisationen, Führungsstäben und weiteren Blaulichtorganisationen angepasst werden.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Wo liegen die Daten und welche Schnittstellen gibt es?</h3>
-        <p>KP Rück wird wie KP Front vollständig selbst betrieben – auf einem Rechner im Magazin oder in der eigenen Cloud. Einsätze, Personal, Fahrzeuge und Material liegen in der eigenen Datenbank der Organisation; es gibt weder Lizenzprüfung noch Nutzungsstatistik. Externe Dienste wie Online-Karten oder die Adresssuche erhalten nur, was die jeweilige Funktion braucht, und lassen sich abschalten. Anbinden lassen sich Alarmierungssysteme (jedes Dispositionssystem über die offene Schnittstelle, Divera und FireHub direkt – bei Divera auch die Ausalarmierung), ein Thermodrucker im lokalen Netz und GPS-Positionen der Fahrzeuge. Alle Anbindungen sind optional.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Was kostet das?</h3>
-        <p>Für die Software selbst nichts. KP Rück ist Open Source (AGPL) – <strong>keine
+        </details>
+        <details>
+          <summary><span>Für welche Feuerwehren und Einsätze ist KP Rück gedacht?</span></summary>
+          <p>Für Miliz-, Orts-, Stützpunkt- und Berufsfeuerwehren – bei Alltagseinsätzen, Unwetterlagen und mehreren Ereignissen gleichzeitig. Überall dort, wo im Hintergrund Personal, Fahrzeuge und Material koordiniert werden müssen, spielt KP Rück seine Stärken aus. Als Open-Source-Anwendung lässt es sich auch an Zivilschutzorganisationen, Führungsstäbe und weitere Blaulichtorganisationen anpassen.</p>
+        </details>
+        <details>
+          <summary><span>Wo liegen die Daten und welche Schnittstellen gibt es?</span></summary>
+          <p>KP Rück wird wie KP Front vollständig selbst betrieben – auf einem Rechner im Magazin oder in der eigenen Cloud. Einsätze, Personal, Fahrzeuge und Material liegen in der eigenen Datenbank der Organisation; es gibt weder Lizenzprüfung noch Nutzungsstatistik. Externe Dienste wie Online-Karten oder die Adresssuche erhalten nur, was die jeweilige Funktion braucht, und lassen sich abschalten. Anbinden lassen sich Alarmierungssysteme (jedes Dispositionssystem über die offene Schnittstelle, Divera und FireHub direkt – bei Divera auch die Ausalarmierung), ein Thermodrucker im lokalen Netz und GPS-Positionen der Fahrzeuge. Alle Anbindungen sind optional.</p>
+        </details>
+        <details>
+          <summary><span>Was kostet das?</span></summary>
+          <p>Für die Software selbst nichts. KP Rück ist Open Source (AGPL) – <strong>keine
           Lizenz, kein Abo, keine Kosten pro Gerät</strong>. Was bleibt, sind die eigenen Kosten
           für Betrieb, Infrastruktur und allenfalls externe Unterstützung.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Was braucht es für den Betrieb?</h3>
-        <p>Ein kleiner Mini-PC oder Server im Magazin reicht. Für Einrichtung, Updates und
+        </details>
+        <details>
+          <summary><span>Was braucht es für den Betrieb?</span></summary>
+          <p>Ein kleiner Mini-PC oder Server im Magazin reicht. Für Einrichtung, Updates und
           Backups braucht es jemanden mit Docker- und Kommandozeilen-Erfahrung, sei es in der
           Feuerwehr, in der Gemeinde oder bei einer unterstützenden IT. Die Anleitung und der
           Verwaltungsbereich führen durch den Aufbau. Allgemeine Fragen beantworten wir gerne;
           Daten und Betrieb bleiben in der Verantwortung der jeweiligen Feuerwehr.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Gibt es Unterstützung bei Installation und Betrieb?</h3>
-        <p>Ja. Allgemeine Fragen zur Installation und Nutzung werden unentgeltlich beantwortet. KP Rück kann auf eigener Infrastruktur oder bei einem selbst gewählten Hosting- oder Cloud-Anbieter betrieben werden. Nach individueller Absprache ist auch Unterstützung bei Installation, Einrichtung, Updates oder Betrieb möglich. Weitergehende Unterstützung kann kostenpflichtig sein.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Was passiert bei einem Strom-, Netzwerk- oder Geräteausfall?</h3>
-        <p>KP Rück sichert den aktuellen Stand innerhalb der Anwendung und kann diesen nach einem Ausfall wiederherstellen. Die Anwendung kann auf mehreren Geräten und zusätzlich auf einer lokalen Instanz betrieben werden. Ergänzend kann der Boardstand regelmässig ausgedruckt und als Rückfallebene verwendet werden. Externe Backups der jeweiligen Installation und Infrastruktur liegen in der Verantwortung der betreibenden Organisation.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Benötigt KP Rück zwingend KP Front?</h3>
-        <p>Nein. KP Rück läuft vollständig eigenständig – mit eigener Datenbank, eigenem Login und eigenen Updates. Sein volles Potenzial entfaltet es im Zusammenspiel mit <a href="https://kp-front.ch/">KP Front</a>, der Anwendung für die Front am Einsatzort: Beide nehmen dieselben Alarme aus dem Dispositionssystem entgegen, lesen dieselbe Mannschaftsliste und stufen Alarme nach derselben Stichwortliste ein, auf Wunsch mit demselben Divera-Zugang. So arbeiten Front und Rück mit denselben Ausgangsdaten, ohne dass Alarmanbindung und Mannschaft doppelt gepflegt werden müssen.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Welchen Zweck erfüllt der lokale Stationsdrucker in KP Rück?</h3>
-        <p>Der Stationsdrucker bringt das Wichtigste direkt im Magazin oder im Kommandoposten aufs Papier. Einsatzzettel für Trupps und Fahrer druckt KP Rück auf Wunsch automatisch, sobald ein Einsatz zum ersten Mal ausrückt, oder jederzeit von Hand; die Lageübersicht mit Einsätzen, Fahrzeugstatus und Personal sowie die Abholliste mit dem Material, das noch auf Schadenplätzen liegt, auf Knopfdruck. Als Rückfallebene kann der Boardstand zudem regelmässig gedruckt werden. Angebunden wird ein handelsüblicher 80-mm-Thermodrucker (ESC/POS) im lokalen Netz – das funktioniert bei jeder Feuerwehr, nicht nur in der Schweiz.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Können wir es an unsere Abläufe anpassen?</h3>
-        <p>Ja. Jede Feuerwehr hat ihren eigenen Verwaltungsbereich: Einsatzarten, Prioritäten,
+        </details>
+        <details>
+          <summary><span>Gibt es Unterstützung bei Installation und Betrieb?</span></summary>
+          <p>Ja. Allgemeine Fragen zur Installation und Nutzung werden unentgeltlich beantwortet. KP Rück kann auf eigener Infrastruktur oder bei einem selbst gewählten Hosting- oder Cloud-Anbieter betrieben werden. Nach individueller Absprache ist auch Unterstützung bei Installation, Einrichtung, Updates oder Betrieb möglich. Weitergehende Unterstützung kann kostenpflichtig sein.</p>
+        </details>
+        <details>
+          <summary><span>Was passiert bei einem Strom-, Netzwerk- oder Geräteausfall?</span></summary>
+          <p>KP Rück sichert den aktuellen Stand innerhalb der Anwendung und kann diesen nach einem Ausfall wiederherstellen. Die Anwendung kann auf mehreren Geräten und zusätzlich auf einer lokalen Instanz betrieben werden. Ergänzend kann der Boardstand regelmässig ausgedruckt und als Rückfallebene verwendet werden. Externe Backups der jeweiligen Installation und Infrastruktur liegen in der Verantwortung der betreibenden Organisation.</p>
+        </details>
+        <details>
+          <summary><span>Benötigt KP Rück zwingend KP Front?</span></summary>
+          <p>Nein. KP Rück läuft vollständig eigenständig – mit eigener Datenbank, eigenem Login und eigenen Updates. Sein volles Potenzial entfaltet es im Zusammenspiel mit <a href="https://kp-front.ch/">KP Front</a>, der Anwendung für die Front am Einsatzort: Beide nehmen dieselben Alarme aus dem Dispositionssystem entgegen, lesen dieselbe Mannschaftsliste und stufen Alarme nach derselben Stichwortliste ein, auf Wunsch mit demselben Divera-Zugang. So arbeiten Front und Rück mit denselben Ausgangsdaten, ohne dass Alarmanbindung und Mannschaft doppelt gepflegt werden müssen.</p>
+        </details>
+        <details>
+          <summary><span>Welchen Zweck erfüllt der lokale Stationsdrucker in KP Rück?</span></summary>
+          <p>Der Stationsdrucker bringt das Wichtigste direkt im Magazin oder im Kommandoposten aufs Papier. Einsatzzettel für Trupps und Fahrer druckt KP Rück auf Wunsch automatisch, sobald ein Einsatz zum ersten Mal ausrückt, oder jederzeit von Hand; die Lageübersicht mit Einsätzen, Fahrzeugstatus und Personal sowie die Abholliste mit dem Material, das noch auf Schadenplätzen liegt, auf Knopfdruck. Als Rückfallebene kann der Boardstand zudem regelmässig gedruckt werden. Angebunden wird ein handelsüblicher 80-mm-Thermodrucker (ESC/POS) im lokalen Netz – das funktioniert bei jeder Feuerwehr, nicht nur in der Schweiz.</p>
+        </details>
+        <details>
+          <summary><span>Können wir es an unsere Abläufe anpassen?</span></summary>
+          <p>Ja. Jede Feuerwehr hat ihren eigenen Verwaltungsbereich: Einsatzarten, Prioritäten,
           Mannschaft, Fuhrpark und Materiallisten sind dort frei einstellbar, Import und Export
           laufen über Excel. Und weil der ganze Code auf
           <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub <svg class="ico" style="width:13px;height:13px;vertical-align:-2px" aria-hidden="true" focusable="false"><use href="#i-gh"/></svg></a>
           steht, lässt sich alles Übrige bauen – selbst oder in Auftrag.</p>
-      </div>
-      <div class="faq-item">
-        <h3>In welchen Sprachen ist KP Rück verfügbar?</h3>
-        <p>Die Benutzeroberfläche von KP Rück ist aktuell auf Deutsch und Französisch verfügbar. Als Open-Source-Anwendung kann KP Rück um weitere Sprachen erweitert werden. Dafür ist eine vollständige und fachlich geprüfte Übersetzung der verwendeten Begriffe erforderlich.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Wie fangen wir an?</h3>
-        <p>Mit der <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">Demo</a>,
+        </details>
+        <details>
+          <summary><span>In welchen Sprachen ist KP Rück verfügbar?</span></summary>
+          <p>Die Benutzeroberfläche von KP Rück ist aktuell auf Deutsch und Französisch verfügbar. Als Open-Source-Anwendung kann KP Rück um weitere Sprachen erweitert werden. Dafür ist eine vollständige und fachlich geprüfte Übersetzung der verwendeten Begriffe erforderlich.</p>
+        </details>
+        <details>
+          <summary><span>Wie fangen wir an?</span></summary>
+          <p>Mit der <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">Demo</a>,
           ohne Konto – Rolle wählen und loslegen. Danach an einer Übung ausprobieren; der
           Übungsmodus ist sauber vom Ernstfall getrennt. Wenn es passt, führt die
           <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md" target="_blank" rel="noopener">Einrichtungsanleitung</a> durch Installation und Betrieb. Allgemeine
           Fragen beantworten wir gerne; Daten und Betrieb bleiben in der Verantwortung der
           jeweiligen Feuerwehr.</p>
+        </details>
       </div>
     </div>
   </section>
 
-  <section class="wrap" id="kontakt">
-    <div class="contact-grid">
-      <div class="contact-side">
-        <p class="eyebrow">Kontakt</p>
-        <h2>Sagt uns, was ihr denkt.</h2>
-        <p>Wollt ihr KP Rück bei euch ausprobieren? Fehlt etwas, oder funktioniert etwas nicht so,
-          wie ihr es erwartet? Meldet euch – wir lesen alles.</p>
-        <p class="alt">Für Fragen und offene Ideen gibt es die
-          <a href="https://github.com/feuerwehr-oberwil/kp-rueck/discussions" target="_blank" rel="noopener">GitHub-Diskussionen</a>.</p>
-      </div>
-      <div class="contact-ways">
-        <a class="way" href="https://github.com/feuerwehr-oberwil/kp-rueck/issues/new?template=bug_report.yml" target="_blank" rel="noopener">
-          <span class="way-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-bug"/></svg></span>
-          <span class="way-body">
-            <span class="way-t">Fehler melden</span>
-            <span class="way-s">Was ist passiert, was hättet ihr erwartet? Screenshots zieht ihr direkt ins Formular.</span>
-          </span>
-          <svg class="way-go" aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg>
-        </a>
-        <a class="way" href="https://github.com/feuerwehr-oberwil/kp-rueck/issues/new?template=feature_request.md" target="_blank" rel="noopener">
-          <span class="way-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-idea"/></svg></span>
-          <span class="way-body">
-            <span class="way-t">Etwas wünschen</span>
-            <span class="way-s">Fehlt ein Handgriff, der bei euch zum Ablauf gehört? Beschreibt den Fall, nicht die Lösung.</span>
-          </span>
-          <svg class="way-go" aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg>
-        </a>
-        <form class="way way-form" action="https://api.staticforms.dev/submit" method="POST">
+  <div class="wrap">
+    <div class="sib">
+      <p><strong>KP Front</strong> – das Schwesterprojekt am Schadenplatz: Lagekarte, Objektpläne und Atemschutzüberwachung, auch ohne Netz. Beide erhalten denselben Alarm und laufen unabhängig voneinander. <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md" target="_blank" rel="noopener">Anleitung für beide auf einem Server →</a></p>
+      <a class="btn btn-ghost" href="https://kp-front.ch/">KP Front ansehen<svg class="ico" style="width:14px;height:14px" aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg></a>
+    </div>
+  </div>
+
+  <section class="wrap close" id="kontakt">
+    <p class="eyebrow">Kontakt</p>
+    <h2>Selbst ausprobieren.</h2>
+    <p class="close-p">Die Demo läuft ohne Konto. Wollt ihr KP Rück bei euch einsetzen, oder fehlt etwas? Meldet euch – wir lesen alles.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://demo.kp-rueck.ch" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-play"/></svg>Demo öffnen</a>
+      <a class="btn btn-ghost" href="#betrieb">Selbst betreiben</a>
+    </div>
+    <div class="ways">
+      <details class="way way-form">
+        <summary>
           <span class="way-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-mail"/></svg></span>
-          <div class="way-body">
+          <span class="way-body">
             <span class="way-t">Direkt schreiben</span>
             <span class="way-s">Ohne GitHub-Konto, oder wenn etwas nicht öffentlich stehen soll – auch für «wir würden das gerne bei uns ausprobieren».</span>
-            <input type="hidden" name="apiKey" value="sf_ed957c38761f21e20b01928a">
-            <input type="hidden" name="subject" value="KP Rück – Landingpage (de)">
-            <p class="hp"><label>Dieses Feld bitte leer lassen
-              <input type="text" name="website" tabindex="-1" autocomplete="off"></label></p>
-            <div class="f-fields">
-              <div class="f-row">
-                <label class="f-lab" for="f-name">Name</label>
-                <input class="f-in" id="f-name" type="text" name="name" autocomplete="name" placeholder="Wer schreibt?">
-              </div>
-              <div class="f-row">
-                <label class="f-lab" for="f-mail">E-Mail</label>
-                <input class="f-in" id="f-mail" type="email" name="email" required autocomplete="email" placeholder="Damit wir antworten können">
-              </div>
-              <div class="f-row">
-                <label class="f-lab" for="f-msg">Nachricht</label>
-                <textarea class="f-in" id="f-msg" name="message" rows="4" required placeholder="Worum geht es?"></textarea>
-              </div>
+          </span>
+        </summary>
+        <form action="https://api.staticforms.dev/submit" method="POST">
+          <input type="hidden" name="apiKey" value="sf_ed957c38761f21e20b01928a">
+          <input type="hidden" name="subject" value="KP Rück – Landingpage (de)">
+          <p class="hp"><label>Dieses Feld bitte leer lassen
+            <input type="text" name="website" tabindex="-1" autocomplete="off"></label></p>
+          <div class="f-fields">
+            <div class="f-row">
+              <label class="f-lab" for="f-name">Name</label>
+              <input class="f-in" id="f-name" type="text" name="name" autocomplete="name" placeholder="Wer schreibt?">
             </div>
-            <button class="btn btn-primary f-send" type="submit">Nachricht senden</button>
-            <p class="f-note" role="status" hidden></p>
-            <p class="contact-note">Wird über den Formulardienst staticforms.dev per E-Mail zugestellt. <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/PRIVACY.md#the-project-website" target="_blank" rel="noopener">Datenschutz</a></p>
+            <div class="f-row">
+              <label class="f-lab" for="f-mail">E-Mail</label>
+              <input class="f-in" id="f-mail" type="email" name="email" required autocomplete="email" placeholder="Damit wir antworten können">
+            </div>
+            <div class="f-row">
+              <label class="f-lab" for="f-msg">Nachricht</label>
+              <textarea class="f-in" id="f-msg" name="message" rows="4" required placeholder="Worum geht es?"></textarea>
+            </div>
           </div>
+          <button class="btn btn-primary f-send" type="submit">Nachricht senden</button>
+          <p class="f-note" role="status" hidden></p>
+          <p class="contact-note">Wird über den Formulardienst staticforms.dev per E-Mail zugestellt. <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/PRIVACY.md#the-project-website" target="_blank" rel="noopener">Datenschutz</a></p>
         </form>
-      </div>
+      </details>
+      <a class="way" href="https://github.com/feuerwehr-oberwil/kp-rueck/issues/new?template=bug_report.yml" target="_blank" rel="noopener">
+        <span class="way-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-bug"/></svg></span>
+        <span class="way-body">
+          <span class="way-t">Fehler melden</span>
+          <span class="way-s">Was ist passiert, was hättet ihr erwartet? Screenshots zieht ihr direkt ins Formular.</span>
+        </span>
+      </a>
+      <a class="way" href="https://github.com/feuerwehr-oberwil/kp-rueck/issues/new?template=feature_request.md" target="_blank" rel="noopener">
+        <span class="way-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-idea"/></svg></span>
+        <span class="way-body">
+          <span class="way-t">Etwas wünschen</span>
+          <span class="way-s">Fehlt ein Handgriff, der bei euch zum Ablauf gehört? Beschreibt den Fall, nicht die Lösung.</span>
+        </span>
+      </a>
     </div>
+    <p class="close-alt">Für Fragen und offene Ideen gibt es die
+          <a href="https://github.com/feuerwehr-oberwil/kp-rueck/discussions" target="_blank" rel="noopener">GitHub-Diskussionen</a>.</p>
   </section>
 </main>
 
@@ -1082,7 +928,7 @@
   // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
   document.documentElement.classList.add('js');
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
-    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .stage, .faq-item, .tenet .wrap, .sibling-txt, .setup-card, .contact-side, .contact-ways');
+    var els = document.querySelectorAll('.sec-head, .chap-txt, .chap-img, .own-card, .acc, .tenet .wrap, .stage, .sib, .ways');
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
@@ -1100,7 +946,7 @@
   // Hintergrund und bleiben auf der Seite. Der Honigtopf ist für Menschen
   // unsichtbar: ist er ausgefüllt, war es ein Bot, und wir brechen still ab.
   (function () {
-    var form = document.querySelector('.way-form');
+    var form = document.querySelector('.way-form form');
     if (!form || !window.fetch || !window.FormData) return;
     var fields = form.querySelector('.f-fields');
     var note = form.querySelector('.f-note');

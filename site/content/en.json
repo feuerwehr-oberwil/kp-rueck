@@ -53,41 +53,13 @@
     "cta": "Open the demo",
     "cta2": "Run it yourself",
     "ctaNote": "No account – pick a role and go",
-    "frameAddr": "BOARD · STORM · 17 INCIDENTS ACTIVE",
-    "frameAlt": "Incident board: columns from received through to closed, incident cards in between, crews on the left, equipment on the right"
+    "alt": {
+      "desktop": "Incident board: columns from received to recon complete, crews on the left, equipment on the right",
+      "phone": "Field view on a team’s phone: its own incident site with the report, the crew and the status for the command post"
+    }
   },
   "fit": {
-    "whoLabel": "For whom",
-    "who": [
-      "Militia fire brigades",
-      "Local fire brigades",
-      "Regional support fire brigades",
-      "Professional fire brigades"
-    ],
-    "adapt": {
-      "label": "Adaptable",
-      "items": [
-        "Civil protection organisations",
-        "Command staffs",
-        "Other emergency response organisations"
-      ]
-    },
-    "whatLabel": "For what",
-    "what": [
-      "Everyday incidents",
-      "Storm situations",
-      "Several events at once"
-    ],
-    "note": "Grown out of the real operational work of <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a> – proven there, and developed further ever since.",
-    "own": {
-      "h2": "Your data stays with you.",
-      "p": "KP Rück is open source and runs on a machine in your own station or in your own cloud. Incidents, crews, vehicles and equipment stay under your control.",
-      "items": [
-        "No licence fees",
-        "No vendor lock-in",
-        "Run it yourself, extend it yourself"
-      ]
-    }
+    "note": "Grown out of the real operational work of <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a> – proven there, and developed further ever since."
   },
   "tenet": {
     "eyebrow": "The benchmark",
@@ -111,112 +83,69 @@
       }
     ]
   },
-  "incident": {
-    "eyebrow": "From the alarm to the report",
-    "h2": "One event, one board.",
-    "lede": "This is what a storm night looks like in the command post – what happens on the board ends up in the incident report afterwards.",
-    "entries": [
-      {
-        "time": "21:14",
-        "tag": "Alarm received",
-        "h3": "The reports come in.",
-        "p": "Through the reporting form, by telephone, or over the open interface from the dispatch system (Divera or FireHub, for example). The duty officer takes one over with a click – the report becomes an incident on the board. If someone reports the same incident site a second time, the board asks instead of making a second card."
-      },
-      {
-        "time": "21:19",
-        "tag": "Deployment",
-        "h3": "Crew and vehicles are assigned.",
-        "p": "Personnel, vehicles and equipment onto the incident by drag and drop – or typed: «14 tlf meier» in the command palette. KP Rück detects double bookings and missing resources. The incident command decides: reassign, add, or knowingly dispatch anyway. Whoever arrives checks themselves in with a QR code."
-      },
-      {
-        "time": "21:26",
-        "tag": "Map",
-        "h3": "Who is where.",
-        "p": "Every incident on one map, with the vehicles optionally by GPS position. When a vehicle reaches the scene, the board proposes the status change itself."
-      },
-      {
-        "time": "21:48",
-        "tag": "Recon",
-        "h3": "The recon team reports back.",
-        "p": "The recon team fills in the form on their own phone – photos included. The report hangs on the right incident instead of getting lost in a group chat."
-      },
-      {
-        "time": "22:10",
-        "tag": "Assignments",
-        "h3": "The assignments go out.",
-        "p": "KP Rück calculates sensible routes for several incident sites and supports working through the assignments in a dedicated module of the web app. Crews can report back on arrival, recon, photos, material needs and the completion of an assignment, among other things. Communication by radio remains possible as an alternative."
-      },
-      {
-        "time": "23:30",
-        "tag": "Board",
-        "h3": "Everyone sees the same board.",
-        "p": "The projector in the command post, the tablet on the table and the quartermaster's phone all show the same state – without anybody pressing «refresh»."
-      },
-      {
-        "time": "06:40",
-        "tag": "Report",
-        "h3": "The incident report writes itself along the way.",
-        "p": "The incident log and the response times build up as you go and turn into a PDF. Corrections are made with new entries, not with an eraser – so the night stays on the record."
-      }
-    ]
-  },
-  "shots": {
-    "eyebrow": "From the demo",
-    "h2": "This is what it looks like.",
-    "lede": "Every image is taken from the public demo. Click «Open the demo» and you are standing at the same board.",
-    "note": "The screenshots are in German: the public demo is, and they come from it – restaged images would be a claim rather than evidence.",
+  "chapters": {
     "items": [
       {
-        "alt": "Projector view: every incident phase side by side on one screen",
-        "title": "Projector view",
-        "sub": "For the wall in the darkened command post: all phases side by side, without controls"
+        "was": "Magnetic board on the wall",
+        "h2": "One board on every device.",
+        "p": "Columns are incident phases: cards move from left to right by drag and drop. The projector in the command post, the tablet on the table and the quartermaster’s phone all show the same state – without anybody pressing «refresh».",
+        "li": [
+          "Assign personnel, vehicles and equipment – KP Rück warns about double assignments",
+          "Whoever arrives checks themselves in with a QR code; duty times and breaks are tracked",
+          "Assign by typing: «14 tlf meier» in the command palette"
+        ],
+        "alt": "The incident board: incidents with priority, running time, crew and vehicles"
       },
       {
-        "alt": "Status view: vehicles, incidents, crews and equipment side by side, each with availability and assignment",
-        "title": "Status",
-        "sub": "Vehicles, incidents, crews and equipment side by side – who is free, who is committed, who is where"
+        "was": "Telephone notes on slips of paper",
+        "h2": "Reports that hang on the incident.",
+        "p": "Through the reporting form, by telephone, or over the open interface from the dispatch system (Divera or FireHub, for example). The duty officer takes one over with a click – the report becomes an incident on the board.",
+        "li": [
+          "Reporting form by link or QR for telephone callers and walk-ins, without an account",
+          "If someone reports the same incident site a second time, the board asks",
+          "Open interface – any dispatch system can open incidents"
+        ],
+        "alt": "Reporting form on the phone: location, report and caller details"
       },
       {
-        "alt": "Map view: incidents by priority, vehicle positions and assignments",
-        "title": "Map",
-        "sub": "Every incident by priority, plus the vehicle positions and the assignments between them"
+        "was": "Pins on the town map",
+        "h2": "Who is where.",
+        "p": "Every incident on one map, with the vehicles optionally by GPS position. When a vehicle reaches the scene, the board proposes the status change itself.",
+        "li": [
+          "Every incident by priority and status on one map",
+          "Assignments as a line – which vehicle belongs to which incident",
+          "Precipitation radar and official warnings (MeteoSwiss, Alertswiss)"
+        ],
+        "alt": "Situation map: incidents by priority, with the vehicles and their assignments"
       },
       {
-        "alt": "Vehicle status: vehicles with call sign, driver, destination and status",
-        "title": "Vehicles",
-        "sub": "Call sign, driver, destination and status of every vehicle at a glance"
+        "was": "WhatsApp group and radio message",
+        "h2": "The team reports from its phone.",
+        "p": "Every team sees its own incident sites: arrived, pickup, incident finished – without the radio. The recon team fills in its form with photos on its own phone; the report hangs on the right incident instead of getting lost in a group chat.",
+        "li": [
+          "Field view without an account, by link and code",
+          "Requests – equipment, reinforcements, pickup – stay open until the command post has handled them",
+          "Assignments: several incident sites as one route, the order optimised by distance"
+        ],
+        "alt": "Field view: the team’s own incident site with the report, the crew and «Report arrival»"
       },
       {
-        "alt": "Reporting form: address, report, priority, incident type and caller details",
-        "title": "Reporting form",
-        "sub": "Capture telephone reports and walk-ins in a structured way – by link or QR code, without an account"
-      },
-      {
-        "alt": "Recon form: incident, «I am on scene» and hazards to tick",
-        "title": "Recon form",
-        "sub": "On the recon team's phone: report on scene, tick the hazards, attach photos"
-      },
-      {
-        "alt": "Field view: the crew's own site with its reports to the command post, the situation and the crew",
-        "title": "Field",
-        "sub": "Each crew sees only its own sites – arrived, pick-up needed, incident finished, without the radio"
-      },
-      {
-        "alt": "Assignments: several incidents bundled into one route",
-        "title": "Assignments",
-        "sub": "Bundle several incidents into one assignment: crew and resources stay with the assignment and drive from stop to stop in the set or optimised order"
-      },
-      {
-        "alt": "Exercise controls: generate single or targeted incidents, automation and field simulation",
-        "title": "Exercise",
-        "sub": "Feed in exercise situations instead of inventing them – cleanly separated from the real thing"
+        "was": "Report the weekend after",
+        "h2": "The incident report writes itself along the way.",
+        "p": "The incident log and the response times build up as you go and turn into a PDF. Corrections are made with new entries, not with an eraser – so the night stays on the record.",
+        "li": [
+          "The log records status changes, assignments and messages by itself",
+          "Incident report as a PDF with the response times",
+          "Outstanding-items list: open reports, pickups and equipment still at the scene"
+        ],
+        "alt": "Log: status changes, assignments and entries with the time"
       }
     ]
   },
   "run": {
     "eyebrow": "Running it",
-    "h2": "Three ways to a board of your own.",
-    "lede": "First the demo, then a drill – and if it fits, KP Rück runs at your station. Open source and free of charge; data and operation stay with the fire service.",
+    "h2": "Your data stays with you.",
+    "lede": "KP Rück is open source and runs on a machine in your own station or in your own cloud. Incidents, crews, vehicles and equipment stay under your control. No licence fees, no vendor lock-in.",
     "guide": "Read the guide",
     "ways": [
       {
@@ -237,39 +166,6 @@
     ],
     "note": "Help with installation and operation is available by arrangement – <a href=\"#kontakt\">contact</a>."
   },
-  "change": {
-    "eyebrow": "Switching over",
-    "h2": "What changes.",
-    "lede": "None of this is broken today – the magnetic board has worked for decades. KP Rück steps into the same places, only without the copying out.",
-    "headToday": "Today",
-    "headWith": "With KP Rück",
-    "rows": [
-      {
-        "today": "Magnetic board on the wall",
-        "with": "Digital board on every device"
-      },
-      {
-        "today": "Telephone notes on slips of paper",
-        "with": "A reporting form that hangs on the incident"
-      },
-      {
-        "today": "Excel list for crews and vehicles",
-        "with": "A live overview that keeps itself up to date"
-      },
-      {
-        "today": "WhatsApp group for reports back",
-        "with": "Structured reports with photos"
-      },
-      {
-        "today": "A radio message for every status change",
-        "with": "Status and reports straight from the crew – the radio channel stays clear"
-      },
-      {
-        "today": "Report after the incident",
-        "with": "The report builds up during it"
-      }
-    ]
-  },
   "features": {
     "eyebrow": "Scope",
     "h2": "What is in it.",
@@ -277,6 +173,7 @@
     "groups": [
       {
         "h3": "Board &amp; deployment",
+        "peek": "Incident phases · assigning · double bookings · QR check-in · duty times · projector",
         "items": [
           "<strong>Columns are incident phases</strong> – cards move left to right by drag and drop",
           "Assign personnel, vehicles and equipment – KP Rück warns about double assignments and makes resource conflicts visible",
@@ -293,6 +190,7 @@
       },
       {
         "h3": "Alarms &amp; reports",
+        "peek": "Open interface · Divera · FireHub · reporting form · recon · field",
         "items": [
           "<strong>Open interface</strong> – any dispatch system can open incidents",
           "Can take alarms from Divera or FireHub <span class=\"opt\">optional</span>",
@@ -308,6 +206,7 @@
       },
       {
         "h3": "Map &amp; vehicles",
+        "peek": "Priorities · GPS · assignments · radar and warnings · own tiles",
         "items": [
           "Every incident by priority and status on one map",
           "Vehicle positions by GPS <span class=\"opt\">optional</span>",
@@ -319,6 +218,7 @@
       },
       {
         "h3": "Afterwards &amp; operations",
+        "peek": "Report as PDF · log · figures · administration · thermal printing · training",
         "items": [
           "<strong>Incident report as a PDF</strong> with the incident log and the response times – it builds up during the incident and is already largely prepared when the crews return",
           "Incident log on the board: records status changes, assignments and messages by itself, your own entries with ⇧J – added to, never overwritten",
@@ -334,33 +234,9 @@
     ]
   },
   "sibling": {
-    "eyebrow": "Related project",
-    "h2": "KP Front brings tactical depth at the incident site. KP Rück brings operational breadth across the overall situation.",
-    "p": "<strong>KP Front</strong> turns the situation map and the command table at the scene into digital ones: tactical symbols, site plans and SCBA monitoring, even without a network. Its own app, the same handwriting – both take the same alarm from the dispatch system, and neither needs the other. Both apps can be used in parallel and independently of each other for the same situation.",
+    "line": "<strong>KP Front</strong> – the sister project at the scene: situation map, site plans and SCBA monitoring, even without a network. Both receive the same alert and run independently.",
     "cta": "Take a look at KP Front",
-    "setup": {
-      "h3": "Running both – without setting everything up twice",
-      "rows": [
-        {
-          "dt": "Dispatch",
-          "dd": "The same payload for both. Your dispatch integration is built once; each app only gets its own address."
-        },
-        {
-          "dt": "Divera access",
-          "dd": "One key for both – the same alarms, the same roster. <span class=\"opt\">optional</span>"
-        },
-        {
-          "dt": "Roster",
-          "dd": "The same source in the same file format – the same person on both sides."
-        },
-        {
-          "dt": "Keywords",
-          "dd": "The same alarm keyword list, so the same classification in both apps."
-        }
-      ],
-      "foot": "<strong>Database, updates and login stay separate.</strong> Neither one needs the other to run.",
-      "link": "Guide: both on one server"
-    }
+    "link": "Guide: both on one server"
   },
   "faq": {
     "eyebrow": "Questions &amp; answers",
@@ -371,12 +247,8 @@
         "a": "No more double bookings. No report lost in a group chat. Less radio traffic for questions that are on the board anyway. Everybody sees the same picture at the same time – and the incident report is already there when you get back, instead of the weekend after."
       },
       {
-        "q": "Is KP Rück only for militia fire brigades?",
-        "a": "No. KP Rück grew out of the day-to-day work of a Swiss militia fire brigade, but it suits professional fire services, industrial fire brigades and other emergency organisations just as well. Wherever resources, vehicles, equipment and crews have to be coordinated behind the lines during major incidents or simultaneous storm callouts, KP Rück plays to its strengths."
-      },
-      {
-        "q": "Can KP Rück be used outside the fire service?",
-        "a": "Yes. KP Rück was developed for rear command posts in fire services. As an open-source application, the solution can also be adapted to comparable command and coordination tasks of civil protection organisations, command staffs and other emergency response organisations."
+        "q": "Which fire brigades and incidents is KP Rück for?",
+        "a": "For militia, local, regional support and professional fire brigades – for everyday incidents, storm situations and several events at once. Wherever crews, vehicles and equipment have to be coordinated behind the lines, KP Rück plays to its strengths. As open-source software it can also be adapted for civil protection, command staffs and other emergency response organisations."
       },
       {
         "q": "Where does the data live, and which interfaces are there?",
@@ -422,8 +294,8 @@
   },
   "contact": {
     "eyebrow": "Contact",
-    "h2": "Tell us what you think.",
-    "p": "Do you want to try KP Rück at your brigade? Is something missing, or does something not work the way you expect? Get in touch – we read everything.",
+    "h2": "Try it yourself.",
+    "p": "The demo runs without an account. Do you want to use KP Rück at your fire brigade, or is something missing? Get in touch – we read everything.",
     "alt": "For questions and open-ended ideas there are the <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck/discussions\" target=\"_blank\" rel=\"noopener\">GitHub discussions</a>.",
     "bug": {
       "t": "Report a bug",
