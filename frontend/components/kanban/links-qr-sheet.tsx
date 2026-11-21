@@ -410,6 +410,9 @@ export function LinksQrSheet({
           description={t(`${regenerating}.regenerateDescription`, { event: eventName ?? "" })}
           confirmText={t("regenerateConfirm")}
           confirmIcon={<RefreshCw />}
+          // Not red (the owner's pick), but Enter must not end the links by reflex: the focus
+          // starts on Abbrechen.
+          initialFocus="cancel"
           onConfirm={() => regenerate(regenerating)}
         />
       )}

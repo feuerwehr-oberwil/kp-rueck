@@ -79,8 +79,9 @@ describe('LinksQrSheet – «Link neu erzeugen»', () => {
     const question = await screen.findByRole('alertdialog')
     expect(within(question).getByText(title)).toBeInTheDocument()
     expect(within(question).getByText(/«Sturm Musterdorf» funktioniert danach nicht mehr/)).toBeInTheDocument()
-    // Nothing is ended before the answer.
+    // Nothing is ended before the answer, and Enter alone answers «Abbrechen».
     expect(api.revokeShareLinks).not.toHaveBeenCalled()
+    expect(within(question).getByRole('button', { name: 'Abbrechen' })).toHaveFocus()
 
     await user.click(within(question).getByRole('button', { name: 'Neu erzeugen' }))
 
