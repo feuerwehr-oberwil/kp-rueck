@@ -100,9 +100,6 @@ const mintLink = async (page, path, method = 'POST') =>
 const enterFeldAs = async (page, name) => {
   const { link } = await mintLink(page, '/api/feld/generate-link')
   const { code } = await mintLink(page, '/api/feld/access', 'GET')
-  // /feld remembers who you are in a cookie on its own path – the second Feld shot of a run
-  // would skip the person picker.
-  await page.context().clearCookies({ path: '/feld' })
   await page.goto(base + link, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.waitForTimeout(2500)
   await page.keyboard.type(String(code), { delay: 120 })

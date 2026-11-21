@@ -175,11 +175,11 @@
         <picture>
           <source data-theme-dark media="(prefers-color-scheme: dark)"
                   srcset="{{base}}shots/dark/desktop/board-992.webp 992w, {{base}}shots/dark/desktop/{{hero.img.desktop}} 1500w"
-                  sizes="(min-width: 1040px) 883px, (max-width: 700px) 70vw, 85vw">
+                  sizes="(min-width: 1040px) 883px, (max-width: 700px) calc(74vw - 36px), calc(89vw - 43px)">
           <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
           <img src="{{base}}shots/desktop/{{hero.img.desktop}}"
                srcset="{{base}}shots/desktop/board-992.webp 992w, {{base}}shots/desktop/{{hero.img.desktop}} 1500w"
-               sizes="(min-width: 1040px) 883px, (max-width: 700px) 70vw, 85vw"
+               sizes="(min-width: 1040px) 883px, (max-width: 700px) calc(74vw - 36px), calc(89vw - 43px)"
                alt="{{hero.alt.desktop}}" width="1500" height="937" fetchpriority="high">
         </picture>
       </div>
