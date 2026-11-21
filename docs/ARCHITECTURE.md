@@ -579,9 +579,10 @@ them, so **a link that has to keep working past its expiry has to be re-generate
 
 The viewer, check-in and alarm links can be **taken back** before they expire: each Ereignis
 keeps one generation number per kind, a link carries the number it was issued with, and
-`POST /api/events/{id}/share-links/{checkin|viewer|alarm}/revoke` (editor) adds one
-(`backend/app/services/share_links.py`). Every link of that kind issued before stops at once;
-the next one generated works.
+`POST /api/events/{id}/share-links/{checkin|viewer|alarm}/revoke` (editor) moves it on
+(`backend/app/services/share_links.py`). Every link of that kind issued before stops at once on
+that system; the next one generated works. With a standby box the hosted board and the box
+count apart, and the other system follows at the next sync (`standby_sync.LINK_GENERATIONS`).
 
 | Token Type | How Obtained | Expiry | Access |
 |------------|-------------|--------|--------|
