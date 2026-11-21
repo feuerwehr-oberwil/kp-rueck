@@ -198,7 +198,11 @@ async function createTestMaterial(
 }
 
 /**
- * Assign `materialName` through the detail view's "Material zuweisen" dialog.
+ * Assign `materialName` through the detail view's "Material zuweisen" step.
+ *
+ * Opened from the detail, an assignment is a step of the detail (`SurfaceStep`,
+ * 19.11.2026): a `region` named by its title inside the detail's dialog, not a
+ * second dialog. From the board it is still its own dialog.
  *
  * Not the vehicles section, whose add control is a popover that renders the
  * whole fleet in one unbounded column: at 1280×720 it already overflows the
@@ -209,7 +213,7 @@ async function createTestMaterial(
  */
 async function assignMaterialFromDetail(page: Page, modal: Locator, materialName: string) {
   await modal.getByTitle('Material zuweisen').click();
-  const dialog = page.getByRole('dialog', { name: 'Material zuweisen' });
+  const dialog = page.getByRole('region', { name: 'Material zuweisen' });
   await expect(dialog).toBeVisible({ timeout: 15_000 });
 
   await dialog.getByPlaceholder('Suchen …').fill(materialName);
@@ -283,13 +287,13 @@ test.describe('Resource summary — the add controls', () => {
   }) => {
     const modal = await openDetail(authenticatedPage, fixture.address);
 
-    // Focus + Enter, with the dialog it opens as the proof. The predecessors of
+    // Focus + Enter, with the step it opens as the proof. The predecessors of
     // this test focused the button and then asserted nothing at all.
     await modal.getByTitle('Mannschaft zuweisen').focus();
     await authenticatedPage.keyboard.press('Enter');
 
     await expect(
-      authenticatedPage.getByRole('dialog', { name: 'Mannschaft zuweisen' }),
+      authenticatedPage.getByRole('region', { name: 'Mannschaft zuweisen' }),
     ).toBeVisible({ timeout: 15_000 });
   });
 });
@@ -337,9 +341,7 @@ test.describe('Resource summary — assigned state', () => {
     // happens at all.
     const modal = await openDetail(authenticatedPage, fixture.address);
     await modal.getByTitle('Material zuweisen').click();
-    const dialog = authenticatedPage.getByRole('dialog', {
-      name: 'Material zuweisen',
-    });
+    const dialog = authenticatedPage.getByRole('region', { name: 'Material zuweisen' });
     await expect(dialog).toBeVisible({ timeout: 15_000 });
 
     const search = dialog.getByPlaceholder('Suchen …');
@@ -369,9 +371,7 @@ test.describe('Resource summary — assigned state', () => {
     await expect(heading).toHaveText('Material · 1');
 
     await modal.getByTitle('Material zuweisen').click();
-    const dialog = authenticatedPage.getByRole('dialog', {
-      name: 'Material zuweisen',
-    });
+    const dialog = authenticatedPage.getByRole('region', { name: 'Material zuweisen' });
     await expect(dialog).toBeVisible({ timeout: 15_000 });
     await dialog.getByPlaceholder('Suchen …').fill(material.name);
     // The row is a toggle: clicking an assigned one deselects it.

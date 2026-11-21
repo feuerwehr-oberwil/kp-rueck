@@ -31,7 +31,8 @@ test.describe('Vehicle assignment from the incident detail', () => {
   }) => {
     await page.locator(VEHICLE_ADD_BUTTON).click();
 
-    const dialog = page.getByRole('dialog', { name: 'Fahrzeuge zuweisen' });
+    // Opened from the detail it is a step of the detail (a `region`), not a second dialog.
+    const dialog = page.getByRole('region', { name: 'Fahrzeuge zuweisen' });
     await expect(dialog).toBeVisible();
 
     // «Zu Fuss» lives in the dialog — the not-a-vehicle choice travels with

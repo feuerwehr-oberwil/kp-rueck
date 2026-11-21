@@ -50,6 +50,12 @@ test('a status change on one board reaches the other within ten seconds', async 
     await b.keyboard.press('Escape');
     await b.locator(`[data-incident-id="${incidentId}"]`).click();
     await b.keyboard.press('.');
+    // Into «Reko abgeschlossen» without a report, the move waits for the
+    // Reko-Bericht gate (19.11.2026); this test files none.
+    await b
+      .getByRole('dialog', { name: /^Reko-Bericht · / })
+      .getByRole('button', { name: 'Ohne Bericht abschliessen' })
+      .click();
     await expect(cardIn(b, 'reko_done')).toBeAttached();
     await expect(cardIn(a, 'reko_done')).toBeAttached({ timeout: SYNC_MS });
   } finally {
