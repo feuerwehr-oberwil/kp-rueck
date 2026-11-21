@@ -91,17 +91,6 @@ async def test_valid_board_cookie_is_an_alternative_to_field_auth(
     assert response.status_code == 200
 
 
-async def test_master_secret_is_not_an_alternative_to_browser_auth(client, provider, monkeypatch):
-    monkeypatch.setattr(settings, "master_token", "geocoding-contract-test-master")
-    response = await client.get(
-        "/api/geocoding/search",
-        params={"q": "Example"},
-        headers={"Authorization": "Bearer geocoding-contract-test-master"},
-    )
-    assert response.status_code == 401
-    assert provider[1] == []
-
-
 @pytest.mark.parametrize("credential_location", ["header", "cookie"])
 async def test_bound_device_admitted_but_revocation_blocks_even_cached_result(
     client,

@@ -57,8 +57,7 @@ async def upload_report_logo(
     """Upload/replace the station logo (editor only). Returns the stored size in bytes."""
     # One byte past the cap, so an oversized upload is refused rather than read whole.
     raw = await file.read(branding.MAX_UPLOAD_BYTES + 1)
-    user_id = current_user.id if current_user.username != "master-token" else None
-    size = await branding.store_report_logo(db, raw, user_id, file.content_type)
+    size = await branding.store_report_logo(db, raw, current_user.id, file.content_type)
 
     await log_action(
         db=db,
@@ -79,8 +78,7 @@ async def delete_report_logo(
     db: AsyncSession = Depends(get_db),
 ) -> Response:
     """Remove the station logo (editor only). Idempotent."""
-    user_id = current_user.id if current_user.username != "master-token" else None
-    await branding.clear_report_logo(db, user_id)
+    await branding.clear_report_logo(db, current_user.id)
     await log_action(
         db=db,
         action_type="update",
@@ -159,12 +157,7 @@ async def rotate_alarm_webhook_secret(
             ),
         )
 
-    # `updated_by` is a real foreign key into `users`, and the MASTER_TOKEN caller is a mock
-    # user with no row behind it – passing its id raises an IntegrityError and the rotation
-    # 500s. Every other writer in this file already guards this; this one did not, and the
-    # scripted-provisioning path is exactly who rotates a webhook secret from a runbook.
-    user_id = current_user.id if current_user.username != "master-token" else None
-    new_secret = await settings_service.rotate_alarm_webhook_secret(db, user_id)
+    new_secret = await settings_service.rotate_alarm_webhook_secret(db, current_user.id)
 
     await log_action(
         db=db,
@@ -231,9 +224,7 @@ async def update_setting(
             return settings_service.SECRET_PLACEHOLDER
         return v
 
-    # Update setting (use None for non-DB users like master token)
-    user_id = current_user.id if current_user.username != "master-token" else None
-    setting = await settings_service.update_setting(db, key, update.value, user_id)
+    setting = await settings_service.update_setting(db, key, update.value, current_user.id)
 
     # Log the change
     await log_action(

@@ -58,8 +58,7 @@ async def require_geocoding_access(
             and await claim_is_live(db, claims.claim_id, claims.event_id, claims.personnel_id)
         ):
             return
-    # Explicitly omit Authorization: a shared integration/master secret is not a browser login.
-    await get_current_user(request, access_token=access_token, authorization=None, db=db)
+    await get_current_user(request, access_token=access_token, db=db)
 
 
 @router.get("/search", response_model=list[AddressSuggestion], dependencies=[Depends(require_geocoding_access)])
