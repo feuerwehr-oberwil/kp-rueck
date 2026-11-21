@@ -289,7 +289,7 @@ async def demo_reset(request: Request, current_user: CurrentAdmin) -> dict[str, 
 
     Requires admin auth: every demo visitor shares the demo-editor account, so
     editor access would let any visitor wipe and reseed every table for
-    everyone. Ops access remains possible via the master token.
+    everyone.
     """
     if not settings.demo_mode:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)

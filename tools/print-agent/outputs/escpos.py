@@ -110,7 +110,7 @@ class EscposOutput:
             return PrintResult(False, (
                 f"ESC/POS support is not installed ({e}). This output needs python-escpos and "
                 "pillow — they are an OPTIONAL extra, so plain `uv sync` does not install "
-                "them: run `uv sync --extra escpos` in tools/print-agent, or use the "
+                "them: run `uv sync --python '>=3.11' --extra escpos` in tools/print-agent, or use the "
                 "published image, which bakes the extra in."
             ))
 

@@ -74,7 +74,7 @@ services:
     # The whole .env reaches the backend, so EVERY variable documented in .env.example works
     # here without also being listed below. It used to be an explicit list, and twelve
     # documented variables – SSO_EDITOR_ALLOWLIST, KP_TELEMETRY_ENABLED, AUDIT_RETENTION_DAYS,
-    # TRUSTED_PROXY_COUNT, MASTER_TOKEN, WS_REQUIRE_AUTH and the four LOGIN_* – had quietly
+    # TRUSTED_PROXY_COUNT, WS_REQUIRE_AUTH and the four LOGIN_* – had quietly
     # fallen off it. Each failed silently and in the permissive direction: you set
     # SSO_EDITOR_ALLOWLIST, your officers still couldn't edit, and nothing anywhere said why.
     # A list that has to be maintained will drift again; passing the file cannot.

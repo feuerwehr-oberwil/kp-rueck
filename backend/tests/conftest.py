@@ -1,5 +1,6 @@
 """Pytest configuration and fixtures for testing."""
 
+import asyncio
 import contextlib
 import os
 from collections.abc import AsyncGenerator
@@ -18,6 +19,7 @@ from app.auth.dependencies import get_current_user
 from app.auth.security import hash_password
 from app.database import AppSession, Base, get_db
 from app.main import app
+from app.middleware.audit import _inflight_audit_tasks
 from app.middleware.rate_limit import limiter
 from app.models import (
     Event,
@@ -418,6 +420,43 @@ async def _bind_audit_logging_to_test_db(test_engine, monkeypatch):
         "app.middleware.audit.audit_session_maker",
         async_sessionmaker(bind=test_engine, expire_on_commit=False),
     )
+
+
+# What `test_engine` seeds once per session: the only rows that belong in the database
+# between two tests.
+SEEDED_TABLES = frozenset({"special_function_types"})
+
+
+@pytest_asyncio.fixture
+async def real_commits(test_engine) -> AsyncGenerator[None, None]:
+    """Clean-up for a test whose sessions commit for real.
+
+    A test that races two requests needs several connections, so it has no outer transaction
+    to roll back (`db_session`): what it commits stays. Ask for this fixture
+    (`@pytest.mark.usefixtures("real_commits")`) and write no clean-up of your own. After the
+    test, passed or failed, it:
+
+    1. waits for every audit row still on its way. Without `client`, the audit middleware
+       writes them fire-and-forget, AFTER the response;
+    2. empties every table except the seeded lookup rows. TRUNCATE cannot be stopped by a
+       foreign key, so a row the test did not expect cannot keep the rest alive.
+
+    On 19.11.2026 a hand-written clean-up deleted its user while such an audit row was still
+    on its way. The foreign key refused, the whole clean-up rolled back, and 16 tests that
+    expect an empty database failed after it.
+
+    Do not read or write through `db_session` in such a test: its transaction ends after this
+    clean-up, and a lock it still holds makes the TRUNCATE time out.
+    """
+    yield
+    # All of them, an earlier test's too: none may write after the TRUNCATE. One event loop
+    # serves the whole session (pyproject.toml), so they can all be awaited here.
+    await asyncio.gather(*list(_inflight_audit_tasks), return_exceptions=True)
+    tables = ", ".join(f'"{table.name}"' for table in Base.metadata.sorted_tables if table.name not in SEEDED_TABLES)
+    async with test_engine.begin() as conn:
+        # A transaction the test leaked would make TRUNCATE wait for ever. Fail instead.
+        await conn.execute(text("SET LOCAL lock_timeout = '10s'"))
+        await conn.execute(text(f"TRUNCATE {tables}"))
 
 
 # ============================================

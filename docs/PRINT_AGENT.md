@@ -294,7 +294,7 @@ WorkingDirectory=/home/<user>/print-agent
 Environment=BACKEND_URL=https://your-backend.example.com
 Environment=AGENT_TOKEN=<PRINT_AGENT_TOKEN>
 Environment=PATH=/home/<user>/.local/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/home/<user>/.local/bin/uv run --extra escpos python agent.py
+ExecStart=/home/<user>/.local/bin/uv run --python '>=3.11' --extra escpos python agent.py
 Restart=always
 RestartSec=5
 
@@ -327,6 +327,12 @@ Both are outbound connections only. No port forwarding or firewall changes neede
 
 ### Updating
 
+The thermal output needs Python 3.11 or later since Pillow 13. A unit from an older install
+still starts the agent with `uv run --extra escpos …`, which on Python 3.10 starts it without
+the ESC/POS packages, and thermal jobs then fail. So **first** change its `ExecStart` to the
+line above (`uv run --python '>=3.11' --extra escpos python agent.py`) and run
+`sudo systemctl daemon-reload` – then copy and restart:
+
 ```bash
 # From your dev machine
 scp -r tools/print-agent/ <user>@<raspberry-ip>:~/print-agent/
@@ -344,7 +350,8 @@ tools/print-agent/
 ├── formatters.py        # ESC/POS slip layouts per job_type
 ├── test_agent.py, test_formatters.py
 ├── Dockerfile
-└── pyproject.toml       # dependencies = [] – python-escpos + pillow only as the `escpos` extra
+├── pyproject.toml       # dependencies = [] – python-escpos + pillow only as the `escpos` extra
+└── uv.lock              # the pinned versions the image installs (`uv sync --locked`)
 
 backend/app/
 ├── api/print.py              # Print API endpoints
@@ -376,12 +383,18 @@ When clicking the "Thermo" button, a confirmation sheet opens with toggleable op
 
 ### Remote Configuration (Railway)
 
-Settings can also be configured via API using a master token (set `MASTER_TOKEN` env var on Railway):
+Settings can also be configured via API. Sign in as an editor or admin first; the audit trail
+then names that account for the change:
 
 ```bash
-TOKEN="<your-master-token>"
-curl -X PATCH https://your-backend.example.com/api/settings/printer.enabled \
-  -H "Authorization: Bearer $TOKEN" \
+BASE="https://your-backend.example.com"
+JAR="$(mktemp)"
+read -rsp "Password: " PASSWORD
+# The password goes in on stdin, so it never shows in the process list.
+printf '%s' "$PASSWORD" | curl -sS -c "$JAR" "$BASE/api/auth/login" \
+  --data-urlencode "username=<your-admin>" --data-urlencode "password@-"
+curl -sS -b "$JAR" -X PATCH "$BASE/api/settings/printer.enabled" \
   -H "Content-Type: application/json" \
   -d '{"value": "true"}'
+rm -f "$JAR"
 ```

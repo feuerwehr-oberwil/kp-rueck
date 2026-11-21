@@ -15,7 +15,7 @@ import logging
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, Header, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
@@ -38,7 +38,6 @@ async def _resolve_event_and_actor(
     token: str | None,
     event_id: uuid.UUID | None,
     access_token: str | None,
-    authorization: str | None,
     db: AsyncSession,
     require_editor: bool = True,
 ) -> tuple[uuid.UUID, User | None]:
@@ -61,7 +60,7 @@ async def _resolve_event_and_actor(
             raise HTTPException(status_code=401, detail=ErrorMessages.LINK_INVALID)
         return resolved, None
 
-    user = await get_current_user(request, access_token, authorization, db)
+    user = await get_current_user(request, access_token, db)
     if require_editor and user.role not in ("editor", "admin"):
         raise HTTPException(status_code=403, detail="Bearbeiter-Berechtigung erforderlich")
     return event_id, user
@@ -103,7 +102,6 @@ async def list_personnel_for_checkin(
         default=False, description="List unavailable personnel too (board roll-call shows them disabled)"
     ),
     access_token: Annotated[str | None, Cookie()] = None,
-    authorization: Annotated[str | None, Header()] = None,
     db: AsyncSession = Depends(get_db),
 ) -> schemas.CheckInListResponse:
     """
@@ -118,7 +116,6 @@ async def list_personnel_for_checkin(
         token=token,
         event_id=event_id,
         access_token=access_token,
-        authorization=authorization,
         db=db,
         require_editor=False,
     )
@@ -154,7 +151,6 @@ async def check_in(
     token: str | None = Query(default=None, description="Access token from the check-in link"),
     event_id: uuid.UUID | None = Query(default=None, description="Event ID (board, requires an editor session)"),
     access_token: Annotated[str | None, Cookie()] = None,
-    authorization: Annotated[str | None, Header()] = None,
     db: AsyncSession = Depends(get_db),
 ) -> schemas.PersonnelCheckInResponse:
     """
@@ -168,7 +164,6 @@ async def check_in(
         token=token,
         event_id=event_id,
         access_token=access_token,
-        authorization=authorization,
         db=db,
     )
 
@@ -213,7 +208,6 @@ async def check_out(
     token: str | None = Query(default=None, description="Access token from the check-in link"),
     event_id: uuid.UUID | None = Query(default=None, description="Event ID (board, requires an editor session)"),
     access_token: Annotated[str | None, Cookie()] = None,
-    authorization: Annotated[str | None, Header()] = None,
     db: AsyncSession = Depends(get_db),
 ) -> schemas.PersonnelCheckInResponse:
     """
@@ -230,7 +224,6 @@ async def check_out(
         token=token,
         event_id=event_id,
         access_token=access_token,
-        authorization=authorization,
         db=db,
     )
 
@@ -278,7 +271,6 @@ async def set_plan(
     token: str | None = Query(default=None, description="Access token from the check-in link"),
     event_id: uuid.UUID | None = Query(default=None, description="Event ID (board, requires an editor session)"),
     access_token: Annotated[str | None, Cookie()] = None,
-    authorization: Annotated[str | None, Header()] = None,
     db: AsyncSession = Depends(get_db),
 ) -> schemas.PersonnelCheckInResponse:
     """«kommt um» / «geht um» – the Appell's time chip, or the person on the check-in link.
@@ -293,7 +285,6 @@ async def set_plan(
         token=token,
         event_id=event_id,
         access_token=access_token,
-        authorization=authorization,
         db=db,
     )
 
@@ -416,7 +407,6 @@ async def get_checkin_stats(
     token: str | None = Query(default=None, description="Access token from the check-in link"),
     event_id: uuid.UUID | None = Query(default=None, description="Event ID (board, requires a session)"),
     access_token: Annotated[str | None, Cookie()] = None,
-    authorization: Annotated[str | None, Header()] = None,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, int]:
     """
@@ -433,7 +423,6 @@ async def get_checkin_stats(
         token=token,
         event_id=event_id,
         access_token=access_token,
-        authorization=authorization,
         db=db,
         require_editor=False,
     )

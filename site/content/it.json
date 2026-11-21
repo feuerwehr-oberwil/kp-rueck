@@ -33,7 +33,8 @@
     "demo": "Demo",
     "githubAria": "KP Rück su GitHub",
     "languageAria": "Lingua",
-    "options": "Lingua e aspetto"
+    "options": "Lingua e aspetto",
+    "skip": "Vai al contenuto"
   },
   "theme": {
     "label": "Modalità scura"
@@ -47,7 +48,7 @@
     "demo": "Apri la demo"
   },
   "hero": {
-    "eyebrow": "Open source&nbsp;· Svizzera",
+    "eyebrow": "Open source&nbsp;· gratuito&nbsp;· Svizzera",
     "h1": "Il tavolo operativo per il posto di comando.",
     "lede": "KP Rück porta in digitale la lavagna magnetica del posto di comando arretrato: <strong>interventi, personale, veicoli e materiale</strong> su un solo tavolo – in tempo reale su ogni dispositivo.",
     "cta": "Apri la demo",
@@ -457,7 +458,8 @@
     "close": "Chiudi",
     "prev": "Immagine precedente",
     "next": "Immagine successiva",
-    "zoom": "Ingrandisci"
+    "zoom": "Ingrandisci",
+    "hint": "Scorri per spostare l’immagine"
   },
   "footer": {
     "origin": "Nato nell’attività operativa dei <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pompieri di Oberwil BL</a> – perché in intervento vedevamo sempre le stesse fonti d’errore: doppie assegnazioni, informazioni sparse ed errori di trascrizione a mano. Ogni corpo pompieri gestisce il proprio KP Rück, con il proprio personale, i propri veicoli e i propri dati.",
@@ -469,6 +471,7 @@
       "notes": "Note di rilascio",
       "dateFormat": "DD.MM.YYYY"
     },
-    "security": "Sicurezza"
+    "security": "Sicurezza",
+    "privacy": "Protezione dei dati"
   }
 }

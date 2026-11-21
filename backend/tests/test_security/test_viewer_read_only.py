@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 from httpx import AsyncClient
 
-from app.main import app
+from tests.route_table import served_routes
 
 #: Writes that do NOT answer a viewer session with 403, by the reason. None of them trusts the
 #: board session for its right to write: each has a door of its own, tested where it lives.
@@ -70,7 +70,7 @@ NOT_REFUSED = {key for keys in OWN_DOOR.values() for key in keys}
 
 def _writes() -> list[tuple[str, str]]:
     table = []
-    for route in app.routes:
+    for route in served_routes():
         methods, path = getattr(route, "methods", None), getattr(route, "path", None)
         if not methods or not path or not path.startswith("/api/"):
             continue
