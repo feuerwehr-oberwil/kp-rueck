@@ -847,7 +847,9 @@ printer cmd="start":
             echo -e "\033[1;34m→ Use 'just printer dry' for testing without a printer\033[0m"
             # --extra escpos: python-escpos/pillow are optional (the CUPS path needs neither),
             # so a plain `uv run` reaches the printer and fails on the lazy import instead.
-            cd tools/print-agent && uv run --extra escpos python agent.py
+            # --python '>=3.11': on an older Python the extra's markers install NOTHING, and
+            # the agent starts and fails at the first thermal job.
+            cd tools/print-agent && uv run --python '>=3.11' --extra escpos python agent.py
             ;;
         dry)
             echo -e "\033[1;34m→ Starting print agent in DRY RUN mode (no printer needed)...\033[0m"
@@ -856,7 +858,7 @@ printer cmd="start":
             ;;
         bg)
             echo -e "\033[1;34m→ Starting thermal print agent in background...\033[0m"
-            cd tools/print-agent && nohup uv run --extra escpos python agent.py > /tmp/kprueck-print-agent.log 2>&1 &
+            cd tools/print-agent && nohup uv run --python '>=3.11' --extra escpos python agent.py > /tmp/kprueck-print-agent.log 2>&1 &
             echo -e "\033[1;32m✓ Print agent started in background\033[0m"
             echo -e "\033[1;34m→ Logs: just printer logs\033[0m"
             ;;
@@ -990,7 +992,7 @@ release version:
 #   → CI gate → four GHCR images + GitHub Release.
 # Commit the version bump and tag it
 release-tag version:
-    git add .env.example frontend/package.json backend/pyproject.toml backend/uv.lock backend/app/config.py tools/print-agent/pyproject.toml docs/openapi.json CHANGELOG.md
+    git add .env.example frontend/package.json backend/pyproject.toml backend/uv.lock backend/app/config.py tools/print-agent/pyproject.toml tools/print-agent/uv.lock docs/openapi.json CHANGELOG.md
     git commit -m "chore(release): v{{version}}"
     git tag -a v{{version}} -m "v{{version}}"
     @echo "\033[1;32m✓ Tagged v{{version}}. Push with: git push --follow-tags\033[0m"

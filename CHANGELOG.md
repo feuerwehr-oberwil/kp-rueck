@@ -266,6 +266,20 @@ will keep holding.
 
 ### Security
 
+- **Short machine secrets stop a production boot.** `STANDBY_SYNC_TOKEN`, `PRINT_AGENT_TOKEN` and
+  `ALARM_WEBHOOK_SECRET` must be at least 32 characters when they are set (`openssl rand -hex 32`),
+  the same rule as `SECRET_KEY`. Until now a short value only logged a warning. See the upgrade
+  note.
+- A test now reads every registered API route and fails for one that has neither a logged-in
+  user nor an entry on an explicit list of open routes with its gate (71 today: signed links,
+  tokens, webhook secret, public by design). A boot refused over a setting's length or
+  strength no longer prints the value beside the message.
+- **Dependency updates.** `next` 15.5.29 (GHSA-7qx7-33qx-rqx2, GHSA-f3mh-rxg3-f5g2 and one more
+  advisory against ≤ 15.5.28). The print agent's ESC/POS extra needs **Pillow ≥ 13.0** (the open
+  advisories against Pillow 12 are fixed only there) and Python 3.11+, and its image now installs
+  exactly what the committed `tools/print-agent/uv.lock` pins. Backend: FastAPI 0.163, pydantic
+  2.14, asyncpg 0.32, alembic 1.20 and patch updates.
+
 - Standby conflict values, including resolved conflicts, require an editor. A viewer can see
   how many open conflicts remain.
 - Removed the unused translation source watcher from the frontend's production dependency
@@ -279,6 +293,12 @@ will keep holding.
   Nothing changes for the compose stack, and nothing was ever enabled on Railway.
 
 ### Removed
+
+- **`MASTER_TOKEN`, the static bearer token with full admin rights.** It belonged to no user, so
+  the audit trail could not say who made a write with it, and nothing in the project used it.
+  The variable is no longer read and the token no longer authenticates a request. A script that
+  used it signs in with an editor or admin account instead (`POST /api/auth/login`, example in
+  `docs/PRINT_AGENT.md` «Remote Configuration»).
 
 - **`GET /api/vehicles/{id}/status`.** `GET /api/vehicles/status?event_id=` returns the whole
   fleet in one call, each vehicle with every Auftrag and Einsatz it serves (`deployments`,
@@ -301,6 +321,13 @@ will keep holding.
 
 ### Upgrade notes
 
+- **Check three secrets before you update:** if `STANDBY_SYNC_TOKEN`, `PRINT_AGENT_TOKEN` or
+  `ALARM_WEBHOOK_SECRET` is set and shorter than 32 characters, the backend no longer starts in
+  production. Replace a short one with `openssl rand -hex 32` at both ends (standby box, print
+  agent, dispatch system) first.
+- **If you set `MASTER_TOKEN`:** remove it from `.env` (or the Railway variables) and change
+  scripts that sent it to sign in with an account. The value was a password equivalent: do not
+  reuse it anywhere.
 - **Stations using Railway ↔ local sync on 0.9.0** should back up before upgrading. Follow
   `docs/STANDBY.md` to configure the replacement. Downgrading recreates an empty sync history
   and default settings. The pre-upgrade backup holds the old history and connection setting.

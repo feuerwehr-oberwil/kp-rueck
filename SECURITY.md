@@ -77,10 +77,11 @@ the latest tagged release and update promptly – see [`docs/DEPLOYMENT.md`](doc
   photos and their associations are preserved and remain accessible through the board.
   Keep Reko form links and photo URLs private: both contain the form's read/write credential.
   Share downloaded image files when only a photo should be shared.
-- **A bypass token exists and is off.** `MASTER_TOKEN` allows API access without a login, for
-  scripted configuration. Empty by default, which disables it. If you set it, treat it as a
-  password equivalent: it is not scoped to a user and does not attribute actions to one in the
-  audit trail.
+- **No bypass token.** Nothing stands in for a login: the admin and editor API needs a user's
+  session, so the audit trail names an account for a write made through it. A script signs in
+  like a person (`POST /api/auth/login`). `MASTER_TOKEN`, the static bearer token for scripted
+  configuration up to 0.9, is no longer read. The scoped links (check-in, Reko, Feld) and the
+  integration secrets are separate and unchanged.
 - **Single-tenant:** one deployment = one station. Everything is served through one origin
   (Caddy in front of frontend, backend and tileserver); `CORS_ORIGINS` is the single allowed
   CORS origin. Online maps receive browser requests; address lookup goes through the backend
@@ -97,6 +98,13 @@ the latest tagged release and update promptly – see [`docs/DEPLOYMENT.md`](doc
 - **Fail-closed integrations:** the generic alarm webhook and the print-agent endpoints reject
   everything until their shared secret is set. The alarm webhook secret can be set in the
   environment (which wins) or, left blank, is generated into the database on first boot.
+- **Short machine secrets stop a production boot.** `STANDBY_SYNC_TOKEN`, `PRINT_AGENT_TOKEN`
+  and `ALARM_WEBHOOK_SECRET` must be at least 32 characters when they are set, the same rule
+  as `SECRET_KEY`. Outside production a short value logs a warning.
+- **Every API route needs a logged-in user, or it is on one list with its gate.** A test
+  (`backend/tests/test_security/test_route_auth_registry.py`) reads every route registered on
+  the app and fails for a route that has no user dependency and no entry on that list: signed
+  link, token, webhook secret, or public by design.
 - **The audit trail is kept, not expired.** `AUDIT_RETENTION_DAYS` defaults to `0` – keep
   everything. Before 0.2 it defaulted to 90 days and swept silently, so a deployment older than
   three months had already lost the trail for its earliest operations.

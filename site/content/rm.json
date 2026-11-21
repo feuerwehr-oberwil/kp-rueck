@@ -33,7 +33,8 @@
     "demo": "Demo",
     "githubAria": "KP Rück sin GitHub",
     "languageAria": "Lingua",
-    "options": "Lingua ed apparientscha"
+    "options": "Lingua ed apparientscha",
+    "skip": "Siglir al cuntegn"
   },
   "theme": {
     "label": "Apparientscha stgira"
@@ -47,13 +48,13 @@
     "demo": "Avrir la demo"
   },
   "hero": {
-    "eyebrow": "Open source&nbsp;· Svizra",
+    "eyebrow": "Open source&nbsp;· gratuit&nbsp;· Svizra",
     "h1": "La tavla d’acziun per il post da commando.",
     "lede": "KP Rück digitalisescha la tavla magnetica dal post da commando posteriur:\n      <strong>acziuns, persunal, vehichels e material</strong> sin ina tavla –\n      en temp real sin mintga apparat.",
     "cta": "Avrir la demo",
     "cta2": "Manar sez",
     "ctaNote": "Senza conto – tscherner ina rolla e cumenzar",
-    "frameAddr": "BOARD · UNWETTER · 17 EINSÄTZE AKTIV",
+    "frameAddr": "TAVLA · MALAURA · 17&nbsp;ACZIUNS ACTIVAS",
     "frameAlt": "Tavla d’acziun: colonnas tenor fasa d’acziun cun las cartas d’acziun, a sanestra il persunal, a dretga il material"
   },
   "fit": {
@@ -457,7 +458,8 @@
     "close": "Serrar",
     "prev": "Maletg precedent",
     "next": "Proxim maletg",
-    "zoom": "Engrondir"
+    "zoom": "Engrondir",
+    "hint": "Stritgar per spustar il maletg"
   },
   "footer": {
     "origin": "Nascì dal manaschi d’acziun dals <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pumpiers d’Oberwil BL</a> –\n      perquai che nus avain adina puspè vesì las medemas funtaunas d’errurs: attribuziuns dublas, infurmaziuns\n      sparpagliadas ed errurs da transcripziun a maun.\n      Mintga corps da pumpiers maina ses agen KP Rück cun agen persunal, agens vehichels ed atgnas datas.",
@@ -469,6 +471,7 @@
       "notes": "Notizias da la versiun",
       "dateFormat": "DD.MM.YYYY"
     },
-    "security": "Segirezza"
+    "security": "Segirezza",
+    "privacy": "Protecziun da datas"
   }
 }

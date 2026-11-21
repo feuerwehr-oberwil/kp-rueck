@@ -106,28 +106,30 @@ class Geocoder:
         marker = _request_active.set(True)
         try:
             async with asyncio.timeout(REQUEST_TIMEOUT):
-                async with httpx.AsyncClient(
-                    timeout=httpx.Timeout(3, connect=2),
-                    follow_redirects=False,
-                    trust_env=False,
-                    headers={
-                        "User-Agent": "KP-Rueck-Geocoding/1.0",
-                        "Accept": "application/json",
-                        "Accept-Encoding": "identity",
-                    },
-                ) as client:
-                    async with client.stream("GET", url, params=parameters) as response:
-                        if (
-                            response.status_code != 200
-                            or response.headers.get("content-encoding", "identity") != "identity"
-                        ):
+                async with (
+                    httpx.AsyncClient(
+                        timeout=httpx.Timeout(3, connect=2),
+                        follow_redirects=False,
+                        trust_env=False,
+                        headers={
+                            "User-Agent": "KP-Rueck-Geocoding/1.0",
+                            "Accept": "application/json",
+                            "Accept-Encoding": "identity",
+                        },
+                    ) as client,
+                    client.stream("GET", url, params=parameters) as response,
+                ):
+                    if (
+                        response.status_code != 200
+                        or response.headers.get("content-encoding", "identity") != "identity"
+                    ):
+                        raise GeocodingUnavailableError
+                    body = bytearray()
+                    async for chunk in response.aiter_bytes(chunk_size=16384):
+                        body.extend(chunk)
+                        if len(body) > MAX_RESPONSE_BYTES:
                             raise GeocodingUnavailableError
-                        body = bytearray()
-                        async for chunk in response.aiter_bytes(chunk_size=16384):
-                            body.extend(chunk)
-                            if len(body) > MAX_RESPONSE_BYTES:
-                                raise GeocodingUnavailableError
-                        return json.loads(body)
+                    return json.loads(body)
         except (httpx.HTTPError, TimeoutError, ValueError):
             raise GeocodingUnavailableError from None
         finally:
