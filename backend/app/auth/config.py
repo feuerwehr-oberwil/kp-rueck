@@ -284,6 +284,9 @@ class AuthSettings(BaseSettings):
 
     class Config:
         env_prefix = "AUTH_"
+        # A refused boot prints the validation error; without this, the input beside it:
+        # a short AUTH_SECRET_KEY in full.
+        hide_input_in_errors = True
         case_sensitive = False
 
 

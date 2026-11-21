@@ -327,16 +327,17 @@ Both are outbound connections only. No port forwarding or firewall changes neede
 
 ### Updating
 
+The thermal output needs Python 3.11 or later since Pillow 13. A unit from an older install
+still starts the agent with `uv run --extra escpos …`, which on Python 3.10 starts it without
+the ESC/POS packages, and thermal jobs then fail. So **first** change its `ExecStart` to the
+line above (`uv run --python '>=3.11' --extra escpos python agent.py`) and run
+`sudo systemctl daemon-reload` – then copy and restart:
+
 ```bash
 # From your dev machine
 scp -r tools/print-agent/ <user>@<raspberry-ip>:~/print-agent/
 ssh <user>@<raspberry-ip> "sudo systemctl restart kp-print-agent"
 ```
-
-The thermal output needs Python 3.11 or later since Pillow 13. A unit from an older install
-still starts the agent with `uv run --extra escpos …`: change its `ExecStart` to the line above
-(`uv run --python '>=3.11' --extra escpos python agent.py`), then
-`sudo systemctl daemon-reload && sudo systemctl restart kp-print-agent`.
 
 ## Files
 

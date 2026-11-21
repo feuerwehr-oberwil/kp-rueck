@@ -266,6 +266,14 @@ will keep holding.
 
 ### Security
 
+- **Short machine secrets stop a production boot.** `STANDBY_SYNC_TOKEN`, `PRINT_AGENT_TOKEN` and
+  `ALARM_WEBHOOK_SECRET` must be at least 32 characters when they are set (`openssl rand -hex 32`),
+  the same rule as `SECRET_KEY`. Until now a short value only logged a warning. See the upgrade
+  note.
+- A test now reads every registered API route and fails for one that has neither a logged-in
+  user nor an entry on an explicit list of open routes with its gate (71 today: signed links,
+  tokens, webhook secret, public by design). A boot refused over a setting's length or
+  strength no longer prints the value beside the message.
 - **Dependency updates.** `next` 15.5.29 (GHSA-7qx7-33qx-rqx2, GHSA-f3mh-rxg3-f5g2 and one more
   advisory against ≤ 15.5.28). The print agent's ESC/POS extra needs **Pillow ≥ 13.0** (the open
   advisories against Pillow 12 are fixed only there) and Python 3.11+, and its image now installs
@@ -313,6 +321,10 @@ will keep holding.
 
 ### Upgrade notes
 
+- **Check three secrets before you update:** if `STANDBY_SYNC_TOKEN`, `PRINT_AGENT_TOKEN` or
+  `ALARM_WEBHOOK_SECRET` is set and shorter than 32 characters, the backend no longer starts in
+  production. Replace a short one with `openssl rand -hex 32` at both ends (standby box, print
+  agent, dispatch system) first.
 - **If you set `MASTER_TOKEN`:** remove it from `.env` (or the Railway variables) and change
   scripts that sent it to sign in with an account. The value was a password equivalent: do not
   reuse it anywhere.
