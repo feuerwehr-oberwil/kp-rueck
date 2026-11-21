@@ -577,6 +577,10 @@ are live, and the UI adapts rather than hard-coding vendors.
   matter). If the new account has another address, write that address into the same statement
   (`…, email = '<new address>' WHERE username = '…'`): with an address that no account has,
   the login would make a new viewer account and leave the old one, with its role, behind.
+  A recreated **guest** also has a new object ID: replace the old one in
+  `SSO_GUEST_ALLOWLIST` first, or the login is refused before any link. A guest is never linked
+  to an existing account by its e-mail; an administrator links it by writing its `tid` and
+  `oid` into that account.
 
   ```bash
   SSO_EDITOR_ALLOWLIST=hans.muster@example.ch,anna.beispiel@example.ch

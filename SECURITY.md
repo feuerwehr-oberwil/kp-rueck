@@ -73,7 +73,8 @@ the latest tagged release and update promptly – see [`docs/DEPLOYMENT.md`](doc
   still what ties the account to a person, so have privileged accounts sign in soon after the
   update. The one-time link compares the address without regard to case; when the address
   sits on an account of another Microsoft identity, or on several accounts, the login is
-  refused and nothing is merged. A username prefix never links anything: a new account whose
+  refused and nothing is merged. A guest, even an allow-listed one, is never linked by e-mail:
+  its address is set by its home tenant. A username prefix never links anything: a new account whose
   e-mail prefix is taken gets a numbered username. Administrators control the local e-mail address and the configured Entra
   tenant's account lifecycle.
 - **Members get a viewer account automatically, guests get nothing.** Any member of the

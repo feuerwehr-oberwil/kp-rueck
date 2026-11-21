@@ -449,6 +449,22 @@ class TestMicrosoftIdentity:
         await db_session.refresh(admin)
         assert admin.microsoft_oid is None
 
+    async def test_an_allowlisted_guest_is_never_linked_to_an_account_by_email(
+        self, client, db_session, microsoft_auth_configured, monkeypatch
+    ):
+        """Its e-mail comes from its home tenant: an address that matches an admin hands over nothing."""
+        admin = User(username="boss", email="boss@fwo.li", password_hash=None, role="admin", is_active=True)
+        db_session.add(admin)
+        await db_session.commit()
+        monkeypatch.setattr(settings, "sso_guest_allowlist", _oid("boss@fwo.li"))
+
+        response = await _login(client, "boss@fwo.li", idp=f"https://sts.windows.net/{OTHER_TENANT}/")
+
+        assert response.status_code == 409
+        assert "access_token" not in response.cookies
+        await db_session.refresh(admin)
+        assert admin.microsoft_oid is None
+
     async def test_guest_on_the_allowlist_is_allowed(self, client, db_session, microsoft_auth_configured, monkeypatch):
         oid = _oid("partner@another.example")
         monkeypatch.setattr(settings, "sso_guest_allowlist", f" someone-else , {oid.upper()} ")

@@ -634,8 +634,10 @@ async def microsoft_login(
             .all()
         )
         # Never merge: the address belongs to an account of another Microsoft identity, or to
-        # several accounts (addresses that differ only in case).
-        if len(matches) > 1 or (matches and matches[0].microsoft_oid is not None):
+        # several accounts (addresses that differ only in case). And never for a guest, even an
+        # allow-listed one: its e-mail is set by its home tenant, so it proves no claim on an
+        # account here – an address that matches an admin would hand over that account.
+        if len(matches) > 1 or (matches and (matches[0].microsoft_oid is not None or identity.is_guest)):
             raise link_by_admin
         user = matches[0] if matches else None
 
