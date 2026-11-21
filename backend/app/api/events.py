@@ -253,7 +253,7 @@ async def revoke_share_links(
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """«Link widerrufen»: end every link of one kind issued so far for this Ereignis.
+    """First half of «Link neu erzeugen»: end every link of one kind issued so far for this Ereignis.
 
     `kind` is `checkin`, `viewer` or `alarm`. Every such link stops working at once – a phone
     or a wall display that holds it gets «Link ungültig» on its next request. Generate a new
@@ -270,7 +270,7 @@ async def revoke_share_links(
         if holder != "standby":
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Dieses Ereignis wird auf KP Rück Online geführt. Links dort widerrufen.",
+                detail="Dieses Ereignis wird auf KP Rück Online geführt. Den Link dort neu erzeugen.",
             )
     if not await share_links.revoke(db, kind, event_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)

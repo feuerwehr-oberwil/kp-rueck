@@ -1127,16 +1127,31 @@
       },
       "checkin": {
         "title": "Check-in",
-        "subtitle": "Check-in am Eingang"
+        "subtitle": "Check-in am Eingang",
+        "regenerateTitle": "Check-in-Link neu erzeugen?",
+        "regenerateDescription": "Der neue Link und sein QR-Code stehen sofort hier bereit. Der bisherige Link für «{event}» funktioniert danach nicht mehr – auch auf dem Tablet an der Tür.",
+        "regenerated": "Check-in-Link neu erzeugt"
       },
       "display": {
         "title": "Wandanzeige",
-        "subtitle": "Nur lesen"
+        "subtitle": "Nur lesen",
+        "regenerateTitle": "Wandanzeige-Link neu erzeugen?",
+        "regenerateDescription": "Der neue Link und sein QR-Code stehen sofort hier bereit. Der bisherige Link für «{event}» funktioniert danach nicht mehr – auch auf einer Wandanzeige, die gerade läuft.",
+        "regenerated": "Wandanzeige-Link neu erzeugt"
       },
       "alarm": {
         "title": "Alarm erfassen",
-        "subtitle": "Telefon und Laufkundschaft"
-      }
+        "subtitle": "Telefon und Laufkundschaft",
+        "regenerateTitle": "Alarm-Link neu erzeugen?",
+        "regenerateDescription": "Der neue Link und sein QR-Code stehen sofort hier bereit. Der bisherige Link für «{event}» funktioniert danach nicht mehr – auch auf den Geräten, an denen gerade Alarme erfasst werden.",
+        "regenerated": "Alarm-Link neu erzeugt"
+      },
+      "regenerate": "Link neu erzeugen",
+      "regenerateConfirm": "Neu erzeugen",
+      "regeneratedNote": "Der bisherige Link gilt nicht mehr.",
+      "regenerateFailed": "Link nicht neu erzeugt",
+      "regenerateHalf": "Neuer Link nicht erzeugt",
+      "regenerateHalfNote": "Der bisherige Link gilt nicht mehr. Links & QR schliessen und wieder öffnen, dann steht der neue bereit."
     },
     "completion": {
       "title": "Einsatz abschliessen?",

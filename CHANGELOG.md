@@ -270,8 +270,10 @@ will keep holding.
   people used to work until it expired (the alarm link: 30 days); the only stop was a new
   `SECRET_KEY`, which ends every link and Feld device at once. An editor can now revoke every link of one kind for
   one Ereignis: `POST /api/events/{id}/share-links/{checkin|viewer|alarm}/revoke`. The links
-  stop at once and a newly generated one works. For now this is an API action; the button in
-  the share dialogs follows. Existing links keep working until they expire or are revoked.
+  stop at once and a newly generated one works. In the board's «Links & QR» sheet an editor
+  does both with the circular arrow in the row of Check-in, Alarm erfassen or Wandanzeige
+  («Link neu erzeugen»): it asks once, then the row shows the new link and QR code. Existing
+  links keep working until they expire or are made new.
   Automatic migration (three counters on `events`).
 
 - **Microsoft sign-in identifies an account by its Entra tenant ID and object ID, and refuses

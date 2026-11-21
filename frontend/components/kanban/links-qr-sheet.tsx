@@ -28,21 +28,28 @@
  * * **Clicking a QR enlarges it**, for the recurring case of somebody standing
  *   in the KP without the poster: click, hold up the screen, done. The enlarged
  *   Feld QR shows the code underneath it for the same reason.
+ *
+ * **«Link neu erzeugen»** (editors, the circular arrow on Check-in, Alarm erfassen and
+ * Wandanzeige): for a link that reached the wrong people. It asks once, ends every link
+ * of that kind issued so far for the Ereignis, and puts the new link and QR in the row.
+ * The Feld link has no arrow: its door is the Feld-Code, with «Neu» and «Abmelden» below it.
  */
 
 import { useCallback, useEffect, useState } from "react"
 import { QRCodeSVG } from "qrcode.react"
 import { useTranslations } from "next-intl"
-import { Check, Copy, ExternalLink, Printer, Users } from "lucide-react"
+import { Check, Copy, ExternalLink, Printer, RefreshCw, Users } from "lucide-react"
 import { toast } from "sonner"
 
 import { FooterSheet } from "@/components/ui/footer-sheet"
 import { SurfaceStep, useOpenSurface } from "@/components/ui/surface-step"
-import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
+import { SheetBody, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { FeldAccessCard, prefetchFeldAccess } from "@/components/feld/feld-access-card"
 import { apiClient } from "@/lib/api-client"
+import type { ShareLinkKind } from "@/lib/api/resources/viewer"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { queueLinkQrPrint, type LinkKind } from "@/lib/link-qr-print"
 import { copyToClipboard } from "@/lib/utils"
@@ -51,10 +58,19 @@ import { copyToClipboard } from "@/lib/utils"
 const LINK_KEYS = ["checkin", "feld", "alarm", "display"] as const satisfies readonly LinkKind[]
 type LinkKey = (typeof LINK_KEYS)[number]
 
+/** The rows whose link can be made new, and the backend's name for each kind. */
+const REGENERABLE = { checkin: "checkin", alarm: "alarm", display: "viewer" } as const satisfies Partial<
+  Record<LinkKey, ShareLinkKind>
+>
+type RegenerableKey = keyof typeof REGENERABLE
+const isRegenerable = (key: LinkKey): key is RegenerableKey => key in REGENERABLE
+
 interface LinksQrSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   eventId: string | null
+  /** Named in the «Link neu erzeugen» question, so the operator sees which Ereignis it is. */
+  eventName?: string | null
   /** Whether the thermal agent is reachable — no print button without one. */
   printerEnabled?: boolean
   /** Opens the Appell — the page closes this sheet first (two layers is one too many). */
@@ -65,6 +81,7 @@ export function LinksQrSheet({
   open,
   onOpenChange,
   eventId,
+  eventName,
   printerEnabled,
   onOpenAttendance,
 }: LinksQrSheetProps) {
@@ -74,6 +91,11 @@ export function LinksQrSheet({
   const [urls, setUrls] = useState<Partial<Record<LinkKey, string>>>({})
   const [copied, setCopied] = useState<LinkKey | null>(null)
   const [enlarged, setEnlarged] = useState<LinkKey | null>(null)
+  /** The row whose «Link neu erzeugen» question is open. */
+  const [regenerating, setRegenerating] = useState<RegenerableKey | null>(null)
+  /** While the opening's links are still coming, «Link neu erzeugen» waits: a link of that
+   *  batch landing after the new one would put the ended link back into the row. */
+  const [linksLoading, setLinksLoading] = useState(false)
   const surface = useOpenSurface()
   /**
    * The day the Feld link dies, from its mint. The print puts it on the Feld
@@ -112,6 +134,7 @@ export function LinksQrSheet({
   useEffect(() => {
     if (!open || !eventId) return
     let cancelled = false
+    setLinksLoading(true)
     Promise.all(
       LINK_KEYS.map(async key => {
         try {
@@ -124,6 +147,7 @@ export function LinksQrSheet({
     ).then(pairs => {
       if (cancelled) return
       setUrls(Object.fromEntries(pairs.filter(([, url]) => url)) as Partial<Record<LinkKey, string>>)
+      setLinksLoading(false)
     })
     return () => {
       cancelled = true
@@ -166,6 +190,34 @@ export function LinksQrSheet({
     }
   }
 
+  /**
+   * The old links of this kind end, then the new one is generated and shown. A failure is
+   * said with the server's sentence and thrown on, so the question stays open for a retry.
+   */
+  const regenerate = async (key: RegenerableKey) => {
+    if (!eventId) return
+    // Revoke first: a link generated before the revoke would carry the old generation and
+    // end with it.
+    try {
+      await apiClient.revokeShareLinks(eventId, REGENERABLE[key])
+    } catch (error) {
+      console.error(`Failed to end the ${key} links:`, error)
+      toast.error(t("regenerateFailed"), { description: error instanceof Error ? error.message : undefined })
+      throw error
+    }
+    try {
+      const url = await generate(key, eventId)
+      setUrls(current => ({ ...current, [key]: url }))
+      toast.success(t(`${key}.regenerated`), { description: t("regeneratedNote") })
+    } catch (error) {
+      // The old link has ended, the new one did not come: the row must not offer the dead one.
+      // Reopening the sheet generates the new link.
+      console.error(`Failed to generate the new ${key} link:`, error)
+      setUrls(current => ({ ...current, [key]: undefined }))
+      toast.error(t("regenerateHalf"), { description: t("regenerateHalfNote") })
+    }
+  }
+
   const handlePrint = async (key: LinkKey) => {
     const url = urls[key]
     if (!url || !eventId) return
@@ -184,7 +236,11 @@ export function LinksQrSheet({
   }
 
   /** One link row. `bare` drops the row's own border so it can stack inside a
-   *  grouped container (divide-y draws the seams there instead). */
+   *  grouped container (divide-y draws the seams there instead).
+   *
+   *  The row wraps: the name never gets narrower than its longest word (`min-w-min`), and
+   *  when the buttons no longer fit beside it – a phone, with print and «neu erzeugen» – they
+   *  go to a second line, right-aligned. Before, «Wandanzeige» ran under the icons at 360px. */
   const linkRow = (key: LinkKey, bare = false) => {
     const url = urls[key]
     return (
@@ -192,8 +248,8 @@ export function LinksQrSheet({
         key={key}
         className={
           bare
-            ? "flex items-center gap-3 p-2.5"
-            : "flex items-center gap-3 rounded-lg border border-border/60 p-2.5"
+            ? "flex flex-wrap items-center gap-x-3 gap-y-1.5 p-2.5"
+            : "flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-border/60 p-2.5"
         }
       >
         {/* Clickable: the KP holds the screen up and somebody scans it. */}
@@ -211,14 +267,14 @@ export function LinksQrSheet({
           )}
         </button>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-min flex-1">
           {/* The name does the explaining. A second line spelling out
               who it is for ("Tablet an der Tür – Anwesenheit") was the
               same fact twice, and the longer half was the vaguer one. */}
           <div className="text-sm font-medium">{t(`${key}.title`)}</div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
           <Button variant="ghost" size="sm" asChild disabled={!url} title={tCommon("openInNewTab")}>
             <a href={url ?? "#"} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="size-3.5" />
@@ -236,6 +292,18 @@ export function LinksQrSheet({
               title={tCommon("printQrCode")}
             >
               <Printer className="size-3.5" />
+            </Button>
+          )}
+          {isEditor && isRegenerable(key) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRegenerating(key)}
+              disabled={!url || linksLoading}
+              title={t("regenerate")}
+              aria-label={t("regenerate")}
+            >
+              <RefreshCw className="size-3.5" />
             </Button>
           )}
         </div>
@@ -264,11 +332,13 @@ export function LinksQrSheet({
         // Enlarging a QR opens a dialog on top of this sheet; without this the
         // outside-click guard reads that as "the operator clicked away" and
         // closes the sheet underneath, so dismissing the QR lands on the board.
-        shouldPreventClose={() => enlarged !== null}
+        shouldPreventClose={() => enlarged !== null || regenerating !== null}
         surface={t("title")}
-        className="max-w-3xl mx-auto px-6 py-4"
+        // Capped at the screen, the groups scroll: on a short phone the rows wrap to two lines
+        // and the sheet would otherwise rise past the top, out of reach.
+        className="max-w-3xl mx-auto px-6 py-4 pb-sheet-safe md:pb-4 modal-h-tall flex flex-col gap-0"
       >
-        <SheetHeader className="p-0 mb-3">
+        <SheetHeader className="p-0 mb-3 shrink-0">
           <SheetTitle>{t("title")}</SheetTitle>
           <SheetDescription>{t("description")}</SheetDescription>
         </SheetHeader>
@@ -278,7 +348,7 @@ export function LinksQrSheet({
             desk / wall display come last. Three labelled groups instead of a
             flat row list — the Anwesenheit row and the Feld-Code used to sit
             wedged between QR rows they had nothing to do with. */}
-        <div className="space-y-3">
+        <SheetBody className="space-y-3">
           {/* Check-In and the Appell it feeds — the two halves of one job. */}
           <section>
             <p className="mb-1 px-0.5 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -329,8 +399,23 @@ export function LinksQrSheet({
               {linkRow("display", true)}
             </div>
           </section>
-        </div>
+        </SheetBody>
       </FooterSheet>
+
+      {regenerating && (
+        <ConfirmDialog
+          open
+          onOpenChange={openState => !openState && setRegenerating(null)}
+          title={t(`${regenerating}.regenerateTitle`)}
+          description={t(`${regenerating}.regenerateDescription`, { event: eventName ?? "" })}
+          confirmText={t("regenerateConfirm")}
+          confirmIcon={<RefreshCw />}
+          // Not red (the owner's pick), but Enter must not end the links by reflex: the focus
+          // starts on Abbrechen.
+          initialFocus="cancel"
+          onConfirm={() => regenerate(regenerating)}
+        />
+      )}
 
       {/* On a desk the enlarged QR is a step inside this sheet (owner pick 5A: no window on a
           window); on the phone an S dialog over the sheet. */}

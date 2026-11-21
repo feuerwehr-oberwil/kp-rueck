@@ -399,7 +399,7 @@ class Event(Base):
     # revoking the claims below.
     feld_code: Mapped[str] = mapped_column(String(4), nullable=False, default=lambda: f"{secrets.randbelow(10000):04d}")
     # The generation of each share link (services/share_links.py). A link carries the number
-    # it was issued with and opens the Ereignis only while the two are equal. «Link widerrufen»
+    # it was issued with and opens the Ereignis only while the two are equal. «Link neu erzeugen»
     # moves it on: every link of that kind issued before stops working, and the next one issued
     # carries the new number. A link from before these columns carries none and counts as 0.
     # The number is two counters, hosted board and standby box (standby_sync `LINK_REVOKE_STEP`).
