@@ -101,6 +101,31 @@ def test_the_same_field_on_both_keeps_the_leaders_value_and_records_the_other():
     assert [op.table for op in plan.to_follower].count(CONFLICTS) == 1
 
 
+HOSTED_REVOKE, BOX_REVOKE = 1 << 16, 1
+
+
+@pytest.mark.parametrize(
+    ("base", "lead", "other", "stands"),
+    [
+        pytest.param(0, BOX_REVOKE, HOSTED_REVOKE, HOSTED_REVOKE + BOX_REVOKE, id="both revoked once while apart"),
+        pytest.param(0, 2 * BOX_REVOKE, HOSTED_REVOKE, HOSTED_REVOKE + 2 * BOX_REVOKE, id="the box twice, hosted once"),
+        pytest.param(HOSTED_REVOKE, 0, HOSTED_REVOKE, HOSTED_REVOKE, id="the leader just got the column (0)"),
+        pytest.param(0, 0, HOSTED_REVOKE, HOSTED_REVOKE, id="only the follower revoked"),
+    ],
+)
+def test_share_link_revokes_of_both_systems_survive_the_merge(base: int, lead: int, other: int, stands: int):
+    """Each system counts in its own half of the generation; the merge keeps the higher of each
+    half, whoever leads, without a conflict. So no revoked link comes back, and a link either
+    side issued before the other's revoke no longer matches."""
+    key = ("events", EVENT)
+    event = lambda generation: {key: {"id": EVENT, "name": "Sturm Musterdorf", "viewer_link_generation": generation}}
+
+    plan = merge(event(base), event(lead), event(other), event_id=EVENT, leader=STANDBY, takeover=TAKEOVER, now=NOW)
+
+    assert plan.merged[key]["viewer_link_generation"] == stands
+    assert stands not in ({lead, other} - {stands}) and not _conflicts(plan)
+
+
 def test_new_rows_from_either_side_are_added_to_the_other():
     mine, theirs = _incident(id=str(uuid.uuid4()), number=21), _incident(id=str(uuid.uuid4()), number=22)
 

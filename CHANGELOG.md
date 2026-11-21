@@ -266,6 +266,14 @@ will keep holding.
 
 ### Security
 
+- **Share links can be taken back.** A check-in, viewer or alarm link that reached the wrong
+  people used to work until it expired (the alarm link: 30 days); the only stop was a new
+  `SECRET_KEY`, which ends every link and Feld device at once. An editor can now revoke every link of one kind for
+  one Ereignis: `POST /api/events/{id}/share-links/{checkin|viewer|alarm}/revoke`. The links
+  stop at once and a newly generated one works. For now this is an API action; the button in
+  the share dialogs follows. Existing links keep working until they expire or are revoked.
+  Automatic migration (three counters on `events`).
+
 - **Microsoft sign-in identifies an account by its Entra tenant ID and object ID, and refuses
   guests.** The login used to find the account by e-mail, a value that can change, and it gave
   every account in the tenant a viewer login – B2B guests and invited personal accounts too. Now
