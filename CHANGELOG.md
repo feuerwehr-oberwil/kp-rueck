@@ -286,6 +286,12 @@ will keep holding.
 
 ### Removed
 
+- **`MASTER_TOKEN`, the static bearer token with full admin rights.** It belonged to no user, so
+  the audit trail could not say who made a write with it, and nothing in the project used it.
+  The variable is no longer read and the token no longer authenticates a request. A script that
+  used it signs in with an editor or admin account instead (`POST /api/auth/login`, example in
+  `docs/PRINT_AGENT.md` «Remote Configuration»).
+
 - **`GET /api/vehicles/{id}/status`.** `GET /api/vehicles/status?event_id=` returns the whole
   fleet in one call, each vehicle with every Auftrag and Einsatz it serves (`deployments`,
   `kind` `auftrag` | `einsatz`). A script that called the old route gets a 404.
@@ -307,6 +313,9 @@ will keep holding.
 
 ### Upgrade notes
 
+- **If you set `MASTER_TOKEN`:** remove it from `.env` (or the Railway variables) and change
+  scripts that sent it to sign in with an account. The value was a password equivalent: do not
+  reuse it anywhere.
 - **Stations using Railway ↔ local sync on 0.9.0** should back up before upgrading. Follow
   `docs/STANDBY.md` to configure the replacement. Downgrading recreates an empty sync history
   and default settings. The pre-upgrade backup holds the old history and connection setting.

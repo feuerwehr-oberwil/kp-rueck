@@ -5,6 +5,8 @@
   Text belongs in content/<language>.json, structure belongs here.
   Screenshots pair shots/<file> with shots/dark/<file>; theme.js runs before CSS.
   Desktop controls stay in the header; compact headers use the native options disclosure.
+  The gallery pictures are lightbox triggers (`.shot-zoom`); the lightbox script at the end of
+  this file is the same in kp-front – change it in both.
 -->
 <html lang="{{lang}}">
 <meta charset="utf-8">
@@ -19,9 +21,10 @@
 {{#alternates}}
 <link rel="alternate" hreflang="{{hreflang}}" href="{{href}}">
 {{/alternates}}
-<!--@template icon:favicon -->
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'32'%20height%3D'32'%20viewBox%3D'0%200%20512%20512'%3E%3Cdefs%3E%3CradialGradient%20id%3D'kpr-tile'%20cx%3D'50%25'%20cy%3D'36%25'%20r%3D'80%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%2326344a'%2F%3E%3Cstop%20offset%3D'58%25'%20stop-color%3D'%231b2330'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%23141a24'%2F%3E%3C%2FradialGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D'512'%20height%3D'512'%20rx%3D'114'%20fill%3D'url(%23kpr-tile)'%2F%3E%3Crect%20x%3D'3'%20y%3D'3'%20width%3D'506'%20height%3D'506'%20rx%3D'111'%20fill%3D'none'%20stroke%3D'%23fff'%20stroke-opacity%3D'.09'%20stroke-width%3D'6'%2F%3E%3Cg%20transform%3D'translate(256%20256)%20scale(1)%20translate(-256%20-264)'%3E%3Cg%20stroke%3D'%23b9c4d2'%20stroke-width%3D'18'%20stroke-linecap%3D'round'%3E%3Cline%20x1%3D'157.60000000000002'%20y1%3D'364'%20x2%3D'131.36'%20y2%3D'420'%2F%3E%3Cline%20x1%3D'354.40000000000003'%20y1%3D'364'%20x2%3D'380.64'%20y2%3D'420'%2F%3E%3C%2Fg%3E%3Crect%20x%3D'92'%20y%3D'100'%20width%3D'328'%20height%3D'268'%20rx%3D'14'%20fill%3D'%23fff'%2F%3E%3Crect%20x%3D'104'%20y%3D'122'%20width%3D'85.33333333333333'%20height%3D'60'%20rx%3D'7'%20fill%3D'%239fadbf'%2F%3E%3Crect%20x%3D'104'%20y%3D'202'%20width%3D'85.33333333333333'%20height%3D'60'%20rx%3D'7'%20fill%3D'%239fadbf'%2F%3E%3Crect%20x%3D'213.33333333333331'%20y%3D'122'%20width%3D'85.33333333333333'%20height%3D'60'%20rx%3D'7'%20fill%3D'%23e8392b'%2F%3E%3Crect%20x%3D'213.33333333333331'%20y%3D'202'%20width%3D'85.33333333333333'%20height%3D'60'%20rx%3D'7'%20fill%3D'%239fadbf'%2F%3E%3Crect%20x%3D'322.66666666666663'%20y%3D'122'%20width%3D'85.33333333333333'%20height%3D'60'%20rx%3D'7'%20fill%3D'%239fadbf'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E">
-<!--@template /icon -->
+<!--@template Tab icon and home-screen icon are files (favicon.svg, apple-touch-icon.png), so a crawler
+     can fetch them. Both are copies of the app's icons – see README «Icons». -->
+<link rel="icon" type="image/svg+xml" href="{{base}}favicon.svg">
+<link rel="apple-touch-icon" href="{{base}}apple-touch-icon.png">
 <meta property="og:type" content="website">
 <meta property="og:title" content="{{meta.ogTitle}}">
 <meta property="og:description" content="{{meta.ogDescription}}">
@@ -56,6 +59,9 @@
 <link rel="preload" href="{{base}}fonts/sora.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="{{base}}fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{{base}}landing.css">
+
+<!--@template The first Tab stop: it jumps over the header's links to <main>. -->
+<a class="skip" href="#main">{{nav.skip}}</a>
 
 <!--@template Every <svg><use href="#i-…"/></svg> is decoration: build.mjs adds aria-hidden and
      focusable="false" to each one, so the uses below leave them out. -->
@@ -126,6 +132,14 @@
             {{#langLinks}}<a class="menu-language{{#current}} on{{/current}}" data-language-link href="{{href}}" hreflang="{{code}}" lang="{{code}}"{{#current}} aria-current="page"{{/current}}><span>{{name}}</span><span aria-hidden="true">{{#current}}✓{{/current}}</span></a>{{/langLinks}}
           </div>
           <button class="theme-toggle menu-theme" type="button" aria-pressed="false" hidden><svg class="ico"><use href="#i-moon"/></svg><span>{{theme.label}}</span><span class="theme-check" aria-hidden="true">✓</span></button>
+          <!--@template The links a compact header has no room for. GitHub leaves the header with the
+               other desktop options (860px); the two section links stay until 560px, so `.menu-narrow`
+               lists them only below that. theme.js closes the menu after a link to a section. -->
+          <div class="menu-links">
+            <a class="menu-link menu-narrow" href="#funktionen">{{nav.features}}</a>
+            <a class="menu-link menu-narrow" href="#kontakt">{{nav.contact}}</a>
+            <a class="menu-link" href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener"><svg class="ico"><use href="#i-gh"/></svg>GitHub</a>
+          </div>
         </div>
       </details>
     </nav>
@@ -137,7 +151,7 @@
   <p class="wrap">{{notice}}</p>
 </div>
 {{/notice}}
-<main>
+<main id="main">
   <section class="hero wrap">
     <p class="eyebrow">{{hero.eyebrow}}</p>
     <h1>{{hero.h1}}</h1>
@@ -472,6 +486,7 @@
       <a href="{{sister}}">KP Front</a>
       <a href="#kontakt">{{footer.contact}}</a>
       <a href="https://github.com/feuerwehr-oberwil/kp-rueck/security/policy" target="_blank" rel="noopener">{{footer.security}}</a>
+      <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/PRIVACY.md#the-project-website" target="_blank" rel="noopener">{{footer.privacy}}</a>
     </div>
   </div>
 </footer>
@@ -531,47 +546,125 @@
     });
   })();
 
-  // Both the gallery and its enlarged picture use native theme-aware sources.
+  // Lightbox – the same block on kp-front.ch and kp-rueck.ch. Every `.shot-zoom` button enlarges
+  // the picture inside it; the dialog is built here, so without JS the page stays as it is.
+  // The caption is the figure's own (`.cap-t`, `.cap-s`) or, without one, the heading of the
+  // section the picture stands in. Prev/next walk the pictures that are on screen: a chapter's
+  // picture for the other device is display:none and left out.
+  // On a phone or an upright tablet the picture keeps a readable size and pans inside <picture>:
+  // the track shows the part of a wide picture in view and the counter says «2 / 9». A phone
+  // capture pans up and down wherever the screen is too short for it. The hint shows whenever
+  // there is more picture than box (landing.css: `.lb-track`, `.lb-hint`, `.lb-count`, `.lb-tall`).
+  // A picture that pans is a Tab stop: with the focus on it the arrow keys pan it, from anywhere
+  // else in the dialog ← and → change the picture.
+  // The page behind does not scroll: landing.css, `html:has(dialog.lb[open])`.
   (function () {
-    var btns = [].slice.call(document.querySelectorAll('.shot-zoom'));
-    if (!btns.length || typeof HTMLDialogElement === 'undefined') return;
+    var all = [].slice.call(document.querySelectorAll('.shot-zoom'));
+    if (!all.length || typeof HTMLDialogElement === 'undefined') return;
 
     var dlg = document.createElement('dialog');
     dlg.className = 'lb';
+    dlg.setAttribute('aria-labelledby', 'lb-cap');
     dlg.innerHTML =
       '<button class="lb-x" type="button" aria-label="{{lightbox.close}}">×</button>' +
       '<button class="lb-nav lb-prev" type="button" aria-label="{{lightbox.prev}}">‹</button>' +
       '<button class="lb-nav lb-next" type="button" aria-label="{{lightbox.next}}">›</button>' +
-      '<figure class="lb-fig"><picture><source data-theme-dark><img alt=""></picture><figcaption></figcaption></figure>';
+      '<figure class="lb-fig"><picture><source data-theme-dark><img alt=""></picture>' +
+      '<div class="lb-track" aria-hidden="true" hidden><i></i></div>' +
+      '<p class="lb-hint" hidden>{{lightbox.hint}}</p>' +
+      '<figcaption id="lb-cap"></figcaption></figure>' +
+      '<p class="lb-count"></p>';
     document.body.appendChild(dlg);
 
-    var img = dlg.querySelector('.lb-fig img');
-    var dark = dlg.querySelector('source');
-    var cap = dlg.querySelector('.lb-fig figcaption');
-    var idx = 0;
+    var fig = dlg.querySelector('.lb-fig');
+    var pic = fig.querySelector('picture');
+    var img = pic.querySelector('img');
+    var dark = pic.querySelector('source');
+    var track = fig.querySelector('.lb-track');
+    var hint = fig.querySelector('.lb-hint');
+    var cap = fig.querySelector('figcaption');
+    var count = dlg.querySelector('.lb-count');
+    var cur = all[0];
 
-    var show = function (i) {
-      idx = (i + btns.length) % btns.length;
-      var s = btns[idx].closest('.shot');
-      var src = s.querySelector('img');
-      dark.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';
-      dark.srcset = s.querySelector('source').srcset;
-      img.src = src.src;
-      img.alt = src.alt;
-      cap.innerHTML = '<b>' + s.querySelector('.cap-t').textContent + '</b> – '
-        + s.querySelector('.cap-s').textContent;
+    // The triggers on screen, asked again at every step: a turned phone swaps a chapter's tablet
+    // picture for its phone picture behind the open dialog.
+    var onScreen = function () {
+      return all.filter(function (b) { return b.getClientRects().length; });
+    };
+    var boxOf = function (btn) { return btn.closest('figure, section'); };
+
+    // Track, hint and the picture's Tab stop follow the picture's box: called when the dialog
+    // opens, when a picture is set or has loaded, when it pans and when the window changes.
+    var measure = function () {
+      if (!dlg.open) return;
+      var wide = pic.scrollWidth - pic.clientWidth > 1;
+      var more = wide || pic.scrollHeight - pic.clientHeight > 1;
+      track.hidden = !wide;
+      hint.hidden = !more;
+      // -1, not removed: a focus that sits on the picture when it stops panning stays in the dialog.
+      pic.tabIndex = more ? 0 : -1;
+      track.firstChild.style.left = pic.scrollLeft / pic.scrollWidth * 100 + '%';
+      track.firstChild.style.width = pic.clientWidth / pic.scrollWidth * 100 + '%';
     };
 
-    btns.forEach(function (btn, i) {
-      btn.addEventListener('click', function () { show(i); dlg.showModal(); });
+    // Back to the picture's top-left corner, with track and hint for what is in the box now.
+    var home = function () {
+      pic.scrollLeft = 0;
+      pic.scrollTop = 0;
+      measure();
+    };
+
+    var show = function (btn, list) {
+      var src = btn.querySelector('img');
+      var box = boxOf(btn);
+      var sub = box.querySelector('.cap-s');
+      var w = src.getAttribute('width');
+      var h = src.getAttribute('height');
+      cur = btn;
+      dark.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';
+      dark.srcset = btn.querySelector('source').srcset;
+      // The size is known before the file arrives, so the box does not jump.
+      img.width = w;
+      img.height = h;
+      img.src = src.src;
+      img.alt = src.alt;
+      fig.classList.toggle('lb-tall', +h > +w);
+      fig.style.setProperty('--lb-ratio', w / h);
+      cap.innerHTML = '<b></b>';
+      cap.firstChild.textContent = box.querySelector('.cap-t, h2').textContent;
+      if (sub) cap.append(' – ' + sub.textContent);
+      count.textContent = list.indexOf(btn) + 1 + ' / ' + list.length;
+      home();
+    };
+
+    // Prev/next: from the chapter that is shown to its neighbour among the pictures on screen.
+    var step = function (by) {
+      var list = onScreen();
+      var box = boxOf(cur);
+      var i = list.findIndex(function (b) { return boxOf(b) === box; });
+      show(list[(i + by + list.length) % list.length], list);
+    };
+
+    all.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        // Picture and caption first: the caption names the dialog when the focus enters it.
+        // The box exists only once the dialog is open, and it keeps its last pan until then.
+        show(btn, onScreen());
+        dlg.showModal();
+        home();
+      });
     });
+    img.addEventListener('load', measure);
+    pic.addEventListener('scroll', measure);
+    addEventListener('resize', measure);
     dlg.querySelector('.lb-x').addEventListener('click', function () { dlg.close(); });
-    dlg.querySelector('.lb-prev').addEventListener('click', function () { show(idx - 1); });
-    dlg.querySelector('.lb-next').addEventListener('click', function () { show(idx + 1); });
+    dlg.querySelector('.lb-prev').addEventListener('click', function () { step(-1); });
+    dlg.querySelector('.lb-next').addEventListener('click', function () { step(1); });
     dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
     dlg.addEventListener('keydown', function (e) {
-      if (e.key === 'ArrowLeft') { e.preventDefault(); show(idx - 1); }
-      if (e.key === 'ArrowRight') { e.preventDefault(); show(idx + 1); }
+      if (e.target === pic && pic.tabIndex === 0) return;
+      if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
     });
   })();
 </script>

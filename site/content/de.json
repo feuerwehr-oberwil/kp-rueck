@@ -32,7 +32,8 @@
     "demo": "Demo",
     "githubAria": "KP Rück auf GitHub",
     "languageAria": "Sprache",
-    "options": "Sprache und Darstellung"
+    "options": "Sprache und Darstellung",
+    "skip": "Zum Inhalt springen"
   },
   "theme": {
     "label": "Dunkle Darstellung"
@@ -46,8 +47,8 @@
     "demo": "Demo öffnen"
   },
   "hero": {
-    "eyebrow": "Open Source&nbsp;· Schweiz",
-    "h1": "Das Einsatzboard für den Kommandoposten.",
+    "eyebrow": "Open Source&nbsp;· kostenlos&nbsp;· Schweiz",
+    "h1": "Das Einsatz&shy;board für den Kommando&shy;posten.",
     "lede": "KP Rück bildet die Magnettafel im rückwärtigen KP digital ab:\n      <strong>Einsätze, Personal, Fahrzeuge und Material</strong> auf einem Board –\n      live auf jedem Gerät.",
     "cta": "Demo öffnen",
     "cta2": "Selbst betreiben",
@@ -486,7 +487,8 @@
     "close": "Schliessen",
     "prev": "Vorheriges Bild",
     "next": "Nächstes Bild",
-    "zoom": "Vergrössern"
+    "zoom": "Vergrössern",
+    "hint": "Wischen, um das Bild zu verschieben"
   },
   "footer": {
     "origin": "Entstanden im Einsatzbetrieb der <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a> –\n      weil wir im Einsatz immer wieder dieselben Fehlerquellen gesehen haben: Doppelbelegungen, verstreute\n      Informationen und handschriftliche Übertragungsfehler.\n      Jede Feuerwehr betreibt ihr eigenes KP Rück, mit eigener Mannschaft, eigenen Fahrzeugen und eigenen Daten.",
@@ -498,6 +500,7 @@
       "notes": "Release Notes",
       "dateFormat": "DD.MM.YYYY"
     },
-    "security": "Sicherheit"
+    "security": "Sicherheit",
+    "privacy": "Datenschutz"
   }
 }

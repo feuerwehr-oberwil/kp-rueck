@@ -7,11 +7,10 @@ from datetime import UTC
 from typing import Annotated
 
 import jwt
-from fastapi import Cookie, Depends, Header, HTTPException, Request, status
+from fastapi import Cookie, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..config import settings as app_settings
 from ..database import get_db
 from ..models import User
 from .config import auth_settings
@@ -24,7 +23,6 @@ logger = logging.getLogger(__name__)
 async def get_current_user(
     request: Request,
     access_token: Annotated[str | None, Cookie()] = None,
-    authorization: Annotated[str | None, Header()] = None,
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """
@@ -56,29 +54,6 @@ async def get_current_user(
         # Set on request state for logging/audit
         request.state.user = mock_user
         return mock_user
-
-    # Master token bypass - simple env var auth for CLI/remote config
-    if authorization and app_settings.master_token:
-        import secrets as _secrets
-
-        token = authorization.removeprefix("Bearer ").strip()
-        # As bytes: compare_digest raises on a str with non-ASCII characters (a 500, not a 401).
-        if _secrets.compare_digest(token.encode(), app_settings.master_token.encode()):
-            from datetime import datetime
-
-            mock_user = User(
-                id=uuid.UUID("00000000-0000-0000-0000-000000000001"),
-                username="master-token",
-                password_hash="",
-                role="admin",
-                display_name="Master Token",
-                is_active=True,
-                created_at=datetime.now(UTC),
-                last_login=None,
-            )
-            request.state.user = mock_user
-            logger.info("Authenticated via master token")
-            return mock_user
 
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -181,7 +156,6 @@ async def get_current_admin(current_user: Annotated[User, Depends(get_current_us
 async def get_optional_user(
     request: Request,
     access_token: Annotated[str | None, Cookie()] = None,
-    authorization: Annotated[str | None, Header()] = None,
     db: AsyncSession = Depends(get_db),
 ) -> User | None:
     """
@@ -194,7 +168,7 @@ async def get_optional_user(
     an expired session is simply «no session», and the caller falls back to the code.
     """
     try:
-        return await get_current_user(request, access_token, authorization, db)
+        return await get_current_user(request, access_token, db)
     except HTTPException as exc:
         if exc.status_code == status.HTTP_401_UNAUTHORIZED:
             return None
