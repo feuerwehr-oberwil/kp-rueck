@@ -266,6 +266,17 @@ will keep holding.
 
 ### Security
 
+- **Microsoft sign-in identifies an account by its Entra tenant ID and object ID, and refuses
+  guests.** The login used to find the account by e-mail, a value that can change, and it gave
+  every account in the tenant a viewer login – B2B guests and invited personal accounts too. Now
+  the immutable `tid` + `oid` pair is stored on the account at its first Microsoft login. An
+  account from before is linked once by its e-mail (compared without regard to case); for that
+  one-time link, an e-mail that belongs to an account of another Microsoft identity is refused.
+  A new member whose e-mail prefix is already a username gets a numbered username instead of a
+  refusal. A guest or external account gets a 403 unless its
+  object ID is in the new `SSO_GUEST_ALLOWLIST`. Members of the tenant sign in as before and
+  still get a viewer account automatically. Automatic migration (`users.microsoft_tid`,
+  `users.microsoft_oid`).
 - **Short machine secrets stop a production boot.** `STANDBY_SYNC_TOKEN`, `PRINT_AGENT_TOKEN` and
   `ALARM_WEBHOOK_SECRET` must be at least 32 characters when they are set (`openssl rand -hex 32`),
   the same rule as `SECRET_KEY`. Until now a short value only logged a warning. See the upgrade
@@ -321,6 +332,14 @@ will keep holding.
 
 ### Upgrade notes
 
+- **Microsoft sign-in:** add the optional claim `acct` to the ID token of your Entra app
+  registration (Token configuration › Add optional claim › ID › `acct`, `docs/SETUP.md`). Without
+  it KP Rück still refuses guests that sign in through another tenant or a personal account,
+  but not a guest account created inside your own tenant; once the claim arrives, set
+  `SSO_REQUIRE_ACCT_CLAIM=true` to refuse every token without it (unless allow-listed). If a guest must keep its login, put
+  its object ID into `SSO_GUEST_ALLOWLIST` before you update. An existing account is tied to
+  its Entra identity at its next Microsoft login, by its e-mail address, once: have every admin
+  and editor sign in with Microsoft soon after the update.
 - **Check three secrets before you update:** if `STANDBY_SYNC_TOKEN`, `PRINT_AGENT_TOKEN` or
   `ALARM_WEBHOOK_SECRET` is set and shorter than 32 characters, the backend no longer starts in
   production. Replace a short one with `openssl rand -hex 32` at both ends (standby box, print

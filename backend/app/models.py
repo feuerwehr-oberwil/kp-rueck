@@ -61,6 +61,12 @@ class User(Base):
     session_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # The Microsoft Entra identity this account belongs to: tenant id + object id, both
+    # immutable. The Microsoft login finds the account by this pair and stores it on the first
+    # login (api/auth.py `microsoft_login`). NULL = a local account, or one that has not signed
+    # in with Microsoft since the columns exist.
+    microsoft_tid: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    microsoft_oid: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
     # Relationships
     created_incidents: Mapped[list["Incident"]] = relationship(
@@ -71,7 +77,10 @@ class User(Base):
     audit_logs: Mapped[list["AuditLog"]] = relationship("AuditLog", back_populates="user")
     setting_updates: Mapped[list["Setting"]] = relationship("Setting", back_populates="updater")
 
-    __table_args__ = (CheckConstraint("role IN ('admin', 'editor', 'viewer')", name="valid_user_role"),)
+    __table_args__ = (
+        CheckConstraint("role IN ('admin', 'editor', 'viewer')", name="valid_user_role"),
+        UniqueConstraint("microsoft_tid", "microsoft_oid", name="uq_users_microsoft_identity"),
+    )
 
 
 class MicrosoftLoginTransaction(Base):
