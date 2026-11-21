@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.middleware.rate_limit import RateLimits, limiter
 from app.models import Setting
+from tests.route_table import served_routes
 
 # Same value tests/test_api/test_alarms.py uses.
 SECRET = "test_secret"  # a test fixture value, not a credential (S105 is off for tests/)
@@ -127,13 +128,12 @@ def test_every_public_write_route_carries_a_rate_limit():
     import inspect
 
     from app.auth.dependencies import CurrentAdmin, CurrentEditor, CurrentUser
-    from app.main import app
 
     auth_annotations = {CurrentUser, CurrentEditor, CurrentAdmin}
     limited = set(limiter._route_limits.keys())
 
     missing = []
-    for route in app.routes:
+    for route in served_routes():
         path = getattr(route, "path", "")
         methods = getattr(route, "methods", set()) or set()
         endpoint = getattr(route, "endpoint", None)

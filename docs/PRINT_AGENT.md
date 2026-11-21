@@ -294,7 +294,7 @@ WorkingDirectory=/home/<user>/print-agent
 Environment=BACKEND_URL=https://your-backend.example.com
 Environment=AGENT_TOKEN=<PRINT_AGENT_TOKEN>
 Environment=PATH=/home/<user>/.local/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/home/<user>/.local/bin/uv run --extra escpos python agent.py
+ExecStart=/home/<user>/.local/bin/uv run --python '>=3.11' --extra escpos python agent.py
 Restart=always
 RestartSec=5
 
@@ -333,6 +333,11 @@ scp -r tools/print-agent/ <user>@<raspberry-ip>:~/print-agent/
 ssh <user>@<raspberry-ip> "sudo systemctl restart kp-print-agent"
 ```
 
+The thermal output needs Python 3.11 or later since Pillow 13. A unit from an older install
+still starts the agent with `uv run --extra escpos …`: change its `ExecStart` to the line above
+(`uv run --python '>=3.11' --extra escpos python agent.py`), then
+`sudo systemctl daemon-reload && sudo systemctl restart kp-print-agent`.
+
 ## Files
 
 ```
@@ -344,7 +349,8 @@ tools/print-agent/
 ├── formatters.py        # ESC/POS slip layouts per job_type
 ├── test_agent.py, test_formatters.py
 ├── Dockerfile
-└── pyproject.toml       # dependencies = [] – python-escpos + pillow only as the `escpos` extra
+├── pyproject.toml       # dependencies = [] – python-escpos + pillow only as the `escpos` extra
+└── uv.lock              # the pinned versions the image installs (`uv sync --locked`)
 
 backend/app/
 ├── api/print.py              # Print API endpoints
