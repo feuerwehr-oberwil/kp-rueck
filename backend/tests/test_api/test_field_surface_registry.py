@@ -46,11 +46,11 @@ from httpx import AsyncClient
 from PIL import Image
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.main import app
 from app.models import Event, Incident, Personnel, RekoReport
 from app.services.photo_storage import photo_storage
 from app.services.tokens import generate_feld_token, generate_form_token
 from tests.conftest import feld_unlock_token
+from tests.route_table import served_routes
 
 DOORS = ("token", "session", "both")
 
@@ -235,7 +235,7 @@ KNOWN_GAPS: dict[str, str] = {
 def _route_table() -> list[tuple[str, str]]:
     """Every ("METHOD", "/path") in the running app, HEAD/OPTIONS excluded."""
     table: list[tuple[str, str]] = []
-    for route in app.routes:
+    for route in served_routes():
         methods = getattr(route, "methods", None)
         path = getattr(route, "path", None)
         if not methods or not path:

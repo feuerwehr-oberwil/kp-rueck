@@ -16,6 +16,8 @@ site/
   landing.css           ← das gemeinsame Design von KP Rück und KP Front
   theme.js              ← hell/dunkel, wird in jede Seite eingebettet
   fonts/                ← Sora + Spline Sans Mono (variable, gehostet, kein CDN)
+  favicon.svg           ← das Tab-Icon, als Datei, die ein Crawler abrufen kann
+  apple-touch-icon.png  ← dieselbe Marke randlos in 180 px (iOS-Home-Bildschirm, Lesezeichen)
   shots/                ← Screenshots aus einer echten Instanz (generiert, WebP; shots/dark/ nachts)
   capture.mjs           ← nimmt shots/ neu auf
   build.mjs             ← baut aus Vorlage + Texten die Seiten
@@ -82,6 +84,16 @@ Bewusst entschieden und nicht aus Versehen so:
 - **Eine Übersetzung, die keine Feuerwehr-Person dieser Sprache gelesen hat, sagt das oben auf
   der Seite** (`notice` in `fr.json`, `it.json` und `rm.json`). Diese Zeile verschwindet, wenn
   jemand gegengelesen hat – sie ist kein Dekor. Es ist dieselbe Freigabe-Person, die Plan 06 braucht.
+- **Die französischen Satzzeichen-Abstände setzt der Build.** In `fr.json` steht vor `: ; ? !`
+  und innerhalb von `« »` ein gewöhnliches Leerzeichen; `build.mjs` (`TYPOGRAPHY`) macht daraus
+  auf der Seite ein schmales geschütztes Leerzeichen (U+202F), damit das Zeichen nie am
+  Zeilenanfang steht. Die strukturierten Daten behalten das gewöhnliche Leerzeichen.
+- **Lange Wörter in `hero.h1` tragen ein `&shy;`** («Einsatz&shy;board», «Kommando&shy;posten»).
+  Auf einem Telefon passt das Wort nicht auf eine Zeile; das `&shy;` sagt, wo es getrennt wird.
+  Die Überschrift trennt in jeder Breite nur dort (`hyphens: manual` in `landing.css`).
+  Ein neues `&shy;` in jeder Breite von 320 bis 1440 px prüfen, in Chromium und WebKit: Safari
+  trennt dort, sobald die erste Worthälfte die Zeile füllt, auch am Desktop. Darum hat das
+  französische «commandement» keines.
 
 ## Theme assets and shared runtime
 
@@ -91,6 +103,12 @@ menu, closed by Escape or a tap outside. Language choices remain real links. The
 choice is a local preference (`kp-landing-theme`), shared across language pages on the same
 origin. Keep `theme.js`, `build.mjs` and `landing.css` byte-identical in both repositories.
 The builder embeds the runtime in the page head, including the single-file hand-out.
+
+The lightbox is shared in the same way: a picture inside a `.shot-zoom` button opens enlarged,
+the styles are in `landing.css`, and the script is the last block of `index.template.html` –
+the same block in both repositories, so change it in both. It reads the caption from the
+figure (`.cap-t`, `.cap-s`) or, without one, from the heading of the picture's section. The
+texts are `lightbox.*` in `content/*.json`.
 
 Capture both real app palettes: the existing `shots/<name>.webp` is light, and
 `shots/dark/<name>.webp` is its night counterpart, with matching names and dimensions.
@@ -104,6 +122,21 @@ node site/capture.mjs --theme dark --site-only # night variants only
 
 The offline builder preserves and embeds both picture sources; changing the theme must
 never make the hand-out request an image from a server.
+
+## Icons
+
+`favicon.svg` and `apple-touch-icon.png` are static files, linked from both templates (the 404
+page with absolute paths). A crawler or a link preview can fetch a file; it cannot use a `data:`
+icon. Both are byte-for-byte copies of the app's icons, which `scripts/build-icons.mjs` draws:
+
+```bash
+cp frontend/app/icon.svg site/favicon.svg
+cp frontend/public/icons/apple-touch-icon.png site/apple-touch-icon.png
+```
+
+Copy them again after the artwork changes. The header mark stays inline in
+`index.template.html`, between the `icon:mark` lines that `build-icons.mjs` writes. The
+single-file hand-out in `dist/` carries no tab icon.
 
 ## Screenshots aktualisieren
 

@@ -37,10 +37,15 @@
         if (!menu.contains(event.target)) menu.open = false;
       });
       document.addEventListener('keydown', function (event) {
-        if (event.key !== 'Escape' || !menu.open) return;
+        // An open dialog (the lightbox) stands in front of the menu, so Escape is its own first.
+        if (event.key !== 'Escape' || !menu.open || document.querySelector('dialog[open]')) return;
         menu.open = false;
         menu.querySelector('summary').focus();
         event.preventDefault();
+      });
+      // A link to a section of this page does not load a page, so the menu closes itself.
+      menu.addEventListener('click', function (event) {
+        if (event.target.closest('a[href^="#"]')) menu.open = false;
       });
     });
     document.querySelectorAll('.theme-toggle').forEach(function (button) {
@@ -70,7 +75,8 @@
 <link rel="alternate" hreflang="rm-CH" href="https://kp-rueck.ch/rm/">
 <link rel="alternate" hreflang="en" href="https://kp-rueck.ch/en/">
 <link rel="alternate" hreflang="x-default" href="https://kp-rueck.ch/">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'32'%20height%3D'32'%20viewBox%3D'0%200%20512%20512'%3E%3Cdefs%3E%3CradialGradient%20id%3D'kpr-tile'%20cx%3D'50%25'%20cy%3D'36%25'%20r%3D'80%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%2326344a'%2F%3E%3Cstop%20offset%3D'58%25'%20stop-color%3D'%231b2330'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%23141a24'%2F%3E%3C%2FradialGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D'512'%20height%3D'512'%20rx%3D'114'%20fill%3D'url(%23kpr-tile)'%2F%3E%3Crect%20x%3D'3'%20y%3D'3'%20width%3D'506'%20height%3D'506'%20rx%3D'111'%20fill%3D'none'%20stroke%3D'%23fff'%20stroke-opacity%3D'.09'%20stroke-width%3D'6'%2F%3E%3Cg%20transform%3D'translate(256%20256)%20scale(1)%20translate(-256%20-264)'%3E%3Cg%20stroke%3D'%23b9c4d2'%20stroke-width%3D'18'%20stroke-linecap%3D'round'%3E%3Cline%20x1%3D'157.60000000000002'%20y1%3D'364'%20x2%3D'131.36'%20y2%3D'420'%2F%3E%3Cline%20x1%3D'354.40000000000003'%20y1%3D'364'%20x2%3D'380.64'%20y2%3D'420'%2F%3E%3C%2Fg%3E%3Crect%20x%3D'92'%20y%3D'100'%20width%3D'328'%20height%3D'268'%20rx%3D'14'%20fill%3D'%23fff'%2F%3E%3Crect%20x%3D'104'%20y%3D'122'%20width%3D'85.33333333333333'%20height%3D'60'%20rx%3D'7'%20fill%3D'%239fadbf'%2F%3E%3Crect%20x%3D'104'%20y%3D'202'%20width%3D'85.33333333333333'%20height%3D'60'%20rx%3D'7'%20fill%3D'%239fadbf'%2F%3E%3Crect%20x%3D'213.33333333333331'%20y%3D'122'%20width%3D'85.33333333333333'%20height%3D'60'%20rx%3D'7'%20fill%3D'%23e8392b'%2F%3E%3Crect%20x%3D'213.33333333333331'%20y%3D'202'%20width%3D'85.33333333333333'%20height%3D'60'%20rx%3D'7'%20fill%3D'%239fadbf'%2F%3E%3Crect%20x%3D'322.66666666666663'%20y%3D'122'%20width%3D'85.33333333333333'%20height%3D'60'%20rx%3D'7'%20fill%3D'%239fadbf'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <meta property="og:type" content="website">
 <meta property="og:title" content="KP Rück – the incident board for the command post">
 <meta property="og:description" content="The digital magnetic board in the rear command post: incidents, crews, vehicles and equipment – live on every device, open source.">
@@ -366,6 +372,8 @@
 <link rel="preload" href="../fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../landing.css">
 
+<a class="skip" href="#main">Skip to content</a>
+
 <svg style="display:none" aria-hidden="true">
   <symbol id="i-moon" viewBox="0 0 16 16"><path d="M13.8 10.2A6.2 6.2 0 0 1 5.8 2.2a6.2 6.2 0 1 0 8 8z"/></symbol>
   <symbol id="i-sun" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="3"/><path d="M8 1v1M8 14v1M1 8h1M14 8h1M3 3l1 1M12 12l1 1M3 13l1-1M12 4l1-1"/></g></symbol>
@@ -431,15 +439,20 @@
             <a class="menu-language" data-language-link href="../" hreflang="de" lang="de"><span>Deutsch</span><span aria-hidden="true"></span></a><a class="menu-language" data-language-link href="../fr/" hreflang="fr" lang="fr"><span>Français</span><span aria-hidden="true"></span></a><a class="menu-language" data-language-link href="../it/" hreflang="it" lang="it"><span>Italiano</span><span aria-hidden="true"></span></a><a class="menu-language" data-language-link href="../rm/" hreflang="rm" lang="rm"><span>Rumantsch</span><span aria-hidden="true"></span></a><a class="menu-language on" data-language-link href="../en/" hreflang="en" lang="en" aria-current="page"><span>English</span><span aria-hidden="true">✓</span></a>
           </div>
           <button class="theme-toggle menu-theme" type="button" aria-pressed="false" hidden><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-moon"/></svg><span>Dark appearance</span><span class="theme-check" aria-hidden="true">✓</span></button>
+          <div class="menu-links">
+            <a class="menu-link menu-narrow" href="#funktionen">Features</a>
+            <a class="menu-link menu-narrow" href="#kontakt">Contact</a>
+            <a class="menu-link" href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-gh"/></svg>GitHub</a>
+          </div>
         </div>
       </details>
     </nav>
   </div>
 </header>
 
-<main>
+<main id="main">
   <section class="hero wrap">
-    <p class="eyebrow">Open source&nbsp;· Switzerland</p>
+    <p class="eyebrow">Open source&nbsp;· free&nbsp;· Switzerland</p>
     <h1>The incident board for the command post.</h1>
     <p class="lede">KP Rück turns the magnetic board in the rear command post into a digital one: <strong>incidents, crews, vehicles and equipment</strong> on one board – live on every device.</p>
     <div class="cta-row">
@@ -1003,6 +1016,7 @@
       <a href="https://kp-front.ch/en/">KP Front</a>
       <a href="#kontakt">Contact</a>
       <a href="https://github.com/feuerwehr-oberwil/kp-rueck/security/policy" target="_blank" rel="noopener">Security</a>
+      <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/PRIVACY.md#the-project-website" target="_blank" rel="noopener">Privacy</a>
     </div>
   </div>
 </footer>
@@ -1062,47 +1076,125 @@
     });
   })();
 
-  // Both the gallery and its enlarged picture use native theme-aware sources.
+  // Lightbox – the same block on kp-front.ch and kp-rueck.ch. Every `.shot-zoom` button enlarges
+  // the picture inside it; the dialog is built here, so without JS the page stays as it is.
+  // The caption is the figure's own (`.cap-t`, `.cap-s`) or, without one, the heading of the
+  // section the picture stands in. Prev/next walk the pictures that are on screen: a chapter's
+  // picture for the other device is display:none and left out.
+  // On a phone or an upright tablet the picture keeps a readable size and pans inside <picture>:
+  // the track shows the part of a wide picture in view and the counter says «2 / 9». A phone
+  // capture pans up and down wherever the screen is too short for it. The hint shows whenever
+  // there is more picture than box (landing.css: `.lb-track`, `.lb-hint`, `.lb-count`, `.lb-tall`).
+  // A picture that pans is a Tab stop: with the focus on it the arrow keys pan it, from anywhere
+  // else in the dialog ← and → change the picture.
+  // The page behind does not scroll: landing.css, `html:has(dialog.lb[open])`.
   (function () {
-    var btns = [].slice.call(document.querySelectorAll('.shot-zoom'));
-    if (!btns.length || typeof HTMLDialogElement === 'undefined') return;
+    var all = [].slice.call(document.querySelectorAll('.shot-zoom'));
+    if (!all.length || typeof HTMLDialogElement === 'undefined') return;
 
     var dlg = document.createElement('dialog');
     dlg.className = 'lb';
+    dlg.setAttribute('aria-labelledby', 'lb-cap');
     dlg.innerHTML =
       '<button class="lb-x" type="button" aria-label="Close">×</button>' +
       '<button class="lb-nav lb-prev" type="button" aria-label="Previous image">‹</button>' +
       '<button class="lb-nav lb-next" type="button" aria-label="Next image">›</button>' +
-      '<figure class="lb-fig"><picture><source data-theme-dark><img alt=""></picture><figcaption></figcaption></figure>';
+      '<figure class="lb-fig"><picture><source data-theme-dark><img alt=""></picture>' +
+      '<div class="lb-track" aria-hidden="true" hidden><i></i></div>' +
+      '<p class="lb-hint" hidden>Swipe to move the image</p>' +
+      '<figcaption id="lb-cap"></figcaption></figure>' +
+      '<p class="lb-count"></p>';
     document.body.appendChild(dlg);
 
-    var img = dlg.querySelector('.lb-fig img');
-    var dark = dlg.querySelector('source');
-    var cap = dlg.querySelector('.lb-fig figcaption');
-    var idx = 0;
+    var fig = dlg.querySelector('.lb-fig');
+    var pic = fig.querySelector('picture');
+    var img = pic.querySelector('img');
+    var dark = pic.querySelector('source');
+    var track = fig.querySelector('.lb-track');
+    var hint = fig.querySelector('.lb-hint');
+    var cap = fig.querySelector('figcaption');
+    var count = dlg.querySelector('.lb-count');
+    var cur = all[0];
 
-    var show = function (i) {
-      idx = (i + btns.length) % btns.length;
-      var s = btns[idx].closest('.shot');
-      var src = s.querySelector('img');
-      dark.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';
-      dark.srcset = s.querySelector('source').srcset;
-      img.src = src.src;
-      img.alt = src.alt;
-      cap.innerHTML = '<b>' + s.querySelector('.cap-t').textContent + '</b> – '
-        + s.querySelector('.cap-s').textContent;
+    // The triggers on screen, asked again at every step: a turned phone swaps a chapter's tablet
+    // picture for its phone picture behind the open dialog.
+    var onScreen = function () {
+      return all.filter(function (b) { return b.getClientRects().length; });
+    };
+    var boxOf = function (btn) { return btn.closest('figure, section'); };
+
+    // Track, hint and the picture's Tab stop follow the picture's box: called when the dialog
+    // opens, when a picture is set or has loaded, when it pans and when the window changes.
+    var measure = function () {
+      if (!dlg.open) return;
+      var wide = pic.scrollWidth - pic.clientWidth > 1;
+      var more = wide || pic.scrollHeight - pic.clientHeight > 1;
+      track.hidden = !wide;
+      hint.hidden = !more;
+      // -1, not removed: a focus that sits on the picture when it stops panning stays in the dialog.
+      pic.tabIndex = more ? 0 : -1;
+      track.firstChild.style.left = pic.scrollLeft / pic.scrollWidth * 100 + '%';
+      track.firstChild.style.width = pic.clientWidth / pic.scrollWidth * 100 + '%';
     };
 
-    btns.forEach(function (btn, i) {
-      btn.addEventListener('click', function () { show(i); dlg.showModal(); });
+    // Back to the picture's top-left corner, with track and hint for what is in the box now.
+    var home = function () {
+      pic.scrollLeft = 0;
+      pic.scrollTop = 0;
+      measure();
+    };
+
+    var show = function (btn, list) {
+      var src = btn.querySelector('img');
+      var box = boxOf(btn);
+      var sub = box.querySelector('.cap-s');
+      var w = src.getAttribute('width');
+      var h = src.getAttribute('height');
+      cur = btn;
+      dark.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';
+      dark.srcset = btn.querySelector('source').srcset;
+      // The size is known before the file arrives, so the box does not jump.
+      img.width = w;
+      img.height = h;
+      img.src = src.src;
+      img.alt = src.alt;
+      fig.classList.toggle('lb-tall', +h > +w);
+      fig.style.setProperty('--lb-ratio', w / h);
+      cap.innerHTML = '<b></b>';
+      cap.firstChild.textContent = box.querySelector('.cap-t, h2').textContent;
+      if (sub) cap.append(' – ' + sub.textContent);
+      count.textContent = list.indexOf(btn) + 1 + ' / ' + list.length;
+      home();
+    };
+
+    // Prev/next: from the chapter that is shown to its neighbour among the pictures on screen.
+    var step = function (by) {
+      var list = onScreen();
+      var box = boxOf(cur);
+      var i = list.findIndex(function (b) { return boxOf(b) === box; });
+      show(list[(i + by + list.length) % list.length], list);
+    };
+
+    all.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        // Picture and caption first: the caption names the dialog when the focus enters it.
+        // The box exists only once the dialog is open, and it keeps its last pan until then.
+        show(btn, onScreen());
+        dlg.showModal();
+        home();
+      });
     });
+    img.addEventListener('load', measure);
+    pic.addEventListener('scroll', measure);
+    addEventListener('resize', measure);
     dlg.querySelector('.lb-x').addEventListener('click', function () { dlg.close(); });
-    dlg.querySelector('.lb-prev').addEventListener('click', function () { show(idx - 1); });
-    dlg.querySelector('.lb-next').addEventListener('click', function () { show(idx + 1); });
+    dlg.querySelector('.lb-prev').addEventListener('click', function () { step(-1); });
+    dlg.querySelector('.lb-next').addEventListener('click', function () { step(1); });
     dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
     dlg.addEventListener('keydown', function (e) {
-      if (e.key === 'ArrowLeft') { e.preventDefault(); show(idx - 1); }
-      if (e.key === 'ArrowRight') { e.preventDefault(); show(idx + 1); }
+      if (e.target === pic && pic.tabIndex === 0) return;
+      if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
     });
   })();
 </script>

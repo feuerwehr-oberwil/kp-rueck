@@ -33,7 +33,8 @@
     "demo": "Démo",
     "githubAria": "KP Rück sur GitHub",
     "languageAria": "Langue",
-    "options": "Langue et apparence"
+    "options": "Langue et apparence",
+    "skip": "Aller au contenu"
   },
   "theme": {
     "label": "Mode sombre"
@@ -47,13 +48,13 @@
     "demo": "Ouvrir la démo"
   },
   "hero": {
-    "eyebrow": "Open source&nbsp;· Suisse",
+    "eyebrow": "Open source&nbsp;· gratuit&nbsp;· Suisse",
     "h1": "Le tableau d’intervention du poste de commandement.",
     "lede": "KP Rück reproduit sous forme numérique le tableau magnétique du PC arrière :\n      <strong>interventions, personnel, véhicules et matériel</strong> sur un seul tableau –\n      en direct sur chaque appareil.",
     "cta": "Ouvrir la démo",
     "cta2": "L’exploiter soi-même",
     "ctaNote": "Sans compte – choisir un rôle et commencer, aussi en français",
-    "frameAddr": "BOARD · UNWETTER · 17 EINSÄTZE AKTIV",
+    "frameAddr": "TABLEAU · INTEMPÉRIES · 17&nbsp;INTERVENTIONS ACTIVES",
     "frameAlt": "Tableau d’intervention : colonnes de Reçu à Terminé, les cartes d’intervention entre les deux, le personnel à gauche, le matériel à droite"
   },
   "fit": {
@@ -457,7 +458,8 @@
     "close": "Fermer",
     "prev": "Image précédente",
     "next": "Image suivante",
-    "zoom": "Agrandir"
+    "zoom": "Agrandir",
+    "hint": "Glisser pour déplacer l’image"
   },
   "footer": {
     "origin": "Né du service opérationnel des <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">sapeurs-pompiers d’Oberwil BL</a> –\n      parce qu’en intervention nous avons vu revenir les mêmes sources d’erreur : doubles\n      affectations, informations éparpillées et erreurs de recopie à la main.\n      Chaque corps exploite son propre KP Rück, avec son effectif, ses véhicules et ses données.",
@@ -469,6 +471,7 @@
       "notes": "Notes de version",
       "dateFormat": "DD.MM.YYYY"
     },
-    "security": "Sécurité"
+    "security": "Sécurité",
+    "privacy": "Protection des données"
   }
 }

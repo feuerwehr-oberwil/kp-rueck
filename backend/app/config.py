@@ -311,9 +311,6 @@ class Settings(BaseSettings):
     traccar_email: str = ""  # Traccar account email for authentication
     traccar_password: str = ""  # Traccar account password for authentication
 
-    # Master token for API access without login (e.g. configuring settings on Railway)
-    master_token: str = ""  # Set MASTER_TOKEN env var; empty = disabled
-
     # --- Passwordless local login (off by default; see auth/local_autologin.py) ---
     # The station machine that runs the stack opens straight into the board, while every
     # LAN/Tailscale client still signs in normally. Both empty = the feature does not exist:
@@ -368,7 +365,6 @@ class Settings(BaseSettings):
         from app.environment import is_production_environment
 
         for name, value in (
-            ("MASTER_TOKEN", self.master_token),
             ("STANDBY_SYNC_TOKEN", self.standby_sync_token),
             ("PRINT_AGENT_TOKEN", self.print_agent_token),
             ("ALARM_WEBHOOK_SECRET", self.alarm_webhook_secret),

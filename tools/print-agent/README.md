@@ -24,12 +24,12 @@ deliberate: the A4 relay installs on a bare Raspberry Pi with no venv and no Doc
 the path stations actually use, and a `pip install` step there is a thing that breaks at 3am.
 
 `output: escpos` is the one part that needs packages (`python-escpos`, `pillow`, Python
-3.10+; the core runs on 3.9, which a bare Bullseye Pi ships). They are
+3.11+; the core runs on 3.9, which a bare Bullseye Pi ships). They are
 imported *inside* the print call, so an agent without them runs fine for CUPS backends and
 reports a clear, actionable error if a thermal job ever reaches it.
 
 ```bash
-uv sync --extra escpos     # only needed for the thermal printer
+uv sync --python '>=3.11' --extra escpos   # only for the thermal printer; installs what uv.lock pins
 ```
 
 ## Configuration
