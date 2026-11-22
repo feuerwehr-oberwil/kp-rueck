@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures/auth.fixture';
-import { cookieHeaderFor, createEvent } from './helpers/api.helper';
+import { API_BASE, cookieHeaderFor, createEvent } from './helpers/api.helper';
 import type { Locator, Page } from '@playwright/test';
 
 /**
@@ -55,7 +55,7 @@ test.describe('Event Export', () => {
     const cookieHeader = await cookieHeaderFor(authenticatedPage);
     const event = await createEvent(authenticatedPage.request, cookieHeader, name);
     const archived = await authenticatedPage.request.post(
-      `http://localhost:8000/api/events/${event.id}/archive`,
+      `${API_BASE}/api/events/${event.id}/archive`,
       { headers: { cookie: cookieHeader } },
     );
     expect(archived.ok(), await archived.text()).toBeTruthy();

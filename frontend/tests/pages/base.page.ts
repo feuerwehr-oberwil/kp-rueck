@@ -8,10 +8,11 @@ export class BasePage {
   constructor(public readonly page: Page) {}
 
   /**
-   * Navigate to a specific path
+   * Navigate to a path on the app under test – relative to Playwright's `baseURL`
+   * (playwright.config.ts: E2E_BASE_URL, default http://localhost:3000).
    */
   async goto(path: string = '') {
-    await this.page.goto(`${process.env.BASE_URL || 'http://localhost:3000'}${path}`);
+    await this.page.goto(path || '/');
     await this.waitForPageLoad();
   }
 
