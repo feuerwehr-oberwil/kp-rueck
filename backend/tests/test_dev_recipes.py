@@ -31,6 +31,21 @@ def test_dev_recipe_uses_only_the_dev_compose_file(recipe: str) -> None:
         assert "-f docker-compose.dev.yml" in call, f"{recipe} touches another stack: {call}"
 
 
+def test_dev_clean_removes_by_name_only_what_the_dev_file_declares() -> None:
+    # dev-clean also removes the pre-`kp-rueck-dev` containers and volumes by name: the names it
+    # uses must be exactly the dev file's, and none may be a production name.
+    dev = yaml.safe_load((ROOT / "docker-compose.dev.yml").read_text())
+    body = recipe_body("dev-clean")
+    loop = re.search(r"for volume in ([^;]+);", body)
+    assert loop, "dev-clean no longer removes the dev volumes by name"
+    assert set(loop.group(1).split()) == {v["name"] for v in dev["volumes"].values()}
+    pattern = re.compile(r"^kprueck-.*-dev$")
+    assert "'name=^kprueck-.*-dev$'" in body
+    assert all(pattern.match(s["container_name"]) for s in dev["services"].values())
+    prod = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
+    assert not any(pattern.match(s.get("container_name", "")) for s in prod["services"].values())
+
+
 def test_dev_stack_has_its_own_compose_project() -> None:
     prod = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
     dev = yaml.safe_load((ROOT / "docker-compose.dev.yml").read_text())

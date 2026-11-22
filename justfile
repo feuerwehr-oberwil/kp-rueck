@@ -540,6 +540,9 @@ wt-prune *args:
 # Stop the DEVELOPMENT stack (the station's board is `just down`)
 dev-stop:
     docker compose -f docker-compose.dev.yml down
+    @# Dev containers from before the dev file pinned its project still carry the label kp-rueck,
+    @# so `down` does not see them. Their container names (kprueck-*-dev) are dev-only.
+    @docker ps -aq --filter 'name=^kprueck-.*-dev$' | xargs -r docker rm -f >/dev/null
 
 # `down -v` removes the dev stack's named volumes: the dev database and the downloaded dev map
 # tiles, with no undo (dev photos sit in the ./backend bind mount and stay). It acts on
@@ -558,6 +561,13 @@ dev-clean:
         exit 1
     fi
     docker compose -f docker-compose.dev.yml down -v
+    # Compose deletes only volumes labelled with its own project. Dev containers and volumes from
+    # before the dev file pinned `name: kp-rueck-dev` carry the label kp-rueck, so `down -v` keeps
+    # them. Remove them by their dev-only names (the volume names are pinned in the dev file).
+    docker ps -aq --filter 'name=^kprueck-.*-dev$' | xargs -r docker rm -f >/dev/null
+    for volume in kp-rueck_postgres_dev_data kp-rueck_tileserver-dev-data; do
+        if docker volume inspect "$volume" >/dev/null 2>&1; then docker volume rm "$volume" >/dev/null; fi
+    done
 
 # Fill the dev stack from a real deployment so a fresh checkout needs zero configuration:
 # `just dev`, then `just dev-sync railway` – or any Postgres URL, any provider. `--config`
