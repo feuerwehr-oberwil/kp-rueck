@@ -35,14 +35,15 @@ cd frontend && pnpm test                        # Vitest
 cd frontend && pnpm test:e2e tests/e2e/01-auth/ # one E2E suite
 ```
 
-The full list, the path without Docker and the test layout: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
+More commands, the path without Docker and the test layout: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 
 ## Required PR checks
 
 Branch protection on `main` (22.11.2026) requires these CI jobs: Backend Tests, Backend Lint &
 Format, Frontend Type Check, Frontend Lint, Frontend Unit Tests, Frontend Build, Images (build +
-boot + smoke), E2E (@smoke), Visual (screenshots), Shared files match KP Front. The DCO job needs
-a `Signed-off-by` line on every commit: commit with `git commit -s`.
+boot + smoke), E2E (@smoke), Visual (screenshots), Shared files match KP Front. The other CI jobs
+(secrets, security scans, mypy, print agent) fail red too: fix them before you ask for review.
+The DCO job needs a `Signed-off-by` line on every non-merge commit: commit with `git commit -s`.
 
 - `just ci-static` covers lint, format, types, the build and the shared files before a push.
 - A pytest fails when `docs/openapi.json` drifts from the code. Run `just openapi` after an API
@@ -60,17 +61,18 @@ The `dev-` prefix is deliberate. `just up` / `just down` / `just doctor` / `just
 **station operator's** verbs and act on the production stack (`docker-compose.yml`, project
 `kp-rueck`). So do `just backup` and `just restore`. The recipes for development:
 
-- `dev`, `dev-stop`, `dev-clean`, `be` and `just db start|shell|seed` act on
+- `dev`, `dev-stop`, `dev-clean` and `just db start|shell|seed` act on
   `docker-compose.dev.yml` (project `kp-rueck-dev`) only.
-- `just db migrate|up|down|status|history` run alembic against the backend's `DATABASE_URL`.
-  An exported variable wins over `backend/.env` (whose example is the dev database on port
-  5433). Check the value before you run them.
+- `just be` and `just db migrate|up|down|status|new` run on the host against the backend's
+  `DATABASE_URL`. An exported variable wins over `backend/.env` (whose example is the dev
+  database on port 5433). Check the value before you run them. `just db history` reads only
+  the local migration files.
 - `just dev-sync <source>` READS a real deployment into the dev stack. `railway` is the linked
   Railway project, so it reads live data. Run it only when the owner asks for it.
 - `just staging-up` / `just staging-down` start and stop the shared Railway staging environment.
   Run them only when the owner asks for it.
-- Compose sets `ENVIRONMENT=production`: mandatory secrets, no auth bypass, no sample data
-  (`backend/app/environment.py`).
+- `docker-compose.yml` sets `ENVIRONMENT=production`: mandatory secrets, no auth bypass, no
+  sample data (`backend/app/environment.py`).
 
 ## Shared with KP Front
 

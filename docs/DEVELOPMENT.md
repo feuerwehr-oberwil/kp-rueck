@@ -76,7 +76,7 @@ cd frontend && pnpm test:e2e tests/e2e/01-auth/ # one suite; add --headed via `p
   image.
 - `docker-compose.yml` is the PRODUCTION stack (GHCR images pinned by `KP_RUECK_TAG`, Caddy as
   the single origin: `/socket.io` + `/api` → backend, `/tiles` → tileserver, the rest →
-  frontend). `docker-compose.dev.yml` is `just dev`. Compose sets `ENVIRONMENT=production`. That
+  frontend). `docker-compose.dev.yml` is `just dev`. `docker-compose.yml` sets `ENVIRONMENT=production`. That
   turns on mandatory secrets, no auth bypass, and no sample data at all: no sample incidents, and
   no fleet, roster, materials or training locations either (`backend/app/environment.py`,
   `backend/app/seed.py`). Production is not Railway-only.

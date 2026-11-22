@@ -15,7 +15,7 @@ This document describes the components that make up KP Rück, how they communica
   ~5 s as a fallback: when the socket is down, and for entities not yet wired to WS events.
 - **Roles**: `admin`, `editor` (full CRUD), `viewer` (strictly read-only).
 - **Training vs live**: same database, filtered by `training_flag` on incidents.
-- Top-level layout: `README.md` «Repository layout». Components, every table, the sync, print and
+- Top-level layout: [`README.md`](../README.md#repository-layout) «Repository layout». Components, every table, the sync, print and
   alarm flows, the incident lifecycle: the sections below.
 
 ---

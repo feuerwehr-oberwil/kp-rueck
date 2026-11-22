@@ -35,9 +35,9 @@ Full docs: [`openapi.json`](openapi.json) – the committed contract. To regener
 `just openapi` (a pytest fails when it drifts). Live Swagger UI while the backend runs:
 http://localhost:8000/docs
 
-**Integration seams** (provider-neutral, see `docs/ALARM-INTEGRATIONS.md`):
+**Integration seams** (provider-neutral, see [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md)):
 - Inbound alarms funnel through `services/divera_intake.py` (shared inference/auto-attach). The pool table carries `source`/`source_id` provenance; incidents carry `source`/`source_ref`.
 - Outbound alerting (Ausalarmierung) goes through the `AlarmProvider` protocol in `services/alerting/` (Divera = first adapter).
-- `services/roster_snapshot_sync.py` reads a published roster file (`STATION_INDEX_SOURCE` → `index.json`, fallback `ROSTER_SNAPSHOT_SOURCE`; `docs/ROSTER-SNAPSHOT.md`). The contracts and the reading rules (`app/roster_snapshot.py`, `app/roster_snapshot_ingest.py`, `app/station_index.py`, `scripts/roster_snapshot_from_csv.py`, `scripts/station_index_build.py`) are byte-identical with kp-front. Edit them THERE first. They are listed in `shared/MANIFEST.json` (see «Files shared with KP Front»).
+- `services/roster_snapshot_sync.py` reads a published roster file (`STATION_INDEX_SOURCE` → `index.json`, fallback `ROSTER_SNAPSHOT_SOURCE`; [`ROSTER-SNAPSHOT.md`](ROSTER-SNAPSHOT.md)). The contracts and the reading rules (`app/roster_snapshot.py`, `app/roster_snapshot_ingest.py`, `app/station_index.py`, `scripts/roster_snapshot_from_csv.py`, `scripts/station_index_build.py`) are byte-identical with kp-front. Edit them THERE first. They are listed in `shared/MANIFEST.json` (see [`../AGENTS.md`](../AGENTS.md#shared-with-kp-front) «Shared with KP Front»).
 - Personnel provider identity lives in `personnel_external_identities` – the only place where a person's provider-side id exists. Migration `b7c2e5a1d4f8` dropped the deprecated `personnel.divera_user_id` dual-write. The personnel API exposes only a `divera_linked` boolean.
-- Printing: transport-neutral job queue + pull agent (`docs/PRINT_AGENT.md`).
+- Printing: transport-neutral job queue + pull agent ([`PRINT_AGENT.md`](PRINT_AGENT.md)).
