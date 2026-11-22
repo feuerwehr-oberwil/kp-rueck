@@ -954,6 +954,33 @@ check:
     cd frontend && pnpm lint && pnpm typecheck
     python3 scripts/check_shared.py
 
+# (The pre-push hook's set: only checks that give the same answer on a busy box. When kp-front's
+# hook ran the unit suites, two pushes were blocked by six different load flakes, each green
+# alone (22.11.2026) – so pytest, Vitest and E2E stay `just test`'s and GitHub CI's.)
+# Run `check` plus the frontend build – what .githooks/pre-push runs
+ci-static: check
+    cd frontend && pnpm build
+
+# (Once per clone; every worktree of it then runs .githooks/. `git push --no-verify` skips it.
+# It stops when .git/hooks holds an installed hook – e.g. `pre-commit install` – that the switch
+# would silently turn off, or when core.hooksPath already points somewhere else.)
+# Run `just ci-static` before every push (the .githooks/pre-push hook)
+hooks:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    current=$(git config core.hooksPath || true)
+    if [ "$current" = .githooks ]; then echo "hooks: already on .githooks"; exit 0; fi
+    if [ -n "$current" ]; then echo "hooks: core.hooksPath is $current – set it by hand if .githooks should replace it." >&2; exit 1; fi
+    dir=$(git rev-parse --git-path hooks)
+    # ls names symlinks too (a symlinked hook is still installed); find -printf is GNU-only
+    installed=$(ls -A "$dir" 2>/dev/null | grep -v '\.sample$' | tr '\n' ' ' || true)
+    if [ -n "$installed" ]; then
+        echo "hooks: $dir has $installed– core.hooksPath would turn them off in every worktree. Commit an equivalent into .githooks/ (or remove them), then run this again." >&2
+        exit 1
+    fi
+    git config core.hooksPath .githooks
+    echo "hooks: pushes now run just ci-static first"
+
 # Lint all code (backend + frontend)
 lint:
     @echo "\033[1;34m→ Linting backend...\033[0m"
