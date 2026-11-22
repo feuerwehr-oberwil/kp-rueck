@@ -547,7 +547,7 @@ dev_containers := "kprueck-db-dev kprueck-backend-dev kprueck-frontend-dev kprue
 # Stop the DEVELOPMENT stack (the station's board is `just down`)
 dev-stop:
     docker compose -f docker-compose.dev.yml down
-    @for c in {{dev_containers}}; do if docker container inspect "$c" >/dev/null 2>&1; then docker stop "$c" >/dev/null && docker rm "$c" >/dev/null; fi; done
+    @for c in {{dev_containers}}; do if docker container inspect "$c" >/dev/null 2>&1; then docker stop "$c" >/dev/null && docker rm "$c" >/dev/null || exit 1; fi; done
 
 # `down -v` removes the dev stack's named volumes: the dev database and the downloaded dev map
 # tiles, with no undo (dev photos sit in the ./backend bind mount and stay). It acts on
@@ -571,7 +571,9 @@ dev-clean:
     # them. Remove them by name: the containers as in dev-stop, the volumes by the names pinned in
     # the dev file.
     for c in {{dev_containers}}; do
-        if docker container inspect "$c" >/dev/null 2>&1; then docker stop "$c" >/dev/null && docker rm "$c" >/dev/null; fi
+        # `|| exit 1`: set -e does not see a failure on the left of `&&`, and a container left
+        # running would keep its volume in use.
+        if docker container inspect "$c" >/dev/null 2>&1; then docker stop "$c" >/dev/null && docker rm "$c" >/dev/null || exit 1; fi
     done
     for volume in kp-rueck_postgres_dev_data kp-rueck_tileserver-dev-data; do
         if docker volume inspect "$volume" >/dev/null 2>&1; then docker volume rm "$volume" >/dev/null; fi
