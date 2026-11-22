@@ -18,7 +18,8 @@ site/
   fonts/                ← Sora + Spline Sans Mono (variable, gehostet, kein CDN)
   favicon.svg           ← das Tab-Icon, als Datei, die ein Crawler abrufen kann
   apple-touch-icon.png  ← dieselbe Marke randlos in 180 px (iOS-Home-Bildschirm, Lesezeichen)
-  shots/                ← Screenshots aus einer echten Instanz (generiert, WebP; shots/dark/ nachts)
+  shots/                ← Screenshots aus einer echten Instanz: shots/desktop/, shots/phone/
+                          (generiert, WebP; shots/dark/<gerät>/ nachts)
   capture.mjs           ← nimmt shots/ neu auf
   build.mjs             ← baut aus Vorlage + Texten die Seiten
   llms.txt              ← Kurzbeschreibung für Sprachmodelle (von Hand gepflegt)
@@ -107,13 +108,13 @@ The builder embeds the runtime in the page head, including the single-file hand-
 The lightbox is shared in the same way: a picture inside a `.shot-zoom` button opens enlarged,
 the styles are in `landing.css`, and the script is the last block of `index.template.html` –
 the same block in both repositories, so change it in both. It reads the caption from the
-figure (`.cap-t`, `.cap-s`) or, without one, from the heading of the picture's section. The
-texts are `lightbox.*` in `content/*.json`.
+figure (`.cap-t`, `.cap-s`) or, without one, from the heading of the picture's section (the
+chapter's `h2`). The texts are `lightbox.*` in `content/*.json`.
 
-Capture both real app palettes: the existing `shots/<name>.webp` is light, and
-`shots/dark/<name>.webp` is its night counterpart, with matching names and dimensions.
-Both heroes also have a 992px version. The link-preview JPEG and README PNGs remain light.
-Do not simulate night mode by filtering a day screenshot.
+Capture both real app palettes: `shots/<device>/<name>.webp` is light, and
+`shots/dark/<device>/<name>.webp` is its night counterpart, with matching names and dimensions.
+The hero's desktop picture also has a 992px version. The link-preview JPEG and README PNGs
+remain light. Do not simulate night mode by filtering a day screenshot.
 
 ```bash
 node site/capture.mjs --site-only             # both themes, leave README PNGs alone
@@ -144,16 +145,31 @@ single-file hand-out in `dist/` carries no tab icon.
 node site/capture.mjs                            # gegen https://demo.kp-rueck.ch
 node site/capture.mjs --base http://localhost:3000
 node site/capture.mjs --only board,karte         # nur einzelne Bilder
+node site/capture.mjs --device phone             # nur ein Gerät
 node site/build.mjs                              # danach neu bauen
 ```
 
 `capture.mjs` drives a running instance with Playwright (from `frontend/node_modules`),
 signs in as a demo editor, captures both board themes, skips the welcome dialog and hides
-the DEMO ribbon and toasts. Each view is captured at 1500 × 937. Gegen eine nicht-öffentliche Instanz laufen
-`KP_RUECK_USER` / `KP_RUECK_PASS`. Neue Bilder kommen als neuer Eintrag in die `shots`-Liste im
-Skript **und** als Eintrag unter `shots.items` in `content/de.json` – die Dateinamen sind der
-Vertrag zwischen beiden. Der Dateiname steht nur in `de.json`; die Übersetzungen erben ihn und
-beschriften nur.
+the DEMO ribbon and toasts. Each picture exists in both themes for the devices it has
+(`meldung` and `feld` are phone-only):
+
+- **desktop** – 1500 × 937, the board as the KP sees it (`shots/desktop/`);
+- **phone** – 390 × 844 at 3x, scaled to 780 wide (`shots/phone/`). KP Rück draws no content
+  under the status bar, so the picture adds the status-bar and home-indicator gaps back
+  (19 and 14 pt, in the page's colours): 780 × 1754.
+
+Gegen eine nicht-öffentliche Instanz laufen `KP_RUECK_USER` / `KP_RUECK_PASS`.
+
+The page shows the app as it really looks, the way KP Front does: the hero pairs the desktop
+board with a Trupp's Feld view on a phone, and each of the five chapters (`chapters.items`)
+pairs «what it replaces» with its picture. A chapter with `img.desktop` shows the desktop
+picture on wide screens and `img.phone` on narrow ones; a chapter with only `img.phone` shows
+the phone everywhere. A new picture is an entry in the script's `shots` list **and** an `img`
+in `content/de.json` – the file names are the contract between the two. The file name stays
+in `de.json`; the translations inherit it and only describe it (`alt`). The hero's small
+version (`board-992.webp`) is named in `index.template.html` itself: rename the hero shot, edit
+the template too.
 
 **Das Format ist WebP** – dieselbe Aufnahme wiegt deutlich weniger als das JPEG von früher, und
 encodiert wird im Chromium, den Playwright ohnehin mitbringt (keine zweite Abhängigkeit, kein
@@ -161,8 +177,8 @@ encodiert wird im Chromium, den Playwright ohnehin mitbringt (keine zweite Abhä
 
 | Datei | wofür |
 | --- | --- |
-| `<name>.webp` | die Kacheln und die Lightbox, je in der Breite des Shots (1500 px, die Formulare 900 px) |
-| `board-992.webp` | das Hero-Bild auf Telefonen und 1x-Bildschirmen – breiter als 992 px wird es nie gezeigt (`.wrap` = 1040 px minus 2×24 px) |
+| `<gerät>/<name>.webp` | die Bilder im Hero und in den Kapiteln, und die Lightbox (Desktop 1500 px, Telefon 780 px breit) |
+| `desktop/board-992.webp` | das Hero-Bild auf Telefonen und 1x-Bildschirmen – breiter als 992 px wird es nie gezeigt (`.wrap` = 1040 px minus 2×24 px) |
 | `board.jpg` | **nur** die Linkvorschau (`og:image`): WhatsApp, Facebook und Co. zeigen kein WebP |
 
 Die kleine Fassung und das JPEG entstehen an dem einen Shot, der im Skript `hero: true` trägt.
@@ -205,8 +221,8 @@ Auflösung: die Landingpage bindet die Bilder inline ein (1x, Seitengewicht zäh
 README-Bilder werden auf GitHub vergrössert betrachtet.
 
 ```bash
-node site/capture.mjs                    # Landingpage-WebP (1x) + README-PNGs
-node site/capture.mjs --scale 2 --docs-only --only board,karte
+node site/capture.mjs                    # Landingpage-WebP + README-PNGs (1x)
+node site/capture.mjs --scale 2 --docs-only
 ```
 
 `--docs-only` lässt die Bilder der Landingpage unangetastet. Aktuell liegen die README-Bilder bei 1500 px Breite.

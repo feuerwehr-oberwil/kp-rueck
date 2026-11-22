@@ -246,7 +246,7 @@
         "height": 937
       },
       "inLanguage": "en",
-      "dateModified": "2026-11-20",
+      "dateModified": "2026-11-22",
       "isPartOf": {
         "@id": "https://kp-rueck.ch/#website"
       },
@@ -269,18 +269,10 @@
         },
         {
           "@type": "Question",
-          "name": "Is KP Rück only for militia fire brigades?",
+          "name": "Which fire brigades and incidents is KP Rück for?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "No. KP Rück grew out of the day-to-day work of a Swiss militia fire brigade, but it suits professional fire services, industrial fire brigades and other emergency organisations just as well. Wherever resources, vehicles, equipment and crews have to be coordinated behind the lines during major incidents or simultaneous storm callouts, KP Rück plays to its strengths."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Can KP Rück be used outside the fire service?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Yes. KP Rück was developed for rear command posts in fire services. As an open-source application, the solution can also be adapted to comparable command and coordination tasks of civil protection organisations, command staffs and other emergency response organisations."
+            "text": "For militia, local, regional support and professional fire brigades – for everyday incidents, storm situations and several events at once. Wherever crews, vehicles and equipment have to be coordinated behind the lines, KP Rück plays to its strengths. As open-source software it can also be adapted for civil protection, command staffs and other emergency response organisations."
           }
         },
         {
@@ -451,287 +443,37 @@
 </header>
 
 <main id="main">
-  <section class="hero wrap">
+  <section class="hero hero-center wrap">
     <p class="eyebrow">Open source&nbsp;· free&nbsp;· Switzerland</p>
     <h1>The incident board for the command post.</h1>
     <p class="lede">KP Rück turns the magnetic board in the rear command post into a digital one: <strong>incidents, crews, vehicles and equipment</strong> on one board – live on every device.</p>
     <div class="cta-row">
       <a class="btn btn-primary" href="https://demo.kp-rueck.ch" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-play"/></svg>Open the demo</a>
       <a class="btn btn-ghost" href="#betrieb">Run it yourself</a>
-      <span class="cta-note">No account – pick a role and go</span>
     </div>
-    <figure class="frame">
-      <div class="frame-bar" aria-hidden="true">
-        <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
-        <span class="addr">BOARD · STORM · 17 INCIDENTS ACTIVE</span>
+    <p class="cta-note">No account – pick a role and go</p>
+    <div class="duo">
+      <div class="dev dev-desk">
+        <picture>
+          <source data-theme-dark media="(prefers-color-scheme: dark)"
+                  srcset="../shots/dark/desktop/board-992.webp 992w, ../shots/dark/desktop/board.webp 1500w"
+                  sizes="(min-width: 1040px) 883px, (max-width: 700px) calc(74vw - 36px), calc(89vw - 43px)">
+          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+          <img src="../shots/desktop/board.webp"
+               srcset="../shots/desktop/board-992.webp 992w, ../shots/desktop/board.webp 1500w"
+               sizes="(min-width: 1040px) 883px, (max-width: 700px) calc(74vw - 36px), calc(89vw - 43px)"
+               alt="Incident board: columns from received to recon complete, crews on the left, equipment on the right" width="1500" height="937" fetchpriority="high">
+        </picture>
       </div>
-      <picture>
-        <source data-theme-dark media="(prefers-color-scheme: dark)"
-                srcset="../shots/dark/board-992.webp 992w, ../shots/dark/board.webp 1500w"
-                sizes="(min-width: 1040px) 992px, calc(100vw - 48px)">
-        <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
-        <img src="../shots/board.webp"
-           srcset="../shots/board-992.webp 992w, ../shots/board.webp 1500w"
-           sizes="(min-width: 1040px) 992px, calc(100vw - 48px)"
-           alt="Incident board: columns from received through to closed, incident cards in between, crews on the left, equipment on the right" width="1500" height="937" fetchpriority="high">
-      </picture>
-    </figure>
-  </section>
-
-  <section class="fit">
-    <div class="wrap fit-split">
-      <div>
-        <div class="fit-row">
-          <p class="fit-k">For whom</p>
-          <ul class="fit-v">
-            <li>Militia fire brigades</li>
-            <li>Local fire brigades</li>
-            <li>Regional support fire brigades</li>
-            <li>Professional fire brigades</li>
-          </ul>
-        </div>
-        <div class="fit-row">
-          <p class="fit-k">Adaptable</p>
-          <ul class="fit-v">
-            <li>Civil protection organisations</li>
-            <li>Command staffs</li>
-            <li>Other emergency response organisations</li>
-          </ul>
-        </div>
-        <div class="fit-row">
-          <p class="fit-k">For what</p>
-          <ul class="fit-v">
-            <li>Everyday incidents</li>
-            <li>Storm situations</li>
-            <li>Several events at once</li>
-          </ul>
-        </div>
-        <p class="fit-note">Grown out of the real operational work of <a href="https://www.feuerwehr-oberwil.ch" target="_blank" rel="noopener">Feuerwehr Oberwil BL</a> – proven there, and developed further ever since.</p>
-      </div>
-      <div class="fit-panel">
-        <h2>Your data stays with you.</h2>
-        <p>KP Rück is open source and runs on a machine in your own station or in your own cloud. Incidents, crews, vehicles and equipment stay under your control.</p>
-        <ul>
-          <li>No licence fees</li>
-          <li>No vendor lock-in</li>
-          <li>Run it yourself, extend it yourself</li>
-        </ul>
+      <div class="dev dev-ph">
+        <picture>
+          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/feld.webp">
+          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+          <img src="../shots/phone/feld.webp" alt="Field view on a team’s phone: its own incident site with the report, the crew and the status for the command post" width="780" height="1754">
+        </picture>
       </div>
     </div>
-  </section>
-
-  <section class="wrap" id="einsatz">
-    <div class="sec-head">
-      <p class="eyebrow">From the alarm to the report</p>
-      <h2>One event, one board.</h2>
-      <p>This is what a storm night looks like in the command post – what happens on the board ends up in the incident report afterwards.</p>
-    </div>
-    <div class="verlauf-list">
-      <article class="entry">
-        <div class="time">21:14</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Alarm received</p>
-          <h3>The reports come in.</h3>
-          <p>Through the reporting form, by telephone, or over the open interface from the dispatch system (Divera or FireHub, for example). The duty officer takes one over with a click – the report becomes an incident on the board. If someone reports the same incident site a second time, the board asks instead of making a second card.</p>
-        </div>
-      </article>
-      <article class="entry">
-        <div class="time">21:19</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Deployment</p>
-          <h3>Crew and vehicles are assigned.</h3>
-          <p>Personnel, vehicles and equipment onto the incident by drag and drop – or typed: «14 tlf meier» in the command palette. KP Rück detects double bookings and missing resources. The incident command decides: reassign, add, or knowingly dispatch anyway. Whoever arrives checks themselves in with a QR code.</p>
-        </div>
-      </article>
-      <article class="entry">
-        <div class="time">21:26</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Map</p>
-          <h3>Who is where.</h3>
-          <p>Every incident on one map, with the vehicles optionally by GPS position. When a vehicle reaches the scene, the board proposes the status change itself.</p>
-        </div>
-      </article>
-      <article class="entry">
-        <div class="time">21:48</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Recon</p>
-          <h3>The recon team reports back.</h3>
-          <p>The recon team fills in the form on their own phone – photos included. The report hangs on the right incident instead of getting lost in a group chat.</p>
-        </div>
-      </article>
-      <article class="entry">
-        <div class="time">22:10</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Assignments</p>
-          <h3>The assignments go out.</h3>
-          <p>KP Rück calculates sensible routes for several incident sites and supports working through the assignments in a dedicated module of the web app. Crews can report back on arrival, recon, photos, material needs and the completion of an assignment, among other things. Communication by radio remains possible as an alternative.</p>
-        </div>
-      </article>
-      <article class="entry">
-        <div class="time">23:30</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Board</p>
-          <h3>Everyone sees the same board.</h3>
-          <p>The projector in the command post, the tablet on the table and the quartermaster's phone all show the same state – without anybody pressing «refresh».</p>
-        </div>
-      </article>
-      <article class="entry">
-        <div class="time">06:40</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Report</p>
-          <h3>The incident report writes itself along the way.</h3>
-          <p>The incident log and the response times build up as you go and turn into a PDF. Corrections are made with new entries, not with an eraser – so the night stays on the record.</p>
-        </div>
-      </article>
-    </div>
-  </section>
-
-  <section class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">From the demo</p>
-      <h2>This is what it looks like.</h2>
-      <p>Every image is taken from the public demo. Click «Open the demo» and you are standing at the same board.</p>
-      <p class="sec-note">The screenshots are in German: the public demo is, and they come from it – restaged images would be a claim rather than evidence.</p>
-    </div>
-    <div class="shots-grid">
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Enlarge: Projector view">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/display.webp">
-            <img src="../shots/display.webp" alt="Projector view: every incident phase side by side on one screen" width="1500" height="937" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Projector view</div>
-          <div class="cap-s">For the wall in the darkened command post: all phases side by side, without controls</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Enlarge: Status">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/status.webp">
-            <img src="../shots/status.webp" alt="Status view: vehicles, incidents, crews and equipment side by side, each with availability and assignment" width="1500" height="937" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Status</div>
-          <div class="cap-s">Vehicles, incidents, crews and equipment side by side – who is free, who is committed, who is where</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Enlarge: Map">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/karte.webp">
-            <img src="../shots/karte.webp" alt="Map view: incidents by priority, vehicle positions and assignments" width="1500" height="937" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Map</div>
-          <div class="cap-s">Every incident by priority, plus the vehicle positions and the assignments between them</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Enlarge: Vehicles">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/disposition.webp">
-            <img src="../shots/disposition.webp" alt="Vehicle status: vehicles with call sign, driver, destination and status" width="1500" height="937" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Vehicles</div>
-          <div class="cap-s">Call sign, driver, destination and status of every vehicle at a glance</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Enlarge: Reporting form">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/meldung.webp">
-            <img src="../shots/meldung.webp" alt="Reporting form: address, report, priority, incident type and caller details" width="900" height="562" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Reporting form</div>
-          <div class="cap-s">Capture telephone reports and walk-ins in a structured way – by link or QR code, without an account</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Enlarge: Recon form">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/reko.webp">
-            <img src="../shots/reko.webp" alt="Recon form: incident, «I am on scene» and hazards to tick" width="900" height="562" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Recon form</div>
-          <div class="cap-s">On the recon team's phone: report on scene, tick the hazards, attach photos</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Enlarge: Field">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/feld.webp">
-            <img src="../shots/feld.webp" alt="Field view: the crew's own site with its reports to the command post, the situation and the crew" width="900" height="562" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Field</div>
-          <div class="cap-s">Each crew sees only its own sites – arrived, pick-up needed, incident finished, without the radio</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Enlarge: Assignments">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/auftraege.webp">
-            <img src="../shots/auftraege.webp" alt="Assignments: several incidents bundled into one route" width="1500" height="937" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Assignments</div>
-          <div class="cap-s">Bundle several incidents into one assignment: crew and resources stay with the assignment and drive from stop to stop in the set or optimised order</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Enlarge: Exercise">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/training.webp">
-            <img src="../shots/training.webp" alt="Exercise controls: generate single or targeted incidents, automation and field simulation" width="1500" height="937" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Exercise</div>
-          <div class="cap-s">Feed in exercise situations instead of inventing them – cleanly separated from the real thing</div>
-        </figcaption>
-      </figure>
-    </div>
-  </section>
-
-  <section class="wrap" id="betrieb">
-    <div class="sec-head">
-      <p class="eyebrow">Running it</p>
-      <h2>Three ways to a board of your own.</h2>
-      <p>First the demo, then a drill – and if it fits, KP Rück runs at your station. Open source and free of charge; data and operation stay with the fire service.</p>
-    </div>
-    <div class="ways">
-      <div class="way">
-        <p class="way-tag">To try it out</p>
-        <h3>Double-click</h3>
-        <p>Install Docker Desktop, double-click one file: the board runs on the computer at the station. The quickest way to your own data.</p>
-        <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md#der-schnellste-weg-double-click" target="_blank" rel="noopener">Read the guide<svg class="ico" aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg></a>
-      </div>
-      <div class="way">
-        <p class="way-tag">Keeps running without internet</p>
-        <h3>Mini PC at the station</h3>
-        <p>Docker Compose on a small server in your own network, with your own tile server and the printer on the LAN.</p>
-        <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/DEPLOYMENT.md" target="_blank" rel="noopener">Read the guide<svg class="ico" aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg></a>
-      </div>
-      <div class="way">
-        <p class="way-tag">Nobody looks after a box</p>
-        <h3>Hosted</h3>
-        <p>With a hosting provider of your choice. A standby box at the station can cover a network outage.</p>
-        <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RAILWAY.md" target="_blank" rel="noopener">Read the guide<svg class="ico" aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg></a>
-      </div>
-    </div>
-    <p class="sec-note ways-note">Help with installation and operation is available by arrangement – <a href="#kontakt">contact</a>.</p>
+    <p class="fit-note">Grown out of the real operational work of <a href="https://www.feuerwehr-oberwil.ch" target="_blank" rel="noopener">Feuerwehr Oberwil BL</a> – proven there, and developed further ever since.</p>
   </section>
 
   <section class="tenet">
@@ -759,248 +501,371 @@
     </div>
   </section>
 
-  <section class="wrap" id="aenderung">
+  <div id="einsatz">
+    <section class="wrap chap">
+      <div class="chap-txt">
+        <p class="chap-was">Magnetic board on the wall</p>
+        <h2>One board on every device.</h2>
+        <p>Columns are incident phases: cards move from left to right by drag and drop. The projector in the command post, the tablet on the table and the quartermaster’s phone all show the same state – without anybody pressing «refresh».</p>
+        <ul class="checks">
+          <li>Assign personnel, vehicles and equipment – KP Rück warns about double assignments</li>
+          <li>Whoever arrives checks themselves in with a QR code; duty times and breaks are tracked</li>
+          <li>Assign by typing: «14 tlf meier» in the command palette</li>
+        </ul>
+      </div>
+      <div class="chap-img">
+        <div class="dev dev-desk wide-only">
+          <button class="shot-zoom" type="button" aria-label="Enlarge: The incident board: incidents with priority, running time, crew and vehicles">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/desktop/board.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="../shots/desktop/board.webp" alt="The incident board: incidents with priority, running time, crew and vehicles" width="1500" height="937" loading="lazy" decoding="async">
+            </picture>
+          </button>
+        </div>
+        <div class="dev dev-ph narrow-only">
+          <button class="shot-zoom" type="button" aria-label="Enlarge: The incident board: incidents with priority, running time, crew and vehicles">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/board.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="../shots/phone/board.webp" alt="The incident board: incidents with priority, running time, crew and vehicles" width="780" height="1754" loading="lazy" decoding="async">
+            </picture>
+          </button>
+        </div>
+      </div>
+    </section>
+    <section class="wrap chap">
+      <div class="chap-txt">
+        <p class="chap-was">Telephone notes on slips of paper</p>
+        <h2>Reports that hang on the incident.</h2>
+        <p>Through the reporting form, by telephone, or over the open interface from the dispatch system (Divera or FireHub, for example). The duty officer takes one over with a click – the report becomes an incident on the board.</p>
+        <ul class="checks">
+          <li>Reporting form by link or QR for telephone callers and walk-ins, without an account</li>
+          <li>If someone reports the same incident site a second time, the board asks</li>
+          <li>Open interface – any dispatch system can open incidents</li>
+        </ul>
+      </div>
+      <div class="chap-img">
+        <div class="dev dev-ph">
+          <button class="shot-zoom" type="button" aria-label="Enlarge: Reporting form on the phone: location, report and caller details">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/meldung.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="../shots/phone/meldung.webp" alt="Reporting form on the phone: location, report and caller details" width="780" height="1754" loading="lazy" decoding="async">
+            </picture>
+          </button>
+        </div>
+      </div>
+    </section>
+    <section class="wrap chap">
+      <div class="chap-txt">
+        <p class="chap-was">Pins on the town map</p>
+        <h2>Who is where.</h2>
+        <p>Every incident on one map, with the vehicles optionally by GPS position. When a vehicle reaches the scene, the board proposes the status change itself.</p>
+        <ul class="checks">
+          <li>Every incident by priority and status on one map</li>
+          <li>Assignments as a line – which vehicle belongs to which incident</li>
+          <li>Precipitation radar and official warnings (MeteoSwiss, Alertswiss)</li>
+        </ul>
+      </div>
+      <div class="chap-img">
+        <div class="dev dev-desk wide-only">
+          <button class="shot-zoom" type="button" aria-label="Enlarge: Situation map: incidents by priority, with the vehicles and their assignments">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/desktop/karte.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="../shots/desktop/karte.webp" alt="Situation map: incidents by priority, with the vehicles and their assignments" width="1500" height="937" loading="lazy" decoding="async">
+            </picture>
+          </button>
+        </div>
+        <div class="dev dev-ph narrow-only">
+          <button class="shot-zoom" type="button" aria-label="Enlarge: Situation map: incidents by priority, with the vehicles and their assignments">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/karte.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="../shots/phone/karte.webp" alt="Situation map: incidents by priority, with the vehicles and their assignments" width="780" height="1754" loading="lazy" decoding="async">
+            </picture>
+          </button>
+        </div>
+      </div>
+    </section>
+    <section class="wrap chap">
+      <div class="chap-txt">
+        <p class="chap-was">WhatsApp group and radio message</p>
+        <h2>The team reports from its phone.</h2>
+        <p>Every team sees its own incident sites: arrived, pickup, incident finished – without the radio. The recon team fills in its form with photos on its own phone; the report hangs on the right incident instead of getting lost in a group chat.</p>
+        <ul class="checks">
+          <li>Field view without an account, by link and code</li>
+          <li>Requests – equipment, reinforcements, pickup – stay open until the command post has handled them</li>
+          <li>Assignments: several incident sites as one route, the order optimised by distance</li>
+        </ul>
+      </div>
+      <div class="chap-img">
+        <div class="dev dev-ph">
+          <button class="shot-zoom" type="button" aria-label="Enlarge: Field view: the team’s own incident site with the report, the crew and «Report arrival»">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/feld.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="../shots/phone/feld.webp" alt="Field view: the team’s own incident site with the report, the crew and «Report arrival»" width="780" height="1754" loading="lazy" decoding="async">
+            </picture>
+          </button>
+        </div>
+      </div>
+    </section>
+    <section class="wrap chap">
+      <div class="chap-txt">
+        <p class="chap-was">Report the weekend after</p>
+        <h2>The incident report writes itself along the way.</h2>
+        <p>The incident log and the response times build up as you go and turn into a PDF. Corrections are made with new entries, not with an eraser – so the night stays on the record.</p>
+        <ul class="checks">
+          <li>The log records status changes, assignments and messages by itself</li>
+          <li>Incident report as a PDF with the response times</li>
+          <li>Outstanding-items list: open reports, pickups and equipment still at the scene</li>
+        </ul>
+      </div>
+      <div class="chap-img">
+        <div class="dev dev-desk wide-only">
+          <button class="shot-zoom" type="button" aria-label="Enlarge: Log: status changes, assignments and entries with the time">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/desktop/verlauf.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="../shots/desktop/verlauf.webp" alt="Log: status changes, assignments and entries with the time" width="1500" height="937" loading="lazy" decoding="async">
+            </picture>
+          </button>
+        </div>
+        <div class="dev dev-ph narrow-only">
+          <button class="shot-zoom" type="button" aria-label="Enlarge: Log: status changes, assignments and entries with the time">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/verlauf.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="../shots/phone/verlauf.webp" alt="Log: status changes, assignments and entries with the time" width="780" height="1754" loading="lazy" decoding="async">
+            </picture>
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="wrap" id="betrieb">
     <div class="sec-head">
-      <p class="eyebrow">Switching over</p>
-      <h2 id="change-comparison-title">What changes.</h2>
-      <p>None of this is broken today – the magnetic board has worked for decades. KP Rück steps into the same places, only without the copying out.</p>
+      <p class="eyebrow">Running it</p>
+      <h2>Your data stays with you.</h2>
+      <p>KP Rück is open source and runs on a machine in your own station or in your own cloud. Incidents, crews, vehicles and equipment stay under your control. No licence fees, no vendor lock-in.</p>
     </div>
-    <div class="change-wrap">
-      <table class="change" aria-labelledby="change-comparison-title">
-        <thead>
-          <tr><th scope="col">Today</th><th scope="col">With KP Rück</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>Magnetic board on the wall</td><td>Digital board on every device</td></tr>
-          <tr><td>Telephone notes on slips of paper</td><td>A reporting form that hangs on the incident</td></tr>
-          <tr><td>Excel list for crews and vehicles</td><td>A live overview that keeps itself up to date</td></tr>
-          <tr><td>WhatsApp group for reports back</td><td>Structured reports with photos</td></tr>
-          <tr><td>A radio message for every status change</td><td>Status and reports straight from the crew – the radio channel stays clear</td></tr>
-          <tr><td>Report after the incident</td><td>The report builds up during it</td></tr>
-        </tbody>
-      </table>
+    <div class="own own-3">
+      <div class="own-card">
+        <p class="way-tag">To try it out</p>
+        <h3>Double-click</h3>
+        <p>Install Docker Desktop, double-click one file: the board runs on the computer at the station. The quickest way to your own data.</p>
+        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md#der-schnellste-weg-double-click" target="_blank" rel="noopener">Read the guide →</a></p>
+      </div>
+      <div class="own-card">
+        <p class="way-tag">Keeps running without internet</p>
+        <h3>Mini PC at the station</h3>
+        <p>Docker Compose on a small server in your own network, with your own tile server and the printer on the LAN.</p>
+        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/DEPLOYMENT.md" target="_blank" rel="noopener">Read the guide →</a></p>
+      </div>
+      <div class="own-card">
+        <p class="way-tag">Nobody looks after a box</p>
+        <h3>Hosted</h3>
+        <p>With a hosting provider of your choice. A standby box at the station can cover a network outage.</p>
+        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RAILWAY.md" target="_blank" rel="noopener">Read the guide →</a></p>
+      </div>
     </div>
+    <p class="sec-note ways-note">Help with installation and operation is available by arrangement – <a href="#kontakt">contact</a>.</p>
   </section>
 
   <section class="wrap" id="funktionen">
-    <div class="sec-head">
-      <p class="eyebrow">Scope</p>
-      <h2>What is in it.</h2>
-      <p>Grown out of real events and exercises, not out of a feature list. Everything that comes from outside – alerting, GPS, printers – is <strong>optional</strong>: KP Rück also runs entirely without those connections.</p>
-    </div>
-    <div class="feature-cols">
-      <div class="fgroup">
-        <h3>Board &amp; deployment</h3>
-        <ul class="flist">
-          <li><strong>Columns are incident phases</strong> – cards move left to right by drag and drop</li>
-          <li>Assign personnel, vehicles and equipment – KP Rück warns about double assignments and makes resource conflicts visible</li>
-          <li>Equipment at the scene: which resource is assigned to which incident, and since when</li>
-          <li>Priorities, running times and deadlines visible per incident</li>
-          <li>Assignments: several incidents as one route for a crew, order optimised by distance at the push of a button</li>
-          <li>Recurring assignments, such as cordoning off an area or clearing storm-damaged trees, can be prepared and made available directly when an event is opened</li>
-          <li>QR check-in – whoever arrives checks themselves in</li>
-          <li>Duty times: who has been here since when, how much of it on an incident and who is on a break – long shifts stand out</li>
-          <li>Assignment slip with QR code for teams and drivers, issued directly at the command post</li>
-          <li>Projector view for the wall in the command post – the same incident cards as on the board, only without controls</li>
-          <li>Assign by typing: «14 tlf meier» in the command palette puts the TLF and Meier on incident 14 – plus keyboard shortcuts for the fast hand</li>
-        </ul>
+    <div class="split">
+      <div class="sec-head">
+        <p class="eyebrow">Scope</p>
+        <h2>What is in it.</h2>
+        <p>Grown out of real events and exercises, not out of a feature list. Everything that comes from outside – alerting, GPS, printers – is <strong>optional</strong>: KP Rück also runs entirely without those connections.</p>
       </div>
-      <div class="fgroup">
-        <h3>Alarms &amp; reports</h3>
-        <ul class="flist">
-          <li><strong>Open interface</strong> – any dispatch system can open incidents</li>
-          <li>Can take alarms from Divera or FireHub <span class="opt">optional</span></li>
-          <li>Reporting form by link or QR for telephone callers and walk-ins</li>
-          <li>Arrivals land in the pool, taken over with one click</li>
-          <li>Duplicate reports for the same incident site are detected; two incidents can be merged – crew, recon and report included – and split again</li>
-          <li>Alerting the crew from the board itself <span class="opt">optional</span></li>
-          <li>Responding: who said yes to the Divera alarm shows in the roll call – checked in with one click <span class="opt">optional</span></li>
-          <li>Recon reports with photos, straight from the recon team's phone</li>
-          <li>Field view for teams: see their own incident sites, report arrival and completion, request pickup, and send updates and reports with photos to the command post</li>
-          <li>Requests from the field – equipment, reinforcements, pickup – stay open on the incident until the command post has handled them; the crew sees where they stand on their phone</li>
-        </ul>
-      </div>
-      <div class="fgroup">
-        <h3>Map &amp; vehicles</h3>
-        <ul class="flist">
-          <li>Every incident by priority and status on one map</li>
-          <li>Vehicle positions by GPS <span class="opt">optional</span></li>
-          <li>A status proposal as soon as a vehicle reaches the scene</li>
-          <li>Assignments as a line – which vehicle belongs to which incident</li>
-          <li>Precipitation radar for the last hour and official warnings (MeteoSwiss, Alertswiss) on the map <span class="opt">optional</span></li>
-          <li>Map tiles from your own server at the station as well</li>
-        </ul>
-      </div>
-      <div class="fgroup">
-        <h3>Afterwards &amp; operations</h3>
-        <ul class="flist">
-          <li><strong>Incident report as a PDF</strong> with the incident log and the response times – it builds up during the incident and is already largely prepared when the crews return</li>
-          <li>Incident log on the board: records status changes, assignments and messages by itself, your own entries with ⇧J – added to, never overwritten</li>
-          <li>Key figures while the event is still running: open reports per priority and the response times – in an exercise, as the exercise debrief</li>
-          <li>Outstanding-items list: open reports, pending pickups and equipment still left at an incident site remain visible until completion</li>
-          <li><strong>Your own administration area</strong> per brigade: crew, fleet, equipment lists, incident types and priorities</li>
-          <li>Import and export as Excel</li>
-          <li>Thermal printing at the station through your own print agent <span class="opt">optional</span></li>
-          <li>Roles: edit or read along only, dark interface for the darkened command post</li>
-          <li>Exercise mode with a generator and simulated journeys, cleanly separated from the real thing</li>
-        </ul>
-      </div>
-    </div>
-  </section>
-
-  <section class="sibling">
-    <div class="wrap">
-      <div class="sibling-grid">
-        <div class="sibling-txt">
-          <p class="eyebrow">Related project</p>
-          <h2>KP Front brings tactical depth at the incident site. KP Rück brings operational breadth across the overall situation.</h2>
-          <p><strong>KP Front</strong> turns the situation map and the command table at the scene into digital ones: tactical symbols, site plans and SCBA monitoring, even without a network. Its own app, the same handwriting – both take the same alarm from the dispatch system, and neither needs the other. Both apps can be used in parallel and independently of each other for the same situation.</p>
-          <a class="btn btn-ghost" href="https://kp-front.ch/en/">Take a look at KP Front<svg class="ico" style="width:14px;height:14px" aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg></a>
-        </div>
-
-        <div class="setup-card">
-          <h3>Running both – without setting everything up twice</h3>
-          <dl>
-            <div class="setup-row">
-              <dt>Dispatch</dt>
-              <dd>The same payload for both. Your dispatch integration is built once; each app only gets its own address.</dd>
-            </div>
-            <div class="setup-row">
-              <dt>Divera access</dt>
-              <dd>One key for both – the same alarms, the same roster. <span class="opt">optional</span></dd>
-            </div>
-            <div class="setup-row">
-              <dt>Roster</dt>
-              <dd>The same source in the same file format – the same person on both sides.</dd>
-            </div>
-            <div class="setup-row">
-              <dt>Keywords</dt>
-              <dd>The same alarm keyword list, so the same classification in both apps.</dd>
-            </div>
-          </dl>
-          <p class="setup-foot"><strong>Database, updates and login stay separate.</strong> Neither one needs the other to run.
-            <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md" target="_blank" rel="noopener">Guide: both on one server →</a></p>
-        </div>
+      <div class="acc">
+        <details>
+          <summary><span>Board &amp; deployment<span class="peek">Incident phases · assigning · double bookings · QR check-in · duty times · projector</span></span></summary>
+          <ul class="flist">
+            <li><strong>Columns are incident phases</strong> – cards move left to right by drag and drop</li>
+            <li>Assign personnel, vehicles and equipment – KP Rück warns about double assignments and makes resource conflicts visible</li>
+            <li>Equipment at the scene: which resource is assigned to which incident, and since when</li>
+            <li>Priorities, running times and deadlines visible per incident</li>
+            <li>Assignments: several incidents as one route for a crew, order optimised by distance at the push of a button</li>
+            <li>Recurring assignments, such as cordoning off an area or clearing storm-damaged trees, can be prepared and made available directly when an event is opened</li>
+            <li>QR check-in – whoever arrives checks themselves in</li>
+            <li>Duty times: who has been here since when, how much of it on an incident and who is on a break – long shifts stand out</li>
+            <li>Assignment slip with QR code for teams and drivers, issued directly at the command post</li>
+            <li>Projector view for the wall in the command post – the same incident cards as on the board, only without controls</li>
+            <li>Assign by typing: «14 tlf meier» in the command palette puts the TLF and Meier on incident 14 – plus keyboard shortcuts for the fast hand</li>
+          </ul>
+        </details>
+        <details>
+          <summary><span>Alarms &amp; reports<span class="peek">Open interface · Divera · FireHub · reporting form · recon · field</span></span></summary>
+          <ul class="flist">
+            <li><strong>Open interface</strong> – any dispatch system can open incidents</li>
+            <li>Can take alarms from Divera or FireHub <span class="opt">optional</span></li>
+            <li>Reporting form by link or QR for telephone callers and walk-ins</li>
+            <li>Arrivals land in the pool, taken over with one click</li>
+            <li>Duplicate reports for the same incident site are detected; two incidents can be merged – crew, recon and report included – and split again</li>
+            <li>Alerting the crew from the board itself <span class="opt">optional</span></li>
+            <li>Responding: who said yes to the Divera alarm shows in the roll call – checked in with one click <span class="opt">optional</span></li>
+            <li>Recon reports with photos, straight from the recon team's phone</li>
+            <li>Field view for teams: see their own incident sites, report arrival and completion, request pickup, and send updates and reports with photos to the command post</li>
+            <li>Requests from the field – equipment, reinforcements, pickup – stay open on the incident until the command post has handled them; the crew sees where they stand on their phone</li>
+          </ul>
+        </details>
+        <details>
+          <summary><span>Map &amp; vehicles<span class="peek">Priorities · GPS · assignments · radar and warnings · own tiles</span></span></summary>
+          <ul class="flist">
+            <li>Every incident by priority and status on one map</li>
+            <li>Vehicle positions by GPS <span class="opt">optional</span></li>
+            <li>A status proposal as soon as a vehicle reaches the scene</li>
+            <li>Assignments as a line – which vehicle belongs to which incident</li>
+            <li>Precipitation radar for the last hour and official warnings (MeteoSwiss, Alertswiss) on the map <span class="opt">optional</span></li>
+            <li>Map tiles from your own server at the station as well</li>
+          </ul>
+        </details>
+        <details>
+          <summary><span>Afterwards &amp; operations<span class="peek">Report as PDF · log · figures · administration · thermal printing · training</span></span></summary>
+          <ul class="flist">
+            <li><strong>Incident report as a PDF</strong> with the incident log and the response times – it builds up during the incident and is already largely prepared when the crews return</li>
+            <li>Incident log on the board: records status changes, assignments and messages by itself, your own entries with ⇧J – added to, never overwritten</li>
+            <li>Key figures while the event is still running: open reports per priority and the response times – in an exercise, as the exercise debrief</li>
+            <li>Outstanding-items list: open reports, pending pickups and equipment still left at an incident site remain visible until completion</li>
+            <li><strong>Your own administration area</strong> per brigade: crew, fleet, equipment lists, incident types and priorities</li>
+            <li>Import and export as Excel</li>
+            <li>Thermal printing at the station through your own print agent <span class="opt">optional</span></li>
+            <li>Roles: edit or read along only, dark interface for the darkened command post</li>
+            <li>Exercise mode with a generator and simulated journeys, cleanly separated from the real thing</li>
+          </ul>
+        </details>
       </div>
     </div>
   </section>
 
   <section class="wrap" id="fragen">
-    <div class="sec-head">
-      <p class="eyebrow">Questions &amp; answers</p>
-      <h2>The most common questions.</h2>
-    </div>
-    <div class="faq-list">
-      <div class="faq-item">
-        <h3>Why switch?</h3>
-        <p>No more double bookings. No report lost in a group chat. Less radio traffic for questions that are on the board anyway. Everybody sees the same picture at the same time – and the incident report is already there when you get back, instead of the weekend after.</p>
+    <div class="split">
+      <div class="sec-head">
+        <p class="eyebrow">Questions &amp; answers</p>
+        <h2>The most common questions.</h2>
       </div>
-      <div class="faq-item">
-        <h3>Is KP Rück only for militia fire brigades?</h3>
-        <p>No. KP Rück grew out of the day-to-day work of a Swiss militia fire brigade, but it suits professional fire services, industrial fire brigades and other emergency organisations just as well. Wherever resources, vehicles, equipment and crews have to be coordinated behind the lines during major incidents or simultaneous storm callouts, KP Rück plays to its strengths.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Can KP Rück be used outside the fire service?</h3>
-        <p>Yes. KP Rück was developed for rear command posts in fire services. As an open-source application, the solution can also be adapted to comparable command and coordination tasks of civil protection organisations, command staffs and other emergency response organisations.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Where does the data live, and which interfaces are there?</h3>
-        <p>Like KP Front, KP Rück is entirely self-hosted – on a machine at the station or in the organisation’s own cloud. Incidents, crews, vehicles and equipment live in its own database; there is no licence check and no usage tracking. External services such as online maps or address search receive only what the feature in use needs, and can be switched off. You can connect alerting systems (any dispatch system through the open interface, Divera and FireHub directly – with Divera, crew alerting too), a thermal printer on the local network and vehicle GPS positions. Every integration is optional.</p>
-      </div>
-      <div class="faq-item">
-        <h3>What does it cost?</h3>
-        <p>The software itself costs nothing. KP Rück is open source (AGPL) – <strong>no licence, no subscription, no per-device fee</strong>. What remains are your own costs for operation, infrastructure and any external support you may need.</p>
-      </div>
-      <div class="faq-item">
-        <h3>What does it take to run?</h3>
-        <p>A small mini-PC or server at the station is enough. Setup, updates and backups require someone with Docker and command-line experience, whether in the brigade, the municipality or an IT support provider. The guide and administration area lead through the setup. We are happy to answer general questions; data and operation remain the responsibility of each fire brigade.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Is support available for installation and operation?</h3>
-        <p>Yes. General questions about installation and use can be answered free of charge. KP Rück can be operated on an organisation’s own infrastructure or with a hosting or cloud provider of its choice. Support with installation, configuration, updates or operation is also available by individual agreement. More extensive support may be subject to a fee.</p>
-      </div>
-      <div class="faq-item">
-        <h3>What happens during a power, network or device failure?</h3>
-        <p>KP Rück saves the current state within the application and can restore it after a failure. The application can be operated on several devices and on an additional local instance. The current board can also be printed regularly and used as a fallback. External backups of the installation and infrastructure are the responsibility of the operating organisation.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Does KP Rück require KP Front?</h3>
-        <p>No. KP Rück runs entirely on its own – with its own database, its own login and its own updates. It comes into its own alongside <a href="https://kp-front.ch/en/">KP Front</a>, the application for the front line at the incident: both take the same alarms from the dispatch system, read the same roster and classify alarms by the same keyword list, optionally with the same Divera access. Front and rear thus work from the same source data, without maintaining the alarm integration and the crew twice.</p>
-      </div>
-      <div class="faq-item">
-        <h3>What is the local station printer for in KP Rück?</h3>
-        <p>The station printer puts what matters on paper, right at the station or in the command post. KP Rück prints assignment slips for teams and drivers automatically if you wish, as soon as an incident is dispatched for the first time, or by hand at any time; the situation overview with incidents, vehicle status and crews, and the pickup list of equipment still on site, at the push of a button. As a fallback, the board can also be printed at regular intervals. What you connect is an ordinary 80 mm thermal printer (ESC/POS) on the local network – it works for any fire brigade, not just in Switzerland.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Can we adapt it to how we work?</h3>
-        <p>Yes. Every brigade has its own administration area: incident types, priorities, crew, fleet and equipment lists are all configurable there, and import and export run through Excel. And because the whole code is on <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub <svg class="ico" style="width:13px;height:13px;vertical-align:-2px" aria-hidden="true" focusable="false"><use href="#i-gh"/></svg></a>, everything else can be built – by you or to order.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Which languages are available for KP Rück?</h3>
-        <p>The KP Rück user interface is currently available in German and French. As an open-source application, KP Rück can be extended to further languages. This requires a complete translation of the terminology and a professional review.</p>
-      </div>
-      <div class="faq-item">
-        <h3>How do we start?</h3>
-        <p>With the <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">demo</a>, without an account – pick a role and go. Then try it on an exercise; exercise mode is cleanly separated from the real thing. If it fits, the <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md" target="_blank" rel="noopener">setup guide</a> leads through installation and operation. We are happy to answer general questions; data and operation remain the responsibility of each fire brigade.</p>
+      <div class="acc">
+        <details>
+          <summary><span>Why switch?</span></summary>
+          <p>No more double bookings. No report lost in a group chat. Less radio traffic for questions that are on the board anyway. Everybody sees the same picture at the same time – and the incident report is already there when you get back, instead of the weekend after.</p>
+        </details>
+        <details>
+          <summary><span>Which fire brigades and incidents is KP Rück for?</span></summary>
+          <p>For militia, local, regional support and professional fire brigades – for everyday incidents, storm situations and several events at once. Wherever crews, vehicles and equipment have to be coordinated behind the lines, KP Rück plays to its strengths. As open-source software it can also be adapted for civil protection, command staffs and other emergency response organisations.</p>
+        </details>
+        <details>
+          <summary><span>Where does the data live, and which interfaces are there?</span></summary>
+          <p>Like KP Front, KP Rück is entirely self-hosted – on a machine at the station or in the organisation’s own cloud. Incidents, crews, vehicles and equipment live in its own database; there is no licence check and no usage tracking. External services such as online maps or address search receive only what the feature in use needs, and can be switched off. You can connect alerting systems (any dispatch system through the open interface, Divera and FireHub directly – with Divera, crew alerting too), a thermal printer on the local network and vehicle GPS positions. Every integration is optional.</p>
+        </details>
+        <details>
+          <summary><span>What does it cost?</span></summary>
+          <p>The software itself costs nothing. KP Rück is open source (AGPL) – <strong>no licence, no subscription, no per-device fee</strong>. What remains are your own costs for operation, infrastructure and any external support you may need.</p>
+        </details>
+        <details>
+          <summary><span>What does it take to run?</span></summary>
+          <p>A small mini-PC or server at the station is enough. Setup, updates and backups require someone with Docker and command-line experience, whether in the brigade, the municipality or an IT support provider. The guide and administration area lead through the setup. We are happy to answer general questions; data and operation remain the responsibility of each fire brigade.</p>
+        </details>
+        <details>
+          <summary><span>Is support available for installation and operation?</span></summary>
+          <p>Yes. General questions about installation and use can be answered free of charge. KP Rück can be operated on an organisation’s own infrastructure or with a hosting or cloud provider of its choice. Support with installation, configuration, updates or operation is also available by individual agreement. More extensive support may be subject to a fee.</p>
+        </details>
+        <details>
+          <summary><span>What happens during a power, network or device failure?</span></summary>
+          <p>KP Rück saves the current state within the application and can restore it after a failure. The application can be operated on several devices and on an additional local instance. The current board can also be printed regularly and used as a fallback. External backups of the installation and infrastructure are the responsibility of the operating organisation.</p>
+        </details>
+        <details>
+          <summary><span>Does KP Rück require KP Front?</span></summary>
+          <p>No. KP Rück runs entirely on its own – with its own database, its own login and its own updates. It comes into its own alongside <a href="https://kp-front.ch/en/">KP Front</a>, the application for the front line at the incident: both take the same alarms from the dispatch system, read the same roster and classify alarms by the same keyword list, optionally with the same Divera access. Front and rear thus work from the same source data, without maintaining the alarm integration and the crew twice.</p>
+        </details>
+        <details>
+          <summary><span>What is the local station printer for in KP Rück?</span></summary>
+          <p>The station printer puts what matters on paper, right at the station or in the command post. KP Rück prints assignment slips for teams and drivers automatically if you wish, as soon as an incident is dispatched for the first time, or by hand at any time; the situation overview with incidents, vehicle status and crews, and the pickup list of equipment still on site, at the push of a button. As a fallback, the board can also be printed at regular intervals. What you connect is an ordinary 80 mm thermal printer (ESC/POS) on the local network – it works for any fire brigade, not just in Switzerland.</p>
+        </details>
+        <details>
+          <summary><span>Can we adapt it to how we work?</span></summary>
+          <p>Yes. Every brigade has its own administration area: incident types, priorities, crew, fleet and equipment lists are all configurable there, and import and export run through Excel. And because the whole code is on <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub <svg class="ico" style="width:13px;height:13px;vertical-align:-2px" aria-hidden="true" focusable="false"><use href="#i-gh"/></svg></a>, everything else can be built – by you or to order.</p>
+        </details>
+        <details>
+          <summary><span>Which languages are available for KP Rück?</span></summary>
+          <p>The KP Rück user interface is currently available in German and French. As an open-source application, KP Rück can be extended to further languages. This requires a complete translation of the terminology and a professional review.</p>
+        </details>
+        <details>
+          <summary><span>How do we start?</span></summary>
+          <p>With the <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">demo</a>, without an account – pick a role and go. Then try it on an exercise; exercise mode is cleanly separated from the real thing. If it fits, the <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md" target="_blank" rel="noopener">setup guide</a> leads through installation and operation. We are happy to answer general questions; data and operation remain the responsibility of each fire brigade.</p>
+        </details>
       </div>
     </div>
   </section>
 
-  <section class="wrap" id="kontakt">
-    <div class="contact-grid">
-      <div class="contact-side">
-        <p class="eyebrow">Contact</p>
-        <h2>Tell us what you think.</h2>
-        <p>Do you want to try KP Rück at your brigade? Is something missing, or does something not work the way you expect? Get in touch – we read everything.</p>
-        <p class="alt">For questions and open-ended ideas there are the <a href="https://github.com/feuerwehr-oberwil/kp-rueck/discussions" target="_blank" rel="noopener">GitHub discussions</a>.</p>
-      </div>
-      <div class="contact-ways">
-        <a class="way" href="https://github.com/feuerwehr-oberwil/kp-rueck/issues/new?template=bug_report.yml" target="_blank" rel="noopener">
-          <span class="way-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-bug"/></svg></span>
-          <span class="way-body">
-            <span class="way-t">Report a bug</span>
-            <span class="way-s">What happened, and what did you expect? Drag screenshots straight into the form.</span>
-          </span>
-          <svg class="way-go" aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg>
-        </a>
-        <a class="way" href="https://github.com/feuerwehr-oberwil/kp-rueck/issues/new?template=feature_request.md" target="_blank" rel="noopener">
-          <span class="way-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-idea"/></svg></span>
-          <span class="way-body">
-            <span class="way-t">Ask for something</span>
-            <span class="way-s">Is a step missing that belongs to how you work? Describe the case, not the solution.</span>
-          </span>
-          <svg class="way-go" aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg>
-        </a>
-        <form class="way way-form" action="https://api.staticforms.dev/submit" method="POST">
+  <div class="wrap">
+    <div class="sib">
+      <p><strong>KP Front</strong> – the sister project at the scene: situation map, site plans and SCBA monitoring, even without a network. Both receive the same alert and run independently. <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md" target="_blank" rel="noopener">Guide: both on one server →</a></p>
+      <a class="btn btn-ghost" href="https://kp-front.ch/en/">Take a look at KP Front<svg class="ico" style="width:14px;height:14px" aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg></a>
+    </div>
+  </div>
+
+  <section class="wrap close" id="kontakt">
+    <p class="eyebrow">Contact</p>
+    <h2>Try it yourself.</h2>
+    <p class="close-p">The demo runs without an account. Do you want to use KP Rück at your fire brigade, or is something missing? Get in touch – we read everything.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://demo.kp-rueck.ch" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-play"/></svg>Open the demo</a>
+      <a class="btn btn-ghost" href="#betrieb">Run it yourself</a>
+    </div>
+    <div class="ways">
+      <details class="way way-form">
+        <summary>
           <span class="way-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-mail"/></svg></span>
-          <div class="way-body">
+          <span class="way-body">
             <span class="way-t">Write directly</span>
             <span class="way-s">Without a GitHub account, or when something should not stand in public – including «we would like to try this at our brigade».</span>
-            <input type="hidden" name="apiKey" value="sf_ed957c38761f21e20b01928a">
-            <input type="hidden" name="subject" value="KP Rück – Landingpage (en)">
-            <p class="hp"><label>Please leave this field empty
-              <input type="text" name="website" tabindex="-1" autocomplete="off"></label></p>
-            <div class="f-fields">
-              <div class="f-row">
-                <label class="f-lab" for="f-name">Name</label>
-                <input class="f-in" id="f-name" type="text" name="name" autocomplete="name" placeholder="Who is writing?">
-              </div>
-              <div class="f-row">
-                <label class="f-lab" for="f-mail">E-mail</label>
-                <input class="f-in" id="f-mail" type="email" name="email" required autocomplete="email" placeholder="So that we can answer">
-              </div>
-              <div class="f-row">
-                <label class="f-lab" for="f-msg">Message</label>
-                <textarea class="f-in" id="f-msg" name="message" rows="4" required placeholder="What is it about?"></textarea>
-              </div>
+          </span>
+        </summary>
+        <form action="https://api.staticforms.dev/submit" method="POST">
+          <input type="hidden" name="apiKey" value="sf_ed957c38761f21e20b01928a">
+          <input type="hidden" name="subject" value="KP Rück – Landingpage (en)">
+          <p class="hp"><label>Please leave this field empty
+            <input type="text" name="website" tabindex="-1" autocomplete="off"></label></p>
+          <div class="f-fields">
+            <div class="f-row">
+              <label class="f-lab" for="f-name">Name</label>
+              <input class="f-in" id="f-name" type="text" name="name" autocomplete="name" placeholder="Who is writing?">
             </div>
-            <button class="btn btn-primary f-send" type="submit">Send message</button>
-            <p class="f-note" role="status" hidden></p>
-            <p class="contact-note">Delivered by e-mail via the form service staticforms.dev. <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/PRIVACY.md#the-project-website" target="_blank" rel="noopener">Privacy</a></p>
+            <div class="f-row">
+              <label class="f-lab" for="f-mail">E-mail</label>
+              <input class="f-in" id="f-mail" type="email" name="email" required autocomplete="email" placeholder="So that we can answer">
+            </div>
+            <div class="f-row">
+              <label class="f-lab" for="f-msg">Message</label>
+              <textarea class="f-in" id="f-msg" name="message" rows="4" required placeholder="What is it about?"></textarea>
+            </div>
           </div>
+          <button class="btn btn-primary f-send" type="submit">Send message</button>
+          <p class="f-note" role="status" hidden></p>
+          <p class="contact-note">Delivered by e-mail via the form service staticforms.dev. <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/PRIVACY.md#the-project-website" target="_blank" rel="noopener">Privacy</a></p>
         </form>
-      </div>
+      </details>
+      <a class="way" href="https://github.com/feuerwehr-oberwil/kp-rueck/issues/new?template=bug_report.yml" target="_blank" rel="noopener">
+        <span class="way-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-bug"/></svg></span>
+        <span class="way-body">
+          <span class="way-t">Report a bug</span>
+          <span class="way-s">What happened, and what did you expect? Drag screenshots straight into the form.</span>
+        </span>
+      </a>
+      <a class="way" href="https://github.com/feuerwehr-oberwil/kp-rueck/issues/new?template=feature_request.md" target="_blank" rel="noopener">
+        <span class="way-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-idea"/></svg></span>
+        <span class="way-body">
+          <span class="way-t">Ask for something</span>
+          <span class="way-s">Is a step missing that belongs to how you work? Describe the case, not the solution.</span>
+        </span>
+      </a>
     </div>
+    <p class="close-alt">For questions and open-ended ideas there are the <a href="https://github.com/feuerwehr-oberwil/kp-rueck/discussions" target="_blank" rel="noopener">GitHub discussions</a>.</p>
   </section>
 </main>
 
@@ -1026,7 +891,7 @@
   // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
   document.documentElement.classList.add('js');
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
-    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .stage, .faq-item, .tenet .wrap, .sibling-txt, .setup-card, .contact-side, .contact-ways');
+    var els = document.querySelectorAll('.sec-head, .chap-txt, .chap-img, .own-card, .acc, .tenet .wrap, .stage, .sib, .ways');
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
@@ -1044,7 +909,7 @@
   // Hintergrund und bleiben auf der Seite. Der Honigtopf ist für Menschen
   // unsichtbar: ist er ausgefüllt, war es ein Bot, und wir brechen still ab.
   (function () {
-    var form = document.querySelector('.way-form');
+    var form = document.querySelector('.way-form form');
     if (!form || !window.fetch || !window.FormData) return;
     var fields = form.querySelector('.f-fields');
     var note = form.querySelector('.f-note');

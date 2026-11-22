@@ -53,45 +53,17 @@
     "cta": "Demo öffnen",
     "cta2": "Selbst betreiben",
     "ctaNote": "Ohne Konto – Rolle wählen und loslegen",
-    "frameAddr": "BOARD · UNWETTER · 17 EINSÄTZE AKTIV",
-    "frameAlt": "Einsatzboard: Spalten von Eingegangen bis Beendet, dazwischen Einsatzkarten, links das Personal, rechts das Material",
-    "frameFile": "board.webp",
-    "frameFileSmall": "board-992.webp",
-    "frameW": 1500,
-    "frameH": 937
+    "img": {
+      "desktop": "board.webp",
+      "phone": "feld.webp"
+    },
+    "alt": {
+      "desktop": "Einsatzboard: Spalten von Eingegangen bis Reko abgeschlossen, links das Personal, rechts das Material",
+      "phone": "Feld-Ansicht auf dem Handy eines Trupps: der eigene Schadenplatz mit Meldung, Mannschaft und Status an den KP"
+    }
   },
   "fit": {
-    "whoLabel": "Für wen",
-    "who": [
-      "Milizfeuerwehren",
-      "Ortsfeuerwehren",
-      "Stützpunktfeuerwehren",
-      "Berufsfeuerwehren"
-    ],
-    "adapt": {
-      "label": "Anpassbar",
-      "items": [
-        "Zivilschutzorganisationen",
-        "Führungsstäbe",
-        "Weitere Blaulichtorganisationen"
-      ]
-    },
-    "whatLabel": "Wofür",
-    "what": [
-      "Alltagseinsätze",
-      "Unwetterlagen",
-      "Mehrere Ereignisse gleichzeitig"
-    ],
-    "note": "Entwickelt aus dem realen Einsatzbetrieb der\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a>\n        – dort erprobt und laufend weiterentwickelt.",
-    "own": {
-      "h2": "Eure Daten bleiben bei euch.",
-      "p": "KP Rück ist Open Source und läuft im eigenen Magazin oder in eurer eigenen Cloud. Einsätze, Personal, Fahrzeuge und Material bleiben unter eurer Kontrolle.",
-      "items": [
-        "Keine Lizenzkosten",
-        "Keine Herstellerbindung",
-        "Selbst betreiben, selbst weiterentwickeln"
-      ]
-    }
+    "note": "Entwickelt aus dem realen Einsatzbetrieb der\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a>\n        – dort erprobt und laufend weiterentwickelt."
   },
   "tenet": {
     "eyebrow": "Der Massstab",
@@ -115,138 +87,87 @@
       }
     ]
   },
-  "incident": {
-    "eyebrow": "Vom Alarm bis zum Rapport",
-    "h2": "Ein Ereignis, ein Board.",
-    "lede": "So sieht eine Unwetternacht im KP aus – was am Board passiert, steht nachher im\n        Einsatzrapport.",
-    "entries": [
-      {
-        "time": "21:14",
-        "tag": "Alarmeingang",
-        "h3": "Die Meldungen kommen rein.",
-        "p": "Über das Meldeformular, per Telefon oder über die offene Schnittstelle aus dem\n            Alarmierungssystem (z.&nbsp;B. Divera oder FireHub). Der AdFU übernimmt mit einem Klick –\n            aus der Meldung wird ein Einsatz auf dem Board.\n            Meldet jemand denselben Schadenplatz ein zweites Mal, fragt das Board nach, statt eine\n            zweite Karte anzulegen."
-      },
-      {
-        "time": "21:19",
-        "tag": "Disposition",
-        "h3": "Mannschaft und Fahrzeuge sind zugeteilt.",
-        "p": "Personal, Fahrzeuge und Material per Drag-and-Drop auf den Einsatz – oder getippt:\n            «14 tlf meier» in der Befehlspalette. KP Rück erkennt\n            Doppelbelegungen und fehlende Ressourcen. Die Einsatzleitung entscheidet: umteilen,\n            ergänzen oder bewusst trotzdem disponieren. Wer eintrifft, meldet sich per QR-Code\n            selbst an."
-      },
-      {
-        "time": "21:26",
-        "tag": "Karte",
-        "h3": "Wer ist wo.",
-        "p": "Alle Einsätze auf einer Karte, dazu die Fahrzeuge optional mit GPS-Position. Trifft ein\n            Fahrzeug am Einsatzort ein, schlägt das Board den Statuswechsel gleich selbst vor."
-      },
-      {
-        "time": "21:48",
-        "tag": "Reko",
-        "h3": "Die Reko meldet zurück.",
-        "p": "Die Reko füllt das Formular am eigenen Handy aus – inkl. Fotos. Die Meldung hängt\n            am richtigen Einsatz, statt im Gruppenchat unterzugehen."
-      },
-      {
-        "time": "22:10",
-        "tag": "Aufträge",
-        "h3": "Die Aufträge gehen raus.",
-        "p": "KP Rück berechnet zweckmässige Routen für mehrere Schadenplätze und unterstützt die Bearbeitung der\n            Aufträge über ein eigenes Modul der Web-App. Einsatzkräfte können unter anderem Ankunft, Rekognoszierung,\n            Fotos, Materialbedarf und den Abschluss eines Auftrags zurückmelden. Alternativ bleibt die Kommunikation\n            über Funk möglich."
-      },
-      {
-        "time": "23:30",
-        "tag": "Board",
-        "h3": "Alle sehen dasselbe Board.",
-        "p": "Der Beamer im KP, das Tablet am Tisch und das Handy des Fouriers zeigen denselben\n            Stand – ohne dass jemand «aktualisieren» drückt."
-      },
-      {
-        "time": "06:40",
-        "tag": "Bericht",
-        "h3": "Der Einsatzrapport schreibt sich mit.",
-        "p": "Einsatztagebuch und Reaktionszeiten entstehen nebenbei und werden zum PDF.\n            Korrigiert wird mit neuen Einträgen, nicht mit dem Radiergummi – so bleibt die\n            Nacht belegbar."
-      }
-    ]
-  },
-  "shots": {
-    "eyebrow": "Aus der Demo",
-    "h2": "So sieht das aus.",
-    "lede": "Alle Bilder sind aus der öffentlichen Demo aufgenommen. Klickt auf\n        «Demo öffnen», und ihr steht an demselben Board.",
+  "chapters": {
     "items": [
       {
-        "file": "display.webp",
-        "w": 1500,
-        "h": 937,
-        "alt": "Beamer-Ansicht: alle Einsatzphasen nebeneinander auf einem Bildschirm",
-        "title": "Beamer-Ansicht",
-        "sub": "Für die Wand im abgedunkelten KP: alle Phasen nebeneinander, ohne Bedienelemente"
+        "was": "Magnettafel an der Wand",
+        "h2": "Ein Board auf jedem Gerät.",
+        "p": "Spalten sind Einsatzphasen: Karten wandern per Drag-and-Drop von links nach rechts. Der Beamer im KP, das Tablet am Tisch und das Handy des Fouriers zeigen denselben Stand – ohne dass jemand «aktualisieren» drückt.",
+        "li": [
+          "Personal, Fahrzeuge und Material zuweisen – KP Rück warnt bei Doppelbelegungen",
+          "Wer eintrifft, meldet sich per QR-Code selbst an; Dienstzeiten und Pausen laufen mit",
+          "Zuweisen per Tastatur: «14 tlf meier» in der Befehlspalette"
+        ],
+        "img": {
+          "desktop": "board.webp",
+          "phone": "board.webp"
+        },
+        "alt": "Das Einsatzboard: Einsätze mit Priorität, Laufzeit, Mannschaft und Fahrzeugen"
       },
       {
-        "file": "status.webp",
-        "w": 1500,
-        "h": 937,
-        "alt": "Status-Ansicht: Fahrzeuge, Einsätze, Personal und Material nebeneinander, je mit Verfügbarkeit und Zuteilung",
-        "title": "Status",
-        "sub": "Fahrzeuge, Einsätze, Personal und Material nebeneinander – wer ist frei, wer ist gebunden, wer ist wo"
+        "was": "Telefonnotizen auf Zetteln",
+        "h2": "Meldungen, die am Einsatz hängen.",
+        "p": "Über das Meldeformular, per Telefon oder über die offene Schnittstelle aus dem Alarmierungssystem (z.&nbsp;B. Divera oder FireHub). Der AdFU übernimmt mit einem Klick – aus der Meldung wird ein Einsatz auf dem Board.",
+        "li": [
+          "Meldeformular per Link oder QR für Telefon und Laufkundschaft, ohne Konto",
+          "Meldet jemand denselben Schadenplatz ein zweites Mal, fragt das Board nach",
+          "Offene Schnittstelle – jedes Dispositionssystem kann Einsätze eröffnen"
+        ],
+        "img": {
+          "phone": "meldung.webp"
+        },
+        "alt": "Meldeformular auf dem Handy: Einsatzort, Meldung und Angaben zum Melder"
       },
       {
-        "file": "karte.webp",
-        "w": 1500,
-        "h": 937,
-        "alt": "Kartenansicht: Einsätze nach Priorität, Fahrzeugpositionen und Zuweisungen",
-        "title": "Karte",
-        "sub": "Alle Einsätze nach Priorität, dazu die Fahrzeugpositionen und die Zuweisungen dazwischen"
+        "was": "Stecknadeln auf dem Ortsplan",
+        "h2": "Wer ist wo.",
+        "p": "Alle Einsätze auf einer Karte, dazu die Fahrzeuge optional mit GPS-Position. Trifft ein\n            Fahrzeug am Einsatzort ein, schlägt das Board den Statuswechsel gleich selbst vor.",
+        "li": [
+          "Alle Einsätze nach Priorität und Status auf einer Karte",
+          "Zuweisungen als Linie – welches Fahrzeug gehört zu welchem Einsatz",
+          "Niederschlagsradar und amtliche Warnungen (MeteoSchweiz, Alertswiss)"
+        ],
+        "img": {
+          "desktop": "karte.webp",
+          "phone": "karte.webp"
+        },
+        "alt": "Lagekarte: Einsätze nach Priorität, dazu die Fahrzeuge und ihre Zuweisungen"
       },
       {
-        "file": "disposition.webp",
-        "w": 1500,
-        "h": 937,
-        "alt": "Fahrzeugstatus: Fahrzeuge mit Funkrufname, Fahrer, Ziel und Status",
-        "title": "Fahrzeuge",
-        "sub": "Funkrufname, Fahrer, Ziel und Status jedes Fahrzeugs auf einen Blick"
+        "was": "WhatsApp-Gruppe und Funkspruch",
+        "h2": "Der Trupp meldet vom Handy.",
+        "p": "Jeder Trupp sieht seine eigenen Schadenplätze: angekommen, Abholung, Einsatz beendet – ohne Funk. Die Reko füllt ihr Formular mit Fotos am eigenen Handy aus; die Meldung hängt am richtigen Einsatz, statt im Gruppenchat unterzugehen.",
+        "li": [
+          "Feld-Ansicht ohne Konto, per Link und Code",
+          "Anfragen – Material, Verstärkung, Abholung – bleiben offen, bis der KP sie erledigt hat",
+          "Aufträge: mehrere Schadenplätze als eine Route, Reihenfolge nach Distanz optimiert"
+        ],
+        "img": {
+          "phone": "feld.webp"
+        },
+        "alt": "Feld-Ansicht: der eigene Schadenplatz mit Meldung, Mannschaft und «Angekommen melden»"
       },
       {
-        "file": "meldung.webp",
-        "w": 900,
-        "h": 562,
-        "alt": "Meldeformular: Adresse, Meldung, Priorität, Einsatzart und Angaben zum Melder",
-        "title": "Meldeformular",
-        "sub": "Telefonmeldungen und Laufkundschaft strukturiert erfassen – per Link oder QR-Code, ohne Konto"
-      },
-      {
-        "file": "reko.webp",
-        "w": 900,
-        "h": 562,
-        "alt": "Reko-Formular: Einsatz, «Ich bin vor Ort» und Gefahren zum Ankreuzen",
-        "title": "Reko-Formular",
-        "sub": "Auf dem Handy der Reko: vor Ort melden, Gefahren ankreuzen, Fotos anhängen"
-      },
-      {
-        "file": "feld.webp",
-        "w": 900,
-        "h": 562,
-        "alt": "Feld-Ansicht: der eigene Schadenplatz mit den Meldungen an den KP, der Lage und der Mannschaft",
-        "title": "Feld",
-        "sub": "Jeder Trupp sieht nur seine eigenen Schadenplätze – angekommen, Abholung, Einsatz beendet, ohne Funk"
-      },
-      {
-        "file": "auftraege.webp",
-        "w": 1500,
-        "h": 937,
-        "alt": "Aufträge: mehrere Einsätze zu einer Route gebündelt",
-        "title": "Aufträge",
-        "sub": "Mehrere Einsätze als Auftrag bündeln: Mannschaft und Mittel bleiben beim Auftrag und fahren in der festgelegten oder optimierten Reihenfolge von Stopp zu Stopp"
-      },
-      {
-        "file": "training.webp",
-        "w": 1500,
-        "h": 937,
-        "alt": "Übungs-Steuerung: einzelne oder gezielte Einsätze generieren, Automatik und Feld-Simulation",
-        "title": "Übung",
-        "sub": "Übungslagen einspeisen, statt sie zu erfinden – sauber vom Ernstfall getrennt"
+        "was": "Bericht am Wochenende danach",
+        "h2": "Der Einsatzrapport schreibt sich mit.",
+        "p": "Einsatztagebuch und Reaktionszeiten entstehen nebenbei und werden zum PDF.\n            Korrigiert wird mit neuen Einträgen, nicht mit dem Radiergummi – so bleibt die\n            Nacht belegbar.",
+        "li": [
+          "Der Verlauf schreibt Statuswechsel, Zuweisungen und Meldungen selbst mit",
+          "Einsatzrapport als PDF mit Reaktionszeiten",
+          "Restliste: offene Rapporte, Abholungen und Material am Schadenplatz"
+        ],
+        "img": {
+          "desktop": "verlauf.webp",
+          "phone": "verlauf.webp"
+        },
+        "alt": "Verlauf: Statuswechsel, Zuweisungen und Einträge mit Uhrzeit"
       }
     ]
   },
   "run": {
     "eyebrow": "Betrieb",
-    "h2": "Drei Wege zum eigenen Board.",
-    "lede": "Erst die Demo, dann eine Übung – und wenn es passt, läuft KP Rück bei euch. Quelloffen und kostenlos; Daten und Betrieb bleiben bei der Feuerwehr.",
+    "h2": "Eure Daten bleiben bei euch.",
+    "lede": "KP Rück ist Open Source und läuft im eigenen Magazin oder in eurer eigenen Cloud. Einsätze, Personal, Fahrzeuge und Material bleiben unter eurer Kontrolle. Keine Lizenzkosten, keine Herstellerbindung.",
     "guide": "Zur Anleitung",
     "ways": [
       {
@@ -267,39 +188,6 @@
     ],
     "note": "Unterstützung bei Installation und Betrieb gibt es nach Absprache – <a href=\"#kontakt\">Kontakt</a>."
   },
-  "change": {
-    "eyebrow": "Umstieg",
-    "h2": "Was sich ändert.",
-    "lede": "Nichts davon ist heute kaputt – die Magnettafel funktioniert seit Jahrzehnten.\n        KP Rück tritt an dieselben Stellen, nur ohne Abschreiben.",
-    "headToday": "Heute",
-    "headWith": "Mit KP Rück",
-    "rows": [
-      {
-        "today": "Magnettafel an der Wand",
-        "with": "Digitales Board auf jedem Gerät"
-      },
-      {
-        "today": "Telefonnotizen auf Zetteln",
-        "with": "Meldeformular, das am Einsatz hängt"
-      },
-      {
-        "today": "Excel-Liste für Mannschaft und Fahrzeuge",
-        "with": "Live-Übersicht, die sich selbst nachführt"
-      },
-      {
-        "today": "WhatsApp-Gruppe für Rückmeldungen",
-        "with": "Strukturierte Meldungen mit Fotos"
-      },
-      {
-        "today": "Funkspruch für jeden Statuswechsel",
-        "with": "Status und Meldungen direkt vom Trupp – der Funkkanal bleibt frei"
-      },
-      {
-        "today": "Bericht nach dem Einsatz",
-        "with": "Bericht entsteht währenddessen"
-      }
-    ]
-  },
   "features": {
     "eyebrow": "Funktionsumfang",
     "h2": "Was alles drin ist.",
@@ -307,6 +195,7 @@
     "groups": [
       {
         "h3": "Board &amp; Disposition",
+        "peek": "Einsatzphasen · Zuweisen · Doppelbelegungen · QR-Check-in · Dienstzeiten · Beamer",
         "items": [
           "<strong>Spalten sind Einsatzphasen</strong> – Karten wandern per Drag-and-Drop von links nach rechts",
           "Personal, Fahrzeuge und Material zuteilen – KP Rück warnt bei Doppelbelegungen und macht Ressourcenkonflikte sichtbar",
@@ -323,6 +212,7 @@
       },
       {
         "h3": "Alarm &amp; Meldungen",
+        "peek": "Offene Schnittstelle · Divera · FireHub · Meldeformular · Reko · Feld",
         "items": [
           "<strong>Offene Schnittstelle</strong> – jedes Dispositionssystem kann Einsätze eröffnen",
           "Kann Alarme aus Divera oder FireHub übernehmen <span class=\"opt\">optional</span>",
@@ -338,6 +228,7 @@
       },
       {
         "h3": "Karte &amp; Fahrzeuge",
+        "peek": "Prioritäten · GPS · Zuweisungen · Radar und Warnungen · eigene Kacheln",
         "items": [
           "Alle Einsätze nach Priorität und Status auf einer Karte",
           "Fahrzeugpositionen per GPS <span class=\"opt\">optional</span>",
@@ -349,6 +240,7 @@
       },
       {
         "h3": "Nachher &amp; Betrieb",
+        "peek": "Rapport als PDF · Verlauf · Kennzahlen · Verwaltung · Thermodruck · Übung",
         "items": [
           "<strong>Einsatzrapport als PDF</strong> mit Einsatztagebuch und Reaktionszeiten – entsteht während des Einsatzes und ist beim Einrücken bereits weitgehend vorbereitet",
           "Einsatztagebuch am Board: schreibt Statuswechsel, Zuteilungen und Meldungen selbst mit, eigene Einträge per ⇧J – ergänzt, nie überschrieben",
@@ -364,33 +256,9 @@
     ]
   },
   "sibling": {
-    "eyebrow": "Verwandtes Projekt",
-    "h2": "KP Front schafft taktische Tiefe am Schadenplatz. KP Rück schafft operative Breite in der Gesamtlage.",
-    "p": "<strong>KP Front</strong> bildet am Einsatzort die Lagekarte und den Führungstisch\n          digital ab: taktische Zeichen, Objektpläne und Atemschutzüberwachung, auch ohne Netz. Eigene App,\n          gleiche Handschrift – beide erhalten denselben Alarm vom Dispositionssystem\n          und brauchen einander nicht. Beide Anwendungen können bei derselben Lage parallel und unabhängig voneinander eingesetzt werden.",
+    "line": "<strong>KP Front</strong> – das Schwesterprojekt am Schadenplatz: Lagekarte, Objektpläne und Atemschutzüberwachung, auch ohne Netz. Beide erhalten denselben Alarm und laufen unabhängig voneinander.",
     "cta": "KP Front ansehen",
-    "setup": {
-      "h3": "Beide betreiben – ohne alles doppelt einzurichten",
-      "rows": [
-        {
-          "dt": "Alarmierung",
-          "dd": "Dieselbe Nutzlast für beide. Die Anbindung eures Dispositionssystems entsteht einmal; jede App bekommt nur ihre eigene Adresse."
-        },
-        {
-          "dt": "Divera-Zugang",
-          "dd": "Ein Schlüssel für beide – dieselben Alarme, dieselbe Mannschaft. <span class=\"opt\">optional</span>"
-        },
-        {
-          "dt": "Mannschaftsliste",
-          "dd": "Dieselbe Quelle im selben Dateiformat – dieselbe Person auf beiden Seiten."
-        },
-        {
-          "dt": "Stichwörter",
-          "dd": "Dieselbe Alarm-Stichwortliste, also dieselbe Einstufung in beiden Apps."
-        }
-      ],
-      "foot": "<strong>Getrennt bleiben Datenbank, Updates und Login.</strong> Keine der beiden braucht die andere, um zu laufen.",
-      "link": "Anleitung für beide auf einem Server"
-    }
+    "link": "Anleitung für beide auf einem Server"
   },
   "faq": {
     "eyebrow": "Fragen &amp; Antworten",
@@ -401,12 +269,8 @@
         "a": "Keine Doppelbelegungen mehr. Keine Meldung, die im Gruppenchat untergeht. Weniger\n          Funkverkehr für Fragen, die ohnehin auf dem Board stehen. Alle sehen gleichzeitig\n          dasselbe Lagebild – und der Einsatzrapport ist beim Einrücken schon da statt am\n          Wochenende danach."
       },
       {
-        "q": "Eignet sich KP Rück nur für Milizfeuerwehren?",
-        "a": "Nein. KP Rück wurde zwar aus der Praxis einer Schweizer Milizfeuerwehr entwickelt, eignet sich aber ebenso für Berufsfeuerwehren, Betriebswehren und andere Rettungsorganisationen. Überall dort, wo im Hintergrund Ressourcen, Fahrzeuge, Material und Personal bei Grosslagen oder Unwetter-Paralleleinsätzen koordiniert werden müssen, spielt KP Rück seine Stärken aus."
-      },
-      {
-        "q": "Kann KP Rück auch ausserhalb der Feuerwehr eingesetzt werden?",
-        "a": "Ja. KP Rück wurde für die rückwärtige Führung bei Feuerwehren entwickelt. Als Open-Source-Anwendung kann die Lösung auch an vergleichbare Führungs- und Koordinationsaufgaben von Zivilschutzorganisationen, Führungsstäben und weiteren Blaulichtorganisationen angepasst werden."
+        "q": "Für welche Feuerwehren und Einsätze ist KP Rück gedacht?",
+        "a": "Für Miliz-, Orts-, Stützpunkt- und Berufsfeuerwehren – bei Alltagseinsätzen, Unwetterlagen und mehreren Ereignissen gleichzeitig. Überall dort, wo im Hintergrund Personal, Fahrzeuge und Material koordiniert werden müssen, spielt KP Rück seine Stärken aus. Als Open-Source-Anwendung lässt es sich auch an Zivilschutzorganisationen, Führungsstäbe und weitere Blaulichtorganisationen anpassen."
       },
       {
         "q": "Wo liegen die Daten und welche Schnittstellen gibt es?",
@@ -452,8 +316,8 @@
   },
   "contact": {
     "eyebrow": "Kontakt",
-    "h2": "Sagt uns, was ihr denkt.",
-    "p": "Wollt ihr KP Rück bei euch ausprobieren? Fehlt etwas, oder funktioniert etwas nicht so,\n          wie ihr es erwartet? Meldet euch – wir lesen alles.",
+    "h2": "Selbst ausprobieren.",
+    "p": "Die Demo läuft ohne Konto. Wollt ihr KP Rück bei euch einsetzen, oder fehlt etwas? Meldet euch – wir lesen alles.",
     "alt": "Für Fragen und offene Ideen gibt es die\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck/discussions\" target=\"_blank\" rel=\"noopener\">GitHub-Diskussionen</a>.",
     "bug": {
       "t": "Fehler melden",
