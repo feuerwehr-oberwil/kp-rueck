@@ -36,9 +36,11 @@ const SYNTAX = [
 // Every map goes through components/map/base-map.tsx: its `isolate` wrapper keeps markers and
 // controls below the page's overlays, and it sets MapLibre's worker URL (CLAUDE.md › Maps).
 const MAP = "A map is components/map/base-map.tsx (<BaseMap>) – CLAUDE.md › «Maps never rise above overlays».";
-const MAP_COMPONENT = [
-  { name: "react-map-gl/maplibre", importNames: ["default", "Map"], message: MAP },
-  { name: "react-map-gl", importNames: ["default", "Map"], message: MAP },
+const MAP_COMPONENT = [{ name: "react-map-gl", importNames: ["default", "Map"], message: MAP }];
+// every react-map-gl entry point (maplibre, mapbox, …) and MapLibre's JS files; its stylesheet stays free
+const MAP_PATTERNS = [
+  { group: ["react-map-gl/*"], importNames: ["default", "Map"], message: MAP },
+  { regex: "^maplibre-gl/dist/.*\\.m?js$", message: MAP, allowTypeImports: true },
 ];
 const MAP_IMPORT_EXPRESSION = { selector: "ImportExpression[source.value=/^(maplibre-gl|react-map-gl)/]", message: MAP };
 
@@ -101,14 +103,15 @@ export default [
     rules: { "kp/no-literal-copy": "warn" },
   },
   // The map door. components/map/ is the one place that imports MapLibre's values (types are
-  // free), and base-map.tsx the one that renders react-map-gl's <Map>. Tests mock them freely.
+  // free), and base-map.tsx the one that renders react-map-gl's <Map>. Unit tests and the
+  // Playwright tree (tests/) mock them freely.
   {
     files: ["**/*.{ts,tsx}"],
-    ignores: ["components/map/**", ...TESTS],
+    ignores: ["components/map/**", "tests/**", ...TESTS],
     rules: {
       "@typescript-eslint/no-restricted-imports": ["error", {
         paths: [...MAP_COMPONENT, { name: "maplibre-gl", message: MAP, allowTypeImports: true }],
-        patterns: IMPORTS,
+        patterns: [...IMPORTS, ...MAP_PATTERNS],
       }],
       "no-restricted-syntax": ["error", ...SYNTAX, MAP_IMPORT_EXPRESSION],
     },
@@ -116,7 +119,9 @@ export default [
   {
     files: ["components/map/**/*.{ts,tsx}"],
     ignores: ["components/map/base-map.tsx", ...TESTS],
-    rules: { "@typescript-eslint/no-restricted-imports": ["error", { paths: MAP_COMPONENT, patterns: IMPORTS }] },
+    rules: {
+      "@typescript-eslint/no-restricted-imports": ["error", { paths: MAP_COMPONENT, patterns: [...IMPORTS, MAP_PATTERNS[0]] }],
+    },
   },
   {
     // Node scripts. The overflow scanner also carries a function that runs IN the page
@@ -128,7 +133,8 @@ export default [
         window: "readonly", document: "readonly", getComputedStyle: "readonly", NodeFilter: "readonly", localStorage: "readonly",
       },
     },
-    rules: { "no-console": "off" },
+    plugins: { kp },
+    rules: { "no-console": "off", "kp/disable-reason": "warn" },
   },
   {
     // Playwright's fixture callback is called `use` – not React's hook, and nothing in a

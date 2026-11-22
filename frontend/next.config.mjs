@@ -38,6 +38,9 @@ const nextConfig = {
     NEXT_PUBLIC_BUILD_TIME: buildTime,
   },
   output: 'standalone',
+  // `just ci-static` (the pre-push hook) builds into .next/ci-static, so a push does not wipe the
+  // output of a `pnpm dev` running in the same checkout. Images and CI keep the default.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
 
   // Disable ESLint during build (we run it separately in CI)
   eslint: {

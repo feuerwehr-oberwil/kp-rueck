@@ -24,6 +24,7 @@ tester.run("no-raw-effect", kp.rules["no-raw-effect"], {
     { code: "import { useEffect as onMount } from 'react'\nonMount(() => {})", errors: 1 },
     { code: "import * as R from 'react'\nR.useEffect(() => {})", errors: 1 },
     { code: "import Re from 'react'\nRe.useEffect(() => {})", errors: 1 },
+    { code: "import { default as Rx } from 'react'\nRx.useEffect(() => {})", errors: 1 },
   ],
 });
 

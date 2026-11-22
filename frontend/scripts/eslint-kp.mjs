@@ -30,8 +30,9 @@ function reactBindings(program, names) {
   for (const node of program.body) {
     if (node.type !== "ImportDeclaration" || node.source.value !== "react") continue;
     for (const s of node.specifiers) {
-      if (s.type === "ImportSpecifier" && names.has(s.imported.name)) direct.add(s.local.name);
-      else if (s.type !== "ImportSpecifier") namespaces.add(s.local.name); // default or namespace import
+      const imported = s.type === "ImportSpecifier" ? s.imported.name : "default"; // `* as R` counts as default
+      if (names.has(imported)) direct.add(s.local.name);
+      else if (imported === "default") namespaces.add(s.local.name); // `React`, `* as R`, `{ default as R }`
     }
   }
   return { direct, namespaces };

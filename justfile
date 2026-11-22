@@ -959,7 +959,7 @@ check:
 # alone (22.11.2026) – so pytest, Vitest and E2E stay `just test`'s and GitHub CI's.)
 # Run `check` plus the frontend build – what .githooks/pre-push runs
 ci-static: check
-    cd frontend && pnpm build
+    cd frontend && NEXT_DIST_DIR=.next/ci-static pnpm build
 
 # (Once per clone; every worktree of it then runs .githooks/. `git push --no-verify` skips it.
 # It stops when .git/hooks holds an installed hook – e.g. `pre-commit install` – that the switch
