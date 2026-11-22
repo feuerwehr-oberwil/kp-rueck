@@ -537,12 +537,17 @@ wt-prune *args:
 # `just tiles-download` must not read it as "stop the board". The operator's verb is
 # `just down`. This acts on docker-compose.dev.yml (project kp-rueck-dev) and nothing else –
 # it used to run `docker compose down` on the production file as well.
+#
+# Dev containers created before the dev file pinned `name: kp-rueck-dev` still carry the project
+# label kp-rueck, so `down` does not see them. Both dev recipes stop and remove them by the exact
+# container_name values of docker-compose.dev.yml (backend/tests/test_dev_recipes.py holds the
+# list to that file). Once nothing is left under those names, this does nothing.
+dev_containers := "kprueck-db-dev kprueck-backend-dev kprueck-frontend-dev kprueck-tileserver-dev kprueck-print-agent-dev"
+
 # Stop the DEVELOPMENT stack (the station's board is `just down`)
 dev-stop:
     docker compose -f docker-compose.dev.yml down
-    @# Dev containers from before the dev file pinned its project still carry the label kp-rueck,
-    @# so `down` does not see them. Their container names (kprueck-*-dev) are dev-only.
-    @docker ps -aq --filter 'name=^kprueck-.*-dev$' | xargs -r docker rm -f >/dev/null
+    @for c in {{dev_containers}}; do if docker container inspect "$c" >/dev/null 2>&1; then docker stop "$c" >/dev/null && docker rm "$c" >/dev/null; fi; done
 
 # `down -v` removes the dev stack's named volumes: the dev database and the downloaded dev map
 # tiles, with no undo (dev photos sit in the ./backend bind mount and stay). It acts on
@@ -563,8 +568,11 @@ dev-clean:
     docker compose -f docker-compose.dev.yml down -v
     # Compose deletes only volumes labelled with its own project. Dev containers and volumes from
     # before the dev file pinned `name: kp-rueck-dev` carry the label kp-rueck, so `down -v` keeps
-    # them. Remove them by their dev-only names (the volume names are pinned in the dev file).
-    docker ps -aq --filter 'name=^kprueck-.*-dev$' | xargs -r docker rm -f >/dev/null
+    # them. Remove them by name: the containers as in dev-stop, the volumes by the names pinned in
+    # the dev file.
+    for c in {{dev_containers}}; do
+        if docker container inspect "$c" >/dev/null 2>&1; then docker stop "$c" >/dev/null && docker rm "$c" >/dev/null; fi
+    done
     for volume in kp-rueck_postgres_dev_data kp-rueck_tileserver-dev-data; do
         if docker volume inspect "$volume" >/dev/null 2>&1; then docker volume rm "$volume" >/dev/null; fi
     done
