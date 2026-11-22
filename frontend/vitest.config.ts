@@ -12,7 +12,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
-    include: ["**/*.{test,spec}.{ts,tsx}"],
+    // scripts/*.test.mjs: the node scripts' own tests (the eslint plugin's RuleTester cases)
+    include: ["**/*.{test,spec}.{ts,tsx}", "scripts/**/*.test.mjs"],
     exclude: [
       "node_modules/**",
       ".next/**",

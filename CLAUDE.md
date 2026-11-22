@@ -37,6 +37,7 @@ cd backend && uv run ruff check . && uv run ruff format .
 cd frontend && pnpm install && pnpm dev              # app on :3000
 cd frontend && pnpm lint                             # ratchet per rule on warnings AND eslint-disable comments: eslint-ratchet.json
 cd frontend && pnpm build
+just hooks                                           # once per clone: every push runs `just ci-static` first
 ```
 
 ### Tests
@@ -50,7 +51,7 @@ cd frontend && pnpm test:e2e                    # Playwright (pnpm test:e2e:ui)
 cd frontend && pnpm test:e2e tests/e2e/01-auth/ # one suite; add --headed via `pnpm exec playwright test`
 ```
 
-- Unit tests: Vitest + React Testing Library + jsdom (config: `vitest.config.ts`, setup: `vitest.setup.ts`). Files: `**/*.{test,spec}.{ts,tsx}` outside `tests/`.
+- Unit tests: Vitest + React Testing Library + jsdom (config: `vitest.config.ts`, setup: `vitest.setup.ts`). Files: `**/*.{test,spec}.{ts,tsx}` outside `tests/`, plus `scripts/**/*.test.mjs`.
 - E2E: Playwright with TypeScript, Page Object Model + Custom Fixtures, Factory pattern + API helpers, in `frontend/tests/`.
 - Visual regression: `just visual` – nine frozen screens (`frontend/tests/visual/*.visual.ts`,
   own config `playwright.visual.config.ts`). A production build renders them against
@@ -81,7 +82,7 @@ cd frontend && pnpm test:e2e tests/e2e/01-auth/ # one suite; add --headed via `p
 
 - `async`/`await` everywhere. Sessions are an injected `AsyncSession`. Settings are Pydantic and
   injected too.
-- Put lifecycle code in the `lifespan` context, never in the deprecated startup/shutdown events.
+- Put lifecycle code in the `lifespan` context (`tests/test_lifespan_only.py` fails on `on_event`).
 - SQLAlchemy 2.0 mapped-column syntax; full type hints.
 - **CRUD and services flush, the request commits** (once, before the response – `commit_request`).
   Send anything that a board or another session reacts to after the commit: `after_commit(db, …)`
@@ -230,6 +231,10 @@ to the runtime `API_URL`. The same reasoning applies to map tiles (`getTileBaseU
 
 ## Conventions
 
+- **A correction becomes a check.** When the owner corrects a change and a lint rule
+  (`frontend/scripts/eslint-kp.mjs`, or an error in `frontend/eslint.config.mjs`), a test or a
+  type can hold it, build that check in the same PR and name the correction in the PR body.
+  Prose comes last: the module's header, or a line here only for what every change must know.
 - **Files shared with KP Front by copy** – telemetry sanitiser, alarm keyword vocabulary,
   roster-snapshot contract + reader, alarm intake corpus, the snail – are listed in
   `shared/MANIFEST.json` (path per repo, owner, sha256). To change one:
@@ -280,8 +285,8 @@ to the runtime `API_URL`. The same reasoning applies to map tiles (`getTileBaseU
   loaded a board (`lib/station-name.ts`; the login card shows it too). In the app it is the shell
   trail (`components/ui/shell-loader.tsx`): `LoadingStatus` for a stand-alone wait (words
   required, `role="status"`; `surface` = 48px stacked for an empty dialog/panel, `inline` = 20px
-  beside the text), `ShellLoader` in the icon slot of a busy button beside its label. Do not add
-  `Loader2`/`animate-spin` spinners. Do not add an artificial minimum wait. Under reduced motion
+  beside the text), `ShellLoader` in the icon slot of a busy button beside its label (a spinner
+  is a lint error). Do not add an artificial minimum wait. Under reduced motion
   the trail and the snail stand still, and overlays fade without zoom/slide (`globals.css`, via
   tw-animate's variables). Never use a blanket `transform: none`: it breaks positioning and
   drag-and-drop.
@@ -357,7 +362,8 @@ to the runtime `API_URL`. The same reasoning applies to map tiles (`getTileBaseU
   Title + one line + at most one action, no big icons. The repeated board columns keep their
   single grey sentence. **A title takes no period** – an `EmptyState` title, a toast's first
   line, any `*Title` key. The line under it is a sentence and takes a period.
-- **Maps never rise above overlays.** Every map goes through `components/map/base-map.tsx`. Its
+- **Maps never rise above overlays.** Every map goes through `components/map/base-map.tsx` (a lint
+  error elsewhere). Its
   wrapper is `isolate`, so markers (z up to 1000) and controls (z 2000) only compete inside the
   map. Map chrome laid over a map from outside (chips, legend, fit-all) sits in a wrapper that is
   `isolate` too. Never give map content a z-index meant for the page.
@@ -389,7 +395,7 @@ to the runtime `API_URL`. The same reasoning applies to map tiles (`getTileBaseU
   - Wrap the operator's *own* releases with `useReleaseUndo`. Internal releases (conflict
     «verschieben», completion) stay raw.
 - **Durations go through `lib/duration.ts`** (`formatDuration` / `formatAgo` / `formatDurationLong`) – no
-  hand-rolled minute maths, no date-fns. Every surface uses ONE notation, the magnet board's:
+  hand-rolled minute maths. Every surface uses ONE notation, the magnet board's:
   `12'`, `1h 23'`, `1d 10h`, «vor 12'», under a minute «gerade eben». That covers card chips,
   the Ereignis clock, notifications (the backend's `duration_de` too) and every «vor …». The full
   value («1 Tag 10 Stunden») goes into the accessible name/tooltip. A catalogue string never puts
