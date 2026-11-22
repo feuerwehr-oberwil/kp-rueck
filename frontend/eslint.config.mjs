@@ -42,7 +42,9 @@ const MAP_PATTERNS = [
   { group: ["react-map-gl/*"], importNames: ["default", "Map"], message: MAP },
   { regex: "^maplibre-gl/dist/.*\\.m?js$", message: MAP, allowTypeImports: true },
 ];
-const MAP_IMPORT_EXPRESSION = { selector: "ImportExpression[source.value=/^(maplibre-gl|react-map-gl)/]", message: MAP };
+// import() of the same entry points (no-restricted-imports does not see it); the stylesheet stays free
+const MAP_IMPORT_EXPRESSION = { selector: "ImportExpression[source.value=/^(maplibre-gl(\\u002Fdist\\u002F.*\\.m?js)?|react-map-gl(\\u002F.*)?)$/]", message: MAP };
+const MAP_COMPONENT_IMPORT_EXPRESSION = { selector: "ImportExpression[source.value=/^react-map-gl(\\u002F.*)?$/]", message: MAP };
 
 export default [
   js.configs.recommended,
@@ -53,7 +55,6 @@ export default [
       "@next/next": nextPlugin,
       "react": reactPlugin,
       "react-hooks": reactHooksPlugin,
-      kp,
     },
     rules: {
       ...nextPlugin.configs.recommended.rules,
@@ -82,7 +83,6 @@ export default [
       "no-restricted-properties": ["error",
         ...["alert", "confirm", "prompt"].map((property) => ({ object: "window", property, message: "Ask with ConfirmDialog (components/ui/confirm-dialog.tsx), tell with a toast." })),
       ],
-      "kp/disable-reason": "warn",
     },
     settings: {
       react: {
@@ -90,6 +90,8 @@ export default [
       },
     },
   },
+  // Every linted file (no `files`: .mjs and .cjs too): a disable says why.
+  { plugins: { kp }, rules: { "kp/disable-reason": "warn" } },
   // Product code (app/, components/; not lib/, not tests): effects and timers go through named
   // helpers in lib/, screen text through the catalogue. Ratcheted warnings – scripts/eslint-kp.mjs.
   {
@@ -121,6 +123,7 @@ export default [
     ignores: ["components/map/base-map.tsx", ...TESTS],
     rules: {
       "@typescript-eslint/no-restricted-imports": ["error", { paths: MAP_COMPONENT, patterns: [...IMPORTS, MAP_PATTERNS[0]] }],
+      "no-restricted-syntax": ["error", ...SYNTAX, MAP_COMPONENT_IMPORT_EXPRESSION],
     },
   },
   {
@@ -133,8 +136,7 @@ export default [
         window: "readonly", document: "readonly", getComputedStyle: "readonly", NodeFilter: "readonly", localStorage: "readonly",
       },
     },
-    plugins: { kp },
-    rules: { "no-console": "off", "kp/disable-reason": "warn" },
+    rules: { "no-console": "off" },
   },
   {
     // Playwright's fixture callback is called `use` – not React's hook, and nothing in a

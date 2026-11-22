@@ -22,7 +22,6 @@
       "@/*": ["./*"]
     }
   },
-  // .next/ci-static: the build of `just ci-static` (next.config.mjs distDir); listed so Next does not rewrite this file
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".next/ci-static/types/**/*.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
 }

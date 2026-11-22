@@ -957,9 +957,12 @@ check:
 # (The pre-push hook's set: only checks that give the same answer on a busy box. When kp-front's
 # hook ran the unit suites, two pushes were blocked by six different load flakes, each green
 # alone (22.11.2026) – so pytest, Vitest and E2E stay `just test`'s and GitHub CI's.)
-# Run `check` plus the frontend build – what .githooks/pre-push runs
-ci-static: check
-    cd frontend && NEXT_DIST_DIR=.next/ci-static pnpm build
+# The build goes first: it regenerates .next/types, which `check`'s tsc reads – stale route types
+# from the previous push's build would fail it after a page is deleted.
+# Run the frontend build plus `check` – what .githooks/pre-push runs
+ci-static:
+    cd frontend && pnpm build
+    just check
 
 # (Once per clone; every worktree of it then runs .githooks/. `git push --no-verify` skips it.
 # It stops when .git/hooks holds an installed hook – e.g. `pre-commit install` – that the switch
