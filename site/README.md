@@ -207,8 +207,8 @@ Wer die Templates umbenennt, muss die `?template=…`-Links in `index.template.h
 Das Aussehen («Schweizer Plakat × Tageslicht») steckt komplett in `landing.css`, und **diese
 Datei ist in kp-rueck und kp-front identisch** (`landing-runtime` in
 [`shared/MANIFEST.json`](../shared/MANIFEST.json)). Wer das Design ändert, ändert es zuerst in
-kp-front und kopiert die Datei auf einem gleichnamigen Branch hierher – sonst schlägt der
-Shared-Files-Check fehl. Nur Vorlage, Texte und
+kp-front und folgt dann den Schritten in [`shared/README.md`](../shared/README.md) (Kopie,
+Manifest, gleichnamiger Branch) – sonst schlägt der Shared-Files-Check fehl. Nur Vorlage, Texte und
 `config.json` unterscheiden sich: Inhalt, Bilder und die gegenseitige Verlinkung
 (`kp-rueck.ch` ⇄ `kp-front.ch`). Die Schwesterseite steht als `sister` in `config.json`;
 `build.mjs` hängt den Sprachordner an, so führt `/fr/` auf `https://kp-front.ch/fr/`. Nur die
