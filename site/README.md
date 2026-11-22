@@ -59,7 +59,9 @@ von Vorlage und Texten passen.
 die drei sind das Element `landing-runtime` in [`shared/MANIFEST.json`](../shared/MANIFEST.json),
 und die CI schlägt fehl, sobald die Kopien abweichen. Ändern wie in
 [`shared/README.md`](../shared/README.md): zuerst in kp-front, dann byte für byte hierher, beide
-PRs auf gleichnamigen Branches.
+PRs auf gleichnamigen Branches. Danach in **beiden** Repos `node site/build.mjs` laufen lassen und
+die neu gebauten Seiten mitcommitten: `build.mjs` bettet `theme.js` in jede Seite ein, und
+`node site/build.mjs --check` in der CI findet sonst veraltete Seiten.
 
 ## Sprachen
 
