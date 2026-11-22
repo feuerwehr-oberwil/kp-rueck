@@ -23,7 +23,8 @@ change. Read the section you touch. The visual rules and their reasons are
   `lib/hooks/use-effect-event.ts` (lint stops the import from 'react'). Use it for
   «the latest X without re-running». exhaustive-deps has 0 warnings, and the lint ratchet caps its disables. A
   disable that must stay says why on its line (`-- reason`).
-- **API Integration**: Centralized API client in `lib/api-client.ts`
+- **API Integration**: Centralized API client in `lib/api-client.ts`. Collection routes need
+  their trailing slash, or a write is lost to a 307: [`BACKEND.md`](BACKEND.md#api-endpoints).
 - **State Management**: React Context for global state (`lib/contexts/`, the board in `operations-context.tsx`)
 - **UI Components**: shadcn/ui components in `components/ui/`
 

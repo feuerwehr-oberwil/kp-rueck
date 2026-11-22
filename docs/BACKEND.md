@@ -3,7 +3,7 @@
 Rules for code under `backend/`. [`../AGENTS.md`](../AGENTS.md) points here before a backend
 change; the architecture behind them is [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
-Four rules in [`FRONTEND.md`](FRONTEND.md) bind backend code too. Read the one you touch:
+Five rules in [`FRONTEND.md`](FRONTEND.md) bind backend code too. Read the one you touch:
 
 - Backend output is German-only, except notifications and the `/feld` errors (stable `code`,
   `CodedHTTPException`): «i18n».
@@ -13,6 +13,8 @@ Four rules in [`FRONTEND.md`](FRONTEND.md) bind backend code too. Read the one y
   Auftrag lock): «Undo never restores a snapshot blindly».
 - A new free-text incident field joins `IncidentTextField` (`text_base`, 409 `text_conflict`):
   «Synchronisiert».
+- A duration the backend writes (`duration_de`) uses the board's notation (`12'`, `1h 23'`):
+  «Durations go through `lib/duration.ts`».
 
 ## Conventions
 
