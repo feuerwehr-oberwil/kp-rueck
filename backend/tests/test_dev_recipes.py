@@ -53,3 +53,8 @@ def test_dev_stack_has_its_own_compose_project() -> None:
     dev = yaml.safe_load((ROOT / "docker-compose.dev.yml").read_text())
     assert dev.get("name"), "docker-compose.dev.yml must pin `name:` – else a kp-rueck clone shares prod's project"
     assert dev["name"] != prod["name"]
+    # `-p` beats an exported COMPOSE_PROJECT_NAME, which would beat `name:`.
+    calls = [line for line in (ROOT / "justfile").read_text().splitlines() if "-f docker-compose.dev.yml" in line]
+    assert calls
+    for call in calls:
+        assert f"docker compose -p {dev['name']} -f docker-compose.dev.yml" in call, call.strip()

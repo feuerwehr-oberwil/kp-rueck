@@ -458,11 +458,11 @@ doctor:
 
 # Start all services in development mode with hot reload
 dev: _behind-main
-    docker compose -f docker-compose.dev.yml up --build
+    docker compose -p kp-rueck-dev -f docker-compose.dev.yml up --build
 
 # Run backend locally (requires uv). Database starts in Docker.
 be: _behind-main
-    @docker compose -f docker-compose.dev.yml up -d postgres
+    @docker compose -p kp-rueck-dev -f docker-compose.dev.yml up -d postgres
     @echo "\033[1;34m→ Starting backend on http://localhost:8000\033[0m"
     @echo "\033[1;34m→ Database running in Docker on port 5433\033[0m"
     @echo "\033[1;34m→ Press Ctrl+C to stop backend (database will keep running)\033[0m"
@@ -546,7 +546,7 @@ dev_containers := "kprueck-db-dev kprueck-backend-dev kprueck-frontend-dev kprue
 
 # Stop the DEVELOPMENT stack (the station's board is `just down`)
 dev-stop:
-    docker compose -f docker-compose.dev.yml down
+    docker compose -p kp-rueck-dev -f docker-compose.dev.yml down
     @for c in {{dev_containers}}; do if docker container inspect "$c" >/dev/null 2>&1; then docker stop "$c" >/dev/null && docker rm "$c" >/dev/null || exit 1; fi; done
 
 # `down -v` removes the dev stack's named volumes: the dev database and the downloaded dev map
@@ -565,7 +565,7 @@ dev-clean:
         echo "Aborted – nothing was removed."
         exit 1
     fi
-    docker compose -f docker-compose.dev.yml down -v
+    docker compose -p kp-rueck-dev -f docker-compose.dev.yml down -v
     # Compose deletes only volumes labelled with its own project. Dev containers and volumes from
     # before the dev file pinned `name: kp-rueck-dev` carry the label kp-rueck, so `down -v` keeps
     # them. Remove them by name: the containers as in dev-stop, the volumes by the names pinned in
@@ -619,13 +619,13 @@ db cmd="start" *args:
     case "{{cmd}}" in
         start)
             echo -e "\033[1;34m→ Starting PostgreSQL...\033[0m"
-            docker compose -f docker-compose.dev.yml up -d postgres
+            docker compose -p kp-rueck-dev -f docker-compose.dev.yml up -d postgres
             ;;
         shell)
-            docker compose -f docker-compose.dev.yml exec postgres psql -U kprueck -d kprueck
+            docker compose -p kp-rueck-dev -f docker-compose.dev.yml exec postgres psql -U kprueck -d kprueck
             ;;
         seed)
-            docker compose -f docker-compose.dev.yml exec backend uv run python -m app.seed
+            docker compose -p kp-rueck-dev -f docker-compose.dev.yml exec backend uv run python -m app.seed
             ;;
         migrate)
             echo -e "\033[1;34m→ Running database migrations...\033[0m"
