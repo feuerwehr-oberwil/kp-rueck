@@ -94,8 +94,11 @@ mkdir -p "$logs"
 
 echo "→ Postgres on :${pg_port} (container ${pg})"
 # The image CI's E2E (@smoke) service runs: the image's collation decides sort order.
-pg_id=$(docker run -d --name "$pg" -e POSTGRES_USER=kprueck -e POSTGRES_PASSWORD=kprueck -e POSTGRES_DB=kprueck \
-  -p "${pg_port}:5432" mirror.gcr.io/library/postgres:16)
+# Created first, started second: cleanup knows the ID even if the start fails. Loopback only –
+# the credentials are fixed.
+pg_id=$(docker create --name "$pg" -e POSTGRES_USER=kprueck -e POSTGRES_PASSWORD=kprueck -e POSTGRES_DB=kprueck \
+  -p "127.0.0.1:${pg_port}:5432" mirror.gcr.io/library/postgres:16)
+docker start "$pg_id" >/dev/null
 # Over TCP: during initdb the image runs a temporary server on the Unix socket only.
 for _ in $(seq 60); do docker exec "$pg_id" pg_isready -h 127.0.0.1 -U kprueck -q 2>/dev/null && break; sleep 1; done
 docker exec "$pg_id" pg_isready -h 127.0.0.1 -U kprueck -q || { echo "✗ Postgres did not start" >&2; docker logs --tail 20 "$pg_id" >&2; exit 1; }
@@ -111,13 +114,14 @@ echo "→ backend on :${api_port}, frontend (pnpm dev) on :${web_port}"
   "PRINT_AGENT_TOKEN=$print_token" uvicorn app.main:app --port "$api_port" --log-level warning >"$logs/api.log" 2>&1) &
 api_pid=$!
 (cd frontend && exec setsid "${clean_env[@]}" "NEXT_PUBLIC_API_URL=http://localhost:${api_port}" \
-  "API_URL=http://localhost:${api_port}" pnpm dev --port "$web_port" >"$logs/web.log" 2>&1) &
+  "API_URL=http://localhost:${api_port}" pnpm dev --hostname 127.0.0.1 --port "$web_port" >"$logs/web.log" 2>&1) &
 web_pid=$!
-for _ in $(seq 60); do curl -sf "localhost:${api_port}/health" >/dev/null && break; sleep 1; done
-curl -sf "localhost:${api_port}/health" >/dev/null || { echo "✗ backend did not answer" >&2; tail -20 "$logs/api.log" >&2; exit 1; }
+# Every probe has its own timeout, so a server that accepts and never answers cannot hang the run.
+for _ in $(seq 60); do curl -sf --max-time 5 "localhost:${api_port}/health" >/dev/null && break; sleep 1; done
+curl -sf --max-time 5 "localhost:${api_port}/health" >/dev/null || { echo "✗ backend did not answer" >&2; tail -20 "$logs/api.log" >&2; exit 1; }
 # The first request compiles the page in dev mode – give it time.
-for _ in $(seq 180); do curl -sf -o /dev/null "localhost:${web_port}/login" && break; sleep 1; done
-curl -sf -o /dev/null "localhost:${web_port}/login" || { echo "✗ frontend did not answer" >&2; tail -20 "$logs/web.log" >&2; exit 1; }
+for _ in $(seq 60); do curl -sf --max-time 30 -o /dev/null "localhost:${web_port}/login" && break; sleep 1; done
+curl -sf --max-time 30 -o /dev/null "localhost:${web_port}/login" || { echo "✗ frontend did not answer" >&2; tail -20 "$logs/web.log" >&2; exit 1; }
 # Compile the main routes before the clock starts: a cold `/` takes ~20 s in dev mode, longer
 # than a spec's 10 s wait for the board after login (CI hides that with two retries).
 echo "→ compiling the main routes"
