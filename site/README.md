@@ -55,8 +55,11 @@ unverändert aus, die Seite im Repo **ist** die Seite im Netz. Damit das nicht a
 prüft die CI (`node site/build.mjs --check`) bei jedem Push, dass die gebauten Seiten zum Stand
 von Vorlage und Texten passen.
 
-`build.mjs` ist in kp-rueck und kp-front **byte-identisch** – wie `landing.css`. Wer am
-Generator etwas ändert, kopiert ihn ins andere Repo hinüber.
+`build.mjs` ist in kp-rueck und kp-front **byte-identisch** – wie `landing.css` und `theme.js`:
+die drei sind das Element `landing-runtime` in [`shared/MANIFEST.json`](../shared/MANIFEST.json),
+und die CI schlägt fehl, sobald die Kopien abweichen. Ändern wie in
+[`shared/README.md`](../shared/README.md): zuerst in kp-front, dann byte für byte hierher, beide
+PRs auf gleichnamigen Branches.
 
 ## Sprachen
 
@@ -102,12 +105,16 @@ Bewusst entschieden und nicht aus Versehen so:
 Desktop uses a header button; compact headers group language and appearance in one native
 menu, closed by Escape or a tap outside. Language choices remain real links. The theme
 choice is a local preference (`kp-landing-theme`), shared across language pages on the same
-origin. Keep `theme.js`, `build.mjs` and `landing.css` byte-identical in both repositories.
+origin. `theme.js`, `build.mjs` and `landing.css` are byte-identical in both repositories:
+they are the `landing-runtime` item in [`shared/MANIFEST.json`](../shared/MANIFEST.json), and CI
+fails when the two copies differ. Change them as [`shared/README.md`](../shared/README.md) says.
 The builder embeds the runtime in the page head, including the single-file hand-out.
 
-The lightbox is shared in the same way: a picture inside a `.shot-zoom` button opens enlarged,
-the styles are in `landing.css`, and the script is the last block of `index.template.html` –
-the same block in both repositories, so change it in both. It reads the caption from the
+The lightbox works in both pages too: a picture inside a `.shot-zoom` button opens enlarged,
+and the styles are in `landing.css`. Its script is the section from `// Lightbox` to the end of
+the last script block in `index.template.html`. That section is identical in both repositories,
+but the manifest does not check it (the rest of the template differs), so change it in both by
+hand. It reads the caption from the
 figure (`.cap-t`, `.cap-s`) or, without one, from the heading of the picture's section (the
 chapter's `h2`). The texts are `lightbox.*` in `content/*.json`.
 
@@ -198,8 +205,10 @@ Wer die Templates umbenennt, muss die `?template=…`-Links in `index.template.h
 ## Design
 
 Das Aussehen («Schweizer Plakat × Tageslicht») steckt komplett in `landing.css`, und **diese
-Datei ist in kp-rueck und kp-front identisch**. Wer das Design ändert, kopiert sie ins andere
-Repo hinüber – sonst laufen die beiden Schwesterseiten auseinander. Nur Vorlage, Texte und
+Datei ist in kp-rueck und kp-front identisch** (`landing-runtime` in
+[`shared/MANIFEST.json`](../shared/MANIFEST.json)). Wer das Design ändert, ändert es zuerst in
+kp-front und kopiert die Datei auf einem gleichnamigen Branch hierher – sonst schlägt der
+Shared-Files-Check fehl. Nur Vorlage, Texte und
 `config.json` unterscheiden sich: Inhalt, Bilder und die gegenseitige Verlinkung
 (`kp-rueck.ch` ⇄ `kp-front.ch`). Die Schwesterseite steht als `sister` in `config.json`;
 `build.mjs` hängt den Sprachordner an, so führt `/fr/` auf `https://kp-front.ch/fr/`. Nur die
