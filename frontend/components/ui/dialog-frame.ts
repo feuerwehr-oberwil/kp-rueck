@@ -27,7 +27,7 @@
  * (feedback 19.11.2026). The cap lives here, once; globals.css reads it in the height scale.
  *
  * Phones (<768 px) keep what they had: centred on the screen, the screen less 1rem a side. A
- * phone form or picker is a bottom sheet anyway (CLAUDE.md «Phone geometry»).
+ * phone form or picker is a bottom sheet anyway (FRONTEND.md «Phone geometry»).
  */
 export type DialogSize = 'sm' | 'md' | 'lg'
 

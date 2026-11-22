@@ -1,4 +1,4 @@
-// The house eslint plugin: where an owner correction becomes a check (CLAUDE.md › «A correction
+// The house eslint plugin: where an owner correction becomes a check (AGENTS.md › «A correction
 // becomes a check»). eslint.config.mjs registers it as `kp` and scopes each rule.
 //
 // Every rule here is a WARNING that the per-rule ratchet holds (scripts/lint-ratchet.mjs ·
@@ -105,12 +105,12 @@ export default {
     ),
 
     // Words on a screen come from the catalogue: messages/de.json through useTranslations, with
-    // fr/it as overlays (CLAUDE.md › i18n). Text written into JSX is never translated.
+    // fr/it as overlays (docs/FRONTEND.md › i18n). Text written into JSX is never translated.
     "no-literal-copy": {
       meta: {
         type: "suggestion",
         schema: [],
-        messages: { literal: "Text on a screen comes from messages/de.json via useTranslations – CLAUDE.md › i18n." },
+        messages: { literal: "Text on a screen comes from messages/de.json via useTranslations – docs/FRONTEND.md › i18n." },
       },
       create: (context) => {
         // one report per literal (both branches of a `?:` count), one per template

@@ -24,7 +24,7 @@ import type { GroupResources } from "@/lib/types/groups"
  * hands over the next resource. Two commands typed in a row run one after the
  * other, never interleaved (`useCommandDispatch` queues them).
  *
- * Undo is a new write that must still be valid now (CLAUDE.md → «Undo never
+ * Undo is a new write that must still be valid now (FRONTEND.md → «Undo never
  * restores a snapshot blindly»): it takes off only what is on the Einsatz now
  * AND was not before the command, and puts status/priority back only while they
  * still read what the command set. A resource the command took off another

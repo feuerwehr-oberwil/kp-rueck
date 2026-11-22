@@ -6,7 +6,7 @@
  * (`PlannedTimeChip`) and /feld.
  *
  * `PlannedTimePicker` wraps any trigger: a popover at the trigger on a desk, a bottom sheet on a
- * phone (CLAUDE.md phone forms: label above the field, footer on the keys, no keyboard until a
+ * phone (FRONTEND.md phone forms: label above the field, footer on the keys, no keyboard until a
  * tap). Inside: the time field, «+1 h» / «+2 h» (KP Front's half-hour steps), «Zeit löschen»
  * and «Übernehmen». Enter saves, Esc closes. The typed «22:00» becomes an instant through
  * `lib/planned-times.ts` (`resolveClock` + `keepOrdered`), so the caller only ever gets ISO.

@@ -410,7 +410,7 @@ export function AttendanceModal({
   return (
     <>
       {isMobile ? (
-        // The phone: a bottom sheet by the phone-form rules (CLAUDE.md «Phone geometry») –
+        // The phone: a bottom sheet by the phone-form rules (FRONTEND.md «Phone geometry») –
         // search on top, the list scrolls in SheetBody, «Neue Person hinzufügen» stays in the
         // footer above the keys. It opens without focusing the search (no keyboard until a
         // tap) and swipes down to close. The centred dialog it replaces cut every name that

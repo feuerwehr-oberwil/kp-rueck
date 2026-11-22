@@ -34,7 +34,10 @@ Every doc here describes shipped behaviour; one that drifts from the code is a b
 | [`AUSFALL_SOP.md`](AUSFALL_SOP.md) | Outage / paper-fallback standard operating procedure: Lageblatt PDF, automatic thermal snapshots, and what to do when the network or backend is down. |
 | [`FAT_EVENT_PERF.md`](FAT_EVENT_PERF.md) | **Does a large or long Ereignis make the board worse?** `just fat-perf [real long large extreme]` plays a synthetic Ereignis, calibrated against real user actions from prod's audit log, into a throwaway stack with simulated devices following it. It then opens the board and the map on a CPU-throttled browser. Measurements, not gates; compare against the recorded run. Run it when you change the board load, the sync path or anything that runs per card. |
 | [`VISUAL_TESTS.md`](VISUAL_TESTS.md) | **Screenshot regression tests.** Nine frozen screens (board, phone, `/feld`, map, wall, settings) rendered from a production build against a seed pinned to one instant, compared with committed PNGs in the CI job `visual`. How determinism is achieved, how to read a red run, and how to accept a deliberate change (baselines from CI only – never to turn the check green). |
-| [`DESIGN.md`](DESIGN.md) | **Design context for the UI**: who uses KP Rück and on what device, brand personality, colour roles, type and corners, the design principles. The short, must-follow UI rules stay in [`../CLAUDE.md`](../CLAUDE.md). |
+| [`DESIGN.md`](DESIGN.md) | **Design context for the UI**: who uses KP Rück and on what device, brand personality, colour roles, type and corners, the design principles. It opens with the must-follow UI rules, one line each. |
+| [`DEVELOPMENT.md`](DEVELOPMENT.md) | **Working on the code**: every dev command, the test layout and visual regression, environment and deployment facts (build-time `NEXT_PUBLIC_*`, prod vs dev compose, tiles), and how to cut a release. |
+| [`FRONTEND.md`](FRONTEND.md) | **Frontend conventions**: the Next.js/React facts that bite, phone layout (geometry, forms, lists, filters), the overflow scan, i18n, words, and the shared UI patterns (loading, toasts, notifications, «Synchronisiert», forms, dialogs, pickers, empty states, maps, search, undo, durations, route optimisation). |
+| [`BACKEND.md`](BACKEND.md) | **Backend conventions**: async sessions, the flush/commit rule, the row-lock order, the API routes and their trailing slash, the integration seams. |
 | [`openapi.json`](openapi.json) | The committed OpenAPI contract – every route, request and response shape, readable without booting the stack. Regenerate with `just openapi`; a pytest fails when it drifts from the code. |
 
 ## Elsewhere in the repository
@@ -44,7 +47,7 @@ Every doc here describes shipped behaviour; one that drifts from the code is a b
 | [In-app help](../frontend/public/content/help/index.md) ([fr](../frontend/public/content/help/index.fr.md)) | **The operator manual** – the only one. Served in the app (user menu, ⌘K, `G H`); one Markdown file per language. |
 | [`tools/print-agent/README.md`](../tools/print-agent/README.md) | The reference print agent (published image `kp-print-agent`): configuring and running it against an 80 mm ESC/POS printer. The queue and protocol are [`PRINT_AGENT.md`](PRINT_AGENT.md). |
 | [`shared/README.md`](../shared/README.md) | The files shared with KP Front by copy, and the step-by-step for changing one. |
-| [`../CLAUDE.md`](../CLAUDE.md) | Working rules for coding agents (and a fast read for humans): commands, conventions, the UI decisions. |
+| [`../AGENTS.md`](../AGENTS.md) | Working rules for coding agents (and a fast read for humans): the core commands, the required PR checks, which recipes touch production, the shared-files contract, and what to read before a change. `CLAUDE.md` imports it. |
 
 ## Not in this repository
 

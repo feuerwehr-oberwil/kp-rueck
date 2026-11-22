@@ -71,7 +71,7 @@ just lint      # Lint frontend + backend
 - **Linter**: ESLint (`pnpm lint` or `just lint`)
 - Use TypeScript strictly, avoid `any`
 - Follow Next.js 15 App Router conventions
-- Every page under `app/` is a Client Component, on purpose (see `CLAUDE.md`); server
+- Every page under `app/` is a Client Component, on purpose (see `docs/FRONTEND.md`); server
   components are for static leaves that touch no context
 - Use shadcn/ui components from `components/ui/` where applicable
 

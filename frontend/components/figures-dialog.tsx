@@ -57,7 +57,7 @@ export function FiguresDialog() {
   const title = t(selectedEvent?.training_flag ? "titleTraining" : "title")
   const panel = <EventFiguresPanel eventId={selectedEvent?.id ?? null} enabled={open} onOpenIncident={openIncident} />
 
-  // The phone: a bottom sheet like every phone surface (CLAUDE.md, phone geometry) – it opens
+  // The phone: a bottom sheet like every phone surface (FRONTEND.md, phone geometry) – it opens
   // without focusing anything (the Sheet primitive focuses the sheet itself), and the Ereignis
   // is its own line under the title. As a centred dialog the title wrapped beside the ✕ and
   // the ✕ wore a focus ring from the first frame (after-shots 14.11.2026).

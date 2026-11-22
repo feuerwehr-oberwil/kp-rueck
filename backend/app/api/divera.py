@@ -384,7 +384,7 @@ async def detach_emergency_from_event(
     """
     «Rückgängig» of an attach: the alarm goes back into the Alarmeingang.
 
-    An undo is a new write that must still be valid now (CLAUDE.md «Undo never restores a
+    An undo is a new write that must still be valid now (docs/FRONTEND.md «Undo never restores a
     snapshot blindly»): it runs only while the alarm is still linked to the card that attach
     made, and that card is as the attach left it – in «Eingegangen», on no Auftrag, with
     nothing assigned. Otherwise 409 and nothing changes: somebody has started working on it.

@@ -1,5 +1,5 @@
 """Lifecycle code lives in the app's `lifespan` context (app/main.py), never in FastAPI's
-deprecated startup/shutdown events (CLAUDE.md › Backend conventions).
+deprecated startup/shutdown events (docs/BACKEND.md › Backend conventions).
 
 The suite ignores DeprecationWarning (pyproject `filterwarnings`), so FastAPI's own warning
 would never fail a run: this test reads the source instead. It parses app/ as Python, so a

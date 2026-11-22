@@ -1,9 +1,37 @@
 # Design context
 
-Who KP Rück is for, how it should feel, and the visual decisions that follow from that. The
-rules a change must not break are also listed, one line each, in [`../CLAUDE.md`](../CLAUDE.md)
-(«UI rules»); this page is the reasoning and the detail behind them. Tokens live in
-`frontend/app/globals.css`.
+Who KP Rück is for, how it should feel, and the visual decisions that follow from that. Read it
+before a design decision. Tokens live in `frontend/app/globals.css`.
+
+## UI rules
+
+The rules a change must not break, one line each. The sections after this one are the reasoning
+and the detail behind them.
+
+- **Desktop with mouse and keyboard is the brief.** Dense targets, power-user shortcuts. A phone
+  views (an editor can spawn training incidents); tablets are KP Front's. Sizes follow the button
+  scale in `frontend/components/ui/button.tsx`.
+- **Colour roles – one colour, one meaning** (tokens in `frontend/app/globals.css`; the full map
+  in «Colour roles» below, held by `lib/colour-roles.test.ts`):
+  - selection = KP Front's blue hue, tonal, never a fill (`<Button variant="selected">`,
+    `sel-choice`, `--sel*`); focus = the same blue (`--ring`), never red;
+  - «this one» (Spotlight, wall highlight, map highlight, a jump) = the `this-one-ring` ink ring;
+  - red = priority and danger only, never an action (`destructive` is a red outline);
+  - priority = `--prio-high/-medium/-low` (+ the test-pinned `PRIORITY_COLORS` hex mirror);
+  - green = frei (`--free`, only via `RESOURCE_STATE_*`) and ✓ bestätigt (`success`, always with
+    ✓ or a word); Niedrig is grey;
+  - blue as a colour = an Auftrag, drawn in its own swatch (`auftragColor`); no «info» blue; map
+    things are `MAP_INK`;
+  - Übung = the hatched ink `TrainingBadge` / `TrainingBand`, no hue;
+  - status colour only where crews are out: Reko violet, Im Einsatz fuchsia, every other status
+    grey (`STATUS_ACCENT`); column header lines are the status key, cards do not repeat it;
+  - no raw palette class or colour literal outside the allowed tables, no `hsl(var(--…))`.
+- **Main button = ink** (`<Button>` default), one per surface.
+- **Type**: Sora (`font-sans`) and Spline Sans Mono (`font-mono`) only.
+- **Corners**: `rounded-md`/`-lg`/`-xl` are all 12px; controls under 32px tall use `rounded-sm`
+  (8px); pills `rounded-full`.
+- **App icon**: drawn only in `scripts/build-icons.mjs`; rerun it, never edit its outputs.
+- **Calm**: motion only for a meaningful state change; never colour alone for meaning.
 
 ## Users
 

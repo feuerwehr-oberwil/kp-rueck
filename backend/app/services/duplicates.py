@@ -291,7 +291,7 @@ def merge_note(
     «Weitere Meldung #7 14:32 (Telefon): Wasser im Keller · Hauptstr. 6 · Melder: Meier, 079 …»
     — #7 is the merged card's own number, retired while it is merged.
 
-    German only, like every other backend-written text (CLAUDE.md, i18n). The
+    German only, like every other backend-written text (FRONTEND.md, i18n). The
     time is the report's own, in local time: an operator reads «14:32» against
     the wall clock, not UTC. The address is in it only when it differs from the
     target's, because then it is information (the pin was 40 m off).
@@ -337,7 +337,7 @@ def _append_entry(existing: str | None, entry: str) -> str:
 def _remove_entry(existing: str | None, entry: str) -> tuple[str | None, bool]:
     """Take one appended entry back out — only if it is still there verbatim.
 
-    Never a snapshot restore (CLAUDE.md, «Undo never restores a snapshot
+    Never a snapshot restore (FRONTEND.md, «Undo never restores a snapshot
     blindly»): whatever the operator typed into «Notizen» since the merge stays.
     If they edited the Nachtrag itself, it is theirs now and stays too.
     """

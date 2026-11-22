@@ -6,18 +6,18 @@ import reactHooksPlugin from "eslint-plugin-react-hooks";
 import kp from "./scripts/eslint-kp.mjs";
 
 // Rules that the code meets everywhere today are ERRORS; the house rules in scripts/eslint-kp.mjs
-// are WARNINGS that eslint-ratchet.json holds at today's counts (CLAUDE.md › «A correction
+// are WARNINGS that eslint-ratchet.json holds at today's counts (AGENTS.md › «A correction
 // becomes a check»).
 //
 // A later block that sets the same rule REPLACES its options, so every block that narrows an
 // import or a syntax rule spreads the shared lists below instead of restating them.
 const TESTS = ["**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"];
 
-// One loading signal, always with words: components/ui/shell-loader.tsx (CLAUDE.md › Loading states).
-const SPINNER = "No spinners: LoadingStatus or ShellLoader from components/ui/shell-loader.tsx – CLAUDE.md › Loading states.";
+// One loading signal, always with words: components/ui/shell-loader.tsx (docs/FRONTEND.md › Loading states).
+const SPINNER = "No spinners: LoadingStatus or ShellLoader from components/ui/shell-loader.tsx – docs/FRONTEND.md › Loading states.";
 const IMPORTS = [
   { group: ["lucide-react"], importNamePattern: "^(Lucide)?Loader", message: SPINNER },
-  { group: ["date-fns", "date-fns/*"], message: "Durations go through lib/duration.ts, dates through lib/date-locale.ts – CLAUDE.md › Durations." },
+  { group: ["date-fns", "date-fns/*"], message: "Durations go through lib/duration.ts, dates through lib/date-locale.ts – docs/FRONTEND.md › Durations." },
 ];
 const SYNTAX = [
   // The App Router runs on the React Next vendors, which has no `useEffectEvent` yet:
@@ -34,8 +34,8 @@ const SYNTAX = [
   { selector: "TemplateElement[value.raw=/\\banimate-spin\\b/]", message: SPINNER },
 ];
 // Every map goes through components/map/base-map.tsx: its `isolate` wrapper keeps markers and
-// controls below the page's overlays, and it sets MapLibre's worker URL (CLAUDE.md › Maps).
-const MAP = "A map is components/map/base-map.tsx (<BaseMap>) – CLAUDE.md › «Maps never rise above overlays».";
+// controls below the page's overlays, and it sets MapLibre's worker URL (docs/FRONTEND.md › Maps).
+const MAP = "A map is components/map/base-map.tsx (<BaseMap>) – docs/FRONTEND.md › «Maps never rise above overlays».";
 const MAP_COMPONENT = [{ name: "react-map-gl", importNames: ["default", "Map"], message: MAP }];
 // every react-map-gl entry point (maplibre, mapbox, …) and MapLibre's JS files; its stylesheet stays free
 const MAP_PATTERNS = [

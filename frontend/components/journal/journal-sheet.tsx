@@ -181,7 +181,7 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
         <SheetDescription className="sr-only">{t("description")}</SheetDescription>
 
         {isMobile ? (
-          /* Phone: ONE square funnel, never a chip row (CLAUDE.md → phone filters). */
+          /* Phone: ONE square funnel, never a chip row (FRONTEND.md → phone filters). */
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

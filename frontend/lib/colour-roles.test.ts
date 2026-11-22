@@ -9,7 +9,7 @@ import { RESOURCE_STATE_BADGE_CLASSES, RESOURCE_STATE_DOT_CLASSES } from '@/lib/
 // `--primary` is the fire-service red. As `text-primary` it had spread to 47 decorative
 // places – dialog-title icons, the «+» of «Neuer Einsatz», the «Anrufen» link, the bell's
 // count pill, the `link` Button – where a tired eye reads «danger» for no reason
-// (sweep 2026-10, VISUAL-02; CLAUDE.md → Colour roles). Header icons are muted, links
+// (sweep 2026-10, VISUAL-02; DESIGN.md → Colour roles). Header icons are muted, links
 // are foreground + underline, counts use the ink chip. Priority and danger have their
 // own classes (`lib/priority.ts`, the `destructive` variants), so no file needs
 // `text-primary` at all; a deliberate exception goes into ALLOWED with the reason.

@@ -135,7 +135,7 @@ const SECTION_RULE = 'border-t pt-2'
 // One of the card's 24px buttons in the age row (map, Reko, Rapport, and the
 // source tiles drawn the same size beside them). `relative hit-area` pads the
 // target to 26px without drawing more (globals.css); under 32px tall, so
-// `rounded-sm` (CLAUDE.md → Corners).
+// `rounded-sm` (DESIGN.md → Corners).
 const CARD_ACTION = 'relative hit-area inline-flex size-6 items-center justify-center rounded-sm transition-colors'
 
 /**
@@ -475,7 +475,7 @@ function DraggableOperationBase({
               // ring is an outline, which the Hoch pulse's box-shadow cannot eat.
               isHighlighted && 'is-highlighted this-one-ring',
               // Selection («A2»): a 2px selection-blue outline plus the selection
-              // wash — the board's «chosen» colour (CLAUDE.md → Colour roles),
+              // wash — the board's «chosen» colour (DESIGN.md → Colour roles),
               // far enough from red that it never competes with the priority a
               // high card already carries. Choices:
               //

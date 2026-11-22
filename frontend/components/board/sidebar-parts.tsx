@@ -94,7 +94,7 @@ export function SidebarEmpty({
  *
  * ON is the tonal «selected» state every other filter uses, not green: a
  * toggled filter is a choice, and selection looks the same everywhere. Green
- * stays with the availability dots and badges themselves (CLAUDE.md → Colour
+ * stays with the availability dots and badges themselves (DESIGN.md → Colour
  * roles).
  */
 export function AvailableOnlyToggle({

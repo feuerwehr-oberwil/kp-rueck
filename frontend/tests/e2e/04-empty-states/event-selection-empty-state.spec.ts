@@ -43,7 +43,7 @@ test.describe('Event Selection Empty State – nothing opened in 24 h', () => {
   });
 
   test('shows a calm, neutral calendar tile — no pulse, no red tagline', async ({ authenticatedPage }) => {
-    // Red is priority/danger and a pulse means «something is happening» (CLAUDE.md → Colour
+    // Red is priority/danger and a pulse means «something is happening» (DESIGN.md → Colour
     // roles); an empty start screen is neither.
     const calendarIcon = authenticatedPage.locator('svg[class*="lucide-calendar"][class*="text-muted-foreground"]').first();
     await expect(calendarIcon).toBeVisible();
