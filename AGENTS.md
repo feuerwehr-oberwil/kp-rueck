@@ -62,7 +62,8 @@ The `dev-` prefix is deliberate. `just up` / `just down` / `just doctor` / `just
 `kp-rueck`). So do `just backup` and `just restore`. The recipes for development:
 
 - `dev`, `dev-stop`, `dev-clean` and `just db start|shell|seed` act on
-  `docker-compose.dev.yml` (project `kp-rueck-dev`) only.
+  `docker-compose.dev.yml` (project `kp-rueck-dev`) only. `dev-stop` and `dev-clean` also clear
+  the dev containers (`dev-clean`: and dev volumes) left from before that project name.
 - `just be` and `just db migrate|up|down|status|new` run on the host against the backend's
   `DATABASE_URL`. An exported variable wins over `backend/.env` (whose example is the dev
   database on port 5433). Check the value before you run them. `just db history` reads only

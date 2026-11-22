@@ -3,6 +3,18 @@
 Rules for code under `backend/`. [`../AGENTS.md`](../AGENTS.md) points here before a backend
 change; the architecture behind them is [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
+Four rules in [`FRONTEND.md`](FRONTEND.md) bind backend code too. Read the one you touch:
+
+- Backend output is German-only, except notifications and the `/feld` errors (stable `code`,
+  `CodedHTTPException`): «i18n».
+- Every notification row comes from `services/notification_params.py` (`type` + `params` + the
+  German `message`): «Notification text».
+- An undo is a new write that must still be valid now (409 on a change, `expected_ids` under the
+  Auftrag lock): «Undo never restores a snapshot blindly».
+- A new free-text incident field joins `IncidentTextField` (`text_base`, 409 `text_conflict`):
+  «Synchronisiert».
+
+## Conventions
 
 - `async`/`await` everywhere. Sessions are an injected `AsyncSession`. Settings are Pydantic and
   injected too.
