@@ -34,9 +34,12 @@ api_port=${SMOKE_API_PORT:-8412}
 web_port=${SMOKE_WEB_PORT:-3412}
 pg_port=${SMOKE_PG_PORT:-55412}
 pg=kp-rueck-smoke-$$
+pg_id=
 db_url="postgresql+asyncpg://kprueck:kprueck@localhost:${pg_port}/kprueck"
 # CI's E2E_PASSWORD (ci.yml): a throwaway login for a database that dies with the run
 password=e2e-ci-password-not-a-secret # gitleaks:allow
+# e2e-nightly.yml's print agent token: the print-outcome spec claims jobs as the agent
+print_token=e2e-print-agent-token-not-a-secret # gitleaks:allow
 out=$root/frontend/test-results/smoke
 work=$(mktemp -d)
 api_pid=
@@ -52,12 +55,14 @@ stop_group() {
   local pid=$1
   [ -n "$pid" ] || return 0
   kill -- -"$pid" 2>/dev/null || true
-  while kill -0 -- -"$pid" 2>/dev/null; do sleep 0.2; done
+  for _ in $(seq 50); do kill -0 -- -"$pid" 2>/dev/null || return 0; sleep 0.2; done
+  kill -KILL -- -"$pid" 2>/dev/null || true
 }
 cleanup() {
   stop_group "$web_pid"
   stop_group "$api_pid"
-  docker rm -f "$pg" >/dev/null 2>&1 || true
+  # Only the container this run created, with its anonymous data volume.
+  [ -z "$pg_id" ] || docker rm -fv "$pg_id" >/dev/null 2>&1 || true
   rm -rf "$work"
 }
 trap cleanup EXIT
@@ -70,9 +75,10 @@ for port in "$api_port" "$web_port" "$pg_port"; do
   fi
 done
 
-# Which tests: no argument = the CI set; a path = that spec; anything else = a grep.
+# Which tests: no argument (or only Playwright options) = the CI set; a path = that spec;
+# anything else = a grep.
 select=(--grep @smoke --grep-invert @quarantine)
-if [ $# -gt 0 ]; then
+if [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
   target=$1
   shift
   if [ -e "frontend/$target" ]; then select=("$target")
@@ -87,11 +93,12 @@ logs=$out/logs
 mkdir -p "$logs"
 
 echo "→ Postgres on :${pg_port} (container ${pg})"
-# -alpine, as docker-compose.yml runs in production: the image's collation decides sort order.
-docker run -d --name "$pg" -e POSTGRES_USER=kprueck -e POSTGRES_PASSWORD=kprueck -e POSTGRES_DB=kprueck \
-  -p "${pg_port}:5432" postgres:16-alpine >/dev/null
-until docker exec "$pg" pg_isready -U kprueck -q 2>/dev/null; do sleep 1; done
-sleep 1
+# The image CI's E2E (@smoke) service runs: the image's collation decides sort order.
+pg_id=$(docker run -d --name "$pg" -e POSTGRES_USER=kprueck -e POSTGRES_PASSWORD=kprueck -e POSTGRES_DB=kprueck \
+  -p "${pg_port}:5432" mirror.gcr.io/library/postgres:16)
+# Over TCP: during initdb the image runs a temporary server on the Unix socket only.
+for _ in $(seq 60); do docker exec "$pg_id" pg_isready -h 127.0.0.1 -U kprueck -q 2>/dev/null && break; sleep 1; done
+docker exec "$pg_id" pg_isready -h 127.0.0.1 -U kprueck -q || { echo "✗ Postgres did not start" >&2; docker logs --tail 20 "$pg_id" >&2; exit 1; }
 
 echo "→ migrate + seed"
 (cd "$work" && "${py[@]}" alembic -c "$root/backend/alembic.ini" upgrade head >"$logs/migrate.log" 2>&1) \
@@ -101,7 +108,7 @@ echo "→ migrate + seed"
 
 echo "→ backend on :${api_port}, frontend (pnpm dev) on :${web_port}"
 (cd "$work" && exec setsid "${py[@]}" env "CORS_ORIGINS=http://localhost:${web_port}" \
-  uvicorn app.main:app --port "$api_port" --log-level warning >"$logs/api.log" 2>&1) &
+  "PRINT_AGENT_TOKEN=$print_token" uvicorn app.main:app --port "$api_port" --log-level warning >"$logs/api.log" 2>&1) &
 api_pid=$!
 (cd frontend && exec setsid "${clean_env[@]}" "NEXT_PUBLIC_API_URL=http://localhost:${api_port}" \
   "API_URL=http://localhost:${api_port}" pnpm dev --port "$web_port" >"$logs/web.log" 2>&1) &
@@ -124,11 +131,11 @@ set +e
   "E2E_BASE_URL=http://localhost:${web_port}" "API_BASE_URL=http://localhost:${api_port}" \
   "NEXT_PUBLIC_API_URL=http://localhost:${api_port}" \
   TEST_USERNAME=admin "TEST_PASSWORD=$password" "VIEWER_PASSWORD=$password" \
-  pnpm exec playwright test --project chromium --retries 2 --trace retain-on-failure --output "$out/results" \
+  "PRINT_AGENT_TOKEN=$print_token" pnpm exec playwright test --project chromium --retries 2 --trace retain-on-failure --output "$out/results" \
   --reporter list "${select[@]}" "$@")
 rc=$?
 set -e
-traces=$(find "$out/results" -name trace.zip 2>/dev/null)
+traces=$(find "$out/results" -name trace.zip 2>/dev/null || true)
 if [ "$rc" = 0 ] && [ -z "$traces" ]; then
   rm -rf "$out"
   echo "✓ smoke: passed"
