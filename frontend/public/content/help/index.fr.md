@@ -932,9 +932,9 @@ just doctor     # Vérifie que tout tourne – base de données, imprimante, tui
 L’instance locale tourne sur la machine qui héberge le serveur : `http://<cette-machine>:8080` – ou à votre propre adresse, si elle est configurée.
 
 > **Les recettes `dev-` ne sont pas faites pour l’exploitation.** `just dev`, `just dev-stop`
-> et `just dev-clean` servent au développement ; `just dev-clean` **efface la base de données
-> et toutes les photos**. Au poste de commandement, ce sont les quatre verbes ci-dessus qui
-> s’appliquent.
+> et `just dev-clean` servent au développement et n’agissent que sur la pile de développement ;
+> `just dev-clean` **efface sa base de données et ses tuiles de carte**. Au poste de
+> commandement, ce sont les quatre verbes ci-dessus qui s’appliquent.
 
 ---
 

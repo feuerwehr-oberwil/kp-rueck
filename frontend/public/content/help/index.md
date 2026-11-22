@@ -920,8 +920,9 @@ just doctor     # Prüft, ob alles läuft – Datenbank, Drucker, Kacheln, Backu
 Die lokale Instanz läuft auf dem Rechner, der den Server betreibt: `http://<dieser-rechner>:8080` – oder unter eurer eigenen Adresse, falls eine eingerichtet ist.
 
 > **Die `dev-`Rezepte sind nicht für den Betrieb.** `just dev`, `just dev-stop` und
-> `just dev-clean` gehören zur Entwicklung; `just dev-clean` **löscht die Datenbank und
-> alle Fotos**. Am Kommandoposten gelten die vier Verben oben.
+> `just dev-clean` gehören zur Entwicklung und wirken nur auf den Entwicklungs-Stack;
+> `just dev-clean` **löscht dessen Datenbank und Kartenkacheln**. Am Kommandoposten gelten die
+> vier Verben oben.
 
 ---
 

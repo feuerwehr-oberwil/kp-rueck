@@ -11,8 +11,8 @@ a setup, deployment, tiles or architecture question from memory, read it first.
 just dev            # dev stack with hot reload (Docker)
 just db seed        # seed initial data
 just db migrate     # run pending migrations   (just db help: shell, status, history, new "msg")
-just dev-stop       # stop the dev stack
-just dev-clean      # DELETES the dev database and photos – asks first
+just dev-stop       # stop the dev stack (docker-compose.dev.yml only)
+just dev-clean      # DELETES the dev database and dev tiles – asks first
 just tiles-download # optional offline map tiles; just tiles-status checks them
 
 # Mirror a real deployment into the dev stack (source: any Postgres URL, or 'railway' for the

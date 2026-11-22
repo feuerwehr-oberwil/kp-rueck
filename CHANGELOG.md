@@ -199,6 +199,15 @@ will keep holding.
 
 ### Fixed
 
+- **`just dev-stop` and `just dev-clean` no longer touch the production stack.** Both also ran
+  `docker compose down` on `docker-compose.yml` – `dev-clean` with `-v`, which deletes the
+  station's database and photos. They act on `docker-compose.dev.yml` only now, and that file
+  pins its own compose project (`kp-rueck-dev`): in a clone named `kp-rueck` it used to share
+  the production project, so even its own `down` removed the production containers. Existing
+  dev volumes keep their names. To stop the station, use `just down`. If the next `just dev`
+  says a container name is already in use, remove the old dev containers once (they are
+  dev-only names): `docker rm -f kprueck-db-dev kprueck-backend-dev kprueck-frontend-dev
+  kprueck-tileserver-dev kprueck-print-agent-dev`.
 - **Reko reports** autosave only edits to a successfully loaded report. If two tabs leave
   drafts for the same report, the phone offers each version with its time and changes.
   After a lost response, the next save carries the crew's latest edits. Older incident-wide
