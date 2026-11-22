@@ -8,8 +8,8 @@
  *   node site/capture.mjs --device phone           # only one device
  *   node site/capture.mjs --scale 2 --docs-only    # the README PNGs in 2x
  *
- * Drives a real instance with Playwright as the demo editor and hides the demo chrome. Every
- * shot exists per device, in both themes:
+ * Drives a real instance with Playwright as the demo editor and hides the demo chrome. Each
+ * shot exists in both themes for the devices it lists (meldung and feld are phone-only):
  *
  *   desktop – 1500×937, the board as the KP sees it → shots/desktop/<name>.webp
  *   phone   – 390×844 at 3x, scaled to 780 wide    → shots/phone/<name>.webp
@@ -17,7 +17,8 @@
  * Night twins go to shots/dark/<device>/. The board also writes the hero's small version
  * (desktop/board-992.webp) and the link preview (shots/board.jpg). The image names are the
  * contract with `hero.img` and `chapters.items[].img` in site/content/de.json – rename one
- * here, rename it there.
+ * here, rename it there. The hero's small version is the exception: the template names
+ * board-992.webp itself, so renaming the hero shot means editing index.template.html too.
  *
  * Against a non-public instance: set KP_RUECK_USER / KP_RUECK_PASS.
  */
@@ -54,9 +55,13 @@ const WEBP_QUALITY = 0.8
 const OG_QUALITY = 0.82
 
 const argv = process.argv.slice(2)
+/** The value after `--name`; undefined when the flag is absent. A flag without a value throws. */
 const arg = (name) => {
   const i = argv.indexOf(`--${name}`)
-  return i >= 0 ? argv[i + 1] : undefined
+  if (i < 0) return undefined
+  const value = argv[i + 1]
+  if (value === undefined || value.startsWith('--')) throw new Error(`--${name} needs a value`)
+  return value
 }
 const base = (arg('base') || DEFAULT_BASE).replace(/\/$/, '')
 const only = arg('only')?.split(',').map((s) => s.trim()).filter(Boolean)
@@ -246,10 +251,14 @@ const encode = async (page, png, { width, type, quality, pad, points }) => {
   return Buffer.from(b64, 'base64')
 }
 
+/** The shots one device pass captures under the current flags. */
+const planFor = (device) =>
+  shots.filter((s) => s.devices.includes(device) && (!only || only.includes(s.name)))
+    .filter((s) => !docsOnly || (device === 'desktop' && s.docs))
+
 const capture = async (browser, device, theme) => {
   const d = DEVICES[device]
-  const mine = shots.filter((s) => s.devices.includes(device) && (!only || only.includes(s.name)))
-    .filter((s) => !docsOnly || (device === 'desktop' && s.docs))
+  const mine = planFor(device)
   if (!mine.length) return
   const dir = theme === 'dark' ? join(SHOTS, 'dark') : SHOTS
   mkdirSync(join(dir, device), { recursive: true })
@@ -316,9 +325,10 @@ const run = async () => {
     const unknown = only.filter((n) => !names.includes(n))
     if (unknown.length) throw new Error(`--only: unknown ${unknown.join(', ')} (known: ${names.join(', ')})`)
   }
+  const devices = arg('device') ? [arg('device')] : Object.keys(DEVICES)
+  if (!devices.some((d) => planFor(d).length)) throw new Error('These flags select no shot – nothing to capture')
   const browser = await chromium.launch()
   try {
-    const devices = arg('device') ? [arg('device')] : Object.keys(DEVICES)
     for (const theme of themes) for (const device of devices) await capture(browser, device, theme)
   } finally {
     await browser.close()

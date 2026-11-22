@@ -151,7 +151,8 @@ node site/build.mjs                              # danach neu bauen
 
 `capture.mjs` drives a running instance with Playwright (from `frontend/node_modules`),
 signs in as a demo editor, captures both board themes, skips the welcome dialog and hides
-the DEMO ribbon and toasts. Every picture exists per device:
+the DEMO ribbon and toasts. Each picture exists in both themes for the devices it has
+(`meldung` and `feld` are phone-only):
 
 - **desktop** – 1500 × 937, the board as the KP sees it (`shots/desktop/`);
 - **phone** – 390 × 844 at 3x, scaled to 780 wide (`shots/phone/`). KP Rück draws no content
@@ -166,7 +167,9 @@ pairs «what it replaces» with its picture. A chapter with `img.desktop` shows 
 picture on wide screens and `img.phone` on narrow ones; a chapter with only `img.phone` shows
 the phone everywhere. A new picture is an entry in the script's `shots` list **and** an `img`
 in `content/de.json` – the file names are the contract between the two. The file name stays
-in `de.json`; the translations inherit it and only describe it (`alt`).
+in `de.json`; the translations inherit it and only describe it (`alt`). The hero's small
+version (`board-992.webp`) is named in `index.template.html` itself: rename the hero shot, edit
+the template too.
 
 **Das Format ist WebP** – dieselbe Aufnahme wiegt deutlich weniger als das JPEG von früher, und
 encodiert wird im Chromium, den Playwright ohnehin mitbringt (keine zweite Abhängigkeit, kein
