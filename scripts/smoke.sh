@@ -35,7 +35,7 @@ web_port=${SMOKE_WEB_PORT:-3412}
 pg_port=${SMOKE_PG_PORT:-55412}
 pg=kp-rueck-smoke-$$
 pg_id=
-db_url="postgresql+asyncpg://kprueck:kprueck@localhost:${pg_port}/kprueck"
+db_url="postgresql+asyncpg://kprueck:kprueck@127.0.0.1:${pg_port}/kprueck"  # the loopback port Docker publishes
 # CI's E2E_PASSWORD (ci.yml): a throwaway login for a database that dies with the run
 password=e2e-ci-password-not-a-secret # gitleaks:allow
 # e2e-nightly.yml's print agent token: the print-outcome spec claims jobs as the agent
