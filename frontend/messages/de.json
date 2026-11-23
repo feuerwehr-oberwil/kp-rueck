@@ -1378,7 +1378,8 @@
       "keepKey": "B",
       "moveConsequence": "{count, plural, one {{name} verlässt <strong>{from}</strong> und ist danach nur noch auf {to}.} other {{name} verlassen <strong>{from}</strong> und sind danach nur noch auf {to}.}}",
       "moveConsequenceDriver": "{name} verlässt <strong>{from}</strong>, gibt die Fahrer-Rolle für {vehicle} ab und ist danach nur noch auf {to}.",
-      "keepConsequence": "{count, plural, one {{name} bleibt auf <strong>{from}</strong> und wird zusätzlich {to} zugewiesen.} other {{name} bleiben auf <strong>{from}</strong> und werden zusätzlich {to} zugewiesen.}} {cards, plural, =2 {Beide Karten zeigen 2×.} other {Alle # Karten zeigen #×.}}"
+      "keepConsequence": "{count, plural, one {{name} bleibt auf <strong>{from}</strong> und wird zusätzlich {to} zugewiesen.} other {{name} bleiben auf <strong>{from}</strong> und werden zusätzlich {to} zugewiesen.}}",
+      "keepCards": "{cards, plural, =2 {Beide Karten zeigen 2×.} other {Alle # Karten zeigen #×.}}"
     },
     "auftragStop": {
       "title": "{vehicle} fährt schon den Auftrag «{auftrag}»",
@@ -1392,7 +1393,8 @@
       "assignOnlyKey": "Z",
       "stopChip": "+ Stopp {incident}",
       "addAsStopConsequence": "<strong>{incident}</strong> wird letzter Stopp im Auftrag «{auftrag}», {vehicle} fährt ihn dort an.",
-      "assignOnlyConsequence": "{vehicle} bleibt auf dem Auftrag «{auftrag}» und wird zusätzlich <strong>{incident}</strong> zugewiesen. Beide Karten zeigen 2×."
+      "assignOnlyConsequence": "{vehicle} bleibt auf dem Auftrag «{auftrag}» und wird zusätzlich <strong>{incident}</strong> zugewiesen. Beide Karten zeigen 2×.",
+      "assignOnlyConsequenceAlso": "{vehicle} bleibt auf dem Auftrag «{auftrag}» sowie auf {others} und wird zusätzlich <strong>{incident}</strong> zugewiesen. Alle {cards} Karten zeigen {cards}×."
     },
     "vehicleStatus": {
       "bound": "Gebunden",

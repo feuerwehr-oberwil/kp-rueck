@@ -451,7 +451,7 @@ export function createResourceActions(board: BoardMutationContext) {
     }
   }
 
-  const assignVehicleToOperation = async (vehicleId: string, vehicleName: string, operationId: string): Promise<boolean> => {
+  const assignVehicleToOperation = async (vehicleId: string, vehicleName: string, operationId: string, force = false): Promise<boolean> => {
     const operation = operations.find(op => op.id === operationId)
 
     if (!operation || operation.vehicles.some((v) => v.vehicleId === vehicleId)) {
@@ -475,8 +475,9 @@ export function createResourceActions(board: BoardMutationContext) {
 
     // A vehicle is a single physical asset — if it's still assigned elsewhere,
     // ask the operator whether to move it here or keep the double booking,
-    // rather than silently double-booking it.
-    const conflicts = collectConflicts(op => op.vehicles.some((v) => v.vehicleId === vehicleId), operationId)
+    // rather than silently double-booking it. `force`: a question that named
+    // those Einsätze already got «keep» (use-assignment-conflicts.ts).
+    const conflicts = force ? [] : collectConflicts(op => op.vehicles.some((v) => v.vehicleId === vehicleId), operationId)
     if (conflicts.length > 0) {
       setResourceConflict({
         resourceType: "vehicle",

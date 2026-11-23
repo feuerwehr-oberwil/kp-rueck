@@ -87,7 +87,8 @@ describe('ConfirmDialog subject', () => {
       />,
     )
     const subject = screen.getByTestId('dialog-subject')
-    expect(subject).toHaveTextContent('14Hauptstrasse 4')
+    // The middle dot is on screen, not only in the hover title.
+    expect(subject).toHaveTextContent(/^14 · Hauptstrasse 4$/)
     expect(subject).toHaveAttribute('title', '14 · Hauptstrasse 4')
   })
 })

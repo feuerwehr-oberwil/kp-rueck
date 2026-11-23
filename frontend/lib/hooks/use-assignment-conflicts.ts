@@ -176,16 +176,18 @@ export function useAssignmentConflicts({
         conflictBatch.current = []
         if (batch.length === 0) return
 
-        // Every holder named once, however many of the dropped resources sit on it.
-        const seen = new Set<string>()
-        const conflicts: { operationId: string; operationLabel: string }[] = []
+        // Every holder named once, with the dropped resources that sit on IT – the prompt's
+        // cards draw those, not the whole drop on every card.
+        const byHolder = new Map<string, { operationId: string; operationLabel: string; held: { id: string; name: string }[] }>()
         for (const entry of batch) {
+          const resource = { id: entry.resourceId, name: entry.resourceName }
           for (const conflict of entry.conflicts) {
-            if (seen.has(conflict.operationId)) continue
-            seen.add(conflict.operationId)
-            conflicts.push(conflict)
+            const holder = byHolder.get(conflict.operationId)
+            if (holder) holder.held.push(resource)
+            else byHolder.set(conflict.operationId, { ...conflict, held: [resource] })
           }
         }
+        const conflicts = [...byHolder.values()]
 
         requestResourceConflict({
           resourceType: batch[0].resourceType === "personnel" ? "personnel" : "material",
@@ -215,7 +217,9 @@ export function useAssignmentConflicts({
    * A vehicle onto an Einsatz from every entry point (number keys, picker, drag-drop).
    * Held by no Auftrag → the plain assign (which asks its own Einsatz-Doppelbelegung).
    * Held by an Auftrag and the Einsatz is in none → «als Stopp aufnehmen?». A grouped
-   * target keeps the move/keep question naming the Auftrag. Returns true when it asked.
+   * target keeps the move/keep question naming the Auftrag. Either question names the other
+   * Einsätze that hold it too, and its «keep» assigns with `force`, so nothing asks twice.
+   * Returns true when it asked.
    */
   const assignVehicleToIncidentWithConflict = useCallback((vehicleId: string, vehicleName: string, operationId: string): boolean => {
     const groupConflicts = groups.filter((group) =>
@@ -225,6 +229,9 @@ export function useAssignmentConflicts({
       assignVehicleToOperation(vehicleId, vehicleName, operationId)
       return false
     }
+    const incidentConflicts = operations.filter(
+      (op) => op.id !== operationId && op.vehicles.some((v) => v.vehicleId === vehicleId),
+    )
     const target = operations.find((op) => op.id === operationId)
     if (target && !target.groupId) {
       // Several Aufträge holding one vehicle is itself a double booking; the first is asked about.
@@ -236,7 +243,8 @@ export function useAssignmentConflicts({
         incidentLabel: getIncidentRefParts(target).head,
         vehicleId,
         vehicleName,
-        assignOnly: () => assignVehicleToOperation(vehicleId, vehicleName, operationId),
+        alsoOn: incidentConflicts.map((op) => ({ id: op.id, label: getIncidentRefParts(op).head })),
+        assignOnly: () => assignVehicleToOperation(vehicleId, vehicleName, operationId, true),
       })
       return true
     }
@@ -246,20 +254,24 @@ export function useAssignmentConflicts({
       resourceName: vehicleName,
       targetOperationId: operationId,
       targetOperationLabel: holderLabel(operationId),
-      conflicts: groupConflicts.map((group) => ({ operationId: group.id, operationLabel: group.name })),
+      conflicts: [
+        ...groupConflicts.map((group) => ({ operationId: group.id, operationLabel: group.name })),
+        ...incidentConflicts.map((op) => ({ operationId: op.id, operationLabel: getIncidentRefParts(op).head })),
+      ],
       customResolve: async (action) => {
         if (action === "move") {
-          const results = await Promise.all(groupConflicts.map((group) => {
+          const groupResults = await Promise.all(groupConflicts.map((group) => {
             const assignment = group.assignments.find((a) => a.resourceType === "vehicle" && a.resourceId === vehicleId)
             return assignment ? unassignGroupResource(group.id, assignment.id) : true
           }))
-          if (results.some((ok) => !ok)) return
+          const incidentResults = await Promise.all(incidentConflicts.map((op) => removeVehicle(op.id, vehicleId)))
+          if ([...groupResults, ...incidentResults].some((ok) => !ok)) return
         }
-        assignVehicleToOperation(vehicleId, vehicleName, operationId)
+        await assignVehicleToOperation(vehicleId, vehicleName, operationId, true)
       },
     })
     return true
-  }, [groups, operations, requestResourceConflict, unassignGroupResource, assignVehicleToOperation, holderLabel])
+  }, [groups, operations, requestResourceConflict, unassignGroupResource, removeVehicle, assignVehicleToOperation, holderLabel])
 
   return {
     assignVehicleToGroupWithConflict,

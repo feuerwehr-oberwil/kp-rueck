@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi, type Mock } from "vitest"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
@@ -11,6 +11,9 @@ import type { Person } from "@/lib/contexts/operations-context"
 const operationsState = vi.hoisted(() => ({
   operations: [] as unknown[],
   outOfServiceVehicleIds: new Set<string>(),
+  requestResourceConflict: vi.fn(),
+  removeMaterial: vi.fn(async () => true),
+  removeCrew: vi.fn(async () => true),
 }))
 vi.mock("@/lib/contexts/operations-context", () => ({
   useOperations: () => operationsState,
@@ -120,6 +123,64 @@ describe("material double-booking guard", () => {
 
     unmount()
     expect(clearSpy).toHaveBeenCalledWith(flashTimer)
+  })
+})
+
+describe("«Hierher verschieben» from the assignment dialog", () => {
+  // The pump stands on Einsatz 11; the dialog assigns to incident-1.
+  const holder = { id: "incident-2", number: 11, location: "Bahnhofstrasse 12", incidentType: "", vehicles: [], crew: [], materials: [PUMP.id] }
+
+  async function moveThePump(onAssignMaterial: Mock<(materialId: string, operationId: string) => void>) {
+    operationsState.operations = [holder]
+    operationsState.requestResourceConflict.mockClear()
+    operationsState.removeMaterial.mockClear()
+    const user = userEvent.setup()
+    const view = renderWithIntl(
+      <ResourceAssignmentDialog
+        open
+        onOpenChange={vi.fn()}
+        resourceType="materials"
+        operationId="incident-1"
+        personnel={[]}
+        vehicles={[]}
+        materials={[PUMP]}
+        assignedPersonnelIds={[]}
+        assignedVehicleIds={[]}
+        assignedMaterials={[]}
+        onAssignPerson={vi.fn()}
+        onAssignVehicle={vi.fn()}
+        onAssignMaterial={onAssignMaterial}
+        onRemovePerson={vi.fn()}
+        onRemoveVehicle={vi.fn()}
+        onRemoveMaterial={vi.fn()}
+      />,
+    )
+    await user.click(screen.getByRole("button", { name: /Tauchpumpe Gr\./ }))
+    const [[conflict]] = operationsState.requestResourceConflict.mock.calls
+    await conflict.customResolve("move")
+    return { user, view }
+  }
+
+  it("frees the holder only together with the assign, at «Fertig»", async () => {
+    const onAssignMaterial = vi.fn<(materialId: string, operationId: string) => void>()
+    const { user } = await moveThePump(onAssignMaterial)
+    // Staged like the tick: nothing has left Einsatz 11 yet.
+    expect(operationsState.removeMaterial).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole("button", { name: "Fertig" }))
+    await waitFor(() => expect(onAssignMaterial).toHaveBeenCalledWith(PUMP.id, "incident-1"))
+    expect(operationsState.removeMaterial).toHaveBeenCalledExactlyOnceWith("incident-2", PUMP.id)
+    expect(operationsState.removeMaterial.mock.invocationCallOrder[0]).toBeLessThan(onAssignMaterial.mock.invocationCallOrder[0])
+    operationsState.operations = []
+  })
+
+  it("changes neither side when the picker closes without «Fertig»", async () => {
+    const onAssignMaterial = vi.fn<(materialId: string, operationId: string) => void>()
+    const { view } = await moveThePump(onAssignMaterial)
+    view.unmount()
+    expect(operationsState.removeMaterial).not.toHaveBeenCalled()
+    expect(onAssignMaterial).not.toHaveBeenCalled()
+    operationsState.operations = []
   })
 })
 

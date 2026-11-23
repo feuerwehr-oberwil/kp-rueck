@@ -207,6 +207,10 @@ export function ResourceAssignmentDialog({
   // A person bound to another incident/Auftrag pending the same confirmation
   // (takes precedence over the special-function confirm — one confirm is enough).
   const [confirmOccupiedPerson, setConfirmOccupiedPerson] = useState<Person | null>(null)
+  // «Hierher verschieben» answered in the prompt, per resource id: the holders it leaves. Staged
+  // like the tick – «Fertig» frees them and then assigns, closing without «Fertig» changes
+  // neither side. Read only at «Fertig», so a ref.
+  const stagedMoves = useRef(new Map<string, Binding[]>())
 
   // Snapshot the assigned state into the local selection ONLY on the open
   // transition. Re-snapshotting whenever assignedPersonnelIds/assignedMaterials
@@ -218,6 +222,7 @@ export function ResourceAssignmentDialog({
     if (open && !wasOpenRef.current) {
       setSelectedPersonnel(new Set(assignedPersonnelIds))
       setSelectedMaterials(new Set(assignedMaterials))
+      stagedMoves.current.clear()
       if (initialSearch) setSearchQuery(initialSearch)
     }
     wasOpenRef.current = open
@@ -339,6 +344,9 @@ export function ResourceAssignmentDialog({
    * This dialog used to ask it a second time itself, with two of the three
    * answers: «Trotzdem zuweisen» or nothing, no «Verschieben». Same question,
    * same three answers, whichever way the assignment started.
+   *
+   * Either answer only ticks the resource; a move is staged in `stagedMoves` and
+   * happens together with the assign at «Fertig» (`assignStaged`).
    */
   const askConflict = (
     resourceType: 'personnel' | 'material',
@@ -354,22 +362,34 @@ export function ResourceAssignmentDialog({
       targetOperationId: operationId ?? '',
       targetOperationLabel: targetLabel,
       conflicts: bindings.map((b) => ({ operationId: b.id, operationLabel: b.head })),
-      customResolve: async (action) => {
-        if (action === 'move') {
-          // Sequentially: two releases of the same person racing each other
-          // reconcile against each other's stale snapshot.
-          for (const binding of bindings) {
-            if (binding.kind === 'incident') {
-              if (resourceType === 'material') await removeMaterial(binding.id, resourceId)
-              else await removeCrew(binding.id, resourceId)
-            } else if (binding.assignmentId) {
-              await unassignResource(binding.id, binding.assignmentId)
-            }
-          }
-        }
+      customResolve: (action) => {
+        if (action === 'move') stagedMoves.current.set(resourceId, bindings)
+        else stagedMoves.current.delete(resourceId)
         proceed()
       },
     })
+  }
+
+  /** «Fertig» for one ticked resource: free it from the holders a staged move leaves, then assign. */
+  const assignStaged = (resourceType: 'personnel' | 'material', resourceId: string, assign: () => void) => {
+    const bindings = stagedMoves.current.get(resourceId)
+    if (!bindings) {
+      assign()
+      return
+    }
+    void (async () => {
+      // Sequentially: two releases of the same person racing each other
+      // reconcile against each other's stale snapshot.
+      for (const binding of bindings) {
+        if (binding.kind === 'incident') {
+          if (resourceType === 'material') await removeMaterial(binding.id, resourceId)
+          else await removeCrew(binding.id, resourceId)
+        } else if (binding.assignmentId) {
+          await unassignResource(binding.id, binding.assignmentId)
+        }
+      }
+      assign()
+    })()
   }
 
   // Materials bound to ANOTHER incident/Auftrag (never the current target —
@@ -892,7 +912,7 @@ export function ResourceAssignmentDialog({
       for (const id of toAdd) {
         const person = personnel.find(p => p.id === id)
         if (person) {
-          onAssignPerson(person.id, person.name, operationId)
+          assignStaged('personnel', person.id, () => onAssignPerson(person.id, person.name, operationId))
         }
       }
 
@@ -911,7 +931,7 @@ export function ResourceAssignmentDialog({
 
       // Add new assignments
       for (const id of toAdd) {
-        onAssignMaterial(id, operationId)
+        assignStaged('material', id, () => onAssignMaterial(id, operationId))
       }
 
       // Remove unselected

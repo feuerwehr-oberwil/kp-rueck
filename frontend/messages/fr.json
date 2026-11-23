@@ -1445,7 +1445,8 @@
       "keepKey": "T",
       "moveConsequence": "{count, plural, one {{name} quitte <strong>{from}</strong> et n’est plus que sur {to}.} other {{name} quittent <strong>{from}</strong> et ne sont plus que sur {to}.}}",
       "moveConsequenceDriver": "{name} quitte <strong>{from}</strong>, rend le rôle de conducteur pour {vehicle} et n’est plus que sur {to}.",
-      "keepConsequence": "{count, plural, one {{name} reste sur <strong>{from}</strong> et est attribué en plus à {to}.} other {{name} restent sur <strong>{from}</strong> et sont attribués en plus à {to}.}} {cards, plural, =2 {Les deux cartes affichent 2×.} other {Les # cartes affichent #×.}}"
+      "keepConsequence": "{count, plural, one {{name} reste sur <strong>{from}</strong> et est attribué en plus à {to}.} other {{name} restent sur <strong>{from}</strong> et sont attribués en plus à {to}.}}",
+      "keepCards": "{cards, plural, =2 {Les deux cartes affichent 2×.} other {Les # cartes affichent #×.}}"
     },
     "auftragStop": {
       "title": "{vehicle} roule déjà pour la mission « {auftrag} »",
@@ -1459,7 +1460,8 @@
       "assignOnlyKey": "E",
       "stopChip": "+ étape {incident}",
       "addAsStopConsequence": "<strong>{incident}</strong> devient la dernière étape de la mission « {auftrag} », {vehicle} s’y rend.",
-      "assignOnlyConsequence": "{vehicle} reste sur la mission « {auftrag} » et est attribué en plus à <strong>{incident}</strong>. Les deux cartes affichent 2×."
+      "assignOnlyConsequence": "{vehicle} reste sur la mission « {auftrag} » et est attribué en plus à <strong>{incident}</strong>. Les deux cartes affichent 2×.",
+      "assignOnlyConsequenceAlso": "{vehicle} reste sur la mission « {auftrag} » ainsi que sur {others} et est attribué en plus à <strong>{incident}</strong>. Les {cards} cartes affichent {cards}×."
     },
     "vehicleStatus": {
       "bound": "Engagé",

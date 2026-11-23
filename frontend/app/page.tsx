@@ -890,8 +890,11 @@ export default function FireStationDashboard() {
     })
   }
 
+  // A consumable never asks: several Einsätze and Aufträge draw from the same Bindemittel.
+  const isConsumable = (materialId: string) => materials.some((m) => m.id === materialId && m.consumable)
+
   const boardAssignMaterial = (materialId: string, operationId: string) => {
-    const holders = groupsHolding("material", materialId)
+    const holders = isConsumable(materialId) ? [] : groupsHolding("material", materialId)
     if (holders.length === 0) {
       assignMaterialToOperation(materialId, operationId)
       return
@@ -916,6 +919,10 @@ export default function FireStationDashboard() {
     // Onto ANOTHER Auftrag: same question again, «bisher» being the route that
     // holds them now. `exceptGroupId` keeps a drop onto the route a resource is
     // already on from asking about itself.
+    if (resourceType === "material" && isConsumable(resourceId)) {
+      void assignGroupResource(groupId, resourceType, resourceId)
+      return
+    }
     const holders = groupsHolding(resourceType, resourceId, groupId)
     const name =
       resourceType === "personnel"

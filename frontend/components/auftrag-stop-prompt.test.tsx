@@ -11,10 +11,10 @@ import { AuftragStopPrompt } from '@/components/auftrag-stop-prompt'
 import { askAuftragStop } from '@/lib/auftrag-stop-question'
 import { toast } from 'sonner'
 
-function ask(assignOnly = vi.fn()) {
+function ask(assignOnly = vi.fn(), alsoOn: { id: string; label: string }[] = []) {
   renderWithIntl(<AuftragStopPrompt />)
   act(() =>
-    askAuftragStop({ groupId: 'g-nord', groupName: 'Nord', incidentId: 'op-1', incidentLabel: 'Blumenweg 21', vehicleId: 'v-tlf', vehicleName: 'TLF', assignOnly }),
+    askAuftragStop({ groupId: 'g-nord', groupName: 'Nord', incidentId: 'op-1', incidentLabel: 'Blumenweg 21', vehicleId: 'v-tlf', vehicleName: 'TLF', alsoOn, assignOnly }),
   )
   return assignOnly
 }
@@ -46,6 +46,14 @@ describe('AuftragStopPrompt', () => {
     await userEvent.keyboard('z')
     expect(assignOnly).toHaveBeenCalledOnce()
     expect(addStopForVehicle).not.toHaveBeenCalled()
+  })
+
+  it('names the other Einsatz that has the vehicle too, so «Nur zusätzlich» is the only question', () => {
+    ask(vi.fn(), [{ id: 'op-9', label: '13 · Schulstrasse 9' }])
+    expect(screen.getByRole('button', { name: 'Nur zusätzlich zuweisen' })).toHaveAccessibleDescription(
+      'TLF bleibt auf dem Auftrag «Nord» sowie auf 13 · Schulstrasse 9 und wird zusätzlich Blumenweg 21 zugewiesen. Alle 3 Karten zeigen 3×.',
+    )
+    expect(screen.getAllByText('TLF · 3×')).toHaveLength(3)
   })
 
   it('says so and closes when another board changed the Einsatz or the Auftrag meanwhile (S8)', async () => {

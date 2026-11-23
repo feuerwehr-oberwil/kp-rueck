@@ -19,7 +19,8 @@ const strong = (chunks: ReactNode) => <strong className="font-semibold text-fore
  *   endpoint, under the Auftrag row lock) – only while the Einsatz is still lone and live and
  *   the vehicle still drives the Auftrag; otherwise it says so and the question closes, it is
  *   out of date. It has no undo.
- * - «Nur zusätzlich zuweisen» (Z) is the plain double booking.
+ * - «Nur zusätzlich zuweisen» (Z) is the plain double booking – also on the other Einsätze that
+ *   have the vehicle (`alsoOn`), whose cards it draws too, so no second question follows.
  *
  * A failed write keeps the question open (the groups context toasts the failure).
  *
@@ -50,7 +51,10 @@ export function AuftragStopPrompt() {
 
   const auftragCard = { id: question.groupId, title: question.groupName }
   const incidentCard = { id: question.incidentId, title: question.incidentLabel }
-  const doubled = `${question.vehicleName} · 2×`
+  // The Auftrag, every other Einsatz that has it, and this one: «2×» on two cards, «3×» on three.
+  const cards = question.alsoOn.length + 2
+  const doubled = `${question.vehicleName} · ${cards}×`
+  const doubledChip = [{ label: doubled, tone: "double" as const }]
 
   return (
     <ChoiceDialog
@@ -87,11 +91,21 @@ export function AuftragStopPrompt() {
           diagram: (
             <ChoiceDiagram
               link="both"
-              from={[{ ...auftragCard, chips: [{ label: doubled, tone: "double" }] }]}
-              to={{ ...incidentCard, chips: [{ label: doubled, tone: "double" }] }}
+              from={[
+                { ...auftragCard, chips: doubledChip },
+                ...question.alsoOn.map((other) => ({ id: other.id, title: other.label, chips: doubledChip })),
+              ]}
+              to={{ ...incidentCard, chips: doubledChip }}
             />
           ),
-          consequence: t.rich("assignOnlyConsequence", { ...names, strong }),
+          consequence: question.alsoOn.length
+            ? t.rich("assignOnlyConsequenceAlso", {
+                ...names,
+                others: question.alsoOn.map((other) => other.label).join(", "),
+                cards,
+                strong,
+              })
+            : t.rich("assignOnlyConsequence", { ...names, strong }),
           onSelect: assignOnly,
         },
       ]}

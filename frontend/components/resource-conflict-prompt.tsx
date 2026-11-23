@@ -6,7 +6,7 @@ import type { ReactNode } from "react"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { drivenElsewhere } from "@/lib/driver-conflict"
 import { getIncidentRefParts } from "@/lib/incident-types"
-import { ChoiceDiagram, ChoiceDialog, type MiniCard } from "@/components/ui/choice-dialog"
+import { ChoiceDiagram, ChoiceDialog, type MiniCard, type MiniChipTone } from "@/components/ui/choice-dialog"
 
 const strong = (chunks: ReactNode) => <strong className="font-semibold text-foreground">{chunks}</strong>
 
@@ -46,7 +46,7 @@ export function ResourceConflictPrompt() {
     ? drivenElsewhere(personnel.find((p) => p.id === resourceConflict.resourceId), operations, targetOperationId)
     : null
   const drivenOp = driving ? operations.find((op) => op.id === driving.operationId) : undefined
-  const conflicts: { operationId: string; operationLabel: string }[] =
+  const conflicts: NonNullable<typeof resourceConflict>["conflicts"] =
     drivenOp && !resourceConflict.conflicts.some((c) => c.operationId === drivenOp.id)
       ? [...resourceConflict.conflicts, { operationId: drivenOp.id, operationLabel: getIncidentRefParts(drivenOp).head }]
       : resourceConflict.conflicts
@@ -57,15 +57,22 @@ export function ResourceConflictPrompt() {
     .join(", ")
   const from = conflicts.map((c) => c.operationLabel).join(", ")
   const names = { name: resourceName, count, from, to: targetOperationLabel }
-  // Each holder card plus the target: «2×» on two cards, «3×» on three.
-  const cards = conflicts.length + 1
 
-  const card = (id: string, title: string, tone: MiniCard["chips"][number]["tone"], label = resourceName): MiniCard => ({
+  // What stands on each holder: one drop of a Modul-Block asks once, but its devices can sit on
+  // different cards (`held`). The target gets all of them.
+  const heldOn = (c: (typeof conflicts)[number]) => c.held ?? [{ id: resourceConflict.resourceId, name: resourceName }]
+  const everything = [...new Map(conflicts.flatMap(heldOn).map((r) => [r.id, r])).values()]
+  // Each holder card of a resource plus the target: «2×» on two cards, «3×» on three.
+  const timesOn = (id: string) => conflicts.filter((c) => heldOn(c).some((r) => r.id === id)).length + 1
+  const cards = conflicts.length + 1
+  // «Beide / Alle N Karten zeigen N×» holds only while every resource stands on every holder.
+  const sameEverywhere = everything.every((r) => timesOn(r.id) === cards)
+
+  const card = (id: string, title: string, tone: MiniChipTone, resources: { id: string; name: string }[]): MiniCard => ({
     id,
     title,
-    chips: [{ label, tone }],
+    chips: resources.map((r) => ({ label: tone === "double" ? `${r.name} · ${timesOn(r.id)}×` : r.name, tone })),
   })
-  const doubled = `${resourceName} · ${cards}×`
 
   return (
     // Every answer clears the conflict itself (resolve/cancel) – the caller closes.
@@ -83,8 +90,8 @@ export function ResourceConflictPrompt() {
           diagram: (
             <ChoiceDiagram
               link="move"
-              from={conflicts.map((c) => card(c.operationId, c.operationLabel, "gone"))}
-              to={card(targetOperationId, targetOperationLabel, "plain")}
+              from={conflicts.map((c) => card(c.operationId, c.operationLabel, "gone", heldOn(c)))}
+              to={card(targetOperationId, targetOperationLabel, "plain", everything)}
             />
           ),
           consequence: driving
@@ -99,11 +106,16 @@ export function ResourceConflictPrompt() {
           diagram: (
             <ChoiceDiagram
               link="both"
-              from={conflicts.map((c) => card(c.operationId, c.operationLabel, "double", doubled))}
-              to={card(targetOperationId, targetOperationLabel, "double", doubled)}
+              from={conflicts.map((c) => card(c.operationId, c.operationLabel, "double", heldOn(c)))}
+              to={card(targetOperationId, targetOperationLabel, "double", everything)}
             />
           ),
-          consequence: t.rich('keepConsequence', { ...names, cards, strong }),
+          consequence: (
+            <>
+              {t.rich('keepConsequence', { ...names, strong })}
+              {sameEverywhere && <> {t('keepCards', { cards })}</>}
+            </>
+          ),
           onSelect: () => resolveResourceConflict("keep"),
         },
       ]}

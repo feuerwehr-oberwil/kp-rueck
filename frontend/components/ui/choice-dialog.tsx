@@ -15,7 +15,6 @@ import {
 import { buttonVariants } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { ShellLoader } from '@/components/ui/shell-loader'
-import { SubjectLine, type Subject } from '@/components/ui/subject-line'
 import { cn } from '@/lib/utils'
 
 /** One of the two answers: a card the operator reads and then clicks (or presses `shortcut`). */
@@ -49,7 +48,6 @@ export function ChoiceDialog({
   title,
   icon,
   description,
-  subject,
   choices,
   onCancel,
   cancelText,
@@ -57,7 +55,6 @@ export function ChoiceDialog({
   title: ReactNode
   icon?: ReactNode
   description: ReactNode
-  subject?: Subject
   choices: readonly [Choice, Choice]
   onCancel: () => void
   cancelText?: string
@@ -80,12 +77,14 @@ export function ChoiceDialog({
   }
 
   const onKeyDown = (e: KeyboardEvent) => {
+    // No key reaches what is under the question: the board's and an open picker's keys listen
+    // on `window` («0» = Zu Fuss, «1»–«9» tick a tile). Esc (Radix, document capture), Tab (the
+    // focus trap, this element) and Enter / Space on a focused button (native) still work.
+    e.stopPropagation()
     if (e.altKey || e.ctrlKey || e.metaKey || e.repeat) return
     const choice = choices.find((c) => c.shortcut.toLowerCase() === e.key.toLowerCase())
     if (!choice) return
-    // The board's own letter keys must not see it.
     e.preventDefault()
-    e.stopPropagation()
     void run(choice)
   }
 
@@ -98,7 +97,6 @@ export function ChoiceDialog({
             {icon && <span className="flex shrink-0">{icon}</span>}
             {title}
           </AlertDialogTitle>
-          {subject && <SubjectLine subject={subject} />}
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -158,9 +156,10 @@ function MiniCardView({ card, faded }: { card: MiniCard; faded?: boolean }) {
     <span className={cn('block min-w-0 rounded-sm border bg-card px-2 py-1.5', faded && 'opacity-75')}>
       <span className="block truncate text-xs font-semibold" title={card.title}>{card.title}</span>
       <span className="mt-1 flex min-h-5 flex-wrap gap-1">
-        {card.chips.map((chip) => (
+        {/* By position: two devices of one Modul can share a name. */}
+        {card.chips.map((chip, i) => (
           <span
-            key={chip.label}
+            key={i}
             className={cn('max-w-full truncate rounded-sm border border-transparent px-1.5 py-0.5 text-xs', CHIP_TONE[chip.tone])}
           >
             {chip.label}
