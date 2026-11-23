@@ -448,7 +448,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
             "location_lat": 47.5108,
             "location_lng": 7.5548,
             "status": "returning",
-            "description": "Heizöl aus undichter Ölheizung in den Bach gelangt. Ölsperre gesetzt, Rückbau läuft.",
+            "description": "Heizöl aus überflutetem Tankraum in den Bach gelangt. Ölsperre gesetzt, Rückbau läuft.",
             "created_at": ago(170),
         },
         # --- ABGESCHLOSSEN (2) ---

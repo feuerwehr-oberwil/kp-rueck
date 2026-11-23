@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.health import DEMO_SANDBOX_MAX, DEMO_SANDBOX_PREFIX
 from app.config import settings as app_settings
+from app.crud.reko import get_or_create_reko_report
 from app.models import (
     Event,
     Incident,
@@ -25,6 +26,7 @@ from app.models import (
 )
 from app.seed_demo import seed_demo_database, seed_demo_shared_resources
 from app.services.photo_storage import DEMO_MAX_PHOTOS, enforce_demo_photo_limits
+from app.services.tokens import generate_form_token
 
 # The storm scenario: 1 featured fire + 16 loose storm/water incidents +
 # 4 Auftrag stops ("Sturmholz Oberwil").
@@ -133,20 +135,24 @@ class TestDemoSandbox:
     async def test_seeded_illustrations_do_not_fill_the_demo_upload_cap(
         self, editor_client: AsyncClient, db_session: AsyncSession, demo_mode, shared_resources
     ):
-        sandboxes = DEMO_MAX_PHOTOS // 3 + 1
-        for _ in range(sandboxes):
+        for _ in range(DEMO_MAX_PHOTOS // 3 + 1):
             await editor_client.post("/api/demo/sandbox")
+        illustrated = (
+            (await db_session.execute(select(RekoReport).where(func.jsonb_array_length(RekoReport.photos_json) > 0)))
+            .scalars()
+            .all()
+        )
+        # A follow-up form copies the illustration into a draft: the same file, not a new one.
+        for report in illustrated:
+            await get_or_create_reko_report(
+                db_session, report.incident_id, generate_form_token(str(report.incident_id))
+            )
         upload = UploadFile(file=BytesIO(b"jpeg"), filename="a.jpg")
 
         await enforce_demo_photo_limits(db_session, upload, RekoReport.photos_json)
 
         # Visitor uploads on a seeded report still count.
-        seeded = (
-            (await db_session.execute(select(RekoReport).where(func.jsonb_array_length(RekoReport.photos_json) > 0)))
-            .scalars()
-            .first()
-        )
-        seeded.photos_json = seeded.photos_json + [f"{i}.jpg" for i in range(DEMO_MAX_PHOTOS)]
+        illustrated[0].photos_json = illustrated[0].photos_json + [f"{i}.jpg" for i in range(DEMO_MAX_PHOTOS)]
         await db_session.flush()
         with pytest.raises(HTTPException):
             await enforce_demo_photo_limits(db_session, upload, RekoReport.photos_json)
