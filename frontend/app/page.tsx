@@ -51,7 +51,7 @@ import type { IncidentHighlightOptions } from "@/lib/notification-highlight"
 import { useCurrentTime } from "@/lib/hooks/use-current-time"
 import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
 import { useKanbanShortcuts } from "@/lib/hooks/use-kanban-shortcuts"
-import { isDetailTab, type OperationDetailSection, type OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
+import { isDetailSection, isDetailTab, type OperationDetailSection, type OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { useCommandPaletteHint } from "@/lib/hooks/use-is-mac"
 import { usePrintBoard } from "@/lib/hooks/use-print-board"
 import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip"
@@ -75,7 +75,7 @@ import { boardDetailSurface, isPhoneViewport } from "@/lib/incident-detail"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { filterIncidents } from "@/lib/incident-search"
 import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
-import { MobileIncidentListView } from "@/components/mobile/mobile-incident-list-view"
+import { MobileIncidentListView, type MobileOpenRequest } from "@/components/mobile/mobile-incident-list-view"
 import { IncidentDialogs, useIncidentDialogs } from "@/components/kanban/incident-dialogs"
 import { useAuftragRoster } from "@/lib/hooks/use-auftrag-roster"
 import { cn } from "@/lib/utils"
@@ -220,6 +220,9 @@ export default function FireStationDashboard() {
   // board lands on Rapport, not Übersicht). Unknown values fall back to none.
   const rawTabParam = searchParams.get("tab")
   const tabParam = isDetailTab(rawTabParam) ? rawTabParam : undefined
+  // …and which block in it (`boardDetailHref`): only with a valid tab.
+  const rawSectionParam = searchParams.get("section")
+  const sectionParam = tabParam && isDetailSection(rawSectionParam) ? rawSectionParam : undefined
   const isMobile = useIsMobile()
   // The desktop board's horizontal scroller (`#kanban-main`) – state, not a ref, so the
   // edge chips in the header start watching once it mounts (it is desktop-only).
@@ -421,8 +424,9 @@ export default function FireStationDashboard() {
 
   /** `section` narrows the landing further than the tab does — today only
    *  Übersicht's Ressourcen block, which the panel has to scroll to. */
-  // The phone list's «open this sheet» request (see openIncidentDetail).
-  const [mobileOpenRequest, setMobileOpenRequest] = useState<{ incidentId: string; nonce: number } | null>(null)
+  // The phone list's «open this sheet» request (see openIncidentDetail), with the tab the caller
+  // meant: the phone sheet has no tabs and scrolls to the matching block (lib/detail-target.ts).
+  const [mobileOpenRequest, setMobileOpenRequest] = useState<MobileOpenRequest | null>(null)
   const openIncidentDetail = useCallback((
     operationId: string,
     tab?: OperationDetailTab,
@@ -445,7 +449,7 @@ export default function FireStationDashboard() {
       setDetailModalOpen(false)
       setSidePanelMode('detail')
     } else if (surface === 'phone-sheet') {
-      setMobileOpenRequest({ incidentId: operationId, nonce: Date.now() })
+      setMobileOpenRequest({ incidentId: operationId, nonce: Date.now(), target: tab ? { tab, section } : undefined })
     } else if (surface === 'modal') {
       setDetailModalOpen(true)
     }
@@ -467,9 +471,9 @@ export default function FireStationDashboard() {
   // one that did not gets the tab that card was last left on.
   useIncidentHighlightListener(
     useCallback(
-      (incidentId: string, { tab, allowModal }: IncidentHighlightOptions) => {
+      (incidentId: string, { tab, section, allowModal }: IncidentHighlightOptions) => {
         scrollToCard(incidentId)
-        openIncidentDetail(incidentId, tab, undefined, { allowModal })
+        openIncidentDetail(incidentId, tab, section, { allowModal })
       },
       [scrollToCard, openIncidentDetail],
     ),
@@ -767,11 +771,11 @@ export default function FireStationDashboard() {
   useEffect(() => {
     if (highlightParam) {
       scrollToCard(highlightParam)
-      if (openDetailParam) openIncidentDetail(highlightParam, tabParam)
+      if (openDetailParam) openIncidentDetail(highlightParam, tabParam, sectionParam)
       // Clear the URL param to prevent re-scroll on refresh
       router.replace('/', { scroll: false })
     }
-  }, [highlightParam, openDetailParam, tabParam, scrollToCard, openIncidentDetail, router])
+  }, [highlightParam, openDetailParam, tabParam, sectionParam, scrollToCard, openIncidentDetail, router])
 
   useKanbanShortcuts(
     {

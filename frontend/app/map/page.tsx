@@ -56,6 +56,7 @@ import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
 import { MobileIncidentDetailSheet } from "@/components/mobile/mobile-incident-detail-sheet"
 import { incidentDetailTarget } from "@/lib/incident-detail"
+import { type DetailTarget } from "@/lib/detail-target"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { IncidentDialogs, useIncidentDialogs } from "@/components/kanban/incident-dialogs"
 import { isIncidentStatus, isIncidentType, STATUS_TO_GROUP, type StatusGroup, type IncidentStatus } from "@/lib/types/incidents"
@@ -436,18 +437,22 @@ export default function MapPage() {
    *   the map (owner, 03.10.).
    *
    * The incident stays selected: a double-click is two clicks first, and the second one would
-   * otherwise have toggled the selection off again.
+   * otherwise have toggled the selection off again. `target` is for a pointer that names a tab
+   * (a notification): the board panel opens on it, the phone sheet scrolls to its block.
    */
   const [phoneDetailId, setPhoneDetailId] = useState<string | null>(null)
+  const [phoneDetailTarget, setPhoneDetailTarget] = useState<DetailTarget | undefined>(undefined)
   const phoneDetailOperation = useMemo(
     () => (phoneDetailId ? operations.find((op) => op.id === phoneDetailId) ?? null : null),
     [phoneDetailId, operations],
   )
-  const openIncidentDetail = useCallback((incidentId: string) => {
+  const openIncidentDetail = useCallback((incidentId: string, detailTarget?: DetailTarget) => {
     setSelectedIncidentId(incidentId)
-    const target = incidentDetailTarget(incidentId, { phone: isMobile })
-    if (target.kind === 'phone-sheet') setPhoneDetailId(target.incidentId)
-    else router.push(target.href)
+    const target = incidentDetailTarget(incidentId, { phone: isMobile, target: detailTarget })
+    if (target.kind === 'phone-sheet') {
+      setPhoneDetailId(target.incidentId)
+      setPhoneDetailTarget(detailTarget)
+    } else router.push(target.href)
   }, [router, isMobile])
 
   // Register command palette (Cmd+K) handlers for the map view
@@ -504,7 +509,7 @@ export default function MapPage() {
   // fallback is the board's side panel on the notification's tab, unchanged.
   useEffect(() => {
     if (!isMobile) return
-    registerNavigateHandler((incidentId) => openIncidentDetail(incidentId))
+    registerNavigateHandler((incidentId, tab) => openIncidentDetail(incidentId, tab ? { tab } : undefined))
     return () => registerNavigateHandler(null)
   }, [isMobile, registerNavigateHandler, openIncidentDetail])
   // Same move as the board's handler and as the card's own nudge — see the note
@@ -1278,6 +1283,7 @@ export default function MapPage() {
             operation={phoneDetailOperation}
             open={!!phoneDetailOperation}
             onOpenChange={(open) => { if (!open) setPhoneDetailId(null) }}
+            target={phoneDetailTarget}
             materials={materials}
             formatLocation={formatLocation}
           />

@@ -12,9 +12,10 @@ describe('incidentDetailTarget — where «open this Einsatz» goes', () => {
 })
 
 describe('boardDetailHref', () => {
-  it('is the link the board reads (highlight + detail, optional tab)', () => {
+  it('is the link the board reads (highlight + detail, optional tab and section)', () => {
     expect(boardDetailHref('a b')).toBe('/?highlight=a%20b&detail=1')
-    expect(boardDetailHref('x', 'reko')).toBe('/?highlight=x&detail=1&tab=reko')
+    expect(boardDetailHref('x', { tab: 'reko' })).toBe('/?highlight=x&detail=1&tab=reko')
+    expect(boardDetailHref('x', { tab: 'overview', section: 'resources' })).toBe('/?highlight=x&detail=1&tab=overview&section=resources')
   })
 })
 
