@@ -259,7 +259,7 @@ export type IncidentTextField =
 export interface ApiIncidentTimelineEvent {
   /** `kp_message` is the KP's own «Meldung an den Trupp» (sweep 27 §P3.2) —
    *  the other direction of `field_message`, with `actor_name` = the sender. */
-  event_type: 'status_change' | 'assignment' | 'field_message' | 'kp_message' | 'merge' | 'unmerge'
+  event_type: 'status_change' | 'assignment' | 'field_message' | 'kp_message' | 'merge' | 'unmerge' | 'reko_change'
   timestamp: string
   actor_name: string | null
   // status_change fields
@@ -282,7 +282,29 @@ export interface ApiIncidentTimelineEvent {
   // `message`), and whether that merge still stands (only then «Trennen»).
   merged_incident_id?: string | null
   merge_active?: boolean | null
+  // reko_change fields — one saved change of the Reko report (`lib/reko-change.ts` words
+  // it); `source` is 'feld' or 'kp', `actor_name` the person or operator.
+  reko_field?: RekoChangeField | null
+  old_value?: RekoChangeValue
+  new_value?: RekoChangeValue
 }
+
+/** The Reko report's fields as the Chronik names them (`backend/app/services/reko_history.py`). */
+export type RekoChangeField =
+  | 'is_relevant'
+  | 'dangers'
+  | 'dangers_other'
+  | 'personnel_count'
+  | 'estimated_duration_hours'
+  | 'vehicles_needed'
+  | 'equipment_needed'
+  | 'power_supply'
+  | 'summary_text'
+  | 'additional_notes'
+  | 'photos'
+
+/** A Reko field's raw value: yes/no, a number, a text, or a list (Gefahren keys, photo files …). */
+export type RekoChangeValue = boolean | number | string | string[] | null | undefined
 
 /** One KP → Trupp message as `/api/incidents/{id}/field-messages` returns it. */
 export interface ApiKpFieldMessage {

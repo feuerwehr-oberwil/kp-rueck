@@ -2070,7 +2070,12 @@
       "unknown": "(inconnu)",
       "kpMessageVerb": "à l’effectif",
       "stale": "était déjà sur « {statusLabel} » ({ago})",
-      "staleComplete": "était déjà clôturé ({ago})"
+      "staleComplete": "était déjà clôturé ({ago})",
+      "rekoFeld": "Terrain",
+      "rekoKp": "PC",
+      "rekoEmpty": "vide",
+      "rekoPhotosAdded": "+{count, plural, one {# photo} other {# photos}}",
+      "rekoPhotosRemoved": "−{count, plural, one {# photo} other {# photos}}"
     },
     "statusConflict": {
       "title": "Modifié à l’instant",
@@ -3456,7 +3461,6 @@
     },
     "reportSection": {
       "noReport": "Aucun rapport de reconnaissance pour l’instant",
-      "previousReports": "{count, plural, one {# rapport de reconnaissance précédent} other {# rapports de reconnaissance précédents}}",
       "relevant": "Intervention pertinente",
       "notNeeded": "Aucune intervention nécessaire",
       "completeIncident": "Clôturer l’intervention",
@@ -3487,27 +3491,15 @@
       "notRelevantShort": "Non pertinente",
       "relevanceOpen": "Pertinence sans réponse",
       "relevanceOpenShort": "Pertinence ouverte",
-      "photoCount": "{count, plural, one {# photo} other {# photos}}",
-      "create": "Saisir le rapport de reconnaissance",
-      "createTitle": "Saisir le rapport de reconnaissance",
-      "amend": "Compléter le rapport de reconnaissance",
-      "amendTitle": "Compléter le rapport de reconnaissance",
-      "close": "Fermer",
       "radioHint": "Saisis ici ce que le groupe annonce par radio. Sera noté comme saisie du PC.",
       "draftHint": "Synchronisé au fur et à mesure. Transmis dès que « Intervention pertinente ? » a une réponse – comme un rapport de l’équipe, l’intervention passe alors à « Reconnaissance terminée ».",
-      "amendHint": "Chaque modification est synchronisée immédiatement.",
       "submittedShort": "Transmis {time}",
       "updatedShort": "mis à jour {time}",
       "findingLabel": "Constat",
       "notesShort": "Remarques",
       "reportLabel": "Rapport de reco",
       "noReportShort": "aucun pour l’instant",
-      "createShort": "saisir",
-      "draftShort": "Brouillon – pas encore transmis",
-      "continueShort": "continuer la saisie",
-      "ownDraftLabel": "Mon brouillon",
-      "expand": "ouvrir",
-      "collapse": "fermer"
+      "draftShort": "Brouillon – pas encore transmis"
     },
     "dummyGenerator": {
       "title": "Mode exercice",
@@ -4815,5 +4807,19 @@
       "alarmInbox": "Largeur de la réception des alarmes",
       "mapRail": "Largeur de la barre latérale"
     }
+  },
+  "photoViewer": {
+    "title": "Photos · {incident}",
+    "close": "Fermer",
+    "closeHint": "Fermer (Échap)",
+    "counter": "{index} / {count}",
+    "previous": "Photo précédente",
+    "next": "Photo suivante",
+    "alt": "Photo {index} sur {count}",
+    "groupReko": "Reco",
+    "groupRapport": "Rapport",
+    "hintDesktop": "← → parcourir · Échap fermer",
+    "hintPhone": "Balayer : parcourir · tirer vers le bas : fermer",
+    "open": "Ouvrir la photo {number}"
   }
 }

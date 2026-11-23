@@ -2,7 +2,7 @@
 
 import { vehicleLabel } from "@/lib/vehicle-label"
 import { IncidentNumber } from "@/components/ui/incident-number"
-import { useState, useEffect, useCallback, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
@@ -39,7 +39,7 @@ import { columns } from "@/lib/kanban-utils"
 import { IncidentTime, useIncidentTimeVisible } from "@/components/ui/incident-time"
 import { formatClockTime } from "@/lib/incident-time"
 import { telHref } from "@/lib/phone"
-import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
+import { incidentTypeKeys, getIncidentRefParts, getIncidentTypeLabel } from "@/lib/incident-types"
 import { AddressText } from "@/components/kanban/address-text"
 import { useVehicleDriverState } from "@/lib/hooks/use-vehicle-drivers"
 import { useVehicleShortcuts } from "@/lib/contexts/operations/use-vehicle-shortcuts"
@@ -77,6 +77,8 @@ import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { ShellLoader } from '@/components/ui/shell-loader'
+import { PhotoViewerProvider } from '@/components/photos/photo-viewer'
+import { rekoPhotoUrl } from '@/lib/reko-photos'
 
 /**
  * An action that belongs to a `DetailField` row rather than to a toolbar.
@@ -922,7 +924,24 @@ export function OperationDetailContent({
       ? auftragResources.personnel.length + auftragResources.vehicles.length + auftragResources.materials.length
       : 0)
 
+  // The incident's photo viewer (#5): its head names the Einsatz; the board's Reko summary
+  // stands in for the Reko photos while the Reko tab (which registers the live ones) is closed.
+  const photoLabel = getIncidentRefParts(operation).head
+  const photoFallback = useMemo(
+    () => ({
+      reko: (operation.rekoSummary?.photos ?? []).map(filename => ({
+        group: 'reko' as const,
+        filename,
+        src: rekoPhotoUrl(operation.id, filename),
+        by: null,
+        at: null,
+      })),
+    }),
+    [operation.id, operation.rekoSummary?.photos],
+  )
+
   return (
+    <PhotoViewerProvider incidentLabel={photoLabel} fallback={photoFallback}>
     <div
       ref={rootRef}
       // A focus sink, and only in the panel: the modal traps focus, so "inside
@@ -1640,16 +1659,8 @@ export function OperationDetailContent({
                 // component the Feld tab puts «Abholung nötig» in. The two are
                 // built as twins and now sit as twins.
                 dataSlot={<FieldReportsRow operation={operation} canEdit={canEdit} only={['rekoArrived']} />}
-                // Stacked in both mounts now: this column is half the modal —
-                // the tab's own grid took over the side-by-side reading, with
-                // everything reported on the left and the Auftrag on the right.
-                layout="stacked"
-                // Deep-linked with the entry form open. «Reko-Details öffnen»
-                // in the completion gate answers "no Reko report was filled in",
-                // so it has to land on the form, not on a tab with a button.
-                openEditorNonce={
-                  openOnTab?.tab === 'reko' && openOnTab.section === 'newReport' ? openOnTab.nonce : undefined
-                }
+                // «Reko-Details öffnen» in the completion gate lands on this tab,
+                // and the form is always open at its top.
                 onRequestComplete={canEdit && onRequestComplete ? () => onRequestComplete(operation.id) : undefined}
               />
               </div>
@@ -1981,5 +1992,6 @@ export function OperationDetailContent({
         />
       )}
     </div>
+    </PhotoViewerProvider>
   )
 }

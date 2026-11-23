@@ -373,7 +373,7 @@ export function useIncidentStatusWorkflow({
    *
    * Why the move waits instead of opening after it like the other gates: Abbrechen then has
    * nothing to undo and the card is where the operator left it. The move itself files nothing –
-   * the save that answers «Einsatz relevant?» does (`api/reko._kp_draft_files_now`, owner
+   * the save that answers «Einsatz relevant?» does (`api/reko._board_save_files_now`, owner
    * re-pick 19.11.2026, #30), and the server moves a card in «Reko» on to «Reko abgeschlossen».
    */
   const holdStatusMove = useCallback((operationId: string, targetStatus: OperationStatus) => {

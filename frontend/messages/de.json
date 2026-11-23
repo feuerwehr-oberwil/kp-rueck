@@ -774,7 +774,12 @@
       "unknown": "(unbekannt)",
       "kpMessageVerb": "an Trupp",
       "stale": "stand schon auf «{statusLabel}» ({ago})",
-      "staleComplete": "war schon abgeschlossen ({ago})"
+      "staleComplete": "war schon abgeschlossen ({ago})",
+      "rekoFeld": "Feld",
+      "rekoKp": "KP",
+      "rekoEmpty": "leer",
+      "rekoPhotosAdded": "+{count, plural, one {# Foto} other {# Fotos}}",
+      "rekoPhotosRemoved": "−{count, plural, one {# Foto} other {# Fotos}}"
     },
     "statusConflict": {
       "title": "Gerade geändert",
@@ -2924,7 +2929,6 @@
     },
     "reportSection": {
       "noReport": "Noch kein Reko-Bericht",
-      "previousReports": "{count, plural, one {# früherer Reko-Bericht} other {# frühere Reko-Berichte}}",
       "relevant": "Einsatz relevant",
       "notNeeded": "Kein Einsatz nötig",
       "completeIncident": "Einsatz abschliessen",
@@ -2955,27 +2959,15 @@
       "notRelevantShort": "Nicht relevant",
       "relevanceOpen": "Relevanz nicht beantwortet",
       "relevanceOpenShort": "Relevanz offen",
-      "photoCount": "{count, plural, one {# Foto} other {# Fotos}}",
-      "create": "Reko-Bericht erfassen",
-      "createTitle": "Reko-Bericht erfassen",
-      "amend": "Reko-Bericht ergänzen",
-      "amendTitle": "Reko-Bericht ergänzen",
-      "close": "Schliessen",
       "radioHint": "Was der Trupp über Funk meldet, hier erfassen. Wird als KP-Erfassung vermerkt.",
       "draftHint": "Wird laufend synchronisiert. Wird eingereicht, sobald «Einsatz relevant?» beantwortet ist – wie ein Bericht des Trupps, der Einsatz kommt dann auf «Reko abgeschlossen».",
-      "amendHint": "Jede Änderung wird sofort synchronisiert.",
       "submittedShort": "Übermittelt {time}",
       "updatedShort": "aktualisiert {time}",
       "findingLabel": "Befund",
       "notesShort": "Notizen",
       "reportLabel": "Reko-Bericht",
       "noReportShort": "noch keiner",
-      "createShort": "erfassen",
-      "draftShort": "Entwurf – noch nicht eingereicht",
-      "continueShort": "weiter erfassen",
-      "ownDraftLabel": "Eigener Entwurf",
-      "expand": "öffnen",
-      "collapse": "schliessen"
+      "draftShort": "Entwurf – noch nicht eingereicht"
     },
     "dummyGenerator": {
       "title": "Übungsmodus",
@@ -4815,5 +4807,19 @@
       "alarmInbox": "Breite des Alarmeingangs",
       "mapRail": "Breite der Seitenleiste"
     }
+  },
+  "photoViewer": {
+    "title": "Fotos · {incident}",
+    "close": "Schliessen",
+    "closeHint": "Schliessen (Esc)",
+    "counter": "{index} / {count}",
+    "previous": "Vorheriges Foto",
+    "next": "Nächstes Foto",
+    "alt": "Foto {index} von {count}",
+    "groupReko": "Reko",
+    "groupRapport": "Rapport",
+    "hintDesktop": "← → blättern · Esc schliessen",
+    "hintPhone": "Wischen: blättern · nach unten ziehen: schliessen",
+    "open": "Foto {number} öffnen"
   }
 }

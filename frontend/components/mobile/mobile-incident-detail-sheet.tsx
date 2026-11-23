@@ -44,6 +44,8 @@ import { sortCrewByLeader } from "@/lib/crew-order"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import RekoReportSection from "@/components/reko/reko-report-section"
+import { PhotoViewerProvider } from "@/components/photos/photo-viewer"
+import { getIncidentRefParts } from "@/lib/incident-types"
 import { PersonName } from "@/components/person-name"
 
 interface MobileIncidentDetailSheetProps {
@@ -80,6 +82,7 @@ export function MobileIncidentDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
+      <PhotoViewerProvider incidentLabel={getIncidentRefParts(operation).head}>
       <SheetContent
         side="bottom"
         // No description line: it used to print the Einsatz-ID (two lines of UUID) under the
@@ -341,6 +344,7 @@ export function MobileIncidentDetailSheet({
           </Link>
         </SheetFooter>
       </SheetContent>
+      </PhotoViewerProvider>
     </Sheet>
   )
 }

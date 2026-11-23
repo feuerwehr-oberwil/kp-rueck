@@ -37,14 +37,12 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock('@/lib/contexts/auth-context', () => ({ useAuth: () => ({ user: { id: 'u-1' } }) }))
 
 import RekoReportSection from '@/components/reko/reko-report-section'
+import { PhotoViewerProvider } from '@/components/photos/photo-viewer'
 
 /**
- * The acceptance criterion of plan 26 phase 2: **create from nothing.**
- *
- * The board could display a recon report faithfully and produce none of it. An
- * incident that never had any field contact — nobody opened the link, nobody is
- * on site — is exactly the case a radio message arrives for, and it is the one
- * the old read-only section had no answer to at all.
+ * One live Reko report per Einsatz (owner pick 23.11.2026, #6): on the board the form is
+ * always open and saves as it goes – create from nothing, edit in place, take in what the
+ * field and other boards save. Read-only mounts show the filed report.
  */
 /** A submitted report, with only the fields a case cares about spelled out. */
 function report(overrides: Record<string, unknown>) {
@@ -65,7 +63,7 @@ function report(overrides: Record<string, unknown>) {
   }
 }
 
-describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
+describe('the Reko tab on the board: one live report, always editable', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     getIncidentRekoReports.mockResolvedValue([])
@@ -73,65 +71,30 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     updateRekoReport.mockResolvedValue({ id: 'r-1', is_draft: true })
   })
 
-  it('offers "Reko-Bericht erfassen" on an incident with no report and no field contact', async () => {
-    // The card mount (phone sheet, wall display), where the placeholder is a
-    // box and the button stands beside it.
-    renderWithIntl(<RekoReportSection incidentId="i-1" canEdit />)
-
-    expect(await screen.findByText('Noch kein Reko-Bericht')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Reko-Bericht erfassen/ })).toBeInTheDocument()
-  })
-
-  it('carries the create action ON the empty row at the board (Variante A)', async () => {
-    // No dashed box and no second control: the row that would hold the report
-    // says it has none and offers the way to fix that. So there is exactly one
-    // thing to click on an incident with nothing filed.
-    const user = userEvent.setup()
+  it('shows the form at once on an incident with no report – in place, no step, no dialog', async () => {
     renderWithIntl(<RekoReportSection incidentId="i-1" canEdit dense />)
 
-    await waitFor(() => expect(getIncidentRekoReports).toHaveBeenCalled())
-    expect(screen.queryByText('Noch kein Reko-Bericht')).not.toBeInTheDocument()
-
-    const actions = screen.getAllByRole('button')
-    expect(actions).toHaveLength(1)
-    await user.click(actions[0])
-    expect(screen.getByText('Einsatz relevant?')).toBeInTheDocument()
-  })
-
-  it('expands the form in place rather than opening a dialog', async () => {
-    const user = userEvent.setup()
-    renderWithIntl(<RekoReportSection incidentId="i-1" canEdit />)
-
-    await user.click(await screen.findByRole('button', { name: /Reko-Bericht erfassen/ }))
-
-    // The same field set the crew sees, inline — a modal over the incident
-    // detail would hide the Feldmeldungen the operator is dictating from.
-    expect(screen.getByText('Einsatz relevant?')).toBeInTheDocument()
+    expect(await screen.findByText('Einsatz relevant?')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /erfassen|ergänzen/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('saves every answer as a KP draft through the board door – no save button (#30)', async () => {
+  it('saves every answer through the board door – no save button (#30)', async () => {
     const user = userEvent.setup()
     renderWithIntl(<RekoReportSection incidentId="i-1" canEdit dense />)
 
-    await waitFor(() => expect(getIncidentRekoReports).toHaveBeenCalled())
-    await user.click(screen.getAllByRole('button')[0])
+    await user.click(await screen.findByRole('button', { name: 'Ja' }))
     expect(screen.queryByRole('button', { name: /speichern/i })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Ja' }))
 
     await waitFor(() => expect(createRekoReportAsEditor).toHaveBeenCalledTimes(1))
-    // A draft: the card's move to «Reko abgeschlossen» files it, on the server.
     expect(createRekoReportAsEditor.mock.calls[0]).toEqual(['i-1', expect.objectContaining({ is_relevant: true }), false])
-    // No token travels: the session is the identity, and the report carries no
-    // guessed personnel row (decision 6).
+    // No token travels: the session is the identity (decision 6). Nor the photo list:
+    // upload and delete own it, a stale copy would undo another's photo.
     expect(createRekoReportAsEditor.mock.calls[0][1]).not.toHaveProperty('token')
-    // Nor the photo list: upload and delete own it, a stale copy would undo another's photo.
     expect(createRekoReportAsEditor.mock.calls[0][1]).not.toHaveProperty('photos_json')
-    const synced = await screen.findByText(/^Synchronisiert – /)
-    // In the header row beside «Schliessen», not at the form's foot under the fade (sign-off 19.11.).
-    expect(synced.parentElement?.parentElement).toContainElement(screen.getByRole('button', { name: 'Schliessen' }))
+    expect(await screen.findByText(/^Synchronisiert – /)).toBeInTheDocument()
 
-    // The next answer goes to the same draft, not a second one.
+    // The next answer goes to the same report, not a second one.
     await user.click(screen.getByRole('button', { name: 'Nein' }))
     await waitFor(() => expect(updateRekoReport).toHaveBeenCalledWith('r-1', expect.objectContaining({ is_relevant: false })))
     expect(createRekoReportAsEditor).toHaveBeenCalledTimes(1)
@@ -142,9 +105,7 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     const user = userEvent.setup()
     renderWithIntl(<RekoReportSection incidentId="i-1" canEdit dense />)
 
-    await waitFor(() => expect(getIncidentRekoReports).toHaveBeenCalled())
-    await user.click(screen.getAllByRole('button')[0])
-    await user.click(screen.getByRole('button', { name: 'Ja' }))
+    await user.click(await screen.findByRole('button', { name: 'Ja' }))
 
     expect(await screen.findByText('Nicht synchronisiert.')).toBeInTheDocument()
     expect(createRekoReportAsEditor).toHaveBeenCalledTimes(1)
@@ -152,57 +113,42 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     await waitFor(() => expect(createRekoReportAsEditor).toHaveBeenCalledTimes(2))
   })
 
-  it("picks the operator's own draft up again instead of starting a second one", async () => {
+  it("edits the Einsatz's report in place, a crew's draft included", async () => {
     getIncidentRekoReports.mockResolvedValue([
-      report({ id: 'r-draft', is_draft: true, created_by_user_id: 'u-1', summary_text: 'Keller halb voll' }),
+      report({ id: 'r-crew', is_draft: true, is_relevant: null, summary_text: 'Keller halb voll', submitted_by_personnel_id: 'p-1' }),
     ])
     const user = userEvent.setup()
     renderWithIntl(<RekoReportSection incidentId="i-1" canEdit dense />)
 
-    expect(await screen.findByText('Entwurf – noch nicht eingereicht')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'weiter erfassen' }))
-    expect(screen.getByDisplayValue('Keller halb voll')).toBeInTheDocument()
+    expect(await screen.findByDisplayValue('Keller halb voll')).toBeInTheDocument()
+    expect(screen.getByText('Entwurf – noch nicht eingereicht')).toBeInTheDocument()
+    expect(screen.getByText(/sobald «Einsatz relevant\?» beantwortet ist/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Nein' }))
 
-    await waitFor(() => expect(updateRekoReport).toHaveBeenCalledWith('r-draft', expect.objectContaining({ is_relevant: false })))
+    await waitFor(() => expect(updateRekoReport).toHaveBeenCalledWith('r-crew', { is_relevant: false }))
     expect(createRekoReportAsEditor).not.toHaveBeenCalled()
   })
 
-  it('keeps the newest edits through close and reopen while the list still has the old draft (S1)', async () => {
-    const oldDraft = report({
-      id: 'r-draft', is_draft: true, created_by_user_id: 'u-1', summary_text: 'Keller halb voll',
-      updated_at: '2026-08-10T18:00:00Z',
-    })
-    // Every read returns the draft as it was before this edit – a read that raced the save.
-    getIncidentRekoReports.mockResolvedValue([oldDraft])
-    let answer: (value: unknown) => void = () => {}
-    updateRekoReport.mockReturnValueOnce(new Promise(resolve => { answer = resolve }))
-    const user = userEvent.setup()
-    renderWithIntl(<RekoReportSection incidentId="i-1" canEdit dense />)
+  it('names who filed it and offers «Einsatz abschliessen» for a «Nein»', async () => {
+    getIncidentRekoReports.mockResolvedValue([report({ id: 'r-no', is_relevant: false })])
+    renderWithIntl(<RekoReportSection incidentId="i-no" canEdit dense onRequestComplete={() => {}} />)
 
-    await user.click(await screen.findByRole('button', { name: 'weiter erfassen' }))
-    const summary = screen.getByDisplayValue('Keller halb voll')
-    await user.clear(summary)
-    await user.type(summary, 'Keller voll')
-    await user.click(screen.getByRole('button', { name: /Schliessen/ }))
-    expect(updateRekoReport).toHaveBeenCalledWith('r-draft', expect.objectContaining({ summary_text: 'Keller voll' }))
+    expect(await screen.findByText('Muster Hans')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Einsatz abschliessen/ })).toBeInTheDocument()
+    expect(screen.queryByText(/sobald «Einsatz relevant/)).not.toBeInTheDocument()
+  })
 
-    // Reopened while the save is still on its way: the edit, not the old row.
-    await user.click(screen.getByRole('button', { name: 'weiter erfassen' }))
-    expect(screen.getByDisplayValue('Keller voll')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /Schliessen/ }))
+  it('takes in what the field saved meanwhile while nothing of its own is unsent', async () => {
+    getIncidentRekoReports.mockResolvedValueOnce([report({ id: 'r-1', summary_text: 'Keller' })])
+    renderWithIntl(<RekoReportSection incidentId="i-live" canEdit dense />)
+    expect(await screen.findByDisplayValue('Keller')).toBeInTheDocument()
 
-    answer({ ...oldDraft, summary_text: 'Keller voll', updated_at: '2026-08-10T18:05:00Z' })
-    const loadsBefore = getIncidentRekoReports.mock.calls.length
-    await waitFor(() => expect(getIncidentRekoReports.mock.calls.length).toBeGreaterThan(loadsBefore))
+    getIncidentRekoReports.mockResolvedValueOnce([report({ id: 'r-1', summary_text: 'Keller 20 cm', updated_at: '2026-08-10T18:03:00Z' })])
+    await act(async () => { wsHandlers.get('reko_update')?.({ data: { incident_id: 'i-live' } }) })
 
-    // Settled, and the reload still answered the old row: the server's copy is not newer
-    // than what the save got back, so another field does not write the old text again.
-    await user.click(screen.getByRole('button', { name: 'weiter erfassen' }))
-    expect(screen.getByDisplayValue('Keller voll')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Nein' }))
-    // Only the new answer goes out – never the old text (pass 3, S2: changed fields only).
-    await waitFor(() => expect(updateRekoReport).toHaveBeenLastCalledWith('r-draft', { is_relevant: false }))
+    expect(await screen.findByDisplayValue('Keller 20 cm')).toBeInTheDocument()
+    // Taken in, not typed: nothing goes back out.
+    expect(updateRekoReport).not.toHaveBeenCalled()
   })
 
   it('keeps a save in flight across a tab switch: the new mount opens the edit, not the old row (pass 2, S1)', async () => {
@@ -216,8 +162,7 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     const user = userEvent.setup()
     const first = renderWithIntl(<RekoReportSection incidentId="i-tab" canEdit dense />)
 
-    await user.click(await screen.findByRole('button', { name: 'weiter erfassen' }))
-    const summary = screen.getByDisplayValue('Keller halb voll')
+    const summary = await screen.findByDisplayValue('Keller halb voll')
     await user.clear(summary)
     await user.type(summary, 'Keller voll')
     // Off the Reko tab: the form unmounts, its save goes out and has not answered yet.
@@ -226,8 +171,7 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
 
     // Back on the tab: a new mount, and the list still reads the old row.
     renderWithIntl(<RekoReportSection incidentId="i-tab" canEdit dense />)
-    await user.click(await screen.findByRole('button', { name: 'weiter erfassen' }))
-    expect(screen.getByDisplayValue('Keller voll')).toBeInTheDocument()
+    expect(await screen.findByDisplayValue('Keller voll')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Nein' }))
     answer({ ...oldDraft, summary_text: 'Keller voll', updated_at: '2026-08-10T18:05:00Z' })
 
@@ -237,80 +181,14 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
   })
 
   it('sends only what this form changed, so a blank form never blanks the report it lands on (pass 3, S2)', async () => {
-    // Opened blank (nothing filed yet as far as this board knows); the server resolves the
-    // first save onto the report another board filed meanwhile – it must keep its answers.
     const user = userEvent.setup()
     renderWithIntl(<RekoReportSection incidentId="i-blank" canEdit dense />)
 
-    await user.click(await screen.findByRole('button', { name: /erfassen/ }))
+    await screen.findByText('Einsatz relevant?')
     await user.type(document.querySelector<HTMLTextAreaElement>('#notes')!, 'Zufahrt über Hof')
 
     await waitFor(() => expect(createRekoReportAsEditor).toHaveBeenCalled())
     expect(createRekoReportAsEditor).toHaveBeenLastCalledWith('i-blank', { additional_notes: 'Zufahrt über Hof' }, false)
-  })
-
-  it("offers the operator's own draft beside a report the crew filed meanwhile (pass 3, S16)", async () => {
-    getIncidentRekoReports.mockResolvedValue([
-      report({ id: 'r-crew', summary_text: 'Wasser im Keller', submitted_by_personnel_id: 'p-1' }),
-      report({ id: 'r-own', is_draft: true, created_by_user_id: 'u-1', summary_text: 'Zufahrt über Hof' }),
-    ])
-    const user = userEvent.setup()
-    renderWithIntl(<RekoReportSection incidentId="i-crew" canEdit dense />)
-
-    expect(await screen.findByText('Eigener Entwurf')).toBeInTheDocument()
-    expect(screen.getByText(/sobald «Einsatz relevant\?» beantwortet ist/)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'weiter erfassen' }))
-
-    expect(screen.getByDisplayValue('Zufahrt über Hof')).toBeInTheDocument()
-    expect(screen.getByText('Reko-Bericht erfassen')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Nein' }))
-    await waitFor(() => expect(updateRekoReport).toHaveBeenLastCalledWith('r-own', { is_relevant: false }))
-  })
-
-  it.each([[true], [false]])('says an unanswered «Einsatz relevant?» as open and offers no completion (pass 4, S2) – dense %s', async (dense) => {
-    getIncidentRekoReports.mockResolvedValue([report({ id: 'r-open', is_relevant: null, summary_text: 'Keller' })])
-    renderWithIntl(<RekoReportSection incidentId="i-open" canEdit dense={dense} onRequestComplete={() => {}} />)
-
-    expect(await screen.findByText('Relevanz nicht beantwortet')).toBeInTheDocument()
-    expect(screen.queryByText('Kein Einsatz nötig')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Einsatz abschliessen/ })).not.toBeInTheDocument()
-  })
-
-  it('offers «Einsatz abschliessen» for a «Nein»', async () => {
-    getIncidentRekoReports.mockResolvedValue([report({ id: 'r-no', is_relevant: false })])
-    renderWithIntl(<RekoReportSection incidentId="i-no" canEdit dense onRequestComplete={() => {}} />)
-
-    expect(await screen.findByText('Kein Einsatz nötig')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Einsatz abschliessen/ })).toBeInTheDocument()
-  })
-
-  it('keeps the own draft and an amendment apart while a save is in flight (pass 4, S3)', async () => {
-    getIncidentRekoReports.mockResolvedValue([
-      report({ id: 'r-crew', summary_text: 'Wasser im Keller', submitted_by_personnel_id: 'p-1' }),
-      report({ id: 'r-own', is_draft: true, created_by_user_id: 'u-1', summary_text: 'Zufahrt' }),
-    ])
-    let answerOwn: (value: unknown) => void = () => {}
-    updateRekoReport.mockImplementation((id: string, payload: object) =>
-      id === 'r-own'
-        ? new Promise(resolve => { answerOwn = () => resolve(report({ id, is_draft: true, created_by_user_id: 'u-1', ...payload })) })
-        : Promise.resolve(report({ id, submitted_by_personnel_id: 'p-1', ...payload })))
-    const user = userEvent.setup()
-    renderWithIntl(<RekoReportSection incidentId="i-two" canEdit dense />)
-
-    await user.click(await screen.findByRole('button', { name: 'weiter erfassen' }))
-    await user.type(screen.getByDisplayValue('Zufahrt'), ' über Hof')
-    await user.click(screen.getByRole('button', { name: /Schliessen/ }))
-    // The draft's save is on its way; the operator switches to amending the crew report.
-    await user.click(screen.getByRole('button', { name: /Reko-Bericht ergänzen/ }))
-    expect(screen.getByDisplayValue('Wasser im Keller')).toBeInTheDocument()
-    await user.type(document.querySelector<HTMLTextAreaElement>('#notes')!, 'Pumpe läuft')
-    await waitFor(() => expect(updateRekoReport).toHaveBeenCalledWith('r-crew', { additional_notes: 'Pumpe läuft' }))
-    answerOwn(undefined)
-
-    await waitFor(() => expect(screen.getByText(/^Synchronisiert – /)).toBeInTheDocument())
-    const calls = updateRekoReport.mock.calls as [string, object][]
-    expect(calls.filter(([id]) => id === 'r-own').map(([, body]) => body)).toEqual([{ summary_text: 'Zufahrt über Hof' }])
-    expect(calls.filter(([id]) => id === 'r-crew').map(([, body]) => body)).toEqual([{ additional_notes: 'Pumpe läuft' }])
   })
 
   it("takes a save's answer into the form – another board's answers, own edits on top (pass 4, S4)", async () => {
@@ -325,8 +203,7 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     const user = userEvent.setup()
     renderWithIntl(<RekoReportSection incidentId="i-adopt" canEdit dense />)
 
-    await user.click(await screen.findByRole('button', { name: 'weiter erfassen' }))
-    await user.type(screen.getByDisplayValue('Keller'), ' 20 cm')
+    await user.type(await screen.findByDisplayValue('Keller'), ' 20 cm')
     await waitFor(() => expect(updateRekoReport).toHaveBeenCalledWith('r-own', { summary_text: 'Keller 20 cm' }))
     // While it is on its way: «Nein» here, and another board wrote a note meanwhile.
     await user.click(screen.getByRole('button', { name: 'Nein' }))
@@ -338,31 +215,10 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     await waitFor(() => expect(updateRekoReport).toHaveBeenLastCalledWith('r-own', { is_relevant: false }))
   })
 
-  it('opens a list row as new as the last save answer as it is (pass 4, S4)', async () => {
-    const draft = report({ id: 'r-own', is_draft: true, created_by_user_id: 'u-1', summary_text: 'Keller', updated_at: '2026-08-10T18:00:00Z' })
-    const acked = { ...draft, summary_text: 'Keller 20 cm', updated_at: '2026-08-10T18:01:00Z' }
-    getIncidentRekoReports.mockResolvedValue([draft])
-    updateRekoReport.mockResolvedValueOnce(acked)
-    const user = userEvent.setup()
-    renderWithIntl(<RekoReportSection incidentId="i-same" canEdit dense />)
-
-    await user.click(await screen.findByRole('button', { name: 'weiter erfassen' }))
-    await user.type(screen.getByDisplayValue('Keller'), ' 20 cm')
-    // The reload after the save reads the same row at the same instant (another spelling of
-    // it), with a note the server holds that this save did not send.
-    getIncidentRekoReports.mockResolvedValue([{ ...acked, additional_notes: 'Zufahrt über Hof', updated_at: '2026-08-10T18:01:00.000000+00:00' }])
-    const loads = getIncidentRekoReports.mock.calls.length
-    await user.click(screen.getByRole('button', { name: /Schliessen/ }))
-    await waitFor(() => expect(getIncidentRekoReports.mock.calls.length).toBeGreaterThan(loads))
-
-    await user.click(screen.getByRole('button', { name: 'weiter erfassen' }))
-    expect(screen.getByDisplayValue('Zufahrt über Hof')).toBeInTheDocument()
-  })
-
-  it('drops an older list read that answers after a newer one (pass 5, S6)', async () => {
+  it('drops an older read that answers after a newer one (pass 5, S6)', async () => {
     getIncidentRekoReports.mockResolvedValueOnce([report({ id: 'r-1', summary_text: 'Keller' })])
     renderWithIntl(<RekoReportSection incidentId="i-reads" canEdit dense />)
-    expect(await screen.findByText('Keller')).toBeInTheDocument()
+    expect(await screen.findByDisplayValue('Keller')).toBeInTheDocument()
 
     let answerOld: (value: unknown) => void = () => {}
     getIncidentRekoReports.mockReturnValueOnce(new Promise(resolve => { answerOld = resolve }))
@@ -371,14 +227,13 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
       wsHandlers.get('reko_update')?.({ data: { incident_id: 'i-reads' } })
       wsHandlers.get('reko_update')?.({ data: { incident_id: 'i-reads' } })
     })
-    expect(await screen.findByText('Keller 20 cm')).toBeInTheDocument()
+    expect(await screen.findByDisplayValue('Keller 20 cm')).toBeInTheDocument()
     await act(async () => { answerOld([report({ id: 'r-1', summary_text: 'Keller' })]) })
 
-    expect(screen.getByText('Keller 20 cm')).toBeInTheDocument()
-    expect(screen.queryByText('Keller')).not.toBeInTheDocument()
+    expect(screen.getByDisplayValue('Keller 20 cm')).toBeInTheDocument()
   })
 
-  it('opens the pending first save when the list shows its row before the POST answered (pass 5, S3)', async () => {
+  it('keeps its own typing while the first save is on its way, whatever a read shows (pass 5, S3)', async () => {
     let answerPost: (value: unknown) => void = () => {}
     createRekoReportAsEditor.mockReturnValueOnce(new Promise(resolve => { answerPost = resolve }))
     const created = report({ id: 'r-new', is_draft: true, created_by_user_id: 'u-1', summary_text: 'Keller' })
@@ -386,22 +241,17 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     const user = userEvent.setup()
     renderWithIntl(<RekoReportSection incidentId="i-first" canEdit dense />)
 
-    await user.click(await screen.findByRole('button', { name: 'erfassen' }))
+    await screen.findByText('Einsatz relevant?')
     const summary = document.querySelector<HTMLTextAreaElement>('#summary')!
     await user.type(summary, 'Keller')
     await waitFor(() => expect(createRekoReportAsEditor).toHaveBeenCalled())
     // Typed while the first save is on its way: queued behind it.
     await user.type(summary, ' 20')
-    await user.click(screen.getByRole('button', { name: /Schliessen/ }))
-    // The POST committed; a reload shows its row before the POST's answer is here.
+    // The POST committed; a read shows its row before the POST's answer is here.
     getIncidentRekoReports.mockResolvedValue([created])
     await act(async () => { wsHandlers.get('reko_update')?.({ data: { incident_id: 'i-first' } }) })
-    await user.click(await screen.findByRole('button', { name: 'weiter erfassen' }))
-
-    // The pending save's form, not the row the list read.
-    const reopened = document.querySelector<HTMLTextAreaElement>('#summary')!
-    expect(reopened.value).toBe('Keller 20')
-    await user.type(reopened, ' cm')
+    expect(document.querySelector<HTMLTextAreaElement>('#summary')!.value).toBe('Keller 20')
+    await user.type(summary, ' cm')
     answerPost(created)
 
     // One writer for the row: the edits go out after the first save, in order, ending on the newest.
@@ -409,92 +259,55 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     expect(updateRekoReport).toHaveBeenLastCalledWith('r-new', { summary_text: 'Keller 20 cm' })
   })
 
-  it('counts a draft whose only answer is the power supply as a draft', async () => {
-    getIncidentRekoReports.mockResolvedValue([
-      report({ id: 'r-draft', is_draft: true, created_by_user_id: 'u-1', is_relevant: null, power_supply: 'unavailable' }),
-    ])
-    renderWithIntl(<RekoReportSection incidentId="i-1" canEdit dense />)
-
-    expect(await screen.findByText('Entwurf – noch nicht eingereicht')).toBeInTheDocument()
-  })
-
-  it('amends an existing report instead of filing a second one', async () => {
-    getIncidentRekoReports.mockResolvedValue([
-      {
-        id: 'r-existing',
-        incident_id: 'i-1',
-        is_draft: false,
-        is_relevant: true,
-        summary_text: 'Keller unter Wasser',
-        additional_notes: null,
-        dangers_json: null,
-        effort_json: null,
-        power_supply: null,
-        photos_json: [],
-        submitted_at: '2026-08-10T18:00:00Z',
-        updated_at: '2026-08-10T18:00:00Z',
-        submitted_by_personnel_name: 'Muster Hans',
-      },
-    ])
-    updateRekoReport.mockResolvedValue({ id: 'r-existing' })
-    const user = userEvent.setup()
-    renderWithIntl(<RekoReportSection incidentId="i-1" canEdit />)
-
-    await user.click(await screen.findByRole('button', { name: /Reko-Bericht ergänzen/ }))
-    await user.click(screen.getByRole('button', { name: 'Nein' }))
-
-    await waitFor(() => expect(updateRekoReport).toHaveBeenCalledTimes(1))
-    expect(updateRekoReport.mock.calls[0][0]).toBe('r-existing')
-    expect(createRekoReportAsEditor).not.toHaveBeenCalled()
-  })
-
   it('never shows "vor Ort" here — it belongs to the Feldmeldungen row alone', async () => {
-    // Decision 15. A draft carrying an arrival used to render "vor Ort seit …"
-    // in this block; a fact shown in two places is a fact that will disagree
-    // with itself.
+    // Decision 15: a fact shown in two places is a fact that will disagree with itself.
     getIncidentRekoReports.mockResolvedValue([
       { id: 'draft', is_draft: true, arrived_at: '2026-08-10T19:22:00Z', photos_json: [] },
     ])
     renderWithIntl(<RekoReportSection incidentId="i-1" canEdit />)
 
-    expect(await screen.findByText('Noch kein Reko-Bericht')).toBeInTheDocument()
+    expect(await screen.findByText('Einsatz relevant?')).toBeInTheDocument()
     expect(screen.queryByText(/vor Ort/)).not.toBeInTheDocument()
   })
+})
 
-  it('shows the whole history as rows at the board, not behind a collapsible', async () => {
-    // The board's question is «was hat sich seit der letzten Meldung geändert»,
-    // and it used to cost two clicks: one on «2 frühere Reko-Berichte», one per
-    // dashed card. Every report is a row now, and unfolding one gives the same
-    // field rows as the current report — there is no second card design for
-    // "older".
-    getIncidentRekoReports.mockResolvedValue([
-      report({ id: 'r-now', summary_text: 'Wasser 15 cm', submitted_at: '2026-08-10T19:34:00Z' }),
-      report({
-        id: 'r-before',
-        summary_text: 'Zulauf noch nicht gestoppt',
-        submitted_at: '2026-08-10T19:02:00Z',
-        effort_json: { personnel_count: 4, vehicles_needed: [], equipment_needed: [], estimated_duration_hours: null },
-      }),
-    ])
-    const user = userEvent.setup()
-    renderWithIntl(<RekoReportSection incidentId="i-1" canEdit dense />)
-
-    expect(await screen.findByText(/Zulauf noch nicht gestoppt/)).toBeInTheDocument()
-    expect(screen.queryByText(/frühere Reko-Berichte/)).not.toBeInTheDocument()
-    // Folded, the earlier report is a one-line digest and nothing more.
-    expect(screen.queryByText('4 Personen')).not.toBeInTheDocument()
-
-    const amend = screen.getByRole('button', { name: /Reko-Bericht ergänzen/ })
-    const rowAction = screen.getAllByRole('button').find(button => button !== amend)
-    await user.click(rowAction!)
-
-    expect(screen.getByText('4 Personen')).toBeInTheDocument()
+describe('the Reko block where it may not write (phone sheet, wall)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
   })
 
-  it('offers nothing to a mount that may not write', async () => {
+  it('shows no form and nothing for a report still in the draft', async () => {
+    getIncidentRekoReports.mockResolvedValue([report({ id: 'r-d', is_draft: true, summary_text: 'Entwurf' })])
     renderWithIntl(<RekoReportSection incidentId="i-1" />)
 
     expect(await screen.findByText('Noch kein Reko-Bericht')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Reko-Bericht/ })).not.toBeInTheDocument()
+    expect(screen.queryByText('Einsatz relevant?')).not.toBeInTheDocument()
+    expect(screen.queryByText('Entwurf')).not.toBeInTheDocument()
+  })
+
+  it.each([[true], [false]])('says an unanswered «Einsatz relevant?» as open and offers no completion (pass 4, S2) – dense %s', async (dense) => {
+    getIncidentRekoReports.mockResolvedValue([report({ id: 'r-open', is_relevant: null, summary_text: 'Keller' })])
+    renderWithIntl(<RekoReportSection incidentId="i-open" dense={dense} onRequestComplete={() => {}} />)
+
+    expect(await screen.findByText('Relevanz nicht beantwortet')).toBeInTheDocument()
+    expect(screen.queryByText('Kein Einsatz nötig')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Einsatz abschliessen/ })).not.toBeInTheDocument()
+  })
+
+  it('opens a photo in the viewer, not in a new tab (#5)', async () => {
+    getIncidentRekoReports.mockResolvedValue([report({ id: 'r-p', photos_json: ['a.jpg', 'b.jpg'] })])
+    const user = userEvent.setup()
+    renderWithIntl(
+      <PhotoViewerProvider incidentLabel="10 · Rebbergstrasse 5">
+        <RekoReportSection incidentId="i-1" />
+      </PhotoViewerProvider>,
+    )
+
+    const thumbs = await screen.findAllByTitle(/\.jpg$/)
+    expect(document.querySelector('a[target="_blank"]')).toBeNull()
+    await user.click(thumbs[1])
+    const viewer = await screen.findByTestId('photo-viewer')
+    expect(viewer).toHaveTextContent('2 / 2')
+    expect(viewer).toHaveTextContent('Muster Hans')
   })
 })

@@ -122,6 +122,8 @@ interface RekoReportFormProps {
   onChange: Dispatch<SetStateAction<RekoFormData>>
   /** The mount's photo door, if it has one. */
   photos?: PhotoTransport
+  /** Open a photo in the incident's viewer (board mount; `PhotoUpload.onOpenPhoto`). */
+  onOpenPhoto?: (filename: string) => void
   /** The field mount's «Bericht senden». The board's mount saves as it goes and has
    *  no submit: it passes none, and draws its sync line in its own header. */
   onSubmit?: () => void | Promise<void>
@@ -149,6 +151,7 @@ export function RekoReportForm({
   busy = false,
   disabled = false,
   footer,
+  onOpenPhoto,
 }: RekoReportFormProps) {
   const t = useTranslations('reko.form')
   const isKp = mount === 'kp'
@@ -410,6 +413,7 @@ export function RekoReportForm({
               transport={photos}
               disabled={disabled}
               dense
+              onOpenPhoto={onOpenPhoto}
               onPhotosChange={updater => onChange(prev => ({ ...prev, photos_json: updater(prev.photos_json) }))}
             />
           </DetailField>
@@ -628,6 +632,7 @@ export function RekoReportForm({
               incidentId={incidentId}
               transport={photos}
               disabled={disabled}
+              onOpenPhoto={onOpenPhoto}
               onPhotosChange={updater => onChange(prev => ({ ...prev, photos_json: updater(prev.photos_json) }))}
             />
           </div>

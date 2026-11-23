@@ -76,11 +76,9 @@ export function RekoReportGateDialog({
     let cancelled = false
     void (async () => {
       try {
-        const reports = await apiClient.getIncidentRekoReports(incidentId)
+        // The Einsatz's one report, draft or filed (or none yet).
+        const [source] = await apiClient.getIncidentRekoReports(incidentId)
         if (cancelled) return
-        const source =
-          reports.find((report) => !report.is_draft) ??
-          reports.find((report) => report.is_draft && !!userId && report.created_by_user_id === userId && !report.submitted_by_personnel_id)
         const start = resumeAutosave(source ?? null)
         opened.current = start
         setForm(start)
@@ -102,13 +100,12 @@ export function RekoReportGateDialog({
     scheduleSave(form)
   }, [form, phase, scheduleSave])
 
-  const reportId = autosave.reportId
   const photos = useMemo(
     () => ({
-      upload: async (file: File) => (await apiClient.uploadRekoPhotoAsEditor(incidentId, file, reportId() ?? undefined)).filename,
-      remove: (filename: string) => apiClient.deleteRekoPhotoAsEditor(incidentId, filename, reportId() ?? undefined),
+      upload: async (file: File) => (await apiClient.uploadRekoPhotoAsEditor(incidentId, file)).filename,
+      remove: (filename: string) => apiClient.deleteRekoPhotoAsEditor(incidentId, filename),
     }),
-    [incidentId, reportId],
+    [incidentId],
   )
 
   /** The main answer: the newest form on the server first (`flush` sends a waiting save),
