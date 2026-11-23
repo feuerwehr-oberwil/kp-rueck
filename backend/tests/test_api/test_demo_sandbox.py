@@ -1,16 +1,19 @@
 """Tests for the per-session demo sandbox endpoint (POST /api/demo/sandbox)."""
 
+from io import BytesIO
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
 import pytest
 import pytest_asyncio
+from fastapi import HTTPException, UploadFile
 from httpx import AsyncClient
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.health import DEMO_SANDBOX_MAX, DEMO_SANDBOX_PREFIX
 from app.config import settings as app_settings
+from app.crud.reko import get_or_create_reko_report
 from app.models import (
     Event,
     Incident,
@@ -22,6 +25,8 @@ from app.models import (
     StatusTransition,
 )
 from app.seed_demo import seed_demo_database, seed_demo_shared_resources
+from app.services.photo_storage import DEMO_MAX_PHOTOS, enforce_demo_photo_limits
+from app.services.tokens import generate_form_token
 
 # The storm scenario: 1 featured fire + 16 loose storm/water incidents +
 # 4 Auftrag stops ("Sturmholz Oberwil").
@@ -94,6 +99,65 @@ class TestDemoSandbox:
 
         # Shared resources were not duplicated
         assert await _count(db_session, Personnel) == personnel_before
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_relevant_reko_reports_serve_their_illustration(
+        self, editor_client: AsyncClient, db_session: AsyncSession, demo_mode, shared_resources
+    ):
+        event_id = UUID((await editor_client.post("/api/demo/sandbox")).json()["event_id"])
+        reports = (
+            (
+                await db_session.execute(
+                    select(RekoReport)
+                    .join(Incident, RekoReport.incident_id == Incident.id)
+                    .where(Incident.event_id == event_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        submitted = [r for r in reports if not r.is_draft]
+        assert len(submitted) == 4
+        assert sum(r.is_relevant for r in submitted) == 3
+
+        for report in submitted:
+            if not report.is_relevant:
+                assert not report.photos_json
+                continue
+            assert len(report.photos_json) == 1, report.summary_text
+            response = await editor_client.get(f"/api/photos/{report.incident_id}/{report.photos_json[0]}")
+            assert response.status_code == 200
+            assert response.headers["content-type"] == "image/jpeg"
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_seeded_illustrations_do_not_fill_the_demo_upload_cap(
+        self, editor_client: AsyncClient, db_session: AsyncSession, demo_mode, shared_resources
+    ):
+        for _ in range(DEMO_MAX_PHOTOS // 3 + 1):
+            await editor_client.post("/api/demo/sandbox")
+        illustrated = (
+            (await db_session.execute(select(RekoReport).where(func.jsonb_array_length(RekoReport.photos_json) > 0)))
+            .scalars()
+            .all()
+        )
+        # A follow-up form copies the illustration into a draft: the same file, not a new one.
+        # An editor's verdict change does not turn the seed's file into an upload.
+        for report in illustrated:
+            report.is_relevant = False
+            await get_or_create_reko_report(
+                db_session, report.incident_id, generate_form_token(str(report.incident_id))
+            )
+        upload = UploadFile(file=BytesIO(b"jpeg"), filename="a.jpg")
+
+        await enforce_demo_photo_limits(db_session, upload, RekoReport.photos_json)
+
+        # Visitor uploads on a seeded report still count.
+        illustrated[0].photos_json = illustrated[0].photos_json + [f"{uuid4()}.jpg" for _ in range(DEMO_MAX_PHOTOS)]
+        await db_session.flush()
+        with pytest.raises(HTTPException):
+            await enforce_demo_photo_limits(db_session, upload, RekoReport.photos_json)
 
     @pytest.mark.asyncio
     @pytest.mark.api

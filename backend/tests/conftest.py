@@ -30,6 +30,7 @@ from app.models import (
     User,
     Vehicle,
 )
+from app.services.photo_storage import photo_storage
 from app.traccar import traccar_client
 
 # bcrypt at the production cost (12) is ~250 ms of CPU per hash or check, by design. The
@@ -203,6 +204,16 @@ def traccar_unconfigured(monkeypatch):
     monkeypatch.setattr(traccar_client, "base_url", "")
     monkeypatch.setattr(traccar_client, "email", "")
     monkeypatch.setattr(traccar_client, "password", "")
+
+
+@pytest.fixture(autouse=True)
+def isolate_photo_storage(tmp_path, monkeypatch):
+    """Point the shared photo store at a per-test directory.
+
+    The demo seed writes each relevant Reko report's illustration through it, so any test
+    that seeds the demo would otherwise drop JPEGs into the checkout's `data/photos`.
+    """
+    monkeypatch.setattr(photo_storage, "photos_dir", tmp_path / "photos")
 
 
 @pytest_asyncio.fixture(scope="session")
