@@ -1227,7 +1227,9 @@ export default function MapPage() {
                                           e.stopPropagation()
                                           openIncidentDetail(incident.id)
                                         }}
-                                        className="hidden flex-shrink-0 rounded p-1 hover:bg-background/80 group-hover:block"
+                                        // Always shown on the selected row: hover-only, the row's one
+                                        // visible way in stayed hidden until the pointer found it.
+                                        className={`flex-shrink-0 rounded p-1 hover:bg-background/80 ${isSelected ? 'block' : 'hidden group-hover:block'}`}
                                         aria-label={t('page.showDetails')}
                                       >
                                         <FileText className="h-3.5 w-3.5 text-muted-foreground" />
