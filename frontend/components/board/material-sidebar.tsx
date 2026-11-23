@@ -11,6 +11,8 @@
  * elements as before.
  */
 
+import { FELD_TARGET } from "@/lib/detail-target"
+import { type OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import type { Dispatch, SetStateAction } from "react"
 import { useTranslations } from "next-intl"
 import { ChevronRight, PanelRight } from "lucide-react"
@@ -46,7 +48,7 @@ export interface MaterialSidebarProps {
   materialsAvailableOnly: boolean
   setMaterialsAvailableOnly: Dispatch<SetStateAction<boolean>>
   materialOnSiteEntries: ReturnType<typeof selectMaterialOnSite>
-  openIncidentDetail: (operationId: string) => void
+  openIncidentDetail: (operationId: string, tab?: OperationDetailTab) => void
   isLoaded: boolean
   /** Loaded and failed with nothing ever shown — see `boardNeverLoaded` in the operations context. */
   boardNeverLoaded: boolean
@@ -156,7 +158,8 @@ export function MaterialSidebar({
             the search nor «nur verfügbare» (which hides everything that is
             assigned, i.e. exactly this material) can filter the answer to
             "what is still out there" away. Renders nothing at zero. */}
-        <MaterialOnSitePanel entries={materialOnSiteEntries} onOpenIncident={openIncidentDetail} />
+        {/* A row opens Feld: «Vor Ort verblieben» in the submitted Rapport lists the unit. */}
+        <MaterialOnSitePanel entries={materialOnSiteEntries} onOpenIncident={(id) => openIncidentDetail(id, FELD_TARGET.tab)} />
         {/* Scrollable content – ends in the `ScrollEndFade`, as the Personen-Leiste. */}
         <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1">
           {!isLoaded ? (
