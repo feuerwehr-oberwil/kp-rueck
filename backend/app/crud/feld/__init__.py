@@ -108,6 +108,8 @@ from .reports import (
     record_field_complete,
     record_field_message,
     record_pickup,
+    vehicle_on_site,
+    vehicles_with_crew,
 )
 from .requests import (
     OPEN_STATUSES,
@@ -244,6 +246,8 @@ __all__ = [
     "set_request_status",
     "unlock_is_live",
     "update_field_report",
+    "vehicle_on_site",
+    "vehicles_with_crew",
     "visible_by_personnel",
     "visible_incidents_for_personnel",
 ]

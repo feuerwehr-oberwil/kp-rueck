@@ -17,13 +17,16 @@ What counts as a fact (and what deliberately does not — the log must stay read
 * a Reko report filed — drafts are not (`reko`)
 * a Divera alarm sent (`alarm`)
 * the field facts, each from the ONE row that records it once (`field`): arrival on the
-  Schadenplatz, «Einsatz beendet», pickup needed / done (their audit rows, set AND
-  cleared), the Schadenplatz-Rapport filed, the Reko arriving (the report's `arrived_at`).
+  Schadenplatz, «Einsatz beendet», pickup needed / done / «Wir fahren selbst» (their audit
+  rows, set AND cleared), the Schadenplatz-Rapport filed, the Reko arriving (the report's
+  `arrived_at`), and the vehicle facts a bell announced (`services/vehicle_facts`).
 
 NOT the bell. A notification is a reminder the board rebuilds and de-duplicates as it
 sees fit (`vehicle_arrived` is re-derived on every poll with a 30-minute window); a
-permanent record built from it repeats lines and misses the second vehicle. The nags
-(overdue, no personnel, missing location …) were never facts anyway.
+permanent record built from it repeats lines and misses the second vehicle. A bell that
+carries a fact writes its own audit row beside it, once per fact (`services/vehicle_facts`),
+and the log reads that. The nags (overdue, no personnel, missing location …) were never
+facts anyway.
 
 Manual lines and their corrections come from the API (`api/journal.py`), never from here.
 
@@ -73,8 +76,21 @@ FIELD_AUDIT_ACTIONS: frozenset[str] = frozenset(
         "field_pickup_requested",
         "field_pickup_cleared",
         "rapport_submitted",
+        # vehicle facts a bell announced (services/vehicle_facts): GPS on site / back, Übung breakdown
+        "vehicle_on_site",
+        "vehicle_returned",
+        "vehicle_down",
     }
 )
+
+
+def field_fact_type(action: str, changes: dict[str, Any]) -> str:
+    """`data.type` of a field fact: its audit action, except the crew's own «Wir fahren
+    selbst» (`field_pickup_self`), which must not read as the KP's «Abholung disponiert»."""
+    if action == "field_pickup_cleared" and changes.get("self_drive") is True:
+        return "field_pickup_self"
+    return action
+
 
 #: A request from the field (R13) changing state – in Arbeit, erledigt, wieder offen. The row
 #: says which (``data.type`` = ``field_request_<to>``, the same labels table as the other
@@ -409,6 +425,15 @@ class _Collector:
                 created_by=obj.user_id,
             )
         elif action in FIELD_AUDIT_ACTIONS:
+            # the line's detail: the crew's pickup note, or which vehicle a vehicle fact is about
+            detail = next(
+                (
+                    str(v).strip()
+                    for v in (changes.get("pickup_note"), changes.get("vehicle_name"))
+                    if v and str(v).strip()
+                ),
+                None,
+            )
             self.add(
                 key=key,
                 kind="field",
@@ -417,9 +442,10 @@ class _Collector:
                 occurred_at=_parse(changes.get("arrived_at"))
                 or _parse(changes.get("field_complete_reported_at"))
                 or obj.timestamp,
-                text=(str(changes["pickup_note"]).strip() or None) if changes.get("pickup_note") else None,
-                data={"type": action, "source": self._field_source(obj, changes)},
-                author_name=who if changes.get("source") == "kp" else None,
+                text=detail,
+                data={"type": field_fact_type(action, changes), "source": self._field_source(obj, changes)},
+                # the crew member who reported it, else the operator who took it over the radio
+                author_name=changes.get("personnel_name") or (who if changes.get("source") == "kp" else None),
                 created_by=obj.user_id,
             )
         else:

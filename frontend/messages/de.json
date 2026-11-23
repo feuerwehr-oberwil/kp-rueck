@@ -637,8 +637,8 @@
       "armedHint": "Nochmals klicken oder Enter bestätigt · Esc geht zurück"
     },
     "returningVehicle": {
-      "title": "Kein Fahrzeug zugewiesen",
-      "description": "<hl>{location}</hl> wird beendet – aber es ist kein Fahrzeug zugewiesen. Die Mannschaft müsste zu Fuss zurück.",
+      "title": "Kein Fahrzeug vor Ort",
+      "description": "<hl>{location}</hl> wird beendet – aber kein Fahrzeug bleibt vor Ort. Die Mannschaft müsste zu Fuss zurück.",
       "assignVehicle": "Fahrzeug zuweisen",
       "endAnyway": "Trotzdem beenden"
     },
@@ -3587,6 +3587,7 @@
       "photo_limit": "Höchstens {max} Fotos pro Bericht.",
       "feld_token_other_person": "Der Zugriffscode gehört zu einer anderen Person.",
       "feld_plan_invalid": "Diese Zeit geht nicht. Bitte neu wählen.",
+      "feld_pickup_vehicle_on_site": "{vehicle} steht bei euch vor Ort – keine Abholung nötig.",
       "incident_not_found": "Einsatz nicht gefunden",
       "reko_link_invalid": "Dieser Reko-Link ist ungültig oder abgelaufen.",
       "reko_report_not_found": "Bericht nicht gefunden",
@@ -4212,6 +4213,7 @@
       "unknownPerson": "unbekannt",
       "timeLabel": "Zeit für «{what}»",
       "pickupNotePlaceholder": "Notiz: wie viele, wo genau",
+      "pickupVehicleOnSite": "{vehicle} steht vor Ort",
       "waiting": "Wartet seit {duration}",
       "saveFailed": "Speichern fehlgeschlagen",
       "messagesTitle": "Meldungen vom Feld",
@@ -4508,6 +4510,7 @@
       "seen": "gesehen",
       "doneBy": "erledigt {time} · {name}",
       "doneAt": "erledigt {time}",
+      "selfDriveBy": "fährt selbst {time} · {name}",
       "inProgressBy": "in Arbeit · {name}",
       "fromField": "{name} · {time}",
       "fromKp": "im KP erfasst · {time}",
@@ -4652,6 +4655,7 @@
       "unmerge": "Zusammenführung mit «{other}» aufgehoben",
       "sourceKp": "im KP erfasst",
       "sourceGps": "GPS",
+      "sourceTraining": "Übung",
       "field": {
         "field_arrived": "Vor Ort gemeldet",
         "field_arrived_cleared": "Meldung «vor Ort» zurückgenommen",
@@ -4666,7 +4670,12 @@
         "field_request_done": "Anfrage erledigt",
         "field_request_open": "Anfrage wieder offen",
         "field_request_moved": "Anfrage übernommen von {other}",
-        "field_request_returned": "Anfrage zurück von {other}"
+        "field_request_returned": "Anfrage zurück von {other}",
+        "field_pickup_self": "Fährt selbst zurück",
+        "field_reported": "Vom Feld gemeldet",
+        "vehicle_on_site": "Fahrzeug am Einsatzort",
+        "vehicle_returned": "Fahrzeug zurück im Magazin",
+        "vehicle_down": "Fahrzeug ausgefallen"
       },
       "itemsMoved": "Übernommen von {other}",
       "itemsReturned": "Zurück von {other}"

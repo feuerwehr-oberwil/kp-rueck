@@ -4,6 +4,7 @@
 
 import type { ApiAssignedVehicle } from './vehicles'
 import type { ApiFieldRequest } from './feld'
+import type { ApiJournalKind } from './journal'
 
 export type IncidentType =
   | 'brandbekaempfung'
@@ -259,7 +260,7 @@ export type IncidentTextField =
 export interface ApiIncidentTimelineEvent {
   /** `kp_message` is the KP's own «Meldung an den Trupp» (sweep 27 §P3.2) —
    *  the other direction of `field_message`, with `actor_name` = the sender. */
-  event_type: 'status_change' | 'assignment' | 'field_message' | 'kp_message' | 'merge' | 'unmerge'
+  event_type: 'status_change' | 'assignment' | 'field_message' | 'kp_message' | 'merge' | 'unmerge' | 'journal'
   timestamp: string
   actor_name: string | null
   // status_change fields
@@ -282,6 +283,11 @@ export interface ApiIncidentTimelineEvent {
   // `message`), and whether that merge still stands (only then «Trennen»).
   merged_incident_id?: string | null
   merge_active?: boolean | null
+  // journal fields — a fact a notification announced (vor Ort, Abholung, Reko, GPS …),
+  // read from the incident's journal row; `message` is the row's text. Rendered with
+  // the drawer's `JournalText`.
+  journal_kind?: ApiJournalKind | null
+  journal_data?: Record<string, unknown> | null
 }
 
 /** One KP → Trupp message as `/api/incidents/{id}/field-messages` returns it. */

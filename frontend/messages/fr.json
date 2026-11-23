@@ -686,6 +686,7 @@
       "photo_limit": "{max} photos au maximum par rapport.",
       "feld_token_other_person": "Ce code d’accès appartient à une autre personne.",
       "feld_plan_invalid": "Cette heure ne va pas. Choisis-en une autre.",
+      "feld_pickup_vehicle_on_site": "{vehicle} est sur place avec vous – pas besoin de récupération.",
       "incident_not_found": "Intervention introuvable",
       "reko_link_invalid": "Ce lien de reconnaissance n’est pas valable ou a expiré.",
       "reko_report_not_found": "Rapport introuvable",
@@ -977,6 +978,7 @@
       "unknownPerson": "inconnue",
       "timeLabel": "Heure de « {what} »",
       "pickupNotePlaceholder": "Note : combien, où exactement",
+      "pickupVehicleOnSite": "{vehicle} est sur place",
       "waiting": "Attend depuis {duration}",
       "saveFailed": "Échec de l’enregistrement",
       "messagesTitle": "Annonces du terrain",
@@ -1273,6 +1275,7 @@
       "seen": "vu",
       "doneBy": "réglé {time} · {name}",
       "doneAt": "réglé {time}",
+      "selfDriveBy": "rentre seul {time} · {name}",
       "inProgressBy": "en cours · {name}",
       "fromField": "{name} · {time}",
       "fromKp": "saisi au PC · {time}",
@@ -1933,8 +1936,8 @@
       "armedHint": "Cliquer encore ou Entrée confirme · Échap revient en arrière"
     },
     "returningVehicle": {
-      "title": "Aucun véhicule attribué",
-      "description": "<hl>{location}</hl> se termine – mais aucun véhicule n’est attribué. L’effectif devrait rentrer à pied.",
+      "title": "Aucun véhicule sur place",
+      "description": "<hl>{location}</hl> se termine – mais aucun véhicule ne reste sur place. L’effectif devrait rentrer à pied.",
       "assignVehicle": "Attribuer un véhicule",
       "endAnyway": "Terminer quand même"
     },
@@ -4652,6 +4655,7 @@
       "unmerge": "Fusion avec « {other} » annulée",
       "sourceKp": "saisi au PC",
       "sourceGps": "GPS",
+      "sourceTraining": "Exercice",
       "field": {
         "field_arrived": "Arrivée sur place signalée",
         "field_arrived_cleared": "Arrivée sur place retirée",
@@ -4666,7 +4670,12 @@
         "field_request_done": "Demande traitée",
         "field_request_open": "Demande rouverte",
         "field_request_moved": "Demande reprise de {other}",
-        "field_request_returned": "Demande revenue de {other}"
+        "field_request_returned": "Demande revenue de {other}",
+        "field_pickup_self": "Rentre par ses propres moyens",
+        "field_reported": "Signalé depuis le terrain",
+        "vehicle_on_site": "Véhicule sur le lieu d’intervention",
+        "vehicle_returned": "Véhicule de retour à la caserne",
+        "vehicle_down": "Véhicule en panne"
       },
       "itemsMoved": "Repris de {other}",
       "itemsReturned": "Revenu de {other}"

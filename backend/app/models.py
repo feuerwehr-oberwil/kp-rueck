@@ -1583,6 +1583,15 @@ class FieldRequest(Base):
         """A crew tapped it (True) or the KP took it over the radio (False)."""
         return self.created_by_user_id is None
 
+    @property
+    def done_in_field(self) -> bool:
+        """Closed by the crew itself, not by the KP — for an Abholung: «Wir fahren selbst».
+
+        ``record_pickup`` closes with the crew's name and no user; every KP close
+        stamps its user.
+        """
+        return self.status == "done" and self.done_by_user_id is None and self.done_by_name is not None
+
     __table_args__ = (
         CheckConstraint("kind IN ('message', 'material', 'personnel', 'pickup')", name="valid_field_request_kind"),
         CheckConstraint("status IN ('open', 'in_progress', 'done')", name="valid_field_request_status"),

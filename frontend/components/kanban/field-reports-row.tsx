@@ -43,6 +43,8 @@ import { DETAIL_CONTROL_INDENT, DetailGroupHeading } from '@/components/kanban/d
 import { apiClient, type ApiIncidentTimelineEvent } from '@/lib/api-client'
 import type { ApiFieldReportUpdate } from '@/lib/api/types'
 import { useOperations, type Operation } from '@/lib/contexts/operations-context'
+import { useGroups } from '@/lib/contexts/groups-context'
+import { operationVehicleOnSite } from '@/lib/vehicle-on-site'
 import { usePersonnel } from '@/lib/contexts/personnel-context'
 import { applyTimeEdit, toTimeInput } from '@/lib/field-time'
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
@@ -68,7 +70,12 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
   const t = useTranslations('feld.kp')
   const { refreshOperations } = useOperations()
   const { personnel } = usePersonnel()
+  const { groups, getGroupResources } = useGroups()
   const [saving, setSaving] = useState<Row | null>(null)
+  // While a vehicle stands on site nobody has to fetch the crew: a new «Abholung
+  // nötig» is not offered (owner, 23.11.2026, #7 – the server refuses it too). An
+  // Abholung already open stays switchable off.
+  const onSite = operationVehicleOnSite(operation, groups, getGroupResources)
   const [note, setNote] = useState(operation.pickupNote ?? '')
 
   const nameById = useMemo(() => new Map(personnel.map(p => [p.id, p.name])), [personnel])
@@ -134,6 +141,8 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
      *  personnel FK — the Reko arrival lives on `reko_reports`, and the board
      *  carries the answer as a flag rather than an id it would have to resolve. */
     line?: string | null
+    /** False: the switch cannot be turned on now; `line` says why. */
+    canTurnOn?: boolean
     onToggle: (checked: boolean) => void
     onTimeChange: (time: string) => void
   }
@@ -164,6 +173,8 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
       at: operation.pickupRequestedAt,
       on: Boolean(operation.pickupNeeded),
       by: operation.pickupRequestedBy,
+      canTurnOn: onSite === null,
+      ...(!operation.pickupNeeded && onSite ? { line: t('pickupVehicleOnSite', { vehicle: onSite }) } : {}),
       onToggle: checked => save('pickup', { pickup_needed: checked, pickup_note: checked ? note || null : null }),
       onTimeChange: time => {
         const next = applyTimeEdit(operation.pickupRequestedAt, time)
@@ -196,6 +207,7 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
       <div className="space-y-2">
         {rows.map(row => {
           const line = row.line !== undefined ? row.line : provenance(row.at, row.by)
+          const locked = !canEdit || (!row.on && row.canTurnOn === false)
           return (
             <div key={row.key}>
               {/* One row unit — `min-h-8`, the height of the time input — in
@@ -219,7 +231,7 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
                 <button
                   type="button"
                   tabIndex={-1}
-                  disabled={!canEdit || saving === row.key}
+                  disabled={locked || saving === row.key}
                   onClick={() => row.onToggle(!row.on)}
                   className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left disabled:cursor-default"
                 >
@@ -267,7 +279,7 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
                     <Switch
                       aria-label={row.label}
                       checked={row.on}
-                      disabled={!canEdit}
+                      disabled={locked}
                       onCheckedChange={row.onToggle}
                     />
                   )}

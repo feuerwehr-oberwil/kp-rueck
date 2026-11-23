@@ -43,6 +43,8 @@ class FieldRequestResponse(BaseModel):
     in_progress_by_name: str | None = None
     done_at: datetime | None = None
     done_by_name: str | None = None
+    # Closed by the crew itself (an Abholung: «Wir fahren selbst»), not by the KP.
+    done_in_field: bool = False
 
 
 class FieldRequestStatusUpdate(BaseModel):

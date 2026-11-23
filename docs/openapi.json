@@ -15502,7 +15502,7 @@
           "training"
         ],
         "summary": "Simulate Reinforcement Request",
-        "description": "Inject \"Feld fordert Verstärkung\": the crew on scene asks for more.\n\nNotification only — what (and whether) to send is the trainee's decision\non the board.",
+        "description": "Inject \"Feld fordert Verstärkung\": the crew on scene asks for more.\n\nThe same write a crew's «Verstärkung nötig» on `/feld` makes\n(``crud.feld.create_field_request``, kind ``personnel``): a work item in the\nRapport tab, a bell entry, a Journal line and a Chronik row. It used to be a\nbell entry only, so the request was gone once dismissed (owner, 23.11.2026).\nWhat (and whether) to send is the trainee's decision on the board.",
         "operationId": "simulate_reinforcement_request_api_training_events__event_id__simulate_reinforcement__incident_id__post",
         "parameters": [
           {
@@ -22353,6 +22353,11 @@
               }
             ],
             "title": "Done By Name"
+          },
+          "done_in_field": {
+            "type": "boolean",
+            "title": "Done In Field",
+            "default": false
           }
         },
         "type": "object",
@@ -24104,6 +24109,29 @@
               }
             ],
             "title": "Merge Active"
+          },
+          "journal_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Journal Kind"
+          },
+          "journal_data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Journal Data"
           }
         },
         "type": "object",
@@ -24112,7 +24140,7 @@
           "timestamp"
         ],
         "title": "IncidentTimelineEvent",
-        "description": "A single event on the incident timeline.\n\nFlat shape with optional fields differentiated by `event_type`:\n- status_change → from_status, to_status, notes (+ seen_status, stale_seconds\n                  on a stale move the operator confirmed)\n- assignment    → assignment_action ('assigned' | 'unassigned'),\n                  resource_type, resource_name\n- field_message → message, source ('feld' | 'kp' — a crew's sentence, or an\n                  operator typing what came over the radio)\n- kp_message    → message, actor_name (the KP's own «Meldung an den Trupp»,\n                  going the OTHER way — sweep 27 §P3.2)"
+        "description": "A single event on the incident timeline.\n\nFlat shape with optional fields differentiated by `event_type`:\n- status_change → from_status, to_status, notes (+ seen_status, stale_seconds\n                  on a stale move the operator confirmed)\n- assignment    → assignment_action ('assigned' | 'unassigned'),\n                  resource_type, resource_name\n- field_message → message, source ('feld' | 'kp' — a crew's sentence, or an\n                  operator typing what came over the radio)\n- kp_message    → message, actor_name (the KP's own «Meldung an den Trupp»,\n                  going the OTHER way — sweep 27 §P3.2)\n- journal       → journal_kind ('field' | 'reko'), journal_data (the journal row's\n                  `data`: `type` + `source` for a field fact, `relevant` for a\n                  Reko report), message (its text), actor_name (who reported it).\n                  A fact a notification announced (`services/journal`)."
       },
       "IncidentTimelineResponse": {
         "properties": {

@@ -1279,8 +1279,10 @@ class RapportSimProfile:
     # Restliste exists, and finding them is the exercise.
     bulk_coverage: float = 0.80
     # "Abholung nötig" after "Einsatz beendet" (decision 24), preselected by the
-    # situation: a crew that walked there or whose vehicle drove on is usually
-    # stranded, everyone else usually is not.
+    # situation: a crew that walked there or has no vehicle at all is usually
+    # stranded; one whose vehicle «kehrt zurück» usually is not. With a vehicle
+    # on site the answer is never «Abholung» (owner, 23.11.2026 – the server
+    # refuses it, `crud.feld.vehicle_on_site`), so no rate applies there.
     pickup_when_stranded: float = 0.70
     pickup_otherwise: float = 0.15
 

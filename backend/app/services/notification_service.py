@@ -28,6 +28,7 @@ from ..schemas import NotificationSettings
 from . import notification_params as texts
 from .incident_display import get_home_city, location_display
 from .rapport_rows import STATUS_LABELS
+from .vehicle_facts import record_vehicle_fact
 
 logger = logging.getLogger(__name__)
 
@@ -674,7 +675,7 @@ async def _check_geofence_alerts(
 
         home_city = await get_home_city(db) if assignments else ""
 
-        for _assignment, incident, vehicle in assignments:
+        for assignment, incident, vehicle in assignments:
             vp = position_by_name.get(vehicle.name.lower())
             if vp is None:
                 continue
@@ -687,6 +688,15 @@ async def _check_geofence_alerts(
             )
 
             if distance <= settings.geofence_radius_meters:
+                # The bell is deduplicated per incident and window; the fact once per stint.
+                await record_vehicle_fact(
+                    db,
+                    incident_id=incident.id,
+                    fact="vehicle_on_site",
+                    vehicle_name=vehicle.name,
+                    source="gps",
+                    assignment_id=assignment.id,
+                )
                 message, params = texts.vehicle_on_site(
                     vehicle.name, location_display(incident.location_address, home_city) or incident.title or "Einsatz"
                 )

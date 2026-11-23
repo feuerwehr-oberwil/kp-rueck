@@ -59,7 +59,6 @@ from ..services.tokens import generate_form_token
 from ..services.training import (
     file_simulated_rapport,
     generate_training_divera_emergency,
-    has_vehicle,
     simulated_filer,
     stranded_pickup_note,
 )
@@ -72,6 +71,7 @@ from ..services.training_simulation_data import (
     generate_reko_report_data,
     scene_type,
 )
+from ..services.vehicle_facts import record_vehicle_fact
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import (
     broadcast_incident_update,
@@ -238,9 +238,14 @@ async def simulate_field_complete(
     pickup_note = payload.pickup_note if payload else None
     if pickup_needed is None:
         rng = random.Random()
-        stranded = incident.zu_fuss or not await has_vehicle(db, incident)
-        rate = RAPPORT_SIM_PROFILE.pickup_when_stranded if stranded else RAPPORT_SIM_PROFILE.pickup_otherwise
-        pickup_needed = rng.random() < rate
+        vehicles = await feld_crud.vehicles_with_crew(db, incident)
+        if any(stays is not False for _, stays in vehicles):
+            # A vehicle stands on site: nobody needs fetching, and the server refuses it (#7).
+            pickup_needed = False
+        else:
+            stranded = incident.zu_fuss or not vehicles
+            rate = RAPPORT_SIM_PROFILE.pickup_when_stranded if stranded else RAPPORT_SIM_PROFILE.pickup_otherwise
+            pickup_needed = rng.random() < rate
         if pickup_needed and pickup_note is None:
             pickup_note = stranded_pickup_note(incident)
 
@@ -481,13 +486,17 @@ async def simulate_escalation(
 async def simulate_reinforcement_request(
     event_id: UUID,
     incident_id: UUID,
+    request: Request,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ) -> SimulateInjectResponse:
     """Inject "Feld fordert Verstärkung": the crew on scene asks for more.
 
-    Notification only — what (and whether) to send is the trainee's decision
-    on the board.
+    The same write a crew's «Verstärkung nötig» on `/feld` makes
+    (``crud.feld.create_field_request``, kind ``personnel``): a work item in the
+    Rapport tab, a bell entry, a Journal line and a Chronik row. It used to be a
+    bell entry only, so the request was gone once dismissed (owner, 23.11.2026).
+    What (and whether) to send is the trainee's decision on the board.
     """
     await _require_training_event(db, event_id)
     incident = await _get_event_incident(db, event_id, incident_id)
@@ -498,21 +507,20 @@ async def simulate_reinforcement_request(
             detail="Abgeschlossene Einsätze können keine Verstärkung anfordern",
         )
 
-    request_text = generate_reinforcement_request(incident.type)
-    message, params = notification_params.training_reinforcement(incident.title, request_text)
-    db.add(
-        Notification(
-            type="training_emergency",
-            severity="warning",
-            message=message,
-            params=params,
-            incident_id=incident.id,
-            event_id=event_id,
-            dismissed=False,
-        )
+    actor = await simulated_filer(db, incident, current_user, random.Random())
+    created = await feld_crud.create_field_request(
+        db,
+        incident,
+        actor=actor,
+        message="",
+        kind="personnel",
+        item=generate_reinforcement_request(incident.type)[:120],
+        request=request,
     )
-
-    return SimulateInjectResponse(message=message)
+    if created is None:  # never: the item is always set
+        raise HTTPException(status_code=500, detail="Verstärkung konnte nicht erfasst werden")
+    work_item, notification = created
+    return SimulateInjectResponse(message=notification.message if notification else work_item.label)
 
 
 # ---------------------------------------------------------------------------
@@ -870,6 +878,15 @@ async def simulate_vehicle_breakdown(
     # the two on its own — the drift `crud/materials.py` exists to prevent.
     apply_out_of_service(vehicle, True)
 
+    # The bell is dismissible; the fact stays on the incident (Journal, Chronik).
+    await record_vehicle_fact(
+        db,
+        incident_id=incident.id,
+        fact="vehicle_down",
+        vehicle_name=vehicle.name,
+        source="training",
+        user=current_user,
+    )
     message, params = notification_params.training_vehicle_down(vehicle.name, incident.title)
     db.add(
         Notification(

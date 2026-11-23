@@ -40,6 +40,7 @@ import { onStatusConflict } from "@/lib/status-conflict"
 import type { Material, Operation, OperationStatus } from "@/lib/contexts/operations-context"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { findAuftragForStop, isBackwardTransition, remainingRouteStops, startableNextStop, statusBadgeClass } from "@/lib/kanban-utils"
+import { operationVehicleOnSite } from "@/lib/vehicle-on-site"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
@@ -341,12 +342,12 @@ export function useIncidentStatusWorkflow({
     openDispatchGate(base)
   }, [gateFor, openDispatchGate, operationById])
 
-  /** Still «Beendet» without a vehicle — no own vehicle, none on its route, not zu Fuss. */
-  const lacksReturningVehicle = useCallback((operation: Operation) => {
-    const auftrag = findAuftragForStop(groups, operation)
-    const routeVehicleCount = auftrag ? getGroupResources(auftrag.id).vehicles.length : 0
-    return !operation.zuFuss && operation.vehicles.length === 0 && routeVehicleCount === 0
-  }, [getGroupResources, groups])
+  /** Into «Rückfahrt» with no vehicle on site (`vehicleOnSite`: an own vehicle whose
+   *  driver «kehrt zurück» has already left), none on its route, not zu Fuss. */
+  const lacksReturningVehicle = useCallback(
+    (operation: Operation) => !operation.zuFuss && operationVehicleOnSite(operation, groups, getGroupResources) === null,
+    [getGroupResources, groups],
+  )
 
   const triggerReturningVehicleCheck = useCallback((operationId: string, previousStatus?: OperationStatus) => {
     const operation = operationById(operationId)
@@ -717,10 +718,8 @@ export function useIncidentStatusWorkflow({
   }, [groups, materialChoice, materialDecisionItems, materialDecisionOperation, removeMaterial, unassignGroupResource])
 
   const returningVehicleOperation = gateOperation("returningVehicle")
-  const effectiveReturningVehicleOperation = returningVehicleOperation
-    && !returningVehicleOperation.zuFuss
-    && returningVehicleOperation.vehicles.length === 0
-    && (!returningVehicleOperation.groupId || getGroupResources(returningVehicleOperation.groupId).vehicles.length === 0)
+  // Closes itself once a vehicle is on site after all (assigned meanwhile, or set to «bleibt vor Ort»).
+  const effectiveReturningVehicleOperation = returningVehicleOperation && lacksReturningVehicle(returningVehicleOperation)
     ? returningVehicleOperation
     : null
 

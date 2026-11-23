@@ -639,27 +639,32 @@ async def test_simulate_escalation_rejects_completed_incident(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_simulate_reinforcement_creates_notification(
+async def test_simulate_reinforcement_is_a_real_field_request(
     editor_client: AsyncClient, db_session: AsyncSession, training_event: Event, active_incident: Incident
 ):
+    """«Feld fordert Verstärkung» writes what a crew's «Verstärkung nötig» writes: a work
+    item, its bell and a Journal line (owner, 23.11.2026, #12) – not a bell alone."""
     response = await editor_client.post(
         f"/api/training/events/{training_event.id}/simulate/reinforcement/{active_incident.id}"
     )
     assert response.status_code == 200
-    message = response.json()["message"]
-    assert "Verstärkung" in message
+    assert "Verstärkung" in response.json()["message"]
 
     from sqlalchemy import select
 
-    from app.models import Notification
+    from app.models import FieldRequest, JournalEntry
 
-    notification = (
-        (await db_session.execute(select(Notification).where(Notification.incident_id == active_incident.id)))
-        .scalars()
-        .first()
-    )
-    assert notification is not None
-    assert notification.severity == "warning"
+    request = (
+        await db_session.execute(select(FieldRequest).where(FieldRequest.incident_id == active_incident.id))
+    ).scalar_one()
+    assert request.kind == "personnel" and request.status == "open" and request.item
+    assert request.notification_id is not None
+    journal = (
+        await db_session.execute(
+            select(JournalEntry).where(JournalEntry.incident_id == active_incident.id, JournalEntry.kind == "message")
+        )
+    ).scalar_one()
+    assert journal.text == request.label
 
 
 @pytest.mark.asyncio

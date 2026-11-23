@@ -8,10 +8,12 @@
  * nobody found. It is now the Verlauf tab's own content: always expanded, no
  * toggle, scrolling with the tab like everything else.
  *
- * Three kinds of entry, one chronology: status changes, resource assignments,
- * and the crew's Freitext-Meldungen. The messages are the reason this is a list
- * and not a popover — until they were merged in, what came in over the radio
- * lived only in a dismissible notification.
+ * One chronology: status changes, resource assignments, the crew's
+ * Freitext-Meldungen, and the facts a notification announced (vor Ort, Abholung,
+ * «fährt selbst», Reko, GPS am Einsatzort …). The messages and the facts are the
+ * reason this is a list and not a popover — until they were merged in, what came
+ * in over the radio lived only in a dismissible notification. A fact is the
+ * journal's own row for this card, worded by the drawer's `JournalText`.
  *
  * The events themselves are fetched once per detail view by
  * `useIncidentTimeline` and handed down, because the Rapport tab's message
@@ -20,7 +22,7 @@
 
 import { useState } from "react"
 import { useTranslations } from "next-intl"
-import { AlertCircle, ArrowRight, Combine, MessageSquare, Package, Send, Split, Truck, UserMinus, UserPlus } from "lucide-react"
+import { AlertCircle, ArrowRight, ClipboardCheck, Combine, MessageSquare, Package, Send, Split, Truck, UserMinus, UserPlus } from "lucide-react"
 
 import type { ApiIncidentTimelineEvent } from "@/lib/api-client"
 import { formatAgo } from "@/lib/duration"
@@ -28,6 +30,7 @@ import { isIncidentStatus } from "@/lib/types/incidents"
 import { cn } from "@/lib/utils"
 import { LoadingStatus, ShellLoader } from "@/components/ui/shell-loader"
 import { Button } from "@/components/ui/button"
+import { JournalText } from "@/components/journal/journal-text"
 
 export interface IncidentTimelineProps {
   events: ApiIncidentTimelineEvent[] | null
@@ -93,7 +96,10 @@ function TimelineRow({
   const [splitting, setSplitting] = useState(false)
   const time = formatTime(event.timestamp)
   const isMessage =
-    event.event_type === "field_message" || event.event_type === "kp_message" || event.event_type === "merge"
+    event.event_type === "field_message" ||
+    event.event_type === "kp_message" ||
+    event.event_type === "merge" ||
+    event.event_type === "journal"
   // A merged report can be split off again for as long as the merge stands.
   const splittable = event.event_type === "merge" && event.merge_active && event.merged_incident_id && onUnmerge
   // A move the operator confirmed after «Gerade geändert» – the board it came from was stale.
@@ -173,6 +179,9 @@ function EventIcon({ event }: { event: ApiIncidentTimelineEvent }) {
     // are muted, the icon tells them apart.
     return <Send className="mt-px h-3.5 w-3.5 shrink-0 text-muted-foreground" />
   }
+  if (event.event_type === "journal") {
+    return <ClipboardCheck className="mt-px h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+  }
   if (event.event_type === "assignment") {
     if (event.resource_type === "vehicle") {
       return <Truck className={cn("h-3.5 w-3.5 shrink-0", event.assignment_action === "unassigned" ? "text-muted-foreground" : "text-foreground")} />
@@ -247,6 +256,16 @@ function EventLabel({ event }: { event: ApiIncidentTimelineEvent }) {
         {event.actor_name && <span className="text-muted-foreground"> · {event.actor_name}</span>}
         {event.message && <span className="text-muted-foreground">: </span>}
         {event.message && <span className="text-foreground">{event.message}</span>}
+      </>
+    )
+  }
+
+  if (event.event_type === "journal" && event.journal_kind) {
+    // «Fährt selbst zurück · Meier Anna», «Fahrzeug am Einsatzort: TLF 1 (GPS)»
+    return (
+      <>
+        <JournalText entry={{ kind: event.journal_kind, data: event.journal_data ?? null }} text={event.message ?? null} />
+        {event.actor_name && <span className="text-muted-foreground"> · {event.actor_name}</span>}
       </>
     )
   }

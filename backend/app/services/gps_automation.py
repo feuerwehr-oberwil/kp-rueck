@@ -59,6 +59,7 @@ from ..models import (
 from ..traccar import VehiclePosition
 from ..websocket_manager import broadcast_incident_update, broadcast_message
 from .settings import get_setting_value, get_station_coordinates
+from .vehicle_facts import record_vehicle_fact
 
 logger = logging.getLogger(__name__)
 
@@ -582,6 +583,7 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list[VehicleP
                             )
                         else:
                             await _fire_return_prompt(
+                                db,
                                 t["assignment_id"],
                                 t["incident_id"],
                                 t["vehicle_id"],
@@ -704,7 +706,7 @@ async def _fire_unassigned_return_notification(db: AsyncSession, vehicle: Vehicl
     of its most recent released assignment (that's whose dispatchers care)."""
     row = (
         await db.execute(
-            select(Incident.id, Incident.event_id)
+            select(Incident.id, Incident.event_id, IncidentAssignment.id)
             .join(IncidentAssignment, IncidentAssignment.incident_id == Incident.id)
             .join(Event, Incident.event_id == Event.id)
             .where(IncidentAssignment.resource_type == "vehicle")
@@ -722,6 +724,9 @@ async def _fire_unassigned_return_notification(db: AsyncSession, vehicle: Vehicl
 
     logger.info("GPS automation: unassigned vehicle %s back at station — notifying", vehicle.name)
     await create_vehicle_returned_notification(db, event_id=row[1], incident_id=row[0], vehicle_name=vehicle.name)
+    await record_vehicle_fact(
+        db, incident_id=row[0], fact="vehicle_returned", vehicle_name=vehicle.name, source="gps", assignment_id=row[2]
+    )
     await db.commit()
 
 
@@ -806,6 +811,7 @@ async def _fire_arrival_prompt(
 
 
 async def _fire_return_prompt(
+    db: AsyncSession,
     assignment_id: uuid.UUID,
     incident_id: uuid.UUID,
     vehicle_id: uuid.UUID,
@@ -814,9 +820,19 @@ async def _fire_return_prompt(
 ) -> None:
     """Emit an operator prompt (WebSocket) to confirm releasing the returned vehicle.
 
-    No DB mutation — the release happens only if the operator confirms, via the existing
-    unassign endpoint the frontend already uses.
+    The release happens only if the operator confirms, via the existing unassign
+    endpoint the frontend already uses. The one write is the fact «zurück im Magazin»
+    on the incident (`services/vehicle_facts`), once per assignment.
     """
+    await record_vehicle_fact(
+        db,
+        incident_id=incident_id,
+        fact="vehicle_returned",
+        vehicle_name=vehicle_name,
+        source="gps",
+        assignment_id=assignment_id,
+    )
+    await db.commit()
     logger.info(
         "GPS automation: vehicle %s back at station — prompting release of assignment %s",
         vehicle_name,
@@ -870,4 +886,13 @@ async def _fire_group_return_prompt(
         incident_id=incident_id,
         vehicle_name=vehicle_name,
     )
+    if incident_id is not None:
+        await record_vehicle_fact(
+            db,
+            incident_id=incident_id,
+            fact="vehicle_returned",
+            vehicle_name=vehicle_name,
+            source="gps",
+            assignment_id=assignment_id,
+        )
     await db.commit()

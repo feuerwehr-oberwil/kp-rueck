@@ -147,10 +147,12 @@ export function FeldActions({
   const pickupNeeded = assignment.pickup_needed
   const pickupSince = toDate(assignment.pickup_requested_at)
   // The vehicles parked at (or travelling with) this Schadenplatz — everything
-  // whose driver did not «kehrt zurück» (stays === false). If one is standing
-  // outside, «Wir fahren selbst» is the answer the follow-up should lead with,
-  // and an Abholung is almost certainly a mis-tap.
+  // whose driver did not «kehrt zurück» (stays === false). While one is there,
+  // nobody has to fetch the crew: «Wir fahren selbst» is the only answer and an
+  // Abholung is not offered at all (owner, 23.11.2026, #7). The server refuses it
+  // by the same rule (`crud.feld.vehicle_on_site`).
   const vehiclesOnSite = assignment.vehicles.filter(vehicle => vehicle.stays !== false).map(vehicle => vehicle.name)
+  const pickupOffered = vehiclesOnSite.length === 0
 
   // The confirmation is a receipt, not a permanent banner — but it has to stay
   // long enough to be read by somebody holding a hose. A failure never expires:
@@ -341,10 +343,9 @@ export function FeldActions({
      Rendered INSIDE the chain, directly under «Beendet gemeldet · hh:mm» —
      it is that report's own question, and at the bottom of the section it
      read as a separate topic. With a vehicle standing at the address the
-     answer is known: «Wir fahren selbst» leads as the primary choice and the
-     Abholung drops to a quiet second — marked redundant, not disabled,
-     because the vehicle leaving without the crew (driver called away) is
-     rare but real. */
+     answer is known: «Wir fahren selbst» is the one button, and the line
+     above it says which vehicle. If that vehicle leaves without the crew, the
+     KP sets it to «kehrt zurück» and the Abholung is offered again. */
   const pickupFollowup = (
     <div className="mt-2 rounded-lg border border-border bg-background p-3 space-y-3">
       <p className="text-sm font-medium">{tPickup('followupQuestion')}</p>
@@ -353,22 +354,19 @@ export function FeldActions({
           {tPickup('hasVehicleHint', { vehicle: vehiclesOnSite.join(', ') })}
         </p>
       )}
-      <Input
-        placeholder={tPickup('notePlaceholder')}
-        value={note}
-        onChange={e => setNote(e.target.value)}
-        className="text-sm"
-      />
-      {vehiclesOnSite.length > 0 ? (
-        <div className="grid grid-cols-1 gap-2">
-          <Button size="lg" disabled={busy} onClick={() => handlePickup(false)}>
-            {isBusy(delivery, 'pickup') && <ShellLoader className="size-4" />}
-            {tPickup('selfReturn')}
-          </Button>
-          <Button size="lg" variant="outline" disabled={busy} onClick={() => handlePickup(true)}>
-            {tPickup('needPickup')}
-          </Button>
-        </div>
+      {pickupOffered ? (
+        <Input
+          placeholder={tPickup('notePlaceholder')}
+          value={note}
+          onChange={e => setNote(e.target.value)}
+          className="text-sm"
+        />
+      ) : null}
+      {!pickupOffered ? (
+        <Button size="lg" className="w-full" disabled={busy} onClick={() => handlePickup(false)}>
+          {isBusy(delivery, 'pickup') && <ShellLoader className="size-4" />}
+          {tPickup('selfReturn')}
+        </Button>
       ) : (
         <div className="grid grid-cols-1 gap-2">
           <Button size="lg" variant="outline" disabled={busy} onClick={() => handlePickup(false)}>
@@ -609,7 +607,8 @@ export function FeldActions({
           a line whenever the second link wrapped. While a pickup is open the
           first link no longer offers to ask again — it adjusts the note. */}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 pt-0.5 text-sm">
-        {isCrew && completed && (
+        {/* A pickup already open keeps its «Notiz ändern»; a new one needs no vehicle on site. */}
+        {isCrew && completed && (pickupNeeded || pickupOffered) && (
           <button
             type="button"
             disabled={busy}
@@ -643,7 +642,7 @@ export function FeldActions({
           instead of unanswered. Clearing is the KP's, on the chip itself.
           Re-opening it with a changed note is allowed and simply updates the
           note; the waiting time stays where it started. */}
-      {panel === 'pickup' && (
+      {panel === 'pickup' && (pickupNeeded || pickupOffered) && (
         <div className="rounded-lg border border-border p-3 space-y-3">
           <p className="text-sm">{pickupNeeded ? tPickup('alreadyRequested') : tPickup('requestQuestion')}</p>
           <Input

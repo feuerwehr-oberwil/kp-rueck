@@ -233,17 +233,19 @@ describe('the Abholung follow-up (decision 24)', () => {
     )
   })
 
-  it('leads with «Wir fahren selbst» while a vehicle stands at the address (§P2.2)', async () => {
-    // stays=true means parked here — the answer is known, the Abholung is
-    // almost certainly a mis-tap, and the hint names the vehicle.
+  it('offers only «Wir fahren selbst» while a vehicle stands at the address (#7, 23.11.2026)', async () => {
+    // stays=true means parked here: nobody has to fetch the crew, so the
+    // Abholung is not offered at all (the server refuses it), and the hint
+    // names the vehicle.
     const user = userEvent.setup()
     render({ vehicles: [{ name: 'Pio', driver: null, stays: true, via_auftrag: false }] })
     await confirmComplete(user)
     await waitFor(() => expect(screen.getByText('Kommt ihr selbst zurück?')).toBeInTheDocument())
 
     expect(screen.getByText('Pio steht bei euch vor Ort.')).toBeInTheDocument()
-    const buttons = screen.getAllByRole('button', { name: /Wir/ })
-    expect(buttons[0]).toHaveTextContent('Wir fahren selbst')
+    expect(screen.getByRole('button', { name: 'Wir fahren selbst' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Wir müssen abgeholt werden' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Abholung anfordern' })).not.toBeInTheDocument()
   })
 
   it('shows no vehicle hint when the vehicle drove back (stays=false)', async () => {

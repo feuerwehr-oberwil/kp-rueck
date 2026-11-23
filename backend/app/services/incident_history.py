@@ -4,8 +4,8 @@ Two views over the same rows, both read-only – the routes (`GET /incidents/{id
 and `/timeline`) only check that the incident exists and call in here:
 
 - `participants` – the "Beteiligt" roll-up: one entry per resource that was ever assigned.
-- `timeline` – the "Verlauf" feed: status changes, assignments, field and KP messages and
-  merges, newest first.
+- `timeline` – the "Verlauf" feed: status changes, assignments, field and KP messages,
+  merges, and the facts the field, the Reko and the GPS reported, newest first.
 """
 
 import uuid
@@ -118,6 +118,11 @@ async def participants(db: AsyncSession, incident: models.Incident) -> list[sche
     return sorted(rolled.values(), key=lambda p: p.first_assigned_at)
 
 
+#: Journal kinds the Chronik shows as facts. Status, assignments and messages it reads
+#: from their own tables (above), with more detail than the journal row carries.
+_FACT_KINDS = ("field", "reko")
+
+
 def _actor(user: models.User | None) -> str | None:
     if user is None:
         return None
@@ -205,6 +210,27 @@ async def timeline(db: AsyncSession, incident: models.Incident) -> list[schemas.
     # here they interleave with the crew's sentences so the thread shows both
     # halves of the conversation.
     kp_messages = await kp_messages_crud.messages_for_incident(db, incident_id)
+
+    # The facts a notification announced and the Einsatztagebuch already keeps for this
+    # card (`services/journal`): vor Ort, beendet, Abholung, «fährt selbst», Rapport
+    # erfasst, Reko vor Ort / Bericht, GPS am Einsatzort / zurück, Fahrzeug ausgefallen,
+    # a field request worked. Read from the journal rows, so a fact is written once and
+    # the Chronik and the journal drawer can never disagree (owner, 23.11.2026, #1).
+    facts_result = await db.execute(
+        select(models.JournalEntry)
+        .where(
+            models.JournalEntry.incident_id == incident_id,
+            models.JournalEntry.kind.in_(_FACT_KINDS),
+            models.JournalEntry.corrects_id.is_(None),
+        )
+        .order_by(models.JournalEntry.seq)
+    )
+    facts = list(facts_result.scalars().all())
+
+    # A card the crew reported on /feld: who reported it was only in the bell.
+    reporter = (
+        await db.get(models.Personnel, incident.reported_by_personnel_id) if incident.reported_by_personnel_id else None
+    )
 
     names = await resource_names(db, (assignment for assignment, _ in assignments))
 
@@ -311,6 +337,29 @@ async def timeline(db: AsyncSession, incident: models.Incident) -> list[schemas.
             )
         )
 
+    for fact in facts:
+        events.append(
+            schemas.IncidentTimelineEvent(
+                event_type="journal",
+                timestamp=fact.occurred_at,
+                actor_name=fact.author_name,
+                message=fact.text,
+                journal_kind=fact.kind,
+                journal_data=fact.data,
+            )
+        )
+
+    if reporter is not None and incident.created_at is not None:
+        events.append(
+            schemas.IncidentTimelineEvent(
+                event_type="journal",
+                timestamp=incident.created_at,
+                actor_name=reporter.name,
+                journal_kind="field",
+                journal_data={"type": "field_reported", "source": "feld"},
+            )
+        )
+
     events.sort(key=lambda e: e.timestamp)
 
     # Collapse near-duplicate events: same payload within a short time window
@@ -322,8 +371,9 @@ async def timeline(db: AsyncSession, incident: models.Incident) -> list[schemas.
     for event in events:
         # Messages are never deduplicated. They are human input, they are the
         # one kind of entry here nobody can reconstruct from board state, and a
-        # crew tapping the same chip twice is itself information.
-        if event.event_type in ("field_message", "kp_message", "merge", "unmerge"):
+        # crew tapping the same chip twice is itself information. Journal facts
+        # are already one row per fact.
+        if event.event_type in ("field_message", "kp_message", "merge", "unmerge", "journal"):
             deduped.append(event)
             continue
         payload_key = (

@@ -19,15 +19,20 @@ from ...database import after_commit
 from ...models import (
     FieldRequest,
     Incident,
+    IncidentAssignment,
+    IncidentGroupAssignment,
     Notification,
     SchadenplatzReport,
     User,
+    Vehicle,
 )
 from ...services import notification_params as texts
 from ...services.audit import log_action
 from ...services.incident_display import get_home_city, location_display
 from ...services.notification_service import create_field_notification
+from ...utils.error_codes import CodedHTTPException, ErrorCode
 from ...websocket_manager import broadcast_incident_update
+from ..locking import lock_incident_with_group
 from .requests import (
     close_request,
     dismiss_pickup_bells,
@@ -175,6 +180,7 @@ async def _auto_move(
     target: str,
     actor: FieldActor,
     request: Request | None,
+    notes: str | None = None,
 ) -> bool:
     """Field said it, the board follows (sweep 27 §P3.3).
 
@@ -202,15 +208,18 @@ async def _auto_move(
 
     from ..incidents import update_incident_status
 
-    who = actor.personnel_name or "Feld"
-    verb = "angekommen" if target == "active" else "beendet"
+    if notes is None:
+        who = actor.personnel_name or "Feld"
+        verb = "angekommen" if target == "active" else "beendet"
+        notes = f"Automatisch – Feld meldet {verb} ({who})"
     updated = await update_incident_status(
         db,
         incident.id,
         target,
-        current_user=None,
+        # A KP write moves under the operator's name; a /feld tap under nobody's (see there).
+        current_user=None if actor.is_field else actor.user,
         request=request,
-        notes=f"Automatisch – Feld meldet {verb} ({who})",
+        notes=notes,
     )
     if updated is None:
         return False
@@ -306,7 +315,11 @@ async def record_arrival(
         resource_type="incident",
         resource_id=incident.id,
         user=actor.user,
-        changes={"arrived_at": at.isoformat() if at else None, "source": "feld" if actor.is_field else "kp"},
+        changes={
+            "arrived_at": at.isoformat() if at else None,
+            "personnel_name": actor.personnel_name,
+            "source": "feld" if actor.is_field else "kp",
+        },
         request=request,
     )
     await db.flush()
@@ -373,6 +386,7 @@ async def record_field_complete(
         user=actor.user,
         changes={
             "field_complete_reported_at": at.isoformat() if at else None,
+            "personnel_name": actor.personnel_name,
             "source": "feld" if actor.is_field else "kp",
         },
         request=request,
@@ -400,6 +414,50 @@ async def record_field_complete(
     return True
 
 
+async def vehicles_with_crew(db: AsyncSession, incident: Incident) -> list[tuple[str, bool | None]]:
+    """The vehicles with this Schadenplatz's crew now, as ``(name, stays)``.
+
+    Its own active vehicle rows carry the board's driver-stay flag («bleibt vor
+    Ort» = True, «kehrt zurück» = False). An Auftrag vehicle covers every stop of
+    the route and carries ``None``: it travels with the crew, and its flag is not
+    a decision anybody made (the same rule as ``FeldVehicleLine.stays``).
+    """
+    own = await db.execute(
+        select(Vehicle.name, IncidentAssignment.driver_stay)
+        .join(Vehicle, Vehicle.id == IncidentAssignment.resource_id)
+        .where(
+            IncidentAssignment.incident_id == incident.id,
+            IncidentAssignment.resource_type == "vehicle",
+            IncidentAssignment.unassigned_at.is_(None),
+        )
+        .order_by(Vehicle.display_order, Vehicle.name)
+    )
+    lines: list[tuple[str, bool | None]] = [(name, bool(stays)) for name, stays in own.all()]
+    if incident.group_id is not None:
+        route = await db.execute(
+            select(Vehicle.name)
+            .select_from(IncidentGroupAssignment)
+            .join(Vehicle, Vehicle.id == IncidentGroupAssignment.resource_id)
+            .where(
+                IncidentGroupAssignment.incident_group_id == incident.group_id,
+                IncidentGroupAssignment.resource_type == "vehicle",
+                IncidentGroupAssignment.unassigned_at.is_(None),
+            )
+        )
+        lines.extend((name, None) for name in route.scalars().all() if all(name != n for n, _ in lines))
+    return lines
+
+
+async def vehicle_on_site(db: AsyncSession, incident: Incident) -> str | None:
+    """The name of a vehicle standing at this Schadenplatz, or None.
+
+    On site = with the crew and NOT «kehrt zurück» (owner, 23.11.2026, #7): while
+    one is there, nobody has to fetch the crew, so «Abholung nötig» is refused
+    (``record_pickup``) and not offered (/feld, the KP toggle, the simulator).
+    """
+    return next((name for name, stays in await vehicles_with_crew(db, incident) if stays is not False), None)
+
+
 async def record_pickup(
     db: AsyncSession,
     incident: Incident,
@@ -421,15 +479,40 @@ async def record_pickup(
     Clearing wipes the note and both provenance columns: "abgeholt" is the end of
     the fact, not a historical record, and the audit log keeps the history.
 
-    The incident row is locked first (R13): two crews tapping «Abholung» at the
-    same moment are applied one after the other, so the second one edits the
-    first one's work item instead of opening a second (the partial unique index
-    ``uq_field_requests_open_pickup`` backs that up).
+    Three rules from the owner round of 23.11.2026:
+
+    * A NEW «Abholung nötig» is refused (409 ``feld_pickup_vehicle_on_site``)
+      while a vehicle stands on site (``vehicle_on_site``). A note edit of an
+      Abholung that is already open stays allowed.
+    * «Wir fahren selbst» from the crew is always written down with the crew
+      member's name (audit row ``field_pickup_cleared`` with ``self_drive`` →
+      Journal and Chronik), also when no Abholung was open. Then nothing else
+      changes and the result is False.
+    * Closing an open Abholung while a vehicle is with the crew moves the card to
+      RÜCKFAHRT if it is still before it (``_auto_move``, strictly forward).
+
+    The incident row is locked first, after its Auftrag (R13, ``crud/locking``):
+    two crews tapping «Abholung» at the same moment are applied one after the
+    other, so the second one edits the first one's work item instead of opening
+    a second (the partial unique index ``uq_field_requests_open_pickup`` backs
+    that up).
     """
-    await db.refresh(incident, with_for_update=True)
+    await lock_incident_with_group(db, incident.id)
+    await db.refresh(incident)
+    self_drive = actor.is_field and not needed
     if incident.pickup_needed == needed and (not needed or (incident.pickup_note or None) == (note or None)):
+        if self_drive:
+            await _log_pickup(db, incident, actor, needed=False, note=note, request=request)
         await db.flush()
         return False
+
+    if needed and not incident.pickup_needed and (on_site := await vehicle_on_site(db, incident)):
+        raise CodedHTTPException(
+            409,
+            ErrorCode.FELD_PICKUP_VEHICLE_ON_SITE,
+            f"{on_site} steht vor Ort – keine Abholung nötig. Fährt es weg, im KP auf «kehrt zurück» stellen.",
+            params={"vehicle": on_site},
+        )
 
     incident.pickup_needed = needed
     # The Abholung's work item (R13) moves with the flag, in the same commit —
@@ -459,9 +542,10 @@ async def record_pickup(
         incident.pickup_requested_at = None
         incident.pickup_requested_by = None
         # «Wir fahren selbst» from the crew closes it too — with the crew's name
-        # on it, because that is who answered it. ALL open rows, should a race
-        # ever have left two, and every «Abholung nötig» bell of the incident
-        # (a note edit adds one each time) — the request is answered.
+        # on it, because that is who answered it (the request list then reads
+        # «fährt selbst», `FieldRequest.done_in_field`). ALL open rows, should a
+        # race ever have left two, and every «Abholung nötig» bell of the
+        # incident (a note edit adds one each time) — the request is answered.
         closer = None if actor.is_field else actor.user
         now = datetime.now(UTC)
         for open_row in await open_pickup_requests(db, incident.id):
@@ -473,15 +557,7 @@ async def record_pickup(
             )
         await dismiss_pickup_bells(db, incident.id, closer, now)
 
-    await log_action(
-        db=db,
-        action_type="field_pickup_requested" if needed else "field_pickup_cleared",
-        resource_type="incident",
-        resource_id=incident.id,
-        user=actor.user,
-        changes={"pickup_needed": needed, "pickup_note": note, "source": "feld" if actor.is_field else "kp"},
-        request=request,
-    )
+    await _log_pickup(db, incident, actor, needed=needed, note=note, request=request)
     await db.flush()
     await db.refresh(incident)
 
@@ -505,8 +581,55 @@ async def record_pickup(
         if needed and work_item is not None and work_item.notification_id is None:
             work_item.notification_id = bell.id
             await db.flush()
+
+    if not needed and (vehicles := await vehicles_with_crew(db, incident)):
+        # The Abholung is disponiert and a vehicle is with them: they are on the way back.
+        names = ", ".join(name for name, _ in vehicles)
+        await _auto_move(
+            db,
+            incident,
+            target="returning",
+            actor=actor,
+            request=request,
+            notes=(
+                f"Automatisch – Feld fährt selbst ({actor.personnel_name or 'Feld'})"
+                if actor.is_field
+                else f"Automatisch – Abholung disponiert ({names})"
+            ),
+        )
     _broadcast(db, incident)
     return True
+
+
+async def _log_pickup(
+    db: AsyncSession,
+    incident: Incident,
+    actor: FieldActor,
+    *,
+    needed: bool,
+    note: str | None,
+    request: Request | None,
+) -> None:
+    """The audit row of one Abholung answer — the Journal and the Chronik read it.
+
+    ``self_drive`` marks the crew's own «Wir fahren selbst», so it never reads as
+    the KP's «Abholung disponiert».
+    """
+    await log_action(
+        db=db,
+        action_type="field_pickup_requested" if needed else "field_pickup_cleared",
+        resource_type="incident",
+        resource_id=incident.id,
+        user=actor.user,
+        changes={
+            "pickup_needed": needed,
+            "pickup_note": note,
+            "personnel_name": actor.personnel_name,
+            "self_drive": actor.is_field and not needed,
+            "source": "feld" if actor.is_field else "kp",
+        },
+        request=request,
+    )
 
 
 async def create_field_request(

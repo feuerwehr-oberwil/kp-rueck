@@ -774,6 +774,8 @@ async def save_rapport(
         # everyone with an account, and the owner block is citizen PII (§9).
         changes={
             "is_draft": report.is_draft,
+            # The crew member's name is not owner PII; the Journal and the Chronik say who filed it.
+            "personnel_name": actor.personnel_name,
             "source": "feld" if actor.is_field else "kp",
         },
         request=request,

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useEvent } from '@/lib/contexts/event-context';
+import { useGroups } from '@/lib/contexts/groups-context';
+import { operationVehicleOnSite } from '@/lib/vehicle-on-site';
 import { useOperations, type Operation } from '@/lib/contexts/operations-context';
 import { apiClient, type ApiGpsSimDrive, type ApiVehicle } from '@/lib/api-client';
 import { wsClient } from '@/lib/websocket-client';
@@ -78,6 +80,10 @@ export function TrainingSimulationControls() {
   const tGps = useTranslations('training.gpsSim');
   const { selectedEvent } = useEvent();
   const { operations, changeStatusToTop, formatLocation, refreshOperations } = useOperations();
+  const { groups, getGroupResources } = useGroups();
+  // A crew with a vehicle on site is never fetched (owner, 23.11.2026, #7): the server
+  // refuses the Abholung, so the console does not offer it either.
+  const onSiteVehicle = (op: Operation) => operationVehicleOnSite(op, groups, getGroupResources);
   // Track per-incident advance state so each row's button spins independently.
   const [advancingIds, setAdvancingIds] = useState<Set<string>>(new Set());
   // The incident whose "Kommt ihr selbst zurück?" question is open (decision 24).
@@ -647,6 +653,7 @@ export function TrainingSimulationControls() {
                           {/* Decision 24: a Schadenplatz can be finished and
                               still have three people standing in the rain — and
                               the lift arriving is a report of its own. */}
+                          {(op.pickupNeeded || !onSiteVehicle(op)) && (
                           <DropdownMenuItem onClick={() => handleInject(op, 'pickup')}>
                             <CarTaxiFront className="mr-2 h-4 w-4 flex-shrink-0" />
                             <span className="min-w-0">
@@ -658,6 +665,7 @@ export function TrainingSimulationControls() {
                               </span>
                             </span>
                           </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                       </div>
@@ -781,13 +789,15 @@ export function TrainingSimulationControls() {
             {t('pickupAuto')}
           </AlternativeAnswer>
           <DialogFooter>
+            {pickupPrompt && !onSiteVehicle(pickupPrompt) && (
             <Button
               variant="outline"
-              onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt, true)}
+              onClick={() => handleFieldComplete(pickupPrompt, true)}
             >
               <AlertTriangle className="size-3.5 text-warning-foreground" />
               {t('pickupRequired')}
             </Button>
+            )}
             <Button onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt, false)}>
               {t('pickupSelfReturn')}
             </Button>
