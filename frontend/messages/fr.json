@@ -686,7 +686,6 @@
       "photo_limit": "{max} photos au maximum par rapport.",
       "feld_token_other_person": "Ce code d’accès appartient à une autre personne.",
       "feld_plan_invalid": "Cette heure ne va pas. Choisis-en une autre.",
-      "feld_pickup_vehicle_on_site": "{vehicle} est sur place avec vous – pas besoin de récupération.",
       "incident_not_found": "Intervention introuvable",
       "reko_link_invalid": "Ce lien de reconnaissance n’est pas valable ou a expiré.",
       "reko_report_not_found": "Rapport introuvable",

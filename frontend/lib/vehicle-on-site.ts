@@ -5,8 +5,9 @@
  * On site = one of the Einsatz's own vehicles whose driver is NOT «kehrt zurück», or
  * any vehicle of its Auftrag – a route vehicle travels with the crew, and its stay
  * flag is not a decision anybody made (`FeldVehicleLine.stays`). While one is there,
- * nobody has to fetch the crew: «Abholung nötig» is not offered (and the server
- * refuses it), and moving to Rückfahrt needs no «Kein Fahrzeug» question.
+ * the crew most likely drives back itself: the KP «Abholung nötig» row names the
+ * vehicle (a hint, never a lock – the pill may be wrong), and moving to Rückfahrt
+ * needs no «Kein Fahrzeug» question.
  *
  * An own vehicle whose assign POST has not answered yet (`driverStay` undefined)
  * does not count: the server's default for it is «kehrt zurück».

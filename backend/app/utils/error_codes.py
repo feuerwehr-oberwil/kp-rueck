@@ -48,8 +48,6 @@ class ErrorCode(StrEnum):
     FELD_TOKEN_OTHER_PERSON = "feld_token_other_person"  # noqa: S105 — an error code, not a secret
     # «Ich bin da bis …» that ends before it starts, or a person who is not available
     FELD_PLAN_INVALID = "feld_plan_invalid"
-    # «Abholung nötig» while a vehicle of the incident stands on site (params: vehicle)
-    FELD_PICKUP_VEHICLE_ON_SITE = "feld_pickup_vehicle_on_site"
     # «Zusammenführen» from /feld (R2)
     FELD_MERGE_TARGET_CLOSED = "feld_merge_target_closed"
     FELD_MERGE_REFUSED = "feld_merge_refused"

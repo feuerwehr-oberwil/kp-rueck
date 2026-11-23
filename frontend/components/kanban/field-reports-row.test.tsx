@@ -152,16 +152,18 @@ describe('the whole labelled row toggles (§P2.9)', () => {
     })
   })
 
-  it('offers no new pickup while a vehicle stays on site, and says why', async () => {
+  it('names a vehicle on site next to the pickup switch, and still lets the KP turn it on', async () => {
     const { apiClient } = await import('@/lib/api-client')
     vi.mocked(apiClient.setIncidentFieldReport).mockClear()
     const vehicles = [{ vehicleId: 'v-1', assignmentId: 'a-1', name: 'TLF 1', callsign: null, driverStay: true }]
     renderWithIntl(<FieldReportsRow operation={operation({ vehicles })} only={['pickup']} />)
 
-    expect(screen.getByRole('switch', { name: 'Abholung nötig' })).toBeDisabled()
     expect(screen.getByText('TLF 1 steht vor Ort')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /Abholung nötig/ }))
-    expect(apiClient.setIncidentFieldReport).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('switch', { name: 'Abholung nötig' }))
+    expect(apiClient.setIncidentFieldReport).toHaveBeenCalledWith('incident-1', {
+      pickup_needed: true,
+      pickup_note: null,
+    })
   })
 
   it('does nothing for a viewer', async () => {

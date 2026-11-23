@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useEvent } from '@/lib/contexts/event-context';
-import { useGroups } from '@/lib/contexts/groups-context';
-import { operationVehicleOnSite } from '@/lib/vehicle-on-site';
 import { useOperations, type Operation } from '@/lib/contexts/operations-context';
 import { apiClient, type ApiGpsSimDrive, type ApiVehicle } from '@/lib/api-client';
 import { wsClient } from '@/lib/websocket-client';
@@ -80,10 +78,6 @@ export function TrainingSimulationControls() {
   const tGps = useTranslations('training.gpsSim');
   const { selectedEvent } = useEvent();
   const { operations, changeStatusToTop, formatLocation, refreshOperations } = useOperations();
-  const { groups, getGroupResources } = useGroups();
-  // A crew with a vehicle on site is never fetched (owner, 23.11.2026, #7): the server
-  // refuses the Abholung, so the console does not offer it either.
-  const onSiteVehicle = (op: Operation) => operationVehicleOnSite(op, groups, getGroupResources);
   // Track per-incident advance state so each row's button spins independently.
   const [advancingIds, setAdvancingIds] = useState<Set<string>>(new Set());
   // The incident whose "Kommt ihr selbst zurück?" question is open (decision 24).
@@ -653,7 +647,6 @@ export function TrainingSimulationControls() {
                           {/* Decision 24: a Schadenplatz can be finished and
                               still have three people standing in the rain — and
                               the lift arriving is a report of its own. */}
-                          {(op.pickupNeeded || !onSiteVehicle(op)) && (
                           <DropdownMenuItem onClick={() => handleInject(op, 'pickup')}>
                             <CarTaxiFront className="mr-2 h-4 w-4 flex-shrink-0" />
                             <span className="min-w-0">
@@ -665,7 +658,6 @@ export function TrainingSimulationControls() {
                               </span>
                             </span>
                           </DropdownMenuItem>
-                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                       </div>
@@ -779,25 +771,23 @@ export function TrainingSimulationControls() {
 
               Emphasis, deliberately moved: «Lage entscheidet» used to be the
               primary. It is not an answer to the question — it hands the
-              decision to the backend's inference (zu Fuss / kein Fahrzeug), and
-              as the loud default it made the pickup inject almost unreachable
-              in a normal exercise, because a crew with a vehicle always infers
-              "fährt selbst". So it is the aside. The primary is
-              «Fährt selbst»: the true answer in the large majority of cases and
+              decision to the backend, which follows the «bleibt vor Ort» pill
+              (a vehicle on site → "fährt selbst", none → Abholung), and as the
+              loud default it would make every exercise follow the pill, while
+              the KP forgetting it is part of what an exercise trains. So it
+              is the aside. The primary is «Fährt selbst»: the true answer in the large majority of cases and
               the only one of the three that costs the operator nothing. */}
           <AlternativeAnswer onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt)}>
             {t('pickupAuto')}
           </AlternativeAnswer>
           <DialogFooter>
-            {pickupPrompt && !onSiteVehicle(pickupPrompt) && (
             <Button
               variant="outline"
-              onClick={() => handleFieldComplete(pickupPrompt, true)}
+              onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt, true)}
             >
               <AlertTriangle className="size-3.5 text-warning-foreground" />
               {t('pickupRequired')}
             </Button>
-            )}
             <Button onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt, false)}>
               {t('pickupSelfReturn')}
             </Button>

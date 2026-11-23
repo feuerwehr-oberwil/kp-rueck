@@ -72,9 +72,9 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
   const { personnel } = usePersonnel()
   const { groups, getGroupResources } = useGroups()
   const [saving, setSaving] = useState<Row | null>(null)
-  // While a vehicle stands on site nobody has to fetch the crew: a new «Abholung
-  // nötig» is not offered (owner, 23.11.2026, #7 – the server refuses it too). An
-  // Abholung already open stays switchable off.
+  // While a vehicle stands on site the crew most likely drives back itself: the
+  // pickup row names it. A hint, not a lock – the pill may be wrong (owner,
+  // 23.11.2026, #7).
   const onSite = operationVehicleOnSite(operation, groups, getGroupResources)
   const [note, setNote] = useState(operation.pickupNote ?? '')
 
@@ -141,8 +141,6 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
      *  personnel FK — the Reko arrival lives on `reko_reports`, and the board
      *  carries the answer as a flag rather than an id it would have to resolve. */
     line?: string | null
-    /** False: the switch cannot be turned on now; `line` says why. */
-    canTurnOn?: boolean
     onToggle: (checked: boolean) => void
     onTimeChange: (time: string) => void
   }
@@ -173,7 +171,6 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
       at: operation.pickupRequestedAt,
       on: Boolean(operation.pickupNeeded),
       by: operation.pickupRequestedBy,
-      canTurnOn: onSite === null,
       ...(!operation.pickupNeeded && onSite ? { line: t('pickupVehicleOnSite', { vehicle: onSite }) } : {}),
       onToggle: checked => save('pickup', { pickup_needed: checked, pickup_note: checked ? note || null : null }),
       onTimeChange: time => {
@@ -207,7 +204,6 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
       <div className="space-y-2">
         {rows.map(row => {
           const line = row.line !== undefined ? row.line : provenance(row.at, row.by)
-          const locked = !canEdit || (!row.on && row.canTurnOn === false)
           return (
             <div key={row.key}>
               {/* One row unit — `min-h-8`, the height of the time input — in
@@ -231,7 +227,7 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
                 <button
                   type="button"
                   tabIndex={-1}
-                  disabled={locked || saving === row.key}
+                  disabled={!canEdit || saving === row.key}
                   onClick={() => row.onToggle(!row.on)}
                   className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left disabled:cursor-default"
                 >
@@ -279,7 +275,7 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
                     <Switch
                       aria-label={row.label}
                       checked={row.on}
-                      disabled={locked}
+                      disabled={!canEdit}
                       onCheckedChange={row.onToggle}
                     />
                   )}

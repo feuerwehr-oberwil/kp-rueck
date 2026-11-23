@@ -1,6 +1,7 @@
 """The Abholung rules of the owner round 23.11.2026 (#1, #7, #10).
 
-* «Abholung nötig» is refused while a vehicle stands on site (not «kehrt zurück»).
+* A vehicle on site (not «kehrt zurück») only suggests «Wir fahren selbst»: «Abholung
+  nötig» is still accepted, because the KP may have forgotten the pill.
 * «Wir fahren selbst» is always written down, with the crew member's name.
 * Closing an open Abholung while a vehicle is with the crew moves the card to Rückfahrt.
 """
@@ -26,7 +27,6 @@ from app.models import (
     User,
     Vehicle,
 )
-from app.utils.error_codes import CodedHTTPException, ErrorCode
 
 pytestmark = pytest.mark.asyncio
 
@@ -66,17 +66,15 @@ async def _vehicle(db: AsyncSession, incident: Incident, *, stays: bool) -> Vehi
     return vehicle
 
 
-async def test_pickup_is_refused_while_a_vehicle_stays_on_site(
+async def test_pickup_is_accepted_while_a_vehicle_stays_on_site(
     db_session: AsyncSession, test_event: Event, test_user: User
 ):
+    # The pill can be wrong (the KP forgot «kehrt zurück»): the crew's answer wins.
     incident = await _incident(db_session, test_event, test_user)
     await _vehicle(db_session, incident, stays=True)
 
-    with pytest.raises(CodedHTTPException) as refused:
-        await crud.record_pickup(db_session, incident, actor=await _crew(db_session), needed=True)
-    assert refused.value.status_code == 409
-    assert refused.value.code == ErrorCode.FELD_PICKUP_VEHICLE_ON_SITE
-    assert "TLF 1" in str(refused.value.detail)
+    assert await crud.record_pickup(db_session, incident, actor=await _crew(db_session), needed=True)
+    assert incident.pickup_needed
 
 
 async def test_an_auftrag_vehicle_counts_as_on_site(db_session: AsyncSession, test_event: Event, test_user: User):
@@ -90,14 +88,6 @@ async def test_an_auftrag_vehicle_counts_as_on_site(db_session: AsyncSession, te
     await db_session.commit()
 
     assert await crud.vehicle_on_site(db_session, incident) == "Pio"
-
-
-async def test_pickup_is_allowed_when_the_driver_returns(db_session: AsyncSession, test_event: Event, test_user: User):
-    incident = await _incident(db_session, test_event, test_user)
-    await _vehicle(db_session, incident, stays=False)
-
-    assert await crud.record_pickup(db_session, incident, actor=await _crew(db_session), needed=True)
-    assert incident.pickup_needed
 
 
 async def test_self_drive_without_an_open_pickup_is_still_written_down(

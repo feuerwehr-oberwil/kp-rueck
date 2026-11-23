@@ -233,28 +233,32 @@ describe('the Abholung follow-up (decision 24)', () => {
     )
   })
 
-  it('offers only «Wir fahren selbst» while a vehicle stands at the address (#7, 23.11.2026)', async () => {
-    // stays=true means parked here: nobody has to fetch the crew, so the
-    // Abholung is not offered at all (the server refuses it), and the hint
-    // names the vehicle.
+  it('suggests «Wir fahren selbst» while a vehicle stands at the address, the Abholung stays (#7, 23.11.2026)', async () => {
+    // stays=true means parked here: «Wir fahren selbst» is the main button and the
+    // hint names the vehicle. The KP may have forgotten «kehrt zurück», so the
+    // Abholung is still offered, as the quiet second.
     const user = userEvent.setup()
     render({ vehicles: [{ name: 'Pio', driver: null, stays: true, via_auftrag: false }] })
     await confirmComplete(user)
     await waitFor(() => expect(screen.getByText('Kommt ihr selbst zurück?')).toBeInTheDocument())
 
     expect(screen.getByText('Pio steht bei euch vor Ort.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Wir fahren selbst' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Wir müssen abgeholt werden' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Abholung anfordern' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Wir fahren selbst' })).toHaveClass('bg-action')
+    expect(screen.getByRole('button', { name: 'Wir müssen abgeholt werden' })).not.toHaveClass('bg-action')
+
+    await user.click(screen.getByRole('button', { name: 'Wir müssen abgeholt werden' }))
+    await waitFor(() => expect(feldReportPickup).toHaveBeenCalledWith('inc-1', 'p-1', 'tok', true, ''))
   })
 
-  it('shows no vehicle hint when the vehicle drove back (stays=false)', async () => {
+  it('suggests the Abholung when no vehicle stays (stays=false), without a hint', async () => {
     const user = userEvent.setup()
     render({ vehicles: [{ name: 'Mowa', driver: null, stays: false, via_auftrag: false }] })
     await confirmComplete(user)
     await waitFor(() => expect(screen.getByText('Kommt ihr selbst zurück?')).toBeInTheDocument())
 
     expect(screen.queryByText(/steht bei euch vor Ort/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Wir müssen abgeholt werden' })).toHaveClass('bg-action')
+    expect(screen.getByRole('button', { name: 'Wir fahren selbst' })).not.toHaveClass('bg-action')
   })
 })
 

@@ -30,7 +30,6 @@ from ...services import notification_params as texts
 from ...services.audit import log_action
 from ...services.incident_display import get_home_city, location_display
 from ...services.notification_service import create_field_notification
-from ...utils.error_codes import CodedHTTPException, ErrorCode
 from ...websocket_manager import broadcast_incident_update
 from ..locking import lock_incident_with_group
 from .requests import (
@@ -452,8 +451,9 @@ async def vehicle_on_site(db: AsyncSession, incident: Incident) -> str | None:
     """The name of a vehicle standing at this Schadenplatz, or None.
 
     On site = with the crew and NOT «kehrt zurück» (owner, 23.11.2026, #7): while
-    one is there, nobody has to fetch the crew, so «Abholung nötig» is refused
-    (``record_pickup``) and not offered (/feld, the KP toggle, the simulator).
+    one is there, the crew most likely drives back itself. A suggestion, never a
+    refusal – the KP may have forgotten the pill: /feld leads with «Wir fahren
+    selbst», the KP toggle names the vehicle, the simulator answers «fährt selbst».
     """
     return next((name for name, stays in await vehicles_with_crew(db, incident) if stays is not False), None)
 
@@ -479,11 +479,8 @@ async def record_pickup(
     Clearing wipes the note and both provenance columns: "abgeholt" is the end of
     the fact, not a historical record, and the audit log keeps the history.
 
-    Three rules from the owner round of 23.11.2026:
+    Two rules from the owner round of 23.11.2026:
 
-    * A NEW «Abholung nötig» is refused (409 ``feld_pickup_vehicle_on_site``)
-      while a vehicle stands on site (``vehicle_on_site``). A note edit of an
-      Abholung that is already open stays allowed.
     * «Wir fahren selbst» from the crew is always written down with the crew
       member's name (audit row ``field_pickup_cleared`` with ``self_drive`` →
       Journal and Chronik), also when no Abholung was open. Then nothing else
@@ -505,14 +502,6 @@ async def record_pickup(
             await _log_pickup(db, incident, actor, needed=False, note=note, request=request)
         await db.flush()
         return False
-
-    if needed and not incident.pickup_needed and (on_site := await vehicle_on_site(db, incident)):
-        raise CodedHTTPException(
-            409,
-            ErrorCode.FELD_PICKUP_VEHICLE_ON_SITE,
-            f"{on_site} steht vor Ort – keine Abholung nötig. Fährt es weg, im KP auf «kehrt zurück» stellen.",
-            params={"vehicle": on_site},
-        )
 
     incident.pickup_needed = needed
     # The Abholung's work item (R13) moves with the flag, in the same commit —

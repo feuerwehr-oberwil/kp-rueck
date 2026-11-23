@@ -227,9 +227,10 @@ async def simulate_field_complete(
     the real operator path are byte-for-byte the same code, audit entry and
     notification included.
 
-    The Abholung answer (decision 24) is preselected by the situation — a crew
-    that walked there or whose vehicle drove on is usually stranded — and the
-    Übungsleiter can always override it by sending it explicitly.
+    The Abholung answer (decision 24) follows the «bleibt vor Ort» pill, the
+    suggestion /feld makes (``crud.feld.vehicle_on_site``, owner 23.11.2026): a
+    vehicle on site → «fährt selbst», none → «Abholung nötig». The Übungsleiter
+    can always override it by sending it explicitly.
     """
     await _require_training_event(db, event_id)
     incident = await _get_event_incident(db, event_id, incident_id)
@@ -237,15 +238,7 @@ async def simulate_field_complete(
     pickup_needed = payload.pickup_needed if payload else None
     pickup_note = payload.pickup_note if payload else None
     if pickup_needed is None:
-        rng = random.Random()
-        vehicles = await feld_crud.vehicles_with_crew(db, incident)
-        if any(stays is not False for _, stays in vehicles):
-            # A vehicle stands on site: nobody needs fetching, and the server refuses it (#7).
-            pickup_needed = False
-        else:
-            stranded = incident.zu_fuss or not vehicles
-            rate = RAPPORT_SIM_PROFILE.pickup_when_stranded if stranded else RAPPORT_SIM_PROFILE.pickup_otherwise
-            pickup_needed = rng.random() < rate
+        pickup_needed = await feld_crud.vehicle_on_site(db, incident) is None
         if pickup_needed and pickup_note is None:
             pickup_note = stranded_pickup_note(incident)
 

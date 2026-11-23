@@ -3587,7 +3587,6 @@
       "photo_limit": "Höchstens {max} Fotos pro Bericht.",
       "feld_token_other_person": "Der Zugriffscode gehört zu einer anderen Person.",
       "feld_plan_invalid": "Diese Zeit geht nicht. Bitte neu wählen.",
-      "feld_pickup_vehicle_on_site": "{vehicle} steht bei euch vor Ort – keine Abholung nötig.",
       "incident_not_found": "Einsatz nicht gefunden",
       "reko_link_invalid": "Dieser Reko-Link ist ungültig oder abgelaufen.",
       "reko_report_not_found": "Bericht nicht gefunden",

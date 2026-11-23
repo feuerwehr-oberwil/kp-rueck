@@ -1235,6 +1235,37 @@ async def test_simulate_field_complete_asks_the_abholung_follow_up(
 
 @pytest.mark.asyncio
 @pytest.mark.api
+@pytest.mark.parametrize(("stays", "expected"), [(True, False), (False, True)])
+async def test_simulate_field_complete_auto_answer_follows_the_pill(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    training_event: Event,
+    active_incident: Incident,
+    stays: bool,
+    expected: bool,
+):
+    """«Lage entscheidet»: a vehicle «bleibt vor Ort» → «fährt selbst»; «kehrt zurück» → Abholung."""
+    from app.models import IncidentAssignment, Vehicle
+
+    vehicle = Vehicle(id=uuid4(), name="TLF 1", type="TLF", status="available")
+    db_session.add(vehicle)
+    await db_session.flush()
+    db_session.add(
+        IncidentAssignment(
+            incident_id=active_incident.id, resource_type="vehicle", resource_id=vehicle.id, driver_stay=stays
+        )
+    )
+    await db_session.commit()
+
+    response = await editor_client.post(
+        f"/api/training/events/{training_event.id}/simulate/field-complete/{active_incident.id}"
+    )
+    assert response.status_code == 200
+    assert response.json()["pickup_needed"] is expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_simulate_field_message_reaches_the_kp(
     editor_client: AsyncClient, db_session: AsyncSession, training_event: Event, active_incident: Incident
 ):
