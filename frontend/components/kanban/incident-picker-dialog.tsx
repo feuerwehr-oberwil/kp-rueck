@@ -126,8 +126,13 @@ export function IncidentPickerDialog({
 
   // Pre-select the route's current members whenever the dialog (re-)opens – the board as it
   // is then; a board update while it is open must not undo the operator's ticks.
+  // `openedMembers` keeps that snapshot: «Übernehmen» applies only what the operator changed
+  // against it, so a stop another operator adds meanwhile is not read as «unticked».
+  const [openedMembers, setOpenedMembers] = useState<ReadonlySet<string>>(new Set())
   const preselectMembers = useEffectEvent(() => {
-    setSelected(new Set(operations.filter((op) => op.groupId === targetGroupId).map((op) => op.id)))
+    const members = new Set(operations.filter((op) => op.groupId === targetGroupId).map((op) => op.id))
+    setOpenedMembers(members)
+    setSelected(new Set(members))
   })
   useEffect(() => {
     if (open) preselectMembers()
@@ -258,10 +263,17 @@ export function IncidentPickerDialog({
   // Routen-Editor asks per click because it saves at once.
   const pickOnMap = toggle
 
-  // Diff the current selection against the route's members: newly-checked ids are
-  // added (via onConfirm → addStops), unchecked members are detached (removeStop).
-  const toAdd = useMemo(() => [...selected].filter((id) => !memberIds.has(id)), [selected, memberIds])
-  const toRemove = useMemo(() => [...memberIds].filter((id) => !selected.has(id)), [selected, memberIds])
+  // Diff the selection against the members as the dialog opened: newly-checked ids are added
+  // (via onConfirm → addStops) unless they joined meanwhile; unchecked ones are detached
+  // (removeStop) if they are still members.
+  const toAdd = useMemo(
+    () => [...selected].filter((id) => !openedMembers.has(id) && !memberIds.has(id)),
+    [selected, openedMembers, memberIds],
+  )
+  const toRemove = useMemo(
+    () => [...openedMembers].filter((id) => !selected.has(id) && memberIds.has(id)),
+    [selected, openedMembers, memberIds],
+  )
   const changeCount = toAdd.length + toRemove.length
   // The picks that leave another Auftrag – named in the one question before «Übernehmen».
   const moving = useMemo(() => toAdd.filter((id) => otherRouteOf(id)), [toAdd, otherRouteOf])
@@ -269,7 +281,10 @@ export function IncidentPickerDialog({
 
   const apply = async () => {
     if (toRemove.length > 0 && targetGroupId) {
-      await Promise.all(toRemove.map((id) => removeStop(targetGroupId, id)))
+      // A failed detach (removeStop shows its own error) keeps the dialog open with the
+      // picks, so the operator sees that the route is not what the preview shows.
+      const detached = await Promise.all(toRemove.map((id) => removeStop(targetGroupId, id)))
+      if (detached.includes(false)) return
     }
     if (toAdd.length > 0) onConfirm(toAdd)
     handleOpenChange(false)
