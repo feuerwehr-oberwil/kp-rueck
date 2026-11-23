@@ -23,10 +23,10 @@ from .crud.group_assignments import sync_auto_group_leader
 from .database import async_session_maker
 from .seed_training import seed_training_data
 from .services.branding import LOGO_SETTING_KEY
-from .services.photo_storage import DEMO_SEED_REKO_TOKEN_PREFIX
+from .services.photo_storage import photo_storage
 from .services.ranks import RANKS
 from .services.settings import DISPOSABLE_MARKER_KEY, DISPOSABLE_MARKER_VALUE
-from .services.training_photos import attach_training_photos
+from .services.training_photos import pick_summary_image
 
 # The «Feuerwehr Musterdorf» crest (same one the KP-Front demo uses), so demo
 # exports carry the letterhead a configured station would get.
@@ -714,7 +714,8 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
     # from the completed report + the assignment row.
     # (title, author, is_relevant, dangers, power_supply, effort, summary, arrived/submitted minutes ago)
     # A relevant summary is a text the Reko simulation also writes, so it carries that
-    # text's illustration (`attach_training_photos`); a not-relevant one carries none.
+    # text's illustration under the seed's reserved name, which the demo upload cap leaves
+    # out (`photo_storage.store_seed_photo`); a not-relevant one carries none.
     # ============================================
     no_dangers = {
         "fire": False,
@@ -790,12 +791,13 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
         reko_reports_data
     ):
         author_p = person[author]
-        photos = await attach_training_photos(incidents[title].id, None, summary_text=summary) if is_relevant else []
+        illustration = pick_summary_image(summary) if is_relevant else None
+        photos = [photo_storage.store_seed_photo(incidents[title].id, illustration)] if illustration else []
         db.add(
             models.RekoReport(
                 id=uuid4(),
                 incident_id=incidents[title].id,
-                token=f"{DEMO_SEED_REKO_TOKEN_PREFIX}{i}",
+                token=f"demo-reko-{i}",
                 arrived_at=ago(arrived_min),
                 submitted_at=ago(submitted_min),
                 is_relevant=is_relevant,

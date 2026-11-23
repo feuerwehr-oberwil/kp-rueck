@@ -25,7 +25,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
 from ..config import get_settings
-from ..models import RekoReport
 from ..utils.error_codes import CodedHTTPException, ErrorCode
 from ..utils.errors import ErrorMessages
 
@@ -352,6 +351,15 @@ class PhotoStorageService:
 
         return filename
 
+    def store_seed_photo(self, incident_id: uuid.UUID, source: Path) -> str:
+        """Write a bundled illustration for the demo seed: a processed JPEG under the seed's
+        reserved name (`seed_photo_name`). Returns the filename for `photos_json`."""
+        filename = seed_photo_name(incident_id)
+        with Image.open(source) as image:
+            data = self._compress_image(image)
+        (self._get_incident_dir(incident_id) / filename).write_bytes(data)
+        return filename
+
     def copy_photos(self, from_incident_id: uuid.UUID, to_incident_id: uuid.UUID, filenames: list[str]) -> int:
         """Copy photo files from one incident's directory to another's (a merge, R2).
 
@@ -491,9 +499,14 @@ photo_storage = PhotoStorageService()
 #: The demo's photo ceiling: per file, and per table across the whole demo.
 DEMO_MAX_PHOTO_BYTES = 1 * 1024 * 1024
 DEMO_MAX_PHOTOS = 15
-#: Token prefix of the demo seed's finished Reko reports (`seed_demo`). Each relevant one
-#: arrives with one illustration the seed wrote; the cap allows one more photo per such report.
-DEMO_SEED_REKO_TOKEN_PREFIX = "demo-reko-"  # noqa: S105 – a token prefix, not a credential
+#: The demo seed's Reko illustrations are named UUIDv5 (`seed_photo_name`); uploads are
+#: always UUIDv4 (`_generate_filename`). Both pass the `UUID.jpg` rule in `get_photo_path`.
+SEED_PHOTO_NAMESPACE = uuid.UUID("5f0c6b7e-3a52-4d1e-9c8a-2b7d0e4f1a63")
+
+
+def seed_photo_name(incident_id: uuid.UUID) -> str:
+    """The reserved filename of the one illustration the demo seed writes for an incident."""
+    return f"{uuid.uuid5(SEED_PHOTO_NAMESPACE, str(incident_id))}.jpg"
 
 
 async def enforce_demo_photo_limits(
@@ -505,8 +518,8 @@ async def enforce_demo_photo_limits(
     (`RekoReport.photos_json` or `SchadenplatzReport.photos_json`). No-op outside
     the demo. It counts files, not list entries: a follow-up Reko draft repeats the
     filenames of the report it copies (`crud.reko.get_or_create_reko_report`), so
-    one file per incident counts once. The illustrations the demo seed wrote raise
-    the cap by one each, so sandboxes do not use up the visitors' budget.
+    one file per incident counts once. The seed's illustrations (UUIDv5, see
+    `seed_photo_name`) do not count, so sandboxes leave the visitors' budget alone.
     """
     if not settings.demo_mode:
         return
@@ -517,19 +530,11 @@ async def enforce_demo_photo_limits(
     await file.seek(0)
 
     model = photos_column.class_
-    files = (
-        select(model.incident_id, func.jsonb_array_elements_text(photos_column).label("filename")).distinct().subquery()
-    )
-    total = await db.scalar(select(func.count()).select_from(files)) or 0
-    if model is RekoReport:
-        total -= (
-            await db.scalar(
-                select(func.count(RekoReport.id)).where(
-                    RekoReport.token.startswith(DEMO_SEED_REKO_TOKEN_PREFIX), RekoReport.is_relevant.is_(True)
-                )
-            )
-            or 0
-        )
+    filename = func.jsonb_array_elements_text(photos_column).label("filename")
+    files = select(model.incident_id, filename).distinct().subquery()
+    # Character 15 of a UUID is its version digit.
+    uploads = select(func.count()).select_from(files).where(func.substr(files.c.filename, 15, 1) != "5")
+    total = await db.scalar(uploads) or 0
     if total >= DEMO_MAX_PHOTOS:
         raise CodedHTTPException(
             403, ErrorCode.PHOTO_DEMO_LIMIT, f"Demo-Modus: Maximale Anzahl Fotos ({DEMO_MAX_PHOTOS}) erreicht."

@@ -143,7 +143,9 @@ class TestDemoSandbox:
             .all()
         )
         # A follow-up form copies the illustration into a draft: the same file, not a new one.
+        # An editor's verdict change does not turn the seed's file into an upload.
         for report in illustrated:
+            report.is_relevant = False
             await get_or_create_reko_report(
                 db_session, report.incident_id, generate_form_token(str(report.incident_id))
             )
@@ -152,7 +154,7 @@ class TestDemoSandbox:
         await enforce_demo_photo_limits(db_session, upload, RekoReport.photos_json)
 
         # Visitor uploads on a seeded report still count.
-        illustrated[0].photos_json = illustrated[0].photos_json + [f"{i}.jpg" for i in range(DEMO_MAX_PHOTOS)]
+        illustrated[0].photos_json = illustrated[0].photos_json + [f"{uuid4()}.jpg" for _ in range(DEMO_MAX_PHOTOS)]
         await db_session.flush()
         with pytest.raises(HTTPException):
             await enforce_demo_photo_limits(db_session, upload, RekoReport.photos_json)
