@@ -20,8 +20,8 @@
  */
 
 import { useState } from "react"
-import { useLocale, useTranslations } from "next-intl"
-import { AlertTriangle, MapPin, Plus, Route as RouteIcon, Truck, Warehouse, X } from "lucide-react"
+import { useTranslations } from "next-intl"
+import { AlertTriangle, MapPin, Plus, Route as RouteIcon, Truck, Warehouse } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Input } from "@/components/ui/input"
@@ -42,6 +42,7 @@ import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
 import { useIntlLocale } from "@/lib/date-locale"
 import { describeRouteStart, describeStartOption } from "@/lib/route-start"
 import { RouteStopList, RouteTimelineItem, TIMELINE_ROW, TimelineNode } from "./route-stop-list"
+import { RailHeader } from "./rail-header"
 import { RouteOptimizeButton, RouteOptimizeNote, useRouteOptimizeAction } from "./route-optimize"
 import { ShellLoader } from "@/components/ui/shell-loader"
 import { useIsMobile } from "@/components/ui/use-mobile"
@@ -51,14 +52,6 @@ import { FormMessage, formMessageId, useRequiredField } from "@/components/ui/fo
 // Optimize now persists immediately, so the shared list never shows a pending
 // "changed" preview state.
 const EMPTY_CHANGED: Set<string> = new Set()
-
-/** From which rail width the exit button shows its word beside the ✕: the header's icon,
- *  title, gaps and «✕ Beenden» side by side, measured per language (the French title is
- *  half as long again). Static class names, so Tailwind sees them. */
-const EXIT_LABEL_ROOM: Record<string, string> = {
-  de: "@min-[19.5rem]/rail:inline",
-  fr: "@min-[24.5rem]/rail:inline",
-}
 
 interface RoutenplanungPanelProps {
   groups: IncidentGroup[]
@@ -91,7 +84,6 @@ export function RoutenplanungPanel({
   canEdit,
 }: RoutenplanungPanelProps) {
   const t = useTranslations("map.planning")
-  const locale = useLocale()
   const { group, operationsById, isAddingStop, reorder } = planning
   // Read-only on a phone (owner, 14.11.2026): the route and its order are shown, nothing is
   // optimised, dragged, added or taken off there – the desk plans.
@@ -129,32 +121,7 @@ export function RoutenplanungPanel({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header – the exit never wraps. Where the rail (`@container/rail`, the map page) has
-          the room it reads «✕ Beenden»; narrower it is the ✕ alone, named «Routenplanung
-          beenden» with the same words as its tooltip. It used to wrap under the title in a
-          narrow rail. The threshold is the room the label needs, per language; the longer French
-          title takes a second line in the narrowest rails instead. */}
-      <div className="mb-4 flex items-center justify-between gap-2 border-b pb-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <RouteIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <h2 className="min-w-0 break-words text-lg font-bold">{t("title")}</h2>
-        </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-8 shrink-0 gap-1.5 px-2 max-md:h-11 max-md:min-w-11"
-              onClick={onExit}
-              aria-label={t("exitLabel")}
-            >
-              <X className="size-3.5" />
-              <span className={cn("hidden", EXIT_LABEL_ROOM[locale] ?? EXIT_LABEL_ROOM.de)}>{t("exit")}</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{t("exitLabel")}</TooltipContent>
-        </Tooltip>
-      </div>
+      <RailHeader icon={RouteIcon} title={t("title")} exit={t("exit")} exitLabel={t("exitLabel")} onExit={onExit} />
 
       {/* Group picker + inline create */}
       <div className="mb-4 space-y-2">
