@@ -10297,7 +10297,7 @@
           "reko"
         ],
         "summary": "Get Reko Form",
-        "description": "Load Reko form (existing draft or new).\n\nNo authentication required - uses token validation.\n\nQuery params:\n    incident_id: UUID of incident\n    token: Form access token\n    personnel_id: Optional personnel who is doing the reko\n\nReturns existing draft or creates new one.",
+        "description": "Load THE incident's Reko report for the form (created as a draft when there is none).\n\nNo authentication required - uses token validation. Every valid link of the incident\nopens the same report (one per Einsatz, owner pick 23.11.2026).\n\nQuery params:\n    incident_id: UUID of incident\n    token: Form access token\n    personnel_id: Optional personnel who is doing the reko",
         "operationId": "get_reko_form_api_reko_form_get",
         "parameters": [
           {
@@ -10439,7 +10439,7 @@
           "reko"
         ],
         "summary": "Update Report",
-        "description": "Update existing Reko report (e.g., add more photos after submission).\n\nRequires either the incident's form token (X-Reko-Token header) or a\nlogged-in user — recon reports feed operator decisions and the printed\nslip, so they must not be rewritable by anyone who can reach the API.\n\nThis is how the KP amends a crew-filed report (plan 26 §5.1): what came in\nover the radio afterwards is added to the same row instead of filing a second\none, and the report then carries **both** provenance sides —\n``submitted_by_personnel_id`` from the crew, ``updated_by_user_id`` from the\noperator — which is what a mixed report has to be able to print.",
+        "description": "Edit THE incident's Reko report – the field's later answers, the KP's in place.\n\nRequires either a form token of the report's incident (X-Reko-Token header) or a\nlogged-in editor — recon reports feed operator decisions and the printed slip, so they\nmust not be rewritable by anyone who can reach the API. Since one report serves the\nwhole incident (owner pick 23.11.2026), any valid link of that incident may edit it,\nnot only the link that created the row.\n\nA KP edit of a crew-filed report keeps both provenance sides (plan 26 §5.1):\n``submitted_by_personnel_id`` from the crew, ``updated_by_user_id`` from the operator.",
         "operationId": "update_report_api_reko__report_id__patch",
         "parameters": [
           {
@@ -10609,7 +10609,7 @@
           "reko"
         ],
         "summary": "Get Incident Reports",
-        "description": "Get all Reko reports for an incident (for incident detail view).\n\nRequires authentication — only called from the logged-in board UI.",
+        "description": "The incident's Reko report, as a list: empty, or THE one (one per Einsatz since 23.11.2026).\n\nRequires authentication — only called from the logged-in board UI.",
         "operationId": "get_incident_reports_api_reko_incident__incident_id__reports_get",
         "parameters": [
           {
@@ -10871,7 +10871,7 @@
           "reko"
         ],
         "summary": "Upload Photo",
-        "description": "Upload photo to Reko report.\n\n**One route, two doors**, the same shape `POST /api/reko/` has: a field crew\nsends the incident's form token, the board sends none and is identified by\nits session. The board door is the WhatsApp case — the crew has no signal at\nthe Schadenplatz and sends the picture over whatever channel works, so the\noperator has to be able to attach it to the report they are transcribing.\n\nPhotos are compressed, resized, and stored as JPEG files.\n\nArgs:\n    incident_id: Incident UUID\n    file: Uploaded image file\n    x_reko_token: Form access token (from header), for the field door\n    report_id: The report to attach to, for the board door when amending\n    db: Database session\n\nReturns:\n    { \"filename\": \"uuid.jpg\" }",
+        "description": "Upload photo to Reko report.\n\n**One route, two doors**, the same shape `POST /api/reko/` has: a field crew\nsends the incident's form token, the board sends none and is identified by\nits session. The board door is the WhatsApp case — the crew has no signal at\nthe Schadenplatz and sends the picture over whatever channel works, so the\noperator has to be able to attach it to the report they are transcribing.\n\nPhotos are compressed, resized, and stored as JPEG files.\n\nArgs:\n    incident_id: Incident UUID\n    file: Uploaded image file\n    x_reko_token: Form access token (from header), for the field door\n    db: Database session\n\nReturns:\n    { \"filename\": \"uuid.jpg\" }",
         "operationId": "upload_photo_api_reko__incident_id__photos_post",
         "parameters": [
           {
@@ -10883,25 +10883,6 @@
               "format": "uuid",
               "title": "Incident Id"
             }
-          },
-          {
-            "name": "report_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Session door only: attach to this existing report instead of the operator's draft.",
-              "title": "Report Id"
-            },
-            "description": "Session door only: attach to this existing report instead of the operator's draft."
           },
           {
             "name": "x-reko-token",
@@ -10974,7 +10955,7 @@
           "reko"
         ],
         "summary": "Delete Photo",
-        "description": "Delete photo from Reko report.\n\nSame two doors as the upload: the incident's form token, or a session.\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename to delete\n    x_reko_token: Form access token (from header), for the field door\n    report_id: The report the photo hangs on, for the board door when amending\n    db: Database session\n\nReturns:\n    { \"success\": true }",
+        "description": "Delete photo from Reko report.\n\nSame two doors as the upload: the incident's form token, or a session.\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename to delete\n    x_reko_token: Form access token (from header), for the field door\n    db: Database session\n\nReturns:\n    { \"success\": true }",
         "operationId": "delete_photo_api_reko__incident_id__photos__filename__delete",
         "parameters": [
           {
@@ -10995,25 +10976,6 @@
               "type": "string",
               "title": "Filename"
             }
-          },
-          {
-            "name": "report_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Session door only: the report the photo hangs on, when amending an existing one.",
-              "title": "Report Id"
-            },
-            "description": "Session door only: the report the photo hangs on, when amending an existing one."
           },
           {
             "name": "x-reko-token",
@@ -13135,7 +13097,7 @@
           "photos"
         ],
         "summary": "Serve Photo",
-        "description": "Serve photo file with authentication and authorization.\n\nEach credential grants a different photo scope.\n\n* A **session** reads any photo of any incident — an operator on the board\n  already sees the whole event.\n* A **viewer share token** (`?token=`) reads only the Reko photos of the\n  event it was minted for, and only those a submitted report lists. Without\n  it the share board draws the Reko result but a broken image where the\n  picture of the damage should be, which is the most useful part of it.\n  Anyone holding the link can then see those photos — that is the cost the\n  link has always carried for everything else on the display, and the\n  narrowing above is what keeps it to that.\n\n* A **Reko form token** (`?reko_token=`) reads only photos listed by its\n  exact report, including its draft and prefilled photos. Field-derived\n  tokens also require their device claim to remain live.\n\nFiles outside a valid token's scope return 404 so links cannot probe them.\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename\n    token: Viewer share token, checked before the session cookie\n    reko_token: Form credential, checked before either of the other doors\n    db: Database session\n\nReturns:\n    Image file with cache headers\n\nRaises:\n    HTTPException 400: If the Reko form credential is invalid or expired\n    HTTPException 401: If no credential opens a door, or the device was revoked\n    HTTPException 404: If the photo is not found, or out of the token's reach",
+        "description": "Serve photo file with authentication and authorization.\n\nEach credential grants a different photo scope.\n\n* A **session** reads any photo of any incident — an operator on the board\n  already sees the whole event.\n* A **viewer share token** (`?token=`) reads only the Reko photos of the\n  event it was minted for, and only those a submitted report lists. Without\n  it the share board draws the Reko result but a broken image where the\n  picture of the damage should be, which is the most useful part of it.\n  Anyone holding the link can then see those photos — that is the cost the\n  link has always carried for everything else on the display, and the\n  narrowing above is what keeps it to that.\n\n* A **Reko form token** (`?reko_token=`) reads only photos the incident's\n  Reko report lists, draft included – the report the link edits. Field-derived\n  tokens also require their device claim to remain live.\n\nFiles outside a valid token's scope return 404 so links cannot probe them.\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename\n    token: Viewer share token, checked before the session cookie\n    reko_token: Form credential, checked before either of the other doors\n    db: Database session\n\nReturns:\n    Image file with cache headers\n\nRaises:\n    HTTPException 400: If the Reko form credential is invalid or expired\n    HTTPException 401: If no credential opens a door, or the device was revoked\n    HTTPException 404: If the photo is not found, or out of the token's reach",
         "operationId": "serve_photo_api_photos__incident_id___filename__get",
         "parameters": [
           {
@@ -24104,6 +24066,69 @@
               }
             ],
             "title": "Merge Active"
+          },
+          "reko_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reko Field"
+          },
+          "old_value": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Old Value"
+          },
+          "new_value": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Value"
           }
         },
         "type": "object",
@@ -24112,7 +24137,7 @@
           "timestamp"
         ],
         "title": "IncidentTimelineEvent",
-        "description": "A single event on the incident timeline.\n\nFlat shape with optional fields differentiated by `event_type`:\n- status_change → from_status, to_status, notes (+ seen_status, stale_seconds\n                  on a stale move the operator confirmed)\n- assignment    → assignment_action ('assigned' | 'unassigned'),\n                  resource_type, resource_name\n- field_message → message, source ('feld' | 'kp' — a crew's sentence, or an\n                  operator typing what came over the radio)\n- kp_message    → message, actor_name (the KP's own «Meldung an den Trupp»,\n                  going the OTHER way — sweep 27 §P3.2)"
+        "description": "A single event on the incident timeline.\n\nFlat shape with optional fields differentiated by `event_type`:\n- status_change → from_status, to_status, notes (+ seen_status, stale_seconds\n                  on a stale move the operator confirmed)\n- assignment    → assignment_action ('assigned' | 'unassigned'),\n                  resource_type, resource_name\n- field_message → message, source ('feld' | 'kp' — a crew's sentence, or an\n                  operator typing what came over the radio)\n- kp_message    → message, actor_name (the KP's own «Meldung an den Trupp»,\n                  going the OTHER way — sweep 27 §P3.2)\n- reko_change   → reko_field, old_value, new_value, source ('feld' | 'kp'),\n                  actor_name: one saved change of the Reko report\n                  (`services/reko_history.py`)"
       },
       "IncidentTimelineResponse": {
         "properties": {

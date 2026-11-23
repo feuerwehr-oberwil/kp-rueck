@@ -52,9 +52,10 @@ from ..schemas import (
     SimulateRapportResponse,
     SimulateVehicleBreakdownResponse,
 )
-from ..services import incident_display, notification_params
+from ..services import incident_display, notification_params, reko_history
 from ..services.divera_intake import broadcast_emergency_received
 from ..services.rapport_rows import STATUS_LABELS
+from ..services.reko_history import RekoAuthor
 from ..services.tokens import generate_form_token
 from ..services.training import (
     file_simulated_rapport,
@@ -355,7 +356,9 @@ async def simulate_reko(
     photo_summary = reko_data.pop("photo_summary", None)
     photo_depth_cm = reko_data.pop("photo_depth_cm", None)
     update_data = RekoReportUpdate(**reko_data)
-    updated = await reko_crud.update_reko_report(db, report.id, update_data, submit=True)
+    # The simulated crew is a form link without a person: «Feld» in the Chronik.
+    author = RekoAuthor.feld(None)
+    updated, filed_now = await reko_crud.update_reko_report(db, report.id, update_data, author=author, submit=True)
 
     # The wording illustration alone, or a type photo when the text has none.
     photo_filenames = []
@@ -368,15 +371,18 @@ async def simulate_reko(
             depth_cm=photo_depth_cm,
         )
     if photo_filenames:
+        before = reko_history.snapshot(updated)
         updated.photos_json = (updated.photos_json or []) + photo_filenames
-        await db.flush()
+        await reko_history.record_changes(db, updated, before, author)
         await db.refresh(updated)
 
     # Refresh incident to get current state
     await db.refresh(incident)
 
-    # Process post-submission side effects (status transition, priority bump, notification)
-    await reko_crud.process_reko_submission(db, incident, updated)
+    # The filing's side effects (status, priority, bell) – only when this run filed the
+    # incident's one report; a second simulation edits it without a second bell.
+    if filed_now:
+        await reko_crud.process_reko_submission(db, incident, updated)
 
     # Refresh incident again for response
     await db.refresh(incident)

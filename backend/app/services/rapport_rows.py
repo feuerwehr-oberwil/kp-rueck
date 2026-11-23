@@ -646,7 +646,8 @@ def reko_filing_lines(data: EventReportData, report: RekoReport) -> list[str]:
         Ergänzt im KP durch B. Eichenberger (Funkmeldung), 08.08.2026 19:41
 
     A report the KP both created and submitted stamps the same user in both
-    columns; that is one act, not two, and prints as one line.
+    columns; that is one act, not two, and prints as one line. Every single edit, field or
+    KP, is in the incident's Chronik (`reko_history`), not here.
     """
     lines: list[str] = []
     if report.submitted_by_personnel_id:
@@ -668,7 +669,8 @@ def reko_filing_lines(data: EventReportData, report: RekoReport) -> list[str]:
         lines.append(
             LABELS["reko_amended_kp"].format(
                 name=_user_display(data, report.updated_by_user_id) or LABELS["rapport_unknown_person"],
-                at=_fmt_dt(report.updated_at),
+                # The KP's own time: the field edits the same report and moves `updated_at`.
+                at=_fmt_dt(report.updated_by_user_at or report.updated_at),
             )
         )
     return [_tidy(line) for line in lines]

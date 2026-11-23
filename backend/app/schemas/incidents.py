@@ -438,6 +438,12 @@ class StatusTransitionCreate(BaseModel):
 
 
 # Timeline
+
+#: A Reko field's value in the Chronik: a yes/no, a number, a text, or a list
+#: (ticked Gefahren keys, vehicles, equipment, photo filenames).
+RekoChangeValue = bool | int | float | str | list[str] | None
+
+
 class IncidentTimelineEvent(BaseModel):
     """A single event on the incident timeline.
 
@@ -450,9 +456,14 @@ class IncidentTimelineEvent(BaseModel):
                       operator typing what came over the radio)
     - kp_message    → message, actor_name (the KP's own «Meldung an den Trupp»,
                       going the OTHER way — sweep 27 §P3.2)
+    - reko_change   → reko_field, old_value, new_value, source ('feld' | 'kp'),
+                      actor_name: one saved change of the Reko report
+                      (`services/reko_history.py`)
     """
 
-    event_type: str  # 'status_change' | 'assignment' | 'field_message' | 'kp_message' | 'merge' | 'unmerge'
+    event_type: (
+        str  # 'status_change' | 'assignment' | 'field_message' | 'kp_message' | 'merge' | 'unmerge' | 'reko_change'
+    )
     timestamp: datetime
     actor_name: str | None = None
 
@@ -482,6 +493,12 @@ class IncidentTimelineEvent(BaseModel):
     # still stands offers «Trennen».
     merged_incident_id: UUID | None = None
     merge_active: bool | None = None
+
+    # reko_change fields — the field's key (`reko_history.TRACKED_FIELDS`) and its raw
+    # values before and after; the client words them.
+    reko_field: str | None = None
+    old_value: RekoChangeValue = None
+    new_value: RekoChangeValue = None
 
 
 class DuplicateCandidate(BaseModel):

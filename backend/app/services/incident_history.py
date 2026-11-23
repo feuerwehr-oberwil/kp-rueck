@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models, schemas
 from ..crud import kp_messages as kp_messages_crud
-from . import duplicates
+from . import duplicates, reko_history
 from .incident_leader import effective_leader_ids
 
 # `type[Any]`, not `type[Base]`: mypy joins the three model classes to their common base,
@@ -311,6 +311,9 @@ async def timeline(db: AsyncSession, incident: models.Incident) -> list[schemas.
             )
         )
 
+    # The Reko report's own changes, coalesced where they are written (`reko_history`).
+    events.extend(await reko_history.timeline_events(db, incident_id))
+
     events.sort(key=lambda e: e.timestamp)
 
     # Collapse near-duplicate events: same payload within a short time window
@@ -323,7 +326,7 @@ async def timeline(db: AsyncSession, incident: models.Incident) -> list[schemas.
         # Messages are never deduplicated. They are human input, they are the
         # one kind of entry here nobody can reconstruct from board state, and a
         # crew tapping the same chip twice is itself information.
-        if event.event_type in ("field_message", "kp_message", "merge", "unmerge"):
+        if event.event_type in ("field_message", "kp_message", "merge", "unmerge", "reko_change"):
             deduped.append(event)
             continue
         payload_key = (
