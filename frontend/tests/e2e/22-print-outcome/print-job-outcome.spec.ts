@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../../fixtures/auth.fixture';
-import { setupBoard } from '../../helpers/api.helper';
+import { API_BASE as BACKEND, setupBoard } from '../../helpers/api.helper';
 
 /**
  * A failed print has to reach the person walking to the printer.
@@ -17,7 +17,6 @@ import { setupBoard } from '../../helpers/api.helper';
  * Untagged on purpose: nightly, not @smoke.
  */
 
-const BACKEND = 'http://localhost:8000';
 // docker-compose.dev.yml: PRINT_AGENT_TOKEN defaults to this for the dev stack.
 const AGENT_TOKEN = process.env.PRINT_AGENT_TOKEN || 'dev-print-token';
 const AGENT_HEADERS = { 'X-Agent-Token': AGENT_TOKEN };

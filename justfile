@@ -933,6 +933,14 @@ fat-perf *presets:
 notification-storm count="563":
     bash scripts/notification-storm.sh {{count}}
 
+# Throwaway Postgres + backend + `pnpm dev` on their own ports (8412/3412/55412), seeded like
+# CI's E2E (@smoke) job, clean environment. No argument = the CI @smoke set; a path = that spec;
+# anything else = a --grep. A failure keeps traces + logs in frontend/test-results/smoke/.
+# Run one E2E spec (or grep) against a throwaway stack – the fast browser loop
+[positional-arguments]
+smoke *args:
+    bash scripts/smoke.sh "$@"
+
 # docs/VISUAL_TESTS.md. Extra args go to Playwright (`just visual board`). Locally a look,
 # not a verdict: the baselines are CI renders.
 # Screenshot regression tests on a throwaway stack (production build + visual seed)

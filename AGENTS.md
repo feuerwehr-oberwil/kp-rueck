@@ -29,6 +29,7 @@ just check          # format, lint, types, shared files – no stack needed
 just ci-static      # frontend build + just check: what the pre-push hook runs
 just hooks          # once per clone: every push runs `just ci-static` first
 just test           # backend + frontend unit + E2E (services running)
+just smoke <spec|grep>  # one E2E spec on a throwaway stack; no argument = CI's @smoke set
 
 cd backend && uv run pytest tests/<file>.py     # one backend file
 cd frontend && pnpm test                        # Vitest

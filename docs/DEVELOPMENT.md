@@ -42,6 +42,7 @@ just hooks                                           # once per clone: every pus
 ```bash
 just test                                       # backend + frontend unit + E2E (services running)
 just test-ui                                    # E2E in Playwright UI mode
+just smoke tests/e2e/01-auth/login.spec.ts      # one spec (or a --grep text) on a throwaway stack, own ports
 cd backend && uv run pytest
 cd frontend && pnpm test                        # Vitest (pnpm test:watch)
 cd frontend && pnpm test:e2e                    # Playwright (pnpm test:e2e:ui)

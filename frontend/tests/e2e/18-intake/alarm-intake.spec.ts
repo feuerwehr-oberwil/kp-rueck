@@ -1,4 +1,5 @@
 import { test, expect } from '../../fixtures/auth.fixture';
+import { API_BASE as BACKEND } from '../../helpers/api.helper';
 
 /**
  * Alarm Intake Tests
@@ -10,8 +11,6 @@ import { test, expect } from '../../fixtures/auth.fixture';
  * helper is flaky in the dev stack); the public form itself is exercised in the
  * browser against the real backend.
  */
-
-const BACKEND = 'http://localhost:8000';
 
 test.describe('Alarm Intake - public token form', { tag: '@smoke' }, () => {
   test('editor link lets a walk-in submit an intake-flagged alarm', async ({ authenticatedPage }) => {
