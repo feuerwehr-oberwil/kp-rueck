@@ -496,7 +496,7 @@ export default function FireStationDashboard() {
   const [bindingsPopover, setBindingsPopover] = useState<BindingsPopoverState | null>(null)
   // When "+ Stop" opens the New-Emergency modal, the created incident attaches here.
   const [newEmergencyGroupId, setNewEmergencyGroupId] = useState<string | null>(null)
-  // Routen-Editor modal: the Auftrag being edited + an optional stop to centre on.
+  // Auftrags-Editor modal: the Auftrag being edited + an optional stop to centre on.
   const [routenEditorGroupId, setRoutenEditorGroupId] = useState<string | null>(null)
   const [routenEditorFocusIncidentId, setRoutenEditorFocusIncidentId] = useState<string | null>(null)
   // "+ Stop" incident picker: the route existing incidents are added to as stops.
@@ -508,7 +508,7 @@ export default function FireStationDashboard() {
   const [attendanceOpen, setAttendanceOpen] = useState(false)
   /** Body of the Divera-Mitteilung the Checkliste asked to send; null = closed. */
   const [diveraMessageText, setDiveraMessageText] = useState<string | null>(null)
-  /** The Checkliste's «Reko-Offiziere wählen» picker. Page-owned like the Divera
+  /** The Checkliste's «Reko-Personen wählen» picker. Page-owned like the Divera
    *  dialog — a modal mounted inside the checklist popover dies with it. */
   const [rekoPickerOpen, setRekoPickerOpen] = useState(false)
 
@@ -1006,7 +1006,7 @@ export default function FireStationDashboard() {
     return () => window.removeEventListener('kp:open-auftraege', handler)
   }, [])
 
-  // Same channel for the Routen-Editor: a card's context menu opens its route
+  // Same channel for the Auftrags-Editor: a card's context menu opens its route
   // directly, with that stop focused, instead of detouring through the sheet.
   useEffect(() => {
     const handler = (e: Event) => {

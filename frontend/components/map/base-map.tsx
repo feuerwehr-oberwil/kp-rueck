@@ -386,7 +386,7 @@ export function BaseMap({
   // its size in, a rail dragged or slid beside it, a resized window all come out right. The one
   // this replaced called `resize()` on every observed frame with no redraw, and `resize()`
   // resets the canvas size, which clears the WebGL buffer: the map flickered for as long as the
-  // Routenplanung rail was dragged (owner, 09.11.2026).
+  // Auftrags-Editor rail was dragged (owner, 09.11.2026).
 
   // Keep the basemap under the overlays across a style swap – see `baseLayerMoves()`. Re-armed on
   // every new map instance (a GL recovery builds one), because the listener sits on the instance.

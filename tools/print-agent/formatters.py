@@ -58,7 +58,7 @@ TYPE_LABELS = {
 
 STATUS_LABELS = {
     "incoming": "Eingegangen",
-    "reko": "Rekognoszierung",
+    "reko": "Reko",
     "reko_done": "Reko abgeschlossen",
     "enroute": "Disponiert",
     "active": "Im Einsatz",

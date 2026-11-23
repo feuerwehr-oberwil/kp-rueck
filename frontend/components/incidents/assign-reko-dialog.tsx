@@ -30,7 +30,7 @@ export const REKO_PICK_MESSAGE_ID = "reko-pick-message"
  * person tiles as every picker (`PersonPickTile`), one to choose (radio dot), each with the
  * Fahrer picker's «where · roles» line (`usePersonTileFacts`: the Einsatz they are on, their
  * other roles) – facts only, nobody is refused. Used by the four Reko surfaces (Reko zuweisen,
- * Rekos übertragen, the checklist, Reko-Modus); each host places `searchField` above its list
+ * Rekos übertragen, the checklist, Reko-Editor); each host places `searchField` above its list
  * and `list` in a `radiogroup`, and its own main answer marks `chosen`.
  *
  * A host that shows these people as ONE section of a longer list (the status gate's «Andere
@@ -188,7 +188,7 @@ interface AssignRekoDialogProps {
 }
 
 /**
- * «Reko-Personal zuweisen»: the Ereignis' Reko people as person tiles (ENT-10 A), the one
+ * «Reko-Person zuweisen»: the Ereignis' Reko people as person tiles (ENT-10 A), the one
  * already on this Einsatz ticked with «aktuell»; a tap ticks, «Übernehmen» assigns – or,
  * on the current person, keeps it (the status gate's way forward when the answer is
  * already on screen). Open Rekos are each tile's where-note; the right column says how

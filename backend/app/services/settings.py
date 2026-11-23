@@ -177,8 +177,10 @@ DEFAULT_SETTINGS = {
     # the server refuses them (`WORK_SOURCES`) — so the crew's chips read wrong
     # for the one person sitting outside in the vehicle. These are the things a
     # driver actually radios in, sent as an ordinary Meldung with their name and
-    # the time on it. Same one-chip-per-line storage, same Textarea.
-    "feld.driver_message_chips": "Bin vor Ort\nFahrzeug parkiert\nFahre zurück ins Magazin\nWarte auf Auftrag",
+    # the time on it. Same one-chip-per-line storage, same Textarea. «Warte auf Einsatz», not
+    # «… Auftrag»: an Auftrag is the multi-stop object (23.11.2026). Only the default moved – a
+    # station's stored list keeps its own wording.
+    "feld.driver_message_chips": "Bin vor Ort\nFahrzeug parkiert\nFahre zurück ins Magazin\nWarte auf Einsatz",
     # Two ways to tidy the text an alarm provider puts into every alarm, both applied to
     # the INCIDENT's description only and both EMPTY BY DEFAULT – a fresh install passes
     # every alarm description through untouched. What a dispatch system prepends is that

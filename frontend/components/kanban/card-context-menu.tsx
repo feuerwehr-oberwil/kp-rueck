@@ -14,7 +14,7 @@ import { usePrintAssignmentSlip } from "@/lib/hooks/use-print-assignment-slip"
 
 interface CardContextMenuProps {
   operation: Operation
-  /** The Auftrag (route) this card is a stop of, if any — offers «Routen-Editor». */
+  /** The Auftrag (route) this card is a stop of, if any — offers «Auftrags-Editor». */
   auftragId?: string
   /** «Bearbeiten»: open the detail, untargeted. */
   onEdit: () => void
