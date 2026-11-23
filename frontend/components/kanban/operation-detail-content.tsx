@@ -251,7 +251,7 @@ export function OperationDetailContent({
   onChangeStatus,
 }: OperationDetailContentProps) {
   const t = useTranslations('kanban')
-  const { formatLocation, refreshOperations, requestVehicleDriver, undoMerge } = useOperations()
+  const { formatLocation, refreshOperations, requestVehicleDriver, undoMerge, removeReko } = useOperations()
   const toggleDriverStay = useToggleDriverStay()
   const { selectedEvent } = useEvent()
   const { personnel } = usePersonnel()
@@ -1678,14 +1678,29 @@ export function OperationDetailContent({
                   <DetailField
                     label={t('common.reko')}
                     action={canEdit ? (
-                      <button
-                        type="button"
-                        className={ROW_ACTION}
-                        onClick={() => setRekoDialogOpen(true)}
-                      >
-                        <ArrowRightLeft className="size-3" />
-                        {assignedRekoPersonnel ? t('common.switch') : t('common.assign')}
-                      </button>
+                      <span className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          className={ROW_ACTION}
+                          onClick={() => setRekoDialogOpen(true)}
+                        >
+                          <ArrowRightLeft className="size-3" />
+                          {assignedRekoPersonnel ? t('common.switch') : t('common.assign')}
+                        </button>
+                        {/* The card chip's ✕ (`removeReko`), so the detail need not be
+                            closed to find the card. */}
+                        {operation.assignedReko && (
+                          <button
+                            type="button"
+                            className={ROW_ACTION}
+                            onClick={() => removeReko(operation.id)}
+                            title={t('common.removeNamed', { name: operation.assignedReko.name })}
+                          >
+                            <UserMinus className="size-3" />
+                            {t('chipMenu.remove')}
+                          </button>
+                        )}
+                      </span>
                     ) : undefined}
                   >
                     {assignedRekoPersonnel ? (
