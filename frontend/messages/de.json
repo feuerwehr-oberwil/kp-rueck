@@ -1601,6 +1601,7 @@
       "searchPlaceholder": "Adresse suchen …",
       "searching": "Wird gesucht …",
       "noResults": "Keine Adressen gefunden.",
+      "searchUnavailable": "Adresssuche nicht erreichbar.",
       "useFreetext": "«{query}» übernehmen",
       "freetextNote": "Als Freitext ohne Koordinaten",
       "minChars": "Mindestens 3 Zeichen eingeben",

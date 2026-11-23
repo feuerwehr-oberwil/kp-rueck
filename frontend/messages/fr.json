@@ -2699,6 +2699,7 @@
       "searchPlaceholder": "Adresse …",
       "searching": "Recherche en cours …",
       "noResults": "Aucune adresse trouvée.",
+      "searchUnavailable": "Recherche d'adresse indisponible.",
       "useFreetext": "Reprendre « {query} »",
       "freetextNote": "Comme texte libre, sans coordonnées",
       "minChars": "Saisis au moins 3 caractères",

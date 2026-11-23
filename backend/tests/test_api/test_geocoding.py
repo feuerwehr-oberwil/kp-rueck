@@ -12,13 +12,13 @@ from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.config import Settings, settings
-from app.models import FeldDeviceClaim, GeocodingDispatch
-from app.services import geocoding
+from app.models import FeldDeviceClaim, GeocodingDispatch, Setting
+from app.services import geocoding, share_links
 from app.services.tokens import generate_feld_token, validate_feld_token
 from tests.conftest import TEST_PASSWORD, feld_device_token, feld_unlock_token
 
 
-def test_geocoding_openapi_documents_session_or_bound_device_authentication():
+def test_geocoding_openapi_documents_session_bound_device_or_alarm_link_authentication():
     from app.main import app
 
     spec = app.openapi()
@@ -26,6 +26,7 @@ def test_geocoding_openapi_documents_session_or_bound_device_authentication():
         "GeocodingSessionCookie": ("cookie", "access_token"),
         "GeocodingFieldHeader": ("header", "X-Feld-Token"),
         "GeocodingFieldCookie": ("cookie", "feld-device-token"),
+        "GeocodingIntakeHeader": ("header", "X-Intake-Token"),
     }
     for name, (location, credential) in expected.items():
         scheme = spec["components"]["securitySchemes"][name]
@@ -89,6 +90,35 @@ async def test_valid_board_cookie_is_an_alternative_to_field_auth(
     assert login.status_code == 200
     response = await client.get(f"/api/geocoding/{path}", params=parameters, headers={"X-Feld-Token": "invalid"})
     assert response.status_code == 200
+
+
+async def test_alarm_link_finds_addresses_until_revoked_or_archived(
+    client, db_session, test_event, provider, monkeypatch
+):
+    """/alarm is a token link with no login. Its Einsatzort search answered 401, which the page
+    showed as «Keine Adressen gefunden.» for every street (owner, 24.11.2026: «Binningerstr»)."""
+    _, calls, _ = provider
+    monkeypatch.setattr(geocoding, "DISPATCH_INTERVAL", timedelta(0))
+    token = await share_links.issue(db_session, "alarm", test_event.id)
+    headers = {"X-Intake-Token": token}
+    search = {"q": "Binningerstr"}
+    assert (await client.get("/api/geocoding/search", params=search, headers=headers)).status_code == 200
+    reverse = await client.get("/api/geocoding/reverse", params={"lat": 47, "lon": 7}, headers=headers)
+    assert reverse.status_code == 200
+    # Another link kind is not an alarm link.
+    checkin = await share_links.issue(db_session, "checkin", test_event.id)
+    assert (
+        await client.get("/api/geocoding/search", params=search, headers={"X-Intake-Token": checkin})
+    ).status_code == 401
+    test_event.archived_at = datetime.now(UTC)
+    await db_session.commit()
+    assert (await client.get("/api/geocoding/search", params=search, headers=headers)).status_code == 401
+    test_event.archived_at = None
+    await share_links.revoke(db_session, "alarm", test_event.id)
+    await db_session.commit()
+    assert (await client.get("/api/geocoding/search", params=search, headers=headers)).status_code == 401
+    assert len(calls) == 2
+    assert all("x-intake-token" not in call.headers for call in calls)
 
 
 @pytest.mark.parametrize("credential_location", ["header", "cookie"])
@@ -288,6 +318,31 @@ async def test_swisstopo_asks_inside_the_station_box_first(editor_client, provid
     # One call: LV95 grid (the only one SearchServer's bbox filters in), the box around the station.
     assert len(calls) == 1
     assert calls[0]["sr"] == "2056"
+    assert calls[0]["bbox"] == "2605176,1257060,2612725,1268190"
+
+
+async def test_swisstopo_boxes_around_the_station_when_the_caller_sends_no_box(
+    client, db_session, test_event, provider, monkeypatch
+):
+    """/alarm and /feld cannot read the settings, so they send no box. The server knows the
+    station: «Binningerstr» broad is Münchenstein, Bottmingen, Allschwil – the box is Oberwil."""
+    instance, _, _ = provider
+    calls = []
+
+    async def fetch(url, parameters):
+        calls.append(parameters)
+        return {"results": [_swiss_hit("Binningerstrasse 13 <b>4104 Oberwil BL</b>", 47.517, 7.553)]}
+
+    monkeypatch.setattr(instance, "_fetch", fetch)
+    db_session.add_all(
+        [Setting(key="firestation_latitude", value="47.5143"), Setting(key="firestation_longitude", value="7.5574")]
+    )
+    await db_session.commit()
+    token = await share_links.issue(db_session, "alarm", test_event.id)
+    response = await client.get(
+        "/api/geocoding/search", params={"q": "Binningerstr"}, headers={"X-Intake-Token": token}
+    )
+    assert response.json()[0]["formattedAddress"] == "Binningerstrasse 13 4104 Oberwil BL"
     assert calls[0]["bbox"] == "2605176,1257060,2612725,1268190"
 
 
