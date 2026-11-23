@@ -164,6 +164,7 @@
         "nothingToDo": "schon so",
         "pickBelow": "unten wählen",
         "unknownIncident": "Kein Einsatz {number}",
+        "closedIncident": "abgeschlossen – nimmt nichts mehr auf",
         "needsIncident": "Einsatz voranstellen – Nummer oder Adresse, z. B. «14 tlf meier» oder «bachweg 3 tlf»",
         "choiceFor": "für «{text}»",
         "toastTitle": "Einsatz {number} · {name}",
@@ -513,6 +514,7 @@
       "statusMovedToast": "{name} → {status}",
       "vehicleAssignedToast": "{vehicle} zu {name} zugewiesen",
       "vehicleRemovedToast": "{vehicle} von {name} freigegeben",
+      "closedTakesNoAssignment": "{name} ist abgeschlossen – nichts mehr zuweisen",
       "priorityChangedToast": "{name}: Priorität {priority}",
       "zuFussOnToast": "{name}: zu Fuss unterwegs",
       "zuFussOffToast": "{name}: nicht mehr zu Fuss",
@@ -537,6 +539,7 @@
       "transferredToast": "Ressourcen nach «{target}» übertragen",
       "transferredToastCount": "{count, plural, one {# Zuweisung} other {# Zuweisungen}} von «{source}»",
       "transferUndone": "Übertragung zurückgenommen",
+      "transferredToAuftragToast": "«{source}» ist jetzt Stopp von «{target}»",
       "transferUndoFailed": "Nicht zurückgenommen",
       "transferUndoFailedDescription": "Die Zuweisungen bleiben, wo sie sind."
     },
@@ -1321,14 +1324,18 @@
     },
     "transfer": {
       "title": "Ressourcen übertragen",
-      "description": "Alle Zuweisungen von «{title}» zu einem anderen Einsatz übertragen",
-      "searchPlaceholder": "Einsatz suchen (Titel, Adresse, Art) …",
+      "description": "Alle Zuweisungen von «{title}» zu einem anderen Einsatz oder an einen Auftrag übertragen",
+      "searchPlaceholder": "Einsatz oder Auftrag suchen (Titel, Adresse, Art, Name) …",
       "noOtherIncidents": "Keine anderen Einsätze verfügbar",
-      "needTwoIncidents": "Es müssen mindestens zwei Einsätze vorhanden sein",
+      "needTwoIncidents": "Es braucht einen zweiten offenen Einsatz oder einen Auftrag",
+      "incidentsHeading": "Einsätze",
+      "auftraegeHeading": "Aufträge",
+      "stopCount": "{count, plural, =0 {noch kein Stopp} one {# Stopp} other {# Stopps}}",
       "vehicleCount": "{count, plural, one {# Fahrzeug} other {# Fahrzeuge}}",
       "transferring": "Wird übertragen …",
       "transfer": "Übertragen",
-      "confirmCounts": "Es werden verschoben: {crew, plural, one {# Person} other {# Personen}}, {vehicles, plural, one {# Fahrzeug} other {# Fahrzeuge}}, {materials} Material."
+      "confirmCounts": "Es werden verschoben: {crew, plural, one {# Person} other {# Personen}}, {vehicles, plural, one {# Fahrzeug} other {# Fahrzeuge}}, {materials} Material.",
+      "confirmAuftrag": "«{title}» wird Stopp von «{auftrag}». Mannschaft, Fahrzeuge und Material gehen an den Auftrag."
     },
     "driver": {
       "assignErrorTitle": "Fahrer zuweisen fehlgeschlagen",
@@ -1415,10 +1422,8 @@
       "fallbackIncident": "Einsatz",
       "released": "{vehicle} freigegeben",
       "releaseFailed": "Freigabe fehlgeschlagen",
-      "completed": "{label} abgeschlossen",
-      "completeFailed": "Abschliessen fehlgeschlagen",
       "title": "Fahrzeug zurück im Magazin – freigeben?",
-      "description": "<strong>{vehicle}</strong> ist laut GPS wieder im Magazin. Nur die Zuweisung zu «{label}» freigeben – oder den Einsatz gleich ganz abschliessen (gibt alle Ressourcen frei)?",
+      "description": "<strong>{vehicle}</strong> ist laut GPS wieder im Magazin. Den Einsatz «{label}» abschliessen? Mannschaft und Fahrzeuge werden frei, beim Material wird gefragt, was vor Ort bleibt.",
       "decline": "Nicht freigeben",
       "releaseOnly": "Nur {vehicle} freigeben",
       "completeIncident": "Einsatz abschliessen"

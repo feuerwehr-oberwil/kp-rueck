@@ -28,6 +28,8 @@
  * paths a drag uses (`lib/hooks/use-command-dispatch.ts`).
  */
 
+import { takesAssignments } from "@/lib/assignable"
+
 export type DispatchStatus = "incoming" | "reko" | "reko_done" | "enroute" | "active" | "returning" | "complete"
 export type DispatchPriority = "low" | "medium" | "high"
 
@@ -141,6 +143,8 @@ export type DispatchPlan =
   | { kind: "blocked"; reason: "unknown-incident"; number: number }
   /** Several things, or a status word, but no Einsatz number to apply them to. */
   | { kind: "blocked"; reason: "needs-incident" }
+  /** Something new onto a closed Einsatz – it takes nothing new (lib/assignable.ts). */
+  | { kind: "blocked"; reason: "closed"; incident: DispatchIncident }
 
 export interface ParsedDispatch {
   tokens: DispatchToken[]
@@ -707,6 +711,10 @@ function plan(
     }
   }
 
+  // The assigns run before the status move, so not even «… aktiv» gets them onto it.
+  if (!takesAssignments(incident) && assign.some((entry) => !entry.alreadyHere)) {
+    return { kind: "blocked", reason: "closed", incident }
+  }
   const statusChange = status !== null && status !== incident.status ? status : null
   const priorityChange = priority !== null && priority !== incident.priority ? priority : null
   const noop = statusChange === null && priorityChange === null && assign.every((entry) => entry.alreadyHere)

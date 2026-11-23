@@ -4,6 +4,7 @@ import type { Operation, Person, Material, OperationStatus } from '@/lib/context
 import type { IncidentGroup } from '@/lib/types/groups'
 import type { GroupResourceType } from '@/lib/api-client'
 import { columns } from '@/lib/kanban-utils'
+import { takesAssignments } from '@/lib/assignable'
 
 // The pragmatic-drag-and-drop element adapter is require()d below (it touches
 // `document` at import time), so its payload types cannot be imported alongside
@@ -127,12 +128,17 @@ export function applyResourceDrop(
 
   const operationId = destData.operationId as string
 
+  // A closed Einsatz takes no new assignment (lib/assignable.ts) – not even through its
+  // Auftrag. Its targets refuse the drag already; this catches a card closed mid-drag.
+  const dropOn = operations.find((o) => o.id === operationId)
+  if (sourceData.type !== "operation" && dropOn && !takesAssignments(dropOn)) return true
+
   // --- Resource dropped on a GROUPED incident card ----------------------
   // The route owns resources, so route the assignment to the Auftrag instead of
   // the stop. Reko persons still attach to the specific stop. Ungrouped
   // incidents fall through to the per-incident mutators below.
   if (sourceData.type !== "operation") {
-    const targetOp = operations.find((o) => o.id === operationId)
+    const targetOp = dropOn
     if (targetOp?.groupId) {
       const groupId = targetOp.groupId
       // Same rule as the Auftrag row above: nothing is refused here, the

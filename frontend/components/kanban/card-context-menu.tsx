@@ -11,6 +11,7 @@ import { Users, Package, Truck, Binoculars, Pencil, Map, Building2, Printer, Tim
 import { type Operation } from "@/lib/contexts/operations-context"
 import type { MoveTo } from "@/lib/move-in-list"
 import { usePrintAssignmentSlip } from "@/lib/hooks/use-print-assignment-slip"
+import { takesAssignments } from "@/lib/assignable"
 
 interface CardContextMenuProps {
   operation: Operation
@@ -39,7 +40,7 @@ const RADIO_REPEATABLE: ReadonlySet<Operation["status"]> = new Set(["enroute", "
  * The right-click menu of an Einsatz card. Rendered by `DraggableOperation` as
  * the content of its `<ContextMenu>`, next to the trigger that wraps the card.
  * A row shows only when its handler is passed – the board passes the editing
- * ones to editors only. The thermal-print action is `usePrintAssignmentSlip`.
+ * ones to editors only. «Zuweisen» hides on a closed Einsatz, «Übertragen» on a stop. The thermal-print action is `usePrintAssignmentSlip`.
  *
  * Re-renders with the card (not memoised), so it never shows a stale label.
  */
@@ -47,9 +48,9 @@ export function CardContextMenu({
   operation,
   auftragId,
   onEdit,
-  onAssignReko,
-  onAssignResource,
-  onTransfer,
+  onAssignReko: onAssignRekoProp,
+  onAssignResource: onAssignResourceProp,
+  onTransfer: onTransferProp,
   onDistributeToAuftrag,
   onToggleNachbarhilfe,
   onToggleAmWarten,
@@ -63,6 +64,12 @@ export function CardContextMenu({
   const tReorder = useTranslations('common.reorder')
   const { print, printing: isPrinting } = usePrintAssignmentSlip()
   const handlePrint = () => void print(operation.id)
+  // A closed Einsatz takes no new assignment (lib/assignable.ts), and a stop is not
+  // transferred – its resources belong to its Auftrag («Aus Auftrag lösen» stays).
+  const open = takesAssignments(operation)
+  const onAssignReko = open ? onAssignRekoProp : undefined
+  const onAssignResource = open ? onAssignResourceProp : undefined
+  const onTransfer = auftragId || operation.groupId ? undefined : onTransferProp
 
   return (
     <ContextMenuContent

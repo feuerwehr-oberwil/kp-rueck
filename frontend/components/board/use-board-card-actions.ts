@@ -15,6 +15,7 @@ import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import type { Dispatch, SetStateAction, RefObject } from "react"
 import type { Released } from "@/lib/release-undo"
 import { moveInList, type MoveTo } from "@/lib/move-in-list"
+import { takesAssignments } from "@/lib/assignable"
 
 /** Priority → its label key under `kanban.common`, for the toast a keyboard
  *  priority change raises. */
@@ -243,21 +244,26 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
         )
       }
       // Removing says itself — with «Rückgängig» — through the release toast.
-      if (op.groupId) {
-        const existing = getGroupResources(op.groupId).vehicles.find((v) => v.resourceId === vehicle.id)
-        if (existing) {
-          void release.releaseRouteResource(op.groupId, existing.assignmentId)
-        } else {
-          // Held elsewhere → the Doppelbelegung question (#22); the toast only for an assign
-          // that went through.
-          void assignVehicleToGroupWithConflict(op.groupId, vehicle.id).then((assigned) => {
-            if (assigned) notify(true)
-          })
-        }
+      const onRoute = op.groupId ? getGroupResources(op.groupId).vehicles.find((v) => v.resourceId === vehicle.id) : undefined
+      if (op.groupId && onRoute) {
+        void release.releaseRouteResource(op.groupId, onRoute.assignmentId)
         return
       }
-      if (op.vehicles.some((v) => v.vehicleId === vehicle.id)) {
+      if (!op.groupId && op.vehicles.some((v) => v.vehicleId === vehicle.id)) {
         void release.releaseVehicle(op.id, vehicle.id)
+        return
+      }
+      // A closed Einsatz takes no new assignment (lib/assignable.ts). Said, not swallowed.
+      if (!takesAssignments(op)) {
+        toast.info(tCommon('closedTakesNoAssignment', { name: getIncidentLocationLabel(op) }))
+        return
+      }
+      if (op.groupId) {
+        // Held elsewhere → the Doppelbelegung question (#22); the toast only for an assign
+        // that went through.
+        void assignVehicleToGroupWithConflict(op.groupId, vehicle.id).then((assigned) => {
+          if (assigned) notify(true)
+        })
         return
       }
       // The same question as the picker and a drop: an Auftrag holding the vehicle asks

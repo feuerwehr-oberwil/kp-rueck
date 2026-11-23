@@ -205,6 +205,13 @@ export function DispatchPreview({
       </>
     )
     action = <Action muted>{t("pickBelow")}</Action>
+  } else if (plan.kind === "blocked" && plan.reason === "closed") {
+    body = (
+      <>
+        <IncidentChip incident={plan.incident} />
+        <span className="text-sm text-muted-foreground">{t("closedIncident")}</span>
+      </>
+    )
   } else if (plan.kind === "blocked" && plan.reason === "unknown-incident") {
     body = <span className="text-sm text-muted-foreground">{t("unknownIncident", { number: plan.number })}</span>
   } else if (plan.kind === "blocked") {

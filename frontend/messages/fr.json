@@ -273,6 +273,7 @@
         "nothingToDo": "déjà fait",
         "pickBelow": "choisir ci-dessous",
         "unknownIncident": "Aucune intervention {number}",
+        "closedIncident": "terminée – plus rien à attribuer",
         "needsIncident": "Commencer par l’intervention – numéro ou adresse, p. ex. « 14 tlf meier » ou « bachweg 3 tlf »",
         "choiceFor": "pour « {text} »",
         "toastTitle": "Intervention {number} · {name}",
@@ -1387,14 +1388,18 @@
     },
     "transfer": {
       "title": "Transférer les ressources",
-      "description": "Transférer toutes les attributions de « {title} » vers une autre intervention",
-      "searchPlaceholder": "Rechercher une intervention (titre, adresse, genre) …",
+      "description": "Transférer toutes les attributions de « {title} » vers une autre intervention ou une mission",
+      "searchPlaceholder": "Rechercher une intervention ou une mission (titre, adresse, genre, nom) …",
       "noOtherIncidents": "Aucune autre intervention disponible",
-      "needTwoIncidents": "Il faut au moins deux interventions",
+      "needTwoIncidents": "Il faut une deuxième intervention ouverte ou une mission",
+      "incidentsHeading": "Interventions",
+      "auftraegeHeading": "Missions",
+      "stopCount": "{count, plural, =0 {pas encore d’étape} one {# étape} other {# étapes}}",
       "vehicleCount": "{count, plural, one {# véhicule} other {# véhicules}}",
       "transferring": "Transfert …",
       "transfer": "Transférer",
-      "confirmCounts": "Seront déplacés : {crew, plural, one {# personne} other {# personnes}}, {vehicles, plural, one {# véhicule} other {# véhicules}}, {materials} matériel."
+      "confirmCounts": "Seront déplacés : {crew, plural, one {# personne} other {# personnes}}, {vehicles, plural, one {# véhicule} other {# véhicules}}, {materials} matériel.",
+      "confirmAuftrag": "« {title} » devient une étape de « {auftrag} ». Effectif, véhicules et matériel passent à la mission."
     },
     "driver": {
       "assignErrorTitle": "Échec de l’attribution du conducteur",
@@ -1481,10 +1486,8 @@
       "fallbackIncident": "Intervention",
       "released": "{vehicle} libéré",
       "releaseFailed": "Échec de la libération",
-      "completed": "{label} clôturée",
-      "completeFailed": "Échec de la clôture",
       "title": "Véhicule de retour à la caserne – le libérer ?",
-      "description": "<strong>{vehicle}</strong> est de retour à la caserne selon le GPS. Libérer uniquement l’attribution à « {label} » – ou clôturer directement l’intervention (ce qui libère toutes les ressources) ?",
+      "description": "<strong>{vehicle}</strong> est de retour à la caserne selon le GPS. Clôturer l’intervention « {label} » ? L’effectif et les véhicules sont libérés, pour le matériel on demande ce qui reste sur place.",
       "decline": "Ne pas libérer",
       "releaseOnly": "Libérer uniquement {vehicle}",
       "completeIncident": "Clôturer l’intervention"
@@ -1809,6 +1812,7 @@
       "statusMovedToast": "{name} → {status}",
       "vehicleAssignedToast": "{vehicle} attribué à {name}",
       "vehicleRemovedToast": "{vehicle} libéré de {name}",
+      "closedTakesNoAssignment": "{name} est terminée – plus rien à attribuer",
       "priorityChangedToast": "{name} : priorité {priority}",
       "zuFussOnToast": "{name} : engagement à pied",
       "zuFussOffToast": "{name} : plus à pied",
@@ -1833,6 +1837,7 @@
       "transferredToast": "Ressources transférées vers « {target} »",
       "transferredToastCount": "{count, plural, one {# attribution} other {# attributions}} depuis « {source} »",
       "transferUndone": "Transfert annulé",
+      "transferredToAuftragToast": "« {source} » est maintenant une étape de « {target} »",
       "transferUndoFailed": "Non annulé",
       "transferUndoFailedDescription": "Les attributions restent où elles sont."
     },

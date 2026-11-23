@@ -28,18 +28,15 @@ vi.mock('@/lib/api-client', () => ({
   },
 }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
-const board = vi.hoisted(() => ({ operations: [] as unknown[], personnel: [] as unknown[] }))
-vi.mock('@/lib/contexts/operations-context', () => ({ useOperations: () => board }))
-vi.mock('@/lib/contexts/groups-context', () => ({ useGroups: () => ({ groups: [] }) }))
 
 import { GpsArrivalPrompt } from '@/components/gps-arrival-prompt'
 import { GpsReleasePrompt } from '@/components/gps-release-prompt'
+import { onCompletionRequest } from '@/lib/hooks/use-completion-request'
 
 afterEach(() => {
   cleanup()
   handlers.clear()
   phone.current = false
-  board.operations = []
 })
 
 const PROMPTS = [
@@ -69,26 +66,24 @@ describe.each(PROMPTS)('%s', (_name, Prompt, event) => {
   })
 })
 
-// Owner pick #21: «Nur TLF freigeben» is the main answer unless TLF is all that is left.
+// Owner feedback 23.11.2026 #13: «Einsatz abschliessen» is always the main answer, and it
+// hands over to the board's close flow (which asks about the material).
 describe('GpsReleasePrompt main answer', () => {
-  const broadcast = async () => {
+  it('is «Einsatz abschliessen», which hands the Einsatz to the board\'s close flow', async () => {
+    const asked = vi.fn()
+    const stop = onCompletionRequest(asked)
+    renderWithIntl(<GpsReleasePrompt />)
     await act(async () => {
-      await handlers.get('gps_release_prompt')?.({ assignment_id: 'a1', incident_id: 'i1', vehicle_id: 'v-tlf', vehicle_name: 'TLF' })
+      await handlers.get('gps_release_prompt')?.({ assignment_id: 'a1', incident_id: 'i1', vehicle_name: 'TLF' })
     })
-  }
-  const tlf = { vehicleId: 'v-tlf', assignmentId: 'a1', name: 'TLF', callsign: null }
+    const main = screen.getByRole('button', { name: 'Einsatz abschliessen' })
+    expect(main).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Nur TLF freigeben' })).toBeInTheDocument()
 
-  it('is «Nur TLF freigeben» while a crew is still on the Einsatz', async () => {
-    board.operations = [{ id: 'i1', vehicles: [tlf], crew: [{ personnelId: 'p-1', assignmentId: 'c1', name: 'Meier' }], materials: [] }]
-    renderWithIntl(<GpsReleasePrompt />)
-    await broadcast()
-    expect(screen.getByRole('button', { name: 'Nur TLF freigeben' })).toHaveFocus()
-  })
+    await act(async () => main.click())
 
-  it('is «Einsatz abschliessen» when TLF is the last resource', async () => {
-    board.operations = [{ id: 'i1', vehicles: [tlf], crew: [], materials: [] }]
-    renderWithIntl(<GpsReleasePrompt />)
-    await broadcast()
-    expect(screen.getByRole('button', { name: 'Einsatz abschliessen' })).toHaveFocus()
+    expect(asked).toHaveBeenCalledWith('i1')
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    stop()
   })
 })

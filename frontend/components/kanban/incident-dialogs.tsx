@@ -26,7 +26,7 @@ import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { unmutedToast } from "@/lib/toast-lifetime"
 import { undoToast } from "@/lib/toast-undo"
-import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
+import { TransferIncidentDialog, type TransferTarget } from "@/components/incidents/transfer-incident-dialog"
 import { DiveraSendDialog } from "@/components/divera/divera-send-dialog"
 import { AuftragPickerDialog } from "@/components/kanban/auftrag-picker-dialog"
 import { ClosedStopDialog } from "@/components/kanban/closed-stop-dialog"
@@ -46,7 +46,9 @@ import { usePromoteRouteLeader, usePromoteToLeader } from "@/lib/hooks/use-promo
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
-import { getIncidentRefLabel, getIncidentTypeLabel } from "@/lib/incident-types"
+import { getIncidentLocationLabel, getIncidentRefLabel, getIncidentTypeLabel } from "@/lib/incident-types"
+import { takesAssignments } from "@/lib/assignable"
+import { useCompletionRequests } from "@/lib/hooks/use-completion-request"
 import { findAuftragForStop } from "@/lib/kanban-utils"
 import type { Incident } from "@/lib/types/incidents"
 
@@ -102,7 +104,7 @@ async function loadTransferTargets(eventId: string): Promise<Incident[]> {
 export function useIncidentDialogs() {
   const t = useTranslations("kanban")
   const { operations, materials, formatLocation, changeStatusToTop, removeMaterial, refreshOperations } = useOperations()
-  const { groups, getGroupResources, unassignResource } = useGroups()
+  const { groups, getGroupResources, unassignResource, refreshGroups } = useGroups()
   const { selectedEvent } = useEvent()
   const { isEditor } = useAuth()
 
@@ -138,14 +140,20 @@ export function useIncidentDialogs() {
    *  opens the route; resolved via the routes, because a just-added stop has no
    *  groupId of its own yet. */
   const openAssignment = useCallback((resourceType: ResourceKind, operationId: string, search?: string) => {
-    const auftrag = findAuftragForStop(groups, operations.find((o) => o.id === operationId))
+    const operation = operations.find((o) => o.id === operationId)
+    // A closed Einsatz takes no new assignment (lib/assignable.ts) – not through its Auftrag either.
+    if (operation && !takesAssignments(operation)) {
+      toast.info(t("common.closedTakesNoAssignment", { name: getIncidentLocationLabel(operation) }))
+      return
+    }
+    const auftrag = findAuftragForStop(groups, operation)
     if (auftrag) {
       openRouteAssignment(resourceType, auftrag.id)
       return
     }
     setAssignment({ resourceType, operationId, routeGroupId: null, search })
     setAssignmentOpen(true)
-  }, [groups, openRouteAssignment, operations])
+  }, [groups, openRouteAssignment, operations, t])
 
   const closeAssignment = useCallback(() => {
     setAssignmentOpen(false)
@@ -173,35 +181,56 @@ export function useIncidentDialogs() {
    * offers «Rückgängig», which moves back exactly the rows this transfer made – the
    * server refuses once one of them was released or moved on (409, its sentence is shown).
    * The backend returns a specific German reason on failure.
+   *
+   * Onto an Auftrag (#9) the source becomes its last stop and the resources go to the
+   * Auftrag; «Rückgängig» detaches it again and puts them back, under the same guard.
    */
-  const runTransfer = useCallback(async (targetIncidentId: string) => {
+  const runTransfer = useCallback(async (picked: TransferTarget) => {
     if (!transfer) return
     const sourceId = transfer.sourceId
     const source = operations.find((o) => o.id === sourceId)
-    const target = transfer.targets.find((incident) => incident.id === targetIncidentId)
     const label = (address: string | null | undefined, title: string | null | undefined) =>
       formatLocation(address ?? "") || title || ""
+    const sourceLabel = label(source?.location, source ? getIncidentTypeLabel(source.incidentType) : "")
+    const undoFailed = (error: unknown) =>
+      toast.error(t("common.transferUndoFailed"), {
+        description: (error instanceof Error && error.message) || t("common.transferUndoFailedDescription"),
+      })
     try {
       setIsTransferring(true)
+      if (picked.kind === "auftrag") {
+        const groupId = picked.id
+        const moved = await apiClient.transferToAuftrag(groupId, sourceId)
+        await Promise.all([refreshOperations(), refreshGroups()])
+        setTransfer(null)
+        undoToast(
+          t("common.transferredToAuftragToast", { source: sourceLabel, target: groups.find((g) => g.id === groupId)?.name ?? "" }),
+          {
+            description: t("common.transferredToastCount", { count: moved.released_assignment_ids.length, source: sourceLabel }),
+            onUndo: () =>
+              apiClient
+                .undoTransferToAuftrag(groupId, sourceId, moved)
+                .then(() => unmutedToast(t("common.transferUndone")))
+                .catch(undoFailed)
+                .finally(() => void Promise.all([refreshOperations(), refreshGroups()])),
+          },
+        )
+        return
+      }
+      const targetIncidentId = picked.id
+      const target = transfer.targets.find((incident) => incident.id === targetIncidentId)
       const moved = await apiClient.transferAssignments(sourceId, targetIncidentId)
       await refreshOperations()
       setTransfer(null)
       undoToast(
         t("common.transferredToast", { target: target?.location_display ?? label(target?.location_address, target?.title) }),
         {
-          description: t("common.transferredToastCount", {
-            count: moved.transferred_count,
-            source: label(source?.location, source ? getIncidentTypeLabel(source.incidentType) : ""),
-          }),
+          description: t("common.transferredToastCount", { count: moved.transferred_count, source: sourceLabel }),
           onUndo: () =>
             apiClient
               .transferAssignments(targetIncidentId, sourceId, moved.assignment_ids)
               .then(() => unmutedToast(t("common.transferUndone")))
-              .catch((error: unknown) =>
-                toast.error(t("common.transferUndoFailed"), {
-                  description: (error instanceof Error && error.message) || t("common.transferUndoFailedDescription"),
-                }),
-              )
+              .catch(undoFailed)
               .finally(() => void refreshOperations()),
         },
       )
@@ -212,7 +241,10 @@ export function useIncidentDialogs() {
     } finally {
       setIsTransferring(false)
     }
-  }, [refreshOperations, t, transfer, operations, formatLocation])
+  }, [refreshOperations, refreshGroups, groups, t, transfer, operations, formatLocation])
+
+  // «Einsatz abschliessen» from the GPS release prompt (root layout): the usual close flow.
+  useCompletionRequests(isEditor ? statusWorkflow.requestCompletion : null)
 
   /** What the Einsatz detail (modal or side panel) needs from this layer –
    *  spread onto it. Editor-only, like everything the layer opens. */
@@ -569,6 +601,7 @@ export function IncidentDialogs({
           sourceIncident={transferSource}
           sourceName={formatLocation(transferSource.location ?? "") || getIncidentTypeLabel(transferSource.incidentType)}
           availableIncidents={view.transfer?.targets ?? []}
+          availableAuftraege={groups}
           onTransfer={view.runTransfer}
           isTransferring={view.isTransferring}
           resourceSummary={{

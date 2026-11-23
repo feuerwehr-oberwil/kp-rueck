@@ -77,6 +77,7 @@ import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { ShellLoader } from '@/components/ui/shell-loader'
+import { isResourceDrag, takesAssignments } from '@/lib/assignable'
 
 /**
  * An action that belongs to a `DetailField` row rather than to a toolbar.
@@ -274,6 +275,8 @@ export function OperationDetailContent({
   // `ownResourceSections` below.
   const auftrag = operation?.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
   const auftragResources = auftrag ? getGroupResources(auftrag.id) : null
+  // A closed Einsatz takes nothing new (lib/assignable.ts): no «Zuweisen», no drop target.
+  const acceptsAssignments = takesAssignments(operation)
 
   // Promote a crew member to Einsatzleiter — shared with the card's chip menu.
   const promoteToLeader = usePromoteToLeader()
@@ -421,20 +424,16 @@ export function OperationDetailContent({
   const [isPanelDropOver, setIsPanelDropOver] = useState(false)
   useEffect(() => {
     const root = rootRef.current
-    if (!root || layout !== 'panel' || !canEdit) return
+    // A closed Einsatz takes no new assignment (lib/assignable.ts): no target, no ring.
+    if (!root || layout !== 'panel' || !canEdit || !acceptsAssignments) return
 
-    const takesResources = (data: Record<string | symbol, unknown>) =>
-      data.type === 'person' ||
-      data.type === 'material' ||
-      data.type === 'material-group' ||
-      data.type === 'driver-vehicle'
     const dropData = () => ({ type: 'operation-drop', operationId: operation.id })
 
     const block = resourcesRef.current
     return combine(
       dropTargetForElements({
         element: root,
-        canDrop: ({ source }) => takesResources(source.data),
+        canDrop: ({ source }) => isResourceDrag(source.data),
         getData: dropData,
         onDragEnter: () => setIsPanelDropOver(true),
         onDragLeave: () => setIsPanelDropOver(false),
@@ -444,7 +443,7 @@ export function OperationDetailContent({
         ? [
             dropTargetForElements({
               element: block,
-              canDrop: ({ source }) => takesResources(source.data),
+              canDrop: ({ source }) => isResourceDrag(source.data),
               getData: dropData,
               onDragEnter: () => setIsResourceDropOver(true),
               onDragLeave: () => setIsResourceDropOver(false),
@@ -453,7 +452,7 @@ export function OperationDetailContent({
           ]
         : []),
     )
-  }, [layout, canEdit, operation.id, tab])
+  }, [layout, canEdit, acceptsAssignments, operation.id, tab])
 
   // Shortcut targets that are not on screen: Shift+1/2/3 sets the priority,
   // `0` and `1`..`5` touch "zu Fuss" / the quick-assign fleet — all on
@@ -662,7 +661,7 @@ export function OperationDetailContent({
    * dialog does not ask today.
    */
   const showEmptyOwnSections = !auftrag
-  const ownAddAction = canEdit && onAssignResource && !auftrag
+  const ownAddAction = canEdit && onAssignResource && !auftrag && acceptsAssignments
   // The own crew's leader slot (`CrewChipSlot`): only where it can hold something –
   // never on a stop inside an Auftrag (the route leads), and on a read-only view only
   // while somebody actually leads.
@@ -1582,7 +1581,7 @@ export function OperationDetailContent({
                 // Same map the incident's own chips use: an Auftrag's vehicle is
                 // no more self-explanatory than an incident's.
                 vehicleDrivers={vehicleDrivers}
-                onAssign={(resourceType) => onAssignResource?.(resourceType, operation.id)}
+                onAssign={acceptsAssignments ? (resourceType) => onAssignResource?.(resourceType, operation.id) : undefined}
                 onUnassign={(assignmentId) => void release.releaseRouteResource(auftrag.id, assignmentId)}
                 onPromoteLeader={(assignmentId) => void promoteRouteLeader(auftrag.id, assignmentId)}
                 onPickDriver={(v) => requestVehicleDriver({ vehicleId: v.resourceId, vehicleName: v.name })}
@@ -1789,7 +1788,7 @@ export function OperationDetailContent({
                 operation={operation}
                 canEdit={canEdit}
                 onAssign={
-                  canEdit && onAssignResource
+                  canEdit && onAssignResource && acceptsAssignments
                     ? (incidentId, resourceType, search) => onAssignResource(resourceType, incidentId, search)
                     : undefined
                 }
@@ -1914,7 +1913,8 @@ export function OperationDetailContent({
             onClick={handleCopyWhatsApp}
           />
 
-          {canEdit && onTransferResources && (
+          {/* Not on a stop: its resources belong to the Auftrag («Aus Auftrag lösen» stays). */}
+          {canEdit && onTransferResources && !operation.groupId && (
             <ActionBarButton
               icon={ArrowRightLeft}
               label={t('common.transferResources')}
