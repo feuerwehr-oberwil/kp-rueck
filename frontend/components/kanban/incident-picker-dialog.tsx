@@ -37,7 +37,8 @@ import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { BaseMap } from "@/components/map/base-map"
 import { GroupRoutes } from "@/components/map/group-routes"
-import { RouteContextPin, stopPinClick, stopSequence, useMoveStopConfirm } from "@/components/map/route-stop-pick"
+import { RouteContextPin, stopSequence } from "@/components/map/route-stop-pick"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { isLocated } from "@/lib/utils/route-geo"
 import { DEFAULT_CENTER_LATLNG, fitTo, type LatLngPoint } from "@/lib/map-view"
 import { MAP_NONE } from "@/lib/map-colors"
@@ -82,6 +83,7 @@ export function IncidentPickerDialog({
   onCreateNew,
 }: IncidentPickerDialogProps) {
   const t = useTranslations("kanban.incidentPicker")
+  const tDash = useTranslations("kanban.dashboard")
   // The pin texts are the Routen-Editor's: both maps say the same thing.
   const tPin = useTranslations("kanban.routenEditorModal")
   const surface = useOpenSurface()
@@ -250,41 +252,62 @@ export function IncidentPickerDialog({
     })
   }, [])
 
-  // A click on the map, by the rule the Routen-Editor's map follows too.
-  const { ask: askMove, dialog: moveDialog } = useMoveStopConfirm()
-  const pickOnMap = useCallback(
-    (incidentId: string) => {
-      const click = stopPinClick(incidentId, sequenceIds, otherRouteOf)
-      if (click.kind !== "move") {
-        toggle(incidentId)
-        return
-      }
-      const op = operationsById.get(incidentId)
-      const label = op
-        ? (op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())) || getIncidentTypeLabel(op.incidentType)
-        : ""
-      askMove({ incidentLabel: label, fromName: click.from.name, run: () => toggle(incidentId) })
-    },
-    [sequenceIds, otherRouteOf, toggle, operationsById, askMove],
-  )
+  // A click on the map picks like a list checkbox: free and other-Auftrag pins join the
+  // sequence, a picked pin leaves it. Nothing is saved until «Übernehmen», so the question
+  // about stops from another Auftrag comes once, there (`confirm`), not per click – the
+  // Routen-Editor asks per click because it saves at once.
+  const pickOnMap = toggle
 
   // Diff the current selection against the route's members: newly-checked ids are
   // added (via onConfirm → addStops), unchecked members are detached (removeStop).
   const toAdd = useMemo(() => [...selected].filter((id) => !memberIds.has(id)), [selected, memberIds])
   const toRemove = useMemo(() => [...memberIds].filter((id) => !selected.has(id)), [selected, memberIds])
   const changeCount = toAdd.length + toRemove.length
+  // The picks that leave another Auftrag – named in the one question before «Übernehmen».
+  const moving = useMemo(() => toAdd.filter((id) => otherRouteOf(id)), [toAdd, otherRouteOf])
+  const [askMove, setAskMove] = useState(false)
 
-  const confirm = async () => {
-    if (changeCount === 0) {
-      handleOpenChange(false)
-      return
-    }
+  const apply = async () => {
     if (toRemove.length > 0 && targetGroupId) {
       await Promise.all(toRemove.map((id) => removeStop(targetGroupId, id)))
     }
     if (toAdd.length > 0) onConfirm(toAdd)
     handleOpenChange(false)
   }
+
+  const confirm = async () => {
+    if (changeCount === 0) {
+      handleOpenChange(false)
+      return
+    }
+    if (moving.length > 0) {
+      setAskMove(true)
+      return
+    }
+    await apply()
+  }
+
+  const movingNames = moving
+    .map((id) => {
+      const op = operationsById.get(id)
+      const place = op
+        ? (op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())) || getIncidentTypeLabel(op.incidentType)
+        : ""
+      return `«${place}» (${otherRouteOf(id)?.name ?? ""})`
+    })
+    .join(", ")
+  const moveDialog = (
+    <ConfirmDialog
+      open={askMove}
+      onOpenChange={setAskMove}
+      title={tDash("distributeConfirmTitle")}
+      description={t("moveConfirm", { count: moving.length, names: movingNames })}
+      confirmText={tDash("distributeConfirmAction")}
+      // A move out of another Auftrag: Enter keeps to Abbrechen.
+      initialFocus="cancel"
+      onConfirm={apply}
+    />
+  )
 
   // Frame the candidates once the map is up and there are markers to frame.
   useEffect(() => {

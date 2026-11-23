@@ -2361,6 +2361,7 @@
       "legendOtherRoute": "coloré = déjà dans une autre mission (sera déplacée)",
       "legendUnassigned": "gris = dans aucune mission",
       "hiddenCount": "{count} masqué(s)",
+      "moveConfirm": "{count, plural, one {Cette intervention appartient} other {Ces interventions appartiennent}} déjà à une autre mission et {count, plural, one {sera déplacée} other {seront déplacées}} ici : {names}. Cette action est irréversible.",
       "showCompleted": "Clôturées"
     },
     "auftragPicker": {
