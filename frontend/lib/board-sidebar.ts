@@ -7,6 +7,7 @@
  */
 
 import type { Material } from "@/lib/contexts/operations-context"
+import type { DetailTarget } from "@/lib/detail-target"
 
 /**
  * One place a resource is held right now.
@@ -26,6 +27,9 @@ export interface ResourceBinding {
   label: string
   /** Second line — the Auftrag a stop belongs to, or «Sonderfunktion · kein Einsatz». */
   detail: string
+  /** An incident binding's tab: WHY the resource is there (Reko → Reko, crew/driver/device →
+   *  Ressourcen), the same answer as the card's own chips. */
+  target?: DetailTarget
 }
 
 /** What the bindings popover is currently answering for. */

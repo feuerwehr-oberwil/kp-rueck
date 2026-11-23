@@ -10,6 +10,7 @@ import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
 import { applyResourceDrop } from "@/lib/hooks/use-kanban-drag-drop"
 import { useCommandDispatch, type DispatchCommand } from "@/lib/hooks/use-command-dispatch"
 import type { DispatchResource, DispatchVocabulary } from "@/lib/command-dispatch"
+import { RESOURCES_TARGET } from "@/lib/detail-target"
 import { type OperationDetailSection, type OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
 import { soleDestination, type ResourceBinding } from "@/lib/board-sidebar"
@@ -276,7 +277,7 @@ export function useBoardDispatch(input: UseBoardDispatchInput) {
         group.assignments.some((assignment) => assignment.resourceType === "vehicle" && assignment.resourceId === target.id),
       )
       if (onIncident) {
-        followBinding({ key: `incident-${onIncident.id}`, kind: "incident", targetId: onIncident.id, label: "", detail: "" })
+        followBinding({ key: `incident-${onIncident.id}`, kind: "incident", targetId: onIncident.id, label: "", detail: "", target: RESOURCES_TARGET })
       } else if (onRoute) {
         setAuftraegeFocusGroupId(onRoute.id)
         setActiveFooterSheet('auftraege')

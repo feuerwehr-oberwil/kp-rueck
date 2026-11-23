@@ -6,6 +6,7 @@ import { type Person, type Operation, type Material } from "@/lib/contexts/opera
 import { type OperationDetailSection, type OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { soleDestination, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
+import { REKO_TARGET, RESOURCES_TARGET } from "@/lib/detail-target"
 import { type FooterSheet } from "@/components/board/board-footer"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import type { Dispatch, SetStateAction } from "react"
@@ -64,6 +65,7 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
           targetId: op.id,
           label: getIncidentRefLabel(op, 60),
           detail: op.groupId ? groupNames.get(op.groupId) ?? "" : "",
+          target: RESOURCES_TARGET,
         })
       }
       if (op.assignedReko?.id === person.id) {
@@ -73,6 +75,7 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
           targetId: op.id,
           label: getIncidentRefLabel(op, 60),
           detail: tCommon('reko'),
+          target: REKO_TARGET,
         })
       }
     }
@@ -109,6 +112,7 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
         targetId: drivenOp?.id ?? null,
         label: person.driverVehicleName || tCommon('driver'),
         detail: drivenOp ? getIncidentRefLabel(drivenOp, 60) : tCommon('specialFunctionNoIncident'),
+        target: drivenOp ? RESOURCES_TARGET : undefined,
       })
     }
     if (person.isMagazin) bindings.push({ key: "fn-magazin", kind: "function", targetId: null, label: tCommon('magazin'), detail: tCommon('specialFunctionNoIncident') })
@@ -141,6 +145,7 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
         targetId: op.id,
         label: getIncidentRefLabel(op, 60),
         detail: "",
+        target: RESOURCES_TARGET,
       })
     }
     for (const group of groups) {
@@ -159,14 +164,15 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
    * is cleared first. The rest of the "nothing happens" cases are gone at the
    * source: a binding that cannot be followed is not offered as a button.
    */
-  const followBinding = useCallback((binding: ResourceBinding) => {
+  const followBinding = useCallback((binding: ResourceBinding, { allowModal = false }: { allowModal?: boolean } = {}) => {
     if (binding.kind === "incident" && binding.targetId) {
       if (!filteredOperations.some((op) => op.id === binding.targetId)) setSearchQuery('')
       scrollToCard(binding.targetId)
-      // …and open it. «Wo ist die Motorsäge?» is answered by the card, but the
-      // operator asked in order to look at it. No modal on a narrow viewport:
-      // that would cover the resource list they are working through.
-      openIncidentDetail(binding.targetId, undefined, undefined, { allowModal: false })
+      // …and open it, on the tab of the binding's role. «Wo ist die Motorsäge?»
+      // is answered by the card, but the operator asked in order to look at it.
+      // No modal on a narrow viewport unless the caller allows it: from the
+      // sidebar it would cover the resource list they are working through.
+      openIncidentDetail(binding.targetId, binding.target?.tab, binding.target?.section, { allowModal })
     } else if (binding.kind === "route" && binding.targetId) {
       setAuftraegeFocusGroupId(binding.targetId)
       setActiveFooterSheet('auftraege')
