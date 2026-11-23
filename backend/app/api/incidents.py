@@ -31,6 +31,7 @@ from ..crud import feld as feld_crud
 from ..crud import incidents as crud
 from ..crud import kp_messages as kp_messages_crud
 from ..crud import reko as reko_crud
+from ..crud.locking import lock_incident_with_group
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..services import duplicates, incident_display, incident_history
@@ -808,10 +809,14 @@ async def update_field_request(
     ``record_pickup(needed=False)`` as «Abholung disponiert» on the chip, so the
     flag the map, Restliste and PDF read and its work item stay one fact. It
     cannot be re-opened here — a new Abholung is a new request.
+
+    Locks in the order of ``crud/locking``: Auftrag → incident → the request row
+    (a leaf), so closing the Abholung never waits for the Auftrag while holding it.
     """
     incident = await crud.get_incident(db, incident_id)
     if not incident or incident.deleted_at is not None:
         raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    await lock_incident_with_group(db, incident_id)
     row = await feld_crud.get_request(db, incident_id, request_id, lock=True)
     if row is None:
         raise HTTPException(status_code=404, detail="Anforderung nicht gefunden")

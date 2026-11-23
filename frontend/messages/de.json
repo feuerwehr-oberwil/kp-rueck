@@ -4675,7 +4675,8 @@
         "field_reported": "Vom Feld gemeldet",
         "vehicle_on_site": "Fahrzeug am Einsatzort",
         "vehicle_returned": "Fahrzeug zurück im Magazin",
-        "vehicle_down": "Fahrzeug ausgefallen"
+        "vehicle_down": "Fahrzeug ausgefallen",
+        "situation_escalated": "Lage verschärft"
       },
       "itemsMoved": "Übernommen von {other}",
       "itemsReturned": "Zurück von {other}"

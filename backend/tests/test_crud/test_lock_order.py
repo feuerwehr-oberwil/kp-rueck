@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.crud import assignments as assignments_crud
 from app.crud import auftrag_templates as auftrag_templates_crud
+from app.crud import feld as feld_crud
 from app.crud import group_assignments as group_assignments_crud
 from app.crud import groups as groups_crud
 from app.crud import incidents as incidents_crud
@@ -157,6 +158,26 @@ async def test_completing_a_stop_queues_behind_a_reorder_instead_of_deadlocking(
 
     assert completed is not None
     assert completed.status == "complete"
+
+
+async def test_a_field_report_on_a_stop_queues_behind_a_reorder_instead_of_deadlocking(board: Board):
+    # «Einsatz beendet» from the crew writes the stop, then moves it (which takes the
+    # Auftrag); it used to write the stop before the Auftrag lock (Sol review A2, S3).
+    async with board.sessions() as reorder, board.sessions() as reporting:
+        await reorder.execute(select(IncidentGroup.id).where(IncidentGroup.id == board.group_id).with_for_update())
+        stop = await reporting.get(Incident, board.stop_id)
+        assert stop is not None
+        actor = feld_crud.FieldActor(personnel_id=board.person_id, personnel_name="Muster Max")
+        report = asyncio.create_task(
+            feld_crud.record_field_complete(reporting, stop, actor=actor, at=datetime.now(UTC), request=_request())
+        )
+        await _wait_until_blocked(board.sessions)
+
+        await asyncio.wait_for(groups_crud.reorder_group_stops(reorder, board.group_id, [board.stop_id]), timeout=5)
+        await reorder.commit()
+
+        assert await asyncio.wait_for(report, timeout=10)
+        await reporting.commit()
 
 
 async def test_a_stop_that_joins_an_auftrag_meanwhile_gets_that_auftrag_locked(board: Board):

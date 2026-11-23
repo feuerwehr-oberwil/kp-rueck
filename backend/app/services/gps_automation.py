@@ -538,6 +538,17 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list[VehicleP
                     and a_key not in suppressed_arrival
                 ):
                     if _advance_debounce(_state.arrival, a_key, vp.last_update, cfg):
+                        # The fact «am Einsatzort» for the Chronik, also for an Auftrag
+                        # vehicle (the bell poll's geofence sees direct rows only); the
+                        # action below commits it.
+                        await record_vehicle_fact(
+                            db,
+                            incident_id=t["incident_id"],
+                            fact="vehicle_on_site",
+                            vehicle_name=t["vehicle_name"],
+                            source="gps",
+                            assignment_id=t["assignment_id"],
+                        )
                         # Silent advance only when the station genuinely opted in —
                         # a sim-enabled rule never silently moves a card.
                         if cfg.rule_arrival_silent and cfg.enabled and cfg.rule_arrival_enabled:
@@ -546,6 +557,7 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list[VehicleP
                             await _fire_arrival(db, t["incident_id"], t["vehicle_name"], actor)
                         else:
                             # Default: prompt the operator to confirm; do NOT change status.
+                            await db.commit()
                             await _fire_arrival_prompt(
                                 t["incident_id"],
                                 t["vehicle_name"],
@@ -791,9 +803,10 @@ async def _fire_arrival_prompt(
 ) -> None:
     """Emit an operator prompt (WebSocket) to confirm advancing the incident to einsatz.
 
-    No DB mutation — the status change happens only if the operator confirms, via the
-    existing status-transition endpoint the frontend board already uses. This is the
-    DEFAULT for Rule A; silent auto-advance is an explicit opt-in (``rule_arrival_silent``).
+    No status change — that happens only if the operator confirms, via the existing
+    status-transition endpoint the frontend board already uses (the caller has
+    committed the «am Einsatzort» fact). This is the DEFAULT for Rule A; silent
+    auto-advance is an explicit opt-in (``rule_arrival_silent``).
     """
     logger.info(
         "GPS automation: vehicle %s at incident location — prompting advance of incident %s",

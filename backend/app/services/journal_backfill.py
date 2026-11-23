@@ -163,11 +163,12 @@ SELECTS: tuple[str, ...] = (
     LEFT JOIN users u ON u.id = l.user_id
     WHERE l.resource_type = 'incident' AND l.action_type = 'divera_alarm'
     """,
-    # Feld: vor Ort, beendet, Abholung, Rapport erfasst — set and cleared — and the vehicle
-    # facts (services/vehicle_facts). Type, text and author as `journal.field_fact_type` & co.
+    # Feld: vor Ort, beendet, Abholung, Rapport erfasst — set and cleared — the vehicle
+    # facts (services/vehicle_facts) and the Übung's «Lage verschärft». Type, text and author as `journal.field_fact_type` & co.
     f"""
     SELECT i.event_id, i.id, 'field',
-           COALESCE(NULLIF(btrim(l.changes_json->>'pickup_note'), ''), NULLIF(btrim(l.changes_json->>'vehicle_name'), '')),
+           COALESCE(NULLIF(btrim(l.changes_json->>'pickup_note'), ''), NULLIF(btrim(l.changes_json->>'vehicle_name'), ''),
+                    NULLIF(btrim(l.changes_json->>'text'), '')),
            jsonb_build_object('type',
                CASE WHEN l.action_type = 'field_pickup_cleared' AND l.changes_json->>'self_drive' = 'true'
                     THEN 'field_pickup_self' ELSE l.action_type END,
@@ -183,7 +184,7 @@ SELECTS: tuple[str, ...] = (
     WHERE l.resource_type = 'incident'
       AND l.action_type IN ('field_arrived', 'field_arrived_cleared', 'field_complete', 'field_complete_cleared',
                             'field_pickup_requested', 'field_pickup_cleared', 'rapport_submitted',
-                            'vehicle_on_site', 'vehicle_returned', 'vehicle_down')
+                            'vehicle_on_site', 'vehicle_returned', 'vehicle_down', 'situation_escalated')
     """,
     # Anfrage vom Feld: in Arbeit / erledigt / wieder offen (R13)
     f"""

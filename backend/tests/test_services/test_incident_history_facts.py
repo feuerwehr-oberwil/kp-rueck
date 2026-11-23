@@ -34,6 +34,16 @@ async def test_field_facts_and_the_feld_reporter_are_in_the_chronik(
         reported_by_personnel_id=reporter.id,
     )
     db_session.add(incident)
+    await db_session.flush()
+    # `crud/feld/melden` keeps the name as reported; a later rename does not rewrite it.
+    db_session.add(
+        AuditLog(
+            action_type="create",
+            resource_type="incident",
+            resource_id=incident.id,
+            changes_json={"source": "feld", "reported_by": "Meier Anna"},
+        )
+    )
     await db_session.commit()
     actor = crud.FieldActor(personnel_id=reporter.id, personnel_name=reporter.name)
 
@@ -47,6 +57,8 @@ async def test_field_facts_and_the_feld_reporter_are_in_the_chronik(
         (e.journal_data or {}).get("type") for e in await timeline(db_session, incident) if e.event_type == "journal"
     ]
     assert sorted(facts) == ["field_pickup_self", "field_reported", "vehicle_down"]
+    reporter.name = "Meier-Huber Anna"
+    await db_session.commit()
     events = {(e.journal_data or {}).get("type"): e for e in await timeline(db_session, incident)}
     assert events["field_reported"].actor_name == "Meier Anna"
     assert events["field_pickup_self"].actor_name == "Meier Anna"
@@ -71,3 +83,26 @@ async def test_a_vehicle_fact_is_written_once_per_assignment(db_session: AsyncSe
         )
     ).all()
     assert len(rows) == 1
+
+
+async def test_a_rolled_back_vehicle_fact_is_written_on_the_next_poll(
+    db_session: AsyncSession, test_incident: Incident
+):
+    # No process cache: a poll whose transaction fails must not make the next one skip it.
+    assignment_id, incident_id = uuid.uuid4(), test_incident.id  # a rollback expires the row
+
+    async def record() -> bool:
+        return await record_vehicle_fact(
+            db_session,
+            incident_id=incident_id,
+            fact="vehicle_on_site",
+            vehicle_name="TLF 1",
+            source="gps",
+            assignment_id=assignment_id,
+        )
+
+    assert await record()
+    await db_session.rollback()
+    assert await record()
+    await db_session.commit()
+    assert not await record()

@@ -43,6 +43,8 @@ const FIELD_TYPES = new Set([
   "vehicle_on_site",
   "vehicle_returned",
   "vehicle_down",
+  // the Übung's «Lage verschärft»; the text is the Lagemeldung (backend api/training_simulate)
+  "situation_escalated",
 ])
 
 /** Who besides the crew reported a fact: the KP from the radio, the GPS, the Übung. */

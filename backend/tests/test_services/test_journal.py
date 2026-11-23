@@ -471,6 +471,15 @@ async def _seed_history(db: AsyncSession, event: Event, user: User) -> Incident:
                 changes_json={"vehicle_name": "TLF 1", "source": "gps", "assignment_id": str(uuid.uuid4())},
                 timestamp=at(7),
             ),
+            # the Übung's «Lage verschärft» (api/training_simulate): the Lagemeldung is the text
+            AuditLog(
+                action_type="situation_escalated",
+                resource_type="incident",
+                resource_id=inc.id,
+                user_id=user.id,
+                changes_json={"text": "Wasser steigt", "source": "training"},
+                timestamp=at(8),
+            ),
             # the bell is not a source — neither for the hook nor for the backfill
             Notification(
                 type="vehicle_arrived",
@@ -488,8 +497,9 @@ async def _seed_history(db: AsyncSession, event: Event, user: User) -> Incident:
 
 
 # 2 created, status, 3 assignment lines, Reko + its arrival, 2 Meldungen, alarm,
-# arrival, pickup, «fährt selbst», a vehicle on site, a field request done, merge + merged_into
-ROWS_PER_HISTORY = 18
+# arrival, pickup, «fährt selbst», a vehicle on site, «Lage verschärft», a field request done,
+# merge + merged_into
+ROWS_PER_HISTORY = 19
 
 
 def _shape(rows: list[JournalEntry]) -> list[tuple]:

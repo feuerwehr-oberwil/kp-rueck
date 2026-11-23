@@ -4675,7 +4675,8 @@
         "field_reported": "Signalé depuis le terrain",
         "vehicle_on_site": "Véhicule sur le lieu d’intervention",
         "vehicle_returned": "Véhicule de retour à la caserne",
-        "vehicle_down": "Véhicule en panne"
+        "vehicle_down": "Véhicule en panne",
+        "situation_escalated": "La situation s’aggrave"
       },
       "itemsMoved": "Repris de {other}",
       "itemsReturned": "Revenu de {other}"

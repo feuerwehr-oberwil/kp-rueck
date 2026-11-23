@@ -6,9 +6,12 @@ gone. Each one is now also an audit row on the incident, which the Einsatztagebu
 into a `field` line (`services/journal.FIELD_AUDIT_ACTIONS`) and the incident's Chronik
 reads back (`services/incident_history.timeline`).
 
-Once per assignment and fact: the geofence is re-evaluated on every notification poll
-and the GPS return rules re-fire after a restart, but a vehicle reaches a Schadenplatz
-once per stint. The caller commits.
+Once per incident, assignment and fact: the geofence is re-evaluated on every
+notification poll, the GPS automation sees the same arrival (and an Auftrag vehicle on
+every stop), and the return rules re-fire after a restart, but a vehicle reaches a
+Schadenplatz once per stint. The check is in the database, under the caller's
+transaction – no process cache, so a rolled-back write is written again on the next
+poll. The caller commits.
 """
 
 import uuid
@@ -24,9 +27,6 @@ from .audit import log_action
 VehicleFact = Literal["vehicle_on_site", "vehicle_returned", "vehicle_down"]
 VEHICLE_FACT_ACTIONS: tuple[VehicleFact, ...] = ("vehicle_on_site", "vehicle_returned", "vehicle_down")
 
-# (fact, assignment) pairs this process has already written — saves the lookup on every poll.
-_recorded: set[tuple[str, uuid.UUID]] = set()
-
 
 async def record_vehicle_fact(
     db: AsyncSession,
@@ -40,16 +40,15 @@ async def record_vehicle_fact(
 ) -> bool:
     """Write the fact once; True when it was new.
 
-    ``assignment_id`` makes it once per stint (incident or Auftrag assignment row);
-    without one every call writes.
+    ``assignment_id`` makes it once per stint on this incident (incident or Auftrag
+    assignment row); without one every call writes.
     """
     if assignment_id is not None:
-        key = (fact, assignment_id)
-        if key in _recorded:
-            return False
-        # Every board polls the geofence: two polls at once must not both write it.
+        # Every board polls the geofence and the GPS tick sees the same arrival: two
+        # writers at once must not both write it. Held until the caller's commit.
         await db.execute(
-            sa_text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": f"vehicle_fact:{fact}:{assignment_id}"}
+            sa_text("SELECT pg_advisory_xact_lock(hashtext(:key))"),
+            {"key": f"vehicle_fact:{fact}:{incident_id}:{assignment_id}"},
         )
         existing = await db.execute(
             select(AuditLog.id)
@@ -62,7 +61,6 @@ async def record_vehicle_fact(
             .limit(1)
         )
         if existing.first() is not None:
-            _recorded.add(key)
             return False
     await log_action(
         db=db,
@@ -76,6 +74,4 @@ async def record_vehicle_fact(
             "assignment_id": str(assignment_id) if assignment_id else None,
         },
     )
-    if assignment_id is not None:
-        _recorded.add((fact, assignment_id))
     return True

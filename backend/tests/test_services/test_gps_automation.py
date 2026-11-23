@@ -282,7 +282,8 @@ async def test_the_prompt_path_stamps_nothing(
     """The GPS rules ask rather than act by design, and asking is not arriving.
 
     Rule A prompts by default; an operator confirming a prompt is a status
-    decision, not an arrival report. Nothing may be written on this path.
+    decision, not an arrival report. No arrival may be stamped on this path (the
+    vehicle fact «am Einsatzort» is not one – see the test below).
     """
     from app.models import SchadenplatzReport
 
@@ -297,6 +298,57 @@ async def test_the_prompt_path_stamps_nothing(
         await db_session.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident_id))
     ).scalar_one_or_none()
     assert report is None
+
+
+@pytest.mark.asyncio
+@patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
+@patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
+async def test_an_arrival_prompt_leaves_one_chronik_fact_also_for_an_auftrag_vehicle(
+    _bc, _bc_msg, db_session: AsyncSession, enroute_incident: Incident, test_user: User, test_event: Event
+):
+    """The bell poll's geofence sees direct rows only; the automation writes the fact for
+    the Auftrag vehicle, and the bell's writer for the same assignment adds no second."""
+    from app.models import AuditLog
+    from app.services.vehicle_facts import record_vehicle_fact
+
+    group = IncidentGroup(id=uuid.uuid4(), event_id=test_event.id, name="Route", created_by=test_user.id)
+    vehicle = Vehicle(id=uuid.uuid4(), name="TLF-1", type="TLF", status="available")
+    db_session.add_all([group, vehicle])
+    await db_session.flush()
+    enroute_incident.group_id = group.id
+    route_row = IncidentGroupAssignment(
+        id=uuid.uuid4(), incident_group_id=group.id, resource_type="vehicle", resource_id=vehicle.id
+    )
+    db_session.add(route_row)
+    await db_session.commit()
+
+    await _enable_arrival(db_session, silent=False)
+    clock = _Clock(datetime.now(UTC))
+    for _ in range(3):
+        await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
+    assert not await record_vehicle_fact(
+        db_session,
+        incident_id=enroute_incident.id,
+        fact="vehicle_on_site",
+        vehicle_name="TLF-1",
+        source="gps",
+        assignment_id=route_row.id,
+    )
+
+    facts = (
+        (
+            await db_session.execute(
+                select(AuditLog).where(
+                    AuditLog.resource_id == enroute_incident.id, AuditLog.action_type == "vehicle_on_site"
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert [(f.changes_json["vehicle_name"], f.changes_json["assignment_id"]) for f in facts] == [
+        ("TLF-1", str(route_row.id))
+    ]
 
 
 @pytest.mark.asyncio

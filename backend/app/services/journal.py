@@ -80,6 +80,8 @@ FIELD_AUDIT_ACTIONS: frozenset[str] = frozenset(
         "vehicle_on_site",
         "vehicle_returned",
         "vehicle_down",
+        # the Übung's «Lage verschärft» (api/training_simulate): the Lagemeldung is the text
+        "situation_escalated",
     }
 )
 
@@ -425,11 +427,12 @@ class _Collector:
                 created_by=obj.user_id,
             )
         elif action in FIELD_AUDIT_ACTIONS:
-            # the line's detail: the crew's pickup note, or which vehicle a vehicle fact is about
+            # the line's detail: the crew's pickup note, the vehicle a vehicle fact is about,
+            # or the Lagemeldung
             detail = next(
                 (
                     str(v).strip()
-                    for v in (changes.get("pickup_note"), changes.get("vehicle_name"))
+                    for v in (changes.get("pickup_note"), changes.get("vehicle_name"), changes.get("text"))
                     if v and str(v).strip()
                 ),
                 None,

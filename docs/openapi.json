@@ -4966,7 +4966,7 @@
           "incidents"
         ],
         "summary": "Update Field Request",
-        "description": "Work a field request: offen → in Arbeit → erledigt, or back to offen (R13).\n\nThe one writer behind the card, the detail and the sidebar, so handling it\nin one place is handling it everywhere. «erledigt» stamps who/when and takes\nthe bell entry with it; the crew reads it on `/feld` within one poll.\n\nThe Abholung is special only in its plumbing: «erledigt» on it runs the same\n``record_pickup(needed=False)`` as «Abholung disponiert» on the chip, so the\nflag the map, Restliste and PDF read and its work item stay one fact. It\ncannot be re-opened here — a new Abholung is a new request.",
+        "description": "Work a field request: offen → in Arbeit → erledigt, or back to offen (R13).\n\nThe one writer behind the card, the detail and the sidebar, so handling it\nin one place is handling it everywhere. «erledigt» stamps who/when and takes\nthe bell entry with it; the crew reads it on `/feld` within one poll.\n\nThe Abholung is special only in its plumbing: «erledigt» on it runs the same\n``record_pickup(needed=False)`` as «Abholung disponiert» on the chip, so the\nflag the map, Restliste and PDF read and its work item stay one fact. It\ncannot be re-opened here — a new Abholung is a new request.\n\nLocks in the order of ``crud/locking``: Auftrag → incident → the request row\n(a leaf), so closing the Abholung never waits for the Auftrag while holding it.",
         "operationId": "update_field_request_api_incidents__incident_id__field_requests__request_id__patch",
         "parameters": [
           {
@@ -15135,7 +15135,7 @@
           "training"
         ],
         "summary": "Simulate Field Complete",
-        "description": "Field crew reports the incident finished (\"Einsatz beendet\") — plus the\nfollow-up the field actually gets: *\"Kommt ihr selbst zurück?\"*\n\nInformational only: stamps ``field_complete_reported_at`` so the operator\nsees a \"Feld meldet: beendet\" badge on the card and can decide to close the\nincident. Deliberately does NOT change the status — closing is the\noperator's board action, mimicking the real command-post split.\n\nThis used to write ``incident.field_complete_reported_at`` by hand, which\nmeant a training run stamped no provenance and rang no bell — the one thing\nthe exercise is supposed to rehearse. It now goes through the **KP-parity\nendpoint** (`POST /api/incidents/{id}/field-report`), so the simulated and\nthe real operator path are byte-for-byte the same code, audit entry and\nnotification included.\n\nThe Abholung answer (decision 24) follows the «bleibt vor Ort» pill, the\nsuggestion /feld makes (``crud.feld.vehicle_on_site``, owner 23.11.2026): a\nvehicle on site → «fährt selbst», none → «Abholung nötig». The Übungsleiter\ncan always override it by sending it explicitly.",
+        "description": "Field crew reports the incident finished (\"Einsatz beendet\") — plus the\nfollow-up the field actually gets: *\"Kommt ihr selbst zurück?\"*\n\nInformational only: stamps ``field_complete_reported_at`` so the operator\nsees a \"Feld meldet: beendet\" badge on the card and can decide to close the\nincident. Deliberately does NOT change the status — closing is the\noperator's board action, mimicking the real command-post split.\n\nThis used to write ``incident.field_complete_reported_at`` by hand, which\nmeant a training run stamped no provenance and rang no bell — the one thing\nthe exercise is supposed to rehearse. It now goes through the **KP-parity\nendpoint** (`POST /api/incidents/{id}/field-report`), so the simulated and\nthe real operator path are byte-for-byte the same code, audit entry and\nnotification included.\n\nThe Abholung answer (decision 24) follows the «bleibt vor Ort» pill, the\nsuggestion /feld makes (``crud.feld.vehicle_on_site``, owner 23.11.2026): a\nvehicle on site → «fährt selbst», none → «Abholung nötig». The Übungsleiter\ncan always override it by sending it explicitly. It goes to\n``crud.feld.record_pickup`` as that answer (``self_drive``) under the same\nKP actor: through the parity PATCH a KP «nein» reads «Abholung disponiert».",
         "operationId": "simulate_field_complete_api_training_events__event_id__simulate_field_complete__incident_id__post",
         "parameters": [
           {
@@ -15432,7 +15432,7 @@
           "training"
         ],
         "summary": "Simulate Escalation",
-        "description": "Inject \"Lage verschärft sich\": the field reports a worsening situation.\n\nBumps the incident to high priority, appends the Lagemeldung to the\ndescription and raises a critical bell notification — the trainee has to\nreassess resources and priorities mid-incident.",
+        "description": "Inject \"Lage verschärft sich\": the field reports a worsening situation.\n\nBumps the incident to high priority, appends the Lagemeldung to the\ndescription and raises a critical bell notification — the trainee has to\nreassess resources and priorities mid-incident. The Lagemeldung is also a dated\nfact (audit ``situation_escalated`` → Journal and Chronik): the bell is\ndismissible and the description is editable.",
         "operationId": "simulate_escalation_api_training_events__event_id__simulate_escalate__incident_id__post",
         "parameters": [
           {
@@ -15922,7 +15922,7 @@
           "training"
         ],
         "summary": "Simulate Pickup",
-        "description": "Inject \"Abholung nötig\" / \"Abholung erledigt\" on its own (decision 24).\n\nUntil now a pickup could only be simulated bundled with \"Einsatz beendet\",\nwhich is the one moment a real crew often does *not* know yet: the vehicle\ndrives on half an hour later, and only then do three people need a lift. The\nother half — \"der Bus war da\" — had no way in at all, so an exercise could\nraise the warning but never clear it.\n\nGoes through ``crud.feld.record_pickup``, so the Restliste, the map and the\nwarning bell behave exactly as they do for a crew tapping on `/feld`.",
+        "description": "Inject \"Abholung nötig\" / \"Abholung erledigt\" on its own (decision 24).\n\nUntil now a pickup could only be simulated bundled with \"Einsatz beendet\",\nwhich is the one moment a real crew often does *not* know yet: the vehicle\ndrives on half an hour later, and only then do three people need a lift. The\nother half — \"der Bus war da\" — had no way in at all, so an exercise could\nraise the warning but never clear it.\n\nGoes through ``crud.feld.record_pickup``, so the Restliste, the map and the\nwarning bell behave exactly as they do for a crew tapping on `/feld`. «erledigt»\nis the lift that came (``self_drive=False``), never «Wir fahren selbst».",
         "operationId": "simulate_pickup_api_training_events__event_id__simulate_pickup__incident_id__post",
         "parameters": [
           {

@@ -227,10 +227,22 @@ async def timeline(db: AsyncSession, incident: models.Incident) -> list[schemas.
     )
     facts = list(facts_result.scalars().all())
 
-    # A card the crew reported on /feld: who reported it was only in the bell.
-    reporter = (
-        await db.get(models.Personnel, incident.reported_by_personnel_id) if incident.reported_by_personnel_id else None
-    )
+    # A card the crew reported on /feld: who reported it was only in the bell. The name
+    # as it was then (`crud/feld/melden` puts it in the creation audit), else today's.
+    reporter: str | None = None
+    if incident.reported_by_personnel_id:
+        reporter = await db.scalar(
+            select(models.AuditLog.changes_json["reported_by"].astext)
+            .where(
+                models.AuditLog.resource_type == "incident",
+                models.AuditLog.resource_id == incident_id,
+                models.AuditLog.action_type == "create",
+            )
+            .order_by(models.AuditLog.timestamp)
+            .limit(1)
+        ) or await db.scalar(
+            select(models.Personnel.name).where(models.Personnel.id == incident.reported_by_personnel_id)
+        )
 
     names = await resource_names(db, (assignment for assignment, _ in assignments))
 
@@ -349,12 +361,12 @@ async def timeline(db: AsyncSession, incident: models.Incident) -> list[schemas.
             )
         )
 
-    if reporter is not None and incident.created_at is not None:
+    if reporter and incident.created_at is not None:
         events.append(
             schemas.IncidentTimelineEvent(
                 event_type="journal",
                 timestamp=incident.created_at,
-                actor_name=reporter.name,
+                actor_name=reporter,
                 journal_kind="field",
                 journal_data={"type": "field_reported", "source": "feld"},
             )

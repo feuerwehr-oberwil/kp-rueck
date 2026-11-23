@@ -90,6 +90,22 @@ async def test_an_auftrag_vehicle_counts_as_on_site(db_session: AsyncSession, te
     assert await crud.vehicle_on_site(db_session, incident) == "Pio"
 
 
+async def test_a_mirrored_vehicle_is_its_auftrag_row(db_session: AsyncSession, test_event: Event, test_user: User):
+    # `_mirror` puts a vehicle on the Auftrag AND the stop; the stop row's «kehrt
+    # zurück» must not hide it – /feld shows the Auftrag row (`feld/briefings`).
+    group = IncidentGroup(id=uuid.uuid4(), event_id=test_event.id, name="Sturmholz Nord")
+    db_session.add(group)
+    await db_session.commit()
+    incident = await _incident(db_session, test_event, test_user)
+    incident.group_id = group.id
+    vehicle = await _vehicle(db_session, incident, stays=False)
+    db_session.add(IncidentGroupAssignment(incident_group_id=group.id, resource_type="vehicle", resource_id=vehicle.id))
+    await db_session.commit()
+
+    assert await crud.vehicles_with_crew(db_session, incident) == [("TLF 1", None)]
+    assert await crud.vehicle_on_site(db_session, incident) == "TLF 1"
+
+
 async def test_self_drive_without_an_open_pickup_is_still_written_down(
     db_session: AsyncSession, test_event: Event, test_user: User
 ):

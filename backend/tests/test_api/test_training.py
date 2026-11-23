@@ -621,6 +621,17 @@ async def test_simulate_escalation_bumps_priority_and_notifies(
     assert notification.severity == "critical"
     assert "Lage verschärft" in notification.message
 
+    # The bell is dismissible, the description editable: the Lagemeldung is also a dated fact.
+    from app.models import JournalEntry
+
+    fact = (
+        await db_session.execute(
+            select(JournalEntry).where(JournalEntry.incident_id == active_incident.id, JournalEntry.kind == "field")
+        )
+    ).scalar_one()
+    assert fact.data["type"] == "situation_escalated"
+    assert fact.text and fact.text in data["description"]
+
 
 @pytest.mark.asyncio
 @pytest.mark.api
@@ -1235,6 +1246,45 @@ async def test_simulate_field_complete_asks_the_abholung_follow_up(
 
 @pytest.mark.asyncio
 @pytest.mark.api
+@pytest.mark.parametrize("open_pickup", [False, True])
+async def test_simulate_field_complete_fahrt_selbst_is_the_crews_answer(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    training_event: Event,
+    active_incident: Incident,
+    open_pickup: bool,
+):
+    """«Fährt selbst» reaches the Chronik as that answer – with or without an open Abholung,
+    never as the KP's «Abholung disponiert» (Sol review A2, S5)."""
+    from sqlalchemy import select
+
+    from app.models import AuditLog
+
+    url = f"/api/training/events/{training_event.id}/simulate/field-complete/{active_incident.id}"
+    if open_pickup:
+        assert (await editor_client.post(url, json={"pickup_needed": True})).status_code == 200
+    response = await editor_client.post(url, json={"pickup_needed": False})
+    assert response.status_code == 200
+    assert response.json()["pickup_needed"] is False
+
+    answers = (
+        (
+            await db_session.execute(
+                select(AuditLog).where(
+                    AuditLog.resource_id == active_incident.id, AuditLog.action_type == "field_pickup_cleared"
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert [a.changes_json["self_drive"] for a in answers] == [True]
+    # the operator who ran the inject, as for every other KP-parity write
+    assert answers[0].user_id is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 @pytest.mark.parametrize(("stays", "expected"), [(True, False), (False, True)])
 async def test_simulate_field_complete_auto_answer_follows_the_pill(
     editor_client: AsyncClient,
@@ -1494,6 +1544,17 @@ async def test_simulate_pickup_raises_and_clears_the_warning(
     done = await editor_client.post(url, json={"needed": False})
     assert done.status_code == 200
     assert "Abholung erledigt" in done.json()["message"]
+    # The lift came – never the crew's «Wir fahren selbst», although a crew member files it.
+    from app.models import AuditLog
+
+    cleared = (
+        await db_session.execute(
+            select(AuditLog).where(
+                AuditLog.resource_id == crewed_incident.id, AuditLog.action_type == "field_pickup_cleared"
+            )
+        )
+    ).scalar_one()
+    assert cleared.changes_json["self_drive"] is False
 
     await db_session.refresh(crewed_incident)
     assert crewed_incident.pickup_needed is False

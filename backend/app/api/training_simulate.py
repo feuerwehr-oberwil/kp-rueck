@@ -53,6 +53,7 @@ from ..schemas import (
     SimulateVehicleBreakdownResponse,
 )
 from ..services import incident_display, notification_params
+from ..services.audit import log_action
 from ..services.divera_intake import broadcast_emergency_received
 from ..services.rapport_rows import STATUS_LABELS
 from ..services.tokens import generate_form_token
@@ -230,7 +231,9 @@ async def simulate_field_complete(
     The Abholung answer (decision 24) follows the «bleibt vor Ort» pill, the
     suggestion /feld makes (``crud.feld.vehicle_on_site``, owner 23.11.2026): a
     vehicle on site → «fährt selbst», none → «Abholung nötig». The Übungsleiter
-    can always override it by sending it explicitly.
+    can always override it by sending it explicitly. It goes to
+    ``crud.feld.record_pickup`` as that answer (``self_drive``) under the same
+    KP actor: through the parity PATCH a KP «nein» reads «Abholung disponiert».
     """
     await _require_training_event(db, event_id)
     incident = await _get_event_incident(db, event_id, incident_id)
@@ -246,14 +249,19 @@ async def simulate_field_complete(
     # provenance rule (the personnel FKs stay NULL for a KP write, decision 28).
     await set_field_report(
         incident_id=incident_id,
-        payload=FieldReportUpdate(
-            field_complete_reported_at=datetime.now(UTC),
-            pickup_needed=pickup_needed,
-            pickup_note=pickup_note,
-        ),
+        payload=FieldReportUpdate(field_complete_reported_at=datetime.now(UTC)),
         request=request,
         db=db,
         current_user=current_user,
+    )
+    await feld_crud.record_pickup(
+        db,
+        incident,
+        actor=feld_crud.FieldActor(user=current_user),
+        needed=pickup_needed,
+        note=pickup_note,
+        request=request,
+        self_drive=not pickup_needed,
     )
 
     await db.refresh(incident)
@@ -440,7 +448,9 @@ async def simulate_escalation(
 
     Bumps the incident to high priority, appends the Lagemeldung to the
     description and raises a critical bell notification — the trainee has to
-    reassess resources and priorities mid-incident.
+    reassess resources and priorities mid-incident. The Lagemeldung is also a dated
+    fact (audit ``situation_escalated`` → Journal and Chronik): the bell is
+    dismissible and the description is editable.
     """
     await _require_training_event(db, event_id)
     incident = await _get_event_incident(db, event_id, incident_id)
@@ -454,6 +464,14 @@ async def simulate_escalation(
     text = generate_escalation(incident.type)
     incident.priority = "high"
     incident.description = f"{incident.description or ''}\n\n⚠️ Lagemeldung Feld: {text}".strip()
+    await log_action(
+        db=db,
+        action_type="situation_escalated",
+        resource_type="incident",
+        resource_id=incident.id,
+        user=current_user,
+        changes={"text": text, "source": "training"},
+    )
 
     message, params = notification_params.training_escalation(incident.title, text)
     db.add(
@@ -797,7 +815,8 @@ async def simulate_pickup(
     raise the warning but never clear it.
 
     Goes through ``crud.feld.record_pickup``, so the Restliste, the map and the
-    warning bell behave exactly as they do for a crew tapping on `/feld`.
+    warning bell behave exactly as they do for a crew tapping on `/feld`. «erledigt»
+    is the lift that came (``self_drive=False``), never «Wir fahren selbst».
     """
     await _require_training_event(db, event_id)
     incident = await _get_event_incident(db, event_id, incident_id)
@@ -813,6 +832,7 @@ async def simulate_pickup(
         needed=needed,
         note=note,
         request=request,
+        self_drive=False,
     )
 
     place = incident.location_address or incident.title
