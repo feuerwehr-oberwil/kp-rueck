@@ -978,6 +978,7 @@
       "timeLabel": "Heure de « {what} »",
       "pickupNotePlaceholder": "Note : combien, où exactement",
       "pickupVehicleOnSite": "{vehicle} est sur place",
+      "pickupDespiteVehicle": "malgré {vehicle} sur place – à vérifier",
       "waiting": "Attend depuis {duration}",
       "saveFailed": "Échec de l’enregistrement",
       "messagesTitle": "Annonces du terrain",

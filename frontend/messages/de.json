@@ -4213,6 +4213,7 @@
       "timeLabel": "Zeit für «{what}»",
       "pickupNotePlaceholder": "Notiz: wie viele, wo genau",
       "pickupVehicleOnSite": "{vehicle} steht vor Ort",
+      "pickupDespiteVehicle": "trotz {vehicle} vor Ort – prüfen",
       "waiting": "Wartet seit {duration}",
       "saveFailed": "Speichern fehlgeschlagen",
       "messagesTitle": "Meldungen vom Feld",

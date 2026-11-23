@@ -166,6 +166,18 @@ describe('the whole labelled row toggles (§P2.9)', () => {
     })
   })
 
+  it('flags an open pickup while the pill says a vehicle stays on site', () => {
+    const vehicles = [{ vehicleId: 'v-1', assignmentId: 'a-1', name: 'TLF 1', callsign: null, driverStay: true }]
+    renderWithIntl(
+      <FieldReportsRow
+        operation={operation({ vehicles, pickupNeeded: true, pickupRequestedAt: new Date('2026-11-23T20:00:00Z') })}
+        only={['pickup']}
+      />,
+    )
+
+    expect(screen.getByText(/trotz TLF 1 vor Ort – prüfen/)).toBeInTheDocument()
+  })
+
   it('does nothing for a viewer', async () => {
     const { apiClient } = await import('@/lib/api-client')
     vi.mocked(apiClient.setIncidentFieldReport).mockClear()
