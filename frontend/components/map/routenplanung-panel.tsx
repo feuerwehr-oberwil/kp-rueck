@@ -195,8 +195,11 @@ export function RoutenplanungPanel({
               className="h-8 min-w-[8rem] flex-1"
               placeholder={t("namePlaceholder")}
             />
-            {/* Wraps: at 768px the 44px touch rule makes six swatches wider than a squeezed rail. */}
-            <div className="flex flex-wrap items-center gap-1">
+            {/* Name, colour, then the two buttons: the swatches take a line of their own and
+                the buttons wrap as one group, right-aligned. Item by item, the 320px rail
+                left «Abbrechen» alone on a third line (VIS.12). The swatches wrap too: at
+                768px the 44px touch rule makes six of them wider than a squeezed rail. */}
+            <div className="flex basis-full flex-wrap items-center gap-1">
               {AUFTRAG_SWATCHES.map((c) => (
                 <button
                   key={c}
@@ -211,12 +214,14 @@ export function RoutenplanungPanel({
                 />
               ))}
             </div>
-            <Button size="sm" className="h-8" onClick={confirmCreate}>
-              {t("create")}
-            </Button>
-            <Button size="sm" variant="ghost" className="h-8" onClick={() => setCreating(false)}>
-              {t("cancel")}
-            </Button>
+            <div className="ml-auto flex gap-2">
+              <Button size="sm" className="h-8" onClick={confirmCreate}>
+                {t("create")}
+              </Button>
+              <Button size="sm" variant="ghost" className="h-8" onClick={() => setCreating(false)}>
+                {t("cancel")}
+              </Button>
+            </div>
             <FormMessage id={formMessageId("planning-new-name")} className="basis-full">
               {newNameField.error}
             </FormMessage>
