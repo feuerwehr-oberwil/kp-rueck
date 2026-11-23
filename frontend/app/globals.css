@@ -701,13 +701,27 @@
        `[role="switch"]` is excluded: a Radix Switch renders a <button>, so this
        rule squared it into a 44x44 blob wherever one appeared on a phone. A
        switch is not a tap-anywhere target — its ROW is, and the rows that carry
-       one are labels wrapping the whole thing. */
-    button:not([role="switch"]),
+       one are labels wrapping the whole thing. The Radix Checkbox (also a
+       <button>) is excluded for the same reason: it became a 44x44 empty dark
+       square with a small tick (VIS.8). */
+    button:not([role="switch"]):not([data-slot="checkbox"]),
     a,
     [role="button"],
     .interactive-element {
       min-height: 44px;
       min-width: 44px;
+    }
+
+    /* …but a checkbox keeps its 44px TARGET: an invisible box around the 16px
+       one. A table column of checkboxes (Einstellungen → Fahrzeuge, «Nicht
+       einsatzbereit») has no label row to tap instead. */
+    [data-slot="checkbox"] {
+      position: relative;
+    }
+    [data-slot="checkbox"]::after {
+      content: "";
+      position: absolute;
+      inset: -14px;
     }
 
     /* Improve tap targets for small UI elements */
