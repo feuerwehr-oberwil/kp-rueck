@@ -107,6 +107,8 @@ export interface BoardDialogsProps {
   personnel: Person[]
   /** The Dienstzeiten overview (footer sheet `'crew'`). */
   crewDutySheetOpen: boolean
+  /** Dienstzeiten «Jetzt»: follow where this person is now. */
+  followPersonNow: (person: Person) => void
   fatigueHours: number
   personEngagements: Map<string, PersonEngagement>
   printSheetOpen: boolean
@@ -176,6 +178,7 @@ export function BoardDialogs({
   operations,
   personnel,
   crewDutySheetOpen,
+  followPersonNow,
   fatigueHours,
   personEngagements,
   printSheetOpen,
@@ -300,6 +303,7 @@ export function BoardDialogs({
         personnel={personnel}
         personEngagements={personEngagements}
         fatigueHours={fatigueHours}
+        onOpenNow={followPersonNow}
       />
 
       {/* Offene Schadenplatz-Rapporte — the rolling backlog, oldest first */}

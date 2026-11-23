@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl"
 import { type Person, type Operation, type Material } from "@/lib/contexts/operations-context"
 import { type OperationDetailSection, type OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { getIncidentRefLabel } from "@/lib/incident-types"
-import { soleDestination, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
+import { isNavigableBinding, soleDestination, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
 import { REKO_TARGET, RESOURCES_TARGET } from "@/lib/detail-target"
 import { type FooterSheet } from "@/components/board/board-footer"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
@@ -204,10 +204,29 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
     })
   }
 
+  /**
+   * Dienstzeiten «Jetzt» (UX.14): follow the place that line names. The same order as
+   * `usePersonEngagements` builds the line in – the crew incident, the driven vehicle's
+   * incident, the Auftrag – then a Reko incident. The sheet closes, so the modal may open on a
+   * narrow desktop: there is no list left to cover.
+   */
+  const followPersonNow = useCallback((person: Person) => {
+    const reachable = collectPersonBindings(person).filter(isNavigableBinding)
+    const now =
+      reachable.find((b) => b.key.startsWith("incident-")) ??
+      reachable.find((b) => b.key === "fn-driver") ??
+      reachable.find((b) => b.kind === "route") ??
+      reachable[0]
+    if (!now) return
+    setActiveFooterSheet(null)
+    followBinding(now, { allowModal: true })
+  }, [collectPersonBindings, followBinding, setActiveFooterSheet])
+
   return {
     collectPersonBindings,
     collectMaterialBindings,
     followBinding,
+    followPersonNow,
     handlePersonClick,
   }
 }

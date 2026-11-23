@@ -1095,6 +1095,7 @@ export default function FireStationDashboard() {
     collectPersonBindings,
     collectMaterialBindings,
     followBinding,
+    followPersonNow,
     handlePersonClick,
   } = useResourceBindings({
     operations,
@@ -1785,6 +1786,7 @@ export default function FireStationDashboard() {
         openRapports={openRapports}
         operations={operations}
         crewDutySheetOpen={crewDutySheetOpen}
+        followPersonNow={followPersonNow}
         fatigueHours={fatigueHours}
         personEngagements={personEngagements}
         personnel={personnel}
