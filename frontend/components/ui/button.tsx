@@ -10,7 +10,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         // The main action: an INK fill (`--action`, globals.css) — red never
-        // fills an action here, it means priority and danger (CLAUDE.md →
+        // fills an action here, it means priority and danger (DESIGN.md →
         // Colour roles). One per surface: «Neuer Einsatz», «Fertig», «Anmelden».
         default: 'bg-action text-action-foreground hover:bg-action/90',
         // Red outline + red text, never a red fill: the action is dangerous,
@@ -38,7 +38,7 @@ const buttonVariants = cva(
       size: {
         default: 'min-h-[44px] px-4 py-2 has-[>svg]:px-3',
         sm: 'min-h-[36px] rounded-md gap-1.5 px-3 has-[>svg]:px-2.5',
-        // Desktop-only product (see CLAUDE.md): xs exists for dense panels —
+        // Desktop-only product (see DESIGN.md): xs exists for dense panels —
         // Detailpanel, Auftragsliste, Ressourcenzeilen. Replaces the ~28
         // hand-written `h-7` (28px) strings that had grown into an unofficial
         // fifth size. Do not go below this.

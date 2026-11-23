@@ -8,7 +8,7 @@ import { AvailableOnlyToggle } from '@/components/board/sidebar-parts'
 /**
  * «Nur verfügbare» is a filter, and a filter that is ON is a choice: it uses
  * the same slate «selected» state as every other filter. Green belongs to the
- * availability dots and badges, not to a toggled control (CLAUDE.md → Colour
+ * availability dots and badges, not to a toggled control (DESIGN.md → Colour
  * roles).
  */
 describe('the «Nur verfügbare» sidebar toggle', () => {

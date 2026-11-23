@@ -32,7 +32,7 @@ import Link from 'next/link';
  *
  * That takes the click target 44 → 36px, which is right here and nowhere else:
  * this nav is `hidden md:flex`, i.e. desktop only, and KP Rück is deliberately
- * not sized around touch targets (CLAUDE.md, «Users»).
+ * not sized around touch targets (DESIGN.md, «Users»).
  */
 const NAV_ITEM = 'rounded-lg';
 

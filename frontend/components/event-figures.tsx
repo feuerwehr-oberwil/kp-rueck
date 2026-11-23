@@ -314,7 +314,7 @@ function OldestWaiting({
       </span>
     </>
   )
-  // Hoch keeps its red edge here like on the board card (CLAUDE.md → Colour roles).
+  // Hoch keeps its red edge here like on the board card (DESIGN.md → Colour roles).
   const frame = "flex w-full flex-col gap-0.5 rounded-md border border-border border-l-[3px] border-l-destructive bg-destructive/5 px-3 py-2 text-left"
   return onOpen ? (
     <button type="button" onClick={onOpen} className={cn(frame, "hover:bg-destructive/10")} title={openLabel}>
@@ -393,7 +393,7 @@ function DispatchBars({
               key={row.priority}
               className={cn("grid grid-cols-[5.5rem_1fr_auto] items-center gap-2", wall ? "text-base leading-5" : "text-sm")}
             >
-              {/* Wall text wraps, it doesn't truncate (CLAUDE.md). */}
+              {/* Wall text wraps, it doesn't truncate (FRONTEND.md). */}
               <span className={wall ? "min-w-0 break-words" : "truncate"} title={label}>{label}</span>
               <span className={cn("relative overflow-hidden rounded-sm bg-foreground/[0.06]", wall ? "h-4" : "h-3")} aria-hidden>
                 {p90 !== null && (

@@ -270,7 +270,7 @@ export function CrewDutySheet({ open, onOpenChange, eventId, personnel, personEn
             aria-label={t("searchPlaceholder")}
             containerClassName="min-w-0 flex-1"
           />
-          {/* Phone: ONE square funnel — the filter and the sort (CLAUDE.md → phone filters). */}
+          {/* Phone: ONE square funnel — the filter and the sort (FRONTEND.md → phone filters). */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

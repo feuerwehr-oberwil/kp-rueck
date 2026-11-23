@@ -8,7 +8,7 @@
 - [ ] Ran `cd frontend && pnpm lint && pnpm test` and `cd backend && uv run pytest`
 - [ ] E2E where it matters: `cd frontend && pnpm test:e2e` (needs `just dev`). CI runs only the
       `@smoke` subset — after touching auth, the board or alarm intake, run the full suite
-- [ ] Followed the conventions in `CONTRIBUTING.md` / `CLAUDE.md` (edit in place, German domain
+- [ ] Followed the conventions in `CONTRIBUTING.md` / `AGENTS.md` (edit in place, German domain
       language, `next-intl` messages rather than hard-coded strings)
 - [ ] Nothing station-specific added: no roster, no fleet, no addresses, no one region's
       coordinates baked into code or defaults

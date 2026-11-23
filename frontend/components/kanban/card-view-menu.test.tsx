@@ -79,7 +79,7 @@ describe('the Ansicht menu', () => {
   })
 
   it('draws the chosen preset in the slate selection role, never in the red primary', async () => {
-    // Selection is «A2» slate (CLAUDE.md → Colour roles): red on this board
+    // Selection is «A2» slate (DESIGN.md → Colour roles): red on this board
     // means priority/danger, so a chosen option must not borrow it.
     const user = userEvent.setup()
     renderMenu(CARD_VIEW_PRESETS.standard)

@@ -4,6 +4,22 @@ This document describes the components that make up KP Rück, how they communica
 
 ---
 
+## At a glance
+
+- **Frontend**: Next.js 15 (App Router) + React 19 + TypeScript + Tailwind CSS 4, pnpm.
+- **Backend**: FastAPI (async) + SQLAlchemy 2.0 async ORM + PostgreSQL 16, uv. `schemas/`,
+  `crud/` and `api/` are packages, one module per area.
+- **Map**: MapLibre GL; vector tiles from a self-hosted TileServer GL offline, raster OSM online.
+- **Sync**: Socket.IO pushes incident, driver and assignment updates from
+  `backend/app/websocket_manager.py` (client: `lib/websocket-client.ts`). The client polls every
+  ~5 s as a fallback: when the socket is down, and for entities not yet wired to WS events.
+- **Roles**: `admin`, `editor` (full CRUD), `viewer` (strictly read-only).
+- **Training vs live**: same database, filtered by `training_flag` on incidents.
+- Top-level layout: [`README.md`](../README.md#repository-layout) «Repository layout». Components, every table, the sync, print and
+  alarm flows, the incident lifecycle: the sections below.
+
+---
+
 ## System Overview
 
 ```mermaid

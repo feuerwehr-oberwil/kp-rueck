@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
  * builds on the paths and bodies below. Splitting the 2900-line client (types,
  * transport, domain methods) must change none of it: not a method name, not a
  * trailing slash — `/api/personnel` without one answers 307 and a redirected
- * POST loses its body (CLAUDE.md) — and not the transport's retry, toast and
+ * POST loses its body (docs/BACKEND.md) — and not the transport's retry, toast and
  * session-expiry rules. Every row states what goes over the wire.
  */
 

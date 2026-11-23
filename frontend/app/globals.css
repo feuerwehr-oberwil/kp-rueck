@@ -213,7 +213,7 @@
 
 @theme inline {
   /* Sora (sans) + Spline Sans Mono (mono), self-hosted via next/font/local in
-     app/layout.tsx — see CLAUDE.md → Design Context → Type & corners. */
+     app/layout.tsx — see docs/DESIGN.md → Type & corners. */
   --font-sans: var(--font-sora, "Sora"), system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-spline-sans-mono, "Spline Sans Mono"), "Courier New", monospace;
 

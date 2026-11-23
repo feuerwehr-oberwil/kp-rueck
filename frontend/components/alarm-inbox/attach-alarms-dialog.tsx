@@ -13,7 +13,7 @@
  *   (R2) – advice only: the server flags the card anyway when it is not merged, as it does for
  *   a bulk attach, which is not asked per alarm.
  * While a write runs it stays open (no Esc, outside click or swipe) and offers nothing else.
- * Desktop: a centred dialog; phone: a bottom sheet (CLAUDE.md «Phone geometry»).
+ * Desktop: a centred dialog; phone: a bottom sheet (FRONTEND.md «Phone geometry»).
  */
 
 import { useEffect, useId, useState } from 'react'

@@ -968,7 +968,7 @@ export default function SettingsPage() {
                         const isActive = activeSection === section.id;
                         const label = t(`page.sections.${section.id}`);
                         // One nav, one «where you are»: the current section is an
-                        // ink tint (location = ink, selection = blue — CLAUDE.md →
+                        // ink tint (location = ink, selection = blue — DESIGN.md →
                         // Colour roles), hover a much fainter one. It used to be
                         // `bg-background` for current and `bg-background/50` for
                         // hover, which on the dark sidebar are the same dark pill —
