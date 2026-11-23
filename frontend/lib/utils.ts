@@ -67,6 +67,12 @@ export function cn(...inputs: ClassValue[]) {
  * with its top edge still reads as cut off. On pages without a footer the
  * bottom is the same 8px as the other edges.
  *
+ * On the phone the same goes for the bottom nav: a Select near the foot of
+ * /training opened over the tab bar (sweep VIS.5, 23.11.2026). The nav is a
+ * `<nav>`, not a `<footer>`; its height is already measured into
+ * `--nav-reserve` on `<html>` (lib/viewport-insets.ts, 0 on the desktop), so the
+ * bottom reserves the taller of the two.
+ *
  * The footer reservation only helps placements Radix can move: a popper with
  * `side="top"` is pinned to its trigger and is not shifted along that axis, so
  * one anchored to a button INSIDE the toolbar needs a `sideOffset` that clears
@@ -83,8 +89,11 @@ export function footerCollisionPadding(): {
   const padding = { top: EDGE_PADDING, left: EDGE_PADDING, right: EDGE_PADDING, bottom: EDGE_PADDING }
   if (typeof document === 'undefined') return padding
   const footer = document.querySelector('footer')
-  if (!footer) return padding
-  return { ...padding, bottom: Math.max(EDGE_PADDING, Math.ceil(footer.getBoundingClientRect().height) + 4) }
+  const footerHeight = footer ? footer.getBoundingClientRect().height : 0
+  const navHeight = parseFloat(document.documentElement.style.getPropertyValue('--nav-reserve')) || 0
+  const reserve = Math.max(footerHeight, navHeight)
+  if (reserve === 0) return padding
+  return { ...padding, bottom: Math.max(EDGE_PADDING, Math.ceil(reserve) + 4) }
 }
 
 // Module-level mirror of the home-city setting so non-React helpers (e.g.
