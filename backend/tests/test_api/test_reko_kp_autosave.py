@@ -4,7 +4,7 @@ Owner pick 19.11.2026 (#30, simplified: «One rule: relevance answer files»): t
 form has no save button. Every field goes out at once as a KP draft (`POST /api/reko/?submit=false`,
 then `PATCH …?submit=false`). The moment «Einsatz relevant?» is answered (Ja or Nein) the
 report is filed exactly like the crew's submit – the card from «Reko» to «Reko abgeschlossen»,
-priority bump, the bell (`api.reko._kp_draft_files_now`, `crud.reko.process_reko_submission`),
+priority bump, the bell (`api.reko._board_save_files_now`, `crud.reko.process_reko_submission`),
 wherever the card is. A status move files nothing.
 """
 
@@ -157,7 +157,9 @@ async def test_the_kp_answer_files_a_crew_draft_and_keeps_the_crews_byline(
     assert datetime.fromisoformat(filed.json()["submitted_at"]) > datetime.now(UTC) - timedelta(minutes=1)
     assert await _reko_bells(db_session, incident_id) == 1
 
-    amended = await editor_client.patch(f"/api/reko/{crew_draft.id}?submit=false", json={"additional_notes": "Nachtrag"})
+    amended = await editor_client.patch(
+        f"/api/reko/{crew_draft.id}?submit=false", json={"additional_notes": "Nachtrag"}
+    )
     # An amendment keeps the submission time and rings nothing.
     assert amended.json()["submitted_at"] == filed.json()["submitted_at"]
     assert await _reko_bells(db_session, incident_id) == 1

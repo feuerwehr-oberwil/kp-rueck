@@ -64,7 +64,9 @@ async def test_every_link_opens_the_same_report(client: AsyncClient, db_session:
     opened = await client.get("/api/reko/form", params={"incident_id": str(incident_id), "token": first})
     report_id = opened.json()["id"]
     filed = await client.post(
-        "/api/reko/", params={"submit": True}, json={"incident_id": str(incident_id), "token": first, "is_relevant": True}
+        "/api/reko/",
+        params={"submit": True},
+        json={"incident_id": str(incident_id), "token": first, "is_relevant": True},
     )
     assert filed.json()["id"] == report_id
 
