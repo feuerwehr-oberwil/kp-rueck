@@ -4004,7 +4004,6 @@
       "trainingMode": "Übungsmodus",
       "messageLabel": "Meldung",
       "messagePlaceholder": "z. B. Brennt im Keller",
-      "priorityLabel": "Priorität",
       "typeLabel": "Einsatzart",
       "typeSearchPlaceholder": "Einsatzart suchen …",
       "typeNotFound": "Keine Einsatzart gefunden.",
@@ -4036,8 +4035,7 @@
       "correctError": "Die Korrektur wurde nicht übermittelt – die Angaben bleiben im Formular.",
       "receiptTitle": "Alarm ist beim KP",
       "receiptMeta": "{eventName} · {time}",
-      "hintsCorrectionHelp": "Ergänzungen werden hinzugefügt – was bereits beim KP steht, bleibt stehen.",
-      "detailsToggle": "Details ergänzen"
+      "hintsCorrectionHelp": "Ergänzungen werden hinzugefügt – was bereits beim KP steht, bleibt stehen."
     },
     "checkin": {
       "retrying": "Verbindung unterbrochen",
