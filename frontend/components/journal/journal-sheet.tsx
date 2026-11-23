@@ -17,6 +17,7 @@ import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
 import { Filter, Hash, Link2, Pencil, SendHorizontal, Undo2, X } from "lucide-react"
 
+import { detailTargetForJournalEntry, type DetailTarget } from "@/lib/detail-target"
 import { apiClient, type ApiJournalCategory, type ApiJournalEntry } from "@/lib/api-client"
 import type { Operation } from "@/lib/contexts/operations-context"
 import {
@@ -89,7 +90,8 @@ export interface JournalSheetProps {
   isEditor: boolean
   refreshBoard?: () => Promise<void>
   /** Opens the Einsatz behind an incident chip. */
-  onOpenIncident?: (incidentId: string) => void
+  /** Opens the Einsatz on the tab that shows this row's fact (`detailTargetForJournalEntry`). */
+  onOpenIncident?: (incidentId: string, target: DetailTarget | undefined) => void
   /** «Neuer Eintrag» (E): focus the line, linked to this Einsatz when one was
    *  selected. A new `at` is a new request. */
   composeRequest?: JournalComposeRequest | null
@@ -287,7 +289,7 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
                   // The phone views; a tap target there is 44px, and a 44px chip in every row
                   // is a list of chips. The desktop chip opens the Einsatz.
                   !isMobile && onOpenIncident && line.entry.incident_id && labels.has(line.entry.incident_id)
-                    ? () => onOpenIncident(line.entry.incident_id!)
+                    ? () => onOpenIncident(line.entry.incident_id!, detailTargetForJournalEntry(line.entry))
                     : undefined
                 }
                 onRestore={isEditor && refreshBoard && recoverable.has(line.entry.id) && !labels.has(line.entry.incident_id!)

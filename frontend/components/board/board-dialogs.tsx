@@ -320,9 +320,9 @@ export function BoardDialogs({
         isEditor={isEditor}
         refreshBoard={refreshOperations}
         composeRequest={journalCompose}
-        onOpenIncident={(id) => {
+        onOpenIncident={(id, target) => {
           setActiveFooterSheet(null)
-          openIncidentDetail(id)
+          openIncidentDetail(id, target?.tab, target?.section)
         }}
       />
 
