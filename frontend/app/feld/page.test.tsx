@@ -337,6 +337,23 @@ describe('/feld preselect from the Einsatzzettel QR', () => {
     await waitFor(() => expect(getFeldAssignments).toHaveBeenCalledWith('p-1', 'bound-token'))
   })
 
+  // Owner, 24.11.2026: in a long roster the search was a scroll away. The intro and the search
+  // stick under the bar; only the names scroll.
+  it('keeps the picker intro and the name search in one block that sticks under the bar', async () => {
+    forgetDevice()
+    unlockFeld.mockResolvedValue({ token: 'unlocked-token', personnel: [PERSON], event_id: 'e-1', event_name: 'Sturm' })
+    setParams({ token: 'feld-token' })
+    const user = userEvent.setup()
+    renderWithIntl(<FeldPage />)
+    await user.type(await screen.findByRole('textbox'), '4713')
+
+    const head = await screen.findByTestId('feld-picker-head')
+    expect(head).toHaveClass('sticky')
+    expect(head).toHaveTextContent('Wähle dich aus der Liste')
+    expect(within(head).getByPlaceholderText('Name suchen …')).toBeInTheDocument()
+    expect(head).not.toHaveTextContent('Muster Hans')
+  })
+
   it('opens the named Schadenplatz once the person is picked', async () => {
     setParams({ token: 'feld-token', incident_id: 'inc-2' })
     renderWithIntl(<FeldPage />)

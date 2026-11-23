@@ -38,7 +38,7 @@ import { LeaderGlyph } from '@/components/kanban/leader-badge'
 import { FeldActions } from '@/components/feld/feld-actions'
 import { FeldBriefing, FeldBriefingLine } from '@/components/feld/feld-briefing'
 import { FELD_COOKIE_SCOPE, readDeviceToken, useFeldDoor } from '@/components/feld/feld-door'
-import { LinkPageHeader } from '@/components/link-page/link-page'
+import { BELOW_LINK_PAGE_HEADER_CLASS, LinkPageHeader } from '@/components/link-page/link-page'
 import { FeldIdentityBar, clearFeldName, formatEventDay, writeFeldName } from '@/components/feld/feld-identity-bar'
 import { FeldMaterialTable } from '@/components/feld/feld-material-table'
 import { FeldMeldenSheet } from '@/components/feld/feld-melden-sheet'
@@ -71,7 +71,7 @@ import { sortByName } from '@/lib/roster-order'
 import { navigationUrl } from '@/lib/navigation'
 import { ApiError } from '@/lib/api/types/common'
 import { asIncidentType } from '@/lib/types/incidents'
-import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
+import { cn, formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
 import { Reveal } from '@/components/ui/reveal'
 import { PersonName, PersonNamingProvider } from "@/components/person-name"
 
@@ -1075,15 +1075,18 @@ function FeldSurface() {
             header, the same bar the list and the detail carry with the person. */}
         <LinkPageHeader title={eventName || t('title')} />
 
-        <div className="max-w-md mx-auto px-4 pt-4">
-          <p className="mb-4 text-sm text-muted-foreground">{t('picker.description')}</p>
-          <SearchInput
-            value={searchTerm}
-            onValueChange={setSearchTerm}
-            placeholder={t('picker.searchPlaceholder')}
-            size="lg"
-            containerClassName="mb-4"
-          />
+        <div className="max-w-md mx-auto px-4">
+          {/* The intro and the search stay under the bar while the names scroll (owner,
+              24.11.2026): in a long roster the field to narrow it was a scroll away. */}
+          <div data-testid="feld-picker-head" className={cn(BELOW_LINK_PAGE_HEADER_CLASS, '-mx-4 px-4 pt-4 pb-4')}>
+            <p className="mb-4 text-sm text-muted-foreground">{t('picker.description')}</p>
+            <SearchInput
+              value={searchTerm}
+              onValueChange={setSearchTerm}
+              placeholder={t('picker.searchPlaceholder')}
+              size="lg"
+            />
+          </div>
 
           <div className="space-y-3">
             {loading ? null : filteredPersonnel.length === 0 && personnel.length > 0 && searchTerm.trim() ? (
