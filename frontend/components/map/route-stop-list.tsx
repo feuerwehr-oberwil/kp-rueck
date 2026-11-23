@@ -236,7 +236,9 @@ export function StopStatusControl({
               </span>
             ))}
           </span>
-          {!done && <ChevronDown className="h-3 w-3 flex-shrink-0 text-muted-foreground" aria-hidden />}
+          {/* Kept (invisible) when closed: without it a closed stop's control is 16px
+              narrower and its address starts further left than the other rows' (VIS.1). */}
+          <ChevronDown className={cn("h-3 w-3 flex-shrink-0 text-muted-foreground", done && "invisible")} aria-hidden />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="z-elevated" onClick={(e) => e.stopPropagation()}>
