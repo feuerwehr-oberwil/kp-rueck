@@ -58,7 +58,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { isLocated } from "@/lib/utils/route-geo"
 import { moveInList, type MoveTo } from "@/lib/move-in-list"
 import { MoveMenuItems, ReorderMenu } from "@/components/ui/reorder-menu"
-import { stopStatusBorderClass, stopStatusTextClass } from "@/lib/kanban-utils"
+import { ACCENT_BAR, stopStatusBorderClass, stopStatusTextClass } from "@/lib/kanban-utils"
 import type { RouteStartMode } from "@/lib/route-start"
 
 export type StopState = "erledigt" | "laeuft" | "offen"
@@ -627,7 +627,8 @@ export function StopListRow({
         onClick={onSelect}
         className={cn(
           // Column layout: [handle] [number] [status — fixed width] [name/address — flex].
-          "flex cursor-pointer items-center gap-2 rounded-md border-l-2 px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/40",
+          "flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/40",
+          ACCENT_BAR,
           stopStatusBorderClass(mirror),
           selected && "bg-sel-wash ring-1 ring-sel-edge",
           isDropOver && "bg-sel-wash ring-2 ring-sel-line",

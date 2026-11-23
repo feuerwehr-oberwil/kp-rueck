@@ -80,7 +80,7 @@ import { MoveMenuItems } from "@/components/ui/reorder-menu"
 import { StopStatusControl, toMirrorStatus, MIRROR_ORDER, MIRROR_CONFIG, type MirrorStatus } from "@/components/map/route-stop-list"
 import { RouteResourceSections, ResourceSectionHeader } from "@/components/kanban/route-resource-sections"
 import { AuftragRadioDialog } from "@/components/kanban/auftrag-radio-dialog"
-import { stopStatusBorderClass } from "@/lib/kanban-utils"
+import { ACCENT_BAR, stopStatusBorderClass } from "@/lib/kanban-utils"
 import { isToastLayer } from "@/lib/toast-layer"
 import { usePromoteRouteLeader } from "@/lib/hooks/use-promote-to-leader"
 import type { GroupResources } from "@/lib/types/groups"
@@ -1034,7 +1034,8 @@ function StopRow({ groupId, incidentId, index, count, onMove, op, onRemove, onSe
         ref={ref}
         className={cn(
           // Column layout: [handle] [number] [status — fixed width] [address — flex].
-          "flex items-center gap-2 rounded-md border-l-2 px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/40",
+          "flex items-center gap-2 rounded-md px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/40",
+          ACCENT_BAR,
           stopStatusBorderClass(mirror),
           isDropOver && "ring-2 ring-sel-line bg-sel-wash",
         )}
