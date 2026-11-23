@@ -215,6 +215,7 @@
       "vehicleStatus": "État des véhicules",
       "auftraege": "Ouvrir les missions",
       "print": "Imprimer et exporter",
+      "groupPersons": "Personnel",
       "groupAuftraege": "Missions",
       "refreshData": "Actualiser les données",
       "groupView": "Vue",

@@ -19,6 +19,7 @@ vi.mock("@/lib/contexts/event-context", () => ({
 vi.mock("@/lib/contexts/operations-context", () => ({
   useOperations: () => ({ personnel: state.personnel, operations: state.operations, refreshOperations, formatLocation: (address: string) => address }),
 }))
+vi.mock("@/lib/contexts/groups-context", () => ({ useGroups: () => ({ groups: [] }) }))
 
 vi.mock("@/lib/api-client", () => ({
   apiClient: {

@@ -15,6 +15,8 @@
  * the whole sidebar read as a warning.
  */
 
+import { placesMatch, type PersonPlaces } from "@/lib/person-places"
+
 export type ResourceState = "available" | "assigned" | "unavailable" | "maintenance"
 
 /** Normalize the raw personnel/vehicle/material status strings the API sends
@@ -99,9 +101,12 @@ export function isPersonOccupied(
  * Name, rank and tags are the obvious half; the other half is the Ereignis
  * role the person carries – typing "telefondienst" or "kommandoposten" has to
  * find the person holding that function, exactly like "reko" and "fahrer"
- * (and the driver's vehicle name) always did. One matcher, shared by the
- * sidebar filter and the assignment dialog, so the two searches can never
- * disagree about who "Telefondienst" is.
+ * (and the driver's vehicle name) always did. The third half is where the
+ * person is bound right now (`places`: Einsatz number, address, Auftrag name –
+ * `personPlaces`), so «12» or «Sturmholz» finds the crew out there. One matcher,
+ * shared by every person picker on the board (sidebar, assignment dialogs, Reko
+ * pickers, ⌘K, the phone's people sheet – the board ones through
+ * `usePersonMatcher`), so no two searches disagree about who "Telefondienst" is.
  */
 export function personMatchesQuery(
   p: {
@@ -114,6 +119,7 @@ export function personMatchesQuery(
     isMagazin?: boolean
     isTelefondienst?: boolean
     isKommandoposten?: boolean
+    places?: PersonPlaces | null
   },
   query: string,
 ): boolean {
@@ -129,7 +135,8 @@ export function personMatchesQuery(
     (!!p.isMagazin && "magazin".includes(q)) ||
     (!!p.isTelefondienst && "telefondienst".includes(q)) ||
     (!!p.isKommandoposten && "kommandoposten".includes(q)) ||
-    (!!p.tags && p.tags.some((t) => t.toLowerCase().includes(q)))
+    (!!p.tags && p.tags.some((t) => t.toLowerCase().includes(q))) ||
+    placesMatch(p.places, q)
   )
 }
 

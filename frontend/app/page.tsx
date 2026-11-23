@@ -46,6 +46,7 @@ import type { DispatchResource, DispatchVocabulary } from "@/lib/command-dispatc
 import { useResourceFiltering } from "@/lib/hooks/use-resource-filtering"
 import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
 import { usePersonEngagements } from "@/lib/hooks/use-person-engagements"
+import { usePersonPlaces } from "@/lib/hooks/use-person-matcher"
 import { useIncidentHighlightListener } from "@/lib/hooks/use-incident-highlight-listener"
 import type { IncidentHighlightOptions } from "@/lib/notification-highlight"
 import { useCurrentTime } from "@/lib/hooks/use-current-time"
@@ -198,6 +199,8 @@ export default function FireStationDashboard() {
   // Where each person actually is, for the sidebar card's tooltip (§P3.5) —
   // computed once here, passed down, so the memoized cards stay cheap.
   const personEngagements = usePersonEngagements()
+  // …and the same as search terms, so the sidebar search finds «12» or «Sturmholz».
+  const personPlaces = usePersonPlaces()
 
   // The depot with BOTH deployments folded in – Einsätze and Aufträge – so the
   // material sidebar, its counter and every drop read one frei/gebunden.
@@ -1039,6 +1042,7 @@ export default function FireStationDashboard() {
     effectiveMaterialQuery,
     tRes('roleOther'),
     { personnel: personnelAvailableOnly, materials: materialsAvailableOnly },
+    personPlaces,
   )
 
   // The two sidebar footers. One helper each, and it is the same predicate the

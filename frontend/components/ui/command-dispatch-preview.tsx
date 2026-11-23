@@ -11,6 +11,7 @@ import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import type {
   DispatchCompletion,
   DispatchIncident,
+  DispatchPerson,
   DispatchResource,
   DispatchTarget,
   DispatchToken,
@@ -267,6 +268,20 @@ export function DispatchChoice({ token, choice }: { token: DispatchToken; choice
       <span className="ml-auto shrink-0 text-xs text-muted-foreground">
         {t(token.confirm ? "choiceConfirm" : "choiceFor", { text: token.text })}
       </span>
+    </span>
+  )
+}
+
+/** A person the board's person search found by Grad, tag or current place (not by the
+ *  dispatch grammar) – ↵ shows the person, like «meier» alone. */
+export function DispatchPersonHit({ person }: { person: DispatchPerson }) {
+  const t = useTranslations("common.commandPalette.dispatch")
+  return (
+    <span className="flex w-full min-w-0 items-center gap-2">
+      <ResourceIcon kind="person" className="!size-4" />
+      <span className="truncate">{person.name}</span>
+      {person.detail && <span className="truncate text-xs text-muted-foreground">{person.detail}</span>}
+      <span className="ml-auto shrink-0 text-xs text-muted-foreground">{t("actionJump")}</span>
     </span>
   )
 }

@@ -15,7 +15,9 @@ import { apiClient, type ApiAvailableRekoPersonnel } from "@/lib/api-client"
 import { useEvent } from "@/lib/contexts/event-context"
 import { type Operation, useOperations } from "@/lib/contexts/operations-context"
 import type { Person } from "@/lib/contexts/personnel-context"
-import { personMatchesQuery, RESOURCE_STATE_BADGE_CLASSES } from "@/lib/resource-status"
+import { RESOURCE_STATE_BADGE_CLASSES } from "@/lib/resource-status"
+import { useGroups } from "@/lib/contexts/groups-context"
+import { usePersonMatcher } from "@/lib/hooks/use-person-matcher"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { useTranslations } from "next-intl"
@@ -65,8 +67,10 @@ export function useRekoCandidatePicker({
   const [search, setSearch] = useState("")
   const [chosenId, setChosenId] = useState<string | null>(null)
   const factsOf = usePersonTileFacts()
+  const { groups } = useGroups()
+  const matchesPerson = usePersonMatcher()
   const eligible = personnel.filter((person) => !person.isReko && !excludedPersonnelIds?.has(person.id))
-  const candidates = search.trim() ? eligible.filter((person) => personMatchesQuery(person, search)) : eligible
+  const candidates = search.trim() ? eligible.filter((person) => matchesPerson(person, search)) : eligible
 
   const searchField = (
     <SearchInput
@@ -78,7 +82,7 @@ export function useRekoCandidatePicker({
     />
   )
   const tiles = candidates.map((person) => {
-    const { where, roles, plan } = factsOf(person, { elsewhere: einsatzWhere(person.id, operations) })
+    const { where, roles, plan } = factsOf(person, { elsewhere: einsatzWhere(person.id, operations, groups) })
     return (
       <PersonPickTile
         key={person.id}
@@ -208,6 +212,7 @@ export function AssignRekoDialog({
   const tPick = useTranslations('common.personPick')
   const { selectedEvent } = useEvent()
   const { personnel: allPersonnel, operations, refreshOperations, formatLocation } = useOperations()
+  const matchesPerson = usePersonMatcher()
   const [personnel, setPersonnel] = useState<ApiAvailableRekoPersonnel[]>([])
   const [currentlyAssignedId, setCurrentlyAssignedId] = useState<string | null>(null)
   const [chosenId, setChosenId] = useState<string | null>(null)
@@ -372,7 +377,12 @@ export function AssignRekoDialog({
   // checked-in people, one search over both – so no «Person als Reko markieren» detour.
   const gateQuery = mark.query.trim()
   const rekoHits = gate && gateQuery
-    ? personnel.filter((person) => personMatchesQuery({ name: person.name, role: person.role, isReko: true }, gateQuery))
+    ? personnel.filter((person) => {
+        // The board's roster row carries the tags; a Reko person the board has not loaded yet
+        // is still found by name and Grad.
+        const boardPerson = allPersonnel.find((p) => p.id === person.personnel_id)
+        return matchesPerson({ ...boardPerson, id: person.personnel_id, name: person.name, role: person.role, isReko: true }, gateQuery)
+      })
     : personnel
 
   const toolbar = gate && !markMode ? (
