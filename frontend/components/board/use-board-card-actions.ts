@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { undoToast } from "@/lib/toast-undo"
 import { type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
+import type { OperationsContextType } from "@/lib/contexts/operations/types"
 import { toMirrorStatus } from "@/components/map/route-stop-list"
 import type { GroupResourceType } from "@/lib/api-client"
 import { columns, BOARD_COLUMN_COLLAPSE_KEY, DEFAULT_COLLAPSED_COLUMN_IDS } from "@/lib/kanban-utils"
@@ -25,7 +26,7 @@ export const PRIORITY_LABEL_KEYS: Record<Operation["priority"], "priorityLow" | 
 }
 
 export interface UseBoardCardActionsInput {
-  requestResourceConflict: (conflict: NonNullable<{ resourceType: "personnel" | "vehicle" | "material"; resourceId: string; resourceName: string; targetOperationId: string; targetOperationLabel?: string; conflicts: { operationId: string; operationLabel: string; }[]; customResolve?: (action: "move" | "keep") => Promise<void> | void; } | null>) => void
+  requestResourceConflict: OperationsContextType["requestResourceConflict"]
   operations: Operation[]
   updateOperation: (operationId: string, updates: Partial<Operation>) => void
   setOperations: Dispatch<SetStateAction<Operation[]>>

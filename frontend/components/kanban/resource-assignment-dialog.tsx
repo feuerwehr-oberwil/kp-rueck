@@ -32,6 +32,7 @@ import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { getIncidentLocationLabel, getIncidentRefLabel, getIncidentRefParts } from "@/lib/incident-types"
+import { SubjectLine } from "@/components/ui/subject-line"
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { cn } from "@/lib/utils"
@@ -322,14 +323,14 @@ export function ResourceAssignmentDialog({
   const destination = useMemo(() => {
     if (assignTarget === 'route') return null
     const op = operations.find((o) => o.id === operationId)
-    return op ? { number: op.number ?? null, address: getIncidentLocationLabel(op) } : null
+    return op ? { number: op.number ?? null, place: getIncidentLocationLabel(op) } : null
   }, [assignTarget, operations, operationId])
 
-  /** The «Neu:» half of the conflict prompt — where the resource is heading. */
+  /** The conflict prompt's target card — where the resource is heading. */
   const targetLabel = useMemo(() => {
-    if (assignTarget === 'route') return routeName
+    if (assignTarget === 'route') return routeName ?? ''
     const op = operations.find((o) => o.id === operationId)
-    return op ? getIncidentRefLabel(op, 1000) : undefined
+    return op ? getIncidentRefParts(op).head : ''
   }, [assignTarget, routeName, operations, operationId])
 
   /**
@@ -352,7 +353,7 @@ export function ResourceAssignmentDialog({
       resourceName,
       targetOperationId: operationId ?? '',
       targetOperationLabel: targetLabel,
-      conflicts: bindings.map((b) => ({ operationId: b.id, operationLabel: b.full })),
+      conflicts: bindings.map((b) => ({ operationId: b.id, operationLabel: b.head })),
       customResolve: async (action) => {
         if (action === 'move') {
           // Sequentially: two releases of the same person racing each other
@@ -1470,18 +1471,7 @@ export function ResourceAssignmentDialog({
   )
 
   // The destination line under the title: «1 Langegasse 28», up to two lines.
-  const destinationLine = destination && (
-    <p
-      className="mt-0.5 line-clamp-2 break-words text-sm font-medium text-foreground"
-      title={destination.number != null ? `${destination.number} · ${destination.address}` : destination.address}
-      data-testid="assignment-destination"
-    >
-      {destination.number != null && (
-        <span className="mr-1.5 font-mono text-xs font-medium text-muted-foreground">{destination.number}</span>
-      )}
-      {destination.address}
-    </p>
-  )
+  const destinationLine = destination && <SubjectLine subject={destination} />
 
   // PHONE (U3 B, 08.11.2026): a bottom sheet like «Neuer Einsatz»'s – grip and swipe-to-close
   // (through `onOpenChange`, like the ✕), the header, the search and filters fixed, the list
@@ -1584,7 +1574,14 @@ export function ResourceAssignmentDialog({
     <ConfirmDialog
       open={!!confirmPerson}
       onOpenChange={(o) => !o && setConfirmPerson(null)}
-      title={t('assignmentDialog.specialFnConfirmTitle')}
+      title={
+        confirmPerson
+          ? t('assignmentDialog.specialFnConfirmTitle', {
+              name: naming.inline(confirmPerson),
+              func: specialFunctionLabels(confirmPerson).join(' · '),
+            })
+          : ''
+      }
       description={
         confirmPerson
           ? t('assignmentDialog.specialFnConfirmBody', {
@@ -1596,6 +1593,8 @@ export function ResourceAssignmentDialog({
       }
       cancelText={t('common.cancel')}
       confirmText={t('assignmentDialog.specialFnConfirmAction')}
+      // A double booking is chosen by hand, never by Enter (owner pick #3, 23.11.2026).
+      initialFocus="cancel"
       onConfirm={() => {
         if (confirmPerson) addPersonToSelection(confirmPerson)
       }}
@@ -1607,7 +1606,7 @@ export function ResourceAssignmentDialog({
     <ConfirmDialog
       open={!!confirmMaterial}
       onOpenChange={(o) => !o && setConfirmMaterial(null)}
-      title={t('assignmentDialog.occupiedConfirmTitle')}
+      title={confirmMaterial ? t('assignmentDialog.occupiedConfirmTitle', { name: confirmMaterial.name }) : ''}
       description={
         confirmMaterial
           ? t('assignmentDialog.occupiedConfirmBody', {
@@ -1618,6 +1617,7 @@ export function ResourceAssignmentDialog({
       }
       cancelText={t('common.cancel')}
       confirmText={t('assignmentDialog.occupiedConfirmAction')}
+      initialFocus="cancel"
       onConfirm={() => {
         if (confirmMaterial) addMaterialToSelection(confirmMaterial.id)
       }}
@@ -1627,7 +1627,7 @@ export function ResourceAssignmentDialog({
     <ConfirmDialog
       open={!!confirmOccupiedPerson}
       onOpenChange={(o) => !o && setConfirmOccupiedPerson(null)}
-      title={t('assignmentDialog.occupiedConfirmTitle')}
+      title={confirmOccupiedPerson ? t('assignmentDialog.occupiedConfirmTitle', { name: naming.inline(confirmOccupiedPerson) }) : ''}
       description={
         confirmOccupiedPerson
           ? t('assignmentDialog.occupiedConfirmBody', {
@@ -1638,6 +1638,7 @@ export function ResourceAssignmentDialog({
       }
       cancelText={t('common.cancel')}
       confirmText={t('assignmentDialog.occupiedConfirmAction')}
+      initialFocus="cancel"
       onConfirm={() => {
         if (confirmOccupiedPerson) addPersonToSelection(confirmOccupiedPerson)
       }}

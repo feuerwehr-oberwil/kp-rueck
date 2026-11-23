@@ -61,7 +61,7 @@ import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { columns } from "@/lib/kanban-utils"
 import { nextCardId, type BoardDirection } from "@/lib/board-keyboard-nav"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
-import { getIncidentRefLabel } from "@/lib/incident-types"
+import { getIncidentRefParts } from "@/lib/incident-types"
 import { DroppableColumn } from "@/components/kanban/droppable-column"
 import { BoardEdgeChipBar, useBoardEdgeOverflow } from "@/components/kanban/board-edge-chips"
 import { useCardView } from "@/lib/card-view"
@@ -940,7 +940,7 @@ export default function FireStationDashboard() {
       targetId: groupId,
       conflicts: [
         ...holders.map((group) => ({ operationId: group.id, operationLabel: group.name })),
-        ...incidentHolders.map((op) => ({ operationId: op.id, operationLabel: getIncidentRefLabel(op) })),
+        ...incidentHolders.map((op) => ({ operationId: op.id, operationLabel: getIncidentRefParts(op).head })),
       ],
       releases: [
         ...releaseFromGroups(resourceType, resourceId, holders),

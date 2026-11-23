@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { fireEvent, screen, waitFor } from "@testing-library/react"
+import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
 
@@ -89,7 +89,9 @@ describe("material double-booking guard", () => {
 
     await user.click(screen.getByRole("button", { name: /Tauchpumpe Gr\./ }))
 
-    expect(await screen.findByText("Doppelbelegung?")).toBeDefined()
+    const confirm = await screen.findByRole("alertdialog", { name: /ist schon zugewiesen/ })
+    // A double booking is chosen by hand: Enter stays on Abbrechen (owner pick #3, 23.11.2026).
+    expect(within(confirm).getByRole("button", { name: "Abbrechen" })).toHaveFocus()
   })
 
   it("selects Verbrauchsmaterial straight away – unlimited stock is never double-booked", async () => {
@@ -104,7 +106,7 @@ describe("material double-booking guard", () => {
 
     // Ticked immediately – the confirm never opens.
     await waitFor(() => expect(screen.getByText("Änderungen")).toBeDefined())
-    expect(screen.queryByText("Doppelbelegung?")).toBeNull()
+    expect(screen.queryByText(/ist schon zugewiesen/)).toBeNull()
   })
 
   it("clears the «just assigned» flash timer when the dialog unmounts", () => {

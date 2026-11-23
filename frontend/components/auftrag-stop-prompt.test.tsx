@@ -20,24 +20,30 @@ function ask(assignOnly = vi.fn()) {
 }
 
 // Owner pick #23: TLF drives Auftrag «Nord», the operator puts it on the lone Blumenweg 21.
+// Owner pick #3 (23.11.2026): neither answer is the default, Enter changes nothing.
 describe('AuftragStopPrompt', () => {
-  it('keeps Enter on Abbrechen and takes the Einsatz into the Auftrag on its button', async () => {
+  it('keeps Enter on Abbrechen and takes the Einsatz into the Auftrag on its card', async () => {
     addStopForVehicle.mockResolvedValue('added')
     ask()
-    expect(screen.getByText('Blumenweg 21 als Stopp in Auftrag Nord aufnehmen?')).toBeInTheDocument()
-    // The body names the vehicle and the Auftrag; the place is in the title already.
-    expect(screen.getByText('TLF fährt schon den Auftrag «Nord». Der Einsatz wird dort als letzter Stopp aufgenommen.')).toBeInTheDocument()
+    expect(screen.getByText('TLF fährt schon den Auftrag «Nord»')).toBeInTheDocument()
+    const addCard = screen.getByRole('button', { name: 'In Auftrag aufnehmen' })
+    expect(addCard).toHaveAccessibleDescription('Blumenweg 21 wird letzter Stopp im Auftrag «Nord», TLF fährt ihn dort an.')
     // No undo after it (pass 2, S9).
-    expect(screen.getByRole('button', { name: 'Abbrechen' })).toHaveFocus()
-    await userEvent.click(screen.getByRole('button', { name: 'In Auftrag aufnehmen' }))
+    expect(screen.getByRole('button', { name: /Abbrechen/ })).toHaveFocus()
+    await userEvent.click(addCard)
     expect(addStopForVehicle).toHaveBeenCalledWith('g-nord', 'op-1', 'v-tlf')
     expect(screen.queryByRole('alertdialog')).toBeNull()
   })
 
-  it('«Nur zusätzlich zuweisen» assigns without touching the Auftrag', async () => {
+  it('Enter closes without a write; Z assigns without touching the Auftrag', async () => {
     addStopForVehicle.mockClear()
     const assignOnly = ask()
-    await userEvent.click(screen.getByRole('button', { name: 'Nur zusätzlich zuweisen' }))
+    await userEvent.keyboard('{Enter}')
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(assignOnly).not.toHaveBeenCalled()
+
+    ask(assignOnly)
+    await userEvent.keyboard('z')
     expect(assignOnly).toHaveBeenCalledOnce()
     expect(addStopForVehicle).not.toHaveBeenCalled()
   })

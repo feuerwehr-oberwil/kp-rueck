@@ -357,6 +357,11 @@
       "hintKp": "Les listes de sélection affichent « jusqu’à … ». 15 minutes avant, une notification arrive dans la cloche.",
       "hintSelf": "Le PC voit jusqu’à quand tu es là. Une heure, pas une promesse.",
       "saveFailed": "Heure non enregistrée"
+    },
+    "choiceDialog": {
+      "cancel": "Annuler",
+      "cancelHint": "Échap ou Entrée : ne rien changer",
+      "enterKey": "Entrée"
     }
   },
   "display": {
@@ -1433,21 +1438,28 @@
     "resourceConflict": {
       "moveHere": "Déplacer ici",
       "keepBoth": "Tenir sur les deux",
-      "titleNamed": "{name} est déjà engagé",
-      "prompt": "Que faut-il retenir ?",
-      "currentLabel": "Jusqu'ici",
-      "newLabel": "Nouveau",
+      "titleNamed": "{count, plural, one {{name} est déjà engagé} other {{name} sont déjà engagés}}",
       "drives": "conduit {vehicle}",
-      "moveReleasesDriver": "« Déplacer ici » libère aussi le rôle de conducteur pour {vehicle}."
+      "description": "Jusqu’ici sur <strong>{from}</strong>, nouveau sur <strong>{to}</strong>. Que faut-il retenir ?",
+      "moveKey": "D",
+      "keepKey": "T",
+      "moveConsequence": "{count, plural, one {{name} quitte <strong>{from}</strong> et n’est plus que sur {to}.} other {{name} quittent <strong>{from}</strong> et ne sont plus que sur {to}.}}",
+      "moveConsequenceDriver": "{name} quitte <strong>{from}</strong>, rend le rôle de conducteur pour {vehicle} et n’est plus que sur {to}.",
+      "keepConsequence": "{count, plural, one {{name} reste sur <strong>{from}</strong> et est attribué en plus à {to}.} other {{name} restent sur <strong>{from}</strong> et sont attribués en plus à {to}.}} {cards, plural, =2 {Les deux cartes affichent 2×.} other {Les # cartes affichent #×.}}"
     },
     "auftragStop": {
-      "title": "Ajouter {incident} comme étape à la mission {auftrag} ?",
-      "description": "{vehicle} roule déjà pour la mission « {auftrag} ». L’intervention y sera ajoutée comme dernière étape.",
+      "title": "{vehicle} roule déjà pour la mission « {auftrag} »",
+      "description": "Nouveau : <strong>{incident}</strong>. Que faut-il retenir ?",
       "addAsStop": "Ajouter à la mission",
       "assignOnly": "Attribuer seulement en plus",
       "added": "{incident} est maintenant une étape de la mission « {auftrag} »",
       "changedTitle": "{incident} non ajoutée",
-      "changedDescription": "L’intervention ou la mission « {auftrag} » a été modifiée ou supprimée entre-temps. Vérifiez sur le tableau."
+      "changedDescription": "L’intervention ou la mission « {auftrag} » a été modifiée ou supprimée entre-temps. Vérifiez sur le tableau.",
+      "addAsStopKey": "A",
+      "assignOnlyKey": "E",
+      "stopChip": "+ étape {incident}",
+      "addAsStopConsequence": "<strong>{incident}</strong> devient la dernière étape de la mission « {auftrag} », {vehicle} s’y rend.",
+      "assignOnlyConsequence": "{vehicle} reste sur la mission « {auftrag} » et est attribué en plus à <strong>{incident}</strong>. Les deux cartes affichent 2×."
     },
     "vehicleStatus": {
       "bound": "Engagé",
@@ -2190,13 +2202,13 @@
       "quickSelectByType": "Par genre :",
       "vehicleOnSceneHint": "{name} est déjà attribué à cette intervention",
       "driverBadge": "Conducteur",
-      "specialFnConfirmTitle": "Double attribution ?",
+      "specialFnConfirmTitle": "{name} est déjà {func}",
       "specialFnConfirmBody": "{name} est déjà en intervention ({func}). L’attribuer quand même à l’effectif ?",
       "specialFnConfirmAction": "Attribuer quand même",
       "occupiedElsewhere": "En intervention",
       "sectionFree": "Disponibles · {count}",
       "sectionBusy": "Déjà en intervention · {count}",
-      "occupiedConfirmTitle": "Double attribution ?",
+      "occupiedConfirmTitle": "{name} est déjà attribué",
       "occupiedConfirmBody": "{name} est déjà attribué : {label}. L’attribuer quand même ?",
       "occupiedConfirmAction": "Attribuer quand même",
       "all": "Tous",

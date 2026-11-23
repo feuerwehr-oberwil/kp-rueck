@@ -314,11 +314,15 @@ export interface OperationsContextType {
         resourceId: string
         /** Display name only – the resource is `resourceId`. */
         resourceName: string
+        /** How many resources `resourceName` names – one drop of a Modul-Block asks once for
+         *  all its devices («Motorsäge, Spreizer»). Default 1; the copy agrees with it. */
+        resourceCount?: number
         targetOperationId: string
-        /** Where it is going, by name — the dialog's «Neu:» line. The question
-         *  «wovon wird abgezogen» has two halves and the prompt used to name
-         *  only one of them, in running text. */
-        targetOperationLabel?: string
+        /** Where it is going, by name («14 · Hauptstrasse 4», an Auftrag's name) — the
+         *  target card of the prompt. The question «wovon wird abgezogen» has two halves
+         *  and the prompt used to name only one of them, in running text. */
+        targetOperationLabel: string
+        /** Where it stands now, one card each («13 · Schulstrasse 9», an Auftrag's name). */
         conflicts: { operationId: string; operationLabel: string }[]
         customResolve?: (action: "move" | "keep") => Promise<void> | void
       }

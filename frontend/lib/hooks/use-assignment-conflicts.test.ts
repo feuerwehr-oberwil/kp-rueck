@@ -100,8 +100,8 @@ describe("useAssignmentConflicts — a vehicle onto an incident", () => {
     expect(asked()).toEqual([])
     expect(inputs.assignVehicleToOperation).not.toHaveBeenCalled()
     const [[question]] = vi.mocked(askAuftragStop).mock.calls as [[AuftragStopQuestion]]
-    // The short place label: no number, no type, no Meldung – the title stays one line (sign-off 19.11.).
-    expect(question).toMatchObject({ groupId: "g-2", groupName: "Süd", incidentId: "op-1", incidentLabel: "Blumenweg 21", vehicleName: "TLF" })
+    // Number and place, no type, no Meldung – the card names it like the board (#14, 23.11.).
+    expect(question).toMatchObject({ groupId: "g-2", groupName: "Süd", incidentId: "op-1", incidentLabel: "2 · Blumenweg 21", vehicleName: "TLF" })
     await question.assignOnly()
     expect(inputs.assignVehicleToOperation).toHaveBeenCalledWith("v-tlf", "TLF", "op-1")
   })

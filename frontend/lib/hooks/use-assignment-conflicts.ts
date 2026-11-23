@@ -3,7 +3,7 @@
 import { useCallback, useRef } from "react"
 import type { useGroups } from "@/lib/contexts/groups-context"
 import type { Operation, useOperations } from "@/lib/contexts/operations-context"
-import { getIncidentLocationLabel, getIncidentRefLabel } from "@/lib/incident-types"
+import { getIncidentRefParts } from "@/lib/incident-types"
 import { askAuftragStop } from "@/lib/auftrag-stop-question"
 
 type Ops = ReturnType<typeof useOperations>
@@ -45,6 +45,15 @@ export function useAssignmentConflicts({
   removeVehicle,
   assignVehicleToOperation,
 }: AssignmentConflictInputs) {
+  /** A holder's name on the prompt's cards: an Einsatz «14 · Hauptstrasse 4», an Auftrag by its name. */
+  const holderLabel = useCallback(
+    (id: string) => {
+      const op = operations.find((item) => item.id === id)
+      return op ? getIncidentRefParts(op).head : groups.find((group) => group.id === id)?.name ?? ""
+    },
+    [operations, groups],
+  )
+
   /**
    * A vehicle onto an Auftrag from every entry point (number keys, picker, drag-drop): held by
    * another Auftrag or an Einsatz → the move/keep question, else the assign. Resolves true only
@@ -64,9 +73,10 @@ export function useAssignmentConflicts({
       resourceId: vehicleId,
       resourceName: vehicle.name,
       targetOperationId: groupId,
+      targetOperationLabel: holderLabel(groupId),
       conflicts: [
         ...groupConflicts.map((group) => ({ operationId: group.id, operationLabel: group.name })),
-        ...incidentConflicts.map((op) => ({ operationId: op.id, operationLabel: getIncidentRefLabel(op) })),
+        ...incidentConflicts.map((op) => ({ operationId: op.id, operationLabel: getIncidentRefParts(op).head })),
       ],
       customResolve: async (action) => {
         if (action === "move") {
@@ -81,7 +91,7 @@ export function useAssignmentConflicts({
       },
     })
     return false
-  }, [vehicleTypes, groups, operations, requestResourceConflict, assignGroupResource, unassignGroupResource, removeVehicle])
+  }, [vehicleTypes, groups, operations, requestResourceConflict, assignGroupResource, unassignGroupResource, removeVehicle, holderLabel])
 
   /**
    * The Auftrag half of the Doppelbelegung question, for people and material.
@@ -182,7 +192,9 @@ export function useAssignmentConflicts({
           resourceId: batch[0].resourceId,
           // The whole drop, so «Motorsäge» does not stand in for three devices.
           resourceName: batch.map((entry) => entry.resourceName).join(", "),
+          resourceCount: batch.length,
           targetOperationId: batch[0].targetId,
+          targetOperationLabel: holderLabel(batch[0].targetId),
           conflicts,
           customResolve: async (action) => {
             if (action === "move") {
@@ -196,7 +208,7 @@ export function useAssignmentConflicts({
         })
       })
     },
-    [requestResourceConflict],
+    [requestResourceConflict, holderLabel],
   )
 
   /**
@@ -221,7 +233,7 @@ export function useAssignmentConflicts({
         groupId: group.id,
         groupName: group.name,
         incidentId: target.id,
-        incidentLabel: getIncidentLocationLabel(target),
+        incidentLabel: getIncidentRefParts(target).head,
         vehicleId,
         vehicleName,
         assignOnly: () => assignVehicleToOperation(vehicleId, vehicleName, operationId),
@@ -233,6 +245,7 @@ export function useAssignmentConflicts({
       resourceId: vehicleId,
       resourceName: vehicleName,
       targetOperationId: operationId,
+      targetOperationLabel: holderLabel(operationId),
       conflicts: groupConflicts.map((group) => ({ operationId: group.id, operationLabel: group.name })),
       customResolve: async (action) => {
         if (action === "move") {
@@ -246,7 +259,7 @@ export function useAssignmentConflicts({
       },
     })
     return true
-  }, [groups, operations, requestResourceConflict, unassignGroupResource, assignVehicleToOperation])
+  }, [groups, operations, requestResourceConflict, unassignGroupResource, assignVehicleToOperation, holderLabel])
 
   return {
     assignVehicleToGroupWithConflict,
