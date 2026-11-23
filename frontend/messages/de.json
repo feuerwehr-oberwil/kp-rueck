@@ -526,6 +526,7 @@
       "aggregateCountTitle": "{free} von {total} frei",
       "aggregateUnitCount": "{count} Stück",
       "notReadySince": "seit {date}",
+      "backInService": "Wieder einsatzbereit",
       "driver": "Fahrer",
       "specialFunctionNoIncident": "Sonderfunktion · kein Einsatz",
       "bindingsCount": "{count, plural, one {# Zuweisung} other {# Zuweisungen}}",

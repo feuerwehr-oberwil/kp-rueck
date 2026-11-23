@@ -1822,6 +1822,7 @@
       "aggregateCountTitle": "{free} sur {total} libres",
       "aggregateUnitCount": "{count} pièces",
       "notReadySince": "depuis le {date}",
+      "backInService": "De nouveau prêt à l'engagement",
       "driver": "Conducteur",
       "specialFunctionNoIncident": "Fonction spéciale · aucune intervention",
       "bindingsCount": "{count, plural, one {# attribution} other {# attributions}}",

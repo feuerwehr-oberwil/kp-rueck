@@ -303,9 +303,29 @@ export function MaterialSidebarRow({
         </ContextMenuContent>
       </ContextMenu>
       <PopoverContent align="start" side="left" className="w-80 p-3">
-        {bindingsPopover && (
+        {bindingsPopover && (material.outOfService && bindingsPopover.bindings.length === 0 ? (
+          // A flagged device is bound nowhere, so «keine Bindung» answered nothing. Its
+          // question is «wieder einsatzbereit?», which used to be right-click only.
+          <div className="space-y-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">{material.name}</p>
+              <p className="text-2xs text-muted-foreground">
+                {t('notReady')}
+                {material.outOfServiceSince && ` · ${t('notReadySince', { date: shortDate(material.outOfServiceSince) })}`}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full"
+              onClick={() => { onToggleOutOfService(material, false); onCloseBindings() }}
+            >
+              {t('backInService')}
+            </Button>
+          </div>
+        ) : (
           <BindingsPopoverBody state={bindingsPopover} onGo={onGoBinding} onClose={onCloseBindings} />
-        )}
+        ))}
       </PopoverContent>
     </Popover>
   )
