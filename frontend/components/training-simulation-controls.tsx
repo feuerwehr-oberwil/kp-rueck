@@ -500,9 +500,12 @@ export function TrainingSimulationControls() {
                   const started = stepStartedAt(op);
                   const anyRolling = actions.some((a) => a.actionDrives.length > 0);
                   return (
-                    // flex-wrap + the text block claiming the full width below `sm`:
+                    // flex-wrap + the action group claiming the full width below `sm`:
                     // on a phone the buttons drop onto their own line instead of
-                    // squeezing the text to one word per line (testing image #12).
+                    // squeezing the text to one word per line (testing image #12),
+                    // and start at the text edge. The ⚠ inject stays on the title
+                    // line there (`max-sm:order-last` on the group), so it never
+                    // wraps with the actions (VIS.6). Desktop: title, actions, ⚠.
                     <div
                       key={op.id}
                       className={`flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-md border px-2 py-1.5 text-sm ${
@@ -513,7 +516,7 @@ export function TrainingSimulationControls() {
                             : 'border-border'
                       }`}
                     >
-                      <div className="min-w-0 flex-1 basis-full sm:basis-48">
+                      <div className="min-w-0 flex-1 sm:basis-48">
                         <div className="truncate font-medium" title={formatLocation(op.location) || op.incidentType}>
                           {formatLocation(op.location) || op.incidentType}
                         </div>
@@ -527,7 +530,7 @@ export function TrainingSimulationControls() {
                           )}
                         </div>
                       </div>
-                      <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5 max-sm:order-last max-sm:basis-full sm:ml-auto sm:justify-end">
                       {actions.map(({ action, actionDrives }, idx) => {
                         const Icon = ACTION_ICONS[action.key] ?? ChevronRight;
                         // A rolling drive replaces its action's button with live
@@ -572,6 +575,7 @@ export function TrainingSimulationControls() {
                           </Button>
                         );
                       })}
+                      </div>
                       {/* Trainer injects: surprises the operator has to handle. */}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -660,7 +664,6 @@ export function TrainingSimulationControls() {
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
-                      </div>
                     </div>
                   );
                 })}
