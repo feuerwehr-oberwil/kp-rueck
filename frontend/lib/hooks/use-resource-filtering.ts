@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import type { Person, Material, PersonRole } from '@/lib/contexts/operations-context'
-import { isPersonOccupied, materialResourceState, personMatchesQuery } from '@/lib/resource-status'
-import { compareByName, compareByRankThenName } from '@/lib/roster-order'
+import { materialResourceState, personMatchesQuery } from '@/lib/resource-status'
+import { compareByRankThenName } from '@/lib/roster-order'
 
 /**
  * Shared hook for filtering and grouping personnel and materials
@@ -14,27 +14,23 @@ export function useResourceFiltering(
   materialQuery?: string,
   /** Group label for personnel without a role (e.g. quick-added walk-ins). */
   roleFallbackLabel: string = 'Andere',
-  /** Sidebar toggles: drop everything that is currently tied up. Availability is
-   *  read exactly as the cards draw it — `isPersonOccupied` counts Fahrer/Reko/
-   *  Magazin as busy, consumables count as available, and «Nicht einsatzbereit»
-   *  counts as neither (materialResourceState returns "unavailable"). */
-  availableOnly: { personnel?: boolean; materials?: boolean } = {},
+  /** The material sidebar's toggle: drop what is currently tied up. Availability is
+   *  read exactly as the cards draw it — consumables count as available, and «Nicht
+   *  einsatzbereit» counts as neither (materialResourceState returns "unavailable").
+   *  The crew sidebar's filters run after the search, in `lib/personnel-view.ts`. */
+  availableOnly: { materials?: boolean } = {},
 ) {
   const effectiveMaterialQuery = materialQuery ?? personnelQuery
-  const personnelAvailableOnly = !!availableOnly.personnel
   const materialsAvailableOnly = !!availableOnly.materials
 
   const filteredPersonnel = useMemo(
     () => {
-      const base = personnelAvailableOnly
-        ? personnel.filter((p) => !isPersonOccupied(p))
-        : personnel
-      if (!personnelQuery) return base
+      if (!personnelQuery) return personnel
       // Shared matcher (name / rank / tags / special functions incl.
       // Telefondienst + Kommandoposten) — see lib/resource-status.ts.
-      return base.filter((p) => personMatchesQuery(p, personnelQuery))
+      return personnel.filter((p) => personMatchesQuery(p, personnelQuery))
     },
-    [personnel, personnelQuery, personnelAvailableOnly]
+    [personnel, personnelQuery]
   )
 
   const filteredMaterials = useMemo(
@@ -83,25 +79,6 @@ export function useResourceFiltering(
     [filteredPersonnel, roleFallbackLabel]
   )
 
-  /**
-   * The same roster split by the question the BOARD's sidebar answers first:
-   * who can I still send? Same `isPersonOccupied` predicate as the
-   * available-only filter and the footer counter, so the three can never
-   * disagree. Alphabetical inside each group (de-CH, see roster-order) — rank
-   * is demoted to a suffix on the row, so it stops dictating where somebody
-   * is found in the list.
-   */
-  const availabilityGroupedPersonnel = useMemo(() => {
-    const free: Person[] = []
-    const bound: Person[] = []
-    for (const person of filteredPersonnel) {
-      ;(isPersonOccupied(person) ? bound : free).push(person)
-    }
-    free.sort(compareByName)
-    bound.sort(compareByName)
-    return { free, bound }
-  }, [filteredPersonnel])
-
   const groupedMaterials = useMemo(
     () => {
       const groups: Record<string, Material[]> = {}
@@ -119,7 +96,6 @@ export function useResourceFiltering(
     filteredPersonnel,
     filteredMaterials,
     groupedPersonnel,
-    availabilityGroupedPersonnel,
     groupedMaterials,
   }
 }

@@ -9,9 +9,6 @@ const person = (over: Partial<Person> & { name: string }): Person =>
 const material = (over: Partial<Material> & { name: string }): Material =>
   ({ id: over.name, status: "available", category: "Depot", ...over }) as Material
 
-// The sidebar toggle must hide exactly what the cards draw as busy — including
-// people who are only tied up by a special function (Fahrer/Reko/Magazin) and
-// therefore still carry status "available".
 const PERSONNEL = [
   person({ name: "Frei Anna" }),
   person({ name: "Zugewiesen Bea", status: "assigned" }),
@@ -40,15 +37,6 @@ describe("useResourceFiltering — availableOnly", () => {
     expect(names(result.current.groupedMaterials)).toHaveLength(3)
   })
 
-  it("hides assigned people AND those tied up by a special function", () => {
-    const { result } = renderHook(() =>
-      useResourceFiltering(PERSONNEL, MATERIALS, "", "", "Andere", { personnel: true }),
-    )
-    expect(names(result.current.groupedPersonnel)).toEqual(["Frei Anna"])
-    // material list untouched by the personnel toggle
-    expect(names(result.current.groupedMaterials)).toHaveLength(3)
-  })
-
   it("hides assigned material but keeps consumables", () => {
     const { result } = renderHook(() =>
       useResourceFiltering(PERSONNEL, MATERIALS, "", "", "Andere", { materials: true }),
@@ -57,23 +45,6 @@ describe("useResourceFiltering — availableOnly", () => {
     expect(names(result.current.groupedPersonnel)).toHaveLength(5)
   })
 
-  it("combines with the search query instead of replacing it", () => {
-    const { result } = renderHook(() =>
-      useResourceFiltering(PERSONNEL, MATERIALS, "frei", "", "Andere", { personnel: true }),
-    )
-    expect(names(result.current.groupedPersonnel)).toEqual(["Frei Anna"])
-  })
-
-  it("recomputes when the toggle flips", () => {
-    const { result, rerender } = renderHook(
-      ({ on }: { on: boolean }) =>
-        useResourceFiltering(PERSONNEL, MATERIALS, "", "", "Andere", { personnel: on }),
-      { initialProps: { on: false } },
-    )
-    expect(names(result.current.groupedPersonnel)).toHaveLength(5)
-    rerender({ on: true })
-    expect(names(result.current.groupedPersonnel)).toEqual(["Frei Anna"])
-  })
 })
 
 // The search must find people by the Ereignis function they carry — the person

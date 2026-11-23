@@ -18,7 +18,7 @@ import { LoadingStatus } from "@/components/ui/shell-loader"
 import { SearchInput } from "@/components/ui/search-input"
 import { EventClock } from "@/components/ui/event-clock"
 import { Plus, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, PanelRight } from 'lucide-react'
-import { materialResourceState, summarizeMaterials, summarizeRoster } from "@/lib/resource-status"
+import { materialResourceState, summarizeMaterials } from "@/lib/resource-status"
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { useBootGate } from "@/lib/boot-cover"
@@ -80,6 +80,8 @@ import { IncidentDialogs, useIncidentDialogs } from "@/components/kanban/inciden
 import { useAuftragRoster } from "@/lib/hooks/use-auftrag-roster"
 import { cn } from "@/lib/utils"
 import { useBoardLayoutPrefs } from "@/lib/hooks/use-board-layout-prefs"
+import { usePersistedState } from "@/lib/hooks/use-persisted-state"
+import { DEFAULT_PERSONNEL_VIEW, isPersonnelViewPrefs, PERSONNEL_VIEW_KEY } from "@/lib/personnel-view"
 import { isNavigableBinding, soleDestination, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
 import { PersonnelSidebar } from "@/components/board/personnel-sidebar"
 import { MaterialSidebar } from "@/components/board/material-sidebar"
@@ -368,10 +370,10 @@ export default function FireStationDashboard() {
   const [searchQuery, setSearchQuery] = useState("")
   const [personnelSearchQuery, setPersonnelSearchQuery] = useState("")
   const [materialSearchQuery, setMaterialSearchQuery] = useState("")
-  // Sidebar "nur verfügbare" toggles. Per-list on purpose: crew and material are
-  // picked at different moments, so one shared switch would keep surprising the
-  // other list.
-  const [personnelAvailableOnly, setPersonnelAvailableOnly] = useState(false)
+  // The crew sidebar's «Filter & Sortierung» (remembered per browser) and the material
+  // sidebar's «nur verfügbare» toggle. Per-list on purpose: crew and material are picked at
+  // different moments, so one shared switch would keep surprising the other list.
+  const [personnelView, setPersonnelView] = usePersistedState(PERSONNEL_VIEW_KEY, DEFAULT_PERSONNEL_VIEW, isPersonnelViewPrefs)
   const [materialsAvailableOnly, setMaterialsAvailableOnly] = useState(false)
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
   selectedOperationIdRef.current = selectedOperationId
@@ -1032,19 +1034,18 @@ export default function FireStationDashboard() {
   const effectiveMaterialQuery = materialSearchQuery || searchQuery
   // `filtered*` are what the sidebars actually draw — the footer counters read
   // them so "0 von 17 sichtbar" can never disagree with the list above it.
-  const { availabilityGroupedPersonnel, groupedMaterials, filteredPersonnel, filteredMaterials } = useResourceFiltering(
+  const { groupedMaterials, filteredPersonnel, filteredMaterials } = useResourceFiltering(
     personnel,
     materials,
     effectivePersonnelQuery,
     effectiveMaterialQuery,
     tRes('roleOther'),
-    { personnel: personnelAvailableOnly, materials: materialsAvailableOnly },
+    { materials: materialsAvailableOnly },
   )
 
-  // The two sidebar footers. One helper each, and it is the same predicate the
-  // list above is filtered with — the counter and the list can no longer
-  // disagree about who counts as free.
-  const rosterSummary = useMemo(() => summarizeRoster(personnel), [personnel])
+  // The material sidebar's footer, from the same predicate its list is filtered
+  // with — the counter and the list can no longer disagree about what counts as
+  // free. The crew sidebar counts what it shows itself (`personnel-sidebar.tsx`).
   const materialSummary = useMemo(() => summarizeMaterials(materials), [materials])
 
   // Memoize filtered operations to avoid unnecessary recalculations on every render.
@@ -1455,8 +1456,8 @@ export default function FireStationDashboard() {
               setPersonnelSearchQuery={setPersonnelSearchQuery}
               setSearchQuery={setSearchQuery}
               isMobile={isMobile}
-              personnelAvailableOnly={personnelAvailableOnly}
-              setPersonnelAvailableOnly={setPersonnelAvailableOnly}
+              personnelView={personnelView}
+              setPersonnelView={setPersonnelView}
               isLoaded={isLoaded}
               boardNeverLoaded={boardNeverLoaded}
               personnel={personnel}
@@ -1465,14 +1466,12 @@ export default function FireStationDashboard() {
               copyCheckInUrlToClipboard={copyCheckInUrlToClipboard}
               filteredPersonnel={filteredPersonnel}
               effectivePersonnelQuery={effectivePersonnelQuery}
-              availabilityGroupedPersonnel={availabilityGroupedPersonnel}
               bindingsPopover={bindingsPopover}
               setBindingsPopover={setBindingsPopover}
               handlePersonClick={handlePersonClick}
               doubleBookedPersons={doubleBookedPersons}
               personEngagements={personEngagements}
               followBinding={followBinding}
-              rosterSummary={rosterSummary}
               eventId={selectedEvent?.id ?? null}
               canCheckIn={isEditor}
               onDiveraCheckIn={checkInFromDivera}
