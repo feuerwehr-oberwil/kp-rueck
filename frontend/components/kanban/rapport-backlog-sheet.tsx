@@ -113,8 +113,9 @@ interface RapportBacklogSheetProps {
   /** The already-filed ones, `selectFiledRapports`. Selected up in the page for
    *  the same reason: the sheet gets lists, never the whole board. */
   filed: readonly OpenRapport[]
-  /** Opens the incident detail on its Rapport tab and closes this sheet. */
-  onOpenRapport: (operationId: string) => void
+  /** Opens the incident detail on its Rapport tab and closes this sheet. `filed`: a row of
+   *  «Erfasst» – opened to read, so the caret stays out of the Kurzbericht. */
+  onOpenRapport: (operationId: string, filed: boolean) => void
 }
 
 type RapportTab = "open" | "filed"
@@ -269,7 +270,7 @@ export function RapportBacklogSheet({ open, onOpenChange, rapports, filed, onOpe
                 key={entry.operation.id}
                 entry={entry}
                 filed={tab === "filed"}
-                onOpen={onOpenRapport}
+                onOpen={(operationId) => onOpenRapport(operationId, tab === "filed")}
               />
             ))}
           </div>

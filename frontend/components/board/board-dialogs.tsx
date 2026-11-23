@@ -88,7 +88,7 @@ export interface BoardDialogsProps {
   handleConfirmAddStops: (incidentIds: string[]) => void
   handleOpenIncidentFromNotification: (incidentId: string) => void
   journalCompose: JournalComposeRequest | null
-  handleOpenRapport: (operationId: string) => void
+  handleOpenRapport: (operationId: string, filed: boolean) => void
   handleOperationDelete: OperationHandlers["handleOperationDelete"]
   handleOperationUpdate: OperationHandlers["handleOperationUpdate"]
   handlePrintBoard: (options?: ThermoPrintOptions) => Promise<void>
