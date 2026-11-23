@@ -2338,6 +2338,7 @@
       "contextOpen": "Ouvert",
       "contextInRoute": "Dans la mission « {name} »",
       "contextClickToAdd": "Cliquer pour l’ajouter comme étape",
+      "contextClickToMove": "Cliquer pour la déplacer dans cette mission",
       "contextStopAdded": "Intervention ajoutée comme étape.",
       "stopActions": "Ordre et actions pour {name}"
     },
@@ -2355,7 +2356,8 @@
       "viewMap": "Carte",
       "mapLoading": "Chargement de la carte …",
       "mapEmpty": "Aucune intervention localisée sur la carte.",
-      "legendSelected": "anneau = sélectionnée",
+      "legendStops": "numéro = étape de cette mission, dans l’ordre",
+      "legendPending": "anneau = sera ajoutée",
       "legendOtherRoute": "coloré = déjà dans une autre mission (sera déplacée)",
       "legendUnassigned": "gris = dans aucune mission",
       "hiddenCount": "{count} masqué(s)",

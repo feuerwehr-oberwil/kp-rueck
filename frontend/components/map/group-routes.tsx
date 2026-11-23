@@ -14,7 +14,8 @@
  * on the GPU. The numbered pins stay DOM `<Marker>`s: they are small, interactive
  * and carry a rich hover card, which is what DOM markers are for.
  *
- * Reused by the Routen-Editor modal and the `/map` page. Must be rendered as a child
+ * Reused by the Routen-Editor modal, the stop picker's Karte (both with the click rule in
+ * `route-stop-pick.tsx`) and the `/map` page. Must be rendered as a child
  * of the shared `<BaseMap>` (react-map-gl's `<Map>`), never on its own.
  */
 
@@ -83,12 +84,14 @@ function borderStyleForDasharray(dasharray: string): "solid" | "dashed" | "dotte
 // Same rings as the incident pin's desktop geometry (STATUS_RING): a 24px fill, a 2px white
 // gap (the border), the 2px frame flush on it – 32px across at rest, 36 highlighted. The frame
 // is a CSS outline, so dashed / dotted are the browser's pattern, not the SVG dasharray.
-// `dimmed` softens non-focused groups when the caller focuses one.
+// `dimmed` softens non-focused groups when the caller focuses one; `pending` (a stop picked but
+// not saved yet) adds the selection ring outside the status frame.
 function sequencePinStyle(
   routeColor: string,
   mirrorStatus: StopMirrorStatus,
   highlighted: boolean,
   dimmed: boolean,
+  pending: boolean,
 ): CSSProperties {
   const size = highlighted ? 32 : 28
   const { dasharray, opacity: statusOpacity } = STATUS_GROUP_BORDER_STYLE[MIRROR_STATUS_GROUP[mirrorStatus]]
@@ -103,7 +106,10 @@ function sequencePinStyle(
     border: "2px solid white",
     outline: `${STATUS_RING.width}px ${borderStyleForDasharray(dasharray)} ${STATUS_RING.color}`,
     outlineOffset: 0,
-    boxShadow: "0 2px 6px rgba(0, 0, 0, 0.35)",
+    // The outline paints over the shadow, so a 5px spread shows 3px of ring beyond the 2px frame.
+    boxShadow: pending
+      ? `0 0 0 ${STATUS_RING.width + 3}px var(--sel-line), 0 2px 6px rgba(0, 0, 0, 0.35)`
+      : "0 2px 6px rgba(0, 0, 0, 0.35)",
     borderRadius: "50%",
     fontSize: highlighted ? 14 : 12,
     fontWeight: 700,
@@ -129,6 +135,7 @@ function RouteStopMarker({
   color,
   highlighted,
   dimmed,
+  pending,
   routeName,
   routeResources,
   onClick,
@@ -138,6 +145,7 @@ function RouteStopMarker({
   color: string
   highlighted: boolean
   dimmed: boolean
+  pending: boolean
   routeName: string
   routeResources?: GroupResources
   onClick?: () => void
@@ -163,7 +171,7 @@ function RouteStopMarker({
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <div style={sequencePinStyle(color, toStopMirrorStatus(op), highlighted, dimmed)}>{seq}</div>
+        <div style={sequencePinStyle(color, toStopMirrorStatus(op), highlighted, dimmed, pending)}>{seq}</div>
         {hovered && (
           <MapTooltip side="top" gap={STOP_TOOLTIP_GAP}>
             <OperationHoverCard operation={op} seq={seq} routeName={routeName} routeResources={routeResources} />
@@ -185,6 +193,8 @@ interface GroupRoutesProps {
   onMarkerClick?: (incidentId: string) => void
   /** Highlight this stop's marker (e.g. the Routen-Editor's focused stop). */
   highlightIncidentId?: string | null
+  /** Stops picked but not saved yet (the stop picker): drawn with the selection ring. */
+  pendingIds?: ReadonlySet<string>
   /** Resolves a route's own crew/vehicles for the stop hover cards. Optional:
    *  callers outside the groups provider (Routen-Editor preview) simply omit it
    *  and the cards fall back to the stop's own — empty — resources. */
@@ -197,6 +207,7 @@ export function GroupRoutes({
   focusGroupId = null,
   onMarkerClick,
   highlightIncidentId = null,
+  pendingIds,
   groupResourcesFor,
 }: GroupRoutesProps) {
   const items = useMemo<RouteRenderItem[]>(() => {
@@ -262,6 +273,7 @@ export function GroupRoutes({
             color={color}
             highlighted={highlightIncidentId === id}
             dimmed={dimmed}
+            pending={pendingIds?.has(id) ?? false}
             routeName={group.name}
             routeResources={groupResourcesFor?.(group.id)}
             onClick={onMarkerClick ? () => onMarkerClick(id) : undefined}

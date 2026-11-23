@@ -8,6 +8,11 @@
  * route (the backend `addStops` reassigns `group_id`), so those rows show a small
  * badge of their current route. Incidents already in the target route are shown
  * pre-selected; unchecking one detaches it from the route on confirm.
+ *
+ * The Karte view works like the Routen-Editor's map (the shared rule in
+ * `components/map/route-stop-pick.tsx`): the route's stops are numbered with the
+ * route line, a grey (free) pin clicked becomes the next number, another Auftrag's
+ * pin asks before it moves here, and a picked pin clicked again drops out.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -15,7 +20,7 @@ import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
 import { Route as RouteIcon, Plus, List, MapPin } from "lucide-react"
 import type { Map as MlMap } from "maplibre-gl"
-import { Marker, NavigationControl, useMap } from "react-map-gl/maplibre"
+import { NavigationControl } from "react-map-gl/maplibre"
 import {
   Dialog,
   DialogContent,
@@ -31,10 +36,12 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { BaseMap } from "@/components/map/base-map"
-import { MapTooltip, type MapTooltipSide } from "@/components/map/map-tooltip"
-import { isLocated, type LocatedOperation } from "@/lib/utils/route-geo"
+import { GroupRoutes } from "@/components/map/group-routes"
+import { RouteContextPin, stopPinClick, stopSequence, useMoveStopConfirm } from "@/components/map/route-stop-pick"
+import { isLocated } from "@/lib/utils/route-geo"
 import { DEFAULT_CENTER_LATLNG, fitTo, type LatLngPoint } from "@/lib/map-view"
 import { MAP_NONE } from "@/lib/map-colors"
+import { colorAccent } from "@/lib/kanban-utils"
 import type { Operation } from "@/lib/contexts/operations-context"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
 
@@ -52,96 +59,13 @@ const FIT_OPTIONS = {
   singleZoom: 14,
 } as const
 
-/**
- * One selectable candidate pin, with the label Leaflet's `direction="auto"` drew.
- *
- * MapLibre has no auto-flipping tooltip, so this reproduces Leaflet's rule exactly:
- * a marker in the left half of the container labels to the RIGHT, one in the right
- * half labels to the LEFT — always towards the middle of the map, because the
- * container clips and an outward label was simply cut off. The side is resolved on
- * hover, when the projection is current and the label is about to be shown.
- */
-function CandidatePin({
-  op,
-  fill,
-  selected,
-  dashed,
-  title,
-  subtitle,
-  notes,
-  onToggle,
-}: {
-  op: LocatedOperation
-  fill: string
-  selected: boolean
-  dashed: boolean
-  title: string
-  subtitle?: string
-  notes?: string
-  onToggle: () => void
-}) {
-  const { current: map } = useMap()
-  const [side, setSide] = useState<MapTooltipSide>("right")
-  const [hovered, setHovered] = useState(false)
-  const [lat, lng] = op.coordinates
-  const size = selected ? 26 : 20
-
-  const show = () => {
-    if (map) setSide(map.project([lng, lat]).x < map.getContainer().clientWidth / 2 ? "right" : "left")
-    setHovered(true)
-  }
-
-  return (
-    <Marker
-      longitude={lng}
-      latitude={lat}
-      // The selected pin is the bigger one; keep it (and whatever is hovered) on top.
-      style={{ zIndex: hovered ? 300 : selected ? 200 : 100 }}
-      onClick={(event) => {
-        // Without this the click reaches the map itself as well.
-        event.originalEvent.stopPropagation()
-        onToggle()
-      }}
-    >
-      <div style={{ position: "relative" }} onMouseEnter={show} onMouseLeave={() => setHovered(false)}>
-        <div
-          style={{
-            width: size,
-            height: size,
-            borderRadius: "50%",
-            background: fill,
-            border: `2px ${dashed ? "dashed" : "solid"} white`,
-            // Selected = the selection ring + the bigger size; the fill keeps saying which
-            // route the pin is in (ENT-04 A – it turned red, which is Hoch).
-            boxShadow: selected
-              ? "0 0 0 3px var(--sel-line), 0 2px 5px rgba(0, 0, 0, 0.35)"
-              : "0 1px 4px rgba(0, 0, 0, 0.3)",
-            cursor: "pointer",
-          }}
-        />
-        {hovered && (
-          <MapTooltip side={side}>
-            <div className="text-xs leading-tight">
-              {/* Match the stop-row hover: address primary, type secondary,
-                  Meldung below. Type falls back to primary when no address. */}
-              <div className="font-medium">{title}</div>
-              {subtitle && <div className="text-muted-foreground">{subtitle}</div>}
-              {notes && <div className="mt-0.5 max-w-[220px] whitespace-pre-wrap">{notes}</div>}
-            </div>
-          </MapTooltip>
-        )}
-      </div>
-    </Marker>
-  )
-}
-
 interface IncidentPickerDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   /** All incidents of the current event (already event-scoped by the context). */
   operations: Operation[]
   groups: IncidentGroup[]
-  /** The target route — its own stops are hidden (they're already members). */
+  /** The target route — its own stops show pre-selected (numbered on the map). */
   targetGroupId: string | null
   onConfirm: (incidentIds: string[]) => void
   /** Optional "Neuer Einsatz" affordance (opens the New-Emergency modal). */
@@ -158,6 +82,8 @@ export function IncidentPickerDialog({
   onCreateNew,
 }: IncidentPickerDialogProps) {
   const t = useTranslations("kanban.incidentPicker")
+  // The pin texts are the Routen-Editor's: both maps say the same thing.
+  const tPin = useTranslations("kanban.routenEditorModal")
   const surface = useOpenSurface()
   const tColumn = useTranslations("kanban.columns")
   const [query, setQuery] = useState("")
@@ -252,21 +178,48 @@ export function IncidentPickerDialog({
     })
   }, [operations, query, memberIds, showCompleted, isDone])
 
-  // Map markers: all located candidates (selectable — members render pre-checked).
-  const locatedCandidates = useMemo(() => candidates.filter(isLocated), [candidates])
+  const operationsById = useMemo(() => new Map(operations.map((op) => [op.id, op] as const)), [operations])
+  const targetGroup = targetGroupId ? groupById.get(targetGroupId) : undefined
+
+  /** The other Auftrag an incident is on, if any (the target route is not «other»). */
+  const otherRouteOf = useCallback(
+    (incidentId: string) => {
+      const groupId = operationsById.get(incidentId)?.groupId
+      return groupId && groupId !== targetGroupId ? groupById.get(groupId) : undefined
+    },
+    [operationsById, targetGroupId, groupById],
+  )
+
+  // The map: the route as it will be after «Übernehmen» – its kept stops in order, then the
+  // picks in click order – drawn by the shared `<GroupRoutes>`. Not filtered by the search, so
+  // the numbers and the line never break while the operator types.
+  const sequence = useMemo(() => stopSequence(targetGroup?.stopIds ?? [], selected), [targetGroup, selected])
+  const sequenceIds = useMemo(() => new Set(sequence), [sequence])
+  const routeGroups = useMemo(
+    () => (targetGroup ? [{ ...targetGroup, stopIds: sequence }] : []),
+    [targetGroup, sequence],
+  )
+  const pendingIds = useMemo(() => new Set([...selected].filter((id) => !memberIds.has(id))), [selected, memberIds])
+  // Everything else located is a context pin: free, on another Auftrag, or a member unticked.
+  const contextCandidates = useMemo(
+    () => candidates.filter(isLocated).filter((op) => !sequenceIds.has(op.id)),
+    [candidates, sequenceIds],
+  )
+  const locatedStops = useMemo(() => sequence.map((id) => operationsById.get(id)).filter(isLocated), [sequence, operationsById])
+  const targetColor = targetGroup ? colorAccent(targetGroup.id, "auftrag", groups) : undefined
   // The colours of the OTHER routes on the map, for the legend – the swatch it shows is one
   // the map really draws.
   const otherRouteColors = useMemo(() => {
     const colors = new Set<string>()
-    for (const op of locatedCandidates) {
-      const color = op.groupId && op.groupId !== targetGroupId ? groupById.get(op.groupId)?.color : undefined
-      if (color) colors.add(color)
+    for (const op of contextCandidates) {
+      const other = otherRouteOf(op.id)
+      if (other) colors.add(colorAccent(other.id, "auftrag", groups))
     }
     return [...colors].slice(0, 4)
-  }, [locatedCandidates, targetGroupId, groupById])
+  }, [contextCandidates, otherRouteOf, groups])
   const allMapPositions = useMemo<LatLngPoint[]>(
-    () => locatedCandidates.map((op) => op.coordinates),
-    [locatedCandidates],
+    () => [...locatedStops, ...contextCandidates].map((op) => op.coordinates),
+    [locatedStops, contextCandidates],
   )
   const mapCenter = useMemo<LatLngPoint>(() => {
     if (allMapPositions.length === 0) return DEFAULT_CENTER_LATLNG
@@ -297,6 +250,24 @@ export function IncidentPickerDialog({
     })
   }, [])
 
+  // A click on the map, by the rule the Routen-Editor's map follows too.
+  const { ask: askMove, dialog: moveDialog } = useMoveStopConfirm()
+  const pickOnMap = useCallback(
+    (incidentId: string) => {
+      const click = stopPinClick(incidentId, sequenceIds, otherRouteOf)
+      if (click.kind !== "move") {
+        toggle(incidentId)
+        return
+      }
+      const op = operationsById.get(incidentId)
+      const label = op
+        ? (op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())) || getIncidentTypeLabel(op.incidentType)
+        : ""
+      askMove({ incidentLabel: label, fromName: click.from.name, run: () => toggle(incidentId) })
+    },
+    [sequenceIds, otherRouteOf, toggle, operationsById, askMove],
+  )
+
   // Diff the current selection against the route's members: newly-checked ids are
   // added (via onConfirm → addStops), unchecked members are detached (removeStop).
   const toAdd = useMemo(() => [...selected].filter((id) => !memberIds.has(id)), [selected, memberIds])
@@ -322,9 +293,9 @@ export function IncidentPickerDialog({
     fitTo(map, allMapPositions, FIT_OPTIONS)
   }, [map, allMapPositions])
 
-  // The map: located candidates as selectable pins. Clicking one toggles its
-  // selection (the same set the list checkboxes drive). `mapKey` remounts the map
-  // per open, so `mapCenter` is captured then while the pins track live state.
+  // The map: the route's numbered stops plus the other located candidates as context pins.
+  // Every click goes through `pickOnMap` (the same set the list checkboxes drive). `mapKey`
+  // remounts the map per open, so `mapCenter` is captured then while the pins track live state.
   const mapNode = (
     <BaseMap
       key={mapKey}
@@ -332,25 +303,30 @@ export function IncidentPickerDialog({
       onLoad={setMap}
     >
       <NavigationControl position="top-left" showCompass={false} />
-      {/* Selectable candidates — members of the target route render pre-checked. */}
-      {locatedCandidates.map((op) => {
-        const otherGroup = op.groupId && op.groupId !== targetGroupId ? groupById.get(op.groupId) : undefined
-        const isChecked = selected.has(op.id)
+      {/* Context pins sit below the numbered stops (lower z-index). */}
+      {contextCandidates.map((op) => {
+        const otherRoute = otherRouteOf(op.id)
         const location = op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())
         return (
-          <CandidatePin
+          <RouteContextPin
             key={op.id}
             op={op}
-            fill={otherGroup?.color ?? MAP_NONE}
-            selected={isChecked}
-            dashed={!!otherGroup && !isChecked}
-            title={`${location || getIncidentTypeLabel(op.incidentType)}${otherGroup ? ` · ${otherGroup.name}` : ""}`}
-            subtitle={location ? getIncidentTypeLabel(op.incidentType) : undefined}
-            notes={op.notes || undefined}
-            onToggle={() => toggle(op.id)}
+            fill={otherRoute ? colorAccent(otherRoute.id, "auftrag", groups) : MAP_NONE}
+            otherRoute={!!otherRoute}
+            clickable
+            title={location || getIncidentTypeLabel(op.incidentType)}
+            subtitle={otherRoute ? tPin("contextInRoute", { name: otherRoute.name }) : tPin("contextOpen")}
+            hint={otherRoute ? tPin("contextClickToMove") : tPin("contextClickToAdd")}
+            onSelect={() => pickOnMap(op.id)}
           />
         )
       })}
+      <GroupRoutes
+        groups={routeGroups}
+        operationsById={operationsById}
+        pendingIds={pendingIds}
+        onMarkerClick={pickOnMap}
+      />
     </BaseMap>
   )
 
@@ -430,7 +406,7 @@ export function IncidentPickerDialog({
       // what the map canvas needs to lay out at all.
       <div className={cn("flex flex-col gap-2", bodyHeight)}>
         <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border">
-          {locatedCandidates.length === 0 ? (
+          {allMapPositions.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
               <MapPin className="h-8 w-8 text-muted-foreground/40" />
               <p className="text-sm text-muted-foreground">{t("mapEmpty")}</p>
@@ -439,21 +415,29 @@ export function IncidentPickerDialog({
             mapNode
           )}
         </div>
-        {/* What the pin colours mean. Without it the map is a guessing game:
-            red and a route colour both say "belongs somewhere", grey says
-            "belongs nowhere", and nothing on screen said which was which. */}
-        {locatedCandidates.length > 0 && (
+        {/* What the pins mean. Without it the map is a guessing game: the numbers are this
+            Auftrag's stops in order, the ring marks the ones «Übernehmen» adds, a route
+            colour says "on another Auftrag", grey says "on none". */}
+        {allMapPositions.length > 0 && (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-0.5 text-2xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full ring-2 ring-sel-line" />
-              {t("legendSelected")}
-            </span>
+            {targetColor && (
+              <span className="flex items-center gap-1.5">
+                <span className="flex size-4 items-center justify-center rounded-full text-2xs font-bold leading-none text-white" style={{ backgroundColor: targetColor }}>1</span>
+                {t("legendStops")}
+              </span>
+            )}
+            {targetColor && (
+              <span className="flex items-center gap-1.5">
+                <span className="size-3 rounded-full ring-2 ring-sel-line" style={{ backgroundColor: targetColor }} />
+                {t("legendPending")}
+              </span>
+            )}
             {/* The swatches the map really draws: the other routes' own colours. */}
             {otherRouteColors.length > 0 && (
               <span className="flex items-center gap-1.5">
                 <span className="flex items-center gap-0.5">
                   {otherRouteColors.map((color) => (
-                    <span key={color} className="h-2.5 w-2.5 rounded-full border border-dashed border-white" style={{ backgroundColor: color }} />
+                    <span key={color} className="h-2.5 w-2.5 rounded-full border border-dashed border-white opacity-50" style={{ backgroundColor: color }} />
                   ))}
                 </span>
                 {t("legendOtherRoute")}
@@ -544,6 +528,7 @@ export function IncidentPickerDialog({
         {t("apply")}
       </Button>
     </DialogFooter>
+    {moveDialog}
     </>
   )
 

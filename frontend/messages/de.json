@@ -1042,6 +1042,7 @@
       "contextOpen": "Offen",
       "contextInRoute": "In Auftrag «{name}»",
       "contextClickToAdd": "Klicken, um als Stopp hinzuzufügen",
+      "contextClickToMove": "Klicken, um in diesen Auftrag zu verschieben",
       "contextStopAdded": "Einsatz als Stopp hinzugefügt.",
       "stopActions": "Reihenfolge und Aktionen für {name}"
     },
@@ -1059,7 +1060,8 @@
       "viewMap": "Karte",
       "mapLoading": "Karte wird geladen …",
       "mapEmpty": "Keine verorteten Einsätze auf der Karte.",
-      "legendSelected": "Ring = ausgewählt",
+      "legendStops": "Nummer = Stopp dieses Auftrags, in Reihenfolge",
+      "legendPending": "Ring = wird hinzugefügt",
       "legendOtherRoute": "farbig = schon in einem anderen Auftrag (wird verschoben)",
       "legendUnassigned": "grau = in keinem Auftrag",
       "hiddenCount": "{count} ausgeblendet",
