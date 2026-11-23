@@ -268,8 +268,8 @@ docker logs "$TILESERVER"
 - Port conflict: on the development stack, ensure port 8080 is not in use by another service.
   Production publishes no tile server port, so the port to check there is `HTTP_PORT` (Caddy).
 - Docker volume permission issues: on the development stack, `just dev-clean && just dev`.
-  (`dev-clean` deletes the dev database and photos and asks first – it is not the station's
-  board it touches, but read the prompt before you type `delete`.)
+  (`dev-clean` deletes the dev database and the dev tiles and asks first – it acts on
+  `docker-compose.dev.yml` only, never on the station's board.)
 - Init script error: Check logs for sqlite3 or file system errors
 
 **Note**: MBTiles and config are auto-created on startup, so missing files are not an issue.

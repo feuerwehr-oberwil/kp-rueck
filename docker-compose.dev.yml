@@ -1,4 +1,13 @@
 # Development docker-compose with hot reload
+#
+# Its own compose project. Without a `name:` the project would be the directory name, and in a
+# clone called `kp-rueck` that is the project the PRODUCTION file pins: `down` on this file
+# would then remove the production backend, frontend, tileserver and print-agent (same project,
+# same service names). The volumes keep the names they had under the old directory-derived
+# project, so an existing dev database and dev tiles stay. An exported COMPOSE_PROJECT_NAME would
+# override this name, so the justfile's dev recipes also pass `-p kp-rueck-dev`.
+name: kp-rueck-dev
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -202,4 +211,6 @@ networks:
 
 volumes:
   postgres_dev_data:
+    name: kp-rueck_postgres_dev_data
   tileserver-dev-data:
+    name: kp-rueck_tileserver-dev-data

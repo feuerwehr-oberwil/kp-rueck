@@ -309,8 +309,9 @@ doctor:
     if [ -n "$DOMAIN" ]; then PROBE="$URL"; else PROBE="http://localhost:$PORT"; fi
 
     section "Containers (project kp-rueck)"
-    # Filtered by NAME, not by the compose project label: a `just dev` container carries the
-    # same project label (it inherits the directory name) but is called kprueck-*-dev.
+    # Filtered by NAME, not by the compose project label: a `just dev` container from before
+    # docker-compose.dev.yml pinned `name: kp-rueck-dev` can still carry the label kp-rueck
+    # (it inherited the directory name), but it is called kprueck-*-dev.
     FOUND="$(docker ps -a --format "$NAMEFMT" 2>/dev/null | grep '^kp-rueck-')"
     if [ -z "$FOUND" ]; then
         bad "No containers of this stack exist."
@@ -457,11 +458,11 @@ doctor:
 
 # Start all services in development mode with hot reload
 dev: _behind-main
-    docker compose -f docker-compose.dev.yml up --build
+    docker compose -p kp-rueck-dev -f docker-compose.dev.yml up --build
 
 # Run backend locally (requires uv). Database starts in Docker.
 be: _behind-main
-    @docker compose -f docker-compose.dev.yml up -d postgres
+    @docker compose -p kp-rueck-dev -f docker-compose.dev.yml up -d postgres
     @echo "\033[1;34m→ Starting backend on http://localhost:8000\033[0m"
     @echo "\033[1;34m→ Database running in Docker on port 5433\033[0m"
     @echo "\033[1;34m→ Press Ctrl+C to stop backend (database will keep running)\033[0m"
@@ -532,42 +533,51 @@ wt-prune *args:
         echo "Dry run. \`just wt-prune --apply\` removes the MERGED rows without DIRTY."
     fi
 
-# Named dev-stop, not stop. It takes the PRODUCTION stack down too (the second line), and it
-# was sitting in `just --list` describing itself as "Stop all services" – so a station operator
-# who only ever installed `just` for `just tiles-download` could take their own board off the
-# air with a command that sounds like tidying up. The operator's version is `just down`.
-# Stop the DEVELOPMENT stack (and any production stack in this directory)
-dev-stop:
-    docker compose -f docker-compose.dev.yml down
-    @# The production stack's `${VAR:?}` guards fire on ANY compose subcommand, `down`
-    @# included, so without an .env this line errors. That must not stop the dev stack
-    @# above from having been brought down – which is what someone running `just dev-stop`
-    @# after `just dev` actually wants.
-    -docker compose down
+# Named dev-stop, not stop: a station operator who only installed `just` for
+# `just tiles-download` must not read it as "stop the board". The operator's verb is
+# `just down`. This acts on docker-compose.dev.yml (project kp-rueck-dev) and nothing else –
+# it used to run `docker compose down` on the production file as well.
+#
+# Dev containers created before the dev file pinned `name: kp-rueck-dev` still carry the project
+# label kp-rueck, so `down` does not see them. Both dev recipes stop and remove them by the exact
+# container_name values of docker-compose.dev.yml (backend/tests/test_dev_recipes.py holds the
+# list to that file). Once nothing is left under those names, this does nothing.
+dev_containers := "kprueck-db-dev kprueck-backend-dev kprueck-frontend-dev kprueck-tileserver-dev kprueck-print-agent-dev"
 
-# Stop everything and DELETE ALL DATA (database, photos) – asks first
+# Stop the DEVELOPMENT stack (the station's board is `just down`)
+dev-stop:
+    docker compose -p kp-rueck-dev -f docker-compose.dev.yml down
+    @for c in {{dev_containers}}; do if docker container inspect "$c" >/dev/null 2>&1; then docker stop "$c" >/dev/null && docker rm "$c" >/dev/null || exit 1; fi; done
+
+# `down -v` removes the dev stack's named volumes: the dev database and the downloaded dev map
+# tiles, with no undo (dev photos sit in the ./backend bind mount and stay). It acts on
+# docker-compose.dev.yml only – it used to run `docker compose down -v` on the production file
+# as well, which deletes the station's database and photos. There is no recipe for that on
+# purpose: `just down` stops the station and keeps its data.
+# Stop the DEVELOPMENT stack and DELETE its database and map tiles – asks first
 dev-clean:
     #!/usr/bin/env bash
     set -euo pipefail
-    # `down -v` removes named volumes, and on this stack those are pgdata and photos – i.e.
-    # every incident, every roster entry and every Reko photo, dev AND production, with no
-    # undo. The old recipe did that on a bare `just dev-clean` with nothing but "removes volumes"
-    # in the help text, which reads like tidying up caches. It is not. Backups live on a HOST
-    # path (BACKUP_HOST_DIR) precisely so they survive this, but only if they were ever
-    # switched on – see COMPOSE_PROFILES in .env.example.
-    echo "⚠  This DELETES ALL DATA in this stack – database and photos, dev and production."
-    echo "⚠  There is no undo. Restore would need a backup from BACKUP_HOST_DIR."
+    echo "⚠  This DELETES the development database and the dev map tiles. There is no undo."
+    echo "   The station's production stack is not touched."
     read -r -p "Type 'delete' to confirm: " reply
     if [ "$reply" != "delete" ]; then
         echo "Aborted – nothing was removed."
         exit 1
     fi
-    docker compose -f docker-compose.dev.yml down -v
-    # `|| true`, not just's `-` prefix: this is a shebang recipe, so it runs as ONE script and
-    # a leading `-` would be read as a command name. Same intent as `just dev-stop` – the
-    # production stack's `${VAR:?}` guards fire on any subcommand, `down` included, so this
-    # errors without an .env and must not mask the dev teardown above having succeeded.
-    docker compose down -v || true
+    docker compose -p kp-rueck-dev -f docker-compose.dev.yml down -v
+    # Compose deletes only volumes labelled with its own project. Dev containers and volumes from
+    # before the dev file pinned `name: kp-rueck-dev` carry the label kp-rueck, so `down -v` keeps
+    # them. Remove them by name: the containers as in dev-stop, the volumes by the names pinned in
+    # the dev file.
+    for c in {{dev_containers}}; do
+        # `|| exit 1`: set -e does not see a failure on the left of `&&`, and a container left
+        # running would keep its volume in use.
+        if docker container inspect "$c" >/dev/null 2>&1; then docker stop "$c" >/dev/null && docker rm "$c" >/dev/null || exit 1; fi
+    done
+    for volume in kp-rueck_postgres_dev_data kp-rueck_tileserver-dev-data; do
+        if docker volume inspect "$volume" >/dev/null 2>&1; then docker volume rm "$volume" >/dev/null; fi
+    done
 
 # Fill the dev stack from a real deployment so a fresh checkout needs zero configuration:
 # `just dev`, then `just dev-sync railway` – or any Postgres URL, any provider. `--config`
@@ -609,13 +619,13 @@ db cmd="start" *args:
     case "{{cmd}}" in
         start)
             echo -e "\033[1;34m→ Starting PostgreSQL...\033[0m"
-            docker compose -f docker-compose.dev.yml up -d postgres
+            docker compose -p kp-rueck-dev -f docker-compose.dev.yml up -d postgres
             ;;
         shell)
-            docker compose -f docker-compose.dev.yml exec postgres psql -U kprueck -d kprueck
+            docker compose -p kp-rueck-dev -f docker-compose.dev.yml exec postgres psql -U kprueck -d kprueck
             ;;
         seed)
-            docker compose -f docker-compose.dev.yml exec backend uv run python -m app.seed
+            docker compose -p kp-rueck-dev -f docker-compose.dev.yml exec backend uv run python -m app.seed
             ;;
         migrate)
             echo -e "\033[1;34m→ Running database migrations...\033[0m"
