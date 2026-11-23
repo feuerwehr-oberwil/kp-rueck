@@ -34,7 +34,7 @@ import { sortForMapList } from "@/lib/map-list-order"
 import { type Priority } from "@/lib/priority"
 import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import { statusGroupCaption } from "@/components/map-legend"
-import { getIncidentRefLabel } from "@/lib/incident-types"
+import { getIncidentRefLabel, incidentSubject } from "@/lib/incident-types"
 import { useIncidents, useOperations } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
@@ -209,6 +209,7 @@ export default function MapPage() {
     nextId: string
     nextName: string
   } | null>(null)
+  const rekoOverwriteIncident = rekoOverwrite ? operations.find((op) => op.id === rekoOverwrite.operationId) : undefined
   // Shared routing hook — active only while planning a selected group.
   const planning = useRoutePlanning(planningActive ? planningGroupId : null)
   // Desktop: the right rail's width is the operator's – ONE width for the Einsätze list, the
@@ -1319,7 +1320,7 @@ export default function MapPage() {
         <ConfirmDialog
           open={planningAddConfirm !== null}
           onOpenChange={(open) => { if (!open) setPlanningAddConfirm(null) }}
-          title={tKanban('dashboard.distributeConfirmTitle')}
+          title={tKanban('dashboard.distributeConfirmTitle', { auftrag: groups.find((g) => g.id === planningGroupId)?.name ?? '' })}
           description={
             planningAddConfirm?.fromName
               ? tKanban('dashboard.distributeConfirmTransfer', {
@@ -1348,6 +1349,8 @@ export default function MapPage() {
           open={rekoOverwrite !== null}
           onOpenChange={(open) => { if (!open) setRekoOverwrite(null) }}
           title={t('rekoMode.overwriteTitle')}
+          // «diesem Einsatz» points at nothing on the map: the window covers the pin (#14).
+          subject={rekoOverwriteIncident ? incidentSubject(rekoOverwriteIncident) : undefined}
           description={
             rekoOverwrite
               ? t('rekoMode.overwriteDescription', {

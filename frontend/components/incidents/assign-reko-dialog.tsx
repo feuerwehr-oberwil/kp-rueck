@@ -15,6 +15,7 @@ import { apiClient, type ApiAvailableRekoPersonnel } from "@/lib/api-client"
 import { useEvent } from "@/lib/contexts/event-context"
 import { type Operation, useOperations } from "@/lib/contexts/operations-context"
 import type { Person } from "@/lib/contexts/personnel-context"
+import { incidentSubject } from "@/lib/incident-types"
 import { personMatchesQuery, RESOURCE_STATE_BADGE_CLASSES } from "@/lib/resource-status"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -158,6 +159,7 @@ interface AssignRekoDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   incidentId: string
+  /** The Einsatz's name while the board has not loaded it – the subject line's fallback. */
   incidentTitle: string
   /**
    * A Reko person is now on this incident — **the caller closes the dialog.**
@@ -230,6 +232,9 @@ export function AssignRekoDialog({
     },
   })
   const resetMark = mark.reset
+  // The Einsatz under the title (#14), from the board – `incidentTitle` only while it has not loaded.
+  const incident = operations.find((op) => op.id === incidentId)
+  const subject = incident ? incidentSubject(incident) : { place: incidentTitle }
 
   // Backend sorts by (open work, distance, name). Mark the top candidate as
   // "Empfohlen" only when it is measurably better than the runner-up — a
@@ -462,7 +467,8 @@ export function AssignRekoDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={markMode ? t('markExisting') : gate?.title ?? t('title')}
-      description={gate?.description ?? t('incidentLabel', { title: incidentTitle })}
+      subject={subject}
+      description={gate?.description ?? t('pickLine')}
       radioGroupLabel={markMode ? t('markExisting') : t('title')}
       toolbar={toolbar}
       footer={

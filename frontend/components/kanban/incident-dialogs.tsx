@@ -46,7 +46,7 @@ import { usePromoteRouteLeader, usePromoteToLeader } from "@/lib/hooks/use-promo
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
-import { getIncidentRefLabel, getIncidentTypeLabel } from "@/lib/incident-types"
+import { getIncidentRefLabel, getIncidentTypeLabel, incidentSubject } from "@/lib/incident-types"
 import { findAuftragForStop } from "@/lib/kanban-utils"
 import type { Incident } from "@/lib/types/incidents"
 
@@ -381,6 +381,7 @@ export function IncidentDialogs({
 
   // ── «An Auftrag verteilen» ───────────────────────────────────────────────
   const pickerIncidentId = view.auftragPickerIncidentId
+  const pickerIncident = pickerIncidentId ? operations.find((op) => op.id === pickerIncidentId) : undefined
   const performDistribute = (groupId: string, incidentId: string) => {
     closedStopGuard.guard([incidentId], async () => {
       const ok = await addStops(groupId, [incidentId])
@@ -496,7 +497,8 @@ export function IncidentDialogs({
         open={pickerIncidentId !== null}
         onOpenChange={(open) => !open && view.closeAuftragPicker()}
         groups={groups}
-        currentGroupId={pickerIncidentId ? operations.find((op) => op.id === pickerIncidentId)?.groupId ?? null : null}
+        subject={pickerIncident ? incidentSubject(pickerIncident) : undefined}
+        currentGroupId={pickerIncident?.groupId ?? null}
         onChoose={chooseAuftrag}
         onCreate={(name) => createGroup({ name })}
         onRemoveFromCurrent={removeFromAuftrag}
@@ -507,7 +509,7 @@ export function IncidentDialogs({
       <ConfirmDialog
         open={distributeConfirm !== null}
         onOpenChange={(open) => !open && view.setDistributeConfirm(null)}
-        title={tDash("distributeConfirmTitle")}
+        title={tDash("distributeConfirmTitle", { auftrag: groups.find((group) => group.id === distributeConfirm?.groupId)?.name ?? "" })}
         description={
           distributeConfirm?.fromName
             ? tDash("distributeConfirmTransfer", { incident: distributeConfirm.incidentLabel, from: distributeConfirm.fromName })

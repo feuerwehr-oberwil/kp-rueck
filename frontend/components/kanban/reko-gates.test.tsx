@@ -130,7 +130,9 @@ describe("Reko gate – into «Reko» without a Reko person", () => {
     const { ref, changeStatusToTop } = renderBoard(operation())
 
     act(() => ref.controller!.requestStatusChange("incident-1", "reko"))
-    expect(await screen.findByRole("dialog", { name: "Reko-Person für Bahnhofstrasse 22" })).toBeInTheDocument()
+    // One title on every path; the Einsatz is the subject line under it (#14).
+    expect(await screen.findByRole("dialog", { name: "Reko zuweisen" })).toBeInTheDocument()
+    expect(screen.getByTestId("dialog-subject")).toHaveTextContent("Bahnhofstrasse 22")
     expect(screen.getByText("Die Karte wandert mit der Zuweisung nach «Reko».")).toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "Abbrechen" }))

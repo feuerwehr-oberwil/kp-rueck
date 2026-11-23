@@ -191,6 +191,9 @@ change. Read the section you touch. The visual rules and their reasons are
   23.11.2026): the Doppelbelegung and the vehicle that drives an Auftrag. Two choice cards, each
   with a before/after `ChoiceDiagram`, one consequence sentence and a letter key; the footer has
   only Abbrechen, ink and focused, so Enter and Esc change nothing.
+- **Subject line**: a question about one Einsatz names it under the title – `subject` on
+  `ConfirmDialog` / `PickerDialog` / `ChoiceDialog` (`SubjectLine`, `incidentSubject(op)`:
+  «14 Hauptstrasse 4»), not in the sentence.
 - **Pick a person = `PersonPickTile`** (`components/kanban/assignment-list-section.tsx`) in a
   `PickerDialog` (`components/ui/picker-dialog.tsx`: dialog on a desk, bottom sheet on a
   phone). The tile has a tick box, `PersonName` and the one rank · where · roles line. Chosen =

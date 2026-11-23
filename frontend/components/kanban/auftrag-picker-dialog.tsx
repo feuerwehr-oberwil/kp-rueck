@@ -25,11 +25,14 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import type { IncidentGroup } from "@/lib/contexts/groups-context"
 import { FormMessage, formMessageId, useRequiredField } from "@/components/ui/form-message"
+import { SubjectLine, type Subject } from "@/components/ui/subject-line"
 
 interface AuftragPickerDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   groups: IncidentGroup[]
+  /** The Einsatz being taken into an Auftrag, under the title (#14). */
+  subject?: Subject
   /** The incident's current route (marked "already here", not selectable). */
   currentGroupId: string | null
   onChoose: (groupId: string) => void
@@ -43,6 +46,7 @@ export function AuftragPickerDialog({
   open,
   onOpenChange,
   groups,
+  subject,
   currentGroupId,
   onChoose,
   onCreate,
@@ -99,6 +103,7 @@ export function AuftragPickerDialog({
       <DialogContent className="flex modal-h-tall flex-col gap-4">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
+          {subject && <SubjectLine subject={subject} />}
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 

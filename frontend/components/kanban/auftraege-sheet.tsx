@@ -481,7 +481,7 @@ export function AuftraegeSheet({
       <DeleteConfirmDialog
         open={canEdit && !!deleteId}
         onOpenChange={(o) => !o && setDeleteId(null)}
-        title={t("deleteTitle")}
+        title={t("deleteTitle", { name: groups.find((group) => group.id === deleteId)?.name ?? "" })}
         description={t("deleteDescription")}
         confirmText={t("deleteConfirm")}
         cancelText={t("cancel")}
