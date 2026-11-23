@@ -14,11 +14,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..database import execute_dml
-from ..models import Incident, IncidentGroup, IncidentGroupAssignment, User
+from ..models import Event, Incident, IncidentAssignment, IncidentGroup, IncidentGroupAssignment, User
 from ..services.audit import log_action
 from . import events as events_crud
 from . import group_assignments as group_assignments_crud
-from .locking import lock_groups, lock_incidents_with_groups
+from .assignments import ResourceNotAssignableError, TransferChangedError, ensure_assignable, sync_auto_leader
+from .locking import lock_groups, lock_incidents_with_groups, lock_resources
 from .manual_order import plan_manual_order
 
 # Stops in these statuses count as "erledigt" for the derived progress roll-up.
@@ -483,3 +484,195 @@ async def remove_stop_from_group(
 
     await db.flush()
     return True
+
+
+class TransferRefusedError(ValueError):
+    """«Übertragen» onto an Auftrag cannot start from this Einsatz (→ 409). ``str()`` is German."""
+
+
+async def transfer_to_auftrag(
+    db: AsyncSession,
+    group_id: uuid.UUID,
+    incident_id: uuid.UUID,
+    current_user: User,
+    request: Request,
+) -> dict[str, list[uuid.UUID]]:
+    """«Übertragen» onto an Auftrag: the Einsatz becomes its last stop, its resources move up.
+
+    Owner pick 23.11.2026 (#9): the same thing `/feld` «Wir übernehmen» does – the stop
+    is appended (``add_stops_to_group``) and its crew, vehicles and material go to the
+    Auftrag (``group_assignments.mirror_to_auftrag``). Unlike `/feld`, the Einsatz rows
+    are then released, as the incident-to-incident transfer does: a stop's resources
+    belong to its Auftrag. A resource the Auftrag already holds gets no second row; its
+    Einsatz row is released all the same. A Reko auftrag stays on the Einsatz.
+
+    The Auftrag's new rows are NEW assignments, so ``ensure_assignable`` applies (with the
+    Einsatz counted as a stop) and refuses the whole transfer. The same applies to an Auftrag
+    whose stops are all closed, when this Einsatz is closed too.
+
+    Lock order (``crud/locking.py``): the Auftrag, the Einsatz, then its resources.
+
+    Returns the ids «Rückgängig» needs: ``group_assignment_ids`` (new on the Auftrag) and
+    ``released_assignment_ids`` (released on the Einsatz) – see ``undo_transfer_to_auftrag``.
+
+    Raises:
+        LookupError: the Auftrag or the Einsatz is gone.
+        TransferRefusedError: the Einsatz is already a stop, or of another Ereignis.
+        ResourceNotAssignableError: the policy refused a resource; nothing was written.
+    """
+    locked = await lock_incidents_with_groups(db, [incident_id], extra_group_ids=[group_id])
+    incident = locked.get(incident_id)
+    if incident is None or incident.deleted_at is not None or incident.merged_into_id is not None:
+        raise LookupError(f"incident {incident_id} does not exist")
+    group = await _get_group(db, group_id)
+    if group is None:
+        raise LookupError(f"incident group {group_id} does not exist")
+    if incident.group_id is not None:
+        raise TransferRefusedError("Der Einsatz ist bereits Stopp eines Auftrags.")
+    if incident.event_id != group.event_id:
+        raise TransferRefusedError("Einsatz gehört zu einem anderen Ereignis")
+    event = await db.get(Event, group.event_id)
+    if event is None:
+        raise LookupError(f"event {group.event_id} does not exist")
+
+    moving = list(
+        (
+            await db.scalars(
+                select(IncidentAssignment).where(
+                    IncidentAssignment.incident_id == incident_id,
+                    IncidentAssignment.unassigned_at.is_(None),
+                    IncidentAssignment.purpose == "crew",
+                )
+            )
+        ).all()
+    )
+    resources = await lock_resources(db, [(row.resource_type, row.resource_id) for row in moving])
+
+    await add_stops_to_group(db, group_id, [incident_id], current_user, request)
+    auftrag_closed = await group_assignments_crud.auftrag_is_closed(db, group_id)
+    created = await group_assignments_crud.mirror_to_auftrag(db, group_id, incident_id)
+    for row in created:
+        resource = resources.get((row.resource_type, row.resource_id))
+        if resource is None:
+            continue  # a deleted resource moves as it is, like the incident transfer
+        try:
+            ensure_assignable(resource, event=event, auftrag_closed=auftrag_closed)
+        except ResourceNotAssignableError as refused:
+            raise ResourceNotAssignableError(f"Übertragen nicht möglich – {refused}") from refused
+        row.assigned_by = current_user.id
+
+    # The role does not travel on a released row (as in `unassign_resource`).
+    now = datetime.now(UTC)
+    for stop_row in moving:
+        stop_row.unassigned_at = now
+        stop_row.is_leader = False
+    await db.flush()
+    await sync_auto_leader(db, incident_id)
+    await group_assignments_crud.sync_auto_group_leader(db, group_id)
+
+    result = {
+        "group_assignment_ids": [group_row.id for group_row in created],
+        "released_assignment_ids": [stop_row.id for stop_row in moving],
+    }
+    await log_action(
+        db=db,
+        action_type="assignments_transferred",
+        resource_type="incident",
+        resource_id=incident_id,
+        user=current_user,
+        changes={"target_group_id": str(group_id)} | {key: [str(i) for i in ids] for key, ids in result.items()},
+        request=request,
+    )
+    await db.flush()
+    return result
+
+
+async def undo_transfer_to_auftrag(
+    db: AsyncSession,
+    group_id: uuid.UUID,
+    incident_id: uuid.UUID,
+    group_assignment_ids: list[uuid.UUID],
+    released_assignment_ids: list[uuid.UUID],
+    current_user: User,
+    request: Request,
+) -> None:
+    """«Rückgängig» of ``transfer_to_auftrag``: detach the stop, put its resources back.
+
+    An undo is a new write that must still be valid now (``docs/FRONTEND.md``): refused
+    unless the Einsatz is still a stop of this Auftrag, every row the transfer made is
+    still active there, and none of the released resources is back on the Einsatz.
+    The Einsatz gets new rows, so ``ensure_assignable`` applies (a closed Einsatz is a
+    409). Same lock order as the transfer.
+
+    Raises:
+        TransferChangedError: something changed since the transfer; nothing was written.
+        ResourceNotAssignableError: the policy refused a resource; nothing was written.
+    """
+    changed = TransferChangedError("Nicht mehr rückgängig machbar – der Auftrag wurde inzwischen geändert.")
+    locked = await lock_incidents_with_groups(db, [incident_id], extra_group_ids=[group_id])
+    incident = locked.get(incident_id)
+    if incident is None or incident.deleted_at is not None or incident.group_id != group_id:
+        raise changed
+    on_auftrag = list(
+        (
+            await db.scalars(
+                select(IncidentGroupAssignment).where(
+                    IncidentGroupAssignment.id.in_(group_assignment_ids),
+                    IncidentGroupAssignment.incident_group_id == group_id,
+                    IncidentGroupAssignment.unassigned_at.is_(None),
+                )
+            )
+        ).all()
+    )
+    released = list(
+        (
+            await db.scalars(
+                select(IncidentAssignment).where(
+                    IncidentAssignment.id.in_(released_assignment_ids),
+                    IncidentAssignment.incident_id == incident_id,
+                    IncidentAssignment.unassigned_at.is_not(None),
+                )
+            )
+        ).all()
+    )
+    if len(on_auftrag) != len(set(group_assignment_ids)) or len(released) != len(set(released_assignment_ids)):
+        raise changed
+    back_again = await db.scalar(
+        select(IncidentAssignment.id).where(
+            IncidentAssignment.incident_id == incident_id,
+            IncidentAssignment.unassigned_at.is_(None),
+            IncidentAssignment.resource_id.in_([row.resource_id for row in released]),
+        )
+    )
+    if back_again is not None:
+        raise changed
+
+    event = await db.get(Event, incident.event_id)
+    if event is None:
+        raise LookupError(f"event {incident.event_id} does not exist")
+    resources = await lock_resources(db, [(row.resource_type, row.resource_id) for row in released])
+    for resource in resources.values():
+        try:
+            ensure_assignable(resource, event=event, incident=incident)
+        except ResourceNotAssignableError as refused:
+            raise ResourceNotAssignableError(f"Nicht mehr rückgängig machbar – {refused}") from refused
+
+    now = datetime.now(UTC)
+    for row in on_auftrag:
+        row.unassigned_at = now
+        row.is_leader = False
+    for stop_row in released:
+        db.add(
+            IncidentAssignment(
+                incident_id=incident_id,
+                resource_type=stop_row.resource_type,
+                resource_id=stop_row.resource_id,
+                purpose=stop_row.purpose,
+                driver_stay=stop_row.driver_stay,
+                assigned_by=current_user.id,
+            )
+        )
+    await remove_stop_from_group(db, group_id, incident_id, current_user, request)
+    await sync_auto_leader(db, incident_id)
+    await group_assignments_crud.sync_auto_group_leader(db, group_id)
+    await db.flush()

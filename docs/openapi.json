@@ -6456,6 +6456,139 @@
         }
       }
     },
+    "/api/incident-groups/{group_id}/transfer": {
+      "post": {
+        "tags": [
+          "incident-groups"
+        ],
+        "summary": "Transfer To Auftrag",
+        "description": "«Übertragen» an Einsatz onto this Auftrag (editor only): it becomes the last stop,\nits crew, vehicles and material move to the Auftrag (``crud.transfer_to_auftrag``).\n\n409 when the Einsatz already is a stop, or a resource may not be assigned.",
+        "operationId": "transfer_to_auftrag_api_incident_groups__group_id__transfer_post",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Group Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferToAuftragRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferToAuftragResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incident-groups/{group_id}/transfer/undo": {
+      "post": {
+        "tags": [
+          "incident-groups"
+        ],
+        "summary": "Undo Transfer To Auftrag",
+        "description": "«Rückgängig» of a transfer onto an Auftrag (editor only): 409 once anything changed.",
+        "operationId": "undo_transfer_to_auftrag_api_incident_groups__group_id__transfer_undo_post",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Group Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferToAuftragUndoRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incident-groups/{group_id}/stops/{incident_id}": {
       "delete": {
         "tags": [
@@ -22014,7 +22147,7 @@
           "name"
         ],
         "title": "FeldVehicleLine",
-        "description": "One vehicle on the briefing: who drives it, whether it stays, whose it is.\n\nThe driver is a property of the Ereignis, not of the Schadenplatz — but\n«TLF 1» on its own left a crew standing at an address unable to answer who\nis sitting in it, and the driver is exactly the person they need when the\nvehicle has to be moved. `driver` is None when the KP has not named one.\n\nThe other two answer the question a crew actually asks about a vehicle on\ntheir slip — *kommt das mit?*:\n\n* ``stays`` is the board's driver-stay flag: False means the driver takes it\n  back to the Magazin once the crew is dropped off, True that it is parked\n  at the address for the duration.\n\n  **None when nobody can answer.** A route-level vehicle's ``driver_stay``\n  can be set in the dispatch gate since 19.11.2026, but a row nobody touched\n  there is whatever ``_mirror`` copied or the DB default, and nothing tells\n  the two apart. Sending `False` there would print «fährt zurück» on a phone\n  as if somebody had decided it. An absent flag is not\n  the same statement as \"he is coming back\" — the same rule the board's own\n  `DriverStayGlyph` follows, where `undefined` draws nothing.\n* ``via_auftrag`` says the vehicle belongs to the **Auftrag**, so it is\n  shared across every stop of the route and comes along to the next one.\n  A vehicle booked on this Schadenplatz alone does not. `/feld` rendered\n  both identically, which is why a route's TLF read as if it belonged to\n  the one address the crew happened to be standing at."
+        "description": "One vehicle on the briefing: who drives it, whether it stays, whose it is.\n\nThe driver is a property of the Ereignis, not of the Schadenplatz — but\n«TLF 1» on its own left a crew standing at an address unable to answer who\nis sitting in it, and the driver is exactly the person they need when the\nvehicle has to be moved. `driver` is None when the KP has not named one.\n\nThe other two answer the question a crew actually asks about a vehicle on\ntheir slip — *kommt das mit?*:\n\n* ``stays`` is the board's driver-stay flag: False means the driver takes it\n  back to the Magazin once the crew is dropped off, True that it is parked\n  at the address for the duration.\n\n  **None when nobody can answer.** A route-level vehicle's ``driver_stay``\n  can be set in the dispatch gate since 19.11.2026, but a row nobody touched\n  there is whatever ``mirror_to_auftrag`` copied or the DB default, and nothing tells\n  the two apart. Sending `False` there would print «fährt zurück» on a phone\n  as if somebody had decided it. An absent flag is not\n  the same statement as \"he is coming back\" — the same rule the board's own\n  `DriverStayGlyph` follows, where `undefined` draws nothing.\n* ``via_auftrag`` says the vehicle belongs to the **Auftrag**, so it is\n  shared across every stop of the route and comes along to the next one.\n  A vehicle booked on this Schadenplatz alone does not. `/feld` rendered\n  both identically, which is why a route's TLF read as if it belonged to\n  the one address the crew happened to be standing at."
       },
       "FieldReportState": {
         "properties": {
@@ -30011,6 +30144,81 @@
         ],
         "title": "TransferAssignmentsResponse",
         "description": "Response from assignment transfer operation."
+      },
+      "TransferToAuftragRequest": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id"
+        ],
+        "title": "TransferToAuftragRequest",
+        "description": "«Übertragen» an Einsatz onto this Auftrag: it becomes the last stop, its resources move up."
+      },
+      "TransferToAuftragResponse": {
+        "properties": {
+          "group_assignment_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Group Assignment Ids"
+          },
+          "released_assignment_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Released Assignment Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "group_assignment_ids",
+          "released_assignment_ids"
+        ],
+        "title": "TransferToAuftragResponse",
+        "description": "What the transfer wrote – the ids its «Rückgängig» sends back."
+      },
+      "TransferToAuftragUndoRequest": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "group_assignment_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Group Assignment Ids"
+          },
+          "released_assignment_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Released Assignment Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "group_assignment_ids",
+          "released_assignment_ids"
+        ],
+        "title": "TransferToAuftragUndoRequest",
+        "description": "«Rückgängig» of a transfer onto an Auftrag: the ids that transfer answered with.\n\nRefused (409) unless the Einsatz is still a stop of this Auftrag and every row is unchanged."
       },
       "UnmergeResponse": {
         "properties": {
