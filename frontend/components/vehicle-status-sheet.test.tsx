@@ -81,9 +81,9 @@ describe("VehicleStatusSheet", () => {
     expect(screen.getByText("40'")).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole("button", { name: /Blumenweg 21/ }))
-    expect(push).toHaveBeenCalledWith("/?highlight=i-new")
+    expect(push).toHaveBeenCalledWith("/?highlight=i-new&detail=1&tab=overview&section=resources")
     await userEvent.click(screen.getByRole("button", { name: "Auftrag «Nord»" }))
-    expect(push).toHaveBeenLastCalledWith("/?highlight=stop-1")
+    expect(push).toHaveBeenLastCalledWith("/?highlight=stop-1&detail=1&tab=overview&section=resources")
   })
 
   it("shows a vehicle that only drives an Auftrag as bound, not «Verfügbar»", async () => {
@@ -112,7 +112,7 @@ describe("VehicleStatusSheet", () => {
     await user.keyboard("{Enter}")
 
     expect(push).toHaveBeenCalledTimes(1)
-    expect(push).toHaveBeenCalledWith("/?highlight=i-new")
+    expect(push).toHaveBeenCalledWith("/?highlight=i-new&detail=1&tab=overview&section=resources")
   })
 
   it("moves the focus onto the row the arrows pick, and Enter there opens its first place", async () => {
@@ -128,7 +128,7 @@ describe("VehicleStatusSheet", () => {
     expect(document.activeElement?.getAttribute("data-fleet-row")).toBe("0")
     await user.keyboard("{Enter}")
 
-    expect(push).toHaveBeenCalledWith("/?highlight=i-old")
+    expect(push).toHaveBeenCalledWith("/?highlight=i-old&detail=1&tab=overview&section=resources")
   })
 
   it("leaves Enter on a focused control outside the list to it («Aktualisieren», the phone's ✕)", async () => {
@@ -160,6 +160,6 @@ describe("VehicleStatusSheet", () => {
     await screen.findByRole("button", { name: /Hauptstrasse 1/ })
     await user.keyboard("{ArrowDown}{Enter}")
 
-    expect(push).toHaveBeenCalledWith("/?highlight=i-old")
+    expect(push).toHaveBeenCalledWith("/?highlight=i-old&detail=1&tab=overview&section=resources")
   })
 })

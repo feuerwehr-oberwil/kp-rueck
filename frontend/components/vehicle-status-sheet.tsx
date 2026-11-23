@@ -18,6 +18,8 @@ import { useOperations } from "@/lib/contexts/operations-context"
 import { RESOURCE_STATE_BADGE_CLASSES } from "@/lib/resource-status"
 import { formatDuration } from "@/lib/duration"
 import { useIsMobile } from "@/components/ui/use-mobile"
+import { boardDetailHref } from "@/lib/incident-detail"
+import { RESOURCES_TARGET } from "@/lib/detail-target"
 import { DriverAssignmentDialog } from "./driver-assignment-dialog"
 
 /** What the sheet shows for one Ereignis: the fleet and the event's special functions
@@ -308,9 +310,10 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
   }, [])
 
   const openIncident = (incidentId: string) => {
-    // Navigate to Kanban with highlighted incident – on a phone also opened (its Einsatz
-    // sheet, `&detail=1`): a ring on a list card is not what «Tippen öffnet den Einsatz» says.
-    router.push(`/?highlight=${encodeURIComponent(incidentId)}${isMobile ? '&detail=1' : ''}`)
+    // The board, with the Einsatz OPENED on its Ressourcen, where the vehicle is listed: a ring
+    // on a card is not what «Klick öffnet den Einsatz» says. Desk: side panel or modal; phone:
+    // its Einsatz sheet at the resource lists.
+    router.push(boardDetailHref(incidentId, RESOURCES_TARGET))
     onOpenChange(false)
   }
 
