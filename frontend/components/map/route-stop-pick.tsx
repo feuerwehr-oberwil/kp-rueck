@@ -63,6 +63,8 @@ export function stopPinClick(
 interface PendingMove {
   incidentLabel: string
   fromName: string
+  /** The Auftrag being edited – the one the stop moves into. */
+  toName: string
   run: () => Promise<void> | void
 }
 
@@ -85,6 +87,7 @@ export function useMoveStopConfirm() {
       description={t("distributeConfirmTransfer", {
         incident: pending?.incidentLabel ?? "",
         from: pending?.fromName ?? "",
+        to: pending?.toName ?? "",
       })}
       confirmText={t("distributeConfirmAction")}
       // A move out of another Auftrag: Enter keeps to Abbrechen.

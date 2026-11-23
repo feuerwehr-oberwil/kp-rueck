@@ -1909,7 +1909,7 @@
       },
       "linksAndQr": "Liens & QR",
       "distributeConfirmTitle": "Ajouter à la mission ?",
-      "distributeConfirmTransfer": "« {incident} » appartient déjà à la mission « {from} » et y sera déplacé. Cette action est irréversible.",
+      "distributeConfirmTransfer": "« {incident} » appartient déjà à la mission « {from} » et sera déplacé dans la mission « {to} ». Cette action est irréversible.",
       "distributeConfirmDispatched": "« {incident} » est déjà engagé. L’ajout à la mission est irréversible.",
       "distributeConfirmAction": "Ajouter à la mission",
       "journal": "Journal"

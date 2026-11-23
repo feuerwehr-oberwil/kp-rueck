@@ -184,7 +184,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
       }
       // The pins are this route's non-members, so the rule never answers «drop» here.
       const click = stopPinClick(op.id, new Set(group.stopIds), () => otherRoute)
-      if (click.kind === "move") askMove({ incidentLabel: label, fromName: click.from.name, run: add })
+      if (click.kind === "move") askMove({ incidentLabel: label, fromName: click.from.name, toName: group.name, run: add })
       else if (click.kind === "add") void add()
     },
     [canEdit, group, addStops, t, askMove],

@@ -613,7 +613,7 @@
       },
       "linksAndQr": "Links & QR",
       "distributeConfirmTitle": "In Auftrag aufnehmen?",
-      "distributeConfirmTransfer": "«{incident}» gehört bereits zu Auftrag «{from}» und wird dorthin verschoben. Das lässt sich nicht rückgängig machen.",
+      "distributeConfirmTransfer": "«{incident}» gehört bereits zu Auftrag «{from}» und wird in Auftrag «{to}» verschoben. Das lässt sich nicht rückgängig machen.",
       "distributeConfirmDispatched": "«{incident}» ist bereits disponiert. Die Aufnahme in den Auftrag lässt sich nicht rückgängig machen.",
       "distributeConfirmAction": "In Auftrag aufnehmen",
       "journal": "Verlauf"

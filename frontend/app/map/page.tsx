@@ -295,6 +295,7 @@ export default function MapPage() {
     incidentId: string
     incidentLabel: string
     fromName: string | null
+    toName: string
   } | null>(null)
 
   const handleIncidentClick = (incidentId: string) => {
@@ -319,6 +320,7 @@ export default function MapPage() {
             incidentId,
             incidentLabel: op ? getIncidentRefLabel(op, 40) : '',
             fromName: otherGroup?.name ?? null,
+            toName: group?.name ?? '',
           })
           return
         }
@@ -1325,6 +1327,7 @@ export default function MapPage() {
               ? tKanban('dashboard.distributeConfirmTransfer', {
                   incident: planningAddConfirm.incidentLabel,
                   from: planningAddConfirm.fromName,
+                  to: planningAddConfirm.toName,
                 })
               : tKanban('dashboard.distributeConfirmDispatched', {
                   incident: planningAddConfirm?.incidentLabel ?? '',

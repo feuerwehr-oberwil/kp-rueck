@@ -279,7 +279,18 @@ export function IncidentPickerDialog({
   const moving = useMemo(() => toAdd.filter((id) => otherRouteOf(id)), [toAdd, otherRouteOf])
   const [askMove, setAskMove] = useState(false)
 
+  // One apply at a time: a second click while the detaches run would send them again.
+  const [applying, setApplying] = useState(false)
   const apply = async () => {
+    if (applying) return
+    setApplying(true)
+    try {
+      await applyChanges()
+    } finally {
+      setApplying(false)
+    }
+  }
+  const applyChanges = async () => {
     if (toRemove.length > 0 && targetGroupId) {
       // A failed detach (removeStop shows its own error) keeps the dialog open with the
       // picks, so the operator sees that the route is not what the preview shows.
@@ -562,7 +573,7 @@ export function IncidentPickerDialog({
       <Button variant="outline" size="sm" onClick={() => handleOpenChange(false)}>
         {t("cancel")}
       </Button>
-      <Button size="sm" onClick={confirm} disabled={changeCount === 0}>
+      <Button size="sm" onClick={confirm} disabled={changeCount === 0 || applying}>
         {t("apply")}
       </Button>
     </DialogFooter>
