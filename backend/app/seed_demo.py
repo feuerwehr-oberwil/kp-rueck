@@ -23,6 +23,7 @@ from .crud.group_assignments import sync_auto_group_leader
 from .database import async_session_maker
 from .seed_training import seed_training_data
 from .services.branding import LOGO_SETTING_KEY
+from .services.photo_storage import DEMO_SEED_REKO_TOKEN_PREFIX
 from .services.ranks import RANKS
 from .services.settings import DISPOSABLE_MARKER_KEY, DISPOSABLE_MARKER_VALUE
 from .services.training_photos import attach_training_photos
@@ -794,7 +795,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
             models.RekoReport(
                 id=uuid4(),
                 incident_id=incidents[title].id,
-                token=f"demo-reko-{i}",
+                token=f"{DEMO_SEED_REKO_TOKEN_PREFIX}{i}",
                 arrived_at=ago(arrived_min),
                 submitted_at=ago(submitted_min),
                 is_relevant=is_relevant,

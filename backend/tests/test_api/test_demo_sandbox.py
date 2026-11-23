@@ -1,10 +1,12 @@
 """Tests for the per-session demo sandbox endpoint (POST /api/demo/sandbox)."""
 
+from io import BytesIO
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
 import pytest
 import pytest_asyncio
+from fastapi import HTTPException, UploadFile
 from httpx import AsyncClient
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +24,7 @@ from app.models import (
     StatusTransition,
 )
 from app.seed_demo import seed_demo_database, seed_demo_shared_resources
+from app.services.photo_storage import DEMO_MAX_PHOTOS, enforce_demo_photo_limits
 
 # The storm scenario: 1 featured fire + 16 loose storm/water incidents +
 # 4 Auftrag stops ("Sturmholz Oberwil").
@@ -114,6 +117,7 @@ class TestDemoSandbox:
         )
         submitted = [r for r in reports if not r.is_draft]
         assert len(submitted) == 4
+        assert sum(r.is_relevant for r in submitted) == 3
 
         for report in submitted:
             if not report.is_relevant:
@@ -123,6 +127,29 @@ class TestDemoSandbox:
             response = await editor_client.get(f"/api/photos/{report.incident_id}/{report.photos_json[0]}")
             assert response.status_code == 200
             assert response.headers["content-type"] == "image/jpeg"
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_seeded_illustrations_do_not_fill_the_demo_upload_cap(
+        self, editor_client: AsyncClient, db_session: AsyncSession, demo_mode, shared_resources
+    ):
+        sandboxes = DEMO_MAX_PHOTOS // 3 + 1
+        for _ in range(sandboxes):
+            await editor_client.post("/api/demo/sandbox")
+        upload = UploadFile(file=BytesIO(b"jpeg"), filename="a.jpg")
+
+        await enforce_demo_photo_limits(db_session, upload, RekoReport.photos_json)
+
+        # Visitor uploads on a seeded report still count.
+        seeded = (
+            (await db_session.execute(select(RekoReport).where(func.jsonb_array_length(RekoReport.photos_json) > 0)))
+            .scalars()
+            .first()
+        )
+        seeded.photos_json = seeded.photos_json + [f"{i}.jpg" for i in range(DEMO_MAX_PHOTOS)]
+        await db_session.flush()
+        with pytest.raises(HTTPException):
+            await enforce_demo_photo_limits(db_session, upload, RekoReport.photos_json)
 
     @pytest.mark.asyncio
     @pytest.mark.api

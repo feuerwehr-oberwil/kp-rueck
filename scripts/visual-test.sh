@@ -72,6 +72,8 @@ else
   sleep 1
 fi
 (cd backend && DATABASE_URL=$db_url uv run alembic upgrade head >"$log/migrate.log" 2>&1) || { tail -20 "$log/migrate.log" >&2; exit 1; }
+# The seed writes the demo's Reko illustrations; they die with the run, like the database.
+export PHOTOS_DIR="$log/photos"
 (cd backend && DATABASE_URL=$db_url ADMIN_SEED_PASSWORD=$password VIEWER_PASSWORD=$password \
   uv run python -m app.seed_visual >"$log/seed.log" 2>&1) || { tail -20 "$log/seed.log" >&2; exit 1; }
 
