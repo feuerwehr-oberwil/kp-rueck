@@ -338,7 +338,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
               list flexes/truncates instead. The map can never be squeezed. The
               parent is an L window (1152) so this 600px map + the list always fit inside. */}
           <div className="flex w-[600px] shrink-0 flex-col">
-            <div className="mb-2 flex h-8 items-center">
+            <div className="mb-2 flex h-9 items-center">
               <span className="text-sm font-semibold">{t("mapHeading")}</span>
             </div>
             {/* `isolate`: the hint pill (`z-map-control`) belongs to this map, not to the page – see
@@ -358,8 +358,10 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
             {/* Reihenfolge heading — with the stop count beside it, so the head
                 states what already gilt (the list head carries a number, like the
                 assignment dialogs') — + the optimize wand (a single button whose
-                menu picks the start anchor and runs optimize immediately). */}
-            <div className="mb-2 flex h-8 items-center justify-between gap-2">
+                menu picks the start anchor and runs optimize immediately). h-9 = the
+                wand's 36px: in h-8 the body's overflow-hidden cut its top (VIS.3), and
+                the map heading matches so the two columns stay level. */}
+            <div className="mb-2 flex h-9 items-center justify-between gap-2">
               <span className="text-sm font-semibold">
                 {t("order")}
                 {displayOrder.length > 0 && (
