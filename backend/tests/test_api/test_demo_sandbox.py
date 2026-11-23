@@ -97,6 +97,35 @@ class TestDemoSandbox:
 
     @pytest.mark.asyncio
     @pytest.mark.api
+    async def test_relevant_reko_reports_serve_their_illustration(
+        self, editor_client: AsyncClient, db_session: AsyncSession, demo_mode, shared_resources
+    ):
+        event_id = UUID((await editor_client.post("/api/demo/sandbox")).json()["event_id"])
+        reports = (
+            (
+                await db_session.execute(
+                    select(RekoReport)
+                    .join(Incident, RekoReport.incident_id == Incident.id)
+                    .where(Incident.event_id == event_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        submitted = [r for r in reports if not r.is_draft]
+        assert len(submitted) == 4
+
+        for report in submitted:
+            if not report.is_relevant:
+                assert not report.photos_json
+                continue
+            assert len(report.photos_json) == 1, report.summary_text
+            response = await editor_client.get(f"/api/photos/{report.incident_id}/{report.photos_json[0]}")
+            assert response.status_code == 200
+            assert response.headers["content-type"] == "image/jpeg"
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
     async def test_two_calls_create_distinct_events(self, editor_client: AsyncClient, demo_mode, shared_resources):
         first = (await editor_client.post("/api/demo/sandbox")).json()
         second = (await editor_client.post("/api/demo/sandbox")).json()

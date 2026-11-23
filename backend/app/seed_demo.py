@@ -25,6 +25,7 @@ from .seed_training import seed_training_data
 from .services.branding import LOGO_SETTING_KEY
 from .services.ranks import RANKS
 from .services.settings import DISPOSABLE_MARKER_KEY, DISPOSABLE_MARKER_VALUE
+from .services.training_photos import attach_training_photos
 
 # The «Feuerwehr Musterdorf» crest (same one the KP-Front demo uses), so demo
 # exports carry the letterhead a configured station would get.
@@ -194,7 +195,9 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
       the route (group) level
     - a working Reko slice: three in-progress Rekos (reko person assigned,
       no report yet) and four COMPLETED reko reports on later-stage incidents,
-      each with a matching assignment row so the dashboard counts add up
+      each with a matching assignment row so the dashboard counts add up; the
+      three relevant ones carry their text's illustration, written into the
+      photos dir like an upload
 
     Also creates the check-ins, special functions, and status transitions.
     Shared resources (vehicles/personnel/materials) are looked up by name
@@ -444,7 +447,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
             "location_lat": 47.5108,
             "location_lng": 7.5548,
             "status": "returning",
-            "description": "Heizöl aus überflutetem Tankraum in den Bach gelangt. Ölsperre gesetzt, Rückbau läuft.",
+            "description": "Heizöl aus undichter Ölheizung in den Bach gelangt. Ölsperre gesetzt, Rückbau läuft.",
             "created_at": ago(170),
         },
         # --- ABGESCHLOSSEN (2) ---
@@ -709,6 +712,8 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
     # assigned to two emergencies at once. Done/total dashboard counts derive
     # from the completed report + the assignment row.
     # (title, author, is_relevant, dangers, power_supply, effort, summary, arrived/submitted minutes ago)
+    # A relevant summary is a text the Reko simulation also writes, so it carries that
+    # text's illustration (`attach_training_photos`); a not-relevant one carries none.
     # ============================================
     no_dangers = {
         "fire": False,
@@ -732,7 +737,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
                 "equipment_needed": ["Flutlichtstrahler"],
                 "estimated_duration_hours": 2.5,
             },
-            "Mehrere Ziegelreihen abgedeckt, Unterdach beschädigt. Absturzgefahr, Notabdeckung mit Blachen nötig.",
+            "Dach teilweise abgedeckt. Ca. 4m² offen. Blachen liegen auf dem Dachboden bereit.",
             95,
             78,
         ),
@@ -748,7 +753,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
                 "equipment_needed": ["Tauchpumpe Kl.", "Wassersauger"],
                 "estimated_duration_hours": 1.5,
             },
-            "Ca. 25 cm Wasser im Keller, Elektroverteilung betroffen, Strom abgestellt. Auspumpen mit Tauchpumpe nötig.",
+            "Keller ca. 25cm Wasser. Heizung und Elektrik betroffen. Pumpeinsatz nötig.",
             90,
             72,
         ),
@@ -764,7 +769,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
                 "equipment_needed": ["Ölsperre", "Ölbindemittel"],
                 "estimated_duration_hours": 1.5,
             },
-            "Heizöl aus überflutetem Tankraum in den Bach gelangt. Ölsperre und Bindemittel erforderlich.",
+            "Ölfilm auf Dorfbach. Quelle: undichte Ölheizung 3 Häuser weiter. Bach fliesst langsam.",
             158,
             145,
         ),
@@ -784,6 +789,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
         reko_reports_data
     ):
         author_p = person[author]
+        photos = await attach_training_photos(incidents[title].id, None, summary_text=summary) if is_relevant else []
         db.add(
             models.RekoReport(
                 id=uuid4(),
@@ -796,6 +802,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
                 effort_json=effort,
                 power_supply=power,
                 summary_text=summary,
+                photos_json=photos,
                 submitted_by_personnel_id=author_p.id,
                 is_draft=False,
             )
