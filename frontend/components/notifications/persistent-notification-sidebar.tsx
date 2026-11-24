@@ -34,7 +34,7 @@ export function PersistentNotificationSidebar() {
   const router = useRouter()
   const openRequests = useOpenFieldRequests()
 
-  // On mobile, don't render (Sheet handles it via NotificationBellTrigger).
+  // On mobile, don't render: the phone opens the list as a sheet (PhoneNotificationSheet).
   // Never render when logged out — isSidebarOpen is persisted in localStorage,
   // so a session that opened it and then logged out would otherwise show an
   // empty sidebar shell over the login screen.

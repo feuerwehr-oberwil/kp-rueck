@@ -110,9 +110,10 @@ test.describe('Dismissed modal layers', () => {
 
   test('a closed sheet leaves no overlay behind', async ({ authenticatedPage: page }) => {
     // The "Mehr Optionen" sheet is the mobile bottom navigation's, so this one
-    // assertion needs the phone viewport it is rendered for.
+    // assertion needs the phone viewport it is rendered for – and an Ereignis: «Mehr» holds
+    // only the tools for the open one, so without it the tile is off.
     await page.setViewportSize({ width: 375, height: 667 });
-    await page.goto('/settings');
+    await setupBoard(page, 'Closed Sheet', { count: 0 });
 
     const more = page.locator('button[aria-label="Mehr Optionen"]');
     await more.waitFor({ state: 'visible', timeout: 15000 });

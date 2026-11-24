@@ -851,7 +851,8 @@ export default function SettingsPage() {
   return (
     <ProtectedRoute>
       <div className="flex h-full flex-col bg-background">
-        {/* Header */}
+        {/* Header – no Ereignis pill on a phone: nothing here belongs to the open Ereignis
+            (owner, sign-off 24.11.2026). */}
         <header className="flex items-center justify-between border-b px-4 md:px-6 py-2 min-h-14">
           <div className="flex items-center gap-3">
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">{t('page.title')}</h1>

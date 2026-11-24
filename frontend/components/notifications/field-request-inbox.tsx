@@ -10,6 +10,10 @@
  * the tab the list lives on; its buttons work the request in place, and
  * «Material zuweisen» / «Mannschaft zuweisen» open the board's assignment dialog
  * when the board is the page that is open.
+ *
+ * `readOnly` (the phone's Meldungen sheet): no status buttons and no assignment – the phone board
+ * is read-only (owner, 14.11.2026), and «Abholung disponiert» is irreversible. «Gesehen» stays: it
+ * only closes the bell entry, like ✕.
  */
 
 import { useTranslations } from 'next-intl'
@@ -24,9 +28,11 @@ import { getIncidentLocationLabel } from '@/lib/incident-types'
 export function FieldRequestInbox({
   items,
   onOpenIncident,
+  readOnly = false,
 }: {
   items: OpenFieldRequest[]
   onOpenIncident?: (incidentId: string) => void
+  readOnly?: boolean
 }) {
   const t = useTranslations('feld.requests')
   const { isEditor } = useAuth()
@@ -51,9 +57,9 @@ export function FieldRequestInbox({
           <FieldRequestItem
             key={request.id}
             request={request}
-            canEdit={isEditor}
+            canEdit={isEditor && !readOnly}
             place={getIncidentLocationLabel(operation)}
-            onAssign={assignAction ?? undefined}
+            onAssign={readOnly ? undefined : (assignAction ?? undefined)}
             busy={busyId === request.id}
             onSetStatus={(r, status) => void setStatus(r, status)}
             onMarkSeen={canMarkSeen ? r => void markSeen(r) : undefined}

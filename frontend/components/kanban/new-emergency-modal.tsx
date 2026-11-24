@@ -525,19 +525,18 @@ export function NewEmergencyModal({
       <Sheet open={open} onOpenChange={closeGuard.handleOpenChange}>
         {/* A surface like the desk dialog: the Einsatzort's map picker opens inside the sheet
             as a step (owner pick 5A), not as a centred desk card over it. */}
-        <SheetContent side="bottom" surface={t('common.newIncident')} className="modal-h-tall gap-0 rounded-t-2xl [&>[data-slot=sheet-close]]:top-[29px] [&>[data-slot=sheet-close]]:-translate-y-1/2" onKeyDown={onKeyDown}>
-          {/* HEADER (both forms): the plain title, 18/600, no glyph – the frame of every
-              other dialog and sheet (the assign dialog, the footer sheets). The sentence
-              under it only restated the title, so it is for screen readers alone. 16px to
-              the first field; while typing 4px, the band above the keys is ~350px.
-              The ✕ (44px on a phone, the touch rule) is centred on the title's line box –
-              20px top padding + half of its 18px line = 29px – not hung 9px below it. */}
-          <SheetHeader className="px-4 pt-5 pb-4 pr-12 [:root[data-kb]_&]:pb-1">
-            <SheetTitle className="text-lg leading-none">{t('common.newIncident')}</SheetTitle>
+        <SheetContent side="bottom" surface={t('common.newIncident')} className="modal-h-tall gap-0 p-0 rounded-t-2xl" onKeyDown={onKeyDown}>
+          {/* HEADER: the head frame every phone sheet has (docs/FRONTEND.md «Phone layout»): the
+              plain title 24px in, no glyph, the ✕ plate on its line. The sentence under it only
+              restated the title, so it is for screen readers alone. 16px to the first field; while
+              typing 4px – the band above the keys is ~350px – so the body moves up under the head's
+              12px foot (`-mt-2`) instead of the head losing its frame to a className. */}
+          <SheetHeader>
+            <SheetTitle>{t('common.newIncident')}</SheetTitle>
             <SheetDescription className="sr-only">{t('newEmergency.description')}</SheetDescription>
           </SheetHeader>
-          <SheetBody className="px-4 pb-4">{fields}</SheetBody>
-          <SheetFooter className="mt-0 flex-row gap-2 border-t px-4 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">
+          <SheetBody className="px-6 pt-1 pb-4 [:root[data-kb]_&]:-mt-2 [:root[data-kb]_&]:pt-0">{fields}</SheetBody>
+          <SheetFooter className="mt-0 flex-row gap-2 border-t px-6 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">
             {cancelButton}
             {createButton}
           </SheetFooter>

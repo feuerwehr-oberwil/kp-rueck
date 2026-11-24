@@ -4,7 +4,8 @@
  * The way into the Alarmeingang: an inbox icon in the page header, beside the bell, always
  * there, with the number of NEW alarms (`countNewAlarms`) on it. A toggle – pressed while the
  * sheet is open, a second click closes it. Rendered by `PageNavigation` (desktop header);
- * the phone reaches the same sheet through «Mehr» (`AlarmInboxMenuCount`).
+ * the phone reaches the same sheet through its «Meldungen» sheet (`AlarmInboxMenuCount`), whose
+ * tile counts the new alarms too (`useNewAlarmCount`).
  */
 
 import { useEffect, useState } from 'react'
@@ -29,7 +30,7 @@ const badgeText = (count: number) => (count > 9 ? '9+' : String(count))
  * The number of new alarms, re-counted when the oldest of them turns 24 hours old – on a quiet
  * page nothing else would render the icon again, and the alarm would stay «neu».
  */
-function useNewAlarmCount(): number {
+export function useNewAlarmCount(): number {
   const { emergencies } = useAlarmPool()
   const [now, setNow] = useState(() => Date.now())
   const expiry = nextNewExpiry(emergencies, now)
@@ -70,7 +71,7 @@ function AlarmInboxToggle() {
   )
 }
 
-/** The count beside «Alarmeingang» in the phone's «Mehr» sheet; nothing when none is new. */
+/** The count beside «Alarmeingang» in the phone's «Meldungen» sheet; nothing when none is new. */
 export function AlarmInboxMenuCount({ className }: { className?: string }) {
   const count = useNewAlarmCount()
   if (count === 0) return null

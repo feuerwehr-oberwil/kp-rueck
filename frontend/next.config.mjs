@@ -39,6 +39,11 @@ const nextConfig = {
   },
   output: 'standalone',
 
+  // No «N» dev indicator: in `next dev` it sits in the bottom-left corner, over the phone bottom
+  // nav's first tile (Einsätze), and takes its taps – the E2E suite and a dev on a phone alike.
+  // Build errors still show in the overlay.
+  devIndicators: false,
+
   // Disable ESLint during build (we run it separately in CI)
   eslint: {
     ignoreDuringBuilds: true,

@@ -434,7 +434,7 @@ export function AttendanceModal({
                 the thumb – does not jump while a search narrows the list; with the keyboard up,
                 globals.css sizes it to the visible band instead. */}
             <SheetHeader className="gap-1 px-4 pt-5 pb-3 pr-12">
-              <SheetTitle className="text-lg leading-tight break-words">{title}</SheetTitle>
+              <SheetTitle className="text-lg leading-tight">{title}</SheetTitle>
               <SheetDescription>{summary}</SheetDescription>
             </SheetHeader>
             <div className="flex px-4 pb-2">{searchField}</div>

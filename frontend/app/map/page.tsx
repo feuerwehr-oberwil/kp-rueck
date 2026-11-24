@@ -9,6 +9,7 @@
  * `components/protected-route.tsx` for why and for what actually enforces the role.
  */
 
+import { PhoneEventHead } from '@/components/mobile/phone-event-pill'
 import { IncidentNumber } from "@/components/ui/incident-number"
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
@@ -985,6 +986,9 @@ export default function MapPage() {
           )}
 
         </header>
+
+        {/* The phone frame's head: the Ereignis pill (owner pick 1A). */}
+        <PhoneEventHead />
 
         <div className={`flex flex-1 overflow-hidden ${isMobile ? 'flex-col' : 'flex-row'}`}>
           {/* Map - full height on desktop, ~45vh on mobile so the incident list gets real room */}
