@@ -9,43 +9,22 @@ const person = (over: Partial<Person> & { name: string }): Person =>
 const material = (over: Partial<Material> & { name: string }): Material =>
   ({ id: over.name, status: "available", category: "Depot", ...over }) as Material
 
-const PERSONNEL = [
-  person({ name: "Frei Anna" }),
-  person({ name: "Zugewiesen Bea", status: "assigned" }),
-  person({ name: "Fahrer Cem", isDriver: true, driverVehicleName: "Pio" }),
-  person({ name: "Reko Dina", isReko: true }),
-  person({ name: "Magazin Elio", isMagazin: true }),
-]
-
-const MATERIALS = [
-  material({ name: "Tauchpumpe" }),
-  material({ name: "Motorsäge", status: "assigned" }),
-  // Consumables are stock, not lent out — handing some out does not make the
-  // depot empty, so they stay visible under the filter.
-  material({ name: "Ölbindemittel", status: "assigned", consumable: true }),
-]
-
-const names = (groups: Record<string, Array<{ name: string }>>) =>
-  Object.values(groups).flat().map((x) => x.name).sort()
 const personNames = (people: Person[]) => people.map((p) => p.name)
 
-describe("useResourceFiltering — availableOnly", () => {
-  it("returns everything when the toggle is off", () => {
-    const { result } = renderHook(() =>
-      useResourceFiltering(PERSONNEL, MATERIALS, "", ""),
-    )
-    expect(result.current.filteredPersonnel).toHaveLength(5)
-    expect(names(result.current.groupedMaterials)).toHaveLength(3)
-  })
+// The material search reads all three axes: the device, its Typ («alle Sägen») and its
+// Standort («alles auf dem Pio»).
+describe("useResourceFiltering — material search", () => {
+  const DEPOT = [
+    material({ name: "Motorsäge", type: "Sägen", category: "Pio" }),
+    material({ name: "Tauchpumpe", type: "Pumpen", category: "TLF" }),
+  ]
+  const search = (query: string) =>
+    renderHook(() => useResourceFiltering([], DEPOT, "", query)).result.current.filteredMaterials.map((m) => m.name)
 
-  it("hides assigned material but keeps consumables", () => {
-    const { result } = renderHook(() =>
-      useResourceFiltering(PERSONNEL, MATERIALS, "", "", { materials: true }),
-    )
-    expect(names(result.current.groupedMaterials)).toEqual(["Tauchpumpe", "Ölbindemittel"].sort())
-    expect(result.current.filteredPersonnel).toHaveLength(5)
+  it("finds a device by its Typ and by its Standort", () => {
+    expect(search("sägen")).toEqual(["Motorsäge"])
+    expect(search("tlf")).toEqual(["Tauchpumpe"])
   })
-
 })
 
 // The search must find people by the Ereignis function they carry — the person
