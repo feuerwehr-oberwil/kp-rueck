@@ -13,8 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Button, buttonVariants } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 import { useFocusOnEnable } from '@/lib/hooks/use-focus-on-enable'
 import { ShellLoader } from '@/components/ui/shell-loader'
 import { SubjectLine, type Subject } from '@/components/ui/subject-line'
@@ -205,7 +204,7 @@ export function ConfirmDialog({
               void answer('confirm', onConfirm)
             }}
             disabled={busy !== null || confirmDisabled !== false}
-            className={cn(buttonVariants({ variant }))}
+            variant={variant}
           >
             {busy === 'confirm' || confirmDisabled === 'waiting' ? (
               <ShellLoader className="mr-2 h-4 w-4" />

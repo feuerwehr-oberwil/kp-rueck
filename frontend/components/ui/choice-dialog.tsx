@@ -12,7 +12,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { buttonVariants } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { ShellLoader } from '@/components/ui/shell-loader'
 import { cn } from '@/lib/utils'
@@ -128,7 +127,7 @@ export function ChoiceDialog({
         </div>
         <AlertDialogFooter className="items-center sm:justify-between">
           <span className="text-xs text-muted-foreground max-md:hidden">{t('cancelHint')}</span>
-          <AlertDialogCancel disabled={busy !== null} className={cn(buttonVariants({ variant: 'default' }))}>
+          <AlertDialogCancel disabled={busy !== null} variant="default">
             {cancelText ?? t('cancel')}
             <Kbd aria-hidden className="bg-transparent text-current opacity-80 max-md:hidden">{t('enterKey')}</Kbd>
           </AlertDialogCancel>

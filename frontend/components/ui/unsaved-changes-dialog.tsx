@@ -11,8 +11,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 interface UnsavedChangesDialogProps {
   open: boolean;
@@ -48,7 +46,7 @@ export function UnsavedChangesDialog({
               event.preventDefault();
               onConfirm();
             }}
-            className={cn(buttonVariants({ variant: "destructive" }))}
+            variant="destructive"
           >
             {confirmText ?? t("confirm")}
           </AlertDialogAction>

@@ -33,4 +33,21 @@ describe('ChoiceDialog', () => {
     expect(cards).not.toContainElement(screen.getByRole('button', { name: 'Abbrechen' }))
     expect(cards).not.toContainElement(screen.getByText('Doppelbelegung'))
   })
+
+  // Sign-off 24.11.2026: the outline Cancel's `dark:bg-input/30` survived under the ink class –
+  // dark text on a dark fill. Abbrechen is the plain ink button in both themes.
+  it('draws Abbrechen as the ink main button, without the outline variant\'s dark fill', () => {
+    renderWithIntl(
+      <ChoiceDialog
+        title="Doppelbelegung"
+        description="TLF ist schon im Einsatz."
+        choices={[choice('v', 'Hierher verschieben'), choice('b', 'Auf beiden führen')]}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    const cancel = screen.getByRole('button', { name: /Abbrechen/ })
+    expect(cancel).toHaveClass('bg-action', 'text-action-foreground')
+    expect(cancel.className).not.toMatch(/dark:bg-input/)
+  })
 })
