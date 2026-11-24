@@ -11,7 +11,8 @@
  * **The next step sits in a fixed footer** (6C, phone sweep 24.11.2026): the
  * chain in the card shows where the crew is, the footer (`LinkPageFooter`)
  * holds the one button for the step owed now, on screen however far the page
- * scrolls.
+ * scrolls. On the Rapport step that button is the Rapport form's own «Rapport
+ * abschliessen», put into the footer's slot (`rapportSubmitSlot`).
  *
  * **Angekommen and Einsatz beendet ask first (§18.18).** A misplaced tap on a
  * wet phone cannot be undone from the field — only the KP can clear either of
@@ -35,7 +36,6 @@ import {
   CarTaxiFront,
   Check,
   AlertCircle,
-  FileText,
   Flag,
   MapPin,
   MessageSquare,
@@ -107,9 +107,11 @@ export interface FeldActionsProps {
   onSent?: () => void
   /** Report the new server state up so the list row re-renders. */
   onReported: (state: ApiFieldReportState) => void
-  /** Scroll to / open the rapport form further down the page. When absent the
-   *  rapport step stays a passive pointer (the form is not on this page). */
-  onOpenRapport?: () => void
+  /** The Rapport form is on this page: on the Rapport step the footer holds this slot, and
+   *  the form puts its own «Rapport abschliessen» into it (`FeldRapportForm` `submitSlot`) –
+   *  one button, the form's submit with its checks. When absent the rapport step stays a
+   *  passive pointer (the form is not on this page). */
+  rapportSubmitSlot?: (slot: HTMLDivElement | null) => void
 }
 
 function toDate(value: string | null): Date | null {
@@ -126,7 +128,7 @@ export function FeldActions({
   requestMaterials = [],
   onSent,
   onReported,
-  onOpenRapport,
+  rapportSubmitSlot,
 }: FeldActionsProps) {
   const t = useTranslations('feld.actions')
   const tPickup = useTranslations('feld.pickup')
@@ -439,14 +441,10 @@ export function FeldActions({
       {t('retry')}
     </Button>
   ) : current?.key === 'rapport' ? (
-    onOpenRapport ? (
-      /* The one step whose form lives on this page: the button carries the eye
-         there (the form scrolls to its Kurzbericht and puts the caret in it). */
-      <Button size="lg" className="h-12 w-full" onClick={onOpenRapport}>
-        <FileText className="size-4" />
-        {t('rapportAction')}
-      </Button>
-    ) : null
+    /* The one step whose form lives on this page: the form's own «Rapport abschliessen»
+       lands here (owner pick, sign-off #387 – one button, not a «Rapport erfassen» that
+       only scrolled to a second one). */
+    rapportSubmitSlot ? <div ref={rapportSubmitSlot} data-slot="rapport-submit-slot" /> : null
   ) : current ? (
     <Button
       ref={takeReturnedFocus}
@@ -560,7 +558,7 @@ export function FeldActions({
                       {step.doneLabel}
                       {step.time ? <span className="tabular-nums"> · {step.time}</span> : null}
                     </p>
-                  ) : isCurrent && (step.key !== 'rapport' || onOpenRapport) ? (
+                  ) : isCurrent && (step.key !== 'rapport' || rapportSubmitSlot) ? (
                     /* The step owed now. Its button is in the fixed footer (6C, phone
                        sweep 24.11.2026), so the chain only points there. */
                     <p className="pt-px text-base font-semibold">

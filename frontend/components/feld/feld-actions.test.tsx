@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { ApiFeldAssignment, ApiFieldReportState, ApiFieldRequest } from '@/lib/api/types'
@@ -216,6 +216,29 @@ describe('the status footer', () => {
     expect(screen.getByText('Angekommen melden?')).toHaveFocus()
     await user.click(screen.getByRole('button', { name: 'Abbrechen' }))
     expect(screen.getByRole('button', { name: 'Angekommen melden' })).toHaveFocus()
+  })
+
+  it('hands the Rapport form its slot on the Rapport step – no button of its own there', () => {
+    const slot = vi.fn()
+    renderWithIntl(
+      <FeldActions
+        assignment={assignment({
+          arrived_at: '2026-08-09T20:00:00Z',
+          field_complete_reported_at: '2026-08-09T21:00:00Z',
+          rapport_state: 'draft',
+        })}
+        personnelId="p-1"
+        token="tok"
+        messageChips={[]}
+        onReported={vi.fn()}
+        rapportSubmitSlot={slot}
+      />,
+    )
+    const footer = document.querySelector('[data-slot="link-page-footer"]') as HTMLElement
+    expect(footer).toHaveTextContent('Nächster Schritt · 3 von 3')
+    expect(slot).toHaveBeenLastCalledWith(footer.querySelector('[data-slot="rapport-submit-slot"]'))
+    expect(slot.mock.lastCall?.[0]).not.toBeNull()
+    expect(within(footer).queryByRole('button', { name: /Rapport/ })).toBeNull()
   })
 
   it('is not there for somebody who only drives – they report no status', () => {

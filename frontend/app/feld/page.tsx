@@ -277,16 +277,12 @@ function FeldSurface() {
   const [selectedPerson, setSelectedPerson] = useState<ApiFeldPersonnel | null>(null)
   const [assignments, setAssignments] = useState<ApiFeldAssignment[]>([])
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
-  // «Rapport erfassen» on the journey: each increment scrolls to the Kurzbericht
-  // and focuses it. Reset on incident switch so a remounted form does not
-  // steal focus from somebody who merely opened another Schadenplatz.
-  const [rapportFocusSignal, setRapportFocusSignal] = useState(0)
+  // The fixed footer's slot for the Rapport form's «Rapport abschliessen» (FeldActions hands
+  // it over on the Rapport step; null while the footer shows another step or none).
+  const [rapportSubmitSlot, setRapportSubmitSlot] = useState<HTMLDivElement | null>(null)
   // The detail's address heading — when it has scrolled under the top bar,
   // `FeldPlaceLine` takes its place (owner pick 2A, 24.11.2026).
   const placeHeaderRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    setRapportFocusSignal(0)
-  }, [selectedIncidentId])
   const [eventName, setEventName] = useState<string>('')
   const [eventStartedAt, setEventStartedAt] = useState<string | null>(null)
   const intlLocale = useIntlLocale()
@@ -1403,15 +1399,10 @@ function FeldSurface() {
                 // A sent request shows up in «Angefordert» at once, not on the next poll.
                 onSent={() => loadAssignments(selectedPerson.personnel_id, { silent: true })}
                 onReported={applyFieldReport}
-                // The journey's third step: carries the eye to the form below
-                // — only when that form is actually mounted on this page.
-                // The form scrolls to its Kurzbericht, rings it and puts the
-                // caret in it (`focusKurzberichtSignal`).
-                onOpenRapport={
-                  assignmentRapportApplies(selectedAssignment)
-                    ? () => setRapportFocusSignal(signal => signal + 1)
-                    : undefined
-                }
+                // The journey's third step: the footer holds the form's own
+                // «Rapport abschliessen» – only when that form is actually
+                // mounted on this page.
+                rapportSubmitSlot={assignmentRapportApplies(selectedAssignment) ? setRapportSubmitSlot : undefined}
               />
             )}
 
@@ -1464,7 +1455,7 @@ function FeldSurface() {
                   <FeldRapportForm
                     key={selectedAssignment.incident_id}
                     incidentId={selectedAssignment.incident_id}
-                    focusKurzberichtSignal={rapportFocusSignal}
+                    submitSlot={rapportSubmitSlot}
                     transport={{
                       load: () =>
                         apiClient.getFeldRapport(selectedAssignment.incident_id, selectedPerson.personnel_id, token),
