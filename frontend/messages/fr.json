@@ -1568,7 +1568,6 @@
       "trainingMode": "Mode exercice",
       "messageLabel": "Annonce",
       "messagePlaceholder": "p. ex. feu à la cave",
-      "priorityLabel": "Priorité",
       "typeLabel": "Genre d’intervention",
       "typeSearchPlaceholder": "Rechercher un genre d’intervention …",
       "typeNotFound": "Aucun genre d’intervention trouvé.",
@@ -1600,8 +1599,7 @@
       "correctError": "La correction n’a pas été transmise – les données restent dans le formulaire.",
       "receiptTitle": "L'alarme est au PC",
       "receiptMeta": "{eventName} · {time}",
-      "hintsCorrectionHelp": "Les compléments s'ajoutent – ce qui est déjà au PC reste tel quel.",
-      "detailsToggle": "Compléter les détails"
+      "hintsCorrectionHelp": "Les compléments s'ajoutent – ce qui est déjà au PC reste tel quel."
     },
     "checkin": {
       "retrying": "Connexion interrompue",
@@ -2699,6 +2697,7 @@
       "searchPlaceholder": "Adresse …",
       "searching": "Recherche en cours …",
       "noResults": "Aucune adresse trouvée.",
+      "searchUnavailable": "Recherche d'adresse indisponible.",
       "useFreetext": "Reprendre « {query} »",
       "freetextNote": "Comme texte libre, sans coordonnées",
       "minChars": "Saisis au moins 3 caractères",
