@@ -1,12 +1,16 @@
 import type { Viewport } from 'next'
 
 /** The command board owns its touch gestures. Public forms and help override the viewport
- * in their route layout and opt back into browser magnification via data-page-zoom. */
+ * in their route layout and opt back into browser magnification via data-page-zoom.
+ * `viewportFit: 'cover'` switches the `env(safe-area-inset-*)` paddings on (iOS reports 0 without
+ * it): the nav, the sheet feet and the public pages pad for the home indicator themselves
+ * (phone sweep 24.11.2026 #14; KP Front's index.html). */
 export const APP_VIEWPORT: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: 'cover',
 }
 
 /** Where a pinch is the content's own: every MapLibre map (`base-map.tsx` and the pickers). */

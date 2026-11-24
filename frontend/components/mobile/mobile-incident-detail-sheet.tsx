@@ -63,6 +63,9 @@ interface MobileIncidentDetailSheetProps {
   target?: DetailTarget
   materials: Material[]
   formatLocation: (address: string) => string
+  /** Opened ON the Lagekarte: «Auf Karte anzeigen» closes the sheet and the map flies to the
+   *  marker (the caller does both). Without it the button goes to `/map?highlight=`. */
+  onShowOnMap?: (incidentId: string) => void
 }
 
 export function MobileIncidentDetailSheet({
@@ -72,6 +75,7 @@ export function MobileIncidentDetailSheet({
   target,
   materials,
   formatLocation,
+  onShowOnMap,
 }: MobileIncidentDetailSheetProps) {
   const t = useTranslations('incidents')
   const tColumns = useTranslations('kanban.columns')
@@ -80,6 +84,10 @@ export function MobileIncidentDetailSheet({
   const tKanban = useTranslations('kanban')
   const { selectedEvent } = useEvent()
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
+  // The detail button that opened the sheet (`data-detail-opener`, on the phone card and the
+  // Lagekarte row), read when the sheet takes the focus: a controlled sheet has no Radix trigger
+  // to give it back to on close. Only that button: a field focused earlier would pop the keyboard.
+  const openerRef = useRef<HTMLElement | null>(null)
 
   // Land on the block the opener pointed at: the body scrolls so the block's top sits 16px under
   // the header rule. `target` is a new object per request, so a repeat request scrolls again; one
@@ -126,6 +134,15 @@ export function MobileIncidentDetailSheet({
         // No description line: it used to print the Einsatz-ID (two lines of UUID) under the
         // title — a database key nobody on a phone reads, says or types.
         aria-describedby={undefined}
+        onOpenAutoFocus={() => {
+          openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+        }}
+        onCloseAutoFocus={(event) => {
+          const opener = openerRef.current
+          if (!opener?.isConnected || !opener.matches("[data-detail-opener]")) return
+          event.preventDefault()
+          opener.focus({ preventScroll: true })
+        }}
         // The frame every phone sheet has (new-emergency-modal.tsx): header, a body that
         // scrolls, a foot that stays. It covers the nav, so the foot pays only the safe
         // area (`pb-sheet-safe`). One sheet-long scroller used to leave «Auf Karte
@@ -397,12 +414,19 @@ export function MobileIncidentDetailSheet({
         {/* The one way on from here, in the foot that stays: never on the screen's edge,
             never scrolled away. The same foot frame as «Neuer Einsatz». */}
         <SheetFooter className="mt-0 border-t px-4 pt-3 pb-sheet-safe">
-          <Link href={`/map?highlight=${operation.id}`} onClick={() => onOpenChange(false)}>
-            <Button variant="outline" size="lg" className="w-full gap-2">
+          {onShowOnMap ? (
+            <Button variant="outline" size="lg" className="w-full gap-2" onClick={() => onShowOnMap(operation.id)}>
               <MapIcon className="h-4 w-4" />
               {t('mobileDetail.showOnMap')}
             </Button>
-          </Link>
+          ) : (
+            <Link href={`/map?highlight=${operation.id}`} onClick={() => onOpenChange(false)}>
+              <Button variant="outline" size="lg" className="w-full gap-2">
+                <MapIcon className="h-4 w-4" />
+                {t('mobileDetail.showOnMap')}
+              </Button>
+            </Link>
+          )}
         </SheetFooter>
       </SheetContent>
       </PhotoViewerProvider>

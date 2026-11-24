@@ -507,6 +507,27 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    /* `viewport-fit=cover` (lib/zoom-lock.ts) hands the page the notch's side bands in
+       landscape; the browser used to letterbox them. The content stays clear of them, the
+       background runs under. 0 in portrait. */
+    padding-inline: env(safe-area-inset-left, 0px) env(safe-area-inset-right, 0px);
+  }
+  /* …and the board's shell, which is `fixed inset-0` (app-shell.tsx) and so never sees the
+     body's padding. Its background still runs under the bands. */
+  [data-slot='app-shell'] {
+    padding-inline: env(safe-area-inset-left, 0px) env(safe-area-inset-right, 0px);
+  }
+
+  /* A held finger on a command opens no iOS link preview and starts no text selection (phone
+     sweep 24.11.2026 #26): buttons and the bottom tab bar (`select-none` on the nav) only. Text
+     people copy – the Meldung, an address, a phone number – stays selectable. */
+  @media (pointer: coarse) {
+    button,
+    [data-slot='button'] {
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
   }
 
   /* Tailwind 4's preflight dropped the browser's `cursor: pointer` on buttons,
@@ -701,10 +722,8 @@
        `[role="switch"]` is excluded: a Radix Switch renders a <button>, so this
        rule squared it into a 44x44 blob wherever one appeared on a phone. A
        switch is not a tap-anywhere target — its ROW is, and the rows that carry
-       one are labels wrapping the whole thing. The Radix Checkbox (also a
-       <button>) is excluded for the same reason: it became a 44x44 empty dark
-       square with a small tick (VIS.8). */
-    button:not([role="switch"]):not([data-slot="checkbox"]),
+       one are labels wrapping the whole thing. */
+    button:not([role="switch"]):not([role="checkbox"]),
     a,
     [role="button"],
     .interactive-element {
@@ -712,16 +731,24 @@
       min-width: 44px;
     }
 
-    /* …and its 44px TARGET is the label around it, a real box in the layout.
-       A grouped option (print sheet, Divera recipients) is a label row; a lone
-       table checkbox (Einstellungen → Fahrzeuge, «Nicht einsatzbereit») gets
-       a label of its own. An invisible overhang around the 16px box overlapped
-       the next option in a dense list, so the target takes up its space. Both
-       dimensions here, at this one breakpoint: a call site's `max-md:` stops
-       at 767px, this rule at 768px. */
-    label:has([data-slot="checkbox"]) {
+    /* A checkbox keeps its 16px box and gets the 44px as an invisible hit area around it (phone
+       sweep 24.11.2026 #13): under the rule above it swelled into a 44px square – six filled
+       blue blocks stacked in «Drucken». Its row is held at 44px too, so the hit areas of two
+       rows never overlap and the row keeps the height it had. The label beside it still ticks
+       it (`htmlFor`). */
+    [data-slot="checkbox"] {
+      position: relative;
+    }
+    [data-slot="checkbox"]::after {
+      content: "";
+      position: absolute;
+      inset: 50% auto auto 50%;
+      width: 44px;
+      height: 44px;
+      translate: -50% -50%;
+    }
+    :has(> [data-slot="checkbox"]) {
       min-height: 44px;
-      min-width: 44px;
     }
 
     /* Improve tap targets for small UI elements */
@@ -981,43 +1008,6 @@
     animation: check-appear 0.18s ease-out;
   }
 
-  /* Staggered fade-in for list items */
-  @keyframes stagger-fade-in {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .animate-stagger-fade-in {
-    animation: stagger-fade-in 0.3s ease-out forwards;
-  }
-
-  /* Apply stagger delays */
-  .stagger-delay-1 {
-    animation-delay: 0.05s;
-  }
-
-  .stagger-delay-2 {
-    animation-delay: 0.1s;
-  }
-
-  .stagger-delay-3 {
-    animation-delay: 0.15s;
-  }
-
-  .stagger-delay-4 {
-    animation-delay: 0.2s;
-  }
-
-  .stagger-delay-5 {
-    animation-delay: 0.25s;
-  }
-
   /* Search input focus glow */
   @keyframes search-focus {
     0% {
@@ -1030,22 +1020,6 @@
 
   .animate-search-focus {
     animation: search-focus 0.3s ease-out;
-  }
-
-  /* Category header fade-in */
-  @keyframes category-fade {
-    from {
-      opacity: 0;
-      transform: translateX(-8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
-  }
-
-  .animate-category-fade {
-    animation: category-fade 0.4s ease-out forwards;
   }
 
   /* Bottom sheet slide up */
@@ -1069,9 +1043,7 @@
     .animate-wiggle,
     .animate-scale-in,
     .animate-check-appear,
-    .animate-stagger-fade-in,
     .animate-search-focus,
-    .animate-category-fade,
     .animate-sheet-slide-up,
     .dragging,
     .drop-zone-active {
@@ -1568,9 +1540,20 @@ html:not(:has([data-page-zoom])) {
    use (0 … p-6). A caller's padding cannot remove it, which is why it is not a utility on the
    header: most call sites pass `p-0`. Centred phone headers get the same on the start side so
    the title stays centred. Unlayered on purpose, so it beats the utilities. */
-[data-slot='dialog-content']:has(> [data-slot='dialog-close']) [data-slot='dialog-header'],
+[data-slot='dialog-content']:has(> [data-slot='dialog-close']) [data-slot='dialog-header'] {
+  padding-inline-end: 2.5rem;
+}
+/* A sheet's head ends clear of the ✕'s plate (phone sweep 24.11.2026 #30): the plate's edge
+   inset, the 36px plate, 8px of air – measured from the sheet's edge, for a head that spans the
+   sheet (the frame, a `px-4` picker head). A footer sheet's head stands inside its `px-6`
+   content and says so with `--head-clear` (footer-sheet.tsx). */
 [data-slot='sheet-content']:has(> [data-slot='sheet-close']) [data-slot='sheet-header'] {
   padding-inline-end: 2.5rem;
+}
+@media (max-width: 767.98px) {
+  [data-slot='sheet-content'][data-side='bottom']:has(> [data-slot='sheet-close']) [data-slot='sheet-header'] {
+    padding-inline-end: var(--head-clear, calc(var(--close-edge) + 2.75rem));
+  }
 }
 @media (max-width: 639px) {
   [data-slot='dialog-content']:has(> [data-slot='dialog-close']) [data-slot='dialog-header'] {
@@ -1596,6 +1579,14 @@ html:not(:has([data-page-zoom])) {
     --close-edge: 1rem;
     --close-centre: 32px;
   }
+  /* A sheet with the head frame: the title stands 24px from the side and its line centres 30px
+     down (pt-4 + the 28px title line), so the ✕ mirrors it. */
+  @media (max-width: 767.98px) {
+    [data-slot='sheet-content'][data-side='bottom']:has(> [data-slot='sheet-header'][data-frame]) {
+      --close-edge: 1.5rem;
+      --close-centre: 30px;
+    }
+  }
   [data-slot='dialog-close'],
   [data-slot='sheet-close'] {
     --close-box: 32px;
@@ -1607,5 +1598,28 @@ html:not(:has([data-page-zoom])) {
     [data-slot='sheet-close'] {
       --close-box: 44px;
     }
+  }
+}
+
+/* The phone sheet ✕ (phone sweep 24.11.2026 #30, KP Front's `.ip-x`): an 18px glyph on a 36px
+   muted plate, inside the 44px hit box. The plate is the box's content area
+   (`background-clip`), so hover and the press wash fill the plate, not the 44px pad, and the
+   PLATE ends on `--close-edge` – as far from the edge as the title from the other side.
+   Unlayered: it beats CORNER_CLOSE_CLASS's 16px glyph and ghost hover. Phone bottom sheets only,
+   on the layout's own breakpoint (a 768px window shows the desk's side sheets). */
+@media (max-width: 767.98px) {
+  [data-side='bottom'] > [data-slot='sheet-close'] {
+    /* above the grip strip (z-raised), whose 20px reach into the box's top */
+    z-index: calc(var(--z-index-raised) + 1);
+    inset-inline-end: calc(var(--close-edge) - 4px);
+    padding: 4px;
+    border-radius: 16px;
+    background-clip: content-box;
+    background-color: var(--muted);
+    color: var(--muted-foreground);
+  }
+  [data-side='bottom'] > [data-slot='sheet-close'] svg {
+    width: 18px;
+    height: 18px;
   }
 }

@@ -94,14 +94,68 @@ describe('bottom Sheet swipe-to-dismiss', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
-  it('never drags from a control', () => {
+  // A row is a handle (phone sweep 24.11.2026 #10, KP Front's swipeDismiss rule 3): Mehr and
+  // Personal are all rows, and a pull that started on one used to do nothing.
+  it('closes on a pull that starts on a row, and swallows the click the pull ends in', () => {
+    const onOpenChange = vi.fn()
+    const onRow = vi.fn()
+    renderWithIntl(
+      <BottomSheet onOpenChange={onOpenChange}>
+        <button type="button" onClick={onRow}>Fahrzeuge</button>
+      </BottomSheet>,
+    )
+    const row = screen.getByRole('button', { name: 'Fahrzeuge' })
+    pull(row, 100, 400)
+    fireEvent.click(row, { detail: 1 })
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+    expect(onRow).not.toHaveBeenCalled()
+  })
+
+  it('keeps a tap on a row a tap', () => {
+    const onOpenChange = vi.fn()
+    const onRow = vi.fn()
+    renderWithIntl(
+      <BottomSheet onOpenChange={onOpenChange}>
+        <button type="button" onClick={onRow}>Fahrzeuge</button>
+      </BottomSheet>,
+    )
+    const row = screen.getByRole('button', { name: 'Fahrzeuge' })
+    pull(row, 100, 104, 2)
+    fireEvent.click(row)
+    expect(onRow).toHaveBeenCalledOnce()
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  // …nor from a Select (a combobox button) or a menu trigger, which acts on the press itself
+  it.each([
+    ['a field', <input key="f" aria-label="Ziel" />],
+    ['a Select', <button key="s" type="button" role="combobox" aria-controls="x" aria-expanded={false} aria-label="Ziel" />],
+    ['a menu trigger', <button key="m" type="button" aria-haspopup="menu" aria-label="Ziel" />],
+  ])('never drags from %s', (_, control) => {
+    const onOpenChange = vi.fn()
+    renderWithIntl(<BottomSheet onOpenChange={onOpenChange}>{control}</BottomSheet>)
+    pull(screen.getByLabelText('Ziel'), 100, 400)
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  it('leaves a list at its top inside a scrolled-down body to the body', () => {
     const onOpenChange = vi.fn()
     renderWithIntl(
       <BottomSheet onOpenChange={onOpenChange}>
-        <button type="button">Fahrzeuge</button>
+        <div data-testid="body" style={{ overflowY: 'auto' }}>
+          <div data-testid="list" style={{ overflowY: 'auto' }}>
+            <p>Zeile</p>
+          </div>
+        </div>
       </BottomSheet>,
     )
-    pull(screen.getByRole('button', { name: 'Fahrzeuge' }), 100, 400)
+    for (const id of ['body', 'list']) {
+      const el = screen.getByTestId(id)
+      Object.defineProperty(el, 'scrollHeight', { configurable: true, value: 900 })
+      Object.defineProperty(el, 'clientHeight', { configurable: true, value: 300 })
+    }
+    screen.getByTestId('body').scrollTop = 200
+    pull(screen.getByText('Zeile'), 100, 400)
     expect(onOpenChange).not.toHaveBeenCalled()
   })
 
