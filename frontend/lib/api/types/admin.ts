@@ -102,6 +102,77 @@ export interface ApiTrainingLocation {
   is_active: boolean
 }
 
+/** The training Automatik (`GET /api/training/autogen`): the switch, and its run – the Übung it
+ *  feeds, since when (the «heisse Phase» counts from there), and `stopped: 'max'` once it switched
+ *  itself off at the maximum. `run` is null before the first start. */
+export interface ApiAutogenState {
+  enabled: boolean
+  run: { event_id: string; started_at: string; stopped: 'max' | null } | null
+}
+
+/** Übungstempo of the Regie: scales the Autopilot's dwell times, the Automatik interval and
+ *  the GPS drive speed (Ruhig 0.5 · Normal 1 · Sturm 2). */
+export type ApiRegieTempo = 'ruhig' | 'normal' | 'sturm'
+
+/** One field step of an incident, the server's lifecycle (primary first). */
+export type ApiRegieStepKey =
+  | 'reko_arrived'
+  | 'reko_report'
+  | 'drive_to_incident'
+  | 'vehicle_on_scene'
+  | 'field_complete'
+  | 'drive_to_magazin'
+  | 'rapport'
+
+export interface ApiRegieStep {
+  incident_id: string
+  key: ApiRegieStepKey
+  /** When the Autopilot runs it; null while held, Mitspieler or unknown. */
+  due_at: string | null
+  /** A GPS drive for this step is under way. */
+  rolling: boolean
+  /** 0..1 of the slowest drive, while rolling. */
+  progress: number | null
+  eta_seconds: number | null
+}
+
+export interface ApiRegieIncident {
+  incident_id: string
+  held: boolean
+  /** Somebody on its crew plays along on /feld: the Autopilot leaves it alone. */
+  mitspieler: boolean
+  steps: ApiRegieStep[]
+}
+
+/** One line of «Vorhin»: what the Regie did, newest first. `text` is German (server-built). */
+export interface ApiRegieHistoryItem {
+  at: string
+  incident_id: string | null
+  text: string
+  by: 'autopilot' | 'trainer'
+}
+
+/** `GET /api/training/events/{id}/regie`: the Übungs-Steuerung's whole state, computed on read. */
+export interface ApiRegieState {
+  event_id: string
+  autopilot: boolean
+  tempo: ApiRegieTempo
+  paused_at: string | null
+  /** First switch-on of Autopilot or Automatik – the «Übung läuft · m:ss» clock. */
+  started_at: string | null
+  /** Un-paused seconds since `started_at` when this state was computed. */
+  running_seconds: number | null
+  automatik: ApiAutogenState
+  /** When the Automatik raises its next alarm; null while off or paused. */
+  automatik_next_at: string | null
+  /** Every open incident of the Übung, plus completed ones that still owe a Rapport. */
+  incidents: ApiRegieIncident[]
+  history: ApiRegieHistoryItem[]
+  /** False in demo mode: no simulated drives. */
+  gps_available: boolean
+  magazin_configured: boolean
+}
+
 /** One simulated Schadenplatz-Rapport, as the Übungssteuerung reports it back
  *  (plan 25 §16). `filed_by` is null when the incident had nobody assigned and
  *  the KP had to enter it – the honest provenance for that case. */
