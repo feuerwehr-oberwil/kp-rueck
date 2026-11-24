@@ -42,6 +42,7 @@ import { BELOW_LINK_PAGE_HEADER_CLASS, LinkPageHeader } from '@/components/link-
 import { FeldIdentityBar, clearFeldName, formatEventDay, writeFeldName } from '@/components/feld/feld-identity-bar'
 import { FeldMaterialTable } from '@/components/feld/feld-material-table'
 import { FeldMeldenSheet } from '@/components/feld/feld-melden-sheet'
+import { FeldPlaceLine } from '@/components/feld/feld-place-line'
 import { FeldRapportForm } from '@/components/feld/feld-rapport-form'
 import { Button } from '@/components/ui/button'
 import { PlannedTimePicker } from '@/components/attendance/planned-time'
@@ -266,10 +267,13 @@ function FeldSurface() {
   const [selectedPerson, setSelectedPerson] = useState<ApiFeldPersonnel | null>(null)
   const [assignments, setAssignments] = useState<ApiFeldAssignment[]>([])
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
-  // «Rapport erfassen» on the journey: each increment unfolds the Kurzbericht
+  // «Rapport erfassen» on the journey: each increment scrolls to the Kurzbericht
   // and focuses it. Reset on incident switch so a remounted form does not
   // steal focus from somebody who merely opened another Schadenplatz.
   const [rapportFocusSignal, setRapportFocusSignal] = useState(0)
+  // The detail's address heading — when it has scrolled under the top bar,
+  // `FeldPlaceLine` takes its place (owner pick 2A, 24.11.2026).
+  const placeHeaderRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     setRapportFocusSignal(0)
   }, [selectedIncidentId])
@@ -1175,6 +1179,14 @@ function FeldSurface() {
         </FeldIdentityBar>
 
         <div className="max-w-md mx-auto p-4">
+          {/* «6  Goldenthalweg 21 · Elementarereignis» under the top bar once
+              the header below has scrolled away. Zero height in the flow. */}
+          <FeldPlaceLine
+            number={selectedAssignment.number}
+            address={headline}
+            type={getIncidentTypeLabel(selectedAssignment.incident_type)}
+            headerRef={placeHeaderRef}
+          />
 
           {/* The detail is a STACK OF SECTIONS, not one form: plans 13 and 24
               mount here too, and the later phases of plan 25 add the actions,
@@ -1186,7 +1198,7 @@ function FeldSurface() {
               {/* The headline has the card's full width: the rapport chip beside it
                   squeezed «Mühlemattstrasse 18» onto two lines and wrapped
                   itself to «kein / Rapport» (after-shots, 14.11.2026). */}
-              <div className="mb-2">
+              <div ref={placeHeaderRef} className="mb-2">
                 {/* The page's h1. The address leads because that is what a crew
                     standing on a street matches against; the Einsatzart and the
                     title follow on the line under it. */}
@@ -1308,16 +1320,11 @@ function FeldSurface() {
                 onReported={applyFieldReport}
                 // The journey's third step: carries the eye to the form below
                 // — only when that form is actually mounted on this page.
+                // The form scrolls to its Kurzbericht, rings it and puts the
+                // caret in it (`focusKurzberichtSignal`).
                 onOpenRapport={
                   assignmentRapportApplies(selectedAssignment)
-                    ? () => {
-                        document
-                          .getElementById('feld-rapport-section')
-                          ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                        // …and open the Kurzbericht with the caret in it — a
-                        // scroll to a page of folded blocks was half the trip.
-                        setRapportFocusSignal(signal => signal + 1)
-                      }
+                    ? () => setRapportFocusSignal(signal => signal + 1)
                     : undefined
                 }
               />
@@ -1364,7 +1371,7 @@ function FeldSurface() {
               </section>
             )}
             {token && selectedPerson && assignmentRapportApplies(selectedAssignment) && (
-              <section id="feld-rapport-section" className="scroll-mt-4 space-y-3">
+              <section className="space-y-3">
                 <h2 className="type-label px-1 text-muted-foreground">{t('detail.rapportTitle')}</h2>
                 <FeldRapportForm
                   key={selectedAssignment.incident_id}

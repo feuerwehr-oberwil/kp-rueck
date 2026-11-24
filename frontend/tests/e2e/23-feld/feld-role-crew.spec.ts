@@ -174,11 +174,10 @@ test.describe('/feld — die eigene Zuteilung (crew)', () => {
       // privilege. Asserted here to prove the grid is four wide, not three.
       await expect(phone.getByRole('button', { name: 'Meldung an den KP', exact: true })).toBeVisible();
 
-      // The Rapport itself — the Schadenplatz is dispatched, so it is owed. The
-      // fold block and the field's own "I am done": the `/feld` mount is the
+      // The Rapport itself — the Schadenplatz is dispatched, so it is owed. One
+      // open card and the field's own "I am done": the `/feld` mount is the
       // ONLY one carrying that button since §18.17, so its presence is what says
       // the crew got the real form rather than the KP's autosaving one.
-      await feld.openRapportSection('Kurzbericht');
       await expect(feld.kurzberichtField).toBeVisible();
       await expect(feld.submitRapportButton).toBeVisible();
       await expect(phone.getByText(NOT_DISPATCHED)).toHaveCount(0);

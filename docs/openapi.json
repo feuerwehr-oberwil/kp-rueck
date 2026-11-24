@@ -27985,6 +27985,17 @@
             "type": "array",
             "title": "Vehicle Candidates",
             "default": []
+          },
+          "vehicle_drivers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "format": "uuid"
+            },
+            "type": "object",
+            "title": "Vehicle Drivers",
+            "default": {}
           }
         },
         "type": "object",

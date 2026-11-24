@@ -42,7 +42,7 @@ from .rapport_reconcile import (
     reconcile_vehicles,
 )
 from .reports import FieldActor, _broadcast, _get_or_create_report, _location, _stamp_updated_by
-from .visibility import get_incident_leaders
+from .visibility import event_vehicle_drivers, get_incident_leaders
 
 # ============================================
 # The Schadenplatz-Rapport (phase 2)
@@ -453,6 +453,9 @@ async def get_rapport(
         "vehicle_candidates": [
             candidate for candidate in fleet.candidates if candidate["vehicle_id"] not in listed_vehicle_ids
         ],
+        # Orientation for the Fahrzeuge chips («Pio · Dürring Jan»): who drives
+        # each vehicle in this Ereignis. Read-only, never part of the rapport.
+        "vehicle_drivers": await event_vehicle_drivers(db, incident.event_id),
     }
 
     concurrent = _concurrent_editor(report, actor, names["updated_by_name"])
