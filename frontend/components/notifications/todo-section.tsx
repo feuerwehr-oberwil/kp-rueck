@@ -22,9 +22,10 @@ import { cn } from '@/lib/utils'
  * (amber; red after 5'), then «Verworfen» (grey, the buttons still work). The field's own
  * requests keep their section (`FieldRequestInbox`), rendered by the caller right below.
  *
- * Buttons are for editors; a viewer reads the rows.
+ * Buttons are for editors; a viewer reads the rows. `readOnly` (the phone's Meldungen sheet: the
+ * phone is read-only, owner 14.11.2026) shows the rows without buttons – they are answered on the desk.
  */
-export function TodoSection({ state }: { state: Pick<TodoState, 'open' | 'dismissed' | 'now'> }) {
+export function TodoSection({ state, readOnly = false }: { state: Pick<TodoState, 'open' | 'dismissed' | 'now'>; readOnly?: boolean }) {
   const t = useTranslations('notifications.todo')
   if (state.open.length === 0 && state.dismissed.length === 0) return null
   return (
@@ -38,13 +39,13 @@ export function TodoSection({ state }: { state: Pick<TodoState, 'open' | 'dismis
         </h3>
       )}
       {state.open.map((todo) => (
-        <TodoRow key={todo.id} todo={todo} now={state.now} />
+        <TodoRow key={todo.id} todo={todo} now={state.now} readOnly={readOnly} />
       ))}
       {state.dismissed.length > 0 && (
         <>
           <h3 className="pt-2 text-xs font-semibold text-muted-foreground">{t('dismissedHeading')}</h3>
           {state.dismissed.map((todo) => (
-            <TodoRow key={todo.id} todo={todo} now={state.now} />
+            <TodoRow key={todo.id} todo={todo} now={state.now} readOnly={readOnly} />
           ))}
         </>
       )}
@@ -52,7 +53,7 @@ export function TodoSection({ state }: { state: Pick<TodoState, 'open' | 'dismis
   )
 }
 
-function TodoRow({ todo, now }: { todo: Todo; now: number }) {
+function TodoRow({ todo, now, readOnly }: { todo: Todo; now: number; readOnly: boolean }) {
   const t = useTranslations('notifications.todo')
   const tMessages = useTranslations('notifications.messages')
   const tArrival = useTranslations('incidents.gpsArrival')
@@ -208,7 +209,7 @@ function TodoRow({ todo, now }: { todo: Todo; now: number }) {
       </div>
       <p className="leading-snug">{text}</p>
       {status && <p role="status" className="text-xs text-warning-foreground">{status}</p>}
-      {isEditor && (
+      {isEditor && !readOnly && (
         <div className="flex flex-wrap gap-1.5">
           {answers.map((answer, index) => (
             <Button

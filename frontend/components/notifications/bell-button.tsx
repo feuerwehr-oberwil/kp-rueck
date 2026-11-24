@@ -10,8 +10,8 @@ import { cn } from '@/lib/utils'
 /**
  * The bell (bell round 24.11.2026): it must be seen, or to-dos are missed.
  *
- * - To-dos open → an amber button with the number («3 zu erledigen» on the desk, the number on the
- *   phone). One open longer than 5' → red edge and text, and it pulses (motion-safe only). Red is
+ * - To-dos open → an amber button with the number («3 zu erledigen»). The phone has no header
+ *   bell: its «Meldungen» tile shows the same amber / red count (mobile-bottom-navigation.tsx). One open longer than 5' → red edge and text, and it pulses (motion-safe only). Red is
  *   never a fill here: a filled red button reads as the thing to press (DESIGN.md «Colour roles»).
  * - Nothing to do → the plain bell; unread Meldungen are a grey dot, never a number: if every
  *   FYI line counted, the number would never be 0 and nobody would trust it.
@@ -20,11 +20,10 @@ import { cn } from '@/lib/utils'
  */
 export function BellButton({
   state,
-  compact = false,
   pressed = false,
   className,
   ...props
-}: { state: Pick<TodoState, 'count' | 'overdue' | 'unreadMessages'>; compact?: boolean; pressed?: boolean } & ComponentProps<
+}: { state: Pick<TodoState, 'count' | 'overdue' | 'unreadMessages'>; pressed?: boolean } & ComponentProps<
   typeof Button
 >) {
   const t = useTranslations('notifications.todo')
@@ -45,7 +44,7 @@ export function BellButton({
       >
         <Bell className="size-4" aria-hidden="true" />
         <span className="tabular-nums text-base leading-none">{state.count}</span>
-        {!compact && <span className="text-xs">{t('bellLabel')}</span>}
+        <span className="text-xs">{t('bellLabel')}</span>
       </Button>
     )
   }
