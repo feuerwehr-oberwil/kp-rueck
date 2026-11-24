@@ -11,6 +11,7 @@
 
 import { vehicleLabel } from "@/lib/vehicle-label"
 import Link from "next/link"
+import { useRef } from "react"
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { formatDurationHours } from "@/lib/duration"
@@ -72,6 +73,10 @@ export function MobileIncidentDetailSheet({
   const tKanban = useTranslations('kanban')
   const { selectedEvent } = useEvent()
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
+  // The detail button that opened the sheet (`data-detail-opener`, on the phone card and the
+  // Lagekarte row), read when the sheet takes the focus: a controlled sheet has no Radix trigger
+  // to give it back to on close. Only that button: a field focused earlier would pop the keyboard.
+  const openerRef = useRef<HTMLElement | null>(null)
 
   // Byte-identical fallback to the raw type value for unknown types
   const typeLabel = (type: string) => (isIncidentType(type) ? t(`types.${type}`) : type)
@@ -89,6 +94,15 @@ export function MobileIncidentDetailSheet({
         // No description line: it used to print the Einsatz-ID (two lines of UUID) under the
         // title — a database key nobody on a phone reads, says or types.
         aria-describedby={undefined}
+        onOpenAutoFocus={() => {
+          openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+        }}
+        onCloseAutoFocus={(event) => {
+          const opener = openerRef.current
+          if (!opener?.isConnected || !opener.matches("[data-detail-opener]")) return
+          event.preventDefault()
+          opener.focus({ preventScroll: true })
+        }}
         // The frame every phone sheet has (new-emergency-modal.tsx): header, a body that
         // scrolls, a foot that stays. It covers the nav, so the foot pays only the safe
         // area (`pb-sheet-safe`). One sheet-long scroller used to leave «Auf Karte

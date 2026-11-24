@@ -97,7 +97,7 @@ test.describe('Mobile bottom navigation', () => {
   test('a Lagekarte row opens its Einsatz with one tap, and the sheet stays on the Lagekarte', async ({
     authenticatedPage: page,
   }) => {
-    const { incidents } = await setupBoard(page, 'Mobile Karte', { count: 1 });
+    const { incidents } = await setupBoard(page, 'Mobile Karte', { count: 1, layout: 'mobile' });
     const pickup = await page.request.post(`${API_BASE}/api/incidents/${incidents[0].id}/field-report`, {
       data: { pickup_needed: true },
       headers: { cookie: await cookieHeaderFor(page) },

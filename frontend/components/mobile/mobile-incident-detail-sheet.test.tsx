@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, screen } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { Material, Operation } from '@/lib/contexts/operations-context'
 
@@ -89,5 +89,26 @@ describe('«Auf Karte anzeigen»', () => {
     expect(screen.queryByRole('link', { name: 'Auf Karte anzeigen' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Auf Karte anzeigen' }))
     expect(onShowOnMap).toHaveBeenCalledWith('incident-1')
+  })
+})
+
+// A controlled sheet has no Radix trigger: VoiceOver lost its place on close (review, 24.11.2026).
+describe('closing the sheet', () => {
+  it('gives the focus back to the detail button that opened it', async () => {
+    function Harness({ open }: { open: boolean }) {
+      return (
+        <>
+          <button type="button" data-detail-opener>Details anzeigen: 7 · Hauptstrasse 1</button>
+          <MobileIncidentDetailSheet operation={OPERATION} open={open} onOpenChange={vi.fn()} materials={[]} formatLocation={(a) => a} />
+        </>
+      )
+    }
+    const { rerender } = renderWithIntl(<Harness open={false} />)
+    const opener = screen.getByRole('button', { name: /Details anzeigen/ })
+    opener.focus()
+    rerender(<Harness open />)
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
+    rerender(<Harness open={false} />)
+    await waitFor(() => expect(opener).toHaveFocus())
   })
 })

@@ -409,10 +409,13 @@ export default function MapPage() {
   // The phone has no Routenplanung and no Reko-Modus (owner, 24.11.2026): both are KP-desk
   // tools that swap the whole list for their panel. A `?mode=reko` link opened on a phone, or a
   // window narrowed below `md` mid-mode, leaves them – set during render, React's pattern for
-  // state that follows another value, so no effect has to catch up.
+  // state that follows another value, so no effect has to catch up. A question either mode had
+  // open goes with it: confirmed afterwards, it would still change the route or the Reko.
   if (isMobile && (planningActive || rekoModeActive)) {
     exitPlanning()
     exitRekoMode()
+    setPlanningAddConfirm(null)
+    setRekoOverwrite(null)
   }
 
   // Create a new Auftrag from the panel and select it for planning.
@@ -470,6 +473,14 @@ export default function MapPage() {
     setSelectedIncidentId(incidentId)
     setPanTrigger((n) => n + 1)
   }, [])
+  // A row tap on the phone: the sheet, over a map that flies to the Einsatz – also when it was
+  // selected already and the map has been panned away since (the trigger) – and the selection
+  // reaches the other windows, as a marker tap's does.
+  const openPhoneRow = (incidentId: string) => {
+    if (incidentId !== selectedIncidentId) broadcast("incident:selected", incidentId)
+    setPanTrigger((n) => n + 1)
+    openIncidentDetail(incidentId)
+  }
 
   // Register command palette (Cmd+K) handlers for the map view
   const { registerHandlers, clearHandlers } = useCommandPalette()
@@ -1194,14 +1205,15 @@ export default function MapPage() {
                                   // The phone has no hover and no double tap anybody knows of: a
                                   // tap opens the sheet, and selects, so the map flies there. A
                                   // marker keeps its select-first tap (phone sweep 24.11.2026).
-                                  onClick={() => (isMobile ? openIncidentDetail(incident.id) : handleIncidentClick(incident.id))}
+                                  onClick={() => (isMobile ? openPhoneRow(incident.id) : handleIncidentClick(incident.id))}
                                   onDoubleClick={isMobile ? undefined : () => openIncidentDetail(incident.id)}
                                   // ONE selected state (A2): the selection wash, nothing else. It
                                   // was a grey wash plus a 2px bar inset 4px top and
                                   // bottom — two shapes that never lined up (owner, 02.10.).
                                   // 44px on the phone: the row's time chip is a button the touch
                                   // rule makes 44px tall, and at 32px it lay over its neighbours'.
-                                  className={`group relative flex h-8 max-md:h-11 cursor-pointer items-center gap-2 rounded-md px-2 transition-colors ${
+                                  // The ring of the unseen phone detail button (below) is the row's.
+                                  className={`group relative flex h-8 max-md:h-11 cursor-pointer items-center gap-2 rounded-md px-2 transition-colors has-[>button.sr-only:focus-visible]:outline-2 has-[>button.sr-only:focus-visible]:outline-offset-2 has-[>button.sr-only:focus-visible]:outline-ring ${
                                     isSelected ? 'bg-sel-wash' : 'hover:bg-muted/50'
                                   }`}
                                   aria-current={isSelected ? 'true' : undefined}
@@ -1229,9 +1241,10 @@ export default function MapPage() {
                                   {isMobile ? (
                                     <button
                                       type="button"
+                                      data-detail-opener
                                       onClick={(e) => {
                                         e.stopPropagation()
-                                        openIncidentDetail(incident.id)
+                                        openPhoneRow(incident.id)
                                       }}
                                       className="sr-only"
                                     >
