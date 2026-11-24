@@ -20,110 +20,102 @@ function material(overrides: Partial<ApiRapportMaterialRow> = {}): ApiRapportMat
   }
 }
 
-describe('FeldMaterialChecklist — gebraucht', () => {
-  it('is a plain tick, prefilled ja', () => {
-    // §18.32: the three-state ✓/✗/– control is gone. The unit was dispatched
-    // here, so "gebraucht" is the board's own answer and the crew unticks the
-    // exceptions — the same shape as the vehicle list.
-    renderWithIntl(
-      <FeldMaterialChecklist rows={[material()]} extraMaterials={[]} onChange={vi.fn()} onExtraMaterialsChange={vi.fn()} />,
-    )
+function render(props: Partial<React.ComponentProps<typeof FeldMaterialChecklist>> = {}) {
+  return renderWithIntl(
+    <FeldMaterialChecklist
+      rows={[material()]}
+      extraMaterials={[]}
+      onChange={vi.fn()}
+      onExtraMaterialsChange={vi.fn()}
+      {...props}
+    />,
+  )
+}
 
-    expect(screen.getByRole('checkbox', { name: 'Gebraucht: Tauchpumpe TP-4' })).toBeChecked()
-    expect(screen.queryByText('Keine Angabe')).toBeNull()
+const entry = (name: string, leftOnSite = false): ApiRapportExtraMaterial => ({ name, left_on_site: leftOnSite })
+
+/** Opens «Material hinzufügen» and returns its sheet. */
+async function openPicker() {
+  await userEvent.click(screen.getByRole('button', { name: 'Material hinzufügen' }))
+  return screen.findByRole('dialog')
+}
+
+describe('FeldMaterialChecklist — units the board sent', () => {
+  it('shows a used unit as a chip; the ✕ clears both answers', async () => {
+    // A unit nobody used cannot have been left behind — and a hidden «vor Ort»
+    // would still put it on the Abholliste.
+    const onChange = vi.fn()
+    render({ rows: [material({ left_on_site: true }), material({ assignment_id: 'a2', name: 'Motorsäge' })], onChange })
+    await userEvent.click(screen.getByRole('button', { name: 'Tauchpumpe TP-4 entfernen' }))
+    expect(onChange).toHaveBeenCalledWith([
+      material({ used: false, left_on_site: false }),
+      material({ assignment_id: 'a2', name: 'Motorsäge' }),
+    ])
   })
 
-  it('unticks the row that was clicked and nothing else', async () => {
+  it('a tap on the chip answers «vor Ort verblieben», and the chip says so', async () => {
     const onChange = vi.fn()
-    renderWithIntl(
+    const { rerender } = render({ onChange })
+    expect(screen.queryByText('vor Ort')).toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Tauchpumpe TP-4' }))
+    await userEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'vor Ort verblieben' }))
+    expect(onChange).toHaveBeenCalledWith([material({ left_on_site: true })])
+
+    rerender(
       <FeldMaterialChecklist
-        rows={[material(), material({ assignment_id: 'a2', material_id: 'm2', name: 'Motorsäge' })]}
+        rows={[material({ left_on_site: true })]}
         extraMaterials={[]}
         onChange={onChange}
         onExtraMaterialsChange={vi.fn()}
       />,
     )
-
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Gebraucht: Tauchpumpe TP-4' }))
-
-    expect(onChange).toHaveBeenCalledWith([
-      expect.objectContaining({ assignment_id: 'a1', used: false }),
-      expect.objectContaining({ assignment_id: 'a2', used: true }),
-    ])
+    expect(screen.getByText('vor Ort')).toBeInTheDocument()
   })
 
-  it('gives a consumable one tick and no second one (decision 26)', () => {
-    renderWithIntl(
-      <FeldMaterialChecklist
-        rows={[material({ consumable: true, name: 'Ölbindemittel' })]}
-        extraMaterials={[]}
-        onChange={vi.fn()}
-        onExtraMaterialsChange={vi.fn()}
-      />,
-    )
+  it('gives a consumable no «vor Ort» question (decision 26)', () => {
+    render({ rows: [material({ consumable: true, name: 'Ölbinder' })] })
+    expect(screen.getByText('Ölbinder')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ölbinder' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Ölbinder entfernen' })).toBeInTheDocument()
+  })
 
-    expect(screen.getByRole('checkbox', { name: 'Gebraucht: Ölbindemittel' })).toBeInTheDocument()
-    expect(screen.queryByRole('checkbox', { name: /Vor Ort verblieben/ })).toBeNull()
+  it('tells two units of one name apart by their depot', () => {
+    render({
+      rows: [
+        material({ name: 'Tauchpumpe Gr.', location: 'TLF' }),
+        material({ assignment_id: 'a2', name: 'Tauchpumpe Gr.', location: 'Pio' }),
+        material({ assignment_id: 'a3', name: 'Motorsäge', location: 'TLF' }),
+      ],
+    })
+    expect(screen.getByText('· TLF')).toBeInTheDocument()
+    expect(screen.getByText('· Pio')).toBeInTheDocument()
+    // A unique name carries no depot.
+    expect(screen.getByText('Motorsäge').textContent).toBe('Motorsäge')
+  })
+
+  it('offers a removed unit again under «Zugewiesen», and adding it ticks gebraucht', async () => {
+    const onChange = vi.fn()
+    render({ rows: [material({ used: false })], suggestions: ['Nassauger'], onChange })
+    expect(screen.getByText('Kein Material erfasst.')).toBeInTheDocument()
+
+    const sheet = await openPicker()
+    const text = sheet.textContent ?? ''
+    expect(text.indexOf('Zugewiesen')).toBeLessThan(text.indexOf('Tauchpumpe TP-4'))
+    expect(text.indexOf('Tauchpumpe TP-4')).toBeLessThan(text.indexOf('Nassauger'))
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Tauchpumpe TP-4' }))
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Fertig (1)' }))
+    expect(onChange).toHaveBeenCalledWith([material()])
   })
 })
 
 describe('FeldMaterialChecklist — Weiteres Material', () => {
-  const entry = (name: string, leftOnSite = false): ApiRapportExtraMaterial => ({
-    name,
-    left_on_site: leftOnSite,
-  })
-
-  it('asks in the crew’s own terms, never about "das Board"', () => {
-    renderWithIntl(
-      <FeldMaterialChecklist
-        rows={[material()]}
-        extraMaterials={[]}
-        onChange={vi.fn()}
-        onExtraMaterialsChange={vi.fn()}
-      />,
-    )
-
-    // A crew in the field has never seen the board and does not know the word.
-    expect(screen.getByText('Weiteres gebrauchtes Material')).toBeInTheDocument()
-    expect(screen.queryByText(/Board/)).toBeNull()
-  })
-
-  /** Opens «Material hinzufügen» and returns its sheet. */
-  async function openPicker() {
-    await userEvent.click(screen.getByRole('button', { name: 'Material hinzufügen' }))
-    return screen.findByRole('dialog')
-  }
-
-  it('offers the whole catalogue behind one button, without typing a name first', async () => {
-    renderWithIntl(
-      <FeldMaterialChecklist
-        rows={[]}
-        extraMaterials={[]}
-        suggestions={['Motorsäge', 'Nassauger']}
-        onChange={vi.fn()}
-        onExtraMaterialsChange={vi.fn()}
-      />,
-    )
-
-    const sheet = await openPicker()
-    expect(within(sheet).getByRole('button', { name: 'Motorsäge' })).toBeInTheDocument()
-    expect(within(sheet).getByRole('button', { name: 'Nassauger' })).toBeInTheDocument()
-  })
-
-  it('adds picks as entries after what is there, carrying no id', async () => {
+  it('adds catalogue picks as names after what is there, carrying no id', async () => {
     const onExtraMaterialsChange = vi.fn()
-    renderWithIntl(
-      <FeldMaterialChecklist
-        rows={[]}
-        extraMaterials={[entry('Nassauger')]}
-        suggestions={['Nassauger', 'Motorsäge']}
-        onChange={vi.fn()}
-        onExtraMaterialsChange={onExtraMaterialsChange}
-      />,
-    )
+    render({ rows: [], extraMaterials: [entry('Nassauger')], suggestions: ['Nassauger', 'Motorsäge'], onExtraMaterialsChange })
 
     const sheet = await openPicker()
-    // Already on the list: not offered twice — taking it out is the row's ✕.
+    // Already on the list: not offered twice — taking it out is the chip's ✕.
     expect(within(sheet).queryByRole('button', { name: 'Nassauger' })).toBeNull()
     await userEvent.click(within(sheet).getByRole('button', { name: 'Motorsäge' }))
     await userEvent.click(within(sheet).getByRole('button', { name: 'Fertig (1)' }))
@@ -136,101 +128,47 @@ describe('FeldMaterialChecklist — Weiteres Material', () => {
     ])
   })
 
-  it('shows every entry as a row and takes it back off', async () => {
-    const onExtraMaterialsChange = vi.fn()
-    renderWithIntl(
-      <FeldMaterialChecklist
-        rows={[]}
-        extraMaterials={[entry('Nassauger')]}
-        suggestions={['Nassauger', 'Motorsäge']}
-        onChange={vi.fn()}
-        onExtraMaterialsChange={onExtraMaterialsChange}
-      />,
-    )
-
-    await userEvent.click(screen.getByRole('button', { name: 'Nassauger entfernen' }))
-    expect(onExtraMaterialsChange).toHaveBeenCalledWith([])
-  })
-
-  it('gives each entry its own "vor Ort verblieben" and no gebraucht tick (§18.35)', async () => {
-    // The whole point: one borrowed thing stays in the cellar while the other
-    // goes home with the crew. Listing it here already means it was used, so
-    // there is no second tick to hit.
-    const onExtraMaterialsChange = vi.fn()
-    renderWithIntl(
-      <FeldMaterialChecklist
-        rows={[]}
-        extraMaterials={[entry('Nassauger'), entry('Pumpe vom Nachbarzug')]}
-        suggestions={['Nassauger']}
-        onChange={vi.fn()}
-        onExtraMaterialsChange={onExtraMaterialsChange}
-      />,
-    )
-
-    expect(screen.queryByRole('checkbox', { name: /^Gebraucht:/ })).toBeNull()
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Vor Ort verblieben: Pumpe vom Nachbarzug' }))
-
-    expect(onExtraMaterialsChange).toHaveBeenCalledWith([
-      { name: 'Nassauger', left_on_site: false },
-      { name: 'Pumpe vom Nachbarzug', left_on_site: true },
-    ])
-  })
-
-  it('says why a left-behind name is not in the release list', () => {
-    // The asymmetry of decision 18 made visible: the Abholliste fetches it,
-    // "Material zurück – freigeben" has no assignment to free.
-    renderWithIntl(
-      <FeldMaterialChecklist
-        rows={[]}
-        extraMaterials={[entry('Pumpe vom Nachbarzug', true)]}
-        onChange={vi.fn()}
-        onExtraMaterialsChange={vi.fn()}
-      />,
-    )
-
-    expect(screen.getByText(/Abholliste/)).toBeInTheDocument()
-    expect(screen.getByText(/kein erfasstes Material/)).toBeInTheDocument()
-  })
-
   it('takes a typed name for something that is in no catalogue at all', async () => {
     const onExtraMaterialsChange = vi.fn()
-    renderWithIntl(
-      <FeldMaterialChecklist
-        rows={[]}
-        extraMaterials={[entry('Nassauger')]}
-        suggestions={['Nassauger']}
-        onChange={vi.fn()}
-        onExtraMaterialsChange={onExtraMaterialsChange}
-      />,
-    )
+    render({ rows: [], extraMaterials: [], suggestions: ['Nassauger'], onExtraMaterialsChange })
 
-    // A crew that borrowed the neighbouring brigade's pump has to be able to
-    // write it — the catalogue is a naming aid, not the vocabulary.
     const sheet = await openPicker()
     await userEvent.type(within(sheet).getByPlaceholderText('Material suchen …'), 'Pumpe vom Nachbarzug')
     await userEvent.click(within(sheet).getByRole('button', { name: '«Pumpe vom Nachbarzug» hinzufügen' }))
     await userEvent.click(within(sheet).getByRole('button', { name: 'Fertig (1)' }))
-    expect(onExtraMaterialsChange).toHaveBeenCalledWith([
-      { name: 'Nassauger', left_on_site: false },
-      { name: 'Pumpe vom Nachbarzug', left_on_site: false },
-    ])
+    expect(onExtraMaterialsChange).toHaveBeenCalledWith([{ name: 'Pumpe vom Nachbarzug', left_on_site: false }])
   })
 
-  it('reads a rapport saved with the old comma line back as rows', () => {
-    // Typed and picked names were always the same `{name, left_on_site}` entry,
-    // so nothing saved before the picker needs converting.
-    renderWithIntl(
-      <FeldMaterialChecklist
-        rows={[]}
-        extraMaterials={[entry('Nassauger'), entry('Pumpe vom Nachbarzug', true)]}
-        suggestions={['Nassauger']}
-        onChange={vi.fn()}
-        onExtraMaterialsChange={vi.fn()}
-      />,
-    )
+  it('takes an entry off with its ✕', async () => {
+    const onExtraMaterialsChange = vi.fn()
+    render({ rows: [], extraMaterials: [entry('Nassauger')], onExtraMaterialsChange })
+    await userEvent.click(screen.getByRole('button', { name: 'Nassauger entfernen' }))
+    expect(onExtraMaterialsChange).toHaveBeenCalledWith([])
+  })
 
-    expect(screen.getByRole('button', { name: 'Nassauger entfernen' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Pumpe vom Nachbarzug entfernen' })).toBeInTheDocument()
-    expect(screen.getByRole('checkbox', { name: 'Vor Ort verblieben: Pumpe vom Nachbarzug' })).toBeChecked()
+  it('gives each entry its own «vor Ort verblieben» (§18.35) and says why it is not released', async () => {
+    const onExtraMaterialsChange = vi.fn()
+    const { rerender } = render({
+      rows: [],
+      extraMaterials: [entry('Nassauger'), entry('Pumpe vom Nachbarzug')],
+      onExtraMaterialsChange,
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Pumpe vom Nachbarzug' }))
+    await userEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'vor Ort verblieben' }))
+    const next = onExtraMaterialsChange.mock.calls[0][0] as ApiRapportExtraMaterial[]
+    expect(next).toEqual([entry('Nassauger'), entry('Pumpe vom Nachbarzug', true)])
+
+    // The asymmetry of decision 18 made visible: the Abholliste fetches it,
+    // «Material zurück – freigeben» has no assignment to free.
+    rerender(
+      <FeldMaterialChecklist rows={[]} extraMaterials={next} onChange={vi.fn()} onExtraMaterialsChange={vi.fn()} />,
+    )
+    expect(screen.getByText(/Abholliste/)).toBeInTheDocument()
+  })
+
+  it('offers no controls in a read-only mount', () => {
+    render({ extraMaterials: [entry('Nassauger', true)], disabled: true })
+    expect(screen.getByText('Nassauger')).toBeInTheDocument()
+    expect(screen.queryByRole('button')).toBeNull()
   })
 })

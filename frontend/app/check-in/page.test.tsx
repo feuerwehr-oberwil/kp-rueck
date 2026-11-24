@@ -89,7 +89,7 @@ describe('/check-in', () => {
       personnel: [{ id: 'p1', name: 'Acker Reto', checked_in: true, is_assigned: false }],
     })
     document.dispatchEvent(new Event('visibilitychange'))
-    await waitFor(() => expect(screen.getByRole('button', { name: /Acker Reto/ })).toHaveTextContent('Anwesend'))
+    await waitFor(() => expect(screen.getByRole('button', { name: /Acker Reto/ })).toHaveAccessibleDescription('Anwesend'))
   })
 
   it('a check-in clears the search for the next person at the door', async () => {
@@ -123,7 +123,7 @@ describe('/check-in', () => {
 
     options.action.onClick()
     await waitFor(() => expect(api.checkInPersonnel).toHaveBeenCalledWith('p2', 'tok'))
-    await waitFor(() => expect(screen.getByRole('button', { name: /Bühler Nadja/ })).toHaveTextContent('Anwesend'))
+    await waitFor(() => expect(screen.getByRole('button', { name: /Bühler Nadja/ })).toHaveAccessibleDescription('Anwesend'))
   })
 
   it('somebody checked in gives «bis …» through the link; somebody not in yet gets no chip', async () => {
@@ -142,5 +142,18 @@ describe('/check-in', () => {
     expect(new Date(plan.planned_until).getMinutes()).toBe(30)
     expect(await screen.findByRole('button', { name: 'Geht um 23:30 – ändern' })).toBeInTheDocument()
     expect(api.checkOutPersonnel).not.toHaveBeenCalled()
+  })
+
+  // Owner, 24.11.2026: the «+ bis» chip hung between two cards. It belongs in the card, beside
+  // the state pill – and nothing else may sit between the cards.
+  it('puts the «bis» chip inside the person\'s card, beside the state pill', async () => {
+    roster()
+    renderWithIntl(<CheckInPage />)
+    const chip = await screen.findByRole('button', { name: 'Geht um setzen' })
+    const card = chip.closest('[data-testid="checkin-card"]')
+    expect(card).toHaveTextContent('Bühler Nadja')
+    expect(chip.parentElement).toHaveTextContent('Anwesend')
+    const list = card!.parentElement!
+    expect([...list.children].every(child => child.matches('[data-testid="checkin-card"]'))).toBe(true)
   })
 })

@@ -230,35 +230,6 @@ export function derivePersonnelCount(form: RapportFormData): number {
   return (form.personnel ?? []).filter(row => row.present).length + (form.extra_personnel ?? []).length
 }
 
-export interface MaterialGroupBlock {
-  location: string | null
-  /** False for the trailing block of units the board no longer has. */
-  onBoard: boolean
-  rows: ApiRapportMaterialRow[]
-}
-
-/**
- * The checklist grouped by depot, in the order the server sent it.
- *
- * The order is the point: a crew with fourteen units reads them the way they
- * stand on the shelf, not alphabetically. Units the board has dropped keep a
- * block of their own at the end — they are history, not a to-do.
- */
-export function groupMaterialsByLocation(rows: ApiRapportMaterialRow[]): MaterialGroupBlock[] {
-  const groups: MaterialGroupBlock[] = []
-  for (const row of rows) {
-    const onBoard = row.on_board
-    const location = onBoard ? row.location : null
-    const last = groups[groups.length - 1]
-    if (last && last.onBoard === onBoard && last.location === location) {
-      last.rows.push(row)
-    } else {
-      groups.push({ location, onBoard, rows: [row] })
-    }
-  }
-  return groups
-}
-
 /**
  * "Weiteres gebrauchtes Material" — a list of entries (§18.35).
  *

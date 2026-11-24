@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import settings
 from ..models import GeocodingDispatch
 from ..schemas.geocoding import AddressReverse, AddressSearch, AddressSuggestion
+from .settings import get_station_coordinates
 
 SWISS_BASE = "https://api3.geo.admin.ch/rest/services/ech"
 ADDRESS_LAYER = "ch.swisstopo.amtliches-gebaeudeadressverzeichnis"
@@ -27,6 +28,7 @@ CACHE_TTL = 300
 CACHE_LIMIT = 128
 MAX_RESPONSE_BYTES = 128 * 1024
 REQUEST_TIMEOUT = 5.0
+STATION_BOX_DELTA = 0.05  # degrees, ~5 km: the same box the board builds (frontend lib/geocoding.ts)
 _request_active: ContextVar[bool] = ContextVar("geocoding_request", default=False)
 
 
@@ -166,6 +168,9 @@ class Geocoder:
     async def search(self, db: AsyncSession, query: AddressSearch) -> list[AddressSuggestion]:
         if settings.geocoding_provider == "disabled":
             return []
+        if query.viewbox is None:
+            # /alarm and /feld cannot read the settings and send no box; the server knows the station.
+            query = query.model_copy(update={"viewbox": await _station_viewbox(db)})
         if settings.geocoding_provider == "swisstopo":
             if query.countrycodes and "ch" not in query.countrycodes.split(","):
                 return []
@@ -296,6 +301,26 @@ def _address_label(properties: dict[str, Any]) -> str:
     Its `label` is the numeric address id (EGAID), not text – the address is in its parts."""
     street = " ".join(filter(None, (_label(properties.get("stn_label")), _label(properties.get("adr_number")))))
     return ", ".join(filter(None, (street, _label(properties.get("zip_label")))))
+
+
+async def _station_viewbox(db: AsyncSession) -> str | None:
+    """«west,south,east,north» around the configured station, or None when it has no coordinates."""
+    station = await get_station_coordinates(db)
+    if station is None:
+        return None
+    lat, lon = station
+    west, south, east, north = (
+        lon - STATION_BOX_DELTA,
+        lat - STATION_BOX_DELTA,
+        lon + STATION_BOX_DELTA,
+        lat + STATION_BOX_DELTA,
+    )
+    # A stored «nan» or a pole-side latitude would send a box the provider rejects: search broad.
+    if not all(math.isfinite(v) for v in (west, south, east, north)):
+        return None
+    if not (west >= -180 and east <= 180 and south >= -90 and north <= 90):
+        return None
+    return ",".join(str(round(v, 6)) for v in (west, south, east, north))
 
 
 def _swiss_entries(payload: object) -> list[Any]:
