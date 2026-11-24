@@ -35,7 +35,7 @@ from ..crud import reko as crud
 from ..crud import reko_assignment as reko_assign_crud
 from ..crud.locking import lock_incident_crew, lock_incident_with_group, lock_incidents_with_groups, lock_resource
 from ..crud.manual_order import OrderChangedError
-from ..database import get_db
+from ..database import after_commit, after_rollback, get_db
 from ..logging_config import get_logger
 from ..middleware.rate_limit import RateLimits, limiter
 from ..models import Event, Incident, IncidentAssignment, RekoReport, User
@@ -739,6 +739,8 @@ async def upload_photo(
         file=file,
         current_photos=report.photos_json,
     )
+    # A refused commit must not leave the file behind with no report listing it.
+    after_rollback(db, photo_storage.delete_photo, report.incident_id, filename)
 
     # Update report with new photo
     current_photos = report.photos_json if report.photos_json else []
@@ -794,6 +796,9 @@ async def delete_photo(
     # are copied, not moved, between cards: the file stays while any report still lists it.
     report.photos_json = [p for p in current_photos if p != filename]
     await _record_photo_change(db, report, before, author)
+    # Flushed first: the session does not autoflush, and unflushed the query below found
+    # THIS report still listing the photo – the file was never removed (hunt 2026-11-24).
+    await db.flush()
     referenced = await db.scalar(
         select(RekoReport.id)
         .where(
@@ -803,11 +808,11 @@ async def delete_photo(
         .limit(1)
     )
     incident_key = str(report.incident_id)
-    # Committed before the file goes: a rollback after the unlink would list a photo that no
-    # longer exists.
-    await db.commit()
+    # The file goes after the commit: a rollback after the unlink would list a photo that no
+    # longer exists. And a failed unlink is logged, not a 500 – the reference is gone, so a
+    # retry could only answer 404 (hunt 2026-11-24).
     if referenced is None:
-        photo_storage.delete_photo(report.incident_id, filename)
+        after_commit(db, photo_storage.delete_photo, report.incident_id, filename)
     background_tasks.add_task(broadcast_reko_update, {"incident_id": incident_key}, "update")
 
     return {"success": True}

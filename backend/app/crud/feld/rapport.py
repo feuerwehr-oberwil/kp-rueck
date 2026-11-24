@@ -13,6 +13,7 @@ from fastapi import Request, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...database import after_commit, after_rollback
 from ...models import (
     EventAttendance,
     Incident,
@@ -30,6 +31,7 @@ from ...services.audit import log_action
 from ...services.notification_service import create_field_notification
 from ...services.photo_storage import photo_storage
 from ...utils.error_codes import CodedHTTPException, ErrorCode
+from ..locking import lock_incident_with_group
 from .rapport_reconcile import (
     _jsonable_materials,
     _jsonable_personnel,
@@ -838,13 +840,20 @@ async def add_photo(
     way "Angekommen" is, and it must not need a form to exist first. The row is
     created as a draft (``is_draft`` defaults True), so an incident that only has
     photos still counts as "kein Rapport" in the Restliste.
+
+    Under the Einsatz's row lock (both doors, KP and /feld): two uploads at once each read
+    the list and wrote it back with their own file, and the later commit dropped the other
+    photo (hunt 2026-11-24). The file goes again if the write rolls back.
     """
+    await lock_incident_with_group(db, incident.id)
     report = await _get_or_create_report(db, incident.id, actor)
+    await db.refresh(report)
     filename = await photo_storage.save_photo(
         incident_id=incident.id,
         file=file,
         current_photos=report.photos_json,
     )
+    after_rollback(db, photo_storage.delete_photo, incident.id, filename)
     report.photos_json = [*(report.photos_json or []), filename]
     _stamp_updated_by(report, actor)
 
@@ -878,15 +887,22 @@ async def remove_photo(
     """Detach a photo; returns the remaining list. 404 if it was never on it.
 
     The row is dropped from ``photos_json`` even when the file has already gone
-    from disk — a record pointing at a missing file is worse than no record.
+    from disk — a record pointing at a missing file is worse than no record. The file
+    itself goes only once the change is committed: removed first, a refused commit kept
+    the reference to a photo that no longer existed (hunt 2026-11-24).
     """
-    result = await db.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident.id))
+    await lock_incident_with_group(db, incident.id)
+    result = await db.execute(
+        select(SchadenplatzReport)
+        .where(SchadenplatzReport.incident_id == incident.id)
+        .execution_options(populate_existing=True)
+    )
     report = result.scalar_one_or_none()
     current = list(report.photos_json or []) if report else []
     if report is None or filename not in current:
         raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, "Foto nicht gefunden")
 
-    photo_storage.delete_photo(incident.id, filename)
+    after_commit(db, photo_storage.delete_photo, incident.id, filename)
     report.photos_json = [name for name in current if name != filename]
     _stamp_updated_by(report, actor)
 

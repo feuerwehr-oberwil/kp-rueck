@@ -365,11 +365,16 @@ class PhotoStorageService:
 
         COPY, never move: the database half of a merge can still roll back, and a
         photo that exists twice costs a few hundred KB while one that exists
-        nowhere costs the record. Files already there are left alone; a missing
-        source is skipped (and logged) — the row keeps its filename either way.
-        Returns how many files were copied. A file that could not be written
-        raises ``PhotoCopyError`` — the merge then rolls back rather than leaving
-        a report whose photos exist only on the hidden card (R2 review).
+        nowhere costs the record. A complete file already there (same size as the
+        source) is left alone; a missing source is skipped (and logged) — the row
+        keeps its filename either way. Returns how many files were copied. A file
+        that could not be written raises ``PhotoCopyError`` — the merge then rolls
+        back rather than leaving a report whose photos exist only on the hidden card
+        (R2 review).
+
+        Each copy goes to a ``.part`` sibling and is renamed into place, so a disk
+        that fills mid-copy leaves no truncated photo for a retried merge to take
+        as done (hunt 2026-11-24); a short copy left by an older build is redone.
         """
         copied = 0
         for name in filenames:
@@ -380,11 +385,16 @@ class PhotoStorageService:
                 if not source.is_file():
                     logger.warning("Photo %s of incident %s missing; not copied", name, from_incident_id)
                     continue
-                target_dir = self._get_incident_dir(to_incident_id)
+                self._get_incident_dir(to_incident_id)
                 target = self._inside_photos_dir(str(to_incident_id), name)
-                if target.exists():
+                if target.is_file() and target.stat().st_size == source.stat().st_size:
                     continue
-                shutil.copy2(source, target_dir / target.name)
+                partial = target.with_name(target.name + ".part")
+                try:
+                    shutil.copy2(source, partial)
+                    partial.replace(target)
+                finally:
+                    partial.unlink(missing_ok=True)
                 copied += 1
             except (OSError, HTTPException) as exc:
                 logger.exception("Could not copy photo %s from %s to %s", name, from_incident_id, to_incident_id)
