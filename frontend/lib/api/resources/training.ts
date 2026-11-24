@@ -9,6 +9,9 @@ import { request as httpRequest } from '../http'
 import type {
   ApiAutogenState,
   ApiGpsSimDrive,
+  ApiRegieState,
+  ApiRegieStepKey,
+  ApiRegieTempo,
   ApiIncident,
   ApiRekoReportResponse,
   ApiEmergencyTemplate,
@@ -94,6 +97,45 @@ export class TrainingApi {
     })
   }
 
+  // Regie: Autopilot, Tempo, Pause, Halten and the field steps – the server computes the
+  // timeline; every write answers with the new state.
+  async getRegie(eventId: string): Promise<ApiRegieState> {
+    return httpRequest<ApiRegieState>(`/api/training/events/${eventId}/regie`)
+  }
+
+  async setRegie(
+    eventId: string,
+    change: { autopilot?: boolean; tempo?: ApiRegieTempo; paused?: boolean },
+  ): Promise<ApiRegieState> {
+    return httpRequest<ApiRegieState>(`/api/training/events/${eventId}/regie`, {
+      method: 'PUT',
+      body: JSON.stringify(change),
+    })
+  }
+
+  /** Hold one incident: the Autopilot skips it until released. */
+  async setRegieHold(eventId: string, incidentId: string, held: boolean): Promise<ApiRegieState> {
+    return httpRequest<ApiRegieState>(`/api/training/events/${eventId}/regie/hold/${incidentId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ held }),
+    })
+  }
+
+  /** Run one field step now – the same path the Autopilot takes. 409 when it is no longer the
+   *  incident's current step. `pickupNeeded` answers «Kommt der Trupp selbst zurück?» for
+   *  `field_complete` (null = Lage entscheidet). */
+  async runRegieStep(
+    eventId: string,
+    incidentId: string,
+    key: ApiRegieStepKey,
+    pickupNeeded?: boolean | null,
+  ): Promise<ApiRegieState> {
+    return httpRequest<ApiRegieState>(`/api/training/events/${eventId}/regie/step/${incidentId}`, {
+      method: 'POST',
+      body: JSON.stringify(pickupNeeded === undefined ? { key } : { key, pickup_needed: pickupNeeded }),
+    })
+  }
+
   /** Inject "Lage verschärft sich": priority up + Lagemeldung + critical bell. */
   async simulateEscalation(eventId: string, incidentId: string): Promise<ApiIncident> {
     return httpRequest<ApiIncident>(`/api/training/events/${eventId}/simulate/escalate/${incidentId}`, {
@@ -140,29 +182,10 @@ export class TrainingApi {
     })
   }
 
-  // GPS drive simulation (Übungssteuerung) – simulated positions feed the same
-  // pipeline as real Traccar data (map, distances, arrival/return prompts).
+  // GPS drive simulation – simulated positions feed the same pipeline as real Traccar data
+  // (map, distances, arrival/return prompts). Drives start from the Regie's drive steps.
   async getGpsSimulations(): Promise<ApiGpsSimDrive[]> {
     return httpRequest<ApiGpsSimDrive[]>('/api/training/gps-sim/')
-  }
-
-  async startGpsSimulation(body: {
-    vehicle_id: string
-    target: 'incident' | 'magazin'
-    incident_id?: string
-    speed_kmh?: number
-  }): Promise<ApiGpsSimDrive> {
-    return httpRequest<ApiGpsSimDrive>('/api/training/gps-sim/start', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    })
-  }
-
-  async setGpsSimulationSpeed(vehicleId: string, speedKmh: number): Promise<ApiGpsSimDrive> {
-    return httpRequest<ApiGpsSimDrive>('/api/training/gps-sim/speed', {
-      method: 'POST',
-      body: JSON.stringify({ vehicle_id: vehicleId, speed_kmh: speedKmh }),
-    })
   }
 
   async stopGpsSimulation(vehicleId?: string): Promise<{ stopped: number }> {
