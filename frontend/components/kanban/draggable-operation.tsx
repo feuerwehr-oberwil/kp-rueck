@@ -997,6 +997,7 @@ function DraggableOperationBase({
         onMoveInColumn={onMoveInColumn}
         onRepeatRadio={onRepeatRadio}
         printerEnabled={printerEnabled}
+        canReport={canDrag}
       />
     </ContextMenu>
   )

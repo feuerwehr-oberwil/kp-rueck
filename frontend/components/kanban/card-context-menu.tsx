@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl"
 import Link from "next/link"
 import {
+  ContextMenuCheckboxItem,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
@@ -12,6 +13,7 @@ import { type Operation } from "@/lib/contexts/operations-context"
 import type { MoveTo } from "@/lib/move-in-list"
 import { usePrintAssignmentSlip } from "@/lib/hooks/use-print-assignment-slip"
 import { takesAssignments } from "@/lib/assignable"
+import { useFieldReportWrites } from "@/lib/hooks/use-field-report-writes"
 
 interface CardContextMenuProps {
   operation: Operation
@@ -31,6 +33,8 @@ interface CardContextMenuProps {
   /** «Funkdurchsage wiederholen»: the Disponiert dialog again, for an Einsatz already out. */
   onRepeatRadio?: () => void
   printerEnabled?: boolean
+  /** Editors: the «Reko vor Ort» / «Abholung nötig» checkboxes (the Funkmeldungen). */
+  canReport?: boolean
 }
 
 /** From «Disponiert» on, until it is closed, an Einsatz has a Funkdurchsage to repeat. */
@@ -59,6 +63,7 @@ export function CardContextMenu({
   onMoveInColumn,
   onRepeatRadio,
   printerEnabled,
+  canReport,
 }: CardContextMenuProps) {
   const t = useTranslations('kanban')
   const tReorder = useTranslations('common.reorder')
@@ -77,7 +82,7 @@ export function CardContextMenu({
 
   return (
     <ContextMenuContent
-      className="w-max min-w-52 max-w-[min(22rem,var(--radix-context-menu-content-available-width))] [&_[data-slot=context-menu-item]]:whitespace-nowrap [&_[data-slot=context-menu-sub-trigger]]:whitespace-nowrap max-h-[var(--radix-context-menu-content-available-height)] overflow-y-auto"
+      className="w-max min-w-52 max-w-[min(22rem,var(--radix-context-menu-content-available-width))] [&_[data-slot=context-menu-item]]:whitespace-nowrap [&_[data-slot=context-menu-checkbox-item]]:whitespace-nowrap [&_[data-slot=context-menu-sub-trigger]]:whitespace-nowrap max-h-[var(--radix-context-menu-content-available-height)] overflow-y-auto"
       collisionPadding={{ top: 8, bottom: 80, left: 8, right: 8 }}
     >
       {/* Bearbeiten */}
@@ -141,6 +146,15 @@ export function CardContextMenu({
               {t('common.openRoutenEditor')}
             </ContextMenuItem>
           )}
+        </>
+      )}
+
+      {/* Funkmeldungen (owner pick 4A, 24.11.2026): the two facts that arrive by radio,
+          ticked when set, writing the same fields as the switches on the Reko and Feld tabs. */}
+      {canReport && (
+        <>
+          <ContextMenuSeparator />
+          <FieldReportItems operation={operation} />
         </>
       )}
 
@@ -221,5 +235,41 @@ export function CardContextMenu({
         </ContextMenuItem>
       )}
     </ContextMenuContent>
+  )
+}
+
+/**
+ * «Reko vor Ort» (only with a Reko assigned or already on site, named at the row's end) and
+ * «Abholung nötig». A component of its own so the writes' context lives only while the menu
+ * is open – the card itself is memoised and subscribes to nothing for them.
+ */
+function FieldReportItems({ operation }: { operation: Operation }) {
+  const t = useTranslations('feld.kp')
+  const { saveRekoArrived, saveFieldReport } = useFieldReportWrites()
+  const rekoOnSite = Boolean(operation.rekoArrivedAt)
+  return (
+    <>
+      {(operation.assignedReko || rekoOnSite) && (
+        <ContextMenuCheckboxItem
+          checked={rekoOnSite}
+          // Ticked = now (the Reko tab's switch does the same); unticked = cleared.
+          onCheckedChange={(checked) => void saveRekoArrived(operation.id, checked ? undefined : null)}
+        >
+          {t('rekoArrived')}
+          {operation.assignedReko?.name && (
+            <span className="ml-auto max-w-40 truncate pl-4 text-xs text-muted-foreground">{operation.assignedReko.name}</span>
+          )}
+        </ContextMenuCheckboxItem>
+      )}
+      <ContextMenuCheckboxItem
+        checked={Boolean(operation.pickupNeeded)}
+        // The Feld tab's write: a note the incident already carries rides along; off clears it.
+        onCheckedChange={(checked) =>
+          void saveFieldReport(operation.id, { pickup_needed: checked, pickup_note: checked ? operation.pickupNote || null : null })
+        }
+      >
+        {t('pickup')}
+      </ContextMenuCheckboxItem>
+    </>
   )
 }
