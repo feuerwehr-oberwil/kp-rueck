@@ -380,6 +380,7 @@
     },
     "board": {
       "loginRequired": "Connecte-toi pour afficher le tableau.",
+      "noEvent": "Aucun événement choisi – le tableau affiche les interventions après le choix.",
       "collapsedColumnTitle": "{title} – {count} – cliquer pour déplier",
       "railLabel": {
         "incoming": "Reçu",
@@ -440,6 +441,7 @@
       "searchPlaceholder": "Rechercher …",
       "readOnly": "Lecture seule",
       "selectEvent": "Choisir un événement",
+      "searchHits": "{shown} sur {total, plural, one {# intervention} other {# interventions}}",
       "pagesNav": "Vues"
     },
     "map": {

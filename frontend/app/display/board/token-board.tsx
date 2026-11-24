@@ -20,6 +20,8 @@ import { type Operation } from '@/lib/contexts/operations-context'
 import { type Material } from '@/lib/contexts/materials-context'
 import type { GroupResources, IncidentGroup } from '@/lib/types/groups'
 import { PersonNamingProvider } from "@/components/person-name"
+import { useHistoryLevel } from '@/lib/hooks/use-history-level'
+import { DisplaySearchHits } from '@/components/display/display-search-hits'
 
 // Read-only board rendered from a share token (no login). The SAME board and the
 // SAME cards as the logged-in display — it differs only in where the data comes
@@ -118,6 +120,8 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
 export function TokenBoard({ token }: { token: string }) {
   const { payload, data: situation, groups: detailGroups } = useViewerSituation()
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
+  // Back closes the detail and stays on the board (hunt 2026-11-24) – see `useHistoryLevel`.
+  const closeDetail = useHistoryLevel(selectedIncidentId !== null, () => setSelectedIncidentId(null))
   // EVERY column folds, ABGESCHLOSSEN included and closed to start with —
   // the same one mechanism the logged-in display board uses, rather than the
   // separate dashed strip this board used to hang it off.
@@ -216,6 +220,8 @@ export function TokenBoard({ token }: { token: string }) {
           Ereignis, the clock and the «Nur Ansicht» badge, and two bars stacked
           said the same thing twice on the screen with the least room for it. */}
 
+      <DisplaySearchHits shown={matchingIds?.size ?? situation.operations.length} total={situation.operations.length} />
+
       {/* min-h-0 lets the columns scroll internally instead of the last card
           getting clipped at the container edge. */}
       {/* The board's own gaps and padding — one board, two data sources. */}
@@ -243,7 +249,7 @@ export function TokenBoard({ token }: { token: string }) {
       <IncidentDetailModal
         operation={selectedOperation}
         open={!!selectedOperation}
-        onOpenChange={(open) => { if (!open) setSelectedIncidentId(null) }}
+        onOpenChange={(open) => { if (!open) closeDetail() }}
         materialsOverride={situation.materials}
         groupsOverride={detailGroups}
         groupResourcesOverride={groupResources}

@@ -29,6 +29,9 @@ const WALL_COLUMN_BODY_ATTR = 'data-wall-column-body'
 
 /** Below `sm` the wall stacks its columns and scrolls the page (UX-PHONE-10): no fit there. */
 const WALL_FIT_MEDIA = '(min-width: 640px)'
+/** Nor on a short touch screen – a phone turned sideways: the fit's 14px floor made its 44px
+ *  targets 38.5px and the Meldung 11.8px (hunt 2026-11-24). It keeps the page's own size. */
+const SHORT_TOUCH_MEDIA = '(pointer: coarse) and (max-height: 500px)'
 
 /**
  * The largest size in [min, max] (on the `step` grid) for which `fits` holds,
@@ -50,8 +53,8 @@ export function largestFitting(min: number, max: number, step: number, fits: (px
 /**
  * Fits the wall under `boardRef`: sets `<html>`'s font size and re-fits when the
  * board is resized or anything in it changes (a card arrives, a column folds, a
- * search narrows it, a Meldung grows). Restores the page's own size on unmount
- * and below `sm`.
+ * search narrows it, a Meldung grows). Restores the page's own size on unmount,
+ * below `sm` and on a short touch screen.
  */
 export function useWallFit(boardRef: RefObject<HTMLElement | null>, enabled = true): void {
   useEffect(() => {
@@ -60,12 +63,13 @@ export function useWallFit(boardRef: RefObject<HTMLElement | null>, enabled = tr
     const root = document.documentElement
     const original = root.style.fontSize
     const media = window.matchMedia(WALL_FIT_MEDIA)
+    const shortTouch = window.matchMedia(SHORT_TOUCH_MEDIA)
     let frame = 0
     let disposed = false
 
     const fit = () => {
       frame = 0
-      if (!media.matches) {
+      if (!media.matches || shortTouch.matches) {
         root.style.fontSize = original
         return
       }
@@ -94,6 +98,7 @@ export function useWallFit(boardRef: RefObject<HTMLElement | null>, enabled = tr
     const mutations = new MutationObserver(schedule)
     mutations.observe(board, { childList: true, subtree: true, characterData: true })
     media.addEventListener('change', schedule)
+    shortTouch.addEventListener('change', schedule)
     // Sora arrives after first paint and sets wider than the fallback.
     void document.fonts?.ready.then(schedule)
     schedule()
@@ -104,6 +109,7 @@ export function useWallFit(boardRef: RefObject<HTMLElement | null>, enabled = tr
       resize.disconnect()
       mutations.disconnect()
       media.removeEventListener('change', schedule)
+      shortTouch.removeEventListener('change', schedule)
       root.style.fontSize = original
     }
   }, [boardRef, enabled])
