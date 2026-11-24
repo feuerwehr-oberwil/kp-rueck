@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { screen } from '@testing-library/react'
+import { act, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 
@@ -48,7 +48,7 @@ vi.mock('@/components/ui/use-mobile', () => ({ useIsMobile: () => viewport.mobil
 import { NewEmergencyModal } from '@/components/kanban/new-emergency-modal'
 
 function renderModal() {
-  const onCreateOperation = vi.fn()
+  const onCreateOperation = vi.fn().mockResolvedValue(true)
   renderWithIntl(
     <NewEmergencyModal open onOpenChange={() => {}} onCreateOperation={onCreateOperation} />,
   )
@@ -139,7 +139,7 @@ describe('NewEmergencyModal — Aktionsreihenfolge', () => {
  */
 describe('NewEmergencyModal — Erstellen und nächsten erfassen', () => {
   function renderOpenTracking() {
-    const onCreateOperation = vi.fn()
+    const onCreateOperation = vi.fn().mockResolvedValue(true)
     const onOpenChange = vi.fn()
     renderWithIntl(
       <NewEmergencyModal open onOpenChange={onOpenChange} onCreateOperation={onCreateOperation} />,
@@ -196,6 +196,45 @@ describe('NewEmergencyModal — Erstellen und nächsten erfassen', () => {
     const { onCreateOperation } = renderOpenTracking()
     await user.type(screen.getByLabelText('Ort'), 'Hauptstrasse 12{Enter}')
     expect(onCreateOperation).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * WAITS FOR THE SERVER: the caller's address and number are often the only copy.
+ * A create that fails keeps every field and the dialog, says so, and a second
+ * press while the first is on its way sends nothing.
+ */
+describe('NewEmergencyModal — Erstellen schlägt fehl', () => {
+  it.each([
+    ['Einsatz erstellen', '{Enter}'],
+    ['Erstellen und nächsten erfassen', '{Control>}{Enter}{/Control}'],
+  ])('«%s» keeps the report when the create fails', async (_way, keys) => {
+    const user = userEvent.setup()
+    const answer = Promise.withResolvers<boolean>()
+    const onCreateOperation = vi.fn(() => answer.promise)
+    const onOpenChange = vi.fn()
+    renderWithIntl(
+      <NewEmergencyModal open onOpenChange={onOpenChange} onCreateOperation={onCreateOperation} />,
+    )
+
+    await user.type(screen.getByLabelText('Meldung'), 'Wasser im Keller')
+    await user.type(screen.getByLabelText('Telefonnummer'), '079 123 45 67')
+    // Enter on the focused primary presses it; Ctrl ↵ is the second way out.
+    await user.type(screen.getByLabelText('Ort'), 'Hauptstrasse 12')
+    if (keys === '{Enter}') screen.getByRole('button', { name: 'Einsatz erstellen' }).focus()
+    await user.keyboard(keys)
+    await user.keyboard('{Control>}{Enter}{/Control}')
+    expect(onCreateOperation).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('button', { name: 'Einsatz erstellen' })).toBeDisabled()
+
+    await act(async () => answer.resolve(false))
+
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Ort')).toHaveValue('Hauptstrasse 12')
+    expect(screen.getByLabelText('Meldung')).toHaveValue('Wasser im Keller')
+    expect(screen.getByLabelText('Telefonnummer')).toHaveValue('079 123 45 67')
+    expect(screen.getByRole('alert')).toHaveTextContent('Nicht erstellt – deine Eingaben sind noch hier.')
+    expect(screen.getByRole('button', { name: 'Einsatz erstellen' })).toBeEnabled()
   })
 })
 

@@ -408,10 +408,10 @@ export function createIncidentActions(board: BoardMutationContext) {
     return String(maxId + 1)
   }
 
-  const createOperation = async (operation: Omit<Operation, "id" | "dispatchTime">) => {
+  const createOperation = async (operation: Omit<Operation, "id" | "dispatchTime">): Promise<boolean> => {
     if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
       console.error("Cannot create operation without valid selected event")
-      return
+      return false
     }
 
     if (isLoaded) {
@@ -464,11 +464,13 @@ export function createIncidentActions(board: BoardMutationContext) {
         setOperations((ops) =>
           ops.some((op) => op.id === newOperation.id) ? ops : [newOperation, ...ops]
         )
+        return true
       } catch (error) {
         console.error("Failed to create operation:", error)
         toast.error(translateOutsideReact('notifications.operations.createFailedTitle'), {
           description: translateOutsideReact('notifications.operations.createFailedDescription'),
         })
+        return false
       }
     } else {
       const newOperation: Operation = {
@@ -485,6 +487,7 @@ export function createIncidentActions(board: BoardMutationContext) {
         materialAssignments: new Map(),
       }
       setOperations((ops) => [newOperation, ...ops])
+      return true
     }
   }
 
