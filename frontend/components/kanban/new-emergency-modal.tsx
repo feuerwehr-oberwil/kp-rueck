@@ -208,6 +208,7 @@ export function NewEmergencyModal({
   const [createFailed, setCreateFailed] = useState(false)
   // The locked fieldset takes the focus away (a disabled control cannot hold it):
   // unlock synchronously, then hand it back – Ctrl ↵ again after a failure works.
+  // From the menu the item is gone by then: the Einsatzort takes it instead.
   const whileLocked = async <T,>(write: () => Promise<T>): Promise<T> => {
     const focused = document.activeElement instanceof HTMLElement ? document.activeElement : null
     inFlight.current = true
@@ -218,6 +219,7 @@ export function NewEmergencyModal({
       inFlight.current = false
       flushSync(() => setSubmitting(false))
       if (focused?.isConnected) focused.focus()
+      else focusFirstBlockingField([LOCATION_FIELD_ID])
     }
   }
   const create = async (): Promise<boolean> => {
