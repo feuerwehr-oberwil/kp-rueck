@@ -60,8 +60,8 @@ export class FeldPage extends BasePage {
     this.codeInput = page.getByRole('textbox').first();
     this.codeError = page.getByText('Falscher Code');
 
-    // The journey chain: the pending step is a button («… melden»), a done
-    // step is a quiet text line.
+    // The journey: the pending step's button («… melden») is in the fixed status
+    // footer (6C), a done step is a quiet text line in the chain.
     this.arrivedButton = page.getByRole('button', { name: /^Angekommen melden$/ });
     // Amber primary when it is the current step, the quiet inline «melden»
     // link while «Angekommen» is still owed — the same ask-first behind both.
@@ -139,9 +139,9 @@ export class FeldPage extends BasePage {
 
   /**
    * The EL briefing line (decision 22) — the «EL» sign and the leader's name,
-   * "kein EL erfasst", or the self variant. It is rendered on the list AND in
-   * the detail header, so the caller says which one it means by scoping to a
-   * row where that matters.
+   * "kein EL erfasst", or the self variant. It is rendered on the list, and in
+   * the detail header only when «Mannschaft» does not mark the EL (6C), so the
+   * caller says which one it means by scoping to a row where that matters.
    */
   leaderLine(name: string): Locator {
     return this.page.locator('[data-slot="feld-leader-line"]', { hasText: name });

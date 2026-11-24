@@ -20,8 +20,9 @@ const saveRekoDraft = vi.hoisted(() => vi.fn())
 const submitRekoReport = vi.hoisted(() => vi.fn())
 const uploadRekoPhoto = vi.hoisted(() => vi.fn())
 const deleteRekoPhoto = vi.hoisted(() => vi.fn())
+const markRekoArrived = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/api-client', () => ({
-  apiClient: { getRekoForm, saveRekoDraft, submitRekoReport, uploadRekoPhoto, deleteRekoPhoto },
+  apiClient: { getRekoForm, saveRekoDraft, submitRekoReport, uploadRekoPhoto, deleteRekoPhoto, markRekoArrived },
 }))
 const toast = vi.hoisted(() => ({ error: vi.fn(), info: vi.fn(), success: vi.fn() }))
 vi.mock('sonner', () => ({ toast }))
@@ -134,7 +135,7 @@ describe('field report autosave', () => {
       expect(screen.getByDisplayValue('A')).toBeInTheDocument()
     }
     if (path === 'submit') {
-      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Reko-Bericht übermitteln' })) })
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Übermitteln' })) })
       expect(submitRekoReport).toHaveBeenCalledWith('same-incident', 'link-a', { summary_text: 'A' })
     } else {
         await tick()
@@ -379,7 +380,7 @@ describe('after the report is sent', () => {
     submitRekoReport.mockResolvedValue({})
     renderWithIntl(<RekoForm />)
     await act(async () => {})
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Reko-Bericht übermitteln' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Übermitteln' })) })
   }
 
   // Owner, 19.11.2026: from /feld straight back to the list, the receipt as a toast.
@@ -397,5 +398,73 @@ describe('after the report is sent', () => {
     expect(router.push).toHaveBeenCalledWith('/reko/success?ort=Bahnhofstrasse+22')
     expect(router.replace).not.toHaveBeenCalled()
     expect(unmutedToast).not.toHaveBeenCalled()
+  })
+})
+
+// 9C (phone sweep 24.11.2026): what the KP has and the send ride in one fixed footer.
+describe('the fixed footer', () => {
+  afterEach(() => {
+    saveRekoDraft.mockReset()
+    localStorage.clear()
+    vi.useRealTimers()
+  })
+
+  it('says what the KP has beside «übermitteln», and offers «Jetzt senden» when a save fails', async () => {
+    vi.useFakeTimers()
+    params.value = new URLSearchParams({ incident_id: 'footer-incident', token: 'link-f' })
+    getRekoForm.mockResolvedValueOnce({ id: 'report-f', summary_text: 'A', is_relevant: true, updated_at: '2025-01-01T00:00:00Z' })
+    renderWithIntl(<RekoForm />)
+    await act(async () => {})
+    const footer = () => document.querySelector('[data-slot="link-page-footer"]') as HTMLElement
+    // Before the arrival: «Ich bin vor Ort» (outline) beside the send (short label).
+    expect(within(footer()).getByRole('button', { name: 'Übermitteln' })).toBeInTheDocument()
+    expect(within(footer()).getByRole('button', { name: 'Ich bin vor Ort' })).not.toHaveClass('bg-action')
+
+    // The server answers with the saved row (the form takes its answer as the new base).
+    saveRekoDraft.mockImplementationOnce(async (_incident: string, _token: string, changes: Record<string, unknown>) => ({
+      id: 'report-f', summary_text: 'A', is_relevant: true, updated_at: '2025-01-01T00:00:00Z', ...changes,
+    }))
+    fireEvent.change(screen.getByDisplayValue('A'), { target: { value: 'B' } })
+    await act(async () => { await vi.advanceTimersByTimeAsync(31_000) })
+    expect(footer()).toHaveTextContent(/Beim KP – Stand \d\d:\d\d/)
+
+    saveRekoDraft.mockRejectedValueOnce(new TypeError('lost'))
+    fireEvent.change(screen.getByDisplayValue('B'), { target: { value: 'C' } })
+    await act(async () => { await vi.advanceTimersByTimeAsync(31_000) })
+    expect(footer()).toHaveTextContent('Der KP sieht das noch nicht')
+    expect(within(footer()).getByRole('button', { name: 'Jetzt senden' })).toBeEnabled()
+  })
+
+  it('«Ich bin vor Ort» leaves the footer once reported; the status line says since when', async () => {
+    params.value = new URLSearchParams({ incident_id: 'footer-arrive', token: 'link-a' })
+    getRekoForm.mockResolvedValueOnce({ id: 'report-a', summary_text: 'A', is_relevant: true, updated_at: '2025-01-01T00:00:00Z' })
+    markRekoArrived.mockResolvedValueOnce({ arrived_at: '2025-01-01T09:41:00Z' })
+    renderWithIntl(<RekoForm />)
+    await act(async () => {})
+    const footer = document.querySelector('[data-slot="link-page-footer"]') as HTMLElement
+
+    await act(async () => { fireEvent.click(within(footer).getByRole('button', { name: 'Ich bin vor Ort' })) })
+
+    expect(markRekoArrived).toHaveBeenCalledWith('footer-arrive', 'link-a')
+    expect(screen.queryByRole('button', { name: 'Ich bin vor Ort' })).toBeNull()
+    expect(footer).toHaveTextContent(/Vor Ort seit \d\d:\d\d/)
+    // Alone in the footer the send has room for its full label.
+    expect(within(footer).getByRole('button', { name: 'Reko-Bericht übermitteln' })).toBeInTheDocument()
+  })
+
+  it('says «Kein Netz» as soon as there is something unsent offline, not at the next save', async () => {
+    params.value = new URLSearchParams({ incident_id: 'footer-offline', token: 'link-o' })
+    getRekoForm.mockResolvedValueOnce({ id: 'report-o', summary_text: 'A', is_relevant: true, updated_at: '2025-01-01T00:00:00Z' })
+    renderWithIntl(<RekoForm />)
+    await act(async () => {})
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    try {
+      await act(async () => { window.dispatchEvent(new Event('offline')) })
+      fireEvent.change(screen.getByDisplayValue('A'), { target: { value: 'B' } })
+      expect(document.querySelector('[data-slot="link-page-footer"]')).toHaveTextContent('Kein Netz')
+      expect(saveRekoDraft).not.toHaveBeenCalled()
+    } finally {
+      onLine.mockRestore()
+    }
   })
 })

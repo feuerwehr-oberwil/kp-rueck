@@ -4,7 +4,8 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import Request
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
@@ -16,6 +17,15 @@ from ..models import (
 )
 from ..services.audit import log_action
 from .active_resources import active_resource_ids
+from .personnel import name_key
+
+# The tag a guest who checked themselves in at the door carries, so the board's person cards
+# (which show tags) say «Gast» without a board change. Station data, so German.
+DOOR_GUEST_TAG = "Gast"
+
+# A ceiling on guests per Ereignis through the door. Far above a real night (a handful of
+# Nachbarhilfe); it only stops a leaked link from filling the board with names.
+DOOR_GUESTS_PER_EVENT = 100
 
 
 class CheckOutChangedError(Exception):
@@ -165,7 +175,9 @@ async def check_in_personnel(
 
     is_assigned = await _is_personnel_assigned(db, event_id, personnel_id)
 
-    # Get or create event attendance record
+    # Get or create event attendance record. The person's row lock above serialises two
+    # check-ins of one person (the tablet and the guest door, a double tap), so the second
+    # finds the first one's row instead of inserting a duplicate.
     attendance_result = await db.execute(
         select(EventAttendance).where(
             EventAttendance.event_id == event_id, EventAttendance.personnel_id == personnel_id
@@ -245,6 +257,79 @@ async def check_in_personnel(
     await db.refresh(attendance)
 
     return _response(person, attendance, is_assigned=is_assigned)
+
+
+class GuestCheckInRefusedError(Exception):
+    """The door cannot settle this name on its own: the person must go to the KP.
+
+    Raised for a name that matches more than one person, a person marked unavailable, and an
+    Ereignis that has reached ``DOOR_GUESTS_PER_EVENT``. ``reason`` is for the log only.
+    """
+
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+        super().__init__(reason)
+
+
+async def check_in_guest(
+    db: AsyncSession,
+    event_id: uuid.UUID,
+    name: str,
+    request: Request | None = None,
+) -> tuple[schemas.PersonnelCheckInResponse, bool]:
+    """«‹Name› als Gast einchecken» – the check-in link's walk-in door (phone sweep 24.11., 7A).
+
+    The name is compared with everybody this Ereignis lists (the roster and its own guests,
+    ``Personnel.in_scope``) by ``name_key`` without the Kennung. One match is that person,
+    checked in as if their row had been tapped; no match creates a guest of this Ereignis
+    (``guest_event_id``, tag ``DOOR_GUEST_TAG``) and checks them in. Two or more matches, an
+    unavailable match, or a full Ereignis raise ``GuestCheckInRefusedError``.
+
+    A transaction-scoped advisory lock per Ereignis serialises the look-up and the insert,
+    so a double tap or two phones typing the same name make one guest, not two. It is taken
+    before any row lock and no other writer takes it, so the row-lock order is untouched.
+
+    Returns the person's attendance and whether a guest was created. One audit row either
+    way (``check_in_guest``, no user: the link is anonymous).
+    """
+    await db.execute(sa_text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": f"checkin_guest:{event_id}"})
+
+    wanted = name_key(name, None)[0]
+    listed = await db.scalars(select(Personnel).where(Personnel.in_scope(event_id)))
+    matches = [p for p in listed if name_key(p.name, None)[0] == wanted]
+
+    if len(matches) > 1:
+        raise GuestCheckInRefusedError("name matches several people")
+    if matches and matches[0].status == "unavailable":
+        raise GuestCheckInRefusedError("name matches an unavailable person")
+
+    created = not matches
+    if matches:
+        person = matches[0]
+    else:
+        guests = await db.scalar(
+            select(func.count()).select_from(Personnel).where(Personnel.guest_event_id == event_id)
+        )
+        if (guests or 0) >= DOOR_GUESTS_PER_EVENT:
+            raise GuestCheckInRefusedError("guest limit reached")
+        person = Personnel(name=name, status="available", tags=[DOOR_GUEST_TAG], guest_event_id=event_id)
+        db.add(person)
+        await db.flush()
+
+    await log_action(
+        db=db,
+        action_type="check_in_guest",
+        resource_type="personnel",
+        resource_id=person.id,
+        user=None,
+        changes={"name": person.name, "event_id": str(event_id), "created": created, "via": "checkin_link"},
+        request=request,
+    )
+
+    response = await check_in_personnel(db, event_id=event_id, personnel_id=person.id)
+    if response is None:  # unreachable: the person is in scope and was just read or written
+        raise GuestCheckInRefusedError("person vanished")
+    return response, created
 
 
 async def check_out_personnel(

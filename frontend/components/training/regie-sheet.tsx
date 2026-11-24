@@ -32,7 +32,7 @@ export function RegieSheet({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent side="bottom" className="max-h-[88dvh] modal-h-tall gap-0 rounded-t-2xl [--close-centre:31px]">
           <SheetHeader className="gap-1 px-4 pt-5 pb-3 pr-12 text-left">
-            <SheetTitle className="text-lg leading-[1.375rem] font-semibold break-words">{title}</SheetTitle>
+            <SheetTitle className="text-lg leading-[1.375rem] font-semibold">{title}</SheetTitle>
             <SheetDescription className="text-xs">{description}</SheetDescription>
           </SheetHeader>
           <SheetBody className="space-y-5 px-4 pb-sheet-safe">{children}</SheetBody>

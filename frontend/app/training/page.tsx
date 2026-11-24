@@ -1,5 +1,6 @@
 "use client"
 
+import { PhoneEventHead } from '@/components/mobile/phone-event-pill'
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
@@ -102,6 +103,7 @@ export default function TrainingPage() {
     return (
       <ProtectedRoute>
         <div className="flex h-full flex-col bg-background text-foreground">
+          <PhoneEventHead className="bg-header" />
           <header className="flex items-center justify-between border-b border-border/50 bg-header px-6 py-2 min-h-14">
             <h1 className="text-2xl font-bold tracking-tight">{t("common.title")}</h1>
             <PageNavigation
@@ -133,6 +135,7 @@ export default function TrainingPage() {
           {/* Same warning strip as the board and the wall display: this console only ever
               opens on a training Ereignis, and it says so the same way. */}
           <TrainingBand />
+          <PhoneEventHead className="bg-header" />
           <header className="flex items-center justify-between gap-2 border-b border-border/50 bg-header px-4 sm:px-6 py-2 min-h-14">
             <h1 className="min-w-0 truncate text-xl font-bold tracking-tight sm:text-2xl">{t("common.title")}</h1>
             <PageNavigation

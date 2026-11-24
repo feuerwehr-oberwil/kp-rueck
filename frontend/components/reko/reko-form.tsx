@@ -8,7 +8,7 @@ import { useTranslations } from 'next-intl'
 import { useIntlLocale } from '@/lib/date-locale'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, Binoculars, MapPin, Check, CircleCheck } from 'lucide-react'
+import { AlertCircle, Binoculars, MapPin, CircleCheck, CloudCheck, CloudOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient, type ApiDangersAssessment, type ApiEffortEstimation, type ApiRekoReportResponse } from '@/lib/api-client'
 import { ApiError } from '@/lib/api/types'
@@ -91,6 +91,9 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
   const [isMarkingArrived, setIsMarkingArrived] = useState(false)
   const [arrivedAt, setArrivedAt] = useState<Date | null>(null)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  // The link opened on a report the KP already has: until this phone saves once, the footer
+  // must not say «nothing has arrived» – the KP holds the loaded state.
+  const [serverHasReport, setServerHasReport] = useState(false)
   /**
    * Something is on this phone that the KP has not got.
    *
@@ -271,6 +274,7 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
         setDrafts(store)
         setSyncedData(serverData)
         setFormData(serverData)
+        setServerHasReport(Object.keys(changedFields(INITIAL_FORM_DATA, serverData)).length > 0)
         try {
           const candidates = store.read().filter(version => {
             const desired = applyDraft(serverData, version.draft.changes)
@@ -569,36 +573,9 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
           )}
         </div>
 
-        {/* Arrival Ping Button */}
-        <Button
-          type="button"
-          onClick={handleMarkArrived}
-          disabled={isMarkingArrived || !!arrivedAt}
-          variant={arrivedAt ? "secondary" : "default"}
-          size="lg"
-          className={`w-full ${arrivedAt ? 'bg-muted text-muted-foreground' : ''}`}
-        >
-          {isMarkingArrived ? (
-            <>
-              <ShellLoader className="h-5 w-5" />
-              {t('markingArrival')}
-            </>
-          ) : arrivedAt ? (
-            <>
-              <Check className="h-5 w-5" />
-              {t('arrivalReported', { time: formatTime(arrivedAt, intlLocale) })}
-            </>
-          ) : (
-            <>
-              <MapPin className="h-5 w-5" />
-              {t('imOnSite')}
-            </>
-          )}
-        </Button>
-
         {/* The field set itself — the SAME component the board's incident detail
             mounts, with a different transport and identity (plan 26 §5.1). The
-            shell above (header, arrival ping, dummy generator) is what differs;
+            shell (header, arrival ping, dummy generator) is what differs;
             the fields must not. */}
         <RekoReportForm
           incidentId={incidentId!}
@@ -614,53 +591,79 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
               (await apiClient.uploadRekoPhoto(incidentId!, token!, file, onProgress)).filename,
             remove: (filename) => apiClient.deleteRekoPhoto(incidentId!, token!, filename),
           }}
-          footer={
-            /* Three honest states instead of one friendly lie. The question at a
-               Schadenplatz is never «wurde gespeichert?» — localStorage answers
-               that on every keystroke — it is whether the KP has it or whether it
-               is still on this phone. «Jetzt zum KP senden» is the same button
-               the Rapport form calls `sendChanges`; one pattern, two forms. */
-            !unsent || !dirty ? (
-              <div className="space-y-1 text-center">
-                {lastSaved && !dirty && (
-                  <p className="text-sm">
-                    {t('syncedAt', {
-                      time: formatTime(lastSaved, intlLocale),
-                    })}
-                  </p>
-                )}
-                <p className="text-xs text-muted-foreground">{lastSaved && !dirty ? t('syncedHint') : t('autoSave')}</p>
+          /* «Ich bin vor Ort» sits beside the send in the footer until it is reported (owner
+             pick, sign-off #387): the first thing a Reko does on site, where the thumb is. It
+             is no gate – sending stays possible before arrival. After the tap it goes, and
+             the status line says since when. Outline: the send is the page's one main button. */
+          footerAction={arrivedAt ? undefined : (
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="h-12 shrink-0"
+              disabled={isMarkingArrived}
+              onClick={handleMarkArrived}
+            >
+              {isMarkingArrived ? <ShellLoader className="h-5 w-5" /> : <MapPin className="h-5 w-5" />}
+              {t('imOnSite')}
+            </Button>
+          )}
+          footer={<div className="space-y-1">
+            {arrivedAt && (
+              <p role="status" className="flex items-center gap-2 font-medium">
+                <MapPin className="h-4 w-4 shrink-0" aria-hidden />
+                {t('onSiteSince', { time: formatTime(arrivedAt, intlLocale) })}
+              </p>
+            )}
+            {/* Three honest states instead of one friendly lie, one line each in the fixed
+               footer (9C). The question at a Schadenplatz is never «wurde gespeichert?» –
+               localStorage answers that on every keystroke – it is whether the KP has it or
+               whether it is still on this phone. «Jetzt senden» is the same action the Rapport
+               form calls `sendChanges`; one pattern, two forms. */
+            !online && dirty ? (
+              /* No network is not a fault and gets no red: it is a cellar, and it ends by
+                 itself. Said as soon as there is something to send – not 30 s later, when
+                 the next save fails. The one instruction that matters is to leave the form
+                 open, because closing it is what would actually cost the text. */
+              <div role="status" className="flex items-start gap-2">
+                <CloudOff className="mt-0.5 h-4 w-4 shrink-0 text-warning-foreground" aria-hidden />
+                <p className="min-w-0">
+                  <span className="block font-medium">{t('offlineTitle')}</span>
+                  <span className="block text-xs text-muted-foreground">{t('offlineHint')}</span>
+                </p>
               </div>
-            ) : online ? (
-              <div className="space-y-2">
-                <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">
-                  <p className="font-medium">{t('unsentTitle')}</p>
-                  <p className="mt-0.5">
+            ) : !unsent || !dirty ? (
+              <p className="flex items-center gap-2">
+                {lastSaved ? (
+                  <>
+                    <CloudCheck className={`h-4 w-4 shrink-0 ${dirty ? 'text-muted-foreground' : 'text-success'}`} aria-hidden />
+                    <span className="min-w-0 truncate" title={t('kpStand', { time: formatTime(lastSaved, intlLocale) })}>
+                      {t('kpStand', { time: formatTime(lastSaved, intlLocale) })}
+                    </span>
+                    <span className="ml-auto shrink-0 text-xs text-muted-foreground">{t('draftLive')}</span>
+                  </>
+                ) : (
+                  <span className="text-muted-foreground">{t('autoSave')}</span>
+                )}
+              </p>
+            ) : (
+              <div role="status" className="flex items-center gap-2 text-warning-foreground">
+                <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />
+                <p className="min-w-0 flex-1">
+                  <span className="block font-medium">{t('unsentTitle')}</span>
+                  <span className="block text-xs">
                     {lastSaved
-                      ? t('unsentBody', {
-                          time: formatTime(lastSaved, intlLocale),
-                        })
-                      : t('unsentBodyNever')}
-                  </p>
-                  <p className="mt-1 text-xs opacity-90">{t('unsentReassurance')}</p>
-                </div>
-                <Button type="button" className="w-full" disabled={isSaving} onClick={() => saveDraft()}>
+                      ? t('kpStand', { time: formatTime(lastSaved, intlLocale) })
+                      : serverHasReport ? t('kpEarlier') : t('kpNothing')}
+                  </span>
+                </p>
+                <Button type="button" size="sm" variant="outline" className="shrink-0" disabled={isSaving} onClick={() => saveDraft()}>
                   {isSaving ? <ShellLoader className="h-4 w-4" /> : null}
-                  {t('sendNow')}
+                  {t('sendNowShort')}
                 </Button>
               </div>
-            ) : (
-              /* No network is not a fault and gets no red: it is a cellar, and it
-                 ends by itself. The one instruction that matters is to leave the
-                 form open, because closing it is what would actually cost the
-                 text. */
-              <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
-                <p className="font-medium">{t('offlineTitle')}</p>
-                <p className="mt-0.5">{t('offlineBody')}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{t('offlineHint')}</p>
-              </div>
-            )
-          }
+            )}
+          </div>}
         />
       </div>
     </PhotoViewerProvider>

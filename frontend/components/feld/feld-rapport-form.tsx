@@ -22,6 +22,9 @@
  * **The two mounts save differently, and only there (§18.17).** `/feld` keeps an
  * explicit *Rapport abschliessen*: a crew on a phone needs a definite "I am
  * done" moment, and that is where the draft-vs-filed distinction earns its keep.
+ * On `/feld` that button stands in the page's fixed footer as the journey's
+ * third step (`submitSlot`, owner pick, sign-off #387): one button, not a
+ * «Rapport erfassen» in the footer that only scrolled to a second one here.
  * The KP has no submit button at all — the board autosaves everything else, and
  * a modal that makes an operator press Save is out of place on it. A KP save
  * therefore always writes `is_draft: false`: **a KP rapport is filed from its
@@ -43,6 +46,7 @@
 
 import { formatDateTime, formatTime } from '@/lib/format-time'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useTranslations } from 'next-intl'
 import { AlertTriangle, Check, Copy, Phone, RefreshCw, Send, UserRound } from 'lucide-react'
@@ -118,13 +122,13 @@ interface FeldRapportFormProps {
    *  type into. Never set when the detail was merely opened on this tab by hand;
    *  stealing focus from somebody who is reading is its own bug. */
   autoFocusKurzbericht?: boolean
-  /** Imperative counterpart for a form that is ALREADY mounted: increment to
-   *  scroll to the Kurzbericht and put the caret in it — the journey's
-   *  «Rapport erfassen» button. 0 / undefined = never fired. */
-  focusKurzberichtSignal?: number
-  /** KP only: the release set and its click (`useMaterialRelease`). The form drops every
-   *  unit its current answers keep «vor Ort» and shows the rest as «N Geräte freigeben»
-   *  under «Zurück». Omitted on /feld and for a read-only mount. */
+  /** Where «Rapport abschliessen» goes instead of under the form: `/feld`'s fixed
+   *  footer, on the journey's Rapport step. Null / absent = under the form. Only the
+   *  first filing moves; «Änderungen senden» on a filed rapport stays here. */
+  submitSlot?: HTMLElement | null
+  /** KP only: the release set and its click (`useMaterialRelease`). The form offers the part
+   *  its checklist also calls back, as «N Geräte freigeben» under «Zurück». Omitted on /feld
+   *  and for a read-only mount. */
   materialRelease?: MaterialRelease
   /** KP only: the material assignments the board still has open here. A unit marked «vor
    *  Ort» whose assignment is closed was collected («Abgeholt») and reads as back. */
@@ -165,7 +169,7 @@ function prefersReducedMotion(): boolean {
  * a `FeldSection` that states what is in it.
  *
  * An open block is also where «take me there» lands (the Abschluss question's
- * rows, the journey's «Rapport erfassen»): increment `jumpSignal` and the block
+ * rows): increment `jumpSignal` and the block
  * scrolls to just under the sticky bars (`scroll-mt-28`: the top bar plus the
  * Schadenplatz line), rings twice in ink and – with `jumpFocus` – puts the caret
  * at the end of its first text field. A checklist block leaves `jumpFocus` off:
@@ -246,7 +250,7 @@ function RapportSection({
   )
 }
 
-export function FeldRapportForm({ incidentId, transport, mount = 'feld', disabled, onSaved, autoFocusKurzbericht, focusKurzberichtSignal, materialRelease, activeAssignmentIds }: FeldRapportFormProps) {
+export function FeldRapportForm({ incidentId, transport, mount = 'feld', disabled, onSaved, autoFocusKurzbericht, submitSlot, materialRelease, activeAssignmentIds }: FeldRapportFormProps) {
   const t = useTranslations('feld.rapport')
   const tLoading = useTranslations('common')
   const isKp = mount === 'kp'
@@ -589,15 +593,6 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
     field.setSelectionRange(end, end)
   }, [autoFocusKurzbericht, disabled, isLoading])
 
-  // «Rapport erfassen» on the journey: the same landing as the Abschluss
-  // question's Kurzbericht row — scroll there, ring it, caret at the end. A
-  // signal that fires while the rapport still loads lands once the block mounts.
-  const jumpToKurzbericht = useEffectEvent(() => jumpTo('kurzbericht'))
-  useEffect(() => {
-    if (!focusKurzberichtSignal || disabled) return
-    jumpToKurzbericht()
-  }, [focusKurzberichtSignal, disabled])
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -703,6 +698,24 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
     ownerSummary,
     ownerShown: showOwnerBlock,
   })
+
+  // The first filing's «Rapport abschliessen» – the SAME button under the form or in
+  // `/feld`'s footer (`submitSlot`): the slot is only a place, the checks are these.
+  const submitButton = (
+    <Button
+      type="button"
+      size={submitSlot ? 'lg' : 'default'}
+      className={submitSlot ? 'h-12 w-full' : 'w-full'}
+      disabled={readOnly || isSubmitting}
+      // The question only guards the FIRST filing. «Änderungen senden»
+      // re-files a rapport somebody already confirmed once, and asking
+      // again there would ask about gaps that were a decision.
+      onClick={() => (gaps.missing.length > 0 ? setConfirmGaps(true) : void handleSubmit())}
+    >
+      {isSubmitting ? <ShellLoader className="size-4" /> : <Send className="size-4" />}
+      {t('submit')}
+    </Button>
+  )
 
   return (
     <div className="space-y-3">
@@ -1040,19 +1053,10 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
               </Button>
             )}
           </div>
+        ) : submitSlot ? (
+          createPortal(submitButton, submitSlot)
         ) : (
-          <Button
-            type="button"
-            className="w-full"
-            disabled={readOnly || isSubmitting}
-            // The question only guards the FIRST filing. «Änderungen senden»
-            // above re-files a rapport somebody already confirmed once, and
-            // asking again there would ask about gaps that were a decision.
-            onClick={() => (gaps.missing.length > 0 ? setConfirmGaps(true) : void handleSubmit())}
-          >
-            {isSubmitting ? <ShellLoader className="size-4" /> : <Send className="size-4" />}
-            {t('submit')}
-          </Button>
+          submitButton
         )}
       </div>
 

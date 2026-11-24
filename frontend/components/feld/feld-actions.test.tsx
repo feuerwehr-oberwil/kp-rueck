@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { ApiFeldAssignment, ApiFieldReportState, ApiFieldRequest } from '@/lib/api/types'
@@ -183,6 +183,70 @@ describe('Angekommen', () => {
   })
 })
 
+// 6C (phone sweep 24.11.2026): the next step is in a fixed footer; the chain only points there.
+describe('the status footer', () => {
+  it('holds the one button for the step owed now, asks there, and moves on to the next', async () => {
+    const user = userEvent.setup()
+    const { rerender } = renderWithIntl(
+      <FeldActions assignment={assignment()} personnelId="p-1" token="tok" messageChips={[]} onReported={vi.fn()} />,
+    )
+    const footer = () => document.querySelector('[data-slot="link-page-footer"]') as HTMLElement
+    expect(screen.getByText('Angekommen – unten melden')).toBeInTheDocument()
+    expect(footer()).toHaveTextContent('Nächster Schritt · 1 von 3')
+
+    await confirmArrived(user)
+    expect(footer()).toHaveTextContent('«Angekommen» ist beim KP angekommen.')
+
+    rerender(
+      <FeldActions
+        assignment={assignment({ arrived_at: '2026-08-09T20:00:00Z' })}
+        personnelId="p-1"
+        token="tok"
+        messageChips={[]}
+        onReported={vi.fn()}
+      />,
+    )
+    await waitFor(() => expect(footer()).toHaveTextContent('Einsatz beendet melden'))
+  })
+
+  it('moves the focus into its question and back to the step on «Abbrechen»', async () => {
+    const user = userEvent.setup()
+    render()
+    await user.click(screen.getByRole('button', { name: 'Angekommen melden' }))
+    expect(screen.getByText('Angekommen melden?')).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: 'Abbrechen' }))
+    expect(screen.getByRole('button', { name: 'Angekommen melden' })).toHaveFocus()
+  })
+
+  it('hands the Rapport form its slot on the Rapport step – no button of its own there', () => {
+    const slot = vi.fn()
+    renderWithIntl(
+      <FeldActions
+        assignment={assignment({
+          arrived_at: '2026-08-09T20:00:00Z',
+          field_complete_reported_at: '2026-08-09T21:00:00Z',
+          rapport_state: 'draft',
+        })}
+        personnelId="p-1"
+        token="tok"
+        messageChips={[]}
+        onReported={vi.fn()}
+        rapportSubmitSlot={slot}
+      />,
+    )
+    const footer = document.querySelector('[data-slot="link-page-footer"]') as HTMLElement
+    expect(footer).toHaveTextContent('Nächster Schritt · 3 von 3')
+    expect(slot).toHaveBeenLastCalledWith(footer.querySelector('[data-slot="rapport-submit-slot"]'))
+    expect(slot.mock.lastCall?.[0]).not.toBeNull()
+    expect(within(footer).queryByRole('button', { name: /Rapport/ })).toBeNull()
+  })
+
+  it('is not there for somebody who only drives – they report no status', () => {
+    render({ source: 'driver' })
+    expect(document.querySelector('[data-slot="link-page-footer"]')).toBeNull()
+  })
+})
+
 describe('the Abholung follow-up (decision 24)', () => {
   it('asks "Kommt ihr selbst zurück?" right after Einsatz beendet', async () => {
     const user = userEvent.setup()
@@ -205,6 +269,11 @@ describe('the Abholung follow-up (decision 24)', () => {
 
     await waitFor(() => expect(screen.getByText(/nicht gesendet werden/)).toBeInTheDocument())
     expect(screen.queryByText('Kommt ihr selbst zurück?')).not.toBeInTheDocument()
+
+    // …and asks once «Erneut senden» got it through (Sol review: the retry used to skip it).
+    await user.click(screen.getByRole('button', { name: 'Erneut senden' }))
+    expect(await screen.findByText('Kommt ihr selbst zurück?')).toBeInTheDocument()
+    expect(feldReportComplete).toHaveBeenCalledTimes(2)
   })
 
   it('"Wir fahren selbst" clears the flag and closes the question', async () => {

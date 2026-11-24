@@ -200,6 +200,28 @@ describe('the /feld mount keeps its "I am done" moment', () => {
   })
 })
 
+// Owner pick, sign-off #387: on /feld the one «Rapport abschliessen» stands in the fixed footer.
+describe('«Rapport abschliessen» in the footer slot', () => {
+  it('is the form\'s own button – it asks about the gaps and files from there', async () => {
+    const crew = [{ personnel_id: 'p-1', name: 'Meier Andrea', present: true, on_board: true }]
+    const slot = document.body.appendChild(document.createElement('div'))
+    const save = vi.fn().mockResolvedValue(rapport({ exists: true, is_draft: false }))
+    const load = vi.fn().mockResolvedValue(rapport({ personnel: crew }))
+    const { container } = renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save }} submitSlot={slot} />)
+
+    const button = await within(slot).findByRole('button', { name: 'Rapport abschliessen' })
+    expect(screen.getAllByRole('button', { name: 'Rapport abschliessen' })).toHaveLength(1)
+    expect(container.contains(button)).toBe(false)
+
+    // The same checks as under the form: an empty Kurzbericht asks first.
+    await userEvent.click(button)
+    await userEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Ohne Kurzbericht abschliessen' }))
+    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+    expect((save.mock.calls[0][0] as ApiRapportUpdate).is_draft).toBe(false)
+    slot.remove()
+  })
+})
+
 describe('Eigentümer / Halter is a name and a phone (§18.31)', () => {
   it('offers a tel: link as soon as the number is dialable', async () => {
     // The entire reason the phone is its own field: somebody rings from the
@@ -508,19 +530,6 @@ describe('the Abschluss question (UX-PHONE-05)', () => {
     scrollIntoView.mockRestore()
     // Going there is not going ahead.
     expect(save).not.toHaveBeenCalled()
-  })
-
-  it('«Rapport erfassen» on the journey lands on the Kurzbericht, caret after the text', async () => {
-    const load = vi.fn().mockResolvedValue(rapport({ kurzbericht: 'Ast entfernt' }))
-    const transport = { load, save: vi.fn() }
-    const { rerender } = renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={transport} />)
-    const box = (await screen.findByPlaceholderText('Lage, Tätigkeit, Material')) as HTMLTextAreaElement
-    expect(box).not.toHaveFocus()
-
-    rerender(<FeldRapportForm incidentId="inc-1" transport={transport} focusKurzberichtSignal={1} />)
-    await vi.waitFor(() => expect(box).toHaveFocus())
-    expect(box.selectionStart).toBe('Ast entfernt'.length)
-    expect(box.closest('section')).toHaveClass('this-one-ring')
   })
 
   it('a checklist block rings, but takes no focus', async () => {

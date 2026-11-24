@@ -47,6 +47,7 @@ import {
 } from '@/components/ui/sheet'
 import {
   ALARM_INBOX_TRIGGER_ATTR,
+  takeAlarmInboxReturnFocus,
   closeAlarmInbox,
   reloadAlarmPool,
   useAlarmInboxOpen,
@@ -118,6 +119,13 @@ export function AlarmInboxSheet() {
       <SheetContent
         ref={isMobile ? undefined : resize.panelRef}
         side={isMobile ? 'bottom' : 'right'}
+        // Opened from the phone's Meldungen tile (no trigger of this sheet): focus goes back there.
+        onCloseAutoFocus={(event) => {
+          const opener = takeAlarmInboxReturnFocus()
+          if (!opener) return
+          event.preventDefault()
+          opener.focus()
+        }}
         data-testid="alarm-inbox"
         className={cn(
           'gap-0 p-0 outline-none',

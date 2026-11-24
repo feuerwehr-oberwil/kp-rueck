@@ -707,7 +707,8 @@
       "incident_restore_merged": "Ce signalement a été fusionné. Il peut être séparé depuis l’intervention cible.",
       "incident_restore_conflict": "L’intervention a changé. Réessayez la restauration.",
       "incident_restore_resource_conflict": "« {name} » est indisponible. L’attribution actuelle est conservée.",
-      "incident_not_merged": "Ce signalement n’est pas fusionné."
+      "incident_not_merged": "Ce signalement n’est pas fusionné.",
+      "checkin_guest_ask_kp": "La liste ne peut pas attribuer ce nom. Annonce-toi au PC."
     }
   },
   "events": {
@@ -930,7 +931,10 @@
       "rapportDone": "Rapport saisi",
       "reportNow": "annoncer",
       "rapportAction": "Saisir le rapport",
-      "messageRequired": "Le message manque."
+      "messageRequired": "Le message manque.",
+      "nextStep": "Prochaine étape · {current} sur {total}",
+      "currentBelow": "{step} – à annoncer en bas",
+      "rapportBelow": "{step} – en bas"
     },
     "pickup": {
       "badge": "Récupération",
@@ -1572,8 +1576,8 @@
       "showOnMap": "Afficher sur la carte"
     },
     "mobileList": {
-      "trainingBadge": "Exercice",
-      "createTrainingIncident": "Créer une intervention d’exercice",
+      "trainingMenu": "Déclencher une intervention d’exercice",
+      "trainingControl": "Ouvrir la commande d’exercice",
       "newIncident": "Nouvelle intervention",
       "searchPlaceholder": "Intervention …",
       "noActive": "Aucune intervention en cours",
@@ -1672,7 +1676,12 @@
       "badgeAssigned": "En intervention",
       "badgeCheckedIn": "Présent",
       "badgeNotCheckedIn": "Absent",
-      "checkedOut": "{name} : départ enregistré."
+      "checkedOut": "{name} : départ enregistré.",
+      "guestNotListed": "Aucun nom « {name} » sur la liste du personnel.",
+      "guestAdd": "Enregistrer « {name} » comme invité",
+      "guestAddHint": "Tu es présent tout de suite – le PC te voit comme invité.",
+      "guestCheckedIn": "{name} est enregistré.",
+      "guestNameRefused": "La liste ne peut pas enregistrer ce nom. Annonce-toi au PC."
     }
   },
   "kanban": {
@@ -3032,27 +3041,31 @@
     "mobileBottomNav": {
       "incidents": "Interventions",
       "map": "Carte",
+      "notifications": "Messages",
+      "notificationsOpen": "Messages{count, plural, =0 {} one { – # ouvert} other { – # ouverts}}",
       "moreOptions": "Plus d’options",
       "more": "Plus",
       "moreFunctions": "Autres fonctions",
-      "event": "Événement",
-      "noEventSelected": "Aucun événement sélectionné",
-      "training": "Exercice",
-      "allEvents": "Tous les événements",
       "quickActions": "Accès rapide",
       "personnel": "Personnel",
       "vehicles": "Véhicules",
       "print": "Imprimer",
       "trainingControl": "Commande d’exercice",
-      "settings": "Réglages",
-      "diveraPool": "Alarmes entrantes",
-      "helpDocs": "Aide et documentation",
-      "management": "Administration",
-      "support": "Support",
-      "account": "Compte",
       "linksAndQr": "Liens & QR",
       "journal": "Journal",
       "figures": "Indicateurs"
+    },
+    "eventPill": {
+      "menu": "Événement {name} – menu",
+      "noEvent": "Aucun événement",
+      "training": "Exercice",
+      "since": "depuis {time}",
+      "incidents": "{count, plural, one {# intervention} other {# interventions}}",
+      "switch": "Changer d’événement",
+      "allEvents": "Tous les événements",
+      "app": "App",
+      "settings": "Réglages",
+      "help": "Aide"
     },
     "pageNav": {
       "main": "Navigation principale",
@@ -3514,8 +3527,7 @@
       "relevantRequired": "Réponds à « Intervention pertinente ? »",
       "submitError": "Non transmis – le rapport reste dans le formulaire.",
       "contactLabel": "Contact / annonceur : ",
-      "markingArrival": "Annonce de l’arrivée …",
-      "arrivalReported": "Arrivée annoncée ({time})",
+      "onSiteSince": "Sur place depuis {time}",
       "imOnSite": "Je suis sur place",
       "relevantQuestion": "Intervention pertinente ? *",
       "yes": "Oui",
@@ -3551,6 +3563,7 @@
       "notesPlaceholder": "Autres remarques …",
       "submitting": "Transmission …",
       "submit": "Transmettre le rapport de reconnaissance",
+      "submitShort": "Transmettre",
       "autoSave": "Enregistrement automatique",
       "summaries": {
         "notRelevant": [
@@ -3571,17 +3584,15 @@
           "Mise en danger importante sur place. Effectif important nécessaire."
         ]
       },
-      "syncedAt": "Arrivé au PC – {time}",
-      "syncedHint": "Tout ce qui est nouveau part automatiquement au PC.",
       "unsentTitle": "Le PC ne voit pas encore cela",
-      "unsentBody": "Le PC a l'état de {time}. Tout ce qui suit n'est que sur ce téléphone.",
-      "unsentBodyNever": "Rien n'est encore arrivé au PC. Tout est uniquement sur ce téléphone.",
-      "unsentReassurance": "Rien n'est perdu – cela ne passe simplement pas jusqu'au PC.",
-      "sendNow": "Envoyer maintenant au PC",
       "offlineTitle": "Pas de réseau – tout reste sur ce téléphone",
-      "offlineBody": "Tu peux continuer à écrire.",
       "offlineHint": "Dès que le réseau revient, tout part de lui-même au PC. Laisse le formulaire ouvert jusque-là.",
-      "notesShort": "Remarques"
+      "notesShort": "Remarques",
+      "kpStand": "Au PC – état {time}",
+      "kpNothing": "Rien n’est encore arrivé au PC.",
+      "kpEarlier": "Au PC : le dernier état envoyé.",
+      "draftLive": "Brouillon · part en continu",
+      "sendNowShort": "Envoyer"
     },
     "reportSection": {
       "noReport": "Aucun rapport de reconnaissance pour l’instant",

@@ -303,27 +303,31 @@
     "mobileBottomNav": {
       "incidents": "Einsätze",
       "map": "Lagekarte",
+      "notifications": "Meldungen",
+      "notificationsOpen": "Meldungen{count, plural, =0 {} other { – # offen}}",
       "moreOptions": "Mehr Optionen",
       "more": "Mehr",
       "moreFunctions": "Weitere Funktionen",
-      "event": "Ereignis",
-      "noEventSelected": "Kein Ereignis ausgewählt",
-      "training": "Übung",
-      "allEvents": "Alle Ereignisse",
       "quickActions": "Schnellzugriff",
       "personnel": "Personal",
       "vehicles": "Fahrzeuge",
       "print": "Drucken",
       "trainingControl": "Übungs-Steuerung",
-      "settings": "Einstellungen",
-      "diveraPool": "Alarmeingang",
-      "helpDocs": "Hilfe",
-      "management": "Verwaltung",
-      "support": "Support",
-      "account": "Konto",
       "linksAndQr": "Links & QR",
       "journal": "Verlauf",
       "figures": "Kennzahlen"
+    },
+    "eventPill": {
+      "menu": "Ereignis {name} – Menü",
+      "noEvent": "Kein Ereignis",
+      "training": "Übung",
+      "since": "seit {time}",
+      "incidents": "{count, plural, one {# Einsatz} other {# Einsätze}}",
+      "switch": "Ereignis wechseln",
+      "allEvents": "Alle Ereignisse",
+      "app": "App",
+      "settings": "Einstellungen",
+      "help": "Hilfe"
     },
     "pageNav": {
       "main": "Hauptnavigation",
@@ -1576,8 +1580,8 @@
       "showOnMap": "Auf Karte anzeigen"
     },
     "mobileList": {
-      "trainingBadge": "Übung",
-      "createTrainingIncident": "Übungs-Einsatz erstellen",
+      "trainingMenu": "Übungs-Einsatz auslösen",
+      "trainingControl": "Übungs-Steuerung öffnen",
       "newIncident": "Neuer Einsatz",
       "searchPlaceholder": "Einsatz suchen …",
       "noActive": "Keine aktiven Einsätze",
@@ -2976,8 +2980,7 @@
       "relevantRequired": "Bitte «Einsatz relevant?» beantworten",
       "submitError": "Nicht übermittelt – der Bericht bleibt im Formular.",
       "contactLabel": "Kontakt / Melder: ",
-      "markingArrival": "Ankunft wird gemeldet …",
-      "arrivalReported": "Ankunft gemeldet ({time})",
+      "onSiteSince": "Vor Ort seit {time}",
       "imOnSite": "Ich bin vor Ort",
       "relevantQuestion": "Einsatz relevant?",
       "yes": "Ja",
@@ -3013,6 +3016,7 @@
       "notesPlaceholder": "Weitere Bemerkungen …",
       "submitting": "Wird übermittelt …",
       "submit": "Reko-Bericht übermitteln",
+      "submitShort": "Übermitteln",
       "autoSave": "Wird automatisch gespeichert",
       "summaries": {
         "notRelevant": [
@@ -3033,17 +3037,15 @@
           "Erhebliche Gefährdung vor Ort. Umfangreiches Aufgebot erforderlich."
         ]
       },
-      "syncedAt": "Beim KP angekommen – {time}",
-      "syncedHint": "Alles Neue geht automatisch zum KP.",
       "unsentTitle": "Der KP sieht das noch nicht",
-      "unsentBody": "Beim KP steht der Stand von {time}. Alles seither steht nur auf diesem Handy.",
-      "unsentBodyNever": "Beim KP ist noch nichts angekommen. Alles steht nur auf diesem Handy.",
-      "unsentReassurance": "Verloren ist nichts – es kommt nur nicht zum KP durch.",
-      "sendNow": "Jetzt zum KP senden",
       "offlineTitle": "Kein Netz – alles bleibt auf diesem Handy",
-      "offlineBody": "Weiterschreiben ist in Ordnung.",
       "offlineHint": "Sobald wieder Netz da ist, geht alles von selbst zum KP. Das Formular bis dahin offen lassen.",
-      "notesShort": "Notizen"
+      "notesShort": "Notizen",
+      "kpStand": "Beim KP – Stand {time}",
+      "kpNothing": "Beim KP ist noch nichts angekommen.",
+      "kpEarlier": "Beim KP: der zuletzt gesendete Stand.",
+      "draftLive": "Entwurf · geht laufend mit",
+      "sendNowShort": "Jetzt senden"
     },
     "reportSection": {
       "noReport": "Noch kein Reko-Bericht",
@@ -3700,7 +3702,8 @@
       "incident_restore_merged": "Diese Meldung wurde zusammengeführt. Im Ziel-Einsatz kann sie getrennt werden.",
       "incident_restore_conflict": "Der Einsatz wurde inzwischen geändert. Wiederherstellung erneut versuchen.",
       "incident_restore_resource_conflict": "«{name}» ist nicht verfügbar. Die aktuelle Zuweisung bleibt bestehen.",
-      "incident_not_merged": "Diese Meldung ist nicht zusammengeführt."
+      "incident_not_merged": "Diese Meldung ist nicht zusammengeführt.",
+      "checkin_guest_ask_kp": "Diesen Namen kann die Liste nicht zuordnen. Bitte beim KP melden."
     }
   },
   "training": {
@@ -4215,7 +4218,12 @@
       "badgeAssigned": "Im Einsatz",
       "badgeCheckedIn": "Anwesend",
       "badgeNotCheckedIn": "Nicht anwesend",
-      "checkedOut": "{name} ausgecheckt."
+      "checkedOut": "{name} ausgecheckt.",
+      "guestNotListed": "Kein Name «{name}» auf der Personalliste.",
+      "guestAdd": "«{name}» als Gast einchecken",
+      "guestAddHint": "Du bist sofort anwesend – der KP sieht «Gast».",
+      "guestCheckedIn": "{name} ist eingecheckt.",
+      "guestNameRefused": "Diesen Namen kann die Liste nicht aufnehmen. Bitte beim KP melden."
     }
   },
   "feld": {
@@ -4310,7 +4318,10 @@
       "rapportDone": "Rapport erfasst",
       "reportNow": "melden",
       "rapportAction": "Rapport erfassen",
-      "messageRequired": "Meldung fehlt."
+      "messageRequired": "Meldung fehlt.",
+      "nextStep": "Nächster Schritt · {current} von {total}",
+      "currentBelow": "{step} – unten melden",
+      "rapportBelow": "{step} – unten"
     },
     "pickup": {
       "badge": "Abholung",

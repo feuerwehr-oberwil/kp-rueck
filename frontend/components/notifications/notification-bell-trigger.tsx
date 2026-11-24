@@ -7,8 +7,6 @@ import { ShortcutTooltip } from '@/components/ui/shortcut-tooltip'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { useBellCount, useOpenFieldRequests } from '@/lib/hooks/use-field-requests'
 import { useAuth } from '@/lib/contexts/auth-context'
-import { useIsMobile } from '@/components/ui/use-mobile'
-import { NotificationSidebar } from './notification-sidebar'
 import { cn } from '@/lib/utils'
 
 export function NotificationBellTrigger() {
@@ -17,17 +15,12 @@ export function NotificationBellTrigger() {
   // Open field requests count until handled, not until their bell is closed (R13).
   const { count: unreadCount } = useBellCount(notifications, useOpenFieldRequests())
   const { isAuthenticated } = useAuth()
-  const isMobile = useIsMobile()
 
   // Notifications are an authenticated-only feature — no bell when logged out
   if (!isAuthenticated) return null
 
-  // On mobile, use the existing Sheet-based NotificationSidebar
-  if (isMobile) {
-    return <NotificationSidebar />
-  }
-
-  // On desktop, render a toggle button for the persistent sidebar
+  // The desk's toggle for the persistent sidebar. A phone has no header bell: its bottom nav's
+  // «Meldungen» tile opens the list as a sheet (PhoneNotificationSheet).
   return (
     <ShortcutTooltip label={t('bellTitle')} keys={['B']} side="bottom">
     <Button

@@ -2,15 +2,17 @@
 
 /**
  * Mobile Bottom Navigation Component
- * Bottom tab bar for mobile devices with iOS/Android safe area support
- * Shows primary navigation tabs + "More" sheet for secondary functions.
+ * Bottom tab bar for mobile devices with iOS/Android safe area support.
+ *
+ * The phone frame (owner picks 1A + 2A, phone sweep 24.11.2026): five tiles – Einsätze ·
+ * Lagekarte · Personal · Meldungen · Mehr. The two pages are links; Personal opens the phone
+ * Personal sheet, Meldungen the bell's list (`PhoneNotificationSheet`, with the count of what is
+ * open in it), Mehr the tools for the open Ereignis. The Ereignis, Einstellungen, Hilfe and the
+ * account live in the pill's menu (`PhoneEventPill`), not here (owner, sign-off 24.11.2026).
  *
  * The tab pill (owner's pick 4A, 14.11.2026): 8px of air above and below icon + label, and it
  * never grows – no scale on the current tab, no bounce on a tap. The tap answers with the app's
  * press wash (globals.css), like every other control.
- *
- * The phone board is read-only (owner, 14.11.2026): «Mehr» switches the Ereignis (navigation)
- * but offers no «Neues Ereignis» – an Ereignis is opened on the desktop.
  *
  * Every «Mehr» entry is the same ghost row: a page link is the Button itself (`asChild`), not a
  * 21px <a> wrapped around a 44px <button> (phone sweep 14.11.2026).
@@ -26,63 +28,75 @@
  * link preview (#26, `select-none` + no touch callout).
  */
 
-import { BookOpenText, ChartColumn, Columns3, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Inbox, QrCode, Sparkles, LogOut, Users, Truck, Printer, ChevronRight } from 'lucide-react'
+import { BookOpenText, Bell, ChartColumn, Columns3, Map as MapIcon, MoreHorizontal, QrCode, Sparkles, Users, Truck, Printer } from 'lucide-react'
 import Link from 'next/link'
-import { useRef, useState } from 'react'
+import { useRef, useState, type Ref, type RefObject } from 'react'
 import { topLoading } from '@/components/ui/top-loading-bar'
 import type { LucideIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Sheet, SheetBody, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { useEvent } from '@/lib/contexts/event-context'
-import { AccountBlock } from '@/components/auth/account-block'
-import { VersionLabel } from '@/components/version-label'
-import { useLogout } from '@/lib/hooks/use-logout'
 import { useNavReserve } from '@/components/viewport-insets'
-import { openAlarmInbox } from '@/components/alarm-inbox/alarm-inbox-store'
-import { AlarmInboxMenuCount } from '@/components/alarm-inbox/alarm-inbox-button'
 import { toggleFigures } from '@/components/figures-dialog'
 import { PhoneQuickSheets, type PhoneQuickSheet } from '@/components/mobile/phone-quick-sheets'
+import { PhoneNotificationSheet } from '@/components/notifications/phone-notification-sheet'
+import { useNewAlarmCount } from '@/components/alarm-inbox/alarm-inbox-button'
 import { useIsMobile } from '@/components/ui/use-mobile'
-import { TrainingBadge } from '@/components/training-mode-chrome'
+import { useNotifications } from '@/lib/contexts/notification-context'
+import { useBellCount, useOpenFieldRequests } from '@/lib/hooks/use-field-requests'
 
-/** The pages that show the bottom nav, and the tab each one lights: the two real tabs, and
- *  «Mehr» for every page reached from it. A new page has to say where it belongs. */
+/** The tiles that are a place: the two pages and «Mehr». Personal and Meldungen open a sheet
+ *  over the page and are never where the operator is. */
+type NavTab = 'kanban' | 'map' | 'more'
+
+/** The pages that show the bottom nav, and the tab each one lights: the two real tabs, «Mehr»
+ *  for the Übungs-Steuerung reached from it, none for the Ereignis pill's pages («Alle
+ *  Ereignisse», Einstellungen, Hilfe), which the pill marks in its menu. A new page has to say
+ *  where it belongs. */
 const TAB_OF_PAGE = {
   kanban: 'kanban',
   map: 'map',
-  events: 'more',
+  events: null,
   training: 'more',
-  settings: 'more',
-  help: 'more',
-} as const satisfies Record<string, 'kanban' | 'map' | 'more'>
+  settings: null,
+  help: null,
+} as const satisfies Record<string, NavTab | null>
 
 export type NavPage = keyof typeof TAB_OF_PAGE
-type NavTab = (typeof TAB_OF_PAGE)[NavPage]
 
 interface MobileBottomNavigationProps {
   currentPage: NavPage
   hasSelectedEvent?: boolean
 }
 
+/** «9+» past nine, like the desk's bell. */
+const badgeText = (count: number) => (count > 9 ? '9+' : String(count))
+
 export function MobileBottomNavigation({
   currentPage,
   hasSelectedEvent = true,
 }: MobileBottomNavigationProps) {
   const t = useTranslations('nav.mobileBottomNav')
-  const { isEditor } = useAuth()
-  const tAccount = useTranslations('nav.account')
-  const { requestLogout, logoutDialog } = useLogout()
-  const { selectedEvent, events, setSelectedEvent } = useEvent()
+  const { isEditor, isAuthenticated } = useAuth()
+  const { selectedEvent } = useEvent()
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [meldungenOpen, setMeldungenOpen] = useState(false)
+  // The Personal and Meldungen tiles open sheets they are no SheetTrigger of: each sheet hands
+  // focus back to its tile when it closes (Radix would otherwise drop it on <body>).
+  const personnelTileRef = useRef<HTMLButtonElement>(null)
+  const meldungenTileRef = useRef<HTMLButtonElement>(null)
+  const focusTile = (tile: RefObject<HTMLButtonElement | null>) => (event: Event) => {
+    event.preventDefault()
+    tile.current?.focus()
+  }
   // The tab just tapped, while its page is still on the way: it lights at once. Tied to the
   // page it was tapped on, so once the route has moved on (or back) it no longer applies.
   const [pending, setPending] = useState<{ tab: NavTab; from: NavPage } | null>(null)
-  const litTab: NavTab = pending?.from === currentPage ? pending.tab : TAB_OF_PAGE[currentPage]
-  // The Schnellzugriff sheet open over the page (`PhoneQuickSheets`, phone only).
+  const litTab: NavTab | null = pending?.from === currentPage ? pending.tab : TAB_OF_PAGE[currentPage]
+  // The sheet a tile or Schnellzugriff opened over the page (`PhoneQuickSheets`, phone only).
   const [quickSheet, setQuickSheet] = useState<PhoneQuickSheet | null>(null)
   const isMobile = useIsMobile()
   // Publishes this bar's measured height as `--nav-reserve` — the one number every phone list
@@ -90,14 +104,7 @@ export function MobileBottomNavigation({
   const navRef = useRef<HTMLElement>(null)
   useNavReserve(navRef)
 
-  // Other active events the operator can quick-switch to (mobile has no top bar,
-  // so event switching lives here in the bottom nav).
-  const otherEvents = events
-    .filter((e) => !e.archived_at && e.id !== selectedEvent?.id)
-    .sort((a, b) => b.last_activity_at.getTime() - a.last_activity_at.getTime())
-    .slice(0, 5)
-
-  const tabs: { id: NavTab; label: string; icon: LucideIcon; href: string; disabled: boolean }[] = [
+  const tabs: { id: 'kanban' | 'map'; label: string; icon: LucideIcon; href: string; disabled: boolean }[] = [
     {
       id: 'kanban',
       label: t('incidents'),
@@ -115,15 +122,9 @@ export function MobileBottomNavigation({
     },
   ]
 
-  // Secondary navigation items for "More" sheet (event switching is handled in
-  // its own section below since it needs the live event list).
-  const secondaryItems = [
-    { id: 'settings', label: t('settings'), icon: Settings, href: '/settings', category: 'Verwaltung' },
-    { id: 'help', label: t('helpDocs'), icon: HelpCircle, href: '/help', category: 'Support' },
-  ]
-
-  // «Schnellzugriff» needs an Ereignis: every entry is about the open one. The editing sheets
-  // (links, roster, vehicles, print) are an editor's; the Tagebuch and Kennzahlen everyone's.
+  // «Mehr» is «Schnellzugriff» alone and needs an Ereignis: every entry is about the open one,
+  // so without one the tile is off, like Personal. The editing sheets (links, vehicles, print)
+  // are an editor's; the Tagebuch and Kennzahlen everyone's. Personal is a tile of its own.
   const quickActions: { id: string; label: string; icon: LucideIcon; open: () => void }[] = selectedEvent
     ? [
         ...(isEditor ? [{ id: 'links', label: t('linksAndQr'), icon: QrCode, open: () => setQuickSheet('links') }] : []),
@@ -131,20 +132,18 @@ export function MobileBottomNavigation({
         { id: 'figures', label: t('figures'), icon: ChartColumn, open: toggleFigures },
         ...(isEditor
           ? [
-              { id: 'personnel', label: t('personnel'), icon: Users, open: () => setQuickSheet('personnel') },
               { id: 'vehicles', label: t('vehicles'), icon: Truck, open: () => setQuickSheet('vehicles') },
               { id: 'print', label: t('print'), icon: Printer, open: () => setQuickSheet('print') },
             ]
           : []),
       ]
     : []
-  const hasQuickActions = quickActions.length > 0 || !!selectedEvent?.training_flag
 
   // One tab's frame: a 56px pill (8px + 20px icon + 4px + 16px label + 8px), so the current
   // tab's tint has air around its content; the bar adds 4px above and below it.
-  const tabClass = "flex flex-col items-center justify-center gap-1 flex-1 min-h-[44px] py-2 rounded-lg transition-colors touch-manipulation"
-  const litClass = (tab: NavTab) =>
-    litTab === tab ? "bg-foreground/[0.09] text-foreground" : "text-muted-foreground hover:text-foreground"
+  const tabClass = "flex min-w-0 flex-col items-center justify-center gap-1 flex-1 min-h-[44px] py-2 rounded-lg transition-colors touch-manipulation"
+  const litClass = (tab: NavTab | null) =>
+    tab !== null && litTab === tab ? "bg-foreground/[0.09] text-foreground" : "text-muted-foreground hover:text-foreground"
 
   /** A link out of «Mehr» (its `onNavigate`, so not a modified click into a new tab): the
    *  loading bar starts on the tap, not once the next page renders. It also supersedes a tab
@@ -197,12 +196,38 @@ export function MobileBottomNavigation({
           )
         })}
 
+        {/* Personal and Meldungen open a sheet over the page they are tapped on; neither is a
+            page, so neither ever lights. */}
+        <button
+          ref={personnelTileRef}
+          type="button"
+          className={cn(tabClass, litClass(null), "disabled:opacity-40")}
+          aria-haspopup="dialog"
+          // the roster of the open Ereignis: without one there is nothing to show
+          disabled={!selectedEvent}
+          onClick={() => setQuickSheet('personnel')}
+        >
+          <Users className="h-5 w-5" aria-hidden="true" />
+          <span className="text-xs font-medium">{t('personnel')}</span>
+        </button>
+        {/* Signed in only (/help is public). Its count subscribes to the bell and the
+            Alarmeingang, so only a phone counts: the desk's hidden bar shows a plain tile. */}
+        {isAuthenticated && (
+          <MeldungenTile
+            ref={meldungenTileRef}
+            className={cn(tabClass, litClass(null))}
+            live={isMobile}
+            onOpen={() => setMeldungenOpen(true)}
+          />
+        )}
+
         {/* More menu */}
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
           <SheetTrigger asChild>
             <button
-              className={cn(tabClass, litClass('more'))}
+              className={cn(tabClass, litClass('more'), "disabled:opacity-40")}
               aria-label={t('moreOptions')}
+              disabled={!selectedEvent}
               // a page behind «Mehr» is where the operator is – said to a screen reader too
               aria-current={TAB_OF_PAGE[currentPage] === 'more' ? 'page' : undefined}
             >
@@ -227,58 +252,10 @@ export function MobileBottomNavigation({
             </SheetHeader>
 
             <SheetBody className="space-y-4 px-6 pt-1 pb-sheet-safe">
-              {/* Ereignis Section — current event + quick switch (replaces the
-                  top-bar event switcher, which is hidden on mobile). */}
-              <div>
-                <h3 className="text-xs font-medium text-muted-foreground mb-2">
-                  {t('event')}
-                </h3>
-                <div className="space-y-2">
-                  <div className="px-3 py-2 rounded-lg bg-muted/50">
-                    <p className="text-sm font-semibold truncate">
-                      {selectedEvent ? selectedEvent.name : t('noEventSelected')}
-                    </p>
-                    {selectedEvent?.training_flag && (
-                      <TrainingBadge label={t('training')} className="mt-1" />
-                    )}
-                  </div>
-                  {otherEvents.map((event) => (
-                    <Button
-                      key={event.id}
-                      variant="ghost"
-                      className="h-auto w-full justify-start gap-3 whitespace-normal py-2.5 text-left touch-manipulation"
-                      onClick={() => {
-                        setSelectedEvent(event)
-                        setSheetOpen(false)
-                      }}
-                    >
-                      <ChevronRight className="size-4 text-muted-foreground" />
-                      {/* Wrapped, not cut: two events can share a long prefix */}
-                      <span className="min-w-0 break-words">{event.name}</span>
-                    </Button>
-                  ))}
-                  <Button
-                    asChild
-                    variant={currentPage === 'events' ? 'secondary' : 'ghost'}
-                    className="w-full justify-start gap-3 touch-manipulation"
-                  >
-                    <Link href="/events" onClick={() => setSheetOpen(false)} onNavigate={leave("/events")}>
-                      <Calendar className="size-4" />
-                      <span>{t('allEvents')}</span>
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Quick Actions Section — viewing-first: the QR/print/personnel
-                  actions are editor-only, so viewers get a decluttered sheet.
-                  The training link shows on any Übung: spawning training incidents
-                  is the main mobile task, done with an editor account – the viewer
+              {/* Viewing-first: the QR/print/vehicle sheets are editor-only, so viewers get a
+                  decluttered sheet. The training link shows on any Übung: spawning training
+                  incidents is the main mobile task, done with an editor account – the viewer
                   role is strictly read-only (/training refuses it). */}
-              {hasQuickActions && (
-              <>
               <div>
                 <h3 className="text-xs font-medium text-muted-foreground mb-2">
                   {t('quickActions')}
@@ -318,108 +295,77 @@ export function MobileBottomNavigation({
                   )}
                 </div>
               </div>
-
-              <Separator />
-              </>
-              )}
-
-              {/* Verwaltung Section */}
-              <div>
-                <h3 className="text-xs font-medium text-muted-foreground mb-2">
-                  {t('management')}
-                </h3>
-                <div className="space-y-2">
-                  {secondaryItems.filter(item => item.category === 'Verwaltung').map((item) => {
-                    const Icon = item.icon
-                    const isActive = currentPage === item.id
-                    return (
-                      <Button
-                        key={item.id}
-                        asChild
-                        variant={isActive ? "secondary" : "ghost"}
-                        className="w-full justify-start gap-3 touch-manipulation"
-                      >
-                        <Link href={item.href} onClick={() => setSheetOpen(false)} onNavigate={leave(item.href)}>
-                          <Icon className="size-4" />
-                          <span>{item.label}</span>
-                        </Link>
-                      </Button>
-                    )
-                  })}
-                  {/* The Alarmeingang is a sheet over this page, not a page of its own: close
-                      «Mehr» first, then open it (the same hand-over as «Links & QR»). */}
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start gap-3 touch-manipulation"
-                    onClick={() => {
-                      setSheetOpen(false)
-                      setTimeout(openAlarmInbox, 350)
-                    }}
-                  >
-                    <Inbox className="size-4" />
-                    <span>{t('diveraPool')}</span>
-                    <AlarmInboxMenuCount className="ml-auto" />
-                  </Button>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Support Section */}
-              <div>
-                <h3 className="text-xs font-medium text-muted-foreground mb-2">
-                  {t('support')}
-                </h3>
-                <div className="space-y-2">
-                  {secondaryItems.filter(item => item.category === 'Support').map((item) => {
-                    const Icon = item.icon
-                    const isActive = currentPage === item.id
-                    return (
-                      <Button
-                        key={item.id}
-                        asChild
-                        variant={isActive ? "secondary" : "ghost"}
-                        className="w-full justify-start gap-3 touch-manipulation"
-                      >
-                        <Link href={item.href} onClick={() => setSheetOpen(false)} onNavigate={leave(item.href)}>
-                          <Icon className="size-4" />
-                          <span>{item.label}</span>
-                        </Link>
-                      </Button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* Account Section */}
-              <Separator />
-              <div>
-                <h3 className="text-xs font-medium text-muted-foreground mb-2">
-                  {t('account')}
-                </h3>
-                <div className="space-y-2">
-                  {/* Who is logged in — the same block as the desktop user menu. */}
-                  <AccountBlock className="px-3 py-1" />
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start gap-3 touch-manipulation text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => {
-                      setSheetOpen(false)
-                      requestLogout()
-                    }}
-                  >
-                    <LogOut className="size-4" />
-                    <span>{tAccount('logout')}</span>
-                  </Button>
-                  <VersionLabel className="px-3" />
-                </div>
-              </div>
             </SheetBody>
           </SheetContent>
         </Sheet>
-        {logoutDialog}
-        {isMobile && <PhoneQuickSheets open={quickSheet} onOpenChange={setQuickSheet} />}
+        {isMobile && (
+          <PhoneQuickSheets
+            open={quickSheet}
+            onOpenChange={setQuickSheet}
+            onPersonnelCloseFocus={focusTile(personnelTileRef)}
+          />
+        )}
+        {isMobile && isAuthenticated && (
+          <PhoneNotificationSheet open={meldungenOpen} onOpenChange={setMeldungenOpen} returnFocusTo={meldungenTileRef} />
+        )}
       </div>
     </nav>
+  )
+}
+
+interface MeldungenTileProps {
+  ref: Ref<HTMLButtonElement>
+  className: string
+  /** Count what is open (a phone). Off, the tile subscribes to nothing and shows no number. */
+  live: boolean
+  onOpen: () => void
+}
+
+/** The Meldungen tile: the bell's open entries, plus the Alarmeingang's new alarms for everyone
+ *  the Alarmeingang lets in (not a viewer). Split by who counts what, so each subscribes only to
+ *  what it shows. */
+function MeldungenTile({ live, ...props }: MeldungenTileProps) {
+  const { isViewer } = useAuth()
+  if (!live) return <MeldungenButton {...props} count={0} />
+  return isViewer ? <BellTile {...props} alarms={0} /> : <BellAndAlarmTile {...props} />
+}
+
+type TileProps = Omit<MeldungenTileProps, 'live'>
+
+function BellAndAlarmTile(props: TileProps) {
+  return <BellTile {...props} alarms={useNewAlarmCount()} />
+}
+
+function BellTile({ alarms, ...props }: TileProps & { alarms: number }) {
+  const { notifications } = useNotifications()
+  const { count } = useBellCount(notifications, useOpenFieldRequests())
+  return <MeldungenButton {...props} count={count + alarms} />
+}
+
+function MeldungenButton({ ref, className, onOpen, count }: TileProps & { count: number }) {
+  const t = useTranslations('nav.mobileBottomNav')
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className={className}
+      aria-haspopup="dialog"
+      aria-label={t('notificationsOpen', { count })}
+      onClick={onOpen}
+    >
+      <span className="relative">
+        <Bell className="h-5 w-5" aria-hidden="true" />
+        {count > 0 && (
+          <span
+            aria-hidden
+            data-testid="meldungen-badge"
+            className="absolute -top-1.5 left-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground px-1 font-mono text-xs font-semibold text-background"
+          >
+            {badgeText(count)}
+          </span>
+        )}
+      </span>
+      <span className="text-xs font-medium">{t('notifications')}</span>
+    </button>
   )
 }
