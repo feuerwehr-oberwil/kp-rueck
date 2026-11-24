@@ -63,6 +63,10 @@ change. Read the section you touch. The visual rules and their reasons are
   funnel is a `DropdownMenu` of checkable rows with counts, with «Alle zeigen» first while
   something is ticked. On = `variant="selected"`, with the ticks named in its `aria-label` and in
   a «Gefiltert: …» line. Its width never changes.
+- **A page level deeper (a step, a detail over a list) is one history entry**
+  (`useHistoryLevel` in `lib/hooks/use-history-level.ts`), so the phone's back gesture steps up
+  one level instead of leaving the page. Its in-page «Zurück» calls what the hook returns.
+  Today: /alarm's review step, the /feld Schadenplatz.
 
 ## Overflow
 - **Nothing overflows sideways – check with `pnpm overflow-scan`** (`frontend/scripts/overflow-scan.mjs`,
