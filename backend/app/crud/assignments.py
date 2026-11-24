@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..models import (
+    AuditLog,
     Event,
     EventSpecialFunction,
     Incident,
@@ -467,6 +468,28 @@ async def _still_left_on_site(
     return assignment.id in left_on_site_assignment_ids(report)
 
 
+async def _collection_recorded(
+    db: AsyncSession, incident_id: uuid.UUID, assignment_id: uuid.UUID, released_at: datetime
+) -> bool:
+    """True when ``collect_material`` recorded THIS release: a ``material_collected`` audit row
+    of the incident names the assignment and exactly ``released_at``. The audit row is the
+    collection's provenance – a regular release also stamps ``unassigned_at`` (and the
+    participants API shows it), so the time alone proves nothing. Audit rows survive a purge."""
+    records = await db.scalars(
+        select(AuditLog.changes_json).where(
+            AuditLog.action_type == "material_collected",
+            AuditLog.resource_type == "incident",
+            AuditLog.resource_id == incident_id,
+            AuditLog.changes_json["assignment_id"].astext == str(assignment_id),
+        )
+    )
+    for changes in records:
+        recorded = (changes or {}).get("released_at")
+        if isinstance(recorded, str) and datetime.fromisoformat(recorded) == released_at:
+            return True
+    return False
+
+
 async def collect_material(
     db: AsyncSession,
     *,
@@ -478,9 +501,9 @@ async def collect_material(
     """«Abgeholt – freigeben» from the «Gerät vor Ort» roll-up (owner pick 6A, 24.11.2026).
 
     Releases exactly this material assignment and records the collection as a field fact
-    (audit ``material_collected`` → journal and Chronik: «Abgeholt: Tauchpumpe»). Returns
-    the release time – the undo's token: ``undo_collect_material`` only reverses the release
-    that carries it. None when the row is no material assignment of the incident (404).
+    (audit ``material_collected`` → journal and Chronik: «Abgeholt: Tauchpumpe»), with the
+    release time in it. Returns that time – the undo's token: ``undo_collect_material`` only
+    reverses a release that carries it AND that this audit row names. None when the row is no material assignment of the incident (404).
     Refused (409) when it is already released – somebody else took it back first, and a
     second «abgeholt» line would lie – or when the Restliste no longer lists it (the crew
     amended the rapport, so the unit is not «vor Ort» any more). Flushes only; the request
@@ -506,6 +529,7 @@ async def collect_material(
         user=current_user,
         changes={
             "assignment_id": str(assignment_id),
+            "released_at": released_at.isoformat(),
             "material_name": material.name if material else None,
             "source": "kp",
         },
@@ -532,22 +556,32 @@ async def undo_collect_material(
     ``ensure_assignable`` (the Einsatz is usually closed). Under the material's row lock,
     which every assignment and lifecycle writer takes, it refuses (409):
 
-    * unless the row's current release IS the collection – ``released_at`` is the time
-      ``collect_material`` returned. A regular release, a row already re-opened, or a later
+    * unless the row's current release IS the collection: ``released_at`` is the row's
+      ``unassigned_at`` and a ``material_collected`` record names it
+      (``_collection_recorded``). A regular release, a row already re-opened, or a later
       release of the same row after an undo do not match;
-    * when the unit is archived or gone;
+    * when the unit is archived or gone – also when a purge took the row with it but the
+      collection record is still there (409, not 404: the undo existed, it is just too late);
+    * when the Restliste would no longer list the row (``_still_left_on_site``: Einsatz
+      deleted, or the crew cleared «vor Ort verblieben» after the collection);
     * when the unit has since gone onto another Einsatz or an Auftrag.
 
     Records ``material_collected_cleared``. Flushes only.
     """
     locked = await _lock_material_assignment(db, incident_id, assignment_id)
     if locked is None:
+        if await _collection_recorded(db, incident_id, assignment_id, released_at):
+            raise MaterialCollectRefusedError("Das Material ist archiviert oder gelöscht.")
         return None
-    _, assignment, material = locked
-    if assignment.unassigned_at is None or assignment.unassigned_at != released_at:
+    incident, assignment, material = locked
+    if assignment.unassigned_at != released_at or not await _collection_recorded(
+        db, incident_id, assignment_id, released_at
+    ):
         raise MaterialCollectRefusedError("Diese Freigabe war kein «Abgeholt» – nichts zurückzunehmen.")
     if material is None or material.archived_at is not None:
         raise MaterialCollectRefusedError("Das Material ist archiviert oder gelöscht.")
+    if not await _still_left_on_site(db, incident, assignment, material):
+        raise MaterialCollectRefusedError("Das Material steht nicht mehr auf der Restliste.")
     on_incident = await db.scalar(
         select(IncidentAssignment.id).where(
             IncidentAssignment.resource_type == "material",

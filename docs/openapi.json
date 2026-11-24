@@ -7307,7 +7307,7 @@
           "assignments"
         ],
         "summary": "Undo Collect Material",
-        "description": "Undo «Abgeholt»: the same assignment is open again, so the unit is back on the\nRestliste (editor only). ``released_at`` is what the POST answered. 409 when the row's\ncurrent release is not that collection, or the unit is archived or assigned elsewhere\n(an Einsatz or an Auftrag).",
+        "description": "Undo «Abgeholt»: the same assignment is open again, so the unit is back on the\nRestliste (editor only). ``released_at`` is what the POST answered. 409 when the row's\ncurrent release is not that recorded collection, the unit is archived or purged (also when\nthe purge took the row), the Restliste would no longer list the row, or the unit is\nassigned elsewhere (an Einsatz or an Auftrag). 404 only for a row that was never collected.",
         "operationId": "undo_collect_material_api_incidents__incident_id__material_collected__assignment_id__delete",
         "parameters": [
           {

@@ -573,6 +573,78 @@ async def test_undo_collect_refuses_archived_material(
     assert material_on_site.unassigned_at is not None
 
 
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_undo_collect_refuses_a_regular_release_time(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_incident: Incident,
+    material_on_site: IncidentAssignment,
+):
+    # A regular release also stamps unassigned_at, and the participants API shows it – but no
+    # «Abgeholt» recorded that time, so it is no undo token.
+    released = await editor_client.post(f"/api/incidents/{test_incident.id}/unassign/{material_on_site.id}")
+    assert released.status_code == 204, released.text
+    await db_session.refresh(material_on_site)
+    assert material_on_site.unassigned_at is not None
+
+    assert (
+        await _undo(editor_client, test_incident.id, material_on_site.id, material_on_site.unassigned_at.isoformat())
+        == 409
+    )
+    await db_session.refresh(material_on_site)
+    assert material_on_site.unassigned_at is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_undo_collect_after_a_purge_took_the_row_is_409_not_404(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_incident: Incident,
+    material_on_site: IncidentAssignment,
+):
+    released_at = await _collect(editor_client, test_incident.id, material_on_site.id)
+    # The training-only material purge removes the assignment history; the audit row stays.
+    await db_session.delete(material_on_site)
+    await db_session.commit()
+
+    assert await _undo(editor_client, test_incident.id, material_on_site.id, released_at) == 409
+    # A row that never was collected stays a 404.
+    assert await _undo(editor_client, test_incident.id, uuid4(), released_at) == 404
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+@pytest.mark.parametrize("change", ["einsatz_deleted", "rapport_amended"])
+async def test_undo_collect_refuses_a_row_the_restliste_would_hide(
+    change: str,
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_incident: Incident,
+    material_on_site: IncidentAssignment,
+):
+    released_at = await _collect(editor_client, test_incident.id, material_on_site.id)
+    if change == "einsatz_deleted":
+        test_incident.deleted_at = datetime.now(UTC)
+    else:
+        report = await db_session.scalar(
+            select(SchadenplatzReport).where(SchadenplatzReport.incident_id == test_incident.id)
+        )
+        assert report is not None
+        report.materials_json = [{**report.materials_json[0], "left_on_site": False}]
+    await db_session.commit()
+
+    response = await editor_client.delete(
+        f"/api/incidents/{test_incident.id}/material-collected/{material_on_site.id}",
+        params={"released_at": released_at},
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Das Material steht nicht mehr auf der Restliste."
+    await db_session.refresh(material_on_site)
+    assert material_on_site.unassigned_at is not None
+
+
 # ============================================
 # Get Assignments Tests
 # ============================================

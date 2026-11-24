@@ -148,8 +148,9 @@ async def undo_collect_material(
 ) -> None:
     """Undo «Abgeholt»: the same assignment is open again, so the unit is back on the
     Restliste (editor only). ``released_at`` is what the POST answered. 409 when the row's
-    current release is not that collection, or the unit is archived or assigned elsewhere
-    (an Einsatz or an Auftrag)."""
+    current release is not that recorded collection, the unit is archived or purged (also when
+    the purge took the row), the Restliste would no longer list the row, or the unit is
+    assigned elsewhere (an Einsatz or an Auftrag). 404 only for a row that was never collected."""
     try:
         restored = await crud.undo_collect_material(
             db,
