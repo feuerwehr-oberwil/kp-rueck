@@ -1488,7 +1488,10 @@
       "readyForOperation": "Prêt à intervenir",
       "changeDriver": "Changer de conducteur",
       "assignDriver": "Attribuer un conducteur",
-      "auftragLabel": "Mission « {name} »"
+      "auftragLabel": "Mission « {name} »",
+      "rowMenu": "Actions pour {vehicle}",
+      "openIncident": "Ouvrir l’intervention",
+      "changeDriverMenu": "Changer de conducteur …"
     },
     "gpsArrival": {
       "fallbackVehicle": "Véhicule",

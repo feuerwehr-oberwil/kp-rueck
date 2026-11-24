@@ -1456,7 +1456,10 @@
       "readyForOperation": "Bereit für Einsatz",
       "changeDriver": "Fahrer ändern",
       "assignDriver": "Fahrer zuweisen",
-      "auftragLabel": "Auftrag «{name}»"
+      "auftragLabel": "Auftrag «{name}»",
+      "rowMenu": "Aktionen für {vehicle}",
+      "openIncident": "Einsatz öffnen",
+      "changeDriverMenu": "Fahrer ändern …"
     },
     "gpsArrival": {
       "fallbackVehicle": "Fahrzeug",

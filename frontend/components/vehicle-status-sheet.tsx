@@ -4,11 +4,19 @@ import { useState, useEffect, useRef } from "react"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useRouter } from "next/navigation"
 import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
-import { FooterSheet } from "@/components/ui/footer-sheet"
+import { FooterSheet, SHEET_LAYER_ATTR } from "@/components/ui/footer-sheet"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { LoadingStatus, ShellLoader } from "@/components/ui/shell-loader"
-import { Truck, User, MapPin, Clock, Radio, RefreshCw, AlertTriangle, Plus, Waypoints } from "lucide-react"
+import { Truck, User, MapPin, Clock, Radio, RefreshCw, AlertTriangle, Plus, Waypoints, Ban, MoreHorizontal, ArrowUpRight, ArrowLeftRight } from "lucide-react"
 import { apiClient, type ApiEventSpecialFunctionResponse, type ApiVehicleStatus } from "@/lib/api-client"
 import { isIncidentStatus } from "@/lib/types/incidents"
 import { toast } from "sonner"
@@ -22,6 +30,7 @@ import { useIsMobile } from "@/components/ui/use-mobile"
 import { boardDetailHref } from "@/lib/incident-detail"
 import { OVERVIEW_TARGET, RESOURCES_TARGET } from "@/lib/detail-target"
 import { DriverAssignmentDialog } from "./driver-assignment-dialog"
+import { shortDate } from "@/lib/board-sidebar"
 
 /** What the sheet shows for one Ereignis: the fleet and the event's special functions
  *  (the driver dialog needs those). */
@@ -40,6 +49,8 @@ interface VehicleStatusSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   eventId: string | null
+  /** Editors get the row's ⋯ menu (driver, «Nicht einsatzbereit»). Omitted = read-only. */
+  canEdit?: boolean
 }
 
 /** The board's own notation (lib/duration.ts): «38'», «1h 8'», «1d 10h». */
@@ -156,6 +167,64 @@ function DeploymentLinks({ targets, idleLabel, statusLabel, onOpen }: {
   )
 }
 
+/**
+ * The ⋯ menu at the end of a desk row (owner pick 3B, 24.11.2026): «Einsatz öffnen»,
+ * «Fahrer ändern …» (the row's driver dialog) and «Nicht einsatzbereit» as a checkbox – the
+ * same `{ out_of_service }` field as the switch in Einstellungen, which stays. The row's own
+ * click still opens the Einsatz.
+ */
+function FleetRowMenu({ vehicleName, outOfService, onOpenIncident, onChangeDriver, onSetOutOfService }: {
+  vehicleName: string
+  outOfService: boolean
+  /** Undefined when the vehicle serves nothing with a card to open. */
+  onOpenIncident: (() => void) | undefined
+  onChangeDriver: () => void
+  onSetOutOfService: (outOfService: boolean) => void
+}) {
+  const t = useTranslations('incidents.vehicleStatus')
+  const tCommon = useTranslations('kanban.common')
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          // 32px, hung into the row's padding so the row stays one badge-line tall.
+          className="-my-[5px]"
+          aria-label={t('rowMenu', { vehicle: vehicleName })}
+          // The row opens its Einsatz on click and Enter; the ⋯ is its own target.
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          <MoreHorizontal className="size-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        // Portalled: a row's click travels the React tree – stop it at the menu. Tagged as the
+        // sheet's own layer, so a click in it does not dismiss the sheet.
+        {...{ [SHEET_LAYER_ATTR]: "" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {onOpenIncident && (
+          <DropdownMenuItem onSelect={onOpenIncident}>
+            <ArrowUpRight />
+            {t('openIncident')}
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onSelect={onChangeDriver}>
+          <ArrowLeftRight />
+          {t('changeDriverMenu')}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuCheckboxItem checked={outOfService} onCheckedChange={(checked) => onSetOutOfService(checked === true)}>
+          {tCommon('notReady')}
+        </DropdownMenuCheckboxItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 /** Colour of the card's left bar (`ACCENT_BAR`). Refactoring UI: a subtle cue, not a
  *  heavy colour block – only bound and unavailable vehicles get one; available is the
  *  default state and draws none. */
@@ -166,8 +235,10 @@ function getStatusBarColor(status: string, hasIncident: boolean): string {
   return status === "unavailable" ? "before:bg-muted-foreground/30" : "before:bg-transparent"
 }
 
-export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatusSheetProps) {
+export function VehicleStatusSheet({ open, onOpenChange, eventId, canEdit = false }: VehicleStatusSheetProps) {
   const t = useTranslations('incidents')
+  const tCommon = useTranslations('kanban.common')
+  const tLifecycle = useTranslations('settings.lifecycle')
   const tLoading = useTranslations('common.loadingWhat')
   const tColumns = useTranslations('kanban.columns')
   const router = useRouter()
@@ -241,10 +312,25 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
     }
   }
 
-  const handleOpenDriverDialog = (vehicle: ApiVehicleStatus, e: React.MouseEvent) => {
-    e.stopPropagation()
+  const openDriverDialog = (vehicle: ApiVehicleStatus) => {
     setSelectedVehicleForDriver(vehicle)
     setDriverDialogOpen(true)
+  }
+  const handleOpenDriverDialog = (vehicle: ApiVehicleStatus, e: React.MouseEvent) => {
+    e.stopPropagation()
+    openDriverDialog(vehicle)
+  }
+
+  /** «Nicht einsatzbereit» from the row menu: the same `{ out_of_service }` PUT as the
+   *  Einstellungen switch. The server broadcasts it to the board; the sheet reloads itself. */
+  const setOutOfService = async (vehicle: ApiVehicleStatus, outOfService: boolean) => {
+    try {
+      await apiClient.updateVehicle(vehicle.id, { out_of_service: outOfService })
+      await loadVehicleStatuses(true)
+    } catch (error) {
+      console.error("Failed to change vehicle readiness:", error)
+      toast.error(tLifecycle('notReadyError'))
+    }
   }
 
   const handleDriverAssigned = () => {
@@ -380,7 +466,11 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                 const showDurationWarning = durationMinutes !== null && durationMinutes >= 120
                 // A single Einsatz names its column; anything more is «Gebunden».
                 const singleStatus = targets.length === 1 && einsaetze.length === 1 ? einsaetze[0].status : null
-                const idleLabel = vehicle.status === "unavailable" ? t('vehicleStatus.unavailable') : t('vehicleStatus.readyForOperation')
+                // Flagged «Nicht einsatzbereit» (Einstellungen or the row menu): said with its
+                // date in the place column, like a flagged device in the material sidebar.
+                const idleLabel = vehicle.out_of_service
+                  ? [tCommon('notReady'), vehicle.out_of_service_since && tCommon('notReadySince', { date: shortDate(vehicle.out_of_service_since) })].filter(Boolean).join(' · ')
+                  : vehicle.status === "unavailable" ? t('vehicleStatus.unavailable') : t('vehicleStatus.readyForOperation')
                 const deploymentLinks = (
                   <DeploymentLinks
                     targets={targets}
@@ -396,7 +486,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                         {t('vehicleStatus.available')}
                       </Badge>
                     )}
-                    {vehicle.status === "unavailable" && (
+                    {vehicle.status === "unavailable" && !vehicle.out_of_service && (
                       <Badge className="text-xs bg-muted text-muted-foreground border-border">
                         {t('vehicleStatus.unavailable')}
                       </Badge>
@@ -432,7 +522,9 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                       getStatusBarColor(vehicle.status, isBound),
                       isClickable && "cursor-pointer hover:bg-muted/50 hover:border-border",
                       isSelected && "ring-2 ring-sel-line ring-offset-2 ring-offset-background",
-                      !isBound && "opacity-75"
+                      !isBound && "opacity-75",
+                      // Flagged: the dashed frame of a flagged device (sidebar-parts.tsx).
+                      vehicle.out_of_service && "border-dashed opacity-70",
                     )}
                     tabIndex={isClickable ? 0 : -1}
                     onKeyDown={(e) => {
@@ -498,10 +590,17 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                          Rows align at the TOP, every cell one badge-line tall: a
                          vehicle on two Einsätze lists both, and its name, driver and
                          badges stay on the first line (sign-off 19.11.). */
-                      <div className="grid grid-cols-[140px_104px_168px_minmax(0,1fr)_74px_auto] items-start gap-3 [&>*]:min-h-[22px]">
+                      <div className={cn(
+                        "grid items-start gap-3 [&>*]:min-h-[22px]",
+                        canEdit
+                          ? "grid-cols-[140px_104px_168px_minmax(0,1fr)_74px_auto_32px]"
+                          : "grid-cols-[140px_104px_168px_minmax(0,1fr)_74px_auto]",
+                      )}>
                         {/* Vehicle Icon and Name */}
                         <div className="flex items-center gap-2 min-w-0">
-                          <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          {vehicle.out_of_service
+                            ? <Ban className="h-4 w-4 text-muted-foreground flex-shrink-0" aria-label={tCommon('notReady')} />
+                            : <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
                           <span className="font-bold text-sm">{vehicle.name}</span>
                         </div>
 
@@ -561,6 +660,20 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                         <div className="flex items-center justify-self-end gap-1.5">
                           {statusBadges}
                         </div>
+
+                        {canEdit && (
+                          <FleetRowMenu
+                            vehicleName={vehicle.name}
+                            outOfService={vehicle.out_of_service}
+                            onOpenIncident={(() => {
+                              // The row's Enter target: the first place with a card.
+                              const first = targets.find((target) => target.incidentId)
+                              return first ? () => openIncident(first) : undefined
+                            })()}
+                            onChangeDriver={() => openDriverDialog(vehicle)}
+                            onSetOutOfService={(outOfService) => void setOutOfService(vehicle, outOfService)}
+                          />
+                        )}
                       </div>
                     )}
                   </div>
