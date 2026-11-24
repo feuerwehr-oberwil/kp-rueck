@@ -248,7 +248,11 @@ export function IncidentPickerDialog({
   // useCallback, not a plain function: the list rows and every map pin take it as a
   // handler, and the updater form reads the previous Set — so the only dependency is
   // the (stable) state setter, [], and a keystroke in the search box changes nothing.
+  // While «Übernehmen» writes, the picks are frozen: an edit then would be dropped when the
+  // dialog closes on the earlier selection.
+  const applyingRef = useRef(false)
   const toggle = useCallback((id: string) => {
+    if (applyingRef.current) return
     setSelected((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
@@ -282,11 +286,13 @@ export function IncidentPickerDialog({
   // One apply at a time: a second click while the detaches run would send them again.
   const [applying, setApplying] = useState(false)
   const apply = async () => {
-    if (applying) return
+    if (applyingRef.current) return
+    applyingRef.current = true
     setApplying(true)
     try {
       await applyChanges()
     } finally {
+      applyingRef.current = false
       setApplying(false)
     }
   }
@@ -570,7 +576,7 @@ export function IncidentPickerDialog({
           {t("createNew")}
         </Button>
       )}
-      <Button variant="outline" size="sm" onClick={() => handleOpenChange(false)}>
+      <Button variant="outline" size="sm" onClick={() => handleOpenChange(false)} disabled={applying}>
         {t("cancel")}
       </Button>
       <Button size="sm" onClick={confirm} disabled={changeCount === 0 || applying}>
@@ -585,14 +591,14 @@ export function IncidentPickerDialog({
   if (surface) {
     if (!open) return null
     return (
-      <SurfaceStep host={surface} title={t("title")} description={t("description")} onBack={() => handleOpenChange(false)}>
+      <SurfaceStep host={surface} title={t("title")} description={t("description")} onBack={() => !applyingRef.current && handleOpenChange(false)}>
         <div className="flex min-h-0 flex-1 flex-col gap-4 px-5 pt-1">{content}</div>
       </SurfaceStep>
     )
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={(next) => (next || !applyingRef.current) && handleOpenChange(next)}>
       <DialogContent className="flex modal-h-tall flex-col gap-4">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>

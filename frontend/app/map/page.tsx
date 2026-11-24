@@ -295,6 +295,8 @@ export default function MapPage() {
     incidentId: string
     incidentLabel: string
     fromName: string | null
+    /** The Auftrag the question names – the one confirm adds to, even if the selection moves meanwhile. */
+    groupId: string
     toName: string
   } | null>(null)
 
@@ -320,6 +322,7 @@ export default function MapPage() {
             incidentId,
             incidentLabel: op ? getIncidentRefLabel(op, 40) : '',
             fromName: otherGroup?.name ?? null,
+            groupId: planningGroupId,
             toName: group?.name ?? '',
           })
           return
@@ -1337,8 +1340,8 @@ export default function MapPage() {
           // No undo after it: Enter keeps to Abbrechen.
           initialFocus="cancel"
           onConfirm={() => {
-            if (planningAddConfirm && planningGroupId) {
-              void addStops(planningGroupId, [planningAddConfirm.incidentId]).then((ok) => {
+            if (planningAddConfirm) {
+              void addStops(planningAddConfirm.groupId, [planningAddConfirm.incidentId]).then((ok) => {
                 if (ok) toast.success(t('planning.stopAdded'))
               })
             }
