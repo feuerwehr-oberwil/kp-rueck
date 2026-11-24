@@ -64,12 +64,13 @@ export function FiguresDialog() {
   if (isPhone) {
     return (
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="bottom" className="modal-h-tall gap-0">
-          <SheetHeader className="border-b px-4 pb-3">
-            <SheetTitle className="text-left">{title}</SheetTitle>
-            {selectedEvent && <SheetDescription className="text-left">{selectedEvent.name}</SheetDescription>}
+        <SheetContent side="bottom" className="modal-h-tall gap-0 p-0">
+          {/* The one phone sheet head (SheetHeader's frame, phone sweep 24.11.2026 #30). */}
+          <SheetHeader>
+            <SheetTitle>{title}</SheetTitle>
+            {selectedEvent && <SheetDescription>{selectedEvent.name}</SheetDescription>}
           </SheetHeader>
-          <SheetBody className="px-4 pt-4 pb-sheet-safe">{panel}</SheetBody>
+          <SheetBody className="px-6 pt-1 pb-sheet-safe">{panel}</SheetBody>
         </SheetContent>
       </Sheet>
     )
