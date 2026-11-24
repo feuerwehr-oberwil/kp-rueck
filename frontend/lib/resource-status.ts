@@ -186,6 +186,8 @@ export function vehicleResourceState(
 export interface ResourceSummary {
   free: number
   bound: number
+  /** Material only: «nicht einsatzbereit» is neither free nor bound. A person has no such state. */
+  notReady?: number
   total: number
 }
 
@@ -210,12 +212,23 @@ export function summarizeRoster(
   return { free: personnel.length - bound, bound, total: personnel.length }
 }
 
-/** The material counter, from the same helper the material list is filtered with. */
+/**
+ * The material counter, from the same helper the material list is filtered with. Three buckets,
+ * the ones the «Filter & Sortierung» Status counts (`materialFacets`): frei, gebunden (on an
+ * Einsatz or Auftrag) and nicht einsatzbereit. A defective device is not «gebunden» – the footer
+ * used to say so, under a popover that said it was not.
+ */
 export function summarizeMaterials(
   materials: readonly Parameters<typeof materialResourceState>[0][],
-): ResourceSummary {
-  const free = materials.reduce((n, m) => (materialResourceState(m) === "available" ? n + 1 : n), 0)
-  return { free, bound: materials.length - free, total: materials.length }
+): Required<ResourceSummary> {
+  const summary = { free: 0, bound: 0, notReady: 0, total: materials.length }
+  for (const material of materials) {
+    const state = materialResourceState(material)
+    if (state === "available") summary.free += 1
+    else if (state === "assigned") summary.bound += 1
+    else summary.notReady += 1
+  }
+  return summary
 }
 
 /** Dot / swatch for a resource's availability – the ONE table, board, phone and

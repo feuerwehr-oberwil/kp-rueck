@@ -542,6 +542,7 @@
       "rosterFree": "{count} frei",
       "rosterOf": "von {total}",
       "rosterBound": "{count} gebunden",
+      "rosterNotReady": "{count} nicht einsatzbereit",
       "bindingsNone": "Keine Zuweisung – nichts zum Anspringen.",
       "transferredToast": "Ressourcen nach «{target}» übertragen",
       "transferredToastCount": "{count, plural, one {# Zuweisung} other {# Zuweisungen}} von «{source}»",
@@ -563,24 +564,24 @@
       "allEvents": "Alle Ereignisse",
       "personnelSearch": "Person suchen …",
       "materialSearch": "Material suchen …",
-      "showAvailableOnly": "Nur Verfügbare zeigen",
       "showAll": "Alle zeigen",
-      "noneAvailableFiltered": "Nichts verfügbar",
-      "personnelFilter": {
+      "sidebarFilter": {
         "title": "Filter & Sortierung",
         "buttonActive": "Filter & Sortierung – {count} aktiv",
         "reset": "Zurücksetzen",
         "resetAll": "Filter zurücksetzen",
+        "sort": "Sortierung",
         "status": "Status",
         "statusAll": "Alle",
         "statusFree": "Frei",
-        "statusBound": "Gebunden",
+        "statusBound": "Gebunden"
+      },
+      "personnelFilter": {
         "grade": "Grad",
         "gradeHint": "einer davon",
         "noGrade": "Ohne Grad",
         "tags": "Tags",
         "tagsHint": "alle gewählten",
-        "sort": "Sortierung",
         "sortRank": "Grad",
         "sortName": "Name",
         "sortFreeFirst": "Frei zuerst",
@@ -590,6 +591,19 @@
         "none": "Niemand passt zu diesen Filtern",
         "groupFiltered": "Gefiltert · {count}",
         "groupAll": "Alle · {count}"
+      },
+      "materialFilter": {
+        "statusNotReady": "Nicht einsatzbereit",
+        "location": "Standort",
+        "type": "Typ",
+        "oneOfHint": "einer davon",
+        "noLocation": "Sonstige",
+        "noType": "Ohne Typ",
+        "sortLocation": "Standort",
+        "sortType": "Typ",
+        "summaryType": "nach Typ",
+        "shown": "{shown} von {total} Geräten",
+        "none": "Kein Gerät passt zu diesen Filtern"
       },
       "sort": {
         "button": "Sortieren",
