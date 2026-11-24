@@ -193,10 +193,25 @@ async def test_an_accepted_message_is_reported_sent_even_if_recording_it_fails(
     await _enable_alerting(db_session)
     send = AsyncMock(return_value={"id": 77})
 
-    async def audit_down(*args, **kwargs):
-        raise RuntimeError("injected: the audit write fails")
+    class CommitFails:
+        """The record's own session: its commit fails (a dropped connection)."""
 
-    monkeypatch.setattr("app.api.divera.log_action", audit_down)
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        def add(self, *args):
+            pass
+
+        async def flush(self):
+            pass
+
+        async def commit(self):
+            raise RuntimeError("injected: the record's commit fails")
+
+    monkeypatch.setattr("app.api.divera.async_session_maker", CommitFails)
     with patch.object(divera_alarm, "send_news", new=send):
         resp = await editor_client.post("/api/divera/message", json={"text": "KP-Rück ist aktiv", "target": "all"})
 

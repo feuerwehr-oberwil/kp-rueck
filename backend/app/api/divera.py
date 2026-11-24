@@ -22,7 +22,7 @@ from ..crud import external_identities as identities_crud
 from ..crud import incidents as incidents_crud
 from ..crud import personnel as personnel_crud
 from ..crud import special_functions as special_functions_crud
-from ..database import get_db
+from ..database import async_session_maker, get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..services import alerting, divera_responses, duplicates, incident_display
 from ..services import settings as settings_service
@@ -719,18 +719,18 @@ def _render_alarm_template(template: str, incident: models.Incident) -> str:
     return "\n".join(collapsed)
 
 
-async def _record_accepted_send(db: AsyncSession, what: str, record: Callable[[], Awaitable[object]]) -> None:
-    """Record a send the provider has ACCEPTED (committed with the request).
+async def _record_accepted_send(what: str, record: Callable[[AsyncSession], Awaitable[object]]) -> None:
+    """Record a send the provider has ACCEPTED – in a session of its own, committed here.
 
     Never raises: once Divera took the alarm or Mitteilung, an error answer would only make
     the operator send it again – a Mitteilung gets a new foreign id, so a second message goes
-    out (hunt 2026-11-24). A failed local record is logged, and the send is reported as done.
+    out (hunt 2026-11-24). Its own session, so nothing of it rides on the request's commit
+    either; a failed record is logged and the send is reported as done.
     """
     try:
-        # A savepoint: a failed record rolls back only itself – the session (and the user
-        # the request's own audit reads afterwards) stays usable.
-        async with db.begin_nested():
-            await record()
+        async with async_session_maker() as record_db:
+            await record(record_db)
+            await record_db.commit()
     except Exception:
         logger.exception("Divera accepted the %s, but recording it here failed", what)
 
@@ -923,10 +923,9 @@ async def send_incident_alarm(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e)) from e
 
     await _record_accepted_send(
-        db,
         "alarm",
-        lambda: log_action(
-            db=db,
+        lambda record_db: log_action(
+            db=record_db,
             action_type="divera_alarm",
             resource_type="incident",
             resource_id=incident_id,
@@ -1098,10 +1097,9 @@ async def send_divera_message(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e)) from e
 
     await _record_accepted_send(
-        db,
         "Mitteilung",
-        lambda: log_action(
-            db=db,
+        lambda record_db: log_action(
+            db=record_db,
             action_type="divera_message",
             resource_type="settings",
             resource_id=None,
@@ -1183,10 +1181,9 @@ async def send_test_alarm(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e)) from e
 
     await _record_accepted_send(
-        db,
         "test alarm",
-        lambda: log_action(
-            db=db,
+        lambda record_db: log_action(
+            db=record_db,
             action_type="divera_test_alarm",
             resource_type="settings",
             resource_id=None,
