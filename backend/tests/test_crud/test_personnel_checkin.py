@@ -6,6 +6,7 @@ Tests cover:
 - check_out_personnel: Check out personnel from an event
 """
 
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 from uuid import uuid4
 
@@ -19,6 +20,7 @@ from app.crud import personnel_checkin as checkin_crud
 from app.models import (
     Event,
     EventAttendance,
+    EventSpecialFunction,
     Incident,
     IncidentAssignment,
     Personnel,
@@ -394,6 +396,66 @@ class TestCheckInPersonnel:
 
         assert result.checked_in is True
 
+    async def test_resume_takes_back_the_check_out(
+        self,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_personnel: Personnel,
+    ):
+        """The board's undo of «Auschecken»: the same stint, its start and plan kept."""
+        first = await checkin_crud.check_in_personnel(
+            db=db_session, event_id=test_event.id, personnel_id=test_personnel.id
+        )
+        until = datetime.now(UTC) + timedelta(hours=3)
+        await checkin_crud.set_attendance_plan(
+            db_session, test_event.id, test_personnel.id, schemas.AttendancePlanUpdate(planned_until=until)
+        )
+        out = await checkin_crud.check_out_personnel(
+            db=db_session, event_id=test_event.id, personnel_id=test_personnel.id
+        )
+
+        result = await checkin_crud.check_in_personnel(
+            db=db_session, event_id=test_event.id, personnel_id=test_personnel.id, resume=out.checked_out_at
+        )
+
+        assert result.checked_in is True
+        assert result.checked_out_at is None
+        assert result.checked_in_at == first.checked_in_at
+        assert result.planned_until == until
+
+    async def test_resume_refuses_somebody_elses_later_departure(
+        self,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_personnel: Personnel,
+    ):
+        """A checks out; B checks in and out again; A's undo must not reopen B's stint."""
+        ids = {"db": db_session, "event_id": test_event.id, "personnel_id": test_personnel.id}
+        await checkin_crud.check_in_personnel(**ids)
+        a_out = await checkin_crud.check_out_personnel(**ids)
+        await checkin_crud.check_in_personnel(**ids)
+        await checkin_crud.check_out_personnel(**ids)
+
+        with pytest.raises(checkin_crud.CheckOutChangedError):
+            await checkin_crud.check_in_personnel(**ids, resume=a_out.checked_out_at)
+
+    async def test_resume_after_a_cleared_row_is_refused(
+        self,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_personnel: Personnel,
+    ):
+        """B cleared the attendance: the undo has nothing to take back, and checks nobody in."""
+        ids = {"db": db_session, "event_id": test_event.id, "personnel_id": test_personnel.id}
+        await checkin_crud.check_in_personnel(**ids)
+        out = await checkin_crud.check_out_personnel(**ids)
+        await checkin_crud.clear_personnel_attendance(**ids)
+
+        with pytest.raises(checkin_crud.CheckOutChangedError):
+            await checkin_crud.check_in_personnel(**ids, resume=out.checked_out_at)
+        row = await db_session.scalar(select(EventAttendance).where(EventAttendance.personnel_id == test_personnel.id))
+        assert row is None
+
 
 # ============================================
 # Test: check_out_personnel
@@ -481,6 +543,50 @@ class TestCheckOutPersonnel:
                 personnel_id=test_personnel.id,
             )
 
+    async def test_refuse_bound_stops_a_check_out_of_somebody_on_an_einsatz(
+        self,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_incident: Incident,
+        test_personnel: Personnel,
+        test_user: User,
+    ):
+        """A stale popover showed the person free; the server knows better and says so."""
+        ids = {"db": db_session, "event_id": test_event.id, "personnel_id": test_personnel.id}
+        await checkin_crud.check_in_personnel(**ids)
+        db_session.add(
+            IncidentAssignment(
+                incident_id=test_incident.id,
+                resource_type="personnel",
+                resource_id=test_personnel.id,
+                assigned_by=test_user.id,
+            )
+        )
+        await db_session.commit()
+
+        with pytest.raises(checkin_crud.PersonStillBoundError):
+            await checkin_crud.check_out_personnel(**ids, allow_assigned=True, refuse_bound=True)
+
+    async def test_refuse_bound_counts_a_function(
+        self,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_personnel: Personnel,
+    ):
+        """A function binds like an Einsatz: Kommandoposten is a reason to ask too."""
+        ids = {"db": db_session, "event_id": test_event.id, "personnel_id": test_personnel.id}
+        await checkin_crud.check_in_personnel(**ids)
+        db_session.add(
+            EventSpecialFunction(event_id=test_event.id, personnel_id=test_personnel.id, function_type="kommandoposten")
+        )
+        await db_session.commit()
+
+        with pytest.raises(checkin_crud.PersonStillBoundError):
+            await checkin_crud.check_out_personnel(**ids, allow_assigned=True, refuse_bound=True)
+
+        free = await checkin_crud.check_out_personnel(**ids, allow_assigned=True)
+        assert free.checked_in is False
+
     async def test_check_out_already_checked_out(
         self,
         db_session: AsyncSession,
@@ -509,6 +615,9 @@ class TestCheckOutPersonnel:
 
         assert second_result.checked_in is False
         assert second_result.checked_out_at == first_result.checked_out_at
+        # The second call wrote nothing: a stale popover must not offer to undo the first.
+        assert first_result.changed is True
+        assert second_result.changed is False
 
     async def test_check_out_never_checked_in(
         self,

@@ -48,6 +48,13 @@ export interface ApiPersonnelListItem {
   is_assigned?: boolean
 }
 
+/** A check-in/-out write's answer (`PersonnelCheckInResponse`). */
+export interface ApiCheckInResponse extends ApiPersonnelListItem {
+  /** False when the request found its state already there and wrote nothing (somebody else
+   *  had already checked the person out): no undo for it. */
+  changed: boolean
+}
+
 /**
  * «kommt um» / «geht um» for one person at one Ereignis (`PUT …/check-in/{id}/plan`,
  * `PUT /api/feld/attendance/{id}/plan`). A PATCH: a key left out stays, `null` clears it.

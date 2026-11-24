@@ -12,7 +12,7 @@
  * on the same element as before.
  */
 
-import { useMemo, useRef, type Dispatch, type SetStateAction } from "react"
+import { useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react"
 import { useTranslations } from "next-intl"
 import { QRCodeSVG } from "qrcode.react"
 import { Check, ChevronLeft, Copy, Users } from "lucide-react"
@@ -26,7 +26,8 @@ import { DraggablePerson } from "@/components/kanban/draggable-person"
 import { DiveraIncomingBlock } from "@/components/kanban/divera-incoming-block"
 import { CrewDutyButton } from "@/components/kanban/crew-duty-sheet"
 import { ResourcesNotLoaded } from "@/components/board-load-error"
-import { BindingsPopoverBody, SidebarCounter, SidebarEmpty, SidebarLoading } from "@/components/board/sidebar-parts"
+import { SidebarCounter, SidebarEmpty, SidebarLoading } from "@/components/board/sidebar-parts"
+import { PersonPopoverBody, type PersonPopoverBodyProps } from "@/components/board/person-popover"
 import { PersonnelFilterButton, PersonnelFilterSummary } from "@/components/board/personnel-filter"
 import type { BindingsPopoverState, ResourceBinding } from "@/lib/board-sidebar"
 import type { Person } from "@/lib/contexts/operations-context"
@@ -64,12 +65,16 @@ export interface PersonnelSidebarProps {
   bindingsPopover: BindingsPopoverState | null
   setBindingsPopover: Dispatch<SetStateAction<BindingsPopoverState | null>>
   handlePersonClick: (person: Person) => void
+  /** A person's Einsätze and Aufträge, for the popover (`useResourceBindings`). */
+  collectPersonPlaces: (person: Person) => ResourceBinding[]
+  /** The board's release-with-undo, so an untick in the popover gets the usual toast. */
+  release: PersonPopoverBodyProps["release"]
   doubleBookedPersons: DoubleBookedPersons
   personEngagements: Map<string, PersonEngagement>
   followBinding: (binding: ResourceBinding) => void
   /** The Ereignis whose Divera «Anrückend» block shows on top (absent without Divera). */
   eventId: string | null
-  /** Editors get the one-click check-in on those rows. */
+  /** Editors get the one-click check-in on those rows, and change things in the person popover. */
   canCheckIn: boolean
   onDiveraCheckIn: (personnelId: string) => Promise<void>
   /** Opens the Dienstzeiten overview. */
@@ -116,6 +121,8 @@ export function PersonnelSidebar({
   bindingsPopover,
   setBindingsPopover,
   handlePersonClick,
+  collectPersonPlaces,
+  release,
   doubleBookedPersons,
   personEngagements,
   followBinding,
@@ -127,6 +134,13 @@ export function PersonnelSidebar({
 }: PersonnelSidebarProps) {
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
+  // The popover's check-out question, per person and Ereignis: held here, above the
+  // «Frei» / «Gebunden» groups, so it survives the move a refused check-out causes.
+  const [confirmOutFor, setConfirmOutFor] = useState<string | null>(null)
+  const closePopover = () => {
+    setBindingsPopover(null)
+    setConfirmOutFor(null)
+  }
   // Everybody in this list is checked in; who checked out again the backend flags (`attended`).
   const checkedInIds = useMemo(() => new Set(personnel.map((person) => person.id)), [personnel])
   const { shown, layout } = useMemo(() => viewPersonnel(filteredPersonnel, personnelView), [filteredPersonnel, personnelView])
@@ -301,7 +315,7 @@ export function PersonnelSidebar({
                       <Popover
                         key={person.id}
                         open={bindingsPopover?.kind === 'person' && bindingsPopover.id === person.id}
-                        onOpenChange={(open) => { if (!open) setBindingsPopover(null) }}
+                        onOpenChange={(open) => { if (!open) closePopover() }}
                       >
                         <PopoverAnchor asChild>
                           <div>
@@ -313,14 +327,18 @@ export function PersonnelSidebar({
                             />
                           </div>
                         </PopoverAnchor>
-                        <PopoverContent align="start" side="right" className="w-80 p-3">
-                          {bindingsPopover && (
-                            <BindingsPopoverBody
-                              state={bindingsPopover}
-                              onGo={followBinding}
-                              onClose={() => setBindingsPopover(null)}
-                            />
-                          )}
+                        <PopoverContent align="start" side="right" className="w-80 p-2">
+                          <PersonPopoverBody
+                            person={person}
+                            places={collectPersonPlaces(person)}
+                            onGo={followBinding}
+                            onClose={closePopover}
+                            canEdit={canCheckIn}
+                            eventId={eventId}
+                            release={release}
+                            confirmOut={confirmOutFor === `${person.id}:${eventId}`}
+                            onConfirmOutChange={(open) => setConfirmOutFor(open ? `${person.id}:${eventId}` : null)}
+                          />
                         </PopoverContent>
                       </Popover>
                     ))}

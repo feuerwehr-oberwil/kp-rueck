@@ -44,7 +44,7 @@ import { ResizeGrip } from "@/components/ui/resize-grip"
 import { useResizableWidth } from "@/lib/hooks/use-resizable-width"
 import { RekoModusPanel } from "@/components/map/reko-modus-panel"
 import type { RekoRoute } from "@/components/map/reko-route"
-import { openRekosByPerson } from "@/lib/reko-order"
+import { openRekosByPerson, rekoEditorTap } from "@/lib/reko-order"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
@@ -341,18 +341,17 @@ export default function MapPage() {
       const person = personnel.find((p) => p.id === rekoPersonId)
       const operation = operations.find((op) => op.id === incidentId)
       if (!person || !operation) return
-      if (operation.assignedReko?.id === rekoPersonId) {
-        removeReko(incidentId)
-      } else if (operation.assignedReko) {
+      const tap = rekoEditorTap(operation, rekoPersonId)
+      if (tap.kind === "release") removeReko(incidentId)
+      else if (tap.kind === "saving") toast.info(tKanban('common.rekoStillSaving', { name: person.name }))
+      else if (tap.kind === "replace") {
         setRekoOverwrite({
           operationId: incidentId,
-          currentName: operation.assignedReko.name,
+          currentName: tap.current.name,
           nextId: person.id,
           nextName: person.name,
         })
-      } else {
-        assignRekoPersonToOperation(person.id, person.name, incidentId)
-      }
+      } else assignRekoPersonToOperation(person.id, person.name, incidentId)
       return
     }
     if (incidentId === selectedIncidentId) {

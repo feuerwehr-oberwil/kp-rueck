@@ -341,6 +341,17 @@ describe('the card routes each block into the detail', () => {
     expect(onClick).not.toHaveBeenCalled()
   })
 
+  it('offers the Reko chip’s ✕ only once its row id is known', () => {
+    const rita = { id: 'p-2', name: 'Reko Rita' }
+    // An assign whose POST has not answered: no release yet (`removeReko`).
+    const { unmount } = renderWithIntl(card(CARD_VIEW_PRESETS.alles, operation({ assignedReko: rita }), { onRemoveReko: vi.fn() }))
+    expect(screen.queryByRole('button', { name: 'Reko Rita freigeben' })).not.toBeInTheDocument()
+    unmount()
+
+    renderWithIntl(card(CARD_VIEW_PRESETS.alles, operation({ assignedReko: { ...rita, assignmentId: 'a-1' } }), { onRemoveReko: vi.fn() }))
+    expect(screen.getByRole('button', { name: 'Reko Rita freigeben' })).toBeInTheDocument()
+  })
+
   // The card root is a tab stop (roving tabindex) and takes Enter/Space itself.
   // React's onKeyDown also sees what bubbles up from the buttons and links
   // inside it, so the handler has to tell the two apart — a card that swallowed

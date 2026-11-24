@@ -87,7 +87,14 @@ export function buildEventState({
         const person = personById.get(assignment.resource_id)
         if (person) {
           if (rekoPersonnelIds.has(person.id)) {
-            operation.assignedReko = { id: person.id, name: person.name }
+            // Every row of a Reko-function person is drawn as their Reko – a crew row too.
+            // The row and its persisted purpose go along, so a release names exactly it.
+            operation.assignedReko = {
+              id: person.id,
+              name: person.name,
+              assignmentId: assignment.id,
+              purpose: assignment.purpose ?? "crew",
+            }
             operation.rekoPosition = assignment.reko_position ?? null
             continue
           }

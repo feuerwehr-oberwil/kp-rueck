@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button"
 import { ContextMenu, ContextMenuCheckboxItem, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { DraggableMaterial } from "@/components/kanban/draggable-material"
-import { isNavigableBinding, shortDate, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
+import { isNavigableBinding, shortDate, type BindingsPopoverState, type MaterialBindingsState, type ResourceBinding } from "@/lib/board-sidebar"
 import type { Material } from "@/lib/contexts/operations-context"
 import { materialResourceState, RESOURCE_FREE_TEXT_CLASS, RESOURCE_STATE_DOT_CLASSES, type ResourceSummary } from "@/lib/resource-status"
 import { cn } from "@/lib/utils"
@@ -118,7 +118,8 @@ export function SidebarCounter({ summary }: { summary: ResourceSummary }) {
 }
 
 /**
- * Every binding of one busy resource, with a way to reach each.
+ * Every binding of one busy unit of material, with a way to reach each. (A person's
+ * popover is the checklist in `person-popover.tsx`.)
  *
  * Deliberately shown only when there is something to choose: exactly one
  * incident binding still jumps straight there, which is the common case and the
@@ -135,7 +136,7 @@ export function BindingsPopoverBody({
   onGo,
   onClose,
 }: {
-  state: BindingsPopoverState
+  state: MaterialBindingsState
   onGo: (binding: ResourceBinding) => void
   onClose: () => void
 }) {
@@ -222,7 +223,8 @@ export function MaterialSidebarRow({
   onGoBinding: (binding: ResourceBinding) => void
 }) {
   const t = useTranslations('kanban.common')
-  const isOpen = bindingsPopover?.kind === 'material' && bindingsPopover.id === material.id
+  const state = bindingsPopover?.kind === 'material' ? bindingsPopover : null
+  const isOpen = state?.id === material.id
   return (
     <Popover open={isOpen} onOpenChange={(open) => { if (!open) onCloseBindings() }}>
       <ContextMenu>
@@ -267,17 +269,17 @@ export function MaterialSidebarRow({
         </ContextMenuContent>
       </ContextMenu>
       <PopoverContent align="start" side="left" className="w-80 p-3">
-        {bindingsPopover && (material.outOfService ? (
+        {state && (material.outOfService ? (
           // A flagged device's question is «wieder einsatzbereit?», which used to be
           // right-click only. A device flagged while still assigned keeps its
           // bindings above the button, so the way to it is not lost.
           <div className="space-y-3">
-            {bindingsPopover.bindings.length > 0 ? (
-              <BindingsPopoverBody state={bindingsPopover} onGo={onGoBinding} onClose={onCloseBindings} />
+            {state.bindings.length > 0 ? (
+              <BindingsPopoverBody state={state} onGo={onGoBinding} onClose={onCloseBindings} />
             ) : (
               <p className="truncate text-sm font-semibold">{material.name}</p>
             )}
-            <div className={cn("space-y-2", bindingsPopover.bindings.length > 0 && "border-t border-border pt-3")}>
+            <div className={cn("space-y-2", state.bindings.length > 0 && "border-t border-border pt-3")}>
               <p className="text-2xs text-muted-foreground">
                 {t('notReady')}
                 {material.outOfServiceSince && ` · ${t('notReadySince', { date: shortDate(material.outOfServiceSince) })}`}
@@ -293,7 +295,7 @@ export function MaterialSidebarRow({
             </div>
           </div>
         ) : (
-          <BindingsPopoverBody state={bindingsPopover} onGo={onGoBinding} onClose={onCloseBindings} />
+          <BindingsPopoverBody state={state} onGo={onGoBinding} onClose={onCloseBindings} />
         ))}
       </PopoverContent>
     </Popover>
@@ -336,7 +338,8 @@ export function AggregatedMaterialRow({
   const dragUnit = freeUnits[0] ?? assignedUnit ?? units[0]
   const allTaken = freeUnits.length === 0
   // The popover may have been opened for ANY unit of this bundle.
-  const isOpen = bindingsPopover?.kind === 'material' && units.some((u) => u.id === bindingsPopover.id)
+  const state = bindingsPopover?.kind === 'material' ? bindingsPopover : null
+  const isOpen = !!state && units.some((u) => u.id === state.id)
 
   useEffect(() => {
     const element = ref.current
@@ -412,9 +415,7 @@ export function AggregatedMaterialRow({
         </ContextMenuContent>
       </ContextMenu>
       <PopoverContent align="start" side="left" className="w-80 p-3">
-        {bindingsPopover && (
-          <BindingsPopoverBody state={bindingsPopover} onGo={onGoBinding} onClose={onCloseBindings} />
-        )}
+        {state && <BindingsPopoverBody state={state} onGo={onGoBinding} onClose={onCloseBindings} />}
       </PopoverContent>
     </Popover>
   )

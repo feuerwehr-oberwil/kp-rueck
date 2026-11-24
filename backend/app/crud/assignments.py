@@ -25,6 +25,7 @@ from ..services.audit import log_action
 from ..services.ranks import rank_tier
 from .locking import (
     AssignableResource,
+    lock_incident_crew,
     lock_incident_with_group,
     lock_incidents_with_groups,
     lock_resource,
@@ -100,13 +101,20 @@ def ensure_assignable(
 
 
 async def lock_for_new_assignment(
-    db: AsyncSession, incident_id: uuid.UUID, resource_type: str, resource_id: uuid.UUID
+    db: AsyncSession,
+    incident_id: uuid.UUID,
+    resource_type: str,
+    resource_id: uuid.UUID,
+    *,
+    with_crew: bool = False,
 ) -> Incident:
     """Lock an Einsatz and a resource for a NEW assignment row the caller writes itself.
 
     For writers that build the row by hand (the Reko assignment). Lock order
     (``crud/locking.py``): the Einsatz with its Auftrag, then the resource row; then
-    ``ensure_assignable``. Returns the locked Einsatz.
+    ``ensure_assignable``. Returns the locked Einsatz. ``with_crew`` (a person who may
+    replace someone on it) locks the person together with the Einsatz's active crew,
+    sorted (``lock_incident_crew``): the release it then does can promote one of them.
 
     Raises:
         LookupError: the Einsatz or the resource does not exist.
@@ -118,7 +126,9 @@ async def lock_for_new_assignment(
         raise LookupError(f"incident {incident_id} does not exist")
     if incident.deleted_at is not None or incident.merged_into_id is not None:
         raise IncidentNotOnBoardError(f"incident {incident_id} is deleted or merged")
-    resource = await lock_resource(db, resource_type, resource_id)
+    if with_crew:
+        await lock_incident_crew(db, [incident_id], [resource_id])
+    resource = await lock_resource(db, resource_type, resource_id)  # held already with_crew: a fresh read
     if resource is None:
         raise LookupError(f"{resource_type} {resource_id} does not exist")
     event = await db.get(Event, incident.event_id)
@@ -349,7 +359,7 @@ async def update_assignment(
 async def unassign_resource(
     db: AsyncSession,
     assignment_id: uuid.UUID,
-    current_user: User,
+    current_user: User | None,
     request: Request | None,
     *,
     incident_id: uuid.UUID,

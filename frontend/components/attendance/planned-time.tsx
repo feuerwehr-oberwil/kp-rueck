@@ -227,35 +227,38 @@ function planButtonLabel(t: ReturnType<typeof useTranslations<'common.attendance
 }
 
 /**
- * The check-in link's «geht um» chip: «geht 22:00», dashed «+ bis» while nothing is planned;
- * amber with the time left («· in 29'») when the person leaves within the hour. A button
- * (forwardRef) so it can be a popover trigger and takes Tab + Enter. Spread props last: the
- * popover trigger hands its `onClick` / aria state through them.
+ * The plan as a chip – the check-in link's «geht um» and the person popover's two: «geht 22:00»
+ * (or «kommt 17:30» for `kind="from"`), dashed «+ bis» / «+ ab» while nothing is planned; amber
+ * with the time left («· in 29'») when the person leaves within the hour. A button (forwardRef)
+ * so it can be a popover trigger and takes Tab + Enter. Spread props last: the popover trigger
+ * hands its `onClick` / aria state through them.
  */
 export const PlannedTimeChip = forwardRef<
   HTMLButtonElement,
-  { at: string | null | undefined } & Omit<ComponentProps<'button'>, 'value'>
->(function PlannedTimeChip({ at, className, ...props }, ref) {
+  { at: string | null | undefined; kind?: PlanKind } & Omit<ComponentProps<'button'>, 'value'>
+>(function PlannedTimeChip({ at, kind = 'until', className, ...props }, ref) {
   const t = useTranslations('common.attendancePlan')
   // «in 29'» counts down on the shared minute timer, like the crew's time on duty.
   useMinuteTick()
   const now = Date.now()
   const time = formatTime(at, useIntlLocale())
-  const Icon = time ? LogOut : Plus
-  const soon = !!time && leavesSoon(at, now)
+  const Icon = !time ? Plus : kind === 'until' ? LogOut : Clock
+  const soon = kind === 'until' && !!time && leavesSoon(at, now)
   const left = minutesUntil(at, now) ?? 0
   const label = !time
-    ? t('addUntil')
-    : !soon
-      ? t('chipUntil', { time })
-      : left > 0
-        ? t('chipUntilSoon', { time, duration: formatDuration(left * 60_000) })
-        : t('chipUntilPast', { time })
+    ? t(kind === 'until' ? 'addUntil' : 'addFrom')
+    : kind === 'from'
+      ? t('chipFrom', { time })
+      : !soon
+        ? t('chipUntil', { time })
+        : left > 0
+          ? t('chipUntilSoon', { time, duration: formatDuration(left * 60_000) })
+          : t('chipUntilPast', { time })
   return (
     <button
       ref={ref}
       type="button"
-      aria-label={planButtonLabel(t, 'until', time)}
+      aria-label={planButtonLabel(t, kind, time)}
       className={cn(
         'inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded-sm border px-2 text-xs transition-colors',
         'hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
