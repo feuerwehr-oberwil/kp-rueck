@@ -13,6 +13,14 @@ const auth = vi.hoisted(() => ({ current: { isEditor: true, logout: vi.fn(), use
 const event = vi.hoisted(() => ({ current: { training_flag: false } as { training_flag: boolean } | null }))
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
+// A tab's <Link> must not navigate jsdom; the tap's own answer is what is under test.
+vi.mock('next/link', () => ({
+  default: ({ href, onClick, onNavigate, children, ...rest }: React.ComponentProps<'a'> & { href: string; onNavigate?: () => void }) => (
+    <a href={href} {...rest} onClick={(e) => { e.preventDefault(); onClick?.(e); onNavigate?.() }}>{children}</a>
+  ),
+}))
+const loading = vi.hoisted(() => ({ startRoute: vi.fn(), cancelRoute: vi.fn() }))
+vi.mock('@/components/ui/top-loading-bar', () => ({ topLoading: loading }))
 vi.mock('@/lib/contexts/auth-context', () => ({ useAuth: () => auth.current }))
 vi.mock('@/lib/contexts/event-context', () => ({
   useEvent: () => ({
@@ -41,7 +49,7 @@ describe('MobileBottomNavigation «Schnellzugriff»', () => {
     event.current = { training_flag: false }
   })
 
-  it.each(['kanban', 'map', 'settings'])('offers an editor every sheet on %s', async (page) => {
+  it.each(['kanban', 'map', 'settings'] as const)('offers an editor every sheet on %s', async (page) => {
     renderWithIntl(<MobileBottomNavigation currentPage={page} />)
     await openSheet()
     for (const entry of EDITOR_ENTRIES) expect(screen.getByRole('button', { name: entry })).toBeDefined()
@@ -77,5 +85,41 @@ describe('MobileBottomNavigation «Schnellzugriff»', () => {
     renderWithIntl(<MobileBottomNavigation currentPage="map" />)
     await openSheet()
     expect(screen.getByText('Übungs-Steuerung')).toBeDefined()
+  })
+})
+
+describe('MobileBottomNavigation tabs', () => {
+  // Phone sweep 24.11.2026 #24: «Alle Ereignisse» and «Übungs-Steuerung» lit no tab at all.
+  it.each(['events', 'training', 'settings', 'help'] as const)('lights «Mehr» on %s', (page) => {
+    renderWithIntl(<MobileBottomNavigation currentPage={page} />)
+    expect(screen.getByRole('button', { name: 'Mehr Optionen' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Einsätze' })).not.toHaveAttribute('aria-current')
+  })
+
+  // Phone sweep 24.11.2026 #2: the tint and the loading bar waited for the next page.
+  it('moves the tint and starts the loading bar on the tap', async () => {
+    loading.startRoute.mockClear()
+    renderWithIntl(<MobileBottomNavigation currentPage="kanban" />)
+    const map = screen.getByRole('link', { name: 'Lagekarte' })
+    await userEvent.click(map)
+    expect(map).toHaveClass('text-foreground')
+    expect(screen.getByRole('link', { name: 'Einsätze' })).toHaveClass('text-muted-foreground')
+    expect(loading.startRoute).toHaveBeenCalledOnce()
+  })
+
+  it('starts nothing on a tap on the tab it is on', async () => {
+    loading.startRoute.mockClear()
+    renderWithIntl(<MobileBottomNavigation currentPage="kanban" />)
+    await userEvent.click(screen.getByRole('link', { name: 'Einsätze' }))
+    expect(loading.startRoute).not.toHaveBeenCalled()
+  })
+
+  it('takes the tint and the bar back when the tap returns to its page before the next arrives', async () => {
+    loading.cancelRoute.mockClear()
+    renderWithIntl(<MobileBottomNavigation currentPage="kanban" />)
+    await userEvent.click(screen.getByRole('link', { name: 'Lagekarte' }))
+    await userEvent.click(screen.getByRole('link', { name: 'Einsätze' }))
+    expect(screen.getByRole('link', { name: 'Einsätze' })).toHaveClass('text-foreground')
+    expect(loading.cancelRoute).toHaveBeenCalledOnce()
   })
 })

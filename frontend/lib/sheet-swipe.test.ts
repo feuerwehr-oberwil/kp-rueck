@@ -13,16 +13,25 @@ import {
 } from '@/lib/sheet-swipe'
 
 describe('canStartSwipe', () => {
-  it('never drags from a control', () => {
-    expect(canStartSwipe({ onControl: true, onHandle: true, scrollTop: null })).toBe(false)
+  const press = { onField: false, onHandle: false, inSidewaysScroller: false, scrollTops: [] as number[] }
+  it('never drags from a field, not even on the header', () => {
+    expect(canStartSwipe({ ...press, onField: true, onHandle: true })).toBe(false)
   })
   it('always drags from the grip / header', () => {
-    expect(canStartSwipe({ onControl: false, onHandle: true, scrollTop: 300 })).toBe(true)
+    expect(canStartSwipe({ ...press, onHandle: true, scrollTops: [300] })).toBe(true)
   })
-  it('drags from content only while it is scrolled to the very top', () => {
-    expect(canStartSwipe({ onControl: false, onHandle: false, scrollTop: 0 })).toBe(true)
-    expect(canStartSwipe({ onControl: false, onHandle: false, scrollTop: 1 })).toBe(false)
-    expect(canStartSwipe({ onControl: false, onHandle: false, scrollTop: null })).toBe(true)
+  // a row is a handle (phone sweep 24.11.2026 #10): nothing about a button stops it here
+  it('drags from a row of content that does not scroll', () => {
+    expect(canStartSwipe(press)).toBe(true)
+  })
+  it('drags from content only while EVERY scroller up to the sheet is at its very top', () => {
+    expect(canStartSwipe({ ...press, scrollTops: [0, 0] })).toBe(true)
+    // a list at its top inside a scrolled-down body: the body scrolls back up
+    expect(canStartSwipe({ ...press, scrollTops: [0, 240] })).toBe(false)
+    expect(canStartSwipe({ ...press, scrollTops: [1] })).toBe(false)
+  })
+  it('leaves a sideways scroller with room its own swipe', () => {
+    expect(canStartSwipe({ ...press, inSidewaysScroller: true })).toBe(false)
   })
 })
 

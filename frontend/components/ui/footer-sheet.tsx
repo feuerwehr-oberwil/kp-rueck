@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { surfaceShowsStep } from "@/components/ui/surface-step"
+import { cn } from "@/lib/utils"
 
 /**
  * Live height of the page's footer toolbar, as a CSS length for
@@ -186,7 +187,10 @@ export function FooterSheet({ open, onOpenChange, children, className, style, sh
         rightInset={isMobile ? undefined : "var(--notification-sidebar-width, 0px)"}
         nonModal={!isMobile}
         surface={isMobile ? undefined : surface}
-        className={className}
+        // Every footer sheet pads its content px-6 py-4 and its header is the title line in it:
+        // on a phone the ✕'s plate mirrors that title, 24px in, on its line, and the header
+        // (already 24px in) keeps the plate + 8px clear (globals.css).
+        className={cn(isMobile && "[--close-centre:30px] [--close-edge:1.5rem] [--head-clear:2.75rem]", className)}
         style={style}
         onInteractOutside={
           isMobile
