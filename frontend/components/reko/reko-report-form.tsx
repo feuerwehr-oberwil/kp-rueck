@@ -152,6 +152,7 @@ export function RekoReportForm({
   footer,
 }: RekoReportFormProps) {
   const t = useTranslations('reko.form')
+  const tReport = useTranslations('reko.reportSection')
   // A thumbnail opens the viewer its mount provides (`PhotoViewerProvider`): the board
   // detail's, or the own one of the /reko form and the KP's Reko gate.
   const viewPhoto = usePhotoViewer()
@@ -359,6 +360,17 @@ export function RekoReportForm({
             className={cn(DENSE_CONTROL, "w-24")}
           />
         </DetailField>
+
+        {/* Read-only, as the read view showed them: no form asks for them, but a report from
+            the seed, the training or an import carries them (sign-off 24.11.2026). */}
+        {([
+          ['vehiclesLabel', value.effort_json.vehicles_needed],
+          ['equipmentLabel', value.effort_json.equipment_needed],
+        ] as const).map(([label, items]) => items.length > 0 && (
+          <DetailField key={label} label={tReport(label)}>
+            <span className="text-sm">{items.join(', ')}</span>
+          </DetailField>
+        ))}
 
         <DetailField label={t('powerSupply')} htmlFor="power-supply">
           {/* Four thumb-sized buttons on the phone, one borderless select on
