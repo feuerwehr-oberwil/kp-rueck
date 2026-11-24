@@ -23,6 +23,11 @@ let finishTimer: ReturnType<typeof setTimeout> | null = null
 // are up, so the start never shows two signals at once. Ref-counted like the loads; the
 // loads keep running underneath and the bar reappears if one outlasts the screen.
 let suppressed = 0
+// A tap that leaves for another page started the bar (`startRoute`); the route change hands it
+// over (`takeRoute`). When, since a navigation that never lands would leave the bar at 90%.
+let routeSince: number | null = null
+/** A route start the route change never took ends after this. */
+const ROUTE_GIVE_UP_MS = 15_000
 const listeners = new Set<() => void>()
 
 function emit() {
@@ -53,11 +58,42 @@ export const topLoading = {
     setProgress(8)
     stopTrickle()
     trickle = setInterval(() => {
+      if (routeSince !== null && Date.now() - routeSince > ROUTE_GIVE_UP_MS) {
+        routeSince = null
+        topLoading.done()
+        return
+      }
       // Ease toward 90% with shrinking steps — never quite arrives until done().
       const remaining = 90 - state.progress
       if (remaining <= 0.5) return
       setProgress(state.progress + Math.max(0.4, remaining * 0.12))
     }, 280)
+  },
+
+  /**
+   * A tap that will change the route (a bottom tab, a «Mehr» page): the bar starts on the tap,
+   * not once the next page has rendered (phone sweep 24.11.2026 #2: up to 4 s of no answer).
+   * The route change takes it over (`TopLoadingBar`); a second tap before then joins it.
+   */
+  startRoute() {
+    if (routeSince !== null) return
+    routeSince = Date.now()
+    topLoading.start()
+  },
+
+  /** The tap's navigation was superseded before the route changed (a tap back on the tab the
+   *  page is on): its load ends here instead of after the give-up time. */
+  cancelRoute() {
+    if (routeSince === null) return
+    routeSince = null
+    topLoading.done()
+  },
+
+  /** The route changed: was the load already started by the tap? Then it is now the route's. */
+  takeRoute(): boolean {
+    if (routeSince === null) return false
+    routeSince = null
+    return true
   },
 
   /** Finish one load. When the last finishes, snap to 100% and fade out. */
@@ -104,7 +140,8 @@ export const topLoading = {
 
 /**
  * Thin progress bar pinned to the top of the viewport. Fires automatically on
- * route changes and can be driven by data fetches via `topLoading`. Calm and
+ * route changes – from the tap already where the link says so (`topLoading.startRoute`) – and
+ * can be driven by data fetches via `topLoading`. Calm and
  * minimal: a 2px neutral line (`--muted-foreground`), no spinner chrome. Not the
  * red brand `primary` it once was – red is priority and danger only, and a red
  * rule along the top edge read as an alarm (hill climb r18).
@@ -124,9 +161,20 @@ export function TopLoadingBar() {
   useEffect(() => {
     if (prevPath.current === pathname) return
     prevPath.current = pathname
-    topLoading.start()
-    const t = setTimeout(() => topLoading.done(), 500)
-    return () => clearTimeout(t)
+    if (!topLoading.takeRoute()) topLoading.start()
+    // Each route change releases its load exactly once: a second change inside 500 ms cancels
+    // this timer, and the load it held must not keep the bar running forever.
+    let released = false
+    const release = () => {
+      if (released) return
+      released = true
+      topLoading.done()
+    }
+    const t = setTimeout(release, 500)
+    return () => {
+      clearTimeout(t)
+      release()
+    }
   }, [pathname])
 
   return (

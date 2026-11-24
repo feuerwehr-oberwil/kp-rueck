@@ -10,7 +10,7 @@
  *
  * `?section=` is resolved against the sections this role may see (`resolveSection`), so an
  * editor who follows a `?section=users` or `?section=audit` link lands on
- * the default section instead of an admin panel that would only answer 403. That is UX,
+ * the default section («Dieses Gerät» on a phone) instead of an admin panel that would only answer 403. That is UX,
  * not the boundary: `GET /api/users` and `GET /api/audit` require
  * `CurrentAdmin`. If you add a section here, gate its endpoint on the backend – not just
  * its sidebar entry.
@@ -205,7 +205,11 @@ const isSelfNamedGroup = (group: typeof GROUPS[number], sections: readonly { id:
   sections.length === 1 && sections[0].id === group;
 type Section = typeof SECTIONS[number];
 
+/** Where a bare `/settings` (or a `?section=` this role may not see) opens. A phone opens on
+ *  «Dieses Gerät», the section it may change (phone sweep 24.11.2026): «Allgemein» there is
+ *  station config under «Nur Ansicht». */
 const DEFAULT_SECTION: SectionId = 'general';
+const PHONE_DEFAULT_SECTION: SectionId = 'device';
 
 /** The sections a phone may still change (owner, 14.11.2026); every other one is read-only there. */
 const PHONE_EDITABLE_SECTIONS: ReadonlySet<SectionId> = new Set(['device', 'telemetry']);
@@ -219,8 +223,8 @@ function visibleSectionsFor(isEditor: boolean, isAdmin: boolean): Section[] {
 }
 
 /** `?section=` → a section this role may see; anything else (unknown, or above the role) → the default. */
-function resolveSection(param: string | null, visible: readonly Section[]): SectionId {
-  return visible.find(s => s.id === param)?.id ?? DEFAULT_SECTION;
+function resolveSection(param: string | null, visible: readonly Section[], fallback: SectionId): SectionId {
+  return visible.find(s => s.id === param)?.id ?? fallback;
 }
 
 /**
@@ -316,7 +320,7 @@ export default function SettingsPage() {
   // on the page, not only on the search field.
   const visibleSections = useMemo(() => visibleSectionsFor(isEditor, isAdmin), [isEditor, isAdmin]);
   // Active section from URL, resolved against what this role may see (or the default)
-  const activeSection = resolveSection(searchParams.get('section'), visibleSections);
+  const activeSection = resolveSection(searchParams.get('section'), visibleSections, isMobile ? PHONE_DEFAULT_SECTION : DEFAULT_SECTION);
 
   // Are there real offline map tiles on this server? Answered next to the Karten-Modus
   // select, because that is where «Nur Offline» gets chosen – and choosing it without
