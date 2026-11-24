@@ -7,7 +7,7 @@
  * The phone frame (owner picks 1A + 2A, phone sweep 24.11.2026): five tiles – Einsätze ·
  * Lagekarte · Personal · Meldungen · Mehr. The two pages are links; Personal opens the phone
  * Personal sheet, Meldungen the bell's list (`PhoneNotificationSheet`, with the count of what is
- * open in it), Mehr the tools for the open Ereignis. The Ereignis, Einstellungen, Hilfe and the
+ * open in it – amber when to-dos wait, see `MeldungenTile`), Mehr the tools for the open Ereignis. The Ereignis, Einstellungen, Hilfe and the
  * account live in the pill's menu (`PhoneEventPill`), not here (owner, sign-off 24.11.2026).
  *
  * The tab pill (owner's pick 4A, 14.11.2026): 8px of air above and below icon + label, and it
@@ -30,7 +30,7 @@
 
 import { BookOpenText, Bell, ChartColumn, Columns3, Map as MapIcon, MoreHorizontal, QrCode, Sparkles, Users, Truck, Printer } from 'lucide-react'
 import Link from 'next/link'
-import { useRef, useState, type Ref, type RefObject } from 'react'
+import { useMemo, useRef, useState, type Ref, type RefObject } from 'react'
 import { topLoading } from '@/components/ui/top-loading-bar'
 import type { LucideIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
@@ -47,6 +47,8 @@ import { useNewAlarmCount } from '@/components/alarm-inbox/alarm-inbox-button'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { useBellCount, useOpenFieldRequests } from '@/lib/hooks/use-field-requests'
+import { useTodos } from '@/lib/hooks/use-todos'
+import { GPS_TODO_TYPES } from '@/lib/todos'
 
 /** The tiles that are a place: the two pages and «Mehr». Personal and Meldungen open a sheet
  *  over the page and are never where the operator is. */
@@ -323,7 +325,11 @@ interface MeldungenTileProps {
 
 /** The Meldungen tile: the bell's open entries, plus the Alarmeingang's new alarms for everyone
  *  the Alarmeingang lets in (not a viewer). Split by who counts what, so each subscribes only to
- *  what it shows. */
+ *  what it shows.
+ *
+ *  It is the phone's loud bell (owner pick 24.11.2026 – the phone has no header bell): while
+ *  to-dos wait for an editor, the badge is amber and counts them («Zu erledigen» plus the field's
+ *  open requests, like the desk's bell), and red with a pulse once one is open longer than 5'. */
 function MeldungenTile({ live, ...props }: MeldungenTileProps) {
   const { isViewer } = useAuth()
   if (!live) return <MeldungenButton {...props} count={0} />
@@ -338,30 +344,49 @@ function BellAndAlarmTile(props: TileProps) {
 
 function BellTile({ alarms, ...props }: TileProps & { alarms: number }) {
   const { notifications } = useNotifications()
-  const { count } = useBellCount(notifications, useOpenFieldRequests())
-  return <MeldungenButton {...props} count={count + alarms} />
+  // The GPS rows are to-dos: counted by `useTodos` while still a question, never as Meldungen.
+  const messages = useMemo(() => notifications.filter((n) => !GPS_TODO_TYPES.has(n.type)), [notifications])
+  const { count } = useBellCount(messages, useOpenFieldRequests())
+  const todos = useTodos()
+  return <MeldungenButton {...props} count={count + alarms} todos={todos} />
 }
 
-function MeldungenButton({ ref, className, onOpen, count }: TileProps & { count: number }) {
+function MeldungenButton({
+  ref,
+  className,
+  onOpen,
+  count,
+  todos,
+}: TileProps & { count: number; todos?: { count: number; overdue: boolean } }) {
   const t = useTranslations('nav.mobileBottomNav')
+  const tTodo = useTranslations('notifications.todo')
+  const loud = (todos?.count ?? 0) > 0
+  const shown = loud ? todos!.count : count
   return (
     <button
       ref={ref}
       type="button"
       className={className}
       aria-haspopup="dialog"
-      aria-label={t('notificationsOpen', { count })}
+      aria-label={loud ? tTodo('bellAria', { count: shown }) : t('notificationsOpen', { count })}
       onClick={onOpen}
     >
       <span className="relative">
         <Bell className="h-5 w-5" aria-hidden="true" />
-        {count > 0 && (
+        {shown > 0 && (
           <span
             aria-hidden
             data-testid="meldungen-badge"
-            className="absolute -top-1.5 left-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground px-1 font-mono text-xs font-semibold text-background"
+            data-todo={loud ? (todos!.overdue ? 'overdue' : 'open') : undefined}
+            className={cn(
+              'absolute -top-1.5 left-3 flex h-5 min-w-5 items-center justify-center rounded-full px-1 font-mono text-xs font-semibold',
+              !loud && 'bg-foreground text-background',
+              // Red is an edge and the text, never a fill (DESIGN.md «Colour roles»), as on the desk.
+              loud && !todos!.overdue && 'bg-warning text-foreground',
+              loud && todos!.overdue && 'bg-card text-destructive ring-2 ring-destructive motion-safe:animate-pulse',
+            )}
           >
-            {badgeText(count)}
+            {badgeText(shown)}
           </span>
         )}
       </span>

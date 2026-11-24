@@ -12,6 +12,10 @@
  *
  * Read-only for the board (owner, 14.11.2026): no status move on a card, no request worked from
  * here. Closing a notification and «Gesehen» stay – they are the reader's, not the board's.
+ *
+ * «Zu erledigen» comes first, as on the desk, but without its buttons (owner pick 24.11.2026: the
+ * tile is the phone's loud bell, the answers stay on the desk). The GPS rows are to-dos, so they
+ * are left out of the plain Meldungen below.
  */
 
 import { useRef, type RefObject } from 'react'
@@ -20,12 +24,15 @@ import { useTranslations } from 'next-intl'
 import { AlarmInboxMenuCount } from '@/components/alarm-inbox/alarm-inbox-button'
 import { openAlarmInboxFrom } from '@/components/alarm-inbox/alarm-inbox-store'
 import { FieldRequestInbox } from '@/components/notifications/field-request-inbox'
+import { TodoSection } from '@/components/notifications/todo-section'
 import { NotificationCard } from '@/components/notifications/notification-card'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetBody, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { useOpenFieldRequests } from '@/lib/hooks/use-field-requests'
+import { useTodos } from '@/lib/hooks/use-todos'
+import { GPS_TODO_TYPES } from '@/lib/todos'
 import type { OperationDetailTab } from '@/lib/hooks/use-operation-detail-shortcuts'
 
 interface PhoneNotificationSheetProps {
@@ -41,6 +48,7 @@ export function PhoneNotificationSheet({ open, onOpenChange, returnFocusTo }: Ph
   const tInbox = useTranslations('divera.inbox')
   const { notifications, dismissNotification, dismissAllNotifications, navigateToIncident } = useNotifications()
   const openRequests = useOpenFieldRequests()
+  const todos = useTodos()
   // A viewer reads the list: no Alarmeingang, no dismissing (POST …/dismiss is an editor's).
   // The role, not `isEditor` – a standby-led Ereignis turns that off for editors too.
   const { isViewer } = useAuth()
@@ -56,8 +64,10 @@ export function PhoneNotificationSheet({ open, onOpenChange, returnFocusTo }: Ph
   }
 
   // As on the desk sidebar: an open request stands for its bell entry.
-  const activeNotifications = notifications.filter((n) => !n.dismissed && !openRequests.representedIds.has(n.id))
-  const historicalNotifications = notifications.filter((n) => n.dismissed).slice(0, 20)
+  const activeNotifications = notifications.filter(
+    (n) => !n.dismissed && !openRequests.representedIds.has(n.id) && !GPS_TODO_TYPES.has(n.type),
+  )
+  const historicalNotifications = notifications.filter((n) => n.dismissed && !GPS_TODO_TYPES.has(n.type)).slice(0, 20)
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -82,6 +92,8 @@ export function PhoneNotificationSheet({ open, onOpenChange, returnFocusTo }: Ph
         </SheetHeader>
 
         <SheetBody className="space-y-4 px-6 pt-1 pb-sheet-safe">
+          <TodoSection state={todos} readOnly />
+
           {!isViewer && (
             <Button
               variant="outline"
@@ -139,7 +151,7 @@ export function PhoneNotificationSheet({ open, onOpenChange, returnFocusTo }: Ph
             </section>
           )}
 
-          {activeNotifications.length === 0 && openRequests.items.length === 0 && (
+          {activeNotifications.length === 0 && openRequests.items.length === 0 && todos.open.length === 0 && (
             <div className="py-10 text-center text-muted-foreground">
               <div className="mb-4 inline-flex size-16 items-center justify-center rounded-full bg-muted">
                 <Bell className="size-8 opacity-40" />

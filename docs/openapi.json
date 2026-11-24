@@ -22142,6 +22142,14 @@
             "type": "array",
             "title": "Assignments"
           },
+          "planned": {
+            "items": {
+              "$ref": "#/components/schemas/FeldPlanned"
+            },
+            "type": "array",
+            "title": "Planned",
+            "default": []
+          },
           "message_chips": {
             "items": {
               "type": "string"
@@ -23097,6 +23105,71 @@
         ],
         "title": "FeldPickupRequest",
         "description": "The Abholung answer from `/feld`.\n\n``needed=False`` is the crew tapping *abgeholt*, and it is also the\n*\"Wir fahren selbst\"* half of the follow-up that \"Einsatz beendet\" asks\n(decision 24)."
+      },
+      "FeldPlanned": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incident Id"
+          },
+          "incident_group_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incident Group Id"
+          },
+          "place": {
+            "type": "string",
+            "title": "Place"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "ready": {
+            "type": "boolean",
+            "title": "Ready"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "place",
+          "position",
+          "ready"
+        ],
+        "title": "FeldPlanned",
+        "description": "A «Danach» of this person (owner pick 5C, 24.11.2026): where they go after their current\nwork, unmistakably not active – read-only on /feld until the KP makes it Jetzt."
       },
       "FeldReko": {
         "properties": {
@@ -27566,6 +27639,8 @@
           "reko_arrived",
           "training_emergency",
           "vehicle_arrived",
+          "gps_arrival",
+          "gps_release",
           "rapport_submitted",
           "field_arrived",
           "field_complete",
@@ -28362,6 +28437,18 @@
             "type": "boolean",
             "title": "Ready",
             "default": false
+          },
+          "ready_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ready Since"
           }
         },
         "type": "object",

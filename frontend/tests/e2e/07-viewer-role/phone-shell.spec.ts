@@ -134,7 +134,8 @@ test.describe('Viewer role — the phone shell', () => {
       await page.getByRole('dialog').getByRole('button', { name: 'Verlauf' }).click();
       const journal = page.getByRole('dialog', { name: /Verlauf/ });
       await expect(journal).toBeVisible();
-      await expect(journal.locator('textarea')).toHaveCount(lines);
+      // The composer is an <Input> labelled «Neuer Eintrag im Verlauf» (journal-sheet.tsx).
+      await expect(journal.getByRole('textbox', { name: 'Neuer Eintrag im Verlauf' })).toHaveCount(lines);
       await page.keyboard.press('Escape');
       await expect(page.getByRole('dialog')).toHaveCount(0);
     }

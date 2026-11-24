@@ -22,8 +22,6 @@ import { AppShell } from '@/components/app-shell'
 import { VehicleDriverPrompt } from '@/components/vehicle-driver-prompt'
 import { ResourceConflictPrompt } from '@/components/resource-conflict-prompt'
 import { AuftragStopPrompt } from '@/components/auftrag-stop-prompt'
-import { GpsReleasePrompt } from '@/components/gps-release-prompt'
-import { GpsArrivalPrompt } from '@/components/gps-arrival-prompt'
 import { StatusConflictDialog } from '@/components/kanban/status-conflict-dialog'
 import { PickupDonePrompt } from '@/components/pickup-done-prompt'
 import { AlarmInboxSheet } from '@/components/alarm-inbox/alarm-inbox-sheet'
@@ -163,8 +161,6 @@ export default async function RootLayout({
                       <VehicleDriverPrompt />
                       <ResourceConflictPrompt />
                       <AuftragStopPrompt />
-                      <GpsReleasePrompt />
-                      <GpsArrivalPrompt />
                       <StatusConflictDialog />
                       <PickupDonePrompt />
                       {/* The Alarmeingang: one sheet over whichever page opened it. */}

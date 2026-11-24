@@ -5,15 +5,15 @@ two rules, both opt-in behind ``gps.automation_enabled`` (default OFF):
 
 - **Rule A — Arrival:** when an assigned vehicle's GPS device is confirmed at the
   incident location, advance the incident ``enroute → active``. By DEFAULT this only
-  PROMPTS the operator to confirm (``gps_arrival_prompt``); silent auto-advance is an
+  ASKS the operator to confirm (a ``gps_arrival`` to-do in the bell); silent auto-advance is an
   explicit opt-in via ``gps.rule_arrival_silent``. The anti-jitter guards are hard either
   way: ``N`` consecutive FRESH fixes spanning ``>= gps.min_dwell_seconds``, speed gate,
   stale/404 fixes are ignored and RESET the debounce counter, only from status exactly
   ``enroute``, one-shot per incident, fully reversible (an operator can drag it back).
 
 - **Rule B — Return to magazin (CONFIRM-release):** when an assigned vehicle's device
-  enters the magazin geofence (confirmed with the same guards), PROMPT the operator
-  to release that vehicle's assignment. Never silent-release, never auto-close.
+  enters the magazin geofence (confirmed with the same guards), ASK the operator
+  (a ``gps_release`` to-do in the bell) to release that vehicle's assignment. Never silent-release, never auto-close.
 
 - **Rule C — Unassigned vehicle back home (INFO):** when a vehicle WITHOUT an active
   assignment (released while still in the field) is confirmed back inside the magazin
@@ -498,6 +498,7 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list[VehicleP
                 "incident_label": incident.location_address or incident.title or "Einsatz",
                 "vehicle_id": vehicle.id,
                 "vehicle_name": vehicle.name,
+                "event_id": incident.event_id,
                 # Per-incident assignment: eligible for arrival (A), return (B) and
                 # counts toward the "assigned" set for Rule C.
                 "is_group": False,
@@ -546,7 +547,10 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list[VehicleP
                         else:
                             # Default: prompt the operator to confirm; do NOT change status.
                             await _fire_arrival_prompt(
+                                db,
+                                t["event_id"],
                                 t["incident_id"],
+                                t["vehicle_id"],
                                 t["vehicle_name"],
                                 t["incident_label"],
                             )
@@ -582,6 +586,8 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list[VehicleP
                             )
                         else:
                             await _fire_return_prompt(
+                                db,
+                                t["event_id"],
                                 t["assignment_id"],
                                 t["incident_id"],
                                 t["vehicle_id"],
@@ -783,21 +789,35 @@ async def _fire_arrival(db: AsyncSession, incident_id: uuid.UUID, vehicle_name: 
 
 
 async def _fire_arrival_prompt(
+    db: AsyncSession,
+    event_id: uuid.UUID,
     incident_id: uuid.UUID,
+    vehicle_id: uuid.UUID,
     vehicle_name: str,
     incident_label: str,
 ) -> None:
-    """Emit an operator prompt (WebSocket) to confirm advancing the incident to einsatz.
+    """Ask the operator to confirm advancing the incident to «Im Einsatz»: a «Zu erledigen» row in
+    the bell (``gps_arrival``), never a popup (owner rule 24.11.2026).
 
-    No DB mutation — the status change happens only if the operator confirms, via the
-    existing status-transition endpoint the frontend board already uses. This is the
-    DEFAULT for Rule A; silent auto-advance is an explicit opt-in (``rule_arrival_silent``).
+    No status change here – that happens only on «Im Einsatz» in the row, via the status-transition
+    endpoint the board uses. This is the DEFAULT for Rule A; silent auto-advance is an explicit
+    opt-in (``rule_arrival_silent``).
     """
-    logger.info(
-        "GPS automation: vehicle %s at incident location — prompting advance of incident %s",
-        vehicle_name,
-        incident_id,
+    from .notification_params import gps_arrival_todo
+    from .notification_service import create_gps_todo
+
+    logger.info("GPS automation: vehicle %s at incident location — asking to advance %s", vehicle_name, incident_id)
+    await create_gps_todo(
+        db,
+        kind="gps_arrival",
+        event_id=event_id,
+        incident_id=incident_id,
+        built=gps_arrival_todo(vehicle_name, incident_label),
+        ids={"vehicle_id": str(vehicle_id)},
+        key=f"arrival:{incident_id}",
     )
+    await db.commit()
+    # The old live prompt stays as a nudge for tabs still on the previous build.
     await broadcast_message(
         {
             "type": "gps_arrival_prompt",
@@ -809,22 +829,32 @@ async def _fire_arrival_prompt(
 
 
 async def _fire_return_prompt(
+    db: AsyncSession,
+    event_id: uuid.UUID,
     assignment_id: uuid.UUID,
     incident_id: uuid.UUID,
     vehicle_id: uuid.UUID,
     vehicle_name: str,
     incident_label: str,
 ) -> None:
-    """Emit an operator prompt (WebSocket) to confirm releasing the returned vehicle.
+    """Ask the operator to release the returned vehicle: a «Zu erledigen» row (``gps_release``).
 
-    No DB mutation — the release happens only if the operator confirms, via the existing
-    unassign endpoint the frontend already uses.
+    No release here – that happens only on «Freigeben» in the row, via the unassign endpoint.
     """
-    logger.info(
-        "GPS automation: vehicle %s back at station — prompting release of assignment %s",
-        vehicle_name,
-        assignment_id,
+    from .notification_params import gps_release_todo
+    from .notification_service import create_gps_todo
+
+    logger.info("GPS automation: vehicle %s back at station — asking to release %s", vehicle_name, assignment_id)
+    await create_gps_todo(
+        db,
+        kind="gps_release",
+        event_id=event_id,
+        incident_id=incident_id,
+        built=gps_release_todo(vehicle_name, incident_label),
+        ids={"vehicle_id": str(vehicle_id), "assignment_id": str(assignment_id)},
+        key=f"release:{assignment_id}",
     )
+    await db.commit()
     await broadcast_message(
         {
             "type": "gps_release_prompt",
@@ -847,12 +877,22 @@ async def _fire_group_return_prompt(
     vehicle_name: str,
     group_label: str,
 ) -> None:
-    """Prompt release through the Auftrag unassign endpoint, not an incident one."""
-    logger.info(
-        "GPS automation: route vehicle %s back at station — prompting release of group assignment %s",
-        vehicle_name,
-        assignment_id,
+    """Ask to release a route vehicle: a ``gps_release`` row whose button uses the Auftrag's
+    unassign endpoint (``group_id`` in its params), not an incident one."""
+    from .notification_params import gps_release_todo
+    from .notification_service import create_gps_todo
+
+    logger.info("GPS automation: route vehicle %s back at station — asking to release %s", vehicle_name, assignment_id)
+    await create_gps_todo(
+        db,
+        kind="gps_release",
+        event_id=event_id,
+        incident_id=incident_id,
+        built=gps_release_todo(vehicle_name, group_label),
+        ids={"vehicle_id": str(vehicle_id), "assignment_id": str(assignment_id), "group_id": str(group_id)},
+        key=f"release:{assignment_id}",
     )
+    await db.commit()
     await broadcast_message(
         {
             "type": "gps_group_release_prompt",
@@ -863,14 +903,3 @@ async def _fire_group_return_prompt(
             "incident_label": group_label,
         }
     )
-    # Existing clients always display this notification type, even before they
-    # understand the Auftrag-specific release prompt above.
-    from .notification_service import create_vehicle_returned_notification
-
-    await create_vehicle_returned_notification(
-        db,
-        event_id=event_id,
-        incident_id=incident_id,
-        vehicle_name=vehicle_name,
-    )
-    await db.commit()

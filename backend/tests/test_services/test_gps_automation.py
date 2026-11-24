@@ -218,6 +218,11 @@ async def test_arrival_confirm_default_prompts_without_advancing(
     assert payload["incident_id"] == str(enroute_incident.id)
     assert payload["vehicle_name"] == "TLF-1"
     assert await _status(db_session, enroute_incident.id) == "enroute"
+    # Owner rule 24.11.2026: the question is ONE «Zu erledigen» row in the bell, not a popup;
+    # a later tick does not stack a copy while it is open.
+    await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
+    todos = (await db_session.scalars(select(Notification).where(Notification.type == "gps_arrival"))).all()
+    assert [(t.incident_id, t.params["vehicle_id"]) for t in todos] == [(enroute_incident.id, str(_vehicle.id))]
 
 
 @pytest.mark.asyncio
@@ -624,14 +629,14 @@ async def test_route_vehicle_return_emits_group_release_prompt(
     assert payload["group_id"] == str(group.id)
     assert payload["assignment_id"] == str(assignment.id)
     assert assignment.unassigned_at is None
-    notification = await db_session.scalar(
-        select(Notification).where(
-            Notification.event_id == test_event.id,
-            Notification.type == "vehicle_arrived",
-        )
+    # The question is a «Zu erledigen» row whose button uses the Auftrag's unassign endpoint.
+    todo = await db_session.scalar(
+        select(Notification).where(Notification.event_id == test_event.id, Notification.type == "gps_release")
     )
-    assert notification is not None
-    # This fallback bell also fires for a vehicle that never left: no Chronik fact.
+    assert todo is not None
+    assert todo.params["group_id"] == str(group.id)
+    assert todo.params["assignment_id"] == str(assignment.id)
+    # This row also comes for a vehicle that never left: no Chronik fact.
     assert await db_session.scalar(select(AuditLog.id).where(AuditLog.action_type == "vehicle_returned")) is None
 
 

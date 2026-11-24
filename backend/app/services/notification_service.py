@@ -1026,6 +1026,56 @@ async def create_vehicle_returned_notification(
     return notification
 
 
+async def create_gps_todo(
+    db: AsyncSession,
+    *,
+    kind: str,
+    event_id: UUID,
+    incident_id: UUID | None,
+    built: tuple[str, dict[str, Any]],
+    ids: dict[str, str],
+    key: str,
+) -> Notification | None:
+    """A GPS question for the bell's «Zu erledigen» (``gps_arrival`` / ``gps_release``).
+
+    Owner rule 24.11.2026: a popup only answers the operator's own action; what the system starts
+    is a to-do row with its buttons, shared by every editor (dismissing is the row's ``dismissed``).
+    One open row per ``key`` – the incident for an arrival, the assignment for a release – so GPS
+    restarts and geofence flaps do not stack copies. Flushes; the caller commits.
+    """
+    message, params = built
+    open_row = await db.scalar(
+        select(Notification.id)
+        .where(Notification.type == kind)
+        .where(Notification.dismissed.is_(False))
+        .where(Notification.params["key"].astext == key)
+        .limit(1)
+    )
+    if open_row is not None:
+        return None
+    notification = Notification(
+        type=kind,
+        severity="info",
+        message=message,
+        params={**params, **ids, "key": key},
+        incident_id=incident_id,
+        event_id=event_id,
+    )
+    db.add(notification)
+    await db.flush()
+    await db.refresh(notification)
+
+    from ..websocket_manager import broadcast_notification_update
+
+    after_commit(
+        db,
+        broadcast_notification_update,
+        {"id": str(notification.id), "type": notification.type, "event_id": str(event_id)},
+        "create",
+    )
+    return notification
+
+
 async def create_field_notification(
     db: AsyncSession,
     *,

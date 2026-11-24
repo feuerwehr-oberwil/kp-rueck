@@ -49,6 +49,7 @@ vi.mock('@/lib/contexts/auth-context', () => ({
   useAuth: () => ({ isEditor: !auth.isViewer, isViewer: auth.isViewer, isAuthenticated: true }),
 }))
 vi.mock('@/lib/contexts/notification-context', () => ({
+  useOptionalNotifications: () => null,
   useNotifications: () => ({
     notifications: notifications.list,
     dismissNotification: vi.fn(),
@@ -67,6 +68,19 @@ vi.mock('@/lib/hooks/use-field-requests', () => ({
 }))
 vi.mock('@/lib/contexts/operations-context', () => ({ useOperations: () => ({ operations: [] }) }))
 vi.mock('@/lib/incident-types', () => ({ getIncidentLocationLabel: () => 'Hauptstrasse 4' }))
+// One «Danach frei» to-do: the phone shows it, but answers it on the desk only.
+const danach = vi.hoisted(() => ({
+  kind: 'danach' as const,
+  id: 'danach:i2',
+  since: 0,
+  dismissed: false,
+  incidentId: 'i2',
+  holderId: 'i2',
+  holderLabel: '2 · Mühlemattstrasse 12',
+  names: ['TLF'],
+  plans: [],
+}))
+vi.mock('@/lib/hooks/use-todos', () => ({ useTodos: () => ({ open: [danach], dismissed: [], now: 60_000, count: 1, overdue: false, unreadMessages: 0 }) }))
 vi.mock('@/components/alarm-inbox/alarm-inbox-store', () => ({ openAlarmInboxFrom }))
 vi.mock('@/components/alarm-inbox/alarm-inbox-button', () => ({
   AlarmInboxMenuCount: () => <span>2</span>,
@@ -119,5 +133,14 @@ describe('PhoneNotificationSheet', () => {
     renderWithIntl(<PhoneNotificationSheet open onOpenChange={() => {}} />)
     expect(screen.getByRole('button', { name: 'Alle schliessen' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Benachrichtigung schliessen' })).toBeDefined()
+  })
+
+  // Owner pick 24.11.2026: the tile is the phone's loud bell; the answers stay on the desk.
+  it('lists «Zu erledigen» first, without its buttons', () => {
+    renderWithIntl(<PhoneNotificationSheet open onOpenChange={() => {}} />)
+    expect(screen.getByText('Zu erledigen')).toBeDefined()
+    expect(screen.getByText(/TLF → 2 · Mühlemattstrasse 12/)).toBeDefined()
+    expect(screen.queryByRole('button', { name: /Zuteilen/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Verwerfen' })).toBeNull()
   })
 })

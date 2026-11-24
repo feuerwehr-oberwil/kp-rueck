@@ -36,6 +36,10 @@ export type NotificationType =
   | 'feld_code_rotated'
   // Übungssteuerung: a new exercise incident or an inject (escalation, …).
   | 'training_emergency'
+  // «Zu erledigen» (24.11.2026): GPS questions as bell to-dos with their own buttons – the
+  // popups are gone. params: vehicle, place, vehicle_id, assignment_id?, group_id?, key.
+  | 'gps_arrival'
+  | 'gps_release'
 
 export interface Notification {
   id: string

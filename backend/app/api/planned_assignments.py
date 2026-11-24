@@ -33,7 +33,7 @@ router = APIRouter(prefix="/planned-assignments", tags=["planned-assignments"])
 
 def _response(view: crud.PlannedView) -> schemas.PlannedAssignmentResponse:
     return schemas.PlannedAssignmentResponse.model_validate(view.row).model_copy(
-        update={"position": view.position, "ready": view.ready}
+        update={"position": view.position, "ready": view.ready, "ready_since": view.ready_since}
     )
 
 
