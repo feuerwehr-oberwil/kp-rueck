@@ -56,7 +56,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { FeldMaterialChecklist } from '@/components/feld/feld-material-checklist'
+import { FeldMaterialChecklist, unitStillOnSite } from '@/components/feld/feld-material-checklist'
+import { MaterialReleaseButton } from '@/components/kanban/material-release'
+import type { MaterialRelease } from '@/lib/hooks/use-material-release'
 import { FeldPersonnelChecklist } from '@/components/feld/feld-personnel-checklist'
 import { FeldRapportGapsDialog, rapportGaps, type RapportGap } from '@/components/feld/feld-rapport-gaps'
 import { FeldSection, type FeldSectionState } from '@/components/feld/feld-section'
@@ -124,6 +126,13 @@ interface FeldRapportFormProps {
    *  footer, on the journey's Rapport step. Null / absent = under the form. Only the
    *  first filing moves; «Änderungen senden» on a filed rapport stays here. */
   submitSlot?: HTMLElement | null
+  /** KP only: the release set and its click (`useMaterialRelease`). The form offers the part
+   *  its checklist also calls back, as «N Geräte freigeben» under «Zurück». Omitted on /feld
+   *  and for a read-only mount. */
+  materialRelease?: MaterialRelease
+  /** KP only: the material assignments the board still has open here. A unit marked «vor
+   *  Ort» whose assignment is closed was collected («Abgeholt») and reads as back. */
+  activeAssignmentIds?: readonly string[]
 }
 
 const AUTOSAVE_MS = 30000
@@ -172,7 +181,9 @@ function prefersReducedMotion(): boolean {
  */
 function RapportSection({
   fold = false,
+  defaultOpen,
   title,
+  titleClassName,
   summary,
   state,
   jumpSignal,
@@ -181,8 +192,12 @@ function RapportSection({
   children,
 }: {
   fold?: boolean
+  /** Only read with `fold`: see `FeldSection.defaultOpen`. */
+  defaultOpen?: boolean
   /** Shown as the heading; a block with only a labelled field passes none. */
   title?: string
+  /** Overrides the open block's heading style – the KP's Kurzbericht reads as a field label. */
+  titleClassName?: string
   /** The folded block's one line — only read with `fold`. */
   summary?: string
   state?: FeldSectionState
@@ -222,20 +237,20 @@ function RapportSection({
 
   if (fold) {
     return (
-      <FeldSection title={title ?? ''} summary={summary ?? ''} state={state ?? 'optional'} dense>
+      <FeldSection title={title ?? ''} summary={summary ?? ''} state={state ?? 'optional'} defaultOpen={defaultOpen} dense>
         {children}
       </FeldSection>
     )
   }
   return (
     <section ref={ref} className={cn('scroll-mt-28 space-y-2', className)}>
-      {title && <h3 className="text-sm font-semibold">{title}</h3>}
+      {title && <h3 className={titleClassName ?? 'text-sm font-semibold'}>{title}</h3>}
       {children}
     </section>
   )
 }
 
-export function FeldRapportForm({ incidentId, transport, mount = 'feld', disabled, onSaved, autoFocusKurzbericht, submitSlot }: FeldRapportFormProps) {
+export function FeldRapportForm({ incidentId, transport, mount = 'feld', disabled, onSaved, autoFocusKurzbericht, submitSlot, materialRelease, activeAssignmentIds }: FeldRapportFormProps) {
   const t = useTranslations('feld.rapport')
   const tLoading = useTranslations('common')
   const isKp = mount === 'kp'
@@ -624,6 +639,26 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   // question counts.
   const materialCount =
     formData.materials.filter(row => row.used || row.left_on_site).length + formData.extra_materials.length
+  // Plain values, no memo: this runs after the load's early return, where a hook may not.
+  const activeAssignments = activeAssignmentIds ? new Set(activeAssignmentIds) : undefined
+  const materialOnSite =
+    formData.materials.filter(row => unitStillOnSite(row, activeAssignments)).length +
+    formData.extra_materials.filter(entry => entry.left_on_site).length
+  // «Geräte freigeben» frees only what BOTH call back: the release set from the last filed
+  // save and the checklist on screen (not «vor Ort», assignment still open). An unsaved tick
+  // here, or a filing from /feld the set has already seen, keeps a unit out – so the button
+  // never contradicts the block it sits in. A filing the set has NOT seen yet is not caught
+  // here; that needs a check at release time on the server (Sol review rounds 1–5, 24.11.2026).
+  // The caption reads «nicht gebraucht» off the visible row, not off the older set.
+  const visiblyBack = new Map(
+    formData.materials
+      .filter(row => !row.left_on_site && (!activeAssignments || activeAssignments.has(row.assignment_id)))
+      .map(row => [row.assignment_id, row] as const),
+  )
+  const releasable = (materialRelease?.units ?? []).flatMap(unit => {
+    const row = visiblyBack.get(unit.assignment_id)
+    return row ? [{ ...unit, used: row.used }] : []
+  })
   const peopleCount = derivePersonnelCount(formData)
   const vehicleCount = formData.vehicles.filter(row => row.present).length
   const ownerSummary = formData.owner_name.trim() || formData.owner_phone.trim()
@@ -727,6 +762,9 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
       {/* ------------------------------------------------- Kurzbericht */}
       <RapportSection
         title={t('sections.kurzbericht')}
+        // In the KP the rapport's one heading is the section's «Schadenplatz-Rapport»; a second
+        // bold heading right under it read as a section of its own (owner, 24.11.2026).
+        titleClassName={isKp ? 'text-xs font-medium text-muted-foreground' : undefined}
         jumpSignal={jumps.kurzbericht}
         jumpFocus
         className={blockClass}
@@ -800,7 +838,16 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
       <RapportSection
         fold={foldLists}
         title={t('material.title')}
-        summary={materialCount > 0 ? t('summary.material', { count: materialCount }) : t('summary.materialEmpty')}
+        summary={[
+          materialCount > 0 ? t('summary.material', { count: materialCount }) : t('summary.materialEmpty'),
+          materialOnSite > 0 && t('summary.onSite', { count: materialOnSite }),
+          // An unused unit still assigned is in the release set but not in the count.
+          releasable.length > 0 && t('summary.toRelease', { count: releasable.length }),
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+        // What is still out there is the block's news – open it (Feld-tab pick 1A, 24.11.2026).
+        defaultOpen={materialOnSite > 0}
         // An empty material list is not a gap — the board simply never got the
         // material (see the checklist's own empty state), so it never nags.
         state={materialCount > 0 ? 'filled' : 'optional'}
@@ -814,6 +861,18 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           disabled={readOnly}
           onChange={(rows: ApiRapportMaterialRow[]) => update('materials', rows)}
           onExtraMaterialsChange={entries => update('extra_materials', entries)}
+          // The KP reads the list by state: what is still on site, what came back.
+          grouped={isKp}
+          activeAssignmentIds={activeAssignments}
+          releaseSlot={
+            materialRelease && (
+              <MaterialReleaseButton
+                units={releasable}
+                releasing={materialRelease.releasing}
+                onRelease={() => void materialRelease.release(releasable.map(unit => unit.assignment_id))}
+              />
+            )
+          }
         />
       </RapportSection>
 

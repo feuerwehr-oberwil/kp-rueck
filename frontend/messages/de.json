@@ -4415,7 +4415,7 @@
         "title": "Material",
         "empty": "Kein Material erfasst.",
         "leftOnSite": "vor Ort verblieben",
-        "extraLeftOnSiteHint": "Kommt auf die Abholliste. Nicht bei «Material zurück – freigeben»: das sind Namen, kein erfasstes Material.",
+        "extraLeftOnSiteHint": "Kommt auf die Abholliste. Nichts freizugeben: das sind Namen, kein erfasstes Material.",
         "add": "Material hinzufügen",
         "addTyped": "«{name}» hinzufügen",
         "listLabel": "Material",
@@ -4424,7 +4424,13 @@
         "groupCatalogue": "Weiteres Material",
         "leftOnSiteShort": "vor Ort",
         "removeAria": "{name} entfernen",
-        "searchPlaceholder": "Material suchen …"
+        "searchPlaceholder": "Material suchen …",
+        "groupOnSite": "Noch vor Ort",
+        "groupBack": "Zurück",
+        "namedTag": "genannt",
+        "onSiteUnitHint": "Zugewiesenes bleibt zugewiesen, bis es abgeholt ist – steht auf der Restliste.",
+        "onSiteNamedHint": "«genannt» ist nur ein Name vom Trupp, nichts freizugeben – steht auf der Restliste und der Abholliste.",
+        "collected": "abgeholt"
       },
       "vehicles": {
         "empty": "Kein Fahrzeug erfasst.",
@@ -4506,7 +4512,9 @@
         "personnel": "{count, plural, one {# Person} other {# Personen}}",
         "personnelEmpty": "niemand erfasst",
         "vehicles": "{count, plural, one {# Fahrzeug} other {# Fahrzeuge}}",
-        "vehiclesEmpty": "kein Fahrzeug"
+        "vehiclesEmpty": "kein Fahrzeug",
+        "onSite": "{count} vor Ort",
+        "toRelease": "{count} freizugeben"
       },
       "picker": {
         "done": "Fertig ({count})",
@@ -4514,16 +4522,11 @@
       }
     },
     "materialReturn": {
-      "title": "Material zurück – freigeben",
-      "description": "Der Trupp hat dieses Material nicht als «vor Ort verblieben» markiert.",
       "notUsed": "nicht gebraucht",
       "releaseAll": "{count, plural, one {# Gerät freigeben} other {# Geräte freigeben}}",
       "released": "{count, plural, one {# Gerät freigegeben} other {# Geräte freigegeben}}",
       "releaseFailed": "Freigeben fehlgeschlagen",
-      "stillOnSiteTitle": "Vor Ort verblieben",
-      "stillOnSiteHint": "Bleibt zugewiesen, bis es abgeholt ist – erscheint in der Restliste.",
-      "namedTitle": "Weiteres Material vor Ort",
-      "namedHint": "Vom Trupp benannt, nicht vom Board zugewiesen – es gibt nichts freizugeben. Steht auf der Restliste und auf der Abholliste."
+      "stillAssigned": "Noch zugewiesen: {names}"
     },
     "code": {
       "title": "Code eingeben",

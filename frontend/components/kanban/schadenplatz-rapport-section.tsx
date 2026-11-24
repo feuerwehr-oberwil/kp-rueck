@@ -12,6 +12,10 @@
  *
  * It mounts the **same** `FeldRapportForm` the field page uses, with a different
  * transport and identity. That is the whole rule: one component, two mounts.
+ *
+ * For an editor it also hands the form the release set (`useMaterialRelease`), which
+ * the form shows as «N Geräte freigeben» under «Zurück» in its Material block – the
+ * KP's one place for material (Feld-tab pick 1A, 24.11.2026).
  */
 
 import { useCallback, useMemo, useState } from 'react'
@@ -19,7 +23,7 @@ import { useTranslations } from 'next-intl'
 import { FileText } from 'lucide-react'
 
 import { FeldRapportForm, type RapportTransport } from '@/components/feld/feld-rapport-form'
-import { MaterialReturnList } from '@/components/kanban/material-return-list'
+import { useMaterialRelease } from '@/lib/hooks/use-material-release'
 import { DetailGroupHeading } from '@/components/kanban/detail-field'
 import { apiClient } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
@@ -37,16 +41,9 @@ interface SchadenplatzRapportSectionProps {
    *  an empty form nobody can fill in meaningfully. Computed by the caller
    *  through `rapportApplies`, which never hides an already-filed rapport. */
   applies?: boolean
-  /** Opt out of the built-in «Material zurück – freigeben» list. The incident
-   *  detail sets this false and mounts `MaterialReturnList` itself, in the
-   *  column that holds what came in from the field — the release is the KP's
-   *  to-do, not part of the form. Every other mount (display modal) keeps the
-   *  list here. Pair it with `onFiled` to know when to refetch. */
-  showMaterialReturn?: boolean
-  /** Fired when a rapport is saved as filed rather than a draft — the moment
-   *  the material-return list stops being empty. Only of interest to a caller
-   *  that renders that list itself. */
-  onFiled?: () => void
+  /** The material assignments the board still has open here (`operation.materialAssignments`):
+   *  tells a unit still «vor Ort» from one collected since. */
+  activeAssignmentIds?: readonly string[]
   /** Passed straight to the form: put the cursor in the Kurzbericht when the
    *  operator was sent here to write it (Offene Rapporte, a notification). */
   autoFocusKurzbericht?: boolean
@@ -58,8 +55,7 @@ export function SchadenplatzRapportSection({
   hasRapport = false,
   applies = true,
   boxed = true,
-  showMaterialReturn = true,
-  onFiled,
+  activeAssignmentIds,
   autoFocusKurzbericht,
 }: SchadenplatzRapportSectionProps) {
   const t = useTranslations('feld.rapport')
@@ -67,7 +63,13 @@ export function SchadenplatzRapportSection({
   // The board's own flag is the starting point; the form knows sooner. Since
   // the KP mount files as it saves (§18.17) there is no submit click to hang
   // this on, so the state chip follows the save instead of the ~5 s poll.
-  const [filed, setFiled] = useState(hasRapport)
+  const [savedFiled, setSavedFiled] = useState(hasRapport)
+  // The board's flag counts too: a rapport filed on /feld while this detail is open
+  // arrives as `hasRapport` flipping, not as a save here.
+  const filed = savedFiled || hasRapport
+  // Known limit, as before this block existed: the open form itself does not reload when the
+  // crew files on /feld – a reload mid-typing would cost the operator's text or overwrite the
+  // crew's answers. Reopening the detail shows the filed rapport.
 
   const transport: RapportTransport = useMemo(
     () => ({
@@ -87,16 +89,16 @@ export function SchadenplatzRapportSection({
     [incidentId],
   )
 
+  // Editors only (the wall's read-only mount has nobody to click it), and only once a
+  // rapport is FILED: the set is empty for a draft.
+  const release = useMaterialRelease(incidentId, { enabled: canEdit && filed && applies, refreshKey: returnKey })
+
   const handleSaved = useCallback((saved: ApiSchadenplatzRapport) => {
-    setFiled(!saved.is_draft)
-    // The return list only exists for a submitted rapport, so it has to be
-    // refetched the moment one is filed — here, or by whoever mounts the list
-    // in our place.
-    if (!saved.is_draft) {
-      setReturnKey(key => key + 1)
-      onFiled?.()
-    }
-  }, [onFiled])
+    setSavedFiled(!saved.is_draft)
+    // The release set only exists for a submitted rapport, so it has to be
+    // refetched the moment one is filed.
+    if (!saved.is_draft) setReturnKey(key => key + 1)
+  }, [])
 
   return (
     <div className="space-y-3">
@@ -138,20 +140,10 @@ export function SchadenplatzRapportSection({
             disabled={!canEdit}
             onSaved={handleSaved}
             autoFocusKurzbericht={autoFocusKurzbericht}
+            materialRelease={canEdit ? release : undefined}
+            activeAssignmentIds={activeAssignmentIds}
           />
         </div>
-      )}
-
-      {/* Outside the collapse on purpose: "Material zurück – freigeben" is the
-          KP's own to-do, and hiding it behind the form would put it exactly
-          where nobody looks at 02:00. Only fetched once a rapport has actually
-          been filed — the list is empty for a draft by definition, and every
-          incident detail opening would otherwise pay for a request that can
-          only answer "nothing".
-          The incident detail opts out (`showMaterialReturn={false}`) and puts
-          the same list in its own left column, next to the field's messages. */}
-      {showMaterialReturn && (filed || returnKey > 0) && (
-        <MaterialReturnList incidentId={incidentId} canEdit={canEdit} refreshKey={returnKey} />
       )}
     </div>
   )
