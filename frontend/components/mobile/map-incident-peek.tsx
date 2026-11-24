@@ -112,6 +112,8 @@ export function MapIncidentPeek({ operation, formatLocation, onClose, onOpenDeta
       </div>
 
       <Button
+        // The detail sheet gives the focus back to its opener (mobile-incident-detail-sheet.tsx).
+        data-detail-opener
         variant="outline"
         className="mt-3 h-11 w-full"
         onClick={(event) => {

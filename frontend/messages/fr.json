@@ -2765,7 +2765,7 @@
       "noSearchHits": "Aucun résultat",
       "showGroups": "Afficher",
       "pickupCount": "{count, plural, one {# récupération} other {# récupérations}}",
-      "nextPickup": "Afficher la récupération : {incident}",
+      "nextPickup": "afficher la suivante : {incident}",
       "allDetails": "Tous les détails"
     },
     "planning": {

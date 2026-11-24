@@ -1651,7 +1651,7 @@
       "noSearchHits": "Keine Treffer",
       "showGroups": "Zeigen",
       "pickupCount": "{count, plural, one {# Abholung} other {# Abholungen}}",
-      "nextPickup": "Abholung zeigen: {incident}",
+      "nextPickup": "nächste zeigen: {incident}",
       "allDetails": "Alle Details"
     },
     "planning": {

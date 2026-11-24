@@ -160,7 +160,7 @@ test.describe('Mobile bottom navigation', () => {
     // ✕ closes the peek; the count chip's Abholung brings it back.
     await peek.getByRole('button', { name: 'Schliessen' }).click();
     await expect(peek).toHaveCount(0);
-    await page.getByTestId('map-count-chip').getByRole('button', { name: /^Abholung zeigen/ }).click();
+    await page.getByTestId('map-count-chip').getByRole('button', { name: /^1 Abholung – nächste zeigen/ }).click();
     await expect(peek.getByRole('heading', { name: /Mobile Kartestrasse/ })).toBeVisible();
 
     // The search finds it too: a hit flies there and opens the peek.

@@ -2264,8 +2264,9 @@ export default function MapView({
       <GpsSimBanner />
 
       {/* The phone Lagekarte's Einsatz peek, over everything on the map's foot (the ⓘ, the
-          Legende, the radar controls). Measured by `fitPadding`. */}
-      {floating?.foot && (
+          Legende, the radar controls). Measured by `fitPadding`. It steps aside while a shared
+          pin's list is docked on the same foot – that list is what the tap asked for. */}
+      {floating?.foot && !dockedSpot && (
         <div data-map-foot data-map-chrome className="absolute inset-x-0 bottom-0 z-map-float">
           {floating.foot}
         </div>

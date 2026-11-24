@@ -449,9 +449,9 @@ export default function MapPage() {
   }, [selectedIncidentId])
 
   /**
-   * «Open this Einsatz» — the ONE function behind every entry point on the map: list row
-   * (double-click on the desk, a tap on the phone), its «Details anzeigen» icon, the E/Enter
-   * shortcut and a marker double-click. Where it goes is `incidentDetailTarget`
+   * «Open this Einsatz» — the ONE function behind every entry point on the map: the desk's list
+   * row (double-click), its «Details anzeigen» icon, the E/Enter shortcut, a marker double-click
+   * and the phone peek's «Alle Details». Where it goes is `incidentDetailTarget`
    * (lib/incident-detail.ts):
    *
    * - desktop: back to the board, into its detail side panel — the detail belongs next to the
@@ -708,8 +708,12 @@ export default function MapPage() {
   // The count chip's Abholungen – every open one, also on an Einsatz the filters hide: the crew
   // is still standing at the address.
   const pickups = useMemo(() => openPickups(operations), [operations])
-  // The selected Einsatz's peek (phone only).
-  const peekOperation = isMobile && selectedIncidentId ? operationsById.get(selectedIncidentId) : undefined
+  // The selected Einsatz's peek (phone only) – while its pin is on the map: a status group
+  // switched off in «Ansicht» takes the pin and its peek away together.
+  const peekOperation =
+    isMobile && selectedIncidentId && shownIncidents.some((inc) => inc.id === selectedIncidentId)
+      ? operationsById.get(selectedIncidentId)
+      : undefined
 
 
   // Refresh incidents immediately when map page loads
@@ -992,8 +996,9 @@ export default function MapPage() {
       <div className="flex items-center gap-2">
         <SearchInput
           id="map-search-input"
-          containerClassName="min-w-0 flex-1"
-          className="border-border bg-card/95 shadow-md backdrop-blur-sm dark:bg-card/95"
+          // The surface on the wrapper: on the field it would cover the magnifier drawn under it.
+          containerClassName="min-w-0 flex-1 rounded-md bg-card/95 shadow-md backdrop-blur-sm"
+          className="border-border"
           placeholder={t('page.searchPlaceholderPhone')}
           value={searchQuery}
           onValueChange={(value) => {
@@ -1009,7 +1014,10 @@ export default function MapPage() {
         <ul
           id="map-search-hits"
           aria-label={t('page.searchHits')}
-          className="absolute inset-x-0 top-full mt-2 max-h-[min(20rem,50dvh)] overflow-y-auto overscroll-contain rounded-md border border-border bg-card p-1 shadow-lg"
+          // Ends inside the visible band (`--vv-*`, lib/viewport-insets.ts): iOS never shrinks the
+          // layout for the keyboard, so a `dvh` cap left the last hits under the keys. 9.5rem ≈
+          // the panel's own top (pill, gap, the 44px row, its 8px).
+          className="absolute inset-x-0 top-full mt-2 max-h-[min(20rem,calc(var(--vv-top,0px)+var(--vv-height,100dvh)-9.5rem))] overflow-y-auto overscroll-contain rounded-md border border-border bg-card p-1 shadow-lg"
         >
           {searchHits.map((incident) => (
             <li key={incident.id}>
@@ -1019,7 +1027,10 @@ export default function MapPage() {
                 className="flex min-h-11 w-full items-center gap-2 rounded-sm px-2 text-left hover:bg-muted"
               >
                 <PriorityGlyph priority={(incident.priority ?? 'low') as Priority} size="wall" />
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                <span
+                  className="min-w-0 flex-1 truncate text-sm font-medium"
+                  title={incident.location_address ? formatLocation(incident.location_address) : incident.title}
+                >
                   <IncidentNumber number={incident.number} className="mr-1.5 text-xs" />
                   {incident.location_address ? formatLocation(incident.location_address) : incident.title}
                 </span>
@@ -1054,7 +1065,8 @@ export default function MapPage() {
           <button
             type="button"
             onClick={() => focusOnPhoneMap(nextPickupOperation.id)}
-            aria-label={t('page.nextPickup', { incident: getIncidentRefLabel(nextPickupOperation, 40) })}
+            // The visible words first, so voice control finds the button by what it says.
+            aria-label={`${t('page.pickupCount', { count: pickups.length })} – ${t('page.nextPickup', { incident: getIncidentRefLabel(nextPickupOperation, 40) })}`}
             className="flex h-7 items-center gap-1 rounded-full px-2 font-semibold text-warning-foreground hover:bg-muted"
           >
             <Truck className="size-3.5" aria-hidden="true" />
