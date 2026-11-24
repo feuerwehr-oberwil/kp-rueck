@@ -181,3 +181,25 @@ async def test_service_only_reaches_everyone_when_explicitly_told_to(monkeypatch
     await divera_alarm.send_news(title="KP-Rück", text="ist aktiv", foreign_id="kprueck-info-all", to_everyone=True)
     assert captured["json"]["News"]["notification_type"] == divera_alarm.NOTIFICATION_TYPE_ALL
     assert "group" not in captured["json"]["News"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_an_accepted_message_is_reported_sent_even_if_recording_it_fails(
+    editor_client: AsyncClient, db_session, configured_key, monkeypatch
+):
+    """Divera took the Mitteilung: an error answer would only make the operator send it again,
+    and a resend is a second message on every phone (hunt 2026-11-24)."""
+    await _enable_alerting(db_session)
+    send = AsyncMock(return_value={"id": 77})
+
+    async def audit_down(*args, **kwargs):
+        raise RuntimeError("injected: the audit write fails")
+
+    monkeypatch.setattr("app.api.divera.log_action", audit_down)
+    with patch.object(divera_alarm, "send_news", new=send):
+        resp = await editor_client.post("/api/divera/message", json={"text": "KP-Rück ist aktiv", "target": "all"})
+
+    assert resp.status_code == 200
+    assert resp.json()["success"] is True
+    send.assert_awaited_once()
