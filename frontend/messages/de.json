@@ -1065,7 +1065,7 @@
       "legendOtherRoute": "farbig = schon in einem anderen Auftrag (wird verschoben)",
       "legendUnassigned": "grau = in keinem Auftrag",
       "hiddenCount": "{count} ausgeblendet",
-      "moveConfirm": "{count, plural, one {Dieser Einsatz gehört} other {Diese Einsätze gehören}} schon zu einem anderen Auftrag und {count, plural, one {wird} other {werden}} hierher verschoben: {names}. Das lässt sich nicht rückgängig machen.",
+      "moveConfirm": "{count, plural, one {Dieser Einsatz gehört schon zu einem anderen Auftrag und wird} other {Diese # Einsätze gehören schon zu anderen Aufträgen und werden}} hierher verschoben: {names}. Das lässt sich nicht rückgängig machen.",
       "showCompleted": "Abgeschlossene"
     },
     "auftragPicker": {
