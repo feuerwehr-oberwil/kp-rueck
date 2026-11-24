@@ -100,6 +100,16 @@ describe('Reko assign and release', () => {
     expect(state.operations[0].assignedReko).toMatchObject({ id: 'p-bea', assignmentId: 'b-2' })
   })
 
+  it('a refused replacement leaves the card with the Reko it had, not with none', async () => {
+    api.assignRekoPersonnel.mockRejectedValue(new Error('502'))
+    const before = { id: 'p-bea', name: 'Brunner Bea', assignmentId: 'b-1', purpose: 'reko' as const }
+    const { state, actions } = board({ assignedReko: before })
+
+    await actions.assignRekoPersonToOperation('p-sina', 'Unternährer Sina', 'op-14')
+
+    expect(state.operations[0].assignedReko).toEqual(before)
+  })
+
   it('sends no release while the row id is unknown (the assign POST may still be refused)', () => {
     const { state, actions } = board({ assignedReko: { id: 'p-sina', name: 'Unternährer Sina' } })
 

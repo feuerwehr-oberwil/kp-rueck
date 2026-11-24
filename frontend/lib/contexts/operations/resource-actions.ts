@@ -362,11 +362,13 @@ export function createResourceActions(board: BoardMutationContext) {
         toast.error(translateOutsideReact('notifications.operations.assignFailedTitle'), {
           description: translateOutsideReact('notifications.operations.assignRekoFailedDescription', { name: personName }),
         })
-        // Revert on error – only our own entry; a later assign on this card stays.
+        // Revert on error – only our own entry; a later assign on this card stays. Back to
+        // the Reko the card had before (a refused replacement leaves the old one assigned on
+        // the server), not to «none».
         setOperations((ops) =>
           ops.map((op) => {
             if (!isOurs(op)) return op
-            const reverted = { ...op, assignedReko: null }
+            const reverted = { ...op, assignedReko: operation.assignedReko ?? null }
             if (shouldAutoMoveToReko) {
               reverted.status = "incoming" as OperationStatus
               reverted.statusChangedAt = currentOp?.statusChangedAt ?? null
