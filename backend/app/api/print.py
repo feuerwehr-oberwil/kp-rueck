@@ -699,10 +699,12 @@ async def get_pending_jobs(
         if jobs or remaining <= 0:
             return jobs
 
-        # End the read transaction before parking. Without this the session would hold a
+        # End the transaction before parking. Without this the session would hold a
         # pooled connection idle-in-transaction for the whole hang, which is how a long poll
-        # quietly turns into a connection leak under any concurrency.
-        await db.rollback()
+        # quietly turns into a connection leak under any concurrency. A COMMIT, not a
+        # rollback: the reaper's writes (a retired claim, an expired job) must stand even if
+        # the agent hangs up during the wait (hunt 2026-11-24).
+        await db.commit()
         with contextlib.suppress(TimeoutError):
             async with asyncio.timeout(min(remaining, LONG_POLL_RECHECK_SECONDS)):
                 await print_signal.wait_for_job()
@@ -801,7 +803,10 @@ async def complete_print_job(
     if not job:
         raise HTTPException(status_code=404, detail=ErrorMessages.PRINT_JOB_NOT_FOUND)
 
-    if job.status == update.status.value and job.status in ("completed", "failed"):
+    # A report that arrives after the reaper retired the silent claim (`STALE_CLAIM_ERROR`) is
+    # the agent's answer after all – it counts, «failed» with the printer's own error too.
+    retired_silent = job.status == "failed" and job.error_message == STALE_CLAIM_ERROR
+    if job.status == update.status.value and job.status in ("completed", "failed") and not retired_silent:
         # A repeat of the report that already landed. The agent retries its completion report
         # on a network error (tools/print-agent/protocols/rueck.py), and a lost RESPONSE looks
         # exactly like a lost request from its side — so the first attempt may well have been
@@ -809,9 +814,6 @@ async def complete_print_job(
         # second toast in the operations room.
         return job
 
-    # A report that arrives after the reaper retired the silent claim (`STALE_CLAIM_ERROR`) is
-    # the agent's answer after all – it counts.
-    retired_silent = job.status == "failed" and job.error_message == STALE_CLAIM_ERROR
     if job.status not in ("pending", "printing") and not retired_silent:
         raise HTTPException(
             status_code=409, detail=f"Druckauftrag kann nicht abgeschlossen werden (Status: {job.status})"

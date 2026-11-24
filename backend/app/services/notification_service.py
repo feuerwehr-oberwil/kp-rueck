@@ -89,6 +89,11 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
         resource_notifications = await _check_resource_alerts(db, event_id, settings)
         notifications.extend(resource_notifications)
 
+    # Time on duty: ONE notification for the whole crew, kept up to date in place rather
+    # than created per person (see `_sync_fatigue_notification`). It is a resource alert,
+    # so switching those off resolves it like the others.
+    await _sync_fatigue_notification(db, event_id, settings, enabled=settings.enabled_resource_alerts)
+
     # Somebody's planned «geht um» is near – a resource alert like time on duty.
     if settings.enabled_resource_alerts:
         notifications.extend(await _check_leaving_alerts(db, event_id))
@@ -107,13 +112,6 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
     if settings.enabled_geofence_alerts:
         geofence_notifications = await _check_geofence_alerts(db, event_id, settings)
         notifications.extend(geofence_notifications)
-
-    # Time on duty: ONE notification for the whole crew, kept up to date in place rather
-    # than created per person (see `_sync_fatigue_notification`). It is a resource alert,
-    # so switching those off resolves it like the others. After the other rules: it commits
-    # early (to release its advisory lock), and a rule that failed after that commit left the
-    # fatigue warning saved alone (hunt 2026-11-24).
-    await _sync_fatigue_notification(db, event_id, settings, enabled=settings.enabled_resource_alerts)
 
     # Deduplicate and save new notifications
     await _deduplicate_and_save(db, notifications, event_id)

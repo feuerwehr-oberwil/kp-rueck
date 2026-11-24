@@ -720,18 +720,19 @@ def _render_alarm_template(template: str, incident: models.Incident) -> str:
 
 
 async def _record_accepted_send(db: AsyncSession, what: str, record: Callable[[], Awaitable[object]]) -> None:
-    """Record a send the provider has ACCEPTED, and commit it here.
+    """Record a send the provider has ACCEPTED (committed with the request).
 
     Never raises: once Divera took the alarm or Mitteilung, an error answer would only make
     the operator send it again – a Mitteilung gets a new foreign id, so a second message goes
     out (hunt 2026-11-24). A failed local record is logged, and the send is reported as done.
     """
     try:
-        await record()
-        await db.commit()
+        # A savepoint: a failed record rolls back only itself – the session (and the user
+        # the request's own audit reads afterwards) stays usable.
+        async with db.begin_nested():
+            await record()
     except Exception:
         logger.exception("Divera accepted the %s, but recording it here failed", what)
-        await db.rollback()
 
 
 @router.post("/incidents/{incident_id}/alarm", response_model=schemas.DiveraAlarmResponse)
