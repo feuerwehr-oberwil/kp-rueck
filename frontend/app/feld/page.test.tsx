@@ -791,6 +791,7 @@ describe('/feld without a connection', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Deine Schadenplätze konnten nicht geladen werden.')
     expect(screen.queryByText(/Noch kein Auftrag|sobald du zugewiesen/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Einchecken' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Erneut versuchen' }))
     expect(await screen.findByText('Hauptstrasse 1')).toBeInTheDocument()

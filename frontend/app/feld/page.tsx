@@ -1520,7 +1520,8 @@ function FeldSurface() {
       <div className="max-w-md mx-auto space-y-3 p-4">
         {/* Not here yet: the one thing worth a full-width button, because it is
             what somebody arriving does before anything else exists for them. */}
-        {!checkedIn && (
+        {/* Not after a failed first load: «nicht anwesend» would be a guess, nothing was loaded. */}
+        {!checkedIn && !(syncFailed && !syncedAt) && (
           <section className="rounded-xl bg-secondary/60 p-4">
             <p className="mb-3 text-base font-semibold">{t('attendance.notHereTitle')}</p>
             <Button size="lg" className="w-full" onClick={toggleAttendance} disabled={attendanceBusy}>
