@@ -452,6 +452,42 @@ async def test_one_shot_does_not_refire(
 
 @pytest.mark.asyncio
 @patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
+async def test_an_arrival_that_did_not_commit_fires_on_the_next_fix(
+    _bc, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
+):
+    """The latch closes before the writes; a failed write must not close it for good (Sol A2 round 2, S4)."""
+    from app.models import AuditLog
+    from app.services.vehicle_facts import record_vehicle_fact
+
+    calls = 0
+
+    async def fails_once(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("database went away")
+        return await record_vehicle_fact(*args, **kwargs)
+
+    incident_id = enroute_incident.id  # the rollback below expires the fixture's object
+    await _enable_arrival(db_session, silent=True)
+    clock = _Clock(datetime.now(UTC))
+    with patch("app.services.gps_automation.record_vehicle_fact", side_effect=fails_once):
+        for _ in range(3):
+            await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
+        assert calls == 1
+        assert await _status(db_session, incident_id) == "enroute"
+
+        await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
+
+    assert await _status(db_session, incident_id) == "active"
+    facts = await db_session.scalars(
+        select(AuditLog.id).where(AuditLog.resource_id == incident_id, AuditLog.action_type == "vehicle_on_site")
+    )
+    assert len(facts.all()) == 1
+
+
+@pytest.mark.asyncio
+@patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
 async def test_stale_fix_resets_debounce(_bc, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle):
     await _enable_arrival(db_session)
     clock = _Clock(datetime.now(UTC))

@@ -553,10 +553,11 @@ async def record_pickup(
         incident.pickup_requested_at = None
         incident.pickup_requested_by = None
         # «Wir fahren selbst» from the crew closes it too — with the crew's name
-        # on it, because that is who answered it (the request list then reads
-        # «fährt selbst», `FieldRequest.done_in_field`). ALL open rows, should a
-        # race ever have left two, and every «Abholung nötig» bell of the
-        # incident (a note edit adds one each time) — the request is answered.
+        # on it, because that is who answered it. The answer itself is stored
+        # (`self_drive`), not read from who closed it: the request list reads
+        # «fährt selbst» from it (`FieldRequest.done_in_field`). ALL open rows,
+        # should a race ever have left two, and every «Abholung nötig» bell of
+        # the incident (a note edit adds one each time) — the request is answered.
         closer = None if actor.is_field else actor.user
         now = datetime.now(UTC)
         for open_row in await open_pickup_requests(db, incident.id):
@@ -565,6 +566,7 @@ async def record_pickup(
                 user=closer,
                 name=actor.personnel_name if actor.is_field else user_display(actor.user),
                 now=now,
+                self_drive=self_drive,
             )
         await dismiss_pickup_bells(db, incident.id, closer, now)
 

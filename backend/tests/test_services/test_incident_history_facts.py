@@ -64,6 +64,14 @@ async def test_field_facts_and_the_feld_reporter_are_in_the_chronik(
     assert events["field_pickup_self"].actor_name == "Meier Anna"
     assert events["vehicle_down"].message == "TLF 1"
 
+    # Off the roster: the FK goes NULL, the name in the creation audit stays (Sol A2 round 2, S3).
+    await db_session.delete(reporter)
+    await db_session.commit()
+    await db_session.refresh(incident)
+    assert incident.reported_by_personnel_id is None
+    events = {(e.journal_data or {}).get("type"): e for e in await timeline(db_session, incident)}
+    assert events["field_reported"].actor_name == "Meier Anna"
+
 
 async def test_a_vehicle_fact_is_written_once_per_assignment(db_session: AsyncSession, test_incident: Incident):
     assignment_id = uuid.uuid4()

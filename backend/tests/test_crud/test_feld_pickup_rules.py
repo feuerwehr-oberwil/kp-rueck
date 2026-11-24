@@ -148,6 +148,25 @@ async def test_self_drive_closes_the_request_as_the_crews_answer(
     assert row.done_in_field
 
 
+@pytest.mark.parametrize(("crew_closes", "self_drive"), [(False, True), (True, False)])
+async def test_the_request_row_keeps_the_answer_not_who_closed_it(
+    db_session: AsyncSession, test_event: Event, test_user: User, crew_closes: bool, self_drive: bool
+):
+    # The Übung: the crew's «Wir fahren selbst» under the KP user, a lift under a
+    # simulated crew member (Sol review A2 round 2, S2).
+    incident = await _incident(db_session, test_event, test_user)
+    crew = await _crew(db_session)
+    await crud.record_pickup(db_session, incident, actor=crew, needed=True)
+    await db_session.commit()
+
+    closer = crew if crew_closes else crud.FieldActor(user=test_user)
+    await crud.record_pickup(db_session, incident, actor=closer, needed=False, self_drive=self_drive)
+    await db_session.commit()
+
+    row = (await db_session.execute(select(FieldRequest).where(FieldRequest.incident_id == incident.id))).scalar_one()
+    assert row.done_in_field is self_drive
+
+
 async def test_pickup_disponiert_with_a_vehicle_moves_the_card_to_rueckfahrt(
     db_session: AsyncSession, test_event: Event, test_user: User
 ):

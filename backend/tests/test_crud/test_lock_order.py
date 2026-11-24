@@ -12,8 +12,9 @@ only a genuine second transaction shows who waits for whom.
 import asyncio
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
-from datetime import UTC, datetime
-from unittest.mock import MagicMock
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest_asyncio
@@ -40,8 +41,11 @@ from app.models import (
     IncidentGroupAssignment,
     Material,
     Personnel,
+    Setting,
     User,
+    Vehicle,
 )
+from app.services import gps_automation
 
 
 def _request() -> MagicMock:
@@ -340,3 +344,92 @@ async def test_two_restores_serialize_and_recognize_their_shared_pump(board: Boa
             )
         )
         assert set(deployed_on) == set(ids)
+
+
+async def test_a_silent_gps_arrival_commits_its_fact_before_it_waits_for_the_auftrag(board: Board):
+    # The fact «am Einsatzort» holds an advisory lock until its commit; the silent advance
+    # then takes the Auftrag and the stop. Waiting for those with the fact's lock held
+    # opened a cycle with a field report on the same stop (Sol review A2 round 2, S1).
+    gps_settings = {
+        "gps.automation_enabled": "true",
+        "gps.rule_arrival_enabled": "true",
+        "gps.rule_arrival_silent": "true",
+        "geofence_radius_meters": "200",
+        "gps.debounce_count": "2",
+        "gps.freshness_seconds": "600",
+        "gps.min_dwell_seconds": "10",
+        "gps.speed_gate_kmh": "5",
+    }
+    vehicle_id, route_row_id = uuid4(), uuid4()
+    async with board.sessions() as setup:
+        stop = await setup.get(Incident, board.stop_id)
+        assert stop is not None
+        stop.status, stop.location_lat, stop.location_lng = "enroute", 47.5, 7.55
+        setup.add(Vehicle(id=vehicle_id, name=f"LO-{vehicle_id}", type="TLF", status="available"))
+        for key, value in gps_settings.items():
+            await setup.merge(Setting(key=key, value=value))
+        await setup.flush()
+        setup.add(
+            IncidentGroupAssignment(
+                id=route_row_id, incident_group_id=board.group_id, resource_type="vehicle", resource_id=vehicle_id
+            )
+        )
+        await setup.commit()
+
+    start = datetime.now(UTC)
+    clock = SimpleNamespace(now=start)
+
+    def fix() -> list[SimpleNamespace]:
+        return [
+            SimpleNamespace(
+                device_name=f"LO-{vehicle_id}", latitude=47.5, longitude=7.55, speed=0.0, last_update=clock.now
+            )
+        ]
+
+    async def board_user(db: AsyncSession) -> User | None:
+        return await db.get(User, board.user_id)
+
+    gps_automation._state.arrival.clear()
+    try:
+        with (
+            patch("app.services.gps_automation._now", lambda: clock.now),
+            patch("app.services.gps_automation._get_system_actor", board_user),
+            patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock),
+        ):
+            async with board.sessions() as first_tick:
+                await gps_automation.run_automation_tick(first_tick, fix())
+            clock.now = start + timedelta(seconds=15)
+
+            async with board.sessions() as reorder, board.sessions() as tick, board.sessions() as probe:
+                await reorder.execute(
+                    select(IncidentGroup.id).where(IncidentGroup.id == board.group_id).with_for_update()
+                )
+                arriving = asyncio.create_task(gps_automation.run_automation_tick(tick, fix()))
+                await _wait_until_blocked(board.sessions)
+
+                # The tick waits for the Auftrag – with its fact committed and its lock free.
+                fact = await probe.scalar(
+                    select(AuditLog.id).where(
+                        AuditLog.resource_id == board.stop_id, AuditLog.action_type == "vehicle_on_site"
+                    )
+                )
+                fact_lock_free = await probe.scalar(
+                    text("SELECT pg_try_advisory_xact_lock(hashtext(:key))"),
+                    {"key": f"vehicle_fact:vehicle_on_site:{board.stop_id}:{route_row_id}"},
+                )
+                await probe.rollback()
+
+                await reorder.commit()
+                await asyncio.wait_for(arriving, timeout=10)
+            assert fact is not None
+            assert fact_lock_free
+
+            async with board.sessions() as check:
+                assert await check.scalar(select(Incident.status).where(Incident.id == board.stop_id)) == "active"
+    finally:
+        gps_automation._state.arrival.clear()
+        async with board.sessions() as db:
+            await db.execute(delete(IncidentGroupAssignment).where(IncidentGroupAssignment.id == route_row_id))
+            await db.execute(delete(Vehicle).where(Vehicle.id == vehicle_id))
+            await db.execute(delete(Setting).where(Setting.key.in_(gps_settings)))
+            await db.commit()

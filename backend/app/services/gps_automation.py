@@ -122,7 +122,8 @@ class _Debounce:
         self.last_fix_at = None
         # Note: ``fired`` is intentionally NOT reset here — the one-shot latch must
         # survive a debounce gap so a vehicle parking, leaving and returning does not
-        # re-fire the same rule. It clears only when the target disappears (see prune).
+        # re-fire the same rule. It clears only when the target disappears (see prune),
+        # or when the arrival it fired did not commit (``run_automation_tick``).
 
 
 @dataclass
@@ -538,31 +539,41 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list[VehicleP
                     and a_key not in suppressed_arrival
                 ):
                     if _advance_debounce(_state.arrival, a_key, vp.last_update, cfg):
-                        # The fact «am Einsatzort» for the Chronik, also for an Auftrag
-                        # vehicle (the bell poll's geofence sees direct rows only); the
-                        # action below commits it.
-                        await record_vehicle_fact(
-                            db,
-                            incident_id=t["incident_id"],
-                            fact="vehicle_on_site",
-                            vehicle_name=t["vehicle_name"],
-                            source="gps",
-                            assignment_id=t["assignment_id"],
-                        )
-                        # Silent advance only when the station genuinely opted in —
-                        # a sim-enabled rule never silently moves a card.
-                        if cfg.rule_arrival_silent and cfg.enabled and cfg.rule_arrival_enabled:
-                            # Dangerous opt-in: silently advance without operator confirm.
-                            actor = actor or await _get_system_actor(db)
-                            await _fire_arrival(db, t["incident_id"], t["vehicle_name"], actor)
-                        else:
-                            # Default: prompt the operator to confirm; do NOT change status.
-                            await db.commit()
-                            await _fire_arrival_prompt(
-                                t["incident_id"],
-                                t["vehicle_name"],
-                                t["incident_label"],
+                        try:
+                            # The fact «am Einsatzort» for the Chronik, also for an Auftrag
+                            # vehicle (the bell poll's geofence sees direct rows only).
+                            # Committed on its own: the silent advance below takes the
+                            # Auftrag and stop locks (`crud/locking`), and must not wait
+                            # for them while holding the fact's lock.
+                            await record_vehicle_fact(
+                                db,
+                                incident_id=t["incident_id"],
+                                fact="vehicle_on_site",
+                                vehicle_name=t["vehicle_name"],
+                                source="gps",
+                                assignment_id=t["assignment_id"],
                             )
+                            await db.commit()
+                            # Silent advance only when the station genuinely opted in —
+                            # a sim-enabled rule never silently moves a card.
+                            if cfg.rule_arrival_silent and cfg.enabled and cfg.rule_arrival_enabled:
+                                # Dangerous opt-in: silently advance without operator confirm.
+                                actor = actor or await _get_system_actor(db)
+                                await _fire_arrival(db, t["incident_id"], t["vehicle_name"], actor)
+                            else:
+                                # Default: prompt the operator to confirm; do NOT change status.
+                                await _fire_arrival_prompt(
+                                    t["incident_id"],
+                                    t["vehicle_name"],
+                                    t["incident_label"],
+                                )
+                        except Exception:
+                            # The latch closed before the writes: open it again, so the next
+                            # confirming fix retries what did not commit (the fact is
+                            # written once, `record_vehicle_fact`).
+                            await db.rollback()
+                            _state.arrival[a_key].fired = False
+                            raise
                 else:
                     # Any missing/stale/too-far/too-fast fix resets the counter so a
                     # single bad reading can never mis-advance a live incident.
