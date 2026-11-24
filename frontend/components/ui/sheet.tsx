@@ -14,6 +14,7 @@ import {
   HANDLE_SELECTOR,
   NO_DRAG_SELECTOR,
   SNAP_MS,
+  anyScrolled,
   canStartSwipe,
   dragOffset,
   releaseVelocity,
@@ -200,18 +201,61 @@ function SheetOverlay({
   )
 }
 
-/** The scrolling ancestor between `from` and the sheet (the sheet itself included). */
-function scrollerWithin(from: Element | null, sheet: HTMLElement): HTMLElement | null {
-  let node: Element | null = from
-  while (node) {
+/** Every vertical scroller from `from` up to AND including the sheet (lib/sheet-swipe.ts rule 1):
+ *  a list nested in the body, the body itself, a sheet that scrolls itself. */
+function scrollersWithin(from: Element | null, sheet: HTMLElement): HTMLElement[] {
+  const out: HTMLElement[] = []
+  for (let node = from; node; node = node.parentElement) {
     if (node instanceof HTMLElement) {
       const oy = getComputedStyle(node).overflowY
-      if ((oy === 'auto' || oy === 'scroll') && node.scrollHeight > node.clientHeight) return node
+      if ((oy === 'auto' || oy === 'scroll') && node.scrollHeight > node.clientHeight) out.push(node)
     }
     if (node === sheet) break
-    node = node.parentElement
   }
-  return null
+  return out
+}
+
+/** Is the press inside a sideways scroller with room (a chip row)? Its first move is often a
+ *  pixel down, and claiming it would kill the row's pan for the whole touch. */
+function inSidewaysScroller(from: Element | null, sheet: HTMLElement): boolean {
+  for (let node = from; node && node !== sheet; node = node.parentElement) {
+    if (!(node instanceof HTMLElement)) continue
+    const ox = getComputedStyle(node).overflowX
+    if ((ox === 'auto' || ox === 'scroll') && node.scrollWidth > node.clientWidth) return true
+  }
+  return false
+}
+
+const scrollTops = (scrollers: HTMLElement[]) => scrollers.map((s) => s.scrollTop)
+
+/** How long after the release the pull's own click can still arrive. */
+const SWALLOW_MS = 400
+
+/** After a pull that engaged, the click the press ends in (on the row it started on) is not a
+ *  tap: swallow it once, in the capture phase, before the row hears it. Only a click inside the
+ *  sheet, only within `SWALLOW_MS` of the release (event time, no timer), and only until the
+ *  next press or key – a deliberate tap right after a snap-back is a tap. iOS often sends no
+ *  click after a moved touch; a later screen-reader activation is then let through. Returns the
+ *  disarm (the sheet's detach calls it). */
+function swallowNextClick(sheet: HTMLElement, releasedAt: number): () => void {
+  const swallow = (e: MouseEvent) => {
+    // a click with no press behind it (`detail` 0: a script, a screen reader's activation) is
+    // not the pull's
+    if (e.detail === 0 || e.timeStamp - releasedAt > SWALLOW_MS) return done()
+    if (!(e.target instanceof Node) || !sheet.contains(e.target)) return
+    e.preventDefault()
+    e.stopPropagation()
+    done()
+  }
+  const done = () => {
+    window.removeEventListener('click', swallow, true)
+    window.removeEventListener('pointerdown', done, true)
+    window.removeEventListener('keydown', done, true)
+  }
+  window.addEventListener('click', swallow, true)
+  window.addEventListener('pointerdown', done, true)
+  window.addEventListener('keydown', done, true)
+  return done
 }
 
 /**
@@ -226,12 +270,14 @@ function attachSwipe(el: HTMLElement, requestClose: () => void): () => void {
     id: number
     x0: number
     y0: number
-    scroller: HTMLElement | null
+    /** every scroller the press started inside (none on the header) */
+    scrollers: HTMLElement[]
     engaged: boolean
     offset: number
     samples: { y: number; t: number }[]
   }
   let drag: Drag | null = null
+  let disarmSwallow = () => {}
   let snapTimer: ReturnType<typeof setTimeout> | undefined
   const reducedMotion = () =>
     typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -256,16 +302,17 @@ function attachSwipe(el: HTMLElement, requestClose: () => void): () => void {
     }
     const target = e.target instanceof Element ? e.target : null
     const onHandle = !!target?.closest(HANDLE_SELECTOR)
-    const scroller = onHandle ? null : scrollerWithin(target, el)
+    const scrollers = onHandle ? [] : scrollersWithin(target, el)
     const ok = canStartSwipe({
-      onControl: !!target?.closest(NO_DRAG_SELECTOR),
+      onField: !!target?.closest(NO_DRAG_SELECTOR),
       onHandle,
-      scrollTop: scroller ? scroller.scrollTop : null,
+      inSidewaysScroller: !onHandle && inSidewaysScroller(target, el),
+      scrollTops: scrollTops(scrollers),
     })
     if (!ok) return
     const t = e.touches[0]
     drag = {
-      id: t.identifier, x0: t.clientX, y0: t.clientY, scroller, engaged: false, offset: 0,
+      id: t.identifier, x0: t.clientX, y0: t.clientY, scrollers, engaged: false, offset: 0,
       samples: [{ y: t.clientY, t: e.timeStamp }],
     }
   }
@@ -284,7 +331,7 @@ function attachSwipe(el: HTMLElement, requestClose: () => void): () => void {
       if (dy > 0 && e.cancelable) e.preventDefault()
       if (intent === 'pending') return
       // the content may have moved under the finger since the press
-      if (d.scroller && d.scroller.scrollTop > 0) { drag = null; return }
+      if (anyScrolled(scrollTops(d.scrollers))) { drag = null; return }
       d.engaged = true
       clearTimeout(snapTimer)
       el.style.transition = 'none'
@@ -306,9 +353,13 @@ function attachSwipe(el: HTMLElement, requestClose: () => void): () => void {
       // the sheet open, and then it must be standing where it was
       settle(false)
       requestClose()
-      return
+    } else {
+      settle(!reducedMotion())
     }
-    settle(!reducedMotion())
+    // The pull may have started on a row: the click it ends in is not a tap on that row. Armed
+    // after `requestClose`, whose own click on the hidden close must go through.
+    disarmSwallow()
+    disarmSwallow = swallowNextClick(el, e.timeStamp)
   }
 
   const onCancel = (e: TouchEvent) => {
@@ -324,6 +375,7 @@ function attachSwipe(el: HTMLElement, requestClose: () => void): () => void {
   el.addEventListener('touchcancel', onCancel)
   return () => {
     clearTimeout(snapTimer)
+    disarmSwallow()
     el.removeEventListener('touchstart', onStart)
     el.removeEventListener('touchmove', onMove)
     el.removeEventListener('touchend', onEnd)
@@ -524,11 +576,22 @@ function SheetContent({
   )
 }
 
+/**
+ * The head of a sheet, and below 768px the ONE head frame of a phone sheet (phone sweep 24.11.2026
+ * #30, KP Front's `.ip-head`): the title 24px from the side and 16px from the top, no hairline under it,
+ * the title at SheetTitle's own size. Its end keeps clear of the ✕ (globals.css), whose plate
+ * stands 24px from the other edge. A phone sheet passes it no inset, border or title size: put
+ * it straight into a `gap-0 p-0` SheetContent and let a `SheetBody` (`px-6`) scroll under it.
+ */
 function SheetHeader({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="sheet-header"
-      className={cn('flex flex-col gap-1.5 p-4', className)}
+      // globals.css keys the ✕'s place on it: a header with a className of its own is not the frame
+      data-frame={className ? undefined : ''}
+      // The frame below 768px; a desktop side sheet keeps its p-4. Only without a className: a
+      // caller's `p-0` would not beat the `max-md:` variants.
+      className={cn('flex flex-col gap-1.5 p-4', !className && 'max-md:px-6 max-md:pb-3', className)}
       {...props}
     />
   )

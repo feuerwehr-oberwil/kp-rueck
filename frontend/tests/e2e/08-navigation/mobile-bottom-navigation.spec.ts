@@ -1,6 +1,6 @@
 import { test, expect } from '../../fixtures/auth.fixture';
 import type { Page } from '@playwright/test';
-import { MOBILE_VIEWPORT, setupBoard } from '../../helpers/api.helper';
+import { API_BASE, MOBILE_VIEWPORT, cookieHeaderFor, setupBoard } from '../../helpers/api.helper';
 
 /**
  * The phone's bottom bar: two tabs (Einsätze, Karte) and «Mehr», whose sheet reaches the
@@ -75,6 +75,63 @@ test.describe('Mobile bottom navigation', () => {
       await expect(page).toHaveURL(path);
     });
   }
+
+  // Routenplanung and Reko-Modus are KP-desk tools (owner, 24.11.2026): the phone's Ansicht
+  // menu offers neither, and the Setup-Checkliste's `?mode=reko` link opens the plain list.
+  test('the Lagekarte offers no Routenplanung and no Reko-Modus', async ({ authenticatedPage: page }) => {
+    await setupBoard(page, 'Mobile Modes', { count: 0 });
+    await page.goto('/map?mode=reko');
+    await expect(page.getByRole('heading', { name: /Einsätze/ })).toBeVisible({ timeout: ROUTE_COMPILE_MS });
+    await expect(page.getByRole('heading', { name: 'Reko-Modus' })).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Ansicht' }).click();
+    const menu = page.getByRole('menu');
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole('menuitem', { name: 'Routenplanung' })).toHaveCount(0);
+    await expect(menu.getByRole('menuitem', { name: 'Reko-Modus' })).toHaveCount(0);
+  });
+
+  // Phone sweep 24.11.2026 (#4, #29): a row tap opens the Einsatz – the double tap nobody knew
+  // of is gone – the sheet's «Auf Karte anzeigen» stays on this page, and the selected row's
+  // Abholung is a label, not the «Abholung disponiert» button (the phone board is read-only).
+  test('a Lagekarte row opens its Einsatz with one tap, and the sheet stays on the Lagekarte', async ({
+    authenticatedPage: page,
+  }) => {
+    const { incidents } = await setupBoard(page, 'Mobile Karte', { count: 1, layout: 'mobile' });
+    const pickup = await page.request.post(`${API_BASE}/api/incidents/${incidents[0].id}/field-report`, {
+      data: { pickup_needed: true },
+      headers: { cookie: await cookieHeaderFor(page) },
+    });
+    expect(pickup.ok()).toBe(true);
+    await page.goto('/map');
+
+    const row = page.locator(`#map-incident-card-${incidents[0].id}`);
+    await row.click({ timeout: ROUTE_COMPILE_MS });
+    const sheet = page.getByRole('dialog');
+    await expect(sheet.getByRole('heading', { name: /Mobile Kartestrasse/ })).toBeVisible();
+
+    await sheet.getByRole('button', { name: 'Auf Karte anzeigen' }).click();
+    await expect(sheet).toHaveCount(0);
+    await expect(page).toHaveURL('/map');
+    await expect(row).toHaveAttribute('aria-current', 'true');
+    await expect(page.getByText('Abholung').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /Abholung/ })).toHaveCount(0);
+  });
+
+  // The phone's «Neuer Einsatz» sheet opens the map picker as a step inside itself, as the desk
+  // dialog does (owner pick 5A) – not as a centred desk card over the sheet.
+  test('the map picker of «Neuer Einsatz» is a step in the phone sheet', async ({ authenticatedPage: page }) => {
+    await setupBoard(page, 'Mobile Picker', { count: 0 });
+    await page.getByRole('button', { name: 'Neuer Einsatz' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Neuer Einsatz' });
+    await sheet.getByRole('button', { name: 'Auf Karte wählen' }).click();
+
+    await expect(page.getByRole('dialog')).toHaveCount(1);
+    await expect(sheet.getByRole('heading', { name: 'Einsatzort auf Karte wählen' })).toBeVisible();
+
+    await sheet.getByRole('button', { name: 'Zurück' }).click();
+    await expect(sheet.getByLabel('Einsatzort')).toBeVisible();
+  });
 
   test('without a chosen Ereignis the board and map tabs cannot be tapped', async ({
     authenticatedPage: page,

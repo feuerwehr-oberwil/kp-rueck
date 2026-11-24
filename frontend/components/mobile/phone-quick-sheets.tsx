@@ -118,6 +118,10 @@ export function PhoneQuickSheets({ open, onOpenChange }: PhoneQuickSheetsProps) 
         operations={operations}
         places={personPlaces}
         onOpenCrewDuty={() => onOpenChange('crew')}
+        onOpenIncident={(id) => {
+          close()
+          navigateToIncident(id)
+        }}
       />
       <CrewDutySheet
         open={open === 'crew'}

@@ -224,7 +224,7 @@ function DisplayChrome({
           time – are pinned in px (Ereignis 18/600, clock 20/600 mono), and so is
           the bar's 44px: the wall boards fit their root size (use-wall-fit), and
           a rem bar made the name 12px on a full board (hill climb r19). */}
-      <header className="order-last sm:order-first flex items-center justify-between gap-3 border-t sm:border-t-0 sm:border-b border-border bg-header px-3 py-2 sm:py-1 min-h-10 sm:min-h-[44px] shrink-0">
+      <header className="order-last sm:order-first flex items-center justify-between gap-3 border-t sm:border-t-0 sm:border-b border-border bg-header px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:py-1 min-h-10 sm:min-h-[44px] shrink-0">
         <div className="flex flex-1 items-center gap-2 min-w-0">
           {!token && (
             // One box for the arrow and its divider, so the idle fade has one
