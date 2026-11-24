@@ -6,6 +6,9 @@ This renames exactly that one line in the stored list – the exact text, so « 
 Auftrag » or «Warte auf Auftrag bei TLF» stay; a CRLF line keeps its \r. Every other line,
 and a list that does not contain it, stays as the station wrote it.
 
+The downgrade changes no data: it cannot tell a renamed line from a «Warte auf Einsatz» the
+station typed itself, and the old wording is no longer wanted.
+
 Revision ID: c4f1a8d2e6b3
 Revises: b8e4f2a6c1d7
 """
@@ -42,4 +45,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    _rename(NEW, OLD)
+    # Data only, and not reversible without guessing – see the docstring.
+    pass

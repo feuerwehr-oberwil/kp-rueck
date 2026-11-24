@@ -1,7 +1,8 @@
 """Migration c4f1a8d2e6b3: the stored driver chip «Warte auf Auftrag» → «Warte auf Einsatz».
 
-Only the exact line moves, up and down; a CRLF line keeps its \\r, and a station's own
-variants (« Warte auf Auftrag », «Warte auf Auftrag bei TLF») stay as written.
+Only the exact line moves; a CRLF line keeps its \\r, and a station's own variants
+(« Warte auf Auftrag », «Warte auf Auftrag bei TLF») stay as written. The downgrade leaves
+the data alone – it cannot tell a renamed line from one the station typed.
 """
 
 import runpy
@@ -35,9 +36,9 @@ async def _run(db_session: AsyncSession, step: str) -> str:
 
 
 @pytest.mark.asyncio
-async def test_renames_the_exact_line_up_and_back_down(db_session: AsyncSession):
+async def test_renames_the_exact_line_and_the_downgrade_keeps_the_data(db_session: AsyncSession):
     db_session.add(Setting(key="feld.driver_message_chips", value=STORED))
     await db_session.commit()
 
     assert await _run(db_session, "upgrade") == RENAMED
-    assert await _run(db_session, "downgrade") == STORED
+    assert await _run(db_session, "downgrade") == RENAMED
