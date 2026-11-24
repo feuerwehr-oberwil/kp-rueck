@@ -2628,7 +2628,6 @@
       "routePlanning": "Planification d’itinéraire",
       "view": "Vue",
       "viewMenuLabel": "Vue de la carte",
-      "modesMenuLabel": "Mode",
       "modes": "Mode"
     },
     "planning": {

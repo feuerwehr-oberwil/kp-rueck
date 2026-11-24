@@ -76,6 +76,21 @@ test.describe('Mobile bottom navigation', () => {
     });
   }
 
+  // Routenplanung and Reko-Modus are KP-desk tools (owner, 24.11.2026): the phone's Ansicht
+  // menu offers neither, and the Setup-Checkliste's `?mode=reko` link opens the plain list.
+  test('the Lagekarte offers no Routenplanung and no Reko-Modus', async ({ authenticatedPage: page }) => {
+    await setupBoard(page, 'Mobile Modes', { count: 0 });
+    await page.goto('/map?mode=reko');
+    await expect(page.getByRole('heading', { name: /Einsätze/ })).toBeVisible({ timeout: ROUTE_COMPILE_MS });
+    await expect(page.getByRole('heading', { name: 'Reko-Modus' })).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Ansicht' }).click();
+    const menu = page.getByRole('menu');
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole('menuitem', { name: 'Routenplanung' })).toHaveCount(0);
+    await expect(menu.getByRole('menuitem', { name: 'Reko-Modus' })).toHaveCount(0);
+  });
+
   test('without a chosen Ereignis the board and map tabs cannot be tapped', async ({
     authenticatedPage: page,
   }) => {

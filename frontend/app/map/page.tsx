@@ -403,6 +403,15 @@ export default function MapPage() {
     enterRekoModeFromLink()
   }, [searchParams])
 
+  // The phone has no Routenplanung and no Reko-Modus (owner, 24.11.2026): both are KP-desk
+  // tools that swap the whole list for their panel. A `?mode=reko` link opened on a phone, or a
+  // window narrowed below `md` mid-mode, leaves them – set during render, React's pattern for
+  // state that follows another value, so no effect has to catch up.
+  if (isMobile && (planningActive || rekoModeActive)) {
+    exitPlanning()
+    exitRekoMode()
+  }
+
   // Create a new Auftrag from the panel and select it for planning.
   const handleCreatePlanningGroup = async (name: string, color: string) => {
     const created = await createGroup({ name, color })
@@ -895,21 +904,6 @@ export default function MapPage() {
             </div>
           </>
         )}
-        {/* Phone: the two editor modes live here (see the row above). */}
-        {isMobile && isEditor && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>{t('page.modesMenuLabel')}</DropdownMenuLabel>
-            <DropdownMenuItem onSelect={() => enterPlanning()} className="cursor-pointer">
-              <Milestone className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="flex-1">{t('page.routePlanning')}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => enterRekoMode()} className="cursor-pointer">
-              <Binoculars className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="flex-1">{t('rekoMode.title')}</span>
-            </DropdownMenuItem>
-          </>
-        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -1072,9 +1066,7 @@ export default function MapPage() {
                   «search + one menu» shape as the assignment dialog's «Filtern».
                   Three buttons above a separate search wrapped to two rows on a
                   390px screen and ate a third of the list (owner, 02.10.2026).
-                  The two editor modes move into the Ansicht menu there: they are
-                  KP-desk tools, each swaps the whole list for its panel, and one
-                  extra tap is a fair price for a whole row of list. */}
+                  The two editor modes are desktop-only (owner, 24.11.2026). */}
               {(isMobile || isEditor) && (
               <div className={isMobile ? 'flex items-center gap-2' : 'mb-3 flex flex-wrap gap-1.5'}>
                 {isMobile && (

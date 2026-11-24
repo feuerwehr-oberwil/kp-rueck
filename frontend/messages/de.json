@@ -1523,7 +1523,6 @@
       "routePlanning": "Routenplanung",
       "view": "Ansicht",
       "viewMenuLabel": "Kartenansicht",
-      "modesMenuLabel": "Modus",
       "modes": "Modus"
     },
     "planning": {
