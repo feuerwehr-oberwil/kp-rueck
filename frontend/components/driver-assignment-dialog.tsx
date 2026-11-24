@@ -544,7 +544,8 @@ export function DriverAssignmentDialog({
         open={open}
         onOpenChange={onOpenChange}
         title={t('title', { vehicle: vehicleName })}
-        description={localDriverName ? t('currentDriver', { driver: localDriverName }) : t('noDriverAssigned')}
+        // While the driver data loads or failed, nobody knows who drives: no «Kein Fahrer» line.
+        description={driversPending ? null : localDriverName ? t('currentDriver', { driver: localDriverName }) : t('noDriverAssigned')}
         // Search and the walk-in assign wait for the driver data too.
         toolbar={driversPending ? undefined : toolbar}
         listTestId="driver-list"

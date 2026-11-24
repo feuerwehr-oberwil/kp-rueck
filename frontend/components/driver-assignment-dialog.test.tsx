@@ -192,12 +192,15 @@ describe("DriverAssignmentDialog while the driver data loads", () => {
     expect(screen.queryByRole("radio")).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Person hinzufügen" })).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Übernehmen" })).toBeDisabled()
+    // A driver may well be assigned – the header must not say there is none.
+    expect(screen.queryByText("Kein Fahrer zugewiesen")).not.toBeInTheDocument()
   })
 
   it("says a failed load and retries it", async () => {
     const retry = vi.fn()
     renderWithIntl(dialog({ driversPending: { status: "failed", retry } }))
     expect(screen.getByText("Die Fahrer konnten nicht geladen werden.")).toBeInTheDocument()
+    expect(screen.queryByText("Kein Fahrer zugewiesen")).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole("button", { name: "Erneut versuchen" }))
     expect(retry).toHaveBeenCalledTimes(1)
   })
