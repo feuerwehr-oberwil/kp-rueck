@@ -49,6 +49,7 @@ import {
   sortMaterialsForAssignment,
 } from "@/components/kanban/material-assignment-list"
 import { usePersonNaming } from "@/components/person-name"
+import { planNext } from "@/lib/planned-actions"
 import { onPickerKeyDown, PICK_TILE, PICKER_FOOTER } from "@/components/ui/picker-keys"
 
 interface ResourceAssignmentDialogProps {
@@ -210,7 +211,7 @@ export function ResourceAssignmentDialog({
   // A person bound to another incident/Auftrag pending the same confirmation
   // (takes precedence over the special-function confirm — one confirm is enough).
   const [confirmOccupiedPerson, setConfirmOccupiedPerson] = useState<Person | null>(null)
-  // «Hierher verschieben» answered in the prompt, per resource id: the holders it leaves. Staged
+  // «Jetzt verschieben» answered in the prompt, per resource id: the holders it leaves. Staged
   // like the tick – «Fertig» frees them and then assigns, closing without «Fertig» changes
   // neither side. Read only at «Fertig», so a ref.
   const stagedMoves = useRef(new Map<string, Binding[]>())
@@ -302,7 +303,7 @@ export function ResourceAssignmentDialog({
   // holds the GROUP id when assignTarget === 'route'.
   //
   // A LIST, not a single entry: a resource can stand on two Schadenplätze and a
-  // route at once, and «Hierher verschieben» has to release all of them.
+  // route at once, and «Jetzt verschieben» has to release all of them.
   const { vehicleOccupancy, materialOccupancy, personOccupancy } = useMemo(() => {
     const vehicleMap = new Map<string, Binding[]>()
     const materialMap = new Map<string, Binding[]>()
@@ -350,10 +351,12 @@ export function ResourceAssignmentDialog({
    *
    * This dialog used to ask it a second time itself, with two of the three
    * answers: «Trotzdem zuweisen» or nothing, no «Verschieben». Same question,
-   * same three answers, whichever way the assignment started.
+   * same answers – «Jetzt verschieben», «Danach vormerken», Abbrechen – whichever way the
+   * assignment started.
    *
-   * Either answer only ticks the resource; a move is staged in `stagedMoves` and
-   * happens together with the assign at «Fertig» (`releaseStaged`).
+   * «Jetzt verschieben» only ticks the resource; the move is staged in `stagedMoves` and
+   * happens together with the assign at «Fertig» (`releaseStaged`). «Danach vormerken» plans
+   * it at once and leaves it unticked – nothing is assigned now.
    */
   const askConflict = (
     resourceType: 'personnel' | 'material',
@@ -369,10 +372,19 @@ export function ResourceAssignmentDialog({
       targetOperationId: operationId ?? '',
       targetOperationLabel: targetLabel,
       conflicts: bindings.map((b) => ({ operationId: b.id, operationLabel: b.head })),
-      customResolve: (action) => {
+      customResolve: async (action) => {
+        if (action === 'plan') {
+          stagedMoves.current.delete(resourceId)
+          // operationId holds the GROUP id for a route target (see above).
+          await planNext(resourceType, resourceId, resourceName, {
+            kind: assignTarget === 'route' ? 'group' : 'incident',
+            id: operationId ?? '',
+            label: targetLabel,
+          })
+          return
+        }
         // A copy: `releaseStaged` drops each holder from it once it is freed.
-        if (action === 'move') stagedMoves.current.set(resourceId, [...bindings])
-        else stagedMoves.current.delete(resourceId)
+        stagedMoves.current.set(resourceId, [...bindings])
         proceed()
       },
     })
@@ -381,7 +393,7 @@ export function ResourceAssignmentDialog({
   /**
    * «Fertig» for one ticked resource: free it from the holders a staged move leaves. Resolves
    * false when a release fails (its context toasts it): the caller then skips the assign, so
-   * «Hierher verschieben» never ends as a double booking, and the holders not yet freed stay
+   * «Jetzt verschieben» never ends as a double booking, and the holders not yet freed stay
    * staged for the next «Fertig». A holder that no longer holds it (released elsewhere since
    * the prompt; an Auftrag release the server answers 404) counts as freed – no new question.
    */

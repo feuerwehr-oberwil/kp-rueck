@@ -495,6 +495,7 @@ describe("OperationsProvider — assignment work that may still ask (⌘K waits 
     const rendered = renderHook(() => useOperations(), { wrapper })
     await waitFor(() => expect(rendered.result.current.operations).toHaveLength(2))
     api.assignResource.mockResolvedValue({ id: "as-new", driver_stay: false })
+    api.unassignResource.mockReset().mockResolvedValue(undefined)
     let answer: (functions: unknown[]) => void = () => {}
     api.getEventSpecialFunctions.mockImplementation(() => new Promise((resolve) => (answer = resolve)))
 
@@ -505,11 +506,13 @@ describe("OperationsProvider — assignment work that may still ask (⌘K waits 
     expect(rendered.result.current.resourceConflict).not.toBeNull()
     expect(rendered.result.current.isAssignmentSettling()).toBe(false)
 
-    // «Auf beiden führen»: the prompt closes at once, the work goes on.
+    // «Jetzt verschieben»: the prompt closes at once, the work goes on.
     let resolving: Promise<void> = Promise.resolve()
     act(() => {
-      resolving = Promise.resolve(rendered.result.current.resolveResourceConflict("keep"))
+      resolving = Promise.resolve(rendered.result.current.resolveResourceConflict("move"))
     })
+    // The release on the other Einsatz first, then the re-assign and its driver check.
+    await waitFor(() => expect(api.assignResource).toHaveBeenCalled())
     await waitFor(() => expect(api.getEventSpecialFunctions).toHaveBeenCalled())
     expect(rendered.result.current.resourceConflict).toBeNull()
     expect(rendered.result.current.isAssignmentSettling()).toBe(true)

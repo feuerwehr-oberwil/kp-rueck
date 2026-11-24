@@ -30,7 +30,7 @@ import type { GroupResources } from "@/lib/types/groups"
  * AND was not before the command, and puts status/priority back only while they
  * still read what the command set; a Reko only while the card still shows the
  * row the command made (`rekoAssignmentId`). A resource the command took off another
- * Einsatz or Auftrag («Hierher verschieben») goes back there through the
+ * Einsatz or Auftrag («Jetzt verschieben») goes back there through the
  * release undo (`checkRestore` first) — or the toast says why it cannot.
  */
 
@@ -157,7 +157,7 @@ export async function runDispatch(command: DispatchCommand, deps: CommandDispatc
       .map((entry) => `${entry.target.kind}:${entry.target.id}`),
   )
   // Where each resource is before the command — to tell, afterwards, what a
-  // «Hierher verschieben» took it off (the undo puts it back there).
+  // «Jetzt verschieben» took it off (the undo puts it back there).
   const sourcesBefore = new Map(
     command.assign.map((entry) => [
       `${entry.target.kind}:${entry.target.id}`,
@@ -242,7 +242,7 @@ async function undoDispatch(outcome: DispatchOutcome, deps: CommandDispatchDeps)
     else if (held.where === "material") await deps.removeMaterial(operationId, resource.id)
     else await deps.unassignGroupResource(held.groupId, held.assignmentId)
   }
-  // Back where «Hierher verschieben» took them from — now that they are free
+  // Back where «Jetzt verschieben» took them from — now that they are free
   // again. The release undo checks first (closed, gone, put elsewhere meanwhile)
   // and says so; one at a time, so each answer is its own toast.
   for (const item of outcome.moved) await deps.restore(item)

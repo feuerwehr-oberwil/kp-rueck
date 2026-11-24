@@ -20,16 +20,18 @@ describe('ChoiceDialog', () => {
       <ChoiceDialog
         title="Doppelbelegung"
         description="TLF ist schon im Einsatz."
-        choices={[choice('v', 'Hierher verschieben'), choice('b', 'Auf beiden führen')]}
+        choices={[choice('v', 'Jetzt verschieben'), choice('d', 'Danach vormerken')]}
         onCancel={vi.fn()}
       />,
     )
 
     const dialog = screen.getByRole('alertdialog')
     expect(dialog).toHaveClass('modal-h-tall')
+    // Sign-off 24.11.2026: at M a mini card cut «2 · Mühlemattstra…» – the question is C (832).
+    expect(dialog).toHaveAttribute('data-size', 'choice')
     const cards = dialog.querySelector('[data-slot="choice-cards"]')
     expect(cards).toHaveClass('overflow-y-auto', 'min-h-0')
-    expect(cards).toContainElement(screen.getByRole('button', { name: 'Hierher verschieben' }))
+    expect(cards).toContainElement(screen.getByRole('button', { name: 'Jetzt verschieben' }))
     expect(cards).not.toContainElement(screen.getByRole('button', { name: 'Abbrechen' }))
     expect(cards).not.toContainElement(screen.getByText('Doppelbelegung'))
   })
@@ -41,7 +43,7 @@ describe('ChoiceDialog', () => {
       <ChoiceDialog
         title="Doppelbelegung"
         description="TLF ist schon im Einsatz."
-        choices={[choice('v', 'Hierher verschieben'), choice('b', 'Auf beiden führen')]}
+        choices={[choice('v', 'Jetzt verschieben'), choice('d', 'Danach vormerken')]}
         onCancel={vi.fn()}
       />,
     )
@@ -58,9 +60,9 @@ describe('ChoiceDiagram', () => {
   it('lets names and addresses take two lines instead of cutting them to one', () => {
     renderWithIntl(
       <ChoiceDiagram
-        from={[{ id: 'a', title: '1 · Langegasse 28', chips: [{ label: 'Hoffmann Lisa', tone: 'double' }] }]}
-        to={{ id: 'b', title: '2 · Mühlemattstrasse 12', chips: [{ label: 'Hoffmann Lisa', tone: 'double' }] }}
-        link="both"
+        from={[{ id: 'a', title: '1 · Langegasse 28', chips: [{ label: 'Hoffmann Lisa', tone: 'plain' }] }]}
+        to={{ id: 'b', title: '2 · Mühlemattstrasse 12', chips: [{ label: 'Hoffmann Lisa', tone: 'danach' }] }}
+        link="next"
       />,
     )
 

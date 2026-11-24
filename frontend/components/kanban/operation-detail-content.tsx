@@ -48,7 +48,6 @@ import { useRekoLinkActions } from "@/lib/hooks/use-reko-link-actions"
 import { useWhatsAppCopy } from "@/lib/hooks/use-whatsapp-copy"
 import RekoReportSection from "@/components/reko/reko-report-section"
 import { SchadenplatzRapportSection } from "@/components/kanban/schadenplatz-rapport-section"
-import { MaterialReturnList } from "@/components/kanban/material-return-list"
 import { DetailField, DetailFlags, DetailGroupHeading, DENSE_CONTROL } from "@/components/kanban/detail-field"
 import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
 import { FieldSaveStatus, fieldSaveEdgeClass, useFieldSave } from "@/components/kanban/field-save-status"
@@ -330,9 +329,6 @@ export function OperationDetailContent({
   const { drivers: vehicleDrivers, loaded: vehicleDriversLoaded } = useVehicleDriverState(selectedEvent?.id ?? null, active)
   const [rekoDialogOpen, setRekoDialogOpen] = useState(false)
   const [rekoTransferDialogOpen, setRekoTransferDialogOpen] = useState(false)
-  // Bumped when the rapport section files a rapport: that is the moment the
-  // material-return list in the Rapport tab's left column stops being empty.
-  const [materialReturnKey, setMaterialReturnKey] = useState(0)
 
   const {
     copied: rekoCopied,
@@ -1819,8 +1815,9 @@ export function OperationDetailContent({
             className={tabPanelClass}
           >
           {/* Two columns, the same grid as Reko and Übersicht: what came IN
-              from the field on the left — the crew's sentences and what they
-              left standing — and what the KP writes on the right. */}
+              from the field on the left — Abholung, Anforderungen, the crew's
+              messages — and the rapport on the right, whose Material block is
+              the tab's one place for material (pick 1A, 24.11.2026). */}
           <div className={tabGridClass}>
             <div className={sectionStep.stack}>
               {/* Feldmeldungen — KP parity (decision 28). Everything a crew taps
@@ -1854,28 +1851,11 @@ export function OperationDetailContent({
                 onRetry={timeline.reload}
                 canEdit={canEdit}
               />
-
-              {/* «Material zurück – freigeben» — the KP's own to-do, and it
-                  belongs on this side: it answers the same «was ist draussen
-                  passiert» as the Abholung row and the crew's messages above,
-                  and it is a list to work through rather than a form to fill
-                  in. Mounted here rather than inside the rapport section (which
-                  opts out via `showMaterialReturn`), on the same condition it
-                  had there: only once a rapport has actually been FILED, since
-                  the list is empty for a draft by definition and every detail
-                  opening would otherwise pay for a request that answers
-                  "nothing". */}
-              {(operation.hasSchadenplatzRapport || materialReturnKey > 0) && (
-                <MaterialReturnList
-                  incidentId={operation.id}
-                  canEdit={canEdit}
-                  refreshKey={materialReturnKey}
-                />
-              )}
-
             </div>
 
-            <div className={tabColumnBreakClass}>
+            {/* Stacked (docked panel, narrow modal), a rule above the rapport
+                says where the field's messages end and the rapport begins. */}
+            <div className={cn(tabColumnBreakClass, "border-t border-border pt-4", layout === 'modal' && "lg:border-t-0 lg:pt-0")}>
             {/* The Schadenplatz-Rapport itself, as a FULL editing surface: the KP
                 must be able to file one for an incident that never had any field
                 contact. Same form component /feld mounts, different transport. */}
@@ -1884,11 +1864,7 @@ export function OperationDetailContent({
               canEdit={canEdit}
               boxed={false}
               hasRapport={operation.hasSchadenplatzRapport}
-              // The release list lives in the left column, next to the rest of
-              // what came in from the field — so the section must not render a
-              // second copy, and has to say when it filed one.
-              showMaterialReturn={false}
-              onFiled={() => setMaterialReturnKey((key) => key + 1)}
+              activeAssignmentIds={[...operation.materialAssignments.values()]}
               // Only when the detail was OPENED on this tab — from Offene
               // Rapporte or a notification, i.e. somebody was sent here to write
               // it. Clicking «Rapport» by hand leaves the cursor alone: stealing

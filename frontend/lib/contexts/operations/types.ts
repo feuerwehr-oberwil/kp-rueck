@@ -341,7 +341,7 @@ export interface OperationsContextType {
          *  `held`: which of the asked-about resources stand on that holder, when one drop
          *  asks for several (a Modul-Block); absent = the one resource. */
         conflicts: { operationId: string; operationLabel: string; held?: { id: string; name: string }[] }[]
-        customResolve?: (action: "move" | "keep") => Promise<void> | void
+        customResolve?: (action: "move" | "plan") => Promise<void> | void
       }
     | null
   /** Material a crew left standing at a Schadenplatz, keyed on material id.
@@ -368,7 +368,7 @@ export interface OperationsContextType {
   vehicles: ApiVehicle[]
   /** All settings as of the last load that got them (kept through a failed fetch). */
   settings: Record<string, string>
-  resolveResourceConflict: (action: "move" | "keep") => void
+  resolveResourceConflict: (action: "move" | "plan") => void
   cancelResourceConflict: () => void
   requestResourceConflict: (conflict: NonNullable<OperationsContextType["resourceConflict"]>) => void
   /**

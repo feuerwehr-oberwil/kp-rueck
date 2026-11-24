@@ -14,6 +14,7 @@ import { translateOutsideReact } from "@/lib/i18n-messages"
 import { findRecentRemoval, recordRemoval } from "@/lib/recent-removals"
 import { formatAgo } from "@/lib/duration"
 import { drivenElsewhere, type DrivenElsewhere } from "@/lib/driver-conflict"
+import { planNext } from "@/lib/planned-actions"
 import type { Operation, OperationStatus, OperationsContextType } from "./types"
 import type { BoardMutationContext } from "./board-context"
 
@@ -645,7 +646,7 @@ export function createResourceActions(board: BoardMutationContext) {
     return Promise.resolve(true)
   }
 
-  /** «Hierher verschieben» for a Fahrer: the role goes too, the vehicle is left without one. */
+  /** «Jetzt verschieben» for a Fahrer: the role goes too, the vehicle is left without one. */
   const releaseDriverRole = async (personId: string, personName: string, driving: DrivenElsewhere): Promise<boolean> => {
     if (!selectedEvent) return false
     try {
@@ -670,7 +671,7 @@ export function createResourceActions(board: BoardMutationContext) {
     return true
   }
 
-  const resolveResourceConflict = async (action: "move" | "keep") => {
+  const resolveResourceConflict = async (action: "move" | "plan") => {
     const conflict = resourceConflict
     if (!conflict) return
     // The prompt closes now, but the move and the re-assign (and a vehicle's
@@ -685,7 +686,7 @@ export function createResourceActions(board: BoardMutationContext) {
 
   const resolveResourceConflictNow = async (
     conflict: NonNullable<OperationsContextType["resourceConflict"]>,
-    action: "move" | "keep",
+    action: "move" | "plan",
   ) => {
     setResourceConflict(null)
 
@@ -703,6 +704,17 @@ export function createResourceActions(board: BoardMutationContext) {
     }
 
     const { resourceType, resourceId, resourceName, targetOperationId } = conflict
+
+    // «Danach vormerken» (owner pick 2B, 24.11.2026): nothing leaves where it is now; the
+    // board offers «Zuteilen» once it is free.
+    if (action === "plan") {
+      await planNext(resourceType, resourceId, resourceName, {
+        kind: "incident",
+        id: targetOperationId,
+        label: conflict.targetOperationLabel,
+      })
+      return
+    }
 
     if (action === "move") {
       // Remove it from every other incident before assigning it here — and WAIT

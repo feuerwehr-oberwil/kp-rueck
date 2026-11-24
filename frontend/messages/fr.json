@@ -709,7 +709,9 @@
       "incident_restore_conflict": "L’intervention a changé. Réessayez la restauration.",
       "incident_restore_resource_conflict": "« {name} » est indisponible. L’attribution actuelle est conservée.",
       "incident_not_merged": "Ce signalement n’est pas fusionné.",
-      "checkin_guest_ask_kp": "La liste ne peut pas attribuer ce nom. Annonce-toi au PC."
+      "checkin_guest_ask_kp": "La liste ne peut pas attribuer ce nom. Annonce-toi au PC.",
+      "resource_busy": "Déjà engagé : {holders}. Libérer d'abord ou planifier « Ensuite ».",
+      "plan_refused": "Impossible de planifier ici : déjà sur place, intervention terminée ou matériel consommable."
     }
   },
   "events": {
@@ -1029,7 +1031,7 @@
         "title": "Matériel",
         "empty": "Aucun matériel saisi.",
         "leftOnSite": "resté sur place",
-        "extraLeftOnSiteHint": "Passe sur la liste de récupération. Pas dans « Matériel de retour – libérer » : ce sont des noms, pas du matériel saisi.",
+        "extraLeftOnSiteHint": "Passe sur la liste de récupération. Rien à libérer : ce sont des noms, pas du matériel saisi.",
         "add": "Ajouter du matériel",
         "addTyped": "Ajouter « {name} »",
         "listLabel": "Matériel",
@@ -1038,7 +1040,13 @@
         "groupCatalogue": "Autre matériel",
         "leftOnSiteShort": "sur place",
         "removeAria": "Retirer {name}",
-        "searchPlaceholder": "Rechercher du matériel …"
+        "searchPlaceholder": "Rechercher du matériel …",
+        "groupOnSite": "Encore sur place",
+        "groupBack": "De retour",
+        "namedTag": "nommé",
+        "onSiteUnitHint": "Le matériel attribué reste attribué jusqu’à sa récupération – figure dans la liste des restes.",
+        "onSiteNamedHint": "« nommé » n’est qu’un nom donné par le groupe, rien à libérer – figure sur la liste des restes et sur la liste de récupération.",
+        "collected": "récupéré"
       },
       "vehicles": {
         "empty": "Aucun véhicule saisi.",
@@ -1120,7 +1128,9 @@
         "personnel": "{count, plural, one {# personne} other {# personnes}}",
         "personnelEmpty": "personne de saisi",
         "vehicles": "{count, plural, one {# véhicule} other {# véhicules}}",
-        "vehiclesEmpty": "aucun véhicule"
+        "vehiclesEmpty": "aucun véhicule",
+        "onSite": "{count} sur place",
+        "toRelease": "{count} à libérer"
       },
       "picker": {
         "done": "Terminé ({count})",
@@ -1128,16 +1138,11 @@
       }
     },
     "materialReturn": {
-      "title": "Matériel de retour – libérer",
-      "description": "Le groupe n’a pas marqué ce matériel comme « resté sur place ».",
       "notUsed": "pas utilisé",
       "releaseAll": "{count, plural, one {Libérer # pièce de matériel} other {Libérer # pièces de matériel}}",
       "released": "{count, plural, one {# pièce de matériel libérée} other {# pièces de matériel libérées}}",
       "releaseFailed": "Échec de la libération",
-      "stillOnSiteTitle": "Restés sur place",
-      "stillOnSiteHint": "Reste attribué jusqu’à sa récupération – apparaît dans la liste des restes.",
-      "namedTitle": "Autre matériel sur place",
-      "namedHint": "Nommé par le groupe, pas attribué depuis le tableau – il n’y a rien à libérer. Figure sur la liste des restes et sur la liste de récupération."
+      "stillAssigned": "Encore attribué : {names}"
     },
     "code": {
       "title": "Saisir le code",
@@ -1464,32 +1469,33 @@
       "withoutDriver": "Sans conducteur"
     },
     "resourceConflict": {
-      "moveHere": "Déplacer ici",
-      "keepBoth": "Tenir sur les deux",
+      "moveHere": "Déplacer maintenant",
+      "planNext": "Planifier ensuite",
       "titleNamed": "{count, plural, one {{name} est déjà engagé} other {{name} sont déjà engagés}}",
       "drives": "conduit {vehicle}",
       "description": "Jusqu’ici sur <strong>{from}</strong>, nouveau sur <strong>{to}</strong>. Que faut-il retenir ?",
       "moveKey": "D",
-      "keepKey": "T",
+      "planKey": "P",
       "moveConsequence": "{count, plural, one {{name} quitte <strong>{from}</strong> et n’est plus que sur {to}.} other {{name} quittent <strong>{from}</strong> et ne sont plus que sur {to}.}}",
       "moveConsequenceDriver": "{name} quitte <strong>{from}</strong>, rend le rôle de conducteur pour {vehicle} et n’est plus que sur {to}.",
-      "keepConsequence": "{count, plural, one {{name} reste sur <strong>{from}</strong> et est attribué en plus à {to}.} other {{name} restent sur <strong>{from}</strong> et sont attribués en plus à {to}.}}",
-      "keepCards": "{cards, plural, =2 {Les deux cartes affichent 2×.} other {Les # cartes affichent #×.}}"
+      "planConsequence": "{count, plural, one {{name} reste sur <strong>{from}</strong> et est planifié ensuite sur {to}.} other {{name} restent sur <strong>{from}</strong> et sont planifiés ensuite sur {to}.}} Une fois libre, « Attribuer » apparaît – rien ne bouge tout seul.",
+      "queued": "Déjà planifié ensuite pour : {list}. Celui-ci vient après.",
+      "danachChip": "{name} · ensuite"
     },
     "auftragStop": {
       "title": "{vehicle} roule déjà pour la mission « {auftrag} »",
       "description": "Nouveau : <strong>{incident}</strong>. Que faut-il retenir ?",
       "addAsStop": "Ajouter à la mission",
-      "assignOnly": "Attribuer seulement en plus",
+      "planNext": "Planifier ensuite",
       "added": "{incident} est maintenant une étape de la mission « {auftrag} »",
       "changedTitle": "{incident} non ajoutée",
       "changedDescription": "L’intervention ou la mission « {auftrag} » a été modifiée ou supprimée entre-temps. Vérifiez sur le tableau.",
       "addAsStopKey": "A",
-      "assignOnlyKey": "E",
       "stopChip": "+ étape {incident}",
       "addAsStopConsequence": "<strong>{incident}</strong> devient la dernière étape de la mission « {auftrag} », {vehicle} s’y rend.",
-      "assignOnlyConsequence": "{vehicle} reste sur la mission « {auftrag} » et est attribué en plus à <strong>{incident}</strong>. Les deux cartes affichent 2×.",
-      "assignOnlyConsequenceAlso": "{vehicle} reste sur la mission « {auftrag} » ainsi que sur {others} et est attribué en plus à <strong>{incident}</strong>. Les {cards} cartes affichent {cards}×."
+      "planKey": "P",
+      "danachChip": "{vehicle} · ensuite",
+      "planConsequence": "{vehicle} poursuit la mission « {auftrag} » et est planifié ensuite sur <strong>{incident}</strong>. Une fois libre, « Attribuer » apparaît – rien ne bouge tout seul."
     },
     "vehicleStatus": {
       "bound": "Engagé",
@@ -1606,6 +1612,14 @@
         "unavailable": "indisponible"
       },
       "noResults": "Aucune personne trouvée"
+    },
+    "danach": {
+      "label": "ENSUITE",
+      "readyLabel": "ENSUITE · LIBRE MAINTENANT",
+      "assign": "Attribuer",
+      "remove": "Supprimer la planification",
+      "queuePos": "{position}e ensuite",
+      "bandAria": "Planifié ensuite : {names}"
     }
   },
   "intake": {
@@ -3324,6 +3338,13 @@
         "resourceGone": "{resource} n’est plus sur le tableau.",
         "unavailable": "{resource} est signalé comme indisponible."
       }
+    },
+    "planned": {
+      "planFailed": "Non planifié",
+      "promoteFailed": "Non attribué",
+      "saveFailed": "Non enregistré",
+      "plannedTitle": "{name} est planifié ensuite",
+      "plannedDescription": "Pour {target}. « Attribuer » apparaît dès qu'il est libre."
     }
   },
   "print": {

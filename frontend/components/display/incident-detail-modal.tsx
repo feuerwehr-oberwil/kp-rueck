@@ -576,16 +576,11 @@ export function IncidentDetailModal({
                 {isEditor && (
                 <SchadenplatzRapportSection
                   incidentId={operation.id}
+                  // Read-only, so no «Geräte freigeben» either: that is the KP's
+                  // to-do, not a report, and nobody operates this screen.
                   canEdit={false}
-                  // «Material zurück – freigeben» is the KP's own to-do list, not
-                  // a report: it was rendering here as a greyed-out «1 Gerät
-                  // freigeben» button on a screen nobody operates. The command
-                  // post's detail opts out of it in the same way and mounts the
-                  // list itself, next to the rest of its work. What the wall
-                  // needs from it — which Material stayed at the address — is on
-                  // the card, as the amber chip with the pin.
-                  showMaterialReturn={false}
                   hasRapport={operation.hasSchadenplatzRapport}
+                  activeAssignmentIds={[...operation.materialAssignments.values()]}
                   applies={rapportApplies({
                     hasBeenDispatched: operation.hasBeenDispatched,
                     status: operation.status,

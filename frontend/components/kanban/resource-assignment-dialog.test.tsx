@@ -126,14 +126,14 @@ describe("material double-booking guard", () => {
   })
 })
 
-describe("«Hierher verschieben» from the assignment dialog", () => {
+describe("«Jetzt verschieben» from the assignment dialog", () => {
   // The pump stands on Einsatz 11; the dialog assigns to incident-1.
   const holder = {
     id: "incident-2", number: 11, location: "Bahnhofstrasse 12", incidentType: "", vehicles: [], crew: [],
     materials: [PUMP.id], materialAssignments: new Map([[PUMP.id, "asg-pump"]]),
   }
 
-  /** Ticks the pump and answers «Hierher verschieben». `beforeMove` runs between the two. */
+  /** Ticks the pump and answers «Jetzt verschieben». `beforeMove` runs between the two. */
   async function moveThePump(
     onAssignMaterial: Mock<(materialId: string, operationId: string) => void>,
     beforeMove?: () => void,

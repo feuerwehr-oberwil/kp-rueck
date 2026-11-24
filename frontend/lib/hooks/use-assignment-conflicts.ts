@@ -5,6 +5,7 @@ import type { useGroups } from "@/lib/contexts/groups-context"
 import type { Operation, useOperations } from "@/lib/contexts/operations-context"
 import { getIncidentRefParts } from "@/lib/incident-types"
 import { askAuftragStop } from "@/lib/auftrag-stop-question"
+import { planNext } from "@/lib/planned-actions"
 
 type Ops = ReturnType<typeof useOperations>
 type Groups = ReturnType<typeof useGroups>
@@ -56,7 +57,7 @@ export function useAssignmentConflicts({
 
   /**
    * A vehicle onto an Auftrag from every entry point (number keys, picker, drag-drop): held by
-   * another Auftrag or an Einsatz → the move/keep question, else the assign. Resolves true only
+   * another Auftrag or an Einsatz → the Jetzt/Danach question, else the assign. Resolves true only
    * once it assigned straight away – a question is its own receipt, a failure toasts itself.
    */
   const assignVehicleToGroupWithConflict = useCallback(async (groupId: string, vehicleId: string): Promise<boolean> => {
@@ -79,6 +80,11 @@ export function useAssignmentConflicts({
         ...incidentConflicts.map((op) => ({ operationId: op.id, operationLabel: getIncidentRefParts(op).head })),
       ],
       customResolve: async (action) => {
+        if (action === "plan") {
+          const target = groups.find((group) => group.id === groupId)
+          await planNext("vehicle", vehicleId, vehicle.name, { kind: "group", id: groupId, label: target?.name ?? "" })
+          return
+        }
         if (action === "move") {
           const groupResults = await Promise.all(groupConflicts.map((group) => {
             const assignment = group.assignments.find((a) => a.resourceType === "vehicle" && a.resourceId === vehicleId)
@@ -140,6 +146,8 @@ export function useAssignmentConflicts({
       /** How to free it from each of those, for «Verschieben». */
       releases: (() => Promise<unknown> | unknown)[]
       assign: () => Promise<unknown> | unknown
+      /** «Danach vormerken» on the drop's target (`planNext`). */
+      plan: () => Promise<unknown> | unknown
     }[]
   >([])
   const conflictFlushQueued = useRef(false)
@@ -165,6 +173,7 @@ export function useAssignmentConflicts({
       conflicts: { operationId: string; operationLabel: string }[]
       releases: (() => Promise<unknown> | unknown)[]
       assign: () => Promise<unknown> | unknown
+      plan: () => Promise<unknown> | unknown
     }) => {
       conflictBatch.current.push(entry)
       if (conflictFlushQueued.current) return
@@ -199,6 +208,10 @@ export function useAssignmentConflicts({
           targetOperationLabel: holderLabel(batch[0].targetId),
           conflicts,
           customResolve: async (action) => {
+            if (action === "plan") {
+              for (const entry of batch) await entry.plan()
+              return
+            }
             if (action === "move") {
               const results = await Promise.all(batch.flatMap((entry) => entry.releases.map((free) => free())))
               if (results.some((ok) => ok === false)) return
@@ -217,8 +230,8 @@ export function useAssignmentConflicts({
    * A vehicle onto an Einsatz from every entry point (number keys, picker, drag-drop).
    * Held by no Auftrag → the plain assign (which asks its own Einsatz-Doppelbelegung).
    * Held by an Auftrag and the Einsatz is in none → «als Stopp aufnehmen?». A grouped
-   * target keeps the move/keep question naming the Auftrag. Either question names the other
-   * Einsätze that hold it too, and its «keep» assigns with `force`, so nothing asks twice.
+   * target keeps the Jetzt/Danach question naming the Auftrag. Either question offers «Danach
+   * vormerken» (owner pick 2B, 24.11.2026: never on two) instead of a double booking.
    * Returns true when it asked.
    */
   const assignVehicleToIncidentWithConflict = useCallback((vehicleId: string, vehicleName: string, operationId: string): boolean => {
@@ -234,9 +247,9 @@ export function useAssignmentConflicts({
     )
     const target = operations.find((op) => op.id === operationId)
     if (target && !target.groupId) {
-      // Several Aufträge holding one vehicle is itself a double booking; the first is asked about,
-      // the others stand with the Einsätze that keep it on «Nur zusätzlich zuweisen».
-      const [group, ...otherGroups] = groupConflicts
+      // Several Aufträge holding one vehicle is a legacy double booking; the first is asked about.
+      // «Danach vormerken» leaves every holder as it is.
+      const [group] = groupConflicts
       askAuftragStop({
         groupId: group.id,
         groupName: group.name,
@@ -244,11 +257,12 @@ export function useAssignmentConflicts({
         incidentLabel: getIncidentRefParts(target).head,
         vehicleId,
         vehicleName,
-        alsoOn: [
-          ...otherGroups.map((other) => ({ id: other.id, label: other.name })),
-          ...incidentConflicts.map((op) => ({ id: op.id, label: getIncidentRefParts(op).head })),
-        ],
-        assignOnly: () => assignVehicleToOperation(vehicleId, vehicleName, operationId, true),
+        planNext: () =>
+          planNext("vehicle", vehicleId, vehicleName, {
+            kind: "incident",
+            id: target.id,
+            label: getIncidentRefParts(target).head,
+          }),
       })
       return true
     }
@@ -263,6 +277,14 @@ export function useAssignmentConflicts({
         ...incidentConflicts.map((op) => ({ operationId: op.id, operationLabel: getIncidentRefParts(op).head })),
       ],
       customResolve: async (action) => {
+        if (action === "plan") {
+          await planNext("vehicle", vehicleId, vehicleName, {
+            kind: "incident",
+            id: operationId,
+            label: holderLabel(operationId),
+          })
+          return
+        }
         if (action === "move") {
           const groupResults = await Promise.all(groupConflicts.map((group) => {
             const assignment = group.assignments.find((a) => a.resourceType === "vehicle" && a.resourceId === vehicleId)

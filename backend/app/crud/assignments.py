@@ -35,6 +35,7 @@ from .locking import (
     lock_resource,
     lock_resources,
 )
+from .planned_assignments import ensure_not_busy, fulfil
 
 
 class IncidentNotOnBoardError(Exception):
@@ -149,9 +150,16 @@ async def assign_resource(
     resource_id: uuid.UUID,
     current_user: User,
     request: Request,
+    *,
+    exclusive: bool = False,
 ) -> IncidentAssignment:
     """
     Assign resource to incident with transaction isolation.
+
+    ``exclusive``: the board's assign (and «Zuteilen» of a Danach) – refuse while the resource
+    is Jetzt on another Einsatz or Auftrag (owner pick 2B, 24.11.2026: never on two;
+    ``planned_assignments.ensure_not_busy``). Internal writers leave it off. Either way a
+    Danach of the resource on this incident is fulfilled by the new row.
 
     Uses SELECT FOR UPDATE to prevent race conditions when multiple requests
     try to assign the same resource concurrently. This ensures atomic
@@ -169,6 +177,7 @@ async def assign_resource(
         ValueError: If resource already assigned to this incident
         LookupError: If the incident or the resource does not exist
         ResourceNotAssignableError: ``ensure_assignable`` refused the resource
+        ResourceBusyError: ``exclusive`` and the resource is Jetzt elsewhere
     """
     # Both ends must exist before anything is written. Without the incident check the INSERT
     # died on a foreign-key violation, i.e. a 500 for what is plainly a stale id; without the
@@ -198,6 +207,8 @@ async def assign_resource(
     if event is None:
         raise LookupError(f"event {incident.event_id} does not exist")
     ensure_assignable(resource, event=event, incident=incident)
+    if exclusive:
+        await ensure_not_busy(db, resource, resource_type, event_id=incident.event_id, incident_id=incident_id)
 
     # Use FOR UPDATE to lock rows and prevent race conditions
     # This ensures that if two concurrent requests try to assign the same
@@ -243,6 +254,7 @@ async def assign_resource(
         # thing — the resource IS on the incident, the caller just did not win the insert.
         await db.rollback()
         raise ValueError("Ressource ist diesem Einsatz bereits zugewiesen") from exc
+    await fulfil(db, resource_type, resource_id, incident_id=incident_id)
 
     # Note: We no longer update resource base status - assignment is tracked via incident_assignments table
 

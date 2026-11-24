@@ -5,9 +5,8 @@ import { renderWithIntl } from '@/test-utils/render-with-intl'
 vi.mock('@/components/feld/feld-rapport-form', () => ({
   FeldRapportForm: () => <div>Rapport-Formular</div>,
 }))
-vi.mock('@/components/kanban/material-return-list', () => ({
-  MaterialReturnList: () => <div>Material zurück</div>,
-}))
+const useMaterialRelease = vi.hoisted(() => vi.fn(() => ({ units: [], releasing: false, release: vi.fn() })))
+vi.mock('@/lib/hooks/use-material-release', () => ({ useMaterialRelease }))
 vi.mock('@/lib/api-client', () => ({ apiClient: {} }))
 
 import { SchadenplatzRapportSection } from '@/components/kanban/schadenplatz-rapport-section'
@@ -33,5 +32,15 @@ describe('SchadenplatzRapportSection', () => {
     expect(screen.queryByText('Rapport-Formular')).not.toBeInTheDocument()
     // …and no "kein Rapport" state either: that reads as an outstanding task.
     expect(screen.queryByText('kein Rapport')).not.toBeInTheDocument()
+  })
+
+  it('follows the board when a rapport is filed on /feld while the detail is open (Sol review)', () => {
+    const { rerender } = renderWithIntl(<SchadenplatzRapportSection incidentId="inc-1" applies hasRapport={false} />)
+    expect(useMaterialRelease).toHaveBeenLastCalledWith('inc-1', expect.objectContaining({ enabled: false }))
+
+    rerender(<SchadenplatzRapportSection incidentId="inc-1" applies hasRapport />)
+
+    expect(screen.getByText('erfasst')).toBeInTheDocument()
+    expect(useMaterialRelease).toHaveBeenLastCalledWith('inc-1', expect.objectContaining({ enabled: true }))
   })
 })

@@ -340,7 +340,10 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
  *
  * Newest **last**, like every message thread anybody has ever read — the
  * Verlauf tab is the newest-first surface, and it carries the same entries
- * interleaved with status changes and assignments.
+ * interleaved with status changes and assignments. Drawn as a chat: field left,
+ * KP right, reports as a line in the middle (Feld-tab pick 1A + 2A, 24.11.2026).
+ *
+ * Mounted by the incident detail's Feld tab and, read-only, the wall's display modal.
  */
 export function FieldMessageThread({
   operation,
@@ -443,12 +446,27 @@ export function FieldMessageThread({
     t,
   ])
 
-  // No card around the thread («Nur Abstand»): the heading names it and
-  // whitespace separates it from the Funkmeldung row above and the release
-  // list below. The display modal already frames it in a DisclosureSection,
-  // where the border made it a box in a box.
+  // Provenance, the same rule for all kinds: a name for a crew report, "im KP
+  // erfasst" for a dictated one, "automatisch (GPS)" for one the automation
+  // inferred — and "an den Trupp" for the KP's own message going the other way
+  // (§P3.2).
+  const provenance = (entry: ThreadEntry) =>
+    entry.toField
+      ? t('toField', { name: entry.who ?? t('unknownPerson'), time: formatMessageTime(entry.at) })
+      : entry.fromField && entry.who
+        ? t('fromField', { name: entry.who, time: formatMessageTime(entry.at) })
+        : entry.byAutomation
+          ? t('fromAutomation', { time: formatMessageTime(entry.at) })
+          : t('fromKp', { time: formatMessageTime(entry.at) })
+
+  // A chat (Feld-tab pick 1A + 2A, 24.11.2026): one framed box, the send box at
+  // its foot, newest message right above it. What the field said sits left,
+  // what the KP sent sits right, and a report (Angekommen / Einsatz beendet) is
+  // a line in the middle — it is an event, not somebody talking. A sentence the
+  // KP dictated from the radio is still the field's, so it sits left.
+  // Ink and greys only: blue means Auftrag (DESIGN.md «Colour roles»).
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <DetailGroupHeading
         icon={<MessageSquare className="h-3.5 w-3.5 shrink-0" />}
         action={
@@ -460,98 +478,94 @@ export function FieldMessageThread({
         {t('messagesTitle')}
       </DetailGroupHeading>
 
-      {isLoading && entries.length === 0 && (
-        <LoadingStatus className="text-xs">{tLoading('loading')}</LoadingStatus>
-      )}
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="space-y-2 px-3 py-2.5">
+          {isLoading && entries.length === 0 && (
+            <LoadingStatus className="text-xs">{tLoading('loading')}</LoadingStatus>
+          )}
 
-      {failed && (
-        <p className="text-xs text-destructive">
-          {t('messagesLoadFailed')}{' '}
-          <button type="button" onClick={onRetry} className="underline">
-            {t('messagesRetry')}
-          </button>
-        </p>
-      )}
+          {failed && (
+            <p className="text-xs text-destructive">
+              {t('messagesLoadFailed')}{' '}
+              <button type="button" onClick={onRetry} className="underline">
+                {t('messagesRetry')}
+              </button>
+            </p>
+          )}
 
-      {!isLoading && !failed && entries.length === 0 && (
-        <p className="text-xs italic text-muted-foreground/60">{t('messagesEmpty')}</p>
-      )}
+          {!isLoading && !failed && entries.length === 0 && (
+            <p className="text-xs italic text-muted-foreground/60">{t('messagesEmpty')}</p>
+          )}
 
-      {entries.length > 0 && (
-        <ol className="space-y-2">
-          {entries.map((entry, index) => (
-            <li key={`${entry.at.toISOString()}:${index}`} className="text-sm">
-              <p className="text-xs text-muted-foreground">
-                {/* Provenance, the same rule for all kinds: a name for a crew
-                    report, "im KP erfasst" for a dictated one, "automatisch
-                    (GPS)" for one the automation inferred — and "an den Trupp"
-                    for the KP's own message going the other way (§P3.2). */}
-                {entry.toField
-                  ? t('toField', {
-                      name: entry.who ?? t('unknownPerson'),
-                      time: formatMessageTime(entry.at),
-                    })
-                  : entry.fromField && entry.who
-                    ? t('fromField', { name: entry.who, time: formatMessageTime(entry.at) })
-                    : entry.byAutomation
-                      ? t('fromAutomation', { time: formatMessageTime(entry.at) })
-                      : t('fromKp', { time: formatMessageTime(entry.at) })}
-              </p>
-              {entry.label ? (
-                <p className="flex items-center gap-1.5 font-medium">
-                  {entry.label === t('arrived') ? (
-                    <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  ) : (
-                    <Flag className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          {entries.length > 0 && (
+            <ol className="flex flex-col gap-2">
+              {entries.map((entry, index) => (
+                <li
+                  key={`${entry.at.toISOString()}:${index}`}
+                  className={cn(
+                    'min-w-0',
+                    entry.label
+                      ? 'self-center rounded-full bg-muted px-2.5 py-0.5 text-center text-xs text-muted-foreground'
+                      : 'max-w-[85%] rounded-xl px-2.5 py-1.5 text-sm',
+                    !entry.label && (entry.toField ? 'self-end rounded-br-sm border border-border' : 'self-start rounded-bl-sm bg-muted'),
                   )}
-                  {entry.label}
-                </p>
-              ) : entry.toField ? (
-                <p className="flex items-start gap-1.5 break-words">
-                  <Send className="mt-1 h-3 w-3 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0">{entry.message}</span>
-                </p>
-              ) : (
-                <p className="break-words">{entry.message}</p>
-              )}
-            </li>
-          ))}
-        </ol>
-      )}
-
-      {/* «Meldung an Trupp» (§P3.2) — one line, one send. The squad reads it on
-          /feld within one poll; there is deliberately no delivery receipt,
-          because the radio never had one either. */}
-      {canEdit && (
-        <div className="space-y-1 pt-1">
-          <div className="flex items-stretch gap-2">
-            <Input
-              {...draftField.controlProps}
-              placeholder={t('sendPlaceholder')}
-              value={draft}
-              maxLength={500}
-              disabled={sending}
-              onChange={e => setDraft(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') void send()
-              }}
-              className="h-8 text-sm"
-            />
-            <Button
-              size="icon-xs"
-              variant="outline"
-              className="h-8 w-8 shrink-0"
-              aria-label={t('send')}
-              title={t('send')}
-              disabled={sending}
-              onClick={() => void send()}
-            >
-              {sending ? <ShellLoader className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
-            </Button>
-          </div>
-          <FormMessage id={formMessageId(`kp-field-message-${operation.id}`)}>{draftField.error}</FormMessage>
+                >
+                  {entry.label ? (
+                    <span className="inline-flex flex-wrap items-center justify-center gap-x-1.5">
+                      {entry.label === t('arrived') ? (
+                        <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+                      ) : (
+                        <Flag className="h-3 w-3 shrink-0" aria-hidden="true" />
+                      )}
+                      <span className="font-medium text-foreground">{entry.label}</span>
+                      <span>· {provenance(entry)}</span>
+                    </span>
+                  ) : (
+                    <>
+                      <p className="break-words text-xs text-muted-foreground">{provenance(entry)}</p>
+                      <p className="break-words">{entry.message}</p>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
         </div>
-      )}
+
+        {/* «Meldung an Trupp» (§P3.2) — one line, one send. The squad reads it on
+            /feld within one poll; there is deliberately no delivery receipt,
+            because the radio never had one either. */}
+        {canEdit && (
+          <div className="space-y-1 border-t border-border bg-background px-3 py-2">
+            <div className="flex items-stretch gap-2">
+              <Input
+                {...draftField.controlProps}
+                placeholder={t('sendPlaceholder')}
+                value={draft}
+                maxLength={500}
+                disabled={sending}
+                onChange={e => setDraft(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') void send()
+                }}
+                className="h-8 text-sm"
+              />
+              <Button
+                size="icon-xs"
+                variant="outline"
+                className="h-8 w-8 shrink-0"
+                aria-label={t('send')}
+                title={t('send')}
+                disabled={sending}
+                onClick={() => void send()}
+              >
+                {sending ? <ShellLoader className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
+              </Button>
+            </div>
+            <FormMessage id={formMessageId(`kp-field-message-${operation.id}`)}>{draftField.error}</FormMessage>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -546,3 +546,103 @@ describe('the Abschluss question (UX-PHONE-05)', () => {
     expect(block?.contains(document.activeElement)).toBe(false)
   })
 })
+
+describe('the KP Material block (Feld-tab pick 1A, 24.11.2026)', () => {
+  const pump = {
+    assignment_id: 'a-pump',
+    material_id: 'm-pump',
+    name: 'Tauchpumpe S-Gr.',
+    location: 'Magazin',
+    consumable: false,
+    used: true,
+    left_on_site: false,
+    on_board: true,
+  }
+  const releaseUnit = { assignment_id: 'a-pump', material_id: 'm-pump', name: 'Tauchpumpe S-Gr.', location: 'Magazin', used: true, answered: true }
+
+  it('frees only what the checklist on screen also calls back (Sol review)', async () => {
+    const user = userEvent.setup()
+    const release = vi.fn()
+    const kabel = { ...pump, assignment_id: 'a-kabel', material_id: 'm-kabel', name: 'Kabelrolle', used: false }
+    const load = vi.fn().mockResolvedValue(rapport({ exists: true, is_draft: false, materials: [pump, kabel] }))
+    renderWithIntl(
+      <FeldRapportForm
+        incidentId="inc-1"
+        transport={{ load, save: vi.fn(() => new Promise<never>(() => {})) }}
+        mount="kp"
+        activeAssignmentIds={['a-pump', 'a-kabel']}
+        materialRelease={{
+          units: [releaseUnit, { ...releaseUnit, assignment_id: 'a-kabel', material_id: 'm-kabel', name: 'Kabelrolle', used: false }],
+          releasing: false,
+          release,
+        }}
+      />,
+    )
+
+    await user.click(await screen.findByRole('button', { name: /^Material/ }))
+    expect(screen.getByRole('button', { name: /2 Geräte freigeben/ })).toBeInTheDocument()
+
+    // Marked «vor Ort» on screen; the save never answers, so the server set still holds the pump.
+    const trigger = document.querySelector<HTMLElement>('[data-material-chip="unit:a-pump"]')
+    if (!trigger) throw new Error('chip trigger missing')
+    await user.click(trigger)
+    await user.click(await screen.findByRole('menuitemcheckbox', { name: 'vor Ort verblieben' }))
+
+    await user.click(screen.getByRole('button', { name: /1 Gerät freigeben/ }))
+    expect(release).toHaveBeenCalledExactlyOnceWith(['a-kabel'])
+  })
+
+  it('offers nothing the server calls back while the open checklist still shows it on site', async () => {
+    // A filing from /feld cleared the tick; this form, loaded before, still shows «vor Ort».
+    const load = vi.fn().mockResolvedValue(rapport({ exists: true, is_draft: false, materials: [{ ...pump, left_on_site: true }] }))
+    renderWithIntl(
+      <FeldRapportForm
+        incidentId="inc-1"
+        transport={{ load, save: vi.fn() }}
+        mount="kp"
+        activeAssignmentIds={['a-pump']}
+        materialRelease={{ units: [releaseUnit], releasing: false, release: vi.fn() }}
+      />,
+    )
+
+    expect(await screen.findByRole('list', { name: 'Noch vor Ort' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Gerät freigeben/ })).not.toBeInTheDocument()
+  })
+
+  it('reads a unit marked «vor Ort» whose assignment is gone as collected, and opens on one still out', async () => {
+    const load = vi.fn().mockResolvedValue(
+      rapport({
+        exists: true,
+        is_draft: false,
+        materials: [
+          { ...pump, left_on_site: true },
+          { ...pump, assignment_id: 'a-gen', material_id: 'm-gen', name: 'Generator', left_on_site: true },
+        ],
+      }),
+    )
+    renderWithIntl(
+      <FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} mount="kp" activeAssignmentIds={['a-gen']} />,
+    )
+
+    // Open by itself: the Generator is still out there.
+    const onSite = await screen.findByRole('list', { name: 'Noch vor Ort' })
+    expect(within(onSite).getByText('Generator')).toBeInTheDocument()
+    const back = screen.getByRole('list', { name: 'Zurück' })
+    expect(within(back).getByText('Tauchpumpe S-Gr.')).toBeInTheDocument()
+    expect(within(back).getByText('abgeholt')).toBeInTheDocument()
+    expect(screen.getByText('2 Positionen · 1 vor Ort')).toBeInTheDocument()
+  })
+
+  it('reads the old row of a pump collected and assigned here again as «abgeholt»', async () => {
+    // Same material, new assignment: the old row's «vor Ort» is history.
+    const load = vi.fn().mockResolvedValue(rapport({ exists: true, is_draft: false, materials: [{ ...pump, left_on_site: true }] }))
+    renderWithIntl(
+      <FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} mount="kp" activeAssignmentIds={['a-pump-2']} />,
+    )
+
+    await userEvent.click(await screen.findByRole('button', { name: /^Material/ }))
+    expect(screen.queryByRole('list', { name: 'Noch vor Ort' })).not.toBeInTheDocument()
+    expect(screen.getByText('abgeholt')).toBeInTheDocument()
+  })
+})
+

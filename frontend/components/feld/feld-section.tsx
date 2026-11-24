@@ -53,6 +53,9 @@ interface FeldSectionProps {
    * away can be folded away by accident with a wet thumb.
    */
   alwaysOpen?: boolean
+  /** Starts open but can still be folded – the KP's Material block when something is
+   *  still on site. Read once, at mount (the rapport form mounts its sections after load). */
+  defaultOpen?: boolean
   /**
    * Desktop scale. On the phone every header is a 56px thumb target with room
    * to spare; in the board's detail the same block sits in a ~500px column
@@ -68,10 +71,11 @@ export function FeldSection({
   summary,
   state,
   alwaysOpen = false,
+  defaultOpen = false,
   dense = false,
   children,
 }: FeldSectionProps) {
-  const [open, setOpen] = useState(alwaysOpen)
+  const [open, setOpen] = useState(alwaysOpen || defaultOpen)
   const ref = useRef<HTMLElement>(null)
   const shouldReveal = useRef(false)
   const bodyId = useId()

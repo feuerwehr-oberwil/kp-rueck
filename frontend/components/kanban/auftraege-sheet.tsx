@@ -1,5 +1,6 @@
 "use client"
 
+import { DanachBand } from "@/components/kanban/danach-band"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import {
@@ -861,6 +862,9 @@ function AuftragCard({
             driversKnown={vehicleDriversLoaded}
             readOnly={!canEdit}
           />
+
+          {/* Danach: who and what comes onto this Auftrag after their current work. */}
+          <DanachBand holderId={group.id} className="mt-3" />
 
           {/* Zugewiesene Einsätze — the fourth peer section, same header template.
               The ordered stops the route works through: reorder by drag, status

@@ -63,6 +63,7 @@ import { columns } from "@/lib/kanban-utils"
 import { nextCardId, type BoardDirection } from "@/lib/board-keyboard-nav"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { getIncidentRefParts } from "@/lib/incident-types"
+import { planNext } from "@/lib/planned-actions"
 import { DroppableColumn } from "@/components/kanban/droppable-column"
 import { BoardEdgeChipBar, useBoardEdgeOverflow } from "@/components/kanban/board-edge-chips"
 import { useCardView } from "@/lib/card-view"
@@ -885,6 +886,12 @@ export default function FireStationDashboard() {
   // Person/Material onto an INCIDENT: if a route already holds them, ask the
   // same Doppelbelegung question vehicles have always asked instead of
   // refusing the drop outright.
+  /** An Einsatz as a «Danach vormerken» target, named the way the conflict prompt names it. */
+  const incidentTarget = (operationId: string) => {
+    const op = operations.find((o) => o.id === operationId)
+    return { kind: "incident" as const, id: operationId, label: op ? getIncidentRefParts(op).head : "" }
+  }
+
   const boardAssignPerson = (personId: string, personName: string, operationId: string) => {
     const holders = groupsHolding("personnel", personId)
     if (holders.length === 0) {
@@ -899,6 +906,7 @@ export default function FireStationDashboard() {
       conflicts: holders.map((group) => ({ operationId: group.id, operationLabel: group.name })),
       releases: releaseFromGroups("personnel", personId, holders),
       assign: () => assignPersonToOperation(personId, personName, operationId),
+      plan: () => planNext("personnel", personId, personName, incidentTarget(operationId)),
     })
   }
 
@@ -920,6 +928,7 @@ export default function FireStationDashboard() {
       conflicts: holders.map((group) => ({ operationId: group.id, operationLabel: group.name })),
       releases: releaseFromGroups("material", materialId, holders),
       assign: () => assignMaterialToOperation(materialId, operationId),
+      plan: () => planNext("material", materialId, name, incidentTarget(operationId)),
     })
   }
 
@@ -968,6 +977,12 @@ export default function FireStationDashboard() {
         ),
       ],
       assign: () => assignGroupResource(groupId, resourceType, resourceId),
+      plan: () =>
+        planNext(resourceType, resourceId, name, {
+          kind: "group",
+          id: groupId,
+          label: groups.find((group) => group.id === groupId)?.name ?? "",
+        }),
     })
   }
 

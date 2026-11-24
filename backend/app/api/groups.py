@@ -20,8 +20,10 @@ from ..crud import events as events_crud
 from ..crud import group_assignments as ga_crud
 from ..crud import groups as crud
 from ..crud.manual_order import OrderChangedError
+from ..crud.planned_assignments import ResourceBusyError
 from ..database import get_db
 from ..models import IncidentGroup, IncidentGroupAssignment
+from ..utils.error_codes import CodedHTTPException, ErrorCode
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import (
     broadcast_assignment_update,
@@ -338,6 +340,7 @@ async def assign_group_resource(
             resource_id=assignment.resource_id,
             current_user=current_user,
             request=request,
+            exclusive=True,
         )
     except LookupError as e:
         # The Auftrag was deleted between the check above and the lock.
@@ -346,6 +349,8 @@ async def assign_group_resource(
         raise HTTPException(status_code=404, detail=str(e)) from e
     except ga_crud.ResourceTypeMismatchError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
+    except ResourceBusyError as e:
+        raise CodedHTTPException(409, ErrorCode.RESOURCE_BUSY, str(e), params={"holders": ", ".join(e.holders)}) from e
     except assignments_crud.ResourceNotAssignableError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
     except ValueError as e:

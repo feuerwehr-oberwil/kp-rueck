@@ -4,7 +4,7 @@
  * The driver role is Ereignis-wide (one vehicle per person), not an incident
  * assignment, but the person is wherever that vehicle stands – the 2× marker
  * (`computeDoubleBookedPersons`) has counted it that way for a while. The prompt
- * did not: «Hierher verschieben» took the person off the crew and left them
+ * did not: «Jetzt verschieben» took the person off the crew and left them
  * driving the Mowa on the old Einsatz, still 2×. The prompt names that row
  * («fährt Mowa») and the move releases the role too.
  *

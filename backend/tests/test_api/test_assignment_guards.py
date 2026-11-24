@@ -544,6 +544,13 @@ async def test_missing_attendance_is_not_a_checkout(editor_client, test_incident
     assert (await editor_client.post(f"{path}/restore")).status_code == 200
 
 
+async def _legacy_share(db_session, incident, vehicle):
+    """A vehicle on a second card the way «Auf beiden führen» left it before 24.11.2026 – the board
+    refuses that now (owner pick 2B), but such rows still exist and must still restore."""
+    db_session.add(IncidentAssignment(incident_id=incident.id, resource_type="vehicle", resource_id=vehicle.id))
+    await db_session.commit()
+
+
 async def _use_previous_snapshot_format(db_session):
     """Previous builds recorded the other assignment IDs only."""
     for audit in await db_session.scalars(select(AuditLog).where(AuditLog.action_type == "archive")):
@@ -557,10 +564,11 @@ async def _use_previous_snapshot_format(db_session):
 async def test_two_shared_incidents_can_be_restored_in_either_order(
     editor_client, db_session, test_event, test_editor, test_vehicle, delete_order, restore_order, legacy_snapshot
 ):
-    paths = [f"/api/incidents/{(await _incident(db_session, test_event, test_editor)).id}" for _ in range(2)]
+    cards = [await _incident(db_session, test_event, test_editor) for _ in range(2)]
+    paths = [f"/api/incidents/{card.id}" for card in cards]
     payload = {"resource_type": "vehicle", "resource_id": str(test_vehicle.id)}
-    for path in paths:
-        assert (await editor_client.post(f"{path}/assign", json=payload)).status_code == 200
+    assert (await editor_client.post(f"{paths[0]}/assign", json=payload)).status_code == 200
+    await _legacy_share(db_session, cards[1], test_vehicle)
     for index in delete_order:
         assert (await editor_client.delete(paths[index])).status_code == 204
     if legacy_snapshot:
@@ -579,7 +587,7 @@ async def test_a_new_assignment_of_the_same_vehicle_is_not_the_old_share(
     paths = [f"/api/incidents/{card.id}" for card in (a, b)]
     payload = {"resource_type": "vehicle", "resource_id": str(test_vehicle.id)}
     original = (await editor_client.post(f"{paths[0]}/assign", json=payload)).json()["id"]
-    assert (await editor_client.post(f"{paths[1]}/assign", json=payload)).status_code == 200
+    await _legacy_share(db_session, b, test_vehicle)
     for path in paths:
         assert (await editor_client.delete(path)).status_code == 204
     if legacy_snapshot:

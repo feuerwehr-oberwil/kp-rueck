@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -170,5 +171,60 @@ describe('FeldMaterialChecklist — Weiteres Material', () => {
     render({ extraMaterials: [entry('Nassauger', true)], disabled: true })
     expect(screen.getByText('Nassauger')).toBeInTheDocument()
     expect(screen.queryByRole('button')).toBeNull()
+  })
+})
+
+describe('FeldMaterialChecklist — grouped (the KP detail, pick 1A 24.11.2026)', () => {
+  it('splits the chips into «Noch vor Ort» and «Zurück», a typed name marked «genannt»', () => {
+    render({
+      grouped: true,
+      rows: [
+        material({ left_on_site: true, name: 'Tauchpumpe S-Gr.' }),
+        material({ assignment_id: 'a2', name: 'Wassersauger' }),
+      ],
+      extraMaterials: [entry('Nassauger vom Betrieb', true)],
+      releaseSlot: <button type="button">1 Gerät freigeben</button>,
+    })
+
+    const onSite = screen.getByRole('list', { name: 'Noch vor Ort' })
+    expect(within(onSite).getByText('Tauchpumpe S-Gr.')).toBeInTheDocument()
+    expect(within(onSite).getByText(/Nassauger vom Betrieb/)).toHaveTextContent('Nassauger vom Betrieb · genannt')
+    const back = screen.getByRole('list', { name: 'Zurück' })
+    expect(within(back).getByText('Wassersauger')).toBeInTheDocument()
+    // One consequence line per kind on site, and the release action under «Zurück».
+    expect(screen.getByText(/Zugewiesenes bleibt zugewiesen/)).toBeInTheDocument()
+    expect(screen.getByText(/«genannt» ist nur ein Name/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '1 Gerät freigeben' })).toBeInTheDocument()
+  })
+
+  it('shows one plain list while nothing is on site', () => {
+    render({ grouped: true })
+
+    expect(screen.queryByText('Noch vor Ort')).not.toBeInTheDocument()
+    expect(screen.queryByText('Zurück')).not.toBeInTheDocument()
+    expect(screen.getByRole('list', { name: 'Material' })).toBeInTheDocument()
+  })
+})
+
+describe('FeldMaterialChecklist — grouped, keyboard', () => {
+  /** The form's role: holds the rows, so an answer re-renders the list as in the app. */
+  function Harness() {
+    const [rows, setRows] = useState([material({ name: 'Tauchpumpe S-Gr.' })])
+    return <FeldMaterialChecklist grouped rows={rows} extraMaterials={[]} onChange={setRows} onExtraMaterialsChange={vi.fn()} />
+  }
+
+  it('keeps the focus on a chip that its «vor Ort» answer moved to the other group', async () => {
+    const user = userEvent.setup()
+    renderWithIntl(<Harness />)
+
+    screen.getByRole('button', { name: /Tauchpumpe S-Gr\.$/ }).focus()
+    await user.keyboard('{Enter}')
+    await screen.findByRole('menuitemcheckbox', { name: 'vor Ort verblieben' })
+    await user.keyboard('{ArrowDown}{Enter}')
+
+    const onSite = await screen.findByRole('list', { name: 'Noch vor Ort' })
+    // The chip's menu trigger, not its ✕ («Tauchpumpe S-Gr. entfernen»).
+    const moved = within(onSite).getAllByRole('button').find(button => button.hasAttribute('data-material-chip'))
+    await vi.waitFor(() => expect(moved).toHaveFocus())
   })
 })
