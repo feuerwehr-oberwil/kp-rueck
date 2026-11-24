@@ -19,12 +19,13 @@ describe('auftragTakesAssignments', () => {
 describe('incidentCommandsFor', () => {
   const editor = { isEditor: true, printerEnabled: false }
 
-  it('offers no «Zuweisen» and no «Übertragen» on a closed Einsatz', () => {
+  it('offers no «Zuweisen», «Übertragen» or «An Auftrag verteilen» on a closed Einsatz', () => {
     expect(takesAssignments(closed)).toBe(false)
     expect(incidentCommandsFor({ ...closed, groupId: null }, editor)).not.toEqual(
       expect.arrayContaining(['assignCrew']),
     )
     expect(incidentCommandsFor({ ...closed, groupId: null }, editor)).not.toContain('transfer')
+    expect(incidentCommandsFor({ ...closed, groupId: null }, editor)).not.toContain('distribute')
     expect(incidentCommandsFor({ ...closed, groupId: null }, editor)).toContain('complete')
   })
 

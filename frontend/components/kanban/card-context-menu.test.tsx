@@ -37,3 +37,28 @@ describe('CardContextMenu «Funkdurchsage wiederholen»', () => {
     expect(screen.queryByRole('menuitem', { name: 'Funkdurchsage wiederholen' })).toBeNull()
   })
 })
+
+// Sign-off 24.11.2026: a closed Einsatz is not considered for anything new – no Auftrag either.
+describe('CardContextMenu «An Auftrag verteilen»', () => {
+  function openWithDistribute(status: Operation['status']) {
+    const operation = { id: 'op-1', status, nachbarhilfe: false, amWarten: false, groupId: null } as Operation
+    renderWithIntl(
+      <ContextMenu>
+        <ContextMenuTrigger>Karte</ContextMenuTrigger>
+        <CardContextMenu operation={operation} onEdit={vi.fn()} onDistributeToAuftrag={vi.fn()} />
+      </ContextMenu>,
+    )
+    fireEvent.contextMenu(screen.getByText('Karte'))
+  }
+
+  it('offers it on an open Einsatz', async () => {
+    openWithDistribute('active')
+    expect(await screen.findByRole('menuitem', { name: 'An Auftrag verteilen' })).toBeDefined()
+  })
+
+  it('does not offer it on a closed Einsatz', async () => {
+    openWithDistribute('complete')
+    await screen.findByRole('menuitem', { name: 'Bearbeiten' })
+    expect(screen.queryByRole('menuitem', { name: 'An Auftrag verteilen' })).toBeNull()
+  })
+})

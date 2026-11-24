@@ -22,12 +22,13 @@ export const INCIDENT_COMMANDS = [
 ] as const
 export type IncidentCommand = (typeof INCIDENT_COMMANDS)[number]
 
-const ASSIGN_COMMANDS: ReadonlySet<IncidentCommand> = new Set(['assignCrew', 'assignVehicle', 'assignMaterial', 'assignReko'])
+// What a closed Einsatz does not offer: nothing new goes onto it, and it goes on no Auftrag.
+const NOT_ON_CLOSED: ReadonlySet<IncidentCommand> = new Set(['assignCrew', 'assignVehicle', 'assignMaterial', 'assignReko', 'distribute'])
 
 /**
  * The selected Einsatz's commands for ⌘K – the card menu's rows: a viewer gets only the
- * print (with a printer), a closed Einsatz no «Zuweisen» and no «Übertragen»
- * (lib/assignable.ts), a stop no «Übertragen» (its resources belong to the Auftrag).
+ * print (with a printer), a closed Einsatz no «Zuweisen», no «An Auftrag verteilen» and no
+ * «Übertragen» (lib/assignable.ts), a stop no «Übertragen» (its resources belong to the Auftrag).
  */
 export function incidentCommandsFor(
   operation: { status: string; groupId: string | null } | undefined,
@@ -36,7 +37,7 @@ export function incidentCommandsFor(
   return INCIDENT_COMMANDS.filter((command) => {
     if (command === 'print') return printerEnabled
     if (!isEditor) return false
-    if (ASSIGN_COMMANDS.has(command)) return !operation || takesAssignments(operation)
+    if (NOT_ON_CLOSED.has(command)) return !operation || takesAssignments(operation)
     if (command === 'transfer') return !operation || (!operation.groupId && takesAssignments(operation))
     return true
   })

@@ -64,13 +64,16 @@ export function CardContextMenu({
   const tReorder = useTranslations('common.reorder')
   const { print, printing: isPrinting } = usePrintAssignmentSlip()
   const handlePrint = () => void print(operation.id)
-  // A closed Einsatz takes no new assignment (lib/assignable.ts) and is no transfer source
-  // (the server refuses it); a stop is not transferred – its resources belong to its
-  // Auftrag («Aus Auftrag lösen» stays).
+  // A closed Einsatz takes no new assignment (lib/assignable.ts), is no transfer source
+  // (the server refuses it) and goes on no Auftrag; a stop is not transferred – its
+  // resources belong to its Auftrag («Aus Auftrag lösen» stays).
   const open = takesAssignments(operation)
   const onAssignReko = open ? onAssignRekoProp : undefined
   const onAssignResource = open ? onAssignResourceProp : undefined
   const onTransfer = open && !auftragId && !operation.groupId ? onTransferProp : undefined
+  const onDistribute = open ? onDistributeToAuftrag : undefined
+  // Opening the Routen-Editor at a stop changes nothing: a closed stop keeps it.
+  const canOpenRouteEditor = Boolean(auftragId && onDistributeToAuftrag)
 
   return (
     <ContextMenuContent
@@ -84,7 +87,7 @@ export function CardContextMenu({
       </ContextMenuItem>
 
       {/* Zuweisen — reko, crew, vehicle, material, and resource transfer */}
-      {(onAssignReko || onAssignResource || onTransfer || onDistributeToAuftrag) && (
+      {(onAssignReko || onAssignResource || onTransfer || onDistribute || canOpenRouteEditor) && (
         <>
           <ContextMenuSeparator />
           {onAssignReko && (
@@ -115,8 +118,8 @@ export function CardContextMenu({
               {t('common.transferResources')}
             </ContextMenuItem>
           )}
-          {onDistributeToAuftrag && (
-            <ContextMenuItem onClick={() => onDistributeToAuftrag()}>
+          {onDistribute && (
+            <ContextMenuItem onClick={() => onDistribute()}>
               <Waypoints className="mr-2 h-4 w-4" />
               {t('common.distributeToAuftrag')}
             </ContextMenuItem>
@@ -124,7 +127,7 @@ export function CardContextMenu({
           {/* Only on cards that stand on a route, editor-gated like distribute.
               Same window-event channel as the Auftrag chip (no prop threading);
               the stop under the cursor arrives focused. */}
-          {auftragId && onDistributeToAuftrag && (
+          {canOpenRouteEditor && (
             <ContextMenuItem
               onClick={() =>
                 window.dispatchEvent(

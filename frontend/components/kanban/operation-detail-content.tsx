@@ -1937,7 +1937,8 @@ export function OperationDetailContent({
             />
           )}
 
-          {canEdit && onDistributeToAuftrag && (
+          {/* Not on a closed Einsatz: it goes on no Auftrag (lib/assignable.ts). */}
+          {canEdit && onDistributeToAuftrag && acceptsAssignments && (
             <ActionBarButton
               icon={Waypoints}
               label={t('common.distributeToAuftrag')}
