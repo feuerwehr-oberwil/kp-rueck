@@ -1244,6 +1244,8 @@ export default function MapPage() {
                                       data-detail-opener
                                       onClick={(e) => {
                                         e.stopPropagation()
+                                        // Focused, so the sheet hands the focus back here (see the card).
+                                        e.currentTarget.focus({ preventScroll: true })
                                         openPhoneRow(incident.id)
                                       }}
                                       className="sr-only"

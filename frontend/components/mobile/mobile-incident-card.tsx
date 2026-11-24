@@ -106,6 +106,9 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
         className="sr-only"
         onClick={(event) => {
           event.stopPropagation()
+          // Safari and VoiceOver may activate a button without focusing it; the sheet gives the
+          // focus back to whatever held it when it opened.
+          event.currentTarget.focus({ preventScroll: true })
           onClick()
         }}
       >
