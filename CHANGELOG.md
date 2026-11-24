@@ -30,6 +30,16 @@ will keep holding.
 
 ### Added
 
+- **Die Übungs-Steuerung is a «Regie» now, made for the phone.** A Feld-Autopilot reports what
+  the field would report – Reko vor Ort, Reko-Bericht, the drives, «Einsatz beendet», Rapporte –
+  on its own, at the pace of Ruhig / Normal / Sturm. The trainer sees what comes next with a
+  countdown and can run it now («Jetzt»), hold an incident («Halten»), or throw in a «Störung»
+  (alarms and injects in one sheet). ⏸ freezes the whole drill, simulated drives and trickled
+  check-ins included. An incident whose Trupp is signed in on `/feld` is a «Mitspieler»: the
+  Autopilot leaves it to the real people. It runs on the server, so the drill keeps going when
+  the trainer's phone locks. The GPS card and its speed slider are gone – drives live in each
+  incident's sheet. No migration (state in the `training_regie.state` settings row).
+
 - **Planned «kommt um» / «geht um» in the Appell.** Each row has a time chip («geht 22:00»,
   dashed «+ bis» while nothing is planned, amber within the hour); a person can give their own
   «bis …» on the check-in link and «Ich komme um …» / «Ich bin da bis …» on `/feld`. Every person
@@ -198,6 +208,13 @@ will keep holding.
   the ⌘K palette and the Kennzahlen table no longer cut or spill text.
 
 ### Fixed
+
+- **The Übungs-Automatik does what its switch says.** It feeds the Übung it was switched on for
+  (not simply the newest one), its «heisse Phase» counts from the switch-on instead of from when
+  the Ereignis was created, and at the maximum it switches itself off – the page shows «aus» and
+  why, instead of «an» while nothing comes. A check-in trickled over minutes can be stopped. The
+  switch has its own endpoint now (`PUT /api/training/events/{id}/autogen`); the generic settings
+  PATCH refuses `training_autogen_enabled`.
 
 - **`just dev-stop` and `just dev-clean` no longer touch the production stack.** Both also ran
   `docker compose down` on `docker-compose.yml` – `dev-clean` with `-v`, which deletes the

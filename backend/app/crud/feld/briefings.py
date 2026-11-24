@@ -15,7 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import (
     AuditLog,
-    EventSpecialFunction,
     Incident,
     IncidentAssignment,
     IncidentGroup,
@@ -33,6 +32,7 @@ from .requests import requests_for_incidents
 from .visibility import (
     _rapport_state,
     _rapport_states,
+    event_vehicle_drivers,
     get_incident_leaders,
     visible_incidents_for_personnel,
 )
@@ -106,22 +106,7 @@ async def _briefings(
         completed_at = completed_at_of.get(incident_id)
         return completed_at is not None and unassigned_at >= completed_at
 
-    # Who drives what, for this Ereignis. One query for the whole fleet: the
-    # driver is set per event (`EventSpecialFunction`), not per Schadenplatz.
-    driver_rows = await db.execute(
-        select(EventSpecialFunction.vehicle_id, Personnel.name)
-        .join(Personnel, Personnel.id == EventSpecialFunction.personnel_id)
-        .where(
-            EventSpecialFunction.event_id == event_id,
-            EventSpecialFunction.function_type == "driver",
-            EventSpecialFunction.vehicle_id.is_not(None),
-        )
-    )
-    # The `is not None` mirrors the WHERE above; it is there so the key type is
-    # a plain UUID rather than an optional one.
-    drivers: dict[uuid.UUID, str] = {
-        vehicle_id: name for vehicle_id, name in driver_rows.tuples().all() if vehicle_id is not None
-    }
+    drivers = await event_vehicle_drivers(db, event_id)
 
     route: dict[uuid.UUID, dict[str, list[Any]]] = {}
     if group_of:

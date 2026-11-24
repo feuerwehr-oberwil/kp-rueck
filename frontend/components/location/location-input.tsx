@@ -117,6 +117,9 @@ export function LocationInput({
   const [addressSearchQuery, setAddressSearchQuery] = useState("")
   const [addressResults, setAddressResults] = useState<SearchResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  // The last lookup failed (refused, unavailable): say so – «Keine Adressen gefunden.» there
+  // hid a 401 on /alarm for weeks (owner, 24.11.2026).
+  const [searchFailed, setSearchFailed] = useState(false)
   const [mapPickerOpen, setMapPickerOpen] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
   const [showCoordinates, setShowCoordinates] = useState(false)
@@ -257,7 +260,8 @@ export function LocationInput({
         signal: controller.signal,
       })
       if (controller.signal.aborted) return
-      setAddressResults(results)
+      setAddressResults(results ?? [])
+      setSearchFailed(results === null)
       setIsSearching(false)
     }, 300) // Debounce 300ms
 
@@ -685,7 +689,7 @@ export function LocationInput({
                   {!isSearching && addressResults.length === 0 && addressSearchQuery.length >= 3 && (
                     <div className="py-1">
                       <div className="px-3 py-2 text-xs text-muted-foreground text-center">
-                        {t('locationInput.noResults')}
+                        {searchFailed ? t('locationInput.searchUnavailable') : t('locationInput.noResults')}
                       </div>
                       <button
                         type="button"

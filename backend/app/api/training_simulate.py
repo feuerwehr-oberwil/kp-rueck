@@ -20,7 +20,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..auth.dependencies import CurrentEditor
 from ..crud import feld as feld_crud
 from ..crud import personnel_checkin as checkin_crud
-from ..crud import reko as reko_crud
 from ..crud.materials import apply_out_of_service
 from ..database import after_commit, async_session_maker, get_db
 from ..models import (
@@ -36,15 +35,14 @@ from ..models import (
 from ..schemas import (
     DiveraEmergencyResponse,
     FeldIncidentCreate,
-    FieldReportUpdate,
     IncidentPriority,
     IncidentResponse,
     IncidentType,
     RekoReportResponse,
-    RekoReportUpdate,
     SimulateBulkRapportResponse,
     SimulateCheckinRequest,
     SimulateCheckinResponse,
+    SimulateCheckinStopResponse,
     SimulateDiveraRequest,
     SimulateFieldCompleteRequest,
     SimulateInjectResponse,
@@ -55,24 +53,20 @@ from ..schemas import (
 from ..services import incident_display, notification_params
 from ..services.audit import log_action
 from ..services.divera_intake import broadcast_emergency_received
-from ..services.rapport_rows import STATUS_LABELS
-from ..services.reko_history import RekoAuthor
-from ..services.tokens import generate_form_token
 from ..services.training import (
     file_simulated_rapport,
     generate_training_divera_emergency,
     simulated_filer,
     stranded_pickup_note,
 )
-from ..services.training_photos import attach_training_photos
+from ..services.training_regie import place, record_history, sleep_unpaused
 from ..services.training_simulation_data import (
     RAPPORT_SIM_PROFILE,
     generate_escalation,
     generate_field_message,
     generate_reinforcement_request,
-    generate_reko_report_data,
-    scene_type,
 )
+from ..services.training_steps import StepRefusedError, file_reko_report, mark_reko_arrived, report_field_complete
 from ..services.vehicle_facts import record_vehicle_fact
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import (
@@ -80,15 +74,14 @@ from ..websocket_manager import (
     broadcast_personnel_update,
     broadcast_vehicle_update,
 )
-from .incidents import set_field_report
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/training", tags=["training"])
 
 
-async def _require_training_event(db: AsyncSession, event_id: UUID) -> Event:
-    """Shared guard: training endpoints only work on training events."""
+async def require_training_event(db: AsyncSession, event_id: UUID) -> Event:
+    """Shared guard of the training routes (also `api/training_regie.py`): 404, or 400 on a non-training event."""
     event = await db.get(Event, event_id)
     if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
@@ -97,9 +90,18 @@ async def _require_training_event(db: AsyncSession, event_id: UUID) -> Event:
     return event
 
 
-async def _get_event_incident(db: AsyncSession, event_id: UUID, incident_id: UUID) -> Incident:
+async def get_event_incident(db: AsyncSession, event_id: UUID, incident_id: UUID) -> Incident:
+    """The incident, when it is a live one of this event; else 404."""
     incident = await db.get(Incident, incident_id)
     if not incident or incident.event_id != event_id or incident.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.INCIDENT_NOT_IN_EVENT)
+    return incident
+
+
+async def _event_incident_any(db: AsyncSession, event_id: UUID, incident_id: UUID) -> Incident:
+    """Like `get_event_incident`, deleted ones included – the Reko endpoints never checked that."""
+    incident = await db.get(Incident, incident_id)
+    if not incident or incident.event_id != event_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.INCIDENT_NOT_IN_EVENT)
     return incident
 
@@ -107,7 +109,9 @@ async def _get_event_incident(db: AsyncSession, event_id: UUID, incident_id: UUI
 # One trickle task per event at most; module-level so requests share the guard
 # and the task isn't garbage-collected mid-run. In-memory only — a backend
 # restart drops pending trickles, which is fine for an exercise aid.
+# `_trickle_pending` counts who has not arrived yet, for the stop's answer.
 _trickle_tasks: dict[UUID, asyncio.Task[None]] = {}
+_trickle_pending: dict[UUID, int] = {}
 
 
 async def _trickle_checkins(event_id: UUID, people: list[tuple[UUID, str]], window_seconds: float) -> None:
@@ -115,8 +119,9 @@ async def _trickle_checkins(event_id: UUID, people: list[tuple[UUID, str]], wind
     offsets = sorted(random.uniform(window_seconds * 0.05, window_seconds) for _ in people)
     elapsed = 0.0
     for (person_id, name), offset in zip(people, offsets, strict=False):
-        await asyncio.sleep(max(0.0, offset - elapsed))
+        await sleep_unpaused(max(0.0, offset - elapsed))  # the Regie's ⏸ holds the trickle
         elapsed = offset
+        _trickle_pending[event_id] -= 1
         try:
             async with async_session_maker() as db:
                 result = await checkin_crud.check_in_personnel(db, event_id, person_id)
@@ -141,7 +146,7 @@ async def simulate_checkin(
     Randomly selects unchecked personnel and checks them in — immediately, or
     trickled over ``over_minutes`` so arrivals mirror a real Aufgebot.
     """
-    await _require_training_event(db, event_id)
+    await require_training_event(db, event_id)
 
     # Validate count
     count = max(1, min(50, request.count))
@@ -176,6 +181,7 @@ async def simulate_checkin(
                 detail="Ein gestaffeltes Einchecken läuft bereits",
             )
         people = [(p.id, p.name) for p in to_checkin]
+        _trickle_pending[event_id] = len(people)
         _trickle_tasks[event_id] = asyncio.create_task(_trickle_checkins(event_id, people, over_minutes * 60.0))
         return SimulateCheckinResponse(
             checked_in=[],
@@ -204,6 +210,17 @@ async def simulate_checkin(
     )
 
 
+@router.delete("/events/{event_id}/simulate/checkin", response_model=SimulateCheckinStopResponse)
+async def stop_simulated_checkin(event_id: UUID, current_user: CurrentEditor) -> SimulateCheckinStopResponse:
+    """Stop a trickled check-in: whoever has not arrived yet stays away. 0 when none is running."""
+    task = _trickle_tasks.pop(event_id, None)
+    pending = _trickle_pending.pop(event_id, 0)
+    if not task or task.done():
+        return SimulateCheckinStopResponse(stopped=0)
+    task.cancel()
+    return SimulateCheckinStopResponse(stopped=pending)
+
+
 @router.post("/events/{event_id}/simulate/field-complete/{incident_id}", response_model=IncidentResponse)
 async def simulate_field_complete(
     event_id: UUID,
@@ -222,12 +239,9 @@ async def simulate_field_complete(
     incident. Deliberately does NOT change the status — closing is the
     operator's board action, mimicking the real command-post split.
 
-    This used to write ``incident.field_complete_reported_at`` by hand, which
-    meant a training run stamped no provenance and rang no bell — the one thing
-    the exercise is supposed to rehearse. It now goes through the **KP-parity
-    endpoint** (`POST /api/incidents/{id}/field-report`), so the simulated and
-    the real operator path are byte-for-byte the same code, audit entry and
-    notification included.
+    Goes through the same CRUD calls as the **KP-parity endpoint**
+    (`POST /api/incidents/{id}/field-report`) – `services.training_steps.report_field_complete`,
+    shared with the Regie – audit entry and notification included.
 
     The Abholung answer (decision 24) follows the «bleibt vor Ort» pill, the
     suggestion /feld makes (``crud.feld.vehicle_on_site``, owner 23.11.2026): a
@@ -236,33 +250,15 @@ async def simulate_field_complete(
     ``crud.feld.record_pickup`` as that answer (``self_drive``) under the same
     KP actor: through the parity PATCH a KP «nein» reads «Abholung disponiert».
     """
-    await _require_training_event(db, event_id)
-    incident = await _get_event_incident(db, event_id, incident_id)
-
-    pickup_needed = payload.pickup_needed if payload else None
-    pickup_note = payload.pickup_note if payload else None
-    if pickup_needed is None:
-        pickup_needed = await feld_crud.vehicle_on_site(db, incident) is None
-        if pickup_needed and pickup_note is None:
-            pickup_note = stranded_pickup_note(incident)
-
-    # The parity endpoint, called as an editor — same handler, same CRUD, same
-    # provenance rule (the personnel FKs stay NULL for a KP write, decision 28).
-    await set_field_report(
-        incident_id=incident_id,
-        payload=FieldReportUpdate(field_complete_reported_at=datetime.now(UTC)),
-        request=request,
-        db=db,
-        current_user=current_user,
-    )
-    await feld_crud.record_pickup(
+    await require_training_event(db, event_id)
+    incident = await get_event_incident(db, event_id, incident_id)
+    await report_field_complete(
         db,
         incident,
-        actor=feld_crud.FieldActor(user=current_user),
-        needed=pickup_needed,
-        note=pickup_note,
+        user=current_user,
+        pickup_needed=payload.pickup_needed if payload else None,
+        pickup_note=payload.pickup_note if payload else None,
         request=request,
-        self_drive=not pickup_needed,
     )
 
     await db.refresh(incident)
@@ -286,24 +282,12 @@ async def simulate_reko_arrived(
     "Reko vor Ort" → "Reko-Meldung" as two separate, realistically-timed steps
     (the one-shot ``simulate_reko`` below still does both at once).
     """
-    event = await db.get(Event, event_id)
-    if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
-    if not event.training_flag:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorMessages.TRAINING_EVENTS_ONLY)
-
-    incident = await db.get(Incident, incident_id)
-    if not incident or incident.event_id != event_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.INCIDENT_NOT_IN_EVENT)
-
-    if incident.status != "reko":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Einsatz muss im Status «Reko» sein (aktuell: «{STATUS_LABELS.get(incident.status, incident.status)}»)",
-        )
-
-    token = generate_form_token(str(incident_id), "reko")
-    await reko_crud.mark_reko_arrived(db, incident_id, token)
+    await require_training_event(db, event_id)
+    incident = await _event_incident_any(db, event_id, incident_id)
+    try:
+        await mark_reko_arrived(db, incident)
+    except StepRefusedError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     await db.refresh(incident)
     response = await incident_display.incident_with_display(db, incident)
@@ -325,73 +309,12 @@ async def simulate_reko(
     Marks arrival, generates random report data, and submits it.
     Triggers the same status transitions and notifications as a real submission.
     """
-    # Verify event exists and is training
-    event = await db.get(Event, event_id)
-    if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
-    if not event.training_flag:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorMessages.TRAINING_EVENTS_ONLY)
-
-    # Verify incident belongs to event
-    incident = await db.get(Incident, incident_id)
-    if not incident or incident.event_id != event_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.INCIDENT_NOT_IN_EVENT)
-
-    if incident.status != "reko":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Einsatz muss im Status «Reko» sein (aktuell: «{STATUS_LABELS.get(incident.status, incident.status)}»)",
-        )
-
-    # Generate token and mark arrival
-    token = generate_form_token(str(incident_id), "reko")
-    await reko_crud.mark_reko_arrived(db, incident_id, token)
-
-    # Get or create report
-    report = await reko_crud.get_or_create_reko_report(db, incident_id, token)
-
-    # Generate and apply random reko data based on incident type, title and dispatch description.
-    # Description carries keyword cues the title alone misses (e.g. "Heizöl im Keller" type=oelwehr
-    # → keller subcategory; "Brand Tiefgarage" type=brandbekaempfung → fahrzeug subcategory).
-    reko_data = generate_reko_report_data(
-        incident.type,
-        title=incident.title,
-        description=incident.description,
-    )
-    # A not-relevant report carries no illustration (`_not_relevant_report`).
-    photo_summary = reko_data.pop("photo_summary", None)
-    photo_depth_cm = reko_data.pop("photo_depth_cm", None)
-    update_data = RekoReportUpdate(**reko_data)
-    # The simulated crew is a form link without a person: «Feld» in the Chronik.
-    author = RekoAuthor.feld(None)
-    updated, filed_now = await reko_crud.update_reko_report(db, report.id, update_data, author=author, submit=True)
-
-    # The wording illustration alone, or a type photo when the text has none.
-    photo_filenames = []
-    if updated.is_relevant:
-        photo_filenames = await attach_training_photos(
-            incident_id,
-            scene_type(incident.type, incident.title),
-            current_photos=updated.photos_json,
-            summary_text=photo_summary,
-            depth_cm=photo_depth_cm,
-        )
-    if photo_filenames:
-        # Part of the simulated filing, not an edit after it: no Chronik row of its own.
-        updated.photos_json = (updated.photos_json or []) + photo_filenames
-        await db.flush()
-        await db.refresh(updated)
-
-    # Refresh incident to get current state
-    await db.refresh(incident)
-
-    # The filing's side effects (status, priority, bell) – only when this run filed the
-    # incident's one report; a second simulation edits it without a second bell.
-    if filed_now:
-        await reko_crud.process_reko_submission(db, incident, updated)
-
-    # Refresh incident again for response
-    await db.refresh(incident)
+    await require_training_event(db, event_id)
+    incident = await _event_incident_any(db, event_id, incident_id)
+    try:
+        updated = await file_reko_report(db, incident)
+    except StepRefusedError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     # Build response
     response_data = RekoReportResponse.model_validate(updated)
@@ -428,7 +351,7 @@ async def simulate_divera_alarm(
     (ÜBUNG badge), excluded from auto-attach and only attachable to training
     events — it never touches real operations or Divera itself.
     """
-    await _require_training_event(db, event_id)
+    await require_training_event(db, event_id)
 
     if request.category and request.category not in ["normal", "critical"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorMessages.CATEGORY_INVALID)
@@ -436,6 +359,7 @@ async def simulate_divera_alarm(
     # Same Literal-vs-str gap as in `generate_emergencies`: the check above is the guarantee.
     category = cast(Literal["normal", "critical"] | None, request.category)
     emergency = await generate_training_divera_emergency(db, event_id, category=category)
+    await record_history(db, event_id, f"Alarm im Pool · {emergency.title}")
 
     response = DiveraEmergencyResponse.model_validate(emergency)
     background_tasks.add_task(broadcast_emergency_received, response.model_dump(mode="json"))
@@ -458,8 +382,8 @@ async def simulate_escalation(
     fact (audit ``situation_escalated`` → Journal and Chronik): the bell is
     dismissible and the description is editable.
     """
-    await _require_training_event(db, event_id)
-    incident = await _get_event_incident(db, event_id, incident_id)
+    await require_training_event(db, event_id)
+    incident = await get_event_incident(db, event_id, incident_id)
 
     if incident.status == "complete" or incident.completed_at is not None:
         raise HTTPException(
@@ -493,6 +417,7 @@ async def simulate_escalation(
     )
     await db.flush()
     await db.refresh(incident)
+    await record_history(db, event_id, f"Lage verschärft sich · {place(incident)}", incident_id=incident.id)
 
     response = await incident_display.incident_with_display(db, incident)
     background_tasks.add_task(broadcast_incident_update, response.model_dump(mode="json"), "update")
@@ -516,8 +441,8 @@ async def simulate_reinforcement_request(
     bell entry only, so the request was gone once dismissed (owner, 23.11.2026).
     What (and whether) to send is the trainee's decision on the board.
     """
-    await _require_training_event(db, event_id)
-    incident = await _get_event_incident(db, event_id, incident_id)
+    await require_training_event(db, event_id)
+    incident = await get_event_incident(db, event_id, incident_id)
 
     if incident.status == "complete" or incident.completed_at is not None:
         raise HTTPException(
@@ -539,6 +464,8 @@ async def simulate_reinforcement_request(
     if created is None:  # never: the item is always set
         raise HTTPException(status_code=500, detail="Verstärkung konnte nicht erfasst werden")
     work_item, notification = created
+    await record_history(db, event_id, f"Verstärkung angefordert · {place(incident)}", incident_id=incident.id)
+
     return SimulateInjectResponse(message=notification.message if notification else work_item.label)
 
 
@@ -582,9 +509,13 @@ async def simulate_rapport(
     follows ``RAPPORT_SIM_PROFILE``: realistically patchy, because chasing the
     gaps is the skill being trained.
     """
-    await _require_training_event(db, event_id)
-    incident = await _get_event_incident(db, event_id, incident_id)
-    return await file_simulated_rapport(db, incident, current_user=current_user, rng=random.Random(), request=request)
+    await require_training_event(db, event_id)
+    incident = await get_event_incident(db, event_id, incident_id)
+    rapport = await file_simulated_rapport(
+        db, incident, current_user=current_user, rng=random.Random(), request=request
+    )
+    await record_history(db, event_id, f"Rapport eingetroffen · {place(incident)}", incident_id=incident.id)
+    return rapport
 
 
 @router.post("/events/{event_id}/simulate/rapport", response_model=SimulateBulkRapportResponse)
@@ -604,7 +535,7 @@ async def simulate_rapports_bulk(
     the same set the Restliste calls "ohne Rapport", drafts included, since a
     draft is somebody who started and walked away rather than a filed rapport.
     """
-    await _require_training_event(db, event_id)
+    await require_training_event(db, event_id)
 
     incidents_result = await db.execute(
         select(Incident)
@@ -639,6 +570,8 @@ async def simulate_rapports_bulk(
     ]
 
     skipped = len(candidates) - len(rapports)
+    if rapports:
+        await record_history(db, event_id, f"{len(rapports)} Rapporte eingetroffen")
     return SimulateBulkRapportResponse(
         candidates=len(candidates),
         covered=len(rapports),
@@ -669,8 +602,8 @@ async def simulate_field_message(
     """
     from ..services.settings import FELD_MESSAGE_CHIPS_KEY, get_setting_value, parse_message_chips
 
-    await _require_training_event(db, event_id)
-    incident = await _get_event_incident(db, event_id, incident_id)
+    await require_training_event(db, event_id)
+    incident = await get_event_incident(db, event_id, incident_id)
 
     rng = random.Random()
     chips = parse_message_chips(await get_setting_value(db, FELD_MESSAGE_CHIPS_KEY))
@@ -678,6 +611,7 @@ async def simulate_field_message(
     actor = await simulated_filer(db, incident, current_user, rng)
 
     notification = await feld_crud.record_field_message(db, incident, actor=actor, message=text, request=request)
+    await record_history(db, event_id, f"Meldung vom Feld · {place(incident)}", incident_id=incident.id)
     return SimulateInjectResponse(message=notification.message if notification else text)
 
 
@@ -723,8 +657,8 @@ async def simulate_field_report(
     the Meldung (``description``), which is what the card prints and the KP
     reads out. Priority stays medium: triaging it is the operator's job.
     """
-    await _require_training_event(db, event_id)
-    incident = await _get_event_incident(db, event_id, incident_id)
+    await require_training_event(db, event_id)
+    incident = await get_event_incident(db, event_id, incident_id)
 
     text = payload.text.strip()
     if not text:
@@ -758,6 +692,7 @@ async def simulate_field_report(
     # Same broadcast as the real /feld endpoint — the card must not be a ghost
     # until somebody polls.
     after_commit(db, broadcast_incident_update, {"id": str(new_incident.id), "status": new_incident.status}, "create")
+    await record_history(db, event_id, f"Neue Meldung · {place(new_incident)}", incident_id=new_incident.id)
 
     return SimulateFieldReportResponse(
         incident_id=new_incident.id,
@@ -786,8 +721,8 @@ async def simulate_field_arrived(
     moves a time the KP has already acted on, and the arrival the GPS automation
     stamped keeps its own provenance.
     """
-    await _require_training_event(db, event_id)
-    incident = await _get_event_incident(db, event_id, incident_id)
+    await require_training_event(db, event_id)
+    incident = await get_event_incident(db, event_id, incident_id)
 
     actor = await simulated_filer(db, incident, current_user, random.Random())
     changed = await feld_crud.record_arrival(
@@ -799,10 +734,11 @@ async def simulate_field_arrived(
         request=request,
     )
 
-    place = incident.location_address or incident.title
+    where = place(incident)
     if not changed:
-        return SimulateInjectResponse(message=f"Angekommen war bereits gemeldet: {place}")
-    return SimulateInjectResponse(message=f"Angekommen: {place}{actor.suffix}")
+        return SimulateInjectResponse(message=f"Angekommen war bereits gemeldet: {where}")
+    await record_history(db, event_id, f"Angekommen · {where}", incident_id=incident.id)
+    return SimulateInjectResponse(message=f"Angekommen: {where}{actor.suffix}")
 
 
 @router.post("/events/{event_id}/simulate/pickup/{incident_id}", response_model=SimulateInjectResponse)
@@ -826,8 +762,8 @@ async def simulate_pickup(
     warning bell behave exactly as they do for a crew tapping on `/feld`. «erledigt»
     is the lift that came (``self_drive=False``), never «Wir fahren selbst».
     """
-    await _require_training_event(db, event_id)
-    incident = await _get_event_incident(db, event_id, incident_id)
+    await require_training_event(db, event_id)
+    incident = await get_event_incident(db, event_id, incident_id)
 
     needed = payload.needed if payload else True
     note = (payload.note if payload else None) or (stranded_pickup_note(incident) if needed else None)
@@ -843,14 +779,17 @@ async def simulate_pickup(
         self_drive=False,
     )
 
-    place = incident.location_address or incident.title
+    where = place(incident)
     if not changed:
         return SimulateInjectResponse(
-            message=(f"Abholung war bereits gemeldet: {place}" if needed else f"Keine offene Abholung: {place}")
+            message=(f"Abholung war bereits gemeldet: {where}" if needed else f"Keine offene Abholung: {where}")
         )
+    await record_history(
+        db, event_id, f"Abholung {'nötig' if needed else 'erledigt'} · {where}", incident_id=incident.id
+    )
     if needed:
-        return SimulateInjectResponse(message=f"Abholung nötig: {place} ({note}){actor.suffix}")
-    return SimulateInjectResponse(message=f"Abholung erledigt: {place}{actor.suffix}")
+        return SimulateInjectResponse(message=f"Abholung nötig: {where} ({note}){actor.suffix}")
+    return SimulateInjectResponse(message=f"Abholung erledigt: {where}{actor.suffix}")
 
 
 @router.post(
@@ -872,8 +811,8 @@ async def simulate_vehicle_breakdown(
     """
     from ..services.gps_simulation import gps_simulation
 
-    await _require_training_event(db, event_id)
-    incident = await _get_event_incident(db, event_id, incident_id)
+    await require_training_event(db, event_id)
+    incident = await get_event_incident(db, event_id, incident_id)
 
     # Readiness is `out_of_service_since`, not the legacy `status` mirror, and an
     # archived vehicle is retired inventory that must not be picked as a victim.
@@ -919,6 +858,9 @@ async def simulate_vehicle_breakdown(
             event_id=event_id,
             dismissed=False,
         )
+    )
+    await record_history(
+        db, event_id, f"Fahrzeug fällt aus · {vehicle.name} · {place(incident)}", incident_id=incident.id
     )
     await db.commit()
     await db.refresh(vehicle)

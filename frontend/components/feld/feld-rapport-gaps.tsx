@@ -12,13 +12,13 @@
  * - **missing** (Kurzbericht, Mannschaft – the sections whose state can be
  *   «todo»): only these open the question. The title names them, and the quiet
  *   answer says what is given up («Ohne Kurzbericht abschliessen»).
- * - **optional** (Material, Eigentümer-/Halterdaten): shown as quieter rows
+ * - **optional** (Material, Eigentümer / Geschädigte): shown as quieter rows
  *   under the missing ones, so they can still be reached in one tap, but on
  *   their own they never ask – the rapport simply files.
  *
  * «Zurück zum Rapport» is the filled, focused answer (KP Front's `safeAnswer`):
  * an Enter or a reflex tap must not file over a gap. Every row closes the
- * question and lands on its section (FeldSection `jumpSignal`).
+ * question and lands on its block (`RapportSection` `jumpSignal` in feld-rapport-form.tsx).
  */
 
 import { useRef } from 'react'
