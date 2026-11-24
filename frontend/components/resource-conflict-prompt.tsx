@@ -1,9 +1,11 @@
 "use client"
 
-import { ArrowRightLeft, Copy, Package, Truck, User } from "lucide-react"
+import { ArrowRightLeft, Clock, Package, Truck, User } from "lucide-react"
 import { useTranslations } from "next-intl"
 import type { ReactNode } from "react"
 import { useOperations } from "@/lib/contexts/operations-context"
+import { useGroups } from "@/lib/contexts/groups-context"
+import { usePlanned } from "@/lib/contexts/planned-context"
 import { drivenElsewhere } from "@/lib/driver-conflict"
 import { getIncidentRefParts } from "@/lib/incident-types"
 import { ChoiceDiagram, ChoiceDialog, type MiniCard, type MiniChipTone } from "@/components/ui/choice-dialog"
@@ -13,15 +15,18 @@ const strong = (chunks: ReactNode) => <strong className="font-semibold text-fore
 /**
  * A person, a vehicle and a Tauchpumpe are all single physical things — each can
  * only be in one place at a time. When an operator assigns one that is still on
- * another incident (see operations-context `resourceConflict`), this asks the
- * three questions that actually exist: *move* it here (release it there), *keep*
- * the double booking, or leave it alone.
+ * another incident or Auftrag (see operations-context `resourceConflict`), this asks the
+ * three questions that actually exist: move it here **Jetzt** (release it there), plan it
+ * **Danach** here (it stays where it works; «Zuteilen» comes once it is free), or leave it
+ * alone. A resource is Jetzt on one holder only (owner pick 2B, 24.11.2026): «Auf beiden
+ * führen» is gone, and the server refuses a second one (409 `resource_busy`).
  *
  * Leaving it alone is the default for every resource (owner pick #3, 23.11.2026: «cancel is
  * default. move or auf beiden needs to be clearly described and manually selected»). The two
  * changes are choice cards (`ChoiceDialog`): a mini before/after of the cards and one sentence
- * each, a click or the card's letter (V / B) runs it, Enter and Esc change nothing. A consumable
- * never gets here – several incidents draw from the same Bindemittel.
+ * each, a click or the card's letter (V / D) runs it, Enter and Esc change nothing. A resource
+ * that already has a Danach says so: a new one queues behind. A consumable never gets here –
+ * several incidents draw from the same Bindemittel.
  *
  * It is THE dialog for that question, from every entry point: kanban drag-drop, map, command
  * palette, context menu, assignment dialog, Auftrag sheet.
@@ -36,6 +41,8 @@ export function ResourceConflictPrompt() {
   const t = useTranslations('incidents.resourceConflict')
   const tCommon = useTranslations('incidents.common')
   const { resourceConflict, resolveResourceConflict, cancelResourceConflict, operations, personnel } = useOperations()
+  const { groups } = useGroups()
+  const { queueOf } = usePlanned()
 
   if (!resourceConflict) return null
 
@@ -57,21 +64,21 @@ export function ResourceConflictPrompt() {
     .join(", ")
   const from = conflicts.map((c) => c.operationLabel).join(", ")
   const names = { name: resourceName, count, from, to: targetOperationLabel }
+  // Where it is planned Danach already – a new plan goes to the end of that queue.
+  const queued = queueOf(resourceType, resourceConflict.resourceId).map((plan) => {
+    const holderId = plan.incident_id ?? plan.incident_group_id
+    const op = operations.find((o) => o.id === holderId)
+    return op ? getIncidentRefParts(op).head : (groups.find((g) => g.id === holderId)?.name ?? "")
+  })
 
   // What stands on each holder: one drop of a Modul-Block asks once, but its devices can sit on
   // different cards (`held`). The target gets all of them.
   const heldOn = (c: (typeof conflicts)[number]) => c.held ?? [{ id: resourceConflict.resourceId, name: resourceName }]
   const everything = [...new Map(conflicts.flatMap(heldOn).map((r) => [r.id, r])).values()]
-  // Each holder card of a resource plus the target: «2×» on two cards, «3×» on three.
-  const timesOn = (id: string) => conflicts.filter((c) => heldOn(c).some((r) => r.id === id)).length + 1
-  const cards = conflicts.length + 1
-  // «Beide / Alle N Karten zeigen N×» holds only while every resource stands on every holder.
-  const sameEverywhere = everything.every((r) => timesOn(r.id) === cards)
-
   const card = (id: string, title: string, tone: MiniChipTone, resources: { id: string; name: string }[]): MiniCard => ({
     id,
     title,
-    chips: resources.map((r) => ({ label: tone === "double" ? `${r.name} · ${timesOn(r.id)}×` : r.name, tone })),
+    chips: resources.map((r) => ({ label: tone === "danach" ? t('danachChip', { name: r.name }) : r.name, tone })),
   })
 
   return (
@@ -100,23 +107,23 @@ export function ResourceConflictPrompt() {
           onSelect: () => resolveResourceConflict("move"),
         },
         {
-          shortcut: t('keepKey'),
-          label: t('keepBoth'),
-          icon: <Copy aria-hidden />,
+          shortcut: t('planKey'),
+          label: t('planNext'),
+          icon: <Clock aria-hidden />,
           diagram: (
             <ChoiceDiagram
-              link="both"
-              from={conflicts.map((c) => card(c.operationId, c.operationLabel, "double", heldOn(c)))}
-              to={card(targetOperationId, targetOperationLabel, "double", everything)}
+              link="next"
+              from={conflicts.map((c) => card(c.operationId, c.operationLabel, "plain", heldOn(c)))}
+              to={card(targetOperationId, targetOperationLabel, "danach", everything)}
             />
           ),
           consequence: (
             <>
-              {t.rich('keepConsequence', { ...names, strong })}
-              {sameEverywhere && <> {t('keepCards', { cards })}</>}
+              {t.rich('planConsequence', { ...names, strong })}
+              {queued.length > 0 && <> {t('queued', { list: queued.join(", ") })}</>}
             </>
           ),
-          onSelect: () => resolveResourceConflict("keep"),
+          onSelect: () => resolveResourceConflict("plan"),
         },
       ]}
     />

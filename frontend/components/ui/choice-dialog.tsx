@@ -2,7 +2,7 @@
 
 import { type KeyboardEvent, type ReactNode, useId, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { ArrowRight, Plus } from 'lucide-react'
+import { ArrowRight, Clock } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -30,9 +30,9 @@ export interface Choice {
 }
 
 /**
- * A question with two answers that both CHANGE something and no safe «yes» – the Doppelbelegung
- * («Hierher verschieben» / «Auf beiden führen») and the vehicle that drives an Auftrag («In
- * Auftrag aufnehmen» / «Nur zusätzlich zuweisen»). Owner pick 3A (23.11.2026): «cancel is
+ * A question with two answers that both CHANGE something and no safe «yes» – the resource that
+ * is Jetzt elsewhere («Jetzt verschieben» / «Danach vormerken») and the vehicle that drives an
+ * Auftrag («In Auftrag aufnehmen» / «Danach vormerken»). Owner pick 3A (23.11.2026): «cancel is
  * default. move or auf beiden needs to be clearly described and manually selected».
  *
  * - Two choice cards side by side (stacked on a phone), each with a mini before/after diagram
@@ -137,8 +137,9 @@ export function ChoiceDialog({
   )
 }
 
-/** A resource chip on a mini card: as it is, gone from there (struck), or held twice. */
-export type MiniChipTone = 'plain' | 'gone' | 'double'
+/** A resource chip on a mini card: as it is, gone from there (struck), or planned next (grey
+ *  dashed, like the card's Danach band). */
+export type MiniChipTone = 'plain' | 'gone' | 'danach'
 
 /** One incident (or Auftrag) card of a `ChoiceDiagram`: its name and the chips that matter. */
 export interface MiniCard {
@@ -150,7 +151,7 @@ export interface MiniCard {
 const CHIP_TONE: Record<MiniChipTone, string> = {
   plain: 'bg-secondary text-secondary-foreground',
   gone: 'border-dashed border-border text-muted-foreground line-through',
-  double: 'border-warning/60 bg-warning/10 text-warning-foreground',
+  danach: 'border-dashed border-muted-foreground/50 text-muted-foreground',
 }
 
 // Names and addresses take up to two lines, then clamp (sign-off 24.11.2026: «Hoffmann Li…»,
@@ -179,11 +180,11 @@ function MiniCardView({ card, faded }: { card: MiniCard; faded?: boolean }) {
 
 /**
  * The picture on a choice card: where things stand before (left) and what the answer makes of
- * it (right). `link` = `move` draws an arrow (it goes from left to right), `both` a plus (it is
- * on both). Every chip carries a word or a stroke, never a colour on its own.
+ * it (right). `link` = `move` draws an arrow (it goes from left to right), `next` a clock (it
+ * comes later). Every chip carries a word or a stroke, never a colour on its own.
  */
-export function ChoiceDiagram({ from, to, link }: { from: MiniCard[]; to: MiniCard; link: 'move' | 'both' }) {
-  const Link = link === 'move' ? ArrowRight : Plus
+export function ChoiceDiagram({ from, to, link }: { from: MiniCard[]; to: MiniCard; link: 'move' | 'next' }) {
+  const Link = link === 'move' ? ArrowRight : Clock
   return (
     <span className="grid grid-cols-[minmax(0,1fr)_16px_minmax(0,1fr)] items-center gap-1.5" aria-hidden>
       <span className="grid gap-1.5">

@@ -27,9 +27,14 @@ def upgrade() -> None:
     op.create_table(
         "planned_assignments",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("event_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("events.id", ondelete="CASCADE"), nullable=False),
         sa.Column(
-            "incident_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("incidents.id", ondelete="CASCADE"), nullable=True
+            "event_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("events.id", ondelete="CASCADE"), nullable=False
+        ),
+        sa.Column(
+            "incident_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("incidents.id", ondelete="CASCADE"),
+            nullable=True,
         ),
         sa.Column(
             "incident_group_id",

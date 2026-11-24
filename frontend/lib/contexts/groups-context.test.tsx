@@ -565,7 +565,7 @@ describe("GroupsProvider — assign / unassign route resources", () => {
     await waitFor(() => expect(result.current.groups[0].assignments).toHaveLength(0))
   })
 
-  // Sol review E round 3: a staged «Hierher verschieben» whose Auftrag holder was released
+  // Sol review E round 3: a staged «Jetzt verschieben» whose Auftrag holder was released
   // elsewhere meanwhile goes on with the assign – the 404 says the resource is free already.
   it("counts a 404 on unassign as released, without a toast", async () => {
     const { ApiError } = await vi.importActual<typeof import("@/lib/api/types/common")>("@/lib/api/types/common")

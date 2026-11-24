@@ -35,7 +35,9 @@ async def three(db_session: AsyncSession, test_event: Event, test_user: User) ->
 
 
 async def _assign(client: AsyncClient, incident: Incident, kind: str, rid) -> int:
-    response = await client.post(f"/api/incidents/{incident.id}/assign", json={"resource_type": kind, "resource_id": str(rid)})
+    response = await client.post(
+        f"/api/incidents/{incident.id}/assign", json={"resource_type": kind, "resource_id": str(rid)}
+    )
     return response.status_code
 
 

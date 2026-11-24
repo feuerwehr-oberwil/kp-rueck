@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from "vitest"
 import { renderHook } from "@testing-library/react"
 import { useAssignmentConflicts, type AssignmentConflictInputs } from "./use-assignment-conflicts"
 import { askAuftragStop, type AuftragStopQuestion } from "@/lib/auftrag-stop-question"
+import { planNext } from "@/lib/planned-actions"
 
 vi.mock("@/lib/auftrag-stop-question", () => ({ askAuftragStop: vi.fn() }))
+vi.mock("@/lib/planned-actions", () => ({ planNext: vi.fn() }))
 
 type Conflict = Parameters<AssignmentConflictInputs["requestResourceConflict"]>[0]
 
@@ -72,12 +74,15 @@ describe("useAssignmentConflicts — a vehicle onto an Auftrag", () => {
     expect(inputs.assignGroupResource).not.toHaveBeenCalled()
   })
 
-  it("«keep» assigns without releasing anything", async () => {
+  // Owner pick 2B (24.11.2026): «Danach vormerken» replaces «Auf beiden» – nothing is released or assigned.
+  it("«plan» plans the vehicle on the Auftrag and releases nothing", async () => {
+    vi.mocked(planNext).mockClear()
     const { inputs, hook, asked } = setup({ operations: [op("op-1", "Hauptstrasse 1", { vehicles: [{ vehicleId: "v-tlf", assignmentId: "a-tlf", name: "TLF", callsign: null }] })] })
     hook.assignVehicleToGroupWithConflict("g-1", "v-tlf")
-    await asked()[0].customResolve!("keep")
+    await asked()[0].customResolve!("plan")
     expect(inputs.removeVehicle).not.toHaveBeenCalled()
-    expect(inputs.assignGroupResource).toHaveBeenCalledWith("g-1", "vehicle", "v-tlf")
+    expect(inputs.assignGroupResource).not.toHaveBeenCalled()
+    expect(planNext).toHaveBeenCalledWith("vehicle", "v-tlf", "TLF", expect.objectContaining({ kind: "group", id: "g-1" }))
   })
 })
 
@@ -102,42 +107,9 @@ describe("useAssignmentConflicts — a vehicle onto an incident", () => {
     const [[question]] = vi.mocked(askAuftragStop).mock.calls as [[AuftragStopQuestion]]
     // Number and place, no type, no Meldung – the card names it like the board (#14, 23.11.).
     expect(question).toMatchObject({ groupId: "g-2", groupName: "Süd", incidentId: "op-1", incidentLabel: "2 · Blumenweg 21", vehicleName: "TLF" })
-    expect(question.alsoOn).toEqual([])
-    await question.assignOnly()
-    expect(inputs.assignVehicleToOperation).toHaveBeenCalledWith("v-tlf", "TLF", "op-1", true)
-  })
-
-  // Sol review E, S4: «Nur zusätzlich zuweisen» used to open the Einsatz move/keep question next.
-  it("names an Einsatz that has the vehicle too in the same question, and «keep» does not ask again", async () => {
-    vi.mocked(askAuftragStop).mockClear()
-    const tlf = { vehicles: [{ vehicleId: "v-tlf", assignmentId: "a-tlf", name: "TLF", callsign: null }] }
-    const { inputs, hook } = setup({
-      groups: [group("g-2", "Süd", [{ id: "ga-1", resourceType: "vehicle", resourceId: "v-tlf" }])],
-      operations: [op("op-1", "Blumenweg 21", { number: 2 }), op("op-9", "Schulstrasse 9", { number: 13, ...tlf })],
-    })
-    hook.assignVehicleToIncidentWithConflict("v-tlf", "TLF", "op-1")
-    const [[question]] = vi.mocked(askAuftragStop).mock.calls as [[AuftragStopQuestion]]
-    expect(question.alsoOn).toEqual([{ id: "op-9", label: "13 · Schulstrasse 9" }])
-    await question.assignOnly()
-    // force: the answer already covered op-9.
-    expect(inputs.assignVehicleToOperation).toHaveBeenCalledExactlyOnceWith("v-tlf", "TLF", "op-1", true)
-  })
-
-  // Sol review E round 2, S2: the second Auftrag fell off the question and its «N×».
-  it("names a second Auftrag that has the vehicle too, before the Einsätze", () => {
-    vi.mocked(askAuftragStop).mockClear()
-    const tlf = { vehicles: [{ vehicleId: "v-tlf", assignmentId: "a-tlf", name: "TLF", callsign: null }] }
-    const { hook } = setup({
-      groups: [
-        group("g-2", "Süd", [{ id: "ga-1", resourceType: "vehicle", resourceId: "v-tlf" }]),
-        group("g-3", "Nord", [{ id: "ga-2", resourceType: "vehicle", resourceId: "v-tlf" }]),
-      ],
-      operations: [op("op-1", "Blumenweg 21", { number: 2 }), op("op-9", "Schulstrasse 9", { number: 13, ...tlf })],
-    })
-    hook.assignVehicleToIncidentWithConflict("v-tlf", "TLF", "op-1")
-    const [[question]] = vi.mocked(askAuftragStop).mock.calls as [[AuftragStopQuestion]]
-    expect(question.groupId).toBe("g-2")
-    expect(question.alsoOn).toEqual([{ id: "g-3", label: "Nord" }, { id: "op-9", label: "13 · Schulstrasse 9" }])
+    await question.planNext()
+    expect(inputs.assignVehicleToOperation).not.toHaveBeenCalled()
+    expect(planNext).toHaveBeenCalledWith("vehicle", "v-tlf", "TLF", { kind: "incident", id: "op-1", label: "2 · Blumenweg 21" })
   })
 
   it("a grouped Einsatz asks once about the Auftrag AND the other Einsatz; «move» frees both", async () => {
@@ -155,7 +127,7 @@ describe("useAssignmentConflicts — a vehicle onto an incident", () => {
     expect(inputs.assignVehicleToOperation).toHaveBeenCalledExactlyOnceWith("v-tlf", "TLF", "op-1", true)
   })
 
-  it("asks move/keep when a route holds it and the Einsatz is on another Auftrag; «move» detaches it first", async () => {
+  it("asks Jetzt/Danach when a route holds it and the Einsatz is on another Auftrag; «move» detaches it first", async () => {
     const { inputs, hook, asked } = setup({
       groups: [group("g-2", "Süd", [{ id: "ga-1", resourceType: "vehicle", resourceId: "v-tlf" }])],
       operations: [op("op-1", "Rebgasse 8", { groupId: "g-9" })],
@@ -200,6 +172,7 @@ describe("useAssignmentConflicts — people and material held by a route", () =>
         assign: () => {
           order.push(id)
         },
+        plan: vi.fn(),
       })
     }
     // Batched to the end of the tick: nothing asked yet.
@@ -229,7 +202,7 @@ describe("useAssignmentConflicts — people and material held by a route", () =>
   it("keeps which dropped device stands on which holder", async () => {
     const { hook, asked } = setup()
     for (const [id, name, holder] of [["m-1", "Säge", { operationId: "g-2", operationLabel: "Süd" }], ["m-2", "Pumpe", { operationId: "op-11", operationLabel: "11 · Bahnhofstrasse 12" }]] as const) {
-      hook.askRouteConflict({ resourceType: "material", resourceId: id, resourceName: name, targetId: "g-1", conflicts: [holder], releases: [], assign: () => {} })
+      hook.askRouteConflict({ resourceType: "material", resourceId: id, resourceName: name, targetId: "g-1", conflicts: [holder], releases: [], assign: () => {}, plan: () => {} })
     }
     await Promise.resolve()
     expect(asked()[0].conflicts.map((c) => [c.operationId, c.held?.map((r) => r.name)])).toEqual([
@@ -250,6 +223,7 @@ describe("useAssignmentConflicts — people and material held by a route", () =>
       conflicts: [{ operationId: "g-2", operationLabel: "Süd" }],
       releases: hook.releaseFromGroups("personnel", "p-1", [holder]),
       assign,
+      plan: vi.fn(),
     })
     await Promise.resolve()
     await asked()[0].customResolve!("move")
@@ -266,6 +240,7 @@ describe("useAssignmentConflicts — people and material held by a route", () =>
       conflicts: [{ operationId: "g-2", operationLabel: "Süd" }],
       releases: [],
       assign: () => {},
+      plan: vi.fn(),
     })
     hook.askRouteConflict(entry("p-1"))
     await Promise.resolve()

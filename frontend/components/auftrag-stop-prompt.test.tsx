@@ -11,12 +11,12 @@ import { AuftragStopPrompt } from '@/components/auftrag-stop-prompt'
 import { askAuftragStop } from '@/lib/auftrag-stop-question'
 import { toast } from 'sonner'
 
-function ask(assignOnly = vi.fn(), alsoOn: { id: string; label: string }[] = []) {
+function ask(planNext = vi.fn()) {
   renderWithIntl(<AuftragStopPrompt />)
   act(() =>
-    askAuftragStop({ groupId: 'g-nord', groupName: 'Nord', incidentId: 'op-1', incidentLabel: 'Blumenweg 21', vehicleId: 'v-tlf', vehicleName: 'TLF', alsoOn, assignOnly }),
+    askAuftragStop({ groupId: 'g-nord', groupName: 'Nord', incidentId: 'op-1', incidentLabel: 'Blumenweg 21', vehicleId: 'v-tlf', vehicleName: 'TLF', planNext }),
   )
-  return assignOnly
+  return planNext
 }
 
 // Owner pick #23: TLF drives Auftrag «Nord», the operator puts it on the lone Blumenweg 21.
@@ -35,25 +35,27 @@ describe('AuftragStopPrompt', () => {
     expect(screen.queryByRole('alertdialog')).toBeNull()
   })
 
-  it('Enter closes without a write; Z assigns without touching the Auftrag', async () => {
+  // Owner pick 2B (24.11.2026): no double booking – the vehicle is planned «Danach» instead.
+  it('Enter closes without a write; D plans the Einsatz without touching the Auftrag', async () => {
     addStopForVehicle.mockClear()
-    const assignOnly = ask()
+    const planNext = ask()
     await userEvent.keyboard('{Enter}')
     expect(screen.queryByRole('alertdialog')).toBeNull()
-    expect(assignOnly).not.toHaveBeenCalled()
+    expect(planNext).not.toHaveBeenCalled()
 
-    ask(assignOnly)
-    await userEvent.keyboard('z')
-    expect(assignOnly).toHaveBeenCalledOnce()
+    ask(planNext)
+    await userEvent.keyboard('d')
+    expect(planNext).toHaveBeenCalledOnce()
     expect(addStopForVehicle).not.toHaveBeenCalled()
   })
 
-  it('names the other Einsatz that has the vehicle too, so «Nur zusätzlich» is the only question', () => {
-    ask(vi.fn(), [{ id: 'op-9', label: '13 · Schulstrasse 9' }])
-    expect(screen.getByRole('button', { name: 'Nur zusätzlich zuweisen' })).toHaveAccessibleDescription(
-      'TLF bleibt auf dem Auftrag «Nord» sowie auf 13 · Schulstrasse 9 und wird zusätzlich Blumenweg 21 zugewiesen. Alle 3 Karten zeigen 3×.',
+  it('draws the Danach and says what it leaves behind', () => {
+    ask()
+    const plan = screen.getByRole('button', { name: 'Danach vormerken' })
+    expect(plan).toHaveAccessibleDescription(
+      'TLF fährt den Auftrag «Nord» weiter und steht auf Blumenweg 21 als Danach. Sobald frei, erscheint «Zuteilen» – nichts bewegt sich von selbst.',
     )
-    expect(screen.getAllByText('TLF · 3×')).toHaveLength(3)
+    expect(screen.getByText('TLF · Danach')).toBeInTheDocument()
   })
 
   it('says so and closes when another board changed the Einsatz or the Auftrag meanwhile (S8)', async () => {

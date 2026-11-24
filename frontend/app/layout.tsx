@@ -13,6 +13,7 @@ import { EventProvider } from '@/lib/contexts/event-context'
 import { StandbyProvider } from '@/lib/contexts/standby-context'
 import { OperationsProvider } from '@/lib/contexts/operations-context'
 import { GroupsProvider } from '@/lib/contexts/groups-context'
+import { PlannedProvider } from '@/lib/contexts/planned-context'
 import { NotificationProvider } from '@/lib/contexts/notification-context'
 import { CommandPaletteProvider } from '@/lib/contexts/command-palette-context'
 import { NotificationToasts } from '@/components/notifications/notification-toasts'
@@ -151,6 +152,7 @@ export default async function RootLayout({
               <StandbyProvider>
               <OperationsProvider>
                 <GroupsProvider>
+                  <PlannedProvider>
                   <NotificationProvider>
                     <CommandPaletteProvider>
                       <AppShell>
@@ -172,6 +174,7 @@ export default async function RootLayout({
                       <FiguresDialog />
                     </CommandPaletteProvider>
                   </NotificationProvider>
+                  </PlannedProvider>
                 </GroupsProvider>
               </OperationsProvider>
               </StandbyProvider>

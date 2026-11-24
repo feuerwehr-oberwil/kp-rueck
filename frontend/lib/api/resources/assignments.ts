@@ -1,12 +1,21 @@
 /**
- * Resource assignments on incidents: assign, release, transfer, leader/driver flags.
+ * Resource assignments on incidents: assign, release, transfer, leader/driver flags – and the
+ * «Danach» (planned assignments, `/api/planned-assignments/`).
  *
  * One slice of `apiClient` (`lib/api-client.ts` mixes every resource class into
  * the one client object). Methods go through the shared transport in `../http`.
  */
 
 import { request as httpRequest } from '../http'
-import type { ApiAssignment, ApiAssignmentCreate, ApiMaterialCollected, ApiTransferAssignmentsResponse } from '../types'
+import type {
+  ApiAssignment,
+  ApiAssignmentCreate,
+  ApiGroupAssignment,
+  ApiMaterialCollected,
+  ApiPlannedAssignment,
+  ApiPlannedAssignmentCreate,
+  ApiTransferAssignmentsResponse,
+} from '../types'
 
 export class AssignmentsApi {
   /** `assignmentIds`: «Rückgängig» of a transfer – move back exactly these (the ids the
@@ -86,5 +95,36 @@ export class AssignmentsApi {
    */
   async getAssignmentsByEvent(eventId: string): Promise<Record<string, ApiAssignment[]>> {
     return httpRequest<Record<string, ApiAssignment[]>>(`/api/assignments/by-event/${eventId}`)
+  }
+
+  // «Danach» – planned assignments (Jetzt / Danach, 24.11.2026)
+  async getPlannedAssignments(eventId: string): Promise<ApiPlannedAssignment[]> {
+    return httpRequest<ApiPlannedAssignment[]>(`/api/planned-assignments/?event_id=${encodeURIComponent(eventId)}`)
+  }
+
+  async planResource(data: ApiPlannedAssignmentCreate): Promise<ApiPlannedAssignment> {
+    return httpRequest<ApiPlannedAssignment>('/api/planned-assignments/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  /** «Zuteilen»: the Danach becomes Jetzt. 409 `resource_busy` while it is still Jetzt elsewhere. */
+  async promotePlanned(plannedId: string): Promise<ApiAssignment | ApiGroupAssignment> {
+    return httpRequest<ApiAssignment | ApiGroupAssignment>(`/api/planned-assignments/${plannedId}/promote`, {
+      method: 'POST',
+    })
+  }
+
+  /** «Verwerfen» of the «Danach frei» to-do (true) and its undo (false). The plan stays. */
+  async setPlannedDismissed(plannedId: string, dismissed: boolean): Promise<ApiPlannedAssignment> {
+    return httpRequest<ApiPlannedAssignment>(`/api/planned-assignments/${plannedId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ dismissed }),
+    })
+  }
+
+  async removePlanned(plannedId: string): Promise<void> {
+    return httpRequest<void>(`/api/planned-assignments/${plannedId}`, { method: 'DELETE' })
   }
 }

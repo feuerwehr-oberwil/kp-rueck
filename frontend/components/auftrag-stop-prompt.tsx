@@ -1,6 +1,6 @@
 "use client"
 
-import { Copy, ListPlus, Route } from "lucide-react"
+import { Clock, ListPlus, Route } from "lucide-react"
 import type { ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
@@ -19,8 +19,9 @@ const strong = (chunks: ReactNode) => <strong className="font-semibold text-fore
  *   endpoint, under the Auftrag row lock) – only while the Einsatz is still lone and live and
  *   the vehicle still drives the Auftrag; otherwise it says so and the question closes, it is
  *   out of date. It has no undo.
- * - «Nur zusätzlich zuweisen» (Z) is the plain double booking – also on the other Aufträge and
- *   Einsätze that have the vehicle (`alsoOn`), whose cards it draws too, so no second question follows.
+ * - «Danach vormerken» (D) leaves the vehicle on the Auftrag and plans it for the Einsatz next;
+ *   «Zuteilen» comes once it is free (owner picks 2B and «Auftrag works like an Einsatz»,
+ *   24.11.2026 – it used to be «Nur zusätzlich zuweisen», a double booking).
  *
  * A failed write keeps the question open (the groups context toasts the failure).
  *
@@ -44,17 +45,13 @@ export function AuftragStopPrompt() {
     closeAuftragStop()
   }
 
-  const assignOnly = async () => {
+  const planNext = async () => {
     closeAuftragStop()
-    await question.assignOnly()
+    await question.planNext()
   }
 
   const auftragCard = { id: question.groupId, title: question.groupName }
   const incidentCard = { id: question.incidentId, title: question.incidentLabel }
-  // The Auftrag, every other holder (`alsoOn`), and this Einsatz: «2×» on two cards, «3×» on three.
-  const cards = question.alsoOn.length + 2
-  const doubled = `${question.vehicleName} · ${cards}×`
-  const doubledChip = [{ label: doubled, tone: "double" as const }]
 
   return (
     <ChoiceDialog
@@ -85,28 +82,18 @@ export function AuftragStopPrompt() {
           onSelect: addAsStop,
         },
         {
-          shortcut: t("assignOnlyKey"),
-          label: t("assignOnly"),
-          icon: <Copy aria-hidden />,
+          shortcut: t("planKey"),
+          label: t("planNext"),
+          icon: <Clock aria-hidden />,
           diagram: (
             <ChoiceDiagram
-              link="both"
-              from={[
-                { ...auftragCard, chips: doubledChip },
-                ...question.alsoOn.map((other) => ({ id: other.id, title: other.label, chips: doubledChip })),
-              ]}
-              to={{ ...incidentCard, chips: doubledChip }}
+              link="next"
+              from={[{ ...auftragCard, chips: [{ label: question.vehicleName, tone: "plain" }] }]}
+              to={{ ...incidentCard, chips: [{ label: t("danachChip", names), tone: "danach" }] }}
             />
           ),
-          consequence: question.alsoOn.length
-            ? t.rich("assignOnlyConsequenceAlso", {
-                ...names,
-                others: question.alsoOn.map((other) => other.label).join(", "),
-                cards,
-                strong,
-              })
-            : t.rich("assignOnlyConsequence", { ...names, strong }),
-          onSelect: assignOnly,
+          consequence: t.rich("planConsequence", { ...names, strong }),
+          onSelect: planNext,
         },
       ]}
     />

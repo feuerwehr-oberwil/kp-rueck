@@ -13,6 +13,7 @@ import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { FieldRequestCardRows } from "@/components/kanban/field-requests"
 import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
 import { CardResources } from "@/components/kanban/card-resources"
+import { DanachBand } from "@/components/kanban/danach-band"
 import { CardContextMenu } from "@/components/kanban/card-context-menu"
 import { CardFlagPopoverContent, type CardFlag, type FlagEdit } from "@/components/kanban/card-flag-popover"
 import { Popover, PopoverAnchor } from "@/components/ui/popover"
@@ -936,6 +937,10 @@ function DraggableOperationBase({
               />
             </div>
           )}
+
+          {/* DANACH: who and what comes here after their current work (Jetzt / Danach,
+              24.11.2026). Reads its own context, so the memo gate below needs nothing. */}
+          <DanachBand holderId={operation.id} />
 
           {/* Auftrag (route) membership — rendered as a labelled resource-style row
               (matching the crew/vehicle/material rows above) rather than a floating
