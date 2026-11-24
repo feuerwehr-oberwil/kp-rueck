@@ -11332,7 +11332,7 @@
           "reko"
         ],
         "summary": "Unassign Reko Personnel",
-        "description": "Unassign Reko personnel from an incident.\n\nEditor only - removes the personnel assignment for the Reko person.",
+        "description": "Unassign Reko personnel from an incident.\n\nEditor only - removes the personnel assignment for the Reko person. The board names the\nrow it shows (`assignment_id`), so a tick never releases another row than its own.",
         "operationId": "unassign_reko_personnel_api_reko_incidents__incident_id__unassign_reko__personnel_id__delete",
         "parameters": [
           {
@@ -11354,6 +11354,25 @@
               "format": "uuid",
               "title": "Personnel Id"
             }
+          },
+          {
+            "name": "assignment_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Release exactly this row (404 when it is no longer active)",
+              "title": "Assignment Id"
+            },
+            "description": "Release exactly this row (404 when it is no longer active)"
           },
           {
             "name": "access_token",
@@ -17814,6 +17833,15 @@
               }
             ],
             "title": "Reko Position"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "crew",
+              "reko"
+            ],
+            "title": "Purpose",
+            "default": "crew"
           }
         },
         "type": "object",

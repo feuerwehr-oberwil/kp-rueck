@@ -365,6 +365,23 @@ async def test_unassign_is_not_repeatable(
     assert await unassign_reko_personnel_from_incident(db_session, incident.id, test_personnel.id) is False
 
 
+@pytest.mark.asyncio
+async def test_unassign_by_id_releases_only_the_named_row(
+    db_session: AsyncSession, test_user: User, test_event: Event, test_personnel: Personnel
+):
+    """The popover's «Reko» tick names its row. Released and replaced meanwhile by a crew
+    row of the same person, the old tick must not take the crew row with it."""
+    incident = await _make_incident(db_session, test_event, test_user, "Getauscht")
+    reko = await _assign(db_session, incident, test_personnel)
+    await unassign_reko_personnel_from_incident(db_session, incident.id, test_personnel.id, reko.id)
+    crew = await _assign(db_session, incident, test_personnel, purpose="crew")
+
+    assert await unassign_reko_personnel_from_incident(db_session, incident.id, test_personnel.id, reko.id) is False
+    assert (await db_session.get(IncidentAssignment, crew.id)).unassigned_at is None
+
+    assert await unassign_reko_personnel_from_incident(db_session, incident.id, test_personnel.id, crew.id) is True
+
+
 # ============================================
 # get_available_reko_personnel_for_incident
 # ============================================

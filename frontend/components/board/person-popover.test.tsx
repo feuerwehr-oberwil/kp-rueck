@@ -17,15 +17,19 @@ const { api, undoToast, toastError, board } = vi.hoisted(() => ({
   },
   undoToast: vi.fn(),
   toastError: vi.fn(),
-  board: { operations: [] as Operation[], personnel: [] as Person[] },
+  board: { operations: [] as Operation[], personnel: [] as Person[], drivers: new Map<string, { name: string; personnelId: string }>() },
 }))
 vi.mock('@/lib/api-client', () => ({ apiClient: api }))
 vi.mock('@/lib/toast-undo', () => ({ undoToast }))
 vi.mock('sonner', () => ({ toast: { error: toastError } }))
 vi.mock('@/lib/contexts/operations-context', () => ({
   useOperations: () => ({
-    ...board,
-    vehicles: [{ id: 'v-trawa', name: 'Trawa', display_order: 1 }],
+    operations: board.operations,
+    personnel: board.personnel,
+    vehicles: [
+      { id: 'v-trawa', name: 'Trawa', display_order: 1 },
+      { id: 'v-tlf', name: 'TLF', display_order: 2 },
+    ],
     removeCrew: vi.fn(),
     removeReko: vi.fn(),
     refreshOperations: vi.fn(),
@@ -33,7 +37,7 @@ vi.mock('@/lib/contexts/operations-context', () => ({
 }))
 vi.mock('@/lib/contexts/groups-context', () => ({ useGroups: () => ({ getGroupResources: () => ({ personnel: [] }) }) }))
 vi.mock('@/lib/contexts/event-context', () => ({ useEvent: () => ({ selectedEvent: { id: 'event-1' } }) }))
-vi.mock('@/lib/hooks/use-vehicle-drivers', () => ({ useVehicleDrivers: () => new Map() }))
+vi.mock('@/lib/hooks/use-vehicle-drivers', () => ({ useVehicleDrivers: () => board.drivers }))
 // The Reko hand-over is not under test here and needs the whole board.
 vi.mock('@/components/kanban/transfer-reko-dialog', () => ({ TransferRekoDialog: () => null }))
 vi.mock('@/components/ui/use-mobile', () => ({ useIsMobile: () => false }))
@@ -74,6 +78,7 @@ function renderPopover(who: Person, places: ResourceBinding[] = []) {
 describe('PersonPopoverBody', () => {
   beforeEach(() => {
     board.operations = []
+    board.drivers = new Map()
     vi.clearAllMocks()
   })
 
@@ -97,6 +102,26 @@ describe('PersonPopoverBody', () => {
     expect(screen.getByText('1 Zuweisung')).toBeInTheDocument()
     expect(screen.getByText('Mannschaft · fährt Trawa')).toBeInTheDocument()
     expect(screen.getAllByText('14 · Poststrasse 6')).toHaveLength(1)
+  })
+
+  it('shows one Fahrer row per vehicle driven, and each ends its own vehicle', async () => {
+    api.unassignSpecialFunction.mockResolvedValue(undefined)
+    board.drivers = new Map([
+      ['v-trawa', { name: 'Unternährer Sina', personnelId: 'p-sina' }],
+      ['v-tlf', { name: 'Unternährer Sina', personnelId: 'p-sina' }],
+    ])
+    renderPopover(person({ isDriver: true, driverVehicleId: 'v-trawa' }))
+
+    expect(screen.getByRole('checkbox', { name: 'Fahrer Trawa' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Fahrer TLF' })).toBeChecked()
+    expect(screen.getByText('2 Zuweisungen')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Fahrer TLF' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Funktion entfernen' }))
+
+    await waitFor(() =>
+      expect(api.unassignSpecialFunction).toHaveBeenCalledWith('event-1', { personnel_id: 'p-sina', function_type: 'driver', vehicle_id: 'v-tlf' }),
+    )
   })
 
   it('releases the Einsatz with the board’s undo when its tick is taken away', async () => {

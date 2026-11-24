@@ -6,6 +6,7 @@
  * mounting the board; the rows that render these still live with the board.
  */
 
+import type { AssignmentPurpose } from "@/lib/api-client"
 import type { Material } from "@/lib/contexts/operations-context"
 import type { DetailTarget } from "@/lib/detail-target"
 
@@ -30,6 +31,10 @@ export interface ResourceBinding {
   /** An incident binding's tab: WHY the resource is there (Reko → Reko, crew/driver/device →
    *  Ressourcen), the same answer as the card's own chips. */
   target?: DetailTarget
+  /** A Reko binding's persisted row purpose. The board draws every row of a Reko-function
+   *  person as their Reko (`reconcile.ts`); a `crew` one is labelled «Mannschaft», so its
+   *  tick says what it releases. */
+  purpose?: AssignmentPurpose
 }
 
 /** A unit of material's popover: its bindings, as they were when it was clicked. */

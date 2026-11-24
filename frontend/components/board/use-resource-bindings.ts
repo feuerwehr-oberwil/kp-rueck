@@ -71,13 +71,17 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
         })
       }
       if (op.assignedReko?.id === person.id) {
+        // A crew row drawn as Reko says «Mannschaft»: its tick releases that row (S3).
+        const purpose = op.assignedReko.purpose ?? "reko"
+        const auftrag = op.groupId ? groupNames.get(op.groupId) : undefined
         bindings.push({
           key: `reko-${op.id}`,
           kind: "incident",
           targetId: op.id,
           label: getIncidentRefLabel(op, 60),
-          detail: tCommon('reko'),
+          detail: purpose === "crew" ? [tPopover('crew'), auftrag].filter(Boolean).join(' · ') : tCommon('reko'),
           target: REKO_TARGET,
+          purpose,
         })
       }
     }

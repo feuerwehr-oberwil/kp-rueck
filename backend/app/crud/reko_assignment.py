@@ -313,6 +313,7 @@ async def unassign_reko_personnel_from_incident(
     db: AsyncSession,
     incident_id: uuid.UUID,
     personnel_id: uuid.UUID,
+    assignment_id: uuid.UUID | None = None,
 ) -> bool:
     """
     Unassign a Reko personnel from an incident.
@@ -323,19 +324,23 @@ async def unassign_reko_personnel_from_incident(
         db: Database session
         incident_id: Incident UUID
         personnel_id: Personnel UUID
+        assignment_id: The row the board showed (its chip ✕, the person popover's tick).
+            Only that row goes, still active – without it, any active row of the person on
+            the incident, whatever its purpose: a crew row the board drew as Reko included.
 
     Returns:
         True if unassignment was successful, False otherwise
     """
     # Find the active assignment
-    result = await db.execute(
-        select(IncidentAssignment).where(
-            IncidentAssignment.incident_id == incident_id,
-            IncidentAssignment.resource_type == "personnel",
-            IncidentAssignment.resource_id == personnel_id,
-            IncidentAssignment.unassigned_at.is_(None),
-        )
+    query = select(IncidentAssignment).where(
+        IncidentAssignment.incident_id == incident_id,
+        IncidentAssignment.resource_type == "personnel",
+        IncidentAssignment.resource_id == personnel_id,
+        IncidentAssignment.unassigned_at.is_(None),
     )
+    if assignment_id is not None:
+        query = query.where(IncidentAssignment.id == assignment_id)
+    result = await db.execute(query)
     assignment = result.scalar_one_or_none()
 
     if not assignment:

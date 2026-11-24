@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import type { ResourceBinding } from "./board-sidebar"
 import { REKO_TARGET, RESOURCES_TARGET } from "./detail-target"
-import { personChecklist, personFunctionItems, type ChecklistRow } from "./person-functions"
+import { personChecklist, personFunctionItems, type ChecklistRow, type VehicleOperation } from "./person-functions"
 
 const fleet = [
   { id: "v-tlf", name: "TLF" },
@@ -16,6 +16,9 @@ const crewOn = (opId: string, label: string): ResourceBinding => ({
   detail: "Mannschaft",
   target: RESOURCES_TARGET,
 })
+
+const nowhere: VehicleOperation = () => null
+const trawaOn14: VehicleOperation = (vehicleId) => (vehicleId === "v-trawa" ? { id: "op-14", label: "14 · Poststrasse 6" } : null)
 
 const rowName = (row: ChecklistRow) =>
   row.kind === "place" ? row.binding.label : row.kind === "driver" ? "Fahrer" : row.item.functionType
@@ -38,7 +41,7 @@ describe("personFunctionItems", () => {
 describe("personChecklist", () => {
   it("puts what is held on top and the rest below", () => {
     const items = personFunctionItems({ id: "p1", isKommandoposten: true }, fleet, new Map())
-    const list = personChecklist([], items, null)
+    const list = personChecklist([], items, nowhere)
     expect(list.held.map(rowName)).toEqual(["kommandoposten"])
     // Fahrer last among the free ones: it needs a vehicle first.
     expect(list.free.map(rowName)).toEqual(["reko", "magazin", "telefondienst", "Fahrer"])
@@ -47,7 +50,7 @@ describe("personChecklist", () => {
 
   it("counts a driver who is crew on the vehicle's Einsatz once (UX.15)", () => {
     const items = personFunctionItems({ id: "p1", isDriver: true, driverVehicleId: "v-trawa" }, fleet, new Map())
-    const list = personChecklist([crewOn("op-14", "14 · Poststrasse 6")], items, { id: "op-14", label: "14 · Poststrasse 6" })
+    const list = personChecklist([crewOn("op-14", "14 · Poststrasse 6")], items, trawaOn14)
     expect(list.count).toBe(1)
     expect(list.held[0]).toMatchObject({ kind: "place", drives: "Trawa" })
     // The Fahrer tick stays, so the role can still be ended – but it names no second place.
@@ -56,7 +59,7 @@ describe("personChecklist", () => {
 
   it("names the vehicle's Einsatz on the Fahrer row when the person is not crew there", () => {
     const items = personFunctionItems({ id: "p1", isDriver: true, driverVehicleId: "v-trawa" }, fleet, new Map())
-    const list = personChecklist([], items, { id: "op-14", label: "14 · Poststrasse 6" })
+    const list = personChecklist([], items, trawaOn14)
     expect(list.count).toBe(1)
     expect(list.held).toEqual([expect.objectContaining({ kind: "driver", where: "14 · Poststrasse 6" })])
   })
@@ -64,8 +67,31 @@ describe("personChecklist", () => {
   it("counts the Reko function once when its Einsätze are listed", () => {
     const reko: ResourceBinding = { ...crewOn("op-3", "3 · Bahnhof"), key: "reko-op-3", detail: "Reko", target: REKO_TARGET }
     const items = personFunctionItems({ id: "p1", isReko: true }, fleet, new Map())
-    const list = personChecklist([reko], items, null)
+    const list = personChecklist([reko], items, nowhere)
     expect(list.held.map(rowName)).toEqual(["3 · Bahnhof", "reko"])
     expect(list.count).toBe(1)
+  })
+
+  it("counts a crew row drawn as Reko apart from the Reko function (S3)", () => {
+    const crewAsReko: ResourceBinding = { ...crewOn("op-3", "3 · Bahnhof"), key: "reko-op-3", target: REKO_TARGET, purpose: "crew" }
+    const items = personFunctionItems({ id: "p1", isReko: true }, fleet, new Map())
+    expect(personChecklist([crewAsReko], items, nowhere).count).toBe(2)
+  })
+
+  it("gives each vehicle a person drives its own Fahrer row (S4)", () => {
+    const both = new Map([
+      ["v-tlf", { name: "Muster", personnelId: "p1" }],
+      ["v-trawa", { name: "Muster", personnelId: "p1" }],
+    ])
+    const items = personFunctionItems({ id: "p1" }, fleet, both)
+    const list = personChecklist([crewOn("op-14", "14 · Poststrasse 6")], items, trawaOn14)
+    // Trawa stands on op-14 where the person is crew: one place, counted once; TLF on its own.
+    expect(list.held).toEqual([
+      expect.objectContaining({ kind: "place", drives: "Trawa" }),
+      expect.objectContaining({ kind: "driver", held: expect.objectContaining({ vehicleId: "v-tlf" }), where: null }),
+      expect.objectContaining({ kind: "driver", held: expect.objectContaining({ vehicleId: "v-trawa" }), where: null }),
+    ])
+    expect(list.count).toBe(2)
+    expect(list.free.map(rowName)).not.toContain("Fahrer")
   })
 })

@@ -1129,14 +1129,18 @@ async def unassign_reko_personnel(
     personnel_id: uuid.UUID,
     background_tasks: BackgroundTasks,
     current_user: CurrentEditor,  # Editor only
+    assignment_id: uuid.UUID | None = Query(
+        default=None, description="Release exactly this row (404 when it is no longer active)"
+    ),
     db: AsyncSession = Depends(get_db),
 ) -> None:
     """
     Unassign Reko personnel from an incident.
 
-    Editor only - removes the personnel assignment for the Reko person.
+    Editor only - removes the personnel assignment for the Reko person. The board names the
+    row it shows (`assignment_id`), so a tick never releases another row than its own.
     """
-    success = await reko_assign_crud.unassign_reko_personnel_from_incident(db, incident_id, personnel_id)
+    success = await reko_assign_crud.unassign_reko_personnel_from_incident(db, incident_id, personnel_id, assignment_id)
 
     if not success:
         raise HTTPException(status_code=404, detail=ErrorMessages.ASSIGNMENT_NOT_FOUND)

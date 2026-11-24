@@ -3,8 +3,9 @@
  * popover shows (UX.1 + UX.2 + UX.15, owner pick 1B «Eine Checkliste», 24.11.2026).
  *
  * `personFunctionItems` is THE item source for the person's functions: the right-click menu
- * (`person-context-menu.tsx`) renders every item, the popover (`person-popover.tsx`) folds the
- * driver items into one «Fahrer ›» row. So left and right click show the same ticks.
+ * (`person-context-menu.tsx`) renders every item, the popover (`person-popover.tsx`) shows one
+ * Fahrer row per vehicle driven, or one «Fahrer ›» when none is. So left and right click show
+ * the same ticks.
  *
  * `personChecklist` orders it: what the person holds on top (places first, then functions),
  * the rest below. A Fahrer who is crew on the Einsatz their vehicle stands on is ONE place
@@ -77,64 +78,74 @@ export function personFunctionItems(
 
 /** One line of the person popover. */
 export type ChecklistRow =
-  /** An Einsatz (crew or Reko) or an Auftrag. `drives`: the vehicle this person drives on it. */
+  /** An Einsatz (crew or Reko) or an Auftrag. `drives`: the vehicle(s) this person drives on it. */
   | { kind: "place"; binding: ResourceBinding; drives: string | null }
-  /** All driver items as one row; `held` is the vehicle driven. `where`: the Einsatz that
+  /** A Fahrer row: one per vehicle driven (`held`), or one «Fahrer ›» with `held: null` when
+   *  none is. `vehicles`: all driver items, for the vehicle choice. `where`: the Einsatz the
    *  vehicle stands on when no place row already says so. */
   | { kind: "driver"; held: DriverItem | null; vehicles: DriverItem[]; where: string | null }
   | { kind: "station"; item: StationItem }
 
 export interface PersonChecklist {
-  /** Ticked: places, then the Fahrer, then the station functions. */
+  /** Ticked: places, then the Fahrer rows, then the station functions. */
   held: ChecklistRow[]
   /** Unticked: the station functions, then «Fahrer ›». */
   free: ChecklistRow[]
-  /** How many things bind the person – the badge. A folded driver and a Reko function with
-   *  its Einsätze listed count once. */
+  /** How many things bind the person – the badge. A driver who is crew on the vehicle's
+   *  Einsatz and a Reko function with its Einsätze listed count once. */
   count: number
 }
 
+/** The open Einsatz a vehicle stands on, as the popover names it. */
+export type VehicleOperation = (vehicleId: string) => { id: string; label: string } | null
+
 /**
- * `places` are the person's Einsätze and Aufträge (`collectPersonPlaces`); `drivenOperation`
- * is the Einsatz the held vehicle stands on, if any.
+ * `places` are the person's Einsätze and Aufträge (`collectPersonPlaces`); `vehicleOperation`
+ * finds the Einsatz each driven vehicle stands on. A person may drive several vehicles in one
+ * Ereignis (the right-click menu ticks each): each gets its own row, which ends that one.
  */
 export function personChecklist(
   places: readonly ResourceBinding[],
   functions: readonly PersonFunctionItem[],
-  drivenOperation: { id: string; label: string } | null,
+  vehicleOperation: VehicleOperation,
 ): PersonChecklist {
   const vehicles = functions.filter((item): item is DriverItem => item.kind === "driver")
   const stations = functions.filter((item): item is StationItem => item.kind === "station")
-  const drivenItem = vehicles.find((item) => item.held) ?? null
 
   // UX.15: crew on the Einsatz the vehicle stands on → that place says «fährt …».
-  const crewPlaceOfVehicle =
-    drivenItem && drivenOperation
-      ? places.find((place) => place.kind === "incident" && place.targetId === drivenOperation.id && place.target !== REKO_TARGET)
-      : undefined
-  const placeRows: ChecklistRow[] = places.map((binding) => ({
-    kind: "place",
-    binding,
-    drives: binding === crewPlaceOfVehicle && drivenItem ? drivenItem.vehicleName : null,
-  }))
-  const driverRow: ChecklistRow = {
+  const driven = vehicles
+    .filter((item) => item.held)
+    .map((item) => {
+      const operation = vehicleOperation(item.vehicleId)
+      const crewPlace = operation
+        ? places.find((place) => place.kind === "incident" && place.targetId === operation.id && place.target !== REKO_TARGET)
+        : undefined
+      return { item, operation, crewPlace }
+    })
+  const placeRows: ChecklistRow[] = places.map((binding) => {
+    const drives = driven.filter((d) => d.crewPlace === binding).map((d) => d.item.vehicleName)
+    return { kind: "place", binding, drives: drives.length > 0 ? drives.join(", ") : null }
+  })
+  const driverRows: ChecklistRow[] = driven.map((d) => ({
     kind: "driver",
-    held: drivenItem,
+    held: d.item,
     vehicles,
-    where: drivenItem && drivenOperation && !crewPlaceOfVehicle ? drivenOperation.label : null,
-  }
+    where: d.operation && !d.crewPlace ? d.operation.label : null,
+  }))
+  const pickDriverRow: ChecklistRow = { kind: "driver", held: null, vehicles, where: null }
   const stationRow = (item: StationItem): ChecklistRow => ({ kind: "station", item })
 
-  const rekoListed = places.some((place) => place.target === REKO_TARGET)
+  // A crew row drawn as Reko is no Reko place: the Reko function then counts on its own.
+  const rekoListed = places.some((place) => place.target === REKO_TARGET && place.purpose !== "crew")
   const heldStations = stations.filter((item) => item.held)
   const count =
     places.length +
-    (drivenItem && !crewPlaceOfVehicle ? 1 : 0) +
+    driven.filter((d) => !d.crewPlace).length +
     heldStations.filter((item) => !(item.functionType === "reko" && rekoListed)).length
 
   return {
-    held: [...placeRows, ...(drivenItem ? [driverRow] : []), ...heldStations.map(stationRow)],
-    free: [...stations.filter((item) => !item.held).map(stationRow), ...(drivenItem ? [] : [driverRow])],
+    held: [...placeRows, ...driverRows, ...heldStations.map(stationRow)],
+    free: [...stations.filter((item) => !item.held).map(stationRow), ...(driven.length > 0 ? [] : [pickDriverRow])],
     count,
   }
 }

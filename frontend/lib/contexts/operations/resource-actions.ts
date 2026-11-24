@@ -113,8 +113,8 @@ export function createResourceActions(board: BoardMutationContext) {
     )
 
     if (isLoaded) {
-      // Use the unassign reko API
-      apiClient.unassignRekoPersonnel(operationId, rekoPersonId)
+      // Use the unassign reko API – naming the row, when the board load knows it
+      apiClient.unassignRekoPersonnel(operationId, rekoPersonId, operation.assignedReko.assignmentId)
         .catch(err => {
           console.error("Failed to unassign reko:", err)
           toast.error(translateOutsideReact('notifications.operations.removeFailedTitle'), { description: translateOutsideReact('notifications.operations.removeRekoFailedDescription') })

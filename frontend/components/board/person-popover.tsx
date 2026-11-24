@@ -74,20 +74,21 @@ export function PersonPopoverBody({ person, places, onGo, onClose, canEdit, even
     personnelName: person.name,
     enabled: true,
   })
-  const [vehicleMenuOpen, setVehicleMenuOpen] = useState(false)
+  // The Fahrer row whose vehicle choice is open (a person may drive several vehicles).
+  const [vehicleMenuFor, setVehicleMenuFor] = useState<string | null>(null)
   const [confirmOut, setConfirmOut] = useState(false)
 
-  const driven = items.find((item) => item.kind === "driver" && item.held)
-  const drivenOp = driven?.kind === "driver"
-    ? operations.find((op) => op.status !== "complete" && op.vehicles.some((v) => v.vehicleId === driven.vehicleId))
-    : undefined
-  const checklist = personChecklist(places, items, drivenOp ? { id: drivenOp.id, label: getIncidentRefLabel(drivenOp, 60) } : null)
+  const checklist = personChecklist(places, items, (vehicleId) => {
+    const op = operations.find((o) => o.status !== "complete" && o.vehicles.some((v) => v.vehicleId === vehicleId))
+    return op ? { id: op.id, label: getIncidentRefLabel(op, 60) } : null
+  })
   const editable = canEdit && !!eventId
 
   const releasePlace = (binding: ResourceBinding) => {
     if (!binding.targetId) return
     if (binding.kind === "incident") {
-      // Reko on an Einsatz: the card chip's ✕, which has no undo either.
+      // Reko on an Einsatz: the card chip's ✕, which has no undo either. It names the row
+      // the board loaded (`assignedReko.assignmentId`), so it releases that row and no other.
       if (binding.target === REKO_TARGET) removeReko(binding.targetId)
       else void release.releaseCrew(binding.targetId, person.id)
     } else if (binding.kind === "route") {
@@ -191,19 +192,20 @@ export function PersonPopoverBody({ person, places, onGo, onClose, canEdit, even
       }
       case "driver": {
         const label = t("personMenu.driver")
+        const rowKey = entry.held?.key ?? "driver"
         const detail = entry.held
           ? [entry.held.vehicleName, entry.where].filter(Boolean).join(" · ")
           : tp("driverPick")
         return (
           <ChecklistLine
-            key="driver"
+            key={rowKey}
             checked={held}
-            label={label}
+            label={entry.held ? `${label} ${entry.held.vehicleName}` : label}
             disabled={!editable || busy}
-            // A tick needs a vehicle: it opens the choice. Untick ends the held one (asks).
-            onCheckedChange={() => (entry.held ? toggle(entry.held) : setVehicleMenuOpen(true))}
+            // A tick needs a vehicle: it opens the choice. Untick ends this row's vehicle (asks).
+            onCheckedChange={() => (entry.held ? toggle(entry.held) : setVehicleMenuFor(rowKey))}
           >
-            <DropdownMenu open={vehicleMenuOpen} onOpenChange={setVehicleMenuOpen}>
+            <DropdownMenu open={vehicleMenuFor === rowKey} onOpenChange={(open) => setVehicleMenuFor(open ? rowKey : null)}>
               <DropdownMenuTrigger asChild disabled={!editable}>
                 <button type="button" className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:cursor-default">
                   <Truck className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
