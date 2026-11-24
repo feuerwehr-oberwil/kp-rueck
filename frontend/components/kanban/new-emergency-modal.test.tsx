@@ -225,7 +225,10 @@ describe('NewEmergencyModal — Erstellen schlägt fehl', () => {
     await user.keyboard(keys)
     await user.keyboard('{Control>}{Enter}{/Control}')
     expect(onCreateOperation).toHaveBeenCalledTimes(1)
+    // Locked while it is on its way: no edits the answer would wipe, no closing.
     expect(screen.getByRole('button', { name: 'Einsatz erstellen' })).toBeDisabled()
+    expect(screen.getByLabelText('Meldung')).toBeDisabled()
+    await user.keyboard('{Escape}')
 
     await act(async () => answer.resolve(false))
 

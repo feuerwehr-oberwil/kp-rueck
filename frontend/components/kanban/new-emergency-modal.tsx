@@ -54,11 +54,13 @@
  * WAITS FOR THE SERVER (hunt 2026-11-24): both ways out empty the form only once
  * the card exists. A refused or failed create keeps every field and the dialog
  * open, and says so above the buttons — the caller's address and number are
- * often the only copy. While a create is on its way the buttons are busy and a
- * second press (or Ctrl ↵) does nothing.
+ * often the only copy. While a create (or a «Zusammenführen») is on its way the
+ * form is locked: no second press, no Ctrl ↵, no edits the answer would wipe,
+ * and the dialog does not close.
  */
 
 import { useState, useEffect, useRef, type KeyboardEvent } from "react"
+import { flushSync } from "react-dom"
 import { useTranslations } from "next-intl"
 import { CONTACT_PHONE_MAX, sanitizePhoneInput } from "@/lib/utils"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -198,24 +200,32 @@ export function NewEmergencyModal({
     return true
   }
 
-  // WAITS FOR THE SERVER (header): the ref guards a second press before React has
-  // re-rendered the busy buttons; `createFailed` is the line above them.
+  // WAITS FOR THE SERVER (header): one write at a time – create or merge. The ref
+  // guards a second press before React has re-rendered the locked form;
+  // `createFailed` is the line above the buttons.
   const inFlight = useRef(false)
   const [submitting, setSubmitting] = useState(false)
   const [createFailed, setCreateFailed] = useState(false)
-  const create = async (): Promise<boolean> => {
-    if (inFlight.current || !validateForSubmit()) return false
+  // The locked fieldset takes the focus away (a disabled control cannot hold it):
+  // unlock synchronously, then hand it back – Ctrl ↵ again after a failure works.
+  const whileLocked = async <T,>(write: () => Promise<T>): Promise<T> => {
+    const focused = document.activeElement instanceof HTMLElement ? document.activeElement : null
     inFlight.current = true
     setSubmitting(true)
-    setCreateFailed(false)
     try {
-      const created = await onCreateOperation(formData)
-      setCreateFailed(!created)
-      return created
+      return await write()
     } finally {
       inFlight.current = false
-      setSubmitting(false)
+      flushSync(() => setSubmitting(false))
+      if (focused?.isConnected) focused.focus()
     }
+  }
+  const create = async (): Promise<boolean> => {
+    if (inFlight.current || !validateForSubmit()) return false
+    setCreateFailed(false)
+    const created = await whileLocked(() => onCreateOperation(formData))
+    setCreateFailed(!created)
+    return created
   }
 
   const handleSubmit = async () => {
@@ -267,6 +277,11 @@ export function NewEmergencyModal({
     isOpen: open && isMobile,
     onClose: hasTypedInput ? resetAndClose : () => onOpenChange(false),
   })
+  // ✕, Esc, the backdrop and a swipe wait while a write is on its way (header).
+  const unlessLocked = (handle: (open: boolean) => void) => (next: boolean) => {
+    if (!next && inFlight.current) return
+    handle(next)
+  }
 
   // «Möglicherweise dasselbe wie …» — see the header. Asked only for an editor
   // with an Ereignis, and only once there is something to compare.
@@ -287,10 +302,10 @@ export function NewEmergencyModal({
   const shownCandidates = duplicateKey !== null && duplicateKey !== dismissedKey ? candidates : []
 
   const handleMerge = async (candidate: ApiDuplicateCandidate) => {
-    if (!onMergeInto) return
+    if (!onMergeInto || inFlight.current) return
     setMergingId(candidate.id)
     try {
-      if (await onMergeInto(formData, candidate.id)) resetAndClose()
+      if (await whileLocked(() => onMergeInto(formData, candidate.id))) resetAndClose()
     } finally {
       setMergingId(null)
     }
@@ -308,6 +323,9 @@ export function NewEmergencyModal({
             twice (UX-DESKTOP-14). Phone: no extra space between the stacked fields
             — their own 12px padding + the label's tight line box make the 16px
             group gap (hill climb r7), so the Merkmale chips reach the screen. */}
+        {/* Locked while a write is on its way (WAITS FOR THE SERVER in the header);
+            `contents`, so the fieldset adds no box of its own. */}
+        <fieldset disabled={submitting} className="contents">
         <div className={isMobile ? undefined : "space-y-1 py-2"}>
             {/* Location carries its own label and its own map/coordinate buttons,
                 so it lays itself out as a row rather than being wrapped in one.
@@ -484,6 +502,7 @@ export function NewEmergencyModal({
               </p>
             )}
         </div>
+        </fieldset>
 
     </>
   )
@@ -496,7 +515,7 @@ export function NewEmergencyModal({
   )
 
   const cancelButton = (
-    <Button variant="outline" onClick={resetAndClose}>
+    <Button variant="outline" onClick={resetAndClose} disabled={submitting}>
       {t('common.cancel')}
     </Button>
   )
@@ -559,7 +578,7 @@ export function NewEmergencyModal({
   if (isMobile) {
     return (
       <>
-      <Sheet open={open} onOpenChange={closeGuard.handleOpenChange}>
+      <Sheet open={open} onOpenChange={unlessLocked(closeGuard.handleOpenChange)}>
         {/* A surface like the desk dialog: the Einsatzort's map picker opens inside the sheet
             as a step (owner pick 5A), not as a centred desk card over it. */}
         <SheetContent side="bottom" surface={t('common.newIncident')} className="modal-h-tall gap-0 p-0 rounded-t-2xl" onKeyDown={onKeyDown}>
@@ -586,7 +605,7 @@ export function NewEmergencyModal({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={unlessLocked(onOpenChange)}>
       {/* M: a form (dialog-frame.ts). The map picker of the Einsatzort opens inside it as
           a step (`surface`, owner pick 5A) instead of a wider dialog on top. */}
       <DialogContent size="md" surface={t('common.newIncident')} onKeyDown={onKeyDown}>
