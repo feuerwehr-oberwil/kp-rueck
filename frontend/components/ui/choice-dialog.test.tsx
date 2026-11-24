@@ -27,6 +27,8 @@ describe('ChoiceDialog', () => {
 
     const dialog = screen.getByRole('alertdialog')
     expect(dialog).toHaveClass('modal-h-tall')
+    // Sign-off 24.11.2026: at M a mini card cut «2 · Mühlemattstra…» – the question is C (832).
+    expect(dialog).toHaveAttribute('data-size', 'choice')
     const cards = dialog.querySelector('[data-slot="choice-cards"]')
     expect(cards).toHaveClass('overflow-y-auto', 'min-h-0')
     expect(cards).toContainElement(screen.getByRole('button', { name: 'Jetzt verschieben' }))

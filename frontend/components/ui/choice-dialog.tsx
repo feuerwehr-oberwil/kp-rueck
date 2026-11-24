@@ -92,7 +92,7 @@ export function ChoiceDialog({
   return (
     <AlertDialog open onOpenChange={(next) => !next && !busy && onCancel()}>
       {/* Radix AlertDialog focuses Abbrechen on open: Enter = nichts ändern. */}
-      <AlertDialogContent size="md" className="modal-h-tall grid-rows-[auto_minmax(0,1fr)_auto]" onKeyDown={onKeyDown}>
+      <AlertDialogContent size="choice" className="modal-h-tall grid-rows-[auto_minmax(0,1fr)_auto]" onKeyDown={onKeyDown}>
         <AlertDialogHeader>
           <AlertDialogTitle className={icon ? 'flex items-center gap-2' : undefined}>
             {icon && <span className="flex shrink-0">{icon}</span>}

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import { dialogFrameClass } from '@/components/ui/dialog-frame'
 
-// Owner pick 4A (19.11.2026): three window sizes, set by `size` – never by a call site's
+// Owner pick 4A (19.11.2026): fixed window sizes (C added at sign-off 24.11.2026), set by `size` – never by a call site's
 // className. An un-prefixed `max-w-2xl` lost to the primitive's `sm:max-w-lg`, so «wide»
 // dialogs rendered at 512 by accident; a `top-[8vh]` gave one picker a place of its own.
 const ROOT = join(__dirname, '..', '..')
@@ -50,8 +50,8 @@ describe('dialog sizes', () => {
   })
 
   // Feedback 19.11.2026: the Appell (M, modal-h-tall) ended 2vh above the screen's edge under a
-  // 10vh top line. S and M cap their height so the gap below equals the gap above.
-  it.each(['sm', 'md'] as const)('%s leaves the same gap below as above', (size) => {
+  // 10vh top line. S, M and C cap their height so the gap below equals the gap above.
+  it.each(['sm', 'md', 'choice'] as const)('%s leaves the same gap below as above', (size) => {
     const frame = dialogFrameClass(size)
     const top = Number(frame.match(/md:top-\[(\d+)vh\]/)?.[1])
     const room = frame.match(/md:\[--modal-room:calc\(100dvh_-_(\d+)vh\)\]/)?.[1]
