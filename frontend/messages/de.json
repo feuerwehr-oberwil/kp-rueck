@@ -21,7 +21,7 @@
         "canTitle": "Das kannst du ausprobieren",
         "canIncidents": "Einsätze erfassen, priorisieren und durch die Einsatzphasen bewegen",
         "canResources": "Personal, Fahrzeuge und Material disponieren",
-        "canMap": "Standorte, Aufträge und Routen auf der Karte planen",
+        "canMap": "Standorte und Aufträge auf der Karte planen",
         "canWorkflows": "Reko-Berichte und weitere Einsatzabläufe testen",
         "knowTitle": "Gut zu wissen",
         "knowDescription": "Alle Daten sind synthetisch und haben keinen Bezug zu echten Einsätzen. Externe Alarmierung und angebundene Systeme sind in der Demo deaktiviert.",
@@ -106,6 +106,7 @@
       "vehicleStatus": "Fahrzeugstatus",
       "auftraege": "Aufträge öffnen",
       "print": "Drucken",
+      "groupPersons": "Personal",
       "groupAuftraege": "Aufträge",
       "refreshData": "Daten aktualisieren",
       "groupView": "Ansicht",
@@ -505,7 +506,7 @@
       "onlyAssignedVehicles": "Nur zugewiesene",
       "transferResources": "Ressourcen übertragen",
       "distributeToAuftrag": "An Auftrag verteilen",
-      "openRoutenEditor": "Routen-Editor öffnen",
+      "openRoutenEditor": "Auftrags-Editor öffnen",
       "newIncident": "Neuer Einsatz",
       "telefondienst": "Telefondienst",
       "kommandoposten": "Kommandoposten",
@@ -542,7 +543,7 @@
     },
     "dashboard": {
       "loading": "Wird geladen …",
-      "stopsAddedToast": "{count, plural, one {# Stopp zur Route hinzugefügt} other {# Stopps zur Route hinzugefügt}}",
+      "stopsAddedToast": "{count, plural, one {# Stopp zum Auftrag hinzugefügt} other {# Stopps zum Auftrag hinzugefügt}}",
       "distributedToast": "In Auftrag «{name}» verteilt",
       "noEventSelected": "Kein Ereignis ausgewählt",
       "training": "Übung",
@@ -811,7 +812,7 @@
       "moreActions": "Weitere Aktionen"
     },
     "detail": {
-      "rekoAuftrag": "Reko-Zuweisung",
+      "rekoAuftrag": "Reko",
       "groups": {
         "kraefte": "Kräfte"
       },
@@ -969,14 +970,14 @@
     },
     "auftraege": {
       "title": "Aufträge",
-      "description": "Mehrere Einsätze zu einer geordneten Route bündeln und einem Trupp übergeben.",
+      "description": "Mehrere Einsätze als geordnete Stopps zu einem Auftrag bündeln und einem Trupp übergeben.",
       "newAuftrag": "Neuer Auftrag",
       "templatesLabel": "Vorlagen:",
       "defaultName": "Auftrag {n}",
       "namePlaceholder": "Auftragsname",
       "create": "Erstellen",
       "cancel": "Abbrechen",
-      "empty": "Noch keine Aufträge. Erstelle einen, um Einsätze zu einer Route zu bündeln.",
+      "empty": "Noch keine Aufträge. Erstelle einen, um Einsätze als Stopps zu bündeln.",
       "noStops": "Noch keine Stopps. Zieh Karten hierher oder füge einen Stopp hinzu.",
       "noSquad": "kein Trupp",
       "persLabel": "{count} Pers",
@@ -986,10 +987,10 @@
       "rename": "Umbenennen",
       "delete": "Auftrag löschen",
       "addStop": "Stopp hinzufügen",
-      "routenEditor": "Routen-Editor",
+      "routenEditor": "Auftrags-Editor",
       "stopsCount": "Zugewiesene Einsätze ({count})",
       "deleteTitle": "Auftrag löschen?",
-      "deleteDescription": "Die Einsätze bleiben auf dem Board. Nur die Route wird gelöscht.",
+      "deleteDescription": "Die Einsätze bleiben auf dem Board. Nur der Auftrag wird gelöscht.",
       "deleteConfirm": "Löschen",
       "map": "Karte",
       "dragStop": "Stopp verschieben",
@@ -1024,7 +1025,7 @@
       "change": "Status: {label} – ändern"
     },
     "routenEditorModal": {
-      "title": "Routen-Editor",
+      "title": "Auftrags-Editor",
       "description": "Stopps auf der Karte anordnen: klicken zum Hinzufügen, ziehen zum Umsortieren, optimieren.",
       "mapHeading": "Karte",
       "emptyState": "Noch keine Stopps – klicke auf die Karte oder nutze «Stopp hinzufügen».",
@@ -1036,7 +1037,7 @@
       "noStops": "Noch keine Stopps in diesem Auftrag.",
       "mapLoading": "Karte wird geladen …",
       "dragStop": "Stopp verschieben",
-      "noCoords": "Dieser Stopp hat keine Koordinaten und liegt nicht auf der Route.",
+      "noCoords": "Dieser Stopp hat keine Koordinaten und liegt nicht auf der Linie.",
       "noCoordsBadge": "kein Ort",
       "removeStop": "Aus Auftrag entfernen",
       "contextOpen": "Offen",
@@ -1070,7 +1071,7 @@
     },
     "auftragPicker": {
       "title": "An Auftrag verteilen",
-      "description": "Einsatz einem Auftrag zuordnen. Er wird als Stopp in die Route verschoben.",
+      "description": "Einsatz einem Auftrag zuordnen. Er wird als Stopp in den Auftrag verschoben.",
       "empty": "Noch keine Aufträge. Erstelle einen neuen.",
       "alreadyHere": "bereits hier",
       "stopCount": "{count, plural, one {# Stopp} other {# Stopps}}",
@@ -1290,7 +1291,7 @@
       "high": "Hoch"
     },
     "assignReko": {
-      "title": "Reko-Personal zuweisen",
+      "title": "Reko-Person zuweisen",
       "incidentLabel": "Einsatz: {title}",
       "loadError": "Reko-Personen konnten nicht geladen werden",
       "assignErrorTitle": "Zuweisen fehlgeschlagen",
@@ -1298,7 +1299,7 @@
       "loading": "Wird geladen …",
       "retry": "Erneut versuchen",
       "emptyTitle": "Keine Reko-Personen verfügbar",
-      "emptyHint": "Oder: Rechtsklick auf eine Person in der Seitenleiste → «Als Reko zuweisen».",
+      "emptyHint": "Oder: Rechtsklick auf eine Person in der Seitenleiste → «Reko».",
       "markExisting": "Person als Reko markieren",
       "markSearchPlaceholder": "Person suchen …",
       "markAllReko": "Alle anwesenden Personen sind bereits als Reko markiert.",
@@ -1523,14 +1524,14 @@
       "groupRoutes": "Aufträge",
       "groupRoutesColorHint": "Färbt die Karte nach Auftrag",
       "colorByRoutesOverride": "Von «Aufträge» gesetzt – beim Ausschalten wird die vorherige Färbung wiederhergestellt.",
-      "routePlanning": "Routenplanung",
+      "routePlanning": "Auftrags-Editor",
       "view": "Ansicht",
       "viewMenuLabel": "Kartenansicht",
       "modesMenuLabel": "Modus",
       "modes": "Modus"
     },
     "planning": {
-      "title": "Routenplanung",
+      "title": "Auftrags-Editor",
       "exit": "Beenden",
       "selectGroupPlaceholder": "Auftrag wählen …",
       "newAuftrag": "Neuer Auftrag",
@@ -1544,13 +1545,13 @@
       "addStopHint": "Klick auf die Karte platziert einen neuen Stopp.",
       "addingStop": "Stopp wird hinzugefügt …",
       "noStops": "Noch keine Stopps in diesem Auftrag.",
-      "stopAdded": "Stopp zur Route hinzugefügt.",
-      "stopAlreadyOnRoute": "Dieser Einsatz ist bereits auf der Route.",
+      "stopAdded": "Stopp zum Auftrag hinzugefügt.",
+      "stopAlreadyOnRoute": "Dieser Einsatz ist bereits im Auftrag.",
       "noGroups": "Noch keine Aufträge vorhanden",
       "stopCount": "{count, plural, one {# Stopp} other {# Stopps}}",
       "startLabel": "Start · {start}",
       "addStopMapHint": "Klick auf die Karte",
-      "exitLabel": "Routenplanung beenden"
+      "exitLabel": "Auftrags-Editor beenden"
     },
     "view": {
       "markerAria": "Einsatz: {label}",
@@ -1652,7 +1653,7 @@
       "auftrag": "Auftrag"
     },
     "rekoMode": {
-      "title": "Reko-Modus",
+      "title": "Reko-Editor",
       "exit": "Fertig",
       "hintSelect": "Reko-Person wählen, dann Einsätze auf der Karte antippen.",
       "hintAssign": "Einsatz antippen: {name} zuweisen, als nächste Nummer. Bereits zugewiesenen Einsatz antippen: Zuweisung entfernen.",
@@ -2137,7 +2138,7 @@
           "repairableBadge": "Später aufräumbar",
           "orphanedLabel": "Zuweisungen zeigen danach ins Leere",
           "orphanedActiveLabel": "davon aktiv auf laufenden Einsätzen",
-          "groupOrphanedLabel": "Auftrags-Zuweisungen zeigen danach ins Leere",
+          "groupOrphanedLabel": "Auftrags-Ressourcen zeigen danach ins Leere",
           "groupOrphanedActiveLabel": "davon aktiv auf laufenden Aufträgen",
           "consequencesHint": "Zuweisungen verweisen ohne Fremdschlüssel auf ihre Ressource: gelöschtes Personal, Fahrzeuge und Material lassen die Zuweisung stehen – auf einem Einsatz, der weiterläuft.",
           "consequencesBlockedHint": "Zuweisungen freigeben, Einsätze und Aufträge abschliessen – oder mit «Anhängen» importieren. Abgeschlossene Einsätze blockieren nicht.",
@@ -2364,7 +2365,7 @@
         "testSuccess": "Testdruck erfolgreich gedruckt – das System ist bereit.",
         "printerError": "Drucker-Fehler: {error}",
         "printerUnreachable": "Drucker nicht erreichbar",
-        "serviceOfflineJob": "Print-Service (Raspberry Pi) ist offline – der Auftrag wird nicht abgeholt.",
+        "serviceOfflineJob": "Print-Service (Raspberry Pi) ist offline – der Druckauftrag wird nicht abgeholt.",
         "testStillQueued": "Testdruck noch in der Warteschlange – der Agent verarbeitet ihn in Kürze.",
         "testStartFailed": "Testdruck konnte nicht gestartet werden"
       },
@@ -2398,7 +2399,7 @@
       "jobEinsatzzettel": "<strong>Einsatzzettel</strong> – wird automatisch gedruckt wenn ein Einsatz auf «Disponiert / Anfahrt» oder «Im Einsatz» gesetzt wird, oder manuell über das Kontextmenü",
       "jobBoardSnapshot": "<strong>Board-Snapshot</strong> – über den «Thermo»-Button in der Fussleiste, mit Optionen für abgeschlossene Einsätze, Fahrzeuge und Personal",
       "pollingTitle": "Polling-Verhalten",
-      "pollingText": "Im Ruhezustand fragt der Agent alle 60 Sekunden ab. Nach einem Druckauftrag wechselt er für 15 Minuten auf 5-Sekunden-Intervalle, damit Folgeaufträge schneller verarbeitet werden.",
+      "pollingText": "Im Ruhezustand fragt der Agent alle 60 Sekunden ab. Nach einem Druckauftrag wechselt er für 15 Minuten auf 5-Sekunden-Intervalle, damit weitere Druckaufträge schneller verarbeitet werden.",
       "networkTitle": "Netzwerk",
       "networkText": "Der Raspberry Pi benötigt Internetzugang (Backend) und LAN-Zugang zum Drucker. Nur ausgehende Verbindungen – keine Portfreigaben nötig.",
       "unavailableDisabled": "Der Drucker ist auf dieser Karte noch nicht aktiviert – solange er aus ist, wird nichts gedruckt.",
@@ -2994,11 +2995,11 @@
       "failedRetry": "Druck fehlgeschlagen – neuer Versuch läuft",
       "unknownError": "Grund unbekannt",
       "notPickedUp": "Druckdienst antwortet nicht",
-      "notPickedUpHint": "Der Auftrag wartet in der Warteschlange – läuft der Print-Agent?",
+      "notPickedUpHint": "Der Druckauftrag wartet in der Warteschlange – läuft der Print-Agent?",
       "offline": "Druckergebnis unbekannt",
       "offlineHint": "Keine Echtzeitverbindung zum Server – bitte am Drucker nachsehen.",
       "noResult": "Keine Rückmeldung vom Drucker",
-      "noResultHint": "Der Auftrag wurde abgeholt, aber nicht bestätigt – bitte am Drucker nachsehen.",
+      "noResultHint": "Der Druckauftrag wurde abgeholt, aber nicht bestätigt – bitte am Drucker nachsehen.",
       "checkPrinter": "Drucker prüfen",
       "subjectSlip": "Einsatzzettel",
       "subjectBoard": "Board-Snapshot",
@@ -3353,7 +3354,7 @@
       "copyFailed": "Nicht kopiert",
       "noEventSelected": "Kein Ereignis ausgewählt",
       "dashboardCopiedTitle": "Dashboard-Link kopiert",
-      "dashboardCopiedDescription": "Reko-Personal kann ihre Zuweisungen sehen"
+      "dashboardCopiedDescription": "Die Reko-Personen sehen ihre Rekos"
     },
     "whatsapp": {
       "copiedTitle": "In Zwischenablage kopiert",
@@ -3793,13 +3794,13 @@
       },
       "share-feld-link": {
         "title": "Feld-Link teilen",
-        "description": "Trupps melden vom Schadenplatz, füllen den Rapport aus und sehen ihre Aufträge",
+        "description": "Trupps melden vom Schadenplatz, füllen den Rapport aus und sehen ihre Einsätze",
         "note": "Für jeden Trupp, der ausrückt · 1 Ausdruck pro Fahrzeug · Feld-Code gehört aufs gleiche Plakat"
       },
       "assign-reko": {
-        "title": "Reko-Offiziere bestimmen",
-        "details": "{count, plural, one {# Reko-Offizier} other {# Reko-Offiziere}} zugewiesen",
-        "description": "Mindestens 1 Person für Rekognoszierung"
+        "title": "Reko-Personen bestimmen",
+        "details": "{count, plural, one {# Reko-Person} other {# Reko-Personen}} bestimmt",
+        "description": "Mindestens 1 Person für die Reko"
       },
       "assign-drivers": {
         "title": "Fahrzeug-Fahrer zuweisen",
@@ -3833,7 +3834,7 @@
       "copyLink": "Link kopieren",
       "openVehicles": "Fahrzeuge öffnen",
       "openAttendance": "Appell öffnen",
-      "chooseReko": "Reko-Offiziere wählen"
+      "chooseReko": "Reko-Personen wählen"
     },
     "setup": {
       "title": "Setup-Checkliste",
@@ -3842,7 +3843,7 @@
       "linkCopied": "{label} kopiert",
       "linkCopiedDescription": "Der Link wurde in die Zwischenablage kopiert.",
       "qrPrinting": "QR-Code wird gedruckt …",
-      "qrPrintingDescription": "Der Auftrag wurde an den Drucker gesendet.",
+      "qrPrintingDescription": "Der Druckauftrag wurde an den Drucker gesendet.",
       "copyFailed": "Link konnte nicht kopiert werden",
       "printFailed": "Druck fehlgeschlagen",
       "checkInCopyLabel": "Check-in-Link",
@@ -3870,8 +3871,8 @@
       "optional": "Optional"
     },
     "rekoPicker": {
-      "title": "Reko-Offiziere wählen",
-      "description": "Anwesende Person wählen und als Reko markieren – auch mehrere nacheinander. Adressen verteilt der Reko-Modus auf der Karte.",
+      "title": "Reko-Personen wählen",
+      "description": "Anwesende Person wählen und als Reko markieren – auch mehrere nacheinander. Adressen verteilt der Reko-Editor auf der Karte.",
       "marked": "{name} als Reko markiert",
       "failed": "Hat nicht geklappt. Erneut versuchen.",
       "done": "Fertig"
@@ -4452,7 +4453,7 @@
       "checkIn": "Einchecken",
       "checkOut": "Ich rücke ab",
       "here": "Anwesend",
-      "hereNoJob": "Noch kein Auftrag"
+      "hereNoJob": "Noch kein Einsatz"
     },
     "material": {
       "title": "Material",

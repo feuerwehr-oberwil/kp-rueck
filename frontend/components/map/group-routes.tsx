@@ -14,7 +14,7 @@
  * on the GPU. The numbered pins stay DOM `<Marker>`s: they are small, interactive
  * and carry a rich hover card, which is what DOM markers are for.
  *
- * Reused by the Routen-Editor modal, the stop picker's Karte (both with the click rule in
+ * Reused by the Auftrags-Editor modal, the stop picker's Karte (both with the click rule in
  * `route-stop-pick.tsx`) and the `/map` page. Must be rendered as a child
  * of the shared `<BaseMap>` (react-map-gl's `<Map>`), never on its own.
  */
@@ -191,12 +191,12 @@ interface GroupRoutesProps {
   focusGroupId?: string | null
   /** Fired when a numbered stop marker is clicked. */
   onMarkerClick?: (incidentId: string) => void
-  /** Highlight this stop's marker (e.g. the Routen-Editor's focused stop). */
+  /** Highlight this stop's marker (e.g. the Auftrags-Editor's focused stop). */
   highlightIncidentId?: string | null
   /** Stops picked but not saved yet (the stop picker): drawn with the selection ring. */
   pendingIds?: ReadonlySet<string>
   /** Resolves a route's own crew/vehicles for the stop hover cards. Optional:
-   *  callers outside the groups provider (Routen-Editor preview) simply omit it
+   *  callers outside the groups provider (Auftrags-Editor preview) simply omit it
    *  and the cards fall back to the stop's own — empty — resources. */
   groupResourcesFor?: (groupId: string) => GroupResources
 }

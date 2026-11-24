@@ -154,7 +154,7 @@ export const INCIDENT_TYPE_MARKER_COLORS: Record<string, string> = {
 
 /**
  * The colours an operator can give an Auftrag (route) – the swatch row in the
- * Aufträge sheet, the Routenplanung panel and the Auftrag templates. A new
+ * Aufträge sheet, the Auftrags-Editor panel and the Auftrag templates. A new
  * route takes the next one in turn.
  *
  * Hues the board does not already speak: not red (Hoch), amber (Mittel), green
@@ -164,7 +164,7 @@ export const INCIDENT_TYPE_MARKER_COLORS: Record<string, string> = {
  * so the first swatch moved from #2c72e5 to petrol for NEW Aufträge (17.11.2026).
  * Stored colours are left alone – an old blue route keeps its blue.
  *
- * Dark enough for the white stop numbers on the route pins and the Routenplanung
+ * Dark enough for the white stop numbers on the route pins and the Auftrags-Editor
  * timeline (≥ 4.5:1, owner 08.11.2026 «Darker route colours»): each is
  * `darkenForWhiteText` of the lighter swatch it replaced (cyan-500, lime-500,
  * indigo-500, yellow-700, teal-500). A route keeps the colour it was stored with,

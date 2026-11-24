@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { Person, Material, PersonRole } from '@/lib/contexts/operations-context'
+import type { PersonPlaces } from '@/lib/person-places'
 import { isPersonOccupied, materialResourceState, personMatchesQuery } from '@/lib/resource-status'
 import { compareByName, compareByRankThenName } from '@/lib/roster-order'
 
@@ -19,6 +20,8 @@ export function useResourceFiltering(
    *  Magazin as busy, consumables count as available, and «Nicht einsatzbereit»
    *  counts as neither (materialResourceState returns "unavailable"). */
   availableOnly: { personnel?: boolean; materials?: boolean } = {},
+  /** Where each person is bound now (`usePersonPlaces`), so the search finds «12» or «Sturmholz». */
+  places?: ReadonlyMap<string, PersonPlaces>,
 ) {
   const effectiveMaterialQuery = materialQuery ?? personnelQuery
   const personnelAvailableOnly = !!availableOnly.personnel
@@ -31,10 +34,10 @@ export function useResourceFiltering(
         : personnel
       if (!personnelQuery) return base
       // Shared matcher (name / rank / tags / special functions incl.
-      // Telefondienst + Kommandoposten) — see lib/resource-status.ts.
-      return base.filter((p) => personMatchesQuery(p, personnelQuery))
+      // Telefondienst + Kommandoposten / current place) — see lib/resource-status.ts.
+      return base.filter((p) => personMatchesQuery({ ...p, places: places?.get(p.id) }, personnelQuery))
     },
-    [personnel, personnelQuery, personnelAvailableOnly]
+    [personnel, personnelQuery, personnelAvailableOnly, places]
   )
 
   const filteredMaterials = useMemo(
