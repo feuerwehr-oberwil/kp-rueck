@@ -47,8 +47,11 @@ function RegieBody() {
           and the preparation. Below xl one column in that order; the Störung button stands in
           the footer above the bottom nav, in flow, so it never covers the last row. */}
       <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
-        {/* Clock + Pause stay in view while the page scrolls (sticky in this scroll container). */}
-        <div className="mx-auto mb-4 max-w-2xl xl:mb-6 xl:max-w-7xl">
+        {/* Clock + Pause stay in view while the page scrolls (sticky in this scroll container,
+            so a direct child of <main>). Sticky stops at <main>'s padding edge: the wrapper reaches
+            up into that padding (negative top/margin = the padding) and fills it with the page
+            background, so nothing scrolls visibly above the stuck strip. */}
+        <div className="sticky -top-4 z-10 mx-auto -mt-4 mb-4 max-w-2xl bg-background pt-4 sm:-top-6 sm:-mt-6 sm:pt-6 md:-top-8 md:-mt-8 md:pt-8 xl:mb-6 xl:max-w-7xl">
           <RegieRunStrip />
         </div>
         <div className="mx-auto flex max-w-2xl flex-col gap-4 xl:grid xl:max-w-7xl xl:grid-cols-2 xl:items-start xl:gap-6">
