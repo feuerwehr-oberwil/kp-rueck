@@ -22,6 +22,9 @@ from sqlalchemy import func as sa_func
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstrumentedAttribute
+from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.selectable import ScalarSelect
 
 from .. import models, schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
@@ -93,6 +96,17 @@ async def list_incidents(
         total = await crud.count_incidents(db=db, event_id=event_id, status=status)
     response.headers["X-Total-Count"] = str(total)
     return await incident_display.incidents_with_display(db, incidents)
+
+
+def _count_and_latest(
+    stamp: InstrumentedAttribute[datetime], *where: ColumnElement[bool]
+) -> tuple[ScalarSelect[int], ScalarSelect[datetime]]:
+    """How many rows `stamp`'s table has (matching `where`) and their newest `stamp` – a part of
+    `get_sync_version`, as two scalar subqueries for one round trip."""
+    return (
+        select(sa_func.count()).select_from(stamp.class_).where(*where).scalar_subquery(),
+        select(sa_func.max(stamp)).where(*where).scalar_subquery(),
+    )
 
 
 # response_model=None keeps the untyped `{}` response schema this route has always published:
@@ -194,6 +208,22 @@ async def get_sync_version(
     )
     report_latest = report_result.scalar_one_or_none()
 
+    # Everything else the board's snapshot reads (hunt 2026-11-24): readiness, the roster,
+    # the depot, attendance, the special functions and the settings. Without them a REST
+    # fallback poll saw «same version» while another desk marked a vehicle not ready or
+    # checked somebody out – and certified the stale board as current. Station-wide tables
+    # count for every Ereignis.
+    inputs: list[ScalarSelect[int] | ScalarSelect[datetime]] = [
+        *_count_and_latest(models.Vehicle.updated_at),
+        *_count_and_latest(models.Personnel.updated_at),
+        *_count_and_latest(models.Material.updated_at),
+        *_count_and_latest(models.Setting.updated_at),
+        *_count_and_latest(models.EventAttendance.updated_at, models.EventAttendance.event_id == event_id),
+        *_count_and_latest(models.EventSpecialFunction.assigned_at, models.EventSpecialFunction.event_id == event_id),
+    ]
+    inputs_row = (await db.execute(select(*inputs))).one()
+    inputs_str = "-".join(value.isoformat() if isinstance(value, datetime) else str(value or 0) for value in inputs_row)
+
     # Combine into version string
     latest_str = latest.isoformat() if latest else "0"
     a_latest_str = a_latest.isoformat() if a_latest else "0"
@@ -205,7 +235,7 @@ async def get_sync_version(
     report_str = report_latest.isoformat() if report_latest else "0"
     version = (
         f"{count}-{latest_str}-{a_count}-{a_latest_str}-{a_unassigned_str}-{g_count}-{g_latest_str}-"
-        f"{ga_count}-{ga_assigned_str}-{ga_unassigned_str}-{reko_str}-{report_str}"
+        f"{ga_count}-{ga_assigned_str}-{ga_unassigned_str}-{reko_str}-{report_str}-{inputs_str}"
     )
     return {"version": version}
 

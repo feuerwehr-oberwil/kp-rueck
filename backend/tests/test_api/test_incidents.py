@@ -162,6 +162,34 @@ async def test_sync_version_not_shadowed_by_incident_id_route(
 
 @pytest.mark.asyncio
 @pytest.mark.api
+@pytest.mark.parametrize("change", ["readiness", "checkout"])
+async def test_sync_version_sees_readiness_and_attendance(
+    editor_client: AsyncClient, test_event: Event, test_vehicle, test_personnel, test_incident: Incident, change: str
+):
+    """The REST fallback polls this version: a change it misses stays off the board."""
+
+    async def version() -> str:
+        response = await editor_client.get("/api/incidents/sync-version", params={"event_id": str(test_event.id)})
+        assert response.status_code == 200
+        return response.json()["version"]
+
+    checkin = f"/api/personnel/check-in/{test_personnel.id}"
+    event = {"event_id": str(test_event.id)}
+    if change == "checkout":
+        assert (await editor_client.post(f"{checkin}/in", params=event)).status_code == 200
+    before = await version()
+
+    if change == "readiness":
+        response = await editor_client.put(f"/api/vehicles/{test_vehicle.id}", json={"out_of_service": True})
+    else:
+        response = await editor_client.post(f"{checkin}/out", params=event)
+    assert response.status_code == 200
+
+    assert await version() != before
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_sync_version_moves_when_a_resource_is_released(
     editor_client: AsyncClient, test_event: Event, test_incident: Incident, test_vehicle
 ):
