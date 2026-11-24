@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -70,12 +71,34 @@ function person(extra: Partial<Person>): Person {
 
 const release = { releaseCrew: vi.fn(), releaseRouteResource: vi.fn() }
 
+/** Remounts the body, as the sidebar does when a person moves from «Frei» to «Gebunden». */
+let remount = () => {}
+
+/** The sidebar's part: it holds the check-out question, above the remounting body. */
+function Sidebar({ who, places, onClose }: { who: Person; places: ResourceBinding[]; onClose: () => void }) {
+  const [confirmOut, setConfirmOut] = useState(false)
+  const [generation, setGeneration] = useState(0)
+  remount = () => setGeneration((n) => n + 1)
+  return (
+    <PersonPopoverBody
+      key={generation}
+      person={who}
+      places={places}
+      onGo={vi.fn()}
+      onClose={onClose}
+      canEdit
+      eventId="event-1"
+      release={release}
+      confirmOut={confirmOut}
+      onConfirmOutChange={setConfirmOut}
+    />
+  )
+}
+
 function renderPopover(who: Person, places: ResourceBinding[] = []) {
   board.personnel = [who]
   const onClose = vi.fn()
-  renderWithIntl(
-    <PersonPopoverBody person={who} places={places} onGo={vi.fn()} onClose={onClose} canEdit eventId="event-1" release={release} />,
-  )
+  renderWithIntl(<Sidebar who={who} places={places} onClose={onClose} />)
   return { onClose }
 }
 
@@ -201,6 +224,17 @@ describe('PersonPopoverBody', () => {
     expect(onClose).not.toHaveBeenCalled()
     await userEvent.click(screen.getByRole('button', { name: 'Trotzdem auschecken' }))
     await waitFor(() => expect(api.checkOutPersonnelForEvent).toHaveBeenLastCalledWith('p-sina', 'event-1', { onlyIfFree: false }))
+  })
+
+  it('keeps the question when the refresh moves the person to «Gebunden» (a new popover body)', async () => {
+    api.checkOutPersonnelForEvent.mockRejectedValueOnce(new ApiError('bound', 409, true))
+    refresh.operations.mockImplementation(async () => remount())
+    refresh.groups.mockResolvedValue(undefined)
+    renderPopover(person({}))
+
+    await userEvent.click(screen.getByRole('button', { name: /Auschecken/ }))
+
+    expect(await screen.findByText('Unternährer Sina ist noch zugewiesen')).toBeInTheDocument()
   })
 
   it('asks the Appell’s question before checking out a person who is still bound', async () => {

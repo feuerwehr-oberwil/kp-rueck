@@ -59,9 +59,26 @@ export interface PersonPopoverBodyProps {
   eventId: string | null
   /** The board's own release-with-undo (app/page.tsx), so the toast outlives this popover. */
   release: Pick<ReturnType<typeof useReleaseUndo>, "releaseCrew" | "releaseRouteResource">
+  /**
+   * The check-out question, held by the sidebar (per person and Ereignis): a refused
+   * check-out refreshes the board, which moves the person from «Frei» to «Gebunden» and
+   * remounts this body – a question held here would open on the discarded one.
+   */
+  confirmOut: boolean
+  onConfirmOutChange: (open: boolean) => void
 }
 
-export function PersonPopoverBody({ person, places, onGo, onClose, canEdit, eventId, release }: PersonPopoverBodyProps) {
+export function PersonPopoverBody({
+  person,
+  places,
+  onGo,
+  onClose,
+  canEdit,
+  eventId,
+  release,
+  confirmOut,
+  onConfirmOutChange: setConfirmOut,
+}: PersonPopoverBodyProps) {
   const t = useTranslations("kanban")
   const tp = useTranslations("kanban.personPopover")
   const tCommon = useTranslations("kanban.common")
@@ -76,7 +93,6 @@ export function PersonPopoverBody({ person, places, onGo, onClose, canEdit, even
   })
   // The Fahrer row whose vehicle choice is open (a person may drive several vehicles).
   const [vehicleMenuFor, setVehicleMenuFor] = useState<string | null>(null)
-  const [confirmOut, setConfirmOut] = useState(false)
 
   const checklist = personChecklist(places, items, (vehicleId) => {
     const op = operations.find((o) => o.status !== "complete" && o.vehicles.some((v) => v.vehicleId === vehicleId))

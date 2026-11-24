@@ -12,7 +12,7 @@
  * on the same element as before.
  */
 
-import { useMemo, useRef, type Dispatch, type SetStateAction } from "react"
+import { useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react"
 import { useTranslations } from "next-intl"
 import { QRCodeSVG } from "qrcode.react"
 import { Check, ChevronLeft, Copy, Users } from "lucide-react"
@@ -134,6 +134,13 @@ export function PersonnelSidebar({
 }: PersonnelSidebarProps) {
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
+  // The popover's check-out question, per person and Ereignis: held here, above the
+  // «Frei» / «Gebunden» groups, so it survives the move a refused check-out causes.
+  const [confirmOutFor, setConfirmOutFor] = useState<string | null>(null)
+  const closePopover = () => {
+    setBindingsPopover(null)
+    setConfirmOutFor(null)
+  }
   // Everybody in this list is checked in; who checked out again the backend flags (`attended`).
   const checkedInIds = useMemo(() => new Set(personnel.map((person) => person.id)), [personnel])
   const { shown, layout } = useMemo(() => viewPersonnel(filteredPersonnel, personnelView), [filteredPersonnel, personnelView])
@@ -308,7 +315,7 @@ export function PersonnelSidebar({
                       <Popover
                         key={person.id}
                         open={bindingsPopover?.kind === 'person' && bindingsPopover.id === person.id}
-                        onOpenChange={(open) => { if (!open) setBindingsPopover(null) }}
+                        onOpenChange={(open) => { if (!open) closePopover() }}
                       >
                         <PopoverAnchor asChild>
                           <div>
@@ -325,10 +332,12 @@ export function PersonnelSidebar({
                             person={person}
                             places={collectPersonPlaces(person)}
                             onGo={followBinding}
-                            onClose={() => setBindingsPopover(null)}
+                            onClose={closePopover}
                             canEdit={canCheckIn}
                             eventId={eventId}
                             release={release}
+                            confirmOut={confirmOutFor === `${person.id}:${eventId}`}
+                            onConfirmOutChange={(open) => setConfirmOutFor(open ? `${person.id}:${eventId}` : null)}
                           />
                         </PopoverContent>
                       </Popover>
