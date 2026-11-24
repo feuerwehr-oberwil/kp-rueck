@@ -14,7 +14,12 @@ import pytest
 from PIL import Image
 
 from app.seed_training import EMERGENCY_TEMPLATES
-from app.services.training_photos import SUMMARY_IMAGE_DIR, load_summary_image_manifest, summary_image_key
+from app.services.training_photos import (
+    SUMMARY_IMAGE_DIR,
+    load_summary_image_manifest,
+    seasons_for,
+    summary_image_key,
+)
 from app.services.training_reko_effort import REKO_EFFORT
 from app.services.training_simulation_data import (
     _NICE_CM,
@@ -50,11 +55,14 @@ def test_all_reko_summaries_have_bundled_illustrations():
     for summary in illustrated_summaries():
         entries = [e for e in manifest.get(summary_image_key(summary), []) if (SUMMARY_IMAGE_DIR / e["file"]).is_file()]
         # Owner picks 24.11.2026: every text is the Reko's phone shot, twice per scene, each
-        # in its own season (an early shot without one looks like autumn).
+        # in its own season where the text allows two. An early shot has no season.
+        allowed = seasons_for(summary)
         for depth in ("shallow", "deep") if summary in water else (None,):
             shots = [e for e in entries if e["style"] == "phone" and e.get("depth") == depth]
-            if len({e.get("season", "autumn") for e in shots}) < 2:
+            seasons = [e.get("season") for e in shots]
+            if len(shots) < 2 or len(set(seasons)) < min(2, len(allowed)):
                 missing.add(summary)
+            assert all(season in (None, *allowed) for season in seasons), summary
         for entry in entries:
             path = SUMMARY_IMAGE_DIR / entry["file"]
             assert entry["prompt"] and entry["scene"] == "as_found", summary

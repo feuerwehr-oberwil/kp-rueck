@@ -22,6 +22,7 @@ from app.services.training_photos import (
     Season,
     SummaryImage,
     load_summary_image_manifest,
+    seasons_for,
     summary_image_key,
 )
 from app.services.training_simulation_data import illustrated_summaries, water_scenes
@@ -45,7 +46,7 @@ PHONE_PROMPT = (
     "Realistic handheld smartphone photo, taken by the first fire-service scout (Reko) the moment they arrive, "
     "for a fictional Swiss fire-service training report. Standing height, slightly imperfect framing, real "
     "available light for the situation and the season, ordinary phone-camera look, no cinematic grading. "
-    "Season: {season} – {season_hint}; when that season cannot fit the incident (wasps, a garden pool), use summer. "
+    "Season: {season} – {season_hint}. "
     "Setting: a suburb in Basel-Landschaft, Switzerland – Swiss houses, "
     "streets, kerbs, road markings and cars as they look there. The photographer and their gear stay out of frame. "
     "Show the very place the report names – inside the room when it names one – so its main fact is visible. "
@@ -70,7 +71,6 @@ SEASON_HINTS: dict[Season, str] = {
     "autumn": "coloured or fallen leaves, overcast sky, rain or dusk",
     "winter": "bare trees, snow on roofs, lawns, kerbs and parked cars, cold light or street lamps",
 }
-SEASONS: tuple[Season, ...] = tuple(SEASON_HINTS)
 # The season a scene's next shot takes after this one (autumn: see `next_season`).
 CONTRAST: dict[Season, Season] = {"summer": "winter", "spring": "winter", "winter": "summer"}
 # Each scene (text, or text and depth) gets this many phone shots, each in its own season.
@@ -86,22 +86,25 @@ def _wanted(summary: str) -> list[Depth | None]:
     return ["shallow", "deep"] if summary in water_scenes() else [None]
 
 
-def season_for(name: str) -> Season:
-    """A season that stays the same for this name and spreads across all of them."""
-    return SEASONS[int(hashlib.sha256(name.encode()).hexdigest(), 16) % len(SEASONS)]
+def _spread(name: str, count: int) -> int:
+    """An index below `count` that stays the same for this name and spreads across names."""
+    return int(hashlib.sha256(name.encode()).hexdigest(), 16) % count
 
 
-def next_season(taken: list[Season | None], name: str) -> Season:
-    """The season of a scene's next shot: the contrast to the one it has (summer ↔ winter,
-    spring → winter). A shot without a season is an early, autumn-looking one: snow or summer
-    next, spread by `name`. A scene with no shot starts at `season_for`."""
+def next_season(taken: list[Season | None], name: str, allowed: tuple[Season, ...]) -> Season:
+    """The season of a scene's next shot, one of `allowed` (`seasons_for`): the contrast to
+    the one it has (summer ↔ winter, spring → winter). A shot without a season is an early,
+    autumn-looking one: snow or summer next, spread by `name`. A scene with no shot starts
+    at a season spread by `name`. A season repeats only when `allowed` has no other."""
     if not taken:
-        return season_for(name)
+        return allowed[_spread(name, len(allowed))]
     last = taken[-1]
     if last is None or last == "autumn":
-        return ("winter", "summer")[int(hashlib.sha256(name.encode()).hexdigest(), 16) % 2]
-    contrast = CONTRAST[last]
-    return contrast if contrast not in taken else next(s for s in SEASONS if s not in taken)
+        preferred: list[Season] = ["winter", "summer"] if _spread(name, 2) == 0 else ["summer", "winter"]
+    else:
+        preferred = [CONTRAST[last]]
+    fresh = [s for s in allowed if s not in taken] or list(allowed)
+    return next((s for s in preferred if s in fresh), fresh[0])
 
 
 def phone_prompt(summary: str, depth: Depth | None, season: Season) -> str:
@@ -121,9 +124,10 @@ def export_jobs() -> None:
             stem = f"{key}-{depth}" if depth else key
             taken = [e.get("season") for e in entries if e.get("depth") == depth]
             while len(taken) < PICTURES_PER_SCENE:
-                season = next_season(taken, stem)
+                season = next_season(taken, stem, seasons_for(summary))
+                repeat = taken.count(season)
                 taken.append(season)
-                out = f"{stem}-{season}.png"
+                out = f"{stem}-{season}-{repeat + 1}.png" if repeat else f"{stem}-{season}.png"
                 prompt = phone_prompt(summary, depth, season)
                 job = {"out": out, "key": key, "depth": depth, "season": season, "prompt": prompt}
                 print(json.dumps(job, ensure_ascii=False))
