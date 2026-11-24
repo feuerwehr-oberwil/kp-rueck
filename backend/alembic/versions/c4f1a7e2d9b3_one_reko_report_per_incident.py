@@ -30,7 +30,7 @@ per incident, whoever opened the draft is not who filed it. Backfilled from
 `created_by_user_id` on filed reports no crew filed (until now one person did both).
 
 Revision ID: c4f1a7e2d9b3
-Revises: b8e4f2a6c1d7
+Revises: c4f7a2e9d1b3
 """
 
 import json
@@ -40,7 +40,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision = "c4f1a7e2d9b3"
-down_revision = "b8e4f2a6c1d7"
+down_revision = "c4f7a2e9d1b3"
 branch_labels = None
 depends_on = None
 
