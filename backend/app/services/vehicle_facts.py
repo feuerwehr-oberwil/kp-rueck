@@ -6,9 +6,13 @@ gone. Each one is now also an audit row on the incident, which the Einsatztagebu
 into a `field` line (`services/journal.FIELD_AUDIT_ACTIONS`) and the incident's Chronik
 reads back (`services/incident_history.timeline`).
 
+The rule: a bell that carries a fact writes that fact, where the bell is made and in its
+transaction (`notification_service._check_geofence_alerts`,
+`create_vehicle_returned_notification`, `api/training_simulate`). The GPS status
+automation writes none: its prompts and silent advances are not bells.
+
 Once per incident, assignment and fact: the geofence is re-evaluated on every
-notification poll, the GPS automation sees the same arrival (and an Auftrag vehicle on
-every stop), and the return rules re-fire after a restart, but a vehicle reaches a
+notification poll and the return rule re-fires after a restart, but a vehicle reaches a
 Schadenplatz once per stint. The check is in the database, under the caller's
 transaction – no process cache, so a rolled-back write is written again on the next
 poll. The caller commits.

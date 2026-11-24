@@ -59,7 +59,6 @@ from ..models import (
 from ..traccar import VehiclePosition
 from ..websocket_manager import broadcast_incident_update, broadcast_message
 from .settings import get_setting_value, get_station_coordinates
-from .vehicle_facts import record_vehicle_fact
 
 logger = logging.getLogger(__name__)
 
@@ -122,8 +121,7 @@ class _Debounce:
         self.last_fix_at = None
         # Note: ``fired`` is intentionally NOT reset here — the one-shot latch must
         # survive a debounce gap so a vehicle parking, leaving and returning does not
-        # re-fire the same rule. It clears only when the target disappears (see prune),
-        # or when the arrival it fired did not commit (``run_automation_tick``).
+        # re-fire the same rule. It clears only when the target disappears (see prune).
 
 
 @dataclass
@@ -539,41 +537,19 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list[VehicleP
                     and a_key not in suppressed_arrival
                 ):
                     if _advance_debounce(_state.arrival, a_key, vp.last_update, cfg):
-                        try:
-                            # The fact «am Einsatzort» for the Chronik, also for an Auftrag
-                            # vehicle (the bell poll's geofence sees direct rows only).
-                            # Committed on its own: the silent advance below takes the
-                            # Auftrag and stop locks (`crud/locking`), and must not wait
-                            # for them while holding the fact's lock.
-                            await record_vehicle_fact(
-                                db,
-                                incident_id=t["incident_id"],
-                                fact="vehicle_on_site",
-                                vehicle_name=t["vehicle_name"],
-                                source="gps",
-                                assignment_id=t["assignment_id"],
+                        # Silent advance only when the station genuinely opted in —
+                        # a sim-enabled rule never silently moves a card.
+                        if cfg.rule_arrival_silent and cfg.enabled and cfg.rule_arrival_enabled:
+                            # Dangerous opt-in: silently advance without operator confirm.
+                            actor = actor or await _get_system_actor(db)
+                            await _fire_arrival(db, t["incident_id"], t["vehicle_name"], actor)
+                        else:
+                            # Default: prompt the operator to confirm; do NOT change status.
+                            await _fire_arrival_prompt(
+                                t["incident_id"],
+                                t["vehicle_name"],
+                                t["incident_label"],
                             )
-                            await db.commit()
-                            # Silent advance only when the station genuinely opted in —
-                            # a sim-enabled rule never silently moves a card.
-                            if cfg.rule_arrival_silent and cfg.enabled and cfg.rule_arrival_enabled:
-                                # Dangerous opt-in: silently advance without operator confirm.
-                                actor = actor or await _get_system_actor(db)
-                                await _fire_arrival(db, t["incident_id"], t["vehicle_name"], actor)
-                            else:
-                                # Default: prompt the operator to confirm; do NOT change status.
-                                await _fire_arrival_prompt(
-                                    t["incident_id"],
-                                    t["vehicle_name"],
-                                    t["incident_label"],
-                                )
-                        except Exception:
-                            # The latch closed before the writes: open it again, so the next
-                            # confirming fix retries what did not commit (the fact is
-                            # written once, `record_vehicle_fact`).
-                            await db.rollback()
-                            _state.arrival[a_key].fired = False
-                            raise
                 else:
                     # Any missing/stale/too-far/too-fast fix resets the counter so a
                     # single bad reading can never mis-advance a live incident.
@@ -606,7 +582,6 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list[VehicleP
                             )
                         else:
                             await _fire_return_prompt(
-                                db,
                                 t["assignment_id"],
                                 t["incident_id"],
                                 t["vehicle_id"],
@@ -726,7 +701,8 @@ async def _watch_unassigned_returns(
 
 async def _fire_unassigned_return_notification(db: AsyncSession, vehicle: Vehicle) -> None:
     """Create the "vehicle back home" info notification, attributed to the event
-    of its most recent released assignment (that's whose dispatchers care)."""
+    of its most recent released assignment (that's whose dispatchers care). The bell
+    also leaves «zurück im Magazin» in that incident's Chronik, once per assignment."""
     row = (
         await db.execute(
             select(Incident.id, Incident.event_id, IncidentAssignment.id)
@@ -746,9 +722,8 @@ async def _fire_unassigned_return_notification(db: AsyncSession, vehicle: Vehicl
     from .notification_service import create_vehicle_returned_notification
 
     logger.info("GPS automation: unassigned vehicle %s back at station — notifying", vehicle.name)
-    await create_vehicle_returned_notification(db, event_id=row[1], incident_id=row[0], vehicle_name=vehicle.name)
-    await record_vehicle_fact(
-        db, incident_id=row[0], fact="vehicle_returned", vehicle_name=vehicle.name, source="gps", assignment_id=row[2]
+    await create_vehicle_returned_notification(
+        db, event_id=row[1], incident_id=row[0], vehicle_name=vehicle.name, returned_from=row[2]
     )
     await db.commit()
 
@@ -814,10 +789,9 @@ async def _fire_arrival_prompt(
 ) -> None:
     """Emit an operator prompt (WebSocket) to confirm advancing the incident to einsatz.
 
-    No status change — that happens only if the operator confirms, via the existing
-    status-transition endpoint the frontend board already uses (the caller has
-    committed the «am Einsatzort» fact). This is the DEFAULT for Rule A; silent
-    auto-advance is an explicit opt-in (``rule_arrival_silent``).
+    No DB mutation — the status change happens only if the operator confirms, via the
+    existing status-transition endpoint the frontend board already uses. This is the
+    DEFAULT for Rule A; silent auto-advance is an explicit opt-in (``rule_arrival_silent``).
     """
     logger.info(
         "GPS automation: vehicle %s at incident location — prompting advance of incident %s",
@@ -835,7 +809,6 @@ async def _fire_arrival_prompt(
 
 
 async def _fire_return_prompt(
-    db: AsyncSession,
     assignment_id: uuid.UUID,
     incident_id: uuid.UUID,
     vehicle_id: uuid.UUID,
@@ -844,19 +817,9 @@ async def _fire_return_prompt(
 ) -> None:
     """Emit an operator prompt (WebSocket) to confirm releasing the returned vehicle.
 
-    The release happens only if the operator confirms, via the existing unassign
-    endpoint the frontend already uses. The one write is the fact «zurück im Magazin»
-    on the incident (`services/vehicle_facts`), once per assignment.
+    No DB mutation — the release happens only if the operator confirms, via the existing
+    unassign endpoint the frontend already uses.
     """
-    await record_vehicle_fact(
-        db,
-        incident_id=incident_id,
-        fact="vehicle_returned",
-        vehicle_name=vehicle_name,
-        source="gps",
-        assignment_id=assignment_id,
-    )
-    await db.commit()
     logger.info(
         "GPS automation: vehicle %s back at station — prompting release of assignment %s",
         vehicle_name,
@@ -910,13 +873,4 @@ async def _fire_group_return_prompt(
         incident_id=incident_id,
         vehicle_name=vehicle_name,
     )
-    if incident_id is not None:
-        await record_vehicle_fact(
-            db,
-            incident_id=incident_id,
-            fact="vehicle_returned",
-            vehicle_name=vehicle_name,
-            source="gps",
-            assignment_id=assignment_id,
-        )
     await db.commit()

@@ -1,8 +1,12 @@
 """An Abholung work item stores how it was answered: «Wir fahren selbst» or a lift.
 
-The request list read «fährt selbst» from who closed the row (a crew member without a user),
-but the Übungssteuerung simulates the crew's answer under the KP user and a lift under a
-simulated crew member, so the label was wrong there. Existing rows keep that old reading.
+The request list labels an Abholung the crew closed with «Wir fahren selbst» as «fährt
+selbst · Name» (`FieldRequest.done_in_field`). Who closed the row cannot tell that: the
+Übungssteuerung simulates the crew's answer under the KP user and a lift under a simulated
+crew member. So the answer is stored.
+
+No backfill: existing rows read false, the generic «erledigt» they showed before this
+label existed. Downgrade drops the column.
 
 Revision ID: c4f7a2e9d1b3
 Revises: b8e4f2a6c1d7
@@ -19,10 +23,6 @@ depends_on = None
 
 def upgrade() -> None:
     op.add_column("field_requests", sa.Column("self_drive", sa.Boolean(), server_default="false", nullable=False))
-    op.execute(
-        "UPDATE field_requests SET self_drive = true"
-        " WHERE kind = 'pickup' AND status = 'done' AND done_by_user_id IS NULL AND done_by_name IS NOT NULL"
-    )
 
 
 def downgrade() -> None:
