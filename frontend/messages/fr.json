@@ -875,6 +875,13 @@
         "approach": "Trajet aller",
         "onSite": "Sur place",
         "returning": "Trajet retour"
+      },
+      "danach": {
+        "heading": "Ensuite",
+        "tag": "ENSUITE · PAS ACTIF",
+        "hint": "Devient ton intervention quand le PC te libère. Ne pars pas encore.",
+        "ready": "Tu es libre – le PC peut maintenant en faire ton intervention.",
+        "queuePos": "{position}e ensuite"
       }
     },
     "briefing": {

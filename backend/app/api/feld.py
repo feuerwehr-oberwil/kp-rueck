@@ -58,10 +58,11 @@ from ..auth.dependencies import CurrentEditor, OptionalUser
 from ..crud import events as events_crud
 from ..crud import feld as crud
 from ..crud import personnel_checkin as personnel_checkin_crud
+from ..crud import planned_assignments as planned_crud
 from ..crud.feld.melden import never_left_the_window
 from ..database import after_commit, get_db
 from ..middleware.rate_limit import RateLimits, get_client_identifier, limiter
-from ..models import Event, Incident, Personnel, SchadenplatzReport
+from ..models import Event, Incident, IncidentGroup, Personnel, SchadenplatzReport
 from ..services import duplicates, incident_display
 from ..services.audit import log_action
 from ..services.duplicates import MergeRefusedError
@@ -501,6 +502,43 @@ async def list_feld_personnel(
     )
 
 
+async def _feld_planned(
+    db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid.UUID, home_city: str
+) -> list[schemas.FeldPlanned]:
+    """This person's Danach (owner pick 5C), in queue order, named the way the board names them."""
+    views = [
+        v
+        for v in await planned_crud.list_for_event(db, event_id)
+        if v.row.resource_type == "personnel" and v.row.resource_id == personnel_id
+    ]
+    out: list[schemas.FeldPlanned] = []
+    for view in views:
+        row = view.row
+        if row.incident_id is not None:
+            incident = await db.get(Incident, row.incident_id)
+            if incident is None:
+                continue
+            place = incident_display.location_display(incident.location_address, home_city) or incident.title
+            description = incident.description
+        else:
+            group = await db.get(IncidentGroup, row.incident_group_id)
+            if group is None:
+                continue
+            place, description = group.name, None
+        out.append(
+            schemas.FeldPlanned(
+                id=row.id,
+                incident_id=row.incident_id,
+                incident_group_id=row.incident_group_id,
+                place=place,
+                description=description,
+                position=view.position,
+                ready=view.ready,
+            )
+        )
+    return out
+
+
 @router.get("/assignments/{personnel_id}", response_model=schemas.FeldAssignmentsResponse)
 @limiter.limit(RateLimits.FELD)
 async def get_feld_assignments(
@@ -536,6 +574,7 @@ async def get_feld_assignments(
     home_city = await incident_display.get_home_city(db)
 
     reports = await crud.own_reports(db, event.id, personnel_id)
+    planned = await _feld_planned(db, event.id, personnel_id, home_city)
 
     return schemas.FeldAssignmentsResponse(
         personnel_id=person.id,
@@ -556,6 +595,7 @@ async def get_feld_assignments(
             )
             for a in assignments
         ],
+        planned=planned,
         message_chips=chips,
         driver_message_chips=driver_chips,
         request_materials=request_materials,
