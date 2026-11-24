@@ -1006,6 +1006,8 @@ export default function MapPage() {
             setSearchHitsOpen(true)
           }}
           onFocus={() => setSearchHitsOpen(true)}
+          // Escape closes the hits with the keyboard (the page's handler blurs the field).
+          onKeyDown={(event) => { if (event.key === 'Escape') setSearchHitsOpen(false) }}
           aria-controls="map-search-hits"
         />
         {viewMenu}
