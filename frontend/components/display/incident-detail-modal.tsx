@@ -1,7 +1,7 @@
 "use client"
 
 import { IncidentNumber } from "@/components/ui/incident-number"
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -130,6 +130,9 @@ export function IncidentDetailModal({
     ? (groupsOverride ? groupResourcesOverride?.get(auftrag.id) ?? null : getGroupResources(auftrag.id))
     : null
 
+  // The element that had the focus when the detail opened – see onCloseAutoFocus below.
+  const openedFrom = useRef<HTMLElement | null>(null)
+
   if (!operation) return null
 
   const statusColumnId = columns.find((c) => c.status.includes(operation.status))?.id
@@ -156,7 +159,21 @@ export function IncidentDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="md" className="modal-h-tall overflow-y-auto" aria-describedby={undefined}>
+      <DialogContent
+        size="md"
+        className="modal-h-tall overflow-y-auto"
+        aria-describedby={undefined}
+        // Opened from a card's address button, not a DialogTrigger: give the focus back to
+        // whatever opened it, or a keyboard user starts over at the top (hunt 2026-11-24).
+        onOpenAutoFocus={() => {
+          openedFrom.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+        }}
+        onCloseAutoFocus={(event) => {
+          if (!openedFrom.current?.isConnected) return
+          event.preventDefault()
+          openedFrom.current.focus()
+        }}
+      >
         <PhotoViewerProvider
           incidentLabel={getIncidentRefParts(operation).head}
           // The share board's Reko photos, with its own token; a logged-in editor's open

@@ -1603,6 +1603,16 @@ html:not(:has([data-page-zoom])) {
       --close-box: 44px;
     }
   }
+  /* A phone turned sideways is wider than 768px but still a finger: the ✕ keeps its 44px
+     there too (hunt 2026-11-24, the viewer board's detail at 844×390). */
+  @media (pointer: coarse) and (max-height: 500px) {
+    [data-slot='dialog-close'],
+    [data-slot='sheet-close'] {
+      --close-box: 44px;
+      min-width: 44px;
+      min-height: 44px;
+    }
+  }
 }
 
 /* The phone sheet ✕ (phone sweep 24.11.2026 #30, KP Front's `.ip-x`): an 18px glyph on a 36px

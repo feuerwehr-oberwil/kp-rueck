@@ -120,8 +120,6 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
 export function TokenBoard({ token }: { token: string }) {
   const { payload, data: situation, groups: detailGroups } = useViewerSituation()
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
-  // Back closes the detail and stays on the board (hunt 2026-11-24) – see `useHistoryLevel`.
-  const closeDetail = useHistoryLevel(selectedIncidentId !== null, () => setSelectedIncidentId(null))
   // EVERY column folds, ABGESCHLOSSEN included and closed to start with —
   // the same one mechanism the logged-in display board uses, rather than the
   // separate dashed strip this board used to hang it off.
@@ -211,6 +209,9 @@ export function TokenBoard({ token }: { token: string }) {
     () => situation.operations.find((op) => op.id === selectedIncidentId) ?? null,
     [situation, selectedIncidentId],
   )
+  // Back closes the detail and stays on the board (hunt 2026-11-24) – see `useHistoryLevel`.
+  // Keyed to the resolved Einsatz: one a refresh removed closes the level and walks it back.
+  const closeDetail = useHistoryLevel(selectedOperation !== null, () => setSelectedIncidentId(null))
 
   return (
     <PersonNamingProvider roster={situation.personnel}>
