@@ -44,13 +44,14 @@ const show = (todo: Todo) => renderWithIntl(<TodoSection state={{ open: [todo], 
 // Owner feedback 23.11.2026 #13: a vehicle back home means the crew and the material are back
 // too – the bell row leads with the board's close flow, like the popup it replaced.
 describe('TodoSection – a vehicle back in the Magazin', () => {
-  it('leads with «Einsatz abschliessen» and runs the board\'s close flow', async () => {
+  it('offers «Einsatz abschliessen» as the main answer, last, and runs the board\'s close flow', async () => {
     completion.readiness = 'ready'
     show(release(null))
-    const [first, second] = screen.getAllByRole('button')
-    expect(first).toHaveTextContent('Einsatz abschliessen')
-    expect(second).toHaveTextContent('Nur TLF freigeben')
-    await userEvent.click(first)
+    // Sign-off 24.11.2026: «Verwerfen» bottom left, the main answer bottom right.
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Verwerfen', 'Nur TLF freigeben', 'Einsatz abschliessen'])
+    const main = screen.getByRole('button', { name: /Einsatz abschliessen/ })
+    expect(main).toHaveClass('bg-action')
+    await userEvent.click(main)
     expect(completion.requestCompletion).toHaveBeenCalledWith('op-14')
   })
 

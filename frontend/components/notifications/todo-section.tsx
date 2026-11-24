@@ -210,24 +210,29 @@ function TodoRow({ todo, now, readOnly }: { todo: Todo; now: number; readOnly: b
       <p className="leading-snug">{text}</p>
       {status && <p role="status" className="text-xs text-warning-foreground">{status}</p>}
       {isEditor && !readOnly && (
-        <div className="flex flex-wrap gap-1.5">
-          {answers.map((answer, index) => (
-            <Button
-              key={answer.label}
-              size="xs"
-              variant={index === 0 ? 'default' : 'outline'}
-              disabled={busy || answer.disabled}
-              onClick={run(answer.act)}
-            >
-              {index === 0 && <CircleCheck className="size-3.5" aria-hidden="true" />}
-              {answer.label}
-            </Button>
-          ))}
+        // The answer sits bottom right, as on every card; «Verwerfen» bottom left (owner,
+        // sign-off 24.11.2026). The main answer is the last one, the others stand before it.
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
           {!todo.dismissed && (
-            <Button size="xs" variant="ghost" disabled={busy} onClick={dismiss}>
+            <Button size="xs" variant="ghost" className="mr-auto" disabled={busy} onClick={dismiss}>
               {t('dismiss')}
             </Button>
           )}
+          {answers
+            .map((answer, index) => ({ answer, main: index === 0 }))
+            .reverse()
+            .map(({ answer, main }) => (
+              <Button
+                key={answer.label}
+                size="xs"
+                variant={main ? 'default' : 'outline'}
+                disabled={busy || answer.disabled}
+                onClick={run(answer.act)}
+              >
+                {main && <CircleCheck className="size-3.5" aria-hidden="true" />}
+                {answer.label}
+              </Button>
+            ))}
         </div>
       )}
     </div>
