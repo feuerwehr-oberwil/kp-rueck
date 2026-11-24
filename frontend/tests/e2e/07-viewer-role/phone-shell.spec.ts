@@ -216,7 +216,7 @@ test.describe('Viewer role — the phone shell', () => {
     for (const word of ['Karte', 'Board', 'Status', 'Bereitschaft']) {
       await expect(tabs.getByRole('link', { name: word })).toBeVisible();
     }
-    await expect(phone.getByText('Nur-Lesen')).toBeVisible();
+    await expect(phone.getByText('Nur Ansicht')).toBeVisible();
     await expect(phone.getByText(fixture.address).first()).toBeVisible({ timeout: ROUTE_COMPILE_MS });
     // the search's own row below `lg` – the bar's field is hidden at this width
     await phone.getByPlaceholder('Suchen …').locator('visible=true').fill('kein solcher Einsatz');

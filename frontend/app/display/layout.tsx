@@ -224,7 +224,7 @@ function DisplayChrome({
           `order-last` on mobile, and it costs this column no height. */}
       {isTraining && <TrainingBand />}
       {/* Control bar — on top at every width. Pinned: it is the only bar the display
-          pages have, and on a share link it also carries the «Nur-Lesen» badge
+          pages have, and on a share link it also carries the «Nur Ansicht» badge
           that used to sit in a second header of its own.
           Token/viewer mode omits the back link so there's no path to the editor.
           From `sm` up the two things read across the room – which Ereignis, what
