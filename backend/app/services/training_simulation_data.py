@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from app.seed_training import EMERGENCY_TEMPLATES
+from app.services.training_reko_effort import REKO_EFFORT
 
 # Danger profiles per incident type: which dangers are likely and their probability
 _DANGER_PROFILES: dict[str, dict[str, float]] = {
@@ -95,31 +96,6 @@ _DANGER_PROFILES: dict[str, dict[str, float]] = {
         "chemical": 0.05,
         "electrical": 0.1,
     },
-}
-
-# Effort ranges per incident type: (min_personnel, max_personnel, min_hours, max_hours)
-# (min_personnel, max_personnel, min_hours, max_hours). Personnel ranges are kept
-# small — a Reko estimates the handful needed at the scene, not full callout
-# strength — and tightened so the numbers don't swing wildly between reports.
-_EFFORT_PROFILES: dict[str, tuple[int, int, float, float]] = {
-    "brandbekaempfung": (4, 8, 1.5, 4.0),
-    "elementarereignis": (2, 5, 0.5, 2.5),
-    # Elementar subcategories: water = heavier/longer (pumping), tree = quick
-    # clearing with few hands, storm = moderate height work.
-    "elementar_water": (2, 5, 1.0, 4.0),
-    "elementar_tree": (2, 4, 0.5, 1.5),
-    "elementar_storm": (2, 5, 1.0, 3.0),
-    "strassenrettung": (3, 6, 0.5, 2.0),
-    "technische_hilfeleistung": (2, 5, 0.5, 3.0),
-    "oelwehr": (3, 6, 1.0, 3.0),
-    "chemiewehr": (4, 8, 2.0, 5.0),
-    "strahlenwehr": (4, 8, 2.0, 6.0),
-    "einsatz_bahnanlagen": (4, 7, 1.0, 3.0),
-    "bma_unechte_alarme": (2, 4, 0.5, 1.0),
-    "dienstleistungen": (1, 3, 0.5, 1.5),
-    "diverse_einsaetze": (2, 4, 0.5, 2.0),
-    "gerettete_menschen": (3, 6, 0.5, 2.0),
-    "gerettete_tiere": (2, 4, 0.5, 1.5),
 }
 
 _WATER_PUMP_SUMMARY = "Keller ca. 25cm Wasser. Heizung und Elektrik betroffen. Pumpeinsatz nötig."
@@ -476,18 +452,6 @@ def water_scenes() -> set[str]:
     }
 
 
-# The four pools added with the per-template texts (owner pick 19.11.2026).
-NEW_TYPE_POOLS = ("einsatz_bahnanlagen", "strahlenwehr", "gerettete_menschen", "dienstleistungen")
-
-
-def phone_style_summaries() -> set[str]:
-    """Texts drawn as the Reko's phone shot: every template text and the new type pools.
-    The remaining pool texts keep their round-1 picture."""
-    return {text for texts in _TEMPLATE_SUMMARIES.values() for text in texts} | {
-        text for pool in NEW_TYPE_POOLS for text in _SUMMARIES[pool]
-    }
-
-
 # Power supply likelihood per type
 _POWER_SUPPLY_WEIGHTS: dict[str, dict[str, float]] = {
     "brandbekaempfung": {"unavailable": 0.4, "emergency_needed": 0.3, "available": 0.2, "unknown": 0.1},
@@ -705,17 +669,23 @@ def generate_dangers(incident_type: str | None = None) -> dict[str, Any]:
     }
 
 
-def generate_effort(incident_type: str | None = None) -> dict[str, Any]:
-    """Generate effort estimation scaled to incident type."""
-    min_p, max_p, min_h, max_h = _EFFORT_PROFILES.get(incident_type or "", (2, 6, 0.5, 2.0))
-
+def generate_effort(text: str, level: float | None = None) -> dict[str, Any]:
+    """People and hours for this Reko text (`REKO_EFFORT`). `level` places a water or oil
+    scene in its range by the figure the crew found (0 = floor, 1 = ceiling); without
+    one, any value in the range. Hours come in quarter hours below one hour, half hours
+    above."""
+    min_p, max_p, min_h, max_h = REKO_EFFORT[text]
+    if level is None:
+        people, raw_hours = random.randint(min_p, max_p), random.uniform(min_h, max_h)
+    else:
+        people, raw_hours = round(min_p + level * (max_p - min_p)), min_h + level * (max_h - min_h)
+    step = 0.25 if raw_hours < 1 else 0.5
+    hours = min(max(round(raw_hours / step) * step, min_h), max_h)
     return {
-        "personnel_count": random.randint(min_p, max_p),
+        "personnel_count": people,
         "vehicles_needed": [],
         "equipment_needed": [],
-        # Whole hours only — fractional estimates (1.3 h) read as false precision
-        # on a command-post board. Floor at 1 so nothing shows "0 Stunden".
-        "estimated_duration_hours": max(1, round(random.uniform(min_h, max_h))),
+        "estimated_duration_hours": hours,
     }
 
 
@@ -812,37 +782,10 @@ _HARMLESS_KW = [
     "nichts vorgefunden",
     "kein einsatz",
 ]
-# Effort cues: shrink to the profile floor / grow to the ceiling so the numbers
-# agree with the prose ("kleines Aufgebot" shouldn't sit next to 8 Pers.).
-_SMALL_EFFORT_KW = [
-    "kontrolle genügt",
-    "eine pumpe reicht",
-    "kleines aufgebot",
-    "kein mehraufwand",
-    "selbst gelöscht",
-    "bereits gelöscht",
-    "genügt",
-]
-_LARGE_EFFORT_KW = [
-    "verstärkung",
-    "zusätzliches material",
-    "zusätzliche pumpe",
-    "mehrere pumpen",
-    "dlk",
-    "aussenangriff",
-    "nachforder",
-    "läuft nach",
-    "grossaufgebot",
-]
 
 
-def _reconcile_with_summary(
-    summary: str,
-    resolved_type: str | None,
-    dangers: dict[str, Any],
-    effort: dict[str, Any],
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Make the structured danger/effort fields agree with the summary prose."""
+def _reconcile_dangers(summary: str, resolved_type: str | None, dangers: dict[str, Any]) -> dict[str, Any]:
+    """Make the danger flags agree with the summary prose."""
     lower = summary.lower()
 
     if any(k in lower for k in _HARMLESS_KW):
@@ -854,15 +797,7 @@ def _reconcile_with_summary(
                 continue
             if any(kw in lower for kw in kws):
                 dangers[flag] = True
-
-    min_p, max_p, _, _ = _EFFORT_PROFILES.get(resolved_type or "", (2, 6, 0.5, 2.0))
-    if any(k in lower for k in _SMALL_EFFORT_KW):
-        effort["personnel_count"] = min_p
-        effort["estimated_duration_hours"] = 1
-    elif any(k in lower for k in _LARGE_EFFORT_KW):
-        effort["personnel_count"] = max(effort["personnel_count"], max_p)
-
-    return dangers, effort
+    return dangers
 
 
 def _extract_qty(description: str | None, unit_pattern: str) -> int | None:
@@ -873,24 +808,39 @@ def _extract_qty(description: str | None, unit_pattern: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
+# The figure up to which a scene takes the small, then the middle Massnahme.
+_WATER_STEPS = (5, 30)
+_OIL_STEPS = (20, 100)
+
+
 def _water_action(cm: int) -> str:
     """The Massnahme a crew reports at this water depth. Standing water always
     means removing it — "Kontrolle genügt" would be wrong even at 30cm; only a
     film of water gets away with the Nasssauger."""
-    if cm <= 5:
+    small, middle = _WATER_STEPS
+    if cm <= small:
         return "Nasssauger genügt."
-    if cm <= 30:
+    if cm <= middle:
         return "Eine Tauchpumpe genügt."
     return "Mehrere Pumpen nötig."
 
 
 def _oil_action(liters: int) -> str:
     """The Massnahme for a spill of this size."""
-    if liters <= 20:
+    small, middle = _OIL_STEPS
+    if liters <= small:
         return "Kleinmenge, Bindemittel genügt."
-    if liters <= 100:
+    if liters <= middle:
         return "Bindemittel und fachgerechte Entsorgung nötig."
     return "Grössere Menge, Fachberater Chemie und Entsorgung nötig."
+
+
+def _figure_level(resolved_type: str | None, figure: str) -> float:
+    """Where the crew's figure puts the scene in its effort range: the Nasssauger or binder
+    floor (0), one pump or disposal (0.5), several pumps or a large spill (1)."""
+    amount = int(re.findall(r"\d+", figure)[-1])
+    small, middle = _WATER_STEPS if resolved_type == "elementar_water" else _OIL_STEPS
+    return 0.0 if amount <= small else 0.5 if amount <= middle else 1.0
 
 
 def _linked_figure(reported: int, unit: str, ladder: list[int], action_for: Callable[[int], str]) -> tuple[str, str]:
@@ -1009,9 +959,9 @@ def generate_reko_report_data(
     """Generate a complete reko report payload with contextual random data.
 
     Beyond picking type-matched values, this keeps the report internally
-    coherent: the summary prose and the danger/effort badges are reconciled so
-    they never contradict, and quantifiable scenes get a summary that confirms
-    or corrects the figure the dispatch actually reported. A not-relevant report
+    coherent: the danger badges are reconciled with the summary prose, people and
+    hours come from the text itself (`REKO_EFFORT`), and quantifiable scenes get a
+    summary that confirms or corrects the figure the dispatch actually reported. A not-relevant report
     is the empty one (`_not_relevant_report`).
     """
     incident_type = scene_type(incident_type, title)
@@ -1049,9 +999,8 @@ def generate_reko_report_data(
     # The crew's final water figure picks the shallow or deep picture of the scene.
     depth_cm = int(re.findall(r"(\d+)cm", figure[0])[-1]) if figure and resolved_type == "elementar_water" else None
 
-    dangers = generate_dangers(resolved_type)
-    effort = generate_effort(resolved_type)
-    dangers, effort = _reconcile_with_summary(summary, resolved_type, dangers, effort)
+    dangers = _reconcile_dangers(summary, resolved_type, generate_dangers(resolved_type))
+    effort = generate_effort(photo_summary, _figure_level(resolved_type, figure[0]) if figure else None)
 
     return {
         "is_relevant": True,
