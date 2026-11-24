@@ -23,6 +23,8 @@ interface MobilePersonnelSheetProps {
   onOpenCrewDuty?: () => void
   /** Opens an Einsatz: a person on exactly one open Einsatz is a row that goes there. */
   onOpenIncident?: (incidentId: string) => void
+  /** Where focus goes when it closes – the bottom nav's Personal tile, which is no SheetTrigger. */
+  onCloseAutoFocus?: (event: Event) => void
 }
 
 /**
@@ -38,6 +40,7 @@ export function MobilePersonnelSheet({
   operations,
   onOpenCrewDuty,
   onOpenIncident,
+  onCloseAutoFocus,
 }: MobilePersonnelSheetProps) {
   const t = useTranslations("incidents.mobilePersonnel")
   const [searchQuery, setSearchQuery] = useState("")
@@ -92,6 +95,7 @@ export function MobilePersonnelSheet({
         // Head and search stay, the list scrolls. Covers the nav, so the list's foot pays only
         // the safe area (`pb-sheet-safe`).
         className="modal-h-tall gap-0 p-0"
+        onCloseAutoFocus={onCloseAutoFocus}
       >
         <SheetHeader>
           {/* No icon in the title – no other sheet has one (owner, 10.10.2026). */}

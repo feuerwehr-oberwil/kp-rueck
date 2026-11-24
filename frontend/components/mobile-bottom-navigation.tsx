@@ -30,7 +30,7 @@
 
 import { BookOpenText, Bell, ChartColumn, Columns3, Map as MapIcon, MoreHorizontal, HelpCircle, Settings, QrCode, Sparkles, Users, Truck, Printer } from 'lucide-react'
 import Link from 'next/link'
-import { useRef, useState } from 'react'
+import { useRef, useState, type Ref, type RefObject } from 'react'
 import { topLoading } from '@/components/ui/top-loading-bar'
 import type { LucideIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
@@ -43,8 +43,11 @@ import { useEvent } from '@/lib/contexts/event-context'
 import { useNavReserve } from '@/components/viewport-insets'
 import { toggleFigures } from '@/components/figures-dialog'
 import { PhoneQuickSheets, type PhoneQuickSheet } from '@/components/mobile/phone-quick-sheets'
-import { PhoneNotificationSheet, useMeldungenCount } from '@/components/notifications/phone-notification-sheet'
+import { PhoneNotificationSheet } from '@/components/notifications/phone-notification-sheet'
+import { useNewAlarmCount } from '@/components/alarm-inbox/alarm-inbox-button'
 import { useIsMobile } from '@/components/ui/use-mobile'
+import { useNotifications } from '@/lib/contexts/notification-context'
+import { useBellCount, useOpenFieldRequests } from '@/lib/hooks/use-field-requests'
 
 /** The tiles that are a place: the two pages and «Mehr». Personal and Meldungen open a sheet
  *  over the page and are never where the operator is. */
@@ -77,11 +80,18 @@ export function MobileBottomNavigation({
   hasSelectedEvent = true,
 }: MobileBottomNavigationProps) {
   const t = useTranslations('nav.mobileBottomNav')
-  const { isEditor } = useAuth()
+  const { isEditor, isAuthenticated } = useAuth()
   const { selectedEvent } = useEvent()
   const [sheetOpen, setSheetOpen] = useState(false)
   const [meldungenOpen, setMeldungenOpen] = useState(false)
-  const meldungen = useMeldungenCount()
+  // The Personal and Meldungen tiles open sheets they are no SheetTrigger of: each sheet hands
+  // focus back to its tile when it closes (Radix would otherwise drop it on <body>).
+  const personnelTileRef = useRef<HTMLButtonElement>(null)
+  const meldungenTileRef = useRef<HTMLButtonElement>(null)
+  const focusTile = (tile: RefObject<HTMLButtonElement | null>) => (event: Event) => {
+    event.preventDefault()
+    tile.current?.focus()
+  }
   // The tab just tapped, while its page is still on the way: it lights at once. Tied to the
   // page it was tapped on, so once the route has moved on (or back) it no longer applies.
   const [pending, setPending] = useState<{ tab: NavTab; from: NavPage } | null>(null)
@@ -196,6 +206,7 @@ export function MobileBottomNavigation({
         {/* Personal and Meldungen open a sheet over the page they are tapped on; neither is a
             page, so neither ever lights. */}
         <button
+          ref={personnelTileRef}
           type="button"
           className={cn(tabClass, litClass(null), "disabled:opacity-40")}
           aria-haspopup="dialog"
@@ -206,27 +217,16 @@ export function MobileBottomNavigation({
           <Users className="h-5 w-5" aria-hidden="true" />
           <span className="text-xs font-medium">{t('personnel')}</span>
         </button>
-        <button
-          type="button"
-          className={cn(tabClass, litClass(null))}
-          aria-haspopup="dialog"
-          aria-label={t('notificationsOpen', { count: meldungen })}
-          onClick={() => setMeldungenOpen(true)}
-        >
-          <span className="relative">
-            <Bell className="h-5 w-5" aria-hidden="true" />
-            {meldungen > 0 && (
-              <span
-                aria-hidden
-                data-testid="meldungen-badge"
-                className="absolute -top-1.5 left-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground px-1 font-mono text-xs font-semibold text-background"
-              >
-                {badgeText(meldungen)}
-              </span>
-            )}
-          </span>
-          <span className="text-xs font-medium">{t('notifications')}</span>
-        </button>
+        {/* Signed in only (/help is public). Its count subscribes to the bell and the
+            Alarmeingang, so only a phone counts: the desk's hidden bar shows a plain tile. */}
+        {isAuthenticated && (
+          <MeldungenTile
+            ref={meldungenTileRef}
+            className={cn(tabClass, litClass(null))}
+            live={isMobile}
+            onOpen={() => setMeldungenOpen(true)}
+          />
+        )}
 
         {/* More menu */}
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
@@ -366,9 +366,74 @@ export function MobileBottomNavigation({
             </SheetBody>
           </SheetContent>
         </Sheet>
-        {isMobile && <PhoneQuickSheets open={quickSheet} onOpenChange={setQuickSheet} />}
-        {isMobile && <PhoneNotificationSheet open={meldungenOpen} onOpenChange={setMeldungenOpen} />}
+        {isMobile && (
+          <PhoneQuickSheets
+            open={quickSheet}
+            onOpenChange={setQuickSheet}
+            onPersonnelCloseFocus={focusTile(personnelTileRef)}
+          />
+        )}
+        {isMobile && isAuthenticated && (
+          <PhoneNotificationSheet open={meldungenOpen} onOpenChange={setMeldungenOpen} returnFocusTo={meldungenTileRef} />
+        )}
       </div>
     </nav>
+  )
+}
+
+interface MeldungenTileProps {
+  ref: Ref<HTMLButtonElement>
+  className: string
+  /** Count what is open (a phone). Off, the tile subscribes to nothing and shows no number. */
+  live: boolean
+  onOpen: () => void
+}
+
+/** The Meldungen tile: the bell's open entries, plus the Alarmeingang's new alarms for everyone
+ *  the Alarmeingang lets in (not a viewer). Split by who counts what, so each subscribes only to
+ *  what it shows. */
+function MeldungenTile({ live, ...props }: MeldungenTileProps) {
+  const { isViewer } = useAuth()
+  if (!live) return <MeldungenButton {...props} count={0} />
+  return isViewer ? <BellTile {...props} alarms={0} /> : <BellAndAlarmTile {...props} />
+}
+
+type TileProps = Omit<MeldungenTileProps, 'live'>
+
+function BellAndAlarmTile(props: TileProps) {
+  return <BellTile {...props} alarms={useNewAlarmCount()} />
+}
+
+function BellTile({ alarms, ...props }: TileProps & { alarms: number }) {
+  const { notifications } = useNotifications()
+  const { count } = useBellCount(notifications, useOpenFieldRequests())
+  return <MeldungenButton {...props} count={count + alarms} />
+}
+
+function MeldungenButton({ ref, className, onOpen, count }: TileProps & { count: number }) {
+  const t = useTranslations('nav.mobileBottomNav')
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className={className}
+      aria-haspopup="dialog"
+      aria-label={t('notificationsOpen', { count })}
+      onClick={onOpen}
+    >
+      <span className="relative">
+        <Bell className="h-5 w-5" aria-hidden="true" />
+        {count > 0 && (
+          <span
+            aria-hidden
+            data-testid="meldungen-badge"
+            className="absolute -top-1.5 left-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground px-1 font-mono text-xs font-semibold text-background"
+          >
+            {badgeText(count)}
+          </span>
+        )}
+      </span>
+      <span className="text-xs font-medium">{t('notifications')}</span>
+    </button>
   )
 }

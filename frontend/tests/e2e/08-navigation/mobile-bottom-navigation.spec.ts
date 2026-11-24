@@ -65,15 +65,21 @@ test.describe('Mobile bottom navigation', () => {
     await setupBoard(page, 'Mobile Tiles', { count: 0 });
     const nav = bottomNav(page);
 
-    await nav.getByRole('button', { name: 'Personal' }).click();
+    // Neither tile is the sheet's own trigger: closing hands focus back to it, not to <body>.
+    const personal = nav.getByRole('button', { name: 'Personal' });
+    await personal.click();
     await expect(page.getByRole('dialog', { name: 'Personal' })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(personal).toBeFocused();
 
-    await nav.getByRole('button', { name: /^Meldungen/ }).click();
+    const tile = nav.getByRole('button', { name: /^Meldungen/ });
+    await tile.click();
     const meldungen = page.getByRole('dialog', { name: 'Meldungen' });
     await expect(meldungen).toBeVisible();
     await expect(meldungen.getByRole('button', { name: /Alarmeingang/ })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(tile).toBeFocused();
     await expect(page).toHaveURL('/');
   });
 

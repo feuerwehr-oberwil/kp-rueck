@@ -5,44 +5,46 @@
  * sheet, opened by the bottom nav's Meldungen tile. Board toasts stay muted on a phone, so this is
  * where a missed Feld request, Abholung or Verstärkung is found again.
  *
- * The tile counts what is open here (`useMeldungenCount`): the bell's entries with the open field
- * requests folded in, plus the new alarms of the Alarmeingang – so the Alarmeingang is the sheet's
- * first row, and the count always has a row that explains it.
+ * The tile counts what is open here (`MeldungenTile` in mobile-bottom-navigation.tsx): the bell's
+ * entries with the open field requests folded in, plus the new alarms of the Alarmeingang – so the
+ * Alarmeingang is the sheet's first row, and the count always has a row that explains it. A viewer
+ * gets neither: the Alarmeingang refuses the viewer role.
  *
  * Read-only for the board (owner, 14.11.2026): no status move on a card, no request worked from
  * here. Closing a notification and «Gesehen» stay – they are the reader's, not the board's.
  */
 
+import { useRef, type RefObject } from 'react'
 import { Bell, ChevronRight, Inbox } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { AlarmInboxMenuCount, useNewAlarmCount } from '@/components/alarm-inbox/alarm-inbox-button'
+import { AlarmInboxMenuCount } from '@/components/alarm-inbox/alarm-inbox-button'
 import { openAlarmInbox } from '@/components/alarm-inbox/alarm-inbox-store'
 import { FieldRequestInbox } from '@/components/notifications/field-request-inbox'
 import { NotificationCard } from '@/components/notifications/notification-card'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetBody, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { useAuth } from '@/lib/contexts/auth-context'
 import { useNotifications } from '@/lib/contexts/notification-context'
-import { useBellCount, useOpenFieldRequests } from '@/lib/hooks/use-field-requests'
+import { useOpenFieldRequests } from '@/lib/hooks/use-field-requests'
 import type { OperationDetailTab } from '@/lib/hooks/use-operation-detail-shortcuts'
-
-/** What the Meldungen tile counts: the bell's open entries and the new alarms. */
-export function useMeldungenCount(): number {
-  const { notifications } = useNotifications()
-  const { count } = useBellCount(notifications, useOpenFieldRequests())
-  return count + useNewAlarmCount()
-}
 
 interface PhoneNotificationSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** The tile that opened it (no SheetTrigger): focus goes back there when it closes. */
+  returnFocusTo?: RefObject<HTMLElement | null>
 }
 
-export function PhoneNotificationSheet({ open, onOpenChange }: PhoneNotificationSheetProps) {
+export function PhoneNotificationSheet({ open, onOpenChange, returnFocusTo }: PhoneNotificationSheetProps) {
   const t = useTranslations('notifications.sidebar')
   const tNav = useTranslations('nav.mobileBottomNav')
   const tInbox = useTranslations('divera.inbox')
   const { notifications, dismissNotification, dismissAllNotifications, navigateToIncident } = useNotifications()
   const openRequests = useOpenFieldRequests()
+  const { isViewer } = useAuth()
+  // «Alarmeingang» closes this sheet first and opens the inbox once it is gone (one layer at a
+  // time): set here, read where the sheet hands focus back.
+  const alarmNext = useRef(false)
 
   // A row opens its Einsatz on the tab it is about: the board's sheet when the board is open,
   // the board's deep link from any other page (notification-context.tsx).
@@ -59,27 +61,40 @@ export function PhoneNotificationSheet({ open, onOpenChange }: PhoneNotification
     <Sheet open={open} onOpenChange={onOpenChange}>
       {/* The frame of every phone sheet: the head stays, the body scrolls. It covers the nav, so
           the body's foot only pays the safe area. */}
-      <SheetContent side="bottom" className="modal-h-tall gap-0 p-0">
+      <SheetContent
+        side="bottom"
+        className="modal-h-tall gap-0 p-0"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault()
+          if (alarmNext.current) {
+            alarmNext.current = false
+            openAlarmInbox()
+          } else {
+            returnFocusTo?.current?.focus()
+          }
+        }}
+      >
         <SheetHeader>
           <SheetTitle>{tNav('notifications')}</SheetTitle>
         </SheetHeader>
 
         <SheetBody className="space-y-4 px-6 pt-1 pb-sheet-safe">
-          {/* The Alarmeingang is a sheet of its own: close this one first, then open it (one
-              layer at a time, the hand-over «Mehr» uses). */}
-          <Button
-            variant="outline"
-            className="h-auto min-h-11 w-full justify-start gap-3 touch-manipulation"
-            onClick={() => {
-              onOpenChange(false)
-              setTimeout(openAlarmInbox, 350)
-            }}
-          >
-            <Inbox className="size-4" />
-            <span>{tInbox('title')}</span>
-            <AlarmInboxMenuCount className="ml-auto" />
-            <ChevronRight className="size-4 text-muted-foreground" />
-          </Button>
+          {!isViewer && (
+            <Button
+              variant="outline"
+              className="h-auto min-h-11 w-full justify-start gap-3 touch-manipulation"
+              onClick={() => {
+                alarmNext.current = true
+                onOpenChange(false)
+              }}
+            >
+              <Inbox className="size-4" />
+              {/* the label takes the room, so the chevron ends the row with or without a count */}
+              <span className="flex-1 text-left">{tInbox('title')}</span>
+              <AlarmInboxMenuCount />
+              <ChevronRight className="size-4 text-muted-foreground" />
+            </Button>
+          )}
 
           <FieldRequestInbox
             items={openRequests.items}

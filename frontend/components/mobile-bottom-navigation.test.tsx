@@ -11,7 +11,8 @@ import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import { MobileBottomNavigation } from './mobile-bottom-navigation'
 
-const auth = vi.hoisted(() => ({ current: { isEditor: true, logout: vi.fn(), user: { role: 'editor' } } }))
+type Auth = { isEditor: boolean; isViewer?: boolean; isAuthenticated?: boolean; logout: () => void; user: { role: string } }
+const auth = vi.hoisted(() => ({ current: { isEditor: true, isAuthenticated: true, logout: vi.fn(), user: { role: 'editor' } } as Auth }))
 const event = vi.hoisted(() => ({ current: { training_flag: false } as { training_flag: boolean } | null }))
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
@@ -38,11 +39,17 @@ vi.mock('@/components/ui/use-mobile', () => ({ useIsMobile: () => true }))
 vi.mock('@/components/mobile/phone-quick-sheets', () => ({
   PhoneQuickSheets: ({ open }: { open: string | null }) => <output data-testid="quick-sheet">{open ?? ''}</output>,
 }))
-const meldungen = vi.hoisted(() => ({ count: 0 }))
+// What the Meldungen tile counts: the bell's open entries, the Alarmeingang's new alarms.
+const meldungen = vi.hoisted(() => ({ bell: 0, alarms: 0 }))
 vi.mock('@/components/notifications/phone-notification-sheet', () => ({
   PhoneNotificationSheet: ({ open }: { open: boolean }) => (open ? <output data-testid="meldungen-sheet" /> : null),
-  useMeldungenCount: () => meldungen.count,
 }))
+vi.mock('@/lib/contexts/notification-context', () => ({ useNotifications: () => ({ notifications: [] }) }))
+vi.mock('@/lib/hooks/use-field-requests', () => ({
+  useOpenFieldRequests: () => ({}),
+  useBellCount: () => ({ count: meldungen.bell }),
+}))
+vi.mock('@/components/alarm-inbox/alarm-inbox-button', () => ({ useNewAlarmCount: () => meldungen.alarms }))
 
 const EDITOR_ENTRIES = ['Links & QR', 'Verlauf', 'Kennzahlen', 'Fahrzeuge', 'Drucken']
 
@@ -52,7 +59,7 @@ async function openSheet() {
 
 describe('MobileBottomNavigation «Schnellzugriff»', () => {
   beforeEach(() => {
-    auth.current = { isEditor: true, logout: vi.fn(), user: { role: 'editor' } }
+    auth.current = { isEditor: true, isAuthenticated: true, logout: vi.fn(), user: { role: 'editor' } }
     event.current = { training_flag: false }
   })
 
@@ -70,7 +77,7 @@ describe('MobileBottomNavigation «Schnellzugriff»', () => {
   })
 
   it('offers a viewer only what a viewer may read', async () => {
-    auth.current = { isEditor: false, logout: vi.fn(), user: { role: 'viewer' } }
+    auth.current = { isEditor: false, isViewer: true, isAuthenticated: true, logout: vi.fn(), user: { role: 'viewer' } }
     renderWithIntl(<MobileBottomNavigation currentPage="map" />)
     await openSheet()
     expect(screen.getByRole('button', { name: 'Verlauf' })).toBeDefined()
@@ -104,8 +111,10 @@ describe('MobileBottomNavigation «Schnellzugriff»', () => {
 
 describe('MobileBottomNavigation tabs', () => {
   beforeEach(() => {
+    auth.current = { isEditor: true, isAuthenticated: true, logout: vi.fn(), user: { role: 'editor' } }
     event.current = { training_flag: false }
-    meldungen.count = 0
+    meldungen.bell = 0
+    meldungen.alarms = 0
   })
 
   // Phone sweep 24.11.2026 #24: «Übungs-Steuerung» lit no tab at all.
@@ -136,13 +145,30 @@ describe('MobileBottomNavigation tabs', () => {
     expect(screen.getByRole('button', { name: 'Personal' })).toBeDisabled()
   })
 
-  it('counts what is open on the Meldungen tile and opens the list', async () => {
-    meldungen.count = 12
+  it('counts the bell and the new alarms on the Meldungen tile and opens the list', async () => {
+    meldungen.bell = 3
+    meldungen.alarms = 9
     renderWithIntl(<MobileBottomNavigation currentPage="kanban" />)
     const tile = screen.getByRole('button', { name: 'Meldungen – 12 offen' })
     expect(screen.getByTestId('meldungen-badge')).toHaveTextContent('9+')
     await userEvent.click(tile)
     expect(screen.getByTestId('meldungen-sheet')).toBeDefined()
+  })
+
+  // The Alarmeingang refuses viewers: its alarms are no count of theirs.
+  it('counts no alarms for a viewer', () => {
+    auth.current = { isEditor: false, isViewer: true, isAuthenticated: true, logout: vi.fn(), user: { role: 'viewer' } }
+    meldungen.bell = 1
+    meldungen.alarms = 4
+    renderWithIntl(<MobileBottomNavigation currentPage="help" />)
+    expect(screen.getByRole('button', { name: 'Meldungen – 1 offen' })).toBeDefined()
+  })
+
+  // /help is public: signed out there is nothing to count and nobody to tell.
+  it('has no Meldungen tile signed out', () => {
+    auth.current = { isEditor: false, isAuthenticated: false, logout: vi.fn(), user: { role: '' } }
+    renderWithIntl(<MobileBottomNavigation currentPage="help" />)
+    expect(screen.queryByRole('button', { name: /^Meldungen/ })).toBeNull()
   })
 
   // Phone sweep 24.11.2026 #2: the tint and the loading bar waited for the next page.

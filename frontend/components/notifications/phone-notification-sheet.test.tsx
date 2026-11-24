@@ -3,13 +3,15 @@
  * counts is its first row, and it works nothing on the board – the phone board is read-only
  * (owner, 14.11.2026). «Gesehen» stays: it only closes the bell entry.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { useState } from 'react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { ApiFieldRequest } from '@/lib/api-client'
 
 const openAlarmInbox = vi.hoisted(() => vi.fn())
+const auth = vi.hoisted(() => ({ isViewer: false }))
 
 const request: ApiFieldRequest = {
   id: 'r1',
@@ -31,7 +33,9 @@ const request: ApiFieldRequest = {
   done_by_name: null,
 }
 
-vi.mock('@/lib/contexts/auth-context', () => ({ useAuth: () => ({ isEditor: true, isAuthenticated: true }) }))
+vi.mock('@/lib/contexts/auth-context', () => ({
+  useAuth: () => ({ isEditor: !auth.isViewer, isViewer: auth.isViewer, isAuthenticated: true }),
+}))
 vi.mock('@/lib/contexts/notification-context', () => ({
   useNotifications: () => ({
     notifications: [],
@@ -59,6 +63,11 @@ vi.mock('@/components/alarm-inbox/alarm-inbox-button', () => ({
 import { PhoneNotificationSheet } from './phone-notification-sheet'
 
 describe('PhoneNotificationSheet', () => {
+  beforeEach(() => {
+    auth.isViewer = false
+    openAlarmInbox.mockClear()
+  })
+
   it('shows an editor the open request with «Gesehen», but nothing that works it', () => {
     renderWithIntl(<PhoneNotificationSheet open onOpenChange={() => {}} />)
     expect(screen.getByRole('button', { name: /Gesehen/ })).toBeDefined()
@@ -66,14 +75,22 @@ describe('PhoneNotificationSheet', () => {
     expect(screen.queryByRole('button', { name: /zuweisen/ })).toBeNull()
   })
 
-  it('hands over to the Alarmeingang it counts', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
-    const onOpenChange = vi.fn()
-    renderWithIntl(<PhoneNotificationSheet open onOpenChange={onOpenChange} />)
+  // One layer at a time: the inbox opens once this sheet is gone, not on a timer that could
+  // land over whatever the operator opened meanwhile.
+  it('hands over to the Alarmeingang once it has closed', async () => {
+    function Harness() {
+      const [open, setOpen] = useState(true)
+      return <PhoneNotificationSheet open={open} onOpenChange={setOpen} />
+    }
+    renderWithIntl(<Harness />)
     await userEvent.click(screen.getByRole('button', { name: /Alarmeingang/ }))
-    expect(onOpenChange).toHaveBeenCalledWith(false)
-    vi.advanceTimersByTime(400)
+    expect(screen.queryByRole('dialog')).toBeNull()
     expect(openAlarmInbox).toHaveBeenCalledOnce()
-    vi.useRealTimers()
+  })
+
+  it('offers a viewer no Alarmeingang – it refuses the viewer role', () => {
+    auth.isViewer = true
+    renderWithIntl(<PhoneNotificationSheet open onOpenChange={() => {}} />)
+    expect(screen.queryByRole('button', { name: /Alarmeingang/ })).toBeNull()
   })
 })
