@@ -1850,24 +1850,24 @@
       "allEvents": "Tous les événements",
       "personnelSearch": "Personnel …",
       "materialSearch": "Matériel …",
-      "showAvailableOnly": "N’afficher que les disponibles",
       "showAll": "Tout afficher",
-      "noneAvailableFiltered": "Rien de disponible",
-      "personnelFilter": {
+      "sidebarFilter": {
         "title": "Filtre et tri",
         "buttonActive": "Filtre et tri – {count} actifs",
         "reset": "Réinitialiser",
         "resetAll": "Réinitialiser les filtres",
+        "sort": "Tri",
         "status": "Statut",
         "statusAll": "Tous",
         "statusFree": "Libre",
-        "statusBound": "Engagé",
+        "statusBound": "Engagé"
+      },
+      "personnelFilter": {
         "grade": "Grade",
         "gradeHint": "l’un d’eux",
         "noGrade": "Sans grade",
         "tags": "Tags",
         "tagsHint": "tous ceux choisis",
-        "sort": "Tri",
         "sortRank": "Grade",
         "sortName": "Nom",
         "sortFreeFirst": "Libres d’abord",
@@ -1877,6 +1877,19 @@
         "none": "Personne ne correspond à ces filtres",
         "groupFiltered": "Filtré · {count}",
         "groupAll": "Tous · {count}"
+      },
+      "materialFilter": {
+        "statusNotReady": "Hors service",
+        "location": "Emplacement",
+        "type": "Type",
+        "oneOfHint": "l’un d’eux",
+        "noLocation": "Autres",
+        "noType": "Sans type",
+        "sortLocation": "Emplacement",
+        "sortType": "Type",
+        "summaryType": "par type",
+        "shown": "{shown} sur {total} équipements",
+        "none": "Aucun matériel ne correspond à ces filtres"
       },
       "sort": {
         "button": "Trier",

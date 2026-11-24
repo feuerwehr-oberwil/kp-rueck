@@ -1,8 +1,10 @@
 "use client"
 
 /**
- * The Material-Leiste: the depots, identical devices folded into one counted
- * row, module blocks, «nicht einsatzbereit» at the bottom of each depot, the
+ * The Material-Leiste: the depots (or, sorted by Typ, the types and their
+ * depots), identical devices folded into one counted row, module blocks,
+ * «nicht einsatzbereit» at the bottom of each depot, the «Filter & Sortierung»
+ * popover (`material-filter.tsx`, rule in `lib/material-view.ts`), the
  * «vor Ort» roll-up above the list and the availability counter at the foot.
  *
  * Presentational: the board page owns every value and handler and passes them
@@ -11,7 +13,7 @@
  * elements as before.
  */
 
-import type { Dispatch, SetStateAction } from "react"
+import { useMemo, useRef, type Dispatch, type SetStateAction } from "react"
 import { useTranslations } from "next-intl"
 import { ChevronRight, PanelRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -24,16 +26,22 @@ import { MaterialOnSitePanel, type selectMaterialOnSite } from "@/components/kan
 import { ResourcesNotLoaded } from "@/components/board-load-error"
 import {
   AggregatedMaterialRow,
-  AvailableOnlyToggle,
   MaterialSidebarRow,
   SidebarCounter,
   SidebarEmpty,
   SidebarLoading,
 } from "@/components/board/sidebar-parts"
+import { MaterialFilterButton, MaterialFilterSummary, useMaterialLabels } from "@/components/board/material-filter"
 import { aggregateByName, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
 import type { Material } from "@/lib/contexts/operations-context"
 import type { MaterialGroup } from "@/lib/contexts/materials-context"
-import type { useResourceFiltering } from "@/lib/hooks/use-resource-filtering"
+import {
+  DEFAULT_MATERIAL_VIEW,
+  materialFacets,
+  materialFilterCount,
+  viewMaterials,
+  type MaterialViewPrefs,
+} from "@/lib/material-view"
 import type { summarizeMaterials } from "@/lib/resource-status"
 
 export interface MaterialSidebarProps {
@@ -43,8 +51,9 @@ export interface MaterialSidebarProps {
   /** The board's own search — cleared when it, not the sidebar's, hides everything. */
   setSearchQuery: Dispatch<SetStateAction<string>>
   isMobile: boolean
-  materialsAvailableOnly: boolean
-  setMaterialsAvailableOnly: Dispatch<SetStateAction<boolean>>
+  /** «Filter & Sortierung», remembered per browser by the board page. */
+  materialView: MaterialViewPrefs
+  setMaterialView: Dispatch<SetStateAction<MaterialViewPrefs>>
   materialOnSiteEntries: ReturnType<typeof selectMaterialOnSite>
   openIncidentDetail: (operationId: string) => void
   isLoaded: boolean
@@ -53,7 +62,7 @@ export interface MaterialSidebarProps {
   isEditor: boolean
   materials: Material[]
   materialGroups: MaterialGroup[]
-  groupedMaterials: ReturnType<typeof useResourceFiltering>["groupedMaterials"]
+  /** What the search left; the filters narrow this further (`viewMaterials`). */
   filteredMaterials: Material[]
   effectiveMaterialQuery: string
   handleMaterialClick: (material: Material) => void
@@ -74,8 +83,8 @@ export function MaterialSidebar({
   setMaterialSearchQuery,
   setSearchQuery,
   isMobile,
-  materialsAvailableOnly,
-  setMaterialsAvailableOnly,
+  materialView,
+  setMaterialView,
   materialOnSiteEntries,
   openIncidentDetail,
   isLoaded,
@@ -83,7 +92,6 @@ export function MaterialSidebar({
   isEditor,
   materials,
   materialGroups,
-  groupedMaterials,
   filteredMaterials,
   effectiveMaterialQuery,
   handleMaterialClick,
@@ -98,6 +106,95 @@ export function MaterialSidebar({
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
   const tSidePanel = useTranslations('kanban.sidePanel')
+  const labels = useMaterialLabels()
+  const { shown, groups } = useMemo(() => viewMaterials(filteredMaterials, materialView), [filteredMaterials, materialView])
+  const facets = useMemo(() => materialFacets(filteredMaterials, materialView), [filteredMaterials, materialView])
+  const filtering = materialFilterCount(materialView) > 0
+  const byType = materialView.sort === 'type'
+  const resetView = () => setMaterialView(DEFAULT_MATERIAL_VIEW)
+  const filterButtonRef = useRef<HTMLButtonElement>(null)
+
+  /** One depot's devices: module blocks (by depot only – by Typ a module would show a
+   *  fragment of itself), the folded rows, then the ones that cannot go out. */
+  const placeRows = (items: Material[]) => {
+    // «Nicht einsatzbereit» leaves the module blocks and the normal rows and
+    // sinks to the bottom of its depot: a module whose contents are half
+    // defective must not read as ready, and a dead device must not sit in the
+    // middle of the pickable ones.
+    const readyItems = items.filter(m => !m.outOfService)
+    const outOfServiceItems = items.filter(m => m.outOfService)
+    const ungroupedItems = readyItems.filter(m => byType || !m.groupId)
+    const groupedItems = new Map<string, Material[]>()
+    for (const m of byType ? [] : readyItems.filter(m => m.groupId)) {
+      const group = materialGroups.find(g => g.id === m.groupId)
+      if (group) {
+        if (!groupedItems.has(group.id)) groupedItems.set(group.id, [])
+        groupedItems.get(group.id)!.push(m)
+      } else {
+        ungroupedItems.push(m)
+      }
+    }
+    return (
+      <div className="space-y-0.5">
+        {/* Material groups/blocks */}
+        {Array.from(groupedItems.entries()).map(([groupId, groupMaterials]) => {
+          const group = materialGroups.find(g => g.id === groupId)!
+          const allAvailable = groupMaterials.every(m => m.status === 'available')
+          const someAssigned = groupMaterials.some(m => m.status === 'assigned')
+          const allAssigned = groupMaterials.every(m => m.status === 'assigned')
+          return (
+            <MaterialGroupBlock
+              key={groupId}
+              group={group}
+              materials={groupMaterials}
+              allAvailable={allAvailable}
+              someAssigned={someAssigned}
+              allAssigned={allAssigned}
+              onMaterialClick={handleMaterialClick}
+            />
+          )
+        })}
+        {/* Ungrouped materials — identical devices fold into one counted row
+            (see AggregatedMaterialRow); consumables and singletons keep their
+            own row. Then the ones that cannot go out. */}
+        {aggregateByName(ungroupedItems).map((bundle) =>
+          bundle.length > 1 ? (
+            <AggregatedMaterialRow
+              key={bundle[0].id}
+              units={bundle}
+              onOpenBindings={handleAggregateMaterialClick}
+              onToggleOutOfService={handleToggleMaterialOutOfService}
+              bindingsPopover={bindingsPopover}
+              onCloseBindings={() => setBindingsPopover(null)}
+              onGoBinding={followBinding}
+            />
+          ) : (
+            <MaterialSidebarRow
+              key={bundle[0].id}
+              material={bundle[0]}
+              onClick={() => handleMaterialClick(bundle[0])}
+              onToggleOutOfService={handleToggleMaterialOutOfService}
+              bindingsPopover={bindingsPopover}
+              onCloseBindings={() => setBindingsPopover(null)}
+              onGoBinding={followBinding}
+            />
+          ),
+        )}
+        {outOfServiceItems.map((material) => (
+          <MaterialSidebarRow
+            key={material.id}
+            material={material}
+            onClick={() => handleMaterialClick(material)}
+            onToggleOutOfService={handleToggleMaterialOutOfService}
+            bindingsPopover={bindingsPopover}
+            onCloseBindings={() => setBindingsPopover(null)}
+            onGoBinding={followBinding}
+          />
+        ))}
+      </div>
+    )
+  }
+
   return (
       // Sized and layered by its SlideRail (app/page.tsx), as the Personen-Leiste. The detail's
       // reopen control takes 28px of the search row (below); the rail grows by them
@@ -146,14 +243,18 @@ export function MaterialSidebar({
             className="h-8 text-sm"
             hint={!isMobile ? <Kbd>M</Kbd> : undefined}
           />
-          <AvailableOnlyToggle
-            active={materialsAvailableOnly}
-            onToggle={() => setMaterialsAvailableOnly((v) => !v)}
-            label={materialsAvailableOnly ? tDash('showAll') : tDash('showAvailableOnly')}
+          <MaterialFilterButton
+            prefs={materialView}
+            onChange={setMaterialView}
+            facets={facets}
+            shown={shown.length}
+            total={materials.length}
+            buttonRef={filterButtonRef}
           />
         </div>
+        <MaterialFilterSummary prefs={materialView} onReset={resetView} buttonRef={filterButtonRef} />
         {/* «Vor Ort» roll-up — above the scroll area on purpose, so neither
-            the search nor «nur verfügbare» (which hides everything that is
+            the search nor the filters (Frei hides everything that is
             assigned, i.e. exactly this material) can filter the answer to
             "what is still out there" away. Renders nothing at zero. */}
         <MaterialOnSitePanel entries={materialOnSiteEntries} onOpenIncident={openIncidentDetail} />
@@ -174,8 +275,11 @@ export function MaterialSidebar({
               action={isEditor ? tDash('createMaterialInSettings') : undefined}
               actionHref="/settings?section=materials"
             />
-          ) : Object.keys(groupedMaterials).length === 0 ? (
-            effectiveMaterialQuery ? (
+          ) : shown.length === 0 ? (
+            /* The search or the filters hide every device. The search goes
+               first: when it alone leaves nothing, resetting the filters would
+               change nothing (as the Personen-Leiste). */
+            filteredMaterials.length === 0 ? (
               <SidebarEmpty
                 message={tDash.rich('noMaterialMatch', {
                   query: effectiveMaterialQuery,
@@ -189,98 +293,36 @@ export function MaterialSidebar({
               />
             ) : (
               <SidebarEmpty
-                message={tDash('noneAvailableFiltered')}
-                action={tDash('showAll')}
-                onAction={() => setMaterialsAvailableOnly(false)}
+                message={tDash('materialFilter.none')}
+                action={tDash('sidebarFilter.resetAll')}
+                onAction={resetView}
               />
             )
           ) : (
             <div className="space-y-4">
-              {Object.entries(groupedMaterials).map(([category, items]) => {
-                // «Nicht einsatzbereit» leaves the module blocks and the
-                // normal rows and sinks to the bottom of its depot: a
-                // module whose contents are half defective must not read
-                // as ready, and a dead device must not sit in the middle
-                // of the pickable ones.
-                const readyItems = items.filter(m => !m.outOfService)
-                const outOfServiceItems = items.filter(m => m.outOfService)
-                const ungroupedItems = readyItems.filter(m => !m.groupId)
-                const groupedItems = new Map<string, Material[]>()
-                for (const m of readyItems.filter(m => m.groupId)) {
-                  const group = materialGroups.find(g => g.id === m.groupId)
-                  if (group) {
-                    if (!groupedItems.has(group.id)) groupedItems.set(group.id, [])
-                    groupedItems.get(group.id)!.push(m)
-                  } else {
-                    ungroupedItems.push(m)
-                  }
-                }
-                return (
-                  <div key={category}>
-                    {/* Caps like every sidebar heading — a depot label
-                        must not read as a device. */}
-                    <h3 className="mb-1 type-label text-muted-foreground">{category}</h3>
-                    <div className="space-y-0.5">
-                      {/* Material groups/blocks */}
-                      {Array.from(groupedItems.entries()).map(([groupId, groupMaterials]) => {
-                        const group = materialGroups.find(g => g.id === groupId)!
-                        const allAvailable = groupMaterials.every(m => m.status === 'available')
-                        const someAssigned = groupMaterials.some(m => m.status === 'assigned')
-                        const allAssigned = groupMaterials.every(m => m.status === 'assigned')
-                        return (
-                          <MaterialGroupBlock
-                            key={groupId}
-                            group={group}
-                            materials={groupMaterials}
-                            allAvailable={allAvailable}
-                            someAssigned={someAssigned}
-                            allAssigned={allAssigned}
-                            onMaterialClick={handleMaterialClick}
-                          />
-                        )
-                      })}
-                      {/* Ungrouped materials — identical devices fold
-                          into one counted row (see AggregatedMaterialRow);
-                          consumables and singletons keep their own row.
-                          Then the ones that cannot go out. */}
-                      {aggregateByName(ungroupedItems).map((bundle) =>
-                        bundle.length > 1 ? (
-                          <AggregatedMaterialRow
-                            key={bundle[0].id}
-                            units={bundle}
-                            onOpenBindings={handleAggregateMaterialClick}
-                            onToggleOutOfService={handleToggleMaterialOutOfService}
-                            bindingsPopover={bindingsPopover}
-                            onCloseBindings={() => setBindingsPopover(null)}
-                            onGoBinding={followBinding}
-                          />
-                        ) : (
-                          <MaterialSidebarRow
-                            key={bundle[0].id}
-                            material={bundle[0]}
-                            onClick={() => handleMaterialClick(bundle[0])}
-                            onToggleOutOfService={handleToggleMaterialOutOfService}
-                            bindingsPopover={bindingsPopover}
-                            onCloseBindings={() => setBindingsPopover(null)}
-                            onGoBinding={followBinding}
-                          />
-                        ),
-                      )}
-                      {outOfServiceItems.map((material) => (
-                        <MaterialSidebarRow
-                          key={material.id}
-                          material={material}
-                          onClick={() => handleMaterialClick(material)}
-                          onToggleOutOfService={handleToggleMaterialOutOfService}
-                          bindingsPopover={bindingsPopover}
-                          onCloseBindings={() => setBindingsPopover(null)}
-                          onGoBinding={followBinding}
-                        />
+              {groups.map(({ key, places }) => (
+                <div key={key}>
+                  {/* Caps like every sidebar heading — a depot or Typ label
+                      must not read as a device. */}
+                  <h3 className="mb-1 type-label text-muted-foreground">
+                    {byType ? labels.type(key) : labels.location(key)}
+                  </h3>
+                  {byType ? (
+                    /* By Typ the depot stays a sub-heading: identical devices
+                       in two depots are two rows, and which is which matters. */
+                    <div className="space-y-2">
+                      {places.map(({ location, items }) => (
+                        <div key={location}>
+                          <p className="mb-0.5 type-micro text-muted-foreground">{labels.location(location)}</p>
+                          {placeRows(items)}
+                        </div>
                       ))}
                     </div>
-                  </div>
-                )
-              })}
+                  ) : (
+                    placeRows(places[0].items)
+                  )}
+                </div>
+              ))}
             </div>
           )}
           <ScrollEndFade surface="panel" />
@@ -291,12 +333,12 @@ export function MaterialSidebar({
           <p className="text-xs text-muted-foreground text-center">
             {!isLoaded || boardNeverLoaded
               ? tCommon('counterLoading')
-              : effectiveMaterialQuery
-                ? tCommon('visibleCounter', { shown: filteredMaterials.length, total: materials.length })
+              : effectiveMaterialQuery || filtering
+                ? tCommon('visibleCounter', { shown: shown.length, total: materials.length })
                 : null}
           </p>
           {/* Same helper as the list filter — see the crew footer above. */}
-          {isLoaded && !boardNeverLoaded && !effectiveMaterialQuery && (
+          {isLoaded && !boardNeverLoaded && !effectiveMaterialQuery && !filtering && (
             <SidebarCounter summary={materialSummary} />
           )}
         </div>

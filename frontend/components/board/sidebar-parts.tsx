@@ -12,10 +12,8 @@ import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useTranslations } from "next-intl"
 import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
-import { ArrowRight, ArrowUpRight, Ban, Check, CircleCheck, Package2, Warehouse } from "lucide-react"
+import { ArrowRight, ArrowUpRight, Ban, Check, Package2, Warehouse } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip"
 import { ContextMenu, ContextMenuCheckboxItem, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { DraggableMaterial } from "@/components/kanban/draggable-material"
@@ -82,46 +80,6 @@ export function SidebarEmpty({
         </button>
       ) : null}
     </div>
-  )
-}
-
-/**
- * Sidebar filter: show only what can be assigned right now.
- *
- * Icon-only and 32px square so it sits flush with the 32px search field. The
- * check glyph is the same one the resource cards use for "verfügbar", so the
- * button reads as "keep the available ones" rather than as a generic funnel.
- *
- * ON is the tonal «selected» state every other filter uses, not green: a
- * toggled filter is a choice, and selection looks the same everywhere. Green
- * stays with the availability dots and badges themselves (DESIGN.md → Colour
- * roles).
- */
-export function AvailableOnlyToggle({
-  active,
-  onToggle,
-  label,
-}: {
-  active: boolean
-  onToggle: () => void
-  label: string
-}) {
-  return (
-    <ShortcutTooltip label={label}>
-      <Button
-        size="icon-xs"
-        variant={active ? "selected" : "ghost"}
-        onClick={onToggle}
-        aria-pressed={active}
-        aria-label={label}
-        className={cn(
-          "flex-shrink-0 border",
-          !active && "border-transparent text-muted-foreground hover:text-foreground",
-        )}
-      >
-        <CircleCheck className="size-4" />
-      </Button>
-    </ShortcutTooltip>
   )
 }
 

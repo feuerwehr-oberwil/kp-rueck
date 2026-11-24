@@ -276,7 +276,7 @@ export function PersonnelSidebar({
             ) : (
               <SidebarEmpty
                 message={tDash('personnelFilter.none')}
-                action={tDash('personnelFilter.resetAll')}
+                action={tDash('sidebarFilter.resetAll')}
                 onAction={resetView}
               />
             )

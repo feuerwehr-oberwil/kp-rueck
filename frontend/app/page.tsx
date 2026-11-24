@@ -83,6 +83,7 @@ import { cn } from "@/lib/utils"
 import { useBoardLayoutPrefs } from "@/lib/hooks/use-board-layout-prefs"
 import { usePersistedState } from "@/lib/hooks/use-persisted-state"
 import { DEFAULT_PERSONNEL_VIEW, isPersonnelViewPrefs, PERSONNEL_VIEW_KEY } from "@/lib/personnel-view"
+import { DEFAULT_MATERIAL_VIEW, isMaterialViewPrefs, MATERIAL_VIEW_KEY } from "@/lib/material-view"
 import { isNavigableBinding, soleDestination, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
 import { PersonnelSidebar } from "@/components/board/personnel-sidebar"
 import { MaterialSidebar } from "@/components/board/material-sidebar"
@@ -372,11 +373,11 @@ export default function FireStationDashboard() {
   const [searchQuery, setSearchQuery] = useState("")
   const [personnelSearchQuery, setPersonnelSearchQuery] = useState("")
   const [materialSearchQuery, setMaterialSearchQuery] = useState("")
-  // The crew sidebar's «Filter & Sortierung» (remembered per browser) and the material
-  // sidebar's «nur verfügbare» toggle. Per-list on purpose: crew and material are picked at
-  // different moments, so one shared switch would keep surprising the other list.
+  // Each sidebar's «Filter & Sortierung», remembered per browser. Per-list on purpose: crew
+  // and material are picked at different moments, so one shared switch would keep surprising
+  // the other list.
   const [personnelView, setPersonnelView] = usePersistedState(PERSONNEL_VIEW_KEY, DEFAULT_PERSONNEL_VIEW, isPersonnelViewPrefs)
-  const [materialsAvailableOnly, setMaterialsAvailableOnly] = useState(false)
+  const [materialView, setMaterialView] = usePersistedState(MATERIAL_VIEW_KEY, DEFAULT_MATERIAL_VIEW, isMaterialViewPrefs)
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
   selectedOperationIdRef.current = selectedOperationId
   const [detailModalOpen, setDetailModalOpen] = useState(false)
@@ -1034,14 +1035,13 @@ export default function FireStationDashboard() {
   // Use shared resource filtering hook — sidebar search takes priority, top search also filters
   const effectivePersonnelQuery = personnelSearchQuery || searchQuery
   const effectiveMaterialQuery = materialSearchQuery || searchQuery
-  // `filtered*` are what the sidebars actually draw — the footer counters read
-  // them so "0 von 17 sichtbar" can never disagree with the list above it.
-  const { groupedMaterials, filteredPersonnel, filteredMaterials } = useResourceFiltering(
+  // `filtered*` are what the searches leave; each sidebar's «Filter & Sortierung» narrows
+  // that further and counts what it draws, so «0 von 17 sichtbar» never disagrees with it.
+  const { filteredPersonnel, filteredMaterials } = useResourceFiltering(
     personnel,
     materials,
     effectivePersonnelQuery,
     effectiveMaterialQuery,
-    { materials: materialsAvailableOnly },
     personPlaces,
   )
 
@@ -1691,8 +1691,8 @@ export default function FireStationDashboard() {
               setMaterialSearchQuery={setMaterialSearchQuery}
               setSearchQuery={setSearchQuery}
               isMobile={isMobile}
-              materialsAvailableOnly={materialsAvailableOnly}
-              setMaterialsAvailableOnly={setMaterialsAvailableOnly}
+              materialView={materialView}
+              setMaterialView={setMaterialView}
               materialOnSiteEntries={materialOnSiteEntries}
               openIncidentDetail={openIncidentDetail}
               isLoaded={isLoaded}
@@ -1700,7 +1700,6 @@ export default function FireStationDashboard() {
               isEditor={isEditor}
               materials={materials}
               materialGroups={materialGroups}
-              groupedMaterials={groupedMaterials}
               filteredMaterials={filteredMaterials}
               effectiveMaterialQuery={effectiveMaterialQuery}
               handleMaterialClick={handleMaterialClick}
