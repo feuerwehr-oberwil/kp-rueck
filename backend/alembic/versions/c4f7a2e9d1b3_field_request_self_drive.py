@@ -9,14 +9,14 @@ No backfill: existing rows read false, the generic «erledigt» they showed befo
 label existed. Downgrade drops the column.
 
 Revision ID: c4f7a2e9d1b3
-Revises: b8e4f2a6c1d7
+Revises: c4f1a8d2e6b3
 """
 
 import sqlalchemy as sa
 from alembic import op
 
 revision = "c4f7a2e9d1b3"
-down_revision = "b8e4f2a6c1d7"
+down_revision = "c4f1a8d2e6b3"
 branch_labels = None
 depends_on = None
 
