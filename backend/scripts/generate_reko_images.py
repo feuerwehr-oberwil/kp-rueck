@@ -1,9 +1,9 @@
 """Export image generation jobs and import the approved outputs as bundled WebP.
 
-`jobs` prints one JSON line per missing picture: every illustrated text needs
-`PICTURES_PER_SCENE` phone shots in different seasons (owner pick 24.11.2026), a water scene
-(`water_scenes`) that many shallow and that many deep. A new shot takes the season that
-contrasts the text's existing one (`next_season`). `import` installs the PNGs a model made
+`jobs` prints one JSON line per missing picture: every illustrated text needs one phone
+shot, a water scene (`water_scenes`) one shallow and one deep. Owner triage 24.11.2026:
+more shots per text only where they look good, not a fixed count. A new shot takes a season
+the text allows (`seasons_for`), spread by its name. `import` installs the PNGs a model made
 from those lines. A phone shot replaces the text's round-1 «plain» pictures.
 """
 
@@ -71,10 +71,6 @@ SEASON_HINTS: dict[Season, str] = {
     "autumn": "coloured or fallen leaves, overcast sky, rain or dusk",
     "winter": "bare trees, snow on roofs, lawns, kerbs and parked cars, cold light or street lamps",
 }
-# The season a scene's next shot takes after this one (autumn: see `next_season`).
-CONTRAST: dict[Season, Season] = {"summer": "winter", "spring": "winter", "winter": "summer"}
-# Each scene (text, or text and depth) gets this many phone shots, each in its own season.
-PICTURES_PER_SCENE = 2
 MAX_EDGE = 640
 # Phone shots (rain, grain, dusk) compress worse than the round-1 plain pictures.
 MAX_BYTES = 60_000
@@ -89,22 +85,6 @@ def _wanted(summary: str) -> list[Depth | None]:
 def _spread(name: str, count: int) -> int:
     """An index below `count` that stays the same for this name and spreads across names."""
     return int(hashlib.sha256(name.encode()).hexdigest(), 16) % count
-
-
-def next_season(taken: list[Season | None], name: str, allowed: tuple[Season, ...]) -> Season:
-    """The season of a scene's next shot, one of `allowed` (`seasons_for`): the contrast to
-    the one it has (summer ↔ winter, spring → winter). A shot without a season is an early,
-    autumn-looking one: snow or summer next, spread by `name`. A scene with no shot starts
-    at a season spread by `name`. A season repeats only when `allowed` has no other."""
-    if not taken:
-        return allowed[_spread(name, len(allowed))]
-    last = taken[-1]
-    if last is None or last == "autumn":
-        preferred: list[Season] = ["winter", "summer"] if _spread(name, 2) == 0 else ["summer", "winter"]
-    else:
-        preferred = [CONTRAST[last]]
-    fresh = [s for s in allowed if s not in taken] or list(allowed)
-    return next((s for s in preferred if s in fresh), fresh[0])
 
 
 def phone_prompt(summary: str, depth: Depth | None, season: Season) -> str:
@@ -122,15 +102,13 @@ def export_jobs() -> None:
         ]
         for depth in _wanted(summary):
             stem = f"{key}-{depth}" if depth else key
-            taken = [e.get("season") for e in entries if e.get("depth") == depth]
-            while len(taken) < PICTURES_PER_SCENE:
-                season = next_season(taken, stem, seasons_for(summary))
-                repeat = taken.count(season)
-                taken.append(season)
-                out = f"{stem}-{season}-{repeat + 1}.png" if repeat else f"{stem}-{season}.png"
-                prompt = phone_prompt(summary, depth, season)
-                job = {"out": out, "key": key, "depth": depth, "season": season, "prompt": prompt}
-                print(json.dumps(job, ensure_ascii=False))
+            if any(e.get("depth") == depth for e in entries):
+                continue
+            allowed = seasons_for(summary)
+            season = allowed[_spread(stem, len(allowed))]
+            prompt = phone_prompt(summary, depth, season)
+            job = {"out": f"{stem}-{season}.png", "key": key, "depth": depth, "season": season, "prompt": prompt}
+            print(json.dumps(job, ensure_ascii=False))
 
 
 def encode_webp(source: Path) -> bytes:

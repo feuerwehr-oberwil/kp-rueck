@@ -54,15 +54,14 @@ def test_all_reko_summaries_have_bundled_illustrations():
     missing = set()
     for summary in illustrated_summaries():
         entries = [e for e in manifest.get(summary_image_key(summary), []) if (SUMMARY_IMAGE_DIR / e["file"]).is_file()]
-        # Owner picks 24.11.2026: every text is the Reko's phone shot, twice per scene, each
-        # in its own season where the text allows two. An early shot has no season.
+        # Every scene is the Reko's phone shot, in a season the text allows. An early shot
+        # has no season.
         allowed = seasons_for(summary)
         for depth in ("shallow", "deep") if summary in water else (None,):
             shots = [e for e in entries if e["style"] == "phone" and e.get("depth") == depth]
-            seasons = [e.get("season") for e in shots]
-            if len(shots) < 2 or len(set(seasons)) < min(2, len(allowed)):
+            if not shots:
                 missing.add(summary)
-            assert all(season in (None, *allowed) for season in seasons), summary
+            assert all(e.get("season") in (None, *allowed) for e in shots), summary
         for entry in entries:
             path = SUMMARY_IMAGE_DIR / entry["file"]
             assert entry["prompt"] and entry["scene"] == "as_found", summary
