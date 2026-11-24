@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useEvent } from '@/lib/contexts/event-context';
 import { useOperations } from '@/lib/contexts/operations-context';
 import { apiClient, type ApiEmergencyTemplate, type ApiTrainingLocation } from '@/lib/api-client';
+import { useTrainingAutogen } from '@/lib/hooks/use-training-autogen';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -68,10 +69,15 @@ export function TrainingControls() {
 
   // Automatik (backend auto-generation monitor, training_autogen_task.py) —
   // lives in this card since the 2026-08-19 restructure: it is just another way
-  // of generating emergencies, not a feature of its own. All knobs are plain
-  // settings; the monitor picks changes up within ~5s — no restart needed.
+  // of generating emergencies, not a feature of its own. The switch has its own
+  // endpoint (it records which Übung it feeds and since when); interval and max
+  // are plain settings. The monitor picks changes up within ~5s.
+  const { state: autogen, apply: applyAutogen } = useTrainingAutogen(
+    selectedEvent?.training_flag ? selectedEvent.id : null,
+    // The monitor switched itself off at the maximum – news nobody on this page made.
+    () => toast.info(t('autogen.stoppedAtMax'), { description: t('autogen.stoppedAtMaxDescription') }),
+  );
   const [autogenLoaded, setAutogenLoaded] = useState(false);
-  const [autogenEnabled, setAutogenEnabled] = useState(false);
   const [autogenIntervalMin, setAutogenIntervalMin] = useState(5);
   const [autogenMax, setAutogenMax] = useState(50);
   const [autogenSaving, setAutogenSaving] = useState(false);
@@ -97,7 +103,6 @@ export function TrainingControls() {
     apiClient
       .getAllSettings()
       .then((settings) => {
-        setAutogenEnabled(settings['training_autogen_enabled'] === 'true');
         setAutogenIntervalMin(parseFloat(settings['training_autogen_interval_min']) || 5);
         setAutogenMax(parseInt(settings['training_autogen_max_emergencies']) || 50);
         setAutogenLoaded(true);
@@ -107,6 +112,14 @@ export function TrainingControls() {
         setAutogenLoaded(true);
       });
   }, [selectedEvent?.training_flag, autogenLoaded]);
+
+  // On for THIS Übung, on for another one, or switched off at the maximum. A run-less
+  // switch (from before the run was recorded) feeds the newest Übung – shown as on.
+  const autogenRun = autogen?.run ?? null;
+  const autogenHere = autogenRun === null || autogenRun.event_id === selectedEvent?.id;
+  const autogenOn = !!autogen?.enabled && autogenHere;
+  const autogenElsewhere = !!autogen?.enabled && !autogenHere;
+  const autogenStoppedAtMax = !autogen?.enabled && autogenRun?.event_id === selectedEvent?.id && autogenRun?.stopped === 'max';
 
   // Sort templates by (category, title) so the dropdown reads predictably.
   const sortedTemplates = useMemo(
@@ -238,10 +251,14 @@ export function TrainingControls() {
   };
 
   const handleAutogenToggle = async (on: boolean) => {
-    setAutogenEnabled(on);
-    if (!(await saveAutogenSetting('training_autogen_enabled', on ? 'true' : 'false'))) {
-      setAutogenEnabled(!on);
+    setAutogenSaving(true);
+    try {
+      applyAutogen(await apiClient.setAutogen(selectedEvent.id, on));
+    } catch {
+      toast.error(t('autogen.saveFailed'));
       return;
+    } finally {
+      setAutogenSaving(false);
     }
     toast.success(on ? t('autogen.started') : t('autogen.stopped'), {
       description: on
@@ -465,13 +482,15 @@ export function TrainingControls() {
           hint={t('autogen.description')}
           action={
             <Switch
-              checked={autogenEnabled}
+              checked={autogenOn}
               onCheckedChange={handleAutogenToggle}
-              disabled={!autogenLoaded || autogenSaving}
+              disabled={autogen === null || autogenSaving}
               aria-label={t('autogen.toggleAria')}
             />
           }
         >
+          {autogenElsewhere && <FormMessage tone="advice">{t('autogen.elsewhere')}</FormMessage>}
+          {autogenStoppedAtMax && <FormMessage tone="advice">{t('autogen.stoppedAtMaxHint', { max: autogenMax })}</FormMessage>}
           <SettingRow
             label={t('autogen.intervalLabel')}
             htmlFor="autogen-interval"

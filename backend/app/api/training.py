@@ -8,7 +8,7 @@ import logging
 from typing import Literal, cast
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +20,8 @@ from ..models import (
     TrainingLocation,
 )
 from ..schemas import (
+    AutogenStateResponse,
+    AutogenSwitchRequest,
     EmergencyTemplateResponse,
     GenerateEmergencyRequest,
     IncidentResponse,
@@ -27,10 +29,12 @@ from ..schemas import (
     TrainingLocationResponse,
 )
 from ..services import incident_display
+from ..services.audit import log_action
 from ..services.training import (
     TrainingGenerator,
     generate_training_emergency,
 )
+from ..services.training_autogen_task import broadcast_autogen_state, read_autogen_state, switch_autogen
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import (
     broadcast_incident_update,
@@ -181,3 +185,42 @@ async def list_locations(
     locations = result.scalars().all()
 
     return [TrainingLocationResponse.model_validate(loc) for loc in locations]
+
+
+@router.get("/autogen", response_model=AutogenStateResponse)
+async def get_autogen(current_user: CurrentUser, db: AsyncSession = Depends(get_db)) -> AutogenStateResponse:
+    """The Automatik: on or off, and the run – which Übung it feeds, since when, why it stopped."""
+    return await read_autogen_state(db)
+
+
+@router.put("/events/{event_id}/autogen", response_model=AutogenStateResponse)
+async def put_autogen(
+    event_id: UUID,
+    payload: AutogenSwitchRequest,
+    request: Request,
+    current_user: CurrentEditor,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+) -> AutogenStateResponse:
+    """Switch the Automatik. On starts a new run for THIS Übung; the «heisse Phase» counts from now."""
+    event = await db.get(Event, event_id)
+    if not event:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
+    if payload.enabled and not event.training_flag:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Alarme können nur in Übungen erzeugt werden"
+        )
+
+    before = await read_autogen_state(db)
+    state = await switch_autogen(db, payload.enabled, event_id=event_id, user_id=current_user.id)
+    await log_action(
+        db=db,
+        action_type="update",
+        resource_type="setting",
+        resource_id=None,
+        user=current_user,
+        changes={"key": "training_autogen_enabled", "before": before.enabled, "after": state.enabled},
+        request=request,
+    )
+    background_tasks.add_task(broadcast_autogen_state, state)
+    return state

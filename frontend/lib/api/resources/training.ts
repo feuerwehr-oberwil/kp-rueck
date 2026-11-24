@@ -7,6 +7,7 @@
 
 import { request as httpRequest } from '../http'
 import type {
+  ApiAutogenState,
   ApiGpsSimDrive,
   ApiIncident,
   ApiRekoReportResponse,
@@ -72,6 +73,24 @@ export class TrainingApi {
     return httpRequest(`/api/training/events/${eventId}/simulate/checkin`, {
       method: 'POST',
       body: JSON.stringify({ count, over_minutes: overMinutes }),
+    })
+  }
+
+  /** Stop a trickled check-in; `stopped` = how many people no longer arrive (0: none was running). */
+  async stopSimulatedCheckin(eventId: string): Promise<{ stopped: number }> {
+    return httpRequest(`/api/training/events/${eventId}/simulate/checkin`, { method: 'DELETE' })
+  }
+
+  /** The Automatik's switch and run. */
+  async getAutogen(): Promise<ApiAutogenState> {
+    return httpRequest<ApiAutogenState>('/api/training/autogen')
+  }
+
+  /** Switch the Automatik; on starts a run for THIS Übung (the «heisse Phase» counts from now). */
+  async setAutogen(eventId: string, enabled: boolean): Promise<ApiAutogenState> {
+    return httpRequest<ApiAutogenState>(`/api/training/events/${eventId}/autogen`, {
+      method: 'PUT',
+      body: JSON.stringify({ enabled }),
     })
   }
 

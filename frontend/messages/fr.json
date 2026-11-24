@@ -4434,12 +4434,16 @@
       "toggleAria": "Automatisme activé/désactivé",
       "intervalLabel": "Intervalle (min)",
       "maxLabel": "Interventions max.",
-      "hint": "Les 30 premières minutes à double cadence (phase chaude).",
+      "hint": "Les 30 premières minutes après l’activation à double cadence (phase chaude).",
       "saveFailed": "Le réglage n’a pas pu être enregistré",
       "started": "Automatisme démarré",
       "stopped": "Automatisme arrêté",
       "startedDescription": "Nouvelles alarmes toutes les ~{interval}' (double vitesse les 30' premières).",
-      "stoppedDescription": "Plus aucune intervention n’est générée automatiquement."
+      "stoppedDescription": "Plus aucune intervention n’est générée automatiquement.",
+      "elsewhere": "Tourne actuellement pour un autre exercice. L’activer le ramène dans cet exercice.",
+      "stoppedAtMax": "Automatisme arrêté",
+      "stoppedAtMaxDescription": "Le nombre maximal d’interventions est atteint.",
+      "stoppedAtMaxHint": "Arrêté : maximum de {max} interventions atteint. Augmentez le max. et réactivez."
     },
     "checkin": {
       "title": "Enregistrer l’arrivée du personnel",
@@ -4453,7 +4457,12 @@
       "scheduledDescription": "Les personnes s’annonceront au cours des {minutes} prochaines minutes.",
       "noMorePersons": "Plus aucune personne disponible",
       "noMorePersonsDescription": "Toutes les personnes disponibles sont déjà présentes.",
-      "failed": "Échec de la simulation des arrivées"
+      "failed": "Échec de la simulation des arrivées",
+      "running": "Arrivées échelonnées en cours.",
+      "stop": "Arrêter",
+      "stopped": "{count, plural, one {# personne n’arrivera plus} other {# personnes n’arriveront plus}}",
+      "stoppedNone": "Plus aucune arrivée échelonnée en cours",
+      "stopFailed": "Les arrivées n’ont pas pu être arrêtées"
     },
     "gpsSim": {
       "title": "Simulation GPS",

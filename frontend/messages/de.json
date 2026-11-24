@@ -3645,12 +3645,16 @@
       "toggleAria": "Automatik ein/aus",
       "intervalLabel": "Intervall (Min.)",
       "maxLabel": "Max. Einsätze",
-      "hint": "Erste 30 Minuten mit doppeltem Tempo (heisse Phase).",
+      "hint": "Die ersten 30 Minuten nach dem Einschalten mit doppeltem Tempo (heisse Phase).",
       "saveFailed": "Einstellung konnte nicht gespeichert werden",
       "started": "Automatik gestartet",
       "stopped": "Automatik gestoppt",
       "startedDescription": "Neue Alarme alle ~{interval}' (erste 30' doppeltes Tempo).",
-      "stoppedDescription": "Es werden keine Einsätze mehr automatisch generiert."
+      "stoppedDescription": "Es werden keine Einsätze mehr automatisch generiert.",
+      "elsewhere": "Läuft gerade für eine andere Übung. Einschalten holt sie in diese Übung.",
+      "stoppedAtMax": "Automatik gestoppt",
+      "stoppedAtMaxDescription": "Das Maximum an Einsätzen ist erreicht.",
+      "stoppedAtMaxHint": "Gestoppt: Maximum von {max} Einsätzen erreicht. Max. erhöhen und wieder einschalten."
     },
     "checkin": {
       "title": "Personal einchecken",
@@ -3664,7 +3668,12 @@
       "scheduledDescription": "Die Personen checken über die nächsten {minutes} Minuten ein.",
       "noMorePersons": "Keine weiteren Personen verfügbar",
       "noMorePersonsDescription": "Alle verfügbaren Personen sind bereits anwesend.",
-      "failed": "Check-ins simulieren fehlgeschlagen"
+      "failed": "Check-ins simulieren fehlgeschlagen",
+      "running": "Gestaffeltes Einchecken läuft.",
+      "stop": "Stoppen",
+      "stopped": "{count, plural, one {# Person kommt nicht mehr} other {# Personen kommen nicht mehr}}",
+      "stoppedNone": "Kein gestaffeltes Einchecken mehr aktiv",
+      "stopFailed": "Einchecken konnte nicht gestoppt werden"
     },
     "gpsSim": {
       "title": "GPS-Simulation",

@@ -1,8 +1,13 @@
 """Background task for training emergency auto-generation.
 
 Started once from the app lifespan (skipped in demo mode) and idles until the
-``training_autogen_enabled`` setting is switched on — the Übungssteuerung
-exposes the controls. Generation targets the newest active training event.
+Automatik is switched on. The switch is ``PUT /api/training/events/{id}/autogen``
+(``switch_autogen`` below): it sets ``training_autogen_enabled`` and records the
+run – which Übung to feed and since when – in the ``training_autogen.run`` row.
+The «heisse Phase» (boost) counts from that start. At the max the task switches
+itself off and says so (``stopped="max"``), so the page never shows «an» while
+nothing comes. A run-less ``enabled=true`` (from before the run row existed)
+feeds the newest active training event and boosts from its creation.
 
 Two intake modes (``training_autogen_mode``):
 - ``board``  — incidents materialize directly on the board (classic behaviour)
@@ -16,12 +21,16 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session_maker
 from app.models import DiveraEmergency, Event, Incident, Setting
+from app.schemas.training import AutogenRun, AutogenStateResponse
+from app.services.settings import update_setting
 from app.services.training import TrainingGenerator
+from app.websocket_manager import broadcast_message
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +44,38 @@ _SETTING_KEYS = [
     "training_normal_weight",
     "training_critical_weight",
 ]
+
+ENABLED_KEY = "training_autogen_enabled"
+RUN_KEY = "training_autogen.run"
+
+
+async def read_autogen_state(db: AsyncSession) -> AutogenStateResponse:
+    """The switch and the current run. An unreadable run row counts as no run."""
+    result = await db.execute(select(Setting).where(Setting.key.in_([ENABLED_KEY, RUN_KEY])))
+    rows = {s.key: s.value for s in result.scalars().all()}
+    run = None
+    if raw := rows.get(RUN_KEY):
+        with contextlib.suppress(ValidationError):
+            run = AutogenRun.model_validate_json(raw)
+    return AutogenStateResponse(enabled=rows.get(ENABLED_KEY) == "true", run=run)
+
+
+async def switch_autogen(
+    db: AsyncSession, enabled: bool, *, event_id: uuid.UUID | None = None, user_id: uuid.UUID | None = None
+) -> AutogenStateResponse:
+    """Switch the Automatik. On = a new run for ``event_id``, starting now. Flushes, does not commit."""
+    await update_setting(db, ENABLED_KEY, "true" if enabled else "false", user_id)
+    if enabled:
+        if event_id is None:
+            raise ValueError("switching the Automatik on needs the Übung it feeds")
+        run = AutogenRun(event_id=event_id, started_at=datetime.now(UTC))
+        await update_setting(db, RUN_KEY, run.model_dump_json(), user_id)
+    return await read_autogen_state(db)
+
+
+async def broadcast_autogen_state(state: AutogenStateResponse) -> None:
+    """Tell every open Übungssteuerung that the Automatik changed (switch, or stop at the max)."""
+    await broadcast_message({"type": "training_autogen", **state.model_dump(mode="json")})
 
 
 class TrainingAutoGenTask:
@@ -82,23 +123,12 @@ class TrainingAutoGenTask:
         settings_rows = result.scalars().all()
         settings = {s.key: s.value for s in settings_rows}
 
-        enabled = settings.get("training_autogen_enabled") == "true"
-
-        if not enabled:
+        state = await read_autogen_state(db)
+        if not state.enabled:
             self.current_event_id = None
             return
 
-        # Find active training event
-        # Note: Event.archived_at.is_(None) means not archived
-        event_result = await db.execute(
-            select(Event)
-            .where(Event.training_flag == True)  # noqa: E712
-            .where(Event.archived_at.is_(None))
-            .order_by(Event.created_at.desc())
-            .limit(1)
-        )
-        event = event_result.scalar_one_or_none()
-
+        event = await self._target_event(db, state.run)
         if not event:
             self.current_event_id = None
             return
@@ -120,12 +150,17 @@ class TrainingAutoGenTask:
         ).scalar_one()
 
         if incident_count + pool_count >= max_emergencies:
-            # Max reached - stop auto-generation
-            if self.current_event_id == event.id:
-                logger.info(
-                    "Training auto-gen stopped: Max emergencies (%d) reached for event %s", max_emergencies, event.id
-                )
-                self.current_event_id = None
+            # Max reached: switch off for real, so the page shows «aus» and why.
+            logger.info(
+                "Training auto-gen stopped: max emergencies (%d) reached for event %s", max_emergencies, event.id
+            )
+            self.current_event_id = None
+            await update_setting(db, ENABLED_KEY, "false", None)
+            if state.run:
+                stopped = state.run.model_copy(update={"stopped": "max"})
+                await update_setting(db, RUN_KEY, stopped.model_dump_json(), None)
+            await db.commit()  # the task owns this session; the broadcast below must see the row
+            await broadcast_autogen_state(await read_autogen_state(db))
             return
 
         # Get interval in minutes
@@ -133,10 +168,11 @@ class TrainingAutoGenTask:
         boost_mult = float(settings.get("training_boost_multiplicator", 2.0))
         boost_duration_min = int(settings.get("training_boost_duration_min", 30))
 
-        # Calculate if we're in boost period
-        event_age_minutes = (datetime.now(UTC) - event.created_at).total_seconds() / 60
-        # Inside the boost window the interval is divided by the multiplier (fires sooner).
-        actual_interval_min = interval_min / boost_mult if event_age_minutes < boost_duration_min else interval_min
+        # The boost («heisse Phase») runs from the switch-on; a run-less legacy switch uses the
+        # event's creation. Inside the window the interval is divided by the multiplier.
+        boost_from = state.run.started_at if state.run else event.created_at
+        running_minutes = (datetime.now(UTC) - boost_from).total_seconds() / 60
+        actual_interval_min = interval_min / boost_mult if running_minutes < boost_duration_min else interval_min
 
         # Time since the last generated alarm — board incidents and simulated
         # pool alarms both count, so switching modes doesn't double-fire.
@@ -167,6 +203,21 @@ class TrainingAutoGenTask:
                 await self._generate(db, event, settings)
             except Exception as e:
                 logger.error("Failed to auto-generate emergency: %s", e)
+
+    @staticmethod
+    async def _target_event(db: AsyncSession, run: AutogenRun | None) -> Event | None:
+        """The Übung to feed: the run's, while it is an open training event; without a run the newest one."""
+        if run:
+            event = await db.get(Event, run.event_id)
+            return event if event and event.training_flag and event.archived_at is None else None
+        result = await db.execute(
+            select(Event)
+            .where(Event.training_flag == True)  # noqa: E712
+            .where(Event.archived_at.is_(None))
+            .order_by(Event.created_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
 
     async def _generate(self, db: AsyncSession, event: Event, settings: dict[str, str]) -> None:
         """Generate one alarm in the configured intake mode and broadcast it."""

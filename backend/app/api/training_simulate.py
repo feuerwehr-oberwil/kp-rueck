@@ -45,6 +45,7 @@ from ..schemas import (
     SimulateBulkRapportResponse,
     SimulateCheckinRequest,
     SimulateCheckinResponse,
+    SimulateCheckinStopResponse,
     SimulateDiveraRequest,
     SimulateFieldCompleteRequest,
     SimulateInjectResponse,
@@ -105,7 +106,9 @@ async def _get_event_incident(db: AsyncSession, event_id: UUID, incident_id: UUI
 # One trickle task per event at most; module-level so requests share the guard
 # and the task isn't garbage-collected mid-run. In-memory only — a backend
 # restart drops pending trickles, which is fine for an exercise aid.
+# `_trickle_pending` counts who has not arrived yet, for the stop's answer.
 _trickle_tasks: dict[UUID, asyncio.Task[None]] = {}
+_trickle_pending: dict[UUID, int] = {}
 
 
 async def _trickle_checkins(event_id: UUID, people: list[tuple[UUID, str]], window_seconds: float) -> None:
@@ -115,6 +118,7 @@ async def _trickle_checkins(event_id: UUID, people: list[tuple[UUID, str]], wind
     for (person_id, name), offset in zip(people, offsets, strict=False):
         await asyncio.sleep(max(0.0, offset - elapsed))
         elapsed = offset
+        _trickle_pending[event_id] -= 1
         try:
             async with async_session_maker() as db:
                 result = await checkin_crud.check_in_personnel(db, event_id, person_id)
@@ -174,6 +178,7 @@ async def simulate_checkin(
                 detail="Ein gestaffeltes Einchecken läuft bereits",
             )
         people = [(p.id, p.name) for p in to_checkin]
+        _trickle_pending[event_id] = len(people)
         _trickle_tasks[event_id] = asyncio.create_task(_trickle_checkins(event_id, people, over_minutes * 60.0))
         return SimulateCheckinResponse(
             checked_in=[],
@@ -200,6 +205,17 @@ async def simulate_checkin(
         total_checked_in=len(checked_in_ids) + len(checked_in_names),
         total_available=len(personnel_list),
     )
+
+
+@router.delete("/events/{event_id}/simulate/checkin", response_model=SimulateCheckinStopResponse)
+async def stop_simulated_checkin(event_id: UUID, current_user: CurrentEditor) -> SimulateCheckinStopResponse:
+    """Stop a trickled check-in: whoever has not arrived yet stays away. 0 when none is running."""
+    task = _trickle_tasks.pop(event_id, None)
+    pending = _trickle_pending.pop(event_id, 0)
+    if not task or task.done():
+        return SimulateCheckinStopResponse(stopped=0)
+    task.cancel()
+    return SimulateCheckinStopResponse(stopped=pending)
 
 
 @router.post("/events/{event_id}/simulate/field-complete/{incident_id}", response_model=IncidentResponse)

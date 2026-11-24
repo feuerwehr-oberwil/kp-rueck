@@ -244,6 +244,38 @@ class SimulateCheckinResponse(BaseModel):
     trickle_minutes: int = 0
 
 
+class SimulateCheckinStopResponse(BaseModel):
+    """Result of stopping a trickled check-in: how many people will no longer arrive."""
+
+    stopped: int
+
+
+class AutogenRun(BaseModel):
+    """The Automatik's current run, stored as JSON in the ``training_autogen.run`` settings row.
+
+    Written by ``PUT /api/training/events/{id}/autogen`` when the switch goes on, read by the
+    background task: which Übung it feeds, and since when (the «heisse Phase» counts from
+    there). ``stopped`` says why the task switched itself off.
+    """
+
+    event_id: UUID
+    started_at: datetime
+    stopped: Literal["max"] | None = None
+
+
+class AutogenSwitchRequest(BaseModel):
+    """Switch the Automatik on (for this Übung) or off."""
+
+    enabled: bool
+
+
+class AutogenStateResponse(BaseModel):
+    """What the Übungssteuerung shows for the Automatik. ``run`` is None before the first start."""
+
+    enabled: bool
+    run: AutogenRun | None
+
+
 class SimulateDiveraRequest(BaseModel):
     """Schema for injecting a simulated Divera alarm into the pool."""
 

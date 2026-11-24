@@ -199,6 +199,13 @@ will keep holding.
 
 ### Fixed
 
+- **The Übungs-Automatik does what its switch says.** It feeds the Übung it was switched on for
+  (not simply the newest one), its «heisse Phase» counts from the switch-on instead of from when
+  the Ereignis was created, and at the maximum it switches itself off – the page shows «aus» and
+  why, instead of «an» while nothing comes. A check-in trickled over minutes can be stopped. The
+  switch has its own endpoint now (`PUT /api/training/events/{id}/autogen`); the generic settings
+  PATCH refuses `training_autogen_enabled`.
+
 - **`just dev-stop` and `just dev-clean` no longer touch the production stack.** Both also ran
   `docker compose down` on `docker-compose.yml` – `dev-clean` with `-v`, which deletes the
   station's database and photos. They act on `docker-compose.dev.yml` only now, and that file

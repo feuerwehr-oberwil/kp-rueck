@@ -102,6 +102,14 @@ export interface ApiTrainingLocation {
   is_active: boolean
 }
 
+/** The training Automatik (`GET /api/training/autogen`): the switch, and its run – the Übung it
+ *  feeds, since when (the «heisse Phase» counts from there), and `stopped: 'max'` once it switched
+ *  itself off at the maximum. `run` is null before the first start. */
+export interface ApiAutogenState {
+  enabled: boolean
+  run: { event_id: string; started_at: string; stopped: 'max' | null } | null
+}
+
 /** One simulated Schadenplatz-Rapport, as the Übungssteuerung reports it back
  *  (plan 25 §16). `filed_by` is null when the incident had nobody assigned and
  *  the KP had to enter it – the honest provenance for that case. */

@@ -15059,6 +15059,126 @@
         }
       }
     },
+    "/api/training/autogen": {
+      "get": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Get Autogen",
+        "description": "The Automatik: on or off, and the run – which Übung it feeds, since when, why it stopped.",
+        "operationId": "get_autogen_api_training_autogen_get",
+        "parameters": [
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutogenStateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/events/{event_id}/autogen": {
+      "put": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Put Autogen",
+        "description": "Switch the Automatik. On starts a new run for THIS Übung; the «heisse Phase» counts from now.",
+        "operationId": "put_autogen_api_training_events__event_id__autogen_put",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutogenSwitchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutogenStateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/training/events/{event_id}/simulate/checkin": {
       "post": {
         "tags": [
@@ -15112,6 +15232,64 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SimulateCheckinResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Stop Simulated Checkin",
+        "description": "Stop a trickled check-in: whoever has not arrived yet stays away. 0 when none is running.",
+        "operationId": "stop_simulated_checkin_api_training_events__event_id__simulate_checkin_delete",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulateCheckinStopResponse"
                 }
               }
             }
@@ -18066,6 +18244,78 @@
         "type": "object",
         "title": "AuftragTemplateUpdate",
         "description": "Partial PATCH. ``resources``, when given, REPLACES the whole list."
+      },
+      "AutogenRun": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "stopped": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "max"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stopped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "started_at"
+        ],
+        "title": "AutogenRun",
+        "description": "The Automatik's current run, stored as JSON in the ``training_autogen.run`` settings row.\n\nWritten by ``PUT /api/training/events/{id}/autogen`` when the switch goes on, read by the\nbackground task: which Übung it feeds, and since when (the «heisse Phase» counts from\nthere). ``stopped`` says why the task switched itself off."
+      },
+      "AutogenStateResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AutogenRun"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "run"
+        ],
+        "title": "AutogenStateResponse",
+        "description": "What the Übungssteuerung shows for the Automatik. ``run`` is None before the first start."
+      },
+      "AutogenSwitchRequest": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "AutogenSwitchRequest",
+        "description": "Switch the Automatik on (for this Übung) or off."
       },
       "AvailableRekoPersonnel": {
         "properties": {
@@ -29553,6 +29803,20 @@
         ],
         "title": "SimulateCheckinResponse",
         "description": "Response for simulated check-ins."
+      },
+      "SimulateCheckinStopResponse": {
+        "properties": {
+          "stopped": {
+            "type": "integer",
+            "title": "Stopped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stopped"
+        ],
+        "title": "SimulateCheckinStopResponse",
+        "description": "Result of stopping a trickled check-in: how many people will no longer arrive."
       },
       "SimulateDiveraRequest": {
         "properties": {

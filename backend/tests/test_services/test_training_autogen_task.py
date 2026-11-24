@@ -636,3 +636,103 @@ class TestAutogenIntakeMode:
 
             mock_instance.generate_emergency.assert_not_called()
             mock_instance.generate_pool_emergency.assert_not_called()
+
+
+# ============================================
+# The run: which Übung, since when, why it stopped
+# ============================================
+
+
+async def _start_run(db_session: AsyncSession, event: Event, started_minutes_ago: float) -> None:
+    """Switch the Automatik on for `event`, as the PUT endpoint does, `started_minutes_ago` back."""
+    from app.services.training_autogen_task import RUN_KEY, switch_autogen
+
+    await switch_autogen(db_session, True, event_id=event.id)
+    run = await db_session.get(Setting, RUN_KEY)
+    started = datetime.now(UTC) - timedelta(minutes=started_minutes_ago)
+    run.value = run.value.split('"started_at"')[0] + f'"started_at":"{started.isoformat()}"' + "}"
+    await db_session.commit()
+
+
+class TestAutogenRun:
+    """The Automatik feeds the Übung it was switched on for and boosts from the switch-on."""
+
+    @pytest.mark.asyncio
+    async def test_feeds_the_run_event_not_the_newest(
+        self, db_session: AsyncSession, training_event: Event, autogen_settings_enabled: list[Setting]
+    ):
+        newer = Event(id=uuid4(), name="Newer Training", training_flag=True, created_at=datetime.now(UTC))
+        db_session.add(newer)
+        await db_session.commit()
+        await _start_run(db_session, training_event, started_minutes_ago=0)
+
+        task = TrainingAutoGenTask()
+        with patch("app.services.training_autogen_task.TrainingGenerator") as MockGen:
+            MockGen.return_value.generate_emergency = AsyncMock(return_value=MagicMock(title="T"))
+            await task._check_and_run(db_session)
+
+        assert task.current_event_id == training_event.id
+
+    @pytest.mark.asyncio
+    async def test_boost_counts_from_switch_on_not_event_creation(
+        self, db_session: AsyncSession, autogen_user: User, autogen_settings_enabled: list[Setting]
+    ):
+        # Created an hour ago, switched on 5 minutes ago: still in the 30-minute hot phase.
+        event = Event(id=uuid4(), name="Old", training_flag=True, created_at=datetime.now(UTC) - timedelta(hours=1))
+        db_session.add(event)
+        db_session.add(
+            Incident(
+                id=uuid4(),
+                title="Recent",
+                type="brandbekaempfung",
+                priority="medium",
+                status="incoming",
+                event_id=event.id,
+                created_by=autogen_user.id,
+                created_at=datetime.now(UTC) - timedelta(minutes=3),
+            )
+        )
+        await db_session.commit()
+        await _start_run(db_session, event, started_minutes_ago=5)
+
+        task = TrainingAutoGenTask()
+        with patch("app.services.training_autogen_task.TrainingGenerator") as MockGen:
+            MockGen.return_value.generate_emergency = AsyncMock(return_value=MagicMock(title="T"))
+            await task._check_and_run(db_session)
+            # 3 min since the last alarm > 5 / 2 = 2.5 min boosted interval.
+            MockGen.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_max_switches_off_and_says_why(
+        self,
+        db_session: AsyncSession,
+        training_event: Event,
+        autogen_user: User,
+        autogen_settings_enabled: list[Setting],
+    ):
+        from app.services.training_autogen_task import read_autogen_state
+
+        for s in autogen_settings_enabled:
+            if s.key == "training_autogen_max_emergencies":
+                s.value = "1"
+        db_session.add(
+            Incident(
+                id=uuid4(),
+                title="Full",
+                type="brandbekaempfung",
+                priority="medium",
+                status="incoming",
+                event_id=training_event.id,
+                created_by=autogen_user.id,
+            )
+        )
+        await db_session.commit()
+        await _start_run(db_session, training_event, started_minutes_ago=0)
+
+        with patch("app.services.training_autogen_task.broadcast_autogen_state", new_callable=AsyncMock) as sent:
+            await TrainingAutoGenTask()._check_and_run(db_session)
+
+        state = await read_autogen_state(db_session)
+        assert state.enabled is False
+        assert state.run is not None and state.run.stopped == "max"
+        sent.assert_awaited_once()

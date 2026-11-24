@@ -1,15 +1,16 @@
 'use client';
 
 import { useState } from 'react';
+import { useCurrentTime } from '@/lib/hooks/use-current-time';
 import { useTranslations } from 'next-intl';
 import { useEvent } from '@/lib/contexts/event-context';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, ApiError } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { ShellLoader } from '@/components/ui/shell-loader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Users } from 'lucide-react';
+import { Square, Users } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -22,7 +23,9 @@ import {
  * Personal einchecken (Übungssteuerung): checks random available people into the
  * exercise — immediately or trickled over minutes, the way an Aufgebot really
  * arrives. Its own card since the 2026-08-19 restructure (it prepares the
- * exercise rather than simulating field actions).
+ * exercise rather than simulating field actions). A trickle can be stopped: the
+ * «Stoppen» row shows from the start until its window ends, and also after a 409
+ * («läuft bereits») – the backend knows about a trickle the page may not.
  */
 export function TrainingCheckinCard() {
   const t = useTranslations('training.checkin');
@@ -31,6 +34,12 @@ export function TrainingCheckinCard() {
   const [count, setCount] = useState(10);
   // 0 = sofort; >0 = check-ins trickle in over this many minutes.
   const [minutes, setMinutes] = useState(0);
+  // Until when a trickle runs (ms), as far as this page knows; null = none known.
+  const [trickleUntil, setTrickleUntil] = useState<number | null>(null);
+  const [isStopping, setIsStopping] = useState(false);
+  // A coarse clock hides the «Stoppen» row once the trickle's window has passed.
+  const { currentTime } = useCurrentTime(5000);
+  const trickling = trickleUntil !== null && currentTime !== null && currentTime.getTime() < trickleUntil;
 
   if (!selectedEvent?.training_flag) {
     return null;
@@ -43,6 +52,7 @@ export function TrainingCheckinCard() {
       const result = await apiClient.simulateCheckin(selectedEvent.id, count, minutes);
 
       if ((result.scheduled?.length ?? 0) > 0) {
+        setTrickleUntil(Date.now() + (result.trickle_minutes ?? minutes) * 60_000);
         toast.success(t('scheduled', { count: result.scheduled!.length }), {
           description: t('scheduledDescription', { minutes: result.trickle_minutes ?? minutes }),
         });
@@ -53,10 +63,26 @@ export function TrainingCheckinCard() {
       }
     } catch (error: unknown) {
       console.error('Failed to simulate check-in:', error);
+      // «läuft bereits»: offer the stop for a trickle this page did not start.
+      if (ApiError.isConflictError(error)) setTrickleUntil(Date.now() + 30 * 60_000);
       const detail = error instanceof Error ? error.message : undefined;
       toast.error(t('failed'), { description: detail });
     } finally {
       setIsCheckingIn(false);
+    }
+  };
+
+  const handleStop = async () => {
+    setIsStopping(true);
+    try {
+      const { stopped } = await apiClient.stopSimulatedCheckin(selectedEvent.id);
+      setTrickleUntil(null);
+      if (stopped > 0) toast.success(t('stopped', { count: stopped }));
+      else toast.info(t('stoppedNone'));
+    } catch (error: unknown) {
+      toast.error(t('stopFailed'), { description: error instanceof Error ? error.message : undefined });
+    } finally {
+      setIsStopping(false);
     }
   };
 
@@ -107,6 +133,15 @@ export function TrainingCheckinCard() {
             {isCheckingIn ? t('checkingIn') : t('checkin')}
           </Button>
         </div>
+        {trickling && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="min-w-0 flex-1">{t('running')}</span>
+            <Button onClick={handleStop} disabled={isStopping} variant="outline" size="sm" className="flex-shrink-0">
+              {isStopping ? <ShellLoader className="size-3.5" /> : <Square className="size-3.5" />}
+              {t('stop')}
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

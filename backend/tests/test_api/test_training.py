@@ -1565,3 +1565,44 @@ async def test_simulate_rapport_without_a_pool_still_files(
     )
     assert response.status_code == 200
     assert response.json()["photos"] == 0
+
+
+# ============================================
+# Automatik switch + stopping a trickle
+# ============================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_autogen_switch_records_the_run(editor_client: AsyncClient, training_event: Event):
+    """On = a run for THIS Übung; the generic settings PATCH may not flip the switch alone."""
+    response = await editor_client.put(f"/api/training/events/{training_event.id}/autogen", json={"enabled": True})
+    assert response.status_code == 200
+    state = response.json()
+    assert state["enabled"] is True
+    assert state["run"]["event_id"] == str(training_event.id)
+    assert state["run"]["stopped"] is None
+
+    assert (await editor_client.get("/api/training/autogen")).json() == state
+
+    response = await editor_client.patch("/api/settings/training_autogen_enabled", json={"value": "false"})
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_stop_trickled_checkin(editor_client: AsyncClient, db_session: AsyncSession, training_event: Event):
+    """Stopping a trickle says how many people will no longer arrive; with none running, 0."""
+    from app.models import Personnel
+
+    for i in range(3):
+        db_session.add(Personnel(id=uuid4(), name=f"AdF Stop {i}", status="available"))
+    await db_session.commit()
+
+    url = f"/api/training/events/{training_event.id}/simulate/checkin"
+    assert (await editor_client.post(url, json={"count": 3, "over_minutes": 5})).status_code == 200
+
+    response = await editor_client.delete(url)
+    assert response.status_code == 200
+    assert response.json() == {"stopped": 3}
+    assert (await editor_client.delete(url)).json() == {"stopped": 0}
