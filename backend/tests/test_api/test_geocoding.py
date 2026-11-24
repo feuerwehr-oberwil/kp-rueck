@@ -346,6 +346,34 @@ async def test_swisstopo_boxes_around_the_station_when_the_caller_sends_no_box(
     assert calls[0]["bbox"] == "2605176,1257060,2612725,1268190"
 
 
+@pytest.mark.parametrize(("latitude", "longitude"), [("nan", "7.5574"), ("90", "7.5574"), ("47.5", "inf")])
+async def test_station_box_is_skipped_when_the_stored_station_cannot_make_one(
+    client, db_session, test_event, provider, monkeypatch, latitude, longitude
+):
+    """A stored «nan» or a pole latitude gives no valid box: the search goes broad instead.
+    Nominatim takes the viewbox as sent (swisstopo already drops a box outside its grid)."""
+    instance, _, _ = provider
+    calls = []
+
+    async def fetch(url, parameters):
+        calls.append(parameters)
+        return []
+
+    monkeypatch.setattr(settings, "geocoding_provider", "nominatim")
+    monkeypatch.setattr(settings, "geocoding_nominatim_url", "http://geocoder.test/nominatim")
+    monkeypatch.setattr(instance, "_fetch", fetch)
+    db_session.add_all(
+        [Setting(key="firestation_latitude", value=latitude), Setting(key="firestation_longitude", value=longitude)]
+    )
+    await db_session.commit()
+    token = await share_links.issue(db_session, "alarm", test_event.id)
+    response = await client.get(
+        "/api/geocoding/search", params={"q": "Binningerstr"}, headers={"X-Intake-Token": token}
+    )
+    assert response.status_code == 200
+    assert calls and all("viewbox" not in call for call in calls)
+
+
 async def test_swisstopo_goes_broad_only_when_the_box_finds_nothing(editor_client, provider, monkeypatch):
     instance, _, _ = provider
     calls = []

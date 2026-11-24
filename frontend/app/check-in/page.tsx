@@ -279,7 +279,7 @@ function CheckInKiosk({ token }: { token: string | null }) {
                   >
                     <PersonName name={person.name} personnelId={person.id} kennung={person.kennung} />
                   </button>
-                  <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
+                  <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
                     {person.is_assigned ? (
                       <span id={stateId} className="bg-foreground/10 text-foreground px-3 py-1 rounded-full text-sm font-semibold">
                         {t('badgeAssigned')}

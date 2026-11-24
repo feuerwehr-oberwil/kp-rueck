@@ -309,10 +309,18 @@ async def _station_viewbox(db: AsyncSession) -> str | None:
     if station is None:
         return None
     lat, lon = station
-    return ",".join(
-        str(round(v, 6))
-        for v in (lon - STATION_BOX_DELTA, lat - STATION_BOX_DELTA, lon + STATION_BOX_DELTA, lat + STATION_BOX_DELTA)
+    west, south, east, north = (
+        lon - STATION_BOX_DELTA,
+        lat - STATION_BOX_DELTA,
+        lon + STATION_BOX_DELTA,
+        lat + STATION_BOX_DELTA,
     )
+    # A stored «nan» or a pole-side latitude would send a box the provider rejects: search broad.
+    if not all(math.isfinite(v) for v in (west, south, east, north)):
+        return None
+    if not (west >= -180 and east <= 180 and south >= -90 and north <= 90):
+        return None
+    return ",".join(str(round(v, 6)) for v in (west, south, east, north))
 
 
 def _swiss_entries(payload: object) -> list[Any]:
