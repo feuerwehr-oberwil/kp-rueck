@@ -27,12 +27,13 @@ import { LeaderGlyph } from "@/components/kanban/leader-badge"
 import { DuplicateFlag } from "@/components/duplicates/duplicate-flag"
 import { DriverStayGlyph } from "@/components/ui/driver-stay-glyph"
 import { rapportApplies } from "@/lib/rapport-visibility"
-import { getIncidentTypeLabel } from "@/lib/incident-types"
+import { getIncidentRefParts, getIncidentTypeLabel } from "@/lib/incident-types"
 import { AddressText } from "@/components/kanban/address-text"
 import { cn } from "@/lib/utils"
 import { getOperationStatusLabel } from "@/lib/status-labels"
 import { type Priority, PRIORITY_CARD_CLASSES, PRIORITY_ICON_CLASSES } from "@/lib/priority"
 import { sameCrew, sameVehicles } from "@/lib/operation-equality"
+import { sortCrewByLeader } from "@/lib/crew-order"
 
 interface MobileIncidentCardProps {
   operation: Operation
@@ -83,7 +84,10 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
         // `gap-0`: the Card's own `gap-6` would open 24px between the header and
         // every body row; the rows carry their own 4–8px steps.
         // A tap answers with the app's press wash (`data-press`, globals.css) – nothing moves.
-        "gap-0 p-3 cursor-pointer touch-manipulation",
+        // `relative`: the unseen detail button (below) stays inside the card, not the scroller;
+        // its keyboard ring is the card's (an outline: the Hoch pulse animates box-shadow).
+        "relative gap-0 p-3 cursor-pointer touch-manipulation",
+        "has-[>button.sr-only:focus-visible]:outline-2 has-[>button.sr-only:focus-visible]:outline-offset-2 has-[>button.sr-only:focus-visible]:outline-ring",
         // The board card's own priority reading (lib/priority.ts): a 4px left
         // edge — red + wash + ring + pulse for Hoch, amber for Mittel, plain
         // border for Niedrig. No status tint: the status is the badge's job.
@@ -93,6 +97,23 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
       onClick={onClick}
       data-press
     >
+      {/* The card is a div with a click, which VoiceOver does not offer as a control
+          (phone sweep 24.11.2026, A2): this named button is the one it announces. Unseen –
+          a finger taps the whole card. The sheet gives the focus back here when it closes. */}
+      <button
+        type="button"
+        data-detail-opener
+        className="sr-only"
+        onClick={(event) => {
+          event.stopPropagation()
+          // Safari and VoiceOver may activate a button without focusing it; the sheet gives the
+          // focus back to whatever held it when it opened.
+          event.currentTarget.focus({ preventScroll: true })
+          onClick()
+        }}
+      >
+        {tMobile("openDetail", { incident: getIncidentRefParts(operation).head })}
+      </button>
       {/* The chevron and the age sit beside the HEADER only (address, EL,
           Abholung, Duplikat); the status row and, from the rule down, the fact block
           runs the card's full width, as the desk card's body does.
@@ -232,7 +253,9 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
           {operation.crew.length > 0 && (
             <FactRow label={tMobile("crew")}>
               <p className="line-clamp-2">
-                {operation.crew.map((m, i) => (
+                {/* EL first, as in the detail sheet (decision 23): the card must not tell
+                    the crew in another order than the sheet it opens. */}
+                {sortCrewByLeader(operation.crew, operation.leaderId).map((m, i) => (
                   <Fragment key={m.personnelId}>
                     {i > 0 && ", "}
                     <PersonName name={m.name} personnelId={m.personnelId} />
@@ -289,6 +312,7 @@ export const MobileIncidentCard = memo(MobileIncidentCardBase, (prevProps, nextP
     // that ignores a field leaves stale text on screen after a poll.
     prev.notes === next.notes &&
     prev.leaderName === next.leaderName &&
+    prev.leaderId === next.leaderId &&
     sameCrew(prev.crew, next.crew) &&
     sameVehicles(prev.vehicles, next.vehicles) &&
     prev.hasCompletedReko === next.hasCompletedReko &&
