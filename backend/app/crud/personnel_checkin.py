@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from fastapi import Request
 from sqlalchemy import func, select
 from sqlalchemy import text as sa_text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
@@ -132,11 +133,8 @@ async def check_in_personnel(
     Raises:
         ValueError: If personnel is unavailable
     """
-    # The person's row, locked (the resource row, last in the lock order): two check-ins of
-    # one person – the tablet and the guest door, or a double tap – would otherwise both miss
-    # the attendance row below and the second insert would fail on its unique constraint.
-    # Check-out locks the same row.
-    result = await db.execute(select(Personnel).where(Personnel.id == personnel_id).with_for_update())
+    # Get personnel record
+    result = await db.execute(select(Personnel).where(Personnel.id == personnel_id))
     person = result.scalar_one_or_none()
 
     # A guest of another Ereignis is nobody this one lists (`Personnel.in_scope`).
@@ -149,41 +147,41 @@ async def check_in_personnel(
 
     is_assigned = await _is_personnel_assigned(db, event_id, personnel_id)
 
-    # Get or create event attendance record
-    attendance_result = await db.execute(
-        select(EventAttendance).where(
-            EventAttendance.event_id == event_id, EventAttendance.personnel_id == personnel_id
-        )
+    # Get or create the event attendance record. Created with ON CONFLICT DO NOTHING, then read
+    # back: two check-ins of one person at once (the tablet and the guest door, a double tap)
+    # both miss the row, and a plain insert would make the second one a unique-constraint 500.
+    # This way the second waits for the first and then finds its row. No row lock on the
+    # person: that would put a new lock between this and every writer of personnel.
+    attendance_query = (
+        select(EventAttendance)
+        .where(EventAttendance.event_id == event_id, EventAttendance.personnel_id == personnel_id)
+        .execution_options(populate_existing=True)
     )
-    attendance = attendance_result.scalar_one_or_none()
+    attendance = await db.scalar(attendance_query)
+    if attendance is None:
+        await db.execute(
+            pg_insert(EventAttendance)
+            .values(id=uuid.uuid4(), event_id=event_id, personnel_id=personnel_id, checked_in=False)
+            .on_conflict_do_nothing(constraint="unique_event_personnel_attendance")
+        )
+        # Inserted above, or by the request it waited for.
+        attendance = (await db.execute(attendance_query)).scalar_one()
 
     now = datetime.now(UTC)
 
-    if attendance:
+    if attendance.checked_in:
         # Already checked in for this event
-        if attendance.checked_in:
-            return _response(person, attendance, is_assigned=is_assigned)
-        # Coming BACK after a departure starts a new stint: the old «kommt um» / «geht um»
-        # were about the one that ended, and a spent «geht um» would ring the bell again.
-        # A first arrival keeps both – «geht um» is often said before somebody is in.
-        if attendance.checked_out_at is not None:
-            attendance.planned_from = None
-            attendance.planned_until = None
-        # Update existing record
-        attendance.checked_in = True
-        attendance.checked_in_at = now
-        attendance.checked_in_by_user_id = current_user.id if current_user else None
-        attendance.updated_at = now
-    else:
-        # Create new attendance record
-        attendance = EventAttendance(
-            event_id=event_id,
-            personnel_id=personnel_id,
-            checked_in=True,
-            checked_in_at=now,
-            checked_in_by_user_id=current_user.id if current_user else None,
-        )
-        db.add(attendance)
+        return _response(person, attendance, is_assigned=is_assigned)
+    # Coming BACK after a departure starts a new stint: the old «kommt um» / «geht um»
+    # were about the one that ended, and a spent «geht um» would ring the bell again.
+    # A first arrival keeps both – «geht um» is often said before somebody is in.
+    if attendance.checked_out_at is not None:
+        attendance.planned_from = None
+        attendance.planned_until = None
+    attendance.checked_in = True
+    attendance.checked_in_at = now
+    attendance.checked_in_by_user_id = current_user.id if current_user else None
+    attendance.updated_at = now
 
     # Log action
     if current_user and request:

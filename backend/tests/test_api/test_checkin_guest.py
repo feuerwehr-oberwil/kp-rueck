@@ -15,6 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud.personnel_checkin import DOOR_GUEST_TAG, DOOR_GUESTS_PER_EVENT
+from app.middleware.rate_limit import RateLimits, limiter
 from app.models import AuditLog, Event, EventAttendance, Personnel
 from app.services import share_links
 from app.services.tokens import generate_checkin_token, generate_link_token
@@ -168,8 +169,10 @@ async def test_the_name_is_validated(client: AsyncClient, two_events: tuple[Even
 async def test_only_a_live_checkin_token_opens_the_door(
     client: AsyncClient, editor_client: AsyncClient, db_session: AsyncSession, two_events: tuple[Event, Event]
 ):
-    tonight, _ = two_events
+    tonight, other = two_events
     revoked = generate_checkin_token(tonight.id)
+    deleted_token = generate_checkin_token(other.id)
+    await db_session.delete(other)
     assert await share_links.revoke(db_session, "checkin", tonight.id)
     await db_session.commit()
 
@@ -178,7 +181,8 @@ async def test_only_a_live_checkin_token_opens_the_door(
         "expired": generate_link_token("checkin", tonight.id, expires_hours=-1),
         "other kind": generate_link_token("viewer", tonight.id),
         "revoked": revoked,
-        "deleted Ereignis": generate_checkin_token(uuid4()),
+        "unknown Ereignis": generate_checkin_token(uuid4()),
+        "deleted Ereignis": deleted_token,
     }
     for why, token in refused.items():
         response = await client.post(URL, params={"token": token}, json={"name": "Gast Peter"})
@@ -190,3 +194,23 @@ async def test_only_a_live_checkin_token_opens_the_door(
         await editor_client.post(URL, params={"event_id": str(tonight.id)}, json={"name": "Gast Peter"})
     ).status_code == 422
     assert await _people_named(db_session, "Gast Peter") == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_the_limit_is_per_link_not_per_address(client: AsyncClient, two_events: tuple[Event, Event]):
+    """Behind one NAT address, one door's burst must not block another Ereignis's door."""
+    limiter.reset()
+    limiter.enabled = True
+    try:
+        tonight, other = two_events
+        per_link = int(RateLimits.CHECKIN_GUEST_PER_LINK.split("/")[0])
+        busy = {"token": generate_checkin_token(tonight.id)}
+        for i in range(per_link):
+            assert (await client.post(URL, params=busy, json={"name": f"Gast {i}"})).status_code == 200
+        assert (await client.post(URL, params=busy, json={"name": "Gast zu viel"})).status_code == 429
+        calm = {"token": generate_checkin_token(other.id)}
+        assert (await client.post(URL, params=calm, json={"name": "Gast Peter"})).status_code == 200
+    finally:
+        limiter.enabled = False
+        limiter.reset()

@@ -163,8 +163,9 @@ function CheckInKiosk({ token }: { token: string | null }) {
       toast(t('guestCheckedIn', { name: person.name }))
     } catch (error) {
       // 409 («Bitte beim KP melden») and 429 («Zu viele Anfragen …») carry their own sentence;
-      // anything else is the toggle's.
+      // 422 is a name the door does not take (invisible characters); anything else is the toggle's.
       if (error instanceof ApiError && (error.status === 409 || error.status === 429)) toast.error(error.message)
+      else if (error instanceof ApiError && error.status === 422) toast.error(t('guestNameRefused'))
       else toast.error(t('statusError'), { description: t('statusErrorDescription') })
     } finally {
       addingGuestRef.current = false

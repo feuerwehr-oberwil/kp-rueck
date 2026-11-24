@@ -9,7 +9,8 @@ import asyncio
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, text, update
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.crud import personnel_checkin as crud
@@ -77,30 +78,54 @@ async def test_a_crowd_typing_one_new_name_makes_one_guest_and_a_roster_name_one
             await cleanup.commit()
 
 
+async def _blocked(engine: AsyncEngine, statement) -> bool:
+    """Whether `statement` (on its own connection) has to wait for a lock: a short lock_timeout
+    answers it without sleeping and hoping the scheduler interleaved the way the test needs."""
+    async with AsyncSession(bind=engine) as other:
+        await other.execute(text("SET LOCAL lock_timeout = '300ms'"))
+        try:
+            await statement(other)
+        except DBAPIError as exc:
+            assert "lock timeout" in str(exc), exc
+            return True
+        await other.rollback()
+        return False
+
+
 @pytest.mark.asyncio
-async def test_a_revoke_waits_for_a_write_in_flight_and_the_next_one_is_refused(test_engine):
+async def test_a_write_through_the_link_holds_off_revoke_and_delete_but_not_the_board(test_engine):
+    """`event_of(lock=True)` while a guest write is in flight: a revoke and a delete of the
+    Ereignis wait for it; the board's `last_activity_at` update does not (FOR KEY SHARE, not a
+    row lock that would deadlock against an assignment holding the person's row)."""
     event_id = uuid4()
     async with AsyncSession(bind=test_engine, expire_on_commit=False) as setup:
         setup.add(Event(id=event_id, name="Sturm", training_flag=False))
         await setup.commit()
     token = generate_checkin_token(event_id)
 
+    async def revoke(session: AsyncSession) -> None:
+        await share_links.revoke(session, "checkin", event_id)
+
+    async def touch(session: AsyncSession) -> None:
+        await session.execute(update(Event).where(Event.id == event_id).values(last_activity_at=func.now()))
+
+    async def remove(session: AsyncSession) -> None:
+        await session.execute(delete(Event).where(Event.id == event_id))
+
     try:
         async with AsyncSession(bind=test_engine, expire_on_commit=False) as door:
             assert await share_links.event_of(door, "checkin", token, lock=True) == event_id
-
-            async def revoke() -> None:
-                async with AsyncSession(bind=test_engine) as board:
-                    assert await share_links.revoke(board, "checkin", event_id)
-                    await board.commit()
-
-            revoking = asyncio.create_task(revoke())
-            await asyncio.sleep(0.3)
-            assert not revoking.done(), "the revoke must wait for the write that already passed the check"
+            assert await _blocked(test_engine, revoke)
+            assert await _blocked(test_engine, remove)
+            assert not await _blocked(test_engine, touch)
             await crud.check_in_guest(door, event_id=event_id, name="Gast Peter")
             await door.commit()
-            await asyncio.wait_for(revoking, timeout=5)
 
+        # Once the write is in, the revoke goes through and the link is dead.
+        assert not await _blocked(test_engine, revoke)
+        async with AsyncSession(bind=test_engine) as board:
+            assert await share_links.revoke(board, "checkin", event_id)
+            await board.commit()
         async with AsyncSession(bind=test_engine) as later:
             assert await share_links.event_of(later, "checkin", token, lock=True) is None
     finally:

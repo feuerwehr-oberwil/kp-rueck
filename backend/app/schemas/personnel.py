@@ -152,6 +152,10 @@ class AttendancePlanUpdate(BaseModel):
         return self
 
 
+# ZWNJ and ZWJ are format characters too, but some scripts need them inside a name.
+_JOINERS = frozenset({"\u200c", "\u200d"})
+
+
 class CheckInGuest(BaseModel):
     """«‹Name› als Gast einchecken» at the door (`crud.check_in_guest`): the typed name only.
 
@@ -167,7 +171,7 @@ class CheckInGuest(BaseModel):
     @field_validator("name")
     @classmethod
     def _visible_characters_only(cls, value: str) -> str:
-        if any(unicodedata.category(char) in {"Cc", "Cf", "Cs", "Co", "Cn"} for char in value):
+        if any(unicodedata.category(char) in {"Cc", "Cf", "Cs", "Co", "Cn"} and char not in _JOINERS for char in value):
             raise ValueError("Der Name enthält unsichtbare Zeichen.")
         return value
 

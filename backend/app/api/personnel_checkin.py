@@ -25,6 +25,7 @@ from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..models import User
 from ..services import share_links
+from ..services.tokens import link_claims
 from ..utils.error_codes import CodedHTTPException, ErrorCode
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_personnel_update
@@ -149,14 +150,19 @@ async def list_personnel_for_checkin(
 
 
 def _guest_link_key(request: Request) -> str:
-    """The guest door's second rate-limit bucket: per link, not per address. A station NATs
-    every phone behind one address, so the per-address bucket is only a loose backstop."""
-    return "checkin-guest:" + request.query_params.get("token", "")
+    """The guest door's rate-limit bucket per LINK (Ereignis + generation), not per address: a
+    station NATs every phone behind one address. Read from the verified claims, never the raw
+    token – slowapi logs the key, and a raw key would let junk tokens mint buckets. Every
+    unreadable token shares one bucket."""
+    token = request.query_params.get("token", "")
+    claims = link_claims(token, "checkin") if len(token) <= 2048 else None
+    return f"checkin-guest:{claims.event_id}:{claims.generation}" if claims else "checkin-guest:invalid"
 
 
 @router.post("/guest", response_model=schemas.PersonnelCheckInResponse)
-@limiter.limit(RateLimits.CHECKIN_GUEST_PER_ADDRESS)
+# slowapi checks the innermost decorator first: the address backstop, then the link.
 @limiter.limit(RateLimits.CHECKIN_GUEST_PER_LINK, key_func=_guest_link_key)
+@limiter.limit(RateLimits.CHECKIN_GUEST_PER_ADDRESS)
 async def check_in_guest(
     guest: schemas.CheckInGuest,
     background_tasks: BackgroundTasks,

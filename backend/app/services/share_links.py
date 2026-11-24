@@ -57,7 +57,8 @@ async def event_of(db: AsyncSession, kind: LinkKind, token: str, *, lock: bool =
         await db.execute(
             text("SELECT pg_advisory_xact_lock_shared(hashtext(:key))"), {"key": _lock_key(kind, claims.event_id)}
         )
-        query = query.with_for_update(key_share=True)
+        # `read=True` + `key_share=True` is FOR KEY SHARE; `key_share` alone is FOR NO KEY UPDATE.
+        query = query.with_for_update(read=True, key_share=True)
     current = await db.scalar(query)
     return claims.event_id if current == claims.generation else None
 
