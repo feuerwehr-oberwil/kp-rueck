@@ -12,6 +12,7 @@ function open(onAdd = vi.fn()) {
   renderWithIntl(
     <FeldAddPicker
       label="Fahrzeug hinzufügen"
+      chipLabel="Fahrzeug"
       searchPlaceholder="Fahrzeug suchen"
       items={[{ key: 'v1', name: 'ADL Oberwil' }]}
       onAdd={onAdd}

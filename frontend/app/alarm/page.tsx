@@ -23,12 +23,10 @@ import { LocationInput } from '@/components/location/location-input'
 import { INCIDENT_TYPES } from '@/lib/types/incidents'
 import { getIncidentTypeLabel } from '@/lib/incident-types'
 import type { IncidentType, IncidentPriority } from '@/lib/types/incidents'
-import { PRIORITIES } from '@/lib/priority'
 import { apiClient } from '@/lib/api-client'
 import { getApiUrl } from '@/lib/env'
 import { cn, CONTACT_PHONE_MAX, sanitizePhoneInput } from '@/lib/utils'
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
-import { Reveal } from '@/components/ui/reveal'
 import { FormMessage, focusFirstBlockingField, formMessageId } from '@/components/ui/form-message'
 import { LinkInvalidCard, LinkPageHeader } from '@/components/link-page/link-page'
 import { usePointerFine } from '@/lib/hooks/use-pointer-fine'
@@ -52,12 +50,23 @@ function AlarmBody({ children }: { children: React.ReactNode }) {
 /**
  * The /alarm frame: the shared link-page header (solid, 56px, the same bar as /check-in, /feld
  * and /reko) with the Ereignis as its context line, then the column. The screens put their
- * title in the bar instead of a 24px heading of their own.
+ * title in the bar instead of a 24px heading of their own. In an Übung the ÜBUNGSMODUS badge
+ * sits at the bar's right end, not in a row of its own above the form (owner, 24.11.2026).
  */
-function AlarmFrame({ title, eventName, children }: { title: string; eventName: string; children: React.ReactNode }) {
+function AlarmFrame({ title, eventName, training = false, children }: {
+  title: string
+  eventName: string
+  training?: boolean
+  children: React.ReactNode
+}) {
+  const t = useTranslations('intake.alarm')
   return (
     <>
-      <LinkPageHeader title={title} subtitle={eventName || undefined} />
+      <LinkPageHeader
+        title={title}
+        subtitle={eventName || undefined}
+        trailing={training && <TrainingBadge label={t('trainingMode')} />}
+      />
       <AlarmBody>{children}</AlarmBody>
     </>
   )
@@ -92,7 +101,6 @@ interface AlarmRow {
 interface AlarmDraft {
   message: string
   type: IncidentType
-  priority: IncidentPriority
   address: string | null
   lat: number | null
   lng: number | null
@@ -101,12 +109,14 @@ interface AlarmDraft {
   contactPhone: string
 }
 
+/** A new alarm's priority. The form does not ask for one: the KP sets it on the board (owner,
+ *  24.11.2026). Low, like every other incident-creating form: most alarms are ordinary, and a
+ *  board where every card claims «Mittel» has no way left to say "this one". */
+const NEW_ALARM_PRIORITY: IncidentPriority = 'low'
+
 const EMPTY_DRAFT: AlarmDraft = {
   message: '',
-  // Low, like every other incident-creating form: most alarms are ordinary, and
-  // a board where every card claims «Mittel» has no way left to say "this one".
   type: 'elementarereignis',
-  priority: 'low',
   address: null,
   lat: null,
   lng: null,
@@ -140,11 +150,12 @@ interface ReceiptState {
  * it to «Notizen» rather than assigning it, because an operator writes into
  * that column too and the receipt is not allowed to read it back. So it is
  * sent only when the reporter changed their own Hinweis.
+ *
+ * No `priority`: the form does not ask for one, and the KP's choice on the board stays.
  */
 interface IntakeCorrection {
   title: string
   type: IncidentType
-  priority: IncidentPriority
   location_address: string
   location_lat: string | null
   location_lng: string | null
@@ -512,7 +523,6 @@ interface AlarmFormProps {
 
 function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel, onSuccess }: AlarmFormProps) {
   const t = useTranslations('intake.alarm')
-  const tPriority = useTranslations('incidents.priority')
   // Autofocus only with a mouse: on a touch screen it raised the keyboard over half the form
   // before anybody chose a field (phone sweep 14.11.2026).
   const pointerFine = usePointerFine()
@@ -521,7 +531,6 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
    *  which is the column the board labels «Meldung» — see the submit below. */
   const [message, setMessage] = useState(start.message)
   const [type, setType] = useState<IncidentType>(start.type)
-  const [priority, setPriority] = useState<IncidentPriority>(start.priority)
   const [address, setAddress] = useState<string | null>(start.address)
   const [lat, setLat] = useState<number | null>(start.lat)
   const [lng, setLng] = useState<number | null>(start.lng)
@@ -541,12 +550,6 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
    *  wrong house number sends a squad to the wrong street. A correction is read
    *  back too — it is the step that catches the second typo. */
   const [step, setStep] = useState<'form' | 'review'>('form')
-  /** Priorität, Einsatzart and Hinweise live behind one fold: they are the
-   *  KP's decisions (both carry sensible defaults) and the Telefondienst's
-   *  extra time — not questions the form leads with. A correction opens the
-   *  fold, and so does a draft that already carries a Hinweis: what is set
-   *  must never be hidden. */
-  const [detailsOpen, setDetailsOpen] = useState(Boolean(editing) || Boolean(start.hints))
 
   /** A Schadenplatz without a location is the one thing this form must not
    *  produce — the address input says «required», so the gate enforces it.
@@ -573,14 +576,13 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
       hint: address?.trim() && lat !== null && lng !== null ? t('review.hasPin') : undefined,
     },
     { label: t('messageLabel'), value: message.trim() },
-    { label: t('priorityLabel'), value: tPriority(priority) },
     { label: t('typeLabel'), value: getIncidentTypeLabel(type) },
     { label: t('hintsLabel'), value: hints.trim() },
     { label: t('contactLabel'), value: contact.trim() },
     { label: t('contactPhoneLabel'), value: contactPhone.trim() },
   ].filter(row => row.value)
 
-  const draft: AlarmDraft = { message, type, priority, address, lat, lng, hints, contact, contactPhone }
+  const draft: AlarmDraft = { message, type, address, lat, lng, hints, contact, contactPhone }
 
   const handleSubmit = async () => {
     if (incomplete || submitting) return
@@ -608,7 +610,6 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
         const correction: IntakeCorrection = {
           title,
           type,
-          priority,
           location_address: address?.trim() ?? '',
           location_lat: lat !== null ? String(lat) : null,
           location_lng: lng !== null ? String(lng) : null,
@@ -630,7 +631,7 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
       const created: { id: string; receipt_token?: string } = await apiClient.createIntakeAlarm(token, {
         title,
         type,
-        priority,
+        priority: NEW_ALARM_PRIORITY,
         location_address: address,
         location_lat: lat !== null ? String(lat) : null,
         location_lng: lng !== null ? String(lng) : null,
@@ -664,18 +665,15 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
   // with editable fields in it is the form again with a bolder heading.
   if (step === 'review') {
     return (
-      <AlarmFrame title={t('review.title')} eventName={eventName}>
+      <AlarmFrame title={t('review.title')} eventName={eventName} training={trainingFlag}>
       <div className="space-y-6">
         {/* Which board this is about to land on: the Ereignis rides in the header,
             the step that actually sends must not say less than the form. */}
-        <div className="space-y-2">
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span>{t('review.stepForm')}</span>
-            <ChevronRight className="size-3" />
-            <span className="font-medium text-foreground">{t('review.stepCheck')}</span>
-          </p>
-          {trainingFlag && <TrainingBadge label={t('trainingMode')} />}
-        </div>
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span>{t('review.stepForm')}</span>
+          <ChevronRight className="size-3" />
+          <span className="font-medium text-foreground">{t('review.stepCheck')}</span>
+        </p>
 
         <div className="overflow-hidden rounded-xl border border-border">
           {reviewRows.map(row => (
@@ -727,7 +725,7 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
   }
 
   return (
-    <AlarmFrame title={editing ? t('correct') : t('title')} eventName={eventName}>
+    <AlarmFrame title={editing ? t('correct') : t('title')} eventName={eventName} training={trainingFlag}>
     <form
       noValidate
       onSubmit={e => {
@@ -741,8 +739,6 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
       }}
       className="space-y-6"
     >
-      {trainingFlag && <TrainingBadge label={t('trainingMode')} />}
-
       {/* Location — first, so the address isn't repeated in the message */}
       <LocationInput
         required
@@ -790,45 +786,8 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
         )}
       </div>
 
-      {/* Details — Priorität, Einsatzart and Hinweise behind one fold. Wo and
-          Was are the alarm; these three are classification and colour, both of
-          which the KP sets on the board within seconds anyway. The fold keeps
-          them reachable for the Telefondienst, who has the caller on the line
-          and time to ask — and out of the way of everybody who does not. */}
-      <button
-        type="button"
-        onClick={() => setDetailsOpen((open) => !open)}
-        aria-expanded={detailsOpen}
-        className="flex w-full items-center gap-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ChevronRight className={`size-4 transition-transform ${detailsOpen ? 'rotate-90' : ''}`} />
-        {t('detailsToggle')}
-      </button>
-
-      {/* Slides open/closed (Reveal). Its own block margin is zeroed and the
-          gap to the next field is padding INSIDE the clip, so the page below
-          moves with the slide instead of snapping by the space-y gap. */}
-      <Reveal open={detailsOpen} className="mb-0" innerClassName="space-y-6 pb-6">
-      {/* Priority — three quick buttons (mobile-friendly, like the Reko form) */}
-      <div>
-        <Label className="text-sm font-semibold text-muted-foreground">{t('priorityLabel')}</Label>
-        <div className="mt-2 grid grid-cols-3 gap-2">
-          {PRIORITIES.map((key) => (
-            <Button
-              key={key}
-              type="button"
-              variant={priority === key ? 'selected' : 'outline'}
-              aria-pressed={priority === key}
-              onClick={() => setPriority(key)}
-              size="lg"
-              className="text-base"
-            >
-              {tPriority(key)}
-            </Button>
-          ))}
-        </div>
-      </div>
-
+      {/* Einsatzart and Hinweise: normal fields, no fold (owner, 24.11.2026). Priorität is not
+          asked here – the KP sets it on the board. */}
       {/* Type */}
       <div>
         <Label className="text-sm font-semibold text-muted-foreground">{t('typeLabel')}</Label>
@@ -890,7 +849,6 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
             than one that says so. */}
         {editing && <p className="mt-1.5 text-xs text-muted-foreground">{t('hintsCorrectionHelp')}</p>}
       </div>
-      </Reveal>
 
       {/* Contact (Melder / Anrufer) */}
       <div>

@@ -114,3 +114,22 @@ async def test_stop_specific_and_all():
     await sim.start(_drive())
     assert await sim.stop(None) == 1
     assert not sim.any_active()
+
+
+@pytest.mark.asyncio
+async def test_pause_freezes_a_drive_and_resume_continues_from_there():
+    sim = GpsSimulation()
+    await sim.start(_drive(started_at=datetime.now(UTC) - timedelta(seconds=10)))
+    await sim.pause()
+    frozen = sim.current_position("Pio")
+    assert frozen is not None and frozen != START
+
+    # While paused, the clock stands: same spot, speed 0, however late it gets.
+    sim.paused_at = sim.paused_at - timedelta(minutes=5)  # as if paused five minutes ago
+    frozen = sim.current_position("Pio")
+    assert sim.overlay([])[0].speed == 0.0
+
+    await sim.resume()
+    assert sim.paused_at is None
+    lat, lng = sim.current_position("Pio") or (0.0, 0.0)
+    assert (lat, lng) == pytest.approx(frozen, abs=1e-5)  # the five paused minutes did not count

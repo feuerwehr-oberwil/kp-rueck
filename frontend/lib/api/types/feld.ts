@@ -514,6 +514,9 @@ export interface ApiRapportPrefill {
    */
   personnel_candidates: ApiRapportPersonnelCandidate[]
   vehicle_candidates: ApiRapportVehicleCandidate[]
+  /** Who drives each vehicle in this Ereignis, by `vehicle_id` – the driver on
+   *  the vehicle's chip («Pio · Dürring Jan»). Orientation only, never saved. */
+  vehicle_drivers: Record<string, string>
 }
 
 export interface ApiSchadenplatzRapport {
