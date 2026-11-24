@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { translateOutsideReact } from "@/lib/i18n-messages";
+import type { ApiVehicle, ApiVehicleUpdate } from "@/lib/api-client";
 
 const vehicleStatusSchema = z.enum(["available", "unavailable"]);
 
@@ -39,3 +40,31 @@ export const vehicleFormDefaults: VehicleFormValues = {
   status: "available",
   radio_call_sign: "",
 };
+
+/** What the edit dialog opens with for `vehicle`. */
+export function vehicleFormValuesFor(vehicle: ApiVehicle): VehicleFormValues {
+  return {
+    name: vehicle.name,
+    type: vehicle.type,
+    display_order: vehicle.display_order,
+    status: vehicle.status === "available" || vehicle.status === "unavailable" ? vehicle.status : "available",
+    radio_call_sign: vehicle.radio_call_sign,
+  };
+}
+
+/**
+ * The update an edit sends: only the fields that differ from what the dialog opened with.
+ * An untouched field – readiness above all – must not overwrite what another desk set while
+ * the dialog was open (hunt 2026-11-24). Empty = nothing to send.
+ */
+export function vehicleUpdateFor(opened: VehicleFormValues, values: VehicleFormValues): ApiVehicleUpdate {
+  const before = { ...opened, type: vehicleTypeFor(opened) };
+  const after = { ...values, type: vehicleTypeFor(values) };
+  const update: ApiVehicleUpdate = {};
+  if (after.name !== before.name) update.name = after.name;
+  if (after.type !== before.type) update.type = after.type;
+  if (after.display_order !== before.display_order) update.display_order = after.display_order;
+  if (after.status !== before.status) update.status = after.status;
+  if (after.radio_call_sign !== before.radio_call_sign) update.radio_call_sign = after.radio_call_sign;
+  return update;
+}
