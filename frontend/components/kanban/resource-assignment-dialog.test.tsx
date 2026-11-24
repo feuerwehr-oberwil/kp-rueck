@@ -135,10 +135,11 @@ describe("«Hierher verschieben» from the assignment dialog", () => {
     operationsState.requestResourceConflict.mockClear()
     operationsState.removeMaterial.mockClear()
     const user = userEvent.setup()
+    const onOpenChange = vi.fn()
     const view = renderWithIntl(
       <ResourceAssignmentDialog
         open
-        onOpenChange={vi.fn()}
+        onOpenChange={onOpenChange}
         resourceType="materials"
         operationId="incident-1"
         personnel={[]}
@@ -158,7 +159,7 @@ describe("«Hierher verschieben» from the assignment dialog", () => {
     await user.click(screen.getByRole("button", { name: /Tauchpumpe Gr\./ }))
     const [[conflict]] = operationsState.requestResourceConflict.mock.calls
     await conflict.customResolve("move")
-    return { user, view }
+    return { user, view, onOpenChange }
   }
 
   it("frees the holder only together with the assign, at «Fertig»", async () => {
@@ -171,6 +172,25 @@ describe("«Hierher verschieben» from the assignment dialog", () => {
     await waitFor(() => expect(onAssignMaterial).toHaveBeenCalledWith(PUMP.id, "incident-1"))
     expect(operationsState.removeMaterial).toHaveBeenCalledExactlyOnceWith("incident-2", PUMP.id)
     expect(operationsState.removeMaterial.mock.invocationCallOrder[0]).toBeLessThan(onAssignMaterial.mock.invocationCallOrder[0])
+    operationsState.operations = []
+  })
+
+  // Sol review E round 2, S3: a failed release used to assign anyway – a double booking.
+  it("skips the assign and stays open when freeing the holder fails", async () => {
+    const onAssignMaterial = vi.fn<(materialId: string, operationId: string) => void>()
+    const { user, onOpenChange } = await moveThePump(onAssignMaterial)
+    operationsState.removeMaterial.mockResolvedValueOnce(false)
+
+    await user.click(screen.getByRole("button", { name: "Fertig" }))
+    await waitFor(() => expect(operationsState.removeMaterial).toHaveBeenCalledOnce())
+    expect(onAssignMaterial).not.toHaveBeenCalled()
+    expect(onOpenChange).not.toHaveBeenCalled()
+
+    // The move stays staged: the next «Fertig» (now marking the open change) tries again.
+    await user.click(screen.getByRole("button", { name: /^Fertig/ }))
+    await waitFor(() => expect(onAssignMaterial).toHaveBeenCalledWith(PUMP.id, "incident-1"))
+    expect(operationsState.removeMaterial).toHaveBeenCalledTimes(2)
+    expect(onOpenChange).toHaveBeenCalledWith(false)
     operationsState.operations = []
   })
 

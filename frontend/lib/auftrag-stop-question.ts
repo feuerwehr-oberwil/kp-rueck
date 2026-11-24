@@ -20,8 +20,8 @@ export interface AuftragStopQuestion {
   /** The vehicle that drives the Auftrag – the server checks it still does. */
   vehicleId: string
   vehicleName: string
-  /** Other Einsätze that already have the vehicle: «Nur zusätzlich zuweisen» keeps it there too,
-   *  so they are on this question, not on a second one after it. */
+  /** The other holders of the vehicle – further Aufträge, then Einsätze: «Nur zusätzlich
+   *  zuweisen» keeps it there too, so they are on this question, not on a second one after it. */
   alsoOn: { id: string; label: string }[]
   /** «Nur zusätzlich zuweisen»: the vehicle onto the Einsatz as well, the Auftrag untouched. */
   assignOnly: () => Promise<unknown> | unknown

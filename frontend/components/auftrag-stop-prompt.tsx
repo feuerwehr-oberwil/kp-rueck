@@ -19,8 +19,8 @@ const strong = (chunks: ReactNode) => <strong className="font-semibold text-fore
  *   endpoint, under the Auftrag row lock) – only while the Einsatz is still lone and live and
  *   the vehicle still drives the Auftrag; otherwise it says so and the question closes, it is
  *   out of date. It has no undo.
- * - «Nur zusätzlich zuweisen» (Z) is the plain double booking – also on the other Einsätze that
- *   have the vehicle (`alsoOn`), whose cards it draws too, so no second question follows.
+ * - «Nur zusätzlich zuweisen» (Z) is the plain double booking – also on the other Aufträge and
+ *   Einsätze that have the vehicle (`alsoOn`), whose cards it draws too, so no second question follows.
  *
  * A failed write keeps the question open (the groups context toasts the failure).
  *
@@ -51,7 +51,7 @@ export function AuftragStopPrompt() {
 
   const auftragCard = { id: question.groupId, title: question.groupName }
   const incidentCard = { id: question.incidentId, title: question.incidentLabel }
-  // The Auftrag, every other Einsatz that has it, and this one: «2×» on two cards, «3×» on three.
+  // The Auftrag, every other holder (`alsoOn`), and this Einsatz: «2×» on two cards, «3×» on three.
   const cards = question.alsoOn.length + 2
   const doubled = `${question.vehicleName} · ${cards}×`
   const doubledChip = [{ label: doubled, tone: "double" as const }]

@@ -123,6 +123,23 @@ describe("useAssignmentConflicts — a vehicle onto an incident", () => {
     expect(inputs.assignVehicleToOperation).toHaveBeenCalledExactlyOnceWith("v-tlf", "TLF", "op-1", true)
   })
 
+  // Sol review E round 2, S2: the second Auftrag fell off the question and its «N×».
+  it("names a second Auftrag that has the vehicle too, before the Einsätze", () => {
+    vi.mocked(askAuftragStop).mockClear()
+    const tlf = { vehicles: [{ vehicleId: "v-tlf", assignmentId: "a-tlf", name: "TLF", callsign: null }] }
+    const { hook } = setup({
+      groups: [
+        group("g-2", "Süd", [{ id: "ga-1", resourceType: "vehicle", resourceId: "v-tlf" }]),
+        group("g-3", "Nord", [{ id: "ga-2", resourceType: "vehicle", resourceId: "v-tlf" }]),
+      ],
+      operations: [op("op-1", "Blumenweg 21", { number: 2 }), op("op-9", "Schulstrasse 9", { number: 13, ...tlf })],
+    })
+    hook.assignVehicleToIncidentWithConflict("v-tlf", "TLF", "op-1")
+    const [[question]] = vi.mocked(askAuftragStop).mock.calls as [[AuftragStopQuestion]]
+    expect(question.groupId).toBe("g-2")
+    expect(question.alsoOn).toEqual([{ id: "g-3", label: "Nord" }, { id: "op-9", label: "13 · Schulstrasse 9" }])
+  })
+
   it("a grouped Einsatz asks once about the Auftrag AND the other Einsatz; «move» frees both", async () => {
     const tlf = { vehicles: [{ vehicleId: "v-tlf", assignmentId: "a-tlf", name: "TLF", callsign: null }] }
     const { inputs, hook, asked } = setup({

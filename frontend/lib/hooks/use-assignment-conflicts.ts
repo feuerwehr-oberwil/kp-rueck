@@ -234,8 +234,9 @@ export function useAssignmentConflicts({
     )
     const target = operations.find((op) => op.id === operationId)
     if (target && !target.groupId) {
-      // Several Aufträge holding one vehicle is itself a double booking; the first is asked about.
-      const [group] = groupConflicts
+      // Several Aufträge holding one vehicle is itself a double booking; the first is asked about,
+      // the others stand with the Einsätze that keep it on «Nur zusätzlich zuweisen».
+      const [group, ...otherGroups] = groupConflicts
       askAuftragStop({
         groupId: group.id,
         groupName: group.name,
@@ -243,7 +244,10 @@ export function useAssignmentConflicts({
         incidentLabel: getIncidentRefParts(target).head,
         vehicleId,
         vehicleName,
-        alsoOn: incidentConflicts.map((op) => ({ id: op.id, label: getIncidentRefParts(op).head })),
+        alsoOn: [
+          ...otherGroups.map((other) => ({ id: other.id, label: other.name })),
+          ...incidentConflicts.map((op) => ({ id: op.id, label: getIncidentRefParts(op).head })),
+        ],
         assignOnly: () => assignVehicleToOperation(vehicleId, vehicleName, operationId, true),
       })
       return true
