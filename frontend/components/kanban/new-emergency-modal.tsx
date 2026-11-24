@@ -523,7 +523,9 @@ export function NewEmergencyModal({
     return (
       <>
       <Sheet open={open} onOpenChange={closeGuard.handleOpenChange}>
-        <SheetContent side="bottom" className="modal-h-tall gap-0 rounded-t-2xl [&>[data-slot=sheet-close]]:top-[29px] [&>[data-slot=sheet-close]]:-translate-y-1/2" onKeyDown={onKeyDown}>
+        {/* A surface like the desk dialog: the Einsatzort's map picker opens inside the sheet
+            as a step (owner pick 5A), not as a centred desk card over it. */}
+        <SheetContent side="bottom" surface={t('common.newIncident')} className="modal-h-tall gap-0 rounded-t-2xl [&>[data-slot=sheet-close]]:top-[29px] [&>[data-slot=sheet-close]]:-translate-y-1/2" onKeyDown={onKeyDown}>
           {/* HEADER (both forms): the plain title, 18/600, no glyph – the frame of every
               other dialog and sheet (the assign dialog, the footer sheets). The sentence
               under it only restated the title, so it is for screen readers alone. 16px to

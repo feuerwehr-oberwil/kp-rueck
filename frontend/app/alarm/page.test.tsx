@@ -10,6 +10,7 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams('token=tok'),
 }))
 vi.mock('@/lib/api-client', () => ({ apiClient: { getIntakeContext, createIntakeAlarm } }))
+import { ApiError, NetworkError } from '@/lib/api/types/common'
 vi.mock('@/lib/env', () => ({ getApiUrl: () => 'http://test-backend' }))
 // The geocoder-backed location field is a product of its own; this form only
 // needs "an address went in", so it is reduced to the one input it wraps. The
@@ -96,6 +97,59 @@ describe('AlarmPage', () => {
     // showed, so "war es 12 oder 21?" is answerable without phoning the KP.
     expect(screen.getByText('Baum auf der Fahrbahn')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Weiteren Alarm erfassen/ })).toBeInTheDocument()
+  })
+
+  // Phone sweep 24.11.2026: the back gesture on «Stimmt das so?» returned nowhere useful – it
+  // left /alarm and the typed alarm with it.
+  it('the back gesture on the review step returns to the form with everything typed', async () => {
+    const user = userEvent.setup()
+    await renderForm()
+    await user.type(screen.getByLabelText('Ort'), 'Hauptstrasse 12')
+    await user.type(screen.getByLabelText(/Meldung/), 'Baum auf der Fahrbahn')
+    await user.click(screen.getByRole('button', { name: 'Weiter' }))
+    expect(screen.getByText('Stimmt das so?')).toBeInTheDocument()
+
+    window.history.back()
+    expect(await screen.findByLabelText(/Meldung/)).toHaveValue('Baum auf der Fahrbahn')
+    expect(screen.getByLabelText('Ort')).toHaveValue('Hauptstrasse 12')
+    expect(createIntakeAlarm).not.toHaveBeenCalled()
+  })
+
+  // The server may have created the Einsatz before the answer was lost: never «nicht übermittelt».
+  it('says an alarm lost on the way is not confirmed and to tell the KP', async () => {
+    const user = userEvent.setup()
+    createIntakeAlarm.mockRejectedValue(new NetworkError())
+    await renderForm()
+    await sendAlarm(user, 'Baum auf der Fahrbahn')
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Der Alarm ist nicht bestätigt – die Angaben bleiben im Formular.')
+    expect(alert).toHaveTextContent('Bitte per Funk oder Telefon an den KP melden.')
+    expect(screen.getByRole('button', { name: 'Alarm absenden' })).toBeEnabled()
+  })
+
+  it('a send that fails after the back gesture still says so on the form', async () => {
+    const user = userEvent.setup()
+    let fail: (err: Error) => void = () => {}
+    createIntakeAlarm.mockReturnValue(new Promise((_, reject) => { fail = reject }))
+    await renderForm()
+    await sendAlarm(user, 'Baum auf der Fahrbahn')
+
+    window.history.back()
+    await screen.findByLabelText(/Meldung/)
+    fail(new NetworkError())
+    expect(await screen.findByRole('alert')).toHaveTextContent('Bitte per Funk oder Telefon an den KP melden.')
+  })
+
+  it('keeps the server\'s own reason when it refused the alarm', async () => {
+    const user = userEvent.setup()
+    createIntakeAlarm.mockRejectedValue(new ApiError('Demo-Modus: Maximale Anzahl Einsätze (50) erreicht.', 403))
+    await renderForm()
+    await sendAlarm(user, 'Baum auf der Fahrbahn')
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Demo-Modus: Maximale Anzahl Einsätze (50) erreicht.')
+    expect(alert).not.toHaveTextContent('per Funk')
   })
 
   it('puts the Meldung in the Meldung and the Hinweise in the Notizen', async () => {

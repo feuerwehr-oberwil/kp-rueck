@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { screen } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { Material, Operation } from '@/lib/contexts/operations-context'
 
@@ -125,5 +125,51 @@ describe('the phone Einsatz sheet scrolls to a Reko-Bericht only once THAT one i
 
     rerender(sheetFor('incident-b'))
     expect(sheet.scrolls.at(-1)?.ready).toBe(false)
+  })
+})
+
+// Opened on the Lagekarte, «Auf Karte anzeigen» linked to the page it was on (sweep 24.11.2026).
+describe('«Auf Karte anzeigen»', () => {
+  it('goes to the Lagekarte from the board', () => {
+    renderSheet()
+    expect(screen.getByRole('link', { name: 'Auf Karte anzeigen' })).toHaveAttribute('href', '/map?highlight=incident-1')
+  })
+
+  it('hands the Einsatz back to the Lagekarte it was opened on, without a link', () => {
+    const onShowOnMap = vi.fn()
+    renderWithIntl(
+      <MobileIncidentDetailSheet
+        operation={OPERATION}
+        open
+        onOpenChange={vi.fn()}
+        onShowOnMap={onShowOnMap}
+        materials={[] as Material[]}
+        formatLocation={(a) => a}
+      />,
+    )
+    expect(screen.queryByRole('link', { name: 'Auf Karte anzeigen' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Auf Karte anzeigen' }))
+    expect(onShowOnMap).toHaveBeenCalledWith('incident-1')
+  })
+})
+
+// A controlled sheet has no Radix trigger: VoiceOver lost its place on close (review, 24.11.2026).
+describe('closing the sheet', () => {
+  it('gives the focus back to the detail button that opened it', async () => {
+    function Harness({ open }: { open: boolean }) {
+      return (
+        <>
+          <button type="button" data-detail-opener>Details anzeigen: 7 · Hauptstrasse 1</button>
+          <MobileIncidentDetailSheet operation={OPERATION} open={open} onOpenChange={vi.fn()} materials={[]} formatLocation={(a) => a} />
+        </>
+      )
+    }
+    const { rerender } = renderWithIntl(<Harness open={false} />)
+    const opener = screen.getByRole('button', { name: /Details anzeigen/ })
+    opener.focus()
+    rerender(<Harness open />)
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
+    rerender(<Harness open={false} />)
+    await waitFor(() => expect(opener).toHaveFocus())
   })
 })

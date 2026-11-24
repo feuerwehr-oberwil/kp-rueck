@@ -31,7 +31,7 @@ export default function RekoPage() {
   ) : null
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-dvh bg-background pb-24">
       {/* A Reko auftrag opened from `/feld` navigates out of it, and the form
           used to arrive with nothing but a back button — a different app as far
           as the crew could tell. The same bar rides along when the device knows
