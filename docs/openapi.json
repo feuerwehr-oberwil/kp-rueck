@@ -7865,7 +7865,7 @@
           "personnel-checkin"
         ],
         "summary": "Check In Guest",
-        "description": "«‹Name› als Gast einchecken» – somebody at the door who is not on the list.\n\nThe link's door only (no editor twin on this route: the board adds a guest with\n`POST /api/personnel/` + `guest_event_id`, then checks them in). A name that is\nalready listed at this Ereignis checks that person in instead of making a second one;\na name the door cannot settle (two people of that name, somebody unavailable, the\nEreignis's guest limit) is a 409 `checkin_guest_ask_kp`. Rate-limited per address.",
+        "description": "«‹Name› als Gast einchecken» – somebody at the door who is not on the list.\n\nThe link's door only (no editor twin on this route: the board adds a guest with\n`POST /api/personnel/` + `guest_event_id`, then checks them in). A name that is\nalready listed at this Ereignis checks that person in instead of making a second one;\na name the door cannot settle (two people of that name, somebody unavailable, the\nEreignis's guest limit) is a 409 `checkin_guest_ask_kp`. Rate-limited per link, with a\nlooser per-address backstop. The link is checked under a share lock on the Ereignis row\n(`share_links.event_of(lock=True)`), so a revoke or a delete cannot slip in before the write.",
         "operationId": "check_in_guest_api_personnel_check_in_guest_post",
         "parameters": [
           {
@@ -19041,7 +19041,7 @@
           "name"
         ],
         "title": "CheckInGuest",
-        "description": "«‹Name› als Gast einchecken» at the door (`crud.check_in_guest`): the typed name only.\n\nSame rule as a roster name (`PersonName`: stripped, inner whitespace collapsed, 1–100\ncharacters), so a blank or a 5 kB name is a 422 before anything is written."
+        "description": "«‹Name› als Gast einchecken» at the door (`crud.check_in_guest`): the typed name only.\n\nSame rule as a roster name (`PersonName`: stripped, inner whitespace collapsed, 1–100\ncharacters), so a blank or a 5 kB name is a 422 before anything is written. Stricter than\nthe editor's create, because nobody vouches for this text: no control characters (NUL\nbreaks the insert) and no invisible format characters (a bidi override or a zero-width\nspace makes a name on the board read as somebody else's)."
       },
       "CheckInListResponse": {
         "properties": {

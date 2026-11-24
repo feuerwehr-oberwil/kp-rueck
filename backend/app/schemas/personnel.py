@@ -1,5 +1,6 @@
 """Personnel + check-in schemas."""
 
+import unicodedata
 from datetime import datetime
 from typing import Annotated
 from uuid import UUID
@@ -155,10 +156,20 @@ class CheckInGuest(BaseModel):
     """«‹Name› als Gast einchecken» at the door (`crud.check_in_guest`): the typed name only.
 
     Same rule as a roster name (`PersonName`: stripped, inner whitespace collapsed, 1–100
-    characters), so a blank or a 5 kB name is a 422 before anything is written.
+    characters), so a blank or a 5 kB name is a 422 before anything is written. Stricter than
+    the editor's create, because nobody vouches for this text: no control characters (NUL
+    breaks the insert) and no invisible format characters (a bidi override or a zero-width
+    space makes a name on the board read as somebody else's).
     """
 
     name: PersonName
+
+    @field_validator("name")
+    @classmethod
+    def _visible_characters_only(cls, value: str) -> str:
+        if any(unicodedata.category(char) in {"Cc", "Cf", "Cs", "Co", "Cn"} for char in value):
+            raise ValueError("Der Name enthält unsichtbare Zeichen.")
+        return value
 
 
 class PersonnelListItem(BaseModel):

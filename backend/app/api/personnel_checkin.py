@@ -148,8 +148,15 @@ async def list_personnel_for_checkin(
     )
 
 
+def _guest_link_key(request: Request) -> str:
+    """The guest door's second rate-limit bucket: per link, not per address. A station NATs
+    every phone behind one address, so the per-address bucket is only a loose backstop."""
+    return "checkin-guest:" + request.query_params.get("token", "")
+
+
 @router.post("/guest", response_model=schemas.PersonnelCheckInResponse)
-@limiter.limit(RateLimits.CHECKIN_GUEST)
+@limiter.limit(RateLimits.CHECKIN_GUEST_PER_ADDRESS)
+@limiter.limit(RateLimits.CHECKIN_GUEST_PER_LINK, key_func=_guest_link_key)
 async def check_in_guest(
     guest: schemas.CheckInGuest,
     background_tasks: BackgroundTasks,
@@ -163,9 +170,11 @@ async def check_in_guest(
     `POST /api/personnel/` + `guest_event_id`, then checks them in). A name that is
     already listed at this Ereignis checks that person in instead of making a second one;
     a name the door cannot settle (two people of that name, somebody unavailable, the
-    Ereignis's guest limit) is a 409 `checkin_guest_ask_kp`. Rate-limited per address.
+    Ereignis's guest limit) is a 409 `checkin_guest_ask_kp`. Rate-limited per link, with a
+    looser per-address backstop. The link is checked under a share lock on the Ereignis row
+    (`share_links.event_of(lock=True)`), so a revoke or a delete cannot slip in before the write.
     """
-    event_id = await share_links.event_of(db, "checkin", token)
+    event_id = await share_links.event_of(db, "checkin", token, lock=True)
     if not event_id:
         raise HTTPException(status_code=401, detail=ErrorMessages.LINK_INVALID)
 

@@ -309,4 +309,20 @@ describe('the fixed footer', () => {
     expect(footer()).toHaveTextContent('Der KP sieht das noch nicht')
     expect(within(footer()).getByRole('button', { name: 'Jetzt senden' })).toBeEnabled()
   })
+
+  it('says «Kein Netz» as soon as there is something unsent offline, not at the next save', async () => {
+    params.value = new URLSearchParams({ incident_id: 'footer-offline', token: 'link-o' })
+    getRekoForm.mockResolvedValueOnce({ id: 'report-o', summary_text: 'A', is_relevant: true, updated_at: '2025-01-01T00:00:00Z' })
+    renderWithIntl(<RekoForm />)
+    await act(async () => {})
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    try {
+      await act(async () => { window.dispatchEvent(new Event('offline')) })
+      fireEvent.change(screen.getByDisplayValue('A'), { target: { value: 'B' } })
+      expect(document.querySelector('[data-slot="link-page-footer"]')).toHaveTextContent('Kein Netz')
+      expect(saveRekoDraft).not.toHaveBeenCalled()
+    } finally {
+      onLine.mockRestore()
+    }
+  })
 })

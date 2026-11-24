@@ -62,6 +62,7 @@ import { LinkPageFooter } from '@/components/link-page/link-page-footer'
 /** A panel that opens from the fixed footer lands far from the thumb: bring it into view.
  *  A callback ref – it runs once, when the panel mounts. */
 const revealPanel = (el: HTMLElement | null) => el?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
+const focusOnMount = (el: HTMLElement | null) => el?.focus()
 
 /**
  * Which follow-up panel is open. Exactly one at a time, so the phone never
@@ -147,6 +148,13 @@ export function FeldActions({
   // What "Erneut senden" repeats. Held in a ref rather than in state: it is a
   // closure over the request, not something the render reads.
   const retryRef = useRef<(() => void) | null>(null)
+  // Set by «Abbrechen» in the footer's question: the step button that comes back takes the focus.
+  const returnFocusRef = useRef(false)
+  const takeReturnedFocus = (el: HTMLButtonElement | null) => {
+    if (!el || !returnFocusRef.current) return
+    returnFocusRef.current = false
+    el.focus()
+  }
   const attemptRef = useRef(0)
 
   const busy = delivery.status === 'pending'
@@ -209,6 +217,9 @@ export function FeldActions({
     // "Abholung nötig" attached to a beendet-Meldung that never arrived would
     // be a crew waiting for a car nobody was told to send.
     if (ok) setPanel('pickup-followup')
+    // «Erneut senden» repeats the whole step, follow-up question included —
+    // `run`'s own retry would send the report and skip the question.
+    else retryRef.current = () => void handleComplete()
   }
 
   const handlePickup = async (needed: boolean) => {
@@ -358,7 +369,11 @@ export function FeldActions({
   const statusReport = delivery.status !== 'idle' && (delivery.action === 'arrived' || delivery.action === 'complete')
   const reportFailed = statusReport && delivery.status === 'failed'
   const footerStatus = confirming ? (
-    <p className="font-medium">{confirming === 'arrived' ? t('confirmArrivedQuestion') : t('confirmCompleteQuestion')}</p>
+    // The question takes the focus from the button that opened it (a keyboard or screen
+    // reader would otherwise be left on a removed element); «Abbrechen» hands it back.
+    <p ref={focusOnMount} tabIndex={-1} className="font-medium outline-none">
+      {confirming === 'arrived' ? t('confirmArrivedQuestion') : t('confirmCompleteQuestion')}
+    </p>
   ) : reportFailed ? (
     <p className="flex items-start gap-1.5 text-destructive">
       <AlertCircle className="mt-0.5 size-4 shrink-0" />
@@ -400,7 +415,16 @@ export function FeldActions({
         {isBusy(delivery, confirming) && <ShellLoader className="size-4" />}
         {confirming === 'arrived' ? t('confirmArrivedYes') : t('confirmCompleteYes')}
       </Button>
-      <Button size="lg" variant="outline" className="w-full" disabled={busy} onClick={() => setPanel('none')}>
+      <Button
+        size="lg"
+        variant="outline"
+        className="w-full"
+        disabled={busy}
+        onClick={() => {
+          returnFocusRef.current = true
+          setPanel('none')
+        }}
+      >
         {t('cancel')}
       </Button>
     </div>
@@ -419,7 +443,13 @@ export function FeldActions({
       </Button>
     ) : null
   ) : current ? (
-    <Button size="lg" className="h-12 w-full" disabled={busy} onClick={() => setPanel(confirmPanelFor[current.key])}>
+    <Button
+      ref={takeReturnedFocus}
+      size="lg"
+      className="h-12 w-full"
+      disabled={busy}
+      onClick={() => setPanel(confirmPanelFor[current.key])}
+    >
       {isBusy(delivery, current.key === 'arrived' ? 'arrived' : 'complete') ? (
         <ShellLoader className="size-4" />
       ) : current.key === 'arrived' ? (

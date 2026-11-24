@@ -162,8 +162,9 @@ function CheckInKiosk({ token }: { token: string | null }) {
       setSearchTerm('')
       toast(t('guestCheckedIn', { name: person.name }))
     } catch (error) {
-      // 409 carries its own sentence («Bitte beim KP melden»); anything else is the toggle's.
-      if (error instanceof ApiError && error.status === 409) toast.error(error.message)
+      // 409 («Bitte beim KP melden») and 429 («Zu viele Anfragen …») carry their own sentence;
+      // anything else is the toggle's.
+      if (error instanceof ApiError && (error.status === 409 || error.status === 429)) toast.error(error.message)
       else toast.error(t('statusError'), { description: t('statusErrorDescription') })
     } finally {
       addingGuestRef.current = false

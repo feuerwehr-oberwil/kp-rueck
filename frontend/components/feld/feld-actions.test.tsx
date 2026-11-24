@@ -209,6 +209,15 @@ describe('the status footer', () => {
     await waitFor(() => expect(footer()).toHaveTextContent('Einsatz beendet melden'))
   })
 
+  it('moves the focus into its question and back to the step on «Abbrechen»', async () => {
+    const user = userEvent.setup()
+    render()
+    await user.click(screen.getByRole('button', { name: 'Angekommen melden' }))
+    expect(screen.getByText('Angekommen melden?')).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: 'Abbrechen' }))
+    expect(screen.getByRole('button', { name: 'Angekommen melden' })).toHaveFocus()
+  })
+
   it('is not there for somebody who only drives – they report no status', () => {
     render({ source: 'driver' })
     expect(document.querySelector('[data-slot="link-page-footer"]')).toBeNull()
@@ -237,6 +246,11 @@ describe('the Abholung follow-up (decision 24)', () => {
 
     await waitFor(() => expect(screen.getByText(/nicht gesendet werden/)).toBeInTheDocument())
     expect(screen.queryByText('Kommt ihr selbst zurück?')).not.toBeInTheDocument()
+
+    // …and asks once «Erneut senden» got it through (Sol review: the retry used to skip it).
+    await user.click(screen.getByRole('button', { name: 'Erneut senden' }))
+    expect(await screen.findByText('Kommt ihr selbst zurück?')).toBeInTheDocument()
+    expect(feldReportComplete).toHaveBeenCalledTimes(2)
   })
 
   it('"Wir fahren selbst" clears the flag and closes the question', async () => {

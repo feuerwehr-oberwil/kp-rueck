@@ -165,9 +165,13 @@ class RateLimits:
     INTAKE = "10/minute"
 
     # «als Gast einchecken» on the check-in link: a token-gated write that creates a person.
-    # A door tablet adds a guest every few minutes at most; this blunts a script, the per-
-    # Ereignis ceiling (`crud.personnel_checkin.DOOR_GUESTS_PER_EVENT`) bounds the rest.
-    CHECKIN_GUEST = "20/minute"
+    # Per LINK (the token), because a station NATs every phone behind one address and an
+    # address bucket would make one door's crowd block the next. A door adds a guest every
+    # few minutes at most; this blunts a script. The address bucket is only a backstop
+    # against a flood of forged tokens, each of which would get its own link bucket. The
+    # per-Ereignis ceiling (`crud.personnel_checkin.DOOR_GUESTS_PER_EVENT`) bounds the rest.
+    CHECKIN_GUEST_PER_LINK = "20/minute"
+    CHECKIN_GUEST_PER_ADDRESS = "60/minute"
 
     # /feld field surface - token-gated and public, but the page polls and
     # autosaves a draft, so it needs more headroom than INTAKE. Still capped:

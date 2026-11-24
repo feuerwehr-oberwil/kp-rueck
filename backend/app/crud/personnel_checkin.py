@@ -132,8 +132,11 @@ async def check_in_personnel(
     Raises:
         ValueError: If personnel is unavailable
     """
-    # Get personnel record
-    result = await db.execute(select(Personnel).where(Personnel.id == personnel_id))
+    # The person's row, locked (the resource row, last in the lock order): two check-ins of
+    # one person – the tablet and the guest door, or a double tap – would otherwise both miss
+    # the attendance row below and the second insert would fail on its unique constraint.
+    # Check-out locks the same row.
+    result = await db.execute(select(Personnel).where(Personnel.id == personnel_id).with_for_update())
     person = result.scalar_one_or_none()
 
     # A guest of another Ereignis is nobody this one lists (`Personnel.in_scope`).

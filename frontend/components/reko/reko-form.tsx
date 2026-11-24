@@ -590,7 +590,19 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
              localStorage answers that on every keystroke – it is whether the KP has it or
              whether it is still on this phone. «Jetzt senden» is the same action the Rapport
              form calls `sendChanges`; one pattern, two forms. */
-          !unsent || !dirty ? (
+          !online && dirty ? (
+            /* No network is not a fault and gets no red: it is a cellar, and it ends by
+               itself. Said as soon as there is something to send – not 30 s later, when
+               the next save fails. The one instruction that matters is to leave the form
+               open, because closing it is what would actually cost the text. */
+            <div role="status" className="flex items-start gap-2">
+              <CloudOff className="mt-0.5 h-4 w-4 shrink-0 text-warning-foreground" aria-hidden />
+              <p className="min-w-0">
+                <span className="block font-medium">{t('offlineTitle')}</span>
+                <span className="block text-xs text-muted-foreground">{t('offlineHint')}</span>
+              </p>
+            </div>
+          ) : !unsent || !dirty ? (
             <p className="flex items-center gap-2">
               {lastSaved ? (
                 <>
@@ -602,8 +614,8 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
                 <span className="text-muted-foreground">{t('autoSave')}</span>
               )}
             </p>
-          ) : online ? (
-            <div className="flex items-center gap-2 text-warning-foreground">
+          ) : (
+            <div role="status" className="flex items-center gap-2 text-warning-foreground">
               <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />
               <p className="min-w-0 flex-1">
                 <span className="block font-medium">{t('unsentTitle')}</span>
@@ -615,17 +627,6 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
                 {isSaving ? <ShellLoader className="h-4 w-4" /> : null}
                 {t('sendNowShort')}
               </Button>
-            </div>
-          ) : (
-            /* No network is not a fault and gets no red: it is a cellar, and it ends by
-               itself. The one instruction that matters is to leave the form open, because
-               closing it is what would actually cost the text. */
-            <div className="flex items-start gap-2">
-              <CloudOff className="mt-0.5 h-4 w-4 shrink-0 text-warning-foreground" aria-hidden />
-              <p className="min-w-0">
-                <span className="block font-medium">{t('offlineTitle')}</span>
-                <span className="block text-xs text-muted-foreground">{t('offlineHint')}</span>
-              </p>
             </div>
           )
         }
