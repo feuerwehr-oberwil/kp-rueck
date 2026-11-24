@@ -203,3 +203,35 @@ class TestTheWholeSlip:
         out = _render({})
         assert "KEIN STANDORT" in out
         assert out.rstrip().endswith("--- ENDE ---")
+
+
+@pytest.mark.parametrize(
+    ("since", "printed"),
+    [
+        ("2026-03-29T00:30:00+00:00", "seit 29.03. 01:30"),  # before the spring-forward
+        ("2026-03-29T01:30:00+00:00", "seit 29.03. 03:30"),  # after it
+        ("2026-10-25T00:30:00+00:00", "seit 25.10. 02:30"),  # summer time, last hour
+        ("2026-10-25T01:30:00+00:00", "seit 25.10. 02:30"),  # winter time, same wall clock
+    ],
+)
+def test_abholliste_prints_since_in_station_time(monkeypatch, since, printed):
+    """The «seit» of a unit left on site is station time, like the footer – never the host's
+    zone (a UTC host printed it one or two hours early)."""
+    import formatters
+    from zoneinfo import ZoneInfo
+
+    import time
+
+    monkeypatch.setattr(formatters, "LOCAL_TZ", ZoneInfo("Europe/Zurich"))
+    # The host runs on UTC (the agent's container does): the process zone must not leak in.
+    monkeypatch.setenv("TZ", "UTC")
+    time.tzset()
+    try:
+        p = _FakePrinter()
+        formatters.format_abholliste(
+            p, {"event_name": "Unwetter", "units": [{"address": "Hauptstrasse 1", "name": "Pumpe", "since": since}]}
+        )
+    finally:
+        monkeypatch.undo()
+        time.tzset()
+    assert printed in p.text
