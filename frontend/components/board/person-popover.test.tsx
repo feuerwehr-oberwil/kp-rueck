@@ -51,6 +51,11 @@ import { PersonPopoverBody } from '@/components/board/person-popover'
 
 const op14 = {
   id: 'op-14',
+  number: 14,
+  location: 'Poststrasse 6, 4104 Oberwil',
+  locationDisplay: 'Poststrasse 6',
+  incidentType: 'elementarereignis',
+  notes: 'Tiefgarage ca. 40 cm unter Wasser.',
   status: 'disponiert',
   crew: [{ personnelId: 'p-peter' }],
   vehicles: [{ vehicleId: 'v-trawa' }],
@@ -129,6 +134,18 @@ describe('PersonPopoverBody', () => {
     expect(screen.getByText('1 Zuweisung')).toBeInTheDocument()
     expect(screen.getByText('Mannschaft · fährt Trawa')).toBeInTheDocument()
     expect(screen.getAllByText('14 · Poststrasse 6')).toHaveLength(1)
+    // No Fahrer row repeats it (UX.15).
+    expect(screen.queryByRole('checkbox', { name: /^Fahrer/ })).not.toBeInTheDocument()
+  })
+
+  it('names a bound Einsatz short in the check-out question, with the vehicle driven there', async () => {
+    board.operations = [op14]
+    const longLabel = { ...crewBinding, label: '14 · Poststrasse 6 (Elementarereignis: Tiefgarage ca. 40 cm unter Wasser.)' }
+    renderPopover(person({ id: 'p-peter', name: 'Schneider Peter', isDriver: true, driverVehicleId: 'v-trawa', driverVehicleName: 'Trawa' }), [longLabel])
+
+    await userEvent.click(screen.getByRole('button', { name: /Auschecken/ }))
+
+    expect(await screen.findByText(/noch «14 · Poststrasse 6 \(fährt Trawa\)» zugewiesen/)).toBeInTheDocument()
   })
 
   it('shows one Fahrer row per vehicle driven, and each ends its own vehicle', async () => {

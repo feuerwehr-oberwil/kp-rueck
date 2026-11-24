@@ -42,7 +42,7 @@ import { useGroups } from "@/lib/contexts/groups-context"
 import { REKO_TARGET } from "@/lib/detail-target"
 import { formatTime } from "@/lib/format-time"
 import type { useReleaseUndo } from "@/lib/hooks/use-release-undo"
-import { getIncidentRefLabel } from "@/lib/incident-types"
+import { getIncidentRefLabel, getIncidentRefParts } from "@/lib/incident-types"
 import { personChecklist, type ChecklistRow } from "@/lib/person-functions"
 import { undoToast } from "@/lib/toast-undo"
 import { cn } from "@/lib/utils"
@@ -117,11 +117,15 @@ export function PersonPopoverBody({
     }
   }
 
-  /** What the check-out question names: every held row, as it reads here. */
+  /** What the check-out question names: every held row, an Einsatz short (number · address,
+   *  as the Appell names it) with the vehicle the person drives there. */
   const heldLabel = (row: ChecklistRow): string => {
     switch (row.kind) {
-      case "place":
-        return row.binding.label
+      case "place": {
+        const op = row.binding.kind === "incident" ? operations.find((o) => o.id === row.binding.targetId) : undefined
+        const place = op ? getIncidentRefParts(op).head : row.binding.label
+        return row.drives ? `${place} (${tp("drives", { vehicle: row.drives })})` : place
+      }
       case "driver":
         return row.held ? t("person.driverFunction", { vehicle: row.held.vehicleName }) : t("personMenu.driver")
       case "station":

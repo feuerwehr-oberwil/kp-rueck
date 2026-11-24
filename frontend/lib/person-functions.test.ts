@@ -52,9 +52,8 @@ describe("personChecklist", () => {
     const items = personFunctionItems({ id: "p1", isDriver: true, driverVehicleId: "v-trawa" }, fleet, new Map())
     const list = personChecklist([crewOn("op-14", "14 · Poststrasse 6")], items, trawaOn14)
     expect(list.count).toBe(1)
-    expect(list.held[0]).toMatchObject({ kind: "place", drives: "Trawa" })
-    // The Fahrer tick stays, so the role can still be ended – but it names no second place.
-    expect(list.held[1]).toMatchObject({ kind: "driver", held: { vehicleId: "v-trawa" }, where: null })
+    // One row: the place says «fährt Trawa», no Fahrer row repeats it.
+    expect(list.held).toEqual([expect.objectContaining({ kind: "place", drives: "Trawa" })])
   })
 
   it("names the vehicle's Einsatz on the Fahrer row when the person is not crew there", () => {
@@ -89,7 +88,6 @@ describe("personChecklist", () => {
     expect(list.held).toEqual([
       expect.objectContaining({ kind: "place", drives: "Trawa" }),
       expect.objectContaining({ kind: "driver", held: expect.objectContaining({ vehicleId: "v-tlf" }), where: null }),
-      expect.objectContaining({ kind: "driver", held: expect.objectContaining({ vehicleId: "v-trawa" }), where: null }),
     ])
     expect(list.count).toBe(2)
     expect(list.free.map(rowName)).not.toContain("Fahrer")

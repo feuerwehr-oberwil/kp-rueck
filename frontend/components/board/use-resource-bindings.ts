@@ -46,6 +46,7 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
   } = input
   const tCommon = useTranslations('kanban.common')
   const tPopover = useTranslations('kanban.personPopover')
+  const tLeader = useTranslations('kanban.leader')
 
   /**
    * The Einsätze (crew or Reko) and Aufträge this person is on — all of them, not the
@@ -58,40 +59,45 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
    */
   const collectPersonPlaces = useCallback((person: Pick<Person, "id">): ResourceBinding[] => {
     const bindings: ResourceBinding[] = []
+    // The role the card shows: «EL» for the Einsatz's leader, else «Mannschaft».
+    const crewDetail = (op: Operation) =>
+      [op.leaderId === person.id ? tLeader('abbr') : tPopover('crew'), op.groupId ? groupNames.get(op.groupId) : undefined]
+        .filter(Boolean)
+        .join(' · ')
     for (const op of operations) {
       if (op.crew.some((m) => m.personnelId === person.id)) {
-        const auftrag = op.groupId ? groupNames.get(op.groupId) : undefined
         bindings.push({
           key: `incident-${op.id}`,
           kind: "incident",
           targetId: op.id,
           label: getIncidentRefLabel(op, 60),
-          detail: [tPopover('crew'), auftrag].filter(Boolean).join(' · '),
+          detail: crewDetail(op),
           target: RESOURCES_TARGET,
         })
       }
       if (op.assignedReko?.id === person.id) {
         // A crew row drawn as Reko says «Mannschaft»: its tick releases that row (S3).
         const purpose = op.assignedReko.purpose ?? "reko"
-        const auftrag = op.groupId ? groupNames.get(op.groupId) : undefined
         bindings.push({
           key: `reko-${op.id}`,
           kind: "incident",
           targetId: op.id,
           label: getIncidentRefLabel(op, 60),
-          detail: purpose === "crew" ? [tPopover('crew'), auftrag].filter(Boolean).join(' · ') : tCommon('reko'),
+          detail: purpose === "crew" ? crewDetail(op) : tCommon('reko'),
           target: REKO_TARGET,
           purpose,
         })
       }
     }
     for (const group of groups) {
-      if (getGroupResources(group.id).personnel.some((p) => p.resourceId === person.id)) {
-        bindings.push({ key: `route-${group.id}`, kind: "route", targetId: group.id, label: group.name, detail: tPopover('auftrag') })
+      const member = getGroupResources(group.id).personnel.find((p) => p.resourceId === person.id)
+      if (member) {
+        const detail = member.isLeader ? `${tPopover('auftrag')} · ${tLeader('abbr')}` : tPopover('auftrag')
+        bindings.push({ key: `route-${group.id}`, kind: "route", targetId: group.id, label: group.name, detail })
       }
     }
     return bindings
-  }, [operations, groups, getGroupResources, groupNames, tCommon, tPopover])
+  }, [operations, groups, getGroupResources, groupNames, tCommon, tPopover, tLeader])
 
   /**
    * Everywhere this person is held, functions included — what a click on the row (and ⌘K)

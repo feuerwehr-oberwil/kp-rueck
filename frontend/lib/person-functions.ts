@@ -9,7 +9,8 @@
  *
  * `personChecklist` orders it: what the person holds on top (places first, then functions),
  * the rest below. A Fahrer who is crew on the Einsatz their vehicle stands on is ONE place
- * («Mannschaft · fährt Trawa»), not two (UX.15).
+ * («Mannschaft · fährt Trawa») and no Fahrer row, not two (UX.15, owner sign-off 24.11.2026):
+ * that role ends with the place's release or in the right-click menu.
  *
  * Pure, so both are tested without the board.
  */
@@ -80,14 +81,15 @@ export function personFunctionItems(
 export type ChecklistRow =
   /** An Einsatz (crew or Reko) or an Auftrag. `drives`: the vehicle(s) this person drives on it. */
   | { kind: "place"; binding: ResourceBinding; drives: string | null }
-  /** A Fahrer row: one per vehicle driven (`held`), or one «Fahrer ›» with `held: null` when
-   *  none is. `vehicles`: all driver items, for the vehicle choice. `where`: the Einsatz the
-   *  vehicle stands on when no place row already says so. */
+  /** A Fahrer row: one per vehicle driven away from the person's crew places (`held`), or one
+   *  «Fahrer ›» with `held: null` when none is driven. `vehicles`: all driver items, for the
+   *  vehicle choice. `where`: the Einsatz the vehicle stands on. */
   | { kind: "driver"; held: DriverItem | null; vehicles: DriverItem[]; where: string | null }
   | { kind: "station"; item: StationItem }
 
 export interface PersonChecklist {
-  /** Ticked: places, then the Fahrer rows, then the station functions. */
+  /** Ticked: places, then the Fahrer rows a place does not already say, then the station
+   *  functions. */
   held: ChecklistRow[]
   /** Unticked: the station functions, then «Fahrer ›». */
   free: ChecklistRow[]
@@ -126,12 +128,9 @@ export function personChecklist(
     const drives = driven.filter((d) => d.crewPlace === binding).map((d) => d.item.vehicleName)
     return { kind: "place", binding, drives: drives.length > 0 ? drives.join(", ") : null }
   })
-  const driverRows: ChecklistRow[] = driven.map((d) => ({
-    kind: "driver",
-    held: d.item,
-    vehicles,
-    where: d.operation && !d.crewPlace ? d.operation.label : null,
-  }))
+  const driverRows: ChecklistRow[] = driven
+    .filter((d) => !d.crewPlace)
+    .map((d) => ({ kind: "driver", held: d.item, vehicles, where: d.operation?.label ?? null }))
   const pickDriverRow: ChecklistRow = { kind: "driver", held: null, vehicles, where: null }
   const stationRow = (item: StationItem): ChecklistRow => ({ kind: "station", item })
 
