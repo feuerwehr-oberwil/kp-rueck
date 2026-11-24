@@ -466,6 +466,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId, canEdit = fals
                 const showDurationWarning = durationMinutes !== null && durationMinutes >= 120
                 // A single Einsatz names its column; anything more is «Gebunden».
                 const singleStatus = targets.length === 1 && einsaetze.length === 1 ? einsaetze[0].status : null
+                const singleStatusLabel = singleStatus && (isIncidentStatus(singleStatus) ? tColumns(singleStatus) : singleStatus)
                 // Flagged «Nicht einsatzbereit» (Einstellungen or the row menu): said with its
                 // date in the place column, like a flagged device in the material sidebar.
                 const idleLabel = vehicle.out_of_service
@@ -496,9 +497,14 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId, canEdit = fals
                         {t('vehicleStatus.bound')}
                       </Badge>
                     )}
-                    {singleStatus && (
-                      <Badge variant="outline" className={cn("text-xs max-w-full", RESOURCE_STATE_BADGE_CLASSES.assigned)}>
-                        {isIncidentStatus(singleStatus) ? tColumns(singleStatus) : singleStatus}
+                    {singleStatusLabel && (
+                      <Badge
+                        variant="outline"
+                        className={cn("text-xs max-w-full", RESOURCE_STATE_BADGE_CLASSES.assigned)}
+                        // A longer translation («Reconnaissance terminée») clips in the fixed track.
+                        title={singleStatusLabel}
+                      >
+                        <span className="truncate">{singleStatusLabel}</span>
                       </Badge>
                     )}
                     {showDurationWarning && (
@@ -585,16 +591,20 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId, canEdit = fals
                          `auto` badge column — so the one vehicle carrying a clock
                          AND two badges kept pulling its Einsatz cell left of the
                          four rows below it. Fixed px up to the Einsatz column
-                         pins every left edge; only that column stretches, and the
-                         badges stay flush right because the rows are equal width.
+                         pins every left edge; only that column stretches. The tracks
+                         after it are fixed too: an `auto` badge track took each row's
+                         own badge width, so the clock and the badges sat at a
+                         different x on every row (sign-off 24.11.). The badge track
+                         fits «Disponiert / Anfahrt»; a second badge («Lange») wraps
+                         under it, flush right.
                          Rows align at the TOP, every cell one badge-line tall: a
                          vehicle on two Einsätze lists both, and its name, driver and
                          badges stay on the first line (sign-off 19.11.). */
                       <div className={cn(
                         "grid items-start gap-3 [&>*]:min-h-[22px]",
                         canEdit
-                          ? "grid-cols-[140px_104px_168px_minmax(0,1fr)_74px_auto_32px]"
-                          : "grid-cols-[140px_104px_168px_minmax(0,1fr)_74px_auto]",
+                          ? "grid-cols-[140px_104px_168px_minmax(0,1fr)_74px_144px_32px]"
+                          : "grid-cols-[140px_104px_168px_minmax(0,1fr)_74px_144px]",
                       )}>
                         {/* Vehicle Icon and Name */}
                         <div className="flex items-center gap-2 min-w-0">
@@ -654,10 +664,10 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId, canEdit = fals
                           )}
                         </div>
 
-                        {/* Status Badges — right-aligned in their own track, so
+                        {/* Status Badges — right-aligned in their own fixed track, so
                             «Verfügbar» sits under «Verfügbar» however many badges
                             the row above carries. */}
-                        <div className="flex items-center justify-self-end gap-1.5">
+                        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
                           {statusBadges}
                         </div>
 
