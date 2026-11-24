@@ -116,8 +116,9 @@ export default function EventsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { events, selectedEvent, setSelectedEvent, createEvent, archiveEvent, unarchiveEvent, deleteEvent } = useEvent()
-  // Permanent delete is admin-only (DELETE /api/events/{id}); archiving stays with editors.
-  const { isAdmin } = useAuth()
+  // Permanent delete is admin-only (DELETE /api/events/{id}); archiving stays with editors, and
+  // so do the exports (CurrentEditor). A viewer reaches this page on a phone only, to switch.
+  const { isAdmin, isEditor } = useAuth()
   const isMobile = useIsMobile()
   // On a standby mirror a new Ereignis is created OFFLINE: it lives on this box only (the
   // outage that starts before the hosted board had it). Editors and admins only.
@@ -392,18 +393,22 @@ export default function EventsPage() {
             <ChartColumn className="mr-2 h-4 w-4" />
             {t(event.training_flag ? 'figures.titleTraining' : 'figures.menuItem')}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleReportExport(event)} className="cursor-pointer">
-            <FileText className="mr-2 h-4 w-4" />
-            {t('page.exportReport')}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleAuditExport(event)} className="cursor-pointer">
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            {t('page.exportAudit')}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleEinsaetzeExport(event)} className="cursor-pointer">
-            <ReceiptText className="mr-2 h-4 w-4" />
-            {t('page.exportEinsaetze')}
-          </DropdownMenuItem>
+          {isEditor && (
+            <>
+              <DropdownMenuItem onClick={() => handleReportExport(event)} className="cursor-pointer">
+                <FileText className="mr-2 h-4 w-4" />
+                {t('page.exportReport')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleAuditExport(event)} className="cursor-pointer">
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                {t('page.exportAudit')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleEinsaetzeExport(event)} className="cursor-pointer">
+                <ReceiptText className="mr-2 h-4 w-4" />
+                {t('page.exportEinsaetze')}
+              </DropdownMenuItem>
+            </>
+          )}
           {manages && (!archived || isAdmin) && <DropdownMenuSeparator />}
           {!manages ? null : archived ? (
             isAdmin && (
@@ -557,6 +562,7 @@ export default function EventsPage() {
                   eventId={bannerEvent.id}
                   onOpenIncident={(incidentId) => handleOpenIncident(bannerEvent, incidentId)}
                   printerEnabled={printerEnabled}
+                  canEdit={isEditor}
                 />
               </div>
             )}

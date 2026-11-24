@@ -121,6 +121,7 @@ const baseState = (
   overrides: Partial<KanbanShortcutsState> = {},
 ): KanbanShortcutsState => ({
   modalOpen: false,
+  readOnly: false,
   hoveredOperationId: null,
   selectedOperationId: null,
   operations: [],
@@ -472,6 +473,13 @@ describe("useKanbanShortcuts", () => {
       renderHook(() => useKanbanShortcuts(baseState(), actions));
       press("n");
       expect(actions.onOpenNewEmergency).toHaveBeenCalled();
+    });
+
+    // A viewer's phone board (lib/role-home.ts): «N» and «T» would open writing sheets.
+    it("does nothing on a viewer's read-only board", () => {
+      renderHook(() => useKanbanShortcuts(baseState({ readOnly: true }), actions));
+      press("n");
+      expect(actions.onOpenNewEmergency).not.toHaveBeenCalled();
     });
 
     it("'/' focuses search", () => {

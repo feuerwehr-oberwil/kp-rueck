@@ -10,6 +10,7 @@ import { renderWithIntl } from '@/test-utils/render-with-intl'
 const setSelectedEvent = vi.hoisted(() => vi.fn())
 const requestLogout = vi.hoisted(() => vi.fn())
 const pathname = vi.hoisted(() => ({ current: '/' }))
+const role = vi.hoisted(() => ({ current: 'editor' as 'editor' | 'viewer' }))
 
 const ev = (id: string, name: string, training_flag: boolean, incident_count: number, activity: string) => ({
   id,
@@ -26,7 +27,11 @@ const others = [ev('e2', 'Sturm Ost', false, 12, '2026-11-24T20:00:00'), ev('e3'
 
 vi.mock('next/navigation', () => ({ usePathname: () => pathname.current, useRouter: () => ({ push: vi.fn() }) }))
 vi.mock('@/lib/contexts/auth-context', () => ({
-  useAuth: () => ({ isAuthenticated: true, user: { username: 'demo', display_name: 'Demo Bearbeiter', role: 'editor' } }),
+  useAuth: () => ({
+    isAuthenticated: true,
+    isEditor: role.current === 'editor',
+    user: { username: 'demo', display_name: 'Demo Bearbeiter', role: role.current },
+  }),
 }))
 vi.mock('@/lib/contexts/event-context', () => ({
   useEvent: () => ({ selectedEvent: current, events: [current, ...others], setSelectedEvent }),
@@ -34,7 +39,7 @@ vi.mock('@/lib/contexts/event-context', () => ({
 vi.mock('@/lib/hooks/use-logout', () => ({ useLogout: () => ({ requestLogout, logoutDialog: null }) }))
 vi.mock('@/components/auth/role-badge', () => ({ RoleBadge: () => null }))
 
-import { PhoneEventPill } from './phone-event-pill'
+import { PhoneEventHead, PhoneEventPill } from './phone-event-pill'
 
 async function openMenu() {
   const user = userEvent.setup()
@@ -46,6 +51,7 @@ async function openMenu() {
 describe('PhoneEventPill', () => {
   beforeEach(() => {
     pathname.current = '/'
+    role.current = 'editor'
     setSelectedEvent.mockClear()
     requestLogout.mockClear()
   })
@@ -71,5 +77,18 @@ describe('PhoneEventPill', () => {
     expect(menu).toHaveTextContent('Demo Bearbeiter')
     await user.click(screen.getByRole('menuitem', { name: 'Abmelden' }))
     expect(requestLogout).toHaveBeenCalledOnce()
+  })
+
+  it('gives a viewer the same menu without Einstellungen, and a head that says «Nur Ansicht»', async () => {
+    role.current = 'viewer'
+    const { unmount } = renderWithIntl(<PhoneEventHead />)
+    expect(screen.getByText('Nur Ansicht')).toBeVisible()
+    unmount()
+
+    await openMenu()
+    expect(screen.getByRole('menuitem', { name: /Sturm Ost/ })).toBeVisible()
+    expect(screen.getByRole('menuitem', { name: 'Hilfe' })).toBeVisible()
+    expect(screen.getByRole('menuitem', { name: 'Abmelden' })).toBeVisible()
+    expect(screen.queryByRole('menuitem', { name: 'Einstellungen' })).toBeNull()
   })
 })

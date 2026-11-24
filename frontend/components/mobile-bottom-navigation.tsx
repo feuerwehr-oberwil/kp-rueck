@@ -253,9 +253,9 @@ export function MobileBottomNavigation({
 
             <SheetBody className="space-y-4 px-6 pt-1 pb-sheet-safe">
               {/* Viewing-first: the QR/print/vehicle sheets are editor-only, so viewers get a
-                  decluttered sheet. The training link shows on any Übung: spawning training
-                  incidents is the main mobile task, done with an editor account – the viewer
-                  role is strictly read-only (/training refuses it). */}
+                  decluttered sheet. The training link shows an editor any Übung: spawning
+                  training incidents is the main mobile task. A viewer gets neither – the role
+                  is strictly read-only (/training refuses it, lib/role-home.ts). */}
               <div>
                 <h3 className="text-xs font-medium text-muted-foreground mb-2">
                   {t('quickActions')}
@@ -281,7 +281,7 @@ export function MobileBottomNavigation({
                   })}
 
                   {/* Training Control - only for training events */}
-                  {selectedEvent?.training_flag && (
+                  {isEditor && selectedEvent?.training_flag && (
                     <Button
                       asChild
                       variant="ghost"

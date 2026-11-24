@@ -3,10 +3,10 @@
 /**
  * The map view.
  *
- * Reached only by editors and admins: `ProtectedRoute` sends every `viewer` to
- * `/display/board` before this renders. The `isEditor` checks below are therefore
- * constant-true today — kept deliberately, see the note in
- * `components/protected-route.tsx` for why and for what actually enforces the role.
+ * A `viewer` reaches it on a phone only (the phone shell, read-only – lib/role-home.ts);
+ * anywhere wider `ProtectedRoute` sends it to `/display/board`. So the `isEditor` checks
+ * below are constant-true on the desk and live on the phone – see the note in
+ * `components/protected-route.tsx` for what actually enforces the role.
  */
 
 import { PhoneEventHead } from '@/components/mobile/phone-event-pill'

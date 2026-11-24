@@ -62,7 +62,8 @@ export function FieldRequestInbox({
             onAssign={readOnly ? undefined : (assignAction ?? undefined)}
             busy={busyId === request.id}
             onSetStatus={(r, status) => void setStatus(r, status)}
-            onMarkSeen={canMarkSeen ? r => void markSeen(r) : undefined}
+            // «Gesehen» dismisses the bell entry – an editor's (POST …/dismiss)
+            onMarkSeen={canMarkSeen && isEditor ? r => void markSeen(r) : undefined}
             onOpen={onOpenIncident ? () => onOpenIncident(request.incident_id) : undefined}
           />
         ))}

@@ -41,7 +41,8 @@ export function PhoneNotificationSheet({ open, onOpenChange, returnFocusTo }: Ph
   const tInbox = useTranslations('divera.inbox')
   const { notifications, dismissNotification, dismissAllNotifications, navigateToIncident } = useNotifications()
   const openRequests = useOpenFieldRequests()
-  const { isViewer } = useAuth()
+  // A viewer reads the list: no Alarmeingang, no dismissing (POST …/dismiss is an editor's)
+  const { isEditor } = useAuth()
   // «Alarmeingang» closes this sheet first and opens the inbox once it is gone (one layer at a
   // time): set here, read where the sheet hands focus back.
   const alarmNext = useRef(false)
@@ -80,7 +81,7 @@ export function PhoneNotificationSheet({ open, onOpenChange, returnFocusTo }: Ph
         </SheetHeader>
 
         <SheetBody className="space-y-4 px-6 pt-1 pb-sheet-safe">
-          {!isViewer && (
+          {isEditor && (
             <Button
               variant="outline"
               className="h-auto min-h-11 w-full justify-start gap-3 touch-manipulation"
@@ -112,21 +113,23 @@ export function PhoneNotificationSheet({ open, onOpenChange, returnFocusTo }: Ph
                     {activeNotifications.length}
                   </span>
                 </h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void dismissAllNotifications(openRequests.representedIds)}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  {t('dismissAll')}
-                </Button>
+                {isEditor && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void dismissAllNotifications(openRequests.representedIds)}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    {t('dismissAll')}
+                  </Button>
+                )}
               </div>
               <div className="space-y-2">
                 {activeNotifications.map((notification) => (
                   <NotificationCard
                     key={notification.id}
                     notification={notification}
-                    onDismiss={dismissNotification}
+                    onDismiss={isEditor ? dismissNotification : undefined}
                     onClickIncident={openIncident}
                     readOnly
                   />

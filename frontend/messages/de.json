@@ -327,7 +327,8 @@
       "allEvents": "Alle Ereignisse",
       "app": "App",
       "settings": "Einstellungen",
-      "help": "Hilfe"
+      "help": "Hilfe",
+      "viewOnly": "Nur Ansicht"
     },
     "pageNav": {
       "main": "Hauptnavigation",
@@ -4104,7 +4105,8 @@
       "fullscreen": "Vollbild",
       "searchPlaceholder": "Suchen …",
       "readOnly": "Nur-Lesen",
-      "selectEvent": "Ereignis wählen"
+      "selectEvent": "Ereignis wählen",
+      "pagesNav": "Ansichten"
     },
     "map": {
       "authRequired": "Bitte melde dich an oder verwende einen Zugangscode (?token=xxx)"

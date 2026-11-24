@@ -20,6 +20,9 @@ interface VehicleType {
 export interface KanbanShortcutsState {
   /** True when any modal/dialog/sheet is open — disables every shortcut. */
   modalOpen: boolean
+  /** A viewer's board (a phone, lib/role-home.ts): no board key at all – they write or open
+   *  a writing sheet («N» Neuer Einsatz, «T» Links & QR, digits, Delete). */
+  readOnly: boolean
   /**
    * Currently-hovered operation. READING shortcuts target it — Enter and Space
    * open a detail, which costs nothing if the pointer was somewhere unintended.
@@ -190,6 +193,7 @@ export function useKanbanShortcuts(
 ): void {
   const {
     modalOpen,
+    readOnly,
     hoveredOperationId,
     selectedOperationId,
     operations,
@@ -211,6 +215,7 @@ export function useKanbanShortcuts(
         }
       }
 
+      if (readOnly) return
       if (isTypingTarget(e.target)) return
       if (modalOpen) return
       // An open menu (UserMenu, a card's context menu) is not covered by
@@ -459,6 +464,7 @@ export function useKanbanShortcuts(
     return () => window.removeEventListener("keydown", handleKeyPress)
   }, [
     modalOpen,
+    readOnly,
     hoveredOperationId,
     selectedOperationId,
     operations,

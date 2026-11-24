@@ -439,7 +439,8 @@
       "fullscreen": "Plein écran",
       "searchPlaceholder": "Rechercher …",
       "readOnly": "Lecture seule",
-      "selectEvent": "Choisir un événement"
+      "selectEvent": "Choisir un événement",
+      "pagesNav": "Vues"
     },
     "map": {
       "authRequired": "Connecte-toi ou utilise un code d’accès (?token=xxx)"
@@ -3062,7 +3063,8 @@
       "allEvents": "Tous les événements",
       "app": "App",
       "settings": "Réglages",
-      "help": "Aide"
+      "help": "Aide",
+      "viewOnly": "Lecture seule"
     },
     "pageNav": {
       "main": "Navigation principale",

@@ -15,3 +15,9 @@ const widthIsMobile = () => window.innerWidth < MOBILE_BREAKPOINT
 export function useIsMobile() {
   return useMediaQuery(MOBILE_QUERY, false, widthIsMobile)
 }
+
+/** The same question asked once, outside render – for a redirect that must not act on the
+ *  hydrating render's «desktop» (`ProtectedRoute`, the login's landing). Client only. */
+export function isMobileViewport() {
+  return typeof window.matchMedia === 'function' ? window.matchMedia(MOBILE_QUERY).matches : widthIsMobile()
+}

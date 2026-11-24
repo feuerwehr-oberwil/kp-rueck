@@ -34,7 +34,8 @@ import { TrainingBadge } from "@/components/training-mode-chrome"
  * Reached through a share link (`/display?token=…`), this page is the landing
  * spot the board's Links & QR sheet hands out: the token is forwarded to each
  * wall page, and the editor-only controls (event picker, back link, logout)
- * stay hidden — a token pins its own Ereignis and grants nothing else.
+ * stay hidden — a token pins its own Ereignis and grants nothing else. On a phone the
+ * link skips this page and opens its board (`DisplayChrome` in layout.tsx).
  */
 export default function DisplayIndexPage() {
   const t = useTranslations('display.layout')

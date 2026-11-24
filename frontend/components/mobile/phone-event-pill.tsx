@@ -13,11 +13,14 @@
  * Switching is navigation, not editing – the phone board stays read-only (owner, 14.11.2026), so
  * there is no «Neues Ereignis» here.
  *
+ * A viewer gets the same menu without Einstellungen (owner pick 4A, 24.11.2026: /settings is not
+ * a viewer's page, lib/role-home.ts), and its head says «Nur Ansicht» (`ViewOnlyTag`).
+ *
  * The board puts the pill first in its own phone head; every other page puts `PhoneEventHead`
  * above its header – the pill in the same 16px inset, on the header's surface.
  */
 
-import { Calendar, ChevronDown, ChevronRight, HelpCircle, LogOut, Settings } from 'lucide-react'
+import { Calendar, ChevronDown, ChevronRight, Eye, HelpCircle, LogOut, Settings } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -58,7 +61,7 @@ const initialsOf = (name: string) =>
 export function PhoneEventPill({ className }: { className?: string }) {
   const t = useTranslations('nav.eventPill')
   const tAccount = useTranslations('nav.account')
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated, isEditor, user } = useAuth()
   const { selectedEvent, events, setSelectedEvent } = useEvent()
   const { requestLogout, logoutDialog } = useLogout()
   const pathname = usePathname()
@@ -145,7 +148,7 @@ export function PhoneEventPill({ className }: { className?: string }) {
 
           <DropdownMenuSeparator className="my-2" />
           <DropdownMenuLabel className={HEADING}>{t('app')}</DropdownMenuLabel>
-          {pageRow('/settings', t('settings'), Settings)}
+          {isEditor && pageRow('/settings', t('settings'), Settings)}
           {pageRow('/help', t('help'), HelpCircle)}
 
           <DropdownMenuSeparator className="my-2" />
@@ -173,14 +176,35 @@ export function PhoneEventPill({ className }: { className?: string }) {
   )
 }
 
+/** «Nur Ansicht» beside the pill, for a viewer (owner pick 4A, 24.11.2026): the phone shell
+ *  is the editor's, so the head says why nothing on it writes. Nothing for an editor. */
+export function ViewOnlyTag({ className }: { className?: string }) {
+  const t = useTranslations('nav.eventPill')
+  const { isAuthenticated, isEditor } = useAuth()
+  if (!isAuthenticated || isEditor) return null
+  return (
+    <span
+      className={cn(
+        'inline-flex h-7 shrink-0 items-center gap-1 rounded-md bg-muted px-2 text-xs font-semibold text-muted-foreground md:hidden',
+        className,
+      )}
+    >
+      <Eye aria-hidden className="size-3.5" />
+      {t('viewOnly')}
+    </span>
+  )
+}
+
 /** The pill as a row of its own, above a page's header (Lagekarte, Ereignisse,
- *  Übungs-Steuerung). `className` gives it the header's surface. */
+ *  Übungs-Steuerung), with «Nur Ansicht» for a viewer. `className` gives it the header's
+ *  surface. */
 export function PhoneEventHead({ className }: { className?: string }) {
   const { isAuthenticated } = useAuth()
   if (!isAuthenticated) return null
   return (
-    <div className={cn('flex px-4 pt-3 md:hidden', className)}>
-      <PhoneEventPill />
+    <div className={cn('flex items-center gap-2 px-4 pt-3 md:hidden', className)}>
+      <PhoneEventPill className="min-w-0" />
+      <ViewOnlyTag className="ml-auto" />
     </div>
   )
 }

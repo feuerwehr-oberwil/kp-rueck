@@ -31,6 +31,8 @@ import {
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader';
 import { launchCover, useBootGate } from '@/lib/boot-cover';
 import { useStationName } from '@/lib/station-name';
+import { homeFor } from '@/lib/role-home';
+import { isMobileViewport } from '@/components/ui/use-mobile';
 
 export default function LoginPage() {
   const t = useTranslations('login.page');
@@ -73,7 +75,7 @@ export default function LoginPage() {
     // nobody asked to leave.
     if (!user) return;
     launchCover.arm(window.location.pathname);
-    router.replace(user.role === 'viewer' ? '/display/board' : '/');
+    router.replace(homeFor(user.role, isMobileViewport()));
   }, [authLoading, user, router]);
 
   useEffect(() => {
@@ -107,8 +109,8 @@ export default function LoginPage() {
       const loggedInUser = await login(username, password);
       // Signed in: what follows is a launch — the snail covers until the workspace is usable.
       launchCover.arm(window.location.pathname);
-      // Viewer-role accounts get the read-only display board (kiosk/shared PCs)
-      router.push(loggedInUser.role === 'viewer' ? '/display/board' : '/');
+      // A viewer gets the phone shell on a phone, the wall board anywhere else (lib/role-home.ts)
+      router.push(homeFor(loggedInUser.role, isMobileViewport()));
     } catch (err) {
       setError(err instanceof Error ? err.message : t('loginFailed'));
     } finally {
@@ -137,7 +139,7 @@ export default function LoginPage() {
         console.warn('Demo-Sandbox konnte nicht erstellt werden:', sandboxErr);
       }
 
-      router.push(role === 'viewer' ? '/display/board' : '/');
+      router.push(homeFor(role, isMobileViewport()));
     } catch (err) {
       setError(err instanceof Error ? err.message : t('demoLoginFailed'));
     } finally {

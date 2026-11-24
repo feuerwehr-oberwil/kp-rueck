@@ -22,6 +22,8 @@ import { BootScreen } from '@/components/boot-screen';
 import { handOverSnailClock } from '@/lib/snail-clock';
 import { useBootGate, useLaunchCoverUp } from '@/lib/boot-cover';
 import { AlertTriangle } from 'lucide-react';
+import { homeFor } from '@/lib/role-home';
+import { isMobileViewport } from '@/components/ui/use-mobile';
 
 export default function MicrosoftCallbackPage() {
   const t = useTranslations('login.callback');
@@ -60,7 +62,7 @@ export default function MicrosoftCallbackPage() {
         // The app's own start screen takes over in the next document; it continues this
         // snail instead of driving it in a second time (lib/snail-clock.ts).
         handOverSnailClock();
-        window.location.href = user.role === 'viewer' ? '/display/board' : '/';
+        window.location.href = homeFor(user.role, isMobileViewport());
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : t('microsoftLoginFailed'));
