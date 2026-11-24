@@ -13,7 +13,8 @@ from .incidents import IncidentResponse
 class DiveraWebhookPayload(BaseModel):
     """Divera 24/7 webhook payload structure (actual format from Divera PRO)."""
 
-    id: int
+    # The pool's column limits (`divera_id` INTEGER, coordinates NUMERIC(10,8)/(11,8)).
+    id: int = Field(ge=0, le=2_147_483_647)
     # The pool's column limits (`DiveraEmergency`): longer used to reach the database and
     # answer 500 – it is the sender's input to fix, so 422 (hunt 2026-11-24).
     number: str | None = Field(default=None, max_length=50)  # Incident number like "E-123"
@@ -21,8 +22,8 @@ class DiveraWebhookPayload(BaseModel):
     title: str = Field(max_length=255)
     text: str | None = None
     address: str | None = None
-    lat: float | None = None
-    lng: float | None = None
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
     # priority is inferred from title/text content, not from Divera payload
     cluster: list[str] | None = None
     group: list[str] | None = None

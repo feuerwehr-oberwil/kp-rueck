@@ -1136,7 +1136,9 @@ async def test_detach_viewer_forbidden(viewer_client: AsyncClient, test_emergenc
 @pytest.mark.asyncio
 @pytest.mark.api
 @pytest.mark.parametrize(
-    "overrides", [{"title": "A" * 256}, {"number": "1" * 51}], ids=["title-over-255", "number-over-50"]
+    "overrides",
+    [{"title": "A" * 256}, {"number": "1" * 51}, {"id": 2_147_483_648}, {"lat": 100, "lng": 7.5}],
+    ids=["title-over-255", "number-over-50", "id-over-integer", "latitude-out-of-range"],
 )
 async def test_a_native_alarm_over_the_pool_limits_is_refused_as_input(
     client: AsyncClient, db_session: AsyncSession, webhook_secret: str, overrides: dict
