@@ -62,6 +62,11 @@ class ErrorCode(StrEnum):
     # that lost a race to another board (409; the client says it in its own sentence) and an
     # unmerge of a report that is not merged (any more) – a second click, answered quietly.
     ASSIGNMENT_RACE = "assignment_race"
+    # The board assigned a resource that is Jetzt on another Einsatz or Auftrag (owner pick 2B,
+    # 24.11.2026: never on two – move it or plan it «Danach»). params: holders (comma-separated).
+    RESOURCE_BUSY = "resource_busy"
+    # «Danach vormerken» that cannot exist (closed target, consumable, already there).
+    PLAN_REFUSED = "plan_refused"
     INCIDENT_ALREADY_RESTORED = "incident_already_restored"
     INCIDENT_RESTORE_MERGED = "incident_restore_merged"
     INCIDENT_RESTORE_CONFLICT = "incident_restore_conflict"

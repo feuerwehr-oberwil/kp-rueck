@@ -32,6 +32,7 @@ from ..models import (
 from ..services.audit import log_action
 from .assignments import AssignmentReleasedError, _reko_personnel_ids, ensure_assignable, leader_rank
 from .locking import lock_groups, lock_resource
+from .planned_assignments import ensure_not_busy, fulfil
 
 
 class ResourceNotFoundError(ValueError):
@@ -148,8 +149,13 @@ async def assign_group_resource(
     resource_id: uuid.UUID,
     current_user: User,
     request: Request,
+    *,
+    exclusive: bool = False,
 ) -> IncidentGroupAssignment:
     """Assign a resource to an Auftrag with transaction isolation.
+
+    ``exclusive``: as in ``assignments.assign_resource`` – the board refuses a resource that is
+    Jetzt elsewhere (owner pick 2B). A Danach of the resource on this Auftrag is fulfilled.
 
     Locks the Auftrag (there may be no assignment row to lock yet), then the resource
     row – the order in ``crud/locking.py``, and the resource lock archive and purge
@@ -187,6 +193,8 @@ async def assign_group_resource(
     # The Auftrag row is locked, and every stop add/remove takes that lock first, so
     # its stop list holds still until the commit.
     ensure_assignable(resource, event=event, auftrag_closed=await auftrag_is_closed(db, group_id))
+    if exclusive:
+        await ensure_not_busy(db, resource, resource_type, group_id=group_id)
 
     existing = await db.execute(
         select(IncidentGroupAssignment)
@@ -215,6 +223,7 @@ async def assign_group_resource(
     except IntegrityError as exc:
         await db.rollback()
         raise ValueError("Ressource ist diesem Auftrag bereits zugewiesen") from exc
+    await fulfil(db, resource_type, resource_id, group_id=group_id)
 
     await log_action(
         db=db,

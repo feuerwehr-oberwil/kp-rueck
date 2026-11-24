@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import assignments as crud
+from ..crud.planned_assignments import ResourceBusyError
 from ..database import get_db
 from ..models import IncidentAssignment
 from ..utils.error_codes import CodedHTTPException, ErrorCode
@@ -34,10 +35,9 @@ async def assign_resource(
     """
     Assign resource to incident (editor only).
 
-    A resource already bound to another incident is rejected with 409
-    (``crud.assign_resource`` raises ``ValueError``); the frontend surfaces the
-    conflict (vehicles offer a move/keep dialog, personnel/material are filtered
-    out of the picker).
+    A resource that is Jetzt on another Einsatz or Auftrag is a 409 ``resource_busy``
+    (owner pick 2B, 24.11.2026: never on two). The board asks first – «Jetzt verschieben»
+    releases it there, «Danach vormerken» plans it (``/planned-assignments/``).
 
     A missing incident or resource is a 404 (``LookupError``) — previously the first
     crashed on a foreign-key violation and the second quietly stored an orphan row.
@@ -51,11 +51,14 @@ async def assign_resource(
             resource_id=assignment.resource_id,
             current_user=current_user,
             request=request,
+            exclusive=True,
         )
     except LookupError as e:
         # Not warn-worthy: a stale id from a client that missed a delete is routine.
         logger.info("Assignment target missing for incident %s: %s", incident_id, e)
         raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND) from e
+    except ResourceBusyError as e:
+        raise CodedHTTPException(409, ErrorCode.RESOURCE_BUSY, str(e), params={"holders": ", ".join(e.holders)}) from e
     except crud.ResourceNotAssignableError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
     except crud.IncidentNotOnBoardError as e:

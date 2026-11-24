@@ -46,6 +46,7 @@ from .api.materials import router as materials_router
 from .api.notifications import router as notifications_router
 from .api.personnel import router as personnel_router
 from .api.personnel_checkin import router as personnel_checkin_router
+from .api.planned_assignments import router as planned_assignments_router
 from .api.print import router as print_router
 from .api.reko import photos_router
 from .api.reko import router as reko_router
@@ -668,6 +669,7 @@ app.include_router(groups_router, prefix=settings.api_v1_prefix)
 app.include_router(integrations_router, prefix=settings.api_v1_prefix)
 app.include_router(assignments_router, prefix=settings.api_v1_prefix)
 app.include_router(assignments_bulk_router, prefix=settings.api_v1_prefix)  # Bulk assignments endpoint
+app.include_router(planned_assignments_router, prefix=settings.api_v1_prefix)
 app.include_router(personnel_router, prefix=settings.api_v1_prefix)
 app.include_router(personnel_checkin_router, prefix=settings.api_v1_prefix)
 app.include_router(print_router, prefix=settings.api_v1_prefix)

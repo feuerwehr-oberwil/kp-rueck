@@ -490,6 +490,12 @@ async def broadcast_assignment_update(assignment_data: dict[str, Any], action: s
     )
 
 
+async def broadcast_planned_assignment_update(event_id: str) -> None:
+    """A Danach changed in this Ereignis (planned, removed, promoted, dismissed): boards refetch
+    ``/planned-assignments/`` (Jetzt / Danach, 24.11.2026)."""
+    await ws_manager.broadcast_update("planned_assignment_update", {"event_id": event_id}, room="operations")
+
+
 async def broadcast_print_job_update(job_data: dict[str, Any], action: str = "update") -> None:
     """Broadcast print job status changes to all clients in operations room.
 

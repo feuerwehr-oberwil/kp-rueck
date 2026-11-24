@@ -1221,6 +1221,53 @@ class IncidentGroupAssignment(Base):
     )
 
 
+class PlannedAssignment(Base):
+    """A «Danach»: a resource planned for an Einsatz or an Auftrag after its current work.
+
+    Owner pick 1B (24.11.2026): an assignment is either Jetzt (an ``IncidentAssignment`` /
+    ``IncidentGroupAssignment`` row) or Danach (a row here). Its own table on purpose: every
+    reader of active assignments – /feld, the Rapport, GPS, exports, the leader sync – keeps
+    reading only what is really there, and a plan can never be counted as crew by mistake.
+
+    A resource may have several Danach: a queue, ordered by ``planned_at`` (owner pick 3, a
+    new one goes to the end). Exactly one holder: ``incident_id`` or ``incident_group_id``.
+    The row is deleted when the plan ends – promoted to Jetzt (``crud.planned_assignments``),
+    removed by hand, or its holder closed; the audit log keeps the history.
+
+    ``dismissed_at``: the operator's «Verwerfen» of the «Danach frei» to-do. The plan stays,
+    only the to-do leaves the amber count (owner pick 6).
+    """
+
+    __tablename__ = "planned_assignments"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    event_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("events.id", ondelete="CASCADE"), nullable=False
+    )
+    incident_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=True
+    )
+    incident_group_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("incident_groups.id", ondelete="CASCADE"), nullable=True
+    )
+    resource_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    resource_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    planned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    planned_by: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("resource_type IN ('personnel', 'vehicle', 'material')", name="valid_resource_type"),
+        CheckConstraint("(incident_id IS NULL) <> (incident_group_id IS NULL)", name="planned_one_holder"),
+        # One plan per resource per holder; NULL holders never collide, so each index guards its own kind.
+        UniqueConstraint("incident_id", "resource_type", "resource_id", name="uq_planned_incident_resource"),
+        UniqueConstraint("incident_group_id", "resource_type", "resource_id", name="uq_planned_group_resource"),
+        # A resource's queue, in order.
+        Index("idx_planned_resource_queue", "resource_type", "resource_id", "planned_at"),
+        Index("idx_planned_event", "event_id"),
+    )
+
+
 # ============================================
 # REKO FIELD REPORTS
 # ============================================

@@ -76,3 +76,41 @@ class TransferAssignmentsResponse(BaseModel):
     transferred_count: int
     assignment_ids: list[UUID]
     message: str
+
+
+# «Danach» – planned assignments (Jetzt / Danach, 24.11.2026)
+class PlannedAssignmentCreate(BaseModel):
+    """«Danach vormerken»: exactly one of ``incident_id`` / ``incident_group_id``."""
+
+    resource_type: ResourceType
+    resource_id: UUID
+    incident_id: UUID | None = None
+    incident_group_id: UUID | None = None
+
+
+class PlannedAssignmentUpdate(BaseModel):
+    """«Verwerfen» of the «Danach frei» to-do (true) and its undo (false). The plan stays."""
+
+    dismissed: bool
+
+
+class PlannedAssignmentResponse(BaseModel):
+    """A Danach as the board reads it.
+
+    ``position``: its place in the resource's queue (1 = next). ``ready``: the resource is free
+    (Jetzt nowhere) and this is its first Danach – the board shows the «Danach frei» to-do.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    event_id: UUID
+    incident_id: UUID | None = None
+    incident_group_id: UUID | None = None
+    resource_type: ResourceType
+    resource_id: UUID
+    planned_at: datetime
+    planned_by: UUID | None = None
+    dismissed_at: datetime | None = None
+    position: int = 1
+    ready: bool = False
