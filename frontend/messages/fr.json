@@ -1641,7 +1641,7 @@
       "guestNotListed": "Aucun nom « {name} » sur la liste du personnel.",
       "guestAdd": "Enregistrer « {name} » comme invité",
       "guestAddHint": "Tu es présent tout de suite – le PC te voit comme invité.",
-      "guestCheckedIn": "{name} est enregistré comme invité.",
+      "guestCheckedIn": "{name} est enregistré.",
       "guestNameRefused": "La liste ne peut pas enregistrer ce nom. Annonce-toi au PC."
     }
   },

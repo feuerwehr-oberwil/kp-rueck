@@ -178,7 +178,7 @@ describe('/check-in', () => {
     expect(api.checkInGuest).toHaveBeenCalledTimes(1)
     await waitFor(() => expect(search).toHaveValue(''))
     expect(await screen.findByRole('button', { name: /Gast Peter/ })).toHaveAccessibleDescription('Anwesend')
-    expect(toast).toHaveBeenCalledWith('Gast Peter ist als Gast eingecheckt.')
+    expect(toast).toHaveBeenCalledWith('Gast Peter ist eingecheckt.')
   })
 
   it('says «beim KP melden» when the door cannot settle the name', async () => {

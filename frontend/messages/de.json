@@ -4108,7 +4108,7 @@
       "guestNotListed": "Kein Name «{name}» auf der Personalliste.",
       "guestAdd": "«{name}» als Gast einchecken",
       "guestAddHint": "Du bist sofort anwesend – der KP sieht «Gast».",
-      "guestCheckedIn": "{name} ist als Gast eingecheckt.",
+      "guestCheckedIn": "{name} ist eingecheckt.",
       "guestNameRefused": "Diesen Namen kann die Liste nicht aufnehmen. Bitte beim KP melden."
     }
   },

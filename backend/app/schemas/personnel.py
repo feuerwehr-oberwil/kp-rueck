@@ -173,6 +173,8 @@ class CheckInGuest(BaseModel):
     def _visible_characters_only(cls, value: str) -> str:
         if any(unicodedata.category(char) in {"Cc", "Cf", "Cs", "Co", "Cn"} and char not in _JOINERS for char in value):
             raise ValueError("Der Name enthält unsichtbare Zeichen.")
+        if all(char in _JOINERS or char.isspace() for char in value):
+            raise ValueError("Der Name ist leer.")
         return value
 
 

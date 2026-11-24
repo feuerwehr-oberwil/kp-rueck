@@ -155,8 +155,8 @@ async def test_the_guest_ceiling_holds(client: AsyncClient, db_session: AsyncSes
 @pytest.mark.api
 @pytest.mark.parametrize(
     "name",
-    ["", "   ", "x" * 101, "Gast\x00Peter", "Gast \u202eretep", "Gast\u200bPeter"],
-    ids=["empty", "blank", "too-long", "nul", "bidi-override", "zero-width"],
+    ["", "   ", "x" * 101, "Gast\x00Peter", "Gast \u202eretep", "Gast\u200bPeter", "\u200d\u200c"],
+    ids=["empty", "blank", "too-long", "nul", "bidi-override", "zero-width", "joiners-only"],
 )
 async def test_the_name_is_validated(client: AsyncClient, two_events: tuple[Event, Event], name: str):
     tonight, _ = two_events

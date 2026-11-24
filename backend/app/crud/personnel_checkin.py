@@ -147,25 +147,26 @@ async def check_in_personnel(
 
     is_assigned = await _is_personnel_assigned(db, event_id, personnel_id)
 
-    # Get or create the event attendance record. Created with ON CONFLICT DO NOTHING, then read
-    # back: two check-ins of one person at once (the tablet and the guest door, a double tap)
-    # both miss the row, and a plain insert would make the second one a unique-constraint 500.
-    # This way the second waits for the first and then finds its row. No row lock on the
-    # person: that would put a new lock between this and every writer of personnel.
-    attendance_query = (
-        select(EventAttendance)
-        .where(EventAttendance.event_id == event_id, EventAttendance.personnel_id == personnel_id)
-        .execution_options(populate_existing=True)
-    )
-    attendance = await db.scalar(attendance_query)
-    if attendance is None:
-        await db.execute(
-            pg_insert(EventAttendance)
-            .values(id=uuid.uuid4(), event_id=event_id, personnel_id=personnel_id, checked_in=False)
-            .on_conflict_do_nothing(constraint="unique_event_personnel_attendance")
+    # Get or create the event attendance record in ONE statement that also locks it: an upsert
+    # whose conflict branch is a no-op update. Two check-ins of one person at once (the tablet
+    # and the guest door, a double tap) both miss the row, and a plain insert made the second a
+    # unique-constraint 500; here the second waits for the first and gets its row, and nobody
+    # can clear the row between the upsert and the update below. No lock on the person's row:
+    # that would put a new lock between this and every writer of personnel.
+    attendance_id = await db.scalar(
+        pg_insert(EventAttendance)
+        .values(id=uuid.uuid4(), event_id=event_id, personnel_id=personnel_id, checked_in=False)
+        .on_conflict_do_update(
+            constraint="unique_event_personnel_attendance",
+            set_={"event_id": pg_insert(EventAttendance).excluded.event_id},
         )
-        # Inserted above, or by the request it waited for.
-        attendance = (await db.execute(attendance_query)).scalar_one()
+        .returning(EventAttendance.id)
+    )
+    attendance = (
+        await db.execute(
+            select(EventAttendance).where(EventAttendance.id == attendance_id).execution_options(populate_existing=True)
+        )
+    ).scalar_one()
 
     now = datetime.now(UTC)
 

@@ -160,6 +160,7 @@ function CheckInKiosk({ token }: { token: string | null }) {
       rosterRevision.current++
       setPersonnel(prev => [...prev.filter(p => p.id !== person.id), person])
       setSearchTerm('')
+      // Neutral: a name the server matches to somebody listed checks THEM in, not a guest.
       toast(t('guestCheckedIn', { name: person.name }))
     } catch (error) {
       // 409 («Bitte beim KP melden») and 429 («Zu viele Anfragen …») carry their own sentence;
