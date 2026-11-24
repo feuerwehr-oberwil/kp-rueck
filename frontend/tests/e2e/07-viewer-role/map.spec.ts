@@ -46,21 +46,21 @@ test.describe('Viewer role — map', () => {
     authenticatedPage,
     viewerPage,
   }) => {
-    // app/map/page.tsx: the two editor modes (Routenplanung / Reko-Modus) are
+    // app/map/page.tsx: the two editor modes (Auftrags-Editor / Reko-Editor) are
     // direct buttons now, not a "Modus" dropdown — still the one control block
     // on this page rendered behind a bare `{isEditor && …}`.
     await expect(
-      authenticatedPage.getByRole('button', { name: 'Routenplanung' }),
+      authenticatedPage.getByRole('button', { name: 'Auftrags-Editor' }),
     ).toBeVisible({ timeout: 20_000 });
     await expect(
-      authenticatedPage.getByRole('button', { name: 'Reko-Modus' }),
+      authenticatedPage.getByRole('button', { name: 'Reko-Editor' }),
     ).toBeVisible();
 
     await expect(viewerPage.locator('[data-testid="base-map"]')).toBeVisible({
       timeout: 20_000,
     });
-    await expect(viewerPage.getByRole('button', { name: 'Routenplanung' })).toHaveCount(0);
-    await expect(viewerPage.getByRole('button', { name: 'Reko-Modus' })).toHaveCount(0);
+    await expect(viewerPage.getByRole('button', { name: 'Auftrags-Editor' })).toHaveCount(0);
+    await expect(viewerPage.getByRole('button', { name: 'Reko-Editor' })).toHaveCount(0);
   });
 
   test('the incident is on both maps', async ({ authenticatedPage, viewerPage }) => {

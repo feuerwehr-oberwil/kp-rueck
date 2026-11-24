@@ -68,6 +68,8 @@ interface DistributeConfirm {
   incidentId: string
   incidentLabel: string
   fromName: string | null
+  /** The Auftrag it goes into – named in the question next to the one it leaves. */
+  toName: string
 }
 
 /** «Ressourcen übertragen»: the source, and the event's incidents it may go to. */
@@ -381,16 +383,14 @@ export function IncidentDialogs({
 
   // ── «An Auftrag verteilen» ───────────────────────────────────────────────
   const pickerIncidentId = view.auftragPickerIncidentId
-  const performDistribute = (groupId: string, incidentId: string) => {
+  const performDistribute = (groupId: string, incidentId: string, groupName: string) => {
     closedStopGuard.guard([incidentId], async () => {
       const ok = await addStops(groupId, [incidentId])
-      if (ok) {
-        const group = groups.find((g) => g.id === groupId)
-        toast.success(tDash("distributedToast", { name: group?.name ?? "" }))
-      }
+      if (ok) toast.success(tDash("distributedToast", { name: groupName }))
     })
   }
-  const chooseAuftrag = (groupId: string) => {
+  const chooseAuftrag = (groupId: string, createdName?: string) => {
+    const groupName = createdName ?? groups.find((g) => g.id === groupId)?.name ?? ""
     if (!pickerIncidentId) return
     // Two moves that cannot be taken back ask first (there is no undo yet):
     // pulling a stop OUT of another Auftrag, and folding an already
@@ -404,10 +404,11 @@ export function IncidentDialogs({
         incidentId: pickerIncidentId,
         incidentLabel: op ? getIncidentRefLabel(op, 40) : "",
         fromName: otherGroup?.name ?? null,
+        toName: groupName,
       })
       return
     }
-    performDistribute(groupId, pickerIncidentId)
+    performDistribute(groupId, pickerIncidentId, groupName)
   }
   // «Aus Auftrag entfernen» – detach the incident from its route (it stays on
   // the board, ungrouped). The release toast («… freigegeben · Rückgängig») says it.
@@ -510,14 +511,14 @@ export function IncidentDialogs({
         title={tDash("distributeConfirmTitle")}
         description={
           distributeConfirm?.fromName
-            ? tDash("distributeConfirmTransfer", { incident: distributeConfirm.incidentLabel, from: distributeConfirm.fromName })
+            ? tDash("distributeConfirmTransfer", { incident: distributeConfirm.incidentLabel, from: distributeConfirm.fromName, to: distributeConfirm.toName })
             : tDash("distributeConfirmDispatched", { incident: distributeConfirm?.incidentLabel ?? "" })
         }
         confirmText={tDash("distributeConfirmAction")}
         // No undo after it: Enter keeps to Abbrechen.
         initialFocus="cancel"
         onConfirm={() => {
-          if (distributeConfirm) performDistribute(distributeConfirm.groupId, distributeConfirm.incidentId)
+          if (distributeConfirm) performDistribute(distributeConfirm.groupId, distributeConfirm.incidentId, distributeConfirm.toName)
           view.setDistributeConfirm(null)
         }}
       />

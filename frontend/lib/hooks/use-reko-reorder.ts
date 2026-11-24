@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * `useRekoReorder()` – the Reko-Modus drag: put one Reko person's open Rekos in a new order.
+ * `useRekoReorder()` – the Reko-Editor drag: put one Reko person's open Rekos in a new order.
  *
  * Returns `reorder(personId, nextOpenIds)`. It shows the new numbers at once (each operation's
  * `rekoPosition`), then sends the person's WHOLE list (`mergeOpenOrder`, `lib/reko-order.ts`)

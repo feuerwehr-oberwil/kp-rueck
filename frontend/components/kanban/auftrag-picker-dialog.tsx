@@ -32,7 +32,8 @@ interface AuftragPickerDialogProps {
   groups: IncidentGroup[]
   /** The incident's current route (marked "already here", not selectable). */
   currentGroupId: string | null
-  onChoose: (groupId: string) => void
+  /** `name` comes along for an Auftrag created right here – the caller's list does not have it yet. */
+  onChoose: (groupId: string, name?: string) => void
   /** Create a new Auftrag, then distribute into it. Returns the new group. */
   onCreate: (name: string) => Promise<IncidentGroup | null>
   /** Detach the incident from its current route (only when it's already in one). */
@@ -82,7 +83,7 @@ export function AuftragPickerDialog({
     try {
       const created = await onCreate(name)
       if (created) {
-        onChoose(created.id)
+        onChoose(created.id, created.name)
         handleOpenChange(false)
       }
     } finally {

@@ -2,7 +2,7 @@
 
 /**
  * RekoModusPanel — editor-only reko dispatching panel for the `/map` page; on a phone the order
- * is only shown (no dragging – the desk plans, as in the Routenplanung).
+ * is only shown (no dragging – the desk plans, as in the Auftrags-Editor).
  *
  * Sibling of RoutenplanungPanel (same aside-swap pattern) and built the same way (owner,
  * 19.11.2026: «reko and auftrag behave the same but just show things differently», mock 2a):
@@ -64,7 +64,7 @@ export function RekoModusPanel({
   const { selectedEvent } = useEvent()
   const { personnel, operations, refreshOperations } = useOperations()
   const reorder = useRekoReorder()
-  // Read-only on a phone, like the Routenplanung: the order is shown, not dragged.
+  // Read-only on a phone, like the Auftrags-Editor: the order is shown, not dragged.
   const isPhone = useIsMobile()
   const [markMode, setMarkMode] = useState(false)
   const [marking, setMarking] = useState(false)
@@ -149,7 +149,7 @@ export function RekoModusPanel({
       ) : (
         <>
           {/* The person the map taps assign – ONE of them, so a dropdown like the
-              Routenplanung's Auftrag picker. The dot is the person's colour on the map. */}
+              Auftrags-Editor's Auftrag picker. The dot is the person's colour on the map. */}
           <div className="mb-3 flex items-center gap-2">
             <Select value={selectedPersonId ?? undefined} onValueChange={(id) => onSelectPerson(id)}>
               <SelectTrigger className="h-9 min-w-[7rem] flex-1" aria-label={t("personLabel")}>

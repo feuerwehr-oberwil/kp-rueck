@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { Person, Material } from '@/lib/contexts/operations-context'
+import type { PersonPlaces } from '@/lib/person-places'
 import { materialResourceState, personMatchesQuery } from '@/lib/resource-status'
 
 /**
@@ -16,6 +17,8 @@ export function useResourceFiltering(
    *  einsatzbereit» counts as neither (materialResourceState returns "unavailable").
    *  The crew sidebar's filters run after the search, in `lib/personnel-view.ts`. */
   availableOnly: { materials?: boolean } = {},
+  /** Where each person is bound now (`usePersonPlaces`), so the search finds «12» or «Sturmholz». */
+  places?: ReadonlyMap<string, PersonPlaces>,
 ) {
   const effectiveMaterialQuery = materialQuery ?? personnelQuery
   const materialsAvailableOnly = !!availableOnly.materials
@@ -24,10 +27,10 @@ export function useResourceFiltering(
     () => {
       if (!personnelQuery) return personnel
       // Shared matcher (name / rank / tags / special functions incl.
-      // Telefondienst + Kommandoposten) — see lib/resource-status.ts.
-      return personnel.filter((p) => personMatchesQuery(p, personnelQuery))
+      // Telefondienst + Kommandoposten / current place) — see lib/resource-status.ts.
+      return personnel.filter((p) => personMatchesQuery({ ...p, places: places?.get(p.id) }, personnelQuery))
     },
-    [personnel, personnelQuery]
+    [personnel, personnelQuery, places]
   )
 
   const filteredMaterials = useMemo(

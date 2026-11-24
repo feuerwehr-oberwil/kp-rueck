@@ -46,6 +46,7 @@ import type { DispatchResource, DispatchVocabulary } from "@/lib/command-dispatc
 import { useResourceFiltering } from "@/lib/hooks/use-resource-filtering"
 import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
 import { usePersonEngagements } from "@/lib/hooks/use-person-engagements"
+import { usePersonPlaces } from "@/lib/hooks/use-person-matcher"
 import { useIncidentHighlightListener } from "@/lib/hooks/use-incident-highlight-listener"
 import type { IncidentHighlightOptions } from "@/lib/notification-highlight"
 import { useCurrentTime } from "@/lib/hooks/use-current-time"
@@ -200,6 +201,8 @@ export default function FireStationDashboard() {
   // Where each person actually is, for the sidebar card's tooltip (§P3.5) —
   // computed once here, passed down, so the memoized cards stay cheap.
   const personEngagements = usePersonEngagements()
+  // …and the same as search terms, so the sidebar search finds «12» or «Sturmholz».
+  const personPlaces = usePersonPlaces()
 
   // The depot with BOTH deployments folded in – Einsätze and Aufträge – so the
   // material sidebar, its counter and every drop read one frei/gebunden.
@@ -497,7 +500,7 @@ export default function FireStationDashboard() {
   const [bindingsPopover, setBindingsPopover] = useState<BindingsPopoverState | null>(null)
   // When "+ Stop" opens the New-Emergency modal, the created incident attaches here.
   const [newEmergencyGroupId, setNewEmergencyGroupId] = useState<string | null>(null)
-  // Routen-Editor modal: the Auftrag being edited + an optional stop to centre on.
+  // Auftrags-Editor modal: the Auftrag being edited + an optional stop to centre on.
   const [routenEditorGroupId, setRoutenEditorGroupId] = useState<string | null>(null)
   const [routenEditorFocusIncidentId, setRoutenEditorFocusIncidentId] = useState<string | null>(null)
   // "+ Stop" incident picker: the route existing incidents are added to as stops.
@@ -509,7 +512,7 @@ export default function FireStationDashboard() {
   const [attendanceOpen, setAttendanceOpen] = useState(false)
   /** Body of the Divera-Mitteilung the Checkliste asked to send; null = closed. */
   const [diveraMessageText, setDiveraMessageText] = useState<string | null>(null)
-  /** The Checkliste's «Reko-Offiziere wählen» picker. Page-owned like the Divera
+  /** The Checkliste's «Reko-Personen wählen» picker. Page-owned like the Divera
    *  dialog — a modal mounted inside the checklist popover dies with it. */
   const [rekoPickerOpen, setRekoPickerOpen] = useState(false)
 
@@ -1007,7 +1010,7 @@ export default function FireStationDashboard() {
     return () => window.removeEventListener('kp:open-auftraege', handler)
   }, [])
 
-  // Same channel for the Routen-Editor: a card's context menu opens its route
+  // Same channel for the Auftrags-Editor: a card's context menu opens its route
   // directly, with that stop focused, instead of detouring through the sheet.
   useEffect(() => {
     const handler = (e: Event) => {
@@ -1039,6 +1042,7 @@ export default function FireStationDashboard() {
     effectivePersonnelQuery,
     effectiveMaterialQuery,
     { materials: materialsAvailableOnly },
+    personPlaces,
   )
 
   // The material sidebar's footer, from the same predicate its list is filtered

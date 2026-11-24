@@ -13,7 +13,7 @@
  *   which was shown and accepted (owner pick «Kurze Formulare = S», 19.11.2026).
  * - **M 672** – real forms (Neuer Einsatz, Person, Ereignis, Reko-Bericht, Ressourcen fehlen,
  *   Appell, Kennzahlen).
- * - **L 1152** – work surfaces (Fahrzeuge / Mannschaft / Material zuweisen, Routen-Editor,
+ * - **L 1152** – work surfaces (Fahrzeuge / Mannschaft / Material zuweisen, Auftrags-Editor,
  *   Einsatz-Detail), at most the board area less 2rem on every side.
  *
  * Where (desk, ≥768 px): S and M hang from a fixed line 10vh down and grow DOWNWARDS, so a list

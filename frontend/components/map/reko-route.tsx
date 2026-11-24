@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * RekoRouteLine – the Reko-Modus order on the map: a DOTTED line in the Reko person's colour
+ * RekoRouteLine – the Reko-Editor order on the map: a DOTTED line in the Reko person's colour
  * through their open Rekos, in their order (feedback 19.11.2026, #19, mock 2a).
  *
  * The sibling of the Auftrag routes (`group-routes.tsx`), drawn apart on purpose: an Auftrag's

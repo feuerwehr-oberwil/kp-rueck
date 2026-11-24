@@ -28,6 +28,8 @@
  * paths a drag uses (`lib/hooks/use-command-dispatch.ts`).
  */
 
+import type { personMatchesQuery } from "./resource-status"
+
 export type DispatchStatus = "incoming" | "reko" | "reko_done" | "enroute" | "active" | "returning" | "complete"
 export type DispatchPriority = "low" | "medium" | "high"
 
@@ -52,9 +54,13 @@ interface ResourceEntry {
   incidentIds?: string[]
 }
 
+/** A person of the vocabulary. `search` is what the board's person search reads (Grad, tags,
+ *  functions, current place – `personMatchesQuery`); the grammar itself reads only the name. */
+export type DispatchPerson = ResourceEntry & { search?: Parameters<typeof personMatchesQuery>[0] }
+
 export interface DispatchVocabulary {
   incidents: DispatchIncident[]
-  persons: ResourceEntry[]
+  persons: DispatchPerson[]
   vehicles: (ResourceEntry & { type?: string; callSign?: string; outOfService?: boolean })[]
   materials: (ResourceEntry & { outOfService?: boolean; available?: boolean })[]
 }
