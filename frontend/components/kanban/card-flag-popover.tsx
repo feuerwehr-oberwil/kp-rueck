@@ -24,6 +24,9 @@ export function flagUpdate(flag: CardFlag, on: boolean, note?: string): Partial<
   return { nachbarhilfe: on, ...(note === undefined ? {} : { nachbarhilfeNote: note }) }
 }
 
+/** The card's `px-4` plus its 1px border: the flag row ends this far inside the card. */
+const CARD_PADDING_X = 17
+
 const COPY = {
   amWarten: { title: "amWartenTitle", without: "withoutReason" },
   nachbarhilfe: { title: "nachbarhilfeTitle", without: "withoutNote" },
@@ -31,7 +34,9 @@ const COPY = {
 
 /**
  * The one-line popover on a card for a flag's note (owner pick 5A, 24.11.2026). Enter saves
- * (an empty line too), Esc closes and writes nothing. Mounted inside the card's `<Popover>`;
+ * (an empty line too), Esc closes and writes nothing. It opens beside the card, not over its
+ * Meldung: right of the flag row, past the card's own padding (`px-4` + border), and on the
+ * left when the board ends there. Mounted inside the card's `<Popover>`;
  * its content – and with it the board subscription – exists only while it is open. Writes go
  * through `updateOperation`, the funnel the detail's note field uses (text base, conflicts).
  */
@@ -42,8 +47,9 @@ export function CardFlagPopoverContent({ operation, edit, onDone }: {
 }) {
   return (
     <PopoverContent
+      side="right"
       align="start"
-      sideOffset={6}
+      sideOffset={CARD_PADDING_X + 8}
       className="w-72 p-3"
       // Portalled, but React bubbles through the card: a click or a key here is not the card's.
       onClick={(e) => e.stopPropagation()}
@@ -85,8 +91,8 @@ function FlagNoteForm({ operation, edit, onDone }: { operation: Operation; edit:
         value={text}
         onChange={(e) => setText(e.target.value)}
       />
-      <div className="flex items-center gap-2">
-        <span className="min-w-0 flex-1 text-xs text-muted-foreground">{t("hint")}</span>
+      <p className="text-xs text-muted-foreground">{t("hint")}</p>
+      <div className="flex items-center justify-end gap-2">
         {edit.mode === "marked" ? (
           <Button type="button" variant="ghost" size="xs" onClick={() => write(true, "")}>
             {t(copy.without)}
