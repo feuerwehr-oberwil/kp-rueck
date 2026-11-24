@@ -371,7 +371,9 @@
       "openDetails": "Details öffnen",
       "removeFromIncident": "Vom Einsatz freigeben",
       "removeFromAuftrag": "Vom Auftrag freigeben",
-      "remove": "Freigeben"
+      "remove": "Freigeben",
+      "changeDriver": "Fahrer ändern …",
+      "driverStays": "Fahrer bleibt vor Ort"
     },
     "participants": {
       "title": "Bisher im Einsatz",

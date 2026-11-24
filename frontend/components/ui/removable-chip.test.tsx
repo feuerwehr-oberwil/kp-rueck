@@ -155,3 +155,70 @@ describe("RemovableChip on touch", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument()
   })
 })
+
+describe("RemovableChip with a mouse menu (the vehicle chip, owner pick 2B)", () => {
+  function renderVehicleChip(mouseMenu: "click" | "contextmenu", { stays = false } = {}) {
+    const onPickDriver = vi.fn()
+    const onToggleStay = vi.fn()
+    const onParentClick = vi.fn()
+    const onParentContextMenu = vi.fn()
+    renderWithIntl(
+      <div onClick={onParentClick} onContextMenu={onParentContextMenu}>
+        <RemovableChip
+          onRemove={vi.fn()}
+          removeTitle="TLF freigeben"
+          menuTitle="TLF"
+          menuActions={[
+            { label: "Fahrer ändern …", hint: "Meier Hans", onSelect: onPickDriver },
+            { label: "Fahrer bleibt vor Ort", checked: stays, onSelect: onToggleStay },
+          ]}
+          removeLabel="Fahrzeug freigeben"
+          mouseMenu={mouseMenu}
+        >
+          TLF
+        </RemovableChip>
+      </div>,
+    )
+    return { onPickDriver, onToggleStay, onParentClick, onParentContextMenu }
+  }
+
+  it("«contextmenu»: a click still reaches the card, a right-click opens the chip's menu instead of the card's", async () => {
+    setPointerFine(true)
+    const { onParentClick, onParentContextMenu } = renderVehicleChip("contextmenu")
+    // The hover ✕ stays.
+    expect(screen.getByRole("button", { name: "TLF freigeben" })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByText("TLF"))
+    expect(onParentClick).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument()
+
+    await userEvent.pointer({ keys: "[MouseRight]", target: screen.getByText("TLF") })
+    expect(await screen.findByRole("menu", { name: "TLF" })).toBeInTheDocument()
+    expect(onParentContextMenu).not.toHaveBeenCalled()
+  })
+
+  it("«click»: a click opens the menu; the driver row names who drives, the checkbox shows the stay flag", async () => {
+    setPointerFine(true)
+    const { onPickDriver, onParentClick } = renderVehicleChip("click", { stays: true })
+    await userEvent.click(screen.getByRole("button", { name: "TLF" }))
+    expect(onParentClick).not.toHaveBeenCalled()
+
+    const driverRow = await screen.findByRole("menuitem", { name: /^Fahrer ändern …/ })
+    expect(driverRow).toHaveTextContent("Meier Hans")
+    expect(screen.getByRole("menuitemcheckbox", { name: "Fahrer bleibt vor Ort" })).toHaveAttribute("aria-checked", "true")
+    expect(screen.getByRole("menuitem", { name: "Fahrzeug freigeben" })).toHaveAttribute("data-variant", "destructive")
+
+    await userEvent.click(driverRow)
+    expect(onPickDriver).toHaveBeenCalledTimes(1)
+  })
+
+  it("the checkbox row calls its write once", async () => {
+    setPointerFine(true)
+    const { onToggleStay } = renderVehicleChip("click")
+    await userEvent.click(screen.getByRole("button", { name: "TLF" }))
+    const stay = await screen.findByRole("menuitemcheckbox", { name: "Fahrer bleibt vor Ort" })
+    expect(stay).toHaveAttribute("aria-checked", "false")
+    await userEvent.click(stay)
+    expect(onToggleStay).toHaveBeenCalledTimes(1)
+  })
+})

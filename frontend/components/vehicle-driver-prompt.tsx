@@ -8,6 +8,8 @@ import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { DriverAssignmentDialog } from "./driver-assignment-dialog"
+import { driversFromSpecialFunctions } from "@/lib/hooks/use-vehicle-drivers"
+import type { VehicleNeedingDriver } from "@/lib/contexts/operations/types"
 
 /**
  * Listens for vehicles that need a driver (see operations-context
@@ -35,6 +37,10 @@ import { DriverAssignmentDialog } from "./driver-assignment-dialog"
  * the Auftrag. Opened from a «Fahrer wählen» action instead (no target), closing
  * just closes — the operator asked for the picker and knows what they left.
  *
+ * **«Fahrer ändern …» too.** The vehicle chip's menu (card, detail, Auftrag) opens this
+ * same prompt for a vehicle that HAS a driver: the dialog starts on the current driver,
+ * read from the special functions loaded for that request.
+ *
  * Mounted once in the root layout so it covers every assignment entry point
  * (kanban drag-drop, map, command palette, context menu, Aufträge).
  */
@@ -53,7 +59,13 @@ export function VehicleDriverPrompt() {
   const t = useTranslations('kanban.driverPrompt')
   const eventId = selectedEvent?.id ?? null
 
-  const [specialFunctions, setSpecialFunctions] = useState<ApiEventSpecialFunctionResponse[]>([])
+  // Tagged with the request they were loaded for: a row list from an earlier request
+  // must not name the previous driver of another vehicle.
+  const [loaded, setLoaded] = useState<{ request: VehicleNeedingDriver; rows: ApiEventSpecialFunctionResponse[] } | null>(null)
+  const specialFunctions = loaded && loaded.request === vehicleNeedingDriver ? loaded.rows : []
+  const currentDriver = vehicleNeedingDriver
+    ? driversFromSpecialFunctions(specialFunctions).get(vehicleNeedingDriver.vehicleId) ?? null
+    : null
   /** The dismissed-without-a-driver question, held after the picker closed. */
   const [driverless, setDriverless] = useState<
     | { vehicleName: string; vehicleId: string; incidentId: string; groupId?: undefined }
@@ -71,11 +83,12 @@ export function VehicleDriverPrompt() {
   // are already driving another vehicle.
   useEffect(() => {
     if (!vehicleNeedingDriver || !eventId) return
+    const request = vehicleNeedingDriver
     let cancelled = false
     apiClient
       .getEventSpecialFunctions(eventId)
       .then((functions) => {
-        if (!cancelled) setSpecialFunctions(functions)
+        if (!cancelled) setLoaded({ request, rows: functions })
       })
       .catch((err) => {
         console.error("Failed to load special functions for driver prompt:", err)
@@ -149,8 +162,8 @@ export function VehicleDriverPrompt() {
       vehicleId={vehicleNeedingDriver.vehicleId}
       vehicleName={vehicleNeedingDriver.vehicleName}
       eventId={eventId}
-      currentDriverId={null}
-      currentDriverName={null}
+      currentDriverId={currentDriver?.personnelId ?? null}
+      currentDriverName={currentDriver?.name ?? null}
       personnel={personnel}
       operations={operations}
       specialFunctions={specialFunctions}

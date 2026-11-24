@@ -1688,7 +1688,9 @@
       "openDetails": "Ouvrir les détails",
       "removeFromIncident": "Libérer de l’intervention",
       "removeFromAuftrag": "Libérer de la mission",
-      "remove": "Libérer"
+      "remove": "Libérer",
+      "changeDriver": "Changer de conducteur …",
+      "driverStays": "Le conducteur reste sur place"
     },
     "participants": {
       "title": "Ont participé jusqu’ici",
