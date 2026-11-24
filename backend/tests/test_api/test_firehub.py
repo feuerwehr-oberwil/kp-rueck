@@ -261,3 +261,34 @@ async def test_firehub_end_for_unknown_operation_is_noop(
         .all()
     )
     assert notes == []  # nothing recorded for an alarm we never saw
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+@pytest.mark.parametrize("operation", [{"title": "   "}, {"lat": 47.5}], ids=["blank-title", "one-coordinate"])
+async def test_a_malformed_start_is_the_senders_to_fix(client, db_session, webhook_secret, operation):
+    """422 with the field, not a 500 – and nothing stored (hunt 2026-11-24)."""
+    response = await _post(client, firehub_payload("start", **operation))
+
+    assert response.status_code == 422
+    assert (await db_session.execute(select(DiveraEmergency))).scalars().all() == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_a_repeated_end_is_noted_once(client, db_session, webhook_secret):
+    """A redelivered end (a lost response, a retry) acknowledges the first note and keeps its time."""
+    with patch("app.api.firehub.broadcast_emergency_received", new_callable=AsyncMock):
+        assert (await _post(client, firehub_payload("start"))).status_code == 200
+
+    first = await _post(client, firehub_payload("end"))
+    second = await _post(client, firehub_payload("end"))
+
+    assert first.status_code == second.status_code == 200
+    assert second.json()["noted"] is True
+    ends = (
+        (await db_session.execute(select(AuditLog).where(AuditLog.action_type == "firehub_operation_end")))
+        .scalars()
+        .all()
+    )
+    assert len(ends) == 1

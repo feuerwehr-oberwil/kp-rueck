@@ -20712,7 +20712,8 @@
           "number": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 50
               },
               {
                 "type": "null"
@@ -20722,6 +20723,8 @@
           },
           "title": {
             "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
             "title": "Title"
           },
           "text": {
