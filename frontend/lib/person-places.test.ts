@@ -45,6 +45,14 @@ describe('person search by current place', () => {
     expect(matches(egger, 'sturmholz')).toBe(false)
   })
 
+  it('finds an Auftrag by a name of digits, apart from the Einsatz numbers', () => {
+    const jahr = { ...sturmholz, name: 'Unwetter 2026' }
+    const places = personPlaces([ringstrasse, bachweg], [jahr])
+    expect(matches(keller, '2026', places)).toBe(true)
+    expect(matches(keller, '7', places)).toBe(true)
+    expect(matches(egger, '2026', places)).toBe(false)
+  })
+
   it('finds the Reko person and the driver of a vehicle out there', () => {
     const reko = op('i-3', { number: 3, location: 'Hauptstrasse 5', assignedReko: { id: 'egger' }, vehicles: [{ vehicleId: 'tlf' }] })
     const places = personPlaces([reko], [], [{ id: 'keller', isDriver: true, driverVehicleId: 'tlf' }])

@@ -968,4 +968,4 @@ Um unnötige Abfragen zu vermeiden, verwendet der Agent **adaptives Polling**:
 - **Ruhezustand**: Abfrage alle **60 Sekunden**
 - **Nach einem Druckauftrag**: Wechsel auf **5 Sekunden** für **15 Minuten**, danach zurück auf 60s
 
-So werden im Normalbetrieb nur ca. 60 Anfragen pro Stunde gesendet, während bei aktiven Einsätzen Folgeaufträge fast sofort verarbeitet werden.
+So werden im Normalbetrieb nur ca. 60 Anfragen pro Stunde gesendet, während bei aktiven Einsätzen weitere Druckaufträge fast sofort verarbeitet werden.

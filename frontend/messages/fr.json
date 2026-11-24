@@ -1174,8 +1174,8 @@
       "failed": "L'annonce n'a pas pu être envoyée.",
       "confirm": {
         "none": "Annonce transmise au PC",
-        "stop": "Ajouté comme étape à votre mandat",
-        "auftrag": "Mandat ouvert – vous avez deux étapes",
+        "stop": "Ajouté comme étape à votre mission",
+        "auftrag": "Mission ouverte – vous avez deux étapes",
         "solo": "Annonce transmise – vous êtes assignés"
       },
       "titlePhone": "Annonce téléphonique",
@@ -2008,7 +2008,7 @@
       "auftragContext": "Mission « {name} » · étape {pos}/{total}",
       "copyWhatsapp": "Copier le message WhatsApp",
       "sendDivera": "Envoyer la convocation",
-      "auftragBatchQuestion": "Le mandat « {name} » compte {count} autres étapes que personne n’a encore prises.",
+      "auftragBatchQuestion": "La mission « {name} » compte {count} autres étapes que personne n’a encore prises.",
       "auftragBatchAction": "{count, plural, one {Engager aussi l’autre étape} other {Engager aussi les # autres étapes}}",
       "auftragBatchDone": "{count, plural, one {# étape supplémentaire engagée} other {# étapes supplémentaires engagées}}"
     },

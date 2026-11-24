@@ -105,7 +105,7 @@ export function isPersonOccupied(
  * person is bound right now (`places`: Einsatz number, address, Auftrag name –
  * `personPlaces`), so «12» or «Sturmholz» finds the crew out there. One matcher,
  * shared by every person picker on the board (sidebar, assignment dialogs, Reko
- * pickers, ⌘K, the phone's people sheet – the board ones through
+ * pickers, the Appell, ⌘K, the phone's people sheet – the board ones through
  * `usePersonMatcher`), so no two searches disagree about who "Telefondienst" is.
  */
 export function personMatchesQuery(
