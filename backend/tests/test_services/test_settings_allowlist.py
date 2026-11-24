@@ -82,10 +82,6 @@ def test_seeded_settings_are_writable():
     # Known non-setting tuples in seed.py would show up here; assert on the settings we know
     # are seeded rather than on everything the regex finds.
     known_seeded_settings = {
-        "polling_interval_ms",
-        "training_mode",
-        "auto_archive_timeout_hours",
-        "notification_enabled",
         "alarm_webhook_secret",
         "map_mode",
         "firestation_name",

@@ -13,9 +13,9 @@ from app.models import AuditLog, Setting, User
 async def test_settings_data(db_session: AsyncSession) -> list[Setting]:
     """Create test settings."""
     settings = [
-        Setting(key="polling_interval_ms", value="5000"),
-        Setting(key="training_mode", value="false"),
-        Setting(key="notification_enabled", value="true"),
+        Setting(key="fallback.auto_print_interval_min", value="15"),
+        Setting(key="fallback.auto_print_enabled", value="false"),
+        Setting(key="printer.enabled", value="true"),
     ]
     for setting in settings:
         db_session.add(setting)
@@ -40,9 +40,9 @@ class TestGetAllSettings:
 
         data = response.json()
         assert isinstance(data, dict)
-        assert data["polling_interval_ms"] == "5000"
-        assert data["training_mode"] == "false"
-        assert data["notification_enabled"] == "true"
+        assert data["fallback.auto_print_interval_min"] == "15"
+        assert data["fallback.auto_print_enabled"] == "false"
+        assert data["printer.enabled"] == "true"
 
     @pytest.mark.asyncio
     async def test_get_all_settings_editor_allowed(self, editor_client: AsyncClient, test_settings_data: list[Setting]):
@@ -61,12 +61,12 @@ class TestGetSingleSetting:
     @pytest.mark.asyncio
     async def test_get_single_setting_success(self, editor_client: AsyncClient, test_settings_data: list[Setting]):
         """Get single setting returns correct schema."""
-        response = await editor_client.get("/api/settings/polling_interval_ms")
+        response = await editor_client.get("/api/settings/fallback.auto_print_interval_min")
         assert response.status_code == 200
 
         data = response.json()
-        assert data["key"] == "polling_interval_ms"
-        assert data["value"] == "5000"
+        assert data["key"] == "fallback.auto_print_interval_min"
+        assert data["value"] == "15"
         assert "updated_at" in data
 
     @pytest.mark.asyncio
@@ -84,7 +84,7 @@ class TestUpdateSetting:
     async def test_update_setting_requires_editor(self, viewer_client: AsyncClient, test_settings_data: list[Setting]):
         """Viewer role cannot update settings."""
         response = await viewer_client.patch(
-            "/api/settings/training_mode",
+            "/api/settings/fallback.auto_print_enabled",
             json={"value": "true"},
         )
         assert response.status_code == 403
@@ -98,17 +98,17 @@ class TestUpdateSetting:
     ):
         """Editor can update settings."""
         response = await editor_client.patch(
-            "/api/settings/training_mode",
+            "/api/settings/fallback.auto_print_enabled",
             json={"value": "true"},
         )
         assert response.status_code == 200
 
         data = response.json()
-        assert data["key"] == "training_mode"
+        assert data["key"] == "fallback.auto_print_enabled"
         assert data["value"] == "true"
 
         # Verify in database
-        result = await db_session.execute(select(Setting).where(Setting.key == "training_mode"))
+        result = await db_session.execute(select(Setting).where(Setting.key == "fallback.auto_print_enabled"))
         setting = result.scalar_one()
         assert setting.value == "true"
 
@@ -122,7 +122,7 @@ class TestUpdateSetting:
     ):
         """Setting update creates audit log entry."""
         response = await editor_client.patch(
-            "/api/settings/training_mode",
+            "/api/settings/fallback.auto_print_enabled",
             json={"value": "true"},
         )
         assert response.status_code == 200
@@ -138,7 +138,7 @@ class TestUpdateSetting:
 
         assert audit_entry is not None
         assert audit_entry.user_id == test_editor.id
-        assert audit_entry.changes_json["key"] == "training_mode"
+        assert audit_entry.changes_json["key"] == "fallback.auto_print_enabled"
         assert audit_entry.changes_json["before"] == "false"
         assert audit_entry.changes_json["after"] == "true"
 
@@ -146,7 +146,7 @@ class TestUpdateSetting:
     async def test_update_setting_validation(self, editor_client: AsyncClient):
         """Invalid payload returns 422."""
         response = await editor_client.patch(
-            "/api/settings/training_mode",
+            "/api/settings/fallback.auto_print_enabled",
             json={},  # Missing "value" field
         )
         assert response.status_code == 422
@@ -169,19 +169,19 @@ class TestUpdateSetting:
     ):
         """Update changes updated_at timestamp."""
         # Get original timestamp
-        result = await db_session.execute(select(Setting).where(Setting.key == "training_mode"))
+        result = await db_session.execute(select(Setting).where(Setting.key == "fallback.auto_print_enabled"))
         original_setting = result.scalar_one()
         original_timestamp = original_setting.updated_at
 
         # Update setting
         response = await editor_client.patch(
-            "/api/settings/training_mode",
+            "/api/settings/fallback.auto_print_enabled",
             json={"value": "true"},
         )
         assert response.status_code == 200
 
         # Verify timestamp updated
-        result = await db_session.execute(select(Setting).where(Setting.key == "training_mode"))
+        result = await db_session.execute(select(Setting).where(Setting.key == "fallback.auto_print_enabled"))
         updated_setting = result.scalar_one()
         assert updated_setting.updated_at > original_timestamp
 
@@ -195,13 +195,13 @@ class TestUpdateSetting:
     ):
         """Update records which user made the change."""
         response = await editor_client.patch(
-            "/api/settings/training_mode",
+            "/api/settings/fallback.auto_print_enabled",
             json={"value": "true"},
         )
         assert response.status_code == 200
 
         # Verify updated_by is set
-        result = await db_session.execute(select(Setting).where(Setting.key == "training_mode"))
+        result = await db_session.execute(select(Setting).where(Setting.key == "fallback.auto_print_enabled"))
         setting = result.scalar_one()
         assert setting.updated_by == test_editor.id
 

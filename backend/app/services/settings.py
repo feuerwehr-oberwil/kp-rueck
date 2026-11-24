@@ -15,10 +15,6 @@ def _generate_webhook_secret() -> str:
 
 
 DEFAULT_SETTINGS = {
-    "polling_interval_ms": "5000",
-    "training_mode": "false",
-    "auto_archive_timeout_hours": "24",
-    "notification_enabled": "false",
     "alarm_webhook_secret": "",  # Auto-generated on first init
     # Training auto-generation (Übungssteuerung → "Automatik"). The background
     # monitor (services/training_autogen_task.py) idles until enabled and then

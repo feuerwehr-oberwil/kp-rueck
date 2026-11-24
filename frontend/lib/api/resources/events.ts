@@ -76,10 +76,6 @@ export class EventsApi {
     return httpRequest<ApiEventSpecialFunctionResponse[]>(`/api/events/${eventId}/special-functions/`)
   }
 
-  async getPersonnelSpecialFunctions(eventId: string, personnelId: string): Promise<ApiEventSpecialFunctionResponse[]> {
-    return httpRequest<ApiEventSpecialFunctionResponse[]>(`/api/events/${eventId}/special-functions/personnel/${personnelId}`)
-  }
-
   async assignSpecialFunction(eventId: string, data: ApiEventSpecialFunctionCreate): Promise<ApiEventSpecialFunctionResponse> {
     return httpRequest<ApiEventSpecialFunctionResponse>(`/api/events/${eventId}/special-functions/`, {
       method: 'POST',

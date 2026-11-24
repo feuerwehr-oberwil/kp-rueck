@@ -1091,12 +1091,8 @@ async def seed_demo_database() -> None:
                 ("firestation_latitude", "47.51637699933488"),
                 ("firestation_longitude", "7.561800450458299"),
                 ("home_city", "Oberwil, BL"),
-                ("polling_interval_ms", "5000"),
-                ("training_mode", "false"),
                 ("map_mode", "online"),
                 ("incident_time_display", "column"),
-                ("auto_archive_timeout_hours", "24"),
-                ("notification_enabled", "false"),
                 # NB: the disposable-database marker is NOT seeded here. A full reset
                 # truncates `settings` too, so it is (re)written by
                 # _ensure_disposable_marker() on every call, outside this guard.

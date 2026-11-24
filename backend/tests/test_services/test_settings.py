@@ -65,16 +65,16 @@ class TestUpdateSetting:
     async def test_update_setting_existing(self, db_session: AsyncSession, test_user: User):
         """Create setting, then update it."""
         # Create setting
-        setting = Setting(key="polling_interval_ms", value="5000")
+        setting = Setting(key="printer.port", value="9100")
         db_session.add(setting)
         await db_session.commit()
 
         original_updated_at = setting.updated_at
 
         # Update it
-        updated = await update_setting(db_session, "polling_interval_ms", "3000", test_user.id)
+        updated = await update_setting(db_session, "printer.port", "9101", test_user.id)
 
-        assert updated.value == "3000"
+        assert updated.value == "9101"
         assert updated.updated_by == test_user.id
         assert updated.updated_at >= original_updated_at
 
@@ -101,10 +101,10 @@ class TestInitializeDefaultSettings:
         all_settings = await get_all_settings(db_session)
 
         assert len(all_settings) >= 5
-        assert all_settings["polling_interval_ms"] == "5000"
-        assert all_settings["training_mode"] == "false"
-        assert all_settings["auto_archive_timeout_hours"] == "24"
-        assert all_settings["notification_enabled"] == "false"
+        assert all_settings["map_mode"] == "auto"
+        assert all_settings["printer.auto_anfahrt"] == "true"
+        assert all_settings["fallback.auto_print_enabled"] == "false"
+        assert all_settings["incident_time_display"] == "column"
         # alarm_webhook_secret is auto-generated, just verify it exists and is non-empty
         assert len(all_settings["alarm_webhook_secret"]) > 0
 
@@ -112,7 +112,7 @@ class TestInitializeDefaultSettings:
     async def test_initialize_default_settings_skips_existing(self, db_session: AsyncSession, test_user: User):
         """Existing settings are not overwritten, missing ones added."""
         # Create one custom setting
-        custom_setting = Setting(key="polling_interval_ms", value="9999", updated_by=test_user.id)
+        custom_setting = Setting(key="funkrufname", value="Gamma", updated_by=test_user.id)
         db_session.add(custom_setting)
         await db_session.commit()
 
@@ -120,13 +120,13 @@ class TestInitializeDefaultSettings:
         await initialize_default_settings(db_session)
 
         # Verify custom setting was NOT overwritten
-        value = await get_setting(db_session, "polling_interval_ms")
-        assert value == "9999"
+        value = await get_setting(db_session, "funkrufname")
+        assert value == "Gamma"
 
         # Verify other defaults were created
         all_settings = await get_all_settings(db_session)
-        assert all_settings["training_mode"] == "false"
-        assert all_settings["auto_archive_timeout_hours"] == "24"
+        assert all_settings["map_mode"] == "auto"
+        assert all_settings["fallback.auto_print_enabled"] == "false"
 
 
 class TestWebhookSecretIsNotLogged:

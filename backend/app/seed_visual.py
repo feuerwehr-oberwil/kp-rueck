@@ -51,14 +51,10 @@ _SETTINGS = [
     ("firestation_latitude", "47.51637699933488"),
     ("firestation_longitude", "7.561800450458299"),
     ("home_city", "Oberwil, BL"),
-    ("polling_interval_ms", "5000"),
-    ("training_mode", "false"),
     # Online: the specs route every basemap request to a blank tile, and «online» is the
     # mode that does not probe the local tileserver first.
     ("map_mode", "online"),
     ("incident_time_display", "column"),
-    ("auto_archive_timeout_hours", "24"),
-    ("notification_enabled", "false"),
 ]
 
 

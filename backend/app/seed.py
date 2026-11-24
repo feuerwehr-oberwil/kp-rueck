@@ -840,10 +840,6 @@ async def seed_database() -> None:
 
             # Base settings (same for all deployments)
             default_settings_data = [
-                ("polling_interval_ms", "5000"),
-                ("training_mode", "false"),
-                ("auto_archive_timeout_hours", "24"),
-                ("notification_enabled", "false"),
                 ("alarm_webhook_secret", secrets.token_urlsafe(32)),
                 # "auto", matching DEFAULT_SETTINGS in services/settings.py — the seed writes
                 # the row a fresh install actually gets, so leaving "online" here would keep
