@@ -2,7 +2,7 @@
 
 /**
  * «Reihenfolge optimieren» — the one action behind all three entry points (the
- * Routen-Editor modal, the `/map` Routenplanung panel and the Aufträge sheet).
+ * Auftrags-Editor modal, the `/map` Auftrags-Editor panel and the Aufträge sheet).
  *
  * It used to be copied into each of them, which is how an unguarded undo ended up
  * in three places. Now there is one implementation:

@@ -1,47 +1,37 @@
 "use client"
 
-import { ArrowRight, Package, Plus, Truck, User } from "lucide-react"
+import { ArrowRightLeft, Copy, Package, Truck, User } from "lucide-react"
 import { useTranslations } from "next-intl"
+import type { ReactNode } from "react"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { drivenElsewhere } from "@/lib/driver-conflict"
-import { getIncidentRefLabel } from "@/lib/incident-types"
-import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { getIncidentRefParts } from "@/lib/incident-types"
+import { ChoiceDiagram, ChoiceDialog, type MiniCard, type MiniChipTone } from "@/components/ui/choice-dialog"
+
+const strong = (chunks: ReactNode) => <strong className="font-semibold text-foreground">{chunks}</strong>
 
 /**
  * A person, a vehicle and a Tauchpumpe are all single physical things — each can
  * only be in one place at a time. When an operator assigns one that is still on
  * another incident (see operations-context `resourceConflict`), this asks the
  * three questions that actually exist: *move* it here (release it there), *keep*
- * the double booking, or leave it alone. Which of the first two is the main
- * answer depends on the resource (`keepIsMain`).
+ * the double booking, or leave it alone.
  *
- * It is THE dialog for that question, from every entry point. There used to be a
- * second one inside the assignment dialog with the same title and only two of
- * the three answers — «Verschieben» was missing there entirely, and its
- * «Trotzdem zuweisen» did not say whether the person ended up on one incident or
- * on two. Same question, same answer set, wherever the assignment starts:
- * kanban drag-drop, map, command palette, context menu, assignment dialog,
- * Auftrag sheet.
+ * Leaving it alone is the default for every resource (owner pick #3, 23.11.2026: «cancel is
+ * default. move or auf beiden needs to be clearly described and manually selected»). The two
+ * changes are choice cards (`ChoiceDialog`): a mini before/after of the cards and one sentence
+ * each, a click or the card's letter (V / B) runs it, Enter and Esc change nothing. A consumable
+ * never gets here – several incidents draw from the same Bindemittel.
  *
- * Both incidents are named in the body rather than only in running text —
- * «Bisher: Bahnhofstrasse 12» against «Neu: Rebgasse 8» — because whoever moves
- * a resource is deciding what it is taken away FROM.
+ * It is THE dialog for that question, from every entry point: kanban drag-drop, map, command
+ * palette, context menu, assignment dialog, Auftrag sheet.
  *
- * A Fahrer is also wherever the vehicle they drive stands: that row says «fährt
- * Mowa» (added when the entry point only knew the crew rows), and a line under
- * the rows says the move releases the role (lib/driver-conflict.ts).
+ * A Fahrer is also wherever the vehicle they drive stands: that Einsatz is a «from» card too
+ * («fährt Mowa», added when the entry point only knew the crew rows), and the move sentence says
+ * it releases the role (lib/driver-conflict.ts).
  *
  * Mounted once in the root layout.
  */
-/**
- * A VEHICLE asks «Auf beiden führen» first (owner pick #22, 19.11.2026): a number key
- * pressed on a second card means «this one too», and one TLF can serve two nearby
- * Einsätze. A person or a Tauchpumpe cannot be in two places, so there *move* stays main.
- */
-export function keepIsMain(resourceType: "personnel" | "vehicle" | "material"): boolean {
-  return resourceType === "vehicle"
-}
-
 export function ResourceConflictPrompt() {
   const t = useTranslations('incidents.resourceConflict')
   const tCommon = useTranslations('incidents.common')
@@ -49,65 +39,86 @@ export function ResourceConflictPrompt() {
 
   if (!resourceConflict) return null
 
-  const { resourceType, resourceName, targetOperationLabel } = resourceConflict
-  const [main, other] = keepIsMain(resourceType) ? (['keepBoth', 'moveHere'] as const) : (['moveHere', 'keepBoth'] as const)
+  const { resourceType, resourceName, targetOperationId, targetOperationLabel } = resourceConflict
+  const count = resourceConflict.resourceCount ?? 1
   const Icon = resourceType === "vehicle" ? Truck : resourceType === "material" ? Package : User
   const driving = resourceType === "personnel"
-    ? drivenElsewhere(personnel.find((p) => p.id === resourceConflict.resourceId), operations, resourceConflict.targetOperationId)
+    ? drivenElsewhere(personnel.find((p) => p.id === resourceConflict.resourceId), operations, targetOperationId)
     : null
   const drivenOp = driving ? operations.find((op) => op.id === driving.operationId) : undefined
-  const conflicts: { operationId: string; operationLabel: string }[] =
+  const conflicts: NonNullable<typeof resourceConflict>["conflicts"] =
     drivenOp && !resourceConflict.conflicts.some((c) => c.operationId === drivenOp.id)
-      ? [...resourceConflict.conflicts, { operationId: drivenOp.id, operationLabel: getIncidentRefLabel(drivenOp) }]
+      ? [...resourceConflict.conflicts, { operationId: drivenOp.id, operationLabel: getIncidentRefParts(drivenOp).head }]
       : resourceConflict.conflicts
 
+  // The description names where it stands (and what it drives there); the sentences name it plain.
+  const fromNamed = conflicts
+    .map((c) => (driving?.operationId === c.operationId ? `${c.operationLabel} (${t('drives', { vehicle: driving.vehicleName })})` : c.operationLabel))
+    .join(", ")
+  const from = conflicts.map((c) => c.operationLabel).join(", ")
+  const names = { name: resourceName, count, from, to: targetOperationLabel }
+
+  // What stands on each holder: one drop of a Modul-Block asks once, but its devices can sit on
+  // different cards (`held`). The target gets all of them.
+  const heldOn = (c: (typeof conflicts)[number]) => c.held ?? [{ id: resourceConflict.resourceId, name: resourceName }]
+  const everything = [...new Map(conflicts.flatMap(heldOn).map((r) => [r.id, r])).values()]
+  // Each holder card of a resource plus the target: «2×» on two cards, «3×» on three.
+  const timesOn = (id: string) => conflicts.filter((c) => heldOn(c).some((r) => r.id === id)).length + 1
+  const cards = conflicts.length + 1
+  // «Beide / Alle N Karten zeigen N×» holds only while every resource stands on every holder.
+  const sameEverywhere = everything.every((r) => timesOn(r.id) === cards)
+
+  const card = (id: string, title: string, tone: MiniChipTone, resources: { id: string; name: string }[]): MiniCard => ({
+    id,
+    title,
+    chips: resources.map((r) => ({ label: tone === "double" ? `${r.name} · ${timesOn(r.id)}×` : r.name, tone })),
+  })
+
   return (
-    // The main answer (ink, Enter) is *keep* for a vehicle and *move* for a person
-    // or material (`keepIsMain`); the other one is the "…but do this instead" line
-    // above Abbrechen. Every answer clears the conflict itself.
-    <ConfirmDialog
-      open
+    // Every answer clears the conflict itself (resolve/cancel) – the caller closes.
+    <ChoiceDialog
       onCancel={cancelResourceConflict}
       icon={<Icon className="h-5 w-5 text-muted-foreground" />}
-      title={t('titleNamed', { name: resourceName })}
-      description={t('prompt')}
-      extraAction={{ label: t(other), onSelect: () => resolveResourceConflict(other === 'keepBoth' ? "keep" : "move") }}
+      title={t('titleNamed', { name: resourceName, count })}
+      description={t.rich('description', { ...names, from: fromNamed, strong })}
       cancelText={tCommon('cancel')}
-      confirmText={t(main)}
-      onConfirm={() => resolveResourceConflict(main === 'keepBoth' ? "keep" : "move")}
-    >
-      {/* Bisher → Neu. Each row carries a word and a glyph, never a colour on
-          its own: an arrow for a binding that exists, a plus for the one being
-          made. */}
-      <div className="rounded-lg border bg-muted/30 p-2 text-sm">
-        {conflicts.map((conflict) => (
-          <div key={conflict.operationId} className="flex items-start gap-2.5 px-1 py-1.5">
-            <ArrowRight className="mt-0.5 size-4 shrink-0 text-warning-foreground" aria-hidden="true" />
-            <span className="min-w-0">
-              <span className="text-muted-foreground">{t('currentLabel')}: </span>
-              <span className="font-medium text-foreground">{conflict.operationLabel}</span>
-              {driving?.operationId === conflict.operationId && (
-                <span className="text-muted-foreground"> · {t('drives', { vehicle: driving.vehicleName })}</span>
-              )}
-            </span>
-          </div>
-        ))}
-        {targetOperationLabel && (
-          <>
-            <div className="my-1.5 h-px bg-border" />
-            <div className="flex items-start gap-2.5 px-1 py-1.5">
-              <Plus className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-              <span className="min-w-0">
-                <span className="text-muted-foreground">{t('newLabel')}: </span>
-                <span className="font-medium text-foreground">{targetOperationLabel}</span>
-              </span>
-            </div>
-          </>
-        )}
-      </div>
-      {driving && (
-        <p className="text-sm text-muted-foreground">{t('moveReleasesDriver', { vehicle: driving.vehicleName })}</p>
-      )}
-    </ConfirmDialog>
+      choices={[
+        {
+          shortcut: t('moveKey'),
+          label: t('moveHere'),
+          icon: <ArrowRightLeft aria-hidden />,
+          diagram: (
+            <ChoiceDiagram
+              link="move"
+              from={conflicts.map((c) => card(c.operationId, c.operationLabel, "gone", heldOn(c)))}
+              to={card(targetOperationId, targetOperationLabel, "plain", everything)}
+            />
+          ),
+          consequence: driving
+            ? t.rich('moveConsequenceDriver', { ...names, vehicle: driving.vehicleName, strong })
+            : t.rich('moveConsequence', { ...names, strong }),
+          onSelect: () => resolveResourceConflict("move"),
+        },
+        {
+          shortcut: t('keepKey'),
+          label: t('keepBoth'),
+          icon: <Copy aria-hidden />,
+          diagram: (
+            <ChoiceDiagram
+              link="both"
+              from={conflicts.map((c) => card(c.operationId, c.operationLabel, "double", heldOn(c)))}
+              to={card(targetOperationId, targetOperationLabel, "double", everything)}
+            />
+          ),
+          consequence: (
+            <>
+              {t.rich('keepConsequence', { ...names, strong })}
+              {sameEverywhere && <> {t('keepCards', { cards })}</>}
+            </>
+          ),
+          onSelect: () => resolveResourceConflict("keep"),
+        },
+      ]}
+    />
   )
 }

@@ -17,6 +17,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useFocusOnEnable } from '@/lib/hooks/use-focus-on-enable'
 import { ShellLoader } from '@/components/ui/shell-loader'
+import { SubjectLine, type Subject } from '@/components/ui/subject-line'
 
 /** Who closes the dialog. Exactly one of the two. */
 type ConfirmDialogClosing =
@@ -36,6 +37,9 @@ type ConfirmDialogProps = ConfirmDialogClosing & {
   /** A glyph before the title (20px, muted unless it means something) – the gates name
    *  their subject with one. */
   icon?: ReactNode
+  /** The Einsatz the question is about, on a line of its own under the title
+   *  (`incidentSubject(op)`) – for a question that opens away from its card. */
+  subject?: Subject
   description: ReactNode
   onConfirm: () => Promise<void> | void
   confirmText?: string
@@ -115,6 +119,7 @@ export function ConfirmDialog({
   onCancel,
   title,
   icon,
+  subject,
   description,
   onConfirm,
   confirmText,
@@ -178,6 +183,7 @@ export function ConfirmDialog({
             {icon && <span className="flex shrink-0">{icon}</span>}
             {title}
           </AlertDialogTitle>
+          {subject && <SubjectLine subject={subject} />}
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         {children}

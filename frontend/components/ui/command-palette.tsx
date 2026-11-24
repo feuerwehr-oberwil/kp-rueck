@@ -21,7 +21,8 @@ import {
   CommandSeparator,
 } from "@/components/ui/command"
 import { defaultFilter } from "cmdk"
-import { DispatchChoice, DispatchPreview } from "@/components/ui/command-dispatch-preview"
+import { DispatchChoice, DispatchPersonHit, DispatchPreview } from "@/components/ui/command-dispatch-preview"
+import { personMatchesQuery } from "@/lib/resource-status"
 import { Kbd } from "@/components/ui/kbd"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import {
@@ -98,6 +99,10 @@ export function openCommandPalette() {
  * cmdk's own filter, unchanged.
  */
 const DISPATCH_VALUE = "kp-dispatch:"
+/** People found by the person search rank under a preview that is the thing typed (2) and over
+ *  a command matched only loosely; at most this many, the sidebar holds the rest. */
+const PERSON_HIT_SCORE = 0.5
+const PERSON_HITS = 8
 const PREVIEW_VALUE = `${DISPATCH_VALUE}2:preview`
 
 function paletteFilter(value: string, search: string, keywords?: string[]): number {
@@ -281,6 +286,22 @@ export function CommandPalette() {
     (token): token is DispatchToken & { choices: DispatchTarget[] } => token.state === "ambiguous" && !!token.choices,
   )
 
+  // The board's person search inside ⌘K (owner, 23.11.2026): people found by Grad, tag or where
+  // they are now («12», «Sturmholz») whom the grammar did not already offer as the jump or a
+  // choice. Not on a dispatch line – «14 tlf meier» names its people itself.
+  const personHits = useMemo(() => {
+    const query = search.trim()
+    if (!vocabulary || !query || parsed?.plan.kind === "dispatch") return []
+    const offered = new Set(
+      (parsed?.tokens ?? [])
+        .flatMap((token) => [token.target, ...(token.choices ?? [])])
+        .flatMap((target) => (target?.kind === "person" ? [target.id] : [])),
+    )
+    return vocabulary.persons
+      .filter((person) => person.search && !offered.has(person.id) && personMatchesQuery(person.search, query))
+      .slice(0, PERSON_HITS)
+  }, [vocabulary, search, parsed])
+
   // Aufträge (routes) are searchable by name; selecting one opens the Aufträge
   // sheet focused on that route. Only surfaced where the host page registered the
   // open handler (the Kanban dashboard) so the palette never lists dead entries.
@@ -437,6 +458,24 @@ export function CommandPalette() {
             <CommandEmpty>{t('noResults')}</CommandEmpty>
 
             {dispatchOnTop && dispatchGroup}
+
+            {onDispatchJump && personHits.length > 0 && (
+              <CommandGroup heading={t('groupPersons')}>
+                {personHits.map((person, index) => (
+                  <CommandItem
+                    key={person.id}
+                    value={`${DISPATCH_VALUE}${PERSON_HIT_SCORE * (1 - (index + 1) / 100)}:person-hit:${person.id}`}
+                    onSelect={() =>
+                      runCommand(() =>
+                        onDispatchJump({ kind: "person", id: person.id, name: person.name, detail: person.detail, incidentIds: person.incidentIds ?? [] }),
+                      )
+                    }
+                  >
+                    <DispatchPersonHit person={person} />
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
 
             <CommandGroup heading={t('groupNavigation')}>
               <CommandItem

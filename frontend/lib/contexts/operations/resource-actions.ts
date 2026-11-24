@@ -6,7 +6,7 @@
 
 import { apiClient } from "@/lib/api-client"
 import { assignFailureDescription } from "@/lib/assignment-refusal"
-import { getIncidentRefLabel } from "@/lib/incident-types"
+import { getIncidentRefParts } from "@/lib/incident-types"
 import type { PersonStatus } from "../personnel-context"
 import type { Material } from "../materials-context"
 import { toast } from "sonner"
@@ -192,11 +192,11 @@ export function createResourceActions(board: BoardMutationContext) {
   }
 
 
-  /** The other incidents a resource is currently on, as prompt-ready rows. */
+  /** The other incidents a resource is currently on, as prompt-ready cards («14 · Hauptstrasse 4»). */
   const collectConflicts = (holds: (op: Operation) => boolean, targetOperationId: string) =>
     operations
       .filter(op => op.id !== targetOperationId && holds(op))
-      .map(op => ({ operationId: op.id, operationLabel: getIncidentRefLabel(op) }))
+      .map(op => ({ operationId: op.id, operationLabel: getIncidentRefParts(op).head }))
 
   const assignPersonToOperation = async (personId: string, personName: string, operationId: string, force = false): Promise<boolean> => {
     const operation = operations.find(op => op.id === operationId)
@@ -228,7 +228,7 @@ export function createResourceActions(board: BoardMutationContext) {
           resourceId: personId,
           resourceName: personName,
           targetOperationId: operationId,
-          targetOperationLabel: getIncidentRefLabel(operation),
+          targetOperationLabel: getIncidentRefParts(operation).head,
           conflicts,
         })
         return false
@@ -394,7 +394,7 @@ export function createResourceActions(board: BoardMutationContext) {
           resourceId: materialId,
           resourceName: material.name,
           targetOperationId: operationId,
-          targetOperationLabel: getIncidentRefLabel(operation),
+          targetOperationLabel: getIncidentRefParts(operation).head,
           conflicts,
         })
         return false
@@ -451,7 +451,7 @@ export function createResourceActions(board: BoardMutationContext) {
     }
   }
 
-  const assignVehicleToOperation = async (vehicleId: string, vehicleName: string, operationId: string): Promise<boolean> => {
+  const assignVehicleToOperation = async (vehicleId: string, vehicleName: string, operationId: string, force = false): Promise<boolean> => {
     const operation = operations.find(op => op.id === operationId)
 
     if (!operation || operation.vehicles.some((v) => v.vehicleId === vehicleId)) {
@@ -475,15 +475,16 @@ export function createResourceActions(board: BoardMutationContext) {
 
     // A vehicle is a single physical asset — if it's still assigned elsewhere,
     // ask the operator whether to move it here or keep the double booking,
-    // rather than silently double-booking it.
-    const conflicts = collectConflicts(op => op.vehicles.some((v) => v.vehicleId === vehicleId), operationId)
+    // rather than silently double-booking it. `force`: a question that named
+    // those Einsätze already got «keep» (use-assignment-conflicts.ts).
+    const conflicts = force ? [] : collectConflicts(op => op.vehicles.some((v) => v.vehicleId === vehicleId), operationId)
     if (conflicts.length > 0) {
       setResourceConflict({
         resourceType: "vehicle",
         resourceId: vehicleId,
         resourceName: vehicleName,
         targetOperationId: operationId,
-        targetOperationLabel: getIncidentRefLabel(operation),
+        targetOperationLabel: getIncidentRefParts(operation).head,
         conflicts,
       })
       return false

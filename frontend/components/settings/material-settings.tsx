@@ -266,7 +266,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
               <DialogContent aria-describedby={undefined}>
                 <DialogHeader>
                   <DialogTitle>
-                    {dialog.editing ? t('materials.dialogEditTitle') : t('materials.dialogCreateTitle')}
+                    {dialog.editing ? t('materials.dialogEditTitle', { name: dialog.editing.name }) : t('materials.dialogCreateTitle')}
                   </DialogTitle>
                 </DialogHeader>
                 {/* `DetailField` rows, boxed controls — the grammar of the new-Einsatz modal.

@@ -9,9 +9,6 @@ const person = (over: Partial<Person> & { name: string }): Person =>
 const material = (over: Partial<Material> & { name: string }): Material =>
   ({ id: over.name, status: "available", category: "Depot", ...over }) as Material
 
-// The sidebar toggle must hide exactly what the cards draw as busy — including
-// people who are only tied up by a special function (Fahrer/Reko/Magazin) and
-// therefore still carry status "available".
 const PERSONNEL = [
   person({ name: "Frei Anna" }),
   person({ name: "Zugewiesen Bea", status: "assigned" }),
@@ -30,50 +27,25 @@ const MATERIALS = [
 
 const names = (groups: Record<string, Array<{ name: string }>>) =>
   Object.values(groups).flat().map((x) => x.name).sort()
+const personNames = (people: Person[]) => people.map((p) => p.name)
 
 describe("useResourceFiltering — availableOnly", () => {
   it("returns everything when the toggle is off", () => {
     const { result } = renderHook(() =>
-      useResourceFiltering(PERSONNEL, MATERIALS, "", "", "Andere"),
+      useResourceFiltering(PERSONNEL, MATERIALS, "", ""),
     )
-    expect(names(result.current.groupedPersonnel)).toHaveLength(5)
-    expect(names(result.current.groupedMaterials)).toHaveLength(3)
-  })
-
-  it("hides assigned people AND those tied up by a special function", () => {
-    const { result } = renderHook(() =>
-      useResourceFiltering(PERSONNEL, MATERIALS, "", "", "Andere", { personnel: true }),
-    )
-    expect(names(result.current.groupedPersonnel)).toEqual(["Frei Anna"])
-    // material list untouched by the personnel toggle
+    expect(result.current.filteredPersonnel).toHaveLength(5)
     expect(names(result.current.groupedMaterials)).toHaveLength(3)
   })
 
   it("hides assigned material but keeps consumables", () => {
     const { result } = renderHook(() =>
-      useResourceFiltering(PERSONNEL, MATERIALS, "", "", "Andere", { materials: true }),
+      useResourceFiltering(PERSONNEL, MATERIALS, "", "", { materials: true }),
     )
     expect(names(result.current.groupedMaterials)).toEqual(["Tauchpumpe", "Ölbindemittel"].sort())
-    expect(names(result.current.groupedPersonnel)).toHaveLength(5)
+    expect(result.current.filteredPersonnel).toHaveLength(5)
   })
 
-  it("combines with the search query instead of replacing it", () => {
-    const { result } = renderHook(() =>
-      useResourceFiltering(PERSONNEL, MATERIALS, "frei", "", "Andere", { personnel: true }),
-    )
-    expect(names(result.current.groupedPersonnel)).toEqual(["Frei Anna"])
-  })
-
-  it("recomputes when the toggle flips", () => {
-    const { result, rerender } = renderHook(
-      ({ on }: { on: boolean }) =>
-        useResourceFiltering(PERSONNEL, MATERIALS, "", "", "Andere", { personnel: on }),
-      { initialProps: { on: false } },
-    )
-    expect(names(result.current.groupedPersonnel)).toHaveLength(5)
-    rerender({ on: true })
-    expect(names(result.current.groupedPersonnel)).toEqual(["Frei Anna"])
-  })
 })
 
 // The search must find people by the Ereignis function they carry — the person
@@ -87,15 +59,15 @@ describe("useResourceFiltering — search by special function", () => {
 
   it("finds the Telefondienst by function name", () => {
     const { result } = renderHook(() =>
-      useResourceFiltering(ROSTER, [], "telefondienst", "", "Andere"),
+      useResourceFiltering(ROSTER, [], "telefondienst", ""),
     )
-    expect(names(result.current.groupedPersonnel)).toEqual(["Telefon Fritz"])
+    expect(personNames(result.current.filteredPersonnel)).toEqual(["Telefon Fritz"])
   })
 
   it("finds the Kommandoposten by function name", () => {
     const { result } = renderHook(() =>
-      useResourceFiltering(ROSTER, [], "kommandoposten", "", "Andere"),
+      useResourceFiltering(ROSTER, [], "kommandoposten", ""),
     )
-    expect(names(result.current.groupedPersonnel)).toEqual(["Posten Gina"])
+    expect(personNames(result.current.filteredPersonnel)).toEqual(["Posten Gina"])
   })
 })

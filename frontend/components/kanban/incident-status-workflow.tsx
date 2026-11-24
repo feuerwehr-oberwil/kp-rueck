@@ -40,8 +40,8 @@ import { onStatusConflict } from "@/lib/status-conflict"
 import type { Material, Operation, OperationStatus } from "@/lib/contexts/operations-context"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { findAuftragForStop, isBackwardTransition, remainingRouteStops, startableNextStop, statusBadgeClass } from "@/lib/kanban-utils"
-import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
-import { getIncidentTypeLabel } from "@/lib/incident-types"
+import { cn } from "@/lib/utils"
+import { getIncidentRefParts } from "@/lib/incident-types"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { PersonName, usePersonNaming } from "@/components/person-name"
 import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
@@ -52,11 +52,10 @@ import { usePointerFine } from "@/lib/hooks/use-pointer-fine"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import type { VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 
-// Home-town-free label for dialog texts; falls back to the incident type when
-// the address was only the home town (formatted location is then empty).
+// The Einsatz in every gate's text: «14 · Hauptstrasse 4» – number first, as on the card, in ⌘K
+// and the Doppelbelegung prompt; two Einsätze in one street are told apart (owner pick #14).
 function operationLabel(operation: Operation): string {
-  return (operation.locationDisplay ?? formatLocationForDisplay(operation.location, getGlobalHomeCity()))
-    || getIncidentTypeLabel(operation.incidentType)
+  return getIncidentRefParts(operation).head
 }
 
 type ResourceType = "crew" | "vehicles" | "materials"

@@ -123,7 +123,7 @@ interface AuftraegeSheetProps {
   onAssignRouteResource: (resourceType: "crew" | "vehicles" | "materials", groupId: string) => void
   /** Opens the existing OperationDetailModal for a stop. */
   onOpenDetail: (operationId: string) => void
-  /** Opens the Routen-Editor modal for a route; optional stop to centre/focus on. */
+  /** Opens the Auftrags-Editor modal for a route; optional stop to centre/focus on. */
   onOpenRoutenEditor?: (groupId: string, focusIncidentId?: string) => void
   canEdit: boolean
   onSetStopStatus?: (incidentId: string, status: OperationStatus) => void
@@ -482,7 +482,7 @@ export function AuftraegeSheet({
       <DeleteConfirmDialog
         open={canEdit && !!deleteId}
         onOpenChange={(o) => !o && setDeleteId(null)}
-        title={t("deleteTitle")}
+        title={t("deleteTitle", { name: groups.find((group) => group.id === deleteId)?.name ?? "" })}
         description={t("deleteDescription")}
         confirmText={t("deleteConfirm")}
         cancelText={t("cancel")}
@@ -557,7 +557,7 @@ function AuftragCard({
   canEdit,
 }: AuftragCardProps) {
   const t = useTranslations("kanban.auftraege")
-  // The Routen-Editor entry shares its label with the card context menu.
+  // The Auftrags-Editor entry shares its label with the card context menu.
   const tCommon = useTranslations("kanban.common")
   const headerRef = useRef<HTMLDivElement>(null)
   const cardRef = useRef<HTMLDivElement | null>(null)
@@ -565,7 +565,7 @@ function AuftragCard({
   const [colorPickerOpen, setColorPickerOpen] = useState(false)
 
   // Shared routing hook — powers the in-row "Reihenfolge optimieren" action so the
-  // sheet can optimize without opening the Routen-Editor modal (applies at once).
+  // sheet can optimize without opening the Auftrags-Editor modal (applies at once).
   const planning = useRoutePlanning(group.id)
   // «Fahrer wählen» on a driverless route vehicle opens the board's driver prompt.
   const { requestVehicleDriver } = useOperations()
@@ -1067,7 +1067,7 @@ function StopRow({ groupId, incidentId, index, count, onMove, op, onRemove, onSe
             {op && <div className="truncate text-xs text-muted-foreground">{getIncidentTypeLabel(op.incidentType)}</div>}
           </div>
         )}
-        {/* Karte — opens the Routen-Editor centred on this stop. */}
+        {/* Karte — opens the Auftrags-Editor centred on this stop. */}
         <ShortcutTooltip label={t("map")}>
           <Button
             size="icon-xs"
