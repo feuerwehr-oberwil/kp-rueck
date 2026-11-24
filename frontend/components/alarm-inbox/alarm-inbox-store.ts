@@ -34,9 +34,30 @@ function setOpen(next: boolean) {
   for (const listener of openListeners) listener()
 }
 
-export const openAlarmInbox = () => setOpen(true)
+// Where focus goes when the sheet closes, for an opener that is no trigger of it: the phone's
+// Meldungen tile, whose sheet hands over to this one. Read once, by the sheet's close.
+let returnFocus: HTMLElement | null = null
+
+export const openAlarmInbox = () => {
+  returnFocus = null
+  setOpen(true)
+}
+/** Opens the sheet; when it closes, focus goes back to `opener` (a tile, not a SheetTrigger). */
+export const openAlarmInboxFrom = (opener: HTMLElement | null) => {
+  returnFocus = opener
+  setOpen(true)
+}
 export const closeAlarmInbox = () => setOpen(false)
-export const toggleAlarmInbox = () => setOpen(!open)
+export const toggleAlarmInbox = () => {
+  returnFocus = null
+  setOpen(!open)
+}
+/** The opener to hand focus back to, once: `openAlarmInboxFrom`'s, or null. */
+export function takeAlarmInboxReturnFocus(): HTMLElement | null {
+  const opener = returnFocus
+  returnFocus = null
+  return opener?.isConnected ? opener : null
+}
 
 function subscribeOpen(listener: () => void) {
   openListeners.add(listener)
@@ -187,6 +208,7 @@ export function resetAlarmInboxForTests() {
   openListeners.clear()
   pool = EMPTY
   open = false
+  returnFocus = null
   inflight = null
   again = false
 }

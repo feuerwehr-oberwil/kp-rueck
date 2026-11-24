@@ -18,7 +18,7 @@ import { useRef, type RefObject } from 'react'
 import { Bell, ChevronRight, Inbox } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { AlarmInboxMenuCount } from '@/components/alarm-inbox/alarm-inbox-button'
-import { openAlarmInbox } from '@/components/alarm-inbox/alarm-inbox-store'
+import { openAlarmInboxFrom } from '@/components/alarm-inbox/alarm-inbox-store'
 import { FieldRequestInbox } from '@/components/notifications/field-request-inbox'
 import { NotificationCard } from '@/components/notifications/notification-card'
 import { Button } from '@/components/ui/button'
@@ -68,7 +68,8 @@ export function PhoneNotificationSheet({ open, onOpenChange, returnFocusTo }: Ph
           event.preventDefault()
           if (alarmNext.current) {
             alarmNext.current = false
-            openAlarmInbox()
+            // …and when the inbox closes, focus comes back to the tile that opened this sheet
+            openAlarmInboxFrom(returnFocusTo?.current ?? null)
           } else {
             returnFocusTo?.current?.focus()
           }

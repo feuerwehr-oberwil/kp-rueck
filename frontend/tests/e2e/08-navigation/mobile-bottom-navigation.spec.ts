@@ -77,8 +77,15 @@ test.describe('Mobile bottom navigation', () => {
     await tile.click();
     const meldungen = page.getByRole('dialog', { name: 'Meldungen' });
     await expect(meldungen).toBeVisible();
-    await expect(meldungen.getByRole('button', { name: /Alarmeingang/ })).toBeVisible();
     await page.keyboard.press('Escape');
+    await expect(tile).toBeFocused();
+
+    // Meldungen hands over to the Alarmeingang; closing that one comes back to the tile too.
+    await tile.click();
+    await meldungen.getByRole('button', { name: /Alarmeingang/ }).click();
+    await expect(page.getByTestId('alarm-inbox')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('alarm-inbox')).toHaveCount(0);
     await expect(tile).toBeFocused();
     await expect(page).toHaveURL('/');
   });

@@ -10,7 +10,7 @@ import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { ApiFieldRequest } from '@/lib/api-client'
 
-const openAlarmInbox = vi.hoisted(() => vi.fn())
+const openAlarmInboxFrom = vi.hoisted(() => vi.fn())
 const auth = vi.hoisted(() => ({ isViewer: false }))
 
 const request: ApiFieldRequest = {
@@ -54,7 +54,7 @@ vi.mock('@/lib/hooks/use-field-requests', () => ({
   useFieldRequestActions: () => ({ setStatus: vi.fn(), markSeen: vi.fn(), canMarkSeen: true, busyId: null }),
 }))
 vi.mock('@/lib/incident-types', () => ({ getIncidentLocationLabel: () => 'Hauptstrasse 4' }))
-vi.mock('@/components/alarm-inbox/alarm-inbox-store', () => ({ openAlarmInbox }))
+vi.mock('@/components/alarm-inbox/alarm-inbox-store', () => ({ openAlarmInboxFrom }))
 vi.mock('@/components/alarm-inbox/alarm-inbox-button', () => ({
   AlarmInboxMenuCount: () => <span>2</span>,
   useNewAlarmCount: () => 2,
@@ -65,7 +65,7 @@ import { PhoneNotificationSheet } from './phone-notification-sheet'
 describe('PhoneNotificationSheet', () => {
   beforeEach(() => {
     auth.isViewer = false
-    openAlarmInbox.mockClear()
+    openAlarmInboxFrom.mockClear()
   })
 
   it('shows an editor the open request with «Gesehen», but nothing that works it', () => {
@@ -85,7 +85,7 @@ describe('PhoneNotificationSheet', () => {
     renderWithIntl(<Harness />)
     await userEvent.click(screen.getByRole('button', { name: /Alarmeingang/ }))
     expect(screen.queryByRole('dialog')).toBeNull()
-    expect(openAlarmInbox).toHaveBeenCalledOnce()
+    expect(openAlarmInboxFrom).toHaveBeenCalledOnce()
   })
 
   it('offers a viewer no Alarmeingang – it refuses the viewer role', () => {
