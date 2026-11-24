@@ -1055,7 +1055,9 @@ async def assign_reko_personnel(
 
     # If a different Reko person is assigned, unassign them first
     if currently_assigned_id is not None:
-        await reko_assign_crud.unassign_reko_personnel_from_incident(db, incident_id, currently_assigned_id)
+        await reko_assign_crud.unassign_reko_personnel_from_incident(
+            db, incident_id, currently_assigned_id, current_user=current_user, request=request
+        )
         logger.info(
             "Unassigned previous Reko personnel %s from incident %s for replacement",
             currently_assigned_id,
@@ -1128,6 +1130,7 @@ async def unassign_reko_personnel(
     incident_id: uuid.UUID,
     personnel_id: uuid.UUID,
     background_tasks: BackgroundTasks,
+    request: Request,
     current_user: CurrentEditor,  # Editor only
     assignment_id: uuid.UUID | None = Query(
         default=None, description="Release exactly this row (404 when it is no longer active)"
@@ -1140,7 +1143,9 @@ async def unassign_reko_personnel(
     Editor only - removes the personnel assignment for the Reko person. The board names the
     row it shows (`assignment_id`), so a tick never releases another row than its own.
     """
-    success = await reko_assign_crud.unassign_reko_personnel_from_incident(db, incident_id, personnel_id, assignment_id)
+    success = await reko_assign_crud.unassign_reko_personnel_from_incident(
+        db, incident_id, personnel_id, assignment_id, current_user=current_user, request=request
+    )
 
     if not success:
         raise HTTPException(status_code=404, detail=ErrorMessages.ASSIGNMENT_NOT_FOUND)
@@ -1204,7 +1209,7 @@ async def transfer_reko_assignments(
                 raise HTTPException(status_code=409, detail=str(e)) from e
             # Unassign old person
             await reko_assign_crud.unassign_reko_personnel_from_incident(
-                db, assignment["incident_id"], from_personnel_id
+                db, assignment["incident_id"], from_personnel_id, current_user=current_user, request=request
             )
             # Assign new person — still a Reko auftrag, so it keeps the purpose
             # (a handover that quietly turned into a crew row would land the new

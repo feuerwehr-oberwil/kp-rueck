@@ -27,9 +27,12 @@ class PersonStillBoundError(Exception):
 
 
 def _response(
-    person: Personnel, attendance: EventAttendance | None, *, is_assigned: bool
+    person: Personnel, attendance: EventAttendance | None, *, is_assigned: bool, changed: bool = True
 ) -> schemas.PersonnelCheckInResponse:
-    """One person's attendance at one Ereignis, as every route here answers it."""
+    """One person's attendance at one Ereignis, as every route here answers it.
+
+    ``changed=False``: the request found the state it asked for already there and wrote nothing.
+    """
     return schemas.PersonnelCheckInResponse(
         id=person.id,
         name=person.name,
@@ -43,6 +46,7 @@ def _response(
         planned_from=attendance.planned_from if attendance else None,
         planned_until=attendance.planned_until if attendance else None,
         is_assigned=is_assigned,
+        changed=changed,
     )
 
 
@@ -202,7 +206,7 @@ async def check_in_personnel(
     if attendance:
         # Already checked in for this event
         if attendance.checked_in:
-            return _response(person, attendance, is_assigned=is_assigned)
+            return _response(person, attendance, is_assigned=is_assigned, changed=False)
         # Coming BACK after a departure starts a new stint: the old «kommt um» / «geht um»
         # were about the one that ended, and a spent «geht um» would ring the bell again.
         # A first arrival keeps both – «geht um» is often said before somebody is in.
@@ -308,9 +312,10 @@ async def check_out_personnel(
     now = datetime.now(UTC)
 
     if attendance:
-        # Already checked out for this event
+        # Already checked out for this event – by somebody else, maybe: ``changed=False``, so a
+        # stale popover offers no undo of a departure it did not write.
         if not attendance.checked_in and attendance.checked_out_at is not None:
-            return _response(person, attendance, is_assigned=is_assigned)
+            return _response(person, attendance, is_assigned=is_assigned, changed=False)
         # Update existing record
         attendance.checked_in = False
         attendance.checked_out_at = now
@@ -370,10 +375,14 @@ async def clear_personnel_attendance(
     reason to warn before sending somebody home, not a reason to refuse undoing a
     typo. The caller (the board) already warns on the way *out*.
 
+    Takes the person's row lock like check-in and check-out, so a check-out undo
+    (``check_in_personnel(resume=…)``) that read the row cannot have it deleted under
+    it – it waits, then sees the row gone (409).
+
     None if not found – a guest of another Ereignis counts as not found, as in
     check-in and check-out.
     """
-    result = await db.execute(select(Personnel).where(Personnel.id == personnel_id))
+    result = await db.execute(select(Personnel).where(Personnel.id == personnel_id).with_for_update())
     person = result.scalar_one_or_none()
     # A guest of another Ereignis is nobody this one lists (`Personnel.in_scope`).
     if not person or person.guest_event_id not in (None, event_id):

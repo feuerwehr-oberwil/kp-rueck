@@ -615,6 +615,9 @@ class TestCheckOutPersonnel:
 
         assert second_result.checked_in is False
         assert second_result.checked_out_at == first_result.checked_out_at
+        # The second call wrote nothing: a stale popover must not offer to undo the first.
+        assert first_result.changed is True
+        assert second_result.changed is False
 
     async def test_check_out_never_checked_in(
         self,

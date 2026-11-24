@@ -11,6 +11,7 @@ that backs the assignment picker.
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud.reko_assignment import (
@@ -21,6 +22,7 @@ from app.crud.reko_assignment import (
     unassign_reko_personnel_from_incident,
 )
 from app.models import (
+    AuditLog,
     Event,
     EventSpecialFunction,
     Incident,
@@ -220,6 +222,22 @@ async def test_reko_person_with_no_incidents_in_the_event_gets_nothing(
 
 
 @pytest.mark.asyncio
+async def test_a_reko_role_held_twice_still_lists_the_rekos(
+    db_session: AsyncSession, test_user: User, test_event: Event, test_personnel: Personnel
+):
+    """An old Ereignis can hold the same Reko role twice (no vehicle, so the unique key lets
+    it); the handover reads this list and must not fail on it."""
+    await _grant_reko(db_session, test_event, test_personnel)
+    await _grant_reko(db_session, test_event, test_personnel)
+    incident = await _make_incident(db_session, test_event, test_user, "Doppelt Reko")
+    await _assign(db_session, incident, test_personnel)
+
+    result = await get_reko_assignments_for_personnel(db_session, test_event.id, test_personnel.id)
+
+    assert [row["incident_id"] for row in result] == [incident.id]
+
+
+@pytest.mark.asyncio
 async def test_assignments_are_scoped_to_their_own_event(
     db_session: AsyncSession, test_user: User, test_event: Event, test_personnel: Personnel
 ):
@@ -380,6 +398,30 @@ async def test_unassign_by_id_releases_only_the_named_row(
     assert (await db_session.get(IncidentAssignment, crew.id)).unassigned_at is None
 
     assert await unassign_reko_personnel_from_incident(db_session, incident.id, test_personnel.id, crew.id) is True
+
+
+@pytest.mark.asyncio
+async def test_unassign_by_id_of_a_crew_row_is_the_crew_release(
+    db_session: AsyncSession, test_user: User, test_event: Event, test_personnel: Personnel
+):
+    """A crew row the board drew as Reko goes through the crew release: the Einsatzleiter
+    flag goes with it, and the release is in the audit log."""
+    incident = await _make_incident(db_session, test_event, test_user, "Mannschaft als Reko")
+    crew = await _assign(db_session, incident, test_personnel, purpose="crew")
+    crew.is_leader = True
+    await db_session.commit()
+
+    assert await unassign_reko_personnel_from_incident(
+        db_session, incident.id, test_personnel.id, crew.id, current_user=test_user
+    )
+
+    released = await db_session.get(IncidentAssignment, crew.id)
+    assert released.unassigned_at is not None
+    assert released.is_leader is False
+    audit = await db_session.scalar(
+        select(AuditLog).where(AuditLog.action_type == "unassign", AuditLog.resource_id == crew.id)
+    )
+    assert audit is not None
 
 
 # ============================================

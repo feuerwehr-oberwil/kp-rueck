@@ -340,6 +340,27 @@ async def test_resume_of_a_departure_that_is_gone_is_409(editor_client: AsyncCli
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_a_check_out_somebody_else_already_made_is_not_ours_to_undo(
+    editor_client: AsyncClient, test_event: Event, test_personnel
+):
+    """Operator A checked the person out; B's stale popover checks out again: 200, but
+    `changed` is false – B gets no undo that would reopen A's departure."""
+    person = test_personnel[0]
+    query = {"event_id": str(test_event.id)}
+    path = f"/api/personnel/check-in/{person.id}"
+    await editor_client.post(f"{path}/in", params=query)
+    first = await editor_client.post(f"{path}/out", params={**query, "only_if_free": "true"})
+
+    again = await editor_client.post(f"{path}/out", params={**query, "only_if_free": "true"})
+
+    assert first.json()["changed"] is True
+    assert again.status_code == 200
+    assert again.json()["changed"] is False
+    assert again.json()["checked_out_at"] == first.json()["checked_out_at"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_resume_through_the_link_is_a_new_stint(client: AsyncClient, valid_token: str, test_personnel):
     """The link has no check-out to take back: `resume` changes nothing there."""
     person = test_personnel[0]

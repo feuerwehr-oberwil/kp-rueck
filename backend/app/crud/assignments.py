@@ -349,7 +349,7 @@ async def update_assignment(
 async def unassign_resource(
     db: AsyncSession,
     assignment_id: uuid.UUID,
-    current_user: User,
+    current_user: User | None,
     request: Request | None,
     *,
     incident_id: uuid.UUID,

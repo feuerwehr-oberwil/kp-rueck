@@ -26845,6 +26845,11 @@
             "type": "boolean",
             "title": "Is Assigned",
             "default": false
+          },
+          "changed": {
+            "type": "boolean",
+            "title": "Changed",
+            "default": true
           }
         },
         "type": "object",
