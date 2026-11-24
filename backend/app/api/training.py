@@ -35,6 +35,7 @@ from ..services.training import (
     generate_training_emergency,
 )
 from ..services.training_autogen_task import broadcast_autogen_state, read_autogen_state, switch_autogen
+from ..services.training_regie import mark_started, place, record_history
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import (
     broadcast_incident_update,
@@ -98,6 +99,11 @@ async def generate_emergencies(
             detail="Keine Übungs-Szenarien vorhanden. Bitte zuerst die Übungsdaten seeden.",
         ) from exc
 
+    if len(incidents) == 1:
+        await record_history(db, event_id, f"Alarm ausgelöst · {place(incidents[0])}", incident_id=incidents[0].id)
+    elif incidents:
+        await record_history(db, event_id, f"{len(incidents)} Alarme ausgelöst")
+
     # Convert to response models and broadcast WebSocket updates
     responses = []
     for incident in incidents:
@@ -153,6 +159,7 @@ async def manual_dispatch(
             location_override=(request.address, request.latitude, request.longitude),
         )
 
+    await record_history(db, event_id, f"Alarm ausgelöst · {place(incident)}", incident_id=incident.id)
     response = await incident_display.incident_with_display(db, incident)
     background_tasks.add_task(broadcast_incident_update, response.model_dump(mode="json"), "create")
     return response
@@ -213,6 +220,8 @@ async def put_autogen(
 
     before = await read_autogen_state(db)
     state = await switch_autogen(db, payload.enabled, event_id=event_id, user_id=current_user.id)
+    if payload.enabled:
+        await mark_started(db, event_id, current_user.id)
     await log_action(
         db=db,
         action_type="update",

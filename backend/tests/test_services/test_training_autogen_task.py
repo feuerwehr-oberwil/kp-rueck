@@ -736,3 +736,67 @@ class TestAutogenRun:
         assert state.enabled is False
         assert state.run is not None and state.run.stopped == "max"
         sent.assert_awaited_once()
+
+
+class TestRegiePacesTheAutomatik:
+    """The Regie's ⏸ stops the Automatik; its tempo divides the interval."""
+
+    @staticmethod
+    async def _regie(db: AsyncSession, event: Event, **fields: object) -> None:
+        from app.schemas.training import RegieRun
+
+        run = RegieRun.model_validate({"event_id": event.id, **fields})
+        db.add(Setting(key="training_regie.state", value=run.model_dump_json()))
+        await db.commit()
+
+    @staticmethod
+    async def _generated(db: AsyncSession) -> bool:
+        with patch("app.services.training_autogen_task.TrainingGenerator") as MockGen:
+            MockGen.return_value.generate_emergency = AsyncMock(return_value=MagicMock(title="x"))
+            await TrainingAutoGenTask()._check_and_run(db)
+            return MockGen.return_value.generate_emergency.called
+
+    @pytest.mark.asyncio
+    async def test_a_paused_regie_holds_the_automatik(
+        self, db_session: AsyncSession, training_event: Event, autogen_settings_enabled: list[Setting]
+    ):
+        await self._regie(db_session, training_event, paused_at=datetime.now(UTC))
+        assert not await self._generated(db_session)  # nothing generated yet would otherwise fire at once
+
+    @pytest.mark.asyncio
+    async def test_sturm_halves_the_interval(
+        self,
+        db_session: AsyncSession,
+        training_event: Event,
+        autogen_user: User,
+        autogen_settings_enabled: list[Setting],
+    ):
+        # Boost phase: 5 min / 2 = 2.5 min. The last alarm 2 min ago is not due at «normal»…
+        db_session.add(
+            Incident(
+                id=uuid4(),
+                event_id=training_event.id,
+                title="Letzter Alarm",
+                type="brandbekaempfung",
+                priority="medium",
+                status="incoming",
+                created_by=autogen_user.id,
+                created_at=datetime.now(UTC) - timedelta(minutes=2),
+            )
+        )
+        await self._regie(db_session, training_event, tempo="normal")
+        assert not await self._generated(db_session)
+
+        # …and due at «Sturm» (1.25 min).
+        await self._regie_tempo(db_session, "sturm")
+        assert await self._generated(db_session)
+
+    @staticmethod
+    async def _regie_tempo(db: AsyncSession, tempo: str) -> None:
+        from sqlalchemy import select
+
+        from app.schemas.training import RegieRun
+
+        row = (await db.execute(select(Setting).where(Setting.key == "training_regie.state"))).scalar_one()
+        row.value = RegieRun.model_validate_json(row.value).model_copy(update={"tempo": tempo}).model_dump_json()
+        await db.commit()

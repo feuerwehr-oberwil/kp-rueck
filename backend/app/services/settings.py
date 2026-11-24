@@ -373,7 +373,7 @@ BLOB_SETTING_KEYS = frozenset({"branding.report_logo"})
 # settings page does not render a JSON report as an editable value; it has its own read at
 # `GET /api/integrations/roster-snapshot`, and the generic PATCH refuses it because it is not in
 # DEFAULT_SETTINGS.
-STATE_SETTING_KEYS = frozenset({"roster_snapshot.status", "training_autogen.run"})
+STATE_SETTING_KEYS = frozenset({"roster_snapshot.status", "training_autogen.run", "training_regie.state"})
 
 # Keys the generic PATCH /api/settings/{key} must refuse, because a dedicated endpoint
 # owns them and does something the generic one cannot (decode, bound and re-encode an

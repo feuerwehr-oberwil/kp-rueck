@@ -19,7 +19,7 @@ import asyncio
 import contextlib
 import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from pydantic import ValidationError
 from sqlalchemy import func, select
@@ -27,9 +27,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session_maker
 from app.models import DiveraEmergency, Event, Incident, Setting
-from app.schemas.training import AutogenRun, AutogenStateResponse
+from app.schemas.training import AutogenRun, AutogenStateResponse, RegieRun
 from app.services.settings import update_setting
 from app.services.training import TrainingGenerator
+from app.services.training_lifecycle import TEMPO_FACTOR, all_pauses, shift_past_pauses
 from app.websocket_manager import broadcast_message
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,64 @@ async def switch_autogen(
         run = AutogenRun(event_id=event_id, started_at=datetime.now(UTC))
         await update_setting(db, RUN_KEY, run.model_dump_json(), user_id)
     return await read_autogen_state(db)
+
+
+async def _read_settings(db: AsyncSession) -> dict[str, str]:
+    result = await db.execute(select(Setting).where(Setting.key.in_(_SETTING_KEYS)))
+    return {s.key: s.value for s in result.scalars().all()}
+
+
+async def next_alarm_at(
+    db: AsyncSession,
+    event: Event,
+    run: AutogenRun | None,
+    settings: dict[str, str],
+    regie: RegieRun | None,
+    now: datetime,
+) -> datetime:
+    """When the Automatik's next alarm falls due; `now` when nothing was generated yet.
+
+    The interval counts from the last alarm – board incidents and simulated pool alarms
+    both count, so switching modes does not double-fire. Inside the «heisse Phase» (from the
+    switch-on; a run-less legacy switch uses the event's creation) it is divided by the
+    boost, and by the Regie's tempo factor; the Regie's pauses do not count.
+    """
+    last_times: list[datetime] = []
+    last_incident_at = (
+        await db.execute(select(func.max(Incident.created_at)).where(Incident.event_id == event.id))
+    ).scalar_one_or_none()
+    if last_incident_at:
+        last_times.append(last_incident_at)
+    last_pool_at = (
+        await db.execute(select(func.max(DiveraEmergency.received_at)).where(DiveraEmergency.is_training.is_(True)))
+    ).scalar_one_or_none()
+    if last_pool_at:
+        last_times.append(last_pool_at)
+    if not last_times:
+        return now  # nothing generated yet – start the exercise off
+
+    interval_min = float(settings.get("training_autogen_interval_min", 5))
+    boost_mult = float(settings.get("training_boost_multiplicator", 2.0))
+    boost_duration_min = int(settings.get("training_boost_duration_min", 30))
+    boost_from = run.started_at if run else event.created_at
+    running_minutes = (now - boost_from).total_seconds() / 60
+    if running_minutes < boost_duration_min:
+        interval_min /= boost_mult
+
+    if regie is None:
+        return max(last_times) + timedelta(minutes=interval_min)
+    seconds = interval_min * 60 / TEMPO_FACTOR[regie.tempo]
+    return shift_past_pauses(max(last_times), seconds, all_pauses(regie.pauses, regie.paused_at, now))
+
+
+async def automatik_next_at(db: AsyncSession, state: AutogenStateResponse, regie: RegieRun) -> datetime | None:
+    """The next alarm for the Regie's timeline: None unless the Automatik is on and feeds this Übung."""
+    if not state.enabled or state.run is None or state.run.event_id != regie.event_id:
+        return None
+    event = await db.get(Event, regie.event_id)
+    if event is None:
+        return None
+    return await next_alarm_at(db, event, state.run, await _read_settings(db), regie, datetime.now(UTC))
 
 
 async def broadcast_autogen_state(state: AutogenStateResponse) -> None:
@@ -118,11 +177,9 @@ class TrainingAutoGenTask:
 
     async def _check_and_run(self, db: AsyncSession) -> None:
         """Check if auto-gen is enabled and run generation if needed."""
-        # Get settings
-        result = await db.execute(select(Setting).where(Setting.key.in_(_SETTING_KEYS)))
-        settings_rows = result.scalars().all()
-        settings = {s.key: s.value for s in settings_rows}
+        from app.services.training_regie import read_regie_run
 
+        settings = await _read_settings(db)
         state = await read_autogen_state(db)
         if not state.enabled:
             self.current_event_id = None
@@ -131,6 +188,11 @@ class TrainingAutoGenTask:
         event = await self._target_event(db, state.run)
         if not event:
             self.current_event_id = None
+            return
+
+        # The Regie's ⏸ freezes the Automatik too; its tempo and pauses pace the interval.
+        regie = await read_regie_run(db, event.id)
+        if regie and regie.paused_at:
             return
 
         # Check max emergencies limit: incidents on the board plus simulated
@@ -163,46 +225,14 @@ class TrainingAutoGenTask:
             await broadcast_autogen_state(await read_autogen_state(db))
             return
 
-        # Get interval in minutes
-        interval_min = float(settings.get("training_autogen_interval_min", 5))
-        boost_mult = float(settings.get("training_boost_multiplicator", 2.0))
-        boost_duration_min = int(settings.get("training_boost_duration_min", 30))
-
-        # The boost («heisse Phase») runs from the switch-on; a run-less legacy switch uses the
-        # event's creation. Inside the window the interval is divided by the multiplier.
-        boost_from = state.run.started_at if state.run else event.created_at
-        running_minutes = (datetime.now(UTC) - boost_from).total_seconds() / 60
-        actual_interval_min = interval_min / boost_mult if running_minutes < boost_duration_min else interval_min
-
-        # Time since the last generated alarm — board incidents and simulated
-        # pool alarms both count, so switching modes doesn't double-fire.
-        last_times: list[datetime] = []
-        last_incident_at = (
-            await db.execute(select(func.max(Incident.created_at)).where(Incident.event_id == event.id))
-        ).scalar_one_or_none()
-        if last_incident_at:
-            last_times.append(last_incident_at)
-        last_pool_at = (
-            await db.execute(select(func.max(DiveraEmergency.received_at)).where(DiveraEmergency.is_training.is_(True)))
-        ).scalar_one_or_none()
-        if last_pool_at:
-            last_times.append(last_pool_at)
-
-        should_generate = False
-        if not last_times:
-            # Nothing generated yet — start the exercise off
-            should_generate = True
-        else:
-            time_since_last = (datetime.now(UTC) - max(last_times)).total_seconds() / 60
-            if time_since_last >= actual_interval_min:
-                should_generate = True
-
-        if should_generate:
-            self.current_event_id = event.id
-            try:
-                await self._generate(db, event, settings)
-            except Exception as e:
-                logger.error("Failed to auto-generate emergency: %s", e)
+        now = datetime.now(UTC)
+        if now < await next_alarm_at(db, event, state.run, settings, regie, now):
+            return
+        self.current_event_id = event.id
+        try:
+            await self._generate(db, event, settings)
+        except Exception as e:
+            logger.error("Failed to auto-generate emergency: %s", e)
 
     @staticmethod
     async def _target_event(db: AsyncSession, run: AutogenRun | None) -> Event | None:

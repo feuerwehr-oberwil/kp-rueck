@@ -276,6 +276,101 @@ class AutogenStateResponse(BaseModel):
     run: AutogenRun | None
 
 
+# Regie (Übungs-Steuerung): the Autopilot, tempo, pause and «Vorhin». See services/training_regie.py.
+RegieStepKey = Literal[
+    "reko_arrived",
+    "reko_report",
+    "drive_to_incident",
+    "vehicle_on_scene",
+    "field_complete",
+    "drive_to_magazin",
+    "rapport",
+]
+RegieTempo = Literal["ruhig", "normal", "sturm"]
+RegieBy = Literal["autopilot", "trainer"]
+
+
+class RegieHistoryItem(BaseModel):
+    """One line of «Vorhin»: a step, inject or alarm that went through the Regie."""
+
+    at: datetime
+    incident_id: UUID | None
+    text: str  # German, e.g. «Reko vor Ort · Im Lohgraben 26»
+    by: RegieBy
+
+
+class RegieRun(BaseModel):
+    """The Regie of one Übung, stored as JSON in the ``training_regie.state`` settings row.
+
+    One per installation, like the Automatik run: a write for another Übung starts a fresh one.
+    ``autopilot_by`` is the trainer who switched the Autopilot on – it acts in their name.
+    ``started_at`` is the first switch-on of the Autopilot or the Automatik.
+    """
+
+    event_id: UUID
+    autopilot: bool = False
+    autopilot_by: UUID | None = None
+    tempo: RegieTempo = "normal"
+    started_at: datetime | None = None
+    paused_at: datetime | None = None
+    pauses: list[tuple[datetime, datetime]] = []  # closed pauses, for shifting clocks
+    held: list[UUID] = []  # incident ids the Autopilot leaves alone
+    history: list[RegieHistoryItem] = []  # newest first, max 20
+
+
+class RegieStep(BaseModel):
+    """A field step of an incident. ``due_at`` is None while held, Mitspieler, under way or not scheduled."""
+
+    incident_id: UUID
+    key: RegieStepKey
+    due_at: datetime | None
+    rolling: bool  # a GPS drive for this step is under way
+    progress: float | None  # 0..1 of the slowest drive, when rolling
+    eta_seconds: float | None
+
+
+class RegieIncident(BaseModel):
+    incident_id: UUID
+    held: bool
+    mitspieler: bool
+    steps: list[RegieStep]  # primary first
+
+
+class RegieStateResponse(BaseModel):
+    """What the Regie page shows; computed on every read from the stored run and the board."""
+
+    event_id: UUID
+    autopilot: bool
+    tempo: RegieTempo
+    paused_at: datetime | None
+    started_at: datetime | None
+    automatik: AutogenStateResponse
+    automatik_next_at: datetime | None
+    incidents: list[RegieIncident]
+    history: list[RegieHistoryItem]
+    gps_available: bool
+    magazin_configured: bool
+
+
+class RegieUpdateRequest(BaseModel):
+    """Switch the Autopilot, set the tempo, pause or resume. Absent fields stay."""
+
+    autopilot: bool | None = None
+    tempo: RegieTempo | None = None
+    paused: bool | None = None
+
+
+class RegieHoldRequest(BaseModel):
+    held: bool
+
+
+class RegieStepRequest(BaseModel):
+    """Run one step now. ``pickup_needed`` answers «Kommt der Trupp selbst zurück?» for field_complete."""
+
+    key: RegieStepKey
+    pickup_needed: bool | None = None
+
+
 class SimulateDiveraRequest(BaseModel):
     """Schema for injecting a simulated Divera alarm into the pool."""
 
