@@ -303,25 +303,30 @@ export function MaterialSidebarRow({
         </ContextMenuContent>
       </ContextMenu>
       <PopoverContent align="start" side="left" className="w-80 p-3">
-        {bindingsPopover && (material.outOfService && bindingsPopover.bindings.length === 0 ? (
-          // A flagged device is bound nowhere, so «keine Bindung» answered nothing. Its
-          // question is «wieder einsatzbereit?», which used to be right-click only.
-          <div className="space-y-2">
-            <div className="min-w-0">
+        {bindingsPopover && (material.outOfService ? (
+          // A flagged device's question is «wieder einsatzbereit?», which used to be
+          // right-click only. A device flagged while still assigned keeps its
+          // bindings above the button, so the way to it is not lost.
+          <div className="space-y-3">
+            {bindingsPopover.bindings.length > 0 ? (
+              <BindingsPopoverBody state={bindingsPopover} onGo={onGoBinding} onClose={onCloseBindings} />
+            ) : (
               <p className="truncate text-sm font-semibold">{material.name}</p>
+            )}
+            <div className={cn("space-y-2", bindingsPopover.bindings.length > 0 && "border-t border-border pt-3")}>
               <p className="text-2xs text-muted-foreground">
                 {t('notReady')}
                 {material.outOfServiceSince && ` · ${t('notReadySince', { date: shortDate(material.outOfServiceSince) })}`}
               </p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full"
+                onClick={() => { onToggleOutOfService(material, false); onCloseBindings() }}
+              >
+                {t('backInService')}
+              </Button>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full"
-              onClick={() => { onToggleOutOfService(material, false); onCloseBindings() }}
-            >
-              {t('backInService')}
-            </Button>
           </div>
         ) : (
           <BindingsPopoverBody state={bindingsPopover} onGo={onGoBinding} onClose={onCloseBindings} />

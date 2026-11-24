@@ -509,7 +509,7 @@ export default function MapPage() {
   // fallback is the board's side panel on the notification's tab, unchanged.
   useEffect(() => {
     if (!isMobile) return
-    registerNavigateHandler((incidentId, tab) => openIncidentDetail(incidentId, tab ? { tab } : undefined))
+    registerNavigateHandler((incidentId, tab, section) => openIncidentDetail(incidentId, tab ? { tab, section } : undefined))
     return () => registerNavigateHandler(null)
   }, [isMobile, registerNavigateHandler, openIncidentDetail])
   // Same move as the board's handler and as the card's own nudge — see the note

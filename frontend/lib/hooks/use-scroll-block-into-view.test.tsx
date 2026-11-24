@@ -20,7 +20,7 @@ function flushFrame() {
 describe('useScrollBlockIntoView', () => {
   it('puts the block top `offset` px under the scroller top, a frame later', async () => {
     const { scrollerRef, blockRef } = scene()
-    renderHook(() => useScrollBlockIntoView(scrollerRef, blockRef, 'reko', 16))
+    renderHook(() => useScrollBlockIntoView(scrollerRef, blockRef, 'reko', { offset: 16 }))
     expect(scrollerRef.current.scrollTop).toBe(50)
     await flushFrame()
     // 50 + (400 − 100) − 16
@@ -46,5 +46,24 @@ describe('useScrollBlockIntoView', () => {
     rerender({ trigger: {} })
     await flushFrame()
     expect(spy).toHaveBeenCalledTimes(2)
+  })
+
+  it('waits for `ready`, then scrolls once for that trigger', async () => {
+    const { scrollerRef, blockRef } = scene()
+    const spy = vi.spyOn(blockRef.current, 'getBoundingClientRect')
+    const trigger = {}
+    const { rerender } = renderHook(({ ready }) => useScrollBlockIntoView(scrollerRef, blockRef, trigger, { ready }), {
+      initialProps: { ready: false },
+    })
+    await flushFrame()
+    expect(spy).not.toHaveBeenCalled()
+    rerender({ ready: true })
+    await flushFrame()
+    expect(spy).toHaveBeenCalledTimes(1)
+    // The block reloads (ready off, on again) for the same request: no second scroll.
+    rerender({ ready: false })
+    rerender({ ready: true })
+    await flushFrame()
+    expect(spy).toHaveBeenCalledTimes(1)
   })
 })

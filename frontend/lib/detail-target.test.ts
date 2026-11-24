@@ -7,6 +7,7 @@ import {
   REKO_TARGET,
   RESOURCES_TARGET,
   detailTargetForJournalEntry,
+  personNowTarget,
   phoneSheetBlock,
 } from "@/lib/detail-target"
 import type { ApiJournalKind } from "@/lib/api/types/journal"
@@ -60,5 +61,26 @@ describe("phoneSheetBlock – the phone sheet scrolls to the block a target name
     expect(phoneSheetBlock(HISTORY_TARGET)).toBeNull()
     expect(phoneSheetBlock(FELD_TARGET)).toBeNull()
     expect(phoneSheetBlock(undefined)).toBeNull()
+  })
+})
+
+describe("personNowTarget – the phone's Dienstzeiten «Jetzt» opens where the line says", () => {
+  const op = (id: string, extra: { crew?: string[]; vehicle?: string; reko?: string } = {}) => ({
+    id,
+    crew: (extra.crew ?? []).map((personnelId) => ({ personnelId })),
+    vehicles: extra.vehicle ? [{ vehicleId: extra.vehicle }] : [],
+    assignedReko: extra.reko ? { id: extra.reko, name: "" } : null,
+  }) as unknown as Parameters<typeof personNowTarget>[1][number]
+  const driver = { id: "p1", isDriver: true, driverVehicleId: "tlf" }
+
+  it("takes the crew incident first, then the driven vehicle's, then a Reko", () => {
+    const ops = [op("reko", { reko: "p1" }), op("driven", { vehicle: "tlf" }), op("crew", { crew: ["p1"] })]
+    expect(personNowTarget(driver, ops)).toEqual({ incidentId: "crew", target: RESOURCES_TARGET })
+    expect(personNowTarget(driver, ops.slice(0, 2))).toEqual({ incidentId: "driven", target: RESOURCES_TARGET })
+    expect(personNowTarget(driver, ops.slice(0, 1))).toEqual({ incidentId: "reko", target: REKO_TARGET })
+  })
+
+  it("has nothing to open for a person on no incident (an Auftrag alone, a station function)", () => {
+    expect(personNowTarget({ id: "p1" }, [op("other", { crew: ["p2"] })])).toBeNull()
   })
 })

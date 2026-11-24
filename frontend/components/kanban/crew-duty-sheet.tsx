@@ -16,8 +16,9 @@
  * - «Einsätze» = distinct incidents + Aufträge worked this Ereignis, finished and
  *   current (GET /events/{id}/personnel-activity). Only the backend knows
  *   the finished ones; everything else on the row comes from the board itself, so
- *   «Jetzt» says exactly what the Personen-Leiste says. On the desk a click on it opens that
- *   Einsatz or Auftrag, like the Personen-Leiste's row.
+ *   «Jetzt» says exactly what the Personen-Leiste says. A click on it opens that Einsatz or
+ *   Auftrag, like the Personen-Leiste's row; on the phone a tap opens the Einsatz sheet (an
+ *   Auftrag has no phone surface and stays text).
  *
  * A footer sheet like Fahrzeuge: docked above the toolbar on the desktop, a
  * bottom sheet on the phone. Opened from the Personen-Leiste's foot, the command
@@ -151,12 +152,13 @@ interface CrewDutySheetProps {
   /** Where each person is, by person id — the same map the Personen-Leiste reads. */
   personEngagements: Map<string, PersonEngagement>
   fatigueHours: number
-  /** Follow «Jetzt» to the Einsatz or Auftrag (the board's sidebar binding). Without it «Jetzt»
-   *  is text. Still a read: it opens, it does not schedule. */
-  onOpenNow?: (person: Person) => void
+  /** What a tap on «Jetzt» does for this person: open that Einsatz or Auftrag. `undefined` (for
+   *  the person, or no resolver at all) = «Jetzt» is text – a station function like «Magazin»,
+   *  or an Auftrag on the phone. Still a read: it opens, it does not schedule. */
+  openNowFor?: (person: Person) => (() => void) | undefined
 }
 
-export function CrewDutySheet({ open, onOpenChange, eventId, personnel, personEngagements, fatigueHours, onOpenNow }: CrewDutySheetProps) {
+export function CrewDutySheet({ open, onOpenChange, eventId, personnel, personEngagements, fatigueHours, openNowFor }: CrewDutySheetProps) {
   const t = useTranslations("kanban.crewDuty")
   const tKanban = useTranslations("kanban")
   const isMobile = useIsMobile()
@@ -380,9 +382,7 @@ export function CrewDutySheet({ open, onOpenChange, eventId, personnel, personEn
                   entry={entry}
                   failed={counts === "failed"}
                   fatigueHours={fatigueHours}
-                  // Only a place opens: an incident or Auftrag (`personEngagements`), not a
-                  // station function like «Magazin».
-                  onOpenNow={onOpenNow && personEngagements.has(entry.id) ? () => onOpenNow(byId.get(entry.id)!) : undefined}
+                  onOpenNow={openNowFor?.(byId.get(entry.id)!)}
                 />
               ))}
             </ul>
@@ -469,16 +469,28 @@ function CrewDutyRow({
       )}
 
       {/* Phone: one quiet line under the name — seit · Pause · Einsätze · jetzt. It wraps: «jetzt»
-          (where the person is) comes last and is the fact you opened this for (phone sweep 14.11.). */}
+          (where the person is) comes last and is the fact you opened this for (phone sweep 14.11.),
+          so it is the part a tap opens, like the desk's column. */}
       <span className="col-span-2 mt-0.5 min-w-0 break-words text-xs text-muted-foreground sm:hidden">
         {[
           duty ? t("since", { time: duty.since }) : null,
           entry.pause !== null ? t("pauseShort", { duration: minutes(entry.pause) }) : null,
           typeof entry.count === "number" ? t("count", { count: entry.count }) : null,
-          entry.now ?? t("free"),
         ]
           .filter(Boolean)
-          .join(" · ")}
+          .map((part) => `${part} · `)
+          .join("")}
+        {onOpenNow && entry.now ? (
+          <button
+            type="button"
+            onClick={onOpenNow}
+            className="relative hit-area cursor-pointer text-left text-foreground underline decoration-muted-foreground/60 underline-offset-2"
+          >
+            {entry.now}
+          </button>
+        ) : (
+          entry.now ?? t("free")
+        )}
       </span>
     </li>
   )

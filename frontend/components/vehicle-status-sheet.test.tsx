@@ -83,7 +83,8 @@ describe("VehicleStatusSheet", () => {
     await userEvent.click(screen.getByRole("button", { name: /Blumenweg 21/ }))
     expect(push).toHaveBeenCalledWith("/?highlight=i-new&detail=1&tab=overview&section=resources")
     await userEvent.click(screen.getByRole("button", { name: "Auftrag «Nord»" }))
-    expect(push).toHaveBeenLastCalledWith("/?highlight=stop-1&detail=1&tab=overview&section=resources")
+    // An Auftrag's stop opens at its top: the route, not the stop, holds the vehicle.
+    expect(push).toHaveBeenLastCalledWith("/?highlight=stop-1&detail=1&tab=overview")
   })
 
   it("shows a vehicle that only drives an Auftrag as bound, not «Verfügbar»", async () => {

@@ -1,4 +1,6 @@
 import type { ApiJournalEntry } from "@/lib/api/types/journal"
+import type { Operation } from "@/lib/contexts/operations/types"
+import type { Person } from "@/lib/contexts/personnel-context"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 
 /**
@@ -67,12 +69,32 @@ export type PhoneSheetBlock = "reko" | "resources"
 
 /**
  * Where the phone sheet scrolls for a target. The sheet is one read-only scroll without tabs:
- * Reko → the Reko-Bericht, a resources target → the resource lists. `null` = the sheet's top
- * (Übersicht, Chronik, and Feld, which the phone sheet does not show).
+ * Reko → the Reko block (Reko person, «vor Ort seit», the Bericht), a resources target → the
+ * resource lists. `null` = the sheet's top (Übersicht, Chronik, and Feld, which the phone sheet
+ * does not show).
  */
 export function phoneSheetBlock(target: DetailTarget | undefined | null): PhoneSheetBlock | null {
   if (!target) return null
   if (target.tab === "reko") return "reko"
   if (target.section === "resources") return "resources"
   return null
+}
+
+/**
+ * The Einsatz Dienstzeiten «Jetzt» opens for a person on the phone, in the order
+ * `usePersonEngagements` builds that line: the crew incident, the driven vehicle's incident, then
+ * a Reko incident. An Auftrag has no phone surface, so a person held only by one gets `null` and
+ * «Jetzt» stays text. The desk follows its sidebar bindings instead (`followPersonNow`).
+ */
+export function personNowTarget(
+  person: Pick<Person, "id" | "isDriver" | "driverVehicleId">,
+  operations: readonly Pick<Operation, "id" | "crew" | "vehicles" | "assignedReko">[],
+): { incidentId: string; target: DetailTarget } | null {
+  const crewOf = operations.find((op) => op.crew.some((m) => m.personnelId === person.id))
+  if (crewOf) return { incidentId: crewOf.id, target: RESOURCES_TARGET }
+  const vehicleId = person.isDriver ? person.driverVehicleId : undefined
+  const driven = vehicleId ? operations.find((op) => op.vehicles.some((v) => v.vehicleId === vehicleId)) : undefined
+  if (driven) return { incidentId: driven.id, target: RESOURCES_TARGET }
+  const reko = operations.find((op) => op.assignedReko?.id === person.id)
+  return reko ? { incidentId: reko.id, target: REKO_TARGET } : null
 }

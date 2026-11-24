@@ -2006,16 +2006,6 @@ export default function MapView({
                   onOpen={openDetail}
                   onHoverStart={hoverStart}
                   onHoverEnd={hoverEnd}
-                  // The pinned card's visible way in: double-click and Enter are not written
-                  // anywhere on it. Same word as the list rail's icon.
-                  below={
-                    pinned && openDetail ? (
-                      <Button size="xs" variant="outline" className="bg-card shadow-sm" onClick={openDetail}>
-                        {t("page.showDetails")}
-                        <ChevronRight />
-                      </Button>
-                    ) : undefined
-                  }
                 >
                   {hoverOperation ? (
                     <OperationHoverCard
@@ -2055,6 +2045,26 @@ export default function MapView({
                         </span>
                       )}
                     </>
+                  )}
+                  {/* The pinned card's visible way in: double-click and Enter are not written
+                      anywhere on it. Same word as the list rail's icon. Inside the bubble, so it
+                      sits under whatever the card shows (crew, notes) and the selected-label
+                      measure (`usePanToSelected`) includes it. Its click is its own, not a
+                      second select. */}
+                  {pinned && openDetail && (
+                    <div className="mt-1.5">
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          openDetail()
+                        }}
+                      >
+                        {t("page.showDetails")}
+                        <ChevronRight />
+                      </Button>
+                    </div>
                   )}
                 </IncidentLabel>
               )}

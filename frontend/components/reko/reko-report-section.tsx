@@ -109,6 +109,10 @@ interface RekoReportSectionProps {
    * card below, which is why it has not been deleted.
    */
   dense?: boolean
+  /** Told `true` once the first read answered and the reports are drawn, `false` on unmount.
+   *  The phone sheet waits for it before it scrolls to this block (TAB.8). Pass a stable
+   *  function (a state setter): a new one each render reports again. */
+  onLoadedChange?: (loaded: boolean) => void
 }
 
 const POLL_INTERVAL_MS = 5000 // Fallback poll while the socket is down
@@ -128,6 +132,7 @@ export default function RekoReportSection({
   dataSlot,
   openEditorNonce,
   dense = false,
+  onLoadedChange,
 }: RekoReportSectionProps) {
   const split = layout === 'split'
   const t = useTranslations('reko.reportSection')
@@ -273,6 +278,13 @@ export default function RekoReportSection({
     startEditingFromLink()
   }, [openEditorNonce, canEdit, isLoading])
 
+  // The drawn reports' root attaching IS «loaded» – a ref, not an effect on `isLoading`.
+  const loadedRootRef = useCallback((node: HTMLDivElement | null) => {
+    if (!node || !onLoadedChange) return
+    onLoadedChange(true)
+    return () => onLoadedChange(false)
+  }, [onLoadedChange])
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-4">
@@ -282,7 +294,7 @@ export default function RekoReportSection({
   }
 
   return (
-    <div className={cn(split ? "grid grid-cols-2 gap-6" : "space-y-2")}>
+    <div ref={loadedRootRef} className={cn(split ? "grid grid-cols-2 gap-6" : "space-y-2")}>
       {dense ? (
       // The board: one column of rows. No `space-y` — the rows carry their own
       // `py-1` and sit flush against each other, the way the Übersicht's do.

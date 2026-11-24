@@ -303,7 +303,9 @@ export function BoardDialogs({
         personnel={personnel}
         personEngagements={personEngagements}
         fatigueHours={fatigueHours}
-        onOpenNow={followPersonNow}
+        // Only a place opens: an incident or Auftrag (`personEngagements`), not a station
+        // function like «Magazin».
+        openNowFor={(person) => (personEngagements.has(person.id) ? () => followPersonNow(person) : undefined)}
       />
 
       {/* Offene Schadenplatz-Rapporte — the rolling backlog, oldest first */}

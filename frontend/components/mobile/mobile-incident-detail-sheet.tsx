@@ -12,7 +12,7 @@
  * scrolled to the matching block (`target`, `phoneSheetBlock` in lib/detail-target.ts).
  */
 
-import { useRef } from "react"
+import { useRef, useState } from "react"
 import { useScrollBlockIntoView } from "@/lib/hooks/use-scroll-block-into-view"
 import { vehicleLabel } from "@/lib/vehicle-label"
 import { phoneSheetBlock, type DetailTarget } from "@/lib/detail-target"
@@ -49,6 +49,7 @@ import { useTranslations } from "next-intl"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
+import { formatClockTime } from "@/lib/incident-time"
 import RekoReportSection from "@/components/reko/reko-report-section"
 import { PersonName } from "@/components/person-name"
 
@@ -79,12 +80,21 @@ export function MobileIncidentDetailSheet({
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
 
   // Land on the block the opener pointed at: the body scrolls so the block's top sits 16px under
-  // the header rule. `target` is a new object per request, so a repeat request scrolls again.
+  // the header rule. `target` is a new object per request, so a repeat request scrolls again; one
+  // request scrolls once, and only when its block is drawn – the Reko-Bericht loads after the
+  // sheet opens, and scrolling to its loading line was clamped and never repeated (Sol review I).
   const bodyRef = useRef<HTMLDivElement>(null)
   const rekoRef = useRef<HTMLDivElement>(null)
   const resourcesRef = useRef<HTMLDivElement>(null)
+  const [rekoReportLoaded, setRekoReportLoaded] = useState(false)
   const block = open ? phoneSheetBlock(target) : null
-  useScrollBlockIntoView(bodyRef, block === "reko" ? rekoRef : block === "resources" ? resourcesRef : null, target, 16)
+  const blockReady = !!operation && (block !== "reko" || !operation.hasCompletedReko || rekoReportLoaded)
+  useScrollBlockIntoView(
+    bodyRef,
+    block === "reko" ? rekoRef : block === "resources" ? resourcesRef : null,
+    target,
+    { offset: 16, ready: blockReady },
+  )
 
   // Byte-identical fallback to the raw type value for unknown types
   const typeLabel = (type: string) => (isIncidentType(type) ? t(`types.${type}`) : type)
@@ -332,12 +342,32 @@ export function MobileIncidentDetailSheet({
             )}
           </div>
 
-          {/* Reko Report Section */}
-          {operation.hasCompletedReko && (
+          {/* Reko: who went and since when, then the filed Bericht. The line stands before a
+              Bericht exists too – «Reko vor Ort» points here, and without it the sheet had no
+              Reko block to land on. Read-only, like the rest of the sheet. */}
+          {(operation.assignedReko || operation.rekoArrivedAt || operation.hasCompletedReko) && (
             <>
               <Separator />
-              <div ref={rekoRef}>
-                <RekoReportSection incidentId={operation.id} />
+              <div ref={rekoRef} className="space-y-2">
+                {(operation.assignedReko || operation.rekoArrivedAt) && (
+                  <div>
+                    <DetailGroupHeading icon={<Binoculars className="h-3.5 w-3.5 shrink-0" />}>{tKanban('common.reko')}</DetailGroupHeading>
+                    <p className="text-sm text-foreground break-words">
+                      {operation.assignedReko && (
+                        <PersonName name={operation.assignedReko.name} personnelId={operation.assignedReko.id} />
+                      )}
+                      {operation.rekoArrivedAt && (
+                        <span className="text-muted-foreground">
+                          {operation.assignedReko && ' · '}
+                          {tKanban('card.onSiteSince', { time: formatClockTime(operation.rekoArrivedAt) })}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                )}
+                {operation.hasCompletedReko && (
+                  <RekoReportSection incidentId={operation.id} onLoadedChange={setRekoReportLoaded} />
+                )}
               </div>
             </>
           )}

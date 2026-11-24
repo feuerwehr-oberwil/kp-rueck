@@ -32,6 +32,7 @@ import { usePersonEngagements } from '@/lib/hooks/use-person-engagements'
 import { usePrintBoard } from '@/lib/hooks/use-print-board'
 import { useStationCapabilities } from '@/lib/hooks/use-station-capabilities'
 import { getIncidentRefParts } from '@/lib/incident-types'
+import { personNowTarget } from '@/lib/detail-target'
 
 export type PhoneQuickSheet = 'links' | 'attendance' | 'journal' | 'personnel' | 'crew' | 'vehicles' | 'print'
 
@@ -123,6 +124,15 @@ export function PhoneQuickSheets({ open, onOpenChange }: PhoneQuickSheetsProps) 
         personnel={personnel}
         personEngagements={personEngagements}
         fatigueHours={settings.fatigue_hours}
+        // «Jetzt» opens the phone Einsatz sheet on that person's block, as the desk's does.
+        openNowFor={(person) => {
+          const now = personNowTarget(person, operations)
+          if (!now) return undefined
+          return () => {
+            close()
+            navigateToIncident(now.incidentId, now.target.tab, now.target.section)
+          }
+        }}
       />
       <VehicleStatusSheet open={open === 'vehicles'} onOpenChange={closes('vehicles')} eventId={eventId} />
       <PrintHubSheet

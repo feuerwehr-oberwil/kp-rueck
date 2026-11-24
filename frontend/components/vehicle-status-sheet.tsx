@@ -19,7 +19,7 @@ import { RESOURCE_STATE_BADGE_CLASSES } from "@/lib/resource-status"
 import { formatDuration } from "@/lib/duration"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { boardDetailHref } from "@/lib/incident-detail"
-import { RESOURCES_TARGET } from "@/lib/detail-target"
+import { OVERVIEW_TARGET, RESOURCES_TARGET } from "@/lib/detail-target"
 import { DriverAssignmentDialog } from "./driver-assignment-dialog"
 
 /** What the sheet shows for one Ereignis: the fleet and the event's special functions
@@ -112,7 +112,7 @@ function DeploymentLinks({ targets, idleLabel, statusLabel, onOpen }: {
   targets: readonly DeploymentTarget[]
   idleLabel: string
   statusLabel: (status: string) => string
-  onOpen: (incidentId: string) => void
+  onOpen: (target: DeploymentTarget) => void
 }) {
   if (targets.length === 0) {
     return (
@@ -136,7 +136,7 @@ function DeploymentLinks({ targets, idleLabel, statusLabel, onOpen }: {
             aria-label={title}
             onClick={(e) => {
               e.stopPropagation()
-              if (incidentId) onOpen(incidentId)
+              if (incidentId) onOpen(target)
             }}
             className="flex min-w-0 max-w-full items-center gap-1.5 rounded-sm text-left text-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:no-underline"
           >
@@ -300,7 +300,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
       // Several places: Enter opens the first one that has a card to open (an Auftrag
       // without stops has none); the others are their own links.
       const first = vehicle ? targetsOf(vehicle).find((target) => target.incidentId) : undefined
-      if (first?.incidentId) openIncident(first.incidentId)
+      if (first) openIncident(first)
     }
   })
   useEffect(() => {
@@ -309,11 +309,14 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [])
 
-  const openIncident = (incidentId: string) => {
-    // The board, with the Einsatz OPENED on its Ressourcen, where the vehicle is listed: a ring
-    // on a card is not what «Klick öffnet den Einsatz» says. Desk: side panel or modal; phone:
-    // its Einsatz sheet at the resource lists.
-    router.push(boardDetailHref(incidentId, RESOURCES_TARGET))
+  /** Open a place that has a card (`incidentId`); a stopless Auftrag has none and is never passed. */
+  const openIncident = (target: DeploymentTarget) => {
+    if (!target.incidentId) return
+    // The board, with the Einsatz OPENED: a ring on a card is not what «Klick öffnet den
+    // Einsatz» says. Desk: side panel or modal; phone: its Einsatz sheet. An Einsatz opens on its
+    // Ressourcen, where the vehicle is listed. An Auftrag's stop opens at its top: the route holds
+    // the vehicle, so the stop's own vehicle list can be empty (Sol review I).
+    router.push(boardDetailHref(target.incidentId, target.kind === "einsatz" ? RESOURCES_TARGET : OVERVIEW_TARGET))
     onOpenChange(false)
   }
 
@@ -373,7 +376,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                 const targets = targetsOf(vehicle)
                 const einsaetze = targets.filter((target) => target.kind === "einsatz")
                 // One place: the whole row opens it. Several: each is its own link.
-                const rowTarget = targets.length === 1 ? targets[0].incidentId : null
+                const rowTarget = targets.length === 1 && targets[0].incidentId ? targets[0] : null
                 const isClickable = !!rowTarget
                 // Out on an Einsatz OR on an Auftrag: either way not «Verfügbar».
                 const isBound = targets.length > 0

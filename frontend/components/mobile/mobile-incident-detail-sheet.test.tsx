@@ -66,3 +66,19 @@ describe('the phone Einsatz sheet is read-only', () => {
     expect(screen.getByRole('link', { name: 'Muster Anna · 061 111 11 11' })).toHaveAttribute('href', 'tel:0611111111')
   })
 })
+
+describe('the phone Einsatz sheet has a Reko block before a Bericht is filed', () => {
+  it('names the Reko person and «vor Ort» – the block «Reko vor Ort» lands on', () => {
+    renderWithIntl(
+      <MobileIncidentDetailSheet
+        operation={{ ...OPERATION, assignedReko: { id: 'p-1', name: 'Keller Lea' }, rekoArrivedAt: new Date('2026-11-14T18:12:00') } as Operation}
+        open
+        onOpenChange={vi.fn()}
+        materials={[] as Material[]}
+        formatLocation={(a) => a}
+      />,
+    )
+    expect(screen.getByText('Keller Lea')).toBeInTheDocument()
+    expect(screen.getByText(/vor Ort 18:12/)).toBeInTheDocument()
+  })
+})

@@ -597,7 +597,7 @@ export default function FireStationDashboard() {
   // Register notification click → scroll to card + open detail
   // Small screens: open modal overlay. Large screens (≥1536px): select in side panel.
   useEffect(() => {
-    registerNavigateHandler((incidentId: string, tab?: OperationDetailTab) => {
+    registerNavigateHandler((incidentId, tab, section) => {
       closeNotificationSidebar()
       scrollToCard(incidentId)
       // Open detail after scroll
@@ -609,7 +609,7 @@ export default function FireStationDashboard() {
           // Übersicht made the operator hunt for the thing they were just told
           // about. Same call on both screen sizes; the detail decides whether
           // it renders as a modal or in the panel.
-          openIncidentDetail(incidentId, tab)
+          openIncidentDetail(incidentId, tab, section)
         }
       }, 200)
     })
@@ -1121,6 +1121,15 @@ export default function FireStationDashboard() {
    *  «nirgends» — a free device used to be a click into the void as well. */
   const handleMaterialClick = (material: Material) => {
     const bindings = collectMaterialBindings(material)
+    const popover: BindingsPopoverState = { kind: "material", id: material.id, title: material.name, subtitle: material.category, bindings }
+    // A flagged device's question is «wieder einsatzbereit?», so its click always
+    // opens the popover that offers it – before a binding could jump away. Its
+    // dashed row is a `MaterialSidebarRow` even for a module member, so the
+    // popover has an anchor.
+    if (material.outOfService) {
+      setBindingsPopover(popover)
+      return
+    }
     const only = soleDestination(bindings)
     if (only) {
       followBinding(only)
@@ -1134,13 +1143,7 @@ export default function FireStationDashboard() {
       if (first) followBinding(first)
       return
     }
-    setBindingsPopover({
-      kind: "material",
-      id: material.id,
-      title: material.name,
-      subtitle: material.category,
-      bindings,
-    })
+    setBindingsPopover(popover)
   }
 
   /** The aggregate row answers for the WHOLE bundle: every taken unit's
